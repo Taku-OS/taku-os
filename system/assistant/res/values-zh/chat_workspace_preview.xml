@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="chat_workspace_app">应用</string>
+    <string name="chat_workspace_title">虚拟屏幕 · %1$s</string>
+    <string name="chat_workspace_open">打开%1$s的预览</string>
+    <string name="chat_workspace_connecting">正在连接…</string>
+    <string name="chat_workspace_unavailable">预览暂不可用</string>
+    <string name="chat_workspace_open_failed">暂时无法打开预览，请重试。</string>
+</resources>

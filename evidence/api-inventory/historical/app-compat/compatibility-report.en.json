@@ -1,0 +1,193 @@
+{
+  "translationNotice": "English translation of the historical report, not a new execution. The original remains byte-for-byte intact and is hash-indexed in ../../historical-index.json. Identifiers, versions, measurements, and source URLs are retained.",
+  "original": "compatibility-report.json",
+  "report": {
+    "testedAt": "2026-10-10 01:25–01:42 +08:00",
+    "device": {
+      "serial": "emulator-5582",
+      "avd": "AgentOS_ImageCheck",
+      "android": "16",
+      "api": 36,
+      "abi": "arm64-v8a",
+      "SELinux": "Enforcing",
+      "root": "userdebug adbd root",
+      "primaryDisplay": 0,
+      "virtualDisplay": 2,
+      "virtualResolution": "720 × 1280"
+    },
+    "summary": "All three current official-download packages installed successfully. WeChat pre-login UI and Xiaohongshu guest image feeds passed on the main/background displays. Douyin UI and switching worked, but some main/background video rendering was abnormal; playback compatibility did not pass.",
+    "apps": [
+      {
+        "package": "com.tencent.mm",
+        "versionName": "8.0.79",
+        "versionCode": "3200",
+        "minSdk": "24",
+        "targetSdk": "34",
+        "abis": [
+          "arm64-v8a"
+        ],
+        "sha256": "f2a725bc04302ad218a563533ae79356e66b64aa711b275bc919a8d432f7e15d",
+        "bytes": 285284760,
+        "sourcePage": "https://weixin.qq.com/",
+        "downloadUrl": "https://dldir1v6.qq.com/weixin/android/weixin8079android3200_0x28004f30_arm64_1.apk",
+        "retrievedAt": "2026-10-10T01:25:00+08:00",
+        "signatureSha256": "0fe4ff85c215918396dadc7cd8ce6963339af33d37751a56e54c7206b63a3c7c",
+        "apkSignatureVerification": "passed",
+        "installed": true,
+        "uiTest": "completed with scoped results",
+        "aaptWarnings": "WeChat official obfuscated resources contain renamed SVG references; package metadata parsed and apksigner verified, installation succeeded.",
+        "launchComponent": "com.tencent.mm/.ui.LauncherUI",
+        "installResult": "Success",
+        "installerPolicy": "default dexopt compiler filter; unmodified official APK",
+        "id": "weixin",
+        "name": "WeChat",
+        "main": "Welcome page and phone-number login form normal",
+        "background": "Welcome page and phone-number login form normal",
+        "interaction": "Targeted Log In clicks on main/background displays both opened real login forms",
+        "backgroundStatus": "pass",
+        "mainStatus": "pass",
+        "loginBoundary": "Not logged in; chat, payments, calls, and long-term notifications not accepted",
+        "screens": {
+          "main": "weixin-main-interaction.png",
+          "background": "weixin-background-interaction.png",
+          "preview": "weixin-background-start.png"
+        },
+        "verifiedActivities": {
+          "0": "com.tencent.mm/.plugin.account.ui.MobileInputUI",
+          "2": "com.tencent.mm/.plugin.account.ui.MobileInputUI"
+        },
+        "video": null
+      },
+      {
+        "package": "com.ss.android.ugc.aweme",
+        "versionName": "40.7.0",
+        "versionCode": "400701",
+        "minSdk": "23",
+        "targetSdk": "34",
+        "apkSignatureVerification": "passed",
+        "certificateDN": "CN=Aweme Douyin, OU=ByteDance, O=ByteDance, L=Beijing, ST=Beijing, C=CN",
+        "signatureSha256": "5182ae3b1b85337bb182cf24882449f84447ded18e296a747a9f6a0a2622512e",
+        "abis": [
+          "arm64-v8a"
+        ],
+        "sha256": "88075d689a674d645f383250359ea82dc5280ffce2f9a5404f4e11e4449e90cf",
+        "bytes": 359908938,
+        "sourcePage": "https://m.douyin.com/app_download",
+        "downloadUrl": "https://lf9-apk.ugapk.cn/package/apk/aweme/5072_400701/aweme_49957579a_v5072_400701_a304_1791545306.apk?v=1791545313",
+        "retrievedAt": "2026-10-10T01:28:22.226176+08:00",
+        "uiTest": "completed with scoped results",
+        "launchComponent": "com.ss.android.ugc.aweme/.splash.SplashActivity",
+        "installed": true,
+        "installResult": "Success",
+        "installerPolicy": "default dexopt compiler filter; unmodified official APK",
+        "id": "douyin",
+        "name": "Douyin",
+        "main": "Initial guest content displayed and switched normally; later main-display cold starts also showed green screens/colored stripes for some content. Playback compatibility did not pass",
+        "background": "Native controls normal; at least two videos showed solid green/colored horizontal stripes",
+        "interaction": "Targeted upward swipe in the native mirrored window switched videos successfully; video region rendering failed",
+        "backgroundStatus": "fail",
+        "mainStatus": "partial",
+        "loginBoundary": "Not logged in; video-layer compatibility still under investigation. Login, publishing, livestreaming, and payments not accepted",
+        "screens": {
+          "main": "douyin-main-interaction.png",
+          "background": "douyin-background-second-video.png",
+          "preview": "douyin-native-mirror-before-video.png"
+        },
+        "verifiedActivities": {
+          "0": "org.agentos.assistant/.MirrorActivity",
+          "2": "com.ss.android.ugc.aweme/.main.MainActivity / .account.business.login.DYLoginActivity"
+        },
+        "video": "douyin-native-mirror.mp4"
+      },
+      {
+        "package": "com.xingin.xhs",
+        "versionName": "9.49.1",
+        "versionCode": "9491803",
+        "minSdk": "21",
+        "targetSdk": "36",
+        "apkSignatureVerification": "passed",
+        "certificateDN": "CN=xiaohongshu, OU=xingin, O=xingin, L=shanghai, ST=shanghai, C=86",
+        "signatureSha256": "f375f0f6af7c94c364b35cd6f6a66d64aefae66e32f935b48773c0faad04c121",
+        "abis": [
+          "arm64-v8a"
+        ],
+        "sha256": "577bc29aecf3e0f95985e4ac15019165017736e270b3e830872a66a526f689b6",
+        "bytes": 182667924,
+        "sourcePage": "https://www.xiaohongshu.com/download",
+        "downloadUrl": "https://sem.xhscdn.com/sem/xiaohongshu.apk",
+        "retrievedAt": "2026-10-10T01:28:46.552970+08:00",
+        "uiTest": "completed with scoped results",
+        "launchComponent": "com.xingin.xhs/.index.v2.IndexActivityV2",
+        "installed": true,
+        "installResult": "Success",
+        "installerPolicy": "default dexopt compiler filter; unmodified official APK",
+        "id": "xiaohongshu",
+        "name": "Xiaohongshu",
+        "main": "Guest two-column recommended image feed normal; taps/swipes can trigger login guidance",
+        "background": "Recommended image feed, native mirror preview, and scrolling normal",
+        "interaction": "Upward swipe in native mirror moved the initial car/food row out, revealing older-actor/portrait photos and new rows; page retained after dismissing main screen and returning",
+        "backgroundStatus": "pass",
+        "mainStatus": "pass",
+        "loginBoundary": "Not logged in; image recommendation feed accepted. Video playback, search, publishing, and account features not accepted",
+        "screens": {
+          "main": "xiaohongshu-main-after-permission.png",
+          "background": "xiaohongshu-background-interaction.png",
+          "preview": "xiaohongshu-native-mirror-after.png"
+        },
+        "verifiedActivities": {
+          "0": "org.agentos.assistant/.MirrorActivity",
+          "2": "com.xingin.xhs/.index.v2.IndexActivityV2"
+        },
+        "video": "xiaohongshu-native-mirror.mp4"
+      }
+    ],
+    "parallelism": "After dismissing the native mirrored window, display0 can return to Taku OS Home while display2 retains an app. Each app was cold-started separately on main/background displays; this does not establish two instances of the same app or account isolation.",
+    "limitations": [
+      "No real-account login; messaging, payments, publishing, livestreaming, long-running notifications, and account risk controls not accepted.",
+      "This Xiaohongshu acceptance covers the recommended image feed and does not generalize to background video playback.",
+      "Douyin initially displayed main-screen content normally; later cold starts also showed abnormalities, and two different secondary-display videos showed green/colored stripes. Native system screencap had the same defect, ruling out JPEG preview encoding alone. Root cause remains under investigation; main-screen video cannot generally be called passing.",
+      "No SELinux changes, root hiding, APK modifications, or downgrades to old packages.",
+      "Installed on the current development emulator; exported system.img has not been re-exported. These three third-party APKs reside in data, which is not system-image preinstallation/distribution.",
+      "Official channels may roll out in batches. Versions refer to current downloads from official sites in this run and are not guaranteed to cover every app store/test channel."
+    ],
+    "diagnostics": {
+      "videoCodec": "evidence/video-codec-log.txt",
+      "surfaceFlinger": "evidence/surface-flinger.txt",
+      "display": "evidence/display-details.txt",
+      "graphicsContext": "evidence/graphics-context.txt",
+      "snapshotTiming": "graphics/display snapshots taken after xiaohongshu test, not at first Douyin failure"
+    },
+    "sources": [
+      {
+        "app": "WeChat",
+        "sourcePage": "https://weixin.qq.com/",
+        "downloadUrl": "https://dldir1v6.qq.com/weixin/android/weixin8079android3200_0x28004f30_arm64_1.apk",
+        "observed": "The current official ANDROID download directly listed this ARM64 APK, actually 8.0.79, rather than search-engine stale 8.0.78."
+      },
+      {
+        "app": "Douyin",
+        "sourcePage": "https://m.douyin.com/app_download",
+        "downloadEntry": "https://n.douyin.com/d4PBJ",
+        "downloadUrl": "https://lf9-apk.ugapk.cn/package/apk/aweme/5072_400701/aweme_49957579a_v5072_400701_a304_1791545306.apk?v=1791545313",
+        "observed": "Official mobile download page channelConfig zlink led to CDN; actual 40.7.0 (code400701). The old desktop androidApk short link returned 404; another home-site returned 37.5.1 and was not used for installation."
+      },
+      {
+        "app": "Xiaohongshu",
+        "sourcePage": "https://www.xiaohongshu.com/download",
+        "downloadEntry": "https://oia.xiaohongshu.com/oia",
+        "downloadUrl": "https://sem.xhscdn.com/sem/xiaohongshu.apk",
+        "observed": "Official download-page CSS Android QR code led to OIA page, then public official JavaScript generated distribution-CDN query parameters; actual 9.49.1 (code9491803). Static OIA text 8.23.1 was outdated; APK version is authoritative. Short-lived CDN query parameters are not retained in the report."
+      }
+    ],
+    "recordings": {
+      "xiaohongshu": {
+        "path": "evidence/xiaohongshu-native-mirror.mp4",
+        "actualDurationSeconds": 15.893478
+      },
+      "douyin": {
+        "path": "evidence/douyin-native-mirror.mp4",
+        "actualDurationSeconds": 19.856611
+      }
+    }
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "checks": [
+    "Android Settings tile opens the shared native Taku AI page",
+    "Memory follows a changed system text model without enabling capture or analysis",
+    "IME follows a changed system image model instead of a hardcoded Luna default",
+    "IME settings link returns to the same system AI page",
+    "Per-app AI denial blocks Memory while IME remains available",
+    "System AI master switch blocks IME, Memory, Agent and Jev",
+    "Memory links to shared settings; defaults and permissions restored",
+    "Ordinary app reuses real system AI after user authorization; caller identity cannot be forged",
+    "Unified settings opens existing native account quota and usage"
+  ],
+  "modelResponsesSimulated": false,
+  "initialDefaults": {
+    "enabled": true,
+    "textModel": "codex/gpt-6-luna",
+    "imageModel": "codex/gpt-6-luna",
+    "apps": {
+      "ime": true,
+      "memory": true,
+      "org.agentos.memorytests": false
+    }
+  },
+  "sharedClient": {
+    "passed": true,
+    "modelResponsesSimulated": false,
+    "model": "codex/gpt-6-luna",
+    "text": "系统 AI 已连通",
+    "checks": 3
+  },
+  "passed": true
+}

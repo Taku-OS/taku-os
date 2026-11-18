@@ -1,0 +1,112 @@
+{
+  "date": "2026-10-15",
+  "completedAt": "2026-10-15T00:50:27.410204+08:00",
+  "model": "gpt-6.1-sol",
+  "runtime": "Codex 0.161.0 App Server",
+  "target": "Taku_ImageIntegration_20261010 / API36 ARM64 emulator",
+  "physicalDeviceTouched": false,
+  "systemServiceReadsIndependentlyMatched": {
+    "screenOffTimeout": 180000,
+    "packageCount": 183,
+    "hardwareSensorCount": 12,
+    "batteryLevel": 100,
+    "batteryStatus": 4
+  },
+  "screenTimeoutRestored": true,
+  "app": {
+    "package": "org.taku.acceptance.systemlab20261015",
+    "appUid": 10151,
+    "nativeJavaApp": true,
+    "sourceWrittenByPhoneAgent": true,
+    "businessSourceCompiledOnHost": false,
+    "onDeviceCompilerChain": [
+      "ECJ",
+      "D8",
+      "aapt2/aapt",
+      "zipalign",
+      "apksigner",
+      "pm install"
+    ],
+    "v1VersionCode": 1,
+    "v2VersionCode": 2,
+    "upgradePreservedData": {
+      "a": 2,
+      "b": 0,
+      "historyCount": 2
+    },
+    "buttonsUndoAndPersistenceVerified": true,
+    "ordinaryAppAudioManagerVerified": true,
+    "finalMediaVolume": 5,
+    "apiResults": [
+      [
+        2,
+        0,
+        2
+      ],
+      [
+        2,
+        3,
+        3
+      ],
+      [
+        2,
+        3,
+        3
+      ],
+      [
+        2,
+        0,
+        2
+      ],
+      [
+        4,
+        0,
+        3
+      ]
+    ],
+    "invalidDeltaRejected": true,
+    "apiStateMatchesLiveUi": true,
+    "providerPermission": "android.permission.DUMP",
+    "unprivilegedPeerUid": 10152,
+    "unprivilegedPeerDenied": true,
+    "apkSha256": {
+      "app-v1.apk": "9694190dc33a13cf8ae6f151d674857f23ddc3cfd817e5cd1d8bc00be9da82eb",
+      "app-v2.apk": "62fd1c928a48a2ebc71012385cf64e75ef85d4a80f8827b0e2a7b1a167fe6cde"
+    }
+  },
+  "stages": {
+    "system-services": {
+      "seconds": 52.219,
+      "toolCount": 10,
+      "nativeTurnId": "01a13b43-2a14-7763-96c7-db70097d8d11"
+    },
+    "native-build": {
+      "seconds": 186.065,
+      "toolCount": 10,
+      "nativeTurnId": "01a13b45-2267-7610-9667-22f14f4b0511"
+    },
+    "native-iterate": {
+      "seconds": 117.064,
+      "toolCount": 5,
+      "nativeTurnId": "01a13b4a-7251-77a2-84d7-6f7ccbca108c"
+    },
+    "native-api": {
+      "seconds": 67.307,
+      "toolCount": 15,
+      "nativeTurnId": "01a13b4e-05eb-7b70-81cd-adbf2b412310"
+    }
+  },
+  "toolchain": {
+    "preinstalledInRom": false,
+    "preparedForThisTest": true,
+    "publicDependenciesHashVerified": true,
+    "existingSigningKeysCopied": false,
+    "freshTestSigningKeyUsed": true
+  },
+  "boundaries": [
+    "One small native application and one guarded provider are verified; arbitrary application development is not guaranteed.",
+    "Toolchain was prepared on this emulator, not integrated into the ROM or a portable installer.",
+    "No physical Pixel, production permission policy, plugin marketplace or cold boot acceptance.",
+    "Prior task-stop child-process issue remains unresolved."
+  ]
+}

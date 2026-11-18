@@ -1,0 +1,12 @@
+{
+  "phase": "native",
+  "passed": true,
+  "checks": [
+    "native Android Settings search accepts IME input without AI opt-in",
+    "native Messaging mixed draft is entered and cleared without sending"
+  ],
+  "modelResponsesSimulated": false,
+  "browserPageSynthetic": true,
+  "messagesSent": false,
+  "browserFinalState": {}
+}

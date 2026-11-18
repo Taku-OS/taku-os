@@ -1,0 +1,1 @@
+{"mcpServers":{"taku-example":{"command":"/system/bin/sh","args":["./server.sh"],"cwd":"."}}}

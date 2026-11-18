@@ -1,0 +1,189 @@
+{
+  "date": "2026-10-24",
+  "checkedAt": "2026-10-23T18:46:18.412941+00:00",
+  "baseCommit": "81524acaba06356964cbad5017e18c99c59194da",
+  "worktreeDirty": true,
+  "status": "emulator_verified",
+  "version": "0.1.0",
+  "protocol": 1,
+  "scope": "Independent native proactivity host, public SDK and separately signed page observer. Native dashboard projects retained registry metadata. Protocol/upgrade and final dashboard proofs refer to separate APK hashes.",
+  "verification": {
+    "schedulingAssertions": 20,
+    "dashboardAggregationAssertions": 12,
+    "repositoryVerify": "passed",
+    "allAndroidComponentsBuild": "passed",
+    "independentConsumerOutsideCheckout": true,
+    "protocolUpgradeLoop": {
+      "checks": 105,
+      "hostApkSha256": "2f66191f18238776661662b3656c83a702d7d433846779e7ca7af0852492aede",
+      "report": "docs/reviews/proactivity-2026-10-24/acceptance.json",
+      "executedVerifierSha256": "9574024ff35c4568c96c80d2cdacfee41c443e7e032e23fef8eb8a512706c5fa"
+    },
+    "finalDashboard": {
+      "checks": 51,
+      "hostApkSha256": "d4f0dc2d45802fd8226710398d6fe69bbfd61bd85d818c86cd1add0fdd606ca0",
+      "apkPath": "out/proactivity-dashboard-20261024/TakuProactivity.apk",
+      "report": "docs/reviews/proactivity-2026-10-24/dashboard-acceptance.json",
+      "executedVerifierSha256": "77d3971412860a1ac123fa1b955886f598f2301c4d0edfa52d3acb7d24d23998",
+      "nativeFontScale": 1.3,
+      "landscape": true,
+      "unsavedDraftRotation": true
+    },
+    "uids": {
+      "org.agentos.proactivity": 10151,
+      "org.agentos.surfaces": 10150,
+      "org.example.taku.observer": 10152
+    },
+    "signers": {
+      "org.agentos.proactivity": "c8a2e9bccf597c2fb6dc66bee293fc13f2fc47ec77bc6b2b0d52c11f51192ab8",
+      "org.agentos.surfaces": "c8a2e9bccf597c2fb6dc66bee293fc13f2fc47ec77bc6b2b0d52c11f51192ab8",
+      "org.example.taku.observer": "ddfd346d34299dd56b19b2023afde2d337ab773d1f94bc5b38bad0f64f5d1ad9"
+    },
+    "emulator": "emulator-5590",
+    "avd": "Taku_Proactivity_20261024",
+    "pluginV1Sha256": "f5a5ab7d3bb47fe92d3376c1a255a2d8eaa3e34562f4cbdc07da3fcf7cfab1f0",
+    "pluginV2Sha256": "0b59d46e7823a1f233b9fd735de97d91e87f842447b319880be405121170408c",
+    "protocolLoopSdkSha256": "047d3d2551f66a869f27b12e0eab0f4d429fa97f560bbcd3fbe16c6addf2d79f",
+    "latestSdkSha256": "c4fade78af70d97ea86fc79323953cae372d276a969c1bd0dce2f0672db0ce7e"
+  },
+  "sourceSha256": {
+    "examples/proactivity-observer/AndroidManifest.xml": "f7b43096cab323bf7c7d4a3fbf9731b7d3bfe0ca839007261c2556a56902d586",
+    "examples/proactivity-observer/README.md": "d48ba869c7a18f058a81e143601dbdbd41de15bb15055afcdc216bbba6602a85",
+    "examples/proactivity-observer/build.sh": "0c7ed3f964af2d397d7ae1aae0f64cbe15ba442700e71077eaf88afb2f93c682",
+    "examples/proactivity-observer/src/org/example/taku/observer/ObserverActivity.java": "d91d5163c2dec58ce995bed4c432f6f4b9967d378b1ef64c785826484924b43d",
+    "package.json": "603260916ef51bc8c1adee2a57d7ff66aed1121a192e53d9826a11a7c091080a",
+    "scripts/build-android.sh": "0cf560c7757126de0d52c88a2eea767c734310af5a9448bf36de6ebaa7e42074",
+    "scripts/check.mjs": "6f8dbaeb5741b57ddec8f2d527e3173e3fafb587987efad49c6e2271bb5a14af",
+    "spec/proactivity-v1.schema.json": "51ff69f5aed34a1ffbe0b2247fdd18e7409f7f7dbcf153a463742d2f9608954b",
+    "system/proactivity/API.md": "41864d7247943ba78cc2b7cb60ea6e6e91b7a36433bfc30cd15c93c96f548396",
+    "system/proactivity/Android.bp": "f7bbaa1e75f1ce66ba24651d6cbf49e7b8fbd8978af422ff8b92da3f7be15b58",
+    "system/proactivity/AndroidManifest.xml": "6602baa9e054517e31b5106ddb7d702ec7186cd69fadfe7072d33dbd010849dd",
+    "system/proactivity/README.md": "4fd68c0185ca62e51d5bb66bbc68e70151b40c1807bc8fa8de78de7b51af818f",
+    "system/proactivity/build.sh": "05b876da20c2fd56bb7a6ef773d6b55884e8632e76b3eb17ab0084850230122b",
+    "system/proactivity/client/Android.bp": "a8c1ef52accc4791a7fa19475f38dad3cd9b586417f4fe4385f9baf3272688ac",
+    "system/proactivity/client/org/agentos/proactivity/api/ProactivityClient.java": "7da162d8cd0e0570a1b95e7ae5db1eec1e8c2f19db55c1f284caed346131aa4f",
+    "system/proactivity/contract/Android.bp": "99fd19e0e8e27deb707f14dc3340d996e97758ded82f41d2355e2e5eb13cf200",
+    "system/proactivity/contract/org/agentos/proactivity/api/ObserverSpec.java": "d8db643bfc2827b49d0267a0c95cd4af65b171c48aa9b87d36293a5618180617",
+    "system/proactivity/contract/org/agentos/proactivity/api/ProactivityWire.java": "4bca579ee454ed3e1b7cc8c7d7c570fdf4d24266fa115c8d3a76d526fc06735a",
+    "system/proactivity/res/drawable/taku_brand_mark.xml": "bcfa7bc5629ebecce7594ab241652728e830e0e84487611542d523f770666ea3",
+    "system/proactivity/src/org/agentos/proactivity/HostRuntime.java": "22bc6170287a6a7f497e9d651cfe4b98b48996d8b1b4862f139b743e6a19d903",
+    "system/proactivity/src/org/agentos/proactivity/OverviewCharts.java": "3d1f4d6dbab54a0ee2015087c9a7db6300722a465c791fdb91d0f837b4dda86b",
+    "system/proactivity/src/org/agentos/proactivity/OverviewStats.java": "f48b080008621c14bb33aa4d505896f663e58197f08b69269cdd0b2b455d12c1",
+    "system/proactivity/src/org/agentos/proactivity/ProactivityActivity.java": "3e9a4a767e5a4769693c539044f61fdbd142c7a809d9e631a764ae883ca78794",
+    "system/proactivity/src/org/agentos/proactivity/ProactivityService.java": "b124a419f9c4ee9d6dd41e9d39ab3b0a142fe4b7f0c8571a165d2a32ed36acba",
+    "system/proactivity/src/org/agentos/proactivity/ProactivityUi.java": "7424b40f1f145fffbe6fdb7666dfd5c96201ec0b0902f6326ef9eba03b788e54",
+    "system/proactivity/src/org/agentos/proactivity/RegistryStore.java": "24e420a64af65dc122f8276286cdb69ca1db61f757cae7d6a9b38a74e7db14dc",
+    "system/proactivity/src/org/agentos/proactivity/SettledObserver.java": "0e25e8172c8ea4f4079734013f147471ea01dc38f2f065c08ce4a4d13193404d",
+    "system/proactivity/test.sh": "555daedebdbb2d068e0b4e41e224b8ee74468454db1a21e382febb0171a58809",
+    "system/proactivity/tests/OverviewStatsTest.java": "6f3ba417a3177a1e923b6b63debfc63f616840c80128650b315f3e8ed8aac579",
+    "system/proactivity/tests/SettledObserverTest.java": "f183530b9aa4c2298bf0ad42ace21853bcf64ea4a4e70e1985e329f3d1d04d31",
+    "system/proactivity/tests/verify-emulator.py": "9574024ff35c4568c96c80d2cdacfee41c443e7e032e23fef8eb8a512706c5fa"
+  },
+  "screenshots": {
+    "observers.png": {
+      "path": "docs/reviews/proactivity-2026-10-24/observers.png",
+      "sha256": "379a9af63302aac2fa524f37182e1c1b5ea17265c2265b8863edc6df9fd27b60"
+    },
+    "activity.png": {
+      "path": "docs/reviews/proactivity-2026-10-24/activity.png",
+      "sha256": "188be1e3a9b9b4ca7e9f5d0e52f204ab5cd2d7ad02ce6dd00b9717c97c171572"
+    },
+    "detail.png": {
+      "path": "docs/reviews/proactivity-2026-10-24/detail.png",
+      "sha256": "fda0f93dd9a834afa1eada4525d8d6bd76e1d91dc6c02da294db125afd82aadc"
+    },
+    "policy-editor.png": {
+      "path": "docs/reviews/proactivity-2026-10-24/policy-editor.png",
+      "sha256": "4fce8bee23e9e9fc12cc2eaf589f4e8ac48f050e695df0900652ee080469d761"
+    },
+    "policy-keyboard.png": {
+      "path": "docs/reviews/proactivity-2026-10-24/policy-keyboard.png",
+      "sha256": "b61949802d572f17f2edeca608955cf22a6387d253d3c8c505fb67943cfd560f"
+    },
+    "pending.png": {
+      "path": "docs/reviews/proactivity-2026-10-24/pending.png",
+      "sha256": "4115c87c34189c659ca90d38e3d1ba4d0194f3b27c4659b85ccc1f8fb7b7eeab"
+    },
+    "update-review.png": {
+      "path": "docs/reviews/proactivity-2026-10-24/update-review.png",
+      "sha256": "7e109a3bd9e894adba2adcda3fc0042157ce6987d5768363de704018aa906d5d"
+    },
+    "detail-large-font.png": {
+      "path": "docs/reviews/proactivity-2026-10-24/detail-large-font.png",
+      "sha256": "3b9c2b908f323480f2e547f4b4644303a5201e4c66756d75e7008114939c2dd6"
+    },
+    "plugin-hint.png": {
+      "path": "docs/reviews/proactivity-2026-10-24/plugin-hint.png",
+      "sha256": "338349a2d66420bc8cc7d0db85b5af72d2b643e4d448809bd49a9de17e3d293d"
+    },
+    "policy-rollback.png": {
+      "path": "docs/reviews/proactivity-2026-10-24/policy-rollback.png",
+      "sha256": "d6e32b7dd6742f0a999b8e3e3b05705dee0c5c3f0761b62351596044de4a7cd6"
+    },
+    "apk-rollback.png": {
+      "path": "docs/reviews/proactivity-2026-10-24/apk-rollback.png",
+      "sha256": "49fee41b24c067b8ab75f1def3d47174330f62ebcfe3c9369ad2694de501ef51"
+    },
+    "overview.png": {
+      "path": "docs/reviews/proactivity-2026-10-24/overview.png",
+      "sha256": "8142b7aad876ede0c78cc2b11f1f9558a62e69b18fc1041dcd219443d7b5b9e7"
+    },
+    "trend.png": {
+      "path": "docs/reviews/proactivity-2026-10-24/trend.png",
+      "sha256": "a3b882b4789068903d30f4b01d8961622e39c493d7792facc9a52041279b0e2c"
+    },
+    "status-ranking.png": {
+      "path": "docs/reviews/proactivity-2026-10-24/status-ranking.png",
+      "sha256": "15453cbdb26c56a3ba8afb83f85073fb9cae6922fe5d56a87660c02255847b6e"
+    },
+    "selected-hour.png": {
+      "path": "docs/reviews/proactivity-2026-10-24/selected-hour.png",
+      "sha256": "2f4f8e394af38691da69c96e1d68e4ab92abaeb440eea177c6b5a46c5f04ee7b"
+    },
+    "large-font.png": {
+      "path": "docs/reviews/proactivity-2026-10-24/large-font.png",
+      "sha256": "64a3e5889d3605682c1e441f5ac96933019f20c99ed650ac13ea5db7767cfd06"
+    },
+    "landscape.png": {
+      "path": "docs/reviews/proactivity-2026-10-24/landscape.png",
+      "sha256": "0de5bf1ebae6e060db44cd5ba860e60b48b64624c45c6e19e8b6147f85432d36"
+    },
+    "empty.png": {
+      "path": "docs/reviews/proactivity-2026-10-24/empty.png",
+      "sha256": "74d3f035b390f132f76f4c43165c04b876cbb4eb54a13a78d006868a84043c96"
+    },
+    "editor-landscape-draft.png": {
+      "path": "docs/reviews/proactivity-2026-10-24/editor-landscape-draft.png",
+      "sha256": "ce291a1b86fc67b7e0511a7d36c8aef9e9ddf9d890064190404acc55f5c462b2"
+    }
+  },
+  "physicalDeviceVerified": false,
+  "fullRomRebuilt": false,
+  "realModels": false,
+  "globalScreenObservation": false,
+  "agentExecution": false,
+  "limits": [
+    "Own plugin page events only; no global screenshot, Jev or task execution adapter.",
+    "Charts describe retained records only, at most 16 per observer, not a full-day event ledger.",
+    "Policy rollback creates a new policy; actual APK downgrade was tested only on the debuggable fixture.",
+    "No production signing/OTA or TalkBack reader validation.",
+    "Host lifetime is bound to clients or manager UI; no boot observer daemon."
+  ],
+  "rawEvidence": {
+    "protocol": "out/proactivity-emulator-20261024-final6",
+    "dashboard": "out/proactivity-dashboard-20261024",
+    "build": "out/proactivity-build-android-dashboard-20261024.txt",
+    "verify": "out/proactivity-verify-dashboard-20261024.txt",
+    "sharedIntegrationPatch": {
+      "path": "docs/reviews/proactivity-2026-10-24/shared-integration.patch",
+      "sha256": "9030e00b0490024198db6e0031bd85229a7c59448ae021ccf3c1239ae6a86e20",
+      "format": "zero-context diff for review; integrate the scoped source commit with three-way conflict review"
+    }
+  },
+  "cleanup": {
+    "emulatorClosed": true,
+    "physicalPhoneChanged": false,
+    "preexistingSourceFilesUnchanged": 16,
+    "eventCatalogAndSourcesPreserved": true
+  }
+}

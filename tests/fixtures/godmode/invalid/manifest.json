@@ -1,0 +1,1 @@
+{"schemaVersion":2,"id":"../bad","name":" ","version":"01.0.0","type":"unknown","entrypoint":{"dex":"../bad.dex","class":"Bad"},"minHostVersion":"1.0.0","targets":[],"capabilities":["x","x"],"permissions":[],"ui":[],"settings":[],"hooks":[],"runtime":"host"}

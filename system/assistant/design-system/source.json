@@ -1,0 +1,1153 @@
+{
+  "repository": "https://github.com/Taku-OS/taku-os-mobile-design-system",
+  "commit": "355e8c2d4edc436b6664e30c3edb396f732ad76c",
+  "handoffVersion": "0.8",
+  "tokensVersion": "0.7.0",
+  "supportedThemes": [
+    "light"
+  ],
+  "resourceFiles": [
+    {
+      "path": "system/assistant/res/color/taku_button_text_ink.xml",
+      "source": "native-assets/android/res/color/taku_button_text_ink.xml",
+      "sha256": "e77adc40024ab93b4c92f777b798f4e0e932029dc647199eeb57492e98acea66"
+    },
+    {
+      "path": "system/assistant/res/color/taku_button_text_inverse.xml",
+      "source": "native-assets/android/res/color/taku_button_text_inverse.xml",
+      "sha256": "b5bc9b44687124f419bc0d93a6f4af7aa9ce98991a51bd30f53e8d7e51dd717d"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_launcher_foreground.xml",
+      "source": "native-assets/android/res/drawable/ic_launcher_foreground.xml",
+      "sha256": "54b44e8466c9de1961bca79b05e50a6e97b5cbaadf010911cee21c691237f3e2"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_launcher_monochrome.xml",
+      "source": "native-assets/android/res/drawable/ic_launcher_monochrome.xml",
+      "sha256": "7787cb838b3de0e6a043f13a2924c31232769cc8c0d4e8f7c15aa0b286ae908f"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_stat_taku.xml",
+      "source": "native-assets/android/res/drawable/ic_stat_taku.xml",
+      "sha256": "26be1ae0f80d0a3e54f3d3e9006de397215c68b0fb550f1a611f6027bbbd116b"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_tako_mark.xml",
+      "source": "native-assets/android/res/drawable/ic_tako_mark.xml",
+      "sha256": "ecea69e497904306a0ec529a081101a132095e9a9863d665ded4744fd32e7656"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_ai_edit.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_ai_edit.xml",
+      "sha256": "0c6d4d91940eaaf19a05f4fcd05fee02fd45afe38e0f9a3b9cc2c60eb51ad278"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_ai_mode_balanced.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_ai_mode_balanced.xml",
+      "sha256": "dfac7b303d10a9ef392586e3919181eb90fa062b91bdf526d74d903595b386ec"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_ai_mode_enhanced.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_ai_mode_enhanced.xml",
+      "sha256": "4e65e9f5fb67926376f4c3c583dbca131060bca831fc93564da5ab7f4b7ed055"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_ai_mode_swift.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_ai_mode_swift.xml",
+      "sha256": "6f9bf582bbb1636de961b4014da9800c16c161a28c6184a7fc5fc0cdd014e7dc"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_airplane.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_airplane.xml",
+      "sha256": "d63637cff4ea7baaa2dd5260af56a3e36b178462d60ad6562a9303ad3e2095b4"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_align_center.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_align_center.xml",
+      "sha256": "e500958604fb78127edcc2e380b218c3068e22176f7efaa1d0f12d254e2502d3"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_align_justify.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_align_justify.xml",
+      "sha256": "94c6ad204a53b73cadbb3ed2d06d652f1a0974a2117b373bfac3db0f3da1cace"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_align_left.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_align_left.xml",
+      "sha256": "f197b994afead1f2fd8e3d429b1dc1f088104361a62bc170ea3251800a2f7f43"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_align_right.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_align_right.xml",
+      "sha256": "64dacc3b0ab5dc640c3324a4b27230ba11c168b985d828bcf8f6753ca9aab58a"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_annotate.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_annotate.xml",
+      "sha256": "6dccb7396d51b493c61b2d6cdbbd75e2d3aa9d36717a58d662f7fbe4096d7327"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_app.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_app.xml",
+      "sha256": "ad36bee2abf45b8e857d974106298da495593c3c2e19e0e433651ba5953a74b8"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_apps.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_apps.xml",
+      "sha256": "484423dfd5c3fd23f0ac64895cc129af88cc801186d91f28d221c9a3637aba01"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_arrow_down.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_arrow_down.xml",
+      "sha256": "d8a3d8bdee23b19911557f089321fd7c2805c1b6b8c923b37b9c45c37140f86f"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_arrow_left.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_arrow_left.xml",
+      "sha256": "e97ce66de927ad1dc4c20b5b4b58cc10e15b559261bf3a8b7d790d48775eb00c"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_arrow_right.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_arrow_right.xml",
+      "sha256": "952d16f1be5cbc5534bdbefb2e3c4d9572a9b379f0059f438b59b2c414c2ca94"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_arrow_up.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_arrow_up.xml",
+      "sha256": "73cb5529881d62168e87c62cbe0c6d1da379597e056a33a7d98a9a89f3ad946e"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_arrow_up_right.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_arrow_up_right.xml",
+      "sha256": "04b7ed82bdc8dd97bddbad0b5ed5bd684567844f988f31e8ffc3f93bd5779908"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_at.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_at.xml",
+      "sha256": "c5fa1fec2768af8ab91f757272c359d9cd4f7da39a7f91673352f8db6b8601c9"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_battery.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_battery.xml",
+      "sha256": "31d1668709e739fda380437e5c4c90ba64f05d815fabf2d37147aed207eeed60"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_bed.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_bed.xml",
+      "sha256": "3970f7ed7ca29cb76167b0cd59cf9f6528b91f14d9471cf56008eadd2f3522d4"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_bell.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_bell.xml",
+      "sha256": "e2f9048d94db18d70afe3756450834c363ea5e66f4eec9e98e0674e2d8668007"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_bluetooth.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_bluetooth.xml",
+      "sha256": "8946b5b59ac55f0df7b209a26b58e2b394a457fbd6ebae1dfdc3b9c9ec220144"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_bold.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_bold.xml",
+      "sha256": "40a16f59386c7dae9ae5c020979dedc106663f1a41cae324df38f707ad68db94"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_bolt.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_bolt.xml",
+      "sha256": "acfadcbe3892aea06549a6bdfa968a4cd4662ad7dcd3b84b0004940957504d4e"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_bookmark.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_bookmark.xml",
+      "sha256": "92d2324a9ecc41edc5cbbe705a52f56c90b80b3d143418a8deb0df5497a583e7"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_bookmark_filled.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_bookmark_filled.xml",
+      "sha256": "3bbf8a7f81ae3ae654e4a2224ce59d662ce9e1fb21be4b35cb35f6a5521931e2"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_border.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_border.xml",
+      "sha256": "37109baf504af03dc5ab3faa1a84622bc053c48e4e9d6ec43dbc38b32a09125c"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_border_color.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_border_color.xml",
+      "sha256": "d29a46e15e750ecdca3dab6750f66eaa48563e49a532298fb480490645e03c66"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_border_dashed.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_border_dashed.xml",
+      "sha256": "50ff80f90e6b171986b03855022f980133b11e62b4f93005ffb2ddae02e3f702"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_border_solid.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_border_solid.xml",
+      "sha256": "24c5b716cb55a09fe8c35f8dbf22b2680857db3ab83eca52aa2c603eef357ed5"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_bug.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_bug.xml",
+      "sha256": "35c1138a7cfeeb2b19b9331471729a14a4831b5ec05d98232231ca9cd62c1c21"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_cake.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_cake.xml",
+      "sha256": "b1e82ef97b20a95ba05bb98b77431cd5fecbda27c0ba9ac850ebdafaac492852"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_calendar.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_calendar.xml",
+      "sha256": "42c027694b4e7827d2449b315ba61268443888bfcff284bb0344b5fbd8c63a75"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_call.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_call.xml",
+      "sha256": "d69cf6ed8d09a0719de82b22404f8ab39c662edf44c217e274830fcabc8145b9"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_camera.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_camera.xml",
+      "sha256": "4f9bf4c9490e4df3846c35b57599f2413a6d133cc23404566f70fff5860ceb2f"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_car.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_car.xml",
+      "sha256": "56ad32f0fdccb9b0d9fca01f75406659eed894234d37b3debf3ba4ace2b1b31a"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_categories.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_categories.xml",
+      "sha256": "65fd9e971d9a68b43f65d2693d3e7f433e15668085746da0f43f1340ab943f7c"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_chat.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_chat.xml",
+      "sha256": "0e2ce4fa38f8d7bf273d6d77b81a9f98dc65c9f7c1eecb26eaeb42dc67ec5aa0"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_check.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_check.xml",
+      "sha256": "b0a43c785fcd075282cc44a8b5ba0097a22fb4baafc7f57609a5e48985baa67c"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_check_circle.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_check_circle.xml",
+      "sha256": "51cd306ac3ddb07b6448ada06d9d2aa71d3fa77c315cab22d05fc4c80933323d"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_chevron_double.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_chevron_double.xml",
+      "sha256": "8b0b9b25e2b6c461a318d2482c415328d767e99c647e57ea0c349bc8aba3c8c4"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_chevron_down.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_chevron_down.xml",
+      "sha256": "aa23e34e7fed5e91126f5c0eaf128d71b15348ebb03812a4a25975aa94a03605"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_chevron_left.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_chevron_left.xml",
+      "sha256": "3dd7438a2b6e981b2f38d20bf784b53ae4b86f42bf1128be18a2709fd2efa417"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_chevron_right.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_chevron_right.xml",
+      "sha256": "6b8176e5bfda1b3b773a8e310c55874f27caa8c9eb07d1e05f7d6cd74edcdfee"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_chevron_up.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_chevron_up.xml",
+      "sha256": "82d6382307847e9c61942053c8592e19739152e2aaa8bd2872bdcb14fe28a6b9"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_close.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_close.xml",
+      "sha256": "82eea1eafdb628bc7be4567f0cc5d04d0b3f3c7dac2f01785730dc1aedfdcb37"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_cloud.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_cloud.xml",
+      "sha256": "ef546eb1dbe7b5567c946db6a7082168d52ad8e55a333cadf259146711343bd1"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_code.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_code.xml",
+      "sha256": "0e09a145146de90ece9fd326937454d703c90eeb13bcb28140f17130b0e4fc36"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_coffee.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_coffee.xml",
+      "sha256": "a53405e651c56e41466d93beb183b40a2cea1fa0f8725ba1a113368783435143"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_collapse.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_collapse.xml",
+      "sha256": "c9773fc12571366954ae2831a6798dd0a06854c345c8a82a7222efa61b4a70a4"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_comment.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_comment.xml",
+      "sha256": "c52036a5e617199398eb146b48b3b6ac091842493ff21b5b4ac663e78bb09c1d"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_comment_add.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_comment_add.xml",
+      "sha256": "320bf651a425fd5a0cfd8ab6781e31f903dbe3301794df219aa8896c7dac5001"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_cooking.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_cooking.xml",
+      "sha256": "266ed931743aae1e703b6a1d030035c80a2c888c06639375874f73b5c05d5d59"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_copy.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_copy.xml",
+      "sha256": "23fdf58fb3f86f0edb67b0d567c8099853b11bb86188a8f503574c298639bd78"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_creators.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_creators.xml",
+      "sha256": "d51c2e3ef56676ceac89e671d352063354aba4c41c6207ccdbe4b2f6677604c0"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_credit.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_credit.xml",
+      "sha256": "a602f9673fac4d1a361d9cfc402a19ba877792ed96b50d529e969fe5e8f1a95f"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_credit_card.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_credit_card.xml",
+      "sha256": "bd5aa4e59911695992f7fde5f0d757bd123357e27e421e3d87563658cdd95644"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_crown.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_crown.xml",
+      "sha256": "2fa008336e885c500941c420b261dd9b1b61b79350e00bd115066ff9d82d1b4a"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_cursor.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_cursor.xml",
+      "sha256": "8d75f2e4ca60d3c8af21311703c191f3e0f2083d430459132fe0bfb584205c12"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_dark_mode.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_dark_mode.xml",
+      "sha256": "09f367fa7d541d38a6607ae8c81816b80523e13742e0ab23e160bb838f481f2d"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_data.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_data.xml",
+      "sha256": "c048dab19fbf1abebc2caee9be7f4412330f856bd497b4009176b53828e63580"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_design.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_design.xml",
+      "sha256": "cc26729b7af3547234a7cf41a2c9049aab6835527af8cfb2d8792d49b0dae40e"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_design_mode.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_design_mode.xml",
+      "sha256": "db976cf322ff01dfd23131e50e950d236f68de9ef4360fa2409f02442a3c1f4c"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_dev.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_dev.xml",
+      "sha256": "3f87f8f1e722652d9c42e375a2fc874769785e0e236f63988548d4a61f0bee2d"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_directions.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_directions.xml",
+      "sha256": "107da19933d858612acac104ad62d99951d5c74ff3cbf7aa4599cd650cc4caef"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_discover.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_discover.xml",
+      "sha256": "4297ba253f0c4925ef5ff30baa91f397648791a0bfd041e2c033ecd9cc64201a"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_dock_remove.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_dock_remove.xml",
+      "sha256": "f858785fe649b1e7b26103eeb8c93016d3f15f446c98fa5232e40c0229840a26"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_document.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_document.xml",
+      "sha256": "6f20a1e8c1149cb1eef0c8a1b4f54646e5006e19f490a3ae983bbe9545cb7e41"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_download.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_download.xml",
+      "sha256": "6eec81fe50fb0b1728e3fb39cd9ff1c8cc5ab9fd4366a315cf708226b1df3e00"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_edit.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_edit.xml",
+      "sha256": "a30ad867d29dc2962cfaaca0b6e88ef940002b7eccbdcb02ebe4a64d72b91283"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_eraser.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_eraser.xml",
+      "sha256": "e2bbb8427053281ff3ff5f6788b73842697c02db2a678c830c595784231927e2"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_error.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_error.xml",
+      "sha256": "2b9769580d2479d072aa87a85730dd81e7f96c58cd1a3f5263d90d0c3b9c4078"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_event.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_event.xml",
+      "sha256": "33dbfa8c401ede45a5f74e16a852c394c1510692b04d3ad518b79759c75c422b"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_expand.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_expand.xml",
+      "sha256": "293a03e9fbf6e36b89ad133319c58a9c620fb86c0ffc02abcfce0db1fff31f6b"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_eye.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_eye.xml",
+      "sha256": "3ef8f3889452d0f4483724c41d2e981f04f3f722bd52ee6b010337db49ea4313"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_featured.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_featured.xml",
+      "sha256": "fe7874efabfe057464032a8012248ea39a6fc29e559afb6c17421ce68b5975ce"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_finance.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_finance.xml",
+      "sha256": "39ac476c8121f2bfebbeaa2743ecd18dbc176301575c38f22cabab91e874114e"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_fitness.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_fitness.xml",
+      "sha256": "af401abd9c596791f6df2ceca3185eb4a0d0dea05c5a94885ca2c42b0441a97d"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_flashlight.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_flashlight.xml",
+      "sha256": "2aab1f8b7d773db421bfbe25a364e6c65cbf1e8b3c21e4e5fbf7094583a402ef"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_folder.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_folder.xml",
+      "sha256": "c44beaa019750302ae49868d8fedc49d0fde1d83a29dcbaafd4b48ce1d15e6f4"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_folder_add.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_folder_add.xml",
+      "sha256": "a52f85969da0b5ce8b325af32dd58d98e9670b49f58c2660c964972f96705906"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_following.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_following.xml",
+      "sha256": "ab7cc6890317d99dcb490d2f9e496127a9093ebccade730782f490f9e16db030"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_fullscreen.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_fullscreen.xml",
+      "sha256": "c1ec0bc6546da08ad7102012d13f20da0399094d18ca104c2e7fdcabf0775f70"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_fullscreen_exit.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_fullscreen_exit.xml",
+      "sha256": "27434c56135ac9b79e9437fdb58a8018adff177db0c30152313f881aa8f56f53"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_gift.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_gift.xml",
+      "sha256": "728be0dd8fda29149640f001773f1e374e014ebcd1de1eabbc3c1ec7df739573"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_group.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_group.xml",
+      "sha256": "6d371d80184c2c9d86793ae3511e814a40cad6f2bec4f76581d811d6b4658d5f"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_hand.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_hand.xml",
+      "sha256": "f85e76948d2982005a125d6396641409dcea1b32c32a83dc3ab4154b92272666"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_heading.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_heading.xml",
+      "sha256": "3b5b330bc668a429eb8640b067bb63fd279c2c4be52ada114705a33856590323"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_headphones.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_headphones.xml",
+      "sha256": "d0eb9a7c49fc4968020a31329806275fd4aff07367e6417d85022f0cb2f02bb8"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_heart.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_heart.xml",
+      "sha256": "a9f094cf665de6c980e224a09268e60b92e58966a8c7508953cedde0350e3c2e"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_heart_filled.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_heart_filled.xml",
+      "sha256": "6c92bfcb32dbdcbdc94ee1ad2f11f20e6b89ff3b3cacf941a683492786630a9a"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_history.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_history.xml",
+      "sha256": "75d5b4d9bf257e404efea15c74ca6da213e6d19a94c21aebb4ca0d82784c02b0"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_home.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_home.xml",
+      "sha256": "0cdeb7e2c1db06ff0fcad7b5b9d8d2e4b798a0ab3340e5f1d5ee7daf318f6082"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_hotel.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_hotel.xml",
+      "sha256": "ca479a0c13b92493709240178921241509c776352c185761fbe58cc3ecbc8507"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_image.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_image.xml",
+      "sha256": "ee03798cf744c220bd85a9d7fcbe09648aed1f40fdbd5766200f6371df98bb99"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_info.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_info.xml",
+      "sha256": "7806fdd953d3038013ecf30c90bbf89919074c71e1489966752f22c8f203a05c"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_internet.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_internet.xml",
+      "sha256": "b905171ed14e98de1d340f9bc502bfbce9ac0bf53e72884be35f1bcbd734b44a"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_italic.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_italic.xml",
+      "sha256": "d42fd48ac80c702ce56848c5b2bb68d3733d4ccf42fe22afa3f94dd7dfd8f6e9"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_keyboard.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_keyboard.xml",
+      "sha256": "5189c10310fbbb6963cc55ca15ecb43291d7c2f7bec8d9459f145241457fd59f"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_letter_spacing.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_letter_spacing.xml",
+      "sha256": "11a4c95520dfab4311f31382798780ec1733dbdb694ef5e64e52478b47f67d17"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_library_add.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_library_add.xml",
+      "sha256": "3690987898fd44f8c5f8c78a8980952d392399aca6d90bb469f18f851d6421e8"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_light_mode.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_light_mode.xml",
+      "sha256": "fcdccbeb62e2057d7fb254f5ccf770d8d8fa2047f3d580c13367fcd3eee4279d"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_lightbulb.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_lightbulb.xml",
+      "sha256": "2c73b84e4eb9c20cf536fa50e73d4d4dee096391a66a9d4281a300b82e2d76f0"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_link.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_link.xml",
+      "sha256": "1c78a46e4454d08d621581f3f13eab2f22d782f92a4473f319e4ab81d3ef6c67"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_list_bullet.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_list_bullet.xml",
+      "sha256": "0e1d7bbab110e49042e97416b4e0bc51e99e33671c02c8896f67a94d1b88735e"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_list_number.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_list_number.xml",
+      "sha256": "41820c2e0b241b0a9da690847f70bca75212b7b454a021fbbf2defd498456e13"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_location.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_location.xml",
+      "sha256": "e1dea38b86d81366904e0017b147af97d0f034b5301ff19a7c2e4da50c612315"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_lock.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_lock.xml",
+      "sha256": "919d549c82051154ccda5ad672c592608251d4fb496e5d29ddd52c6a90de520a"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_logout.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_logout.xml",
+      "sha256": "4f3dad63b149b374d79e8da3e981fe1e166dfc4192a96ba1b107e194878e6364"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_mail.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_mail.xml",
+      "sha256": "cac6ae8f2ab5d2ff7bf57ba1418ac4aaa1fabffe2441cb2545233654cbbbf6f4"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_margin_bottom.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_margin_bottom.xml",
+      "sha256": "b6f8865e7087a50502ad8fb3c2611199c0352fd7ed254b16d9f2a98850f4811f"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_margin_left.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_margin_left.xml",
+      "sha256": "20b8b717dd513213a4ddc6d4a3d2c672b1bbd0cea4c124e16adec5eaa8f9348a"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_margin_right.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_margin_right.xml",
+      "sha256": "76106e31056eafc58d634df7f95a972548de72680fed8d11323cc2cb72af00a3"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_margin_top.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_margin_top.xml",
+      "sha256": "ce78d47d6f75003eb2592c14147f5ebe9cc8c02544ad13198d0d2ec02c144185"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_mic.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_mic.xml",
+      "sha256": "fe115dc8bf81aac98e6628439fb11647753a472bc6ef473cf76edb626b9b4801"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_minus.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_minus.xml",
+      "sha256": "274ec80b24b302c532c8a1ee9c40dce3b8cb5c64b5886ec98fe7b1819d95355d"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_more.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_more.xml",
+      "sha256": "a1dcc98c8cd0daee78b29b202b298f065cc0bc2f7d6139384c6912c940f0aba6"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_music.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_music.xml",
+      "sha256": "82464ee0df0bd171046a63e27ed67040dcd7980f6d75162e140d6dac650ac89b"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_new_chat.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_new_chat.xml",
+      "sha256": "8aee2928ecf4526e30cb1b433ea3a9202a25de77bc31d5866e0fa3c47f607799"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_none.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_none.xml",
+      "sha256": "51c41b7c91f9f4da960d34aba81736ff38f025ec0cbf3e446180ae780caf7edc"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_notifications_off.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_notifications_off.xml",
+      "sha256": "004e3e19ac2ee055c4e2289e70583fba623b57d0d0b31b37383831884053be77"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_padding_bottom.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_padding_bottom.xml",
+      "sha256": "5e47563e586807dab855bde99b74e4e1dce4dc0db766808e3c1dbcfc03f22fb0"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_padding_left.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_padding_left.xml",
+      "sha256": "95f42d9fc5c1efff2d1fc8cb922370fdc12afdca458d98418df63589ee72157c"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_padding_right.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_padding_right.xml",
+      "sha256": "7de2d0983264c6c63bd8092ac51ef2358cb33938cfc89db47f88f3efd7f4c5fa"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_padding_top.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_padding_top.xml",
+      "sha256": "e15f8c5dd5b6ec5f6b4dce84aae83514af0ed853bbed226cb1381bb22418e52e"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_pause.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_pause.xml",
+      "sha256": "1e5e124e1660e12f93909474fa48c7a9795dda4589f45a4376904846d2486e0d"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_payments.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_payments.xml",
+      "sha256": "ad17364cd2a1f72e00c10c602190f0b498fe05681c6079a1e48444e6908b59bd"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_pencil.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_pencil.xml",
+      "sha256": "6059133267e82251afd3262c4543a86a855eb229cb95a586290cde88219f941a"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_person.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_person.xml",
+      "sha256": "4e3e496f86960d354a4384b39ca37ee0a3972e4f4ea85a818b66796568918599"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_pet.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_pet.xml",
+      "sha256": "810a09abfa17b9a82fdd369da1b1f3fa47ae948a0e75182c3868839212242291"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_phone.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_phone.xml",
+      "sha256": "ec19a51a8cd4749dbc966fcb59c96c4aa4fc06156e8671eaba5983bb898a5931"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_pin.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_pin.xml",
+      "sha256": "c7740cf1ea4b3ffd2dc4ef781471f4ff3521e199e86c8dd1a5d62341bad8c91a"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_pin_filled.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_pin_filled.xml",
+      "sha256": "f3828b289f847938d0a688cbcb58b8517449eec3ed28a5253cb39759da08ead9"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_play.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_play.xml",
+      "sha256": "9262b713d7403d4b9eae996d836114ae1dd7b4ceea5c57ec9367b4c6066443d9"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_plus.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_plus.xml",
+      "sha256": "ed71c1cb8e11a68b1ee73f48a3b05562561e013012b07227eaeb118203336c97"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_posts.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_posts.xml",
+      "sha256": "ed080b3d8c61dbf125534a0d028687c005df77e9fa5772068095e706bdfe9e09"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_posts_all.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_posts_all.xml",
+      "sha256": "4bf92dcda02bbf25bf58ebd0a38fc4ae2489d4209fa3a5674f7b22e56ff64cdc"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_posts_mine.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_posts_mine.xml",
+      "sha256": "b975aac4a98127a5364683cbacacfbfae69955b9b72489df83d06c6365579ba5"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_qr_code.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_qr_code.xml",
+      "sha256": "ef04f86c9858d20fa114f37cd318c5a361432ab517f643cb0983bdbaaa58e9f3"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_receipt.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_receipt.xml",
+      "sha256": "f30b42c723b7c6d5088f6631e8fb5f6ce782a9f1a5c4ead14fa1e811be335307"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_rectangle.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_rectangle.xml",
+      "sha256": "3be09525ea907056be06949d90690212f9006902c14206c446bb638975704e60"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_redo.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_redo.xml",
+      "sha256": "acdf67457e326ec7f0550385bbac1b7bce6d30f75200884e859d66403c433037"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_refresh.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_refresh.xml",
+      "sha256": "17a575e565348587976d0db05ec44639cb6355c904d038764c64471759736e68"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_restaurant.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_restaurant.xml",
+      "sha256": "1b0d04d0a96781480ffb271b4c1499053875e5911b15294f43c189b6fe255fbe"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_schedule.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_schedule.xml",
+      "sha256": "b7451d780c606aec38f628eaabb85639b4dc57d0c7409aebe500bb90cdaa91be"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_scissors.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_scissors.xml",
+      "sha256": "d4dba922f3df0189dfaf227e443dbc34117d10ab895ade0e9e99292940ca177f"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_search.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_search.xml",
+      "sha256": "52bebdb21f0b0ed4cc336b3eb601064ad7de20e7f02f99fde968413c69b66c39"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_send.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_send.xml",
+      "sha256": "f2b0e76744f0905db5e171f666bc2083c0df8b2cfefdbbfb412979ea3158f01b"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_settings.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_settings.xml",
+      "sha256": "23c88ae2b95de6dad887f1c7af0ef2670edaa4848df4567566adef553a87b2c6"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_share.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_share.xml",
+      "sha256": "ff05cf355bc0a3e72c649d925c8350f4ef7942a01fb390fd4f70154292270e6a"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_shopping_cart.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_shopping_cart.xml",
+      "sha256": "afb075e34ffd5a084366869122ac9344c282c535aa35ca8e923bdd51e933e724"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_signal.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_signal.xml",
+      "sha256": "6ffddf2a97fb83f240ea078f8450f6fb10a779bf6c79ba15762c38861a01da02"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_site.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_site.xml",
+      "sha256": "15e52bcbbe91f7dba93fed9525bb3a5bd06e2fdf5ee3b296cc3639a37d998678"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_size.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_size.xml",
+      "sha256": "b94c3a850bf7c87318de23d29e1558e051abfa59d50067c8fdce91b5089351fb"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_spacing.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_spacing.xml",
+      "sha256": "e02e06699983f817de3fd473c631157a5f1b6621e855a595a7aae5bd1bded1c6"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_star.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_star.xml",
+      "sha256": "9697a24b751eca462d68138976861d83fb346a87a61254b5e604c7265e038daf"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_stop.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_stop.xml",
+      "sha256": "3886d74a31bdc576ed575ed00ffc853b56ad12441c7eabaa61d1f89289de7f67"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_swap.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_swap.xml",
+      "sha256": "96e41bdbc29349f0025ccb9434c8abc7f82e0b117d674e9c67b9f55a57a2511a"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_sync.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_sync.xml",
+      "sha256": "8030030db2b4cc451410ba3cb224cf6159ec2b062496b03605b7d94bd92f04a6"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_tab.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_tab.xml",
+      "sha256": "a902f6cf2ced99d710df4d702b661afbbf119a866706dbaac9c2a073a7ce3897"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_taxi.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_taxi.xml",
+      "sha256": "6ef4c5111dd6c779a4a726d84fd37b8cb13b6119893305fa9ececd73f4625ae3"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_text_add.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_text_add.xml",
+      "sha256": "1460a45f26602b4fca4629fa53006bf91072c07f6f677dca1751b57797f869ba"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_text_style.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_text_style.xml",
+      "sha256": "2b555f9b4d635ce94585f494199912b352f24b489f1ad7647db11c9804c4f42d"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_thermostat.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_thermostat.xml",
+      "sha256": "127d9ea5ec011545d4310c0aa8b8e166efaf11336f419b590ee0a98738cf89aa"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_thumbs_down.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_thumbs_down.xml",
+      "sha256": "8e2ac7b43513227b64b596ba43997b7399d0359e487b70c8caa84d13cad7a366"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_thumbs_down_filled.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_thumbs_down_filled.xml",
+      "sha256": "d340ea630c5161e9ecd8696334488b762604f684214d521a7a8808b57f3a66ed"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_thumbs_up.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_thumbs_up.xml",
+      "sha256": "f5e5d1927b950739e7ca443aaf543cb8bf429b3da6490610dbb5135e3579a49e"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_thumbs_up_filled.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_thumbs_up_filled.xml",
+      "sha256": "3105d257db003b93485754ad64f1dae9009a5111b161b67309408538b1a137eb"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_tools.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_tools.xml",
+      "sha256": "88cc38bc3d034c5ee64a17d104cd8854fda4cecc681bbcc19735eff7e0410760"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_trash.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_trash.xml",
+      "sha256": "4261f4437f065328e6917c33ce368a2bd3888532a92de457eee8d7430a00fa99"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_trend_up.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_trend_up.xml",
+      "sha256": "a08b6d8ecec93a6fd3126adf0d5fc252493287cd718e066f9b91a40706176183"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_tune.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_tune.xml",
+      "sha256": "05246101e30ef3d52fda7a61efac6217bc3b4f8c8ffa5f192603d9e8dd38e293"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_type.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_type.xml",
+      "sha256": "c648e8ab210e98f99981fee688b6754185ae8c2ec5ac8621323dd2e7191e51f3"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_underline.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_underline.xml",
+      "sha256": "c591dd868feedb4ec50d0dc4685245f5cda2073692a7c16a3cce88511a1563f5"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_undo.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_undo.xml",
+      "sha256": "778cf76b138702df261d215bb81305f2df7412a1b815a6b94c7fc961c5a2094d"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_unpublish.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_unpublish.xml",
+      "sha256": "613bc97b60a5fbb72c0a0aa1c409a45c7799709a16073a439317cbbf630fb10e"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_upload.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_upload.xml",
+      "sha256": "1cafa6c5d249c632f59b10dbe7f41246d5931eb0468f827077276ad32343c896"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_volume.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_volume.xml",
+      "sha256": "efa9ae4e8bac92f99e0cd76b5cfac74b472517440acff6aee4d5403deb9cd823"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_wifi.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_wifi.xml",
+      "sha256": "e1c28a1a1c4d7e51a39b53a3a0fec46d190867aa44be3c7c4260dfb29e20f471"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_window.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_window.xml",
+      "sha256": "bb561ccb28b63b500b6918255b6d81756c9d96c3479d55a555e3d058b25fd166"
+    },
+    {
+      "path": "system/assistant/res/drawable/ic_taku_writer.xml",
+      "source": "native-assets/android/res/drawable/ic_taku_writer.xml",
+      "sha256": "d423f0d45b1c0cf57c7d951b8f6ba912a4d91051127d359ad22c8a782d3e5aee"
+    },
+    {
+      "path": "system/assistant/res/drawable/taku_avatar_bg.xml",
+      "source": "native-assets/android/res/drawable/taku_avatar_bg.xml",
+      "sha256": "715373e52b102ae2a4cc80234cc56455d1851723b6de18c3e569842d669391e8"
+    },
+    {
+      "path": "system/assistant/res/drawable/taku_button_danger_bg.xml",
+      "source": "native-assets/android/res/drawable/taku_button_danger_bg.xml",
+      "sha256": "37802b2c165fd57ddd337f1ff4eba6cf6e402af78def51a1ebf5741335875e0d"
+    },
+    {
+      "path": "system/assistant/res/drawable/taku_button_neutral_bg.xml",
+      "source": "native-assets/android/res/drawable/taku_button_neutral_bg.xml",
+      "sha256": "4329e01af5b80a6440ee3b0c212294703f8531ac5037fe39be4c6fe520548232"
+    },
+    {
+      "path": "system/assistant/res/drawable/taku_button_primary_bg.xml",
+      "source": "native-assets/android/res/drawable/taku_button_primary_bg.xml",
+      "sha256": "e18ea773f0deac885c96146cd73fb834eb27bad2dba38066e730f5a3df3563ef"
+    },
+    {
+      "path": "system/assistant/res/drawable/taku_button_secondary_bg.xml",
+      "source": "native-assets/android/res/drawable/taku_button_secondary_bg.xml",
+      "sha256": "3fd2d4dfe189cb417c1b061b723d42d5d18a7ab2f83161a16dd58357763d4cba"
+    },
+    {
+      "path": "system/assistant/res/drawable/taku_card_bg.xml",
+      "source": "native-assets/android/res/drawable/taku_card_bg.xml",
+      "sha256": "bac616ec2d369420670b749cf04eececc39c596851ea3a68e7aba9ceb341f664"
+    },
+    {
+      "path": "system/assistant/res/drawable/taku_failed_bg.xml",
+      "source": "native-assets/android/res/drawable/taku_failed_bg.xml",
+      "sha256": "896901b510dbe2a4dc594fe8b824b1004b4af5366ebeca5531a49d8130d11415"
+    },
+    {
+      "path": "system/assistant/res/drawable/taku_icon_button_bg.xml",
+      "source": "native-assets/android/res/drawable/taku_icon_button_bg.xml",
+      "sha256": "e46850432ba43d0c527563e8e75b39de8ec2620ce7d10c089e1100cd13728827"
+    },
+    {
+      "path": "system/assistant/res/drawable/taku_metric_bg.xml",
+      "source": "native-assets/android/res/drawable/taku_metric_bg.xml",
+      "sha256": "44d606ceb0d72c02a27a456a6881474db474e7ca97626fa2550b3c2c1c2ac974"
+    },
+    {
+      "path": "system/assistant/res/drawable/taku_status_dot.xml",
+      "source": "native-assets/android/res/drawable/taku_status_dot.xml",
+      "sha256": "af82d9653636875be73821ba50a2b216f1a61c2baf30111c094721c70d7cc927"
+    },
+    {
+      "path": "system/assistant/res/font/doto_black_rounded.ttf",
+      "source": "native-assets/android/res/font/doto_black_rounded.ttf",
+      "sha256": "c112adbaa54a451413d3fc59a6d1dc0a6c1f7ea9c09a4a95e1a9a1e2f97dee3a"
+    },
+    {
+      "path": "system/assistant/res/font/hanken_grotesk_medium.ttf",
+      "source": "native-assets/android/res/font/hanken_grotesk_medium.ttf",
+      "sha256": "bb9e176e81d3e1e38c0de464f523c4c42aae15b48b5437437ffd514bb0b03ea4"
+    },
+    {
+      "path": "system/assistant/res/font/hanken_grotesk_regular.ttf",
+      "source": "native-assets/android/res/font/hanken_grotesk_regular.ttf",
+      "sha256": "0a4cb26adfce0ba2d7a9fb9f1458f03bddef3e4dc915e7c5b7982a9c879cb095"
+    },
+    {
+      "path": "system/assistant/res/font/noto_sans_sc_medium.ttf",
+      "source": "native-assets/android/res/font/noto_sans_sc_medium.ttf",
+      "sha256": "413adac6aafb16c983c9697f5f55b1e81a46c97f149854e74d86ea36a2985bef"
+    },
+    {
+      "path": "system/assistant/res/font/noto_sans_sc_regular.ttf",
+      "source": "native-assets/android/res/font/noto_sans_sc_regular.ttf",
+      "sha256": "2844852e90180d1b79c826542aaf6d2345c335a2fdee292dd084563d440eacb0"
+    },
+    {
+      "path": "system/assistant/res/font/space_grotesk_medium.ttf",
+      "source": "native-assets/android/res/font/space_grotesk_medium.ttf",
+      "sha256": "170fc655be8d0ec0c6e07b62299670cfbe2b3455730b43b97c553d19ac0839d5"
+    },
+    {
+      "path": "system/assistant/res/font/space_grotesk_regular.ttf",
+      "source": "native-assets/android/res/font/space_grotesk_regular.ttf",
+      "sha256": "3da1d59fcfe5b66b0c6b41c437c564b6cdd110abdff5471e85e487aee336975a"
+    },
+    {
+      "path": "system/assistant/res/interpolator/taku_motion_ease_drawer.xml",
+      "source": "native-assets/android/res/interpolator/taku_motion_ease_drawer.xml",
+      "sha256": "da0a4f738f6a48f5f65ef78f23c190c8ac3d9fcffbd0db5d5b518785a717a488"
+    },
+    {
+      "path": "system/assistant/res/interpolator/taku_motion_ease_spring.xml",
+      "source": "native-assets/android/res/interpolator/taku_motion_ease_spring.xml",
+      "sha256": "49a47a30263146d1c7d7c9de67fb746e1dd9b2c6c7a1afb222efc9ab2cc505e0"
+    },
+    {
+      "path": "system/assistant/res/interpolator/taku_motion_ease_standard.xml",
+      "source": "native-assets/android/res/interpolator/taku_motion_ease_standard.xml",
+      "sha256": "fe24111bc2995a699db9904ed9a26ef05e5e5ddcf115e480f347a77b93863958"
+    },
+    {
+      "path": "system/assistant/res/mipmap-anydpi-v26/ic_launcher.xml",
+      "source": "native-assets/android/res/mipmap-anydpi-v26/ic_launcher.xml",
+      "sha256": "dc913c48d2d43bf019fafd18db6ce4f647f0c000ed649d3f43ab9084789964d5"
+    },
+    {
+      "path": "system/assistant/res/mipmap-anydpi-v26/ic_launcher_round.xml",
+      "source": "native-assets/android/res/mipmap-anydpi-v26/ic_launcher_round.xml",
+      "sha256": "dc913c48d2d43bf019fafd18db6ce4f647f0c000ed649d3f43ab9084789964d5"
+    },
+    {
+      "path": "system/assistant/res/mipmap-hdpi/ic_launcher.png",
+      "source": "native-assets/android/res/mipmap-hdpi/ic_launcher.png",
+      "sha256": "fbe32c8a60871fa3b547a83bb2619b72237b5d3b114f0d8c5e29a49a829395b5"
+    },
+    {
+      "path": "system/assistant/res/mipmap-hdpi/ic_launcher_round.png",
+      "source": "native-assets/android/res/mipmap-hdpi/ic_launcher_round.png",
+      "sha256": "e7ca0edb9bc4c4dbaf3aa7c49e9ff08bb15e4b458be0314a3816aafc53c88a3f"
+    },
+    {
+      "path": "system/assistant/res/mipmap-mdpi/ic_launcher.png",
+      "source": "native-assets/android/res/mipmap-mdpi/ic_launcher.png",
+      "sha256": "42cea713a1beee8a3dbf5f85b2c1c6e55fe2a1e7f2e59ca6e024d45ae6825ee9"
+    },
+    {
+      "path": "system/assistant/res/mipmap-mdpi/ic_launcher_round.png",
+      "source": "native-assets/android/res/mipmap-mdpi/ic_launcher_round.png",
+      "sha256": "78b3d927364431ec9b9df712c6e050c395eb67b926afa5e71a64fefa3adcdad4"
+    },
+    {
+      "path": "system/assistant/res/mipmap-xhdpi/ic_launcher.png",
+      "source": "native-assets/android/res/mipmap-xhdpi/ic_launcher.png",
+      "sha256": "493d29cca2d0852a460c4d462c8fc501213e20aad12235462ac19c016371e5b1"
+    },
+    {
+      "path": "system/assistant/res/mipmap-xhdpi/ic_launcher_round.png",
+      "source": "native-assets/android/res/mipmap-xhdpi/ic_launcher_round.png",
+      "sha256": "f8fd40df3e9b2aadd1451781dbe99705abe7d4c62f7c67872412fcc73de345af"
+    },
+    {
+      "path": "system/assistant/res/mipmap-xxhdpi/ic_launcher.png",
+      "source": "native-assets/android/res/mipmap-xxhdpi/ic_launcher.png",
+      "sha256": "f7315f54f348ae1b97808a3162bb26c9f417948203880005e6f83fa65cd10d81"
+    },
+    {
+      "path": "system/assistant/res/mipmap-xxhdpi/ic_launcher_round.png",
+      "source": "native-assets/android/res/mipmap-xxhdpi/ic_launcher_round.png",
+      "sha256": "54e7ed0df008ea0b1e146297755c95074da98aa332ffc42215428b54da94ce18"
+    },
+    {
+      "path": "system/assistant/res/mipmap-xxxhdpi/ic_launcher.png",
+      "source": "native-assets/android/res/mipmap-xxxhdpi/ic_launcher.png",
+      "sha256": "c40d9f1de24cead7263c73d1eae3c8a08e728a896853dd2b3a807c84c843978f"
+    },
+    {
+      "path": "system/assistant/res/mipmap-xxxhdpi/ic_launcher_round.png",
+      "source": "native-assets/android/res/mipmap-xxxhdpi/ic_launcher_round.png",
+      "sha256": "0968f3d55da063c38f018adaca96a08fe27b133495139054b2ec84afd66ba25b"
+    },
+    {
+      "path": "system/assistant/res/values/ic_launcher_background.xml",
+      "source": "native-assets/android/res/values/ic_launcher_background.xml",
+      "sha256": "82daf36ba8cac2eb32cc773faa74c2bd552e86fc92651f34955e642f47386857"
+    },
+    {
+      "path": "system/assistant/res/values/taku_card.xml",
+      "source": "native-assets/android/res/values/taku_card.xml",
+      "sha256": "7f7cb5b6a68bf2990d890a8f6c5829f3d470c6d8d851d1e835421f56917c58c7"
+    },
+    {
+      "path": "system/assistant/res/values/taku_colors.xml",
+      "source": "native-assets/android/res/values/taku_colors.xml",
+      "sha256": "4483cb933afbc61f54d50611e32da29c522bab0b42c565898461579829260419"
+    },
+    {
+      "path": "system/assistant/res/values/taku_components.xml",
+      "source": "native-assets/android/res/values/taku_components.xml",
+      "sha256": "0789d559f6b75240a5cee9e8ce80d7fd96d0d4d027aea2c226c064b49cd96358"
+    },
+    {
+      "path": "system/assistant/res/values/taku_dimens.xml",
+      "source": "native-assets/android/res/values/taku_dimens.xml",
+      "sha256": "746d2b686dbe085dc6d30ffafc8a6cac543dc3297ed707924104bd54d37dd34f"
+    },
+    {
+      "path": "system/assistant/res/values/taku_motion.xml",
+      "source": "native-assets/android/res/values/taku_motion.xml",
+      "sha256": "fa2cd6d4fc08bfa094b021bbdafab626d0d6e9aa6fa44d71b4b0c32d8b0c04b2"
+    },
+    {
+      "path": "system/assistant/res/values/taku_theme.xml",
+      "source": "native-assets/android/res/values/taku_theme.xml",
+      "sha256": "2faddb9668f7e9793a7e21e00844cf4ac95fcdc87a2e721a821d7b05b1265a8b"
+    },
+    {
+      "path": "system/assistant/res/values/taku_type.xml",
+      "source": "native-assets/android/res/values/taku_type.xml",
+      "sha256": "4fd79c0f5238b29b9ebae1faf8fcd1d28e1b75e2c4479d5ab6115613d7155760"
+    }
+  ],
+  "adaptedJava": {
+    "path": "system/assistant/src/org/agentos/assistant/TakuText.java",
+    "source": "native-assets/android/java/com/taku/design/TakuText.java",
+    "originalSha256": "60c4fcccc68fdcf3acc0ba68e3042d95563a7869466ecce65cb00fa022d46b15",
+    "sha256": "bd17a5bd952180888d3a27478738f669f5616c0beab11ae0fce0cdcda2516995",
+    "change": "Package name only: com.taku.design to org.agentos.assistant"
+  }
+}

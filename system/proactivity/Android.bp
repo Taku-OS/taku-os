@@ -1,0 +1,10 @@
+android_app {
+    name: "TakuProactivity",
+    manifest: "AndroidManifest.xml",
+    srcs: ["src/**/*.java"],
+    static_libs: ["taku-proactivity-client", "taku-surfaces-client"],
+    sdk_version: "current",
+    certificate: "platform",
+    system_ext_specific: true,
+    optimize: { enabled: false },
+}

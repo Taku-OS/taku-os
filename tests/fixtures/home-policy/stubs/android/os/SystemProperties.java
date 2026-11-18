@@ -1,0 +1,1 @@
+package android.os; public class SystemProperties {public static String home=""; public static String get(String k,String d){if(!k.equals("ro.taku.home.package"))throw new AssertionError(k);return home;}}

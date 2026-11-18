@@ -1,0 +1,4 @@
+filegroup {
+    name: "taku-proactivity-contract-sources",
+    srcs: ["**/*.java"],
+}

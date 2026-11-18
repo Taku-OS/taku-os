@@ -1,0 +1,29 @@
+{
+  "description": "On-device embedding for Taku memory: ONNX Runtime for Android and the bge-small-zh-v1.5 ONNX export. Build cache only; no binaries tracked. scripts/prepare-memory-vectors.py fetches and verifies them and lays out downloads/assets for Android.bp.",
+  "assets": [
+    {
+      "name": "onnxruntime-android",
+      "version": "1.29.0",
+      "url": "https://repo.maven.apache.org/maven2/com/microsoft/onnxruntime/onnxruntime-android/1.29.0/onnxruntime-android-1.29.0.aar",
+      "sha256": "e97540ca78fe36f6fe2013f82843414fb843b6c7681fb04644cba5e1406662dd",
+      "license": "MIT",
+      "path": "system/memory/downloads/onnxruntime-android-1.29.0.aar"
+    },
+    {
+      "name": "bge-small-zh-v1.5 model_quantized.onnx (dynamic int8)",
+      "version": "Xenova/bge-small-zh-v1.5@75c43b069aac4d136ba6bc1122f995fedcfd2781",
+      "url": "https://huggingface.co/Xenova/bge-small-zh-v1.5/resolve/75c43b069aac4d136ba6bc1122f995fedcfd2781/onnx/model_quantized.onnx",
+      "sha256": "15b717c382bcb518ba457b93ea6850ede7f4f1cd8937454aa06972366cd19bcc",
+      "license": "MIT",
+      "path": "system/memory/downloads/bge-small-zh-v1.5/onnx/model_quantized.onnx"
+    },
+    {
+      "name": "bge-small-zh-v1.5 tokenizer.json",
+      "version": "Xenova/bge-small-zh-v1.5@75c43b069aac4d136ba6bc1122f995fedcfd2781",
+      "url": "https://huggingface.co/Xenova/bge-small-zh-v1.5/resolve/75c43b069aac4d136ba6bc1122f995fedcfd2781/tokenizer.json",
+      "sha256": "48cea5d44424912a6fd1ea647bf4fe50b55ab8b1e5879c3275f80e339e8fae26",
+      "license": "MIT",
+      "path": "system/memory/downloads/bge-small-zh-v1.5/tokenizer.json"
+    }
+  ]
+}

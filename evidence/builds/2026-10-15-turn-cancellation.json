@@ -1,0 +1,41 @@
+{
+  "realUpstream": true,
+  "realStopButton": true,
+  "nativeInterrupted": true,
+  "nestedProcessGone": true,
+  "previousSessionPreserved": true,
+  "siblingThreadPreserved": true,
+  "followupModelReply": true,
+  "stopSeconds": 2.082367709,
+  "staleStopRejected": true,
+  "cleanup": {
+    "complete": true,
+    "trackedProcesses": 3,
+    "remainingProcesses": 0,
+    "scope": "runtime-owned-new-processes-in-turn",
+    "turnId": "01a13c7a-d03a-77c1-bedf-c890fe9eb9e2"
+  },
+  "physicalDeviceVerified": false,
+  "date": "2026-10-15",
+  "checkedAt": "2026-10-14T22:20:48.297726+00:00",
+  "device": "Taku_ImageIntegration_20261010 / emulator-5634",
+  "runtime": "Codex 0.161.0 app-server",
+  "baseSourceCommit": "4d2e25a",
+  "testSeconds": 36.226,
+  "testCommand": "bash system/assistant/test-turn-cancellation.sh",
+  "sourceSha256": {
+    "system/assistant/broker/org/agentos/lab/TurnProcesses.java": "4148aac6e6270d3a2f809280e2d51b0ede8423a615fb44ef16c6c1213b3af18b",
+    "system/assistant/broker/org/agentos/lab/CodexAppServer.java": "8bd266efecf2dafb2e0bc816832ea692833d1487264c52fef7de7d5a54c22322",
+    "system/assistant/broker/org/agentos/lab/NativeBridge.java": "a6c23c2716bbb86cc2db3a55b0d4e2a7856df4f8e3070274b31348fb671a7c93",
+    "system/assistant/tests/org/agentos/tests/TurnCancellationTest.java": "5e7f97028231a9fe95e8dc8d14a07bb278968068c55344ea07649ed03222df0f"
+  },
+  "brokerJarSha256": "eef6d7928eebf2ec93bdb8c6a28f29b2664a5d530879d75a748e32db95626490",
+  "scope": "Current-turn runtime child cleanup; not rollback, third-party sandbox, detached service containment, physical phone or complete ROM acceptance.",
+  "testRepair": "Wait for native turn/completed before reading persisted history; early reads were not terminal evidence.",
+  "linuxFifoRegression": {
+    "tests": 1,
+    "passed": true,
+    "actualPipeHandoffAndEof": true,
+    "syntheticBuildProgress": false
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "org.taku.environment.country",
+  "name": "Cellular Network Country",
+  "version": "0.1.0",
+  "type": "tool-provider",
+  "roles": ["tool-provider"],
+  "minHostVersion": "1.0.0",
+  "targets": ["android-arm64", "android-x86_64"],
+  "capabilities": ["tools", "environment.country"],
+  "permissions": [],
+  "ui": [],
+  "settings": [],
+  "hooks": [],
+  "runtime": "agent",
+  "mcp": {"command": "/system/bin/sh", "args": ["start.sh"], "env": {}},
+  "skills": ["skills/country/SKILL.md"],
+  "healthcheck": {"timeoutMs": 10000},
+  "description": "Read, continuously observe, and poll the real cellular network country through the shared Android SDK."
+}

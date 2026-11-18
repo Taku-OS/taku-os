@@ -1,0 +1,11 @@
+sh /data/local/tmp/taku-os/taku-device.sh system.info
+sh /data/local/tmp/taku-os/taku-device.sh displays.status
+cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.LAUNCHER com.xingin.xhs
+am start --display 11 -n com.xingin.xhs/.index.v2.IndexActivityV2
+phone-display capture
+sleep 5
+input -d 11 swipe 330 1000 330 400 500
+sleep 3
+phone-display capture
+cp /data/local/agentos/virtual-display/screen.png /data/local/tmp/taku-os-scenarios-20261010/mobile-use/after.png
+dumpsys activity activities

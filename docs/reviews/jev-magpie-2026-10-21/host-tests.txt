@@ -1,0 +1,5 @@
+PASS JevDecisionClientTest: catalog model, object state, auth and typed answers
+PASS JevMagpieTest: 41 checks; real HTTP, synthetic gateway and credentials
+JevCredentialStoreTest: PASS
+PASS ComposerPreferencesTest: 95 assertions; in-memory preferences only
+PASS NativeConversationTest: 46 assertions (protocol fixtures only)

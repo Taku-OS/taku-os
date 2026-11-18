@@ -1,0 +1,106 @@
+{
+  "versionCode": 51,
+  "versionName": "20261018-native-conversation",
+  "branch": "codex/agent-interface-20261018",
+  "baseCommit": "bee1e38",
+  "device": "emulator-5634",
+  "avd": "Taku_ImageIntegration_20261010",
+  "physicalDeviceVerified": false,
+  "deployedComponents": [
+    "AgentOSAssistant.apk"
+  ],
+  "brokerChanged": false,
+  "apkSha256": "046333088c79f2dc8c1292191f8efdd56ddf5c916aa98428d085614f07094455",
+  "nativeProjection": {
+    "passed": true,
+    "assertions": 27,
+    "protocolFixturesOnly": true
+  },
+  "composerState": {
+    "passed": true,
+    "assertions": 95,
+    "inMemoryOnly": true
+  },
+  "nativeUi": {
+    "threadId": "01a14fb7-3c67-7992-837d-c2932ab2173b",
+    "turnId": "01a14fb7-4b39-7301-a60b-5ed85ddd0ec3",
+    "modelResponsesSimulated": false,
+    "expandedToolSurvivesStream": true,
+    "nativeCompletionRendered": true,
+    "lightAndDark": true,
+    "source": "Codex app-server"
+  },
+  "navigation": {
+    "modelAndEffortMenusPreserveDraft": true,
+    "capabilitiesAndSessionsReturnToChat": true,
+    "directSettingsRouteReturnsToSettings": true,
+    "themeAndKeyboardPreserveDraft": true,
+    "backgroundScreenReturnPreservesDraft": true,
+    "systemDismiss": true,
+    "modelMessagesSent": 0,
+    "testThread": "01a14fb7-c3e6-75b2-b735-7c382ec5dbca"
+  },
+  "composer": {
+    "failure-missing": {
+      "passed": true,
+      "modelResponsesSimulated": false
+    },
+    "failure-async": {
+      "passed": true,
+      "modelResponsesSimulated": false
+    },
+    "attachments": {
+      "passed": true,
+      "modelResponsesSimulated": false
+    },
+    "steer": {
+      "passed": true,
+      "modelResponsesSimulated": false
+    },
+    "stop": {
+      "passed": true,
+      "modelResponsesSimulated": false
+    }
+  },
+  "stopWithDraftPreserved": true,
+  "testCleanup": {
+    "testExitCode": 0,
+    "restoreFailed": false,
+    "modelResponsesSimulated": false
+  },
+  "repositoryVerify": {
+    "passed": true,
+    "platformSkips": [
+      "Linux-only FIFO test on macOS"
+    ]
+  },
+  "localEvidence": {
+    "ui": "out/native-conversation-ui/20261018T155251Z-94104",
+    "composer": "out/composer-reliability-tests/20261018T154339Z-91307",
+    "protocol": "out/native-conversation-tests/result.txt",
+    "verify": "out/checks/native-conversation-verify.log",
+    "attachmentLayout": "out/composer-reliability-tests/20261018T154958Z-93112"
+  },
+  "renderingRules": {
+    "syntheticWorkflow": false,
+    "fixedProgress": false,
+    "timestampsInvented": false,
+    "nativeItemIdentityPreserved": true
+  },
+  "attachmentLayout": {
+    "passed": true,
+    "lastLineVisible": true,
+    "modelResponsesSimulated": false,
+    "cleanup": {
+      "testExitCode": 0,
+      "restoreFailed": false,
+      "modelResponsesSimulated": false
+    }
+  },
+  "status": "emulator_verified",
+  "androidBuild": {
+    "passed": true,
+    "command": "npm run build:android",
+    "log": "out/checks/native-conversation-android-build.log"
+  }
+}

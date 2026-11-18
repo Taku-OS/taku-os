@@ -1,0 +1,80 @@
+{
+  "schema": "taku.acceptance.godmode-rea-max/1",
+  "observedAt": "2026-11-05T02:20:00+08:00",
+  "scope": "Host compile, Android 16 ARM64 component build, MCP bridge and runtime-pack verification; no physical-device execution in this run",
+  "versions": {
+    "node": "24.22.2",
+    "java": "21.0.13",
+    "rea": "6.8.0",
+    "jadx": "0.7.1",
+    "frida": "17.25.2",
+    "rizin": "0.9.1",
+    "apktool": "3.0.3",
+    "aapt2": "2.20-android-16.0.0_r4",
+    "androidApi": "36",
+    "androidBuildTools": "36.0.0",
+    "fridaBinding": "17.23.2",
+    "fridaJavaBridge": "7.0.13"
+  },
+  "artifacts": {
+    "managementApk": {
+      "path": "system/plugins/out/TakuGodMode.apk",
+      "sha256": "1fec27dbb1832313819427f855e8d285c9d9572a01ec8144acdf91a8d5d12ffa"
+    },
+    "hostDexJar": {
+      "path": "system/plugins/out/taku-godmode-host.jar",
+      "sha256": "2a22bb0154b1e1fdb854d9fef6b9e862bc9af0bc2e15745d591950ee75c06bac"
+    },
+    "fridaBinding": {
+      "path": "rea/node_modules/frida/build/frida_binding.node",
+      "sha256": "dfe9ad32b6d4230d444efcbfdc852b38d67f00241df4de8c8565474ae5dd882e",
+      "arch": "android-arm64",
+      "napiVersion": 8
+    },
+    "runtimePack": {
+      "sha256": "3430dac31c734c0113b58efd982191e984b15cfa4e116fa4b5c43fe507f243e0",
+      "lockSha256": "19fa72d18a460dd62e59c452e06cdf3a50942ffc29980d60d084b897e1e0e6be",
+      "files": 21024,
+      "links": 300,
+      "executables": 685,
+      "artifact": "rea-android-arm64-v5.zip"
+    }
+  },
+  "checks": {
+    "hostTests": "passed",
+    "manifestTests": "7/7 passed",
+    "androidComponentBuild": "passed",
+    "loaderLifecycle": "passed",
+    "mcpAggregateE2E": "passed",
+    "mcpReaTools": 229,
+    "runtimePackInstall": "passed",
+    "runtimePackChecksums": "passed",
+    "runtimePackLinks": "passed",
+    "runtimePackExecutableBits": "passed",
+    "explicitRollback": "passed",
+    "remoteInstallURLValidation": "passed",
+    "remoteInstallSignature": "passed",
+    "physicalDeviceFridaRemote": "passed",
+    "physicalDeviceJavaBridge": "passed",
+    "physicalDeviceLoadedClasses": 38315,
+    "physicalDeviceEvidenceId": "ev_8cad9a7feeac92a5740abfd7fddb66115f947de548ef7bc27f23a758e1783a53",
+    "physicalDeviceGodModeMcp": "passed",
+    "physicalDeviceReaTools": 229,
+    "physicalDeviceFridaProcesses": 262,
+    "physicalDeviceJavaAttach": "passed",
+    "physicalDeviceInstrumentWithFrida": "passed",
+    "fridaLoadEvidenceId": "ev_8cad9a7feeac92a5740abfd7fddb66115f947de548ef7bc27f23a758e1783a53",
+    "fridaInstrumentEvidenceId": "ev_28f90580691ae5d571ddf87109b0a2545720c2b1fc4daa895d3abed5a001677b"
+  },
+  "limitations": [
+    "Universal automated unpacking and anti-detection remain target-specific adversarial work",
+    "Ghidra, Hopper, IDA and Cutter do not yet have complete Android-local providers",
+    "The GodMode service and runtime pack are validated through development install; ROM init and OTA persistence still require the next ROM build"
+  ],
+  "device": {
+    "model": "Pixel 9",
+    "android": 17,
+    "api": 37,
+    "serialRedacted": true
+  }
+}

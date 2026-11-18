@@ -1,0 +1,111 @@
+{
+  "component": "Taku 记忆 0.8.1（versionCode 11）+ agentos-task-broker（同一提交），main 的助手 v74（20261028-main-workspaces）",
+  "status": "emulator_verified",
+  "recordedAt": "2026-11-02 北京时间",
+  "base": "main a4bc391",
+  "device": {
+    "avd": "TakuRecall",
+    "serial": "emulator-5634",
+    "android": "16",
+    "api": 36,
+    "abi": "arm64-v8a",
+    "build": "sdk_phone64_arm64 userdebug test-keys",
+    "selinux": "Enforcing"
+  },
+  "artifacts": {
+    "TakuMemory-0.8.1-release.apk": "9106751893145f320b7edf11914f866488165f98c78dceb12d2d522645c3a6e4",
+    "TakuMemory-0.8.1-debug-nomodel.apk": "85db1e25f58ffdc93af5b0b3c5fda270395efca557ec5ec3443e910dbe602100",
+    "TakuMemoryTests-0.8.1.apk": "77201189fb68d296f4bc1d7596ea0c6ed8f75791a29d1a863d9c9a1847147445",
+    "agentos-task-broker-0.8.1.jar": "d903c96529499a24080e143ae9dbb22fb9c66cd89483bcd273bee9fb7663b293"
+  },
+  "latestMainRetest": {
+    "main": "a4bc391",
+    "artifacts": {
+      "TakuMemory-release.apk (0.8.0)": "6f3906f4a14bf0e6ea01c96c010c017293811bc47d331cc894fa4e65a9e04f57",
+      "agentos-task-broker.jar": "2307a830ab1b56d731d344f788597e3b665dc70c22ba21523e786529a633811e",
+      "AgentOSAssistant.apk (v74)": "3d387bae14c608d5dc1c234ae427f56731ce3c103fb40396378bb36735a36824"
+    },
+    "componentTests": {
+      "StoreTests": 114,
+      "QueueTests": 69,
+      "ResultTests": 8,
+      "PresentationTests": 36,
+      "GatewayBoundaryTests": 2,
+      "SystemAiTests": 24,
+      "SystemSettingsObserverTests": "passed (staleLeaseRejected, abaObserved, startupInvalidated)",
+      "SharedAiClientTests": "not run: needs the test operator to authorize the fixture in Taku AI",
+      "failures": 0
+    },
+    "releaseCleanInstall": {
+      "organizeTokens": 35353,
+      "rebuildTokens": 34735,
+      "modelExtractedBytes": 24010842,
+      "vectors": "7/7",
+      "debugHooksRejected": true,
+      "privacyHeld": true,
+      "deleteRecord": "graph nodes 8 -> 6, board and card voided, revokedAt exposed, rebuilt in about 25 s, deleted wedding gone from card",
+      "correctRecordCardUpdated": true,
+      "followTakuAi": "organizing stops with 请为记忆场景配置 Magpie 连接与路由组 (direct Codex connection, no Magpie); no fallback, by design in main 985f469",
+      "takuAiMemorySwitch": "the smoke's /data/local/agentos/ai/settings.json edit no longer gates (main reads Settings.Global); settings put global taku_ai_app_memory 0 refused organizing (snapshots unchanged), 1 resumed it"
+    }
+  },
+  "componentTests": {
+    "StoreTests": 115,
+    "QueueTests": 69,
+    "ResultTests": 8,
+    "PresentationTests": 36,
+    "GatewayBoundaryTests": 2,
+    "SystemAiTests": 24,
+    "SystemSettingsObserverTests": "passed",
+    "failures": 0
+  },
+  "releaseCleanInstall": {
+    "apkBytes": 36558184,
+    "modelExtractedBytes": 24010842,
+    "vectors": "7/7",
+    "debugHooksRejected": true,
+    "organizeTokens": {
+      "sevenNotifications": 16343,
+      "rebuildAfterCorrection": 15358,
+      "beforeHarnessFixAfterRegression": 116525,
+      "latestMainFreshBroker": 35353
+    },
+    "privacyHeld": true,
+    "deleteRecordRebuilt": true,
+    "correctRecordCardUpdated": true,
+    "followTakuAiUnavailableMarked": true,
+    "organizeModelsSystemReady": false,
+    "takuAiMemoryOffRefused": true,
+    "takuAiMemoryOnResumed": true
+  },
+  "organizerHarnessIsolation": {
+    "cause": "CodexAppServer.nativeRequest added the agent background (HarnessContext.prepare) to every turn/start, organizer turns included",
+    "perCallTokens": {
+      "freshBrokerBeforeFix": "graph 12508 / board 24270 / profile 12880",
+      "afterOneAssistantTaskBeforeFix": "graph 39963 / board 79231 / profile 40315",
+      "afterOneAssistantTaskWithFix": "graph 5532 / board 5440 / profile 5886"
+    }
+  },
+  "agentRegression22Days": {
+    "build": "debug eb9508cfc3b354a8821ded049acfd5199b854460f783af400407c24c36bce322 + broker 388a3309c6fc29a6796f5d21a0a5ab56f3a78d6979f4e479b143f00d88e1e69a (differs from the final broker only by the organizer isolation, not used in agent turns), derived data from the 0.5 organizer, assistant v74",
+    "crossTopic": "10/11, 10/11 (two runs)",
+    "association": "11/11",
+    "triggerMessages": "7/7, 7/7 (two runs)",
+    "bedtimeReview": "24/25",
+    "previous080SameRubric": {
+      "crossTopic": "10/11, 9/11",
+      "association": "11/11",
+      "triggerMessages": "5/7",
+      "bedtimeReview": "22/25 (recorded as 21/25 on 10-29)"
+    }
+  },
+  "notCovered": [
+    "Follow Taku AI on an actual Magpie connection",
+    "same-version physical device",
+    "full ROM",
+    "cold boot",
+    "long-term battery",
+    "real users"
+  ],
+  "deviceStateAfter": "memory 0.8.1 debug with the 22-day synthetic data (vectors recomputed), final 0.8.1 Broker, assistant v74"
+}

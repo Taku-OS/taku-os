@@ -1,0 +1,543 @@
+diff --git a/app/src/main/AndroidManifest.xml b/app/src/main/AndroidManifest.xml
+--- a/app/src/main/AndroidManifest.xml
++++ b/app/src/main/AndroidManifest.xml
+@@ -5,7 +5,7 @@
+ -->
+ <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+     package="org.lineageos.updater"
+-    android:versionCode="2">
++    android:versionCode="4">
+ 
+     <uses-permission android:name="android.permission.ACCESS_CACHE_FILESYSTEM" />
+     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+diff --git a/app/src/main/java/org/lineageos/updater/TakuBrand.kt b/app/src/main/java/org/lineageos/updater/TakuBrand.kt
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/java/org/lineageos/updater/TakuBrand.kt
+@@ -0,0 +1,22 @@
++// Generated from image/product-branding.json.
++package org.lineageos.updater
++
++import android.os.SystemProperties
++
++object TakuBrand {
++    const val NAME = "TakuOS"
++    const val VERSION = "1.0.1"
++    const val DISPLAY_VERSION = "TakuOS1.0.1"
++    private val versionPattern = Regex("(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)")
++    private val legacyPattern = Regex("[0-9]+\\.[0-9]+")
++    private fun validVersion(value: String?) = value?.takeIf {
++        versionPattern.matches(it) || legacyPattern.matches(it)
++    }
++    fun targetVersion(value: String?): String? =
++        value?.takeIf { it.startsWith(NAME) }?.removePrefix(NAME)?.let(::validVersion)
++    val currentVersion: String
++        get() = validVersion(SystemProperties.get("ro.taku.product.version", ""))
++            ?: targetVersion(SystemProperties.get("ro.taku.display.version", "")) ?: VERSION
++    fun targetDisplayName(value: String?) = targetVersion(value)?.let { "$NAME $it" } ?: NAME
++    fun buildLabel(value: String?, date: String) = "${targetDisplayName(value)} - $date"
++}
+diff --git a/app/src/main/java/org/lineageos/updater/controller/UpdaterController.java b/app/src/main/java/org/lineageos/updater/controller/UpdaterController.java
+--- a/app/src/main/java/org/lineageos/updater/controller/UpdaterController.java
++++ b/app/src/main/java/org/lineageos/updater/controller/UpdaterController.java
+@@ -329,6 +329,7 @@
+                     entry.mUpdate = entry.mUpdate.toBuilder()
+                             .setAvailableOnline(availableOnline && entry.mUpdate.isAvailableOnline())
+                             .setDownloadUrl(updateInfo.getDownloadUrl())
++                            .setDisplayVersion(updateInfo.getDisplayVersion())
+                             .setOsPatchLevel(updateInfo.getOsPatchLevel())
+                             .setOsSdkLevel(updateInfo.getOsSdkLevel())
+                             .setPayloadMetadataOffset(updateInfo.getPayloadMetadataOffset())
+diff --git a/app/src/main/java/org/lineageos/updater/data/Update.kt b/app/src/main/java/org/lineageos/updater/data/Update.kt
+--- a/app/src/main/java/org/lineageos/updater/data/Update.kt
++++ b/app/src/main/java/org/lineageos/updater/data/Update.kt
+@@ -31,6 +31,7 @@
+     val timestamp: Long = 0,
+     val type: String? = null,
+     val version: String = "",
++    val displayVersion: String? = null,
+ ) {
+     fun withAvailableOnline(v: Boolean) = copy(isAvailableOnline = v)
+     fun withDownloadId(v: String) = copy(downloadId = v)
+@@ -49,6 +50,7 @@
+     fun withTimestamp(v: Long) = copy(timestamp = v)
+     fun withType(v: String?) = copy(type = v)
+     fun withVersion(v: String) = copy(version = v)
++    fun withDisplayVersion(v: String?) = copy(displayVersion = v)
+ 
+     fun toBuilder() = Builder(this)
+ 
+@@ -76,6 +78,7 @@
+         private var timestamp: Long = 0,
+         private var type: String? = null,
+         private var version: String = "",
++        private var displayVersion: String? = null,
+     ) {
+         constructor(update: Update) : this(
+             update.isAvailableOnline, update.downloadId, update.downloadUrl,
+@@ -84,7 +87,7 @@
+             update.payloadMetadataOffset, update.payloadMetadataSize, update.payloadOffset,
+             update.payloadSize, update.payloadPropertiesOffset, update.payloadPropertiesSize,
+             update.progress, update.speed, update.status, update.timestamp, update.type,
+-            update.version,
++            update.version, update.displayVersion,
+         )
+ 
+         fun setAvailableOnline(v: Boolean) = apply { isAvailableOnline = v }
+@@ -110,11 +113,12 @@
+         fun setTimestamp(v: Long) = apply { timestamp = v }
+         fun setType(v: String?) = apply { type = v }
+         fun setVersion(v: String) = apply { version = v }
++        fun setDisplayVersion(v: String?) = apply { displayVersion = v }
+         fun build() = Update(
+             isAvailableOnline, downloadId, downloadUrl, eta, file, fileSize,
+             isFinalizing, installProgress, name, osPatchLevel, osSdkLevel, payloadMetadataOffset,
+             payloadMetadataSize, payloadOffset, payloadSize, payloadPropertiesOffset,
+-            payloadPropertiesSize, progress, speed, status, timestamp, type, version,
++            payloadPropertiesSize, progress, speed, status, timestamp, type, version, displayVersion,
+         )
+     }
+ 
+diff --git a/app/src/main/java/org/lineageos/updater/data/source/local/UpdateEntity.kt b/app/src/main/java/org/lineageos/updater/data/source/local/UpdateEntity.kt
+--- a/app/src/main/java/org/lineageos/updater/data/source/local/UpdateEntity.kt
++++ b/app/src/main/java/org/lineageos/updater/data/source/local/UpdateEntity.kt
+@@ -70,7 +70,10 @@
+     val payloadPropertiesSize: Long?,
+ 
+     @ColumnInfo(name = "download_url")
+-    val downloadUrl: String?
++    val downloadUrl: String?,
++
++    @ColumnInfo(name = "display_version")
++    val displayVersion: String?
+ )
+ 
+ fun Update.toEntity() = UpdateEntity(
+@@ -90,7 +93,8 @@
+     payloadSize = payloadSize,
+     payloadPropertiesOffset = payloadPropertiesOffset,
+     payloadPropertiesSize = payloadPropertiesSize,
+-    downloadUrl = downloadUrl
++    downloadUrl = downloadUrl,
++    displayVersion = displayVersion
+ )
+ 
+ fun UpdateEntity.toUpdate() = Update(
+@@ -110,5 +114,6 @@
+     payloadSize = payloadSize,
+     payloadPropertiesOffset = payloadPropertiesOffset,
+     payloadPropertiesSize = payloadPropertiesSize,
+-    downloadUrl = downloadUrl
++    downloadUrl = downloadUrl,
++    displayVersion = displayVersion
+ )
+diff --git a/app/src/main/java/org/lineageos/updater/data/source/local/UpdatesDatabase.kt b/app/src/main/java/org/lineageos/updater/data/source/local/UpdatesDatabase.kt
+--- a/app/src/main/java/org/lineageos/updater/data/source/local/UpdatesDatabase.kt
++++ b/app/src/main/java/org/lineageos/updater/data/source/local/UpdatesDatabase.kt
+@@ -17,7 +17,7 @@
+  *
+  * Use [UpdatesLocalDataSource] to interact with data.
+  */
+-@Database(entities = [UpdateEntity::class], version = 4, exportSchema = true)
++@Database(entities = [UpdateEntity::class], version = 5, exportSchema = true)
+ abstract class UpdatesDatabase : RoomDatabase() {
+     abstract fun updateDao(): UpdateDao
+ 
+@@ -76,6 +76,12 @@
+             }
+         }
+ 
++        private val MIGRATION_4_5 = object : Migration(4, 5) {
++            override fun migrate(db: SupportSQLiteDatabase) {
++                db.execSQL("ALTER TABLE `updates` ADD COLUMN `display_version` TEXT")
++            }
++        }
++
+         @JvmStatic
+         fun getInstance(context: Context): UpdatesDatabase = instance ?: synchronized(this) {
+             instance ?: Room.databaseBuilder(
+@@ -83,7 +89,7 @@
+                 UpdatesDatabase::class.java,
+                 "updates.db"
+             )
+-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
++                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                 .build()
+                 .also { instance = it }
+         }
+diff --git a/app/src/main/java/org/lineageos/updater/data/source/network/NetworkUpdate.kt b/app/src/main/java/org/lineageos/updater/data/source/network/NetworkUpdate.kt
+--- a/app/src/main/java/org/lineageos/updater/data/source/network/NetworkUpdate.kt
++++ b/app/src/main/java/org/lineageos/updater/data/source/network/NetworkUpdate.kt
+@@ -26,6 +26,7 @@
+     @SerialName("files") val files: List<NetworkUpdateFile>,
+     @SerialName("type") val type: String,
+     @SerialName("version") val version: String,
++    @SerialName("displayVersion") val displayVersion: String? = null,
+ )
+ 
+ @Suppress("PROVIDED_RUNTIME_TOO_LOW")
+@@ -75,6 +76,7 @@
+         fileSize = file.size,
+         downloadUrl = file.url,
+         version = version,
++        displayVersion = displayVersion,
+         osPatchLevel = file.osPatchLevel,
+         osSdkLevel = file.osSdkLevel ?: 0,
+         payloadMetadataOffset = payloadMetadataRange?.offset,
+diff --git a/app/src/main/java/org/lineageos/updater/deviceinfo/UpdaterCard.kt b/app/src/main/java/org/lineageos/updater/deviceinfo/UpdaterCard.kt
+--- a/app/src/main/java/org/lineageos/updater/deviceinfo/UpdaterCard.kt
++++ b/app/src/main/java/org/lineageos/updater/deviceinfo/UpdaterCard.kt
+@@ -26,13 +26,11 @@
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.draw.drawWithCache
+ import androidx.compose.ui.graphics.Color
+-import androidx.compose.ui.graphics.ColorFilter
+ import androidx.compose.ui.graphics.ShaderBrush
+ import androidx.compose.ui.graphics.Shape
+ import androidx.compose.ui.graphics.toArgb
+ import androidx.compose.ui.layout.ContentScale
+ import androidx.compose.ui.platform.LocalDensity
+-import androidx.compose.ui.res.colorResource
+ import androidx.compose.ui.res.painterResource
+ import androidx.compose.ui.res.stringResource
+ import androidx.compose.ui.text.font.FontFamily
+@@ -45,17 +43,18 @@
+ import com.android.settingslib.spa.framework.theme.SettingsSpace
+ import com.android.settingslib.spa.framework.theme.SettingsTheme
+ import org.lineageos.updater.R
++import org.lineageos.updater.TakuBrand
+ import kotlin.math.max
+ import kotlin.math.roundToInt
+ 
+ // Brand guide: "Mark height based on text x-height". Approximate Roboto x-height from font size.
+-private const val MARK_X_HEIGHT_RATIO = 0.55f
++private const val MARK_X_HEIGHT_RATIO = 1.0f
+ 
+ // Brand guide: "Do not warp, transform". Derive width from height to keep logo proportions.
+-private const val MARK_WIDTH_MULTIPLIER = 2.5f
++private const val MARK_WIDTH_MULTIPLIER = 1.0f
+ 
+ // Brand guide: "higher numbers' lower edges". Scale the gap from the mark, not a fixed dp.
+-private const val VERSION_MARK_SPACING_RATIO = 0.10f
++private const val VERSION_MARK_SPACING_RATIO = 0.25f
+ 
+ // Pattern: preferred circle radius before snapping the pattern to the card height.
+ private const val PATTERN_BASE_RADIUS_DP = 25
+@@ -199,13 +198,13 @@
+     modifier: Modifier = Modifier,
+     shape: Shape = CornerExtraLarge1,
+ ) {
+-    val brandColor = colorResource(R.color.brand_primary)
+-    val onBrandColor = colorResource(R.color.on_brand_surface)
+-    val patternColor = colorResource(R.color.brand_pattern)
+-    val sheenColor = colorResource(R.color.brand_sheen)
++    val brandColor = Color(0xFF16140F)
++    val onBrandColor = Color(0xFFFFFDFA)
++    val patternColor = Color(0xFFFF5A1F)
++    val sheenColor = onBrandColor
+ 
+     val density = LocalDensity.current
+-    val displayLarge = MaterialTheme.typography.displayLarge
++    val displayLarge = MaterialTheme.typography.headlineLarge
+ 
+     val versionStyle = remember(displayLarge) {
+         /*
+@@ -213,8 +212,8 @@
+          */
+         displayLarge.copy(
+             fontFamily = FontFamily.SansSerif,
+-            fontWeight = FontWeight.Light,
+-            letterSpacing = (-0.08).em,
++            fontWeight = FontWeight.Medium,
++            letterSpacing = 0.em,
+             lineHeight = displayLarge.fontSize,
+         )
+     }
+@@ -248,20 +247,18 @@
+                         .padding(SettingsDimension.paddingLarge),
+                 ) {
+                     Image(
+-                        painter = painterResource(R.drawable.lineage_mark_tight),
+-                        contentDescription = stringResource(R.string.brand_name),
++                        painter = painterResource(R.drawable.taku_brand_mark),
++                        contentDescription = TakuBrand.NAME,
+                         modifier = Modifier
+                             .width(markWidth)
+                             .alignBy { it.measuredHeight },
+                         contentScale = ContentScale.FillWidth,
+-                        // Brand guide: "Use white when on dark backgrounds".
+-                        colorFilter = ColorFilter.tint(onBrandColor),
+                     )
+ 
+                     Spacer(modifier = Modifier.width(markWidth * VERSION_MARK_SPACING_RATIO))
+ 
+                     Text(
+-                        text = buildVersion,
++                        text = TakuBrand.NAME,
+                         style = versionStyle,
+                         modifier = Modifier.alignByBaseline(),
+                     )
+@@ -279,7 +276,7 @@
+                     horizontalArrangement = Arrangement.spacedBy(SettingsDimension.paddingLarge),
+                 ) {
+                     InfoColumn(
+-                        label = stringResource(R.string.header_build_version, buildVersion),
++                        label = stringResource(R.string.taku_product_version, TakuBrand.currentVersion),
+                         value = stringResource(R.string.header_android_version, androidVersion),
+                     )
+                     InfoColumn(
+diff --git a/app/src/main/java/org/lineageos/updater/updates/action/UpdateActionHandler.kt b/app/src/main/java/org/lineageos/updater/updates/action/UpdateActionHandler.kt
+--- a/app/src/main/java/org/lineageos/updater/updates/action/UpdateActionHandler.kt
++++ b/app/src/main/java/org/lineageos/updater/updates/action/UpdateActionHandler.kt
+@@ -15,6 +15,7 @@
+ import androidx.compose.ui.text.style.TextDecoration
+ import androidx.core.net.toUri
+ import org.lineageos.updater.R
++import org.lineageos.updater.TakuBrand
+ import org.lineageos.updater.UpdaterApplication
+ import org.lineageos.updater.controller.UpdaterController
+ import org.lineageos.updater.controller.UpdaterService
+@@ -249,11 +250,7 @@
+             FormatStyle.MEDIUM,
+             update.timestamp,
+         )
+-        val buildInfoText = activity.getString(
+-            R.string.list_build_version_date,
+-            update.version,
+-            buildDate,
+-        )
++        val buildInfoText = TakuBrand.buildLabel(update.displayVersion, buildDate)
+         showDialog(
+             AlertDialogState(
+                 title = activity.getString(R.string.apply_update_dialog_title),
+diff --git a/app/src/main/java/org/lineageos/updater/updates/state/UpdateItemStateMapper.kt b/app/src/main/java/org/lineageos/updater/updates/state/UpdateItemStateMapper.kt
+--- a/app/src/main/java/org/lineageos/updater/updates/state/UpdateItemStateMapper.kt
++++ b/app/src/main/java/org/lineageos/updater/updates/state/UpdateItemStateMapper.kt
+@@ -9,6 +9,7 @@
+ import android.os.Build
+ import android.text.format.Formatter
+ import org.lineageos.updater.R
++import org.lineageos.updater.TakuBrand
+ import org.lineageos.updater.controller.UpdaterController
+ import org.lineageos.updater.data.Update
+ import org.lineageos.updater.data.UpdateStatus
+@@ -169,10 +170,7 @@
+             downloadId = update.downloadId,
+             isLocal = state.isFullyDownloaded,
+             buildDate = StringUtil.formatBuildDate(context, update.timestamp),
+-            buildVersion = context.getString(
+-                R.string.list_build_version,
+-                update.version,
+-            ),
++            buildVersion = TakuBrand.targetDisplayName(update.displayVersion),
+             status = state.titleRes?.let { context.getString(it) } ?: "",
+             fileSize = Formatter.formatShortFileSize(context, update.fileSize),
+             androidUpdateInfo = when {
+@@ -191,7 +189,7 @@
+             installNote = when (state.installBlockedReason) {
+                 InstallUtils.BlockedReason.DOWNGRADE -> R.string.list_downgrade_blocked
+                 InstallUtils.BlockedReason.VERSION_UNSUPPORTED -> R.string.list_major_upgrade_recovery_install
+-                InstallUtils.BlockedReason.NONE -> R.string.list_full_install
++                InstallUtils.BlockedReason.NONE -> R.string.taku_system_update_note
+             },
+             progress = progress,
+             actions = actions,
+diff --git a/app/src/main/res/drawable/ic_launcher_foreground.xml b/app/src/main/res/drawable/ic_launcher_foreground.xml
+--- a/app/src/main/res/drawable/ic_launcher_foreground.xml
++++ b/app/src/main/res/drawable/ic_launcher_foreground.xml
+@@ -1,34 +1,5 @@
+-<?xml version="1.0" encoding="utf-8"?>
+-<!--
+-     SPDX-FileCopyrightText: The LineageOS Project
+-     SPDX-License-Identifier: Apache-2.0
+--->
+-<vector xmlns:android="http://schemas.android.com/apk/res/android"
+-    xmlns:aapt="http://schemas.android.com/aapt"
+-    android:width="108dp"
+-    android:height="108dp"
+-    android:viewportWidth="108"
+-    android:viewportHeight="108">
+-  <group>
+-    <clip-path
+-        android:pathData="M0,0h108v108h-108z"/>
+-    <path
+-        android:pathData="M108,0H0V108H108V0ZM42,30C39.791,30 38,31.791 38,34V74C38,76.209 39.791,78 42,78H66C68.209,78 70,76.209 70,74V34C70,31.791 68.209,30 66,30H42Z"
+-        android:fillColor="#2A3232"
+-        android:fillType="evenOdd"/>
+-    <path
+-        android:pathData="M28.54,28.54m-72,0a72,72 0,1 1,144 0a72,72 0,1 1,-144 0"
+-        android:fillAlpha="0.6">
+-      <aapt:attr name="android:fillColor">
+-        <gradient 
+-            android:gradientRadius="72"
+-            android:centerX="28.54"
+-            android:centerY="28.54"
+-            android:type="radial">
+-          <item android:offset="0" android:color="#19FFFFFF"/>
+-          <item android:offset="1" android:color="#00FFFFFF"/>
+-        </gradient>
+-      </aapt:attr>
+-    </path>
+-  </group>
++<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="32dp" android:height="32dp" android:viewportWidth="512" android:viewportHeight="512">
++ <path android:fillColor="#FFFDFA" android:pathData="M29,36 H320 V423 H29 Z"/>
++ <path android:fillColor="#16140F" android:pathData="M440.224 0C479.866 0 512 32.1352 512 71.7757V440.224C512 479.866 479.866 512 440.224 512H71.7757C32.1352 512 1.34881e-06 479.866 0 440.224V71.7757C0 32.1352 32.1352 1.34873e-06 71.7757 0H440.224ZM375.231 206.794C321.536 206.795 278.009 250.873 278.009 305.248C278.009 359.623 321.536 403.702 375.231 403.702C428.927 403.702 472.456 359.623 472.456 305.248C472.454 250.873 428.927 206.794 375.231 206.794ZM260.639 86.75C257.84 86.7986 254.531 89.561 247.918 95.0887L73.2966 241.042C71.6147 242.449 70.7739 243.152 70.1706 244.013C69.6363 244.777 69.2413 245.628 69.0023 246.528C68.7324 247.545 68.7365 248.641 68.7453 250.835L69.208 365.415C69.2427 374.035 69.2604 378.346 71.028 380.519C72.5648 382.407 74.8853 383.486 77.3201 383.445C80.1211 383.395 83.4282 380.631 90.0421 375.102L264.663 229.149C266.345 227.744 267.187 227.041 267.79 226.18C268.324 225.417 268.721 224.564 268.96 223.664C269.231 222.647 269.223 221.551 269.214 219.36L268.752 104.778C268.716 96.1596 268.7 91.8485 266.931 89.6751C265.395 87.7862 263.075 86.7079 260.639 86.75Z"/>
++ <path android:fillColor="#FF5A1F" android:pathData="M276,305 A99,99 0,1 0,474 305 A99,99 0,1 0,276 305"/>
+ </vector>
+diff --git a/app/src/main/res/drawable/taku_brand_mark.xml b/app/src/main/res/drawable/taku_brand_mark.xml
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/res/drawable/taku_brand_mark.xml
+@@ -0,0 +1,5 @@
++<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="32dp" android:height="32dp" android:viewportWidth="512" android:viewportHeight="512">
++ <path android:fillColor="#FFFDFA" android:pathData="M29,36 H320 V423 H29 Z"/>
++ <path android:fillColor="#16140F" android:pathData="M440.224 0C479.866 0 512 32.1352 512 71.7757V440.224C512 479.866 479.866 512 440.224 512H71.7757C32.1352 512 1.34881e-06 479.866 0 440.224V71.7757C0 32.1352 32.1352 1.34873e-06 71.7757 0H440.224ZM375.231 206.794C321.536 206.795 278.009 250.873 278.009 305.248C278.009 359.623 321.536 403.702 375.231 403.702C428.927 403.702 472.456 359.623 472.456 305.248C472.454 250.873 428.927 206.794 375.231 206.794ZM260.639 86.75C257.84 86.7986 254.531 89.561 247.918 95.0887L73.2966 241.042C71.6147 242.449 70.7739 243.152 70.1706 244.013C69.6363 244.777 69.2413 245.628 69.0023 246.528C68.7324 247.545 68.7365 248.641 68.7453 250.835L69.208 365.415C69.2427 374.035 69.2604 378.346 71.028 380.519C72.5648 382.407 74.8853 383.486 77.3201 383.445C80.1211 383.395 83.4282 380.631 90.0421 375.102L264.663 229.149C266.345 227.744 267.187 227.041 267.79 226.18C268.324 225.417 268.721 224.564 268.96 223.664C269.231 222.647 269.223 221.551 269.214 219.36L268.752 104.778C268.716 96.1596 268.7 91.8485 266.931 89.6751C265.395 87.7862 263.075 86.7079 260.639 86.75Z"/>
++ <path android:fillColor="#FF5A1F" android:pathData="M276,305 A99,99 0,1 0,474 305 A99,99 0,1 0,276 305"/>
++</vector>
+diff --git a/app/src/main/res/values/taku_brand.xml b/app/src/main/res/values/taku_brand.xml
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/res/values/taku_brand.xml
+@@ -0,0 +1,5 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="taku_system_update_note">System update</string>
++    <string name="taku_product_version">Version %1$s</string>
++</resources>
+diff --git a/app/src/main/res/values-zh-rCN/taku_brand.xml b/app/src/main/res/values-zh-rCN/taku_brand.xml
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/res/values-zh-rCN/taku_brand.xml
+@@ -0,0 +1,5 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="taku_system_update_note">系统更新</string>
++    <string name="taku_product_version">版本 %1$s</string>
++</resources>
+diff --git a/schemas/org.lineageos.updater.data.source.local.UpdatesDatabase/5.json b/schemas/org.lineageos.updater.data.source.local.UpdatesDatabase/5.json
+new file mode 100644
+--- /dev/null
++++ b/schemas/org.lineageos.updater.data.source.local.UpdatesDatabase/5.json
+@@ -0,0 +1,121 @@
++{
++  "formatVersion": 1,
++  "database": {
++    "version": 5,
++    "identityHash": "15560c7ae93251bef8b737b7a3b736a6",
++    "entities": [
++      {
++        "tableName": "updates",
++        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`download_id` TEXT NOT NULL, `status` INTEGER NOT NULL, `path` TEXT, `timestamp` INTEGER NOT NULL, `type` TEXT, `version` TEXT NOT NULL, `size` INTEGER NOT NULL, `name` TEXT NOT NULL, `os_patch_level` TEXT, `os_sdk_level` INTEGER, `payload_metadata_offset` INTEGER, `payload_metadata_size` INTEGER, `payload_offset` INTEGER, `payload_size` INTEGER, `payload_properties_offset` INTEGER, `payload_properties_size` INTEGER, `download_url` TEXT, `display_version` TEXT, PRIMARY KEY(`download_id`))",
++        "fields": [
++          {
++            "fieldPath": "downloadId",
++            "columnName": "download_id",
++            "affinity": "TEXT",
++            "notNull": true
++          },
++          {
++            "fieldPath": "status",
++            "columnName": "status",
++            "affinity": "INTEGER",
++            "notNull": true
++          },
++          {
++            "fieldPath": "path",
++            "columnName": "path",
++            "affinity": "TEXT"
++          },
++          {
++            "fieldPath": "timestamp",
++            "columnName": "timestamp",
++            "affinity": "INTEGER",
++            "notNull": true
++          },
++          {
++            "fieldPath": "type",
++            "columnName": "type",
++            "affinity": "TEXT"
++          },
++          {
++            "fieldPath": "version",
++            "columnName": "version",
++            "affinity": "TEXT",
++            "notNull": true
++          },
++          {
++            "fieldPath": "size",
++            "columnName": "size",
++            "affinity": "INTEGER",
++            "notNull": true
++          },
++          {
++            "fieldPath": "name",
++            "columnName": "name",
++            "affinity": "TEXT",
++            "notNull": true
++          },
++          {
++            "fieldPath": "osPatchLevel",
++            "columnName": "os_patch_level",
++            "affinity": "TEXT"
++          },
++          {
++            "fieldPath": "osSdkLevel",
++            "columnName": "os_sdk_level",
++            "affinity": "INTEGER"
++          },
++          {
++            "fieldPath": "payloadMetadataOffset",
++            "columnName": "payload_metadata_offset",
++            "affinity": "INTEGER"
++          },
++          {
++            "fieldPath": "payloadMetadataSize",
++            "columnName": "payload_metadata_size",
++            "affinity": "INTEGER"
++          },
++          {
++            "fieldPath": "payloadOffset",
++            "columnName": "payload_offset",
++            "affinity": "INTEGER"
++          },
++          {
++            "fieldPath": "payloadSize",
++            "columnName": "payload_size",
++            "affinity": "INTEGER"
++          },
++          {
++            "fieldPath": "payloadPropertiesOffset",
++            "columnName": "payload_properties_offset",
++            "affinity": "INTEGER"
++          },
++          {
++            "fieldPath": "payloadPropertiesSize",
++            "columnName": "payload_properties_size",
++            "affinity": "INTEGER"
++          },
++          {
++            "fieldPath": "downloadUrl",
++            "columnName": "download_url",
++            "affinity": "TEXT"
++          },
++          {
++            "fieldPath": "displayVersion",
++            "columnName": "display_version",
++            "affinity": "TEXT"
++          }
++        ],
++        "primaryKey": {
++          "autoGenerate": false,
++          "columnNames": [
++            "download_id"
++          ]
++        }
++      }
++    ],
++    "setupQueries": [
++      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
++      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '15560c7ae93251bef8b737b7a3b736a6')"
++    ]
++  }
++}
+\ No newline at end of file

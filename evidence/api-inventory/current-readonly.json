@@ -1,0 +1,171 @@
+{
+  "observedAt": "2026-10-09T18:56:36.203461+00:00",
+  "serial": "emulator-5582",
+  "avd": {
+    "exitCode": 0,
+    "output": "AgentOS_ImageCheck\nOK",
+    "stderr": ""
+  },
+  "scope": "read-only selected system properties and package metadata",
+  "probes": {
+    "identity": {
+      "exitCode": 0,
+      "output": "uid=0(root) gid=0(root) groups=0(root),1004(input),1007(log),1011(adb),1015(sdcard_rw),1028(sdcard_r),1078(ext_data_rw),1079(ext_obb_rw),3001(net_bt_admin),3002(net_bt),3003(inet),3006(net_bw_stats),3009(readproc),3011(uhid),3012(readtracefs) context=u:r:su:s0",
+      "stderr": ""
+    },
+    "selinux": {
+      "exitCode": 0,
+      "output": "Enforcing",
+      "stderr": ""
+    },
+    "androidRelease": {
+      "exitCode": 0,
+      "output": "16",
+      "stderr": ""
+    },
+    "apiLevel": {
+      "exitCode": 0,
+      "output": "36",
+      "stderr": ""
+    },
+    "abi": {
+      "exitCode": 0,
+      "output": "arm64-v8a",
+      "stderr": ""
+    },
+    "buildType": {
+      "exitCode": 0,
+      "output": "userdebug",
+      "stderr": ""
+    },
+    "brokerService": {
+      "exitCode": 0,
+      "output": "running",
+      "stderr": ""
+    },
+    "displayStatus": {
+      "exitCode": 0,
+      "output": "{\n  \"displayId\": 11,\n  \"name\": \"Taku-Independent-Screen\",\n  \"width\": 720,\n  \"height\": 1280,\n  \"density\": 240,\n  \"flags\": 83273,\n  \"uid\": 0,\n  \"pid\": 32035,\n  \"mirrorSocket\": \"taku-mirror\"\n}0\n11",
+      "stderr": ""
+    },
+    "codexVersion": {
+      "exitCode": 0,
+      "output": "codex-cli 0.161.0",
+      "stderr": ""
+    },
+    "memorySummary": {
+      "exitCode": 0,
+      "output": "MemTotal:        4014920 kB\nMemFree:          570824 kB\nMemAvailable:    1149756 kB\nBuffers:           23168 kB\nCached:           898716 kB\nSwapCached:            0 kB\nActive:          2082424 kB\nInactive:         718744 kB\nActive(anon):    1607544 kB\nInactive(anon):   318312 kB\nActive(file):     474880 kB\nInactive(file):   400432 kB\nUnevictable:       26108 kB\nMlocked:           26108 kB\nSwapTotal:             0 kB\nSwapFree:              0 kB\nDirty:              1072 kB\nWriteback:             0 kB\nAnonPages:       1905304 kB\nMapped:           629772 kB\nShmem:             24668 kB\nKReclaimable:      93936 kB\nSlab:             306860 kB\nSReclaimable:      93936 kB\nSUnreclaim:       212924 kB\nKernelStack:       46688 kB\nShadowCallStack:       0 kB\nPageTables:       104436 kB\nSecPageTables:         0 kB\nNFS_Unstable:          0 kB\nBounce:                0 kB\nWritebackTmp:          0 kB\nCommitLimit:     2007460 kB\nCommitted_AS:   203219896 kB\nVmallocTotal:   257687552 kB\nVmallocUsed:       61468 kB\nVmallocChunk:          0 kB\nPercpu:             6128 kB\nAnonHugePages:         0 kB\nShmemHugePages:        0 kB\nShmemPmdMapped:        0 kB\nFileHugePages:         0 kB\nFilePmdMapped:         0 kB\nCmaTotal:          16384 kB\nCmaFree:            4660 kB",
+      "stderr": ""
+    },
+    "storageSummary": {
+      "exitCode": 0,
+      "output": "Filesystem       Size Used Avail Use% Mounted on\n/dev/block/dm-53  10G 5.9G  3.7G  62% /mnt/pass_through/0/emulated",
+      "stderr": ""
+    }
+  },
+  "packages": {
+    "org.agentos.assistant": {
+      "path": {
+        "exitCode": 0,
+        "output": "package:/data/app/~~nJ2gKH7iGYIGl-wqvUii2w==/org.agentos.assistant-Tm1QmEjGaNdS0rcpkLF4jA==/base.apk",
+        "stderr": ""
+      },
+      "exitCode": 0,
+      "metadata": [
+        "codePath=/data/app/~~nJ2gKH7iGYIGl-wqvUii2w==/org.agentos.assistant-Tm1QmEjGaNdS0rcpkLF4jA==",
+        "versionCode=0 minSdk=36 targetSdk=36",
+        "versionName=null",
+        "pkgFlags=[ SYSTEM HAS_CODE ALLOW_CLEAR_USER_DATA UPDATED_SYSTEM_APP ]",
+        "codePath=/system_ext/priv-app/AgentOSAssistant",
+        "versionCode=0 minSdk=36 targetSdk=36",
+        "versionName=null",
+        "pkgFlags=[ SYSTEM HAS_CODE ALLOW_CLEAR_USER_DATA ]"
+      ]
+    },
+    "org.agentos.apiboard": {
+      "path": {
+        "exitCode": 0,
+        "output": "package:/data/app/~~RERoDgzRceOiX1bqJH0Asw==/org.agentos.apiboard-2TCxOpcIfU_na6zrMM9jdA==/base.apk",
+        "stderr": ""
+      },
+      "exitCode": 0,
+      "metadata": [
+        "codePath=/data/app/~~RERoDgzRceOiX1bqJH0Asw==/org.agentos.apiboard-2TCxOpcIfU_na6zrMM9jdA==",
+        "versionCode=1 minSdk=30 targetSdk=35",
+        "versionName=1.0",
+        "pkgFlags=[ HAS_CODE ALLOW_CLEAR_USER_DATA ]"
+      ]
+    },
+    "org.agentos.reflexgame": {
+      "path": {
+        "exitCode": 0,
+        "output": "package:/data/app/~~sslTWPlel6ehTL-ReV7GBQ==/org.agentos.reflexgame-8XzPzzlPqhjUnA4xMLT_Ug==/base.apk",
+        "stderr": ""
+      },
+      "exitCode": 0,
+      "metadata": [
+        "codePath=/data/app/~~sslTWPlel6ehTL-ReV7GBQ==/org.agentos.reflexgame-8XzPzzlPqhjUnA4xMLT_Ug==",
+        "versionCode=1 minSdk=30 targetSdk=35",
+        "versionName=1.0",
+        "pkgFlags=[ HAS_CODE ALLOW_CLEAR_USER_DATA ]"
+      ]
+    },
+    "org.agentos.minilab": {
+      "path": {
+        "exitCode": 0,
+        "output": "package:/data/app/~~tuxftwyYOwJq1GnH6ksCTg==/org.agentos.minilab-x_ZwVGqTnRf7GdPifKwurw==/base.apk",
+        "stderr": ""
+      },
+      "exitCode": 0,
+      "metadata": [
+        "codePath=/data/app/~~tuxftwyYOwJq1GnH6ksCTg==/org.agentos.minilab-x_ZwVGqTnRf7GdPifKwurw==",
+        "versionCode=1 minSdk=26 targetSdk=35",
+        "versionName=1.0",
+        "pkgFlags=[ DEBUGGABLE HAS_CODE ALLOW_CLEAR_USER_DATA ]"
+      ]
+    },
+    "com.tencent.mm": {
+      "path": {
+        "exitCode": 0,
+        "output": "package:/data/app/~~YdlnBUFuaFOQJbXPNWRrwA==/com.tencent.mm-o3uIczTyCSO-rUpKc_TznQ==/base.apk",
+        "stderr": ""
+      },
+      "exitCode": 0,
+      "metadata": [
+        "codePath=/data/app/~~YdlnBUFuaFOQJbXPNWRrwA==/com.tencent.mm-o3uIczTyCSO-rUpKc_TznQ==",
+        "versionCode=3200 minSdk=24 targetSdk=34",
+        "versionName=8.0.79",
+        "pkgFlags=[ HAS_CODE ALLOW_CLEAR_USER_DATA LARGE_HEAP ]"
+      ]
+    },
+    "com.ss.android.ugc.aweme": {
+      "path": {
+        "exitCode": 0,
+        "output": "package:/data/app/~~TvihBxCStbwmRy73c0cwCg==/com.ss.android.ugc.aweme-zzvuznXc1jHhe2UtL3WSLw==/base.apk",
+        "stderr": ""
+      },
+      "exitCode": 0,
+      "metadata": [
+        "codePath=/data/app/~~TvihBxCStbwmRy73c0cwCg==/com.ss.android.ugc.aweme-zzvuznXc1jHhe2UtL3WSLw==",
+        "versionCode=400701 minSdk=23 targetSdk=34",
+        "versionName=40.7.0",
+        "pkgFlags=[ HAS_CODE ALLOW_CLEAR_USER_DATA LARGE_HEAP ]"
+      ]
+    },
+    "com.xingin.xhs": {
+      "path": {
+        "exitCode": 0,
+        "output": "package:/data/app/~~vSWLCDkyfpSlTO3ORVLDSg==/com.xingin.xhs-ElAxIo6OF9yEXX7XNl7-Cw==/base.apk",
+        "stderr": ""
+      },
+      "exitCode": 0,
+      "metadata": [
+        "codePath=/data/app/~~vSWLCDkyfpSlTO3ORVLDSg==/com.xingin.xhs-ElAxIo6OF9yEXX7XNl7-Cw==",
+        "versionCode=9491803 minSdk=21 targetSdk=36",
+        "versionName=9.49.1",
+        "pkgFlags=[ HAS_CODE ALLOW_CLEAR_USER_DATA LARGE_HEAP ]"
+      ]
+    }
+  }
+}

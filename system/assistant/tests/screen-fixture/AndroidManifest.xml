@@ -1,0 +1,6 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="org.agentos.screenfixture" android:versionCode="1" android:versionName="20261023-background-test">
+ <uses-sdk android:minSdkVersion="36" android:targetSdkVersion="36"/>
+ <application android:theme="@android:style/Theme.Material.Light.NoActionBar" android:label="Synthetic screen integration fixture">
+  <activity android:name=".ScreenFixtureActivity" android:exported="true"/>
+ </application>
+</manifest>

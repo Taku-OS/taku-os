@@ -1,0 +1,66 @@
+{
+  "checkedAt": "2026-10-15",
+  "scope": "Personal Pixel 9 independent networking",
+  "choice": "FlClash 0.9.0 with mihomo",
+  "choiceReason": "Rich Android profile/routing/DNS/connection controls and public start/stop automation; verify on device rather than infer stability from stars",
+  "repositories": [
+    {
+      "name": "FlClash",
+      "repo": "https://github.com/chen08209/FlClash",
+      "release": "v0.9.0",
+      "releasedAt": "2026-10-14T01:56:11Z",
+      "role": "Flutter GUI + mihomo",
+      "features": [
+        "subscription and file import",
+        "custom rules/proxies/groups",
+        "live connections/DNS/logs",
+        "per-app routing",
+        "Android quick settings and automation intents",
+        "WebDAV/local backup"
+      ],
+      "integration": "Original presigned APK, normal app; local HTTP proxy for native Agent",
+      "commercialBundling": "Installed 0.9.0 statement explicitly prohibits commercial bundled sales; restrict current preinstall option to personal images"
+    },
+    {
+      "name": "CMFA",
+      "repo": "https://github.com/MetaCubeX/ClashMetaForAndroid",
+      "release": "v2.11.35",
+      "releasedAt": "2026-09-30T16:59:35Z",
+      "role": "Native Android GUI + Android-specific mihomo branch",
+      "strength": "Android-native service and profile interfaces; candidate for future ROM integration"
+    },
+    {
+      "name": "Clash Mi",
+      "repo": "https://github.com/KaringX/clashmi",
+      "release": "v1.0.31.1703",
+      "releasedAt": "2026-10-09T04:51:17Z",
+      "role": "Flutter GUI + mihomo",
+      "strength": "Bundled zashboard; cross-platform including iOS"
+    },
+    {
+      "name": "Karing",
+      "repo": "https://github.com/KaringX/karing",
+      "release": "v1.2.25.2802",
+      "releasedAt": "2026-09-10T02:20:39Z",
+      "role": "Modified sing-box GUI",
+      "strength": "Multiple subscription formats and synchronized routing",
+      "fit": "Clash Meta configuration only partly compatible; less direct for current mihomo configuration"
+    },
+    {
+      "name": "Mihomo",
+      "repo": "https://pkg.go.dev/github.com/metacubex/mihomo@v1.19.32",
+      "role": "Proxy core, not a complete Android UI/VPN client"
+    }
+  ],
+  "verifiedApk": {
+    "url": "https://github.com/chen08209/FlClash/releases/download/v0.9.0/FlClash-0.9.0-android-arm64-v8a.apk",
+    "sha256": "ed06fb1ccf73156dbea07cf906b0ab2f2bececca29a510b288a5621868ff2bcf",
+    "bytes": 61435621
+  },
+  "secretsIncluded": false,
+  "limits": [
+    "Feature breadth is a judgment based on documented capabilities, not an exhaustive ranking",
+    "Battery usage and mobile-data reconnection require physical tests",
+    "No private subscription URLs, node credentials, or account tokens are included"
+  ]
+}

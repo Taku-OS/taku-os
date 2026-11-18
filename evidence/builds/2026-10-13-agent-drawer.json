@@ -1,0 +1,76 @@
+{
+  "date": "2026-10-13",
+  "scope": "API36 ARM64 system-assistant drawer component",
+  "sourceHead": "99b205019cac1ad81773bdb82bfbbba4bdfa8fd5",
+  "workingTreeModified": true,
+  "sourceManifestSha256": "685ad617d52be8edf16ac4067808feefa738ebe989b6a27c58c594d38b240b9e",
+  "artifacts": {
+    "apk": {
+      "path": "system/assistant/out/AgentOSAssistant.apk",
+      "bytes": 1891326,
+      "sha256": "866adce5185db9c68af25a5dfa7cdec9c4f133cf811def29425ceaa3a54a673c",
+      "installedHashMatches": true
+    },
+    "broker": {
+      "path": "system/assistant/out/task-broker.jar",
+      "bytes": 14196,
+      "sha256": "d5d0a085456f5399daa1334dffdc43ebbbc63cd899f60507242b18ff1971b749",
+      "installedHashMatches": true
+    }
+  },
+  "uiTest": {
+    "path": "out/agent-drawer-ui/ui-test.txt",
+    "sha256": "1fa3214eec794b868997526cfd84bf0d18190f7f2610c7a47f732320ef6084e7",
+    "result": "OK (1 test)",
+    "seconds": 39.676,
+    "boundary": "interaction run before final light-composer outline color change; final APK installed and captured visually"
+  },
+  "checks": {
+    "nativeThreadTitlesAndList": true,
+    "draftRetention": true,
+    "themeSwitch": true,
+    "keyboardPosition": true,
+    "dismissRestoresForeground": true,
+    "invocationScreenshotMatchesForeground": true,
+    "repoVerifyPassed": true,
+    "designTokenCheckPassed": true,
+    "diffWhitespaceCheckPassed": true
+  },
+  "brokerRecovery": {
+    "brokerRunning": true,
+    "nativeThreadListAfterRestart": true,
+    "preservedInvalidStateCount": 1,
+    "modelTurnStarted": false,
+    "scope": "actual native control after isolating damaged state; not model acceptance"
+  },
+  "runtime": "codex-cli 0.161.0 app-server",
+  "signing": "public AOSP platform development test key",
+  "visualFixtureOnly": true,
+  "modelTurnVerified": false,
+  "modelDrivenAndroidOperationVerified": false,
+  "physicalDeviceVerified": false,
+  "coldBootVerified": false,
+  "pixel9CandidateRebuilt": false,
+  "screenshots": {
+    "out/agent-drawer-ui/dark.png": "706c87fffd733ce9a5cd8768b763f22951d39fec7be5649bc66818b533c7179f",
+    "out/agent-drawer-ui/first-dark.png": "288f6a00677fafda38c6fb2ed233fc40fcb22ef4accbe3cc9ac010b8dc3ff967",
+    "out/agent-drawer-ui/invocation-context.png": "e61e9f199aed56adbe46fa0d94b70d9e78c2bc7b333c6b116142c61885b41e44",
+    "out/agent-drawer-ui/keyboard.png": "bf4702b92dda37774639b76b362920e7b81d07d93a223780258ddbf14c584a36",
+    "out/agent-drawer-ui/light.png": "132d6416d61bdd712c91fee2d7f8b9dd5b9a37a48de49d2d47f78d170c0742f3",
+    "out/agent-drawer-ui/needs-account.png": "eb18db8093b20f032f515fc146d5c91fba8525c54a70946d290eeb8c26cec537",
+    "out/agent-drawer-ui/restored-app.png": "e61e9f199aed56adbe46fa0d94b70d9e78c2bc7b333c6b116142c61885b41e44",
+    "out/agent-drawer-ui/sessions.png": "325967cd1419f1290574eeec5f5edc13813774a227693c7d98a13b4ca3137fcb",
+    "out/agent-drawer-ui/settings-light.png": "c441c61b89ee27780ff4d34f5634a3fe33bc37eb53dd99e663ec00212515a7bb"
+  },
+  "reviewPage": "http://127.0.0.1:4344/",
+  "reviewPageVerified": true,
+  "reviewPageConsoleErrors": 0,
+  "remaining": [
+    "Phone account connection UI and real model turns",
+    "Model-driven Android operations and active turn interrupt",
+    "Long-history pagination and cross-process model-history acceptance",
+    "Plugin lifecycle and isolation",
+    "Landscape and large-font QA",
+    "Pixel9 candidate rebuild and physical cold boot"
+  ]
+}

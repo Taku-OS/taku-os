@@ -1,0 +1,10 @@
+{
+  "asset": "res/drawable-nodpi/taku_agent_mark.png",
+  "generator": "Codex built-in Imagegen",
+  "date": "2026-10-13",
+  "brief": "Transparent standalone sun-like assistant mark matching the selected system drawer visual",
+  "sha256": "4cbdd5b12134e0227895996d317a631ae4f7ac89520923faf3b0d15f03f14db8",
+  "treatment": "Original generated PNG; native ImageView scales and applies semantic theme tint",
+  "license": "Apache-2.0",
+  "boundary": "Generated visual asset; not evidence of model or phone execution"
+}

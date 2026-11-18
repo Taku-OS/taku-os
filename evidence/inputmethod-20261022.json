@@ -1,0 +1,58 @@
+{
+  "state": "emulator_verified",
+  "date": "2026-10-22",
+  "scope": "Taku Input Method 0.1.0 standalone ARM64 development-signed APK; no AI and no ROM flash",
+  "upstreamCommit": "048f581c652367567b8ee5c28c5163b805288895",
+  "patchSha256": "dcd135232806cacbc92f213577a4b82e16011b4bfd218f3e14dd511dc3d9d7d7",
+  "artifact": {
+    "upstreamCommit": "048f581c652367567b8ee5c28c5163b805288895",
+    "patchSha256": "dcd135232806cacbc92f213577a4b82e16011b4bfd218f3e14dd511dc3d9d7d7",
+    "apk": "TakuInputMethod-arm64-v8a.apk",
+    "sha256": "f71688ffd42de2f204ee762a74bb47b3ec824b1a2161738eb3273e4c982c6d7e",
+    "bytes": 45848760,
+    "package": "org.agentos.inputmethod",
+    "version": "0.1.0",
+    "internetPermission": false
+  },
+  "unitTests": {
+    "tests": 8,
+    "failures": 0,
+    "suites": [
+      "org.fcitx.fcitx5.android.ThemeSerializationTest",
+      "org.fcitx.fcitx5.android.StringEscapeTest",
+      "org.fcitx.fcitx5.android.core.TakuDefaultsTest"
+    ]
+  },
+  "acceptance": {
+    "ok": true,
+    "setupGuideVerified": true,
+    "serial": "emulator-5652",
+    "package": "org.agentos.inputmethod",
+    "androidSdk": "36",
+    "adbUid": "2000",
+    "cases": [
+      "pinyin-candidate-commit",
+      "delete-composition",
+      "delete-committed-text",
+      "chinese-english-switch",
+      "english-typing",
+      "symbols",
+      "numeric-editor",
+      "password-editor",
+      "ime-process-restart-chinese-commit",
+      "day-night-theme"
+    ],
+    "inputMethod": "screen taps on IME keys and candidates; no setText, clipboard or ACTION_SET_TEXT"
+  },
+  "repositoryVerification": "npm run verify passed; structure/syntax/source-lock checks passed",
+  "screenshots": [
+    "docs/media/taku-inputmethod-pinyin-20261022.png",
+    "docs/media/taku-inputmethod-dark-20261022.png"
+  ],
+  "boundaries": [
+    "Android SDK 36 dedicated emulator only",
+    "Pixel 9 / Android 17 physical-device validation not performed",
+    "APK is not integrated into the ROM product image",
+    "Development signing key; not a production release identity"
+  ]
+}

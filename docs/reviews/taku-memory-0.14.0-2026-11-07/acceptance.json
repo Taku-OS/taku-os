@@ -1,0 +1,140 @@
+{
+ "component": "Taku 记忆 0.14.0（versionCode 16）；Broker 与助手沿用 0.12.0 验收版本（助手 v76）",
+ "status": "emulator_verified (described-card path with the home feed stand-in); generation checked off the device with the home app's own prepareFeedGeneration and a real model",
+ "recordedAt": "2026-11-07 北京时间",
+ "device": {
+  "avd": "TakuRecall",
+  "serial": "emulator-5634",
+  "android": "16",
+  "api": 36,
+  "abi": "arm64-v8a",
+  "build": "sdk_phone64_arm64 userdebug test-keys",
+  "selinux": "Enforcing"
+ },
+ "homeFeed": {
+  "branch": "origin/vela/TAKU-new-UI",
+  "commit": "9f8b497",
+  "method": "feed/generate {prompt}",
+  "route": "agent-ui.text (Android Magpie), not exercised"
+ },
+ "artifacts": {
+  "TakuMemory-0.14.0-release.apk": "cba38be36c58f3f6168cebdbb6725868c8f0cc02691a949298ddc2e2a09201db",
+  "TakuMemory-0.14.0-debug-nomodel.apk": "e64c18936f5abfc8c17f365923b2f18e6a2d254451ac179598875d5c763b3be4",
+  "TakuMemoryTests-0.14.0.apk": "cbd18cc43e5ebcd8bc826c179c7f5966e062249e70175dd9ec078ecf1ab92801",
+  "TakuHomeFeedStub.apk": "341e6f35388a9410137a812d2dac25135eef433a59ca048c8a390df0542fdccc"
+ },
+ "componentTests": {
+  "StoreTests": 319,
+  "QueueTests": 69,
+  "ResultTests": 8,
+  "PresentationTests": 36,
+  "GatewayBoundaryTests": 2,
+  "SystemAiTests": 24,
+  "SystemSettingsObserverTests": "passed",
+  "failures": 0
+ },
+ "realGeneration": {
+  "pipeline": "prepareFeedGeneration from system/agent-app/src/feed/feedGeneration.ts at 9f8b497",
+  "model": "gpt-6-luna via Codex, no tools, effort low",
+  "descriptions": 26,
+  "runs": [
+   {
+    "homeValidatorPassed": 24,
+    "memoryCheckKept": 24
+   },
+   {
+    "homeValidatorPassed": 24,
+    "memoryCheckKept": 24
+   }
+  ],
+  "keptInEitherRun": 25,
+  "secondsMedian": 24,
+  "secondsMax": 36,
+  "wordingTrials": [
+   {
+    "wording": "dispatch mentioned only",
+    "passed": 14,
+    "kept": 0
+   },
+   {
+    "wording": "on.press JSON given",
+    "passed": 19,
+    "kept": 5
+   },
+   {
+    "wording": "on as a field next to props; output order summary, actions, ui",
+    "passed": [
+     24,
+     21
+    ],
+    "kept": [
+     24,
+     21
+    ]
+   },
+   {
+    "wording": "final: plus no avatar components, Pager and Dots attached",
+    "passed": [
+     24,
+     24
+    ],
+    "kept": [
+     24,
+     24
+    ]
+   }
+  ]
+ },
+ "devicePath": {
+  "stub": "TakuHomeFeedStub.apk (org.agentos.memorytests.homefeed), uninstalled afterwards",
+  "liveModelCalls": true,
+  "steps": [
+   {
+    "step": "evening 1795015800000, stand-in ok",
+    "kept": "agent-generated card"
+   },
+   {
+    "step": "message 小雨 明晚一起吃个饭吧？, stand-in ok",
+    "kept": "agent-generated card"
+   },
+   {
+    "step": "message 小雨 阿杰生日, stand-in tamper",
+    "generated": 2,
+    "retracted": 2,
+    "fallback": "memory.nudge.15"
+   },
+   {
+    "step": "evening 1795102200000, stand-in refuse",
+    "swept": "expired message card",
+    "fallback": "memory.brief.16",
+    "thenRetracted": "previous generated brief"
+   }
+  ],
+  "nudgeCardColumn": {
+   "13": "agent-generated:03837e76-…",
+   "14": "agent-generated:62b4be22-…",
+   "15": "memory.nudge.15",
+   "16": "memory.brief.16"
+  }
+ },
+ "fixedCardsRevalidated": {
+  "commit": "9f8b497",
+  "cards": 31,
+  "invalid": 0
+ },
+ "openAccess": {
+  "feedDescribe true/false via org.agentos.memory.open-access": "read back by memory status",
+  "wrong type": "rejected, value unchanged"
+ },
+ "offlineChecks": [
+  "npm run verify",
+  "npm --prefix tooling/app-kit/api test",
+  "npm run build:android"
+ ],
+ "notVerified": [
+  "feed/generate in the installed Taku home (agent-ui.text model, latency)",
+  "native rendering and actions of generated cards",
+  "cards left by an unanswered feed/generate call"
+ ],
+ "deviceStateAfter": "0.14.0 debug build with nudges, feedCards and feedDescribe off; 22-day synthetic data rebuilt in 0.12.0; Broker 0.12.0 and assistant v76; stub uninstalled"
+}

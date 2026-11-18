@@ -1,0 +1,59 @@
+{
+  "result": "failed-covering-card-input",
+  "coverThenEditor": {
+    "presentation": {
+      "selected": "0|org.agentos.island.fixture|1|null|10203",
+      "compactVisible": true,
+      "reason": "expanded",
+      "expanded": true,
+      "card": {
+        "key": "0|org.agentos.island.fixture|1|null|10203",
+        "windowType": 2041,
+        "cover": true,
+        "focusable": true,
+        "richReady": true,
+        "width": 1017,
+        "height": 808,
+        "top": 0,
+        "outsideTapCollapses": false
+      }
+    },
+    "windowFocus": [
+      "mCurrentFocus=null",
+      "mCurrentFocus=Window{e667f40 u0 TakuIsland}"
+    ],
+    "imeShown": [
+      "mInputShown=true"
+    ]
+  },
+  "editorThenExpand": {
+    "presentation": {
+      "selected": "0|org.agentos.island.fixture|1|null|10203",
+      "compactVisible": true,
+      "reason": "expanded",
+      "expanded": true,
+      "card": {
+        "key": "0|org.agentos.island.fixture|1|null|10203",
+        "windowType": 2041,
+        "cover": false,
+        "focusable": false,
+        "richReady": true,
+        "width": 1017,
+        "height": 808,
+        "top": 89,
+        "outsideTapCollapses": false
+      }
+    },
+    "windowFocus": [
+      "mCurrentFocus=null",
+      "mCurrentFocus=Window{c0ca6ef u0 org.agentos.island.fixture/org.agentos.island.fixture.Fixture}"
+    ],
+    "imeShown": [
+      "mInputShown=true"
+    ]
+  },
+  "typedBefore": "ime-before-expand-with-island",
+  "typedWhileCovering": "-cover-check",
+  "observedEditorText": "ime-before-expand-with-island",
+  "showImeWithHardwareKeyboard": "1"
+}

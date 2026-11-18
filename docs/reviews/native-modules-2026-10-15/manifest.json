@@ -1,0 +1,247 @@
+[
+  {
+    "file": "01-settings.png",
+    "title": "Agent settings",
+    "group": "Settings",
+    "physicalDevice": true,
+    "loadingVisible": false
+  },
+  {
+    "file": "02-home.png",
+    "title": "Capability overview",
+    "group": "Capabilities",
+    "physicalDevice": true,
+    "loadingVisible": false
+  },
+  {
+    "file": "03-models.png",
+    "title": "Models and response",
+    "group": "Capabilities",
+    "physicalDevice": true,
+    "loadingVisible": false
+  },
+  {
+    "file": "04-usage.png",
+    "title": "Usage and context",
+    "group": "Capabilities",
+    "physicalDevice": true,
+    "loadingVisible": false
+  },
+  {
+    "file": "05-conversations.png",
+    "title": "Conversation management",
+    "group": "Capabilities",
+    "physicalDevice": true,
+    "loadingVisible": false
+  },
+  {
+    "file": "06-tasks.png",
+    "title": "Tasks and queue",
+    "group": "Capabilities",
+    "physicalDevice": true,
+    "loadingVisible": false
+  },
+  {
+    "file": "07-goal.png",
+    "title": "Task goals",
+    "group": "Capabilities",
+    "physicalDevice": true,
+    "loadingVisible": false
+  },
+  {
+    "file": "08-queue.png",
+    "title": "Execution queue",
+    "group": "Capabilities",
+    "physicalDevice": true,
+    "loadingVisible": false
+  },
+  {
+    "file": "09-extensions.png",
+    "title": "Extension connections",
+    "group": "Capabilities",
+    "physicalDevice": true,
+    "loadingVisible": false
+  },
+  {
+    "file": "10-apps.png",
+    "title": "Apps and MCP",
+    "group": "Capabilities",
+    "physicalDevice": true,
+    "loadingVisible": false
+  },
+  {
+    "file": "11-tools.png",
+    "title": "Connector tool catalog",
+    "group": "Capabilities",
+    "physicalDevice": true,
+    "loadingVisible": false
+  },
+  {
+    "file": "12-plugins.png",
+    "title": "Plugins and marketplace",
+    "group": "Capabilities",
+    "physicalDevice": true,
+    "loadingVisible": false
+  },
+  {
+    "file": "13-workspace.png",
+    "title": "Workspace",
+    "group": "Capabilities",
+    "physicalDevice": true,
+    "loadingVisible": false
+  },
+  {
+    "file": "14-files.png",
+    "title": "File browsing and editing",
+    "group": "Capabilities",
+    "physicalDevice": true,
+    "loadingVisible": false
+  },
+  {
+    "file": "15-terminal.png",
+    "title": "Terminal parameters",
+    "group": "Capabilities",
+    "physicalDevice": true,
+    "loadingVisible": false
+  },
+  {
+    "file": "16-review.png",
+    "title": "Code-review parameters",
+    "group": "Capabilities",
+    "physicalDevice": true,
+    "loadingVisible": false
+  },
+  {
+    "file": "17-voice.png",
+    "title": "Realtime voice",
+    "group": "Capabilities",
+    "physicalDevice": true,
+    "loadingVisible": false
+  },
+  {
+    "file": "18-remote.png",
+    "title": "Remote debugging and pairing",
+    "group": "Development",
+    "physicalDevice": true,
+    "loadingVisible": false
+  },
+  {
+    "file": "19-memory.png",
+    "title": "Memory and projects",
+    "group": "Development",
+    "physicalDevice": true,
+    "loadingVisible": false
+  },
+  {
+    "file": "20-events.png",
+    "title": "Runtime events",
+    "group": "Development",
+    "physicalDevice": true,
+    "loadingVisible": false
+  },
+  {
+    "file": "21-protocol.png",
+    "title": "All native interfaces",
+    "group": "Development",
+    "physicalDevice": true,
+    "loadingVisible": false
+  },
+  {
+    "file": "22-skills.png",
+    "title": "Skill discovery",
+    "group": "Extensions",
+    "physicalDevice": true,
+    "loadingVisible": false
+  },
+  {
+    "file": "23-installed.png",
+    "title": "Installed skills",
+    "group": "Extensions",
+    "physicalDevice": true,
+    "loadingVisible": false
+  },
+  {
+    "file": "24-harness.png",
+    "title": "Harness module overview",
+    "group": "Context",
+    "physicalDevice": true,
+    "loadingVisible": false
+  },
+  {
+    "file": "25-harness-identity.png",
+    "title": "Harness · Assistant identity",
+    "group": "Context",
+    "physicalDevice": true,
+    "loadingVisible": false
+  },
+  {
+    "file": "26-harness-execution.png",
+    "title": "Harness · System execution contract",
+    "group": "Context",
+    "physicalDevice": true,
+    "loadingVisible": false
+  },
+  {
+    "file": "27-harness-boundaries.png",
+    "title": "Harness · Permissions and trust boundaries",
+    "group": "Context",
+    "physicalDevice": true,
+    "loadingVisible": false
+  },
+  {
+    "file": "28-harness-development.png",
+    "title": "Harness · App development routes",
+    "group": "Context",
+    "physicalDevice": true,
+    "loadingVisible": false
+  },
+  {
+    "file": "29-harness-context-policy.png",
+    "title": "Harness · Context version rules",
+    "group": "Context",
+    "physicalDevice": true,
+    "loadingVisible": false
+  },
+  {
+    "file": "30-harness-os-environment.png",
+    "title": "Harness · OS and runtime environment",
+    "group": "Context",
+    "physicalDevice": true,
+    "loadingVisible": false
+  },
+  {
+    "file": "31-harness-skills-catalog.png",
+    "title": "Harness · Skill catalog",
+    "group": "Context",
+    "physicalDevice": true,
+    "loadingVisible": false
+  },
+  {
+    "file": "32-process.png",
+    "title": "Process-start parameters",
+    "group": "Development",
+    "physicalDevice": true,
+    "loadingVisible": false
+  },
+  {
+    "file": "33-hooks.png",
+    "title": "Hook parameters",
+    "group": "Development",
+    "physicalDevice": true,
+    "loadingVisible": false
+  },
+  {
+    "file": "34-watch.png",
+    "title": "File-watch parameters",
+    "group": "Development",
+    "physicalDevice": true,
+    "loadingVisible": false
+  },
+  {
+    "file": "35-config.png",
+    "title": "Runtime configuration parameters",
+    "group": "Development",
+    "physicalDevice": true,
+    "loadingVisible": false
+  }
+]

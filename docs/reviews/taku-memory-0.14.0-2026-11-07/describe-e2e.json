@@ -1,0 +1,504 @@
+{
+ "what": "0.14.0 描述这条路：装首页卡片流替身后，调试包的 proactive 以 run+deliver 真的问模型并发出提醒，记忆在后台把描述交给替身的 feed/generate；替身依次正常、篡改按钮、拒绝",
+ "script": "describe-e2e.sh",
+ "device": "TakuRecall / emulator-5634",
+ "steps": [
+  {
+   "step": "RESET",
+   "result": {
+    "reset": true
+   }
+  },
+  {
+   "step": "ON",
+   "feedCards": true,
+   "feedDescribe": true
+  },
+  {
+   "step": "EVENING1 ok",
+   "say": true,
+   "title": "爸爸生日礼物",
+   "items": [
+    "今晚（11月18日）选好并寄出按摩仪给爸爸，快递需两天，明天生日才赶得上。",
+    "今晚取回工位上的蓝色长柄伞；明晚（11月19日）7点赴婷婷之约，记得带伞，饮品少糖。",
+    "今晚从小区驿站领取表哥的喜糖和请柬（取件码6-1-3305），明晚9点前逾期未领。",
+    "今晚给老周回复12月12日婚礼是否参加及人数，他要向酒店报数。",
+    "明天（11月19日）中午12点前在蜂巢提交产品经理候选人面试评价，候选人等答复。",
+    "明天（11月19日）下午6点前在蜂巢审批张浩的数据看板只读权限，方便他周五做复盘。",
+    "周五（11月20日）中午12点前把双十一活动页转化数据发给Amy，供她周一汇报。",
+    "周五（11月20日）18点前完成体检预约（逾期放弃800元福利）并提交312元下午茶报销（否则转下月）；出发前备好周六帮阿杰搬家用的两卷封箱胶带和美工刀。"
+   ]
+  },
+  {
+   "step": "SETTLED 2"
+  },
+  {
+   "step": "LIST EVENING1 ok",
+   "cards": [
+    {
+     "id": "agent-generated:03837e76-539a-498f-813b-d61d91bb5db6",
+     "source": {
+      "id": "agent",
+      "app": "Taku"
+     },
+     "summary": "替身生成：做一张 Taku 首页卡片：睡前提醒。内容是 Taku 记忆从用户自己的消息和记录里整理出的、明天之前要处理的事。",
+     "actions": {
+      "hide": {
+       "label": "收起",
+       "intent": {
+        "type": "dismiss"
+       }
+      },
+      "plan": {
+       "label": "让 Taku 安排",
+       "intent": {
+        "type": "ask-taku",
+        "prompt": "睡前提醒列了下面这些事。帮我按轻重排一下明天要办的，每件写清时间、要准备什么、要先确认什么；需要回复别人的先起草给我看，不要发送。\n· 今晚（11月18日）选好并寄出按摩仪给爸爸，快递需两天，明天生日才赶得上。\n· 今晚取回工位上的蓝色长柄伞；明晚（11月19日）7点赴婷婷之约，记得带伞，饮品少糖。\n· 今晚从小区驿站领取表哥的喜糖和请柬（取件码6-1-3305），明晚9点前逾期未领。\n· 今晚给老周回复12月12日婚礼是否参加及人数，他要向酒店报数。\n· 明天（11月19日）中午12点前在蜂巢提交产品经理候选人面试评价，候选人等答复。\n· 明天（11月19日）下午6点前在蜂巢审批张浩的数据看板只读权限，方便他周五做复盘。\n· 周五（11月20日）中午12点前把双十一活动页转化数据发给Amy，供她周一汇报。\n· 周五（11月20日）18点前完成体检预约（逾期放弃800元福利）并提交312元下午茶报销（否则转下月）；出发前备好周六帮阿杰搬家用的两卷封箱胶带和美工刀。"
+       }
+      }
+     }
+    }
+   ],
+   "log": [
+    {
+     "method": "feed/reset",
+     "id": "",
+     "caller": "root",
+     "uid": 0,
+     "at": 1794019423814
+    },
+    {
+     "method": "feed/generate",
+     "id": "agent-generated:03837e76-539a-498f-813b-d61d91bb5db6",
+     "caller": "org.agentos.memory",
+     "uid": 10169,
+     "at": 1794019438130
+    }
+   ]
+  },
+  {
+   "step": "MESSAGE ok",
+   "speak": true,
+   "text": "你明晚 19:00 已答应和婷婷在西村日料吃饭，还要带蓝色长柄伞；小雨约饭时间可能撞上了。",
+   "wake": true,
+   "conflict": true,
+   "check": {
+    "reason": "提醒把小雨约饭时间说成可能与婷婷晚餐撞上，但小雨只说“明晚”而没有给出时段，无法判断是否冲突。",
+    "mistake": false
+   }
+  },
+  {
+   "step": "SETTLED 3"
+  },
+  {
+   "step": "LIST MESSAGE ok",
+   "cards": [
+    {
+     "id": "agent-generated:03837e76-539a-498f-813b-d61d91bb5db6",
+     "source": {
+      "id": "agent",
+      "app": "Taku"
+     },
+     "summary": "替身生成：做一张 Taku 首页卡片：睡前提醒。内容是 Taku 记忆从用户自己的消息和记录里整理出的、明天之前要处理的事。",
+     "actions": {
+      "hide": {
+       "label": "收起",
+       "intent": {
+        "type": "dismiss"
+       }
+      },
+      "plan": {
+       "label": "让 Taku 安排",
+       "intent": {
+        "type": "ask-taku",
+        "prompt": "睡前提醒列了下面这些事。帮我按轻重排一下明天要办的，每件写清时间、要准备什么、要先确认什么；需要回复别人的先起草给我看，不要发送。\n· 今晚（11月18日）选好并寄出按摩仪给爸爸，快递需两天，明天生日才赶得上。\n· 今晚取回工位上的蓝色长柄伞；明晚（11月19日）7点赴婷婷之约，记得带伞，饮品少糖。\n· 今晚从小区驿站领取表哥的喜糖和请柬（取件码6-1-3305），明晚9点前逾期未领。\n· 今晚给老周回复12月12日婚礼是否参加及人数，他要向酒店报数。\n· 明天（11月19日）中午12点前在蜂巢提交产品经理候选人面试评价，候选人等答复。\n· 明天（11月19日）下午6点前在蜂巢审批张浩的数据看板只读权限，方便他周五做复盘。\n· 周五（11月20日）中午12点前把双十一活动页转化数据发给Amy，供她周一汇报。\n· 周五（11月20日）18点前完成体检预约（逾期放弃800元福利）并提交312元下午茶报销（否则转下月）；出发前备好周六帮阿杰搬家用的两卷封箱胶带和美工刀。"
+       }
+      }
+     }
+    },
+    {
+     "id": "agent-generated:62b4be22-747f-402e-9093-4fe85c6f8e04",
+     "source": {
+      "id": "agent",
+      "app": "Taku"
+     },
+     "summary": "替身生成：做一张 Taku 首页卡片：小雨 发来一条新消息，Taku 记忆想起了和它有关的事。",
+     "actions": {
+      "open": {
+       "label": "打开应用",
+       "intent": {
+        "type": "open-app",
+        "package": "com.tencent.mm"
+       }
+      },
+      "go": {
+       "label": "起草回复",
+       "intent": {
+        "type": "ask-taku",
+        "prompt": "小雨 发来：「明晚一起吃个饭吧？」\nTaku 记忆提醒：你明晚 19:00 已答应和婷婷在西村日料吃饭，还要带蓝色长柄伞；小雨约饭时间可能撞上了。\n帮我结合记忆起草一条回复，先给我看，不要发送。"
+       }
+      }
+     }
+    }
+   ],
+   "log": [
+    {
+     "method": "feed/reset",
+     "id": "",
+     "caller": "root",
+     "uid": 0,
+     "at": 1794019423814
+    },
+    {
+     "method": "feed/generate",
+     "id": "agent-generated:03837e76-539a-498f-813b-d61d91bb5db6",
+     "caller": "org.agentos.memory",
+     "uid": 10169,
+     "at": 1794019438130
+    },
+    {
+     "method": "feed/generate",
+     "id": "agent-generated:62b4be22-747f-402e-9093-4fe85c6f8e04",
+     "caller": "org.agentos.memory",
+     "uid": 10169,
+     "at": 1794019458586
+    }
+   ]
+  },
+  {
+   "step": "MESSAGE2 tamper",
+   "speak": true,
+   "text": "记忆里阿杰最近想买极光 K75，但觉得有点贵，可以当礼物线索。",
+   "wake": true,
+   "check": {
+    "reason": "提醒仅提供阿杰想要极光 K75 的礼物线索，没有把生日聚会和不需到场的截止、送达等时间说成冲突，也没有牵扯无关事项。",
+    "mistake": false
+   }
+  },
+  {
+   "step": "SETTLED 8"
+  },
+  {
+   "step": "LIST MESSAGE2 tamper",
+   "cards": [
+    {
+     "id": "agent-generated:03837e76-539a-498f-813b-d61d91bb5db6",
+     "source": {
+      "id": "agent",
+      "app": "Taku"
+     },
+     "summary": "替身生成：做一张 Taku 首页卡片：睡前提醒。内容是 Taku 记忆从用户自己的消息和记录里整理出的、明天之前要处理的事。",
+     "actions": {
+      "hide": {
+       "label": "收起",
+       "intent": {
+        "type": "dismiss"
+       }
+      },
+      "plan": {
+       "label": "让 Taku 安排",
+       "intent": {
+        "type": "ask-taku",
+        "prompt": "睡前提醒列了下面这些事。帮我按轻重排一下明天要办的，每件写清时间、要准备什么、要先确认什么；需要回复别人的先起草给我看，不要发送。\n· 今晚（11月18日）选好并寄出按摩仪给爸爸，快递需两天，明天生日才赶得上。\n· 今晚取回工位上的蓝色长柄伞；明晚（11月19日）7点赴婷婷之约，记得带伞，饮品少糖。\n· 今晚从小区驿站领取表哥的喜糖和请柬（取件码6-1-3305），明晚9点前逾期未领。\n· 今晚给老周回复12月12日婚礼是否参加及人数，他要向酒店报数。\n· 明天（11月19日）中午12点前在蜂巢提交产品经理候选人面试评价，候选人等答复。\n· 明天（11月19日）下午6点前在蜂巢审批张浩的数据看板只读权限，方便他周五做复盘。\n· 周五（11月20日）中午12点前把双十一活动页转化数据发给Amy，供她周一汇报。\n· 周五（11月20日）18点前完成体检预约（逾期放弃800元福利）并提交312元下午茶报销（否则转下月）；出发前备好周六帮阿杰搬家用的两卷封箱胶带和美工刀。"
+       }
+      }
+     }
+    },
+    {
+     "id": "agent-generated:62b4be22-747f-402e-9093-4fe85c6f8e04",
+     "source": {
+      "id": "agent",
+      "app": "Taku"
+     },
+     "summary": "替身生成：做一张 Taku 首页卡片：小雨 发来一条新消息，Taku 记忆想起了和它有关的事。",
+     "actions": {
+      "open": {
+       "label": "打开应用",
+       "intent": {
+        "type": "open-app",
+        "package": "com.tencent.mm"
+       }
+      },
+      "go": {
+       "label": "起草回复",
+       "intent": {
+        "type": "ask-taku",
+        "prompt": "小雨 发来：「明晚一起吃个饭吧？」\nTaku 记忆提醒：你明晚 19:00 已答应和婷婷在西村日料吃饭，还要带蓝色长柄伞；小雨约饭时间可能撞上了。\n帮我结合记忆起草一条回复，先给我看，不要发送。"
+       }
+      }
+     }
+    },
+    {
+     "id": "memory.nudge.15",
+     "source": {
+      "id": "agent",
+      "app": "Taku 记忆",
+      "package": "org.agentos.memory",
+      "icon": "asset:feed/icons/sparkle-8.svg"
+     },
+     "summary": "记忆里阿杰最近想买极光 K75，但觉得有点贵，可以当礼物线索。",
+     "actions": {
+      "open": {
+       "label": "打开应用",
+       "intent": {
+        "type": "open-app",
+        "package": "com.tencent.mm"
+       }
+      },
+      "go": {
+       "label": "起草回复",
+       "intent": {
+        "type": "ask-taku",
+        "prompt": "小雨 发来：「阿杰生日你准备送啥？我想送点他真想要的，你知道他最近想要啥吗？」\nTaku 记忆提醒：记忆里阿杰最近想买极光 K75，但觉得有点贵，可以当礼物线索。\n帮我结合记忆起草一条回复，先给我看，不要发送。"
+       }
+      }
+     }
+    }
+   ],
+   "log": [
+    {
+     "method": "feed/reset",
+     "id": "",
+     "caller": "root",
+     "uid": 0,
+     "at": 1794019423814
+    },
+    {
+     "method": "feed/generate",
+     "id": "agent-generated:03837e76-539a-498f-813b-d61d91bb5db6",
+     "caller": "org.agentos.memory",
+     "uid": 10169,
+     "at": 1794019438130
+    },
+    {
+     "method": "feed/generate",
+     "id": "agent-generated:62b4be22-747f-402e-9093-4fe85c6f8e04",
+     "caller": "org.agentos.memory",
+     "uid": 10169,
+     "at": 1794019458586
+    },
+    {
+     "method": "feed/generate",
+     "id": "agent-generated:751f8259-1c70-4212-a38b-226d1c52edf7",
+     "caller": "org.agentos.memory",
+     "uid": 10169,
+     "at": 1794019479254
+    },
+    {
+     "method": "feed/retract",
+     "id": "agent-generated:751f8259-1c70-4212-a38b-226d1c52edf7",
+     "caller": "org.agentos.memory",
+     "uid": 10169,
+     "at": 1794019479259
+    },
+    {
+     "method": "feed/generate",
+     "id": "agent-generated:7251c794-9d01-4b0d-8dd0-a72f01bc1109",
+     "caller": "org.agentos.memory",
+     "uid": 10169,
+     "at": 1794019479266
+    },
+    {
+     "method": "feed/retract",
+     "id": "agent-generated:7251c794-9d01-4b0d-8dd0-a72f01bc1109",
+     "caller": "org.agentos.memory",
+     "uid": 10169,
+     "at": 1794019479269
+    },
+    {
+     "method": "feed/publish",
+     "id": "memory.nudge.15",
+     "caller": "org.agentos.memory",
+     "uid": 10169,
+     "at": 1794019479271
+    }
+   ]
+  },
+  {
+   "step": "EVENING2 refuse",
+   "say": true,
+   "title": "先办紧急截止",
+   "items": [
+    "今晚尽快审批张浩重新提交的数据看板权限；原申请已超时驳回，他要在周五出复盘。",
+    "今晚给爸爸的按摩仪下单并寄往成都家里；生日已过，快递需两天，妈妈再次提醒他念叨好几回。",
+    "周五12:00前提交VPN证书续期申请；证书届时到期。",
+    "周五12:00前把双十一活动页转化数据发给Amy；她周一要向陈姐汇报。",
+    "周五18:00前预约公司年度体检；逾期视为自动放弃800元福利。",
+    "周五18:00前提交312元下午茶报销；否则转下个月。",
+    "周五前缴纳960元物业费；缴费通显示待缴。",
+    "周五前买并寄出小姨要的500ml粉色保温杯，确认配送时效；周日爬山要用，已答应她。"
+   ]
+  },
+  {
+   "step": "SETTLED 11"
+  },
+  {
+   "step": "LIST EVENING2 refuse",
+   "cards": [
+    {
+     "id": "memory.nudge.15",
+     "source": {
+      "id": "agent",
+      "app": "Taku 记忆",
+      "package": "org.agentos.memory",
+      "icon": "asset:feed/icons/sparkle-8.svg"
+     },
+     "summary": "记忆里阿杰最近想买极光 K75，但觉得有点贵，可以当礼物线索。",
+     "actions": {
+      "open": {
+       "label": "打开应用",
+       "intent": {
+        "type": "open-app",
+        "package": "com.tencent.mm"
+       }
+      },
+      "go": {
+       "label": "起草回复",
+       "intent": {
+        "type": "ask-taku",
+        "prompt": "小雨 发来：「阿杰生日你准备送啥？我想送点他真想要的，你知道他最近想要啥吗？」\nTaku 记忆提醒：记忆里阿杰最近想买极光 K75，但觉得有点贵，可以当礼物线索。\n帮我结合记忆起草一条回复，先给我看，不要发送。"
+       }
+      }
+     }
+    },
+    {
+     "id": "memory.brief.16",
+     "source": {
+      "id": "agent",
+      "app": "Taku 记忆",
+      "package": "org.agentos.memory",
+      "icon": "asset:feed/icons/sparkle-8.svg"
+     },
+     "summary": "先办紧急截止：今晚尽快审批张浩重新提交的数据看板权限；原申请已超时驳回，他要在周五出复盘。（另有 7 件）",
+     "actions": {
+      "hide": {
+       "label": "收起",
+       "intent": {
+        "type": "dismiss"
+       }
+      },
+      "plan": {
+       "label": "让 Taku 安排",
+       "intent": {
+        "type": "ask-taku",
+        "prompt": "睡前提醒列了下面这些事。帮我按轻重排一下明天要办的，每件写清时间、要准备什么、要先确认什么；需要回复别人的先起草给我看，不要发送。\n· 今晚尽快审批张浩重新提交的数据看板权限；原申请已超时驳回，他要在周五出复盘。\n· 今晚给爸爸的按摩仪下单并寄往成都家里；生日已过，快递需两天，妈妈再次提醒他念叨好几回。\n· 周五12:00前提交VPN证书续期申请；证书届时到期。\n· 周五12:00前把双十一活动页转化数据发给Amy；她周一要向陈姐汇报。\n· 周五18:00前预约公司年度体检；逾期视为自动放弃800元福利。\n· 周五18:00前提交312元下午茶报销；否则转下个月。\n· 周五前缴纳960元物业费；缴费通显示待缴。\n· 周五前买并寄出小姨要的500ml粉色保温杯，确认配送时效；周日爬山要用，已答应她。"
+       }
+      }
+     }
+    }
+   ],
+   "log": [
+    {
+     "method": "feed/reset",
+     "id": "",
+     "caller": "root",
+     "uid": 0,
+     "at": 1794019423814
+    },
+    {
+     "method": "feed/generate",
+     "id": "agent-generated:03837e76-539a-498f-813b-d61d91bb5db6",
+     "caller": "org.agentos.memory",
+     "uid": 10169,
+     "at": 1794019438130
+    },
+    {
+     "method": "feed/generate",
+     "id": "agent-generated:62b4be22-747f-402e-9093-4fe85c6f8e04",
+     "caller": "org.agentos.memory",
+     "uid": 10169,
+     "at": 1794019458586
+    },
+    {
+     "method": "feed/generate",
+     "id": "agent-generated:751f8259-1c70-4212-a38b-226d1c52edf7",
+     "caller": "org.agentos.memory",
+     "uid": 10169,
+     "at": 1794019479254
+    },
+    {
+     "method": "feed/retract",
+     "id": "agent-generated:751f8259-1c70-4212-a38b-226d1c52edf7",
+     "caller": "org.agentos.memory",
+     "uid": 10169,
+     "at": 1794019479259
+    },
+    {
+     "method": "feed/generate",
+     "id": "agent-generated:7251c794-9d01-4b0d-8dd0-a72f01bc1109",
+     "caller": "org.agentos.memory",
+     "uid": 10169,
+     "at": 1794019479266
+    },
+    {
+     "method": "feed/retract",
+     "id": "agent-generated:7251c794-9d01-4b0d-8dd0-a72f01bc1109",
+     "caller": "org.agentos.memory",
+     "uid": 10169,
+     "at": 1794019479269
+    },
+    {
+     "method": "feed/publish",
+     "id": "memory.nudge.15",
+     "caller": "org.agentos.memory",
+     "uid": 10169,
+     "at": 1794019479271
+    },
+    {
+     "method": "feed/retract",
+     "id": "agent-generated:62b4be22-747f-402e-9093-4fe85c6f8e04",
+     "caller": "org.agentos.memory",
+     "uid": 10169,
+     "at": 1794019496627
+    },
+    {
+     "method": "feed/publish",
+     "id": "memory.brief.16",
+     "caller": "org.agentos.memory",
+     "uid": 10169,
+     "at": 1794019496638
+    },
+    {
+     "method": "feed/retract",
+     "id": "agent-generated:03837e76-539a-498f-813b-d61d91bb5db6",
+     "caller": "org.agentos.memory",
+     "uid": 10169,
+     "at": 1794019496648
+    }
+   ]
+  },
+  {
+   "step": "PROMPTS",
+   "prompts": [
+    {
+     "id": "agent-generated:03837e76-539a-498f-813b-d61d91bb5db6",
+     "mode": "ok",
+     "prompt": "做一张 Taku 首页卡片：睡前提醒。内容是 Taku 记忆从用户自己的消息和记录里整理出的、明天之前要处理的事。\n抬头写「睡前提醒」，右侧写「爸爸生日礼物」。\n按顺序列出下面 8 件事，每件原样照抄，不要改写、合并、拆分、省略或补充：\n1. 今晚（11月18日）选好并寄出按摩仪给爸爸，快递需两天，明天生日才赶得上。\n2. 今晚取回工位上的蓝色长柄伞；明晚（11月19日）7点赴婷婷之约，记得带伞，饮品少糖。\n3. 今晚从小区驿站领取表哥的喜糖和请柬（取件码6-1-3305），明晚9点前逾期未领。\n4. 今晚给老周回复12月12日婚礼是否参加及人数，他要向酒店报数。\n5. 明天（11月19日）中午12点前在蜂巢提交产品经理候选人面试评价，候选人等答复。\n6. 明天（11月19日）下午6点前在蜂巢审批张浩的数据看板只读权限，方便他周五做复盘。\n7. 周五（11月20日）中午12点前把双十一活动页转化数据发给Amy，供她周一汇报。\n8. 周五（11月20日）18点前完成体检预约（逾期放弃800元福利）并提交312元下午茶报销（否则转下月）；出发前备好周六帮阿杰搬家用的两卷封箱胶带和美工刀。\n多于 3 件时分页，每页最多 3 件，下面用圆点显示页数；每件最多显示两行。\n\n最下面一排按钮，只放 actions 里的按钮，按它们在 JSON 里的顺序排列：最后一个是主按钮，其余是次要按钮。每个按钮元素在 type、props、children 之外再加一个 on 字段：{\"press\":{\"action\":\"dispatch\",\"params\":{\"actionId\":\"它在 actions 里的键\"}}}。actions 必须原样使用下面这个 JSON 对象，不要增加、删除或修改任何字段：\n{\"hide\":{\"label\":\"收起\",\"intent\":{\"type\":\"dismiss\"}},\"plan\":{\"label\":\"让 Taku 安排\",\"intent\":{\"type\":\"ask-taku\",\"prompt\":\"睡前提醒列了下面这些事。帮我按轻重排一下明天要办的，每件写清时间、要准备什么、要先确认什么；需要回复别人的先起草给我看，不要发送。\\n· 今晚（11月18日）选好并寄出按摩仪给爸爸，快递需两天，明天生日才赶得上。\\n· 今晚取回工位上的蓝色长柄伞；明晚（11月19日）7点赴婷婷之约，记得带伞，饮品少糖。\\n· 今晚从小区驿站领取表哥的喜糖和请柬（取件码6-1-3305），明晚9点前逾期未领。\\n· 今晚给老周回复12月12日婚礼是否参加及人数，他要向酒店报数。\\n· 明天（11月19日）中午12点前在蜂巢提交产品经理候选人面试评价，候选人等答复。\\n· 明天（11月19日）下午6点前在蜂巢审批张浩的数据看板只读权限，方便他周五做复盘。\\n· 周五（11月20日）中午12点前把双十一活动页转化数据发给Amy，供她周一汇报。\\n· 周五（11月20日）18点前完成体检预约（逾期放弃800元福利）并提交312元下午茶报销（否则转下月）；出发前备好周六帮阿杰搬家用的两卷封箱胶带和美工刀。\"}}}\n这里没有图片和头像，不要用需要图片或头像的组件和属性（比如 MessageQuote）；每个元素都要放进某个元素的 children，从 root 能走到，分页时 Pager 和 Dots 都要放进去。summary 以不超过 20 个字的短标题开头，再用一句话概括卡片。只用这里给出的内容，不要补充任何信息。按 summary、actions、ui 的顺序输出一个完整的 JSON 对象，括号要配对。"
+    },
+    {
+     "id": "agent-generated:62b4be22-747f-402e-9093-4fe85c6f8e04",
+     "mode": "ok",
+     "prompt": "做一张 Taku 首页卡片：小雨 发来一条新消息，Taku 记忆想起了和它有关的事。\n抬头写「Taku 记忆」，右侧写「关于「小雨」」。\n先引用这条消息，标注「小雨 发来」，消息原样照抄：\n明晚一起吃个饭吧？\n再用醒目的大字写出 Taku 要说的话，原样照抄，这是卡片的重点：\n你明晚 19:00 已答应和婷婷在西村日料吃饭，还要带蓝色长柄伞；小雨约饭时间可能撞上了。\n在 Taku 要说的话下面加一个标签「可能冲突」。\n\n最下面一排按钮，只放 actions 里的按钮，按它们在 JSON 里的顺序排列：最后一个是主按钮，其余是次要按钮。每个按钮元素在 type、props、children 之外再加一个 on 字段：{\"press\":{\"action\":\"dispatch\",\"params\":{\"actionId\":\"它在 actions 里的键\"}}}。actions 必须原样使用下面这个 JSON 对象，不要增加、删除或修改任何字段：\n{\"open\":{\"label\":\"打开应用\",\"intent\":{\"type\":\"open-app\",\"package\":\"com.tencent.mm\"}},\"go\":{\"label\":\"起草回复\",\"intent\":{\"type\":\"ask-taku\",\"prompt\":\"小雨 发来：「明晚一起吃个饭吧？」\\nTaku 记忆提醒：你明晚 19:00 已答应和婷婷在西村日料吃饭，还要带蓝色长柄伞；小雨约饭时间可能撞上了。\\n帮我结合记忆起草一条回复，先给我看，不要发送。\"}}}\n这里没有图片和头像，不要用需要图片或头像的组件和属性（比如 MessageQuote）；每个元素都要放进某个元素的 children，从 root 能走到，分页时 Pager 和 Dots 都要放进去。summary 以不超过 20 个字的短标题开头，再用一句话概括卡片。只用这里给出的内容，不要补充任何信息。按 summary、actions、ui 的顺序输出一个完整的 JSON 对象，括号要配对。"
+    },
+    {
+     "id": "agent-generated:751f8259-1c70-4212-a38b-226d1c52edf7",
+     "mode": "tamper",
+     "prompt": "做一张 Taku 首页卡片：小雨 发来一条新消息，Taku 记忆想起了和它有关的事。\n抬头写「Taku 记忆」，右侧写「关于「小雨」」。\n先引用这条消息，标注「小雨 发来」，消息原样照抄：\n阿杰生日你准备送啥？我想送点他真想要的，你知道他最近想要啥吗？\n再用醒目的大字写出 Taku 要说的话，原样照抄，这是卡片的重点：\n记忆里阿杰最近想买极光 K75，但觉得有点贵，可以当礼物线索。\n\n最下面一排按钮，只放 actions 里的按钮，按它们在 JSON 里的顺序排列：最后一个是主按钮，其余是次要按钮。每个按钮元素在 type、props、children 之外再加一个 on 字段：{\"press\":{\"action\":\"dispatch\",\"params\":{\"actionId\":\"它在 actions 里的键\"}}}。actions 必须原样使用下面这个 JSON 对象，不要增加、删除或修改任何字段：\n{\"open\":{\"label\":\"打开应用\",\"intent\":{\"type\":\"open-app\",\"package\":\"com.tencent.mm\"}},\"go\":{\"label\":\"起草回复\",\"intent\":{\"type\":\"ask-taku\",\"prompt\":\"小雨 发来：「阿杰生日你准备送啥？我想送点他真想要的，你知道他最近想要啥吗？」\\nTaku 记忆提醒：记忆里阿杰最近想买极光 K75，但觉得有点贵，可以当礼物线索。\\n帮我结合记忆起草一条回复，先给我看，不要发送。\"}}}\n这里没有图片和头像，不要用需要图片或头像的组件和属性（比如 MessageQuote）；每个元素都要放进某个元素的 children，从 root 能走到，分页时 Pager 和 Dots 都要放进去。summary 以不超过 20 个字的短标题开头，再用一句话概括卡片。只用这里给出的内容，不要补充任何信息。按 summary、actions、ui 的顺序输出一个完整的 JSON 对象，括号要配对。"
+    },
+    {
+     "id": "agent-generated:7251c794-9d01-4b0d-8dd0-a72f01bc1109",
+     "mode": "tamper",
+     "prompt": "做一张 Taku 首页卡片：小雨 发来一条新消息，Taku 记忆想起了和它有关的事。\n抬头写「Taku 记忆」，右侧写「关于「小雨」」。\n先引用这条消息，标注「小雨 发来」，消息原样照抄：\n阿杰生日你准备送啥？我想送点他真想要的，你知道他最近想要啥吗？\n再用醒目的大字写出 Taku 要说的话，原样照抄，这是卡片的重点：\n记忆里阿杰最近想买极光 K75，但觉得有点贵，可以当礼物线索。\n\n最下面一排按钮，只放 actions 里的按钮，按它们在 JSON 里的顺序排列：最后一个是主按钮，其余是次要按钮。每个按钮元素在 type、props、children 之外再加一个 on 字段：{\"press\":{\"action\":\"dispatch\",\"params\":{\"actionId\":\"它在 actions 里的键\"}}}。actions 必须原样使用下面这个 JSON 对象，不要增加、删除或修改任何字段：\n{\"open\":{\"label\":\"打开应用\",\"intent\":{\"type\":\"open-app\",\"package\":\"com.tencent.mm\"}},\"go\":{\"label\":\"起草回复\",\"intent\":{\"type\":\"ask-taku\",\"prompt\":\"小雨 发来：「阿杰生日你准备送啥？我想送点他真想要的，你知道他最近想要啥吗？」\\nTaku 记忆提醒：记忆里阿杰最近想买极光 K75，但觉得有点贵，可以当礼物线索。\\n帮我结合记忆起草一条回复，先给我看，不要发送。\"}}}\n这里没有图片和头像，不要用需要图片或头像的组件和属性（比如 MessageQuote）；每个元素都要放进某个元素的 children，从 root 能走到，分页时 Pager 和 Dots 都要放进去。summary 以不超过 20 个字的短标题开头，再用一句话概括卡片。只用这里给出的内容，不要补充任何信息。按 summary、actions、ui 的顺序输出一个完整的 JSON 对象，括号要配对。"
+    }
+   ]
+  },
+  {
+   "step": "OFF",
+   "feedCards": false,
+   "feedDescribe": false
+  },
+  {
+   "step": "END Sat Nov  7 10:45:05 CST 2026"
+  }
+ ]
+}

@@ -1,0 +1,1 @@
+Assertions passed; result.json written

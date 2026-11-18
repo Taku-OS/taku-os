@@ -1,0 +1,2 @@
+#!/system/bin/sh
+CLASSPATH=/system_ext/framework/taku-godmode-host.jar exec /system/bin/app_process /system/bin org.taku.plugins.host.AndroidServer /data/local/agentos/godmode taku-godmode

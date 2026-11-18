@@ -1,0 +1,2 @@
+INSTRUMENTATION_RESULT: result={"uid":10152,"package":"org.agentos.gateway.denied","readOnly":true,"modelTurnSubmitted":false,"differentPackageDenied":true,"differentPackageSubscriptionDenied":true,"differentPackageStreamOpenDenied":true,"passed":true}
+INSTRUMENTATION_CODE: -1

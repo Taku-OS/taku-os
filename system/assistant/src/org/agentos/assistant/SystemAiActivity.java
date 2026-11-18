@@ -1,0 +1,93 @@
+package org.agentos.assistant;
+
+import android.app.*;
+import android.content.*;
+import android.content.res.Configuration;
+import android.os.Bundle;
+import android.os.Handler;
+import android.database.ContentObserver;
+import android.net.Uri;
+import android.provider.Settings;
+import android.view.*;
+import android.widget.*;
+import org.json.*;
+import java.util.*;
+
+/** One native system AI page, shared by Settings, the assistant, IME and Memory. */
+public final class SystemAiActivity extends Activity {
+ AgentSettingsUi ui;DrawerTheme theme;LinearLayout body;JSONObject state;TextView connection;boolean waiting,refreshPending;
+ final ContentObserver settingsObserver=new ContentObserver(new Handler(android.os.Looper.getMainLooper())){public void onChange(boolean selfChange,Uri uri){String key=uri==null?null:uri.getLastPathSegment();if(uri==null||uri.equals(Settings.Global.CONTENT_URI)||key==null||key.startsWith("taku_"))refresh();} public void onChange(boolean selfChange){onChange(selfChange,null);}};
+ @Override public void onCreate(Bundle saved){super.onCreate(saved);if (launchReactSettings()) return;theme=new DrawerTheme((getResources().getConfiguration().uiMode&Configuration.UI_MODE_NIGHT_MASK)==Configuration.UI_MODE_NIGHT_YES);ui=new AgentSettingsUi(this,theme);getOnBackInvokedDispatcher().registerOnBackInvokedCallback(android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT,this::finish);loading();}
+ boolean launchedReact;
+ boolean launchReactSettings(){try{android.content.pm.PackageManager pm=getPackageManager();if(pm.checkSignatures(getPackageName(),"org.agentos.agent")!=android.content.pm.PackageManager.SIGNATURE_MATCH)return false;if(pm.getPackageInfo("org.agentos.agent",0).getLongVersionCode()<3)return false;Intent i=pm.getLaunchIntentForPackage("org.agentos.agent");if(i==null)return false;i.setAction(Intent.ACTION_VIEW);i.removeCategory(Intent.CATEGORY_LAUNCHER);i.setData(Uri.parse("taku-agent:///system-ai"));startActivity(i);launchedReact=true;finish();return true;}catch(Exception e){return false;}}
+ final Runnable engineChanged=this::refresh;
+ @Override public void onResume(){super.onResume();if(launchedReact)return;AudioEngine.addListener(engineChanged);getContentResolver().registerContentObserver(Settings.Global.CONTENT_URI,true,settingsObserver);refresh();}
+ @Override public void onPause(){if(!launchedReact){getContentResolver().unregisterContentObserver(settingsObserver);AudioEngine.removeListener(engineChanged);}super.onPause();}
+ void loading(){LinearLayout root=ui.column();root.setBackgroundColor(theme.surface);root.setPadding(ui.dp(24),ui.dp(70),ui.dp(24),ui.dp(24));ui.add(root,ui.text("Taku AI",28,true),0);ui.add(root,ui.text("Connecting to system AI…",15,false),20);ui.add(root,ui.button(getString(R.string.workspace_title),false,()->startActivity(new Intent(this,BackgroundWorkspacesActivity.class))),20);setContentView(root);}
+ void refresh(){if(waiting){refreshPending=true;return;}refreshPending=false;waiting=true;try{NativeClient.async(new JSONObject().put("op","systemAi").put("action","read").put("refreshModels",true),new NativeClient.Callback(){public void ready(JSONObject result){waiting=false;if(isFinishing()||isDestroyed())return;state=result;render();if(refreshPending)refresh();}public void failed(String message){waiting=false;Toast.makeText(SystemAiActivity.this,message,Toast.LENGTH_LONG).show();if(refreshPending)refresh();}});}catch(Exception e){waiting=false;}}
+ void save(JSONObject patch){if(waiting)return;waiting=true;try{NativeClient.async(new JSONObject().put("op","systemAi").put("action","configure").put("patch",patch),new NativeClient.Callback(){public void ready(JSONObject result){waiting=false;refresh();}public void failed(String message){waiting=false;Toast.makeText(SystemAiActivity.this,message,Toast.LENGTH_LONG).show();render();if(refreshPending)refresh();}});}catch(Exception e){waiting=false;}}
+ void render(){try{
+  LinearLayout root=ui.column();root.setBackgroundColor(theme.surface);root.setOnApplyWindowInsetsListener((v,insets)->{android.graphics.Insets b=insets.getInsets(WindowInsets.Type.systemBars());v.setPadding(0,b.top,0,b.bottom);return insets;});
+  LinearLayout header=ui.column();header.setPadding(ui.dp(22),ui.dp(14),ui.dp(22),ui.dp(16));LinearLayout title=ui.column();ui.add(title,ui.text("Taku AI",30,true),0);ui.add(title,ui.text("One connection shared across Taku AI features",13,false),8);header.addView(title);root.addView(header);
+  ScrollView scroll=new ScrollView(this);scroll.setClipToPadding(false);body=ui.column();body.setPadding(ui.dp(22),0,ui.dp(22),ui.dp(24));scroll.addView(body);root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
+  LinearLayout general=ui.listGroup();toggle(general,"Enable system AI","Pausing prevents new model requests",state.getBoolean("enabled"),on->{try{save(new JSONObject().put("enabled",on));}catch(Exception ignored){}});ui.add(body,general,0);
+  magpieSettings();
+  LinearLayout accounts=ui.listGroup();connection=ui.text("Checking subscription status…",12,false);ui.listRow(accounts,"Accounts and model services",state.optBoolean("connected")?"Magpie connected · Manage models and routes centrally":"Model service temporarily unavailable",R.drawable.taku_brand_mark,()->startActivity(new Intent(this,ModelManagementActivity.class).putExtra("returnPage","systemAi")));ui.listRow(accounts,"ChatGPT subscription","View sign-in status or reconnect",0,()->startActivity(new Intent(this,PanelActivity.class).putExtra("page","account")));ui.listRow(accounts,"Subscription limits and usage","View available account limits and native usage",0,()->startActivity(new Intent(this,PanelActivity.class).putExtra("page","aiUsage")));ui.listRow(accounts,"BYOK · Bring your own API Key","OpenRouter",0,()->startActivity(new Intent(this,ByokSettingsActivity.class)));ui.section(body,"Account and connection",accounts);ui.add(body,connection,8);
+  NativeClient.rpc("account/read",new JSONObject().put("refreshToken",false),new NativeClient.Callback(){public void ready(JSONObject r){if(isFinishing()||isDestroyed()||connection==null)return;JSONObject a=r.optJSONObject("account");connection.setText(a==null?"ChatGPT is not connected; other configured services remain available":"ChatGPT · "+a.optString("planType","Connected").toUpperCase(Locale.ROOT));}public void failed(String m){if(connection!=null)connection.setText("Check subscription status on the account page");}});
+  LinearLayout models=ui.listGroup();ui.listRow(models,"Main assistant connection","Manage the main assistant's current model and connection",0,()->startActivity(new Intent(this,PanelActivity.class).putExtra("page","modelConnection")));ui.listRow(models,"Jev decision model","Manage dedicated decision models and toggles",0,()->startActivity(new Intent(this,PanelActivity.class).putExtra("page","jevConnection")));ui.section(body,"Assistant and decisions",models);
+  LinearLayout voice=ui.listGroup();ui.listRow(voice,"Taku Audio",AudioEngine.available(this)?"Voice toggle, fal Key, models, translation, and local reading":"Install Taku Audio first",0,AudioEngine.available(this),()->startActivity(AudioEngine.homeIntent()));ui.section(body,"Voice",voice);
+  LinearLayout apps=ui.listGroup();JSONObject permissions=state.getJSONObject("apps");List<String> keys=new ArrayList<>();for(Iterator<String> it=permissions.keys();it.hasNext();)keys.add(it.next());Collections.sort(keys);
+  for(String app:keys){String label=appLabel(app);if(label==null)continue;toggle(apps,"Allow "+label+" to use AI",app.equals("ime")?"Route by input-method scene; screenshot apps are selected separately in the input method":app.equals("memory")?"Route by memory scene; recording and analysis toggles remain independent":app.equals("agent-ui")?"Route by card scene; lay out only the supplied card data":"Process only content explicitly submitted by this app",permissions.optBoolean(app),on->{try{save(new JSONObject().put("apps",new JSONObject().put(app,on)));}catch(Exception ignored){}});}
+  ui.listRow(apps,"Input method feature settings","Reply suggestions and apps allowed for screenshots",0,()->open("org.agentos.inputmethod","org.fcitx.fcitx5.android.input.ai.AiRepliesSettingsActivity",null));ui.listRow(apps,"Memory feature settings","Recording sources, model analysis, and retention",0,()->open("org.agentos.memory","org.agentos.memory.MemoryActivity","settings"));ui.section(body,"Apps and features",apps);
+  LinearLayout workspaces=ui.listGroup();ui.listRow(workspaces,getString(R.string.workspace_title),getString(R.string.workspace_summary),R.drawable.ic_home_widgets,()->startActivity(new Intent(this,BackgroundWorkspacesActivity.class)));ui.section(body,getString(R.string.workspace_title),workspaces);
+  LinearLayout usage=ui.listGroup();JSONArray recent=state.getJSONArray("usage");if(recent.length()==0)ui.add(usage,ui.text("No system AI call records yet",13,false),12);else for(int i=recent.length()-1;i>=Math.max(0,recent.length()-4);i--){JSONObject r=recent.getJSONObject(i);String who=r.getString("consumer");ui.listRow(usage,(who.equals("ime")?"Input method":who.equals("memory")?"Memory":who.equals("org.agentos.audio")?"Voice translation":who)+" · "+(r.getString("status").equals("completed")?"Completed":"Incomplete"),name(r.getString("model"))+" · "+String.format(Locale.ROOT,"%.1f seconds",r.getLong("elapsedMs")/1000.0),0,()->usageDetail(r));}ui.section(body,"Recent calls",usage);ui.add(body,ui.text("Only call source, model, duration, status, and error type are retained. System services manage account credentials, which apps reuse according to authorization.",12,false),12);
+  ui.add(body,ui.button("Refresh connection and call records",false,this::refresh),20);setContentView(root);
+ }catch(Exception e){Toast.makeText(this,"System AI settings cannot be displayed right now",Toast.LENGTH_LONG).show();}}
+ void openMagpie(){startActivity(new Intent(this,ModelManagementActivity.class).putExtra("returnPage","systemAi"));}
+ String groupMembers(JSONObject group){JSONArray members=group.optJSONArray("members");if(members==null)return "";List<String> values=new ArrayList<>();for(int i=0;i<members.length();i++)values.add(members.optString(i));return android.text.TextUtils.join("、",values);}
+ String sceneName(String scene){return switch(scene){case "assistant"->"Main assistant";case "org.agentos.assistant.text"->"Assistant text";case "jev"->"Jev decisions";case "memory.text"->"Memory analysis";case "ime.vision"->"Input method vision";case "screen"->"Screen analysis";default->scene;};}
+ JSONObject magpieConfig()throws Exception{String raw=Settings.Global.getString(getContentResolver(),"taku_system_ai_config");return new JSONObject(raw==null?"{}":raw);}
+ void saveMagpieField(String field,Object value)throws Exception{JSONObject c=magpieConfig();c.put(field,value).put("updated_at",System.currentTimeMillis()).put("updated_by","settings");if(!Settings.Global.putString(getContentResolver(),"taku_system_ai_config",c.toString()))throw new IllegalStateException();}
+ void magpieSettings(){
+  LinearLayout groupBox=ui.listGroup(),sceneBox=ui.listGroup();
+  try{JSONObject config=magpieConfig();String groups=config.optString("groups","[]"),bindings=config.optString("scenes","{}");
+   JSONArray g=new JSONArray(groups==null?"[]":groups);JSONObject b=new JSONObject(bindings==null?"{}":bindings);
+   for(int i=0;i<g.length();i++){JSONObject item=g.getJSONObject(i);String id=item.getString("id"),label=item.optString("name",id);ui.listRow(groupBox,label,"group/"+id+" · "+groupMembers(item),0,()->editGroup(id));}
+   List<String> names=new ArrayList<>();for(Iterator<String> it=b.keys();it.hasNext();)names.add(it.next());Collections.sort(names);
+   for(String scene:names)ui.listRow(sceneBox,sceneName(scene),(sceneName(scene).equals(scene)?"":scene+" · ")+b.getString(scene),0,()->chooseBinding(scene));
+   ui.listRow(groupBox,"Add model group","Configure model members and routing",0,()->editGroup(null));
+   ui.listRow(sceneBox,"Add scene binding","Enter a scene ID and select a model group",0,this::addScene);
+  }catch(Exception invalid){ui.listRow(groupBox,"Could not read routing configuration","Check Magpie settings",0,this::openMagpie);}
+  ui.section(body,"Model group",groupBox);ui.section(body,"Scene",sceneBox);
+ }
+ void editGroup(String id){try{
+  String raw=magpieConfig().optString("groups","[]");JSONArray groups=new JSONArray(raw==null?"[]":raw);JSONObject existing=null;
+  for(int i=0;i<groups.length();i++)if(groups.getJSONObject(i).optString("id").equals(id)){existing=groups.getJSONObject(i);break;}
+  if(id!=null&&existing==null)throw new IllegalStateException();
+  LinearLayout form=ui.column();form.setPadding(ui.dp(24),0,ui.dp(24),0);
+  EditText identifier=new EditText(this);identifier.setHint("Group ID, such as my-group");identifier.setSingleLine(true);identifier.setText(id==null?"":id);identifier.setEnabled(id==null);form.addView(identifier);
+  EditText label=new EditText(this);label.setHint("Group name");label.setSingleLine(true);label.setText(existing==null?"":existing.optString("name"));form.addView(label);
+  EditText members=new EditText(this);members.setHint("Model IDs, one per line");members.setMinLines(2);JSONArray list=existing==null?new JSONArray():existing.optJSONArray("members");StringBuilder initial=new StringBuilder();if(list!=null)for(int i=0;i<list.length();i++){if(i>0)initial.append('\n');initial.append(list.getString(i));}members.setText(initial.toString());form.addView(members);
+  new AlertDialog.Builder(this).setTitle(id==null?"Add model group":"Edit model group").setView(form).setPositiveButton("Save",(d,w)->{try{
+   String key=identifier.getText().toString().trim(),name=label.getText().toString().trim();if(!key.matches("[A-Za-z0-9_-]+")||name.isEmpty())throw new IllegalArgumentException();
+   JSONArray values=new JSONArray();for(String line:members.getText().toString().split("\n")){String value=line.trim();if(!value.isEmpty())values.put(value);}if(values.length()==0)throw new IllegalArgumentException();
+   String current=magpieConfig().optString("groups","[]");JSONArray updated=new JSONArray(current==null?"[]":current);int found=-1;for(int i=0;i<updated.length();i++)if(key.equals(updated.getJSONObject(i).optString("id"))){found=i;break;}
+   if((id==null&&found>=0)||(id!=null&&found<0))throw new IllegalStateException();
+   JSONObject item=found<0?new JSONObject().put("id",key).put("routing","order"):updated.getJSONObject(found);item.put("name",name).put("members",values);if(found<0)updated.put(item);else updated.put(found,item);
+   saveMagpieField("groups",updated);refresh();
+  }catch(Exception e){Toast.makeText(this,"Model group was not saved. Check the ID, name, and model members",Toast.LENGTH_LONG).show();}}).setNegativeButton("Cancel",null).show();
+ }catch(Exception e){Toast.makeText(this,"Model group temporarily unavailable",Toast.LENGTH_LONG).show();}}
+ void addScene(){EditText input=new EditText(this);input.setSingleLine(true);input.setHint("Scene ID, such as memory.text");new AlertDialog.Builder(this).setTitle("Add scene").setView(input).setPositiveButton("Select model group",(d,w)->{String id=input.getText().toString().trim();if(!id.matches("[A-Za-z0-9_.-]+")){Toast.makeText(this,"Enter a valid scene ID",Toast.LENGTH_LONG).show();return;}chooseBinding(id);}).setNegativeButton("Cancel",null).show();}
+ void chooseBinding(String scene){try{
+  String raw=magpieConfig().optString("groups","[]");JSONArray groups=new JSONArray(raw==null?"[]":raw);
+  if(groups.length()==0){Toast.makeText(this,"Add a model group first",Toast.LENGTH_LONG).show();editGroup(null);return;}String[] labels=new String[groups.length()],ids=new String[groups.length()];
+  for(int i=0;i<groups.length();i++){JSONObject g=groups.getJSONObject(i);ids[i]="group/"+g.getString("id");labels[i]=g.optString("name",g.getString("id"))+" · "+ids[i];}
+  new AlertDialog.Builder(this).setTitle("Bind scene · "+sceneName(scene)).setItems(labels,(dialog,n)->{try{String current=magpieConfig().optString("scenes","{}");JSONObject bindings=new JSONObject(current==null?"{}":current);bindings.put(scene,ids[n]);saveMagpieField("scenes",bindings);refresh();}catch(Exception e){Toast.makeText(this,"Binding was not saved. Retry",Toast.LENGTH_LONG).show();}}).setNeutralButton("Add model group",(d,w)->editGroup(null)).setNegativeButton("Cancel",null).show();
+ }catch(Exception e){Toast.makeText(this,"Routing configuration temporarily unavailable",Toast.LENGTH_LONG).show();}}
+ void usageDetail(JSONObject r){String code=r.optString("code"),reason=switch(code){case "auth_required"->"Account sign-in expired. Reconnect";case "quota"->"Model quota or rate limit reached";case "timeout"->"Model response timed out";case "rate_limited"->"Too many calls. Retry later";case "disabled"->"System AI permission for this feature is paused";case "invalid_request"->"Model or input capability mismatch";default->r.optString("status").equals("completed")?"Completed":r.optString("status").equals("canceled")?"This turn was dismissed or cancelled":"Connection temporarily unavailable";};new AlertDialog.Builder(this).setTitle("Call details").setMessage(name(r.optString("model"))+"\n"+java.text.DateFormat.getDateTimeInstance().format(new Date(r.optLong("at")))+"\n"+reason).setPositiveButton("Got it",null).show();}
+ String appLabel(String app){if(app.equals("ime"))return "Input method";if(app.equals("memory"))return "Memory";if(app.equals("agent-ui"))return "Agent UI cards";try{return getPackageManager().getApplicationLabel(getPackageManager().getApplicationInfo(app,0)).toString();}catch(Exception e){return null;}}
+ interface Toggle{void set(boolean value);}
+ void toggle(LinearLayout box,String title,String summary,boolean value,Toggle action){LinearLayout row=ui.column();row.setPadding(ui.dp(12),ui.dp(12),ui.dp(12),ui.dp(12));Switch s=new Switch(this);s.setText(title);s.setTextSize(15);s.setTextColor(theme.ink);s.setContentDescription(title);s.setChecked(value);s.setOnCheckedChangeListener((v,on)->action.set(on));row.addView(s);ui.add(row,ui.text(summary,12,false),6);box.addView(row);}
+ String name(String id){JSONArray models=state.optJSONArray("models");if(models!=null)for(int i=0;i<models.length();i++){JSONObject m=models.optJSONObject(i);if(m!=null&&id.equals(m.optString("id")))return m.optString("name",id);}return id;}
+ void open(String pkg,String cls,String page){try{Intent i=new Intent().setClassName(pkg,cls);if(page!=null)i.putExtra("page",page);startActivity(i);}catch(Exception e){Toast.makeText(this,"Install the corresponding Taku app first",Toast.LENGTH_LONG).show();}}
+}

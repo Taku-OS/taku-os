@@ -1,0 +1,114 @@
+[
+  {
+    "origin": "mirror-screen/evidence/native-ui-test.txt",
+    "path": "evidence/api-inventory/historical/mirror-screen/evidence/native-ui-test.txt",
+    "sha256": "9102ebfd2cbbbf2d94e4da0643af485fe3ea6999bd642ad3174e1fc4d754470f",
+    "artifactModifiedAt": "2026-10-09T16:17:25.898969+00:00",
+    "scope": "Historical experimental material; this review checks only files/content. mtime is not execution time."
+  },
+  {
+    "origin": "mirror-screen/evidence/native-video-test.txt",
+    "path": "evidence/api-inventory/historical/mirror-screen/evidence/native-video-test.txt",
+    "sha256": "f85938a820bf68c7f92262da427e6cd23d4481b65006a370b42a0a7a4e3cdfbb",
+    "artifactModifiedAt": "2026-10-09T16:19:02.152447+00:00",
+    "scope": "Historical experimental material; this review checks only files/content. mtime is not execution time."
+  },
+  {
+    "origin": "mirror-screen/evidence/mirror-native-after-touch.png",
+    "path": "evidence/api-inventory/historical/mirror-screen/evidence/mirror-native-after-touch.png",
+    "sha256": "2e24b9f25e2b202a09fb080809654c889341ff73d614bdb3d3e4d2d3f5a0f41e",
+    "artifactModifiedAt": "2026-10-09T16:17:25.971926+00:00",
+    "scope": "Historical experimental material; this review checks only files/content. mtime is not execution time."
+  },
+  {
+    "origin": "mirror-screen/evidence/mirror-home-concurrent.png",
+    "path": "evidence/api-inventory/historical/mirror-screen/evidence/mirror-home-concurrent.png",
+    "sha256": "83b20f647b5a74c7fecd073532cf408bedcb029de59e39d91450473292ede808",
+    "artifactModifiedAt": "2026-10-09T16:19:02.268701+00:00",
+    "scope": "Historical experimental material; this review checks only files/content. mtime is not execution time."
+  },
+  {
+    "origin": "mirror-screen/evidence/mirror-return-still-running.png",
+    "path": "evidence/api-inventory/historical/mirror-screen/evidence/mirror-return-still-running.png",
+    "sha256": "e8de32ac090a2a2f503df34204e02b39fa0876c374633c0e02fa149de27663f2",
+    "artifactModifiedAt": "2026-10-09T16:19:02.291785+00:00",
+    "scope": "Historical experimental material; this review checks only files/content. mtime is not execution time."
+  },
+  {
+    "origin": "light-app-lab/free-app-kit/evidence/standalone-open-test.txt",
+    "path": "evidence/api-inventory/historical/light-app-lab/free-app-kit/evidence/standalone-open-test.txt",
+    "sha256": "473603326956d8f38c7afd0e1721f56c38c31835b8302ec7194da66f020b0a2c",
+    "artifactModifiedAt": "2026-10-09T06:32:11.768933+00:00",
+    "scope": "Historical experimental material; this review checks only files/content. mtime is not execution time."
+  },
+  {
+    "origin": "light-app-lab/free-app-kit/evidence/api/live-ui-update-test.txt",
+    "path": "evidence/api-inventory/historical/light-app-lab/free-app-kit/evidence/api/live-ui-update-test.txt",
+    "sha256": "6f0c3b265b768676a2df393bc874ed11177beef3e7fa41cd67dddc2ee881025d",
+    "artifactModifiedAt": "2026-10-09T07:35:44.305731+00:00",
+    "scope": "Historical experimental material; this review checks only files/content. mtime is not execution time."
+  },
+  {
+    "origin": "light-app-lab/free-app-kit/evidence/api/standalone-ui-to-api.json",
+    "path": "evidence/api-inventory/historical/light-app-lab/free-app-kit/evidence/api/standalone-ui-to-api.json",
+    "sha256": "f295d861ed712557db6cbf01950746ce60d110e72202b73bb2e3c27b2022b217",
+    "artifactModifiedAt": "2026-10-09T08:14:13.818774+00:00",
+    "scope": "Historical experimental material; this review checks only files/content. mtime is not execution time."
+  },
+  {
+    "origin": "light-app-lab/free-app-kit/evidence/api/external-http-verification.json",
+    "path": "evidence/api-inventory/historical/light-app-lab/free-app-kit/evidence/api/external-http-verification.json",
+    "sha256": "b90110e989f5a1fd9148dc30a51ed8929a58423fe55d790e91c24b8d2ceca658",
+    "artifactModifiedAt": "2026-10-09T07:28:45.204362+00:00",
+    "scope": "Historical experimental material; this review checks only files/content. mtime is not execution time."
+  },
+  {
+    "origin": "light-app-lab/free-app-kit/evidence/standalone-build.txt",
+    "path": "evidence/api-inventory/historical/light-app-lab/free-app-kit/evidence/standalone-build.txt",
+    "sha256": "d5bb1cc1b9ed974ccb595888ff84d2fba4a5c544abfb1864f51c7704ba016242",
+    "artifactModifiedAt": "2026-10-09T06:32:12.075476+00:00",
+    "scope": "Historical experimental material; this review checks only files/content. mtime is not execution time."
+  },
+  {
+    "origin": "light-app-lab/free-app-kit/evidence/converter-notification-test.txt",
+    "path": "evidence/api-inventory/historical/light-app-lab/free-app-kit/evidence/converter-notification-test.txt",
+    "sha256": "6204449f1d4b1bd50faa97dcb8773b983570542a03b7a2a09edc69b30dbf9446",
+    "artifactModifiedAt": "2026-10-09T06:49:27.917722+00:00",
+    "scope": "Historical experimental material; this review checks only files/content. mtime is not execution time."
+  },
+  {
+    "origin": "light-app-lab/free-app-kit/evidence/converter-notification.txt",
+    "path": "evidence/api-inventory/historical/light-app-lab/free-app-kit/evidence/converter-notification.txt",
+    "sha256": "e54b84754321091f72fcb2c2cf8efd7d4cff2befeb451c6bdd299d28a3c7e63d",
+    "artifactModifiedAt": "2026-10-09T06:49:27.968472+00:00",
+    "scope": "Historical experimental material; this review checks only files/content. mtime is not execution time."
+  },
+  {
+    "origin": "assistant-panel/evidence/desktop/reboot-ui-test.txt",
+    "path": "evidence/api-inventory/historical/assistant-panel/evidence/desktop/reboot-ui-test.txt",
+    "sha256": "7fbdcdfd362015b44bf2819d40054aef06cd046bab40543e5f843088b798d129",
+    "artifactModifiedAt": "2026-10-09T08:45:22.981545+00:00",
+    "scope": "Historical experimental material; this review checks only files/content. mtime is not execution time."
+  },
+  {
+    "origin": "app-compat/compatibility-report.json",
+    "path": "evidence/api-inventory/historical/app-compat/compatibility-report.json",
+    "sha256": "4f48f5946824b33507fe509f7e39403fbbba462e15ae0d7b620a57bb9e5657d0",
+    "artifactModifiedAt": "2026-10-09T17:49:46.573866+00:00",
+    "scope": "Historical experimental material; this review checks only files/content. mtime is not execution time."
+  },
+  {
+    "origin": "virtual-display/evidence/video-diagnostics/host-lifecycle-after.json",
+    "path": "evidence/api-inventory/historical/virtual-display/evidence/video-diagnostics/host-lifecycle-after.json",
+    "sha256": "b43975224a04e879dd887b7199c45b1f1af49696d1173c997e7614bc9ede1c20",
+    "artifactModifiedAt": "2026-10-09T18:17:24.029827+00:00",
+    "scope": "Historical experimental material; this review checks only files/content. mtime is not execution time."
+  },
+  {
+    "origin": "virtual-display/evidence/video-diagnostics/helper-synchronous-stop-test.json",
+    "path": "evidence/api-inventory/historical/virtual-display/evidence/video-diagnostics/helper-synchronous-stop-test.json",
+    "sha256": "ae3aba2b2217ca7bb68190b26e97bdb85b174305455ab90d4b25a12762d7fc2f",
+    "artifactModifiedAt": "2026-10-09T18:47:55.235960+00:00",
+    "scope": "Historical experimental material; this review checks only files/content. mtime is not execution time."
+  }
+]

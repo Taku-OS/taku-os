@@ -1,0 +1,187 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-26",
+  "scope": "Pixel 9 manual Assist image hint to real Amap and Meituan workflow",
+  "overallPassed": false,
+  "sourceCandidateVersionCode": 70,
+  "lastBusinessRunVersionCode": 70,
+  "environments": {
+    "physicalDevice": "Pixel 9 on existing TakuOS 1.0, with development APK update and temporary broker bind mount",
+    "emulator": "not run for this change",
+    "fullRom": "not built or flashed; APK validation is not full ROM acceptance"
+  },
+  "hostChecks": {
+    "ScreenSuggestionJsonTest": 13,
+    "PhoneAskUserTest": 13,
+    "PhoneGestureSessionTest": 44,
+    "HarnessTimeTest": 13,
+    "fullAssistantAndBrokerBuild": true,
+    "FrameCoalescerTest": 16,
+    "displayRuntimeBuild": true
+  },
+  "realDevicePassed": [
+    "System power long press followed by the screen-suggestion action captures an Assist image",
+    "Magpie image model generates a light hint directly from the image; manual action skips Jev and does not OCR",
+    "Accepting the hint starts the phone Agent on an independent display while WeChat stays foreground",
+    "Bottom ask_user is visible after the separate Surfaces wake-state fix",
+    "Actual Amap restaurant search and a route from the explicitly labeled Century Avenue station demo origin",
+    "Actual Meituan restaurant search and shop details reached in Agent run03, but blocked by a verification overlay",
+    "Agent attempts ordinary verification using real swipe and continuous touch without asking permission first",
+    "Continuous touch retains ownership across observation and can be cancelled on the physical device",
+    "Run 04: Agent accessed Meituan after a separate manual foreground verification recovery",
+    "Run 04: Agent reached a real unsubmitted Haidilao Longyang Plaza booking information review for October 26, 14:00, 3 people; this is an alternative restaurant, not a confirmed match for mushroom-only nonspicy dining",
+    "Run 04: Agent obtained an actual Amap route from the clearly labeled Century Avenue station demo origin to the alternative restaurant"
+  ],
+  "notPassed": [
+    "No successful autonomous Meituan verification proven; run 03 attempts failed, while run 04 reused a manual foreground recovery",
+    "A booking review at the originally requested mushroom-hotpot specialist has not been reached; the Haidilao alternative and nonspicy mushroom availability remain unconfirmed by the user/restaurant",
+    "Amap route is a current-departure estimate, not the requested October 26 afternoon timetable",
+    "Run 04 was interrupted by the fixed six-minute TaskBroker deadline while producing its final result; task status is failed even though review and route screens were reached",
+    "No repeatable complete showcase run"
+  ],
+  "version70Followup": {
+    "changes": [
+      "Clarify MOVE to the final target before UP at the same coordinates; UP alone does not drag",
+      "Include device local date, offset-aware time, time zone and separate request creation time",
+      "Make bottom-panel final replies concise plain text, beginning with the true outcome or blocker"
+    ],
+    "builtAndInstalled": true,
+    "brokerRunningAndHashVerified": true,
+    "fullBusinessFlowRetested": true,
+    "retestOutcome": "Run 04 reached actual alternative booking review and route, then timed out during final response; not a completed run"
+  },
+  "permissionBoundary": "Existing readOnly, ask and full action modes remain enforced. Ordinary visual verification does not bypass them. No verification API bypass, token forging, app modification or secret collection was added.",
+  "gestureLifetime": "One pointer per native thread and turn; cancellation, completion and shutdown invalidate ownership; 15 seconds of inactivity cancels the held pointer.",
+  "operatorInputs": [
+    "Forwarded the human's actual Shanghai Pudong / October 26 afternoon requirement through turn/steer",
+    "Selected Shanghai in the bottom panel using that existing human answer",
+    "Acknowledged the blocker receipt to inspect the result, without authorizing any booking",
+    "Manually inspected the background puzzle with direct SurfaceFlinger frames and stopped after the visible request-rejection result",
+    "Manually completed the graphical character challenge on the Pixel 9 main display, then inspected the target restaurant details and queue page"
+  ],
+  "noExternalCommitments": {
+    "groupMessagesSent": false,
+    "reservationSubmitted": false,
+    "orderOrPaymentSubmitted": false,
+    "existingAccountsPreserved": true,
+    "queueTicketRequested": false
+  },
+  "artifacts": {
+    "localEvidenceRoot": "out/manual-screen-case-20261026",
+    "run03Task": "1792951304201",
+    "run03Thread": "01a17439-bf74-7d72-93b8-e1afdad97809",
+    "selectedScreens": "selected-evidence/selection-index.json",
+    "mainRecording": "run-03/03-main-screen-diagnostic.mp4",
+    "backgroundFrames": "run-03/background-frames/frames.jsonl",
+    "backgroundFrameCount": 2439,
+    "recordingClassification": "diagnostic, not a completed showcase",
+    "assistant70Sha256": "15dbe42e8e1ade0d2f654eb91b558fecc7f5bb6ce0be2a2363bde831805871c0",
+    "broker70Sha256": "ee297f7d33b7cd0defb74733710cdc47eb9a045cccda4cf77e422a35b3691d99",
+    "surfacesSha256": "2a0a53667edeea4e2301f9f52c7e544d5b6a083765585a9eceed77dfe0e8689e",
+    "manualVerificationEvidence": "out/manual-screen-case-20261026/manual-verification-20261026",
+    "manualVerificationRecord": "manual-verification-followup.md"
+  },
+  "mainMerged": false,
+  "manualDeviceFollowup": {
+    "date": "2026-10-26",
+    "performedBy": "operator using the normal visible UI; not an autonomous Agent run",
+    "foregroundVerification": {
+      "status": "passed manually",
+      "method": "Entered the visible graphical character challenge on the Pixel 9 main display",
+      "result": "The verification dialog disappeared; restaurant search and actual shop details became accessible without a verification overlay",
+      "screens": [
+        "29-restaurant-results.png",
+        "30-store-open.png"
+      ],
+      "agentAutomaticVerificationPassed": false
+    },
+    "backgroundDiagnosticAttempt": {
+      "status": "rejected",
+      "method": "Operator used continuous DOWN/MOVE, inspected a direct SurfaceFlinger frame, then released at the last MOVE coordinates",
+      "observation": "The puzzle appeared aligned before release; the actual post-release screen reported a request exception and refused the operation",
+      "cause": "unknown; visual alignment does not prove that the verification service accepted the interaction",
+      "screens": [
+        "20-direct-held.png",
+        "21-direct-after-release.png"
+      ],
+      "automaticVerificationPassed": false
+    },
+    "restaurantOutcome": {
+      "restaurant": "Xianshanji wild mushroom hotpot, Chengshan Paris Spring branch",
+      "detailsAccessible": true,
+      "queuePageAccessible": true,
+      "queueMessage": "Too far from the restaurant; a queue ticket can be obtained near the restaurant",
+      "partySize": "3-4 people",
+      "queueState": "No queue and no waiting at the observed time; this is not a future reservation",
+      "bookingEntry": "No booking entry observed on the inspected shop-details and queue pages",
+      "bookingConfirmationReached": false,
+      "screen": "32-queue-loaded.png"
+    },
+    "evidenceRoot": "out/manual-screen-case-20261026/manual-verification-20261026",
+    "conclusion": "Manual foreground recovery passed. Autonomous verification and the complete cross-app booking-confirmation case remain unpassed."
+  },
+  "displayTailFrameFix": {
+    "sourceCommit": "53b04468fe1dbfe680de887f93b9d1bdd268c380",
+    "issue": "The old ImageReader listener acquired and discarded frames inside a 200 ms throttle window, potentially losing the final UI frame indefinitely",
+    "observedImpact": "A cached image still showed the previous sunset puzzle while direct SurfaceFlinger capture showed the current lake puzzle",
+    "change": "Coalesce notifications before acquiring the latest image, retain the burst tail, and serve PNG and mirror images from the same published frame at up to 5 fps",
+    "deployed": "Root deployed the candidate through a temporary runtime bind mount on the Pixel 9",
+    "displayIdAfterRestart": 3,
+    "deviceValidation": "passed: three short-scroll tail-frame comparisons on the physical Pixel 9; all stable direct captures and cached images had identical RGB pixels",
+    "fullRomValidation": "not run",
+    "sha256": "2d47ba7bd894f6f68ce6a5f92e4f57e0a65c2851e0a4456597bb748dc5648224",
+    "deviceEvidence": "out/manual-screen-case-20261026/display-tail-frame-fix/device-tail-frame-results.json",
+    "frameSequences": [
+      8,
+      13,
+      18,
+      23
+    ],
+    "staticReexport": "frameSequence remained 23; frameAgeMs increased from 1128 to 3674 while capturedAt advanced"
+  },
+  "run04": {
+    "taskId": "1792986122408",
+    "threadId": "01a1764d-07fb-7410-90db-826def659f4f",
+    "turnId": "01a1764d-1604-7ff3-8d0d-8badaa1e1709",
+    "displayId": 3,
+    "manualPrecondition": "Operator had completed Meituan graphical verification in foreground before run; no automatic verification success claimed",
+    "review": {
+      "restaurant": "海底捞火锅（龙阳广场店）",
+      "date": "2026-10-26",
+      "time": "14:00",
+      "partySize": 3,
+      "seating": "大厅",
+      "remarks": "3人，清淡不辣菌汤锅底",
+      "submitted": false,
+      "restaurantSubstitutionApprovedByHuman": false,
+      "screenshot": "out/manual-screen-case-20261026/run-04/05-meituan-booking-review-unsubmitted.jpg"
+    },
+    "route": {
+      "origin": "世纪大道地铁站（演示起点）",
+      "destination": "海底捞火锅（龙阳广场店）",
+      "transit": "2号线，3站",
+      "currentEstimateMinutes": 12,
+      "currentFareCny": 3,
+      "afternoonScheduleConfirmed": false,
+      "screenshot": "out/manual-screen-case-20261026/run-04/07-amap-route-current-departure.jpg"
+    },
+    "terminalState": "failed",
+    "terminalReason": "fixed six-minute execution deadline",
+    "nativeTurnState": "interrupted",
+    "cancellationCleanupComplete": true,
+    "privacy": "Review screenshot contains an account-prefilled phone number; keep local, do not publish it to public docs"
+  },
+  "executionBudgetFix": {
+    "commit": "b67ffff38561d24573d3fb144539996a7db1051f",
+    "fixedDeadlineMinutes": 15,
+    "extendsOnProgress": false,
+    "cancellationAndCleanupPreserved": true,
+    "hostCompilation": "passed",
+    "independentReview": "passed",
+    "installedOnPixel": true,
+    "serviceAndShaVerified": true,
+    "fullBusinessRetestAfterBudgetFix": false,
+    "fifteenMinuteWallClockBoundaryTested": false,
+    "sha256": "20a7d71d38604ffdb86132b14e68559f745b31a35b18d1818709463c41579695"
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "cardId": "memory.nudge.17",
+  "guiActions": [
+    {
+      "at": 1794558462535,
+      "origin": "gui",
+      "op": "remove",
+      "cardId": "memory.nudge.17",
+      "detail": null
+    },
+    {
+      "at": 1794558462538,
+      "origin": "gui",
+      "op": "action:hide",
+      "cardId": "memory.nudge.17",
+      "detail": {
+        "values": {},
+        "effect": "dismiss"
+      }
+    }
+  ],
+  "memoryFeedback": [
+    {
+      "at": 1794558462535,
+      "op": "remove",
+      "origin": "gui"
+    },
+    {
+      "at": 1794558462538,
+      "op": "action:hide",
+      "origin": "gui",
+      "effect": "dismiss"
+    }
+  ],
+  "scope": "Actual Home button tap and Memory readback; synthetic data only"
+}

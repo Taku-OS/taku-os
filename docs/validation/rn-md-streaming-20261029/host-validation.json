@@ -1,0 +1,64 @@
+{
+  "schema": "taku.mdimpl.host-validation/1",
+  "head": "7888721319656ef6bc495dd632881cb3a935bf24",
+  "completedAt": "2026-10-29T00:29:37.110218+00:00",
+  "environment": "MacBook Air macOS; Java Temurin 21.0.12; Node via mise",
+  "commands": 32,
+  "finalFailures": [],
+  "rn": {
+    "lint": true,
+    "typecheck": true,
+    "testsPassed": 86,
+    "finalChecks": "rn-final-checks.json",
+    "originalBatchTests": 81
+  },
+  "rootTestsPassed": 4,
+  "appApiTestsPassed": 9,
+  "assistantHostScriptsPassed": 15,
+  "imageChecks": {
+    "total": 254,
+    "skipped": 5
+  },
+  "otaTestsPassed": 177,
+  "skips": [
+    {
+      "file": "tests/ninja-fifo-guard.test.py",
+      "count": 1,
+      "reason": "Linux /proc/self/fdinfo unavailable on macOS"
+    },
+    {
+      "file": "tests/image-build-workarounds.test.py",
+      "count": 1,
+      "reason": "Go compiler absent; TAKU_TEST_GO not configured"
+    },
+    {
+      "file": "tests/image-manifest-init.test.py",
+      "count": 1,
+      "reason": "Real repo launcher absent"
+    },
+    {
+      "file": "tests/image-manifest-init.test.py",
+      "count": 1,
+      "reason": "TAKU_TEST_REPO_INSTALL integration fixture not configured"
+    },
+    {
+      "file": "tests/product-branding.test.py",
+      "count": 1,
+      "reason": "Standalone host kotlinc unavailable"
+    }
+  ],
+  "reruns": [
+    {
+      "name": "test-native-routing-host",
+      "exitCode": 0,
+      "log": "/tmp/mdimpl-validation-host-20261029/test-native-routing-host-rerun.log",
+      "result": "96 checks passed after updating test fixture and compiling real SessionEvents"
+    }
+  ],
+  "changedFiles": [
+    "system/assistant/test-native-routing-host.sh",
+    "system/assistant/tests/native-routing/org/agentos/lab/NativeBridgeTestDoubles.java"
+  ],
+  "scope": "Source/protocol/host checks only; no APK packaging or device actions",
+  "sourceState": "Original whole-repository batch then final RN checks after recovery/visual changes; see final branch commit"
+}

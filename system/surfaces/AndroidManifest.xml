@@ -1,0 +1,8 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="org.agentos.surfaces" android:versionCode="4" android:versionName="0.3.0">
+    <uses-sdk android:minSdkVersion="36" android:targetSdkVersion="36"/>
+    <permission android:name="org.agentos.permission.PUBLISH_SURFACES" android:protectionLevel="signature"/>
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
+    <application android:label="@string/app_name" android:allowBackup="false" android:theme="@android:style/Theme.Material.Light.NoActionBar" android:supportsRtl="true">
+        <service android:name=".SurfaceService" android:exported="true" android:permission="org.agentos.permission.PUBLISH_SURFACES"/>
+    </application>
+</manifest>

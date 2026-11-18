@@ -1,0 +1,634 @@
+{
+  "accessedAt": "2026-10-10",
+  "sources": [
+    {
+      "title": "Android Manifest permission reference",
+      "url": "https://developer.android.com/reference/android/Manifest.permission",
+      "accessedAt": "2026-10-10",
+      "registeredAt": "2026-10-10",
+      "audit": "web_content_reviewed",
+      "claim": "Permission categories, special access and hard-restricted permissions are distinct",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "AOSP privileged permission allowlist",
+      "url": "https://source.android.com/docs/core/permissions/perms-allowlist",
+      "accessedAt": "2026-10-10",
+      "registeredAt": "2026-10-10",
+      "audit": "web_content_reviewed",
+      "claim": "privapp allowlists apply to the same partition; platform signing, installation location and protection level are separate",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "AOSP SELinux",
+      "url": "https://source.android.com/docs/security/features/selinux",
+      "accessedAt": "2026-10-10",
+      "registeredAt": "2026-10-10",
+      "audit": "web_content_reviewed",
+      "claim": "UID 0 remains subject to mandatory access control",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "MediaProjection",
+      "url": "https://developer.android.com/media/grow/media-projection",
+      "accessedAt": "2026-10-10",
+      "registeredAt": "2026-10-10",
+      "audit": "web_content_reviewed",
+      "claim": "API 21; target 34 adds per-session consent and foreground-service requirements",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "AccessibilityService",
+      "url": "https://developer.android.com/reference/android/accessibilityservice/AccessibilityService",
+      "accessedAt": "2026-10-10",
+      "registeredAt": "2026-10-10",
+      "audit": "web_content_reviewed",
+      "claim": "dispatchGesture API 24; takeScreenshot API 30; requires declared service capabilities and an enabled service",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "NotificationListenerService",
+      "url": "https://developer.android.com/reference/android/service/notification/NotificationListenerService",
+      "accessedAt": "2026-10-10",
+      "registeredAt": "2026-10-10",
+      "audit": "web_content_reviewed",
+      "claim": "API 18; a service binding permission does not mean the user enabled notification access",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "DisplayManager",
+      "url": "https://developer.android.com/reference/android/hardware/display/DisplayManager",
+      "accessedAt": "2026-10-10",
+      "registeredAt": "2026-10-10",
+      "audit": "web_content_reviewed",
+      "claim": "The traditional createVirtualDisplay overload is API 19; permissions depend on flags",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "PackageInstaller SessionParams",
+      "url": "https://developer.android.com/reference/android/content/pm/PackageInstaller.SessionParams",
+      "accessedAt": "2026-10-10",
+      "registeredAt": "2026-10-10",
+      "audit": "web_content_reviewed",
+      "claim": "API 21; requesting installation does not imply a new install without confirmation; USER_ACTION_NOT_REQUIRED has conditions",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "Restrictions on background Activity starts",
+      "url": "https://developer.android.com/guide/components/activities/secure-bal",
+      "accessedAt": "2026-10-10",
+      "registeredAt": "2026-10-10",
+      "audit": "web_content_reviewed",
+      "claim": "Background starts are constrained by Activity security and version-specific policy",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "Restrictions on starting foreground services from the background",
+      "url": "https://developer.android.com/develop/background-work/services/fgs/restrictions-bg-start",
+      "accessedAt": "2026-10-10",
+      "registeredAt": "2026-10-10",
+      "audit": "web_content_reviewed",
+      "claim": "An ordinary background app cannot start an FGS at any time",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "Audio playback capture",
+      "url": "https://developer.android.com/media/platform/av-capture",
+      "accessedAt": "2026-10-10",
+      "registeredAt": "2026-10-10",
+      "audit": "web_content_reviewed",
+      "claim": "API 29; same user, RECORD_AUDIO, MediaProjection and the playback app's capture policy",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "AOSP camera architecture",
+      "url": "https://source.android.com/docs/core/camera",
+      "accessedAt": "2026-10-10",
+      "registeredAt": "2026-10-10",
+      "audit": "web_content_reviewed",
+      "claim": "A cross-app image pipeline involves CameraService / HAL; CAMERA permission is not a substitute",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "Android clipboard access restrictions",
+      "url": "https://developer.android.com/privacy-and-security/risks/secure-clipboard-handling",
+      "accessedAt": "2026-10-10",
+      "registeredAt": "2026-10-10",
+      "audit": "web_content_reviewed",
+      "claim": "Ordinary background clipboard reads are restricted from API 29",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "Official Shizuku introduction",
+      "url": "https://shizuku.rikka.app/introduction/",
+      "accessedAt": "2026-10-10",
+      "registeredAt": "2026-10-10",
+      "audit": "web_content_reviewed",
+      "claim": "ADB mode grants shell privileges and root mode grants root privileges; this is not universal privilege escalation",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "Android 16 InputShellCommand source",
+      "url": "https://android.googlesource.com/platform/frameworks/base/+/refs/heads/android16-release/services/core/java/com/android/server/input/InputShellCommand.java",
+      "accessedAt": "2026-10-10",
+      "registeredAt": "2026-10-10",
+      "audit": "web_content_reviewed",
+      "claim": "Display targeting with input -d; official source was actually retrieved with format=TEXT",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "Android 16 DisplayManagerService",
+      "url": "https://android.googlesource.com/platform/frameworks/base/+/refs/heads/android16-release/services/core/java/com/android/server/display/DisplayManagerService.java",
+      "accessedAt": "2026-10-10",
+      "registeredAt": "2026-10-10",
+      "audit": "web_content_reviewed",
+      "claim": "TRUSTED is protected by ADD_TRUSTED_DISPLAY; OWN_FOCUS requires a trusted display",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "AOSP file-based encryption",
+      "url": "https://source.android.com/docs/security/features/encryption/file-based",
+      "accessedAt": "2026-10-10",
+      "registeredAt": "2026-10-10",
+      "audit": "web_content_reviewed",
+      "claim": "CE is available after the first unlock; DE and Direct Boot are distinct; root does not unlock hardware-protected keys",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "Android multi-window support",
+      "url": "https://developer.android.com/develop/ui/views/layout/support-multi-window-mode",
+      "accessedAt": "2026-10-10",
+      "registeredAt": "2026-10-10",
+      "audit": "web_content_reviewed",
+      "claim": "Multi-window behavior depends on app/version policies such as resizeableActivity",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "AOSP OTA",
+      "url": "https://source.android.com/docs/core/ota",
+      "accessedAt": "2026-10-10",
+      "registeredAt": "2026-10-10",
+      "audit": "web_content_reviewed",
+      "claim": "The update architecture depends on partition/device configuration; project release acceptance is unfinished",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "VoiceInteractionService",
+      "url": "https://developer.android.com/reference/android/service/voice/VoiceInteractionService",
+      "accessedAt": "2026-10-10",
+      "registeredAt": "2026-10-10",
+      "audit": "web_content_reviewed",
+      "claim": "Service/Session and binding contracts for the default digital assistant",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "AOSP SoundTrigger",
+      "url": "https://source.android.com/docs/core/audio/sound-trigger",
+      "accessedAt": "2026-10-10",
+      "registeredAt": "2026-10-10",
+      "audit": "web_content_reviewed",
+      "claim": "DSP/HAL platform support determines the low-power path; continuously recording audio is not a substitute",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "Official Perfetto documentation",
+      "url": "https://perfetto.dev/docs/quickstart/android-tracing",
+      "accessedAt": null,
+      "registeredAt": "2026-10-10",
+      "audit": "official_reference",
+      "claim": "Mechanism and interface reference, not evidence of project testing",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "AOSP Audio HAL",
+      "url": "https://source.android.com/docs/core/audio/implement",
+      "accessedAt": null,
+      "registeredAt": "2026-10-10",
+      "audit": "official_reference",
+      "claim": "Mechanism and interface reference, not evidence of project testing",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "AOSP Thermal HAL",
+      "url": "https://source.android.com/docs/core/power/thermal-mitigation",
+      "accessedAt": "2026-10-10",
+      "registeredAt": "2026-10-10",
+      "audit": "web_content_reviewed",
+      "claim": "Thermal control depends on both HAL and device policy; standby drain and temperature rise require physical-device tests",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "android.os.Build",
+      "url": "https://developer.android.com/reference/android/os/Build",
+      "accessedAt": null,
+      "registeredAt": "2026-10-10",
+      "audit": "official_reference",
+      "claim": "Mechanism and interface reference, not evidence of project testing",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "android.app.ActivityManager",
+      "url": "https://developer.android.com/reference/android/app/ActivityManager",
+      "accessedAt": null,
+      "registeredAt": "2026-10-10",
+      "audit": "official_reference",
+      "claim": "Mechanism and interface reference, not evidence of project testing",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "android.content.pm.PackageManager",
+      "url": "https://developer.android.com/reference/android/content/pm/PackageManager",
+      "accessedAt": null,
+      "registeredAt": "2026-10-10",
+      "audit": "official_reference",
+      "claim": "Mechanism and interface reference, not evidence of project testing",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "android.app.NotificationManager",
+      "url": "https://developer.android.com/reference/android/app/NotificationManager",
+      "accessedAt": null,
+      "registeredAt": "2026-10-10",
+      "audit": "official_reference",
+      "claim": "Mechanism and interface reference, not evidence of project testing",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "android.service.notification.NotificationListenerService",
+      "url": "https://developer.android.com/reference/android/service/notification/NotificationListenerService",
+      "accessedAt": null,
+      "registeredAt": "2026-10-10",
+      "audit": "official_reference",
+      "claim": "Mechanism and interface reference, not evidence of project testing",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "android.app.RemoteInput",
+      "url": "https://developer.android.com/reference/android/app/RemoteInput",
+      "accessedAt": null,
+      "registeredAt": "2026-10-10",
+      "audit": "official_reference",
+      "claim": "Mechanism and interface reference, not evidence of project testing",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "android.app.UiAutomation",
+      "url": "https://developer.android.com/reference/android/app/UiAutomation",
+      "accessedAt": null,
+      "registeredAt": "2026-10-10",
+      "audit": "official_reference",
+      "claim": "Mechanism and interface reference, not evidence of project testing",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "android.accessibilityservice.AccessibilityService",
+      "url": "https://developer.android.com/reference/android/accessibilityservice/AccessibilityService",
+      "accessedAt": null,
+      "registeredAt": "2026-10-10",
+      "audit": "official_reference",
+      "claim": "Mechanism and interface reference, not evidence of project testing",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "android.view.inputmethod.InputConnection",
+      "url": "https://developer.android.com/reference/android/view/inputmethod/InputConnection",
+      "accessedAt": null,
+      "registeredAt": "2026-10-10",
+      "audit": "official_reference",
+      "claim": "Mechanism and interface reference, not evidence of project testing",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "android.media.projection.MediaProjectionManager",
+      "url": "https://developer.android.com/reference/android/media/projection/MediaProjectionManager",
+      "accessedAt": null,
+      "registeredAt": "2026-10-10",
+      "audit": "official_reference",
+      "claim": "Mechanism and interface reference, not evidence of project testing",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "android.app.usage.UsageStatsManager",
+      "url": "https://developer.android.com/reference/android/app/usage/UsageStatsManager",
+      "accessedAt": null,
+      "registeredAt": "2026-10-10",
+      "audit": "official_reference",
+      "claim": "Mechanism and interface reference, not evidence of project testing",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "android.content.ClipboardManager",
+      "url": "https://developer.android.com/reference/android/content/ClipboardManager",
+      "accessedAt": null,
+      "registeredAt": "2026-10-10",
+      "audit": "official_reference",
+      "claim": "Mechanism and interface reference, not evidence of project testing",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "android.media.session.MediaSessionManager",
+      "url": "https://developer.android.com/reference/android/media/session/MediaSessionManager",
+      "accessedAt": null,
+      "registeredAt": "2026-10-10",
+      "audit": "official_reference",
+      "claim": "Mechanism and interface reference, not evidence of project testing",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "android.provider.Telephony",
+      "url": "https://developer.android.com/reference/android/provider/Telephony",
+      "accessedAt": null,
+      "registeredAt": "2026-10-10",
+      "audit": "official_reference",
+      "claim": "Mechanism and interface reference, not evidence of project testing",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "android.provider.ContactsContract",
+      "url": "https://developer.android.com/reference/android/provider/ContactsContract",
+      "accessedAt": null,
+      "registeredAt": "2026-10-10",
+      "audit": "official_reference",
+      "claim": "Mechanism and interface reference, not evidence of project testing",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "android.provider.CalendarContract",
+      "url": "https://developer.android.com/reference/android/provider/CalendarContract",
+      "accessedAt": null,
+      "registeredAt": "2026-10-10",
+      "audit": "official_reference",
+      "claim": "Mechanism and interface reference, not evidence of project testing",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "android.provider.MediaStore",
+      "url": "https://developer.android.com/reference/android/provider/MediaStore",
+      "accessedAt": null,
+      "registeredAt": "2026-10-10",
+      "audit": "official_reference",
+      "claim": "Mechanism and interface reference, not evidence of project testing",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "android.provider.DocumentsContract",
+      "url": "https://developer.android.com/reference/android/provider/DocumentsContract",
+      "accessedAt": null,
+      "registeredAt": "2026-10-10",
+      "audit": "official_reference",
+      "claim": "Mechanism and interface reference, not evidence of project testing",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "android.app.backup.BackupManager",
+      "url": "https://developer.android.com/reference/android/app/backup/BackupManager",
+      "accessedAt": null,
+      "registeredAt": "2026-10-10",
+      "audit": "official_reference",
+      "claim": "Mechanism and interface reference, not evidence of project testing",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "android.content.Intent",
+      "url": "https://developer.android.com/reference/android/content/Intent",
+      "accessedAt": null,
+      "registeredAt": "2026-10-10",
+      "audit": "official_reference",
+      "claim": "Mechanism and interface reference, not evidence of project testing",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "android.content.pm.PackageInstaller",
+      "url": "https://developer.android.com/reference/android/content/pm/PackageInstaller",
+      "accessedAt": null,
+      "registeredAt": "2026-10-10",
+      "audit": "official_reference",
+      "claim": "Mechanism and interface reference, not evidence of project testing",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "android.app.AppOpsManager",
+      "url": "https://developer.android.com/reference/android/app/AppOpsManager",
+      "accessedAt": null,
+      "registeredAt": "2026-10-10",
+      "audit": "official_reference",
+      "claim": "Mechanism and interface reference, not evidence of project testing",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "android.provider.Settings",
+      "url": "https://developer.android.com/reference/android/provider/Settings",
+      "accessedAt": null,
+      "registeredAt": "2026-10-10",
+      "audit": "official_reference",
+      "claim": "Mechanism and interface reference, not evidence of project testing",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "android.app.role.RoleManager",
+      "url": "https://developer.android.com/reference/android/app/role/RoleManager",
+      "accessedAt": null,
+      "registeredAt": "2026-10-10",
+      "audit": "official_reference",
+      "claim": "Mechanism and interface reference, not evidence of project testing",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "android.view.WindowManager",
+      "url": "https://developer.android.com/reference/android/view/WindowManager",
+      "accessedAt": null,
+      "registeredAt": "2026-10-10",
+      "audit": "official_reference",
+      "claim": "Mechanism and interface reference, not evidence of project testing",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "android.service.voice.VoiceInteractionService",
+      "url": "https://developer.android.com/reference/android/service/voice/VoiceInteractionService",
+      "accessedAt": null,
+      "registeredAt": "2026-10-10",
+      "audit": "official_reference",
+      "claim": "Mechanism and interface reference, not evidence of project testing",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "android.hardware.display.DisplayManager",
+      "url": "https://developer.android.com/reference/android/hardware/display/DisplayManager",
+      "accessedAt": null,
+      "registeredAt": "2026-10-10",
+      "audit": "official_reference",
+      "claim": "Mechanism and interface reference, not evidence of project testing",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "android.media.AudioRecord",
+      "url": "https://developer.android.com/reference/android/media/AudioRecord",
+      "accessedAt": null,
+      "registeredAt": "2026-10-10",
+      "audit": "official_reference",
+      "claim": "Mechanism and interface reference, not evidence of project testing",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "android.media.AudioPlaybackCaptureConfiguration",
+      "url": "https://developer.android.com/reference/android/media/AudioPlaybackCaptureConfiguration",
+      "accessedAt": null,
+      "registeredAt": "2026-10-10",
+      "audit": "official_reference",
+      "claim": "Mechanism and interface reference, not evidence of project testing",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "android.hardware.camera2.CameraManager",
+      "url": "https://developer.android.com/reference/android/hardware/camera2/CameraManager",
+      "accessedAt": null,
+      "registeredAt": "2026-10-10",
+      "audit": "official_reference",
+      "claim": "Mechanism and interface reference, not evidence of project testing",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "android.location.LocationManager",
+      "url": "https://developer.android.com/reference/android/location/LocationManager",
+      "accessedAt": null,
+      "registeredAt": "2026-10-10",
+      "audit": "official_reference",
+      "claim": "Mechanism and interface reference, not evidence of project testing",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "android.hardware.SensorManager",
+      "url": "https://developer.android.com/reference/android/hardware/SensorManager",
+      "accessedAt": null,
+      "registeredAt": "2026-10-10",
+      "audit": "official_reference",
+      "claim": "Mechanism and interface reference, not evidence of project testing",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "android.net.nsd.NsdManager",
+      "url": "https://developer.android.com/reference/android/net/nsd/NsdManager",
+      "accessedAt": null,
+      "registeredAt": "2026-10-10",
+      "audit": "official_reference",
+      "claim": "Mechanism and interface reference, not evidence of project testing",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "android.hardware.usb.UsbManager",
+      "url": "https://developer.android.com/reference/android/hardware/usb/UsbManager",
+      "accessedAt": null,
+      "registeredAt": "2026-10-10",
+      "audit": "official_reference",
+      "claim": "Mechanism and interface reference, not evidence of project testing",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "android.app.job.JobScheduler",
+      "url": "https://developer.android.com/reference/android/app/job/JobScheduler",
+      "accessedAt": null,
+      "registeredAt": "2026-10-10",
+      "audit": "official_reference",
+      "claim": "Mechanism and interface reference, not evidence of project testing",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "android.os.PowerManager",
+      "url": "https://developer.android.com/reference/android/os/PowerManager",
+      "accessedAt": null,
+      "registeredAt": "2026-10-10",
+      "audit": "official_reference",
+      "claim": "Mechanism and interface reference, not evidence of project testing",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "android.net.VpnService",
+      "url": "https://developer.android.com/reference/android/net/VpnService",
+      "accessedAt": null,
+      "registeredAt": "2026-10-10",
+      "audit": "official_reference",
+      "claim": "Mechanism and interface reference, not evidence of project testing",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    },
+    {
+      "title": "android.net.ConnectivityManager",
+      "url": "https://developer.android.com/reference/android/net/ConnectivityManager",
+      "accessedAt": null,
+      "registeredAt": "2026-10-10",
+      "audit": "official_reference",
+      "claim": "Mechanism and interface reference, not evidence of project testing",
+      "publishedAt": null,
+      "publicationDateNote": "Living documentation has no single publication date; do not substitute the access date"
+    }
+  ],
+  "localApiVersionAuthority": {
+    "origin": "Android SDK platforms/android-36/data/api-versions.xml",
+    "sha256": "923f7e6367759e127679b6b5a4156ee801100e3cc07dc1d99cb811e791e45435",
+    "scope": "SDK36 class/method API since metadata, not runtime verification"
+  },
+  "notes": [
+    "web_content_reviewed means official pages/search results were actually read in that review; official_reference locates an interface without claiming full online review.",
+    "A citation supports the mechanism, not a claim that the product feature has been tested."
+  ]
+}

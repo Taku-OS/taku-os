@@ -1,0 +1,21 @@
+{
+  "source": "external:Agentroid OS design-system tokens.json",
+  "name": "Agentroid OS",
+  "version": "0.1.0",
+  "date": "2026-10-10",
+  "sha256": "6091f4312160910aedccbf4ab050e3f2425c0ad0134616267702ab0af4df9b65",
+  "tokenCount": 104,
+  "typeCounts": {
+    "color": 19,
+    "dimension": 63,
+    "integer": 3,
+    "fontWeight": 6,
+    "opacity": 4,
+    "number": 1,
+    "duration": 7,
+    "easing": 1
+  },
+  "generatedResources": "res/values/ag_design_tokens.xml",
+  "localProductName": "Taku OS",
+  "note": "Numeric/color truth remains in source tokens.json. Local product name follows this task; source is not edited."
+}

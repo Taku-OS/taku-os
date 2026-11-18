@@ -1,0 +1,1 @@
+{"type":"object","properties":{"status":{"type":"string","enum":["completed","failed","needs_user"]},"message":{"type":"string"},"evidence":{"type":"array","items":{"type":"string"}}},"required":["status","message","evidence"],"additionalProperties":false}

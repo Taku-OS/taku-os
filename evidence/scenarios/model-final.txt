@@ -1,0 +1,11 @@
+已在当前 Android 模拟器实际完成，两组状态均为 `passed`。
+
+- 独立 APK：`org.agentos.scenarioscore`，签名验证通过。
+- 最终 A=3、B=0；幂等重放、撤销、负数加分及非法参数拒绝均已验证。
+- SELinux 保持 Enforcing；执行失败及恢复记录已保留。
+
+结果：[result.json](/data/local/tmp/taku-os-scenarios-20261010/result.json)  
+日志：[progress.txt](/data/local/tmp/taku-os-scenarios-20261010/progress.txt)  
+独立 APK 截图：[apk-final.png](/data/local/tmp/taku-os-scenarios-20261010/evidence/apk-final.png)
+
+结论仅适用于本次工程候选测试。

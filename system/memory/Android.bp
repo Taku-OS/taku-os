@@ -1,0 +1,24 @@
+// On-device embedding: run scripts/prepare-memory-vectors.py first (pinned ONNX Runtime AAR and bge-small-zh-v1.5
+// into the ignored downloads/ cache). The model is stored uncompressed so it can be copied out without inflating.
+android_library_import {
+    name: "taku-memory-onnxruntime",
+    aars: ["downloads/onnxruntime-android-1.29.0.aar"],
+    sdk_version: "current",
+    extract_jni: true,
+}
+
+android_app {
+    name: "TakuMemory",
+    manifest: "AndroidManifest.xml",
+    srcs: ["src/**/*.java"],
+    resource_dirs: ["res"],
+    asset_dirs: ["assets", "downloads/assets"],
+    aaptflags: ["-0", "onnx"],
+    static_libs: ["taku-surfaces-client", "taku-markdown", "taku-memory-onnxruntime"],
+    platform_apis: true,
+    certificate: "platform",
+    privileged: true,
+    privapp_allowlist: "org.agentos.memory.xml",
+    system_ext_specific: true,
+    optimize: { enabled: false },
+}

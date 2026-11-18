@@ -1,0 +1,227 @@
+{
+ "ids": {
+  "CLASH": "9",
+  "BRIEF": "10",
+  "PARCEL": "11",
+  "EMOJI": "12",
+  "LOST": "13",
+  "SILENT": "14",
+  "FULL": "15",
+  "LAST": "16"
+ },
+ "checks": [
+  {
+   "ok": true,
+   "check": "four fixed cards published with rank above the samples and the new glyphs",
+   "detail": {
+    "memory.nudge.9": [
+     1.31794554377,
+     "chat"
+    ],
+    "memory.brief.10": [
+     1.11794554383,
+     "moon"
+    ],
+    "memory.nudge.11": [
+     1.21794554389,
+     "chat"
+    ],
+    "memory.nudge.12": [
+     1.21794554394,
+     "chat"
+    ]
+   }
+  },
+  {
+   "ok": true,
+   "check": "feed order: clash, the newer message, the older message, brief",
+   "detail": null
+  },
+  {
+   "ok": true,
+   "check": "the emoji card was accepted and fits the pin limits",
+   "detail": {
+    "label": "🌸小雨🌸的小号🌸🌸🌸🌸🌸🌸🌸…",
+    "detail": "周五晚上 19:30 你已经约了阿杰打球🏀，和寿司撞时间；可…",
+    "icon": {
+     "kind": "pixel",
+     "glyph": "chat"
+    }
+   }
+  },
+  {
+   "ok": true,
+   "check": "read back reactions of the three cards",
+   "detail": {
+    "read": 3,
+    "swept": 0,
+    "feedExpiring": {
+     "memory.nudge.9": 1794640777000,
+     "memory.brief.10": 1794671940000,
+     "memory.nudge.12": 1794640794000
+    }
+   }
+  },
+  {
+   "ok": true,
+   "check": "the card the user hid was retracted and dropped from the registry",
+   "detail": [
+    "memory.brief.10",
+    "memory.nudge.12",
+    "memory.nudge.9"
+   ]
+  },
+  {
+   "ok": true,
+   "check": "clash: the hand-off is recorded",
+   "detail": [
+    [
+     "action:go",
+     "gui",
+     "ask-taku"
+    ]
+   ]
+  },
+  {
+   "ok": true,
+   "check": "brief: the pin is recorded",
+   "detail": [
+    [
+     "pin",
+     "gui",
+     null
+    ]
+   ]
+  },
+  {
+   "ok": true,
+   "check": "parcel: the hide button and the removal are recorded",
+   "detail": [
+    [
+     "remove",
+     "gui",
+     null
+    ],
+    [
+     "action:hide",
+     "gui",
+     "dismiss"
+    ]
+   ]
+  },
+  {
+   "ok": true,
+   "check": "the hidden card is gone from storage; the pinned brief is in pins",
+   "detail": {
+    "stored": [
+     "memory.nudge.9",
+     "memory.brief.10",
+     "memory.nudge.12"
+    ]
+   }
+  },
+  {
+   "ok": true,
+   "check": "reading the same log again records nothing",
+   "detail": {
+    "read": 0,
+    "swept": 0,
+    "feedExpiring": {
+     "memory.nudge.9": 1794640777000,
+     "memory.brief.10": 1794671940000,
+     "memory.nudge.12": 1794640794000
+    }
+   }
+  },
+  {
+   "ok": true,
+   "check": "agents can read the reminders through open access",
+   "detail": null
+  },
+  {
+   "ok": true,
+   "check": "nudges lists the reactions per reminder",
+   "detail": {
+    "CLASH": [
+     "asked"
+    ],
+    "BRIEF": [
+     "pinned"
+    ],
+    "PARCEL": [
+     "removed"
+    ]
+   }
+  },
+  {
+   "ok": true,
+   "check": "nudges is refused while Agent memory queries are off",
+   "detail": "记忆访问未授权"
+  },
+  {
+   "ok": true,
+   "check": "no answer, card made: memory finds and keeps it",
+   "detail": "agent-generated:ddc1d997-cf92-4dc0-9a20-599cea7579be"
+  },
+  {
+   "ok": true,
+   "check": "no answer, no card: the fixed card goes out",
+   "detail": "memory.nudge.14"
+  },
+  {
+   "ok": true,
+   "check": "full feed: no card, only the notification",
+   "detail": ""
+  },
+  {
+   "ok": true,
+   "check": "exactly one generated card is on the feed, the one memory kept",
+   "detail": [
+    "agent-generated:ddc1d997-cf92-4dc0-9a20-599cea7579be"
+   ]
+  },
+  {
+   "ok": true,
+   "check": "two days later every card has been retracted, the pinned one too",
+   "detail": {
+    "read": 0,
+    "swept": 5,
+    "feedExpiring": {}
+   }
+  },
+  {
+   "ok": true,
+   "check": "nothing of memory is left on the feed",
+   "detail": {
+    "stored": []
+   }
+  },
+  {
+   "ok": true,
+   "check": "turning the feed cards off takes the last card down",
+   "detail": {
+    "before": {
+     "stored": [
+      "memory.nudge.16"
+     ]
+    },
+    "after": {
+     "stored": []
+    }
+   }
+  },
+  {
+   "ok": true,
+   "check": "nothing is left to withdraw",
+   "detail": {
+    "withdrawn": 0,
+    "feedExpiring": {}
+   }
+  },
+  {
+   "ok": true,
+   "check": "stand-in log entries have the home feed shape",
+   "detail": null
+  }
+ ]
+}

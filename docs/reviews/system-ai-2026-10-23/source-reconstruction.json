@@ -1,0 +1,9 @@
+{
+  "passed": true,
+  "files": 38,
+  "version": "0.3.0",
+  "patches": {
+    "0001-taku-inputmethod.patch": "dbe4f55d73b083c27444086e973d374d384b535d73e7e3c5d3748eaff579285e",
+    "0002-ai-replies.patch": "5da05a28377de0928091417a208d989172d48bfff9e8898357d85a82e2b48201"
+  }
+}

@@ -1,0 +1,5 @@
+/private/tmp/taku-build-round7-clean/source/round12-codex: 1 file pushed, 0 skipped. 569.1 MB/s (252833896 bytes in 0.424s)
+/Users/haipro/experiments/android-agent-os/taku-os-skills-lifecycle-20261030/examples/codex-plugin-lifecycle/: 6 files pushed, 0 skipped. 0.5 MB/s (2113 bytes in 0.004s)
+PASS installed 1.0.0 with enabled config and 20000 fixture files
+PASS SIGKILL after first file removed with uninstall journal present and partial cache remaining
+PASS restart completed uninstall: cache, backup, journal and enabled config absent

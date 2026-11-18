@@ -1,0 +1,102 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <!-- Music widget: list/control active media sessions (signature|privileged; platform-signed app). -->
+  <uses-permission android:name="android.permission.MEDIA_CONTENT_CONTROL" />
+  <!-- AI entry: detect a lost network so a request stuck offline ends instead of "working" forever. -->
+  <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+  <!-- "Uninstall" in the app icon menu shows the system confirmation. -->
+  <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
+  <!-- Repair HOME/ASSISTANT after boot, unlock and package updates (platform-signed). -->
+  <uses-permission android:name="android.permission.MANAGE_ROLE_HOLDERS" />
+  <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
+  <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+  <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+  <uses-permission android:name="org.agentos.permission.POST_ISLAND" />
+  <permission android:name="org.agentos.permission.BIND_ISLAND_CONTENT" android:protectionLevel="signature" />
+  <queries>
+    <!-- Discover the native ROM island host; the app never draws an island card. -->
+    <provider android:authorities="com.android.systemui.island" />
+    <intent><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent>
+    <intent>
+      <action android:name="android.intent.action.MAIN" />
+      <category android:name="android.intent.category.LAUNCHER" />
+    </intent>
+  </queries>
+  <uses-permission android:name="android.permission.BIND_APPWIDGET" />
+  <!-- Device-local callers intentionally share user operations: Feed values/history,
+       widget content/clicks and assistant capture/transcripts. These exports are not
+       signature-only boundaries. See docs/agent-open-access.md and the preinstalled skill. -->
+  <application>
+    <service android:name="org.agentos.agent.home.island.IslandPublisherService"
+      android:exported="true" android:permission="org.agentos.permission.BIND_ISLAND_CONTENT" />
+    <receiver android:name="org.agentos.agent.home.island.IslandActionReceiver" android:exported="false" />
+    <service android:name="org.agentos.agent.home.assistant.SystemAssistantService"
+      android:exported="true" android:permission="android.permission.BIND_VOICE_INTERACTION">
+      <intent-filter><action android:name="android.service.voice.VoiceInteractionService" /></intent-filter>
+      <meta-data android:name="android.voice_interaction" android:resource="@xml/taku_voice_interaction" />
+    </service>
+    <service android:name="org.agentos.agent.home.assistant.SystemAssistantSessionService"
+      android:exported="true" android:permission="android.permission.BIND_VOICE_INTERACTION" />
+    <service android:name="org.agentos.agent.home.assistant.SystemRecognitionService"
+      android:exported="true" android:permission="android.permission.BIND_SPEECH_RECOGNITION">
+      <intent-filter><action android:name="android.speech.RecognitionService" /></intent-filter>
+    </service>
+    <activity android:name="org.agentos.agent.home.assistant.AssistantOverlayActivity"
+      android:exported="true" android:launchMode="singleTop" android:excludeFromRecents="true"
+      android:taskAffinity="org.agentos.agent.assistant" android:screenOrientation="portrait"
+      android:windowSoftInputMode="adjustNothing" android:theme="@style/Theme.TakuAssistantOverlay" />
+    <activity android:name="org.agentos.agent.home.widgets.WidgetSetupActivity" android:exported="false" android:theme="@android:style/Theme.Material.Light.NoActionBar" />
+    <!-- TakuOS home. Holds android.app.role.HOME once selected (see README). -->
+    <activity
+      android:name="org.agentos.agent.home.HomeActivity"
+      android:exported="true"
+      android:launchMode="singleTask"
+      android:stateNotNeeded="true"
+      android:clearTaskOnLaunch="true"
+      android:resumeWhilePausing="false"
+      android:excludeFromRecents="true"
+      android:taskAffinity="org.agentos.agent.home"
+      android:screenOrientation="portrait"
+      android:windowSoftInputMode="adjustNothing"
+      android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|smallestScreenSize|uiMode|density|fontScale|navigation"
+      android:theme="@style/Theme.TakuHome">
+      <intent-filter android:priority="2">
+        <action android:name="android.intent.action.MAIN" />
+        <category android:name="android.intent.category.HOME" />
+        <category android:name="android.intent.category.DEFAULT" />
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.ASSIST" />
+        <action android:name="android.intent.action.VOICE_ASSIST" />
+        <action android:name="android.intent.action.VOICE_COMMAND" />
+        <category android:name="android.intent.category.DEFAULT" />
+      </intent-filter>
+    </activity>
+    <receiver android:name="org.agentos.agent.home.HomeRoleReceiver" android:exported="false">
+      <intent-filter>
+        <action android:name="android.intent.action.BOOT_COMPLETED" />
+        <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+        <action android:name="android.intent.action.USER_UNLOCKED" />
+      </intent-filter>
+    </receiver>
+    <!-- Agent access to the feed: content call - -uri content://org.agentos.agent.home-feed -->
+    <provider
+      android:name="org.agentos.agent.home.feed.HomeFeedProvider"
+      android:authorities="org.agentos.agent.home-feed"
+      android:exported="true" />
+    <!-- Agent access to the home pages (apps, folders) and widgets. -->
+    <provider
+      android:name="org.agentos.agent.home.apps.HomeLayoutProvider"
+      android:authorities="org.agentos.agent.home-layout"
+      android:exported="true" />
+    <!-- Agent access to the AI entry and Dynamic Island (same AssistantSession as the GUI). -->
+    <provider
+      android:name="org.agentos.agent.home.assistant.HomeAssistantProvider"
+      android:authorities="org.agentos.agent.home-assistant"
+      android:exported="true" />
+    <!-- Agent access to the desktop's own navigation state (read-only; it never launches it). -->
+    <provider
+      android:name="org.agentos.agent.home.panels.PanelNavigationProvider"
+      android:authorities="org.agentos.agent.panel-navigation"
+      android:exported="true" />
+  </application>
+</manifest>

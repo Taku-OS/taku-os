@@ -1,0 +1,10 @@
+<!-- Taku icon "arrow-left" (ui). Tint from the view. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M9.176 18.431c0.396 0.385 1.029 0.376 1.414-0.02 0.385-0.395 0.376-1.028-0.019-1.413L6.462 13H20c0.553 0 1-0.447 1-1 0-0.552-0.447-1-1-1H6.461l4.11-3.998c0.395-0.385 0.404-1.018 0.019-1.414-0.385-0.396-1.018-0.404-1.414-0.02l-5.873 5.716C3.11 11.472 3 11.73 3 12c0 0.27 0.11 0.528 0.303 0.716l5.873 5.715Z"/>
+</vector>

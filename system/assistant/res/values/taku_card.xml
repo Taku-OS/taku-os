@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Card shadow. Shadow colors need Android 9+; older phones show the default elevation shadow. -->
+<resources>
+    <dimen name="taku_card_elevation">2dp</dimen>
+    <color name="taku_card_shadow">#33000000</color>
+</resources>

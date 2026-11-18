@@ -1,0 +1,22 @@
+<!-- Taku icon "library-add" (ui). Tint from the view. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M17.167 12.17c0.552 0 1 0.44 1 1v3h3c0.552 0 1 0.44 1 1 0 0.55-0.448 1-1 1h-3v3c0 0.55-0.448 1-1 1s-1-0.45-1-1v-3h-3c-0.552 0-1-0.45-1-1 0-0.56 0.448-1 1-1h3v-3c0-0.56 0.448-1 1-1Z"/>
+    <path
+        android:fillColor="#FF000000"
+        android:fillType="evenOdd"
+        android:pathData="M2.274 14.61c0.001-1.69 1.733-2.77 3.142-1.94l4.378 2.55c1.45 0.85 1.45 3.04 0 3.89l-4.378 2.56c-1.409 0.82-3.141-0.25-3.142-1.95v-5.11Zm2.116 5.11l4.377-2.55-4.377-2.56v5.11Z"/>
+    <path
+        android:fillColor="#FF000000"
+        android:fillType="evenOdd"
+        android:pathData="M7.667 1.67c1.657 0 3 1.34 3 3v3c0 1.65-1.343 3-3 3h-3c-1.657 0-3-1.35-3-3v-3c0-1.66 1.343-3 3-3h3Zm-3 2c-0.552 0-1 0.44-1 1v3c0 0.55 0.448 1 1 1h3c0.552 0 1-0.45 1-1v-3c0-0.56-0.448-1-1-1h-3Z"/>
+    <path
+        android:fillColor="#FF000000"
+        android:fillType="evenOdd"
+        android:pathData="M17.167 1.67c2.485 0 4.5 2.01 4.5 4.5 0 2.48-2.015 4.5-4.5 4.5s-4.5-2.02-4.5-4.5c0-2.49 2.015-4.5 4.5-4.5Zm0 2c-1.381 0-2.5 1.12-2.5 2.5s1.119 2.5 2.5 2.5c1.38 0 2.5-1.12 2.5-2.5s-1.119-2.5-2.5-2.5Z"/>
+</vector>

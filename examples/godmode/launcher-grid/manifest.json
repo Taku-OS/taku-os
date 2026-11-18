@@ -1,0 +1,1 @@
+{"schemaVersion":1,"id":"org.example.launcher","name":"Launcher example","version":"1.0.0","type":"system-app","entrypoint":{"dex":"plugin.dex","class":"org.example.LauncherPlugin"},"minHostVersion":"1.0.0","targets":["launcher"],"capabilities":[],"permissions":[],"ui":["example.grid"],"settings":[],"hooks":[],"runtime":"host"}

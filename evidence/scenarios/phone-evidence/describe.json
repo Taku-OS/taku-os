@@ -1,0 +1,238 @@
+{
+  "ok": true,
+  "app": {
+    "id": "scenario_score",
+    "title": "双队计分",
+    "version": "1",
+    "methods": [
+      {
+        "name": "score.state",
+        "description": "读取两队分数及当前可撤销历史",
+        "mutates": false,
+        "paramsSchema": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": false
+        },
+        "resultSchema": {
+          "type": "object",
+          "properties": {
+            "scores": {
+              "type": "object",
+              "properties": {
+                "A": {
+                  "type": "integer"
+                },
+                "B": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "A",
+                "B"
+              ],
+              "additionalProperties": false
+            },
+            "history": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "integer"
+                  },
+                  "team": {
+                    "type": "string",
+                    "enum": [
+                      "A",
+                      "B"
+                    ]
+                  },
+                  "delta": {
+                    "type": "integer",
+                    "not": {
+                      "const": 0
+                    }
+                  },
+                  "at": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "team",
+                  "delta",
+                  "at"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "scores",
+            "history"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "score.add",
+        "description": "为A或B队加上非零整数，支持负数",
+        "mutates": true,
+        "paramsSchema": {
+          "type": "object",
+          "properties": {
+            "team": {
+              "type": "string",
+              "enum": [
+                "A",
+                "B"
+              ]
+            },
+            "delta": {
+              "type": "integer",
+              "not": {
+                "const": 0
+              }
+            }
+          },
+          "required": [
+            "team",
+            "delta"
+          ],
+          "additionalProperties": false
+        },
+        "resultSchema": {
+          "type": "object",
+          "properties": {
+            "scores": {
+              "type": "object",
+              "properties": {
+                "A": {
+                  "type": "integer"
+                },
+                "B": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "A",
+                "B"
+              ],
+              "additionalProperties": false
+            },
+            "history": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "integer"
+                  },
+                  "team": {
+                    "type": "string",
+                    "enum": [
+                      "A",
+                      "B"
+                    ]
+                  },
+                  "delta": {
+                    "type": "integer",
+                    "not": {
+                      "const": 0
+                    }
+                  },
+                  "at": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "team",
+                  "delta",
+                  "at"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "scores",
+            "history"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "score.undo",
+        "description": "撤销最后一次加分并移除该历史；历史为空则拒绝",
+        "mutates": true,
+        "paramsSchema": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": false
+        },
+        "resultSchema": {
+          "type": "object",
+          "properties": {
+            "scores": {
+              "type": "object",
+              "properties": {
+                "A": {
+                  "type": "integer"
+                },
+                "B": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "A",
+                "B"
+              ],
+              "additionalProperties": false
+            },
+            "history": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "integer"
+                  },
+                  "team": {
+                    "type": "string",
+                    "enum": [
+                      "A",
+                      "B"
+                    ]
+                  },
+                  "delta": {
+                    "type": "integer",
+                    "not": {
+                      "const": 0
+                    }
+                  },
+                  "at": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "team",
+                  "delta",
+                  "at"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "scores",
+            "history"
+          ],
+          "additionalProperties": false
+        }
+      }
+    ]
+  }
+}

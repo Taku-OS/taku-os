@@ -1,0 +1,21 @@
+{
+  "ok": false,
+  "error": {
+    "code": "INVALID_PARAMS",
+    "message": "Arguments do not match method schema",
+    "details": [
+      {
+        "keyword": "enum",
+        "dataPath": "/team",
+        "schemaPath": "#/properties/team/enum",
+        "params": {
+          "allowedValues": [
+            "A",
+            "B"
+          ]
+        },
+        "message": "should be equal to one of the allowed values"
+      }
+    ]
+  }
+}

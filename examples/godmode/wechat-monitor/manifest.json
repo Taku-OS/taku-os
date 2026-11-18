@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "org.taku.wechat.monitor",
+  "name": "WeChat notification monitor",
+  "version": "1.1.0",
+  "type": "tool-provider",
+  "minHostVersion": "1.0.0",
+  "targets": ["android-arm64"],
+  "capabilities": ["tools", "dynamic-instrumentation"],
+  "permissions": ["root"],
+  "ui": [],
+  "settings": [],
+  "hooks": [],
+  "runtime": "agent",
+  "mcp": {
+    "command": "/data/local/agentos/rea-pack/bin/node",
+    "args": ["server.mjs"],
+    "env": {
+      "LD_LIBRARY_PATH": "/data/local/agentos/rea-pack/lib:/system/lib64:/vendor/lib64",
+      "PATH": "/data/local/agentos/rea-pack/bin:/system_ext/bin:/system/bin"
+    }
+  },
+  "skills": ["skills/wechat-monitor/SKILL.md"],
+  "healthcheck": {"timeoutMs": 30000},
+  "description": "Locally observe notifications posted by the running WeChat main process."
+}

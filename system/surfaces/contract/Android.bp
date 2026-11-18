@@ -1,0 +1,4 @@
+filegroup {
+    name: "taku-surfaces-contract-sources",
+    srcs: ["**/*.java"],
+}

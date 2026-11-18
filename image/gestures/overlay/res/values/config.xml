@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Framework default before the post-unlock runtime repair runs: long press invokes
+         the selected (Taku Agent) system assistant. Power/sleep/volume semantics stay native. -->
+    <integer name="config_longPressOnPowerBehavior">5</integer>
+    <!-- Taku: the bottom-corner swipe no longer invokes the assistant. Double tap on the
+         gesture handle opens it instead (image/launcher/nav-handle-double-tap.patch).
+         This is only the default for Settings.Secure.ASSIST_TOUCH_GESTURE_ENABLED, so a
+         user or agent can still turn the corner swipe back on. -->
+    <bool name="config_assistTouchGestureEnabledDefault">false</bool>
+</resources>

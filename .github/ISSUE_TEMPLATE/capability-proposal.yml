@@ -1,0 +1,117 @@
+name: Capability or extension proposal
+description: Propose a system capability, extension or workflow with its contract and test status.
+title: "[Capability] "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form when you have a concrete interface in mind. For an open idea, use the [feature request form](https://github.com/Taku-OS/taku-os-release/issues/new?template=feature-request.yml).
+
+        - Report research, emulator and physical-device status separately. A passing build does not mean it runs on a device.
+        - Use test data. Do not include accounts, keys or user data.
+        - A plugin manifest is not a sandbox, so do not describe manifest checks as isolation.
+  - type: dropdown
+    id: contribution_type
+    attributes:
+      label: Type
+      options:
+        - System capability or fix to an existing method
+        - Trusted local extension
+        - App or workflow example
+        - Runtime adapter
+        - Device support
+    validations:
+      required: true
+  - type: textarea
+    id: scenario
+    attributes:
+      label: Use case and success condition
+      description: Who needs it? Give one concrete input. What real state or output changes on success?
+    validations:
+      required: true
+  - type: textarea
+    id: contract
+    attributes:
+      label: Entry point, inputs, outputs and errors
+      description: The API, command or source entry point. If events are not implemented, say so. See the [protocol](https://github.com/Taku-OS/taku-os-release/blob/main/docs/protocol.md).
+    validations:
+      required: true
+  - type: textarea
+    id: permissions
+    attributes:
+      label: Permissions
+      description: The UID and Android permissions, and whether it needs root, system signing or ROM changes.
+    validations:
+      required: true
+  - type: textarea
+    id: agent_parity
+    attributes:
+      label: Agent parity
+      description: For a new setting or user-visible data, give the shared source of truth and the `settings`, `content` or `cmd` entry point. Otherwise write n/a. See [Agent parity](https://github.com/Taku-OS/taku-os-release/blob/main/CONTRIBUTING.md#agent-parity).
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Tested environment
+      placeholder: "Device or AVD, Android/API/ABI, build type, source commit or version. App package and version, if relevant."
+    validations:
+      required: true
+  - type: dropdown
+    id: research_status
+    attributes:
+      label: Research status
+      options:
+        - Idea only, no implementation
+        - Implemented, tested as listed below
+    validations:
+      required: true
+  - type: dropdown
+    id: emulator_status
+    attributes:
+      label: Emulator status
+      options:
+        - Not tested
+        - Passed
+        - Failed or partial
+        - Not applicable
+    validations:
+      required: true
+  - type: dropdown
+    id: physical_status
+    attributes:
+      label: Physical device status
+      options:
+        - Not tested
+        - Passed
+        - Failed or partial
+        - Not applicable
+    validations:
+      required: true
+  - type: textarea
+    id: reproducible_evidence
+    attributes:
+      label: Steps and results
+      description: Full commands, exit codes and real output. If it is untested, say so.
+    validations:
+      required: true
+  - type: textarea
+    id: limits
+    attributes:
+      label: Limits, license and maintenance
+      description: Known failure boundaries, upstream sources and licenses, and who maintains it.
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you submit
+      options:
+        - label: I searched existing issues.
+          required: true
+        - label: Everything above comes from what I actually ran or read, and untested parts are marked.
+          required: true
+        - label: I removed accounts, keys and user data.
+          required: true

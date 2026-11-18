@@ -1,0 +1,54 @@
+diff --git a/docs/README.md b/docs/README.md
+index ba137e4..538f8a9 100644
+--- a/docs/README.md
++++ b/docs/README.md
+@@ -13,0 +14,3 @@
++- [主动性事件目录与首版实施顺序](proactivity-events-2026-10-24.md)：逐项来源、当前代码状态、应用层与 ROM 接入边界、首版优先级和验收顺序。
++- [独立主动性 App 0.1](../system/proactivity/README.md) · [公共 API / SDK](../system/proactivity/API.md) · [独立观察者示例](../examples/proactivity-observer/README.md) · [原生界面与验收](reviews/proactivity-2026-10-24/README.md)。
++- [主动性触发器与策略维护设计](proactivity-trigger-design.md)：群消息与社区维护宗旨、独立 App 和公共扩展契约、AI 策略修改、最近 N 条记录选择及首版缺口。
+diff --git a/docs/getting-started.md b/docs/getting-started.md
+index edf6665..c9297c2 100644
+--- a/docs/getting-started.md
++++ b/docs/getting-started.md
+@@ -3 +3 @@
+-当前仓库为 Private，需已获组织授权的 GitHub 身份。Node.js 20+、Python 3.10+、Git 足以做离线 SDK 与规范验证；不需要 Android 设备，也不需要 npm install。
++当前仓库为 Private，需已获组织授权的 GitHub 身份。Node.js 20+、Python 3.10+、Git 与 JDK 17+ 用于完整离线验证；不需要 Android 设备，也不需要 npm install。
+@@ -28 +28 @@ node sdk/cli/taku.mjs extension device-report --transport adb --serial emulator-
+-依赖 Android SDK `platforms;android-36`、`build-tools;36.0.0`，JDK 17+、Python 3、zip。平台/工具版本见 [开发流程](development.md)。
++依赖 Android SDK `platforms;android-36`、`build-tools;36.0.0`，JDK 17+、Python 3、zip。离线主动性规则测试也需要 JDK 17。平台/工具版本见 [开发流程](development.md)。
+@@ -39,0 +40,2 @@ npm run build:android -- --with-diagnostics
++新增主动性组件输出 `system/proactivity/out/TakuProactivity.apk` 与可选 `taku-proactivity-client.jar`；其独立开发与模拟器验收见[模块说明](../system/proactivity/README.md)。
++
+diff --git a/docs/project-structure.md b/docs/project-structure.md
+index 8a6d022..3d8c04a 100644
+--- a/docs/project-structure.md
++++ b/docs/project-structure.md
+@@ -12,0 +13,2 @@
++| `system/proactivity/` | 独立主动性 App、公共契约与 SDK、策略和原生管理界面 |
++| `examples/proactivity-observer/` | 独立签名／UID 的页面观察者；只依赖公共 SDK |
+diff --git a/package.json b/package.json
+index 1a117ce..b0deb26 100644
+--- a/package.json
++++ b/package.json
+@@ -18 +18 @@
+-    "verify": "npm test && npm run check && npm run check:inventory && npm run check:raw-interfaces && npm run check:structure && npm run check:images && npm run check:surfaces",
++    "verify": "npm test && npm run check && npm run check:inventory && npm run check:raw-interfaces && npm run check:structure && npm run check:images && npm run check:surfaces && npm run check:proactivity",
+@@ -24 +24,3 @@
+-    "build:inputmethod": "bash system/inputmethod/build.sh"
++    "build:inputmethod": "bash system/inputmethod/build.sh",
++    "check:proactivity": "bash system/proactivity/test.sh",
++    "build:proactivity": "bash system/proactivity/build.sh"
+diff --git a/scripts/build-android.sh b/scripts/build-android.sh
+index 4621b50..c8fed6d 100644
+--- a/scripts/build-android.sh
++++ b/scripts/build-android.sh
+@@ -8 +8 @@ fi
+-for script in system/assistant/build.sh system/display/build.sh system/overlay/build.sh system/surfaces/build.sh system/memory/build.sh tooling/app-kit/build-shell.sh; do
++for script in system/assistant/build.sh system/display/build.sh system/overlay/build.sh system/surfaces/build.sh system/proactivity/build.sh system/memory/build.sh tooling/app-kit/build-shell.sh; do
+diff --git a/scripts/check.mjs b/scripts/check.mjs
+index eb92375..50568ff 100644
+--- a/scripts/check.mjs
++++ b/scripts/check.mjs
+@@ -3 +3 @@ import {readFile} from 'node:fs/promises';
+-for (const file of ['package.json','spec/protocol.schema.json','spec/capability.schema.json','spec/extensions.json','core/methods.json']) JSON.parse(await readFile(new URL('../'+file,import.meta.url),'utf8'));
++for (const file of ['package.json','spec/protocol.schema.json','spec/capability.schema.json','spec/proactivity-v1.schema.json','spec/extensions.json','core/methods.json']) JSON.parse(await readFile(new URL('../'+file,import.meta.url),'utf8'));

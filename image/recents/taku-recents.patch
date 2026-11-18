@@ -1,0 +1,841 @@
+diff --git a/quickstep/AndroidManifest.xml b/quickstep/AndroidManifest.xml
+index e8d372c..dc19abd 100644
+--- a/quickstep/AndroidManifest.xml
++++ b/quickstep/AndroidManifest.xml
+@@ -118,6 +118,11 @@
+              android:enableOnBackInvokedCallback="false"
+              android:taskAffinity=""/>
+ 
++        <!-- Agent/GUI parity: same Android task store, scoped to this Android user. -->
++        <provider android:name="com.android.quickstep.TakuRecentsProvider"
++            android:authorities="com.android.launcher3.taku.recents"
++            android:exported="true" />
++
+         <!-- Content provider to settings search. The autority should be same as the packageName -->
+         <provider android:name="com.android.quickstep.LauncherSearchIndexablesProvider"
+              android:authorities="${applicationId}"
+diff --git a/quickstep/src/com/android/launcher3/uioverrides/touchcontrollers/TaskViewDismissTouchController.kt b/quickstep/src/com/android/launcher3/uioverrides/touchcontrollers/TaskViewDismissTouchController.kt
+index cb9e997..beb4f3a 100644
+--- a/quickstep/src/com/android/launcher3/uioverrides/touchcontrollers/TaskViewDismissTouchController.kt
++++ b/quickstep/src/com/android/launcher3/uioverrides/touchcontrollers/TaskViewDismissTouchController.kt
+@@ -169,12 +169,12 @@ class TaskViewDismissTouchController<CONTAINER, T : BaseState<T>>(
+             return false
+         }
+         val taskBeingDragged =
+-            recentsView.taskViews.firstOrNull {
++            recentsView.taskViewsFrontToBack.firstOrNull {
+                 recentsView.isTaskViewVisible(it) && container.dragLayer.isEventOverView(it, ev)
+             }
+                 // If event is not over a taskView, check if it would have been either over the
+                 // currently dismissing task being dragged, or over where the next task will be.
+-                ?: recentsView.taskViews.firstOrNull { taskView ->
++                ?: recentsView.taskViewsFrontToBack.firstOrNull { taskView ->
+                     if (!recentsView.isTaskViewVisible(taskView)) return@firstOrNull false
+                     container.dragLayer.getDescendantRectRelativeToSelf(
+                         taskView,
+@@ -216,7 +216,9 @@ class TaskViewDismissTouchController<CONTAINER, T : BaseState<T>>(
+                 )
+                 .toInt()
+         verticalFactor = recentsView.pagedOrientationHandler.getTaskDismissVerticalDirection()
+-        taskBeingDragged.isBeingDraggedForDismissal = true
++        // A pointer-down is only a candidate: horizontal paging must not pin this card
++        // above the deck. Promote it only after the vertical detector starts dragging.
++        taskBeingDragged.isBeingDraggedForDismissal = !recentsView.isTakuDeck
+         allowDetach = recentsView.canRemoveTaskView(taskBeingDragged)
+         detector.setDetectableScrollConditions(upDirection, /* ignoreSlop= */ false)
+         return true
+@@ -225,6 +227,7 @@ class TaskViewDismissTouchController<CONTAINER, T : BaseState<T>>(
+     override fun onDragStart(start: Boolean, startDisplacement: Float) {
+         val taskBeingDragged = taskBeingDragged ?: return
+         debugLog(TAG, "Handling touch event.")
++        taskBeingDragged.isBeingDraggedForDismissal = true
+ 
+         initialDisplacement =
+             taskBeingDragged.secondaryDismissTranslationProperty.get(taskBeingDragged)
+@@ -250,7 +253,9 @@ class TaskViewDismissTouchController<CONTAINER, T : BaseState<T>>(
+         // Add a tiny bit of translation Z, so that it draws on top of other views. This is relevant
+         // (e.g.) when we dismiss a task by sliding it upward: if there is a row of icons above, we
+         // want the dragged task to stay above all other views.
+-        taskBeingDragged.translationZ = 0.1f
++        taskBeingDragged.translationZ =
++            if (recentsView.isTakuDeck) 0f
++            else 0.1f
+     }
+ 
+     private fun getBoundedDisplacement(boundedDisplacement: Float, maxDisplacement: Float): Float =
+@@ -347,6 +352,7 @@ class TaskViewDismissTouchController<CONTAINER, T : BaseState<T>>(
+     private fun clearState() {
+         detector.finishedScrolling()
+         detector.setDetectableScrollConditions(0, false)
++        taskBeingDragged?.isBeingDraggedForDismissal = false
+         taskBeingDragged?.resetViewTransforms()
+         taskBeingDragged = null
+         springAnimation = null
+diff --git a/quickstep/src/com/android/launcher3/uioverrides/touchcontrollers/TaskViewLaunchTouchController.kt b/quickstep/src/com/android/launcher3/uioverrides/touchcontrollers/TaskViewLaunchTouchController.kt
+index daf9103..f0d5fd2 100644
+--- a/quickstep/src/com/android/launcher3/uioverrides/touchcontrollers/TaskViewLaunchTouchController.kt
++++ b/quickstep/src/com/android/launcher3/uioverrides/touchcontrollers/TaskViewLaunchTouchController.kt
+@@ -115,7 +115,7 @@ constructor(
+ 
+     private fun onActionDown(ev: MotionEvent): Boolean {
+         taskBeingDragged =
+-            recentsView.taskViews
++            recentsView.taskViewsFrontToBack
+                 .firstOrNull {
+                     recentsView.isTaskViewVisible(it) && container.dragLayer.isEventOverView(it, ev)
+                 }
+diff --git a/quickstep/src/com/android/quickstep/RecentsActivity.java b/quickstep/src/com/android/quickstep/RecentsActivity.java
+index 8c658c9..ea9d7f3 100644
+--- a/quickstep/src/com/android/quickstep/RecentsActivity.java
++++ b/quickstep/src/com/android/quickstep/RecentsActivity.java
+@@ -142,6 +142,33 @@ public final class RecentsActivity extends StatefulActivity<RecentsState> implem
+     private RemoteAnimationFactory mActivityLaunchAnimationRunner;
+ 
+     private final Runnable mAnimationStartTimeoutRunnable = this::onAnimationStartTimeout;
++    private final Runnable mTakuRestoreOverview = this::restoreTakuOverviewIfNeeded;
++
++    private void scheduleTakuOverviewRestore() {
++        mHandler.removeCallbacks(mTakuRestoreOverview);
++        // A normal overview entry first hands control to the gesture/remote animation.
++        // Only repair an idle Activity resurfaced by Android without that handshake.
++        mHandler.postDelayed(mTakuRestoreOverview, 300);
++    }
++
++    private void restoreTakuOverviewIfNeeded() {
++        if (isFinishing() || isDestroyed() || !hasBeenResumed() || !hasWindowFocus()
++                || mFallbackRecentsView == null || !mFallbackRecentsView.isTakuDeck()
++                || mStateManager.getState().isRecentsViewVisible()) return;
++        if (mStateManager.isInTransition() || mFallbackRecentsView.isGestureActive()
++                || mFallbackRecentsView.getRecentsAnimationController() != null) {
++            scheduleTakuOverviewRestore();
++            return;
++        }
++        // onStart makes the old task Views visible, but HOME/BG_LAUNCHER has disabled
++        // their data subscriptions. Restore state and data together, never just alpha.
++        android.util.Log.i("TakuRecents", "Restoring idle foreground overview from "
++                + mStateManager.getState());
++        mStateManager.goToState(RecentsState.DEFAULT, false);
++        mFallbackRecentsView.reloadIfNeeded();
++        mFallbackRecentsView.loadVisibleTaskData();
++    }
++
+     private SplitSelectStateController mSplitSelectStateController;
+     @Nullable
+     private DesktopRecentsTransitionController mDesktopRecentsTransitionController;
+@@ -166,6 +193,7 @@ public final class RecentsActivity extends StatefulActivity<RecentsState> implem
+         // Setup root and child views
+         inflateRootView(R.layout.fallback_recents_activity);
+         LauncherRootView rootView = getRootView();
++        TakuRecentsBackdrop.install(this, rootView);
+         mDragLayer = rootView.findViewById(R.id.drag_layer);
+         mScrimView = rootView.findViewById(R.id.scrim_view);
+         ViewStub recentsViewStub = rootView.findViewById(R.id.overview_panel);
+@@ -410,6 +438,7 @@ public final class RecentsActivity extends StatefulActivity<RecentsState> implem
+ 
+     @Override
+     protected void onStop() {
++        mHandler.removeCallbacks(mTakuRestoreOverview);
+         super.onStop();
+         // Workaround for b/78520668, explicitly trim memory once UI is hidden
+         onTrimMemory(TRIM_MEMORY_UI_HIDDEN);
+@@ -429,6 +458,7 @@ public final class RecentsActivity extends StatefulActivity<RecentsState> implem
+     @Override
+     protected void onResume() {
+         super.onResume();
++        scheduleTakuOverviewRestore();
+         AccessibilityManagerCompat.sendStateEventToTest(getBaseContext(), OVERVIEW_STATE_ORDINAL);
+     }
+ 
+@@ -462,6 +492,8 @@ public final class RecentsActivity extends StatefulActivity<RecentsState> implem
+     @Override
+     public void onWindowFocusChanged(boolean hasFocus) {
+         super.onWindowFocusChanged(hasFocus);
++        if (hasFocus) scheduleTakuOverviewRestore();
++        else mHandler.removeCallbacks(mTakuRestoreOverview);
+         if (!hasFocus) {
+             AccessibilityManagerCompat.sendTestProtocolEventToTest(
+                     this, LAUNCHER_ACTIVITY_LOST_WINDOW_FOCUS_MESSAGE);
+@@ -534,6 +566,7 @@ public final class RecentsActivity extends StatefulActivity<RecentsState> implem
+ 
+     @Override
+     protected void onDestroy() {
++        mHandler.removeCallbacks(mTakuRestoreOverview);
+         RecentsView recentsView = getOverviewPanel();
+         if (recentsView != null) {
+             recentsView.destroy();
+diff --git a/quickstep/src/com/android/quickstep/TakuRecentsBackdrop.java b/quickstep/src/com/android/quickstep/TakuRecentsBackdrop.java
+new file mode 100644
+index 0000000..54b7662
+--- /dev/null
++++ b/quickstep/src/com/android/quickstep/TakuRecentsBackdrop.java
+@@ -0,0 +1,58 @@
++/* Copyright 2026 Taku OS. Licensed under the Apache License, Version 2.0. */
++package com.android.quickstep;
++
++import android.content.Context;
++import android.content.res.Configuration;
++import android.graphics.Bitmap;
++import android.graphics.BitmapFactory;
++import android.graphics.RenderEffect;
++import android.graphics.Shader;
++import android.util.Log;
++import android.view.View;
++import android.view.ViewGroup;
++import android.widget.ImageView;
++import com.android.launcher3.util.Executors;
++import java.io.InputStream;
++
++/** Bundled HOME wallpaper only; decoding never blocks the overview UI thread. */
++public final class TakuRecentsBackdrop {
++    private TakuRecentsBackdrop() { }
++    public static void install(Context context, ViewGroup root) {
++        if (context.getResources().getConfiguration().smallestScreenWidthDp >= 600) return;
++        ImageView backdrop = new ImageView(context) {
++            @Override protected void onConfigurationChanged(Configuration configuration) {
++                super.onConfigurationChanged(configuration);
++                setVisibility(configuration.orientation == Configuration.ORIENTATION_PORTRAIT ? View.VISIBLE : View.GONE);
++            }
++        };
++        backdrop.setVisibility(context.getResources().getConfiguration().orientation == Configuration.ORIENTATION_PORTRAIT ? View.VISIBLE : View.GONE);
++        backdrop.setScaleType(ImageView.ScaleType.CENTER_CROP);
++        backdrop.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
++        backdrop.setFocusable(false);
++        backdrop.setClickable(false);
++        float radius = 24f * context.getResources().getDisplayMetrics().density;
++        backdrop.setRenderEffect(RenderEffect.createBlurEffect(radius, radius, Shader.TileMode.CLAMP));
++        com.android.launcher3.InsettableFrameLayout.LayoutParams params =
++                new com.android.launcher3.InsettableFrameLayout.LayoutParams(-1, -1);
++        params.ignoreInsets = true;
++        root.addView(backdrop, 0, params);
++        Executors.UI_HELPER_EXECUTOR.execute(() -> {
++            try {
++                Context home = context.createPackageContext("org.agentos.agent", 0);
++                Bitmap bitmap;
++                BitmapFactory.Options options = new BitmapFactory.Options();
++                options.inSampleSize = 4; // Backdrop is heavily blurred; full-size pixels are unnecessary.
++                try (InputStream stream = home.getAssets().open("feed/home/wallpaper.jpg")) {
++                    bitmap = BitmapFactory.decodeStream(stream, null, options);
++                }
++                if (bitmap == null) return;
++                root.post(() -> {
++                    if (root.isAttachedToWindow()) backdrop.setImageBitmap(bitmap);
++                    else bitmap.recycle();
++                });
++            } catch (Exception error) {
++                Log.w("TakuRecentsBackdrop", "Taku wallpaper unavailable; using system backdrop", error);
++            }
++        });
++    }
++}
+diff --git a/quickstep/src/com/android/quickstep/TakuRecentsProvider.java b/quickstep/src/com/android/quickstep/TakuRecentsProvider.java
+new file mode 100644
+index 0000000..d1b8610
+--- /dev/null
++++ b/quickstep/src/com/android/quickstep/TakuRecentsProvider.java
+@@ -0,0 +1,121 @@
++/* Copyright 2026 Taku OS. Licensed under the Apache License, Version 2.0. */
++package com.android.quickstep;
++
++import android.app.ActivityManager;
++import android.app.ActivityTaskManager;
++import android.content.ContentProvider;
++import android.content.ContentValues;
++import android.content.Intent;
++import android.database.Cursor;
++import android.net.Uri;
++import android.os.Binder;
++import android.os.Bundle;
++import android.os.UserHandle;
++import com.android.systemui.shared.system.ActivityManagerWrapper;
++import org.json.JSONArray;
++import org.json.JSONObject;
++import java.util.List;
++
++/** Agent access to the same Android task store used by Quickstep; no parallel task database. */
++public final class TakuRecentsProvider extends ContentProvider {
++    @Override public boolean onCreate() { return true; }
++
++    private List<ActivityManager.RecentTaskInfo> tasks() {
++        return ActivityTaskManager.getInstance().getRecentTasks(Integer.MAX_VALUE,
++                ActivityManager.RECENT_IGNORE_UNAVAILABLE, UserHandle.myUserId());
++    }
++
++    private boolean isAppTask(ActivityManager.RecentTaskInfo task) {
++        // Restored recent tasks have no live root yet and are reported as UNDEFINED.
++        // They remain valid app cards in Quickstep and must remain available to Agents.
++        int type = task.getActivityType();
++        return type == android.app.WindowConfiguration.ACTIVITY_TYPE_STANDARD
++                || type == android.app.WindowConfiguration.ACTIVITY_TYPE_UNDEFINED;
++    }
++
++    private boolean showOverview() throws Exception {
++        java.util.concurrent.Callable<Boolean> request = () -> {
++            RecentsActivity activity = RecentsActivity.ACTIVITY_TRACKER.getCreatedContext();
++            if (activity != null && activity.hasBeenResumed() && activity.isRecentsViewVisible()) {
++                return false; // Idempotent show, never toggle a visible overview back to an app.
++            }
++            var connection = com.android.quickstep.sysuiconnection.SysUIConnectionTracker
++                    .get(getContext()).getActiveComponent().getValue();
++            var helper = connection == null ? null : connection.getOverviewCommandHelper().getIfReady();
++            if (helper == null) throw new IllegalStateException("Quickstep is not connected to SystemUI");
++            // Starting RecentsActivity directly skips the app-to-overview animation handshake.
++            if (helper.addCommand(OverviewCommandHelper.CommandType.TOGGLE) == null) {
++                throw new IllegalStateException("Quickstep overview command queue is full");
++            }
++            return true;
++        };
++        if (android.os.Looper.myLooper() == android.os.Looper.getMainLooper()) return request.call();
++        var pending = com.android.launcher3.util.Executors.MAIN_EXECUTOR.submit(request);
++        try {
++            return pending.get(5, java.util.concurrent.TimeUnit.SECONDS);
++        } catch (Exception error) {
++            pending.cancel(false);
++            throw error;
++        }
++    }
++
++    @Override public Bundle call(String method, String arg, Bundle extras) {
++        long token = Binder.clearCallingIdentity();
++        JSONObject result = new JSONObject();
++        try {
++            if ("list".equals(method)) {
++                JSONArray items = new JSONArray();
++                for (ActivityManager.RecentTaskInfo task : tasks()) {
++                    if (!isAppTask(task)) continue;
++                    items.put(new JSONObject().put("taskId", task.taskId)
++                            .put("userId", task.userId)
++                            .put("component", task.baseIntent.getComponent() == null ? JSONObject.NULL
++                                    : task.baseIntent.getComponent().flattenToShortString())
++                            .put("label", task.taskDescription == null || task.taskDescription.getLabel() == null ? JSONObject.NULL
++                                    : task.taskDescription.getLabel()));
++                }
++                result.put("tasks", items).put("source", "ActivityTaskManager")
++                        .put("scope", "current-user-and-visible-profile-app-tasks");
++            } else if ("open".equals(method) || "remove".equals(method)) {
++                int id = Integer.parseInt(arg);
++                if (tasks().stream().noneMatch(t -> t.taskId == id && isAppTask(t))) {
++                    throw new IllegalArgumentException("Unknown visible app task: " + id);
++                }
++                // Same operations used by TaskView launch and RecentsView dismissal.
++                if ("open".equals(method)) {
++                    if (!ActivityManagerWrapper.getInstance().startActivityFromRecents(id, null)) {
++                        throw new IllegalStateException("Task could not be opened: " + id);
++                    }
++                } else {
++                    if (!ActivityTaskManager.getService().removeTask(id)) {
++                        throw new IllegalStateException("Task could not be removed: " + id);
++                    }
++                }
++                result.put("taskId", id);
++            } else if ("show".equals(method)) {
++                result.put("queued", showOverview());
++            } else if ("home".equals(method)) {
++                getContext().startActivity(new Intent(Intent.ACTION_MAIN)
++                        .addCategory(Intent.CATEGORY_HOME).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
++            } else {
++                throw new IllegalArgumentException("Methods: list, show, home, open, remove; taskId in arg");
++            }
++            result.put("ok", true);
++        } catch (Exception error) {
++            try { result.put("ok", false).put("error", error.toString()); }
++            catch (org.json.JSONException ignored) { /* String and boolean values are JSON-safe. */ }
++        } finally {
++            Binder.restoreCallingIdentity(token);
++        }
++        Bundle response = new Bundle();
++        response.putString("result", result.toString());
++        return response;
++    }
++    @Override public Cursor query(Uri u, String[] p, String s, String[] a, String o) {
++        throw new UnsupportedOperationException("Use content call: list, show, home, open, remove");
++    }
++    @Override public String getType(Uri u) { return "application/json"; }
++    @Override public Uri insert(Uri u, ContentValues v) { throw new UnsupportedOperationException(); }
++    @Override public int update(Uri u, ContentValues v, String s, String[] a) { throw new UnsupportedOperationException(); }
++    @Override public int delete(Uri u, String s, String[] a) { throw new UnsupportedOperationException(); }
++}
+diff --git a/quickstep/src/com/android/quickstep/fallback/FallbackRecentsStateController.java b/quickstep/src/com/android/quickstep/fallback/FallbackRecentsStateController.java
+index 909d68a..ca5f024 100644
+--- a/quickstep/src/com/android/quickstep/fallback/FallbackRecentsStateController.java
++++ b/quickstep/src/com/android/quickstep/fallback/FallbackRecentsStateController.java
+@@ -107,7 +107,7 @@ public class FallbackRecentsStateController implements StateHandler<RecentsState
+             setter.setFloat(mRecentsView.getAddDeskButton(), AddDesktopButton.VISIBILITY_ALPHA,
+                     addDeskButtonAlpha, LINEAR);
+         }
+-        float overviewButtonAlpha = state.hasOverviewActions() ? 1 : 0;
++        float overviewButtonAlpha = state.hasOverviewActions() && !mRecentsView.isTakuDeck() ? 1 : 0;
+         setter.setFloat(mRecentsViewContainer.getActionsView().getVisibilityAlpha(),
+                 AnimatedFloat.VALUE, overviewButtonAlpha, LINEAR);
+ 
+diff --git a/quickstep/src/com/android/quickstep/fallback/RecentsState.kt b/quickstep/src/com/android/quickstep/fallback/RecentsState.kt
+index 33d5f5c..817516a 100644
+--- a/quickstep/src/com/android/quickstep/fallback/RecentsState.kt
++++ b/quickstep/src/com/android/quickstep/fallback/RecentsState.kt
+@@ -90,7 +90,10 @@ open class RecentsState(@JvmField val ordinal: Int, private val mFlags: Int) :
+     fun getScrimColor(context: Context) =
+         ScrimColors(
+             backgroundColor =
+-                if (hasFlag(FLAG_SCRIM)) Themes.getAttrColor(context, R.attr.overviewScrimColor)
++                if (hasFlag(FLAG_SCRIM) && context.resources.configuration.smallestScreenWidthDp < 600 &&
++                    context.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT)
++                    0x5579828C
++                else if (hasFlag(FLAG_SCRIM)) Themes.getAttrColor(context, R.attr.overviewScrimColor)
+                 else Color.TRANSPARENT,
+             foregroundColor = Color.TRANSPARENT,
+         )
+diff --git a/quickstep/src/com/android/quickstep/task/thumbnail/TaskThumbnailView.kt b/quickstep/src/com/android/quickstep/task/thumbnail/TaskThumbnailView.kt
+index c6efe09..80a6d66 100644
+--- a/quickstep/src/com/android/quickstep/task/thumbnail/TaskThumbnailView.kt
++++ b/quickstep/src/com/android/quickstep/task/thumbnail/TaskThumbnailView.kt
+@@ -52,6 +52,26 @@ class TaskThumbnailView : FrameLayout, ViewPool.Reusable {
+     private val dimAlpha: MultiPropertyFactory<View> by lazy {
+         MultiPropertyFactory(scrimView, VIEW_ALPHA, ScrimViewAlpha.entries.size, ::maxOf)
+     }
++    // A neutral veil softens rear cards without showing cards through each other. Kept
++    // separate from menu/selection dimming and clipped by the thumbnail's own outline.
++    private val takuDepthVeil = android.graphics.drawable.ColorDrawable(0xFF84909D.toInt()).apply {
++        alpha = 0
++    }
++
++    private var takuDepthTint = 0f
++
++    fun updateTakuDepthTint(amount: Float) {
++        takuDepthTint = amount.coerceIn(0f, 1f)
++        applyTakuDepthTint()
++    }
++
++    private fun applyTakuDepthTint() {
++        if (foreground !== takuDepthVeil) foreground = takuDepthVeil
++        // Unbound/recycled thumbnails are transparent. Never leave a card-shaped veil
++        // behind after RecentsView.reset() clears the task's icon and preview.
++        takuDepthVeil.alpha = if (uiState is Uninitialized) 0 else (255f * takuDepthTint).toInt()
++    }
++
+     private val outlinePath = Path()
+     private var onSizeChanged: ((width: Int, height: Int) -> Unit)? = null
+ 
+@@ -126,6 +146,7 @@ class TaskThumbnailView : FrameLayout, ViewPool.Reusable {
+ 
+     override fun onRecycle() {
+         uiState = Uninitialized
++        updateTakuDepthTint(0f)
+         outlineBounds = null
+         resetViews()
+     }
+@@ -134,6 +155,7 @@ class TaskThumbnailView : FrameLayout, ViewPool.Reusable {
+         if (uiState == state) return
+         logDebug("taskId: $taskId - uiState changed from: $uiState to: $state")
+         uiState = state
++        applyTakuDepthTint()
+         resetViews()
+         when (state) {
+             is Uninitialized -> {}
+diff --git a/quickstep/src/com/android/quickstep/util/TakuRecentsDepth.java b/quickstep/src/com/android/quickstep/util/TakuRecentsDepth.java
+new file mode 100644
+index 0000000..fa627d3
+--- /dev/null
++++ b/quickstep/src/com/android/quickstep/util/TakuRecentsDepth.java
+@@ -0,0 +1,44 @@
++/* Copyright 2026 Taku OS. Licensed under the Apache License, Version 2.0. */
++package com.android.quickstep.util;
++
++/** Shared continuous geometry for task Views and their remote window surfaces. */
++public final class TakuRecentsDepth {
++    private TakuRecentsDepth() {}
++
++    public static float pageSpacing(float width, float density) {
++        return -Math.round(Math.min(width * 0.82f, Math.max(0, width - 48f * density)));
++    }
++
++    public static float distance(float offset, float width, float density) {
++        return Math.abs(offset) / Math.max(1f, width + pageSpacing(width, density));
++    }
++
++    public static float rearDistance(float offset, float width, float density) {
++        return offset < 0 ? distance(offset, width, density) : 0f;
++    }
++
++    public static float spread(float offset, float width, float density, float fullscreenProgress) {
++        if (offset <= 0 || width <= 0) return 0f;
++        float stride = Math.max(1f, width + pageSpacing(width, density));
++        float d = offset / stride;
++        // Right-hand cards fan outward continuously while retaining their fixed layer.
++        // At one logical page, leave most of the middle card exposed. The zero derivative
++        // at the center avoids a kink as a card crosses from the compressed left stack.
++        float expansion = 2f * d * d / (d + 1f);
++        return Math.max(0f, width * 0.82f - stride) * expansion * (1f - fullscreenProgress);
++    }
++
++    public static float amount(float distance) {
++        // Smooth at the focused card and bounded in the far stack; no integer page steps.
++        float squared = distance * distance;
++        return 3f * squared / (2f + squared);
++    }
++
++    public static float scale(float distance, float fullscreenProgress) {
++        return 1f - 0.04f * amount(distance) * (1f - fullscreenProgress);
++    }
++
++    public static float tint(float distance, float fullscreenProgress) {
++        return 0.14f * amount(distance) * (1f - fullscreenProgress);
++    }
++}
+diff --git a/quickstep/src/com/android/quickstep/util/TaskCornerRadius.java b/quickstep/src/com/android/quickstep/util/TaskCornerRadius.java
+index 6f9c99a..e3ad72b 100644
+--- a/quickstep/src/com/android/quickstep/util/TaskCornerRadius.java
++++ b/quickstep/src/com/android/quickstep/util/TaskCornerRadius.java
+@@ -27,6 +27,11 @@ public class TaskCornerRadius {
+ 
+     public static float get(Context context) {
+         Resources resources = context.getResources();
++        if (resources.getConfiguration().smallestScreenWidthDp < 600
++                && resources.getConfiguration().orientation
++                        == android.content.res.Configuration.ORIENTATION_PORTRAIT) {
++            return 36f * resources.getDisplayMetrics().density;
++        }
+         if (!supportsRoundedCornersOnWindows(resources)) {
+             return resources.getDimension(R.dimen.task_corner_radius_small);
+         }
+diff --git a/quickstep/src/com/android/quickstep/util/TaskViewSimulator.java b/quickstep/src/com/android/quickstep/util/TaskViewSimulator.java
+index bb14b3d..b209751 100644
+--- a/quickstep/src/com/android/quickstep/util/TaskViewSimulator.java
++++ b/quickstep/src/com/android/quickstep/util/TaskViewSimulator.java
+@@ -461,8 +461,23 @@ public class TaskViewSimulator implements TransformParams.BuilderProxy {
+         }
+ 
+         float fullScreenProgress = Utilities.boundToRange(this.fullScreenProgress.value, 0, 1);
++        float depthScale = 1f;
++        float deckSpread = 0f;
++        if ((mSizeStrategy instanceof com.android.quickstep.FallbackActivityInterface
++                || mSizeStrategy instanceof FallbackWindowInterface)
++                && !mDp.getDeviceProperties().isLargeScreen()
++                && mContext.getResources().getConfiguration().orientation
++                        == android.content.res.Configuration.ORIENTATION_PORTRAIT) {
++            float density = mContext.getResources().getDisplayMetrics().density;
++            float distance = TakuRecentsDepth.rearDistance(recentsViewScroll.value,
++                    mTaskRect.width(), density);
++            depthScale = TakuRecentsDepth.scale(distance, fullScreenProgress);
++            deckSpread = TakuRecentsDepth.spread(recentsViewScroll.value, mTaskRect.width(),
++                    density, fullScreenProgress);
++        }
++
+         mCurrentFullscreenParams.setProgress(fullScreenProgress, recentsViewScale.value,
+-                carouselScale.value);
++                carouselScale.value * depthScale);
+ 
+         // Apply thumbnail matrix
+         float taskWidth = mTaskRect.width();
+@@ -484,6 +499,11 @@ public class TaskViewSimulator implements TransformParams.BuilderProxy {
+             }
+         }
+ 
++        // Same center-pivot geometry as TaskView, including during side-card launches.
++        mMatrix.postScale(depthScale, depthScale, mTaskRect.exactCenterX(),
++                mTaskRect.exactCenterY());
++        mMatrix.postTranslate(deckSpread, 0f);
++
+         mOrientationState.getOrientationHandler().setPrimary(mMatrix, MATRIX_POST_TRANSLATE,
+                 taskPrimaryTranslation.value);
+         mOrientationState.getOrientationHandler().setSecondary(mMatrix, MATRIX_POST_TRANSLATE,
+diff --git a/quickstep/src/com/android/quickstep/views/IconAppChipView.kt b/quickstep/src/com/android/quickstep/views/IconAppChipView.kt
+index af7efb4..da5dc00 100644
+--- a/quickstep/src/com/android/quickstep/views/IconAppChipView.kt
++++ b/quickstep/src/com/android/quickstep/views/IconAppChipView.kt
+@@ -128,6 +128,7 @@ constructor(
+     var contentAlpha by MultiPropertyDelegate(multiValueAlpha, Alpha.Content)
+     var colorTintAlpha by MultiPropertyDelegate(multiValueAlpha, Alpha.ColorTint)
+     var modalAlpha by MultiPropertyDelegate(multiValueAlpha, Alpha.Modal)
++    var takuDepthAlpha by MultiPropertyDelegate(multiValueAlpha, Alpha.TakuDepth)
+     var flexSplitAlpha by MultiPropertyDelegate(multiValueAlpha, Alpha.FlexSplit)
+     var settledProgressAlpha by MultiPropertyDelegate(multiValueAlpha, Alpha.SettledProgress)
+ 
+@@ -251,6 +252,17 @@ constructor(
+         appTitle?.text = text
+     }
+ 
++    fun setTakuHeaderState(enabled: Boolean, focused: Boolean) {
++        appTitle?.visibility = if (!enabled || focused) VISIBLE else INVISIBLE
++        iconArrowView?.visibility = if (enabled) INVISIBLE else VISIBLE
++    }
++
++    fun setTakuDepthAppearance(tint: Float, distance: Float) {
++        takuDepthAlpha = 1f - tint
++        // Fade titles around the midpoint instead of abruptly swapping overlapping text.
++        appTitle?.alpha = (1f - distance * 2f).coerceIn(0f, 1f)
++    }
++
+     fun getDrawable(): Drawable? = iconView?.drawable
+ 
+     private var currentIconDrawableHash: Int = 0
+@@ -289,6 +301,20 @@ constructor(
+             iconMenuMarginTopStart,
+         )
+         layoutParams = iconMenuParams
++        val takuHeader = resources.configuration.smallestScreenWidthDp < 600 &&
++            resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT
++        if (takuHeader) {
++            translationY = -48f * resources.displayMetrics.density
++            setBackgroundColor(android.graphics.Color.TRANSPARENT)
++            elevation = 0f
++            appTitle?.setTextColor(android.graphics.Color.WHITE)
++            appTitle?.setShadowLayer(2f * resources.displayMetrics.density, 0f, 1f, 0x66000000)
++        } else {
++            translationY = 0f
++            setBackgroundColor(context.getColor(R.color.materialColorSurfaceBright))
++            appTitle?.setTextColor(context.getColor(R.color.materialColorOnSurface))
++            appTitle?.setShadowLayer(0f, 0f, 0f, 0)
++        }
+ 
+         // Layout params for the background
+         val collapsedBackgroundBounds = getCollapsedBackgroundLtrBounds()
+@@ -667,6 +693,7 @@ constructor(
+             /** Used to hide the app chip for 90:10 flex split. */
+             FlexSplit,
+             SettledProgress,
++            TakuDepth,
+         }
+ 
+         private const val INDEX_SPLIT_TRANSLATION = 0
+diff --git a/quickstep/src/com/android/quickstep/views/OverviewActionsView.java b/quickstep/src/com/android/quickstep/views/OverviewActionsView.java
+index 2b06829..c9851c8 100644
+--- a/quickstep/src/com/android/quickstep/views/OverviewActionsView.java
++++ b/quickstep/src/com/android/quickstep/views/OverviewActionsView.java
+@@ -91,7 +91,8 @@ public class OverviewActionsView<T extends OverlayUICallbacks> extends FrameLayo
+             HIDDEN_SPLIT_SCREEN,
+             HIDDEN_SPLIT_SELECT_ACTIVE,
+             HIDDEN_ACTIONS_IN_MENU,
+-            HIDDEN_DESKTOP
++            HIDDEN_DESKTOP,
++            HIDDEN_TAKU_DECK
+     })
+     @Retention(RetentionPolicy.SOURCE)
+     public @interface ActionsHiddenFlags { }
+@@ -103,6 +104,7 @@ public class OverviewActionsView<T extends OverlayUICallbacks> extends FrameLayo
+     public static final int HIDDEN_SPLIT_SELECT_ACTIVE = 1 << 4;
+     public static final int HIDDEN_ACTIONS_IN_MENU = 1 << 5;
+     public static final int HIDDEN_DESKTOP = 1 << 6;
++    public static final int HIDDEN_TAKU_DECK = 1 << 7;
+ 
+     @IntDef(flag = true, value = {
+             DISABLED_SCROLLING,
+diff --git a/quickstep/src/com/android/quickstep/views/RecentsView.java b/quickstep/src/com/android/quickstep/views/RecentsView.java
+index 4ca0a11..a16b895 100644
+--- a/quickstep/src/com/android/quickstep/views/RecentsView.java
++++ b/quickstep/src/com/android/quickstep/views/RecentsView.java
+@@ -961,6 +961,7 @@ public abstract class RecentsView<
+ 
+     @Override
+     protected void dispatchDraw(@NonNull Canvas canvas) {
++        updateTakuDrawingOrder();
+         // Draw overscroll
+         if (mAllowOverScroll && (!mEdgeGlowRight.isFinished() || !mEdgeGlowLeft.isFinished())) {
+             final int restoreCount = canvas.save();
+@@ -1375,7 +1376,7 @@ public abstract class RecentsView<
+     }
+ 
+     public boolean isTaskViewVisible(TaskView tv) {
+-        if (showAsGrid()) {
++        if (showAsGrid() || isTakuDeck()) {
+             int screenStart = getPagedOrientationHandler().getPrimaryScroll(this);
+             int screenEnd = screenStart + getPagedOrientationHandler().getMeasuredSize(this);
+             return isTaskViewWithinBounds(tv, screenStart, screenEnd, /*taskViewTranslation=*/ 0);
+@@ -2216,6 +2217,11 @@ public abstract class RecentsView<
+         getTaskSize(mLastComputedTaskSize);
+         mTaskWidth = mLastComputedTaskSize.width();
+         mTaskHeight = mLastComputedTaskSize.height();
++        // Keep Quickstep's actual page geometry (including remote-task animations) in sync
++        // with the deck. Translation-only overlap would leave hit targets and scrolls behind.
++        setPageSpacing(isTakuDeck() ? (int) com.android.quickstep.util.TakuRecentsDepth.pageSpacing(
++                mTaskWidth, getResources().getDisplayMetrics().density)
++                : dp.getOverviewProfile().getPageSpacing());
+         setPadding(mLastComputedTaskSize.left - mInsets.left,
+                 mLastComputedTaskSize.top - mInsets.top,
+                 dp.getDeviceProperties().getWidthPx() - mInsets.right - mLastComputedTaskSize.right,
+@@ -2380,12 +2386,81 @@ public abstract class RecentsView<
+     /**
+      * Scales and adjusts translation of adjacent pages as if on a curved carousel.
+      */
++    /** Phone portrait overview only; retain upstream tablet/grid and rotated layouts. */
++    private boolean mTakuDeckWasActive;
++
++    public boolean isTakuDeck() {
++        return mIs3PLauncher && !mContainer.getDeviceProfile().getDeviceProperties().isLargeScreen()
++                && getResources().getConfiguration().orientation
++                        == android.content.res.Configuration.ORIENTATION_PORTRAIT;
++    }
++
++    /** Same front-to-back order for drawing and pointer dismiss/launch. */
++    public java.util.List<TaskView> getTaskViewsFrontToBack() {
++        java.util.ArrayList<TaskView> tasks = new java.util.ArrayList<>();
++        for (TaskView task : getTaskViews()) tasks.add(task);
++        if (isTakuDeck()) {
++            // Fixed page order: the card to the right always covers the one to its left.
++            // Neither centering a card nor dragging it vertically changes the stack.
++            tasks.sort((a, b) -> Integer.compare(getScrollForPage(indexOfChild(b)),
++                    getScrollForPage(indexOfChild(a))));
++        }
++        return tasks;
++    }
++
++    private int[] mTakuDrawingOrder = new int[0];
++
++    private void updateTakuDrawingOrder() {
++        boolean deck = isTakuDeck();
++        setChildrenDrawingOrderEnabled(deck);
++        if (!deck) return;
++        int count = getChildCount();
++        if (mTakuDrawingOrder.length != count) mTakuDrawingOrder = new int[count];
++        int position = 0;
++        for (int i = 0; i < count; i++) {
++            if (!(getChildAt(i) instanceof TaskView)) mTakuDrawingOrder[position++] = i;
++        }
++        java.util.List<TaskView> tasks = getTaskViewsFrontToBack();
++        for (int i = tasks.size() - 1; i >= 0; i--) {
++            mTakuDrawingOrder[position++] = indexOfChild(tasks.get(i));
++        }
++    }
++
++    @Override
++    protected int getChildDrawingOrder(int childCount, int drawingPosition) {
++        return isTakuDeck() && mTakuDrawingOrder.length == childCount
++                ? mTakuDrawingOrder[drawingPosition]
++                : super.getChildDrawingOrder(childCount, drawingPosition);
++    }
++
+     public void updateCurveProperties() {
++        if (mActionsView != null) mActionsView.updateHiddenFlags(OverviewActionsView.HIDDEN_TAKU_DECK, isTakuDeck() && getPageCount() > 0);
++        if (getPageCount() == 0) { mTakuDeckWasActive = false; mTakuDrawingOrder = new int[0]; }
+         if (getPageCount() == 0 || getPageAt(0).getMeasuredWidth() == 0) {
+             return;
+         }
+         int scroll = getPagedOrientationHandler().getPrimaryScroll(this);
+         mClearAllButton.onRecentsViewScroll(scroll, mOverviewGridEnabled);
++        if (isTakuDeck()) {
++            // Continuous depth follows native scrolling. TaskViewSimulator uses the same
++            // scale function, so a side-card launch starts at its actual on-screen geometry.
++            int frontPage = getPageNearestToCenterOfScreen();
++            for (TaskView task : getTaskViews()) {
++                float offset = getScrollForPage(indexOfChild(task)) - scroll;
++                // Drawing and hit testing share one explicit front-to-back order.
++                task.setTranslationZ(0f);
++                task.setTakuHeaderState(true, indexOfChild(task) == frontPage);
++                task.setTakuDeckOffset(offset);
++            }
++            mTakuDeckWasActive = true;
++        } else if (mTakuDeckWasActive) {
++            for (TaskView task : getTaskViews()) {
++                task.setTranslationZ(0f);
++                task.setTakuHeaderState(false, true);
++                task.setTakuDeckOffset(0f);
++            }
++            mTakuDeckWasActive = false;
++        }
+ 
+         // Clear all button alpha was set by the previous line.
+         mActionsView.getIndexScrollAlpha().updateValue(1 - mClearAllButton.getScrollAlpha());
+@@ -5107,6 +5182,10 @@ public abstract class RecentsView<
+ 
+     protected int getClearAllExtraPageSpacing() {
+         OverviewProfile overviewProfile = mContainer.getDeviceProfile().getOverviewProfile();
++        if (isTakuDeck()) {
++            // Clear-all is not a card: keep it outside the deck rather than underneath it.
++            return Math.max(0, overviewProfile.getPageSpacing() - mPageSpacing);
++        }
+         return showAsGrid()
+                 ? Math.max(overviewProfile.getGridSideMargin() - mPageSpacing, 0) : 0;
+     }
+diff --git a/quickstep/src/com/android/quickstep/views/RecentsViewUtils.kt b/quickstep/src/com/android/quickstep/views/RecentsViewUtils.kt
+index a9ade6a..e9c3b19 100644
+--- a/quickstep/src/com/android/quickstep/views/RecentsViewUtils.kt
++++ b/quickstep/src/com/android/quickstep/views/RecentsViewUtils.kt
+@@ -197,7 +197,11 @@ constructor(
+ 
+     fun getVisibleTaskIds(): List<Int> {
+         val visibleTaskViews: Iterable<TaskView> =
+-            if (recentsView.showAsGrid()) {
++            if (recentsView.isTakuDeck) {
++                // Overlap can reveal more than two neighboring tasks. Load each visible card,
++                // including its exposed edge; don't display unloaded/untouchable side cards.
++                taskViews.filter { recentsView.isTaskViewVisible(it) }
++            } else if (recentsView.showAsGrid()) {
+                 val pagedOrientationHandler = recentsView.pagedOrientationHandler
+                 val screenStart = pagedOrientationHandler.getPrimaryScroll(recentsView)
+                 val pageOrientedSize = pagedOrientationHandler.getMeasuredSize(recentsView)
+diff --git a/quickstep/src/com/android/quickstep/views/TaskView.kt b/quickstep/src/com/android/quickstep/views/TaskView.kt
+index f530ac8..02c3385 100644
+--- a/quickstep/src/com/android/quickstep/views/TaskView.kt
++++ b/quickstep/src/com/android/quickstep/views/TaskView.kt
+@@ -742,6 +742,8 @@ constructor(
+     override fun onRecycle() {
+         isBeingDraggedForDismissal = false
+         isBeingDismissed = false
++        setTakuDeckOffset(0f)
++        setTakuHeaderState(false, true)
+         resetPersistentViewTransforms()
+ 
+         groupTask = null
+@@ -1722,6 +1724,11 @@ constructor(
+             }
+     }
+ 
++    /** Only the front card's label is visible; exposed side icons remain usable. */
++    fun setTakuHeaderState(enabled: Boolean, focused: Boolean) {
++        getTaskIcons().forEach { (icon, _) -> icon.setTakuHeaderState(enabled, focused) }
++    }
++
+     fun setIconVisibleForGesture(isVisible: Boolean) {
+         iconFadeInOnGestureCompleteAnimator?.cancel()
+         settledProgressGesture = if (isVisible) 1f else 0f
+@@ -1772,8 +1779,31 @@ constructor(
+ 
+     fun getSizeAdjustment(fullscreenEnabled: Boolean) = if (fullscreenEnabled) nonGridScale else 1f
+ 
++    private var takuDepthDistance = 0f
++    private var takuFocusDistance = 0f
++    private var takuDeckOffset = 0f
++
++    fun setTakuDeckOffset(offset: Float) {
++        takuDeckOffset = offset
++        val density = resources.displayMetrics.density
++        takuFocusDistance = com.android.quickstep.util.TakuRecentsDepth.distance(offset, width.toFloat(), density)
++        takuDepthDistance = com.android.quickstep.util.TakuRecentsDepth.rearDistance(offset, width.toFloat(), density)
++        applyTranslationX()
++        applyScale()
++        updateTakuDepthTint()
++    }
++
++    private fun updateTakuDepthTint() {
++        val tint = com.android.quickstep.util.TakuRecentsDepth.tint(takuDepthDistance, fullscreenProgress)
++        taskContainers.forEach { it.snapshotView.updateTakuDepthTint(tint) }
++        getTaskIcons().forEach { (icon, _) ->
++            icon.setTakuDepthAppearance(tint, takuFocusDistance * (1f - fullscreenProgress))
++        }
++    }
++
+     private fun applyScale() {
+         val scale =
++            com.android.quickstep.util.TakuRecentsDepth.scale(takuDepthDistance, fullscreenProgress) *
+             persistentScale *
+                 dismissScale *
+                 animateToIconScale *
+@@ -1791,7 +1821,9 @@ constructor(
+                 splitSelectTranslationX +
+                 gridEndTranslationX +
+                 persistentTranslationX +
+-                animateToIconTranslationX
++                animateToIconTranslationX +
++                com.android.quickstep.util.TakuRecentsDepth.spread(
++                    takuDeckOffset, width.toFloat(), resources.displayMetrics.density, fullscreenProgress)
+     }
+ 
+     private fun applyTranslationY() {
+@@ -1814,6 +1846,9 @@ constructor(
+         taskContainers.forEach { it.overlay.setFullscreenProgress(fullscreenProgress) }
+         updateSettledProgressFullscreen(fullscreenProgress)
+         updateFullscreenParams()
++        applyTranslationX()
++        applyScale()
++        updateTakuDepthTint()
+     }
+ 
+     protected fun updateSettledProgressFullscreen(fullscreenProgress: Float) {

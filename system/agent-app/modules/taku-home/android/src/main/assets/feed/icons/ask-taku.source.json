@@ -1,0 +1,11 @@
+{
+  "fileKey": "MdImIDNqePpNZ62C0GLArW",
+  "referenceNode": "1:1901",
+  "cardNode": "1:2001",
+  "assetNode": "1:2033",
+  "asset": "ask-taku.svg",
+  "width": 16,
+  "height": 16,
+  "sha256": "f11f24655ca03c6e83b68fd8ab428a3fb3286e1d2132da64911af1e46869be14",
+  "usage": "16dp leading icon in the empty Feed Ask Taku primary button"
+}

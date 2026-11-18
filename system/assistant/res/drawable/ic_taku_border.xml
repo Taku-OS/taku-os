@@ -1,0 +1,10 @@
+<!-- Taku icon "border" (ui). Tint from the view. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M22 20H2v-1h20v1Zm0-3H2v-2h20v2Zm0-4H2v-3h20v3Zm0-5H2V4h20v4Z"/>
+</vector>

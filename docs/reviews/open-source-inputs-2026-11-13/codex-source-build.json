@@ -1,0 +1,28 @@
+{
+  "upstreamCommit": "979011409de0a60b52f179721948e65531d26144",
+  "sourceBuild": "anonymous public upstream/dependencies plus checked-in Taku patch",
+  "attempts": [
+    {
+      "memoryGiB": 8,
+      "jobs": 4,
+      "result": "SIGKILL during core build; failure log retained"
+    },
+    {
+      "memoryGiB": 20,
+      "jobs": 1,
+      "result": "completed using preserved cold-build inputs/outputs"
+    }
+  ],
+  "binarySha256": "f3ecd3c9662092882f1032e7134e20c0025e21621caaab98a13cd1cb1cd116b7",
+  "archiveSha256": "cd8fae1fd75848e18fc3f0807e5e096d52816df4adf303ad297f2aaa802c6454",
+  "linuxVersionVerified": "codex-cli 0.161.0",
+  "androidInitializeVerified": true,
+  "bitForBitReproducibilityClaimed": false,
+  "androidVersionVerified": true,
+  "androidEnvironment": {
+    "avd": "Taku_OpenSourceAcceptance_20261113",
+    "serial": "emulator-5584",
+    "api": 37,
+    "home": "fresh temporary directory; no existing authentication copied"
+  }
+}

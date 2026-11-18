@@ -1,0 +1,6 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="org.agentos.jevfixture" android:versionCode="2" android:versionName="20261021-live-jev-fixture">
+ <uses-sdk android:minSdkVersion="36" android:targetSdkVersion="36"/>
+ <application android:theme="@android:style/Theme.Material.Light.NoActionBar" android:label="Jev synthetic fixture">
+  <activity android:name=".ChatFixtureActivity" android:exported="true"/>
+ </application>
+</manifest>

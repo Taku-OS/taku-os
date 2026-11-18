@@ -1,0 +1,26 @@
+{
+  "id": "ed287147-186e-45be-8e85-9abadb9004de",
+  "state": "completed",
+  "result": {
+    "version": 1,
+    "candidates": [
+      {
+        "text": "可以呀，周五七点半见！"
+      },
+      {
+        "text": "我还不确定，晚点确认你们。"
+      },
+      {
+        "text": "谢谢喊我，我这次就不去了，你们吃得开心！"
+      }
+    ],
+    "receipt": {
+      "model": "codex/gpt-6-luna",
+      "inputMode": "image",
+      "imageSha256": "34632788999526df98e54a44ffbb251945b594b2d383f5fed35f27465247792f",
+      "imageWidth": 942,
+      "imageHeight": 1280,
+      "elapsedMs": 6609
+    }
+  }
+}

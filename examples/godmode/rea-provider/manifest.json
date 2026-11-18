@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "id": "org.taku.rea",
+  "name": "REA",
+  "version": "1.5.0",
+  "type": "tool-provider",
+  "minHostVersion": "1.0.0",
+  "targets": [
+    "android-arm64"
+  ],
+  "capabilities": [
+    "android-device",
+    "android-inspection",
+    "dynamic-instrumentation",
+    "javascript-analysis",
+    "local-artifact-analysis",
+    "mcp",
+    "native-analysis",
+    "resource-decoding"
+  ],
+  "permissions": [
+    "root"
+  ],
+  "ui": [],
+  "settings": [],
+  "hooks": [],
+  "runtime": "agent",
+  "runtimePack": {
+    "id": "rea-android-node24",
+    "platform": "android-arm64",
+    "root": "/data/local/agentos/rea-pack",
+    "version": "24.22.2"
+  },
+  "mcp": {
+    "command": "/data/local/agentos/rea-pack/bin/rea-mcp",
+    "args": [],
+    "env": {
+      "LD_LIBRARY_PATH": "/data/local/agentos/rea-pack/lib:/system/lib64:/vendor/lib64",
+      "HOME": "/data/local/agentos/rea-pack/home",
+      "XDG_CACHE_HOME": "/data/local/agentos/rea-pack/home/.cache",
+      "PLAYWRIGHT_BROWSERS_PATH": "/data/local/agentos/rea-pack/home/.cache/ms-playwright",
+      "REA_ADB_PATH": "/data/local/agentos/rea-pack/bin/taku-adb",
+      "JAVA_HOME": "/data/local/agentos/rea-pack",
+      "REA_JADX_MCP_JAR": "/data/local/agentos/rea-pack/lib/jadx-headless-mcp-0.7.1-all.jar",
+      "REA_JADX_HEAP_MIB": "1536",
+      "PATH": "/data/local/agentos/rea-pack/bin:/system_ext/bin:/system/bin",
+      "REA_APKTOOL_COMMAND": "/data/local/agentos/rea-pack/bin/apktool",
+      "REA_RIZIN_COMMAND": "/data/local/agentos/rea-pack/bin/rizin",
+      "RZ_DATADIR": "/data/local/agentos/rea-pack/share/rizin",
+      "REA_FRIDA_REMOTE": "127.0.0.1:27042",
+      "REA_FRIDA_JAVA_BRIDGE": "/data/local/agentos/rea-pack/rea/frida/java-bridge-runner.js"
+    }
+  },
+  "skills": [
+    "skills/rea/SKILL.md"
+  ],
+  "healthcheck": {
+    "timeoutMs": 30000
+  },
+  "description": "On-device reverse engineering with Frida, Rizin, JADX, Apktool, AAPT2, artifact and Android inspection.",
+  "author": "morluto / community",
+  "category": "Developer tools",
+  "license": "MIT"
+}

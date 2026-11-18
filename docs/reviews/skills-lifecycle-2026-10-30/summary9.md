@@ -1,0 +1,18 @@
+# Round nine: first step in plugin-cache transactions
+
+Cache transactions were implemented and committed this round; device acceptance is deferred. Runtime source is pinned to upstream `rust-v0.161.0` / `979011409de0a60b52f179721948e65531d26144`, maintained through repository source and patches:
+
+- `adapters/codex-runtime/plugin-transaction/transaction.rs` is the actual shared implementation compiled into `core-plugins/src/plugin_transaction.rs`. After verifying the pinned upstream commit, `build-source-experiment.sh` applies adjacent `codex-0.161.0.patch` and copies this file.
+- The patch makes `PluginStore` install/upgrade transactional: acquire an exclusive cross-process file lock at `CODEX_HOME/plugins/.lock`; prepare `.transaction/staged`; write `.transaction/journal.json`; move the installation to `.backups/<market>/<plugin>`; rename staging into cache. Previous backups move into the transaction directory and are removed after commit. Store construction and every write-lock acquisition recover incomplete transactions: uncommitted work restores the original installation/backup; committed work completes cleanup. Recovery itself is retryable after interruption. Journal and renames sync files/directories; tests cover process interruption, not durability of all file contents under sudden power loss.
+- `PluginStore::rollback` uses the same lock/transaction to copy backup into staging and restore it, making the former current version the new backup. The patch adds app-server `plugin/rollback`; `system/assistant/broker/org/agentos/lab/PluginCli.java` adds `taku-plugin rollback <id>` and requests MCP reload. `system/assistant/assets/native/protocol.json` and `scripts/build-native-protocol.py` add it to the broker allowlist. GUI and CLI share app-server cache, but no GUI rollback button was added this round.
+- Native uninstall and remote-metadata writes take the same lock; remote-sync cache deletion now uses `PluginStore::uninstall`. CLI/broker already write through RPC, so no separate plugin-store write path was added.
+
+## Host verification
+
+- `PATH=<Rust 1.95.0 bin>:$PATH adapters/codex-runtime/plugin-transaction/test-host.sh`: 7 passed. Tests compile/run the same transaction source as the upstream patch: normal upgrade/rollback; first install and upgrades with/without old backups interrupted during preparation and seven commit points; three re-interruptions during recovery; and two independent processes performing 50 installs each, checking multi-file consistency of current/backup versions. Faults are test-build process exits, not on-device kill acceptance.
+- With local Docker `taku-codex-build-deps:round7-complete`, pinned source and offline dependencies, `cargo check -j 6 -p codex-core-plugins -p codex-app-server --lib` passed. Initial host-mounted build hit dependency-metadata `E0463`; switching to a container volume passed. Three unused upstream version-cleanup helpers produce dead-code warnings.
+- `system/assistant/build.sh` passed; broker protocol has exactly one `plugin/rollback`; reverse applicability against pinned source and `git diff --check` passed.
+
+## Boundaries and next round
+
+No device runtime was built/replaced and no emulator/device acceptance occurred. Direct tests of the shared transaction module are not end-to-end app-server/CLI device tests. Enable configuration still updates separately after cache writes; uninstall is not journaled or transactional with configuration. This lock protects cache writes, not cross-process configuration/cache consistency. Upstream automatic refresh may reinstall the marketplace version after rollback; device tests and policy work remain. Third-party MCP privilege reduction is unimplemented. PR remains Draft.

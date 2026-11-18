@@ -1,0 +1,22 @@
+{
+  "url": "https://mp.weixin.qq.com/s/VsUVApOBLOTa0Tfjiax4JQ",
+  "title": "STEPX Neo, StepFun Terminal first “Agent phone,” officially launched, creators first (translated article title)",
+  "publisher": "QbitAI (publisher name, translated)",
+  "reviewedOn": "2026-10-15",
+  "articleFiguresReviewed": 26,
+  "publisherAvatarReviewed": true,
+  "allRenderedImagesReviewed": 27,
+  "referenceCapture": "out/design-reference/wechat-VsUVApOBLOTa0Tfjiax4JQ",
+  "designObservations": [
+    "Dark translucent system assistant surfaces",
+    "Persistent bottom capsule composer",
+    "Warm orange luminous state accents",
+    "Invocation above an existing app without replacing it",
+    "Compact task history and expandable operation states"
+  ],
+  "appliedInThisChange": [
+    "Warm amber and lilac perimeter palette",
+    "Two soft moving trails around rounded screen edges",
+    "Visible state tied to assistant invocation and dismissal"
+  ]
+}

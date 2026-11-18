@@ -1,0 +1,6 @@
+/private/tmp/taku-build-round7-clean/source/round11-codex: 1 file pushed, 0 skipped. 573.1 MB/s (252637288 bytes in 0.420s)
+/Users/haipro/experiments/android-agent-os/taku-os-skills-lifecycle-20261030/examples/codex-plugin-lifecycle/: 6 files pushed, 0 skipped. 0.6 MB/s (2113 bytes in 0.003s)
+PASS installed 1.0.0
+/var/folders/h7/j4gyvbgn5blctvqr5fyr5bhc0000gn/T/tmplzdfyg75: 1 file pushed, 0 skipped. 2.3 MB/s (148 bytes in 0.000s)
+PASS killed app-server with SIGKILL during staging before journal preparation
+PASS restart recovered 1.0.0 and removed interrupted staging

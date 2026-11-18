@@ -1,0 +1,10 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="org.example.taku.observer" android:versionCode="1" android:versionName="1.0">
+ <uses-sdk android:minSdkVersion="36" android:targetSdkVersion="36"/>
+ <queries><package android:name="org.agentos.proactivity"/></queries>
+ <application android:label="Page Observer Example" android:theme="@android:style/Theme.Material.Light.NoActionBar" android:debuggable="true" android:allowBackup="false">
+  <activity android:name=".ObserverActivity" android:exported="true">
+   <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
+   <intent-filter><action android:name="org.agentos.proactivity.OBSERVER_PLUGIN"/><category android:name="android.intent.category.DEFAULT"/></intent-filter>
+  </activity>
+ </application>
+</manifest>

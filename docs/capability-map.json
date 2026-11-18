@@ -1,0 +1,2688 @@
+{
+  "schema": "taku.capability-reading-map/1",
+  "purpose": "Editorial action groups and concept cases; validation and permissions derive from canonical capabilities, not this map.",
+  "groups": [
+    {
+      "id": "see",
+      "title": {
+        "zh": "读取画面",
+        "en": "Read the screen"
+      },
+      "verbs": {
+        "zh": "屏幕截图 · 相机画面 · 页面文字",
+        "en": "Screenshots · Camera pictures · Page text"
+      },
+      "requirements": {
+        "zh": "可以取得屏幕或相机画面，部分 App 也能提供页面文字。要理解画面里的内容，还需要图像识别程序。",
+        "en": "Get screen or camera pictures; some apps also provide page text. Understanding pictures also needs image-recognition software."
+      },
+      "refs": [
+        "ui.tree.shell",
+        "ui.tree.accessibility",
+        "screen.capture.shell",
+        "screen.capture.public",
+        "camera.read",
+        "camera.global-filter"
+      ],
+      "tone": "sage",
+      "apiHints": [
+        "CameraManager",
+        "MediaProjectionManager",
+        "AccessibilityService"
+      ],
+      "origin": "android-primitives"
+    },
+    {
+      "id": "hear",
+      "title": {
+        "zh": "听声音、播放声音",
+        "en": "Record and play sound"
+      },
+      "verbs": {
+        "zh": "录音 · 听懂说话 · 控制播放",
+        "en": "Record · Understand speech · Control playback"
+      },
+      "requirements": {
+        "zh": "录麦克风、录 App 播放的声音、录电话，需要的条件不一样。取得声音后，还需要 AI 把它听懂。",
+        "en": "Microphone, app playback and phone calls need different kinds of access. AI is also needed to understand the sound."
+      },
+      "refs": [
+        "audio.microphone",
+        "audio.playback",
+        "audio.calls",
+        "audio.effects",
+        "context.media",
+        "voice.hotword",
+        "assistant.entry"
+      ],
+      "tone": "mist",
+      "apiHints": [
+        "AudioRecord",
+        "MediaSessionManager",
+        "VoiceInteractionService"
+      ],
+      "origin": "android-primitives"
+    },
+    {
+      "id": "context",
+      "title": {
+        "zh": "读取当前信息",
+        "en": "Read current information"
+      },
+      "verbs": {
+        "zh": "通知 · 分享内容 · 使用记录",
+        "en": "Notifications · Shared content · Usage records"
+      },
+      "requirements": {
+        "zh": "可以读取允许访问的通知和分享内容。看见一条通知，不代表能读到这个 App 的全部聊天记录。",
+        "en": "Read notifications and shared content when access is allowed. One notification does not give access to an app’s full chat history."
+      },
+      "refs": [
+        "notifications.post",
+        "notifications.listen",
+        "notifications.reply",
+        "context.foreground",
+        "context.clipboard"
+      ],
+      "tone": "cream",
+      "apiHints": [
+        "NotificationListenerService",
+        "ClipboardManager",
+        "UsageStatsManager"
+      ],
+      "origin": "android-primitives"
+    },
+    {
+      "id": "sense",
+      "title": {
+        "zh": "了解位置和运动",
+        "en": "Read location and movement"
+      },
+      "verbs": {
+        "zh": "当前位置 · 手机运动 · 附近设备",
+        "en": "Location · Motion · Nearby devices"
+      },
+      "requirements": {
+        "zh": "手机需要有相应的硬件，也需要允许访问。传感器给出的是测量数据，是否正在跑步还要由程序判断。",
+        "en": "The phone needs the right hardware and permission. Sensors provide measurements; a program must decide whether you are running."
+      },
+      "refs": [
+        "environment.location",
+        "environment.sensors",
+        "environment.nearby",
+        "environment.usb-nfc",
+        "network.vpn"
+      ],
+      "tone": "lavender",
+      "apiHints": [
+        "LocationManager",
+        "SensorManager",
+        "BluetoothGatt",
+        "UsbManager",
+        "VibratorManager"
+      ],
+      "origin": "android-primitives"
+    },
+    {
+      "id": "act",
+      "title": {
+        "zh": "打开和操作 App",
+        "en": "Open and use apps"
+      },
+      "verbs": {
+        "zh": "打开页面 · 点击滑动 · 输入文字",
+        "en": "Open pages · Tap and swipe · Type"
+      },
+      "requirements": {
+        "zh": "可以打开 App，也可以通过允许使用的方法点击、滑动和输入。做完操作后，还要检查 App 是否真的完成了任务。",
+        "en": "Open an app, tap, swipe or type through available methods. After an action, check that the app actually completed the task."
+      },
+      "refs": [
+        "apps.launch",
+        "packages.metadata",
+        "input.shell",
+        "input.accessibility",
+        "input.text"
+      ],
+      "tone": "peach",
+      "apiHints": [
+        "Intent",
+        "AccessibilityService",
+        "InputConnection",
+        "InputManager"
+      ],
+      "origin": "android-primitives"
+    },
+    {
+      "id": "organize",
+      "title": {
+        "zh": "读取和保存资料",
+        "en": "Read and save information"
+      },
+      "verbs": {
+        "zh": "照片和文件 · 联系人 · 日历",
+        "en": "Photos and files · Contacts · Calendar"
+      },
+      "requirements": {
+        "zh": "能读取哪些资料，取决于访问权限。手机里有这个 App，不代表其他程序能读取它内部保存的所有数据。",
+        "en": "Access depends on permission. Having an app installed does not let other programs read all of its private data."
+      },
+      "refs": [
+        "data.sms.calllog",
+        "data.contacts",
+        "data.calendar",
+        "data.photos",
+        "data.files",
+        "data.private-files",
+        "data.backup"
+      ],
+      "tone": "sage",
+      "apiHints": [
+        "MediaStore",
+        "DocumentsContract",
+        "ContactsContract",
+        "CalendarContract"
+      ],
+      "origin": "android-primitives"
+    },
+    {
+      "id": "surface",
+      "title": {
+        "zh": "修改桌面和壁纸",
+        "en": "Change the home screen"
+      },
+      "verbs": {
+        "zh": "壁纸 · 桌面小组件 · 提示",
+        "en": "Wallpaper · Widgets · Prompts"
+      },
+      "requirements": {
+        "zh": "Android 已经能设置图片壁纸。视频壁纸、小组件的内容和智能提示，还需要对应的程序。",
+        "en": "Android already supports static wallpapers. Video wallpapers, widget content and smart prompts need the right programs."
+      },
+      "refs": [
+        "home.launcher",
+        "home.overlay",
+        "settings.control",
+        "permissions.manage"
+      ],
+      "tone": "mist",
+      "apiHints": [
+        "WallpaperManager",
+        "WallpaperService",
+        "AppWidgetManager",
+        "TileService",
+        "Settings"
+      ],
+      "origin": "android-primitives"
+    },
+    {
+      "id": "background",
+      "title": {
+        "zh": "在后台继续做事",
+        "en": "Keep working in the background"
+      },
+      "verbs": {
+        "zh": "定时任务 · 后台画面 · 进度",
+        "en": "Scheduled tasks · Background screen · Progress"
+      },
+      "requirements": {
+        "zh": "可以安排以后执行的任务。让 App 在独立后台屏里运行、显示进度、允许接手，还需要系统配合。",
+        "en": "Schedule tasks for later. Running apps on a separate background screen, showing progress and allowing takeover also need OS support."
+      },
+      "refs": [
+        "display.independent",
+        "display.preview",
+        "display.window-policy",
+        "runtime.broker",
+        "runtime.background-public",
+        "runtime.power",
+        "displays.status",
+        "tasks.status"
+      ],
+      "tone": "cream",
+      "apiHints": [
+        "JobScheduler",
+        "AlarmManager",
+        "DisplayManager",
+        "PowerManager"
+      ],
+      "origin": "android-primitives"
+    },
+    {
+      "id": "create",
+      "title": {
+        "zh": "制作新的 App",
+        "en": "Create new apps"
+      },
+      "verbs": {
+        "zh": "写代码 · 预览 · 安装 · 提供接口",
+        "en": "Write code · Preview · Install · Provide APIs"
+      },
+      "requirements": {
+        "zh": "AI 可以写代码，但手机还要装好运行和编译代码的工具，才能把代码变成可用的 App。原始 Android 不自带这一整套工具。",
+        "en": "AI can write code. The phone also needs tools to run and build that code into an app. Stock Android does not include the full toolset."
+      },
+      "refs": [
+        "apps.generate",
+        "apps.install",
+        "apps.business-api",
+        "agent.cli"
+      ],
+      "tone": "lavender",
+      "apiHints": [
+        "PackageInstaller",
+        "WebView",
+        "Service"
+      ],
+      "origin": "added-toolchain"
+    },
+    {
+      "id": "system",
+      "title": {
+        "zh": "查看和调整手机",
+        "en": "Check and adjust the phone"
+      },
+      "verbs": {
+        "zh": "设备信息 · 系统设置 · 连接电脑",
+        "en": "Device information · Settings · Connect a computer"
+      },
+      "requirements": {
+        "zh": "有些信息可以直接读取，有些设置需要更高权限。连接电脑时，电脑也必须安装连接程序。",
+        "en": "Some information is easy to read; some settings require greater access. Connecting to a computer also requires a program on that computer."
+      },
+      "refs": [
+        "system.info",
+        "system.resources",
+        "diagnostics.system",
+        "runtime.performance",
+        "runtime.cross-device",
+        "release.ota"
+      ],
+      "tone": "peach",
+      "apiHints": [
+        "Build",
+        "BatteryManager",
+        "ThermalService",
+        "UpdateEngine"
+      ],
+      "origin": "android-primitives"
+    }
+  ],
+  "scenes": [
+    {
+      "id": "wallpaper",
+      "title": {
+        "zh": "把喜欢的画面设为壁纸",
+        "en": "Use a favorite picture as wallpaper"
+      },
+      "signal": {
+        "zh": "刷视频时，我刚点了一次赞。",
+        "en": "I liked a video while browsing."
+      },
+      "steps": {
+        "zh": [
+          "识别这次喜欢的内容",
+          "拿到可使用的图片或片段",
+          "生成预览并设置壁纸"
+        ],
+        "en": [
+          "Identify the liked content",
+          "Obtain usable media",
+          "Preview and apply wallpaper"
+        ]
+      },
+      "result": {
+        "zh": "当前 App 里轻提示；桌面换上喜欢的画面。",
+        "en": "A subtle prompt in the app; a new wallpaper on Home."
+      },
+      "extra": {
+        "zh": "还需要认出点赞对应的内容，并取得图片。视频壁纸还需要播放程序。设置图片壁纸本身不需要专门的插件。",
+        "en": "Identify the liked content and obtain an image. Video wallpapers also need a player. A static wallpaper does not require a dedicated plugin."
+      },
+      "groups": [
+        "see",
+        "context",
+        "surface"
+      ],
+      "status": "concept",
+      "layers": {
+        "android": {
+          "zh": "设置图片壁纸、取得截图或分享内容。",
+          "en": "Set wallpapers and get screenshots or shared content."
+        },
+        "taku": {
+          "zh": "让 AI 能运行设置壁纸的命令，并告诉你结果。",
+          "en": "Let AI run the wallpaper command and show the result."
+        },
+        "extension": {
+          "zh": "识别你喜欢了什么，取得能使用的图片，选出适合做壁纸的画面。",
+          "en": "Recognize what you liked, get a usable image and choose a frame."
+        }
+      },
+      "acceptance": {
+        "zh": "选对图片，壁纸确实改变；失败时告诉我原因。",
+        "en": "Choose the correct image and verify the wallpaper changed. Explain failures."
+      },
+      "category": "create",
+      "article": {
+        "zh": {
+          "title": "喜欢的画面，顺手变成自己的壁纸",
+          "lead": [
+            "刷到一张喜欢的画面时，设置壁纸本身并不复杂。麻烦在于，我们要先找回内容、取得图片、挑出适合的画面，再进入设置。",
+            "这个需求让我们重新区分：手机已经会做的动作是什么，还缺少哪一段信息和判断。"
+          ],
+          "sections": [
+            {
+              "heading": "从喜欢的内容走到桌面",
+              "paragraphs": [
+                "设想用户刚点赞了一段视频，AI 助手（Agent） 找到对应内容，取得能使用的图片或片段，再生成壁纸预览并设置。完成后，桌面上应该真的出现选中的画面。",
+                "这里的起点可以是一次点赞，也可以是用户直接把内容分享给 AI。它们不是同一种获取方式，需要按实际 App 选择。"
+              ]
+            },
+            {
+              "heading": "设置壁纸，原来就有入口",
+              "paragraphs": [
+                "Android 已有设置图片壁纸的基本能力。只要有可用的图片和合适的调用条件，Agent 可以直接使用已有命令或接口。没有必要先写一个“壁纸插件”才能执行。",
+                "真正缺少的往往是前半段：哪一次操作表示喜欢，喜欢的是哪条内容，以及怎样取得可以使用的图片。截图、分享和读取页面，也各有自己的限制。"
+              ]
+            },
+            {
+              "heading": "系统和扩展分别接哪一段",
+              "paragraphs": [
+                "Taku 需要让 Agent 使用这些动作，并把预览、任务状态和结果显示出来。识别某个 App 的点赞、取得素材、选择画面，可以由临时代码或社区扩展完成。",
+                "如果要长期自动处理点赞，可以把观察和触发规则保存下来。一次需求则可以直接执行。规则是否有用，应从实际结果判断。"
+              ]
+            },
+            {
+              "heading": "图片壁纸和视频壁纸要分开测",
+              "paragraphs": [
+                "静态图片和会播放的视频壁纸不是同一个实现。后者还需要相应的播放程序，并测试耗电、恢复与显示效果。",
+                "当前这个完整场景还没有测通。验收首先要确认选对了内容，再检查壁纸是否真的改变；内容取得失败时，应报告原因，而不是换一张无关图片。"
+              ]
+            }
+          ]
+        },
+        "en": {
+          "title": "Turn a favorite picture into your wallpaper",
+          "lead": [
+            "Setting wallpaper is straightforward once the right picture is available. Finding the liked content, obtaining an image and choosing a frame are often the longer part.",
+            "That makes this case useful for separating existing phone actions from missing information and decisions.\n"
+          ],
+          "sections": [
+            {
+              "heading": "Go from the content to the home screen",
+              "paragraphs": [
+                "The proposed agent identifies liked content, obtains usable media, produces a wallpaper preview and sets it. The selected picture must actually appear on the home screen.",
+                "A like event and content shared directly with AI are different starting points. Choose the path the app actually supports."
+              ]
+            },
+            {
+              "heading": "Wallpaper already has an entry point",
+              "paragraphs": [
+                "Android already offers static wallpaper actions. With a usable image and the right access, the agent can call an existing command or API without a dedicated wallpaper plugin.",
+                "The missing part is often identifying the like, its content and a usable image. Capture, sharing and page reading each provide different material and have different limits."
+              ]
+            },
+            {
+              "heading": "Connect the parts that are missing",
+              "paragraphs": [
+                "Taku provides execution and visible previews, task state and results. App-specific observation, media retrieval and frame choice can be temporary code or community extensions.",
+                "Retain an observation rule when it becomes useful repeatedly. A one-off task can simply use available tools."
+              ]
+            },
+            {
+              "heading": "Separate static images from video wallpapers",
+              "paragraphs": [
+                "Video wallpaper also needs a player and tests for power use, recovery and display behavior.",
+                "The complete case is not verified. Check the selected content and the actual wallpaper change. If media retrieval fails, explain it rather than choose an unrelated image."
+              ]
+            }
+          ]
+        }
+      },
+      "apiRefs": [
+        "home.launcher",
+        "data.photos",
+        "screen.capture.public",
+        "ui.tree.accessibility"
+      ]
+    },
+    {
+      "id": "trip",
+      "title": {
+        "zh": "把旅行截图整理成行程",
+        "en": "Make a trip plan from a screenshot"
+      },
+      "signal": {
+        "zh": "我保存了一张云南攻略图。",
+        "en": "I saved a travel-guide screenshot."
+      },
+      "steps": {
+        "zh": [
+          "读取图片，找出地点",
+          "结合出行日期安排时间",
+          "制作可以修改的行程和提醒"
+        ],
+        "en": [
+          "Read the image and find the places",
+          "Plan timing around your travel dates",
+          "Create an editable plan and reminders"
+        ]
+      },
+      "result": {
+        "zh": "回到桌面：地点、时间、路线放在同一张卡里。",
+        "en": "Back on Home: places, time and route in one card."
+      },
+      "extra": {
+        "zh": "图片不一定写明地点和日期。还需要地图查询、地点识别和行程安排程序。",
+        "en": "An image may not include places or dates. Map lookup, place recognition and trip planning are still needed."
+      },
+      "groups": [
+        "see",
+        "sense",
+        "organize",
+        "surface"
+      ],
+      "status": "concept",
+      "layers": {
+        "android": {
+          "zh": "读取照片、当前位置和日历，发出提醒。",
+          "en": "Read photos, location and calendar; send reminders."
+        },
+        "taku": {
+          "zh": "把图片交给 AI，安排后台任务，把行程显示在桌面上。",
+          "en": "Give AI the image, run the task and show the trip on the home screen."
+        },
+        "extension": {
+          "zh": "认出地点，查询地图和交通，安排时间，制作可以修改的行程卡。",
+          "en": "Recognize places, look up maps and transport, schedule the trip and make an editable card."
+        }
+      },
+      "acceptance": {
+        "zh": "地点和日期正确，路线能打开，行程可以修改。",
+        "en": "Correct places and dates, openable routes and an editable plan."
+      },
+      "category": "life",
+      "article": {
+        "zh": {
+          "title": "从一张旅行截图，走到一份能修改的行程",
+          "lead": [
+            "保存旅行攻略很容易，真正出发前却还要把散落的地点、日期和交通信息重新整理。截图留住了内容，但还不是一份能使用的行程。",
+            "我们希望 Taku 把这一步继续做下去，并让用户随时调整计划。"
+          ],
+          "sections": [
+            {
+              "heading": "先弄清图片写了什么",
+              "paragraphs": [
+                "用户保存一张攻略图之后，AI 助手（Agent） 可以读取图片，找出地点，再结合用户给出的出行日期安排时间。图片里没有日期或地点时，就不能假装它已经知道。",
+                "计划的结果应该是能修改的行程：地点有来源，路线能打开，时间可以调整，重要安排可以变成提醒。"
+              ]
+            },
+            {
+              "heading": "Android 提供资料，规划还需要别的程序",
+              "paragraphs": [
+                "读取照片、当前位置和日历，发出通知，都是系统已有的基本动作。但这些动作不会自动告诉我们两个景点怎样安排更合适。",
+                "地点识别、地图查询、交通信息和时间安排，需要相应程序或服务。它们可以更换，不应该全部固定进系统。"
+              ]
+            },
+            {
+              "heading": "把计划放到能继续使用的地方",
+              "paragraphs": [
+                "Taku 的工作是把资料交给 AI，安排处理，并让结果能在手机上打开和修改。行程卡、地图连接和提醒规则可以由扩展提供，也可以按这次需要直接生成代码。",
+                "计划更新之后，界面和提醒应使用同一份新数据。只改了卡片上的时间，却仍按旧时间提醒，会让这份计划失去作用。"
+              ]
+            },
+            {
+              "heading": "一份可执行的行程，要有可核对的依据",
+              "paragraphs": [
+                "这个场景仍是设想。图片不一定能识别出完整信息，路线与服务查询也可能失败。每处地点和安排都应保留来源，未确定的部分应该说明。",
+                "验收要看地点和日期是否正确、路线能否打开、修改是否生效。生成一大段文字，还不能证明行程已经可用。"
+              ]
+            }
+          ]
+        },
+        "en": {
+          "title": "From a travel screenshot to an editable itinerary",
+          "lead": [
+            "Saving travel advice is easy. Before leaving, places, dates and transport still need arranging. A saved screenshot is not yet a usable plan.",
+            "We want Taku to continue that work while leaving the plan open to changes.\n"
+          ],
+          "sections": [
+            {
+              "heading": "Find what the picture really says",
+              "paragraphs": [
+                "AI can read the image, identify places and plan around dates supplied by the user. If the image omits a date or place, it must not pretend that information is known.",
+                "The result should be editable, with sources, openable routes, adjustable times and useful reminders."
+              ]
+            },
+            {
+              "heading": "System actions supply material, not the whole plan",
+              "paragraphs": [
+                "Photos, location, calendar and notifications are basic Android actions. They do not decide how to arrange two attractions.",
+                "Place recognition, maps, transport information and timing need programs or services that can be changed independently."
+              ]
+            },
+            {
+              "heading": "Keep using the same plan after editing",
+              "paragraphs": [
+                "Taku should pass material to AI, run the task and provide editable results. Cards, map connections and reminder rules can be extensions or code written for this request.",
+                "Changing the plan must update both the interface and reminders. An edited time with an old reminder is not a useful plan."
+              ]
+            },
+            {
+              "heading": "Keep evidence for the proposed trip",
+              "paragraphs": [
+                "This remains a concept. Images may be incomplete and service queries may fail. Preserve sources and indicate uncertain details.",
+                "Acceptance checks correct places and dates, working routes and effective edits. Producing a long paragraph is not proof of a usable itinerary."
+              ]
+            }
+          ]
+        }
+      },
+      "apiRefs": [
+        "data.photos",
+        "environment.location",
+        "data.calendar",
+        "notifications.post",
+        "home.launcher"
+      ]
+    },
+    {
+      "id": "translate",
+      "title": {
+        "zh": "翻译正在听到的对话",
+        "en": "Translate the conversation you hear"
+      },
+      "signal": {
+        "zh": "我说“帮我听懂眼前这段对话”。",
+        "en": "I ask for help understanding a conversation."
+      },
+      "steps": {
+        "zh": [
+          "采集已授权麦克风音频",
+          "识别语音并翻译",
+          "输出字幕与耳机语音"
+        ],
+        "en": [
+          "Capture authorized microphone audio",
+          "Recognize and translate speech",
+          "Deliver captions and earbud speech"
+        ]
+      },
+      "result": {
+        "zh": "现场对话继续，手机提供字幕或译音。",
+        "en": "The conversation continues with captions or translated speech."
+      },
+      "extra": {
+        "zh": "需要识别语音、翻译和朗读的程序，还要处理等待时间。能录麦克风，不代表能录所有电话。",
+        "en": "Speech recognition, translation and speech output are needed, with short delays. Microphone access does not mean access to every call."
+      },
+      "groups": [
+        "hear",
+        "surface",
+        "background"
+      ],
+      "status": "concept",
+      "layers": {
+        "android": {
+          "zh": "用麦克风录音，播放声音，显示文字。",
+          "en": "Record through the microphone, play sound and display text."
+        },
+        "taku": {
+          "zh": "让翻译任务持续运行，并显示正在录音或翻译的状态。",
+          "en": "Keep translation running and show recording or translation status."
+        },
+        "extension": {
+          "zh": "把语音转成文字，翻译，再读出来或显示字幕。",
+          "en": "Turn speech into text, translate it and read it aloud or show captions."
+        }
+      },
+      "acceptance": {
+        "zh": "译文能对应正在说的话，可以暂停和停止。",
+        "en": "Match the translation to the conversation and allow pause and stop."
+      },
+      "category": "life",
+      "article": {
+        "zh": {
+          "title": "听懂一段对话，需要手机把哪些事情接起来",
+          "lead": [
+            "遇到听不懂的对话时，用户需要的是及时知道对方在说什么。对开发者来说，这意味着声音、识别、翻译和输出要连续接上。",
+            "任意一步等得太久，或者结果与正在说的话对不上，都会影响使用。"
+          ],
+          "sections": [
+            {
+              "heading": "先明确要翻译哪段声音",
+              "paragraphs": [
+                "用户说“帮我听懂眼前这段对话”之后，手机通过允许使用的麦克风取得声音，再把识别出的文字交给翻译程序。",
+                "译文可以显示成字幕，也可以通过耳机读出来。录音和翻译状态应该能查看，也应有暂停和停止。"
+              ]
+            },
+            {
+              "heading": "录音是原语，听懂是处理过程",
+              "paragraphs": [
+                "Android 已提供录音、播放声音和显示文字的基本动作。取得声音之后，仍需要程序把语音转成文字、翻译，再生成朗读或字幕。",
+                "我们希望系统提供可靠的运行和状态入口，把识别模型、翻译方法和输出方式留给可以更换的程序。"
+              ]
+            },
+            {
+              "heading": "连续的对话需要处理顺序",
+              "paragraphs": [
+                "程序要知道哪段文字对应哪段声音，也要区分正在等待与已经完成。新一句已经开始时，旧一句的结果不能被当成最新翻译。",
+                "这些识别和输出逻辑可以先写成脚本，需要长期使用时再保留为插件。不要求为了尝试一种模型就改整套镜像。"
+              ]
+            },
+            {
+              "heading": "不要把麦克风能力说成所有通话能力",
+              "paragraphs": [
+                "允许录麦克风，不等于可以录所有电话或其他 App 的声音。声音来源必须分别取得和测试。",
+                "当前场景还需要完整测试。译文能否对应对话、等待时间是否可接受、暂停和停止是否有效，都要逐项确认。"
+              ]
+            }
+          ]
+        },
+        "en": {
+          "title": "Connect the steps that make a conversation understandable",
+          "lead": [
+            "Someone listening to an unfamiliar language needs timely help with what is being said. For developers, audio capture, recognition, translation and output must work in sequence.",
+            "Delays or mismatched results can make even an accurate translation hard to use.\n"
+          ],
+          "sections": [
+            {
+              "heading": "Identify the sound being translated",
+              "paragraphs": [
+                "After the request, the phone captures allowed microphone audio and sends recognized text to translation. Results may appear as captions or be read through earbuds.",
+                "Recording and translation need visible state and pause or stop controls."
+              ]
+            },
+            {
+              "heading": "Recording is a primitive; understanding is processing",
+              "paragraphs": [
+                "Android already records, plays and displays. Recognition, translation and spoken output still need software.",
+                "The OS should provide reliable task execution and state. Models and output methods should remain replaceable."
+              ]
+            },
+            {
+              "heading": "Preserve the order of the conversation",
+              "paragraphs": [
+                "Software must link text to the right audio segment and distinguish waiting from finished work. A late result for an earlier sentence must not appear as the latest translation.",
+                "Start with a script if useful; retain it as a plugin for repeated use. Trying another model should not require a new system image."
+              ]
+            },
+            {
+              "heading": "Do not promise access to every call",
+              "paragraphs": [
+                "Microphone access is not universal call or app-audio access. Each source needs its own access and tests.",
+                "The full case still needs testing for matching results, acceptable delays and effective pause and stop."
+              ]
+            }
+          ]
+        }
+      },
+      "apiRefs": [
+        "audio.microphone",
+        "audio.playback",
+        "assistant.entry",
+        "home.overlay",
+        "runtime.background-public"
+      ]
+    },
+    {
+      "id": "run",
+      "title": {
+        "zh": "跑步时记录运动并提醒",
+        "en": "Track a run and provide reminders"
+      },
+      "signal": {
+        "zh": "运动信号出现，或我主动说“开始跑”。",
+        "en": "Motion signals arrive, or I ask to start a run."
+      },
+      "steps": {
+        "zh": [
+          "结合传感器和位置判断状态",
+          "安排音乐与节奏提示",
+          "记录结果并生成小组件"
+        ],
+        "en": [
+          "Interpret sensors and location",
+          "Arrange music and cadence cues",
+          "Record results and create a widget"
+        ]
+      },
+      "result": {
+        "zh": "耳机播提示，震动提醒，桌面留下本次运动。",
+        "en": "Earbud cues, haptic reminders and a Home summary."
+      },
+      "extra": {
+        "zh": "需要运动计算和提醒程序。传感器是否可靠，要在真实手机上测试。",
+        "en": "Activity calculations and reminder rules are needed. Test sensors on a real phone."
+      },
+      "groups": [
+        "sense",
+        "hear",
+        "background",
+        "surface"
+      ],
+      "status": "concept",
+      "layers": {
+        "android": {
+          "zh": "取得位置和运动数据，控制音乐，发出提醒。",
+          "en": "Read location and motion, control music and send reminders."
+        },
+        "taku": {
+          "zh": "让任务在后台运行，把运动记录显示在桌面上。",
+          "en": "Run the task in the background and show activity records."
+        },
+        "extension": {
+          "zh": "判断是否在跑步，计算运动情况，给出训练提醒。",
+          "en": "Detect running, calculate activity and provide coaching cues."
+        }
+      },
+      "acceptance": {
+        "zh": "跑步记录与实际运动相符，提醒及时，停止后不再记录。",
+        "en": "Match records to the activity, deliver timely cues and stop recording when asked."
+      },
+      "category": "life",
+      "article": {
+        "zh": {
+          "title": "记录一次跑步，也知道什么时候安静",
+          "lead": [
+            "开始跑步以后，我们不想一直看手机，但希望它能把过程记下来，在合适的时候提醒。这个需求同时涉及测量、后台运行和提醒方式。",
+            "手机给出的测量数据，还需要被整理成一份可信的运动记录。"
+          ],
+          "sections": [
+            {
+              "heading": "从“开始跑”进入一次明确的任务",
+              "paragraphs": [
+                "用户可以主动说“开始记录这次跑步”。另一种做法是根据运动数据判断开始时间，但判断准确性需要另外测试。",
+                "记录过程中，可以查看时间、路线或训练提示；停止之后，应该留下对应这次运动的结果，而不是继续在后台无期限记录。"
+              ]
+            },
+            {
+              "heading": "先使用位置和传感器",
+              "paragraphs": [
+                "Android 的位置、运动传感器、媒体控制和通知，是这件事的基本动作。手机是否具备对应硬件，以及程序是否能访问，决定了能取得哪些数据。",
+                "测量不等于判断。手机晃动也不一定表示在跑步，所以运动识别和统计还需要程序处理。"
+              ]
+            },
+            {
+              "heading": "后台记录与训练方法分别维护",
+              "paragraphs": [
+                "系统层应负责持续运行、状态和停止，让用户知道任务还在进行。训练判断、运动计算、音乐控制规则和提示方式，则适合由可替换的代码提供。",
+                "这样的代码可以做成插件，也可以直接围绕这次需求生成。界面与 AI 助手（Agent） 应读取同一份运动记录。"
+              ]
+            },
+            {
+              "heading": "这件事必须走到真实手机上",
+              "paragraphs": [
+                "模拟器里的传感器表现不能代替真实跑步。路线、运动状态、锁屏运行和电量影响，都要在实际设备上观察。",
+                "当前这是功能设想。要确认记录与实际运动相符、提醒合适，停止之后不再继续记录，才有依据说这条流程可用。"
+              ]
+            }
+          ]
+        },
+        "en": {
+          "title": "Record a run and know when to stay quiet",
+          "lead": [
+            "During a run, people may want records and useful cues without repeatedly checking the phone. That involves measurement, background work and the timing of prompts.",
+            "Sensor measurements still need processing before they become a trustworthy activity record.\n"
+          ],
+          "sections": [
+            {
+              "heading": "Start a definite task",
+              "paragraphs": [
+                "A user can ask to record a run. Detecting its start automatically from motion is another option, with separate accuracy tests.",
+                "The task should show progress and leave a record when stopped, rather than continue indefinitely."
+              ]
+            },
+            {
+              "heading": "Use location and sensors first",
+              "paragraphs": [
+                "Location, motion sensors, media control and notifications are Android primitives. Hardware and access determine which measurements are available.",
+                "Movement does not always mean running. Activity detection and statistics require software."
+              ]
+            },
+            {
+              "heading": "Separate recording from coaching methods",
+              "paragraphs": [
+                "The system should manage continued execution, state and stopping. Coaching logic, calculations, music rules and cues can be replaceable code.",
+                "Keep a plugin or generate code for this task. The interface and agent should use the same activity record."
+              ]
+            },
+            {
+              "heading": "Test on an actual run",
+              "paragraphs": [
+                "Emulator sensors cannot establish real running behavior. Routes, screen-lock operation and battery effects need real devices.",
+                "This case is a concept. Verify accurate records, appropriate cues and that stopping ends recording."
+              ]
+            }
+          ]
+        }
+      },
+      "apiRefs": [
+        "environment.location",
+        "environment.sensors",
+        "context.media",
+        "notifications.post",
+        "runtime.background-public",
+        "data.files"
+      ]
+    },
+    {
+      "id": "meeting",
+      "title": {
+        "zh": "从消息里整理日程",
+        "en": "Make a calendar event from a message"
+      },
+      "signal": {
+        "zh": "通知里有人说“周五下午见”。",
+        "en": "A notification mentions meeting on Friday afternoon."
+      },
+      "steps": {
+        "zh": [
+          "取得消息来源中的可见上下文",
+          "提取时间与参与者线索",
+          "生成待确认安排与提醒"
+        ],
+        "en": [
+          "Read available source context",
+          "Extract time and participant clues",
+          "Create a draft event and reminder"
+        ]
+      },
+      "result": {
+        "zh": "桌面出现可确认、修改或忽略的安排。",
+        "en": "Home shows an event to confirm, edit or dismiss."
+      },
+      "extra": {
+        "zh": "一条通知可能缺少前文。读取电脑微信，需要电脑端连接程序。",
+        "en": "A notification may lack earlier context. Reading desktop WeChat needs a desktop connection program."
+      },
+      "groups": [
+        "context",
+        "organize",
+        "surface",
+        "system"
+      ],
+      "status": "concept",
+      "layers": {
+        "android": {
+          "zh": "读取允许访问的通知，查看和写入日历。",
+          "en": "Read allowed notifications and read or write calendar entries."
+        },
+        "taku": {
+          "zh": "把收到的消息交给 AI，显示准备添加的日程。",
+          "en": "Give AI the message and show the proposed event."
+        },
+        "extension": {
+          "zh": "认出约定的时间和地点，检查是否重复；需要完整聊天时，再连接消息来源。",
+          "en": "Find the agreed time and place and check duplicates; connect to the message source when full history is needed."
+        }
+      },
+      "acceptance": {
+        "zh": "日程时间、地点正确；先让我确认，不重复添加。",
+        "en": "Use the correct time and place, ask me to review it and avoid duplicate events."
+      },
+      "category": "life",
+      "article": {
+        "zh": {
+          "title": "让聊天里说好的约定，进入日历",
+          "lead": [
+            "聊天中有人说“周五下午见”，这条约定很容易留在消息里。我们想让手机帮忙整理它，但不能只看到几个时间词就直接当成完整安排。",
+            "前面讨论的是哪一天、在哪里见、是否已经改过时间，都可能影响结果。"
+          ],
+          "sections": [
+            {
+              "heading": "先给用户一份能检查的日程",
+              "paragraphs": [
+                "在这个设想里，AI 助手（Agent） 读取允许取得的消息内容，整理时间和地点，给出一份待确认的日程。确认之后再写入日历，并检查是否已经存在。",
+                "如果只拿到一条通知，信息不足时应指出缺了什么。通知可读，不代表整个聊天历史都已经取得。"
+              ]
+            },
+            {
+              "heading": "消息和日历是两种入口",
+              "paragraphs": [
+                "Android 可以提供通知与日历的基本能力，但每种内容都有各自的访问条件。电脑微信的消息还需要电脑端连接程序，手机权限不会自动延伸到电脑上。",
+                "因此，系统层负责把来源明确的信息交给 Agent，并让准备执行的日历动作和结果可以查看。"
+              ]
+            },
+            {
+              "heading": "理解约定的程序可以扩展",
+              "paragraphs": [
+                "解析日期、结合前文、识别改期和避免重复，可以由脚本或插件完成。连接具体消息服务的程序，也应该能够独立更换。",
+                "一次整理可以直接使用已有入口；需要经常处理同一来源时，再把连接和规则保留下来。"
+              ]
+            },
+            {
+              "heading": "日历里出现正确的安排，才是结果",
+              "paragraphs": [
+                "当前这个场景还没有完整测通。需要确认时间与地点对应原消息、日程没有重复，以及修改后的结果能在日历中看到。",
+                "一句“已为你安排”不能代替日历里的实际记录。信息不足或写入失败时，手机要说明原因。"
+              ]
+            }
+          ]
+        },
+        "en": {
+          "title": "Move a chat agreement into the calendar",
+          "lead": [
+            "An agreement such as “Friday afternoon” can remain buried in messages. Helping turn it into a calendar entry requires more than detecting a few time words.",
+            "Earlier context, the place and later changes can all affect the result.\n"
+          ],
+          "sections": [
+            {
+              "heading": "Show an event the user can review",
+              "paragraphs": [
+                "The proposed agent reads allowed message content, drafts the time and place, then writes the reviewed event and checks duplicates.",
+                "A notification may lack earlier context. Reading one notification is not access to the whole conversation."
+              ]
+            },
+            {
+              "heading": "Messages and calendar use separate entry points",
+              "paragraphs": [
+                "Android offers notification and calendar capabilities with their own access conditions. Desktop WeChat also requires a desktop connection program; phone rights do not extend to the computer.",
+                "The OS should give AI source-aware information and make the proposed action and result visible."
+              ]
+            },
+            {
+              "heading": "Keep interpretation and connections replaceable",
+              "paragraphs": [
+                "Date parsing, context, rescheduling and duplicate checks can be scripts or plugins. Service connections can be maintained separately too.",
+                "Use available entry points for one request; retain connections and rules for repeated use."
+              ]
+            },
+            {
+              "heading": "Check the actual calendar entry",
+              "paragraphs": [
+                "The complete case is not verified. Acceptance needs correct time and place, no duplicates and an observable calendar result.",
+                "“We arranged it” is not proof. Explain missing information or write failures."
+              ]
+            }
+          ]
+        }
+      },
+      "apiRefs": [
+        "notifications.listen",
+        "data.calendar",
+        "runtime.broker"
+      ]
+    },
+    {
+      "id": "make",
+      "title": {
+        "zh": "让 AI 制作自己的 App",
+        "en": "Ask AI to create your own app"
+      },
+      "signal": {
+        "zh": "“给我做个工具，记录和分析我的开销。”",
+        "en": "Create a tool to record and analyze my spending."
+      },
+      "steps": {
+        "zh": [
+          "写出需要的功能和界面",
+          "预览，做成可安装的 App",
+          "提供接口，让 AI 也能使用它"
+        ],
+        "en": [
+          "Write the features and interface",
+          "Preview and build an installable app",
+          "Provide APIs so AI can use it too"
+        ]
+      },
+      "result": {
+        "zh": "一个可使用的 App，也能成为之后任务的工具。",
+        "en": "A usable app that also becomes a tool for future tasks."
+      },
+      "extra": {
+        "zh": "写出文件还不算完成。要能预览、安装和打开，也要检查功能是否有效。预置组件用来加速，不限制 App 能做什么。",
+        "en": "Files alone are not a finished app. Preview, install, open and check it. Reusable components speed up work without restricting features."
+      },
+      "groups": [
+        "create",
+        "organize",
+        "surface",
+        "background"
+      ],
+      "status": "concept",
+      "layers": {
+        "android": {
+          "zh": "保存文件，运行已支持的程序，安装和打开 App。",
+          "en": "Save files, run supported programs and install or open apps."
+        },
+        "taku": {
+          "zh": "装好写代码、预览、编译和安装所需的工具，让 AI 能使用。",
+          "en": "Provide the tools AI needs to write, preview, build and install apps."
+        },
+        "extension": {
+          "zh": "编写这个 App 的功能和界面；再提供接口，让 AI 也能直接使用它。",
+          "en": "Write the app’s features and UI, then provide APIs for AI to use."
+        }
+      },
+      "acceptance": {
+        "zh": "能安装的独立 App，功能可用，AI 调用它的接口也得到正确结果。",
+        "en": "An installable app with working features and correct results from its APIs."
+      },
+      "category": "create",
+      "article": {
+        "zh": {
+          "title": "说清楚需要，在手机里做出一个自己的 App",
+          "lead": [
+            "我们可能只需要一个符合自己习惯的小工具，却找不到刚好合适的 App。Taku 想探索的是：能不能说清楚需要，让手机里的 AI 助手（Agent） 写出它，再让我们马上使用。",
+            "这里的“生成”要走到真正能运行。文件被写出来，只是其中一步。"
+          ],
+          "sections": [
+            {
+              "heading": "需求决定功能，不是挑几个配置项",
+              "paragraphs": [
+                "用户可以要求一个记录和分析开销的工具。Agent 需要编写实际功能与界面，处理保存、修改和查询，而不是只能在固定模板里换标题。",
+                "预置组件能省掉重复工作，但不应限制应用能做什么。预览应该显示实际业务代码运行后的结果。"
+              ]
+            },
+            {
+              "heading": "手机需要一套制作 App 的工具",
+              "paragraphs": [
+                "Android 原本能保存文件、安装和打开 App，但不自带从需求生成代码、编译、签名到安装的完整流程。Taku 需要准备这些工具，让 Agent 使用。",
+                "因此，应用生成既有 AI 写代码这一部分，也有运行程序、构建和安装这一部分。两边必须都成功，应用才能使用。"
+              ]
+            },
+            {
+              "heading": "界面与接口使用同一份数据",
+              "paragraphs": [
+                "如果应用还提供接口，Agent 以后就能直接调用它的功能。接口是程序提供的方法，按要求传入信息即可执行动作或取得结果。",
+                "人从界面修改记录后，接口也应该读到新值；Agent 通过接口修改后，界面应显示同一份结果。否则就成了两个互不相干的工具。"
+              ]
+            },
+            {
+              "heading": "预览之外，还要验证独立 App",
+              "paragraphs": [
+                "项目已有手机内生成应用的模拟器实验，但不能把它推导为任意应用都会自动完成。每个新应用都要验证自己的功能。",
+                "若成品宣称是独立 App，就需要实际生成、安装并打开 APK，再测试接口。单独打开一页网页，还没有完成这个验收。"
+              ]
+            }
+          ]
+        },
+        "en": {
+          "title": "Describe a need and build your own app on the phone",
+          "lead": [
+            "Sometimes an existing app does not quite fit the tool someone needs. We want to explore whether an on-phone agent can write it and make it usable.",
+            "Generating files is only one part of that work.\n"
+          ],
+          "sections": [
+            {
+              "heading": "Let the need determine the features",
+              "paragraphs": [
+                "For an expense tool, the agent must write actual features and UI, including storage, edits and queries. It must not be limited to changing labels in a fixed template.",
+                "Reusable components can save work. Preview should run the actual application code."
+              ]
+            },
+            {
+              "heading": "Add the tools Android does not include",
+              "paragraphs": [
+                "Android can save files and install or open apps. It does not provide the full request-to-code, build, signing and installation workflow.",
+                "Taku needs to prepare those tools for the agent. Both coding and building must succeed."
+              ]
+            },
+            {
+              "heading": "Let people and AI use the same data",
+              "paragraphs": [
+                "An app with APIs can become a tool for future agent tasks. An API is a method another program can call with the required information.",
+                "An edit through the interface must appear in API results, and an API edit must appear in the interface. Otherwise they are separate tools."
+              ]
+            },
+            {
+              "heading": "Verify more than a preview",
+              "paragraphs": [
+                "On-phone app creation has emulator experiments, not a guarantee that every app is automatically completed.",
+                "A standalone app needs an actual APK build, installation, launch and feature/API tests. A webpage preview alone does not satisfy that claim."
+              ]
+            }
+          ]
+        }
+      },
+      "apiRefs": [
+        "agent.cli",
+        "apps.generate",
+        "apps.install",
+        "apps.business-api",
+        "data.files"
+      ]
+    },
+    {
+      "id": "camera-beauty",
+      "status": "concept",
+      "category": "hardware",
+      "title": {
+        "zh": "给视频通话加上美颜",
+        "en": "Add beauty filters to video calls"
+      },
+      "signal": {
+        "zh": "我希望微信视频也能用统一的美颜效果。",
+        "en": "I want a consistent beauty filter in WeChat video calls."
+      },
+      "groups": [
+        "see",
+        "system"
+      ],
+      "steps": {
+        "zh": [
+          "取得相机画面",
+          "加上你选的滤镜",
+          "把处理后的画面送到通话 App"
+        ],
+        "en": [
+          "Get camera pictures",
+          "Apply your chosen filter",
+          "Send processed pictures to the call app"
+        ]
+      },
+      "result": {
+        "zh": "通话中看到一致的处理效果，并能一键关闭。",
+        "en": "Consistent processing during the call, with an off switch."
+      },
+      "extra": {
+        "zh": "还没完整测通。要分别测试不同手机、前后相机、画面方向和通话延迟。有些 App 可能使用不同的相机处理方法。",
+        "en": "Not fully tested. Check different phones, cameras, rotation and call delays. Some apps may use different camera paths."
+      },
+      "layers": {
+        "android": {
+          "zh": "相机接口能让自己的 App 取得画面。",
+          "en": "Camera APIs give your own app pictures."
+        },
+        "taku": {
+          "zh": "要给微信这类 App 也加美颜，需要改相机画面交给 App 之前的处理过程。只允许使用相机还不够。",
+          "en": "To filter pictures in apps such as WeChat, change how pictures are processed before reaching the app. Camera permission alone is not enough."
+        },
+        "extension": {
+          "zh": "加入美颜或 AI 滤镜，提供调整效果和开关的界面。",
+          "en": "Add beauty or AI filters, controls and an off switch."
+        }
+      },
+      "acceptance": {
+        "zh": "微信视频里确实能看到滤镜；关闭后恢复原画面，通话没有明显卡顿。",
+        "en": "See the filter in a real WeChat call, restore the original picture when disabled and avoid noticeable lag."
+      },
+      "article": {
+        "zh": {
+          "title": "给视频通话加美颜，为什么我们要从系统里做",
+          "lead": [
+            "很多人已经有自己习惯的拍摄效果，却希望在视频通话里也能用上。对 Taku OS 来说，这个需求最有意思的地方，是效果要出现在你正在使用的通话 App 里。",
+            "它也最容易被一句“我们有相机权限”说得过于简单。相机权限能做什么、系统还要改哪里、滤镜作者又负责什么，需要分别讲清。"
+          ],
+          "sections": [
+            {
+              "heading": "先确定效果要出现在哪里",
+              "paragraphs": [
+                "如果只是制作一个自己的相机 App，Android 可以把相机画面交给这个 App，再由程序加滤镜。你看到的是自己程序里的画面。",
+                "微信视频通话的要求更进一步：微信收到的画面也要经过处理。把我们自己的预览变好看，并不能证明微信那边已经看到同样的效果。"
+              ]
+            },
+            {
+              "heading": "原来的相机能力，还少了一段处理",
+              "paragraphs": [
+                "Android 提供取得相机画面的基本动作。相机接口、访问权限和手机硬件，决定程序能否得到这些画面。",
+                "要给其他 App 也加效果，就需要找出画面从相机到目标 App 的经过位置，在合适的地方增加处理。不同手机和 App 的做法可能不同；仅给一个程序 CAMERA 权限，还没有完成这一步。"
+              ]
+            },
+            {
+              "heading": "镜像提供位置，插件提供效果",
+              "paragraphs": [
+                "我们的分工是：系统层研究这个共同的画面处理入口，并负责开关、状态以及关闭后恢复原画面。若确实需要改 Android 自身或设备相关部分，就应修改镜像，重新构建并测试。",
+                "传统美颜、AI 滤镜、参数面板则可以由可替换的程序提供。这样作者能改进自己的效果，用户也能换掉它，而不是每个滤镜都各做一套相机系统。"
+              ]
+            },
+            {
+              "heading": "验证的是通话里的画面",
+              "paragraphs": [
+                "画面方向、前后摄像头和处理速度都会影响通话。效果再漂亮，如果说话时明显卡顿，或切到前置相机就失效，也不能算完成。",
+                "这个场景目前仍是研究。需要在指定的真实手机和通话 App 中确认：对方确实看到了处理后的画面，关闭能恢复，通话仍然顺畅。有些 App 走不同的相机处理路径，还需要另外适配。"
+              ]
+            }
+          ]
+        },
+        "en": {
+          "title": "Why video-call filters need system work",
+          "lead": [
+            "People may want the camera effect they like to appear in the video-call app they already use. That is the interesting part of this request for Taku OS.",
+            "“Camera permission” is not enough to explain it. We need to separate what Android provides, where the system must change and what a filter author can contribute.\n"
+          ],
+          "sections": [
+            {
+              "heading": "Decide where the effect must appear",
+              "paragraphs": [
+                "An app we create can receive camera pictures and filter its own preview. That proves an effect inside our app, not inside WeChat.",
+                "The video-call request goes further: the call app must receive processed pictures too. Making our preview look better does not prove that the person on the other end sees that effect."
+              ]
+            },
+            {
+              "heading": "The existing camera action is only the start",
+              "paragraphs": [
+                "Android provides camera access, subject to permission and hardware support. To process pictures for other apps, we must find the appropriate point before those pictures reach the target app.",
+                "Phones and apps may use different paths. CAMERA permission by itself does not add a universal processing stage."
+              ]
+            },
+            {
+              "heading": "The OS provides the place; replaceable programs provide effects",
+              "paragraphs": [
+                "Our design puts the shared processing entry, state and restoration behavior in the system. Changes to Android or device-specific implementation need image builds and new tests.",
+                "Beauty algorithms, AI filters and controls can be replaceable programs. Authors can improve effects without each rebuilding a camera system of their own."
+              ]
+            },
+            {
+              "heading": "Test the pictures inside the actual call",
+              "paragraphs": [
+                "Lens switching, rotation and processing speed matter. An attractive effect that lags or fails on the front camera is not a completed feature.",
+                "This remains research. A named phone and call app must show that the other party receives filtered pictures, disabling restores the original, and the call stays responsive. Other camera paths may need separate work."
+              ]
+            }
+          ]
+        }
+      },
+      "apiRefs": [
+        "camera.read",
+        "camera.global-filter"
+      ]
+    },
+    {
+      "id": "meeting-notes",
+      "status": "concept",
+      "category": "work",
+      "title": {
+        "zh": "把会议录音整理成笔记和待办",
+        "en": "Turn a meeting recording into notes and tasks"
+      },
+      "signal": {
+        "zh": "开始记录这次会议，会后给我决定和待办。",
+        "en": "Record this meeting and return decisions and next actions."
+      },
+      "groups": [
+        "hear",
+        "organize",
+        "background"
+      ],
+      "steps": {
+        "zh": [
+          "录下会议声音",
+          "把声音转成文字",
+          "整理决定和待办，保留对应录音"
+        ],
+        "en": [
+          "Record the meeting",
+          "Turn speech into text",
+          "Summarize decisions and tasks with audio links"
+        ]
+      },
+      "result": {
+        "zh": "一份可回听、可修订的会议笔记和待确认待办。",
+        "en": "Editable notes, replayable excerpts and draft actions."
+      },
+      "extra": {
+        "zh": "会议现场录音、录其他 App 的声音、录电话，需要的条件不同。还要测试锁屏后能否继续录音，以及嘈杂环境下的识别效果。",
+        "en": "Room audio, other apps’ sound and calls need different access. Also test recording with the screen locked and recognition in noisy rooms."
+      },
+      "layers": {
+        "android": {
+          "zh": "麦克风录音，保存录音，发出通知。",
+          "en": "Record microphone audio, save it and send notifications."
+        },
+        "taku": {
+          "zh": "让录音任务持续运行，显示录音状态，提供暂停、停止和查看结果的入口。",
+          "en": "Keep recording, show its state and offer pause, stop and results."
+        },
+        "extension": {
+          "zh": "把声音转成文字，分清谁在说话，整理决定和待办，保存到笔记或任务 App。",
+          "en": "Transcribe, identify speakers, extract decisions and tasks and save them in notes or task apps."
+        }
+      },
+      "acceptance": {
+        "zh": "笔记能找到对应录音，待办有原话依据，暂停和停止有效。",
+        "en": "Notes link to the right audio, tasks are grounded in what was said and pause/stop work."
+      },
+      "article": {
+        "zh": {
+          "title": "会议结束后，留下笔记，也留下下一步",
+          "lead": [
+            "一场会议里，大家把问题说清楚了，也约好了接下来怎么做。可等会议结束，要把这些内容变成笔记和待办，往往还得重新听录音、翻聊天记录，再一条条整理。",
+            "我们想让 Taku OS 接着做完这段工作：手机记下讨论，你能回到当时的声音，也能看清下一步要做什么。这篇开发笔记讲的是这个功能准备怎样设计，完整流程还没有测通。"
+          ],
+          "sections": [
+            {
+              "heading": "从一句“开始记录会议”开始",
+              "paragraphs": [
+                "我们的设想是，你对手机说“开始记录这次会议，会后给我决定和待办”。手机开始录音，并显示正在录音的状态；暂停和停止按钮也在这里。",
+                "会议中，你可以暂停；结束时，可以直接停止。处理完成后，手机给出一份可以修改的笔记。点开其中一条决定或待办，应该能回到对应的录音，而不是只看到 AI 给出的一句话。"
+              ]
+            },
+            {
+              "heading": "先把声音可靠地留下来",
+              "paragraphs": [
+                "要做到这里，第一步其实还用不上复杂的 AI。Android 已经提供麦克风录音和保存文件的基本能力。这些基本动作就是原语：系统本来有，程序取得相应权限后就可以使用。",
+                "但“能录一段声音”和“能记完一场会议”之间还有距离。锁屏之后是否继续录、任务被打断会不会丢掉前半段、停止后文件是否完整，都需要真正测试。手机可能放在桌上很久，不能只在屏幕亮着时试一次，就认为整个功能完成了。"
+              ]
+            },
+            {
+              "heading": "系统负责让录音任务有始有终",
+              "paragraphs": [
+                "录音本身，普通 Android App 也能做。我们把持续录音和状态管理设计成 Taku 的公共能力，是为了让 AI、桌面和不同整理程序共用同一个任务，不必各做一份录音流程。",
+                "这份状态也要让界面和 AI 共用。界面显示“已经停止”，录音就不能还在继续；AI 说“处理完成”，就应该能打开笔记和原始录音。一次点击或一个生成中的文件，都不能代替完成结果。"
+              ]
+            },
+            {
+              "heading": "把声音整理成内容，留给可以替换的程序",
+              "paragraphs": [
+                "接下来才是把声音转成文字、分清谁在说话、提取决定和待办。这些工作适合由脚本、App 或插件完成。不同开发者可以选择不同的识别模型、笔记格式和任务服务，不需要为了换一个总结方法重新刷系统。",
+                "做法也不必一开始就是完整插件。AI 助手（Agent） 可以先写代码完成一次处理；如果这种整理方式以后还要经常用，再把它保留下来。连接笔记或任务 App 时，写入是否成功也要核对，不能只把文本生成出来就结束。"
+              ]
+            },
+            {
+              "heading": "最后，要能把结果找回原话",
+              "paragraphs": [
+                "这条路还有几个明确的限制。现场录音、录其他 App 播放的声音、录电话，是不同的获取方式。允许使用麦克风，不代表就能拿到通话双方的声音。嘈杂环境和几个人同时说话，也会影响识别。",
+                "所以，这个场景的验收不能只看总结是否像样。录音与文字要能对上，待办要有原话依据，暂停和停止要有效，失败后要说明留下了什么。当前它仍是功能设想；本文不是一份已经在真机上完成的产品报告。"
+              ]
+            }
+          ]
+        },
+        "en": {
+          "title": "After the meeting, keep the notes and the next steps",
+          "lead": [
+            "A meeting can settle a question and agree on what happens next. Turning that discussion into useful notes often takes another pass through the recording and messages.",
+            "We want Taku OS to continue that work: keep the audio, make the discussion easy to revisit, and show the next actions. This is a design note, not a report of a complete flow working on a real phone.\n"
+          ],
+          "sections": [
+            {
+              "heading": "Start with “record this meeting”",
+              "paragraphs": [
+                "In the proposed experience, you ask the phone to record the meeting and return decisions and tasks. Recording starts with a visible state, so you can tell whether it is still running.",
+                "You can pause and stop it. When processing finishes, you get editable notes. A decision or task should link back to the relevant audio, rather than exist only as a sentence generated by AI."
+              ]
+            },
+            {
+              "heading": "First, keep the sound reliably",
+              "paragraphs": [
+                "This first step does not need elaborate AI. Android already provides microphone recording and file storage. These are primitives: basic system actions that a program can use with the right access.",
+                "But recording a short clip is different from keeping a whole meeting. Screen locking, interruption and the final audio file all need testing. A successful test with the screen on is not proof that the entire recording task works."
+              ]
+            },
+            {
+              "heading": "Give the recording task a beginning and an end",
+              "paragraphs": [
+                "Ordinary Android apps can record too. We design continued recording and state as shared Taku capabilities so AI, the home screen and different note processors can use one task instead of each creating its own recording flow.",
+                "The interface and agent must use the same state. If the interface says recording stopped, it must actually stop. If AI says processing finished, the notes and original audio must open. A click or a partially generated file is not a completed result."
+              ]
+            },
+            {
+              "heading": "Keep the interpretation replaceable",
+              "paragraphs": [
+                "Transcription, speaker identification, summaries and task extraction belong in scripts, apps or plugins. Authors can choose models, note formats and task services without rebuilding the whole system whenever the summarizer changes.",
+                "A first attempt can be temporary code. Retain it when the method becomes useful repeatedly. When writing to a notes or task app, check that the destination actually received it; generating text alone does not complete that step."
+              ]
+            },
+            {
+              "heading": "Results need a path back to what was said",
+              "paragraphs": [
+                "Room recording, capturing another app’s playback and recording calls are separate access paths. Microphone permission does not grant both sides of every call. Noise and overlapping voices also affect recognition.",
+                "Acceptance must check audio-text alignment, the evidence behind tasks, pause and stop, and what remains after failure. This case is still a concept, not a physical-device acceptance report."
+              ]
+            }
+          ]
+        }
+      },
+      "apiRefs": [
+        "audio.microphone",
+        "audio.calls",
+        "audio.playback",
+        "data.files",
+        "runtime.background-public",
+        "runtime.power",
+        "notifications.post",
+        "tasks.status"
+      ]
+    },
+    {
+      "id": "calendar-ride",
+      "status": "concept",
+      "category": "life",
+      "title": {
+        "zh": "根据日程安排出发和叫车",
+        "en": "Plan departure and a ride from your calendar"
+      },
+      "signal": {
+        "zh": "下一场会议在哪儿？什么时候出发，帮我准备叫车。",
+        "en": "Where is my next meeting? Plan departure and prepare a ride."
+      },
+      "groups": [
+        "sense",
+        "organize",
+        "act"
+      ],
+      "steps": {
+        "zh": [
+          "读取日历目的地与当前位置",
+          "查询路线、出发时间和报价",
+          "打开叫车入口并呈现订单状态"
+        ],
+        "en": [
+          "Read event destination and current location",
+          "Query route, departure time and quote",
+          "Open the ride flow and show order status"
+        ]
+      },
+      "result": {
+        "zh": "一张目的地、出发倒计时、车型和报价的出行卡。",
+        "en": "A destination card with departure countdown, ride type and quote."
+      },
+      "extra": {
+        "zh": "位置数据只告诉我们在哪里。车价、订单和付款，要通过叫车服务处理，还受地区和登录状态影响。",
+        "en": "Location only tells us where we are. Prices, orders and payment need the ride service and depend on region and login."
+      },
+      "layers": {
+        "android": {
+          "zh": "读取当前位置和日历，打开叫车 App，发出提醒。",
+          "en": "Read location and calendar, open the ride app and send reminders."
+        },
+        "taku": {
+          "zh": "让 AI 取得需要的信息，在后台处理，并显示进度和结果。",
+          "en": "Give AI the required information, run the task and show progress/results."
+        },
+        "extension": {
+          "zh": "查询路线和车价，按你的规则选择出发时间，再使用叫车服务。",
+          "en": "Look up routes and prices, choose departure time under your rules and use the ride service."
+        }
+      },
+      "acceptance": {
+        "zh": "目的地正确，提醒及时；叫车是否成功有明确结果。",
+        "en": "Correct destination, timely reminder and a clear result for the ride request."
+      },
+      "article": {
+        "zh": {
+          "title": "下一场会议开始前，手机还能帮我们安排出发",
+          "lead": [
+            "日历知道下一场会议的时间，手机知道我们现在的位置，但从“知道”到“按时到达”，中间还隔着查路线、判断出发时间和打开叫车 App。",
+            "我们想把这几个动作接起来。重点是让目的地、时间和叫车结果始终对应同一件事，而不是让 AI 凭一句话猜已经安排好了。"
+          ],
+          "sections": [
+            {
+              "heading": "从日历里的约定出发",
+              "paragraphs": [
+                "用户可以说：“下一场会议在哪儿？什么时候出发，帮我准备叫车。”手机先找出对应日程和当前位置，再确认目的地是不是一个能使用的地址。",
+                "有了地址和时间，才查询路线与车价。结果可以放在一张出行卡里：去哪儿、什么时候出发、选了什么车型、目前到哪一步，都能直接查看。"
+              ]
+            },
+            {
+              "heading": "位置数据不会替我们下单",
+              "paragraphs": [
+                "Android 的定位、日历、通知和打开 App 等原语，足够提供这条流程的起点。但位置数据只告诉我们在哪里，不会提供车价，也不会生成订单。",
+                "路线、报价和订单需要通过地图或叫车服务取得。登录状态、所在地区和服务提供的调用方式，都可能改变接下来的操作。"
+              ]
+            },
+            {
+              "heading": "Taku 把任务接下去，连接程序处理服务",
+              "paragraphs": [
+                "系统层应该安排这次任务、显示进度和结果，让后台处理与手机其他使用同时进行。遇到服务没有返回结果，也要清楚告诉用户停在哪。",
+                "地图和叫车服务的连接、报价选择、出发提醒规则，则可以由脚本或插件提供。已有 App 操作能完成的部分也可以直接用，不必先等待一个同名插件。"
+              ]
+            },
+            {
+              "heading": "到达目标之前，还要核对结果",
+              "paragraphs": [
+                "日历地址可能写得很简略，车价也可能变化。进入下单流程之后，仍要按目标服务完成验证与付款步骤。不能把“打开了叫车页面”当成“车已叫到”。",
+                "当前这是设计场景。验证时应检查目的地与路线、提醒时间以及实际订单结果。手机显示的状态要能从目标服务中得到依据。"
+              ]
+            }
+          ]
+        },
+        "en": {
+          "title": "Before the next meeting, help arrange departure",
+          "lead": [
+            "The calendar knows the next meeting time and the phone knows our location. Turning that information into a timely departure still requires routes, timing and a ride app.",
+            "We want to connect those actions while keeping destination, time and order status tied to the same task.\n"
+          ],
+          "sections": [
+            {
+              "heading": "Begin with the calendar agreement",
+              "paragraphs": [
+                "The request is to find the next meeting, plan departure and prepare a ride. First, identify the event, current location and a usable destination address. Only then look up routes and quotes.",
+                "A travel card should make destination, departure time, ride choice and current state easy to inspect."
+              ]
+            },
+            {
+              "heading": "Location does not place an order",
+              "paragraphs": [
+                "Location, calendar, notifications and opening apps are Android primitives. They provide the starting information, not prices or orders.",
+                "Maps and ride services supply routes, quotes and orders. Region, login and available interfaces determine how the next actions work."
+              ]
+            },
+            {
+              "heading": "Let the OS keep the task moving",
+              "paragraphs": [
+                "Taku should run the task and show progress and results alongside normal phone use. A service failure needs an explanation of where work stopped.",
+                "Service connections and choice rules can be scripts or plugins. Available app operations can also be used directly; a dedicated ride plugin is not mandatory."
+              ]
+            },
+            {
+              "heading": "Verify what the service actually did",
+              "paragraphs": [
+                "An event address may be incomplete and quotes may change. Ordering still follows the service’s verification and payment flow. Opening a ride page is not booking a car.",
+                "This is a design case. Acceptance needs a correct destination and route, timely cues and a real order result behind the displayed status."
+              ]
+            }
+          ]
+        }
+      },
+      "apiRefs": [
+        "environment.location",
+        "data.calendar",
+        "apps.launch",
+        "input.accessibility",
+        "notifications.post",
+        "runtime.background-public"
+      ]
+    },
+    {
+      "id": "save-context",
+      "status": "concept",
+      "category": "learn",
+      "title": {
+        "zh": "把正在看的内容保存下来",
+        "en": "Save what you are looking at"
+      },
+      "signal": {
+        "zh": "我在看小红书或 YouTube：把这个记下来。",
+        "en": "I am on Xiaohongshu or YouTube: save this for me."
+      },
+      "groups": [
+        "see",
+        "context",
+        "organize"
+      ],
+      "steps": {
+        "zh": [
+          "叫起 AI，取得当前页面",
+          "保存标题、链接和能取得的内容",
+          "分类保存，告诉你存到了哪里"
+        ],
+        "en": [
+          "Call AI with the current page",
+          "Save the title, link and available content",
+          "Categorize it and show where it was saved"
+        ]
+      },
+      "result": {
+        "zh": "内容进入自己的资料库；继续浏览，稍后再整理。",
+        "en": "Save to your library and continue browsing; organize later."
+      },
+      "extra": {
+        "zh": "截图不等于拿到完整视频或文章。有些页面不能截图，也不提供文字，需要说明哪些内容没有拿到。",
+        "en": "A screenshot is not the full video or article. Some pages block capture or provide no text; explain what could not be obtained."
+      },
+      "layers": {
+        "android": {
+          "zh": "截图，读取能访问的页面文字，接收分享，保存文件。",
+          "en": "Take screenshots, read accessible page text, receive shares and save files."
+        },
+        "taku": {
+          "zh": "提供随时叫起 AI 的入口，把当时的页面内容一起交给它。",
+          "en": "Provide a way to call AI with the page you were viewing."
+        },
+        "extension": {
+          "zh": "提取标题和链接，写摘要，分类，保存到你选的地方。",
+          "en": "Get the title and link, summarize, categorize and save where you choose."
+        }
+      },
+      "acceptance": {
+        "zh": "保存的内容有来源，能找到原页面；不会重复保存，也不打断继续浏览。",
+        "en": "Save sources and links, avoid duplicates and let me keep browsing."
+      },
+      "article": {
+        "zh": {
+          "title": "把正在看的内容，留在自己的资料库",
+          "lead": [
+            "看到一段值得留下的内容时，打断浏览、复制链接、切到笔记 App，再整理来源，会增加不少步骤。我们想让“记下来”接在当前页面后面。",
+            "重点不是多做一个收藏按钮，而是让 AI 知道用户当时在看什么。"
+          ],
+          "sections": [
+            {
+              "heading": "叫起 AI 时，把页面一起带过去",
+              "paragraphs": [
+                "用户在小红书或 YouTube 里说“把这个记下来”，系统应取得当时能访问的画面、页面文字或分享内容，而不是让 AI 猜“这个”指什么。",
+                "保存完成后，用一个清楚的结果告诉用户内容存在哪里。原来的 App 还可以继续使用。"
+              ]
+            },
+            {
+              "heading": "已有动作，需要组成一次完整获取",
+              "paragraphs": [
+                "截图、读取可访问的页面文字、接收分享和保存文件，都是 Android 的基本能力，但它们取得的内容不同。",
+                "截图可能只有当前画面，分享可能只有链接，有的 App 也不提供完整文字。Taku 应把实际取得的信息与来源一起交给 AI 助手（Agent）。"
+              ]
+            },
+            {
+              "heading": "整理方式留给用户和扩展作者",
+              "paragraphs": [
+                "标题、摘要、分类和保存到哪个资料库，可以由代码或插件决定。不同 App 的内容识别，也可以单独适配。",
+                "只处理一次时可以临时写代码。希望每次都用同样方式保存，再把规则和连接程序留下来。"
+              ]
+            },
+            {
+              "heading": "留下来源，也说明没有取得什么",
+              "paragraphs": [
+                "当前仍需完整测试。保存的内容应能回到原页面，重复内容应能识别；不能把一张截图写成“已保存整段视频”。",
+                "受保护画面或无法取得的文字，要在结果中说明。能继续浏览，也是这次任务需要验证的一部分。"
+              ]
+            }
+          ]
+        },
+        "en": {
+          "title": "Keep the content you are viewing in your own library",
+          "lead": [
+            "Saving useful content often means interrupting browsing, copying a link, switching apps andorganizing the source. We want saving to continue from the current page.",
+            "AI needs to know what “this” refers to when the user asks it to remember something.\n"
+          ],
+          "sections": [
+            {
+              "heading": "Bring the current page to AI",
+              "paragraphs": [
+                "The system should obtain available pictures, text or shared material at invocation time, rather than ask AI to guess the subject.",
+                "After saving, show where the content went and let the original app remain usable."
+              ]
+            },
+            {
+              "heading": "Existing actions provide different material",
+              "paragraphs": [
+                "Capture, accessible page text, shares and storage are Android actions, but they do not return identical content.",
+                "A screenshot may be one frame; a share may be only a link. Taku should pass actual material with its provenance."
+              ]
+            },
+            {
+              "heading": "Let people choose how to organize it",
+              "paragraphs": [
+                "Titles, summaries, categories and destinations can be scripts or plugins. App-specific reading can be adapted separately.",
+                "Use temporary code for one task and retain a useful connection or rule for later."
+              ]
+            },
+            {
+              "heading": "Preserve sources and expose gaps",
+              "paragraphs": [
+                "The full case still needs testing. Saved content should link back to its source and avoid duplicates. One screenshot is not a saved video.",
+                "Report protected pictures or missing text. Continuing to browse is also part of acceptance."
+              ]
+            }
+          ]
+        }
+      },
+      "apiRefs": [
+        "assistant.entry",
+        "screen.capture.public",
+        "ui.tree.accessibility",
+        "context.clipboard",
+        "data.files"
+      ]
+    },
+    {
+      "id": "price-order",
+      "status": "concept",
+      "category": "life",
+      "title": {
+        "zh": "价格符合要求时下单",
+        "en": "Order when the price meets your rule"
+      },
+      "signal": {
+        "zh": "关注这件商品，低于我的价格线再帮我处理。",
+        "en": "Watch this item and act when the price meets my rule."
+      },
+      "groups": [
+        "context",
+        "act",
+        "background"
+      ],
+      "steps": {
+        "zh": [
+          "检查价格和有没有货",
+          "核对商品规格和你设定的预算",
+          "按规则处理订单，告诉你结果"
+        ],
+        "en": [
+          "Check price and stock",
+          "Check options and your budget",
+          "Handle the order under your rules and show the result"
+        ]
+      },
+      "result": {
+        "zh": "能查看价格变化、匹配原因和订单的真实状态。",
+        "en": "A visible price history, matching reason and real order state."
+      },
+      "extra": {
+        "zh": "价格合适也可能没货。排队、验证和付款仍要按平台流程处理。提交了订单请求，不代表已经买到。",
+        "en": "A good price does not guarantee stock. Queues, verification and payment still follow the platform’s process. An order request is not a purchase."
+      },
+      "layers": {
+        "android": {
+          "zh": "联网、定时检查、通知，以及打开和操作 App。",
+          "en": "Connect to the network, schedule checks, notify and use apps."
+        },
+        "taku": {
+          "zh": "让检查任务持续运行，可以停止，并在失败时告诉你。",
+          "en": "Keep checks running, allow stopping and explain failures."
+        },
+        "extension": {
+          "zh": "读取商品或票务信息，比较价格和规格，按你设好的规则处理订单。",
+          "en": "Read product or ticket information, compare prices and options and handle orders under your rules."
+        }
+      },
+      "acceptance": {
+        "zh": "商品、规格和价格都正确，有真实订单结果；任务可以停止。",
+        "en": "Correct item, option and price; a real order result; the task can be stopped."
+      },
+      "article": {
+        "zh": {
+          "title": "价格符合要求以后，还有一段下单流程要完成",
+          "lead": [
+            "用户想让手机关注一件商品或一张票，在价格符合要求时处理订单。表面上像是定时检查加一次点击，但真正要完成的是正确商品的真实订单。",
+            "价格、规格、库存、排队和支付，任何一项都可能改变结果。"
+          ],
+          "sections": [
+            {
+              "heading": "先把规则写清楚",
+              "paragraphs": [
+                "AI 助手（Agent） 要知道关注什么型号、数量、价格范围和时间条件。每次检查价格时，也要核对是不是同一件商品。",
+                "满足规则以后，可以进入订单流程，并把进度与结果保存下来。用户应能停止任务，失败也应能看见。"
+              ]
+            },
+            {
+              "heading": "系统提供持续任务，平台提供交易信息",
+              "paragraphs": [
+                "联网、定时执行、通知和操作已有 App，是 Android 提供的基本动作。Taku 要把它们接成一项能持续运行、能停止、有结果的任务。",
+                "商品和票务的信息来源、价格比较、规格核对与下单规则，则由连接程序或脚本处理。不同平台不能默认使用同一种做法。"
+              ]
+            },
+            {
+              "heading": "已有工具能用，就先直接使用",
+              "paragraphs": [
+                "有可调用接口时，可以通过接口处理；只有页面入口时，需要按 App 的实际流程操作。插件可以保留常用连接和规则，但不是下单前的固定要求。",
+                "平台的排队、验证、访问频率和付款步骤仍然存在。系统权限不会替我们消除这些流程。"
+              ]
+            },
+            {
+              "heading": "“已提交”不是“已买到”",
+              "paragraphs": [
+                "这个场景目前是设想。验收要核对商品、规格与价格，还要有实际订单回执或明确失败结果。",
+                "重新尝试时也要检查是否已经产生订单，避免重复。手机只能显示有依据的状态，不能把进入结算页面当成购买成功。"
+              ]
+            }
+          ]
+        },
+        "en": {
+          "title": "After a price matches, the order still needs completing",
+          "lead": [
+            "Watching a product or ticket and acting at a chosen price sounds like scheduling plus a click. The actual goal is a real order for the correct item.",
+            "Options, stock, queues and payment can all change the outcome.\n"
+          ],
+          "sections": [
+            {
+              "heading": "Make the rule specific",
+              "paragraphs": [
+                "AI needs the item, option, quantity, price range and timing. Each price check must refer to the same item.",
+                "After a match, record order progress and results, permit stopping and expose failures."
+              ]
+            },
+            {
+              "heading": "The OS runs work; the platform provides transaction data",
+              "paragraphs": [
+                "Network, scheduling, notifications and app use are Android actions. Taku should connect them into a task that keeps running and has visible results.",
+                "Product connections, quote comparisons and buying rules need software adapted to each service."
+              ]
+            },
+            {
+              "heading": "Use the entry point that exists",
+              "paragraphs": [
+                "Call available APIs directly, or follow the app’s real flow. Plugins can retain connections and rules, but are not a mandatory first step.",
+                "Queues, verification, rate limits and payment remain part of the platform process. System privileges do not remove them."
+              ]
+            },
+            {
+              "heading": "Submitted is not purchased",
+              "paragraphs": [
+                "This is still a concept. Verify item, option, price and a real receipt or explicit failure.",
+                "Check for existing orders before retrying. Reaching checkout is not successful purchase."
+              ]
+            }
+          ]
+        }
+      },
+      "apiRefs": [
+        "apps.launch",
+        "input.accessibility",
+        "runtime.background-public",
+        "tasks.status"
+      ]
+    },
+    {
+      "id": "video-learning",
+      "status": "concept",
+      "category": "learn",
+      "title": {
+        "zh": "解释视频内容并保存笔记",
+        "en": "Explain a video and save notes"
+      },
+      "signal": {
+        "zh": "这段视频没看懂，解释这一段并存成笔记。",
+        "en": "Explain this part of the video and save a note."
+      },
+      "groups": [
+        "see",
+        "hear",
+        "context",
+        "organize"
+      ],
+      "steps": {
+        "zh": [
+          "取得当前画面、时间点和可用字幕",
+          "针对这一段解释并回答问题",
+          "保存带来源和时间点的分类笔记"
+        ],
+        "en": [
+          "Get the frame, timestamp and available captions",
+          "Explain this segment and answer questions",
+          "Save categorized notes with source/time references"
+        ]
+      },
+      "result": {
+        "zh": "继续看视频，问题答案与笔记保留在同一条内容里。",
+        "en": "Keep watching while questions and notes stay attached to the source."
+      },
+      "extra": {
+        "zh": "只有一帧画面时，不能假装知道整段视频。没有取得的字幕或原话，不能编出来。",
+        "en": "One frame does not reveal the entire video. Do not invent missing captions or quotations."
+      },
+      "layers": {
+        "android": {
+          "zh": "取得能访问的画面、文字、声音，保存笔记。",
+          "en": "Get accessible pictures, text and audio and save notes."
+        },
+        "taku": {
+          "zh": "叫起 AI 时，把当前视频的信息一起交给它；结果可以查看。",
+          "en": "Give AI the current video information when called and show the result."
+        },
+        "extension": {
+          "zh": "取得能用的字幕或声音，解释这一段，整理并分类保存笔记。",
+          "en": "Get available captions or audio, explain this segment and save categorized notes."
+        }
+      },
+      "acceptance": {
+        "zh": "解释对应我问的片段，笔记带来源，保存后还能继续播放。",
+        "en": "Explain the requested segment, keep sources in the notes and preserve playback."
+      },
+      "article": {
+        "zh": {
+          "title": "视频里没听懂的一段，问完后留成自己的笔记",
+          "lead": [
+            "看视频时的问题，往往只针对正在播放的一小段。如果提问还要重新描述内容、找到时间点，想学习的部分就容易过去。",
+            "我们希望 Taku 在用户叫起 AI 时，能知道问题所指的这一段，再把答案留在能回看的笔记里。"
+          ],
+          "sections": [
+            {
+              "heading": "先找到问题对应的内容",
+              "paragraphs": [
+                "用户说“解释这一段并存成笔记”，手机需要取得当时的画面、时间点和能使用的字幕或声音。AI 的解释应对应这些实际材料。",
+                "结果可以与来源一起保存。稍后打开笔记，还能回到视频和对应位置，继续查看或修改。"
+              ]
+            },
+            {
+              "heading": "基本动作只能取得材料",
+              "paragraphs": [
+                "屏幕、分享、允许取得的声音和保存文件，是 Android 的原语。它们并不会自动提供一段视频的全部内容。",
+                "只有一帧画面时，就不能假装理解了整段视频。字幕取得方式、识别和解释，需要相应程序。"
+              ]
+            },
+            {
+              "heading": "系统负责当前内容，扩展负责理解和整理",
+              "paragraphs": [
+                "Taku 应把叫起 AI 时的内容一起交给任务，并让结果有查看入口。字幕连接、声音识别、解释方式和笔记服务，可以由脚本或插件提供。",
+                "需要的功能可以临时生成；常用的处理方式再保留下来。保存笔记之后，原来的视频应还能继续播放。"
+              ]
+            },
+            {
+              "heading": "答案必须能说明依据",
+              "paragraphs": [
+                "当前完整流程仍需测试。要验证回答对应用户所问的片段、笔记有来源，以及保存不会打断播放。",
+                "没有取得的原话不能编出来。信息不足时，说明看到或听到了什么，比给出一段无依据的解释更有用。"
+              ]
+            }
+          ]
+        },
+        "en": {
+          "title": "Ask about a video segment and keep a useful note",
+          "lead": [
+            "Questions while watching usually concern one short segment. Re-describing the content and finding its timestamp can interrupt learning.",
+            "We want invocation-time context to connect the question, explanation and note.\n"
+          ],
+          "sections": [
+            {
+              "heading": "Find the material the question refers to",
+              "paragraphs": [
+                "The phone needs the available frame, time and captions or audio. The explanation must refer to that actual material.",
+                "Save results with sources so a note can return to the video and position."
+              ]
+            },
+            {
+              "heading": "Basic actions do not provide the whole video",
+              "paragraphs": [
+                "Capture, sharing, allowed audio and storage are Android primitives. One frame does not reveal an entire video.",
+                "Caption access, recognition and explanation need programs of their own."
+              ]
+            },
+            {
+              "heading": "Separate current context from interpretation",
+              "paragraphs": [
+                "Taku should pass current content to the task and show the result. Caption connections, audio recognition, explanation and notes services can be scripts or plugins.",
+                "Generate missing code for one request or retain useful methods. Saving should leave playback usable."
+              ]
+            },
+            {
+              "heading": "Explain what the answer is based on",
+              "paragraphs": [
+                "The full flow needs tests for segment relevance, source preservation and playback continuity.",
+                "Do not invent missing quotations. Identify what was actually obtained when context is insufficient."
+              ]
+            }
+          ]
+        }
+      },
+      "apiRefs": [
+        "screen.capture.public",
+        "audio.playback",
+        "assistant.entry",
+        "data.files",
+        "context.media"
+      ]
+    },
+    {
+      "id": "remote-coding",
+      "status": "concept",
+      "category": "work",
+      "title": {
+        "zh": "在手机上跟进电脑编程",
+        "en": "Follow computer coding tasks from your phone"
+      },
+      "signal": {
+        "zh": "帮我看电脑上的构建，失败时告诉我，也能发下一条指令。",
+        "en": "Follow my desktop build, report failures and send the next instruction."
+      },
+      "groups": [
+        "system",
+        "context",
+        "background"
+      ],
+      "steps": {
+        "zh": [
+          "连接你允许访问的电脑",
+          "读取正在进行的任务和输出",
+          "告诉你结果，或发送下一条指令"
+        ],
+        "en": [
+          "Connect the allowed computer",
+          "Read the active task and its output",
+          "Show results or send the next instruction"
+        ]
+      },
+      "result": {
+        "zh": "手机看到真实进度、变更和结果，可以继续同一个任务。",
+        "en": "See real progress, changes and results; continue the same task."
+      },
+      "extra": {
+        "zh": "手机有系统权限，也不能直接读取电脑。电脑需要连接程序和访问授权。断线后不能继续显示旧进度为最新状态。",
+        "en": "Phone privileges do not grant computer access. A computer program and permission are needed. Report stale progress after a disconnection."
+      },
+      "layers": {
+        "android": {
+          "zh": "联网，在后台运行任务，接收通知。",
+          "en": "Use the network, run background tasks and receive notifications."
+        },
+        "taku": {
+          "zh": "连接手机和电脑，显示电脑任务的进度；断线时明确告诉你。",
+          "en": "Connect phone and computer, show progress and report disconnections."
+        },
+        "extension": {
+          "zh": "电脑安装连接程序，允许手机读取指定任务的输出，并把新指令送到正确的任务里。",
+          "en": "Install a connection program on the computer, read the chosen task’s output and send instructions to that task."
+        }
+      },
+      "acceptance": {
+        "zh": "手机显示电脑的真实输出和完成结果；新指令到达正确任务，断线能被发现。",
+        "en": "Show real output and results, deliver instructions to the right task and detect disconnections."
+      },
+      "article": {
+        "zh": {
+          "title": "电脑在写代码，手机上继续跟进",
+          "lead": [
+            "电脑上的任务还在构建或测试，人已经离开桌前。我们希望手机能看到真实进展，在出错时知道发生了什么，也能把下一条指令送回正在进行的任务。",
+            "这件事让“手机有什么权限”和“电脑允许什么访问”有了清楚的分界。"
+          ],
+          "sections": [
+            {
+              "heading": "手机看到的是电脑的实际输出",
+              "paragraphs": [
+                "AI 助手（Agent） 应连接到指定电脑上的执行程序，读取正确任务的输出和完成结果。需要继续操作时，新指令也要进入同一个任务。",
+                "手机上的进度应反映电脑当前状态。连接断开时，应说明暂时不能取得新信息。"
+              ]
+            },
+            {
+              "heading": "手机权限不会自动打开电脑",
+              "paragraphs": [
+                "Android 可以提供网络、后台任务和通知，但不能靠手机上的 Root 直接读取另一台电脑。电脑必须安装连接程序，并允许访问相应任务。",
+                "Taku 负责连接与任务状态的显示。电脑端程序、项目上下文和编程工具的连接，可以由独立扩展实现。"
+              ]
+            },
+            {
+              "heading": "断线之后，先确认任务在哪里",
+              "paragraphs": [
+                "重连时要判断电脑任务是否仍在执行、已经结束，还是需要接手。不能把重发一条指令当成恢复成功。",
+                "这种连接可以服务许多任务。需要经常使用时，可以保留为插件；具体一次任务的处理仍由 Agent 根据需要组织。"
+              ]
+            },
+            {
+              "heading": "看到真实结果，才算跟上了工作",
+              "paragraphs": [
+                "当前这个完整场景还需要验证。手机要读到实际输出和退出结果，指令要到达正确会话，中断要能发现。",
+                "只有一条“正在运行”的提示，没有新输出或来源，还不能证明电脑上的工作已经被可靠地连接起来。"
+              ]
+            }
+          ]
+        },
+        "en": {
+          "title": "Follow desktop coding work from the phone",
+          "lead": [
+            "A desktop build or test can keep running after someone leaves the desk. The phone should show real progress, explain errors and send the next instruction to that task.",
+            "This also separates phone permissions from the computer’s own access rules.\n"
+          ],
+          "sections": [
+            {
+              "heading": "Read the computer’s actual output",
+              "paragraphs": [
+                "Connect to the chosen computer executor, read the right task and send instructions back to the same session.",
+                "Phone status must reflect the computer. Report when new information is unavailable after disconnection."
+              ]
+            },
+            {
+              "heading": "Phone privileges do not open a computer",
+              "paragraphs": [
+                "Android provides network, background work and notifications. A desktop program and authorization are still needed; phone Root does not grant remote access.",
+                "Taku displays connection and task state. Desktop companions and coding-tool connections can be separate extensions."
+              ]
+            },
+            {
+              "heading": "Locate the task again after disconnection",
+              "paragraphs": [
+                "On reconnect, determine whether work continues, has finished or needs attention. Resending an instruction is not proof of recovery.",
+                "Retain a reusable connection as a plugin and let the agent organize each task around the current need."
+              ]
+            },
+            {
+              "heading": "Verify actual output and delivery",
+              "paragraphs": [
+                "This complete case still needs tests for output, completion, correct-session delivery and interruption detection.",
+                "A “running” label without fresh output or provenance is insufficient evidence."
+              ]
+            }
+          ]
+        }
+      },
+      "apiRefs": [
+        "runtime.cross-device",
+        "agent.cli",
+        "notifications.post",
+        "tasks.status"
+      ]
+    },
+    {
+      "id": "work-followup",
+      "status": "concept",
+      "category": "work",
+      "title": {
+        "zh": "跟进不同 App 里的工作任务",
+        "en": "Follow work tasks across apps"
+      },
+      "signal": {
+        "zh": "跟进飞书、Slack、Linear 的工作，提醒我并整理复盘。",
+        "en": "Follow work in Lark, Slack and Linear, remind me and draft a review."
+      },
+      "groups": [
+        "context",
+        "organize",
+        "background"
+      ],
+      "steps": {
+        "zh": [
+          "读取已连接服务里的工作任务",
+          "找出到期、变化或卡住的事情",
+          "提醒你，整理进展和后续工作"
+        ],
+        "en": [
+          "Read tasks from connected services",
+          "Find due dates, changes or blockers",
+          "Remind you and summarize progress and next steps"
+        ]
+      },
+      "result": {
+        "zh": "跨服务的工作卡，能追溯任务来源和每次实际动作。",
+        "en": "Cross-service work cards with source links and actual action records."
+      },
+      "extra": {
+        "zh": "通知里未必有完整任务。每个服务都要分别连接，并取得相应的读写权限。",
+        "en": "Notifications may not contain complete tasks. Connect each service separately with the required read/write access."
+      },
+      "layers": {
+        "android": {
+          "zh": "读取允许访问的通知，查看日历，在后台运行任务。",
+          "en": "Read allowed notifications, view calendar and run tasks."
+        },
+        "taku": {
+          "zh": "安排检查和提醒，把任务进度与结果显示在手机上。",
+          "en": "Schedule checks and reminders and show work progress/results."
+        },
+        "extension": {
+          "zh": "连接飞书、Slack、Linear，读取工作任务，检查变化，整理提醒和复盘。",
+          "en": "Connect Lark, Slack and Linear, read tasks, check changes and prepare reminders and reviews."
+        }
+      },
+      "acceptance": {
+        "zh": "任务信息与原服务一致，提醒不重复，修改或沟通有实际结果。",
+        "en": "Match the original service, avoid duplicate reminders and verify writes or communications."
+      },
+      "article": {
+        "zh": {
+          "title": "把分散的工作任务，整理成一份能追溯的进展",
+          "lead": [
+            "工作可能同时出现在飞书、Slack 和 Linear 里。只看通知，很难知道哪些事情已经完成，哪些改了时间，哪些正等别人回应。",
+            "我们想让手机把这些进展整理起来，但每一项仍能回到原服务。"
+          ],
+          "sections": [
+            {
+              "heading": "先连接实际的任务来源",
+              "paragraphs": [
+                "AI 助手（Agent） 需要读取允许访问的任务和更新，找到到期、变化或卡住的事情。日程与消息可以补充信息，但不能代替完整任务记录。",
+                "结果可以是一份工作卡和复盘。打开其中一项，应该能找到原任务及它最新的状态。"
+              ]
+            },
+            {
+              "heading": "Android 的通知，还不是完整工作库",
+              "paragraphs": [
+                "通知、日历、后台运行是系统已有能力。Taku 可以安排检查与提醒，显示结果。",
+                "飞书、Slack、Linear 的任务读取、更新或沟通，要通过各自的连接程序和授权完成。每个服务的字段和结果都可能不同。"
+              ]
+            },
+            {
+              "heading": "让连接和跟进规则各自可改",
+              "paragraphs": [
+                "服务连接器适合由插件提供。怎样判断需要提醒、怎样去掉重复内容、怎样整理复盘，可以再由规则或脚本决定。",
+                "一个连接器可以供许多任务使用，不必把所有工作流程固定在里面。Agent 可以围绕这次需求直接组合它们。"
+              ]
+            },
+            {
+              "heading": "进展与原服务一致，提醒才可靠",
+              "paragraphs": [
+                "当前场景仍需测试。任务信息要与原服务一致，提醒不重复，写入或发送动作应有实际结果。",
+                "服务不可访问时，要说明哪部分没有更新；不能继续把昨天的状态当成今天的完整进展。"
+              ]
+            }
+          ]
+        },
+        "en": {
+          "title": "Bring work from several apps into traceable progress",
+          "lead": [
+            "Work may live in Lark, Slack and Linear at the same time. Notifications alone make it hard to know what finished, changed or awaits a response.",
+            "We want a combined view while preserving a path back to each original service.\n"
+          ],
+          "sections": [
+            {
+              "heading": "Connect actual task sources",
+              "paragraphs": [
+                "Read authorized tasks and updates, then identify due dates, changes and blockers. Messages and calendar can supplement records, not replace a complete task database.",
+                "A work card or review should link to the original task and current state."
+              ]
+            },
+            {
+              "heading": "Notifications are not the full work collection",
+              "paragraphs": [
+                "Android supplies notifications, calendar and background execution. Taku can schedule checks and show results.",
+                "Reading, updating or communicating through each work service requires its own connection and access. Fields and outcomes may differ."
+              ]
+            },
+            {
+              "heading": "Keep connections and follow-up rules separate",
+              "paragraphs": [
+                "Plugins can provide service access. Scripts or rules can decide when to remind, how to deduplicate and how to summarize.",
+                "One connector can serve many tasks; not every workflow needs to be fixed inside it."
+              ]
+            },
+            {
+              "heading": "Match the original services",
+              "paragraphs": [
+                "Acceptance needs matching task data, no duplicate reminders and real results for writes or communications.",
+                "When a source cannot update, report the gap rather than present yesterday’s state as complete current progress."
+              ]
+            }
+          ]
+        }
+      },
+      "apiRefs": [
+        "notifications.listen",
+        "data.calendar",
+        "notifications.post",
+        "runtime.background-public",
+        "tasks.status"
+      ]
+    },
+    {
+      "id": "multilingual-service",
+      "status": "concept",
+      "category": "life",
+      "title": {
+        "zh": "用其他语言沟通和处理邮件",
+        "en": "Handle conversations and email in other languages"
+      },
+      "signal": {
+        "zh": "帮我联系餐厅订位，或处理一封售后邮件。",
+        "en": "Help book a restaurant or handle a support email."
+      },
+      "groups": [
+        "hear",
+        "context",
+        "act"
+      ],
+      "steps": {
+        "zh": [
+          "整理目标、语言与已知事实",
+          "调用语音或邮件服务沟通",
+          "保存回复与后续动作"
+        ],
+        "en": [
+          "Prepare the goal, language and known facts",
+          "Communicate through voice or email services",
+          "Save replies and follow-up actions"
+        ]
+      },
+      "result": {
+        "zh": "预订、客服或纠纷处理的可追溯记录和实际结果。",
+        "en": "A traceable booking/support record and actual outcome."
+      },
+      "extra": {
+        "zh": "能拨号不代表能取得通话双方的声音。预约和售后是否办成，要看对方的实际回复。",
+        "en": "Dialing does not provide both sides of a call. A booking or support result must come from the other party’s actual reply."
+      },
+      "layers": {
+        "android": {
+          "zh": "录音、播放声音、打开拨号或邮件 App。",
+          "en": "Record, play sound and open calling or email apps."
+        },
+        "taku": {
+          "zh": "显示沟通任务的状态，让你查看结果或接手。",
+          "en": "Show communication status and let you review results or take over."
+        },
+        "extension": {
+          "zh": "连接电话或邮件服务，翻译语言，按你的要求沟通并记录回复。",
+          "en": "Connect voice or email services, translate, communicate under your instructions and record replies."
+        }
+      },
+      "acceptance": {
+        "zh": "有明确的预约确认或邮件回复；没有办成时，说明原因和下一步。",
+        "en": "Obtain a booking confirmation or email reply; explain failures and next steps."
+      },
+      "article": {
+        "zh": {
+          "title": "让 AI 帮忙沟通，也留下真实的回复",
+          "lead": [
+            "联系餐厅或处理售后邮件时，语言可能增加操作成本。我们想让 AI 助手（Agent） 帮忙理解和表达，但最终仍要知道对方怎样回复，以及事情有没有办成。",
+            "这不只是翻译一句话，还涉及通道、事实和后续结果。"
+          ],
+          "sections": [
+            {
+              "heading": "先弄清要替用户表达什么",
+              "paragraphs": [
+                "Agent 应知道目标、需要使用的语言和已经确定的事实，再通过可用的电话或邮件入口沟通。回复与后续动作也要留下来。",
+                "用户应能查看进度和结果，需要时接手。没有明确答复时，不能显示预约已确认或售后已解决。"
+              ]
+            },
+            {
+              "heading": "拨号和取得声音是不同的事",
+              "paragraphs": [
+                "Android 能录麦克风、播放声音和打开拨号 App。能拨号不代表能取得通话双方的声音；具体音频路径要另外适配。",
+                "邮件也需要对应服务的连接和授权。Taku 提供任务状态与结果入口，通道连接、翻译和表达程序可以独立更换。"
+              ]
+            },
+            {
+              "heading": "把这次沟通接到实际结果",
+              "paragraphs": [
+                "程序要保存对方的回复，并区分已发送、等待中、确认成功或未完成。重复联系之前，也要检查已有记录。",
+                "这些能力可以写成脚本或插件。使用已有工具就能完成的动作，也可以直接调用。"
+              ]
+            },
+            {
+              "heading": "以对方回复核对完成情况",
+              "paragraphs": [
+                "当前这是设计场景。验收要有可核对的预约确认或邮件回复，内容与原先要求一致。",
+                "无法取得通话内容、对方没有回复或流程需要转接时，要说明原因和下一步。模型生成的“成功”不是结果证明。"
+              ]
+            }
+          ]
+        },
+        "en": {
+          "title": "Let AI communicate and keep the real reply",
+          "lead": [
+            "Language can add effort to a restaurant booking or support email. We want help with understanding and expression while preserving the actual reply and outcome.",
+            "This involves channels, facts and follow-up, beyond translating a sentence.\n"
+          ],
+          "sections": [
+            {
+              "heading": "Establish what should be communicated",
+              "paragraphs": [
+                "AI needs the goal, language and known facts before using an available phone or email channel. Keep replies and next actions.",
+                "The user should be able to inspect progress and take over. Without a definite response, do not mark a booking confirmed or a dispute resolved."
+              ]
+            },
+            {
+              "heading": "Dialing and reading audio are separate",
+              "paragraphs": [
+                "Android can record microphones, play audio and open a dialer. That does not grant both sides of calls; specific audio paths need adaptation.",
+                "Mail also needs a service connection. The OS owns task visibility while channels, translation and expression software remain replaceable."
+              ]
+            },
+            {
+              "heading": "Connect communication to outcomes",
+              "paragraphs": [
+                "Preserve replies and distinguish sent, waiting, confirmed and unfinished. Check prior records before repeated contact.",
+                "Scripts, plugins or existing tools can supply these actions."
+              ]
+            },
+            {
+              "heading": "Verify the other party’s reply",
+              "paragraphs": [
+                "This is a design case. Acceptance requires a checkable booking or email reply matching the request.",
+                "Explain unavailable audio, missing responses or handoffs. A model-generated success claim is not evidence."
+              ]
+            }
+          ]
+        }
+      },
+      "apiRefs": [
+        "audio.microphone",
+        "audio.calls",
+        "apps.launch",
+        "runtime.broker"
+      ]
+    },
+    {
+      "id": "daily-intel",
+      "status": "concept",
+      "category": "learn",
+      "title": {
+        "zh": "每天收集资讯并整理简报",
+        "en": "Collect daily updates into a brief"
+      },
+      "signal": {
+        "zh": "每天收集 X 和设计网站的新内容，整理归档。",
+        "en": "Collect new items from X and design sites into a daily brief."
+      },
+      "groups": [
+        "context",
+        "organize",
+        "background"
+      ],
+      "steps": {
+        "zh": [
+          "读取你指定来源的新内容",
+          "分类，记下时间和链接",
+          "整理成简报，保存并通知你"
+        ],
+        "en": [
+          "Read new items from your chosen sources",
+          "Categorize them with dates and links",
+          "Prepare a brief, save it and notify you"
+        ]
+      },
+      "result": {
+        "zh": "按主题浏览的每日简报，来源可打开，重复内容合并。",
+        "en": "A topic-based daily brief with openable sources and deduplication."
+      },
+      "extra": {
+        "zh": "有些网站要登录，有些会限制访问。要写清内容发布和收集的时间；取不到的来源要标出来。",
+        "en": "Some sites require login or restrict access. Show publication and collection times and identify unavailable sources."
+      },
+      "layers": {
+        "android": {
+          "zh": "联网、保存文件、定时执行和发出通知。",
+          "en": "Use the network, save files, schedule tasks and send notifications."
+        },
+        "taku": {
+          "zh": "每天按时启动任务，保存结果，报告没有取得的内容。",
+          "en": "Start on time, save results and report missing content."
+        },
+        "extension": {
+          "zh": "连接指定网站，读取新内容，分类，去掉重复项，整理成简报。",
+          "en": "Connect chosen sources, read new content, categorize, deduplicate and prepare a brief."
+        }
+      },
+      "acceptance": {
+        "zh": "每条内容有来源和时间，重复内容不反复推送，缺少的来源能看见。",
+        "en": "Keep sources and dates, avoid repeated items and show unavailable sources."
+      },
+      "article": {
+        "zh": {
+          "title": "把每天的新内容，整理成自己的简报",
+          "lead": [
+            "每天想看的新内容可能来自 X、设计网站和其他资料源。逐个打开很费时间，但一份没有来源的总结又不方便继续阅读。",
+            "我们希望手机按选定来源整理更新，让结果既能快速浏览，也能回到原文。"
+          ],
+          "sections": [
+            {
+              "heading": "从选定来源开始，而不是追求什么都收集",
+              "paragraphs": [
+                "用户指定来源、主题和检查时间之后，AI 助手（Agent） 查询新内容，分类，保存发布时间与链接，再整理成简报。",
+                "没有取得的来源也应说明。简报不是“今天所有事情”的承诺，而是这次实际收集范围的结果。"
+              ]
+            },
+            {
+              "heading": "系统负责按时运行，程序负责内容",
+              "paragraphs": [
+                "联网、保存文件、调度与通知是 Android 的基本动作。Taku 要让任务能按时开始、显示失败、保存结果。",
+                "网站连接、RSS 或其他读取入口、分类去重和排序，可以由脚本或插件提供。换来源时，不必重做系统。"
+              ]
+            },
+            {
+              "heading": "保存之后，下一次应该少做重复工作",
+              "paragraphs": [
+                "程序需要记住已经处理过的内容，避免每天重复推同一条。相同事件在不同来源出现时，也应保留来源关系。",
+                "这套方法可以按需要修改。一次收集可以临时运行，常用的来源和规则再保留下来。"
+              ]
+            },
+            {
+              "heading": "简报要写清时间和缺口",
+              "paragraphs": [
+                "当前完整场景仍需测试。有些网站需要登录，也可能限制访问或改变内容结构。",
+                "验收要核对来源、发布时间与收集时间，检查重复内容和缺少来源是否可见。没有收集到内容时，应告诉用户，而不是补一份看似完整的新闻。"
+              ]
+            }
+          ]
+        },
+        "en": {
+          "title": "Turn daily updates into your own brief",
+          "lead": [
+            "Useful updates may come from X, design sites and other sources. Opening each takes time; a summary without links makes further reading difficult.",
+            "We want selected-source updates that are quick to scan and easy to trace.\n"
+          ],
+          "sections": [
+            {
+              "heading": "Begin with the chosen sources",
+              "paragraphs": [
+                "With topics and timing specified, AI reads new content, classifies it and keeps publication dates and links.",
+                "Report unavailable sources. The brief represents this collection, not a promise to include everything that happened today."
+              ]
+            },
+            {
+              "heading": "Separate scheduling from content methods",
+              "paragraphs": [
+                "Network, storage, scheduling and notifications are Android actions. Taku should start tasks, expose failure and save results.",
+                "Site connections, RSS, classification, duplicate checks and ranking can be replaceable software."
+              ]
+            },
+            {
+              "heading": "Remember what has already been processed",
+              "paragraphs": [
+                "Avoid sending the same item daily. If several sources cover one event, preserve their relationships and links.",
+                "Run temporary code for a one-off brief and retain sources and rules that are useful repeatedly."
+              ]
+            },
+            {
+              "heading": "Make dates and gaps visible",
+              "paragraphs": [
+                "The complete case still needs testing. Login, access limits and site changes affect collection.",
+                "Check sources, publication and collection dates, duplicates and gaps. Explain empty results instead of inventing a complete-looking brief."
+              ]
+            }
+          ]
+        }
+      },
+      "apiRefs": [
+        "runtime.background-public",
+        "notifications.post",
+        "data.files",
+        "tasks.status"
+      ]
+    },
+    {
+      "id": "social-publishing",
+      "status": "concept",
+      "category": "work",
+      "title": {
+        "zh": "整理素材，发布到社交平台",
+        "en": "Prepare materials and post on social platforms"
+      },
+      "signal": {
+        "zh": "把这次旅行素材整理成 X 和小红书内容。",
+        "en": "Turn this travel material into posts for X and Xiaohongshu."
+      },
+      "groups": [
+        "organize",
+        "act",
+        "create"
+      ],
+      "steps": {
+        "zh": [
+          "读取自己的素材和目标账号规则",
+          "生成不同平台的文案与图片",
+          "通过可用入口发布并核对回执"
+        ],
+        "en": [
+          "Read your materials and account rules",
+          "Create platform-specific copy and images",
+          "Publish through available entry points and verify receipts"
+        ]
+      },
+      "result": {
+        "zh": "内容日历、平台预览与真实发布链接，后续能再编辑。",
+        "en": "A content calendar, platform previews and actual publication links."
+      },
+      "extra": {
+        "zh": "点了发布按钮，不代表帖子已发出。要核对账号、文字、图片和发布链接，重试时避免重复发帖。",
+        "en": "Pressing Publish is not proof. Check account, text, images and the post link; avoid duplicate retries."
+      },
+      "layers": {
+        "android": {
+          "zh": "读取文件和相册，分享内容，打开和操作 App。",
+          "en": "Read files/photos, share content and use apps."
+        },
+        "taku": {
+          "zh": "把素材和发布任务放在一起，提供预览，显示发布结果。",
+          "en": "Keep materials and posting tasks together, provide previews and show results."
+        },
+        "extension": {
+          "zh": "连接指定平台，制作各平台的文案和图片，发布后核对实际帖子。",
+          "en": "Connect chosen platforms, prepare each post’s text/images and check the actual post."
+        }
+      },
+      "acceptance": {
+        "zh": "实际帖子与预览一致，能打开发布链接，失败时有说明。",
+        "en": "Match the preview, provide an openable post link and explain failures."
+      },
+      "article": {
+        "zh": {
+          "title": "从一份素材到发布链接，让手机把流程接下去",
+          "lead": [
+            "旅行结束后，照片和想表达的内容已经有了，但不同平台的文案、图片和发布方式还需要分别整理。我们希望 AI 助手（Agent） 把这段工作接下去，最终留下真正发布的结果。",
+            "“生成了内容”和“帖子发出去了”是两次不同的完成检查。"
+          ],
+          "sections": [
+            {
+              "heading": "先让素材成为可以检查的内容",
+              "paragraphs": [
+                "Agent 读取选定素材，结合目标账号和平台要求，制作对应的文案和图片。预览里应该能看清准备发布的内容。",
+                "进入发布后，再记录实际的平台链接。以后继续修改或整理内容日历，也应依据这份发布记录。"
+              ]
+            },
+            {
+              "heading": "手机的基本动作提供起点",
+              "paragraphs": [
+                "读取相册与文件、分享、打开 App、输入和联网，都属于已有系统能力。但它们并不会自动知道某个平台的发布规则。",
+                "Taku 可以保存任务、素材和结果入口。平台连接、排版、素材生成和账号规则，则由可替换的程序负责。"
+              ]
+            },
+            {
+              "heading": "按实际入口走完流程",
+              "paragraphs": [
+                "有接口时可以使用接口；需要操作 App 时，应按它的实际页面完成。可以用已有工具直接执行，也可以保留常用适配为插件。",
+                "内容制作和发布服务可以分别改进，不需要捆成一个永远固定的工作流。"
+              ]
+            },
+            {
+              "heading": "打开实际帖子，核对这次发布",
+              "paragraphs": [
+                "当前完整场景仍需验证。点击发布按钮不是成功证明，要检查账号、文字、图片和最终链接是否符合预览。",
+                "如果任务中途被打断，重试前要看帖子是否已经存在。结果应显示真实成功或失败，避免重复发帖。"
+              ]
+            }
+          ]
+        },
+        "en": {
+          "title": "Continue from materials to actual post links",
+          "lead": [
+            "After a trip, pictures and ideas may already exist. Text, media and posting methods still need arranging for different platforms.",
+            "Generating content and publishing it are two different completion checks.\n"
+          ],
+          "sections": [
+            {
+              "heading": "Make materials reviewable first",
+              "paragraphs": [
+                "AI reads selected materials and account/platform requirements, then prepares the text and images. The preview should clearly show what is to be posted.",
+                "After publication, keep the actual platform link for edits and future planning."
+              ]
+            },
+            {
+              "heading": "Basic phone actions provide the start",
+              "paragraphs": [
+                "Files, photos, sharing, apps, input and networking are existing capabilities. They do not automatically know platform-specific posting rules.",
+                "Taku can manage materials, tasks and results. Connections, formatting, asset creation and account rules can be replaceable programs."
+              ]
+            },
+            {
+              "heading": "Follow the actual publishing entry",
+              "paragraphs": [
+                "Use APIs when available or the app’s real interface when required. Retain useful adaptations as plugins without requiring a plugin before every task.",
+                "Creation and publication tools can improve independently."
+              ]
+            },
+            {
+              "heading": "Open and check the actual post",
+              "paragraphs": [
+                "This complete case still needs verification. Check account, text, images and the final link, not just the Publish click.",
+                "After interruption, check whether a post exists before retrying. Show real success or failure and avoid duplicates."
+              ]
+            }
+          ]
+        }
+      },
+      "apiRefs": [
+        "data.photos",
+        "data.files",
+        "apps.launch",
+        "input.accessibility"
+      ]
+    }
+  ]
+}

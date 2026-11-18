@@ -1,0 +1,32 @@
+[
+  {
+    "file": "sherpa-onnx-LICENSE",
+    "url": "https://raw.githubusercontent.com/k2-fsa/sherpa-onnx/v1.13.8/LICENSE",
+    "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+  },
+  {
+    "file": "onnxruntime-LICENSE",
+    "url": "https://cdn.jsdelivr.net/gh/microsoft/onnxruntime@v1.28.2/LICENSE",
+    "sha256": "2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c"
+  },
+  {
+    "file": "onnxruntime-ThirdPartyNotices.txt",
+    "url": "https://cdn.jsdelivr.net/gh/microsoft/onnxruntime@v1.28.2/ThirdPartyNotices.txt",
+    "sha256": "0e07b95f3a8d6230037707c5c4a2b554d12c4cb67369669ac255635528ffcee2"
+  },
+  {
+    "file": "espeak-ng-COPYING",
+    "url": "https://raw.githubusercontent.com/csukuangfj/espeak-ng/ed530aa113046142eb5115cf2fc9157854d0ffe1/COPYING",
+    "sha256": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903"
+  },
+  {
+    "file": "asr-MODEL_CARD.md",
+    "url": "https://huggingface.co/csukuangfj/sherpa-onnx-streaming-zipformer-en-2023-06-26/raw/672fbf1b30579d6585301139bb363f42a0ad4a24/README.md",
+    "sha256": "c914dd28e23310a6dd345ea10495003d3e4820d2ed987181e4c2d67e501b6b76"
+  },
+  {
+    "file": "asr-zh-MODEL_CARD.md",
+    "url": "https://huggingface.co/marcoyang/sherpa-ncnn-streaming-zipformer-zh-14M-2023-02-23/raw/caf018c3b4ab7fabb313cbf89066283d38324682/README.md",
+    "sha256": "98b45ea81164d1e1a1dd82255207053b15cd6c69d922a1c5cf3387ce604d4b74"
+  }
+]

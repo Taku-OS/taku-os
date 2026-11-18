@@ -1,0 +1,7 @@
+{
+  "platforms": ["android"],
+  "coreFeatures": ["compose"],
+  "android": {
+    "modules": ["org.agentos.agent.home.TakuHomeModule", "org.agentos.agent.home.TakuVoiceModule"]
+  }
+}

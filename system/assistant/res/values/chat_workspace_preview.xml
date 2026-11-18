@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="chat_workspace_app">App</string>
+    <string name="chat_workspace_title">VIRTUAL SCREEN · %1$s</string>
+    <string name="chat_workspace_open">Open the preview of %1$s</string>
+    <string name="chat_workspace_connecting">Connecting…</string>
+    <string name="chat_workspace_unavailable">Preview unavailable</string>
+    <string name="chat_workspace_open_failed">Could not open this preview. Try again.</string>
+</resources>

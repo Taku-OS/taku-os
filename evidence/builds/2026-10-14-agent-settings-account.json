@@ -1,0 +1,60 @@
+{
+  "date": "2026-10-14",
+  "scope": "Agent settings and native account ceremony on isolated API36 AVD",
+  "sourceHead": "99b205019cac1ad81773bdb82bfbbba4bdfa8fd5",
+  "workingTreeModified": true,
+  "artifacts": {
+    "apk": {
+      "path": "system/assistant/out/AgentOSAssistant.apk",
+      "bytes": 1899518,
+      "sha256": "03f5bc084f96852f19e40a499d89d076e3ef7d9abb861f689fbd3ffef1b44fe5",
+      "installedHashMatches": true
+    },
+    "broker": {
+      "path": "system/assistant/out/task-broker.jar",
+      "bytes": 16353,
+      "sha256": "dfea3985b69f0ea41acf6186456f5f1163862f381a1133400f200daa5509df2e",
+      "installedHashMatches": true
+    }
+  },
+  "uiTest": {
+    "path": "out/agent-drawer-ui/ui-test.txt",
+    "sha256": "100ba2baff8636d5b60e6504bb55df5a94902a4a1b89118f353042f9389e200e",
+    "result": "OK (2 tests)",
+    "seconds": 54.772
+  },
+  "nativeAccountAcceptance": {
+    "nativeLoginStartInvoked": true,
+    "deviceChallengeReceived": true,
+    "anyNativeChallengeReceived": true,
+    "oauthCompleted": false,
+    "modelTurnVerified": false
+  },
+  "accountIpcPermission": {
+    "serverUid": 0,
+    "clientVerifiesRootServer": true,
+    "uid2000ReadDenied": true
+  },
+  "accountStateProtocolTest": {
+    "path": "out/agent-account-tests/protocol.txt",
+    "syntheticEventsOnly": true,
+    "oauthAcceptance": false
+  },
+  "runtime": "codex-cli 0.161.0 app-server",
+  "credentialArtifactsInReports": false,
+  "modelTurnVerified": false,
+  "modelDrivenAndroidOperationVerified": false,
+  "physicalDeviceVerified": false,
+  "pixel9CandidateRebuilt": false,
+  "screenshots": {
+    "out/agent-drawer-ui/account-idle.png": "be37c60d567ab8e5e296818eb70400b709e8ecdeae4fc460b781acdd747a019f",
+    "out/agent-drawer-ui/account-cancelled.png": "73ae4b81a2eb22815f2f3f9190c549a86257be629963c33217034fc5f326cb97",
+    "out/agent-drawer-ui/settings-light.png": "de75b5b447e46322743e272ff1ae70bb77e4a56783127c7602ff8fb1eef45f47",
+    "out/agent-drawer-ui/settings-dark.png": "c91a713021afa59d54050aa99d34372bbd09b2bd7cf6d407ebbce1d489de083a"
+  },
+  "reviewPage": "http://127.0.0.1:4344/#settings",
+  "reviewPageVerified": true,
+  "repoVerifyPassed": true,
+  "designTokenCheckPassed": true,
+  "diffWhitespaceCheckPassed": true
+}

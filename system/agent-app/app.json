@@ -1,0 +1,104 @@
+{
+  "expo": {
+    "name": "Taku Agent",
+    "slug": "taku-agent",
+    "scheme": "taku-agent",
+    "version": "0.4.0",
+    "orientation": "default",
+    "userInterfaceStyle": "automatic",
+    "android": {
+      "package": "org.agentos.agent",
+      "versionCode": 9,
+      "permissions": [
+        "org.agentos.permission.AGENT_CLIENT"
+      ],
+      "softwareKeyboardLayoutMode": "resize",
+      "blockedPermissions": [
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ]
+    },
+    "web": {
+      "output": "single"
+    },
+    "plugins": [
+      "./plugins/withTakuAgent",
+      "./plugins/withTakuReactHost",
+      "expo-router",
+      [
+        "expo-font",
+        {
+          "android": {
+            "fonts": [
+              {
+                "fontFamily": "TakuBody",
+                "fontDefinitions": [
+                  {
+                    "path": "./src/theme/fonts/hanken_grotesk_regular.ttf",
+                    "weight": 400
+                  }
+                ]
+              },
+              {
+                "fontFamily": "TakuBodyMedium",
+                "fontDefinitions": [
+                  {
+                    "path": "./src/theme/fonts/hanken_grotesk_medium.ttf",
+                    "weight": 500
+                  }
+                ]
+              },
+              {
+                "fontFamily": "TakuDisplay",
+                "fontDefinitions": [
+                  {
+                    "path": "./src/theme/fonts/space_grotesk_regular.ttf",
+                    "weight": 400
+                  }
+                ]
+              },
+              {
+                "fontFamily": "TakuChinese",
+                "fontDefinitions": [
+                  {
+                    "path": "./src/theme/fonts/noto_sans_sc_regular.ttf",
+                    "weight": 400
+                  }
+                ]
+              },
+              {
+                "fontFamily": "TakuChineseMedium",
+                "fontDefinitions": [
+                  {
+                    "path": "./src/theme/fonts/noto_sans_sc_medium.ttf",
+                    "weight": 500
+                  }
+                ]
+              },
+              {
+                "fontFamily": "TakuCode",
+                "fontDefinitions": [
+                  {
+                    "path": "./src/theme/fonts/jetbrains_mono_regular.ttf",
+                    "weight": 400
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "expo-localization",
+      "./plugins/withTakuBuildTools",
+      "expo-video",
+      "expo-asset",
+      "expo-splash-screen",
+      "expo-status-bar"
+    ],
+    "experiments": {
+      "autolinkingModuleResolution": true
+    },
+    "icon": "../assistant/res/mipmap-xxxhdpi/ic_launcher.png"
+  }
+}

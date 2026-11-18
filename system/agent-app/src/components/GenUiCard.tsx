@@ -1,0 +1,151 @@
+import React, {Component, useMemo, useState, type ReactNode} from 'react';
+import {Alert, Pressable, StyleSheet, View} from 'react-native';
+import {JSONUIProvider, Renderer, createStandardActionHandlers, type Spec} from '@json-render/react-native';
+import {spacing} from '../feed/feedTokens';
+import {textFor, type Language} from '../i18n';
+import {chatText} from '../chat/chatText';
+import {presentationRequest, templateSpec, type CardPresentation} from '../model/genui';
+import {useGenUiCard} from '../hooks/useGenUi';
+import {registry, ChatReplySurface} from './genuiRegistry';
+import {isTextReplySpec} from '../model/chatReplySurface';
+import {CardLanguage, CardMatter, openSafeUrl} from './genuiWidgets';
+import {MatterSourceStatus} from './MatterSourceStatus';
+import {assemblySpec} from '../model/genuiAssembly';
+import {FeedButton, FeedPressable, FeedStatus, FeedText} from '../feed/feedVisual';
+import {list, record, type Json} from '../model/session';
+import {formatUiValue} from './genuiFormat';
+
+interface CardProps {threadId: string; presentation: CardPresentation; language: Language; active?: boolean; preload?: boolean; surface?: 'chat' | 'panel'}
+
+
+class CardBoundary extends Component<{fallback: () => ReactNode; resetKey: string; children: ReactNode}, {failed: boolean; resetKey: string}> {
+  state = {failed: false, resetKey: this.props.resetKey};
+  static getDerivedStateFromError() { return {failed: true}; }
+  static getDerivedStateFromProps(props: {resetKey: string}, state: {resetKey: string}) {
+    return props.resetKey !== state.resetKey ? {failed: false, resetKey: props.resetKey} : null;
+  }
+  componentDidCatch(error: unknown) { console.warn('[genui] render failed', error); }
+  render() { return this.state.failed ? this.props.fallback() : this.props.children; }
+}
+
+const errorCode = (error: unknown): string => {
+  const code = record(error).code;
+  return typeof code === 'string' && code ? code : error instanceof Error ? error.message : 'UNAVAILABLE';
+};
+
+function savedInputText(entry: Json, language: Language): string {
+  const t = textFor(language);
+  if (entry.kind === 'selection') {
+    const selected = list(entry.itemIds);
+    return selected.length ? selected.map(String).join(', ') : t('cardNoSelection');
+  }
+  if (entry.value === '') return t('cardEmptyText');
+  if (typeof entry.value === 'boolean') return formatUiValue({type: 'boolean', value: entry.value}, language);
+  if (typeof entry.value === 'string') return entry.value;
+  return entry.value == null ? '—' : JSON.stringify(entry.value);
+}
+
+function LiveCard({threadId, presentation, language, active = true, preload = false, surface = 'chat'}: CardProps) {
+  const t = textFor(language);
+  const card = useGenUiCard(threadId, presentation, active, preload);
+  const request = card.request, primary = card.presentation.kind === 'primary' ? card.presentation.reply : null;
+  const {store, spec, dispatch, pin} = card;
+  const [pinBusy, setPinBusy] = useState(false), [pinError, setPinError] = useState('');
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const renderSpec = useMemo(() => assemblySpec(spec), [spec]);
+  const handlers = useMemo(() => ({
+    setState: createStandardActionHandlers().setState,
+    reply: async (params: Record<string, unknown>) => {
+      if (typeof params.actionId === 'string') await dispatch(params.actionId);
+    },
+    openURL: (params: Record<string, unknown>) => openSafeUrl(params.url),
+  }), [dispatch]);
+  const receipt = card.submission ? card.commands[card.submission.requestId] ?? card.submission.receipt : null;
+  const result = receipt && typeof receipt === 'object' ? receipt as Record<string, unknown> : {};
+  const phase = String(result.state ?? '');
+  const failed = card.submission?.phase === 'unknown' || ['notSent', 'deliveryUnknown', 'failed'].includes(phase);
+  const sending = card.submission?.phase === 'sending';
+  const textReply = surface !== 'panel' && request.mode !== 'panel' && !!primary && isTextReplySpec(spec);
+  const render = (s: Spec) => <ChatReplySurface.Provider value={textReply}><JSONUIProvider registry={registry} store={store} handlers={handlers}>
+    <Renderer spec={s} registry={registry} includeStandard={false}/>
+  </JSONUIProvider></ChatReplySurface.Provider>;
+  const presentationFailed = primary?.lifecycle.phase === 'failed' || primary?.lifecycle.phase === 'interrupted';
+  const busy = primary?.lifecycle.phase === 'streaming' || primary?.lifecycle.phase === 'sealed';
+  const pinAction = (run: () => Promise<unknown>) => {
+    if (pinBusy) return;
+    setPinBusy(true); setPinError('');
+    run().catch(error => setPinError(errorCode(error))).finally(() => setPinBusy(false));
+  };
+  const pinMessage = pinError === 'PANEL_CONTRACT_MISMATCH' || pinError === 'UNKNOWN_METHOD' ? t('updateAssistant')
+    : pinError === 'LIST_CHANGED' || pinError === 'VERSION_CONFLICT' ? t('panelStaleState')
+    : pinError === 'IDEMPOTENCY_CONFLICT' ? t('panelRequestConflict')
+    : pinError === 'SOURCE_ALREADY_PINNED' ? t('panelAlreadyPinned')
+    : pinError === 'REPLY_INCOMPLETE' ? t('cardUpdating') : pinError ? t('panelActionFailed') : '';
+  const openPanelMenu = () => {
+    if (!pin?.panelId || pinBusy) return;
+    Alert.alert(request.title || chatText(language)('panelManage'), undefined, [
+      {text: t('cancel'), style: 'cancel'},
+      {text: t('unpinPanel'), style: 'destructive', onPress: () => pinAction(card.unpin)},
+    ], {cancelable: true});
+  };
+  const content = <View style={styles.container} testID={`genui-${request.key}`}>
+      <CardBoundary resetKey={primary ? `${primary.id}/${primary.revision}` : card.spec.root} fallback={() => primary
+        ? <View><FeedText text={primary.readableText} variant="body-md"/><FeedStatus state="error" text={t('cardUnavailable')}/></View>
+        : render(assemblySpec(templateSpec(card.request)))}>{render(renderSpec)}</CardBoundary>
+      {(busy || presentationFailed) && <FeedStatus state={presentationFailed ? 'error' : 'pending'} text={t(primary?.lifecycle.phase === 'interrupted' ? 'cardReplyInterrupted' : presentationFailed ? 'cardPresentationFailed' : 'cardUpdating')}/>}
+      <MatterSourceStatus meta={card.meta} language={language}/>
+      {card.syncError && <FeedStatus state="error" text={t(card.syncError === 'DRAFT_VALUE_REQUIRED' ? 'cardValueRequired'
+        : card.syncError === 'DRAFT_REVIEW_REQUIRED' ? 'cardDraftReviewRequired'
+        : card.syncError === 'VERSION_CONFLICT' ? 'panelStaleState' : 'cardSyncUnavailable')}/>}
+      {card.hydrationError && <FeedStatus state="error" text={t('cardLoadingFailed')}/>}
+      {card.layoutError && <FeedStatus state="error" text={t('cardLayoutFailed')}/>}
+      {!!card.review.length && <View style={styles.review}>
+        <FeedPressable label={`${reviewOpen ? t('hideDetails') : t('showDetails')} · ${t('cardReviewSavedInputs')} (${card.review.length})`}
+          expanded={reviewOpen} onPress={() => setReviewOpen(!reviewOpen)}>
+          <View style={styles.reviewToggle}>
+            <FeedText text={`${t('cardReviewSavedInputs')} (${card.review.length})`} variant="body-sm" tone="tertiary" flex={1}/>
+            <FeedText text={reviewOpen ? t('hideDetails') : t('showDetails')} variant="body-sm" tone="tertiary"/>
+          </View>
+        </FeedPressable>
+        {reviewOpen && <View style={styles.reviewDetails}>
+          <FeedText text={t('cardSavedInputsHint')} variant="body-sm" tone="tertiary"/>
+          {card.review.map((entry, index) => {
+            const label = String(entry.id ?? '').replace(/-/g, ' ');
+            return <View key={`${entry.sourceMatterId}/${entry.kind}/${entry.id}/${index}`} style={styles.reviewEntry}>
+              <FeedText text={label ? label[0].toUpperCase() + label.slice(1) : t('cardReviewSavedInputs')} variant="body-sm" tone="tertiary"/>
+              <FeedText text={savedInputText(entry, language)} selectable/>
+            </View>;
+          })}
+        </View>}
+      </View>}
+      {(card.hydrationError || card.layoutError || card.syncError && !['DRAFT_REVIEW_REQUIRED', 'DRAFT_VALUE_REQUIRED'].includes(card.syncError)) && <FeedButton label={t('retry')} variant="primary" size="md" onPress={() => {void card.retry();}}/>}
+      {card.submission && <FeedStatus state={failed ? 'error' : sending ? 'pending' : 'info'} text={t(phase === 'notSent' ? 'cardRequestNotSent' : failed ? 'cardRequestFailed' : sending ? 'cardSubmitting'
+        : phase === 'deferred' ? 'cardRequestDeferred' : result.effect === 'source-refresh-requested' ? 'cardRefreshRequested'
+        : result.effect === 'local-rule-change' ? 'cardRuleUpdated' : phase === 'taskCompleted' ? 'cardRequestHandled' : 'cardRequestAccepted')}/>}
+      {surface === 'chat' && !!pin?.panelId && <View style={styles.pinRow}>
+        <FeedText text={t('pinned')} variant="body-sm" tone="tertiary"/>
+        <FeedButton label={t('openPanel')} size="md" onPress={() => pinAction(card.openPinned)}/>
+        <FeedButton label={t('unpinPanel')} size="md" disabled={pinBusy} onPress={() => pinAction(card.unpin)}/>
+      </View>}
+      {surface === 'chat' && pin && !pin.panelId && pin.canPin && <FeedButton label={t('pinPanel')} size="md" disabled={!card.hydrated || pinBusy}
+        onPress={() => pinAction(card.pinToPanels)}/>}
+      {!!pinMessage && <FeedStatus state="error" text={pinMessage}/>}
+    </View>;
+  return <CardLanguage.Provider value={language}><CardMatter.Provider value={`${threadId}/${request.key}`}>
+    {surface === 'panel' ? <Pressable accessible={false} onLongPress={openPanelMenu}>{content}</Pressable> : content}
+  </CardMatter.Provider></CardLanguage.Provider>;
+}
+
+export function GenUiCard(props: CardProps & {superseded?: boolean}) {
+  if (props.superseded) return <FeedStatus state="info" text={[presentationRequest(props.presentation).title, textFor(props.language)('cardUpdatedBelow')].filter(Boolean).join(' · ')}/>;
+  return <LiveCard {...props}/>;
+}
+
+const styles = StyleSheet.create({
+  container: {gap: spacing[4]},
+  pinRow: {flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: spacing[4]},
+  review: {gap: spacing[8]},
+  reviewToggle: {minHeight: 36, paddingHorizontal: spacing[4], flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing[12]},
+  reviewDetails: {paddingHorizontal: spacing[4], gap: spacing[12]},
+  reviewEntry: {gap: spacing[4]},
+});

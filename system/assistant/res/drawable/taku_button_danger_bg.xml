@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Destructive (red) button, next to the keep option. Pressed: 1dp inner outline. Focus: 2dp ink ring with a gap, like the web focus outline. -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_enabled="false"><shape android:shape="rectangle"><solid android:color="@color/taku_surface_disabled"/><corners android:radius="@dimen/taku_button_radius"/></shape></item>
+    <item android:state_pressed="true"><layer-list>
+            <item><shape android:shape="rectangle"><solid android:color="@color/taku_status_error"/><corners android:radius="@dimen/taku_button_radius"/></shape></item>
+            <item android:top="2dp" android:bottom="2dp" android:left="2dp" android:right="2dp"><shape android:shape="rectangle"><stroke android:width="1dp" android:color="@color/taku_text_inverse"/><corners android:radius="@dimen/taku_button_radius"/></shape></item>
+        </layer-list></item>
+    <item android:state_focused="true"><layer-list>
+            <item><shape android:shape="rectangle"><stroke android:width="2dp" android:color="@color/taku_focus"/><corners android:radius="@dimen/taku_button_radius"/></shape></item>
+            <item android:top="4dp" android:bottom="4dp" android:left="4dp" android:right="4dp"><shape android:shape="rectangle"><solid android:color="@color/taku_status_error"/><corners android:radius="@dimen/taku_button_radius"/></shape></item>
+        </layer-list></item>
+    <item><shape android:shape="rectangle"><solid android:color="@color/taku_status_error"/><corners android:radius="@dimen/taku_button_radius"/></shape></item>
+</selector>

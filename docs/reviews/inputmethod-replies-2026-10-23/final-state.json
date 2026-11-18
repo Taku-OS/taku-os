@@ -1,0 +1,56 @@
+{
+  "capturedAt": "2026-10-23T03:48:07.252954+00:00",
+  "build": "20261022160657",
+  "bootId": "c539b364-9da1-419f-8e43-db8ae36c95af",
+  "selinux": "Enforcing",
+  "defaultIme": "org.agentos.inputmethod/org.fcitx.fcitx5.android.input.FcitxInputMethodService",
+  "systemModels": {
+    "textModel": "codex/gpt-6-luna",
+    "imageModel": "codex/gpt-6-luna"
+  },
+  "systemImeAllowed": true,
+  "temporaryBrowserOptInRemoved": true,
+  "rotation": {
+    "user_rotation": "0",
+    "accelerometer_rotation": "0"
+  },
+  "nightMode": "Night mode: yes",
+  "accessibilityServices": "null",
+  "finalVisibleReply": {
+    "version": 1,
+    "candidates": [
+      {
+        "text": "可以，周五七点半见！"
+      },
+      {
+        "text": "我可能赶不上，你们先定，祝吃得开心。"
+      },
+      {
+        "text": "我还不确定，晚点确认可以吗？"
+      }
+    ],
+    "receipt": {
+      "model": "codex/gpt-6-luna",
+      "inputMode": "image",
+      "imageSha256": "d98f03c82efe9f7a692f98ee0d1f5233cab20abae69f80137d63aaf617cc644d",
+      "imageWidth": 855,
+      "imageHeight": 1024,
+      "elapsedMs": 6040,
+      "captureTop": 173,
+      "captureMs": 973,
+      "modelMs": 5065,
+      "cacheHit": false,
+      "deduplicated": false,
+      "reuseAgeMs": 0
+    }
+  },
+  "installedSha256": {
+    "org.agentos.inputmethod": "ee9ad60092412db5d07638c436aa263d8b12faba10435f581816f2609fa63150",
+    "org.agentos.assistant": "88076aea20c99eef10d74c4ec35ed5461a70dc0203228bc287dd69236f2eef5a"
+  },
+  "temporaryPackagesRemoved": [
+    "org.agentos.inputmethod.probe",
+    "org.agentos.inputmethod.fixture"
+  ],
+  "temporaryDiagnosticJarRemoved": true
+}

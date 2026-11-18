@@ -1,0 +1,7 @@
+ok   hidden [{"op":"remove","at":1794500001000,"origin":"gui"},{"op":"action:hide","at":1794500001001,"origin":"gui","effect":"dismiss"}]
+ok   idempotent
+ok   used [{"op":"pin","at":1794500002000,"origin":"gui"},{"op":"action:go","at":1794500003000,"origin":"gui","effect":"ask-taku"}]
+ok   late [{"op":"remove","at":1794500009000,"origin":""}]
+ok   restored [{"op":"remove","at":1794500001000,"origin":"gui"},{"op":"action:hide","at":1794500001001,"origin":"gui","effect":"dismiss"},{"op":"restore","at":1794500006000,"origin":"gui"}]
+ok   capped
+ALL OK

@@ -1,0 +1,6 @@
+{
+  "name": "taku-home",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Native Compose home screen and feed shell; card bodies render with React Native json-render"
+}

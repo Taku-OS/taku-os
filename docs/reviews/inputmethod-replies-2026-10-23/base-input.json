@@ -1,0 +1,27 @@
+{
+  "ok": true,
+  "setupGuideVerified": false,
+  "serial": "46170DLAQ0006D",
+  "deviceType": "physical",
+  "package": "org.agentos.inputmethod",
+  "model": "Pixel 9",
+  "androidRelease": "17",
+  "androidSdk": "37",
+  "adbUid": "0",
+  "defaultIme": "org.agentos.inputmethod/org.fcitx.fcitx5.android.input.FcitxInputMethodService",
+  "cases": [
+    "taku-logo-toolbar-toggle",
+    "delete-composition",
+    "pinyin-candidate-commit",
+    "delete-committed-text",
+    "chinese-english-switch",
+    "english-typing",
+    "symbols",
+    "numeric-editor",
+    "password-editor",
+    "ime-process-restart-chinese-commit",
+    "day-night-theme"
+  ],
+  "inputMethod": "screen taps on IME keys and candidates; no setText, clipboard or ACTION_SET_TEXT",
+  "nightModeRestored": "yes"
+}

@@ -1,0 +1,3 @@
+# Unified-diff blank context lines contain a meaningful leading space.
+# Check source whitespace in the prepared upstream checkout instead.
+patches/*.patch whitespace=-blank-at-eol

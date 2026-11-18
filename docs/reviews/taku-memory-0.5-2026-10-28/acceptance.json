@@ -1,0 +1,38 @@
+{
+  "component": "Taku 记忆 0.5.0（versionCode 6）+ agentos-task-broker",
+  "status": "emulator_verified",
+  "recordedAt": "2026-10-28 北京时间",
+  "base": "96e2409",
+  "device": {"avd": "TakuRecall", "serial": "emulator-5634", "android": "16", "api": 36, "abi": "arm64-v8a", "build": "sdk_phone64_arm64 userdebug test-keys", "selinux": "Enforcing"},
+  "artifacts": {
+    "TakuMemory-0.5.0-release.apk": "be8697cfb9de813b06fc758230b6c25f8bf2976d00bebbaa10a8446c844d42dc",
+    "agentos-task-broker-0.5.0.jar": "9e9bd6fca1770b45e46470a8b764f7d6cab8451d94edbeeb1119dc75674cc5be",
+    "TakuMemory-0.5.0-debug-nomodel.apk": "61feaec2c25b5b485621c2c5b09d051ac1ae8b0dfc3b7014cc08330a937bec13",
+    "TakuMemoryTests-0.5.0.apk": "3e814c69909555c14a9d1440b0f1ad57019e7a53635034fa04539d5ad0ca41f4"
+  },
+  "dependencies": {
+    "onnxruntime-android-1.29.0.aar": "e97540ca78fe36f6fe2013f82843414fb843b6c7681fb04644cba5e1406662dd",
+    "Xenova/bge-small-zh-v1.5@75c43b0 onnx/model.onnx": "69a0b846f4f116b5e6aabf9546ea6754d02264f3211a13a1bd69b31b8040749a",
+    "Xenova/bge-small-zh-v1.5@75c43b0 tokenizer.json": "48cea5d44424912a6fd1ea647bf4fe50b55ab8b1e5879c3275f80e339e8fae26"
+  },
+  "releaseCleanInstall": {
+    "debugHooksRejected": ["configure testNow", "maintain now", "buildProfile"],
+    "capturedNotifications": 7, "vectors": 7, "embedder": "ready (bundled model)",
+    "organize": {"seconds": 48, "tokens": {"graph": 20367, "board": 18967, "card": 20285}},
+    "privacy": {"thirdPartyQuitPlanOnCard": false, "instructionLikeMessageOnBoardOrCard": false},
+    "cardSelectionMs": {"first": 52, "warm": 8},
+    "deleteRecord": {"graphNodes": "7 -> 5", "boardAndCardVersionsDropped": true, "rebuiltByMaintenanceJob": true, "deletedFactOnCard": false},
+    "correctRecord": {"searchOldText": "not found", "searchNewText": "revision 2", "graphNodesRebuiltWithNewIds": true, "cardUpdated": true},
+    "retentionLimitNoCrash": true,
+    "uiDeleteNote": {"removed": true, "suppressed": true}
+  },
+  "storeTests": {"StoreTests": 97, "QueueTests": 69, "failures": 0},
+  "agentRegression22Days": {
+    "build": "debug (TAKU_DEBUG_HOOKS=1) on the 22-day synthetic timeline",
+    "crossTopic": "6/11, 8/11 (two runs)", "association": "10/11", "triggerMessages": "5/7", "bedtimeReview": "21/25",
+    "previousRound": {"crossTopic": "7/11, 8/11", "association": "10/11", "triggerMessages": "5/7", "bedtimeReview": "21/25"},
+    "tokens": 2879132
+  },
+  "checks": {"npm run verify": "pass", "npm run build:android": "pass"},
+  "notCovered": ["same-version physical device", "full ROM (Android.bp ONNX Runtime JNI and model assets not built in an AOSP tree)", "cold boot", "long-term battery", "real users (single synthetic user, 1-2 runs per item)"]
+}

@@ -1,0 +1,99 @@
+{
+ "what": "同样 26 条提醒、同一个模型（gpt-6-luna，effort low）、首页最新组件目录（b8a1368）下，各种描述写法每遍 26 段的结果",
+ "trials": [
+  {
+   "wording": "0.14.0 描述（基线）",
+   "runs": [
+    "e1",
+    "e2",
+    "e3",
+    "e4"
+   ],
+   "descriptions": 104,
+   "kept": 91,
+   "invalidSpec": 7,
+   "invalidJson": 6,
+   "changed": 0,
+   "numberedCards": 48,
+   "generatedCards": 91,
+   "medianSeconds": 24.6
+  },
+  {
+   "wording": "写明结构、分页写法、不编号、引用用 Inset",
+   "runs": [
+    "v1a",
+    "v1b"
+   ],
+   "descriptions": 52,
+   "kept": 46,
+   "invalidSpec": 4,
+   "invalidJson": 2,
+   "changed": 0,
+   "numberedCards": 0,
+   "generatedCards": 46,
+   "medianSeconds": 24.3
+  },
+  {
+   "wording": "再加 summary 原样写",
+   "runs": [
+    "v2a",
+    "v2b"
+   ],
+   "descriptions": 52,
+   "kept": 43,
+   "invalidSpec": 5,
+   "invalidJson": 3,
+   "changed": 1,
+   "numberedCards": 0,
+   "generatedCards": 44,
+   "medianSeconds": 24.2
+  },
+  {
+   "wording": "再加分页时的树、actions 缩进",
+   "runs": [
+    "v3a",
+    "v3b",
+    "v3c",
+    "v3d"
+   ],
+   "descriptions": 104,
+   "kept": 99,
+   "invalidSpec": 0,
+   "invalidJson": 5,
+   "changed": 0,
+   "numberedCards": 0,
+   "generatedCards": 99,
+   "medianSeconds": 25.0
+  },
+  {
+   "wording": "0.14.1（测试机写出的描述，修正斜杠转义前）",
+   "runs": [
+    "f1",
+    "f2"
+   ],
+   "descriptions": 52,
+   "kept": 49,
+   "invalidSpec": 0,
+   "invalidJson": 1,
+   "changed": 2,
+   "numberedCards": 0,
+   "generatedCards": 51,
+   "medianSeconds": 24.6
+  },
+  {
+   "wording": "0.14.1（最终）",
+   "runs": [
+    "g1",
+    "g2"
+   ],
+   "descriptions": 52,
+   "kept": 49,
+   "invalidSpec": 0,
+   "invalidJson": 2,
+   "changed": 1,
+   "numberedCards": 0,
+   "generatedCards": 50,
+   "medianSeconds": 25.3
+  }
+ ]
+}

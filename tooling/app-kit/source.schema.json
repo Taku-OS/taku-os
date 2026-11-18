@@ -1,0 +1,1 @@
+{"type":"object","properties":{"source":{"type":"string"},"apiSource":{"type":"string"}},"required":["source","apiSource"],"additionalProperties":false}

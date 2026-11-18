@@ -1,0 +1,152 @@
+--- a/android/src/main/java/com/swmansion/enriched/markdown/segments/CodeBlockContainerView.kt
++++ b/android/src/main/java/com/swmansion/enriched/markdown/segments/CodeBlockContainerView.kt
+@@ -18,0 +19 @@
++import android.text.style.ForegroundColorSpan
+@@ -75,2 +76,9 @@
+-  // True until the closing fence arrives: highlighting is deferred and copying
+-  // is disabled, while the header stays visible.
++  private var highlightedSource: String? = null
++  private var highlightedLanguage: String? = null
++  private data class HighlightedRange(val start: Int, val end: Int, val span: ForegroundColorSpan)
++  private var highlightedRanges: List<HighlightedRange> = emptyList()
++  private val overflowIndicator =
++    HorizontalOverflowIndicator(context, codeBlockStyle.backgroundColor, codeBlockStyle.color)
++
++  // True until the closing fence arrives: completed lines are highlighted,
++  // while the partial last line remains visible and copying stays disabled.
+@@ -106,0 +115 @@
++      setOnScrollChangeListener { _, _, _, _, _ -> this@CodeBlockContainerView.invalidate() }
+@@ -173,0 +183 @@
++    clipToOutline = true
+@@ -194 +203,0 @@
+-  // Highlighting is deferred while pending, applied once the block closes.
+@@ -195,0 +205,17 @@
++    // Parse only when a complete line arrives, not on every streamed token.
++    // Reparse the prefix to preserve multiline comment/string lexer context.
++    // All spans are colors only: the original text and measured height stay exact.
++    val source = if (pending) code.substring(0, code.lastIndexOf('\n') + 1) else code
++    if (source != highlightedSource || language != highlightedLanguage) {
++      highlightedSource = source
++      highlightedLanguage = language
++      val highlightedCode = SpannableString(source)
++      if (source.isNotEmpty()) CodeBlockHighlighter.highlight(highlightedCode, source, language, codeBlockStyle)
++      // The native tokenizer returns non-overlapping runs. Default-colored runs
++      // need no span: the TextView already supplies that color. Cache the other
++      // ranges and immutable spans so partial-line tokens only copy references.
++      highlightedRanges = highlightedCode.getSpans(0, highlightedCode.length, ForegroundColorSpan::class.java).mapNotNull { span ->
++        if (span.foregroundColor == codeBlockStyle.color) null
++        else HighlightedRange(highlightedCode.getSpanStart(span), highlightedCode.getSpanEnd(span), span)
++      }
++    }
+@@ -197,2 +223,7 @@
+-    if (!pending) {
+-      CodeBlockHighlighter.highlight(plainCode, code, language, codeBlockStyle)
++    highlightedRanges.forEach { range ->
++      plainCode.setSpan(
++        range.span,
++        range.start,
++        range.end,
++        SPAN_FLAGS_EXCLUSIVE_EXCLUSIVE,
++      )
+@@ -200,0 +232,5 @@
++  }
++
++  override fun dispatchDraw(canvas: Canvas) {
++    super.dispatchDraw(canvas)
++    overflowIndicator.draw(canvas, scrollView)
+--- /dev/null
++++ b/android/src/main/java/com/swmansion/enriched/markdown/segments/HorizontalOverflowIndicator.kt
+@@ -0,0 +1,51 @@
++package com.swmansion.enriched.markdown.segments
++
++import android.content.Context
++import android.graphics.Canvas
++import android.graphics.Paint
++import android.graphics.drawable.GradientDrawable
++import android.widget.HorizontalScrollView
++import kotlin.math.min
++
++/** Persistent, non-interactive hints: disappear only when that edge is reached. */
++internal class HorizontalOverflowIndicator(
++  context: Context,
++  backgroundColor: Int,
++  foregroundColor: Int,
++) {
++  private val density = context.resources.displayMetrics.density
++  private val fadeWidth = 28f * density
++  private val transparent = backgroundColor and 0x00FFFFFF
++  private val rightFade = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(transparent, backgroundColor))
++  private val leftFade = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(backgroundColor, transparent))
++  private val arrow = Paint(Paint.ANTI_ALIAS_FLAG).apply {
++    color = (foregroundColor and 0x00FFFFFF) or (0x99 shl 24)
++    strokeWidth = 1.5f * density
++    strokeCap = Paint.Cap.ROUND
++  }
++
++  // Called from the parent after children: coordinates never move with scrollX.
++  fun draw(canvas: Canvas, scrollView: HorizontalScrollView) {
++    val left = scrollView.left.toFloat()
++    val right = scrollView.right.toFloat()
++    val top = scrollView.top.toFloat()
++    val bottom = scrollView.bottom.toFloat()
++    val fade = min(fadeWidth, (right - left) / 3f)
++    val y = top + min(20f * density, (bottom - top) / 2f)
++    val arm = 3f * density
++    if (scrollView.canScrollHorizontally(1)) {
++      rightFade.setBounds((right - fade).toInt(), top.toInt(), right.toInt(), bottom.toInt())
++      rightFade.draw(canvas)
++      val x = right - 7f * density
++      canvas.drawLine(x - arm, y - arm, x, y, arrow)
++      canvas.drawLine(x, y, x - arm, y + arm, arrow)
++    }
++    if (scrollView.canScrollHorizontally(-1)) {
++      leftFade.setBounds(left.toInt(), top.toInt(), (left + fade).toInt(), bottom.toInt())
++      leftFade.draw(canvas)
++      val x = left + 7f * density
++      canvas.drawLine(x + arm, y - arm, x, y, arrow)
++      canvas.drawLine(x, y, x + arm, y + arm, arrow)
++    }
++  }
++}
+--- a/android/src/main/java/com/swmansion/enriched/markdown/segments/TableContainerView.kt
++++ b/android/src/main/java/com/swmansion/enriched/markdown/segments/TableContainerView.kt
+@@ -54,0 +55,9 @@
++  private val overflowIndicator =
++    HorizontalOverflowIndicator(context, tableStyle.rowEvenBackgroundColor, tableStyle.color)
++  private val viewportRect = RectF()
++  private val viewportPath = Path()
++  private val viewportBorder = Paint(Paint.ANTI_ALIAS_FLAG).apply {
++    style = Paint.Style.STROKE
++    color = tableStyle.borderColor
++    strokeWidth = tableStyle.borderWidth
++  }
+@@ -73,0 +83 @@
++      setOnScrollChangeListener { _, _, _, _, _ -> this@TableContainerView.invalidate() }
+@@ -389,0 +400,27 @@
++  }
++
++  override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
++    super.onSizeChanged(w, h, oldw, oldh)
++    // The viewport geometry changes with size, not with streamed cell content
++    // or horizontal scroll. Reuse it for every subsequent display-list draw.
++    viewportRect.set(0f, 0f, w.toFloat(), h.toFloat())
++    viewportPath.reset()
++    viewportPath.addRoundRect(viewportRect, tableStyle.borderRadius, tableStyle.borderRadius, Path.Direction.CW)
++    val halfStroke = tableStyle.borderWidth / 2f
++    viewportRect.inset(halfStroke, halfStroke)
++  }
++
++  override fun dispatchDraw(canvas: Canvas) {
++    // A wide grid's own right border scrolls offscreen; keep a second outline
++    // anchored to the viewport, including while rows are still streaming.
++    val overflow = scrollView.canScrollHorizontally(-1) || scrollView.canScrollHorizontally(1)
++    if (!overflow) {
++      super.dispatchDraw(canvas)
++      return
++    }
++    val saved = canvas.save()
++    canvas.clipPath(viewportPath)
++    super.dispatchDraw(canvas)
++    overflowIndicator.draw(canvas, scrollView)
++    canvas.restoreToCount(saved)
++    canvas.drawRoundRect(viewportRect, tableStyle.borderRadius, tableStyle.borderRadius, viewportBorder)

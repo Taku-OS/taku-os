@@ -1,0 +1,23 @@
+{
+  "reviewedAt": "2026-10-10",
+  "executionDate": "2026-10-09 (original experiment)",
+  "origin": "light-app-lab/free-app-kit/evidence/device-generation.log",
+  "sha256": "4c283f85bd6c3544f701bd7d4047df1448098228c01ca82f9411fa51c4ebea0e",
+  "scope": "This review reads actual exec source writes and build output in the log; it does not call the model again.",
+  "checks": {
+    "workingDirectoryAndroid": true,
+    "boardSourceCommand": true,
+    "gameSourceCommand": true,
+    "buildCommandBoth": true,
+    "shellExecSucceeded": true
+  },
+  "observedSourceBytes": {
+    "board": 7126,
+    "game": 7095
+  },
+  "boundaries": [
+    "The initial host/DEX shell was precompiled on the computer; this record establishes only subsequent core source and JSX builds on the phone.",
+    "One historical duration, not a general performance ceiling.",
+    "The model final self-report alone does not count as verification evidence."
+  ]
+}

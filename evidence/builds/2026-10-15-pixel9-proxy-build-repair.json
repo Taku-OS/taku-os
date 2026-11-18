@@ -1,0 +1,34 @@
+{
+  "checkedAt": "2026-10-15T10:30:03.073091+00:00",
+  "previousSnapshotDigest": "316dd121a16191e0b1668f633317bd28308949867d80f04fe503da85442f1aa3",
+  "snapshotDigest": "6940d886515a53355fa50920f637b3a8f98b1665c58264f35665b144f9749301",
+  "previousBuildExitCode": 1,
+  "previousBuildOomKilled": false,
+  "previousLastCompletedTasks": 17882,
+  "previousScheduledTasks": 20541,
+  "failure": "TakuPersonalProxy manifest uses-library declarations missing from Soong module",
+  "manifestOptionalLibraries": [
+    "androidx.window.extensions",
+    "androidx.window.sidecar",
+    "android.ext.adservices"
+  ],
+  "strictManifestCheckPassed": true,
+  "usesLibraryCheckDisabled": false,
+  "agentInputsUnchanged": true,
+  "changedFrozenInputs": [
+    "Android.bp",
+    "image/build.sh"
+  ],
+  "kernelArtifactsChecked": 340,
+  "compileCachePreserved": true,
+  "sourceSyncedAgain": false,
+  "kernelRebuilt": false,
+  "sourceBaseCommit": "8ba8f80a66358e590700e70ce3689a3d499a3ce2",
+  "sourceTreeDirty": true,
+  "cpuQuota": 10.0,
+  "memoryGiB": 38.0,
+  "retryStartedAtUtc": "2026-10-15T10:22:32.957444596Z",
+  "romBuilt": false,
+  "physicalDeviceVerified": false,
+  "boundary": "Repair configuration and incremental retry; no new ROM, exported artifact or physical acceptance yet."
+}

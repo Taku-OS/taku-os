@@ -1,0 +1,21 @@
+<resources>
+  <string name="home_edit_screen">Edit Home Screen</string>
+  <string name="home_share_app">Share App</string>
+  <string name="home_remove_app">Remove App</string>
+  <string name="home_app_info">App Info</string>
+  <string name="home_edit">Edit</string>
+  <string name="home_done">Done</string>
+  <string name="home_remove_from_home">Remove from Home Screen</string>
+  <string name="home_uninstall">Uninstall App</string>
+  <string name="home_cancel">Cancel</string>
+  <string name="home_remove_title">Remove %1$s?</string>
+  <string name="home_remove_message">Removing from the Home Screen keeps the app installed. You can add it back from Edit → Hidden Apps.</string>
+  <string name="home_hidden_apps">Hidden Apps</string>
+  <string name="home_no_hidden_apps">No hidden apps</string>
+  <string name="home_show_app">Add %1$s to Home Screen</string>
+  <string name="home_remove_label">Remove %1$s</string>
+  <string name="home_ungroup">Ungroup Folder</string>
+  <string name="home_pages">Show Apps on Pages</string>
+  <string name="home_scroll">Show Apps on One Page</string>
+  <string name="home_rename_folder">Rename Folder</string>
+</resources>

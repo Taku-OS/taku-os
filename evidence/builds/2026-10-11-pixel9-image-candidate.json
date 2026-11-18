@@ -1,0 +1,88 @@
+{
+  "schema": "taku.pixel9-delivery/1",
+  "completedAt": "2026-10-11T10:06:55.205089+00:00",
+  "target": "tokay",
+  "platform": "LineageOS 23.2 / Android 16",
+  "identity": {
+    "systemDevice": "generic",
+    "productDevice": "tokay",
+    "vendorDevice": "tokay",
+    "buildType": "userdebug",
+    "buildTags": "test-keys",
+    "androidRelease": "16",
+    "platformSecurityPatch": "2026-09-01"
+  },
+  "vendorBaseline": "BP4A.260205.002 / SPL 2026-02-05 as declared by pinned device tree",
+  "sourceLockFile": "source-lock.json",
+  "kernelSourceLockFile": "kernel-source-lock.json",
+  "compiledInputs": {
+    "checkedAt": "2026-10-11T09:52:01.285517+00:00",
+    "integratedSnapshotDigest": "8d97796499bfdd489f5ca5206a17db5e193d23a33a01f3b2a4cc77bf50f47a26",
+    "controllerSnapshotDigest": "f1007ee32a6fdaad146c33653de160d4a5d6523a48761d5327ed1200347bc887",
+    "integratedInputsUnchanged": true,
+    "kernelCheckpointUnchanged": true,
+    "compileCachePreserved": true,
+    "sourceSyncedAgain": false,
+    "kernelRebuilt": false
+  },
+  "artifacts": [
+    {
+      "file": "lineage_tokay-target_files.zip",
+      "bytes": 4209216925,
+      "sha256": "8297fb06fff24b66c7613fa811e539a4fb475017fc64fa13ba285a7cc8aa09d6",
+      "kind": "target-files"
+    },
+    {
+      "file": "lineage_tokay-ota.zip",
+      "bytes": 1718080173,
+      "sha256": "7a2e85d538c4184e5b89084b9adcf846bc1561002d933c779190c8b83df06a7a",
+      "kind": "OTA"
+    },
+    {
+      "file": "lineage-23.2-20261011-UNOFFICIAL-tokay.zip",
+      "bytes": 1718080173,
+      "sha256": "7a2e85d538c4184e5b89084b9adcf846bc1561002d933c779190c8b83df06a7a",
+      "kind": "OTA"
+    },
+    {
+      "file": "recovery-images/boot.img",
+      "bytes": 67108864,
+      "sha256": "b08836ce8268ba5d6cdb755d530cfeef74c6735ddad3e25195475cda45cc62d2",
+      "kind": "recovery boot stack"
+    },
+    {
+      "file": "recovery-images/dtbo.img",
+      "bytes": 16777216,
+      "sha256": "b0d9ed5de000a9076cece611100d854b3964df6fce3c242ae8115864e2ef8275",
+      "kind": "recovery boot stack"
+    },
+    {
+      "file": "recovery-images/vendor_kernel_boot.img",
+      "bytes": 67108864,
+      "sha256": "4387458a8dd0208a6d6f9b6a8ba2fbb1a5754210c70580e819ade8a9a5ea6ed1",
+      "kind": "recovery boot stack"
+    },
+    {
+      "file": "recovery-images/vendor_boot.img",
+      "bytes": 67108864,
+      "sha256": "d169d77406bebe4ff00e8abd1e626ec80346087a41c3bdb746184a17ac4f9100",
+      "kind": "recovery boot stack"
+    }
+  ],
+  "otaAliasesHaveSameSha256": true,
+  "physicalDeviceVerified": false,
+  "coldBootVerified": false,
+  "safeToFlashWithoutDeviceFirmwareAssessment": false,
+  "signing": "development platform/OTA keys; not production signing",
+  "security": "upstream userdebug su domain is permissive; not a production enforcing agent domain",
+  "fingerprintBoundary": "Upstream uses a stock fingerprint; actual image type is userdebug with test-keys.",
+  "installBoundary": "Recovery images and OTA are from the same verified target-files build; assess the actual phone firmware before any flashing.",
+  "integrationAuditFile": "integration-audit.json",
+  "takuAndFrameworkCertificateMatch": true,
+  "runtimeAssetHashesMatch": true,
+  "excludedPackageIdsFound": [],
+  "zipCrcChecksPassed": true,
+  "exportedSha256ChecksPassed": true,
+  "verificationRegressionTestsPassed": 10,
+  "verificationFix": "Validate tokay identity using product/vendor partitions and OTA metadata; generic system partition is expected."
+}

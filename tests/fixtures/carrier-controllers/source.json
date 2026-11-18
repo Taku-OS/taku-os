@@ -1,0 +1,7 @@
+{
+  "snapshotDigest": "8b77b5c8829ae9d968de8d95c689828869ca6b95bcbc0ec37643e95b062a7565",
+  "files": {
+    "build.sh": "240cc269eefca6657071443ae622cfefb6c5fd3c3d040f7295258ee4c6f05f73",
+    "verify-artifacts.py": "436a2fab19fc866480ce58714f14adfb0b28c12e1fa93e418a5dbcc6b6e55a9b"
+  }
+}

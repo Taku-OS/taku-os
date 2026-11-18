@@ -1,0 +1,49 @@
+// Shared native audio interface/client. Engine providers stay in the engine APK.
+java_library {
+    name: "taku-audio-client",
+    srcs: [
+        "contract/org/agentos/audio/AudioContract.kt",
+        "client/**/*.kt",
+    ],
+    sdk_version: "current",
+    min_sdk_version: "36",
+    java_version: "17",
+    static_kotlin_stdlib: true,
+}
+
+// Re-signed with the product platform key. JNI stays stored in the APK and is
+// loaded directly; speech weights are delivered separately on system_ext.
+android_app_import {
+    name: "TakuAudioEngine",
+    apk: "prebuilt/TakuAudioEngine.apk",
+    certificate: "platform",
+    privileged: true,
+    system_ext_specific: true,
+    dex_preopt: { enabled: false },
+    required: ["TakuAudioEnginePermissions", "TakuAssistantAudioPermissions", "taku-audio-bridge", "taku-audio-v-voices"],
+}
+
+prebuilt_etc {
+    name: "TakuAudioEnginePermissions",
+    src: "permissions/org.agentos.audio.xml",
+    filename: "privapp-permissions-org.agentos.audio.xml",
+    sub_dir: "permissions",
+    system_ext_specific: true,
+}
+
+prebuilt_etc {
+    name: "taku-audio-bridge",
+    src: "prebuilt/audio-bridge.jar",
+    filename: "taku-audio-bridge.jar",
+    sub_dir: "taku-audio",
+    system_ext_specific: true,
+}
+
+// The assistant's existing playback-identity path also requests audio routing.
+prebuilt_etc {
+    name: "TakuAssistantAudioPermissions",
+    src: "permissions/org.agentos.assistant.audio.xml",
+    filename: "privapp-permissions-org.agentos.assistant.audio.xml",
+    sub_dir: "permissions",
+    system_ext_specific: true,
+}

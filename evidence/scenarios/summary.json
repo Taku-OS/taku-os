@@ -1,0 +1,169 @@
+{
+  "testKind": "engineering-candidate",
+  "product_selection": "pending",
+  "environment": {
+    "serial": "emulator-5582",
+    "avd": "AgentOS_ImageCheck",
+    "android": "16",
+    "api": 36,
+    "abi": "arm64-v8a",
+    "uid": 0,
+    "selinux": "Enforcing"
+  },
+  "cases": [
+    {
+      "id": "C1",
+      "status": "emulator-pass",
+      "phoneModelEvents": "phone-model-events.jsonl",
+      "negativeChecks": [
+        {
+          "name": "unknown SDK method",
+          "exit": 2,
+          "error": "METHOD_NOT_FOUND"
+        },
+        {
+          "name": "UID2000 tasks.status",
+          "exit": 4,
+          "error": "PERMISSION_DENIED"
+        }
+      ]
+    },
+    {
+      "id": "C2",
+      "status": "emulator-pass",
+      "package": "org.agentos.scenarioscore",
+      "version": "1.0",
+      "apkSHA256": "28ab5f9f9c7fa5f14a66361ed4952dbcf495762d0bdf42dafbd1c94688f1cca5",
+      "source": "phone-source/",
+      "apkSignScheme": "v3",
+      "externalAPI": "external-http-add-and-replay.json",
+      "finalScore": {
+        "A": 3,
+        "B": 0
+      },
+      "notCovered": [
+        "all UI buttons",
+        "service crash recovery",
+        "standalone backend-free APK",
+        "fresh-device setup without host",
+        "physical phone",
+        "ROM rebuild"
+      ]
+    },
+    {
+      "id": "C3",
+      "status": "emulator-minimal-pass",
+      "taskId": "1791574373107",
+      "brokerState": "completed",
+      "displayIdObserved": 11,
+      "dynamicId": true,
+      "existingApp": "com.xingin.xhs",
+      "agentAction": "phone model am --display11, view_image/capture, input -d11 swipe",
+      "manualMainAction": "focus countdown and native Mirror viewing",
+      "manualMirrorAction": "post-completion swipe on display0 preview, forwarded to display11",
+      "notCovered": [
+        "long task compatibility",
+        "same App independent instances",
+        "human-agent automatic arbitration",
+        "auto pause on takeover",
+        "physical phone",
+        "ROM rebuild"
+      ]
+    }
+  ],
+  "recordings": [
+    {
+      "path": "generation-full-01.mp4",
+      "format": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "h264",
+            "width": 720,
+            "height": 1600
+          },
+          {},
+          {}
+        ],
+        "format": {
+          "duration": "199.147367"
+        }
+      },
+      "playbackFactor": 1,
+      "original": null
+    },
+    {
+      "path": "api-mobile-full-02.mp4",
+      "format": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "h264",
+            "width": 720,
+            "height": 1600
+          },
+          {},
+          {}
+        ],
+        "format": {
+          "duration": "180.182156"
+        }
+      },
+      "playbackFactor": 1,
+      "original": null
+    },
+    {
+      "path": "mobile-use-quick-2x.mp4",
+      "format": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "h264",
+            "width": 720,
+            "height": 1600
+          }
+        ],
+        "format": {
+          "duration": "61.018868"
+        }
+      },
+      "playbackFactor": 2,
+      "original": "api-mobile-full-02.mp4"
+    },
+    {
+      "path": "mobile-use-excerpt-real-speed.mp4",
+      "format": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "h264",
+            "width": 720,
+            "height": 1600
+          }
+        ],
+        "format": {
+          "duration": "94.566038"
+        }
+      },
+      "playbackFactor": 1,
+      "original": "api-mobile-full-02.mp4"
+    }
+  ],
+  "failuresPreserved": [
+    "native-submit-first-failure.txt",
+    "permissions-baseline.json first su -c syntax failure",
+    "phone-result.json recovered phone node PATH/window lookup",
+    "broker-task-1791574373107/events.jsonl phone rg unavailable fallback"
+  ],
+  "remainingGates": [
+    "Ricky/product scenario selection and success criteria",
+    "interaction/takeover product policy",
+    "latest ROM rebuild and clean cold-boot",
+    "selected physical device flash and compatibility acceptance"
+  ],
+  "generatedAt": "2026-10-09T19:38:30.032970+00:00"
+}

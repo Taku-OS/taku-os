@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "id": "org.taku.hello-world",
+  "name": "Hello World",
+  "description": "The first Taku OS plugin: return an on-device greeting to Agent.",
+  "author": "Taku OS",
+  "category": "Developer example",
+  "license": "Apache-2.0",
+  "version": "1.0.0",
+  "type": "tool-provider",
+  "minHostVersion": "1.0.0",
+  "targets": [
+    "local"
+  ],
+  "capabilities": [
+    "hello-world",
+    "local-tool",
+    "mcp"
+  ],
+  "permissions": [],
+  "ui": [],
+  "settings": [],
+  "hooks": [],
+  "runtime": "agent",
+  "mcp": {
+    "command": "/system/bin/sh",
+    "args": [
+      "server.sh"
+    ],
+    "env": {}
+  },
+  "skills": [
+    "skills/hello-world/SKILL.md"
+  ],
+  "healthcheck": {
+    "timeoutMs": 5000
+  }
+}

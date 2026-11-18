@@ -1,0 +1,110 @@
+{
+  "date": "2026-10-21",
+  "checkedAt": "2026-10-21T12:03:43.534498+00:00",
+  "branch": "codex/system-surfaces-20261021",
+  "baseCommit": "0d1119d",
+  "committed": false,
+  "scope": "Independent native system surface component; synthetic separate-UID preview caller; no model or business execution integration.",
+  "device": "emulator-5634",
+  "platform": 36,
+  "apkSha256": {
+    "TakuSurfaces.apk": "75692173c681081a7ecfdd4552a915a2d75bda3564a14e4de56f8de0e6e331db",
+    "TakuSurfaceDemo.apk": "233262617573b90373492bf6471c7bdb2c4fb172d342655fee7a3aa1e6a08383"
+  },
+  "verification": {
+    "repositoryVerify": "passed (existing Linux-only FIFO test skipped on macOS)",
+    "lifecycleAssertionsPassed": 21,
+    "androidComponentBuild": "passed",
+    "apkSignatureVerification": "passed",
+    "device": {
+      "crossAppForeground": "com.android.deskclock/.DeskClock",
+      "collapsedBounds": [
+        156,
+        2118,
+        923,
+        2266
+      ],
+      "expandedBounds": [
+        67,
+        1568,
+        1012,
+        2266
+      ],
+      "singleSelectionCallback": true,
+      "callerDeathRemovesWindow": true,
+      "invalidKindRejected": true,
+      "expiryCallbackAndRemoval": true,
+      "checkedAt": "2026-10-21T11:56:43.951892+00:00",
+      "keyboardBeforeBounds": [
+        156,
+        2118,
+        923,
+        2266
+      ],
+      "keyboardAfterBounds": [
+        156,
+        1343,
+        923,
+        1491
+      ],
+      "keyboardInsetApplied": true,
+      "buildCheckedAt": "2026-10-21T11:59:55.081133+00:00",
+      "foregroundApp": "com.android.deskclock/.DeskClock"
+    }
+  },
+  "screenshots": {
+    "compact.png": {
+      "path": "docs/reviews/system-surfaces-2026-10-21/compact.png",
+      "sha256": "c9d9ff216092e539afaa859b082403939f088c24e2ff7b972817705a38a08421"
+    },
+    "expanded.png": {
+      "path": "docs/reviews/system-surfaces-2026-10-21/expanded.png",
+      "sha256": "94827df3525a56ffc9100c64f933a03597a1251d4914bf441b657beff15ada98"
+    },
+    "keyboard.png": {
+      "path": "docs/reviews/system-surfaces-2026-10-21/keyboard.png",
+      "sha256": "d0a33ae3a48b677468a54bac850757160548a375a461c90b8aec48159048de3a"
+    }
+  },
+  "sourceSha256": {
+    "image/taku.mk": "b98aa4de8cdb2145f1f481e6c52fdf8547181a8725029ee8c83b6fcd1dcfb3ed",
+    "package.json": "00278761ea7b740afca7ac051f192d0069c00db165e2f1a08005eec26d41ca53",
+    "spec/system-surface.schema.json": "c2827d5300d0e4eaec4a06ab96407c9b81989d01c72e3d99c2485466e39ffa27",
+    "system/surfaces/Android.bp": "a6af26727e730de063126b33b621e03ea31277e817a6451087486e2aabe446fe",
+    "system/surfaces/AndroidManifest.xml": "f8eddfc2edf8ae820331153282ef828525c728f336a358344d8cacbaf9eda7bb",
+    "system/surfaces/README.md": "13974522e21823eed1a75069f90a659651c659ca7dcf9a7654d1d5cc11e25f3b",
+    "system/surfaces/build.sh": "f1aaaa23b65c1076e10a89613117454115986e7ff1aba856d90d121b9cbbd217",
+    "system/surfaces/client/org/agentos/surfaces/client/SurfaceClient.java": "392ee003ebd4b93b667826e0c59819708abe28805fe8b8ab181018cd9474d3c6",
+    "system/surfaces/contract/org/agentos/surfaces/SurfaceSpec.java": "853c857ddb291cc31a68696fb4c151302b58db1b406a2007fba6257893552e3a",
+    "system/surfaces/contract/org/agentos/surfaces/SurfaceStore.java": "852833949df07cfef1d9e0506f3021ab19ab54b00f7fe6ad00e9df6f49f11a7b",
+    "system/surfaces/demo/AndroidManifest.xml": "3a5d482767c7c05c17790ac8d9b1da7da80b21abcc51f81ae597b7413412780d",
+    "system/surfaces/demo/src/org/agentos/surfacedemo/PreviewActivity.java": "98f816f82c6e7f6d30eb216370361c959113947808a763a21c9cfa42a8f84008",
+    "system/surfaces/res/drawable/taku_brand_mark.xml": "bcfa7bc5629ebecce7594ab241652728e830e0e84487611542d523f770666ea3",
+    "system/surfaces/src/org/agentos/surfaces/SurfaceCodec.java": "a536f8318ff42407662ac7c49c84151de2e863bb0c15d3437f0aae72046a9f58",
+    "system/surfaces/src/org/agentos/surfaces/SurfaceRenderer.java": "5a0689615faf9f2c0f375f0e1f8c6f483af5856e8268c1089bb5319808d945ae",
+    "system/surfaces/src/org/agentos/surfaces/SurfaceService.java": "4a9c71ccfce78e9bf7c987a0b61174d385503482a21d5ca023c4a4ed628518b8",
+    "system/surfaces/src/org/agentos/surfaces/SurfaceStyle.java": "e25c03343a66363310fa66107c12b225e6c7e567f2e4b48e8d20de054985be77",
+    "system/surfaces/src/org/agentos/surfaces/SurfaceWindow.java": "7c879403991779ed42b80cb0c73769160edd393e687db05e1107614061e31600",
+    "system/surfaces/test.sh": "1f399fa547b9b9a2f0c63e45756f34f0347b9f9bc9341133fdfae5cd10130eb0",
+    "system/surfaces/tests/SurfaceStoreTest.java": "4f2ea3037b2920afecf9483e5b6ac2d8e808f72034cd982f5cf9eb551a195d60"
+  },
+  "screenshotScope": "Unmodified final component APK screenshots on the API 36 emulator. Choice/hint content is a synthetic protocol fixture; DeskClock is a separate foreground App.",
+  "physicalDeviceVerified": false,
+  "fullRomRebuilt": false,
+  "limits": [
+    "Rotation, enlarged text and TalkBack not validated.",
+    "Lock/unlock behavior implemented but not separately device-validated.",
+    "No complete business flow or model integration claimed."
+  ],
+  "rawEvidence": {
+    "host": "macmini",
+    "directory": "out/system-surfaces-20261021/",
+    "localSourceChecks": "out/system-surfaces-20261021/source-checks.log"
+  },
+  "cleanup": {
+    "previewCallerStopped": true,
+    "emulatorPaused": true,
+    "android17Automation": "PAUSED",
+    "runningRomInputsChanged": false
+  }
+}

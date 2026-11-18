@@ -1,0 +1,100 @@
+{
+  "component": "Taku 记忆 0.10.0（versionCode 12；合并 main 前验收时为 0.9.0 / 13）+ agentos-task-broker（同一提交），助手 v74",
+  "status": "emulator_verified",
+  "feature": "proactive reminders (experimental, off by default)",
+  "recordedAt": "2026-11-03 北京时间",
+  "device": {
+    "avd": "TakuRecall",
+    "serial": "emulator-5634",
+    "android": "16",
+    "api": 36,
+    "abi": "arm64-v8a",
+    "build": "sdk_phone64_arm64 userdebug test-keys",
+    "selinux": "Enforcing"
+  },
+  "artifacts": {
+    "TakuMemory-0.9.0-release.apk": "80f855a4f1a3d088d22112d5d1767bb3f42ef814ab909f3074725900f2c7f520",
+    "TakuMemory-0.9.0-debug.apk": "1080894540fbbb0d305a12782ec3854f8289bb2f4e6703df046c6e8ad9a30717",
+    "TakuMemory-0.9.0-debug-nomodel.apk": "599cb2181ab0e7a0e61011c6becf3d77b80b970160e5773d9dea2b2112df0f33",
+    "TakuMemoryTests-0.9.0.apk": "52296ec7428b1eea372d3e1382163985e2f2fb70ff508a9e5df99e3c2507095d",
+    "agentos-task-broker-0.9.0.jar": "adec6a7744130c4f83d0735bf16ca70260d997d64cdcf00a4d55dca317775bd1"
+  },
+  "componentTests": {
+    "StoreTests": 128,
+    "QueueTests": 69,
+    "ResultTests": 8,
+    "PresentationTests": 36,
+    "GatewayBoundaryTests": 2,
+    "SystemAiTests": 24,
+    "SystemSettingsObserverTests": "passed",
+    "failures": 0
+  },
+  "eveningBrief": {
+    "nights": 21,
+    "eveningMomentsMentioned": "59/70",
+    "model": "gpt-6-luna via Broker, up to 8 items",
+    "tokensPerBrief": 4649
+  },
+  "messageTrigger": {
+    "keyMoments3Runs": {
+      "spoke": "12/12 on the four memory-dependent moments",
+      "points": "23/30",
+      "landlordQuestion": "spoke 1/3, wrong that once",
+      "prompt": "one revision before final (final adds: do not speak when the conclusion is no conflict / consistent / done)"
+    },
+    "replayNotifications": {
+      "notifications": 195,
+      "localWakes": 32,
+      "spoke": 20,
+      "perDay": {
+        "wakes": 1.5,
+        "spoke": 0.9
+      },
+      "gradedBy": "gpt-6.1-sol",
+      "useful": 13,
+      "lowValue": 5,
+      "wrong": 2
+    },
+    "replayAllCapturesNotEnabled": {
+      "records": 1510,
+      "localWakes": 285,
+      "spoke": 112,
+      "useful": 59,
+      "lowValue": 26,
+      "wrong": 27,
+      "wrongFromChatPages": 25
+    },
+    "tokensPerNudge": 4486
+  },
+  "endToEndSmoke": {
+    "bedtimeNotification": true,
+    "privateAndInstructionTextLeftOut": true,
+    "conflictNotification": true,
+    "chitChatIgnored": true
+  },
+  "notCovered": [
+    "system display (surfaces) delivery: no surfaces service on the AVD",
+    "feedback from the user's reaction",
+    "page-captured chat as a trigger",
+    "release clean-install smoke for 0.9.0 (0.8.1 release smoke covers capture, vectors and organizing; the proactive path was run on the debug build)",
+    "same-version physical device",
+    "full ROM",
+    "real users"
+  ],
+  "deviceStateAfter": "merged memory 0.10.0 debug (nudges off) with the 22-day synthetic data, merged Broker, assistant v76",
+  "afterMergingMain": {
+    "main": "0866b88",
+    "version": "0.10.0 / versionCode 12 (main had used 0.9.0 / 11 for OTA activation)",
+    "assistant": "v76 20261102-delivery-recovery",
+    "artifacts": {
+      "TakuMemory-0.10.0-release.apk": "49aeea213308672eb0ce4259ae67d70deac7448587524819465f9ca2d2788f04",
+      "TakuMemory-0.10.0-debug.apk": "c15b01211fed9af56e41816c0348b9774ab028010ee083273e183c75c5bafbba",
+      "TakuMemoryTests-0.10.0.apk": "0a2a2aa1f35cd09e9e6061dbd16d6b84e65e1276558a1dc9e9a9b775223c00fe",
+      "agentos-task-broker-0.10.0.jar": "43b6deb20f683b0c7f7069bf99f849c546356a92e9c886046ce4c4fc1547b7f1",
+      "AgentOSAssistant.apk (v76, merged)": "8487fa9f3f9c74a65f9ab7d06d0a8e1d1c3e151b3e0825f41195e1917c560de6"
+    },
+    "componentTests": "7 suites passed, StoreTests 128",
+    "proactiveSmoke": "bedtime brief and conflict notification; chit-chat ignored",
+    "assistantCheck": "H-xiaoyu: conflict with Tingting 19:00 still pointed out"
+  }
+}

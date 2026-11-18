@@ -1,0 +1,30 @@
+[
+  {
+    "scenario": "chat",
+    "namespace": "taku_phone",
+    "tool": "memory_get",
+    "arguments": {
+      "id": "5e26bc98-e832-4138-8b9e-780c605c42d4"
+    },
+    "status": "completed",
+    "success": true,
+    "source": "com.android.messaging",
+    "revision": 1,
+    "exactCapturedBody": true,
+    "bodySha256": "84bb3b089fedd8be2bbed92ebb18e969675b861d4ac43495188c62da0743310b"
+  },
+  {
+    "scenario": "calendar",
+    "namespace": "taku_phone",
+    "tool": "memory_get",
+    "arguments": {
+      "id": "34e0784b-4f7a-43c2-b823-4f336bbdf54a"
+    },
+    "status": "completed",
+    "success": true,
+    "source": "org.fossify.calendar",
+    "revision": 1,
+    "exactCapturedBody": true,
+    "bodySha256": "15ee93855f59aed997ea6b87937c3d27c57d931031bf3942598cd3e805922bed"
+  }
+]

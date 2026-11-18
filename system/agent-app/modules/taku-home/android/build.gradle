@@ -1,0 +1,58 @@
+buildscript {
+  repositories {
+    mavenCentral()
+  }
+  dependencies {
+    // Same Kotlin as the Expo template; the Compose compiler ships with Kotlin.
+    classpath("org.jetbrains.kotlin.plugin.compose:org.jetbrains.kotlin.plugin.compose.gradle.plugin:${kotlinVersion}")
+  }
+}
+
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+apply plugin: 'org.jetbrains.kotlin.plugin.compose'
+
+group = 'org.agentos.agent.home'
+version = '0.1.0'
+
+android {
+  namespace 'org.agentos.agent.home'
+  defaultConfig {
+    versionCode 1
+    versionName '0.1.0'
+  }
+  buildFeatures {
+    compose true
+  }
+  // The shared Audio Engine's client (Binder protocol + request types), compiled from its source
+  // so the app gets no second Kotlin runtime (audio-client.jar bundles one). Only this module
+  // compiles it; taku-agent reaches voice through this module.
+  sourceSets {
+    main {
+      java.srcDirs += ["${projectDir}/../../../../audio-engine/client", "${projectDir}/../../../../audio-engine/contract"]
+      java.srcDirs += ["${projectDir}/../../../../island/src/org/agentos/island"]
+    }
+  }
+}
+
+dependencies {
+  implementation platform('androidx.compose:compose-bom:2026.09.00')
+  implementation 'androidx.compose.ui:ui'
+  implementation 'androidx.compose.foundation:foundation'
+  implementation 'androidx.compose.animation:animation'
+  implementation 'androidx.activity:activity-compose:1.13.0'
+  implementation 'androidx.lifecycle:lifecycle-runtime-compose:2.10.0'
+  implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2'
+  implementation 'androidx.core:core-ktx:1.17.0'
+  implementation 'com.facebook.react:react-android'
+  // Render the original local Figma SVGs without redrawing or altering their paths.
+  implementation 'com.caverock:androidsvg-aar:1.4'
+}
+
+dependencies {
+  testImplementation 'junit:junit:4.13.2'
+  // Real org.json for JVM tests (android.jar only has stubs).
+  testImplementation 'org.json:json:20250517'
+}

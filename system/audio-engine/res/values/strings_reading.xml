@@ -1,0 +1,36 @@
+<resources>
+    <string name="audio_reading_title">Local reading</string>
+    <string name="audio_reading_ready">Voices are generated on this device.</string>
+    <string name="audio_reading_not_ready">Reading resources are not ready yet. Local reading will be available when they are prepared.</string>
+    <string name="audio_reading_settings_section">Settings</string>
+    <string name="audio_reading_refresh">Refresh settings</string>
+    <string name="audio_reading_preferences_section">Reading preferences</string>
+    <string name="audio_reading_language">Language</string>
+    <string name="audio_reading_chinese">Chinese</string>
+    <string name="audio_reading_english">English</string>
+    <string name="audio_reading_voice">Voice</string>
+    <string name="audio_reading_voice_value">Voice: %1$s</string>
+    <string name="audio_reading_voice_unsupported">Voice: %1$s (unsupported on this device; choose another voice)</string>
+    <string name="audio_reading_speed">Speed</string>
+    <string name="audio_reading_speed_value">Speed: %1$s×</string>
+    <string name="audio_reading_speed_option">%1$s×</string>
+    <string name="audio_reading_next_notice">Changes apply to the next reading. Audio already playing keeps its current settings.</string>
+    <string name="audio_reading_reset">Use default settings</string>
+    <string name="audio_reading_policy_pending">Refresh settings to see the current reading preferences.</string>
+    <string name="audio_reading_system_paused">System AI is paused. Reading preferences are saved and will apply when it resumes.</string>
+    <string name="audio_reading_voice_paused">Voice AI is paused. You can enable it in Taku Audio.</string>
+    <string name="audio_reading_voice_zh_female_one">Chinese female voice 1</string>
+    <string name="audio_reading_voice_zh_female_two">Chinese female voice 2</string>
+    <string name="audio_reading_voice_zh_male_one">Chinese male voice 1</string>
+    <string name="audio_reading_voice_zh_male_two">Chinese male voice 2</string>
+    <string name="audio_reading_voice_en_female_one">US English female voice 1</string>
+    <string name="audio_reading_voice_en_female_two">US English female voice 2</string>
+    <string name="audio_reading_choose_voice">Choose voice</string>
+    <string name="audio_reading_choose_speed">Choose speed</string>
+    <string name="audio_reading_cancel">Cancel</string>
+    <string name="audio_reading_loading">Reading local reading settings…</string>
+    <string name="audio_reading_saving">Saving local reading settings…</string>
+    <string name="audio_reading_refreshed">Reading settings refreshed</string>
+    <string name="audio_reading_saved">Saved. Changes apply to the next reading.</string>
+    <string name="audio_reading_retry_notice">If you just changed a setting, refresh to confirm the current state before deciding whether to retry.</string>
+</resources>

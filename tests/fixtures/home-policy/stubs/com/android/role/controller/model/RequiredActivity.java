@@ -1,0 +1,1 @@
+package com.android.role.controller.model; import android.content.Intent;public class RequiredActivity {public RequiredActivity getIntentFilterData(){return this;} public Intent createIntent(){return new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME);}}

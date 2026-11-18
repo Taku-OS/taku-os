@@ -1,0 +1,84 @@
+name: Feature request
+description: Suggest a change or an idea for Taku OS.
+title: "[Feature] "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Start from the problem, not the solution.
+
+        - If you already have a concrete interface and test results, use the [capability proposal form](https://github.com/Taku-OS/taku-os-release/issues/new?template=capability-proposal.yml).
+        - If the idea is still open, start in [Issues](https://github.com/Taku-OS/taku-os-release/issues).
+        - A request is not a commitment to build it. See [what to expect from review](https://github.com/Taku-OS/taku-os-release/blob/main/CONTRIBUTING.md#what-to-expect-from-review).
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Your best guess is fine.
+      options:
+        - Agent app
+        - Assistant, Home or task service
+        - Agent runtime or model connection
+        - Memory
+        - Plugins or Skills
+        - Input method
+        - Proactive suggestions
+        - Surfaces or widgets
+        - Display or background screens
+        - SDK, CLI or protocol
+        - System image, OTA or Updater
+        - Build or tooling
+        - Documentation
+        - Other or not sure
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Who needs this, and what can't they do today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: What should happen? Give one concrete example.
+    validations:
+      required: true
+  - type: textarea
+    id: success
+    attributes:
+      label: How would you know it works?
+      description: What could someone see or test once this exists?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered
+      description: Include workarounds you use today.
+  - type: textarea
+    id: agent_gui
+    attributes:
+      label: Agent and GUI behavior
+      description: Taku OS expects an agent to be able to do what the GUI can do. If this adds a setting or user-visible data, how should each reach it?
+  - type: dropdown
+    id: contribution
+    attributes:
+      label: Would you like to work on this?
+      options:
+        - "Yes, I can open a pull request"
+        - "Maybe, with some guidance"
+        - "No, I'm only suggesting it"
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you submit
+      options:
+        - label: I searched existing issues.
+          required: true

@@ -1,0 +1,1430 @@
+{
+ "version": "0.7.0",
+ "sizes": {
+  "default": 24,
+  "compact": 20,
+  "minimum": 16
+ },
+ "color": "currentColor; set color on the parent. Disabled uses semantic-text-disabled.",
+ "sets": {
+  "ui": "Taku icons from the Figma icon page. Use first.",
+  "controls": "Multi-color control drawings (switch, checkbox, color swatch). Reference only; build real controls in code.",
+  "fallback": "Material Symbols Rounded weight 500 for phone needs the Figma page does not cover. Replace with a Taku drawing when design adds one."
+ },
+ "icons": [
+  {
+   "name": "chevron-down",
+   "set": "ui",
+   "figma": "Chevron",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)",
+   "stroke": true
+  },
+  {
+   "name": "chevron-double",
+   "set": "ui",
+   "figma": "Chevron",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)",
+   "stroke": true
+  },
+  {
+   "name": "chevron-up",
+   "set": "ui",
+   "figma": "Chevron",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)",
+   "stroke": true
+  },
+  {
+   "name": "chevron-left",
+   "set": "ui",
+   "figma": "Chevron",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)",
+   "stroke": true
+  },
+  {
+   "name": "chevron-right",
+   "set": "ui",
+   "figma": "Chevron",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)",
+   "stroke": true
+  },
+  {
+   "name": "arrow-right",
+   "set": "ui",
+   "figma": "Arrow",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "arrow-left",
+   "set": "ui",
+   "figma": "Arrow",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "arrow-up-right",
+   "set": "ui",
+   "figma": "Arrow",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "arrow-up",
+   "set": "ui",
+   "figma": "Arrow",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "arrow-down",
+   "set": "ui",
+   "figma": "Arrow",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "thumbs-up",
+   "set": "ui",
+   "figma": "Thumbs Up",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "thumbs-up-filled",
+   "set": "ui",
+   "figma": "Thumbs Up",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "thumbs-down",
+   "set": "ui",
+   "figma": "Thumbs down",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "thumbs-down-filled",
+   "set": "ui",
+   "figma": "Thumbs down",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "bell",
+   "set": "ui",
+   "figma": "Bell",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "credit",
+   "set": "ui",
+   "figma": "AIcredit",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "plus",
+   "set": "ui",
+   "figma": "Plus",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "minus",
+   "set": "ui",
+   "figma": "Minus",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "at",
+   "set": "ui",
+   "figma": "At",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "mic",
+   "set": "ui",
+   "figma": "Mic",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "ai-mode-swift",
+   "set": "ui",
+   "figma": "AI Mode",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "ai-mode-balanced",
+   "set": "ui",
+   "figma": "AI Mode",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "ai-mode-enhanced",
+   "set": "ui",
+   "figma": "AI Mode",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "site",
+   "set": "ui",
+   "figma": "Site",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "app",
+   "set": "ui",
+   "figma": "App",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "history",
+   "set": "ui",
+   "figma": "History",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "code",
+   "set": "ui",
+   "figma": "Code",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "expand",
+   "set": "ui",
+   "figma": "Expand",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "collapse",
+   "set": "ui",
+   "figma": "Collapse",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "close",
+   "set": "ui",
+   "figma": "Close",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "eye",
+   "set": "ui",
+   "figma": "Eye",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "design-mode",
+   "set": "ui",
+   "figma": "DesignMode",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "bug",
+   "set": "ui",
+   "figma": "Bug",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "edit",
+   "set": "ui",
+   "figma": "Edit",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "undo",
+   "set": "ui",
+   "figma": "Undo",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "redo",
+   "set": "ui",
+   "figma": "Redo",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "copy",
+   "set": "ui",
+   "figma": "Copy",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "refresh",
+   "set": "ui",
+   "figma": "Refresh",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "cursor",
+   "set": "ui",
+   "figma": "Cursor ",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "annotate",
+   "set": "ui",
+   "figma": "Annotate",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)",
+   "stroke": true
+  },
+  {
+   "name": "color-swatch",
+   "set": "controls",
+   "figma": "Color",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "border",
+   "set": "ui",
+   "figma": "Border",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "border-color",
+   "set": "ui",
+   "figma": "Border Color",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)",
+   "stroke": true
+  },
+  {
+   "name": "type",
+   "set": "ui",
+   "figma": "Type",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)",
+   "stroke": true
+  },
+  {
+   "name": "type-color",
+   "set": "controls",
+   "figma": "Type Color",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)",
+   "stroke": true
+  },
+  {
+   "name": "check",
+   "set": "ui",
+   "figma": "Check",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)",
+   "stroke": true
+  },
+  {
+   "name": "spacing",
+   "set": "ui",
+   "figma": "Spacing",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)",
+   "stroke": true
+  },
+  {
+   "name": "size",
+   "set": "ui",
+   "figma": "Size",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)",
+   "stroke": true
+  },
+  {
+   "name": "eraser",
+   "set": "ui",
+   "figma": "Eraser",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)",
+   "stroke": true
+  },
+  {
+   "name": "new-chat",
+   "set": "ui",
+   "figma": "New Chat",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)",
+   "stroke": true
+  },
+  {
+   "name": "chat",
+   "set": "ui",
+   "figma": "Chat",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "fullscreen-exit",
+   "set": "ui",
+   "figma": "Full Screen",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "fullscreen",
+   "set": "ui",
+   "figma": "Full Screen",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "switch-off",
+   "set": "controls",
+   "figma": "Switcher",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "switch-on",
+   "set": "controls",
+   "figma": "Switcher",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "switch-large-on",
+   "set": "controls",
+   "figma": "Switcher_Big",
+   "size": "48x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)",
+   "stroke": true
+  },
+  {
+   "name": "switch-large-off",
+   "set": "controls",
+   "figma": "Switcher_Big",
+   "size": "48x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "more",
+   "set": "ui",
+   "figma": "More",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "trash",
+   "set": "ui",
+   "figma": "Trash",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)",
+   "stroke": true
+  },
+  {
+   "name": "stop",
+   "set": "ui",
+   "figma": "Pause",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "none",
+   "set": "ui",
+   "figma": "None",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "border-solid",
+   "set": "ui",
+   "figma": "Border Style",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "border-dashed",
+   "set": "ui",
+   "figma": "Border Style",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "padding-left",
+   "set": "ui",
+   "figma": "Padding",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "padding-top",
+   "set": "ui",
+   "figma": "Padding",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "padding-bottom",
+   "set": "ui",
+   "figma": "Padding",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "padding-right",
+   "set": "ui",
+   "figma": "Padding",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "margin-left",
+   "set": "ui",
+   "figma": "Margin",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "margin-top",
+   "set": "ui",
+   "figma": "Margin",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "margin-bottom",
+   "set": "ui",
+   "figma": "Margin",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "margin-right",
+   "set": "ui",
+   "figma": "Margin",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "comment-add",
+   "set": "ui",
+   "figma": "Add Cmt",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "rectangle",
+   "set": "ui",
+   "figma": "Rectangle",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "text-add",
+   "set": "ui",
+   "figma": "Add Text",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "pencil",
+   "set": "ui",
+   "figma": "Pencil",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "checkbox-unchecked",
+   "set": "controls",
+   "figma": "Checkbox",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)",
+   "stroke": true
+  },
+  {
+   "name": "checkbox-disabled",
+   "set": "controls",
+   "figma": "Checkbox",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "checkbox-checked",
+   "set": "controls",
+   "figma": "Checkbox",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)",
+   "stroke": true
+  },
+  {
+   "name": "apps",
+   "set": "ui",
+   "figma": "Apps",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "posts",
+   "set": "ui",
+   "figma": "Posts",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "settings",
+   "set": "ui",
+   "figma": "Settings",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "logout",
+   "set": "ui",
+   "figma": "Logout",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "window",
+   "set": "ui",
+   "figma": "Window",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "library-add",
+   "set": "ui",
+   "figma": "Add to library",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "pin",
+   "set": "ui",
+   "figma": "Pin",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "pin-filled",
+   "set": "ui",
+   "figma": "Pin",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "dock-remove",
+   "set": "ui",
+   "figma": "Remove from dock",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "text-style",
+   "set": "ui",
+   "figma": "Component 1",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "letter-spacing",
+   "set": "ui",
+   "figma": "Letter spacing ",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "bold",
+   "set": "ui",
+   "figma": "Bold",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "underline",
+   "set": "ui",
+   "figma": "Underline",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "italic",
+   "set": "ui",
+   "figma": "Italic",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)",
+   "stroke": true
+  },
+  {
+   "name": "align-left",
+   "set": "ui",
+   "figma": "Align",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "align-center",
+   "set": "ui",
+   "figma": "Align",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "align-right",
+   "set": "ui",
+   "figma": "Align",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "align-justify",
+   "set": "ui",
+   "figma": "Align",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "list-bullet",
+   "set": "ui",
+   "figma": "Bullet list",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "list-number",
+   "set": "ui",
+   "figma": "Number list",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "heading",
+   "set": "ui",
+   "figma": "Heading",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "discover",
+   "set": "ui",
+   "figma": "Discovery",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "tools",
+   "set": "ui",
+   "figma": "Tools",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "creators",
+   "set": "ui",
+   "figma": "Creators",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)",
+   "stroke": true
+  },
+  {
+   "name": "categories",
+   "set": "ui",
+   "figma": "Categories",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "trend-up",
+   "set": "ui",
+   "figma": "Finance",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "dev",
+   "set": "ui",
+   "figma": "Dev",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "finance",
+   "set": "ui",
+   "figma": "Finance_2",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "design",
+   "set": "ui",
+   "figma": "Design",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "data",
+   "set": "ui",
+   "figma": "Data",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "writer",
+   "set": "ui",
+   "figma": "Writer",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "featured",
+   "set": "ui",
+   "figma": "Featured",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "posts-all",
+   "set": "ui",
+   "figma": "All Posts",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "following",
+   "set": "ui",
+   "figma": "Following",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "bookmark",
+   "set": "ui",
+   "figma": "Saved",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "bookmark-filled",
+   "set": "ui",
+   "figma": "Saved",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "posts-mine",
+   "set": "ui",
+   "figma": "My Posts",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "comment",
+   "set": "ui",
+   "figma": "Cmt",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)",
+   "stroke": true
+  },
+  {
+   "name": "heart",
+   "set": "ui",
+   "figma": "Heart",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)",
+   "stroke": true
+  },
+  {
+   "name": "heart-filled",
+   "set": "ui",
+   "figma": "Heart",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)",
+   "stroke": true
+  },
+  {
+   "name": "share",
+   "set": "ui",
+   "figma": "Share",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "calendar",
+   "set": "ui",
+   "figma": "Calendar",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "search",
+   "set": "ui",
+   "figma": "Search",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "crown",
+   "set": "ui",
+   "figma": "Crown",
+   "size": "12x12",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "unpublish",
+   "set": "ui",
+   "figma": "Unpublish",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "ai-edit",
+   "set": "ui",
+   "figma": "AI Edit",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "internet",
+   "set": "ui",
+   "figma": "Internet",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "tab",
+   "set": "ui",
+   "figma": "Tab",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "folder-add",
+   "set": "ui",
+   "figma": "Folder add",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "scissors",
+   "set": "ui",
+   "figma": "Scissor",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "swap",
+   "set": "ui",
+   "figma": "Switch",
+   "size": "24x24",
+   "source": "Figma desktop icon page (file 2RmfOxdQtPgHoFcNRi7pjJ, Frame 238)"
+  },
+  {
+   "name": "home",
+   "set": "fallback",
+   "material": "home",
+   "purpose": "Home",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "send",
+   "set": "fallback",
+   "material": "send",
+   "purpose": "Send",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "call",
+   "set": "fallback",
+   "material": "call",
+   "purpose": "Phone call",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "lock",
+   "set": "fallback",
+   "material": "lock",
+   "purpose": "Locked",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "person",
+   "set": "fallback",
+   "material": "person",
+   "purpose": "Person",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "group",
+   "set": "fallback",
+   "material": "group",
+   "purpose": "Group / people",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "shopping-cart",
+   "set": "fallback",
+   "material": "shopping_cart",
+   "purpose": "Cart",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "credit-card",
+   "set": "fallback",
+   "material": "credit_card",
+   "purpose": "Card / payment method",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "payments",
+   "set": "fallback",
+   "material": "payments",
+   "purpose": "Money / bill",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "receipt",
+   "set": "fallback",
+   "material": "receipt_long",
+   "purpose": "Receipt / order",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "info",
+   "set": "fallback",
+   "material": "info",
+   "purpose": "Information",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "error",
+   "set": "fallback",
+   "material": "error",
+   "purpose": "Error state",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "check-circle",
+   "set": "fallback",
+   "material": "check_circle",
+   "purpose": "Done state",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "schedule",
+   "set": "fallback",
+   "material": "schedule",
+   "purpose": "Time",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "location",
+   "set": "fallback",
+   "material": "location_on",
+   "purpose": "Place",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "camera",
+   "set": "fallback",
+   "material": "photo_camera",
+   "purpose": "Camera",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "image",
+   "set": "fallback",
+   "material": "image",
+   "purpose": "Photo",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "mail",
+   "set": "fallback",
+   "material": "mail",
+   "purpose": "Email",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "play",
+   "set": "fallback",
+   "material": "play_arrow",
+   "purpose": "Play",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "pause",
+   "set": "fallback",
+   "material": "pause",
+   "purpose": "Pause",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "music",
+   "set": "fallback",
+   "material": "music_note",
+   "purpose": "Music",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "headphones",
+   "set": "fallback",
+   "material": "headphones",
+   "purpose": "Headphones",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "volume",
+   "set": "fallback",
+   "material": "volume_up",
+   "purpose": "Volume",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "wifi",
+   "set": "fallback",
+   "material": "wifi",
+   "purpose": "Wi-Fi",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "bluetooth",
+   "set": "fallback",
+   "material": "bluetooth",
+   "purpose": "Bluetooth",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "airplane",
+   "set": "fallback",
+   "material": "flight",
+   "purpose": "Flight / airplane mode",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "dark-mode",
+   "set": "fallback",
+   "material": "dark_mode",
+   "purpose": "Night",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "light-mode",
+   "set": "fallback",
+   "material": "light_mode",
+   "purpose": "Day",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "flashlight",
+   "set": "fallback",
+   "material": "flashlight_on",
+   "purpose": "Torch",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "battery",
+   "set": "fallback",
+   "material": "battery_full",
+   "purpose": "Battery",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "signal",
+   "set": "fallback",
+   "material": "signal_cellular_alt",
+   "purpose": "Cellular",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "bolt",
+   "set": "fallback",
+   "material": "bolt",
+   "purpose": "Quick action / power",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "car",
+   "set": "fallback",
+   "material": "directions_car",
+   "purpose": "Car / ride",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "taxi",
+   "set": "fallback",
+   "material": "local_taxi",
+   "purpose": "Taxi",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "restaurant",
+   "set": "fallback",
+   "material": "restaurant",
+   "purpose": "Restaurant",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "coffee",
+   "set": "fallback",
+   "material": "coffee",
+   "purpose": "Coffee",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "cooking",
+   "set": "fallback",
+   "material": "cooking",
+   "purpose": "Cooking",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "bed",
+   "set": "fallback",
+   "material": "bed",
+   "purpose": "Sleep",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "hotel",
+   "set": "fallback",
+   "material": "hotel",
+   "purpose": "Hotel",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "thermostat",
+   "set": "fallback",
+   "material": "thermostat",
+   "purpose": "Temperature",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "lightbulb",
+   "set": "fallback",
+   "material": "lightbulb",
+   "purpose": "Light",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "phone",
+   "set": "fallback",
+   "material": "mobile",
+   "purpose": "Phone screen",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "hand",
+   "set": "fallback",
+   "material": "pan_tool",
+   "purpose": "Hand / gesture",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "document",
+   "set": "fallback",
+   "material": "description",
+   "purpose": "Document",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "folder",
+   "set": "fallback",
+   "material": "folder",
+   "purpose": "Folder",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "download",
+   "set": "fallback",
+   "material": "download",
+   "purpose": "Download",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "upload",
+   "set": "fallback",
+   "material": "upload",
+   "purpose": "Upload",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "link",
+   "set": "fallback",
+   "material": "link",
+   "purpose": "Link",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "keyboard",
+   "set": "fallback",
+   "material": "keyboard",
+   "purpose": "Keyboard",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "tune",
+   "set": "fallback",
+   "material": "tune",
+   "purpose": "Adjust",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "star",
+   "set": "fallback",
+   "material": "star",
+   "purpose": "Favorite",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "qr-code",
+   "set": "fallback",
+   "material": "qr_code_scanner",
+   "purpose": "Scan",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "cloud",
+   "set": "fallback",
+   "material": "cloud",
+   "purpose": "Cloud / sync",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "sync",
+   "set": "fallback",
+   "material": "sync",
+   "purpose": "Sync",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "event",
+   "set": "fallback",
+   "material": "event",
+   "purpose": "Event",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "pet",
+   "set": "fallback",
+   "material": "pets",
+   "purpose": "Pet",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "gift",
+   "set": "fallback",
+   "material": "redeem",
+   "purpose": "Gift",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "cake",
+   "set": "fallback",
+   "material": "cake",
+   "purpose": "Birthday",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "fitness",
+   "set": "fallback",
+   "material": "fitness_center",
+   "purpose": "Workout",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "directions",
+   "set": "fallback",
+   "material": "directions",
+   "purpose": "Directions",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  },
+  {
+   "name": "notifications-off",
+   "set": "fallback",
+   "material": "notifications_off",
+   "purpose": "Muted",
+   "size": "24x24",
+   "source": "Material Symbols Rounded, weight 500 (@material-symbols/svg-500 0.48.1, Apache-2.0)"
+  }
+ ]
+}

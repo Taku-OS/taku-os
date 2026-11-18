@@ -1,0 +1,2 @@
+package android.content; import android.content.pm.PackageManager; import java.util.*;
+public class Context {public <T> T getSystemService(Class<T> c){try{return c.getConstructor().newInstance();}catch(Exception e){throw new RuntimeException(e);}}public PackageManager pm=new PackageManager(); public Map<Integer,Context> users=new HashMap<>(); public PackageManager getPackageManager(){return pm;} public void startActivity(Intent i){}}

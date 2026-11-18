@@ -1,0 +1,51 @@
+/** Chat (2-1) and Taku Home (2-5) copy in English and Chinese. */
+const en = {
+  home: 'Taku Home', collapse: 'Collapse', search: 'Search', searchChats: 'Search chats', back: 'Back', retry: 'Try again', loading: 'Loading…',
+  all: 'All', panels: 'Panels', chats: 'Chats', seeAll: 'See all', newChat: 'New chat',
+  noChats: 'No conversations yet', noResults: 'No matching conversations', settingsAndTools: 'Settings & tools',
+  settings: 'Settings', pluginMarket: 'Plugin market', advancedControls: 'Advanced controls', save: 'Save', cancel: 'Cancel',
+  greeting: 'Taku is here, how can I help you?', ask: 'Ask Taku to do anything...', collapseToIsland: 'Collapse to the Dynamic Island',
+  voice: 'Voice input', copy: 'Copy', copied: 'Copied', select: 'Select', done: 'Done',
+  showChat: 'Show conversation', showTasks: 'Show this conversation’s activity', openPanel: 'Open panel',
+  listening: 'Listening…', stopVoice: 'Stop voice input', voiceUnavailable: 'Voice input isn’t available on this device',
+  voiceDisabled: 'Voice input is turned off in Taku AI settings', voiceBusy: 'The microphone is in use. Try again in a moment.',
+  panelsEmpty: 'Pin a panel from a chat to see it here.', panelsError: 'Could not load panels. Try again.',
+  panelsUpdateRequired: 'Update the Assistant to use panels.', panelMissing: 'This panel is no longer available.',
+  panelUnavailable: 'This panel could not be loaded. Try again.', panelManage: 'Panel actions', panelRename: 'Rename',
+  panelSaveTitle: 'Save title', panelTitleLabel: 'Panel title', panelTitleInvalid: 'Use a title of 1 to 120 characters.',
+  panelMoveUp: 'Move up', panelMoveDown: 'Move down', panelUnpin: 'Unpin',
+  panelStaleState: 'The panel list changed. The latest list is shown.',
+  panelContinue: 'Continue editing', panelContinueFailed: 'Could not open the original conversation. Try again.',
+  panelSourceOffline: 'The source is offline. Showing the last saved content.',
+  panelSourceThreadUnavailable: 'The original conversation is unavailable. Continue editing is disabled.',
+  panelSourceUnavailable: 'The source is unavailable.', panelUpdated: 'Content updated',
+  panelUpdateFailed: 'The last update did not apply.',
+  panelUpdateAmbiguous: 'The last update had more than one candidate, so the previous content is kept.',
+};
+type Key = keyof typeof en;
+const zh: Record<Key, string> = {
+  home: 'Taku 主页', collapse: '收起', search: '搜索', searchChats: '搜索对话', back: '返回', retry: '重试', loading: '加载中…',
+  all: '全部', panels: '面板', chats: '对话', seeAll: '查看全部', newChat: '新对话',
+  noChats: '还没有对话', noResults: '没有匹配的对话', settingsAndTools: '设置与工具',
+  settings: '设置', pluginMarket: '插件市场', advancedControls: '高级控制', save: '保存', cancel: '取消',
+  greeting: 'Taku 在这里，有什么可以帮你？', ask: '让 Taku 帮你做任何事…', collapseToIsland: '收起到灵动岛',
+  voice: '语音输入', copy: '复制', copied: '已复制', select: '选择', done: '完成',
+  showChat: '显示聊天', showTasks: '显示当前会话的执行过程', openPanel: '打开面板',
+  listening: '正在聆听…', stopVoice: '停止语音输入', voiceUnavailable: '此设备暂不支持语音输入',
+  voiceDisabled: '语音输入已在 Taku AI 设置中关闭', voiceBusy: '麦克风正在使用中，请稍后再试',
+  panelsEmpty: '在聊天中固定面板后，会显示在这里。', panelsError: '面板暂时无法加载，请重试。',
+  panelsUpdateRequired: '请更新 Assistant 后使用面板。', panelMissing: '该面板已不存在。',
+  panelUnavailable: '面板暂时无法加载，请重试。', panelManage: '面板操作', panelRename: '重命名',
+  panelSaveTitle: '保存标题', panelTitleLabel: '面板标题', panelTitleInvalid: '标题需为 1 至 120 个字符。',
+  panelMoveUp: '上移', panelMoveDown: '下移', panelUnpin: '取消固定',
+  panelStaleState: '面板列表已变化，已显示最新列表。',
+  panelContinue: '继续修改', panelContinueFailed: '暂时无法打开原对话，请重试。',
+  panelSourceOffline: '来源已离线，显示上次保存的内容。',
+  panelSourceThreadUnavailable: '原对话不可用，暂时无法继续修改。',
+  panelSourceUnavailable: '来源不可用。', panelUpdated: '内容已更新',
+  panelUpdateFailed: '上次更新未生效。',
+  panelUpdateAmbiguous: '上次更新存在多个候选，保留了之前的内容。',
+};
+
+export type ChatTextKey = Key;
+export const chatText = (language: 'en' | 'zh') => (key: Key) => (language === 'zh' ? zh : en)[key];

@@ -1,0 +1,44 @@
+{
+  "modelResponsesSimulated": false,
+  "pageSynthetic": true,
+  "observationInjected": false,
+  "passed": true,
+  "initialCounts": {
+    "count": 1,
+    "queued": 0
+  },
+  "systemModel": "codex/gpt-6-luna",
+  "systemRevision": 40,
+  "sourceRecord": {
+    "id": "fbec6a24-cbc0-4fc2-b8d7-65b772089c8e",
+    "source": "org.agentos.memorytests",
+    "page": "window:4478",
+    "title": "系统 AI · 记忆整理验收",
+    "body": "系统 AI · 记忆整理验收\n合成群聊 · 周五约饭\n阿泽：周五晚上七点半，在地铁口火锅店集合。\n小林：我们一共四个人，餐位还没有预订，需要再确认。\n米粒：请大家先确认能否到场，再商量谁联系餐厅。\n这不是用户真实聊天。验收批次 1792685861",
+    "digest": "fcdc347f7de99ce632489356a8e8b5ca6f49d094152dc11e0b24c41d70f92bd0",
+    "first_seen": 1792685868381,
+    "last_seen": 1792685868381,
+    "revision": 1,
+    "category": "生活",
+    "analysis": "ready",
+    "model": "codex/gpt-6-luna",
+    "score": 0.76,
+    "decision": "organize",
+    "confidence": 0.98,
+    "suggested_at": 0,
+    "task_id": "",
+    "task_state": ""
+  },
+  "receipts": [
+    {
+      "consumer": "memory",
+      "model": "codex/gpt-6-luna",
+      "elapsedMs": 3557,
+      "status": "completed",
+      "code": "",
+      "at": 1792685895942
+    }
+  ],
+  "queueAfter": 0,
+  "collectionSettingsRestored": true
+}

@@ -1,0 +1,8 @@
+<!doctype html><html lang="zh"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Taku 输入法 · 浏览器回归</title>
+<style>*{box-sizing:border-box}body{margin:0;background:#f5f3ee;color:#262720;font:17px system-ui}main{padding:16px}h1{font-size:23px;margin:4px 0}small{color:#7a7970}p{background:white;border-radius:12px;padding:12px;margin:10px 0}label{display:block;margin-top:12px;font-size:14px;color:#66665f}textarea,input{font:18px system-ui;width:100%;padding:12px;border:1px solid #deddd5;border-radius:10px;background:white;resize:none}textarea:focus,input:focus{outline:2px solid #ff5b1a}#notice{font-size:13px;color:#777}</style>
+<main><h1>周五约饭 · 浏览器示例</h1><small>本地合成页面，用于真实浏览器输入回归</small><section><p>小林：周五晚上一起吃火锅吧？</p><p>米粒：七点半在地铁口那家集合，还没订座。</p><p>阿泽：先确认人数，再商量谁联系餐厅。你能来吗？</p></section>
+<label for="compose">聊天输入框</label><textarea id="compose" rows="2" aria-label="浏览器测试输入框" placeholder="说点什么…"></textarea>
+<label for="number">数字输入</label><input id="number" type="number" aria-label="浏览器数字输入框">
+<label for="password">密码边界测试</label><input id="password" type="password" aria-label="浏览器密码输入框" autocomplete="off">
+<p id="notice">页面没有发送按钮；文字只用于本次本地测试。</p></main>
+<script>const send=()=>fetch('/state',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({compose:compose.value,number:number.value,passwordLength:password.value.length,active:document.activeElement.id})});document.querySelectorAll('input,textarea').forEach(e=>{e.addEventListener('input',send);e.addEventListener('focus',send)});send();</script></html>

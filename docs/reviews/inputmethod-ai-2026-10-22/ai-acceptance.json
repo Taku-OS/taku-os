@@ -1,0 +1,24 @@
+{
+  "modelResponsesSimulated": false,
+  "serial": "46170DLAQ0006D",
+  "androidSdk": "37",
+  "checks": [
+    "natural pending copy appears above normal keyboard",
+    "first real pinyin key immediately hides AI row",
+    "canceled request cannot return to keyboard",
+    "FLAG_SECURE rejected before screenshot capture",
+    "password editor never shows AI row"
+  ],
+  "generationVerified": false,
+  "modelBlocker": {
+    "id": "6c88bd7c-3aaf-44c5-9c73-1bff387a12b4",
+    "state": "failed",
+    "message": "这次没连上模型，先按你的想法说吧"
+  },
+  "secureJob": {
+    "id": "0c8f1c58-589c-419b-935e-b709ad000fab",
+    "state": "failed",
+    "message": "这个页面就留在你这里"
+  },
+  "status": "local_verified_model_pending"
+}

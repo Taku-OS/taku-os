@@ -1,0 +1,264 @@
+{
+  "checkedAt": "2026-10-20T04:24:22.205667+00:00",
+  "status": "passed",
+  "summary": {
+    "passed": 12
+  },
+  "checks": [
+    {
+      "name": "complete_UI_to_API",
+      "status": "passed",
+      "detail": {
+        "dataKey": "actions",
+        "itemId": "easy1",
+        "fromVersion": 6,
+        "toVersion": 7,
+        "completedAt": "2026-10-20T03:49:52.276Z"
+      }
+    },
+    {
+      "name": "source_name_recheck_preserves_state",
+      "status": "passed",
+      "detail": {
+        "titleChanges": [
+          {
+            "dataKey": "places",
+            "id": "baidu-poman-longhua2502",
+            "before": "珀曼建设(徐汇旗舰店)",
+            "after": "健身房（徐汇旗舰店，完整店名待补充）"
+          }
+        ],
+        "addedSources": [
+          {
+            "dataKey": "places",
+            "id": "baidu-supermonkey-huashan2038-403"
+          }
+        ],
+        "originalSourceCount": 4,
+        "finalSourceCount": 5,
+        "stableIdsPreserved": true,
+        "completionTimePreserved": true,
+        "limitation": "Only captured values were compared; this check does not infer or certify the correct merchant name."
+      }
+    },
+    {
+      "name": "reopen_completed_full_panel",
+      "status": "passed",
+      "detail": {
+        "panelId": "cab72800-231f-4983-95c8-f7298ea37599",
+        "version": 9,
+        "fullPanelEqual": true
+      }
+    },
+    {
+      "name": "undo_UI_to_API",
+      "status": "passed",
+      "detail": {
+        "dataKey": "actions",
+        "itemId": "easy1",
+        "fromVersion": 9,
+        "toVersion": 10,
+        "completedAt": null
+      }
+    },
+    {
+      "name": "reopen_undone_full_panel",
+      "status": "passed",
+      "detail": {
+        "panelId": "cab72800-231f-4983-95c8-f7298ea37599",
+        "version": 10,
+        "fullPanelEqual": true
+      }
+    },
+    {
+      "name": "original_generic_panels_preserved",
+      "status": "passed",
+      "detail": {
+        "originalCount": 3,
+        "retainedIds": [
+          "3854c734-2446-4835-9eee-0c6e74e8c3c8",
+          "569646a1-763d-40cc-bc78-8c973e42eb78",
+          "69eb0044-2852-49bf-a4fe-073fc1412956"
+        ],
+        "newIds": [
+          "ca9e2ed7-3979-469a-bf6e-2e5ad074a264",
+          "cab72800-231f-4983-95c8-f7298ea37599"
+        ]
+      }
+    },
+    {
+      "name": "old_half_marathon_raw_bytes_preserved",
+      "status": "passed",
+      "detail": {
+        "bytes": 121542,
+        "sha256": "913b0605653da9086aeff4860137b5856493952a040db58d8fbea5520de789e0",
+        "rawBytesEqual": true
+      }
+    },
+    {
+      "name": "final_persisted_panel_matches_reopen",
+      "status": "passed",
+      "detail": {
+        "panelId": "cab72800-231f-4983-95c8-f7298ea37599",
+        "version": 10
+      }
+    },
+    {
+      "name": "required_real_source_metadata_records",
+      "status": "passed",
+      "detail": {
+        "count": 5,
+        "byApp": {
+          "Keep": 2,
+          "百度地图": 3
+        },
+        "requiredCategories": {
+          "keep_warmup": [
+            "keep-warmup-official-8"
+          ],
+          "keep_stretch": [
+            "keep-stretch-official-5"
+          ],
+          "baidu_gym": [
+            "baidu-poman-longhua2502",
+            "baidu-supermonkey-huashan2038-403"
+          ],
+          "baidu_meal": [
+            "baidu-kpro-dongan562"
+          ]
+        },
+        "ids": [
+          "keep-warmup-official-8",
+          "keep-stretch-official-5",
+          "baidu-poman-longhua2502",
+          "baidu-kpro-dongan562",
+          "baidu-supermonkey-huashan2038-403"
+        ],
+        "timestampsIncludeTimezone": true
+      }
+    },
+    {
+      "name": "real_phone_tool_calls_and_apps",
+      "status": "passed",
+      "detail": {
+        "successfulToolCounts": {
+          "device_info": 3,
+          "open_app": 4,
+          "observe_background": 33,
+          "tap": 22,
+          "type_text": 6
+        },
+        "openedPackages": [
+          "com.baidu.BaiduMap",
+          "com.gotokeep.keep"
+        ],
+        "failedCalls": []
+      }
+    },
+    {
+      "name": "real_source_search_keywords_typed",
+      "status": "passed",
+      "detail": {
+        "matchedSearches": [
+          {
+            "packageName": "com.baidu.BaiduMap",
+            "keyword": "上海徐汇 健身房"
+          },
+          {
+            "packageName": "com.baidu.BaiduMap",
+            "keyword": "上海徐汇 轻食"
+          },
+          {
+            "packageName": "com.gotokeep.keep",
+            "keyword": "跑前热身"
+          },
+          {
+            "packageName": "com.gotokeep.keep",
+            "keyword": "跑后拉伸"
+          }
+        ],
+        "failedAttempts": []
+      }
+    },
+    {
+      "name": "real_panel_source_writeback",
+      "status": "passed",
+      "detail": {
+        "matchedCount": 5,
+        "successfulWrites": [
+          {
+            "turnId": "01a15768-f04d-7d31-aeb3-2fb5b1917824",
+            "itemId": "exec-3768afe7-20e7-4c56-aaca-52edb80e9806",
+            "dataKey": "courses",
+            "sourceIds": [
+              "keep-warmup-official-8"
+            ]
+          },
+          {
+            "turnId": "01a15768-f04d-7d31-aeb3-2fb5b1917824",
+            "itemId": "exec-2bad23d7-1ba2-4f5a-b569-d39f40c9c61c",
+            "dataKey": "courses",
+            "sourceIds": [
+              "keep-stretch-official-5"
+            ]
+          },
+          {
+            "turnId": "01a15768-f04d-7d31-aeb3-2fb5b1917824",
+            "itemId": "exec-2eb3359a-7203-4e4e-a21c-04b8ae64acb4",
+            "dataKey": "places",
+            "sourceIds": [
+              "baidu-poman-longhua2502"
+            ]
+          },
+          {
+            "turnId": "01a15768-f04d-7d31-aeb3-2fb5b1917824",
+            "itemId": "exec-71e53d4d-ea6b-487f-ba51-239a9d18a109",
+            "dataKey": "places",
+            "sourceIds": [
+              "baidu-kpro-dongan562"
+            ]
+          },
+          {
+            "turnId": "01a15768-f04d-7d31-aeb3-2fb5b1917824",
+            "itemId": "exec-9c98a44f-026c-4699-8aec-3b157cab950b",
+            "dataKey": "courses",
+            "sourceIds": [
+              "keep-stretch-official-5"
+            ]
+          },
+          {
+            "turnId": "01a1576e-e5ca-7682-9056-1cb25219ab39",
+            "itemId": "exec-f7598069-9cb1-4962-9ab8-a87dea4d7fcc",
+            "dataKey": "places",
+            "sourceIds": [
+              "baidu-poman-longhua2502"
+            ]
+          },
+          {
+            "turnId": "01a15785-fcdc-7890-841d-db58819372d6",
+            "itemId": "exec-47eb0777-fa26-421a-977f-4aa5c8e57c63",
+            "dataKey": "places",
+            "sourceIds": [
+              "baidu-supermonkey-huashan2038-403"
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "missingFiles": [],
+  "inputSha256": {
+    "panels-before.json": "1475c653498fc8c2e03fc06ec2ddd32eb793a57b69c18a5d799dc39721e10273",
+    "half_marathon-before.json": "913b0605653da9086aeff4860137b5856493952a040db58d8fbea5520de789e0",
+    "attempt-02-task-tracking/15-before-completion.json": "46b9d8c999234ecd18f035ad8e710c7c06ce187a862392cbcfb3203255ce3cf7",
+    "attempt-02-task-tracking/16-completed.json": "859f0c381892e3c6ed5866ece6a9b02a49fd47c2c1168f9742206578ac486804",
+    "attempt-02-task-tracking/19e-final-sources.json": "303de3c685c63d9bde76c15c43bab149f934d2d978462135fb7475112fc473a4",
+    "attempt-02-task-tracking/20-reopened-completed.json": "303de3c685c63d9bde76c15c43bab149f934d2d978462135fb7475112fc473a4",
+    "attempt-02-task-tracking/21-undone.json": "39ef12cf01ba6e76b6e0721fdd3e8e349a2459a6476d6e4240601f6701b1cf49",
+    "attempt-02-task-tracking/22-reopened-undone.json": "39ef12cf01ba6e76b6e0721fdd3e8e349a2459a6476d6e4240601f6701b1cf49",
+    "panels-final.json": "182a6c665922420ecb6c82fa2e99e460d961d377dada4cc4d1b78355e0170668",
+    "half_marathon-final.json": "913b0605653da9086aeff4860137b5856493952a040db58d8fbea5520de789e0",
+    "attempt-02-task-tracking/agent-trace.json": "3b55590c4e1f2ebb31b039af7ea9e1b7b39a1e1825a67f28e64cfccbf437cd1c"
+  },
+  "boundary": "Offline captured-evidence comparison only; screenshots/recordings establish the UI gestures. Source title changes are measured values, not an inferred name correction."
+}

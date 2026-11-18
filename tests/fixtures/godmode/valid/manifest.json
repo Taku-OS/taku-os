@@ -1,0 +1,1 @@
+{"schemaVersion":1,"id":"org.example.statusbar","name":"Status bar example","version":"1.0.0","type":"hook","entrypoint":{"dex":"plugin.dex","class":"org.example.StatusBarPlugin"},"minHostVersion":"1.0.0","targets":["com.android.systemui"],"capabilities":[],"permissions":[],"ui":[],"settings":[],"hooks":["status-bar"],"runtime":"target-process"}

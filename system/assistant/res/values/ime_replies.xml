@@ -1,0 +1,4 @@
+<resources>
+    <!-- Public development certificate. Release builds must use their own trusted IME certificate. -->
+    <string-array name="ime_reply_signers"><item>2052b7ae36605273c880885288dc6c09e1511d2d10d40539af891e2ffcd61c3c</item></string-array>
+</resources>

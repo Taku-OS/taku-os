@@ -1,0 +1,306 @@
+--- a/app/src/main/AndroidManifest.xml
++++ b/app/src/main/AndroidManifest.xml
+@@ -5,7 +5,7 @@
+ -->
+ <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+     package="org.lineageos.updater"
+-    android:versionCode="1">
++    android:versionCode="2">
+ 
+     <uses-permission android:name="android.permission.ACCESS_CACHE_FILESYSTEM" />
+     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+--- a/app/src/main/java/org/lineageos/updater/controller/UpdaterController.java
++++ b/app/src/main/java/org/lineageos/updater/controller/UpdaterController.java
+@@ -18,6 +18,7 @@
+ import org.lineageos.updater.data.source.local.UpdatesLocalDataSource;
+ import org.lineageos.updater.data.source.local.UpdatesDatabase;
+ import org.lineageos.updater.download.DownloadClient;
++import org.lineageos.updater.download.DownloadIntegrity;
+ import org.lineageos.updater.misc.Utils;
+ 
+ import java.io.File;
+@@ -157,17 +158,8 @@
+                 synchronized (entry) {
+                     final Update update = entry.mUpdate;
+                     Update.Builder builder = update.toBuilder();
+-                    String contentLength = headers.get("Content-Length");
+-                    if (contentLength != null) {
+-                        try {
+-                            long size = Long.parseLong(contentLength);
+-                            if (update.getFileSize() < size) {
+-                                builder.setFileSize(size);
+-                            }
+-                        } catch (NumberFormatException e) {
+-                            Log.e(TAG, "Could not get content-length");
+-                        }
+-                    }
++                    // Keep the exact size from the accepted update feed. The HTTP client
++                    // checks the response length separately, including resumed ranges.
+                     builder.setStatus(UpdateStatus.DOWNLOADING);
+                     newUpdate = builder.build();
+                     entry.mUpdate = newUpdate;
+@@ -260,7 +252,7 @@
+             if (entry != null) {
+                 Update update = entry.mUpdate;
+                 File file = update.getFile();
+-                if (file.exists() && verifyPackage(file)) {
++                if (file.exists() && verifyPackage(file, downloadId, update.getFileSize())) {
+                     file.setReadable(true, false);
+                     synchronized (entry) {
+                         entry.mUpdate = entry.mUpdate.withStatus(UpdateStatus.VERIFIED);
+@@ -281,8 +273,9 @@
+         }).start();
+     }
+ 
+-    private boolean verifyPackage(File file) {
++    private boolean verifyPackage(File file, String expectedSha256, long expectedSize) {
+         try {
++            DownloadIntegrity.verifyFile(file, expectedSha256, expectedSize);
+             android.os.RecoverySystem.verifyPackage(file, null, null);
+             Log.e(TAG, "Verification successful");
+             return true;
+@@ -443,10 +436,16 @@
+         }
+         Update update = entry.mUpdate;
+         File file = update.getFile();
+-        if (file == null || !file.exists()) {
+-            Log.e(TAG, "The destination file of " + downloadId + " doesn't exist, can't resume");
++        if (file == null) {
++            Log.e(TAG, "The destination file of " + downloadId + " is missing, can't resume");
+             entry.mUpdate = entry.mUpdate.withStatus(UpdateStatus.PAUSED_ERROR);
+             notifyUpdateChange(downloadId);
++            return;
++        }
++        if (!file.exists()) {
++            // A first network failure may not have created a file. Restart the
++            // actual controller path instead of leaving Resume in PAUSED_ERROR.
++            startDownload(downloadId);
+             return;
+         }
+         if (isFullyDownloaded(update)) {
+--- /dev/null
++++ b/app/src/main/java/org/lineageos/updater/download/DownloadIntegrity.java
+@@ -0,0 +1,114 @@
++/*
++ * SPDX-FileCopyrightText: 2026 Taku OS
++ * SPDX-License-Identifier: Apache-2.0
++ */
++package org.lineageos.updater.download;
++
++import java.io.File;
++import java.io.FileInputStream;
++import java.io.IOException;
++import java.security.MessageDigest;
++import java.security.NoSuchAlgorithmException;
++import java.util.regex.Matcher;
++import java.util.regex.Pattern;
++
++/** Byte-level checks shared by whole-package and payload-range downloads. */
++public final class DownloadIntegrity {
++    private static final Pattern CONTENT_RANGE =
++            Pattern.compile("bytes ([0-9]+)-([0-9]+)/([0-9]+)");
++    private static final Pattern SHA256 = Pattern.compile("[0-9a-fA-F]{64}");
++
++    private DownloadIntegrity() {}
++
++    public static final class ContentRange {
++        public final long start;
++        public final long end;
++        public final long total;
++
++        private ContentRange(long start, long end, long total) {
++            this.start = start;
++            this.end = end;
++            this.total = total;
++        }
++    }
++
++    public static ContentRange parseContentRange(String header) throws IOException {
++        Matcher match = CONTENT_RANGE.matcher(header == null ? "" : header);
++        if (!match.matches()) throw new IOException("Invalid Content-Range");
++        try {
++            long start = Long.parseLong(match.group(1));
++            long end = Long.parseLong(match.group(2));
++            long total = Long.parseLong(match.group(3));
++            if (start > end || total <= 0 || end >= total) {
++                throw new IOException("Invalid Content-Range boundaries");
++            }
++            return new ContentRange(start, end, total);
++        } catch (NumberFormatException e) {
++            throw new IOException("Content-Range overflow", e);
++        }
++    }
++
++    public static boolean hasResumeData(File destination) {
++        return destination.isFile() && destination.length() > 0;
++    }
++
++    public static long validateResponse(boolean resumed, long offset, int status,
++            String contentRange, long contentLength) throws IOException {
++        if (offset < 0 || contentLength < -1) throw new IOException("Invalid response length");
++        if (!resumed) {
++            if (offset != 0 || status != 200 || contentRange != null) {
++                throw new IOException("Expected a complete HTTP 200 response");
++            }
++            if (contentLength == 0) throw new IOException("Empty update response");
++            return contentLength;
++        }
++        if (status != 206 || offset <= 0) throw new IOException("Expected resumed HTTP 206");
++        ContentRange range = parseContentRange(contentRange);
++        if (range.start != offset || range.end != range.total - 1) {
++            throw new IOException("Resumed Content-Range differs from requested remainder");
++        }
++        long remaining = range.total - range.start;
++        if (contentLength >= 0 && contentLength != remaining) {
++            throw new IOException("Range Content-Length differs");
++        }
++        return range.total;
++    }
++
++    public static void verifyLength(long actual, long expected) throws IOException {
++        if (actual < 0 || (expected >= 0 && actual != expected)) {
++            throw new IOException("Truncated or oversized update response");
++        }
++    }
++
++    public static void verifyFile(File file, String expectedSha256, long expectedSize)
++            throws IOException {
++        if (expectedSize <= 0 || expectedSha256 == null
++                || !SHA256.matcher(expectedSha256).matches()) {
++            throw new IOException("Missing accepted update size or SHA-256");
++        }
++        verifyLength(file.length(), expectedSize);
++        try {
++            MessageDigest sha = MessageDigest.getInstance("SHA-256");
++            long size = 0;
++            try (FileInputStream input = new FileInputStream(file)) {
++                byte[] buffer = new byte[64 * 1024];
++                int count;
++                while ((count = input.read(buffer)) != -1) {
++                    sha.update(buffer, 0, count);
++                    size += count;
++                }
++            }
++            verifyLength(size, expectedSize);
++            StringBuilder hex = new StringBuilder(64);
++            for (byte b : sha.digest()) {
++                hex.append(Character.forDigit((b >>> 4) & 15, 16));
++                hex.append(Character.forDigit(b & 15, 16));
++            }
++            if (!hex.toString().equalsIgnoreCase(expectedSha256)) {
++                throw new IOException("Downloaded update SHA-256 differs from accepted feed");
++            }
++        } catch (NoSuchAlgorithmException e) {
++            throw new IOException("SHA-256 unavailable", e);
++        }
++    }
++}
+--- a/app/src/main/java/org/lineageos/updater/download/HttpURLConnectionClient.java
++++ b/app/src/main/java/org/lineageos/updater/download/HttpURLConnectionClient.java
+@@ -50,6 +50,7 @@
+             DownloadClient.DownloadCallback callback,
+             boolean useDuplicateLinks) throws IOException {
+         mClient = (HttpURLConnection) new URL(url).openConnection();
++        mClient.setRequestProperty("Accept-Encoding", "identity");
+         mDestination = destination;
+         mProgressListener = progressListener;
+         mCallback = callback;
+@@ -85,8 +86,9 @@
+     }
+ 
+     private void downloadFileResumeInternal() {
+-        if (!mDestination.exists()) {
+-            mCallback.onFailure(false);
++        if (!DownloadIntegrity.hasResumeData(mDestination)) {
++            // An initial network failure may not have created a destination yet.
++            downloadFileInternalCommon(false);
+             return;
+         }
+         long offset = mDestination.length();
+@@ -193,6 +195,7 @@
+             String range = mClient.getRequestProperty("Range");
+             mClient.disconnect();
+             mClient = (HttpURLConnection) newUrl.openConnection();
++        mClient.setRequestProperty("Accept-Encoding", "identity");
+             if (range != null) {
+                 mClient.setRequestProperty("Range", range);
+             }
+@@ -281,23 +284,19 @@
+                     responseCode = mClient.getResponseCode();
+                 }
+ 
++                long offset = mResume ? mDestination.length() : 0;
++                long expectedLength = DownloadIntegrity.validateResponse(mResume, offset,
++                        responseCode, mClient.getHeaderField("Content-Range"),
++                        mClient.getContentLengthLong());
+                 mCallback.onResponse(new Headers());
+-
+-                if (mResume && isPartialContentCode(responseCode)) {
+-                    justResumed = true;
+-                    mTotalBytesRead = mDestination.length();
+-                    Log.d(TAG, "The server fulfilled the partial content request");
+-                } else if (mResume || !isSuccessCode(responseCode)) {
+-                    Log.e(TAG, "The server replied with code " + responseCode);
+-                    mCallback.onFailure(isInterrupted());
+-                    return;
+-                }
++                justResumed = mResume;
++                mTotalBytesRead = offset;
+ 
+                 try (
+                         InputStream inputStream = mClient.getInputStream();
+                         OutputStream outputStream = new FileOutputStream(mDestination, mResume)
+                 ) {
+-                    mTotalBytes = mClient.getContentLengthLong() + mTotalBytesRead;
++                    mTotalBytes = expectedLength;
+                     byte[] b = new byte[CHUNK_SIZE];
+                     int count;
+                     while (!isInterrupted() && (count = inputStream.read(b)) > 0) {
+@@ -319,6 +318,7 @@
+                     if (isInterrupted()) {
+                         mCallback.onFailure(true);
+                     } else {
++                        DownloadIntegrity.verifyLength(mTotalBytesRead, expectedLength);
+                         mCallback.onSuccess();
+                     }
+                 }
+--- a/app/src/main/java/org/lineageos/updater/download/SingleRangeHttpFetcher.kt
++++ b/app/src/main/java/org/lineageos/updater/download/SingleRangeHttpFetcher.kt
+@@ -20,7 +20,12 @@
+ 
+     @Throws(IOException::class)
+     fun download(offset: Long, size: Long): ByteArray = try {
+-        val endOffset = offset + size - 1
++        if (offset < 0 || size <= 0) throw IOException("Invalid payload range")
++        val endOffset = try {
++            Math.addExact(offset, size - 1)
++        } catch (e: ArithmeticException) {
++            throw IOException("Payload range overflow", e)
++        }
+         val request = Request.Builder()
+             .url(url)
+             .header("Range", "bytes=$offset-$endOffset")
+@@ -36,15 +41,16 @@
+ 
+             val contentRange = response.header("Content-Range")
+                 ?: throw IOException("Missing Content-Range header for $url")
+-            val expectedContentRangePrefix = "bytes $offset-$endOffset/"
+-            if (!contentRange.startsWith(expectedContentRangePrefix)) {
+-                throw IOException(
+-                    "Unexpected Content-Range for $url: expected " +
+-                            "$expectedContentRangePrefix*, got $contentRange",
+-                )
++            val range = DownloadIntegrity.parseContentRange(contentRange)
++            if (range.start != offset || range.end != endOffset) {
++                throw IOException("Payload range boundaries differ")
++            }
++            val body = response.body ?: throw IOException("Missing range response body")
++            if (body.contentLength() >= 0 && body.contentLength() != size) {
++                throw IOException("Payload range Content-Length differs")
+             }
+ 
+-            response.body!!.source().readByteArray(size)
++            body.source().readByteArray(size)
+         }
+     } catch (e: Exception) {
+         Log.e(TAG, "Failed to download range offset=$offset size=$size", e)

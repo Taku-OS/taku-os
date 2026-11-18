@@ -1,0 +1,372 @@
+{
+  "date": "2026-10-18",
+  "versionCode": 49,
+  "versionName": "20261018-composer-reliability",
+  "baseCommit": "08b8938100cbe5432e6b649eb5e84bfa19db2f2b",
+  "deployment": {
+    "apkSha256": "9e27a810752f8aa9f6503bdb75362ce78ab0a7332207acfde33c08a7406b9867",
+    "brokerSha256": "dc03574a525d80c8e4c659d6e8d6db136725a2c4068a2b96c391769026ee23e8",
+    "serial": "emulator-5634",
+    "avd": "Taku_ImageIntegration_20261010",
+    "versionCode": 49,
+    "accountDataCleared": false,
+    "installedComponentsMatchBuild": true,
+    "brokerRunning": true
+  },
+  "physicalDeviceVerified": false,
+  "modelResponsesSimulated": false,
+  "verification": {
+    "repositoryVerify": "passed",
+    "androidComponentBuild": "passed",
+    "appKitApiTests": 9,
+    "composerStateAssertions": 95,
+    "stateTestsUseInMemoryPreferences": true
+  },
+  "composer": {
+    "failure-missing": {
+      "phase": "failure-missing",
+      "runId": "20261018T092846Z-74264",
+      "modelResponsesSimulated": false,
+      "passed": true,
+      "fixtureDirectory": "/sdcard/Download/taku-composer-20261018T092846Z-74264-failure-missing",
+      "imageCode": "PIC-15263825",
+      "textCode": "DOC-C994CD57",
+      "threadId": "01a14e56-f27d-74b1-bb5d-38a773ac10cf",
+      "actualAndroidPickerSelections": 1,
+      "queueCreated": false,
+      "prequeueRejectionVisible": true,
+      "draftPreserved": true,
+      "attachmentsPreserved": true,
+      "noQueuePublished": true
+    },
+    "failure-async": {
+      "phase": "failure-async",
+      "runId": "20261018T092846Z-74264",
+      "modelResponsesSimulated": false,
+      "passed": true,
+      "fixtureDirectory": "/sdcard/Download/taku-composer-20261018T092846Z-74264-failure-async",
+      "imageCode": "PIC-15263825",
+      "textCode": "DOC-7E5B1A9A",
+      "failureTrigger": "unavailable-model-on-isolated-test-thread",
+      "requestedModel": "taku-composer-unavailable-20261018T092846Z-74264",
+      "threadId": "01a14e58-77c9-7e43-89b9-bb9f5de9d9ba",
+      "actualAndroidPickerSelections": 1,
+      "taskId": "1792315853539",
+      "taskState": {
+        "id": "1792315853539",
+        "state": "failed",
+        "prompt": "异步发送失败时保留本草稿及图片附件。",
+        "message": "本轮执行失败，请重试。",
+        "updatedAt": 1792315874457
+      },
+      "queueCreated": true,
+      "draftPreserved": true,
+      "attachmentsPreserved": true,
+      "realUpstreamFailure": true
+    },
+    "attachments": {
+      "phase": "attachments",
+      "runId": "20261018T093551Z-75885",
+      "modelResponsesSimulated": false,
+      "passed": true,
+      "fixtureDirectory": "/sdcard/Download/taku-composer-20261018T093551Z-75885-attachments",
+      "imageCode": "PIC-31687875",
+      "textCode": "DOC-0F480625",
+      "threadId": "01a14e5d-8115-7e92-8e18-c32174112559",
+      "actualAndroidPickerSelections": 2,
+      "taskId": "1792316229109",
+      "taskState": {
+        "id": "1792316229109",
+        "state": "completed",
+        "prompt": "请实际查看所附图片并读取所附文本文件，只回复图片中的 PIC 验证码和文档中的 DOC 验证码。不要根据文件名猜测；不要调用手机操作，不写文件，不发通知。",
+        "message": "本轮对话已结束。实际操作结果请查看回复。",
+        "updatedAt": 1792316252897
+      },
+      "reply": "PIC-31687875\nDOC-0F480625",
+      "realImageAndTextUnderstanding": true
+    },
+    "steer": {
+      "phase": "steer",
+      "runId": "20261018T093858Z-76622",
+      "modelResponsesSimulated": false,
+      "passed": true,
+      "fixtureDirectory": "/sdcard/Download/taku-composer-20261018T093858Z-76622-steer",
+      "imageCode": "PIC-81732315",
+      "textCode": "DOC-D2F62B09",
+      "threadId": "01a14e60-5dd1-78d2-9b7b-918f14a6da29",
+      "actualAndroidPickerSelections": 2,
+      "turnId": "01a14e62-0ea0-7293-a8b4-30e6dfac2adf",
+      "reply": "我会执行指定命令，等待完成后回复。PIC-81732315\nDOC-D2F62B09",
+      "realSteerSameTurn": true,
+      "steeredAttachmentCount": 2
+    },
+    "stop": {
+      "phase": "stop",
+      "runId": "20261018T095145Z-79293",
+      "modelResponsesSimulated": false,
+      "passed": true,
+      "fixtureDirectory": "/sdcard/Download/taku-composer-20261018T095145Z-79293-stop",
+      "imageCode": "PIC-99662671",
+      "textCode": "DOC-9BA3F075",
+      "threadId": "01a14e6c-cfe0-7362-af8e-7fa664e47988",
+      "taskId": "1792317148207",
+      "queueCreated": true,
+      "submittedThroughComposer": true,
+      "turnId": "01a14e6d-88a8-7ff3-91f2-f3a03d3d5f55",
+      "taskState": {
+        "id": "1792317148207",
+        "state": "cancelled",
+        "prompt": "请真实执行 /system/bin/sleep 60，等待命令完成后再回复。不要执行其他操作。",
+        "message": "已停止，已执行的操作不会自动撤销。",
+        "updatedAt": 1792317193221
+      },
+      "nativeTurnStatus": "interrupted",
+      "actualTurnInterrupted": true,
+      "actualTaskCancelled": true,
+      "composerReturnedToSend": true
+    }
+  },
+  "phoneInput": {
+    "entryPoint": "installed-broker-parent",
+    "cases": [
+      {
+        "name": "focused",
+        "result": {
+          "exit": 0,
+          "stdout": "OK",
+          "stderr": "",
+          "seconds": 8.793
+        },
+        "before": {
+          "display": 2,
+          "mode": "focused",
+          "texts": [
+            "后台甲",
+            "后台乙"
+          ],
+          "focused": [
+            false,
+            true
+          ],
+          "windowFocus": true,
+          "drawn": true,
+          "visible": [
+            true,
+            true
+          ]
+        },
+        "after": {
+          "display": 2,
+          "mode": "focused",
+          "texts": [
+            "后台甲",
+            "后台中文，标点「测试」 🌱👩‍💻\n第二行：引号\"与反斜杠\\。"
+          ],
+          "focused": [
+            false,
+            true
+          ],
+          "windowFocus": true,
+          "drawn": true,
+          "visible": [
+            true,
+            true
+          ]
+        },
+        "foreground_unchanged": true,
+        "screenshots": {
+          "foreground": "evidence/scenarios/composer-2026-10-18/chinese-foreground.png",
+          "background": "evidence/scenarios/composer-2026-10-18/chinese-background.png"
+        },
+        "background_capture": "{\"displayId\":2,\"capturedAt\":1792314232456,\"frameElapsedMs\":3618270}\n/data/local/agentos/virtual-display/screen.png"
+      },
+      {
+        "name": "single",
+        "result": {
+          "exit": 0,
+          "stdout": "OK",
+          "stderr": "",
+          "seconds": 9.201
+        },
+        "before": {
+          "display": 2,
+          "mode": "single",
+          "texts": [
+            "后台甲"
+          ],
+          "focused": [
+            false
+          ],
+          "windowFocus": true,
+          "drawn": true,
+          "visible": [
+            true
+          ]
+        },
+        "after": {
+          "display": 2,
+          "mode": "single",
+          "texts": [
+            "后台中文，标点「测试」 🌱👩‍💻\n第二行：引号\"与反斜杠\\。"
+          ],
+          "focused": [
+            false
+          ],
+          "windowFocus": true,
+          "drawn": true,
+          "visible": [
+            true
+          ]
+        },
+        "foreground_unchanged": true
+      },
+      {
+        "name": "ambiguous",
+        "result": {
+          "exit": 1,
+          "stdout": "ERROR: 中文输入辅助进程失败（AMBIGUOUS_BACKGROUND_INPUT），请重新聚焦后台屏输入框",
+          "stderr": "",
+          "seconds": 11.258
+        },
+        "unchanged": true,
+        "foreground_unchanged": true
+      },
+      {
+        "name": "two-windows",
+        "result": {
+          "exit": 1,
+          "stdout": "ERROR: 中文输入辅助进程失败（AMBIGUOUS_BACKGROUND_INPUT），请重新聚焦后台屏输入框",
+          "stderr": "",
+          "seconds": 3.135
+        },
+        "unchanged": true,
+        "foreground_unchanged": true
+      },
+      {
+        "name": "reject-display-zero",
+        "result": {
+          "exit": 1,
+          "stdout": "ERROR: 中文输入辅助进程失败（INVALID_INPUT），请重新聚焦后台屏输入框",
+          "stderr": "",
+          "seconds": 2.583
+        },
+        "unchanged": true
+      },
+      {
+        "name": "detect-input-filter-truncation",
+        "result": {
+          "exit": 1,
+          "stdout": "ERROR: 中文输入辅助进程失败（TEXT_READBACK_MISMATCH），请重新聚焦后台屏输入框",
+          "stderr": "",
+          "seconds": 5.86
+        },
+        "foreground_unchanged": true
+      }
+    ],
+    "fixtureUninstalled": true,
+    "testedBrokerSha256": "1f5ea3c6928158e56724ad68d0b58ef7703491f500f5daec1aab019d7a5832e8",
+    "bytecodeComparison": {
+      "sameDex": true,
+      "dexSha256": "a4ff15073775aca186e3d66ff5674f18a09060b7898228a2288ac843c23d3ab6",
+      "testedJarSha256": "1f5ea3c6928158e56724ad68d0b58ef7703491f500f5daec1aab019d7a5832e8",
+      "finalJarSha256": "dc03574a525d80c8e4c659d6e8d6db136725a2c4068a2b96c391769026ee23e8"
+    }
+  },
+  "cancellationIsolation": {
+    "result": {
+      "realUpstream": true,
+      "realStopButton": true,
+      "nativeInterrupted": true,
+      "nestedProcessGone": true,
+      "previousSessionPreserved": true,
+      "siblingThreadPreserved": true,
+      "followupModelReply": true,
+      "stopSeconds": 6.761481003,
+      "staleStopRejected": true,
+      "cleanup": {
+        "complete": true,
+        "trackedProcesses": 3,
+        "remainingProcesses": 0,
+        "scope": "runtime-owned-new-processes-in-turn",
+        "turnId": "01a14e46-b2c2-7380-8642-464d8ace9240"
+      },
+      "physicalDeviceVerified": false
+    },
+    "testedApkSha256": "69e0f5e61b94c11defdd176aaccc05f04180d2a9a489cdcf44962b563fb9667b",
+    "testedBrokerSha256": "53dd0d467da90916f76eb63325fb639acc5533d0b575fcb5f04401bdf1b74a01",
+    "finalBrokerBytecodeIdentical": true,
+    "note": "Deep process-isolation test preceded the final Home handoff guard; final APK also passes the normal composer queue Stop test."
+  },
+  "recovery": {
+    "threadId": "01a14e65-2c9c-7781-b8e1-765f39727914",
+    "taskId": "1792316681975",
+    "draftSurvivesAbruptAppDeath": true,
+    "draftSurvivesBackground": true,
+    "actualModelTaskSurvivesAppDeath": true,
+    "actualReplyVisibleAfterRecovery": true,
+    "modelResponsesSimulated": false,
+    "reply": "RECOVERY_TASK_OK",
+    "draftSurvivesAndroidReboot": true,
+    "actualReplyHistorySurvivesAndroidReboot": true
+  },
+  "rebootWhileTaskRunningTested": false,
+  "recoveryReadiness": {
+    "initialBootWaitSeconds": 60,
+    "initialBootWaitExceeded": true,
+    "initialUiReadPrecededNativeReadiness": true,
+    "persistedDraftVerifiedIntact": true,
+    "sameRebootDraftVerifiedAfterRuntimeReady": true,
+    "futureBootWaitSeconds": 180,
+    "futureNativeReadWaitSeconds": 120,
+    "diagnosticLogs": [
+      "out/composer-reliability/recovery-reboot-first-timeout.log",
+      "out/composer-reliability/recovery-reboot-first-assertion-failure.txt"
+    ]
+  },
+  "cleanup": {
+    "settingsRestored": true,
+    "originalConversationRestored": true,
+    "recoveryAndCancellationTestThreadsArchived": [
+      "01a14e46-4651-7ab1-aac2-2d4a0e0e381c",
+      "01a14e46-4cbb-7e60-818a-652296ca22eb",
+      "01a14e65-2c9c-7781-b8e1-765f39727914"
+    ],
+    "composerTestThreadsArchivedByRunner": true,
+    "temporaryTestJarsRemoved": true,
+    "phoneInputFixtureUninstalled": true,
+    "finalInstalledHashesVerifiedAfterReboot": true,
+    "versionCode": 49,
+    "brokerRunning": true,
+    "accountDataCleared": false
+  },
+  "sourceSha256": {
+    "system/assistant/AndroidManifest.xml": "31a7b7afaefd95200ea08e368bf795f16590eb6d11c68cb209dde3c2c443113c",
+    "system/assistant/src/org/agentos/assistant/ComposerDraft.java": "670290d29af6640e9d22ade21c764826b529cb4088c5dcb45d7e72666b73d2bf",
+    "system/assistant/src/org/agentos/assistant/ComposerPreferences.java": "06883a8db599d4290d380134490d4ae8a7eb2b186b6b47f47ff94653d1a1a908",
+    "system/assistant/src/org/agentos/assistant/AgentDrawerView.java": "bb5527bfe5c02bf160b3140c62324ad640722e96cc20e77a871b4f86c1b0faa7",
+    "system/assistant/src/org/agentos/assistant/AgentRepository.java": "c6d0893e9b2037a5eff986927839e33ea5139b68e87ea699e7d870cb856ac9cb",
+    "system/assistant/src/org/agentos/assistant/TaskRequests.java": "3f50170b56ed93c684bf09d52ea96ce54ba6d992fda4f784d9592905ea886325",
+    "system/assistant/broker/org/agentos/lab/PhoneTextInput.java": "28fb20dfda360d7b6ba9026cee5c50e8e0eb0b48c1825f984eb4e33107afc579"
+  },
+  "screenshots": [
+    "evidence/scenarios/composer-2026-10-18/attachments-completed.png",
+    "evidence/scenarios/composer-2026-10-18/chinese-background.png",
+    "evidence/scenarios/composer-2026-10-18/chinese-foreground.png",
+    "evidence/scenarios/composer-2026-10-18/draft-missing-attachment.png",
+    "evidence/scenarios/composer-2026-10-18/recovery-after-reboot.png",
+    "evidence/scenarios/composer-2026-10-18/steer-completed.png",
+    "evidence/scenarios/composer-2026-10-18/stop-completed.png"
+  ],
+  "rawEvidence": {
+    "composer": {
+      "failure-missing": "out/composer-reliability-tests/20261018T092846Z-74264",
+      "failure-async": "out/composer-reliability-tests/20261018T092846Z-74264",
+      "attachments": "out/composer-reliability-tests/20261018T093551Z-75885",
+      "steer": "out/composer-reliability-tests/20261018T093858Z-76622",
+      "stop": "out/composer-reliability-tests/20261018T095145Z-79293"
+    },
+    "phoneInput": "out/phone-input-tests",
+    "recovery": "out/agent-recovery-tests",
+    "buildAndVerification": "out/composer-reliability"
+  }
+}

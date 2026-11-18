@@ -1,0 +1,22 @@
+{
+  "passed": true,
+  "id": "5e26bc98-e832-4138-8b9e-780c605c42d4",
+  "revision": 1,
+  "source": "com.android.messaging",
+  "model": "taku-jev-import/typesafe/jev-1.14",
+  "category": "工作",
+  "decision": "organize",
+  "confidence": 1,
+  "taskId": "1792649281062",
+  "threadId": "01a16239-4e48-74e1-80b5-87a70a28d1c3",
+  "realMemoryToolCall": true,
+  "responseLocale": "en",
+  "readOnly": true,
+  "screenshotAttached": false,
+  "memoryFocus": "meal_checklist",
+  "oneTaskAfterUiAcceptance": true,
+  "localDemoData": true,
+  "agentReply": "### Confirmed arrangements\n- Saturday lunch at **12:30**, The Hummingbird Cafe.\n- **4 people**, budget **$25 per person**.\n\n### Checklist: owners and deadlines\n- [ ] **Alex:** Reserve a table by **Friday, 17:00**. Reservation is still pending.\n- [ ] **Sam:** Share the agenda by **18:00**; the day is unspecified.\n- [ ] Bring the **prototype notes**; owner is unspecified.\n\n### Open questions and next steps\n- [ ] Clarify which day Sam’s 18:00 deadline refers to.\n- [ ] Assign responsibility for bringing the prototype notes.\n- [ ] Agree on the **meeting point**, currently TBD.\n- [ ] Obtain Alex’s reservation confirmation.\n\n### Memory reference\n- ID: `5e26bc98-e832-4138-8b9e-780c605c42d4` · Revision: **1**\n- Source: `com.android.messaging`, `window:123`, **Alex Chen (Demo)**; explicitly labeled a demo conversation.\n- Captured: **2026-10-22 06:06:44 UTC**. Details verified against the current memory, not independently with the venue.",
+  "physicalDevice": false,
+  "fullRom": false
+}

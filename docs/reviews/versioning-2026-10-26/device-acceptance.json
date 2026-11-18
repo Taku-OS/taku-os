@@ -1,0 +1,88 @@
+{
+  "schema": "taku.versioning-device-acceptance/1",
+  "date": "2026-10-26",
+  "device": "Pixel 9 / tokay",
+  "result": "verified",
+  "method": "adb-sideload-full-ota",
+  "productName": "TakuOS",
+  "sourceProductVersion": "1.0",
+  "targetProductVersion": "1.0.1",
+  "sourceBuildNumber": "20261024174448",
+  "targetBuildNumber": "20261025180734",
+  "sourceSlot": "b",
+  "targetSlot": "a",
+  "targetVbmetaDigest": "1f9330fed9523ff590beedb15563dad3a727c72d0324075ee906b7d9d7a84a57",
+  "fullOtaSha256": "45b3d8f528665cb8fe93531336ae12440b308639034e01ad29d8e74c9c4f9e17",
+  "checks": {
+    "exactTargetBootVerified": true,
+    "samePhysicalDevice": true,
+    "rebootObserved": true,
+    "slotChanged": true,
+    "probePrivateDataPreserved": true,
+    "productNameAndVersionSeparate": true,
+    "updater4FromAcceptedImage": true,
+    "selectedPackageUidsAndBytesPreserved": true,
+    "selectedSettingsPreserved": true,
+    "selectedPrivateConfigHashesPreserved": true,
+    "matchingDevelopmentMountsPreserved": true,
+    "nativeRuntimeReady": true,
+    "noActiveNativeTurn": true,
+    "snapshotMergeCompleted": true,
+    "stableBootObserved": true,
+    "updaterUiNameAndVersionSeparate": true,
+    "aboutPhoneUiNameAndVersionSeparate": true,
+    "selectedPrivateConfigHashesPreservedAfterNativeInitialization": true
+  },
+  "checksPassed": 18,
+  "stabilityObservedSeconds": 124.8,
+  "nativeModelCount": 7,
+  "modelGenerationInvoked": false,
+  "tasksCreated": false,
+  "independentCaseBookingOrMessagingPerformed": false,
+  "allUserDataVerified": false,
+  "dataScope": "Independent probe preferences/SQLite/private file, selected package UIDs/APK bytes, selected assistant/IME/accessibility settings and private AI/auth/proxy configuration hashes. Not a full-phone data comparison.",
+  "runtimeVersions": {
+    "rom": {
+      "ime": 10062,
+      "assistant": 67,
+      "memory": 8,
+      "updater": 4
+    },
+    "effectiveDeveloperApks": {
+      "assistant": 71,
+      "surfaces": 4
+    }
+  },
+  "developmentOverlays": {
+    "preservedForCurrentBoot": true,
+    "bakedIntoRom": false,
+    "persistentBootHookInstalled": false,
+    "futureRebootRequiresMatchingOverlayRestoreUntilReviewedIntegration": true
+  },
+  "ui": {
+    "updaterTitle": "TakuOS",
+    "updaterVersion": "Version 1.0.1",
+    "aboutProductName": "TakuOS",
+    "aboutProductVersion": "1.0.1",
+    "androidVersion": "17",
+    "updaterScreenshot": "updater-1.0.1.png"
+  },
+  "privateEvidenceSha256": {
+    "fresh-before.json": "7cb59b4cc4622461bf97686d454bd088fee048b48a9c700547c7c904eff8225c",
+    "full-sideload/installation.json": "21dfc02dae03c05a10301a17674873ca3c8ce7b93fee32908e4ce4db8b8c611d",
+    "full-sideload/sideload.log": "d94c7d3231f8c102dab16441355a5f18fef1bae3dcf9a7a8183dbb1155c809e8",
+    "post-observation.json": "dbdbe299b6bdba6bd4d11cecb8de9f04846804aca96a50abb94b801aab092e3b",
+    "runtime-lazy-initialization-check.json": "7fae5634bc63ef0884050d6a5880ac73475ccb950c868bb3d27e38aa9985ebbf",
+    "runtime-restored.json": "a4caa35b39f5529748fbb8584db9c9bfa8fcd66ea4d9ad15ef955042f93ee5b4",
+    "private-backup/backup.json": "5e424a6c435290c12d671ee7d5968a0ec329b6741ddf8725244d5274682639f0"
+  },
+  "finalAcceptanceSha256": "f2e81c6391fe1626e700931b73613a05b1190a3edd69db3cbbe2891b4e6dbd3f",
+  "initialNativeStateObservationPreserved": true,
+  "readOnlyInitializationResolvedLazyReadyFlag": true,
+  "incrementalPackageGenerated": false,
+  "incrementalOtaAccepted": false,
+  "channelPromoted": false,
+  "stableChannelPromoted": false,
+  "temporaryPrivateCloudTransportDeleted": true,
+  "automationRemainsPaused": true
+}

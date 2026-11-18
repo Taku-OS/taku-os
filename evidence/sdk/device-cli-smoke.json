@@ -1,0 +1,85 @@
+{
+  "checkedAt": "2026-10-09T19:00:37.885Z",
+  "scope": "Android device shell CLI on explicitly selected development emulator; not ROM/physical-device acceptance",
+  "serial": "emulator-5582",
+  "calls": {
+    "system.info": {
+      "protocol": "taku/0.1",
+      "type": "response",
+      "id": "device-cli",
+      "ok": true,
+      "result": {
+        "model": "Android SDK built for arm64",
+        "manufacturer": "unknown",
+        "androidRelease": "16",
+        "apiLevel": "36",
+        "securityPatch": "2025-07-05",
+        "abi": "arm64-v8a",
+        "buildType": "userdebug",
+        "selinux": "Enforcing",
+        "callerUid": "0"
+      }
+    },
+    "displays.status": {
+      "protocol": "taku/0.1",
+      "type": "response",
+      "id": "device-cli",
+      "ok": true,
+      "result": {
+        "displayIds": [
+          0,
+          11
+        ],
+        "background": {
+          "displayId": 11,
+          "active": true
+        }
+      }
+    },
+    "tasks.status": {
+      "protocol": "taku/0.1",
+      "type": "response",
+      "id": "device-cli",
+      "ok": true,
+      "result": {
+        "tasks": [
+          {
+            "id": "1791489596317",
+            "state": "completed"
+          },
+          {
+            "id": "1791490342997",
+            "state": "completed"
+          },
+          {
+            "id": "1791491673103",
+            "state": "completed"
+          },
+          {
+            "id": "1791534792851",
+            "state": "completed"
+          },
+          {
+            "id": "1791535130082",
+            "state": "completed"
+          }
+        ],
+        "source": "existing-task-broker",
+        "includesPrompts": false,
+        "includesResults": false
+      }
+    }
+  },
+  "permissionDenied": {
+    "protocol": "taku/0.1",
+    "type": "response",
+    "id": "device-cli",
+    "ok": false,
+    "error": {
+      "code": "PERMISSION_DENIED",
+      "message": "Task metadata requires root or system UID",
+      "retryable": false
+    }
+  },
+  "permissionDeniedExit": 4
+}

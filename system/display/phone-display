@@ -1,0 +1,82 @@
+#!/system/bin/sh
+set -eu
+
+usage() {
+ echo 'Usage: phone-display start|id|status [screenKey] | capture|stop [screenKey [generation]] | removal-read screenKey | removal-status|removal-stop screenKey generation | list' >&2
+ exit 2
+}
+[ "$#" -ge 1 ] || usage
+action=$1
+shift
+case "$action" in
+ start|id|status) [ "$#" -le 1 ] || usage;;
+ capture|stop) [ "$#" -le 2 ] || usage;;
+ removal-read) [ "$#" -eq 1 ] || usage;;
+ removal-status|removal-stop) [ "$#" -eq 2 ] || usage;;
+ list) [ "$#" -eq 0 ] || usage;;
+ *) usage;;
+esac
+
+# An explicit empty/invalid key must never select the default display.
+screen_key=default
+if [ "$#" -ge 1 ]; then
+ screen_key=$1
+ case "$screen_key" in ''|[!a-z]*|*[!a-z0-9-]*) usage;; esac
+ [ "${#screen_key}" -le 32 ] || usage
+fi
+if [ "$action" = removal-stop ] && [ "$screen_key" = default ]; then usage; fi
+D=/data/local/agentos/virtual-display
+if [ "$screen_key" != default ]; then D="$D/screens/$screen_key"; fi
+
+control() {
+ CLASSPATH=/system_ext/framework/agentos-virtual-display.jar /system/bin/app_process /system/bin org.agentos.lab.DisplayControl "$@"
+}
+
+# Serialize the entire lifecycle, including default init cleanup after the old host
+# exits. Otherwise an overlapping start could create a new host before ctl.stop.
+# The kernel releases this lock on exit; it is separate from the host's lifetime lock.
+case "$action" in
+ start|stop|removal-stop)
+  mkdir -p "$D"
+  exec 9>"$D/lifecycle.lock"
+  attempts=0
+  # Android mksh marks persistent exec descriptors CLOEXEC. The explicit
+  # self-duplication makes fd 9 available to flock while the shell retains it.
+  until /system/bin/flock -x -n 9 9>&9; do
+   attempts=$((attempts+1))
+   [ "$attempts" -lt 200 ] || { echo "Screen $screen_key lifecycle is busy" >&2; exit 1; }
+   sleep 0.1
+  done;;
+esac
+
+case "$action" in
+ removal-read|removal-status|removal-stop)
+  # The timed caller must own the actual CLI process, rather than kill only a
+  # shell waiting for it. Preserve the stop's lifecycle lock until this PID exits.
+  case "$action" in removal-read) verb=status;; removal-stop) verb=stop;; *) verb=removal-status;; esac
+  if [ "$action" = removal-stop ]; then
+   CLASSPATH=/system_ext/framework/agentos-virtual-display.jar exec /system/bin/app_process /system/bin org.agentos.lab.DisplayControl "$verb" "$@" 9>&9
+  fi
+  CLASSPATH=/system_ext/framework/agentos-virtual-display.jar exec /system/bin/app_process /system/bin org.agentos.lab.DisplayControl "$verb" "$@";;
+ start)
+  if control status "$screen_key" 2>/dev/null; then exit 0; fi
+  # Host owns cleanup under its per-slot file lock. Never clear another owner's requests.
+  mkdir -p "$D"
+  if [ "$screen_key" = default ] && [ -n "$(getprop init.svc.taku_display)" ]; then
+   setprop ctl.start taku_display
+  else
+   # Long-lived hosts must not inherit the wrapper's lifecycle lock descriptor.
+   setsid /system/bin/sh -c 'CLASSPATH=/system_ext/framework/agentos-virtual-display.jar exec /system/bin/app_process /system/bin org.agentos.lab.VirtualDisplayHost "$1"' phone-display "$screen_key" 9>&- </dev/null >"$D/host.log" 2>&1 &
+  fi
+  for n in 1 2 3 4 5; do
+   if control status "$screen_key" 2>/dev/null; then exit 0; fi
+   sleep 1
+  done
+  echo "Failed to start screen $screen_key; see $D/host.log" >&2
+  exit 1;;
+ stop)
+  control stop "$@"
+  # Named hosts never affect the init-managed default service.
+  if [ "$screen_key" = default ] && [ -n "$(getprop init.svc.taku_display)" ]; then setprop ctl.stop taku_display; fi;;
+ *) control "$action" "$@";;
+esac

@@ -1,0 +1,15 @@
+{
+  "applied": false,
+  "romBuilt": false,
+  "flashed": false,
+  "componentApkSha256": "86b761a92fd653d830ef5954efa3bfee8125882a62665bde69b71629b0640e31",
+  "componentApkBytes": 14534240,
+  "sourceInputCount": 49,
+  "files": [
+    "system/audio-engine/Android.bp",
+    "image/taku.mk",
+    "system/audio-engine/permissions/org.agentos.audio.xml",
+    "system/audio-engine/rom-input-lock.json",
+    "scripts/pixel9-image.py"
+  ]
+}

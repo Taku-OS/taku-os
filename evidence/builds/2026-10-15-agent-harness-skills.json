@@ -1,0 +1,168 @@
+{
+  "schema": "taku.acceptance.harness-skills/1",
+  "observedAt": "2026-10-14T20:01:08.004887+00:00",
+  "scope": "Dedicated Android emulator components; no physical-device operation or ROM rebuild",
+  "runtime": "Codex App Server 0.161.0",
+  "device": {
+    "serial": "emulator-5634",
+    "avd": "Taku_ImageIntegration_20261010",
+    "android": 16,
+    "api": 36
+  },
+  "context": {
+    "stablePrefixSha256": "768ad3a2895b69f91af685bff385fa96151e84a1e5a449148cda3f143dcc1f34",
+    "backgroundBytesUnchanged": true,
+    "oldReceiptsUnchanged": true,
+    "revisions": [
+      1,
+      2,
+      4
+    ],
+    "moduleIds": [
+      "identity",
+      "execution",
+      "boundaries",
+      "development",
+      "context-policy",
+      "os-environment",
+      "skills-catalog"
+    ],
+    "pending": false,
+    "auditIncomplete": false,
+    "nativeUsage": [
+      {
+        "nativeTurnId": "01a13be6-da58-7151-bde6-fb494ac6ec2c",
+        "inputTokens": 26184,
+        "cachedInputTokens": 12288
+      },
+      {
+        "nativeTurnId": "01a13bed-5d93-71c2-8c1d-355c2a42a3dd",
+        "inputTokens": 31147,
+        "cachedInputTokens": 25984
+      }
+    ]
+  },
+  "modelCases": [
+    {
+      "id": "harness-first",
+      "seconds": 5.927,
+      "threadId": "01a13be6-9775-7572-956d-23a1c645956d",
+      "turnId": "01a13be6-da58-7151-bde6-fb494ac6ec2c",
+      "model": "gpt-6.1-sol",
+      "commandCount": 0
+    },
+    {
+      "id": "harness-update",
+      "seconds": 5.177,
+      "threadId": "01a13be6-9775-7572-956d-23a1c645956d",
+      "turnId": "01a13bed-5d93-71c2-8c1d-355c2a42a3dd",
+      "model": "gpt-6.1-sol",
+      "commandCount": 0
+    },
+    {
+      "id": "harness-skill",
+      "seconds": 35.835,
+      "threadId": "01a13be6-9775-7572-956d-23a1c645956d",
+      "turnId": "01a13bf1-d16b-7990-ac91-6c230460c070",
+      "model": "gpt-6.1-sol",
+      "commandCount": 7
+    },
+    {
+      "id": "harness-final",
+      "seconds": 7.18,
+      "threadId": "01a13be6-9775-7572-956d-23a1c645956d",
+      "turnId": "01a13bff-b836-7250-b24e-64f13d5c4ae6",
+      "model": "gpt-6.1-sol",
+      "commandCount": 0
+    }
+  ],
+  "communityInstalls": [
+    {
+      "name": "security-threat-model",
+      "path": "/data/local/agentos/home/.codex/skills/security-threat-model/SKILL.md",
+      "repo": "openai/skills",
+      "commit": "49f948faa9258a0c61caceaf225e179651397431",
+      "archiveSha256": "0bdf4c58d334509076ff62d92dbe38fc5e44bcdc1d21b27cc500cccc9ec3bfe0",
+      "bodySha256": "1283c0dd62a8104d9edda4583569b5d8510b4ddaa45120687c999250fd96bad2",
+      "hasScripts": false,
+      "externalToolsMayBeRequired": false,
+      "installedAt": 1792006487655
+    },
+    {
+      "name": "security-best-practices",
+      "path": "/data/local/agentos/home/.codex/skills/security-best-practices/SKILL.md",
+      "repo": "openai/skills",
+      "commit": "49f948faa9258a0c61caceaf225e179651397431",
+      "archiveSha256": "0bdf4c58d334509076ff62d92dbe38fc5e44bcdc1d21b27cc500cccc9ec3bfe0",
+      "bodySha256": "7b3dae1ffc5434d890f3c65c8f552af52d0307fab3b35dec13013c9ca3844c4f",
+      "hasScripts": false,
+      "externalToolsMayBeRequired": false,
+      "installedAt": 1792007932109
+    }
+  ],
+  "checks": {
+    "nativeEnableDisableSelection": true,
+    "nativeSkillUse": true,
+    "panelInteractionsAndThemes": true,
+    "immutableStoreCorruptionAndStaleHead": true,
+    "componentBuild": true,
+    "builtinSkillValidation": true,
+    "repositoryVerify": true,
+    "nativeFinalTurnReceipts": true,
+    "designSystemCheck": true,
+    "reportLinksAndSyntax": true,
+    "nativeCommunityCatalogUI": true,
+    "regressionWrapper": true
+  },
+  "screenshots": {
+    "overview": {
+      "path": "docs/reviews/harness-skills-2026-10-15/overview.png",
+      "sha256": "8d84bcd981dc3374a2213d811bbce56fbfd5108ca1cfc52a9dd917222d332980"
+    },
+    "background": {
+      "path": "docs/reviews/harness-skills-2026-10-15/background.png",
+      "sha256": "aa51e657f1febb867e9c197be3348ebab2ce80548ad879d9abbe5bf0be87447e"
+    },
+    "environment": {
+      "path": "docs/reviews/harness-skills-2026-10-15/environment.png",
+      "sha256": "4db40000b49839e96eef9b74e679fa51ceaac2b3affd9715be5f7b8523706efd"
+    },
+    "skills": {
+      "path": "docs/reviews/harness-skills-2026-10-15/skills.png",
+      "sha256": "87858113eca12dbc411d4391b54276ef82ac2571c94fe1444d6a3d31b1b742c5"
+    },
+    "catalog": {
+      "path": "docs/reviews/harness-skills-2026-10-15/catalog.png",
+      "sha256": "c4a816d6af3fb131d42a22e6a7cdec5a6f517ad1e9b52d321db5b4ddf461fecf"
+    },
+    "community-skill": {
+      "path": "docs/reviews/harness-skills-2026-10-15/community-skill.png",
+      "sha256": "85578d8f7270d4426cdaf03842461372a4823041c43931d6a5d7e1ea00eb999b"
+    },
+    "light": {
+      "path": "docs/reviews/harness-skills-2026-10-15/light.png",
+      "sha256": "a4e36aca40ea793c672e813b38c943832dcd0ecf38645c0d6b4b16bbd5e99c91"
+    }
+  },
+  "boundaries": [
+    "Only Taku-managed context visible; hidden runtime instructions not exposed",
+    "Cache attribution and model internal causality not proven",
+    "External plugin tools, authentication and sandboxing not implemented",
+    "Existing conversations receive additive background; active turn context pinned",
+    "Uncertain context delivery blocks automatic replay",
+    "Pixel 9 ROM does not include these changes"
+  ],
+  "panelRegressionSeconds": 124.017,
+  "componentArtifacts": [
+    {
+      "path": "system/assistant/out/AgentOSAssistant.apk",
+      "sha256": "a11b2201fdbcf906d5082c45c8a75085fcb82163c7a3e4027ff3487dcb112322",
+      "bytes": 1912067
+    },
+    {
+      "path": "system/assistant/out/task-broker.jar",
+      "sha256": "fb75c2faec809de88509c01ea75275e3bbf9adaaa0c97451834dceaade6081ee",
+      "bytes": 30416
+    }
+  ]
+}

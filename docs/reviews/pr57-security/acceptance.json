@@ -1,0 +1,48 @@
+{
+  "sourceCommit": "bcbcea6",
+  "emulator": "emulator-5586",
+  "appTests": 372,
+  "homeUnitTests": 117,
+  "lint": true,
+  "typecheck": true,
+  "rootVerify": true,
+  "home": {
+    "passed": true,
+    "cases": [
+      "installed Agent manifest denies public and LAN cleartext traffic",
+      "interrupted placement: finish/resume/list/cancel preserve one live binding",
+      "cross-page widget drag and cancellation retain the source HostView and layout",
+      "cross-app voice release keeps finalization/error visible until explicit dismissal",
+      "text reopen and invalid overlay intents preserve capture/finalization through GUI and provider"
+    ],
+    "failure": null
+  },
+  "weather": {
+    "passed": true,
+    "checks": [
+      "GUI and Agent share one queued refresh; repeated GUI clicks do not reset the interval",
+      "Agent location write appears in the Weather GUI",
+      "Original location restored and verified in GUI",
+      "Concurrent city searches share a budget; one receives RATE_LIMITED"
+    ],
+    "location": {
+      "city": "Guangzhou",
+      "latitude": 23.1291,
+      "longitude": 113.2644
+    },
+    "queued": 15415,
+    "searchResults": [
+      {
+        "ok": false,
+        "error": "RATE_LIMITED: wait before searching again; see get.searchRetryAfterMs"
+      },
+      {
+        "ok": true,
+        "error": null
+      }
+    ]
+  },
+  "realMicrophoneUsed": false,
+  "modelRequestsSent": false,
+  "credentialsChanged": false
+}

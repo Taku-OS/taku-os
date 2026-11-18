@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://taku.ai/schemas/godmode-plugin-v1.json",
+  "title": "Taku God Mode plugin manifest v1 (experimental)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "id", "name", "version", "minHostVersion", "targets", "capabilities", "permissions", "ui", "settings", "hooks", "runtime"],
+  "anyOf": [{"required": ["type"]}, {"required": ["roles"], "properties": {"roles": {"minItems": 1}}}],
+  "allOf": [{"if": {"anyOf": [{"required": ["type"], "properties": {"type": {"const": "tool-provider"}}}, {"required": ["roles"], "properties": {"roles": {"contains": {"enum": ["tool-provider", "check-provider"]}}}}]}, "then": {"required": ["mcp", "skills", "healthcheck"], "properties": {"type": {"const": "tool-provider"}}, "not": {"required": ["entrypoint"]}}, "else": {"required": ["entrypoint"], "not": {"anyOf": [{"required": ["mcp"]}, {"required": ["skills"]}, {"required": ["healthcheck"]}, {"required": ["runtimePack"]}]}}}, {"if": {"required": ["roles"], "properties": {"roles": {"contains": {"const": "check-provider"}}}}, "then": {"required": ["checks"]}, "else": {"not": {"required": ["checks"]}}}],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "id": {"type": "string", "pattern": "^[a-z][a-z0-9]*(\\.[a-z][a-z0-9-]*)+$"},
+    "name": {"type": "string", "minLength": 1, "pattern": "\\S"},
+    "description": {"type": "string", "minLength": 1, "pattern": "\\S"},
+    "author": {"type": "string", "minLength": 1, "pattern": "\\S"},
+    "category": {"type": "string", "minLength": 1, "pattern": "\\S"},
+    "license": {"type": "string", "minLength": 1, "pattern": "\\S"},
+    "version": {"$ref": "#/$defs/version"},
+    "type": {"enum": ["hook", "system-app", "root-daemon", "agent", "tool-provider"]},
+    "roles": {"type": "array", "uniqueItems": true, "items": {"enum": ["tool-provider", "check-provider", "hook-provider", "root-service", "ui-provider"]}},
+    "checks": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["id", "title", "description", "kinds", "targets"], "properties": {"id": {"type": "string", "pattern": "\\S"}, "title": {"type": "string", "pattern": "\\S"}, "description": {"type": "string"}, "kinds": {"$ref": "#/$defs/strings"}, "targets": {"$ref": "#/$defs/strings"}}}},
+    "entrypoint": {"type": "object", "additionalProperties": false, "required": ["dex", "class"], "properties": {
+      "dex": {"type": "string", "pattern": "^[A-Za-z0-9_-]+(\\/[A-Za-z0-9_-]+)*\\.(dex|jar|apk)$"},
+      "class": {"type": "string", "pattern": "^[A-Za-z_$][A-Za-z0-9_$]*(\\.[A-Za-z_$][A-Za-z0-9_$]*)+$"}
+    }},
+    "minHostVersion": {"$ref": "#/$defs/version"},
+    "targets": {"$ref": "#/$defs/strings"},
+    "capabilities": {"$ref": "#/$defs/strings"},
+    "permissions": {"$ref": "#/$defs/strings"},
+    "ui": {"$ref": "#/$defs/strings"},
+    "settings": {"$ref": "#/$defs/strings"},
+    "hooks": {"$ref": "#/$defs/strings"},
+    "mcp": {"type": "object", "additionalProperties": false, "required": ["command", "args", "env"], "properties": {"command": {"type": "string", "minLength": 1, "pattern": "\\S"}, "args": {"type": "array", "items": {"type": "string"}}, "env": {"type": "object", "additionalProperties": {"type": "string"}}}},
+    "skills": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[A-Za-z0-9_-]+(/[A-Za-z0-9_-]+)*/SKILL\\.md$"}},
+    "healthcheck": {"type": "object", "additionalProperties": false, "required": ["timeoutMs"], "properties": {"timeoutMs": {"type": "integer", "minimum": 100, "maximum": 30000}}},
+    "runtimePack": {"type": "object", "additionalProperties": false, "required": ["id", "platform", "root", "version"], "properties": {"id": {"type": "string", "pattern": "\\S"}, "platform": {"type": "string", "pattern": "\\S"}, "root": {"type": "string", "pattern": "\\S"}, "version": {"type": "string", "pattern": "\\S"}}},
+    "runtime": {"enum": ["host", "target-process", "root-daemon", "agent"]}
+  },
+  "$defs": {
+    "version": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"},
+    "strings": {"type": "array", "items": {"type": "string", "minLength": 1, "pattern": "\\S"}, "uniqueItems": true}
+  }
+}

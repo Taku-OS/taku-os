@@ -1,0 +1,16 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="org.agentos.island.fixture">
+    <uses-sdk android:minSdkVersion="36" android:targetSdkVersion="36" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <application android:label="Island integration fixture" android:theme="@android:style/Theme.Material.Light.NoActionBar" android:debuggable="true">
+        <activity android:name=".Fixture" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <receiver android:name=".Fixture$Receiver" android:exported="true" />
+        <provider android:name=".Fixture$State" android:authorities="org.agentos.island.fixture" android:exported="true" />
+        <service android:name=".Fixture$Content" android:process=":content" android:exported="true"
+            android:permission="org.agentos.permission.BIND_ISLAND_CONTENT" />
+    </application>
+</manifest>

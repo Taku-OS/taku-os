@@ -1,0 +1,57 @@
+Warning: This version of UI Automator is deprecated. New tests should be written using
+UI Automator 2.0 which is available as part of the Android Testing Support Library.
+See https://developer.android.com/training/testing/ui-testing/uiautomator-testing.html
+for more details.
+INSTRUMENTATION_STATUS: numtests=1
+INSTRUMENTATION_STATUS: stream=
+org.taku.scenarios.SubmitScenario:
+INSTRUMENTATION_STATUS: id=UiAutomatorTestRunner
+INSTRUMENTATION_STATUS: test=testSubmit
+INSTRUMENTATION_STATUS: class=org.taku.scenarios.SubmitScenario
+INSTRUMENTATION_STATUS: current=1
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS: numtests=1
+INSTRUMENTATION_STATUS: stream=
+Failure in testSubmit:
+junit.framework.ComparisonFailure: expected:<...ng），这台已授权测试模拟器上真正执行：[
+1）保存证据到 /data/local/tmp/taku-os-scenarios-20261010/mobile-use。先 sh /data/local/tmp/taku-os/taku-device.sh system.info 和 displays.status，确认 UID/SELinux 和实际动态独立 display ID；只用后台display，禁止输入/切换主屏0。
+2）通过 cmd package resolve-activity 实际解析 com.xingin.xhs 的 launcher，用 am start --display 后台ID 开游客图片首页。不登录、不读取私聊、不发帖、不点赞、不关注、不点账号/支付，不改原版App/SELinux/root检测。
+3）phone-display capture，拷贝真实截图到 before.png，用 view_image 看后按实际图片流选择一次普通上下滑动 input -d 后台ID swipe。操作前停5秒供本次工程录屏，滑后等待加载，再capture保存after.png并查看真实变化。保留commands.txt、dumpsys activity 中实际display、capture JSON和系统SDK JSON，不以am/input退出成功代替真实UI效果。
+4）结果需明确页面实际变化/失败边界；若游客首页阻塞，保留失败证据，不悄悄切到其他App冒充小红书成功。不运行其他用户任务，不结束时切换主屏。主屏另由测试者使用Home，运行结束后用户通过原生镜像手工点按，这是独立验收步骤，当前没有自动暂停Agent/冲突调度，不宣称真机/重打ROM或产品正式验收。
+]> but was:<...ng），这台已授权测试模拟器上真正执行：[ 1）保存证据到 /data/local/tmp/taku-os-scenarios-20261010/mobile-use。先 sh /data/local/tmp/taku-os/taku-device.sh system.info 和 displays.status，确认 UID/SELinux 和实际动态独立 display ID；只用后台display，禁止输入/切换主屏0。 2）通过 cmd package resolve-activity 实际解析 com.xingin.xhs 的 launcher，用 am start --display 后台ID 开游客图片首页。不登录、不读取私聊、不发帖、不点赞、不关注、不点账号/支付，不改原版App/SELinux/root检测。 3）phone-display capture，拷贝真实截图到 before.png，用 view_image 看后按实际图片流选择一次普通上下滑动 input -d 后台ID swipe。操作前停5秒供本次工程录屏，滑后等待加载，再capture保存after.png并查看真实变化。保留commands.txt、dumpsys activity 中实际display、capture JSON和系统SDK JSON，不以am/input退出成功代替真实UI效果。 4）结果需明确页面实际变化/失败边界；若游客首页阻塞，保留失败证据，不悄悄切到其他App冒充小红书成功。不运行其他用户任务，不结束时切换主屏。主屏另由测试者使用Home，运行结束后用户通过原生镜像手工点按，这是独立验收步骤，当前没有自动暂停Agent/冲突调度，不宣称真机/重打ROM或产品正式验收。 ]>
+	at org.taku.scenarios.SubmitScenario.testSubmit(SubmitScenario.java:26)
+	at com.android.uiautomator.testrunner.UiAutomatorTestRunner.start(UiAutomatorTestRunner.java:160)
+	at com.android.uiautomator.testrunner.UiAutomatorTestRunner.run(UiAutomatorTestRunner.java:96)
+	at com.android.commands.uiautomator.RunTestCommand.run(RunTestCommand.java:91)
+	at com.android.commands.uiautomator.Launcher.main(Launcher.java:83)
+	at com.android.internal.os.RuntimeInit.nativeFinishInit(Native Method)
+	at com.android.internal.os.RuntimeInit.main(RuntimeInit.java:371)
+
+INSTRUMENTATION_STATUS: id=UiAutomatorTestRunner
+INSTRUMENTATION_STATUS: test=testSubmit
+INSTRUMENTATION_STATUS: class=org.taku.scenarios.SubmitScenario
+INSTRUMENTATION_STATUS: stack=junit.framework.ComparisonFailure: expected:<...ng），这台已授权测试模拟器上真正执行：[
+1）保存证据到 /data/local/tmp/taku-os-scenarios-20261010/mobile-use。先 sh /data/local/tmp/taku-os/taku-device.sh system.info 和 displays.status，确认 UID/SELinux 和实际动态独立 display ID；只用后台display，禁止输入/切换主屏0。
+2）通过 cmd package resolve-activity 实际解析 com.xingin.xhs 的 launcher，用 am start --display 后台ID 开游客图片首页。不登录、不读取私聊、不发帖、不点赞、不关注、不点账号/支付，不改原版App/SELinux/root检测。
+3）phone-display capture，拷贝真实截图到 before.png，用 view_image 看后按实际图片流选择一次普通上下滑动 input -d 后台ID swipe。操作前停5秒供本次工程录屏，滑后等待加载，再capture保存after.png并查看真实变化。保留commands.txt、dumpsys activity 中实际display、capture JSON和系统SDK JSON，不以am/input退出成功代替真实UI效果。
+4）结果需明确页面实际变化/失败边界；若游客首页阻塞，保留失败证据，不悄悄切到其他App冒充小红书成功。不运行其他用户任务，不结束时切换主屏。主屏另由测试者使用Home，运行结束后用户通过原生镜像手工点按，这是独立验收步骤，当前没有自动暂停Agent/冲突调度，不宣称真机/重打ROM或产品正式验收。
+]> but was:<...ng），这台已授权测试模拟器上真正执行：[ 1）保存证据到 /data/local/tmp/taku-os-scenarios-20261010/mobile-use。先 sh /data/local/tmp/taku-os/taku-device.sh system.info 和 displays.status，确认 UID/SELinux 和实际动态独立 display ID；只用后台display，禁止输入/切换主屏0。 2）通过 cmd package resolve-activity 实际解析 com.xingin.xhs 的 launcher，用 am start --display 后台ID 开游客图片首页。不登录、不读取私聊、不发帖、不点赞、不关注、不点账号/支付，不改原版App/SELinux/root检测。 3）phone-display capture，拷贝真实截图到 before.png，用 view_image 看后按实际图片流选择一次普通上下滑动 input -d 后台ID swipe。操作前停5秒供本次工程录屏，滑后等待加载，再capture保存after.png并查看真实变化。保留commands.txt、dumpsys activity 中实际display、capture JSON和系统SDK JSON，不以am/input退出成功代替真实UI效果。 4）结果需明确页面实际变化/失败边界；若游客首页阻塞，保留失败证据，不悄悄切到其他App冒充小红书成功。不运行其他用户任务，不结束时切换主屏。主屏另由测试者使用Home，运行结束后用户通过原生镜像手工点按，这是独立验收步骤，当前没有自动暂停Agent/冲突调度，不宣称真机/重打ROM或产品正式验收。 ]>
+	at org.taku.scenarios.SubmitScenario.testSubmit(SubmitScenario.java:26)
+	at com.android.uiautomator.testrunner.UiAutomatorTestRunner.start(UiAutomatorTestRunner.java:160)
+	at com.android.uiautomator.testrunner.UiAutomatorTestRunner.run(UiAutomatorTestRunner.java:96)
+	at com.android.commands.uiautomator.RunTestCommand.run(RunTestCommand.java:91)
+	at com.android.commands.uiautomator.Launcher.main(Launcher.java:83)
+	at com.android.internal.os.RuntimeInit.nativeFinishInit(Native Method)
+	at com.android.internal.os.RuntimeInit.main(RuntimeInit.java:371)
+
+INSTRUMENTATION_STATUS: current=1
+INSTRUMENTATION_STATUS_CODE: -2
+INSTRUMENTATION_STATUS: stream=
+Test results for WatcherResultPrinter=.F
+Time: 3.944
+
+FAILURES!!!
+Tests run: 1,  Failures: 1,  Errors: 0
+
+
+INSTRUMENTATION_STATUS_CODE: -1

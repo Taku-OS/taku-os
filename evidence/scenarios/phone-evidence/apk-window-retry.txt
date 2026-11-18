@@ -1,0 +1,29 @@
+      Window #10: WindowStateAnimator{84ed057 org.agentos.scenarioscore/org.agentos.generated.MainActivity}
+    numWindow=1 mCanAddInternalSystemWindow=false mAlertWindows={} mClientDead=false    mPackageName=org.agentos.scenarioscore
+  mCurrentFocus=null
+  mFocusedApp=null
+  deepestLastOrientationSource=ActivityRecord{195459026 u0 org.agentos.scenarioscore/org.agentos.generated.MainActivity t128}
+  mCurrentFocus=Window{120b466 u0 org.agentos.scenarioscore/org.agentos.generated.MainActivity}
+  mFocusedApp=ActivityRecord{195459026 u0 org.agentos.scenarioscore/org.agentos.generated.MainActivity t128}
+  mObscuringWindow=Window{120b466 u0 org.agentos.scenarioscore/org.agentos.generated.MainActivity}
+      mPreferredTopFocusableRootTask=Task{e3d2f2a #128 type=standard A=10161:org.agentos.scenarioscore}
+      mLastFocusedRootTask=Task{e3d2f2a #128 type=standard A=10161:org.agentos.scenarioscore}
+      * Task{e3d2f2a #128 type=standard A=10161:org.agentos.scenarioscore U=0 visible=true visibleRequested=true mode=fullscreen translucent=false sz=1}
+        * ActivityRecord{195459026 u0 org.agentos.scenarioscore/org.agentos.generated.MainActivity t128}
+    mFocusedWindow=Window{120b466 u0 org.agentos.scenarioscore/org.agentos.generated.MainActivity}
+    mTopFullscreenOpaqueWindowState=Window{120b466 u0 org.agentos.scenarioscore/org.agentos.generated.MainActivity}
+    mSystemBarColorApps={ActivityRecord{195459026 u0 org.agentos.scenarioscore/org.agentos.generated.MainActivity t128}}
+    mNavBarColorWindowCandidate=Window{120b466 u0 org.agentos.scenarioscore/org.agentos.generated.MainActivity}
+    mNavBarBackgroundWindowCandidate=Window{120b466 u0 org.agentos.scenarioscore/org.agentos.generated.MainActivity}
+      Window{120b466 u0 org.agentos.scenarioscore/org.agentos.generated.MainActivity}
+      Window{120b466 u0 org.agentos.scenarioscore/org.agentos.generated.MainActivity}:
+        mControlTarget=Window{120b466 u0 org.agentos.scenarioscore/org.agentos.generated.MainActivity}
+        mControlTarget=Window{120b466 u0 org.agentos.scenarioscore/org.agentos.generated.MainActivity}
+        mControlTarget=Window{120b466 u0 org.agentos.scenarioscore/org.agentos.generated.MainActivity}
+  ActivityRecord{195459026 u0 org.agentos.scenarioscore/org.agentos.generated.MainActivity t128}
+  Window #7 Window{120b466 u0 org.agentos.scenarioscore/org.agentos.generated.MainActivity}:
+    mOwnerUid=10161 showForAllUsers=false package=org.agentos.scenarioscore appop=NONE
+    WindowStateAnimator{84ed057 org.agentos.scenarioscore/org.agentos.generated.MainActivity}:
+  imeLayeringTarget in display# 0 Window{120b466 u0 org.agentos.scenarioscore/org.agentos.generated.MainActivity}
+  imeInputTarget in display# 0 Window{120b466 u0 org.agentos.scenarioscore/org.agentos.generated.MainActivity}
+  imeControlTarget in display# 0 Window{120b466 u0 org.agentos.scenarioscore/org.agentos.generated.MainActivity}

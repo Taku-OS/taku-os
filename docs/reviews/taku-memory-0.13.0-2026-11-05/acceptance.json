@@ -1,0 +1,129 @@
+{
+ "component": "Taku 记忆 0.13.0（versionCode 15）；Broker 与助手沿用 0.12.0 验收版本（助手 v76）",
+ "status": "emulator_verified (publish path); home feed rendering checked only in the home app's web gallery",
+ "recordedAt": "2026-11-05 北京时间",
+ "device": {
+  "avd": "TakuRecall",
+  "serial": "emulator-5634",
+  "android": "16",
+  "api": 36,
+  "abi": "arm64-v8a",
+  "build": "sdk_phone64_arm64 userdebug test-keys",
+  "selinux": "Enforcing"
+ },
+ "homeFeed": {
+  "branch": "origin/vela/TAKU-new-UI",
+  "commit": "4020c7adad7b0c9657f8542ff5187e2b5b41dcc0",
+  "authority": "org.agentos.agent.home-feed",
+  "schema": "taku.feed-card/1",
+  "catalog": "taku-feed-1",
+  "componentsUsed": [
+   "Column",
+   "Row",
+   "AppHeader",
+   "Inset",
+   "Text",
+   "Tags",
+   "Pager",
+   "Dots",
+   "Button"
+  ]
+ },
+ "artifacts": {
+  "TakuMemory-0.13.0-release.apk": "36dd1b2230cf8004159e18db25f03b20e81a44547eb503f7f394ae9107072a66",
+  "TakuMemory-0.13.0-debug-nomodel.apk": "088e3ae28eea66ab626779e2d5ab65ab586dbb7bdb1bd974f72a8c7c265d67da",
+  "TakuMemoryTests-0.13.0.apk": "50dcc387a32aa430385e04456127b9f806c87bfc73403fd9aaddc79f6edbc327",
+  "TakuHomeFeedStub.apk": "581bad93903b405d5bd217616990fbe59721d2ebb05e91be5cbe8a6dd24b6d42"
+ },
+ "componentTests": {
+  "StoreTests": 302,
+  "QueueTests": 69,
+  "ResultTests": 8,
+  "PresentationTests": 36,
+  "GatewayBoundaryTests": 2,
+  "SystemAiTests": 24,
+  "SystemSettingsObserverTests": "passed",
+  "failures": 0
+ },
+ "offlineChecks": [
+  "npm run verify",
+  "npm --prefix tooling/app-kit/api test",
+  "npm run build:android"
+ ],
+ "homeFeedValidation": {
+  "validator": "validateFeedSpec (src/feed/feedCatalog.ts) + envelope checks, validate-cards.mjs",
+  "previewCards": {
+   "evening": 21,
+   "message": 5,
+   "invalid": 0
+  },
+  "deviceCards": {
+   "distinct": 3,
+   "listed": 5,
+   "invalid": 0
+  },
+  "brokenCardsRejected": 3
+ },
+ "gallery": {
+  "command": "npm run gallery",
+  "width": 420,
+  "shots": [
+   "shots/brief-3.png",
+   "shots/brief-17.png",
+   "shots/nudge-6.png",
+   "shots/nudge-5.png",
+   "shots/nudge-3.png",
+   "shots/device-brief.png",
+   "shots/device-message.png"
+  ]
+ },
+ "devicePublishPath": {
+  "stub": "TakuHomeFeedStub.apk (org.agentos.memorytests.homefeed), uninstalled afterwards",
+  "liveModelCalls": true,
+  "steps": [
+   {
+    "step": "feedCards on, evening 1795015800000",
+    "published": "memory.brief.9"
+   },
+   {
+    "step": "message 小雨 明晚一起吃个饭吧？",
+    "conflict": true,
+    "checkMistake": false,
+    "published": "memory.nudge.10",
+    "buttons": [
+     "open-app com.tencent.mm",
+     "ask-taku draft reply"
+    ]
+   },
+   {
+    "step": "evening 1795102200000",
+    "published": "memory.brief.11",
+    "thenRetracted": "memory.brief.9"
+   },
+   {
+    "step": "feedCards off, message 小雨 阿杰生日",
+    "spoke": true,
+    "published": null
+   }
+  ],
+  "caller": "org.agentos.memory for all 4 calls",
+  "nudgeCardColumn": {
+   "9": "memory.brief.9",
+   "10": "memory.nudge.10",
+   "11": "memory.brief.11",
+   "12": ""
+  }
+ },
+ "openAccess": {
+  "configure feedCards true/false via org.agentos.memory.open-access": "read back by memory status",
+  "wrong type": "rejected, value unchanged"
+ },
+ "notVerified": [
+  "native rendering in the installed Taku home app",
+  "ask-taku / open-app / dismiss handling by the home app",
+  "pinning and expiry on device",
+  "reading user reactions back (recentActions)",
+  "natural-language card entry"
+ ],
+ "deviceStateAfter": "0.13.0 debug build with nudges and feedCards off; 22-day synthetic data rebuilt in 0.12.0; Broker 0.12.0 and assistant v76; stub uninstalled"
+}

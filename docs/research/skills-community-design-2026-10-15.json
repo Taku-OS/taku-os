@@ -1,0 +1,44 @@
+{
+  "observedAt": "2026-10-14T20:18:13.658543+00:00",
+  "reference": {
+    "url": "https://mp.weixin.qq.com/s/VsUVApOBLOTa0Tfjiax4JQ",
+    "title": "STEPX Neo / Step AOS launch article",
+    "publisher": "QbitAI",
+    "published": "2026-10-14",
+    "visual": "Grouped skill rows: icon, name, brief description, overflow; search at bottom. Skills/Agents/AI-apps categories are source product features, not Taku features."
+  },
+  "otherReference": {
+    "url": "https://www.skills.sh/",
+    "visual": "Searchable named skill directory with source identity; rankings are not imported into Taku."
+  },
+  "findings": [
+    {
+      "severity": "high",
+      "surface": "old Skills first viewport",
+      "finding": "Setup instructions and large source buttons push actual skills below the fold."
+    },
+    {
+      "severity": "high",
+      "surface": "old community catalog",
+      "finding": "One install button per skill hides the object identity and descriptive context; no search or detail state."
+    },
+    {
+      "severity": "medium",
+      "surface": "old source inputs",
+      "finding": "Dark-mode hints lacked contrast; setup fields belong in a secondary source flow."
+    }
+  ],
+  "implementation": {
+    "pattern": "Native grouped list in existing system drawer",
+    "list": "Icon, title, up to two description lines and real install status",
+    "detail": "Actual upstream SKILL.md metadata at pinned commit; install action, native enable switch, session selection; provenance and raw instructions collapsed",
+    "search": "Local filtering by native name, available descriptions and presentation alias",
+    "categories": "Presentation heuristics only; not community-authored tags",
+    "limits": [
+      "No fabricated popularity, reviews or verified publisher badges",
+      "No separate Agent or AI-app marketplaces",
+      "Pinned archive supplies metadata descriptions; unavailable metadata falls back to a detail retry"
+    ],
+    "summary": "Curated Chinese summaries for common skills; original native description remains expandable"
+  }
+}

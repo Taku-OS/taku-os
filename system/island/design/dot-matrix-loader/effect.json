@@ -1,0 +1,31 @@
+{
+  "name": "dot-matrix-loader",
+  "title": "Dot-matrix loader (agent activity)",
+  "summary": "Figma's 3 × 3 'Loading' dots with five deterministic activity loops (thinking, scanning, reading, sending, searching), sampled as a pure function of time.",
+  "kind": "component + utility",
+  "renderer": "SVG",
+  "importPath": "taku-animations/effects/dot-matrix-loader",
+  "exports": [
+    "DotMatrixLoader",
+    "LoaderDotsSvg",
+    "poseAt",
+    "createPose",
+    "restPose",
+    "mixPose",
+    "copyPose",
+    "blendEase",
+    "LOADER_STATES",
+    "CYCLE_MS",
+    "STATE_LABELS"
+  ],
+  "usedBy": ["10-AIPhoneHero", "12-MenuScanHero", "13-LockScreenHero"],
+  "sourceOrigin": [
+    "src/components/taku/10-AIPhoneHero/dot-loader.ts (identical in 12, 13)",
+    "LoaderDots in 10 Cards.tsx / 12 Phone.tsx / 13 Phone.tsx (same markup)"
+  ],
+  "samples": "Nothing.",
+  "assets": [],
+  "dependencies": ["react"],
+  "playback": "Controlled timeMs (exact seek) or self-running clock (paused offscreen / hidden tab). Pure pose functions for host timelines.",
+  "reducedMotion": "still: Figma's resting pattern, no clock."
+}

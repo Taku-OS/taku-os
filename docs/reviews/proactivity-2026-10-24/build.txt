@@ -1,0 +1,26 @@
+
+> taku-os@0.1.0 build:android
+> bash scripts/build-android.sh
+
+Pinned public AOSP test signing material verified (development only).
+注: 某些输入文件使用或覆盖了已过时的 API。
+注: 有关详细信息, 请使用 -Xlint:deprecation 重新编译。
+注: broker/org/agentos/lab/PhoneTextInput.java使用或覆盖了已过时的 API。
+注: 有关详细信息, 请使用 -Xlint:deprecation 重新编译。
+注: src/org/agentos/lab/VirtualDisplayHost.java使用或覆盖了已过时的 API。
+注: 有关详细信息, 请使用 -Xlint:deprecation 重新编译。
+Pinned public AOSP test signing material verified (development only).
+Pinned public AOSP test signing material verified (development only).
+注: src/org/agentos/surfaces/SurfaceWindow.java使用或覆盖了已过时的 API。
+注: 有关详细信息, 请使用 -Xlint:deprecation 重新编译。
+Built in system/surfaces/out; no device was changed.
+Pinned public AOSP test signing material verified (development only).
+注: 某些输入文件使用或覆盖了已过时的 API。
+注: 有关详细信息, 请使用 -Xlint:deprecation 重新编译。
+Built independent host APK and public SDK JAR. No device was changed.
+Pinned public AOSP test signing material verified (development only).
+注: src/org/agentos/memory/MemoryActivity.java使用或覆盖了已过时的 API。
+注: 有关详细信息, 请使用 -Xlint:deprecation 重新编译。
+Built standalone system/memory/out/TakuMemory.apk; no device changed.
+Compiled apk-shell/out/dex/classes.dex (not installed).
+Built Android development components. No install, flash, login or ROM build performed.

@@ -1,0 +1,26 @@
+{
+  "checkedAt": "2026-10-09T19:59:36.138999+00:00",
+  "ok": true,
+  "capabilities": 57,
+  "counts": {
+    "emulator_verified": 20,
+    "research": 37,
+    "device_verified": 0
+  },
+  "historicalHashFiles": 16,
+  "checks": [
+    "capability.schema.json actual declared types/required/enum/oneOf/minima",
+    "required fields/enums",
+    "permission/authorization and version basis",
+    "emulator evidence+scope+dates",
+    "physical device negative gate",
+    "missing evidence negative gate",
+    "source HTTPS/date/audit",
+    "passed UI log marker",
+    "historical SHA-256",
+    "generated examples and HTML data equality",
+    "node --check HTML scripts"
+  ],
+  "errors": [],
+  "boundary": "Static/evidence gates, not fresh GUI re-execution or browser visual acceptance"
+}

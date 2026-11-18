@@ -1,0 +1,4 @@
+#!/bin/bash
+set -euo pipefail
+jar=${TAKU_GODMODE_HOST_JAR:?Set TAKU_GODMODE_HOST_JAR to the host jar built by build-host.sh}
+exec "${JAVA_HOME:+$JAVA_HOME/bin/}java" -cp "$jar" org.taku.plugins.host.Cli "$@"

@@ -1,0 +1,18 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="org.agentos.memorytests" android:versionCode="1" android:versionName="1">
+ <uses-sdk android:minSdkVersion="36" android:targetSdkVersion="36"/>
+ <queries><provider android:authorities="org.agentos.memory;org.agentos.memory.open-access;org.agentos.assistant.memory-gateway;org.agentos.ai"/></queries>
+ <uses-permission android:name="org.agentos.assistant.permission.USE_AI"/>
+ <uses-permission android:name="android.permission.INTERNET"/>
+ <application android:label="Taku 记忆合成验收" android:debuggable="true" android:theme="@android:style/Theme.Material.Light.NoActionBar" android:allowBackup="false">
+  <activity android:name="org.agentos.memorytests.PageActivity" android:exported="true" android:launchMode="singleTop"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity>
+ </application>
+ <instrumentation android:name="org.agentos.memory.StoreTests" android:targetPackage="org.agentos.memorytests" android:label="Memory store and access tests"/>
+ <instrumentation android:name="org.agentos.memory.QueueTests" android:targetPackage="org.agentos.memorytests"/>
+ <instrumentation android:name="org.agentos.memory.ResultTests" android:targetPackage="org.agentos.memorytests"/>
+ <instrumentation android:name="org.agentos.memory.PresentationTests" android:targetPackage="org.agentos.memorytests"/>
+ <instrumentation android:name="org.agentos.memory.SystemAiTests" android:targetPackage="org.agentos.memorytests"/>
+ <instrumentation android:name="org.agentos.memory.SystemSettingsObserverTests" android:targetPackage="org.agentos.memorytests"/>
+ <instrumentation android:name="org.agentos.memory.GatewayBoundaryTests" android:targetPackage="org.agentos.memorytests"/>
+ <instrumentation android:name="org.agentos.memory.SharedAiClientTests" android:targetPackage="org.agentos.memorytests"/>
+ <instrumentation android:name="org.agentos.memory.OpenAccessQueryTests" android:targetPackage="org.agentos.memorytests"/>
+</manifest>

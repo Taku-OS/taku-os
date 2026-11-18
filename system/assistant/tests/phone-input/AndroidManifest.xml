@@ -1,0 +1,8 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="org.agentos.phoneinput.tests">
+ <uses-sdk android:minSdkVersion="36" android:targetSdkVersion="36"/>
+ <application android:label="Taku input test fixture" android:debuggable="true" android:allowBackup="false" android:theme="@android:style/Theme.Material.Light.NoActionBar">
+  <activity android:name=".ForegroundActivity" android:exported="true" android:resizeableActivity="true" android:launchMode="singleTask" android:taskAffinity="org.agentos.phoneinput.tests.front"/>
+  <activity android:name=".BackgroundActivity" android:exported="true" android:resizeableActivity="true" android:launchMode="singleTask" android:taskAffinity="org.agentos.phoneinput.tests.back"/>
+  <activity android:name=".DraftActivity" android:exported="true" android:resizeableActivity="true" android:launchMode="singleTask" android:taskAffinity="org.agentos.phoneinput.tests.draft"/>
+ </application>
+</manifest>

@@ -1,0 +1,262 @@
+{
+  "conversion": {
+    "ok": true,
+    "app": "converter",
+    "method": "length.convert",
+    "result": {
+      "value": 1,
+      "formatted": "1",
+      "unit": "米",
+      "from": "厘米",
+      "to": "米",
+      "inputValue": 100
+    },
+    "revision": 0,
+    "replayed": false,
+    "durationMs": 0.65
+  },
+  "invalid_type": {
+    "ok": false,
+    "error": {
+      "code": "INVALID_PARAMS",
+      "message": "Arguments do not match method schema",
+      "details": [
+        {
+          "keyword": "type",
+          "dataPath": "/value",
+          "schemaPath": "#/properties/value/type",
+          "params": {
+            "type": "number"
+          },
+          "message": "should be number"
+        }
+      ]
+    }
+  },
+  "missing_method": {
+    "ok": false,
+    "error": {
+      "code": "METHOD_NOT_FOUND",
+      "message": "Unknown application method",
+      "details": null
+    }
+  },
+  "add": {
+    "ok": true,
+    "app": "board",
+    "method": "tasks.add",
+    "result": {
+      "task": {
+        "id": "c29aa57c-6c7f-47c5-beca-4eb9f95c2663",
+        "text": "External API acceptance task",
+        "priority": "低",
+        "done": false
+      },
+      "tasks": [
+        {
+          "id": "a",
+          "text": "整理本周项目计划",
+          "priority": "高",
+          "done": false
+        },
+        {
+          "id": "b",
+          "text": "下班后购买蔬菜和水果",
+          "priority": "中",
+          "done": false
+        },
+        {
+          "id": "c",
+          "text": "阅读 20 分钟",
+          "priority": "低",
+          "done": true
+        },
+        {
+          "id": "mv0kjxstad3i12aogkl",
+          "text": "Verify_app_generation",
+          "priority": "中",
+          "done": false
+        },
+        {
+          "id": "61767acc-d4ca-4054-9142-2f442f1e3374",
+          "text": "Codex直接调用接口创建的任务",
+          "priority": "高",
+          "done": true
+        },
+        {
+          "id": "c29aa57c-6c7f-47c5-beca-4eb9f95c2663",
+          "text": "External API acceptance task",
+          "priority": "低",
+          "done": false
+        }
+      ],
+      "total": 6,
+      "completed": 2,
+      "pending": 4
+    },
+    "revision": 4,
+    "replayed": false,
+    "durationMs": 1.26
+  },
+  "replay": {
+    "ok": true,
+    "app": "board",
+    "method": "tasks.add",
+    "result": {
+      "task": {
+        "id": "c29aa57c-6c7f-47c5-beca-4eb9f95c2663",
+        "text": "External API acceptance task",
+        "priority": "低",
+        "done": false
+      },
+      "tasks": [
+        {
+          "id": "a",
+          "text": "整理本周项目计划",
+          "priority": "高",
+          "done": false
+        },
+        {
+          "id": "b",
+          "text": "下班后购买蔬菜和水果",
+          "priority": "中",
+          "done": false
+        },
+        {
+          "id": "c",
+          "text": "阅读 20 分钟",
+          "priority": "低",
+          "done": true
+        },
+        {
+          "id": "mv0kjxstad3i12aogkl",
+          "text": "Verify_app_generation",
+          "priority": "中",
+          "done": false
+        },
+        {
+          "id": "61767acc-d4ca-4054-9142-2f442f1e3374",
+          "text": "Codex直接调用接口创建的任务",
+          "priority": "高",
+          "done": true
+        },
+        {
+          "id": "c29aa57c-6c7f-47c5-beca-4eb9f95c2663",
+          "text": "External API acceptance task",
+          "priority": "低",
+          "done": false
+        }
+      ],
+      "total": 6,
+      "completed": 2,
+      "pending": 4
+    },
+    "revision": 4,
+    "replayed": true,
+    "durationMs": 0.44
+  },
+  "conflict": {
+    "ok": false,
+    "error": {
+      "code": "KEY_CONFLICT",
+      "message": "Idempotency key was used for a different request",
+      "details": null
+    }
+  },
+  "list": {
+    "ok": true,
+    "app": "board",
+    "method": "tasks.list",
+    "result": {
+      "tasks": [
+        {
+          "id": "a",
+          "text": "整理本周项目计划",
+          "priority": "高",
+          "done": false
+        },
+        {
+          "id": "b",
+          "text": "下班后购买蔬菜和水果",
+          "priority": "中",
+          "done": false
+        },
+        {
+          "id": "c",
+          "text": "阅读 20 分钟",
+          "priority": "低",
+          "done": true
+        },
+        {
+          "id": "mv0kjxstad3i12aogkl",
+          "text": "Verify_app_generation",
+          "priority": "中",
+          "done": false
+        },
+        {
+          "id": "61767acc-d4ca-4054-9142-2f442f1e3374",
+          "text": "Codex直接调用接口创建的任务",
+          "priority": "高",
+          "done": true
+        },
+        {
+          "id": "c29aa57c-6c7f-47c5-beca-4eb9f95c2663",
+          "text": "External API acceptance task",
+          "priority": "低",
+          "done": false
+        }
+      ],
+      "total": 6,
+      "completed": 2,
+      "pending": 4
+    },
+    "revision": 4,
+    "replayed": false,
+    "durationMs": 0.39
+  },
+  "remove": {
+    "ok": true,
+    "app": "board",
+    "method": "tasks.remove",
+    "result": {
+      "tasks": [
+        {
+          "id": "a",
+          "text": "整理本周项目计划",
+          "priority": "高",
+          "done": false
+        },
+        {
+          "id": "b",
+          "text": "下班后购买蔬菜和水果",
+          "priority": "中",
+          "done": false
+        },
+        {
+          "id": "c",
+          "text": "阅读 20 分钟",
+          "priority": "低",
+          "done": true
+        },
+        {
+          "id": "mv0kjxstad3i12aogkl",
+          "text": "Verify_app_generation",
+          "priority": "中",
+          "done": false
+        },
+        {
+          "id": "61767acc-d4ca-4054-9142-2f442f1e3374",
+          "text": "Codex直接调用接口创建的任务",
+          "priority": "高",
+          "done": true
+        }
+      ],
+      "total": 5,
+      "completed": 2,
+      "pending": 3
+    },
+    "revision": 5,
+    "replayed": false,
+    "durationMs": 1.42
+  }
+}

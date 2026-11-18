@@ -1,0 +1,22 @@
+{
+  "apkSha256": "b4d09a757a710428316ce2f3815186cc3f0a309566d4b63885d5ed912aba70f4",
+  "checks": [
+    {
+      "entry": "assets/licenses/fonts/HankenGrotesk-OFL.txt",
+      "matches": true
+    },
+    {
+      "entry": "assets/licenses/fonts/NotoSansSC-OFL.txt",
+      "matches": true
+    },
+    {
+      "entry": "assets/licenses/fonts/SpaceGrotesk-OFL.txt",
+      "matches": true
+    },
+    {
+      "entry": "assets/licenses/fonts/JetBrainsMono-OFL.txt",
+      "matches": true
+    }
+  ],
+  "scope": "Exact built Agent APK notice contents; not UI/device acceptance"
+}

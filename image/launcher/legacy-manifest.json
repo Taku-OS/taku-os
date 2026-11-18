@@ -1,0 +1,21 @@
+{
+  "schema": "taku.launcher3-patch/1",
+  "upstreamCommit": "818f72b74e6f914cbca2b465776d6d20f960ee87",
+  "repository": "packages/apps/Launcher3",
+  "patch": "nav-handle-double-tap-v1.patch",
+  "patchSha256": "98327f1149ce2c71fe0a249babd497945af7e809967a2c410848f98b0c53d41f",
+  "purpose": "Double tap on the gesture navigation handle starts the assistant (SystemUiProxy.startAssistant).",
+  "files": [
+    {
+      "path": "quickstep/src/com/android/quickstep/NavHandleDoubleTap.java",
+      "beforeSha256": null,
+      "afterSha256": "ad21c0e96ecf4d0614a8e3947d746599a2b3ef18fee10f83b44fc397b407479e"
+    },
+    {
+      "path": "quickstep/src/com/android/quickstep/TouchInteractionHandler.java",
+      "beforeSha256": "84fee597d301e24e2237a58329aa3ed25fedc104e1fc77d36e0192518b282df2",
+      "afterSha256": "d0b5da6d5e9ae9a1b7ab29c47aead69742dea4d1c90ac65e38dbfa856d3c2043"
+    }
+  ],
+  "legacyPatch": "nav-handle-double-tap.patch"
+}

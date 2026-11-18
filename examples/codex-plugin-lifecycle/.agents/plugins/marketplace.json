@@ -1,0 +1,1 @@
+{"name":"taku-test-marketplace","plugins":[{"name":"taku-local-example","source":{"source":"local","path":"./plugin"},"policy":{"installation":"AVAILABLE","authentication":"ON_INSTALL"},"category":"Productivity"}]}

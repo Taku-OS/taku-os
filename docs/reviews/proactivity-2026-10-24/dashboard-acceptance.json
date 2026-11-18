@@ -1,0 +1,178 @@
+{
+  "passed": true,
+  "at": "2026-10-23T18:46:18.412941+00:00",
+  "serial": "emulator-5590",
+  "avd": "Taku_Proactivity_20261024",
+  "checks": [
+    "Emulator only",
+    "Named dashboard fixture",
+    "Installed final dashboard APK bytes",
+    "Reset own dashboard fixture org.example.taku.observer",
+    "Reset own dashboard fixture org.agentos.proactivity",
+    "Open plugin v1",
+    "Screenshot review-1",
+    "Screenshot manager-approved",
+    "User activation committed before events",
+    "Actual producer version 1",
+    "Binder caller owns event source",
+    "No model or execution claim in fixture",
+    "Bounded recent context",
+    "Unique selected context records",
+    "Acceptance retains original selected records",
+    "Actual producer version 1",
+    "Binder caller owns event source",
+    "No model or execution claim in fixture",
+    "Bounded recent context",
+    "Unique selected context records",
+    "Acceptance retains original selected records",
+    "Screenshot overview",
+    "Heatmap shows actual two publish and accept receipts",
+    "Native hour selection changes to empty previous hour",
+    "Trend selection follows heatmap",
+    "Screenshot selected-hour",
+    "Screenshot trend",
+    "Screenshot status-ranking",
+    "Unsaved N=5 survives actual activity recreation",
+    "Landscape IME leaves at least 48dp visible for the focused field",
+    "Screenshot editor-landscape-draft",
+    "Screenshot large-font",
+    "Large font hour controls reachable",
+    "Screenshot landscape",
+    "Large font landscape tab 0",
+    "Large font landscape tab 1",
+    "Large font landscape tab 2",
+    "Screenshot empty",
+    "Empty chart stays zero after actual removal",
+    "Open plugin v1",
+    "Screenshot review-2",
+    "Screenshot manager-approved",
+    "User activation committed before events",
+    "Actual producer version 1",
+    "Binder caller owns event source",
+    "No model or execution claim in fixture",
+    "Bounded recent context",
+    "Unique selected context records",
+    "Acceptance retains original selected records",
+    "Screenshot overview-final",
+    "No runtime crash in dashboard acceptance"
+  ],
+  "hostApkSha256": "d4f0dc2d45802fd8226710398d6fe69bbfd61bd85d818c86cd1add0fdd606ca0",
+  "scope": "Native dashboard, real registry metadata, linked selection, empty data, large font, rotation and unsaved editor draft. Protocol/upgrade loop recorded separately.",
+  "first": {
+    "candidateId": "b9bd1a68-a727-4275-8d33-0fcdc8ba3dfa",
+    "policyRevision": 1,
+    "observerId": "org.example.taku.observer.page",
+    "records": [
+      {
+        "id": "event-1c92c4fd-1a1c-419c-9568-7dd4af4418e3",
+        "type": "org.example.taku.observer.page_changed",
+        "sequence": 1,
+        "observedAt": 3756799,
+        "pageRevision": 1
+      },
+      {
+        "id": "event-ceef2a53-d493-48b6-8146-bff75d061d2f",
+        "type": "org.example.taku.observer.page_changed",
+        "sequence": 2,
+        "observedAt": 3756859,
+        "pageRevision": 2
+      },
+      {
+        "id": "event-f5b9a6c9-fe19-4b39-b6fb-67e94d7d8dc5",
+        "type": "org.example.taku.observer.page_changed",
+        "sequence": 3,
+        "observedAt": 3756935,
+        "pageRevision": 3
+      }
+    ],
+    "sourcePackage": "org.example.taku.observer",
+    "producerCodeVersion": 1,
+    "imageDecision": false,
+    "agentExecution": false
+  },
+  "second": {
+    "candidateId": "343ff3c6-44d5-4826-9375-7ebfb55df701",
+    "policyRevision": 1,
+    "observerId": "org.example.taku.observer.page",
+    "records": [
+      {
+        "id": "event-1c92c4fd-1a1c-419c-9568-7dd4af4418e3",
+        "type": "org.example.taku.observer.page_changed",
+        "sequence": 1,
+        "observedAt": 3756799,
+        "pageRevision": 1
+      },
+      {
+        "id": "event-ceef2a53-d493-48b6-8146-bff75d061d2f",
+        "type": "org.example.taku.observer.page_changed",
+        "sequence": 2,
+        "observedAt": 3756859,
+        "pageRevision": 2
+      },
+      {
+        "id": "event-f5b9a6c9-fe19-4b39-b6fb-67e94d7d8dc5",
+        "type": "org.example.taku.observer.page_changed",
+        "sequence": 3,
+        "observedAt": 3756935,
+        "pageRevision": 3
+      },
+      {
+        "id": "event-172a4d68-a19a-4746-b35e-78e2db740dd7",
+        "type": "org.example.taku.observer.page_changed",
+        "sequence": 4,
+        "observedAt": 3761006,
+        "pageRevision": 4
+      }
+    ],
+    "sourcePackage": "org.example.taku.observer",
+    "producerCodeVersion": 1,
+    "imageDecision": false,
+    "agentExecution": false
+  },
+  "final": {
+    "candidateId": "7ed86da5-c0a4-4e6f-81ec-a8db07c81387",
+    "policyRevision": 2,
+    "observerId": "org.example.taku.observer.page",
+    "records": [
+      {
+        "id": "event-5457a458-0c20-4147-bc3a-84f985f5cbd2",
+        "type": "org.example.taku.observer.page_changed",
+        "sequence": 1,
+        "observedAt": 3934297,
+        "pageRevision": 5
+      },
+      {
+        "id": "event-628f972c-a81d-4acc-8a10-e54a283e6c0b",
+        "type": "org.example.taku.observer.page_changed",
+        "sequence": 2,
+        "observedAt": 3934323,
+        "pageRevision": 6
+      },
+      {
+        "id": "event-f6e303e9-a320-4c8a-89fb-f40baa075a0b",
+        "type": "org.example.taku.observer.page_changed",
+        "sequence": 3,
+        "observedAt": 3934364,
+        "pageRevision": 7
+      }
+    ],
+    "sourcePackage": "org.example.taku.observer",
+    "producerCodeVersion": 1,
+    "imageDecision": false,
+    "agentExecution": false
+  },
+  "screenshots": [
+    "editor-landscape-draft.png",
+    "empty.png",
+    "landscape.png",
+    "large-font.png",
+    "manager-approved.png",
+    "overview-final.png",
+    "overview.png",
+    "review-1.png",
+    "review-2.png",
+    "selected-hour.png",
+    "status-ranking.png",
+    "trend.png"
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "attachment": {
+    "actualAndroidPickerAttachment": true,
+    "realImageUnderstanding": true,
+    "attachmentCount": 1,
+    "sendBecomesStop": true,
+    "actualTaskCancelled": true,
+    "imageReply": "顶部文件夹名称：云南旅行。\n是否为空目录：是，截图显示“No items”。",
+    "imageTask": "1792028305903",
+    "stoppedTask": "1792028317975"
+  },
+  "interaction": {
+    "realSteerSameTurn": true,
+    "steerThread": "01a13d36-d500-79e2-96f3-d6ffd0a750f0",
+    "steerTurn": "01a13d36-d7f8-7981-b360-4b3aaa4bc8a5",
+    "steerReply": "COMPOSER_STEER_OK",
+    "realPhoneApprovalRendered": true,
+    "cancelledPhoneAction": true,
+    "approvalThread": "01a13d37-3397-7422-8d41-b564c4ec7fbb",
+    "approvalTurn": "01a13d37-3504-7770-857e-19b657a78210",
+    "approvalReply": "我会调用一次原生点击，等待你取消审批后报告实际返回结果。\n实际返回：用户取消了本次手机操作。",
+    "modelResponsesSimulated": false
+  },
+  "pixelSettingsRestorePending": {
+    "sound_effects_enabled": 1,
+    "stay_on_while_plugged_in": 0
+  },
+  "emulatorOriginalSettings": {
+    "sound_effects_enabled": "1",
+    "stay_on_while_plugged_in": "1"
+  },
+  "cameraTested": false,
+  "localSpeechEngineAvailable": false,
+  "emulatorSettingsRestored": {
+    "sound_effects_enabled": "1",
+    "stay_on_while_plugged_in": "1"
+  },
+  "latestApkKeyboardSmokePassed": true
+}

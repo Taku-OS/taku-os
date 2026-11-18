@@ -1,0 +1,239 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://taku.ai/spec/system-surface/2",
+  "title": "Taku system surface v2",
+  "description": "Ephemeral native display calls. v2 adds initial presentation, direct capsule action and caller-owned artifact metadata; references and action identifiers are never executed by the host.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "id",
+    "revision",
+    "kind",
+    "placement",
+    "title",
+    "summary",
+    "blocks",
+    "actions",
+    "ttlMs",
+    "initialState",
+    "tapActionId"
+  ],
+  "properties": {
+    "version": {
+      "const": 2
+    },
+    "id": {
+      "$ref": "#/$defs/id"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "kind": {
+      "enum": [
+        "hint",
+        "choice",
+        "result"
+      ]
+    },
+    "placement": {
+      "enum": [
+        "top",
+        "bottom"
+      ]
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160,
+      "pattern": "\\S"
+    },
+    "summary": {
+      "type": "string",
+      "maxLength": 500
+    },
+    "ttlMs": {
+      "type": "integer",
+      "minimum": 1000,
+      "maximum": 1800000
+    },
+    "blocks": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "$ref": "#/$defs/block"
+      }
+    },
+    "actions": {
+      "type": "array",
+      "maxItems": 3,
+      "items": {
+        "$ref": "#/$defs/action"
+      }
+    },
+    "initialState": {
+      "enum": [
+        "compact",
+        "expanded"
+      ]
+    },
+    "tapActionId": {
+      "type": "string",
+      "pattern": "^$|^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$"
+    },
+    "artifact": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/artifact"
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$"
+    },
+    "block": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "label",
+        "text"
+      ],
+      "properties": {
+        "type": {
+          "enum": [
+            "text",
+            "field",
+            "fact",
+            "notice"
+          ]
+        },
+        "label": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000,
+          "pattern": "\\S"
+        }
+      },
+      "if": {
+        "properties": {
+          "type": {
+            "enum": [
+              "field",
+              "fact",
+              "notice"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "label": {
+            "minLength": 1,
+            "pattern": "\\S"
+          }
+        }
+      }
+    },
+    "action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "label",
+        "primary"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "pattern": "\\S"
+        },
+        "primary": {
+          "type": "boolean"
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ref",
+        "mediaType",
+        "title"
+      ],
+      "properties": {
+        "ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": "\\S"
+        },
+        "mediaType": {
+          "type": "string",
+          "maxLength": 160,
+          "pattern": "^[A-Za-z0-9!#$&^_.+-]+/[A-Za-z0-9!#$&^_.+-]+$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160,
+          "pattern": "\\S"
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "choice"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "tapActionId": {
+            "const": ""
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "artifact"
+        ],
+        "properties": {
+          "artifact": {
+            "type": "object"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "kind": {
+            "const": "result"
+          }
+        }
+      }
+    }
+  ]
+}

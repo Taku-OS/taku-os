@@ -1,0 +1,31 @@
+{
+  "name": "voice-light-field",
+  "title": "Voice-reactive fluid light",
+  "summary": "The listening / Live Talk light at the bottom of the screen: Figma's six blurred light layers re-rendered as one flowing field (curl flow, per-layer warp and travel, rising crests) that reacts to a voice level (WebGL).",
+  "kind": "component + renderer + controller",
+  "renderer": "WebGL1 (one shared context per page) copied into a 2D canvas per instance",
+  "importPath": "taku-animations/effects/voice-light-field",
+  "exports": [
+    "VoiceLight",
+    "acquireLightField",
+    "stepLight",
+    "LightField",
+    "FIELD",
+    "BACKDROP",
+    "motionAt",
+    "LIGHT_MASKS"
+  ],
+  "usedBy": ["10-AIPhoneHero"],
+  "sourceOrigin": [
+    "src/components/taku/10-AIPhoneHero/light-field.ts",
+    "src/components/taku/10-AIPhoneHero/timeline.ts (LightState, stepLight, FLOW_QUIET, FLOW_SPEAK)"
+  ],
+  "samples": "Its own mask textures only (ten Figma layer exports, packed into an atlas at startup). Never samples page content.",
+  "assets": [
+    "assets/effects/voice-light-field/listen-glow-{2..5}.svg",
+    "assets/effects/voice-light-field/live-glow-{2..7}.svg"
+  ],
+  "dependencies": ["react"],
+  "playback": "Controlled frame {flow, level, mix} (pure, seekable) or live voiceLevel integrated by stepLight on the effect's own clock; flow never restarts, so level changes are interruptible and reversible.",
+  "reducedMotion": "still: the light holds (no flow), level still applies. Host passes it."
+}

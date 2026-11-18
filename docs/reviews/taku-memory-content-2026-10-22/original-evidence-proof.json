@@ -1,0 +1,12 @@
+{
+  "passed": true,
+  "ids": [
+    "c8db81a7-bcce-4116-bf82-822106d9b0e5",
+    "1b390040-e725-4eaa-95f7-aebfe8ee6aa7",
+    "24e05643-efa8-428d-81c3-baa7d4db622b"
+  ],
+  "exactRecordsIncludingHistoryUnchanged": true,
+  "originalRetainedCount": 30,
+  "retainedCountNow": 32,
+  "newDemoRecords": 2
+}

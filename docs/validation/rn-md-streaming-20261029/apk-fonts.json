@@ -1,0 +1,125 @@
+{
+  "apkBytes": 44152192,
+  "fonts": [
+    {
+      "path": "res/5D.ttf",
+      "bytes": 1000596,
+      "compressed": 461191,
+      "sha256": "a2783b0e55c4a93008e63ba70666819da3c6bf568633bab79ace28ce221fdcd1"
+    },
+    {
+      "path": "res/7k.ttf",
+      "bytes": 1491396,
+      "compressed": 604816,
+      "sha256": "09b115af73ad06ab69e2d9fffe639439328398c481da1bbae14047c3379821c5"
+    },
+    {
+      "path": "res/A8.ttf",
+      "bytes": 1488508,
+      "compressed": 591248,
+      "sha256": "9f8c892a8044196c801bad7a806b2ac63e067e52b5c2a023d40f0f604dd117dd"
+    },
+    {
+      "path": "res/D3.ttf",
+      "bytes": 1448392,
+      "compressed": 559324,
+      "sha256": "7e986d2445a3c5cff835d66aad9f8e7e5d1683c6e99bf94482f28823d33c01b5"
+    },
+    {
+      "path": "res/DU.ttf",
+      "bytes": 88300,
+      "compressed": 43999,
+      "sha256": "3da1d59fcfe5b66b0c6b41c437c564b6cdd110abdff5471e85e487aee336975a"
+    },
+    {
+      "path": "res/FR.ttf",
+      "bytes": 1002144,
+      "compressed": 471432,
+      "sha256": "8fa5bb32fea82b0be7c737b5ecb5a503d6949ae988613388bcb7b8dbdd1f7e65"
+    },
+    {
+      "path": "res/GY.ttf",
+      "bytes": 1219088,
+      "compressed": 781579,
+      "sha256": "413adac6aafb16c983c9697f5f55b1e81a46c97f149854e74d86ea36a2985bef"
+    },
+    {
+      "path": "res/HA.ttf",
+      "bytes": 1002564,
+      "compressed": 471218,
+      "sha256": "e8704d1d2c91efd7937c94539548274d37c459633e932291a16fcc9a3d3c27bc"
+    },
+    {
+      "path": "res/IE.ttf",
+      "bytes": 1450392,
+      "compressed": 599079,
+      "sha256": "217c94343e8890743fbe3867cca9820bc3a4fa4ca9cccb914dd9a39452749e9a"
+    },
+    {
+      "path": "res/Tk.ttf",
+      "bytes": 67896,
+      "compressed": 33360,
+      "sha256": "bb9e176e81d3e1e38c0de464f523c4c42aae15b48b5437437ffd514bb0b03ea4"
+    },
+    {
+      "path": "res/V6.ttf",
+      "bytes": 972852,
+      "compressed": 432644,
+      "sha256": "828b3d13ad31f686952972e5de877fbd969a45eb9e81934f148c53f088e28558"
+    },
+    {
+      "path": "res/X0.ttf",
+      "bytes": 1452120,
+      "compressed": 607594,
+      "sha256": "80c16a30e56308bf23b2a1398d495126fa5337372dc1529ee36c6e60372aec05"
+    },
+    {
+      "path": "res/ca.ttf",
+      "bytes": 67892,
+      "compressed": 32756,
+      "sha256": "0a4cb26adfce0ba2d7a9fb9f1458f03bddef3e4dc915e7c5b7982a9c879cb095"
+    },
+    {
+      "path": "res/er.ttf",
+      "bytes": 1450388,
+      "compressed": 600623,
+      "sha256": "ebd27ccfeb1e989621ebcef470266bd0f370f47d854d7d4e0d6ae238c09049aa"
+    },
+    {
+      "path": "res/kB.ttf",
+      "bytes": 974256,
+      "compressed": 467637,
+      "sha256": "e9712333300c6b8d91000c71b85e1ea3c6c958ee5af69e0c8662e4965b5d186c"
+    },
+    {
+      "path": "res/oK.ttf",
+      "bytes": 973956,
+      "compressed": 469223,
+      "sha256": "dd67d241148f0d995505bd0c74303596c3a6f1faa3f477443b378200a16c936d"
+    },
+    {
+      "path": "res/oS.ttf",
+      "bytes": 975092,
+      "compressed": 473701,
+      "sha256": "207e3a730bd230acb1738af1eadc6b6a9b007e2d242c8b44ec7b7e18ce3e042b"
+    },
+    {
+      "path": "res/u7.ttf",
+      "bytes": 1219736,
+      "compressed": 775852,
+      "sha256": "2844852e90180d1b79c826542aaf6d2345c335a2fdee292dd084563d440eacb0"
+    },
+    {
+      "path": "res/vp.ttf",
+      "bytes": 1492364,
+      "compressed": 603783,
+      "sha256": "fdea7fd748323619147a12ff464d9d5cf290437620073cd78580e9d366cd9288"
+    },
+    {
+      "path": "res/yK.ttf",
+      "bytes": 270224,
+      "compressed": 127632,
+      "sha256": "e6fd0d7e91550b3ed2b735d4312474362c4716edc4fc0577a0f61ed782d5aed1"
+    }
+  ]
+}

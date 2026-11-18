@@ -1,0 +1,16 @@
+{
+  "packageName": "com.google.android.apps.weather",
+  "versionName": "1.1.20260227.904518686.release",
+  "versionCode": 10008663,
+  "minSdk": 35,
+  "targetSdk": 36,
+  "architecture": "arm64-v8a",
+  "sourceUrl": "https://gitlab.com/api/v4/projects/85036487/packages/generic/nikgapps-pixel_weather/10008663-arm64-v8a-31080506ad49/pixel_weather.zip",
+  "archiveSha256": "04ed34d8d613c62dfeab7125b7eb45bba047f7372ccfb23f729b07f566b756a5",
+  "entry": "___priv-app___WeatherPixelPrebuilt_10008663/WeatherPixelPrebuilt_10008663.apk",
+  "apkSha256": "df08f7c39c3c8cd2003e29ea9c81e2f3e47028a2b9ea69e607cb53d673855a55",
+  "signerSha256": "7751c458da05ba9100ad73926e3e50aae3ca63183c6aaeb21d225883439f8aa1",
+  "signatureReference": "https://www.apkmirror.com/apk/google-inc/pixel-weather/pixel-weather-1-1-20260716-979549101-release-release/",
+  "officialListing": "https://play.google.com/store/apps/details?id=com.google.android.apps.weather",
+  "installation": "Original APK only; also pinned in image/google-apps.lock.json for default internal ROM preinstall and scripts/install-default-apps.py. No archive scripts, re-signing or privileged permission grants."
+}

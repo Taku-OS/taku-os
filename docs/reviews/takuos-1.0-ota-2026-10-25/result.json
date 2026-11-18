@@ -1,0 +1,157 @@
+{
+  "schema": "taku.pixel9-I-to-J-scoped-acceptance/1",
+  "completedAt": "2026-10-25T04:04:45.634357+00:00",
+  "product": {
+    "name": "TakuOS",
+    "version": "1.0",
+    "androidRelease": "17",
+    "androidSdk": 37,
+    "device": "tokay"
+  },
+  "sourceBuild": "20261024154635",
+  "targetBuild": "20261024174448",
+  "snapshotDigest": "16fb163782b9e2d0f8224f3143fdae97c54b693c955dd178cfbecf6e8c64926e",
+  "buildControllerCommit": "d2a3641dfa9003878924d1bad81568f2d4cf843a",
+  "hostValidatorCommit": "2979dc4a443c62953266d51e5ef08649ffa0cf40",
+  "imageSourceTreeDirty": true,
+  "delta": {
+    "bytes": 275720,
+    "sha256": "45df2023e3f3fef8270b86e0a467d5e8043fd28c2ca34989478b4cae258bc65c"
+  },
+  "targetAvbDigest": "12b2a6f0f11c2ae1fb9e3c9f2dc43a78f44f95ad9dd49aab6632ba7326824416",
+  "sourceSlot": "_a",
+  "targetSlot": "_b",
+  "checks": {
+    "signedFullBaselinesAndIncrementalVerified": true,
+    "all26SourcePartitionsQualifiedReadOnly": true,
+    "nativeChannelDownloadShaVerified": true,
+    "initialIdleEnginePrefixSealed": true,
+    "actualApplyPayloadBoundToExactDelta": true,
+    "nativeObserverExitCodeZero": true,
+    "nativeSuccessAndNeedRebootObserved": true,
+    "freshTargetPreparationObserved": true,
+    "realNewBootAndTargetAvbVerified": true,
+    "targetSlotMarkedSuccessful": true,
+    "sixSnapshotsMergedAndCleaned": true,
+    "originalProbeApkUidAndThreePrivateStoresPreserved": true,
+    "fiveBuiltInApksAndAllOriginalUidsVerified": true,
+    "selectedAccountAndImeConfigBytesPreserved": true,
+    "defaultImeAndMemoryAccessibilityPreserved": true,
+    "unsentChineseDraftAndRevisionRestored": true,
+    "realOriginalConversationRestored": true,
+    "actualPostRebootModelResponseVerified": true,
+    "fourServicesAndSelinuxVerified": true,
+    "nativeJShowsNoFurtherUpdate": true,
+    "originalConversationSelectionRestored": true,
+    "controlledQaThreadArchived": true,
+    "ownedDiagnosticToolsRemoved": true
+  },
+  "stability": {
+    "samples": 41,
+    "elapsedSeconds": 167.289339583,
+    "sameBootPidAndStartTicks": true
+  },
+  "nativeObserverEventCount": 112,
+  "binderCallerVerified": false,
+  "uiInstallAndRebootEvidencePreserved": true,
+  "publication": {
+    "objectCount": 7,
+    "totalBytes": 3923472018,
+    "r2AllObjectBytesReadBackVerified": true,
+    "cdnDeltaWholeShaVerified": true,
+    "cdnFullHeadAndTwoRangesVerified": true,
+    "cdnFullWholeDownloadVerified": false,
+    "canaryExactSourceBuild": "20261024154635",
+    "priorSourceEntryPreserved": true,
+    "cloudVerificationStatus": "signed-awaiting-device-acceptance",
+    "cloudStatusNotRewrittenFromLocalAcceptance": true,
+    "stablePromoted": false
+  },
+  "formalNativeIncrementalOtaVerified": true,
+  "selectedDataPreservationVerified": true,
+  "allUserDataVerified": false,
+  "factoryInstallationVerified": false,
+  "productionReleaseReady": false,
+  "automationPaused": true,
+  "screenshots": {
+    "01-update-available.png": "d8ff795214068d7d651f0747c5243f1d0a0b7acf1ad59cd68118c59230d48196",
+    "02-updated.png": "fadb8d77a34e0f8dd876085640e7746feb156490acfea4ce4448be4ca8c84044",
+    "03-restored-draft.png": "f6b1ec1d241a8b9e6a60a65082f973e7971d554ccd06bf274ca6a43dca82d268"
+  },
+  "privateEvidence": {
+    "sourceQualification": {
+      "ignoredPath": "out/reviews/J-ota-20261025/source-partitions-2/qualification.json",
+      "sha256": "db61f668ce744dc9c77bdd63ce76dba492d6dbc67af9df06510c3102bfed9f49"
+    },
+    "sourceInstallation": {
+      "ignoredPath": "out/reviews/J-ota-20261025/source-installation-1/installation.json",
+      "sha256": "0a2c8be4c69d663aab6d0f5925ad245202089d89bf51401fb507f202d3b509d1"
+    },
+    "before": {
+      "ignoredPath": "out/reviews/J-ota-20261025/device/pre-upgrade.json",
+      "sha256": "54ac0a094b9e7b5aaa3fbf975c0f752c0d18a9c6760994066ade74f1e35eaf77"
+    },
+    "delivery": {
+      "ignoredPath": "out/reviews/J-ota-20261025/delta-attempt-1/delivery.json",
+      "sha256": "f18924eb268c85c6acda6031aebda4ef7ab7187f45ceebec385baac3f80e399a"
+    },
+    "nativeInstallation": {
+      "ignoredPath": "out/reviews/J-ota-20261025/native-observer-attempt-1/installation.json",
+      "sha256": "ceb45d3b4c5348bf8af2e44115889a334e5ca3f08abc0fb7250b813269f1fca1"
+    },
+    "after": {
+      "ignoredPath": "out/reviews/J-ota-20261025/device/post-upgrade.json",
+      "sha256": "1a48c01826bac2c7d6bea8c14e13c68559ecc7307d542d81c9815caa09a8d9a4"
+    },
+    "formalAcceptance": {
+      "ignoredPath": "out/reviews/J-ota-20261025/device/incremental-acceptance.json",
+      "sha256": "7e203d78df9e5f0dc146b4af1b76e50c6a51d8588e307e0f74f4066cc381e36e"
+    },
+    "postboot": {
+      "ignoredPath": "out/reviews/J-ota-20261025/postboot-1/report.json",
+      "sha256": "0326f988864787ec9d25ad94a8e0037d6e54344208693779b4d999078a7204b2"
+    },
+    "mergeLog": {
+      "ignoredPath": "out/reviews/J-ota-20261025/native-updater/postboot-update-engine.log",
+      "sha256": "f74c1b3baf5741478d2a12a6d32e62943b6cc1804755b0cf11e5110a576d8bf7"
+    },
+    "draftAfter": {
+      "ignoredPath": "out/reviews/J-ota-20261025/native-probe/draft-after.json",
+      "sha256": "204923603c2911e2cd70d5a1ddbbee6f1efe94d7f1fd7eb40b494980b498333d"
+    },
+    "realModel": {
+      "ignoredPath": "out/reviews/J-ota-20261025/native-probe/post-J-ai-1/report.json",
+      "sha256": "5a0edc72f57c6316bfc7294e0736f3eab4e8dc4d57f20d99fce7caeba428806c"
+    },
+    "finalReadback": {
+      "ignoredPath": "out/reviews/J-ota-20261025/final-readback.json",
+      "sha256": "87ce2458a3deaa4c956c4263a9a21f0afb550c98d9e8a08317bfd6da998e7953"
+    },
+    "ownedCleanup": {
+      "ignoredPath": "out/reviews/J-ota-20261025/native-probe/cleanup.json",
+      "sha256": "5381e3abc4a8a8e02b6d6a95223a0eab7f826a5d277a311ba115f6b279263e29"
+    },
+    "r2Upload": {
+      "ignoredPath": "out/reviews/J-ota-20261025/cloud-readback/upload-receipt.json",
+      "sha256": "8b019bf675577209deadac6c2d92a8a501bd71806802af1d08e1aded449a11c0"
+    },
+    "canaryAppend": {
+      "ignoredPath": "out/reviews/J-ota-20261025/cloud-readback/append-receipt.json",
+      "sha256": "de0a5b29345b1ea79dcd109ca3d87198eaa0ec36a14bd3b0870a07a7547945c1"
+    },
+    "cdn": {
+      "ignoredPath": "out/reviews/J-ota-20261025/cloud-readback/cdn-http-verification.json",
+      "sha256": "622e6982cdfdb9dca6e0a158e6d4a594673f32988516d9a26ebe896af5648832"
+    },
+    "hostFeeds": {
+      "ignoredPath": "out/reviews/J-ota-20261025/cloud-readback/feed-host-readback.json",
+      "sha256": "bd7b0fb1b69b4dcdae15a014ad16d92d851aac54c20566f96cac199b77b96c78"
+    },
+    "toolsCleanup": {
+      "ignoredPath": "out/reviews/J-ota-20261025/native-probe/tools-cleanup.json",
+      "sha256": "53b6ace62f5e0de80026dd556f127451fb0de198bdad685a580d140ecdb7ddd0"
+    }
+  },
+  "privateEvidenceContentsPublished": false,
+  "credentialsOrPrivateConfigsIncluded": false
+}

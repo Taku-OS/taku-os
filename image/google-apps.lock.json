@@ -1,0 +1,297 @@
+{
+  "schema": "taku.internal-google-apps/2",
+  "distribution": "internal-test-only",
+  "androidRelease": "17",
+  "architecture": "arm64",
+  "mountPath": "/src/vendor/taku-google-apps",
+  "coreLockSha256": "47507c8c76f898ced5a69b62b140b12a9d720c64cece3c5170ed383cc5c298f2",
+  "catalog": {
+    "repository": "https://gitlab.com/nikgapps/nikgapps-package-catalog",
+    "commit": "a53197efbacbc099a051874621c31a98964b1156",
+    "sha256": "c4f797a6847e1eac35faaade7f5ef4948e7a79470389b8dd378791a99ff8a239"
+  },
+  "apps": [
+    {
+      "packageName": "com.android.chrome",
+      "versionCode": 807804704,
+      "versionName": "156.0.8078.47",
+      "minSdk": 29,
+      "targetSdk": 36,
+      "nativeAbis": [
+        "arm64-v8a"
+      ],
+      "usesLibraries": [],
+      "optionalUsesLibraries": [
+        "androidx.window.extensions",
+        "androidx.window.sidecar"
+      ],
+      "bytes": 289363289,
+      "sha256": "613405a7b5738adef5c74698305ba04f3adb846512496311168b9e9eae240138",
+      "signerSha256": [
+        "f0fd6c5b410f25cb25c3b53346c8972fae30f8ee7411df910480ad6b2d60db83"
+      ],
+      "id": "chrome",
+      "module": "TakuInternalChrome",
+      "apk": "apks/chrome.apk",
+      "source": {
+        "url": "https://www.apkmirror.com/apk/google-inc/chrome/google-chrome-156-0-8078-47-release/google-chrome-156-0-8078-47-5-android-apk-download/",
+        "bytes": 289363289,
+        "sha256": "613405a7b5738adef5c74698305ba04f3adb846512496311168b9e9eae240138",
+        "entry": null,
+        "acquisition": "browser-original-apk",
+        "publisherReleaseNote": "https://chromereleases.googleblog.com/2026/10/chrome-for-android-update_095004068.html"
+      },
+      "publisherEvidenceUrl": "https://www.google.com/.well-known/assetlinks.json"
+    },
+    {
+      "packageName": "com.google.android.gm",
+      "versionCode": 65615106,
+      "versionName": "2026.02.23.876771157.Release",
+      "minSdk": 23,
+      "targetSdk": 36,
+      "nativeAbis": [
+        "arm64-v8a"
+      ],
+      "usesLibraries": [],
+      "optionalUsesLibraries": [
+        "org.apache.http.legacy",
+        "android.ext.adservices",
+        "androidx.window.extensions",
+        "androidx.window.sidecar"
+      ],
+      "bytes": 183523351,
+      "sha256": "2bdbf669f5d9966dc3c30c66b79bfb39d47954e0b2c9e065d335c8cb1d09c066",
+      "signerSha256": [
+        "f0fd6c5b410f25cb25c3b53346c8972fae30f8ee7411df910480ad6b2d60db83"
+      ],
+      "id": "gmail",
+      "module": "TakuInternalGmail",
+      "apk": "apks/gmail.apk",
+      "source": {
+        "url": "https://gitlab.com/api/v4/projects/85036487/packages/generic/nikgapps-gmail/65615106-arm64-v8a-55f4702352f0/gmail.zip",
+        "bytes": 183525632,
+        "sha256": "cedf722fc1fb2b5e40f4c57121f7ca4b3c2b11d67ae4aa0ca489779a240a559a",
+        "entry": "___app___PrebuiltGmail/PrebuiltGmail.apk",
+        "acquisition": "original-apk-only-from-official-nikgapps-registry"
+      },
+      "publisherEvidenceUrl": "https://mail.google.com/.well-known/assetlinks.json"
+    },
+    {
+      "packageName": "com.google.android.apps.maps",
+      "versionCode": 1068538231,
+      "versionName": "26.16.12.898594237",
+      "minSdk": 28,
+      "targetSdk": 37,
+      "nativeAbis": [
+        "arm64-v8a"
+      ],
+      "usesLibraries": [],
+      "optionalUsesLibraries": [
+        "com.android.extensions.xr",
+        "android.ext.adservices",
+        "androidx.window.extensions",
+        "androidx.window.sidecar"
+      ],
+      "bytes": 115274683,
+      "sha256": "4d621e9197c783b8e5423799d8f30efbe5c527dbbe801f691a4c6b66ed7669ff",
+      "signerSha256": [
+        "f0fd6c5b410f25cb25c3b53346c8972fae30f8ee7411df910480ad6b2d60db83"
+      ],
+      "id": "maps",
+      "module": "TakuInternalMaps",
+      "apk": "apks/maps.apk",
+      "source": {
+        "url": "https://gitlab.com/api/v4/projects/85036487/packages/generic/nikgapps-google_maps/1068538231-arm64-v8a-352f4b48ca23/google_maps.zip",
+        "bytes": 115276895,
+        "sha256": "fc4afa2836513adfdc86f687173b8d10f0ebf0779499a3d9db747f48dc69d401",
+        "entry": "___app___Maps/Maps.apk",
+        "acquisition": "original-apk-only-from-official-nikgapps-registry"
+      },
+      "publisherEvidenceUrl": "https://maps.google.com/.well-known/assetlinks.json"
+    },
+    {
+      "packageName": "com.google.android.apps.photos",
+      "versionCode": 51413603,
+      "versionName": "7.67.0.882706237",
+      "minSdk": 23,
+      "targetSdk": 36,
+      "nativeAbis": [
+        "arm64-v8a"
+      ],
+      "usesLibraries": [],
+      "optionalUsesLibraries": [
+        "org.apache.http.legacy",
+        "com.google.android.chromeos",
+        "wear-sdk",
+        "androidx.window.extensions",
+        "androidx.window.sidecar"
+      ],
+      "bytes": 188444434,
+      "sha256": "e87f68e341ac820cbec1f9a5e64dbfec6811cf511115af2aad82e921399b85cb",
+      "signerSha256": [
+        "3d7a1223019aa39d9ea0e3436ab7c0896bfb4fb679f4de5fe7c23f326c8f994a"
+      ],
+      "id": "photos",
+      "module": "TakuInternalPhotos",
+      "apk": "apks/photos.apk",
+      "source": {
+        "url": "https://gitlab.com/api/v4/projects/85036487/packages/generic/nikgapps-google_photos/51413603-arm64-v8a-5dfb24ecccf9/google_photos.zip",
+        "bytes": 188459664,
+        "sha256": "ba3d7c86a2fc9588cdc3fb729ae55ef6ce41d94f14a4b2efcae5f4c7bfc12875",
+        "entry": "___app___Photos/Photos.apk",
+        "acquisition": "original-apk-only-from-official-nikgapps-registry"
+      },
+      "publisherEvidenceUrl": "https://photos.google.com/.well-known/assetlinks.json"
+    },
+    {
+      "packageName": "com.google.android.youtube",
+      "versionCode": 1561179976,
+      "versionName": "21.25.523",
+      "minSdk": 29,
+      "targetSdk": 37,
+      "nativeAbis": [
+        "arm64-v8a"
+      ],
+      "usesLibraries": [],
+      "optionalUsesLibraries": [
+        "org.apache.http.legacy",
+        "android.ext.adservices",
+        "androidx.window.extensions",
+        "androidx.window.sidecar"
+      ],
+      "bytes": 162278806,
+      "sha256": "6855959218cacbcb2b6ded4b00ed8aba80b4955f22459dd0417119aef471867d",
+      "signerSha256": [
+        "3d7a1223019aa39d9ea0e3436ab7c0896bfb4fb679f4de5fe7c23f326c8f994a"
+      ],
+      "id": "youtube",
+      "module": "TakuInternalYouTube",
+      "apk": "apks/youtube.apk",
+      "source": {
+        "url": "https://gitlab.com/api/v4/projects/85036487/packages/generic/nikgapps-you_tube/1561179976-arm64-v8a-7e43431a1c5e/you_tube.zip",
+        "bytes": 162281007,
+        "sha256": "3b20529b3ac21913d60249016a5fe7f6ed1c61cdb052a17834114301ce68f98e",
+        "entry": "___app___YouTube/YouTube.apk",
+        "acquisition": "original-apk-only-from-official-nikgapps-registry"
+      },
+      "publisherEvidenceUrl": "https://www.youtube.com/.well-known/assetlinks.json"
+    },
+    {
+      "packageName": "com.google.android.apps.weather",
+      "versionCode": 10008663,
+      "versionName": "1.1.20260227.904518686.release",
+      "minSdk": 35,
+      "targetSdk": 36,
+      "nativeAbis": [
+        "arm64-v8a"
+      ],
+      "usesLibraries": [],
+      "optionalUsesLibraries": [
+        "org.apache.http.legacy",
+        "androidx.window.extensions",
+        "androidx.window.sidecar"
+      ],
+      "bytes": 42609153,
+      "sha256": "df08f7c39c3c8cd2003e29ea9c81e2f3e47028a2b9ea69e607cb53d673855a55",
+      "signerSha256": [
+        "7751c458da05ba9100ad73926e3e50aae3ca63183c6aaeb21d225883439f8aa1"
+      ],
+      "id": "pixel_weather",
+      "module": "TakuInternalPixelWeather",
+      "apk": "apks/pixel_weather.apk",
+      "source": {
+        "url": "https://gitlab.com/api/v4/projects/85036487/packages/generic/nikgapps-pixel_weather/10008663-arm64-v8a-31080506ad49/pixel_weather.zip",
+        "bytes": 42612802,
+        "sha256": "04ed34d8d613c62dfeab7125b7eb45bba047f7372ccfb23f729b07f566b756a5",
+        "entry": "___priv-app___WeatherPixelPrebuilt_10008663/WeatherPixelPrebuilt_10008663.apk",
+        "acquisition": "original-apk-only-from-official-nikgapps-registry"
+      },
+      "publisherEvidenceUrl": "https://www.apkmirror.com/apk/google-inc/pixel-weather/pixel-weather-1-1-20260716-979549101-release-release/"
+    },
+    {
+      "packageName": "com.google.android.apps.youtube.music",
+      "versionCode": 91052240,
+      "versionName": "9.10.52",
+      "minSdk": 26,
+      "targetSdk": 36,
+      "nativeAbis": [
+        "arm64-v8a"
+      ],
+      "usesLibraries": [],
+      "optionalUsesLibraries": [
+        "org.apache.http.legacy",
+        "android.ext.adservices",
+        "androidx.window.extensions",
+        "androidx.window.sidecar"
+      ],
+      "bytes": 92493331,
+      "sha256": "37f6931e4d895227c4ea1ff20e707982ba1c1f4734f3eadb07fb78475035be4c",
+      "signerSha256": [
+        "a2a1ad7ba7f41dfca4514e2afeb90691719af6d0fdbed4b09bbf0ed897701ceb"
+      ],
+      "id": "youtube_music",
+      "module": "TakuInternalYouTubeMusic",
+      "apk": "apks/youtube_music.apk",
+      "source": {
+        "url": "https://gitlab.com/api/v4/projects/85036487/packages/generic/nikgapps-you_tube_music/91052240-arm64-v8a-bb9b04f7fd46/you_tube_music.zip",
+        "bytes": 92508603,
+        "sha256": "aa19ddb5088fb8da56d53241ee88285c58dd2d77584bd63566883c727682b7e7",
+        "entry": "___app___YouTubeMusicPrebuilt/YouTubeMusicPrebuilt.apk",
+        "acquisition": "original-apk-only-from-official-nikgapps-registry"
+      },
+      "publisherEvidenceUrl": "https://music.youtube.com/.well-known/assetlinks.json"
+    }
+  ],
+  "sourceFiles": [
+    {
+      "path": "Android.bp",
+      "bytes": 3312,
+      "sha256": "7bf983df27b27ba533b973e8ee06c32c2909a535f29b87ae004fa71fdac2e4bc"
+    },
+    {
+      "path": "NOTICE.internal.txt",
+      "bytes": 355,
+      "sha256": "e26d3d420b3ff3ed807de01980cffa0bbd1a63b710ebc4c47ad9fd678b212e0a"
+    },
+    {
+      "path": "apks/chrome.apk",
+      "bytes": 289363289,
+      "sha256": "613405a7b5738adef5c74698305ba04f3adb846512496311168b9e9eae240138"
+    },
+    {
+      "path": "apks/gmail.apk",
+      "bytes": 183523351,
+      "sha256": "2bdbf669f5d9966dc3c30c66b79bfb39d47954e0b2c9e065d335c8cb1d09c066"
+    },
+    {
+      "path": "apks/maps.apk",
+      "bytes": 115274683,
+      "sha256": "4d621e9197c783b8e5423799d8f30efbe5c527dbbe801f691a4c6b66ed7669ff"
+    },
+    {
+      "path": "apks/photos.apk",
+      "bytes": 188444434,
+      "sha256": "e87f68e341ac820cbec1f9a5e64dbfec6811cf511115af2aad82e921399b85cb"
+    },
+    {
+      "path": "apks/pixel_weather.apk",
+      "bytes": 42609153,
+      "sha256": "df08f7c39c3c8cd2003e29ea9c81e2f3e47028a2b9ea69e607cb53d673855a55"
+    },
+    {
+      "path": "apks/youtube.apk",
+      "bytes": 162278806,
+      "sha256": "6855959218cacbcb2b6ded4b00ed8aba80b4955f22459dd0417119aef471867d"
+    },
+    {
+      "path": "apks/youtube_music.apk",
+      "bytes": 92493331,
+      "sha256": "37f6931e4d895227c4ea1ff20e707982ba1c1f4734f3eadb07fb78475035be4c"
+    },
+    {
+      "path": "modules.mk",
+      "bytes": 163,
+      "sha256": "442d6135a3f5bd8261dc5d6a58cfd7324489ac2d3d9be6cd30b9361c3db20f44"
+    }
+  ]
+}

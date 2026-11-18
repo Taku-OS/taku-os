@@ -1,0 +1,20 @@
+[
+  {
+    "name": "org.fcitx.fcitx5.android.ThemeSerializationTest",
+    "tests": "3",
+    "failures": "0",
+    "errors": "0"
+  },
+  {
+    "name": "org.fcitx.fcitx5.android.StringEscapeTest",
+    "tests": "2",
+    "failures": "0",
+    "errors": "0"
+  },
+  {
+    "name": "org.fcitx.fcitx5.android.core.TakuDefaultsTest",
+    "tests": "3",
+    "failures": "0",
+    "errors": "0"
+  }
+]

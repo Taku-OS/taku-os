@@ -1,0 +1,209 @@
+# Exact reviewed false positives in the initial source snapshot.
+# Only the generic detector is customized; every other detector remains enabled.
+# A different value or the same value at an unreviewed path remains detectable.
+title = "Taku source publication secret scan"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "generic-api-key"
+
+[[rules.allowlists]]
+description = "Reviewed digest, public identifier, synthetic fixture, or function-call false positive"
+condition = "AND"
+regexTarget = "secret"
+paths = ['''^docs/reviews/half\-marathon\-panels\-2026\-10\-20/artifacts\.json$''']
+regexes = [
+    '''^8d6eeb9f4d1056b583670e46e5dc21d27363f4ff5148ff9b9b0badb2c38c1566$''',
+]
+
+[[rules.allowlists]]
+description = "Reviewed digest, public identifier, synthetic fixture, or function-call false positive"
+condition = "AND"
+regexTarget = "secret"
+paths = ['''^docs/reviews/taku\-memory\-0\.5\-2026\-10\-28/acceptance\.json$''']
+regexes = [
+    '''^48cea5d44424912a6fd1ea647bf4fe50b55ab8b1e5879c3275f80e339e8fae26$''',
+]
+
+[[rules.allowlists]]
+description = "Reviewed digest, public identifier, synthetic fixture, or function-call false positive"
+condition = "AND"
+regexTarget = "secret"
+paths = ['''^docs/reviews/taku\-memory\-0\.8\-2026\-10\-29/acceptance\.json$''']
+regexes = [
+    '''^48cea5d44424912a6fd1ea647bf4fe50b55ab8b1e5879c3275f80e339e8fae26$''',
+]
+
+[[rules.allowlists]]
+description = "Reviewed digest, public identifier, synthetic fixture, or function-call false positive"
+condition = "AND"
+regexTarget = "secret"
+paths = ['''^docs/reviews/taku\-memory\-daily\-apps\-2026\-10\-22/acceptance\.json$''']
+regexes = [
+    '''^006b9501867dbed0256ddb88b426659f1662479fe744cdb0ff31f5045b5c0965$''',
+]
+
+[[rules.allowlists]]
+description = "Reviewed digest, public identifier, synthetic fixture, or function-call false positive"
+condition = "AND"
+regexTarget = "secret"
+paths = ['''^evidence/api\-inventory/apk\-verification\.json$''']
+regexes = [
+    '''^0c2440c055c753a8f0493b4e602d3ea0096b1023$''',
+    '''^452f8cfe026b30a8a3e99a6074e5f285$''',
+    '''^ef57b690165cb561b5026922c00d2d6574e8b184fa7d161e076f06e06e6d35db$''',
+]
+
+[[rules.allowlists]]
+description = "Reviewed digest, public identifier, synthetic fixture, or function-call false positive"
+condition = "AND"
+regexTarget = "secret"
+paths = ['''^evidence/builds/2026\-10\-21\-system\-surfaces\-api\.json$''']
+regexes = [
+    '''^006b9501867dbed0256ddb88b426659f1662479fe744cdb0ff31f5045b5c0965$''',
+    '''^6caed1ed0080f2c8c3559b237159bc65e85827f5a906c3e9b9404c20f187721c$''',
+    '''^d40724636a8008fc84ba1d9714bf1b2c0a05f0792191e1fee5145780c430bf7e$''',
+]
+
+[[rules.allowlists]]
+description = "Reviewed digest, public identifier, synthetic fixture, or function-call false positive"
+condition = "AND"
+regexTarget = "secret"
+paths = ['''^evidence/builds/2026\-10\-22\-system\-surfaces\-position\.json$''']
+regexes = [
+    '''^006b9501867dbed0256ddb88b426659f1662479fe744cdb0ff31f5045b5c0965$''',
+    '''^1da6f9b9136119a9b27188ecf692c77158b0fdcf77ff02a88a362311bc12ff09$''',
+    '''^f77416b9bbc68350894105b16d3d2eca9eede4236ed2fca9c2a024bb71977360$''',
+]
+
+[[rules.allowlists]]
+description = "Reviewed digest, public identifier, synthetic fixture, or function-call false positive"
+condition = "AND"
+regexTarget = "secret"
+paths = ['''^evidence/builds/2026\-10\-24\-proactivity\.json$''']
+regexes = [
+    '''^41864d7247943ba78cc2b7cb60ea6e6e91b7a36433bfc30cd15c93c96f548396$''',
+]
+
+[[rules.allowlists]]
+description = "Reviewed digest, public identifier, synthetic fixture, or function-call false positive"
+condition = "AND"
+regexTarget = "secret"
+paths = ['''^evidence/scenarios/phone\-evidence/signature\-verify\.txt$''']
+regexes = [
+    '''^0c2440c055c753a8f0493b4e602d3ea0096b1023$''',
+    '''^452f8cfe026b30a8a3e99a6074e5f285$''',
+    '''^ef57b690165cb561b5026922c00d2d6574e8b184fa7d161e076f06e06e6d35db$''',
+]
+
+[[rules.allowlists]]
+description = "Reviewed digest, public identifier, synthetic fixture, or function-call false positive"
+condition = "AND"
+regexTarget = "secret"
+paths = ['''^evidence/scenarios/phone\-evidence/verify\-apk\.txt$''']
+regexes = [
+    '''^0c2440c055c753a8f0493b4e602d3ea0096b1023$''',
+    '''^452f8cfe026b30a8a3e99a6074e5f285$''',
+    '''^ef57b690165cb561b5026922c00d2d6574e8b184fa7d161e076f06e06e6d35db$''',
+]
+
+[[rules.allowlists]]
+description = "Reviewed digest, public identifier, synthetic fixture, or function-call false positive"
+condition = "AND"
+regexTarget = "secret"
+paths = ['''^evidence/scenarios/phone\-progress\.txt$''']
+regexes = [
+    '''^0c2440c055c753a8f0493b4e602d3ea0096b1023$''',
+    '''^452f8cfe026b30a8a3e99a6074e5f285$''',
+    '''^ef57b690165cb561b5026922c00d2d6574e8b184fa7d161e076f06e06e6d35db$''',
+]
+
+[[rules.allowlists]]
+description = "Reviewed digest, public identifier, synthetic fixture, or function-call false positive"
+condition = "AND"
+regexTarget = "secret"
+paths = ['''^image/runtime\-assets\.lock\.json$''']
+regexes = [
+    '''^8521cd388a48f7a906fa78363333ff5cf0e02677b03d6e099c045ff6da836ce3$''',
+    '''^db0e52a00e7f4bfa6050b9cf07296ac350a5e6056e2d46714e2bc013b0dec365$''',
+    '''^fba064635a5f33116a3262e6a569ab255c388ffa2fc8f4b445bf722b4dbf309a$''',
+]
+
+[[rules.allowlists]]
+description = "Reviewed digest, public identifier, synthetic fixture, or function-call false positive"
+condition = "AND"
+regexTarget = "secret"
+paths = ['''^system/agent\-app/modules/taku\-home/android/src/main/assets/assistant/provenance\.json$''']
+regexes = [
+    '''^MdImIDNqePpNZ62C0GLArW$''',
+]
+
+[[rules.allowlists]]
+description = "Reviewed digest, public identifier, synthetic fixture, or function-call false positive"
+condition = "AND"
+regexTarget = "secret"
+paths = ['''^system/agent\-app/modules/taku\-home/android/src/main/assets/feed/icons/ask\-taku\.source\.json$''']
+regexes = [
+    '''^MdImIDNqePpNZ62C0GLArW$''',
+]
+
+[[rules.allowlists]]
+description = "Reviewed digest, public identifier, synthetic fixture, or function-call false positive"
+condition = "AND"
+regexTarget = "secret"
+paths = ['''^system/assistant/design\-system/upstream\-SOURCE\.json$''']
+regexes = [
+    '''^042d5fb76771a1ef11f7dd95a01060e9584e9c379f6a020785c7d025d3a0d928$''',
+    '''^8982dbd3c381a4613a1a18adcc48a0d761607463ebb217ae6418b9a2f87fafdf$''',
+    '''^db0e52a00e7f4bfa6050b9cf07296ac350a5e6056e2d46714e2bc013b0dec365$''',
+]
+
+[[rules.allowlists]]
+description = "Reviewed digest, public identifier, synthetic fixture, or function-call false positive"
+condition = "AND"
+regexTarget = "secret"
+paths = ['''^system/assistant/tests/host/JevMagpieTest\.java$''']
+regexes = [
+    '''^sk\-or\-v1\-0123456789abcdefghijklmnopqr$''',
+]
+
+[[rules.allowlists]]
+description = "Reviewed digest, public identifier, synthetic fixture, or function-call false positive"
+condition = "AND"
+regexTarget = "secret"
+paths = ['''^system/assistant/tests/org/agentos/assistant/JevCredentialStoreTest\.java$''']
+regexes = [
+    '''^sk\-or\-v1\-0123456789abcdefghijklmnopqr$''',
+]
+
+[[rules.allowlists]]
+description = "Reviewed digest, public identifier, synthetic fixture, or function-call false positive"
+condition = "AND"
+regexTarget = "secret"
+paths = ['''^system/audio\-engine/rom\-input\-lock\.json$''']
+regexes = [
+    '''^5eabb2bcf5a8af66aeab37431c09fab4a9c65cdebf02bd7e50f8c589044bd70e$''',
+    '''^82fc838d0af035e561598c80c010d7399328a010039dedf4abb646e7ef06b0d3$''',
+    '''^84794c45a621741b555e1153042251cc4faad5b33cade583dd057ea3e8c964e4$''',
+    '''^c85e2382e2ca12b0513826be926eaccfea896b4cbf568182e287671ba526f80d$''',
+]
+
+[[rules.allowlists]]
+description = "Reviewed digest, public identifier, synthetic fixture, or function-call false positive"
+condition = "AND"
+regexTarget = "secret"
+paths = ['''^system/inputmethod/source\-lock\.json$''']
+regexes = [
+    '''^4f26251a5087ffd4e3dc604fefd1d2afb116976c4295c97dffdcd062f3c124cd$''',
+]
+
+[[rules.allowlists]]
+description = "Reviewed digest, public identifier, synthetic fixture, or function-call false positive"
+condition = "AND"
+regexTarget = "secret"
+paths = ['''^tests/image\-derived\-snapshot\.test\.py$''']
+regexes = [
+    '''^taku\-branding\-v1$''',
+]

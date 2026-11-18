@@ -1,0 +1,18 @@
+<resources>
+ <string name="app_name">Taku 系统展示</string>
+ <string name="expand">展开</string>
+ <string name="expand_surface">展开展示内容</string>
+ <string name="collapse_surface">收起展示内容</string>
+ <string name="close_surface">关闭此展示项</string>
+ <string name="drag_help">拖动调整位置，长按恢复默认位置</string>
+ <string name="capsule_help">%1$s，点按%2$s；拖动调整位置，长按恢复默认位置</string>
+ <string name="next_item">下一个展示项，共 %1$d 项</string>
+ <string name="selected">已选</string>
+ <string name="responded">已响应</string>
+ <string name="awaiting_choice">待选</string>
+ <string name="ready">就绪</string>
+ <string name="new_content">新内容</string>
+ <string name="selected_full">✓  已选择</string>
+ <string name="responded_full">✓  已响应</string>
+ <string name="reset_position">恢复默认位置</string>
+</resources>

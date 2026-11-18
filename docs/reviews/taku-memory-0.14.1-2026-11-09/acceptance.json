@@ -1,0 +1,55 @@
+{
+ "component": "Taku 记忆 0.14.1（versionCode 17）；Broker 与助手沿用 0.12.0 验收版本（助手 v76）",
+ "status": "descriptions for feed/generate rewritten; generation checked off the device with the home app's own prepareFeedGeneration and a real model; stand-in path re-run on the emulator",
+ "recordedAt": "2026-11-09 北京时间",
+ "device": {
+  "avd": "TakuRecall",
+  "serial": "emulator-5634"
+ },
+ "homeFeed": {
+  "branch": "origin/vela/TAKU-new-UI",
+  "commit": "b8a1368"
+ },
+ "artifacts": {
+  "TakuMemory-0.14.1-release.apk": "d0d2945b1d2cb99f04793e8c3e3d5fc418f19f79a60df61e6aa4bbf76fdc65cc",
+  "TakuMemory-0.14.1-debug-nomodel.apk": "12271f96a3f0714cbd0deab36a4962ca506273eb674a2227524d40d7a8b52870",
+  "TakuMemoryTests-0.14.1.apk": "d0d6002fb61d62d77a7f37f673c25e6d9f6087aba528bb956918482732ef7010",
+  "TakuHomeFeedStub.apk": "c897e1454a3330239858aa8138d2d88d17d658f4c93dde661d6e6e10b8180251"
+ },
+ "componentTests": {
+  "StoreTests": 322,
+  "QueueTests": 69,
+  "ResultTests": 8,
+  "PresentationTests": 36,
+  "GatewayBoundaryTests": 2,
+  "SystemAiTests": 24,
+  "SystemSettingsObserverTests": "passed",
+  "failures": 0
+ },
+ "generation": {
+  "model": "gpt-6-luna via Codex, no tools, effort low",
+  "baseline": {
+   "runs": 4,
+   "kept": 91,
+   "of": 104,
+   "structureErrors": 7,
+   "numberedCards": 48
+  },
+  "final": {
+   "runs": 2,
+   "kept": 49,
+   "of": 52,
+   "structureErrors": 0,
+   "jsonErrors": 2,
+   "changedCaught": 1,
+   "numberedCards": 0
+  },
+  "structureErrorsAfterTree": {
+   "runs": 8,
+   "descriptions": 208,
+   "errors": 0
+  }
+ },
+ "devicePath": "describe-e2e re-run with the 0.14.1 debug build and stand-in: kept, caught rewritten hand-off twice then fixed layout, refused twice then fixed layout, expired card retracted",
+ "deviceStateAfter": "0.14.1 debug build with nudges, feedCards and feedDescribe off; stand-in uninstalled"
+}

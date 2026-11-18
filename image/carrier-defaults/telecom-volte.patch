@@ -1,0 +1,98 @@
+--- a/src/com/android/phone/CarrierConfigLoader.java
++++ b/src/com/android/phone/CarrierConfigLoader.java
+@@ -1391,12 +1391,40 @@
+         PersistableBundle retConfig = CarrierConfigManager.getDefaultConfig();
+         if (SubscriptionManager.isValidPhoneId(phoneId)) {
+             PersistableBundle config = mConfigFromDefaultApp[phoneId];
++            final PersistableBundle defaultConfigForDefaults = config;
+             if (config != null) {
+                 retConfig.putAll(config);
+             }
+             config = mConfigFromCarrierApp[phoneId];
++            final PersistableBundle carrierConfig = config;
+             if (config != null) {
+                 retConfig.putAll(config);
++            }
++            // Ignore the theoretical case of the default app not being present since that won't
++            // work in CarrierConfigLoader today.
++            final boolean allConfigsApplied =
++                    (carrierConfig != null || getCarrierPackageForPhoneId(phoneId) == null)
++                    && defaultConfigForDefaults != null;
++            // Taku's product default stays below explicit carrier-app and test overrides.
++            Phone phoneForDefaults = PhoneFactory.getPhone(phoneId);
++            int[] capabilities = retConfig.getIntArray(
++                    CarrierConfigManager.KEY_CELLULAR_SERVICE_CAPABILITIES_INT_ARRAY);
++            boolean voiceCapable = capabilities != null && Arrays.stream(capabilities)
++                    .anyMatch(value -> value == SubscriptionManager.SERVICE_CAPABILITY_VOICE);
++            if (allConfigsApplied && SubscriptionManager.isValidSubscriptionId(subscriptionId)
++                    && phoneForDefaults != null && phoneForDefaults.getSubId() == subscriptionId
++                    && TakuCarrierDefaults.shouldEnableVolte(
++                            android.os.Build.DEVICE,
++                            TelephonyManager.getSimStateForSlotIndex(phoneId)
++                                    == TelephonyManager.SIM_STATE_LOADED,
++                            TelephonyManager.from(mContext).getSimOperatorNumericForPhone(phoneId),
++                            phoneForDefaults.getCarrierId(),
++                            phoneForDefaults.getSpecificCarrierId(), voiceCapable,
++                            carrierConfig != null && carrierConfig.containsKey(
++                                    CarrierConfigManager.KEY_CARRIER_VOLTE_AVAILABLE_BOOL),
++                            !defaultConfigForDefaults.isEmpty())
++                    && phoneForDefaults.getSubId() == subscriptionId) {
++                retConfig.putBoolean(CarrierConfigManager.KEY_CARRIER_VOLTE_AVAILABLE_BOOL, true);
+             }
+             config = mPersistentOverrideConfigs[phoneId];
+             if (config != null) {
+@@ -1406,12 +1434,6 @@
+             if (config != null) {
+                 retConfig.putAll(config);
+             }
+-            // Ignore the theoretical case of the default app not being present since that won't
+-            // work in CarrierConfigLoader today.
+-            final boolean allConfigsApplied =
+-                    (mConfigFromCarrierApp[phoneId] != null
+-                        || getCarrierPackageForPhoneId(phoneId) == null)
+-                    && mConfigFromDefaultApp[phoneId] != null;
+             retConfig.putBoolean(
+                     CarrierConfigManager.KEY_CARRIER_CONFIG_APPLIED_BOOL, allConfigsApplied);
+         } else {
+--- /dev/null
++++ b/src/com/android/phone/TakuCarrierDefaults.java
+@@ -0,0 +1,39 @@
++/*
++ * Copyright (C) 2026 TakuOS
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++package com.android.phone;
++
++import com.android.internal.annotations.VisibleForTesting;
++
++/** Product defaults for the first, narrowly scoped China Telecom tokay adaptation. */
++@VisibleForTesting
++final class TakuCarrierDefaults {
++    private TakuCarrierDefaults() {}
++
++    /**
++     * Uses the home SIM identity, never the currently visited radio network.
++     * This only lifts VoLTE's availability gate. Entitlement, IMS registration,
++     * roaming policy and the user's enhanced-4G preference remain independent.
++     * Specific/unknown MVNO identities and data-only profiles are left untouched.
++     */
++    @VisibleForTesting
++    static boolean shouldEnableVolte(String device, boolean simLoaded, String simOperator,
++            int carrierId, int specificCarrierId, boolean voiceCapable,
++            boolean carrierProvidesVolte, boolean platformConfigLoaded) {
++        return platformConfigLoaded && "tokay".equals(device) && simLoaded && voiceCapable && !carrierProvidesVolte
++                && carrierId == 2237 && specificCarrierId == 2237
++                && ("46003".equals(simOperator) || "46011".equals(simOperator));
++    }
++}

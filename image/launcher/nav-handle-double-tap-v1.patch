@@ -1,0 +1,151 @@
+diff --git a/quickstep/src/com/android/quickstep/NavHandleDoubleTap.java b/quickstep/src/com/android/quickstep/NavHandleDoubleTap.java
+new file mode 100644
+index 0000000..c22c68b
+--- /dev/null
++++ b/quickstep/src/com/android/quickstep/NavHandleDoubleTap.java
+@@ -0,0 +1,110 @@
++/*
++ * Copyright (C) 2026 Taku
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++package com.android.quickstep;
++
++import static com.android.internal.app.AssistUtils.INVOCATION_TYPE_GESTURE;
++import static com.android.internal.app.AssistUtils.INVOCATION_TYPE_KEY;
++
++import android.content.Context;
++import android.os.Bundle;
++import android.view.MotionEvent;
++import android.view.ViewConfiguration;
++
++/**
++ * Taku: double tap on the gesture navigation handle opens the assistant (the Taku chat).
++ * It watches the input monitor's events passively and never consumes them. A single tap on
++ * the handle still does nothing, and swipes cancel tracking before they become gestures.
++ */
++final class NavHandleDoubleTap {
++    /** Lets the assistant tell this entry point apart from the other gestures. */
++    static final String EXTRA_TRIGGER = "org.agentos.assistant.extra.TRIGGER";
++    static final String TRIGGER = "nav_handle_double_tap";
++
++    private boolean mTracking;
++    private float mDownX;
++    private float mDownY;
++    private long mDownTime;
++    private long mLastUpTime = -1;
++    private float mLastUpX;
++    private float mLastUpY;
++
++    /** A new gesture starts; [eligible] is false outside the handle region or gesture nav. */
++    void onDown(Context context, MotionEvent event, boolean eligible) {
++        ViewConfiguration config = ViewConfiguration.get(context);
++        if (mLastUpTime >= 0) {
++            float slop = config.getScaledDoubleTapSlop();
++            if (!eligible
++                    || event.getEventTime() - mLastUpTime > ViewConfiguration.getDoubleTapTimeout()
++                    || distanceSquared(event.getRawX() - mLastUpX, event.getRawY() - mLastUpY) > slop * slop) {
++                mLastUpTime = -1;
++            }
++        }
++        mTracking = eligible;
++        mDownX = event.getRawX();
++        mDownY = event.getRawY();
++        mDownTime = event.getEventTime();
++    }
++
++    /** Feeds the rest of the gesture; true when this event completes a double tap. */
++    boolean onEvent(Context context, MotionEvent event) {
++        if (!mTracking) return false;
++        switch (event.getActionMasked()) {
++            case MotionEvent.ACTION_MOVE: {
++                float slop = ViewConfiguration.get(context).getScaledTouchSlop();
++                if (distanceSquared(event.getRawX() - mDownX, event.getRawY() - mDownY) > slop * slop) reset();
++                return false;
++            }
++            case MotionEvent.ACTION_UP: {
++                mTracking = false;
++                if (event.getEventTime() - mDownTime > ViewConfiguration.getLongPressTimeout()) {
++                    mLastUpTime = -1;
++                    return false;
++                }
++                if (mLastUpTime >= 0) {
++                    mLastUpTime = -1;
++                    return true;
++                }
++                mLastUpTime = event.getEventTime();
++                mLastUpX = event.getRawX();
++                mLastUpY = event.getRawY();
++                return false;
++            }
++            case MotionEvent.ACTION_POINTER_DOWN:
++            case MotionEvent.ACTION_CANCEL:
++                reset();
++                return false;
++            default:
++                return false;
++        }
++    }
++
++    /** Arguments for SystemUiProxy#startAssistant. */
++    static Bundle assistantArgs() {
++        Bundle args = new Bundle();
++        args.putInt(INVOCATION_TYPE_KEY, INVOCATION_TYPE_GESTURE);
++        args.putString(EXTRA_TRIGGER, TRIGGER);
++        return args;
++    }
++
++    private void reset() {
++        mTracking = false;
++        mLastUpTime = -1;
++    }
++
++    private static float distanceSquared(float dx, float dy) {
++        return dx * dx + dy * dy;
++    }
++}
+diff --git a/quickstep/src/com/android/quickstep/TouchInteractionHandler.java b/quickstep/src/com/android/quickstep/TouchInteractionHandler.java
+index d46eaf8..782579b 100644
+--- a/quickstep/src/com/android/quickstep/TouchInteractionHandler.java
++++ b/quickstep/src/com/android/quickstep/TouchInteractionHandler.java
+@@ -196,6 +196,9 @@ public class TouchInteractionHandler extends ContextWrapper {
+     private final SystemUiProxy mSystemUiProxy;
+ 
+     private final PostUnlockObject<OverviewCommandHelper> mOverviewCommandHelper;
++
++    // Taku: double tap on the gesture handle opens the assistant.
++    private final NavHandleDoubleTap mNavHandleDoubleTap = new NavHandleDoubleTap();
+     private final PostUnlockObject<OverviewComponentObserver> mOverviewComponentObserver;
+ 
+     private final AllAppsActionManager mAllAppsActionManager;
+@@ -575,6 +578,9 @@ public class TouchInteractionHandler extends ContextWrapper {
+ 
+             boolean isOneHandedModeActive = deviceState.isOneHandedModeActive();
+             boolean isInSwipeUpTouchRegion = rotationTouchHelper.isInSwipeUpTouchRegion(event);
++            mNavHandleDoubleTap.onDown(this, event, action == ACTION_DOWN
++                    && displayId == DEFAULT_DISPLAY && !isOneHandedModeActive
++                    && isInSwipeUpTouchRegion && deviceState.isFullyGesturalNavMode());
+             BubbleControllers bubbleControllers = tac != null ? tac.getBubbleControllers() : null;
+             boolean isOnBubbles = bubbleControllers != null
+                     && BubbleBarInputConsumer.isEventOnBubbles(tac, event);
+@@ -664,6 +670,10 @@ public class TouchInteractionHandler extends ContextWrapper {
+             }
+         }
+ 
++        if (action != ACTION_DOWN && mNavHandleDoubleTap.onEvent(this, event)) {
++            mSystemUiProxy.startAssistant(NavHandleDoubleTap.assistantArgs());
++        }
++
+         if (inputResource.uncheckedConsumer.getType() != InputConsumer.TYPE_NO_OP) {
+             switch (action) {
+                 case ACTION_DOWN:

@@ -1,0 +1,1 @@
+package com.android.role.controller.model; import java.util.*;public class Role {public String getName(){return "role";}public void onNoneHolderSelectedAsUser(android.os.UserHandle u,android.content.Context c){}public List<Object> getRequirements(){return List.of(new RequiredActivity());}}

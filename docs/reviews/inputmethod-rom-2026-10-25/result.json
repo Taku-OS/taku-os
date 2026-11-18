@@ -1,0 +1,405 @@
+{
+  "schema": "taku.rom-ai-physical-acceptance/1",
+  "passed": true,
+  "capturedAt": "2026-10-24T17:16:44.088704+00:00",
+  "device": {
+    "model": "Pixel 9",
+    "androidRelease": "17",
+    "androidSdk": "37",
+    "build": "20261024154635",
+    "bootId": "092eb566-09af-43e6-966d-4d3129c96e9e",
+    "systemServerPid": "1692",
+    "systemServerStartTicks": "656",
+    "sameSystemServerAcrossAcceptance": true
+  },
+  "artifact": {
+    "snapshotDigest": "16fb163782b9e2d0f8224f3143fdae97c54b693c955dd178cfbecf6e8c64926e",
+    "runInputSha256": "616b1d2b36807bc678a42d24af48c51279e0240d5178b2ed202c98f620ab5cd4",
+    "romReportSha256": "e7e071c0c47d94b99c7f8b01beaf8751b6ae6b2f953fa404141ecef1c2f4137d",
+    "beforeSha256": "5c03475202240a3d5785445bfff1067763304d3f0f0acbb8f6db1ab4f06c4d1a",
+    "accessibilityBeforeSha256": "6de9722d5c2537e972349c41ec6cf15bd095a730cd6e36b0bb49b1478b873f6e",
+    "ownerPostbootReportSha256": "830c011833f7049e16a4eb8377427f3cec88115b3903fc042b25d96bfaf56dc3"
+  },
+  "versions": {
+    "inputmethod": 10062,
+    "assistant": 67,
+    "memory": 8
+  },
+  "rom": {
+    "activeProductApksFromSystemExt": true,
+    "readOnlyComponentHashesVerified": true,
+    "nativeSidecarsVerified": 24,
+    "memoryDumpGranted": true,
+    "runtimeDeploymentPerformed": false,
+    "productApksReplacedDuringAcceptance": false,
+    "accountCredentialsIncludedInRom": false
+  },
+  "tests": {
+    "sharedSettings": {
+      "passed": true,
+      "count": 5,
+      "checks": [
+        "Cold-boot IME image and Memory text routes resolve the preserved system defaults",
+        "Baked Android Settings tile opens the shared AI page",
+        "Baked IME settings display the inherited image model",
+        "Memory resolves the preserved text model without changing capture, analysis or sources",
+        "Shared text backend makes a real model request after reboot using the existing account"
+      ]
+    },
+    "replies": {
+      "passed": true,
+      "count": 9,
+      "checks": [
+        "identical in-flight frame shares one real model request",
+        "reopening an unchanged frame uses bounded memory cache without another model call",
+        "change group bypasses cache and excludes previous exact replies",
+        "long press shows full untruncated reply without changing keyboard or strip bounds",
+        "preview inserts exact live model text without sending",
+        "real permission failure can recover through visible retry after permission is restored",
+        "typing cancels refresh and late completion cannot restore the strip",
+        "protected window is rejected before capture and cache reuse",
+        "password field has no AI controls or preview"
+      ]
+    },
+    "realApps": {
+      "passed": true,
+      "count": 10,
+      "checks": [
+        "Jelly WebView commits real Chinese candidate",
+        "Jelly WebView Chinese English digits and punctuation stay in one draft",
+        "Jelly WebView selected text is replaced by an actual Chinese candidate",
+        "Jelly landscape recreates keyboard and continues Chinese input",
+        "Jelly password input works while AI is excluded",
+        "Jelly numeric field uses numeric keyboard and excludes chat-reply AI",
+        "real browser page screenshot reaches live model and native reply strip",
+        "one ordinary tap inserts the exact AI reply directly without confirmation or preview",
+        "native Android Settings search accepts IME input without AI opt-in",
+        "native Messaging mixed draft is entered and cleared without sending"
+      ]
+    },
+    "basicInput": {
+      "passed": true,
+      "count": 11,
+      "checks": [
+        "taku-logo-toolbar-toggle",
+        "delete-composition",
+        "pinyin-candidate-commit",
+        "delete-committed-text",
+        "chinese-english-switch",
+        "english-typing",
+        "symbols",
+        "numeric-editor",
+        "password-editor",
+        "ime-process-restart-chinese-commit",
+        "day-night-theme"
+      ]
+    },
+    "modelConfigUiRoundTrip": {
+      "passed": true,
+      "count": 7,
+      "checks": [
+        {
+          "name": "visible system text selection updates inherited Memory resolve",
+          "resolved": {
+            "id": "codex/gpt-6.1-sol",
+            "name": "GPT-6.1-Sol",
+            "kind": "generation",
+            "imageInput": true,
+            "textInput": true,
+            "revision": 52,
+            "followsSystem": true
+          }
+        },
+        {
+          "name": "visible system image selection updates inherited IME resolve",
+          "resolved": {
+            "id": "codex/gpt-6.1-sol",
+            "name": "GPT-6.1-Sol",
+            "kind": "generation",
+            "imageInput": true,
+            "textInput": true,
+            "revision": 54,
+            "followsSystem": true
+          }
+        },
+        {
+          "name": "visible system model selections restore both original defaults"
+        },
+        {
+          "name": "visible IME override resolves independently of unchanged shared image default",
+          "resolved": {
+            "id": "codex/gpt-6.1-sol",
+            "name": "GPT-6.1-Sol",
+            "kind": "generation",
+            "imageInput": true,
+            "textInput": true,
+            "revision": 55,
+            "followsSystem": false
+          }
+        },
+        {
+          "name": "visible IME follow-system choice restores empty override",
+          "resolved": {
+            "id": "codex/gpt-6-luna",
+            "name": "GPT-6-Luna",
+            "kind": "generation",
+            "imageInput": true,
+            "textInput": true,
+            "revision": 55,
+            "followsSystem": true
+          }
+        },
+        {
+          "name": "visible Memory override resolves independently of unchanged shared text default",
+          "resolved": {
+            "id": "codex/gpt-6.1-sol",
+            "name": "GPT-6.1-Sol",
+            "kind": "generation",
+            "imageInput": true,
+            "textInput": true,
+            "revision": 55,
+            "followsSystem": false
+          }
+        },
+        {
+          "name": "visible Memory follow-system choice restores empty override",
+          "resolved": {
+            "id": "codex/gpt-6-luna",
+            "name": "GPT-6-Luna",
+            "kind": "generation",
+            "imageInput": true,
+            "textInput": true,
+            "revision": 55,
+            "followsSystem": true
+          }
+        }
+      ],
+      "allOriginalEffectiveSelectionsRestored": true,
+      "additionalModelCallsMade": false
+    }
+  },
+  "realModel": {
+    "id": "codex/gpt-6-luna",
+    "simulated": false,
+    "imageInputVerified": true,
+    "coldReplyReceipt": {
+      "model": "codex/gpt-6-luna",
+      "inputMode": "image",
+      "imageSha256": "57998d368d8fe4676c8831d90f4ca713018028e3bfc54ff8b31abebb5fb8d751",
+      "imageWidth": 855,
+      "imageHeight": 1024,
+      "elapsedMs": 3129,
+      "captureTop": 173,
+      "captureMs": 815,
+      "modelMs": 2312,
+      "cacheHit": false,
+      "deduplicated": false,
+      "reuseAgeMs": 0
+    },
+    "warmReplyReceipt": {
+      "model": "codex/gpt-6-luna",
+      "inputMode": "image",
+      "imageSha256": "180d8a64e0e9fa2d9be245195bc158c79e9c6b0ea3eb12155d1f7649d89c9837",
+      "imageWidth": 855,
+      "imageHeight": 1024,
+      "elapsedMs": 1005,
+      "captureTop": 173,
+      "captureMs": 1004,
+      "modelMs": 0,
+      "cacheHit": true,
+      "deduplicated": false,
+      "reuseAgeMs": 6920
+    },
+    "directTapInsertsWithoutConfirmation": true
+  },
+  "memory": {
+    "observationsInjected": false,
+    "pageSynthetic": true,
+    "analysis": "ready",
+    "category": "生活",
+    "model": "codex/gpt-6-luna",
+    "receipts": [
+      {
+        "consumer": "memory",
+        "model": "codex/gpt-6-luna",
+        "elapsedMs": 3346,
+        "status": "completed",
+        "code": "",
+        "at": 1792861795278
+      }
+    ],
+    "queryVerified": true,
+    "screenshotFilteredToOwnedSyntheticRecord": true,
+    "ownedSyntheticRecordRemoved": true,
+    "originalSettingsRestored": true,
+    "originalRecordCountAfterCleanup": 20,
+    "observationConnectedAfterCleanup": true,
+    "temporaryQueryCleared": true
+  },
+  "preservation": {
+    "sharedEffectiveSettingsMatchBefore": true,
+    "imeEffectiveSettingsMatchBefore": true,
+    "memoryEffectiveSettingsMatchBefore": true,
+    "imeSettingsFileByteIdenticalBefore": true,
+    "accountFileByteIdenticalBefore": true,
+    "accountContentsReadOrRestored": false,
+    "sharedSettingsFileByteIdenticalBefore": false,
+    "sharedRevisionBefore": 48,
+    "sharedRevisionAfter": 55,
+    "sharedByteDifferenceReason": "Expected revision counter change from 48 to 55 after permission failure/retry and visible model configuration round trips; selected enabled/models/apps exactly equal I-before.",
+    "accessibilityValuesMatchBefore": true,
+    "takuDefaultRetained": true,
+    "pinyinRestored": true,
+    "originalNightModeRestored": "yes"
+  },
+  "cleanup": {
+    "passed": true,
+    "pinyinRestored": true,
+    "pinyinVerification": "Prior cleanup command successfully asserted visible Taku Pinyin and empty fixture editor before its uninstall; only absent pm path nonzero interrupted verification",
+    "syntheticEditorEmpty": true,
+    "removedPackages": [
+      "org.agentos.inputmethod.fixture",
+      "org.agentos.inputmethod.probe",
+      "org.agentos.memorytests"
+    ],
+    "jarRemoved": true,
+    "productApksReplaced": false,
+    "preexistingChatCasePreserved": true,
+    "memorySyntheticRecordRemoved": true,
+    "memorySyntheticQueryCleared": true,
+    "defaultIme": "org.agentos.inputmethod/org.fcitx.fcitx5.android.input.FcitxInputMethodService",
+    "theme": "Night mode: yes",
+    "accessibility": {
+      "enabled_accessibility_services": "org.agentos.memory/.ObservationService",
+      "accessibility_enabled": "1"
+    }
+  },
+  "messagesSent": false,
+  "rawEvidenceDirectory": "/Users/haipro/experiments/android-agent-os/taku-os-inputmethod-20261022/out/inputmethod/rom-cold-acceptance/I-acceptance-20261024T163454823870Z",
+  "evidence": {
+    "cold.json": {
+      "path": "/Users/haipro/experiments/android-agent-os/taku-os-inputmethod-20261022/out/inputmethod/rom-cold-acceptance/I-acceptance-20261024T163454823870Z/cold.json",
+      "sha256": "369dbe949ba8af46f564509d1e26cddfdb483dc218028d873ef510fd1950ea73"
+    },
+    "cold-final.json": {
+      "path": "/Users/haipro/experiments/android-agent-os/taku-os-inputmethod-20261022/out/inputmethod/rom-cold-acceptance/I-acceptance-20261024T163454823870Z/cold-final.json",
+      "sha256": "2f4b9092e3841eddf6838fda604ce5131f77e3c0b43ac106578ac26a243e6824"
+    },
+    "privapp-start.json": {
+      "path": "/Users/haipro/experiments/android-agent-os/taku-os-inputmethod-20261022/out/inputmethod/rom-cold-acceptance/I-acceptance-20261024T163454823870Z/privapp-start.json",
+      "sha256": "97c6caefc948c7af385866e87eadf37f294133a6f140a06f57a5644e8e37f5de"
+    },
+    "privapp-end.json": {
+      "path": "/Users/haipro/experiments/android-agent-os/taku-os-inputmethod-20261022/out/inputmethod/rom-cold-acceptance/I-acceptance-20261024T163454823870Z/privapp-end.json",
+      "sha256": "fdeb0a41b0cee9e7544cccfa9f89ee4867fe73a24c45c0a97d18ead9734432c3"
+    },
+    "settings/result.json": {
+      "path": "/Users/haipro/experiments/android-agent-os/taku-os-inputmethod-20261022/out/inputmethod/rom-cold-acceptance/I-acceptance-20261024T163454823870Z/settings/result.json",
+      "sha256": "b01005644d999b039e998953534c840b6f3ae0a89a26be7fe99479fc8913adb1"
+    },
+    "replies/result.json": {
+      "path": "/Users/haipro/experiments/android-agent-os/taku-os-inputmethod-20261022/out/inputmethod/rom-cold-acceptance/I-acceptance-20261024T163454823870Z/replies/result.json",
+      "sha256": "2b714b55e79b695591939613fd05f35329a57d6e494f09193d3be2ee1bb3637a"
+    },
+    "apps/result.json": {
+      "path": "/Users/haipro/experiments/android-agent-os/taku-os-inputmethod-20261022/out/inputmethod/rom-cold-acceptance/I-acceptance-20261024T163454823870Z/apps/result.json",
+      "sha256": "0ac79fffea46f6541c481a697d85702cf4368053539778f61dd49ff71a34539c"
+    },
+    "base/result.json": {
+      "path": "/Users/haipro/experiments/android-agent-os/taku-os-inputmethod-20261022/out/inputmethod/rom-cold-acceptance/I-acceptance-20261024T163454823870Z/base/result.json",
+      "sha256": "813aa602379b686e9e3ff24f4a8a85752e2d362ab7d542026d6085e4e49e33ad"
+    },
+    "memory/memory-live.json": {
+      "path": "/Users/haipro/experiments/android-agent-os/taku-os-inputmethod-20261022/out/inputmethod/rom-cold-acceptance/I-acceptance-20261024T163454823870Z/memory/memory-live.json",
+      "sha256": "279b3926e008dd91a6f163860708bfdbe53167c6a7b793ca31395d0a6022779d"
+    },
+    "config-roundtrip/result.json": {
+      "path": "/Users/haipro/experiments/android-agent-os/taku-os-inputmethod-20261022/out/inputmethod/rom-cold-acceptance/I-acceptance-20261024T163454823870Z/config-roundtrip/result.json",
+      "sha256": "8955585a1f3928291f8d93b29e87b19907762f75d9dc3104189e6a652962547e"
+    },
+    "preservation-final.json": {
+      "path": "/Users/haipro/experiments/android-agent-os/taku-os-inputmethod-20261022/out/inputmethod/rom-cold-acceptance/I-acceptance-20261024T163454823870Z/preservation-final.json",
+      "sha256": "dfe864ddf47c5ca814d5c31b95e009f0574f853642cd07e76326b54ed4282259"
+    },
+    "cleanup.json": {
+      "path": "/Users/haipro/experiments/android-agent-os/taku-os-inputmethod-20261022/out/inputmethod/rom-cold-acceptance/I-acceptance-20261024T163454823870Z/cleanup.json",
+      "sha256": "df37238ce2b448b0addab718d694b5cd2c59aaae6040d2f9ba9b1eaa61785076"
+    },
+    "memory-query-cleanup.json": {
+      "path": "/Users/haipro/experiments/android-agent-os/taku-os-inputmethod-20261022/out/inputmethod/rom-cold-acceptance/I-acceptance-20261024T163454823870Z/memory-query-cleanup.json",
+      "sha256": "58fe23b647c6d740a11b6b2e73987417c3ff1cc5777f2ed28a6c19fa3333b3bd"
+    },
+    "accessibility-qa-restored.json": {
+      "path": "/Users/haipro/experiments/android-agent-os/taku-os-inputmethod-20261022/out/inputmethod/rom-cold-acceptance/I-acceptance-20261024T163454823870Z/accessibility-qa-restored.json",
+      "sha256": "567aa733ff8ef2df52602a6334a315156a131d15ef3633602aa1c1ca96d77bd1"
+    },
+    "owner/stability-120-1/report.json": {
+      "path": "/Users/haipro/experiments/android-agent-os/taku-os/out/worktrees/branding-release-20261024/out/reviews/I-install-20261024/stability-120-1/report.json",
+      "sha256": "c5298084e9ff7447b7c31c55c27891ad503ceb7454c1eb8c22ab23ced10101e8"
+    },
+    "owner/final-readback-1.json": {
+      "path": "/Users/haipro/experiments/android-agent-os/taku-os/out/worktrees/branding-release-20261024/out/reviews/I-install-20261024/final-readback-1.json",
+      "sha256": "6bc9d2c9c2f47c24fc6a38132d0dc7a21d2481ca2bacb9fe172bcdee538d7766"
+    }
+  },
+  "qaSources": {
+    "system/ai/cold-check.py": "013bc5c141ba5b397ce73b01530782d1648a11abd48fb7f26c714c52bda599fe",
+    "system/ai/tests/cold-ui.py": "ba4f77786119d9c47d225ca2c70304e2885714cc989272ffcf8249b80328ac6f",
+    "system/inputmethod/tests/replies-acceptance.py": "f820a50a04f56f8d0b9e81445be89bc0859d01534e61258e0709a92d2b7bb257",
+    "system/inputmethod/tests/real-apps-acceptance.py": "cbbb2cf432a89c99f2f7bb492af3eb3e4dc8448c6f7ffa8128b3d8f45433e0d0",
+    "system/inputmethod/tests/acceptance.py": "19defb1033a7920b5f8fb3dd0cff54390db1446463bbeae827511c936e381c8a",
+    "system/assistant/tests/system-ai/memory-live.py": "34d10664d4b20c27a505ed9b1f50fc4d2bc6c099e654478fab95ba2b41bfe9b7",
+    "out/reviews/ai-backend-rom-H-20261024/privapp-cold-extra.py": "db4e25903026c6f0e63755558b44664aae719df415c26078b99069fb89b8227b",
+    "out/reviews/ai-backend-rom-H-20261024/config-roundtrip.py": "0ce495df207e6cccd5338c40c1ed8dbfc4bf65b02c4d677e90e258b4b09ae428"
+  },
+  "screenshots": {
+    "01-ime-ai-replies.png": {
+      "rawSource": "/Users/haipro/experiments/android-agent-os/taku-os-inputmethod-20261022/out/inputmethod/rom-cold-acceptance/I-acceptance-20261024T163454823870Z/replies/02-replies.png",
+      "sha256": "ebcfb2a806d14914fd6b8e03d729810d884ded2c2ab4587b8e7b591dafec0132",
+      "pixelsEdited": false
+    },
+    "02-system-ai.png": {
+      "rawSource": "/Users/haipro/experiments/android-agent-os/taku-os-inputmethod-20261022/out/inputmethod/rom-cold-acceptance/I-acceptance-20261024T163454823870Z/settings/02-system-ai-preserved.png",
+      "sha256": "bbb704cce6e4cad97ed3818186bdd8e0c7445a04a561e99e4e0d24ff8c63604a",
+      "pixelsEdited": false
+    },
+    "03-memory-follows-system.png": {
+      "rawSource": "/Users/haipro/experiments/android-agent-os/taku-os-inputmethod-20261022/out/inputmethod/rom-cold-acceptance/I-acceptance-20261024T163454823870Z/config-roundtrip/06-memory-follow-restored.png",
+      "sha256": "fb7200e6b78b2b12e2194f51df1177b9c878232d963e9ce973f6751b64e7fb69",
+      "pixelsEdited": false
+    },
+    "04-memory-real-result.png": {
+      "rawSource": "/Users/haipro/experiments/android-agent-os/taku-os-inputmethod-20261022/out/inputmethod/rom-cold-acceptance/I-acceptance-20261024T163454823870Z/memory/08-memory-real-result.png",
+      "sha256": "23de59c065d2647e3570053ecea81aa9e708b824459b1edf16d936d6681ab567",
+      "pixelsEdited": false
+    }
+  },
+  "qaRetries": {
+    "settingsLinkBelowFold": true,
+    "memoryForceStopAccessibilitySideEffectRestored": true,
+    "memoryAsciiFilterAttemptsPreserved": [
+      "memory-attempt1",
+      "memory-attempt2"
+    ],
+    "finalNumericSuffixFilterPassed": true
+  },
+  "phoneReturnedToOwnerThread": "01a13dee-53f5-7db3-83e0-4d4adb4de8a5",
+  "ownerPostReturnStability": {
+    "passed": true,
+    "result": "sampled-window-stable",
+    "windowSeconds": 135.334822791,
+    "samples": 41,
+    "finalReadbackPassed": true,
+    "probeUnchanged": true,
+    "accountAndImeHashUnchanged": true,
+    "effectiveSharedSelectionsUnchanged": true,
+    "onlySharedConfigDifference": {
+      "revision": {
+        "before": 48,
+        "after": 55
+      }
+    },
+    "accessibilityMatchesBefore": true,
+    "dumpGranted": true
+  }
+}

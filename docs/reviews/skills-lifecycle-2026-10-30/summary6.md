@@ -1,0 +1,13 @@
+# Round six: plugin CLI (incomplete)
+
+PR #13 remains Draft. This round implemented `taku-plugin`, using the same broker / Codex app-server requests as the GUI to read workspace plugin catalog, versions, enabled state, and MCP status, and to install, enable, disable, and uninstall; mutations request MCP reload. ROM builds and on-device skill instructions include the command. See [CLI documentation](plugin-cli.md) for full usage and exit codes. Implementation commit: `aacfa0a`.
+
+On dedicated `Taku_SkillsLifecycle_20261030` / `emulator-5668`, `system/assistant/test-plugin-cli.py emulator-5668` passed twice, using a repository-owned plugin to test CLI installation, version reads, MCP tool discovery, disable, enable, and uninstall. Invalid IDs returned nonzero. After CLI disable, reopening the GUI showed the same plugin as “Disabled · 1.0.0” (translated); [screenshot](plugin-cli-disabled.png). The test plugin and temporary marketplace were removed afterward. Temporary mounts and manual broker restart do not establish complete-ROM or boot persistence; no model was called. `system/assistant/build.sh` and `scripts/check_structure.py` passed.
+
+## Unfinished work and reasons
+
+- **Plugin upgrade/rollback, automatic failure rollback, journaled uninstall recovery, and cross-process exclusion are not implemented.** CLI calls native plugin interfaces shared with the GUI, without these transaction guarantees. The required ≥50-round transaction-concurrency probe and interruption injection were not run; reliability cannot be inferred.
+- **Third-party MCP privilege reduction and adversarial testing are incomplete.** Actual stdio launch occurs inside the precompiled Codex 0.161.0 runtime and is still launched directly by root app-server; upstream `codex-rs/rmcp-client/src/stdio_server_launcher.rs` constructs and starts the command. A bypassable repository wrapper cannot constrain this path. The environment lacks Rust/Cargo and the repository lacks a reproducible build path for modifying that binary; runtime builds and Android isolated-process/IPC support must be established and verified before integrating this launch point. Third-party plugins are not currently isolated.
+- CLI has no version switching; the catalog covers only sources visible to native `plugin/list` in the fixed workspace. `localVersion` is an upstream label, not necessarily proof of immutable content. Enable/disable and other operations may still race with independently started app-servers.
+
+This delivers only CLI and verification, not all round requirements; do not merge or claim completed plugin transactions/security isolation.

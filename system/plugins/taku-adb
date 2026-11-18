@@ -1,0 +1,24 @@
+#!/system/bin/sh
+set -eu
+bindir=${TAKU_ADB_BIN_DIR:-/system/bin}
+fail() { echo "taku-adb: $*" >&2; exit 2; }
+if [ "${1:-}" = '-s' ]; then
+  [ "$#" -ge 3 ] || fail 'missing serial or command'
+  [ "$2" = local ] || fail 'only the local device is supported'
+  shift 2
+fi
+command=${1:-}
+[ -n "$command" ] || fail 'missing command'
+shift
+case "$command" in
+  version) printf 'Taku local ADB shim\nVersion 1.0.0\nInstalled as /system_ext/bin/taku-adb\n' ;;
+  devices) [ "$#" -eq 0 ] || [ "$*" = '-l' ] || fail 'unsupported devices arguments'; printf 'List of devices attached\nlocal\tdevice\n\n' ;;
+  get-state) echo device ;;
+  shell|exec-out) [ "$#" -gt 0 ] || fail 'missing shell command'; exec "$bindir/sh" -c "$*" ;;
+  pull|push) [ "$#" -eq 2 ] || fail "$command requires source and destination"; exec "$bindir/cp" -R "$1" "$2" ;;
+  install) exec "$bindir/pm" install "$@" ;;
+  uninstall) exec "$bindir/pm" uninstall "$@" ;;
+  getprop) exec "$bindir/getprop" "$@" ;;
+  logcat) exec "$bindir/logcat" "$@" ;;
+  *) fail "unsupported command: $command" ;;
+esac

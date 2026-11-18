@@ -1,0 +1,38 @@
+[
+  {
+    "case": "chat",
+    "threadId": "01a16218-67c4-7a03-a447-b027de4670c9",
+    "namespace": "taku_phone",
+    "tool": "memory_get",
+    "arguments": {
+      "id": "c8db81a7-bcce-4116-bf82-822106d9b0e5"
+    },
+    "status": "completed",
+    "success": true,
+    "returned": {
+      "id": "c8db81a7-bcce-4116-bf82-822106d9b0e5",
+      "revision": 1,
+      "source": "com.android.messaging",
+      "bodySha256": "bfd134513b44953e40cf74c51d5d471f0bc67664d661810afa054e1d1a37ad5d"
+    },
+    "exactCapturedBody": true
+  },
+  {
+    "case": "calendar",
+    "threadId": "01a16220-858c-76e2-a4c1-787dcd6fac87",
+    "namespace": "taku_phone",
+    "tool": "memory_get",
+    "arguments": {
+      "id": "1b390040-e725-4eaa-95f7-aebfe8ee6aa7"
+    },
+    "status": "completed",
+    "success": true,
+    "returned": {
+      "id": "1b390040-e725-4eaa-95f7-aebfe8ee6aa7",
+      "revision": 1,
+      "source": "org.fossify.calendar",
+      "bodySha256": "a56bfe509bc8c4a992d7a4ee3023c0d9fb19b99ccd9a486a26d84cd0da297d54"
+    },
+    "exactCapturedBody": true
+  }
+]

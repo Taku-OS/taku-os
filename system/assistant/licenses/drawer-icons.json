@@ -1,0 +1,30 @@
+[
+  {
+    "file": "ic_drawer_menu.xml",
+    "source": "https://raw.githubusercontent.com/google/material-design-icons/master/src/navigation/menu/materialiconsoutlined/24px.svg",
+    "sourceSha256": "7cca3b2163d44960f8621326dcdc8da5379ca7665ae50e692f3bbd2b07d03c89",
+    "license": "Apache-2.0",
+    "conversion": "SVG path preserved in Android vector"
+  },
+  {
+    "file": "ic_drawer_chevron_down.xml",
+    "source": "https://raw.githubusercontent.com/google/material-design-icons/master/src/navigation/expand_more/materialiconsoutlined/24px.svg",
+    "sourceSha256": "5295578525e1a0b07f046e994fe32f108913debeac3053ed37124200bb44924f",
+    "license": "Apache-2.0",
+    "conversion": "SVG path preserved in Android vector"
+  },
+  {
+    "file": "ic_drawer_volume.xml",
+    "source": "https://raw.githubusercontent.com/google/material-design-icons/master/src/av/volume_up/materialiconsoutlined/24px.svg",
+    "sourceSha256": "4d013468caffb6895072aab2d54c155a34404bda2fe13d9e1a86ba50919998fe",
+    "license": "Apache-2.0",
+    "conversion": "SVG path preserved in Android vector"
+  },
+  {
+    "file": "ic_drawer_settings.xml",
+    "source": "https://raw.githubusercontent.com/google/material-design-icons/master/src/action/settings/materialiconsoutlined/24px.svg",
+    "sourceSha256": "814b7a6eea050c073d4a8d7b1f72512b0bd4f71b33beb584c8063fb0bfa78d41",
+    "license": "Apache-2.0",
+    "conversion": "SVG paths preserved in Android vector"
+  }
+]

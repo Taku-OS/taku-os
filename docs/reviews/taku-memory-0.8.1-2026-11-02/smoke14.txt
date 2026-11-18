@@ -1,0 +1,95 @@
+@@START Mon Nov  2 15:21:30 CST 2026
+@@APK     versionName=0.8.1     versionName=20261028-main-workspaces
+@@CFG0 Result: Bundle[{result={"ok":true,"result":{"enabled":false,"analysisEnabled":false,"analysisGeneration":1,"queryEnabled":false,"proactive":true,"model":"","modelOverride":"","followsSystem":true,"sources":[],"generation":0,"retentionDays":0,"userName":"我","autoOrganize":true,"organizeModel":"","agentBoard":true,"agentProfile":true,"debugHooks":false,"testNow":0,"count":0,"analysisQueued":0,"analysisInFlight":0,"vectors":0,"graphNodes":0,"graphVersions":0,"lines":0,"lastError":"","errors":0,"organizing":false,"embedder":"loading","boardUpdated":0,"profileUpdated":0,"rebuildPending":false,"organizedAt":0,"usage":{"graph":0,"board":0,"profile":0,"graphRuns":0,"boardRuns":0,"profileRuns":0,"graphModel":"","boardModel":"","profileModel":""},"lastOrganize":{"tokens":0,"at":0,"models":"","source":""},"analysisBatchAttempts":0,"lastBatchSize":0,"schema":"taku.memory\/3","observationConnected":f
+@@CFG Result: Bundle[{result={"ok":true,"result":{"enabled":true,"analysisEnabled":false,"analysisGeneration":2,"queryEnabled":true,"proactive":false,"model":"","modelOverride":"","followsSystem":true,"sources":["com.android.shell","org.takusim.phone"],"generation":1,"retentionDays":0,"userName":"小林","autoOrganize":false,"organizeModel":"","agentBoard":true,"agentProfile":true,"debugHooks":false,"testNo
+@@HOOK_TESTNOW Result: Bundle[{result={"ok":false,"message":"记忆访问未授权"}}] 
+@@HOOK_MAINTAIN_NOW Result: Bundle[{result={"ok":false,"message":"记忆访问未授权"}}] 
+@@HOOK_BUILDPROFILE Result: Bundle[{result={"ok":false,"message":"记忆访问未授权"}}] 
+@@STATUS1 Result: Bundle[{result={"ok":true,"result":{"enabled":true,"analysisEnabled":false,"analysisGeneration":2,"queryEnabled":true,"proactive":false,"model":"","modelOverride":"","followsSystem":true,"sources":["com.android.shell","org.takusim.phone"],"generation":1,"retentionDays":0,"userName":"小林","autoOrganize":false,"organizeModel":"","agentBoard":true,"agentProfile":true,"debugHooks":false,"testNow":0,"count":7,"analysisQueued":7,"analysisInFlight":0,"vectors":7,"graphNodes":0,"graphVersions":0,"lines":13,"lastError":"","errors":0,"organizing":false,"organizerState":"Last organizing finished","embedder":"ready","boardUpdated":0,"profileUpdated":0,"rebuildPending":false,"organizedAt":1793604090723,"usage":{"graph":0,"board":0,"profile":0,"graphRuns":0,"boardRuns":0,"profileRuns":0,"graphModel":"","boardModel":"","profileModel":""},"lastOrganize":{"tokens":0,"at":0,"models":"","source":""},"analysisBatchAttempts":0,"lastBatchSize":0,"schema":"taku.memory\/3","observationConnected":true}}}] 
+@@SEARCH Result: Bundle[{result={"ok":true,"result":{"items":[{"kind":"e","id":"af220efc-f2ba-4135-ab9c-b44774c416dc","ref":"e1","source":"com.android.shell","title":"老周","body":"老周
+兄弟，我 12 月 12 号在成都办婚礼，你来不来？15 号前回我一下，几个人，我好订酒店","first_seen":1793604099341,"last_seen":1793604099341,"revision":1,"category":"未分类"},{"kind":"e","id":"4130580a-1362-4cbd-9544-3f990798eebc","ref":"e2","source":"com.android.shell","title":"妈妈","body":"妈妈
+你爸下个月 19 号生日，今年 58 了，他最近老说肩颈疼，念叨想要个按摩仪，寄成都家里就行，快递两天","first_seen":1793604100348,"last_seen":1793604100348,"revision":1,"category":"未分类"},{"kind":"e","id":"0e875574-6cab-45b3-
+@@VECTORS 7 7  model=24010842
+@@ORG_MODELS Result: Bundle[{result={"ok":true,"result":{"models":["gpt-6.1-sol","gpt-6-astra","gpt-6.1-terra","gpt-6-sol","gpt-6-luna","gpt-5.6-sol","gpt-5.6-terra","gpt-5.6-luna"],"recommended":{"graph":"gpt-6.1-sol","board":"gpt-6-luna","profile2":"gpt-6.1-sol"},"system":"group\/taku-memory-jev","systemReady":false}}}] 
+@@ARCHIVED_BEFORE 0
+@@ORGANIZE1 Mon Nov  2 15:22:04 CST 2026
+@@MAINTAIN Result: Bundle[{result={"ok":true,"result":{"started":true}}}] 
+@@ORGANIZE1_DONE Mon Nov  2 15:22:58 CST 2026
+@@USAGE_ORGANIZE1 {"consumer":"memory","model":"codex\/gpt-6.1-sol","elapsedMs":12681,"status":"completed","code":"","at":1793604138043} {"consumer":"memory","model":"codex\/gpt-6-luna","elapsedMs":5391,"status":"completed","code":"","at":1793604145447} {"consumer":"memory","model":"codex\/gpt-6.1-sol","elapsedMs":24236,"status":"completed","code":"","at":1793604171706} 
+@@ARCHIVED_AFTER 0 sessions_with_organizer_text=0
+@@LAST_ORGANIZE "lastOrganize":{"tokens":16343,"at":1793604172601,"models":"gpt-6.1-sol \/ gpt-6-luna","source":"recommended"}
+@@STATUS2 Result: Bundle[{result={"ok":true,"result":{"enabled":true,"analysisEnabled":false,"analysisGeneration":2,"queryEnabled":true,"proactive":false,"model":"","modelOverride":"","followsSystem":true,"sources":["com.android.shell","org.takusim.phone"],"generation":1,"retentionDays":0,"userName":"小林","autoOrganize":false,"organizeModel":"","agentBoard":true,"agentProfile":true,"debugHooks":false,"testNow":0,"count":7,"analysisQueued":7,"analysisInFlight":0,"vectors":7,"graphNodes":8,"graphVersions":8,"lines":13,"lastError":"","errors":0,"organizing":false,"organizerState":"Last organizing finished","embedder":"ready","boardUpdated":1793604124373,"profileUpdated":1793604124373,"rebuildPending":false,"organizedAt":1793604172601,"usage":{"graph":5612,"board":4908,"profile":5823,"graphRuns":1,"boardRuns":1,"profileRuns":1,"graphModel":"gpt-6.1-sol","boardModel":"gpt-6-luna","profileModel":"gpt-6.1-sol"},"lastOrganize":{"tokens":16343,"at":1793604172601,"models":"gpt-6.1-sol \/ gpt-6-luna","source":"recommended"},"analysisBatchAttempts":0,"lastBatchSize":0,"schema":"taku.memory\/3","observationConnected":true}}}] 
+@@BOARD Result: Bundle[{result={"ok":true,"result":{"updated":1793604124373,"text":"进行中：
+· 回复老周婚礼邀请（叫法：老周的婚礼 \/ 成都婚礼 \/ 12月12日婚礼）｜老周12月12日在成都办婚礼，需在11月15日前回复是否参加及几个人，方便他订酒店。｜最近 11-02
+· 给爸爸买按摩仪（叫法：爸爸生日礼物 \/ 按摩仪 \/ 寄成都家里）｜爸爸12月19日满58岁，想要按摩仪；需购买并寄到成都家里，快递约两天。｜最近 11-02
+· 周四和婷婷吃日料（叫法：西村日料 \/ 婷婷吃饭 \/ 蓝色长柄伞）｜11月5日（周四）19:00在西村日料赴约，并带上借来的蓝色长柄伞。｜最近 11-02
+最近完结或搁置：","board":{"active":[{"name":"回复老周婚礼邀请","aliases":["老周的婚礼","成都婚礼","12月12日婚礼"],"state":"老周12月12日在成都办婚礼，需在11月15日前回复是否参加及几个人，方便他订酒店。","last":"11-02"},{"name":"给爸爸买按摩仪","aliases":["爸爸生日礼物","按摩仪","寄成都家里"],"state":"爸爸12月19日满58岁，想要按摩仪；需购买并寄到成都家里，快递约两天。","last":"11-02"},{"name":"周四和婷婷吃日料","aliases":["西村日料","婷婷吃饭","蓝色长柄伞"],"state":"11月5日（周四）19:00在西村日料赴约，并带上借来的蓝色长柄伞。","last":"11-02"}],"done":[],"through":1793604105449},"revokedAt":0}}}] 
+@@PROFILE Result: Bundle[{result={"ok":true,"result":{"updated":1793604124373,"text":"关于你本人：
+· 以后坐飞机一定订过道座位。（场景：订机票、值机、选座；最近 11-02）
+身边重要的人：
+· 老周（朋友，常联系）：邀请用户参加成都婚礼，需在11月15日前回复是否出席及人数，方便他订酒店。｜重要日子：12-12 成都婚礼（11月15日前确认是否出席及人数）
+· 爸爸（父亲，核心）：妈妈转告他想要按摩仪，可作生日礼物寄成都家里，快递需两天。｜重要日子：12-19 生日（2026年满58岁，提前选购按摩仪并留出两天快递时间）
+· 妈妈（母亲，核心）：
+· 婷婷（朋友，常联系）：为感谢用户帮忙喂猫，约11月5日周四19点在西村日料请客，并请用户带回上次借的蓝色长柄伞。","profile":{"me":[{"item":"以后坐飞机一定订过道座位。","applies":"订机票、值机、选座","seen":1,"last":"11-02"}],"people":[{"name":"老周","aliases":[],"relation":"朋友","closeness":"常联系","notes":["邀请用户参加成都婚礼，需在11月15日前回复是否出席及人数，方便他订酒店。"],"dates":["12-12 成都婚礼（11月15日前确认是否出席及人数）"],"last":"11-02"},{"name":"爸爸","aliases":["爸"],"relation":"父亲","closeness":"核心","notes":["妈妈转告他想要按摩仪，可作生日礼物寄成都家里，快递需两天。"],"dates":["12-19 生日（2026年满58岁，提前选购按摩仪并留出两天快递时间）"],"last":"11-02"},{"name":"妈妈","aliases":[],"relation":"母亲","closeness":"核心","notes":[],"dates":[],"last":"11-02"},{"name":"婷婷","aliases":[],"relation":"朋友","closeness":"常联系","notes":["为感谢用户帮忙喂猫，约11月5日周四19点在西村日料请客，并请用户带回上次借的蓝色长柄伞。"],"dates":[],"last":"11-02"}],"through":1793604105449},"revokedAt":0}}}] 
+@@AGENT1 Result: Bundle[{result={"ok":true,"result":{"updated":1793604124373,"text":"关于你本人：
+· 以后坐飞机一定订过道座位。
+身边重要的人：
+· 爸爸（父亲）
+· 妈妈（母亲）
+
+接下来 3 天有约定或日子的人：
+· 婷婷（朋友）：为感谢用户帮忙喂猫，约11月5日周四19点在西村日料请客，并请用户带回上次借的蓝色长柄伞。
+
+和这件事可能有关：
+· 老周（朋友）：邀请用户参加成都婚礼，需在11月15日前回复是否出席及人数，方便他订酒店。｜重要日子：12-12 成都婚礼（11月15日前确认是否出席及人数）
+· 爸爸（父亲）：妈妈转告他想要按摩仪，可作生日礼物寄成都家里，快递需两天。｜重要日子：12-19 生日（2026年满58岁，提前选购按摩仪并留出两天快递时间）
+· [你的习惯] 以后坐飞机一定订过道座位。（场景：订机票、值机、选座）","ms":19,"revokedAt":0}}}] 
+@@AGENT2 Result: Bundle[{result={"ok":true,"result":{"updated":1793604124373,"text":"关于你本人：
+· 以后坐飞机一定订过道座位。
+身边重要的人：
+· 爸爸（父亲）
+· 妈妈（母亲）
+
+接下来 3 天有约定或日子的人：
+· 婷婷（朋友）：为感谢用户帮忙喂猫，约11月5日周四19点在西村日料请客，并请用户带回上次借的蓝色长柄伞。
+
+和这件事可能有关：
+· 爸爸（父亲）：妈妈转告他想要按摩仪，可作生日礼物寄成都家里，快递需两天。｜重要日子：12-19 生日（2026年满58岁，提前选购按摩仪并留出两天快递时间）
+· 老周（朋友）：邀请用户参加成都婚礼，需在11月15日前回复是否出席及人数，方便他订酒店。｜重要日子：12-12 成都婚礼（11月15日前确认是否出席及人数）","ms":3,"revokedAt":0}}}] 
+@@GENJOBS 0 
+@@SNAPSHOTS 1 1 8 
+@@FORGET_ID af220efc-f2ba-4135-ab9c-b44774c416dc
+@@FORGET Result: Bundle[{result={"ok":true,"result":{"forgotten":true}}}] 
+@@REVOKED "revokedAt":1793604185053
+@@SNAPSHOTS_AFTER_FORGET 0 0 6 graphRedo=[] nextNid=8 rebuildPending=1 
+@@JOB_REBUILD Mon Nov  2 15:23:06 CST 2026
+@@JOB_REBUILD_DONE Mon Nov  2 15:23:37 CST 2026
+@@STATUS4 Result: Bundle[{result={"ok":true,"result":{"enabled":true,"analysisEnabled":false,"analysisGeneration":2,"queryEnabled":true,"proactive":false,"model":"","modelOverride":"","followsSystem":true,"sources":["com.android.shell","org.takusim.phone"],"generation":2,"retentionDays":0,"userName":"小林","autoOrganize":true,"organizeModel":"","agentBoard":true,"agentProfile":true,"debugHooks":false,"testNow":0,"count":6,"analysisQueued":6,"analysisInFlight":0,"vectors":6,"graphNodes":6,"graphVersions":6,"lines":11,"lastError":"","errors":0,"organizing":false,"organizerState":"Last organizing finished","embedder":"ready","boardUpdated":1793604187685,"profileUpdated":1793604187685,"rebuildPending":false,"organizedAt":1793604215001,"usage":{"graph":5612,"board":9712,"profile":11298,"graphRuns":1,"boardRuns":2,"profileRuns":2,"graphModel":"gpt-6.1-sol","boardModel":"gpt-6-luna","profileModel":"gpt-6.1-sol"},"lastOrganize":{"tokens":10279,"at":1793604215001,"models":"gpt-6-luna \/ gpt-6.1-sol","source":"recommended"},"analysisBatchAttempts":0,"lastBatchSize":0,"schema":"taku.memory\/3","observationConnected":true}}}] 
+@@CHECK_LAOZHOU_GONE 0
+@@CORRECT Result: Bundle[{result={"ok":true,"result":{"ref":"e2","id":"4130580a-1362-4cbd-9544-3f990798eebc","source":"com.android.shell","page":"notification","title":"妈妈","body":"你爸下个月 19 号生日，今年 58 了，他说想要个泡脚桶，寄成都家里就行","digest":"892ed60eca3d6ab9651b9c9b46abd34654d43773756991ac52480ac7e1029eeb","first_seen":1793604100348,"last_seen":1793604220969,"revision":2,"category":"未分类","analysis":"corrected","model":
+@@SEARCH_OLD Result: Bundle[{result={"ok":true,"result":{"items":[{"kind":"n","id":"n5","title":"[task] 赴约带蓝色长柄伞","body":"[task] 赴约带蓝色长柄伞：婷婷请小林在11月5日周四19:00赴西村日料饭约时，带上上次借给婷婷的蓝色长柄伞。（11-05 19:00；active；证据 e3）","when":"11-05 19:00","status":"active","evidence":["5e139107-fa0e-473a-b471-0860dfef8591"],"first_seen":1
+@@SEARCH_NEW Result: Bundle[{result={"ok":true,"result":{"items":[{"kind":"e","id":"4130580a-1362-4cbd-9544-3f990798eebc","ref":"e2","source":"com.android.shell","title":"妈妈","body":"你爸下个月 19 号生日，今年 58 了，他说想要个泡脚桶，寄成都家里就行","first_seen":1793604100348,"last_seen":1793604220969,"revision":2,"category":"未分类"},{"kind"
+@@PROFILE3 Result: Bundle[{result={"ok":true,"result":{"updated":1793604223603,"text":"关于你本人：
+· 坐飞机一定选过道座位。（场景：订机票、值机、选座；最近 11-02）
+身边重要的人：
+· 爸爸（父亲，核心）：今年生日想要泡脚桶，寄成都家里。｜重要日子：12-19 生日（提前准备泡脚桶并寄到成都家里）
+· 婷婷（朋友，常联系）：周四晚7点请用户在西村日料吃饭，提醒带上此前借她的蓝色长柄伞。","profile":{"me":[{"item":"坐飞机一定选过道座位。","applies":"订机票、值机、选座","seen":1,"last":"11-02"}],"people":[{"name":"爸爸","aliases":["爸"],"relation":"父亲","closeness":"核心","notes":["今年生日想要泡脚桶，寄成都家里。"],"dates":["12-19 生日（提前准备泡脚桶并寄到成都家里）"],"last":"11-02"},{"name":"婷婷","aliases":[],"relation":"朋友","closeness":"常联系","notes":["周四晚7点请用户在西村日料吃饭，提醒带上此前借她的蓝色长柄伞。"],"dates":[],"last":"11-02"}],"through":1793604105449},"revokedAt":1793604220970}}}] 
+@@AFTER_REBUILD graphRedo=[] rebuildPending=0 
+@@USAGE_FINAL {"consumer":"memory","model":"codex\/gpt-6.1-sol","elapsedMs":24236,"status":"completed","code":"","at":1793604171706} {"consumer":"memory","model":"codex\/gpt-6-luna","elapsedMs":4779,"status":"completed","code":"","at":1793604193463} {"consumer":"memory","model":"codex\/gpt-6.1-sol","elapsedMs":19068,"status":"completed","code":"","at":1793604214544} {"consumer":"memory","model":"codex\/gpt-6.1-sol","elapsedMs":9746,"status":"completed","code":"","at":1793604234341} {"consumer":"memory","model":"codex\/gpt-6-luna","elapsedMs":3758,"status":"completed","code":"","at":1793604240139} {"consumer":"memory","model":"codex\/gpt-6.1-sol","elapsedMs":20201,"status":"completed","code":"","at":1793604262334} 
+@@PICK_SYSTEM Result: Bundle[{result={"ok":true,"result":{"enabled":true,"analysisEnabled":false,"analysisGeneration":2,"queryEnabled":true,"proactive":false,"model":"","modelOverride":"","followsSystem":true,"sources":["com.android.shell","org.takusim.phone"],"generation":3,"retentionDays":0,"userName":"小林","aut
+@@MAINTAIN_SYSTEM Result: Bundle[{result={"ok":true,"result":{"started":true}}}] 
+@@SYSTEM_RESULT 11-02 15:24:33.694 30296 32759 W TakuMemory: java.lang.IllegalStateException: 请为记忆场景配置 Magpie 连接与路由组 "lastOrganize":{"tokens":15358,"at":1793604262937,"models":"gpt-6.1-sol \/ gpt-6-luna","source":"recommended"}
+@@PICK_DEFAULT Result: Bundle[{result={"ok":true,"result":{"enabled":true,"analysisEnabled":false,"analysisGeneration":2,"queryEnabled":true,"proactive":false,"model":"","modelOverride":"","followsSystem":true,"sources":["com.android.shell","org.takusim.phone"],"generation":4,"retentionDays":0,"userName":"小林","aut
+@@RETENTION Result: Bundle[{result={"ok":true,"result":{"enabled":true,"analysisEnabled":false,"analysisGeneration":2,"queryEnabled":true,"proactive":false,"model":"","modelOverride":"","followsSystem":true,"sour
+@@PRUNE_STATUS Result: Bundle[{result={"ok":true,"result":{"enabled":true,"analysisEnabled":false,"analysisGeneration":2,"queryEnabled":true,"proactive":false,"model":"","modelOverride":"","followsSystem":true,"sources":["com.android.shell","org.takusim.phone"],"generation":5,"retentionDays":1,"userName":"小林","aut
+@@RETENTION0 Result: Bundle[{result={"ok":true,"result":{"enabled":true,"analysisEnabled":false,"analysisGeneration":2,"queryEnabled":true,"proactive":false,"model":"","modelOverride":"","followsSystem":true,"sour
+@@GATE_SETTINGS taku_ai_app_memory=0
+@@BEFORE_GATE 1 1 5 
+@@MAINTAIN_GATED Result: Bundle[{result={"ok":true,"result":{"started":true}}}] 
+@@GATED_RESULT 1 1 5  11-02 15:24:54.180 30296  1082 W TakuMemory: java.lang.IllegalStateException: 系统 AI 已暂停这个功能
+@@USAGE_GATED {"consumer":"memory","model":"codex\/gpt-6-luna","elapsedMs":3758,"status":"completed","code":"","at":1793604240139} {"consumer":"memory","model":"codex\/gpt-6.1-sol","elapsedMs":20201,"status":"completed","code":"","at":1793604262334} 
+@@GATE_RESTORED taku_ai_app_memory=1
+@@MAINTAIN_RESTORED Result: Bundle[{result={"ok":true,"result":{"started":true}}}] 
+@@RESTORED_RESULT 2 2 7 
+@@ORG_MODELS_READY "system":"group\/taku-memory-jev","systemReady":false}}}]
+@@END Mon Nov  2 15:25:33 CST 2026

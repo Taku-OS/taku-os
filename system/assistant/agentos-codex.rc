@@ -1,0 +1,10 @@
+service taku_broker /system/bin/app_process /system/bin org.agentos.lab.TaskBroker
+    class late_start
+    user root
+    group root system inet
+    seclabel u:r:su:s0
+    setenv CLASSPATH /system_ext/framework/agentos-task-broker.jar
+    disabled
+
+on property:sys.boot_completed=1
+    start taku_broker

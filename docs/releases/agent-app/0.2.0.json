@@ -1,0 +1,65 @@
+{
+  "schema": "taku.agent-app-stable-release/1",
+  "component": "agent-app",
+  "appId": "org.agentos.agent",
+  "channel": "stable",
+  "versionName": "0.2.0",
+  "versionCode": 2,
+  "abi": "arm64-v8a",
+  "authorization": {
+    "approvedBy": "刘海",
+    "approvedAt": "2026-10-29T15:24:00+08:00",
+    "scope": "Promote the accepted 0.2.0 canary build unchanged to the formal distribution channel."
+  },
+  "distribution": "manual-apk-in-place-update",
+  "sourceCommit": "c6210fce88c3eaeddd13ea59ceea33025702963f",
+  "builtAtUtc": "2026-10-29T04:07:33.985554Z",
+  "release": {
+    "tag": "agent-app-v0.2.0",
+    "url": "https://github.com/Taku-OS/taku-os/releases/tag/agent-app-v0.2.0"
+  },
+  "archive": {
+    "url": "https://download.taku.ai/releases/0.2.0/TakuAgent-0.2.0-arm64-canary.zip",
+    "file": "TakuAgent-0.2.0-arm64-canary.zip",
+    "bytes": 44154745,
+    "sha256": "a8331edeca93585b7209e3f94bdd7770556e64884661c4e596e9c1d068f5f6fc",
+    "originalChannel": "canary",
+    "originalManifestSha256": "3939e44a268bca2c001430dd57e4dc261fa11ee878e1976223b9c4aebbaf2e46"
+  },
+  "apk": {
+    "file": "TakuAgent.apk",
+    "bytes": 44152192,
+    "sha256": "426cf8e7dd577e84a5058c60347ac15ec367621b47cff45c0a642f517cfaca7f"
+  },
+  "runtime": {
+    "sourceCommit": "c6210fce88c3eaeddd13ea59ceea33025702963f",
+    "assistantSha256": "6a188cd0cbb1a45b628cb54cd6cdf96fd7a9e329080eec1f36ae20590dfcf0a6",
+    "brokerSha256": "a55656a3cb2b1141e77090fcca6504f06cbcf860889f24adb462639525f5036d"
+  },
+  "signingCertificateSha256": "c8a2e9bccf597c2fb6dc66bee293fc13f2fc47ec77bc6b2b0d52c11f51192ab8",
+  "signingPolicy": "Unchanged repository development platform certificate; compatible Taku OS runtime with matching certificate is required.",
+  "promotion": {
+    "rebuild": false,
+    "repackage": false,
+    "resign": false,
+    "originalArchiveMetadataChanged": false,
+    "desktopPublicationChanged": false
+  },
+  "acceptance": {
+    "buildHost": "Mac mini Apple M4 Pro",
+    "device": "Taku_MDStreaming_Mini_GPU_20261029 / emulator-5664",
+    "acceptedAtUtc": "2026-10-29T04:18:39.190946Z",
+    "mainCi": "https://github.com/Taku-OS/taku-os/actions/runs/40815763212",
+    "report": "https://github.com/Taku-OS/taku-os/blob/c6210fce88c3eaeddd13ea59ceea33025702963f/docs/rn-markdown-streaming-mini-2026-10-29.md",
+    "downloadedApkInstalledInPlace": true,
+    "realModelStreamingCompleted": true,
+    "pixelVerified": false,
+    "fullRomVerified": false
+  },
+  "installation": {
+    "method": "adb -s <assigned-serial> install -r TakuAgent.apk",
+    "preserveAppData": true,
+    "runtimeIncluded": false,
+    "automaticUpdateFeed": false
+  }
+}

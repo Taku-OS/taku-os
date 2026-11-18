@@ -1,0 +1,5 @@
+#!/system/bin/sh
+set -eu
+P=/data/local/agentos/rea-pack
+"$P/bin/start-frida-server" >/dev/null 2>&1 || true
+exec "$P/bin/node" "$P/rea/scripts/rea.mjs" mcp

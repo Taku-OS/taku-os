@@ -1,0 +1,53 @@
+{
+  "schema": "taku.emulator-images/1",
+  "product": "lineage_taku_emu_arm64",
+  "abi": "arm64-v8a",
+  "files": [
+    {
+      "path": "advancedFeatures.ini",
+      "bytes": 766,
+      "sha256": "7288c4f1f05c3a1e90eec2e02f173ebbe520e725c83fe1a0cb18bd6f0698d3fa"
+    },
+    {
+      "path": "build.prop",
+      "bytes": 5960,
+      "sha256": "42a46fbadcb0d9b647faa8b02efe447761cbe720b11b68f85c49a52f122009e8"
+    },
+    {
+      "path": "encryptionkey.img",
+      "bytes": 18874368,
+      "sha256": "522bd0b6a2c92e37de465059bb9487bb9597a9aae032b469a8ebe0b38146d8c3"
+    },
+    {
+      "path": "kernel-ranchu",
+      "bytes": 16774066,
+      "sha256": "3eff95fe8213608662be5ec981df09aea9c968470197b7532486a8df53c3070a"
+    },
+    {
+      "path": "kernel_cmdline.txt",
+      "bytes": 16,
+      "sha256": "5bd6571f46a3e593053a7c6c37f4eed840c0da2278506fa53d1ff021e9d4d8e4"
+    },
+    {
+      "path": "ramdisk-qemu.img",
+      "bytes": 1851020,
+      "sha256": "134d541fe9d24dc60298802af4f1ba64c1285dfc3a47f3f35929b6c93bab2532"
+    },
+    {
+      "path": "system-qemu.img",
+      "bytes": 6453985280,
+      "sha256": "fb798413c2d6bc69079f84b13ab5006b1e7b057110825cc583238db2f04308e6"
+    },
+    {
+      "path": "userdata.img",
+      "bytes": 576716800,
+      "sha256": "e03a6de33988e1e304b95bb67c6d65cc9d70720cc9a22aa43e24cd794111ab83"
+    },
+    {
+      "path": "vendor-qemu.img",
+      "bytes": 135266304,
+      "sha256": "3af357b995d807bdaab38b43992e1668ad5dfe05f84fd009b81bbd34c9c64a24"
+    }
+  ],
+  "deviceVerified": false
+}

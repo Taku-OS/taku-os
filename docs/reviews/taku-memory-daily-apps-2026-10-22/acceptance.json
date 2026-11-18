@@ -1,0 +1,315 @@
+{
+  "date": "2026-10-22",
+  "timezone": "Asia/Shanghai",
+  "baseCommit": "96e2409f46a6312140acdc53eea5ce4dd06fe19e",
+  "device": {
+    "avd": "Taku_ImageIntegration_20261010",
+    "serial": "emulator-5634",
+    "api": 36,
+    "arch": "arm64",
+    "physicalDevice": false,
+    "fullRom": false
+  },
+  "artifacts": {
+    "memory": {
+      "path": "system/memory/out/TakuMemory.apk",
+      "sha256": "bd950a3fc2fc73266057a33d7b018fb1711a9c4fab68d8771f738f2dc0578801",
+      "versions": [
+        "versionCode=5 minSdk=36 targetSdk=36",
+        "versionName=0.4.0"
+      ],
+      "installedMatches": true
+    },
+    "surfaces": {
+      "path": "system/surfaces/out/TakuSurfaces.apk",
+      "sha256": "1f02297671485f09c66880ebfdc55ee2e0a2cfa0aa9ce7011fb6228e4efc716f",
+      "versions": [
+        "versionCode=3 minSdk=36 targetSdk=36",
+        "versionName=0.2.1"
+      ],
+      "installedMatches": true
+    },
+    "broker": {
+      "path": "system/assistant/out/task-broker.jar",
+      "sha256": "d6b67804d7f8251a9e9afa3287df729f4cbc06e0ff3180321a785677bcbb4749",
+      "installedMatches": true
+    }
+  },
+  "cases": [
+    {
+      "passed": true,
+      "id": "c8db81a7-bcce-4116-bf82-822106d9b0e5",
+      "taskId": "1792647123871",
+      "threadId": "01a16218-67c4-7a03-a447-b027de4670c9",
+      "model": "taku-jev-import/typesafe/jev-1.14",
+      "category": "工作",
+      "decision": "organize",
+      "confidence": 0.98,
+      "source": "com.android.messaging",
+      "revision": 1,
+      "realMemoryToolCall": true,
+      "responseLocale": "en",
+      "readOnly": true,
+      "agentReply": "The current memory is revision **1** and contains a **demo conversation**. These details are verified against the stored memory, not independently confirmed with participants.\n\n**Recorded facts**\n\n| Item | Details / owner | Deadline |\n|---|---|---|\n| Lunch | Saturday, 12:30, The Hummingbird Cafe | Exact date unspecified |\n| Group and budget | Four people; $25 each | — |\n| Reservation | Alex | Friday, 17:00 |\n| Agenda | Sam | 18:00; day unspecified |\n| Materials | Bring prototype notes; owner unspecified | Lunch |\n| Meeting point | TBD | Unspecified |\n\n**Open questions**\n\n- What are the exact dates and timezone?\n- Has Alex reserved the table?\n- Which day is Sam’s agenda due?\n- Where should everyone meet, and who brings the prototype notes?\n\n**Suggested next steps**\n\nConfirm those details, then complete an owner-and-deadline checklist. No messages were sent and no data was changed.\n\n**Memory provenance:** ID `c8db81a7-bcce-4116-bf82-822106d9b0e5` · Revision `1` · Source `com.android.messaging`, page `window:3495`, conversation “Alex Chen (Demo)” · Captured **2026-10-22 05:30:57.597 UTC** (first and last seen).",
+      "oneTaskAfterUiAcceptance": true,
+      "case": "chat",
+      "modelResponseSimulated": false,
+      "fixtureAppUsed": false,
+      "physicalDevice": false,
+      "fullRom": false
+    },
+    {
+      "passed": true,
+      "id": "1b390040-e725-4eaa-95f7-aebfe8ee6aa7",
+      "revision": 1,
+      "source": "org.fossify.calendar",
+      "model": "taku-jev-import/typesafe/jev-1.14",
+      "category": "工作",
+      "decision": "organize",
+      "confidence": 0.95,
+      "taskId": "1792647656377",
+      "threadId": "01a16220-858c-76e2-a4c1-787dcd6fac87",
+      "realMemoryToolCall": true,
+      "responseLocale": "en",
+      "readOnly": true,
+      "screenshotAttached": false,
+      "oneTaskAfterUiAcceptance": true,
+      "localDemoData": true,
+      "agentReply": "### Verified memory\n- **ID:** `1b390040-e725-4eaa-95f7-aebfe8ee6aa7`\n- **Revision:** 1\n- **Source:** `org.fossify.calendar` · Calendar · `window:23`\n- **Captured:** October 22, 2026, 05:40:21.757 UTC\n\n### Recorded facts\n- **Taku design review (Demo):** Friday, October 23, 10–11 AM.\n- Alex: finalize English screens by Thursday, 17:00.\n- Sam: complete emulator checks by Thursday, 18:00.\n- Bring test results.\n- Local demo event; no invitations.\n\nThese are verified contents of the memory, not independently confirmed event status. The event’s timezone is unspecified.\n\n### Open questions\n- Who owns the release?\n- Is the launch checklist confirmed?\n- Are Alex’s screens and Sam’s checks complete?\n\n### Suggested next steps\n- Check completion against Thursday’s deadlines.\n- Gather test results for the review.\n- Confirm the release owner, launch checklist, and event timezone.\n\nNo data was changed or messages sent.",
+      "physicalDevice": false,
+      "fullRom": false,
+      "case": "calendar",
+      "modelResponseSimulated": false,
+      "fixtureAppUsed": false
+    },
+    {
+      "passed": true,
+      "id": "24e05643-efa8-428d-81c3-baa7d4db622b",
+      "source": "app.organicmaps.web",
+      "model": "taku-jev-import/typesafe/jev-1.14",
+      "category": "出行",
+      "decision": "none",
+      "confidence": 0.69,
+      "noOffer": true,
+      "noAgentTask": true,
+      "modelResponseSimulated": false,
+      "localDemoData": true,
+      "physicalDevice": false,
+      "fullRom": false,
+      "case": "travel",
+      "fixtureAppUsed": false
+    }
+  ],
+  "locale": {
+    "passed": true,
+    "actualLanguagePickerUsed": true,
+    "englishDefaultResources": true,
+    "chineseResources": true,
+    "languageRoundTrip": [
+      "en",
+      "zh-CN",
+      "en"
+    ],
+    "storedBodiesNotTranslated": true,
+    "countUnchanged": 30,
+    "extraModelRequests": 0,
+    "currentAppLocales": "Locales for org.agentos.memory for user 0 are [en]",
+    "nativeAgentResultFormatting": true
+  },
+  "isolatedTests": {
+    "storage": 66,
+    "queue": 69,
+    "resultRendering": 8,
+    "total": 143
+  },
+  "batchReservations": {
+    "before": 6,
+    "after": 9,
+    "upstreamBillingCountUnknown": true,
+    "calendarBatchAlsoIncludedAdjacentEmptyDay": true
+  },
+  "navigationQaCleanup": {
+    "removedNewQaNavigationRecords": [
+      {
+        "id": "c3ec34e5-827f-443c-9127-fe541fb346ac",
+        "source": "org.fossify.calendar",
+        "page": "window:23",
+        "title": "Calendar",
+        "body": "Back\nGo to today\nChange view\nMore options\nGo to previous day\nOctober 24 (Sat)\nGo to next day\nNew Event",
+        "digest": "3c0aa5f0232b729665b11fa92f8752a8b0a523ed64524cd8ef95cb680020c93b",
+        "first_seen": 1792647620264,
+        "last_seen": 1792647620264,
+        "revision": 1,
+        "category": "其他",
+        "analysis": "ready",
+        "model": "taku-jev-import/typesafe/jev-1.14",
+        "score": 0.34,
+        "decision": "none",
+        "confidence": 0.98,
+        "suggested_at": 0,
+        "task_id": "",
+        "task_state": ""
+      }
+    ],
+    "originalRecordsDeleted": false
+  },
+  "demoData": {
+    "chat": "Inbound emulator SMS delivered to actual Android Messaging; no outgoing messages",
+    "calendar": "Local Fossify event; no attendees, invitations, sync, or reminders",
+    "travel": "Official Organic Maps offline data; real route calculation; not a booking"
+  },
+  "offlineMaps": [
+    {
+      "name": "World",
+      "bytes": 64801701,
+      "url": "https://cdn.organicmaps.app/maps/260928/World.mwm",
+      "sha256": "8e699618f4727d6217348d5eb976f92687797dfe4abc40278cfa43b3600199ef",
+      "devicePath": "/sdcard/Android/data/app.organicmaps.web/files/260928/World.mwm"
+    },
+    {
+      "name": "WorldCoasts",
+      "bytes": 8351612,
+      "url": "https://cdn.organicmaps.app/maps/260928/WorldCoasts.mwm",
+      "sha256": "5368b39c6fa34f4fdf3ade6b7ee6ececeb7ded6e5b691e90ab4ef4214ab3221e",
+      "devicePath": "/sdcard/Android/data/app.organicmaps.web/files/260928/WorldCoasts.mwm"
+    },
+    {
+      "name": "Singapore",
+      "bytes": 36126685,
+      "url": "https://cdn.organicmaps.app/maps/260928/Singapore.mwm",
+      "sha256": "98faf8512bad37ec10c289bbc8e3903ff1a6c71af0058229323461e05be13f90",
+      "devicePath": "/sdcard/Android/data/app.organicmaps.web/files/260928/Singapore.mwm"
+    }
+  ],
+  "apps": [
+    {
+      "package": "com.android.messaging",
+      "versions": [
+        "versionCode=10001040 minSdk=36 targetSdk=24",
+        "versionName=1.0.001"
+      ],
+      "sha256": "706a916302a1d22257990e5ed014e5daa4d33b51edc87b0494cd49407b2a9574",
+      "path": "/product/app/messaging/messaging.apk"
+    },
+    {
+      "package": "org.fossify.calendar",
+      "versions": [
+        "versionCode=23 minSdk=26 targetSdk=36",
+        "versionName=1.12.0"
+      ],
+      "sha256": "d43b2df05d5702bea760a7ab03402977ba72e446e5932038efbdab248a5de987",
+      "path": "/data/app/~~MGs51zAilf9o2-ZqSGp39Q==/org.fossify.calendar-hAUqZUTzYKWX2CQ0V8f-Vw==/base.apk"
+    },
+    {
+      "package": "app.organicmaps.web",
+      "versions": [
+        "versionCode=26092932 minSdk=21 targetSdk=36",
+        "versionName=2026.09.29-32-Web"
+      ],
+      "sha256": "d7dbdfc3cbfdbcce6d437f11147f2cd15384c03052d2b4594fd8c1c7777dd497",
+      "path": "/data/app/~~cvbKCzFhUTSPylu5UrD3cQ==/app.organicmaps.web-gypnVDxFVkHW8sVhtfLedA==/base.apk"
+    }
+  ],
+  "emulatorRecovery": {
+    "unexpectedExit": true,
+    "relaunchedOriginalArguments": true,
+    "snapshotLoaded": false,
+    "existingMemoryAndCompletedTaskRetained": true,
+    "notFullRomColdBootAcceptance": true
+  },
+  "liveEvidenceScope": "Live loops ran during 0.4.0 candidate updates. Final artifact hashes, bilingual UI, record readback, and completed receipts verified after display-only changes; no redundant model replays.",
+  "scopeLimits": [
+    "Same-version physical device not tested",
+    "Standalone Memory APK not yet in product ROM build",
+    "No full-ROM acceptance",
+    "No long-term power, background survival, or universal app coverage",
+    "Text and keyword memory only; navigation-only screens may also be captured"
+  ],
+  "sourceHashes": {
+    "scripts/test-memory-daily-device.py": "78b54d331d3224666027144aa425d989e42236f3e172d64134a4c4fbba50ad2c",
+    "system/assistant/broker/org/agentos/lab/MemoryBridge.java": "f03610e7c0eba2a29ebced6efd813eb3f80f1fa51147ac3d475052120c7c741a",
+    "system/memory/AndroidManifest.xml": "ae59a238c85f80748e743f8f9aee52e64b4e1a965b99caeafef4c62fe0f6a34c",
+    "system/memory/build-tests.sh": "9606fbf4104ce97b53c8cf912e31cc9f61eff79299f7f62206a5d0bb4cabafa7",
+    "system/memory/build.sh": "d4c18573cb3bf568f79afff29a06f5e32a54cef49b0d96068c93aff4fa7919a1",
+    "system/memory/res/drawable/taku_brand_mark.xml": "bcfa7bc5629ebecce7594ab241652728e830e0e84487611542d523f770666ea3",
+    "system/memory/res/values/strings.xml": "53c436178f71b3fba8097352be483b1a83ca32e77043a6d0a8281353b805da2e",
+    "system/memory/res/values-zh/strings.xml": "d0be9ed9017cde38c227927085a1e715c0fd97890a17f380931f8a69ab8efe15",
+    "system/memory/res/xml/locales_config.xml": "dcfcc563ac97c6cae6703a52af0714fd8c45f56656922a7f853e0f7caf8e5c6f",
+    "system/memory/res/xml/observation.xml": "a528d10f10d131b2c43b7638a1d627a3fdeefd4aa432faefdbbd2d348bc9d999",
+    "system/memory/src/org/agentos/memory/AnalysisJob.java": "0ac39f49410f0ded12f14dd4e52665b4dd4e0345ab2f3e8ccd7c2bdedf7d10c1",
+    "system/memory/src/org/agentos/memory/BrokerClient.java": "2f6341ad36d685b685591513660f59ab114ea54889fd7c471f7407f42ba38bc8",
+    "system/memory/src/org/agentos/memory/MemoryActivity.java": "69d58ae3056bf90f3ef0c246b5d1b508452ab17aaf71f961a225ee7e48e37195",
+    "system/memory/src/org/agentos/memory/MemoryMaintenance.java": "edc0fc6544d0c9906b1e5817efbc0d8fc2e0c5330726c9138b933ebab07a9e2b",
+    "system/memory/src/org/agentos/memory/MemoryProvider.java": "68e2e76a38b8d47666b6221b1ed9eb9522378e7e1b412c7598b3ae0be18b2303",
+    "system/memory/src/org/agentos/memory/MemoryResult.java": "55d24ba3be2820d680e6850303f564da1408f8de8c820a244ff7b7a9727e3a9f",
+    "system/memory/src/org/agentos/memory/MemoryStore.java": "51c539184f0865882ba8a0e1e741ca17bfd2e9efb69c64790e0e559f206e6765",
+    "system/memory/src/org/agentos/memory/MemoryText.java": "ff1b3a930285bf1807e9d3d2cbc4e84d9517463f28fa747d095718a1b68842a2",
+    "system/memory/src/org/agentos/memory/MemoryUi.java": "08c45bf4f3f036629d62a2f354c0217f2d24ebcbb72d757b7e583b6a11d9ce99",
+    "system/memory/src/org/agentos/memory/ObservationService.java": "fde69d3e08b6c3ce79c355f28de962252890e3329a8c3417f4b5fc0c17b08a53",
+    "system/memory/tests/AndroidManifest.xml": "3da94540468f36f97b868056e4b5a179c73d5c1ca4a7067ad0ffe09b324ba8c7",
+    "system/memory/tests/fixture/AnalysisJob.java": "f29ef0222b02721a290bd9fb6ad3abef3d1ca7f4d8034081083b5283991414b7",
+    "system/memory/tests/fixture/ObservationService.java": "333fdc1f9bab071d6623c49cd46f1735fea30cd6a55af3b2ece25833e3365f94",
+    "system/memory/tests/fixture/PageActivity.java": "765956db60ad6283b2bcd52b2feae9036ebef2a69f71bf49343fe0fcad0ada96",
+    "system/memory/tests/fixture/QueueTests.java": "632c881aac023c59ed3334b14ae5662454ef75bcef468dc8f96a53e086916ffa",
+    "system/memory/tests/fixture/ResultTests.java": "ab15194d664e12c0c63e9fc8230686e344570254a0d745be5b6d0deff3bfefc3",
+    "system/memory/tests/fixture/StoreTests.java": "4ef6554d4660c3835faee317f547b7cbe44359f826f5f380143259b8645dfa89",
+    "system/surfaces/AndroidManifest.xml": "98f5185d0c121ffbfcf46899f1df5f47f72fcc061b102a7909258ae0eadb7378",
+    "system/surfaces/build.sh": "cd7ad3f021c80f858662afeec98c079b56d048aa28692b762c33d4a79c7f8952",
+    "system/surfaces/client/org/agentos/surfaces/client/SurfaceClient.java": "d97487e780162f7253df63b30ea33aa23a3a29967cb3ec6aa87a02dca50b3816",
+    "system/surfaces/contract/org/agentos/surfaces/SurfaceSpec.java": "ed4f084ac6c191d74c3204d763d6cf0ebce015c7313c1e97b871a3dfda38ca28",
+    "system/surfaces/contract/org/agentos/surfaces/SurfaceStore.java": "852833949df07cfef1d9e0506f3021ab19ab54b00f7fe6ad00e9df6f49f11a7b",
+    "system/surfaces/demo/AndroidManifest.xml": "9a50133662d55488ed06bf008ef541c16a116775a083d5bb50094099a4152636",
+    "system/surfaces/demo/src/org/agentos/surfacedemo/PreviewActivity.java": "36f5869189dc18dc9ce93cb7232e22ac7b3339bc2649cfa1c3e63e842aa0b2a0",
+    "system/surfaces/res/drawable/surface_close.xml": "52c912f076964104b91b2aa555a8738e0d6baf73ccd4d9b6b5f375798a71d954",
+    "system/surfaces/res/drawable/surface_collapse.xml": "70dba15a289c6bd2345378f33b35f5d7cbf61f1fab2aba01090a9c0baf132ca2",
+    "system/surfaces/res/drawable/surface_expand.xml": "8f4803696e96c11758336940b95a8a33fe494ee7622582c872b74cfc5c4c8a25",
+    "system/surfaces/res/drawable/taku_brand_mark.xml": "bcfa7bc5629ebecce7594ab241652728e830e0e84487611542d523f770666ea3",
+    "system/surfaces/res/values/strings.xml": "b620418995f938e15d94cb139fea1e1bbe20b4c8fd01404c25d3a29ee6a471dc",
+    "system/surfaces/res/values-zh/strings.xml": "a20a8795658472f6d8cfaf7c76f36c47bdee34a8f1bf2d4e22ca30639006141b",
+    "system/surfaces/src/org/agentos/surfaces/SurfaceDragHandle.java": "9d0ffb07a7920ca8360c455ede069f8d8170e8e437bc4772bbc1d8675917be0c",
+    "system/surfaces/src/org/agentos/surfaces/SurfacePosition.java": "f61db79416b91e3f553d9da3b2ba31bdffff4059a6bb1791afc04e22ed40d49c",
+    "system/surfaces/src/org/agentos/surfaces/SurfacePositionPrefs.java": "900c2e8ffc2e83f45f56386c48c43ef8715d775c7bc574940eeb18380963b47a",
+    "system/surfaces/src/org/agentos/surfaces/SurfaceRenderer.java": "852f2c3957304e0b759398ea0031ae8c50b10520bb65e52c6a21c2ba912cbea7",
+    "system/surfaces/src/org/agentos/surfaces/SurfaceService.java": "efb65516bcfa11cc03b47de4ca4622cb7336926b1e8873ac32817b084e288a03",
+    "system/surfaces/src/org/agentos/surfaces/SurfaceStyle.java": "4f298ed2cc459e06405d0954b99b9a369981d70d45bbbde9fef5527cc19344de",
+    "system/surfaces/src/org/agentos/surfaces/SurfaceWindow.java": "315d21865ad1fad832e4153e7ea2516b05af6080e62e515f38254ce706910eb2",
+    "system/surfaces/test.sh": "97708c81b5d39a5359b5aa829207fc98baf29423cffe095928834e4666bb2ff9",
+    "system/surfaces/tests/AndroidManifest.xml": "0ca5cce0f6e777f873e96b56056e166f09fd28814e740a770894ddbf62d352cd",
+    "system/surfaces/tests/SurfacePositionTest.java": "c4b3614706dbb43400ab8d0cf5b7ee7941f4fb3690c56ef835fd6e69c0640252",
+    "system/surfaces/tests/SurfaceStoreTest.java": "ee6e50dcc870debc4b19b2a1b994d94d443b8610d17ccec6c6ba0ed7c0ce3c90",
+    "system/surfaces/tests/consumer/SurfaceConsumer.java": "3c1a8c30c79b3e13b82dd0718932d25542d090a48bc470ef04c372218dd2b939",
+    "system/surfaces/tests/instrumentation/org/agentos/surfacestests/SurfaceApiTest.java": "006b9501867dbed0256ddb88b426659f1662479fe744cdb0ff31f5045b5c0965",
+    "system/surfaces/wire/org/agentos/surfaces/SurfaceCodec.java": "d919d5d304c0d51e9e4d84d83e48f99ce8802691e6484aed11210f838c59ecc1"
+  },
+  "imageHashes": {
+    "calendar-suggestion-en.png": "45deb70d6753b124e4c73dbd566d9eea963d9c7bfe8a1b9358796b67a95d6ab5",
+    "calendar-suggestion-expanded-en.png": "79950b6840124e58678df6d9942273d971e2f7ca1e59d253be65fc2b6a7f2cda",
+    "chat-suggestion-expanded-en.png": "5b27f14b7d7b8a9c6c50c5a7eee4488aff59be970cecf06b6827eaa2f0e41f03",
+    "memory-agent-result-en.png": "66b05269127cd43c6f6ee3c7c002c3e6b8b548313f7aaea3ec3c05e775207a85",
+    "memory-home-en.png": "34546f5888251d05ce8ca960faf8359bd68065a8328ad7765f2a34f212e87a92",
+    "memory-home-zh.png": "7ce3cedfa5a3ff9553baf0bee1f753a6f21790d40cc77fc94c2e2dd14cd517ff",
+    "memory-language-en.png": "a34cac46ee8040b5923205d504e00512e2328cbeaab376bef329932659f4a45a",
+    "memory-settings-en.png": "2a64024876296f30b66363d76b5de649f7cf4b496483d53049afbf133c77e43f",
+    "memory-settings-zh.png": "e22c3bb9b73ff3c5d052e55c617720491d2817bcd2503927b6693cbdae96fdb5",
+    "memory-suggestions-en.png": "4780fe13a1460c6ede5fc81ec960f1d6a6b2bc95a179344947251502a59b25d9",
+    "source-calendar-en.png": "99a2a3713df4ecce19c81827b164d2fa9a8564fd60af4b902a62e10e2353a262",
+    "source-chat-en.png": "bf308597e870d2b2f7d78ae5da37446968320bda59d2f1391a76397fd5f3c008",
+    "source-travel-en.png": "39e5c4be4b8ef47b11c0a0ce5e16851cf421da8a079ff12510c27250673bbedd"
+  },
+  "cleanup": {
+    "passed": true,
+    "originalConfigurationRestored": true,
+    "originalAccessibilityRestored": true,
+    "englishRetainedAsRequested": true,
+    "originalPublicPageIdsVerified": true,
+    "original27RecordsRetained": true,
+    "usefulDailyAppRecordsRetained": 3,
+    "count": 30,
+    "analysisQueued": 0,
+    "analysisInFlight": 0,
+    "batchReservationsBefore": 6,
+    "batchReservationsAfter": 9,
+    "noActiveTasks": true,
+    "avdPauseRestored": true
+  }
+}

@@ -1,0 +1,133 @@
+--- a/system/audio-engine/Android.bp
++++ b/system/audio-engine/Android.bp
+@@ -10,3 +10,22 @@
+     java_version: "17",
+     static_kotlin_stdlib: true,
+ }
++
++// Independent engine APK; weights remain a separate resource delivery.
++android_app_import {
++    name: "TakuAudioEngine",
++    apk: "out/TakuAudioEngine.apk",
++    certificate: "platform",
++    privileged: true,
++    system_ext_specific: true,
++    dex_preopt: { enabled: false },
++    required: ["TakuAudioEnginePermissions"],
++}
++
++prebuilt_etc {
++    name: "TakuAudioEnginePermissions",
++    src: "permissions/org.agentos.audio.xml",
++    filename: "privapp-permissions-org.agentos.audio.xml",
++    sub_dir: "permissions",
++    system_ext_specific: true,
++}
+--- a/image/taku.mk
++++ b/image/taku.mk
+@@ -15,6 +15,7 @@
+     TakuMemory \
+     TakuInputMethod \
+     TakuAssistant \
++    TakuAudioEngine \
+     agentos-task-broker \
+     agentos-virtual-display \
+     agentos-resolver-bridge \
+--- /dev/null
++++ b/system/audio-engine/permissions/org.agentos.audio.xml
+@@ -0,0 +1,10 @@
++<?xml version="1.0" encoding="utf-8"?>
++<permissions>
++    <privapp-permissions package="org.agentos.audio">
++        <permission name="android.permission.CAPTURE_AUDIO_OUTPUT"/>
++        <permission name="android.permission.MODIFY_AUDIO_ROUTING"/>
++        <permission name="android.permission.CALL_AUDIO_INTERCEPTION"/>
++        <permission name="android.permission.BYPASS_CONCURRENT_RECORD_AUDIO_RESTRICTION"/>
++        <permission name="android.permission.START_FOREGROUND_SERVICES_FROM_BACKGROUND"/>
++    </privapp-permissions>
++</permissions>
+--- /dev/null
++++ b/system/audio-engine/rom-input-lock.json
+@@ -0,0 +1,61 @@
++{
++  "schema": "taku.audio-rom-input/1",
++  "path": "system/audio-engine/out/TakuAudioEngine.apk",
++  "package": "org.agentos.audio",
++  "bytes": 14534240,
++  "sha256": "86b761a92fd653d830ef5954efa3bfee8125882a62665bde69b71629b0640e31",
++  "sourceInputs": {
++    "scripts/android-env.sh": "5c053dcf59f6eb2aabf7f970386638ef740523d6cab45fe85c7bd2706e85c65b",
++    "scripts/kotlin-env.sh": "e4e9530c3c35e37c12734e3a14b883a804f64c203e15693b8e1d1e0787293285",
++    "system/audio-engine/AndroidManifest.xml": "5441324c0ad21a476828a8d1a3ae454e373b8ba340c2404ff781c203c17a6807",
++    "system/audio-engine/build.sh": "59b44699f10916c8e5ddebd13e52dbe0443da2074f2e2008b24b45b63404da8e",
++    "system/audio-engine/client/org/agentos/audio/AudioClient.kt": "cb27b4717c4d046f7f90e7dddea7196e5d73773c12bac3a01c52e69150380644",
++    "system/audio-engine/client/org/agentos/audio/AudioConversation.kt": "6013d6850bf87dbfdd6aa1b1e68ca03cc40f0948393df6fdae90eea17f72a442",
++    "system/audio-engine/client/org/agentos/audio/AudioPipe.kt": "501bf67ed3ed99509f1dd350483bba5e14ae8718c830b4504a88303572791c3b",
++    "system/audio-engine/client/org/agentos/audio/AudioReader.kt": "174e4521a88eda97b0cb9f5a98d3c9c179bce5d2f2877f7c60d668df92d942ca",
++    "system/audio-engine/client/org/agentos/audio/SpeechChunks.kt": "af3daf1e4f72508cc1fad257d00ed9671c8163ac96e9b34ec725c5f7c4db7b6d",
++    "system/audio-engine/contract/org/agentos/audio/AudioContract.kt": "6d5d9ce9b8579e2884a0d6ea61d9db81cf54a09cc9b975c10287c334e9ad7808",
++    "system/audio-engine/contract/org/agentos/audio/AudioRuntime.kt": "9b9fb6f6ab3a2dc6cac01a2f252ef99d2012558d1aedc50c7124ae539c3d8054",
++    "system/audio-engine/contract/org/agentos/audio/VoiceCatalog.kt": "69e3e7fe7227e08b184e1cdf17d6d96a0d5eba8b0819f2d8d14643d06e9281db",
++    "system/audio-engine/models/dependencies.lock.json": "1d23605d9185b3dd915ff90a1eb6ee395806eee26070ffe9e2a1596eb54802c1",
++    "system/audio-engine/models/notices.lock.json": "51b4163bf8ab405b00be2acfb2626f2860d238442d5a7c95472b3924b52b50b9",
++    "system/audio-engine/models/prepare.py": "d8355ccac7aac92f5c61c08456a258f9f2ee14473bc84cca3feb5516130b156b",
++    "system/audio-engine/network/LICENSE-2.0.txt": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
++    "system/audio-engine/network/NOTICE.txt": "1708f7b1f5daa897cc51e3e4df57c7ce3d42fb101dfab5ba3f96baa3223a894c",
++    "system/audio-engine/network/prepare.py": "d243675c3dfacd08a549e1b25c208829651a9875d25bcd04b9cb95e870701445",
++    "system/audio-engine/res/values/strings.xml": "37f4e60d76aac1a90343552926223512c1f767c4f1bdcc51924b7bf98606dbc0",
++    "system/audio-engine/src/org/agentos/audio/AudioBridgeReceiver.kt": "c32354042ff27c8fd153ee1e219fbb73531dd65351dea29f0adb332099209ad5",
++    "system/audio-engine/src/org/agentos/audio/AudioEngineService.kt": "1806d9193824c33f634e798bea45fcdc1f6460b8fa031e7ce81db5cacb8f3a7b",
++    "system/audio-engine/src/org/agentos/audio/AudioHostActivity.kt": "af52afd794be3941711b82e12d9036bf419d52143788c62723008aa449b33f6d",
++    "system/audio-engine/src/org/agentos/audio/AudioJson.kt": "a3c3a97a2458559ca4b2caa509c61259a01255497973212e909956510f2f0ce9",
++    "system/audio-engine/src/org/agentos/audio/AudioParameters.kt": "c6f726a532eb1baa237bad90ff454052349a78629cd1fdf3707f96d6be850ae0",
++    "system/audio-engine/src/org/agentos/audio/AudioSettingsActivity.kt": "f3ee21d119ef1011a6d8ae9d092af26973c1aaa68f88d843c5e141493797533d",
++    "system/audio-engine/src/org/agentos/audio/AudioSocket.kt": "aa28d245be12c2cd5f5ddd20ade66a74586a416bf173f57abe8eb2d5e35d9ee3",
++    "system/audio-engine/src/org/agentos/audio/AudioStatusActivity.kt": "58acb96447054d1b350c935cdaf76bb93ddb921dd8a110b9654383fc785bffd2",
++    "system/audio-engine/src/org/agentos/audio/BargeInCapture.kt": "2c908d5f31e91528250a12a951832eea5662582a7cc70c6d79696aa42704310a",
++    "system/audio-engine/src/org/agentos/audio/CallTranslationDriver.kt": "9f5176a045a63e56a1bd0bf721b835111bf247d1a42142b3d3451f90f8802509",
++    "system/audio-engine/src/org/agentos/audio/EngineConfig.kt": "27ad673564c62f35e00d12de14f22ec5f4f250ffa2d0587333c1b1ec98f08559",
++    "system/audio-engine/src/org/agentos/audio/FalMessagePack.kt": "713794998171f229d4e463941688cc95419941b93ecf504935956fd1f9593c6a",
++    "system/audio-engine/src/org/agentos/audio/FileSpeechSegments.kt": "471f118aeb129c154f945bf2a438a5ddfe26d7c2d150f91df8337f0bec9c88d3",
++    "system/audio-engine/src/org/agentos/audio/GrokSession.kt": "eef96a35744883d1ab5befebd65f3f273862b1b1fe11299925ec54acb0db04f9",
++    "system/audio-engine/src/org/agentos/audio/HybridTranslation.kt": "b80c95f773b74713c5ba85378e0be475f66c0bf3f2eaaa59053451ad44e69dcb",
++    "system/audio-engine/src/org/agentos/audio/KokoroDriver.kt": "6048c063d3d704b4443400cf925bf0c9995b209a3308945ba8e7e9d361d73230",
++    "system/audio-engine/src/org/agentos/audio/KotobaSession.kt": "c3b048d83abb06ee08d0811740fc4f728b9129148b13ab1e35e064a1755bed94",
++    "system/audio-engine/src/org/agentos/audio/LocalSynthesizer.kt": "fa93dea9dc4d9f8d2d16381ddfbf8534d32d255029ee11225ca7f8e37daeaa56",
++    "system/audio-engine/src/org/agentos/audio/MediaTranslationActivity.kt": "29d1e9499a171542ae4ccc7f8e4dc75df9f4ca45d1d8e77f2a168033383f49c2",
++    "system/audio-engine/src/org/agentos/audio/MediaTranslationDriver.kt": "3427c3cf202071a599fc252081ef4b7cc90222af6b86c7055183256bb5d5eac6",
++    "system/audio-engine/src/org/agentos/audio/MediaTranslationOverlay.kt": "6951401fc1b83b9dc173b8ae5613b74b4d5aa0053a9710c27d3d734ceb30cbe1",
++    "system/audio-engine/src/org/agentos/audio/ModelResources.kt": "395fe8427e5644f2dbcb84bb0aea1f6d4dd71b99e5c1ab46fac691c24d18efb3",
++    "system/audio-engine/src/org/agentos/audio/PcmResampler.kt": "6d5415776bfedcf5c546a4f859e00b155979a829eb82fc84303f91a6113eb03c",
++    "system/audio-engine/src/org/agentos/audio/PlatformCallCapture.kt": "4fc29659529fc959b2724356ac81397b45936aece0b5cd8db9984ea6279ba259",
++    "system/audio-engine/src/org/agentos/audio/PlatformMediaCapture.kt": "85ee95f5f1a189d0fa83a8b45e4e0f98d4045dcbcbc980117e592af1b8a33ee7",
++    "system/audio-engine/src/org/agentos/audio/StreamingPlayback.kt": "fce6d4ea40c7d32c72ce003531dbdbbc8bdda6a778bc9b2908abfca40bbb118c",
++    "system/audio-engine/src/org/agentos/audio/StreamingRecognizer.kt": "c784ec994d0281a22ad46fd088a823312533e0a73955c17765b897d8683cb088",
++    "system/audio-engine/src/org/agentos/audio/StreamingTranslation.kt": "fd45cc2c21fd86ec682d033f60feacf35da0ed9fbf040e49b7845018c9897474",
++    "system/audio-engine/src/org/agentos/audio/WhisperCaptionSession.kt": "1474d8fd9b399acd5214a67530ffc36238de5022e17aaa41b11d108a74c6b535",
++    "system/audio-engine/src/org/agentos/audio/ZipformerDriver.kt": "bcdf49bceffafea18da3ddd352355e7bde6b433967ad1ce630e865ec98b55f6a"
++  },
++  "credentialsIncluded": false,
++  "modelWeightsIncluded": false,
++  "scope": "Frozen component APK input; ROM signing/build/reboot not verified"
++}
+--- a/scripts/pixel9-image.py
++++ b/scripts/pixel9-image.py
+@@ -89,6 +89,10 @@
+     # Generated APKs are ignored by Git, so explicitly seal this pinned release.
+     asset_lock['assets'].append({'path':ime['path'],'sha256':ime['sha256']})
+     asset_lock['assets'] += [{'path':i['path'],'sha256':i['sha256']} for i in ime.get('jni',[])]
++    audio=json.loads((ROOT/'system/audio-engine/rom-input-lock.json').read_text())
++    for name,expected in audio['sourceInputs'].items():
++        if digest(ROOT/name)!=expected:raise SystemExit('ROM audio release source differs: '+name)
++    asset_lock['assets'].append({'path':audio['path'],'sha256':audio['sha256']})
+     for item in asset_lock['assets']:
+         p=ROOT/item['path']
+         if not p.is_file() or digest(p)!=item['sha256']:raise SystemExit('Runtime asset missing/hash mismatch: '+item['path'])
+@@ -99,6 +103,7 @@
+         if not name:continue
+         if name=='Android.bp' or p.parts[0] in ('system','adapters','core','spec','image'):
+             if (ROOT/name).is_file() and not (ROOT/name).is_symlink():files.append(name)
++    files+=list(audio['sourceInputs'])
+     files+= [x['path'] for x in asset_lock['assets']]
+     records=[{'path':name,'sha256':digest(ROOT/name)} for name in sorted(set(files))]
+     key=hashlib.sha256(json.dumps(records,sort_keys=True).encode()).hexdigest()

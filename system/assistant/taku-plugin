@@ -1,0 +1,7 @@
+#!/system/bin/sh
+if [ "${1:-}" = "godmode" ] && [ "${2:-}" = "mcp" ]; then
+  shift 2
+  socket=${TAKU_GODMODE_SOCKET:-taku-godmode}
+  CLASSPATH=/system_ext/framework/taku-godmode-host.jar exec /system/bin/app_process /system/bin org.taku.plugins.host.McpBridge "$socket" "$@"
+fi
+CLASSPATH=/system_ext/framework/agentos-task-broker.jar exec /system/bin/app_process /system/bin org.agentos.lab.PluginCli "$@"

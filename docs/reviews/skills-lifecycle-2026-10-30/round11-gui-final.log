@@ -1,0 +1,6 @@
+/Users/haipro/experiments/android-agent-os/taku-os-skills-lifecycle-20261030/examples/codex-plugin-lifecycle/.agents/plugins/marketplace.json: 1 file pushed, 0 skipped. 1.2 MB/s (215 bytes in 0.000s)
+PASS GUI automatically displayed CLI-installed enabled 1.0.0
+PASS open GUI automatically displayed CLI-disabled 1.0.0
+PASS open GUI automatically displayed CLI-enabled 1.0.0
+PASS open plugin detail automatically displayed CLI-disabled 1.0.0
+PASS open plugin detail automatically displayed CLI-enabled 1.0.0

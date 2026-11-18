@@ -1,0 +1,33 @@
+{
+  "createdAt": "2026-10-14T21:21:11.438999+00:00",
+  "source": "/Users/haipro/experiments/android-agent-os/taku-os/docs/reviews/mobile-delivery-2026-10-15",
+  "route": "/pages/taku-os-agent-ui/",
+  "files": {
+    "harness.png": "fb9087c499c5c3411bb761fa1b9eb8bb746e57d2ab83b81bed015d48c285088a",
+    "index.html": "ef399ee5c8477efe2b28f34188a2a59dd509d6b969df41017461cf9c2bb21b62",
+    "harness-light.png": "5a14aa31047de25d5ca43de164f1e1beeb3ae6f4be07bfd8f86b0eabff2647fa",
+    "receipt.png": "77af08f24516bda245b45c5a7d2263e238d5f7e6bee807802557a813f98a7030",
+    "module.png": "5020e906f8c59902c6459e219f51709049b3978b27aaff5bf8d86edcc775794c",
+    "skills-light.png": "64a53ad014896d12b3ff91587f0a1ccfe5fd1ea85b521e16b9dd1543c5568aa6",
+    "skills.png": "6f22dd41c4f602510f882b36585f79e97717573acbb2e8dd745d0e9e67a21978",
+    "environment.png": "401a9452a7065b00de265f9961564d1776516c23394cb045f7a5157e6b5619ba"
+  },
+  "url": "https://reductions-frozen-inspiration-democracy.trycloudflare.com/pages/taku-os-agent-ui/",
+  "verification": {
+    "anonymousIsLoginOnly": true,
+    "authenticatedPage200": true,
+    "mobilePixels": [
+      402,
+      874
+    ],
+    "skillAndHarnessSelection": true,
+    "actualImagePixels": [
+      1080,
+      2424
+    ],
+    "horizontalOverflow": false,
+    "consoleErrors": 0,
+    "checkedAt": "2026-10-14T21:26:03.227963+00:00"
+  },
+  "iconUpdateAt": "2026-10-14T21:42:31.909846+00:00"
+}

@@ -1,0 +1,42 @@
+{
+  "name": "taku-os",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Taku OS Android capability protocol and development SDK",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "check": "node scripts/check.mjs",
+    "report": "node sdk/cli/taku.mjs extension device-report",
+    "check:inventory": "python3 scripts/validate_capability_inventory.py",
+    "check:structure": "python3 scripts/check_structure.py",
+    "check:raw-interfaces": "python3 tests/raw-android-inventory.test.py",
+    "verify": "npm test && npm run check && npm run check:inventory && npm run check:raw-interfaces && npm run check:structure && npm run check:images && npm run check:emulator-runtime && npm run check:surfaces && npm run check:proactivity && npm run check:ota && npm run check:publication && npm run check:island",
+    "check:surfaces": "bash system/surfaces/test.sh",
+    "build:android": "bash scripts/build-android.sh",
+    "build:surfaces": "bash system/surfaces/build.sh",
+    "check:images": "python3 tests/runtime-assets-fetch.test.py && python3 tests/carrier-defaults.test.py && python3 tests/google-services.test.py && python3 tests/google-apps.test.py && python3 tests/image-artifacts.test.py && python3 tests/home-policy.test.py && python3 tests/launcher-entry.test.py && python3 tests/recents-patches.test.py && python3 tests/incremental-image.test.py && python3 tests/ninja-fifo-guard.test.py && python3 tests/image-build-workarounds.test.py && python3 tests/image-builder-config.test.py && python3 tests/image-manifest-init.test.py && python3 tests/image-reference-cache.test.py && python3 tests/image-signatures.test.py && python3 tests/lineage-updater.test.py && python3 tests/image-derived-snapshot.test.py && python3 tests/product-branding.test.py && python3 tests/image-runtime-snapshot.test.py && python3 tests/system-ai-artifacts.test.py && python3 tests/privapp-permissions.test.py && python3 tests/audio-rom.test.py && python3 tests/ai-rom.test.py && python3 tests/source-repair.test.py && python3 tests/agent-ui-rom.test.py",
+    "build:memory": "bash system/memory/build.sh",
+    "build:inputmethod": "bash system/inputmethod/build.sh",
+    "check:proactivity": "bash system/proactivity/test.sh",
+    "build:proactivity": "bash system/proactivity/build.sh",
+    "check:ota": "python3 tests/incremental-ota-package.test.py && python3 tests/ota-release.test.py && python3 tests/ota-chain.test.py && python3 tests/ota-device.test.py && python3 tests/ota-updater.test.py && python3 tests/ota-source.test.py",
+    "check:emulator-runtime": "python3 -B -m unittest discover -s tooling/emulator-runtime -p 'test_*.py' && python3 -B tests/lineage-emulator.test.py && python3 -B tests/emulator-default-apps.test.py",
+    "check:publication": "python3 tests/release-inventory.test.py && python3 tests/license-packaging.test.py",
+    "check:island": "python3 tests/island-patches.test.py && python3 tests/island-artifacts.test.py && bash system/island/test.sh"
+  },
+  "bin": {
+    "taku": "sdk/cli/taku.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Taku-OS/taku-os-release.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Taku-OS/taku-os-release/issues"
+  }
+}

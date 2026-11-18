@@ -1,0 +1,238 @@
+{
+  "date": "2026-10-20",
+  "scope": "emulator_verified",
+  "sourceCommit": "8ae4c6f0702766d84979fd2af68d93537d4c9495",
+  "integrationBase": "bc21fe297001e579e3cf1d6a29962fe92e8b11ca",
+  "originalBase": "d6556c1fd4a6f8ee0824727363f51de0a599115f",
+  "device": {
+    "serial": "emulator-5582",
+    "avd": "AgentOS_ImageCheck",
+    "system": {
+      "ro.build.version.release": "16",
+      "ro.build.version.sdk": "36",
+      "ro.product.cpu.abi": "arm64-v8a",
+      "ro.build.type": "userdebug"
+    }
+  },
+  "packages": {
+    "org.agentos.assistant": {
+      "installed": true,
+      "versionCode": "57",
+      "versionName": "20261020-panel-magpie"
+    },
+    "org.agentos.halfmarathon": {
+      "installed": true,
+      "versionCode": "3",
+      "versionName": "0.3.0"
+    },
+    "com.gotokeep.keep": {
+      "installed": true,
+      "versionCode": "50178",
+      "versionName": "9.1.80"
+    },
+    "com.baidu.BaiduMap": {
+      "installed": true,
+      "versionCode": "1655",
+      "versionName": "22.0.40"
+    },
+    "com.sankuai.meituan": {
+      "installed": false
+    },
+    "com.taobao.taobao": {
+      "installed": true,
+      "versionCode": "863",
+      "versionName": "10.66.40"
+    }
+  },
+  "installedArtifactSha256": {
+    "assistant": "c61444072f6d4cf5bfbff591d4b7e1c67e498bbc9ef11312456d294072d2ac12",
+    "broker": "491ff54ca4636beb11aefe1c9ffdacd619d8cf4f909247796a45a30ed87c4e0b",
+    "api": "8d6eeb9f4d1056b583670e46e5dc21d27363f4ff5148ff9b9b0badb2c38c1566",
+    "skill": "8c093f874f34d1aa8f8b14626d136601e18a919e59376ee19430b972b62d73f8"
+  },
+  "buildSourceHashes": {
+    "system/assistant/broker/org/agentos/lab/AgentViewProjection.java": "9be6f7026dabf7d88ddfe9db5a699f503881facf4715bd032960e2dbfed9af51",
+    "system/assistant/broker/org/agentos/lab/AgentViews.java": "db56ef239a1548f7a37b0f156546d31330fd3cd4478607d5bf5724b2a42b986b",
+    "system/assistant/broker/org/agentos/lab/CodexAppServer.java": "05f6e4ad080db4bbc0d4519f113975bc22e49cf111ce1d722c97a86d53b23bec",
+    "system/assistant/broker/org/agentos/lab/NativeBridge.java": "39a0c0b1cb258d3dc66bd2062f7bf5df80d5eda642db0b64b255d775a84b6eba",
+    "system/assistant/src/org/agentos/assistant/AgentConversation.java": "5d972512a9a198265418b3dee8a07cbfb123df10f3448c3bcf2d8cb5e1834689",
+    "system/assistant/src/org/agentos/assistant/AgentDrawerView.java": "d2684c468f987b927bee8254155182a16c9b112d254777cbe16e33213ceaf107",
+    "system/assistant/tests/org/agentos/lab/AgentViewProjectionTest.java": "a62c1d417cd80df3e6922d77784e179debe419fd0cb9c2686ecf3b87a2c62e5e",
+    "system/assistant/tests/org/agentos/assistant/NativeConversationTest.java": "80ba65620a6cf29ef9ff7d77a02390c5b938bb673da96839fe8f30c19e4699e3"
+  },
+  "deviceFixtureResults": [
+    {
+      "test": "projection",
+      "exit": 0,
+      "passed": true
+    },
+    {
+      "test": "conversation",
+      "exit": 0,
+      "passed": true
+    }
+  ],
+  "checks": {
+    "passed": 12,
+    "failed": 0
+  },
+  "oldHalfStateSha256": "913b0605653da9086aeff4860137b5856493952a040db58d8fbea5520de789e0",
+  "watcherStatus": "healthy",
+  "rawRecordingsLocal": [
+    {
+      "remote": "/data/local/tmp/half-panel-e2e-01.mp4",
+      "pid": "10344",
+      "phase": "corrected-plan-request",
+      "startedAtUnix": 1792466786.9669812,
+      "pulled": true,
+      "bytes": 10029781,
+      "sha256": "31a7bf9a4efc20cae8353aa2f3b16690741ac27d4e1159d4110e12e82b6dcaa2",
+      "durationSeconds": 180.0184
+    },
+    {
+      "remote": "/data/local/tmp/half-panel-e2e-02.mp4",
+      "pid": "8359",
+      "phase": "merged-runtime-confirmation-and-create",
+      "startedAtUnix": 1792467845.565035,
+      "pulled": true,
+      "bytes": 6377432,
+      "sha256": "bbb770e0492df65f00dcb885e03c7a54e5efc98578828dee179ce6925fa928eb",
+      "durationSeconds": 161.9608
+    },
+    {
+      "remote": "/data/local/tmp/half-panel-e2e-03.mp4",
+      "pid": "19537",
+      "phase": "merged-runtime-baidu-search",
+      "startedAtUnix": 1792468010.637401,
+      "pulled": true,
+      "bytes": 5339851,
+      "sha256": "35001b1b91d132b560484dc42f2f5df7210ab17be5b677ccb3fcf6baa0a14e0f",
+      "durationSeconds": 146.4984
+    },
+    {
+      "remote": "/data/local/tmp/half-panel-e2e-04.mp4",
+      "pid": "32602",
+      "phase": "completion-and-readback",
+      "startedAtUnix": 1792468158.803939,
+      "pulled": true,
+      "bytes": 6290991,
+      "sha256": "a969b6c3f6019d1be0000e36ec56b24bfc5f92bac8f46d67a1f7e72acb1e22c0",
+      "durationSeconds": 152.7383
+    },
+    {
+      "remote": "/data/local/tmp/half-panel-e2e-05.mp4",
+      "pid": "11066",
+      "phase": "actual-name-recheck-and-persistence",
+      "startedAtUnix": 1792468312.283007,
+      "pulled": true,
+      "bytes": 8199818,
+      "sha256": "05ae5b92ea0f108861d159924ac02df13682e84cc736cf1ac2dac68227b7b698",
+      "durationSeconds": 174.9553
+    },
+    {
+      "remote": "/data/local/tmp/half-panel-e2e-06.mp4",
+      "pid": "6869",
+      "phase": "final-persistence-and-undo",
+      "startedAtUnix": 1792468747.5466292,
+      "pulled": true,
+      "bytes": 5891631,
+      "sha256": "d9668500f197b25396992179ee1476c7dcb5e178bb1825ffae780e36ffd5a84d",
+      "durationSeconds": 129.8798
+    },
+    {
+      "remote": "/data/local/tmp/half-panel-e2e-07.mp4",
+      "pid": "29793",
+      "phase": "repaired-conversation-pending-retry",
+      "startedAtUnix": 1792469085.691759,
+      "pulled": true,
+      "bytes": 10766028,
+      "sha256": "75f22dea8f788444a854c7a1373224130bea85e3839a76bb2a5fa4db99a308e2",
+      "durationSeconds": 176.616
+    },
+    {
+      "remote": "/data/local/tmp/half-panel-e2e-08.mp4",
+      "pid": "28840",
+      "phase": "final-historyfix-same-thread",
+      "startedAtUnix": 1792469744.240968,
+      "pulled": true,
+      "bytes": 9061775,
+      "sha256": "2816b399ba7ba2dab8c10e2a6e12d7a5922a5330557f08aad294e838d6d149bf",
+      "durationSeconds": 180.235
+    },
+    {
+      "remote": "/data/local/tmp/half-panel-e2e-09.mp4",
+      "pid": "8119",
+      "phase": "final-reopen-undo-reopen",
+      "startedAtUnix": 1792469952.389945,
+      "pulled": true,
+      "bytes": 6622592,
+      "sha256": "0714488b54c69563f968af9eac716fda70018da7904f320d5678cf51425f76a4",
+      "durationSeconds": 123.9902
+    },
+    {
+      "remote": "/data/local/tmp/half-panel-e2e-10.mp4",
+      "pid": "18887",
+      "phase": "final-native-sources-display",
+      "startedAtUnix": 1792470425.095616,
+      "pulled": true,
+      "bytes": 6526375,
+      "sha256": "e3d3c6c7509422ebd97c1abb177d29966d1237f7c6a9eba8b54fa55bffef47d8",
+      "durationSeconds": 101.6058
+    }
+  ],
+  "includedFiles": {
+    "confirmation.png": {
+      "bytes": 330404,
+      "sha256": "ca0f65aa33c114a7eaf9fcd645745229ab810f905eefd011e7889fcaf0bc5b0e"
+    },
+    "panel-running.png": {
+      "bytes": 318445,
+      "sha256": "eae1dfc17c6b3b4eb7b20448e14ec4d8b71cf36d2790f2e2b19f34bfe30a7544"
+    },
+    "keep-warmup.png": {
+      "bytes": 217486,
+      "sha256": "85a637c6ab89d091fe99fc7d34c1769b57d5bc4d7fe5202ce7b7c373c157dd17"
+    },
+    "keep-stretch.png": {
+      "bytes": 339309,
+      "sha256": "8efe42346f5cf0e1a39c5cb190ad011ba3ea6958c9a5b7a1a9f7c8b2bbad8861"
+    },
+    "baidu-meal.png": {
+      "bytes": 1684479,
+      "sha256": "b71f9f5d63852e965340827e475fe0dcbae7bd9f59805662c00e9a3e2f1ab675"
+    },
+    "baidu-gym.png": {
+      "bytes": 1359032,
+      "sha256": "06cb0cd80688faf37a44b9a29d2993a4c01d90036cbd383229b7f7bc6d4b2bbf"
+    },
+    "completed-reopened.png": {
+      "bytes": 389665,
+      "sha256": "5d2efe12e1e287e71bd07ce4c9383494b0fcfdf4e8720f1a7db3851162dc570e"
+    },
+    "undone-reopened.png": {
+      "bytes": 336292,
+      "sha256": "709578ffb08ac879407c7cf00155def0db83156668dd712ff4bccb068a3438a7"
+    },
+    "baidu-original-speed.mp4": {
+      "bytes": 5339851,
+      "sha256": "35001b1b91d132b560484dc42f2f5df7210ab17be5b677ccb3fcf6baa0a14e0f"
+    },
+    "state-original-speed.mp4": {
+      "bytes": 6622592,
+      "sha256": "0714488b54c69563f968af9eac716fda70018da7904f320d5678cf51425f76a4"
+    },
+    "checks.json": {
+      "bytes": 8259,
+      "sha256": "85ba3c43b893eb3b52162ea3388c3b294198a0a25c67098cc6f31ed337d003b3"
+    },
+    "panel-keep.png": {
+      "bytes": 360871,
+      "sha256": "17dc5d362986dcaba520705112541e2bb8ccea7de284e1bfe991e7b3ba08d768"
+    },
+    "panel-places.png": {
+      "bytes": 557895,
+      "sha256": "06d8cfcd918d249cf0a89782459d2cccba52576e80981bebd17ac9b7bf0082c7"
+    }
+  },
+  "boundary": "Selected original screenshots and two unchanged original-speed segments; other raw segments and exact test-thread traces remain local out. No full chat, auth, App cache, installer or ROM included."
+}

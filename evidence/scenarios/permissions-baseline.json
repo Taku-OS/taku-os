@@ -1,0 +1,45 @@
+{
+  "product_selection": "pending",
+  "status": "baseline-only",
+  "generatedAt": "2026-10-09T19:21:18.728907+00:00",
+  "checks": [
+    {
+      "execution": "Android shell via ADB; not phone Codex yet",
+      "command": "sh /data/local/tmp/taku-os/taku-device.sh system.info",
+      "exit": 0,
+      "stdout": "{\"protocol\":\"taku/0.1\",\"type\":\"response\",\"id\":\"device-cli\",\"ok\":true,\"result\":{\"model\":\"Android SDK built for arm64\",\"manufacturer\":\"unknown\",\"androidRelease\":\"16\",\"apiLevel\":\"36\",\"securityPatch\":\"2025-07-05\",\"abi\":\"arm64-v8a\",\"buildType\":\"userdebug\",\"selinux\":\"Enforcing\",\"callerUid\":\"0\"}}",
+      "stderr": ""
+    },
+    {
+      "execution": "Android shell via ADB; not phone Codex yet",
+      "command": "sh /data/local/tmp/taku-os/taku-device.sh displays.status",
+      "exit": 0,
+      "stdout": "{\"protocol\":\"taku/0.1\",\"type\":\"response\",\"id\":\"device-cli\",\"ok\":true,\"result\":{\"displayIds\":[0,11],\"background\":{\"displayId\":11,\"active\":true}}}",
+      "stderr": ""
+    },
+    {
+      "execution": "Android shell via ADB; not phone Codex yet",
+      "command": "sh /data/local/tmp/taku-os/taku-device.sh invalid.method",
+      "exit": 2,
+      "stdout": "{\"protocol\":\"taku/0.1\",\"type\":\"response\",\"id\":\"device-cli\",\"ok\":false,\"error\":{\"code\":\"METHOD_NOT_FOUND\",\"message\":\"Unknown method\",\"retryable\":false}}",
+      "stderr": ""
+    },
+    {
+      "execution": "Android shell via ADB; not phone Codex yet",
+      "command": "su 2000 -c \"sh /data/local/tmp/taku-os/taku-device.sh tasks.status\"",
+      "exit": 1,
+      "stdout": "",
+      "stderr": "su: failed to exec -c: No such file or directory"
+    },
+    {
+      "execution": "Android shell via ADB; not phone Codex yet",
+      "command": "su 2000 /system/bin/sh /data/local/tmp/taku-os/taku-device.sh tasks.status",
+      "exit": 4,
+      "stdout": "{\"protocol\":\"taku/0.1\",\"type\":\"response\",\"id\":\"device-cli\",\"ok\":false,\"error\":{\"code\":\"PERMISSION_DENIED\",\"message\":\"Task metadata requires root or system UID\",\"retryable\":false}}",
+      "stderr": ""
+    }
+  ],
+  "limitations": [
+    "First su probe used unsupported -c syntax. It is not a permission-denial result. Correct AOSP su command gives PERMISSION_DENIED exit 4."
+  ]
+}

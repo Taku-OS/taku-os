@@ -1,0 +1,16 @@
+{
+  "schema": "taku.agent-app-channel/1",
+  "component": "agent-app",
+  "appId": "org.agentos.agent",
+  "channel": "stable",
+  "versionName": "0.2.0",
+  "versionCode": 2,
+  "sourceCommit": "c6210fce88c3eaeddd13ea59ceea33025702963f",
+  "releaseManifest": {
+    "path": "0.2.0.json",
+    "url": "https://github.com/Taku-OS/taku-os/releases/download/agent-app-v0.2.0/manifest.json",
+    "sha256": "36cc37f01743354dc4ac0e6642a14fe99f23d441d75c3e1976f615445ae2efd3"
+  },
+  "releaseUrl": "https://github.com/Taku-OS/taku-os/releases/tag/agent-app-v0.2.0",
+  "downloadUrl": "https://download.taku.ai/releases/0.2.0/TakuAgent-0.2.0-arm64-canary.zip"
+}

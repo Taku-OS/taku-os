@@ -1,0 +1,18 @@
+<resources>
+ <string name="app_name">Taku System Surfaces</string>
+ <string name="expand">Expand</string>
+ <string name="expand_surface">Expand content</string>
+ <string name="collapse_surface">Collapse content</string>
+ <string name="close_surface">Close this item</string>
+ <string name="drag_help">Drag to move; hold to reset position</string>
+ <string name="capsule_help">%1$s. Tap to %2$s. Drag to move; hold to reset position</string>
+ <string name="next_item">Next item, %1$d items total</string>
+ <string name="selected">Selected</string>
+ <string name="responded">Responded</string>
+ <string name="awaiting_choice">Choose</string>
+ <string name="ready">Ready</string>
+ <string name="new_content">New</string>
+ <string name="selected_full">✓  Selected</string>
+ <string name="responded_full">✓  Responded</string>
+ <string name="reset_position">Reset position</string>
+</resources>

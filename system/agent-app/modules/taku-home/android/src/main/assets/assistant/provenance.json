@@ -1,0 +1,79 @@
+{
+  "fileKey": "MdImIDNqePpNZ62C0GLArW",
+  "pixelRatio": 3,
+  "renderer": "Chrome headless, original SVG in object element, transparent page, unmodified root dimensions",
+  "assets": [
+    {
+      "name": "keep-talking",
+      "width": 296.72,
+      "height": 146.564,
+      "node": "297:374",
+      "svgSha256": "a84358e173a88929c792c78a53032ef5b81bbf3d8e188980afe55c7c3dc65041",
+      "pngSha256": "2aa8428aecf6f67446358132abb2b8e3a50da9a96dbef773b6cbfa0292c67c97"
+    },
+    {
+      "name": "voice-glass",
+      "width": 602.0,
+      "height": 323.0,
+      "node": "297:374",
+      "svgSha256": "8a264b85b824a9feec5f79f0ad7f2b6882751eb808ee7f043c1e052776eab3ef",
+      "pngSha256": "79db8d06dea2369d74e3bc4e72961cec48c595376ab564df8a68d04faf4d4e55"
+    },
+    {
+      "name": "cancel",
+      "width": 296.72,
+      "height": 146.564,
+      "node": "297:374",
+      "svgSha256": "2f436d7ab1b8b187a2f493867387ba5c388fa17af5f9c4f6a85dfd6cfa06c8eb",
+      "pngSha256": "392c7422e426f4220458aa8bfb6c97a991663eb1a59063fef86dafea8edb0cdc"
+    },
+    {
+      "name": "voice-green",
+      "width": 317.0,
+      "height": 213.0,
+      "node": "297:374",
+      "svgSha256": "f259bddef23c14e37708df34ef8ef8eeb2f09ca86a12d929a2109e3166026119",
+      "pngSha256": "bbd1db111cfd53812a5a1eac517e6f8bf8e1552c056f67c154afe6e06272367d"
+    },
+    {
+      "name": "voice-blue",
+      "width": 516.224,
+      "height": 190.823,
+      "node": "297:374",
+      "svgSha256": "03f5671161402f1a978fc6b75162be21c468afa8037db38090d5641e5dc7fcb9",
+      "pngSha256": "3c95e502f6a330a012501bba2a405ac6c1492c61a13547f7bfee3898c7434bd3"
+    },
+    {
+      "name": "cancel-active",
+      "width": 296.72,
+      "height": 146.564,
+      "node": "297:505",
+      "svgSha256": "d4c5912c4fb9cb35a7c6fa92c7f9cb2edb41e6b86bbf9a6ab0bff14026a70da4",
+      "pngSha256": "35cc8034e66755b2e85c40f5171af3cd83411366ef5e4e677dacb399d69b266f"
+    },
+    {
+      "name": "voice-red",
+      "width": 442.877,
+      "height": 270.753,
+      "node": "297:374",
+      "svgSha256": "4537980c9cbec2f7cbd41e6e52742a5aee8497d93f8d8354ceb44aa969281777",
+      "pngSha256": "e3fe3bc1b69c2054fbf9974cb2fcb20b712b5ad163bebffc1052d60fec783b58"
+    },
+    {
+      "name": "keep-talking-active",
+      "width": 296.72,
+      "height": 146.564,
+      "node": "297:571",
+      "svgSha256": "f176a2c7679a55cdb0bbd8c9c3d62f2690a0e98ddd843917bb122968454d44c1",
+      "pngSha256": "526c9b4a439e68687110b796df8be108146eabe549bee22543d9623a8c79005a"
+    },
+    {
+      "name": "voice-yellow",
+      "width": 246.783,
+      "height": 304.424,
+      "node": "297:374",
+      "svgSha256": "293809b8985ffe4ece76a3dc7d0f9193b463f72a60349ecac70de1c16bfcec9f",
+      "pngSha256": "5cada71fce4954e4321ea99228c6e795d64b19bd9ed68e6fc9275c305408beec"
+    }
+  ]
+}

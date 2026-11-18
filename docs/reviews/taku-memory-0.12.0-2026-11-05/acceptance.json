@@ -1,0 +1,134 @@
+{
+  "component": "Taku 记忆 0.12.0（versionCode 14）与同一提交构建的 agentos-task-broker，助手 v76",
+  "status": "emulator_verified",
+  "recordedAt": "2026-11-05 北京时间",
+  "device": {
+    "avd": "TakuRecall",
+    "serial": "emulator-5634",
+    "android": "16",
+    "api": 36,
+    "abi": "arm64-v8a",
+    "build": "sdk_phone64_arm64 userdebug test-keys",
+    "selinux": "Enforcing"
+  },
+  "artifacts": {
+    "TakuMemory-0.12.0-release.apk": "033a679a2755413bd9dc71eb695582c60b11965ed7c8ae43a478859a83fce375",
+    "TakuMemory-0.12.0-debug-nomodel.apk": "1200835cf34b07c786d04c9d13babbe7510c729b0846c247490c04b76f882ff1",
+    "TakuMemoryTests-0.12.0.apk": "80e9bd1320814a8729d2ff4fe33faba5b03bf5c86baa96feefe98bfe1739c2c5",
+    "agentos-task-broker-0.12.0.jar": "3deb7ad3874e4e940935308bb5f62deb78752db0a371eb829ef2b015e33cd37d"
+  },
+  "componentTests": {
+    "StoreTests": 148,
+    "QueueTests": 69,
+    "ResultTests": 8,
+    "PresentationTests": 36,
+    "GatewayBoundaryTests": 2,
+    "SystemAiTests": 24,
+    "SystemSettingsObserverTests": "passed",
+    "failures": 0
+  },
+  "offlineChecks": [
+    "npm run verify",
+    "npm --prefix tooling/app-kit/api test",
+    "npm run build:android"
+  ],
+  "organizer": {
+    "rebuild": "22/22 nights with the 0.12.0 organizer",
+    "nodes": {
+      "0.11.0": 247,
+      "0.12.0": 255
+    },
+    "everWithDue": {
+      "0.11.0": 9,
+      "0.12.0": 41
+    },
+    "attend": 62,
+    "withStake": {
+      "0.11.0": 56,
+      "0.12.0": 66
+    },
+    "withRelated": {
+      "0.11.0": 88,
+      "0.12.0": 91
+    }
+  },
+  "cardCoverage80": {
+    "0.11.0 graph, 0.11.0 card": 74,
+    "0.11.0 graph, 0.12.0 card": 74,
+    "0.12.0 graph, fields off": 71,
+    "0.12.0 graph, 0.12.0 card": 75,
+    "0.12.0 graph before ranking changes": 71,
+    "gained": [
+      "gas inspection rebooking (first evening)"
+    ],
+    "lost": [],
+    "medianCardChars": {
+      "0.11.0": 2143,
+      "0.12.0": 2395
+    }
+  },
+  "eveningBrief": {
+    "0.10.0": "59/70",
+    "0.11.0": "62, 62 /70",
+    "0.12.0": "65, 64 /70",
+    "0.12.0 without organizer fields": "55/70"
+  },
+  "changesDigest": {
+    "sameGraph": "0.11.0 rebuilt graph",
+    "items": {
+      "0.11.0": 31,
+      "0.12.0": 28
+    },
+    "droppedNoise": 3,
+    "realChangesLost": 0
+  },
+  "clashMarking": {
+    "wakesWithMarkedClash": {
+      "0.11.0": 27,
+      "0.12.0": 14
+    },
+    "markedLines": {
+      "0.11.0": 33,
+      "0.12.0": 14
+    }
+  },
+  "notificationReplay": {
+    "0.11.0": {
+      "woke": 37,
+      "spoke": 20,
+      "useful": 16,
+      "lowValue": 2,
+      "wrong": 2
+    },
+    "0.12.0 before check": {
+      "woke": 32,
+      "spoke": 18,
+      "useful": 13,
+      "lowValue": 2,
+      "wrong": 3
+    },
+    "checkOffline38": {
+      "wrongBlocked": "5/5",
+      "usefulBlocked": "3/29",
+      "lowValueBlocked": "1/4"
+    },
+    "checkOnDevice": {
+      "wrongSpeaksBlocked": "3/4",
+      "usefulBlocked": "0/6"
+    },
+    "checkTokensMedian": 4500
+  },
+  "messageMoments3Runs": {
+    "spokeAllFiveWakingMoments": "3/3 each",
+    "checkBlocked": 0,
+    "partyTimeInAjieGift": "0/3 (0.11.0 1/3)",
+    "xiaoyuClash": "19:00 dinner named 3/3, reschedule suggested 2/3"
+  },
+  "notCovered": [
+    "system display path",
+    "same-version physical device",
+    "full ROM",
+    "real users",
+    "in-place upgrade from 0.11.0 (attend is read only when present; old graphs keep the old clash behaviour)"
+  ]
+}

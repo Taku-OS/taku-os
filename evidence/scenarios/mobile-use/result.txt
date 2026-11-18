@@ -1,0 +1,7 @@
+工程候选 C3，product_selection=pending。授权测试模拟器 Android SDK built for arm64，API 36，UID 0，SELinux Enforcing。
+动态后台 display=11。launcher 实际解析 com.xingin.xhs/.index.v2.IndexActivityV2。
+真实游客 Explore 首页已显示，底部有 Log in to discover more 提示但未阻塞图片流。
+操作前等待5秒，仅执行一次 input -d 11 swipe 330 1000 330 400 500，滑后等待3秒。
+before.png 顶部为惠山古镇、超长蛋挞；after.png 顶部为美股大的要来了、国漫卡片，下方出现赛车及车内图片。真实图片流发生上滑滚动。
+未登录、未读取私聊、未发帖点赞关注、未点账号支付，未修改App或SELinux/root检测。未向主屏0输入，结束保留小红书。
+此结果仅为本次模拟器工程执行，不表示产品正式验收；测试者Home与原生镜像手工点按属独立验收步骤，未实现自动暂停Agent/冲突调度。

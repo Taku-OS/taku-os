@@ -1,0 +1,15 @@
+// The Expo/Gradle build is pinned in image/runtime-assets.lock.json.
+// Preserve its verified bytes and the platform development signature used by
+// the native gateway. This remains an ordinary application UID, not a priv-app.
+android_app_import {
+    name: "TakuAgent",
+    apk: "out/TakuAgent.apk",
+    presigned: true,
+    preprocessed: true,
+    optional_uses_libs: [
+        "androidx.camera.extensions.impl",
+        "androidx.window.extensions",
+        "androidx.window.sidecar",
+    ],
+    system_ext_specific: true,
+}

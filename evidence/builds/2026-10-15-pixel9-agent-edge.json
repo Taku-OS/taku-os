@@ -1,0 +1,47 @@
+{
+  "assessedOn": "2026-10-15",
+  "target": "Pixel 9 / tokay",
+  "apkVersionCode": 39,
+  "apkVersionName": "20261015-agent-edge-ime",
+  "apkSha256": "2038f4e8dd66f3037909ffe8c6e074f4e9a637ef0b12a539b9b5527ef5e43378",
+  "installedThrough": "adb install --no-incremental -r",
+  "currentSourceCompilePassed": true,
+  "gitDiffCheckPassed": true,
+  "physicalDeviceVerified": true,
+  "wholeScreenPerimeter": true,
+  "visibleWithIme": true,
+  "realKeyboardTouchPassed": true,
+  "systemOverlayWindow": "Taku Agent perimeter / TYPE_SYSTEM_OVERLAY",
+  "windowFlags": [
+    "NOT_FOCUSABLE",
+    "NOT_TOUCHABLE",
+    "LAYOUT_IN_SCREEN",
+    "HARDWARE_ACCELERATED"
+  ],
+  "windowOpacity": 0.75,
+  "removedAfterDismissal": true,
+  "recreatedOnInvocation": true,
+  "cycleMs": 4200,
+  "motionEvidence": {
+    "twoScreenshotsHaveDifferentEdgePixels": true,
+    "video": "out/pixel9/device-install-2026-10-15/agent-edge-keyboard-live.mp4",
+    "durationSeconds": 5.949944,
+    "width": 540,
+    "height": 1212
+  },
+  "inputAndBottomHomeComposerPreserved": true,
+  "romReflashed": false,
+  "rootServicesReplaced": false,
+  "newAgentDrawerDeployed": false,
+  "reference": "https://mp.weixin.qq.com/s/VsUVApOBLOTa0Tfjiax4JQ",
+  "referenceAllImagesReviewed": 27,
+  "boundaries": [
+    "UI animation, input and lifecycle verified. This does not establish successful model task execution.",
+    "Existing Hi task shows an InterruptedIOException failure; its runtime issue was not repaired in this change."
+  ],
+  "files": [
+    "system/assistant/src/org/agentos/assistant/AgentEdgeDrawable.java",
+    "system/assistant/src/org/agentos/assistant/AgentEdgeWindow.java",
+    "system/assistant/src/org/agentos/assistant/AssistantSession.java"
+  ]
+}

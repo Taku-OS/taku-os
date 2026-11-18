@@ -1,0 +1,1 @@
+package android.app;public class AppOpsManager {public static final String OPSTR_READ_SCREEN_CONTEXT="read_screen_context";public static final int MODE_DEFAULT=0,MODE_IGNORED=1;public int checkOpNoThrow(String o,int u,String p){return 0;}public void setUidMode(String o,int u,int m){}}

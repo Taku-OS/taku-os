@@ -1,0 +1,124 @@
+{
+  "component": "Taku 记忆 0.11.0（versionCode 13）与同一提交构建的 agentos-task-broker，助手 v76",
+  "status": "emulator_verified",
+  "recordedAt": "2026-11-04 北京时间",
+  "device": {
+    "avd": "TakuRecall",
+    "serial": "emulator-5634",
+    "android": "16",
+    "api": 36,
+    "abi": "arm64-v8a",
+    "build": "sdk_phone64_arm64 userdebug test-keys",
+    "selinux": "Enforcing"
+  },
+  "artifacts": {
+    "TakuMemory-0.11.0-release.apk": "28bd651a9e273d8e59d39793b8757c6441b926b0ca9db2a346e74c895ed60ee7",
+    "TakuMemory-0.11.0-debug-nomodel.apk": "4a93cc209305556b2553c2f37b536cab2fb7fc0b9687884e7ad56789b1e07390",
+    "TakuMemoryTests-0.11.0.apk": "72caaa3dfeb018540869e5aef0211b7e42d3c98c546069491a53469e6373d343",
+    "agentos-task-broker-0.11.0.jar": "55d25d5ae37fb483b1839eb2d2ba9b06ce97ca189f6a848859f6ba60262a4df6"
+  },
+  "componentTests": {
+    "StoreTests": 142,
+    "QueueTests": 69,
+    "ResultTests": 8,
+    "PresentationTests": 36,
+    "GatewayBoundaryTests": 2,
+    "SystemAiTests": 24,
+    "SystemSettingsObserverTests": "passed",
+    "failures": 0,
+    "debugBuildStoreTests": "passed (agenda-fields switch)"
+  },
+  "offlineChecks": [
+    "npm run verify",
+    "npm --prefix tooling/app-kit/api test",
+    "npm run build:android"
+  ],
+  "organizerFields": {
+    "rebuild": "current organizer over the 22-day synthetic timeline, graph only, 22/22 nights finished",
+    "nodes": 247,
+    "eventsTasksItems": 224,
+    "withStake": 56,
+    "withRelated": 88,
+    "everWithDue": 9,
+    "notWritten": "gas inspection rebooking (no due)"
+  },
+  "cardCoverage80": {
+    "method": "profile {forAgent, text} at each marked moment with testNow; marked query words all inside one card section",
+    "0.8.2 on 0.5 graph": "74/80",
+    "rebuilt graph, fields off": "71/80",
+    "rebuilt graph, fields on": "74/80",
+    "lostWithoutFields": [
+      "trial class confirmation (2 evenings)",
+      "reply to landlord on lease renewal"
+    ],
+    "stillMissed": [
+      "gas inspection rebooking",
+      "weekly report (timeline data)",
+      "gift prep and Ajie farewell 4 days before the party",
+      "3 moments where the message itself is the cue"
+    ],
+    "medianCardChars": {
+      "0.8.2": 1926,
+      "fieldsOff": 1819,
+      "fieldsOn": 2143
+    }
+  },
+  "eveningBrief": {
+    "model": "gpt-6-luna via Broker, 21 marked evenings",
+    "eveningNeedsMentioned": {
+      "0.10.0": "59/70",
+      "0.11.0 run1": "62/70",
+      "0.11.0 run2": "62/70",
+      "0.11.0 without organizer fields": "54/70",
+      "intermediate broker before brief prompt change": "63/70, 62/70"
+    },
+    "changesDigest": {
+      "eveningsWithChanges": "16/21",
+      "items": 31,
+      "done": 16,
+      "timeMoved": 8,
+      "cancelled": 6,
+      "dueMoved": 1
+    },
+    "medianInputChars": {
+      "fieldsOn": 2165,
+      "fieldsOff": 1894
+    }
+  },
+  "messageMoments3Runs": {
+    "spoke": "Xiaoyu restaurant 3/3, Ajie gift 3/3, flight cancelled 3/3, Xiaoyu dinner clash 3/3 (marked locally 3/3), water-heater visit 1/3 (hedged, not a false clash)",
+    "notMentioned": [
+      "14:00 leave time and competitor on flight cancellation"
+    ]
+  },
+  "notificationReplay": {
+    "method": "195 notifications of the 22-day timeline, same instructions and model offline, graded by gpt-6.1-sol",
+    "0.10.0": {
+      "woke": 32,
+      "spoke": 20,
+      "useful": 13,
+      "lowValue": 5,
+      "wrong": 2
+    },
+    "0.11.0": {
+      "woke": 37,
+      "markedConflict": 2,
+      "spoke": 20,
+      "useful": 16,
+      "lowValue": 2,
+      "wrong": 2
+    },
+    "medianTokensPerCall": 4785
+  },
+  "handToAgent": {
+    "path": "notification action -> NudgeAction (not exported) -> memory gateway nudgeTask -> Broker reads the reminder back from the memory service -> read-only task on the existing Agent",
+    "result": "task created with permissionMode readOnly, reminder records the task id once, notification updated, Agent v76 completed in about a minute with a draft reply (not sent), Suggestions card shows the result button"
+  },
+  "notCovered": [
+    "system display path (no action buttons there, no service on the AVD)",
+    "same-version physical device",
+    "full ROM",
+    "real users",
+    "in-place upgrade from 0.10.0 (nudges columns are added on first open)"
+  ]
+}

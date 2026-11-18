@@ -1,0 +1,146 @@
+{
+  "execution": "Mac external HTTP client via authorized adb forward; business method executes Android Node",
+  "generatedAt": "2026-10-09T19:31:55.272711+00:00",
+  "checks": [
+    {
+      "request": {
+        "method": "score.state",
+        "params": {},
+        "key": null
+      },
+      "response": {
+        "ok": true,
+        "app": "scenario_score",
+        "method": "score.state",
+        "result": {
+          "scores": {
+            "A": 3,
+            "B": 0
+          },
+          "history": [
+            {
+              "id": 1,
+              "team": "A",
+              "delta": 3,
+              "at": "2026-10-09T19:30:04.948Z"
+            }
+          ]
+        },
+        "revision": 6,
+        "replayed": false,
+        "durationMs": 0.28
+      }
+    },
+    {
+      "request": {
+        "method": "score.add",
+        "params": {
+          "team": "A",
+          "delta": 5
+        },
+        "key": "external-a5-20261010"
+      },
+      "response": {
+        "ok": true,
+        "app": "scenario_score",
+        "method": "score.add",
+        "result": {
+          "scores": {
+            "A": 8,
+            "B": 0
+          },
+          "history": [
+            {
+              "id": 1,
+              "team": "A",
+              "delta": 3,
+              "at": "2026-10-09T19:30:04.948Z"
+            },
+            {
+              "id": 4,
+              "team": "A",
+              "delta": 5,
+              "at": "2026-10-09T19:31:55.421Z"
+            }
+          ]
+        },
+        "revision": 7,
+        "replayed": false,
+        "durationMs": 0.68
+      }
+    },
+    {
+      "request": {
+        "method": "score.add",
+        "params": {
+          "team": "A",
+          "delta": 5
+        },
+        "key": "external-a5-20261010"
+      },
+      "response": {
+        "ok": true,
+        "app": "scenario_score",
+        "method": "score.add",
+        "result": {
+          "scores": {
+            "A": 8,
+            "B": 0
+          },
+          "history": [
+            {
+              "id": 1,
+              "team": "A",
+              "delta": 3,
+              "at": "2026-10-09T19:30:04.948Z"
+            },
+            {
+              "id": 4,
+              "team": "A",
+              "delta": 5,
+              "at": "2026-10-09T19:31:55.421Z"
+            }
+          ]
+        },
+        "revision": 7,
+        "replayed": true,
+        "durationMs": 0.21
+      }
+    },
+    {
+      "request": {
+        "method": "score.state",
+        "params": {},
+        "key": null
+      },
+      "response": {
+        "ok": true,
+        "app": "scenario_score",
+        "method": "score.state",
+        "result": {
+          "scores": {
+            "A": 8,
+            "B": 0
+          },
+          "history": [
+            {
+              "id": 1,
+              "team": "A",
+              "delta": 3,
+              "at": "2026-10-09T19:30:04.948Z"
+            },
+            {
+              "id": 4,
+              "team": "A",
+              "delta": 5,
+              "at": "2026-10-09T19:31:55.421Z"
+            }
+          ]
+        },
+        "revision": 7,
+        "replayed": false,
+        "durationMs": 0.25
+      }
+    }
+  ]
+}

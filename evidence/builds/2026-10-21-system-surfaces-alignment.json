@@ -1,0 +1,125 @@
+{
+  "date": "2026-10-21",
+  "checkedAt": "2026-10-21T12:29:44.513956+00:00",
+  "baseCommit": "987f4d9",
+  "status": "emulator_verified",
+  "scope": "Standalone native system surface module and style alignment; synthetic separate-UID preview caller; no model or business execution integration.",
+  "verification": {
+    "repositoryVerify": "passed (existing Linux FIFO case skipped on macOS)",
+    "lifecycleAssertionsPassed": 21,
+    "allAndroidComponentsBuild": "passed",
+    "componentSignatureVerification": "passed",
+    "device": {
+      "checkedAt": "2026-10-21T12:28:40.581964+00:00",
+      "platform": 36,
+      "device": "emulator-5586",
+      "avd": "Taku_ImageIntegration_20261010, read-only cold boot",
+      "crossAppForeground": "com.android.deskclock/.DeskClock",
+      "compactBounds": [
+        156,
+        2119,
+        923,
+        2266
+      ],
+      "expandedBounds": [
+        67,
+        1558,
+        1012,
+        2266
+      ],
+      "collapsedBackToOriginalBounds": true,
+      "choiceCallback": "option-a",
+      "keyboardBeforeBounds": [
+        156,
+        2119,
+        923,
+        2266
+      ],
+      "keyboardAfterBounds": [
+        156,
+        1344,
+        923,
+        1491
+      ],
+      "keyboardExpandedBounds": [
+        67,
+        783,
+        1012,
+        1491
+      ],
+      "keyboardInsetApplied": true,
+      "sourceTextInput": "alignment_ok",
+      "apkSha256": {
+        "TakuSurfaces.apk": "7719355aed1e3c37ab51cf9d55a0839da856bd37388f9fc4bcf393b68cc5b191",
+        "TakuSurfaceDemo.apk": "7ae5915e0a32aee88fe2d41c29d601833f71a8dd50a6319ac96981b2ac222b66"
+      },
+      "installedApksMatchBuild": true,
+      "keyboardWait": "polled actual IME and visible window inset"
+    }
+  },
+  "screenshots": {
+    "compact.png": {
+      "path": "docs/reviews/system-surfaces-alignment-2026-10-21/compact.png",
+      "sha256": "d2b83e099829fb1a271f2615ec222f5dadfefaaf20625667728fc5b0e3f1f72c"
+    },
+    "expanded.png": {
+      "path": "docs/reviews/system-surfaces-alignment-2026-10-21/expanded.png",
+      "sha256": "50bb0af3e668d57a0226fd24be49b7e85b65f813923721c94fd96c306fd0b6b9"
+    },
+    "keyboard.png": {
+      "path": "docs/reviews/system-surfaces-alignment-2026-10-21/keyboard.png",
+      "sha256": "650cec349e7e12a15659430cbbfa33e0f8ee8c226dad50ea082bb2efdb4fcaf1"
+    },
+    "keyboard-expanded.png": {
+      "path": "docs/reviews/system-surfaces-alignment-2026-10-21/keyboard-expanded.png",
+      "sha256": "aa7b6158694adb54b13e036e8dd499fc5e1e029a5d7e7b307f9cee6fa3c76c09"
+    }
+  },
+  "sourceSha256": {
+    "image/taku.mk": "b98aa4de8cdb2145f1f481e6c52fdf8547181a8725029ee8c83b6fcd1dcfb3ed",
+    "package.json": "7bc3d505cfd1b715ab24a6c3c255515b908ae1332140e8171a9fcf7934029a50",
+    "scripts/build-android.sh": "8bc1349e66200997b26c6de0f7765f4dfb85a5922dea80f88f3b1e39d4530b15",
+    "spec/system-surface.schema.json": "c2827d5300d0e4eaec4a06ab96407c9b81989d01c72e3d99c2485466e39ffa27",
+    "system/surfaces/Android.bp": "a6af26727e730de063126b33b621e03ea31277e817a6451087486e2aabe446fe",
+    "system/surfaces/AndroidManifest.xml": "f8eddfc2edf8ae820331153282ef828525c728f336a358344d8cacbaf9eda7bb",
+    "system/surfaces/README.md": "68ba4bb0bdb65f8a50c303a65a6e285148e4942faa8ab8240a153fabe1c598dc",
+    "system/surfaces/build.sh": "f1aaaa23b65c1076e10a89613117454115986e7ff1aba856d90d121b9cbbd217",
+    "system/surfaces/client/org/agentos/surfaces/client/SurfaceClient.java": "392ee003ebd4b93b667826e0c59819708abe28805fe8b8ab181018cd9474d3c6",
+    "system/surfaces/contract/org/agentos/surfaces/SurfaceSpec.java": "853c857ddb291cc31a68696fb4c151302b58db1b406a2007fba6257893552e3a",
+    "system/surfaces/contract/org/agentos/surfaces/SurfaceStore.java": "852833949df07cfef1d9e0506f3021ab19ab54b00f7fe6ad00e9df6f49f11a7b",
+    "system/surfaces/demo/AndroidManifest.xml": "3a5d482767c7c05c17790ac8d9b1da7da80b21abcc51f81ae597b7413412780d",
+    "system/surfaces/demo/src/org/agentos/surfacedemo/PreviewActivity.java": "98f816f82c6e7f6d30eb216370361c959113947808a763a21c9cfa42a8f84008",
+    "system/surfaces/res/drawable/surface_close.xml": "52c912f076964104b91b2aa555a8738e0d6baf73ccd4d9b6b5f375798a71d954",
+    "system/surfaces/res/drawable/surface_collapse.xml": "70dba15a289c6bd2345378f33b35f5d7cbf61f1fab2aba01090a9c0baf132ca2",
+    "system/surfaces/res/drawable/surface_expand.xml": "8f4803696e96c11758336940b95a8a33fe494ee7622582c872b74cfc5c4c8a25",
+    "system/surfaces/res/drawable/taku_brand_mark.xml": "bcfa7bc5629ebecce7594ab241652728e830e0e84487611542d523f770666ea3",
+    "system/surfaces/src/org/agentos/surfaces/SurfaceCodec.java": "a536f8318ff42407662ac7c49c84151de2e863bb0c15d3437f0aae72046a9f58",
+    "system/surfaces/src/org/agentos/surfaces/SurfaceRenderer.java": "5a0689615faf9f2c0f375f0e1f8c6f483af5856e8268c1089bb5319808d945ae",
+    "system/surfaces/src/org/agentos/surfaces/SurfaceService.java": "4a9c71ccfce78e9bf7c987a0b61174d385503482a21d5ca023c4a4ed628518b8",
+    "system/surfaces/src/org/agentos/surfaces/SurfaceStyle.java": "4f298ed2cc459e06405d0954b99b9a369981d70d45bbbde9fef5527cc19344de",
+    "system/surfaces/src/org/agentos/surfaces/SurfaceWindow.java": "a051b324b817832adab43b5e66f10724e9a97d26efe6d592b5fe78c8654ddddc",
+    "system/surfaces/test.sh": "1f399fa547b9b9a2f0c63e45756f34f0347b9f9bc9341133fdfae5cd10130eb0",
+    "system/surfaces/tests/SurfaceStoreTest.java": "4f2ea3037b2920afecf9483e5b6ac2d8e808f72034cd982f5cf9eb551a195d60"
+  },
+  "screenshotScope": "Unmodified component APK captures on an API 36 read-only emulator instance. Fixture content does not imply calendar or invitation workflow integration.",
+  "physicalDeviceVerified": false,
+  "fullRomRebuilt": false,
+  "limits": [
+    "Rotation, enlarged fonts and TalkBack not verified.",
+    "Lock/unlock lifecycle not separately device-verified.",
+    "Full ROM integration and physical-device acceptance remain separate."
+  ],
+  "cleanup": {
+    "previewCallerStopped": true,
+    "readOnlyEmulatorClosed": true,
+    "originalAvdDataPreserved": true,
+    "remoteEmulatorPaused": true,
+    "android17Automation": "PAUSED",
+    "runningRomSnapshotChanged": false
+  },
+  "rawEvidence": {
+    "directory": "out/system-surfaces-alignment-20261021/",
+    "verify": "out/system-surfaces-20261021/alignment-source-checks.log",
+    "build": "out/system-surfaces-20261021/alignment-build-android.log"
+  }
+}

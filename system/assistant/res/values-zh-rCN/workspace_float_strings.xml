@@ -1,0 +1,22 @@
+<resources>
+    <string name="workspace_float_title">Tako</string>
+    <string name="workspace_float_app">Tako · %1$s</string>
+    <string name="workspace_float_expand">展开</string>
+    <string name="workspace_float_close">关闭预览</string>
+    <string name="workspace_float_chat">返回对话</string>
+    <string name="workspace_float_drag">移动预览</string>
+    <string name="workspace_float_permission">悬浮预览需要允许显示在其他应用上层。</string>
+    <string name="workspace_float_unavailable">暂时无法打开悬浮预览。</string>
+    <string name="workspace_float_edit">补充要求</string>
+    <string name="workspace_float_done">完成</string>
+    <string name="workspace_float_working">执行中</string>
+    <string name="workspace_float_paused">已暂停</string>
+    <string name="workspace_float_user">你在操作</string>
+    <string name="workspace_float_ready">就绪</string>
+    <string name="workspace_float_waiting">等你确认</string>
+    <string name="workspace_float_stopping">正在停止</string>
+    <string name="workspace_float_unavailable_short">暂不可用</string>
+    <string name="workspace_float_add_note">补充要求</string>
+    <string name="workspace_float_back_preview">返回预览</string>
+    <string name="workspace_float_preview">%1$s 的实时预览</string>
+</resources>

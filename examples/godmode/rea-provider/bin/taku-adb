@@ -1,0 +1,34 @@
+#!/system/bin/sh
+set -eu
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    -s|-H|-P) [ "$#" -ge 2 ] && shift 2 || shift ;;
+    -e) shift ;;
+    *) break ;;
+  esac
+done
+cmd="${1:-}"
+[ "$#" -gt 0 ] && shift
+case "$cmd" in
+  devices)
+    printf 'List of devices attached\nlocal\tdevice product:tokay model:TakuOS device:local transport_id:0\n' ;;
+  wait-for-device) exit 0 ;;
+  get-serialno) printf 'local\n' ;;
+  root) printf 'adbd is already running as root\n' ;;
+  version) printf 'Android Debug Bridge version 1.0.41\nVersion 37.0.0 (taku-local-shim)\n' ;;
+  start-server|kill-server) exit 0 ;;
+  shell|exec-out) exec /system/bin/sh -c "$*" ;;
+  pull)
+    src="${1:?source required}"; dst="${2:-$(basename "$src")}"; cp "$src" "$dst" ;;
+  push)
+    src="${1:?source required}"; dst="${2:?destination required}"; cp "$src" "$dst" ;;
+  install) exec /system/bin/pm install "$@" ;;
+  uninstall) exec /system/bin/pm uninstall "$@" ;;
+  logcat|getprop|settings|am|pm|dumpsys|ps|id|wm|cmd)
+    exec "/system/bin/$cmd" "$@" ;;
+  "")
+    printf 'taku-adb: missing command\n' >&2; exit 2 ;;
+  *)
+    if [ -x "/system/bin/$cmd" ]; then exec "/system/bin/$cmd" "$@"; fi
+    printf 'taku-adb: unsupported local command: %s\n' "$cmd" >&2; exit 2 ;;
+esac

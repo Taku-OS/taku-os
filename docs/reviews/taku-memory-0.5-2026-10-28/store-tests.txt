@@ -1,0 +1,7 @@
+# 2026-10-28（北京时间）TakuRecall / Android 16 / API 36 / ARM64，TakuMemoryTests-0.5.0.apk（sha256 3e814c69909555c14a9d1440b0f1ad57019e7a53635034fa04539d5ad0ca41f4）
+$ am instrument -w org.agentos.memorytests/org.agentos.memory.StoreTests
+INSTRUMENTATION_RESULT: result={"passed":true,"checks":97}
+INSTRUMENTATION_CODE: -1
+$ am instrument -w org.agentos.memorytests/org.agentos.memory.QueueTests
+INSTRUMENTATION_RESULT: result={"passed":true,"checks":69}
+INSTRUMENTATION_CODE: -1

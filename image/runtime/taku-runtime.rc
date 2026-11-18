@@ -1,0 +1,37 @@
+# Development only: su is a permissive domain in upstream userdebug policy.
+# Global SELinux can still report Enforcing; this is not a production policy.
+service taku_broker /system_ext/bin/taku-runtime-start broker
+    class late_start
+    user root
+    group root system inet
+    seclabel u:r:su:s0
+    disabled
+    restart_period 10
+
+service taku_display /system_ext/bin/taku-runtime-start display
+    class late_start
+    user root
+    group root system inet input graphics
+    seclabel u:r:su:s0
+    disabled
+    restart_period 10
+
+service taku_resolver /system_ext/bin/taku-runtime-start resolver
+    class late_start
+    user root
+    group root inet
+    seclabel u:r:su:s0
+    disabled
+    restart_period 10
+
+on post-fs-data
+    mkdir /data/local/agentos 0750 root system
+    mkdir /data/local/agentos/home 0700 root root
+    mkdir /data/local/agentos/work 0700 root root
+    mkdir /data/local/agentos/tmp 0700 root root
+    mkdir /data/local/agentos/ai 0700 root root
+
+on property:sys.boot_completed=1
+    start taku_resolver
+    start taku_display
+    start taku_broker

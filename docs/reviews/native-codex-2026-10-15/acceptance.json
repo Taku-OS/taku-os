@@ -1,0 +1,79 @@
+{
+  "schema": "taku.native-client-acceptance/1",
+  "checkedAt": "2026-10-15",
+  "device": "Physical Pixel 9 / tokay",
+  "assistantVersion": 44,
+  "runtimeVersion": "0.161.0",
+  "nativeClientMethodCount": 168,
+  "excludedProtocolMethods": [
+    "mock/experimentalMethod"
+  ],
+  "brokerSha256": "c4b959610f4f402106104e0a5b01fe3cb23e1a02793fa4cf851cac256e6e7006",
+  "nativeControls": [
+    "models",
+    "effort",
+    "multiAgentMode",
+    "steer",
+    "interrupt",
+    "questions",
+    "approvals",
+    "elicitation",
+    "dynamicPhoneTools",
+    "plans",
+    "terminalOutput",
+    "fileDiff",
+    "contextUsage",
+    "rateLimits",
+    "compaction",
+    "forkArchiveSearch",
+    "goals",
+    "nativeQueue",
+    "appsMcp",
+    "skillsHarness",
+    "filesTerminalReviewHooks",
+    "pluginsMarketplace",
+    "remotePairing",
+    "memoryProjects",
+    "runtimeEvents",
+    "realtimeAudioText"
+  ],
+  "checks": {
+    "native-runtime-acceptance": {
+      "threadId": "01a13c32-656a-70d1-935e-fca2fc56d158",
+      "realDynamicPhoneTool": true,
+      "realSteerSameTurn": true,
+      "realQuestionRenderedAndAnswered": true,
+      "modelResponsesSimulated": false
+    },
+    "native-capabilities-acceptance": {
+      "goal": "passed",
+      "queue": "passed",
+      "filesystem": "passed",
+      "voiceDirectory": true,
+      "realtimeRequestAccepted": true,
+      "realtimeState": {
+        "event": "thread/realtime/error",
+        "detail": "{\"threadId\":\"01a13c32-0f36-7490-b0a6-68ff5b8a1076\",\"message\":\"realtime conversation requires API key auth\"}"
+      },
+      "realtimeServiceUsable": false,
+      "isolatedThreadId": "01a13c31-eaae-7682-83cd-7963f612f660",
+      "syntheticResponses": false
+    },
+    "native-audio-acceptance": {
+      "actualPcmInputBytes": 4800,
+      "audioInputAvailable": true,
+      "audioPlaybackInitialized": true,
+      "capturedAudioSavedOrUploaded": false
+    }
+  },
+  "homeAutoOpenAndFollowupPassed": true,
+  "coldBootNetworkAndAssistantPassed": true,
+  "realtimeCloudUsable": false,
+  "realtimeCloudReason": "Current ChatGPT Pro authentication: native service requires API key auth",
+  "paidApiAuthorizationProvided": false,
+  "accountAndHistoryPreserved": true,
+  "fullRomRebuilt": false,
+  "modelResponsesSimulated": false,
+  "credentialsIncluded": false,
+  "coverageBoundary": "Native method registration and UI routing are complete; experimental/OS-specific/vendor-attestation services are not all production-tested."
+}

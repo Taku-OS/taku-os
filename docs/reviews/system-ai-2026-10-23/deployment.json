@@ -1,0 +1,33 @@
+{
+  "serial": "46170DLAQ0006D",
+  "deployment": "temporary development bind mounts plus APK updates",
+  "rebootPersistentRuntime": false,
+  "selinux": "Enforcing",
+  "apps": {
+    "org.agentos.assistant": {
+      "sha256": "9d9e32abe9373904bb4fde8beeb4c5e5610a9b7f66246af37a01e3be2b9a0fb6"
+    },
+    "org.agentos.inputmethod": {
+      "sha256": "4d90d5ab7ee234ff0dbb2c974fba34ce841b71ea05f0e87ea8bf0743388f05ee"
+    },
+    "org.agentos.memory": {
+      "sha256": "5dcdc901618f8238e2db52ec74b42060659163e817e961a33a6045615e99e06e"
+    },
+    "org.agentos.memorytests": {
+      "sha256": "a8b2d68e0b889974a678d3b1250fc18500e9c390faedab84b44c77381565c57d"
+    },
+    "org.agentos.inputmethod.probe": {
+      "sha256": "d8930760b86fa3cd1f4f9cc10134c049dd22d0fbcc3e47a526cc300bcb095500"
+    }
+  },
+  "rootGatewayPositiveControl": true,
+  "modelCount": 7,
+  "brokerSha256": "9b67300b41a99ffdbe75ba476bf4f27cb351337424afbd791324b45a1d74228b",
+  "wrapperSha256": "d03b56821f382967bfbe3aaa165f7fd95dc59ae9fe18fe6100401b60c186f788",
+  "gatewayRules": [
+    "-N taku_ai",
+    "-A taku_ai -m owner --uid-owner 0 -j RETURN",
+    "-A taku_ai -m owner --uid-owner 1000 -j RETURN",
+    "-A taku_ai -p tcp -j REJECT --reject-with tcp-reset"
+  ]
+}

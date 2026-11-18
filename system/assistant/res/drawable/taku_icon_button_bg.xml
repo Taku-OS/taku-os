@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Icon-only button: gray circle while pressed, ink ring when focused, transparent otherwise. -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_pressed="true"><shape android:shape="oval"><solid android:color="@color/taku_surface_control"/></shape></item>
+    <item android:state_focused="true"><shape android:shape="oval"><stroke android:width="2dp" android:color="@color/taku_focus"/></shape></item>
+    <item><shape android:shape="oval"><solid android:color="#00000000"/></shape></item>
+</selector>

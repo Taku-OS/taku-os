@@ -1,0 +1,25 @@
+Binary APK
+Package name=org.agentos.gapps.overlay id=7f
+  type string id=01 entryCount=2
+    resource 0x7f010000 string/config_defaultAssistant
+      () "org.agentos.agent"
+    resource 0x7f010001 string/config_forceVoiceInteractionServicePackage
+      () "org.agentos.agent"
+N: android=http://schemas.android.com/apk/res/android (line=2)
+  E: manifest (line=2)
+    A: http://schemas.android.com/apk/res/android:versionCode(0x0101021b)=37
+    A: http://schemas.android.com/apk/res/android:versionName(0x0101021c)="17" (Raw: "17")
+    A: http://schemas.android.com/apk/res/android:compileSdkVersion(0x01010572)=37
+    A: http://schemas.android.com/apk/res/android:compileSdkVersionCodename(0x01010573)="17" (Raw: "17")
+    A: package="org.agentos.gapps.overlay" (Raw: "org.agentos.gapps.overlay")
+    A: platformBuildVersionCode=37
+    A: platformBuildVersionName=17
+      E: uses-sdk (line=0)
+        A: http://schemas.android.com/apk/res/android:minSdkVersion(0x0101020c)=37
+        A: http://schemas.android.com/apk/res/android:targetSdkVersion(0x01010270)=37
+      E: application (line=4)
+        A: http://schemas.android.com/apk/res/android:hasCode(0x0101000c)=false
+      E: overlay (line=5)
+        A: http://schemas.android.com/apk/res/android:priority(0x0101001c)=1338
+        A: http://schemas.android.com/apk/res/android:targetPackage(0x01010021)="android" (Raw: "android")
+        A: http://schemas.android.com/apk/res/android:isStatic(0x0101055a)=true

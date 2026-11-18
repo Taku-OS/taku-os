@@ -1,0 +1,8 @@
+/private/tmp/taku-build-round7-clean/source/round11-codex: 1 file pushed, 0 skipped. 545.3 MB/s (252637288 bytes in 0.442s)
+/Users/haipro/experiments/android-agent-os/taku-os-skills-lifecycle-20261030/examples/codex-plugin-lifecycle/: 6 files pushed, 0 skipped. 0.5 MB/s (2113 bytes in 0.004s)
+PASS installed 1.0.0
+/var/folders/h7/j4gyvbgn5blctvqr5fyr5bhc0000gn/T/tmpwxsuezdw: 1 file pushed, 0 skipped. 2.2 MB/s (148 bytes in 0.000s)
+PASS upgraded to 2.0.0
+PASS rollback restored 1.0.0 and pin
+PASS pin survived restart and plugin/list with upstream 2.0.0
+PASS explicit uninstall allows reinstall of 2.0.0

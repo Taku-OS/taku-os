@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="workspace_interaction_title">虚拟屏幕</string>
+    <string name="workspace_interaction_app">Tako · %1$s</string>
+    <string name="workspace_interaction_minimize">缩小为悬浮预览</string>
+    <string name="workspace_interaction_close">隐藏预览</string>
+    <string name="workspace_interaction_edit">补充要求</string>
+    <string name="workspace_interaction_done_editing">完成编辑</string>
+    <string name="workspace_interaction_take_over">接管</string>
+    <string name="workspace_interaction_app_step">应用操作</string>
+    <string name="workspace_interaction_task_step">任务步骤</string>
+    <string name="workspace_interaction_float_unavailable">暂时无法打开悬浮预览。</string>
+    <string name="workspace_interaction_stop">停止</string>
+    <string name="workspace_interaction_stop_unconfirmed">尚未停止，请再次核对。</string>
+    <string name="workspace_interaction_return_continue">交还并继续</string>
+    <string name="workspace_interaction_requirement_hint">补充要求…</string>
+    <string name="workspace_interaction_send">发送补充要求</string>
+    <string name="workspace_interaction_requirement_accepted">已添加</string>
+    <string name="workspace_interaction_sending">正在发送…</string>
+    <string name="workspace_interaction_resuming">正在继续…</string>
+    <string name="workspace_interaction_resume_accepted">已请求继续</string>
+    <string name="workspace_interaction_check_status">核对状态</string>
+    <string name="workspace_interaction_retry_continue">重试</string>
+    <string name="workspace_interaction_retry_requirement">重试</string>
+    <string name="workspace_interaction_unknown">尚未确认，请核对状态。</string>
+    <string name="workspace_interaction_return_first">交还控制后再补充要求。</string>
+    <string name="workspace_interaction_answer_first">请先回答待确认的问题。</string>
+    <string name="workspace_interaction_changed">屏幕已更新，请重新打开预览。</string>
+    <string name="workspace_interaction_draft_changed">这条补充要求已在另一界面更新，请重新打开后再发送。</string>
+    <string name="workspace_interaction_failed">暂时无法继续</string>
+    <string name="workspace_interaction_paused">Agent 已暂停</string>
+</resources>

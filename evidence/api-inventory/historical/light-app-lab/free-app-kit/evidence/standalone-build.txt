@@ -1,0 +1,4 @@
+ 'classes.dex'...
+device_apk_pack_ms=597
+Success
+Starting: Intent { cmp=org.agentos.reflexgame/org.agentos.generated.MainActivity }

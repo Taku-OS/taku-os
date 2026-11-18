@@ -1,0 +1,24 @@
+Taku Input Method
+
+Derived from Fcitx5 for Android 0.1.3, commit
+048f581c652367567b8ee5c28c5163b805288895
+https://github.com/fcitx5-android/fcitx5-android
+Copyright 2021–2026 Fcitx5 for Android Contributors.
+
+The Android front end and the Taku modifications to it retain
+SPDX-License-Identifier: LGPL-2.1-or-later. Fcitx5, libime,
+fcitx5-chinese-addons, dictionaries, and bundled dependencies retain their
+own copyright notices and licenses, including LGPL and GPL components.
+See the locked upstream tree, LICENSES/, native dependency source trees,
+and the in-app open source license list. The repository's root internal
+license does not replace the licenses of this derived input method.
+
+Taku modifications: product identity, Chinese-first initial profile,
+Taku keyboard colors, local privacy text and reproducible product build.
+Copyright 2026 Taku OS Contributors.
+
+Source preparation is defined by source-lock.json and patches/*.patch.
+The build uses upstream's pinned prebuilt support libraries and offline
+language data; the Android front end, Fcitx engine and Chinese input engine
+are compiled from source. Keep this notice, the upstream notices, the
+patches, and corresponding build/source materials with redistributions.

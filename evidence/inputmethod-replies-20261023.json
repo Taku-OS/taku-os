@@ -1,0 +1,207 @@
+{
+  "status": "physical_verified",
+  "completedAt": "2026-10-23T03:48:07.252954+00:00",
+  "device": {
+    "model": "Pixel 9",
+    "serial": "46170DLAQ0006D",
+    "sdk": 37,
+    "build": "20261022160657",
+    "selinux": "Enforcing"
+  },
+  "versions": {
+    "ime": "0.4.0",
+    "imeVersionCode": 10052,
+    "assistant": 63
+  },
+  "deployment": {
+    "deployedAt": "2026-10-23T03:32:52.761168+00:00",
+    "device": {
+      "incremental": "20261022160657",
+      "androidSdk": "37",
+      "bootId": "c539b364-9da1-419f-8e43-db8ae36c95af"
+    },
+    "runtimeRebootPersistent": false,
+    "selinux": "Enforcing",
+    "serial": "46170DLAQ0006D",
+    "apps": {
+      "org.agentos.assistant": {
+        "sha256": "88076aea20c99eef10d74c4ec35ed5461a70dc0203228bc287dd69236f2eef5a"
+      },
+      "org.agentos.inputmethod": {
+        "sha256": "ee9ad60092412db5d07638c436aa263d8b12faba10435f581816f2609fa63150"
+      },
+      "org.agentos.inputmethod.probe": {
+        "sha256": "d9c0663a03cf135368e47970cba332b1cb90d38b15f437a83a49325613802d97"
+      },
+      "org.agentos.inputmethod.fixture": {
+        "sha256": "20580fbedf366362708707cabe8571702741549962ca72c8f0e12a128d0c8aa8"
+      },
+      "org.agentos.inputmethod.chatcase": {
+        "sha256": "af641c2b03f3976ed867d5fde9516aa470228a432afaf3ac7560c49aa5a46b5f"
+      }
+    },
+    "runtime": {
+      "task-broker.jar": {
+        "sha256": "60a9399f01f254218c5a6991580900692bd8a9743e664afa1d59db57e6f47716"
+      },
+      "magpie": {
+        "sha256": "d03b56821f382967bfbe3aaa165f7fd95dc59ae9fe18fe6100401b60c186f788"
+      }
+    },
+    "systemModels": {
+      "text": "codex/gpt-6-luna",
+      "image": "codex/gpt-6-luna"
+    },
+    "defaultInputMethod": "org.agentos.inputmethod/org.fcitx.fcitx5.android.input.FcitxInputMethodService",
+    "liveCatalogReady": true
+  },
+  "acceptance": {
+    "physicalChecks": 30,
+    "aiChecks": 9,
+    "browserChecks": 8,
+    "nativeAppChecks": 2,
+    "baseInputChecks": 11,
+    "hostChecks": 102,
+    "jvmTests": 8,
+    "reconstructedSourceFiles": 38,
+    "singleTapInsertsWithoutConfirmation": true,
+    "longPressPreviewOnly": true,
+    "candidateStripDp": 40,
+    "nativeKeyboardBoundsUnchanged": true,
+    "protectedEditorCountersUnchanged": true,
+    "modelResponsesSimulated": false,
+    "sourcePagesSynthetic": true,
+    "messagesSent": false,
+    "repositoryVerifyPassed": true
+  },
+  "timingMs": {
+    "cold": {
+      "model": "codex/gpt-6-luna",
+      "inputMode": "image",
+      "imageSha256": "4d8fc2e33d4582db27287c497c8df4d881113d790b295a431306dede453c6a01",
+      "imageWidth": 855,
+      "imageHeight": 1024,
+      "elapsedMs": 4719,
+      "captureTop": 173,
+      "captureMs": 717,
+      "modelMs": 3999,
+      "cacheHit": false,
+      "deduplicated": false,
+      "reuseAgeMs": 0
+    },
+    "warm": {
+      "model": "codex/gpt-6-luna",
+      "inputMode": "image",
+      "imageSha256": "180d8a64e0e9fa2d9be245195bc158c79e9c6b0ea3eb12155d1f7649d89c9837",
+      "imageWidth": 855,
+      "imageHeight": 1024,
+      "elapsedMs": 1240,
+      "captureTop": 173,
+      "captureMs": 1239,
+      "modelMs": 0,
+      "cacheHit": true,
+      "deduplicated": false,
+      "reuseAgeMs": 6613
+    },
+    "fresh": {
+      "model": "codex/gpt-6-luna",
+      "inputMode": "image",
+      "imageSha256": "2ab7209748d963707b9947df978494e047c4c0ae9d04abd3f8c3b6a83d1a1bd8",
+      "imageWidth": 855,
+      "imageHeight": 1024,
+      "elapsedMs": 4499,
+      "captureTop": 173,
+      "captureMs": 1105,
+      "modelMs": 3392,
+      "cacheHit": false,
+      "deduplicated": false,
+      "reuseAgeMs": 0
+    },
+    "retry": {
+      "model": "codex/gpt-6-luna",
+      "inputMode": "image",
+      "imageSha256": "2ab7209748d963707b9947df978494e047c4c0ae9d04abd3f8c3b6a83d1a1bd8",
+      "imageWidth": 855,
+      "imageHeight": 1024,
+      "elapsedMs": 3585,
+      "captureTop": 173,
+      "captureMs": 1039,
+      "modelMs": 2546,
+      "cacheHit": false,
+      "deduplicated": false,
+      "reuseAgeMs": 0
+    }
+  },
+  "finalState": {
+    "capturedAt": "2026-10-23T03:48:07.252954+00:00",
+    "build": "20261022160657",
+    "bootId": "c539b364-9da1-419f-8e43-db8ae36c95af",
+    "selinux": "Enforcing",
+    "defaultIme": "org.agentos.inputmethod/org.fcitx.fcitx5.android.input.FcitxInputMethodService",
+    "systemModels": {
+      "textModel": "codex/gpt-6-luna",
+      "imageModel": "codex/gpt-6-luna"
+    },
+    "systemImeAllowed": true,
+    "temporaryBrowserOptInRemoved": true,
+    "rotation": {
+      "user_rotation": "0",
+      "accelerometer_rotation": "0"
+    },
+    "nightMode": "Night mode: yes",
+    "accessibilityServices": "null",
+    "finalVisibleReply": {
+      "version": 1,
+      "candidates": [
+        {
+          "text": "可以，周五七点半见！"
+        },
+        {
+          "text": "我可能赶不上，你们先定，祝吃得开心。"
+        },
+        {
+          "text": "我还不确定，晚点确认可以吗？"
+        }
+      ],
+      "receipt": {
+        "model": "codex/gpt-6-luna",
+        "inputMode": "image",
+        "imageSha256": "d98f03c82efe9f7a692f98ee0d1f5233cab20abae69f80137d63aaf617cc644d",
+        "imageWidth": 855,
+        "imageHeight": 1024,
+        "elapsedMs": 6040,
+        "captureTop": 173,
+        "captureMs": 973,
+        "modelMs": 5065,
+        "cacheHit": false,
+        "deduplicated": false,
+        "reuseAgeMs": 0
+      }
+    },
+    "installedSha256": {
+      "org.agentos.inputmethod": "ee9ad60092412db5d07638c436aa263d8b12faba10435f581816f2609fa63150",
+      "org.agentos.assistant": "88076aea20c99eef10d74c4ec35ed5461a70dc0203228bc287dd69236f2eef5a"
+    },
+    "temporaryPackagesRemoved": [
+      "org.agentos.inputmethod.probe",
+      "org.agentos.inputmethod.fixture"
+    ],
+    "temporaryDiagnosticJarRemoved": true
+  },
+  "report": "docs/reviews/inputmethod-replies-2026-10-23/README.md",
+  "screenshots": {
+    "01-thinking.png": "18663ca61833fdcf9d3ab73e27bbc2faa92315e98bc7f7958b124a9096d44a3a",
+    "02-replies.png": "9c69843db1f35ace6d52c4aa40a8c2711419d12c8de68954b9a28f8cb0a2adda",
+    "04-full-preview.png": "a278304086cf7c953968c9bd4ad30b50f217138ff70a6a58812f32a409bc69dc",
+    "10-browser-landscape.png": "7afa7c82dbaf5e80cedc89f2aa57e919b16bee3805e026f185fd8ffd89a48f8d",
+    "12-browser-live-replies.png": "8fc80c6032f7701210acfdcdd87475f91a6faba787dee4853aa46251fe621beb",
+    "12b-browser-direct-insert.png": "d59ded5513b267827c0f3807d2b61f7289369d6839bbc2160044852918584f0b",
+    "14-native-message-draft.png": "0dbc3696b1d39a4501ad986a9f58c0e04d67da1172b2262b0164050d2280a144",
+    "17-final-chat.png": "8d7939723525cafc57f8e368ffd6bb6f3aff5fc9358cf84668ba72f374f30b6e"
+  },
+  "limits": [
+    "Development runtime bind mounts are not persistent across whole-device reboot; APK/data survive and runtime still needs ROM integration.",
+    "OTA installation was completed by the separate OTA task before this test window; this report is not formal OTA publication acceptance.",
+    "Cache requires exact frame and window identity; changing layout or caret can require a fresh model call."
+  ]
+}

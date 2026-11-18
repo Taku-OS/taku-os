@@ -1,0 +1,111 @@
+#!/system/bin/sh
+# First-boot provisioning for the REA tool provider.
+#
+# Ships the provider manifest in system_ext and installs the large runtime pack
+# from an immutable HTTPS archive. Every download is pinned twice: the lock file
+# is compared with the reviewed SHA-256 in the config, and the archive is checked
+# against the per-file hashes inside that lock before RuntimePackCli installs it.
+set -eu
+
+root=${TAKU_AGENTOS_ROOT:-/data/local/agentos}
+conf=${TAKU_REA_CONF:-/system_ext/etc/taku/rea-pack.conf}
+provider=${TAKU_REA_PROVIDER:-/system_ext/etc/taku/rea-provider}
+cli=${TAKU_PLUGIN_CLI:-/system_ext/bin/taku-plugin}
+packcli=${TAKU_REA_PACK_CLI:-/system_ext/bin/taku-rea-pack}
+pack=$root/rea-pack
+tmp=$root/tmp
+
+say() {
+    echo "taku-rea-provision: $*" >&2
+    if command -v log >/dev/null 2>&1; then log -t taku-rea "$*" >/dev/null 2>&1 || true; fi
+}
+
+usage() {
+    echo "usage: taku-rea-provision [--force|--status]" >&2
+    exit 2
+}
+
+force=0
+status=0
+case "${1:-install}" in
+    install) ;;
+    --force|force) force=1 ;;
+    --status|status) status=1 ;;
+    *) usage ;;
+esac
+
+pack_ready() {
+    [ -x "$pack/bin/rea-mcp" ] && [ -x "$pack/bin/node" ]
+}
+
+provider_installed() {
+    [ -x "$cli" ] || return 1
+    "$cli" godmode list 2>/dev/null | grep -q '"id":"org.taku.rea"'
+}
+
+if [ "$status" = 1 ]; then
+    pack_state=false
+    provider_state=false
+    pack_ready && pack_state=true
+    provider_installed && provider_state=true
+    printf '{"pack":%s,"provider":%s,"root":"%s"}\n' "$pack_state" "$provider_state" "$pack"
+    exit 0
+fi
+
+if pack_ready && [ "$force" = 0 ]; then
+    say "runtime pack already installed"
+else
+    if [ ! -f "$conf" ]; then
+        say "no $conf; skipping runtime pack download"
+        exit 0
+    fi
+    # shellcheck disable=SC1090
+    . "$conf"
+    url=${REA_PACK_URL:-}
+    lock_url=${REA_PACK_LOCK_URL:-}
+    lock_sha=${REA_PACK_LOCK_SHA256:-}
+    if [ -z "$url" ] || [ -z "$lock_url" ] || [ -z "$lock_sha" ]; then
+        say "config is missing REA_PACK_URL, REA_PACK_LOCK_URL or REA_PACK_LOCK_SHA256"
+        exit 1
+    fi
+    command -v curl >/dev/null 2>&1 || { say "curl is missing from the image"; exit 1; }
+    mkdir -p "$tmp"
+    lock=$tmp/rea-pack.lock.json
+    archive=$tmp/rea-pack.zip
+    say "downloading runtime lock"
+    curl --fail --location --silent --show-error --retry 5 --retry-delay 5 -o "$lock" "$lock_url"
+    actual=$(sha256sum "$lock" | cut -d' ' -f1)
+    if [ "$actual" != "$lock_sha" ]; then
+        rm -f "$lock"
+        say "runtime lock checksum mismatch"
+        exit 1
+    fi
+    say "downloading runtime pack"
+    curl --fail --location --silent --show-error --retry 5 --retry-delay 5 -o "$archive" "$url"
+    if [ -d "$pack" ] && [ "$force" = 1 ]; then
+        rm -rf "$pack"
+    fi
+    say "installing runtime pack"
+    "$packcli" "$archive" "$lock" "$lock_sha" "$pack"
+    rm -f "$archive" "$lock"
+fi
+
+if [ -d "$provider" ] && [ -x "$cli" ]; then
+    # Wait for the God Mode daemon instead of racing it during boot.
+    attempt=0
+    until out=$("$cli" godmode list 2>&1); do
+        attempt=$((attempt + 1))
+        if [ "$attempt" -ge 30 ]; then
+            say "god mode daemon did not answer: $out"
+            exit 1
+        fi
+        sleep 2
+    done
+    if ! printf '%s' "$out" | grep -q '"id":"org.taku.rea"'; then
+        say "registering REA provider"
+        "$cli" godmode install "$provider" >/dev/null || say "provider install failed"
+    fi
+    "$cli" godmode enable org.taku.rea >/dev/null 2>&1 || true
+fi
+
+say "provisioning complete"

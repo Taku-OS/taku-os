@@ -1,0 +1,1 @@
+package android.service.voice;public class VoiceInteractionService {public static final String SERVICE_INTERFACE="android.service.voice.VoiceInteractionService", SERVICE_META_DATA="android.voice_interaction";}

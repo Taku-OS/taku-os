@@ -1,0 +1,221 @@
+{
+  "modelResponsesSimulated": false,
+  "sourcePageSynthetic": true,
+  "checks": [
+    "identical in-flight frame shares one real model request",
+    "reopening an unchanged frame uses bounded memory cache without another model call",
+    "change group bypasses cache and excludes previous exact replies",
+    "long press shows full untruncated reply without changing keyboard or strip bounds",
+    "preview inserts exact live model text without sending",
+    "real permission failure can recover through visible retry after permission is restored",
+    "typing cancels refresh and late completion cannot restore the strip",
+    "protected window is rejected before capture and cache reuse",
+    "password field has no AI controls or preview"
+  ],
+  "passed": true,
+  "keyboardBounds": {
+    "strip": [
+      105,
+      1466,
+      975,
+      1571
+    ],
+    "key": [
+      39,
+      1597,
+      70,
+      1682
+    ],
+    "window": {
+      "id": 435,
+      "type": 2,
+      "package": "org.agentos.inputmethod",
+      "bounds": "0 1466 1080 2424"
+    }
+  },
+  "cold": {
+    "version": 1,
+    "candidates": [
+      {
+        "text": "可以呀，周五七点半见！"
+      },
+      {
+        "text": "我还不确定，晚点回复你们。"
+      },
+      {
+        "text": "谢谢叫我，这次我就不去了，你们玩得开心！"
+      }
+    ],
+    "receipt": {
+      "model": "codex/gpt-6-luna",
+      "inputMode": "image",
+      "imageSha256": "4d8fc2e33d4582db27287c497c8df4d881113d790b295a431306dede453c6a01",
+      "imageWidth": 855,
+      "imageHeight": 1024,
+      "elapsedMs": 4719,
+      "captureTop": 173,
+      "captureMs": 717,
+      "modelMs": 3999,
+      "cacheHit": false,
+      "deduplicated": false,
+      "reuseAgeMs": 0
+    }
+  },
+  "coalescedReplies": [
+    {
+      "version": 1,
+      "candidates": [
+        {
+          "text": "可以，周五七点半见！"
+        },
+        {
+          "text": "我可以，地铁口那家火锅店见。"
+        },
+        {
+          "text": "周五七点半我不一定能到，晚点告诉你们。"
+        }
+      ],
+      "receipt": {
+        "model": "codex/gpt-6-luna",
+        "inputMode": "image",
+        "imageSha256": "2ab7209748d963707b9947df978494e047c4c0ae9d04abd3f8c3b6a83d1a1bd8",
+        "imageWidth": 855,
+        "imageHeight": 1024,
+        "elapsedMs": 4127,
+        "captureTop": 173,
+        "captureMs": 935,
+        "modelMs": 3189,
+        "cacheHit": false,
+        "deduplicated": false,
+        "reuseAgeMs": 0
+      }
+    },
+    {
+      "version": 1,
+      "candidates": [
+        {
+          "text": "可以，周五七点半见！"
+        },
+        {
+          "text": "我可以，地铁口那家火锅店见。"
+        },
+        {
+          "text": "周五七点半我不一定能到，晚点告诉你们。"
+        }
+      ],
+      "receipt": {
+        "model": "codex/gpt-6-luna",
+        "inputMode": "image",
+        "imageSha256": "2ab7209748d963707b9947df978494e047c4c0ae9d04abd3f8c3b6a83d1a1bd8",
+        "imageWidth": 855,
+        "imageHeight": 1024,
+        "elapsedMs": 2883,
+        "captureTop": 173,
+        "captureMs": 921,
+        "modelMs": 3189,
+        "cacheHit": false,
+        "deduplicated": true,
+        "reuseAgeMs": 0
+      }
+    }
+  ],
+  "warm": {
+    "version": 1,
+    "candidates": [
+      {
+        "text": "可以，周五七点半地铁口那家见！"
+      },
+      {
+        "text": "我还不确定能不能去，晚点回复你。"
+      },
+      {
+        "text": "谢谢约我，这次我就不去了，你们玩得开心！"
+      }
+    ],
+    "receipt": {
+      "model": "codex/gpt-6-luna",
+      "inputMode": "image",
+      "imageSha256": "180d8a64e0e9fa2d9be245195bc158c79e9c6b0ea3eb12155d1f7649d89c9837",
+      "imageWidth": 855,
+      "imageHeight": 1024,
+      "elapsedMs": 1240,
+      "captureTop": 173,
+      "captureMs": 1239,
+      "modelMs": 0,
+      "cacheHit": true,
+      "deduplicated": false,
+      "reuseAgeMs": 6613
+    }
+  },
+  "fresh": {
+    "version": 1,
+    "candidates": [
+      {
+        "text": "我能来，周五见！"
+      },
+      {
+        "text": "七点半我可能赶不及，能晚点吗？"
+      },
+      {
+        "text": "这次我不参加啦，你们吃得开心。"
+      }
+    ],
+    "receipt": {
+      "model": "codex/gpt-6-luna",
+      "inputMode": "image",
+      "imageSha256": "2ab7209748d963707b9947df978494e047c4c0ae9d04abd3f8c3b6a83d1a1bd8",
+      "imageWidth": 855,
+      "imageHeight": 1024,
+      "elapsedMs": 4499,
+      "captureTop": 173,
+      "captureMs": 1105,
+      "modelMs": 3392,
+      "cacheHit": false,
+      "deduplicated": false,
+      "reuseAgeMs": 0
+    }
+  },
+  "previewedText": "七点半我可能赶不及，能晚点吗？",
+  "actualDenial": {
+    "id": "e5e01de0-69da-4a4b-82cc-e1b188773e12",
+    "state": "failed",
+    "message": "系统 AI 已暂停这个功能",
+    "code": "unavailable"
+  },
+  "retry": {
+    "version": 1,
+    "candidates": [
+      {
+        "text": "可以，周五七点半见！"
+      },
+      {
+        "text": "我周五可能不方便，你们先吃～"
+      },
+      {
+        "text": "我还不确定，晚点给你答复。"
+      }
+    ],
+    "receipt": {
+      "model": "codex/gpt-6-luna",
+      "inputMode": "image",
+      "imageSha256": "2ab7209748d963707b9947df978494e047c4c0ae9d04abd3f8c3b6a83d1a1bd8",
+      "imageWidth": 855,
+      "imageHeight": 1024,
+      "elapsedMs": 3585,
+      "captureTop": 173,
+      "captureMs": 1039,
+      "modelMs": 2546,
+      "cacheHit": false,
+      "deduplicated": false,
+      "reuseAgeMs": 0
+    }
+  },
+  "diagnostics": {
+    "captures": 8,
+    "modelRequests": 6,
+    "cacheHits": 1,
+    "coalesced": 1,
+    "cachedEntries": 0,
+    "pendingFlights": 0
+  }
+}

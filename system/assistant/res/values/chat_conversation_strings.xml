@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="chat_welcome">What would you like to do?</string>
+    <string name="chat_speaker">Tako</string>
+    <string name="chat_sent_attachment">Sent attachment: %1$s</string>
+    <string name="chat_current_screen">Current screen</string>
+    <string name="chat_activity_count">Activity %1$d</string>
+    <string name="chat_copy_reply">Copy reply</string>
+    <string name="chat_copy">Copy</string>
+    <string name="chat_copy_code">Copy code</string>
+    <string name="chat_code_copied">Code copied</string>
+    <string name="chat_plan">Plan</string>
+    <string name="chat_turn_failed">This turn failed</string>
+    <string name="chat_turn_stopped">Stopped</string>
+    <string name="chat_working">Working…</string>
+    <string name="chat_expand_activity">Expand activity</string>
+    <string name="chat_collapse_activity">Collapse activity</string>
+    <string name="chat_expand_item">Expand %1$s</string>
+    <string name="chat_collapse_item">Collapse %1$s</string>
+    <string name="chat_commentary">Progress note</string>
+    <string name="chat_no_output">No output yet</string>
+    <string name="chat_tool_device_info">Read device information</string>
+    <string name="chat_tool_observe_background">View background screen</string>
+    <string name="chat_tool_open_app">Open app</string>
+    <string name="chat_tool_tap">Tap background screen</string>
+    <string name="chat_tool_type_text">Enter text</string>
+    <string name="chat_tool_command">Run command</string>
+    <string name="chat_tool_file_change">File changes</string>
+    <string name="chat_tool_extension">Call extension</string>
+    <string name="chat_tool_web_search">Search the web</string>
+    <string name="chat_tool_compaction">Compact conversation</string>
+    <string name="chat_tool_collaboration">Agent collaboration</string>
+    <string name="chat_tool_review_enter">Enter review</string>
+    <string name="chat_tool_review_exit">Finish review</string>
+    <string name="chat_tool_call">Tool call</string>
+    <string name="chat_tool_working">Working</string>
+    <string name="chat_tool_completed">Finished</string>
+    <string name="chat_tool_failed">Failed</string>
+    <string name="chat_tool_declined">Declined</string>
+    <string name="chat_tool_interrupted">Interrupted</string>
+    <string name="chat_tool_cancelled">Cancelled</string>
+    <string name="chat_tool_pending">Waiting</string>
+    <string name="chat_tool_image_result">The tool returned an image</string>
+    <string name="chat_tool_exit_code">Exit code: %1$d</string>
+    <string name="chat_tool_output_tail">… (showing the end of the output)</string>
+    <plurals name="chat_activity_failures">
+        <item quantity="one">%1$d failed</item>
+        <item quantity="other">%1$d failed</item>
+    </plurals>
+</resources>

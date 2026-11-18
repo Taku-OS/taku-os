@@ -1,0 +1,13 @@
+{
+  "name": "taku-status-tip",
+  "version": "1.0.0",
+  "description": "A tiny local status reminder tool.",
+  "package": "packages\/taku-status-tip-1.0.0.zip",
+  "sha256": "34499ffc95c17e6f82d563eaf07df2b57bf567255f910e6e4662720c64b4ffb0",
+  "taku": {
+    "capabilities": [
+      "provide a status reminder"
+    ],
+    "permissions": []
+  }
+}

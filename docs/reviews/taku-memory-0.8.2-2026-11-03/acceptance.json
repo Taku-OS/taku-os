@@ -1,0 +1,63 @@
+{
+  "component": "Taku 记忆 0.8.2（versionCode 12），Broker 沿用 0.8.1，助手 v74",
+  "status": "emulator_verified",
+  "recordedAt": "2026-11-03 北京时间",
+  "device": {
+    "avd": "TakuRecall",
+    "serial": "emulator-5634",
+    "android": "16",
+    "api": 36,
+    "abi": "arm64-v8a",
+    "build": "sdk_phone64_arm64 userdebug test-keys",
+    "selinux": "Enforcing"
+  },
+  "artifacts": {
+    "TakuMemory-0.8.2-release.apk": "1331da020f186fbbc90a50e1895116ae14bf8a7c49d4a8a65310760a2e73e39c",
+    "TakuMemory-0.8.2-debug-nomodel.apk": "bb27e20db3b64a7e8e4e0c66271c7cee4fd84296928d35b412fe767fc38471e7",
+    "TakuMemoryTests-0.8.2.apk": "4ed882a719875a3ac6190c4558e667f530f9dcdddf795f9d676fe1c8552adb27",
+    "agentos-task-broker (0.8.1, unchanged)": "d903c96529499a24080e143ae9dbb22fb9c66cd89483bcd273bee9fb7663b293"
+  },
+  "componentTests": {
+    "StoreTests": 120,
+    "QueueTests": 69,
+    "ResultTests": 8,
+    "PresentationTests": 36,
+    "GatewayBoundaryTests": 2,
+    "SystemAiTests": 24,
+    "SystemSettingsObserverTests": "passed",
+    "failures": 0
+  },
+  "proactiveMoments": {
+    "dataset": "22-day synthetic timeline, 80 marked moments (70 evening reviews at 23:30, 10 on an incoming message)",
+    "medianHoursFromCueToNeed": 53.4,
+    "cueWithin5Minutes": 3,
+    "cueOlderThan24h": 57,
+    "cueOlderThan72h": 36,
+    "perRecordSuggestionCeiling": "3/80 (structural: suggestions judge only the new capture and expire after 5 minutes)",
+    "cardHasTheItem": {
+      "method": "profile {forAgent, text} at each moment with testNow; any marked query whose words all appear in the card",
+      "0.8.1": "68/80 (evening 61/70, message 7/10)",
+      "0.8.2": "74/80 (evening 67/70, message 7/10)",
+      "lost": 0,
+      "stillMissed": ["gas inspection rebooking (needs act-by date)", "Ajie farewell (undated relation)", "weekly report (timeline data)", "3 moments where the new message itself is the cue"]
+    },
+    "medianCardChars": {"0.8.1": 1666, "0.8.2": 1926},
+    "cardOnlyBrief": {"model": "gpt-6-luna, no tools, ephemeral, one run per evening", "eveningNeedsMentioned": {"0.8.1": "57/70", "0.8.2": "62/70"}, "gained": 8, "lost": 3, "medianTokens": {"0.8.1": 5477, "0.8.2": 5647}}
+  },
+  "agentRegression22Days": {
+    "build": "debug bb27e20d + broker d903c965, derived data from the 0.5 organizer, assistant v74",
+    "crossTopic": "10/11, 9/11",
+    "association": "11/11",
+    "triggerMessages": "6/7",
+    "bedtimeReview": "23/25",
+    "previous081": {"crossTopic": "10/11, 10/11", "association": "11/11", "triggerMessages": "7/7, 7/7", "bedtimeReview": "24/25"},
+    "eveningsGained": "full assistant on 11-08, 11-09, 11-15, 11-17, 11-19: both versions mention the dental follow-up, suit, permission approval and check-up deadline; both miss the new check-up booking on 11-09; 147k-230k tokens per answer"
+  },
+  "notCovered": [
+    "time or message triggers (the assistant still speaks only when asked)",
+    "a release clean-install smoke for 0.8.2 (the change is limited to how the card selects agenda lines; 0.8.1 release smoke covers capture, vectors and organizing)",
+    "same-version physical device",
+    "full ROM",
+    "real users"
+  ]
+}

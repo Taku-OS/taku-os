@@ -1,0 +1,1 @@
+Starting: Intent { cmp=com.xingin.xhs/.index.v2.IndexActivityV2 }

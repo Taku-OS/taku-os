@@ -1,0 +1,11 @@
+{
+  "passed": true,
+  "version": "0.4.0",
+  "versionCode": 10052,
+  "upstream": "048f581c652367567b8ee5c28c5163b805288895",
+  "patchedFilesVerified": 38,
+  "patches": {
+    "0001-taku-inputmethod.patch": "dbe4f55d73b083c27444086e973d374d384b535d73e7e3c5d3748eaff579285e",
+    "0002-ai-replies.patch": "4ba710ef4eb7ab1e274c17bf0a8c26ca44809a2623e3ebcbbd93a2fa78ca620a"
+  }
+}

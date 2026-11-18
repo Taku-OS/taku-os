@@ -1,0 +1,19 @@
+#!/system/bin/sh
+set -eu
+P=/data/local/agentos/rea-pack
+if pidof frida-server >/dev/null 2>&1; then
+  exit 0
+fi
+cd "$P"
+LD_LIBRARY_PATH="/system/lib64:/vendor/lib64:/apex/com.android.runtime/lib64:/apex/com.android.art/lib64:/apex/com.android.os.statsd/lib64" \
+  nohup setsid "$P/bin/frida-server" -l 127.0.0.1:27042 \
+  >/data/local/tmp/taku-frida-server.log 2>&1 </dev/null &
+i=0
+while [ "$i" -lt 30 ]; do
+  if pidof frida-server >/dev/null 2>&1; then
+    exit 0
+  fi
+  i=$((i + 1))
+  sleep 0.1
+done
+exit 1

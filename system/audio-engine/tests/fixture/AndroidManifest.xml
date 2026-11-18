@@ -1,0 +1,8 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="org.taku.callfixture.target">
+ <uses-sdk android:minSdkVersion="36" android:targetSdkVersion="36"/>
+ <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+ <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
+ <application android:label="Synthetic call fixture" android:theme="@android:style/Theme.Material.Light.NoActionBar">
+  <activity android:name="org.taku.callfixture.CallFixture" android:exported="true"/>
+ </application>
+</manifest>

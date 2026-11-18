@@ -1,0 +1,22 @@
+<resources>
+    <string name="workspace_float_title">Tako</string>
+    <string name="workspace_float_app">Tako · %1$s</string>
+    <string name="workspace_float_expand">Expand</string>
+    <string name="workspace_float_close">Close preview</string>
+    <string name="workspace_float_chat">Back to conversation</string>
+    <string name="workspace_float_drag">Move preview</string>
+    <string name="workspace_float_permission">Floating previews need display-over-other-apps access.</string>
+    <string name="workspace_float_unavailable">Could not open the floating preview.</string>
+    <string name="workspace_float_edit">Add requirement</string>
+    <string name="workspace_float_done">Done</string>
+    <string name="workspace_float_working">Working</string>
+    <string name="workspace_float_paused">Paused</string>
+    <string name="workspace_float_user">Your control</string>
+    <string name="workspace_float_ready">Ready</string>
+    <string name="workspace_float_waiting">Needs you</string>
+    <string name="workspace_float_stopping">Stopping</string>
+    <string name="workspace_float_unavailable_short">Unavailable</string>
+    <string name="workspace_float_add_note">Add note</string>
+    <string name="workspace_float_back_preview">Back to preview</string>
+    <string name="workspace_float_preview">Live preview of %1$s</string>
+</resources>

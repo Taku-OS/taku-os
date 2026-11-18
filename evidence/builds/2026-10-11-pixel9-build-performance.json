@@ -1,0 +1,29 @@
+{
+  "checkedAt": "2026-10-11T01:42:54.923527+00:00",
+  "hostArchitecture": "arm64",
+  "builderArchitecture": "amd64",
+  "priorFullEmulatorBuilder": {
+    "cpuQuota": 6,
+    "memoryGiB": 36,
+    "containerElapsed": "12:56:58",
+    "exitCode": 0
+  },
+  "pixelBeforeAdjustment": {
+    "cpuQuota": 8,
+    "ninjaJobs": 4,
+    "observedCpuPercent": 400.29
+  },
+  "pixelAfterAdjustment": {
+    "cpuQuota": 8,
+    "ninjaJobs": 8,
+    "actualNinjaArgumentsVerified": true,
+    "compileCachePreserved": true,
+    "sourceInputsAndKernelCheckpointVerified": true,
+    "sourceSyncedAgain": false,
+    "kernelRebuilt": false
+  },
+  "throughputGainMeasured": false,
+  "romBuilt": false,
+  "physicalDeviceVerified": false,
+  "boundary": "Resource use and incremental compile recovery; not completion-time prediction or ROM acceptance"
+}

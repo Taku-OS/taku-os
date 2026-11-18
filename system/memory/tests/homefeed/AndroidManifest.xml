@@ -1,0 +1,7 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="org.agentos.memorytests.homefeed" android:versionCode="1" android:versionName="1">
+ <uses-sdk android:minSdkVersion="36" android:targetSdkVersion="36"/>
+ <!-- Test-only stand-in for the Taku Home feed provider; it takes the real authority, so uninstall it before installing the home app. -->
+ <application android:label="Taku 首页卡片流替身（测试）" android:allowBackup="false" android:hasCode="true">
+  <provider android:name="org.agentos.memorytests.homefeed.HomeFeedStub" android:authorities="org.agentos.agent.home-feed" android:exported="true"/>
+ </application>
+</manifest>

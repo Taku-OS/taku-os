@@ -1,0 +1,17 @@
+[
+  {
+    "task": "typecheck",
+    "exitCode": 0,
+    "log": "/tmp/mdimpl-validation-host-20261029/rn-typecheck-final.log"
+  },
+  {
+    "task": "lint",
+    "exitCode": 0,
+    "log": "/tmp/mdimpl-validation-host-20261029/rn-lint-final.log"
+  },
+  {
+    "task": "test",
+    "exitCode": 0,
+    "log": "/tmp/mdimpl-validation-host-20261029/rn-test-final.log"
+  }
+]

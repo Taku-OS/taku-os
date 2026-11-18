@@ -1,0 +1,22 @@
+{
+  "ok": true,
+  "app": "scenario_score",
+  "method": "score.state",
+  "result": {
+    "scores": {
+      "A": 3,
+      "B": 0
+    },
+    "history": [
+      {
+        "id": 1,
+        "team": "A",
+        "delta": 3,
+        "at": "2026-10-09T19:30:04.948Z"
+      }
+    ]
+  },
+  "revision": 4,
+  "replayed": false,
+  "durationMs": 0.27
+}

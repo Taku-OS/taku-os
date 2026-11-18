@@ -1,0 +1,3 @@
+[
+ {"id":"device-report","title":"Live device capability report","entrypoint":"examples/extensions/device-report/index.mjs","capabilities":["system.info","displays.status","tasks.status"],"permissions":["authorized-adb-shell-or-on-device-shell","root-for-task-metadata"],"status":"experimental","version":"0.1.0"}
+]

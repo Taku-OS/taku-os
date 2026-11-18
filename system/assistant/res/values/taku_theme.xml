@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Minimal app theme on the framework Material Light theme. If the app uses AppCompat or
+     Material Components, copy these items into its own theme instead. -->
+<resources>
+    <style name="Theme.Taku" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/taku_surface_page</item>
+        <item name="android:colorBackground">@color/taku_surface_page</item>
+        <item name="android:textColorPrimary">@color/taku_text_primary</item>
+        <item name="android:textColorSecondary">@color/taku_text_secondary</item>
+        <item name="android:colorAccent">@color/taku_text_primary</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:buttonStyle">@style/Widget.Taku.Button</item>
+        <item name="android:imageButtonStyle">@style/Widget.Taku.IconButton</item>
+    </style>
+</resources>

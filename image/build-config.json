@@ -1,0 +1,18 @@
+{
+  "schema": "taku.image-builder/1",
+  "outputDirectory": "out/pixel9-android17",
+  "container": "taku-pixel9-android17-build",
+  "sourceVolume": "taku-pixel9-lineage24-source",
+  "referenceVolume": "agentos-lineage23-source",
+  "previousSourceVolume": "taku-pixel9-lineage23-source",
+  "builderImage": "sha256:738405483862f1e4ebf98a008f819a946609eaef7d5fcfe1d3bfd050431a78f6",
+  "statusReport": "docs/research/pixel9-android17-build-state.json",
+  "reportPort": 4346,
+  "cpuQuota": 8,
+  "memoryGiB": 36,
+  "memoryAndSwapGiB": 40,
+  "ninjaJobs": 8,
+  "soongGoMemoryLimitGiB": 24,
+  "soongGoMaxProcs": 4,
+  "r8SerialGc": true
+}

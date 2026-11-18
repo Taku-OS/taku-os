@@ -1,0 +1,9 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="org.agentos.proactivity" android:versionCode="1" android:versionName="0.1.0">
+ <uses-sdk android:minSdkVersion="36" android:targetSdkVersion="36"/>
+ <uses-permission android:name="org.agentos.permission.PUBLISH_SURFACES"/>
+ <queries><package android:name="org.agentos.surfaces"/><intent><action android:name="org.agentos.proactivity.OBSERVER_PLUGIN"/></intent></queries>
+ <application android:label="Taku Proactivity" android:icon="@drawable/taku_brand_mark" android:theme="@android:style/Theme.Material.Light.NoActionBar" android:allowBackup="false" android:supportsRtl="true">
+  <activity android:name=".ProactivityActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity>
+  <service android:name=".ProactivityService" android:exported="true"/>
+ </application>
+</manifest>
