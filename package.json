@@ -26,17 +26,18 @@
     "build:proactivity": "bash system/proactivity/build.sh",
     "check:ota": "python3 tests/incremental-ota-package.test.py && python3 tests/ota-release.test.py && python3 tests/ota-chain.test.py && python3 tests/ota-device.test.py && python3 tests/ota-updater.test.py && python3 tests/ota-source.test.py",
     "check:emulator-runtime": "python3 -B -m unittest discover -s tooling/emulator-runtime -p 'test_*.py' && python3 -B tests/lineage-emulator.test.py && python3 -B tests/emulator-default-apps.test.py",
-    "check:publication": "python3 tests/release-inventory.test.py && python3 tests/license-packaging.test.py",
-    "check:island": "python3 tests/island-patches.test.py && python3 tests/island-artifacts.test.py && bash system/island/test.sh"
+    "check:publication": "python3 tests/release-inventory.test.py && python3 tests/license-packaging.test.py && python3 tests/publish-rom-release.test.py && python3 tests/cloud-builder-prune.test.py",
+    "check:island": "python3 tests/island-patches.test.py && python3 tests/island-artifacts.test.py && bash system/island/test.sh",
+    "release:rom": "python3 scripts/publish-rom-release.py"
   },
   "bin": {
     "taku": "sdk/cli/taku.mjs"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Taku-OS/taku-os-release.git"
+    "url": "git+https://github.com/Taku-OS/taku-os.git"
   },
   "bugs": {
-    "url": "https://github.com/Taku-OS/taku-os-release/issues"
+    "url": "https://github.com/Taku-OS/taku-os/issues"
   }
 }

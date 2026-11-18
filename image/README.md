@@ -1,6 +1,6 @@
 # Pixel 9 development image
 
-**Current release: TakuOS 1.3.1 / Android 17 / 20261111080323.** [Public installation and updates](https://docs.taku.ai/zh/quickstart/mobile/) and the [release manifest](../docs/releases/tokay-20261111080323.json) provide current downloads and validation scope. Dated entries below preserve historical states.
+**Current release: TakuOS 1.4.0 / Android 17 / 20261118070714.** [GitHub Releases](https://github.com/Taku-OS/taku-os/releases/latest), [Public installation and updates](https://docs.taku.ai/zh/quickstart/mobile/), and the [release manifest](../docs/releases/latest.json) provide current downloads and validation scope. Dated entries below preserve historical states.
 
 For first-time builder setup, see [clean-environment preparation](builder/README.md). Runtime inputs may still require private-repository access; `python3 scripts/doctor.py --rom --network` anonymously checks reachability of pinned inputs and reports gaps without modifying anything.
 

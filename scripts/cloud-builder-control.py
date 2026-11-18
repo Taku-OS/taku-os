@@ -35,7 +35,7 @@ def request_context(env):
     require(str(uuid.UUID(request_id)) == request_id and uuid.UUID(request_id).int != 0,
             'Expected a canonical nonzero request UUID')
     require(env.get('GITHUB_REPOSITORY') == REPOSITORY
-            and env.get('GITHUB_REPOSITORY_ID') == '1412391504'
+            and env.get('GITHUB_REPOSITORY_ID') == '1462376421'
             and env.get('GITHUB_REPOSITORY_OWNER_ID') == '242648642'
             and env.get('GITHUB_REF') == 'refs/heads/main'
             and env.get('GITHUB_EVENT_NAME') == 'workflow_dispatch'

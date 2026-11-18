@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "product": "TakuOS",
+  "version": "1.4.0",
+  "build": "20261118070714",
+  "device": "tokay",
+  "model": "Pixel 9",
+  "androidRelease": "17",
+  "androidSdk": 37,
+  "platformSecurityPatch": "2026-10-01",
+  "firmwareBaseline": "CP2A.260805.005",
+  "releaseType": "development-preview",
+  "githubReleaseTag": "v1.4.0-20261118070714",
+  "fullOta": {
+    "filename": "TakuOS-1.4.0-tokay-20261118070714-full.zip",
+    "url": "https://worker.taku.ai/os-update/v1/download/taku-os/android/tokay/releases/20261118070714-22cb53203be9da8f/fbd50dcafa988357bce12a5e4e0e57879d127f898482d69d6bac913a552fdebe/full.zip",
+    "bytes": 2753748999,
+    "sha256": "9812a62734f6fe1512cc630c332b1d5338f2e166889e8fbf19a7c146b68bbed3"
+  },
+  "recovery": {
+    "filename": "TakuOS-1.4.0-tokay-20261118070714-recovery.zip",
+    "url": "https://github.com/Taku-OS/taku-os/releases/download/v1.4.0-20261118070714/TakuOS-1.4.0-tokay-20261118070714-recovery.zip",
+    "bytes": 42016690,
+    "sha256": "3a04cd4054418f5fa26d6588876e5d7d074c6a3eaa617fae38adee5a162d2b5a"
+  },
+  "recoveryImages": [
+    {
+      "file": "boot.img",
+      "bytes": 67108864,
+      "sha256": "29b73dfdcdfb61d5d4f67b245c44b4027cdf281d7011e0ceb91c583b632138cc"
+    },
+    {
+      "file": "dtbo.img",
+      "bytes": 16777216,
+      "sha256": "b394a2ba49c42f4bd5f77f303b768a2c274d824a122e879b7d9cad8e9cf21230"
+    },
+    {
+      "file": "vendor_kernel_boot.img",
+      "bytes": 67108864,
+      "sha256": "e8b3f30595a0c1da83d384883849874e380534be80b9d9531c9873ac72191115"
+    },
+    {
+      "file": "vendor_boot.img",
+      "bytes": 67108864,
+      "sha256": "af6c97d7f022c354a51074b7a5cf85874eeac21977567068a847da90ddd0f62d"
+    }
+  ],
+  "verification": {
+    "nativeUpdateSourceBuild": "20261111080323",
+    "nativeUpdateTargetBuild": "20261118070714",
+    "nativeUpdateAndRebootVerified": false,
+    "firstInstallFromStockVerified": false,
+    "emulatorImagePublished": false,
+    "recoverySignerMatchesOta": true
+  },
+  "documentationUrl": "https://docs.taku.ai/zh/quickstart/mobile/",
+  "licenseScope": "Original Taku source is Apache-2.0. Bundled third-party components retain their own terms."
+}
