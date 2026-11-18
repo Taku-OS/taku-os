@@ -37,7 +37,7 @@ index 0000000..f7f4885
 --- /dev/null
 +++ b/app/src/main/assets/taku/NOTICE
 @@ -0,0 +1,24 @@
-+Taku Input Method
++Taku 输入法 / Taku Input Method
 +
 +Derived from Fcitx5 for Android 0.1.3, commit
 +048f581c652367567b8ee5c28c5163b805288895
@@ -491,8 +491,8 @@ index c225eeb..3d5a2c4 100644
  <resources>
 -    <string name="app_name_release">Fcitx5</string>
 -    <string name="app_name_debug">Fcitx5 (Debug)</string>
-+    <string name="app_name_release">Taku Input Method</string>
-+    <string name="app_name_debug">Taku Input Method (Development)</string>
++    <string name="app_name_release">Taku 输入法</string>
++    <string name="app_name_debug">Taku 输入法 (开发版)</string>
      <string name="save">Speichern</string>
      <string name="input_methods">Eingabemethoden</string>
      <string name="add_input_method">Eingabemethode hinzufügen</string>
@@ -505,8 +505,8 @@ index 39b18a1..048b888 100644
  <resources>
 -    <string name="app_name_release">Fcitx5</string>
 -    <string name="app_name_debug">Fcitx5 (depuración)</string>
-+    <string name="app_name_release">Taku Input Method</string>
-+    <string name="app_name_debug">Taku Input Method (Development)</string>
++    <string name="app_name_release">Taku 输入法</string>
++    <string name="app_name_debug">Taku 输入法 (开发版)</string>
      <string name="save">Guardar</string>
      <string name="input_methods">Métodos de entrada</string>
      <string name="add_input_method">Añadir método de entrada</string>
@@ -519,8 +519,8 @@ index c591c27..f371469 100644
  <resources>
 -    <string name="app_name_release">Fcitx5</string>
 -    <string name="app_name_debug">Fcitx5 (デバッグ)</string>
-+    <string name="app_name_release">Taku Input Method</string>
-+    <string name="app_name_debug">Taku Input Method (Development)</string>
++    <string name="app_name_release">Taku 输入法</string>
++    <string name="app_name_debug">Taku 输入法 (开发版)</string>
      <string name="save">保存</string>
      <string name="input_methods">インプットメソッド</string>
      <string name="add_input_method">インプットメソッドの追加</string>
@@ -533,8 +533,8 @@ index ca797e4..b8662f9 100644
  <resources>
 -    <string name="app_name_release">Fcitx5</string>
 -    <string name="app_name_debug">Fcitx5 (디버그)</string>
-+    <string name="app_name_release">Taku Input Method</string>
-+    <string name="app_name_debug">Taku Input Method (Development)</string>
++    <string name="app_name_release">Taku 输入法</string>
++    <string name="app_name_debug">Taku 输入法 (开发版)</string>
      <string name="save">저장</string>
      <string name="input_methods">입력기</string>
      <string name="add_input_method">입력기 추가</string>
@@ -547,8 +547,8 @@ index 0e0ad61..f53db0c 100644
  <resources>
 -    <string name="app_name_release">Fcitx5</string>
 -    <string name="app_name_debug">Fcitx5 (Отладка)</string>
-+    <string name="app_name_release">Taku Input Method</string>
-+    <string name="app_name_debug">Taku Input Method (Development)</string>
++    <string name="app_name_release">Taku 输入法</string>
++    <string name="app_name_debug">Taku 输入法 (开发版)</string>
      <string name="save">Сохранить</string>
      <string name="input_methods">Методы ввода</string>
      <string name="add_input_method">Добавить метод ввода</string>
@@ -597,8 +597,8 @@ index fe1fd3a..a34c9b5 100644
  <resources>
 -    <string name="app_name_release">Fcitx5</string>
 -    <string name="app_name_debug">Fcitx5 (Debug)</string>
-+    <string name="app_name_release">Taku Input Method</string>
-+    <string name="app_name_debug">Taku Input Method (Development)</string>
++    <string name="app_name_release">Taku 输入法</string>
++    <string name="app_name_debug">Taku 输入法 (开发版)</string>
      <string name="save">Save</string>
      <string name="input_methods">Input Methods</string>
      <string name="add_input_method">Add Input Method</string>

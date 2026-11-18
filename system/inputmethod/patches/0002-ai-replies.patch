@@ -202,7 +202,7 @@ index 0000000..70a91b8
 +    private fun dp(n: Int) = (n * resources.displayMetrics.density).toInt()
 +    init {
 +        orientation = HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; visibility = GONE
-+        contentDescription = "Taku AI reply suggestions"
++        contentDescription = "Taku AI 联想输入"
 +        val scroll = HorizontalScrollView(context).apply {
 +            isHorizontalScrollBarEnabled = false; isFillViewport = true
 +            addView(content, LayoutParams(-2, -1))
@@ -250,8 +250,8 @@ index 0000000..70a91b8
 +        cancelRound()
 +        val session = generation
 +        token = UUID.randomUUID().toString(); val id = token
-+        message(if (fresh && previous.isNotEmpty()) "Thinking of more replies…" else "Thinking of a reply…")
-+        operation("⋯", "Thinking of replies", null)
++        message(if (fresh && previous.isNotEmpty()) "再帮你想几句…" else "让我想想怎么接这句话…")
++        operation("⋯", "正在想回复", null)
 +        task = service.lifecycleScope.launch {
 +            try {
 +                // Let the input window settle, while filtering accidental open/close events.
@@ -279,17 +279,17 @@ index 0000000..70a91b8
 +                if (response.getString("state") == "completed") {
 +                    val all = response.getJSONObject("result").getJSONArray("candidates")
 +                    candidates = (0 until all.length()).map { all.getJSONObject(it).getString("text") }
-+                    if (candidates.isEmpty()) failure("No suitable replies for this page yet", false)
++                    if (candidates.isEmpty()) failure("这页暂时没有合适的回复", false)
 +                    else render(session, ic)
-+                } else failure(response.optString("message", "Could not connect. Tap Retry on the right"), response.optString("code") == "auth_required")
++                } else failure(response.optString("message", "这次没接上，点右边再试一次"), response.optString("code") == "auth_required")
 +            } catch (e: CancellationException) { throw e }
-+            catch (_: Exception) { if (current(session, ic)) failure("Could not connect. Tap Retry on the right", false) }
++            catch (_: Exception) { if (current(session, ic)) failure("这次没接上，点右边再试一次", false) }
 +        }
 +    }
 +    private fun failure(text: String, reconnect: Boolean) {
 +        message(text)
-+        if (reconnect) operation("Connect", "Reconnect Codex account") { openAccount() }
-+        else operation("Retry", "Retry reply suggestions") { request(true) }
++        if (reconnect) operation("连接", "重新连接 Codex 账户") { openAccount() }
++        else operation("重试", "重试回复建议") { request(true) }
 +    }
 +    private fun render(session: Int, ic: InputConnection) {
 +        content.removeAllViews()
@@ -299,12 +299,12 @@ index 0000000..70a91b8
 +                this.text = text; textSize = 16f; setSingleLine(); ellipsize = TextUtils.TruncateAt.END
 +                gravity = Gravity.CENTER_VERTICAL; setTextColor(theme.candidateTextColor)
 +                setPadding(dp(12), 0, dp(12), 0); maxWidth = dp(260)
-+                contentDescription = "Reply suggestion: $text"; tooltipText = "Long-press to view the full reply"
++                contentDescription = "回复建议：$text"; tooltipText = "长按查看完整回复"
 +                setOnClickListener { insert(text, session, ic) }
 +                setOnLongClickListener { if (current(session, ic)) showPreview(text, session, ic); true }
 +            }, LayoutParams(-2, -1))
 +        }
-+        operation("New set", "Generate another set of replies") { request(true) }
++        operation("换一组", "换一组回复建议") { request(true) }
 +    }
 +    private fun insert(text: String, session: Int, ic: InputConnection) {
 +        if (current(session, ic)) { dismiss(); service.commitText(text) }
@@ -318,10 +318,10 @@ index 0000000..70a91b8
 +            orientation = VERTICAL; setPadding(dp(16), dp(12), dp(16), dp(12))
 +            background = GradientDrawable().apply { setColor(theme.popupBackgroundColor); cornerRadius = dp(16).toFloat(); setStroke(dp(1), theme.dividerColor) }
 +        }
-+        panel.addView(TextView(context).apply { this.text = "Full reply"; textSize = 13f; setTextColor(theme.candidateCommentColor); setPadding(0, 0, 0, dp(10)) })
++        panel.addView(TextView(context).apply { this.text = "完整回复"; textSize = 13f; setTextColor(theme.candidateCommentColor); setPadding(0, 0, 0, dp(10)) })
 +        val body = TextView(context).apply {
 +            this.text = text; textSize = 18f; setTextColor(theme.popupTextColor); setLineSpacing(dp(3).toFloat(), 1f)
-+            contentDescription = "Full reply: $text"
++            contentDescription = "完整回复：$text"
 +        }
 +        body.measure(MeasureSpec.makeMeasureSpec(width - dp(32), MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED))
 +        val available = (location[1] - top - dp(120)).coerceAtLeast(dp(48))
@@ -333,8 +333,8 @@ index 0000000..70a91b8
 +            if (primary) background = GradientDrawable().apply { setColor(theme.accentKeyBackgroundColor); cornerRadius = dp(10).toFloat() }
 +            setPadding(dp(14), 0, dp(14), 0); setOnClickListener { click() }
 +        }
-+        buttons.addView(button("Close", "Close full reply") { preview?.dismiss() }, LayoutParams(-2, dp(40)))
-+        buttons.addView(button("Insert this reply", "Insert full reply", true) { insert(text, session, ic) }, LayoutParams(-2, dp(40)))
++        buttons.addView(button("关闭", "关闭完整回复") { preview?.dismiss() }, LayoutParams(-2, dp(40)))
++        buttons.addView(button("填入这句", "填入完整回复", true) { insert(text, session, ic) }, LayoutParams(-2, dp(40)))
 +        panel.addView(buttons, LayoutParams(-1, -2))
 +        panel.measure(MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED))
 +        val window = PopupWindow(panel, width, -2, false).apply {
@@ -366,8 +366,8 @@ index 0000000..70a91b8
 +    override fun onDetachedFromWindow() { finishInput(); super.onDetachedFromWindow() }
 +    companion object {
 +        fun call(context: Context, request: JSONObject): JSONObject {
-+            val raw = context.contentResolver.call(Uri.parse("content://org.agentos.assistant.ime-replies"), "reply", request.toString(), null)?.getString("result") ?: error("Reply service is not connected")
-+            val result = JSONObject(raw); check(result.optBoolean("ok")) { result.optString("message", "Replies are temporarily unavailable") }
++            val raw = context.contentResolver.call(Uri.parse("content://org.agentos.assistant.ime-replies"), "reply", request.toString(), null)?.getString("result") ?: error("回复服务尚未连接")
++            val result = JSONObject(raw); check(result.optBoolean("ok")) { result.optString("message", "回复暂时不可用") }
 +            return result.getJSONObject("result")
 +        }
 +    }
@@ -396,7 +396,7 @@ index 0000000..b693801
 +    override fun onCreate(savedInstanceState: Bundle?) {
 +        super.onCreate(savedInstanceState)
 +        if (android.os.Build.VERSION.SDK_INT < 31) {
-+            setContentView(TextView(this).apply { text = "AI reply suggestions require Taku on Android 12 or later."; setPadding(32, 64, 32, 32) })
++            setContentView(TextView(this).apply { text = "AI 回复建议需要 Android 12 及以上的 Taku 系统。"; setPadding(32, 64, 32, 32) })
 +            return
 +        }
 +        val prefs = getSharedPreferences("taku-ai-replies", MODE_PRIVATE)
@@ -405,18 +405,18 @@ index 0000000..b693801
 +            val b = insets.getInsets(android.view.WindowInsets.Type.systemBars()); v.setPadding(40, b.top + 24, 40, b.bottom + 32); insets
 +        }
 +        fun label(value: String, size: Float = 16f) = TextView(this).apply { text = value; textSize = size; setPadding(0, 16, 0, 16) }
-+        page.addView(label("AI reply suggestions", 24f))
-+        page.addView(label("When you open the keyboard, review the current chat and offer optional replies. Long-press a candidate to read it fully, or tap on the right for a new set. Suggestions close when you start typing."))
-+        page.addView(label("Used only in apps you allow. A screenshot of the current page is sent to your selected image model. Password fields and private mode are excluded."))
++        page.addView(label("AI 回复建议", 24f))
++        page.addView(label("在你打开键盘时看看当前聊天，给你几句可选回复。长按候选可看完整回复，点右侧可换一组。开始打字后，建议就会收起。"))
++        page.addView(label("仅在你允许的应用中使用。当前页面截图会发送给你选择的图片模型；密码和隐私模式除外。"))
 +        page.addView(Switch(this).apply {
-+            text = "Enable reply suggestions"; isChecked = prefs.getBoolean("enabled", false)
++            text = "开启回复建议"; isChecked = prefs.getBoolean("enabled", false)
 +            setOnCheckedChangeListener { _, enabled -> prefs.edit().putBoolean("enabled", enabled).apply() }
 +        })
 +        page.addView(Button(this).apply {
-+            text = "Taku AI system settings"; isAllCaps = false
++            text = "Taku AI 系统设置"; isAllCaps = false
 +            setOnClickListener { runCatching { startActivity(Intent("org.agentos.action.AI_SETTINGS").setPackage("org.agentos.assistant")) } }
 +        })
-+        val modelStatus = label("Checking available image models…")
++        val modelStatus = label("正在查看可用的图片模型…")
 +        page.addView(modelStatus)
 +        val modelBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }; page.addView(modelBox)
 +        fun refresh() {
@@ -428,11 +428,11 @@ index 0000000..b693801
 +                    val models = (0 until all.length()).map { all.getJSONObject(it) }.filter { it.getBoolean("imageInput") }
 +                    runOnUiThread {
 +                        if (isFinishing || isDestroyed || round != refreshGeneration) return@runOnUiThread
-+                        modelStatus.text = if (models.isEmpty()) "First add an image-capable generation model in Taku model connections." else "Image model for reply suggestions"
++                        modelStatus.text = if (models.isEmpty()) "先在 Taku 模型连接中添加一个支持图片的生成模型。" else "回复建议使用的图片模型"
 +                        modelBox.removeAllViews()
 +                        if (models.isNotEmpty()) {
 +                            val defaultName = models.firstOrNull { it.getString("id") == system.optString("sceneGroup") }?.getString("name") ?: system.optString("sceneGroup")
-+                            val options = arrayOf("Follow system · $defaultName") + models.map { it.getString("name") }
++                            val options = arrayOf("跟随系统 · $defaultName") + models.map { it.getString("name") }
 +                            val ids = listOf("") + models.map { it.getString("id") }
 +                            modelBox.addView(Spinner(this).apply {
 +                                adapter = ArrayAdapter(this@AiRepliesSettingsActivity, android.R.layout.simple_spinner_dropdown_item, options)
@@ -444,11 +444,11 @@ index 0000000..b693801
 +                            })
 +                        }
 +                    }
-+                } catch (_: Exception) { runOnUiThread { if (!isDestroyed && round == refreshGeneration) modelStatus.text = "Reply service is not connected. Update Taku System Assistant first." } }
++                } catch (_: Exception) { runOnUiThread { if (!isDestroyed && round == refreshGeneration) modelStatus.text = "回复服务尚未连接，先更新 Taku 系统助手。" } }
 +            }.start()
 +        }
-+        page.addView(Button(this).apply { text = "Refresh image models"; setOnClickListener { refresh() } })
-+        page.addView(label("Allowed apps", 18f))
++        page.addView(Button(this).apply { text = "刷新图片模型"; setOnClickListener { refresh() } })
++        page.addView(label("允许使用的应用", 18f))
 +        val chosen = prefs.getStringSet("apps", emptySet()).orEmpty().toMutableSet()
 +        val launches = packageManager.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER), 0)
 +        launches.distinctBy { it.activityInfo.packageName }.sortedBy { it.loadLabel(packageManager).toString() }.forEach { app ->
@@ -551,8 +551,8 @@ index f1273cb..f6bc653 100644
          preferenceScreen = preferenceManager.createPreferenceScreen(requireContext()).apply {
 +            addCategory("Taku") {
 +                addPreference(androidx.preference.Preference(context).apply {
-+                    title = "AI reply suggestions"
-+                    summary = "Understand the current chat and suggest natural replies"
++                    title = "AI 回复建议"
++                    summary = "看懂当前聊天，帮你自然地接话"
 +                    setOnPreferenceClickListener {
 +                        startActivity(Intent(requireContext(), org.fcitx.fcitx5.android.input.ai.AiRepliesSettingsActivity::class.java))
 +                        true
