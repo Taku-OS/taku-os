@@ -6,13 +6,9 @@
 
 <p align="center">AI はシステムの一部です。エージェントは対応アプリをまたいでタスクを実行し、新しいアプリを作成し、カメラやセンサーを使い、接続されたデバイスと連携できます。利用できる機能は、デバイスの対応状況と権限によって異なります。</p>
 
-<p align="center"><a href="#はじめる">はじめる</a> · <a href="https://docs.taku.ai">ドキュメント</a> · <a href="https://github.com/Taku-OS/taku-os/releases">リリース</a></p>
-
-<p align="center"><a href="https://taku.ai">公式サイト</a> · <a href="https://discord.gg/NYK47Ngucm">Discord</a> · <a href="LICENSE">ライセンス</a> · <a href="https://github.com/Taku-OS/taku-os/stargazers">Stars</a></p>
+<p align="center"><a href="#はじめる">はじめる</a> · <a href="https://docs.taku.ai">ドキュメント</a> · <a href="https://github.com/Taku-OS/taku-os/releases">リリース</a> · <a href="https://taku.ai">公式サイト</a> · <a href="https://discord.gg/NYK47Ngucm">Discord</a> · <a href="LICENSE">ライセンス</a> · <a href="https://github.com/Taku-OS/taku-os/stargazers">Stars</a></p>
 
 <p align="center"><a href="README.md">English</a> | <a href="README.zh-CN.md">简体中文</a> | 日本語</p>
-
-> TODO: 英語 UI を使用した 10 秒間の実機 GIF を追加。
 
 ## Research Preview
 

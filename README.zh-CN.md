@@ -6,13 +6,9 @@
 
 <p align="center">让 AI 成为手机系统的一部分。Agent 可以跨支持的应用执行任务、创建新应用、调用相机和传感器，并与连接的设备交互。具体能力取决于设备支持情况和权限。</p>
 
-<p align="center"><a href="#开始使用">开始使用</a> · <a href="https://docs.taku.ai">文档</a> · <a href="https://github.com/Taku-OS/taku-os/releases">发布版本</a></p>
-
-<p align="center"><a href="https://taku.ai">官网</a> · <a href="https://discord.gg/NYK47Ngucm">Discord</a> · <a href="LICENSE">许可证</a> · <a href="https://github.com/Taku-OS/taku-os/stargazers">Stars</a></p>
+<p align="center"><a href="#开始使用">开始使用</a> · <a href="https://docs.taku.ai">文档</a> · <a href="https://github.com/Taku-OS/taku-os/releases">发布版本</a> · <a href="https://taku.ai">官网</a> · <a href="https://discord.gg/NYK47Ngucm">Discord</a> · <a href="LICENSE">许可证</a> · <a href="https://github.com/Taku-OS/taku-os/stargazers">Stars</a></p>
 
 <p align="center"><a href="README.md">English</a> | 简体中文 | <a href="README.ja.md">日本語</a></p>
-
-> TODO: 添加 10 秒真机 GIF，使用英文界面。
 
 ## Research Preview
 

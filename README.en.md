@@ -6,13 +6,9 @@
 
 <p align="center">AI is part of the system. The agent can work across supported apps, create new ones, use your camera and sensors, and interact with connected devices, subject to device support and permissions.</p>
 
-<p align="center"><a href="#get-started">Get started</a> · <a href="https://docs.taku.ai">Docs</a> · <a href="https://github.com/Taku-OS/taku-os/releases">Releases</a></p>
-
-<p align="center"><a href="https://taku.ai">Website</a> · <a href="https://discord.gg/NYK47Ngucm">Discord</a> · <a href="LICENSE">License</a></p>
+<p align="center"><a href="#get-started">Get started</a> · <a href="https://docs.taku.ai">Docs</a> · <a href="https://github.com/Taku-OS/taku-os/releases">Releases</a> · <a href="https://taku.ai">Website</a> · <a href="https://discord.gg/NYK47Ngucm">Discord</a> · <a href="LICENSE">License</a></p>
 
 <p align="center">English | <a href="README.zh-CN.md">简体中文</a> | <a href="README.ja.md">日本語</a></p>
-
-> TODO: Add the 10-second real-device GIF with English UI.
 
 ## Research Preview
 
