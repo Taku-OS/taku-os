@@ -1,5 +1,7 @@
 # Taku OS
 
+<p align="center"><img src="docs/media/taku-os-banner.gif" alt="Taku OS — どの時代にも、その時代の OS がある" width="100%"></p>
+
 **AI エージェントのための Android システム。**
 
 [English](README.md) · [简体中文](README.zh-CN.md) · 日本語

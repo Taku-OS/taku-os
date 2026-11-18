@@ -1,5 +1,7 @@
 # Taku OS
 
+<p align="center"><img src="docs/media/taku-os-banner.gif" alt="Taku OS — Every era needs its OS, for your phone" width="100%"></p>
+
 **An Android system built for agents.**
 
 [English](README.md) · [简体中文](README.zh-CN.md) · [日本語](README.ja.md)
