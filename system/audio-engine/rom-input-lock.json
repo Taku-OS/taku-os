@@ -101,13 +101,13 @@
   "assets": [
     {
       "path": "system/audio-engine/prebuilt/TakuAudioEngine.apk",
-      "sha256": "27a112b92eae837e6f86872d2d36b9d182cf2c87af11341f35046a5f25eb67ce",
-      "bytes": 34666235
+      "sha256": "1e0362c9c38972935b8c8d3a216675025731b448fa5d84d18230ff940e7d844e",
+      "bytes": 34670331
     },
     {
       "path": "system/audio-engine/prebuilt/audio-bridge.jar",
-      "sha256": "6d22a6e8ec6a2f390d452a239c3a231303d117abaea8b597593163dc7dcfb114",
-      "bytes": 1800376
+      "sha256": "1c3b98c845dd47f258b78b4f6f651c2babfb09c9b4db9f39da94f7656383ea2d",
+      "bytes": 1800344
     },
     {
       "path": "system/audio-engine/prebuilt/models/asr/README.md",
@@ -2068,9 +2068,9 @@
     "assets/licenses/sherpa-onnx-LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
     "classes.dex": "44cd972a944b9e77a9465652b57db4ae1b36307b06840b6aa808cffe26bed001",
     "lib/arm64-v8a/libonnxruntime.so": "33847ad43bffe204699fd4a27f7f3603452a8cdaf2f9a44983a0bc31ffcf2da1",
-    "lib/arm64-v8a/libsherpa-onnx-c-api.so": "c85e2382e2ca12b0513826be926eaccfea896b4cbf568182e287671ba526f80d",
+    "lib/arm64-v8a/libsherpa-onnx-jni.so": "3c6492ea91ea68fd3b72b9495efdde6dd913f6b58c387e3b07389cf335f4d26f",
     "lib/arm64-v8a/libsherpa-onnx-cxx-api.so": "5eabb2bcf5a8af66aeab37431c09fab4a9c65cdebf02bd7e50f8c589044bd70e",
-    "lib/arm64-v8a/libsherpa-onnx-jni.so": "3c6492ea91ea68fd3b72b9495efdde6dd913f6b58c387e3b07389cf335f4d26f"
+    "lib/arm64-v8a/libsherpa-onnx-c-api.so": "c85e2382e2ca12b0513826be926eaccfea896b4cbf568182e287671ba526f80d"
   },
   "credentialsIncluded": false,
   "models": "Bundled read-only system_ext ASR en/zh and Kokoro; no first-boot data copy"
