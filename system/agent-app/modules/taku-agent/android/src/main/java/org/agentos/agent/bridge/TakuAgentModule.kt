@@ -310,7 +310,7 @@ class TakuAgentModule : Module() {
 
   override fun definition() = ModuleDefinition {
     Name("TakuAgent")
-    Events("onOpenThread", "onDraft", "onImeInsets", "onSessionEventBatch", "onMatterEventBatch", "onConversationVisibility")
+    Events("onOpenConversation", "onOpenThread", "onDraft", "onImeInsets", "onSessionEventBatch", "onMatterEventBatch", "onConversationVisibility")
     OnCreate {
       val application = appContext.reactContext?.applicationContext as? Application
         ?: appContext.currentActivity?.application
@@ -387,6 +387,7 @@ class TakuAgentModule : Module() {
     }
 
     OnNewIntent { intent ->
+      if (intent.data == null) sendEvent("onOpenConversation", emptyMap<String, Any>())
       if (ConversationDrafts.hasPending()) sendEvent("onDraft", emptyMap<String, Any>())
       if (intent.getStringExtra(EXTRA_THREAD_ID)?.isNotBlank() == true) {
         // Retain the route when JS has not attached its listener or its context is rebuilt.
@@ -555,7 +556,15 @@ class TakuAgentModule : Module() {
     }.runOnQueue(Queues.MAIN)
 
     AsyncFunction("close") {
-      conversationActivity()?.moveTaskToBack(true)
+      conversationActivity()?.let { activity ->
+        if (activity.intent?.data != null) {
+          activity.intent = Intent(activity.intent).apply {
+            data = null
+            action = Intent.ACTION_MAIN
+          }
+        }
+        activity.moveTaskToBack(true)
+      }
       Unit
     }.runOnQueue(Queues.MAIN)
   }

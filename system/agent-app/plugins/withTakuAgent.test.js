@@ -44,6 +44,7 @@ test('captures drafts and route identity before Expo and restores the saved curr
   const onNew = result.slice(result.indexOf('  override fun onNewIntent'), result.indexOf('  override fun onSaveInstanceState'));
   assert.ok(onNew.indexOf('ConversationDrafts.offer(') < onNew.indexOf('super.onNewIntent(intent)'));
   assert.match(onNew, /if \(!intent.getStringExtra\(TakuAgentModule.EXTRA_THREAD_ID\).isNullOrBlank\(\)\) \{\s+PanelLaunchIntents.prepare\(intent\)/);
+  assert.match(onNew, /\} else if \(intent\.data != null \|\| getIntent\(\)\?\.data != null\) \{\s+setIntent\(intent\)/);
   assert.ok(onNew.indexOf('setIntent(intent)') < onNew.indexOf('super.onNewIntent(intent)'));
   assert.match(result, /PanelLaunchIntents.save\(this, outState\)\s+super.onSaveInstanceState\(outState\)/);
   assert.equal(configureConversationActivity(result), result);
