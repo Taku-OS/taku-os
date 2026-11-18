@@ -1,6 +1,6 @@
 # Security reporting and support scope
 
-Taku OS currently provides a Pixel 9 development preview; the source repository remains private. Original materials use Apache-2.0. This does not mean every system component, device or plugin has passed security acceptance.
+Taku OS currently provides a Pixel 9 development preview. Original materials use Apache-2.0. This does not mean every system component, device or plugin has passed security acceptance.
 
 ## Private reports
 

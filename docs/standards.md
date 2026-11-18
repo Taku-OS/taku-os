@@ -1,6 +1,6 @@
 # Engineering standards and release gates
 
-These requirements are based on official maintained documentation and do not mean the project has earned an OpenSSF Badge, REUSE certification, or any SLSA level. The repository currently remains Private, with original materials under Apache-2.0; external distribution still requires content and artifact review.
+These requirements are based on official maintained documentation and do not mean the project has earned an OpenSSF Badge, REUSE certification, or any SLSA level. Original materials are under Apache-2.0; external distribution still requires content and artifact review.
 
 | Area | Currently implemented | Still required before release |
 | --- | --- | --- |
@@ -26,7 +26,7 @@ These requirements are based on official maintained documentation and do not mea
 - [GitHub repository community health files](https://docs.github.com/en/communities/setting-up-your-project-for-healthy-contributions/creating-a-default-community-health-file)
 - [GitHub CODEOWNERS](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners)
 - [GitHub Actions security and commit-SHA pinning](https://docs.github.com/en/actions/security-for-github-actions/security-guides/security-hardening-for-github-actions)
-- [GitHub private vulnerability reporting](https://docs.github.com/en/code-security/security-advisories/working-with-repository-security-advisories-for-a-repository/configuring-private-vulnerability-reporting-for-a-repository) (handled by the existing public plugin community repository while the main source repository remains private)
+- [GitHub private vulnerability reporting](https://docs.github.com/en/code-security/security-advisories/working-with-repository-security-advisories-for-a-repository/configuring-private-vulnerability-reporting-for-a-repository) (handled by the existing public plugin community repository)
 - [OpenSSF Best Practices Badge criteria](https://www.bestpractices.dev/en/criteria)
 - [REUSE file-licensing specification](https://reuse.software/spec-3.3/)
 - [SemVer 2.0.0](https://semver.org/spec/v2.0.0.html)
