@@ -1,0 +1,28 @@
+{
+  "ok": true,
+  "app": "scenario_score",
+  "method": "score.add",
+  "result": {
+    "scores": {
+      "A": 3,
+      "B": -2
+    },
+    "history": [
+      {
+        "id": 1,
+        "team": "A",
+        "delta": 3,
+        "at": "2026-10-09T19:30:04.948Z"
+      },
+      {
+        "id": 3,
+        "team": "B",
+        "delta": -2,
+        "at": "2026-10-09T19:30:35.252Z"
+      }
+    ]
+  },
+  "revision": 5,
+  "replayed": false,
+  "durationMs": 0.84
+}

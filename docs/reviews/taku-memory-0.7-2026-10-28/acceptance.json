@@ -1,0 +1,113 @@
+{
+  "component": "Taku 记忆 0.7.0（versionCode 9）+ 助手 v73 + agentos-task-broker（同一提交）",
+  "status": "emulator_verified",
+  "recordedAt": "2026-10-28 北京时间",
+  "merge": {
+    "branchBase": "96e2409",
+    "main": "1199de2"
+  },
+  "device": {
+    "avd": "TakuRecall",
+    "serial": "emulator-5634",
+    "android": "16",
+    "api": 36,
+    "abi": "arm64-v8a",
+    "build": "sdk_phone64_arm64 userdebug test-keys",
+    "selinux": "Enforcing"
+  },
+  "artifacts": {
+    "TakuMemory-0.7.0-release.apk": "607222417cc21b20e3f42acf56e248600ef8be4fff7062d051b06ff058a4fce4",
+    "TakuMemory-0.7.0-debug-nomodel.apk": "8d5ccb499bd3863510d0a6edf0bba677fa390ec81f5b2a4e134d5e50199537ed",
+    "TakuMemoryTests-0.7.0.apk": "d5a2947075a9063fb87770ec8c5b0a774b14c086944f004af950c45213197e8e",
+    "agentos-task-broker-0.7.0.jar": "7e72c73a983bd75425cfaf3db723892dc491d65026cb1812752f21102f4f8980",
+    "AgentOSAssistant-v73.apk": "94da7aba5264e5b941b68376eb8bb7b4992a3592d300fa6ea884400df4c2c1b2"
+  },
+  "upgradeInPlace": {
+    "from": "0.5.0 debug, 22-day synthetic data, schema 3",
+    "records": 1537,
+    "vectors": 1537,
+    "graphNodes": 265,
+    "boardVersions": 22,
+    "cardVersions": 22,
+    "followsSystemDefault": true,
+    "from060Tested": false
+  },
+  "releaseCleanInstall": {
+    "debugHooksRejected": [
+      "configure testNow",
+      "maintain now",
+      "buildProfile"
+    ],
+    "capturedNotifications": 7,
+    "vectors": 7,
+    "modelExtractedBytes": 94851877,
+    "organize": {
+      "seconds": 64,
+      "tokens": {
+        "graph": 26765,
+        "board": 25330,
+        "card": 27019
+      },
+      "systemAiUsageRecords": 3
+    },
+    "privacy": {
+      "thirdPartyQuitPlanOnCard": false,
+      "instructionLikeMessageOnBoardOrCard": false
+    },
+    "cardSelectionMs": {
+      "first": 105,
+      "warm": 12
+    },
+    "deleteRecord": {
+      "graphNodes": "8 -> 6",
+      "boardAndCardVersionsDropped": true,
+      "rebuiltByMaintenanceJobSeconds": 38,
+      "deletedFactOnCard": false
+    },
+    "correctRecord": {
+      "searchNewText": "revision 2",
+      "cardUpdated": true
+    },
+    "retentionLimitNoCrash": true,
+    "takuAiMemoryOff": {
+      "organizeRefused": "系统 AI 已暂停这个功能",
+      "derivedUnchanged": true,
+      "usageRecorded": false
+    }
+  },
+  "componentTests": {
+    "StoreTests": 97,
+    "QueueTests": 69,
+    "ResultTests": 8,
+    "PresentationTests": 36,
+    "GatewayBoundaryTests": 2,
+    "SystemAiTests": 24,
+    "failures": 0,
+    "notRun": {
+      "SharedAiClientTests": "needs operator authorization in Taku AI and a live model call; main's client, unchanged by the merge"
+    }
+  },
+  "ui": {
+    "languages": [
+      "zh-CN",
+      "en-US"
+    ],
+    "screens": [
+      "settings",
+      "board",
+      "user card"
+    ]
+  },
+  "checks": {
+    "npm run verify": "pass",
+    "npm run build:android": "pass"
+  },
+  "notCovered": [
+    "22-day agent regression on the merged build",
+    "upgrade from main 0.6.0 on device",
+    "same-version physical device",
+    "full ROM",
+    "cold boot",
+    "long-term battery"
+  ]
+}

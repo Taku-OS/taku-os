@@ -1,0 +1,20 @@
+{
+  "date": "2026-10-14",
+  "scope": "Taku_ImageIntegration_20261010 / emulator-5634",
+  "defaultIme": "com.android.inputmethod.latin/.LatinIME",
+  "availableImeCount": 1,
+  "hardwareKeyboardConfigured": false,
+  "androidUnicodeClipboardVerified": true,
+  "testSeconds": 4.85,
+  "testString": "Synthetic Chinese/punctuation/emoji only; no message submitted",
+  "draftAndClipboardRestored": true,
+  "macImeDirectCompositionVerified": false,
+  "scrcpyClipboardEndToEndVerified": false,
+  "scrcpyVersion": "4.1",
+  "physicalDeviceChanged": false,
+  "sources": [
+    "https://developer.android.com/studio/run/emulator-console",
+    "https://github.com/Genymobile/scrcpy/blob/master/doc/control.md",
+    "https://github.com/Genymobile/scrcpy/blob/master/doc/keyboard.md"
+  ]
+}

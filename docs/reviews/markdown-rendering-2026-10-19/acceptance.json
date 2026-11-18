@@ -1,0 +1,36 @@
+{
+  "version": 54,
+  "sha256": "de4921d5025136e22e01a9cd1c67cafcf8db2a18e437ead8d91a76914175d40d",
+  "installedMatchesBuild": true,
+  "status": "emulator_verified",
+  "device": "Taku_ImageIntegration_20261010 / emulator-5634",
+  "api": 36,
+  "abi": "arm64-v8a",
+  "fixtureChecksPerTheme": 81,
+  "fixtureThemes": [
+    "light",
+    "dark"
+  ],
+  "conversationRendererChecks": 52,
+  "realModelTest": {
+    "threadId": "01a152e8-2971-7b91-b228-3757d0d62386",
+    "turnId": "01a152e8-58dc-7e03-bf7d-e2e6d77dd669",
+    "modelResponsesSimulated": false,
+    "formattedHeadingsAndInlineText": true,
+    "codeLiteralPreserved": true,
+    "tableAndLinkRendered": true,
+    "lightAndDark": true
+  },
+  "commands": [
+    "npm run verify",
+    "npm run build:android",
+    "bash system/assistant/capture-drawer-visual.sh --verify-markdown",
+    "bash system/assistant/capture-drawer-visual.sh --verify-conversation",
+    "bash system/assistant/test-agent-interface.sh --test testNativeMarkdown"
+  ],
+  "localRawEvidence": "out/native-conversation-ui/20261019T064506Z-20878",
+  "restoredOriginalConversationAndTheme": true,
+  "fullRomBuilt": false,
+  "physicalDeviceVerified": false,
+  "specializedMermaidMathDesktopPreviews": false
+}

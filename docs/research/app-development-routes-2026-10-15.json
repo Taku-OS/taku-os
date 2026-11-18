@@ -1,0 +1,30 @@
+{
+  "reviewedOn": "2026-10-15",
+  "historicalOnly": true,
+  "currentDedicatedAppDevelopmentSkillInstalled": false,
+  "deviceSkillsInspectedWithoutReadingCredentials": true,
+  "guidanceUsed": [
+    "Explicit per-run prompts",
+    "api/generation-contract.txt",
+    "seed/main.jsx and seed/ui.jsx",
+    "build.sh / package-app.sh / build-native.sh"
+  ],
+  "routes": [
+    "WebView HTML/React shared runtime and hybrid APK export",
+    "Doric native UI host",
+    "HapJS RPK",
+    "On-device Java/Dex native APK"
+  ],
+  "earlyConfigPrototype": "Fixed JSON/component schema; not arbitrary application source generation",
+  "unifiedAppServerDeveloperRoutingVerified": false,
+  "historicalGenerateScriptStartsSeparateCodexExec": true,
+  "oldWebViewPersistenceFailurePreserved": true,
+  "sourcePointers": [
+    "tooling/app-kit/README.md",
+    "tooling/app-kit/generate.sh",
+    "docs/scenario-acceptance.md",
+    "examples/scenarios/native-system-app-probe.txt",
+    "android-agent-os/2026-10-09/light-app-lab/README.md"
+  ],
+  "boundary": "Historical evidence review; no rerun of old devices or new framework suitability benchmark."
+}

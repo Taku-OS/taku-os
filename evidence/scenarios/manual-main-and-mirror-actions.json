@@ -1,0 +1,34 @@
+{
+  "execution": "test operator ADB inputs to main display0; these are not phone model actions",
+  "taskId": "1791574373107",
+  "actions": [
+    {
+      "phase": "broker running",
+      "command": "input -d 0 tap 285 1081",
+      "purpose": "start focus timer on main Home",
+      "evidence": "07-main-focus-while-agent-running.png"
+    },
+    {
+      "phase": "broker running",
+      "command": "input -d 0 tap 794 401",
+      "purpose": "open native Mirror to observe; no preview input while model active",
+      "evidence": "08-native-mirror-observing-agent.png"
+    },
+    {
+      "phase": "broker completed",
+      "command": "input -d 0 swipe 540 1470 540 780 600",
+      "purpose": "touch native preview; Mirror forwards mapped gesture to background11",
+      "evidence": [
+        "10-mirror-manual-before.png",
+        "11-mirror-manual-after.png",
+        "mobile-use/manual-after.png"
+      ]
+    },
+    {
+      "phase": "broker completed",
+      "purpose": "native widget manager remove input and focus reset25min",
+      "evidence": "12-completed-home-widget-removed.png"
+    }
+  ],
+  "arbitration": "not implemented; post-completion control does not prove automatic agent pause"
+}

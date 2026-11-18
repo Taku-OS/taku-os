@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "God Mode Evidence record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "subject", "targetHash", "targetHashAlgorithm", "operation", "params", "result", "summary", "confidence", "authority", "limitations", "coverage", "locations", "links", "unknown", "externalContent", "untrustedContentFields"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "subject": {"type": "string"},
+    "targetHash": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+    "targetHashAlgorithm": {"const": "sha256-file-list-v1"},
+    "operation": {"type": "string"},
+    "params": {"type": "object"},
+    "result": {},
+    "summary": {"type": "string"},
+    "confidence": {"enum": ["observed", "derived", "inferred"]},
+    "authority": {"enum": ["original-files", "controlled-run", "earlier-record", "outside-service", "reasoning"]},
+    "limitations": {"type": "array", "items": {"type": "string"}},
+    "coverage": {"enum": ["complete", "partial"]},
+    "locations": {"type": "array"},
+    "links": {"type": "array"},
+    "unknown": {"type": "array"},
+    "externalContent": {"type": "boolean"},
+    "untrustedContentFields": {"type": "array", "items": {"type": "string"}}
+  }
+}

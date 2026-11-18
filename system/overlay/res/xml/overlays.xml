@@ -1,0 +1,6 @@
+<overlay>
+ <item target="string/settings_label" value="@string/lab_settings"/>
+ <item target="string/settings_label_launcher" value="@string/lab_settings"/>
+ <item target="string/about_settings" value="@string/lab_about"/>
+ <item target="string/about_settings_summary" value="@string/lab_summary"/>
+</overlay>

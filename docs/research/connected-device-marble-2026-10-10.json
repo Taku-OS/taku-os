@@ -1,0 +1,169 @@
+{
+  "schema": "taku.connected-device-assessment/1",
+  "checkedAt": "2026-10-10T17:41:33+08:00",
+  "method": "ADB on the single connected, authorized USB device; closed property list, id, uname and getenforce only",
+  "device": {
+    "marketName": "Redmi Note 12 Turbo",
+    "model": "23049RAD8C",
+    "codename": "marble",
+    "region": "CN",
+    "soc": "Qualcomm SM7475 / Snapdragon 7+ Gen 2",
+    "android": "15",
+    "apiLevel": 35,
+    "os": "HyperOS 3.0",
+    "build": "OS3.0.5.0.VMRCNXM",
+    "securityPatch": "2026-05-01",
+    "kernel": "5.10.236-android12-9-00003-gfb24cf99ad97-ab14313284",
+    "abi": "arm64-v8a"
+  },
+  "observations": {
+    "bootFlashLocked": "1",
+    "vbmetaDeviceState": "locked",
+    "verifiedBootState": "green",
+    "sysOemUnlockAllowed": "1",
+    "globalOemUnlockSetting": null,
+    "adbCallerUid": 2000,
+    "selinux": "Enforcing",
+    "suFoundInShellPath": false,
+    "fastbootDeviceVisible": false,
+    "xiaomiAccountEligibility": "not_checked",
+    "accountDeviceBinding": "not_checked",
+    "serverWaitingTime": "not_checked",
+    "oemSettingGuiVerified": false
+  },
+  "conclusion": "The early cheese GPU probe actually ran this round; no root was obtained and BL remains locked. No-wait unlocking of this HyperOS 3.0.5 Redmi is not confirmed.",
+  "projects": [
+    {
+      "name": "MiForge/MiUnlockTool",
+      "assessment": "Candidate: maintainer supports macOS/Linux, but HyperOS community eligibility, account-device binding, and server permission remain required; actual unlocking of this device is unverified",
+      "url": "https://github.com/MiForge/MiUnlockTool/blob/main/FAQ.md"
+    },
+    {
+      "name": "Official MiFlashUnlock",
+      "assessment": "Official client uses Windows; changing computer platforms does not eliminate account review or waiting",
+      "url": "https://github.com/MiForge/MiUnlockTool"
+    },
+    {
+      "name": "HyperSploit",
+      "assessment": "Excluded as a currently usable route: maintainer says fixed from HyperOS 3 onward and no longer maintained",
+      "url": "https://github.com/TheAirBlow/HyperSploit"
+    },
+    {
+      "name": "Xiaomi-HyperOS-BootLoader-Bypass",
+      "assessment": "No guarantee: old status.md lists marble Opening, but that does not establish current HyperOS 3.0.5 server/firmware support",
+      "url": "https://github.com/MlgmXyysd/Xiaomi-HyperOS-BootLoader-Bypass/blob/master/status.md"
+    },
+    {
+      "name": "mtkclient / Xiaomi MTK RPMB",
+      "assessment": "Not applicable: this is Qualcomm, not MediaTek",
+      "url": "https://github.com/Jz8Root/xiaomi-hyperos-bootloader-unlock/blob/main/COMPATIBILITY.md"
+    },
+    {
+      "name": "Pixel Root projects",
+      "assessment": "Not applicable: this is not Pixel; the general GhostLock project has not confirmed full kernel/build support, and temporary root is not BL unlocking",
+      "url": "https://github.com/JingMatrix/pixel-ksu-root"
+    }
+  ],
+  "sources": [
+    "https://github.com/MiForge/MiUnlockTool/blob/main/INSTALL.md",
+    "https://github.com/MiForge/MiUnlockTool/blob/main/FAQ.md",
+    "https://raw.githubusercontent.com/TheAirBlow/HyperSploit/master/README.md",
+    "https://xiaomi.gcs-web.com/static-files/372a91cb-fd00-4ae8-a4f0-1a7236a4dcfd"
+  ],
+  "didReboot": false,
+  "didInstall": false,
+  "didBindAccount": false,
+  "didUnlock": false,
+  "didFlash": false,
+  "didReadCredentials": false,
+  "didEraseData": false,
+  "serialImeiOrAccountPersisted": false,
+  "noWaitAudit": {
+    "firmwareRechecked": "OS3.0.5.0.VMRCNXM; BL still locked",
+    "newFinding": "A public Qualcomm NO_AVB / Keymaster BL-state modification PoC exists, but complete support evidence for the current marble build was not obtained.",
+    "readOnlyPrerequisiteChecks": {
+      "gpuNodePresent": true,
+      "gpuNodeReadableWritableByShell": true,
+      "ablPartitionsReadableWritableByShell": false,
+      "vbmetaPartitionsReadableWritableByShell": false,
+      "efispVisible": false,
+      "activeSlot": "b"
+    },
+    "interpretation": "An accessible GPU node does not establish exploitability. The current shell cannot read/write partitions; separate temporary-root and NO_AVB PoCs cannot be treated as a working unlock chain.",
+    "candidates": [
+      {
+        "name": "Qualcomm NO_AVB / Keymaster PoC",
+        "url": "https://github.com/atlas4381/qualcomm_avb_exploit_poc",
+        "doesChangeBlState": true,
+        "authorTestedDevice": "Redmi 14R / flame",
+        "license": "Apache-2.0",
+        "archivedOn": "2026-09-21",
+        "prerequisite": "First obtain partition-table and partition-write access, with unpatched target ABL / Keymaster and completed device adaptation",
+        "currentDeviceVerified": false
+      },
+      {
+        "name": "NO_AVB common",
+        "url": "https://github.com/kasnria001/qualcomm_noavb_exploit_common",
+        "license": "MIT",
+        "status": "Author marks still in progress; interface adaptation remains incomplete",
+        "currentDeviceVerified": false
+      },
+      {
+        "name": "Adreno GPU CVE-2025-21479",
+        "url": "https://github.com/zhuowei/cheese",
+        "doesChangeBlState": false,
+        "status": "Original project primarily verifies specific Quest versions or GPU primitives; not a one-click BL unlocker adapted to this phone",
+        "sameDeviceReport": "A community roundup reports signs of temporary root on marble / Android15 / SPL2026-05-01; the complete original post and runtime results were not directly verified this round",
+        "reportUrl": "https://github.com/lokey0905/rootWithoutUnlockBootloaderList",
+        "currentDeviceVerified": false
+      },
+      {
+        "name": "UT Tool Temp UBL",
+        "url": "https://www.unlockturkeytool.com/?lang=en",
+        "license": "closed commercial tool",
+        "status": "Vendor documentation lists marble and explicitly calls it temporary UBL, possibly relocking after reboot; no complete success/persistence evidence for current firmware",
+        "currentDeviceVerified": false
+      }
+    ],
+    "decision": "Technical candidates avoiding account waiting were found, but no ready-made route is confirmed to execute directly on current firmware, permanently unlock, and recover reproducibly.",
+    "didRunGpuExploit": false,
+    "didModifyPartitionTable": false,
+    "didWriteRpmb": false,
+    "didPay": false
+  },
+  "attempt": {
+    "checkedAt": "2026-10-10T18:37:50.098300+08:00",
+    "method": "macOS NDK 26.1 build, targeted ADB upload, one invocation of upstream historical GPU probe, device timeout 8 seconds, post-test health and BL checks, remove uploaded binary",
+    "upstream": "https://github.com/zhuowei/cheese/blob/af6c0ecc1ebe4934f319b717e6583febe859cbbe/cheese.c",
+    "commit": "af6c0ecc1ebe4934f319b717e6583febe859cbbe",
+    "sourceChanges": "none; upstream source and header compiled unchanged",
+    "binarySha256": "4523cac64aed5ed9be85f92f42c932c2dfa2fff21497d8eccc8709976bb0cae4",
+    "probeOutput": "0 42424242 (six samples)",
+    "exitCode": 124,
+    "exitMeaning": "The upstream probe has an infinite observation loop; device timeout terminated the test at 8 seconds. This is not an unlock error code.",
+    "interpretation": "Output matches neither upstream README expectation, 0 0 nor 41414141 42424242; it establishes neither vulnerability presence, patch status, nor arbitrary memory-write access.",
+    "kernelDiagnostics": "dmesg returned Permission denied; kernel logcat with kgsl/Adreno tags returned no entries. No full bugreport or general logcat collected.",
+    "postTest": {
+      "uid": 2000,
+      "selinux": "Enforcing",
+      "bootFlashLocked": "1",
+      "vbmetaDeviceState": "locked",
+      "verifiedBootState": "green",
+      "adbResponsive": true,
+      "uptimeSecondsBefore": 187900.9,
+      "uptimeSecondsAfter": 188216.97,
+      "rebootObserved": false,
+      "probeProcessRemaining": false,
+      "uploadedBinaryRemoved": true
+    },
+    "didRunGpuProbe": true,
+    "didRunCompleteRootExploit": false,
+    "didGetRoot": false,
+    "didUnlock": false,
+    "didFlash": false,
+    "didModifyPartitionTable": false,
+    "didWriteRpmb": false,
+    "didEraseData": false,
+    "conclusion": "The prerequisite GPU probe actually ran, but did not establish exploitability; no root was obtained and BL remains locked. No successful no-wait unlock chain for this device is verified. Neither the full Quest root program nor NO_AVB partition modifications were executed."
+  }
+}

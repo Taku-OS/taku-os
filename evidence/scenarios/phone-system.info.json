@@ -1,0 +1,1 @@
+{"protocol":"taku/0.1","type":"response","id":"device-cli","ok":true,"result":{"model":"Android SDK built for arm64","manufacturer":"unknown","androidRelease":"16","apiLevel":"36","securityPatch":"2025-07-05","abi":"arm64-v8a","buildType":"userdebug","selinux":"Enforcing","callerUid":"0"}}

@@ -1,0 +1,414 @@
+diff --git a/quickstep/src/com/android/quickstep/NavHandleDoubleTap.java b/quickstep/src/com/android/quickstep/NavHandleDoubleTap.java
+new file mode 100644
+index 0000000..558d176
+--- /dev/null
++++ b/quickstep/src/com/android/quickstep/NavHandleDoubleTap.java
+@@ -0,0 +1,110 @@
++/*
++ * Copyright (C) 2026 Taku
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++package com.android.quickstep;
++
++import static com.android.internal.app.AssistUtils.INVOCATION_TYPE_GESTURE;
++import static com.android.internal.app.AssistUtils.INVOCATION_TYPE_KEY;
++
++import android.content.Context;
++import android.os.Bundle;
++import android.view.MotionEvent;
++import android.view.ViewConfiguration;
++
++/**
++ * Taku: double tap on the gesture navigation handle opens the assistant (the text composer).
++ * It watches the input monitor's events passively and never consumes them. A single tap on
++ * the handle still does nothing, and swipes cancel tracking before they become gestures.
++ */
++final class NavHandleDoubleTap {
++    /** Lets the assistant tell this entry point apart from the other gestures. */
++    static final String EXTRA_TRIGGER = "org.agentos.assistant.extra.TRIGGER";
++    static final String TRIGGER = "nav_handle_double_tap";
++
++    private boolean mTracking;
++    private float mDownX;
++    private float mDownY;
++    private long mDownTime;
++    private long mLastUpTime = -1;
++    private float mLastUpX;
++    private float mLastUpY;
++
++    /** A new gesture starts; [eligible] is false outside the handle region or gesture nav. */
++    void onDown(Context context, MotionEvent event, boolean eligible) {
++        ViewConfiguration config = ViewConfiguration.get(context);
++        if (mLastUpTime >= 0) {
++            float slop = config.getScaledDoubleTapSlop();
++            if (!eligible
++                    || event.getEventTime() - mLastUpTime > ViewConfiguration.getDoubleTapTimeout()
++                    || distanceSquared(event.getRawX() - mLastUpX, event.getRawY() - mLastUpY) > slop * slop) {
++                mLastUpTime = -1;
++            }
++        }
++        mTracking = eligible && !TakuNavHandleBridge.locked(context);
++        mDownX = event.getRawX();
++        mDownY = event.getRawY();
++        mDownTime = event.getEventTime();
++    }
++
++    /** Feeds the rest of the gesture; true when this event completes a double tap. */
++    boolean onEvent(Context context, MotionEvent event) {
++        if (!mTracking) return false;
++        switch (event.getActionMasked()) {
++            case MotionEvent.ACTION_MOVE: {
++                float slop = ViewConfiguration.get(context).getScaledTouchSlop();
++                if (distanceSquared(event.getRawX() - mDownX, event.getRawY() - mDownY) > slop * slop) reset();
++                return false;
++            }
++            case MotionEvent.ACTION_UP: {
++                mTracking = false;
++                if (event.getEventTime() - mDownTime >= ViewConfiguration.getLongPressTimeout()) {
++                    mLastUpTime = -1;
++                    return false;
++                }
++                if (mLastUpTime >= 0) {
++                    mLastUpTime = -1;
++                    return true;
++                }
++                mLastUpTime = event.getEventTime();
++                mLastUpX = event.getRawX();
++                mLastUpY = event.getRawY();
++                return false;
++            }
++            case MotionEvent.ACTION_POINTER_DOWN:
++            case MotionEvent.ACTION_CANCEL:
++                reset();
++                return false;
++            default:
++                return false;
++        }
++    }
++
++    /** Arguments for SystemUiProxy#startAssistant. */
++    static Bundle assistantArgs() {
++        Bundle args = new Bundle();
++        args.putInt(INVOCATION_TYPE_KEY, INVOCATION_TYPE_GESTURE);
++        args.putString(EXTRA_TRIGGER, TRIGGER);
++        return args;
++    }
++
++    private void reset() {
++        mTracking = false;
++        mLastUpTime = -1;
++    }
++
++    private static float distanceSquared(float dx, float dy) {
++        return dx * dx + dy * dy;
++    }
++}
+diff --git a/quickstep/src/com/android/quickstep/TakuNavHandleBridge.java b/quickstep/src/com/android/quickstep/TakuNavHandleBridge.java
+new file mode 100644
+index 0000000..9902256
+--- /dev/null
++++ b/quickstep/src/com/android/quickstep/TakuNavHandleBridge.java
+@@ -0,0 +1,123 @@
++/* Copyright (C) 2026 Taku. Licensed under the Apache License, Version 2.0. */
++package com.android.quickstep;
++
++import android.app.KeyguardManager;
++import android.content.ComponentName;
++import android.content.Context;
++import android.net.Uri;
++import android.os.Bundle;
++import android.os.Handler;
++import android.os.Looper;
++import android.os.SystemClock;
++import android.os.UserHandle;
++import android.util.Log;
++import android.view.MotionEvent;
++import android.widget.Toast;
++import com.android.internal.app.AssistUtils;
++import org.json.JSONObject;
++import java.util.UUID;
++import java.util.concurrent.ExecutorService;
++import java.util.concurrent.Executors;
++
++/** Ordered lifecycle bridge; UI activation is a separate handshake, so a late launch cannot open mic. */
++public final class TakuNavHandleBridge {
++    private static final Uri URI = Uri.parse("content://org.agentos.agent.home-assistant");
++    private static final ExecutorService IO = Executors.newSingleThreadExecutor();
++    private static final Handler MAIN = new Handler(Looper.getMainLooper());
++    private final Context context;
++    private final String id = UUID.randomUUID().toString();
++    private long sequence;
++    private boolean started;
++    private boolean closed;
++    private long lastMove;
++    private final Runnable heartbeat = new Runnable() {
++        @Override public void run() {
++            if (closed || !started) return;
++            if (!isSelected(context) || locked(context)) { finish(true); return; }
++            send("heartbeat", null);
++            MAIN.postDelayed(this, 500);
++        }
++    };
++
++    public TakuNavHandleBridge(Context context) { this.context = context.getApplicationContext(); }
++
++    public static boolean isSelected(Context context) {
++        ComponentName assistant = new AssistUtils(context).getAssistComponentForUser(UserHandle.myUserId());
++        return assistant != null && "org.agentos.agent".equals(assistant.getPackageName());
++    }
++    public static boolean locked(Context context) {
++        KeyguardManager keyguard = context.getSystemService(KeyguardManager.class);
++        return keyguard == null || keyguard.isKeyguardLocked();
++    }
++
++    /** Called only after Quickstep has pilfered pointers and cancelled its navigation delegate. */
++    public void begin() {
++        if (closed || started || !isSelected(context) || locked(context)) return;
++        started = true;
++        final long time = SystemClock.uptimeMillis();
++        IO.execute(() -> {
++            try {
++                JSONObject request = new JSONObject().put("id", id).put("action", "prepare")
++                        .put("source", "system").put("time", time);
++                call(request);
++                MAIN.post(() -> {
++                    if (closed || !isSelected(context) || locked(context)) { finish(true); return; }
++                    Bundle args = new Bundle();
++                    args.putInt(AssistUtils.INVOCATION_TYPE_KEY, AssistUtils.INVOCATION_TYPE_GESTURE);
++                    args.putString("org.agentos.assistant.extra.TRIGGER", "nav_handle_long_press");
++                    args.putString("org.agentos.assistant.extra.GESTURE_ID", id);
++                    SystemUiProxy.INSTANCE.get(context).startAssistant(args);
++                });
++            } catch (Exception failure) { unavailable(failure); }
++        });
++        MAIN.postDelayed(heartbeat, 500);
++    }
++
++    public void move(MotionEvent event) {
++        if (closed || !started || event.getEventTime() - lastMove < 50) return;
++        lastMove = event.getEventTime();
++        send("move", event);
++    }
++
++    /** The final coordinates are sent before END even when the last MOVE was coalesced. */
++    public void end(MotionEvent event) {
++        if (!closed && started) send("move", event);
++        finish(false);
++    }
++
++    public void finish(boolean cancelled) {
++        if (closed) return;
++        closed = true;
++        MAIN.removeCallbacks(heartbeat);
++        if (started) send(cancelled ? "cancel" : "end", null);
++    }
++
++    private void send(String action, MotionEvent event) {
++        final JSONObject p = new JSONObject();
++        try {
++            p.put("id", id).put("action", action).put("sequence", ++sequence)
++                    .put("time", SystemClock.uptimeMillis());
++            if (event != null) {
++                android.graphics.Rect bounds = context.getSystemService(android.view.WindowManager.class)
++                        .getMaximumWindowMetrics().getBounds();
++                p.put("x", event.getRawX()).put("y", event.getRawY())
++                        .put("width", bounds.width()).put("height", bounds.height());
++            }
++        } catch (Exception failure) { unavailable(failure); return; }
++        IO.execute(() -> { try { call(p); } catch (Exception failure) { unavailable(failure); } });
++    }
++
++    private void call(JSONObject p) throws Exception {
++        Bundle response = context.getContentResolver().call(URI, "gesture/event", p.toString(), null);
++        JSONObject result = new JSONObject(response == null ? "{}" : response.getString("result", "{}"));
++        if (!result.optBoolean("ok")) throw new IllegalStateException(result.optString("code", "UNAVAILABLE"));
++    }
++
++    private void unavailable(Exception failure) {
++        Log.w("TakuNavHandle", "Taku voice entry unavailable", failure);
++        MAIN.post(() -> {
++            if (!closed) Toast.makeText(context, "Taku is unavailable. Please try again.", Toast.LENGTH_SHORT).show();
++            finish(true); // No Google fallback. The peer lease also expires if IPC is broken.
++        });
++    }
++}
+diff --git a/quickstep/src/com/android/quickstep/TouchInteractionHandler.java b/quickstep/src/com/android/quickstep/TouchInteractionHandler.java
+index d46eaf8..782579b 100644
+--- a/quickstep/src/com/android/quickstep/TouchInteractionHandler.java
++++ b/quickstep/src/com/android/quickstep/TouchInteractionHandler.java
+@@ -196,6 +196,9 @@ public class TouchInteractionHandler extends ContextWrapper {
+     private final SystemUiProxy mSystemUiProxy;
+ 
+     private final PostUnlockObject<OverviewCommandHelper> mOverviewCommandHelper;
++
++    // Taku: double tap on the gesture handle opens the assistant.
++    private final NavHandleDoubleTap mNavHandleDoubleTap = new NavHandleDoubleTap();
+     private final PostUnlockObject<OverviewComponentObserver> mOverviewComponentObserver;
+ 
+     private final AllAppsActionManager mAllAppsActionManager;
+@@ -575,6 +578,9 @@ public class TouchInteractionHandler extends ContextWrapper {
+ 
+             boolean isOneHandedModeActive = deviceState.isOneHandedModeActive();
+             boolean isInSwipeUpTouchRegion = rotationTouchHelper.isInSwipeUpTouchRegion(event);
++            mNavHandleDoubleTap.onDown(this, event, action == ACTION_DOWN
++                    && displayId == DEFAULT_DISPLAY && !isOneHandedModeActive
++                    && isInSwipeUpTouchRegion && deviceState.isFullyGesturalNavMode());
+             BubbleControllers bubbleControllers = tac != null ? tac.getBubbleControllers() : null;
+             boolean isOnBubbles = bubbleControllers != null
+                     && BubbleBarInputConsumer.isEventOnBubbles(tac, event);
+@@ -664,6 +670,10 @@ public class TouchInteractionHandler extends ContextWrapper {
+             }
+         }
+ 
++        if (action != ACTION_DOWN && mNavHandleDoubleTap.onEvent(this, event)) {
++            mSystemUiProxy.startAssistant(NavHandleDoubleTap.assistantArgs());
++        }
++
+         if (inputResource.uncheckedConsumer.getType() != InputConsumer.TYPE_NO_OP) {
+             switch (action) {
+                 case ACTION_DOWN:
+diff --git a/quickstep/src/com/android/quickstep/inputconsumers/NavHandleLongPressInputConsumer.java b/quickstep/src/com/android/quickstep/inputconsumers/NavHandleLongPressInputConsumer.java
+index 9db9abe..aaad22b 100644
+--- a/quickstep/src/com/android/quickstep/inputconsumers/NavHandleLongPressInputConsumer.java
++++ b/quickstep/src/com/android/quickstep/inputconsumers/NavHandleLongPressInputConsumer.java
+@@ -24,6 +24,7 @@ import static com.android.launcher3.util.Executors.MAIN_EXECUTOR;
+ import static com.android.launcher3.util.LogConfig.NAV_HANDLE_LONG_PRESS;
+ 
+ import android.content.Context;
++import com.android.quickstep.TakuNavHandleBridge;
+ import android.util.Log;
+ import android.view.MotionEvent;
+ import android.view.ViewConfiguration;
+@@ -63,6 +64,10 @@ public class NavHandleLongPressInputConsumer extends DelegateInputConsumer {
+     // Minimum time between touch down and abandon to log.
+     @VisibleForTesting static final long MIN_TIME_TO_LOG_ABANDON_MS = 200;
+ 
++    private final Context mTakuContext;
++    private boolean mTakuStream;
++    private TakuNavHandleBridge mTakuBridge;
++    private final Runnable mTriggerTaku = this::triggerTaku;
+     private NavHandleLongPressHandler mNavHandleLongPressHandler;
+     private final float mNavHandleWidth;
+     private final float mScreenWidth;
+@@ -91,6 +96,7 @@ public class NavHandleLongPressInputConsumer extends DelegateInputConsumer {
+             NavHandle navHandle,
+             GestureState gestureState) {
+         super(gestureState.getDisplayId(), delegate, inputMonitor);
++        mTakuContext = context;
+         mScreenWidth = DisplayController.INSTANCE.get(context).getInfo().currentSize.x;
+         mDeepPressEnabled = DeviceConfigWrapper.get().getEnableLpnhDeepPress();
+         ContextualSearchStateManager contextualSearchStateManager =
+@@ -147,6 +153,14 @@ public class NavHandleLongPressInputConsumer extends DelegateInputConsumer {
+             mCurrentMotionEvent.recycle();
+         }
+         mCurrentMotionEvent = MotionEvent.obtain(ev);
++        if (ev.getActionMasked() == MotionEvent.ACTION_DOWN) {
++            mTakuStream = getDisplayId() == 0 && TakuNavHandleBridge.isSelected(mTakuContext);
++        }
++        if (mTakuStream) {
++            handleTakuMotion(ev);
++            if (mState != STATE_ACTIVE) mDelegate.onMotionEvent(ev);
++            return; // Taku owns this branch; never arm the ContextualSearch handler too.
++        }
+         if (mDelegate.allowInterceptByParent()) {
+             handleMotionEvent(ev);
+         } else if (MAIN_EXECUTOR.getHandler().hasCallbacks(mTriggerLongPress)) {
+@@ -165,6 +179,8 @@ public class NavHandleLongPressInputConsumer extends DelegateInputConsumer {
+ 
+     @Override
+     public void onConsumerAboutToBeSwitched() {
++        MAIN_EXECUTOR.getHandler().removeCallbacks(mTriggerTaku);
++        if (mTakuBridge != null) mTakuBridge.finish(true);
+         super.onConsumerAboutToBeSwitched();
+         if (MAIN_EXECUTOR.getHandler().hasCallbacks(mTriggerLongPress)) {
+             cancelLongPress(CANCEL_REASON_INPUT_CONSUMER_SWITCHED);
+@@ -172,6 +188,58 @@ public class NavHandleLongPressInputConsumer extends DelegateInputConsumer {
+         mNavHandle = null;
+     }
+ 
++    private void handleTakuMotion(MotionEvent ev) {
++        if (TakuNavHandleBridge.locked(mTakuContext) || !TakuNavHandleBridge.isSelected(mTakuContext)) {
++            MAIN_EXECUTOR.getHandler().removeCallbacks(mTriggerTaku);
++            if (mTakuBridge != null) mTakuBridge.finish(true);
++            return;
++        }
++        switch (ev.getActionMasked()) {
++            case MotionEvent.ACTION_DOWN:
++                if (mCurrentDownEvent != null) mCurrentDownEvent.recycle();
++                mCurrentDownEvent = MotionEvent.obtain(ev);
++                mTakuBridge = new TakuNavHandleBridge(mTakuContext);
++                if (isInNavBarHorizontalArea(ev.getRawX()) && ev.getPointerCount() == 1) {
++                    MAIN_EXECUTOR.getHandler().postDelayed(mTriggerTaku, ViewConfiguration.getLongPressTimeout());
++                }
++                break;
++            case MotionEvent.ACTION_MOVE:
++                if (mState == STATE_ACTIVE) mTakuBridge.move(ev);
++                else {
++                    float dx = ev.getRawX() - mCurrentDownEvent.getRawX();
++                    float dy = ev.getRawY() - mCurrentDownEvent.getRawY();
++                    float slop = ViewConfiguration.get(mTakuContext).getScaledTouchSlop();
++                    if (dx * dx + dy * dy > slop * slop || !mDelegate.allowInterceptByParent())
++                        MAIN_EXECUTOR.getHandler().removeCallbacks(mTriggerTaku);
++                }
++                break;
++            case MotionEvent.ACTION_UP:
++                MAIN_EXECUTOR.getHandler().removeCallbacks(mTriggerTaku);
++                if (mTakuBridge != null) mTakuBridge.end(ev);
++                break;
++            case MotionEvent.ACTION_POINTER_DOWN:
++            case MotionEvent.ACTION_POINTER_UP:
++            case MotionEvent.ACTION_CANCEL:
++                MAIN_EXECUTOR.getHandler().removeCallbacks(mTriggerTaku);
++                if (mTakuBridge != null) mTakuBridge.finish(true);
++                break;
++        }
++    }
++
++    private void triggerTaku() {
++        if (mNavHandle == null || mTakuBridge == null || !mDelegate.allowInterceptByParent()
++                || TakuNavHandleBridge.locked(mTakuContext)) return;
++        Runnable start = mTakuBridge::begin;
++        OtherActivityInputConsumer oaic = getInputConsumerOfClass(OtherActivityInputConsumer.class);
++        if (oaic != null && oaic.hasStartedTouchTracking()) {
++            oaic.setForceFinishRecentsTransitionCallback(start);
++            setActive(mCurrentDownEvent);
++        } else {
++            setActive(mCurrentDownEvent);
++            MAIN_EXECUTOR.post(start);
++        }
++    }
++
+     private void handleMotionEvent(MotionEvent ev) {
+         switch (ev.getAction()) {
+             case MotionEvent.ACTION_DOWN -> {
+--- a/quickstep/src/com/android/quickstep/OverviewComponentObserver.java
++++ b/quickstep/src/com/android/quickstep/OverviewComponentObserver.java
+@@ -204,6 +204,17 @@
+     private void updateOverviewTargets() {
+         ComponentName defaultHome = PackageManagerWrapper.getInstance()
+                 .getHomeActivities(new ArrayList<>());
++        // During role repair, never turn a stale Quickstep/legacy HOME into an explicit
++        // launch of the old desktop. Keep the real fallback overview implementation.
++        if ("org.agentos.agent".equals(android.os.SystemProperties.get("ro.taku.home.package", ""))
++                && (defaultHome == null || !defaultHome.getPackageName().equals(mSetupWizardPkg))) {
++            ResolveInfo takuHome = mContext.getPackageManager().resolveActivity(
++                    createHomeIntent().setPackage("org.agentos.agent"), 0);
++            if (takuHome != null && takuHome.activityInfo != null
++                    && "org.agentos.agent.home.HomeActivity".equals(takuHome.activityInfo.name)) {
++                defaultHome = new ComponentName("org.agentos.agent", takuHome.activityInfo.name);
++            }
++        }
+         if (defaultHome != null && defaultHome.getPackageName().equals(mSetupWizardPkg)) {
+             // Treat setup wizard as null default home, because there is a period between setup and
+             // launcher being default home where it is briefly null. Otherwise, it would appear as

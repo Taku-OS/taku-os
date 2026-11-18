@@ -1,0 +1,9 @@
+evidence/** -whitespace
+system/assistant/licenses/Doto-OFL.txt -whitespace
+# Diff payloads retain exact upstream preimages; applied sources are hash-checked.
+image/branding/*.patch -whitespace
+adapters/codex-runtime/plugin-transaction/*.patch -whitespace
+adapters/codex-runtime/*.patch -whitespace
+image/launcher/*.patch -whitespace
+image/island/*.patch -whitespace
+image/recents/*.patch -whitespace

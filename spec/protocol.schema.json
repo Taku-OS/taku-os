@@ -1,0 +1,13 @@
+{
+ "$schema":"https://json-schema.org/draft/2020-12/schema",
+ "$id":"urn:taku:protocol:0.1",
+ "title":"Taku OS capability protocol 0.1",
+ "oneOf":[{"$ref":"#/$defs/request"},{"$ref":"#/$defs/success"},{"$ref":"#/$defs/failure"},{"$ref":"#/$defs/event"}],
+ "$defs":{
+  "id":{"type":"string","minLength":1,"maxLength":128},
+  "request":{"type":"object","additionalProperties":false,"required":["protocol","type","id","method","params"],"properties":{"protocol":{"const":"taku/0.1"},"type":{"const":"request"},"id":{"$ref":"#/$defs/id"},"method":{"type":"string","pattern":"^[a-z][a-z0-9]*(\\.[a-z][a-z0-9]*)+$"},"params":{"type":"object"}}},
+  "success":{"type":"object","additionalProperties":false,"required":["protocol","type","id","ok","result"],"properties":{"protocol":{"const":"taku/0.1"},"type":{"const":"response"},"id":{"$ref":"#/$defs/id"},"ok":{"const":true},"result":{}}},
+  "failure":{"type":"object","additionalProperties":false,"required":["protocol","type","id","ok","error"],"properties":{"protocol":{"const":"taku/0.1"},"type":{"const":"response"},"id":{"$ref":"#/$defs/id"},"ok":{"const":false},"error":{"type":"object","additionalProperties":false,"required":["code","message","retryable"],"properties":{"code":{"type":"string","pattern":"^[A-Z_]+$"},"message":{"type":"string"},"retryable":{"type":"boolean"}}}}},
+  "event":{"type":"object","additionalProperties":false,"required":["protocol","type","event","timestamp","data"],"properties":{"protocol":{"const":"taku/0.1"},"type":{"const":"event"},"event":{"type":"string"},"timestamp":{"type":"string","format":"date-time"},"data":{"type":"object"},"requestId":{"$ref":"#/$defs/id"}}}
+ }
+}

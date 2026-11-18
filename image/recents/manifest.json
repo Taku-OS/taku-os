@@ -1,0 +1,92 @@
+{
+  "schema": "taku.recents-patch/1",
+  "upstreamCommit": "818f72b74e6f914cbca2b465776d6d20f960ee87",
+  "patchSha256": "e070ee4cc07105bca54107bb868b39933b1215c4c8a491b689c3f4741afce747",
+  "files": [
+    {
+      "path": "quickstep/AndroidManifest.xml",
+      "beforeSha256": "77965a02b358d9b80f2cda0263b8ffe4f7950f414ff4e76684a5da2199ed5391",
+      "afterSha256": "dacc23f2bfa082bdb777a5834ec685c9e8d86345803dd6e395e280448d0cc503"
+    },
+    {
+      "path": "quickstep/src/com/android/launcher3/uioverrides/touchcontrollers/TaskViewDismissTouchController.kt",
+      "beforeSha256": "a56c32d065ae234760a3986515ffe127c5228c29aea1336e859efd5f80784bb6",
+      "afterSha256": "b08e7b3197a8bf37b4ae8fb346d15eea5f7f017374fc5dc16af71b43c4e3cd17"
+    },
+    {
+      "path": "quickstep/src/com/android/launcher3/uioverrides/touchcontrollers/TaskViewLaunchTouchController.kt",
+      "beforeSha256": "f7fe39cd4e8365bb6d7b9a5baf6951d302f67198f048e12cb29056329ba7a109",
+      "afterSha256": "d85f2b4bccf5d63a776b21bb5561ecd650b8e418476fdcadfe97f33f77903234"
+    },
+    {
+      "path": "quickstep/src/com/android/quickstep/RecentsActivity.java",
+      "beforeSha256": "dba70c809acc1f12ab4ca70c1e194a550ebdb8b6327de50a0bee634f5435cd45",
+      "afterSha256": "6c138926e686cb0d2f33b05128f741442470d66f3593f051a019a535a37927a4"
+    },
+    {
+      "path": "quickstep/src/com/android/quickstep/TakuRecentsBackdrop.java",
+      "beforeSha256": null,
+      "afterSha256": "5b3e8e283c1d89fa96da7665efce5386b488a5f666fb44a62dbe8b79c2bd54ef"
+    },
+    {
+      "path": "quickstep/src/com/android/quickstep/TakuRecentsProvider.java",
+      "beforeSha256": null,
+      "afterSha256": "14558e3f2ab46c0663e94e9eb2c6eac200a0e7b3aecef891ecd128db9d1ace24"
+    },
+    {
+      "path": "quickstep/src/com/android/quickstep/fallback/FallbackRecentsStateController.java",
+      "beforeSha256": "6dc0fa80e14b4e879f7c0eeaae4c29e947c0e36f9a6f93f32c94c54c9c193e77",
+      "afterSha256": "15fb4693d86b37beb4b44fc8cf14958e654e6fd593afb385d42c812911d3cadb"
+    },
+    {
+      "path": "quickstep/src/com/android/quickstep/fallback/RecentsState.kt",
+      "beforeSha256": "0081fdd471b8590f36bb8a9560b42a466cb0a4aac4cc47b6dff34d60311c2910",
+      "afterSha256": "24e0241b5d29bc11a6e62aa53581bba769c82a3551fdb59664f1b4170ac3627e"
+    },
+    {
+      "path": "quickstep/src/com/android/quickstep/task/thumbnail/TaskThumbnailView.kt",
+      "beforeSha256": "365ddf9ef78c5152ae2ae5a3f9e2141d15e06282d1a3a791947ec40790ec3792",
+      "afterSha256": "abb066dbceba6a0e1865052bb1ba742e2e70cecb9b7538bc7c8e7b20e1d3c155"
+    },
+    {
+      "path": "quickstep/src/com/android/quickstep/util/TakuRecentsDepth.java",
+      "beforeSha256": null,
+      "afterSha256": "1bb8618eeeb618c9be0584b333fc5caa8df82f061d73beafaa62248f40229f1d"
+    },
+    {
+      "path": "quickstep/src/com/android/quickstep/util/TaskCornerRadius.java",
+      "beforeSha256": "7b755425e47f8cfd5e06dd0e4b98c31c476e2219d7d69d3e8d4217a7cfc842eb",
+      "afterSha256": "19bf3e85ba96a1820e335aa8b5cde36ac2a321f7d8dd824a90b2ec95c2e05620"
+    },
+    {
+      "path": "quickstep/src/com/android/quickstep/util/TaskViewSimulator.java",
+      "beforeSha256": "61642176403139f131ddfab56a61472cd6e7ff008729a43637210940d4dbb6e6",
+      "afterSha256": "361be5d96a8979def15bca6443ccc5e02226fb522145b838227c464fecad18d7"
+    },
+    {
+      "path": "quickstep/src/com/android/quickstep/views/IconAppChipView.kt",
+      "beforeSha256": "31a644a01e48b9cdeb66332a7a1fff9c865012b8466696195adc918e31731fcd",
+      "afterSha256": "102ba256c147a4c20f9c5c867dc56d9a26d9471e962d6ef2495c2032f744e445"
+    },
+    {
+      "path": "quickstep/src/com/android/quickstep/views/OverviewActionsView.java",
+      "beforeSha256": "08e3fb24cad78e202c4d745f78a5642eaac85cd8b5a648449a623c8fe0d2bd9e",
+      "afterSha256": "7c17cd56abe7851a28e17616df14d6810863dc14d60385256d74d92ce2a93f81"
+    },
+    {
+      "path": "quickstep/src/com/android/quickstep/views/RecentsView.java",
+      "beforeSha256": "f5379751aaa53f8e479a3814a69a86d0c16ff3b1be596813748c9c4551ee33b7",
+      "afterSha256": "e080e48ce7ee9a68aa99bca64e190deba3f15c159d5e1e394b93eef56a371208"
+    },
+    {
+      "path": "quickstep/src/com/android/quickstep/views/RecentsViewUtils.kt",
+      "beforeSha256": "734961828ced3df55d8144d268b7f4ee8fc6cf21d450fc23118b7f7c6f8e8e10",
+      "afterSha256": "449c5ee9dd72f332f0e36e548ec8a3bc7ca1149aef659d1ec67ae9a6e74708dc"
+    },
+    {
+      "path": "quickstep/src/com/android/quickstep/views/TaskView.kt",
+      "beforeSha256": "bb3449870f17f8468d69112f198256e1711263dd2b911b25794e18abc48e2317",
+      "afterSha256": "f03b8fa4f7c1141f046db37b11953f942bccca4096559c1111e77e976a65ddf7"
+    }
+  ]
+}

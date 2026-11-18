@@ -1,0 +1,70 @@
+{
+  "scope": "Fresh Android16/API36 ARM64 emulator; not Pixel ROM",
+  "device": "emu64a",
+  "uid": 0,
+  "display": {
+    "displayId": 2,
+    "name": "Taku-Independent-Screen",
+    "width": 720,
+    "height": 1280,
+    "density": 240,
+    "flags": 83273,
+    "uid": 0,
+    "pid": 2361,
+    "mirrorSocket": "taku-mirror"
+  },
+  "beforeActivities": "      topResumedActivity=ActivityRecord{67100901 u0 com.android.launcher3/.uioverrides.QuickstepLauncher t7}\n",
+  "launch": "Starting: Intent { cmp=com.android.settings/.Settings }\n",
+  "afterActivities": "      topResumedActivity=ActivityRecord{67100901 u0 com.android.launcher3/.uioverrides.QuickstepLauncher t7}\n    topResumedActivity=ActivityRecord{39330252 u0 com.android.settings/.Settings t8}\n",
+  "romBuilt": false,
+  "physicalDeviceVerified": false,
+  "displayScopedInputChangedFrame": true,
+  "primaryTopActivityPreserved": true,
+  "frameBeforeSha256": "0c7c74b6eb834bbd8ca9f95a2cccafcc3592f64fac8683c50cb91af5441583b0",
+  "frameAfterSha256": "96f4a5f2b17579e6b3cfd062f4d9166d24b3f4c9539f112e0834bbb97dd6056d",
+  "dnsBridgeAndroid": {
+    "host": "example.com",
+    "A": {
+      "rcode": 0,
+      "answers": 1,
+      "elapsedMs": 8
+    },
+    "AAAA": {
+      "rcode": 0,
+      "answers": 0,
+      "elapsedMs": 0
+    }
+  },
+  "homeApkInstalled": true,
+  "homeRoleAssigned": true,
+  "assistantRoleAssigned": true,
+  "checkedAt": "2026-10-11T00:18:12.865321+08:00",
+  "boundary": "Fresh emu64a Android16/API36 component test, not a Pixel 9 ROM boot; uid0 su domain, globally Enforcing",
+  "rebootVerification": {
+    "initServices": {
+      "broker": "running",
+      "display": "running",
+      "resolver": "running"
+    },
+    "homeRole": "org.agentos.assistant",
+    "assistantRole": "org.agentos.assistant",
+    "codexVersion": "codex-cli 0.161.0",
+    "dnsBridge": {
+      "host": "example.com",
+      "A": {
+        "rcode": 0,
+        "answers": 1,
+        "elapsedMs": 16
+      },
+      "AAAA": {
+        "rcode": 0,
+        "answers": 0,
+        "elapsedMs": 0
+      }
+    },
+    "managedDisplayStopStaysStoppedAfter11Seconds": true,
+    "managedDisplayRestartNewPid": true
+  },
+  "nativeMirrorViewerVerified": true,
+  "testEmulatorStoppedAfterVerification": true
+}

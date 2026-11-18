@@ -1,0 +1,10 @@
+{
+  "cardId": "memory.nudge.18",
+  "realHomeAccepted": true,
+  "autoOrganize": false,
+  "androidJob": 4101,
+  "jobOutput": "Running job [FORCED]",
+  "removedByMaintenance": true,
+  "clock": "Memory debug-only test clock; system clock unchanged",
+  "usesModel": false
+}

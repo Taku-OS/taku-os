@@ -1,0 +1,64 @@
+diff --git a/res/values/taku_brand.xml b/res/values/taku_brand.xml
+new file mode 100644
+--- /dev/null
++++ b/res/values/taku_brand.xml
+@@ -0,0 +1,4 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="taku_os_name" translatable="false">TakuOS</string>
++</resources>
+diff --git a/src/com/android/settings/deviceinfo/firmwareversion/LineageVersionDetailPreference.kt b/src/com/android/settings/deviceinfo/firmwareversion/LineageVersionDetailPreference.kt
+--- a/src/com/android/settings/deviceinfo/firmwareversion/LineageVersionDetailPreference.kt
++++ b/src/com/android/settings/deviceinfo/firmwareversion/LineageVersionDetailPreference.kt
+@@ -47,7 +47,7 @@
+         get() = R.string.os_firmware_version_purpose
+ 
+     override val title: Int
+-        get() = org.lineageos.platform.internal.R.string.lineage_version
++        get() = R.string.taku_os_name
+ 
+     override val indexable
+         get() = false
+@@ -105,7 +105,7 @@
+         const val ACTIVITY_TRIGGER_COUNT = 3
+         const val DELAY_TIMER_MILLIS = 500L
+ 
+-        const val LINEAGE_VERSION_PROPERTY: String = "ro.lineage.version"
++        const val LINEAGE_VERSION_PROPERTY: String = "ro.taku.product.version"
+ 
+         const val PLATLOGO_PACKAGE_NAME: String = "org.lineageos.lineageparts"
+         const val PLATLOGO_ACTIVITY_CLASS: String = PLATLOGO_PACKAGE_NAME + ".logo.PlatLogoActivity"
+diff --git a/src/com/android/settings/deviceinfo/firmwareversion/LineageVersionDetailPreferenceController.java b/src/com/android/settings/deviceinfo/firmwareversion/LineageVersionDetailPreferenceController.java
+--- a/src/com/android/settings/deviceinfo/firmwareversion/LineageVersionDetailPreferenceController.java
++++ b/src/com/android/settings/deviceinfo/firmwareversion/LineageVersionDetailPreferenceController.java
+@@ -28,6 +28,7 @@
+ 
+ import androidx.annotation.VisibleForTesting;
+ import androidx.preference.Preference;
++import androidx.preference.PreferenceScreen;
+ 
+ import com.android.settings.R;
+ import com.android.settings.Utils;
+@@ -42,7 +43,7 @@
+     private static final int DELAY_TIMER_MILLIS = 500;
+     private static final int ACTIVITY_TRIGGER_COUNT = 3;
+ 
+-    private static final String KEY_LINEAGE_VERSION_PROP = "ro.lineage.version";
++    private static final String KEY_LINEAGE_VERSION_PROP = "ro.taku.product.version";
+ 
+     private static final String PLATLOGO_PACKAGE_NAME = "org.lineageos.lineageparts";
+     private static final String PLATLOGO_ACTIVITY_CLASS =
+@@ -73,6 +74,13 @@
+     @Override
+     public boolean isSliceable() {
+         return true;
++    }
++
++    @Override
++    public void displayPreference(PreferenceScreen screen) {
++        super.displayPreference(screen);
++        final Preference preference = screen.findPreference(getPreferenceKey());
++        if (preference != null) preference.setTitle(R.string.taku_os_name);
+     }
+ 
+     @Override

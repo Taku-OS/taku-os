@@ -1,0 +1,6 @@
+# Default review routing follows the existing repository maintainer.
+* @programmerguys
+
+# Memory ownership was explicitly assigned to Alex by the project lead.
+/system/memory/ @aLexzzz430 @programmerguys
+/docs/reviews/taku-memory*/ @aLexzzz430 @programmerguys

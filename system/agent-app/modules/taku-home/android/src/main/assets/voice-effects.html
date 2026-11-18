@@ -1,0 +1,677 @@
+<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:"><style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent}canvas{display:block;width:100%;height:100%}</style><canvas id="effect"></canvas><script>const modules={"./light-field":function(exports,require){"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.LightField = exports.BACKDROP = exports.FIELD = void 0;
+exports.motionAt = motionAt;
+exports.acquireLightField = acquireLightField;
+/**
+ * The voice light: Figma's blurred light layers, re-rendered as one flowing
+ * field in a small WebGL shader.
+ *
+ * Material (exact, from the Figma nodes — not sampled from screenshots):
+ *
+ *   slot  node        listening 462:13264/13395      Live Talk 462:13323/15118/15374/15552
+ *   0     Vector 4    #FBFF00  linear dodge          #FBFF2A  linear dodge
+ *   1     Vector 5    #FF0000  linear dodge (180°)   #E94E17  lighten (180°)
+ *   2     Vector 3    #5ED100  normal                #A8FF61  lighten
+ *   3     Vector 2    #002FFF  linear dodge (180°)   #3300FF  linear dodge (180°)
+ *   4     Vector 6    —                              #619DFF  lighten
+ *   5     Vector 7    —                              #FF6163  lighten (180°)
+ *
+ * Every layer is a solid fill at 100% with a 58px layer blur, composited in
+ * Figma's bottom-to-top order over the sheet behind it (#E3E3E3 under the
+ * listening glass, the 92% black backdrop in Live Talk). Each layer's shape
+ * is Figma's own blurred export (the `listen-glow-*` / `live-glow-*` SVGs),
+ * used as a soft alpha mask.
+ *
+ * Motion: the masks are never just moved or faded. Every pixel samples them
+ * through
+ *   1. a shared, slowly evolving curl flow (low-frequency, divergence-free,
+ *      so contours bend and curl without tearing),
+ *   2. a per-layer warp with its own seed (neighbouring colours deform
+ *      differently, so they merge and separate),
+ *   3. a per-layer travel along the bottom (1D gradient noise, never a
+ *      repeating sine), and
+ *   4. a vertical reach anchored below the screen, raised locally by
+ *      travelling crests that rise, widen and dissolve.
+ * All of it is driven by `flow` (always advancing) and `level` (speech,
+ * smoothed): level adds reach, deformation and a little luminosity; flow
+ * speed comes from the timeline. Nothing is a function of wall time, so a
+ * scrubbed frame or an exported video reproduces the same light.
+ *
+ * One WebGL context renders into an offscreen canvas and is copied into the
+ * 2D canvas of each target (listening sheet, Live Talk) that is visible.
+ */
+const masks_1 = require("./masks");
+const NORMAL = 0;
+const ADD = 1;
+const LIGHTEN = 2;
+const BLEED = 58;
+const LISTEN = [
+    {
+        src: masks_1.LIGHT_MASKS.listenGlow4,
+        x: 147.54,
+        y: 816.11,
+        w: 130.783,
+        h: 188.424,
+        color: '#FBFF00',
+        blend: ADD,
+    },
+    {
+        src: masks_1.LIGHT_MASKS.listenGlow5,
+        x: 6.77,
+        y: 889.52,
+        w: 400.224,
+        h: 74.823,
+        color: '#FF0000',
+        blend: ADD,
+        flip: true,
+    },
+    { src: masks_1.LIGHT_MASKS.listenGlow3, x: 128, y: 869, w: 201, h: 97, color: '#5ED100', blend: NORMAL },
+    {
+        src: masks_1.LIGHT_MASKS.listenGlow2,
+        x: 42.12,
+        y: 821.25,
+        w: 326.877,
+        h: 154.753,
+        color: '#002FFF',
+        blend: ADD,
+        flip: true,
+    },
+    null,
+    null,
+];
+const LIVE = [
+    { src: masks_1.LIGHT_MASKS.liveGlow4, x: 168, y: 882, w: 130, h: 63, color: '#FBFF2A', blend: ADD },
+    {
+        src: masks_1.LIGHT_MASKS.liveGlow5,
+        x: -21.33,
+        y: 877.5,
+        w: 428.272,
+        h: 74.842,
+        color: '#E94E17',
+        blend: LIGHTEN,
+        flip: true,
+    },
+    { src: masks_1.LIGHT_MASKS.liveGlow3, x: 128, y: 865, w: 201, h: 97, color: '#A8FF61', blend: LIGHTEN },
+    {
+        src: masks_1.LIGHT_MASKS.liveGlow2,
+        x: 42.12,
+        y: 817.247,
+        w: 326.877,
+        h: 154.753,
+        color: '#3300FF',
+        blend: ADD,
+        flip: true,
+    },
+    { src: masks_1.LIGHT_MASKS.liveGlow6, x: -54.79, y: 781, w: 187.294, h: 184.288, color: '#619DFF', blend: LIGHTEN },
+    {
+        src: masks_1.LIGHT_MASKS.liveGlow7,
+        x: 284.703,
+        y: 749,
+        w: 178.407,
+        h: 216.288,
+        color: '#FF6163',
+        blend: LIGHTEN,
+        flip: true,
+    },
+];
+const SLOTS = 6;
+/** The field's region in phone px: full width, from y 560 to the bottom. */
+exports.FIELD = { x: 0, y: 560, w: 412, h: 357 };
+/** Field pixels per phone px. The light is a 58px blur, so half
+    resolution is visually lossless; the browser's bilinear upscale is smooth. */
+const RES = 0.5;
+/** Vertical reach is a stretch about this line (below the screen edge). */
+const ANCHOR_Y = 960;
+const LISTEN_CLIP_Y = 705;
+/** The measured sheet colour behind each target (sRGB 0–1). */
+exports.BACKDROP = {
+    light: [227 / 255, 227 / 255, 228 / 255],
+    dark: [18 / 255, 19 / 255, 19 / 255],
+};
+/* ---------------------------------------------------- deterministic noise */
+function hash(n) {
+    const s = Math.sin(n * 157.31 + 47.13) * 43758.5453;
+    return s - Math.floor(s);
+}
+/** 1D gradient noise, ≈ −1…1, C2-smooth. */
+function noise1(x) {
+    const i = Math.floor(x);
+    const f = x - i;
+    const g0 = (hash(i) * 2 - 1) * f;
+    const g1 = (hash(i + 1) * 2 - 1) * (f - 1);
+    const u = f * f * f * (f * (f * 6 - 15) + 10);
+    return 2 * (g0 + (g1 - g0) * u);
+}
+const smooth = (a, b, x) => {
+    const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
+    return t * t * (3 - 2 * t);
+};
+/** Per-frame motion parameters that depend only on time: travel offsets per
+    layer and the three travelling crests. */
+function motionAt(frame) {
+    const { flow: f, level: L } = frame;
+    const travel = [];
+    for (let i = 0; i < SLOTS; i++) {
+        /* Horizontal travel ±~70px over ~1.5 flow-seconds; small vertical bob. */
+        travel.push(68 * noise1(f * 0.62 + 13.7 * i + 0.3), 9 * noise1(f * 0.8 + 5.3 * i + 41));
+    }
+    const crests = [];
+    for (let j = 0; j < 3; j++) {
+        const x = 206 + 210 * noise1(f * 0.34 + 9.1 * j + 3.3);
+        const life = smooth(0.05, 0.75, noise1(f * 0.58 + 6.7 * j + 21.4));
+        const h = life * (0.1 + 0.3 * L);
+        const w = 52 + 70 * life;
+        crests.push(x, h, w, 0);
+    }
+    return { travel, crests };
+}
+/* ------------------------------------------------------------- shaders */
+const VERT = `
+attribute vec2 aPos;
+varying vec2 vUv;
+void main() { vUv = aPos * 0.5 + 0.5; gl_Position = vec4(aPos, 0.0, 1.0); }
+`;
+const FRAG = `
+precision highp float;
+varying vec2 vUv;
+uniform sampler2D uAtlas;
+uniform vec4 uField;          // x, y, w, h in phone px
+uniform float uFlow, uLevel, uMix;
+uniform vec3 uBack;
+uniform vec4 uRectA[6], uRectB[6];  // listening / Live geometry (bleed box)
+uniform vec4 uUvA[6], uUvB[6];      // atlas cells
+uniform vec3 uCol[6];
+uniform vec3 uLayer[6];             // blend, presence, maskMix
+uniform vec2 uTravel[6];
+uniform vec4 uCrest[3];             // x, height, width, -
+uniform float uAnchor;
+uniform vec2 uFadeTop;              // light fades in over [x, y] (phone px)
+
+float h3(vec3 p) { return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
+float vnoise(vec3 p) {
+  vec3 i = floor(p); vec3 f = fract(p);
+  vec3 u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
+  float a = mix(mix(h3(i), h3(i + vec3(1,0,0)), u.x), mix(h3(i + vec3(0,1,0)), h3(i + vec3(1,1,0)), u.x), u.y);
+  float b = mix(mix(h3(i + vec3(0,0,1)), h3(i + vec3(1,0,1)), u.x), mix(h3(i + vec3(0,1,1)), h3(i + vec3(1,1,1)), u.x), u.y);
+  return mix(a, b, u.z);
+}
+// Divergence-free flow from a noise potential: contours curl, never tear.
+vec2 curl(vec2 p, float z) {
+  const float e = 0.2;
+  float a = vnoise(vec3(p + vec2(0.0, e), z)), b = vnoise(vec3(p - vec2(0.0, e), z));
+  float c = vnoise(vec3(p + vec2(e, 0.0), z)), d = vnoise(vec3(p - vec2(e, 0.0), z));
+  return vec2(a - b, d - c) / (2.0 * e);
+}
+vec2 warp2(vec2 p, float z) {
+  return vec2(vnoise(vec3(p, z)), vnoise(vec3(p + 17.3, z + 3.1))) * 2.0 - 1.0;
+}
+float cell(vec4 uv, vec2 l) {
+  if (l.x <= 0.0 || l.y <= 0.0 || l.x >= 1.0 || l.y >= 1.0) return 0.0;
+  return texture2D(uAtlas, uv.xy + l * uv.zw).a;
+}
+
+void main() {
+  vec2 p = uField.xy + vec2(vUv.x, 1.0 - vUv.y) * uField.zw;
+  float L = uLevel;
+
+  // Reach: a stretch about the anchor line, raised locally by the crests.
+  float reach = 0.95 + 0.2 * L;
+  float crestGlow = 0.0;
+  for (int j = 0; j < 3; j++) {
+    float g = exp(-pow((p.x - uCrest[j].x) / uCrest[j].z, 2.0));
+    reach += uCrest[j].y * g;
+    crestGlow += uCrest[j].y * g;
+  }
+
+  // Shared slow curl flow (wavelength ~170px).
+  vec2 flowW = curl(p / 170.0, uFlow * 0.24) * (11.0 + 17.0 * L);
+  float lum = 0.86 + 0.14 * L + 0.22 * crestGlow;
+
+  vec3 R = uBack;
+  for (int i = 0; i < 6; i++) {
+    vec3 lay = uLayer[i];
+    if (lay.y <= 0.0) continue;
+    vec2 q = p + flowW + warp2(p / 125.0 + float(i) * 4.7, uFlow * 0.3 + float(i) * 1.9) * (12.0 + 14.0 * L);
+    q -= uTravel[i];
+    q.y = uAnchor + (q.y - uAnchor) / reach;
+    vec4 rA = uRectA[i]; vec4 rB = uRectB[i];
+    vec4 r = mix(rA, rB, uMix);
+    vec2 l = (q - r.xy) / r.zw;
+    float m = mix(cell(uUvA[i], l), cell(uUvB[i], l), lay.z);
+    float a = clamp(m * lay.y * lum, 0.0, 1.0);
+    vec3 c = uCol[i];
+    if (lay.x < 0.5) R = mix(R, c, a);
+    else if (lay.x < 1.5) R = min(R + c * a, 1.0);
+    else R = mix(R, max(R, c), a);
+  }
+
+  // Express the composite as the least-opaque layer that reproduces it over
+  // the measured sheet colour, so the canvas composites normally on the page.
+  R = mix(uBack, R, smoothstep(uFadeTop.x, uFadeTop.y, p.y));
+  vec3 up = max(R - uBack, 0.0) / max(1.0 - uBack, 1e-3);
+  vec3 dn = max(uBack - R, 0.0) / max(uBack, 1e-3);
+  float alpha = clamp(max(max(max(up.r, up.g), up.b), max(max(dn.r, dn.g), dn.b)), 0.0, 1.0);
+  vec3 col = clamp(R - uBack * (1.0 - alpha), 0.0, alpha);
+  // Sub-LSB dither: keeps the long soft gradients free of 8-bit banding.
+  float d = (h3(vec3(gl_FragCoord.xy, 0.0)) - 0.5) / 255.0;
+  gl_FragColor = vec4(clamp(col + d * alpha, 0.0, 1.0), alpha);
+}
+`;
+/* ------------------------------------------------------------ renderer */
+function hexRgb(hex) {
+    const n = parseInt(hex.slice(1), 16);
+    return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
+}
+function loadImage(src) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = src;
+    });
+}
+const ATLAS_SCALE = 0.5;
+/** Packs the blurred Figma exports (mirrored where Figma rotates 180°) into
+    one alpha atlas. */
+async function buildAtlas(defs) {
+    const images = await Promise.all(defs.map((d) => loadImage(d.src)));
+    const W = 1024;
+    const cells = [];
+    const place = [];
+    let x = 1;
+    let y = 1;
+    let rowH = 0;
+    for (const d of defs) {
+        const w = Math.ceil((d.w + BLEED * 2) * ATLAS_SCALE);
+        const h = Math.ceil((d.h + BLEED * 2) * ATLAS_SCALE);
+        if (x + w + 1 > W) {
+            x = 1;
+            y += rowH + 2;
+            rowH = 0;
+        }
+        place.push({ x, y, w, h });
+        x += w + 2;
+        rowH = Math.max(rowH, h);
+    }
+    const H = y + rowH + 1;
+    const canvas = document.createElement('canvas');
+    canvas.width = W;
+    canvas.height = H;
+    const ctx = canvas.getContext('2d');
+    if (!ctx)
+        throw new Error('2d context unavailable');
+    defs.forEach((d, i) => {
+        const pl = place[i];
+        ctx.save();
+        if (d.flip) {
+            ctx.translate(pl.x + pl.w, pl.y);
+            ctx.scale(-1, 1);
+            ctx.drawImage(images[i], 0, 0, pl.w, pl.h);
+        }
+        else {
+            ctx.drawImage(images[i], pl.x, pl.y, pl.w, pl.h);
+        }
+        ctx.restore();
+        cells.push({ u: pl.x / W, v: pl.y / H, du: pl.w / W, dv: pl.h / H });
+    });
+    return { canvas, cells };
+}
+class LightField {
+    /** Throws when WebGL is unavailable; callers fall back to the static layers. */
+    constructor(onReady, onLost) {
+        this.u = {};
+        this.ready = false;
+        this.disposed = false;
+        /** Lost without a dispose (GPU reset, or the browser over its context
+            limit): stops drawing, and `acquireLightField` makes a new one. */
+        this.lost = false;
+        this.cellsA = [];
+        this.cellsB = [];
+        this.canvas = document.createElement('canvas');
+        this.canvas.width = Math.round(exports.FIELD.w * RES);
+        this.canvas.height = Math.round(exports.FIELD.h * RES);
+        const gl = this.canvas.getContext('webgl', {
+            premultipliedAlpha: true,
+            alpha: true,
+            antialias: false,
+            preserveDrawingBuffer: true,
+        });
+        if (!gl)
+            throw new Error('WebGL unavailable');
+        this.gl = gl;
+        this.canvas.addEventListener('webglcontextlost', () => {
+            this.lost = true;
+            /* Not for our own dispose: nobody is listening by then. */
+            if (!this.disposed)
+                onLost?.();
+        });
+        this.program = this.link();
+        const buf = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+        const loc = gl.getAttribLocation(this.program, 'aPos');
+        gl.enableVertexAttribArray(loc);
+        gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+        const defs = [...LIVE];
+        LISTEN.forEach((d) => d && defs.push(d));
+        void buildAtlas(defs)
+            .then(({ canvas, cells }) => {
+            if (this.disposed)
+                return;
+            const tex = gl.createTexture();
+            gl.bindTexture(gl.TEXTURE_2D, tex);
+            gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            this.cellsB = cells.slice(0, LIVE.length);
+            let k = LIVE.length;
+            this.cellsA = LISTEN.map((d, i) => (d ? cells[k++] : this.cellsB[i]));
+            this.ready = true;
+            onReady?.();
+        })
+            .catch(() => undefined);
+    }
+    get isReady() {
+        return this.ready && !this.lost && !this.disposed;
+    }
+    get isUsable() {
+        return !this.lost && !this.disposed;
+    }
+    link() {
+        const gl = this.gl;
+        const compile = (type, src) => {
+            const sh = gl.createShader(type);
+            gl.shaderSource(sh, src);
+            gl.compileShader(sh);
+            if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
+                throw new Error(gl.getShaderInfoLog(sh) ?? 'shader compile failed');
+            }
+            return sh;
+        };
+        const program = gl.createProgram();
+        gl.attachShader(program, compile(gl.VERTEX_SHADER, VERT));
+        gl.attachShader(program, compile(gl.FRAGMENT_SHADER, FRAG));
+        gl.linkProgram(program);
+        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+            throw new Error(gl.getProgramInfoLog(program) ?? 'link failed');
+        }
+        gl.useProgram(program);
+        for (const name of [
+            'uAtlas',
+            'uField',
+            'uFlow',
+            'uLevel',
+            'uMix',
+            'uBack',
+            'uRectA',
+            'uRectB',
+            'uUvA',
+            'uUvB',
+            'uCol',
+            'uLayer',
+            'uTravel',
+            'uCrest',
+            'uAnchor',
+            'uFadeTop',
+        ]) {
+            this.u[name] = gl.getUniformLocation(program, name.startsWith('uRect') ||
+                name.startsWith('uUv') ||
+                ['uCol', 'uLayer', 'uTravel', 'uCrest'].includes(name)
+                ? `${name}[0]`
+                : name);
+        }
+        return program;
+    }
+    /**
+     * Renders the field for one target and copies it into `out` (a 2D canvas
+     * whose buffer this sizes). Returns false until the masks are loaded.
+     */
+    draw(out, target, frame) {
+        if (!this.isReady)
+            return false;
+        const gl = this.gl;
+        const dark = target === 'live';
+        const mix = Math.min(1, Math.max(0, frame.mix));
+        const { travel, crests } = motionAt(frame);
+        const rect = (d) => [d.x - BLEED, d.y - BLEED, d.w + BLEED * 2, d.h + BLEED * 2];
+        const rectA = [];
+        const rectB = [];
+        const uvA = [];
+        const uvB = [];
+        const col = [];
+        const layer = [];
+        for (let i = 0; i < SLOTS; i++) {
+            const b = LIVE[i];
+            const a = LISTEN[i] ?? b;
+            rectA.push(...rect(a));
+            rectB.push(...rect(b));
+            const ca = this.cellsA[i];
+            const cb = this.cellsB[i];
+            uvA.push(ca.u, ca.v, ca.du, ca.dv);
+            uvB.push(cb.u, cb.v, cb.du, cb.dv);
+            /* Material: the target's own palette and blend modes; geometry and
+               mask shape morph by `mix`. Live-only layers belong to the dark
+               material only. */
+            const m = dark ? b : LISTEN[i];
+            col.push(...hexRgb(m ? m.color : '#000000'));
+            layer.push(m ? m.blend : 0, m ? 1 : 0, LISTEN[i] ? mix : 1);
+        }
+        gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+        gl.clearColor(0, 0, 0, 0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        const u = this.u;
+        gl.uniform1i(u.uAtlas, 0);
+        gl.uniform4f(u.uField, exports.FIELD.x, exports.FIELD.y, exports.FIELD.w, exports.FIELD.h);
+        gl.uniform1f(u.uFlow, frame.flow);
+        gl.uniform1f(u.uLevel, Math.min(1, Math.max(0, frame.level)));
+        gl.uniform1f(u.uMix, mix);
+        gl.uniform1f(u.uAnchor, ANCHOR_Y);
+        /* The listening light lives in Figma's clipped group (top at phone y
+           705): it fades out before that edge so the clip never shows. */
+        if (dark)
+            gl.uniform2f(u.uFadeTop, -1e4, -9e3);
+        else
+            gl.uniform2f(u.uFadeTop, LISTEN_CLIP_Y, LISTEN_CLIP_Y + 80);
+        const back = dark ? exports.BACKDROP.dark : exports.BACKDROP.light;
+        gl.uniform3f(u.uBack, back[0], back[1], back[2]);
+        gl.uniform4fv(u.uRectA, rectA);
+        gl.uniform4fv(u.uRectB, rectB);
+        gl.uniform4fv(u.uUvA, uvA);
+        gl.uniform4fv(u.uUvB, uvB);
+        gl.uniform3fv(u.uCol, col);
+        gl.uniform3fv(u.uLayer, layer);
+        gl.uniform2fv(u.uTravel, travel);
+        gl.uniform4fv(u.uCrest, crests);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        if (out.width !== this.canvas.width || out.height !== this.canvas.height) {
+            out.width = this.canvas.width;
+            out.height = this.canvas.height;
+        }
+        const ctx = out.getContext('2d');
+        if (!ctx)
+            return false;
+        ctx.clearRect(0, 0, out.width, out.height);
+        ctx.drawImage(this.canvas, 0, 0);
+        return true;
+    }
+    dispose() {
+        this.disposed = true;
+        this.gl.getExtension('WEBGL_lose_context')?.loseContext();
+    }
+}
+exports.LightField = LightField;
+/**
+ * The page's one light renderer. Every phone (and the Voice Light preview)
+ * draws through the same field: `draw` sets every uniform it uses and copies
+ * its result into the caller's own 2D canvas before returning, so nothing of
+ * one caller's frame survives into the next. One WebGL context per page, then,
+ * however many phones a story or docs page mounts — Chrome keeps only 16 and
+ * drops the oldest beyond that.
+ *
+ * `onReady` runs once the masks are loaded (on a later task if they already
+ * are). `release` is idempotent; the context is disposed one task after the
+ * last release, unless it was acquired again. If the context is lost (a GPU
+ * reset), `onLost` tells every holder to fall back to its static layers, and
+ * the next acquire builds a new field. Throws when WebGL is
+ * unavailable; callers fall back to the static layers.
+ */
+let shared = null;
+function acquireLightField(onReady, onLost) {
+    if (!shared || !shared.field.isUsable) {
+        const waiting = new Set();
+        const losing = new Set();
+        const field = new LightField(() => {
+            for (const ready of [...waiting])
+                ready();
+            waiting.clear();
+        }, () => {
+            for (const lost of [...losing])
+                lost();
+        });
+        shared = { field, waiting, losing, users: 0 };
+    }
+    const entry = shared;
+    entry.users++;
+    /* A distinct function per acquire, so two callers passing the same
+       callback are still notified and released separately. */
+    const ready = () => onReady?.();
+    const lost = () => onLost?.();
+    let released = false;
+    if (entry.field.isReady)
+        setTimeout(() => !released && ready(), 0);
+    else
+        entry.waiting.add(ready);
+    entry.losing.add(lost);
+    return {
+        field: entry.field,
+        release: () => {
+            if (released)
+                return;
+            released = true;
+            entry.waiting.delete(ready);
+            entry.losing.delete(lost);
+            entry.users--;
+            /* One task later: React runs every cleanup of a commit before any new
+               effect, so a phone replacing another (scrolling a review sheet,
+               switching stories) would otherwise tear the context down and build
+               it again in the same frame. */
+            if (entry.users === 0)
+                setTimeout(() => {
+                    if (entry.users > 0)
+                        return;
+                    entry.field.dispose();
+                    if (shared === entry)
+                        shared = null;
+                }, 0);
+        },
+    };
+}
+
+exports.staticLayers = {listen:LISTEN, live:LIVE};
+},"./voice":function(exports,require){"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.FLOW_SPEAK = exports.FLOW_QUIET = void 0;
+exports.stepLight = stepLight;
+const LIGHT_ATTACK_MS = 70;
+const LIGHT_RELEASE_MS = 380;
+exports.FLOW_QUIET = 0.55;
+exports.FLOW_SPEAK = 1.45;
+/** Advances a light state by `dt` ms towards the raw speech level `target`. */
+function stepLight(state, target, dt) {
+    const tau = target > state.level ? LIGHT_ATTACK_MS : LIGHT_RELEASE_MS;
+    const level = state.level + (target - state.level) * (1 - Math.exp(-dt / tau));
+    const speed = exports.FLOW_QUIET + (exports.FLOW_SPEAK - exports.FLOW_QUIET) * level;
+    return { level, flow: state.flow + (speed * dt) / 1000 };
+}
+
+},"./waveform":function(exports,require){"use strict";
+/**
+ * Voice waveform motion: ten bars driven by a speech envelope. Pure
+ * function of (t, level): seekable and deterministic.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.WAVE_REST = void 0;
+exports.waveAt = waveAt;
+/** Figma 462:13279's ten bars at rest (px, row height 28). */
+exports.WAVE_REST = [4, 6, 10, 15, 28, 15, 20, 10, 6, 4];
+/** Bar heights from the speech envelope: each bar reads the envelope a few
+    ms later than the one nearer the centre, so a burst spreads outward. */
+function waveAt(t, level) {
+    const s = t / 1000;
+    return exports.WAVE_REST.map((rest, i) => {
+        const e = level(t - Math.abs(i - 4.5) * 14);
+        const texture = 0.82 + 0.18 * Math.sin(s * 11.3 + i * 1.9);
+        const idle = 0.06 * Math.sin(s * 2.1 + i * 0.8);
+        const v = rest * (0.3 + idle + 1.05 * e * texture);
+        return Math.max(3, Math.min(28, v));
+    });
+}
+
+},"./masks":function(exports,require){exports.LIGHT_MASKS = {"listenGlow2":"data:image/svg+xml;base64,PHN2ZyBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJub25lIiBvdmVyZmxvdz0idmlzaWJsZSIgc3R5bGU9ImRpc3BsYXk6IGJsb2NrOyIgd2lkdGg9IjQ0Mi44NzciIGhlaWdodD0iMjcwLjc1MyIgdmlld0JveD0iMCAwIDQ0Mi44NzcgMjcwLjc1MyIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGcgaWQ9IlZlY3RvciAyIiBmaWx0ZXI9InVybCgjZmlsdGVyMF9mXzBfMTMpIiBzdHlsZT0ibWl4LWJsZW5kLW1vZGU6cGx1cy1saWdodGVyIj4KPHBhdGggZD0iTTEyOC4xNzkgMTU2LjI0OUMxMTEuNjEzIDE3My4zNTMgODMuNjA0NSAxNjguOTc1IDcxLjY3MTMgMTY0LjY0OEM1MC44OTMzIDE3Ni40NTggNTguMzM0IDIwMS42MzkgNjQuNjUxNyAyMTIuNzUzTDM4My43NCAyMTEuMzQ0QzM4NS44MjggMjA0LjM4NyAzODYuNDk0IDE4OC41MzkgMzcyLjQ1NSAxODAuODAyQzM1NC45MDYgMTcxLjEzIDM1MS4yNzcgMTc3LjExNSAzMjggMTY5LjI1M0MyODkuNSAxNTYuMjQ5IDMwOC41IDE0NC4yNTMgMjgzLjMxMiAxMzMuMDg3QzIzNy4xOTYgMTEyLjY0MyAyNTIuNDI2IDE3Ni4xMDEgMjM5LjA4OCAxNzYuODY1QzIyNS43NTEgMTc3LjYyOSAxNzMuNzUxIDM0Ljg3MjcgMTYxIDYxLjI1M0MxNDYuNSA5MS4yNTMxIDE0OC44ODcgMTM0Ljg2OCAxMjguMTc5IDE1Ni4yNDlaIiBmaWxsPSIjMDAyRkZGIi8+CjwvZz4KPGRlZnM+CjxmaWx0ZXIgaWQ9ImZpbHRlcjBfZl8wXzEzIiB4PSIzLjM2ODQ1ZS0wOCIgeT0iLTguNzcyNTllLTA4IiB3aWR0aD0iNDQyLjg3NyIgaGVpZ2h0PSIyNzAuNzUzIiBmaWx0ZXJVbml0cz0idXNlclNwYWNlT25Vc2UiIGNvbG9yLWludGVycG9sYXRpb24tZmlsdGVycz0ic1JHQiI+CjxmZUZsb29kIGZsb29kLW9wYWNpdHk9IjAiIHJlc3VsdD0iQmFja2dyb3VuZEltYWdlRml4Ii8+CjxmZUJsZW5kIG1vZGU9Im5vcm1hbCIgaW49IlNvdXJjZUdyYXBoaWMiIGluMj0iQmFja2dyb3VuZEltYWdlRml4IiByZXN1bHQ9InNoYXBlIi8+CjxmZUdhdXNzaWFuQmx1ciBzdGREZXZpYXRpb249IjI5IiByZXN1bHQ9ImVmZmVjdDFfZm9yZWdyb3VuZEJsdXJfMF8xMyIvPgo8L2ZpbHRlcj4KPC9kZWZzPgo8L3N2Zz4K","listenGlow3":"data:image/svg+xml;base64,PHN2ZyBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJub25lIiBvdmVyZmxvdz0idmlzaWJsZSIgc3R5bGU9ImRpc3BsYXk6IGJsb2NrOyIgd2lkdGg9IjMxNyIgaGVpZ2h0PSIyMTMiIHZpZXdCb3g9IjAgMCAzMTcgMjEzIiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8ZyBpZD0iVmVjdG9yIDMiIGZpbHRlcj0idXJsKCNmaWx0ZXIwX2ZfMF8yOSkiPgo8cGF0aCBkPSJNOTYuMjI3NSA5OC4zNjQ5Qzg3LjIwMzcgMTE1LjUwOCA3MS45NDcyIDExMS4xMjEgNjUuNDQ2OSAxMDYuNzg0QzU0LjEyODkgMTE4LjYyMSA1OC4xODIgMTQzLjg2IDYxLjYyMzMgMTU1SDI1OC4zODFDMjU5LjUxOCAxNDguMDI3IDI1OS44ODEgMTMyLjE0MiAyNTIuMjM0IDEyNC4zODZDMjQyLjY3NCAxMTQuNjkyIDIzMS45NjggMTI0LjM4NiAyMTguNTg1IDEyNC4zODZDMjA1LjIwMiAxMjQuMzg2IDIwMC4wNCAxMTEuMTIxIDE4MC43MzEgNzUuMTQ5NkMxNjEuNDIxIDM5LjE3ODYgMTYzLjkwNyAxMTguMjY0IDE1Ni42NDIgMTE5LjAyOUMxNDkuMzc3IDExOS43OTQgMTMxLjYzNCAxMTYuMjIzIDEyNi4wODkgNzUuMTQ5NUMxMjAuNTQ1IDM0LjA3NjMgMTA3LjUwNyA3Ni45MzUzIDk2LjIyNzUgOTguMzY0OVoiIGZpbGw9IiM1RUQxMDAiLz4KPC9nPgo8ZGVmcz4KPGZpbHRlciBpZD0iZmlsdGVyMF9mXzBfMjkiIHg9IjMuODg4NzNlLTA4IiB5PSI1LjM2NDY5ZS0wNyIgd2lkdGg9IjMxNyIgaGVpZ2h0PSIyMTMiIGZpbHRlclVuaXRzPSJ1c2VyU3BhY2VPblVzZSIgY29sb3ItaW50ZXJwb2xhdGlvbi1maWx0ZXJzPSJzUkdCIj4KPGZlRmxvb2QgZmxvb2Qtb3BhY2l0eT0iMCIgcmVzdWx0PSJCYWNrZ3JvdW5kSW1hZ2VGaXgiLz4KPGZlQmxlbmQgbW9kZT0ibm9ybWFsIiBpbj0iU291cmNlR3JhcGhpYyIgaW4yPSJCYWNrZ3JvdW5kSW1hZ2VGaXgiIHJlc3VsdD0ic2hhcGUiLz4KPGZlR2F1c3NpYW5CbHVyIHN0ZERldmlhdGlvbj0iMjkiIHJlc3VsdD0iZWZmZWN0MV9mb3JlZ3JvdW5kQmx1cl8wXzI5Ii8+CjwvZmlsdGVyPgo8L2RlZnM+Cjwvc3ZnPgo=","listenGlow4":"data:image/svg+xml;base64,PHN2ZyBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJub25lIiBvdmVyZmxvdz0idmlzaWJsZSIgc3R5bGU9ImRpc3BsYXk6IGJsb2NrOyIgd2lkdGg9IjI0Ni43ODMiIGhlaWdodD0iMzA0LjQyNCIgdmlld0JveD0iMCAwIDI0Ni43ODMgMzA0LjQyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGcgaWQ9IlZlY3RvciA0IiBmaWx0ZXI9InVybCgjZmlsdGVyMF9mXzBfMjgpIiBzdHlsZT0ibWl4LWJsZW5kLW1vZGU6cGx1cy1saWdodGVyIj4KPHBhdGggZD0iTTY4LjQ4OTQgODAuNjA3QzgxLjgxOSA5OS4xMDcxIDgzLjQ2MTggMTIwLjg4OSA5My40NjE4IDE5My4zODlDMTAzLjQ2MiAyNjUuODg5IDE3My40NjIgMjU4Ljg4OSAxODcuOTg5IDIwMy42MDdDMjAyLjUxNyAxNDguMzI2IDEyLjAzODcgMi4yNTk1OSA2OC40ODk0IDgwLjYwN1oiIGZpbGw9IiNGQkZGMDAiLz4KPC9nPgo8ZGVmcz4KPGZpbHRlciBpZD0iZmlsdGVyMF9mXzBfMjgiIHg9IjkuMDAzNGUtMDciIHk9Ii0zLjQ0MDU5ZS0wNyIgd2lkdGg9IjI0Ni43ODMiIGhlaWdodD0iMzA0LjQyNCIgZmlsdGVyVW5pdHM9InVzZXJTcGFjZU9uVXNlIiBjb2xvci1pbnRlcnBvbGF0aW9uLWZpbHRlcnM9InNSR0IiPgo8ZmVGbG9vZCBmbG9vZC1vcGFjaXR5PSIwIiByZXN1bHQ9IkJhY2tncm91bmRJbWFnZUZpeCIvPgo8ZmVCbGVuZCBtb2RlPSJub3JtYWwiIGluPSJTb3VyY2VHcmFwaGljIiBpbjI9IkJhY2tncm91bmRJbWFnZUZpeCIgcmVzdWx0PSJzaGFwZSIvPgo8ZmVHYXVzc2lhbkJsdXIgc3RkRGV2aWF0aW9uPSIyOSIgcmVzdWx0PSJlZmZlY3QxX2ZvcmVncm91bmRCbHVyXzBfMjgiLz4KPC9maWx0ZXI+CjwvZGVmcz4KPC9zdmc+Cg==","listenGlow5":"data:image/svg+xml;base64,PHN2ZyBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJub25lIiBvdmVyZmxvdz0idmlzaWJsZSIgc3R5bGU9ImRpc3BsYXk6IGJsb2NrOyIgd2lkdGg9IjUxNi4yMjQiIGhlaWdodD0iMTkwLjgyMyIgdmlld0JveD0iMCAwIDUxNi4yMjQgMTkwLjgyMyIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGcgaWQ9IlZlY3RvciA1IiBmaWx0ZXI9InVybCgjZmlsdGVyMF9mXzBfMzApIiBzdHlsZT0ibWl4LWJsZW5kLW1vZGU6cGx1cy1saWdodGVyIj4KPHBhdGggZD0iTTIyOC40OSA3NC40NzgzQzE0OC40OSAxMjEuNDc4IDg1Ljk4OTcgNjMuNDc4MyA1OC45ODk3IDEwOC45NzhDMzEuOTg5NyAxNTQuNDc4IDU2Ny40OSAxMjMuNDc4IDQzNy45OSAxMDguOTc4QzMwOC40OSA5NC40NzgzIDMwOC40OSAyNy40NzgyIDIyOC40OSA3NC40NzgzWiIgZmlsbD0iI0ZGMDAwMCIvPgo8L2c+CjxkZWZzPgo8ZmlsdGVyIGlkPSJmaWx0ZXIwX2ZfMF8zMCIgeD0iNy42NDUwOGUtMDgiIHk9Ii0xLjQ0MjE5ZS0wNyIgd2lkdGg9IjUxNi4yMjQiIGhlaWdodD0iMTkwLjgyMyIgZmlsdGVyVW5pdHM9InVzZXJTcGFjZU9uVXNlIiBjb2xvci1pbnRlcnBvbGF0aW9uLWZpbHRlcnM9InNSR0IiPgo8ZmVGbG9vZCBmbG9vZC1vcGFjaXR5PSIwIiByZXN1bHQ9IkJhY2tncm91bmRJbWFnZUZpeCIvPgo8ZmVCbGVuZCBtb2RlPSJub3JtYWwiIGluPSJTb3VyY2VHcmFwaGljIiBpbjI9IkJhY2tncm91bmRJbWFnZUZpeCIgcmVzdWx0PSJzaGFwZSIvPgo8ZmVHYXVzc2lhbkJsdXIgc3RkRGV2aWF0aW9uPSIyOSIgcmVzdWx0PSJlZmZlY3QxX2ZvcmVncm91bmRCbHVyXzBfMzAiLz4KPC9maWx0ZXI+CjwvZGVmcz4KPC9zdmc+Cg==","liveGlow2":"data:image/svg+xml;base64,PHN2ZyBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJub25lIiBvdmVyZmxvdz0idmlzaWJsZSIgc3R5bGU9ImRpc3BsYXk6IGJsb2NrOyIgd2lkdGg9IjQ0Mi44NzciIGhlaWdodD0iMjcwLjc1MyIgdmlld0JveD0iMCAwIDQ0Mi44NzcgMjcwLjc1MyIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGcgaWQ9IlZlY3RvciAyIiBmaWx0ZXI9InVybCgjZmlsdGVyMF9mXzBfNTYpIiBzdHlsZT0ibWl4LWJsZW5kLW1vZGU6cGx1cy1saWdodGVyIj4KPHBhdGggZD0iTTEyOC4xNzkgMTU2LjI0OUMxMTEuNjEzIDE3My4zNTMgODMuNjA0NSAxNjguOTc1IDcxLjY3MTMgMTY0LjY0OEM1MC44OTMzIDE3Ni40NTggNTguMzM0IDIwMS42MzkgNjQuNjUxNyAyMTIuNzUzTDM4My43NCAyMTEuMzQ0QzM4NS44MjggMjA0LjM4NyAzODYuNDk0IDE4OC41MzkgMzcyLjQ1NSAxODAuODAyQzM1NC45MDYgMTcxLjEzIDM1MS4yNzcgMTc3LjExNSAzMjggMTY5LjI1M0MyODkuNSAxNTYuMjQ5IDMwOC41IDE0NC4yNTMgMjgzLjMxMiAxMzMuMDg3QzIzNy4xOTYgMTEyLjY0MyAyNTIuNDI2IDE3Ni4xMDEgMjM5LjA4OCAxNzYuODY1QzIyNS43NTEgMTc3LjYyOSAxNzMuNzUxIDM0Ljg3MjcgMTYxIDYxLjI1M0MxNDYuNSA5MS4yNTMxIDE0OC44ODcgMTM0Ljg2OCAxMjguMTc5IDE1Ni4yNDlaIiBmaWxsPSIjMzMwMEZGIi8+CjwvZz4KPGRlZnM+CjxmaWx0ZXIgaWQ9ImZpbHRlcjBfZl8wXzU2IiB4PSIzLjM2ODQ1ZS0wOCIgeT0iLTguNzcyNTllLTA4IiB3aWR0aD0iNDQyLjg3NyIgaGVpZ2h0PSIyNzAuNzUzIiBmaWx0ZXJVbml0cz0idXNlclNwYWNlT25Vc2UiIGNvbG9yLWludGVycG9sYXRpb24tZmlsdGVycz0ic1JHQiI+CjxmZUZsb29kIGZsb29kLW9wYWNpdHk9IjAiIHJlc3VsdD0iQmFja2dyb3VuZEltYWdlRml4Ii8+CjxmZUJsZW5kIG1vZGU9Im5vcm1hbCIgaW49IlNvdXJjZUdyYXBoaWMiIGluMj0iQmFja2dyb3VuZEltYWdlRml4IiByZXN1bHQ9InNoYXBlIi8+CjxmZUdhdXNzaWFuQmx1ciBzdGREZXZpYXRpb249IjI5IiByZXN1bHQ9ImVmZmVjdDFfZm9yZWdyb3VuZEJsdXJfMF81NiIvPgo8L2ZpbHRlcj4KPC9kZWZzPgo8L3N2Zz4K","liveGlow3":"data:image/svg+xml;base64,PHN2ZyBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJub25lIiBvdmVyZmxvdz0idmlzaWJsZSIgc3R5bGU9ImRpc3BsYXk6IGJsb2NrOyIgd2lkdGg9IjMxNyIgaGVpZ2h0PSIyMTMiIHZpZXdCb3g9IjAgMCAzMTcgMjEzIiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8ZyBpZD0iVmVjdG9yIDMiIGZpbHRlcj0idXJsKCNmaWx0ZXIwX2ZfMF8zMykiIHN0eWxlPSJtaXgtYmxlbmQtbW9kZTpsaWdodGVuIj4KPHBhdGggZD0iTTk2LjIyNzUgOTguMzY0OUM4Ny4yMDM3IDExNS41MDggNzEuOTQ3MiAxMTEuMTIxIDY1LjQ0NjkgMTA2Ljc4NEM1NC4xMjg5IDExOC42MjEgNTguMTgyIDE0My44NiA2MS42MjMzIDE1NUgyNTguMzgxQzI1OS41MTggMTQ4LjAyNyAyNTkuODgxIDEzMi4xNDIgMjUyLjIzNCAxMjQuMzg2QzI0Mi42NzQgMTE0LjY5MiAyMzEuOTY4IDEyNC4zODYgMjE4LjU4NSAxMjQuMzg2QzIwNS4yMDIgMTI0LjM4NiAyMDAuMDQgMTExLjEyMSAxODAuNzMxIDc1LjE0OTZDMTYxLjQyMSAzOS4xNzg2IDE2My45MDcgMTE4LjI2NCAxNTYuNjQyIDExOS4wMjlDMTQ5LjM3NyAxMTkuNzk0IDEzMS42MzQgMTE2LjIyMyAxMjYuMDg5IDc1LjE0OTVDMTIwLjU0NSAzNC4wNzYzIDEwNy41MDcgNzYuOTM1MyA5Ni4yMjc1IDk4LjM2NDlaIiBmaWxsPSIjQThGRjYxIi8+CjwvZz4KPGRlZnM+CjxmaWx0ZXIgaWQ9ImZpbHRlcjBfZl8wXzMzIiB4PSIzLjg4ODczZS0wOCIgeT0iNS4zNjQ2OWUtMDciIHdpZHRoPSIzMTciIGhlaWdodD0iMjEzIiBmaWx0ZXJVbml0cz0idXNlclNwYWNlT25Vc2UiIGNvbG9yLWludGVycG9sYXRpb24tZmlsdGVycz0ic1JHQiI+CjxmZUZsb29kIGZsb29kLW9wYWNpdHk9IjAiIHJlc3VsdD0iQmFja2dyb3VuZEltYWdlRml4Ii8+CjxmZUJsZW5kIG1vZGU9Im5vcm1hbCIgaW49IlNvdXJjZUdyYXBoaWMiIGluMj0iQmFja2dyb3VuZEltYWdlRml4IiByZXN1bHQ9InNoYXBlIi8+CjxmZUdhdXNzaWFuQmx1ciBzdGREZXZpYXRpb249IjI5IiByZXN1bHQ9ImVmZmVjdDFfZm9yZWdyb3VuZEJsdXJfMF8zMyIvPgo8L2ZpbHRlcj4KPC9kZWZzPgo8L3N2Zz4K","liveGlow4":"data:image/svg+xml;base64,PHN2ZyBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJub25lIiBvdmVyZmxvdz0idmlzaWJsZSIgc3R5bGU9ImRpc3BsYXk6IGJsb2NrOyIgd2lkdGg9IjI0NiIgaGVpZ2h0PSIxNzkiIHZpZXdCb3g9IjAgMCAyNDYgMTc5IiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8ZyBpZD0iVmVjdG9yIDQiIGZpbHRlcj0idXJsKCNmaWx0ZXIwX2ZfMF80MCkiIHN0eWxlPSJtaXgtYmxlbmQtbW9kZTpwbHVzLWxpZ2h0ZXIiPgo8cGF0aCBkPSJNNjguNDI2NiA2NS41NTg3QzgxLjY3NjQgNzEuNzQ0MyA4My4zMDk0IDc5LjAyNyA5My4yNDk1IDEwMy4yNjhDMTAzLjE5IDEyNy41MDggMTcyLjc3MSAxMjUuMTY4IDE4Ny4yMTEgMTA2LjY4NEMyMDEuNjUyIDg4LjIwMDYgMTIuMzEzOSAzOS4zNjMgNjguNDI2NiA2NS41NTg3WiIgZmlsbD0iI0ZCRkYyQSIvPgo8L2c+CjxkZWZzPgo8ZmlsdGVyIGlkPSJmaWx0ZXIwX2ZfMF80MCIgeD0iMS4wMjExOGUtMDYiIHk9Ii0yLjQyNzYyZS0wNyIgd2lkdGg9IjI0NiIgaGVpZ2h0PSIxNzkiIGZpbHRlclVuaXRzPSJ1c2VyU3BhY2VPblVzZSIgY29sb3ItaW50ZXJwb2xhdGlvbi1maWx0ZXJzPSJzUkdCIj4KPGZlRmxvb2QgZmxvb2Qtb3BhY2l0eT0iMCIgcmVzdWx0PSJCYWNrZ3JvdW5kSW1hZ2VGaXgiLz4KPGZlQmxlbmQgbW9kZT0ibm9ybWFsIiBpbj0iU291cmNlR3JhcGhpYyIgaW4yPSJCYWNrZ3JvdW5kSW1hZ2VGaXgiIHJlc3VsdD0ic2hhcGUiLz4KPGZlR2F1c3NpYW5CbHVyIHN0ZERldmlhdGlvbj0iMjkiIHJlc3VsdD0iZWZmZWN0MV9mb3JlZ3JvdW5kQmx1cl8wXzQwIi8+CjwvZmlsdGVyPgo8L2RlZnM+Cjwvc3ZnPgo=","liveGlow5":"data:image/svg+xml;base64,PHN2ZyBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJub25lIiBvdmVyZmxvdz0idmlzaWJsZSIgc3R5bGU9ImRpc3BsYXk6IGJsb2NrOyIgd2lkdGg9IjU0NC4yNzIiIGhlaWdodD0iMTkwLjg0MiIgdmlld0JveD0iMCAwIDU0NC4yNzIgMTkwLjg0MiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGcgaWQ9IlZlY3RvciA1IiBmaWx0ZXI9InVybCgjZmlsdGVyMF9mXzBfNDEpIiBzdHlsZT0ibWl4LWJsZW5kLW1vZGU6bGlnaHRlbiI+CjxwYXRoIGQ9Ik0yMjguNDQgODIuNDk4NEMxNDguNDQgMTI5LjQ5OCA4NS45NDAyIDcxLjQ5ODMgNTguOTQwMiAxMTYuOTk4QzMxLjk0MDIgMTYyLjQ5OCA1OTYuNDQgOTYuOTk4NCA0NjYuOTQgODIuNDk4NEMzMzcuNDQgNjcuOTk4NCAzMDguNDQgMzUuNDk4MyAyMjguNDQgODIuNDk4NFoiIGZpbGw9IiNFOTRFMTciLz4KPC9nPgo8ZGVmcz4KPGZpbHRlciBpZD0iZmlsdGVyMF9mXzBfNDEiIHg9IjEuMjM1MTZlLTA3IiB5PSI5LjAwODk5ZS0wNyIgd2lkdGg9IjU0NC4yNzIiIGhlaWdodD0iMTkwLjg0MiIgZmlsdGVyVW5pdHM9InVzZXJTcGFjZU9uVXNlIiBjb2xvci1pbnRlcnBvbGF0aW9uLWZpbHRlcnM9InNSR0IiPgo8ZmVGbG9vZCBmbG9vZC1vcGFjaXR5PSIwIiByZXN1bHQ9IkJhY2tncm91bmRJbWFnZUZpeCIvPgo8ZmVCbGVuZCBtb2RlPSJub3JtYWwiIGluPSJTb3VyY2VHcmFwaGljIiBpbjI9IkJhY2tncm91bmRJbWFnZUZpeCIgcmVzdWx0PSJzaGFwZSIvPgo8ZmVHYXVzc2lhbkJsdXIgc3RkRGV2aWF0aW9uPSIyOSIgcmVzdWx0PSJlZmZlY3QxX2ZvcmVncm91bmRCbHVyXzBfNDEiLz4KPC9maWx0ZXI+CjwvZGVmcz4KPC9zdmc+Cg==","liveGlow6":"data:image/svg+xml;base64,PHN2ZyBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJub25lIiBvdmVyZmxvdz0idmlzaWJsZSIgc3R5bGU9ImRpc3BsYXk6IGJsb2NrOyIgd2lkdGg9IjMwMy4yOTQiIGhlaWdodD0iMzAwLjI4OCIgdmlld0JveD0iMCAwIDMwMy4yOTQgMzAwLjI4OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGcgaWQ9IlZlY3RvciA2IiBmaWx0ZXI9InVybCgjZmlsdGVyMF9mXzBfNTUpIiBzdHlsZT0ibWl4LWJsZW5kLW1vZGU6bGlnaHRlbiI+CjxwYXRoIGQ9Ik0xMzUuMjk0IDE3NkM5NC40OTM5IDE0OC40IDk1LjI5MzggMTA3LjUgOTUuMjkzOCA1OEMzNy4yOTM4IDExMi41IDUyLjc5MzggMjIyLjUgMTAxLjc5NCAyMzZDMTc2LjE1NSAyNTYuNDg3IDIxNS43OTQgMjIxIDI0NS4yOTQgMjEzLjVDMjI2LjI5NCAyMDUuODMzIDE3Ni4wOTQgMjAzLjYgMTM1LjI5NCAxNzZaIiBmaWxsPSIjNjE5REZGIi8+CjwvZz4KPGRlZnM+CjxmaWx0ZXIgaWQ9ImZpbHRlcjBfZl8wXzU1IiB4PSIxLjc4NTQyZS0wNiIgeT0iMCIgd2lkdGg9IjMwMy4yOTQiIGhlaWdodD0iMzAwLjI4OCIgZmlsdGVyVW5pdHM9InVzZXJTcGFjZU9uVXNlIiBjb2xvci1pbnRlcnBvbGF0aW9uLWZpbHRlcnM9InNSR0IiPgo8ZmVGbG9vZCBmbG9vZC1vcGFjaXR5PSIwIiByZXN1bHQ9IkJhY2tncm91bmRJbWFnZUZpeCIvPgo8ZmVCbGVuZCBtb2RlPSJub3JtYWwiIGluPSJTb3VyY2VHcmFwaGljIiBpbjI9IkJhY2tncm91bmRJbWFnZUZpeCIgcmVzdWx0PSJzaGFwZSIvPgo8ZmVHYXVzc2lhbkJsdXIgc3RkRGV2aWF0aW9uPSIyOSIgcmVzdWx0PSJlZmZlY3QxX2ZvcmVncm91bmRCbHVyXzBfNTUiLz4KPC9maWx0ZXI+CjwvZGVmcz4KPC9zdmc+Cg==","liveGlow7":"data:image/svg+xml;base64,PHN2ZyBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJub25lIiBvdmVyZmxvdz0idmlzaWJsZSIgc3R5bGU9ImRpc3BsYXk6IGJsb2NrOyIgd2lkdGg9IjI5NC40MDciIGhlaWdodD0iMzMyLjI4OCIgdmlld0JveD0iMCAwIDI5NC40MDcgMzMyLjI4OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGcgaWQ9IlZlY3RvciA3IiBmaWx0ZXI9InVybCgjZmlsdGVyMF9mXzBfMzIpIiBzdHlsZT0ibWl4LWJsZW5kLW1vZGU6bGlnaHRlbiI+CjxwYXRoIGQ9Ik0xMjcuMTEzIDIyOEM4Ni4zMTMyIDIwMC40IDkyLjkwNzIgMTQxLjUgMTAzLjYxMyA1OEM0NS42MTMxIDExMi41IDQzLjkwNzEgMjU0LjUgOTIuOTA3MiAyNjhDMTY3LjI2OCAyODguNDg3IDIwNi45MDcgMjUzIDIzNi40MDcgMjQ1LjVDMjE3LjQwNyAyMzcuODMzIDE2Ny45MTMgMjU1LjYgMTI3LjExMyAyMjhaIiBmaWxsPSIjRkY2MTYzIi8+CjwvZz4KPGRlZnM+CjxmaWx0ZXIgaWQ9ImZpbHRlcjBfZl8wXzMyIiB4PSItOS4wMjA5MmUtMDciIHk9IjAiIHdpZHRoPSIyOTQuNDA3IiBoZWlnaHQ9IjMzMi4yODgiIGZpbHRlclVuaXRzPSJ1c2VyU3BhY2VPblVzZSIgY29sb3ItaW50ZXJwb2xhdGlvbi1maWx0ZXJzPSJzUkdCIj4KPGZlRmxvb2QgZmxvb2Qtb3BhY2l0eT0iMCIgcmVzdWx0PSJCYWNrZ3JvdW5kSW1hZ2VGaXgiLz4KPGZlQmxlbmQgbW9kZT0ibm9ybWFsIiBpbj0iU291cmNlR3JhcGhpYyIgaW4yPSJCYWNrZ3JvdW5kSW1hZ2VGaXgiIHJlc3VsdD0ic2hhcGUiLz4KPGZlR2F1c3NpYW5CbHVyIHN0ZERldmlhdGlvbj0iMjkiIHJlc3VsdD0iZWZmZWN0MV9mb3JlZ3JvdW5kQmx1cl8wXzMyIi8+CjwvZmlsdGVyPgo8L2RlZnM+Cjwvc3ZnPgo="}
+}};const cache={};function require(id){if(!cache[id]){cache[id]={};modules[id](cache[id],require);}return cache[id];}
+/* Android host for the unmodified designer renderers. Receives measured RMS only. */
+const canvas = document.getElementById('effect');
+const {waveAt} = require('./waveform');
+const {stepLight} = require('./voice');
+let props = {kind:'light', target:'listen', level:0, active:true, still:false, flat:false};
+let frame = 0, previous = 0, time = 0, state = {flow:0,level:0}, field = null;
+let samples = [];
+const images = new Map();
+function drawStaticLight() {
+  canvas.width=412;canvas.height=357;
+  const ctx=canvas.getContext('2d');
+  for(const layer of require('./light-field').staticLayers[props.target]) {
+    if(!layer)continue;
+    let img=images.get(layer.src);
+    if(!img){img=new Image();img.onload=wake;img.src=layer.src;images.set(layer.src,img);}
+    if(!img.complete||!img.naturalWidth)continue;
+    ctx.save();ctx.globalCompositeOperation=['source-over','lighter','lighten'][layer.blend];
+    ctx.translate(layer.x+layer.w/2,layer.y+layer.h/2-560);
+    if(layer.flip)ctx.rotate(Math.PI);
+    ctx.drawImage(img,-layer.w/2-58,-layer.h/2-58,layer.w+116,layer.h+116);ctx.restore();
+  }
+  if(props.target==='listen') {
+    const fade=ctx.createLinearGradient(0,145,0,225);fade.addColorStop(0,'transparent');fade.addColorStop(1,'black');
+    ctx.globalCompositeOperation='destination-in';ctx.fillStyle=fade;ctx.fillRect(0,0,412,357);
+  }
+}
+function levelAt(t) {
+  for (let i=samples.length-1;i>=0;i--) if (samples[i].time<=t) return samples[i].level;
+  return 0;
+}
+function draw() {
+  if(props.kind==='wave') {
+    canvas.width=132; canvas.height=56;
+    const ctx=canvas.getContext('2d'); ctx.scale(2,2);
+    ctx.fillStyle=props.target==='live'?'#ffffff':'#1b1b1b';
+    waveAt(props.still?0:time,levelAt).forEach((height,i)=>{
+      const h=props.flat?6:height;ctx.beginPath();ctx.roundRect(i*7,(28-h)/2,3,h,1.5);ctx.fill();
+    });
+  } else if(field) field.draw(canvas,props.target,{...state,mix:props.target==='live'?1:0});
+  else drawStaticLight();
+}
+function tick(now) {
+  frame=0;
+  const dt=previous?Math.min(64,Math.max(0,now-previous)):0;previous=now;
+  if(!props.still){time+=dt;state=stepLight(state,props.level,dt);}
+  else state={...state,level:props.level};
+  samples.push({time,level:props.level});if(samples.length>120)samples.shift();
+  draw();if(props.active&&!props.still&&!document.hidden)frame=requestAnimationFrame(tick);
+}
+function wake(){if(!frame&&props.active&&!document.hidden){previous=0;frame=requestAnimationFrame(tick);}}
+let lease=null;
+window.setVoiceEffect = next => {
+  props={...props,...next};
+  if(props.kind==='light'&&!lease){
+    try {lease=require('./light-field').acquireLightField(()=>{field=lease.field;wake();},()=>{field=null;document.documentElement.dataset.renderer='lost';});}
+    catch {document.documentElement.dataset.renderer='unavailable';}
+  }
+  if(!props.active){cancelAnimationFrame(frame);frame=0;draw();}else wake();
+};
+document.addEventListener('visibilitychange',()=>{if(document.hidden){cancelAnimationFrame(frame);frame=0;}else wake();});
+window.addEventListener('pagehide',()=>{cancelAnimationFrame(frame);lease?.release();});
+</script>

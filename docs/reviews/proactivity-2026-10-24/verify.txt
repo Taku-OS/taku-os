@@ -1,0 +1,133 @@
+
+> taku-os@0.1.0 verify
+> npm test && npm run check && npm run check:inventory && npm run check:raw-interfaces && npm run check:structure && npm run check:images && npm run check:surfaces && npm run check:proactivity
+
+
+> taku-os@0.1.0 test
+> node --test tests/*.test.mjs
+
+TAP version 13
+# Subtest: bad request and params rejected before any device access
+ok 1 - bad request and params rejected before any device access
+  ---
+  duration_ms: 0.79575
+  type: 'test'
+  ...
+# Subtest: unknown and absent transport produce explicit errors
+ok 2 - unknown and absent transport produce explicit errors
+  ---
+  duration_ms: 3.768416
+  type: 'test'
+  ...
+# Subtest: explicit adb device and closed methods required
+ok 3 - explicit adb device and closed methods required
+  ---
+  duration_ms: 0.408542
+  type: 'test'
+  ...
+# Subtest: SDK preserves protocol error code without leaking implementation details
+ok 4 - SDK preserves protocol error code without leaking implementation details
+  ---
+  duration_ms: 0.273625
+  type: 'test'
+  ...
+1..4
+# tests 4
+# suites 0
+# pass 4
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 70.510167
+
+> taku-os@0.1.0 check
+> node scripts/check.mjs
+
+JSON protocols, registry and package metadata parse successfully. Full inventory validation belongs to inventory validator.
+
+> taku-os@0.1.0 check:inventory
+> python3 scripts/validate_capability_inventory.py
+
+{
+  "checkedAt": "2026-10-23T18:42:52.416658+00:00",
+  "ok": true,
+  "capabilities": 57,
+  "counts": {
+    "emulator_verified": 20,
+    "research": 37,
+    "device_verified": 0
+  },
+  "historicalHashFiles": 16,
+  "checks": [
+    "capability.schema.json actual declared types/required/enum/oneOf/minima",
+    "required fields/enums",
+    "permission/authorization and version basis",
+    "emulator evidence+scope+dates",
+    "physical device negative gate",
+    "missing evidence negative gate",
+    "source HTTPS/date/audit",
+    "passed UI log marker",
+    "historical SHA-256",
+    "generated examples and HTML data equality",
+    "node --check HTML scripts"
+  ],
+  "errors": [],
+  "boundary": "Static/evidence gates, not fresh GUI re-execution or browser visual acceptance"
+}
+
+> taku-os@0.1.0 check:raw-interfaces
+> python3 tests/raw-android-inventory.test.py
+
+....
+----------------------------------------------------------------------
+Ran 4 tests in 1.925s
+
+OK
+
+> taku-os@0.1.0 check:structure
+> python3 scripts/check_structure.py
+
+{
+  "ok": true,
+  "localMarkdownLinks": 729,
+  "sourcePaths": 1261,
+  "errors": [],
+  "boundary": "Offline structure gate; not licensing certification, device test or ROM acceptance"
+}
+
+> taku-os@0.1.0 check:images
+> python3 tests/image-artifacts.test.py && python3 tests/incremental-image.test.py && python3 tests/ninja-fifo-guard.test.py && python3 tests/ai-rom.test.py
+
+...........
+----------------------------------------------------------------------
+Ran 11 tests in 0.320s
+
+OK
+......
+----------------------------------------------------------------------
+Ran 6 tests in 0.039s
+
+OK
+s
+----------------------------------------------------------------------
+Ran 1 test in 0.000s
+
+OK (skipped=1)
+.............................
+----------------------------------------------------------------------
+Ran 29 tests in 0.093s
+
+OK
+
+> taku-os@0.1.0 check:surfaces
+> bash system/surfaces/test.sh
+
+37 surface lifecycle assertions passed
+17 surface position assertions passed
+
+> taku-os@0.1.0 check:proactivity
+> bash system/proactivity/test.sh
+
+20 proactivity scheduling assertions passed
+12 dashboard aggregation assertions passed

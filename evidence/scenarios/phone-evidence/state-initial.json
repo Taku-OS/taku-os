@@ -1,0 +1,15 @@
+{
+  "ok": true,
+  "app": "scenario_score",
+  "method": "score.state",
+  "result": {
+    "scores": {
+      "A": 0,
+      "B": 0
+    },
+    "history": []
+  },
+  "revision": 1,
+  "replayed": false,
+  "durationMs": 0.3
+}

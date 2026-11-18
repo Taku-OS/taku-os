@@ -1,0 +1,86 @@
+[
+  {
+    "id": "system.info",
+    "implementation": "device-probe",
+    "permission": "Android shell tools",
+    "status": "implemented",
+    "mutates": false
+  },
+  {
+    "id": "displays.status",
+    "implementation": "device-probe",
+    "permission": "shell/system/root for cmd display; optional root state path",
+    "status": "implemented",
+    "mutates": false
+  },
+  {
+    "id": "tasks.status",
+    "implementation": "device-probe",
+    "permission": "root/system UID plus filesystem access under current SELinux policy",
+    "status": "implemented",
+    "mutates": false
+  },
+  {
+    "id": "methods.list",
+    "implementation": "core",
+    "permission": "none",
+    "status": "implemented",
+    "mutates": false
+  },
+  {
+    "id": "capabilities.list",
+    "implementation": "inventory",
+    "permission": "none",
+    "status": "implemented",
+    "mutates": false
+  },
+  {
+    "id": "extensions.list",
+    "implementation": "registry",
+    "permission": "none",
+    "status": "implemented",
+    "mutates": false
+  },
+  {
+    "id": "audio.capabilities",
+    "implementation": "audio-engine",
+    "permission": "authorized adb/device bridge and visible microphone host; native caller policy",
+    "status": "implemented",
+    "mutates": false
+  },
+  {
+    "id": "audio.session.open",
+    "implementation": "audio-engine",
+    "permission": "authorized adb/device bridge and visible microphone host; native caller policy",
+    "status": "implemented",
+    "mutates": true
+  },
+  {
+    "id": "audio.session.finish",
+    "implementation": "audio-engine",
+    "permission": "authorized adb/device bridge and visible microphone host; native caller policy",
+    "status": "implemented",
+    "mutates": true
+  },
+  {
+    "id": "audio.session.close",
+    "implementation": "audio-engine",
+    "permission": "authorized adb/device bridge and visible microphone host; native caller policy",
+    "status": "implemented",
+    "mutates": true
+  },
+  {
+    "id": "audio.session.status",
+    "implementation": "audio-engine",
+    "permission": "authorized adb/device bridge and visible microphone host; native caller policy",
+    "status": "implemented",
+    "mutates": false
+  },
+  {
+    "id": "audio.session.append",
+    "implementation": "audio-engine",
+    "permission": "session owner; SPEAK only",
+    "status": "implemented",
+    "mutates": true
+  }
+]

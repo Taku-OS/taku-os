@@ -1,0 +1,22 @@
+{
+  "installedApks": {
+    "org.agentos.inputmethod": {
+      "installedApkSha256": "f2e60ad5bcabb15c55ee294db726e661c80cdd658b2915ef749c466dd188a0ca"
+    },
+    "org.agentos.assistant": {
+      "installedApkSha256": "c6c4163fcd0e211089695d21f90978ddb0df52316fea941f20f0e0885e1176b9"
+    }
+  },
+  "defaultInputMethod": "org.agentos.inputmethod/org.fcitx.fcitx5.android.input.FcitxInputMethodService",
+  "selinux": "Enforcing",
+  "brokerSha256": "5a14c9e00946631185f97ef00e2c0ce72dc901b00ed7cea426b0f4f9e09f2431",
+  "magpieWrapperSha256": "0c60d88488fe41b8237b7aad992f606111e6220d7d66af87d2769ca334049142",
+  "credentialTransfer": {
+    "explicitUserRequest": true,
+    "source": "local Codex ChatGPT Pro",
+    "destination": "phone root-private Codex home",
+    "mode": "0600",
+    "credentialsInEvidence": false,
+    "phonePriorCredentialsBackedUp": true
+  }
+}

@@ -1,0 +1,18 @@
+Develop a real native Android APK, “Taku System Score Lab”, from scratch on this Android phone. Deliver an app, not a web preview or design description.
+
+Use directory /data/local/agentos/light-app-lab/generated/system-app-20261015, package org.taku.acceptance.systemlab20261015, and main Activity .MainActivity. This package is only for the current development-emulator acceptance.
+
+Write src/org/taku/acceptance/systemlab20261015/MainActivity.java and AndroidManifest.xml yourself, without copying other generated apps' business code. Use native Android Views without network services, Node, React, or a precompiled application shell. Manifest version is 1 / 1.0, minSdk 30, targetSdk 35. Request only MODIFY_AUDIO_SETTINGS, not root, system UID, or personal-data permissions.
+
+Features:
+- English UI titled “System API and Score Lab”. Display Android API, the app's own UID, battery percentage, SensorManager-visible sensor count, and current media volume.
+- Score teams A/B, initially A=0/B=0, with buttons “A +1”, “B +1”, and “Undo”. Persist scores and action history in SharedPreferences; undo the last valid addition. Display each score as “A score: N” / “B score: N” for acceptance.
+- Actually read and adjust STREAM_MUSIC using AudioManager, with “Volume +1” and “Restore volume” buttons. Save the original volume on opening, refresh visible “Media volume: N” after adjustment, and restore the original value on request.
+- A “Refresh system status” button calls real Android APIs. Never hardcode system data or fabricate hardware capabilities.
+- Clear accessible native controls, portrait scrolling, and preserved status/navigation bars.
+
+The test framework separately prepared on-device development tools; this does not establish a development environment bundled in the ROM. Existing /data/local/agentos/light-app-lab/build-native.sh runs ECJ Java compilation, D8, aapt2/aapt packaging, zipalign, development signing, and pm install on the device. You must call:
+TAKU_APP_DISPLAY=2 sh /data/local/agentos/light-app-lab/build-native.sh /data/local/agentos/light-app-lab/generated/system-app-20261015
+Save output to project build-result.txt. On failure, read the error, fix your source, and rebuild; do not claim success. All app launches/input target independent background display 2, never main display 0. Compilation, packaging, signing, and installation must occur on the phone without host-side app building.
+
+Finally verify actual pm path, package version, and the independent-display Activity, capture the background display, and report actual source/APK paths. Do not read authentication or other signing files. Use only the dedicated development test key configured for this directory without printing its contents. Do not tap scoring or volume buttons on behalf of the test framework; it will test them independently.

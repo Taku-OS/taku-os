@@ -1,0 +1,202 @@
+{
+  "modelResponsesSimulated": false,
+  "serial": "46170DLAQ0006D",
+  "androidSdk": "37",
+  "checks": [
+    "real Luna image JSON reaches the existing candidate strip",
+    "visible model suggestion inserts exact text without sending",
+    "natural pending copy uses the existing 40dp candidate strip",
+    "first real pinyin key immediately hides AI row",
+    "canceled request cannot return to keyboard",
+    "FLAG_SECURE rejected before screenshot capture",
+    "password editor never shows AI row"
+  ],
+  "generationVerified": true,
+  "secureJob": {
+    "id": "43d9d3ae-9e50-4363-bb7e-f625372f97b7",
+    "state": "failed",
+    "message": "这个页面就留在你这里",
+    "code": "unavailable"
+  },
+  "status": "physical_verified",
+  "date": "2026-10-22",
+  "components": {
+    "ime": "0.2.2",
+    "assistantVersionCode": 61,
+    "model": "codex/gpt-6-luna",
+    "reasoningEffort": "low",
+    "connectionChange": "explicitly authorized USB import of local ChatGPT Pro credential cache; main Agent model/config unchanged",
+    "systemDeployment": "temporary bind mounts; no image flash; SELinux enforcing"
+  },
+  "keyboardBaseline": [
+    "taku-logo-toolbar-toggle",
+    "delete-composition",
+    "pinyin-candidate-commit",
+    "delete-committed-text",
+    "chinese-english-switch",
+    "english-typing",
+    "symbols",
+    "numeric-editor",
+    "password-editor",
+    "ime-process-restart-chinese-commit",
+    "day-night-theme"
+  ],
+  "parserChecks": 21,
+  "jvmTests": 8,
+  "repositoryVerify": "passed",
+  "apk": {
+    "upstreamCommit": "048f581c652367567b8ee5c28c5163b805288895",
+    "patches": {
+      "0001-taku-inputmethod.patch": "dbe4f55d73b083c27444086e973d374d384b535d73e7e3c5d3748eaff579285e",
+      "0002-ai-replies.patch": "896461bf3b00ef30a4d0392a2788c18b4070ab1b951673512fe1bc2a11be6759"
+    },
+    "apk": "TakuInputMethod-arm64-v8a.apk",
+    "sha256": "f2e60ad5bcabb15c55ee294db726e661c80cdd658b2915ef749c466dd188a0ca",
+    "bytes": 45852856,
+    "package": "org.agentos.inputmethod",
+    "version": "0.2.2",
+    "internetPermission": false
+  },
+  "installedApkSha256": "f2e60ad5bcabb15c55ee294db726e661c80cdd658b2915ef749c466dd188a0ca",
+  "brokerSha256": "5a14c9e00946631185f97ef00e2c0ce72dc901b00ed7cea426b0f4f9e09f2431",
+  "assistantApkSha256": "c6c4163fcd0e211089695d21f90978ddb0df52316fea941f20f0e0885e1176b9",
+  "magpieWrapperSha256": "0c60d88488fe41b8237b7aad992f606111e6220d7d66af87d2769ca334049142",
+  "builtAssistantApkSha256": "c6c4163fcd0e211089695d21f90978ddb0df52316fea941f20f0e0885e1176b9",
+  "uiPlacement": "existing native 40dp candidate strip; no extra panel or keyboard height",
+  "memoryIntegration": {
+    "status": "design_only",
+    "referenceThread": "01a1534a-9ad9-7902-9625-e73252bf4ba4",
+    "referenceMemoryVersion": "0.5.0",
+    "sourceCommit": "a01a08e",
+    "inputCaptureImplemented": false,
+    "plan": "dedicated trusted IME source, final draft plus provenance, existing batch/Jev/Agent pipeline"
+  },
+  "sourceReconstructionFiles": 38,
+  "predictionFailureFollowUp": {
+    "status": "physical_verified",
+    "imeVersion": "0.2.2",
+    "assistantVersionCode": 61,
+    "generationVerified": true,
+    "cause": "Magpie HTTP 502: Codex signed out / token refresh failed",
+    "changes": [
+      "classified auth_required without forwarding upstream body",
+      "persistent failure text in native candidate strip",
+      "tap expired-login message to open Taku account page"
+    ],
+    "checks": {
+      "parser": 21,
+      "gatewayErrorClassification": 12,
+      "upstreamJvm": 8,
+      "sourceReconstruction": {
+        "status": "passed",
+        "files": 38,
+        "upstream": "048f581c652367567b8ee5c28c5163b805288895",
+        "version": "0.2.2",
+        "patches": {
+          "0001-taku-inputmethod.patch": "dbe4f55d73b083c27444086e973d374d384b535d73e7e3c5d3748eaff579285e",
+          "0002-ai-replies.patch": "896461bf3b00ef30a4d0392a2788c18b4070ab1b951673512fe1bc2a11be6759"
+        }
+      },
+      "repositoryVerify": "passed",
+      "assistantBuild": "passed",
+      "imeReleaseBuild": "passed"
+    },
+    "artifacts": {
+      "imeApk": {
+        "sha256": "f2e60ad5bcabb15c55ee294db726e661c80cdd658b2915ef749c466dd188a0ca",
+        "bytes": 45852856
+      },
+      "assistantApk": {
+        "sha256": "c6c4163fcd0e211089695d21f90978ddb0df52316fea941f20f0e0885e1176b9",
+        "bytes": 2158821
+      },
+      "brokerJar": {
+        "sha256": "5a14c9e00946631185f97ef00e2c0ce72dc901b00ed7cea426b0f4f9e09f2431",
+        "bytes": 65663
+      }
+    },
+    "deviceVerification": "7 real-model and local AI checks passed on Pixel 9 / API 37; installed APK hashes match builds",
+    "deploymentNote": "prior system bind mounts expire on reboot; verify deployed broker and Magpie wrapper before retrying"
+  },
+  "previousVerification": {
+    "status": "local_verified_model_pending",
+    "components": {
+      "ime": "0.2.2",
+      "assistantVersionCode": 61,
+      "model": "codex/gpt-6-luna",
+      "reasoningEffort": "low",
+      "connectionChange": "explicitly authorized USB import of local ChatGPT Pro credential cache; main Agent model/config unchanged",
+      "systemDeployment": "temporary bind mounts; no image flash; SELinux enforcing"
+    },
+    "modelBlocker": {
+      "id": "4a77aa58-f960-455c-b877-b4b79e7c6e83",
+      "state": "failed",
+      "message": "这次没连上模型，先按你的想法说吧"
+    },
+    "modelFailure": {
+      "httpStatus": 502,
+      "message": "Codex is signed out (token refresh failed); run codex login",
+      "nativeAccountPresent": false,
+      "generationVerified": false
+    },
+    "apk": {
+      "upstreamCommit": "048f581c652367567b8ee5c28c5163b805288895",
+      "patches": {
+        "0001-taku-inputmethod.patch": "dbe4f55d73b083c27444086e973d374d384b535d73e7e3c5d3748eaff579285e",
+        "0002-ai-replies.patch": "c315821391772fa05f2d79df1cf15d1cb2db59d9a89f8e953d113d98e044e4f9"
+      },
+      "apk": "TakuInputMethod-arm64-v8a.apk",
+      "sha256": "b5068506949224a349fe3a8101420562d292b08834fb361766c153ca36fac2de",
+      "bytes": 45852856,
+      "package": "org.agentos.inputmethod",
+      "version": "0.2.1",
+      "internetPermission": false
+    },
+    "installedApkSha256": "b5068506949224a349fe3a8101420562d292b08834fb361766c153ca36fac2de"
+  },
+  "reply": {
+    "version": 1,
+    "candidates": [
+      {
+        "text": "可以，周五七点半见！"
+      },
+      {
+        "text": "我应该能来，七点半在地铁口那家见？"
+      },
+      {
+        "text": "谢谢邀请，我这次不太方便，下次一起吃。"
+      }
+    ],
+    "receipt": {
+      "model": "codex/gpt-6-luna",
+      "inputMode": "image",
+      "imageSha256": "781cf268ca940cd7f05135496b08e686433263438ffd34b2e508d3fc1b27199f",
+      "imageWidth": 942,
+      "imageHeight": 1280,
+      "elapsedMs": 8340
+    }
+  },
+  "gatewayErrorClassificationChecks": 12,
+  "credentialTransfer": {
+    "explicitUserRequest": true,
+    "source": "local Codex ChatGPT Pro",
+    "destination": "phone root-private Codex home",
+    "mode": "0600",
+    "credentialsInEvidence": false,
+    "phonePriorCredentialsBackedUp": true
+  },
+  "finalLiveReceipt": {
+    "model": "codex/gpt-6-luna",
+    "inputMode": "image",
+    "imageSha256": "34632788999526df98e54a44ffbb251945b594b2d383f5fed35f27465247792f",
+    "imageWidth": 942,
+    "imageHeight": 1280,
+    "elapsedMs": 6609
+  },
+  "deviceEndState": {
+    "defaultInputMethod": "org.agentos.inputmethod/org.fcitx.fcitx5.android.input.FcitxInputMethodService",
+    "selinux": "Enforcing",
+    "syntheticChat": "normal editor with actual ready suggestions visible",
+    "temporaryProbeAppsRemoved": true
+  }
+}

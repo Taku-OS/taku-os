@@ -1,0 +1,37 @@
+{
+  "schema": "taku.lineage-updater-patch/1",
+  "upstreamCommit": "6d50e0bf1b16fe7bca818375a3e734f4959e2e57",
+  "repository": "packages/apps/Updater",
+  "patch": "download-integrity.patch",
+  "patchSha256": "ef1e78875ffa656b27487634e23bb558ef8d6f44d280c0951f27ed1e999c9549",
+  "versionCode": 2,
+  "packageName": "org.lineageos.updater",
+  "uri": "https://worker.taku.ai/os-update/v1/canary/{device}/{type}/{incr}",
+  "files": [
+    {
+      "path": "app/src/main/AndroidManifest.xml",
+      "beforeSha256": "bae2b3ab9111d43425cbcf12f353feb354a52feb057a361f22860a7722e003dc",
+      "afterSha256": "635c36b8564c57c444282ad1b38072c7865db9ae2e471ea2bc07f3a0e4db7578"
+    },
+    {
+      "path": "app/src/main/java/org/lineageos/updater/controller/UpdaterController.java",
+      "beforeSha256": "3957a30343826540c9e9d19fde33695c655b50480c35f8d6c27f93d3ff6e92f8",
+      "afterSha256": "739c95c0c8708a1502bd7947036e18c7ba9a3e9e6cd77c7a304413470a09b82e"
+    },
+    {
+      "path": "app/src/main/java/org/lineageos/updater/download/DownloadIntegrity.java",
+      "beforeSha256": null,
+      "afterSha256": "86d482e0c265c1e457653a84d3bc356992f97e4ce06b4df22d9c4512107443b2"
+    },
+    {
+      "path": "app/src/main/java/org/lineageos/updater/download/HttpURLConnectionClient.java",
+      "beforeSha256": "87509e8ee5f9647b475840c226f161cdd756715d8131d0558c0eec00b9a2ecee",
+      "afterSha256": "ee2580f104320fe8744942a4c7faf798a53fa7155d3e582fcf0bc2cf6085c95b"
+    },
+    {
+      "path": "app/src/main/java/org/lineageos/updater/download/SingleRangeHttpFetcher.kt",
+      "beforeSha256": "96dd11dfe681c0786efb778754b95e9fc9ece7dff5ad623f190297258d7a45ae",
+      "afterSha256": "51b81f296f0f829e743b273b73845031937d801d60c340c643a365d509fc5578"
+    }
+  ]
+}

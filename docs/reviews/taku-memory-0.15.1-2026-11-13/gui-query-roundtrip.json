@@ -1,0 +1,9 @@
+{
+  "guiOn": true,
+  "queryEnabled": true,
+  "nudgesOk": true,
+  "nudgeCount": 10,
+  "guiOff": true,
+  "queryOff": true,
+  "nudgesRejectedAfterGuiOff": true
+}

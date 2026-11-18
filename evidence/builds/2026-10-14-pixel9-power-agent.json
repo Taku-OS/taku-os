@@ -1,0 +1,21 @@
+{
+  "assessedOn": "2026-10-14",
+  "target": "Pixel 9 / tokay",
+  "before": {
+    "power_button_long_press": "null",
+    "power_button_long_press_duration_ms": "null"
+  },
+  "power_button_long_press": 5,
+  "power_button_long_press_duration_ms": 500,
+  "assistantComponent": "org.agentos.assistant/.AssistantService",
+  "verification": "Injected KEYCODE_POWER hold 1000 ms while Settings was foreground; inspected VoiceInteractionSession",
+  "screenshot": "/Users/haipro/experiments/android-agent-os/taku-os/out/pixel9/device-install-2026-10-14/power-button-agent.png",
+  "powerPolicyConfirmed": "LONG_PRESS_POWER_ASSISTANT",
+  "voiceSessionShownVerified": true,
+  "actualScreenshotInspected": true,
+  "physicalButtonPressByHumanVerified": false,
+  "installedAssistantUi": "October 11 system assistant panel; later AgentDrawer source is not deployed",
+  "firstBootSourceUpdated": "image/runtime/start",
+  "sourceSyntaxChecked": true,
+  "officialPolicyReference": "https://android.googlesource.com/platform/frameworks/base/+/android16-qpr1-release/services/core/java/com/android/server/policy/PhoneWindowManager.java"
+}

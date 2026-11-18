@@ -1,0 +1,99 @@
+{
+  "date": "2026-10-15",
+  "completedAt": "2026-10-15T00:02:46.340284+08:00",
+  "sourceHead": "02992bf",
+  "workingTreeModified": true,
+  "model": "gpt-6.1-sol",
+  "runtime": "codex 0.161.0 app-server",
+  "device": "Dedicated Android16 / API36 / ARM64 emulator",
+  "cases": [
+    {
+      "id": "chat",
+      "label": "中文对话",
+      "verified": true,
+      "seconds": 7.426,
+      "note": "真实模型回复「已记住」",
+      "nativeStatus": "completed"
+    },
+    {
+      "id": "memory",
+      "label": "同会话上下文",
+      "verified": true,
+      "seconds": 5.422,
+      "note": "第二轮准确回忆口令「青叶731」",
+      "nativeStatus": "completed"
+    },
+    {
+      "id": "system-read",
+      "label": "读取系统与权限",
+      "verified": true,
+      "seconds": 8.692,
+      "note": "Android 16 / API 36；工具 UID 0",
+      "nativeStatus": "completed"
+    },
+    {
+      "id": "volume",
+      "label": "调节媒体音量",
+      "verified": true,
+      "seconds": 7.953,
+      "note": "媒体音量 5 → 7，独立回读确认",
+      "nativeStatus": "completed"
+    },
+    {
+      "id": "brightness",
+      "label": "调节屏幕亮度",
+      "verified": true,
+      "seconds": 8.703,
+      "note": "亮度 102 → 120，手动模式回读确认",
+      "nativeStatus": "completed"
+    },
+    {
+      "id": "open-app",
+      "label": "后台打开 App",
+      "verified": true,
+      "seconds": 31.365,
+      "note": "设置在独立屏 2 显示；主屏任务保留",
+      "nativeStatus": "completed"
+    },
+    {
+      "id": "clock-gui",
+      "label": "截图观察与点击",
+      "verified": true,
+      "seconds": 34.391,
+      "note": "截图后点击秒表；实图为 0，未启动计时",
+      "nativeStatus": "completed"
+    },
+    {
+      "id": "wallpaper",
+      "label": "更换主屏壁纸",
+      "verified": true,
+      "seconds": 51.698,
+      "note": "实际壁纸像素 #23587d；锁屏保留原壁纸",
+      "nativeStatus": "completed"
+    },
+    {
+      "id": "interrupt",
+      "label": "停止当前任务",
+      "verified": false,
+      "seconds": 9.179,
+      "note": "对话终态已中断，但 sleep 子进程继续运行",
+      "nativeStatus": "interrupted"
+    }
+  ],
+  "restored": {
+    "mediaVolume": true,
+    "brightness": true,
+    "brightnessMode": true,
+    "wallpaperCleanupSucceeded": true
+  },
+  "physicalDeviceTouched": false,
+  "wallpaperFirstAttemptSeconds": 171.282,
+  "wallpaperRetrySeconds": 51.698,
+  "stopBoundary": {
+    "nativeTurnInterrupted": true,
+    "commandObservedRunningBeforeStop": true,
+    "sleepProcessStillRunningAfterStop": true,
+    "sleepExitedNaturallyLater": true
+  },
+  "boundary": "Actual model and UI on dedicated Android16 emulator; no physical phone, third-party app compatibility, plugin lifecycle, production permissions or cold power-cycle acceptance."
+}

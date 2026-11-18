@@ -1,0 +1,9 @@
+# Round eight: plugin transactions (incomplete; constraints clarified)
+
+The previous handoff wrongly stated that runtime modification/building was prohibited. The user clarified that app-server source must be modified to cover internal writes such as plugin-cache refresh, rebuilt, and pushed to the dedicated emulator for verification. Only byte-for-byte reproducibility research is excluded. Treating runtime modification as prohibited was an incorrect blocker.
+
+Existing GUI and `taku-plugin` forward plugin requests through broker; independent app-servers also write the same `CODEX_HOME/plugins`. Native `core-plugins/src/manager.rs` installs through `PluginStore` before asynchronously writing enable configuration, and uninstalls cache before clearing configuration. `loader.rs` also refreshes through `PluginStore`, while `remote/remote_installed_plugin_sync.rs` directly deletes cache. One cross-process lock and journal recovery must cover the complete operation including configuration updates and independent internal writes. Broker queues or locks around individual directory renames do not satisfy this.
+
+This continuation did not implement/deploy native transactions or complete upgrade, rollback, uninstall recovery, or 50-round concurrency acceptance. No `round8-*.png` screenshots were generated. Existing source-runtime startup, older CLI tests, and single-process uninstall probes are not acceptance evidence for this round. PR remains Draft.
+
+Complete the agreed design next: `.lock` at the plugin-store root; staging/backup/journal recovery for install/upgrade; trash/journal recovery for uninstall; `taku-plugin rollback <id>` sharing GUI state; dedicated-emulator upgrade, kill recovery, rollback, interrupted-uninstall recovery, and 50 CLI vs GUI/broker concurrency rounds, preserving scripts, logs, and `round8-*.png`. MCP privilege reduction is deferred; third-party MCP currently runs with root-runtime permissions.

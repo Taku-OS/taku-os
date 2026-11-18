@@ -1,0 +1,37 @@
+{
+  "sourceCommit": "cc8da40204e4c7defe843023cc84586d29564f5b",
+  "frameworkRevision": "7f6de40b6429462d47ba9ba351b99943269c8067",
+  "target": "lineage_tokay-cp2a-userdebug",
+  "systemUiCompiled": true,
+  "artifactComponentsVerified": true,
+  "romBuiltVerified": false,
+  "deviceVerified": false,
+  "systemUiApkSha256": "22a1500d1adc878b768fd0067e220d68fdbc18cc76505967443027a053ea5308",
+  "patchManifestSha256": "298bb1f0dcd0b17ebf25a09f54126d813c8c863b9c004651e83aa3f314143424",
+  "schema": "taku.island-cloud-validation/1",
+  "builderImage": "sha256:76fffd70eba28780934535eec83791a0534e5d3bdf837e9c1270f187d59c005c",
+  "buildId": "CP2A.260605.016",
+  "reusedBuildNumber": "20261111080323",
+  "systemUiCertificateSha256": "c8a2e9bccf597c2fb6dc66bee293fc13f2fc47ec77bc6b2b0d52c11f51192ab8",
+  "inputArchiveSha256": "5c5d2d73bcef51a783a20d8e341371775d7bba71cb17f068ec7d1bdd36678e46",
+  "compileExitCode": 0,
+  "buildLogSha256": "dc07830a0e9dcf5b7f1ab84f7e517a32f2ba6102a0b7f2c4621ae17d99bb821b",
+  "originalFrameworkTrackedTreeUnchanged": true,
+  "daggerRuntimeVerified": false,
+  "targetRelease": "cp2a",
+  "agentRelease": {
+    "sha256": "95cb75bdf8af5a93aadd3e7f53cf6f5c4a0f7beed1e8682880397c4f3227eb85",
+    "components": [
+      "org.agentos.agent.home.island.IslandPublisherService",
+      "org.agentos.agent.home.island.IslandContentService",
+      "org.agentos.agent.home.island.IslandActionReceiver"
+    ],
+    "certificateSha256": "c8a2e9bccf597c2fb6dc66bee293fc13f2fc47ec77bc6b2b0d52c11f51192ab8",
+    "matchesSystemUiCertificate": true,
+    "ordinaryApplicationUid": true,
+    "buildExitCode": 0,
+    "lintPassed": true,
+    "typecheckPassed": true,
+    "buildLogSha256": "4c44b99193e1e75413beddc7b56aa25099ce90a5aa4f4212d2e4581250f9a46f"
+  }
+}

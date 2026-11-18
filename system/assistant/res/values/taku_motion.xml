@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generated from tokens.json by tools/build_android.py. Do not edit by hand. -->
+<resources>
+    <integer name="taku_motion_duration_press">120</integer>
+    <integer name="taku_motion_duration_color">200</integer>
+    <integer name="taku_motion_duration_expand">300</integer>
+    <integer name="taku_motion_duration_release">300</integer>
+    <integer name="taku_motion_duration_navigation">300</integer>
+    <integer name="taku_motion_duration_drawer">320</integer>
+    <integer name="taku_motion_duration_pulse">2600</integer>
+    <integer name="taku_motion_duration_feedback">300</integer>
+    <item name="taku_motion_press_scale" type="dimen" format="float">0.97</item>
+    <item name="taku_motion_feedback_scale" type="dimen" format="float">1.04</item>
+</resources>

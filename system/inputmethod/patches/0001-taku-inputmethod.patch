@@ -1,0 +1,735 @@
+diff --git a/app/build.gradle.kts b/app/build.gradle.kts
+index 53f1eb8..3027fa2 100644
+--- a/app/build.gradle.kts
++++ b/app/build.gradle.kts
+@@ -13,7 +13,8 @@ android {
+     namespace = "org.fcitx.fcitx5.android"
+ 
+     defaultConfig {
+-        applicationId = "org.fcitx.fcitx5.android"
++        applicationId = "org.agentos.inputmethod"
++        versionCode = 10000
+         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+ 
+         @Suppress("UnstableApiUsage")
+@@ -40,14 +41,14 @@ android {
+ 
+     buildTypes {
+         release {
+-            resValue("mipmap", "app_icon", "@mipmap/ic_launcher")
+-            resValue("mipmap", "app_icon_round", "@mipmap/ic_launcher_round")
++            resValue("mipmap", "app_icon", "@drawable/taku_brand_mark")
++            resValue("mipmap", "app_icon_round", "@drawable/taku_brand_mark")
+             resValue("string", "app_name", "@string/app_name_release")
+             proguardFile("proguard-rules.pro")
+         }
+         debug {
+-            resValue("mipmap", "app_icon", "@mipmap/ic_launcher_debug")
+-            resValue("mipmap", "app_icon_round", "@mipmap/ic_launcher_round_debug")
++            resValue("mipmap", "app_icon", "@drawable/taku_brand_mark")
++            resValue("mipmap", "app_icon_round", "@drawable/taku_brand_mark")
+             resValue("string", "app_name", "@string/app_name_debug")
+         }
+     }
+diff --git a/app/src/main/assets/taku/NOTICE b/app/src/main/assets/taku/NOTICE
+new file mode 100644
+index 0000000..f7f4885
+--- /dev/null
++++ b/app/src/main/assets/taku/NOTICE
+@@ -0,0 +1,24 @@
++Taku Input Method
++
++Derived from Fcitx5 for Android 0.1.3, commit
++048f581c652367567b8ee5c28c5163b805288895
++https://github.com/fcitx5-android/fcitx5-android
++Copyright 2021–2026 Fcitx5 for Android Contributors.
++
++The Android front end and the Taku modifications to it retain
++SPDX-License-Identifier: LGPL-2.1-or-later. Fcitx5, libime,
++fcitx5-chinese-addons, dictionaries, and bundled dependencies retain their
++own copyright notices and licenses, including LGPL and GPL components.
++See the locked upstream tree, LICENSES/, native dependency source trees,
++and the in-app open source license list. The repository's root internal
++license does not replace the licenses of this derived input method.
++
++Taku modifications: product identity, Chinese-first initial profile,
++Taku keyboard colors, local privacy text and reproducible product build.
++Copyright 2026 Taku OS Contributors.
++
++Source preparation is defined by source-lock.json and patches/*.patch.
++The build uses upstream's pinned prebuilt support libraries and offline
++language data; the Android front end, Fcitx engine and Chinese input engine
++are compiled from source. Keep this notice, the upstream notices, the
++patches, and corresponding build/source materials with redistributions.
+diff --git a/app/src/main/java/org/fcitx/fcitx5/android/core/Fcitx.kt b/app/src/main/java/org/fcitx/fcitx5/android/core/Fcitx.kt
+index 3a2aa0b..2ed6d37 100644
+--- a/app/src/main/java/org/fcitx/fcitx5/android/core/Fcitx.kt
++++ b/app/src/main/java/org/fcitx/fcitx5/android/core/Fcitx.kt
+@@ -447,11 +447,13 @@ class Fcitx(private val context: Context) : FcitxAPI, FcitxLifecycleOwner {
+             """.trimIndent()
+             )
+             with(FcitxApplication.getInstance().directBootAwareContext) {
++                val userDir = getExternalFilesDir(null) ?: filesDir
++                TakuDefaults.ensureProfile(userDir)
+                 startupFcitx(
+                     locale,
+                     dataDir,
+                     nativeLibDir.toString(),
+-                    (getExternalFilesDir(null) ?: filesDir).absolutePath,
++                    userDir.absolutePath,
+                     (externalCacheDir ?: cacheDir).absolutePath,
+                     extDomains.toTypedArray()
+                 )
+diff --git a/app/src/main/java/org/fcitx/fcitx5/android/core/TakuDefaults.kt b/app/src/main/java/org/fcitx/fcitx5/android/core/TakuDefaults.kt
+new file mode 100644
+index 0000000..ae225b3
+--- /dev/null
++++ b/app/src/main/java/org/fcitx/fcitx5/android/core/TakuDefaults.kt
+@@ -0,0 +1,48 @@
++/*
++ * SPDX-License-Identifier: LGPL-2.1-or-later
++ * SPDX-FileCopyrightText: Copyright 2026 Taku OS Contributors
++ */
++package org.fcitx.fcitx5.android.core
++
++import java.io.File
++
++/** Seed a Chinese-first profile once. Existing and imported profiles belong to the user. */
++internal object TakuDefaults {
++    fun ensureProfile(userDir: File) {
++        val profile = userDir.resolve("config/profile")
++        if (profile.exists()) return
++        profile.parentFile!!.mkdirs()
++        val config = userDir.resolve("config/config")
++        if (!config.exists()) config.writeText("[Behavior]\nActiveByDefault=True\n")
++        // Desktop-style prediction consumes the first virtual Backspace by default.
++        // A phone keyboard should clear predictions and delete the previous character together.
++        val pinyin = userDir.resolve("config/conf/pinyin.conf")
++        if (!pinyin.exists()) {
++            pinyin.parentFile!!.mkdirs()
++            pinyin.writeText("BackspaceBehaviorOnPrediction=\"Clear candidates & backspace\"\n")
++        }
++        val temporary = File.createTempFile("taku-profile-", ".tmp", profile.parentFile)
++        try {
++            temporary.writeText("""
++                [Groups/0]
++                Name=Default
++                Default Layout=us
++                DefaultIM=pinyin
++
++                [Groups/0/Items/0]
++                Name=keyboard-us
++                Layout=
++
++                [Groups/0/Items/1]
++                Name=pinyin
++                Layout=
++
++                [GroupOrder]
++                0=Default
++            """.trimIndent() + "\n")
++            check(profile.exists() || temporary.renameTo(profile)) { "Cannot create Taku input profile" }
++        } finally {
++            temporary.delete()
++        }
++    }
++}
+diff --git a/app/src/main/java/org/fcitx/fcitx5/android/data/theme/ThemeManager.kt b/app/src/main/java/org/fcitx/fcitx5/android/data/theme/ThemeManager.kt
+index 93ba4d4..ee441c7 100644
+--- a/app/src/main/java/org/fcitx/fcitx5/android/data/theme/ThemeManager.kt
++++ b/app/src/main/java/org/fcitx/fcitx5/android/data/theme/ThemeManager.kt
+@@ -24,6 +24,8 @@ object ThemeManager {
+     }
+ 
+     val BuiltinThemes = listOf(
++        ThemePreset.TakuLight,
++        ThemePreset.TakuDark,
+         ThemePreset.MaterialLight,
+         ThemePreset.MaterialDark,
+         ThemePreset.PixelLight,
+@@ -35,7 +37,7 @@ object ThemeManager {
+         ThemePreset.AMOLEDBlack,
+     )
+ 
+-    val DefaultTheme = ThemePreset.PixelDark
++    val DefaultTheme = ThemePreset.TakuLight
+ 
+     private var monetThemes = listOf(ThemeMonet.getLight(), ThemeMonet.getDark())
+ 
+diff --git a/app/src/main/java/org/fcitx/fcitx5/android/data/theme/ThemePrefs.kt b/app/src/main/java/org/fcitx/fcitx5/android/data/theme/ThemePrefs.kt
+index d3b4948..3ccc5c3 100644
+--- a/app/src/main/java/org/fcitx/fcitx5/android/data/theme/ThemePrefs.kt
++++ b/app/src/main/java/org/fcitx/fcitx5/android/data/theme/ThemePrefs.kt
+@@ -34,7 +34,7 @@ class ThemePrefs(sharedPreferences: SharedPreferences) :
+         return pref
+     }
+ 
+-    val keyBorder = switch(R.string.key_border, "key_border", false)
++    val keyBorder = switch(R.string.key_border, "key_border", true)
+ 
+     val keyBorderStroke = switch(
+         R.string.key_border_stroke, "key_border_stroke", false,
+@@ -83,7 +83,7 @@ class ThemePrefs(sharedPreferences: SharedPreferences) :
+         keyVerticalMarginLandscape = secondary
+     }
+ 
+-    val keyRadius = int(R.string.key_radius, "key_radius", 4, 0, 48, "dp")
++    val keyRadius = int(R.string.key_radius, "key_radius", 10, 0, 48, "dp")
+ 
+     val textEditingButtonRadius =
+         int(R.string.text_editing_button_radius, "text_editing_button_radius", 8, 0, 48, "dp")
+@@ -143,7 +143,7 @@ class ThemePrefs(sharedPreferences: SharedPreferences) :
+     val lightModeTheme = themePreference(
+         R.string.light_mode_theme,
+         "light_mode_theme",
+-        if (BuildConfig.DEBUG) ThemePreset.MaterialLight else ThemePreset.PixelLight,
++        ThemePreset.TakuLight,
+         enableUiOn = {
+             followSystemDayNightTheme.getValue()
+         })
+@@ -151,7 +151,7 @@ class ThemePrefs(sharedPreferences: SharedPreferences) :
+     val darkModeTheme = themePreference(
+         R.string.dark_mode_theme,
+         "dark_mode_theme",
+-        if (BuildConfig.DEBUG) ThemePreset.MaterialDark else ThemePreset.PixelDark,
++        ThemePreset.TakuDark,
+         enableUiOn = {
+             followSystemDayNightTheme.getValue()
+         })
+diff --git a/app/src/main/java/org/fcitx/fcitx5/android/data/theme/ThemePreset.kt b/app/src/main/java/org/fcitx/fcitx5/android/data/theme/ThemePreset.kt
+index 239e22c..ecb6fec 100644
+--- a/app/src/main/java/org/fcitx/fcitx5/android/data/theme/ThemePreset.kt
++++ b/app/src/main/java/org/fcitx/fcitx5/android/data/theme/ThemePreset.kt
+@@ -6,6 +6,61 @@ package org.fcitx.fcitx5.android.data.theme
+ 
+ object ThemePreset {
+ 
++    val TakuLight = Theme.Builtin(
++        name = "TakuLight",
++        isDark = false,
++        backgroundColor = 0xfff4f1eb,
++        barColor = 0xfff4f1eb,
++        keyboardColor = 0xfffffdfa,
++        keyBackgroundColor = 0xfffffdfa,
++        keyTextColor = 0xff16140f,
++        candidateTextColor = 0xff16140f,
++        candidateLabelColor = 0xff16140f,
++        candidateCommentColor = 0xff6e6e6e,
++        altKeyBackgroundColor = 0xffe9e4db,
++        // Google Pinyin's symbol color on alphabet key: #4e4e4e
++        altKeyTextColor = 0xff6e6e6e,
++        accentKeyBackgroundColor = 0xffff5a1f,
++        accentKeyTextColor = 0xfffffdfa,
++        keyPressHighlightColor = 0x1f000000,
++        keyShadowColor = 0xffd4cec3,
++        popupBackgroundColor = 0xfff4f1eb,
++        popupTextColor = 0xff16140f,
++        spaceBarColor = 0xffe9e4db,
++        dividerColor = 0x1f000000,
++        clipboardEntryColor = 0xfffffdfa,
++        genericActiveBackgroundColor = 0xffff5a1f,
++        genericActiveForegroundColor = 0xfffffdfa
++    )
++
++    val TakuDark = Theme.Builtin(
++        name = "TakuDark",
++        isDark = true,
++        backgroundColor = 0xff16140f,
++        barColor = 0xff1e1b16,
++        keyboardColor = 0xff16140f,
++        keyBackgroundColor = 0xff302b24,
++        keyTextColor = 0xfffffdfa,
++        candidateTextColor = 0xfffffdfa,
++        candidateLabelColor = 0xfffffdfa,
++        candidateCommentColor = 0xffacacac,
++        altKeyBackgroundColor = 0xff1e1b16,
++        // Google Pinyin's symbol color on alphabet key: #d6d6d6
++        altKeyTextColor = 0xffacacac,
++        accentKeyBackgroundColor = 0xffff5a1f,
++        accentKeyTextColor = 0xffffffff,
++        keyPressHighlightColor = 0x33ffffff,
++        keyShadowColor = 0xff252525,
++        popupBackgroundColor = 0xff1e1b16,
++        popupTextColor = 0xfffffdfa,
++        spaceBarColor = 0xff4a4a4a,
++        dividerColor = 0x1fffffff,
++        clipboardEntryColor = 0xff302b24,
++        genericActiveBackgroundColor = 0xffff5a1f,
++        genericActiveForegroundColor = 0xfffffdfa
++    )
++
++
+     val MaterialLight = Theme.Builtin(
+         name = "MaterialLight",
+         isDark = false,
+diff --git a/app/src/main/java/org/fcitx/fcitx5/android/input/bar/ui/IdleUi.kt b/app/src/main/java/org/fcitx/fcitx5/android/input/bar/ui/IdleUi.kt
+index 14c09e6..b8ed86f 100644
+--- a/app/src/main/java/org/fcitx/fcitx5/android/input/bar/ui/IdleUi.kt
++++ b/app/src/main/java/org/fcitx/fcitx5/android/input/bar/ui/IdleUi.kt
+@@ -64,15 +64,9 @@ class IdleUi(
+         if (ctx.resources.configuration.layoutDirection == View.LAYOUT_DIRECTION_LTR) 1f else -1f
+     }
+ 
+-    private val menuButtonRotation
+-        get() = when {
+-            inPrivate -> 0f
+-            currentState == State.Toolbar -> 90f * translateDirection
+-            else -> -90f * translateDirection
+-        }
+-
+-    val menuButton = ToolButton(ctx, R.drawable.ic_baseline_expand_more_24, theme).apply {
+-        iconRotation = menuButtonRotation
++    val menuButton = ToolButton(ctx, R.drawable.taku_brand_mark, theme).apply {
++        setIcon(R.drawable.taku_brand_mark, preserveColors = true)
++        contentDescription = ctx.getString(R.string.taku_toolbar, ctx.getString(R.string.expand_toolbar))
+     }
+ 
+     val hideKeyboardButton = ToolButton(ctx, R.drawable.ic_baseline_arrow_drop_down_24, theme)
+@@ -140,34 +134,21 @@ class IdleUi(
+         inPrivate = activate
+         updateMenuButtonIcon()
+         updateMenuButtonContentDescription()
+-        updateMenuButtonRotation(instant = true)
+     }
+ 
+     private fun updateMenuButtonIcon() {
+         menuButton.setIcon(
+             if (inPrivate) R.drawable.ic_view_private
+-            else R.drawable.ic_baseline_expand_more_24
++            else R.drawable.taku_brand_mark,
++            preserveColors = !inPrivate
+         )
+     }
+ 
+     private fun updateMenuButtonContentDescription() {
+         menuButton.contentDescription = when {
+             inPrivate -> ctx.getString(R.string.private_mode)
+-            currentState == State.Toolbar -> ctx.getString(R.string.hide_toolbar)
+-            else -> ctx.getString(R.string.expand_toolbar)
+-        }
+-    }
+-
+-    private fun updateMenuButtonRotation(instant: Boolean = false) {
+-        val targetRotation = menuButtonRotation
+-        menuButton.apply {
+-            if (targetRotation == iconRotation) return
+-            iconAnimate().cancel()
+-            if (!instant && !disableAnimation) {
+-                iconAnimate().setDuration(200L).rotation(targetRotation)
+-            } else {
+-                iconRotation = targetRotation
+-            }
++            currentState == State.Toolbar -> ctx.getString(R.string.taku_toolbar, ctx.getString(R.string.hide_toolbar))
++            else -> ctx.getString(R.string.taku_toolbar, ctx.getString(R.string.expand_toolbar))
+         }
+     }
+ 
+@@ -244,6 +225,5 @@ class IdleUi(
+         }
+         currentState = state
+         updateMenuButtonContentDescription()
+-        updateMenuButtonRotation(instant = !fromUser)
+     }
+ }
+diff --git a/app/src/main/java/org/fcitx/fcitx5/android/input/bar/ui/ToolButton.kt b/app/src/main/java/org/fcitx/fcitx5/android/input/bar/ui/ToolButton.kt
+index 1f15196..fc19fcc 100644
+--- a/app/src/main/java/org/fcitx/fcitx5/android/input/bar/ui/ToolButton.kt
++++ b/app/src/main/java/org/fcitx/fcitx5/android/input/bar/ui/ToolButton.kt
+@@ -26,6 +26,8 @@ import splitties.views.padding
+ 
+ class ToolButton(context: Context) : CustomGestureView(context) {
+ 
++    private var iconTint: ColorStateList? = null
++
+     companion object {
+         val disableAnimation by AppPrefs.getInstance().advanced.disableAnimation
+     }
+@@ -44,7 +46,7 @@ class ToolButton(context: Context) : CustomGestureView(context) {
+         }
+ 
+     constructor(context: Context, @DrawableRes icon: Int, theme: Theme) : this(context) {
+-        image.imageTintList = ColorStateList.valueOf(theme.altKeyTextColor)
++        iconTint = ColorStateList.valueOf(theme.altKeyTextColor)
+         setIcon(icon)
+         setPressHighlightColor(theme.keyPressHighlightColor)
+         add(image, lParams(wrapContent, wrapContent, gravityCenter))
+@@ -52,7 +54,8 @@ class ToolButton(context: Context) : CustomGestureView(context) {
+ 
+     fun iconAnimate(): ViewPropertyAnimator = image.animate()
+ 
+-    fun setIcon(@DrawableRes icon: Int) {
++    fun setIcon(@DrawableRes icon: Int, preserveColors: Boolean = false) {
++        image.imageTintList = if (preserveColors) null else iconTint
+         image.imageResource = icon
+     }
+ 
+diff --git a/app/src/main/java/org/fcitx/fcitx5/android/input/keyboard/KeyDefPreset.kt b/app/src/main/java/org/fcitx/fcitx5/android/input/keyboard/KeyDefPreset.kt
+index c331341..09d839d 100644
+--- a/app/src/main/java/org/fcitx/fcitx5/android/input/keyboard/KeyDefPreset.kt
++++ b/app/src/main/java/org/fcitx/fcitx5/android/input/keyboard/KeyDefPreset.kt
+@@ -193,8 +193,9 @@ class CommaKey(
+ )
+ 
+ class LanguageKey : KeyDef(
+-    Appearance.Image(
+-        src = R.drawable.ic_baseline_language_24,
++    Appearance.Text(
++        displayText = "中/英",
++        textSize = 12f,
+         variant = Variant.AltForeground,
+         viewId = R.id.button_lang
+     ),
+diff --git a/app/src/main/java/org/fcitx/fcitx5/android/input/keyboard/TextKeyboard.kt b/app/src/main/java/org/fcitx/fcitx5/android/input/keyboard/TextKeyboard.kt
+index 368cf6c..4eb3a5d 100644
+--- a/app/src/main/java/org/fcitx/fcitx5/android/input/keyboard/TextKeyboard.kt
++++ b/app/src/main/java/org/fcitx/fcitx5/android/input/keyboard/TextKeyboard.kt
+@@ -79,7 +79,7 @@ class TextKeyboard(
+     val caps: ImageKeyView by lazy { findViewById(R.id.button_caps) }
+     val backspace: ImageKeyView by lazy { findViewById(R.id.button_backspace) }
+     val quickphrase: ImageKeyView by lazy { findViewById(R.id.button_quickphrase) }
+-    val lang: ImageKeyView by lazy { findViewById(R.id.button_lang) }
++    val lang: TextKeyView by lazy { findViewById(R.id.button_lang) }
+     val space: TextKeyView by lazy { findViewById(R.id.button_space) }
+     val `return`: ImageKeyView by lazy { findViewById(R.id.button_return) }
+ 
+@@ -166,6 +166,7 @@ class TextKeyboard(
+ 
+     override fun onInputMethodUpdate(ime: InputMethodEntry) {
+         space.mainText.text = buildString {
++            append("Taku · ")
+             append(ime.displayName)
+             ime.subMode.run { label.ifEmpty { name.ifEmpty { null } } }?.let { append(" ($it)") }
+         }
+diff --git a/app/src/main/java/org/fcitx/fcitx5/android/ui/main/AboutFragment.kt b/app/src/main/java/org/fcitx/fcitx5/android/ui/main/AboutFragment.kt
+index 67e56b0..cdb27d9 100644
+--- a/app/src/main/java/org/fcitx/fcitx5/android/ui/main/AboutFragment.kt
++++ b/app/src/main/java/org/fcitx/fcitx5/android/ui/main/AboutFragment.kt
+@@ -22,7 +22,11 @@ class AboutFragment : PaddingPreferenceFragment() {
+     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
+         preferenceScreen = preferenceManager.createPreferenceScreen(requireContext()).apply {
+             addPreference(R.string.privacy_policy) {
+-                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(Const.privacyPolicyUrl)))
++                androidx.appcompat.app.AlertDialog.Builder(requireContext())
++                    .setTitle(R.string.privacy_policy)
++                    .setMessage(R.string.taku_privacy)
++                    .setPositiveButton(android.R.string.ok, null)
++                    .show()
+             }
+             addPreference(
+                 R.string.open_source_licenses,
+@@ -30,6 +34,9 @@ class AboutFragment : PaddingPreferenceFragment() {
+             ) {
+                 navigateWithAnim(SettingsRoute.License)
+             }
++            addPreference(R.string.taku_upstream, "Fcitx5 for Android 0.1.3 · LGPL-2.1-or-later") {
++                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/fcitx5-android/fcitx5-android/tree/048f581c652367567b8ee5c28c5163b805288895")))
++            }
+             addPreference(R.string.source_code, R.string.github_repo) {
+                 startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(Const.githubRepo)))
+             }
+@@ -41,7 +48,7 @@ class AboutFragment : PaddingPreferenceFragment() {
+                 addPreference(R.string.current_version, Const.versionName)
+                 addPreference(R.string.build_git_hash, BuildConfig.BUILD_GIT_HASH) {
+                     val commit = BuildConfig.BUILD_GIT_HASH.substringBefore('-')
+-                    val uri = Uri.parse("${Const.githubRepo}/commit/${commit}")
++                    val uri = Uri.parse("https://github.com/fcitx5-android/fcitx5-android/commit/${commit}")
+                     startActivity(Intent(Intent.ACTION_VIEW, uri))
+                 }
+                 addPreference(R.string.build_time, formatDateTime(BuildConfig.BUILD_TIME))
+diff --git a/app/src/main/java/org/fcitx/fcitx5/android/utils/Const.kt b/app/src/main/java/org/fcitx/fcitx5/android/utils/Const.kt
+index d596e17..d7287b2 100644
+--- a/app/src/main/java/org/fcitx/fcitx5/android/utils/Const.kt
++++ b/app/src/main/java/org/fcitx/fcitx5/android/utils/Const.kt
+@@ -8,7 +8,7 @@ import org.fcitx.fcitx5.android.BuildConfig
+ 
+ object Const {
+     const val versionName = "${BuildConfig.VERSION_NAME}-${BuildConfig.BUILD_TYPE}"
+-    const val githubRepo = "https://github.com/fcitx5-android/fcitx5-android"
++    const val githubRepo = "https://github.com/Taku-OS/taku-os"
+     const val licenseSpdxId = "LGPL-2.1-or-later"
+     const val licenseUrl = "https://www.gnu.org/licenses/old-licenses/lgpl-2.1"
+     const val privacyPolicyUrl = "https://fcitx5-android.github.io/privacy/"
+diff --git a/app/src/main/res/drawable/taku_brand_mark.xml b/app/src/main/res/drawable/taku_brand_mark.xml
+new file mode 100644
+index 0000000..7b18511
+--- /dev/null
++++ b/app/src/main/res/drawable/taku_brand_mark.xml
+@@ -0,0 +1,5 @@
++<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="32dp" android:height="32dp" android:viewportWidth="512" android:viewportHeight="512">
++ <path android:fillColor="#FFFDFA" android:pathData="M29,36 H320 V423 H29 Z"/>
++ <path android:fillColor="#16140F" android:pathData="M440.224 0C479.866 0 512 32.1352 512 71.7757V440.224C512 479.866 479.866 512 440.224 512H71.7757C32.1352 512 1.34881e-06 479.866 0 440.224V71.7757C0 32.1352 32.1352 1.34873e-06 71.7757 0H440.224ZM375.231 206.794C321.536 206.795 278.009 250.873 278.009 305.248C278.009 359.623 321.536 403.702 375.231 403.702C428.927 403.702 472.456 359.623 472.456 305.248C472.454 250.873 428.927 206.794 375.231 206.794ZM260.639 86.75C257.84 86.7986 254.531 89.561 247.918 95.0887L73.2966 241.042C71.6147 242.449 70.7739 243.152 70.1706 244.013C69.6363 244.777 69.2413 245.628 69.0023 246.528C68.7324 247.545 68.7365 248.641 68.7453 250.835L69.208 365.415C69.2427 374.035 69.2604 378.346 71.028 380.519C72.5648 382.407 74.8853 383.486 77.3201 383.445C80.1211 383.395 83.4282 380.631 90.0421 375.102L264.663 229.149C266.345 227.744 267.187 227.041 267.79 226.18C268.324 225.417 268.721 224.564 268.96 223.664C269.231 222.647 269.223 221.551 269.214 219.36L268.752 104.778C268.716 96.1596 268.7 91.8485 266.931 89.6751C265.395 87.7862 263.075 86.7079 260.639 86.75Z"/>
++ <path android:fillColor="#FF5A1F" android:pathData="M276,305 A99,99 0,1 0,474 305 A99,99 0,1 0,276 305"/>
++</vector>
+diff --git a/app/src/main/res/layout/fragment_setup.xml b/app/src/main/res/layout/fragment_setup.xml
+index c82ef84..0247125 100644
+--- a/app/src/main/res/layout/fragment_setup.xml
++++ b/app/src/main/res/layout/fragment_setup.xml
+@@ -8,8 +8,8 @@
+ 
+     <ImageView
+         android:id="@+id/app_icon"
+-        android:layout_width="wrap_content"
+-        android:layout_height="wrap_content"
++        android:layout_width="64dp"
++        android:layout_height="64dp"
+         android:layout_marginBottom="24dp"
+         android:src="@mipmap/app_icon"
+         app:layout_constraintBottom_toTopOf="@+id/hint_text"
+@@ -62,4 +62,4 @@
+         app:layout_constraintEnd_toEndOf="parent"
+         app:layout_constraintStart_toEndOf="@id/done_icon"
+         app:layout_constraintTop_toTopOf="@id/done_icon" />
+-</androidx.constraintlayout.widget.ConstraintLayout>
+\ No newline at end of file
++</androidx.constraintlayout.widget.ConstraintLayout>
+diff --git a/app/src/main/res/values-de/strings.xml b/app/src/main/res/values-de/strings.xml
+index c225eeb..3d5a2c4 100644
+--- a/app/src/main/res/values-de/strings.xml
++++ b/app/src/main/res/values-de/strings.xml
+@@ -1,7 +1,7 @@
+ <?xml version="1.0" encoding="utf-8"?>
+ <resources>
+-    <string name="app_name_release">Fcitx5</string>
+-    <string name="app_name_debug">Fcitx5 (Debug)</string>
++    <string name="app_name_release">Taku Input Method</string>
++    <string name="app_name_debug">Taku Input Method (Development)</string>
+     <string name="save">Speichern</string>
+     <string name="input_methods">Eingabemethoden</string>
+     <string name="add_input_method">Eingabemethode hinzufügen</string>
+diff --git a/app/src/main/res/values-es/strings.xml b/app/src/main/res/values-es/strings.xml
+index 39b18a1..048b888 100644
+--- a/app/src/main/res/values-es/strings.xml
++++ b/app/src/main/res/values-es/strings.xml
+@@ -1,7 +1,7 @@
+ <?xml version="1.0" encoding="utf-8"?>
+ <resources>
+-    <string name="app_name_release">Fcitx5</string>
+-    <string name="app_name_debug">Fcitx5 (depuración)</string>
++    <string name="app_name_release">Taku Input Method</string>
++    <string name="app_name_debug">Taku Input Method (Development)</string>
+     <string name="save">Guardar</string>
+     <string name="input_methods">Métodos de entrada</string>
+     <string name="add_input_method">Añadir método de entrada</string>
+diff --git a/app/src/main/res/values-ja/strings.xml b/app/src/main/res/values-ja/strings.xml
+index c591c27..f371469 100644
+--- a/app/src/main/res/values-ja/strings.xml
++++ b/app/src/main/res/values-ja/strings.xml
+@@ -1,7 +1,7 @@
+ <?xml version="1.0" encoding="utf-8"?>
+ <resources>
+-    <string name="app_name_release">Fcitx5</string>
+-    <string name="app_name_debug">Fcitx5 (デバッグ)</string>
++    <string name="app_name_release">Taku Input Method</string>
++    <string name="app_name_debug">Taku Input Method (Development)</string>
+     <string name="save">保存</string>
+     <string name="input_methods">インプットメソッド</string>
+     <string name="add_input_method">インプットメソッドの追加</string>
+diff --git a/app/src/main/res/values-ko/strings.xml b/app/src/main/res/values-ko/strings.xml
+index ca797e4..b8662f9 100644
+--- a/app/src/main/res/values-ko/strings.xml
++++ b/app/src/main/res/values-ko/strings.xml
+@@ -1,7 +1,7 @@
+ <?xml version="1.0" encoding="utf-8"?>
+ <resources>
+-    <string name="app_name_release">Fcitx5</string>
+-    <string name="app_name_debug">Fcitx5 (디버그)</string>
++    <string name="app_name_release">Taku Input Method</string>
++    <string name="app_name_debug">Taku Input Method (Development)</string>
+     <string name="save">저장</string>
+     <string name="input_methods">입력기</string>
+     <string name="add_input_method">입력기 추가</string>
+diff --git a/app/src/main/res/values-ru/strings.xml b/app/src/main/res/values-ru/strings.xml
+index 0e0ad61..f53db0c 100644
+--- a/app/src/main/res/values-ru/strings.xml
++++ b/app/src/main/res/values-ru/strings.xml
+@@ -1,7 +1,7 @@
+ <?xml version="1.0" encoding="utf-8"?>
+ <resources>
+-    <string name="app_name_release">Fcitx5</string>
+-    <string name="app_name_debug">Fcitx5 (Отладка)</string>
++    <string name="app_name_release">Taku Input Method</string>
++    <string name="app_name_debug">Taku Input Method (Development)</string>
+     <string name="save">Сохранить</string>
+     <string name="input_methods">Методы ввода</string>
+     <string name="add_input_method">Добавить метод ввода</string>
+diff --git a/app/src/main/res/values-zh-rCN/strings.xml b/app/src/main/res/values-zh-rCN/strings.xml
+index 40ef2c9..bd8ff9f 100644
+--- a/app/src/main/res/values-zh-rCN/strings.xml
++++ b/app/src/main/res/values-zh-rCN/strings.xml
+@@ -1,7 +1,7 @@
+ <?xml version="1.0" encoding="utf-8"?>
+ <resources>
+-    <string name="app_name_release">小企鹅输入法</string>
+-    <string name="app_name_debug">小企鹅输入法 (调试)</string>
++    <string name="app_name_release">Taku 输入法</string>
++    <string name="app_name_debug">Taku 输入法 (开发版)</string>
+     <string name="save">保存</string>
+     <string name="input_methods">输入法</string>
+     <string name="add_input_method">添加输入法</string>
+diff --git a/app/src/main/res/values-zh-rCN/taku.xml b/app/src/main/res/values-zh-rCN/taku.xml
+new file mode 100644
+index 0000000..b3708b2
+--- /dev/null
++++ b/app/src/main/res/values-zh-rCN/taku.xml
+@@ -0,0 +1,2 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources><string name="taku_upstream">基于小企鹅输入法</string><string name="taku_privacy">Taku 输入法在本地处理输入。本 APK 不申请网络权限，输入内容、词库和设置保存在设备上。Android 系统备份可能包含这些数据。本版不包含 AI 或云输入服务。</string><string name="taku_toolbar">Taku · %1$s</string></resources>
+diff --git a/app/src/main/res/values-zh-rTW/strings.xml b/app/src/main/res/values-zh-rTW/strings.xml
+index fa9bc4e..30504d7 100644
+--- a/app/src/main/res/values-zh-rTW/strings.xml
++++ b/app/src/main/res/values-zh-rTW/strings.xml
+@@ -1,7 +1,7 @@
+ <?xml version="1.0" encoding="utf-8"?>
+ <resources>
+-    <string name="app_name_release">小企鵝輸入法</string>
+-    <string name="app_name_debug">小企鵝輸入法 (除錯)</string>
++    <string name="app_name_release">Taku 输入法</string>
++    <string name="app_name_debug">Taku 输入法 (开发版)</string>
+     <string name="save">儲存</string>
+     <string name="input_methods">輸入法</string>
+     <string name="add_input_method">新增輸入法</string>
+diff --git a/app/src/main/res/values/strings.xml b/app/src/main/res/values/strings.xml
+index fe1fd3a..a34c9b5 100644
+--- a/app/src/main/res/values/strings.xml
++++ b/app/src/main/res/values/strings.xml
+@@ -1,7 +1,7 @@
+ <?xml version="1.0" encoding="utf-8"?>
+ <resources>
+-    <string name="app_name_release">Fcitx5</string>
+-    <string name="app_name_debug">Fcitx5 (Debug)</string>
++    <string name="app_name_release">Taku Input Method</string>
++    <string name="app_name_debug">Taku Input Method (Development)</string>
+     <string name="save">Save</string>
+     <string name="input_methods">Input Methods</string>
+     <string name="add_input_method">Add Input Method</string>
+diff --git a/app/src/main/res/values/taku.xml b/app/src/main/res/values/taku.xml
+new file mode 100644
+index 0000000..b50462a
+--- /dev/null
++++ b/app/src/main/res/values/taku.xml
+@@ -0,0 +1,2 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources><string name="taku_upstream">Based on Fcitx5 for Android</string><string name="taku_privacy">Taku Input Method works offline. This APK has no Internet permission. Typed text, dictionaries and settings are processed on your device. Android backup settings may include this data. No AI or cloud input service is included.</string><string name="taku_toolbar">Taku · %1$s</string></resources>
+diff --git a/app/src/main/res/xml/input_method.xml b/app/src/main/res/xml/input_method.xml
+index 3454354..77299e3 100644
+--- a/app/src/main/res/xml/input_method.xml
++++ b/app/src/main/res/xml/input_method.xml
+@@ -8,7 +8,9 @@
+     android:supportsSwitchingToNextInputMethod="true"
+     tools:targetApi="30">
+     <subtype
+-        android:icon="@mipmap/ic_launcher"
++        android:icon="@drawable/taku_brand_mark"
++        android:imeSubtypeExtraValue="pinyin"
++        android:imeSubtypeLocale="zh_CN"
+         android:imeSubtypeMode="keyboard"
+         android:isAsciiCapable="true"
+         android:label="@string/app_name"
+diff --git a/app/src/test/java/org/fcitx/fcitx5/android/ThemeSerializationTest.kt b/app/src/test/java/org/fcitx/fcitx5/android/ThemeSerializationTest.kt
+index 6b9129f..c58e5c5 100644
+--- a/app/src/test/java/org/fcitx/fcitx5/android/ThemeSerializationTest.kt
++++ b/app/src/test/java/org/fcitx/fcitx5/android/ThemeSerializationTest.kt
+@@ -98,7 +98,10 @@ class ThemeSerializationTest {
+             }
+         """.trimIndent()
+         val (decoded, migrated) = raw.toCustomTheme()
+-        Assert.assertEquals("Migration shouldn't happen", false, migrated)
++        Assert.assertEquals("Version 2.0 migrates to the current 2.1 schema", true, migrated)
++        Assert.assertEquals(decoded.keyTextColor, decoded.candidateTextColor)
++        Assert.assertEquals(decoded.keyTextColor, decoded.candidateLabelColor)
++        Assert.assertEquals(decoded.altKeyTextColor, decoded.candidateCommentColor)
+         Assert.assertEquals("Round trip", decoded, decoded.toJson().toCustomTheme().first)
+     }
+ }
+\ No newline at end of file
+diff --git a/app/src/test/java/org/fcitx/fcitx5/android/core/TakuDefaultsTest.kt b/app/src/test/java/org/fcitx/fcitx5/android/core/TakuDefaultsTest.kt
+new file mode 100644
+index 0000000..fb6396c
+--- /dev/null
++++ b/app/src/test/java/org/fcitx/fcitx5/android/core/TakuDefaultsTest.kt
+@@ -0,0 +1,45 @@
++/* SPDX-License-Identifier: LGPL-2.1-or-later */
++package org.fcitx.fcitx5.android.core
++
++import java.nio.file.Files
++import org.junit.Assert.*
++import org.junit.Test
++
++class TakuDefaultsTest {
++    @Test fun firstLaunchIncludesChineseAndEnglishOnAnySystemLocale() {
++        val directory = Files.createTempDirectory("taku-defaults").toFile()
++        try {
++            TakuDefaults.ensureProfile(directory)
++            val profile = directory.resolve("config/profile").readText()
++            assertTrue(profile.contains("DefaultIM=pinyin"))
++            assertTrue(directory.resolve("config/config").readText().contains("ActiveByDefault=True"))
++            assertTrue(profile.contains("Name=pinyin"))
++            assertTrue(profile.contains("Name=keyboard-us"))
++            assertTrue(directory.resolve("config/conf/pinyin.conf").readText().contains("Clear candidates & backspace"))
++        } finally { directory.deleteRecursively() }
++    }
++
++    @Test fun initialProfilePreservesExistingEngineSettings() {
++        val directory = Files.createTempDirectory("taku-engine-settings").toFile()
++        try {
++            val pinyin = directory.resolve("config/conf/pinyin.conf")
++            pinyin.parentFile!!.mkdirs()
++            val custom = "BackspaceBehaviorOnPrediction=\"Only Clear candidates\"\n"
++            pinyin.writeText(custom)
++            TakuDefaults.ensureProfile(directory)
++            assertEquals(custom, pinyin.readText())
++        } finally { directory.deleteRecursively() }
++    }
++
++    @Test fun updatesPreserveImportedOrCustomizedProfile() {
++        val directory = Files.createTempDirectory("taku-custom").toFile()
++        try {
++            val profile = directory.resolve("config/profile")
++            profile.parentFile!!.mkdirs()
++            val imported = "[Groups/0]\nDefaultIM=shuangpin\n"
++            profile.writeText(imported)
++            TakuDefaults.ensureProfile(directory)
++            assertEquals(imported, profile.readText())
++        } finally { directory.deleteRecursively() }
++    }
++}
+diff --git a/build-logic/convention/src/main/kotlin/Versions.kt b/build-logic/convention/src/main/kotlin/Versions.kt
+index 51ae91d..77ff329 100644
+--- a/build-logic/convention/src/main/kotlin/Versions.kt
++++ b/build-logic/convention/src/main/kotlin/Versions.kt
+@@ -17,7 +17,7 @@ object Versions {
+     const val defaultBuildTools = "36.1.0"
+ 
+     // NOTE: increase this value to bump version code
+-    const val baseVersionCode = 11
++    const val baseVersionCode = 1000
+     const val baseVersionName = "0.1.3"
+ 
+     val supportedABIs = setOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+diff --git a/gradle/wrapper/gradle-wrapper.properties b/gradle/wrapper/gradle-wrapper.properties
+index d5b9158..27ef797 100644
+--- a/gradle/wrapper/gradle-wrapper.properties
++++ b/gradle/wrapper/gradle-wrapper.properties
+@@ -4,3 +4,5 @@ distributionPath=wrapper/dists
+ distributionUrl=https\://services.gradle.org/distributions/gradle-9.6.1-bin.zip
+ zipStoreBase=GRADLE_USER_HOME
+ zipStorePath=wrapper/dists
++
++distributionSha256Sum=9c0f7faeeb306cb14e4279a3e084ca6b596894089a0638e68a07c945a32c9e14
+diff --git a/settings.gradle.kts b/settings.gradle.kts
+index 7744dd6..e9506ef 100644
+--- a/settings.gradle.kts
++++ b/settings.gradle.kts
+@@ -26,12 +26,3 @@ include(":lib:fcitx5-chinese-addons")
+ include(":codegen")
+ include(":app")
+ include(":lib:plugin-base")
+-include(":plugin:anthy")
+-include(":plugin:clipboard-filter")
+-include(":plugin:unikey")
+-include(":plugin:rime")
+-include(":plugin:hangul")
+-include(":plugin:chewing")
+-include(":plugin:sayura")
+-include(":plugin:jyutping")
+-include(":plugin:thai")

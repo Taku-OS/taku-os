@@ -1,0 +1,137 @@
+name: Android or app compatibility report
+description: Report a real result for a specific device, app version and scenario.
+title: "[Compatibility] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Passing and failing results are both useful. Use one report for each device, app version and scenario.
+
+        - Installing, launching, guest browsing, account features, media and background displays are separate checks. Report only what you tested.
+        - An observed failure is not a confirmed root cause.
+        - Some apps that check device integrity, such as some banking apps, may not work. Report those too.
+        - Do not include account secrets or user data.
+  - type: dropdown
+    id: result
+    attributes:
+      label: Overall result
+      options:
+        - Works for everything I tested
+        - Works in part
+        - Does not work
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Device or AVD
+      placeholder: "Device model or AVD name."
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: System details
+      description: "On a device, `adb shell getprop ro.taku.product.version` and `adb shell getprop ro.build.display.id` give the version and build."
+      placeholder: "Android/API/ABI, build type, UID and permissions, Taku OS or component version."
+    validations:
+      required: true
+  - type: dropdown
+    id: google_services
+    attributes:
+      label: Google apps and Play Store
+      options:
+        - Installed
+        - Not installed
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: app
+    attributes:
+      label: App version and sign-in scope
+      description: Package, version, install source, and whether you tested signed out, as a guest or with your own test account. For hardware or system behavior with no app, write n/a.
+    validations:
+      required: true
+  - type: checkboxes
+    id: tested
+    attributes:
+      label: What you tested
+      description: Tick only what you actually tried, whether it passed or failed.
+      options:
+        - label: Install
+        - label: Launch
+        - label: Main UI
+        - label: Signed-out or guest use
+        - label: Account features
+        - label: Media
+        - label: Hardware, such as camera, microphone, Wi-Fi, Bluetooth or sensors
+        - label: Background display
+        - label: Agent use of the app
+  - type: textarea
+    id: expected_actual
+    attributes:
+      label: Input, expected and actual result
+      description: The page or action, what you expected and what happened.
+    validations:
+      required: true
+  - type: dropdown
+    id: research_status
+    attributes:
+      label: Root cause status
+      options:
+        - Observed, root cause not confirmed
+        - Hypothesis, not verified
+        - Root cause confirmed by the evidence below
+    validations:
+      required: true
+  - type: dropdown
+    id: emulator_status
+    attributes:
+      label: Emulator status
+      options:
+        - Not tested
+        - Passed
+        - Failed or partial
+        - Not applicable
+    validations:
+      required: true
+  - type: dropdown
+    id: physical_status
+    attributes:
+      label: Physical device status
+      options:
+        - Not tested
+        - Passed
+        - Failed or partial
+        - Not applicable
+    validations:
+      required: true
+  - type: textarea
+    id: display_scope
+    attributes:
+      label: Main and background display scope
+      placeholder: "Main display: pass, fail or not tested. Background display: pass, fail or not tested."
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps and results
+      description: Real commands, exit codes, and screenshots or recordings. Keep the original failure.
+    validations:
+      required: true
+  - type: textarea
+    id: limits
+    attributes:
+      label: Not verified
+      description: What you did not test, and any comparison device if you have one.
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you submit
+      options:
+        - label: I searched for an existing report on this device and app version.
+          required: true
+        - label: I removed account secrets and user data.
+          required: true

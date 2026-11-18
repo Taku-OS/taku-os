@@ -1,0 +1,3 @@
+# Read-only product policy is discoverable by the framework, role controller and Agents.
+system_public_prop(taku_home_prop)
+get_prop(domain, taku_home_prop)

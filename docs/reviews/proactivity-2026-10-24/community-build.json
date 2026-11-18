@@ -1,0 +1,19 @@
+{
+  "passed": true,
+  "outsideCheckout": true,
+  "repoEnvironmentHelperAvailable": false,
+  "compilerDependencies": [
+    "android.jar",
+    "taku-proactivity-client.jar"
+  ],
+  "apkSha256": "36a5d44ed458e0ee56c4778e103b0ee8961714b76d1fe43b6a88d4d750253902",
+  "signerSha256": "4f2f2d87f3f2bd4f0064c5133077572a01d0d5182389565c63aeb1f9f9b70464",
+  "sourceSha256": {
+    "examples/proactivity-observer/AndroidManifest.xml": "f7b43096cab323bf7c7d4a3fbf9731b7d3bfe0ca839007261c2556a56902d586",
+    "examples/proactivity-observer/README.md": "d48ba869c7a18f058a81e143601dbdbd41de15bb15055afcdc216bbba6602a85",
+    "examples/proactivity-observer/build.sh": "0c7ed3f964af2d397d7ae1aae0f64cbe15ba442700e71077eaf88afb2f93c682",
+    "examples/proactivity-observer/src/org/example/taku/observer/ObserverActivity.java": "d91d5163c2dec58ce995bed4c432f6f4b9967d378b1ef64c785826484924b43d"
+  },
+  "physicalDevice": false,
+  "installed": false
+}

@@ -1,0 +1,23 @@
+{
+  "nativeThreadId": "01a136d1-ca4b-7df2-b88e-05bf100a0a46",
+  "nativeTurnId": "01a136d1-f8da-7e03-ad93-d76343b2892d",
+  "model": "gpt-6.1-sol",
+  "realModelReplyVerified": true,
+  "realAndroidReadOnlyToolVerified": true,
+  "nativeCommandCount": 2,
+  "androidVersion": "16",
+  "deviceModel": "Android SDK built for arm64",
+  "credentialsExported": false,
+  "physicalDeviceVerified": false,
+  "date": "2026-10-14",
+  "accountConnected": true,
+  "sourceHead": "99b205019cac1ad81773bdb82bfbbba4bdfa8fd5",
+  "workingTreeModified": true,
+  "uiTestSeconds": 40.807,
+  "boundary": "Actual model reply and Android read-only getprop commands on isolated emulator; not physical Pixel9 or write-operation acceptance",
+  "historyProjectionFix": "Merge partial terminal items by native ID; synchronize canonical native history after terminal event",
+  "artifacts": {
+    "system/assistant/out/AgentOSAssistant.apk": "66851fd0ffe2aecec54ae527af36166560c427334ecad246bc85d6c358ab209c",
+    "system/assistant/out/task-broker.jar": "abceb53d6c84987a3fa111e0ffc0b62dd7cefefe05478ab12347ac81fbfbb294"
+  }
+}

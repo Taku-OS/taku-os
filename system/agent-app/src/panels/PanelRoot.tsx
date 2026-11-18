@@ -1,0 +1,144 @@
+/**
+ * The desktop Panel page. Its only input is a native panelId: the page resolves the current matter
+ * from the Panel directory, renders the same GenUiCard the chat renders, and offers Continue, which
+ * reopens the original conversation.
+ */
+import React, {useCallback, useEffect, useRef, useState} from 'react';
+import {AppState, ScrollView, StyleSheet, View} from 'react-native';
+import {useLocales} from 'expo-localization';
+import {GenUiCard} from '../components/GenUiCard';
+import {FeedButton, FeedStatus, FeedText} from '../feed/feedVisual';
+import {spacing} from '../feed/feedTokens';
+import {languageFor} from '../i18n';
+import {chatText} from '../chat/chatText';
+import {callAgent, openPanelConversation} from '../native/agent';
+import {record} from '../model/session';
+import {applyMatterSnapshot, ensureCard, parseMatterPresentation} from '../model/genuiStore';
+import type {CardPresentation} from '../model/genui';
+import {getPanel, requirePanelContract} from './client';
+import {onPanelNavigation, onPanelsChanged, panelNavigationNow, type PanelNavigation} from './host';
+import type {PanelDetail} from '../model/panel';
+
+type Load = {kind: 'loading'} | {kind: 'missing'} | {kind: 'failed'; code: string}
+  | {kind: 'ready'; detail: PanelDetail; presentation?: CardPresentation};
+
+const errorCode = (error: unknown): string => {
+  const value = record(error).code;
+  return typeof value === 'string' && value ? value : error instanceof Error ? error.message : 'UNAVAILABLE';
+};
+const timeText = (at: number | undefined, language: 'en' | 'zh'): string => at
+  ? new Date(at).toLocaleString(language === 'zh' ? 'zh-CN' : 'en', {month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'})
+  : '';
+
+export default function TakuPanelRoot({panelId}: {panelId?: string}) {
+  const language = languageFor(useLocales()[0]?.languageTag);
+  const t = chatText(language);
+  const [load, setLoad] = useState<Load>({kind: 'loading'});
+  const [navigation, setNavigation] = useState<PanelNavigation | null>(() => panelNavigationNow());
+  const [actionError, setActionError] = useState('');
+  const [continuing, setContinuing] = useState(false);
+  const readGeneration = useRef(0);
+  const readQueue = useRef<{running: boolean; pending: {panelId: string; generation: number} | null}>({running: false, pending: null});
+
+  const read = useCallback(async (currentPanelId: string) => {
+    const queue = readQueue.current;
+    queue.pending = {panelId: currentPanelId, generation: ++readGeneration.current};
+    if (queue.running) return;
+    queue.running = true;
+    try {
+      while (queue.pending) {
+        const next = queue.pending;
+        queue.pending = null;
+        try {
+          await requirePanelContract();
+          if (next.generation !== readGeneration.current) continue;
+          const detail = await getPanel(next.panelId);
+          if (next.generation !== readGeneration.current) continue;
+          const raw = record(record(await callAgent<{snapshot: unknown}>('readMatter', {matterId: detail.panel.matterId})).snapshot);
+          if (next.generation !== readGeneration.current) continue;
+          const presentation = parseMatterPresentation(raw.presentation, detail.panel.originThreadId);
+          if (presentation) {
+            ensureCard(detail.panel.originThreadId, presentation);
+            applyMatterSnapshot(raw);
+          }
+          setLoad({kind: 'ready', detail, ...(presentation ? {presentation} : {})});
+        } catch (error) {
+          if (next.generation !== readGeneration.current) continue;
+          const code = errorCode(error);
+          setLoad(code === 'PANEL_NOT_FOUND' ? {kind: 'missing'} : {kind: 'failed', code});
+        }
+      }
+    } finally { queue.running = false; }
+  }, []);
+
+  useEffect(() => {
+    if (!panelId) return;
+    const queue = readQueue.current;
+    const change = onPanelsChanged(() => { void read(panelId); });
+    const lifecycle = AppState.addEventListener('change', status => { if (status === 'active') void read(panelId); });
+    void read(panelId);
+    return () => {
+      // This counter cancels pending reads; it does not refer to a rendered node.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      ++readGeneration.current;
+      queue.pending = null;
+      change.remove(); lifecycle.remove();
+    };
+  }, [panelId, read]);
+
+  useEffect(() => {
+    const subscription = onPanelNavigation(setNavigation);
+    const lifecycle = AppState.addEventListener('change', status => { if (status === 'active') setNavigation(panelNavigationNow()); });
+    return () => { subscription.remove(); lifecycle.remove(); };
+  }, []);
+
+  // A preloaded page is mounted next to the selected one; only the settled page holds demand.
+  const selected = !!panelId && !!navigation && navigation.visible.includes(panelId) && navigation.selectedPanelId === panelId;
+
+  if (!panelId || load.kind === 'missing') return <View style={styles.page}><FeedStatus state="error" text={t('panelMissing')}/></View>;
+  if (load.kind === 'failed') return <View style={styles.page}>
+    <FeedStatus state="error" text={load.code === 'PANEL_CONTRACT_MISMATCH' ? t('panelsUpdateRequired') : t('panelUnavailable')}/>
+    {!!panelId && <FeedButton label={t('retry')} variant="primary" size="md" onPress={() => { setLoad({kind: 'loading'}); void read(panelId); }}/>}
+  </View>;
+  if (load.kind === 'loading') return <View style={styles.page}><FeedStatus state="pending" text={t('loading')}/></View>;
+
+  const {detail, presentation} = load;
+  const source = detail.sourceState;
+  const sourceText = source.state === 'offline' ? `${t('panelSourceOffline')}${timeText(source.observedAt, language) ? ` · ${timeText(source.observedAt, language)}` : ''}`
+    : source.state === 'thread-unavailable' ? t('panelSourceThreadUnavailable')
+    : source.state === 'unavailable' ? `${t('panelSourceUnavailable')}${source.code ? ` (${source.code})` : ''}` : '';
+  const update = detail.updateReceipt;
+  const rejectedUpdate = !!update && !['pending', 'published'].includes(update.outcome);
+  const updateText = !update ? ''
+    : update.code === 'PANEL_UPDATE_AMBIGUOUS' ? t('panelUpdateAmbiguous')
+    : rejectedUpdate ? `${t('panelUpdateFailed')}${update.code ? ` (${update.code})` : ''}`
+    : update.outcome === 'published' && update.updatedAt ? `${t('panelUpdated')} ${timeText(update.updatedAt, language)}` : '';
+  const continueEditing = () => {
+    if (continuing) return;
+    setContinuing(true); setActionError('');
+    openPanelConversation(detail.panel.panelId)
+      .catch(error => setActionError(errorCode(error) === 'SOURCE_THREAD_NOT_FOUND' ? t('panelSourceThreadUnavailable') : t('panelContinueFailed')))
+      .finally(() => setContinuing(false));
+  };
+  return <View style={styles.page}>
+    <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+      {!!sourceText && <FeedStatus state={source.state === 'current' ? 'info' : 'error'} text={sourceText}/>}
+      {!!updateText && rejectedUpdate && <FeedStatus state="error" text={updateText}/>}
+      {presentation
+        ? <GenUiCard threadId={detail.panel.originThreadId} presentation={presentation} language={language} active={selected} surface="panel"/>
+        : <FeedStatus state="error" text={t('panelUnavailable')}/>}
+      <View style={styles.actions}>
+        <FeedButton label={t('panelContinue')} variant="primary" size="md" busy={continuing}
+          disabled={!detail.capabilities.canContinue || !presentation} onPress={continueEditing}/>
+      </View>
+      {!!updateText && !rejectedUpdate && <FeedText text={updateText} variant="body-sm" tone="tertiary"/>}
+      {!!actionError && <FeedStatus state="error" text={actionError}/>}
+    </ScrollView>
+  </View>;
+}
+
+const styles = StyleSheet.create({
+  page: {flex: 1, justifyContent: 'center', paddingHorizontal: spacing[16], backgroundColor: 'transparent'},
+  body: {gap: spacing[12], paddingVertical: spacing[16]},
+  actions: {flexDirection: 'row', gap: spacing[8]},
+});

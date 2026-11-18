@@ -1,0 +1,32 @@
+{
+  "versionCode": 48,
+  "avd": "Taku_ImageIntegration_20261010",
+  "initialDefect": "draft lost after abrupt assistant-process death on v47",
+  "regression": {
+    "threadId": "01a14383-aa51-7e82-bab7-29df5c5b9860",
+    "taskId": "1792134075505",
+    "draftSurvivesAbruptAppDeath": true,
+    "draftSurvivesBackground": true,
+    "actualModelTaskSurvivesAppDeath": true,
+    "actualReplyVisibleAfterRecovery": true,
+    "modelResponsesSimulated": false,
+    "reply": "RECOVERY_TASK_OK",
+    "draftSurvivesAndroidReboot": true,
+    "actualReplyHistorySurvivesAndroidReboot": true
+  },
+  "settingsRestored": {
+    "sound_effects_enabled": "1",
+    "stay_on_while_plugged_in": "1"
+  },
+  "apkSha256": "d918dfcad73c70a30125cf586d1601062f90e90192eeaae4030278f77a089fad",
+  "testCommand": "bash system/assistant/test-recovery.sh",
+  "actualAndroidReboot": true,
+  "rebootWhileTaskRunningTested": false,
+  "microphoneOrPhysicalPowerButtonTested": false,
+  "logs": {
+    "before": "out/recovery-2026-10-16/before.log",
+    "after": "out/agent-recovery-tests/ui-test.txt",
+    "reboot": "out/agent-recovery-tests/reboot-after.txt",
+    "earlyReadFailure": "out/recovery-2026-10-16/reboot-first-read.txt"
+  }
+}

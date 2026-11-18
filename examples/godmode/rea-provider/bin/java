@@ -1,0 +1,3 @@
+#!/system/bin/sh
+export LD_LIBRARY_PATH=/data/local/agentos/rea-pack/lib
+exec /data/local/agentos/rea-pack/lib/jvm/java-21-openjdk/bin/java "$@"

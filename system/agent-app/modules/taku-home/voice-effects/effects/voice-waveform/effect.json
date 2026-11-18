@@ -1,0 +1,20 @@
+{
+  "name": "voice-waveform",
+  "title": "Voice waveform bars",
+  "summary": "Ten pill bars whose heights follow a speech envelope, spreading outward from the centre (Figma 462:13279).",
+  "kind": "component + sampler",
+  "renderer": "DOM + CSS variables",
+  "importPath": "taku-animations/effects/voice-waveform",
+  "exports": ["VoiceWaveform", "WaveBars", "waveAt", "WAVE_REST"],
+  "usedBy": ["10-AIPhoneHero"],
+  "sourceOrigin": [
+    "src/components/taku/10-AIPhoneHero/timeline.ts (waveAt, WAVE_REST)",
+    "src/components/taku/10-AIPhoneHero/Phone.tsx (Wave bars)",
+    "AIPhoneHero.module.css (.bars, .bar)"
+  ],
+  "samples": "Nothing.",
+  "assets": [],
+  "dependencies": ["react"],
+  "playback": "Controlled timeMs (seekable) or own clock; level is a number or a function of time.",
+  "reducedMotion": "still: bars hold the pose for the current level at t = 0."
+}

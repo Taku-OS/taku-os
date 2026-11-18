@@ -1,0 +1,111 @@
+{
+  "date": "2026-10-22",
+  "version": "0.3.0",
+  "sourceBase": "0e4127f56fa4eed57bf33801d266f1344fd0bc63",
+  "environment": {
+    "serial": "emulator-5634",
+    "avd": "Taku_ImageIntegration_20261010",
+    "android": 16,
+    "api": 36,
+    "abi": "arm64-v8a",
+    "physicalDevice": false,
+    "fullRom": false,
+    "coldBoot": false
+  },
+  "installed": {
+    "apkSha256": "924d830307d446cc9109c45307c12120b17f14b9d545783e51a492594cdf51c4",
+    "package": "org.agentos.memory",
+    "uid": "package:org.agentos.memorytests uid:10163\npackage:org.agentos.memory uid:10162",
+    "packageInfo": [
+      "versionCode=3 minSdk=36 targetSdk=36",
+      "versionName=0.3.0"
+    ]
+  },
+  "validation": {
+    "build": true,
+    "storeAssertions": 66,
+    "queueAssertions": 69,
+    "npmRunVerify": true,
+    "macosLinuxFifoTestSkipped": true,
+    "ui": {
+      "passed": true,
+      "nativeHomeDetailFiltersSearchSuggestionsSettings": true,
+      "deleteCancelled": true,
+      "separateConsentDialogsCancelled": true,
+      "allFourControlsIndependent": true,
+      "paginationBeyondTwenty": true,
+      "searchSurvivesProviderNotification": true,
+      "backPreservesScroll": true,
+      "settingsTogglePreservesScroll": true,
+      "largeFontScale": 1.3,
+      "modelRequests": 0
+    },
+    "automaticCapture": {
+      "syntheticPages": 3,
+      "realObservationService": true,
+      "directDatabaseSeeding": false,
+      "editableDraftExcluded": true,
+      "upgradeRecordCountBefore": 20,
+      "upgradePreservedRecordCount": true,
+      "modelAnalysisEnabled": false,
+      "newModelRequests": 0,
+      "newAgentTasks": 0
+    }
+  },
+  "cleanup": {
+    "passed": true,
+    "configurationRestored": true,
+    "accessibilityRestored": true,
+    "fontScaleRestored": true,
+    "oldRecordsRetained": true,
+    "modelRequests": 0,
+    "syntheticUiRecordsRetained": true
+  },
+  "scopeNotes": [
+    "Screenshots show synthetic test records, not personal data.",
+    "Existing real Jev/Agent loop evidence belongs to the linked 0.2.0 review; no new live model run in this UI release.",
+    "Existing physical device and ROM statuses are not upgraded by APK-only emulator acceptance."
+  ],
+  "sourceSha256": {
+    "scripts/test-memory-batch-device.py": "d4661809bedac35aaef6beed12aac2f852be1629cdb1448870995fd562cbe0e1",
+    "scripts/test-memory-device.py": "9e01b5032f06f3df7a67c3928773d90cd9c143478c0403a5522371d67532916e",
+    "scripts/test-memory-ui-device.py": "46097e64e1fabfde169f2efa80b25f160f3c3823d8a5b6a49c24da0b6e1d2d1b",
+    "system/memory/Android.bp": "d00187663955c787cc35ae45ea76fd2ff4872b0803e94b7210a3df363480a565",
+    "system/memory/AndroidManifest.xml": "1a78015af8486aafdf786cb971c47b28281d8a4ac5447bed9a8094c670b31f14",
+    "system/memory/README.md": "ec6b1c8729ededc79874509c2cea1edc8414062189fa652c71b484a1290361ec",
+    "system/memory/build-tests.sh": "7a1ca19d04423e9a6f60f78ba59507f43461644f66fc9628a72fa4e3009b7562",
+    "system/memory/build.sh": "37dcdb8cdaa3bd95b06e7cf33a739affe62c982ed9e904773b5eb0cc20e27e54",
+    "system/memory/res/drawable/taku_brand_mark.xml": "bcfa7bc5629ebecce7594ab241652728e830e0e84487611542d523f770666ea3",
+    "system/memory/res/values/strings.xml": "99fda41c9adfa2c251668fac6620a8e0ca994749f0cccafe640017564b714234",
+    "system/memory/res/xml/observation.xml": "a528d10f10d131b2c43b7638a1d627a3fdeefd4aa432faefdbbd2d348bc9d999",
+    "system/memory/src/org/agentos/memory/AnalysisJob.java": "8e2bbd955d23c8b43722f39b96df9be1434585ae6917f62b7cee69ac91ae3e91",
+    "system/memory/src/org/agentos/memory/BrokerClient.java": "81048189c15ec20647c50ee8c682d58d0ec53ce534857cf631b4bba35f06c2be",
+    "system/memory/src/org/agentos/memory/MemoryActivity.java": "a89ef1a6db0e4bcc0dc10fb0a2f3bdd2f651a6f73a370b575d787f40eeef6991",
+    "system/memory/src/org/agentos/memory/MemoryMaintenance.java": "edc0fc6544d0c9906b1e5817efbc0d8fc2e0c5330726c9138b933ebab07a9e2b",
+    "system/memory/src/org/agentos/memory/MemoryProvider.java": "68e2e76a38b8d47666b6221b1ed9eb9522378e7e1b412c7598b3ae0be18b2303",
+    "system/memory/src/org/agentos/memory/MemoryStore.java": "4b5b1c7a23ce1cd18ab62780493966a95381dfc3073cb330a427bb25a063f611",
+    "system/memory/src/org/agentos/memory/MemoryUi.java": "24c9dde1fb0002a1b3ce43811ff624d3e26772f4c36e0c25b282ba9698b73a48",
+    "system/memory/src/org/agentos/memory/ObservationService.java": "a63a0899675272a4d3e05bf14c08d006ad36c258730cb433fe72e83dc38d92e1",
+    "system/memory/tests/AndroidManifest.xml": "c29e213139459cec131bd192e8852df2d075892222ec48a2b0b37336db6a3594",
+    "system/memory/tests/fixture/AnalysisJob.java": "f29ef0222b02721a290bd9fb6ad3abef3d1ca7f4d8034081083b5283991414b7",
+    "system/memory/tests/fixture/ObservationService.java": "333fdc1f9bab071d6623c49cd46f1735fea30cd6a55af3b2ece25833e3365f94",
+    "system/memory/tests/fixture/PageActivity.java": "765956db60ad6283b2bcd52b2feae9036ebef2a69f71bf49343fe0fcad0ada96",
+    "system/memory/tests/fixture/QueueTests.java": "632c881aac023c59ed3334b14ae5662454ef75bcef468dc8f96a53e086916ffa",
+    "system/memory/tests/fixture/StoreTests.java": "4ef6554d4660c3835faee317f547b7cbe44359f826f5f380143259b8645dfa89"
+  },
+  "evidenceSha256": {
+    "QueueTests.txt": "3bb742f0e7f8026fb394569588a69a8a39419b108b1aa30ced5754fb15a878bb",
+    "StoreTests.txt": "a1cc0228a0acf5195889fd1b0a4293bea099727038b5887ae95aaa7ceb2e287b",
+    "memory-detail.png": "98bc7f92e771b41296fe42389da13f0a14a21bd433a4d05a55eef1578d14e016",
+    "memory-diagnostics.png": "34a0d11058f72de3a2d9e07aecb7eb77c342a9985c876e21c14c8fad2ed4c278",
+    "memory-empty-search.png": "28f31791868a34f683a5ff92c6afac507dae892eaba432c1913a7270b1e616b9",
+    "memory-filter.png": "d94a4cd9e2896a8b13932754e584dc442ecbe8c74f69541673fad29321e37dbf",
+    "memory-history.png": "ab848c8ea67f98a3dd58df6603769a8bf7cffa8d7621b6bef2d83413fd856a77",
+    "memory-home.png": "37b39917e4d1c5fd927f7764f0e343cf501092563c914032528a4367abf99d67",
+    "memory-large-font.png": "7518ab1113cb670718a886786d2bf405d2dc6b6d3a1dd0c92bc3caaaad275b67",
+    "memory-search.png": "0402945ed4d9b6dfe51a70eb7b81ca160d8df852879b159629104ce6e32bab92",
+    "memory-settings.png": "5a9abf428ef05afd69b76582cbad5ae8bfb10d5c8c97bd22336b4bdcc1c12a3b",
+    "memory-suggestions.png": "98dab718dfd552bb47b13b7c6ba3b20f802cda36da139473f58bdda2dbbd8915",
+    "verify.txt": "5a93577e3095a09a6989080c20d1d7074f90cef417672150a11360fc67ec7f28"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "apkSha256": "f8a10d76cf93aa8b502596018fb3d7a35179bc68f054cfec487e2f4135058259",
+  "checks": [
+    {
+      "entry": "assets/licenses/fonts/Doto-OFL.txt",
+      "matches": true
+    },
+    {
+      "entry": "assets/licenses/fonts/HankenGrotesk-OFL.txt",
+      "matches": true
+    },
+    {
+      "entry": "assets/licenses/fonts/NotoSansSC-OFL.txt",
+      "matches": true
+    },
+    {
+      "entry": "assets/licenses/fonts/SpaceGrotesk-OFL.txt",
+      "matches": true
+    }
+  ],
+  "scope": "Actual standalone APK bytes; not a complete ROM image"
+}

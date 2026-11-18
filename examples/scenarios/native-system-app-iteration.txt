@@ -1,0 +1,15 @@
+Continue developing the native scoring app you just created to verify iteration on an existing app and Agent access to the app's own API. Preserve its package name, Activity, data, and media volume. Do not change other apps or the main screen.
+
+Upgrade to versionCode=2 / versionName=1.1. Do not uninstall the old package; update through pm install -r with the same development signature, preserving score history.
+
+Add ScoreProvider (android.content.ContentProvider), authority org.taku.acceptance.systemlab20261015.state, exported=true, permission=android.permission.DUMP. It is for existing trusted system/debug callers; do not add an unpermissioned entry for ordinary third-party apps.
+
+Implement:
+- query(content://org.taku.acceptance.systemlab20261015.state/score) returns one row with at least a, b, and historyCount.
+- call score.add: arg is A or B and Bundle delta is a nonzero integer. Valid requests change scores/history; invalid requests throw IllegalArgumentException without changing data.
+- call score.undo: undo the latest addition; return a Bundle with a, b, and historyCount.
+- Add a “Reset” UI button that clears both teams and history.
+
+Activity and Provider must call the same score/persistence implementation, without separate scores or algorithms. Provider writes must notify the UI. Use ContentObserver or another explicit update mechanism to prevent stale UI state.
+
+Run on-device build-native.sh with TAKU_APP_DISPLAY=2, saving the build log separately as build-v2-result.txt. Verify package version 2, Provider metadata, and the actual updated UI. Do not call score.add/undo or the Reset button on behalf of the test framework; it will independently check data retention, API argument validation, and UI synchronization.

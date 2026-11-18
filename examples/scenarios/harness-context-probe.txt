@@ -1,0 +1,1 @@
+Do not call tools. Using only the background already provided in this conversation, give one English sentence stating the OS distribution, Android version, API level, whether this is an emulator, background display ID, and current response style. Then list the Taku Harness module IDs you received. Do not guess facts absent from the background.

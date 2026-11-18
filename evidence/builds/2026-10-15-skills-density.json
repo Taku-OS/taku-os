@@ -1,0 +1,61 @@
+{
+  "schema": "taku.acceptance.skills-density/1",
+  "observedAt": "2026-10-14T20:56:11.507055+00:00",
+  "device": {
+    "serial": "emulator-5634",
+    "densityDpi": 420,
+    "fontScale": 1.0,
+    "screenPixels": [
+      1080,
+      2424
+    ]
+  },
+  "scope": "Skills page in existing native drawer; no ROM rebuild or physical device operation",
+  "metrics": {
+    "previousCompleteVisibleRowsFromScreenshot": 4,
+    "currentCompleteVisibleRowsFromAccessibilityBounds": 8,
+    "previousMinimumRowDp": 86,
+    "currentMinimumRowDp": 64,
+    "previousIconDp": 40,
+    "currentIconDp": 32,
+    "currentTitleSp": 14,
+    "currentSummarySp": 11,
+    "headerTitleSp": 16,
+    "searchHeightDp": 44,
+    "toolbarTouchTargetDp": 44
+  },
+  "changes": [
+    "Navigation and source/category actions moved to existing drawer toolbar",
+    "Removed duplicate navigation row and full category row",
+    "Empty status takes no space",
+    "Single-line ellipsized summaries and smaller grouped rows",
+    "Header styling scoped to Skills and restored on navigation",
+    "Page hide keeps matching toolbar state"
+  ],
+  "validation": {
+    "componentBuild": true,
+    "nativeUiTests": 2,
+    "nativeUiTestsPassed": true,
+    "nativeUiSeconds": 55.542,
+    "checks": [
+      "At least eight complete rows",
+      "Search and empty results",
+      "Skill details and installed runtime recognition",
+      "Category menu",
+      "Source menu/form",
+      "Back navigation",
+      "Light theme",
+      "Dark theme restored",
+      "Immutable Harness filesystem regression"
+    ]
+  },
+  "screenshots": {
+    "before-density.png": "c269ccc77b2efc872aba7276e072f4c654907789f8308af5e6f433906039016d",
+    "library.png": "69575a69e52570e7fc8209817bb7304ba0487d99edfea2a05681351b3b2a150c",
+    "skills-light.png": "6c6eae54bb109fcd17dab8a6326749d56712b37e638197dbdefb693d456af96e"
+  },
+  "limits": [
+    "No speed benchmark or real model task in this UI-only change",
+    "Existing installation evidence remains in 2026-10-15-skills-library.json"
+  ]
+}

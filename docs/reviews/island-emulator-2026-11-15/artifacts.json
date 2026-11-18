@@ -1,0 +1,24 @@
+{
+  "schema": "taku.island-artifacts/1",
+  "artifactContentsVerified": true,
+  "systemUi": {
+    "path": "out/target/product/taku_emu64a/system_ext/priv-app/SystemUI/SystemUI.apk",
+    "sha256": "f07da09dfcaca6d7a26a11e60fa56eea12115ebf49528996e755bac1e0affa00",
+    "components": [
+      "com.android.systemui.taku.island.IslandProvider",
+      "com.android.systemui.taku.island.IslandSettingsActivity"
+    ]
+  },
+  "agent": {
+    "path": "out/target/product/taku_emu64a/system_ext/app/TakuAgent/TakuAgent.apk",
+    "sha256": "d4fb638cbe1568139d44ce93e4b43cd806dc9b44a731f30000d3001f9dd0059d",
+    "components": [
+      "org.agentos.agent.home.island.IslandPublisherService",
+      "org.agentos.agent.home.island.IslandContentService",
+      "org.agentos.agent.home.island.IslandActionReceiver"
+    ]
+  },
+  "agentDocSha256": "44a80fb0cfcdc6219efbc5b762e4d9e5faf7f75f2606eb7db1ee2bab1a697fd3",
+  "daggerRuntimeVerified": false,
+  "deviceVerified": false
+}

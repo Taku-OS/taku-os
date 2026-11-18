@@ -1,0 +1,5 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="org.agentos.inputmethod.probe" android:versionCode="1" android:versionName="1">
+ <uses-sdk android:minSdkVersion="36" android:targetSdkVersion="36"/>
+ <application android:debuggable="true" android:label="Taku IME window probe"/>
+ <instrumentation android:name=".UiProbe" android:targetPackage="org.agentos.inputmethod.probe"/>
+</manifest>

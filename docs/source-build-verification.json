@@ -1,0 +1,44 @@
+{
+  "date": "2026-10-10",
+  "status": "component-build-passed",
+  "sourceFilesMoved": 112,
+  "originalReferencesResolve": true,
+  "javaAndResourcesMatchPreMigrationSha": true,
+  "sdk": "Android API36/build-tools36.0.0",
+  "jdkTarget": "--release 17",
+  "outputs": [
+    {
+      "path": "system/assistant/out/AgentOSAssistant.apk",
+      "bytes": 1665637,
+      "sha256": "fa895dc37794b2856b7f681f98703ba19f5aade003465789a120ac1678610cce"
+    },
+    {
+      "path": "system/assistant/out/task-broker.jar",
+      "bytes": 6760,
+      "sha256": "dd728a8bfc0be4ed9b160e5bf2b1c047800b3b8cca4c92c38332a3cc77787308"
+    },
+    {
+      "path": "system/display/out/virtual-display.jar",
+      "bytes": 7595,
+      "sha256": "8f58eaa2bca298342d0e13a7893d5914e08778e1a36f98c41e49d221ae573635"
+    },
+    {
+      "path": "system/overlay/out/AgentOSLabSettingsOverlay.apk",
+      "bytes": 8604,
+      "sha256": "ef067013effa259f99d9f1098fabde9c8f45689a6139da59b91919753f0d4aa2"
+    },
+    {
+      "path": "tooling/app-kit/apk-shell/out/dex/classes.dex",
+      "bytes": 10040,
+      "sha256": "aa4fbe555301ed862b327137b82cef87e8eb0dbd0485dc809b8bab9e9792d40b"
+    }
+  ],
+  "signatures": "AOSP public test-key APKs verified with configured JAVA_HOME",
+  "didInstall": false,
+  "didReboot": false,
+  "didLoginOrReadAuth": false,
+  "romBuilt": false,
+  "physicalDeviceVerified": false,
+  "bootstrapDependenciesExecuted": false,
+  "firstVerificationAttempt": "apksigner without JAVA_HOME failed on macOS; configured SDK/JDK retry passed"
+}

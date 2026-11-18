@@ -1,0 +1,257 @@
+{
+  "schema": "taku.bootloader-project-audit/1",
+  "checkedOn": "2026-10-10",
+  "timezone": "Asia/Shanghai",
+  "projects": [
+    {
+      "name": "AOSP fastboot",
+      "category": "official",
+      "url": "https://source.android.com/docs/core/architecture/bootloader/locking_unlocking",
+      "capability": "Perform standard BL unlocking when the device permits it",
+      "scope": "Pixel and other devices allowing OEM unlock",
+      "wait": "The standard Pixel flow has no Xiaomi-style community application/wait; preparation, confirmation, and data erasure still take time",
+      "pixel9": "Applicable if this device permits unlocking",
+      "evidence": "Official mechanism documentation; does not bypass carrier restrictions",
+      "license": "AOSP source, subject to upstream file-specific licenses",
+      "status": "Official procedure",
+      "caveat": "Command duration is not total unlock-and-reboot duration"
+    },
+    {
+      "name": "HyperSploit",
+      "category": "permission",
+      "url": "https://github.com/TheAirBlow/HyperSploit",
+      "capability": "Bypass some older HyperOS eligibility/binding restrictions",
+      "scope": "Older Xiaomi, Redmi, and POCO environments",
+      "wait": "Waiting may still be required after successful binding",
+      "pixel9": "Not applicable",
+      "evidence": "Current README opening explicitly says newer HyperOS 2 and HyperOS 3 onward fixed this and maintenance stopped",
+      "license": "MPL-2.0",
+      "status": "Declared fixed and unmaintained",
+      "caveat": "Not a general instant-unlock tool for current HyperOS 3/4"
+    },
+    {
+      "name": "Xiaomi-HyperOS-BootLoader-Bypass",
+      "category": "permission",
+      "url": "https://github.com/MlgmXyysd/Xiaomi-HyperOS-BootLoader-Bypass",
+      "capability": "Handle account-device binding under some community restrictions",
+      "scope": "Specific Xiaomi firmware, account, and eligibility conditions",
+      "wait": "The success branch still directs users to the unlock tool to check waiting time",
+      "pixel9": "Not applicable",
+      "evidence": "Inspected bypass.php, FAQ, and status.md; scripts cannot automatically eliminate mandatory server review",
+      "license": "Author explicitly reserves rights; no open-source license",
+      "status": "Older PoC; current server conditions need per-device verification",
+      "caveat": "Visible source does not grant open authorization and is not a universal direct BL-state modification tool"
+    },
+    {
+      "name": "xiaomi-unlock-helper",
+      "category": "quota",
+      "url": "https://github.com/haseebno1/xiaomi-unlock-helper",
+      "capability": "Automatically submit official community unlock-eligibility applications",
+      "scope": "Xiaomi Community application API",
+      "wait": "README explicitly says it neither skips waiting nor directly unlocks the phone",
+      "pixel9": "Not applicable",
+      "evidence": "Inspected README and core.py; core behavior is timing and application requests",
+      "license": "MIT",
+      "status": "GUI, CLI, and Android source available; not run this round",
+      "caveat": "Application approval does not mean BL is unlocked"
+    },
+    {
+      "name": "auto-hyperos-unlocker",
+      "category": "quota",
+      "url": "https://github.com/pwnj/auto-hyperos-unlocker",
+      "capability": "Automate Xiaomi Community eligibility applications",
+      "scope": "Xiaomi Community application flow",
+      "wait": "Not shown to eliminate binding waits",
+      "pixel9": "Not applicable",
+      "evidence": "README explicitly describes automated applications",
+      "license": "No clear open-source license confirmed this round",
+      "status": "Public script; current API success rate untested",
+      "caveat": "Automated applications are not direct unlocking"
+    },
+    {
+      "name": "MiUnlockTool",
+      "category": "official",
+      "url": "https://github.com/MiForge/MiUnlockTool",
+      "capability": "Obtain Xiaomi official-server unlock tokens across platforms",
+      "scope": "Xiaomi devices and official servers",
+      "wait": "Eligibility, quotas, and waiting remain server-controlled",
+      "pixel9": "Not applicable",
+      "evidence": "README features and maintainer waiting-time explanation in Issue #22",
+      "license": "Apache-2.0",
+      "status": "Public-source client; no sign-in or unlock performed this round",
+      "caveat": "A cross-platform client does not bypass every review"
+    },
+    {
+      "name": "mtkclient",
+      "category": "hardware",
+      "url": "https://github.com/bkerler/mtkclient",
+      "capability": "MediaTek low-level access, flashing, and lock-state changes on some devices",
+      "scope": "Specific SoC, BootROM, DA, and firmware",
+      "wait": "Usable low-level paths do not depend on Xiaomi account waiting",
+      "pixel9": "Not applicable: Pixel 9 uses Tensor G4",
+      "evidence": "Maintainer lists patched BootROMs, V6 protocol, and other restrictions",
+      "license": "GPL-3.0",
+      "status": "Low-level capability exists, with device-specific prerequisites",
+      "caveat": "Successful writes do not replace BL-state verification after reboot"
+    },
+    {
+      "name": "Xiaomi MTK RPMB bypass",
+      "category": "hardware",
+      "url": "https://github.com/Jz8Root/xiaomi-hyperos-bootloader-unlock",
+      "capability": "Research and unlock routes for lock-state verification in some Xiaomi MTK LK implementations",
+      "scope": "Specific MediaTek, LK, firmware, and accessible low-level modes",
+      "wait": "Maintainer reports direct lock-state changes on some devices without community waiting",
+      "pixel9": "Not applicable",
+      "evidence": "Inspected compatibility table, verification records, and failure issues; hardware successes are maintainer/user reports, not reproduced this round",
+      "license": "AGPL-3.0",
+      "status": "Hardware reports and explicit failure records exist",
+      "caveat": "scan_lk.py is an analyzer; some device/SoC entries are wrong and should not directly guide purchases"
+    },
+    {
+      "name": "pixel-ksu-root",
+      "category": "root",
+      "url": "https://github.com/JingMatrix/pixel-ksu-root",
+      "capability": "Obtain temporary root through kernel exploits while BL stays locked",
+      "scope": "Matching Pixel build, kernel, and payload",
+      "wait": "Runtime exploitation; success in seconds is not guaranteed",
+      "pixel9": "Target table includes tokay / CP2A.260705.006; October system unconfirmed",
+      "evidence": "Inspected source and targets.json; README states hardware experience covers only one device, so the table is not proof of tests on every model",
+      "license": "NOTICE declares the CVE tree Apache-2.0; broader reuse needs file-by-file review",
+      "status": "Research project separating complete and incomplete exploit chains",
+      "caveat": "Does not write partitions; root must be re-established after reboot. Not BL unlocking and does not enable flashing the complete Taku ROM"
+    },
+    {
+      "name": "Root-My-Pixel",
+      "category": "root",
+      "url": "https://github.com/alex193a/Root-My-Pixel",
+      "capability": "One-click trigger for temporary root on specified Pixels",
+      "scope": "Pixel, build, kernel, and prerequisite services in the support table",
+      "wait": "One-click describes interaction, not success rate or elapsed seconds",
+      "pixel9": "Author lists tokay / CP2A.260705.006 and AD1A.240905.004",
+      "evidence": "Author marks tests passed but notes repeated attempts may be needed; CP3A.261005.005 is absent",
+      "license": "No clear open-source authorization found this round",
+      "status": "Public source and author support table; not run this round",
+      "caveat": "Does not establish October-system support; BL does not become unlocked"
+    },
+    {
+      "name": "Android-SIM-Unlock",
+      "category": "sim",
+      "url": "https://github.com/tomgly/Android-SIM-Unlock",
+      "capability": "Handle SIM/carrier restrictions on some Pixels",
+      "scope": "Specific Device Setup behavior",
+      "wait": "Distinct from BL-unlock eligibility",
+      "pixel9": "Mentions Pixel 9 but explicitly does not unlock BL or enable OEM unlocking",
+      "evidence": "README explicitly distinguishes SIM and Bootloader",
+      "license": "MIT",
+      "status": "Source and documentation with explicit scope",
+      "caveat": "Does not establish that a carrier-restricted Pixel can flash Taku"
+    },
+    {
+      "name": "grapheneos-install",
+      "category": "official",
+      "url": "https://github.com/0emirhan/grapheneos-install",
+      "capability": "CLI orchestration of normal Pixel unlock and GrapheneOS installation",
+      "scope": "Supported Pixels allowing OEM unlock",
+      "wait": "Cannot bypass OEM-unlock eligibility",
+      "pixel9": "README reports end-to-end tokay installation; an author report",
+      "evidence": "Checks unlock capability, then calls normal fastboot and official installation packages",
+      "license": "CC BY-NC-ND 4.0; author explicitly says it is not an open-source license",
+      "status": "Public-source installer",
+      "caveat": "Automates the normal flow; not a carrier BL exploit"
+    },
+    {
+      "name": "Qualcomm NO_AVB / Keymaster PoC",
+      "category": "hardware",
+      "url": "https://github.com/atlas4381/qualcomm_avb_exploit_poc",
+      "capability": "Direct BL lock-state changes through an exploit, aiming to avoid official account waits",
+      "scope": "Unpatched Qualcomm ABL/Keymaster and an existing partition-write path",
+      "wait": "No community countdown, but prerequisite access and device adaptation remain necessary",
+      "pixel9": "Unconfirmed; explicitly tested device is Redmi 14R/flame",
+      "evidence": "Maintainer README and source; publicly archived 2026-09-21",
+      "license": "Apache-2.0",
+      "status": "Real BL PoC; current marble adaptation has not passed acceptance",
+      "caveat": "A PoC does not establish no-wait unlockability on this device; modifying partition tables/RPMB may prevent boot"
+    },
+    {
+      "name": "Qualcomm NO_AVB common",
+      "category": "hardware",
+      "url": "https://github.com/kasnria001/qualcomm_noavb_exploit_common",
+      "capability": "NO_AVB unlock-chain and newer-interface research",
+      "scope": "Specific Qualcomm boot chains and security-service interfaces",
+      "wait": "Independent of community eligibility, but the flow is not generalized",
+      "pixel9": "Unconfirmed",
+      "evidence": "Author marks it still in progress and describes unresolved interface-adaptation problems",
+      "license": "MIT",
+      "status": "WIP",
+      "caveat": "Not a complete unlocker ready to run on the current device"
+    },
+    {
+      "name": "cheese / Adreno CVE-2025-21479",
+      "category": "root",
+      "url": "https://github.com/zhuowei/cheese",
+      "capability": "Adreno GPU exploit primitives and temporary-root research for specific devices",
+      "scope": "Unpatched Adreno A7xx and exact device/firmware adaptation",
+      "wait": "Neither a community waiting flow nor direct BL unlocking",
+      "pixel9": "Not applicable: Tensor is not the Qualcomm Adreno route",
+      "evidence": "On the current marble / OS3.0.5.0.VMRCNXM, compiled and ran the upstream af6c0ec probe once; output was 0 42424242, stopped after 8 seconds as planned. No kernel-log evidence confirmed unauthorized memory access.",
+      "license": "File-level license review not completed this round",
+      "status": "Historical exploit probe executed; no root obtained, BL remains locked",
+      "caveat": "Output matches neither upstream expectation, so exploitability or patch status cannot be determined. Complete main root code targets Quest with fixed addresses and was not executed."
+    },
+    {
+      "name": "UT Tool Temp UBL",
+      "category": "commercial",
+      "url": "https://www.unlockturkeytool.com/?lang=en",
+      "capability": "Vendor claims temporary Qualcomm/Xiaomi BL unlocking",
+      "scope": "Vendor list includes marble without proof of matching this firmware",
+      "wait": "Vendor claims no normal wait; this does not establish permanent unlocking",
+      "pixel9": "Not applicable",
+      "evidence": "Vendor FAQ describes temporary state and possible relocking after reboot; no test this round",
+      "license": "Closed-source commercial software",
+      "status": "Commercial candidate claim",
+      "caveat": "Not a confirmed route for permanently flashing Taku; not downloaded, executed, or paid for"
+    }
+  ],
+  "conclusions": [
+    "Low-level BL-unlock routes exist for specific models and firmware; no universal latest-version instant unlocker was found this round.",
+    "No public project confirmed for Pixel 9 / CP3A.261005.005 that bypasses disabled OEM unlocking or carrier BL restrictions was found this round.",
+    "Temporary root with locked BL exists, with Pixel 9 target information; it does not replace the unlock needed to flash a complete ROM.",
+    "The normal flow on a Pixel 9 allowing OEM unlock remains best suited to reproducible Taku development and continued upgrades.",
+    "A public Qualcomm NO_AVB PoC was newly found for current marble research; it is a real BL route worth reviewing, but prerequisites and device adaptation are not yet connected."
+  ],
+  "sourceLimits": [
+    "Reviewed maintainer READMEs, support tables, FAQs, failure issues, and some source, and ran the historical cheese GPU probe once on the connected marble. Full root and BL-state modification programs were not executed.",
+    "GitHub API returned rate limits, preventing complete commit-date collection; fetch time is not treated as last-maintained time.",
+    "The physical-device probe did not establish exploitability; BL remains locked. Other maintainer test claims remain distinct from tests performed this round.",
+    "Some projects publish source without an Open Source Definition-compliant license; these are marked separately."
+  ],
+  "qualityChecks": [
+    {
+      "finding": "The Jz8Root compatibility table lists Xiaomi 13 under MediaTek examples; official specifications say Snapdragon 8 Gen 2.",
+      "urls": [
+        "https://github.com/Jz8Root/xiaomi-hyperos-bootloader-unlock/blob/main/COMPATIBILITY.md",
+        "https://www.mi.com/hk/product/xiaomi-13/specs/"
+      ]
+    },
+    {
+      "finding": "The same table lists POCO F5 as a Dimensity example; official specifications say Snapdragon 7+ Gen 2.",
+      "urls": [
+        "https://github.com/Jz8Root/xiaomi-hyperos-bootloader-unlock/blob/main/COMPATIBILITY.md",
+        "https://www.mi.com/ae-en/product/poco-f5/specs/"
+      ]
+    },
+    {
+      "finding": "The project itself records counterexamples where scans pass but modifications do not persist after cold boot.",
+      "urls": [
+        "https://github.com/Jz8Root/xiaomi-hyperos-bootloader-unlock/issues/13"
+      ]
+    },
+    {
+      "finding": "The Pixel root support table omits October CP3A.261005.005; success claims for a July build cannot be transferred.",
+      "urls": [
+        "https://github.com/alex193a/Root-My-Pixel#supported-devices--build-profiles",
+        "https://github.com/JingMatrix/pixel-ksu-root/blob/main/data/targets.json"
+      ]
+    }
+  ]
+}

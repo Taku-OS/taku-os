@@ -1,0 +1,139 @@
+{
+  "date": "2026-10-21",
+  "checkedAt": "2026-10-21T15:40:15.218120+00:00",
+  "baseCommit": "208423a",
+  "status": "emulator_verified",
+  "sdkVersion": "0.2.0",
+  "requestProtocols": [
+    1,
+    2
+  ],
+  "scope": "Standalone Android display SDK and callbacks only; no AI, screen recognition, task execution, artifact loading or real details navigation.",
+  "verification": {
+    "hostAssertions": 37,
+    "androidWireAssertions": 16,
+    "sdkJarConsumerCompile": "passed",
+    "repositoryVerify": "passed (existing Linux FIFO case skipped on macOS)",
+    "allAndroidComponentsBuild": "passed",
+    "device": {
+      "checkedAt": "2026-10-21T15:37:49.407429+00:00",
+      "device": "emulator-5586",
+      "platform": 36,
+      "foreground": "com.android.deskclock/.DeskClock",
+      "apkSha256": {
+        "TakuSurfaces.apk": "42806adc351cd97aa6c3fabdbc4ae1841b45ff6586d00a467b65733168d8ef3e",
+        "TakuSurfaceDemo.apk": "397b87d1f377b3932f931e296c56e3ae2b4620fd94f9d8ab9d6811e218097975",
+        "TakuSurfaceApiTests.apk": "d40724636a8008fc84ba1d9714bf1b2c0a05f0792191e1fee5145780c430bf7e"
+      },
+      "androidWireAssertions": 16,
+      "hintDirectActionOnce": true,
+      "choiceInitiallyExpanded": true,
+      "resultArtifactCallback": {
+        "ref": "demo:weekend-guide",
+        "mediaType": "text/markdown",
+        "title": "周末灵感.md"
+      },
+      "arrowExpandsWithoutAction": true,
+      "legacyV1ExpandBehavior": true,
+      "sameIdRevisionAppliesNewPresentation": true,
+      "keyboardBeforeBounds": [
+        67,
+        1558,
+        1012,
+        2266
+      ],
+      "keyboardAfterBounds": [
+        67,
+        783,
+        1012,
+        1491
+      ],
+      "keyboardInsetApplied": true,
+      "hintBounds": [
+        156,
+        2119,
+        923,
+        2266
+      ],
+      "decisionBounds": [
+        67,
+        1558,
+        1012,
+        2266
+      ]
+    }
+  },
+  "sdkJar": {
+    "path": "system/surfaces/out/taku-surfaces-client.jar",
+    "sha256": "3d972e6856141119999d9563f701700cc4f09b89fbf5ebc8d75c566616e47b7e"
+  },
+  "screenshots": {
+    "hint.png": {
+      "path": "docs/reviews/system-surfaces-api-2026-10-21/hint.png",
+      "sha256": "85be8cfb98c7148db539e4c0629d52d49bad65ed330c614690c9e900eb7a81ec"
+    },
+    "decision.png": {
+      "path": "docs/reviews/system-surfaces-api-2026-10-21/decision.png",
+      "sha256": "46878382b6a13dfcede03f252ed480c007143b19798df72b6b66f45848996761"
+    },
+    "result-expanded.png": {
+      "path": "docs/reviews/system-surfaces-api-2026-10-21/result-expanded.png",
+      "sha256": "947e0a03758b7835bdcded1f9476efd9880b21f2cca7adb782560a5620689a29"
+    },
+    "keyboard.png": {
+      "path": "docs/reviews/system-surfaces-api-2026-10-21/keyboard.png",
+      "sha256": "bf060a3a2285ea7048636cf57d2b9efbcab5c8ad038b908e4bad0b79456102cd"
+    }
+  },
+  "sourceSha256": {
+    "spec/system-surface-v2.schema.json": "984ce3d990e723bcf46fb34090b6477d242d3b7834be41da0b2ec74c1468e9aa",
+    "spec/system-surface.schema.json": "c2827d5300d0e4eaec4a06ab96407c9b81989d01c72e3d99c2485466e39ffa27",
+    "system/surfaces/API.md": "6caed1ed0080f2c8c3559b237159bc65e85827f5a906c3e9b9404c20f187721c",
+    "system/surfaces/Android.bp": "480ddf986be0a524a425c4d00c47da6e0cebfa18f57571f03fd76600e8fed11a",
+    "system/surfaces/AndroidManifest.xml": "2169f2c6b364ce1fd450564bff059e1cd3b20dac383fb8e958f2620c6e3fecbb",
+    "system/surfaces/README.md": "d7041f6168607ff2d4770414e3adb9a52216f8d0e0aa47739f88ec2e5a726e6e",
+    "system/surfaces/build.sh": "cd7ad3f021c80f858662afeec98c079b56d048aa28692b762c33d4a79c7f8952",
+    "system/surfaces/client/org/agentos/surfaces/client/SurfaceClient.java": "d97487e780162f7253df63b30ea33aa23a3a29967cb3ec6aa87a02dca50b3816",
+    "system/surfaces/contract/org/agentos/surfaces/SurfaceSpec.java": "ed4f084ac6c191d74c3204d763d6cf0ebce015c7313c1e97b871a3dfda38ca28",
+    "system/surfaces/contract/org/agentos/surfaces/SurfaceStore.java": "852833949df07cfef1d9e0506f3021ab19ab54b00f7fe6ad00e9df6f49f11a7b",
+    "system/surfaces/demo/AndroidManifest.xml": "9a50133662d55488ed06bf008ef541c16a116775a083d5bb50094099a4152636",
+    "system/surfaces/demo/src/org/agentos/surfacedemo/PreviewActivity.java": "36f5869189dc18dc9ce93cb7232e22ac7b3339bc2649cfa1c3e63e842aa0b2a0",
+    "system/surfaces/res/drawable/surface_close.xml": "52c912f076964104b91b2aa555a8738e0d6baf73ccd4d9b6b5f375798a71d954",
+    "system/surfaces/res/drawable/surface_collapse.xml": "70dba15a289c6bd2345378f33b35f5d7cbf61f1fab2aba01090a9c0baf132ca2",
+    "system/surfaces/res/drawable/surface_expand.xml": "8f4803696e96c11758336940b95a8a33fe494ee7622582c872b74cfc5c4c8a25",
+    "system/surfaces/res/drawable/taku_brand_mark.xml": "bcfa7bc5629ebecce7594ab241652728e830e0e84487611542d523f770666ea3",
+    "system/surfaces/src/org/agentos/surfaces/SurfaceRenderer.java": "852f2c3957304e0b759398ea0031ae8c50b10520bb65e52c6a21c2ba912cbea7",
+    "system/surfaces/src/org/agentos/surfaces/SurfaceService.java": "efb65516bcfa11cc03b47de4ca4622cb7336926b1e8873ac32817b084e288a03",
+    "system/surfaces/src/org/agentos/surfaces/SurfaceStyle.java": "4f298ed2cc459e06405d0954b99b9a369981d70d45bbbde9fef5527cc19344de",
+    "system/surfaces/src/org/agentos/surfaces/SurfaceWindow.java": "620cc3cb5fdd358ed8ca907b89781378418fd4d9d395360042c7ed6a23d46284",
+    "system/surfaces/test.sh": "1f399fa547b9b9a2f0c63e45756f34f0347b9f9bc9341133fdfae5cd10130eb0",
+    "system/surfaces/tests/AndroidManifest.xml": "0ca5cce0f6e777f873e96b56056e166f09fd28814e740a770894ddbf62d352cd",
+    "system/surfaces/tests/SurfaceStoreTest.java": "ee6e50dcc870debc4b19b2a1b994d94d443b8610d17ccec6c6ba0ed7c0ce3c90",
+    "system/surfaces/tests/consumer/SurfaceConsumer.java": "3c1a8c30c79b3e13b82dd0718932d25542d090a48bc470ef04c372218dd2b939",
+    "system/surfaces/tests/instrumentation/org/agentos/surfacestests/SurfaceApiTest.java": "006b9501867dbed0256ddb88b426659f1662479fe744cdb0ff31f5045b5c0965",
+    "system/surfaces/tests/verify-device.py": "56a49719062e25c5c3336a43b30792325b5a18c27fd86c8342432c616e6be3ab",
+    "system/surfaces/wire/org/agentos/surfaces/SurfaceCodec.java": "d919d5d304c0d51e9e4d84d83e48f99ce8802691e6484aed11210f838c59ecc1"
+  },
+  "physicalDeviceVerified": false,
+  "fullRomRebuilt": false,
+  "limits": [
+    "Artifacts in the fixture are opaque sample references, not actual files or generated material.",
+    "Action callbacks do not imply work completed or a details Activity opened.",
+    "One accepted operation per revision; republish to re-enable.",
+    "Lock/unlock, rotation, enlarged fonts and TalkBack not verified in this iteration."
+  ],
+  "cleanup": {
+    "previewStopped": true,
+    "readOnlyEmulatorClosed": true,
+    "originalAvdDataPreserved": true,
+    "physicalPhoneChanged": false,
+    "android17Automation": "PAUSED",
+    "runningRomInputChanged": false
+  },
+  "rawEvidence": {
+    "device": "out/system-surfaces-api-20261021/device/",
+    "build": "out/system-surfaces-api-20261021/build.log",
+    "repositoryVerify": "out/system-surfaces-api-20261021/verify.log",
+    "allComponentsBuild": "out/system-surfaces-api-20261021/build-android.log"
+  }
+}

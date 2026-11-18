@@ -1,0 +1,19 @@
+<!-- Taku icon "chevron-double" (ui). Tint from the view. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M7 15l4.616 5.54c0.2 0.239 0.568 0.239 0.768 0L17 15"/>
+    <path
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M7 9l4.616-5.54c0.2-0.239 0.568-0.239 0.768 0L17 9"/>
+</vector>

@@ -1,0 +1,19 @@
+{
+  "browserBackRestoresModelConnection": true,
+  "roundTrips": 2,
+  "reusedBrowserReturnsToLatestOrigin": true,
+  "sameConversationAndChineseDraft": true,
+  "modelMessagesSent": 0,
+  "status": "emulator_verified",
+  "date": "2026-10-19",
+  "versionCode": 56,
+  "versionName": "20261019-magpie-return",
+  "apkSha256": "4781316a20b71ab49694ade03f39c0a5f8cf5fcabbb2632e0fa9137a043dc700",
+  "installedApkMatches": true,
+  "systemApkMatches": true,
+  "assistantBuild": "passed",
+  "npmVerify": "passed",
+  "linuxFifoTest": "skipped on macOS",
+  "physicalDeviceTested": false,
+  "credentialsIncluded": false
+}

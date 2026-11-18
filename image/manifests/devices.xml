@@ -1,0 +1,7 @@
+<manifest>
+  <project name="LineageOS/android_device_google_zumapro" path="device/google/zumapro" revision="68ba9dd7b620da033874eff4b660dddcf23066ff" upstream="refs/heads/lineage-24.0" dest-branch="refs/heads/lineage-24.0" remote="github" />
+  <project name="LineageOS/android_device_google_caimito-kernels" path="device/google/caimito-kernels" revision="d3b200471b6ce0d94504886b6249a7f6d74d52ca" upstream="refs/heads/lineage-24.0" dest-branch="refs/heads/lineage-24.0" remote="github" />
+  <project name="LineageOS/android_device_google_tokay" path="device/google/tokay" revision="410632c0d815c2ef384683d9ccf8c0abc94f5abc" upstream="refs/heads/lineage-24.0" dest-branch="refs/heads/lineage-24.0" remote="github" />
+  <project name="LineageOS/android_device_google_caimito" path="device/google/caimito" revision="030b8ea15f58ffbeb28504eb490dbca674d26e3f" upstream="refs/heads/lineage-24.0" dest-branch="refs/heads/lineage-24.0" remote="github" />
+  <project name="TheMuppets/proprietary_vendor_google_tokay" path="vendor/google/tokay" revision="9aa7bf2bfcee18a501ea4848c485ab2c1b9e226f" remote="github" upstream="refs/heads/lineage-24.0" />
+</manifest>

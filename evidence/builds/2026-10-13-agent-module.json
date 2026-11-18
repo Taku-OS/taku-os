@@ -1,0 +1,65 @@
+{
+  "date": "2026-10-13",
+  "scope": "Android component prototype on isolated API 36 ARM64 emulator; not Pixel ROM or authenticated model acceptance",
+  "sourceHead": "99b205019cac1ad81773bdb82bfbbba4bdfa8fd5",
+  "sourceIncludesUncommittedChanges": true,
+  "sourceHashes": {
+    "system/assistant/src/org/agentos/assistant/ChatActivity.java": "62786619efe2a77286959d9de284af0fed814c7676a637c174134a0340350dae",
+    "system/assistant/src/org/agentos/assistant/TaskRequests.java": "a01704064a0a22335bebf86d5ce8aef72abcb405f59814cecc51f6a9614efad4",
+    "system/assistant/broker/org/agentos/lab/TaskBroker.java": "f634cf1b66eae03019009ab798d9dfd75b26ea3d0c836fdcdd2815e04bb12486",
+    "system/assistant/broker/org/agentos/lab/CodexAppServer.java": "4bc7b844121ed93560fef6e6bc20b6b803555643f19e497bbcf070205c1e8797",
+    "system/assistant/AndroidManifest.xml": "c8f2d3575f14b4009416fcf1fc7d8b0b5dec99ae865fc768d73598ee03d21b8b"
+  },
+  "runtime": "codex-cli 0.161.0",
+  "artifacts": {
+    "system/assistant/out/AgentOSAssistant.apk": {
+      "sha256": "a2e01188c59ca09c151328f6ff94ba31e7ffeb31e2cfc99e9c1f2ebbac4e10d8",
+      "bytes": 1677925
+    },
+    "system/assistant/out/task-broker.jar": {
+      "sha256": "d36ccc4d058ea25568f56ffbffeaeb20f06624b5e25b28096896c8719254029b",
+      "bytes": 12579
+    }
+  },
+  "checks": {
+    "componentBuild": true,
+    "nativeUiFlow": true,
+    "missingDeviceLoginShown": true,
+    "historyAndDraftRestored": true,
+    "queuedTaskCancellation": true,
+    "runtimeInitializeAndAccountRead": true,
+    "repositoryVerify": true,
+    "designResourcesCheck": true,
+    "installedApkSha256": true,
+    "installedBrokerSha256": true
+  },
+  "unverified": {
+    "authenticatedModelTurn": true,
+    "threadResumeWithModelHistory": true,
+    "activeModelTurnInterrupt": true,
+    "modelDrivenAndroidOperations": true,
+    "physicalPixel9": true,
+    "coldBoot": true
+  },
+  "pixel9CandidateRebuilt": false,
+  "crossThreadMessagesSent": false,
+  "uiLogSha256": "9add543a370c7b9b28cfe10b2fd160f2310f380d1db4bc8f63aff4c44a814028",
+  "protocolProbe": {
+    "schemaRuntime": "codex-cli 0.161.0",
+    "initializePassed": true,
+    "accountReadPassed": true,
+    "accountPresent": false,
+    "requiresOpenaiAuth": true,
+    "modelTurnStarted": false,
+    "physicalDeviceVerified": false
+  },
+  "screenshots": {
+    "restored.png": "7eede030e03a76eb70da25c342de411981e192e560dd39e4d4ca820cfee03a4e",
+    "settings.png": "3be7995ddc4ad6c41b536a96247646f545b3385f87d80057e9d7ae57636e2c66",
+    "empty.png": "5025e47a804774c9ae5a923798ec791cf3691d69f5a185e253df3b3af73572c1",
+    "cancelled.png": "a964fbecd5e16c2f3402d8752d69f2b3c0140dde6e98149f79ac4c47a72524ba",
+    "context.png": "ebf0fcd2fa7f6c238d0a87985d0ff9922781ef10199a475e1f4be502a695112c",
+    "login-required.png": "585e02baab0ca689b178f3e34078e75558e8e716e3915e17ce8af93f3c597223",
+    "stopping.png": "04a21af4fbf161aff05687a70d606aa33041a5045542e68a44c59782ac31efff"
+  }
+}

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Status bar notification icon: white silhouette, 24dp. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <group android:translateX="0" android:translateY="0" android:scaleX="0.11215" android:scaleY="0.11215">
+        <path android:fillColor="#FFFFFFFF" android:pathData="M108.939 36.2588C107.769 36.2791 106.386 37.4337 103.622 39.7441L30.6357 100.748C29.9327 101.336 29.5813 101.63 29.3291 101.99C29.1058 102.309 28.9407 102.665 28.8408 103.041C28.728 103.466 28.7297 103.924 28.7334 104.841L28.9268 152.732C28.9413 156.335 28.9487 158.137 29.6875 159.045C30.3298 159.834 31.2997 160.285 32.3174 160.268C33.4881 160.247 34.8704 159.092 37.6348 156.781L110.621 95.7773C111.324 95.1898 111.676 94.8961 111.928 94.5361C112.151 94.2171 112.317 93.8608 112.417 93.4844C112.53 93.0597 112.527 92.6015 112.523 91.6855L112.33 43.7939C112.315 40.1917 112.308 38.3898 111.569 37.4814C110.927 36.6919 109.957 36.2412 108.939 36.2588Z"/>
+        <path android:fillColor="#FFFFFFFF" android:pathData="M113.9,127.6a42.9,42.9 0,1 1,85.8,0a42.9,42.9 0,1 1,-85.8,0Z"/>
+    </group>
+</vector>

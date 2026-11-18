@@ -1,0 +1,279 @@
+{
+  "date": "2026-10-22",
+  "timezone": "Asia/Shanghai",
+  "sourceBase": "0a41eb2b88b66dfc33585be7cb523f42370e7b08",
+  "scope": "Dedicated emulator components only; not physical device, full ROM, cold boot or power benchmark",
+  "environment": {
+    "avd": "Taku_ImageIntegration_20261010",
+    "serial": "emulator-5634",
+    "android": "16",
+    "api": "36",
+    "abi": "arm64-v8a",
+    "selinux": "Enforcing",
+    "components": {
+      "TakuMemory.apk": {
+        "package": "org.agentos.memory",
+        "uid": 10162,
+        "version": [
+          "versionCode=2 minSdk=36 targetSdk=36",
+          "versionName=0.2.0"
+        ],
+        "sha256": "8a73b5d91f2acd0cb2dd32ac7cafb23ce7026d310c0a0ee75996bcdf73e4e822",
+        "installedMatchesBuild": true
+      },
+      "AgentOSAssistant.apk": {
+        "package": "org.agentos.assistant",
+        "uid": 1000,
+        "version": [
+          "versionCode=59 minSdk=36 targetSdk=36",
+          "versionName=20261022-memory-batches"
+        ],
+        "sha256": "72a1b80932427a314249c949cbe6f9768d3d8c0e25b42f5c773acd51d2851328",
+        "installedMatchesBuild": true
+      },
+      "TakuMemoryTests.apk": {
+        "package": "org.agentos.memorytests",
+        "uid": 10163,
+        "version": [
+          "versionCode=1 minSdk=36 targetSdk=36",
+          "versionName=1"
+        ],
+        "sha256": "8c5608edae7d43af03ef8a0cdfe963fed6848ab14afda16d148cfd6d65a1e7fb",
+        "installedMatchesBuild": true
+      },
+      "task-broker.jar": {
+        "sha256": "77678205ab59637cabd654f460a45f928ab2c874dedfd94e9d0a710f4e831271",
+        "installedMatchesBuild": true
+      }
+    }
+  },
+  "migration": {
+    "passed": true,
+    "oldRecordsPreserved": 2,
+    "analysisDefaultOff": true,
+    "status": {
+      "enabled": false,
+      "analysisEnabled": false,
+      "analysisGeneration": 0,
+      "queryEnabled": true,
+      "proactive": false,
+      "model": "taku-jev-import/typesafe/jev-1.14",
+      "sources": [],
+      "generation": 25,
+      "retentionDays": 7,
+      "count": 2,
+      "analysisQueued": 0,
+      "analysisInFlight": 0,
+      "analysisBatchAttempts": 0,
+      "lastBatchSize": 0,
+      "schema": "taku.memory/2",
+      "observationConnected": false
+    }
+  },
+  "captureAndPersistence": {
+    "passed": true,
+    "marker": "BATCH_RUN_1792603060241511000",
+    "ids": [
+      "a68a1579-753c-40cb-be32-c298c5ab2713",
+      "745f8354-71d6-49a7-b7c0-2b14d8a4248c",
+      "e0c5fd4e-970f-473d-8473-bc1dabb45fe8",
+      "b7c345ab-4d3c-46cf-abe5-ee7de65b894b",
+      "cb383cab-aad9-4b1e-a7c8-b6d730ef099d",
+      "ae6d6280-6359-4299-b1d3-b1f7244dd9b8"
+    ],
+    "model": "taku-jev-import/typesafe/jev-1.14",
+    "localRecords": 6,
+    "analysisOffBeyondMergeWindow": true,
+    "attemptsBefore": 4,
+    "requestsWhileOff": 0,
+    "realProcessKillQueueSurvived": true,
+    "unsentInputExcluded": true,
+    "pageSynthetic": true
+  },
+  "realJevFinalRun": {
+    "passed": true,
+    "realJev": true,
+    "mockedModelResponse": false,
+    "model": "taku-jev-import/typesafe/jev-1.14",
+    "localRecords": 6,
+    "batchRequests": 2,
+    "batchSizes": [
+      5,
+      1
+    ],
+    "remainderObservedAfterFirstBatch": true,
+    "allRecordsAnalyzed": true,
+    "proactiveOffDidNotDisableAnalysis": true,
+    "noAgentTasks": true,
+    "elapsedSeconds": 20.196626333985478,
+    "schedulerWakeRounds": 3,
+    "productionRateGateBypassed": false,
+    "records": [
+      {
+        "id": "a68a1579-753c-40cb-be32-c298c5ab2713",
+        "revision": 1,
+        "source": "org.agentos.memorytests",
+        "analysis": "ready",
+        "category": "工作",
+        "model": "taku-jev-import/typesafe/jev-1.14",
+        "decision": "organize",
+        "confidence": 0.98
+      },
+      {
+        "id": "745f8354-71d6-49a7-b7c0-2b14d8a4248c",
+        "revision": 1,
+        "source": "org.agentos.memorytests",
+        "analysis": "ready",
+        "category": "工作",
+        "model": "taku-jev-import/typesafe/jev-1.14",
+        "decision": "organize",
+        "confidence": 0.95
+      },
+      {
+        "id": "e0c5fd4e-970f-473d-8473-bc1dabb45fe8",
+        "revision": 1,
+        "source": "org.agentos.memorytests",
+        "analysis": "ready",
+        "category": "工作",
+        "model": "taku-jev-import/typesafe/jev-1.14",
+        "decision": "organize",
+        "confidence": 0.94
+      },
+      {
+        "id": "b7c345ab-4d3c-46cf-abe5-ee7de65b894b",
+        "revision": 1,
+        "source": "org.agentos.memorytests",
+        "analysis": "ready",
+        "category": "工作",
+        "model": "taku-jev-import/typesafe/jev-1.14",
+        "decision": "organize",
+        "confidence": 0.95
+      },
+      {
+        "id": "cb383cab-aad9-4b1e-a7c8-b6d730ef099d",
+        "revision": 1,
+        "source": "org.agentos.memorytests",
+        "analysis": "ready",
+        "category": "工作",
+        "model": "taku-jev-import/typesafe/jev-1.14",
+        "decision": "organize",
+        "confidence": 0.95
+      },
+      {
+        "id": "ae6d6280-6359-4299-b1d3-b1f7244dd9b8",
+        "revision": 1,
+        "source": "org.agentos.memorytests",
+        "analysis": "ready",
+        "category": "工作",
+        "model": "taku-jev-import/typesafe/jev-1.14",
+        "decision": "organize",
+        "confidence": 0.97
+      }
+    ]
+  },
+  "realValidationRuns": [
+    {
+      "passed": true,
+      "realJev": true,
+      "mockedModelResponse": false,
+      "localRecords": 6,
+      "batchRequests": 2,
+      "batchSizes": [
+        5,
+        1
+      ],
+      "allRecordsAnalyzed": true,
+      "noAgentTasks": true,
+      "productionRateGateBypassed": false
+    },
+    {
+      "passed": true,
+      "realJev": true,
+      "mockedModelResponse": false,
+      "localRecords": 6,
+      "batchRequests": 2,
+      "batchSizes": [
+        5,
+        1
+      ],
+      "allRecordsAnalyzed": true,
+      "noAgentTasks": true,
+      "productionRateGateBypassed": false
+    },
+    {
+      "passed": true,
+      "realJev": true,
+      "mockedModelResponse": false,
+      "localRecords": 6,
+      "batchRequests": 2,
+      "batchSizes": [
+        5,
+        1
+      ],
+      "allRecordsAnalyzed": true,
+      "noAgentTasks": true,
+      "productionRateGateBypassed": false
+    }
+  ],
+  "ui": {
+    "passed": true,
+    "separateAnalysisSwitchVisible": true,
+    "analysisOffLeavesRecordingOn": true,
+    "independentConsentDialog": true,
+    "emptyQueueNoNewRequests": true,
+    "pendingCountVisible": true
+  },
+  "regression": {
+    "storagePermissionChecks": 32,
+    "queueChecks": 69,
+    "passed": true,
+    "clockAndFailureAnswersSyntheticInIsolatedTestUid": true,
+    "productionInjectionEndpoint": false
+  },
+  "offlineGate": {
+    "command": "npm run verify",
+    "passed": true,
+    "linuxFifoTestSkippedOnMacOS": true
+  },
+  "cleanup": {
+    "passed": true,
+    "originalMemoryConfigurationRestored": true,
+    "previousAccessibilityRestored": true,
+    "originalAvdPauseRestored": true,
+    "syntheticRecordsRetained": true
+  },
+  "boundaries": {
+    "physicalDevice": false,
+    "fullRom": false,
+    "coldBoot": false,
+    "longTermPower": false,
+    "realUpstreamFailureInjection": false,
+    "networkExactlyOnce": false,
+    "newAgentExecutionInThisRun": false
+  },
+  "sourceSha256": {
+    "scripts/test-memory-batch-device.py": "802bd4c122c2b40ec111358eeaac7a3b72247f7219b755785b133fb9ae9a4a85",
+    "system/assistant/AndroidManifest.xml": "a566cc8b163c2552bc8939f7d09b6af3c8cbf4471f9fd3661c05ef6855c8a36a",
+    "system/assistant/broker/org/agentos/lab/MemoryBridge.java": "0edfb2c66fecd70c6e41ac64c2792e6810283080a0d80550b10ffe9c1a56f33f",
+    "system/memory/Android.bp": "d00187663955c787cc35ae45ea76fd2ff4872b0803e94b7210a3df363480a565",
+    "system/memory/AndroidManifest.xml": "0255aba32d5d489dc34d64ae2e71acd95ef7953d5c21b5ae4a728abcde995259",
+    "system/memory/build-tests.sh": "7a1ca19d04423e9a6f60f78ba59507f43461644f66fc9628a72fa4e3009b7562",
+    "system/memory/build.sh": "37dcdb8cdaa3bd95b06e7cf33a739affe62c982ed9e904773b5eb0cc20e27e54",
+    "system/memory/res/drawable/taku_brand_mark.xml": "bcfa7bc5629ebecce7594ab241652728e830e0e84487611542d523f770666ea3",
+    "system/memory/res/values/strings.xml": "99fda41c9adfa2c251668fac6620a8e0ca994749f0cccafe640017564b714234",
+    "system/memory/res/xml/observation.xml": "a528d10f10d131b2c43b7638a1d627a3fdeefd4aa432faefdbbd2d348bc9d999",
+    "system/memory/src/org/agentos/memory/AnalysisJob.java": "8e2bbd955d23c8b43722f39b96df9be1434585ae6917f62b7cee69ac91ae3e91",
+    "system/memory/src/org/agentos/memory/BrokerClient.java": "81048189c15ec20647c50ee8c682d58d0ec53ce534857cf631b4bba35f06c2be",
+    "system/memory/src/org/agentos/memory/MemoryActivity.java": "7b7d1fefa63341a1062051e77bdd76416e6d70aabb1cefcb759ac180a534c44c",
+    "system/memory/src/org/agentos/memory/MemoryMaintenance.java": "edc0fc6544d0c9906b1e5817efbc0d8fc2e0c5330726c9138b933ebab07a9e2b",
+    "system/memory/src/org/agentos/memory/MemoryProvider.java": "68e2e76a38b8d47666b6221b1ed9eb9522378e7e1b412c7598b3ae0be18b2303",
+    "system/memory/src/org/agentos/memory/MemoryStore.java": "4cda75b395de6f2dab08fa4fcb7a00a8e7050cf5a547fd97ac04adb9a9a27a5d",
+    "system/memory/src/org/agentos/memory/ObservationService.java": "a63a0899675272a4d3e05bf14c08d006ad36c258730cb433fe72e83dc38d92e1",
+    "system/memory/tests/AndroidManifest.xml": "c29e213139459cec131bd192e8852df2d075892222ec48a2b0b37336db6a3594",
+    "system/memory/tests/fixture/AnalysisJob.java": "f29ef0222b02721a290bd9fb6ad3abef3d1ca7f4d8034081083b5283991414b7",
+    "system/memory/tests/fixture/ObservationService.java": "333fdc1f9bab071d6623c49cd46f1735fea30cd6a55af3b2ece25833e3365f94",
+    "system/memory/tests/fixture/PageActivity.java": "8dc9bb5e520405b94da8f0c3371c79bb809a992fef4cec4f6e8a8787789f180c",
+    "system/memory/tests/fixture/QueueTests.java": "632c881aac023c59ed3334b14ae5662454ef75bcef468dc8f96a53e086916ffa",
+    "system/memory/tests/fixture/StoreTests.java": "570e4bc76d5ec6a6479337719846b9b3101cd958e60f79f2da7d1b0063c3ea27"
+  }
+}

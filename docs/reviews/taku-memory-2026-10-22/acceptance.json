@@ -1,0 +1,190 @@
+{
+  "date": "2026-10-22",
+  "timezone": "Asia/Shanghai",
+  "sourceBase": "0116c76bfa6f97e6443e9e1e5363103922628448",
+  "scope": "Development emulator component acceptance; not physical device, complete ROM, cold boot or production certification",
+  "environment": {
+    "avd": "Taku_ImageIntegration_20261010",
+    "serial": "emulator-5634",
+    "android": "16",
+    "api": "36",
+    "abi": "arm64-v8a",
+    "selinux": "Enforcing",
+    "components": {
+      "TakuMemory.apk": {
+        "sha256": "a3f67ed246aeb1b7ce4fdfb0bc05319468b24bd5b685a8f60d14268f053bf49a",
+        "installedMatchesBuild": true,
+        "version": [
+          "versionCode=1 minSdk=36 targetSdk=36",
+          "versionName=0.1.0"
+        ],
+        "uid": 10162,
+        "package": "org.agentos.memory"
+      },
+      "AgentOSAssistant.apk": {
+        "sha256": "b2af87f6c4e8a5a9940e5510e88ee5711b3d6c5512588a52c5fcdd3713934719",
+        "installedMatchesBuild": true,
+        "version": [
+          "versionCode=58 minSdk=36 targetSdk=36",
+          "versionName=20261022-memory-bridge"
+        ],
+        "uid": 1000,
+        "package": "org.agentos.assistant"
+      },
+      "TakuSurfaces.apk": {
+        "sha256": "329579ded3a1ce3a8bf32ff16c249551ebd2bfffbd168900ce9718c169ec23d4",
+        "installedMatchesBuild": true,
+        "version": [
+          "versionCode=2 minSdk=36 targetSdk=36",
+          "versionName=0.2.0"
+        ],
+        "uid": 10159,
+        "package": "org.agentos.surfaces"
+      },
+      "TakuMemoryTests.apk": {
+        "sha256": "eb4fb836e7a402e37fde6e4f5eda8832c91875a2cf89517859a151d17f21fe57",
+        "installedMatchesBuild": true,
+        "version": [
+          "versionCode=1 minSdk=36 targetSdk=36",
+          "versionName=1"
+        ],
+        "uid": 10163,
+        "package": "org.agentos.memorytests"
+      },
+      "task-broker.jar": {
+        "sha256": "c67561c1678d2cf49987501f3251d8952395b3a1b63fd103ff4e62e5149960ae",
+        "installedMatchesBuild": true
+      }
+    }
+  },
+  "storageAndPermission": {
+    "passed": true,
+    "checks": 32,
+    "isolatedDatabase": true,
+    "fixtureSignedWithDifferentKey": true
+  },
+  "automaticCaptureAndManagement": {
+    "passed": true,
+    "automaticObservation": true,
+    "perItemRememberAction": false,
+    "unsentInputExcluded": true,
+    "deduplicated": true,
+    "correctionAndSourceHistory": true,
+    "pause": true,
+    "excludedSource": true,
+    "passwordScreenExcluded": true,
+    "secureWindowExcluded": true,
+    "forgetRemovesSearchAndHistory": true,
+    "forgottenContentNotResurrected": true,
+    "data": "labelled synthetic page",
+    "physicalDevice": false,
+    "fullRom": false
+  },
+  "realModelLoop": {
+    "id": "f2f57635-dcc5-4b2a-be4b-ba6906e34997",
+    "revision": 1,
+    "model": "taku-jev-import/typesafe/jev-1.14",
+    "expected": [
+      "17:00",
+      "18:00",
+      "设计稿"
+    ],
+    "scenario": "meeting",
+    "modelResponseSimulated": false,
+    "pageSynthetic": true,
+    "automaticCapture": true,
+    "noTaskBeforeConsent": true,
+    "decisionSeconds": 7.086870207916945,
+    "passed": true,
+    "taskId": "1792600848057",
+    "threadId": "01a15f56-3b3f-76a3-95b2-478dfc4b4583",
+    "agentModel": "gpt-6.1-sol",
+    "agentReply": "已核对最新记录，并按本轮标识查询相关记忆，仅找到同一条。**该记录明确是合成验收资料，不是真实公司会议。**\n\n可靠事实（仅指资料中的记载）：\n\n| 事项 | 负责人 | 时间 |\n|---|---|---|\n| 产品评审 | 未注明 | 已结束 |\n| 提交设计稿 | 小林 | 明天 17:00 前 |\n| 完成接口联调 | 小陈 | 明天 18:00 前 |\n| 共同检查验收结果 | 未明确具体人员 | 周五 10:00 |\n| 发布新版本 | 未注明 | 下周一 |\n\n待确认项：\n\n- 相对日期的基准和业务时区未注明，暂不换算为确定日期。\n- 验收参与者、发布负责人、验收标准尚不明确。\n- 设计稿、接口联调、验收与发布之间的依赖关系未明确，不能直接认定。\n\n下一步建议：先确认日期和时区，再补齐负责人、验收标准及依赖关系，形成发布前检查清单。\n\n来源：记忆 ID `f2f57635-dcc5-4b2a-be4b-ba6906e34997`，版本 **1**；`org.agentos.memorytests`，页面 `window:958`。首次及末次采集时间均为 **2026-10-21 16:39:48.943 UTC**，原始会议时间未提供。\n\n本次仅进行了读取和整理，未发送、预订、下单或修改数据。",
+    "realMemoryToolCall": true,
+    "toolCalls": [
+      {
+        "namespace": "taku_phone",
+        "tool": "memory_get",
+        "arguments": {
+          "id": "f2f57635-dcc5-4b2a-be4b-ba6906e34997"
+        },
+        "status": "completed",
+        "success": true
+      },
+      {
+        "namespace": "taku_phone",
+        "tool": "memory_search",
+        "arguments": {
+          "query": "MEMORY_RUN_1792600785291283000"
+        },
+        "status": "completed",
+        "success": true
+      }
+    ],
+    "unsentInputExcludedFromAgent": true,
+    "exactlyOneTask": true,
+    "duplicateConsentSuppressed": true,
+    "readOnly": true,
+    "screenshotAttached": false,
+    "physicalDevice": false,
+    "fullRom": false,
+    "coldBoot": false
+  },
+  "appUi": {
+    "passed": true,
+    "upgradePreservedMemory": true,
+    "returnRefresh": true,
+    "taskStatusRefreshed": true,
+    "resultVisibleInMemoryApp": true,
+    "sourceAndRevisionVisible": true,
+    "settingsVisible": true
+  },
+  "offlineGate": {
+    "command": "npm run verify",
+    "passed": true,
+    "linuxOnlyFifoTestSkippedOnMacOS": true,
+    "surfaceLifecycleAssertions": 37,
+    "surfacePositionAssertions": 17
+  },
+  "boundaries": {
+    "physicalDeviceAccepted": false,
+    "fullRomAccepted": false,
+    "coldBootAccepted": false,
+    "longTermPowerAccepted": false,
+    "semanticSearch": false,
+    "multimodalMemory": false,
+    "crossAppFactMerging": false
+  },
+  "sourceSha256": {
+    "system/assistant/AndroidManifest.xml": "78785df623eca88bc68e159888e12383c32a2975a27e27615920c7fd83cf383d",
+    "system/assistant/broker/org/agentos/lab/MemoryBridge.java": "c24301dc3445b856da0335b55a8181e7e566e71f8c6fed5401872b421f2af6f6",
+    "system/assistant/broker/org/agentos/lab/NativeBridge.java": "efa562837ea24dadfbc27744e6bea47d66894460f06fa67b4f17cb285cec74e6",
+    "system/assistant/broker/org/agentos/lab/PhoneNativeTools.java": "b6685371ce53b8de0db87e15028e05b058f27fd2a87fffc54d2e3c11781f80a1",
+    "system/assistant/res/raw/taku_harness.json": "f736e97de43bcf3167d044eb5c6d00e063b86a9ce6db731cd0b79e8e2b65b42f",
+    "system/assistant/src/org/agentos/assistant/MemoryGatewayProvider.java": "cff45510557066758a3508fba8208a567c27d1a79986629e5c6150ac6c3c856a",
+    "system/memory/Android.bp": "d00187663955c787cc35ae45ea76fd2ff4872b0803e94b7210a3df363480a565",
+    "system/memory/AndroidManifest.xml": "8a5b03cfe67a2e92e3fa15fbfdf703d7f3b06124b5baabd8cb48286a81bb4fad",
+    "system/memory/build-tests.sh": "7a1ca19d04423e9a6f60f78ba59507f43461644f66fc9628a72fa4e3009b7562",
+    "system/memory/build.sh": "37dcdb8cdaa3bd95b06e7cf33a739affe62c982ed9e904773b5eb0cc20e27e54",
+    "system/memory/res/drawable/taku_brand_mark.xml": "bcfa7bc5629ebecce7594ab241652728e830e0e84487611542d523f770666ea3",
+    "system/memory/res/values/strings.xml": "99fda41c9adfa2c251668fac6620a8e0ca994749f0cccafe640017564b714234",
+    "system/memory/res/xml/observation.xml": "a528d10f10d131b2c43b7638a1d627a3fdeefd4aa432faefdbbd2d348bc9d999",
+    "system/memory/src/org/agentos/memory/BrokerClient.java": "365b144630e57ea1479391cd09a2f3c57d458cffb0dabb68d1843412e7541261",
+    "system/memory/src/org/agentos/memory/MemoryActivity.java": "91d779076d6252b8c6684d3efe0e00cfb10db01b374475f6f950560b17858f70",
+    "system/memory/src/org/agentos/memory/MemoryMaintenance.java": "9c239dfd981d892f7dcd5b7ede3ebab5a5ec553b0a0f96b67e435c762c733409",
+    "system/memory/src/org/agentos/memory/MemoryProvider.java": "49af952ad32cc68af6548a585108e2fa85370544288cf49f73f707730c44cdb7",
+    "system/memory/src/org/agentos/memory/MemoryStore.java": "70a5fbf36d11b2d94f35c5a91dcc6209e09ce0ba0729c799cc64e717596527a4",
+    "system/memory/src/org/agentos/memory/ObservationService.java": "1d15d8ceb17d905b0645e14b3b453cef041f29a8768e72a649cbe512701bdaa8",
+    "system/memory/tests/AndroidManifest.xml": "aec56b89718d178c1b3109332af35538221bb8353b87df742b118130ea91ff3c",
+    "system/memory/tests/fixture/ObservationService.java": "333fdc1f9bab071d6623c49cd46f1735fea30cd6a55af3b2ece25833e3365f94",
+    "system/memory/tests/fixture/PageActivity.java": "8dc9bb5e520405b94da8f0c3371c79bb809a992fef4cec4f6e8a8787789f180c",
+    "system/memory/tests/fixture/StoreTests.java": "ff31c83739f4590b3c0801a31feb613a6046950c800b9343cf5f2dfbc9c8c1da"
+  },
+  "cleanup": {
+    "observationPaused": true,
+    "previousAccessibilityRestored": true,
+    "onlySyntheticTestThreadsArchived": true,
+    "syntheticMemoriesRetained": true,
+    "originalAvdPauseRestored": true
+  }
+}

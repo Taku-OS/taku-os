@@ -1,0 +1,147 @@
+{
+  "versionCode": 53,
+  "versionName": "20261019-conversation-worklog",
+  "installedApkMatchesBuiltApk": true,
+  "sha256": "000aa68be21afece7be299378feeef8a67f3d2b1e1075b7f392142a96e495583",
+  "device": "emulator-5634",
+  "avd": "Taku_ImageIntegration_20261010",
+  "status": "emulator_verified",
+  "source": "Codex native thread/turn/item events",
+  "craftReferenceCommit": "22c9f0414ab63e0a22814c9a2ada740206e09091",
+  "protocolFixtureAssertions": 46,
+  "draftStateAssertions": 95,
+  "rendererFixture": {
+    "passed": true,
+    "assertions": 52,
+    "streamFrames": 9,
+    "fixtureOnly": true
+  },
+  "uiTests": {
+    "count": 3,
+    "passed": true,
+    "run": "out/native-conversation-ui/20261019T060001Z-15765",
+    "navigation": {
+      "modelAndEffortMenusPreserveDraft": true,
+      "capabilitiesAndSessionsReturnToChat": true,
+      "directSettingsRouteReturnsToSettings": true,
+      "themeAndKeyboardPreserveDraft": true,
+      "backgroundScreenReturnPreservesDraft": true,
+      "systemDismiss": true,
+      "modelMessagesSent": 0,
+      "testThread": "01a152c1-4ed0-74d3-944c-33fd118ce307"
+    },
+    "nativeItems": {
+      "threadId": "01a152c0-3873-7552-922a-f00d16e85b75",
+      "turnId": "01a152c0-5982-7d42-82ca-f6e6d59fd173",
+      "modelResponsesSimulated": false,
+      "workLogCollapsedByDefault": true,
+      "expansionSurvivesThemeAndUpdates": true,
+      "expandedToolSurvivesStream": true,
+      "nativeCompletionRendered": true,
+      "lightAndDark": true,
+      "source": "Codex app-server"
+    },
+    "chineseStream": {
+      "threadId": "01a152be-e621-7672-be86-cdbbcac8dd0a",
+      "turnId": "01a152be-eef3-7a42-ac62-c691c53fa377",
+      "partialChineseVisibleWhileRunning": true,
+      "distinctNativeLengths": 321,
+      "nativeCompletionRendered": true,
+      "modelResponsesSimulated": false
+    }
+  },
+  "projectVerify": {
+    "passed": true,
+    "linuxFifoSkippedOnMacOS": true
+  },
+  "androidBuild": {
+    "passed": true
+  },
+  "physicalDeviceVerified": false,
+  "composerPhases": {
+    "failure-missing": {
+      "run": "out/composer-reliability-tests/20261019T060335Z-15405",
+      "checks": {
+        "modelResponsesSimulated": false,
+        "passed": true,
+        "queueCreated": false,
+        "prequeueRejectionVisible": true,
+        "keyboardPreservedOnFailure": true,
+        "draftPreserved": true,
+        "attachmentsPreserved": true,
+        "noQueuePublished": true
+      }
+    },
+    "failure-async": {
+      "run": "out/composer-reliability-tests/20261019T060335Z-15405",
+      "checks": {
+        "modelResponsesSimulated": false,
+        "passed": true,
+        "queueCreated": true,
+        "keyboardPreservedOnFailure": true,
+        "draftPreserved": true,
+        "attachmentsPreserved": true,
+        "realUpstreamFailure": true
+      }
+    },
+    "attachments": {
+      "run": "out/composer-reliability-tests/20261019T060335Z-15405",
+      "checks": {
+        "modelResponsesSimulated": false,
+        "passed": true,
+        "keyboardHiddenAfterSend": true,
+        "sentMessageLastLineVisible": true,
+        "keyboardReopensOnTap": true,
+        "realImageAndTextUnderstanding": true
+      }
+    },
+    "stop": {
+      "run": "out/composer-reliability-tests/20261019T062238Z-17748",
+      "checks": {
+        "modelResponsesSimulated": false,
+        "passed": true,
+        "queueCreated": true,
+        "submittedThroughComposer": true,
+        "nativeStoppedStateRendered": true,
+        "stopWithDraftPreserved": true,
+        "actualTurnInterrupted": true,
+        "actualTaskCancelled": true,
+        "composerReturnedToSend": true
+      },
+      "restoration": {
+        "testExitCode": 0,
+        "restoreFailed": false,
+        "modelResponsesSimulated": false
+      }
+    },
+    "steer": {
+      "run": "out/composer-reliability-tests/20261019T062601Z-18449",
+      "checks": {
+        "modelResponsesSimulated": false,
+        "passed": true,
+        "keyboardHiddenAfterSteer": true,
+        "nativeCompletionRendered": true,
+        "realSteerSameTurn": true
+      },
+      "restoration": {
+        "testExitCode": 0,
+        "restoreFailed": false,
+        "modelResponsesSimulated": false
+      }
+    }
+  },
+  "composerAllFivePhasesPassed": true,
+  "testRetries": [
+    {
+      "phase": "steer",
+      "run": "out/composer-reliability-tests/20261019T060335Z-15405",
+      "reason": "Attachment menu accessibility timeout; the menu was present in screenshot and hierarchy. Reused bounded polling for menu readiness."
+    },
+    {
+      "phase": "steer",
+      "run": "out/composer-reliability-tests/20261019T060946Z-16701",
+      "reason": "360-second harness timeout during host load above 200; original conversation/settings restored. Retest passed after load subsided."
+    }
+  ],
+  "passed": true
+}

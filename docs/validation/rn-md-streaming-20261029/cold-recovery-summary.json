@@ -1,0 +1,8 @@
+{
+  "brokerRestarted": true,
+  "externalThreadRpcUsedToBoot": false,
+  "automaticAppServerRestart": true,
+  "completedBodyRestored": true,
+  "runtimeUnavailableInUI": false,
+  "newTurnSubmitted": false
+}

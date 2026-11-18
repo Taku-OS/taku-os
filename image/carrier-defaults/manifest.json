@@ -1,0 +1,39 @@
+{
+  "schema": "taku.carrier-defaults-patch/1",
+  "profile": "tokay-china-telecom-volte-v1",
+  "repository": "packages/services/Telephony",
+  "upstreamCommit": "2d0e6fb0059b8c1cab748f6f04453c9955a14fe3",
+  "module": "TeleService",
+  "packageName": "com.android.phone",
+  "patch": "telecom-volte.patch",
+  "patchSha256": "3c20670a97effebe6a39d9dfa58d82468bb8260729d4944ba449a1b9f8725779",
+  "files": [
+    {
+      "path": "src/com/android/phone/CarrierConfigLoader.java",
+      "beforeSha256": "701d68fdbdae4d84fd4cc0f78b0cfde6849861ee79783b26e2da69fa761daede",
+      "afterSha256": "1ad71afb04731f0e185e206c8faa63f9317947efce26be00d6ccc706c4250494"
+    },
+    {
+      "path": "src/com/android/phone/TakuCarrierDefaults.java",
+      "beforeSha256": null,
+      "afterSha256": "4f7cc5f65090144a9bf87112742edadbd0215913c429d84bf72636b9a52b227b"
+    }
+  ],
+  "scope": {
+    "device": "tokay",
+    "simHomeOperators": [
+      "46003",
+      "46011"
+    ],
+    "carrierId": 2237,
+    "specificCarrierId": 2237,
+    "requiresLoadedVoiceSim": true,
+    "changedKeys": [
+      "carrier_volte_available_bool"
+    ],
+    "preserveExplicitCarrierApp": true,
+    "preserveRuntimeOverrides": true,
+    "requiresMatchingActiveSubscription": true,
+    "requiresNonemptyPlatformConfig": true
+  }
+}

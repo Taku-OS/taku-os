@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="workspace_interaction_title">Virtual screen</string>
+    <string name="workspace_interaction_app">Tako · %1$s</string>
+    <string name="workspace_interaction_minimize">Minimize to floating preview</string>
+    <string name="workspace_interaction_close">Hide preview</string>
+    <string name="workspace_interaction_edit">Add requirement</string>
+    <string name="workspace_interaction_done_editing">Done editing</string>
+    <string name="workspace_interaction_take_over">Take over</string>
+    <string name="workspace_interaction_app_step">App action</string>
+    <string name="workspace_interaction_task_step">Task step</string>
+    <string name="workspace_interaction_float_unavailable">Could not open the floating preview.</string>
+    <string name="workspace_interaction_stop">Stop</string>
+    <string name="workspace_interaction_stop_unconfirmed">Not stopped yet. Check again.</string>
+    <string name="workspace_interaction_return_continue">Return &amp; continue</string>
+    <string name="workspace_interaction_requirement_hint">Add a requirement…</string>
+    <string name="workspace_interaction_send">Send requirement</string>
+    <string name="workspace_interaction_requirement_accepted">Added</string>
+    <string name="workspace_interaction_sending">Sending…</string>
+    <string name="workspace_interaction_resuming">Resuming…</string>
+    <string name="workspace_interaction_resume_accepted">Resume requested</string>
+    <string name="workspace_interaction_check_status">Check status</string>
+    <string name="workspace_interaction_retry_continue">Try again</string>
+    <string name="workspace_interaction_retry_requirement">Try again</string>
+    <string name="workspace_interaction_unknown">Not confirmed. Check status.</string>
+    <string name="workspace_interaction_return_first">Return control to add a requirement.</string>
+    <string name="workspace_interaction_answer_first">Answer the pending question first.</string>
+    <string name="workspace_interaction_changed">Screen changed. Reopen the preview.</string>
+    <string name="workspace_interaction_draft_changed">This note changed in another view. Reopen it to use the latest version.</string>
+    <string name="workspace_interaction_failed">Couldn’t continue</string>
+    <string name="workspace_interaction_paused">Agent paused</string>
+</resources>

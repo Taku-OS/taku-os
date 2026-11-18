@@ -1,0 +1,317 @@
+package org.agentos.agent.home.assistant
+
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.os.Handler
+import android.os.Looper
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import org.agentos.audio.AudioClient
+import org.json.JSONObject
+import java.util.Locale
+import kotlin.math.max
+
+/**
+ * [VoiceInput] backed by the shared Audio Engine's DICTATION session. The desktop entry passes
+ * `settingsScope = "assistant-entry"` so the Engine resolves the saved backend, language and
+ * fallback at session start; the full chat's microphone stays unscoped and names its own language.
+ * Audio, recognition and credentials stay behind the Engine; this app only receives text and the
+ * Engine's already normalized PCM level readings.
+ *
+ * Each instance owns one Engine connection per recording, and the Engine's single microphone
+ * lease means starting another [EngineVoiceInput] cancels this one. An operation is identified by
+ * a monotonic [VoiceState.operationId]; events may arrive before the open response, so metadata
+ * and the session ID are taken from whichever arrives first.
+ *
+ * [VoiceState.ready] becomes true only on the Engine's `Running` event, i.e. actual capture.
+ * Finishing waits for the Engine's own drain deadline (plus a bounded transport grace) instead of
+ * a fixed local timeout, and [voiceOutcome] is the only place that decides success.
+ *
+ * Main thread only.
+ */
+class EngineVoiceInput(context: Context, private val settingsScope: String? = null) : VoiceInput {
+  private val app = context.applicationContext
+  private val flow = MutableStateFlow(VoiceState())
+  override val state: StateFlow<VoiceState> = flow.asStateFlow()
+
+  /** BCP-47 tag the engine accepts (zh-CN, en-US); only used for unscoped requests. */
+  var language: String? = null
+
+  private val main = Handler(Looper.getMainLooper())
+  private var client: AudioClient? = null
+  private var generation = 0L
+  private var nextOperation = 0L
+  private var openRequest = ""
+  private var sessionId = ""
+  private var lastSequence = 0L
+  private var deadline = 0L
+  private var deadlineArmed = false
+  private val heard = DictationTranscript()
+
+  private val finishTimeout = Runnable {
+    if (flow.value.phase != VoicePhase.Finalizing) return@Runnable
+    terminal(VoiceOutcome.Failed("PROCESSING_TIMEOUT", "Recognition did not finish in time"), cancel = true)
+  }
+
+  override fun start(target: VoiceTarget) {
+    if (flow.value.phase != VoicePhase.Idle) cancel()
+    active?.takeIf { it !== this }?.cancel()
+    active = this
+    val run = ++generation
+    val operation = ++nextOperation
+    heard.reset()
+    lastSequence = 0
+    sessionId = ""
+    openRequest = ""
+    deadline = 0
+    deadlineArmed = false
+    flow.value = VoiceState(operationId = operation, target = target, phase = VoicePhase.Preparing)
+    val connection = AudioClient(app, object : AudioClient.Listener {
+      override fun connected() {
+        if (run != generation) return
+        try {
+          openRequest = client?.open(openParams()) ?: return
+        } catch (_: Exception) {
+          fail("ENGINE_UNAVAILABLE")
+        }
+      }
+
+      override fun event(event: String) {
+        if (run == generation) runCatching { handle(JSONObject(event)) }
+      }
+
+      override fun failed(message: String) {
+        if (run == generation) fail("ENGINE_UNAVAILABLE")
+      }
+    })
+    client = connection
+    try {
+      connection.connect()
+    } catch (_: Exception) {
+      fail("ENGINE_UNAVAILABLE")
+    }
+  }
+
+  private fun openParams(): JSONObject = JSONObject().put("purpose", "DICTATION").apply {
+    if (settingsScope != null) put("settingsScope", settingsScope) else put("language", language ?: deviceLanguage())
+  }
+
+  override fun finish() {
+    val s = flow.value
+    when (s.phase) {
+      // Released before capture: no future finish, no delayed recording.
+      VoicePhase.Preparing -> cancel()
+      VoicePhase.Capturing -> {
+        flow.value = s.copy(phase = VoicePhase.Finalizing)
+        val id = sessionId
+        if (id.isEmpty()) return fail("ENGINE_UNAVAILABLE")
+        runCatching { client?.finish(id) }.onFailure { fail("ENGINE_UNAVAILABLE") }
+        arm(null)
+      }
+      else -> Unit
+    }
+  }
+
+  override fun cancel() {
+    if (flow.value.phase == VoicePhase.Idle) return
+    closeTransport(cancelSession = true)
+    flow.value = VoiceState()
+  }
+
+  private fun handle(message: JSONObject) {
+    if (message.optString("type") == "response") {
+      if (message.optString("id") != openRequest) return
+      if (!message.optBoolean("ok")) {
+        return fail(message.optJSONObject("error")?.optString("code")?.ifBlank { null } ?: "ENGINE_UNAVAILABLE")
+      }
+      val result = message.optJSONObject("result") ?: return
+      result.optString("sessionId").takeIf { it.isNotEmpty() }?.let { sessionId = it }
+      val merged = VoiceSessionInfo.from(result, flow.value.session)
+      if (flow.value.phase != VoicePhase.Idle) flow.value = flow.value.copy(sessionId = sessionId.ifEmpty { null }, session = merged)
+      return
+    }
+    val data = message.optJSONObject("data") ?: return
+    val sequence = data.optLong("sequence")
+    if (sequence > 0) {
+      if (sequence <= lastSequence) return
+      lastSequence = sequence
+    }
+    val id = data.optString("sessionId")
+    if (sessionId.isEmpty()) sessionId = id else if (id != sessionId) return
+    if (flow.value.phase == VoicePhase.Idle) return
+    val merged = VoiceSessionInfo.from(data, flow.value.session)
+    val base = flow.value.copy(sessionId = sessionId.ifEmpty { null }, session = merged)
+    when (data.optString("kind")) {
+      "Running" -> flow.value = if (base.phase == VoicePhase.Preparing) base.copy(phase = VoicePhase.Capturing) else base
+      "SourceEnded", "Draining" -> enterFinalizing(base, data)
+      "Level" -> if (base.phase == VoicePhase.Capturing) {
+        // Already normalized by the Engine; this is measured PCM, so silence reads zero and a
+        // missing or malformed value leaves the history alone instead of inventing motion.
+        val level = data.optDouble("level", Double.NaN)
+        if (!level.isNaN()) {
+          flow.value = base.copy(levels = (base.levels + level.coerceIn(0.0, 1.0).toFloat()).takeLast(VoiceState.LEVEL_HISTORY))
+        }
+      }
+      "Text" -> {
+        val text = data.optString("text")
+        flow.value = base.copy(preview = heard.apply(text, data.optBoolean("final"), data.optLong("segmentId"), sequence))
+      }
+      "Closed" -> {
+        flow.value = base
+        val reason = data.optString("reason").ifBlank { "ENGINE_UNAVAILABLE" }
+        val outcome = voiceOutcome(reason, data.optString("completion"), data.optBoolean("restored", false), heard.text)
+        terminal(outcome, cancel = outcome is VoiceOutcome.Failed)
+      }
+      else -> flow.value = base
+    }
+  }
+
+  /** Capture stopped on its own (the backend limit) or the Engine entered Draining: wait, don't send. */
+  private fun enterFinalizing(base: VoiceState, data: JSONObject) {
+    when (base.phase) {
+      VoicePhase.Capturing, VoicePhase.Preparing -> {
+        flow.value = base.copy(phase = VoicePhase.Finalizing)
+      }
+      VoicePhase.Finalizing -> flow.value = base
+      else -> { flow.value = base; return }
+    }
+    // Manual finish and SourceEnded both enter Finalizing before the Engine's Draining arrives;
+    // the absolute deadline must still shorten the client watchdog on those paths.
+    val incoming = if (data.has("drainDeadlineMonotonicMs") && !data.isNull("drainDeadlineMonotonicMs")) data.optLong("drainDeadlineMonotonicMs") else null
+    arm(incoming)
+  }
+
+  private fun arm(incoming: Long?, timeoutMs: Long = flow.value.session?.drainTimeoutMs ?: DEFAULT_DRAIN_MS) {
+    val now = monotonicMs()
+    val current = if (deadlineArmed) deadline else null
+    val at = settleFinishDeadline(current, incoming, now, timeoutMs)
+    if (current != null && at >= current) return
+    deadline = at
+    deadlineArmed = true
+    main.removeCallbacks(finishTimeout)
+    main.postDelayed(finishTimeout, max(0L, at - now) + TRANSPORT_GRACE_MS)
+  }
+
+  private fun fail(code: String) = terminal(VoiceOutcome.Failed(code), cancel = true)
+
+  /** Recognition is over: keep the assembled text, publish the outcome and let the Engine go. */
+  private fun terminal(outcome: VoiceOutcome, cancel: Boolean) {
+    val s = flow.value
+    if (s.phase == VoicePhase.Closed || s.phase == VoicePhase.Idle) return
+    closeTransport(cancelSession = cancel)
+    flow.value = s.copy(phase = VoicePhase.Closed, outcome = outcome, preview = heard.text)
+  }
+
+  private fun closeTransport(cancelSession: Boolean) {
+    generation++
+    main.removeCallbacks(finishTimeout)
+    val connection = client
+    client = null
+    if (connection != null) {
+      if (cancelSession && sessionId.isNotEmpty()) runCatching { connection.cancel(sessionId) }
+      runCatching { connection.close() }
+    }
+    openRequest = ""
+    sessionId = ""
+    deadline = 0
+    deadlineArmed = false
+    if (active === this) active = null
+  }
+
+  companion object {
+    /** The Engine's local dictation drain bound, used until the session reports its own. */
+    private const val DEFAULT_DRAIN_MS = 5_000L
+    /** Bounded transport grace after the Engine's drain deadline. */
+    private const val TRANSPORT_GRACE_MS = 3_000L
+    private val SERVICE = ComponentName("org.agentos.audio", "org.agentos.audio.AudioEngineService")
+
+    /** The instance currently holding the microphone, across the home and the chat. */
+    private var active: EngineVoiceInput? = null
+
+    /** The engine is installed and its service resolves (dev images may omit it). */
+    fun available(context: Context): Boolean =
+      context.packageManager.resolveService(Intent().setComponent(SERVICE), 0) != null
+
+    fun deviceLanguage(): String = if (Locale.getDefault().language == "zh") "zh-CN" else "en-US"
+
+    /** Same clock the Engine runtime stamps its drain deadlines with. */
+    fun monotonicMs(): Long = android.os.SystemClock.elapsedRealtime()
+  }
+}
+
+/**
+ * The absolute wait for one finalization. The first observation fixes it and a later one may only
+ * shorten it, so a late `Draining` event can never start a fresh, longer interval.
+ */
+internal fun settleFinishDeadline(current: Long?, incoming: Long?, now: Long, timeoutMs: Long): Long = when {
+  incoming != null -> current?.let { minOf(it, incoming) } ?: incoming
+  current != null -> current
+  else -> now + timeoutMs
+}
+
+/**
+ * The running dictation text from Engine `Text` events. A partial result replaces the open
+ * segment, a final one commits it once; sequence numbers and segment IDs make late or duplicated
+ * events harmless. Chinese segments run together; other scripts get a space between them.
+ */
+class DictationTranscript {
+  private var committed = ""
+  private var partial = ""
+  private var lastSequence = 0L
+  private var openSegment: Long? = null
+  private val committedSegments = HashSet<Long>()
+  val text: String get() = join(committed, partial)
+
+  /**
+   * [segmentId] is the Engine's segment (-1 when the caller has none); [sequence] its session
+   * event sequence (0 when absent). Older sequences and already committed segments are ignored.
+   */
+  fun apply(text: String, final: Boolean, segmentId: Long = -1, sequence: Long = 0): String {
+    if (sequence > 0) {
+      if (sequence <= lastSequence) return this.text
+      lastSequence = sequence
+    }
+    val value = text.trim()
+    if (segmentId < 0) {
+      if (final) {
+        committed = join(committed, value)
+        partial = ""
+      } else {
+        partial = value
+      }
+      return this.text
+    }
+    if (segmentId in committedSegments) return this.text
+    if (final) {
+      committedSegments += segmentId
+      committed = join(committed, value)
+      partial = ""
+      openSegment = segmentId + 1
+      return this.text
+    }
+    val open = openSegment
+    if (open != null && segmentId < open) return this.text
+    openSegment = segmentId
+    partial = value
+    return this.text
+  }
+
+  fun reset() {
+    committed = ""
+    partial = ""
+    lastSequence = 0
+    openSegment = null
+    committedSegments.clear()
+  }
+
+  companion object {
+    fun join(a: String, b: String): String {
+      if (a.isEmpty()) return b
+      if (b.isEmpty()) return a
+      val han = { c: Char -> Character.UnicodeScript.of(c.code) == Character.UnicodeScript.HAN }
+      return if (han(a.last()) || han(b.first())) a + b else "$a $b"
+    }
+  }
+}

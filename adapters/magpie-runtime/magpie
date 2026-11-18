@@ -1,0 +1,47 @@
+#!/system/bin/sh
+# Private, device-local gateway state. Never auto-wire the phone's Codex config.
+set -eu
+umask 077
+export HOME=/data/local/agentos/magpie/home
+export XDG_CONFIG_HOME=/data/local/agentos/magpie/config
+export XDG_CACHE_HOME=/data/local/agentos/magpie/cache
+export XDG_DATA_HOME=/data/local/agentos/magpie/data
+export XDG_STATE_HOME=/data/local/agentos/magpie/state
+export TMPDIR=/data/local/agentos/magpie/tmp
+export SSL_CERT_FILE=/system_ext/etc/codex/cacert.pem
+export MAGPIE_ADDR=127.0.0.1:3425
+# Reuse the phone's Codex subscription without importing or moving its login.
+# Magpie keeps its own HOME/config, while Codex remains the credential owner.
+export CODEX_HOME=/data/local/agentos/home/.codex
+unset MAGPIE_NO_ACCOUNTS
+export PATH=/system_ext/bin:/system/bin:/system/xbin:/vendor/bin
+# Magpie's desktop gateway trusts loopback. On Android that address is shared
+# by application UIDs, so ordinary apps must use the permission-gated broker.
+if [ "${1-}" = serve ]; then
+    /system/bin/iptables -w 2 -N taku_ai 2>/dev/null || true
+    /system/bin/iptables -w 2 -F taku_ai
+    /system/bin/iptables -w 2 -A taku_ai -m owner --uid-owner 0 -j RETURN
+    /system/bin/iptables -w 2 -A taku_ai -m owner --uid-owner 1000 -j RETURN
+    /system/bin/iptables -w 2 -A taku_ai -p tcp -j REJECT --reject-with tcp-reset
+    /system/bin/iptables -w 2 -C OUTPUT -o lo -p tcp --dport 3425 -j taku_ai 2>/dev/null || \
+        /system/bin/iptables -w 2 -I OUTPUT -o lo -p tcp --dport 3425 -j taku_ai
+fi
+mkdir -p "$HOME" "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME" "$XDG_DATA_HOME" "$XDG_STATE_HOME" "$TMPDIR"
+mkdir -p "$XDG_CONFIG_HOME/magpie"
+if [ ! -f "$XDG_CONFIG_HOME/magpie/settings.json" ]; then
+    printf '{"gatewayMode":"on"}\n' > "$XDG_CONFIG_HOME/magpie/settings.json.tmp"
+    mv "$XDG_CONFIG_HOME/magpie/settings.json.tmp" "$XDG_CONFIG_HOME/magpie/settings.json"
+fi
+proxy=/data/local/agentos/network-proxy
+if [ -f "$proxy" ]; then
+    IFS= read -r HTTPS_PROXY < "$proxy" || true
+    export HTTPS_PROXY HTTP_PROXY="$HTTPS_PROXY" ALL_PROXY="$HTTPS_PROXY"
+fi
+export NO_PROXY=127.0.0.1,localhost,::1
+key=/data/local/agentos/magpie/web.key
+if [ ! -s "$key" ]; then
+    od -An -N32 -tx1 /dev/urandom | tr -d ' \n' > "$key.tmp"
+    mv "$key.tmp" "$key"
+fi
+export MAGPIE_WEB_KEY="$(cat "$key")"
+exec /system_ext/bin/magpie-runtime "$@"

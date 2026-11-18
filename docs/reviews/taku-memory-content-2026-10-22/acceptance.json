@@ -1,0 +1,56 @@
+{
+  "date": "2026-10-22",
+  "version": "0.5.0",
+  "versionCode": 6,
+  "baseCommit": "36b21d7329c7906ce8222ec8890596ca7edc4128",
+  "avd": "Taku_ImageIntegration_20261010",
+  "serial": "emulator-5634",
+  "platform": "API 36 ARM64",
+  "selinux": "Enforcing",
+  "model": "taku-jev-import/typesafe/jev-1.14",
+  "artifactSha256": {
+    "TakuMemory.apk": "3ebb7b2e1357da2f7db867b104ec906a4f76cf4d3bbc990d77f1383b1c709c14",
+    "TakuMemoryTests.apk": "97efa630734a2037ffb3843b39ef059925aab0994d2c611e62ca56442edf1b2a",
+    "task-broker.jar": "0f40df8b7ceeb0c6082cc30632b25583de7166b0be4802db6aeb9865c9785c2d"
+  },
+  "tests": {
+    "storage": 66,
+    "queue": 69,
+    "resultRendering": 8,
+    "bilingualPresentation": 36,
+    "total": 179
+  },
+  "realModelResponse": true,
+  "fixtureAppUsed": false,
+  "databaseSeeding": false,
+  "taskAcceptanceInjected": false,
+  "localDemoContent": true,
+  "unsentDraftExcluded": true,
+  "liveTaskLocales": [
+    "en"
+  ],
+  "uiLocales": [
+    "en",
+    "zh-CN",
+    "en"
+  ],
+  "originalRecords": 30,
+  "retainedRecords": 32,
+  "newDemoRecords": 2,
+  "deletedRecords": 0,
+  "originalDailyEvidenceUnchanged": true,
+  "presentationAddsModelRequests": false,
+  "analysisBatchAttemptsBefore": 9,
+  "analysisBatchAttemptsAfter": 11,
+  "physicalDevice": false,
+  "fullRom": false,
+  "productRomIntegration": false,
+  "coldBoot": false,
+  "powerAcceptance": false,
+  "liveFlowArtifactSha256": {
+    "TakuMemory.apk": "3e4ae5a60e72a4e45e3785da9138f882be74e094de509658d4da43cf6f13c7df",
+    "TakuMemoryTests.apk": "7de6071658585010ce7576e034b2c7770db254b9a9999d025dbc86095efa3abc",
+    "task-broker.jar": "0f40df8b7ceeb0c6082cc30632b25583de7166b0be4802db6aeb9865c9785c2d"
+  },
+  "finalArtifactValidation": "Final APK installed and hash matched; 36 presentation assertions passed. A generic Travel category fallback was aligned with its visible commitment-checklist button after the two live tasks. Meal and event task paths are unchanged."
+}

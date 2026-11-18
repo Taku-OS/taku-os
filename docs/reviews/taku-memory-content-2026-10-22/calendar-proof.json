@@ -1,0 +1,22 @@
+{
+  "passed": true,
+  "id": "34e0784b-4f7a-43c2-b823-4f336bbdf54a",
+  "revision": 1,
+  "source": "org.fossify.calendar",
+  "model": "taku-jev-import/typesafe/jev-1.14",
+  "category": "工作",
+  "decision": "organize",
+  "confidence": 0.97,
+  "taskId": "1792649424562",
+  "threadId": "01a1623b-72ec-7352-8187-eadacef770a6",
+  "realMemoryToolCall": true,
+  "responseLocale": "en",
+  "readOnly": true,
+  "screenshotAttached": false,
+  "memoryFocus": "event_prep",
+  "oneTaskAfterUiAcceptance": true,
+  "localDemoData": true,
+  "agentReply": "### Preparation checklist\n\n- [ ] **Alex:** Finalize English screens by **Thursday, 17:00**.\n- [ ] **Sam:** Complete emulator checks by **Thursday, 18:00**.\n- [ ] Bring **prototype notes and test results**.\n\n### Event details\n\n- **Taku launch review (Demo)** — Saturday, October 24, **10:00–11:00 AM**.\n- Local demo event; **no invitations**.\n\n### Open decisions and next steps\n\n- [ ] Confirm the **release owner**.\n- [ ] Confirm the **launch checklist**.\n\nNo owners or deadlines are recorded for these confirmations. The captured event does not specify a timezone.\n\n### Memory reference\n\n- **ID:** `34e0784b-4f7a-43c2-b823-4f336bbdf54a` · **Revision:** 1\n- **Source:** `org.fossify.calendar` · Calendar · `window:148`\n- **Captured:** October 22, 2026, 06:09:24.771 UTC",
+  "physicalDevice": false,
+  "fullRom": false
+}

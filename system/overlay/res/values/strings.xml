@@ -1,0 +1,5 @@
+<resources>
+ <string name="lab_settings">Taku OS · Settings</string>
+ <string name="lab_about">About Taku OS</string>
+ <string name="lab_summary">Local system overlay · Android 16 · ARM64</string>
+</resources>

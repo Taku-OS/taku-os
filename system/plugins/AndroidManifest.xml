@@ -1,0 +1,11 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="org.taku.plugins.ui">
+ <uses-sdk android:minSdkVersion="36" android:targetSdkVersion="36"/>
+ <application android:label="God Mode Plugins" android:theme="@android:style/Theme.Material.Light.NoActionBar">
+  <activity android:name=".PluginActivity" android:label="God Mode Plugins" android:exported="true">
+   <intent-filter><action android:name="com.android.settings.action.IA_SETTINGS"/></intent-filter>
+   <intent-filter><action android:name="org.taku.plugins.MANAGE"/><category android:name="android.intent.category.DEFAULT"/></intent-filter>
+   <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
+   <meta-data android:name="com.android.settings.category" android:value="com.android.settings.category.ia.homepage"/>
+  </activity>
+ </application>
+</manifest>

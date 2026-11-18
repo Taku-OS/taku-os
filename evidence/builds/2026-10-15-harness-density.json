@@ -1,0 +1,36 @@
+{
+  "schema": "taku.acceptance.harness-density/1",
+  "observedAt": "2026-10-14T21:12:53.821047+00:00",
+  "scope": "Dedicated emulator UI components; no ROM or physical-device change",
+  "visibleModules": 7,
+  "nativeTestSeconds": 31.492,
+  "passed": true,
+  "checks": [
+    "All seven managed modules visible without scrolling",
+    "Stable background expands actual managed text",
+    "Module source/hash/content expands",
+    "Actual environment JSON expands",
+    "Native receipt JSON expands",
+    "Toolbar reload uses harness/read",
+    "Header restores on Back",
+    "Light theme and dark theme restoration"
+  ],
+  "rowMinimumDp": 52,
+  "titleSp": 14,
+  "summarySp": 11,
+  "toolbarSharedWith": "Skills inspector",
+  "componentBuild": true,
+  "repositoryVerify": true,
+  "screenshots": {
+    "overview.png": "fb9087c499c5c3411bb761fa1b9eb8bb746e57d2ab83b81bed015d48c285088a",
+    "receipt.png": "77af08f24516bda245b45c5a7d2263e238d5f7e6bee807802557a813f98a7030",
+    "background.png": "d0bdf83eb9aa026af73536a68f3f0ba3210c48179391d41ef7803ee02c88854b",
+    "light.png": "5a14aa31047de25d5ca43de164f1e1beeb3ae6f4be07bfd8f86b0eabff2647fa",
+    "module.png": "5020e906f8c59902c6459e219f51709049b3978b27aaff5bf8d86edcc775794c",
+    "environment.png": "401a9452a7065b00de265f9961564d1776516c23394cb045f7a5157e6b5619ba"
+  },
+  "boundaries": [
+    "Only app-managed context visible",
+    "No new model turn or context-update injection in this UI test"
+  ]
+}

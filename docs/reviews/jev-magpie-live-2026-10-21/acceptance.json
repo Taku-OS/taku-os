@@ -1,0 +1,107 @@
+{
+  "passed": true,
+  "modelResponsesSimulated": false,
+  "pageSynthetic": true,
+  "gatewayOnAndroid": true,
+  "nativeCodexOnAndroid": true,
+  "decisionModel": "taku-jev-import/typesafe/jev-1.14",
+  "threadId": "01a15e76-53d0-7641-a1a8-f44ddaaae195",
+  "taskId": "1792586193590",
+  "turnId": "01a15e76-a455-7883-9bd4-afcdea1ae792",
+  "mainConnectionMode": "openai",
+  "mainConnectionUnchanged": true,
+  "decisionToHintMs": 2752,
+  "agentAfterConsentMs": 14009,
+  "noTaskBeforeConsent": true,
+  "duplicateTriggerSuppressed": true,
+  "exactlyOneAgentTask": true,
+  "draftAndAttachmentPreserved": true,
+  "originalScreenshotPreserved": true,
+  "readOnlyAgent": true,
+  "agentReply": "根据截图，已确认：**这周六18:00，杭州西湖附近，4人，人均150元，总预算约600元**。餐厅和具体集合地点尚未确定。\n\n建议方案：\n\n- **时间**：暂按本周六 **10月24日18:00（北京时间）**安排；假设截图中的“这周六”指当前这一周。\n- **地点**：优先考虑湖滨一带，选定餐厅后，把集合点定在店门口，建议17:45集合。\n- **餐厅备选方向**：杭州菜馆作为首选，江浙家常菜馆作为备选，再留一家商场内的简餐或小馆，方便应对排队。每家按4人合计600元以内筛选。\n\n待确认：大家的忌口、菜系偏好，预算是否包含酒水，以及具体门店、营业时间和周六晚间座位情况。**截图未提供餐厅名称，因此目前只能列备选方向，不能据此确认具体门店。**\n\n以上仅为方案，未发送消息、预订、下单或修改数据。",
+  "decisionReceipt": {
+    "model": "taku-jev-import/typesafe/jev-1.14",
+    "gateway": "magpie",
+    "inputMode": "assist-text",
+    "screen": "chat",
+    "screenConfidence": 0.99,
+    "decision": "dining_plan",
+    "confidence": 0.85,
+    "elapsedMs": 2533,
+    "capturedAt": 452085730,
+    "imageWidth": 699,
+    "imageHeight": 1568
+  },
+  "magpieUsage": {
+    "route_id": 1792585255454,
+    "t": "2026-10-21T12:36:30.299462821Z",
+    "provider": "taku-jev-import",
+    "host": "openrouter.ai",
+    "model": "typesafe/jev-1.14",
+    "req": "taku-jev-import/typesafe/jev-1.14",
+    "served": "typesafe/jev-1.14-20261014",
+    "in": 770,
+    "out": 117,
+    "ms": 2470,
+    "status": 200
+  },
+  "agentModel": "gpt-6.1-sol",
+  "legacyCredentialMigrated": true,
+  "legacyEncryptedCopyRemoved": true,
+  "decisionCatalogEntry": {
+    "id": "taku-jev-import/typesafe/jev-1.14",
+    "name": "typesafe/jev-1.14 · Taku Jev import",
+    "imageInput": false,
+    "inputKnown": false
+  },
+  "physicalDeviceVerified": false,
+  "fullRomVerified": false,
+  "checkedAt": "2026-10-21T12:36:46.623499+00:00",
+  "originalDraftPreferencesPreserved": true,
+  "originalConversationRestored": true,
+  "mainConnectionRestored": true,
+  "testThreadArchived": true,
+  "assistantVersion": "20261021-jev-magpie",
+  "versionCode": 57,
+  "productionSourceCommit": "987f4d958f7ddab36000641f24f736f83b9e6a92",
+  "integrationBaseCommit": "592110c33a6e71e49e8a9487a0957158724ef95d",
+  "android": {
+    "sdk": 36,
+    "architecture": "arm64",
+    "avd": "Taku_ImageIntegration_20261010"
+  },
+  "runtimes": {
+    "codex": "0.161.0",
+    "magpie": "0.1.1290"
+  },
+  "deviceArtifacts": {
+    "AgentOSAssistant.apk": {
+      "sha256": "f07a442f819ee295a85c359e2873f81fc37f5537442b34457c9de74cc97e62e0"
+    },
+    "task-broker.jar": {
+      "sha256": "f1d19f57f4c90153ec2204617e75de5f34048f581f6e2a5a4b52a80cdb180459"
+    },
+    "magpie-runtime": {
+      "sha256": "0f3660088ee9974220d5a32852a631ca98877ecfceda449a234084f655c8820b"
+    },
+    "live-test.jar": {
+      "sha256": "d3433b48108b87253334e56afb94afe0c93c8609d32fabb1f9f677e91f482318"
+    }
+  },
+  "scope": "One final real-model chain on a labelled synthetic page. Main Agent keeps its existing ChatGPT connection. No physical-device or full-ROM acceptance.",
+  "screenshots": {
+    "live-page-before-trigger.png": "2a71fb8f72550175441d03b22a605d1c85e95f8168827b090d7b9f8799ed30d9",
+    "live-hint.png": "328f6e32a5f9410667802426d243d449109a2febb43b0cbc4a3cc0ecd4071ece",
+    "live-agent-completed.png": "781a480d2cbd442c121c6ab627e8a185ba570498c50e96333cb5752e1d73d65c"
+  },
+  "verification": {
+    "liveUiTest": "passed",
+    "hostRegression": "passed",
+    "gatewayChecks": 41,
+    "composerAssertions": 95,
+    "nativeConversationAssertions": 46,
+    "repositoryVerify": "passed with JDK 21",
+    "surfaceLifecycleAssertions": 21,
+    "linuxNinjaFifoGuard": "skipped on macOS"
+  }
+}

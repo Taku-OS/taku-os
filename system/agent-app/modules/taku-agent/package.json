@@ -1,0 +1,6 @@
+{
+  "name": "taku-agent-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Typed UI transport to the signature-protected Taku Agent gateway"
+}

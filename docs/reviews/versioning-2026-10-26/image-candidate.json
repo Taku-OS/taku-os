@@ -1,0 +1,57 @@
+{
+  "schema": "taku.versioning-image-checkpoint/1",
+  "date": "2026-10-26",
+  "label": "L",
+  "device": "tokay",
+  "productName": "TakuOS",
+  "productVersion": "1.0.1",
+  "androidRelease": "17",
+  "androidSdk": 37,
+  "buildNumber": "20261025180734",
+  "buildSourceCommit": "8d405b634f21d5432c48e333e0981b37351c13f9",
+  "snapshotDigest": "39b0c2fe6dcdfdc099964f72b57bf6aad9dcd89430ec8c894665755283a9abd4",
+  "baselineReceiptSha256": "90522ca9ab0225e743705f877f351fa3dbf30aeb6a96db384c84d0343ee92fcd",
+  "signatureVerificationReportSha256": "94ff5e1217a11325d7ec845b16062038f59e3ec4719a5a27b4acc42b63c76776",
+  "fullOta": {
+    "fileName": "TakuOS-1.0.1-tokay-20261025180734-full.zip",
+    "bytes": 1961595782,
+    "sha256": "45b3d8f528665cb8fe93531336ae12440b308639034e01ad29d8e74c9c4f9e17"
+  },
+  "targetFiles": {
+    "fileName": "lineage_tokay-target_files.zip",
+    "bytes": 4749159608,
+    "sha256": "511b31e54f719bf9f2d86b219a7f93167f9cc98447df8058f0b28288e36a16e8"
+  },
+  "vbmetaDigest": "1f9330fed9523ff590beedb15563dad3a727c72d0324075ee906b7d9d7a84a57",
+  "updaterVersionCode": 4,
+  "updaterApkSha256": "6311f29862ec15c929774617c52e7894731df177df21801c251400b37062a8d3",
+  "runtimeVersions": {
+    "ime": 10062,
+    "assistant": 67,
+    "memory": 8
+  },
+  "checks": {
+    "actualApkPlatformSignatureVerified": true,
+    "completeArchiveReadbackPassed": true,
+    "fullOtaSignatureVerified": true,
+    "payloadSignatureVerified": true,
+    "avbSignatureVerified": true,
+    "sourceJToTargetLPlanPassed": true,
+    "radioFilesByteIdenticalToJ": true
+  },
+  "firmwareFileCount": 11,
+  "planSha256": "36a0634298f961efc66f42baea6e68406df02ba02d0e22a41827a163c6f60458",
+  "baselineBindingSha256": "f9efd45bc11910febc55c59742a536ba025a51bcd5d0916966b364cfdb429f23",
+  "privateReadbackReportSha256": "aef55d903097e5fc50808d7073a741519f18fe84b9c78fdc8f66b5506a94cf0c",
+  "manualCrossAppCaseCandidateIncluded": false,
+  "physicalDeviceInstalled": true,
+  "physicalUiVerified": true,
+  "dataPreservationVerified": true,
+  "incrementalPackageGenerated": false,
+  "stableChannelPromoted": false,
+  "automationRemainsPaused": true,
+  "allUserDataVerified": false,
+  "deviceAcceptance": "device-acceptance.json",
+  "dataScope": "Selected probe/application/settings/private configuration evidence only; not all user data.",
+  "installationMethod": "adb-sideload-full-ota"
+}

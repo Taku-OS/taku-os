@@ -1,0 +1,77 @@
+#!/system/bin/sh
+export HOME=/data/local/agentos/home
+export CODEX_HOME=/data/local/agentos/home/.codex
+export TMPDIR=/data/local/agentos/tmp
+export SSL_CERT_FILE=/system_ext/etc/codex/cacert.pem
+export CODEX_CA_CERTIFICATE=/system_ext/etc/codex/cacert.pem
+export SHELL=/system/bin/sh
+export PATH=/system_ext/bin:/system/bin:/system/xbin:/vendor/bin
+# This runtime is executed by the root broker. Older development images could
+# leave this directory world-writable, allowing another user to plant a binary.
+agentos=/data/local/agentos
+[ "$(id -u)" = 0 ] || { echo 'codex launcher requires root' >&2; exit 1; }
+[ ! -L "$agentos" ] || exit 1
+mkdir -p "$agentos" || exit 1
+[ "$(stat -c %u "$agentos")" = 0 ] || exit 1
+chown root:system "$agentos" || exit 1
+chmod 750 "$agentos" || exit 1
+if [ -r /data/local/agentos/network-proxy ]; then
+  taku_proxy=$(cat /data/local/agentos/network-proxy)
+  if [ -n "$taku_proxy" ]; then
+    export HTTPS_PROXY="$taku_proxy" HTTP_PROXY="$taku_proxy" ALL_PROXY="$taku_proxy"
+    export NO_PROXY=127.0.0.1,localhost
+  fi
+fi
+mkdir -p "$CODEX_HOME" "$TMPDIR"
+archive=/system_ext/etc/codex/codex.tar.gz
+host_archive=/system_ext/etc/codex/code-mode-host.tar.gz
+# The version alone does not identify a locally patched build. Derive the cache
+# key from both shipped archives, so an image upgrade cannot reuse older bytes.
+codex_hash=$(sha256sum "$archive") || exit 1
+host_hash=$(sha256sum "$host_archive") || exit 1
+codex_hash=${codex_hash%% *}
+host_hash=${host_hash%% *}
+runtime_base=$agentos/runtime-v2
+if [ -L "$runtime_base" ]; then exit 1; fi
+mkdir -p -m 700 "$runtime_base" || exit 1
+[ "$(stat -c %u:%a "$runtime_base")" = 0:700 ] || { echo 'unsafe codex runtime directory' >&2; exit 1; }
+lockfile=$runtime_base/.lock
+[ ! -L "$lockfile" ] || exit 1
+if [ -e "$lockfile" ]; then
+  [ -f "$lockfile" ] && [ "$(stat -c %u:%a "$lockfile")" = 0:600 ] || exit 1
+else
+  (umask 077; : > "$lockfile") || exit 1
+fi
+exec 9>"$lockfile" || exit 1
+flock -x 9 9>&9 || exit 1
+runtime=$runtime_base/0.161.0-$codex_hash-$host_hash
+# Only one launcher extracts at a time, so abandoned staging can be removed
+# after a crash without touching a live extraction.
+rm -rf "$runtime_base"/.extract-* || exit 1
+valid_cache() {
+  [ ! -L "$runtime" ] && [ ! -L "$runtime/.sha256" ] && [ -f "$runtime/.sha256" ] &&
+    [ ! -L "$runtime/codex-aarch64-unknown-linux-musl" ] && [ ! -L "$runtime/codex-code-mode-host" ] &&
+    [ -x "$runtime/codex-aarch64-unknown-linux-musl" ] && [ -x "$runtime/codex-code-mode-host" ] || return 1
+  set -- $(cat "$runtime/.sha256")
+  [ "$#" = 4 ] && [ "$2" = codex-aarch64-unknown-linux-musl ] && [ "$4" = codex-code-mode-host ] || return 1
+  actual_codex=$(sha256sum "$runtime/codex-aarch64-unknown-linux-musl") || return 1
+  actual_host=$(sha256sum "$runtime/codex-code-mode-host") || return 1
+  [ "$1" = "${actual_codex%% *}" ] && [ "$3" = "${actual_host%% *}" ]
+}
+if ! valid_cache; then
+  # The new private directory has never reused the old world-writable cache.
+  rm -rf "$runtime" || exit 1
+  stage=$(mktemp -d "$runtime_base/.extract-XXXXXXXX") || exit 1
+  trap 'rm -rf "$stage"' EXIT
+  trap 'exit 1' HUP INT TERM
+  tar -xzf "$archive" -C "$stage" &&
+    tar -xzf "$host_archive" -C "$stage" &&
+    mv "$stage/codex-code-mode-host-aarch64-unknown-linux-musl" "$stage/codex-code-mode-host" &&
+    chmod 755 "$stage/codex-aarch64-unknown-linux-musl" "$stage/codex-code-mode-host" || exit 1
+  (cd "$stage" && sha256sum codex-aarch64-unknown-linux-musl codex-code-mode-host > .sha256) || exit 1
+  mv -T "$stage" "$runtime" || exit 1
+  trap - EXIT HUP INT TERM
+fi
+flock -u 9 9>&9 || exit 1
+exec 9>&-
+exec "$runtime/codex-aarch64-unknown-linux-musl" "$@"

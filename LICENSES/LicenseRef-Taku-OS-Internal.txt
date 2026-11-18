@@ -1,0 +1,15 @@
+Taku OS — Internal Development Terms
+
+SPDX-License-Identifier: LicenseRef-Taku-OS-Internal
+Copyright (c) 2026 Taku OS contributors
+
+Current development is private. Original project materials may be accessed and
+modified by authorized repository members for internal project development.
+No permission to redistribute, publish, sublicense or use new internal changes
+outside that scope is granted by this file. All other rights are reserved.
+
+Third-party materials remain governed by their original licenses and notices.
+This policy does not revoke rights already granted for previously distributed
+versions. The previous public MIT text is retained in
+docs/license-history/2026-10-10-original-MIT.txt for historical provenance.
+A future open-source release requires an explicit license decision and audit.

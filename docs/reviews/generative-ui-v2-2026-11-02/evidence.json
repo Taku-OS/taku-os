@@ -1,0 +1,2139 @@
+{
+  "device": {
+    "serial": "emulator-5590",
+    "avd": "Taku_GUI_20261029",
+    "api": 36,
+    "uid": 10150,
+    "effectiveGpu": "host",
+    "viewportDp": 411,
+    "fontScale": 1.0
+  },
+  "artifacts": {
+    "appSha256": "6079659969905c6be7d4c54b0abf0770ab9bdfe5e48324447501fe714464bfa2",
+    "assistantSha256": "bc4ad3cfd5eb27c673aed9bd11780834e1c3d870275899fc098dbb9fa7c1b039",
+    "brokerSha256": "b1208331ad0c9b21616691987025a82b442dd6ec8d15ea98b316fa95c1030e6f"
+  },
+  "weather": {
+    "views": {
+      "full_size": {
+        "view": {
+          "catalogVersion": "taku-ui-8-v2",
+          "signature": "{\"version\":2,\"mode\":\"card\",\"layout\":\"compose\",\"blocks\":[{\"id\":\"forecast-9ba9888a-b796-32d1-9fb2-082d0fa270fe\",\"kind\":\"collection\",\"type\":\"text\",\"gradient\":false,\"config\":{\"group\":\"live-source\",\"layout\":\"horizontal\",\"size\":\"full_size\"}},{\"id\":\"live-source\",\"kind\":\"metric\",\"type\":\"number\",\"gradient\":true,\"config\":{\"emphasis\":\"hero\",\"group\":\"live-source\",\"size\":\"full_size\"}},{\"id\":\"observed-d3ee4b06-41fa-35a7-b5f3-d2d79c86596f\",\"kind\":\"metric\",\"type\":\"instant\",\"gradient\":false,\"config\":{\"emphasis\":\"inline\",\"group\":\"live-source\",\"size\":\"full_size\"}}],\"actions\":[\"refresh-5dd9d011-6903-38da-bb04-6452276ad64b\"]}",
+          "spec": {
+            "root": "node_0",
+            "elements": {
+              "node_0": {
+                "type": "Card",
+                "props": {
+                  "title": {
+                    "$state": "/data/title"
+                  },
+                  "gradient": {
+                    "$state": "/data/blocksById/live-source/config/gradient"
+                  }
+                },
+                "children": [
+                  "node_1",
+                  "node_2",
+                  "node_5"
+                ]
+              },
+              "node_1": {
+                "type": "Paragraph",
+                "props": {
+                  "text": {
+                    "$state": "/data/summary"
+                  },
+                  "tone": "muted"
+                },
+                "children": []
+              },
+              "node_2": {
+                "type": "Metric",
+                "props": {
+                  "title": {
+                    "$state": "/data/blocksById/live-source/title"
+                  },
+                  "text": {
+                    "$state": "/data/blocksById/live-source/text"
+                  },
+                  "value": {
+                    "$state": "/data/blocksById/live-source/value"
+                  },
+                  "config": {
+                    "$state": "/data/blocksById/live-source/config"
+                  },
+                  "items": {
+                    "$state": "/data/blocksById/live-source/items"
+                  },
+                  "expanded": {
+                    "$bindState": "/ui/views/live-source/expanded"
+                  }
+                },
+                "children": [
+                  "node_3",
+                  "node_4"
+                ]
+              },
+              "node_3": {
+                "type": "Collection",
+                "props": {
+                  "title": {
+                    "$state": "/data/blocksById/forecast-9ba9888a-b796-32d1-9fb2-082d0fa270fe/title"
+                  },
+                  "text": {
+                    "$state": "/data/blocksById/forecast-9ba9888a-b796-32d1-9fb2-082d0fa270fe/text"
+                  },
+                  "value": {
+                    "$state": "/data/blocksById/forecast-9ba9888a-b796-32d1-9fb2-082d0fa270fe/value"
+                  },
+                  "config": {
+                    "$state": "/data/blocksById/forecast-9ba9888a-b796-32d1-9fb2-082d0fa270fe/config"
+                  },
+                  "items": {
+                    "$state": "/data/blocksById/forecast-9ba9888a-b796-32d1-9fb2-082d0fa270fe/items"
+                  },
+                  "role": "collection"
+                },
+                "children": []
+              },
+              "node_4": {
+                "type": "TimeDisplay",
+                "props": {
+                  "title": {
+                    "$state": "/data/blocksById/observed-d3ee4b06-41fa-35a7-b5f3-d2d79c86596f/title"
+                  },
+                  "text": {
+                    "$state": "/data/blocksById/observed-d3ee4b06-41fa-35a7-b5f3-d2d79c86596f/text"
+                  },
+                  "value": {
+                    "$state": "/data/blocksById/observed-d3ee4b06-41fa-35a7-b5f3-d2d79c86596f/value"
+                  },
+                  "config": {
+                    "$state": "/data/blocksById/observed-d3ee4b06-41fa-35a7-b5f3-d2d79c86596f/config"
+                  }
+                },
+                "children": []
+              },
+              "node_5": {
+                "type": "Container",
+                "props": {
+                  "tone": "light"
+                },
+                "children": [
+                  "node_6"
+                ]
+              },
+              "node_6": {
+                "type": "Row",
+                "props": {
+                  "gap": 8,
+                  "flexWrap": "wrap"
+                },
+                "children": [
+                  "node_7"
+                ]
+              },
+              "node_7": {
+                "type": "Button",
+                "props": {
+                  "label": {
+                    "$state": "/data/actionsById/refresh-5dd9d011-6903-38da-bb04-6452276ad64b/label"
+                  },
+                  "variant": {
+                    "$state": "/data/actionsById/refresh-5dd9d011-6903-38da-bb04-6452276ad64b/style"
+                  },
+                  "disabled": {
+                    "$state": "/data/actionsById/refresh-5dd9d011-6903-38da-bb04-6452276ad64b/disabled"
+                  }
+                },
+                "on": {
+                  "press": {
+                    "action": "reply",
+                    "params": {
+                      "actionId": "refresh-5dd9d011-6903-38da-bb04-6452276ad64b",
+                      "text": {
+                        "$state": "/data/actionsById/refresh-5dd9d011-6903-38da-bb04-6452276ad64b/reply"
+                      },
+                      "select": []
+                    }
+                  }
+                },
+                "children": []
+              }
+            }
+          },
+          "metrics": {
+            "jevSteps": 2,
+            "inputTokens": null,
+            "llmUsage": null,
+            "level": "jev",
+            "fallback": "",
+            "ms": 714
+          }
+        },
+        "ui": {
+          "fields": {},
+          "collections": {},
+          "views": {
+            "live-source": {
+              "expanded": false
+            }
+          }
+        },
+        "sourceId": "sizing-view:weather-full-size"
+      },
+      "medium_size": {
+        "view": {
+          "catalogVersion": "taku-ui-8-v2",
+          "signature": "{\"version\":2,\"mode\":\"card\",\"layout\":\"compose\",\"blocks\":[{\"id\":\"forecast-9ba9888a-b796-32d1-9fb2-082d0fa270fe\",\"kind\":\"collection\",\"type\":\"text\",\"gradient\":false,\"config\":{\"group\":\"live-source\",\"layout\":\"horizontal\",\"size\":\"medium_size\"}},{\"id\":\"live-source\",\"kind\":\"metric\",\"type\":\"number\",\"gradient\":false,\"config\":{\"emphasis\":\"hero\",\"group\":\"live-source\",\"size\":\"medium_size\"}},{\"id\":\"observed-d3ee4b06-41fa-35a7-b5f3-d2d79c86596f\",\"kind\":\"metric\",\"type\":\"instant\",\"gradient\":false,\"config\":{\"emphasis\":\"inline\",\"group\":\"live-source\",\"size\":\"medium_size\"}}],\"actions\":[\"refresh-5dd9d011-6903-38da-bb04-6452276ad64b\"]}",
+          "spec": {
+            "root": "node_0",
+            "elements": {
+              "node_0": {
+                "type": "Card",
+                "props": {
+                  "title": {
+                    "$state": "/data/title"
+                  }
+                },
+                "children": [
+                  "node_1",
+                  "node_2",
+                  "node_5"
+                ]
+              },
+              "node_1": {
+                "type": "Paragraph",
+                "props": {
+                  "text": {
+                    "$state": "/data/summary"
+                  },
+                  "tone": "muted"
+                },
+                "children": []
+              },
+              "node_2": {
+                "type": "Metric",
+                "props": {
+                  "title": {
+                    "$state": "/data/blocksById/live-source/title"
+                  },
+                  "text": {
+                    "$state": "/data/blocksById/live-source/text"
+                  },
+                  "value": {
+                    "$state": "/data/blocksById/live-source/value"
+                  },
+                  "config": {
+                    "$state": "/data/blocksById/live-source/config"
+                  },
+                  "items": {
+                    "$state": "/data/blocksById/live-source/items"
+                  },
+                  "expanded": {
+                    "$bindState": "/ui/views/live-source/expanded"
+                  }
+                },
+                "children": [
+                  "node_3",
+                  "node_4"
+                ]
+              },
+              "node_3": {
+                "type": "Collection",
+                "props": {
+                  "title": {
+                    "$state": "/data/blocksById/forecast-9ba9888a-b796-32d1-9fb2-082d0fa270fe/title"
+                  },
+                  "text": {
+                    "$state": "/data/blocksById/forecast-9ba9888a-b796-32d1-9fb2-082d0fa270fe/text"
+                  },
+                  "value": {
+                    "$state": "/data/blocksById/forecast-9ba9888a-b796-32d1-9fb2-082d0fa270fe/value"
+                  },
+                  "config": {
+                    "$state": "/data/blocksById/forecast-9ba9888a-b796-32d1-9fb2-082d0fa270fe/config"
+                  },
+                  "items": {
+                    "$state": "/data/blocksById/forecast-9ba9888a-b796-32d1-9fb2-082d0fa270fe/items"
+                  },
+                  "role": "collection"
+                },
+                "children": []
+              },
+              "node_4": {
+                "type": "TimeDisplay",
+                "props": {
+                  "title": {
+                    "$state": "/data/blocksById/observed-d3ee4b06-41fa-35a7-b5f3-d2d79c86596f/title"
+                  },
+                  "text": {
+                    "$state": "/data/blocksById/observed-d3ee4b06-41fa-35a7-b5f3-d2d79c86596f/text"
+                  },
+                  "value": {
+                    "$state": "/data/blocksById/observed-d3ee4b06-41fa-35a7-b5f3-d2d79c86596f/value"
+                  },
+                  "config": {
+                    "$state": "/data/blocksById/observed-d3ee4b06-41fa-35a7-b5f3-d2d79c86596f/config"
+                  }
+                },
+                "children": []
+              },
+              "node_5": {
+                "type": "Row",
+                "props": {
+                  "gap": 8,
+                  "flexWrap": "wrap"
+                },
+                "children": [
+                  "node_6"
+                ]
+              },
+              "node_6": {
+                "type": "Button",
+                "props": {
+                  "label": {
+                    "$state": "/data/actionsById/refresh-5dd9d011-6903-38da-bb04-6452276ad64b/label"
+                  },
+                  "variant": {
+                    "$state": "/data/actionsById/refresh-5dd9d011-6903-38da-bb04-6452276ad64b/style"
+                  },
+                  "disabled": {
+                    "$state": "/data/actionsById/refresh-5dd9d011-6903-38da-bb04-6452276ad64b/disabled"
+                  }
+                },
+                "on": {
+                  "press": {
+                    "action": "reply",
+                    "params": {
+                      "actionId": "refresh-5dd9d011-6903-38da-bb04-6452276ad64b",
+                      "text": {
+                        "$state": "/data/actionsById/refresh-5dd9d011-6903-38da-bb04-6452276ad64b/reply"
+                      },
+                      "select": []
+                    }
+                  }
+                },
+                "children": []
+              }
+            }
+          },
+          "metrics": {
+            "jevSteps": 2,
+            "inputTokens": null,
+            "llmUsage": null,
+            "level": "jev",
+            "fallback": "",
+            "ms": 774
+          }
+        },
+        "ui": {
+          "fields": {},
+          "collections": {},
+          "views": {
+            "live-source": {
+              "expanded": false
+            }
+          }
+        },
+        "sourceId": "sizing-view:weather-medium-size"
+      },
+      "small_size": {
+        "view": {
+          "catalogVersion": "taku-ui-8-v2",
+          "signature": "{\"version\":2,\"mode\":\"card\",\"layout\":\"compose\",\"blocks\":[{\"id\":\"forecast-9ba9888a-b796-32d1-9fb2-082d0fa270fe\",\"kind\":\"collection\",\"type\":\"text\",\"gradient\":false,\"config\":{\"group\":\"live-source\",\"layout\":\"horizontal\",\"size\":\"small_size\"}},{\"id\":\"live-source\",\"kind\":\"metric\",\"type\":\"number\",\"gradient\":false,\"config\":{\"emphasis\":\"hero\",\"group\":\"live-source\",\"size\":\"small_size\"}},{\"id\":\"observed-d3ee4b06-41fa-35a7-b5f3-d2d79c86596f\",\"kind\":\"metric\",\"type\":\"instant\",\"gradient\":false,\"config\":{\"emphasis\":\"inline\",\"group\":\"live-source\",\"size\":\"small_size\"}},{\"id\":\"plan-context\",\"kind\":\"text\",\"type\":\"text\",\"gradient\":false,\"config\":{}}],\"actions\":[\"refresh-5dd9d011-6903-38da-bb04-6452276ad64b\"]}",
+          "spec": {
+            "root": "node_0",
+            "elements": {
+              "node_0": {
+                "type": "Card",
+                "props": {
+                  "title": {
+                    "$state": "/data/title"
+                  }
+                },
+                "children": [
+                  "node_1",
+                  "node_2",
+                  "node_5",
+                  "node_8"
+                ]
+              },
+              "node_1": {
+                "type": "Paragraph",
+                "props": {
+                  "text": {
+                    "$state": "/data/summary"
+                  },
+                  "tone": "muted"
+                },
+                "children": []
+              },
+              "node_2": {
+                "type": "Column",
+                "props": {
+                  "gap": 4
+                },
+                "children": [
+                  "node_3",
+                  "node_4"
+                ]
+              },
+              "node_3": {
+                "type": "Heading",
+                "props": {
+                  "text": {
+                    "$state": "/data/blocksById/plan-context/title"
+                  },
+                  "level": "h4"
+                },
+                "children": []
+              },
+              "node_4": {
+                "type": "Paragraph",
+                "props": {
+                  "text": {
+                    "$state": "/data/blocksById/plan-context/text"
+                  }
+                },
+                "children": []
+              },
+              "node_5": {
+                "type": "Metric",
+                "props": {
+                  "title": {
+                    "$state": "/data/blocksById/live-source/title"
+                  },
+                  "text": {
+                    "$state": "/data/blocksById/live-source/text"
+                  },
+                  "value": {
+                    "$state": "/data/blocksById/live-source/value"
+                  },
+                  "config": {
+                    "$state": "/data/blocksById/live-source/config"
+                  },
+                  "items": {
+                    "$state": "/data/blocksById/live-source/items"
+                  },
+                  "expanded": {
+                    "$bindState": "/ui/views/live-source/expanded"
+                  }
+                },
+                "children": [
+                  "node_6",
+                  "node_7"
+                ]
+              },
+              "node_6": {
+                "type": "Collection",
+                "props": {
+                  "title": {
+                    "$state": "/data/blocksById/forecast-9ba9888a-b796-32d1-9fb2-082d0fa270fe/title"
+                  },
+                  "text": {
+                    "$state": "/data/blocksById/forecast-9ba9888a-b796-32d1-9fb2-082d0fa270fe/text"
+                  },
+                  "value": {
+                    "$state": "/data/blocksById/forecast-9ba9888a-b796-32d1-9fb2-082d0fa270fe/value"
+                  },
+                  "config": {
+                    "$state": "/data/blocksById/forecast-9ba9888a-b796-32d1-9fb2-082d0fa270fe/config"
+                  },
+                  "items": {
+                    "$state": "/data/blocksById/forecast-9ba9888a-b796-32d1-9fb2-082d0fa270fe/items"
+                  },
+                  "role": "collection"
+                },
+                "children": []
+              },
+              "node_7": {
+                "type": "TimeDisplay",
+                "props": {
+                  "title": {
+                    "$state": "/data/blocksById/observed-d3ee4b06-41fa-35a7-b5f3-d2d79c86596f/title"
+                  },
+                  "text": {
+                    "$state": "/data/blocksById/observed-d3ee4b06-41fa-35a7-b5f3-d2d79c86596f/text"
+                  },
+                  "value": {
+                    "$state": "/data/blocksById/observed-d3ee4b06-41fa-35a7-b5f3-d2d79c86596f/value"
+                  },
+                  "config": {
+                    "$state": "/data/blocksById/observed-d3ee4b06-41fa-35a7-b5f3-d2d79c86596f/config"
+                  }
+                },
+                "children": []
+              },
+              "node_8": {
+                "type": "Row",
+                "props": {
+                  "gap": 8,
+                  "flexWrap": "wrap"
+                },
+                "children": [
+                  "node_9"
+                ]
+              },
+              "node_9": {
+                "type": "Button",
+                "props": {
+                  "label": {
+                    "$state": "/data/actionsById/refresh-5dd9d011-6903-38da-bb04-6452276ad64b/label"
+                  },
+                  "variant": {
+                    "$state": "/data/actionsById/refresh-5dd9d011-6903-38da-bb04-6452276ad64b/style"
+                  },
+                  "disabled": {
+                    "$state": "/data/actionsById/refresh-5dd9d011-6903-38da-bb04-6452276ad64b/disabled"
+                  }
+                },
+                "on": {
+                  "press": {
+                    "action": "reply",
+                    "params": {
+                      "actionId": "refresh-5dd9d011-6903-38da-bb04-6452276ad64b",
+                      "text": {
+                        "$state": "/data/actionsById/refresh-5dd9d011-6903-38da-bb04-6452276ad64b/reply"
+                      },
+                      "select": []
+                    }
+                  }
+                },
+                "children": []
+              }
+            }
+          },
+          "metrics": {
+            "jevSteps": 2,
+            "inputTokens": null,
+            "llmUsage": null,
+            "level": "jev",
+            "fallback": "",
+            "ms": 734
+          }
+        },
+        "ui": {
+          "fields": {},
+          "collections": {},
+          "views": {
+            "live-source": {
+              "expanded": false
+            }
+          }
+        },
+        "sourceId": "sizing-view:travel-small-weather"
+      }
+    },
+    "snapshots": {
+      "full_size": {
+        "schema": "taku.matter/1",
+        "matterId": "01a18cf7-2eed-7963-bff2-481b7aed3741/weather-full-size",
+        "threadId": "01a18cf7-2eed-7963-bff2-481b7aed3741",
+        "key": "weather-full-size",
+        "revision": 10,
+        "request": {
+          "version": 2,
+          "key": "weather-full-size",
+          "mode": "card",
+          "title": "北京天气",
+          "summary": "",
+          "blocks": [
+            {
+              "id": "live-source",
+              "kind": "metric",
+              "title": "",
+              "text": "Clear / 晴",
+              "value": {
+                "type": "number",
+                "value": 12.4,
+                "unit": "°C"
+              },
+              "image": "",
+              "url": "",
+              "items": [
+                {
+                  "id": "high",
+                  "label": "High / 最高",
+                  "value": {
+                    "type": "number",
+                    "value": 15.9,
+                    "unit": "°C"
+                  },
+                  "detail": "",
+                  "url": "",
+                  "image": "",
+                  "icon": ""
+                },
+                {
+                  "id": "low",
+                  "label": "Low / 最低",
+                  "value": {
+                    "type": "number",
+                    "value": 3.5,
+                    "unit": "°C"
+                  },
+                  "detail": "",
+                  "url": "",
+                  "image": "",
+                  "icon": ""
+                }
+              ],
+              "config": {
+                "emphasis": "hero",
+                "size": "full_size",
+                "icon": "sun",
+                "supportingColor": "#123C5F",
+                "gradient": [
+                  "#459EF6",
+                  "#A7D9FA",
+                  "#F1F8FC"
+                ],
+                "group": "live-source"
+              }
+            },
+            {
+              "id": "forecast-9ba9888a-b796-32d1-9fb2-082d0fa270fe",
+              "kind": "collection",
+              "title": "",
+              "text": "",
+              "value": {
+                "type": "text",
+                "value": null
+              },
+              "image": "",
+              "url": "",
+              "items": [
+                {
+                  "id": "day-2026-11-02",
+                  "label": "Mon",
+                  "value": {
+                    "type": "number",
+                    "value": 15.9,
+                    "unit": "°C"
+                  },
+                  "detail": "↓ 3.5°C",
+                  "url": "https://api.open-meteo.com/v1/forecast?latitude=39.9042&longitude=116.4074&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code&forecast_days=5&timezone=auto&timeformat=unixtime",
+                  "image": "",
+                  "icon": "partly-cloudy"
+                },
+                {
+                  "id": "day-2026-11-03",
+                  "label": "Tue",
+                  "value": {
+                    "type": "number",
+                    "value": 16.2,
+                    "unit": "°C"
+                  },
+                  "detail": "↓ 5.0°C",
+                  "url": "https://api.open-meteo.com/v1/forecast?latitude=39.9042&longitude=116.4074&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code&forecast_days=5&timezone=auto&timeformat=unixtime",
+                  "image": "",
+                  "icon": "cloud"
+                },
+                {
+                  "id": "day-2026-11-04",
+                  "label": "Wed",
+                  "value": {
+                    "type": "number",
+                    "value": 10.6,
+                    "unit": "°C"
+                  },
+                  "detail": "↓ 5.0°C",
+                  "url": "https://api.open-meteo.com/v1/forecast?latitude=39.9042&longitude=116.4074&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code&forecast_days=5&timezone=auto&timeformat=unixtime",
+                  "image": "",
+                  "icon": "cloud"
+                },
+                {
+                  "id": "day-2026-11-05",
+                  "label": "Thu",
+                  "value": {
+                    "type": "number",
+                    "value": 17,
+                    "unit": "°C"
+                  },
+                  "detail": "↓ 4.2°C",
+                  "url": "https://api.open-meteo.com/v1/forecast?latitude=39.9042&longitude=116.4074&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code&forecast_days=5&timezone=auto&timeformat=unixtime",
+                  "image": "",
+                  "icon": "fog"
+                },
+                {
+                  "id": "day-2026-11-06",
+                  "label": "Fri",
+                  "value": {
+                    "type": "number",
+                    "value": 11.1,
+                    "unit": "°C"
+                  },
+                  "detail": "↓ 3.5°C",
+                  "url": "https://api.open-meteo.com/v1/forecast?latitude=39.9042&longitude=116.4074&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code&forecast_days=5&timezone=auto&timeformat=unixtime",
+                  "image": "",
+                  "icon": "partly-cloudy"
+                }
+              ],
+              "config": {
+                "layout": "horizontal",
+                "size": "full_size",
+                "tone": "light",
+                "group": "live-source"
+              }
+            },
+            {
+              "id": "observed-d3ee4b06-41fa-35a7-b5f3-d2d79c86596f",
+              "kind": "metric",
+              "title": "As of / 截至",
+              "text": "Open-Meteo · Asia/Shanghai",
+              "value": {
+                "type": "instant",
+                "value": "2026-11-02T10:45:00Z",
+                "timeZone": "Asia/Shanghai"
+              },
+              "image": "",
+              "url": "",
+              "items": [],
+              "config": {
+                "emphasis": "inline",
+                "size": "full_size",
+                "tone": "light",
+                "group": "live-source"
+              }
+            }
+          ],
+          "actions": [
+            {
+              "id": "refresh-5dd9d011-6903-38da-bb04-6452276ad64b",
+              "label": "刷新天气 / Refresh weather",
+              "reply": "刷新天气 / Refresh weather",
+              "style": "secondary",
+              "actionRef": "5fbb4e82-d77d-4761-8a83-c5c3052fd7a1"
+            }
+          ]
+        },
+        "meta": {
+          "provenance": {
+            "kind": "derived-assistant-reply",
+            "threadId": "01a18cf7-2eed-7963-bff2-481b7aed3741",
+            "tool": "matter"
+          },
+          "quality": "derived-assistant-reply",
+          "observedAt": 1793614852663,
+          "sources": {
+            "5dd9d011-6903-38da-bb04-6452276ad64b": {
+              "state": "available",
+              "observedAt": 1793616453400,
+              "validUntil": 1793617053399,
+              "contentHash": "2183da045035c5242e4e4c23",
+              "provenance": {
+                "kind": "weather-model",
+                "authority": "api.open-meteo.com",
+                "packageName": "org.agentos.assistant"
+              },
+              "url": "https://api.open-meteo.com/v1/forecast?latitude=39.9042&longitude=116.4074&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code&forecast_days=5&timezone=auto&timeformat=unixtime",
+              "capabilities": {
+                "read": true,
+                "watch": true,
+                "command": false,
+                "typedPrice": false
+              },
+              "pollIntervalMs": 600000,
+              "sourceUpdatedAt": 1793616300000,
+              "quality": "weather-model",
+              "title": "Weather / 天气",
+              "text": "Clear / 晴",
+              "blocks": [
+                {
+                  "id": "temperature",
+                  "kind": "metric",
+                  "title": "",
+                  "text": "Clear / 晴",
+                  "value": {
+                    "type": "number",
+                    "value": 12.4,
+                    "unit": "°C"
+                  },
+                  "image": "",
+                  "url": "",
+                  "items": [
+                    {
+                      "id": "high",
+                      "label": "High / 最高",
+                      "value": {
+                        "type": "number",
+                        "value": 15.9,
+                        "unit": "°C"
+                      },
+                      "detail": "",
+                      "url": "",
+                      "image": "",
+                      "icon": ""
+                    },
+                    {
+                      "id": "low",
+                      "label": "Low / 最低",
+                      "value": {
+                        "type": "number",
+                        "value": 3.5,
+                        "unit": "°C"
+                      },
+                      "detail": "",
+                      "url": "",
+                      "image": "",
+                      "icon": ""
+                    }
+                  ],
+                  "config": {
+                    "emphasis": "hero",
+                    "size": "full_size",
+                    "icon": "sun",
+                    "supportingColor": "#123C5F",
+                    "gradient": [
+                      "#459EF6",
+                      "#A7D9FA",
+                      "#F1F8FC"
+                    ]
+                  }
+                },
+                {
+                  "id": "forecast",
+                  "kind": "collection",
+                  "title": "",
+                  "text": "",
+                  "value": {
+                    "type": "text",
+                    "value": null
+                  },
+                  "image": "",
+                  "url": "",
+                  "items": [
+                    {
+                      "id": "day-2026-11-02",
+                      "label": "Mon",
+                      "value": {
+                        "type": "number",
+                        "value": 15.9,
+                        "unit": "°C"
+                      },
+                      "detail": "↓ 3.5°C",
+                      "url": "https://api.open-meteo.com/v1/forecast?latitude=39.9042&longitude=116.4074&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code&forecast_days=5&timezone=auto&timeformat=unixtime",
+                      "image": "",
+                      "icon": "partly-cloudy"
+                    },
+                    {
+                      "id": "day-2026-11-03",
+                      "label": "Tue",
+                      "value": {
+                        "type": "number",
+                        "value": 16.2,
+                        "unit": "°C"
+                      },
+                      "detail": "↓ 5.0°C",
+                      "url": "https://api.open-meteo.com/v1/forecast?latitude=39.9042&longitude=116.4074&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code&forecast_days=5&timezone=auto&timeformat=unixtime",
+                      "image": "",
+                      "icon": "cloud"
+                    },
+                    {
+                      "id": "day-2026-11-04",
+                      "label": "Wed",
+                      "value": {
+                        "type": "number",
+                        "value": 10.6,
+                        "unit": "°C"
+                      },
+                      "detail": "↓ 5.0°C",
+                      "url": "https://api.open-meteo.com/v1/forecast?latitude=39.9042&longitude=116.4074&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code&forecast_days=5&timezone=auto&timeformat=unixtime",
+                      "image": "",
+                      "icon": "cloud"
+                    },
+                    {
+                      "id": "day-2026-11-05",
+                      "label": "Thu",
+                      "value": {
+                        "type": "number",
+                        "value": 17,
+                        "unit": "°C"
+                      },
+                      "detail": "↓ 4.2°C",
+                      "url": "https://api.open-meteo.com/v1/forecast?latitude=39.9042&longitude=116.4074&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code&forecast_days=5&timezone=auto&timeformat=unixtime",
+                      "image": "",
+                      "icon": "fog"
+                    },
+                    {
+                      "id": "day-2026-11-06",
+                      "label": "Fri",
+                      "value": {
+                        "type": "number",
+                        "value": 11.1,
+                        "unit": "°C"
+                      },
+                      "detail": "↓ 3.5°C",
+                      "url": "https://api.open-meteo.com/v1/forecast?latitude=39.9042&longitude=116.4074&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code&forecast_days=5&timezone=auto&timeformat=unixtime",
+                      "image": "",
+                      "icon": "partly-cloudy"
+                    }
+                  ],
+                  "config": {
+                    "layout": "horizontal",
+                    "size": "full_size",
+                    "tone": "light"
+                  }
+                },
+                {
+                  "id": "observed",
+                  "kind": "metric",
+                  "title": "As of / 截至",
+                  "text": "Open-Meteo · Asia/Shanghai",
+                  "value": {
+                    "type": "instant",
+                    "value": "2026-11-02T10:45:00Z",
+                    "timeZone": "Asia/Shanghai"
+                  },
+                  "image": "",
+                  "url": "",
+                  "items": [],
+                  "config": {
+                    "emphasis": "inline",
+                    "size": "full_size",
+                    "tone": "light"
+                  }
+                }
+              ],
+              "coordinateSource": "explicit-coordinate",
+              "nextEligibleAt": 1793617053399,
+              "readAttempts": 12
+            }
+          },
+          "rules": []
+        },
+        "commands": {
+          "17dccfac-cc9f-429a-b780-71abfdd01a51": {
+            "requestId": "17dccfac-cc9f-429a-b780-71abfdd01a51",
+            "state": "accepted",
+            "effect": "source-refresh-requested",
+            "nextEligibleAt": 1793612154700
+          }
+        }
+      },
+      "medium_size": {
+        "schema": "taku.matter/1",
+        "matterId": "01a18cf7-2eed-7963-bff2-481b7aed3741/weather-medium-size",
+        "threadId": "01a18cf7-2eed-7963-bff2-481b7aed3741",
+        "key": "weather-medium-size",
+        "revision": 8,
+        "request": {
+          "version": 2,
+          "key": "weather-medium-size",
+          "mode": "card",
+          "title": "天气与出行说明",
+          "summary": "",
+          "blocks": [
+            {
+              "id": "live-source",
+              "kind": "metric",
+              "title": "",
+              "text": "Clear / 晴",
+              "value": {
+                "type": "number",
+                "value": 12.4,
+                "unit": "°C"
+              },
+              "image": "",
+              "url": "",
+              "items": [
+                {
+                  "id": "high",
+                  "label": "High / 最高",
+                  "value": {
+                    "type": "number",
+                    "value": 15.9,
+                    "unit": "°C"
+                  },
+                  "detail": "",
+                  "url": "",
+                  "image": "",
+                  "icon": ""
+                },
+                {
+                  "id": "low",
+                  "label": "Low / 最低",
+                  "value": {
+                    "type": "number",
+                    "value": 3.5,
+                    "unit": "°C"
+                  },
+                  "detail": "",
+                  "url": "",
+                  "image": "",
+                  "icon": ""
+                }
+              ],
+              "config": {
+                "emphasis": "hero",
+                "size": "medium_size",
+                "icon": "sun",
+                "supportingColor": "#123C5F",
+                "group": "live-source"
+              }
+            },
+            {
+              "id": "forecast-9ba9888a-b796-32d1-9fb2-082d0fa270fe",
+              "kind": "collection",
+              "title": "",
+              "text": "",
+              "value": {
+                "type": "text",
+                "value": null
+              },
+              "image": "",
+              "url": "",
+              "items": [
+                {
+                  "id": "day-2026-11-02",
+                  "label": "Mon",
+                  "value": {
+                    "type": "number",
+                    "value": 15.9,
+                    "unit": "°C"
+                  },
+                  "detail": "↓ 3.5°C",
+                  "url": "https://api.open-meteo.com/v1/forecast?latitude=39.9042&longitude=116.4074&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code&forecast_days=5&timezone=auto&timeformat=unixtime",
+                  "image": "",
+                  "icon": "partly-cloudy"
+                },
+                {
+                  "id": "day-2026-11-03",
+                  "label": "Tue",
+                  "value": {
+                    "type": "number",
+                    "value": 16.2,
+                    "unit": "°C"
+                  },
+                  "detail": "↓ 5.0°C",
+                  "url": "https://api.open-meteo.com/v1/forecast?latitude=39.9042&longitude=116.4074&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code&forecast_days=5&timezone=auto&timeformat=unixtime",
+                  "image": "",
+                  "icon": "cloud"
+                },
+                {
+                  "id": "day-2026-11-04",
+                  "label": "Wed",
+                  "value": {
+                    "type": "number",
+                    "value": 10.6,
+                    "unit": "°C"
+                  },
+                  "detail": "↓ 5.0°C",
+                  "url": "https://api.open-meteo.com/v1/forecast?latitude=39.9042&longitude=116.4074&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code&forecast_days=5&timezone=auto&timeformat=unixtime",
+                  "image": "",
+                  "icon": "cloud"
+                },
+                {
+                  "id": "day-2026-11-05",
+                  "label": "Thu",
+                  "value": {
+                    "type": "number",
+                    "value": 17,
+                    "unit": "°C"
+                  },
+                  "detail": "↓ 4.2°C",
+                  "url": "https://api.open-meteo.com/v1/forecast?latitude=39.9042&longitude=116.4074&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code&forecast_days=5&timezone=auto&timeformat=unixtime",
+                  "image": "",
+                  "icon": "fog"
+                },
+                {
+                  "id": "day-2026-11-06",
+                  "label": "Fri",
+                  "value": {
+                    "type": "number",
+                    "value": 11.1,
+                    "unit": "°C"
+                  },
+                  "detail": "↓ 3.5°C",
+                  "url": "https://api.open-meteo.com/v1/forecast?latitude=39.9042&longitude=116.4074&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code&forecast_days=5&timezone=auto&timeformat=unixtime",
+                  "image": "",
+                  "icon": "partly-cloudy"
+                }
+              ],
+              "config": {
+                "layout": "horizontal",
+                "size": "medium_size",
+                "tone": "light",
+                "group": "live-source"
+              }
+            },
+            {
+              "id": "observed-d3ee4b06-41fa-35a7-b5f3-d2d79c86596f",
+              "kind": "metric",
+              "title": "As of / 截至",
+              "text": "Open-Meteo · Asia/Shanghai",
+              "value": {
+                "type": "instant",
+                "value": "2026-11-02T10:45:00Z",
+                "timeZone": "Asia/Shanghai"
+              },
+              "image": "",
+              "url": "",
+              "items": [],
+              "config": {
+                "emphasis": "inline",
+                "size": "medium_size",
+                "tone": "light",
+                "group": "live-source"
+              }
+            }
+          ],
+          "actions": [
+            {
+              "id": "refresh-5dd9d011-6903-38da-bb04-6452276ad64b",
+              "label": "刷新天气 / Refresh weather",
+              "reply": "刷新天气 / Refresh weather",
+              "style": "secondary",
+              "actionRef": "f5c58f76-ca58-4b44-9b88-7faeeb354c6c"
+            }
+          ]
+        },
+        "meta": {
+          "provenance": {
+            "kind": "derived-assistant-reply",
+            "threadId": "01a18cf7-2eed-7963-bff2-481b7aed3741",
+            "tool": "matter"
+          },
+          "quality": "derived-assistant-reply",
+          "observedAt": 1793614853840,
+          "sources": {
+            "5dd9d011-6903-38da-bb04-6452276ad64b": {
+              "state": "available",
+              "observedAt": 1793616453400,
+              "validUntil": 1793617053399,
+              "contentHash": "2183da045035c5242e4e4c23",
+              "provenance": {
+                "kind": "weather-model",
+                "authority": "api.open-meteo.com",
+                "packageName": "org.agentos.assistant"
+              },
+              "url": "https://api.open-meteo.com/v1/forecast?latitude=39.9042&longitude=116.4074&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code&forecast_days=5&timezone=auto&timeformat=unixtime",
+              "capabilities": {
+                "read": true,
+                "watch": true,
+                "command": false,
+                "typedPrice": false
+              },
+              "pollIntervalMs": 600000,
+              "sourceUpdatedAt": 1793616300000,
+              "quality": "weather-model",
+              "title": "Weather / 天气",
+              "text": "Clear / 晴",
+              "blocks": [
+                {
+                  "id": "temperature",
+                  "kind": "metric",
+                  "title": "",
+                  "text": "Clear / 晴",
+                  "value": {
+                    "type": "number",
+                    "value": 12.4,
+                    "unit": "°C"
+                  },
+                  "image": "",
+                  "url": "",
+                  "items": [
+                    {
+                      "id": "high",
+                      "label": "High / 最高",
+                      "value": {
+                        "type": "number",
+                        "value": 15.9,
+                        "unit": "°C"
+                      },
+                      "detail": "",
+                      "url": "",
+                      "image": "",
+                      "icon": ""
+                    },
+                    {
+                      "id": "low",
+                      "label": "Low / 最低",
+                      "value": {
+                        "type": "number",
+                        "value": 3.5,
+                        "unit": "°C"
+                      },
+                      "detail": "",
+                      "url": "",
+                      "image": "",
+                      "icon": ""
+                    }
+                  ],
+                  "config": {
+                    "emphasis": "hero",
+                    "size": "full_size",
+                    "icon": "sun",
+                    "supportingColor": "#123C5F",
+                    "gradient": [
+                      "#459EF6",
+                      "#A7D9FA",
+                      "#F1F8FC"
+                    ]
+                  }
+                },
+                {
+                  "id": "forecast",
+                  "kind": "collection",
+                  "title": "",
+                  "text": "",
+                  "value": {
+                    "type": "text",
+                    "value": null
+                  },
+                  "image": "",
+                  "url": "",
+                  "items": [
+                    {
+                      "id": "day-2026-11-02",
+                      "label": "Mon",
+                      "value": {
+                        "type": "number",
+                        "value": 15.9,
+                        "unit": "°C"
+                      },
+                      "detail": "↓ 3.5°C",
+                      "url": "https://api.open-meteo.com/v1/forecast?latitude=39.9042&longitude=116.4074&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code&forecast_days=5&timezone=auto&timeformat=unixtime",
+                      "image": "",
+                      "icon": "partly-cloudy"
+                    },
+                    {
+                      "id": "day-2026-11-03",
+                      "label": "Tue",
+                      "value": {
+                        "type": "number",
+                        "value": 16.2,
+                        "unit": "°C"
+                      },
+                      "detail": "↓ 5.0°C",
+                      "url": "https://api.open-meteo.com/v1/forecast?latitude=39.9042&longitude=116.4074&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code&forecast_days=5&timezone=auto&timeformat=unixtime",
+                      "image": "",
+                      "icon": "cloud"
+                    },
+                    {
+                      "id": "day-2026-11-04",
+                      "label": "Wed",
+                      "value": {
+                        "type": "number",
+                        "value": 10.6,
+                        "unit": "°C"
+                      },
+                      "detail": "↓ 5.0°C",
+                      "url": "https://api.open-meteo.com/v1/forecast?latitude=39.9042&longitude=116.4074&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code&forecast_days=5&timezone=auto&timeformat=unixtime",
+                      "image": "",
+                      "icon": "cloud"
+                    },
+                    {
+                      "id": "day-2026-11-05",
+                      "label": "Thu",
+                      "value": {
+                        "type": "number",
+                        "value": 17,
+                        "unit": "°C"
+                      },
+                      "detail": "↓ 4.2°C",
+                      "url": "https://api.open-meteo.com/v1/forecast?latitude=39.9042&longitude=116.4074&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code&forecast_days=5&timezone=auto&timeformat=unixtime",
+                      "image": "",
+                      "icon": "fog"
+                    },
+                    {
+                      "id": "day-2026-11-06",
+                      "label": "Fri",
+                      "value": {
+                        "type": "number",
+                        "value": 11.1,
+                        "unit": "°C"
+                      },
+                      "detail": "↓ 3.5°C",
+                      "url": "https://api.open-meteo.com/v1/forecast?latitude=39.9042&longitude=116.4074&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code&forecast_days=5&timezone=auto&timeformat=unixtime",
+                      "image": "",
+                      "icon": "partly-cloudy"
+                    }
+                  ],
+                  "config": {
+                    "layout": "horizontal",
+                    "size": "full_size",
+                    "tone": "light"
+                  }
+                },
+                {
+                  "id": "observed",
+                  "kind": "metric",
+                  "title": "As of / 截至",
+                  "text": "Open-Meteo · Asia/Shanghai",
+                  "value": {
+                    "type": "instant",
+                    "value": "2026-11-02T10:45:00Z",
+                    "timeZone": "Asia/Shanghai"
+                  },
+                  "image": "",
+                  "url": "",
+                  "items": [],
+                  "config": {
+                    "emphasis": "inline",
+                    "size": "full_size",
+                    "tone": "light"
+                  }
+                }
+              ],
+              "coordinateSource": "explicit-coordinate",
+              "nextEligibleAt": 1793617053399,
+              "readAttempts": 12
+            }
+          },
+          "rules": []
+        },
+        "commands": {}
+      },
+      "small_size": {
+        "schema": "taku.matter/1",
+        "matterId": "01a18cf7-2eed-7963-bff2-481b7aed3741/travel-small-weather",
+        "threadId": "01a18cf7-2eed-7963-bff2-481b7aed3741",
+        "key": "travel-small-weather",
+        "revision": 8,
+        "request": {
+          "version": 2,
+          "key": "travel-small-weather",
+          "mode": "card",
+          "title": "北京出游计划",
+          "summary": "",
+          "blocks": [
+            {
+              "id": "plan-context",
+              "kind": "text",
+              "title": "出游安排",
+              "text": "尚未提供出行日期与地点安排。下方天气使用明确指定的北京坐标，仅作为规划参考。",
+              "value": {
+                "type": "text",
+                "value": null
+              },
+              "image": "",
+              "url": "",
+              "items": [],
+              "config": {}
+            },
+            {
+              "id": "live-source",
+              "kind": "metric",
+              "title": "",
+              "text": "Clear / 晴",
+              "value": {
+                "type": "number",
+                "value": 12.4,
+                "unit": "°C"
+              },
+              "image": "",
+              "url": "",
+              "items": [
+                {
+                  "id": "high",
+                  "label": "High / 最高",
+                  "value": {
+                    "type": "number",
+                    "value": 15.9,
+                    "unit": "°C"
+                  },
+                  "detail": "",
+                  "url": "",
+                  "image": "",
+                  "icon": ""
+                },
+                {
+                  "id": "low",
+                  "label": "Low / 最低",
+                  "value": {
+                    "type": "number",
+                    "value": 3.5,
+                    "unit": "°C"
+                  },
+                  "detail": "",
+                  "url": "",
+                  "image": "",
+                  "icon": ""
+                }
+              ],
+              "config": {
+                "emphasis": "hero",
+                "size": "small_size",
+                "icon": "sun",
+                "supportingColor": "#123C5F",
+                "group": "live-source"
+              }
+            },
+            {
+              "id": "forecast-9ba9888a-b796-32d1-9fb2-082d0fa270fe",
+              "kind": "collection",
+              "title": "",
+              "text": "",
+              "value": {
+                "type": "text",
+                "value": null
+              },
+              "image": "",
+              "url": "",
+              "items": [
+                {
+                  "id": "day-2026-11-02",
+                  "label": "Mon",
+                  "value": {
+                    "type": "number",
+                    "value": 15.9,
+                    "unit": "°C"
+                  },
+                  "detail": "↓ 3.5°C",
+                  "url": "https://api.open-meteo.com/v1/forecast?latitude=39.9042&longitude=116.4074&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code&forecast_days=5&timezone=auto&timeformat=unixtime",
+                  "image": "",
+                  "icon": "partly-cloudy"
+                },
+                {
+                  "id": "day-2026-11-03",
+                  "label": "Tue",
+                  "value": {
+                    "type": "number",
+                    "value": 16.2,
+                    "unit": "°C"
+                  },
+                  "detail": "↓ 5.0°C",
+                  "url": "https://api.open-meteo.com/v1/forecast?latitude=39.9042&longitude=116.4074&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code&forecast_days=5&timezone=auto&timeformat=unixtime",
+                  "image": "",
+                  "icon": "cloud"
+                },
+                {
+                  "id": "day-2026-11-04",
+                  "label": "Wed",
+                  "value": {
+                    "type": "number",
+                    "value": 10.6,
+                    "unit": "°C"
+                  },
+                  "detail": "↓ 5.0°C",
+                  "url": "https://api.open-meteo.com/v1/forecast?latitude=39.9042&longitude=116.4074&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code&forecast_days=5&timezone=auto&timeformat=unixtime",
+                  "image": "",
+                  "icon": "cloud"
+                },
+                {
+                  "id": "day-2026-11-05",
+                  "label": "Thu",
+                  "value": {
+                    "type": "number",
+                    "value": 17,
+                    "unit": "°C"
+                  },
+                  "detail": "↓ 4.2°C",
+                  "url": "https://api.open-meteo.com/v1/forecast?latitude=39.9042&longitude=116.4074&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code&forecast_days=5&timezone=auto&timeformat=unixtime",
+                  "image": "",
+                  "icon": "fog"
+                },
+                {
+                  "id": "day-2026-11-06",
+                  "label": "Fri",
+                  "value": {
+                    "type": "number",
+                    "value": 11.1,
+                    "unit": "°C"
+                  },
+                  "detail": "↓ 3.5°C",
+                  "url": "https://api.open-meteo.com/v1/forecast?latitude=39.9042&longitude=116.4074&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code&forecast_days=5&timezone=auto&timeformat=unixtime",
+                  "image": "",
+                  "icon": "partly-cloudy"
+                }
+              ],
+              "config": {
+                "layout": "horizontal",
+                "size": "small_size",
+                "tone": "light",
+                "group": "live-source"
+              }
+            },
+            {
+              "id": "observed-d3ee4b06-41fa-35a7-b5f3-d2d79c86596f",
+              "kind": "metric",
+              "title": "As of / 截至",
+              "text": "Open-Meteo · Asia/Shanghai",
+              "value": {
+                "type": "instant",
+                "value": "2026-11-02T10:45:00Z",
+                "timeZone": "Asia/Shanghai"
+              },
+              "image": "",
+              "url": "",
+              "items": [],
+              "config": {
+                "emphasis": "inline",
+                "size": "small_size",
+                "tone": "light",
+                "group": "live-source"
+              }
+            }
+          ],
+          "actions": [
+            {
+              "id": "refresh-5dd9d011-6903-38da-bb04-6452276ad64b",
+              "label": "刷新天气 / Refresh weather",
+              "reply": "刷新天气 / Refresh weather",
+              "style": "secondary",
+              "actionRef": "45e552c7-7832-4abf-93f4-222634058fe8"
+            }
+          ]
+        },
+        "meta": {
+          "provenance": {
+            "kind": "derived-assistant-reply",
+            "threadId": "01a18cf7-2eed-7963-bff2-481b7aed3741",
+            "tool": "matter"
+          },
+          "quality": "derived-assistant-reply",
+          "observedAt": 1793614854970,
+          "sources": {
+            "5dd9d011-6903-38da-bb04-6452276ad64b": {
+              "state": "available",
+              "observedAt": 1793616453400,
+              "validUntil": 1793617053399,
+              "contentHash": "2183da045035c5242e4e4c23",
+              "provenance": {
+                "kind": "weather-model",
+                "authority": "api.open-meteo.com",
+                "packageName": "org.agentos.assistant"
+              },
+              "url": "https://api.open-meteo.com/v1/forecast?latitude=39.9042&longitude=116.4074&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code&forecast_days=5&timezone=auto&timeformat=unixtime",
+              "capabilities": {
+                "read": true,
+                "watch": true,
+                "command": false,
+                "typedPrice": false
+              },
+              "pollIntervalMs": 600000,
+              "sourceUpdatedAt": 1793616300000,
+              "quality": "weather-model",
+              "title": "Weather / 天气",
+              "text": "Clear / 晴",
+              "blocks": [
+                {
+                  "id": "temperature",
+                  "kind": "metric",
+                  "title": "",
+                  "text": "Clear / 晴",
+                  "value": {
+                    "type": "number",
+                    "value": 12.4,
+                    "unit": "°C"
+                  },
+                  "image": "",
+                  "url": "",
+                  "items": [
+                    {
+                      "id": "high",
+                      "label": "High / 最高",
+                      "value": {
+                        "type": "number",
+                        "value": 15.9,
+                        "unit": "°C"
+                      },
+                      "detail": "",
+                      "url": "",
+                      "image": "",
+                      "icon": ""
+                    },
+                    {
+                      "id": "low",
+                      "label": "Low / 最低",
+                      "value": {
+                        "type": "number",
+                        "value": 3.5,
+                        "unit": "°C"
+                      },
+                      "detail": "",
+                      "url": "",
+                      "image": "",
+                      "icon": ""
+                    }
+                  ],
+                  "config": {
+                    "emphasis": "hero",
+                    "size": "full_size",
+                    "icon": "sun",
+                    "supportingColor": "#123C5F",
+                    "gradient": [
+                      "#459EF6",
+                      "#A7D9FA",
+                      "#F1F8FC"
+                    ]
+                  }
+                },
+                {
+                  "id": "forecast",
+                  "kind": "collection",
+                  "title": "",
+                  "text": "",
+                  "value": {
+                    "type": "text",
+                    "value": null
+                  },
+                  "image": "",
+                  "url": "",
+                  "items": [
+                    {
+                      "id": "day-2026-11-02",
+                      "label": "Mon",
+                      "value": {
+                        "type": "number",
+                        "value": 15.9,
+                        "unit": "°C"
+                      },
+                      "detail": "↓ 3.5°C",
+                      "url": "https://api.open-meteo.com/v1/forecast?latitude=39.9042&longitude=116.4074&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code&forecast_days=5&timezone=auto&timeformat=unixtime",
+                      "image": "",
+                      "icon": "partly-cloudy"
+                    },
+                    {
+                      "id": "day-2026-11-03",
+                      "label": "Tue",
+                      "value": {
+                        "type": "number",
+                        "value": 16.2,
+                        "unit": "°C"
+                      },
+                      "detail": "↓ 5.0°C",
+                      "url": "https://api.open-meteo.com/v1/forecast?latitude=39.9042&longitude=116.4074&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code&forecast_days=5&timezone=auto&timeformat=unixtime",
+                      "image": "",
+                      "icon": "cloud"
+                    },
+                    {
+                      "id": "day-2026-11-04",
+                      "label": "Wed",
+                      "value": {
+                        "type": "number",
+                        "value": 10.6,
+                        "unit": "°C"
+                      },
+                      "detail": "↓ 5.0°C",
+                      "url": "https://api.open-meteo.com/v1/forecast?latitude=39.9042&longitude=116.4074&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code&forecast_days=5&timezone=auto&timeformat=unixtime",
+                      "image": "",
+                      "icon": "cloud"
+                    },
+                    {
+                      "id": "day-2026-11-05",
+                      "label": "Thu",
+                      "value": {
+                        "type": "number",
+                        "value": 17,
+                        "unit": "°C"
+                      },
+                      "detail": "↓ 4.2°C",
+                      "url": "https://api.open-meteo.com/v1/forecast?latitude=39.9042&longitude=116.4074&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code&forecast_days=5&timezone=auto&timeformat=unixtime",
+                      "image": "",
+                      "icon": "fog"
+                    },
+                    {
+                      "id": "day-2026-11-06",
+                      "label": "Fri",
+                      "value": {
+                        "type": "number",
+                        "value": 11.1,
+                        "unit": "°C"
+                      },
+                      "detail": "↓ 3.5°C",
+                      "url": "https://api.open-meteo.com/v1/forecast?latitude=39.9042&longitude=116.4074&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code&forecast_days=5&timezone=auto&timeformat=unixtime",
+                      "image": "",
+                      "icon": "partly-cloudy"
+                    }
+                  ],
+                  "config": {
+                    "layout": "horizontal",
+                    "size": "full_size",
+                    "tone": "light"
+                  }
+                },
+                {
+                  "id": "observed",
+                  "kind": "metric",
+                  "title": "As of / 截至",
+                  "text": "Open-Meteo · Asia/Shanghai",
+                  "value": {
+                    "type": "instant",
+                    "value": "2026-11-02T10:45:00Z",
+                    "timeZone": "Asia/Shanghai"
+                  },
+                  "image": "",
+                  "url": "",
+                  "items": [],
+                  "config": {
+                    "emphasis": "inline",
+                    "size": "full_size",
+                    "tone": "light"
+                  }
+                }
+              ],
+              "coordinateSource": "explicit-coordinate",
+              "nextEligibleAt": 1793617053399,
+              "readAttempts": 12
+            }
+          },
+          "rules": []
+        },
+        "commands": {}
+      }
+    },
+    "naturalFlow": [
+      {
+        "turnId": "01a19bc6-d8da-7902-bbfc-361ac496c8d0",
+        "user": [
+          [
+            {
+              "type": "text",
+              "text": "今天天气怎么样",
+              "text_elements": []
+            }
+          ]
+        ],
+        "tools": [
+          {
+            "tool": "matter",
+            "status": "completed",
+            "arguments": {
+              "action": "present",
+              "key": "local-weather",
+              "source": {
+                "blockId": "weather-current",
+                "kind": "weather",
+                "resourceId": "device"
+              },
+              "size": "full_size"
+            },
+            "success": true
+          },
+          {
+            "tool": "matter",
+            "status": "completed",
+            "arguments": {
+              "action": "read",
+              "key": "local-weather"
+            },
+            "success": true
+          }
+        ],
+        "reply": [
+          "目前无法获取你的位置。你在哪个城市？我帮你查今天的天气。"
+        ]
+      },
+      {
+        "turnId": "01a19bc9-61ab-7e02-879c-ce9c3aae7372",
+        "user": [
+          [
+            {
+              "type": "text",
+              "text": "按北京的明确坐标 39.9042,116.4074 查询，不需要手机定位。",
+              "text_elements": []
+            }
+          ]
+        ],
+        "tools": [
+          {
+            "tool": "matter",
+            "status": "completed",
+            "arguments": {
+              "action": "present",
+              "key": "local-weather",
+              "source": {
+                "blockId": "weather-current",
+                "kind": "weather",
+                "resourceId": "39.9042,116.4074"
+              },
+              "size": "full_size"
+            },
+            "success": true
+          }
+        ],
+        "reply": [
+          "按坐标 **39.9042,116.4074** 查询，北京今天（11月2日）：\n\n- 当前晴，**12.6°C**\n- 全天 **3.5～15.9°C**\n- 早晚较冷，出门建议带件厚外套。\n\n数据截至北京时间18:15，来源 Open-Meteo。"
+        ]
+      }
+    ],
+    "hostEnhancementCount": 0,
+    "expansionPersistence": {
+      "size": "medium_size",
+      "expandedAfterNavigation": true,
+      "expandedAfterClientProcessRestart": true,
+      "returnedToCollapsed": true
+    },
+    "enlargedFontCheck": {
+      "viewportDp": 360,
+      "fontScale": 1.5,
+      "temperatureText": "12.2 °C",
+      "temperatureBounds": "[96,471][678,699]",
+      "lastDayAfterHorizontalScroll": {
+        "text": "Fri",
+        "bounds": "[863,1098][925,1167]"
+      },
+      "restoredViewportDp": 411,
+      "restoredFontScale": 1.0
+    },
+    "refreshReceipt": {
+      "uid": 10150,
+      "baselineRevision": 2,
+      "eventRevision": 3,
+      "state": "deferred",
+      "effect": "source-refresh-requested",
+      "duplicateReturnedSameReceipt": true,
+      "eventMethod": "matter/snapshot"
+    }
+  },
+  "rulesRestored": [
+    {
+      "id": "coffee-time",
+      "kind": "weekdays",
+      "reply": "提醒我核对今日咖啡安排；下单前先询问。",
+      "slotId": "coffee",
+      "localTime": "09:00",
+      "timeZone": "Asia/Shanghai",
+      "storageId": "01a18cf7-2eed-7963-bff2-481b7aed3741/weekday-rule-check/coffee-time",
+      "matterId": "01a18cf7-2eed-7963-bff2-481b7aed3741/weekday-rule-check",
+      "revision": 2,
+      "paused": true,
+      "createdAt": 1793613283935,
+      "lateWindowMs": 1800000,
+      "availability": "android-job-may-be-delayed",
+      "skipDate": "2026-11-02"
+    }
+  ],
+  "figmaSources": {
+    "1b447c35-14ae-3c23-bb16-3b65b8d69113": {
+      "state": "available",
+      "observedAt": 1793604554455,
+      "validUntil": 1793605454455,
+      "contentHash": "e2770da068abb8175c26bbd6",
+      "provenance": {
+        "kind": "public-feed",
+        "authority": "www.figma.com",
+        "packageName": "org.agentos.assistant"
+      },
+      "url": "https://www.figma.com/blog/feed/atom.xml",
+      "capabilities": {
+        "read": true,
+        "watch": true,
+        "command": false,
+        "typedPrice": false
+      },
+      "pollIntervalMs": 900000,
+      "sourceUpdatedAt": 0,
+      "quality": "published-feed",
+      "title": "Figma Blog | Shortcut",
+      "text": "20 published entries",
+      "blocks": [
+        {
+          "id": "entries",
+          "kind": "collection",
+          "title": "Figma Blog | Shortcut",
+          "text": "",
+          "value": {
+            "type": "text",
+            "value": null
+          },
+          "image": "",
+          "url": "",
+          "items": [
+            {
+              "id": "entry-ccd9cd1dde5b4e8e444d1f10",
+              "label": "The TL;DR on Figma Weave: Make your creative process repeatable",
+              "value": {
+                "type": "instant",
+                "value": "2026-10-31T00:58:00Z",
+                "timeZone": "UTC"
+              },
+              "detail": "Figma Weave brings AI generation and editing tools together into connected, reusable workflows, giving you a process your team can shape, refine, and repeat. Here’s what it unlocks for creative teams…",
+              "url": "https://www.figma.com/blog/the-tldr-on-figma-weave/",
+              "image": "",
+              "icon": ""
+            },
+            {
+              "id": "entry-119c15f79ce55d706bdbeb8f",
+              "label": "How we’re training a Figma-fluent editing model",
+              "value": {
+                "type": "instant",
+                "value": "2026-10-29T21:00:00Z",
+                "timeZone": "UTC"
+              },
+              "detail": "We’ve increasingly seen that specialized post-training can compete with frontier models. Here, we’re sharing the research behind how we’re translating that to design editing workflows.",
+              "url": "https://www.figma.com/blog/training-a-figma-fluent-editing-model/",
+              "image": "",
+              "icon": ""
+            },
+            {
+              "id": "entry-7d60896960dcadc816fd21da",
+              "label": "Making something human: 4 things we took away from Config India",
+              "value": {
+                "type": "instant",
+                "value": "2026-10-29T20:00:00Z",
+                "timeZone": "UTC"
+              },
+              "detail": "AI can help us create almost anything now. But from icons and NFTs to art installations and fashion design, it's still up to the maker to deliver something that resonates.",
+              "url": "https://www.figma.com/blog/making-something-human-4-things-we-took-away-from-config-india/",
+              "image": "",
+              "icon": ""
+            },
+            {
+              "id": "entry-53df9c8f7ddf84046be76f7e",
+              "label": "Source material: \"BRAT\" Art Director Brent David Freaney finds design inspirati…",
+              "value": {
+                "type": "instant",
+                "value": "2026-10-28T13:00:00Z",
+                "timeZone": "UTC"
+              },
+              "detail": "The designer takes us through his world of color theory, photography, graphic systems, and found ephemeral.",
+              "url": "https://www.figma.com/blog/source-material-brent-david-freaney/",
+              "image": "",
+              "icon": ""
+            },
+            {
+              "id": "entry-718f749ed7ff6f24c05af56b",
+              "label": "6 ways teams are experimenting with code layers",
+              "value": {
+                "type": "instant",
+                "value": "2026-10-23T22:43:00Z",
+                "timeZone": "UTC"
+              },
+              "detail": "Now that code layers is in open beta, you can bring code to the canvas. Here’s how six teams are using it to experiment, get stakeholders aligned, and move faster.",
+              "url": "https://www.figma.com/blog/6-ways-teams-are-experimenting-with-code-layers/",
+              "image": "",
+              "icon": ""
+            },
+            {
+              "id": "entry-d35d1017ff332d8cc9917177",
+              "label": "How to put your design system to work with the Figma agent",
+              "value": {
+                "type": "instant",
+                "value": "2026-10-23T02:27:00Z",
+                "timeZone": "UTC"
+              },
+              "detail": "Your design system can help the Figma agent understand the principles and guidelines that define your product. Here’s how to make that context useful to the agent.",
+              "url": "https://www.figma.com/blog/how-to-put-your-design-system-to-work-with-the-figma-agent/",
+              "image": "",
+              "icon": ""
+            },
+            {
+              "id": "entry-9031dd551a7eafb19747d951",
+              "label": "How Lufthansa Systems prototypes realistic maps for the cockpit with Figma Make",
+              "value": {
+                "type": "instant",
+                "value": "2026-10-22T14:50:00Z",
+                "timeZone": "UTC"
+              },
+              "detail": "Pilots depend on in-flight software to navigate routes, see air traffic, avoid turbulence, and more. To bring more dynamic prototypes to user testing, Lufthansa Systems turned to Figma Make.",
+              "url": "https://www.figma.com/blog/lufthansa-figma-make/",
+              "image": "",
+              "icon": ""
+            },
+            {
+              "id": "entry-fa60c9593efece6c332d181e",
+              "label": "Source material: Designer Ben Ganz on pushing the limits of what we can do",
+              "value": {
+                "type": "instant",
+                "value": "2026-10-20T19:18:00Z",
+                "timeZone": "UTC"
+              },
+              "detail": "From experimental typography and print artifacts to architecture, furniture, and fashion, PIN-UP Magazine’s creative director explores how materials, systems, and unexpected connections can shape new…",
+              "url": "https://www.figma.com/blog/source-material-ben-ganz/",
+              "image": "",
+              "icon": ""
+            },
+            {
+              "id": "entry-a3f7bd0762775bbe62ee034b",
+              "label": "Figma deepens investment in India with largest international Config yet",
+              "value": {
+                "type": "instant",
+                "value": "2026-10-15T04:55:00Z",
+                "timeZone": "UTC"
+              },
+              "detail": "Building off the Config momentum in India, Figma is launching an education program, new research, and an MCP partnership with Sarvam.",
+              "url": "https://www.figma.com/blog/figma-deepens-investment-in-india/",
+              "image": "",
+              "icon": ""
+            },
+            {
+              "id": "entry-e8e487dda131d6c59923fda5",
+              "label": "Build by design: New workflows for new ways of building",
+              "value": {
+                "type": "instant",
+                "value": "2026-10-15T04:53:00Z",
+                "timeZone": "UTC"
+              },
+              "detail": "Here’s a look at everything we launched today to bring teams and agents, and the design, code, and context they work with, into Figma’s full-stack creative canvas.",
+              "url": "https://www.figma.com/blog/build-by-design/",
+              "image": "",
+              "icon": ""
+            },
+            {
+              "id": "entry-0c6286e4c6baaf985340ab33",
+              "label": "Design together with code layers on the canvas",
+              "value": {
+                "type": "instant",
+                "value": "2026-10-15T04:52:00Z",
+                "timeZone": "UTC"
+              },
+              "detail": "Today, code layers moves into open beta. Now teams can explore and build prototypes backed by code on the canvas.",
+              "url": "https://www.figma.com/blog/design-together-with-code-layers/",
+              "image": "",
+              "icon": ""
+            },
+            {
+              "id": "entry-c0ca492bd0f29b00725ea47f",
+              "label": "Introducing Specs: Markdown as a medium",
+              "value": {
+                "type": "instant",
+                "value": "2026-10-15T04:51:00Z",
+                "timeZone": "UTC"
+              },
+              "detail": "We’re launching Specs, a container for your context that lives on the Figma canvas.",
+              "url": "https://www.figma.com/blog/introducing-figma-specs/",
+              "image": "",
+              "icon": ""
+            },
+            {
+              "id": "entry-10dc79139148cfa747467528",
+              "label": "Create, ship, and manage data-backed websites with Payload in Figma",
+              "value": {
+                "type": "instant",
+                "value": "2026-10-15T04:50:00Z",
+                "timeZone": "UTC"
+              },
+              "detail": "With Payload in Figma, teams can go from prototype to production together, managing their content and data all in one place.",
+              "url": "https://www.figma.com/blog/websites-with-payload-in-figma/",
+              "image": "",
+              "icon": ""
+            },
+            {
+              "id": "entry-ebf43b92899a9438b2010271",
+              "label": "Source material: Creative director Manon Macasaet’s spirituality shapes her pro…",
+              "value": {
+                "type": "instant",
+                "value": "2026-10-13T14:35:00Z",
+                "timeZone": "UTC"
+              },
+              "detail": "The creative behind Poison Candy Apple is inspired by Harajuku fashion, early internet Tumblr, old rave graphics, and kidrobots.",
+              "url": "https://www.figma.com/blog/source-material-manon-macasaet/",
+              "image": "",
+              "icon": ""
+            },
+            {
+              "id": "entry-e49c1724b343e1650d17393e",
+              "label": "4 team rituals that drive AI adoption",
+              "value": {
+                "type": "instant",
+                "value": "2026-10-10T02:12:00Z",
+                "timeZone": "UTC"
+              },
+              "detail": "Elevating AI’s impact from individual productivity gains to team-wide wins requires meeting people where they are. Here’s how teams at Figma, Sephora, Mercari, and Atlassian are making it easier for …",
+              "url": "https://www.figma.com/blog/4-team-rituals-that-drive-ai-adoption/",
+              "image": "",
+              "icon": ""
+            },
+            {
+              "id": "entry-2d2ae1e1222ac53a1d3a5da6",
+              "label": "Sightlines issue no.3: Raise the bar for how teams use AI",
+              "value": {
+                "type": "instant",
+                "value": "2026-10-09T14:05:00Z",
+                "timeZone": "UTC"
+              },
+              "detail": "How do you drive AI adoption and make better decisions about what to build?",
+              "url": "https://www.figma.com/blog/sightlines-issue-no3/",
+              "image": "",
+              "icon": ""
+            },
+            {
+              "id": "entry-4218d4f5934b6751c2a27c76",
+              "label": "3 ways product designers use the Figma agent for craft, speed, and creative exp…",
+              "value": {
+                "type": "instant",
+                "value": "2026-10-06T14:00:00Z",
+                "timeZone": "UTC"
+              },
+              "detail": "Here’s how teams at Uber, Granola, and Atlassian support high-quality, fast-moving work with the Figma agent, now generally available.",
+              "url": "https://www.figma.com/blog/3-ways-product-designers-use-the-figma-agent/",
+              "image": "",
+              "icon": ""
+            },
+            {
+              "id": "entry-919ae1a2625ee70a3fcab309",
+              "label": "Workflow lab: Staying in the flow with Figma’s agent",
+              "value": {
+                "type": "instant",
+                "value": "2026-10-06T14:00:00Z",
+                "timeZone": "UTC"
+              },
+              "detail": "Knowing what work to hand to an agent is a skill of its own. This workflow shows how a designer shapes a new temporary-access feature while the Figma agent handles the library updates, crit feedback,…",
+              "url": "https://www.figma.com/blog/workflow-lab-staying-in-the-flow-with-the-figma-agent/",
+              "image": "",
+              "icon": ""
+            },
+            {
+              "id": "entry-7533eaa399eb1f1bcc669402",
+              "label": "How to lighten design system upkeep with the Figma agent",
+              "value": {
+                "type": "instant",
+                "value": "2026-10-06T14:00:00Z",
+                "timeZone": "UTC"
+              },
+              "detail": "Figma’s agent can take on repetitive work across your design system, from maintaining your library to automating how designs adhere to it. Here, we share a few ways to put the Figma agent to work.",
+              "url": "https://www.figma.com/blog/figma-agent-and-design-systems/",
+              "image": "",
+              "icon": ""
+            },
+            {
+              "id": "entry-c6fc564a4e463caaafc391f2",
+              "label": "Workflow lab: From design system to campaign in Figma Weave",
+              "value": {
+                "type": "instant",
+                "value": "2026-10-01T16:48:00Z",
+                "timeZone": "UTC"
+              },
+              "detail": "Design systems can power more than just designs. This workflow shows you how to turn raw materials into brand campaign collateral using the Gen Effect and Figma nodes.",
+              "url": "https://www.figma.com/blog/workflow-lab-from-design-system-to-campaign-in-figma-weave/",
+              "image": "",
+              "icon": ""
+            }
+          ],
+          "config": {}
+        }
+      ],
+      "coverageComplete": false,
+      "coverage": "published-feed-window",
+      "entryCount": 769,
+      "nextEligibleAt": 1793605454455,
+      "readAttempts": 1
+    }
+  },
+  "cameraExport": {
+    "source": "emulator back camera (emulated; not portrait acceptance)",
+    "uid": 10150,
+    "warmAssetId": 18,
+    "monoAssetId": 19,
+    "exports": {
+      "warm": {
+        "width": 910,
+        "height": 1213,
+        "maxChannelSpread": 252
+      },
+      "mono": {
+        "width": 910,
+        "height": 1213,
+        "maxChannelSpread": 0
+      }
+    },
+    "savedReceiptVisible": true,
+    "temporaryMediaRowsRemoved": true
+  },
+  "checks": {
+    "typecheck": "passed",
+    "lint": "passed",
+    "existingTests": {
+      "passed": 116,
+      "failed": 0
+    },
+    "androidReleaseBuild": "passed",
+    "endToEndFirstFrameMs": null,
+    "stableHostLoadBenchmark": false
+  }
+}

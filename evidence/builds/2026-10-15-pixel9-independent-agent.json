@@ -1,0 +1,112 @@
+{
+  "schema": "taku.pixel9-independent-agent/1",
+  "checkedAt": "2026-10-15",
+  "device": {
+    "serial": "46170DLAQ0006D",
+    "product": "tokay",
+    "model": "Pixel 9",
+    "android": "16"
+  },
+  "assistantVersionCode": 43,
+  "assistantSha256": "4301b10fae38467f45250be023f3510efc65f96bb19f1c5f13ea4a8cc3f5ec18",
+  "brokerSha256": "4ebd0a2a621af3528ea07ae09158102fcdc1e4030ea7ac1aaba214c89fc98b41",
+  "client": {
+    "package": "com.follow.clash",
+    "version": "0.9.0",
+    "originalSignaturePreserved": true,
+    "systemUidGranted": false,
+    "apkSha256": "ed06fb1ccf73156dbea07cf906b0ab2f2bececca29a510b288a5621868ff2bcf"
+  },
+  "network": {
+    "agentProxy": "http://127.0.0.1:7890",
+    "desktopProxyUsed": false,
+    "adbReverseUsed": false,
+    "alwaysOnVpn": "com.follow.clash",
+    "vpnLockdown": false,
+    "batteryWhitelist": true,
+    "wifiAutoReconnectColdBootVerified": true,
+    "vpnColdBootVerified": true,
+    "connectivityCheckHttp": "http://connectivitycheck.platform.hicloud.com/generate_204",
+    "connectivityCheckHttps": "https://connectivitycheck.platform.hicloud.com/generate_204",
+    "priorConnectivityCheckSettingsWereUnset": true,
+    "subscriptionRefreshHttp": 403,
+    "usableLocalProfileVerified": true,
+    "readySimDetected": false,
+    "mobileDataOrTravelHotspotTested": false
+  },
+  "homeHi": {
+    "homeOpensDrawer": true,
+    "realModelReply": true,
+    "sameConversationFollowup": true,
+    "first": {
+      "threadId": "01a13b7c-1f86-7421-99ab-b6a889dfee88",
+      "turnId": "01a13b7c-2851-7093-b9cb-9db63a0e22c3",
+      "runtime": "codex-0.161.0",
+      "model": "gpt-6.1-sol",
+      "turnStarted": true,
+      "screenshotAttached": false,
+      "taskId": "1791999352838",
+      "reply": "嗨，我是 Taku！有什么我可以帮你？"
+    },
+    "second": {
+      "threadId": "01a13b7c-1f86-7421-99ab-b6a889dfee88",
+      "turnId": "01a13b7c-4ac7-7d21-af3b-eeb921bc1433",
+      "runtime": "codex-0.161.0",
+      "model": "gpt-6.1-sol",
+      "turnStarted": true,
+      "screenshotAttached": false,
+      "taskId": "1791999362652",
+      "reply": "Hi"
+    }
+  },
+  "afterRebootHi": {
+    "homeOpensDrawer": true,
+    "realModelReply": true,
+    "sameConversationFollowup": true,
+    "first": {
+      "threadId": "01a13b7c-1f86-7421-99ab-b6a889dfee88",
+      "turnId": "01a13b88-cbf9-7d20-afc1-196a1f6fc69b",
+      "runtime": "codex-0.161.0",
+      "model": "gpt-6.1-sol",
+      "turnStarted": true,
+      "screenshotAttached": false,
+      "taskId": "1792000182040",
+      "reply": "嗨！有什么我可以帮你？"
+    },
+    "second": {
+      "threadId": "01a13b7c-1f86-7421-99ab-b6a889dfee88",
+      "turnId": "01a13b88-e64b-74e0-a436-551a1338ef22",
+      "runtime": "codex-0.161.0",
+      "model": "gpt-6.1-sol",
+      "turnStarted": true,
+      "screenshotAttached": false,
+      "taskId": "1792000188732",
+      "reply": "Hi"
+    }
+  },
+  "readOnlySystemTools": {
+    "nativeThreadId": "01a13b8d-9048-7212-ba3e-6a452362ef16",
+    "nativeTurnId": "01a13b8d-c333-7992-97e6-35864bdc9eb4",
+    "model": "gpt-6.1-sol",
+    "realModelReplyVerified": true,
+    "realAndroidReadOnlyToolVerified": true,
+    "nativeCommandCount": 2,
+    "androidVersion": "16",
+    "deviceModel": "Pixel 9",
+    "credentialsExported": false,
+    "physicalDeviceVerified": true
+  },
+  "powerKey": {
+    "durationMillis": 1100,
+    "systemVoiceSessionVerified": true,
+    "edgeAnimationPreserved": true,
+    "bindingColdBootVerified": true
+  },
+  "sourceIntegration": {
+    "personalImagePreinstallOption": true,
+    "completeRomRebuiltOrFlashed": false,
+    "signedOtaChannelDeployed": false
+  },
+  "secretsExported": false,
+  "assistantSha256Source": "installed base.apk"
+}

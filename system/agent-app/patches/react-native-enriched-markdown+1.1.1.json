@@ -1,0 +1,21 @@
+{
+  "package": "react-native-enriched-markdown",
+  "version": "1.1.1",
+  "files": [
+    {
+      "path": "android/src/main/java/com/swmansion/enriched/markdown/segments/CodeBlockContainerView.kt",
+      "before": "8342f1fbc629861c28fc6e86b53b9a603bfbcc4562e6af0b496378110de049ba",
+      "after": "c9f5e4d82dd6dce50353bd5299351fd38c875814397539ba4aa8328addeef23c"
+    },
+    {
+      "path": "android/src/main/java/com/swmansion/enriched/markdown/segments/HorizontalOverflowIndicator.kt",
+      "before": null,
+      "after": "e354cc72df7293366978e223a0b94d6b9f05d42e8f3b20222bfc28eba53d6493"
+    },
+    {
+      "path": "android/src/main/java/com/swmansion/enriched/markdown/segments/TableContainerView.kt",
+      "before": "9fb2c6a861fb77ecf11429df19241acd2bdc0b2fda346b24427a703122cae755",
+      "after": "64d39def5e81c86f0f1d3b5f5df8911c736ab4f5d800e3e3ad49b52b4dd99d9e"
+    }
+  ]
+}

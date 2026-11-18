@@ -1,0 +1,91 @@
+{
+  "status": "physical_verified",
+  "completedAt": "2026-10-23",
+  "device": {
+    "model": "Pixel 9",
+    "serial": "46170DLAQ0006D",
+    "android": "17",
+    "sdk": 37,
+    "selinux": "Enforcing"
+  },
+  "versions": {
+    "assistant": 62,
+    "ime": "0.3.0",
+    "memory": "0.6.0"
+  },
+  "defaults": {
+    "textModel": "codex/gpt-6-luna",
+    "imageModel": "codex/gpt-6-luna",
+    "imeFollowsSystem": true,
+    "memoryFollowsSystem": true
+  },
+  "deployment": {
+    "serial": "46170DLAQ0006D",
+    "deployment": "temporary development bind mounts plus APK updates",
+    "rebootPersistentRuntime": false,
+    "selinux": "Enforcing",
+    "apps": {
+      "org.agentos.assistant": {
+        "sha256": "9d9e32abe9373904bb4fde8beeb4c5e5610a9b7f66246af37a01e3be2b9a0fb6"
+      },
+      "org.agentos.inputmethod": {
+        "sha256": "4d90d5ab7ee234ff0dbb2c974fba34ce841b71ea05f0e87ea8bf0743388f05ee"
+      },
+      "org.agentos.memory": {
+        "sha256": "5dcdc901618f8238e2db52ec74b42060659163e817e961a33a6045615e99e06e"
+      },
+      "org.agentos.memorytests": {
+        "sha256": "a8b2d68e0b889974a678d3b1250fc18500e9c390faedab84b44c77381565c57d"
+      },
+      "org.agentos.inputmethod.probe": {
+        "sha256": "d8930760b86fa3cd1f4f9cc10134c049dd22d0fbcc3e47a526cc300bcb095500"
+      }
+    },
+    "rootGatewayPositiveControl": true,
+    "modelCount": 7,
+    "brokerSha256": "9b67300b41a99ffdbe75ba476bf4f27cb351337424afbd791324b45a1d74228b",
+    "wrapperSha256": "d03b56821f382967bfbe3aaa165f7fd95dc59ae9fe18fe6100401b60c186f788",
+    "gatewayRules": [
+      "-N taku_ai",
+      "-A taku_ai -m owner --uid-owner 0 -j RETURN",
+      "-A taku_ai -m owner --uid-owner 1000 -j RETURN",
+      "-A taku_ai -p tcp -j REJECT --reject-with tcp-reset"
+    ]
+  },
+  "acceptance": {
+    "systemUiChecks": 9,
+    "imeChecks": 7,
+    "realSharedClientChecks": 3,
+    "isolatedDeviceChecks": 205,
+    "systemPolicyHostChecks": 30,
+    "memoryModelMs": 3557,
+    "imeModelMs": 4176,
+    "imeAfterBrokerRestartMs": 4491,
+    "modelResponsesSimulated": false,
+    "sourcePagesSynthetic": true,
+    "memoryObservationInjected": false,
+    "configurationSurvivesBrokerRestart": true,
+    "collectionPolicyRestored": true,
+    "temporaryTestAppsRemoved": true,
+    "repositoryVerifyPassed": true
+  },
+  "secrets": {
+    "newCredentialImportInThisChange": false,
+    "account": "existing phone-private ChatGPT Pro cache",
+    "credentialsInArtifacts": false
+  },
+  "limits": [
+    "Runtime bind mounts disappear on whole-device reboot; reload development deployment or ship in a ROM update.",
+    "No whole-device reboot, image flash, or OTA validation was performed.",
+    "No live Jev decision model was configured; legacy compatibility is covered by host regression and the global gate was checked on device."
+  ],
+  "report": "docs/reviews/system-ai-2026-10-23/README.md",
+  "screenshots": {
+    "01-android-settings.png": "1751e3e9d8d6d4609d95502e01368e5e90f1eb8242c092444a1b7721d9075f84",
+    "02-system-ai.png": "982f0591416cc3b9777deee354fc30faafcfc0e7fcca4bb31f7b8f84301070b1",
+    "03-ime-follows-system.png": "5e771dbc022aedaa95ac95a9897691965901c5c56f2083f874591e526ac4c12d",
+    "04-memory-follows-system.png": "4ed8bd46c27e70b9d32470aabfa0ca475927b657c83c8d1f892854887e813d5b",
+    "05-keyboard-real-replies.png": "5dd80388d34dea58be28df0d7d1d1c2eedde3ef3864a3b18e1ef24fa8222ed63",
+    "06-memory-real-result.png": "947c458d86869309c632e0a5ce37e6ee34666c55273212b39c7aaf8f45636fa8"
+  }
+}

@@ -1,0 +1,104 @@
+{
+  "component": "Taku 记忆 0.8.0（versionCode 10）+ agentos-task-broker（同一提交），助手 v73",
+  "status": "emulator_verified",
+  "recordedAt": "2026-10-29 北京时间",
+  "device": {
+    "avd": "TakuRecall",
+    "serial": "emulator-5634",
+    "android": "16",
+    "api": 36,
+    "abi": "arm64-v8a",
+    "build": "sdk_phone64_arm64 userdebug test-keys",
+    "selinux": "Enforcing"
+  },
+  "artifacts": {
+    "TakuMemory-0.8.0-release.apk": "e35b38829aa0b82561885fad5400383d324816a5a07a98cf4bb931a6211aac33",
+    "TakuMemory-0.8.0-debug-nomodel.apk": "60d95764793bf152e689009479baf718eed16d7b284f648f793b003b1a731d04",
+    "TakuMemoryTests-0.8.0.apk": "81cd7603392c2f95767048e3969180be0a61dede24605a36daeee317b74161c5",
+    "agentos-task-broker-0.8.0.jar": "26ba002d0cebf552bd1796834149799b58a5c4b85b62b78d91a778b1bc29e75b"
+  },
+  "dependencies": {
+    "onnxruntime-android-1.29.0.aar": "e97540ca78fe36f6fe2013f82843414fb843b6c7681fb04644cba5e1406662dd",
+    "Xenova/bge-small-zh-v1.5@75c43b0 onnx/model_quantized.onnx": "15b717c382bcb518ba457b93ea6850ede7f4f1cd8937454aa06972366cd19bcc",
+    "Xenova/bge-small-zh-v1.5@75c43b0 tokenizer.json": "48cea5d44424912a6fd1ea647bf4fe50b55ab8b1e5879c3275f80e339e8fae26"
+  },
+  "componentTests": {
+    "StoreTests": 114,
+    "QueueTests": 69,
+    "ResultTests": 8,
+    "PresentationTests": 36,
+    "GatewayBoundaryTests": 2,
+    "SystemAiTests": 24,
+    "failures": 0
+  },
+  "releaseCleanInstall": {
+    "apkBytes": 36554088,
+    "modelExtractedBytes": 24010842,
+    "debugHooksRejected": true,
+    "organizeTokens": {
+      "recommended": 35689,
+      "followTakuAi": 36979,
+      "previous070": 79114
+    },
+    "followTakuAiModels": "gpt-6-luna",
+    "privacyHeld": true,
+    "deleteRecord": {
+      "graphNodes": "7 -> 5",
+      "rebuiltSeconds": 38,
+      "deletedFactOnCard": false,
+      "revokedAtExposedToBroker": true
+    },
+    "correctRecordCardUpdated": true,
+    "takuAiMemoryOffRefused": true,
+    "oldOrganizerSessionsDeleted": {
+      "archived": 207,
+      "unarchivedLeft": 1
+    }
+  },
+  "quantization": {
+    "docs": 1537,
+    "queries": 72,
+    "model_quantized": {
+      "docCosineMean": 0.99,
+      "docCosineMin": 0.984,
+      "top1Agree": 0.917,
+      "top10Overlap": 0.885,
+      "fp32Top5InTop10": 0.992,
+      "relativeEncodeTime": 0.4
+    },
+    "model_int8": {
+      "docCosineMean": 0.967,
+      "top1Agree": 0.722,
+      "top10Overlap": 0.812,
+      "fp32Top5InTop10": 0.978
+    },
+    "deviceReembedSeconds": 30
+  },
+  "agentRegression22Days": {
+    "build": "debug (TAKU_DEBUG_HOOKS=1), derived data from the 0.5 organizer, assistant v73",
+    "crossTopic": "10/11, 9/11 (two runs)",
+    "association": "11/11",
+    "triggerMessages": "5/7",
+    "bedtimeReview": "21/25",
+    "previous05RegradedSameRubric": {
+      "crossTopic": "6/11, 8/11",
+      "association": "11/11",
+      "triggerMessages": "5/7",
+      "bedtimeReview": "21/25"
+    }
+  },
+  "notCovered": [
+    "final Broker's sweep of unarchived organizer sessions on the device (verified on local Codex 0.161.0 only)",
+    "same-version physical device",
+    "full ROM",
+    "cold boot",
+    "long-term battery",
+    "real users"
+  ],
+  "afterMergingMain": {
+    "main": "8319d1a",
+    "memoryApkUnchanged": true,
+    "agentos-task-broker-0.8.0 (merged).jar": "c2d64bd4908d115d61f0f092006395a0136ec9699d9bc33eecd25b5f3d1cdee5",
+    "deviceCheck": "broker starts, organizeModels responds, H-xiaoyu: conflict plus tomorrow's birthday reminder"
+  }
+}

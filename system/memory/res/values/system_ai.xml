@@ -1,0 +1,4 @@
+<resources>
+ <string name="system_ai">Taku AI settings</string><string name="system_ai_summary">Shared account, default models and app permissions</string>
+ <string name="follow_system_model">Follow system · %1$s</string>
+</resources>

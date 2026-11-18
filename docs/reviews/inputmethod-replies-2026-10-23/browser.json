@@ -1,0 +1,52 @@
+{
+  "phase": "browser",
+  "passed": true,
+  "checks": [
+    "Jelly WebView commits real Chinese candidate",
+    "Jelly WebView Chinese English digits and punctuation stay in one draft",
+    "Jelly WebView selected text is replaced by an actual Chinese candidate",
+    "Jelly landscape recreates keyboard and continues Chinese input",
+    "Jelly password input works while AI is excluded",
+    "Jelly numeric field uses numeric keyboard and excludes chat-reply AI",
+    "real browser page screenshot reaches live model and native reply strip",
+    "one ordinary tap inserts the exact AI reply directly without confirmation or preview"
+  ],
+  "modelResponsesSimulated": false,
+  "browserPageSynthetic": true,
+  "messagesSent": false,
+  "protectedEditorCountersUnchanged": true,
+  "browserReply": {
+    "version": 1,
+    "candidates": [
+      {
+        "text": "我可以，先把人数定下来吧。"
+      },
+      {
+        "text": "今晚不太方便，你们先约。"
+      },
+      {
+        "text": "我还不确定，定好时间和餐厅再告诉我吧。"
+      }
+    ],
+    "receipt": {
+      "model": "codex/gpt-6-luna",
+      "inputMode": "image",
+      "imageSha256": "507c7ca82f6cf0b7fb0e39db355c891ed3f8a6be708672cc9a885dda6bf93be8",
+      "imageWidth": 855,
+      "imageHeight": 1024,
+      "elapsedMs": 4460,
+      "captureTop": 173,
+      "captureMs": 1039,
+      "modelMs": 3420,
+      "cacheHit": false,
+      "deduplicated": false,
+      "reuseAgeMs": 0
+    }
+  },
+  "browserFinalState": {
+    "compose": "",
+    "number": "",
+    "passwordLength": 0,
+    "active": "compose"
+  }
+}

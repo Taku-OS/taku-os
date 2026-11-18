@@ -1,0 +1,13 @@
+<!-- Taku icon "annotate" (ui). Tint from the view. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:strokeColor="#FF000000"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M1.301 7.077c0.757-2.628 3.405-4.421 5.381-3.884C8.658 3.73 8.824 6.403 5.64 9.551c-3.385 3.345-1.489 8.037 2.836 4.388 4.324-3.649 3.6-8.101 7.87-6.591 4.271 1.511 2.238 15.156-3.156 13.358-5.592-1.864 3.422-12.122 9.396-4.524"/>
+</vector>

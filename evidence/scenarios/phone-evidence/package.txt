@@ -1,0 +1,4 @@
+ 'classes.dex'...
+device_apk_pack_ms=770
+Success
+Starting: Intent { cmp=org.agentos.scenarioscore/org.agentos.generated.MainActivity }

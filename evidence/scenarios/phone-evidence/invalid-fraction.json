@@ -1,0 +1,18 @@
+{
+  "ok": false,
+  "error": {
+    "code": "INVALID_PARAMS",
+    "message": "Arguments do not match method schema",
+    "details": [
+      {
+        "keyword": "type",
+        "dataPath": "/delta",
+        "schemaPath": "#/properties/delta/type",
+        "params": {
+          "type": "integer"
+        },
+        "message": "should be integer"
+      }
+    ]
+  }
+}

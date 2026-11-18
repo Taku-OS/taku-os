@@ -1,0 +1,5 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="org.agentos.surfacestests" android:versionCode="1" android:versionName="0.2.0">
+    <uses-sdk android:minSdkVersion="36" android:targetSdkVersion="36"/>
+    <application android:label="Taku 展示协议测试" android:allowBackup="false"/>
+    <instrumentation android:name=".SurfaceApiTest" android:targetPackage="org.agentos.surfaces"/>
+</manifest>

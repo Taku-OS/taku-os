@@ -1,0 +1,7 @@
+// Standalone compile-time client; does not require installing the surfaces service.
+java_library {
+    name: "taku-surfaces-client",
+    srcs: [":taku-surfaces-contract-sources", ":taku-surfaces-wire-sources", "**/*.java"],
+    sdk_version: "current",
+    installable: false,
+}

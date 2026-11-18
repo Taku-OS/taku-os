@@ -1,0 +1,103 @@
+{
+  "reviewedCommit": "489e01a6acbe98e8742da0de1b34a5dc4c96916b",
+  "device": "emulator-5590 / Taku_Lineage_Island_20261115",
+  "checks": {
+    "rootVerify": "passed",
+    "agentLintTypecheck": "passed",
+    "agentTests": 377,
+    "homeUnitTests": 143,
+    "cleanCheckoutVerify": "passed (no local prebuilts or model downloads)"
+  },
+  "apks": {
+    "Agent": "a7fdcfc96fc4d4d84bef28470e10428f6ec68c499fc535408a99ad3e37630750",
+    "SystemUI": "ccfe98e2cb62ba5342f7a277310259b78831ce6a03dc3aabe83821c2087aafd7",
+    "Quickstep": "22e60b2f0d4f52363e0af6fa30497ca6a63549024716fe770a9d8e3edc593e82",
+    "Assistant": "f00cd7a733db5a49bd34affc977d90f3a198ab64c4687abd64a77bdc8516e646",
+    "Audio": "3fa4949bc873035e58ee52c02254248e4fc75408cd45a1e8aeac09a08d5f9ec3",
+    "Clock": "270a20d1eb51f320415547702d8f30af9c2f72b6b7d2c36c8e9a06e39f5f77c2",
+    "Weather": "bf46b7f7eb4a869b68b24b74bc1d58f0b0712090d738169efc9335dc31f59b2b"
+  },
+  "VoiceSessionProbe": {
+    "passed": true,
+    "cases": [
+      "release after activation latches while capture is preparing",
+      "Live Talk pause follows user intent through finalization",
+      "release during automatic finalization still chooses Submit",
+      "Text receives the complete tail once and preserves edits made while waiting",
+      "successful recognition before release waits for Keep talking and Text",
+      "cancel revokes an in-flight result and cannot affect the next recording",
+      "failed recognition ends the gesture and retains the reason without sending partial text",
+      "system release before overlay activation never begins a recording"
+    ]
+  },
+  "ReviewRegressionProbe": {
+    "passed": true,
+    "cases": [
+      "installed Agent manifest denies public and LAN cleartext traffic",
+      "interrupted placement: finish/resume/list/cancel preserve one live binding",
+      "cross-page widget drag and cancellation retain the source HostView and layout",
+      "cross-app voice keeps its listening page through finalization/error and exits on explicit dismissal",
+      "text reopen and invalid overlay intents preserve capture/finalization through GUI and provider"
+    ],
+    "failure": null
+  },
+  "microphone": {
+    "source": "host microphone with synthetic test audio",
+    "asr": "configured fal cloud profile",
+    "automaticSubmit": true,
+    "realAgentReply": "语音测试成功",
+    "nativeCardMatchesReply": true,
+    "peak": 0.319420725107193
+  },
+  "focus": {
+    "legacyAndNativeWindowFocus": "passed",
+    "editorRemainsFocused": "passed",
+    "syntheticKeyInput": "inconclusive: adb input also failed with no card in baseline"
+  },
+  "limits": [
+    "No current-HEAD full ROM or physical Pixel build/acceptance",
+    "IME height cap source-verified; input typing baseline is inconclusive"
+  ],
+  "NativeIslandProbe": {
+    "passed": true,
+    "listeningHeight": 252,
+    "noCannedOptions": true,
+    "nativeFromFirstCard": true,
+    "newInteractionReopensDismissedCard": true,
+    "replyAndPaddingSwipeDismiss": true,
+    "dismissPreservesTurn": true,
+    "swipeNotifiesAgentObserver": true,
+    "chipsKeepHorizontalScroll": true,
+    "chipsSwipeUpDismiss": true,
+    "longReplyRemainsScrollable": true,
+    "headerSwipeDismiss": true,
+    "hiddenAssistantDoesNotMaskProgress": true,
+    "explicitAssistantExpansionPreserved": true,
+    "realGestureReopensRetainedExpandedReply": true,
+    "landscapeClosesNonCompactCard": true,
+    "portraitExplicitExpandRestoresCard": true,
+    "actualReplyProjection": true,
+    "dynamicOptionsAppearAndDisappear": true
+  },
+  "systemUIBuild": {
+    "target": "lineage_taku_emu_arm64-cp2a-userdebug",
+    "module": "SystemUI",
+    "duration": "08:37",
+    "patchSha256": "bd7029bd247ef0fc9b4637f6fa2d82748246c9d7370ba4e501611967eb971c6e"
+  },
+  "RecentsReviewProbe": {
+    "passed": true,
+    "guiCardLaunch": true,
+    "showIsIdempotent": true,
+    "agentOpensSameTask": true,
+    "landscapeOverview": true,
+    "invalidTaskRejected": true,
+    "removesOnlyFixtureTask": true
+  },
+  "quickstepBuild": {
+    "module": "Launcher3QuickStep",
+    "duration": "05:36",
+    "patchSha256": "e070ee4cc07105bca54107bb868b39933b1215c4c8a491b689c3f4741afce747"
+  },
+  "installedApkHashesMatch": true
+}

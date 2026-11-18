@@ -1,0 +1,101 @@
+{
+  "schema": "taku.pixel9-install/1",
+  "assessedOn": "2026-10-14",
+  "timezone": "Asia/Shanghai",
+  "target": "tokay",
+  "candidate": "out/pixel9/device-install-2026-10-14/taku-tokay-20261011-preserve-firmware.zip",
+  "candidateSha256": "df774044ee7ca69ad6b8ac5e8a927ed4cfb2fc6b03085fad28da646c80a1318d",
+  "candidateBytes": 1635406690,
+  "sourceBuild": "LineageOS 23.2 / Android 16 / 2026-10-11",
+  "sourceSigning": "public development test keys",
+  "partialPayload": true,
+  "payloadPartitions": [
+    "boot",
+    "dtbo",
+    "init_boot",
+    "product",
+    "system",
+    "system_dlkm",
+    "system_ext",
+    "vbmeta",
+    "vbmeta_system",
+    "vbmeta_vendor",
+    "vendor",
+    "vendor_boot",
+    "vendor_dlkm",
+    "vendor_kernel_boot"
+  ],
+  "packageContainsOldBootloaderOrModemPayloadUpdates": false,
+  "bootVersion": "1791682148",
+  "bootVersionSource": "original target-files BOOT/RAMDISK/system/etc/ramdisk/build.prop",
+  "compressedPartitionDataUnchangedDuringMetadataFix": true,
+  "phonePackageSha256MatchedBeforeInstallation": true,
+  "userdataFormatVerified": true,
+  "recoveryRootVerified": true,
+  "recoveryRootEvidence": "uid=0(root), context=u:r:su:s0",
+  "installResult": {
+    "filesystemVerification": "ErrorCode::kSuccess",
+    "postinstall": "ErrorCode::kSuccess",
+    "updaterMessage": "Update successfully applied, waiting to reboot.",
+    "lastConfirmedActiveSlot": "a",
+    "lastConfirmedSlotAUnbootable": false,
+    "bootloaderBeforeAndAfter": "ripcurrentpro-16.4-14791556",
+    "basebandBeforeAndAfter": "g5400c-251201-260127-B-14784805",
+    "bootloaderStillUnlocked": true
+  },
+  "normalBoot": {
+    "androidFrameworkCompletedBoot": true,
+    "frameworkBootEvidence": "Live adb shell getprop sys.boot_completed returned 1",
+    "phoneProduct": "Google Pixel 9 / tokay",
+    "ordinaryAdbShellAvailable": true,
+    "ordinaryAdbError": null,
+    "restrictedTradeInDiagnosticsAvailable": null,
+    "sourceSystemBuildPropDebuggable": "0",
+    "sourceBuildType": "userdebug",
+    "sourceBuildTags": "test-keys",
+    "normalAndroidRootVerified": true,
+    "runningImageIdentityConfirmed": true,
+    "uiVerificationPending": false,
+    "coldPowerCycleVerified": false,
+    "homeActivity": "org.agentos.assistant/.CodexHomeActivity",
+    "lineageVersion": "23.2-20261011-UNOFFICIAL-tokay",
+    "androidRelease": "16",
+    "androidSdk": "36",
+    "activeSlot": "_a",
+    "takuImageChannel": "development",
+    "adbShellUid": 0,
+    "rootVerificationScope": "adb root succeeded and shell id returned uid=0; Taku background services also run as root",
+    "rootProcesses": [
+      {
+        "pid": 4857,
+        "uid": "root",
+        "class": "org.agentos.lab.ResolverBridge"
+      },
+      {
+        "pid": 4858,
+        "uid": "root",
+        "class": "org.agentos.lab.VirtualDisplayHost"
+      },
+      {
+        "pid": 4859,
+        "uid": "root",
+        "class": "org.agentos.lab.TaskBroker"
+      }
+    ],
+    "assistantProcessUid": "system",
+    "screenshot": "out/pixel9/device-install-2026-10-14/normal-home.png",
+    "adbShellUidBeforeAdbRoot": 2000,
+    "adbRootVerified": true,
+    "adbRootContext": "u:r:su:s0",
+    "assistantUpdatedSystemAppVersion": 37,
+    "assistantComponentUpdate": "evidence/builds/2026-10-14-pixel9-agent-input.json"
+  },
+  "boundaries": [
+    "Installation, running Lineage/Taku identity, completed Android boot and Taku home UI confirmed on the physical Pixel 9. Taku service processes run as root; ordinary ADB shell is uid 2000.",
+    "The source image says userdebug but has ro.debuggable=0; userdebug alone must not be taken as proof of adb root.",
+    "The original October 11 image predates the October 13 assistant drawer and App Server interface.",
+    "Trade-in evaluation mode was not enabled: its implementation schedules a wipe marker on subsequent boot.",
+    "No real model task, physical cold power cycle, video, IME or comprehensive hardware acceptance has been completed."
+  ],
+  "logs": "out/pixel9/device-install-2026-10-14/install-recovery.log"
+}

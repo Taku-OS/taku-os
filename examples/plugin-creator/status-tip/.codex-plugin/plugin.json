@@ -1,0 +1,8 @@
+{
+  "name": "taku-status-tip",
+  "version": "1.0.0",
+  "description": "A tiny local status reminder tool.",
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "taku": {"capabilities": ["provide a status reminder"], "permissions": []}
+}

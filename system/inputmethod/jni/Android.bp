@@ -1,0 +1,218 @@
+// Private Fcitx native files. All bytes/ELF metadata are locked in rom-input-lock.json.
+cc_defaults {
+    name: "taku-ime-native-defaults",
+    system_ext_specific: true,
+    compile_multilib: "64",
+    relative_install_path: "taku-inputmethod",
+    stl: "none",
+    strip: { none: true },
+    check_elf_files: true,
+    system_shared_libs: ["libc", "libm", "libdl"],
+}
+
+cc_prebuilt_library_shared {
+    name: "taku-ime-libFcitx5Config",
+    defaults: ["taku-ime-native-defaults"],
+    stem: "libFcitx5Config",
+    srcs: ["prebuilt/arm64-v8a/libFcitx5Config.so"],
+    shared_libs: ["libc", "libdl", "taku-ime-libFcitx5Utils", "taku-ime-libcxx_shared"],
+}
+
+cc_prebuilt_library_shared {
+    name: "taku-ime-libFcitx5Core",
+    defaults: ["taku-ime-native-defaults"],
+    stem: "libFcitx5Core",
+    srcs: ["prebuilt/arm64-v8a/libFcitx5Core.so"],
+    shared_libs: ["libc", "libdl", "taku-ime-libFcitx5Config", "taku-ime-libFcitx5Utils", "taku-ime-libcxx_shared"],
+}
+
+cc_prebuilt_library_shared {
+    name: "taku-ime-libFcitx5Utils",
+    defaults: ["taku-ime-native-defaults"],
+    stem: "libFcitx5Utils",
+    srcs: ["prebuilt/arm64-v8a/libFcitx5Utils.so"],
+    shared_libs: ["libc", "libdl", "taku-ime-libcxx_shared"],
+}
+
+cc_prebuilt_library_shared {
+    name: "taku-ime-libIMECore",
+    defaults: ["taku-ime-native-defaults"],
+    stem: "libIMECore",
+    srcs: ["prebuilt/arm64-v8a/libIMECore.so"],
+    shared_libs: ["libc", "libdl", "libm", "taku-ime-libFcitx5Utils", "taku-ime-libcxx_shared"],
+}
+
+cc_prebuilt_library_shared {
+    name: "taku-ime-libIMEPinyin",
+    defaults: ["taku-ime-native-defaults"],
+    stem: "libIMEPinyin",
+    srcs: ["prebuilt/arm64-v8a/libIMEPinyin.so"],
+    shared_libs: ["libc", "libdl", "taku-ime-libFcitx5Utils", "taku-ime-libIMECore", "taku-ime-libcxx_shared"],
+}
+
+cc_prebuilt_library_shared {
+    name: "taku-ime-libIMETable",
+    defaults: ["taku-ime-native-defaults"],
+    stem: "libIMETable",
+    srcs: ["prebuilt/arm64-v8a/libIMETable.so"],
+    shared_libs: ["libc", "libdl", "taku-ime-libFcitx5Utils", "taku-ime-libIMECore", "taku-ime-libcxx_shared"],
+}
+
+cc_prebuilt_library_shared {
+    name: "taku-ime-libandroidfrontend",
+    defaults: ["taku-ime-native-defaults"],
+    stem: "libandroidfrontend",
+    srcs: ["prebuilt/arm64-v8a/libandroidfrontend.so"],
+    shared_libs: ["libc", "libdl", "taku-ime-libFcitx5Core", "taku-ime-libFcitx5Utils", "taku-ime-libcxx_shared"],
+}
+
+cc_prebuilt_library_shared {
+    name: "taku-ime-libandroidkeyboard",
+    defaults: ["taku-ime-native-defaults"],
+    stem: "libandroidkeyboard",
+    srcs: ["prebuilt/arm64-v8a/libandroidkeyboard.so"],
+    shared_libs: ["libc", "libdl", "taku-ime-libFcitx5Config", "taku-ime-libFcitx5Core", "taku-ime-libFcitx5Utils", "taku-ime-libcxx_shared"],
+}
+
+cc_prebuilt_library_shared {
+    name: "taku-ime-libandroidnotification",
+    defaults: ["taku-ime-native-defaults"],
+    stem: "libandroidnotification",
+    srcs: ["prebuilt/arm64-v8a/libandroidnotification.so"],
+    shared_libs: ["libc", "libdl", "taku-ime-libFcitx5Config", "taku-ime-libFcitx5Core", "taku-ime-libFcitx5Utils", "taku-ime-libcxx_shared"],
+}
+
+cc_prebuilt_library_shared {
+    name: "taku-ime-libcxx_shared",
+    defaults: ["taku-ime-native-defaults"],
+    stem: "libc++_shared",
+    srcs: ["prebuilt/arm64-v8a/libc++_shared.so"],
+    shared_libs: ["libc", "libdl", "libm"],
+}
+
+cc_prebuilt_library_shared {
+    name: "taku-ime-libchttrans",
+    defaults: ["taku-ime-native-defaults"],
+    stem: "libchttrans",
+    srcs: ["prebuilt/arm64-v8a/libchttrans.so"],
+    shared_libs: ["libc", "libdl", "taku-ime-libFcitx5Config", "taku-ime-libFcitx5Core", "taku-ime-libFcitx5Utils", "taku-ime-libcxx_shared"],
+}
+
+cc_prebuilt_library_shared {
+    name: "taku-ime-libclipboard",
+    defaults: ["taku-ime-native-defaults"],
+    stem: "libclipboard",
+    srcs: ["prebuilt/arm64-v8a/libclipboard.so"],
+    shared_libs: ["libc", "libdl", "taku-ime-libFcitx5Config", "taku-ime-libFcitx5Core", "taku-ime-libFcitx5Utils", "taku-ime-libcxx_shared"],
+}
+
+cc_prebuilt_library_shared {
+    name: "taku-ime-libfullwidth",
+    defaults: ["taku-ime-native-defaults"],
+    stem: "libfullwidth",
+    srcs: ["prebuilt/arm64-v8a/libfullwidth.so"],
+    shared_libs: ["libc", "libdl", "taku-ime-libFcitx5Config", "taku-ime-libFcitx5Core", "taku-ime-libFcitx5Utils", "taku-ime-libcxx_shared"],
+}
+
+cc_prebuilt_library_shared {
+    name: "taku-ime-libimselector",
+    defaults: ["taku-ime-native-defaults"],
+    stem: "libimselector",
+    srcs: ["prebuilt/arm64-v8a/libimselector.so"],
+    shared_libs: ["libc", "libdl", "taku-ime-libFcitx5Config", "taku-ime-libFcitx5Core", "taku-ime-libFcitx5Utils", "taku-ime-libcxx_shared"],
+}
+
+cc_prebuilt_library_shared {
+    name: "taku-ime-libluaaddonloader",
+    defaults: ["taku-ime-native-defaults"],
+    stem: "libluaaddonloader",
+    srcs: ["prebuilt/arm64-v8a/libluaaddonloader.so"],
+    shared_libs: ["libc", "libdl", "libm", "taku-ime-libFcitx5Config", "taku-ime-libFcitx5Core", "taku-ime-libFcitx5Utils", "taku-ime-libcxx_shared"],
+}
+
+cc_prebuilt_library_shared {
+    name: "taku-ime-libnative-lib",
+    defaults: ["taku-ime-native-defaults"],
+    stem: "libnative-lib",
+    srcs: ["prebuilt/arm64-v8a/libnative-lib.so"],
+    shared_libs: ["libc", "libdl", "liblog", "taku-ime-libFcitx5Config", "taku-ime-libFcitx5Core", "taku-ime-libFcitx5Utils", "taku-ime-libIMECore", "taku-ime-libIMEPinyin", "taku-ime-libIMETable", "taku-ime-libcxx_shared"],
+}
+
+cc_prebuilt_library_shared {
+    name: "taku-ime-libpinyin",
+    defaults: ["taku-ime-native-defaults"],
+    stem: "libpinyin",
+    srcs: ["prebuilt/arm64-v8a/libpinyin.so"],
+    shared_libs: ["libc", "libdl", "taku-ime-libFcitx5Config", "taku-ime-libFcitx5Core", "taku-ime-libFcitx5Utils", "taku-ime-libIMECore", "taku-ime-libIMEPinyin", "taku-ime-libcxx_shared"],
+}
+
+cc_prebuilt_library_shared {
+    name: "taku-ime-libpinyinhelper",
+    defaults: ["taku-ime-native-defaults"],
+    stem: "libpinyinhelper",
+    srcs: ["prebuilt/arm64-v8a/libpinyinhelper.so"],
+    shared_libs: ["libc", "libdl", "taku-ime-libFcitx5Core", "taku-ime-libFcitx5Utils", "taku-ime-libIMECore", "taku-ime-libcxx_shared"],
+}
+
+cc_prebuilt_library_shared {
+    name: "taku-ime-libpunctuation",
+    defaults: ["taku-ime-native-defaults"],
+    stem: "libpunctuation",
+    srcs: ["prebuilt/arm64-v8a/libpunctuation.so"],
+    shared_libs: ["libc", "libdl", "taku-ime-libFcitx5Config", "taku-ime-libFcitx5Core", "taku-ime-libFcitx5Utils", "taku-ime-libcxx_shared"],
+}
+
+cc_prebuilt_library_shared {
+    name: "taku-ime-libquickphrase",
+    defaults: ["taku-ime-native-defaults"],
+    stem: "libquickphrase",
+    srcs: ["prebuilt/arm64-v8a/libquickphrase.so"],
+    shared_libs: ["libc", "libdl", "taku-ime-libFcitx5Config", "taku-ime-libFcitx5Core", "taku-ime-libFcitx5Utils", "taku-ime-libcxx_shared"],
+}
+
+cc_prebuilt_binary {
+    name: "taku-ime-libscel2org5",
+    defaults: ["taku-ime-native-defaults"],
+    stem: "libscel2org5.so",
+    srcs: ["prebuilt/arm64-v8a/libscel2org5.so"],
+    shared_libs: ["libc", "libdl", "libm", "taku-ime-libFcitx5Utils", "taku-ime-libcxx_shared"],
+}
+
+cc_prebuilt_library_shared {
+    name: "taku-ime-libspell",
+    defaults: ["taku-ime-native-defaults"],
+    stem: "libspell",
+    srcs: ["prebuilt/arm64-v8a/libspell.so"],
+    shared_libs: ["libc", "libdl", "taku-ime-libFcitx5Config", "taku-ime-libFcitx5Core", "taku-ime-libFcitx5Utils", "taku-ime-libcxx_shared"],
+}
+
+cc_prebuilt_library_shared {
+    name: "taku-ime-libtable",
+    defaults: ["taku-ime-native-defaults"],
+    stem: "libtable",
+    srcs: ["prebuilt/arm64-v8a/libtable.so"],
+    shared_libs: ["libc", "libdl", "taku-ime-libFcitx5Config", "taku-ime-libFcitx5Core", "taku-ime-libFcitx5Utils", "taku-ime-libIMECore", "taku-ime-libIMEPinyin", "taku-ime-libIMETable", "taku-ime-libcxx_shared"],
+}
+
+cc_prebuilt_library_shared {
+    name: "taku-ime-libunicode",
+    defaults: ["taku-ime-native-defaults"],
+    stem: "libunicode",
+    srcs: ["prebuilt/arm64-v8a/libunicode.so"],
+    shared_libs: ["libc", "libdl", "taku-ime-libFcitx5Config", "taku-ime-libFcitx5Core", "taku-ime-libFcitx5Utils", "taku-ime-libcxx_shared"],
+}
+
+install_symlink {
+    name: "taku-ime-native-dir-link",
+    system_ext_specific: true,
+    installed_location: "app/TakuInputMethod/lib/arm64",
+    symlink_target: "/system_ext/lib64/taku-inputmethod",
+}
+
+install_symlink {
+    name: "taku-ime-scel-link",
+    system_ext_specific: true,
+    installed_location: "lib64/taku-inputmethod/libscel2org5.so",
+    symlink_target: "/system_ext/bin/taku-inputmethod/libscel2org5.so",
+    required: ["taku-ime-libscel2org5"],
+}

@@ -1,0 +1,795 @@
+{
+  "schemaVersion": 1,
+  "sourceRoot": "taku-os",
+  "originalLab": "../2026-10-09",
+  "method": "move source once; relative symlink at each lab entry; runtime data remains lab",
+  "files": [
+    {
+      "from": "assistant-panel/src/org/agentos/assistant/AgentCapsuleView.java",
+      "to": "system/assistant/src/org/agentos/assistant/AgentCapsuleView.java",
+      "beforeSha256": "12e915220a0862425b7a624c91f78bfb3a872b160c212c2379ac2eb539701439",
+      "sha256": "12e915220a0862425b7a624c91f78bfb3a872b160c212c2379ac2eb539701439",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/src/org/agentos/assistant/AssistantService.java",
+      "to": "system/assistant/src/org/agentos/assistant/AssistantService.java",
+      "beforeSha256": "34d5a078bbff467579088117ef2af6667515d2979ace9f801afa646014dcd528",
+      "sha256": "34d5a078bbff467579088117ef2af6667515d2979ace9f801afa646014dcd528",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/src/org/agentos/assistant/AssistantSession.java",
+      "to": "system/assistant/src/org/agentos/assistant/AssistantSession.java",
+      "beforeSha256": "60dbb458dde6c0af10168a1714614733a3ac0fb0bc8f9595272e48e34d854bef",
+      "sha256": "60dbb458dde6c0af10168a1714614733a3ac0fb0bc8f9595272e48e34d854bef",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/src/org/agentos/assistant/CodexHomeActivity.java",
+      "to": "system/assistant/src/org/agentos/assistant/CodexHomeActivity.java",
+      "beforeSha256": "6f23aae51fde8edf72fbcc9dfcfdb0a71999885941cf8b4754d30558389ed401",
+      "sha256": "6f23aae51fde8edf72fbcc9dfcfdb0a71999885941cf8b4754d30558389ed401",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/src/org/agentos/assistant/DesignTokens.java",
+      "to": "system/assistant/src/org/agentos/assistant/DesignTokens.java",
+      "beforeSha256": "5ee3256966e7b2b2abb23c42ec7a51feec200da4b5da3c386b73385b150b2e97",
+      "sha256": "5ee3256966e7b2b2abb23c42ec7a51feec200da4b5da3c386b73385b150b2e97",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/src/org/agentos/assistant/DesktopPetView.java",
+      "to": "system/assistant/src/org/agentos/assistant/DesktopPetView.java",
+      "beforeSha256": "389e849eae94b2ed0742a9334a97a49f98d8f9d24acbaddba7db3aa3c9d5b7e6",
+      "sha256": "389e849eae94b2ed0742a9334a97a49f98d8f9d24acbaddba7db3aa3c9d5b7e6",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/src/org/agentos/assistant/DotNumberView.java",
+      "to": "system/assistant/src/org/agentos/assistant/DotNumberView.java",
+      "beforeSha256": "a47c7db9cf9ef13c55a05ac855b6a1e1d001c22b23ea6dd449de11ae55d777c4",
+      "sha256": "a47c7db9cf9ef13c55a05ac855b6a1e1d001c22b23ea6dd449de11ae55d777c4",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/src/org/agentos/assistant/MirrorActivity.java",
+      "to": "system/assistant/src/org/agentos/assistant/MirrorActivity.java",
+      "beforeSha256": "7b29f9c781d3a3fb59fbdd7e4d6ab3b6ca61e50644c708e09011f1d1594919af",
+      "sha256": "7b29f9c781d3a3fb59fbdd7e4d6ab3b6ca61e50644c708e09011f1d1594919af",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/src/org/agentos/assistant/PanelActivity.java",
+      "to": "system/assistant/src/org/agentos/assistant/PanelActivity.java",
+      "beforeSha256": "73d85d094b8ef8ad993638a956e89472adebc8b991f0c9ad031949f2e6f8f8ba",
+      "sha256": "73d85d094b8ef8ad993638a956e89472adebc8b991f0c9ad031949f2e6f8f8ba",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/src/org/agentos/assistant/RecognitionUnavailableService.java",
+      "to": "system/assistant/src/org/agentos/assistant/RecognitionUnavailableService.java",
+      "beforeSha256": "06b5e7e90cab4ad7fc4240eba5af8a079eb66841e36f2d266ca63b64d3fd454f",
+      "sha256": "06b5e7e90cab4ad7fc4240eba5af8a079eb66841e36f2d266ca63b64d3fd454f",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/src/org/agentos/assistant/SessionService.java",
+      "to": "system/assistant/src/org/agentos/assistant/SessionService.java",
+      "beforeSha256": "2e0bf9dfc4e64dd4e8f3329f2c71a03e1eb2f860bbfb49e8395fc03d6309ff00",
+      "sha256": "2e0bf9dfc4e64dd4e8f3329f2c71a03e1eb2f860bbfb49e8395fc03d6309ff00",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/src/org/agentos/assistant/TaskNotificationReceiver.java",
+      "to": "system/assistant/src/org/agentos/assistant/TaskNotificationReceiver.java",
+      "beforeSha256": "7b076de59e9934421960e27bc2da5c25862501e2c83c797e19c16066e416e184",
+      "sha256": "7b076de59e9934421960e27bc2da5c25862501e2c83c797e19c16066e416e184",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/src/org/agentos/assistant/TaskRequests.java",
+      "to": "system/assistant/src/org/agentos/assistant/TaskRequests.java",
+      "beforeSha256": "c0623570d1264e3ec3a388c8cafc8089330fcaa8efc5ab5081a8ed2d4980700c",
+      "sha256": "c0623570d1264e3ec3a388c8cafc8089330fcaa8efc5ab5081a8ed2d4980700c",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/src/org/agentos/assistant/TokenSurfaceDrawable.java",
+      "to": "system/assistant/src/org/agentos/assistant/TokenSurfaceDrawable.java",
+      "beforeSha256": "75bc5abfc14014c24c02d8df6b4ab6c4080937fd3bcb65856ad785ec12b5dab0",
+      "sha256": "75bc5abfc14014c24c02d8df6b4ab6c4080937fd3bcb65856ad785ec12b5dab0",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/broker/org/agentos/lab/TaskBroker.java",
+      "to": "system/assistant/broker/org/agentos/lab/TaskBroker.java",
+      "beforeSha256": "eb36c68174ee379fbf74479919c81fe6678461a9b1068f6cc6ab74b1891bbdf5",
+      "sha256": "eb36c68174ee379fbf74479919c81fe6678461a9b1068f6cc6ab74b1891bbdf5",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/res/drawable/ic_arrow_upward.xml",
+      "to": "system/assistant/res/drawable/ic_arrow_upward.xml",
+      "beforeSha256": "14c5ea5f5ab2b0d20026f467e264ddc33efc27d0d06fb4ce76a9d9f895841ff4",
+      "sha256": "14c5ea5f5ab2b0d20026f467e264ddc33efc27d0d06fb4ce76a9d9f895841ff4",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/res/drawable/ic_auto_awesome.xml",
+      "to": "system/assistant/res/drawable/ic_auto_awesome.xml",
+      "beforeSha256": "fe585aeac26dcacbbfa8af236fd5fc9d05290888a58dc7fa0a03a669db1e27d9",
+      "sha256": "fe585aeac26dcacbbfa8af236fd5fc9d05290888a58dc7fa0a03a669db1e27d9",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/res/drawable/ic_call.xml",
+      "to": "system/assistant/res/drawable/ic_call.xml",
+      "beforeSha256": "d619dfa617972144587a409733f646c0540a331c10543350a4ba4b32c4125766",
+      "sha256": "d619dfa617972144587a409733f646c0540a331c10543350a4ba4b32c4125766",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/res/drawable/ic_chat_bubble_outline.xml",
+      "to": "system/assistant/res/drawable/ic_chat_bubble_outline.xml",
+      "beforeSha256": "da636c185a946a70f170adefc22b83a8c40df8942abf9b702cd64840fa08e32d",
+      "sha256": "da636c185a946a70f170adefc22b83a8c40df8942abf9b702cd64840fa08e32d",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/res/drawable/ic_check_circle.xml",
+      "to": "system/assistant/res/drawable/ic_check_circle.xml",
+      "beforeSha256": "06c2ff884039bd4f3ae379c1be1ac372d9bc60a443bf156bda2b8bebd6ccbb0c",
+      "sha256": "06c2ff884039bd4f3ae379c1be1ac372d9bc60a443bf156bda2b8bebd6ccbb0c",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/res/drawable/ic_close.xml",
+      "to": "system/assistant/res/drawable/ic_close.xml",
+      "beforeSha256": "b5df7c57c81f60c6885d729acdbc25f86637111dae5764e4159158aacf0ac772",
+      "sha256": "b5df7c57c81f60c6885d729acdbc25f86637111dae5764e4159158aacf0ac772",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/res/drawable/ic_code.xml",
+      "to": "system/assistant/res/drawable/ic_code.xml",
+      "beforeSha256": "e0dc621ab28517a4fc55599ccd02224b7bec97b5ac124cc72d93e0d54a226e63",
+      "sha256": "e0dc621ab28517a4fc55599ccd02224b7bec97b5ac124cc72d93e0d54a226e63",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/res/drawable/ic_error_outline.xml",
+      "to": "system/assistant/res/drawable/ic_error_outline.xml",
+      "beforeSha256": "db05ff390b2bc63e7b0e584a7e1783640f6163b8d7fd5875b1262022c1a3ee39",
+      "sha256": "db05ff390b2bc63e7b0e584a7e1783640f6163b8d7fd5875b1262022c1a3ee39",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/res/drawable/ic_flash_on.xml",
+      "to": "system/assistant/res/drawable/ic_flash_on.xml",
+      "beforeSha256": "89c017aef89a6a63ae55094078966becb9a4837574cae49d1515e2cbd77dba4c",
+      "sha256": "89c017aef89a6a63ae55094078966becb9a4837574cae49d1515e2cbd77dba4c",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/res/drawable/ic_home_apps.xml",
+      "to": "system/assistant/res/drawable/ic_home_apps.xml",
+      "beforeSha256": "cf14805ab5c4d40917f02fd820bb516d56b0c5bdd7a65e68695c42129bbba0bb",
+      "sha256": "cf14805ab5c4d40917f02fd820bb516d56b0c5bdd7a65e68695c42129bbba0bb",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/res/drawable/ic_home_battery_full.xml",
+      "to": "system/assistant/res/drawable/ic_home_battery_full.xml",
+      "beforeSha256": "74c5b8b4196c2ff371e7e9591899a47db6b28ef649bb2082f37278aa2b310321",
+      "sha256": "74c5b8b4196c2ff371e7e9591899a47db6b28ef649bb2082f37278aa2b310321",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/res/drawable/ic_home_calendar_today.xml",
+      "to": "system/assistant/res/drawable/ic_home_calendar_today.xml",
+      "beforeSha256": "dff4bce85b80003e725e97d1344b7e10f3fedfff6d68a543b5030e17e4b6985f",
+      "sha256": "dff4bce85b80003e725e97d1344b7e10f3fedfff6d68a543b5030e17e4b6985f",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/res/drawable/ic_home_coffee.xml",
+      "to": "system/assistant/res/drawable/ic_home_coffee.xml",
+      "beforeSha256": "c3e4ec6ff69c59e1135ca75e41452aabf01b9c95dbaa36db59ad7f0559628c99",
+      "sha256": "c3e4ec6ff69c59e1135ca75e41452aabf01b9c95dbaa36db59ad7f0559628c99",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/res/drawable/ic_home_developer_mode.xml",
+      "to": "system/assistant/res/drawable/ic_home_developer_mode.xml",
+      "beforeSha256": "cd12829fff5c623d25ba46ff042617924bd490d36860333dde48b5587dc60597",
+      "sha256": "cd12829fff5c623d25ba46ff042617924bd490d36860333dde48b5587dc60597",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/res/drawable/ic_home_monitor.xml",
+      "to": "system/assistant/res/drawable/ic_home_monitor.xml",
+      "beforeSha256": "a8abd85ff87db6c1a30c472ee2c2420cad7831b5ca96cedad398a9678cb20d6a",
+      "sha256": "a8abd85ff87db6c1a30c472ee2c2420cad7831b5ca96cedad398a9678cb20d6a",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/res/drawable/ic_home_pause.xml",
+      "to": "system/assistant/res/drawable/ic_home_pause.xml",
+      "beforeSha256": "9dc12ac00c1b9c722a530e88353db12cb63d8894790f77d9ba503fd7d391c413",
+      "sha256": "9dc12ac00c1b9c722a530e88353db12cb63d8894790f77d9ba503fd7d391c413",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/res/drawable/ic_home_photo.xml",
+      "to": "system/assistant/res/drawable/ic_home_photo.xml",
+      "beforeSha256": "561762373b543553d5775b956185723a3ed309ea4ed0c5b6be5fd6c9560cf7d3",
+      "sha256": "561762373b543553d5775b956185723a3ed309ea4ed0c5b6be5fd6c9560cf7d3",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/res/drawable/ic_home_play_arrow.xml",
+      "to": "system/assistant/res/drawable/ic_home_play_arrow.xml",
+      "beforeSha256": "d4378bcdbef94050d4347c87d68656fb172176dc088549787f9b95c22642a612",
+      "sha256": "d4378bcdbef94050d4347c87d68656fb172176dc088549787f9b95c22642a612",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/res/drawable/ic_home_settings.xml",
+      "to": "system/assistant/res/drawable/ic_home_settings.xml",
+      "beforeSha256": "8f7ad487b932b4d7e905561c9cef80cb85a098295a35b3d085facb1fba3482f5",
+      "sha256": "8f7ad487b932b4d7e905561c9cef80cb85a098295a35b3d085facb1fba3482f5",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/res/drawable/ic_home_tune.xml",
+      "to": "system/assistant/res/drawable/ic_home_tune.xml",
+      "beforeSha256": "be5171d6bd61fee33436d1151e264e3340fb24a902e4077099d7af4f1f9b7b58",
+      "sha256": "be5171d6bd61fee33436d1151e264e3340fb24a902e4077099d7af4f1f9b7b58",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/res/drawable/ic_home_widgets.xml",
+      "to": "system/assistant/res/drawable/ic_home_widgets.xml",
+      "beforeSha256": "e967a5f3ab5f7b0e321c6f96b5d8f45279a20ded882cd95e94ac1b9ac1eb952f",
+      "sha256": "e967a5f3ab5f7b0e321c6f96b5d8f45279a20ded882cd95e94ac1b9ac1eb952f",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/res/drawable/ic_language.xml",
+      "to": "system/assistant/res/drawable/ic_language.xml",
+      "beforeSha256": "3ddeb70e845fcf3a563e3c6fa0ee6e6e5b1915531406e581818c8e9cacaa1b2d",
+      "sha256": "3ddeb70e845fcf3a563e3c6fa0ee6e6e5b1915531406e581818c8e9cacaa1b2d",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/res/drawable/ic_photo_camera.xml",
+      "to": "system/assistant/res/drawable/ic_photo_camera.xml",
+      "beforeSha256": "c4c6b77fc3758221bca4951db73ec01854ca105293daac1e9b8cf99e2d4b71f4",
+      "sha256": "c4c6b77fc3758221bca4951db73ec01854ca105293daac1e9b8cf99e2d4b71f4",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/res/drawable/ic_schedule.xml",
+      "to": "system/assistant/res/drawable/ic_schedule.xml",
+      "beforeSha256": "273e2d682f9d71d4795966a8381dadb16d9482615a3c378d0fcbd94b5cd99f3b",
+      "sha256": "273e2d682f9d71d4795966a8381dadb16d9482615a3c378d0fcbd94b5cd99f3b",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/res/drawable/ic_task_alt.xml",
+      "to": "system/assistant/res/drawable/ic_task_alt.xml",
+      "beforeSha256": "2b34da3b58c4f1475a43fc4d1c514a5969ff7a5ffb31b0fd89b47c7ef77f8698",
+      "sha256": "2b34da3b58c4f1475a43fc4d1c514a5969ff7a5ffb31b0fd89b47c7ef77f8698",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/res/drawable-nodpi/taku_pet.png",
+      "to": "system/assistant/res/drawable-nodpi/taku_pet.png",
+      "beforeSha256": "3b7849880438e1a9d507a96b132a7deac0ca8ddad68cc940f1b1600b1b4e5aca",
+      "sha256": "3b7849880438e1a9d507a96b132a7deac0ca8ddad68cc940f1b1600b1b4e5aca",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/res/drawable-nodpi/taku_pet_atlas.png",
+      "to": "system/assistant/res/drawable-nodpi/taku_pet_atlas.png",
+      "beforeSha256": "b7acb0bea96f0eaedb44fca038a1fdd3bba4f01855ce54825d52b4273171c8dc",
+      "sha256": "b7acb0bea96f0eaedb44fca038a1fdd3bba4f01855ce54825d52b4273171c8dc",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/res/font/home_doto.ttf",
+      "to": "system/assistant/res/font/home_doto.ttf",
+      "beforeSha256": "6f4fe7d37853b91df3698daa84cde2dbe1c9695d88c986e6510134910337d426",
+      "sha256": "6f4fe7d37853b91df3698daa84cde2dbe1c9695d88c986e6510134910337d426",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/res/values/ag_design_tokens.xml",
+      "to": "system/assistant/res/values/ag_design_tokens.xml",
+      "beforeSha256": "10b4065d202009377d0799105b168d12a36449d3bdb6b049f794a1dd565deccc",
+      "sha256": "10b4065d202009377d0799105b168d12a36449d3bdb6b049f794a1dd565deccc",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/res/xml/interaction.xml",
+      "to": "system/assistant/res/xml/interaction.xml",
+      "beforeSha256": "c99e00c12c5eb7357d8ed510e1e2f32f5a855784e9f7df37a54717e63f8341bd",
+      "sha256": "c99e00c12c5eb7357d8ed510e1e2f32f5a855784e9f7df37a54717e63f8341bd",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/tests/org/agentos/tests/DesktopEntryTest.java",
+      "to": "system/assistant/tests/org/agentos/tests/DesktopEntryTest.java",
+      "beforeSha256": "7728cd62f07fedc05f1c238e55f7b24acd1364ea9d994eca525b790ffa9e4d7e",
+      "sha256": "7728cd62f07fedc05f1c238e55f7b24acd1364ea9d994eca525b790ffa9e4d7e",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/tests/org/agentos/tests/DockHomeTest.java",
+      "to": "system/assistant/tests/org/agentos/tests/DockHomeTest.java",
+      "beforeSha256": "0f9bb492171ed41b7ca4c5d0c9c32fd2d4e253a0377524468ffcf7b6220bdd49",
+      "sha256": "0f9bb492171ed41b7ca4c5d0c9c32fd2d4e253a0377524468ffcf7b6220bdd49",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/tests/org/agentos/tests/PanelFlowTest.java",
+      "to": "system/assistant/tests/org/agentos/tests/PanelFlowTest.java",
+      "beforeSha256": "bcd756338ba3d74811e77450d56ed231ddeb7ba37b71544367fe7d54d2aa3394",
+      "sha256": "bcd756338ba3d74811e77450d56ed231ddeb7ba37b71544367fe7d54d2aa3394",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/tests/org/agentos/tests/VideoHomeTest.java",
+      "to": "system/assistant/tests/org/agentos/tests/VideoHomeTest.java",
+      "beforeSha256": "d9610e3455d5ef3181201ac4fce2ef7f0a274bea047f4393c69f1682fa4c7269",
+      "sha256": "d9610e3455d5ef3181201ac4fce2ef7f0a274bea047f4393c69f1682fa4c7269",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/tests/org/agentos/tests/WidgetHomeTest.java",
+      "to": "system/assistant/tests/org/agentos/tests/WidgetHomeTest.java",
+      "beforeSha256": "d0358671acaa4225901f084fb3087d0761cc44c7b9c764e7745b6572a74fe8dc",
+      "sha256": "d0358671acaa4225901f084fb3087d0761cc44c7b9c764e7745b6572a74fe8dc",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/scripts/record-video-home.py",
+      "to": "system/assistant/scripts/record-video-home.py",
+      "beforeSha256": "232df72c78fa8e009ab6ed739ad3c6d6abcf87a7db35447a068ec1b50c114c7f",
+      "sha256": "cfcd504a7fc8aa051ad55d191eb84b34220cd7d2b6614afc251c81fdd5d064a5",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/scripts/record-widget-home.py",
+      "to": "system/assistant/scripts/record-widget-home.py",
+      "beforeSha256": "4882ac4818b44ce8f142d7fad556246deb78755a1ec41ca3e51751d5e874812c",
+      "sha256": "761ef8b924f3a84c3f4018c0f90ebd19caae5e7ee2b51890a094e77eef72af55",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/scripts/sync-design-system.py",
+      "to": "system/assistant/scripts/sync-design-system.py",
+      "beforeSha256": "257c8c2cbc9401fec7c9babeedd1abecf0f345e1887d5e645b8bd09d5327a5d1",
+      "sha256": "293c40bcf8ea8c81b5e2908189c2f92c4b108e15af2e043cb2d272c0bf937293",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/licenses/Doto-OFL.txt",
+      "to": "system/assistant/licenses/Doto-OFL.txt",
+      "beforeSha256": "26a7b58bdba6cda8a78ca6e8b3791d8013b8abc6d5e6519f84193893aee02020",
+      "sha256": "26a7b58bdba6cda8a78ca6e8b3791d8013b8abc6d5e6519f84193893aee02020",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/licenses/material-design-icons-LICENSE",
+      "to": "system/assistant/licenses/material-design-icons-LICENSE",
+      "beforeSha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd",
+      "sha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/licenses/material-design-icons-NOTICE.md",
+      "to": "system/assistant/licenses/material-design-icons-NOTICE.md",
+      "beforeSha256": "e3007ab81ff4da621902993db5f4d226bb3510d8b596dff422371bda58843e46",
+      "sha256": "3d2e213dff4217e8762db16de2b845ee0fc40f52e50c3a8cb2c7bc4245053811",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/AndroidManifest.xml",
+      "to": "system/assistant/AndroidManifest.xml",
+      "beforeSha256": "183eed9921ca815c95404ec8d43d2b4550a99da0d6ee8d43acb9731ed37c2dc5",
+      "sha256": "183eed9921ca815c95404ec8d43d2b4550a99da0d6ee8d43acb9731ed37c2dc5",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/build.sh",
+      "to": "system/assistant/build.sh",
+      "beforeSha256": "e2f4a5c2e084f5bcae5d67642b77120c40003ef50501b63d6fa2ae2e1b5cf359",
+      "sha256": "02270ce0223167803fad631f70a84a6c4b9329f181008fc75187da7ce2459242",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/agentos-codex.rc",
+      "to": "system/assistant/agentos-codex.rc",
+      "beforeSha256": "9673ded4286b0b1036c266c2ce3208ed8df2fef4ed4b6f5518411ade3f4f63d6",
+      "sha256": "9673ded4286b0b1036c266c2ce3208ed8df2fef4ed4b6f5518411ade3f4f63d6",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/task-result.schema.json",
+      "to": "system/assistant/task-result.schema.json",
+      "beforeSha256": "7a053cdcbfdd3aeb1014e4ba1cb695d7cd0b3d7cf43f79b3ec07fc86d92d7653",
+      "sha256": "7a053cdcbfdd3aeb1014e4ba1cb695d7cd0b3d7cf43f79b3ec07fc86d92d7653",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/README.md",
+      "to": "system/assistant/README.md",
+      "beforeSha256": "4f5652c7e9182ec3582a816eb1efbcedb3dfeef58652f5f6bb0abe8050ada95d",
+      "sha256": "fadd528d45cf1b98230f6884039365eff36ac90556027a9301e0ab4ccd953799",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/design-qa.md",
+      "to": "system/assistant/design-qa.md",
+      "beforeSha256": "ed9ec10fcf039eaef3e4d791fce5621bfa5ed76f7137727cce613cbb253fbed7",
+      "sha256": "ed9ec10fcf039eaef3e4d791fce5621bfa5ed76f7137727cce613cbb253fbed7",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/install.sh",
+      "to": "system/assistant/install.sh",
+      "beforeSha256": "3fc1190356571750c330bfafa0c66b26bc8ae45e952286f3784671a9f36befbd",
+      "sha256": "f174883d18263e26ac449d6fc5c8d3c91dd3ae33f81a9a23d7e61939d481b845",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/install-desktop.sh",
+      "to": "system/assistant/install-desktop.sh",
+      "beforeSha256": "0f062374d93c98e01505b52523c8a353f4e494f45982aedcd05d566da363f7b8",
+      "sha256": "1980ff7e5cccb9df2d32f853086c1d7078223c94328d3fdffad58904ea36e246",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/test-ui.sh",
+      "to": "system/assistant/test-ui.sh",
+      "beforeSha256": "cf15f9a722be99b1b739fd5fc5ab500ed35875be46d9a058e6305e537e7d07b8",
+      "sha256": "22fec7ae8087fd4d4c48d0cf6a02e5c945aa879fcc5751d78f529ec1747de8c1",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/test-desktop.sh",
+      "to": "system/assistant/test-desktop.sh",
+      "beforeSha256": "1391fdb35e11a7569ea0837a97889f3a5ced5081ccedc134d7d66d9c9c5187f0",
+      "sha256": "606f951f5fcb2f966b514c84a1bfaf5a41a5557b090187cdf5f3803250f6bce9",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/test-video-home.sh",
+      "to": "system/assistant/test-video-home.sh",
+      "beforeSha256": "8d98d4930ebe52aea8b7e8f71eebee22447e82433c01864ae356842e2776180f",
+      "sha256": "f9a5069dda3a614e810d2f5232a7163642500296ec04f9a964dc670a61e65b6d",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/test-widget-home.sh",
+      "to": "system/assistant/test-widget-home.sh",
+      "beforeSha256": "ae04e4986c4bd4a221162d32c047ab28eb67742d761db27f8ab3002934e19bb4",
+      "sha256": "2dc2e836a95043e3b45a640c6aee37e7df82d57e00aaf4763d6f59f89c2ba809",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/test-dock-home.sh",
+      "to": "system/assistant/test-dock-home.sh",
+      "beforeSha256": "383312cca4f264b31281a2fb83bd35a369d912c542283c9b6a6cbfb7e7abdc70",
+      "sha256": "34bdc0b47201ece5c3d0ffc14c10d842aa1293b69c5262160fbf894127a75f37",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "assistant-panel/test-redesign.sh",
+      "to": "system/assistant/test-redesign.sh",
+      "beforeSha256": "ab1edc313b5f49ef3022e86e30bb80dbb9bf882f15ccf40e769f72a67281dd3a",
+      "sha256": "752cd2b5595efa062fc632b7699cfe3216ca54215635b474477cea6e0cb367c3",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "virtual-display/src/org/agentos/lab/CodecListProbe.java",
+      "to": "system/display/src/org/agentos/lab/CodecListProbe.java",
+      "beforeSha256": "c89fa38b7a39e874a1cd4b97d1915f3cd84892ae1d5799bafd9ad25036bb327b",
+      "sha256": "c89fa38b7a39e874a1cd4b97d1915f3cd84892ae1d5799bafd9ad25036bb327b",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "virtual-display/src/org/agentos/lab/DecodeProbe.java",
+      "to": "system/display/src/org/agentos/lab/DecodeProbe.java",
+      "beforeSha256": "87db9d6a7bfbbc49506e72ade31cc3bbf7f8a9d7cafafca65de39a29de320d6f",
+      "sha256": "87db9d6a7bfbbc49506e72ade31cc3bbf7f8a9d7cafafca65de39a29de320d6f",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "virtual-display/src/org/agentos/lab/TextureDecodeProbe.java",
+      "to": "system/display/src/org/agentos/lab/TextureDecodeProbe.java",
+      "beforeSha256": "c232147637396b35de359eadf8cbdb876bd993ac4956db8bafa7f013ebe1b53a",
+      "sha256": "c232147637396b35de359eadf8cbdb876bd993ac4956db8bafa7f013ebe1b53a",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "virtual-display/src/org/agentos/lab/VirtualDisplayHost.java",
+      "to": "system/display/src/org/agentos/lab/VirtualDisplayHost.java",
+      "beforeSha256": "ee761677ba65293c2195041935a1189a02f20909e10315daa1adffcba0ca4edc",
+      "sha256": "ee761677ba65293c2195041935a1189a02f20909e10315daa1adffcba0ca4edc",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "virtual-display/phone-display",
+      "to": "system/display/phone-display",
+      "beforeSha256": "2cd1c7c9f3f01f2e6f8579667e3791b5c9ba310c29579c5f25e6b5e870f5d51b",
+      "sha256": "2cd1c7c9f3f01f2e6f8579667e3791b5c9ba310c29579c5f25e6b5e870f5d51b",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "virtual-display/build.sh",
+      "to": "system/display/build.sh",
+      "beforeSha256": "3cf972dfcf037a30198cb0b5e824fc0d249af76180f4cd8a5b9673d09bf23850",
+      "sha256": "6d7f0f3ab3cd548e35ede3a37cab2f2d48f1df237a1f87dd2c0b5d0dbb8a629d",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "virtual-display/README.md",
+      "to": "system/display/README.md",
+      "beforeSha256": "455ffb0d00060e6159c7ec5a6068839473ab133459aafb3a7d7a993218dce081",
+      "sha256": "cc4473d8b228057ed2f2149f6f743304ba644f01cddfd8054d509c8a16e16f85",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "overlay/res/values/strings.xml",
+      "to": "system/overlay/res/values/strings.xml",
+      "beforeSha256": "cad43ea67ff10e62c873c59692082e5a4de3cf761e19494e2306172f5e0e0927",
+      "sha256": "cad43ea67ff10e62c873c59692082e5a4de3cf761e19494e2306172f5e0e0927",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "overlay/res/xml/overlays.xml",
+      "to": "system/overlay/res/xml/overlays.xml",
+      "beforeSha256": "087a0fa4888eed8b58ac8a5b1ccc07ddae8ff0c89b97809bcd8689c309293f2d",
+      "sha256": "087a0fa4888eed8b58ac8a5b1ccc07ddae8ff0c89b97809bcd8689c309293f2d",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "overlay/AndroidManifest.xml",
+      "to": "system/overlay/AndroidManifest.xml",
+      "beforeSha256": "a41da3124003c463eb5a9fdd4a63f9d18638e759ff92b99240faf2fdfbc73f63",
+      "sha256": "a41da3124003c463eb5a9fdd4a63f9d18638e759ff92b99240faf2fdfbc73f63",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "overlay/Android.bp",
+      "to": "system/overlay/Android.bp",
+      "beforeSha256": "6406c24f71ca0a17bccba6afb3e9726ec84b1ad9e6b1cd5e48e208ea156bff21",
+      "sha256": "6406c24f71ca0a17bccba6afb3e9726ec84b1ad9e6b1cd5e48e208ea156bff21",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "overlay/build.sh",
+      "to": "system/overlay/build.sh",
+      "beforeSha256": "5e4de716c2a2c100097265b2dc76556300d9df261db0ed3edfc8de6790ece5f3",
+      "sha256": "2f933b9c56c8b7c41e742c98d7e31dd0d8fc30d3975de2e24b3a7e8854b01ce4",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "overlay/deploy.sh",
+      "to": "system/overlay/deploy.sh",
+      "beforeSha256": "5a90b2269579ec831ab21ffbcea26d5fec6cb3b5d0bc2e93d948ca365ff11e58",
+      "sha256": "b0e538be15411d9b29ba654b1ce0c3a8fff669673ef576003d81ca7b0c55e081",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "codex-runtime/codex",
+      "to": "adapters/codex-runtime/codex",
+      "beforeSha256": "3493190efc581ab4af27b74fd76df8b53eeb7e1ff327d74b73a4e42796026edd",
+      "sha256": "3493190efc581ab4af27b74fd76df8b53eeb7e1ff327d74b73a4e42796026edd",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "codex-runtime/install.sh",
+      "to": "adapters/codex-runtime/install.sh",
+      "beforeSha256": "ebec419d28230c78bed4fc741c59399b16bc7d6f20c5f8485e42879c4a235d42",
+      "sha256": "c3c8b8d699c245f0025429e94c503d40282c23d630b3692328a6b19e1dffdd85",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "codex-runtime/README.md",
+      "to": "adapters/codex-runtime/README.md",
+      "beforeSha256": "8779ba5622c672d202cbe6249195fc9caddaf6ba4787001d6877e69dcf0dc8b1",
+      "sha256": "23df5adf9c48fba17fe4654332be294621054fe977696ee5268bb68e64329b99",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "light-app-lab/free-app-kit/mini-app",
+      "to": "tooling/app-kit/mini-app",
+      "beforeSha256": "3bc651f65d0318c3338437b07e7825c534eb9faab3812c147244dd9fee41fe01",
+      "sha256": "3bc651f65d0318c3338437b07e7825c534eb9faab3812c147244dd9fee41fe01",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "light-app-lab/free-app-kit/source.schema.json",
+      "to": "tooling/app-kit/source.schema.json",
+      "beforeSha256": "16963e9bdc62297daf847e099505053f1b72e6896cc56b8ac09a997504f0958b",
+      "sha256": "16963e9bdc62297daf847e099505053f1b72e6896cc56b8ac09a997504f0958b",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "light-app-lab/free-app-kit/seed/main.jsx",
+      "to": "tooling/app-kit/seed/main.jsx",
+      "beforeSha256": "9644ae5839d537ba02f4d9a97b1906e48c2a92b7a610b0a7e877da48420e8fff",
+      "sha256": "9644ae5839d537ba02f4d9a97b1906e48c2a92b7a610b0a7e877da48420e8fff",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "light-app-lab/free-app-kit/seed/ui.jsx",
+      "to": "tooling/app-kit/seed/ui.jsx",
+      "beforeSha256": "cc269da8032a74894083ba44c09f726d8cedbb01a4c1336fefd0f5e087ce75d7",
+      "sha256": "cc269da8032a74894083ba44c09f726d8cedbb01a4c1336fefd0f5e087ce75d7",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "light-app-lab/free-app-kit/licenses/esbuild.txt",
+      "to": "tooling/app-kit/licenses/esbuild.txt",
+      "beforeSha256": "b40ec5baec7bb34fa5b1c09521fa3cd52d5fad7adafed74932a2010d3612a681",
+      "sha256": "b40ec5baec7bb34fa5b1c09521fa3cd52d5fad7adafed74932a2010d3612a681",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "light-app-lab/free-app-kit/licenses/react-dom.txt",
+      "to": "tooling/app-kit/licenses/react-dom.txt",
+      "beforeSha256": "52412d7bc7ce4157ea628bbaacb8829e0a9cb3c58f57f99176126bc8cf2bfc85",
+      "sha256": "52412d7bc7ce4157ea628bbaacb8829e0a9cb3c58f57f99176126bc8cf2bfc85",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "light-app-lab/free-app-kit/licenses/react.txt",
+      "to": "tooling/app-kit/licenses/react.txt",
+      "beforeSha256": "52412d7bc7ce4157ea628bbaacb8829e0a9cb3c58f57f99176126bc8cf2bfc85",
+      "sha256": "52412d7bc7ce4157ea628bbaacb8829e0a9cb3c58f57f99176126bc8cf2bfc85",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "light-app-lab/free-app-kit/generation-prompt.txt",
+      "to": "tooling/app-kit/generation-prompt.txt",
+      "beforeSha256": "b6210750ff3a4ddbc47c26269f0a7455714270f8f223cf2f3c59cccb1310f730",
+      "sha256": "b6210750ff3a4ddbc47c26269f0a7455714270f8f223cf2f3c59cccb1310f730",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "light-app-lab/free-app-kit/converter-prompt.txt",
+      "to": "tooling/app-kit/converter-prompt.txt",
+      "beforeSha256": "e3ae6c372af50baf7d1991180abbd71edc96b19fa2a50122249df0abcaba5dca",
+      "sha256": "e3ae6c372af50baf7d1991180abbd71edc96b19fa2a50122249df0abcaba5dca",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "light-app-lab/free-app-kit/package-app.sh",
+      "to": "tooling/app-kit/package-app.sh",
+      "beforeSha256": "cabe5195705e5c24c567f32f20ad1e644bf8a9e4ed1ea917b2a07f2850fa0f74",
+      "sha256": "110763d2325b431c4a2fdfebc13b22988c9e1f4ee391891d5f76f752cb315cef",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "light-app-lab/free-app-kit/build.sh",
+      "to": "tooling/app-kit/build.sh",
+      "beforeSha256": "dca8b224a8e2d1d0c1c0639e64c9af29f4f769f82de27acde00448250c5c4d43",
+      "sha256": "dca8b224a8e2d1d0c1c0639e64c9af29f4f769f82de27acde00448250c5c4d43",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "light-app-lab/free-app-kit/generate.sh",
+      "to": "tooling/app-kit/generate.sh",
+      "beforeSha256": "12d031005aa9f72c3c2767c8506453d08b9544622636d68b9ff78cd9d96f27d4",
+      "sha256": "12d031005aa9f72c3c2767c8506453d08b9544622636d68b9ff78cd9d96f27d4",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "light-app-lab/free-app-kit/API.md",
+      "to": "tooling/app-kit/API.md",
+      "beforeSha256": "cdc7566e80baa51c635246c65d19c8d683c2df0c58f57cb06396fdd50df65e41",
+      "sha256": "cdc7566e80baa51c635246c65d19c8d683c2df0c58f57cb06396fdd50df65e41",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "light-app-lab/free-app-kit/README.md",
+      "to": "tooling/app-kit/README.md",
+      "beforeSha256": "3c2d3edf33d9f99058a54faab2e6804d7be0fdc284d2e11d624a789ed86a0219",
+      "sha256": "6431ad02b9a85e8b4cf38a271a767180eb30b9248c04dfe6aadef71dd890cde9",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "light-app-lab/free-app-kit/api/generation-contract.txt",
+      "to": "tooling/app-kit/api/generation-contract.txt",
+      "beforeSha256": "0acb0724cc9daa336a1dbf4e4c18f5cc5059df370c8591bffbe3d6d0f01298a9",
+      "sha256": "0acb0724cc9daa336a1dbf4e4c18f5cc5059df370c8591bffbe3d6d0f01298a9",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "light-app-lab/free-app-kit/api/example.mjs",
+      "to": "tooling/app-kit/api/example.mjs",
+      "beforeSha256": "19ac3abd0495e04af581a2058aa88413fa48da51b495abf883a6b9dc00a99395",
+      "sha256": "19ac3abd0495e04af581a2058aa88413fa48da51b495abf883a6b9dc00a99395",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "light-app-lab/free-app-kit/api/client.mjs",
+      "to": "tooling/app-kit/api/client.mjs",
+      "beforeSha256": "5e2a50ffb47bf09e02183756c12909b79306f79e7d8f69021d85c95471e51435",
+      "sha256": "5e2a50ffb47bf09e02183756c12909b79306f79e7d8f69021d85c95471e51435",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "light-app-lab/free-app-kit/api/service.sh",
+      "to": "tooling/app-kit/api/service.sh",
+      "beforeSha256": "2858dc49d20a7bdc0f486904baa3027cdee81106d9817cafd9a4bd2c867300a5",
+      "sha256": "2858dc49d20a7bdc0f486904baa3027cdee81106d9817cafd9a4bd2c867300a5",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "light-app-lab/free-app-kit/api/package-lock.json",
+      "to": "tooling/app-kit/api/package-lock.json",
+      "beforeSha256": "dadc837de125833ee1f1f4cb250379c42dec1a8e34fd6bea8f87770782a63c71",
+      "sha256": "dadc837de125833ee1f1f4cb250379c42dec1a8e34fd6bea8f87770782a63c71",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "light-app-lab/free-app-kit/api/package.json",
+      "to": "tooling/app-kit/api/package.json",
+      "beforeSha256": "0a993739569a73be8dd02f256f0fef93271074bbc2eeca3b7fe3a5b38cb85633",
+      "sha256": "0a993739569a73be8dd02f256f0fef93271074bbc2eeca3b7fe3a5b38cb85633",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "light-app-lab/free-app-kit/api/server.mjs",
+      "to": "tooling/app-kit/api/server.mjs",
+      "beforeSha256": "a96605358565379cf0674ae5a5c89c70479bc5c8d037b06f1efb680de31461ed",
+      "sha256": "a96605358565379cf0674ae5a5c89c70479bc5c8d037b06f1efb680de31461ed",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "light-app-lab/free-app-kit/api/verify-external.py",
+      "to": "tooling/app-kit/api/verify-external.py",
+      "beforeSha256": "05d2c0eca1281a65ff5b388a3a6ae89259d5974b17c7fbbe8df3e909924b7295",
+      "sha256": "05d2c0eca1281a65ff5b388a3a6ae89259d5974b17c7fbbe8df3e909924b7295",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "light-app-lab/free-app-kit/apk-shell/src/org/agentos/generated/MainActivity.java",
+      "to": "tooling/app-kit/apk-shell/src/org/agentos/generated/MainActivity.java",
+      "beforeSha256": "d27683ad2e464eddbb8fb002f4b91455e767682fbecd7cf24d7cb3ecac3ca84b",
+      "sha256": "d27683ad2e464eddbb8fb002f4b91455e767682fbecd7cf24d7cb3ecac3ca84b",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "light-app-lab/free-app-kit/runtime/index.html",
+      "to": "tooling/app-kit/runtime/index.html",
+      "beforeSha256": "bc25b6b11eae48407d3175c0efc8926e719227bbf8dd0d87a8ffbc287a5490bc",
+      "sha256": "bc25b6b11eae48407d3175c0efc8926e719227bbf8dd0d87a8ffbc287a5490bc",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "light-app-lab/host/app/src/main/java/org/agentos/runtime/AppApiClient.java",
+      "to": "tooling/app-kit/apk-shell/src/org/agentos/runtime/AppApiClient.java",
+      "beforeSha256": "04ddb8edcb204a539baad8ae19f4c328e103946206bd1b78f3d5f9a64d3f9539",
+      "sha256": "04ddb8edcb204a539baad8ae19f4c328e103946206bd1b78f3d5f9a64d3f9539",
+      "reference": "relative symlink at original module/file entry"
+    },
+    {
+      "from": "light-app-lab/host/app/src/main/java/org/agentos/minilab/WebActivity.java",
+      "to": "tooling/app-kit/preview/src/org/agentos/minilab/WebActivity.java",
+      "beforeSha256": "087a16e1730bb4fcc4ec8249914c2d58195ba0abcd53c0d0990f5a21af141263",
+      "sha256": "087a16e1730bb4fcc4ec8249914c2d58195ba0abcd53c0d0990f5a21af141263",
+      "reference": "relative symlink at original module/file entry"
+    }
+  ],
+  "verifiedAt": "2026-10-10",
+  "count": 112,
+  "functionalJavaAndResourcesUnchanged": true
+}

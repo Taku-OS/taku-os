@@ -1,0 +1,46 @@
+[
+  {
+    "cycle": 0,
+    "start": {
+      "displayId": 8,
+      "name": "Taku-Independent-Screen",
+      "width": 720,
+      "height": 1280,
+      "density": 240,
+      "flags": 83273,
+      "uid": 0,
+      "pid": 27363,
+      "mirrorSocket": "taku-mirror"
+    },
+    "pidExitedAfterStop": true
+  },
+  {
+    "cycle": 1,
+    "start": {
+      "displayId": 9,
+      "name": "Taku-Independent-Screen",
+      "width": 720,
+      "height": 1280,
+      "density": 240,
+      "flags": 83273,
+      "uid": 0,
+      "pid": 27394,
+      "mirrorSocket": "taku-mirror"
+    },
+    "pidExitedAfterStop": true
+  },
+  {
+    "cycle": 2,
+    "start": {
+      "displayId": 10,
+      "name": "Taku-Independent-Screen",
+      "width": 720,
+      "height": 1280,
+      "density": 240,
+      "flags": 83273,
+      "uid": 0,
+      "pid": 27424,
+      "mirrorSocket": "taku-mirror"
+    }
+  }
+]

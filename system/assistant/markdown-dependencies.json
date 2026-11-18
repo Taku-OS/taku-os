@@ -1,0 +1,53 @@
+{
+  "description": "Pinned CommonMark parser and GFM extensions. Build cache only; no binaries tracked.",
+  "assets": [
+    {
+      "name": "commonmark",
+      "version": "0.30.1",
+      "url": "https://repo.maven.apache.org/maven2/org/commonmark/commonmark/0.30.1/commonmark-0.30.1.jar",
+      "sha256": "9b0d20064975a17e876fcb4b599c6b3667f46a7739ed61e2f06c96f44b50629f",
+      "license": "BSD-2-Clause",
+      "path": "system/assistant/downloads/commonmark-0.30.1.jar"
+    },
+    {
+      "name": "commonmark-ext-gfm-tables",
+      "version": "0.30.1",
+      "url": "https://repo.maven.apache.org/maven2/org/commonmark/commonmark-ext-gfm-tables/0.30.1/commonmark-ext-gfm-tables-0.30.1.jar",
+      "sha256": "c375b6d5b71efe179e5763a6d83fcf10e303c0bf82031310a46769727ac90da0",
+      "license": "BSD-2-Clause",
+      "path": "system/assistant/downloads/commonmark-ext-gfm-tables-0.30.1.jar"
+    },
+    {
+      "name": "commonmark-ext-gfm-strikethrough",
+      "version": "0.30.1",
+      "url": "https://repo.maven.apache.org/maven2/org/commonmark/commonmark-ext-gfm-strikethrough/0.30.1/commonmark-ext-gfm-strikethrough-0.30.1.jar",
+      "sha256": "825a45a1b196f8e0351baf8eb140d657cbf3fd3e17ab34155aa99056db82f099",
+      "license": "BSD-2-Clause",
+      "path": "system/assistant/downloads/commonmark-ext-gfm-strikethrough-0.30.1.jar"
+    },
+    {
+      "name": "commonmark-ext-task-list-items",
+      "version": "0.30.1",
+      "url": "https://repo.maven.apache.org/maven2/org/commonmark/commonmark-ext-task-list-items/0.30.1/commonmark-ext-task-list-items-0.30.1.jar",
+      "sha256": "3d709f6205ab8c556ead8e3d83104ffe5ded3b91cd5629afb11167da33be77f7",
+      "license": "BSD-2-Clause",
+      "path": "system/assistant/downloads/commonmark-ext-task-list-items-0.30.1.jar"
+    },
+    {
+      "name": "commonmark-ext-autolink",
+      "version": "0.30.1",
+      "url": "https://repo.maven.apache.org/maven2/org/commonmark/commonmark-ext-autolink/0.30.1/commonmark-ext-autolink-0.30.1.jar",
+      "sha256": "b0dbb99d6fac83fb25c023956f6b9cf8b794c6bbd67ff0f8f84a045a2e78555f",
+      "license": "BSD-2-Clause",
+      "path": "system/assistant/downloads/commonmark-ext-autolink-0.30.1.jar"
+    },
+    {
+      "name": "autolink",
+      "version": "0.12.0",
+      "url": "https://repo.maven.apache.org/maven2/org/nibor/autolink/autolink/0.12.0/autolink-0.12.0.jar",
+      "sha256": "04647ef989bd8096cfc253a8b5b8c36760918e3f163c1d918df6dfbfb79aa8c6",
+      "license": "MIT",
+      "path": "system/assistant/downloads/autolink-0.12.0.jar"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="org.agentos.agent.home.tests">
+  <uses-sdk android:minSdkVersion="36" android:targetSdkVersion="36" />
+  <application android:label="Taku voice integration tests" />
+  <instrumentation android:name="org.agentos.agent.home.tests.VoiceSessionProbe" android:targetPackage="org.agentos.agent" />
+  <instrumentation android:name="org.agentos.agent.home.tests.ReviewRegressionProbe" android:targetPackage="org.agentos.agent" />
+  <instrumentation android:name="org.agentos.agent.home.tests.AppBuildIslandProbe" android:targetPackage="org.agentos.agent" />
+  <instrumentation android:name="org.agentos.agent.home.tests.NativeIslandProbe" android:targetPackage="org.agentos.agent" />
+ <instrumentation android:name="org.agentos.agent.home.tests.VoiceReplyProbe" android:targetPackage="org.agentos.agent"/>
+  <instrumentation android:name="org.agentos.agent.home.tests.RecentsReviewProbe" android:targetPackage="org.agentos.agent" />
+  <instrumentation android:name="org.agentos.agent.home.tests.VoiceBackgroundProbe" android:targetPackage="org.agentos.agent" />
+</manifest>

@@ -1,0 +1,11 @@
+Actually use the native app's business API generated earlier. Do not edit source, XML, or SharedPreferences, tap scoring buttons, or read other apps/user data. Inspect the UI only on the independent background display, preserving the main screen.
+
+Call authority org.taku.acceptance.systemlab20261015.state through Android content CLI:
+1. query /score: expected current state A=2/B=0/historyCount=2. If different, report it honestly rather than editing data to pass.
+2. Call score.add with arg=B and integer Bundle delta=3. Query again and verify A=2/B=3/historyCount=3.
+3. Try delta=0; it must actually be rejected. Query afterward and verify scores/history are unchanged. Inspect the real exception and state, not only the process exit code.
+4. Call score.undo; query should return A=2/B=0/historyCount=2.
+5. Call score.add with arg=A, delta=2. Final query should return A=4/B=0/historyCount=3.
+6. Without restarting the app, take a screenshot and verify the already open native UI refreshed in response to Provider changes to A=4/B=0. Record any failure to refresh.
+
+Save calls and actual responses to this project's api-probe-result.txt. Finish in English with the steps passed and specific failures. Do not fabricate success. The test framework will independently read the Provider and inspect source and screenshots.

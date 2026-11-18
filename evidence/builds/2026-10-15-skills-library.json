@@ -1,0 +1,93 @@
+{
+  "schema": "taku.acceptance.skills-library/1",
+  "observedAt": "2026-10-14T20:25:01.341824+00:00",
+  "scope": "Dedicated emulator components; no physical device or ROM change",
+  "reference": "https://mp.weixin.qq.com/s/VsUVApOBLOTa0Tfjiax4JQ",
+  "otherReference": "https://www.skills.sh/",
+  "catalog": {
+    "source": "openai/skills",
+    "commit": "49f948faa9258a0c61caceaf225e179651397431",
+    "count": 39,
+    "descriptionsAvailable": 39
+  },
+  "installations": [
+    {
+      "name": "gh-address-comments",
+      "nativeRecognized": true,
+      "enabled": true,
+      "provenance": {
+        "archiveSha256": "0bdf4c58d334509076ff62d92dbe38fc5e44bcdc1d21b27cc500cccc9ec3bfe0",
+        "bodySha256": "77389eefd3fb6584210668ca8e43f4b8de87e7722ddd953474bc9e24cdfaaedd",
+        "commit": "49f948faa9258a0c61caceaf225e179651397431",
+        "externalToolsMayBeRequired": true,
+        "hasScripts": true,
+        "installedAt": 1792009330824,
+        "name": "gh-address-comments",
+        "path": "/data/local/agentos/home/.codex/skills/gh-address-comments/SKILL.md",
+        "repo": "openai/skills"
+      }
+    },
+    {
+      "name": "gh-fix-ci",
+      "nativeRecognized": true,
+      "enabled": true,
+      "provenance": {
+        "archiveSha256": "0bdf4c58d334509076ff62d92dbe38fc5e44bcdc1d21b27cc500cccc9ec3bfe0",
+        "bodySha256": "7b326b4a2f0f5f85122144628ec02077e48841e0e0e82efce88b3415bcfb7c26",
+        "commit": "49f948faa9258a0c61caceaf225e179651397431",
+        "externalToolsMayBeRequired": true,
+        "hasScripts": true,
+        "installedAt": 1792009091753,
+        "name": "gh-fix-ci",
+        "path": "/data/local/agentos/home/.codex/skills/gh-fix-ci/SKILL.md",
+        "repo": "openai/skills"
+      }
+    }
+  ],
+  "nativeMain": {
+    "passed": true,
+    "seconds": 37.106,
+    "checks": [
+      "Search filters actual catalog",
+      "Browse rows are objects, not install buttons",
+      "Pinned skill detail loads before installation is enabled",
+      "Installation recognized by native skills/list",
+      "Empty search",
+      "Provenance expansion",
+      "Android Back returns to library",
+      "Installed detail",
+      "Harness background and theme regression"
+    ]
+  },
+  "componentBuild": true,
+  "repositoryVerify": true,
+  "screenshots": {
+    "before.png": "87858113eca12dbc411d4391b54276ef82ac2571c94fe1444d6a3d31b1b742c5",
+    "category.png": "80cd4e87835af934bd9a4f04a7d7b7cb3e878153158f387657c401190d0d6d53",
+    "empty.png": "a65e33230d5ae3e5ffeec0ced2d8297ba386304aaa3aef48b6582f156586da09",
+    "library.png": "c269ccc77b2efc872aba7276e072f4c654907789f8308af5e6f433906039016d",
+    "search.png": "1bb4d48420315df996894e081456f3ed8d9a71ef2c841573f2f62b2de871897d",
+    "skills-light.png": "8697d3f81934dc7a7782b526cc5781e9484aecc32ac75c7939064de6410dc5fe",
+    "installed-detail.png": "b6eafc92367141c9ed540af694ffe313ef478a813a30048d4ee98ccfb8062a35",
+    "detail.png": "db5f2397c0c55e5cfa2d2c53fe3f7ed670c2caa213dc73ed31cde6509eeca61b",
+    "source-form.png": "22398e462f925514fc89fe5b8aac137b629938d5ccdae9b5714a1453e36c4b98"
+  },
+  "boundaries": [
+    "Local category rules and curated Chinese aliases are presentation only; native descriptions remain inspectable",
+    "No popularity, publisher-verification or permission-sandbox claims",
+    "Installed skill external-tool/account readiness not validated",
+    "No real model task executed for the two GitHub skills"
+  ],
+  "appearance": {
+    "passed": true,
+    "seconds": 19.853,
+    "checks": [
+      "Category filters",
+      "Native source menu",
+      "Separate source form",
+      "Back preserves library",
+      "Light theme library",
+      "Dark theme restored"
+    ]
+  }
+}

@@ -1,0 +1,81 @@
+{
+  "status": "emulator_verified",
+  "date": "2026-10-19",
+  "versionCode": 55,
+  "versionName": "20261019-magpie",
+  "avd": "Taku_ImageIntegration_20261010",
+  "serial": "emulator-5634",
+  "androidApi": 36,
+  "abi": "arm64-v8a",
+  "codexVersion": "0.161.0",
+  "magpieVersion": "0.1.1290",
+  "artifacts": {
+    "apk": {
+      "sha256": "a8d666320185ed4578f6fdb4057114c108479c1ca692cf6f1e85fffe1ad78eed",
+      "deviceMatches": true
+    },
+    "broker": {
+      "sha256": "0fec83dd2b36bc58ea4fbf4755fa9308eb34343f4fd736fb757fab16056e4da0",
+      "deviceMatches": true
+    },
+    "magpie": {
+      "sha256": "0f3660088ee9974220d5a32852a631ca98877ecfceda449a234084f655c8820b",
+      "deviceMatches": true
+    },
+    "launcher": {
+      "sha256": "2ce84c063839a1d5b6d0a2f9457fa10aeeebcaaba9682f1ef23b28295543e876",
+      "deviceMatches": true
+    }
+  },
+  "services": {
+    "taku_magpie": "running",
+    "taku_broker": "running"
+  },
+  "liveDeepSeek": {
+    "threadId": "01a15323-0a9c-7903-92e9-2ade9d0b98e7",
+    "turnId": "01a15323-1048-78c0-964d-b5c072875d92",
+    "status": "completed",
+    "modelResponsesSimulated": false,
+    "modelProvider": "magpie",
+    "model": "deepseek/deepseek-flash",
+    "phoneToolCompleted": true,
+    "reply": "# 本机 Magpie 验收\n\n- Android 版本：16\n- 手机型号：Android SDK built for arm64\n\n中文流式正常 🌏",
+    "error": null
+  },
+  "protocolFixture": {
+    "modelResponsesSimulated": true,
+    "gatewayOnAndroid": true,
+    "checks": [
+      "init gateway running",
+      "unknown model leaves connection unchanged",
+      "provider URL is valid TOML without JSON slash escaping",
+      "Codex reads native gateway catalog",
+      "native thread uses Magpie",
+      "tool round completes",
+      "dynamic phone tool actually executes",
+      "Chinese and emoji survive streaming translation",
+      "group routes to Chat Completions provider",
+      "busy connection switch is rejected",
+      "native interruption reaches terminal state",
+      "same history survives provider switch"
+    ]
+  },
+  "textOnlyImageRejectedBeforeTurn": true,
+  "fullRomBuilt": false,
+  "physicalDeviceTested": false,
+  "credentialsIncluded": false,
+  "ui": {
+    "nativePicker": true,
+    "refresh": true,
+    "selection": true,
+    "opensLocalProviderManagement": true,
+    "assistantDismissedForBrowser": true,
+    "originalConversationRestored": true
+  },
+  "checks": {
+    "assistantBuild": "passed",
+    "npmVerify": "passed",
+    "linuxFifoTest": "skipped on macOS",
+    "diffCheck": "passed"
+  }
+}

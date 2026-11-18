@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generated from tokens.json by tools/build_android.py. Do not edit by hand. -->
+<resources>
+    <style name="TextAppearance.Taku.Heading" parent="">
+        <item name="android:fontFamily">@font/space_grotesk_regular</item>
+        <item name="android:textSize">@dimen/taku_text_heading</item>
+        <item name="android:letterSpacing">-0.01</item>
+        <item name="android:textColor">@color/taku_text_primary</item>
+    </style>
+    <style name="TextAppearance.Taku.Heading.Zh">
+        <item name="android:letterSpacing">0</item>
+    </style>
+    <style name="Taku.Text.Heading" parent="">
+        <item name="android:textAppearance">@style/TextAppearance.Taku.Heading</item>
+        <item name="android:lineHeight">@dimen/taku_line_heading</item>
+    </style>
+    <style name="Taku.Text.Heading.Zh">
+        <item name="android:textAppearance">@style/TextAppearance.Taku.Heading.Zh</item>
+        <item name="android:lineHeight">@dimen/taku_line_heading_zh</item>
+    </style>
+    <style name="TextAppearance.Taku.Context" parent="">
+        <item name="android:fontFamily">@font/hanken_grotesk_medium</item>
+        <item name="android:textSize">@dimen/taku_text_context</item>
+        <item name="android:letterSpacing">-0.01</item>
+        <item name="android:textColor">@color/taku_text_primary</item>
+    </style>
+    <style name="TextAppearance.Taku.Context.Zh">
+        <item name="android:letterSpacing">0</item>
+    </style>
+    <style name="Taku.Text.Context" parent="">
+        <item name="android:textAppearance">@style/TextAppearance.Taku.Context</item>
+        <item name="android:lineHeight">@dimen/taku_line_context</item>
+    </style>
+    <style name="Taku.Text.Context.Zh">
+        <item name="android:textAppearance">@style/TextAppearance.Taku.Context.Zh</item>
+    </style>
+    <style name="TextAppearance.Taku.Body" parent="">
+        <item name="android:fontFamily">@font/hanken_grotesk_regular</item>
+        <item name="android:textSize">@dimen/taku_text_body</item>
+        <item name="android:letterSpacing">-0.01</item>
+        <item name="android:textColor">@color/taku_text_primary</item>
+    </style>
+    <style name="TextAppearance.Taku.Body.Zh">
+        <item name="android:letterSpacing">0</item>
+    </style>
+    <style name="Taku.Text.Body" parent="">
+        <item name="android:textAppearance">@style/TextAppearance.Taku.Body</item>
+        <item name="android:lineHeight">@dimen/taku_line_body</item>
+    </style>
+    <style name="Taku.Text.Body.Zh">
+        <item name="android:textAppearance">@style/TextAppearance.Taku.Body.Zh</item>
+    </style>
+    <style name="TextAppearance.Taku.Label" parent="">
+        <item name="android:fontFamily">@font/hanken_grotesk_medium</item>
+        <item name="android:textSize">@dimen/taku_text_label</item>
+        <item name="android:letterSpacing">-0.01</item>
+        <item name="android:textColor">@color/taku_text_primary</item>
+    </style>
+    <style name="TextAppearance.Taku.Label.Zh">
+        <item name="android:letterSpacing">0</item>
+    </style>
+    <style name="Taku.Text.Label" parent="">
+        <item name="android:textAppearance">@style/TextAppearance.Taku.Label</item>
+        <item name="android:lineHeight">@dimen/taku_line_label</item>
+    </style>
+    <style name="Taku.Text.Label.Zh">
+        <item name="android:textAppearance">@style/TextAppearance.Taku.Label.Zh</item>
+    </style>
+    <style name="TextAppearance.Taku.Meta" parent="">
+        <item name="android:fontFamily">@font/hanken_grotesk_regular</item>
+        <item name="android:textSize">@dimen/taku_text_meta</item>
+        <item name="android:letterSpacing">-0.01</item>
+        <item name="android:textColor">@color/taku_text_secondary</item>
+    </style>
+    <style name="TextAppearance.Taku.Meta.Zh">
+        <item name="android:letterSpacing">0</item>
+    </style>
+    <style name="Taku.Text.Meta" parent="">
+        <item name="android:textAppearance">@style/TextAppearance.Taku.Meta</item>
+        <item name="android:lineHeight">@dimen/taku_line_meta</item>
+    </style>
+    <style name="Taku.Text.Meta.Zh">
+        <item name="android:textAppearance">@style/TextAppearance.Taku.Meta.Zh</item>
+    </style>
+    <style name="TextAppearance.Taku.MetaMedium" parent="">
+        <item name="android:fontFamily">@font/hanken_grotesk_medium</item>
+        <item name="android:textSize">@dimen/taku_text_meta_medium</item>
+        <item name="android:letterSpacing">-0.01</item>
+        <item name="android:textColor">@color/taku_text_secondary</item>
+    </style>
+    <style name="TextAppearance.Taku.MetaMedium.Zh">
+        <item name="android:letterSpacing">0</item>
+    </style>
+    <style name="Taku.Text.MetaMedium" parent="">
+        <item name="android:textAppearance">@style/TextAppearance.Taku.MetaMedium</item>
+        <item name="android:lineHeight">@dimen/taku_line_meta_medium</item>
+    </style>
+    <style name="Taku.Text.MetaMedium.Zh">
+        <item name="android:textAppearance">@style/TextAppearance.Taku.MetaMedium.Zh</item>
+    </style>
+    <style name="TextAppearance.Taku.Caption" parent="">
+        <item name="android:fontFamily">@font/hanken_grotesk_regular</item>
+        <item name="android:textSize">@dimen/taku_text_caption</item>
+        <item name="android:letterSpacing">-0.01</item>
+        <item name="android:textColor">@color/taku_text_secondary</item>
+    </style>
+    <style name="TextAppearance.Taku.Caption.Zh">
+        <item name="android:letterSpacing">0</item>
+    </style>
+    <style name="Taku.Text.Caption" parent="">
+        <item name="android:textAppearance">@style/TextAppearance.Taku.Caption</item>
+        <item name="android:lineHeight">@dimen/taku_line_caption</item>
+    </style>
+    <style name="Taku.Text.Caption.Zh">
+        <item name="android:textAppearance">@style/TextAppearance.Taku.Caption.Zh</item>
+    </style>
+    <!-- Board digits only (clock, timer, a few numeric blocks). Never for words or Chinese. -->
+    <style name="TextAppearance.Taku.Numeric" parent="">
+        <item name="android:fontFamily">@font/doto_black_rounded</item>
+        <item name="android:textColor">@color/taku_text_primary</item>
+        <item name="android:fontFeatureSettings">"tnum"</item>
+    </style>
+</resources>

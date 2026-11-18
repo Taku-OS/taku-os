@@ -1,0 +1,5 @@
+/private/tmp/taku-build-round7-clean/source/round11-codex: 1 file pushed, 0 skipped. 563.3 MB/s (252637288 bytes in 0.428s)
+/Users/haipro/experiments/android-agent-os/taku-os-skills-lifecycle-20261030/examples/codex-plugin-lifecycle/: 6 files pushed, 0 skipped. 0.5 MB/s (2113 bytes in 0.004s)
+PASS installed 1.0.0 with 20000 fixture files
+PASS SIGKILL after first file removed while cache still present
+FAIL interrupted uninstall was not recovered: partial cache remains after restart

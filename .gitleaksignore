@@ -1,0 +1,12 @@
+# Figma document identifiers in asset provenance, not API credentials.
+# Exact historical findings only: other values, files and future commits remain scanned.
+8d7c04401b435196f8a199610279f82909afe1ae:system/agent-app/modules/taku-home/android/src/main/assets/feed/icons/ask-taku.source.json:generic-api-key:2
+3eb1d31fd217c66976d799c65a71eac1261bd46f:system/agent-app/modules/taku-home/android/src/main/assets/assistant/provenance.json:generic-api-key:2
+# SHA-256 content digests in the audio ROM lock, not credentials. Verified against
+# the historical AudioOpenAccessProvider.kt blob and libsherpa-onnx-c-api.so bytes.
+6a8a77961fbeb5f424a578f543e1983bbe6b2245:system/audio-engine/rom-input-lock.json:generic-api-key:54
+6a8a77961fbeb5f424a578f543e1983bbe6b2245:system/audio-engine/rom-input-lock.json:generic-api-key:2069
+# SHA-256 digests of design/Tokens.kt in the Agent APK source-input lock, not credentials.
+# Verified against the exact source blobs bound by each historical lock entry.
+485a7b7417984ede1694cc33b1ed20609804e224:image/runtime-assets.lock.json:generic-api-key:223
+e94e1bc9ebef0969742ccbb829bd20d99424b2dd:image/runtime-assets.lock.json:generic-api-key:229

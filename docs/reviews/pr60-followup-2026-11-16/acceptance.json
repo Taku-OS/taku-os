@@ -1,0 +1,60 @@
+{
+  "baseCommit": "324890eda7615bc198e01adccc60de97f85bad3a",
+  "review": "https://github.com/Taku-OS/taku-os/pull/60#pullrequestreview-5920523717",
+  "device": "emulator-5590 / Taku_Lineage_Island_20261115",
+  "agentApkSha256": "cea9adbd6398b0bdba2ff45a1e3ef36477c7e5e03a378efbad0f9ba2e4d1b559",
+  "checks": {
+    "lint": "passed",
+    "typecheck": "passed",
+    "agentTests": 382,
+    "liveTalkHookCases": 5,
+    "androidUnitTests": 143,
+    "releaseBuild": "passed",
+    "rootVerify": "passed"
+  },
+  "probes": {
+    "VoiceSessionProbe": {
+      "passed": true,
+      "cases": [
+        "release after activation latches while capture is preparing",
+        "Live Talk pause follows user intent through finalization",
+        "release during automatic finalization still chooses Submit",
+        "Text receives the complete tail once and preserves edits made while waiting",
+        "successful recognition before release waits for an explicit destination",
+        "cancel revokes an in-flight result and cannot affect the next recording",
+        "failed recognition ends the gesture and retains the reason without sending partial text",
+        "hidden listening surface releases capture, rotation and handoff retain it",
+        "automatic restart failures are contained and revoke recording ownership",
+        "system release before overlay activation never begins a recording"
+      ]
+    },
+    "VoiceBackgroundProbe": {
+      "passed": true,
+      "cases": [
+        "Home Listening to another app releases capture and gesture ownership",
+        "cross-app Listening overlay stops when another app covers it",
+        "real screen-off cancels latched listening without crash or restart",
+        "wake permits a new gesture instead of VOICE_BUSY",
+        "screen-off also stops Continuous Live Talk",
+        "actual 500ms auto-restart loop contains backend failure and remains alive"
+      ]
+    },
+    "ReviewRegressionProbe": {
+      "passed": true,
+      "cases": [
+        "installed Agent manifest denies public and LAN cleartext traffic",
+        "interrupted placement: finish/resume/list/cancel preserve one live binding",
+        "cross-page widget drag and cancellation retain the source HostView and layout",
+        "cross-app voice keeps its listening page through finalization/error and exits on explicit dismissal",
+        "text reopen and invalid overlay intents preserve capture/finalization through GUI and provider"
+      ],
+      "failure": null
+    }
+  },
+  "limits": [
+    "No full ROM or physical-device build/acceptance in this follow-up",
+    "Probe audio is an in-process double; this round does not repeat live FAL/Agent requests",
+    "Keep talking React handoff and lazy thread binding exercised by hook tests; lifecycle preservation checked in VoiceSessionProbe"
+  ],
+  "installedProductionApkMatches": true
+}

@@ -1,0 +1,13 @@
+@@START Tue Nov  3 12:43:02 CST 2026 T2=1793718600000 T3=1793719200000
+@@APK     versionName=0.9.0
+@@CFG Result: Bundle[{result={"ok":true,"result":{"enabled":true,"analysisEnabled":false,"analysisGeneration":3,"queryEnabled":true,"proactive":false,"nudges":true,"model":"","modelOverride":"","followsSystem":true,"sources":["com.android.shell"],"generation":1,"retentionDays":0,"userName":"小林","autoOrganize":false,"organizeModel":"","agentBoard":true,"agentProfile":true,"debugHooks":true,"testNow":0}}}
+@@CAPTURED 7 nudges_before=0
+@@MAINTAIN Result: Bundle[{result={"ok":true,"result":{"started":true}}}] 
+@@EVENING 带好评审数据 || 11月4日15:00，去3A会议室参加评审并带上10月留存数据；错过只能下周再排。 / 11月4日21:00前，去小区驿站取包裹；逾期退回。 / 11月5日19:00，去西村日料赴婷婷的约，并带上蓝色长柄伞归还。 / 11月15日前，回复老周是否参加12月12日成都婚礼及参加人数，方便订酒店。
+@@USAGE 
+@@TESTNOW Result: Bundle[{result={"ok":true,"result":{"enabled":true,"analysisEnabled":false,"analysisGeneration":7,"queryEnabled":true,"proactive":false,"nudges":true,"model":"","modelOverride":"","followsSystem":true,"sources":["com.android.shell"],"generation":2,"retentionDays":0,"userName":"小林","autoOrganize":false,"organizeModel":"","agentBoard":true,"agentProfile":true,"debugHooks":true,"testNow":1793
+@@MESSAGE 小雨 || 周四 19:00 已约婷婷在西村日料吃饭。可以问小雨能否改到别的时间。 || 11月5日 周四 19:00｜婷婷请吃日料并带伞
+@@MESSAGE_COUNT_AFTER_CHITCHAT 1
+@@NOTIFICATIONS 
+@@TESTNOW0 Result: Bundle[{result={"ok":true,"result":{"enabled":true,"analysisEnabled":false,"analysisGeneration":7,"queryEnabled":true,"proactive":false,"nudges":false,"model":"","modelOverride":"","followsSystem":true,"sources":["com.android.shell"],"generation":3,"retentionDays":0,"userName":"小林","autoOrganize":false,"organizeModel":"","agentBoard":true,"agentProfile":true,"debugHooks":true,"testNow":0}}
+@@END Tue Nov  3 12:44:56 CST 2026

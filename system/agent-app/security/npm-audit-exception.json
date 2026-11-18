@@ -1,0 +1,23 @@
+{
+  "advisory": "https://github.com/advisories/GHSA-fc5q-39xc-vjpf",
+  "accepted": true,
+  "acceptedAt": "2026-11-18T00:00:00Z",
+  "expiresAt": "2026-12-18T00:00:00Z",
+  "approval": "Explicit user acceptance on 2026-11-18 for this exact dependency graph and tooling-only exposure.",
+  "reason": "The maintainer disputes this ReDoS advisory and Snyk revoked it; GitHub/npm still report it. Android JavaScript export source maps exclude picomatch, micromatch and tinyglobby. Tooling must not accept untrusted external glob patterns. This is residual-risk acceptance, not a vulnerability fix.",
+  "lockfileSha256": "bba1028db26c52585b146f2d8460198f46022db5d5256b25f3e989c94418dd59",
+  "findingsSha256": "2d21843ad1b1f330846dedeaba000cb341ecc07cf5f2c17a697c6601c42f3809",
+  "affectedEntries": 41,
+  "versions": {
+    "node_modules/picomatch": "2.3.2",
+    "node_modules/@expo/cli/node_modules/picomatch": "4.0.7",
+    "node_modules/@expo/metro-config/node_modules/picomatch": "4.0.7",
+    "node_modules/tinyglobby/node_modules/picomatch": "4.0.7"
+  },
+  "references": [
+    "https://github.com/advisories/GHSA-fc5q-39xc-vjpf",
+    "https://security.snyk.io/vuln/SNYK-JS-PICOMATCH-21248802",
+    "https://github.com/micromatch/picomatch/pull/235"
+  ],
+  "retirement": "Remove the exception and its guards in a reviewed change when the advisory is withdrawn or a verified compatible fix is adopted. Never renew or refresh digests automatically."
+}

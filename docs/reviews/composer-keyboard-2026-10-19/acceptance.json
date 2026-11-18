@@ -1,0 +1,73 @@
+{
+  "status": "emulator_verified",
+  "versionCode": 52,
+  "versionName": "20261019-composer-keyboard",
+  "branch": "codex/agent-interface-20261018",
+  "baseCommit": "dd71a49",
+  "device": "emulator-5634",
+  "avd": "Taku_ImageIntegration_20261010",
+  "api": 36,
+  "physicalDeviceVerified": false,
+  "deployedComponents": [
+    "AgentOSAssistant.apk"
+  ],
+  "apkSha256": "e4f85709a8e20ed99f79b4989b7b92966ef23adf59b96a5db5af9ea050d89658",
+  "composer": {
+    "failure-async": {
+      "passed": true,
+      "modelResponsesSimulated": false,
+      "keyboardPreservedOnFailure": true,
+      "draftPreserved": true,
+      "attachmentsPreserved": true,
+      "realUpstreamFailure": true,
+      "localEvidence": "out/composer-reliability-tests/20261019T050715Z-8827",
+      "cleanup": {
+        "testExitCode": 0,
+        "restoreFailed": false,
+        "modelResponsesSimulated": false
+      }
+    },
+    "attachments": {
+      "passed": true,
+      "modelResponsesSimulated": false,
+      "keyboardHiddenAfterSend": true,
+      "keyboardReopensOnTap": true,
+      "realImageAndTextUnderstanding": true,
+      "sentMessageLastLineVisible": true,
+      "localEvidence": "out/composer-reliability-tests/20261019T050736Z-8917",
+      "cleanup": {
+        "testExitCode": 0,
+        "restoreFailed": false,
+        "modelResponsesSimulated": false
+      }
+    },
+    "steer": {
+      "passed": true,
+      "modelResponsesSimulated": false,
+      "keyboardHiddenAfterSteer": true,
+      "realSteerSameTurn": true,
+      "steeredAttachmentCount": 2,
+      "localEvidence": "out/composer-reliability-tests/20261019T050801Z-9001",
+      "cleanup": {
+        "testExitCode": 0,
+        "restoreFailed": false,
+        "modelResponsesSimulated": false
+      }
+    }
+  },
+  "repositoryVerify": {
+    "passed": true,
+    "platformSkips": [
+      "Linux-only FIFO test on macOS"
+    ],
+    "log": "out/checks/composer-keyboard-verify.log"
+  },
+  "buildLog": "out/checks/composer-keyboard-build.log",
+  "earlierBuildCheck": {
+    "phase": "failure-missing",
+    "passed": true,
+    "localEvidence": "out/composer-reliability-tests/20261019T004414Z-7795",
+    "finalApk": false
+  },
+  "messageRenderingChanged": false
+}

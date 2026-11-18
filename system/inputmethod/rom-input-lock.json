@@ -1,0 +1,725 @@
+{
+  "schema": "taku.ime-rom-input/1",
+  "path": "system/inputmethod/prebuilt/TakuInputMethod.apk",
+  "package": "org.agentos.inputmethod",
+  "versionName": "0.4.0",
+  "versionCode": 10062,
+  "abi": "arm64-v8a",
+  "bytes": 51771576,
+  "sha256": "3722bdc2518fb5744819b481bed2f7b505bfc8b089949a213142e40b3484b1ca",
+  "signerSha256": "2052b7ae36605273c880885288dc6c09e1511d2d10d40539af891e2ffcd61c3c",
+  "sourceInputs": {
+    "system/ai/rom_formats.py": "ef0f895152a64614567721be67487f10d316e63cf37761d62c2018fb88482410",
+    "system/inputmethod/Android.bp": "f5895ccfafa0cc8e0c62d2f204a27df0094afefc38a793615ed903ee6f3fd664",
+    "system/inputmethod/build.sh": "ddc4a20697cd1a907916383103c3a416bb7f2dec41f2a895b2b4a26614a46b0d",
+    "system/inputmethod/jni/Android.bp": "88aabc0714f72f18a2893352cf9fe0106a09a5e560d2a622e9171abe0aff2bb7",
+    "system/inputmethod/patches/0001-taku-inputmethod.patch": "dbe4f55d73b083c27444086e973d374d384b535d73e7e3c5d3748eaff579285e",
+    "system/inputmethod/patches/0002-ai-replies.patch": "9c6f95ea51a995242e79572fef2e62452a85c61aa291d91e4cdf38199ba4125f",
+    "system/inputmethod/prepare-rom.py": "fe8461b403fd70232ad7910e092149262261cc507459450aaeef460ccea944c4",
+    "system/inputmethod/source-lock.json": "ccec619f58d22c4962de1d1e4a1db6d9ee52e4039ec8762664415da999563606"
+  },
+  "credentialsIncluded": false,
+  "jniPackaging": "stored; manifest extractNativeLibs=false; private read-only sidecars for Fcitx discovery",
+  "jni": [
+    {
+      "path": "system/inputmethod/jni/prebuilt/arm64-v8a/libFcitx5Config.so",
+      "apkEntry": "lib/arm64-v8a/libFcitx5Config.so",
+      "installPath": "SYSTEM_EXT/lib64/taku-inputmethod/libFcitx5Config.so",
+      "sha256": "4238cdb27872d4d846b21ee073c5a8a0c9f784324842c749cb8cdcad892d278e",
+      "bytes": 135776,
+      "module": "taku-ime-libFcitx5Config",
+      "elfClass": 64,
+      "machine": 183,
+      "loadAlignment": 16384,
+      "executable": false,
+      "soname": "libFcitx5Config.so",
+      "needed": [
+        "libFcitx5Utils.so",
+        "libc++_shared.so",
+        "libc.so",
+        "libdl.so"
+      ],
+      "sharedModules": [
+        "libc",
+        "libdl",
+        "taku-ime-libFcitx5Utils",
+        "taku-ime-libcxx_shared"
+      ]
+    },
+    {
+      "path": "system/inputmethod/jni/prebuilt/arm64-v8a/libFcitx5Core.so",
+      "apkEntry": "lib/arm64-v8a/libFcitx5Core.so",
+      "installPath": "SYSTEM_EXT/lib64/taku-inputmethod/libFcitx5Core.so",
+      "sha256": "3d29464d7c8e6107f13af95c15b232c17c6fd79e41518456f73f793a0af43ccf",
+      "bytes": 974176,
+      "module": "taku-ime-libFcitx5Core",
+      "elfClass": 64,
+      "machine": 183,
+      "loadAlignment": 16384,
+      "executable": false,
+      "soname": "libFcitx5Core.so",
+      "needed": [
+        "libFcitx5Config.so",
+        "libFcitx5Utils.so",
+        "libc++_shared.so",
+        "libc.so",
+        "libdl.so"
+      ],
+      "sharedModules": [
+        "libc",
+        "libdl",
+        "taku-ime-libFcitx5Config",
+        "taku-ime-libFcitx5Utils",
+        "taku-ime-libcxx_shared"
+      ]
+    },
+    {
+      "path": "system/inputmethod/jni/prebuilt/arm64-v8a/libFcitx5Utils.so",
+      "apkEntry": "lib/arm64-v8a/libFcitx5Utils.so",
+      "installPath": "SYSTEM_EXT/lib64/taku-inputmethod/libFcitx5Utils.so",
+      "sha256": "b22fd394f80d53301b24bd50b2273a0c38c4cdce7d6fe5d988aa489b8b2d410b",
+      "bytes": 812408,
+      "module": "taku-ime-libFcitx5Utils",
+      "elfClass": 64,
+      "machine": 183,
+      "loadAlignment": 16384,
+      "executable": false,
+      "soname": "libFcitx5Utils.so",
+      "needed": [
+        "libc++_shared.so",
+        "libc.so",
+        "libdl.so"
+      ],
+      "sharedModules": [
+        "libc",
+        "libdl",
+        "taku-ime-libcxx_shared"
+      ]
+    },
+    {
+      "path": "system/inputmethod/jni/prebuilt/arm64-v8a/libIMECore.so",
+      "apkEntry": "lib/arm64-v8a/libIMECore.so",
+      "installPath": "SYSTEM_EXT/lib64/taku-inputmethod/libIMECore.so",
+      "sha256": "7c68cf9d75db579bc7ff79a245a6306ad0ad6cb53f5273999d70fd45a72c2f22",
+      "bytes": 1250312,
+      "module": "taku-ime-libIMECore",
+      "elfClass": 64,
+      "machine": 183,
+      "loadAlignment": 16384,
+      "executable": false,
+      "soname": "libIMECore.so",
+      "needed": [
+        "libFcitx5Utils.so",
+        "libc++_shared.so",
+        "libc.so",
+        "libdl.so",
+        "libm.so"
+      ],
+      "sharedModules": [
+        "libc",
+        "libdl",
+        "libm",
+        "taku-ime-libFcitx5Utils",
+        "taku-ime-libcxx_shared"
+      ]
+    },
+    {
+      "path": "system/inputmethod/jni/prebuilt/arm64-v8a/libIMEPinyin.so",
+      "apkEntry": "lib/arm64-v8a/libIMEPinyin.so",
+      "installPath": "SYSTEM_EXT/lib64/taku-inputmethod/libIMEPinyin.so",
+      "sha256": "8abd41e9f2e8de8e6d30ad243b349db4cd6e63d1e369eb652e77c648b299b1b3",
+      "bytes": 563280,
+      "module": "taku-ime-libIMEPinyin",
+      "elfClass": 64,
+      "machine": 183,
+      "loadAlignment": 16384,
+      "executable": false,
+      "soname": "libIMEPinyin.so",
+      "needed": [
+        "libFcitx5Utils.so",
+        "libIMECore.so",
+        "libc++_shared.so",
+        "libc.so",
+        "libdl.so"
+      ],
+      "sharedModules": [
+        "libc",
+        "libdl",
+        "taku-ime-libFcitx5Utils",
+        "taku-ime-libIMECore",
+        "taku-ime-libcxx_shared"
+      ]
+    },
+    {
+      "path": "system/inputmethod/jni/prebuilt/arm64-v8a/libIMETable.so",
+      "apkEntry": "lib/arm64-v8a/libIMETable.so",
+      "installPath": "SYSTEM_EXT/lib64/taku-inputmethod/libIMETable.so",
+      "sha256": "07a0440e4f97b333af1a9df98d45f000964cff9c46ff22de0ee732efbe88fbf5",
+      "bytes": 452104,
+      "module": "taku-ime-libIMETable",
+      "elfClass": 64,
+      "machine": 183,
+      "loadAlignment": 16384,
+      "executable": false,
+      "soname": "libIMETable.so",
+      "needed": [
+        "libFcitx5Utils.so",
+        "libIMECore.so",
+        "libc++_shared.so",
+        "libc.so",
+        "libdl.so"
+      ],
+      "sharedModules": [
+        "libc",
+        "libdl",
+        "taku-ime-libFcitx5Utils",
+        "taku-ime-libIMECore",
+        "taku-ime-libcxx_shared"
+      ]
+    },
+    {
+      "path": "system/inputmethod/jni/prebuilt/arm64-v8a/libandroidfrontend.so",
+      "apkEntry": "lib/arm64-v8a/libandroidfrontend.so",
+      "installPath": "SYSTEM_EXT/lib64/taku-inputmethod/libandroidfrontend.so",
+      "sha256": "a2b504be623115e365a8bac2ee4fcf900384922fa309e416d55749259cb7563f",
+      "bytes": 129200,
+      "module": "taku-ime-libandroidfrontend",
+      "elfClass": 64,
+      "machine": 183,
+      "loadAlignment": 16384,
+      "executable": false,
+      "soname": null,
+      "needed": [
+        "libFcitx5Core.so",
+        "libFcitx5Utils.so",
+        "libc++_shared.so",
+        "libc.so",
+        "libdl.so"
+      ],
+      "sharedModules": [
+        "libc",
+        "libdl",
+        "taku-ime-libFcitx5Core",
+        "taku-ime-libFcitx5Utils",
+        "taku-ime-libcxx_shared"
+      ]
+    },
+    {
+      "path": "system/inputmethod/jni/prebuilt/arm64-v8a/libandroidkeyboard.so",
+      "apkEntry": "lib/arm64-v8a/libandroidkeyboard.so",
+      "installPath": "SYSTEM_EXT/lib64/taku-inputmethod/libandroidkeyboard.so",
+      "sha256": "573caa16c253b6724ecfc72f2305a7f7c2748ed79ba56c38518cb40b180c1313",
+      "bytes": 95440,
+      "module": "taku-ime-libandroidkeyboard",
+      "elfClass": 64,
+      "machine": 183,
+      "loadAlignment": 16384,
+      "executable": false,
+      "soname": null,
+      "needed": [
+        "libFcitx5Config.so",
+        "libFcitx5Core.so",
+        "libFcitx5Utils.so",
+        "libc++_shared.so",
+        "libc.so",
+        "libdl.so"
+      ],
+      "sharedModules": [
+        "libc",
+        "libdl",
+        "taku-ime-libFcitx5Config",
+        "taku-ime-libFcitx5Core",
+        "taku-ime-libFcitx5Utils",
+        "taku-ime-libcxx_shared"
+      ]
+    },
+    {
+      "path": "system/inputmethod/jni/prebuilt/arm64-v8a/libandroidnotification.so",
+      "apkEntry": "lib/arm64-v8a/libandroidnotification.so",
+      "installPath": "SYSTEM_EXT/lib64/taku-inputmethod/libandroidnotification.so",
+      "sha256": "8018b9ce55dccbabaa6fe75568bc55e1e67049c10bc4f3bb33c10432dcc3398b",
+      "bytes": 59096,
+      "module": "taku-ime-libandroidnotification",
+      "elfClass": 64,
+      "machine": 183,
+      "loadAlignment": 16384,
+      "executable": false,
+      "soname": null,
+      "needed": [
+        "libFcitx5Config.so",
+        "libFcitx5Core.so",
+        "libFcitx5Utils.so",
+        "libc++_shared.so",
+        "libc.so",
+        "libdl.so"
+      ],
+      "sharedModules": [
+        "libc",
+        "libdl",
+        "taku-ime-libFcitx5Config",
+        "taku-ime-libFcitx5Core",
+        "taku-ime-libFcitx5Utils",
+        "taku-ime-libcxx_shared"
+      ]
+    },
+    {
+      "path": "system/inputmethod/jni/prebuilt/arm64-v8a/libc++_shared.so",
+      "apkEntry": "lib/arm64-v8a/libc++_shared.so",
+      "installPath": "SYSTEM_EXT/lib64/taku-inputmethod/libc++_shared.so",
+      "sha256": "b17919df195f29b0a238468c04171b93cedcdffbe0d30cdc634327cf7f7889bc",
+      "bytes": 1253544,
+      "module": "taku-ime-libcxx_shared",
+      "elfClass": 64,
+      "machine": 183,
+      "loadAlignment": 16384,
+      "executable": false,
+      "soname": "libc++_shared.so",
+      "needed": [
+        "libc.so",
+        "libdl.so",
+        "libm.so"
+      ],
+      "sharedModules": [
+        "libc",
+        "libdl",
+        "libm"
+      ]
+    },
+    {
+      "path": "system/inputmethod/jni/prebuilt/arm64-v8a/libchttrans.so",
+      "apkEntry": "lib/arm64-v8a/libchttrans.so",
+      "installPath": "SYSTEM_EXT/lib64/taku-inputmethod/libchttrans.so",
+      "sha256": "73a63c871b96f1f88af17f9b860d0af3e58b6bd3bf3aa2cec78bee3991aa15f6",
+      "bytes": 405480,
+      "module": "taku-ime-libchttrans",
+      "elfClass": 64,
+      "machine": 183,
+      "loadAlignment": 16384,
+      "executable": false,
+      "soname": null,
+      "needed": [
+        "libFcitx5Config.so",
+        "libFcitx5Core.so",
+        "libFcitx5Utils.so",
+        "libc++_shared.so",
+        "libc.so",
+        "libdl.so"
+      ],
+      "sharedModules": [
+        "libc",
+        "libdl",
+        "taku-ime-libFcitx5Config",
+        "taku-ime-libFcitx5Core",
+        "taku-ime-libFcitx5Utils",
+        "taku-ime-libcxx_shared"
+      ]
+    },
+    {
+      "path": "system/inputmethod/jni/prebuilt/arm64-v8a/libclipboard.so",
+      "apkEntry": "lib/arm64-v8a/libclipboard.so",
+      "installPath": "SYSTEM_EXT/lib64/taku-inputmethod/libclipboard.so",
+      "sha256": "49ba3f63f1b97fbb31b58d9a67efc1746a375dd7f98f1d8ff85d90f900311bd0",
+      "bytes": 100160,
+      "module": "taku-ime-libclipboard",
+      "elfClass": 64,
+      "machine": 183,
+      "loadAlignment": 16384,
+      "executable": false,
+      "soname": null,
+      "needed": [
+        "libFcitx5Config.so",
+        "libFcitx5Core.so",
+        "libFcitx5Utils.so",
+        "libc++_shared.so",
+        "libc.so",
+        "libdl.so"
+      ],
+      "sharedModules": [
+        "libc",
+        "libdl",
+        "taku-ime-libFcitx5Config",
+        "taku-ime-libFcitx5Core",
+        "taku-ime-libFcitx5Utils",
+        "taku-ime-libcxx_shared"
+      ]
+    },
+    {
+      "path": "system/inputmethod/jni/prebuilt/arm64-v8a/libfullwidth.so",
+      "apkEntry": "lib/arm64-v8a/libfullwidth.so",
+      "installPath": "SYSTEM_EXT/lib64/taku-inputmethod/libfullwidth.so",
+      "sha256": "b9a4611507676d2adedf3e735f3eb529033d4f5e6f73f17145b58ad5dc365c1b",
+      "bytes": 68392,
+      "module": "taku-ime-libfullwidth",
+      "elfClass": 64,
+      "machine": 183,
+      "loadAlignment": 16384,
+      "executable": false,
+      "soname": null,
+      "needed": [
+        "libFcitx5Config.so",
+        "libFcitx5Core.so",
+        "libFcitx5Utils.so",
+        "libc++_shared.so",
+        "libc.so",
+        "libdl.so"
+      ],
+      "sharedModules": [
+        "libc",
+        "libdl",
+        "taku-ime-libFcitx5Config",
+        "taku-ime-libFcitx5Core",
+        "taku-ime-libFcitx5Utils",
+        "taku-ime-libcxx_shared"
+      ]
+    },
+    {
+      "path": "system/inputmethod/jni/prebuilt/arm64-v8a/libimselector.so",
+      "apkEntry": "lib/arm64-v8a/libimselector.so",
+      "installPath": "SYSTEM_EXT/lib64/taku-inputmethod/libimselector.so",
+      "sha256": "c581dd97342010b7c00985e626ee046af7f823f3db0603283180bbaa63118862",
+      "bytes": 69032,
+      "module": "taku-ime-libimselector",
+      "elfClass": 64,
+      "machine": 183,
+      "loadAlignment": 16384,
+      "executable": false,
+      "soname": null,
+      "needed": [
+        "libFcitx5Config.so",
+        "libFcitx5Core.so",
+        "libFcitx5Utils.so",
+        "libc++_shared.so",
+        "libc.so",
+        "libdl.so"
+      ],
+      "sharedModules": [
+        "libc",
+        "libdl",
+        "taku-ime-libFcitx5Config",
+        "taku-ime-libFcitx5Core",
+        "taku-ime-libFcitx5Utils",
+        "taku-ime-libcxx_shared"
+      ]
+    },
+    {
+      "path": "system/inputmethod/jni/prebuilt/arm64-v8a/libluaaddonloader.so",
+      "apkEntry": "lib/arm64-v8a/libluaaddonloader.so",
+      "installPath": "SYSTEM_EXT/lib64/taku-inputmethod/libluaaddonloader.so",
+      "sha256": "f6d1589eaa9aa12ddfc97858ba9555d0624f15ed9317f7f4611d0f8f0ee755e4",
+      "bytes": 438904,
+      "module": "taku-ime-libluaaddonloader",
+      "elfClass": 64,
+      "machine": 183,
+      "loadAlignment": 16384,
+      "executable": false,
+      "soname": null,
+      "needed": [
+        "libFcitx5Config.so",
+        "libFcitx5Core.so",
+        "libFcitx5Utils.so",
+        "libc++_shared.so",
+        "libc.so",
+        "libdl.so",
+        "libm.so"
+      ],
+      "sharedModules": [
+        "libc",
+        "libdl",
+        "libm",
+        "taku-ime-libFcitx5Config",
+        "taku-ime-libFcitx5Core",
+        "taku-ime-libFcitx5Utils",
+        "taku-ime-libcxx_shared"
+      ]
+    },
+    {
+      "path": "system/inputmethod/jni/prebuilt/arm64-v8a/libnative-lib.so",
+      "apkEntry": "lib/arm64-v8a/libnative-lib.so",
+      "installPath": "SYSTEM_EXT/lib64/taku-inputmethod/libnative-lib.so",
+      "sha256": "888f5f776fc02a262bc6719f10c13bc64a7d68adc980c68ae9782c357824cf35",
+      "bytes": 433600,
+      "module": "taku-ime-libnative-lib",
+      "elfClass": 64,
+      "machine": 183,
+      "loadAlignment": 16384,
+      "executable": false,
+      "soname": "libnative-lib.so",
+      "needed": [
+        "libFcitx5Config.so",
+        "libFcitx5Core.so",
+        "libFcitx5Utils.so",
+        "libIMECore.so",
+        "libIMEPinyin.so",
+        "libIMETable.so",
+        "libc++_shared.so",
+        "libc.so",
+        "libdl.so",
+        "liblog.so"
+      ],
+      "sharedModules": [
+        "libc",
+        "libdl",
+        "liblog",
+        "taku-ime-libFcitx5Config",
+        "taku-ime-libFcitx5Core",
+        "taku-ime-libFcitx5Utils",
+        "taku-ime-libIMECore",
+        "taku-ime-libIMEPinyin",
+        "taku-ime-libIMETable",
+        "taku-ime-libcxx_shared"
+      ]
+    },
+    {
+      "path": "system/inputmethod/jni/prebuilt/arm64-v8a/libpinyin.so",
+      "apkEntry": "lib/arm64-v8a/libpinyin.so",
+      "installPath": "SYSTEM_EXT/lib64/taku-inputmethod/libpinyin.so",
+      "sha256": "5bed7fa5d763b965067c866c62c59ae6850e4e39a185d8b68964e844a638d2bf",
+      "bytes": 627672,
+      "module": "taku-ime-libpinyin",
+      "elfClass": 64,
+      "machine": 183,
+      "loadAlignment": 16384,
+      "executable": false,
+      "soname": null,
+      "needed": [
+        "libFcitx5Config.so",
+        "libFcitx5Core.so",
+        "libFcitx5Utils.so",
+        "libIMECore.so",
+        "libIMEPinyin.so",
+        "libc++_shared.so",
+        "libc.so",
+        "libdl.so"
+      ],
+      "sharedModules": [
+        "libc",
+        "libdl",
+        "taku-ime-libFcitx5Config",
+        "taku-ime-libFcitx5Core",
+        "taku-ime-libFcitx5Utils",
+        "taku-ime-libIMECore",
+        "taku-ime-libIMEPinyin",
+        "taku-ime-libcxx_shared"
+      ]
+    },
+    {
+      "path": "system/inputmethod/jni/prebuilt/arm64-v8a/libpinyinhelper.so",
+      "apkEntry": "lib/arm64-v8a/libpinyinhelper.so",
+      "installPath": "SYSTEM_EXT/lib64/taku-inputmethod/libpinyinhelper.so",
+      "sha256": "c417b5494725f0ace3f52fea8b420e9b0baaf2d6a163f03381ec42385fd23c72",
+      "bytes": 159112,
+      "module": "taku-ime-libpinyinhelper",
+      "elfClass": 64,
+      "machine": 183,
+      "loadAlignment": 16384,
+      "executable": false,
+      "soname": null,
+      "needed": [
+        "libFcitx5Core.so",
+        "libFcitx5Utils.so",
+        "libIMECore.so",
+        "libc++_shared.so",
+        "libc.so",
+        "libdl.so"
+      ],
+      "sharedModules": [
+        "libc",
+        "libdl",
+        "taku-ime-libFcitx5Core",
+        "taku-ime-libFcitx5Utils",
+        "taku-ime-libIMECore",
+        "taku-ime-libcxx_shared"
+      ]
+    },
+    {
+      "path": "system/inputmethod/jni/prebuilt/arm64-v8a/libpunctuation.so",
+      "apkEntry": "lib/arm64-v8a/libpunctuation.so",
+      "installPath": "SYSTEM_EXT/lib64/taku-inputmethod/libpunctuation.so",
+      "sha256": "e7b296deea75315b20aac011862dbc984e51402f85196525c2a7f0db2d150bcb",
+      "bytes": 150608,
+      "module": "taku-ime-libpunctuation",
+      "elfClass": 64,
+      "machine": 183,
+      "loadAlignment": 16384,
+      "executable": false,
+      "soname": null,
+      "needed": [
+        "libFcitx5Config.so",
+        "libFcitx5Core.so",
+        "libFcitx5Utils.so",
+        "libc++_shared.so",
+        "libc.so",
+        "libdl.so"
+      ],
+      "sharedModules": [
+        "libc",
+        "libdl",
+        "taku-ime-libFcitx5Config",
+        "taku-ime-libFcitx5Core",
+        "taku-ime-libFcitx5Utils",
+        "taku-ime-libcxx_shared"
+      ]
+    },
+    {
+      "path": "system/inputmethod/jni/prebuilt/arm64-v8a/libquickphrase.so",
+      "apkEntry": "lib/arm64-v8a/libquickphrase.so",
+      "installPath": "SYSTEM_EXT/lib64/taku-inputmethod/libquickphrase.so",
+      "sha256": "16d320f233fdb34b7bc6994abf978ec66401c3532ccfa9847b032e08b04bb657",
+      "bytes": 126200,
+      "module": "taku-ime-libquickphrase",
+      "elfClass": 64,
+      "machine": 183,
+      "loadAlignment": 16384,
+      "executable": false,
+      "soname": null,
+      "needed": [
+        "libFcitx5Config.so",
+        "libFcitx5Core.so",
+        "libFcitx5Utils.so",
+        "libc++_shared.so",
+        "libc.so",
+        "libdl.so"
+      ],
+      "sharedModules": [
+        "libc",
+        "libdl",
+        "taku-ime-libFcitx5Config",
+        "taku-ime-libFcitx5Core",
+        "taku-ime-libFcitx5Utils",
+        "taku-ime-libcxx_shared"
+      ]
+    },
+    {
+      "path": "system/inputmethod/jni/prebuilt/arm64-v8a/libscel2org5.so",
+      "apkEntry": "lib/arm64-v8a/libscel2org5.so",
+      "installPath": "SYSTEM_EXT/bin/taku-inputmethod/libscel2org5.so",
+      "sha256": "36a45387b8c83ede32112c1874130a156dd5f50cd15387ec9ba844c4a278846e",
+      "bytes": 139256,
+      "module": "taku-ime-libscel2org5",
+      "elfClass": 64,
+      "machine": 183,
+      "loadAlignment": 16384,
+      "executable": true,
+      "soname": null,
+      "needed": [
+        "libFcitx5Utils.so",
+        "libc++_shared.so",
+        "libc.so",
+        "libdl.so",
+        "libm.so"
+      ],
+      "sharedModules": [
+        "libc",
+        "libdl",
+        "libm",
+        "taku-ime-libFcitx5Utils",
+        "taku-ime-libcxx_shared"
+      ]
+    },
+    {
+      "path": "system/inputmethod/jni/prebuilt/arm64-v8a/libspell.so",
+      "apkEntry": "lib/arm64-v8a/libspell.so",
+      "installPath": "SYSTEM_EXT/lib64/taku-inputmethod/libspell.so",
+      "sha256": "df0e5b5350a26a77bd25225cdcffca6b3d511eb982b6aed47639b1e94f7d6332",
+      "bytes": 135992,
+      "module": "taku-ime-libspell",
+      "elfClass": 64,
+      "machine": 183,
+      "loadAlignment": 16384,
+      "executable": false,
+      "soname": null,
+      "needed": [
+        "libFcitx5Config.so",
+        "libFcitx5Core.so",
+        "libFcitx5Utils.so",
+        "libc++_shared.so",
+        "libc.so",
+        "libdl.so"
+      ],
+      "sharedModules": [
+        "libc",
+        "libdl",
+        "taku-ime-libFcitx5Config",
+        "taku-ime-libFcitx5Core",
+        "taku-ime-libFcitx5Utils",
+        "taku-ime-libcxx_shared"
+      ]
+    },
+    {
+      "path": "system/inputmethod/jni/prebuilt/arm64-v8a/libtable.so",
+      "apkEntry": "lib/arm64-v8a/libtable.so",
+      "installPath": "SYSTEM_EXT/lib64/taku-inputmethod/libtable.so",
+      "sha256": "78954cb8129cf81d8e968e8c63aa4b312b9da5bbc3826144b000dac7a029394a",
+      "bytes": 382272,
+      "module": "taku-ime-libtable",
+      "elfClass": 64,
+      "machine": 183,
+      "loadAlignment": 16384,
+      "executable": false,
+      "soname": null,
+      "needed": [
+        "libFcitx5Config.so",
+        "libFcitx5Core.so",
+        "libFcitx5Utils.so",
+        "libIMECore.so",
+        "libIMEPinyin.so",
+        "libIMETable.so",
+        "libc++_shared.so",
+        "libc.so",
+        "libdl.so"
+      ],
+      "sharedModules": [
+        "libc",
+        "libdl",
+        "taku-ime-libFcitx5Config",
+        "taku-ime-libFcitx5Core",
+        "taku-ime-libFcitx5Utils",
+        "taku-ime-libIMECore",
+        "taku-ime-libIMEPinyin",
+        "taku-ime-libIMETable",
+        "taku-ime-libcxx_shared"
+      ]
+    },
+    {
+      "path": "system/inputmethod/jni/prebuilt/arm64-v8a/libunicode.so",
+      "apkEntry": "lib/arm64-v8a/libunicode.so",
+      "installPath": "SYSTEM_EXT/lib64/taku-inputmethod/libunicode.so",
+      "sha256": "dba5bde6e68502524162b22d654784f7be6c5e74fac7e59d86fe00adc922ca73",
+      "bytes": 160328,
+      "module": "taku-ime-libunicode",
+      "elfClass": 64,
+      "machine": 183,
+      "loadAlignment": 16384,
+      "executable": false,
+      "soname": null,
+      "needed": [
+        "libFcitx5Config.so",
+        "libFcitx5Core.so",
+        "libFcitx5Utils.so",
+        "libc++_shared.so",
+        "libc.so",
+        "libdl.so"
+      ],
+      "sharedModules": [
+        "libc",
+        "libdl",
+        "taku-ime-libFcitx5Config",
+        "taku-ime-libFcitx5Core",
+        "taku-ime-libFcitx5Utils",
+        "taku-ime-libcxx_shared"
+      ]
+    }
+  ],
+  "jniSymlinks": [
+    {
+      "path": "SYSTEM_EXT/app/TakuInputMethod/lib/arm64",
+      "target": "/system_ext/lib64/taku-inputmethod",
+      "module": "taku-ime-native-dir-link"
+    },
+    {
+      "path": "SYSTEM_EXT/lib64/taku-inputmethod/libscel2org5.so",
+      "target": "/system_ext/bin/taku-inputmethod/libscel2org5.so",
+      "module": "taku-ime-scel-link"
+    }
+  ]
+}

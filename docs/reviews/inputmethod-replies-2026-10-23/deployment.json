@@ -1,0 +1,42 @@
+{
+  "deployedAt": "2026-10-23T03:32:52.761168+00:00",
+  "device": {
+    "incremental": "20261022160657",
+    "androidSdk": "37",
+    "bootId": "c539b364-9da1-419f-8e43-db8ae36c95af"
+  },
+  "runtimeRebootPersistent": false,
+  "selinux": "Enforcing",
+  "serial": "46170DLAQ0006D",
+  "apps": {
+    "org.agentos.assistant": {
+      "sha256": "88076aea20c99eef10d74c4ec35ed5461a70dc0203228bc287dd69236f2eef5a"
+    },
+    "org.agentos.inputmethod": {
+      "sha256": "ee9ad60092412db5d07638c436aa263d8b12faba10435f581816f2609fa63150"
+    },
+    "org.agentos.inputmethod.probe": {
+      "sha256": "d9c0663a03cf135368e47970cba332b1cb90d38b15f437a83a49325613802d97"
+    },
+    "org.agentos.inputmethod.fixture": {
+      "sha256": "20580fbedf366362708707cabe8571702741549962ca72c8f0e12a128d0c8aa8"
+    },
+    "org.agentos.inputmethod.chatcase": {
+      "sha256": "af641c2b03f3976ed867d5fde9516aa470228a432afaf3ac7560c49aa5a46b5f"
+    }
+  },
+  "runtime": {
+    "task-broker.jar": {
+      "sha256": "60a9399f01f254218c5a6991580900692bd8a9743e664afa1d59db57e6f47716"
+    },
+    "magpie": {
+      "sha256": "d03b56821f382967bfbe3aaa165f7fd95dc59ae9fe18fe6100401b60c186f788"
+    }
+  },
+  "systemModels": {
+    "text": "codex/gpt-6-luna",
+    "image": "codex/gpt-6-luna"
+  },
+  "defaultInputMethod": "org.agentos.inputmethod/org.fcitx.fcitx5.android.input.FcitxInputMethodService",
+  "liveCatalogReady": true
+}

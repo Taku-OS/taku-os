@@ -1,0 +1,189 @@
+{
+  "testedAt": "2026-10-10 01:25–01:42 +08:00",
+  "device": {
+    "serial": "emulator-5582",
+    "avd": "AgentOS_ImageCheck",
+    "android": "16",
+    "api": 36,
+    "abi": "arm64-v8a",
+    "SELinux": "Enforcing",
+    "root": "userdebug adbd root",
+    "primaryDisplay": 0,
+    "virtualDisplay": 2,
+    "virtualResolution": "720 × 1280"
+  },
+  "summary": "三个官方当前下载包均安装成功；微信登录前UI和小红书游客图片流在主屏/后台通过；抖音UI与切换正常，但部分主屏及后台视频渲染异常，尚未兼容通过。",
+  "apps": [
+    {
+      "package": "com.tencent.mm",
+      "versionName": "8.0.79",
+      "versionCode": "3200",
+      "minSdk": "24",
+      "targetSdk": "34",
+      "abis": [
+        "arm64-v8a"
+      ],
+      "sha256": "f2a725bc04302ad218a563533ae79356e66b64aa711b275bc919a8d432f7e15d",
+      "bytes": 285284760,
+      "sourcePage": "https://weixin.qq.com/",
+      "downloadUrl": "https://dldir1v6.qq.com/weixin/android/weixin8079android3200_0x28004f30_arm64_1.apk",
+      "retrievedAt": "2026-10-10T01:25:00+08:00",
+      "signatureSha256": "0fe4ff85c215918396dadc7cd8ce6963339af33d37751a56e54c7206b63a3c7c",
+      "apkSignatureVerification": "passed",
+      "installed": true,
+      "uiTest": "completed with scoped results",
+      "aaptWarnings": "WeChat official obfuscated resources contain renamed SVG references; package metadata parsed and apksigner verified, installation succeeded.",
+      "launchComponent": "com.tencent.mm/.ui.LauncherUI",
+      "installResult": "Success",
+      "installerPolicy": "default dexopt compiler filter; unmodified official APK",
+      "id": "weixin",
+      "name": "微信",
+      "main": "欢迎页、手机号登录表单正常",
+      "background": "欢迎页、手机号登录表单正常",
+      "interaction": "主屏与后台定向点击 Log In，均进入真实登录表单",
+      "backgroundStatus": "pass",
+      "mainStatus": "pass",
+      "loginBoundary": "未登录；聊天、支付、通话与长期通知未验收",
+      "screens": {
+        "main": "weixin-main-interaction.png",
+        "background": "weixin-background-interaction.png",
+        "preview": "weixin-background-start.png"
+      },
+      "verifiedActivities": {
+        "0": "com.tencent.mm/.plugin.account.ui.MobileInputUI",
+        "2": "com.tencent.mm/.plugin.account.ui.MobileInputUI"
+      },
+      "video": null
+    },
+    {
+      "package": "com.ss.android.ugc.aweme",
+      "versionName": "40.7.0",
+      "versionCode": "400701",
+      "minSdk": "23",
+      "targetSdk": "34",
+      "apkSignatureVerification": "passed",
+      "certificateDN": "CN=Aweme Douyin, OU=ByteDance, O=ByteDance, L=Beijing, ST=Beijing, C=CN",
+      "signatureSha256": "5182ae3b1b85337bb182cf24882449f84447ded18e296a747a9f6a0a2622512e",
+      "abis": [
+        "arm64-v8a"
+      ],
+      "sha256": "88075d689a674d645f383250359ea82dc5280ffce2f9a5404f4e11e4449e90cf",
+      "bytes": 359908938,
+      "sourcePage": "https://m.douyin.com/app_download",
+      "downloadUrl": "https://lf9-apk.ugapk.cn/package/apk/aweme/5072_400701/aweme_49957579a_v5072_400701_a304_1791545306.apk?v=1791545313",
+      "retrievedAt": "2026-10-10T01:28:22.226176+08:00",
+      "uiTest": "completed with scoped results",
+      "launchComponent": "com.ss.android.ugc.aweme/.splash.SplashActivity",
+      "installed": true,
+      "installResult": "Success",
+      "installerPolicy": "default dexopt compiler filter; unmodified official APK",
+      "id": "douyin",
+      "name": "抖音",
+      "main": "首次游客素材曾正常显示并可切换；后续主屏冷启动部分素材也出现绿屏/彩纹，播放兼容未通过",
+      "background": "原生控件正常；至少两条视频纯绿/彩色横纹",
+      "interaction": "原生镜像窗口内定向上滑成功切换视频；视频区域渲染失败",
+      "backgroundStatus": "fail",
+      "mainStatus": "partial",
+      "loginBoundary": "未登录；视频层兼容仍在排查；登录、发布、直播、支付未验收",
+      "screens": {
+        "main": "douyin-main-interaction.png",
+        "background": "douyin-background-second-video.png",
+        "preview": "douyin-native-mirror-before-video.png"
+      },
+      "verifiedActivities": {
+        "0": "org.agentos.assistant/.MirrorActivity",
+        "2": "com.ss.android.ugc.aweme/.main.MainActivity / .account.business.login.DYLoginActivity"
+      },
+      "video": "douyin-native-mirror.mp4"
+    },
+    {
+      "package": "com.xingin.xhs",
+      "versionName": "9.49.1",
+      "versionCode": "9491803",
+      "minSdk": "21",
+      "targetSdk": "36",
+      "apkSignatureVerification": "passed",
+      "certificateDN": "CN=xiaohongshu, OU=xingin, O=xingin, L=shanghai, ST=shanghai, C=86",
+      "signatureSha256": "f375f0f6af7c94c364b35cd6f6a66d64aefae66e32f935b48773c0faad04c121",
+      "abis": [
+        "arm64-v8a"
+      ],
+      "sha256": "577bc29aecf3e0f95985e4ac15019165017736e270b3e830872a66a526f689b6",
+      "bytes": 182667924,
+      "sourcePage": "https://www.xiaohongshu.com/download",
+      "downloadUrl": "https://sem.xhscdn.com/sem/xiaohongshu.apk",
+      "retrievedAt": "2026-10-10T01:28:46.552970+08:00",
+      "uiTest": "completed with scoped results",
+      "launchComponent": "com.xingin.xhs/.index.v2.IndexActivityV2",
+      "installed": true,
+      "installResult": "Success",
+      "installerPolicy": "default dexopt compiler filter; unmodified official APK",
+      "id": "xiaohongshu",
+      "name": "小红书",
+      "main": "游客双列推荐图片流正常，点击/滑动可触发登录引导",
+      "background": "推荐图片流、原生镜像预览与滚动正常",
+      "interaction": "原生镜像内上滑：汽车/美食首行移出，老演员/人物照片与后续新行出现；收起主屏再查看保留页面",
+      "backgroundStatus": "pass",
+      "mainStatus": "pass",
+      "loginBoundary": "未登录；图片推荐流已验收，视频播放、搜索、发布、账号能力未验收",
+      "screens": {
+        "main": "xiaohongshu-main-after-permission.png",
+        "background": "xiaohongshu-background-interaction.png",
+        "preview": "xiaohongshu-native-mirror-after.png"
+      },
+      "verifiedActivities": {
+        "0": "org.agentos.assistant/.MirrorActivity",
+        "2": "com.xingin.xhs/.index.v2.IndexActivityV2"
+      },
+      "video": "xiaohongshu-native-mirror.mp4"
+    }
+  ],
+  "parallelism": "原生镜像窗口收起后display0可回到Taku OS Home，display2仍有App。各App主屏/后台分别冷启动，不代表同一App双实例或账号隔离。",
+  "limitations": [
+    "未登录真实账号；消息、支付、发布、直播、长时间通知和账号风控未验收。",
+    "小红书本轮验收图片推荐流，不泛化到后台视频播放。",
+    "抖音首次主屏素材曾正常显示；后续冷启动主屏也出现异常，副屏两条不同素材绿屏/彩纹。系统原生screencap同样异常，排除仅JPEG预览编码。根因仍在排查，不能泛化主屏视频通过。",
+    "没有改SELinux、隐藏root、修改APK或降级安装旧包。",
+    "当前开发模拟器已安装；导出system.img尚未重新导出。这三个第三方APK位于data，不等同于系统镜像预置分发。",
+    "官方渠道可能分批发布，以本次官网当前下载包版本为准，不保证覆盖所有应用商店/测试渠道。"
+  ],
+  "diagnostics": {
+    "videoCodec": "evidence/video-codec-log.txt",
+    "surfaceFlinger": "evidence/surface-flinger.txt",
+    "display": "evidence/display-details.txt",
+    "graphicsContext": "evidence/graphics-context.txt",
+    "snapshotTiming": "graphics/display snapshots taken after xiaohongshu test, not at first Douyin failure"
+  },
+  "sources": [
+    {
+      "app": "微信",
+      "sourcePage": "https://weixin.qq.com/",
+      "downloadUrl": "https://dldir1v6.qq.com/weixin/android/weixin8079android3200_0x28004f30_arm64_1.apk",
+      "observed": "官网当前ANDROID下载直接列出此ARM64 APK，实际8.0.79；非搜索引擎旧8.0.78。"
+    },
+    {
+      "app": "抖音",
+      "sourcePage": "https://m.douyin.com/app_download",
+      "downloadEntry": "https://n.douyin.com/d4PBJ",
+      "downloadUrl": "https://lf9-apk.ugapk.cn/package/apk/aweme/5072_400701/aweme_49957579a_v5072_400701_a304_1791545306.apk?v=1791545313",
+      "observed": "官网移动下载页channelConfig zlink→CDN；实际40.7.0(code400701)。官网桌面androidApk旧短链404，另一个home-site给37.5.1，不用于安装。"
+    },
+    {
+      "app": "小红书",
+      "sourcePage": "https://www.xiaohongshu.com/download",
+      "downloadEntry": "https://oia.xiaohongshu.com/oia",
+      "downloadUrl": "https://sem.xhscdn.com/sem/xiaohongshu.apk",
+      "observed": "官网下载页CSS安卓二维码→oia页面→官方公开JS生成分发CDN查询参数；实际9.49.1(code9491803)。OIA静态文字8.23.1过时，以下载APK自身版本为准。CDN短期有效查询参数不在报告中保存。"
+    }
+  ],
+  "recordings": {
+    "xiaohongshu": {
+      "path": "evidence/xiaohongshu-native-mirror.mp4",
+      "actualDurationSeconds": 15.893478
+    },
+    "douyin": {
+      "path": "evidence/douyin-native-mirror.mp4",
+      "actualDurationSeconds": 19.856611
+    }
+  }
+}

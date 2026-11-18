@@ -1,0 +1,76 @@
+Taku OS, 2026-11-12
+
+Original Taku code, SDK, examples and documentation are licensed under Apache-2.0.
+The repositories remain private; this license change does not publish them.
+Third-party files, fonts, models, Android/AOSP, Linux, vendor components and
+upstream-derived patches retain their own licenses and notices. This NOTICE does
+not grant rights to third-party trademarks, screenshots or user content.
+Previous public MIT grants remain valid. Earlier internal terms are retained in
+docs/license-history/2026-11-12-internal-terms.txt; see the original MIT notice in
+docs/license-history/2026-10-10-original-MIT.txt. Release-material review remains
+required before distributing additional files or a new ROM.
+
+OpenClaw organization/extension model was researched as a design reference.
+Official OpenClaw main LICENSE is MIT, Copyright (c) 2026 OpenClaw Foundation:
+https://github.com/openclaw/openclaw/blob/main/LICENSE
+https://raw.githubusercontent.com/openclaw/openclaw/main/LICENSE
+No OpenClaw source copied. Ecosystem contracts are not claimed API-compatible.
+Official Android companion-node documentation:
+https://docs.openclaw.ai/platforms/android
+Independent phone-local agent precedent (documentation, not Taku testing):
+https://www.kimi.com/en/help/kimi-claw/android-user-guide
+
+AOSP prefers Apache-2.0 for most userspace; exceptions and Linux GPL-2.0 apply:
+https://source.android.com/docs/setup/contribute/licenses
+Android, Linux, LineageOS, vendor binaries and any imported asset retain their
+own licenses. A ROM is not relicensed as one project work by this file.
+
+Current SDK uses only built-in Node.js APIs and Android shell tools at runtime;
+those runtimes are not bundled. Importing lab fonts/icons/pet/third-party source
+requires per-file provenance and retained notices in their owning module.
+Source links verified 2026-10-10; external pages may change.
+
+Local visual palette references user-provided Agentroid OS design-system v0.1
+tokens (canvas ECEEF0, sage BFD0C2, charcoal 252525, primary text 121412).
+The project is named Taku OS. No screenshot or reference-video assets copied.
+
+Imported original Android runtime code is now in system/assistant, system/display,
+system/overlay, tooling/app-kit and adapters/codex-runtime (source moved once).
+Google Material Design Icons retain Apache-2.0: system/assistant/licenses/.
+Doto retains SIL OFL-1.1: system/assistant/licenses/Doto-OFL.txt.
+Desktop pet PNG sprites were Image Gen-generated from the user-provided visual
+reference; the reference video/screenshots were not imported. No upstream
+video/character copyright ownership or exclusive rights are asserted.
+Generated design token XML retains external source version/SHA metadata only.
+React, ReactDOM, esbuild and Ajv retain MIT notices; app-kit downloads public
+packages on demand into ignored paths instead of importing installed runtimes.
+Codex runtime binary is not bundled; official Codex is Apache-2.0:
+https://github.com/openai/codex/blob/main/LICENSE
+Public AOSP test keys are fetched on demand for development only, never imported
+from the user's existing signing cache and never used as production identity.
+
+Assistant Markdown uses commonmark-java 0.30.1 (BSD-2-Clause) and autolink-java
+0.12.0 (MIT), downloaded from Maven Central with pinned SHA-256 checksums.
+Notices are packaged in system/assistant/assets/licenses/; dependency metadata
+is system/assistant/markdown-dependencies.json. The Android renderer is original
+Taku code. Craft Agents Markdown/CodeBlock/StreamingMarkdown were architecture
+references only; its React renderer, editor and desktop preview code were not copied.
+
+Native GenUI uses the Kotlin standard library (Apache-2.0), developed by the
+Kotlin Team at JetBrains. Its upstream license and notice are packaged in the
+assistant APK and task-broker JAR from system/assistant/assets/licenses/Kotlin-*.
+https://github.com/JetBrains/kotlin
+
+Magpie 0.1.2204 is MIT licensed by Yetone. Its official Android ARM64 program
+is fetched by checksum into an ignored download cache and installed by the
+development image. See adapters/magpie-runtime/LICENSE and
+https://github.com/yetone/magpie/tree/v0.1.2204 . The MIT notice is installed
+at /system_ext/etc/magpie-LICENSE. Provider credentials are device data,
+never source files or image assets.
+
+Taku Input Method derives from Fcitx5 for Android 0.1.3, commit
+048f581c652367567b8ee5c28c5163b805288895 (LGPL-2.1-or-later).
+Its product patches and build integration retain LGPL-2.1-or-later;
+Fcitx5, libime, Chinese addons and bundled data retain their own licenses,
+including GPL components. See system/inputmethod/NOTICE, LICENSE and
+source-lock.json. Root internal terms do not replace those component licenses.

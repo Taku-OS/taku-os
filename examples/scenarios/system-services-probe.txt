@@ -1,0 +1,8 @@
+This is system-service acceptance on a dedicated development emulator. Execute the checks, reading only necessary public system information. Do not read accounts, authentication, private chats, contacts, or other user data.
+
+1. Set screen_off_timeout to 180000 milliseconds through Android Settings Provider and independently read it back. Do not change networks, credentials, permission policy, or other settings.
+2. Query Package Manager for the installed package count; output only the count, not the user's app list.
+3. Query Sensor Service's hardware sensor count and emulator properties, plus Battery Service level/status. Use real results to explain this is an emulator, without claiming hardware acceptance on a real phone.
+4. Create /data/local/agentos/work/system-services-20261015 and write result.json containing screenOffTimeout, packageCount, hardwareSensorCount, batteryLevel, and batteryStatus. Reread and validate the JSON; never fabricate results.
+
+Preserve the main-screen UI. Finish in English explaining which system services were called. The test framework will restore the screen timeout.

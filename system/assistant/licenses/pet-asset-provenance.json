@@ -1,0 +1,32 @@
+{
+  "single-companion": {
+    "asset": "res/drawable-nodpi/taku_pet.png",
+    "generator": "Codex built-in Imagegen",
+    "reference": "reference/frame-01.png from user supplied UI video",
+    "date": "2026-10-10",
+    "brief": "Transparent full-body sage-green voxel companion with short side ears, pixel face, olive/taupe jacket; no UI, frame or watermark.",
+    "treatment": "Generated PNG copied unchanged; native ImageView scales for display."
+  },
+  "animated-atlas": {
+    "generator": "Codex built-in Imagegen",
+    "asset": "res/drawable-nodpi/taku_pet_atlas.png",
+    "sha256": "b7acb0bea96f0eaedb44fca038a1fdd3bba4f01855ce54825d52b4273171c8dc",
+    "size": [
+      1254,
+      1254
+    ],
+    "alpha": "RGBA",
+    "grid": [
+      4,
+      4
+    ],
+    "roles": {
+      "row1": "idle blink tilt smile",
+      "row2": "walk four frames",
+      "row3": "wave four frames",
+      "row4": "thinking attentive ready idle"
+    },
+    "reference": "taku_pet.png, generated from user supplied video reference",
+    "treatment": "Copied unchanged. Native Canvas samples atlas cells; no external pixel editing."
+  }
+}

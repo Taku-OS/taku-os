@@ -1,0 +1,21 @@
+<resources>
+  <!-- React Native screens initializes AppCompat widgets using the host activity theme. -->
+  <style name="Theme.TakuHome" parent="Theme.AppCompat.Light.NoActionBar">
+    <item name="android:windowBackground">@color/taku_home_canvas</item>
+    <item name="android:windowShowWallpaper">false</item>
+    <item name="android:windowNoTitle">true</item>
+    <item name="android:statusBarColor">@android:color/transparent</item>
+    <item name="android:navigationBarColor">@android:color/transparent</item>
+    <item name="android:windowLightStatusBar">true</item>
+    <item name="android:windowLightNavigationBar">true</item>
+    <item name="android:windowLayoutInDisplayCutoutMode">always</item>
+  </style>
+  <style name="Theme.TakuAssistantOverlay" parent="Theme.TakuHome">
+    <item name="android:windowIsTranslucent">true</item>
+    <item name="android:windowBackground">@android:color/transparent</item>
+    <item name="android:windowIsFloating">false</item>
+    <item name="android:backgroundDimEnabled">false</item>
+    <item name="android:windowDisablePreview">true</item>
+  </style>
+  <color name="taku_home_canvas">#FFE3E3E3</color>
+</resources>

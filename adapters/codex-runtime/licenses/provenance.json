@@ -1,0 +1,17 @@
+{
+  "repository": "https://github.com/openai/codex",
+  "revision": "979011409de0a60b52f179721948e65531d26144",
+  "files": [
+    {
+      "path": "OpenAI-LICENSE.txt",
+      "upstreamPath": "LICENSE",
+      "sha256": "d17f227e4df5da1600391338865ce0f3055211760a36688f816941d58232d8dc"
+    },
+    {
+      "path": "OpenAI-NOTICE.txt",
+      "upstreamPath": "NOTICE",
+      "sha256": "9d71575ecfd9a843fc1677b0efb08053c6ba9fd686a0de1a6f5382fd3c220915"
+    }
+  ],
+  "scope": "Upstream project notices; dependency notices and corresponding source remain part of release review."
+}

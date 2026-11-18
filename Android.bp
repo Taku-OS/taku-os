@@ -1,0 +1,259 @@
+// Development ROM integration. Platform signing happens in the ROM build.
+// Optional personal-device client; preserve the upstream signature for APK updates.
+android_app_import {
+    name: "TakuPersonalProxy",
+    apk: "adapters/network-client/downloads/FlClash-0.9.0-android-arm64-v8a.apk",
+    presigned: true,
+    // Preserve the upstream APK bytes and signing block.
+    preprocessed: true,
+    // Upstream sets extractNativeLibs=true and ships compressed JNI libraries.
+    skip_preprocessed_apk_checks: true,
+    // Match the signed APK manifest; unavailable optional libraries stay optional.
+    optional_uses_libs: [
+        "androidx.window.extensions",
+        "androidx.window.sidecar",
+        "android.ext.adservices",
+    ],
+    system_ext_specific: true,
+}
+
+prebuilt_etc {
+    name: "taku-magpie-license",
+    src: "adapters/magpie-runtime/LICENSE",
+    filename: "magpie-LICENSE",
+    system_ext_specific: true,
+}
+
+prebuilt_etc {
+    name: "taku-codex-license",
+    src: "adapters/codex-runtime/licenses/OpenAI-LICENSE.txt",
+    filename: "OpenAI-LICENSE.txt",
+    relative_install_path: "codex",
+    system_ext_specific: true,
+}
+
+prebuilt_etc {
+    name: "taku-codex-notice",
+    src: "adapters/codex-runtime/licenses/OpenAI-NOTICE.txt",
+    filename: "OpenAI-NOTICE.txt",
+    relative_install_path: "codex",
+    system_ext_specific: true,
+}
+
+java_import {
+    name: "taku-markdown",
+    jars: [
+        "system/assistant/downloads/commonmark-0.30.1.jar",
+        "system/assistant/downloads/commonmark-ext-gfm-tables-0.30.1.jar",
+        "system/assistant/downloads/commonmark-ext-gfm-strikethrough-0.30.1.jar",
+        "system/assistant/downloads/commonmark-ext-task-list-items-0.30.1.jar",
+        "system/assistant/downloads/commonmark-ext-autolink-0.30.1.jar",
+        "system/assistant/downloads/autolink-0.12.0.jar",
+    ],
+    sdk_version: "current",
+}
+
+android_app {
+    name: "TakuAssistant",
+    manifest: "system/assistant/AndroidManifest.xml",
+    srcs: [
+        "system/assistant/src/**/*.java",
+        "system/assistant/src/**/*.kt",
+    ],
+    static_libs: ["taku-markdown", "taku-surfaces-client", "agentos-task-broker", "taku-audio-client"],
+    static_kotlin_stdlib: true,
+    resource_dirs: ["system/assistant/res"],
+    asset_dirs: [
+        "system/assistant/assets",
+        "system/assistant/out/reply-assets",
+    ],
+    platform_apis: true,
+    certificate: "platform",
+    privileged: true,
+    system_ext_specific: true,
+    optimize: { enabled: false },
+}
+
+java_library {
+    name: "agentos-task-broker",
+    srcs: [
+        "system/assistant/broker/**/*.java",
+        "system/assistant/broker/**/*.kt",
+        "tooling/app-kit/apk-shell/src/org/agentos/runtime/AppApiClient.java",
+    ],
+    static_kotlin_stdlib: true,
+    java_resources: [
+        "system/assistant/assets/licenses/Kotlin-LICENSE.txt",
+        "system/assistant/assets/licenses/Kotlin-NOTICE.txt",
+    ],
+    platform_apis: true,
+    installable: true,
+    system_ext_specific: true,
+}
+
+java_library {
+    name: "taku-godmode-plugin-sdk",
+    srcs: ["system/plugins/src/**/*.java"],
+    platform_apis: true,
+    installable: true,
+    system_ext_specific: true,
+}
+
+java_library {
+    name: "taku-godmode-host",
+    srcs: ["system/plugins/host/**/*.java", "system/plugins/android/**/*.java"],
+    exclude_srcs: ["system/plugins/host/**/Server.java", "system/plugins/host/**/Cli.java"],
+    static_libs: ["taku-godmode-plugin-sdk"],
+    platform_apis: true,
+    installable: true,
+    system_ext_specific: true,
+}
+
+sh_binary {
+    name: "taku-godmode-host-launcher",
+    filename: "taku-godmode-host",
+    src: "system/plugins/taku-godmode-host",
+    init_rc: ["system/plugins/taku-godmode.rc"],
+    system_ext_specific: true,
+}
+
+sh_binary {
+    name: "taku-adb",
+    src: "system/plugins/taku-adb",
+    system_ext_specific: true,
+}
+
+sh_binary {
+    name: "taku-rea-pack",
+    src: "system/plugins/taku-rea-pack",
+    system_ext_specific: true,
+}
+
+sh_binary {
+    name: "taku-rea-provision",
+    src: "system/plugins/taku-rea-provision",
+    system_ext_specific: true,
+}
+
+prebuilt_etc {
+    name: "taku-rea-pack-config",
+    src: "system/plugins/rea-pack.conf",
+    filename: "rea-pack.conf",
+    sub_dir: "taku",
+    system_ext_specific: true,
+}
+
+android_app {
+    name: "TakuGodMode",
+    manifest: "system/plugins/AndroidManifest.xml",
+    srcs: ["system/plugins/android-ui/**/*.java"],
+    platform_apis: true,
+    certificate: "platform",
+    privileged: true,
+    system_ext_specific: true,
+}
+
+java_library {
+    name: "agentos-virtual-display",
+    srcs: ["system/display/src/**/*.java"],
+    platform_apis: true,
+    installable: true,
+    system_ext_specific: true,
+}
+
+sh_binary {
+    name: "phone-display",
+    src: "system/display/phone-display",
+    system_ext_specific: true,
+}
+
+java_library {
+    name: "agentos-resolver-bridge",
+    srcs: ["image/runtime/src/**/*.java"],
+    platform_apis: true,
+    installable: true,
+    system_ext_specific: true,
+}
+
+sh_binary {
+    name: "taku-device",
+    src: "core/taku-device.sh",
+    system_ext_specific: true,
+}
+
+sh_binary {
+    name: "taku-device-probe",
+    filename: "device-probe.sh",
+    src: "core/device-probe.sh",
+    system_ext_specific: true,
+}
+
+sh_binary {
+    name: "taku-runtime-start",
+    src: "image/runtime/start",
+    system_ext_specific: true,
+    init_rc: ["image/runtime/taku-runtime.rc"],
+}
+
+sh_binary {
+    name: "taku-plugin",
+    src: "system/assistant/taku-plugin",
+    system_ext_specific: true,
+}
+
+sh_binary {
+    name: "taku-codex-launcher",
+    filename: "codex",
+    src: "adapters/codex-runtime/codex",
+    system_ext_specific: true,
+}
+
+sh_binary {
+    name: "taku-magpie-launcher",
+    filename: "magpie",
+    src: "adapters/magpie-runtime/magpie",
+    init_rc: ["adapters/magpie-runtime/taku-magpie.rc"],
+    system_ext_specific: true,
+}
+
+cc_prebuilt_binary {
+    name: "taku-magpie-runtime",
+    stem: "magpie-runtime",
+    srcs: ["adapters/magpie-runtime/downloads/magpie-arm64"],
+    compile_multilib: "64",
+    check_elf_files: false,
+    strip: { none: true },
+    system_ext_specific: true,
+}
+
+prebuilt_etc {
+    name: "taku-task-result-schema",
+    src: "system/assistant/task-result.schema.json",
+    filename: "task-result.schema.json",
+    sub_dir: "agentos",
+    system_ext_specific: true,
+}
+
+prebuilt_etc {
+    name: "taku-codex-runtime-archive",
+    src: "adapters/codex-runtime/downloads/codex.tar.gz",
+    filename: "codex.tar.gz",
+    sub_dir: "codex",
+    system_ext_specific: true,
+}
+
+prebuilt_etc {
+    name: "taku-code-mode-runtime-archive",
+    src: "adapters/codex-runtime/downloads/code-mode-host.tar.gz",
+    filename: "code-mode-host.tar.gz",
+    sub_dir: "codex",
+    system_ext_specific: true,
+}
+
+prebuilt_etc {
+    name: "taku-runtime-ca-bundle",
+    src: "image/runtime/cacert.pem",
+    filename: "cacert.pem",
+    sub_dir: "codex",
+    system_ext_specific: true,
+}

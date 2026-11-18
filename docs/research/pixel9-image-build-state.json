@@ -1,0 +1,14 @@
+{
+  "phase": "failed-exit-1",
+  "updatedAt": "2026-10-15T16:40:59.877289+00:00",
+  "romBuilt": false,
+  "physicalDeviceVerified": false,
+  "checkedAt": "2026-10-15T16:41:00.275175+00:00",
+  "target": "Pixel 9 / tokay",
+  "platform": "LineageOS 23.2 / Android 16",
+  "variant": "userdebug",
+  "running": false,
+  "exitCode": 1,
+  "oomKilled": false,
+  "artifactCount": 0
+}

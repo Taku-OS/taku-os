@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "God Mode plugin development workspace state",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["state"],
+  "properties": {
+    "state": {"enum": ["new", "inspecting", "building", "checking", "ready", "needs_you", "stopped"]}
+  }
+}

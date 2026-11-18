@@ -1,0 +1,30 @@
+{
+  "passed": true,
+  "configuration": {
+    "enabled": false,
+    "analysisEnabled": false,
+    "analysisGeneration": 41,
+    "queryEnabled": true,
+    "proactive": false,
+    "model": "taku-jev-import/typesafe/jev-1.14",
+    "sources": [],
+    "generation": 95,
+    "retentionDays": 7,
+    "count": 32,
+    "analysisQueued": 0,
+    "analysisInFlight": 0,
+    "analysisBatchAttempts": 11,
+    "lastBatchSize": 1,
+    "schema": "taku.memory/2",
+    "observationConnected": false
+  },
+  "accessibilityRestored": true,
+  "noActiveTasks": true,
+  "appLocale": "en",
+  "retainedCount": 32,
+  "originalRetained": 30,
+  "addedDemoRecords": 2,
+  "deletedRecords": 0,
+  "physicalDevice": false,
+  "fullRom": false
+}

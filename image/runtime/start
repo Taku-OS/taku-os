@@ -1,0 +1,56 @@
+#!/system/bin/sh
+set -eu
+
+if [ "${1:-}" = resolver ]; then
+    export CLASSPATH=/system_ext/framework/agentos-resolver-bridge.jar
+    exec /system/bin/app_process /system/bin org.agentos.lab.ResolverBridge
+fi
+
+# Task storage is credential-encrypted. Never create it before user 0 unlocks.
+while ! /system/bin/am get-started-user-state 0 2>/dev/null | grep -q RUNNING_UNLOCKED; do
+    sleep 3
+done
+
+case "${1:-}" in
+    broker)
+        # The native worker uses the phone client's loopback HTTP proxy.
+        # A private override survives component and image updates.
+        proxy=/data/local/agentos/network-proxy
+        if [ ! -f "$proxy" ] && pm path com.follow.clash >/dev/null 2>&1; then
+            mkdir -p /data/local/agentos
+            (umask 077; printf 'http://127.0.0.1:7890\n' > "$proxy")
+        fi
+        # Retry the same product bindings at every start/OTA. No old-home fallback or
+        # one-time marker: RoleController/VIMS enforce these even before this worker starts.
+        home=org.agentos.agent/org.agentos.agent.home.HomeActivity
+        voice=org.agentos.agent/org.agentos.agent.home.assistant.SystemAssistantService
+        if cmd package set-home-activity --user 0 "$home" &&
+                cmd role add-role-holder --user 0 android.app.role.ASSISTANT org.agentos.agent; then
+            settings --user 0 put secure assistant "$voice"
+            settings --user 0 put secure voice_interaction_service "$voice"
+        else
+            log -t TakuSystemEntry 'Binding repair failed; check TakuAgent installation and role service'
+        fi
+        settings put global power_button_long_press 5
+        settings put global power_button_long_press_duration_ms 500
+        # Backend notifications still belong to their native runtime owner.
+        pm grant org.agentos.assistant android.permission.POST_NOTIFICATIONS || true
+        export CLASSPATH=/system_ext/framework/agentos-task-broker.jar
+        exec /system/bin/app_process /system/bin org.agentos.lab.TaskBroker
+        ;;
+    display)
+        # Avoid duplicate ownership if TaskBroker's wrapper already started a host.
+        directory=/data/local/agentos/virtual-display
+        mkdir -p "$directory"
+        if [ -f "$directory/display.id" ]; then
+            existing=$(cat "$directory/display.id")
+            if cmd display get-displays --ids-only | grep -qx "$existing"; then
+                while cmd display get-displays --ids-only | grep -qx "$existing"; do sleep 3; done
+            fi
+        fi
+        rm -f "$directory/display.id" "$directory/stop.request" "$directory/capture.request"
+        export CLASSPATH=/system_ext/framework/agentos-virtual-display.jar
+        exec /system/bin/app_process /system/bin org.agentos.lab.VirtualDisplayHost
+        ;;
+    *) echo 'Usage: taku-runtime-start broker|display' >&2; exit 2 ;;
+esac

@@ -1,0 +1,30 @@
+{
+  "schema": "taku.launcher3-patch/1",
+  "upstreamCommit": "818f72b74e6f914cbca2b465776d6d20f960ee87",
+  "repository": "packages/apps/Launcher3",
+  "patch": "nav-handle-double-tap-home-v2.patch",
+  "patchSha256": "5460f5dfcdcc3e16fba6109db8e97fa2d758f9c60a4638bcc7e396e0bae15288",
+  "purpose": "Gesture-handle double tap opens text; long press streams temporary voice to Taku when Taku is selected, bypassing ContextualSearch.",
+  "files": [
+    {
+      "path": "quickstep/src/com/android/quickstep/NavHandleDoubleTap.java",
+      "beforeSha256": null,
+      "afterSha256": "985b81c0547ab1885f1d2cc4252cab283114e37de05d18fc541d0c3a8e44e111"
+    },
+    {
+      "path": "quickstep/src/com/android/quickstep/TakuNavHandleBridge.java",
+      "beforeSha256": null,
+      "afterSha256": "b5f40ee7db1dccbed8476015c8497d3170045c3b39e8408e94f73d4551b27e0d"
+    },
+    {
+      "path": "quickstep/src/com/android/quickstep/TouchInteractionHandler.java",
+      "beforeSha256": "84fee597d301e24e2237a58329aa3ed25fedc104e1fc77d36e0192518b282df2",
+      "afterSha256": "d0b5da6d5e9ae9a1b7ab29c47aead69742dea4d1c90ac65e38dbfa856d3c2043"
+    },
+    {
+      "path": "quickstep/src/com/android/quickstep/inputconsumers/NavHandleLongPressInputConsumer.java",
+      "beforeSha256": "0107066e36bc1bb5ffce7d9d118ab3813b880f9bcfe280960d5c8ce747ea0438",
+      "afterSha256": "4f560204cbbaf1bbf2d1f57b9972e1d84aa5c37de72be83cddde8a0a18c0a980"
+    }
+  ]
+}

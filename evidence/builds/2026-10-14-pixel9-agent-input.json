@@ -1,0 +1,21 @@
+{
+  "assessedOn": "2026-10-14",
+  "target": "Pixel 9 / tokay",
+  "change": "Replace bottom app dock with fixed Agent composer",
+  "baseSnapshot": "f1007ee32a6fdaad146c33653de160d4a5d6523a48761d5327ed1200347bc887",
+  "deployedVersionCode": 37,
+  "deployedVersionName": "20261014-agent-input",
+  "apkSha256": "8f907499b3f5a98c4a168cad0947842b35fbf4f98fadefd9ff519642c803733f",
+  "installedAsUpdatedSystemApp": true,
+  "preservedSystemUid": 1000,
+  "newRomFlashed": false,
+  "rootServicesReplaced": false,
+  "compiledCurrentSource": true,
+  "homeScreenshot": "out/pixel9/device-install-2026-10-14/agent-input-home.png",
+  "keyboardScreenshot": "out/pixel9/device-install-2026-10-14/agent-input-keyboard.png",
+  "composerVisibleAboveIme": true,
+  "taskSubmissionVerified": true,
+  "verificationTaskId": "1791992490147",
+  "verificationTaskState": "running",
+  "storageOwnershipFix": "Changed only app files directory from root:root to system:system; current TaskBroker source already performs this chown at startup"
+}

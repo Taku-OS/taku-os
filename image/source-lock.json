@@ -1,0 +1,76 @@
+{
+  "schema": "taku.image-source-lock/1",
+  "target": "lineage_tokay",
+  "variant": "userdebug",
+  "platform": "LineageOS 24.0 / Android 17",
+  "manifestCommit": "d4c6331bc603e5038a9e48f5e526e7f10c8b96d9",
+  "platformManifestSha256": "6a75fd7ec1ae6753f8da0a9e817f5cc2d79dc2892e94745c12b4477be4bcf455",
+  "repositories": [
+    {
+      "repo": "LineageOS/android_device_google_zumapro",
+      "path": "device/google/zumapro",
+      "revision": "68ba9dd7b620da033874eff4b660dddcf23066ff",
+      "branch": "lineage-24.0",
+      "source": "official-20261019-tokay-build-manifest"
+    },
+    {
+      "repo": "LineageOS/android_device_google_caimito-kernels",
+      "path": "device/google/caimito-kernels",
+      "revision": "d3b200471b6ce0d94504886b6249a7f6d74d52ca",
+      "branch": "lineage-24.0",
+      "source": "official-20261019-tokay-build-manifest"
+    },
+    {
+      "repo": "LineageOS/android_device_google_tokay",
+      "path": "device/google/tokay",
+      "revision": "410632c0d815c2ef384683d9ccf8c0abc94f5abc",
+      "branch": "lineage-24.0",
+      "source": "official-20261019-tokay-build-manifest"
+    },
+    {
+      "repo": "LineageOS/android_device_google_caimito",
+      "path": "device/google/caimito",
+      "revision": "030b8ea15f58ffbeb28504eb490dbca674d26e3f",
+      "branch": "lineage-24.0",
+      "source": "official-20261019-tokay-build-manifest"
+    },
+    {
+      "repo": "TheMuppets/proprietary_vendor_google_tokay",
+      "path": "vendor/google/tokay",
+      "revision": "9aa7bf2bfcee18a501ea4848c485ab2c1b9e226f",
+      "branch": "lineage-24.0",
+      "source": "public-vendor-repository; not included in official build manifest"
+    }
+  ],
+  "vendorBaseline": "CP2A.260805.005 / SPL 2026-08-05 as declared by pinned device tree",
+  "source": "public upstream Git; no organization credentials",
+  "physicalDeviceVerified": false,
+  "licenseBoundary": "proprietary vendor inputs are local build inputs; this lock does not grant redistribution rights",
+  "integration": "append vendor/taku/image/taku.mk to pinned caimito lineage_tokay product in isolated build checkout",
+  "androidVersion": 17,
+  "apiLevel": 37,
+  "aospTag": "android-17.0.0_r1",
+  "devicesManifestSha256": "0842a90ea5e0172cefbd40727fef2f08769dc64696505544c0efa4d3e4b75787",
+  "resolvedOn": "2026-10-20",
+  "upstreamBuild": {
+    "device": "tokay",
+    "date": "2026-10-19",
+    "type": "nightly",
+    "version": "24.0",
+    "apiUrl": "https://download.lineageos.org/api/v2/devices/tokay/builds",
+    "otaFilename": "lineage-24.0-20261019-nightly-tokay-signed.zip",
+    "otaUrl": "https://mirrorbits.lineageos.org/full/tokay/20261019/lineage-24.0-20261019-nightly-tokay-signed.zip",
+    "otaBytes": 1716499556,
+    "publishedOtaSha256": "aa2b31f0b081d329e3f9aaf5c6a2538ec2007fd92b8caf5d3003d73db03dc95e",
+    "osSdkLevel": 37,
+    "osPatchLevel": "2026-10-01",
+    "buildManifestUrl": "https://mirrorbits.lineageos.org/full/tokay/20261019/build-manifest.xml",
+    "buildManifestSha256": "da3b20112cb1fc416b2120f106fc5471a68b383a0bea5ec78979607f1126c958",
+    "buildManifestSha256VerifiedAgainstApi": true
+  },
+  "manifestDerivation": {
+    "platform": "Official resolved build manifest; explicit project paths; unused private remote removed; device projects split into devices.xml. Other upstream platform projects retained.",
+    "devices": "Four official tokay device projects plus separately pinned public vendor input; obsolete Android 16 gs-common dependency removed.",
+    "kernel": "Separate upstream gs-6.1 source manifest, locked in kernel-source-lock.json; caimito-kernels supplies module lists, not a complete kernel distribution."
+  }
+}

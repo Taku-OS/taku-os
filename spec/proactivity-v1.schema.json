@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://taku.os/spec/proactivity-v1.schema.json",
+  "title": "Taku proactivity v1 request",
+  "description": "Messenger request JSON only. Request UTF-8 size, nesting, caller namespace and user consent are additionally checked by the host. See system/proactivity/API.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "requestId", "op", "args"],
+  "properties": {
+    "version": {"const": 1},
+    "requestId": {"type": "string", "pattern": "^[a-f0-9-]{36}$"},
+    "op": {"enum": ["capabilities", "register", "event", "inspect", "disconnect"]},
+    "args": {"type": "object"}
+  },
+  "oneOf": [
+    {"properties": {"op": {"const": "capabilities"}, "args": {"type": "object", "maxProperties": 0}}},
+    {"properties": {"op": {"const": "disconnect"}, "args": {"type": "object", "maxProperties": 0}}},
+    {"properties": {"op": {"const": "register"}, "args": {"type": "object", "required": ["spec"], "additionalProperties": false, "properties": {"spec": {"$ref": "#/$defs/observerSpec"}}}}},
+    {"properties": {"op": {"const": "inspect"}, "args": {"type": "object", "required": ["observerId"], "additionalProperties": false, "properties": {"observerId": {"$ref": "#/$defs/identifier"}}}}},
+    {"properties": {"op": {"const": "event"}, "args": {"type": "object", "required": ["observerId", "eventId", "eventType", "pageRevision"], "additionalProperties": false, "properties": {"observerId": {"$ref": "#/$defs/identifier"}, "eventId": {"$ref": "#/$defs/identifier"}, "eventType": {"$ref": "#/$defs/identifier"}, "pageRevision": {"type": "integer", "minimum": 0, "maximum": 2147483647}}}}}
+  ],
+  "$defs": {
+    "identifier": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_.-]{2,119}$"},
+    "observerSpec": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "name", "eventType", "quietMs", "cooldownMs", "maxRecords", "lookbackMs", "title", "summary"],
+      "properties": {
+        "id": {"$ref": "#/$defs/identifier"},
+        "name": {"type": "string", "minLength": 1, "maxLength": 80, "pattern": "\\S"},
+        "eventType": {"$ref": "#/$defs/identifier"},
+        "quietMs": {"type": "integer", "minimum": 100, "maximum": 10000},
+        "cooldownMs": {"type": "integer", "minimum": 1000, "maximum": 3600000},
+        "maxRecords": {"type": "integer", "minimum": 1, "maximum": 16},
+        "lookbackMs": {"type": "integer", "minimum": 1000, "maximum": 600000},
+        "title": {"type": "string", "minLength": 1, "maxLength": 80, "pattern": "\\S"},
+        "summary": {"type": "string", "minLength": 1, "maxLength": 240, "pattern": "\\S"}
+      }
+    }
+  }
+}

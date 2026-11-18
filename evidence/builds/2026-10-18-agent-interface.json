@@ -1,0 +1,47 @@
+{
+  "date": "2026-10-18",
+  "checkedAt": "2026-10-18T10:18:05.649552+00:00",
+  "versionCode": 50,
+  "versionName": "20261018-agent-interface",
+  "baseCommit": "39da980",
+  "device": "Taku_ImageIntegration_20261010 / emulator-5634",
+  "apkSha256": "1bcb9498717ef98b790ae6b1b99233d0048b10ba65eebce3f5629ec92bf797bb",
+  "installedMatchesBuild": true,
+  "brokerChanged": false,
+  "installedBrokerSha256": "dc03574a525d80c8e4c659d6e8d6db136725a2c4068a2b96c391769026ee23e8",
+  "verification": {
+    "androidComponentBuild": "passed",
+    "repositoryVerify": "passed (Linux-only FIFO test skipped on macOS)",
+    "interface": {
+      "modelAndEffortMenusPreserveDraft": true,
+      "capabilitiesAndSessionsReturnToChat": true,
+      "directSettingsRouteReturnsToSettings": true,
+      "themeAndKeyboardPreserveDraft": true,
+      "backgroundScreenReturnPreservesDraft": true,
+      "systemDismiss": true,
+      "modelMessagesSent": 0,
+      "testThread": "01a14e83-52e4-7d71-a7c3-bd9600025777"
+    },
+    "composerMissingAttachment": "passed"
+  },
+  "screenshots": {
+    "empty-dark": "evidence/scenarios/agent-interface-2026-10-18/empty-dark.png",
+    "settings-dark": "evidence/scenarios/agent-interface-2026-10-18/settings-dark.png",
+    "settings-light": "evidence/scenarios/agent-interface-2026-10-18/settings-light.png",
+    "keyboard-light": "evidence/scenarios/agent-interface-2026-10-18/keyboard-light.png"
+  },
+  "screenshotScope": "Actual simulator UI; isolated test conversation and unsent Chinese test draft. No generated mockup, no model response simulated.",
+  "physicalDeviceVerified": false,
+  "fullRomRebuilt": false,
+  "limits": [
+    "Landscape and enlarged font sizes not validated in this iteration.",
+    "Existing voice engine/API requirements and runtime readiness gaps are unchanged."
+  ],
+  "rawEvidence": {
+    "uiTest": "out/agent-interface-20261018/ui-test.log",
+    "composer": "out/composer-reliability-tests/20261018T101653Z-83590",
+    "build": "out/agent-interface-20261018/build.log",
+    "verify": "out/agent-interface-20261018/verify.log"
+  },
+  "rollbackApk": "out/agent-interface-20261018/assistant-v49.apk"
+}

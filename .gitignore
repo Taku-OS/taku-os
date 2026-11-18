@@ -1,0 +1,51 @@
+# Dependencies and build/check products
+node_modules/
+out/
+coverage/
+__pycache__/
+*.pyc
+.DS_Store
+.local/
+# Authentication, signing and user/device images must never be source artifacts.
+.env*
+!.env.example
+auth.json
+credentials*
+.codex/
+*.pk8
+*.pem
+*.key
+*.jks
+*.keystore
+*.apk
+*.dex
+*.jar
+*.img
+*.qcow2
+userdata*
+*.log
+*.zip
+*.tar.gz
+*.tgz
+*.mp4
+!docs/media/*.mp4
+# Exact app-kit runtime/download/state paths, not every possible apps/home directory.
+/tooling/app-kit/downloads/
+/tooling/app-kit/apps/
+/tooling/app-kit/state/
+/tooling/app-kit/api/state/
+/tooling/app-kit/api/apps/
+/tooling/app-kit/runtime/react.js
+/tooling/app-kit/runtime/react-dom.js
+/tooling/app-kit/runtime/esbuild
+/adapters/codex-runtime/downloads/
+/adapters/magpie-runtime/downloads/
+/system/call-translation/downloads/
+/system/inputmethod/jni/prebuilt/
+/system/audio-engine/prebuilt/
+/system/audio-engine/models/rom-files.mk
+# Raw model event streams are local diagnostic data, not curated acceptance proof.
+evidence/**/*.jsonl
+/system/memory/downloads/
+# Local UI review screenshots; never synced by Git.
+/screenshots/

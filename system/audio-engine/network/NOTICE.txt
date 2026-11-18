@@ -1,0 +1,10 @@
+OkHttp 4.12.0 and Okio 3.6.0
+Copyright Square, Inc. and contributors. Licensed under Apache License 2.0.
+https://square.github.io/okhttp/
+https://square.github.io/okio/
+
+The separately bundled okhttp3/internal/publicsuffix/NOTICE describes the
+public suffix resource (Mozilla Public License 2.0).
+
+MessagePack for Java 0.9.10. Copyright MessagePack contributors.
+Licensed under Apache License 2.0. https://github.com/msgpack/msgpack-java

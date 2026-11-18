@@ -1,0 +1,23 @@
+{
+  "versionCode": 47,
+  "installedOn": "emulator-5634",
+  "removedToolbarControls": [
+    "任务权限",
+    "速度模式"
+  ],
+  "retainedToolbarControls": [
+    "添加附件",
+    "选择模型",
+    "思考强度",
+    "语音输入",
+    "发送消息"
+  ],
+  "iconCanvasDp": 24,
+  "iconStroke": 1.8,
+  "buttonDp": 44,
+  "buildPassed": true,
+  "keyboardScreenshotChecked": true,
+  "apkSha256": "3bbf7ed4c89aa82da9aeab23de800cb8028c61864bea5d322c99ec2e0ebb0d51",
+  "captureLog": "out/composer-aligned-2026-10-15/capture.log",
+  "screenshot": "out/composer-aligned-2026-10-15/keyboard.png"
+}

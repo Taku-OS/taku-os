@@ -1,0 +1,47 @@
+{
+  "schema": "taku.font-license-packaging/1",
+  "license": "OFL-1.1",
+  "files": [
+    {
+      "source": "system/assistant/design-system/licenses/Doto-OFL.txt",
+      "packagedSource": "system/assistant/assets/licenses/fonts/Doto-OFL.txt",
+      "sha256": "26a7b58bdba6cda8a78ca6e8b3791d8013b8abc6d5e6519f84193893aee02020"
+    },
+    {
+      "source": "system/assistant/design-system/licenses/HankenGrotesk-OFL.txt",
+      "packagedSource": "system/assistant/assets/licenses/fonts/HankenGrotesk-OFL.txt",
+      "sha256": "e02ccb89a86839b22feff7872ff5cc355cc0f58318d29eee20e2cf83a612f16d"
+    },
+    {
+      "source": "system/assistant/design-system/licenses/NotoSansSC-OFL.txt",
+      "packagedSource": "system/assistant/assets/licenses/fonts/NotoSansSC-OFL.txt",
+      "sha256": "1c05c68c34f9708415aada51f17e1b0092d2cea709bf4a94cd38114f9e73d7d9"
+    },
+    {
+      "source": "system/assistant/design-system/licenses/SpaceGrotesk-OFL.txt",
+      "packagedSource": "system/assistant/assets/licenses/fonts/SpaceGrotesk-OFL.txt",
+      "sha256": "564ce565c371c5e5bbf286006565a7c9aa55a9f56e7ca58d56e05d649dd61a72"
+    },
+    {
+      "source": "system/agent-app/src/theme/licenses/HankenGrotesk-OFL.txt",
+      "packagedSource": "system/agent-app/modules/taku-home/android/src/main/assets/licenses/fonts/HankenGrotesk-OFL.txt",
+      "sha256": "bb93c61eef5b10204ac305aeb3d204ce74c22c40aa8398f9e2c3bdab2263f2d1"
+    },
+    {
+      "source": "system/agent-app/src/theme/licenses/NotoSansSC-OFL.txt",
+      "packagedSource": "system/agent-app/modules/taku-home/android/src/main/assets/licenses/fonts/NotoSansSC-OFL.txt",
+      "sha256": "babcfe66c8a098b2fa279bc724a3a342f8124f77ce18941fbcc1bbb39823cded"
+    },
+    {
+      "source": "system/agent-app/src/theme/licenses/SpaceGrotesk-OFL.txt",
+      "packagedSource": "system/agent-app/modules/taku-home/android/src/main/assets/licenses/fonts/SpaceGrotesk-OFL.txt",
+      "sha256": "18a4de52385f6b988782639d5d0cc1326e5a8c2de9a7f01d7b20d9aedcc60943"
+    },
+    {
+      "source": "system/agent-app/src/theme/licenses/JetBrainsMono-OFL.txt",
+      "packagedSource": "system/agent-app/modules/taku-home/android/src/main/assets/licenses/fonts/JetBrainsMono-OFL.txt",
+      "sha256": "a76abf002c49097d146e86740a3105a5d00450b1592e820a1109a8c5680cd697"
+    }
+  ],
+  "scope": "License texts only; unrelated Figma images and brands are not covered."
+}

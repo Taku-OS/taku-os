@@ -1,0 +1,41 @@
+{
+  "scope": "Earlier attempts are retained separately and are not counted as the final passing case. No thresholds or model responses were altered.",
+  "observations": [
+    {
+      "kind": "legacy-completed-record",
+      "outcome": "Host/UI test skipped malformed records only when already marked done; no model call occurred."
+    },
+    {
+      "kind": "real-jev-low-confidence",
+      "model": "typesafe/jev-1.14",
+      "screen": "chat",
+      "decision": "dining_plan",
+      "confidence": 0.51,
+      "elapsedMs": 1212,
+      "outcome": "No actionable hint; no Agent task."
+    },
+    {
+      "kind": "synthetic-text-diagnostic-through-phone-magpie",
+      "model": "typesafe/jev-1.14-20261014",
+      "confidence": 0.59,
+      "outcome": "Typed choice was valid but below the unchanged 0.65 threshold. No Agent task."
+    },
+    {
+      "kind": "wrong-decider-in-preliminary-test",
+      "model": "~perplexity/pplx-decider-flash-latest",
+      "status": 429,
+      "outcome": "Not a Jev acceptance. Corrected the test filter to inspect the model ID after its provider prefix."
+    },
+    {
+      "kind": "real-jev-and-agent-with-startup-frame",
+      "decisionConfidence": 0.86,
+      "agentTaskCompleted": true,
+      "contextVerified": false,
+      "outcome": "Agent honestly reported seeing an Android startup frame. Test now waits for the fixture title to be visible and stable before capture."
+    },
+    {
+      "kind": "shared-emulator-paused",
+      "outcome": "A settings launch timed out before that round made a decision request. No reboot or account reset was performed."
+    }
+  ]
+}

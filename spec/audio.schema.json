@@ -1,0 +1,666 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:taku:audio:0.1",
+  "title": "Implemented audio-engine request contract",
+  "description": "Local dictation/reading and experimental per-app media/call translation. No public PCM, URL or credential input.",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocol",
+        "type",
+        "id",
+        "method",
+        "params"
+      ],
+      "properties": {
+        "protocol": {
+          "const": "taku/0.1"
+        },
+        "type": {
+          "const": "request"
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "method": {
+          "const": "audio.capabilities"
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "purpose": {
+              "enum": [
+                "DICTATION",
+                "SPEAK",
+                "MEDIA_TRANSLATE",
+                "CALL_TRANSLATE"
+              ]
+            },
+            "settingsScope": {
+              "const": "assistant-entry"
+            },
+            "language": {
+              "enum": [
+                "zh-CN",
+                "en-US",
+                "ja-JP",
+                "ko-KR"
+              ]
+            }
+          },
+          "allOf": [
+            {
+              "if": { "required": ["settingsScope"] },
+              "then": {
+                "properties": { "purpose": { "const": "DICTATION" } },
+                "not": { "required": ["language"] }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocol",
+        "type",
+        "id",
+        "method",
+        "params"
+      ],
+      "properties": {
+        "protocol": {
+          "const": "taku/0.1"
+        },
+        "type": {
+          "const": "request"
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "method": {
+          "const": "audio.session.open"
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "purpose": {
+              "enum": [
+                "DICTATION",
+                "SPEAK",
+                "MEDIA_TRANSLATE",
+                "CALL_TRANSLATE"
+              ],
+              "default": "DICTATION"
+            },
+            "settingsScope": {
+              "const": "assistant-entry"
+            },
+            "language": {
+              "enum": [
+                "zh-CN",
+                "en-US",
+                "ja-JP",
+                "ko-KR"
+              ],
+              "default": "zh-CN"
+            },
+            "profileId": {
+              "enum": [
+                "zipformer",
+                "kokoro",
+                "fal-kotoba",
+                "fal-grok",
+                "local-hybrid",
+                "fal-whisper"
+              ]
+            },
+            "voiceId": {
+              "type": "string",
+              "maxLength": 128
+            },
+            "speed": {
+              "type": "number",
+              "minimum": 0.5,
+              "maximum": 2
+            },
+            "requestKey": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._:-]{1,128}$"
+            },
+            "targetLanguage": {
+              "enum": [
+                "zh-CN",
+                "en-US",
+                "ja-JP",
+                "ko-KR"
+              ]
+            },
+            "targetPackage": {
+              "type": "string",
+              "pattern": "^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+$"
+            },
+            "output": {
+              "enum": [
+                "CAPTIONS",
+                "SPEECH"
+              ],
+              "default": "CAPTIONS"
+            },
+            "originalAudio": {
+              "enum": [
+                "KEEP",
+                "REPLACE"
+              ],
+              "default": "KEEP"
+            },
+            "outgoingProfileId": {
+              "enum": [
+                "fal-kotoba",
+                "fal-grok",
+                "local-hybrid"
+              ]
+            },
+            "outgoingVoiceId": {
+              "type": "string",
+              "maxLength": 128
+            },
+            "outgoingSpeed": {
+              "type": "number",
+              "minimum": 0.5,
+              "maximum": 2
+            },
+            "interruptible": {
+              "type": "boolean",
+              "default": false,
+              "description": "Experimental local voice interruption while speaking; requires working device AEC, microphone permission and ASR resources."
+            }
+          },
+          "allOf": [
+            {
+              "if": { "required": ["settingsScope"] },
+              "then": {
+                "properties": { "purpose": { "const": "DICTATION" } },
+                "not": {
+                  "anyOf": [
+                    { "required": ["language"] },
+                    { "required": ["profileId"] }
+                  ]
+                }
+              }
+            },
+            {
+              "if": {
+                "required": [
+                  "purpose"
+                ],
+                "properties": {
+                  "purpose": {
+                    "enum": [
+                      "MEDIA_TRANSLATE",
+                      "CALL_TRANSLATE"
+                    ]
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "targetPackage"
+                ],
+                "properties": {
+                  "profileId": {
+                    "enum": [
+                      "fal-kotoba",
+                      "fal-grok",
+                      "local-hybrid",
+                      "fal-whisper"
+                    ]
+                  },
+                  "voiceId": {
+                    "type": "string",
+                    "maxLength": 128
+                  },
+                  "speed": {
+                    "type": "number",
+                    "minimum": 0.5,
+                    "maximum": 2
+                  }
+                },
+                "allOf": [
+                  {
+                    "if": {
+                      "required": [
+                        "originalAudio"
+                      ],
+                      "properties": {
+                        "originalAudio": {
+                          "const": "REPLACE"
+                        }
+                      }
+                    },
+                    "then": {
+                      "required": [
+                        "output"
+                      ],
+                      "properties": {
+                        "output": {
+                          "const": "SPEECH"
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "if": {
+                      "required": [
+                        "profileId"
+                      ],
+                      "properties": {
+                        "profileId": {
+                          "const": "fal-kotoba"
+                        }
+                      }
+                    },
+                    "then": {
+                      "properties": {
+                        "voiceId": {
+                          "const": ""
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "if": {
+                      "required": [
+                        "profileId"
+                      ],
+                      "properties": {
+                        "profileId": {
+                          "const": "local-hybrid"
+                        }
+                      }
+                    },
+                    "then": {
+                      "properties": {
+                        "language": {
+                          "enum": [
+                            "en-US",
+                            "zh-CN"
+                          ]
+                        },
+                        "targetLanguage": {
+                          "enum": [
+                            "en-US",
+                            "zh-CN"
+                          ]
+                        }
+                      }
+                    },
+                    "else": {
+                      "properties": {
+                        "speed": {
+                          "const": 1
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              "else": {
+                "properties": {
+                  "language": {
+                    "enum": [
+                      "zh-CN",
+                      "en-US"
+                    ]
+                  }
+                },
+                "not": {
+                  "anyOf": [
+                    {
+                      "required": [
+                        "targetLanguage"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "targetPackage"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "output"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "originalAudio"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "outgoingProfileId"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "outgoingVoiceId"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "outgoingSpeed"
+                      ]
+                    }
+                  ]
+                },
+                "allOf": [
+                  {
+                    "if": {
+                      "required": [
+                        "purpose"
+                      ],
+                      "properties": {
+                        "purpose": {
+                          "const": "SPEAK"
+                        }
+                      }
+                    },
+                    "then": {
+                      "properties": {
+                        "profileId": {
+                          "const": "kokoro"
+                        }
+                      }
+                    },
+                    "else": {
+                      "properties": {
+                        "profileId": {
+                          "enum": ["zipformer", "fal-whisper"]
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "if": {
+                "required": [
+                  "purpose"
+                ],
+                "properties": {
+                  "purpose": {
+                    "const": "CALL_TRANSLATE"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "output",
+                  "originalAudio"
+                ],
+                "properties": {
+                  "output": {
+                    "const": "SPEECH"
+                  },
+                  "originalAudio": {
+                    "const": "REPLACE"
+                  }
+                }
+              },
+              "else": {
+                "not": {
+                  "anyOf": [
+                    {
+                      "required": [
+                        "outgoingProfileId"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "outgoingVoiceId"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "outgoingSpeed"
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "if": {
+                "required": [
+                  "profileId"
+                ],
+                "properties": {
+                  "profileId": {
+                    "const": "fal-whisper"
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "purpose": {
+                    "enum": ["DICTATION", "MEDIA_TRANSLATE"]
+                  },
+                  "output": {
+                    "const": "CAPTIONS"
+                  },
+                  "voiceId": {
+                    "const": ""
+                  },
+                  "speed": {
+                    "const": 1
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "required": [
+                  "interruptible"
+                ]
+              },
+              "then": {
+                "required": [
+                  "purpose"
+                ],
+                "properties": {
+                  "purpose": {
+                    "const": "SPEAK"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocol",
+        "type",
+        "id",
+        "method",
+        "params"
+      ],
+      "properties": {
+        "protocol": {
+          "const": "taku/0.1"
+        },
+        "type": {
+          "const": "request"
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "method": {
+          "const": "audio.session.append"
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sessionId",
+            "index",
+            "text"
+          ],
+          "properties": {
+            "sessionId": {
+              "type": "string",
+              "pattern": "^audio-[1-9][0-9]*$"
+            },
+            "index": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "text": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500,
+              "pattern": "\\S"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocol",
+        "type",
+        "id",
+        "method",
+        "params"
+      ],
+      "properties": {
+        "protocol": {
+          "const": "taku/0.1"
+        },
+        "type": {
+          "const": "request"
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "method": {
+          "const": "audio.session.finish"
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sessionId"
+          ],
+          "properties": {
+            "sessionId": {
+              "type": "string",
+              "pattern": "^audio-[1-9][0-9]*$"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocol",
+        "type",
+        "id",
+        "method",
+        "params"
+      ],
+      "properties": {
+        "protocol": {
+          "const": "taku/0.1"
+        },
+        "type": {
+          "const": "request"
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "method": {
+          "const": "audio.session.close"
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sessionId"
+          ],
+          "properties": {
+            "sessionId": {
+              "type": "string",
+              "pattern": "^audio-[1-9][0-9]*$"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocol",
+        "type",
+        "id",
+        "method",
+        "params"
+      ],
+      "properties": {
+        "protocol": {
+          "const": "taku/0.1"
+        },
+        "type": {
+          "const": "request"
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "method": {
+          "const": "audio.session.status"
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sessionId"
+          ],
+          "properties": {
+            "sessionId": {
+              "type": "string",
+              "pattern": "^audio-[1-9][0-9]*$"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

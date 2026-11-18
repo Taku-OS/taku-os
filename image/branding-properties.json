@@ -1,0 +1,27 @@
+{
+  "schema": "taku.branding-boot-properties/1",
+  "initRevision": "7c3f32fe89c52b4176fd288ba5bb4f907809c202",
+  "partitionOrder": [
+    "SYSTEM/build.prop",
+    "SYSTEM_EXT/etc/build.prop",
+    "SYSTEM_DLKM/etc/build.prop",
+    "VENDOR/default.prop",
+    "VENDOR/build.prop",
+    "VENDOR_DLKM/etc/build.prop",
+    "ODM_DLKM/etc/build.prop",
+    "ODM/etc/build.prop",
+    "PRODUCT/etc/build.prop"
+  ],
+  "requiredFiles": [
+    "SYSTEM/build.prop",
+    "SYSTEM_EXT/etc/build.prop",
+    "VENDOR/build.prop",
+    "PRODUCT/etc/build.prop"
+  ],
+  "placements": {
+    "ro.taku.product.name": "SYSTEM_EXT/etc/build.prop",
+    "ro.taku.product.version": "SYSTEM_EXT/etc/build.prop",
+    "ro.taku.display.version": "SYSTEM_EXT/etc/build.prop",
+    "ro.build.display.id": "PRODUCT/etc/build.prop"
+  }
+}

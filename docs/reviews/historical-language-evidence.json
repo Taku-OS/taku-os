@@ -1,0 +1,936 @@
+{
+  "purpose": "Explicit retention register for original Chinese-locale historical evidence. Not a claim of English execution or renewed acceptance. Raw bytes checked against the release-preparation HEAD.",
+  "artifacts": [
+    {
+      "path": "docs/reviews/composer-2026-10-15/acceptance.json",
+      "sha256": "3623c1a9ffb0ea30ccdbe0fcf5e76a283731104d4ce7eb98a13691116064e75a",
+      "kind": "Historical acceptance receipt",
+      "scope": "Recorded component/date metadata, UI observations, model replies, and integrity claims; the paired English review supplies the narrative. Original values remain attributable to their historical run.",
+      "englishReview": "docs/reviews/composer-2026-10-15/index.html"
+    },
+    {
+      "path": "docs/reviews/feed-events-sync-2026-11-13/verify-memory.py",
+      "sha256": "e0b3d81dfb523424ac1ebf019d0dec6d630df47ee3c406e9cae766e5cf50867f",
+      "kind": "Chinese-locale regression/reproduction artifact",
+      "scope": "Preserves scenario input, expected UI/model text, or the exact historical patch and its comments. Translating it would change the recorded test or patch. This is an intentional Chinese test version, not an English product default.",
+      "englishReview": "docs/reviews/feed-events-sync-2026-11-13/README.md"
+    },
+    {
+      "path": "docs/reviews/generative-ui-v2-2026-11-02/evidence.json",
+      "sha256": "df8d013641bd3e6425afb27eef8408345d1f8a8765e3d791b40cdde567c305cc",
+      "kind": "Recorded locale observation",
+      "scope": "Original UI text, model replies, test content, or execution output from a Chinese-locale historical run; preserve observation bytes, with English review for context.",
+      "englishReview": "docs/reviews/generative-ui-v2-2026-11-02/README.md"
+    },
+    {
+      "path": "docs/reviews/half-marathon-panels-2026-10-20/checks.json",
+      "sha256": "85ba3c43b893eb3b52162ea3388c3b294198a0a25c67098cc6f31ed337d003b3",
+      "kind": "Recorded locale observation",
+      "scope": "Original UI text, model replies, test content, or execution output from a Chinese-locale historical run; preserve observation bytes, with English review for context.",
+      "englishReview": "docs/reviews/half-marathon-panels-2026-10-20/README.md"
+    },
+    {
+      "path": "docs/reviews/inputmethod-ai-2026-10-22/ai-acceptance.json",
+      "sha256": "3107ddc1ac308bfa9c22126694ca75a109612fe8f80a281347a13b58b3b00572",
+      "kind": "Recorded locale observation",
+      "scope": "Original UI text, model replies, test content, or execution output from a Chinese-locale historical run; preserve observation bytes, with English review for context.",
+      "englishReview": "docs/reviews/inputmethod-ai-2026-10-22/README.md"
+    },
+    {
+      "path": "docs/reviews/inputmethod-ai-2026-10-22/live-ready.json",
+      "sha256": "de22fcd2f3404e0de687434d0aa654f5458c2175b3ef2df9705f0fdb9a642a22",
+      "kind": "Recorded locale observation",
+      "scope": "Original UI text, model replies, test content, or execution output from a Chinese-locale historical run; preserve observation bytes, with English review for context.",
+      "englishReview": "docs/reviews/inputmethod-ai-2026-10-22/README.md"
+    },
+    {
+      "path": "docs/reviews/inputmethod-ai-2026-10-22/native-strip-acceptance.json",
+      "sha256": "64ff21de32afc469a208e577ebe42499c67c20c0c01b1127fdd7ed77d8c87c78",
+      "kind": "Recorded locale observation",
+      "scope": "Original UI text, model replies, test content, or execution output from a Chinese-locale historical run; preserve observation bytes, with English review for context.",
+      "englishReview": "docs/reviews/inputmethod-ai-2026-10-22/README.md"
+    },
+    {
+      "path": "docs/reviews/inputmethod-ai-2026-10-22/real-generation-acceptance.json",
+      "sha256": "828d80a5c497a6d8c966f0951fa7fb4de01a6d70d3f717ded64295a37dcd493d",
+      "kind": "Recorded locale observation",
+      "scope": "Original UI text, model replies, test content, or execution output from a Chinese-locale historical run; preserve observation bytes, with English review for context.",
+      "englishReview": "docs/reviews/inputmethod-ai-2026-10-22/README.md"
+    },
+    {
+      "path": "docs/reviews/inputmethod-replies-2026-10-23/browser.json",
+      "sha256": "31e0f6cd524467ccb4d6b797b2ea6b323ffde84166d2b91138c50eb76478233f",
+      "kind": "Recorded locale observation",
+      "scope": "Original UI text, model replies, test content, or execution output from a Chinese-locale historical run; preserve observation bytes, with English review for context.",
+      "englishReview": "docs/reviews/inputmethod-replies-2026-10-23/README.md"
+    },
+    {
+      "path": "docs/reviews/inputmethod-replies-2026-10-23/final-state.json",
+      "sha256": "ec36ff97f5c7ed05bbbbbe53a72039da0f970aba2ad1815f71e6867e512a48bd",
+      "kind": "Recorded locale observation",
+      "scope": "Original UI text, model replies, test content, or execution output from a Chinese-locale historical run; preserve observation bytes, with English review for context.",
+      "englishReview": "docs/reviews/inputmethod-replies-2026-10-23/README.md"
+    },
+    {
+      "path": "docs/reviews/inputmethod-replies-2026-10-23/replies.json",
+      "sha256": "765aa8f7f2bd3e34fafdab7fcb902411c8445cc0396d7512f0f3666cd0e66516",
+      "kind": "Recorded locale observation",
+      "scope": "Original UI text, model replies, test content, or execution output from a Chinese-locale historical run; preserve observation bytes, with English review for context.",
+      "englishReview": "docs/reviews/inputmethod-replies-2026-10-23/README.md"
+    },
+    {
+      "path": "docs/reviews/inputmethod-rom-2026-10-25/result.json",
+      "sha256": "994c240fd2c2c16e54ba838c66290e7e008119aa53416063f71d7597d8cb85d1",
+      "kind": "Recorded locale observation",
+      "scope": "Original UI text, model replies, test content, or execution output from a Chinese-locale historical run; preserve observation bytes, with English review for context.",
+      "englishReview": "docs/reviews/inputmethod-rom-2026-10-25/README.md"
+    },
+    {
+      "path": "docs/reviews/jev-magpie-live-2026-10-21/acceptance.json",
+      "sha256": "e2e85e2960e2e121730a5473f86458c2c7df90cff86ea7cd3087f92d0ac322be",
+      "kind": "Historical acceptance receipt",
+      "scope": "Recorded component/date metadata, UI observations, model replies, and integrity claims; the paired English review supplies the narrative. Original values remain attributable to their historical run.",
+      "englishReview": "docs/reviews/jev-magpie-live-2026-10-21/README.md"
+    },
+    {
+      "path": "docs/reviews/magpie-runtime-2026-10-19/acceptance.json",
+      "sha256": "986a31866523cc442949bda052678592077484f15963cc0ec6a8a4238bb01ba2",
+      "kind": "Historical acceptance receipt",
+      "scope": "Recorded component/date metadata, UI observations, model replies, and integrity claims; the paired English review supplies the narrative. Original values remain attributable to their historical run.",
+      "englishReview": "docs/reviews/magpie-runtime-2026-10-19/README.md"
+    },
+    {
+      "path": "docs/reviews/manual-screen-case-2026-10-26/acceptance.json",
+      "sha256": "876e81a069dd2f1fc1e8406c071e7bcb9ae362d676f0c580318d1686666a075d",
+      "kind": "Historical acceptance receipt",
+      "scope": "Recorded component/date metadata, UI observations, model replies, and integrity claims; the paired English review supplies the narrative. Original values remain attributable to their historical run.",
+      "englishReview": null
+    },
+    {
+      "path": "docs/reviews/plugin-creator-2026-10-30/agent-receipt.json",
+      "sha256": "2b14b7162250259c8993f7d2257a384cda8623d63279e95b1ddf4fe128f5d828",
+      "kind": "Recorded locale observation",
+      "scope": "Original UI text, model replies, test content, or execution output from a Chinese-locale historical run; preserve observation bytes, with English review for context.",
+      "englishReview": null
+    },
+    {
+      "path": "docs/reviews/pr60-jacky-2026-11-16/acceptance.json",
+      "sha256": "99c168bb2c9c6122915d437da04f90aaf45a5686baa89e35bce71da853cacc4f",
+      "kind": "Historical acceptance receipt",
+      "scope": "Recorded component/date metadata, UI observations, model replies, and integrity claims; the paired English review supplies the narrative. Original values remain attributable to their historical run.",
+      "englishReview": "docs/reviews/pr60-jacky-2026-11-16/README.md"
+    },
+    {
+      "path": "docs/reviews/proactivity-2026-10-24/build.txt",
+      "sha256": "b496bfd276302c42381ef0fcc13ef80b279e8e603d9af1ca881583eb95269a80",
+      "kind": "Recorded locale observation",
+      "scope": "Original UI text, model replies, test content, or execution output from a Chinese-locale historical run; preserve observation bytes, with English review for context.",
+      "englishReview": "docs/reviews/proactivity-2026-10-24/README.md"
+    },
+    {
+      "path": "docs/reviews/proactivity-2026-10-24/dashboard-verifier.py",
+      "sha256": "77d3971412860a1ac123fa1b955886f598f2301c4d0edfa52d3acb7d24d23998",
+      "kind": "Chinese-locale regression/reproduction artifact",
+      "scope": "Preserves scenario input, expected UI/model text, or the exact historical patch and its comments. Translating it would change the recorded test or patch. This is an intentional Chinese test version, not an English product default.",
+      "englishReview": "docs/reviews/proactivity-2026-10-24/README.md"
+    },
+    {
+      "path": "docs/reviews/proactivity-2026-10-24/shared-integration.patch",
+      "sha256": "9030e00b0490024198db6e0031bd85229a7c59448ae021ccf3c1239ae6a86e20",
+      "kind": "Chinese-locale regression/reproduction artifact",
+      "scope": "Preserves scenario input, expected UI/model text, or the exact historical patch and its comments. Translating it would change the recorded test or patch. This is an intentional Chinese test version, not an English product default.",
+      "englishReview": "docs/reviews/proactivity-2026-10-24/README.md"
+    },
+    {
+      "path": "docs/reviews/system-ai-2026-10-23/final-state.json",
+      "sha256": "ad4b43ee0a1a7bccbcf89a43a75d2593703615c14aa75d4cb4cc9ff36c271d1f",
+      "kind": "Recorded locale observation",
+      "scope": "Original UI text, model replies, test content, or execution output from a Chinese-locale historical run; preserve observation bytes, with English review for context.",
+      "englishReview": "docs/reviews/system-ai-2026-10-23/README.md"
+    },
+    {
+      "path": "docs/reviews/system-ai-2026-10-23/ime-live.json",
+      "sha256": "94d8332de576868eb95e9b9f4b5a4609d75867a9abfef72460631a49f35ca068",
+      "kind": "Recorded locale observation",
+      "scope": "Original UI text, model replies, test content, or execution output from a Chinese-locale historical run; preserve observation bytes, with English review for context.",
+      "englishReview": "docs/reviews/system-ai-2026-10-23/README.md"
+    },
+    {
+      "path": "docs/reviews/system-ai-2026-10-23/memory-live.json",
+      "sha256": "01b5d33b1aaf142195479f12537b511767a87ce6727e44692173d417033a0226",
+      "kind": "Recorded locale observation",
+      "scope": "Original UI text, model replies, test content, or execution output from a Chinese-locale historical run; preserve observation bytes, with English review for context.",
+      "englishReview": "docs/reviews/system-ai-2026-10-23/README.md"
+    },
+    {
+      "path": "docs/reviews/system-ai-2026-10-23/shared-client.txt",
+      "sha256": "450318754eb5b34e5008abb5893028c594ff228dc114175ab5282326546ae876",
+      "kind": "Recorded locale observation",
+      "scope": "Original UI text, model replies, test content, or execution output from a Chinese-locale historical run; preserve observation bytes, with English review for context.",
+      "englishReview": "docs/reviews/system-ai-2026-10-23/README.md"
+    },
+    {
+      "path": "docs/reviews/system-ai-2026-10-23/ui-acceptance.json",
+      "sha256": "56644d80043c5aa70d7c4b9a6f3276d996bdc295d2e0870233efc63932ff6e42",
+      "kind": "Recorded locale observation",
+      "scope": "Original UI text, model replies, test content, or execution output from a Chinese-locale historical run; preserve observation bytes, with English review for context.",
+      "englishReview": "docs/reviews/system-ai-2026-10-23/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.10.0-2026-11-03/acceptance.json",
+      "sha256": "92696e8c984f9bce9acf3b3a6531a4a6d33f7f2ef712835e1beb0f17435f1b74",
+      "kind": "Historical acceptance receipt",
+      "scope": "Recorded component/date metadata, UI observations, model replies, and integrity claims; the paired English review supplies the narrative. Original values remain attributable to their historical run.",
+      "englishReview": "docs/reviews/taku-memory-0.10.0-2026-11-03/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.10.0-2026-11-03/evening-briefs.json",
+      "sha256": "8455953d6b21e0409a258200cf690000e49d6ce6fd0f4685e89b48b64cbd6dc1",
+      "kind": "Chinese-locale Memory experiment",
+      "scope": "Intentional Chinese synthetic timelines, names, prompts, generated cards, model replies, grading, or captured execution output. Preserve all repeated records and failures; paired English README documents method, outcomes, and limits.",
+      "englishReview": "docs/reviews/taku-memory-0.10.0-2026-11-03/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.10.0-2026-11-03/message-moments-3runs.json",
+      "sha256": "52f1835d7b311f5320ff4e5af73d903aed3d9cd096aef9f80ffc23ff969b5436",
+      "kind": "Chinese-locale Memory experiment",
+      "scope": "Intentional Chinese synthetic timelines, names, prompts, generated cards, model replies, grading, or captured execution output. Preserve all repeated records and failures; paired English README documents method, outcomes, and limits.",
+      "englishReview": "docs/reviews/taku-memory-0.10.0-2026-11-03/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.10.0-2026-11-03/replay-nudges-graded.json",
+      "sha256": "143959143307056306cf47eee7203ac56d2c4bf3fa6b5e2e763fba6dab7a1316",
+      "kind": "Chinese-locale Memory experiment",
+      "scope": "Intentional Chinese synthetic timelines, names, prompts, generated cards, model replies, grading, or captured execution output. Preserve all repeated records and failures; paired English README documents method, outcomes, and limits.",
+      "englishReview": "docs/reviews/taku-memory-0.10.0-2026-11-03/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.10.0-2026-11-03/smoke15-merged.txt",
+      "sha256": "bc6b9106b71f41cdb43467f641644dfc41a45af3ee7adef06b7d3b5875d59280",
+      "kind": "Chinese-locale Memory experiment",
+      "scope": "Intentional Chinese synthetic timelines, names, prompts, generated cards, model replies, grading, or captured execution output. Preserve all repeated records and failures; paired English README documents method, outcomes, and limits.",
+      "englishReview": "docs/reviews/taku-memory-0.10.0-2026-11-03/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.10.0-2026-11-03/smoke15.sh",
+      "sha256": "4155f7561b7bbe3809dd07814436c6d3ad51d141eb3acce73f16c83c99e188df",
+      "kind": "Chinese-locale regression/reproduction artifact",
+      "scope": "Preserves scenario input, expected UI/model text, or the exact historical patch and its comments. Translating it would change the recorded test or patch. This is an intentional Chinese test version, not an English product default.",
+      "englishReview": "docs/reviews/taku-memory-0.10.0-2026-11-03/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.10.0-2026-11-03/smoke15.txt",
+      "sha256": "abc44bfa7ca28d2f24e508af86718c802ce59843361dfe5120bc3e02afb519db",
+      "kind": "Chinese-locale Memory experiment",
+      "scope": "Intentional Chinese synthetic timelines, names, prompts, generated cards, model replies, grading, or captured execution output. Preserve all repeated records and failures; paired English README documents method, outcomes, and limits.",
+      "englishReview": "docs/reviews/taku-memory-0.10.0-2026-11-03/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.11.0-2026-11-04/acceptance.json",
+      "sha256": "4922d4b0470db18199293c9ac172ed77de8a742b7293b709f3f12d26a3cf3dd0",
+      "kind": "Historical acceptance receipt",
+      "scope": "Recorded component/date metadata, UI observations, model replies, and integrity claims; the paired English review supplies the narrative. Original values remain attributable to their historical run.",
+      "englishReview": "docs/reviews/taku-memory-0.11.0-2026-11-04/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.11.0-2026-11-04/card-ablation.csv",
+      "sha256": "a92f208df5d00fd0756ab1357ab6d32e70a1d9d949843b0812868715d4cf1b52",
+      "kind": "Chinese-locale Memory experiment",
+      "scope": "Intentional Chinese synthetic timelines, names, prompts, generated cards, model replies, grading, or captured execution output. Preserve all repeated records and failures; paired English README documents method, outcomes, and limits.",
+      "englishReview": "docs/reviews/taku-memory-0.11.0-2026-11-04/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.11.0-2026-11-04/card-ablation.sh",
+      "sha256": "a42d298f7cf7c61de12fca110efc24c5bbfc87baabc2bfeb72838e46885af900",
+      "kind": "Chinese-locale regression/reproduction artifact",
+      "scope": "Preserves scenario input, expected UI/model text, or the exact historical patch and its comments. Translating it would change the recorded test or patch. This is an intentional Chinese test version, not an English product default.",
+      "englishReview": "docs/reviews/taku-memory-0.11.0-2026-11-04/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.11.0-2026-11-04/evening-briefs.json",
+      "sha256": "8c00c6f3495f91b492235abc2500bf95eac4a9bbdf1d9876ce7f10304648134c",
+      "kind": "Chinese-locale Memory experiment",
+      "scope": "Intentional Chinese synthetic timelines, names, prompts, generated cards, model replies, grading, or captured execution output. Preserve all repeated records and failures; paired English README documents method, outcomes, and limits.",
+      "englishReview": "docs/reviews/taku-memory-0.11.0-2026-11-04/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.11.0-2026-11-04/message-moments-3runs.json",
+      "sha256": "84cb9f81aefb5b6523d828656f0ec94fa8949d28e4219609fe91ea1add8f778c",
+      "kind": "Chinese-locale Memory experiment",
+      "scope": "Intentional Chinese synthetic timelines, names, prompts, generated cards, model replies, grading, or captured execution output. Preserve all repeated records and failures; paired English README documents method, outcomes, and limits.",
+      "englishReview": "docs/reviews/taku-memory-0.11.0-2026-11-04/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.11.0-2026-11-04/rebuild-graph.sh",
+      "sha256": "67904b14d83d7165901415836a8dea8b4e0c52d6e806df48f0f8b1d3da6c6180",
+      "kind": "Chinese-locale regression/reproduction artifact",
+      "scope": "Preserves scenario input, expected UI/model text, or the exact historical patch and its comments. Translating it would change the recorded test or patch. This is an intentional Chinese test version, not an English product default.",
+      "englishReview": "docs/reviews/taku-memory-0.11.0-2026-11-04/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.11.0-2026-11-04/replay-model.sh",
+      "sha256": "f78f53bc49fcbd602fd8d2f6935fa53d46565262e0c8ee911f881029994374e3",
+      "kind": "Chinese-locale regression/reproduction artifact",
+      "scope": "Preserves scenario input, expected UI/model text, or the exact historical patch and its comments. Translating it would change the recorded test or patch. This is an intentional Chinese test version, not an English product default.",
+      "englishReview": "docs/reviews/taku-memory-0.11.0-2026-11-04/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.11.0-2026-11-04/replay-nudges-graded.json",
+      "sha256": "36f1ad0e3e56a5a4eaf368f0d2859d6ec9a1945e2e6f30779f2e50119ab4c9d4",
+      "kind": "Chinese-locale Memory experiment",
+      "scope": "Intentional Chinese synthetic timelines, names, prompts, generated cards, model replies, grading, or captured execution output. Preserve all repeated records and failures; paired English README documents method, outcomes, and limits.",
+      "englishReview": "docs/reviews/taku-memory-0.11.0-2026-11-04/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.12.0-2026-11-05/acceptance.json",
+      "sha256": "d8ff886a9354fa6438839759b4f06f8e9b5a8da23ed939968127b15da9f936d4",
+      "kind": "Historical acceptance receipt",
+      "scope": "Recorded component/date metadata, UI observations, model replies, and integrity claims; the paired English review supplies the narrative. Original values remain attributable to their historical run.",
+      "englishReview": "docs/reviews/taku-memory-0.12.0-2026-11-05/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.12.0-2026-11-05/card-ablation.csv",
+      "sha256": "9a9536764419db7dc134767279a4e5bedc921e7b43b872c3afa6f52988f4de02",
+      "kind": "Chinese-locale Memory experiment",
+      "scope": "Intentional Chinese synthetic timelines, names, prompts, generated cards, model replies, grading, or captured execution output. Preserve all repeated records and failures; paired English README documents method, outcomes, and limits.",
+      "englishReview": "docs/reviews/taku-memory-0.12.0-2026-11-05/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.12.0-2026-11-05/card-ablation.sh",
+      "sha256": "7dc8207cc96879c5cbb3c8a797602f7080a9a63550ea215d4935999f72941d8b",
+      "kind": "Chinese-locale regression/reproduction artifact",
+      "scope": "Preserves scenario input, expected UI/model text, or the exact historical patch and its comments. Translating it would change the recorded test or patch. This is an intentional Chinese test version, not an English product default.",
+      "englishReview": "docs/reviews/taku-memory-0.12.0-2026-11-05/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.12.0-2026-11-05/changes-noise.json",
+      "sha256": "d8ea20d1b5d0c6c877a651d905d3870f0adf47277fa1c356008795fe61788702",
+      "kind": "Chinese-locale Memory experiment",
+      "scope": "Intentional Chinese synthetic timelines, names, prompts, generated cards, model replies, grading, or captured execution output. Preserve all repeated records and failures; paired English README documents method, outcomes, and limits.",
+      "englishReview": "docs/reviews/taku-memory-0.12.0-2026-11-05/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.12.0-2026-11-05/check-cases-device.json",
+      "sha256": "4908e08992c76201216122420d2faceb19409f4f2a673f82ccc87a9d473aa4a2",
+      "kind": "Chinese-locale Memory experiment",
+      "scope": "Intentional Chinese synthetic timelines, names, prompts, generated cards, model replies, grading, or captured execution output. Preserve all repeated records and failures; paired English README documents method, outcomes, and limits.",
+      "englishReview": "docs/reviews/taku-memory-0.12.0-2026-11-05/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.12.0-2026-11-05/check-cases.sh",
+      "sha256": "d7f43c259afd0dc5b27764876309f2d9949c92835729217ed256a7809ad2bfa4",
+      "kind": "Chinese-locale regression/reproduction artifact",
+      "scope": "Preserves scenario input, expected UI/model text, or the exact historical patch and its comments. Translating it would change the recorded test or patch. This is an intentional Chinese test version, not an English product default.",
+      "englishReview": "docs/reviews/taku-memory-0.12.0-2026-11-05/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.12.0-2026-11-05/evening-briefs.json",
+      "sha256": "137fb97a57539145596979a5cfddca691949195ffd747438f06aaad902b36b82",
+      "kind": "Chinese-locale Memory experiment",
+      "scope": "Intentional Chinese synthetic timelines, names, prompts, generated cards, model replies, grading, or captured execution output. Preserve all repeated records and failures; paired English README documents method, outcomes, and limits.",
+      "englishReview": "docs/reviews/taku-memory-0.12.0-2026-11-05/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.12.0-2026-11-05/message-moments-3runs.json",
+      "sha256": "10cbd7815bfebc981948eadc30f8c63c99eb2d8e59123fa95cb9bd45a9d87476",
+      "kind": "Chinese-locale Memory experiment",
+      "scope": "Intentional Chinese synthetic timelines, names, prompts, generated cards, model replies, grading, or captured execution output. Preserve all repeated records and failures; paired English README documents method, outcomes, and limits.",
+      "englishReview": "docs/reviews/taku-memory-0.12.0-2026-11-05/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.12.0-2026-11-05/rebuild-graph.sh",
+      "sha256": "87c6dec11aa11cf862a0029212cb1a04a36364332c97c72429d5ea85e34cd805",
+      "kind": "Chinese-locale regression/reproduction artifact",
+      "scope": "Preserves scenario input, expected UI/model text, or the exact historical patch and its comments. Translating it would change the recorded test or patch. This is an intentional Chinese test version, not an English product default.",
+      "englishReview": "docs/reviews/taku-memory-0.12.0-2026-11-05/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.12.0-2026-11-05/replay-model.sh",
+      "sha256": "3d9e433462e6deeef9cbd3e2f2cdb54560e421ba00b297601f783b11d8ccc49f",
+      "kind": "Chinese-locale regression/reproduction artifact",
+      "scope": "Preserves scenario input, expected UI/model text, or the exact historical patch and its comments. Translating it would change the recorded test or patch. This is an intentional Chinese test version, not an English product default.",
+      "englishReview": "docs/reviews/taku-memory-0.12.0-2026-11-05/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.12.0-2026-11-05/replay-nudges-graded.json",
+      "sha256": "1313ad278c89f5e573180292fc01bfbae040196270bc6cfefc717fbbdfa718fc",
+      "kind": "Chinese-locale Memory experiment",
+      "scope": "Intentional Chinese synthetic timelines, names, prompts, generated cards, model replies, grading, or captured execution output. Preserve all repeated records and failures; paired English README documents method, outcomes, and limits.",
+      "englishReview": "docs/reviews/taku-memory-0.12.0-2026-11-05/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.12.0-2026-11-05/restore-safe.sh",
+      "sha256": "05f1621ee55377a432929e70b5a8740fcc3b24d34124c5dd10643422bedb3a17",
+      "kind": "Chinese-locale regression/reproduction artifact",
+      "scope": "Preserves scenario input, expected UI/model text, or the exact historical patch and its comments. Translating it would change the recorded test or patch. This is an intentional Chinese test version, not an English product default.",
+      "englishReview": "docs/reviews/taku-memory-0.12.0-2026-11-05/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.13.0-2026-11-05/acceptance.json",
+      "sha256": "153b826009d47c23cc99e03c3ddbc7e097c19b6c3de6e0edf9cb53c04dac490e",
+      "kind": "Historical acceptance receipt",
+      "scope": "Recorded component/date metadata, UI observations, model replies, and integrity claims; the paired English review supplies the narrative. Original values remain attributable to their historical run.",
+      "englishReview": "docs/reviews/taku-memory-0.13.0-2026-11-05/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.13.0-2026-11-05/feed-cards.json",
+      "sha256": "80dd17fe2cec38e4c4dbe4cf777c7e1c46e97629ed61ce5cd87ad3fc2e7ffbf9",
+      "kind": "Chinese-locale Memory experiment",
+      "scope": "Intentional Chinese synthetic timelines, names, prompts, generated cards, model replies, grading, or captured execution output. Preserve all repeated records and failures; paired English README documents method, outcomes, and limits.",
+      "englishReview": "docs/reviews/taku-memory-0.13.0-2026-11-05/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.13.0-2026-11-05/feed-e2e.json",
+      "sha256": "b8ffc2365b12f8c7538efe08a58b71bfccad3910056179cd9ead91dbad6a3598",
+      "kind": "Chinese-locale Memory experiment",
+      "scope": "Intentional Chinese synthetic timelines, names, prompts, generated cards, model replies, grading, or captured execution output. Preserve all repeated records and failures; paired English README documents method, outcomes, and limits.",
+      "englishReview": "docs/reviews/taku-memory-0.13.0-2026-11-05/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.13.0-2026-11-05/feed-e2e.sh",
+      "sha256": "25825e37c577e7aee875909b166d6acbd432e8298417ea851365a0256a0309eb",
+      "kind": "Chinese-locale regression/reproduction artifact",
+      "scope": "Preserves scenario input, expected UI/model text, or the exact historical patch and its comments. Translating it would change the recorded test or patch. This is an intentional Chinese test version, not an English product default.",
+      "englishReview": "docs/reviews/taku-memory-0.13.0-2026-11-05/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.13.0-2026-11-05/feed-preview.sh",
+      "sha256": "c543c021cb44dd120b39c0da806d5c9e9198e7ac2c582d3b9053a5a92bb449bb",
+      "kind": "Chinese-locale regression/reproduction artifact",
+      "scope": "Preserves scenario input, expected UI/model text, or the exact historical patch and its comments. Translating it would change the recorded test or patch. This is an intentional Chinese test version, not an English product default.",
+      "englishReview": "docs/reviews/taku-memory-0.13.0-2026-11-05/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.13.0-2026-11-05/message-cards.sh",
+      "sha256": "50645a9dbb9597adeb89fc2aa9b674423bd5b91a8d7435d98e5c7e266659622e",
+      "kind": "Chinese-locale regression/reproduction artifact",
+      "scope": "Preserves scenario input, expected UI/model text, or the exact historical patch and its comments. Translating it would change the recorded test or patch. This is an intentional Chinese test version, not an English product default.",
+      "englishReview": "docs/reviews/taku-memory-0.13.0-2026-11-05/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.13.0-2026-11-05/validate-cards.mjs",
+      "sha256": "38588c2ba22870eda7d17ad5ee3712ff9b898070907e7aaf3d7414308448b5f4",
+      "kind": "Chinese-locale regression/reproduction artifact",
+      "scope": "Preserves scenario input, expected UI/model text, or the exact historical patch and its comments. Translating it would change the recorded test or patch. This is an intentional Chinese test version, not an English product default.",
+      "englishReview": "docs/reviews/taku-memory-0.13.0-2026-11-05/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.14.0-2026-11-07/acceptance.json",
+      "sha256": "48508ebd8088c2a0317470c30b4d6ed1b8836417d6096da55ad2801e3ab9c9bc",
+      "kind": "Historical acceptance receipt",
+      "scope": "Recorded component/date metadata, UI observations, model replies, and integrity claims; the paired English review supplies the narrative. Original values remain attributable to their historical run.",
+      "englishReview": "docs/reviews/taku-memory-0.14.0-2026-11-07/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.14.0-2026-11-07/describe-asks.json",
+      "sha256": "4aeb245a67bd5ac6efe9317598622da9f1b0fc971d7fdd2244526db4bc121d8b",
+      "kind": "Chinese-locale Memory experiment",
+      "scope": "Intentional Chinese synthetic timelines, names, prompts, generated cards, model replies, grading, or captured execution output. Preserve all repeated records and failures; paired English README documents method, outcomes, and limits.",
+      "englishReview": "docs/reviews/taku-memory-0.14.0-2026-11-07/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.14.0-2026-11-07/describe-e2e-logcat.txt",
+      "sha256": "a99f5e2755313c50cbf8eef5a991f2828dced2e9602fe87f3dd498a8f9beba99",
+      "kind": "Chinese-locale Memory experiment",
+      "scope": "Intentional Chinese synthetic timelines, names, prompts, generated cards, model replies, grading, or captured execution output. Preserve all repeated records and failures; paired English README documents method, outcomes, and limits.",
+      "englishReview": "docs/reviews/taku-memory-0.14.0-2026-11-07/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.14.0-2026-11-07/describe-e2e.json",
+      "sha256": "571b846cf8675dc2a3d65bc0382e5878b53a7ab8d1dbc8320b5474d22431e88b",
+      "kind": "Chinese-locale Memory experiment",
+      "scope": "Intentional Chinese synthetic timelines, names, prompts, generated cards, model replies, grading, or captured execution output. Preserve all repeated records and failures; paired English README documents method, outcomes, and limits.",
+      "englishReview": "docs/reviews/taku-memory-0.14.0-2026-11-07/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.14.0-2026-11-07/describe-e2e.sh",
+      "sha256": "8dde38269c47d2505e9124b460ab8a07ff8f29f0b2660ad0274d1bc9b9e0af1d",
+      "kind": "Chinese-locale regression/reproduction artifact",
+      "scope": "Preserves scenario input, expected UI/model text, or the exact historical patch and its comments. Translating it would change the recorded test or patch. This is an intentional Chinese test version, not an English product default.",
+      "englishReview": "docs/reviews/taku-memory-0.14.0-2026-11-07/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.14.0-2026-11-07/describe-preview.sh",
+      "sha256": "878935ae0057e8d7c5cd17fd312e7af9ba54d4b94a2196fddf52d962674dff45",
+      "kind": "Chinese-locale regression/reproduction artifact",
+      "scope": "Preserves scenario input, expected UI/model text, or the exact historical patch and its comments. Translating it would change the recorded test or patch. This is an intentional Chinese test version, not an English product default.",
+      "englishReview": "docs/reviews/taku-memory-0.14.0-2026-11-07/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.14.0-2026-11-07/generate-real.mjs",
+      "sha256": "8c0df7b54ffc4d559e06380b4c4a1a999d5a066ba5af92b0a0a5c92504d0678a",
+      "kind": "Chinese-locale regression/reproduction artifact",
+      "scope": "Preserves scenario input, expected UI/model text, or the exact historical patch and its comments. Translating it would change the recorded test or patch. This is an intentional Chinese test version, not an English product default.",
+      "englishReview": "docs/reviews/taku-memory-0.14.0-2026-11-07/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.14.0-2026-11-07/generation-runs.json",
+      "sha256": "351efe2a7165887bf9ff424c425fcd9356623a5258bf76c18ba08b61ec5c0c01",
+      "kind": "Chinese-locale Memory experiment",
+      "scope": "Intentional Chinese synthetic timelines, names, prompts, generated cards, model replies, grading, or captured execution output. Preserve all repeated records and failures; paired English README documents method, outcomes, and limits.",
+      "englishReview": "docs/reviews/taku-memory-0.14.0-2026-11-07/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.14.1-2026-11-09/acceptance.json",
+      "sha256": "9500c2d6ba785cebba9cca05f7f468c7f2b89df190cf4e5eb7ee7e2dfa166fe6",
+      "kind": "Historical acceptance receipt",
+      "scope": "Recorded component/date metadata, UI observations, model replies, and integrity claims; the paired English review supplies the narrative. Original values remain attributable to their historical run.",
+      "englishReview": "docs/reviews/taku-memory-0.14.1-2026-11-09/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.14.1-2026-11-09/describe-asks.json",
+      "sha256": "a38ed16338e047d2f63936fc3834167ead52ee0aa8e040fd1c0a29c826d0137a",
+      "kind": "Chinese-locale Memory experiment",
+      "scope": "Intentional Chinese synthetic timelines, names, prompts, generated cards, model replies, grading, or captured execution output. Preserve all repeated records and failures; paired English README documents method, outcomes, and limits.",
+      "englishReview": "docs/reviews/taku-memory-0.14.1-2026-11-09/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.14.1-2026-11-09/describe-e2e-logcat.txt",
+      "sha256": "f3cbf1316f5325447f3b7a72aaf11eb5f274eb1c321a9c53aa91be24ce93c25c",
+      "kind": "Chinese-locale Memory experiment",
+      "scope": "Intentional Chinese synthetic timelines, names, prompts, generated cards, model replies, grading, or captured execution output. Preserve all repeated records and failures; paired English README documents method, outcomes, and limits.",
+      "englishReview": "docs/reviews/taku-memory-0.14.1-2026-11-09/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.14.1-2026-11-09/generation-runs.json",
+      "sha256": "bdb5e8650111a450382d152dacd810a26735dba3e531227c057fde891f53fd17",
+      "kind": "Chinese-locale Memory experiment",
+      "scope": "Intentional Chinese synthetic timelines, names, prompts, generated cards, model replies, grading, or captured execution output. Preserve all repeated records and failures; paired English README documents method, outcomes, and limits.",
+      "englishReview": "docs/reviews/taku-memory-0.14.1-2026-11-09/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.14.1-2026-11-09/prompt-variants.py",
+      "sha256": "f022ec6f9ba667b83056042556d3a0ed5a72c63b194d7c964d39e6329b1feb8a",
+      "kind": "Chinese-locale regression/reproduction artifact",
+      "scope": "Preserves scenario input, expected UI/model text, or the exact historical patch and its comments. Translating it would change the recorded test or patch. This is an intentional Chinese test version, not an English product default.",
+      "englishReview": "docs/reviews/taku-memory-0.14.1-2026-11-09/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.14.1-2026-11-09/wording-trials.json",
+      "sha256": "fb69d4e6dada17843bc827cc6b92d01093e34d9391e2d471f57a6790e1dff7cf",
+      "kind": "Chinese-locale Memory experiment",
+      "scope": "Intentional Chinese synthetic timelines, names, prompts, generated cards, model replies, grading, or captured execution output. Preserve all repeated records and failures; paired English README documents method, outcomes, and limits.",
+      "englishReview": "docs/reviews/taku-memory-0.14.1-2026-11-09/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.15.0-2026-11-09/feed-e2e.sh",
+      "sha256": "acfad756b0b9a003da53f622caba18914ca911ee6fa824a4c893895a3235f5cd",
+      "kind": "Chinese-locale regression/reproduction artifact",
+      "scope": "Preserves scenario input, expected UI/model text, or the exact historical patch and its comments. Translating it would change the recorded test or patch. This is an intentional Chinese test version, not an English product default.",
+      "englishReview": "docs/reviews/taku-memory-0.15.0-2026-11-09/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.15.1-2026-11-10/CutRankRun.java",
+      "sha256": "4dc13cde17f224f9413dd49f4337698b66b4783c0768cba4aeeeb51f86e58b57",
+      "kind": "Chinese-locale regression/reproduction artifact",
+      "scope": "Preserves scenario input, expected UI/model text, or the exact historical patch and its comments. Translating it would change the recorded test or patch. This is an intentional Chinese test version, not an English product default.",
+      "englishReview": "docs/reviews/taku-memory-0.15.1-2026-11-10/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.15.1-2026-11-10/check-e2e.py",
+      "sha256": "052174170713ae020634aa25fe07bdeb2c92d811237063f31362cf612aba3f35",
+      "kind": "Chinese-locale regression/reproduction artifact",
+      "scope": "Preserves scenario input, expected UI/model text, or the exact historical patch and its comments. Translating it would change the recorded test or patch. This is an intentional Chinese test version, not an English product default.",
+      "englishReview": "docs/reviews/taku-memory-0.15.1-2026-11-10/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.15.1-2026-11-10/cut-rank-jvm.txt",
+      "sha256": "7f069293cdfe0731547594460f945d4615ebaa2279fd2a4e6143bb0d925b1dbf",
+      "kind": "Chinese-locale Memory experiment",
+      "scope": "Intentional Chinese synthetic timelines, names, prompts, generated cards, model replies, grading, or captured execution output. Preserve all repeated records and failures; paired English README documents method, outcomes, and limits.",
+      "englishReview": "docs/reviews/taku-memory-0.15.1-2026-11-10/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.15.1-2026-11-10/feed-e2e.sh",
+      "sha256": "46a5796e24767c5c41e578c050dca1abecf5de005f43d8e1d45cdc8e62b4c811",
+      "kind": "Chinese-locale regression/reproduction artifact",
+      "scope": "Preserves scenario input, expected UI/model text, or the exact historical patch and its comments. Translating it would change the recorded test or patch. This is an intentional Chinese test version, not an English product default.",
+      "englishReview": "docs/reviews/taku-memory-0.15.1-2026-11-10/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.15.1-2026-11-13/feed-e2e-api37-longtime.json",
+      "sha256": "f7c03ab9c39fc49d8ccecdc7bc31ffda9b8b6b69e715a60d10ca7882db777802",
+      "kind": "Chinese-locale Memory experiment",
+      "scope": "Intentional Chinese synthetic timelines, names, prompts, generated cards, model replies, grading, or captured execution output. Preserve all repeated records and failures; paired English README documents method, outcomes, and limits.",
+      "englishReview": "docs/reviews/taku-memory-0.15.1-2026-11-13/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.5-2026-10-28/acceptance.json",
+      "sha256": "7d7aa512e99fe7a593d97603b22b5aeba223039925eab9544159404bfc775ecc",
+      "kind": "Historical acceptance receipt",
+      "scope": "Recorded component/date metadata, UI observations, model replies, and integrity claims; the paired English review supplies the narrative. Original values remain attributable to their historical run.",
+      "englishReview": "docs/reviews/taku-memory-0.5-2026-10-28/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.5-2026-10-28/store-tests.txt",
+      "sha256": "27ec17164162c755aaacb465005bd8eddcd635b526b81526637e037d02072df6",
+      "kind": "Chinese-locale Memory experiment",
+      "scope": "Intentional Chinese synthetic timelines, names, prompts, generated cards, model replies, grading, or captured execution output. Preserve all repeated records and failures; paired English README documents method, outcomes, and limits.",
+      "englishReview": "docs/reviews/taku-memory-0.5-2026-10-28/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.7-2026-10-28/acceptance.json",
+      "sha256": "6018ef79ad3b814f4682857471e93c53035de21ab74c6a3f613926470771a5c3",
+      "kind": "Historical acceptance receipt",
+      "scope": "Recorded component/date metadata, UI observations, model replies, and integrity claims; the paired English review supplies the narrative. Original values remain attributable to their historical run.",
+      "englishReview": "docs/reviews/taku-memory-0.7-2026-10-28/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.7-2026-10-28/smoke11.txt",
+      "sha256": "2bce79586b797dd9fa269c0aab25c1a5eb76f343c7c7986cc261c722ab0c7006",
+      "kind": "Chinese-locale Memory experiment",
+      "scope": "Intentional Chinese synthetic timelines, names, prompts, generated cards, model replies, grading, or captured execution output. Preserve all repeated records and failures; paired English README documents method, outcomes, and limits.",
+      "englishReview": "docs/reviews/taku-memory-0.7-2026-10-28/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.8-2026-10-29/acceptance.json",
+      "sha256": "ad3f3473afbe0c1bbcd4ac8051c2b74c7d7fa398580e3824b1bcc848b77ef225",
+      "kind": "Historical acceptance receipt",
+      "scope": "Recorded component/date metadata, UI observations, model replies, and integrity claims; the paired English review supplies the narrative. Original values remain attributable to their historical run.",
+      "englishReview": "docs/reviews/taku-memory-0.8-2026-10-29/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.8-2026-10-29/smoke12.txt",
+      "sha256": "8e22f2d923da2dfd622a95cfe5ed71816d14e2f451c38d9d9f355d505d08146f",
+      "kind": "Chinese-locale Memory experiment",
+      "scope": "Intentional Chinese synthetic timelines, names, prompts, generated cards, model replies, grading, or captured execution output. Preserve all repeated records and failures; paired English README documents method, outcomes, and limits.",
+      "englishReview": "docs/reviews/taku-memory-0.8-2026-10-29/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.8.1-2026-11-02/acceptance.json",
+      "sha256": "5d5a01e17d1124064b402dc2f7712d494f11d2c7c2a70c0883550108de103435",
+      "kind": "Historical acceptance receipt",
+      "scope": "Recorded component/date metadata, UI observations, model replies, and integrity claims; the paired English review supplies the narrative. Original values remain attributable to their historical run.",
+      "englishReview": "docs/reviews/taku-memory-0.8.1-2026-11-02/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.8.1-2026-11-02/gate13.sh",
+      "sha256": "56a5191916ff1f871157decfe73f4d6e9fe4b135ad5311f80c23a50c62718b76",
+      "kind": "Chinese-locale regression/reproduction artifact",
+      "scope": "Preserves scenario input, expected UI/model text, or the exact historical patch and its comments. Translating it would change the recorded test or patch. This is an intentional Chinese test version, not an English product default.",
+      "englishReview": "docs/reviews/taku-memory-0.8.1-2026-11-02/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.8.1-2026-11-02/regression-answers.txt",
+      "sha256": "e0c66fc1657cc067084bc0c6c56685341377341cf6148b2f0f626bcc98a934bf",
+      "kind": "Chinese-locale Memory experiment",
+      "scope": "Intentional Chinese synthetic timelines, names, prompts, generated cards, model replies, grading, or captured execution output. Preserve all repeated records and failures; paired English README documents method, outcomes, and limits.",
+      "englishReview": "docs/reviews/taku-memory-0.8.1-2026-11-02/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.8.1-2026-11-02/smoke13-main.txt",
+      "sha256": "59369ed09c58859fe55e729a2e21906a024aa1e713ad9ff83167b942f421c03c",
+      "kind": "Chinese-locale Memory experiment",
+      "scope": "Intentional Chinese synthetic timelines, names, prompts, generated cards, model replies, grading, or captured execution output. Preserve all repeated records and failures; paired English README documents method, outcomes, and limits.",
+      "englishReview": "docs/reviews/taku-memory-0.8.1-2026-11-02/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.8.1-2026-11-02/smoke14-before-fix.txt",
+      "sha256": "69ac4de85a925b1099e50dc7965985af828622e5c051c12bb7c1c2087a00334b",
+      "kind": "Chinese-locale Memory experiment",
+      "scope": "Intentional Chinese synthetic timelines, names, prompts, generated cards, model replies, grading, or captured execution output. Preserve all repeated records and failures; paired English README documents method, outcomes, and limits.",
+      "englishReview": "docs/reviews/taku-memory-0.8.1-2026-11-02/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.8.1-2026-11-02/smoke14.sh",
+      "sha256": "feda4902253b2f77e3ab44cd4c6905271e2f7d8792d7b48803667089af44526d",
+      "kind": "Chinese-locale regression/reproduction artifact",
+      "scope": "Preserves scenario input, expected UI/model text, or the exact historical patch and its comments. Translating it would change the recorded test or patch. This is an intentional Chinese test version, not an English product default.",
+      "englishReview": "docs/reviews/taku-memory-0.8.1-2026-11-02/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.8.1-2026-11-02/smoke14.txt",
+      "sha256": "074f85db3bc55146854193bda625b8bffa41d5ee0a195c9d378b02ac29d24409",
+      "kind": "Chinese-locale Memory experiment",
+      "scope": "Intentional Chinese synthetic timelines, names, prompts, generated cards, model replies, grading, or captured execution output. Preserve all repeated records and failures; paired English README documents method, outcomes, and limits.",
+      "englishReview": "docs/reviews/taku-memory-0.8.1-2026-11-02/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.8.2-2026-11-03/acceptance.json",
+      "sha256": "1794601b11fbc4e5db27e7a9879bd7d82cedcdf5f9160795d972ad039b5141f7",
+      "kind": "Historical acceptance receipt",
+      "scope": "Recorded component/date metadata, UI observations, model replies, and integrity claims; the paired English review supplies the narrative. Original values remain attributable to their historical run.",
+      "englishReview": "docs/reviews/taku-memory-0.8.2-2026-11-03/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.8.2-2026-11-03/card-only-briefs.json",
+      "sha256": "37dae6dc7f62883756bcb54ddef7d73ec20aab9e79312725d4edfa1995b6e116",
+      "kind": "Chinese-locale Memory experiment",
+      "scope": "Intentional Chinese synthetic timelines, names, prompts, generated cards, model replies, grading, or captured execution output. Preserve all repeated records and failures; paired English README documents method, outcomes, and limits.",
+      "englishReview": "docs/reviews/taku-memory-0.8.2-2026-11-03/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.8.2-2026-11-03/evening-answers-081-vs-082.txt",
+      "sha256": "b462f5e8c3607486988ed693d86e0da7f17f734dc2f41aaaf63c369d0afac452",
+      "kind": "Chinese-locale Memory experiment",
+      "scope": "Intentional Chinese synthetic timelines, names, prompts, generated cards, model replies, grading, or captured execution output. Preserve all repeated records and failures; paired English README documents method, outcomes, and limits.",
+      "englishReview": "docs/reviews/taku-memory-0.8.2-2026-11-03/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.8.2-2026-11-03/needs-coverage.csv",
+      "sha256": "28774d72c60070b98fdacff80693d58bd9551859b7ff5572c4fa700e8b5f593c",
+      "kind": "Chinese-locale Memory experiment",
+      "scope": "Intentional Chinese synthetic timelines, names, prompts, generated cards, model replies, grading, or captured execution output. Preserve all repeated records and failures; paired English README documents method, outcomes, and limits.",
+      "englishReview": "docs/reviews/taku-memory-0.8.2-2026-11-03/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-0.8.2-2026-11-03/regression-answers.txt",
+      "sha256": "5bd1dd340eeb8a4894ca5bdbac1636feb8409bfdd612686658d8420290df7e51",
+      "kind": "Chinese-locale Memory experiment",
+      "scope": "Intentional Chinese synthetic timelines, names, prompts, generated cards, model replies, grading, or captured execution output. Preserve all repeated records and failures; paired English README documents method, outcomes, and limits.",
+      "englishReview": "docs/reviews/taku-memory-0.8.2-2026-11-03/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-2026-10-22/acceptance.json",
+      "sha256": "63bc0caa03ddaa79d75522d52669af8e426e0dbd31aefac98c5902b9e87c09ad",
+      "kind": "Historical acceptance receipt",
+      "scope": "Recorded component/date metadata, UI observations, model replies, and integrity claims; the paired English review supplies the narrative. Original values remain attributable to their historical run.",
+      "englishReview": "docs/reviews/taku-memory-2026-10-22/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-batches-2026-10-22/acceptance.json",
+      "sha256": "ff17539c1a2ef05378a1bf846d544fe1839ef589e593928f966a1af5074f6de2",
+      "kind": "Historical acceptance receipt",
+      "scope": "Recorded component/date metadata, UI observations, model replies, and integrity claims; the paired English review supplies the narrative. Original values remain attributable to their historical run.",
+      "englishReview": "docs/reviews/taku-memory-batches-2026-10-22/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-brand-2026-10-22/acceptance.json",
+      "sha256": "6e1f6bd22e09068087441b6748066ab441a319912d786659238dc81bccd60d20",
+      "kind": "Historical acceptance receipt",
+      "scope": "Recorded component/date metadata, UI observations, model replies, and integrity claims; the paired English review supplies the narrative. Original values remain attributable to their historical run.",
+      "englishReview": "docs/reviews/taku-memory-brand-2026-10-22/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-content-2026-10-22/calendar-proof.json",
+      "sha256": "984272f1b42f9fe7d507a8890359d186711c1aa790b970f2c5ad27bbbdad31ae",
+      "kind": "Chinese-locale Memory experiment",
+      "scope": "Intentional Chinese synthetic timelines, names, prompts, generated cards, model replies, grading, or captured execution output. Preserve all repeated records and failures; paired English README documents method, outcomes, and limits.",
+      "englishReview": "docs/reviews/taku-memory-content-2026-10-22/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-content-2026-10-22/chat-proof.json",
+      "sha256": "f089182b86b2f03a20744f85b50467b047a672634af5a98c6f94e84acb612fc0",
+      "kind": "Chinese-locale Memory experiment",
+      "scope": "Intentional Chinese synthetic timelines, names, prompts, generated cards, model replies, grading, or captured execution output. Preserve all repeated records and failures; paired English README documents method, outcomes, and limits.",
+      "englishReview": "docs/reviews/taku-memory-content-2026-10-22/README.md"
+    },
+    {
+      "path": "docs/reviews/taku-memory-daily-apps-2026-10-22/acceptance.json",
+      "sha256": "82f27f88599cf6592d0e54bb5249aec48db336c77ec5466d96e775c869e062a0",
+      "kind": "Historical acceptance receipt",
+      "scope": "Recorded component/date metadata, UI observations, model replies, and integrity claims; the paired English review supplies the narrative. Original values remain attributable to their historical run.",
+      "englishReview": "docs/reviews/taku-memory-daily-apps-2026-10-22/README.md"
+    },
+    {
+      "path": "evidence/api-inventory/historical/app-compat/compatibility-report.json",
+      "sha256": "4f48f5946824b33507fe509f7e39403fbbba462e15ae0d7b620a57bb9e5657d0",
+      "kind": "Archived experimental observation",
+      "scope": "Original artifact referenced by historical-index.json; retain recorded source text and values. The app-compat report has a complete English companion.",
+      "englishReview": null
+    },
+    {
+      "path": "evidence/api-inventory/historical/light-app-lab/free-app-kit/evidence/api/external-http-verification.json",
+      "sha256": "b90110e989f5a1fd9148dc30a51ed8929a58423fe55d790e91c24b8d2ceca658",
+      "kind": "Archived experimental observation",
+      "scope": "Original artifact referenced by historical-index.json; retain recorded source text and values. The app-compat report has a complete English companion.",
+      "englishReview": null
+    },
+    {
+      "path": "evidence/api-inventory/historical/light-app-lab/free-app-kit/evidence/api/standalone-ui-to-api.json",
+      "sha256": "f295d861ed712557db6cbf01950746ce60d110e72202b73bb2e3c27b2022b217",
+      "kind": "Archived experimental observation",
+      "scope": "Original artifact referenced by historical-index.json; retain recorded source text and values. The app-compat report has a complete English companion.",
+      "englishReview": null
+    },
+    {
+      "path": "evidence/api-inventory/historical/light-app-lab/free-app-kit/evidence/converter-notification.txt",
+      "sha256": "e54b84754321091f72fcb2c2cf8efd7d4cff2befeb451c6bdd299d28a3c7e63d",
+      "kind": "Archived experimental observation",
+      "scope": "Original artifact referenced by historical-index.json; retain recorded source text and values. The app-compat report has a complete English companion.",
+      "englishReview": null
+    },
+    {
+      "path": "evidence/builds/2026-10-13-pixel9-flash-readiness.json",
+      "sha256": "aaa595d0eb371978c8e3d2360b98afe60e33d3e8fd30a3ba78b5cfa1ee518318",
+      "kind": "Historical acceptance receipt",
+      "scope": "Recorded component/date metadata, UI observations, model replies, and integrity claims; the paired English review supplies the narrative. Original values remain attributable to their historical run.",
+      "englishReview": null
+    },
+    {
+      "path": "evidence/builds/2026-10-15-agent-capabilities.json",
+      "sha256": "17d539b48983121106d1378c56a78aaa673f6dc1bd8a1d5137646b05c9ca9cb5",
+      "kind": "Historical acceptance receipt",
+      "scope": "Recorded component/date metadata, UI observations, model replies, and integrity claims; the paired English review supplies the narrative. Original values remain attributable to their historical run.",
+      "englishReview": null
+    },
+    {
+      "path": "evidence/builds/2026-10-15-composer-aligned.json",
+      "sha256": "96f1af60b824ae9f5209b838bca2ef2cd8709480fa9fc3482f8ad9c5f683f335",
+      "kind": "Historical acceptance receipt",
+      "scope": "Recorded component/date metadata, UI observations, model replies, and integrity claims; the paired English review supplies the narrative. Original values remain attributable to their historical run.",
+      "englishReview": null
+    },
+    {
+      "path": "evidence/builds/2026-10-15-mobile-composer.json",
+      "sha256": "574cd4313e1ae92f21eb22426d5f0dc2f3d809086493b37bf856adbc1b442488",
+      "kind": "Historical acceptance receipt",
+      "scope": "Recorded component/date metadata, UI observations, model replies, and integrity claims; the paired English review supplies the narrative. Original values remain attributable to their historical run.",
+      "englishReview": null
+    },
+    {
+      "path": "evidence/builds/2026-10-15-native-codex-ui.json",
+      "sha256": "9ce171b71e1734c5b18a9b917a8208ea15e09f44d3d9a7e734b9259726bc10f2",
+      "kind": "Historical acceptance receipt",
+      "scope": "Recorded component/date metadata, UI observations, model replies, and integrity claims; the paired English review supplies the narrative. Original values remain attributable to their historical run.",
+      "englishReview": null
+    },
+    {
+      "path": "evidence/builds/2026-10-15-pixel9-independent-agent.json",
+      "sha256": "4190a69d184a785f164479e8e58b1ab05a03bdc6e6b8bce38935a012daec501a",
+      "kind": "Historical acceptance receipt",
+      "scope": "Recorded component/date metadata, UI observations, model replies, and integrity claims; the paired English review supplies the narrative. Original values remain attributable to their historical run.",
+      "englishReview": null
+    },
+    {
+      "path": "evidence/builds/2026-10-18-composer-reliability.json",
+      "sha256": "7b9c4eda5ca1d168a92e75339324f44e9a01764a91e6dfa25e9ce0b41f35bfe0",
+      "kind": "Historical acceptance receipt",
+      "scope": "Recorded component/date metadata, UI observations, model replies, and integrity claims; the paired English review supplies the narrative. Original values remain attributable to their historical run.",
+      "englishReview": null
+    },
+    {
+      "path": "evidence/builds/2026-10-21-system-surfaces-api.json",
+      "sha256": "0167b14a829f80240ead2de54f72ea4ccf0d3efad14b0c3471a0e4c1032c84c4",
+      "kind": "Historical acceptance receipt",
+      "scope": "Recorded component/date metadata, UI observations, model replies, and integrity claims; the paired English review supplies the narrative. Original values remain attributable to their historical run.",
+      "englishReview": null
+    },
+    {
+      "path": "evidence/builds/2026-10-22-system-surfaces-position.json",
+      "sha256": "b054eb3740008922b5d6f7b949e66d3ef7d4c16c8c186ee71a667188ca9637b7",
+      "kind": "Historical acceptance receipt",
+      "scope": "Recorded component/date metadata, UI observations, model replies, and integrity claims; the paired English review supplies the narrative. Original values remain attributable to their historical run.",
+      "englishReview": null
+    },
+    {
+      "path": "evidence/inputmethod-ai-20261022.json",
+      "sha256": "a6d440d53935effc7874dc16013a48d0f71d6212c8123bf3fda266fc566946a8",
+      "kind": "Recorded locale observation",
+      "scope": "Original UI text, model replies, test content, or execution output from a Chinese-locale historical run; preserve observation bytes, with English review for context.",
+      "englishReview": "evidence/README.md"
+    },
+    {
+      "path": "evidence/inputmethod-replies-20261023.json",
+      "sha256": "218474c6fe2f703086e38dd3fc685e61d432bbedae1e369220d88aab5c81efa6",
+      "kind": "Recorded locale observation",
+      "scope": "Original UI text, model replies, test content, or execution output from a Chinese-locale historical run; preserve observation bytes, with English review for context.",
+      "englishReview": "evidence/README.md"
+    },
+    {
+      "path": "evidence/scenarios/broker-task-1791574373107/request.json",
+      "sha256": "679b788892f5361059422f000aa929b5c43135a676d39eb8bf580335b9787008",
+      "kind": "Recorded scenario request/result",
+      "scope": "Original prompts, generated app metadata, source/build output, task states, and model replies; retain actual historical execution and failure observations.",
+      "englishReview": null
+    },
+    {
+      "path": "evidence/scenarios/broker-task-1791574373107/result.txt",
+      "sha256": "dccd44019a3ccb9311b6be346d32dba87e44d4937d85127da684737b25f651f3",
+      "kind": "Recorded scenario request/result",
+      "scope": "Original prompts, generated app metadata, source/build output, task states, and model replies; retain actual historical execution and failure observations.",
+      "englishReview": null
+    },
+    {
+      "path": "evidence/scenarios/broker-task-1791574373107/state.json",
+      "sha256": "175ddd1630aca57f1f8337c0330a232557633f94398aa612f4c710273dec1bd2",
+      "kind": "Recorded scenario request/result",
+      "scope": "Original prompts, generated app metadata, source/build output, task states, and model replies; retain actual historical execution and failure observations.",
+      "englishReview": null
+    },
+    {
+      "path": "evidence/scenarios/mobile-use/result.txt",
+      "sha256": "98f2ef3c3fbea83a22d0d51be4ff4dab1eef07f15ce0f6871124525a97b7b820",
+      "kind": "Recorded scenario request/result",
+      "scope": "Original prompts, generated app metadata, source/build output, task states, and model replies; retain actual historical execution and failure observations.",
+      "englishReview": null
+    },
+    {
+      "path": "evidence/scenarios/model-final.txt",
+      "sha256": "e81f59e39de5f5aa72884b080fabba120f9917f9bd37858d0d1b435c6a1c61bc",
+      "kind": "Recorded scenario request/result",
+      "scope": "Original prompts, generated app metadata, source/build output, task states, and model replies; retain actual historical execution and failure observations.",
+      "englishReview": null
+    },
+    {
+      "path": "evidence/scenarios/native-submit-first-failure.txt",
+      "sha256": "66472685e5548a89533c662d6803911cb13ab3da210a3623844bd9a34321ad7f",
+      "kind": "Recorded scenario request/result",
+      "scope": "Original prompts, generated app metadata, source/build output, task states, and model replies; retain actual historical execution and failure observations.",
+      "englishReview": null
+    },
+    {
+      "path": "evidence/scenarios/phone-evidence/apk-badging.txt",
+      "sha256": "0fd62ba31922a6b03a928fbfb7cf3f99ddc2bc86ed6ef7ce55cea2d469b98e07",
+      "kind": "Recorded scenario request/result",
+      "scope": "Original prompts, generated app metadata, source/build output, task states, and model replies; retain actual historical execution and failure observations.",
+      "englishReview": null
+    },
+    {
+      "path": "evidence/scenarios/phone-evidence/contracts.txt",
+      "sha256": "79bc7be26fc5128d67db055c406a52aa05db8f6d627390a3313f084a5cf7dccc",
+      "kind": "Recorded scenario request/result",
+      "scope": "Original prompts, generated app metadata, source/build output, task states, and model replies; retain actual historical execution and failure observations.",
+      "englishReview": null
+    },
+    {
+      "path": "evidence/scenarios/phone-evidence/describe.json",
+      "sha256": "fc8b511bfb7b077ed981ea8fb8ee1e0ba7df62b0e6ac266189a2b4b4756ec135",
+      "kind": "Recorded scenario request/result",
+      "scope": "Original prompts, generated app metadata, source/build output, task states, and model replies; retain actual historical execution and failure observations.",
+      "englishReview": null
+    },
+    {
+      "path": "evidence/scenarios/phone-evidence/verify-apk.txt",
+      "sha256": "afa021982d1c4a0d39c459eaceeb2dbdda698599dc48ad09d21cbf7541d6b156",
+      "kind": "Recorded scenario request/result",
+      "scope": "Original prompts, generated app metadata, source/build output, task states, and model replies; retain actual historical execution and failure observations.",
+      "englishReview": null
+    },
+    {
+      "path": "evidence/scenarios/phone-progress.txt",
+      "sha256": "eb888749403b24369f6b13caa47f25d0ca84da9403c8833e2e3f02e5ed318179",
+      "kind": "Recorded scenario request/result",
+      "scope": "Original prompts, generated app metadata, source/build output, task states, and model replies; retain actual historical execution and failure observations.",
+      "englishReview": null
+    },
+    {
+      "path": "evidence/scenarios/phone-result.json",
+      "sha256": "e315e0288ae5475a0ba2783eb478c0d0f13f9189858ad9aba4fc187b8afcdda1",
+      "kind": "Recorded scenario request/result",
+      "scope": "Original prompts, generated app metadata, source/build output, task states, and model replies; retain actual historical execution and failure observations.",
+      "englishReview": null
+    },
+    {
+      "path": "evidence/scenarios/phone-source/App.jsx",
+      "sha256": "e9fe0458e86ae63853a9224cadd76f0483e9bb14b8bbcaf07b63646ba3fef5f6",
+      "kind": "Captured generated source",
+      "scope": "Source produced during the historical phone scenario, including Chinese UI/API text; historical artifact, not current product source.",
+      "englishReview": null
+    },
+    {
+      "path": "evidence/scenarios/phone-source/api.mjs",
+      "sha256": "943b63991a314e55a475cb40fa3cd45737ef314bb8d6e0c9b7fac969280f25dd",
+      "kind": "Captured generated source",
+      "scope": "Source produced during the historical phone scenario, including Chinese UI/API text; historical artifact, not current product source.",
+      "englishReview": null
+    },
+    {
+      "path": "evidence/scenarios/phone-source/ui.jsx",
+      "sha256": "cc269da8032a74894083ba44c09f726d8cedbb01a4c1336fefd0f5e087ce75d7",
+      "kind": "Captured generated source",
+      "scope": "Source produced during the historical phone scenario, including Chinese UI/API text; historical artifact, not current product source.",
+      "englishReview": null
+    }
+  ]
+}

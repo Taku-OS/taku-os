@@ -1,0 +1,44 @@
+{
+  "modelResponsesSimulated": false,
+  "serial": "46170DLAQ0006D",
+  "androidSdk": "37",
+  "checks": [
+    "real Luna image JSON reaches the existing candidate strip",
+    "visible model suggestion inserts exact text without sending",
+    "natural pending copy uses the existing 40dp candidate strip",
+    "first real pinyin key immediately hides AI row",
+    "canceled request cannot return to keyboard",
+    "FLAG_SECURE rejected before screenshot capture",
+    "password editor never shows AI row"
+  ],
+  "generationVerified": true,
+  "reply": {
+    "version": 1,
+    "candidates": [
+      {
+        "text": "可以呀，周五七点半地铁口那家见！"
+      },
+      {
+        "text": "我应该能来，七点半在地铁口那家集合吗？"
+      },
+      {
+        "text": "谢谢约我！我周五时间还不确定，确认后告诉你。"
+      }
+    ],
+    "receipt": {
+      "model": "codex/gpt-6-luna",
+      "inputMode": "image",
+      "imageSha256": "a803ea5b75436cd7dcfc0360964f13909561ff8f6bd2632fe6e23e20c1531903",
+      "imageWidth": 942,
+      "imageHeight": 1280,
+      "elapsedMs": 4176
+    }
+  },
+  "secureJob": {
+    "id": "2faf0dbe-f752-4263-9ca5-cb738ab9e921",
+    "state": "failed",
+    "message": "这个页面就留在你这里",
+    "code": "unavailable"
+  },
+  "status": "verified"
+}

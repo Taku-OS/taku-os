@@ -1,0 +1,26 @@
+{
+  "before": {
+    "displayId": 10,
+    "name": "Taku-Independent-Screen",
+    "width": 720,
+    "height": 1280,
+    "density": 240,
+    "flags": 83273,
+    "uid": 0,
+    "pid": 27424,
+    "mirrorSocket": "taku-mirror"
+  },
+  "stopReturnsAfterPidGone": true,
+  "immediateStart": {
+    "displayId": 11,
+    "name": "Taku-Independent-Screen",
+    "width": 720,
+    "height": 1280,
+    "density": 240,
+    "flags": 83273,
+    "uid": 0,
+    "pid": 32035,
+    "mirrorSocket": "taku-mirror"
+  },
+  "noManualTermOrSleep": true
+}

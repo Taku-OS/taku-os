@@ -1,0 +1,173 @@
+{
+  "scope": "Interaction only; no ASR, nonempty voice submission or actual Quickstep gesture takeover acceptance",
+  "serial": "emulator-5586",
+  "avd": "Taku_Launcher_Verify",
+  "gpu": "host",
+  "sourceImplementation": "3eb1d31",
+  "voiceAdapterDuringTests": "existing ExternalVoiceInput, empty transcript; Audio Engine temporarily disabled then restored",
+  "passed": 33,
+  "cases": [
+    {
+      "name": "test uses empty adapter; no recognition",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "GUI tap exposes activated hint to Agent",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "Agent closes same GUI hint",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "hint expires in authoritative state",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "desktop double tap enters text",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "text opens keyboard",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "desktop long press holds",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "pointer CANCEL never sends",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "slide onto Cancel arms same Agent state",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "release on Cancel discards",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "slide onto Keep talking arms",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "Keep talking preserves recording id",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "continuous cancel ends input",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "empty release dismisses and never sends",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "cold-start terminal prevents mic activation",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "out-of-order move ignored",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "late UP after cancel ignored",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "old stream cannot end continuous input",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "lost system producer cancels lease",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "real system assistant route opens cross-app text",
+      "passed": true
+    },
+    {
+      "name": "cross-app composer keyboard visible",
+      "passed": true
+    },
+    {
+      "name": "real assistant voice route activates pending id",
+      "passed": true
+    },
+    {
+      "name": "cross-app Keep talking continues same id",
+      "passed": true
+    },
+    {
+      "name": "late original pointer cancel does not close continuation",
+      "passed": true
+    },
+    {
+      "name": "continuous Text button switches same overlay to typing",
+      "passed": true
+    },
+    {
+      "name": "leaving overlay cancels voice without sending",
+      "passed": true
+    },
+    {
+      "name": "late system UI launch after terminal stays closed",
+      "passed": true
+    },
+    {
+      "name": "secondPointerBeforeHold",
+      "passed": true
+    },
+    {
+      "name": "secondPointerAfterHoldCancels",
+      "passed": true
+    },
+    {
+      "name": "movementBeforeThreshold",
+      "passed": true
+    },
+    {
+      "name": "continuous Cancel GUI button",
+      "passed": true
+    },
+    {
+      "name": "continuous Text GUI button",
+      "passed": true
+    },
+    {
+      "name": "continuous Send GUI button",
+      "passed": true
+    }
+  ],
+  "artifacts": {
+    "apks": {
+      "org.agentos.agent": "29a62f4b32b606cb76a357ec1eb3d0b5cd4fb6d95ada1e8a19add023bcf8b2c4",
+      "org.agentos.assistant": "b2d4123c1d942b09f5bc8b03276aecc029967fed09773790d8e0b48a9ab569a7"
+    },
+    "audioEngineRestored": true,
+    "voiceListening": false
+  },
+  "systemRoute": "Actual VoiceInteractionManager -> Taku AssistantSession -> AssistantOverlayActivity; privileged test driver, not Quickstep touch dispatch",
+  "quickstepApkBuilt": false,
+  "physicalDeviceVerified": false
+}

@@ -1,0 +1,226 @@
+{
+  "date": "2026-10-22",
+  "checkedAt": "2026-10-21T16:11:45.164670+00:00",
+  "baseCommit": "7405dfae136d850e1748973d1262fd60780edc84",
+  "status": "emulator_verified",
+  "scope": "User-controlled draggable position for the standalone system surface. Existing SDK and wire v1/v2 unchanged. No AI or business execution.",
+  "verification": {
+    "hostLifecycleAssertions": 37,
+    "hostPositionAssertions": 17,
+    "androidWireAssertions": 16,
+    "repositoryVerify": "passed (existing Linux FIFO case skipped on macOS)",
+    "allAndroidComponentsBuild": "passed",
+    "device": {
+      "checkedAt": "2026-10-21T16:09:21.138832+00:00",
+      "device": "emulator-5586",
+      "platform": 36,
+      "foreground": "com.android.deskclock/.DeskClock",
+      "apkSha256": {
+        "TakuSurfaces.apk": "9aed77a84536aa4bef1241aa4560506e6122e23c2c8c5b8f984fdbf200de658b",
+        "TakuSurfaceDemo.apk": "044ff5a1d94d77288f1ce34c784cd896bb261c216eba96023e5c7c94bed1becd",
+        "TakuSurfaceApiTests.apk": "1da6f9b9136119a9b27188ecf692c77158b0fdcf77ff02a88a362311bc12ff09"
+      },
+      "androidWireAssertions": 16,
+      "hintDirectActionOnce": true,
+      "choiceInitiallyExpanded": true,
+      "resultArtifactCallback": {
+        "ref": "demo:weekend-guide",
+        "mediaType": "text/markdown",
+        "title": "周末灵感.md"
+      },
+      "arrowExpandsWithoutAction": true,
+      "legacyV1ExpandBehavior": true,
+      "sameIdRevisionAppliesNewPresentation": true,
+      "keyboardBeforeBounds": [
+        67,
+        1558,
+        1012,
+        2266
+      ],
+      "keyboardAfterBounds": [
+        67,
+        783,
+        1012,
+        1491
+      ],
+      "keyboardInsetApplied": true,
+      "hintBounds": [
+        156,
+        2119,
+        923,
+        2266
+      ],
+      "decisionBounds": [
+        67,
+        1558,
+        1012,
+        2266
+      ],
+      "position": {
+        "capsuleDragged": true,
+        "dragDidNotTriggerAction": true,
+        "tapAfterDrag": true,
+        "dragFromButtonDoesNotClick": true,
+        "bodyScrollDoesNotMoveCard": true,
+        "expandCollapseShareCenter": true,
+        "hostRestartRetainsPosition": true,
+        "newContentInheritsPosition": true,
+        "cardHeaderDragged": true,
+        "rotationClampedAndRestored": true,
+        "imeTemporaryAndRestored": true,
+        "screenEdgeClamped": true,
+        "resetDefaultViaLongPress": true,
+        "capsuleBounds": [
+          156,
+          991,
+          923,
+          1138
+        ],
+        "cardBounds": [
+          42,
+          449,
+          987,
+          1157
+        ],
+        "landscapeBounds": [
+          620,
+          95,
+          1565,
+          723
+        ],
+        "imeBeforeBounds": [
+          42,
+          1289,
+          987,
+          1997
+        ],
+        "imeAfterBounds": [
+          42,
+          783,
+          987,
+          1491
+        ],
+        "edgeBounds": [
+          42,
+          95,
+          987,
+          803
+        ]
+      }
+    }
+  },
+  "testedArtifacts": {
+    "TakuSurfaceApiTests.apk": {
+      "path": "out/system-surfaces-position-20261022/tested-artifacts/TakuSurfaceApiTests.apk",
+      "sha256": "1da6f9b9136119a9b27188ecf692c77158b0fdcf77ff02a88a362311bc12ff09"
+    },
+    "TakuSurfaceDemo.apk": {
+      "path": "out/system-surfaces-position-20261022/tested-artifacts/TakuSurfaceDemo.apk",
+      "sha256": "044ff5a1d94d77288f1ce34c784cd896bb261c216eba96023e5c7c94bed1becd"
+    },
+    "TakuSurfaces.apk": {
+      "path": "out/system-surfaces-position-20261022/tested-artifacts/TakuSurfaces.apk",
+      "sha256": "9aed77a84536aa4bef1241aa4560506e6122e23c2c8c5b8f984fdbf200de658b"
+    },
+    "taku-surfaces-client.jar": {
+      "path": "out/system-surfaces-position-20261022/tested-artifacts/taku-surfaces-client.jar",
+      "sha256": "c95b176efcca1c3b3030e43c53906034ea55538afe04d340e6768ffb5ab4b7f0"
+    }
+  },
+  "screenshots": {
+    "dragged-capsule.png": {
+      "path": "docs/reviews/system-surfaces-position-2026-10-22/dragged-capsule.png",
+      "sha256": "0c67e229d121154a343011360210a5366b42912edf42eb74beb1a061b91dfd07"
+    },
+    "expanded-at-position.png": {
+      "path": "docs/reviews/system-surfaces-position-2026-10-22/expanded-at-position.png",
+      "sha256": "d099c398f6fd65266df95c8a7d1e0b0a8b2536d9ef9e2583b7f6cf07f6b7730c"
+    },
+    "dragged-card.png": {
+      "path": "docs/reviews/system-surfaces-position-2026-10-22/dragged-card.png",
+      "sha256": "22270e0787681ced8885f9e5164fac752e750e51b019b96ae1b105e5d953aea3"
+    },
+    "custom-keyboard.png": {
+      "path": "docs/reviews/system-surfaces-position-2026-10-22/custom-keyboard.png",
+      "sha256": "1bb04e0e4efd6731f675756173fc02423cf68cf9fb477bdf1d1ecae20fb0daa2"
+    },
+    "landscape-scrolled.png": {
+      "path": "docs/reviews/system-surfaces-position-2026-10-22/landscape-scrolled.png",
+      "sha256": "5943b4f103c0c5550428e5c3799df2e02c5e7091bb7e1dc866f8f813f3386a3f"
+    },
+    "screen-edge.png": {
+      "path": "docs/reviews/system-surfaces-position-2026-10-22/screen-edge.png",
+      "sha256": "0075711c9eab7886ab2e68b43120558d1360ed4977c26ab01147a3b728670f3b"
+    },
+    "reset-position.png": {
+      "path": "docs/reviews/system-surfaces-position-2026-10-22/reset-position.png",
+      "sha256": "1514d958e558e2472ad7acfe8a1c4fdd887913f4c2e593708a79f6c66fd20c96"
+    }
+  },
+  "sourceSha256": {
+    "system/surfaces/API.md": "f77416b9bbc68350894105b16d3d2eca9eede4236ed2fca9c2a024bb71977360",
+    "system/surfaces/Android.bp": "480ddf986be0a524a425c4d00c47da6e0cebfa18f57571f03fd76600e8fed11a",
+    "system/surfaces/AndroidManifest.xml": "2169f2c6b364ce1fd450564bff059e1cd3b20dac383fb8e958f2620c6e3fecbb",
+    "system/surfaces/README.md": "1d4d8a9b4336309f13078c7b7570f6e49665b934c28bbcf11a9454674aea47a4",
+    "system/surfaces/build.sh": "cd7ad3f021c80f858662afeec98c079b56d048aa28692b762c33d4a79c7f8952",
+    "system/surfaces/client/org/agentos/surfaces/client/SurfaceClient.java": "d97487e780162f7253df63b30ea33aa23a3a29967cb3ec6aa87a02dca50b3816",
+    "system/surfaces/contract/org/agentos/surfaces/SurfaceSpec.java": "ed4f084ac6c191d74c3204d763d6cf0ebce015c7313c1e97b871a3dfda38ca28",
+    "system/surfaces/contract/org/agentos/surfaces/SurfaceStore.java": "852833949df07cfef1d9e0506f3021ab19ab54b00f7fe6ad00e9df6f49f11a7b",
+    "system/surfaces/demo/AndroidManifest.xml": "9a50133662d55488ed06bf008ef541c16a116775a083d5bb50094099a4152636",
+    "system/surfaces/demo/src/org/agentos/surfacedemo/PreviewActivity.java": "36f5869189dc18dc9ce93cb7232e22ac7b3339bc2649cfa1c3e63e842aa0b2a0",
+    "system/surfaces/res/drawable/surface_close.xml": "52c912f076964104b91b2aa555a8738e0d6baf73ccd4d9b6b5f375798a71d954",
+    "system/surfaces/res/drawable/surface_collapse.xml": "70dba15a289c6bd2345378f33b35f5d7cbf61f1fab2aba01090a9c0baf132ca2",
+    "system/surfaces/res/drawable/surface_expand.xml": "8f4803696e96c11758336940b95a8a33fe494ee7622582c872b74cfc5c4c8a25",
+    "system/surfaces/res/drawable/taku_brand_mark.xml": "bcfa7bc5629ebecce7594ab241652728e830e0e84487611542d523f770666ea3",
+    "system/surfaces/src/org/agentos/surfaces/SurfaceDragHandle.java": "9d0ffb07a7920ca8360c455ede069f8d8170e8e437bc4772bbc1d8675917be0c",
+    "system/surfaces/src/org/agentos/surfaces/SurfacePosition.java": "f61db79416b91e3f553d9da3b2ba31bdffff4059a6bb1791afc04e22ed40d49c",
+    "system/surfaces/src/org/agentos/surfaces/SurfacePositionPrefs.java": "900c2e8ffc2e83f45f56386c48c43ef8715d775c7bc574940eeb18380963b47a",
+    "system/surfaces/src/org/agentos/surfaces/SurfaceRenderer.java": "852f2c3957304e0b759398ea0031ae8c50b10520bb65e52c6a21c2ba912cbea7",
+    "system/surfaces/src/org/agentos/surfaces/SurfaceService.java": "efb65516bcfa11cc03b47de4ca4622cb7336926b1e8873ac32817b084e288a03",
+    "system/surfaces/src/org/agentos/surfaces/SurfaceStyle.java": "4f298ed2cc459e06405d0954b99b9a369981d70d45bbbde9fef5527cc19344de",
+    "system/surfaces/src/org/agentos/surfaces/SurfaceWindow.java": "629e3b1fc2e2f7437c3aa30949d353bf747013ba7e44f01d536166d063c89fe9",
+    "system/surfaces/test.sh": "97708c81b5d39a5359b5aa829207fc98baf29423cffe095928834e4666bb2ff9",
+    "system/surfaces/tests/AndroidManifest.xml": "0ca5cce0f6e777f873e96b56056e166f09fd28814e740a770894ddbf62d352cd",
+    "system/surfaces/tests/SurfacePositionTest.java": "c4b3614706dbb43400ab8d0cf5b7ee7941f4fb3690c56ef835fd6e69c0640252",
+    "system/surfaces/tests/SurfaceStoreTest.java": "ee6e50dcc870debc4b19b2a1b994d94d443b8610d17ccec6c6ba0ed7c0ce3c90",
+    "system/surfaces/tests/consumer/SurfaceConsumer.java": "3c1a8c30c79b3e13b82dd0718932d25542d090a48bc470ef04c372218dd2b939",
+    "system/surfaces/tests/instrumentation/org/agentos/surfacestests/SurfaceApiTest.java": "006b9501867dbed0256ddb88b426659f1662479fe744cdb0ff31f5045b5c0965",
+    "system/surfaces/tests/verify-device.py": "3d6b3e0c9792bd689e8e315e4b5249e8d23f471c43f76efd5be2a568b1174405",
+    "system/surfaces/wire/org/agentos/surfaces/SurfaceCodec.java": "d919d5d304c0d51e9e4d84d83e48f99ce8802691e6484aed11210f838c59ecc1"
+  },
+  "physicalDeviceVerified": false,
+  "fullRomRebuilt": false,
+  "deviceRebootVerified": false,
+  "limits": [
+    "Service process restart was tested; full device reboot was not.",
+    "Large fonts, TalkBack, multi-touch cancellation, floating keyboards and multiple displays not device-verified.",
+    "Positions are global user presentation preferences; content remains ephemeral."
+  ],
+  "cleanup": {
+    "defaultPositionRestored": true,
+    "rotationSettingsRestored": true,
+    "previewStopped": true,
+    "readOnlyEmulatorClosed": true,
+    "originalAvdDataPreserved": true,
+    "physicalPhoneChanged": false,
+    "android17Automation": "PAUSED",
+    "romInputsChanged": false
+  },
+  "rawEvidence": {
+    "device": "out/system-surfaces-position-20261022/device",
+    "logs": {
+      "build.log": {
+        "path": "out/system-surfaces-position-20261022/build.log",
+        "sha256": "add1e6e0b16368f6717298650633b6959a4475bf681c2b449769993e288bc2d1"
+      },
+      "verify.log": {
+        "path": "out/system-surfaces-position-20261022/verify.log",
+        "sha256": "6a06e03a3c5d210b6bd3a3aaf414695982434fcf1d9d0cf90831df98c870f620"
+      },
+      "build-android.log": {
+        "path": "out/system-surfaces-position-20261022/build-android.log",
+        "sha256": "50b64877bba636e28720765119290874a559add3b4027cb202e0b6246471d476"
+      }
+    }
+  }
+}

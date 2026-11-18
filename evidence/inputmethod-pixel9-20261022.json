@@ -1,0 +1,97 @@
+{
+  "state": "physical_verified",
+  "date": "2026-10-22",
+  "scope": "Taku Input Method 0.1.0 with Taku toolbar logo; standalone ARM64 development-signed APK",
+  "artifact": {
+    "upstreamCommit": "048f581c652367567b8ee5c28c5163b805288895",
+    "patchSha256": "dbe4f55d73b083c27444086e973d374d384b535d73e7e3c5d3748eaff579285e",
+    "apk": "TakuInputMethod-arm64-v8a.apk",
+    "sha256": "cd6f3deea004640812faadf4691e069863d4eddb1df8f7062c4902b9b48d20b2",
+    "bytes": 45848760,
+    "package": "org.agentos.inputmethod",
+    "version": "0.1.0",
+    "internetPermission": false
+  },
+  "installedArtifact": {
+    "installedApkSha256": "cd6f3deea004640812faadf4691e069863d4eddb1df8f7062c4902b9b48d20b2",
+    "matchesLocalArtifact": true,
+    "packageFields": [
+      "primaryCpuAbi=arm64-v8a",
+      "versionCode=10002 minSdk=23 targetSdk=36",
+      "versionName=0.1.0"
+    ]
+  },
+  "acceptance": {
+    "ok": true,
+    "setupGuideVerified": false,
+    "deviceType": "physical",
+    "package": "org.agentos.inputmethod",
+    "model": "Pixel 9",
+    "androidRelease": "16",
+    "androidSdk": "36",
+    "adbUid": "0",
+    "defaultIme": "org.agentos.inputmethod/org.fcitx.fcitx5.android.input.FcitxInputMethodService",
+    "cases": [
+      "taku-logo-toolbar-toggle",
+      "delete-composition",
+      "pinyin-candidate-commit",
+      "delete-committed-text",
+      "chinese-english-switch",
+      "english-typing",
+      "symbols",
+      "numeric-editor",
+      "password-editor",
+      "ime-process-restart-chinese-commit",
+      "day-night-theme"
+    ],
+    "inputMethod": "screen taps on IME keys and candidates; no setText, clipboard or ACTION_SET_TEXT",
+    "nightModeRestored": "yes"
+  },
+  "unitTests": {
+    "tests": 8,
+    "failures": 0
+  },
+  "branding": {
+    "asset": "system/surfaces/res/drawable/taku_brand_mark.xml",
+    "surfaces": [
+      "launcher icon",
+      "64dp setup guide icon",
+      "keyboard toolbar toggle"
+    ],
+    "toolbar": "Preserves logo colors, does not rotate the mark, retains toggle and private-mode indicator behavior"
+  },
+  "finalDeviceState": {
+    "defaultIme": "org.agentos.inputmethod/org.fcitx.fcitx5.android.input.FcitxInputMethodService",
+    "nightMode": "Night mode: yes",
+    "fixtureRemoved": true,
+    "probeRemoved": true,
+    "imeUid": 10238,
+    "processExitReasons": [
+      "process=org.agentos.inputmethod reason=10 (USER REQUESTED) subreason=21 (FORCE STOP) status=0"
+    ],
+    "adbdStateChanged": false
+  },
+  "screenshots": [
+    "docs/media/taku-inputmethod-pixel9-light-20261022.png",
+    "docs/media/taku-inputmethod-pixel9-dark-20261022.png",
+    "docs/media/taku-inputmethod-pixel9-setup-20261022.png"
+  ],
+  "verificationNotes": [
+    "All cases used screen taps and the synthetic fixture; no user app was used for input.",
+    "The first install setup guide opened Android input-method settings before the full final run; final run skipped the already-enabled guide.",
+    "The device already had adbd UID 0. This session did not root, unroot, reboot or flash the phone. IME process UID was 10238.",
+    "Exit history contained only the intentional test force-stop; no crash or ANR exit was recorded."
+  ],
+  "boundaries": [
+    "Physical device runs Android 16 / API 36; Android 17 not tested.",
+    "APK is not integrated into the ROM image.",
+    "Development signing key; not a production release identity.",
+    "No AI features."
+  ],
+  "sourceArchive": {
+    "archive": "TakuInputMethod-0.1.0-source.tar.gz",
+    "sha256": "d18c41e79c9700070bb85301e7740b5dd75e1961c2fd53de9411b60187c6bf76",
+    "bytes": 117009522,
+    "verifiedPatchedFiles": 31
+  }
+}

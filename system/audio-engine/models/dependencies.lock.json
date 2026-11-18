@@ -1,0 +1,23 @@
+{
+  "sdk": {
+    "file": "sherpa-onnx-1.13.8.aar",
+    "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/v1.13.8/sherpa-onnx-1.13.8.aar",
+    "sha256": "633c24321e06b1fe79feafa03ea16cbc0f8a286641e2da3559bac91bdb13bd96"
+  },
+  "asr": {
+    "file": "sherpa-onnx-streaming-zipformer-en-2023-06-26.tar.bz2",
+    "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-zipformer-en-2023-06-26.tar.bz2",
+    "sha256": "639e25b578e9e997131402199419c13a941f8e4e198e2da1ce57dbf5cf401282"
+  },
+  "asr-zh": {
+    "file": "sherpa-onnx-streaming-zipformer-zh-14M-2023-02-23.tar.bz2",
+    "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-zipformer-zh-14M-2023-02-23.tar.bz2",
+    "sha256": "2cbd71b640d9c37d3784f29367333a4577b0398b62e9deeed418170b081cba8b"
+  },
+  "tts": {
+    "file": "kokoro-multi-lang-v1_1.tar.bz2",
+    "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-multi-lang-v1_1.tar.bz2",
+    "sha256": "b78e1ac42b852e839cceaafbe88f66806bf5860992d1d7b9a3f2ad1198427aed",
+    "releaseAssetId": 677613419
+  }
+}

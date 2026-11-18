@@ -1,0 +1,17 @@
+version = 1
+
+# File-level metadata for original source without modifying runtime source/resources.
+# Third-party icon/font/license paths are deliberately not covered by these rules.
+[[annotations]]
+path = ["core/**", "sdk/**", "adapters/*.mjs", "adapters/codex-runtime/*.sh", "scripts/*.mjs", "scripts/*.py", "scripts/*.sh", "tests/*.mjs", "examples/extensions/**/*.mjs", "examples/scenarios/*.sh", "examples/scenarios/*.java", "system/assistant/src/**/*.java", "system/assistant/src/**/*.kt", "system/assistant/broker/**/*.java", "system/assistant/broker/**/*.kt", "system/assistant/tests/**/*.java", "system/assistant/*.sh", "system/assistant/scripts/*.py", "system/display/src/**/*.java", "system/display/phone-display", "system/display/*.sh", "tooling/diagnostics/src/**/*.java", "tooling/diagnostics/*.sh", "tooling/app-kit/api/*.mjs", "tooling/app-kit/apk-shell/src/**/*.java", "tooling/app-kit/preview/src/**/*.java", "tooling/app-kit/seed/*.jsx", "tooling/app-kit/*.sh", "tooling/app-kit/mini-app"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Taku OS contributors"
+SPDX-License-Identifier = "Apache-2.0"
+
+# Original application code/configuration only. Do not relabel bundled fonts,
+# artwork, imported icons, license texts, or other third-party assets.
+[[annotations]]
+path = ["adapters/codex-runtime/*.patch", "system/assistant/tests/**/*.sh", "system/agent-app/*.ts", "system/agent-app/*.js", "system/agent-app/*.json", "system/agent-app/src/**/*.ts", "system/agent-app/src/**/*.tsx", "system/agent-app/src/**/*.mjs", "system/agent-app/src/**/*.json", "system/agent-app/plugins/*.js", "system/agent-app/scripts/*.cjs", "system/agent-app/scripts/*.ts", "system/agent-app/scripts/*.sh", "system/agent-app/modules/**/*.kt", "system/agent-app/modules/**/*.java", "system/agent-app/modules/**/*.gradle", "system/agent-app/modules/*/tests/*.sh", "system/agent-app/modules/*/tests/AndroidManifest.xml", "system/agent-app/modules/*.json", "system/agent-app/modules/*/*.json", "system/agent-app/modules/*/android/src/main/AndroidManifest.xml"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Taku OS contributors"
+SPDX-License-Identifier = "Apache-2.0"

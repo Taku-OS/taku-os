@@ -1,0 +1,35 @@
+{
+  "observedAt": "2026-10-09T18:57:09.257090+00:00",
+  "records": [
+    {
+      "package": "org.agentos.apiboard",
+      "artifactOrigin": "light-app-lab/free-app-kit/evidence/api/ApiBoard.apk",
+      "bytes": 70452,
+      "sha256": "fad2bb12928e69c319d66fbc92ec942201c8c10b2122e49abe883071a2072716",
+      "apkSignatureExit": 0,
+      "signature": "Verifies\nVerified using v1 scheme (JAR signing): false\nVerified using v2 scheme (APK Signature Scheme v2): false\nVerified using v3 scheme (APK Signature Scheme v3): true\nVerified using v3.1 scheme (APK Signature Scheme v3.1): false\nVerified using v4 scheme (APK Signature Scheme v4): false\nVerified for SourceStamp: false\nNumber of signers: 1\nSigner #1 certificate DN: EMAILADDRESS=android@android.com, CN=Android, OU=Android, O=Android, L=Mountain View, ST=California, C=US\nSigner #1 certificate SHA-256 digest: a40da80a59d170caa950cf15c18c454d47a39b26989d8b640ecd745ba71bf5dc\nSigner #1 certificate SHA-1 digest: 61ed377e85d386a8dfee6b864bd85b0bfaa5af81\nSigner #1 certificate MD5 digest: e89b158e4bcf988ebd09eb83f5378e87\nSigner #1 key algorithm: RSA\nSigner #1 key size (bits): 2048\nSigner #1 public key SHA-256 digest: ef57b690165cb561b5026922c00d2d6574e8b184fa7d161e076f06e06e6d35db\nSigner #1 public key SHA-1 digest: 0c2440c055c753a8f0493b4e602d3ea0096b1023\nSigner #1 public key MD5 digest: 452f8cfe026b30a8a3e99a6074e5f285",
+      "manifest": [
+        "package: name='org.agentos.apiboard' versionCode='1' versionName='1.0' platformBuildVersionName='14' platformBuildVersionCode='34' compileSdkVersion='34' compileSdkVersionCodename='14'",
+        "targetSdkVersion:'35'",
+        "launchable-activity: name='org.agentos.generated.MainActivity'  label='' icon=''"
+      ],
+      "installedApkSHA256": "fad2bb12928e69c319d66fbc92ec942201c8c10b2122e49abe883071a2072716",
+      "installedMatchesArtifact": true
+    },
+    {
+      "package": "org.agentos.reflexgame",
+      "artifactOrigin": "light-app-lab/free-app-kit/evidence/ReactionGame.apk",
+      "bytes": 66212,
+      "sha256": "bfa223ac09f06dcd92cd333c581a4b0a8f868323152e30b90f85f1d8f7431ebb",
+      "apkSignatureExit": 0,
+      "signature": "Verifies\nVerified using v1 scheme (JAR signing): false\nVerified using v2 scheme (APK Signature Scheme v2): false\nVerified using v3 scheme (APK Signature Scheme v3): true\nVerified using v3.1 scheme (APK Signature Scheme v3.1): false\nVerified using v4 scheme (APK Signature Scheme v4): false\nVerified for SourceStamp: false\nNumber of signers: 1\nSigner #1 certificate DN: EMAILADDRESS=android@android.com, CN=Android, OU=Android, O=Android, L=Mountain View, ST=California, C=US\nSigner #1 certificate SHA-256 digest: a40da80a59d170caa950cf15c18c454d47a39b26989d8b640ecd745ba71bf5dc\nSigner #1 certificate SHA-1 digest: 61ed377e85d386a8dfee6b864bd85b0bfaa5af81\nSigner #1 certificate MD5 digest: e89b158e4bcf988ebd09eb83f5378e87\nSigner #1 key algorithm: RSA\nSigner #1 key size (bits): 2048\nSigner #1 public key SHA-256 digest: ef57b690165cb561b5026922c00d2d6574e8b184fa7d161e076f06e06e6d35db\nSigner #1 public key SHA-1 digest: 0c2440c055c753a8f0493b4e602d3ea0096b1023\nSigner #1 public key MD5 digest: 452f8cfe026b30a8a3e99a6074e5f285",
+      "manifest": [
+        "package: name='org.agentos.reflexgame' versionCode='1' versionName='1.0' platformBuildVersionName='14' platformBuildVersionCode='34' compileSdkVersion='34' compileSdkVersionCodename='14'",
+        "targetSdkVersion:'35'",
+        "launchable-activity: name='org.agentos.generated.MainActivity'  label='' icon=''"
+      ],
+      "installedApkSHA256": "bfa223ac09f06dcd92cd333c581a4b0a8f868323152e30b90f85f1d8f7431ebb",
+      "installedMatchesArtifact": true
+    }
+  ]
+}

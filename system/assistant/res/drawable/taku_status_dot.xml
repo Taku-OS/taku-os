@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 8dp status dot. Color comes from android:drawableTint in Widget.Taku.Status.* -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="oval">
+    <solid android:color="#FFFFFFFF"/>
+    <size android:width="@dimen/taku_space_8" android:height="@dimen/taku_space_8"/>
+</shape>

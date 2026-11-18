@@ -1,0 +1,10 @@
+<!-- Taku icon "redo" (ui). Tint from the view. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M2 14.812c0-3.969 3.22-7.187 7.19-7.187h9.15l-4.43-3.872c-0.41-0.364-0.45-0.996-0.09-1.411 0.36-0.416 0.99-0.458 1.41-0.095l6.43 5.625C21.88 8.062 22 8.337 22 8.625s-0.12 0.563-0.34 0.753l-6.43 5.625c-0.42 0.363-1.05 0.321-1.41-0.095-0.36-0.415-0.32-1.047 0.09-1.411l4.43-3.872H9.19C6.32 9.625 4 11.947 4 14.812S6.32 20 9.19 20h7.95c0.55 0 1 0.448 1 1s-0.45 1-1 1H9.19C5.22 22 2 18.782 2 14.812Z"/>
+</vector>

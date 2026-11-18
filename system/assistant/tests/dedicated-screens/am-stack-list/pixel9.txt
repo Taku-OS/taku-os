@@ -1,0 +1,25 @@
+RootTask id=1 bounds=[0,0][1080,2424] displayId=0 userId=0
+ configuration={1.0 ?mcc0mnc [en_US] ldltr sw411dp w411dp h923dp 420dpi nrml long compactNeeded hdr widecg port finger -keyb/v/h -nav/h winConfig={ mBounds=Rect(0, 0 - 1080, 2424) mAppBounds=Rect(0, 0 - 1080, 2424) mMaxBounds=Rect(0, 0 - 1080, 2424) mDisplayRotation=ROTATION_0 mWindowingMode=fullscreen mActivityType=home mAlwaysOnTop=undefined mRotation=ROTATION_0} as.4 s.285 fontWeightAdjustment=0}
+  taskId=34: org.agentos.assistant/org.agentos.assistant.CodexHomeActivity bounds=[0,0][1080,2424] userId=0 visible=true topActivity=ComponentInfo{org.agentos.assistant/org.agentos.assistant.CodexHomeActivity}
+
+RootTask id=29 bounds=[0,0][1080,2424] displayId=0 userId=0
+ configuration={1.0 ?mcc0mnc [en_US] ldltr sw411dp w411dp h923dp 420dpi nrml long compactNeeded hdr widecg port finger -keyb/v/h -nav/h winConfig={ mBounds=Rect(0, 0 - 1080, 2424) mAppBounds=Rect(0, 0 - 1080, 2424) mMaxBounds=Rect(0, 0 - 1080, 2424) mDisplayRotation=ROTATION_0 mWindowingMode=fullscreen mActivityType=standard mAlwaysOnTop=undefined mRotation=ROTATION_0} as.4 s.285 fontWeightAdjustment=0}
+  taskId=29: com.android.vending/com.android.vending.AssetBrowserActivity bounds=[0,0][1080,2424] userId=0 visible=false topActivity=ComponentInfo{com.android.vending/com.android.vending.AssetBrowserActivity}
+
+RootTask id=3 bounds=[0,0][1080,2424] displayId=0 userId=0
+ configuration={1.0 ?mcc0mnc [en_US] ldltr sw411dp w411dp h923dp 420dpi nrml long compactNeeded hdr widecg port finger -keyb/v/h -nav/h winConfig={ mBounds=Rect(0, 0 - 1080, 2424) mAppBounds=Rect(0, 0 - 1080, 2424) mMaxBounds=Rect(0, 0 - 1080, 2424) mDisplayRotation=ROTATION_0 mWindowingMode=multi-window mActivityType=undefined mAlwaysOnTop=undefined mRotation=ROTATION_0} as.4 s.285 fontWeightAdjustment=0}
+  taskId=0: unknown bounds=[0,0][1080,2424] userId=0 visible=false
+
+RootTask id=4 bounds=[0,0][1080,2424] displayId=0 userId=0
+ configuration={1.0 ?mcc0mnc [en_US] ldltr sw411dp w411dp h923dp 420dpi nrml long compactNeeded hdr widecg port finger -keyb/v/h -nav/h winConfig={ mBounds=Rect(0, 0 - 1080, 2424) mAppBounds=Rect(0, 0 - 1080, 2424) mMaxBounds=Rect(0, 0 - 1080, 2424) mDisplayRotation=ROTATION_0 mWindowingMode=fullscreen mActivityType=undefined mAlwaysOnTop=undefined mRotation=ROTATION_0} as.4 s.285 fontWeightAdjustment=0}
+  taskId=5: unknown bounds=[0,0][1080,2424] userId=0 visible=false
+  taskId=6: unknown bounds=[0,2424][1080,3636] userId=0 visible=false
+
+RootTask id=8 bounds=[0,0][1080,2424] displayId=0 userId=0
+ configuration={1.0 ?mcc0mnc [en_US] ldltr sw411dp w411dp h923dp 420dpi nrml long compactNeeded hdr widecg port finger -keyb/v/h -nav/h winConfig={ mBounds=Rect(0, 0 - 1080, 2424) mAppBounds=Rect(0, 0 - 1080, 2424) mMaxBounds=Rect(0, 0 - 1080, 2424) mDisplayRotation=ROTATION_0 mWindowingMode=fullscreen mActivityType=recents mAlwaysOnTop=undefined mRotation=ROTATION_0} as.4 s.285 fontWeightAdjustment=0}
+  taskId=8: com.android.launcher3/com.android.quickstep.RecentsActivity bounds=[0,0][1080,2424] userId=0 visible=false topActivity=ComponentInfo{com.android.launcher3/com.android.quickstep.RecentsActivity}
+
+RootTask id=32 bounds=[0,0][720,1280] displayId=3 userId=0
+ configuration={1.0 ?mcc0mnc [en_US] ldltr sw480dp w480dp h853dp 240dpi lrg long compactNeeded port -touch -keyb/v/h -nav/h winConfig={ mBounds=Rect(0, 0 - 720, 1280) mAppBounds=Rect(0, 0 - 720, 1280) mMaxBounds=Rect(0, 0 - 720, 1280) mDisplayRotation=ROTATION_0 mWindowingMode=fullscreen mActivityType=standard mAlwaysOnTop=undefined mRotation=ROTATION_0} as.4 s.285 fontWeightAdjustment=0}
+  taskId=32: com.android.settings/com.android.settings.Settings bounds=[0,0][720,1280] userId=0 visible=false
+

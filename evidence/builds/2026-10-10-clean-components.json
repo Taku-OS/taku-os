@@ -1,0 +1,52 @@
+{
+  "checkedAt": "2026-10-09T20:47:50.020856+00:00",
+  "sourceTree": "7cf10bae9c0db042c4cad7a6d6568eee1d7e8b8b",
+  "status": "clean-checkout-component-build-passed",
+  "method": "git checkout-index of reviewed staged source, empty output directories, separate temporary git checkout; no lab source or existing signing cache copied",
+  "sdk": "android-36 / build-tools36.0.0",
+  "jdk": "OpenJDK21, Java release17",
+  "checks": [
+    "npm run verify",
+    "all four Android components plus separate diagnostics",
+    "apksigner verify both APKs"
+  ],
+  "outputs": [
+    {
+      "path": "system/assistant/out/AgentOSAssistant.apk",
+      "bytes": 1665637,
+      "sha256": "bbd9312331387786ec10d38469ad42cecfff61e8efaa443c8ae340c93436ca09"
+    },
+    {
+      "path": "system/assistant/out/task-broker.jar",
+      "bytes": 6760,
+      "sha256": "9ff1c5c1e083cab530fafcd242beedc3c9ee942a228f801c930176f51d2ca682"
+    },
+    {
+      "path": "system/display/out/virtual-display.jar",
+      "bytes": 7595,
+      "sha256": "70b2b45eb45114a2c874a99754e7c576d6ccb2bf6327b323ea26b30b7569d51b"
+    },
+    {
+      "path": "system/overlay/out/AgentOSLabSettingsOverlay.apk",
+      "bytes": 8604,
+      "sha256": "ef067013effa259f99d9f1098fabde9c8f45689a6139da59b91919753f0d4aa2"
+    },
+    {
+      "path": "tooling/app-kit/apk-shell/out/dex/classes.dex",
+      "bytes": 10040,
+      "sha256": "aa4fbe555301ed862b327137b82cef87e8eb0dbd0485dc809b8bab9e9792d40b"
+    },
+    {
+      "path": "tooling/diagnostics/out/diagnostics.jar",
+      "bytes": 10595,
+      "sha256": "b31af36dc574ae3d70553e152fafd639a8fd6b6abe131267c8f3d688e7579228"
+    }
+  ],
+  "didInstall": false,
+  "didFlash": false,
+  "didLogin": false,
+  "romBuilt": false,
+  "physicalDeviceVerified": false,
+  "bitReproducibleBuildClaim": false,
+  "sourceCommit": "48a5676bd0497c0326d7da9fc8fd98f6ebf0f2fc"
+}

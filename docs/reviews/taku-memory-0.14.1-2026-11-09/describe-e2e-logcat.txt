@@ -1,0 +1,6 @@
+11-09 11:09:00.815  2817  4324 I TakuMemory: 首页 AI 排出的卡片不合要求（action go intent changed，第 1 次），已收回
+11-09 11:09:00.822  2817  4324 I TakuMemory: 首页 AI 排出的卡片不合要求（action go intent changed，第 2 次），已收回
+11-09 11:09:00.822  2817  4324 I TakuMemory: 首页 AI 两次都没排出可用的卡片，改用固定样式
+11-09 11:09:20.132  2817  4324 I TakuMemory: 首页 AI 没有排出卡片（INVALID_MODEL_OUTPUT，第 1 次）
+11-09 11:09:20.134  2817  4324 I TakuMemory: 首页 AI 没有排出卡片（INVALID_MODEL_OUTPUT，第 2 次）
+11-09 11:09:20.134  2817  4324 I TakuMemory: 首页 AI 两次都没排出可用的卡片，改用固定样式

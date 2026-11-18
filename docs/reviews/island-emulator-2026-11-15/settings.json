@@ -1,0 +1,127 @@
+{
+  "before": {
+    "ok": true,
+    "settings": {
+      "enabled": true,
+      "protocol": 1,
+      "allowedPackages": [],
+      "error": null
+    },
+    "activities": [],
+    "presentation": {
+      "selected": null,
+      "compactVisible": false,
+      "reason": "status_bar_detached",
+      "expanded": false,
+      "card": null
+    }
+  },
+  "canPostBefore": {
+    "ok": true,
+    "enabled": true,
+    "package": "org.agentos.island.fixture",
+    "customAllowed": false,
+    "liveUpdates": true
+  },
+  "notificationBefore": "Row: 0 json={\"outsideTaps\":0,\"activeNotifications\":1,\"lastOperation\":\"publish\"}",
+  "guiOff": {
+    "ok": true,
+    "settings": {
+      "enabled": false,
+      "protocol": 1,
+      "allowedPackages": [],
+      "error": null
+    },
+    "activities": [],
+    "presentation": {
+      "selected": null,
+      "compactVisible": false,
+      "reason": "status_bar_detached",
+      "expanded": false,
+      "card": null
+    }
+  },
+  "guiOn": {
+    "ok": true,
+    "settings": {
+      "enabled": true,
+      "protocol": 1,
+      "allowedPackages": [],
+      "error": null
+    },
+    "activities": [],
+    "presentation": {
+      "selected": null,
+      "compactVisible": false,
+      "reason": "status_bar_detached",
+      "expanded": false,
+      "card": null
+    }
+  },
+  "guiAllowed": {
+    "ok": true,
+    "settings": {
+      "enabled": true,
+      "protocol": 1,
+      "allowedPackages": [
+        "org.agentos.island.fixture"
+      ],
+      "error": null
+    },
+    "activities": [
+      {
+        "key": "0|org.agentos.island.fixture|1|null|10203",
+        "package": "org.agentos.island.fixture",
+        "userId": 0,
+        "revision": 4,
+        "firstSeenElapsedMs": 430357,
+        "expiresElapsedMs": 4030357,
+        "stale": false,
+        "dismissed": false,
+        "active": true,
+        "availableActions": [
+          {
+            "id": "stop",
+            "title": "Stop fixture"
+          }
+        ],
+        "payload": {
+          "version": 1,
+          "category": "progress",
+          "bigIsland": {
+            "leading": {
+              "type": "text",
+              "text": "Island test"
+            },
+            "trailing": {
+              "type": "progress",
+              "value": 0.4
+            }
+          },
+          "expanded": {
+            "template": "progress",
+            "title": "Island integration fixture",
+            "body": "Native fallback: this test notification is still active.",
+            "progress": {
+              "type": "progress",
+              "value": 0.4
+            },
+            "actions": [
+              "stop"
+            ]
+          },
+          "statusBar": "auto",
+          "alert": false
+        },
+        "fallback": null
+      }
+    ],
+    "presentation": {
+      "selected": "0|org.agentos.island.fixture|1|null|10203",
+      "compactVisible": true,
+      "reason": "status_bar_detached",
+      "expanded": false,
+      "card": null
+    }
+  }
+}

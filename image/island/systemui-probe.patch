@@ -1,0 +1,3173 @@
+--- a/packages/SystemUI/AndroidManifest.xml
++++ b/packages/SystemUI/AndroidManifest.xml
+@@ -21,6 +21,10 @@
+     android:sharedUserId="android.uid.systemui"
+     xmlns:tools="http://schemas.android.com/tools"
+     coreApp="true">
++
++    <uses-permission android:name="org.agentos.permission.BIND_ISLAND_CONTENT" />
++    <permission android:name="org.agentos.permission.POST_ISLAND"
++        android:protectionLevel="signature" />
+ 
+     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+ 
+@@ -1337,5 +1341,21 @@
+             android:exported="true"
+            />
+ 
++        <activity android:name="com.android.systemui.taku.island.IslandSettingsActivity"
++        android:exported="true" android:label="Activity island"
++        android:theme="@android:style/Theme.Material.Light.NoActionBar"
++        android:windowSoftInputMode="adjustResize">
++        <intent-filter>
++            <action android:name="com.android.settings.action.IA_SETTINGS" />
++            <category android:name="android.intent.category.DEFAULT" />
++        </intent-filter>
++        <meta-data android:name="com.android.settings.category" android:value="com.android.settings.category.ia.display" />
++        <meta-data android:name="com.android.settings.title" android:value="Activity island" />
++        <meta-data android:name="com.android.settings.summary" android:value="Status bar activities and allowed apps" />
++        <meta-data android:name="com.android.settings.profile" android:value="primary_profile_only" />
++    </activity>
++    <provider android:name="com.android.systemui.taku.island.IslandProvider"
++            android:authorities="com.android.systemui.island"
++            android:exported="true" android:singleUser="true" android:directBootAware="true" />
+     </application>
+ </manifest>
+--- a/packages/SystemUI/src/com/android/systemui/dagger/SystemUIModule.java
++++ b/packages/SystemUI/src/com/android/systemui/dagger/SystemUIModule.java
+@@ -214,6 +214,7 @@
+  * may not appreciate that.
+  */
+ @Module(includes = {
++        com.android.systemui.taku.island.IslandModule.class,
+         ActivityModule.class,
+         AmbientModule.class,
+         AppOpsModule.class,
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/chips/ui/viewmodel/OngoingActivityChipsViewModel.kt
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/chips/ui/viewmodel/OngoingActivityChipsViewModel.kt
+@@ -66,6 +66,8 @@
+     private val screenCaptureRecordFeaturesInteractor: ScreenCaptureRecordFeaturesInteractor,
+     private val chipsRefiners: Set<@JvmSuppressWildcards OngoingActivityChipsRefiner>,
+     @StatusBarChipsLog private val logger: LogBuffer,
++    @com.android.systemui.display.dagger.SystemUIDisplaySubcomponent.DisplayId
++    private val islandDisplayId: Int = android.view.Display.DEFAULT_DISPLAY,
+ ) {
+     private enum class ChipType {
+         ScreenRecord,
+@@ -215,7 +217,18 @@
+      */
+     private val unrefinedChips =
+         combine(
+-            incomingChipBundle.map { bundle -> rankChips(bundle) },
++            combine(incomingChipBundle, com.android.systemui.taku.island.IslandPresentationOwnership.state) { bundle, owner ->
++                if (islandDisplayId != android.view.Display.DEFAULT_DISPLAY) return@combine rankChips(bundle)
++                // Retain unrelated chips and the upstream path whenever the island is hidden.
++                val inactive = OngoingActivityChipModel.Inactive()
++                rankChips(bundle.copy(
++                    screenRecord = if (owner.source == "recording") inactive else bundle.screenRecord,
++                    shareToApp = if (owner.source == "recording" || owner.source == "projection") inactive else bundle.shareToApp,
++                    castToOtherDevice = if (owner.source == "cast") inactive else bundle.castToOtherDevice,
++                    call = if (owner.notificationKey != null && (bundle.call as? OngoingActivityChipModel.Active)?.notificationKey == owner.notificationKey) inactive else bundle.call,
++                    notifs = bundle.notifs.filter { owner.notificationKey == null || it.notificationKey != owner.notificationKey },
++                ))
++            },
+             displayStateInteractor.isWideScreen,
+         ) { rankedChips, isWideScreen ->
+             if (
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/PhoneStatusBarView.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/PhoneStatusBarView.java
+@@ -80,6 +80,16 @@
+      * Draw this many pixels into the left/right side of the cutout to optimally use the space
+      */
+     private int mCutoutSideNudge = 0;
++    private int mTakuIslandProbeWidth;
++
++    /** Phase-0 probe reserves real status-bar space; zero restores upstream cutout layout. */
++    public void setTakuIslandProbeWidth(int width) {
++        int next = Math.max(0, width);
++        if (mTakuIslandProbeWidth == next) return;
++        mTakuIslandProbeWidth = next;
++        updateCutoutLocation();
++        requestLayout();
++    }
+ 
+     public PhoneStatusBarView(Context context, AttributeSet attrs) {
+         super(context, attrs);
+@@ -348,6 +358,17 @@
+             return;
+         }
+ 
++        if (mTakuIslandProbeWidth > 0) {
++            int physicalWidth = mDisplayCutout == null ? 0
++                    : mDisplayCutout.getBoundingRectTop().width();
++            LinearLayout.LayoutParams lp = (LinearLayout.LayoutParams) mCutoutSpace.getLayoutParams();
++            lp.width = Math.max(mTakuIslandProbeWidth, physicalWidth);
++            lp.height = mStatusBarHeight;
++            mCutoutSpace.setLayoutParams(lp);
++            mCutoutSpace.setVisibility(View.VISIBLE);
++            return;
++        }
++
+         boolean hasCornerCutout;
+         if (mHasCornerCutoutFetcher != null) {
+             hasCornerCutout = mHasCornerCutoutFetcher.fetchHasCornerCutout();
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/pipeline/shared/ui/composable/StatusBarRoot.kt
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/pipeline/shared/ui/composable/StatusBarRoot.kt
+@@ -149,6 +149,7 @@
+     @DisplayAware private val headlineViewModelFactory: HeadlineViewModel.Factory,
+     private val statusBarRegionSamplingViewModelFactory: StatusBarRegionSamplingViewModel.Factory,
+     private val shadeWindowRootView: WindowRootView,
++    private val takuIslandPresenter: com.android.systemui.taku.island.IslandPresenter,
+ ) {
+     fun create(root: ViewGroup, andThen: (ViewGroup) -> Unit): ComposeView {
+         val composeView = ComposeView(root.context)
+@@ -172,7 +173,10 @@
+                         eventAnimationInteractor = eventAnimationInteractor,
+                         statusBarRegionSamplingViewModelFactory =
+                             statusBarRegionSamplingViewModelFactory,
+-                        onViewCreated = andThen,
++                        onViewCreated = { view ->
++                            andThen(view)
++                            takuIslandPresenter.attach(view as PhoneStatusBarView)
++                        },
+                         modifier = Modifier.sysUiResTagContainer(),
+                     )
+                 }
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandActivity.kt
+@@ -0,0 +1,37 @@
++/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
++package com.android.systemui.taku.island
++
++import android.app.Notification
++import android.app.PendingIntent
++import android.content.ComponentName
++import android.graphics.drawable.Icon
++import org.json.JSONObject
++
++data class IslandNativeAction(val title: String, val run: () -> Unit)
++
++/** Extracted immutable envelope. JSON and Android objects are never exposed for caller mutation. */
++data class IslandActivity(
++    val key: String,
++    val packageName: String,
++    val uid: Int,
++    val userId: Int,
++    val payload: JSONObject,
++    val pics: Map<String, Icon>,
++    val actions: Map<String, Notification.Action>,
++    val openIntent: PendingIntent?,
++    val contentService: ComponentName?,
++    val fallback: String?,
++    val nativeActions: Map<String, IslandNativeAction> = emptyMap(),
++) {
++    val category: String get() = payload.getString("category")
++    // Assistant notifications from older publishers must not resurrect listening/error pills.
++    val building: Boolean get() = category == "assistant" && payload.optString("compact") == "building"
++    val compactVisible: Boolean get() = if (category == "assistant") building else payload.optString("compact") != "hidden"
++    val priority: Int get() = CATEGORIES.indexOf(category).let { if (it < 0) 8 else it }
++    val title: String get() = payload.getJSONObject("expanded").getString("title")
++    val body: String get() = payload.getJSONObject("expanded").optString("body")
++
++    companion object {
++        val CATEGORIES = listOf("call", "alarm", "recording", "navigation", "timer", "assistant", "media", "progress", "other")
++    }
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandAssistantCard.kt
+@@ -0,0 +1,242 @@
++/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
++package com.android.systemui.taku.island
++
++import android.animation.ValueAnimator
++import android.content.Context
++import android.graphics.Canvas
++import android.graphics.Color
++import android.graphics.Paint
++import android.graphics.Typeface
++import android.graphics.drawable.GradientDrawable
++import android.util.PathParser
++import android.view.Gravity
++import android.view.MotionEvent
++import android.view.View
++import android.view.ViewConfiguration
++import android.view.accessibility.AccessibilityNodeInfo
++import android.os.Bundle
++import android.view.animation.LinearInterpolator
++import android.widget.FrameLayout
++import android.widget.HorizontalScrollView
++import android.widget.LinearLayout
++import android.widget.ScrollView
++import android.widget.TextView
++import org.agentos.island.DotMatrixLoader
++import org.json.JSONObject
++
++/** Figma 297:415. All views, text, animation and input are owned and drawn by SystemUI.
++ * Payloads contain data and PendingIntent IDs only; no remote surface or Compose renderer. */
++internal class IslandAssistantCard(context: Context, private val command: (String, String?, String?) -> Unit,
++    private val collapse: (String) -> Unit) : LinearLayout(context) {
++    private val density = resources.displayMetrics.density
++    private val scaled = resources.displayMetrics.scaledDensity
++    private val regular = font("hanken_grotesk_regular")
++    private val medium = font("hanken_grotesk_medium")
++    private val status = StatusGlyph(context)
++    private val expand = ExpandGlyph(context)
++    private val text = label(18f, 0xccffffff.toInt(), regular).apply { setLineHeight((27.9f * scaled).toInt()) }
++    private val content = LinearLayout(context).apply { orientation = VERTICAL; addView(text) }
++    private val scroll = ScrollView(context).apply { isVerticalScrollBarEnabled = false; addView(content); isFillViewport = false }
++    private val chips = LinearLayout(context).apply { orientation = HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
++    private val chipScroll = HorizontalScrollView(context).apply {
++        isHorizontalScrollBarEnabled = false; overScrollMode = OVER_SCROLL_NEVER
++        addView(chips); setPadding(0, dp(5), 0, dp(5)); clipToPadding = false
++    }
++    private var item: IslandActivity? = null
++    private var bodyFingerprint: String? = null
++    private var actionFingerprint: String? = null
++    private var optionIds: List<String> = emptyList()
++    private val swipeSlop = ViewConfiguration.get(context).scaledTouchSlop
++    private var downX = 0f
++    private var downY = 0f
++    private var swipeEligible = false
++    private var swiped = false
++
++    init {
++        orientation = VERTICAL
++        setPadding(dp(16), dp(16), 0, dp(16))
++        val header = FrameLayout(context).apply {
++            addView(status, FrameLayout.LayoutParams(dp(32), dp(32), Gravity.LEFT))
++            addView(expand, FrameLayout.LayoutParams(dp(32), dp(32), Gravity.RIGHT))
++        }
++        expand.contentDescription = "Open conversation"
++        expand.setOnClickListener {
++            item?.let { current ->
++                val id = current.payload.getJSONObject("expanded").optString("primaryAction")
++                if (current.actions.containsKey(id)) invoke(current, id) else command("open", current.key, null)
++            }
++        }
++        addView(header, LayoutParams(-1, dp(32)).apply { rightMargin = dp(16) })
++        addView(scroll, LayoutParams(-1, 0, 1f).apply { topMargin = dp(4); rightMargin = dp(16) })
++        // Five dp shader bleed above/below the 40 dp chips, without changing the 16 dp gap.
++        addView(chipScroll, LayoutParams(-1, -2).apply { topMargin = dp(11); bottomMargin = -dp(5) })
++        chipScroll.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
++            if (chipScroll.width > 0 && chipScroll.height > 0)
++                chipScroll.setRenderEffect(IslandCardEffects.chipEdge(chipScroll.width.toFloat(), chipScroll.height.toFloat(), density))
++        }
++        scroll.viewTreeObserver.addOnScrollChangedListener { updateBottomEdge() }
++        scroll.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> updateBottomEdge() }
++    }
++
++    /** Observe before children consume motion: ScrollView disallows parent interception after
++     * touch slop, so a header-only listener cannot close a swipe starting on reply text/chips.
++     * A long reply keeps scrolling until its end; horizontal option gestures and taps stay intact. */
++    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
++        when (event.actionMasked) {
++            MotionEvent.ACTION_DOWN -> {
++                downX = event.rawX; downY = event.rawY; swiped = false
++                // Child bounds and event.x/y share this card's coordinates (raw coordinates do not).
++                val reading = event.x >= scroll.left && event.x < scroll.right &&
++                    event.y >= scroll.top && event.y < scroll.bottom
++                swipeEligible = !(reading && scroll.canScrollVertically(1))
++            }
++            MotionEvent.ACTION_POINTER_DOWN, MotionEvent.ACTION_CANCEL -> swipeEligible = false
++            MotionEvent.ACTION_MOVE, MotionEvent.ACTION_UP -> {
++                if (swiped) return true
++                val dx = kotlin.math.abs(event.rawX - downX)
++                val up = downY - event.rawY
++                if (dx > swipeSlop && dx > kotlin.math.abs(up)) swipeEligible = false
++                if (swipeEligible && event.pointerCount == 1 && up > maxOf(dp(24), swipeSlop) && up > dx * 1.3f) {
++                    swipeEligible = false; swiped = true
++                    val cancel = MotionEvent.obtain(event).apply { action = MotionEvent.ACTION_CANCEL }
++                    super.dispatchTouchEvent(cancel); cancel.recycle()
++                    post { collapse("swipe_up") }
++                    return true
++                }
++                if (event.actionMasked == MotionEvent.ACTION_UP) swipeEligible = false
++            }
++        }
++        return super.dispatchTouchEvent(event)
++    }
++
++    override fun onTouchEvent(event: MotionEvent): Boolean = true
++
++    override fun onInitializeAccessibilityNodeInfo(info: AccessibilityNodeInfo) {
++        super.onInitializeAccessibilityNodeInfo(info)
++        info.addAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_DISMISS)
++        info.isDismissable = true
++    }
++
++    override fun performAccessibilityAction(action: Int, arguments: Bundle?): Boolean {
++        if (action == AccessibilityNodeInfo.ACTION_DISMISS) { collapse("accessibility_dismiss"); return true }
++        return super.performAccessibilityAction(action, arguments)
++    }
++
++    fun update(next: IslandActivity) {
++        item = next
++        val expanded = next.payload.getJSONObject("expanded")
++        val data = expanded.optJSONObject("assistant")
++        status.working = data?.optString("phase") == "working"
++        // The publisher supplies the actual response/error/listening text. SystemUI invents no reply.
++        val body = next.body.ifBlank { next.title }
++        val steps = expanded.optJSONArray("steps")
++        val fingerprint = body + steps?.toString()
++        if (fingerprint != bodyFingerprint) {
++            text.text = body
++            while (content.childCount > 1) content.removeViewAt(1)
++            if (steps != null) for (i in 0 until steps.length()) {
++                val step = steps.getJSONObject(i)
++                content.addView(label(14f, 0xa3ffffff.toInt(), regular).apply {
++                    text = (if (step.optBoolean("running")) "• " else "✓ ") + step.getString("text")
++                }, LayoutParams(-1, -2).apply { topMargin = dp(if (i == 0) 16 else 8) })
++            }
++            bodyFingerprint = fingerprint
++            scroll.post { updateBottomEdge() }
++        }
++        val ids = data?.optJSONArray("suggestions")
++        optionIds = if (ids == null) emptyList() else (0 until ids.length()).map { ids.getString(it) }.filter { next.actions.containsKey(it) }
++        val actionKey = next.key + optionIds.joinToString { it + next.actions[it]?.title }
++        if (actionKey != actionFingerprint) {
++            chips.removeAllViews()
++            optionIds.forEachIndexed { index, id ->
++                chips.addView(label(16f, 0xebffffff.toInt(), medium).apply {
++                    text = next.actions.getValue(id).title
++                    isSingleLine = true
++                    gravity = Gravity.CENTER
++                    setPadding(dp(12), dp(8), dp(12), dp(8))
++                    minHeight = (24 * scaled).toInt() + dp(16)
++                    background = GradientDrawable().apply { setColor(0x14ffffff); cornerRadius = dp(999).toFloat() }
++                    isClickable = true; isFocusable = true
++                    setOnClickListener { item?.let { current -> if (id in optionIds) invoke(current, id) } }
++                }, LayoutParams(-2, -2).apply { if (index > 0) leftMargin = dp(8) })
++            }
++            actionFingerprint = actionKey
++        }
++        chipScroll.visibility = if (optionIds.isEmpty()) GONE else VISIBLE
++    }
++
++    fun desiredHeight(next: IslandActivity, width: Int): Int {
++        val expanded = next.payload.getJSONObject("expanded")
++        val available = (width - dp(32)).coerceAtLeast(dp(48))
++        val message = next.body.ifBlank { next.title }
++        val layout = android.text.StaticLayout.Builder.obtain(message, 0, message.length, text.paint, available)
++            .setIncludePad(false).setLineSpacing(text.lineSpacingExtra, text.lineSpacingMultiplier).build()
++        var height = dp(68) + maxOf(layout.height, (27.9f * scaled).toInt())
++        val steps = expanded.optJSONArray("steps")
++        if (steps != null && steps.length() > 0) height += dp(16) + steps.length() * ((22 * scaled).toInt() + dp(8))
++        if ((expanded.optJSONObject("assistant")?.optJSONArray("suggestions")?.length() ?: 0) > 0) height += dp(32) + (24 * scaled).toInt()
++        return height.coerceAtLeast(dp(96))
++    }
++
++    fun state(): JSONObject = JSONObject().put("renderer", "systemui-native")
++        .put("text", text.text.toString()).put("suggestionCount", optionIds.size)
++
++    private fun updateBottomEdge() {
++        scroll.setRenderEffect(if (scroll.height > 0 && scroll.canScrollVertically(1))
++            IslandCardEffects.bottomEdge(scroll.width.toFloat(), scroll.height.toFloat(), density) else null)
++    }
++    private fun invoke(current: IslandActivity, id: String) = command("action", current.key, JSONObject().put("id", id).toString())
++    private fun label(size: Float, color: Int, face: Typeface) = TextView(context).apply {
++        textSize = size; setTextColor(color); typeface = face; includeFontPadding = false; letterSpacing = -.01f
++    }
++    private fun font(name: String): Typeface = runCatching {
++        val app = context.createPackageContext("org.agentos.agent", 0)
++        app.resources.getFont(app.resources.getIdentifier(name, "font", app.packageName))
++    }.getOrDefault(Typeface.create("sans-serif", Typeface.NORMAL))
++    private fun dp(value: Int) = (value * density).toInt()
++
++    private class StatusGlyph(context: Context) : View(context) {
++        private val d = resources.displayMetrics.density
++        private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
++        private val pose = DotMatrixLoader.Pose()
++        private var time = 0f
++        private var clock: ValueAnimator? = null
++        var working = false
++            set(value) { if (field != value) { field = value; contentDescription = if (value) "Working" else "Taku"; invalidate() } }
++        override fun onAttachedToWindow() {
++            super.onAttachedToWindow()
++            if (ValueAnimator.areAnimatorsEnabled()) clock = ValueAnimator.ofFloat(0f, 4000f).apply {
++                duration = 4000; interpolator = LinearInterpolator(); repeatCount = ValueAnimator.INFINITE
++                addUpdateListener { time = it.animatedValue as Float; invalidate() }; start()
++            }
++        }
++        override fun onDetachedFromWindow() { clock?.cancel(); clock = null; super.onDetachedFromWindow() }
++        override fun onDraw(canvas: Canvas) {
++            val x = width / 2f; val y = height / 2f
++            if (working) {
++                if (ValueAnimator.areAnimatorsEnabled()) DotMatrixLoader.thinking(time.toDouble(), pose) else DotMatrixLoader.rest(pose)
++                for (i in 0..8) {
++                    paint.color = Color.argb((pose.opacity[i] * 255).toInt(), 255, 255, 255)
++                    canvas.drawCircle(x + (i % 3 - 1) * 6 * d, y + (i / 3 - 1) * 6 * d, 2 * d * pose.scale[i].toFloat(), paint)
++                }
++            } else {
++                val blink = if (time < 3700 || !ValueAnimator.areAnimatorsEnabled()) 1f else if (time < 3780) 1f - .88f * (time - 3700) / 80 else if (time < 3890) .12f + .88f * (time - 3780) / 110 else 1f
++                paint.color = Color.WHITE
++                for (left in listOf(-8, 2)) canvas.drawRoundRect(x + left * d, y - 6 * d * blink, x + (left + 6) * d, y + 6 * d * blink, 3 * d, 3 * d, paint)
++            }
++        }
++    }
++
++    private class ExpandGlyph(context: Context) : View(context) {
++        private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
++            color = Color.WHITE; style = Paint.Style.STROKE; strokeWidth = 1.66667f; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND
++        }
++        // Exact 20x20 paths from design/assistant-card/expand.svg (Figma 297:423).
++        private val path = PathParser.createPathFromPathData("M1.77626 8.33333L1.71196 4.4221C1.69616 3.46072 1.68826 2.98003 1.87147 2.61455C2.03255 2.2932 2.2932 2.03255 2.61455 1.87146C2.98003 1.68826 3.46072 1.69616 4.4221 1.71196L8.33333 1.77626M18.2237 11.6667L18.288 15.5779C18.3038 16.5393 18.3117 17.02 18.1285 17.3854C17.9675 17.7068 17.7068 17.9675 17.3854 18.1285C17.02 18.3117 16.5393 18.3038 15.5779 18.288L11.6667 18.2237")
++        override fun onDraw(canvas: Canvas) {
++            val d = resources.displayMetrics.density
++            canvas.save(); canvas.translate((width - 20 * d) / 2, (height - 20 * d) / 2); canvas.scale(d, d)
++            canvas.drawPath(path, paint); canvas.restore()
++        }
++    }
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandCapsuleView.kt
+@@ -0,0 +1,304 @@
++/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
++package com.android.systemui.taku.island
++
++import android.animation.ValueAnimator
++import android.content.Context
++import android.graphics.Canvas
++import android.graphics.Color
++import android.graphics.Paint
++import android.graphics.Path
++import android.graphics.RectF
++import android.graphics.Typeface
++import android.graphics.drawable.Drawable
++import android.os.Handler
++import android.os.Looper
++import android.view.GestureDetector
++import android.view.MotionEvent
++import android.view.View
++import android.view.ViewConfiguration
++import android.view.animation.LinearInterpolator
++import org.agentos.island.DotMatrixLoader
++import org.json.JSONObject
++import kotlin.math.abs
++import kotlin.math.max
++
++/** Native cutout slots. Vertical drags are left to the parent status-bar shade dispatcher. */
++internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
++    private val cycle: (Int) -> Unit, private val choose: () -> Unit) : View(context) {
++    private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
++    private val density = resources.displayMetrics.density
++    private val buildingPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
++        typeface = runCatching {
++            val source = context.createPackageContext("org.agentos.agent", 0)
++            val id = source.resources.getIdentifier("hanken_grotesk_regular", "font", source.packageName)
++            source.resources.getFont(id)
++        }.getOrDefault(Typeface.create("sans-serif", Typeface.NORMAL))
++        textSize = 12f * resources.displayMetrics.scaledDensity
++        color = 0xebffffff.toInt()
++    }
++    fun buildingWidth(): Int = kotlin.math.ceil(dp(88) + buildingTextWidth()).toInt()
++    private fun buildingTextWidth(): Float = buildingPaint.measureText("Building...") - dp(.12f) * 10
++    private val icons = mutableMapOf<String, Drawable>()
++    private val secondaryIcons = mutableMapOf<String, Drawable>()
++    private var second: IslandActivity? = null
++    private var secondaryIdentity: JSONObject? = null
++    private var secondaryGeneration = 0
++    var stale = false
++    private val neck = Path().apply {
++        moveTo(16.0743f, 1.72239f)
++        cubicTo(10.9102f, 6.34134f, 6.1586f, 6.88552f, 0f, 0f)
++        lineTo(0f, 21.3333f)
++        cubicTo(6.1586f, 14.4478f, 10.9102f, 14.992f, 16.0743f, 19.6109f)
++        close()
++    }
++    private var item: IslandActivity? = null
++    private var identity: JSONObject? = null
++    private var generation = 0
++    private var animation: ValueAnimator? = null
++    private var phase = 0f
++    private val loaderPose = DotMatrixLoader.Pose()
++    private var downY = 0f
++    private var downX = 0f
++    private var vertical = false
++    var cutoutWidth = 0f
++    var widthMode = 0 // full slots, leading only, single glyph
++    var secondary = false
++    private val gestures = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
++        override fun onDown(event: MotionEvent) = true
++        override fun onSingleTapUp(event: MotionEvent): Boolean { performClick(); return true }
++        override fun onLongPress(event: MotionEvent) { performLongClick() }
++        override fun onFling(first: MotionEvent?, last: MotionEvent, vx: Float, vy: Float): Boolean {
++            if (first != null && abs(last.x - first.x) > dp(24) && abs(vx) > abs(vy)) {
++                cycle(if (vx < 0) 1 else -1)
++                return true
++            }
++            return false
++        }
++    })
++
++    init {
++        isClickable = true
++        isFocusable = true
++        importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_YES
++        setOnClickListener { tap() }
++        setOnLongClickListener { choose(); true }
++    }
++
++    fun bind(activity: IslandActivity, other: IslandActivity?) {
++        item = activity
++        second = other
++        secondary = other != null
++        if (secondaryIdentity !== other?.payload) {
++            secondaryIdentity = other?.payload
++            val current = ++secondaryGeneration
++            secondaryIcons.clear()
++            other?.pics?.forEach { (key, icon) ->
++                icon.loadDrawableAsync(context, { drawable ->
++                    if (current == secondaryGeneration && drawable != null) { secondaryIcons[key] = drawable; invalidate() }
++                }, Handler(Looper.getMainLooper()))
++            }
++        }
++        contentDescription = "${if (stale) "May be outdated. " else ""}${activity.title}. ${activity.body}. Double tap to expand; long press to choose activity."
++        if (identity !== activity.payload) {
++            identity = activity.payload
++            val current = ++generation
++            icons.clear()
++            activity.pics.forEach { (key, icon) ->
++                icon.loadDrawableAsync(context, { drawable ->
++                    if (current == generation && drawable != null) { icons[key] = drawable; invalidate() }
++                }, Handler(Looper.getMainLooper()))
++            }
++        }
++        val text = activity.payload.toString()
++        val moving = activity.building || text.contains("\"animated\":\"working\"") || text.contains("\"animated\":\"listening\"")
++        if (moving && animation == null && ValueAnimator.areAnimatorsEnabled() && visibility == VISIBLE) animation = ValueAnimator.ofFloat(0f, 1f).apply {
++            duration = if (activity.building) DotMatrixLoader.CYCLE_MS else 1400
++            interpolator = LinearInterpolator()
++            repeatCount = ValueAnimator.INFINITE
++            addUpdateListener { phase = it.animatedValue as Float; invalidate() }
++            start()
++        }
++        if (!moving) { animation?.cancel(); animation = null }
++        invalidate()
++    }
++
++    override fun onDetachedFromWindow() {
++        animation?.cancel()
++        animation = null
++        generation++
++        super.onDetachedFromWindow()
++    }
++
++    override fun onVisibilityChanged(changedView: View, visibility: Int) {
++        super.onVisibilityChanged(changedView, visibility)
++        if (visibility != VISIBLE) { animation?.cancel(); animation = null }
++        else item?.let { bind(it, second) }
++    }
++
++    override fun onTouchEvent(event: MotionEvent): Boolean {
++        if (event.actionMasked == MotionEvent.ACTION_DOWN) { downX = event.x; downY = event.y; vertical = false }
++        if (event.actionMasked == MotionEvent.ACTION_MOVE && abs(event.y - downY) > abs(event.x - downX) && abs(event.y - downY) > ViewConfiguration.get(context).scaledTouchSlop) {
++            vertical = true
++            val cancel = MotionEvent.obtain(event).apply { action = MotionEvent.ACTION_CANCEL }
++            gestures.onTouchEvent(cancel)
++            cancel.recycle()
++            parent.requestDisallowInterceptTouchEvent(false)
++        }
++        if (vertical) return false
++        gestures.onTouchEvent(event)
++        return true
++    }
++
++    override fun onDraw(canvas: Canvas) {
++        val activity = item ?: return
++        if (activity.building) { drawBuilding(canvas); return }
++        val h = height.toFloat()
++        val islandWidth = width - if (secondary) dp(28) else 0f
++        paint.color = Color.BLACK
++        val center = islandWidth / 2
++        if (cutoutWidth > 0 && widthMode == 0) {
++            // Native port of the existing 1-6 neck path; physical cutout mask remains authoritative.
++            val cameraRadius = minOf(h / 2, cutoutWidth / 2, dp(14))
++            val gap = cameraRadius + dp(8)
++            canvas.drawCircle(center, h / 2, cameraRadius, paint)
++            canvas.drawRoundRect(0f, 0f, center - gap, h, h / 2, h / 2, paint)
++            canvas.drawRoundRect(center + gap, 0f, islandWidth, h, h / 2, h / 2, paint)
++            for (direction in -1..1 step 2) {
++                canvas.save()
++                canvas.translate(center + direction * gap, (h - dp(21)) / 2)
++                canvas.scale(-direction * (gap - cameraRadius + dp(4)) / 16.0743f, dp(21) / 21.3333f)
++                canvas.drawPath(neck, paint)
++                canvas.restore()
++            }
++        } else canvas.drawRoundRect(0f, 0f, islandWidth, h, h / 2, h / 2, paint)
++        val safe = max(cutoutWidth, dp(22)) / 2 + dp(4)
++        val big = activity.payload.getJSONObject("bigIsland")
++        val leading = big.optJSONObject("leading") ?: big.optJSONObject("trailing")
++        if (widthMode == 2) drawGlyph(canvas, leading, dp(6), h)
++        else {
++            drawSlot(canvas, if (widthMode == 0) big.optJSONObject("leading") else leading,
++                RectF(dp(8), 0f, center - safe, h))
++            if (widthMode == 0) drawSlot(canvas, big.optJSONObject("trailing"), RectF(center + safe, 0f, islandWidth - dp(8), h))
++        }
++        if (secondary) {
++            paint.color = Color.BLACK
++            val cx = width - dp(12)
++            canvas.drawCircle(cx, h / 2, dp(12), paint)
++            val slot = second?.payload?.optJSONObject("smallIsland")
++                ?: second?.payload?.optJSONObject("bigIsland")?.optJSONObject("leading")?.takeIf { it.optString("type") == "pic" }
++            val icon = slot?.optString("pic")?.let(secondaryIcons::get) ?: secondaryIcons.values.firstOrNull()
++            if (slot?.optString("type") == "progress") {
++                paint.color = Color.WHITE
++                paint.style = Paint.Style.STROKE
++                paint.strokeWidth = dp(2)
++                canvas.drawArc(cx - dp(7), h / 2 - dp(7), cx + dp(7), h / 2 + dp(7), -90f,
++                    (slot.optDouble("value", .25) * 360).toFloat(), false, paint)
++                paint.style = Paint.Style.FILL
++            } else if (icon != null) {
++                icon.setBounds((cx - dp(7)).toInt(), (h / 2 - dp(7)).toInt(), (cx + dp(7)).toInt(), (h / 2 + dp(7)).toInt())
++                icon.draw(canvas)
++            } else {
++                paint.color = Color.WHITE
++                canvas.drawCircle(cx, h / 2, dp(2), paint)
++            }
++        }
++    }
++
++    /** Exact 1-6 geometry: 32 dp loading disc, 24 dp camera, 32 dp text pill.
++     * The physical exclusion rectangle is NOT the camera's visual shape or radius. */
++    private fun drawBuilding(canvas: Canvas) {
++        val cy = height / 2f
++        val camera = dp(52)
++        paint.color = Color.BLACK
++        canvas.drawCircle(dp(16), cy, dp(16), paint)
++        canvas.drawCircle(camera, cy, dp(12), paint)
++        canvas.drawRoundRect(dp(72), cy - dp(16), width.toFloat(), cy + dp(16), dp(16), dp(16), paint)
++        for (direction in listOf(1, -1)) {
++            canvas.save()
++            canvas.translate(camera - direction * dp(24), cy - dp(21.3333f) / 2 + dp(.167f))
++            canvas.scale(direction * density, density)
++            canvas.drawPath(neck, paint)
++            canvas.restore()
++        }
++        val pose = if (ValueAnimator.areAnimatorsEnabled()) DotMatrixLoader.thinking(phase * 1000.0, loaderPose)
++            else DotMatrixLoader.rest(loaderPose)
++        for (row in 0..2) for (col in 0..2) {
++            val index = row * 3 + col
++            paint.color = Color.argb((pose.opacity[index] * 255).toInt(), 255, 255, 255)
++            canvas.drawCircle(dp(10 + col * 6), cy + dp(-6 + row * 6), dp(2) * pose.scale[index].toFloat(), paint)
++        }
++        var x = dp(80)
++        val baseline = cy - (buildingPaint.ascent() + buildingPaint.descent()) / 2
++        for (letter in "Building...") {
++            val glyph = letter.toString()
++            canvas.drawText(glyph, x, baseline, buildingPaint)
++            x += buildingPaint.measureText(glyph) - dp(.12f)
++        }
++    }
++
++    private fun drawGlyph(canvas: Canvas, slot: JSONObject?, x: Float, h: Float) {
++        val icon = slot?.optString("pic")?.let(icons::get)
++        val motion = slot?.optString("animated")
++        if (motion == "working") {
++            paint.color = Color.WHITE
++            for (index in 0..2) {
++                val wave = (kotlin.math.sin((phase * 2 * Math.PI) - index * .8) + 1) / 2
++                canvas.drawCircle(x + dp(3 + index * 5), h / 2, dp(1) + dp(1) * wave.toFloat(), paint)
++            }
++        } else if (motion == "listening") {
++            paint.color = Color.WHITE
++            val wave = (kotlin.math.sin(phase * 2 * Math.PI) + 1) / 2
++            canvas.drawCircle(x + dp(8), h / 2, dp(4) + dp(3) * wave.toFloat(), paint)
++        } else if (icon != null) {
++            val side = minOf(dp(18), h - dp(4)).toInt()
++            icon.setBounds(x.toInt(), ((h - side) / 2).toInt(), x.toInt() + side, ((h + side) / 2).toInt())
++            icon.draw(canvas)
++        } else {
++            paint.color = Color.WHITE
++            canvas.drawCircle(x + dp(7), h / 2, dp(3 + (phase * 2).toInt()), paint)
++        }
++    }
++
++    private fun drawSlot(canvas: Canvas, slot: JSONObject?, rect: RectF) {
++        if (slot == null || rect.width() < dp(12)) return
++        canvas.save()
++        canvas.clipRect(rect)
++        val type = slot.optString("type")
++        if (type != "pic" && slot.has("pic") && rect.width() >= dp(34)) {
++            drawGlyph(canvas, slot, rect.left, rect.height())
++            rect.left += dp(22)
++            canvas.clipRect(rect)
++        }
++        if (type == "pic") drawGlyph(canvas, slot, rect.left, rect.height())
++        else if (type == "progress") {
++            paint.color = Color.DKGRAY
++            canvas.drawRoundRect(rect.left, height / 2f - dp(2), rect.right, height / 2f + dp(2), dp(2), dp(2), paint)
++            paint.color = Color.WHITE
++            val progress = slot.optDouble("value", .35).toFloat()
++            canvas.drawRoundRect(rect.left, height / 2f - dp(2), rect.left + rect.width() * progress,
++                height / 2f + dp(2), dp(2), dp(2), paint)
++        } else {
++            val text = when (type) {
++                "text" -> slot.optString("text")
++                "number" -> slot.optString("value") + slot.optString("unit")
++                "timer", "countdown" -> {
++                    val millis = if (type == "timer") System.currentTimeMillis() - slot.optLong("startEpochMs")
++                        else slot.optLong("endEpochMs") - System.currentTimeMillis()
++                    val seconds = max(0, millis / 1000)
++                    "%d:%02d".format(seconds / 60, seconds % 60)
++                }
++                else -> "●"
++            }
++            paint.color = if (stale || slot.optString("emphasis") == "muted") Color.LTGRAY
++                else if (slot.optString("emphasis") == "accent") 0xffff6a28.toInt() else Color.WHITE
++            paint.textSize = minOf(dp(12) * resources.configuration.fontScale, rect.height() * .55f)
++            val end = paint.breakText(text, true, rect.width(), null)
++            val baseline = height / 2f - (paint.ascent() + paint.descent()) / 2
++            canvas.drawText(text.take(end), rect.left, baseline, paint)
++        }
++        canvas.restore()
++    }
++
++    private fun dp(value: Float) = value * density
++    private fun dp(value: Int) = value * density
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandCardEffects.kt
+@@ -0,0 +1,84 @@
++/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
++package com.android.systemui.taku.island
++
++import android.graphics.RenderEffect
++import android.graphics.RuntimeShader
++
++/** Native AGSL equivalents of the authored edge-only Figma shaders. */
++internal object IslandCardEffects {
++  /** Figma 297:432: the authored 16 dp right-edge region, flare .25 / dispersion .4.
++   * Equivalent to the WGSL's three channel samples; no blur across the title or card.
++   * Explicit bounds are essential: clamping outside the layer extrudes a vertical strip.
++   */
++  fun chipEdge(width: Float, height: Float, density: Float): RenderEffect {
++    val shader = RuntimeShader("""
++      uniform shader content;
++      uniform float2 size;
++      uniform float edge;
++      uniform float dispersion;
++      half4 sampleAt(float2 p) { return content.eval(clamp(p, float2(0.5), size - 0.5)); }
++      half4 main(float2 p) {
++        if (p.x < 0.0 || p.y < 0.0 || p.x >= size.x || p.y >= size.y) return half4(0.0);
++        if (p.x < size.x - edge) return content.eval(p);
++        float t = smoothstep(0.0, 1.0, (p.x - (size.x - edge)) / edge);
++        float stretch = 1.0 + 0.25 * t * t;
++        float2 q = float2(p.x, size.y * 0.5 + (p.y - size.y * 0.5) / stretch);
++        float shift = dispersion * t * t;
++        half4 r = sampleAt(q + float2(0.0, shift));
++        half4 g = sampleAt(q);
++        half4 b = sampleAt(q - float2(0.0, shift));
++        return half4(r.r, g.g, b.b, max(r.a, max(g.a, b.a)));
++      }
++    """).apply {
++      setFloatUniform("size", width, height)
++      setFloatUniform("edge", 16f * density)
++      setFloatUniform("dispersion", .4f * density)
++    }
++    return RenderEffect.createRuntimeShaderEffect(shader, "content")
++  }
++  private const val BOTTOM_EDGE = """
++    uniform shader content;
++    uniform float2 size;
++    uniform float edge;
++    uniform float flare;
++    uniform float dispersion;
++    uniform float maxSigma;
++    uniform float fade;
++    half4 tap(float2 p) { return content.eval(clamp(p, float2(0.5), size - 0.5)); }
++    half4 main(float2 p) {
++      float d = size.y - p.y;
++      if (d >= edge) return content.eval(p);
++      float t = smoothstep(0.0, 1.0, 1.0 - d / edge);
++      float stretch = 1.0 + flare * t * t;
++      float cx = size.x * 0.5;
++      float qx = cx + (p.x - cx) / stretch;
++      float shift = dispersion * t * t;
++      float sigma = maxSigma * t;
++      half4 acc = half4(0.0);
++      float wsum = 0.0;
++      for (int i = -4; i <= 4; i++) {
++        float y = float(i) * max(sigma, 0.01) * 0.5;
++        float w = exp(-0.125 * float(i * i));
++        half4 r = tap(float2(qx + shift, p.y + y));
++        half4 g = tap(float2(qx, p.y + y));
++        half4 b = tap(float2(qx - shift, p.y + y));
++        acc += half4(r.r, g.g, b.b, max(r.a, max(g.a, b.a))) * w;
++        wsum += w;
++      }
++      return acc / wsum * (1.0 - fade * t);
++    }
++  """
++
++  fun bottomEdge(width: Float, height: Float, density: Float, edge: Float = 32f * density, fade: Float = 1f): RenderEffect {
++    val shader = RuntimeShader(BOTTOM_EDGE).apply {
++      setFloatUniform("size", width, height)
++      setFloatUniform("edge", edge)
++      setFloatUniform("flare", 0.12f)
++      setFloatUniform("dispersion", 0.4f * density)
++      setFloatUniform("maxSigma", 2f * density)
++      setFloatUniform("fade", fade)
++    }
++    return RenderEffect.createRuntimeShaderEffect(shader, "content")
++  }
++
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandCardWindow.kt
+@@ -0,0 +1,302 @@
++/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
++package com.android.systemui.taku.island
++
++import android.animation.ValueAnimator
++import android.content.Context
++import android.graphics.Color
++import android.graphics.Path
++import android.graphics.PixelFormat
++import android.graphics.RectF
++import android.graphics.Region
++import android.graphics.drawable.GradientDrawable
++import android.view.Gravity
++import android.view.MotionEvent
++import android.view.SurfaceView
++import android.view.View
++import android.view.ViewTreeObserver
++import android.view.WindowInsets
++import android.view.WindowManager
++import android.widget.Button
++import android.widget.FrameLayout
++import android.widget.LinearLayout
++import android.widget.ProgressBar
++import android.widget.ScrollView
++import android.widget.TextView
++import android.window.OnBackInvokedCallback
++import android.window.OnBackInvokedDispatcher
++import org.json.JSONObject
++
++/** SystemUI owns geometry and touch; bounded remote cards may supply their own chrome. */
++internal class IslandCardWindow(context: Context, initial: IslandActivity, coverRequested: Boolean,
++    private val command: (String, String?, String?) -> Unit, private val collapse: (String) -> Unit,
++    private val covering: (Boolean) -> Unit,
++    private val changed: () -> Unit,
++    private val choices: List<IslandActivity>? = null) {
++    private val windowContext = context.createWindowContext(context.display,
++        WindowManager.LayoutParams.TYPE_STATUS_BAR_ADDITIONAL, null)
++    private val wm = windowContext.getSystemService(WindowManager::class.java)
++    private val density = windowContext.resources.displayMetrics.density
++    private val metrics = wm.currentWindowMetrics
++    private val topInset = metrics.windowInsets.getInsetsIgnoringVisibility(
++        WindowInsets.Type.statusBars() or WindowInsets.Type.displayCutout()).top
++    private var cover = coverRequested && !metrics.windowInsets.isVisible(WindowInsets.Type.ime())
++    private var activity = initial
++    private val nativeAssistant = choices == null && initial.category == "assistant"
++    private val nativeView = if (nativeAssistant) IslandAssistantCard(windowContext, command, collapse) else null
++    private val fullCard = nativeAssistant || choices == null && initial.payload.getJSONObject("expanded").optJSONObject("content")?.optString("layout") == "card"
++    private val root = FrameLayout(windowContext).apply {
++        background = GradientDrawable().apply { setColor(0xeb000000.toInt()); cornerRadius = dp(40).toFloat() }
++        clipToOutline = true
++        importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
++    }
++    private val fallback = LinearLayout(windowContext).apply { orientation = LinearLayout.VERTICAL }
++    private val header = LinearLayout(windowContext).apply { gravity = Gravity.CENTER_VERTICAL }
++    private val title = TextView(windowContext).apply { setTextColor(Color.WHITE); textSize = 18f; maxLines = 2 }
++    private val body = FrameLayout(windowContext)
++    private val template = LinearLayout(windowContext).apply { orientation = LinearLayout.VERTICAL }
++    private val scroll = ScrollView(windowContext).apply { addView(template) }
++    private val actions = LinearLayout(windowContext)
++    private var host: IslandContentConnection? = null
++    private var hostView: SurfaceView? = null
++    private var hostIdentity: String? = null
++    private var attached = false
++    private var richReady = false
++    private var templateGeneration = 0
++    private var animation: ValueAnimator? = null
++    private val region = Region()
++    private var backDispatcher: OnBackInvokedDispatcher? = null
++    private val back = OnBackInvokedCallback { collapse("back") }
++    private var finalHeight = desiredHeight(initial)
++    private var availableHeight = Int.MAX_VALUE
++    private var heightCap = finalHeight
++    private val params = WindowManager.LayoutParams(
++        minOf(dp(420), metrics.bounds.width() - dp(16)), if (nativeAssistant) finalHeight else dp(48),
++        WindowManager.LayoutParams.TYPE_STATUS_BAR_ADDITIONAL, flags(), PixelFormat.TRANSLUCENT,
++    ).apply {
++        title = "TakuIsland"
++        gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
++        y = if (cover) dp(8) else topInset + dp(8)
++        layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
++        setFitInsetsTypes(0)
++    }
++    private val insetsListener = ViewTreeObserver.OnComputeInternalInsetsListener { info ->
++        val path = Path().apply { addRoundRect(RectF(0f, 0f, root.width.toFloat(), root.height.toFloat()),
++            dp(40).toFloat(), dp(40).toFloat(), Path.Direction.CW) }
++        region.setPath(path, Region(0, 0, root.width, root.height))
++        info.setTouchableInsets(ViewTreeObserver.InternalInsetsInfo.TOUCHABLE_INSETS_REGION)
++        info.touchableRegion.set(region)
++    }
++
++    init {
++        header.addView(title, LinearLayout.LayoutParams(0, -2, 1f))
++        header.addView(Button(windowContext).apply {
++            text = "⌃"
++            contentDescription = "Collapse island"
++            setOnClickListener { collapse("handle") }
++        }, LinearLayout.LayoutParams(dp(48), dp(48)))
++        var startY = 0f
++        header.setOnTouchListener { _, event ->
++            when (event.actionMasked) {
++                MotionEvent.ACTION_DOWN -> { startY = event.y; true }
++                MotionEvent.ACTION_UP -> {
++                    if (startY - event.y > dp(24)) collapse("swipe_up")
++                    true
++                }
++                else -> true
++            }
++        }
++        body.addView(scroll, FrameLayout.LayoutParams(-1, -1))
++        fallback.addView(header, LinearLayout.LayoutParams(-1, -2))
++        fallback.addView(body, LinearLayout.LayoutParams(-1, 0, 1f))
++        fallback.addView(actions, LinearLayout.LayoutParams(-1, -2))
++        root.addView(nativeView ?: fallback, FrameLayout.LayoutParams(-1, -1))
++        root.setOnApplyWindowInsetsListener { _, insets ->
++            if (insets.isVisible(WindowInsets.Type.ime()) && cover) {
++                cover = false
++                covering(false)
++                params.flags = flags()
++                params.y = topInset + dp(8)
++                backDispatcher?.unregisterOnBackInvokedCallback(back)
++                backDispatcher = null
++                updatePadding()
++            }
++            if (attached) {
++                val available = metrics.bounds.height() - insets.getInsets(WindowInsets.Type.ime()).bottom - params.y - dp(8)
++                availableHeight = available
++                if (available < dp(120)) root.post { collapse("ime_no_space") }
++                else {
++                    heightCap = minOf(finalHeight, available)
++                    params.height = minOf(params.height, heightCap)
++                    wm.updateViewLayout(root, params)
++                    changed()
++                }
++            }
++            insets
++        }
++        updatePadding()
++        update(initial)
++    }
++
++    private fun flags(): Int = WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
++        WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
++        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
++
++    private fun updatePadding() {
++        fallback.setPadding(dp(16), dp(16), dp(16), dp(16))
++    }
++
++    fun show() {
++        root.viewTreeObserver.addOnComputeInternalInsetsListener(insetsListener)
++        wm.addView(root, params)
++        attached = true
++        covering(cover)
++        // Native content is complete before addView: no template/remote-surface transition.
++        if (nativeAssistant) return
++        animation = ValueAnimator.ofInt(dp(48), finalHeight).apply {
++            duration = 220
++            addUpdateListener {
++                if (attached) {
++                    params.height = minOf(it.animatedValue as Int, heightCap)
++                    wm.updateViewLayout(root, params)
++                    changed()
++                }
++            }
++            start()
++        }
++    }
++
++    /** Content snapshots update views; they do not restart the shell's geometry animation. */
++    fun update(next: IslandActivity) {
++        activity = next
++        title.text = next.title
++        val wantedHeight = desiredHeight(next)
++        if (wantedHeight != finalHeight) {
++            finalHeight = wantedHeight
++            heightCap = minOf(finalHeight, availableHeight)
++            if (attached) {
++                animation?.cancel()
++                params.height = heightCap
++                wm.updateViewLayout(root, params)
++                changed()
++            }
++        }
++        if (nativeView != null) { nativeView.update(next); return }
++        template.removeAllViews()
++        if (choices != null) {
++            title.text = "Activities"
++            choices.forEach { choice -> template.addView(Button(windowContext).apply {
++                text = choice.title
++                setOnClickListener { command("expand", choice.key, null) }
++            }) }
++            actions.removeAllViews()
++            return
++        }
++        val currentTemplate = ++templateGeneration
++        val expanded = next.payload.getJSONObject("expanded")
++        expanded.optString("pic").takeIf { it.isNotEmpty() }?.let { key ->
++            next.pics[key]?.let { icon ->
++                val picture = android.widget.ImageView(windowContext).apply {
++                    scaleType = android.widget.ImageView.ScaleType.CENTER_INSIDE
++                    contentDescription = next.title
++                }
++                template.addView(picture, LinearLayout.LayoutParams(-1, dp(64)))
++                icon.loadDrawableAsync(windowContext, { drawable ->
++                    if (currentTemplate == templateGeneration) picture.setImageDrawable(drawable)
++                }, android.os.Handler(android.os.Looper.getMainLooper()))
++            }
++        }
++        if (next.body.isNotBlank()) template.addView(text(next.body))
++        expanded.optJSONArray("steps")?.let { steps ->
++            for (index in 0 until steps.length()) {
++                val step = steps.getJSONObject(index)
++                template.addView(text((if (step.optBoolean("running")) "• " else "✓ ") + step.getString("text")))
++            }
++        }
++        expanded.optJSONObject("progress")?.let { progress ->
++            template.addView(ProgressBar(windowContext, null, android.R.attr.progressBarStyleHorizontal).apply {
++                isIndeterminate = !progress.has("value")
++                max = 1000
++                this.progress = (progress.optDouble("value", 0.0) * 1000).toInt()
++                contentDescription = if (isIndeterminate) "In progress" else "${this.progress / 10}%"
++            }, LinearLayout.LayoutParams(-1, dp(12)))
++        }
++        actions.removeAllViews()
++        next.actions.forEach { (id, action) ->
++            actions.addView(Button(windowContext).apply {
++                text = action.title
++                if (expanded.optString("primaryAction") == id) setTypeface(typeface, android.graphics.Typeface.BOLD)
++                maxLines = 2
++                setOnClickListener { command("action", next.key, JSONObject().put("id", id).toString()) }
++            }, LinearLayout.LayoutParams(0, -2, 1f))
++        }
++        next.nativeActions.forEach { (id, action) ->
++            actions.addView(Button(windowContext).apply {
++                text = action.title
++                setOnClickListener { command("action", next.key, JSONObject().put("id", id).toString()) }
++            })
++        }
++        if (actions.childCount == 0 && next.openIntent != null) actions.addView(Button(windowContext).apply {
++            text = "Open"
++            setOnClickListener { command("open", next.key, null) }
++        })
++        val identity = next.contentService?.flattenToString()?.plus(":" + expanded.optJSONObject("content")?.optString("token"))
++        if (identity != hostIdentity) {
++            host?.close()
++            host = null
++            hostView?.let { (it.parent as? android.view.ViewGroup)?.removeView(it) }
++            hostView = null
++            hostIdentity = identity
++            richReady = false
++            scroll.visibility = View.VISIBLE
++            fallback.visibility = View.VISIBLE
++            if (identity != null) {
++                val surface = SurfaceView(windowContext).apply {
++                    alpha = 0f
++                    holder.setFormat(PixelFormat.TRANSLUCENT)
++                }
++                (if (fullCard) root else body).addView(surface, FrameLayout.LayoutParams(-1, -1))
++                hostView = surface
++                host = IslandContentConnection(windowContext, next, surface) { ready ->
++                    richReady = ready
++                    if (fullCard) (root.background as GradientDrawable).setColor(if (ready) Color.TRANSPARENT else 0xeb000000.toInt())
++                    if (fullCard) fallback.visibility = if (ready) View.INVISIBLE else View.VISIBLE
++                    else scroll.visibility = if (ready) View.INVISIBLE else View.VISIBLE
++                    surface.alpha = if (ready) 1f else 0f
++                }.also { it.start() }
++            }
++        }
++    }
++
++    fun state(): JSONObject = JSONObject().put("key", activity.key).put("windowType", params.type)
++        .put("cover", cover).put("focusable", cover && !fullCard).put("layout", if (nativeAssistant) "native-assistant" else if (fullCard) "card" else "body").put("richReady", richReady)
++        .put("renderer", if (nativeAssistant) "systemui-native" else "template").put("nativeReady", nativeAssistant && attached)
++        .put("assistant", nativeView?.state() ?: JSONObject.NULL)
++        .put("width", root.width).put("height", root.height).put("top", params.y)
++        .put("touchRegion", region.toString()).put("outsideTapCollapses", false)
++
++    fun close() {
++        covering(false)
++        templateGeneration++
++        animation?.cancel()
++        animation = null
++        host?.close()
++        host = null
++        backDispatcher?.unregisterOnBackInvokedCallback(back)
++        backDispatcher = null
++        root.viewTreeObserver.removeOnComputeInternalInsetsListener(insetsListener)
++        if (attached) { attached = false; wm.removeViewImmediate(root) }
++    }
++
++    private fun text(value: String) = TextView(windowContext).apply {
++        text = value
++        setTextColor(Color.WHITE)
++        textSize = 15f
++        setPadding(0, dp(3), 0, dp(3))
++    }
++    private fun desiredHeight(item: IslandActivity): Int {
++        if (nativeView != null) return minOf(nativeView.desiredHeight(item, minOf(dp(420), metrics.bounds.width() - dp(16))), metrics.bounds.height() / 3)
++        val requested = if (fullCard) item.payload.getJSONObject("expanded").optJSONObject("content")?.optInt("heightDp", 300) ?: 300 else 340
++        return minOf(dp(requested.coerceIn(96, 340)), metrics.bounds.height() / 3)
++    }
++    private fun dp(value: Int) = (value * density).toInt()
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandContentConnection.kt
+@@ -0,0 +1,143 @@
++/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
++package com.android.systemui.taku.island
++
++import android.content.ComponentName
++import android.content.Context
++import android.content.Intent
++import android.content.ServiceConnection
++import android.os.Bundle
++import android.os.Handler
++import android.os.IBinder
++import android.os.Looper
++import android.os.Message
++import android.os.Messenger
++import android.os.UserHandle
++import android.view.SurfaceControlViewHost
++import android.view.SurfaceHolder
++import android.view.SurfaceView
++import android.view.View
++import org.agentos.island.IslandContentProtocol as Wire
++
++/** Never blocks SystemUI on the producer; late replies and binder death leave the template usable. */
++internal class IslandContentConnection(
++    private val context: Context,
++    private val activity: IslandActivity,
++    private val view: SurfaceView,
++    private val onReady: (Boolean) -> Unit,
++) : ServiceConnection, SurfaceHolder.Callback {
++    private val handler = Handler(Looper.getMainLooper())
++    private var bound = false
++    private var closed = false
++    private var remote: Messenger? = null
++    private var binder: IBinder? = null
++    private var deathLinked = false
++    private var generation = 0
++    private var surface: SurfaceControlViewHost.SurfacePackage? = null
++    private val death = IBinder.DeathRecipient { handler.post { fail() } }
++    private val timeout = Runnable { fail() }
++    private val receiver = Messenger(object : Handler(Looper.getMainLooper()) {
++        override fun handleMessage(message: Message) {
++            val candidate = try { message.data.getParcelable(Wire.SURFACE, SurfaceControlViewHost.SurfacePackage::class.java) }
++                catch (invalid: RuntimeException) { null }
++            if (closed || message.arg1 != generation || message.what != Wire.READY || candidate == null) {
++                candidate?.release()
++                if (!closed && message.arg1 == generation && message.what == Wire.FAILED) fail()
++                return
++            }
++            try {
++                view.setChildSurfacePackage(candidate)
++                surface?.release()
++                surface = candidate
++                handler.removeCallbacks(timeout)
++                onReady(true)
++            } catch (invalid: RuntimeException) {
++                candidate.release()
++                fail()
++            }
++        }
++    })
++
++    fun start() {
++        val component = activity.contentService ?: return
++        // Embedded SCVH views only receive touch when above their host window.
++        // The child is translucent; SystemUI's fallback is removed only after READY.
++        view.setZOrderOnTop(true)
++        view.holder.addCallback(this)
++        try {
++            bound = context.bindServiceAsUser(Intent().setComponent(component), this,
++                Context.BIND_AUTO_CREATE, UserHandle.of(activity.userId))
++            if (!bound) fail() else handler.postDelayed(timeout, 2500)
++        } catch (failure: RuntimeException) { fail() }
++    }
++
++    override fun onServiceConnected(name: ComponentName, service: IBinder) {
++        if (closed) return
++        binder = service
++        try {
++            service.linkToDeath(death, 0)
++            deathLinked = true
++            remote = Messenger(service)
++            attach()
++        } catch (failure: Exception) { fail() }
++    }
++    override fun onServiceDisconnected(name: ComponentName) = fail()
++    override fun onBindingDied(name: ComponentName) = fail()
++    override fun onNullBinding(name: ComponentName) = fail()
++    override fun surfaceCreated(holder: SurfaceHolder) = attach()
++    override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) = attach()
++    override fun surfaceDestroyed(holder: SurfaceHolder) { releaseRemote(); onReady(false) }
++
++    private fun attach() {
++        val service = remote ?: return
++        if (closed || !view.holder.surface.isValid || view.width <= 0 || view.height <= 0) return
++        releaseRemote()
++        val message = Message.obtain(null, Wire.ATTACH).apply {
++            arg1 = ++generation
++            replyTo = receiver
++            data = Bundle().apply {
++                putInt(Wire.VERSION_KEY, Wire.VERSION)
++                putBinder(Wire.HOST_TOKEN, view.hostToken)
++                putInt(Wire.WIDTH, view.width.coerceAtMost(Wire.MAX_DIMENSION))
++                putInt(Wire.HEIGHT, view.height.coerceAtMost(Wire.MAX_DIMENSION))
++                putInt(Wire.DISPLAY, view.display.displayId)
++                putString(Wire.TOKEN, activity.payload.getJSONObject("expanded").optJSONObject("content")?.optString("token").orEmpty())
++            }
++        }
++        try {
++            service.send(message)
++            handler.removeCallbacks(timeout)
++            handler.postDelayed(timeout, 2500)
++        } catch (failure: Exception) { fail() }
++    }
++
++    private fun releaseRemote() {
++        try { remote?.send(Message.obtain(null, Wire.RELEASE).apply { arg1 = generation; replyTo = receiver }) }
++        catch (ignored: Exception) { /* Binder death uses the same template fallback. */ }
++        surface?.release()
++        surface = null
++    }
++
++    private fun fail() {
++        close()
++        onReady(false)
++    }
++
++    fun close() {
++        if (closed) return
++        closed = true
++        handler.removeCallbacks(timeout)
++        releaseRemote()
++        if (deathLinked) {
++            try { binder?.unlinkToDeath(death, 0) } catch (ignored: RuntimeException) {}
++            deathLinked = false
++        }
++        binder = null
++        remote = null
++        view.holder.removeCallback(this)
++        view.visibility = View.GONE
++        if (bound) {
++            bound = false
++            context.unbindService(this)
++        }
++    }
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandEngine.kt
+@@ -0,0 +1,294 @@
++/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
++package com.android.systemui.taku.island
++
++import android.app.ActivityOptions
++import android.app.RemoteInput
++import android.content.Context
++import android.content.Intent
++import android.net.Uri
++import android.os.Bundle
++import android.os.Handler
++import android.os.SystemClock
++import android.provider.Settings
++import com.android.systemui.dagger.SysUISingleton
++import com.android.systemui.dagger.qualifiers.Background
++import com.android.systemui.dagger.qualifiers.Main
++import com.android.systemui.settings.UserTracker
++import com.android.systemui.statusbar.NotificationLockscreenUserManager
++import com.android.systemui.statusbar.notification.collection.NotifPipeline
++import com.android.systemui.statusbar.notification.collection.NotificationEntry
++import com.android.systemui.statusbar.notification.collection.notifcollection.NotifCollectionListener
++import java.util.concurrent.Executor
++import javax.inject.Inject
++import org.json.JSONArray
++import org.json.JSONObject
++
++interface IslandPresentation {
++    fun render(activities: List<IslandStore.Entry<IslandActivity>>)
++    fun expand(key: String): Boolean
++    fun select(key: String): Boolean
++    fun choose(): Boolean
++    fun collapse(reason: String)
++    fun state(): JSONObject
++}
++
++/** All source, GUI and Agent mutations are serialized on SystemUI's main thread. */
++@SysUISingleton
++class IslandEngine @Inject constructor(
++    private val context: Context,
++    private val pipeline: NotifPipeline,
++    private val extractor: IslandExtractor,
++    val policy: IslandPolicy,
++    private val users: UserTracker,
++    private val lockscreenUsers: NotificationLockscreenUserManager,
++    @Main private val handler: Handler,
++    @Main private val mainExecutor: Executor,
++    @Background private val worker: Executor,
++) {
++    private val store = IslandStore<IslandActivity>()
++    private val diagnostics = ArrayDeque<String>()
++    private val prefs = context.getSharedPreferences("taku_island_lifetimes", Context.MODE_PRIVATE)
++    private var presentation: IslandPresentation? = null
++    @Volatile var snapshot = "{}"
++        private set
++
++    private val tick = Runnable { changed() }
++    private val publishPresentation = Runnable { publishSnapshot() }
++
++    /** GUI-only transitions (swipe, rotation, IME and animation) also notify Agent observers. */
++    fun presentationChanged() {
++        handler.removeCallbacks(publishPresentation)
++        handler.post(publishPresentation)
++    }
++
++    fun start() {
++        IslandRuntime.engine = this
++        policy.start { refresh() }
++        users.addCallback(object : UserTracker.Callback {
++            override fun onUserChanged(newUser: Int, userContext: Context) {
++                presentation?.collapse("user_changed")
++                store.clear()
++                refresh()
++            }
++            override fun onProfilesChanged(profiles: List<android.content.pm.UserInfo>) {
++                presentation?.collapse("profiles_changed")
++                store.clear()
++                refresh()
++            }
++        }, mainExecutor)
++        pipeline.addCollectionListener(object : NotifCollectionListener {
++            override fun onEntryAdded(entry: NotificationEntry) = update(entry)
++            override fun onEntryUpdated(entry: NotificationEntry) = update(entry)
++            override fun onEntryRemoved(entry: NotificationEntry, reason: Int) {
++                store.remove(entry.key)
++                forgetLifetime(entry.key)
++                changed()
++            }
++        })
++        refresh()
++
++    }
++
++    fun attachPresentation(value: IslandPresentation) {
++        presentation = value
++        changed()
++    }
++
++    fun refresh() {
++        pipeline.getAllNotifs().forEach(::update)
++        changed()
++    }
++
++    private fun update(entry: NotificationEntry) {
++        val sbn = entry.sbn
++        if (!lockscreenUsers.isCurrentProfile(sbn.userId) || !lockscreenUsers.isProfileAvailable(sbn.userId)) {
++            store.remove(entry.key)
++            changed()
++            return
++        }
++        val candidate = sbn.notification.isPromotedOngoing || sbn.notification.extras.containsKey("taku.island.v1") || IslandSystemNotifications.candidate(sbn.notification)
++        if (!candidate) {
++            store.remove(entry.key)
++            changed()
++            return
++        }
++        val revision = store.begin(entry.key)
++        if (revision < 0) { diagnose("capacity_limit:${sbn.packageName}"); return }
++        val allowed = policy.canPost(sbn.packageName)
++        worker.execute {
++            val result = extractor.extract(sbn, allowed)
++            handler.post {
++                if (!store.isCurrent(sbn.key, revision)) return@post
++                if (result.error != null) diagnose("${sbn.key}:${result.error}")
++                val activity = result.activity
++                if (activity == null) store.reject(sbn.key, revision)
++                else {
++                    val payload = activity.payload
++                    val now = SystemClock.elapsedRealtime()
++                    val lifetime = minOf(payload.optInt("islandTimeoutS", 3600),
++                        prefs.getInt("lifetime|${sbn.key}", 28800))
++                    if (store.put(sbn.key, revision, now, firstSeen(sbn.key, now),
++                            lifetime, payload.optInt("staleAfterS", 0),
++                            activity.priority, payload.optDouble("relevance", .5), payload.optBoolean("alert"), activity)) {
++                        prefs.edit().putInt("lifetime|${sbn.key}", lifetime).apply()
++                        if (prefs.getBoolean("dismissed|${sbn.key}", false)) store.dismiss(sbn.key)
++                    }
++                }
++                changed()
++            }
++        }
++    }
++
++    fun putSystem(activity: IslandActivity, now: Long) {
++        store.put(activity.key, store.begin(activity.key), now, firstSeen(activity.key, now),
++            28800, 0, activity.priority, .5, false, activity)
++        if (prefs.getBoolean("dismissed|${activity.key}", false)) store.dismiss(activity.key)
++        changed()
++    }
++
++    fun removeSystem(key: String) { store.remove(key); forgetLifetime(key); changed() }
++
++    fun reconcileSystemKeys(current: Set<String>) {
++        prefs.all.keys.filter { it.startsWith("elapsed|taku:system:") }
++            .map { it.removePrefix("elapsed|") }.filter { it !in current }.forEach(::removeSystem)
++    }
++
++    private fun forgetLifetime(key: String) {
++        prefs.edit().remove("elapsed|$key").remove("wall|$key").remove("boot|$key")
++            .remove("dismissed|$key").remove("lifetime|$key").apply()
++    }
++
++    private fun firstSeen(key: String, now: Long): Long {
++        val boot = Settings.Global.getInt(context.contentResolver, "boot_count", -1)
++        val wallNow = System.currentTimeMillis()
++        if (prefs.getInt("boot|$key", -2) == boot) return prefs.getLong("elapsed|$key", now).coerceAtMost(now)
++        val age = (wallNow - prefs.getLong("wall|$key", wallNow)).coerceIn(0, IslandStore.MAX_LIFETIME_MS)
++        val first = now - age
++        prefs.edit().putInt("boot|$key", boot).putLong("elapsed|$key", first)
++            .putLong("wall|$key", wallNow - age).apply()
++        return first
++    }
++
++    private fun diagnose(message: String) {
++        if (diagnostics.size >= 64) diagnostics.removeFirst()
++        diagnostics.addLast(message.take(512))
++    }
++
++    private fun visible() = if (policy.enabled) store.active(SystemClock.elapsedRealtime()) else emptyList()
++
++    private fun changed() {
++        val active = visible()
++        presentation?.render(active)
++        publishSnapshot()
++        handler.removeCallbacks(tick)
++        val now = SystemClock.elapsedRealtime()
++        val deadlines = active.flatMap { listOf(it.expiresAt, it.staleAt, it.alertUntil) }.filter { it > now }
++        var next = deadlines.minOrNull()
++        val timed = active.any { entry ->
++            val slots = entry.data.payload.optJSONObject("bigIsland")
++            listOf("leading", "trailing").any { slots?.optJSONObject(it)?.optString("type") in listOf("timer", "countdown") }
++        }
++        if (timed) next = minOf(next ?: Long.MAX_VALUE, now + 1000)
++        next?.let { handler.postDelayed(tick, (it - now).coerceAtLeast(1)) }
++    }
++
++    private fun publishSnapshot() {
++        val nextSnapshot = JSONObject().put("settings", policy.snapshot()).put("activities", list())
++            .put("presentation", presentation?.state() ?: JSONObject.NULL)
++            .put("diagnostics", JSONArray(diagnostics.toList())).toString()
++        if (nextSnapshot != snapshot) {
++            snapshot = nextSnapshot
++            context.contentResolver.notifyChange(Uri.parse("content://com.android.systemui.island"), null)
++        }
++    }
++
++    private fun item(entry: IslandStore.Entry<IslandActivity>): JSONObject = JSONObject()
++        .put("key", entry.key).put("package", entry.data.packageName).put("userId", entry.data.userId)
++        .put("revision", entry.revision).put("firstSeenElapsedMs", entry.firstSeen)
++        .put("expiresElapsedMs", entry.expiresAt).put("stale", entry.stale(SystemClock.elapsedRealtime()))
++        .put("dismissed", entry.dismissed).put("active", entry.active(SystemClock.elapsedRealtime()))
++        .put("availableActions", JSONArray((entry.data.actions.map { (id, action) -> JSONObject().put("id", id).put("title", action.title) } +
++            entry.data.nativeActions.map { (id, action) -> JSONObject().put("id", id).put("title", action.title) })))
++        .put("payload", entry.data.payload).put("fallback", entry.data.fallback ?: JSONObject.NULL)
++
++    private fun list(): JSONArray = JSONArray().apply {
++        store.active(SystemClock.elapsedRealtime()).forEach { put(item(it)) }
++    }
++
++    fun command(method: String, arg: String?, extra: String?): JSONObject {
++        return when (method) {
++            "capabilities" -> JSONObject().put("ok", true).put("protocol", 1)
++                .put("enabled", policy.enabled).put("presentationAttached", presentation != null)
++                .put("takuProducer", IslandRuntime.producerStatus)
++                .put("compiledAndDeviceVerified", false)
++                .put("operations", JSONArray(listOf("list", "get", "select", "choose", "expand", "collapse", "dismiss", "action", "open", "settings", "setEnabled", "setAllowed")))
++            "canShowIsland" -> JSONObject().put("ok", true).put("enabled", policy.enabled)
++                .put("package", arg ?: JSONObject.NULL).put("customAllowed", arg != null && policy.canPost(arg))
++                .put("liveUpdates", true)
++            "list" -> JSONObject().put("ok", true).put("activities", list())
++            "state" -> JSONObject().put("ok", true).put("settings", policy.snapshot())
++                .put("activities", list()).put("presentation", presentation?.state() ?: JSONObject.NULL)
++            "get" -> store.get(arg)?.let { JSONObject().put("ok", true).put("activity", item(it)) }
++                ?: IslandRuntime.error("not_found")
++            "settings" -> JSONObject().put("ok", true).put("settings", policy.snapshot())
++            "setEnabled" -> mutate { policy.setEnabled(requireNotNull(arg) { "missing_value" }) }
++            "setAllowed" -> mutate { policy.setAllowed(arg.orEmpty()) }
++            "setProtocol" -> IslandRuntime.error("read_only_protocol")
++            "expand" -> mutate {
++                require(policy.enabled) { "island_disabled" }
++                require(store.get(arg)?.active(SystemClock.elapsedRealtime()) == true) { "not_found" }
++                require(presentation?.expand(requireNotNull(arg)) == true) { "presentation_unavailable" }
++            }
++            "collapse" -> mutate { presentation?.collapse("agent") }
++            "select" -> mutate { require(presentation?.select(requireNotNull(arg) { "missing_key" }) == true) { "not_found" } }
++            "choose" -> mutate { require(presentation?.choose() == true) { "presentation_unavailable" } }
++            "dismiss" -> mutate {
++                require(arg != null && store.dismiss(arg)) { "not_found" }
++                prefs.edit().putBoolean("dismissed|$arg", true).apply()
++            }
++            "open" -> mutate { send(requireActivity(arg).openIntent ?: throw IllegalArgumentException("action_unavailable")) }
++            "action" -> mutate {
++                val activity = requireActivity(arg)
++                val request = JSONObject(extra ?: throw IllegalArgumentException("missing_action"))
++                val id = request.getString("id")
++                val native = activity.nativeActions[id]
++                if (native != null) {
++                    require(!request.has("reply")) { "reply_unavailable" }
++                    native.run()
++                    return@mutate
++                }
++                val action = activity.actions[id] ?: throw IllegalArgumentException("action_unavailable")
++                val fill = Intent()
++                if (request.has("reply")) {
++                    val reply = request.getString("reply")
++                    require(reply.length <= 4000) { "reply_too_long" }
++                    val inputs = action.remoteInputs ?: throw IllegalArgumentException("reply_unavailable")
++                    val values = Bundle()
++                    inputs.filter { it.allowFreeFormInput }.forEach { values.putCharSequence(it.resultKey, reply) }
++                    require(!values.isEmpty) { "reply_unavailable" }
++                    RemoteInput.addResultsToIntent(inputs, fill, values)
++                }
++                send(action.actionIntent, fill)
++            }
++            else -> IslandRuntime.error("unknown_operation")
++        }
++    }
++
++    private fun requireActivity(key: String?): IslandActivity {
++        val entry = store.get(key) ?: throw IllegalArgumentException("not_found")
++        require(entry.active(SystemClock.elapsedRealtime())) { "not_found" }
++        return entry.data
++    }
++
++    private fun send(intent: android.app.PendingIntent, fill: Intent = Intent()) {
++        val options = ActivityOptions.makeBasic()
++            .setPendingIntentBackgroundActivityStartMode(ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED)
++        intent.send(context, 0, fill, null, handler, null, options.toBundle())
++    }
++
++    private fun mutate(action: () -> Unit): JSONObject = try {
++        action()
++        changed()
++        JSONObject().put("ok", true).put("state", JSONObject(snapshot))
++    } catch (failure: Exception) { IslandRuntime.error(failure.message ?: "operation_failed") }
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandExtractor.kt
+@@ -0,0 +1,159 @@
++/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
++package com.android.systemui.taku.island
++
++import android.app.Notification
++import android.content.ComponentName
++import android.content.Context
++import android.content.pm.PackageManager
++import android.content.pm.PermissionInfo
++import android.graphics.drawable.Icon
++import android.os.Bundle
++import android.os.UserHandle
++import android.service.notification.StatusBarNotification
++import javax.inject.Inject
++import org.json.JSONArray
++import org.json.JSONObject
++
++/** Runs off-main. Invalid Taku data never cancels or removes an Android notification. */
++class IslandExtractor @Inject constructor(private val context: Context, private val systemNotifications: IslandSystemNotifications) {
++    data class Extraction(val activity: IslandActivity?, val error: String?)
++
++    fun extract(sbn: StatusBarNotification, customAllowed: Boolean): Extraction {
++        var error: String? = null
++        try {
++            val notification = sbn.notification
++            val systemCategory = systemNotifications.category(sbn)
++            if (systemCategory != null) return Extraction(baseline(sbn, systemCategory, null), null)
++            if (notification.extras.containsKey("taku.island.v1")) {
++                if (!customAllowed) error = "publisher_not_allowed"
++                else {
++                    val raw = notification.extras.get("taku.island.v1")
++                    val result = IslandPayload.parse(raw as? String, sbn.packageName, false)
++                    if (result.isValid) {
++                        try {
++                            return Extraction(custom(sbn, result.payload), null)
++                        } catch (invalid: Exception) {
++                            error = "invalid_references_or_host"
++                        }
++                    } else error = result.error
++                }
++            }
++            if (notification.isPromotedOngoing || systemCategory != null) {
++                return Extraction(baseline(sbn, systemCategory, error), error)
++            }
++        } catch (invalid: Exception) {
++            error = "unreadable_notification"
++        }
++        return Extraction(null, error)
++    }
++
++    private fun custom(sbn: StatusBarNotification, payload: JSONObject): IslandActivity {
++        val extras = sbn.notification.extras
++        val picBundle = extras.getBundle("taku.island.pics") ?: Bundle.EMPTY
++        val actionBundle = extras.getBundle("taku.island.actions") ?: Bundle.EMPTY
++        val pics = mutableMapOf<String, Icon>()
++        val actions = mutableMapOf<String, Notification.Action>()
++        fun collectPictures(value: Any?) {
++            when (value) {
++                is JSONObject -> {
++                    if (value.has("pic")) {
++                        val key = value.getString("pic")
++                        val icon = picBundle.getParcelable(key, Icon::class.java)
++                            ?: throw IllegalArgumentException("missing_icon")
++                        require(validIcon(icon, sbn.packageName))
++                        pics[key] = icon
++                    }
++                    value.keys().forEach { collectPictures(value.get(it)) }
++                }
++                is JSONArray -> for (index in 0 until value.length()) collectPictures(value.get(index))
++            }
++        }
++        collectPictures(payload)
++        val expanded = payload.getJSONObject("expanded")
++        val actionKeys = expanded.optJSONArray("actions") ?: JSONArray()
++        for (index in 0 until actionKeys.length()) {
++            val key = actionKeys.getString(index)
++            val action = actionBundle.getParcelable(key, Notification.Action::class.java)
++                ?: throw IllegalArgumentException("missing_action")
++            require(action.actionIntent != null && action.actionIntent.creatorUid == sbn.uid)
++            actions[key] = action
++        }
++        val service = expanded.optJSONObject("content")?.let {
++            ComponentName.unflattenFromString(it.getString("service"))
++                ?: throw IllegalArgumentException("invalid_service")
++        }
++        if (service != null) {
++            require(service.packageName == sbn.packageName)
++            val pm = context.createContextAsUser(UserHandle.of(sbn.userId), 0).packageManager
++            val info = pm.getServiceInfo(service, PackageManager.ComponentInfoFlags.of(0))
++            require(info.exported && info.applicationInfo.uid == sbn.uid && info.permission != null)
++            val permission = pm.getPermissionInfo(info.permission, 0)
++            require(permission.protectionLevel and PermissionInfo.PROTECTION_MASK_BASE == PermissionInfo.PROTECTION_SIGNATURE)
++        }
++        return IslandActivity(sbn.key, sbn.packageName, sbn.uid, sbn.userId, payload, pics.toMap(),
++            actions.toMap(), sbn.notification.contentIntent?.takeIf { it.creatorUid == sbn.uid }, service, null)
++    }
++
++    private fun baseline(sbn: StatusBarNotification, category: String?, fallback: String?): IslandActivity {
++        val n = sbn.notification
++        val extras = n.extras
++        val pics = mutableMapOf<String, Icon>()
++        n.smallIcon?.let { if (validIcon(it, sbn.packageName)) pics["app"] = it }
++        val critical = extras.getCharSequence(Notification.EXTRA_SHORT_CRITICAL_TEXT)?.toString()?.take(16)
++        val slot = when {
++            !critical.isNullOrBlank() -> JSONObject().put("type", "text").put("text", critical)
++            n.`when` > 0 && extras.getBoolean(Notification.EXTRA_SHOW_CHRONOMETER) -> JSONObject()
++                .put("type", if (extras.getBoolean(Notification.EXTRA_CHRONOMETER_COUNT_DOWN)) "countdown" else "timer")
++                .put(if (extras.getBoolean(Notification.EXTRA_CHRONOMETER_COUNT_DOWN)) "endEpochMs" else "startEpochMs", n.`when`)
++            n.`when` > 0 -> JSONObject().put("type", "text").put("text",
++                android.text.format.DateFormat.getTimeFormat(context).format(java.util.Date(n.`when`)).take(16))
++            pics.isNotEmpty() -> JSONObject().put("type", "pic").put("pic", "app")
++            else -> JSONObject().put("type", "text").put("text", "●")
++        }
++        val actions = linkedMapOf<String, Notification.Action>()
++        n.actions?.take(4)?.forEachIndexed { index, action ->
++            if (action.actionIntent != null && action.actionIntent.creatorUid == sbn.uid) actions["action_$index"] = action
++        }
++        if (category == "call") {
++            listOf(Triple("answer", "Answer", Notification.EXTRA_ANSWER_INTENT),
++                Triple("decline", "Decline", Notification.EXTRA_DECLINE_INTENT),
++                Triple("hangup", "Hang up", Notification.EXTRA_HANG_UP_INTENT)).forEach { (id, label, key) ->
++                extras.getParcelable(key, android.app.PendingIntent::class.java)?.takeIf { it.creatorUid == sbn.uid }?.let { intent ->
++                    // Replace the same CallStyle action instead of rendering it twice.
++                    actions.entries.removeAll { it.value.actionIntent == intent }
++                    actions[id] = Notification.Action.Builder(null as Icon?, label, intent).build()
++                }
++            }
++        }
++        val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.take(80)
++            ?.takeIf { it.isNotBlank() } ?: sbn.packageName.take(80)
++        val expanded = JSONObject().put("template", "text").put("title", title)
++            .put("body", extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.take(2000).orEmpty())
++            .put("actions", JSONArray(actions.keys.toList()))
++        if (extras.getBoolean(Notification.EXTRA_PROGRESS_INDETERMINATE) || extras.getInt(Notification.EXTRA_PROGRESS_MAX) > 0) {
++            val progress = JSONObject().put("type", "progress")
++            val maximum = extras.getInt(Notification.EXTRA_PROGRESS_MAX)
++            if (!extras.getBoolean(Notification.EXTRA_PROGRESS_INDETERMINATE) && maximum > 0) {
++                progress.put("value", (extras.getInt(Notification.EXTRA_PROGRESS).toDouble() / maximum).coerceIn(0.0, 1.0))
++            }
++            expanded.put("template", "progress").put("progress", progress)
++        }
++        val payload = JSONObject().put("version", 1).put("category", category ?: when (n.category) {
++            Notification.CATEGORY_NAVIGATION -> "navigation"
++            Notification.CATEGORY_TRANSPORT -> "media"
++            Notification.CATEGORY_PROGRESS -> "progress"
++            else -> "other"
++        }).put("bigIsland", JSONObject().put("leading", slot)).put("expanded", expanded)
++            .put("alert", category == "alarm" || (category == "call" && extras.getInt(Notification.EXTRA_CALL_TYPE) == Notification.CallStyle.CALL_TYPE_INCOMING))
++        return IslandActivity(sbn.key, sbn.packageName, sbn.uid, sbn.userId, payload, pics,
++            actions, n.contentIntent?.takeIf { it.creatorUid == sbn.uid } ?: n.fullScreenIntent?.takeIf { it.creatorUid == sbn.uid }, null, fallback)
++    }
++
++    private fun validIcon(icon: Icon, postingPackage: String): Boolean = when (icon.type) {
++        Icon.TYPE_RESOURCE -> icon.resPackage == postingPackage || icon.resPackage == "android"
++        Icon.TYPE_BITMAP, Icon.TYPE_ADAPTIVE_BITMAP -> icon.bitmap?.let {
++            it.width <= 512 && it.height <= 512 && it.allocationByteCount <= 1024 * 1024
++        } == true
++        else -> false // URI/data loading is not part of the island transport.
++    }
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandModule.kt
+@@ -0,0 +1,16 @@
++/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
++package com.android.systemui.taku.island
++
++import com.android.systemui.CoreStartable
++import dagger.Binds
++import dagger.Module
++import dagger.multibindings.ClassKey
++import dagger.multibindings.IntoMap
++
++@Module
++interface IslandModule {
++    @Binds
++    @IntoMap
++    @ClassKey(IslandStartable::class)
++    fun bindStartable(impl: IslandStartable): CoreStartable
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandPayload.java
+@@ -0,0 +1,295 @@
++/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
++package com.android.systemui.taku.island;
++
++import android.util.JsonReader;
++import android.util.JsonToken;
++import java.io.IOException;
++import java.io.StringReader;
++import java.nio.charset.StandardCharsets;
++import java.util.Arrays;
++import java.util.HashSet;
++import java.util.Iterator;
++import java.util.Set;
++import org.json.JSONArray;
++import org.json.JSONException;
++import org.json.JSONObject;
++
++/** Bounded draft-v1 validation. No class loading, URI fetching, action execution or view inflation. */
++public final class IslandPayload {
++    public static final int MAX_BYTES = 8192;
++
++    public static final class Result {
++        public final JSONObject payload;
++        public final String error;
++
++        private Result(JSONObject payload, String error) {
++            this.payload = payload;
++            this.error = error;
++        }
++
++        public boolean isValid() { return payload != null; }
++    }
++
++    /** Producer ownership/permission and referenced Icon/Action checks belong to the extractor. */
++    public static Result parse(String json, String postingPackage, boolean systemSource) {
++        if (json == null) return new Result(null, "missing_payload");
++        // Reject before allocating an arbitrarily large UTF-8 copy or entering the JSON parser.
++        if (json.length() > MAX_BYTES || json.getBytes(StandardCharsets.UTF_8).length > MAX_BYTES) {
++            return new Result(null, "payload_too_large");
++        }
++        try {
++            checkDepth(json);
++            JSONObject value;
++            try (JsonReader reader = new JsonReader(new StringReader(json))) {
++                reader.setLenient(false);
++                Object parsed = readJson(reader);
++                require(parsed instanceof JSONObject && reader.peek() == JsonToken.END_DOCUMENT, "invalid_json");
++                value = (JSONObject) parsed;
++            }
++            keys(value, "version category bigIsland smallIsland expanded relevance statusBar alert islandTimeoutS staleAfterS compact");
++            integer(value, "version", 1, 1, true);
++            choice(value, "category", "call alarm recording navigation timer assistant media progress other", true);
++            String category = value.getString("category");
++            choice(value, "compact", "auto hidden building", false);
++            require(!"building".equals(value.optString("compact")) || category.equals("assistant"), "invalid_building_category");
++            require(systemSource || !(category.equals("call") || category.equals("alarm")), "reserved_category");
++            number(value, "relevance", 0, 1);
++            JSONObject big = object(value, "bigIsland");
++            keys(big, "leading trailing");
++            require(big.length() > 0, "empty_big_island");
++            for (String side : new String[]{"leading", "trailing"}) {
++                if (big.has(side)) slot(object(big, side), false);
++            }
++            if (value.has("smallIsland")) slot(object(value, "smallIsland"), true);
++            expanded(object(value, "expanded"), postingPackage);
++            if (object(value, "expanded").has("assistant")) require(category.equals("assistant"), "assistant_category");
++            choice(value, "statusBar", "auto cover below", false);
++            bool(value, "alert");
++            integer(value, "islandTimeoutS", 1, 28800, false);
++            integer(value, "staleAfterS", 1, 28800, false);
++            return new Result(value, null);
++        } catch (JSONException | IOException | IllegalArgumentException | IllegalStateException error) {
++            // Never return untrusted text or a parser exception to the status bar renderer.
++            return new Result(null, "invalid_payload");
++        }
++    }
++
++    private static void expanded(JSONObject value, String postingPackage) throws JSONException {
++        keys(value, "template title body pic steps progress actions primaryAction content assistant");
++        choice(value, "template", "text steps progress media assistant", true);
++        text(value, "title", 1, 80, true);
++        text(value, "body", 0, 2000, false);
++        key(value, "pic", false);
++        String template = value.getString("template");
++        require(!template.equals("steps") || value.has("steps"), "missing_steps");
++        require(!template.equals("progress") || value.has("progress"), "missing_progress");
++        if (value.has("steps")) {
++            JSONArray steps = array(value, "steps", 8);
++            for (int index = 0; index < steps.length(); index++) {
++                JSONObject step = steps.getJSONObject(index);
++                keys(step, "kind text running");
++                choice(step, "kind", "search browse act info", true);
++                text(step, "text", 1, 120, true);
++                bool(step, "running");
++            }
++        }
++        if (value.has("progress")) {
++            JSONObject progress = object(value, "progress");
++            require("progress".equals(progress.opt("type")), "invalid_progress");
++            slot(progress, true);
++        }
++        Set<String> actions = new HashSet<>();
++        if (value.has("actions")) {
++            JSONArray list = array(value, "actions", 4);
++            for (int index = 0; index < list.length(); index++) {
++                Object action = list.get(index);
++                require(action instanceof String && validKey((String) action), "invalid_action_key");
++                require(actions.add((String) action), "duplicate_action");
++            }
++        }
++        key(value, "primaryAction", false);
++        if (value.has("primaryAction")) {
++            require(actions.contains(value.getString("primaryAction")), "missing_primary_action");
++        }
++        if (value.has("assistant")) {
++            require(template.equals("assistant") && !value.has("content"), "native_assistant_only");
++            JSONObject assistant = object(value, "assistant");
++            keys(assistant, "token phase heightDp suggestions");
++            text(assistant, "token", 1, 256, true);
++            choice(assistant, "phase", "listening working message", true);
++            integer(assistant, "heightDp", 96, 340, true);
++            JSONArray suggestions = array(assistant, "suggestions", 4);
++            Set<String> seen = new HashSet<>();
++            for (int i = 0; i < suggestions.length(); i++) {
++                String id = suggestions.getString(i);
++                require(actions.contains(id) && seen.add(id), "invalid_suggestion_action");
++            }
++        }
++        require(!template.equals("assistant") || value.has("assistant"), "missing_assistant");
++        if (value.has("content")) {
++            JSONObject content = object(value, "content");
++            keys(content, "service token layout heightDp");
++            choice(content, "layout", "body card", false);
++            integer(content, "heightDp", 96, 340, false);
++            text(content, "service", 1, 512, true);
++            String service = content.getString("service");
++            require(service.matches("^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+/[A-Za-z0-9_.$]+$"), "invalid_service");
++            require(postingPackage != null && service.substring(0, service.indexOf('/')).equals(postingPackage), "foreign_service");
++            text(content, "token", 0, 256, false);
++        }
++    }
++
++    private static void slot(JSONObject slot, boolean small) throws JSONException {
++        choice(slot, "type", small ? "pic progress" : "pic text timer countdown progress number", true);
++        String type = slot.getString("type");
++        switch (type) {
++            case "pic":
++                keys(slot, "type pic animated contentDescription");
++                key(slot, "pic", true);
++                choice(slot, "animated", "none working listening", false);
++                text(slot, "contentDescription", 0, 80, false);
++                break;
++            case "text":
++                keys(slot, "type text pic emphasis");
++                text(slot, "text", 1, 16, true);
++                choice(slot, "emphasis", "normal accent muted", false);
++                break;
++            case "timer":
++            case "countdown":
++                String field = type.equals("timer") ? "startEpochMs" : "endEpochMs";
++                keys(slot, "type pic " + field);
++                // Keep integer arithmetic exact across native/JS producers.
++                integer(slot, field, 0, 9007199254740991L, true);
++                break;
++            case "progress":
++                keys(slot, "type value pic");
++                number(slot, "value", 0, 1);
++                break;
++            case "number":
++                keys(slot, "type value unit pic");
++                text(slot, "value", 1, 3, true);
++                require(slot.getString("value").matches("[0-9]{1,3}"), "invalid_digits");
++                text(slot, "unit", 0, 4, false);
++                break;
++            default: throw new IllegalArgumentException("unsupported_slot");
++        }
++        key(slot, "pic", false);
++    }
++
++    private static void keys(JSONObject object, String allowed) {
++        Set<String> fields = new HashSet<>(Arrays.asList(allowed.split(" ")));
++        Iterator<String> keys = object.keys();
++        while (keys.hasNext()) require(fields.contains(keys.next()), "unknown_field");
++    }
++
++    private static JSONObject object(JSONObject value, String field) throws JSONException {
++        Object result = value.get(field);
++        require(result instanceof JSONObject, "expected_object");
++        return (JSONObject) result;
++    }
++
++    private static JSONArray array(JSONObject value, String field, int max) throws JSONException {
++        Object result = value.get(field);
++        require(result instanceof JSONArray, "expected_array");
++        JSONArray array = (JSONArray) result;
++        require(array.length() <= max, "too_many_items");
++        return array;
++    }
++
++    private static void text(JSONObject value, String field, int min, int max, boolean required) throws JSONException {
++        if (!required && !value.has(field)) return;
++        Object raw = value.get(field);
++        require(raw instanceof String, "expected_string");
++        String text = (String) raw;
++        int count = text.codePointCount(0, text.length());
++        require(count >= min && count <= max, "text_length");
++    }
++
++    private static boolean validKey(String key) { return key.matches("[a-z][a-z0-9_]{0,31}"); }
++
++    private static void key(JSONObject value, String field, boolean required) throws JSONException {
++        text(value, field, 1, 32, required);
++        if (value.has(field)) require(validKey(value.getString(field)), "invalid_key");
++    }
++
++    private static void choice(JSONObject value, String field, String choices, boolean required) throws JSONException {
++        text(value, field, 1, 32, required);
++        if (value.has(field)) require(Arrays.asList(choices.split(" ")).contains(value.getString(field)), "invalid_enum");
++    }
++
++    private static void number(JSONObject value, String field, double min, double max) throws JSONException {
++        if (!value.has(field)) return;
++        Object raw = value.get(field);
++        require(raw instanceof Number, "expected_number");
++        double number = ((Number) raw).doubleValue();
++        require(Double.isFinite(number) && number >= min && number <= max, "number_range");
++    }
++
++    private static void integer(JSONObject value, String field, long min, long max, boolean required) throws JSONException {
++        if (!required && !value.has(field)) return;
++        require(value.has(field), "missing_integer");
++        number(value, field, min, max);
++        double number = ((Number) value.get(field)).doubleValue();
++        require(number == Math.floor(number), "expected_integer");
++    }
++
++    private static void bool(JSONObject value, String field) throws JSONException {
++        if (value.has(field)) require(value.get(field) instanceof Boolean, "expected_boolean");
++    }
++
++    private static void require(boolean condition, String error) {
++        if (!condition) throw new IllegalArgumentException(error);
++    }
++
++    private static void checkDepth(String json) {
++        int depth = 0;
++        boolean quoted = false;
++        boolean escaped = false;
++        for (int index = 0; index < json.length(); index++) {
++            char character = json.charAt(index);
++            if (quoted) {
++                if (escaped) escaped = false;
++                else if (character == '\\') escaped = true;
++                else if (character == '"') quoted = false;
++            } else if (character == '"') quoted = true;
++            else if (character == '{' || character == '[') require(++depth <= 8, "too_deep");
++            else if (character == '}' || character == ']') require(--depth >= 0, "unbalanced_json");
++        }
++        require(!quoted && depth == 0, "unbalanced_json");
++    }
++
++    private static Object readJson(JsonReader reader) throws IOException, JSONException {
++        switch (reader.peek()) {
++            case BEGIN_OBJECT:
++                JSONObject object = new JSONObject();
++                reader.beginObject();
++                while (reader.hasNext()) {
++                    String name = reader.nextName();
++                    require(!object.has(name), "duplicate_field");
++                    object.put(name, readJson(reader));
++                }
++                reader.endObject();
++                return object;
++            case BEGIN_ARRAY:
++                JSONArray array = new JSONArray();
++                reader.beginArray();
++                while (reader.hasNext()) array.put(readJson(reader));
++                reader.endArray();
++                return array;
++            case STRING: return reader.nextString();
++            case BOOLEAN: return reader.nextBoolean();
++            case NULL:
++                reader.nextNull();
++                return JSONObject.NULL;
++            case NUMBER:
++                String number = reader.nextString();
++                require(number.matches("-?(0|[1-9][0-9]*)(\\.[0-9]+)?([eE][+-]?[0-9]+)?"), "invalid_number");
++                double parsed = Double.parseDouble(number);
++                require(Double.isFinite(parsed), "nonfinite_number");
++                return parsed;
++            default: throw new IllegalArgumentException("invalid_json_token");
++        }
++    }
++
++    private IslandPayload() {}
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandPolicy.kt
+@@ -0,0 +1,100 @@
++/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
++package com.android.systemui.taku.island
++
++import android.content.Context
++import android.content.pm.PackageManager
++import android.database.ContentObserver
++import android.os.Handler
++import android.provider.Settings
++import com.android.systemui.dagger.SysUISingleton
++import com.android.systemui.dagger.qualifiers.Main
++import javax.inject.Inject
++import org.json.JSONArray
++import org.json.JSONObject
++
++/** Settings UI, content/cmd operations and raw settings writes share this policy and validation. */
++@SysUISingleton
++class IslandPolicy @Inject constructor(private val context: Context, @Main private val handler: Handler) {
++    var enabled = true
++        private set
++    var allowedPackages: Set<String> = emptySet()
++        private set
++    var lastError: String? = null
++        private set
++    private var onChanged: () -> Unit = {}
++
++    fun start(changed: () -> Unit) {
++        onChanged = changed
++        val observer = object : ContentObserver(handler) {
++            override fun onChange(selfChange: Boolean) { reload() }
++        }
++        for (key in listOf(ENABLED, ALLOWED, PROTOCOL)) {
++            context.contentResolver.registerContentObserver(Settings.Global.getUriFor(key), false, observer)
++        }
++        reload()
++    }
++
++    fun canPost(packageName: String): Boolean = packageName in allowedPackages ||
++        context.packageManager.checkPermission(POST_PERMISSION, packageName) == PackageManager.PERMISSION_GRANTED
++
++    fun setEnabled(value: String) {
++        require(value == "0" || value == "1") { "invalid_enabled" }
++        require(Settings.Global.putString(context.contentResolver, ENABLED, value)) { "settings_write_failed" }
++        reload()
++    }
++
++    fun setAllowed(value: String) {
++        val packages = validatePackages(value)
++        require(Settings.Global.putString(context.contentResolver, ALLOWED, packages.sorted().joinToString(","))) {
++            "settings_write_failed"
++        }
++        reload()
++    }
++
++    fun snapshot(): JSONObject = JSONObject().put("enabled", enabled).put("protocol", 1)
++        .put("allowedPackages", JSONArray(allowedPackages.sorted())).put("error", lastError ?: JSONObject.NULL)
++
++    private fun reload() {
++        val resolver = context.contentResolver
++        val oldEnabled = enabled
++        val oldAllowed = allowedPackages
++        lastError = null
++        val rawEnabled = Settings.Global.getString(resolver, ENABLED)
++        when (rawEnabled) {
++            null -> Settings.Global.putString(resolver, ENABLED, if (enabled) "1" else "0")
++            "0" -> enabled = false
++            "1" -> enabled = true
++            else -> {
++                lastError = "invalid_enabled"
++                Settings.Global.putString(resolver, ENABLED, if (enabled) "1" else "0")
++            }
++        }
++        val rawAllowed = Settings.Global.getString(resolver, ALLOWED).orEmpty()
++        try { allowedPackages = validatePackages(rawAllowed) }
++        catch (invalid: IllegalArgumentException) {
++            lastError = "invalid_allowed_packages"
++            Settings.Global.putString(resolver, ALLOWED, allowedPackages.sorted().joinToString(","))
++        }
++        // Global Settings has no per-key read-only primitive. Repair attempts to change this
++        // capability marker; provider/cmd reject protocol writes synchronously.
++        if (Settings.Global.getString(resolver, PROTOCOL) != "1") Settings.Global.putString(resolver, PROTOCOL, "1")
++        if (enabled != oldEnabled || allowedPackages != oldAllowed) onChanged()
++    }
++
++    private fun validatePackages(value: String): Set<String> {
++        require(value.length <= 32768) { "invalid_allowed_packages" }
++        if (value.isBlank()) return emptySet()
++        val parts = value.split(',').map { it.trim() }
++        require(parts.size <= 128 && parts.all {
++            it.length <= 255 && it.matches(Regex("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+"))
++        }) { "invalid_allowed_packages" }
++        return parts.toSet()
++    }
++
++    companion object {
++        const val ENABLED = "taku_island_enabled"
++        const val ALLOWED = "taku_island_allowed_packages"
++        const val PROTOCOL = "taku_island_protocol"
++        const val POST_PERMISSION = "org.agentos.permission.POST_ISLAND"
++    }
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandPresentationOwnership.kt
+@@ -0,0 +1,19 @@
++/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
++package com.android.systemui.taku.island
++
++import kotlinx.coroutines.flow.MutableStateFlow
++import kotlinx.coroutines.flow.asStateFlow
++
++/** Only the actually displayed primary island owns its upstream chip. Hidden islands own nothing. */
++object IslandPresentationOwnership {
++    data class Owner(val notificationKey: String? = null, val source: String? = null)
++    private val mutable = MutableStateFlow(Owner())
++    val state = mutable.asStateFlow()
++    fun show(activity: IslandActivity?) {
++        mutable.value = when {
++            activity == null -> Owner()
++            activity.key.startsWith("taku:system:") -> Owner(source = activity.payload.optString("source"))
++            else -> Owner(notificationKey = activity.key)
++        }
++    }
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandPresenter.kt
+@@ -0,0 +1,307 @@
++/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
++package com.android.systemui.taku.island
++
++import android.content.Context
++import android.content.res.Configuration
++import android.graphics.Rect
++import android.os.Handler
++import android.os.SystemClock
++import android.view.Display
++import android.view.Gravity
++import android.view.View
++import android.view.ViewGroup
++import android.widget.FrameLayout
++import android.widget.LinearLayout
++import android.widget.Toast
++import com.android.systemui.dagger.SysUISingleton
++import com.android.systemui.dagger.qualifiers.Application
++import com.android.systemui.dagger.qualifiers.Main
++import com.android.systemui.res.R
++import com.android.systemui.shade.domain.interactor.ShadeInteractor
++import com.android.systemui.statusbar.notification.headsup.HeadsUpManager
++import com.android.systemui.statusbar.notification.headsup.OnHeadsUpChangedListener
++import com.android.systemui.statusbar.phone.PhoneStatusBarView
++import com.android.systemui.statusbar.policy.KeyguardStateController
++import javax.inject.Inject
++import kotlinx.coroutines.CoroutineScope
++import kotlinx.coroutines.flow.collect
++import kotlinx.coroutines.launch
++import org.json.JSONObject
++
++/** One presentation state machine; input and Agent operations converge here through IslandEngine. */
++@SysUISingleton
++class IslandPresenter @Inject constructor(
++    private val context: Context,
++    private val engine: IslandEngine,
++    private val shade: ShadeInteractor,
++    private val keyguard: KeyguardStateController,
++    private val headsUp: HeadsUpManager,
++    @Main private val handler: Handler,
++    @Application private val scope: CoroutineScope,
++) : IslandPresentation {
++    private var bar: PhoneStatusBarView? = null
++    private var capsule: IslandCapsuleView? = null
++    private var items: List<IslandStore.Entry<IslandActivity>> = emptyList()
++    private var selected: String? = null
++    private var arbiterPrimary: String? = null
++    private var card: IslandCardWindow? = null
++    private var cardKey: String? = null
++    private var cardRevision = -1L
++    private var reason = "startup"
++    private var automatic = false
++    private var choosing = false
++    private val alerted = mutableMapOf<String, Long>()
++    private data class Relocated(val view: View, val parent: ViewGroup, val index: Int, val params: ViewGroup.LayoutParams)
++    private val relocated = mutableListOf<Relocated>()
++    private val layout = View.OnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> layoutCapsule() }
++
++    fun start() {
++        engine.attachPresentation(this)
++        keyguard.addCallback(object : KeyguardStateController.Callback {
++            override fun onKeyguardShowingChanged() {
++                if (keyguard.isShowing) collapse("keyguard")
++                layoutCapsule()
++            }
++        })
++        headsUp.addListener(object : OnHeadsUpChangedListener {
++            override fun onHeadsUpStateChanged(entry: com.android.systemui.statusbar.notification.collection.NotificationEntry, isHeadsUp: Boolean) {
++                layoutCapsule()
++            }
++            override fun onHeadsUpPinnedModeChanged(inPinnedMode: Boolean) {
++                if (inPinnedMode) collapse("heads_up")
++                layoutCapsule()
++            }
++        })
++        scope.launch {
++            shade.isAnyExpanded.collect { expanded ->
++                if (expanded) collapse("shade")
++                layoutCapsule()
++            }
++        }
++    }
++
++    fun attach(view: PhoneStatusBarView) {
++        if (view.context.displayId != Display.DEFAULT_DISPLAY || bar === view) return
++        detach()
++        bar = view
++        capsule = IslandCapsuleView(view.context,
++            tap = { if (card != null) invoke("collapse", null) else selected?.let { invoke("expand", it) } },
++            cycle = ::cycle,
++            choose = { invoke("choose", null) },
++        )
++        view.addView(capsule, FrameLayout.LayoutParams(dp(180), dp(28), Gravity.CENTER))
++        view.addOnLayoutChangeListener(layout)
++        view.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
++            override fun onViewAttachedToWindow(v: View) = layoutCapsule()
++            override fun onViewDetachedFromWindow(v: View) {
++                if (bar === v) detach()
++                v.removeOnAttachStateChangeListener(this)
++            }
++        })
++        layoutCapsule()
++    }
++
++    private fun detach() {
++        IslandPresentationOwnership.show(null)
++        collapse("status_bar_detached")
++        restoreCentered()
++        bar?.removeOnLayoutChangeListener(layout)
++        capsule?.let { bar?.removeView(it) }
++        bar?.setTakuIslandProbeWidth(0)
++        capsule = null
++        bar = null
++    }
++
++    override fun render(activities: List<IslandStore.Entry<IslandActivity>>) {
++        items = activities
++        val old = items.find { it.key == selected }
++        val first = items.firstOrNull()
++        if (old == null || (first?.key != arbiterPrimary && first != null &&
++                (first.priority < old.priority || first.alertUntil > SystemClock.elapsedRealtime()))) {
++            if (selected != first?.key && card != null) collapse("priority_changed")
++            selected = first?.key
++        }
++        arbiterPrimary = first?.key
++        alerted.keys.retainAll(items.map { it.key }.toSet())
++        val expanded = items.find { it.key == cardKey }
++        if (card != null && expanded == null) collapse("source_ended")
++        if (automatic && expanded != null && expanded.alertUntil <= SystemClock.elapsedRealtime()) collapse("alert_timeout")
++        if (expanded != null && expanded.revision != cardRevision) {
++            card?.update(expanded.data)
++            cardRevision = expanded.revision
++        }
++        layoutCapsule()
++        if (first != null && first.alertUntil > SystemClock.elapsedRealtime() && alerted[first.key] != first.revision) {
++            alerted[first.key] = first.revision
++            if (card == null && canExpand()) {
++                selected = first.key
++                open(first, cover = false, isAlert = true)
++                handler.postDelayed({ if (automatic && cardKey == first.key &&
++                    (items.find { it.key == first.key }?.alertUntil ?: 0) <= SystemClock.elapsedRealtime()) collapse("alert_timeout") },
++                    (first.alertUntil - SystemClock.elapsedRealtime()).coerceAtLeast(0))
++            }
++        }
++    }
++
++    override fun select(key: String): Boolean {
++        if (items.none { it.key == key }) return false
++        selected = key
++        if (card != null && cardKey != key) collapse("selection_changed")
++        layoutCapsule()
++        return true
++    }
++
++    private fun cycle(delta: Int) {
++        val candidates = items.filter { it.data.compactVisible }
++        if (candidates.isEmpty()) return
++        val index = candidates.indexOfFirst { it.key == selected }.coerceAtLeast(0)
++        invoke("select", candidates[(index + delta + candidates.size) % candidates.size].key)
++    }
++
++    override fun choose(): Boolean {
++        val item = items.firstOrNull { it.key == selected } ?: return false
++        if (!canExpand()) return false
++        collapse("choose")
++        return open(item, cover = false, isAlert = false, choices = items.map { it.data })
++    }
++
++    override fun expand(key: String): Boolean {
++        val item = items.find { it.key == key } ?: return false
++        if (!canExpand()) return false
++        selected = key
++        if (cardKey == key && card != null && !choosing) { automatic = false; return true }
++        collapse("switch")
++        val cover = item.data.payload.optString("statusBar", "auto") != "below"
++        return open(item, cover, false)
++    }
++
++    private fun open(item: IslandStore.Entry<IslandActivity>, cover: Boolean, isAlert: Boolean,
++        choices: List<IslandActivity>? = null): Boolean {
++        val view = bar ?: return false
++        val candidate = IslandCardWindow(view.context, item.data, cover, ::invoke, ::collapse,
++            covering = { covered ->
++                view.alpha = if (covered) 0f else 1f
++                // show/close update the card reference after this callback. Reconcile afterward,
++                // avoiding a recursive close during rotation to landscape.
++                handler.post { layoutCapsule() }
++            }, changed = engine::presentationChanged, choices = choices)
++        return try {
++            candidate.show()
++            card = candidate
++            cardKey = item.key
++            cardRevision = item.revision
++            automatic = isAlert
++            choosing = choices != null
++            reason = if (isAlert) "alert" else "expanded"
++            true
++        } catch (failure: RuntimeException) {
++            candidate.close()
++            reason = "window_failed:${failure.javaClass.simpleName}"
++            false
++        }
++    }
++
++    override fun collapse(reason: String) {
++        card?.close()
++        card = null
++        cardKey = null
++        automatic = false
++        choosing = false
++        this.reason = reason
++        engine.presentationChanged()
++    }
++
++    private fun canExpand(): Boolean = bar?.isAttachedToWindow == true && !keyguard.isShowing &&
++        !shade.isAnyExpanded.value && !headsUp.hasPinnedHeadsUp() &&
++        context.resources.configuration.orientation != Configuration.ORIENTATION_LANDSCAPE
++
++    private fun layoutCapsule() {
++        try { layoutCapsuleNow() } finally { engine.presentationChanged() }
++    }
++
++    private fun layoutCapsuleNow() {
++        val view = bar ?: run { IslandPresentationOwnership.show(null); return }
++        val pill = capsule ?: run { IslandPresentationOwnership.show(null); return }
++        if (context.resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE && card != null) collapse("landscape")
++        selected = IslandStore.compactSelection(items, selected, card != null) { it.compactVisible }
++        val activity = items.find { it.key == selected }?.data
++        if (activity == null || !activity.compactVisible || view.alpha == 0f || keyguard.isShowing || shade.isAnyExpanded.value || headsUp.isHeadsUpEntry(activity.key)) {
++            IslandPresentationOwnership.show(if (card != null) activity else null)
++            pill.visibility = View.GONE
++            view.setTakuIslandProbeWidth(0)
++            restoreCentered()
++            return
++        }
++        val cutout = view.rootWindowInsets?.displayCutout?.boundingRectTop ?: Rect()
++        val physical = if (!cutout.isEmpty && cutout.centerX() in view.width / 3..view.width * 2 / 3) cutout.width() else 0
++        val clock = maxOf(view.findViewById<View>(R.id.clock)?.width ?: 0, dp(52))
++        val icons = maxOf(view.findViewById<View>(R.id.status_bar_end_side_content)?.width ?: 0, dp(64))
++        val budget = (view.width - 2 * (maxOf(clock, icons) + dp(12))).coerceAtLeast(0)
++        val minimum = if (activity.building) pill.buildingWidth() else physical + dp(48)
++        if (budget < minimum) {
++            IslandPresentationOwnership.show(null)
++            pill.visibility = View.GONE
++            view.setTakuIslandProbeWidth(0)
++            restoreCentered()
++            return
++        }
++        relocateCentered()
++        val width = if (activity.building) pill.buildingWidth() else minOf(dp(220), budget)
++        pill.widthMode = if (width >= physical + dp(120)) 0 else if (width >= physical + dp(80)) 1 else 2
++        pill.cutoutWidth = physical.toFloat()
++        val secondary = !activity.building && items.count { it.data.compactVisible } > 1 && width >= physical + dp(80)
++        pill.stale = items.find { it.key == selected }?.stale(SystemClock.elapsedRealtime()) == true
++        pill.bind(activity, if (secondary) items.firstOrNull { it.key != selected && it.data.compactVisible }?.data else null)
++        pill.translationX = if (secondary) dp(14).toFloat() else 0f
++        pill.visibility = View.VISIBLE
++        IslandPresentationOwnership.show(if (view.isShown) activity else null)
++        val height = minOf(dp(32), view.height.coerceAtLeast(dp(24)))
++        val params = FrameLayout.LayoutParams(width, height, Gravity.CENTER)
++        if (activity.building) {
++            // FrameLayout centering includes asymmetric status-bar padding. Anchor to the
++            // actual display cutout instead, keeping the centre disc exactly on the camera.
++            val location = IntArray(2)
++            view.getLocationOnScreen(location)
++            val cameraX = if (physical > 0) cutout.centerX() - location[0] else view.width / 2
++            params.gravity = Gravity.TOP or Gravity.LEFT
++            params.leftMargin = cameraX - dp(52) - view.paddingLeft
++            params.topMargin = (view.height - height) / 2 - view.paddingTop
++        }
++        val previous = pill.layoutParams as FrameLayout.LayoutParams
++        if (previous.width != width || previous.height != height || previous.gravity != params.gravity ||
++            previous.leftMargin != params.leftMargin || previous.topMargin != params.topMargin) pill.layoutParams = params
++        view.setTakuIslandProbeWidth(width)
++    }
++
++    private fun relocateCentered() {
++        val view = bar ?: return
++        val target = view.findViewById<LinearLayout>(R.id.status_bar_start_side_except_heads_up) ?: return
++        for (id in listOf(R.id.clock_center, R.id.network_traffic_holder_center)) {
++            val item = view.findViewById<View>(id) ?: continue
++            if (item.visibility != View.VISIBLE || item.parent === target || relocated.any { it.view === item }) continue
++            val parent = item.parent as? ViewGroup ?: continue
++            relocated.add(Relocated(item, parent, parent.indexOfChild(item), item.layoutParams))
++            parent.removeView(item)
++            target.addView(item, 0, LinearLayout.LayoutParams(-2, -1))
++        }
++    }
++
++    private fun restoreCentered() {
++        for (item in relocated.asReversed()) {
++            (item.view.parent as? ViewGroup)?.removeView(item.view)
++            item.parent.addView(item.view, minOf(item.index, item.parent.childCount), item.params)
++        }
++        relocated.clear()
++    }
++
++    override fun state(): JSONObject = JSONObject().put("selected", selected ?: JSONObject.NULL)
++        .put("compactVisible", capsule?.visibility == View.VISIBLE && bar?.alpha != 0f).put("reason", reason)
++        .put("expanded", card != null).put("card", card?.state() ?: JSONObject.NULL)
++
++    private fun invoke(method: String, arg: String?, extra: String? = null) {
++        val result = engine.command(method, arg, extra)
++        if (!result.optBoolean("ok")) Toast.makeText(context, result.optString("error"), Toast.LENGTH_SHORT).show()
++    }
++
++    private fun dp(value: Int) = (value * context.resources.displayMetrics.density).toInt()
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandProducerBinding.kt
+@@ -0,0 +1,81 @@
++/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
++package com.android.systemui.taku.island
++
++import android.content.BroadcastReceiver
++import android.content.ComponentName
++import android.content.Context
++import android.content.Intent
++import android.content.IntentFilter
++import android.content.ServiceConnection
++import android.os.Handler
++import android.os.IBinder
++import android.os.UserHandle
++import com.android.systemui.dagger.SysUISingleton
++import com.android.systemui.dagger.qualifiers.Main
++import com.android.systemui.settings.UserTracker
++import java.util.concurrent.Executor
++import javax.inject.Inject
++
++/** Keeps the notification projection alive independently of home/assistant Activities and rich UI. */
++@SysUISingleton
++class IslandProducerBinding @Inject constructor(private val context: Context, private val users: UserTracker,
++    @Main private val handler: Handler, @Main private val executor: Executor) : ServiceConnection {
++    private var bound = false
++    private var retryMs = 1000L
++    private val retry = Runnable { bind() }
++
++    fun start() {
++        users.addCallback(object : UserTracker.Callback {
++            override fun onUserChanged(newUser: Int, userContext: Context) { rebind() }
++        }, executor)
++        context.registerReceiver(object : BroadcastReceiver() {
++            override fun onReceive(context: Context, intent: Intent) { rebind() }
++        }, IntentFilter(Intent.ACTION_USER_UNLOCKED), Context.RECEIVER_NOT_EXPORTED)
++        context.registerReceiver(object : BroadcastReceiver() {
++            override fun onReceive(context: Context, intent: Intent) {
++                if (intent.data?.schemeSpecificPart == PACKAGE) rebind()
++            }
++        }, IntentFilter().apply {
++            addAction(Intent.ACTION_PACKAGE_ADDED); addAction(Intent.ACTION_PACKAGE_REPLACED)
++            addAction(Intent.ACTION_PACKAGE_REMOVED); addDataScheme("package")
++        }, Context.RECEIVER_NOT_EXPORTED)
++        bind()
++    }
++
++    private fun rebind() {
++        handler.removeCallbacks(retry)
++        if (bound) { context.unbindService(this); bound = false }
++        retryMs = 1000
++        bind()
++    }
++
++    private fun bind() {
++        if (bound) return
++        try {
++            bound = context.bindServiceAsUser(Intent().setComponent(ComponentName(PACKAGE, SERVICE)),
++                this, Context.BIND_AUTO_CREATE, UserHandle.of(users.userId))
++            IslandRuntime.producerStatus = if (bound) "binding" else "unavailable"
++        } catch (failure: RuntimeException) { IslandRuntime.producerStatus = "unavailable:${failure.javaClass.simpleName}" }
++        if (!bound) {
++            handler.removeCallbacks(retry)
++            handler.postDelayed(retry, retryMs)
++            retryMs = (retryMs * 2).coerceAtMost(30_000)
++        }
++    }
++
++    override fun onServiceConnected(name: ComponentName, service: IBinder) {
++        retryMs = 1000
++        IslandRuntime.producerStatus = "connected"
++    }
++    override fun onServiceDisconnected(name: ComponentName) { IslandRuntime.producerStatus = "reconnecting" }
++    override fun onBindingDied(name: ComponentName) { rebind() }
++    override fun onNullBinding(name: ComponentName) {
++        if (bound) { context.unbindService(this); bound = false }
++        IslandRuntime.producerStatus = "null_binding"
++        handler.postDelayed(retry, 30_000)
++    }
++    companion object {
++        const val PACKAGE = "org.agentos.agent"
++        const val SERVICE = "org.agentos.agent.home.island.IslandPublisherService"
++    }
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandProvider.kt
+@@ -0,0 +1,45 @@
++/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
++package com.android.systemui.taku.island
++
++import android.content.ContentProvider
++import android.content.ContentValues
++import android.database.Cursor
++import android.database.MatrixCursor
++import android.net.Uri
++import android.os.Binder
++import android.os.Bundle
++
++/** Public Agent interface. Publication policy is separate from reading/operating visible state. */
++class IslandProvider : ContentProvider() {
++    override fun onCreate() = true
++    override fun getType(uri: Uri) = "application/vnd.taku.island+json"
++
++    override fun query(uri: Uri, projection: Array<out String>?, selection: String?,
++        selectionArgs: Array<out String>?, sortOrder: String?): Cursor {
++        val method = uri.pathSegments.firstOrNull() ?: "capabilities"
++        val key = uri.getQueryParameter("key") ?: uri.getQueryParameter("package") ?: uri.pathSegments.getOrNull(1)
++        val result = if (method in setOf("capabilities", "canShowIsland", "state", "list", "get", "settings")) {
++            operate(method, key, null)
++        } else IslandRuntime.error("unsupported_query")
++        return MatrixCursor(arrayOf("json")).apply {
++            addRow(arrayOf(result.toString()))
++            context?.let { setNotificationUri(it.contentResolver, Uri.parse("content://com.android.systemui.island")) }
++        }
++    }
++
++    override fun call(method: String, arg: String?, extras: Bundle?): Bundle = Bundle().apply {
++        putString("json", operate(method, arg, extras?.getString("value")).toString())
++    }
++
++    private fun operate(method: String, arg: String?, extra: String?): org.json.JSONObject {
++        val identity = Binder.clearCallingIdentity()
++        return try { IslandRuntime.call(method, arg, extra) }
++        finally { Binder.restoreCallingIdentity(identity) }
++    }
++
++    override fun insert(uri: Uri, values: ContentValues?): Uri? = throw UnsupportedOperationException("use_call")
++    override fun delete(uri: Uri, selection: String?, selectionArgs: Array<out String>?): Int =
++        throw UnsupportedOperationException("use_call")
++    override fun update(uri: Uri, values: ContentValues?, selection: String?, selectionArgs: Array<out String>?): Int =
++        throw UnsupportedOperationException("use_call")
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandRuntime.kt
+@@ -0,0 +1,32 @@
++/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
++package com.android.systemui.taku.island
++
++import android.os.Handler
++import android.os.Looper
++import java.util.concurrent.FutureTask
++import java.util.concurrent.TimeUnit
++import org.json.JSONObject
++
++/** Provider is created by Android before Dagger startup; it never creates another repository. */
++object IslandRuntime {
++    @Volatile var engine: IslandEngine? = null
++    @Volatile var producerStatus = "starting"
++    private val handler = Handler(Looper.getMainLooper())
++
++    fun call(method: String, arg: String?, extra: String?): JSONObject {
++        if (Looper.myLooper() == Looper.getMainLooper()) return invoke(method, arg, extra)
++        val task = FutureTask { invoke(method, arg, extra) }
++        if (!handler.post(task)) return error("systemui_unavailable")
++        return try { task.get(5, TimeUnit.SECONDS) }
++        catch (failure: Exception) {
++            task.cancel(false)
++            error("systemui_timeout")
++        }
++    }
++
++    private fun invoke(method: String, arg: String?, extra: String?): JSONObject = try {
++        engine?.command(method, arg, extra) ?: error("systemui_starting")
++    } catch (failure: Exception) { error(failure.message ?: "operation_failed") }
++
++    fun error(code: String): JSONObject = JSONObject().put("ok", false).put("error", code.take(160))
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandSettingsActivity.kt
+@@ -0,0 +1,102 @@
++/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
++package com.android.systemui.taku.island
++
++import android.app.Activity
++import android.database.ContentObserver
++import android.net.Uri
++import android.os.Bundle
++import android.os.Handler
++import android.os.Looper
++import android.text.InputType
++import android.view.View
++import android.view.WindowInsets
++import android.widget.Button
++import android.widget.EditText
++import android.widget.LinearLayout
++import android.widget.ScrollView
++import android.widget.Switch
++import android.widget.TextView
++import android.widget.Toast
++import org.json.JSONObject
++
++/** Settings and Agents call the same provider; this Activity owns no policy copy. */
++class IslandSettingsActivity : Activity() {
++    private val uri = Uri.parse("content://com.android.systemui.island")
++    private lateinit var enabled: Switch
++    private lateinit var allowed: EditText
++    private lateinit var summary: TextView
++    private var refreshing = false
++    private val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
++        override fun onChange(selfChange: Boolean) { read(false) }
++    }
++    override fun onCreate(savedInstanceState: Bundle?) {
++        super.onCreate(savedInstanceState)
++        title = "Activity island"
++        val padding = (20 * resources.displayMetrics.density).toInt()
++        val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(padding, padding, padding, padding) }
++        val scroller = ScrollView(this).apply { addView(content) }
++        scroller.setOnApplyWindowInsetsListener { view, insets ->
++            val safe = insets.getInsets(WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout() or WindowInsets.Type.ime())
++            view.setPadding(safe.left, safe.top, safe.right, safe.bottom)
++            insets
++        }
++        content.addView(TextView(this).apply { text = "Activity island"; textSize = 24f; isAccessibilityHeading = true })
++        enabled = Switch(this).apply { text = "Show activities in the status bar"; minHeight = padding * 3 }
++        content.addView(enabled)
++        summary = TextView(this)
++        content.addView(summary)
++        val label = TextView(this).apply {
++            text = "Apps allowed to publish custom island content\nEnter package names separated by commas. Android Live Updates work without this list. Platform-signed publishers retain their signature permission."
++            setPadding(0, padding, 0, padding / 2)
++        }
++        content.addView(label)
++        allowed = EditText(this).apply {
++            id = View.generateViewId()
++            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
++            hint = "org.example.app,org.example.other"
++            minLines = 3
++            setSingleLine(false)
++        }
++        label.labelFor = allowed.id
++        content.addView(allowed)
++        content.addView(Button(this).apply {
++            text = "Save allowed apps"
++            setOnClickListener {
++                val result = call("setAllowed", allowed.text.toString())
++                if (result.optBoolean("ok")) { allowed.clearFocus(); read(true) }
++                else showError(result)
++            }
++        })
++        content.addView(Button(this).apply { text = "Done"; setOnClickListener { finish() } })
++        enabled.setOnCheckedChangeListener { _, checked ->
++            if (!refreshing) {
++                val result = call("setEnabled", if (checked) "1" else "0")
++                if (!result.optBoolean("ok")) showError(result)
++                read(false)
++            }
++        }
++        setContentView(scroller)
++    }
++    override fun onStart() {
++        super.onStart()
++        contentResolver.registerContentObserver(uri, true, observer)
++        read(true)
++    }
++    override fun onStop() { contentResolver.unregisterContentObserver(observer); super.onStop() }
++    private fun read(replaceDraft: Boolean) {
++        val result = call("settings", null)
++        if (!result.optBoolean("ok")) { summary.text = result.optString("error"); return }
++        val state = result.getJSONObject("settings")
++        refreshing = true
++        enabled.isChecked = state.getBoolean("enabled")
++        refreshing = false
++        val packages = state.getJSONArray("allowedPackages")
++        if (replaceDraft || !allowed.hasFocus()) allowed.setText((0 until packages.length()).joinToString(",") { packages.getString(it) })
++        summary.text = "Protocol ${state.getInt("protocol")} · ${packages.length()} allowed apps\n" +
++            "Turning this off hides islands only. Notifications and running tasks continue."
++    }
++    private fun call(method: String, arg: String?): JSONObject = try {
++        JSONObject(contentResolver.call(uri, method, arg, null)?.getString("json") ?: "{}")
++    } catch (failure: Exception) { IslandRuntime.error(failure.message ?: "systemui_unavailable") }
++    private fun showError(result: JSONObject) { Toast.makeText(this, result.optString("error", "operation_failed"), Toast.LENGTH_LONG).show() }
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandSourcePolicy.java
+@@ -0,0 +1,17 @@
++/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
++package com.android.systemui.taku.island;
++
++/** Pure classification rules; inputs come from Android notification fields/roles, never Taku JSON. */
++public final class IslandSourcePolicy {
++    private IslandSourcePolicy() {}
++    public static String category(String category, boolean callStyle, boolean system, boolean dialer,
++            boolean ownCalls, boolean ongoing, boolean fullScreen, boolean countdown) {
++        if (callStyle && (dialer || ownCalls || system)) return "call";
++        if ("call".equals(category) && dialer && (ongoing || fullScreen)) return "call";
++        if ("alarm".equals(category) && (fullScreen || ongoing)) {
++            return !fullScreen && countdown ? "timer" : "alarm";
++        }
++        if ("stopwatch".equals(category) && ongoing) return "timer";
++        return null;
++    }
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandStartable.kt
+@@ -0,0 +1,62 @@
++/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
++package com.android.systemui.taku.island
++
++import com.android.systemui.CoreStartable
++import com.android.systemui.dagger.qualifiers.Background
++import com.android.systemui.statusbar.commandline.Command
++import com.android.systemui.statusbar.commandline.CommandRegistry
++import java.io.PrintWriter
++import java.util.concurrent.Executor
++import javax.inject.Inject
++import org.json.JSONObject
++
++/** Starts the system-wide data plane and presenter without creating demo notifications. */
++class IslandStartable @Inject constructor(
++    private val registry: CommandRegistry,
++    private val presenter: IslandPresenter,
++    private val engine: IslandEngine,
++    private val producer: IslandProducerBinding,
++    private val systemSources: IslandSystemSources,
++    @Background private val worker: Executor,
++) : CoreStartable {
++    override fun start() {
++        engine.start()
++        presenter.start()
++        producer.start()
++        systemSources.start()
++        registry.registerCommand("island") {
++            object : Command {
++                override fun execute(pw: PrintWriter, args: List<String>) {
++                    if (args.isEmpty() || args.size > 3) help(pw)
++                    else pw.println(IslandRuntime.call(args[0], args.getOrNull(1), args.getOrNull(2)))
++                }
++                override fun help(pw: PrintWriter) {
++                    pw.println("island capabilities | canShowIsland PACKAGE | state | list | get KEY | select KEY | choose | expand KEY | collapse | dismiss KEY | open KEY | action KEY JSON | settings | setEnabled 0|1 | setAllowed CSV")
++                }
++            }
++        }
++        registry.registerCommand("island-validate", {
++            object : Command {
++                override fun execute(pw: PrintWriter, args: List<String>) {
++                    if (args.size != 2) {
++                        help(pw)
++                        return
++                    }
++                    // This read-only validation path uses the same parser intended for extraction.
++                    // It cannot grant a producer system-source identity or execute an action.
++                    val result = IslandPayload.parse(args[1], args[0], false)
++                    pw.println(JSONObject().put("valid", result.isValid)
++                        .put("error", result.error ?: JSONObject.NULL))
++                }
++                override fun help(pw: PrintWriter) {
++                    pw.println("island-validate POSTING_PACKAGE JSON (read-only; no posting permission implied)")
++                }
++            }
++        }, worker)
++    }
++
++    override fun dump(pw: PrintWriter, args: Array<out String>) {
++        // dumpsys may run off-main; read the immutable snapshot, never traverse Views here.
++        pw.println(engine.snapshot)
++    }
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandStore.java
+@@ -0,0 +1,143 @@
++/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
++package com.android.systemui.taku.island;
++
++import java.util.ArrayList;
++import java.util.Comparator;
++import java.util.HashMap;
++import java.util.List;
++import java.util.Map;
++import java.util.function.Predicate;
++
++/** Authoritative, main-thread-confined activity lifetime/revision store; no Android/renderer state. */
++public final class IslandStore<T> {
++    public static final long MAX_LIFETIME_MS = 8 * 60 * 60 * 1000L;
++    public static final int MAX_ITEMS = 128;
++    private final Map<String, Entry<T>> entries = new HashMap<>();
++    private final Map<String, Long> revisions = new HashMap<>();
++    private long sequence;
++
++    public static final class Entry<T> {
++        public final String key;
++        public final long firstSeen;
++        public long revision;
++        public long updatedAt;
++        public long expiresAt = Long.MAX_VALUE;
++        public long staleAt;
++        public long alertUntil;
++        public boolean dismissed;
++        private boolean rejected;
++        private boolean alerting;
++        public int priority;
++        public double relevance;
++        public T data;
++
++        private Entry(String key, long firstSeen) {
++            this.key = key;
++            this.firstSeen = firstSeen;
++        }
++
++        public boolean active(long now) { return !rejected && !dismissed && now < expiresAt; }
++        public boolean stale(long now) { return now >= staleAt; }
++    }
++
++    /** Allocate before asynchronous extraction; late results cannot resurrect removed notifications. */
++    public long begin(String key) {
++        long revision = ++sequence;
++        if (!revisions.containsKey(key) && revisions.size() >= MAX_ITEMS) return -1;
++        revisions.put(key, revision);
++        return revision;
++    }
++
++    public boolean isCurrent(String key, long revision) {
++        return revision >= 0 && Long.valueOf(revision).equals(revisions.get(key));
++    }
++
++    public boolean put(String key, long revision, long now, long firstSeen, int lifetimeSeconds,
++            int staleSeconds, int priority, double relevance, boolean alert, T data) {
++        if (!isCurrent(key, revision)) return false;
++        if (lifetimeSeconds < 1 || lifetimeSeconds > 28800 || staleSeconds < 0 || staleSeconds > 28800
++                || priority < 0 || priority > 8 || !Double.isFinite(relevance)
++                || relevance < 0 || relevance > 1 || data == null) {
++            throw new IllegalArgumentException("invalid_activity");
++        }
++        Entry<T> entry = entries.get(key);
++        if (entry == null) {
++            entry = new Entry<>(key, Math.min(now, firstSeen));
++            entries.put(key, entry);
++        }
++        entry.revision = revision;
++        entry.updatedAt = now;
++        // Updates cannot extend the initial requested lifetime or the hard 8 h ceiling.
++        long expiry = entry.firstSeen + Math.min(MAX_LIFETIME_MS, lifetimeSeconds * 1000L);
++        entry.expiresAt = Math.min(entry.expiresAt, expiry);
++        entry.staleAt = staleSeconds == 0 ? Long.MAX_VALUE : now + staleSeconds * 1000L;
++        entry.priority = priority;
++        entry.relevance = relevance;
++        if (alert && !entry.alerting) entry.alertUntil = Math.min(entry.expiresAt, now + 5000);
++        entry.alerting = alert;
++        entry.data = data;
++        entry.rejected = false;
++        return true;
++    }
++
++    /** Rejected revisions also remove previously valid UI for that key; the source notification stays. */
++    public boolean reject(String key, long revision) {
++        if (!Long.valueOf(revision).equals(revisions.get(key))) return false;
++        Entry<T> entry = entries.get(key);
++        if (entry != null) {
++            entry.rejected = true;
++            entry.data = null;
++        }
++        return true;
++    }
++
++    public void remove(String key) {
++        revisions.remove(key);
++        entries.remove(key);
++    }
++
++    public void clear() {
++        entries.clear();
++        revisions.clear();
++    }
++
++    public Entry<T> get(String key) {
++        Entry<T> entry = entries.get(key);
++        return entry == null || entry.rejected ? null : entry;
++    }
++
++    /** Dismisses only the island; ongoing notifications and their tasks are never cancelled here. */
++    public boolean dismiss(String key) {
++        Entry<T> entry = entries.get(key);
++        if (entry == null) return false;
++        entry.dismissed = true;
++        return true;
++    }
++
++    public List<Entry<T>> active(long now) {
++        List<Entry<T>> result = new ArrayList<>();
++        for (Entry<T> entry : entries.values()) if (entry.active(now)) result.add(entry);
++        result.sort(Comparator.<Entry<T>>comparingInt(entry -> entry.priority < 2 ? entry.priority : 2)
++                .thenComparingInt(entry -> entry.alertUntil > now ? 0 : 1)
++                .thenComparingInt(entry -> entry.priority)
++                .thenComparingInt(entry -> entry.stale(now) ? 1 : 0)
++                .thenComparing(Comparator.comparingDouble((Entry<T> entry) -> entry.relevance).reversed())
++                .thenComparing(Comparator.comparingLong((Entry<T> entry) -> entry.updatedAt).reversed())
++                .thenComparing(entry -> entry.key));
++        return result;
++    }
++
++    /** An expanded card keeps its selection; a hidden compact entry must not mask other pills. */
++    public static <T> String compactSelection(List<Entry<T>> activities, String selected,
++            boolean expanded, Predicate<T> compactVisible) {
++        if (expanded) return selected;
++        for (Entry<T> entry : activities) {
++            if (entry.key.equals(selected) && compactVisible.test(entry.data)) return selected;
++        }
++        for (Entry<T> entry : activities) {
++            if (compactVisible.test(entry.data)) return entry.key;
++        }
++        // Keep the hidden activity addressable for explicit expansion when it is alone.
++        return selected;
++    }
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandSystemNotifications.kt
+@@ -0,0 +1,33 @@
++/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
++package com.android.systemui.taku.island
++
++import android.Manifest
++import android.app.Notification
++import android.content.Context
++import android.content.pm.ApplicationInfo
++import android.content.pm.PackageManager
++import android.os.UserHandle
++import android.service.notification.StatusBarNotification
++import android.telecom.TelecomManager
++import javax.inject.Inject
++
++/** Derive critical priority from Android notification/system roles, never from custom JSON. */
++class IslandSystemNotifications @Inject constructor(private val context: Context) {
++    fun category(sbn: StatusBarNotification): String? {
++        val n = sbn.notification
++        if (!candidate(n)) return null
++        val user = context.createContextAsUser(UserHandle.of(sbn.userId), 0)
++        val pm = user.packageManager
++        val system = runCatching { pm.getApplicationInfo(sbn.packageName, 0).flags and ApplicationInfo.FLAG_SYSTEM != 0 }.getOrDefault(false)
++        val dialer = runCatching { user.getSystemService(TelecomManager::class.java)?.defaultDialerPackage == sbn.packageName }.getOrDefault(false)
++        val ownCalls = pm.checkPermission(Manifest.permission.MANAGE_OWN_CALLS, sbn.packageName) == PackageManager.PERMISSION_GRANTED
++        return IslandSourcePolicy.category(n.category, n.isStyle(Notification.CallStyle::class.java),
++            system, dialer, ownCalls, n.flags and Notification.FLAG_ONGOING_EVENT != 0,
++            n.fullScreenIntent != null, n.extras.getBoolean(Notification.EXTRA_CHRONOMETER_COUNT_DOWN))
++    }
++
++    companion object {
++        fun candidate(n: Notification) = n.category in setOf(Notification.CATEGORY_CALL, Notification.CATEGORY_ALARM,
++            Notification.CATEGORY_STOPWATCH) || n.isStyle(Notification.CallStyle::class.java)
++    }
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandSystemSources.kt
+@@ -0,0 +1,82 @@
++/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
++package com.android.systemui.taku.island
++
++import android.content.Context
++import android.media.projection.StopReason
++import android.os.Handler
++import android.os.Process
++import android.os.SystemClock
++import com.android.systemui.dagger.qualifiers.Main
++import com.android.systemui.screenrecord.ScreenRecordUxController
++import com.android.systemui.settings.UserTracker
++import com.android.systemui.statusbar.policy.CastController
++import com.android.systemui.statusbar.policy.CastDevice
++import java.util.concurrent.Executor
++import javax.inject.Inject
++import org.json.JSONArray
++import org.json.JSONObject
++
++/** Native controller callbacks. No notification publisher, launcher, JS or AI is required. */
++class IslandSystemSources @Inject constructor(
++    private val context: Context,
++    private val engine: IslandEngine,
++    private val recording: ScreenRecordUxController,
++    private val casting: CastController,
++    private val users: UserTracker,
++    @Main private val handler: Handler,
++    @Main private val executor: Executor,
++) {
++    private val published = mutableSetOf<String>()
++    private val started = mutableMapOf<String, Long>()
++    fun start() {
++        recording.addCallback(object : ScreenRecordUxController.StateChangeCallback {
++            override fun onRecordingStart() { handler.post(::refresh) }
++            override fun onRecordingEnd() { handler.post(::refresh) }
++            override fun onCountdownEnd() { handler.post(::refresh) }
++        })
++        casting.addCallback(object : CastController.Callback {
++            override fun onCastDevicesChanged() { handler.post(::refresh) }
++        })
++        users.addCallback(object : UserTracker.Callback {
++            override fun onUserChanged(newUser: Int, userContext: Context) { refresh() }
++            override fun onProfilesChanged(profiles: List<android.content.pm.UserInfo>) { refresh() }
++        }, executor)
++        refresh()
++    }
++    private fun refresh() {
++        val current = mutableSetOf<String>()
++        if (recording.isRecording) {
++            val key = "taku:system:recording:${users.userId}"
++            current += key
++            publish(key, "Screen recording", "Recording your screen", "recording") {
++                check(recording.isRecording) { "source_ended" }
++                recording.stopRecording(StopReason.STOP_QS_TILE)
++            }
++        }
++        casting.castDevices.filter { it.isCasting }.forEach { device ->
++            // Recording is also a projection into SystemUI; show it only once.
++            if (recording.isRecording && device.origin == CastDevice.CastOrigin.MediaProjection && device.id == context.packageName) return@forEach
++            val key = "taku:system:cast:${users.userId}:${device.origin}:${device.id}"
++            current += key
++            publish(key, "Screen sharing", device.name ?: device.description ?: "Casting", if (device.origin == CastDevice.CastOrigin.MediaProjection) "projection" else "cast") {
++                val active = casting.castDevices.find { it.id == device.id && it.origin == device.origin && it.isCasting }
++                    ?: throw IllegalStateException("source_ended")
++                casting.stopCasting(active, StopReason.STOP_QS_TILE)
++            }
++        }
++        (published - current).forEach { engine.removeSystem(it); started.remove(it) }
++        engine.reconcileSystemKeys(current)
++        published.clear(); published.addAll(current)
++    }
++    private fun publish(key: String, title: String, body: String, source: String, stop: () -> Unit) {
++        val beginning = started.getOrPut(key) { System.currentTimeMillis() }
++        val payload = JSONObject().put("version", 1).put("category", "recording")
++            .put("islandTimeoutS", 28800).put("bigIsland", JSONObject().put("leading", JSONObject()
++                .put("type", "timer").put("startEpochMs", beginning)))
++            .put("expanded", JSONObject().put("template", "text").put("title", title).put("body", body.take(2000))
++                .put("actions", JSONArray(listOf("stop")))).put("source", source)
++        engine.putSystem(IslandActivity(key, context.packageName, Process.myUid(), users.userId, payload,
++            emptyMap(), emptyMap(), null, null, null, mapOf("stop" to IslandNativeAction("Stop", stop))),
++            SystemClock.elapsedRealtime())
++    }
++}
+--- /dev/null
++++ b/packages/SystemUI/src/org/agentos/island/DotMatrixLoader.java
+@@ -0,0 +1,46 @@
++package org.agentos.island;
++
++/** Native port of the designer's dot-matrix-loader/pose.ts thinking loop.
++ * Shared by SystemUI and Compose; geometry is fixed, only opacity/scale change.
++ * Source/provenance and the verbatim reference are in system/island/design/dot-matrix-loader.
++ */
++public final class DotMatrixLoader {
++    public static final long CYCLE_MS = 1000;
++    private static final int[] CLOCKWISE = {1, 2, 5, 8, 7, 6, 3, 0};
++    private static final double[] REST = {.92, .48, .24, .92, .8, .64, .92, .48, .24};
++    public static final class Pose {
++        public final double[] opacity = new double[9];
++        public final double[] scale = new double[9];
++    }
++    private DotMatrixLoader() {}
++    public static Pose rest(Pose out) {
++        for (int i = 0; i < 9; i++) { out.opacity[i] = REST[i]; out.scale[i] = 1; }
++        return out;
++    }
++    public static Pose thinking(double timeMs, Pose out) {
++        double now = wrap(timeMs);
++        for (int i = 0; i < 9; i++) { out.opacity[i] = i == 4 ? .86 : .08; out.scale[i] = 1; }
++        for (int step = 0; step < 8; step++) {
++            double since = wrap(now - step * 125);
++            hit(out, CLOCKWISE[step], since, .66, 40, 50, 110, .03);
++            hit(out, 4, since, .92, 40, 0, 80, 0);
++        }
++        for (int i = 0; i < 9; i++) out.scale[i] = Math.min(1.1, Math.max(.85, out.scale[i]));
++        return out;
++    }
++    private static double wrap(double value) { return ((value % CYCLE_MS) + CYCLE_MS) % CYCLE_MS; }
++    private static void hit(Pose out, int dot, double since, double peak, double attack,
++            double hold, double decay, double grow) {
++        double level;
++        if (since < attack) { double x = since / attack; level = 1 - (1 - x) * (1 - x); }
++        else {
++            double fading = since - attack - hold;
++            double x = fading / decay;
++            level = fading <= 0 ? 1 : x < 1 ? Math.pow(1 - x, 1.6) : 0;
++        }
++        if (level <= 0) return;
++        double base = dot == 4 ? .86 : .08;
++        out.opacity[dot] = Math.max(out.opacity[dot], base + (peak - base) * level);
++        out.scale[dot] = Math.max(out.scale[dot], 1 + grow * level);
++    }
++}
+--- /dev/null
++++ b/packages/SystemUI/src/org/agentos/island/IslandContentProtocol.java
+@@ -0,0 +1,21 @@
++/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
++package org.agentos.island;
++
++/** Shared Messenger wire contract; the service uses a separate process and signature binding. */
++public final class IslandContentProtocol {
++    public static final int VERSION = 1;
++    public static final int ATTACH = 1;
++    public static final int RELEASE = 2;
++    public static final int READY = 3;
++    public static final int FAILED = 4;
++    public static final String BIND_PERMISSION = "org.agentos.permission.BIND_ISLAND_CONTENT";
++    public static final String VERSION_KEY = "version";
++    public static final String HOST_TOKEN = "hostToken";
++    public static final String WIDTH = "width";
++    public static final String HEIGHT = "height";
++    public static final String DISPLAY = "display";
++    public static final String TOKEN = "token";
++    public static final String SURFACE = "surface";
++    public static final int MAX_DIMENSION = 4096;
++    private IslandContentProtocol() {}
++}

@@ -1,0 +1,50 @@
+{
+  "schema": "taku.acceptance.skill-icons/1",
+  "observedAt": "2026-10-14T21:41:31.382393+00:00",
+  "commit": "49f948faa9258a0c61caceaf225e179651397431",
+  "catalog": {
+    "count": 39,
+    "packageIcons": 31
+  },
+  "installed": {
+    "count": 44,
+    "packageIcons": 30
+  },
+  "assetIntegrity": [
+    {
+      "name": "aspnet-core",
+      "matchesOriginalPackageBytes": true,
+      "sha256": "7f561a8f84ca88130803ecc8664914a4c619530836c705a4b9169704b4195d7c"
+    },
+    {
+      "name": "cloudflare-deploy",
+      "matchesOriginalPackageBytes": true,
+      "sha256": "ccef528d73dfe224cfb4817bcb7e15d63922421249d688031ff48c5eef2a2189"
+    },
+    {
+      "name": "gh-fix-ci",
+      "matchesOriginalPackageBytes": true,
+      "sha256": "d55a9baa41798d8b5108e3058df3a5bda09914ea9fd73b49929cc38a8832424f"
+    }
+  ],
+  "nativeUi": {
+    "passed": true,
+    "seconds": 26.122,
+    "checks": [
+      "Dotnet and Cloudflare original logos visible",
+      "Missing icon uses category fallback",
+      "Logo retained after detail loads",
+      "Installed GitHub logo visible",
+      "Light theme and dark restoration"
+    ]
+  },
+  "componentBuild": true,
+  "repositoryVerify": true,
+  "boundary": "Emulator UI only; no model turn or external account authorization",
+  "screenshots": {
+    "catalog.png": "6f22dd41c4f602510f882b36585f79e97717573acbb2e8dd745d0e9e67a21978",
+    "light.png": "64a53ad014896d12b3ff91587f0a1ccfe5fd1ea85b521e16b9dd1543c5568aa6",
+    "installed.png": "5d2c01bf22f405f7b4850345d6d8225b5a3ae7c39f82d9233c188273259095c6",
+    "detail.png": "c367cfa29c0f8d1b9d455a5015910d867ea437dc57c0fcf6b4500ec8f9f3ff0e"
+  }
+}

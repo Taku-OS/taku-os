@@ -1,0 +1,8 @@
+{
+  "attemptedAt": "2026-10-10",
+  "passed": false,
+  "operation": "CUA createBrowserTab iab file:// site/capabilities.html",
+  "reason": "Browser URL security policy rejected file protocol and explicitly disallowed alternate HTTP/browser/CDP workaround for the same content",
+  "stoppedAfterRejection": true,
+  "completedChecks": "JSON/JS/link/evidence static checks only; no browser visual acceptance or screenshot"
+}

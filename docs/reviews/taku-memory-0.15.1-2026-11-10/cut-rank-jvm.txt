@@ -1,0 +1,10 @@
+ok   label 🌸小雨🌸的小号🌸🌸🌸🌸🌸🌸🌸… utf16=24
+ok   label Tina💕💕 utf16=8
+ok   label 阿杰 utf16=2
+ok   detail 明晚 19:00 已答应婷婷在西村日料吃饭🍣，还要带伞☂️还… utf16=32
+ok   detail 𠮷野家的优惠券明天到期，𠮷野家门店 21:00 关门，记得… utf16=32
+ok   detail 短句😊 utf16=4
+ok   CJK unchanged
+ok   newer message above older: 1.217945 < 1.2179450005999999
+ok   tiers hold across a year: clash 1.3179450000000001 > message a year later 1.21826036
+ALL OK

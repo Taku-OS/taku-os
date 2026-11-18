@@ -1,0 +1,17 @@
+{
+  "note": "Final build after cold recovery and visual corrections. apk-comparison.json was captured before the last JavaScript-only corrections; its font contents and APK size are unchanged.",
+  "artifacts": {
+    "system/agent-app/out/TakuAgent.apk": {
+      "bytes": 44152192,
+      "sha256": "3ecb4860879d0ed08e18e4704e49398c42cab1eb3a09b861608a48a2ed2bb44a"
+    },
+    "system/assistant/out/AgentOSAssistant.apk": {
+      "bytes": 4256950,
+      "sha256": "6adcbddcf887befd5116e96bd709c6991017ae5cf9a66e671e5932549f989fa2"
+    },
+    "system/assistant/out/task-broker.jar": {
+      "bytes": 135838,
+      "sha256": "7d2a14ccca9912aec0132444ac6cd3f520bf0ec9f4d4c42f7524bf3d27420b07"
+    }
+  }
+}

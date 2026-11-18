@@ -1,0 +1,21 @@
+<resources>
+  <string name="home_edit_screen">编辑主屏幕</string>
+  <string name="home_share_app">分享 App</string>
+  <string name="home_remove_app">移除 App</string>
+  <string name="home_app_info">应用信息</string>
+  <string name="home_edit">编辑</string>
+  <string name="home_done">完成</string>
+  <string name="home_remove_from_home">从主屏幕移除</string>
+  <string name="home_uninstall">卸载 App</string>
+  <string name="home_cancel">取消</string>
+  <string name="home_remove_title">移除 %1$s？</string>
+  <string name="home_remove_message">从主屏幕移除会保留应用。可通过“编辑 → 隐藏的应用”重新添加。</string>
+  <string name="home_hidden_apps">隐藏的应用</string>
+  <string name="home_no_hidden_apps">没有隐藏的应用</string>
+  <string name="home_show_app">将 %1$s 添加到主屏幕</string>
+  <string name="home_remove_label">移除 %1$s</string>
+  <string name="home_ungroup">解散文件夹</string>
+  <string name="home_pages">分页显示应用</string>
+  <string name="home_scroll">在一页显示全部应用</string>
+  <string name="home_rename_folder">重命名文件夹</string>
+</resources>

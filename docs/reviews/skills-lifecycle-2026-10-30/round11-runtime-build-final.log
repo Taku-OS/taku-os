@@ -1,0 +1,433 @@
+    Blocking waiting for file lock on artifact directory
+   Compiling serde_core v1.0.228
+   Compiling rustversion v1.0.22
+   Compiling unicode-general-category v1.1.0
+   Compiling arc-swap v1.9.0
+   Compiling castaway v0.2.4
+   Compiling compact_str v0.9.1
+   Compiling serde v1.0.228
+   Compiling serde_json v1.0.149
+   Compiling indexmap v2.14.0
+   Compiling uuid v1.20.0
+   Compiling erased-serde v0.4.10
+   Compiling csv v1.4.0
+   Compiling smallvec v1.15.1
+   Compiling either v1.15.0
+   Compiling num-bigint v0.4.6
+   Compiling parking_lot_core v0.9.12
+   Compiling icu_normalizer v2.2.0
+   Compiling itertools v0.14.0
+   Compiling parking_lot v0.12.5
+   Compiling nibble_vec v0.1.0
+   Compiling tracing-serde v0.2.0
+   Compiling tokio v1.52.3
+   Compiling idna_adapter v1.2.1
+   Compiling radix_trie v0.3.0
+   Compiling idna v1.1.0
+   Compiling schemars v0.8.22
+   Compiling url v2.5.8
+   Compiling publicsuffix v2.3.0
+   Compiling tracing-subscriber v0.3.22
+   Compiling ts-rs v11.1.0
+   Compiling cookie_store v0.22.1
+   Compiling codex-utils-absolute-path v0.161.0 (/src/codex-rs/utils/absolute-path)
+   Compiling chrono v0.4.43
+   Compiling serde_urlencoded v0.7.1
+   Compiling enumflags2 v0.7.12
+   Compiling lock_free_hashtable v0.1.4
+   Compiling moka v0.12.13
+   Compiling heapless v0.7.17
+   Compiling static_interner v0.1.2
+   Compiling tracing-opentelemetry v0.32.1
+   Compiling postcard v1.1.3
+   Compiling tokio-util v0.7.18
+   Compiling tokio-rustls v0.26.4
+   Compiling rama-utils v0.3.0-alpha.4
+   Compiling tokio-graceful v0.2.2
+   Compiling tokio-native-tls v0.3.1
+   Compiling hickory-proto v0.25.2
+   Compiling sorted_vector_map v0.2.1
+   Compiling allocative v0.3.6
+   Compiling h2 v0.4.19
+   Compiling tower v0.5.3
+   Compiling rama-core v0.3.0-alpha.4
+   Compiling tokio-stream v0.1.18
+   Compiling dashmap v6.1.0
+   Compiling tower-http v0.6.8
+   Compiling schemafy_core v0.5.2
+   Compiling triomphe v0.1.15
+   Compiling schemafy_lib v0.5.2
+   Compiling pagable v0.4.1
+   Compiling hickory-resolver v0.25.2
+   Compiling codex-utils-home-dir v0.161.0 (/src/codex-rs/utils/home-dir)
+   Compiling rama-http-types v0.3.0-alpha.4
+   Compiling der-parser v10.0.0
+   Compiling hyper v1.8.1
+   Compiling serde_html_form v0.3.2
+   Compiling x509-parser v0.18.1
+   Compiling starlark_map v0.14.2
+   Compiling hyper-util v0.1.20
+   Compiling rama-net v0.3.0-alpha.4
+   Compiling schemafy v0.5.2
+   Compiling tokio-test v0.4.5
+   Compiling hyper-rustls v0.27.7
+   Compiling hyper-tls v0.6.0
+   Compiling reqwest v0.12.28
+   Compiling lsp-types v0.97.0
+   Compiling radix_trie v0.2.1
+   Compiling debugserver-types v0.5.0
+   Compiling rustyline v14.0.0
+   Compiling rcgen v0.14.9
+   Compiling rama-dns v0.3.0-alpha.4
+   Compiling rama-http-headers v0.3.0-alpha.4
+   Compiling codex-http-client v0.161.0 (/src/codex-rs/http-client)
+   Compiling rama-tcp v0.3.0-alpha.4
+   Compiling rama-http v0.3.0-alpha.4
+   Compiling starlark_syntax v0.14.2
+   Compiling rama-unix v0.3.0-alpha.4
+   Compiling rama-udp v0.3.0-alpha.4
+   Compiling display_container v0.9.0
+   Compiling erased-serde v0.3.31
+   Compiling rama-socks5 v0.3.0-alpha.4
+   Compiling rama-tls-rustls v0.3.0-alpha.4
+   Compiling codex-utils-cache v0.161.0 (/src/codex-rs/utils/cache)
+   Compiling codex-utils-path-uri v0.161.0 (/src/codex-rs/utils/path-uri)
+   Compiling fixed_decimal v0.7.2
+   Compiling starlark v0.14.2
+   Compiling multimap v0.10.1
+   Compiling serde_with v3.17.0
+   Compiling serde_ignored v0.1.14
+   Compiling icu_decimal v2.2.0
+   Compiling codex-utils-image v0.161.0 (/src/codex-rs/utils/image)
+   Compiling codex-async-utils v0.161.0 (/src/codex-rs/async-utils)
+   Compiling landlock v0.4.4
+   Compiling codex-extension-items v0.161.0 (/src/codex-rs/ext/items)
+   Compiling codex-utils-redacted-string v0.161.0 (/src/codex-rs/utils/redacted-string)
+   Compiling codex-utils-string v0.161.0 (/src/codex-rs/utils/string)
+   Compiling quick-xml v0.41.0
+   Compiling prodash v31.0.0
+   Compiling gix-features v0.46.2
+   Compiling gix-hash v0.23.0
+   Compiling gix-date v0.15.1
+   Compiling gix-hashtable v0.13.0
+   Compiling gix-actor v0.40.0
+   Compiling tokio-tungstenite v0.28.0 (https://github.com/openai-oss-forks/tokio-tungstenite?rev=0e5b2d73aa18dd9f0a50ee9ff199d5aef7594186#0e5b2d73)
+   Compiling prost-derive v0.14.3
+   Compiling gix-object v0.58.0
+   Compiling serde_path_to_error v0.1.20
+   Compiling gix-fs v0.19.2
+   Compiling axum v0.8.8
+   Compiling rama-http-core v0.3.0-alpha.4
+   Compiling gix-tempfile v21.0.2
+   Compiling hyper-timeout v0.5.2
+   Compiling prost v0.14.3
+   Compiling gix-lock v21.0.2
+   Compiling gix-commitgraph v0.35.0
+   Compiling codex-client v0.161.0 (/src/codex-rs/codex-client)
+   Compiling tonic v0.14.3
+   Compiling codex-utils-pty v0.161.0 (/src/codex-rs/utils/pty)
+   Compiling gix-revwalk v0.29.0
+   Compiling gix-ref v0.61.0
+   Compiling rama-http-backend v0.3.0-alpha.4
+   Compiling tonic-prost v0.14.3
+   Compiling gix-glob v0.24.0
+   Compiling codex-network-proxy v0.161.0 (/src/codex-rs/network-proxy)
+   Compiling gix-revision v0.43.0
+   Compiling gix-shallow v0.10.0
+   Compiling gix-pack v0.68.0
+   Compiling gix-transport v0.55.1
+   Compiling gix-protocol v0.59.0
+   Compiling gix-refspec v0.39.0
+   Compiling gix-odb v0.78.0
+   Compiling gix-config v0.54.0
+   Compiling codex-execpolicy v0.161.0 (/src/codex-rs/execpolicy)
+   Compiling gix-discover v0.49.0
+   Compiling gix-traverse v0.55.0
+   Compiling gix-diff v0.61.0
+   Compiling codex-websocket-client v0.161.0 (/src/codex-rs/websocket-client)
+   Compiling opentelemetry_sdk v0.31.0
+   Compiling gix v0.81.0
+   Compiling opentelemetry-http v0.31.0
+   Compiling opentelemetry-appender-tracing v0.31.1
+   Compiling os_info v3.14.0
+   Compiling unic-langid-impl v0.9.6
+   Compiling toml_datetime v0.7.5+spec-1.1.0
+   Compiling opentelemetry-proto v0.31.0
+   Compiling unic-langid v0.9.6
+   Compiling serde_spanned v1.0.4
+   Compiling toml v0.9.11+spec-1.1.0
+   Compiling codex-protocol v0.161.0 (/src/codex-rs/protocol)
+   Compiling opentelemetry-otlp v0.31.0
+   Compiling codex-utils-path v0.161.0 (/src/codex-rs/utils/path-utils)
+   Compiling bytes-utils v0.1.4
+   Compiling aws-smithy-types v1.4.7
+   Compiling semver v1.0.27
+   Compiling toml_edit v0.24.0+spec-1.1.0
+   Compiling aws-smithy-async v1.2.14
+   Compiling simple_asn1 v0.6.4
+   Compiling basic-toml v0.1.10
+   Compiling toml v0.5.11
+   Compiling i18n-config v0.4.8
+   Compiling jsonwebtoken v9.3.1
+   Compiling find-crate v0.6.3
+   Compiling aws-smithy-runtime-api v1.12.0
+   Compiling intl-memoizer v0.5.3
+   Compiling fluent-langneg v0.13.1
+   Compiling intl_pluralrules v7.0.2
+   Compiling zvariant v4.2.0
+   Compiling fluent-bundle v0.15.3
+   Compiling i18n-embed-impl v0.8.4
+   Compiling num-rational v0.4.2
+   Compiling tree-sitter v0.25.10
+   Compiling zbus_names v3.0.0
+   Compiling zbus v4.4.0
+   Compiling num v0.4.3
+   Compiling fluent v0.16.1
+   Compiling i18n-embed v0.15.4
+   Compiling codex-install-context v0.161.0 (/src/codex-rs/install-context)
+   Compiling i18n-embed-fl v0.9.4
+   Compiling aws-credential-types v1.2.11
+   Compiling aws-smithy-http v0.62.6
+   Compiling age v0.11.2
+   Compiling futures-intrusive v0.5.0
+   Compiling secret-service v4.0.0
+   Compiling sqlx-core v0.9.0
+   Compiling codex-file-system v0.161.0 (/src/codex-rs/file-system)
+   Compiling codex-api v0.161.0 (/src/codex-rs/codex-api)
+   Compiling codex-git-utils v0.161.0 (/src/codex-rs/git-utils)
+   Compiling codex-otel v0.161.0 (/src/codex-rs/otel)
+   Compiling codex-model-provider-info v0.161.0 (/src/codex-rs/model-provider-info)
+   Compiling codex-features v0.161.0 (/src/codex-rs/features)
+   Compiling codex-config v0.161.0 (/src/codex-rs/config)
+   Compiling codex-shell-command v0.161.0 (/src/codex-rs/shell-command)
+   Compiling keyring v3.6.3
+   Compiling codex-keyring-store v0.161.0 (/src/codex-rs/keyring-store)
+   Compiling codex-history v0.161.0 (/src/codex-rs/history)
+   Compiling codex-secrets v0.161.0 (/src/codex-rs/secrets)
+   Compiling aws-smithy-observability v0.1.5
+   Compiling aws-smithy-http-client v1.1.12
+   Compiling tracing-appender v0.2.4
+   Compiling mxc_config_contract v0.8.0 (https://github.com/microsoft/mxc?rev=6cd3d58f05d3447e67109cfb75e042803b843ca4#6cd3d58f)
+   Compiling sqlx-macros-core v0.9.0
+   Compiling aws-smithy-runtime v1.9.5
+   Compiling wxc_common v0.8.0 (https://github.com/microsoft/mxc?rev=6cd3d58f05d3447e67109cfb75e042803b843ca4#6cd3d58f)
+   Compiling codex-windows-sandbox v0.161.0 (/src/codex-rs/windows-sandbox-rs)
+   Compiling sqlx-sqlite v0.9.0
+   Compiling aws-sigv4 v1.3.7
+   Compiling aws-types v1.3.11
+   Compiling codex-uds v0.161.0 (/src/codex-rs/uds)
+   Compiling sqlx v0.9.0
+   Compiling aws-runtime v1.5.17
+   Compiling codex-mxc-sandbox v0.161.0 (/src/codex-rs/mxc-sandbox)
+   Compiling sqlx-macros v0.9.0
+   Compiling aws-smithy-json v0.61.9
+   Compiling webbrowser v1.2.4
+   Compiling rayon v1.11.0
+   Compiling codex-state v0.161.0 (/src/codex-rs/state)
+   Compiling codex-sandboxing v0.161.0 (/src/codex-rs/sandboxing)
+   Compiling nucleo v0.5.0 (https://github.com/helix-editor/nucleo.git?rev=4253de9faabb4e5c6d81d946a5e35a90f87347ee#4253de9f)
+   Compiling codex-agent-identity v0.161.0 (/src/codex-rs/agent-identity)
+   Compiling codex-build-info v0.161.0 (/src/codex-rs/build-info)
+   Compiling codex-workload-identity v0.161.0 (/src/codex-rs/workload-identity)
+   Compiling serde_yaml v0.9.34+deprecated
+   Compiling codex-file-search v0.161.0 (/src/codex-rs/file-search)
+   Compiling codex-skills v0.161.0 (/src/codex-rs/skills)
+   Compiling codex-login v0.161.0 (/src/codex-rs/login)
+   Compiling codex-exec-server-protocol v0.161.0 (/src/codex-rs/exec-server-protocol)
+   Compiling codex-websocket-auth v0.161.0 (/src/codex-rs/websocket-auth)
+   Compiling codex-core-plugin-common v0.161.0 (/src/codex-rs/core-plugin-common)
+   Compiling codex-file-watcher v0.161.0 (/src/codex-rs/file-watcher)
+   Compiling debugid v0.8.0
+   Compiling sentry-types v0.46.1
+   Compiling codex-exec-server v0.161.0 (/src/codex-rs/exec-server)
+   Compiling codex-rollout v0.161.0 (/src/codex-rs/rollout)
+   Compiling codex-utils-output-truncation v0.161.0 (/src/codex-rs/utils/output-truncation)
+   Compiling codex-context-fragments v0.161.0 (/src/codex-rs/context-fragments)
+   Compiling aws-smithy-query v0.60.9
+   Compiling aws-sdk-sts v1.95.0
+   Compiling codex-guardian-context v0.161.0 (/src/codex-rs/guardian-context)
+   Compiling sentry-core v0.46.1
+   Compiling aws-sdk-sso v1.91.0
+   Compiling aws-sdk-ssooidc v1.93.0
+   Compiling aws-sdk-signin v1.2.0
+   Compiling aws-config v1.8.12
+   Compiling prost-types v0.14.3
+   Compiling sentry v0.46.1
+   Compiling codex-prompts v0.161.0 (/src/codex-rs/prompts)
+   Compiling codex-feedback v0.161.0 (/src/codex-rs/feedback)
+   Compiling codex-models-manager v0.161.0 (/src/codex-rs/models-manager)
+   Compiling codex-aws-auth v0.161.0 (/src/codex-rs/aws-auth)
+   Compiling prost-build v0.14.3
+   Compiling codex-response-debug-context v0.161.0 (/src/codex-rs/response-debug-context)
+   Compiling oauth2 v5.0.0
+   Compiling reqwest v0.13.4
+   Compiling process-wrap v10.0.0
+   Compiling schemars v1.2.1
+   Compiling rmcp-macros v3.3.0 (https://github.com/modelcontextprotocol/rust-sdk?rev=3e636cab26c013eca5131103c03d20237f12c4df#3e636cab)
+   Compiling codex-model-provider v0.161.0 (/src/codex-rs/model-provider)
+   Compiling rmcp v3.3.0 (https://github.com/modelcontextprotocol/rust-sdk?rev=3e636cab26c013eca5131103c03d20237f12c4df#3e636cab)
+   Compiling tonic-prost-build v0.14.3
+   Compiling codex-utils-plugins v0.161.0 (/src/codex-rs/utils/plugins)
+   Compiling codex-plugin v0.161.0 (/src/codex-rs/plugin)
+   Compiling codex-code-mode-protocol v0.161.0 (/src/codex-rs/code-mode-protocol)
+   Compiling codex-code-mode v0.161.0 (/src/codex-rs/code-mode)
+   Compiling codex-connectors v0.161.0 (/src/codex-rs/connectors)
+   Compiling codex-rmcp-client v0.161.0 (/src/codex-rs/rmcp-client)
+   Compiling codex-tools v0.161.0 (/src/codex-rs/tools)
+   Compiling codex-mcp v0.161.0 (/src/codex-rs/codex-mcp)
+   Compiling symphonia-core v0.6.0
+   Compiling codex-app-server-protocol v0.161.0 (/src/codex-rs/app-server-protocol)
+   Compiling stop-words v0.9.0
+   Compiling symphonia-metadata v0.6.0
+   Compiling symphonia-common v0.6.0
+   Compiling symphonia-format-riff v0.6.0
+   Compiling symphonia-format-isomp4 v0.6.0
+   Compiling symphonia-format-mkv v0.6.0
+   Compiling symphonia-format-ogg v0.6.0
+   Compiling symphonia-bundle-mp3 v0.6.0
+   Compiling codex-extension-api v0.161.0 (/src/codex-rs/ext/extension-api)
+   Compiling codex-hooks v0.161.0 (/src/codex-rs/hooks)
+   Compiling zip v2.4.2
+   Compiling codex-agent-message-board-extension v0.161.0 (/src/codex-rs/ext/agent-message-board)
+   Compiling symphonia v0.6.0
+   Compiling codex-apply-patch v0.161.0 (/src/codex-rs/apply-patch)
+   Compiling codex-shell-escalation v0.161.0 (/src/codex-rs/shell-escalation)
+   Compiling rust-stemmers v1.2.0
+   Compiling codex-agent-message-board-client v0.161.0 (/src/codex-rs/agent-message-board-client)
+   Compiling bm25 v2.3.2
+   Compiling codex-utils-audio v0.161.0 (/src/codex-rs/utils/audio)
+   Compiling codex-rollout-trace v0.161.0 (/src/codex-rs/rollout-trace)
+   Compiling codex-agent-graph-store v0.161.0 (/src/codex-rs/agent-graph-store)
+   Compiling codex-agent-roles v0.161.0 (/src/codex-rs/agent-roles)
+   Compiling codex-memories-read v0.161.0 (/src/codex-rs/memories/read)
+   Compiling codex-utils-git-discovery v0.161.0 (/src/codex-rs/utils/git-discovery)
+   Compiling codex-attachment-store v0.161.0 (/src/codex-rs/attachment-store)
+   Compiling codex-backend-openapi-models v0.161.0 (/src/codex-rs/codex-backend-openapi-models)
+   Compiling unicode-truncate v2.0.1
+   Compiling ratatui-core v0.1.2
+   Compiling codex-backend-client v0.161.0 (/src/codex-rs/backend-client)
+   Compiling codex-utils-cli v0.161.0 (/src/codex-rs/utils/cli)
+   Compiling wayland-backend v0.3.12
+   Compiling codex-linux-sandbox v0.161.0 (/src/codex-rs/linux-sandbox)
+   Compiling codex-analytics v0.161.0 (/src/codex-rs/analytics)
+   Compiling codex-core-plugins v0.161.0 (/src/codex-rs/core-plugins)
+   Compiling codex-skills-extension v0.161.0 (/src/codex-rs/ext/skills)
+   Compiling codex-guardian-reviewer v0.161.0 (/src/codex-rs/ext/guardian-reviewer)
+   Compiling codex-thread-store v0.161.0 (/src/codex-rs/thread-store)
+warning: function `remove_old_plugin_versions` is never used
+   --> core-plugins/src/store.rs:676:4
+    |
+676 | fn remove_old_plugin_versions(
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `old_plugin_version_would_stay_active` is never used
+   --> core-plugins/src/store.rs:710:4
+    |
+710 | fn old_plugin_version_would_stay_active(old_version: &str, new_version: &str) -> bool {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `compare_plugin_versions` is never used
+   --> core-plugins/src/store.rs:715:4
+    |
+715 | fn compare_plugin_versions(left: &str, right: &str) -> Ordering {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^
+
+   Compiling codex-core v0.161.0 (/src/codex-rs/core)
+   Compiling codex-connectors-extension v0.161.0 (/src/codex-rs/ext/connectors)
+   Compiling wayland-client v0.31.12
+   Compiling deadpool v0.12.3
+   Compiling assert-json-diff v2.0.2
+   Compiling wiremock v0.6.5
+   Compiling wayland-protocols v0.32.10
+   Compiling codex-arg0 v0.161.0 (/src/codex-rs/arg0)
+   Compiling codex-cloud-config v0.161.0 (/src/codex-rs/cloud-config)
+   Compiling codex-git-attribution v0.161.0 (/src/codex-rs/ext/git-attribution)
+   Compiling ratatui-widgets v0.3.2
+   Compiling codex-home v0.161.0 (/src/codex-rs/codex-home)
+   Compiling codex-utils-json-to-toml v0.161.0 (/src/codex-rs/utils/json-to-toml)
+   Compiling crossterm v0.29.0 (https://github.com/openai-oss-forks/crossterm?rev=efa177859fd9623d57b9fe7ae9bf491ae1ac6ec4#efa17785)
+   Compiling petgraph v0.8.3
+   Compiling ratatui-crossterm v0.1.2
+   Compiling wayland-protocols-wlr v0.3.10
+warning: `codex-core-plugins` (lib) generated 3 warnings
+   Compiling tree_magic_mini v3.2.2
+   Compiling tracing-error v0.2.1
+   Compiling plist v1.9.0
+   Compiling bincode v1.3.3
+   Compiling wl-clipboard-rs v0.9.3
+   Compiling color-spantrace v0.3.0
+   Compiling syntect v5.3.0
+   Compiling ratatui v0.30.2
+   Compiling ansi-to-tui v8.0.1
+   Compiling codex-worktree v0.161.0 (/src/codex-rs/worktree)
+   Compiling codex-utils-sandbox-summary v0.161.0 (/src/codex-rs/utils/sandbox-summary)
+   Compiling two-face v0.5.1
+   Compiling codex-ansi-escape v0.161.0 (/src/codex-rs/ansi-escape)
+   Compiling arboard v3.6.1
+   Compiling color-eyre v0.6.5
+   Compiling ratatui-macros v0.7.2
+   Compiling codex-cloud-tasks-client v0.161.0 (/src/codex-rs/cloud-tasks-client)
+   Compiling codex-realtime-webrtc v0.161.0 (/src/codex-rs/realtime-webrtc)
+   Compiling codex-message-history v0.161.0 (/src/codex-rs/message-history)
+   Compiling codex-utils-approval-presets v0.161.0 (/src/codex-rs/utils/approval-presets)
+   Compiling quinn v0.11.9
+   Compiling h3 v0.0.8 (https://github.com/hyperium/h3?rev=e07e69412876f7e26f026bd75a48b2704d8c8283#e07e6941)
+   Compiling codex-cloud-tasks-mock-client v0.161.0 (/src/codex-rs/cloud-tasks-mock-client)
+   Compiling h3-quinn v0.0.10 (https://github.com/hyperium/h3?rev=e07e69412876f7e26f026bd75a48b2704d8c8283#e07e6941)
+   Compiling codex-stdio-to-uds v0.161.0 (/src/codex-rs/stdio-to-uds)
+   Compiling codex-responses-api-proxy v0.161.0 (/src/codex-rs/responses-api-proxy)
+   Compiling codex-tcp-tunnel v0.161.0 (/src/codex-rs/tcp-tunnel)
+   Compiling codex-memories-write v0.161.0 (/src/codex-rs/memories/write)
+   Compiling codex-app-server-transport v0.161.0 (/src/codex-rs/app-server-transport)
+   Compiling codex-agent-extension v0.161.0 (/src/codex-rs/ext/agent)
+   Compiling codex-chatgpt v0.161.0 (/src/codex-rs/chatgpt)
+   Compiling codex-queue-extension v0.161.0 (/src/codex-rs/ext/queue)
+   Compiling codex-mcp-extension v0.161.0 (/src/codex-rs/ext/mcp)
+   Compiling codex-external-agent-migration v0.161.0 (/src/codex-rs/external-agent-migration)
+   Compiling codex-memories-extension v0.161.0 (/src/codex-rs/ext/memories)
+   Compiling codex-web-search-extension v0.161.0 (/src/codex-rs/ext/web-search)
+   Compiling codex-guardian-v2 v0.161.0 (/src/codex-rs/ext/guardian-v2)
+   Compiling codex-image-generation-extension v0.161.0 (/src/codex-rs/ext/image-generation)
+   Compiling codex-goal-extension v0.161.0 (/src/codex-rs/ext/goal)
+   Compiling codex-history-notes-extension v0.161.0 (/src/codex-rs/ext/history-notes)
+   Compiling codex-app-server v0.161.0 (/src/codex-rs/app-server)
+   Compiling codex-ollama v0.161.0 (/src/codex-rs/ollama)
+   Compiling codex-lmstudio v0.161.0 (/src/codex-rs/lmstudio)
+   Compiling codex-app-server-daemon v0.161.0 (/src/codex-rs/app-server-daemon)
+   Compiling codex-utils-oss v0.161.0 (/src/codex-rs/utils/oss)
+   Compiling codex-app-server-test-client v0.161.0 (/src/codex-rs/app-server-test-client)
+warning: variable does not need to be mutable
+    --> app-server/src/lib.rs:1503:5
+     |
+1503 |     mut loader_overrides: LoaderOverrides,
+     |     ----^^^^^^^^^^^^^^^^
+     |     |
+     |     help: remove this `mut`
+     |
+     = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+   Compiling codex-app-server-client v0.161.0 (/src/codex-rs/app-server-client)
+   Compiling codex-tui v0.161.0 (/src/codex-rs/tui)
+   Compiling codex-exec v0.161.0 (/src/codex-rs/exec)
+   Compiling codex-cloud-tasks v0.161.0 (/src/codex-rs/cloud-tasks)
+warning: unused import: `codex_http_client::HttpClientFactory`
+  --> cloud-tasks/src/lib.rs:16:5
+   |
+16 | use codex_http_client::HttpClientFactory;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `codex_http_client::OutboundProxyPolicy`
+  --> cloud-tasks/src/lib.rs:17:5
+   |
+17 | use codex_http_client::OutboundProxyPolicy;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+   Compiling codex-cli v0.161.0 (/src/codex-rs/cli)
+warning: `codex-cloud-tasks` (lib) generated 2 warnings (run `cargo fix --lib -p codex-cloud-tasks` to apply 2 suggestions)
+warning: `codex-app-server` (lib) generated 1 warning (run `cargo fix --lib -p codex-app-server` to apply 1 suggestion)
+    Finished `release` profile [optimized + debuginfo] target(s) in 22m 04s
+2a911f84166511837ac75ec41996c3e40f62522c1201b6bbe9941610215b97cf  /src/round11-codex

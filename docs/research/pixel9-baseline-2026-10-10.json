@@ -1,0 +1,351 @@
+{
+  "schema": "taku.pixel-baseline-research/1",
+  "checkedOn": "2026-10-10",
+  "timezone": "Asia/Shanghai",
+  "sourceRevision": "2525930a1469a1b68ac185ebe05f0a98d452897f",
+  "device": {
+    "name": "Google Pixel 9",
+    "codename": "tokay",
+    "differentModels": {
+      "Pixel 9 Pro": "caiman",
+      "Pixel 9 Pro XL": "komodo",
+      "Pixel 9 Pro Fold": "comet"
+    }
+  },
+  "recommendedBaseline": {
+    "distribution": "Google official Pixel OS",
+    "android": 17,
+    "apiLevel": 37,
+    "channel": "stable",
+    "build": "CP3A.261005.005",
+    "variant": "Global / Pixel 9",
+    "securityPatchLevel": "2026-10-05",
+    "announcementDate": "2026-10-06",
+    "verification": "Google Pixel Support Team October 2026 announcement rendered and read via public-only CloakBrowser; cross-checked official Android 17 device support and Pixel security bulletin",
+    "artifactDownloaded": false,
+    "artifactShaVerified": false,
+    "physicalDeviceVerified": false,
+    "factoryDownloadTable": "Official images page showed an acknowledgement gate; no acceptance clicked and no package downloaded. Exact selected build came from the independently accessible official support announcement.",
+    "recommendation": "Retain official Pixel base, SystemUI, lock screen, camera, and drivers; Taku takes Home and default assistant. First verify Quickstep/recents replacement, then full root and independent display."
+  },
+  "alternatives": [
+    {
+      "id": "stock-root",
+      "label": "Official Pixel OS + root runtime",
+      "recommendation": "Preferred physical-device development route",
+      "pixelExperience": "Retains SystemUI, lock screen, settings, Pixel Camera, and stock drivers; Taku replaces Pixel Launcher and Gemini.",
+      "privilege": "Root manager bootstraps on-device Broker/DisplayHost without Google platform private keys",
+      "limit": "Taku Launcher Quickstep/recents integration on Android 17 is unverified; full root and unchanged device certification cannot both be guaranteed."
+    },
+    {
+      "id": "stock-shell",
+      "label": "Official Pixel OS + ADB/Shizuku",
+      "recommendation": "Initial comparison probe and limited-privilege version",
+      "pixelExperience": "Taku can initially be selected as HOME/ASSISTANT; ordinary role changes do not completely remove stock recents dependencies.",
+      "privilege": "Shell permissions started through ADB/wireless debugging; not persistent full root",
+      "limit": "Verify virtual-display flag permissions, restart startup, and background behavior; not a complete privileged-distribution route"
+    },
+    {
+      "id": "lineage",
+      "label": "LineageOS 23.2 / tokay",
+      "recommendation": "Alternative when framework changes are needed",
+      "pixelExperience": "Can retain some Pixel apps but is not the complete stock experience",
+      "privilege": "Can build/integrate custom system services, signatures, and sepolicy",
+      "limit": "Official device metadata currently lists branch 23.2 and requires Android 16 firmware before installation. Do not mix stock Android 17 packages with this baseline."
+    },
+    {
+      "id": "graphene",
+      "label": "GrapheneOS / Pixel 9",
+      "recommendation": "Privacy/security comparison",
+      "pixelExperience": "Pixel Camera and sandboxed Google Play can be installed; not the complete stock experience",
+      "privilege": "Forking/modifying assumes renewed compatibility and security-model maintenance responsibilities",
+      "limit": "Upstream emphasizes locked bootloader and verified boot; a persistent broadly privileged root Agent does not qualify for directly reusing its distribution-security guarantees"
+    },
+    {
+      "id": "gsi",
+      "label": "AOSP / GSI",
+      "recommendation": "Protocol and platform development environment",
+      "pixelExperience": "Generic system lacks the complete Pixel-specific experience",
+      "privilege": "Platform can be built independently",
+      "limit": "Needs device/firmware/app/visual integration; not the first route for preserving the stock experience"
+    }
+  ],
+  "tools": {
+    "magisk": {
+      "latestPublishedTag": "v30.7",
+      "publishedAt": "2026-02-23T08:07:01Z",
+      "source": "https://github.com/topjohnwu/Magisk/releases/tag/v30.7",
+      "status": "candidate only; release notes mention Android 16 QPR2 and higher Zygisk, not proof of the selected Android 17 build or Taku integration"
+    },
+    "scrcpy": {
+      "latestPublishedTag": "v5.0.1",
+      "publishedAt": "2026-10-08T06:44:27Z",
+      "source": "https://github.com/Genymobile/scrcpy/releases/tag/v5.0.1",
+      "status": "diagnostic reference only; virtual-display docs support new-display, display-scoped app start and IME policy; no Pixel 9 test performed"
+    }
+  },
+  "migration": [
+    {
+      "file": "system/assistant/AndroidManifest.xml",
+      "line": 1,
+      "finding": "sharedUserId=android.uid.system; build signs with public AOSP platform test key",
+      "change": "Remove system shared UID dependency; the Taku frontend requests HOME/ASSISTANT roles while a separate service performs privileged execution. Taku takes Home and assistant entries."
+    },
+    {
+      "file": "system/assistant/broker/org/agentos/lab/TaskBroker.java",
+      "line": 19,
+      "finding": "Root Broker accesses frontend private directories and runs chown system:system",
+      "change": "Reuse one Broker/queue, make queue persistence service-owned, and let the frontend submit/view tasks through authenticated IPC; remove dependence on system UID in app private directories"
+    },
+    {
+      "file": "system/assistant/agentos-codex.rc",
+      "line": 5,
+      "finding": "Hard-coded u:r:su:s0 and /system_ext paths",
+      "change": "Use service.sh in a development root module, waiting for boot/user-unlock state; add SELinux rules based on actual denials and retain Enforcing"
+    },
+    {
+      "file": "system/display/src/org/agentos/lab/VirtualDisplayHost.java",
+      "line": 60,
+      "finding": "Mirror socket accepts only UID 0/1000/2000, rejecting an ordinary Taku APK",
+      "change": "Register/verify frontend UID/certificate and authorize through controlled IPC; do not expose a privileged entry open to every app"
+    },
+    {
+      "file": "system/display/src/org/agentos/lab/VirtualDisplayHost.java",
+      "line": 75,
+      "finding": "Reflection failure for trusted/own-focus/no-steal flags silently becomes 0",
+      "change": "Report individual flag/permission/functional checks at startup; explicitly fail or declare degradation when critical capabilities are missing; independently test main-display focus and background IME"
+    },
+    {
+      "file": "adapters/codex-runtime/install.sh",
+      "line": 19,
+      "finding": "Hard-coded AVD DNS 10.0.2.3 and requirement for adb root/remount",
+      "change": "For stock user builds, use root-manager transport and module installation; adapt to device network resolution and parameterize data/version paths"
+    },
+    {
+      "file": "system/display/src/org/agentos/lab/VirtualDisplayHost.java",
+      "line": 84,
+      "finding": "Current preview is approximately 5 fps JPEG",
+      "change": "Prioritize actual task screenshots/input; evaluate hardware MediaCodec for smooth preview later without adding scrcpy as a second persistent background-display implementation"
+    },
+    {
+      "file": "system/assistant/src/org/agentos/assistant/CodexHomeActivity.java",
+      "line": 20,
+      "finding": "Current Home is an independent Activity without Quickstep/recents-provider integration",
+      "change": "Implement Taku Launcher Home/recents on compatible Launcher3/Quickstep. Switching providers through a root module is a candidate requiring Android 17 SystemUI/gesture-animation verification before disabling stock Launcher."
+    }
+  ],
+  "validationGates": [
+    {
+      "id": "G0",
+      "name": "Stock baseline",
+      "criteria": "Verify tokay, Global build, SPL, and OEM-unlock capability; record screenshot/functional baselines for stock Home, lock screen, notifications, camera, calls, and network",
+      "state": "not_run"
+    },
+    {
+      "id": "G1",
+      "name": "Stock virtual-display probe",
+      "criteria": "Use ADB + scrcpy only as a short comparison; verify dynamic display, launch one existing app, and check main-display focus/IME; remove displays when exiting",
+      "state": "not_run"
+    },
+    {
+      "id": "G2",
+      "name": "Privileged runtime",
+      "criteria": "Device/build-matched root bootstrap; Broker boot startup, actual UID/SELinux, authenticated IPC, and device CLI; do not copy existing account credentials; verify Taku HOME/ASSISTANT and recents-provider identity/permissions/home gesture",
+      "state": "not_run"
+    },
+    {
+      "id": "G3",
+      "name": "Independent phone execution",
+      "criteria": "Disconnect USB/computer; on-device Agent completes a task while the main display remains usable; verify real output, notifications, takeover/pause, and failure boundaries",
+      "state": "not_run"
+    },
+    {
+      "id": "G4",
+      "name": "Display and app compatibility",
+      "criteria": "Test different apps, media, Chinese input, same-app singleTask migration/conflicts, screen-off, lock screen, and reboot separately. PID survival does not replace visual/task acceptance. Verify swipe-home, recents, and quick-switch after removing Pixel Launcher, with Gemini absent as assistant entry",
+      "state": "not_run"
+    },
+    {
+      "id": "G5",
+      "name": "Updates and recovery",
+      "criteria": "Match boot images, root modules, service state, and official experience before/after A/B updates; reverify every version; restore with a currently compatible official package and confirm data/anti-rollback restrictions",
+      "state": "not_run"
+    }
+  ],
+  "boundaries": [
+    "No Pixel 9 or other ADB device connected; no purchase, unlocking, flashing, root installation, sign-in, or firmware-download terms accepted.",
+    "Virtual displays share the Android system, app data, and accounts; they are not a second VM or independent copies of each app.",
+    "Full root, locked-bootloader hardware attestation, and retention of every stock feature cannot all be promised in advance.",
+    "The user explicitly rejects stock Pixel Launcher and Gemini. Taku should take HOME/ASSISTANT and recents; changing default HOME while retaining stock recents does not constitute complete replacement.",
+    "Distribute custom modules/APKs/source and reproducible installation materials; Google image terms restrict modification/redistribution, so these are not a directly open-source complete Taku ROM package.",
+    "The project internal license has not been changed to an open-source license."
+  ],
+  "sources": [
+    {
+      "id": "pixel-oct",
+      "title": "Google Pixel Support Team · October 2026 update",
+      "url": "https://support.google.com/pixelphone/thread/471669543/google-pixel-update-october-2026?hl=en-AU",
+      "supports": "Android 17, Pixel 9 Global CP3A.261005.005; read actual rendered official announcement"
+    },
+    {
+      "id": "pixel-spl",
+      "title": "Pixel Update Bulletin · October 2026",
+      "url": "https://source.android.com/docs/security/bulletin/pixel/2026/2026-10-01",
+      "supports": "Published 2026-10-06, patch level 2026-10-05"
+    },
+    {
+      "id": "android17",
+      "title": "Get Android 17 · supported Pixel devices",
+      "url": "https://developer.android.com/about/versions/17/get",
+      "supports": "Pixel 9 receives Android 17 OTAs/downloads"
+    },
+    {
+      "id": "api37",
+      "title": "AOSP build numbers",
+      "url": "https://source.android.com/docs/setup/reference/build-numbers",
+      "supports": "Android 17 API 37; source tag is not the exact monthly Pixel factory package"
+    },
+    {
+      "id": "pixel-ui",
+      "title": "Material 3 Expressive Pixel Drop",
+      "url": "https://blog.google/intl/en-in/products/hardware/material-3-expressive-updates-in-the-latest-pixel-drop/",
+      "supports": "Pixel 6 and newer received Pixel UI updates in September 2025"
+    },
+    {
+      "id": "lineage",
+      "title": "LineageOS official tokay device metadata",
+      "url": "https://raw.githubusercontent.com/LineageOS/lineage_wiki/main/_data/devices/tokay.yml",
+      "supports": "Pixel 9 codename tokay, branch 23.2, Android 16 firmware prerequisite"
+    },
+    {
+      "id": "graphene",
+      "title": "GrapheneOS usage guide",
+      "url": "https://grapheneos.org/usage",
+      "supports": "Pixel Camera and sandboxed Google Play support; does not equate to stock Pixel OS"
+    },
+    {
+      "id": "magisk-install",
+      "title": "Magisk installation",
+      "url": "https://topjohnwu.github.io/Magisk/install.html",
+      "supports": "Patch exact boot/init_boot as appropriate on the target device; not another device's patched image"
+    },
+    {
+      "id": "magisk-module",
+      "title": "Magisk developer guides",
+      "url": "https://topjohnwu.github.io/Magisk/guides.html",
+      "supports": "Module service.sh, sepolicy.rule and systemless file mounting"
+    },
+    {
+      "id": "display",
+      "title": "scrcpy v5.0.1 virtual-display documentation",
+      "url": "https://github.com/Genymobile/scrcpy/blob/v5.0.1/doc/virtual-display.md",
+      "supports": "Virtual display, app start, display-scoped IME; diagnostic reference"
+    },
+    {
+      "id": "dms",
+      "title": "AOSP Android 17 DisplayManagerService",
+      "url": "https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-17.0.0_r1/services/core/java/com/android/server/display/DisplayManagerService.java",
+      "supports": "Trusted display permission checks and own-focus/no-steal flag relationship; upstream code, not validation of Pixel vendor build"
+    },
+    {
+      "id": "ime",
+      "title": "AOSP multi-display IME support",
+      "url": "https://source.android.com/docs/core/display/multi_display/ime-support",
+      "supports": "IME selection/focus and security restrictions; independent displays do not imply two fully independent keyboards"
+    },
+    {
+      "id": "signature",
+      "title": "AOSP signature permission allowlist",
+      "url": "https://source.android.com/docs/core/permissions/signature-permission-allowlist",
+      "supports": "Platform signing and user vs userdebug differences"
+    },
+    {
+      "id": "integrity",
+      "title": "Play Integrity verdicts",
+      "url": "https://developer.android.com/google/play/integrity/verdicts",
+      "supports": "Android 13+ device integrity requires locked bootloader and certified manufacturer image"
+    },
+    {
+      "id": "unlock",
+      "title": "AOSP bootloader locking/unlocking",
+      "url": "https://source.android.com/docs/core/architecture/bootloader/locking_unlocking",
+      "supports": "OEM unlocking/get_unlock_ability and unlock data reset"
+    },
+    {
+      "id": "factory",
+      "title": "Google factory images terms",
+      "url": "https://developers.google.com/android/images",
+      "supports": "Official images distribution/use terms and data wipe; no package downloaded"
+    },
+    {
+      "id": "shizuku",
+      "title": "Shizuku user manual",
+      "url": "https://shizuku.rikka.app/guide/setup/",
+      "supports": "Root/ADB startup; wireless debugging reboot startup limitations"
+    },
+    {
+      "id": "home-role",
+      "title": "AOSP Android roles",
+      "url": "https://source.android.com/docs/core/permissions/android-roles",
+      "supports": "HOME/ASSISTANT roles and eligibility; does not directly establish Quickstep-provider integration"
+    },
+    {
+      "id": "quickswitch",
+      "title": "QuickSwitch maintainer documentation",
+      "url": "https://github.com/skittles9823/QuickSwitch",
+      "supports": "Switches Quickstep-compatible launchers through a root module; launcher support is required, and arbitrary Activities are not replacements; the chosen Android 17 build is unverified"
+    },
+    {
+      "id": "purchase-unlock",
+      "title": "Official GrapheneOS installer · Purchasing and OEM unlocking",
+      "url": "https://grapheneos.org/install/web#enabling-oem-unlocking",
+      "supports": "Alternative-system installation exists for Pixel 9; avoid carrier variants and check OEM unlocking online; each actual unit still needs acceptance"
+    }
+  ],
+  "productGoal": {
+    "home": "Taku Launcher",
+    "assistant": "Taku Agent",
+    "replace": [
+      "Gemini as default assistant",
+      "Pixel Launcher including recents/Quickstep dependency after replacement validation"
+    ],
+    "preserve": [
+      "stock SystemUI",
+      "lock screen",
+      "settings",
+      "Pixel Camera",
+      "vendor drivers and firmware",
+      "Google services as needed"
+    ],
+    "userInstruction": "User explicitly rejects stock Gemini and Pixel Launcher on 2026-10-10."
+  },
+  "purchaseAssessment": {
+    "deviceClassVerdict": "An unlockable Pixel 9 / tokay suits Taku development and flashing adaptation; official LineageOS metadata and GrapheneOS installation materials support alternative-OS routes.",
+    "takuVerdict": "There is no complete flashable Pixel 9 Taku package; the existing emulator system.img cannot be flashed directly. Agent, independent display, and Taku Quickstep are unverified on Pixel 9 hardware.",
+    "recommendation": "Choose Pixel 9 12GB/256GB without carrier restrictions or with proven unlockability. 128GB also works as a first development device; 256GB provides storage headroom.",
+    "priorConversation": {
+      "threadId": "01a11a34-8d10-7173-a374-d57881fce929",
+      "verifiedBy": "Reread the original conversation and viewed three earlier product/seller-message screenshots supplied by the user; did not visit the current listing.",
+      "seller": "Feifan Digital (seller name, transliterated)",
+      "listingRegion": "US variant",
+      "listingModel": "Pixel 9",
+      "listingRamGB": 12,
+      "listingStorageGB": 256,
+      "screenshotCouponPriceYuan": 2686,
+      "priceIsLiveVerified": false,
+      "sellerClaimsOemUnlockAvailable": true,
+      "sellerClaimsReturnsAvailable": true,
+      "actualUnitVideoAvailable": false,
+      "actualUnitUnlockVerified": false,
+      "priceForSelectedCapacityVerified": false,
+      "notes": "The capacity field says 256GB, but the description covers 128/256GB; the listing says new/sealed while the description says opened with three matching identifiers. Seller promises do not replace unlock verification of the actually shipped device."
+    },
+    "acceptance": [
+      "Exact model/codename is Pixel 9/tokay",
+      "OEM unlocking can be enabled on the actual shipped device after network connection, or fastboot shows already unlocked / get_unlock_ability=1",
+      "Confirm actual capacity, opened/sealed status, and return terms for an ununlockable device at CNY 2686",
+      "Do not treat US variant, overseas unlocked, or SIM unlocked alone as evidence of bootloader unlockability"
+    ],
+    "purchaseCompleted": false
+  }
+}

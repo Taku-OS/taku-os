@@ -1,0 +1,53 @@
+{
+  "schema": "taku.home-policy/1",
+  "property": "ro.taku.home.package",
+  "package": "org.agentos.agent",
+  "repositories": [
+    {
+      "path": "frameworks/base",
+      "revision": "7f6de40b6429462d47ba9ba351b99943269c8067",
+      "patch": "framework-home.patch",
+      "patchSha256": "a64617ea8ee92b1edcafed97597a404f73b40e0fb71a127fbb64d48f1d0c2cd7",
+      "files": [
+        {
+          "path": "services/core/java/com/android/server/pm/ResolveIntentHelper.java",
+          "beforeSha256": "22a2555f221961e240f3f77bfb57fb3101348d5479dc1eb747555a5aac4f5300",
+          "afterSha256": "0636a2160f8498bada0683589ad503087114f4ddb1af236c0d14ffe6812b0684"
+        },
+        {
+          "path": "services/core/java/com/android/server/pm/TakuHomePolicy.java",
+          "beforeSha256": null,
+          "afterSha256": "bc4d6351dc7a3ebf1ad595e915d4f819565acdd7904c7a89055b07184170ee8f"
+        },
+        {
+          "path": "services/voiceinteraction/java/com/android/server/voiceinteraction/VoiceInteractionManagerService.java",
+          "beforeSha256": "bbad0d96800ece495cae6ab2648c757cb283fff33c5edd99eb9936e01b5879b1",
+          "afterSha256": "c9fba441d782b93a095b1709b62beca29d3fc1cdedf08337bb0da58cc98f86c0"
+        },
+        {
+          "path": "services/core/java/com/android/server/policy/PhoneWindowManager.java",
+          "beforeSha256": "f1133d86d0de8beeb982240774d7daf8fd078e0c74c54989121b827c6799650e",
+          "afterSha256": "113c37efc3d03bde4412ce0f528a33481b1e532e06b7bb4ecdaf5a00359fb7bc"
+        }
+      ]
+    },
+    {
+      "path": "packages/modules/Permission",
+      "revision": "cdbbb94284627e3876c1c5a5591c619d3687de7b",
+      "patch": "role-home.patch",
+      "patchSha256": "78391a7c8909327d8e8a092b2b82177e9f3e8632f8d82e56d47988732ce29694",
+      "files": [
+        {
+          "path": "PermissionController/role-controller/java/com/android/role/controller/behavior/HomeRoleBehavior.java",
+          "beforeSha256": "89f405ca0b14d7870025b80278902a39831b568965c9171776f03c1dfdf2fe9a",
+          "afterSha256": "e92db28ef67571e47bf64e1cab7e39f07ba01c4b17036a4077d27e953ba4292b"
+        },
+        {
+          "path": "PermissionController/role-controller/java/com/android/role/controller/behavior/AssistantRoleBehavior.java",
+          "beforeSha256": "759db1cca1f5beb8c504e2a679bd82001f0f4ff17f142bb52f2cb24d632931f0",
+          "afterSha256": "2575898334b7ecb39db269ecf1e4246cacf55fbfed0f6cc8c88c19b860f0402a"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,109 @@
+{
+  "passed": true,
+  "modelResponsesSimulated": true,
+  "gatewayOnAndroid": true,
+  "nativeCodexOnAndroid": true,
+  "cases": [
+    {
+      "model": "fixture/jev-text",
+      "taskId": "1792584313398",
+      "completed": true,
+      "consentBeforeTask": true,
+      "duplicateTriggerSuppressed": true,
+      "draftAndAttachmentPreserved": true,
+      "contextScreenshot": "/data/user/0/org.agentos.assistant/files/runtime/tasks/1792584313398/context.png"
+    },
+    {
+      "model": "fixture/jev-vision",
+      "taskId": "1792584325995",
+      "completed": true,
+      "consentBeforeTask": true,
+      "duplicateTriggerSuppressed": true,
+      "draftAndAttachmentPreserved": true,
+      "contextScreenshot": "/data/user/0/org.agentos.assistant/files/runtime/tasks/1792584325995/context.png"
+    }
+  ],
+  "mainConnectionUnchanged": true,
+  "realMagpieMigrationVerified": true,
+  "upstreamEvents": [
+    {
+      "kind": "decision",
+      "model": "jev-text",
+      "image": false,
+      "fixtureTextPresent": true,
+      "passwordExcluded": true,
+      "noDraftLeak": true
+    },
+    {
+      "kind": "agent",
+      "model": "fixture-chat",
+      "image": true,
+      "noDraftLeak": true
+    },
+    {
+      "kind": "decision",
+      "model": "jev-vision",
+      "image": true,
+      "fixtureTextPresent": true,
+      "passwordExcluded": true,
+      "noDraftLeak": true
+    },
+    {
+      "kind": "agent",
+      "model": "fixture-chat",
+      "image": true,
+      "noDraftLeak": true
+    }
+  ],
+  "physicalDeviceVerified": false,
+  "romVerified": false,
+  "date": "2026-10-21",
+  "assistantVersion": "20261021-jev-magpie",
+  "versionCode": 57,
+  "sourceBaseCommit": "0d1119d8e5a7811d227d850f9e7438f9c71cc52b",
+  "android": {
+    "api": 36,
+    "architecture": "arm64",
+    "avd": "Taku_JevMagpie_20261021"
+  },
+  "runtimes": {
+    "magpie": "0.1.1290",
+    "codex": "0.161.0"
+  },
+  "upstream": "Synthetic Remote Magpie protocol fixture; no real Jev inference or user keys",
+  "hostRegression": {
+    "passed": true,
+    "gatewayChecks": 41,
+    "composerAssertions": 95,
+    "nativeConversationAssertions": 46,
+    "typedAnswers": true,
+    "legacyEncryption": true
+  },
+  "repositoryVerify": {
+    "passed": true,
+    "command": "npm run verify",
+    "ninjaFifoGuardSkippedOnMacOS": true
+  },
+  "artifacts": {
+    "AgentOSAssistant.apk": {
+      "sha256": "f07a442f819ee295a85c359e2873f81fc37f5537442b34457c9de74cc97e62e0",
+      "bytes": 2158821
+    },
+    "task-broker.jar": {
+      "sha256": "f1d19f57f4c90153ec2204617e75de5f34048f581f6e2a5a4b52a80cdb180459",
+      "bytes": 55613
+    },
+    "virtual-display.jar": {
+      "sha256": "36629198fa012ee353e404710cf1184eac5e3eb27790aa41acd207668cf31a9a",
+      "bytes": 7867
+    },
+    "fixture.apk": {
+      "sha256": "7fba08c49e484d9c5f20738e59fa4ea64551376258847d1448fdb92bb69e1143",
+      "bytes": 8619
+    },
+    "test.jar": {
+      "sha256": "f5d2c5e2ac0db107946d5e541eeb8b9bedd8a737c0c32e5142f36e3e4e8df99f",
+      "bytes": 15415
+    }
+  }
+}

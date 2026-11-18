@@ -1,0 +1,56 @@
+{
+  "bootCompleted": "1",
+  "fingerprint": "Taku/lineage_taku_emu_arm64/taku_emu64a:17/CP2A.260605.016/20261115082000:userdebug/test-keys",
+  "lineage": "24.0-20261115-UNOFFICIAL-taku_emu_arm64",
+  "target": "emulator",
+  "home": "priority=0 preferredOrder=0 match=0x108000 specificIndex=-1 isDefault=true\norg.agentos.agent/.home.HomeActivity",
+  "homeRole": "org.agentos.agent",
+  "assistant": "org.agentos.agent/.home.assistant.SystemAssistantService",
+  "voiceInteractionService": "org.agentos.agent/.home.assistant.SystemAssistantService",
+  "navigationMode": "2",
+  "systemUiPid": "896",
+  "caps": {
+    "ok": true,
+    "protocol": 1,
+    "enabled": true,
+    "presentationAttached": true,
+    "takuProducer": "connected",
+    "compiledAndDeviceVerified": false,
+    "operations": [
+      "list",
+      "get",
+      "select",
+      "choose",
+      "expand",
+      "collapse",
+      "dismiss",
+      "action",
+      "open",
+      "settings",
+      "setEnabled",
+      "setAllowed"
+    ]
+  },
+  "state": {
+    "ok": true,
+    "settings": {
+      "enabled": true,
+      "protocol": 1,
+      "allowedPackages": [
+        "org.agentos.island.fixture"
+      ],
+      "error": null
+    },
+    "activities": [],
+    "presentation": {
+      "selected": null,
+      "compactVisible": false,
+      "reason": "landscape",
+      "expanded": false,
+      "card": null
+    }
+  },
+  "installedApkHashes": "f07da09dfcaca6d7a26a11e60fa56eea12115ebf49528996e755bac1e0affa00  /system_ext/priv-app/SystemUI/SystemUI.apk\nd4fb638cbe1568139d44ce93e4b43cd806dc9b44a731f30000d3001f9dd0059d  /system_ext/app/TakuAgent/TakuAgent.apk",
+  "fontScale": "1.0",
+  "display": "Physical size: 1080x2424; Physical density: 420"
+}

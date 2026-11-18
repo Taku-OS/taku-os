@@ -1,0 +1,1626 @@
+{
+  "checkedAt": "2026-10-15",
+  "scope": "Taku Android Agent on physical Pixel 9",
+  "runtimeVersion": "0.161.0",
+  "installedAssistantVersionCode": 43,
+  "installedBrokerSha256": "4ebd0a2a621af3528ea07ae09158102fcdc1e4030ea7ac1aaba214c89fc98b41",
+  "officialDocs": "https://learn.chatgpt.com/docs/app-server",
+  "phoneRpcReferences": [
+    "account/login/cancel",
+    "account/login/start",
+    "account/read",
+    "initialize",
+    "thread/list",
+    "thread/name/set",
+    "thread/read",
+    "thread/resume",
+    "thread/start",
+    "turn/interrupt",
+    "turn/start"
+  ],
+  "sourceRpcReferences": [
+    "account/login/cancel",
+    "account/login/start",
+    "account/read",
+    "initialize",
+    "skills/config/write",
+    "skills/list",
+    "thread/inject_items",
+    "thread/list",
+    "thread/name/set",
+    "thread/read",
+    "thread/resume",
+    "thread/start",
+    "turn/interrupt",
+    "turn/start"
+  ],
+  "sourceNewRpcReferences": [
+    "skills/config/write",
+    "skills/list",
+    "thread/inject_items"
+  ],
+  "counts": {
+    "defaultGroupClientMethods": 104,
+    "withExperimentalClientMethods": 169
+  },
+  "methodInventory": [
+    {
+      "method": "initialize",
+      "schemaGroup": "default",
+      "phoneReference": true,
+      "sourceReference": true,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "server/diagnostics",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "userVerification/status",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "userVerification/enroll",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "userVerification/delete",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "userVerification/verify",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "userVerification/cancel",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "thread/start",
+      "schemaGroup": "default",
+      "phoneReference": true,
+      "sourceReference": true,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "thread/resume",
+      "schemaGroup": "default",
+      "phoneReference": true,
+      "sourceReference": true,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "thread/fork",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "thread/archive",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "thread/delete",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "thread/unsubscribe",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "thread/increment_elicitation",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "thread/decrement_elicitation",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "thread/name/set",
+      "schemaGroup": "default",
+      "phoneReference": true,
+      "sourceReference": true,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "thread/prediction/request",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "thread/goal/set",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "thread/goal/get",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "thread/goal/clear",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "thread/queue/add",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "thread/queue/list",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "thread/queue/update",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "thread/queue/delete",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "thread/queue/reorder",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "thread/queue/start",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "thread/metadata/update",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "thread/attachment/add",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "thread/attachment/list",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "thread/attachment/remove",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "thread/section/move",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "thread/settings/update",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "thread/memoryMode/set",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "memory/status",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "memory/reset",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "rollout/compress",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "thread/unarchive",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "thread/compact/start",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "thread/shellCommand",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "thread/approveGuardianDeniedAction",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "thread/backgroundTerminals/clean",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "thread/backgroundTerminals/list",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "thread/backgroundTerminals/terminate",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "thread/revert",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "thread/list",
+      "schemaGroup": "default",
+      "phoneReference": true,
+      "sourceReference": true,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "project/list",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "project/read",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "project/create",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "project/import",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "project/update",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "project/move",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "project/delete",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "threadSection/list",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "threadSection/create",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "threadSection/update",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "threadSection/delete",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "thread/search",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "thread/searchOccurrences",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "thread/loaded/list",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "thread/read",
+      "schemaGroup": "default",
+      "phoneReference": true,
+      "sourceReference": true,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "thread/turns/list",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "thread/items/list",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "thread/inject_items",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": true,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "skills/list",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": true,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "skills/extraRoots/set",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "hooks/list",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "marketplace/add",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "marketplace/remove",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "marketplace/upgrade",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "plugin/list",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "plugin/search",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "plugin/installed",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "plugin/reconcile",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "plugin/read",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "plugin/skill/read",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "plugin/share/save",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "plugin/share/updateTargets",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "plugin/share/list",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "plugin/share/checkout",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "plugin/share/delete",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "app/read",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "app/list",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "app/installed",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "fs/readFile",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "fs/writeFile",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "fs/createDirectory",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "fs/getMetadata",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "fs/readDirectory",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "fs/remove",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "fs/copy",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "fs/watch",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "fs/unwatch",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "skills/config/write",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": true,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "plugin/install",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "plugin/uninstall",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "turn/start",
+      "schemaGroup": "default",
+      "phoneReference": true,
+      "sourceReference": true,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "turn/settings/update",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "turn/steer",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "turn/interrupt",
+      "schemaGroup": "default",
+      "phoneReference": true,
+      "sourceReference": true,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "thread/realtime/start",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "thread/realtime/appendAudio",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "thread/realtime/appendText",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "thread/realtime/appendSpeech",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "thread/realtime/stop",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "thread/timeline/list",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "thread/realtime/listVoices",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "review/start",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "model/list",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "account/gatewayOAuth/read",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "account/gatewayOAuth/login",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "account/gatewayOAuth/cancel",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "modelProvider/capabilities/read",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "experimentalFeature/list",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "permissionProfile/list",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "experimentalFeature/enablement/set",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "remoteControl/enable",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "remoteControl/disable",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "remoteControl/status/read",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "remoteControl/pairing/start",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "remoteControl/pairing/status",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "remoteControl/client/list",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "remoteControl/client/revoke",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "collaborationMode/list",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "mock/experimentalMethod",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "environment/add",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "environment/info",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "environment/status",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "mcpServer/oauth/login",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "config/mcpServer/reload",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "mcpServerStatus/list",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "mcpServer/resource/read",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "mcpServer/event/stream/start",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "mcpServer/event/stream/stop",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "mcpServer/tool/call",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "windowsSandbox/setupStart",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "windowsSandbox/readiness",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "account/login/start",
+      "schemaGroup": "default",
+      "phoneReference": true,
+      "sourceReference": true,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "account/bedrock/discover",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "account/bedrock/setup",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "account/bedrock/checkGovCloudRequirements",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "account/login/cancel",
+      "schemaGroup": "default",
+      "phoneReference": true,
+      "sourceReference": true,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "account/logout",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "account/rateLimits/read",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "account/rateLimitResetCredit/consume",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "account/usage/read",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "account/workspaceMessages/read",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "account/sendAddCreditsNudgeEmail",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "feedback/upload",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "command/exec",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "command/exec/write",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "command/exec/terminate",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "command/exec/resize",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "process/spawn",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "process/writeStdin",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "process/kill",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "process/resizePty",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "config/read",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "externalAgentConfig/detect",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "externalAgentConfig/import",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "externalAgentConfig/import/recordHistory",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "externalAgentConfig/import/readHistories",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "config/value/write",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "config/batchWrite",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "configRequirements/read",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "account/read",
+      "schemaGroup": "default",
+      "phoneReference": true,
+      "sourceReference": true,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "fuzzyFileSearch",
+      "schemaGroup": "default",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "fuzzyFileSearch/sessionStart",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "fuzzyFileSearch/sessionUpdate",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    },
+    {
+      "method": "fuzzyFileSearch/sessionStop",
+      "schemaGroup": "experimental",
+      "phoneReference": false,
+      "sourceReference": false,
+      "note": "schema presence is not runtime/entitlement acceptance"
+    }
+  ],
+  "features": [
+    {
+      "name": "Add instructions during execution",
+      "state": "missing",
+      "priority": "P0",
+      "api": [
+        "turn/steer"
+      ],
+      "value": "Add a location, constraint, or correction while the assistant executes, without stopping first.",
+      "note": "Current sending logic has no steer; it must bind expectedTurnId.",
+      "protocol": {
+        "turn/steer": "default-group"
+      }
+    },
+    {
+      "name": "Model and reasoning-level selection",
+      "state": "missing",
+      "priority": "P0",
+      "api": [
+        "model/list",
+        "turn/start"
+      ],
+      "value": "Choose a model and reasoning level in settings, beyond concise/detailed response style.",
+      "note": "The phone read-only probe returned 7 catalog models; the other models were not individually tested for real generation. model and effort are separate parameters.",
+      "protocol": {
+        "model/list": "default-group",
+        "turn/start": "default-group"
+      }
+    },
+    {
+      "name": "Necessary-information question cards",
+      "state": "missing",
+      "priority": "P0",
+      "api": [
+        "item/tool/requestUserInput",
+        "mcpServer/elicitation/request"
+      ],
+      "value": "When route, account, time, or similar information is needed, show choices and return the user answer to the current task.",
+      "note": "The current client returns -32601 to every server request. Ask only when required information is missing; do not add general confirmation gates.",
+      "protocol": {
+        "item/tool/requestUserInput": "server-request",
+        "mcpServer/elicitation/request": "server-request"
+      }
+    },
+    {
+      "name": "Actual task steps and progress",
+      "state": "partial",
+      "priority": "P0",
+      "api": [
+        "turn/plan/updated",
+        "item/mcpToolCall/progress",
+        "item/commandExecution/outputDelta"
+      ],
+      "value": "Show steps, current stage, and failure location, improving on generic execution status alone.",
+      "note": "Text streaming and generic tool status exist; plans and extended progress are not fully rendered. Model internal reasoning need not be exposed.",
+      "protocol": {
+        "turn/plan/updated": "event",
+        "item/mcpToolCall/progress": "event",
+        "item/commandExecution/outputDelta": "event"
+      }
+    },
+    {
+      "name": "Structured phone tools",
+      "state": "experimental",
+      "priority": "P0",
+      "api": [
+        "thread/start.dynamicTools",
+        "item/tool/call"
+      ],
+      "value": "Expose app launch and foreground/background display observation and control as tools with parameter schemas.",
+      "note": "dynamicTools is experimental; the current interactive-request handler rejects item/tool/call, and system operations mainly use runtime commands.",
+      "protocol": {
+        "thread/start.dynamicTools": "field-or-cli",
+        "item/tool/call": "server-request"
+      }
+    },
+    {
+      "name": "Context usage, quota, and compaction",
+      "state": "partial",
+      "priority": "P1",
+      "api": [
+        "thread/tokenUsage/updated",
+        "account/rateLimits/read",
+        "thread/compact/start"
+      ],
+      "value": "Show context and quota status; provide native compaction when long conversations approach the limit.",
+      "note": "New source already records tokenUsage; that module is not deployed on the phone, and quota/manual compaction have no entry. The read-only quota interface was verified.",
+      "protocol": {
+        "thread/tokenUsage/updated": "event",
+        "account/rateLimits/read": "default-group",
+        "thread/compact/start": "default-group"
+      }
+    },
+    {
+      "name": "Apps and MCP product entries",
+      "state": "partial",
+      "priority": "P1",
+      "api": [
+        "app/list",
+        "app/read",
+        "mcpServerStatus/list",
+        "mcpServer/tool/call",
+        "config/mcpServer/reload"
+      ],
+      "value": "Show available connectors and tools, make connection state clear, and handle interactive requests.",
+      "note": "The phone discovered codex_apps and 264 tool metadata records; generic mcpToolCall events are already displayed. Metadata count does not establish call acceptance or asset authorization for every tool.",
+      "protocol": {
+        "app/list": "default-group",
+        "app/read": "default-group",
+        "mcpServerStatus/list": "default-group",
+        "mcpServer/tool/call": "default-group",
+        "config/mcpServer/reload": "default-group"
+      }
+    },
+    {
+      "name": "Conversation branching, archiving, and search",
+      "state": "missing",
+      "priority": "P1",
+      "api": [
+        "thread/fork",
+        "thread/archive",
+        "thread/unarchive",
+        "thread/list",
+        "thread/metadata/update"
+      ],
+      "value": "Try another approach with the same context, organize history, and search/pin conversations.",
+      "note": "The current list takes a fixed 100 entries, without complete pagination, search, or branching. Permanent deletion should be presented distinctly from archiving.",
+      "protocol": {
+        "thread/fork": "default-group",
+        "thread/archive": "default-group",
+        "thread/unarchive": "default-group",
+        "thread/list": "default-group",
+        "thread/metadata/update": "default-group"
+      }
+    },
+    {
+      "name": "Native goal management",
+      "state": "missing",
+      "priority": "P1",
+      "api": [
+        "thread/goal/set",
+        "thread/goal/get",
+        "thread/goal/clear"
+      ],
+      "value": "Store long-task objectives, status, and token budgets for continued work across turns.",
+      "note": "Goal status is not scheduled wakeup; Android background survival and timed scheduling still need separate integration.",
+      "protocol": {
+        "thread/goal/set": "default-group",
+        "thread/goal/get": "default-group",
+        "thread/goal/clear": "default-group"
+      }
+    },
+    {
+      "name": "Realtime voice conversations",
+      "state": "experimental",
+      "priority": "P1",
+      "api": [
+        "thread/realtime/start",
+        "thread/realtime/appendAudio",
+        "thread/realtime/appendText",
+        "thread/realtime/appendSpeech",
+        "thread/realtime/listVoices",
+        "thread/realtime/stop"
+      ],
+      "value": "Speak directly after holding the power button and receive text or voice responses.",
+      "note": "Experimental protocol from phone runtime 0.161.0; service availability, audio capture, playback, interruption, and power use were not verified. This does not establish integration with the general Realtime API.",
+      "protocol": {
+        "thread/realtime/start": "experimental-group",
+        "thread/realtime/appendAudio": "experimental-group",
+        "thread/realtime/appendText": "experimental-group",
+        "thread/realtime/appendSpeech": "experimental-group",
+        "thread/realtime/listVoices": "experimental-group",
+        "thread/realtime/stop": "experimental-group"
+      }
+    },
+    {
+      "name": "Native task queue and multiple agents",
+      "state": "experimental",
+      "priority": "P2",
+      "api": [
+        "thread/queue/add",
+        "thread/queue/list",
+        "thread/queue/reorder",
+        "thread/queue/start",
+        "thread/start.multiAgentMode"
+      ],
+      "value": "Natively order pending tasks and show parent-child task relationships.",
+      "note": "TaskBroker already has a queue. Before adopting the native queue, decide ownership of state to avoid two independent schedulers. multiAgentMode was not accepted on the phone.",
+      "protocol": {
+        "thread/queue/add": "experimental-group",
+        "thread/queue/list": "experimental-group",
+        "thread/queue/reorder": "experimental-group",
+        "thread/queue/start": "experimental-group",
+        "thread/start.multiAgentMode": "field-or-cli"
+      }
+    },
+    {
+      "name": "Remote development and control",
+      "state": "experimental",
+      "priority": "P2",
+      "api": [
+        "remoteControl/status/read",
+        "remoteControl/pairing/start",
+        "app-server --listen ws://",
+        "codex --remote"
+      ],
+      "value": "Observe and debug the phone runtime from authenticated clients without a USB cable.",
+      "note": "The CLI supports remote connections; native remoteControl pairing is experimental. No network listener or remote channel was opened this round.",
+      "protocol": {
+        "remoteControl/status/read": "experimental-group",
+        "remoteControl/pairing/start": "experimental-group",
+        "app-server --listen ws://": "field-or-cli",
+        "codex --remote": "field-or-cli"
+      }
+    },
+    {
+      "name": "Development workbench",
+      "state": "missing",
+      "priority": "P2",
+      "api": [
+        "review/start",
+        "command/exec",
+        "process/spawn",
+        "fs/readFile",
+        "fs/watch",
+        "hooks/list"
+      ],
+      "value": "Develop code, run programs, inspect files, and review code on the phone.",
+      "note": "Model-integrated command execution exists; these direct-control RPCs have no product entry yet. hooks/list is readable, with no hooks in the current working directory. review/start reviews code, not arbitrary phone-action acceptance.",
+      "protocol": {
+        "review/start": "default-group",
+        "command/exec": "default-group",
+        "process/spawn": "experimental-group",
+        "fs/readFile": "default-group",
+        "fs/watch": "default-group",
+        "hooks/list": "default-group"
+      }
+    },
+    {
+      "name": "Skills and Harness",
+      "state": "source",
+      "priority": "Implemented in source",
+      "api": [
+        "skills/list",
+        "skills/config/write",
+        "thread/inject_items",
+        "turn/start.input.skill",
+        "thread/tokenUsage/updated"
+      ],
+      "value": "Inspect/select skills, append device context when needed, and record usage.",
+      "note": "Implemented in new source and settings entries; the phone APK is currently v43, and the installed broker matches the earlier hardware-acceptance SHA, without these new modules.",
+      "protocol": {
+        "skills/list": "default-group",
+        "skills/config/write": "default-group",
+        "thread/inject_items": "default-group",
+        "turn/start.input.skill": "field-or-cli",
+        "thread/tokenUsage/updated": "event"
+      }
+    },
+    {
+      "name": "Plugin and marketplace management",
+      "state": "experimental",
+      "priority": "P2",
+      "api": [
+        "marketplace/add",
+        "plugin/list",
+        "plugin/read",
+        "plugin/install",
+        "plugin/uninstall"
+      ],
+      "value": "Manage official plugin marketplaces and plugins together.",
+      "note": "Official documentation explicitly marks some plugin methods as under development and says not to call them from production clients; existing Skills community installation is not the native plugin marketplace.",
+      "protocol": {
+        "marketplace/add": "default-group",
+        "plugin/list": "default-group",
+        "plugin/read": "default-group",
+        "plugin/install": "default-group",
+        "plugin/uninstall": "default-group"
+      }
+    }
+  ],
+  "readOnlyProbes": {
+    "model/list": {
+      "ok": true,
+      "models": [
+        {
+          "model": "gpt-6.1-sol",
+          "efforts": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max",
+            "ultra"
+          ]
+        },
+        {
+          "model": "gpt-6-astra",
+          "efforts": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max",
+            "ultra"
+          ]
+        },
+        {
+          "model": "gpt-6-sol",
+          "efforts": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max",
+            "ultra"
+          ]
+        },
+        {
+          "model": "gpt-6-luna",
+          "efforts": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ]
+        },
+        {
+          "model": "gpt-5.6-sol",
+          "efforts": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max",
+            "ultra"
+          ]
+        },
+        {
+          "model": "gpt-5.6-terra",
+          "efforts": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max",
+            "ultra"
+          ]
+        },
+        {
+          "model": "gpt-5.6-luna",
+          "efforts": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ]
+        }
+      ]
+    },
+    "account/rateLimits/read": {
+      "ok": true,
+      "usageWindowsAvailable": true
+    },
+    "mcpServerStatus/list": {
+      "ok": true,
+      "configuredServerCount": 1
+    },
+    "hooks/list": {
+      "ok": true,
+      "workspaceRows": 1,
+      "hookCount": 0
+    }
+  },
+  "mcpMetadata": {
+    "mcpServerStatus/list": {
+      "ok": true,
+      "configuredServerCount": 1,
+      "servers": [
+        {
+          "name": "codex_apps",
+          "toolCount": 264
+        }
+      ]
+    }
+  },
+  "limits": [
+    "RPC reference counts do not measure functional coverage; built-in model tools may execute without our own explicit RPC",
+    "Default export group includes some development-only APIs; it is not a blanket stability promise",
+    "Catalog metadata does not prove each model, connector or tool can successfully execute",
+    "Only read-only discovery and public protocol generation were run; no model turn, account change, compaction, archive or tool execution was triggered"
+  ],
+  "secretsIncluded": false
+}

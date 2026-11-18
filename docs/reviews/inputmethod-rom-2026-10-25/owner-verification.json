@@ -1,0 +1,55 @@
+{
+  "schema": "taku.owner-I-release-verification/1",
+  "at": "2026-10-24T17:23:27.311320+00:00",
+  "candidate": "I",
+  "buildNumber": "20261024154635",
+  "imageSourceCommit": "caefbf89efdcab20464189468b284205452dfddf",
+  "snapshotDigest": "16fb163782b9e2d0f8224f3143fdae97c54b693c955dd178cfbecf6e8c64926e",
+  "passed": true,
+  "physicalBootAndScopedSelectedDataVerified": true,
+  "originalEffectiveConfigPreserved": true,
+  "sharedRevisionOnlyDifference": {
+    "before": 48,
+    "after": 55
+  },
+  "stabilitySampleCount": 41,
+  "stabilityWindowSeconds": 135.334822791,
+  "realAiAcceptance": {
+    "path": "/Users/haipro/experiments/android-agent-os/taku-os/out/worktrees/branding-release-20261024/docs/reviews/inputmethod-rom-2026-10-25/result.json",
+    "sha256": "994c240fd2c2c16e54ba838c66290e7e008119aa53416063f71d7597d8cb85d1"
+  },
+  "postboot": {
+    "path": "/Users/haipro/experiments/android-agent-os/taku-os/out/worktrees/branding-release-20261024/out/reviews/I-install-20261024/postboot-2/report.json",
+    "sha256": "830c011833f7049e16a4eb8377427f3cec88115b3903fc042b25d96bfaf56dc3"
+  },
+  "stability": {
+    "path": "/Users/haipro/experiments/android-agent-os/taku-os/out/worktrees/branding-release-20261024/out/reviews/I-install-20261024/stability-120-1/report.json",
+    "sha256": "c5298084e9ff7447b7c31c55c27891ad503ceb7454c1eb8c22ab23ced10101e8"
+  },
+  "finalReadback": {
+    "path": "/Users/haipro/experiments/android-agent-os/taku-os/out/worktrees/branding-release-20261024/out/reviews/I-install-20261024/final-readback-1.json",
+    "sha256": "6bc9d2c9c2f47c24fc6a38132d0dc7a21d2481ca2bacb9fe172bcdee538d7766"
+  },
+  "brandingUi": {
+    "path": "/Users/haipro/experiments/android-agent-os/taku-os/out/worktrees/branding-release-20261024/out/reviews/I-install-20261024/ui/branding-ui-verification.json",
+    "sha256": "ac50e33612f7c4461e1ae42e842ed07cf6ed959080b6031ab208006bff7f622b"
+  },
+  "images": {
+    "05-system-update.png": {
+      "sha256": "28cd73af6de7c9fe1fd26e82e67bb4a75bd77a594a2f1b991be573b9f43de320",
+      "rawSource": "/Users/haipro/experiments/android-agent-os/taku-os/out/worktrees/branding-release-20261024/out/reviews/I-install-20261024/ui/system-update-2.png",
+      "pixelsEdited": false
+    },
+    "06-about-phone.png": {
+      "sha256": "e8d7dcc13909f46a0705dd83648ae9c5069bc73af011160107d128b2b40d3abd",
+      "rawSource": "/Users/haipro/experiments/android-agent-os/taku-os/out/worktrees/branding-release-20261024/out/reviews/I-install-20261024/ui/about-phone-3.png",
+      "pixelsEdited": false
+    }
+  },
+  "allUserDataVerified": false,
+  "formalOtaAcceptance": false,
+  "cloudPublished": false,
+  "automationResumed": false,
+  "credentialsCommitted": false,
+  "immutableArtifactReportsRewritten": false
+}

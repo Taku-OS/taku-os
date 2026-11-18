@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:taku:capability:0.1",
+  "title": "Taku OS capability record",
+  "type": "object",
+  "required": [
+    "id",
+    "title",
+    "purpose",
+    "accessTier",
+    "androidSupport",
+    "permissions",
+    "entrypoints",
+    "examples",
+    "limitations",
+    "status",
+    "evidence",
+    "sources"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "title": {
+      "type": "string"
+    },
+    "purpose": {
+      "type": "string"
+    },
+    "accessTier": {
+      "enum": [
+        "ordinary",
+        "adb_shizuku",
+        "root_system",
+        "rom_framework"
+      ]
+    },
+    "status": {
+      "enum": [
+        "research",
+        "emulator_verified",
+        "device_verified"
+      ]
+    },
+    "androidSupport": {
+      "type": "object",
+      "properties": {
+        "apiMin": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "verified": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "array"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
+    "permissions": {
+      "type": "array"
+    },
+    "entrypoints": {
+      "type": "array"
+    },
+    "examples": {
+      "type": "array"
+    },
+    "limitations": {
+      "type": "array"
+    },
+    "evidence": {
+      "type": "array"
+    },
+    "sources": {
+      "type": "array"
+    },
+    "validation": {
+      "type": "object",
+      "description": "Separate research/emulator/device scopes with status, date, device/version, boundaries and evidence; not all API variants are implied by main status."
+    }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,99 @@
+{
+  "action": {
+    "ok": true,
+    "state": {
+      "settings": {
+        "enabled": true,
+        "protocol": 1,
+        "allowedPackages": [
+          "org.agentos.island.fixture"
+        ],
+        "error": null
+      },
+      "activities": [
+        {
+          "key": "0|org.agentos.island.fixture|1|null|10203",
+          "package": "org.agentos.island.fixture",
+          "userId": 0,
+          "revision": 6,
+          "firstSeenElapsedMs": 778696,
+          "expiresElapsedMs": 4378696,
+          "stale": false,
+          "dismissed": false,
+          "active": true,
+          "availableActions": [
+            {
+              "id": "stop",
+              "title": "Stop fixture"
+            }
+          ],
+          "payload": {
+            "version": 1,
+            "category": "progress",
+            "bigIsland": {
+              "leading": {
+                "type": "text",
+                "text": "Island test"
+              },
+              "trailing": {
+                "type": "progress",
+                "value": 0.4
+              }
+            },
+            "expanded": {
+              "template": "progress",
+              "title": "Island integration fixture",
+              "body": "Native fallback: this test notification is still active.",
+              "progress": {
+                "type": "progress",
+                "value": 0.4
+              },
+              "actions": [
+                "stop"
+              ],
+              "content": {
+                "service": "org.agentos.island.fixture/org.agentos.island.fixture.Fixture$Content",
+                "token": "fixture"
+              }
+            },
+            "statusBar": "auto",
+            "alert": false
+          },
+          "fallback": null
+        }
+      ],
+      "presentation": {
+        "selected": "0|org.agentos.island.fixture|1|null|10203",
+        "compactVisible": true,
+        "reason": "landscape",
+        "expanded": false,
+        "card": null
+      },
+      "diagnostics": [
+        "0|org.agentos.island.fixture|1|null|10203:publisher_not_allowed",
+        "0|org.agentos.island.fixture|1|null|10203:publisher_not_allowed",
+        "0|org.agentos.island.fixture|1|null|10203:publisher_not_allowed"
+      ]
+    }
+  },
+  "final": {
+    "ok": true,
+    "settings": {
+      "enabled": true,
+      "protocol": 1,
+      "allowedPackages": [
+        "org.agentos.island.fixture"
+      ],
+      "error": null
+    },
+    "activities": [],
+    "presentation": {
+      "selected": null,
+      "compactVisible": false,
+      "reason": "landscape",
+      "expanded": false,
+      "card": null
+    }
+  },
+  "fixture": "Row: 0 json={\"outsideTaps\":2,\"activeNotifications\":0,\"lastOperation\":\"cancel\"}"
+}

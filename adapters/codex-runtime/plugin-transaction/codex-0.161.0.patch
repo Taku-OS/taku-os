@@ -1,0 +1,673 @@
+diff --git a/codex-rs/app-server-protocol/src/protocol/common.rs b/codex-rs/app-server-protocol/src/protocol/common.rs
+index e4a3e80..75d8c65 100644
+--- a/codex-rs/app-server-protocol/src/protocol/common.rs
++++ b/codex-rs/app-server-protocol/src/protocol/common.rs
+@@ -1030,6 +1030,11 @@ client_request_definitions! {
+         serialization: global("config"),
+         response: v2::PluginInstallResponse,
+     },
++    PluginRollback => "plugin/rollback" {
++        params: v2::PluginRollbackParams,
++        serialization: global("config"),
++        response: v2::PluginRollbackResponse,
++    },
+     PluginUninstall => "plugin/uninstall" {
+         params: v2::PluginUninstallParams,
+         serialization: global("config"),
+diff --git a/codex-rs/app-server-protocol/src/protocol/v2/plugin.rs b/codex-rs/app-server-protocol/src/protocol/v2/plugin.rs
+index c203bd3..53759d9 100644
+--- a/codex-rs/app-server-protocol/src/protocol/v2/plugin.rs
++++ b/codex-rs/app-server-protocol/src/protocol/v2/plugin.rs
+@@ -981,6 +981,16 @@ pub struct PluginUninstallParams {
+ #[ts(export_to = "v2/")]
+ pub struct PluginUninstallResponse {}
+ 
++#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema, TS)]
++#[serde(rename_all = "camelCase")]
++#[ts(export_to = "v2/")]
++pub struct PluginRollbackParams { pub plugin_id: String }
++
++#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema, TS)]
++#[serde(rename_all = "camelCase")]
++#[ts(export_to = "v2/")]
++pub struct PluginRollbackResponse {}
++
+ impl From<CoreSkillMetadata> for SkillMetadata {
+     fn from(value: CoreSkillMetadata) -> Self {
+         Self {
+diff --git a/codex-rs/app-server/src/config_manager_service.rs b/codex-rs/app-server/src/config_manager_service.rs
+index f7377c5..78a3a1c 100644
+--- a/codex-rs/app-server/src/config_manager_service.rs
++++ b/codex-rs/app-server/src/config_manager_service.rs
+@@ -27,9 +27,7 @@ use codex_core::config::deserialize_config_toml_with_base;
+ use codex_core::config::edit::ConfigEditsBuilder;
+ use codex_core::config::validate_feature_requirements_for_config_toml;
+ use codex_core::path_utils;
+-use codex_core::path_utils::SymlinkWritePaths;
+ use codex_core::path_utils::resolve_symlink_write_paths;
+-use codex_core::path_utils::write_atomically;
+ use codex_protocol::protocol::AskForApproval;
+ use codex_utils_absolute_path::AbsolutePathBuf;
+ use serde_json::Value as JsonValue;
+@@ -37,7 +35,6 @@ use std::borrow::Cow;
+ use std::path::Path;
+ use std::path::PathBuf;
+ use thiserror::Error;
+-use tokio::task;
+ use toml::Value as TomlValue;
+ use toml_edit::Item as TomlItem;
+ 
+@@ -237,6 +234,12 @@ impl ConfigManager {
+             ));
+         }
+ 
++        // Acquire on the blocking pool before loading the read-modify-write input.
++        let lock_root = self.codex_home().join("plugins");
++        let lock = tokio::task::spawn_blocking(move || codex_config::StoreLock::acquire(&lock_root))
++            .await.map_err(|err| ConfigManagerError::anyhow("config lock task panicked", err.into()))?
++            .map_err(|err| ConfigManagerError::io("failed to acquire config lock", err))?;
++
+         let layers = self
+             .load_thread_agnostic_config()
+             .await
+@@ -412,7 +415,7 @@ impl ConfigManager {
+         if !config_edits.is_empty() {
+             ConfigEditsBuilder::for_config_path(provided_path.as_path())
+                 .with_edits(config_edits)
+-                .apply()
++                .apply_under_lock(lock)
+                 .await
+                 .map_err(|err| ConfigManagerError::anyhow("failed to persist config.toml", err))?;
+         }
+@@ -451,20 +454,14 @@ impl ConfigManager {
+ async fn create_empty_user_layer(
+     config_toml: &AbsolutePathBuf,
+ ) -> Result<ConfigLayerEntry, ConfigManagerError> {
+-    let SymlinkWritePaths {
+-        read_path,
+-        write_path,
+-    } = resolve_symlink_write_paths(config_toml.as_path())
+-        .map_err(|err| ConfigManagerError::io("failed to resolve user config path", err))?;
++    let read_path = resolve_symlink_write_paths(config_toml.as_path())
++        .map_err(|err| ConfigManagerError::io("failed to resolve user config path", err))?.read_path;
+     let toml_value = match read_path {
+         Some(path) => match tokio::fs::read_to_string(&path).await {
+             Ok(contents) => toml::from_str(&contents).map_err(|e| {
+                 ConfigManagerError::toml("failed to parse existing user config.toml", e)
+             })?,
+-            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+-                write_empty_user_config(write_path.clone()).await?;
+-                TomlValue::Table(toml::map::Map::new())
+-            }
++            Err(err) if err.kind() == std::io::ErrorKind::NotFound => TomlValue::Table(toml::map::Map::new()),
+             Err(err) => {
+                 return Err(ConfigManagerError::io(
+                     "failed to read user config.toml",
+@@ -472,10 +469,7 @@ async fn create_empty_user_layer(
+                 ));
+             }
+         },
+-        None => {
+-            write_empty_user_config(write_path).await?;
+-            TomlValue::Table(toml::map::Map::new())
+-        }
++        None => TomlValue::Table(toml::map::Map::new()),
+     };
+     Ok(ConfigLayerEntry::new(
+         ConfigLayerSource::User {
+@@ -486,13 +480,6 @@ async fn create_empty_user_layer(
+     ))
+ }
+ 
+-async fn write_empty_user_config(write_path: PathBuf) -> Result<(), ConfigManagerError> {
+-    task::spawn_blocking(move || write_atomically(&write_path, ""))
+-        .await
+-        .map_err(|err| ConfigManagerError::anyhow("config persistence task panicked", err.into()))?
+-        .map_err(|err| ConfigManagerError::io("failed to create empty user config.toml", err))
+-}
+-
+ fn parse_value(value: JsonValue) -> Result<Option<TomlValue>, String> {
+     if value.is_null() {
+         return Ok(None);
+diff --git a/codex-rs/app-server/src/message_processor.rs b/codex-rs/app-server/src/message_processor.rs
+index 8c88337..8536998 100644
+--- a/codex-rs/app-server/src/message_processor.rs
++++ b/codex-rs/app-server/src/message_processor.rs
+@@ -1608,6 +1608,9 @@ impl MessageProcessor {
+             ClientRequest::PluginInstall { params, .. } => {
+                 self.plugin_processor.plugin_install(params).await
+             }
++            ClientRequest::PluginRollback { params, .. } => {
++                self.plugin_processor.plugin_rollback(params).await
++            }
+             ClientRequest::PluginUninstall { params, .. } => {
+                 self.plugin_processor.plugin_uninstall(params).await
+             }
+diff --git a/codex-rs/app-server/src/request_processors/plugins.rs b/codex-rs/app-server/src/request_processors/plugins.rs
+index 63702b6..4aae389 100644
+--- a/codex-rs/app-server/src/request_processors/plugins.rs
++++ b/codex-rs/app-server/src/request_processors/plugins.rs
+@@ -5,6 +5,8 @@ use crate::error_code::internal_error;
+ use crate::error_code::invalid_request;
+ use codex_analytics::PluginInstallSource;
+ use codex_app_server_protocol::PluginAvailability;
++use codex_app_server_protocol::PluginRollbackParams;
++use codex_app_server_protocol::PluginRollbackResponse;
+ use codex_app_server_protocol::PluginSharePrincipalRole;
+ use codex_app_server_protocol::PluginShareTargetRole;
+ use codex_config::types::McpServerConfig;
+@@ -507,6 +509,19 @@ impl PluginRequestProcessor {
+             .map(|response| Some(response.into()))
+     }
+ 
++    pub(crate) async fn plugin_rollback(
++        &self,
++        params: PluginRollbackParams,
++    ) -> Result<Option<ClientResponsePayload>, JSONRPCErrorError> {
++        let id = PluginId::parse(&params.plugin_id).map_err(|err| invalid_request(err.to_string()))?;
++        let config = self.load_latest_config(None).await?;
++        let store = codex_core_plugins::store::PluginStore::try_new(config.codex_home.to_path_buf())
++            .map_err(|err| internal_error(err.to_string()))?;
++        store.rollback(&id).map_err(|err| internal_error(err.to_string()))?;
++        self.on_effective_plugins_changed().await;
++        Ok(Some(PluginRollbackResponse {}.into()))
++    }
++
+     pub(crate) async fn plugin_uninstall(
+         &self,
+         params: PluginUninstallParams,
+diff --git a/codex-rs/config/src/lib.rs b/codex-rs/config/src/lib.rs
+index d90d57a..31c213b 100644
+--- a/codex-rs/config/src/lib.rs
++++ b/codex-rs/config/src/lib.rs
+@@ -194,6 +194,7 @@ pub use overrides::build_cli_overrides_layer;
+ pub use path_context::ConfigPathContext;
+ pub use plugin_edit::PluginConfigEdit;
+ pub use plugin_edit::apply_user_plugin_config_edits;
++pub use plugin_edit::apply_user_plugin_config_edits_blocking;
+ pub use plugin_edit::clear_user_plugin;
+ pub use plugin_edit::set_user_plugin_enabled;
+ pub use project_root_markers::default_project_root_markers;
+@@ -234,3 +235,6 @@ pub use thread_config::ThreadConfigLoaderFuture;
+ pub use thread_config::ThreadConfigSource;
+ pub use thread_config::UserThreadConfig;
+ pub use toml::Value as TomlValue;
++
++mod plugin_transaction;
++pub use plugin_transaction::StoreLock;
+diff --git a/codex-rs/config/src/marketplace_edit.rs b/codex-rs/config/src/marketplace_edit.rs
+index 24a0208..c8c49d1 100644
+--- a/codex-rs/config/src/marketplace_edit.rs
++++ b/codex-rs/config/src/marketplace_edit.rs
+@@ -29,6 +29,7 @@ pub fn record_user_marketplace(
+     marketplace_name: &str,
+     update: &MarketplaceConfigUpdate<'_>,
+ ) -> std::io::Result<()> {
++    let _lock = crate::StoreLock::acquire(&codex_home.join("plugins"))?;
+     let config_path = codex_home.join(CONFIG_TOML_FILE);
+     let mut doc = read_or_create_document(&config_path)?;
+     upsert_marketplace(&mut doc, marketplace_name, update);
+@@ -45,6 +46,7 @@ pub fn remove_user_marketplace_config(
+     codex_home: &Path,
+     marketplace_name: &str,
+ ) -> std::io::Result<RemoveMarketplaceConfigOutcome> {
++    let _lock = crate::StoreLock::acquire(&codex_home.join("plugins"))?;
+     let config_path = codex_home.join(CONFIG_TOML_FILE);
+     let mut doc = match fs::read_to_string(&config_path) {
+         Ok(raw) => raw
+diff --git a/codex-rs/config/src/plugin_edit.rs b/codex-rs/config/src/plugin_edit.rs
+index 63795cc..ece837e 100644
+--- a/codex-rs/config/src/plugin_edit.rs
++++ b/codex-rs/config/src/plugin_edit.rs
+@@ -47,7 +47,15 @@ pub async fn apply_user_plugin_config_edits(
+         .map_err(|err| std::io::Error::other(format!("config persistence task panicked: {err}")))?
+ }
+ 
+-fn apply_user_plugin_config_edits_blocking(
++pub fn apply_user_plugin_config_edits_blocking(
++    codex_home: &Path,
++    edits: Vec<PluginConfigEdit>,
++) -> std::io::Result<()> {
++    let _lock = crate::StoreLock::acquire(&codex_home.join("plugins"))?;
++    apply_user_plugin_config_edits_unlocked(codex_home, edits)
++}
++
++pub(crate) fn apply_user_plugin_config_edits_unlocked(
+     codex_home: &Path,
+     edits: Vec<PluginConfigEdit>,
+ ) -> std::io::Result<()> {
+@@ -71,7 +79,12 @@ fn apply_user_plugin_config_edits_blocking(
+     if !mutated {
+         return Ok(());
+     }
+-    write_atomically(&write_paths.write_path, &doc.to_string())
++    write_atomically(&write_paths.write_path, &doc.to_string())?;
++    fs::File::open(&write_paths.write_path)?.sync_all()?;
++    if let Some(parent) = write_paths.write_path.parent() {
++        fs::File::open(parent)?.sync_all()?;
++    }
++    Ok(())
+ }
+ 
+ fn read_or_create_document(config_path: Option<&Path>) -> std::io::Result<DocumentMut> {
+diff --git a/codex-rs/core-plugins/src/manager.rs b/codex-rs/core-plugins/src/manager.rs
+index e5614b9..1a9ec3c 100644
+--- a/codex-rs/core-plugins/src/manager.rs
++++ b/codex-rs/core-plugins/src/manager.rs
+@@ -91,8 +91,6 @@ use codex_analytics::AnalyticsEventsClient;
+ use codex_analytics::PluginInstallSource;
+ use codex_config::ConfigLayerStack;
+ use codex_config::SkillConfigRules;
+-use codex_config::clear_user_plugin;
+-use codex_config::set_user_plugin_enabled;
+ use codex_config::skill_config_rules_from_stack;
+ use codex_config::types::PluginConfig;
+ use codex_config::types::ToolSuggestDisabledTool;
+@@ -2270,36 +2268,11 @@ impl PluginsManager {
+                 materialize_marketplace_plugin_source(codex_home.as_path(), &resolved.source)
+                     .map_err(PluginStoreError::Invalid)?;
+             let source_path = materialized.path;
+-            match (plugin_version, manifest_fallback_contents.as_deref()) {
+-                (Some(plugin_version), Some(manifest_contents)) => store
+-                    .install_with_version_and_fallback_manifest(
+-                        source_path,
+-                        resolved.plugin_id,
+-                        plugin_version,
+-                        manifest_contents,
+-                    ),
+-                (Some(plugin_version), None) => {
+-                    store.install_with_version(source_path, resolved.plugin_id, plugin_version)
+-                }
+-                (None, Some(manifest_contents)) => store.install_with_fallback_manifest(
+-                    source_path,
+-                    resolved.plugin_id,
+-                    manifest_contents,
+-                ),
+-                (None, None) => store.install(source_path, resolved.plugin_id),
+-            }
++            store.install_explicit(source_path, resolved.plugin_id, plugin_version, manifest_fallback_contents.as_deref())
+         })
+         .await
+         .map_err(PluginInstallError::join)??;
+ 
+-        set_user_plugin_enabled(
+-            &self.codex_home,
+-            result.plugin_id.as_key(),
+-            /*enabled*/ true,
+-        )
+-        .await
+-        .map_err(anyhow::Error::from)?;
+-
+         let analytics_events_client = match self.analytics_events_client.read() {
+             Ok(client) => client.clone(),
+             Err(err) => err.into_inner().clone(),
+@@ -2356,14 +2329,10 @@ impl PluginsManager {
+         };
+         let store = self.store.clone();
+         let plugin_id_for_store = plugin_id.clone();
+-        tokio::task::spawn_blocking(move || store.uninstall(&plugin_id_for_store))
++        tokio::task::spawn_blocking(move || store.uninstall_explicit(&plugin_id_for_store))
+             .await
+             .map_err(PluginUninstallError::join)??;
+ 
+-        clear_user_plugin(&self.codex_home, plugin_id.as_key())
+-            .await
+-            .map_err(anyhow::Error::from)?;
+-
+         let analytics_events_client = match self.analytics_events_client.read() {
+             Ok(client) => client.clone(),
+             Err(err) => err.into_inner().clone(),
+diff --git a/codex-rs/core-plugins/src/remote.rs b/codex-rs/core-plugins/src/remote.rs
+index ef2d91e..6887023 100644
+--- a/codex-rs/core-plugins/src/remote.rs
++++ b/codex-rs/core-plugins/src/remote.rs
+@@ -1769,7 +1769,7 @@ fn remove_remote_plugin_cache(
+             )
+         })?;
+     let plugin_cache_root = store.plugin_base_root(&plugin_id);
+-    store.uninstall(&plugin_id).map_err(|err| {
++    store.uninstall_explicit(&plugin_id).map_err(|err| {
+         format!(
+             "failed to remove remote plugin cache entry {}: {err}",
+             plugin_cache_root.display()
+diff --git a/codex-rs/core-plugins/src/remote/remote_installed_plugin_sync.rs b/codex-rs/core-plugins/src/remote/remote_installed_plugin_sync.rs
+index 92a2ba8..fc6ad37 100644
+--- a/codex-rs/core-plugins/src/remote/remote_installed_plugin_sync.rs
++++ b/codex-rs/core-plugins/src/remote/remote_installed_plugin_sync.rs
+@@ -444,21 +444,8 @@ async fn remove_stale_remote_plugin_caches(
+             if let Ok(plugin_id) = &plugin_id {
+                 capabilities.include_active_bundle(store, plugin_id).await;
+             }
+-            if cache_path.is_dir() {
+-                fs::remove_dir_all(&cache_path).await.map_err(|err| {
+-                    format!(
+-                        "failed to remove stale remote plugin cache entry {}: {err}",
+-                        cache_path.display()
+-                    )
+-                })?;
+-            } else {
+-                fs::remove_file(&cache_path).await.map_err(|err| {
+-                    format!(
+-                        "failed to remove stale remote plugin cache entry {}: {err}",
+-                        cache_path.display()
+-                    )
+-                })?;
+-            }
++            let valid_id = plugin_id.as_ref().map_err(|_| format!("invalid plugin cache entry {}", cache_path.display()))?;
++            store.uninstall(valid_id).map_err(|err| format!("failed to remove stale remote plugin cache entry {}: {err}", cache_path.display()))?;
+             let plugin_key = plugin_id
+                 .map(|plugin_id| plugin_id.as_key())
+                 .unwrap_or_else(|_| format!("{plugin_name}@{marketplace_name}"));
+diff --git a/codex-rs/core-plugins/src/store.rs b/codex-rs/core-plugins/src/store.rs
+index 087eae6..ad1a2dc 100644
+--- a/codex-rs/core-plugins/src/store.rs
++++ b/codex-rs/core-plugins/src/store.rs
+@@ -1,3 +1,4 @@
++use codex_config as plugin_transaction;
+ use crate::command_migration::migrate_plugin_commands;
+ use crate::manifest::ManifestCache;
+ use crate::manifest::PluginManifest;
+@@ -93,6 +94,8 @@ impl PluginStore {
+         let codex_home = AbsolutePathBuf::from_absolute_path_checked(codex_home)
+             .map_err(|err| PluginStoreError::io("failed to resolve Codex home", err))?;
+ 
++        let _recovery = plugin_transaction::StoreLock::acquire(root.as_path().parent().expect("cache parent"))
++            .map_err(|err| PluginStoreError::io("failed to recover plugin transactions", err))?;
+         Ok(Self {
+             manifest_cache: Arc::new(ManifestCache::default()),
+             codex_home,
+@@ -189,6 +192,11 @@ impl PluginStore {
+         plugin_id: &PluginId,
+         remote_plugin_id: &str,
+     ) -> Result<(), PluginStoreError> {
++        let lock = self.transaction_lock()?;
++        if lock.is_pinned(&plugin_id.marketplace_name, &plugin_id.plugin_name)
++            .map_err(|err| PluginStoreError::io("failed to inspect rollback pin", err))? {
++            return Err(PluginStoreError::Invalid("plugin is pinned after rollback".to_string()));
++        }
+         if !self.is_installed(plugin_id) {
+             return Err(PluginStoreError::Invalid(format!(
+                 "cannot write remote identity for uninstalled plugin `{}`",
+@@ -272,6 +280,7 @@ impl PluginStore {
+             plugin_id,
+             plugin_version,
+             InstallManifest::OnDisk,
++            false,
+         )
+     }
+ 
+@@ -287,9 +296,23 @@ impl PluginStore {
+             plugin_id,
+             plugin_version,
+             InstallManifest::Fallback(manifest_contents),
++            false,
+         )
+     }
+ 
++    pub(crate) fn install_explicit(
++        &self, source_path: AbsolutePathBuf, plugin_id: PluginId,
++        version: Option<String>, fallback: Option<&str>,
++    ) -> Result<PluginInstallResult, PluginStoreError> {
++        let manifest = fallback.map_or(InstallManifest::OnDisk, InstallManifest::Fallback);
++        let resolved = resolve_install_manifest(source_path.as_path(), manifest);
++        let version = match version {
++            Some(version) => version,
++            None => plugin_version_for_install_manifest(source_path.as_path(), resolved)?,
++        };
++        self.install_with_version_and_manifest(source_path, plugin_id, version, manifest, true)
++    }
++
+     fn install_with_manifest(
+         &self,
+         source_path: AbsolutePathBuf,
+@@ -298,7 +321,7 @@ impl PluginStore {
+     ) -> Result<PluginInstallResult, PluginStoreError> {
+         let manifest = resolve_install_manifest(source_path.as_path(), manifest);
+         let plugin_version = plugin_version_for_install_manifest(source_path.as_path(), manifest)?;
+-        self.install_with_version_and_manifest(source_path, plugin_id, plugin_version, manifest)
++        self.install_with_version_and_manifest(source_path, plugin_id, plugin_version, manifest, false)
+     }
+ 
+     fn install_with_version_and_manifest(
+@@ -307,6 +330,7 @@ impl PluginStore {
+         plugin_id: PluginId,
+         plugin_version: String,
+         manifest: InstallManifest<'_>,
++        enable: bool,
+     ) -> Result<PluginInstallResult, PluginStoreError> {
+         if !source_path.as_path().is_dir() {
+             return Err(PluginStoreError::Invalid(format!(
+@@ -324,12 +348,15 @@ impl PluginStore {
+             )));
+         }
+         validate_plugin_version_segment(&plugin_version).map_err(PluginStoreError::Invalid)?;
++        let lock = self.transaction_lock()?;
+         let installed_path = self.plugin_root(&plugin_id, &plugin_version);
+         replace_plugin_root_atomically(
+             source_path.as_path(),
+-            self.plugin_base_root(&plugin_id).as_path(),
+             &plugin_version,
+             manifest,
++            &lock,
++            &plugin_id,
++            enable,
+         )?;
+         self.remove_remote_plugin_install_metadata(&plugin_id)?;
+ 
+@@ -341,9 +368,34 @@ impl PluginStore {
+     }
+ 
+     pub fn uninstall(&self, plugin_id: &PluginId) -> Result<(), PluginStoreError> {
++        let lock = self.transaction_lock()?;
++        if lock.is_pinned(&plugin_id.marketplace_name, &plugin_id.plugin_name)
++            .map_err(|err| PluginStoreError::io("failed to inspect rollback pin", err))? {
++            return Err(PluginStoreError::Invalid("plugin is pinned after rollback".to_string()));
++        }
+         remove_existing_target(self.plugin_base_root(plugin_id).as_path())
+     }
+ 
++    pub fn uninstall_explicit(&self, plugin_id: &PluginId) -> Result<(), PluginStoreError> {
++        let lock = self.transaction_lock()?;
++        lock.uninstall(&plugin_id.marketplace_name, &plugin_id.plugin_name)
++            .map_err(|err| PluginStoreError::io("failed to commit plugin uninstall", err))
++    }
++
++    fn transaction_lock(&self) -> Result<plugin_transaction::StoreLock, PluginStoreError> {
++        plugin_transaction::StoreLock::acquire(self.root.as_path().parent().expect("cache parent"))
++            .map_err(|err| PluginStoreError::io("failed to lock plugin storage", err))
++    }
++
++    pub fn rollback(&self, plugin_id: &PluginId) -> Result<(), PluginStoreError> {
++        let lock = self.transaction_lock()?;
++        let market = &plugin_id.marketplace_name;
++        let name = &plugin_id.plugin_name;
++        lock.rollback(market, name, |backup, stage| {
++            copy_dir_recursive(backup, stage).map_err(|err| io::Error::other(err.to_string()))
++        }).map_err(|err| PluginStoreError::io("failed to roll back plugin", err))
++    }
++
+     fn remote_plugin_install_metadata_path(&self, plugin_id: &PluginId) -> AbsolutePathBuf {
+         self.plugin_base_root(plugin_id)
+             .join(REMOTE_PLUGIN_INSTALL_METADATA_FILE)
+@@ -553,33 +605,30 @@ fn remove_existing_target(path: &Path) -> Result<(), PluginStoreError> {
+ 
+ fn replace_plugin_root_atomically(
+     source: &Path,
+-    target_root: &Path,
+     plugin_version: &str,
+     manifest: InstallManifest<'_>,
++    lock: &plugin_transaction::StoreLock,
++    plugin_id: &PluginId,
++    enable: bool,
+ ) -> Result<(), PluginStoreError> {
+-    let Some(parent) = target_root.parent() else {
+-        return Err(PluginStoreError::Invalid(format!(
+-            "plugin cache path has no parent: {}",
+-            target_root.display()
+-        )));
++    let prepare = |stage: &Path, _: &Path| {
++        prepare_plugin_root(source, stage, plugin_version, manifest)
++            .map_err(|err| io::Error::other(err.to_string()))
+     };
+-
+-    fs::create_dir_all(parent)
+-        .map_err(|err| PluginStoreError::io("failed to create plugin cache directory", err))?;
+-
+-    let Some(plugin_dir_name) = target_root.file_name() else {
+-        return Err(PluginStoreError::Invalid(format!(
+-            "plugin cache path has no directory name: {}",
+-            target_root.display()
+-        )));
++    let result = if enable {
++        lock.install_enabled(&plugin_id.marketplace_name, &plugin_id.plugin_name, prepare)
++    } else {
++        lock.install(&plugin_id.marketplace_name, &plugin_id.plugin_name, prepare)
+     };
+-    let staged_dir = tempfile::Builder::new()
+-        .prefix("plugin-install-")
+-        .tempdir_in(parent)
+-        .map_err(|err| {
+-            PluginStoreError::io("failed to create temporary plugin cache directory", err)
+-        })?;
+-    let staged_root = staged_dir.path().join(plugin_dir_name);
++    result.map_err(|err| PluginStoreError::io("failed to commit plugin transaction", err))
++}
++
++fn prepare_plugin_root(
++    source: &Path,
++    staged_root: &Path,
++    plugin_version: &str,
++    manifest: InstallManifest<'_>,
++) -> Result<(), PluginStoreError> {
+     let staged_version_root = staged_root.join(plugin_version);
+     let (source_manifest_relative_path, source_manifest_contents) = match manifest {
+         InstallManifest::OnDisk => {
+@@ -645,48 +694,6 @@ fn replace_plugin_root_atomically(
+         tracing::warn!(%err, "failed to migrate plugin commands into skills");
+     }
+ 
+-    let target_version_root = target_root.join(plugin_version);
+-    if target_root.exists() && !target_version_root.exists() {
+-        fs::rename(&staged_version_root, &target_version_root).map_err(|err| {
+-            PluginStoreError::io("failed to activate updated plugin cache version", err)
+-        })?;
+-        remove_old_plugin_versions(target_root, plugin_version)?;
+-        return Ok(());
+-    }
+-
+-    if target_root.exists() {
+-        let backup_dir = tempfile::Builder::new()
+-            .prefix("plugin-backup-")
+-            .tempdir_in(parent)
+-            .map_err(|err| {
+-                PluginStoreError::io("failed to create plugin cache backup directory", err)
+-            })?;
+-        let backup_root = backup_dir.path().join(plugin_dir_name);
+-        fs::rename(target_root, &backup_root)
+-            .map_err(|err| PluginStoreError::io("failed to back up plugin cache entry", err))?;
+-
+-        if let Err(err) = fs::rename(&staged_root, target_root) {
+-            let rollback_result = fs::rename(&backup_root, target_root);
+-            return match rollback_result {
+-                Ok(()) => Err(PluginStoreError::io(
+-                    "failed to activate updated plugin cache entry",
+-                    err,
+-                )),
+-                Err(rollback_err) => {
+-                    let backup_path = backup_dir.keep().join(plugin_dir_name);
+-                    Err(PluginStoreError::Invalid(format!(
+-                        "failed to activate updated plugin cache entry at {}: {err}; failed to restore previous cache entry (left at {}): {rollback_err}",
+-                        target_root.display(),
+-                        backup_path.display()
+-                    )))
+-                }
+-            };
+-        }
+-    } else {
+-        fs::rename(&staged_root, target_root)
+-            .map_err(|err| PluginStoreError::io("failed to activate plugin cache entry", err))?;
+-    }
+-
+     Ok(())
+ }
+ 
+diff --git a/codex-rs/core-plugins/src/store_tests.rs b/codex-rs/core-plugins/src/store_tests.rs
+index 4a3d76e..83153f5 100644
+--- a/codex-rs/core-plugins/src/store_tests.rs
++++ b/codex-rs/core-plugins/src/store_tests.rs
+@@ -747,3 +747,43 @@ fn install_rejects_manifest_names_that_do_not_match_marketplace_plugin_name() {
+         "plugin.json name `manifest-name` does not match marketplace plugin name `different-name`"
+     );
+ }
++
++#[test]
++fn rollback_pin_blocks_automatic_cache_writes_until_explicit_uninstall() {
++    let tmp = tempdir().unwrap();
++    let id = PluginId::new("sample-plugin".to_string(), "debug".to_string()).unwrap();
++    let source = AbsolutePathBuf::try_from(tmp.path().join("sample-plugin")).unwrap();
++    let store = PluginStore::new(tmp.path().to_path_buf());
++    write_plugin_with_version(tmp.path(), "sample-plugin", "sample-plugin", Some("1.0.0"));
++    store.install(source.clone(), id.clone()).unwrap();
++    write_plugin_with_version(tmp.path(), "sample-plugin", "sample-plugin", Some("2.0.0"));
++    store.install(source.clone(), id.clone()).unwrap();
++    store.rollback(&id).unwrap();
++    assert_eq!(store.active_plugin_version(&id).as_deref(), Some("1.0.0"));
++    assert!(store.install(source.clone(), id.clone()).is_err());
++    assert!(store.uninstall(&id).is_err());
++    assert!(store.write_remote_plugin_id(&id, "new-remote-id").is_err());
++    assert_eq!(store.active_plugin_version(&id).as_deref(), Some("1.0.0"));
++    store.uninstall_explicit(&id).unwrap();
++    store.install(source, id.clone()).unwrap();
++    assert_eq!(store.active_plugin_version(&id).as_deref(), Some("2.0.0"));
++}
++
++#[test]
++fn explicit_lifecycle_commits_enabled_config_with_cache() {
++    let tmp = tempdir().unwrap();
++    let id = PluginId::new("sample-plugin".to_string(), "debug".to_string()).unwrap();
++    let source = AbsolutePathBuf::try_from(tmp.path().join("sample-plugin")).unwrap();
++    write_plugin_with_version(tmp.path(), "sample-plugin", "sample-plugin", Some("1.0.0"));
++    std::fs::write(tmp.path().join("config.toml"), "model = \"example\"\n").unwrap();
++    let store = PluginStore::new(tmp.path().to_path_buf());
++    store.install_explicit(source, id.clone(), None, None).unwrap();
++    let config = std::fs::read_to_string(tmp.path().join("config.toml")).unwrap();
++    assert!(config.contains("enabled = true"));
++    assert_eq!(store.active_plugin_version(&id).as_deref(), Some("1.0.0"));
++    store.uninstall_explicit(&id).unwrap();
++    let config = std::fs::read_to_string(tmp.path().join("config.toml")).unwrap();
++    assert!(config.contains("model = \"example\""));
++    assert!(!config.contains("sample-plugin@debug"));
++    assert!(!store.is_installed(&id));
++}
+diff --git a/codex-rs/core/src/config/edit.rs b/codex-rs/core/src/config/edit.rs
+index 9996db9..cb22b6a 100644
+--- a/codex-rs/core/src/config/edit.rs
++++ b/codex-rs/core/src/config/edit.rs
+@@ -736,6 +736,12 @@ fn apply_blocking_to_resolved_file(
+         return Ok(());
+     }
+ 
++    let home = resolved_config_file.parent().ok_or_else(|| anyhow::anyhow!("config has no parent"))?;
++    let _lock = codex_config::StoreLock::acquire(&home.join("plugins"))?;
++    apply_unlocked_to_resolved_file(resolved_config_file, edits)
++}
++
++fn apply_unlocked_to_resolved_file(resolved_config_file: &Path, edits: &[ConfigEdit]) -> anyhow::Result<()> {
+     let write_paths = resolve_symlink_write_paths(resolved_config_file)?;
+     let serialized = match write_paths.read_path {
+         Some(path) => match std::fs::read_to_string(&path) {
+@@ -974,6 +980,14 @@ impl ConfigEditsBuilder {
+         apply_blocking_to_resolved_file(&self.config_path, &self.edits)
+     }
+ 
++    /// Caller must hold the shared config/plugin lock.
++    pub async fn apply_under_lock(self, lock: codex_config::StoreLock) -> anyhow::Result<()> {
++        task::spawn_blocking(move || {
++            let _lock = lock;
++            apply_unlocked_to_resolved_file(&self.config_path, &self.edits)
++        }).await.context("config persistence task panicked")?
++    }
++
+     /// Apply edits asynchronously via a blocking offload.
+     pub async fn apply(self) -> anyhow::Result<()> {
+         task::spawn_blocking(move || {

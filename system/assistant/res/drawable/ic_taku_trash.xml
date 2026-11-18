@@ -1,0 +1,13 @@
+<!-- Taku icon "trash" (ui). Tint from the view. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:strokeColor="#FF000000"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M16 6V5.2c0-1.12 0-1.68-0.22-2.108-0.19-0.376-0.5-0.682-0.87-0.874C14.48 2 13.92 2 12.8 2h-1.6c-1.12 0-1.68 0-2.11 0.218C8.72 2.41 8.41 2.716 8.22 3.092 8 3.52 8 4.08 8 5.2V6m2 5.5v5m4-5v5M3 6h18m-2 0v11.2c0 1.68 0 2.52-0.33 3.162-0.28 0.564-0.74 1.023-1.31 1.311C16.72 22 15.88 22 14.2 22H9.8c-1.68 0-2.52 0-3.16-0.327-0.57-0.288-1.03-0.747-1.31-1.311C5 19.72 5 18.88 5 17.2V6"/>
+</vector>

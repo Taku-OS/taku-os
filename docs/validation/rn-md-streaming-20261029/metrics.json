@@ -1,0 +1,73 @@
+{
+  "schema": "taku.rn-md-streaming.metrics/1",
+  "hardware": {
+    "avd": "Taku_MDStreaming_GPU_20261029",
+    "serial": "emulator-5594",
+    "gpu": "host / Apple M3",
+    "pipeline": "Skia (OpenGL)",
+    "dimensions": "1080x2400",
+    "density": 420,
+    "fontScale": 1,
+    "refreshHz": 60
+  },
+  "samples": [
+    {
+      "sample": "baseline2",
+      "title": "Before changes 0.5.0 / body polling",
+      "frames": 1460,
+      "jankyFrames": 88,
+      "jankyPercent": 6.03,
+      "p50ms": 17,
+      "p90ms": 22,
+      "p95ms": 22,
+      "p99ms": 31,
+      "label": "baseline2",
+      "threadId": "01a18509-22b9-70e0-8313-712aa4bac43f",
+      "duration": 66.90324416701333,
+      "firstTextAt": 6.766005459008738,
+      "characters": 4192,
+      "terminal": true,
+      "modelResponsesSimulated": false,
+      "hostUptime": " 8:25  up 23:05, 1 user, load averages: 17.91 12.52 10.19"
+    },
+    {
+      "sample": "candidate",
+      "title": "First iteration 1.1.1 / before visual correction",
+      "frames": 3986,
+      "jankyFrames": 173,
+      "jankyPercent": 4.34,
+      "p50ms": 16,
+      "p90ms": 18,
+      "p95ms": 20,
+      "p99ms": 23,
+      "label": "candidate",
+      "threadId": "01a18516-c250-7ec3-ac9c-00fbbe3aa4a0",
+      "duration": 85.10456125,
+      "firstTextAt": 7.120244583,
+      "characters": 4523,
+      "terminal": true,
+      "modelResponsesSimulated": false,
+      "hostUptime": " 8:37  up 23:17, 1 user, load averages: 14.05 17.87 16.18"
+    },
+    {
+      "sample": "final",
+      "title": "Final 1.1.1 / 40ms streaming",
+      "frames": 3826,
+      "jankyFrames": 144,
+      "jankyPercent": 3.76,
+      "p50ms": 16,
+      "p90ms": 17,
+      "p95ms": 18,
+      "p99ms": 21,
+      "label": "final",
+      "threadId": "01a1851a-21d5-77f0-a964-fa08e409d57f",
+      "duration": 80.37218225,
+      "firstTextAt": 6.494017541,
+      "characters": 4427,
+      "terminal": true,
+      "modelResponsesSimulated": false,
+      "hostUptime": " 8:41  up 23:21, 1 user, load averages: 11.13 14.39 15.05"
+    }
+  ],
+  "note": "Real generated replies differ; host has concurrent unrelated work. These are single interaction samples, not a controlled throughput benchmark. firstTextAt measures raw projection checkpoint, not UI first paint."
+}

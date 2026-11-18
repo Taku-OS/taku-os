@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Result card: white, 16dp radius. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="@color/taku_surface_card"/>
+    <corners android:radius="@dimen/taku_radius_2xl"/>
+</shape>

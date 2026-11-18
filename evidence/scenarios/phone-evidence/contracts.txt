@@ -1,0 +1,223 @@
+Return complete freely written code in source (App.jsx) and apiSource (api.mjs). Do not use tools or return a business configuration. The app controls its own interface and business functions.
+
+App.jsx: default-export React App; import React/hooks from react and optional Screen/Card/Row/Field/Select/Button/phone/useAppApiState from ./ui.jsx. Field and Select onChange receive the React event, so read event.target.value. phone.call(method,params) returns a Promise of the method result. useAppApiState(method,params,interval=750) returns {state,error,reload}. Use the API for shared business operations; keep input drafts and presentation state in React.
+
+api.mjs: default-export function createApp({store,notify,error}) returning {title,version,methods}. Each arbitrary method maps to {description,mutates,paramsSchema,resultSchema,handler(params)}. Schema uses JSON Schema. handler contains ACTUAL freely programmed business code and returns JSON data or a Promise. There is no DOM or React here. store.read() returns application data. store.update(fn) atomically updates a mutable data object and returns current data; callback must be synchronous. notify(title,body) returns a Promise after real Android notification verification. error(code,message,status) creates an error to throw. Initialize app data if required by checking store.read(). Interface and API must reuse the same business function rather than duplicate algorithms. Publish useful methods for external Codex invocation. If the app has no service operations, an empty methods object is permitted. Do not access credentials.
+import React from 'react';
+export function Button({children,onClick,secondary=false,...props}){return <button onClick={onClick} style={{border:0,borderRadius:14,padding:'13px 18px',background:secondary?'#e4ece8':'#006b56',color:secondary?'#006b56':'white',fontWeight:600}} {...props}>{children}</button>}
+export function Card({children,style={}}){return <section style={{background:'white',borderRadius:22,padding:20,...style}}>{children}</section>}
+export function Screen({title,subtitle,children}){return <main style={{maxWidth:620,margin:'auto',padding:24,display:'grid',gap:20}}><header><h1 style={{fontSize:30,margin:'10px 0'}}>{title}</h1>{subtitle&&<p style={{color:'#647872',lineHeight:1.6}}>{subtitle}</p>}</header>{children}</main>}
+export function Row({children}){return <div style={{display:'flex',gap:12,alignItems:'center',flexWrap:'wrap'}}>{children}</div>}
+export function Field({label,value,onChange,type='text',placeholder}){return <label style={{display:'grid',gap:10,margin:'12px 0',flex:1}}><span style={{fontSize:14,color:'#536c63'}}>{label}</span><input type={type} value={value} onChange={onChange} placeholder={placeholder} style={{width:'100%',padding:14,border:'1px solid #cbd7cf',borderRadius:12,background:'#fafcf8'}}/></label>}
+export function Select({label,value,onChange,options}){return <label style={{display:'grid',gap:10,flex:1}}><span style={{fontSize:14,color:'#536c63'}}>{label}</span><select value={value} onChange={onChange} style={{padding:14,border:'1px solid #cbd7cf',borderRadius:12,background:'#fafcf8'}}>{options.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}</select></label>}
+export const phone={
+  load(fallback){try{return JSON.parse(Phone.read())}catch{return fallback}},
+  save(data){Phone.save(JSON.stringify(data))},
+  notify(title,text){Phone.notify(title,text)}
+};
+phone.call=async function(method,params={},options={}){
+  const response=JSON.parse(Phone.callJson(JSON.stringify({method,params,...options})));
+  if(!response.ok){const error=new Error(response.error?.message||'应用接口调用失败');error.code=response.error?.code;error.details=response.error?.details;throw error;}
+  return response.result;
+};
+export function useAppApiState(method,params={},interval=750){
+  const [state,setState]=React.useState(null),[error,setError]=React.useState(null);
+  const signature=JSON.stringify(params);
+  const reload=React.useCallback(async()=>{const next=await phone.call(method,JSON.parse(signature));setState(old=>JSON.stringify(old)===JSON.stringify(next)?old:next);setError(null);return next;},[method,signature]);
+  React.useEffect(()=>{let active=true;const run=async()=>{try{if(active)await reload();}catch(e){if(active)setError(e.message);}};run();const timer=setInterval(run,interval);return()=>{active=false;clearInterval(timer);};},[reload,interval]);
+  return{state,error,reload};
+}
+import http from 'node:http';
+import fs from 'node:fs';
+import path from 'node:path';
+import {fileURLToPath, pathToFileURL} from 'node:url';
+import {createHash} from 'node:crypto';
+import {execFile} from 'node:child_process';
+import Ajv from 'ajv';
+
+const kit = process.env.MINI_APP_KIT || path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const stateDir = path.join(kit, 'state');
+const port = Number(process.env.MINI_APP_API_PORT || 8765);
+fs.mkdirSync(stateDir, {recursive: true});
+const ajv = new Ajv({allErrors: true, jsonPointers: true});
+const apps = new Map();
+const queues = new Map();
+const envelope = ajv.compile({type:'object',properties:{method:{type:'string',minLength:1},params:{type:'object'},idempotencyKey:{type:'string',minLength:1,maxLength:128}},required:['method'],additionalProperties:false});
+function run(file,args){return new Promise((resolve,reject)=>execFile(file,args,{timeout:5000,encoding:'utf8'},(error,stdout)=>error?reject(error):resolve(stdout)));}
+async function postNotification(id,title,body){
+  const tag='miniapp.'+id;
+  await run('/system/xbin/su',['2000','/system/bin/cmd','notification','post','-t',String(title),tag,String(body)]);
+  for(let attempt=0;attempt<15;attempt++){
+    const keys=await run('/system/bin/cmd',['notification','list']);
+    const key=keys.split('\n').find(line=>line.includes('|com.android.shell|')&&line.endsWith('|'+tag+'|2000'));
+    if(key){const record=await run('/system/bin/cmd',['notification','get',key]);if(record.includes(String(title))&&record.includes(String(body)))return{posted:true,verified:true,tag,notificationKey:key};}
+    await new Promise(resolve=>setTimeout(resolve,100));
+  }
+  throw new ApiError('NOTIFY_FAILED','Android notification record was not confirmed',500);
+}
+
+class ApiError extends Error {
+  constructor(code, message, status=400, details=null){super(message);this.code=code;this.status=status;this.details=details;}
+}
+function validApp(id){if(!/^[a-zA-Z0-9_-]+$/.test(id))throw new ApiError('INVALID_APP','Invalid app id');return id;}
+function canonical(value){if(Array.isArray(value))return value.map(canonical);if(value&&typeof value==='object')return Object.fromEntries(Object.keys(value).sort().map(k=>[k,canonical(value[k])]));return value;}
+function storeFor(id){
+  const filename=path.join(stateDir,id+'.json');
+  function read(){try{return JSON.parse(fs.readFileSync(filename,'utf8'));}catch(e){if(e.code==='ENOENT')return{revision:0,data:{},receipts:{}};throw new ApiError('STORAGE_ERROR','Stored state cannot be parsed',500);}}
+  function write(value){const tmp=filename+'.tmp';fs.writeFileSync(tmp,JSON.stringify(value),{mode:0o600});fs.renameSync(tmp,filename);}
+  return {
+    read:()=>structuredClone(read().data),
+    revision:()=>read().revision,
+    update(fn){const current=read();const data=structuredClone(current.data);const next=fn(data);if(next&&typeof next.then==='function')throw new Error('Store transaction must be synchronous');current.data=next===undefined?data:next;current.revision++;write(current);return structuredClone(current.data);},
+    receipt(key){return read().receipts[key];},
+    saveReceipt(key,value){const current=read();current.receipts[key]=value;const keys=Object.keys(current.receipts);for(const old of keys.slice(0,Math.max(0,keys.length-100)))delete current.receipts[old];write(current);}
+  };
+}
+async function loadApp(id){
+  validApp(id);
+  const file=path.join(kit,'apps',id,'api.mjs');
+  let stat;try{stat=fs.statSync(file);}catch(e){throw new ApiError('APP_NOT_FOUND','Application API is not registered',404);}
+  const signature=stat.mtimeMs+':'+stat.size;
+  const previous=apps.get(id);if(previous?.signature===signature)return previous;
+  const module=await import(pathToFileURL(file).href+'?version='+encodeURIComponent(signature));
+  const store=storeFor(id);
+  const app=module.default({store,
+    error:(code,message,status=400)=>new ApiError(code,message,status),
+    notify:(title,body)=>postNotification(id,title,body)
+  });
+  if(!app?.methods||typeof app.methods!=='object')throw new ApiError('INVALID_API_MODULE','Application has no methods',500);
+  const methods={};
+  for(const [name,method]of Object.entries(app.methods)){
+    if(typeof method.handler!=='function')throw new ApiError('INVALID_API_MODULE','Method has no handler: '+name,500);
+    methods[name]={...method,validate:ajv.compile(method.paramsSchema||{type:'object',additionalProperties:false})};
+  }
+  const result={id,signature,title:app.title||id,version:app.version||'1',methods,store};apps.set(id,result);return result;
+}
+function describe(app){return{id:app.id,title:app.title,version:app.version,methods:Object.entries(app.methods).map(([name,m])=>({name,description:m.description||'',mutates:!!m.mutates,paramsSchema:m.paramsSchema||{type:'object',additionalProperties:false},resultSchema:m.resultSchema||{}}))};}
+async function listApps(){const ids=fs.readdirSync(path.join(kit,'apps')).filter(id=>/^[a-zA-Z0-9_-]+$/.test(id)&&fs.existsSync(path.join(kit,'apps',id,'api.mjs')));return Promise.all(ids.map(async id=>describe(await loadApp(id))));}
+function serialized(id,fn){const previous=queues.get(id)||Promise.resolve();const next=previous.catch(()=>{}).then(fn);queues.set(id,next);return next;}
+async function invoke(id,body){
+  if(!envelope(body))throw new ApiError('INVALID_REQUEST','Invalid call envelope',400,envelope.errors);
+  return serialized(id,async()=>{
+    const app=await loadApp(id),method=app.methods[body.method];
+    if(!method)throw new ApiError('METHOD_NOT_FOUND','Unknown application method',404);
+    const params=body.params||{};
+    if(!method.validate(params))throw new ApiError('INVALID_PARAMS','Arguments do not match method schema',400,method.validate.errors);
+    const hash=createHash('sha256').update(JSON.stringify(canonical({method:body.method,params}))).digest('hex');
+    const key=body.idempotencyKey?createHash('sha256').update(body.idempotencyKey).digest('hex'):null;
+    if(key){const receipt=app.store.receipt(key);if(receipt){if(receipt.hash!==hash)throw new ApiError('KEY_CONFLICT','Idempotency key was used for a different request',409);return{...receipt.response,replayed:true};}}
+    const result=await method.handler(params);
+    const response={ok:true,app:id,method:body.method,result,revision:app.store.revision(),replayed:false};
+    if(key)app.store.saveReceipt(key,{hash,response});
+    return response;
+  });
+}
+function json(res,status,value){res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(value));}
+async function bodyOf(req){let length=0,parts=[];for await(const chunk of req){length+=chunk.length;if(length>65536)throw new ApiError('TOO_LARGE','Request exceeds 64 KiB',413);parts.push(chunk);}try{return JSON.parse(Buffer.concat(parts).toString('utf8'));}catch{throw new ApiError('INVALID_JSON','Request must be valid JSON');}}
+const server=http.createServer(async(req,res)=>{
+  const started=performance.now();
+  try{
+    const url=new URL(req.url,'http://127.0.0.1:'+port);
+    if(req.method==='GET'&&url.pathname==='/health'){json(res,200,{ok:true,pid:process.pid});return;}
+    if(req.method==='GET'&&url.pathname==='/v1/apps'){json(res,200,{ok:true,apps:await listApps()});return;}
+    if(req.method==='GET'&&url.pathname==='/v1/openapi.json'){
+      const all=await listApps();const paths={};
+      for(const app of all){paths['/v1/apps/'+app.id+'/call']={post:{summary:'Call '+app.title,operationId:'call_'+app.id,requestBody:{required:true,content:{'application/json':{schema:{oneOf:app.methods.map(m=>({type:'object',properties:{method:{const:m.name},params:m.paramsSchema,idempotencyKey:{type:'string'}},required:['method','params'],additionalProperties:false}))}}}},responses:{'200':{description:'Application result'},'400':{description:'Invalid arguments'}}}};}
+      json(res,200,{openapi:'3.1.0',info:{title:'Agent OS application APIs',version:'0.1'},servers:[{url:'http://127.0.0.1:'+port}],paths});return;
+    }
+    const match=url.pathname.match(/^\/v1\/apps\/([a-zA-Z0-9_-]+)(\/call)?$/);
+    if(match&&req.method==='GET'&&!match[2]){json(res,200,{ok:true,app:describe(await loadApp(match[1]))});return;}
+    if(match&&req.method==='POST'&&match[2]){const result=await invoke(match[1],await bodyOf(req));json(res,200,{...result,durationMs:Math.round((performance.now()-started)*100)/100});return;}
+    throw new ApiError('NOT_FOUND','Unknown endpoint',404);
+  }catch(error){json(res,error.status||500,{ok:false,error:{code:error.code||'INTERNAL_ERROR',message:error.message,details:error.details||null}});}
+});
+server.listen(port,'127.0.0.1',()=>console.log(JSON.stringify({ready:true,port,pid:process.pid})));
+process.on('SIGTERM',()=>server.close(()=>process.exit(0)));
+const units=[{value:'m',label:'米',factor:1},{value:'cm',label:'厘米',factor:0.01},{value:'km',label:'千米',factor:1000},{value:'in',label:'英寸',factor:0.0254},{value:'ft',label:'英尺',factor:0.3048}];
+const schema={type:'object',properties:{value:{type:'number'},from:{type:'string',enum:units.map(u=>u.value)},to:{type:'string',enum:units.map(u=>u.value)}},required:['value','from','to'],additionalProperties:false};
+export default function createApp({error,notify}){
+  function convert({value,from,to}){const source=units.find(u=>u.value===from),target=units.find(u=>u.value===to);const result=value*source.factor/target.factor;if(!Number.isFinite(result))throw error('OUT_OF_RANGE','Result exceeds finite numeric range');return{value:result,formatted:String(Number(result.toPrecision(12))),unit:target.label,from:source.label,to:target.label,inputValue:value};}
+  const app={title:'长度换算',version:'1',methods:{
+    'units.list':{description:'查询支持的单位',paramsSchema:{type:'object',additionalProperties:false},handler:()=>({units:units.map(({value,label})=>({value,label}))})},
+    'length.convert':{description:'执行界面使用的同一换算函数',paramsSchema:schema,handler:convert},
+    'length.notify':{description:'换算并发送真实结果通知',mutates:true,paramsSchema:schema,async handler(params){const result=convert(params);return{...result,notification:await notify('长度换算 · API结果',`${result.inputValue} ${result.from} = ${result.formatted} ${result.to}`)};}}
+  }};
+  app.methods['units.list'].resultSchema={type:'object',properties:{units:{type:'array',items:{type:'object',properties:{value:{type:'string'},label:{type:'string'}},required:['value','label']}}},required:['units']};
+  const result={type:'object',properties:{value:{type:'number'},formatted:{type:'string'},unit:{type:'string'},from:{type:'string'},to:{type:'string'},inputValue:{type:'number'},notification:{type:'object'}},required:['value','formatted','unit','from','to','inputValue']};
+  app.methods['length.convert'].resultSchema=result;app.methods['length.notify'].resultSchema=result;
+  return app;
+}
+#!/system/bin/sh
+set -eu
+stamp_ms() {
+  read uptime_seconds rest < /proc/uptime
+  whole=${uptime_seconds%%.*}
+  fraction=${uptime_seconds#*.}
+  echo "$((whole * 1000 + (1000$fraction % 100) * 10))"
+}
+KIT=/data/local/agentos/light-app-lab/free-app-kit
+APP="$1"
+case "$APP" in *[!a-zA-Z0-9_-]*|'') exit 2;; esac
+PROJECT="$KIT/apps/$APP"
+if [ -s "$PROJECT/api.mjs" ]; then
+  /system/bin/sh "$KIT/api/service.sh" start >/dev/null
+fi
+START=$(stamp_ms)
+"$KIT/runtime/esbuild" "$PROJECT/main.jsx" --bundle --format=iife --external:react --external:react-dom/client --outfile="$PROJECT/app.bundle.js" --log-level=warning
+mkdir -p "/data/user/0/org.agentos.minilab/files/apps/$APP"
+cp "$PROJECT/app.bundle.js" "/data/user/0/org.agentos.minilab/files/apps/$APP/app.bundle.js"
+OWNER=$(cmd package list packages -U org.agentos.minilab | sed -n 's/^package:org\.agentos\.minilab uid:\([0-9]*\)$/\1/p')
+test -n "$OWNER"
+chown -R "$OWNER:$OWNER" "/data/user/0/org.agentos.minilab/files/apps/$APP"
+restorecon -RF "/data/user/0/org.agentos.minilab/files/apps/$APP"
+END=$(stamp_ms)
+echo "device_bundle_ms=$(((END-START)/1))"
+if [ "${2:-}" != "--no-open" ]; then
+  am start --display 0 -n org.agentos.minilab/.WebActivity --es app "$APP"
+fi
+#!/system/bin/sh
+set -eu
+stamp_ms() {
+  read uptime_seconds rest < /proc/uptime
+  whole=${uptime_seconds%%.*}
+  fraction=${uptime_seconds#*.}
+  echo "$((whole * 1000 + (1000$fraction % 100) * 10))"
+}
+LAB=/data/local/agentos/light-app-lab
+KIT="$LAB/free-app-kit"
+APP="$1"
+PKG="$2"
+case "$APP" in *[!a-zA-Z0-9_-]*|'') exit 2;; esac
+case "$PKG" in *[!a-zA-Z0-9_.]*|'') exit 2;; esac
+NAME="${3:-生成应用}"
+export LD_LIBRARY_PATH=/data/local/agentos/light-app-lab/native/lib
+export PATH="$LAB/native:/apex/com.android.art/bin:/system/bin:/system_ext/bin"
+PROJECT="$KIT/apps/$APP"
+cd "$PROJECT"
+START=$(stamp_ms)
+mkdir -p apk/assets/runtime apk/res/values apk/res/xml
+printf '%s' "$APP" > apk/assets/app-id.txt
+printf '%s' '<network-security-config><domain-config cleartextTrafficPermitted="true"><domain>127.0.0.1</domain></domain-config></network-security-config>' > apk/res/xml/network_security_config.xml
+cp app.bundle.js apk/assets/app.bundle.js
+cp "$KIT/runtime/index.html" "$KIT/runtime/react.js" "$KIT/runtime/react-dom.js" apk/assets/runtime/
+node -e 'const fs=require("fs");const s=process.argv[1].replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");fs.writeFileSync("apk/res/values/strings.xml","<resources><string name=\"app_name\">"+s+"</string></resources>")' "$NAME"
+cat > apk/AndroidManifest.xml <<EOF
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="$PKG" android:versionCode="1" android:versionName="1.0"><uses-sdk android:minSdkVersion="30" android:targetSdkVersion="35"/><uses-permission android:name="android.permission.INTERNET"/><uses-permission android:name="android.permission.POST_NOTIFICATIONS"/><application android:label="@string/app_name" android:theme="@android:style/Theme.Material.Light.NoActionBar" android:allowBackup="false" android:networkSecurityConfig="@xml/network_security_config"><activity android:name="org.agentos.generated.MainActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity></application></manifest>
+EOF
+aapt2 compile --dir apk/res -o apk/res.zip
+aapt2 link -I "$LAB/toolchain/android.jar" --manifest apk/AndroidManifest.xml -A apk/assets apk/res.zip -o apk/unsigned.apk
+cp "$KIT/apk-shell/classes.dex" apk/classes.dex
+cd apk
+aapt add -f unsigned.apk classes.dex
+zipalign -f 4 unsigned.apk aligned.apk
+dalvikvm -cp "$LAB/toolchain/apksigner.dex" com.android.apksigner.ApkSignerTool sign --key "$LAB/toolchain/debug.pk8" --cert "$LAB/toolchain/debug.x509.pem" --out app.apk aligned.apk
+dalvikvm -cp "$LAB/toolchain/apksigner.dex" com.android.apksigner.ApkSignerTool verify app.apk
+END=$(stamp_ms)
+echo "device_apk_pack_ms=$(((END-START)/1))"
+pm install -r app.apk
+pm grant "$PKG" android.permission.POST_NOTIFICATIONS
+am start --display 0 -n "$PKG/org.agentos.generated.MainActivity"
+import React from 'react';
+import {createRoot} from 'react-dom/client';
+import App from './App.jsx';
+createRoot(document.getElementById('root')).render(<App/>);

@@ -1,0 +1,22 @@
+{
+  "mdimpl-stream-code.png": {
+    "bytes": 376091,
+    "sha256": "57a48857b18de650a02650abcbafecb6ff7b6430c5eb9a376000114d835ce1b6"
+  },
+  "mdimpl-stream-table.png": {
+    "bytes": 456306,
+    "sha256": "84309b3b54de86540fc515ffce050bf9814637127128e5fdcd0d4642d37b10c3"
+  },
+  "mdimpl-complete.png": {
+    "bytes": 552290,
+    "sha256": "30738219b2b0b2b0af08a06d03471e3bc7000fd87ac931d86d60892f11b0344c"
+  },
+  "mdimpl-stream.mp4": {
+    "bytes": 11416723,
+    "sha256": "4b71a592d12cebbdd7aade4b73ce1e81f2a5b2ba8f1e385429d2913ccb730418"
+  },
+  "mdimpl-final.mp4": {
+    "bytes": 41985242,
+    "sha256": "935a425c627c29dfe67ec49761231ebabae12dc9d52fa1724291e34fbcf50a50"
+  }
+}

@@ -1,0 +1,10 @@
+android_app {
+    name: "TakuSurfaces",
+    manifest: "AndroidManifest.xml",
+    srcs: [":taku-surfaces-contract-sources", ":taku-surfaces-wire-sources", "src/**/*.java"],
+    platform_apis: true,
+    certificate: "platform",
+    privileged: true,
+    system_ext_specific: true,
+    optimize: { enabled: false },
+}

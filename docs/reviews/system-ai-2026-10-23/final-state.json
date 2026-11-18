@@ -1,0 +1,46 @@
+{
+  "configurationSurvivesBrokerRestart": true,
+  "configuration": {
+    "enabled": true,
+    "textModel": "codex/gpt-6-luna",
+    "imageModel": "codex/gpt-6-luna",
+    "apps": {
+      "ime": true,
+      "memory": true,
+      "org.agentos.memorytests": false
+    },
+    "revision": 40
+  },
+  "privateModes": [
+    "600:0",
+    "600:0"
+  ],
+  "runtimeRebootPersistenceVerified": false,
+  "selinux": "Enforcing",
+  "replyAfterBrokerRestart": {
+    "version": 1,
+    "candidates": [
+      {
+        "text": "周五七点半可以，火锅见！"
+      },
+      {
+        "text": "我还不确定能不能赶上，晚点确认你们。"
+      },
+      {
+        "text": "我这次不去了，你们吃得开心～"
+      }
+    ],
+    "receipt": {
+      "model": "codex/gpt-6-luna",
+      "inputMode": "image",
+      "imageSha256": "b056b2e0c315bc71eea0b134b827ffe723570133d73f3aa8ce1cb6aaa74b6be5",
+      "imageWidth": 942,
+      "imageHeight": 1280,
+      "elapsedMs": 4491
+    }
+  },
+  "defaultInputMethod": "org.agentos.inputmethod/org.fcitx.fcitx5.android.input.FcitxInputMethodService",
+  "temporaryAppsRemoved": true,
+  "memoryAccessibilityAfterTest": "null",
+  "screenshotReady": true
+}

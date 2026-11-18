@@ -1,0 +1,104 @@
+{
+  "clicked": {
+    "ok": true,
+    "app": "board",
+    "method": "tasks.list",
+    "result": {
+      "tasks": [
+        {
+          "id": "a",
+          "text": "整理本周项目计划",
+          "priority": "高",
+          "done": true
+        },
+        {
+          "id": "b",
+          "text": "下班后购买蔬菜和水果",
+          "priority": "中",
+          "done": false
+        },
+        {
+          "id": "c",
+          "text": "阅读 20 分钟",
+          "priority": "低",
+          "done": true
+        },
+        {
+          "id": "mv0kjxstad3i12aogkl",
+          "text": "Verify_app_generation",
+          "priority": "中",
+          "done": false
+        },
+        {
+          "id": "61767acc-d4ca-4054-9142-2f442f1e3374",
+          "text": "Codex直接调用接口创建的任务",
+          "priority": "高",
+          "done": true
+        },
+        {
+          "id": "0339d989-7750-4afa-b32e-03987dc03c5e",
+          "text": "外部接口实时更新测试",
+          "priority": "中",
+          "done": false
+        }
+      ],
+      "total": 6,
+      "completed": 3,
+      "pending": 3
+    },
+    "revision": 7,
+    "replayed": false,
+    "durationMs": 0.6
+  },
+  "restored": {
+    "ok": true,
+    "app": "board",
+    "method": "tasks.setCompleted",
+    "result": {
+      "tasks": [
+        {
+          "id": "a",
+          "text": "整理本周项目计划",
+          "priority": "高",
+          "done": false
+        },
+        {
+          "id": "b",
+          "text": "下班后购买蔬菜和水果",
+          "priority": "中",
+          "done": false
+        },
+        {
+          "id": "c",
+          "text": "阅读 20 分钟",
+          "priority": "低",
+          "done": true
+        },
+        {
+          "id": "mv0kjxstad3i12aogkl",
+          "text": "Verify_app_generation",
+          "priority": "中",
+          "done": false
+        },
+        {
+          "id": "61767acc-d4ca-4054-9142-2f442f1e3374",
+          "text": "Codex直接调用接口创建的任务",
+          "priority": "高",
+          "done": true
+        },
+        {
+          "id": "0339d989-7750-4afa-b32e-03987dc03c5e",
+          "text": "外部接口实时更新测试",
+          "priority": "中",
+          "done": false
+        }
+      ],
+      "total": 6,
+      "completed": 2,
+      "pending": 4
+    },
+    "revision": 8,
+    "replayed": false,
+    "durationMs": 0.81
+  }
+}

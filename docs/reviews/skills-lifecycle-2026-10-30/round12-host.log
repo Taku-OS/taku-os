@@ -1,0 +1,115 @@
+
+running 11 tests
+test child ... ok
+test install_enabled_recovers_cache_and_config_together ...
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+ok
+test interrupted_rollback_commits_version_and_pin_together ...
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+ok
+test recover_crash_at_each_step ...
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+ok
+test recover_first_install_and_upgrade_without_prior_backup ...
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+ok
+test recovery_discards_interrupted_staging ...
+running 1 test
+ok
+test recovery_is_itself_restartable ...
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+ok
+test rollback_pins_and_rejects_later_install ... ok
+test two_processes_fifty_rounds_each ...
+running 1 test
+
+running 1 test
+test child ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 7.23s
+
+test child ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 7.30s
+
+ok
+test uninstall_recovers_before_and_after_journal ...
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+ok
+test upgrade_and_rollback ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 14.58s

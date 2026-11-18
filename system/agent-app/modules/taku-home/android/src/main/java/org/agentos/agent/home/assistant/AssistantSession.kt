@@ -1,0 +1,917 @@
+package org.agentos.agent.home.assistant
+
+import android.content.Context
+import android.content.Intent
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.util.Log
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runInterruptible
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.InputStream
+import java.nio.charset.StandardCharsets
+import java.util.UUID
+
+/** The bottom AI entry's open input: none, press-and-hold voice (1-1) or the text field (1-3). */
+enum class EntryMode { None, Voice, Text }
+
+/** Dynamic Island: hidden, expanded (≤ ⅓ screen, 1-1/1-4), full reply, or the camera pill (1-6). */
+enum class IslandMode { Hidden, Expanded, Full, Collapsed }
+
+data class AssistantState(
+  val entry: EntryMode = EntryMode.None,
+  val voiceContinuous: Boolean = false,
+  val voicePaused: Boolean = false,
+  val hintExpanded: Boolean = false,
+  val voiceFailure: String? = null,
+  val holdZone: VoiceGesture.Zone = VoiceGesture.Zone.None,
+  val island: IslandMode = IslandMode.Hidden,
+  /** Explicit user presentation request; survives sampled Expanded -> Expanded updates. */
+  val expansionRequest: Long = 0,
+  val threadId: String? = null,
+  val activityId: String? = null,
+  /** Text accepted for sending whose turn has not appeared yet. */
+  val pending: String? = null,
+  val sending: Boolean = false,
+  val turn: TurnView? = null,
+  /** Broker task state (`queued`, `running`, `needs_user`, `failed`, `cancelled`, `completed`). */
+  val task: String? = null,
+  val taskId: String? = null,
+  /** Explicit app-development workflow, scoped to one authoritative active turn. */
+  val appBuildTurnId: String? = null,
+  val error: String? = null,
+  /** Unsent text in the field (restored after a rejected send or a failed task). */
+  val draft: String = "",
+  /** The request that last failed (rejected send, failed task or turn), kept for edit / retry. */
+  val failedText: String? = null,
+  /** The device has a default network with internet capability. */
+  val online: Boolean = true,
+  /**
+   * The home stopped waiting for the current request (offline past the grace period, issue #25
+   * F3): the work was asked to stop and the text given back. A late broker/stream state for it
+   * no longer makes the session "working" or replaces the error.
+   */
+  val abandoned: Boolean = false,
+  /** A successful dictation too long to join the draft, kept whole for reading and copying. */
+  val retainedVoice: RetainedVoiceResult? = null,
+) {
+  val working: Boolean get() = !abandoned && (sending || pending != null || turn?.active == true || task == "queued" || task == "running")
+  val buildingApp: Boolean get() = appBuildTurnId != null && turn?.turnId == appBuildTurnId &&
+    turn.active && !turn.failed && !abandoned && error == null && !needsUser &&
+    task !in setOf("completed", "failed", "cancelled")
+
+  fun withAppBuild(thread: String, turnId: String, active: Boolean): AssistantState {
+    if (thread.isBlank() || turnId.isBlank()) throw AssistantException("INVALID_ARGUMENT", "threadId and turnId are required")
+    if (threadId != thread || turn?.turnId != turnId) throw AssistantException("STALE_TURN", "not the current conversation turn")
+    if (active && (turn.active != true || turn.failed || abandoned || error != null || needsUser ||
+        task in setOf("completed", "failed", "cancelled"))) throw AssistantException("NOT_WORKING", "turn is not running")
+    return copy(appBuildTurnId = if (active) turnId else null)
+  }
+  val needsUser: Boolean get() = task == "needs_user"
+  /** Closing temporary input must not dismiss its pending result, reply or error. */
+  val overlayVisible: Boolean get() = entry != EntryMode.None
+
+  /** What "Try again" sends: the draft (restored or edited), else the failed request. */
+  val retryText: String? get() = draft.ifBlank { failedText }?.takeIf { it.isNotBlank() }
+
+  /**
+   * Marks [text] as failed with [code]: it becomes the draft unless the user already typed a
+   * new one, which is never overwritten; [failedText] keeps all of it either way.
+   */
+  fun failedWith(code: String, text: String?): AssistantState {
+    val lost = text?.trim()?.takeIf { it.isNotEmpty() }
+    return copy(sending = false, pending = null, error = code, failedText = lost ?: failedText,
+      draft = if (draft.isBlank() && lost != null && lost.length <= AssistantSession.MAX_TEXT) lost else draft)
+  }
+}
+
+/**
+ * The home's conversation with Taku: one authority for the AI entry GUI and for Agents
+ * (`content://org.agentos.agent.home-assistant`). Messages go through the system gateway's
+ * `createThread` / `sendMessage` / `steer`; replies stream from `subscribeSession`. A home
+ * session uses one thread until the island is dismissed while idle; "Open conversation"
+ * continues it in the full chat.
+ */
+@OptIn(ExperimentalCoroutinesApi::class)
+class AssistantSession private constructor(private val context: Context, private val gateway: AgentGateway) {
+  private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+  private val worker = Dispatchers.IO.limitedParallelism(1)
+  private val flow = MutableStateFlow(AssistantState())
+  val state: StateFlow<AssistantState> = flow.asStateFlow()
+
+  /** Speech recognition: the shared Audio Engine, scoped to the desktop entry's saved settings. */
+  var voice: VoiceInput = EngineVoiceInput(context, settingsScope = DESKTOP_SCOPE)
+    set(value) { field.cancel(); field = value; watchVoice() }
+
+  /** One recording's result may be delivered once; this machine keeps that ownership. */
+  private val delivery = VoiceDeliveryMachine(MAX_TEXT)
+
+  private val streamLock = Any()
+  private var stream: SessionStreamState? = null
+  private var baseline: Set<String> = emptySet()
+  private var streamJob: Job? = null
+  private var pollJob: Job? = null
+  private var voiceJob: Job? = null
+  private var liveLaunchJob: Job? = null
+  private val liveEndpoint = LiveTalkEndpoint()
+  private val threadCreation = SessionThreadCreation()
+  private var expansionSequence = 0L
+
+  private val gesturePrefs = context.getSharedPreferences("voice-gesture", 0)
+  private val boot = android.provider.Settings.Global.getInt(context.contentResolver, "boot_count", -1)
+  val gesture = VoiceGesture({ start ->
+    gesturePrefs.edit().putInt("boot", boot).putLong("start", start).commit()
+  }, if (gesturePrefs.getInt("boot", -2) == boot) gesturePrefs.getLong("start", -1) else -1)
+
+  init {
+    watchVoice(); watchNetwork()
+    androidx.core.content.ContextCompat.registerReceiver(context, object : android.content.BroadcastReceiver() {
+      override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action == Intent.ACTION_SCREEN_OFF) interruptVoiceForScreenOff()
+      }
+    }, android.content.IntentFilter(Intent.ACTION_SCREEN_OFF), androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED)
+    // Activity start precedes the previous activity's stop. This preserves capture during
+    // Home → chat, while leaving the visible chat still releases the microphone. React's
+    // shared host onPause/AppState signal is too early for this cross-activity handoff.
+    val chatActivities = mutableSetOf<android.app.Activity>()
+    (context.applicationContext as? android.app.Application)?.registerActivityLifecycleCallbacks(object : android.app.Application.ActivityLifecycleCallbacks {
+      override fun onActivityStarted(activity: android.app.Activity) {
+        if (activity.javaClass.name == "org.agentos.agent.MainActivity") chatActivities.add(activity)
+      }
+      override fun onActivityStopped(activity: android.app.Activity) {
+        if (activity.javaClass.name != "org.agentos.agent.MainActivity") return
+        chatActivities.remove(activity)
+        if (!activity.isChangingConfigurations && chatActivities.isEmpty() && flow.value.voiceContinuous) stopLiveTalk()
+      }
+      override fun onActivityCreated(activity: android.app.Activity, savedInstanceState: android.os.Bundle?) = Unit
+      override fun onActivityResumed(activity: android.app.Activity) {
+        if (activity.javaClass.name == "org.agentos.agent.MainActivity") chatActivities.add(activity)
+      }
+      override fun onActivityPaused(activity: android.app.Activity) = Unit
+      override fun onActivitySaveInstanceState(activity: android.app.Activity, outState: android.os.Bundle) = Unit
+      override fun onActivityDestroyed(activity: android.app.Activity) { chatActivities.remove(activity) }
+    })
+    scope.launch {
+      while (isActive) {
+        delay(500)
+        // Screen-off can precede Activity.onStop; also cover a missed broadcast or a
+        // keyguard transition before attempting any automatic microphone restart.
+        if (voiceDeviceUnavailable()) { interruptVoiceForScreenOff(); continue }
+        if ((gesture.source == "system" && gesture.expired(android.os.SystemClock.uptimeMillis())) ||
+            (gesture.held && android.os.SystemClock.uptimeMillis() - gesture.startedAt > 120_000)) cancelVoice()
+        val s = flow.value
+        val v = voice.state.value
+        // Releasing the opening pointer arms one automatic utterance on the hold page.
+        // Keep capture/navigation separate: sending must not dismiss that page.
+        if (s.entry == EntryMode.Voice && gesture.phase == VoiceGesture.Phase.Listening) {
+          if (v.ready && liveEndpoint.shouldFinish(android.os.SystemClock.uptimeMillis())) finishVoice()
+          else if (v.emptySuccess && delivery.current?.state == VoiceDeliveryState.Consumed && !s.working && s.error == null) {
+            // No words is not a completed conversation. Reopen capture on the same page/card.
+            restartVoice()
+          }
+        }
+        if (s.voiceContinuous && s.entry == EntryMode.None && !s.voicePaused) {
+          val now = android.os.SystemClock.uptimeMillis()
+          if (v.ready) {
+            if (liveEndpoint.shouldFinish(now)) finishVoice()
+          } else if (!s.working && s.error == null && (v.phase == VoicePhase.Idle ||
+              v.phase == VoicePhase.Closed && v.outcome is VoiceOutcome.Success)) {
+            restartVoice()
+          }
+        }
+      }
+    }
+  }
+
+  private fun voiceDeviceUnavailable(): Boolean =
+    context.getSystemService(android.app.KeyguardManager::class.java)?.isKeyguardLocked == true ||
+      context.getSystemService(android.os.PowerManager::class.java)?.isInteractive == false
+
+  private fun interruptVoiceForScreenOff() {
+    if (gesture.held || gesture.phase == VoiceGesture.Phase.Listening ||
+        flow.value.voiceContinuous || voice.state.value.listening) cancelVoice()
+  }
+
+  /** A hidden voice page releases capture; rotation and the Continuous handoff retain it. */
+  fun onVoiceSurfaceStopped(gestureId: String, changingConfigurations: Boolean) {
+    if (!changingConfigurations && gesture.id == gestureId &&
+        (gesture.held || gesture.phase == VoiceGesture.Phase.Listening)) cancelVoice()
+  }
+
+  /** Automatic retries have no RPC caller to receive failures; never throw on the main loop. */
+  private fun restartVoice() {
+    try {
+      startVoice(VoiceTarget.Hold, VoiceDestination.Submit)
+    } catch (cancelled: kotlinx.coroutines.CancellationException) {
+      throw cancelled
+    } catch (error: Exception) {
+      if (error is AssistantException && error.code == "DEVICE_LOCKED") {
+        cancelVoice()
+      } else {
+        val code = (error as? AssistantException)?.code ?: "VOICE_UNAVAILABLE"
+        revokeVoice()
+        flow.update { it.copy(error = voiceError(code), voiceFailure = code) }
+      }
+    }
+  }
+
+  private fun publishGesture() = flow.update { it.copy(holdZone = gesture.zone,
+    voiceContinuous = gesture.phase == VoiceGesture.Phase.Continuous) }
+
+  fun prepareHold(id: String, source: String, startedAt: Long): Boolean {
+    if (id == gesture.id) return false
+    if (voice.state.value.listening) throw AssistantException("VOICE_BUSY", "voice is already active")
+    val changed = gesture.prepare(id, source, startedAt, android.os.SystemClock.uptimeMillis())
+    if (changed) publishGesture()
+    return changed
+  }
+
+  /** UI handshake: a terminal event received during cold start prevents any later microphone open. */
+  fun activateHold(id: String) {
+    if (gesture.source == "system" && gesture.expired(android.os.SystemClock.uptimeMillis())) { cancelVoice(); return }
+    if (!gesture.activate(id)) return
+    publishGesture()
+    flow.update { it.copy(expansionRequest = ++expansionSequence) }
+    startVoice(VoiceTarget.Hold, VoiceDestination.AwaitGesture)
+  }
+
+  fun beginDesktopHold() {
+    if (gesture.held || gesture.phase == VoiceGesture.Phase.Listening || gesture.phase == VoiceGesture.Phase.Continuous) return
+    val now = android.os.SystemClock.uptimeMillis()
+    if (prepareHold(UUID.randomUUID().toString(), "desktop", now)) activateHold(gesture.id)
+  }
+
+  fun moveHold(x: Float, y: Float, width: Float, height: Float): Boolean {
+    if (!x.isFinite() || !y.isFinite() || !width.isFinite() || !height.isFinite() || width <= 0 || height <= 0)
+      throw AssistantException("INVALID_ARGUMENT", "coordinates must be finite and dimensions positive")
+    val zone = org.agentos.agent.home.ui.assistant.VoiceArcs(width, height, context.resources.displayMetrics.density)
+      .zone(androidx.compose.ui.geometry.Offset(x, y), width * 16f / 412f)
+    val changed = zone != gesture.zone
+    gesture.move(zone); publishGesture()
+    return changed
+  }
+
+  fun releaseHold() {
+    if (!gesture.held) return // The latched page / Live Talk owns subsequent taps.
+    if (gesture.phase == VoiceGesture.Phase.Pending) return cancelVoice()
+    when (gesture.zone) {
+      VoiceGesture.Zone.Cancel -> cancelVoice()
+      VoiceGesture.Zone.KeepTalking -> keepTalking()
+      VoiceGesture.Zone.None -> {
+        gesture.latch(); publishGesture()
+        delivery.aim(VoiceDestination.Submit)
+        // A backend may have finalized while the opening pointer was still held.
+        apply(delivery.settle(voice.state.value, flow.value.draft))
+      }
+    }
+  }
+
+  fun keepTalking() {
+    if (!gesture.keepTalking()) return
+    val gestureId = gesture.id
+    val generation = threadCreation.generation
+    publishGesture()
+    // Keep the same scoped Engine recording while the designer's 820 ms surface opens.
+    liveLaunchJob = scope.launch {
+      try {
+        val started = android.os.SystemClock.uptimeMillis()
+        val id = ensureThread(generation)
+        delay((820 - (android.os.SystemClock.uptimeMillis() - started)).coerceAtLeast(0))
+        if (!flow.value.voiceContinuous || gesture.id != gestureId ||
+            threadCreation.generation != generation || flow.value.threadId != id) return@launch
+        flow.update { it.copy(entry = EntryMode.None, island = IslandMode.Hidden) }
+        context.startActivity(Intent().setClassName(context.packageName, "org.agentos.agent.MainActivity")
+          .putExtra("threadId", id).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP))
+        delivery.aim(VoiceDestination.Submit)
+        apply(delivery.settle(voice.state.value, flow.value.draft))
+      } catch (cancelled: kotlinx.coroutines.CancellationException) {
+        throw cancelled
+      } catch (_: Exception) {
+        if (flow.value.voiceContinuous && gesture.id == gestureId) {
+          gesture.returnToListening(); publishGesture()
+          flow.update { it.copy(error = "THREAD_UNAVAILABLE") }
+        }
+      }
+    }
+  }
+
+  /** Live Talk and text chat share the same thread and the desktop's scoped fal preference. */
+  fun startLiveTalk(threadId: String) {
+    if (flow.value.voiceContinuous) return
+    resume(threadId)
+    beginDesktopHold()
+    if (flow.value.error != null || !voice.state.value.listening) {
+      val reason = flow.value.error ?: voice.state.value.error ?: "VOICE_UNAVAILABLE"
+      revokeVoice()
+      throw AssistantException(reason, "Voice input could not start")
+    }
+    gesture.keepTalking(); publishGesture()
+    flow.update { it.copy(entry = EntryMode.None, island = IslandMode.Hidden, voicePaused = false) }
+    delivery.aim(VoiceDestination.Submit)
+  }
+
+  fun stopLiveTalk() {
+    liveLaunchJob?.cancel(); liveLaunchJob = null
+    revokeVoice()
+    flow.update { it.copy(entry = EntryMode.None, island = IslandMode.Hidden, voicePaused = false) }
+  }
+
+  fun toggleLiveMic() {
+    if (!flow.value.voiceContinuous) return
+    if (!flow.value.voicePaused) {
+      flow.update { it.copy(voicePaused = true) }
+      finishVoice()
+    } else {
+      flow.update { it.copy(voicePaused = false, error = null, voiceFailure = null) }
+      // Finalizing already owns its result; the normal endpoint loop resumes after it settles.
+      if (!flow.value.working && voice.state.value.phase in setOf(VoicePhase.Idle, VoicePhase.Closed))
+        startVoice(VoiceTarget.Hold, VoiceDestination.Submit)
+    }
+  }
+
+  fun gestureEvent(p: JSONObject) {
+    val action = p.getString("action")
+    if (action !in listOf("prepare", "move", "heartbeat", "end", "cancel"))
+      throw AssistantException("INVALID_ARGUMENT", "unknown gesture action")
+    val id = p.getString("id")
+    if (action == "prepare") { prepareHold(id, p.optString("source", "system"), p.getLong("time")); return }
+    if (!gesture.event(id, p.getLong("sequence"), p.getLong("time"), android.os.SystemClock.uptimeMillis())) return
+    when (action) {
+      "move" -> moveHold(p.getDouble("x").toFloat(), p.getDouble("y").toFloat(), p.getDouble("width").toFloat(), p.getDouble("height").toFloat())
+      "end" -> releaseHold()
+      "cancel" -> cancelVoice()
+    }
+  }
+
+  private var hintJob: Job? = null
+  fun setHint(expanded: Boolean) {
+    if (expanded && state.value.entry != EntryMode.None) throw AssistantException("BUSY", "an input is already open")
+    hintJob?.cancel()
+    flow.update { it.copy(hintExpanded = expanded) }
+    if (expanded) hintJob = scope.launch { delay(4_000); flow.update { it.copy(hintExpanded = false) } }
+  }
+
+  // ---- Entry and island ---------------------------------------------------------------
+
+  /** Opening another text entry must not discard a recording or its pending final result. */
+  val canOpenText: Boolean get() = !voice.state.value.listening && !gesture.held
+
+  /** Opens an input (double tap: text, hold: voice); the island shows the greeting or the current turn. */
+  fun open(mode: EntryMode) {
+    if (mode == EntryMode.None) return closeEntry()
+    if (mode == EntryMode.Voice) { beginDesktopHold(); return }
+    if (mode == EntryMode.Text && !canOpenText) return
+    if (mode == EntryMode.Text && flow.value.entry != EntryMode.Text) revokeVoice()
+    flow.update { it.copy(entry = mode, activityId = it.activityId ?: UUID.randomUUID().toString(), hintExpanded = false, voiceFailure = null, island = if (it.island == IslandMode.Hidden || it.island == IslandMode.Collapsed) IslandMode.Expanded else it.island, error = null) }
+  }
+
+  /** Closes the input; an undelivered result loses eligibility. The island stays while there is something to show. */
+  fun closeEntry() {
+    revokeVoice()
+    flow.update { s ->
+      val keep = s.working || s.turn != null || s.error != null
+      s.copy(entry = EntryMode.None, island = if (keep) s.island else IslandMode.Hidden)
+    }
+  }
+
+  fun setAppBuild(thread: String, turnId: String, active: Boolean) { flow.update { it.withAppBuild(thread, turnId, active) } }
+
+  fun setDraft(text: String) = flow.update { it.copy(draft = text.take(MAX_TEXT)) }
+
+  /** Starter chips create an editable draft; they never submit a request. */
+  fun choosePrompt(text: String) {
+    if (text.isBlank() || text.length > MAX_TEXT) throw AssistantException("INVALID_ARGUMENT", "prompt must contain 1..$MAX_TEXT characters")
+    cancelVoice()
+    setDraft(text)
+    open(EntryMode.Text)
+    context.startActivity(Intent(context, AssistantOverlayActivity::class.java)
+      .putExtra("mode", "text").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+  }
+
+  fun expand(full: Boolean) {
+    flow.update { if (it.island == IslandMode.Hidden && it.turn == null && !it.working) it else it.copy(island = if (full) IslandMode.Full else IslandMode.Expanded, expansionRequest = ++expansionSequence) }
+  }
+
+  fun collapseIsland() {
+    flow.update { if (it.island == IslandMode.Hidden) it else it.copy(island = IslandMode.Collapsed) }
+    org.agentos.agent.home.island.SystemIslandBridge.request(context, "collapse")
+  }
+
+  /** Explicit assistant dismissal; outside card taps are owned by SystemUI and never call this. */
+  fun dismiss() {
+    org.agentos.agent.home.island.SystemIslandBridge.request(context, "collapse")
+    val s = flow.value
+    if (s.working || s.needsUser) { revokeVoice(); flow.update { it.copy(island = IslandMode.Collapsed, entry = EntryMode.None) }; return }
+    reset()
+  }
+
+  /** Ends this home conversation; the thread stays in the full chat history. */
+  fun reset() {
+    threadCreation.invalidate()
+    liveLaunchJob?.cancel(); liveLaunchJob = null
+    revokeVoice()
+    val jobs = listOfNotNull(streamJob, pollJob)
+    streamJob = null; pollJob = null
+    scope.launch { jobs.forEach { it.cancelAndJoin() } }
+    synchronized(streamLock) { stream = null; baseline = emptySet() }
+    flow.value = AssistantState(online = flow.value.online)
+  }
+
+  // ---- Voice ---------------------------------------------------------------------------
+
+  /**
+   * Explicit Agent finish or a measured utterance boundary: finalize and send exactly once.
+   * Releasing the opening gesture only latches the listening page; it never calls this.
+   */
+  fun finishVoice() {
+    val v = voice.state.value
+    // No recording: a recycled or repeated finish must not close an unrelated open input.
+    if (v.target != VoiceTarget.Hold || v.phase == VoicePhase.Idle || (flow.value.entry != EntryMode.Voice && !flow.value.voiceContinuous)) return
+    // Released before capture: drop the operation instead of finishing nothing.
+    if (v.phase == VoicePhase.Preparing) {
+      if (flow.value.voiceContinuous) { delivery.revoke(); voice.cancel() } else cancelVoice()
+      return
+    }
+    if (!flow.value.voiceContinuous) { gesture.latch(); publishGesture() }
+    // Live Talk stays in chat; the same operation finishes before it can send.
+    if (flow.value.voiceContinuous) flow.update { it.copy(entry = EntryMode.None) }
+    delivery.aim(VoiceDestination.Submit)
+    voice.finish()
+    apply(delivery.settle(voice.state.value, flow.value.draft))
+  }
+
+  /** Slide to "Cancel" and release (1-1-2): revoke first, so no late result can be delivered. */
+  fun cancelVoice() {
+    liveLaunchJob?.cancel(); liveLaunchJob = null
+    revokeVoice()
+    closeEntry()
+  }
+
+  /**
+   * Slide to "Text": the field opens immediately on the existing draft, the same capture finishes,
+   * and its complete result is joined once to the draft as it is then. Never sends.
+   */
+  fun voiceToText() {
+    gesture.end(false); publishGesture()
+    val v = voice.state.value
+    if (v.phase == VoicePhase.Idle || v.phase == VoicePhase.Preparing) {
+      // Nothing was captured yet: do not let a delayed start open a recorder; keep the draft.
+      revokeVoice()
+      flow.update { it.copy(entry = EntryMode.Text, island = if (it.island == IslandMode.Hidden) IslandMode.Expanded else it.island, error = null) }
+      return
+    }
+    flow.update { it.copy(entry = EntryMode.Text, island = if (it.island == IslandMode.Hidden) IslandMode.Expanded else it.island, error = null) }
+    delivery.aim(VoiceDestination.Draft)
+    voice.finish()
+    apply(delivery.settle(voice.state.value, flow.value.draft))
+  }
+
+  /** Microphone in the text field (1-5); stopping joins the complete result to the draft once. */
+  fun startDictation() = startVoice(VoiceTarget.Dictation, VoiceDestination.Draft)
+  fun stopDictation() {
+    delivery.aim(VoiceDestination.Draft)
+    voice.finish()
+    apply(delivery.settle(voice.state.value, flow.value.draft))
+  }
+
+  /**
+   * Cancel arc: revoke delivery and stop the microphone now. The dissolve animation that follows
+   * is presentation only, so it can never cancel a newer recording. Returns the revoked operation.
+   */
+  fun beginCancelledVoice(): Long? {
+    gesture.end(true); publishGesture()
+    val operation = delivery.revoke()
+    if (voice.state.value.phase != VoicePhase.Idle) voice.cancel()
+    return operation
+  }
+
+  /** After the dissolve: close the input unless a newer recording already owns it. */
+  fun endCancelledVoice(operation: Long?) {
+    val current = delivery.lastOperationId
+    if (operation != null && current != null && current != operation) return
+    if (voice.state.value.phase != VoicePhase.Idle) return
+    closeEntry()
+  }
+
+  private fun startVoice(target: VoiceTarget, destination: VoiceDestination) {
+    if (voiceDeviceUnavailable())
+      throw AssistantException("DEVICE_LOCKED", "Wake and unlock the device before starting voice input")
+    if (voice.state.value.phase != VoicePhase.Idle) voice.cancel()
+    flow.update {
+      it.copy(
+        entry = if (it.voiceContinuous) EntryMode.None else if (target == VoiceTarget.Hold) EntryMode.Voice else EntryMode.Text,
+        activityId = it.activityId ?: UUID.randomUUID().toString(),
+        island = if (it.voiceContinuous) IslandMode.Hidden else if (it.island == IslandMode.Hidden || it.island == IslandMode.Collapsed) IslandMode.Expanded else it.island,
+        hintExpanded = false, voiceFailure = null, error = null, retainedVoice = null,
+      )
+    }
+    liveEndpoint.reset()
+    voice.start(target)
+    val operation = voice.state.value.operationId ?: return
+    delivery.begin(operation, destination)
+    // A synchronous binding failure is already terminal before ownership existed: settle it now,
+    // or its outcome would be dropped and never replayed.
+    apply(delivery.settle(voice.state.value, flow.value.draft))
+  }
+
+  /** Any conversation boundary: an undelivered result may no longer touch the session. */
+  private fun revokeVoice() {
+    gesture.end(true); publishGesture()
+    delivery.newGeneration()
+    if (voice.state.value.phase != VoicePhase.Idle) voice.cancel()
+  }
+
+  private fun watchVoice() {
+    voiceJob?.cancel()
+    voiceJob = scope.launch { voice.state.collect { v ->
+      if (v.ready) liveEndpoint.observe(v.levels.lastOrNull() ?: 0f, android.os.SystemClock.uptimeMillis())
+      apply(delivery.settle(v, flow.value.draft))
+    } }
+  }
+
+  private fun apply(effect: VoiceEffect) {
+    when (effect) {
+      VoiceEffect.None -> Unit
+      is VoiceEffect.Draft -> flow.update { it.copy(draft = effect.text, retainedVoice = null) }
+      is VoiceEffect.Retained -> flow.update {
+        it.copy(retainedVoice = effect.result, island = if (it.island == IslandMode.Hidden) IslandMode.Expanded else it.island)
+      }
+      is VoiceEffect.Send -> {
+        // A rejected send (e.g. one already in flight) keeps the complete words instead of losing them.
+        try { send(effect.text, keepVoiceEntry = true) } catch (e: AssistantException) { flow.update { it.failedWith(e.code, effect.text) } }
+      }
+      is VoiceEffect.Failed -> {
+        // Errors stop recognition, but never silently navigate away from the listening page.
+        flow.update { it.copy(error = voiceError(effect.code), voiceFailure = effect.code,
+          island = if (it.voiceContinuous) IslandMode.Hidden else if (it.island == IslandMode.Hidden) IslandMode.Expanded else it.island) }
+      }
+      VoiceEffect.CloseEntry -> if (flow.value.entry != EntryMode.Voice && !flow.value.voiceContinuous) closeEntry()
+    }
+  }
+
+  // ---- Messages ------------------------------------------------------------------------
+
+  /** Sends [text] (validated like the gateway: 1–16000 non-blank characters). */
+  fun send(text: String, keepVoiceEntry: Boolean = false) {
+    val message = text.trim()
+    if (message.isEmpty() || message.length > MAX_TEXT) throw AssistantException("INVALID_TEXT", "text must be 1–$MAX_TEXT non-blank characters")
+    val now = flow.value
+    if (now.sending) throw AssistantException("BUSY", "a message is already being sent")
+    val generation = threadCreation.generation
+    // Never steer into a turn the home already gave up on (it may still read active until the interrupt lands).
+    val steerTurn = now.turn?.takeIf { it.active && !now.abandoned }?.turnId
+    flow.update { it.copy(expansionRequest = if (keepVoiceEntry || it.voiceContinuous) it.expansionRequest else ++expansionSequence, sending = true, pending = message, error = null, failedText = null, abandoned = false, draft = "", entry = if (it.entry == EntryMode.Voice && !keepVoiceEntry) EntryMode.None else it.entry,
+      // The visible voice card keeps its notification identity through capture → reply.
+      activityId = if (steerTurn == null && !(keepVoiceEntry && it.entry == EntryMode.Voice)) UUID.randomUUID().toString() else it.activityId,
+      island = if (it.voiceContinuous) IslandMode.Hidden else if (it.island == IslandMode.Full) IslandMode.Full else IslandMode.Expanded,
+      task = if (steerTurn == null) null else it.task, turn = if (steerTurn == null) null else it.turn) }
+    scope.launch(worker) {
+      try {
+        val threadId = ensureThread(generation)
+        if (steerTurn == null) synchronized(streamLock) { baseline = stream?.turns?.keys?.toSet() ?: emptySet() }
+        ensureStream(threadId)
+        val requestId = UUID.randomUUID().toString()
+        val params = JSONObject().put("threadId", threadId).put("text", message).put("requestId", requestId)
+        val receipt = if (steerTurn != null) gateway.call("steer", params.put("expectedTurnId", steerTurn)) else gateway.call("sendMessage", params)
+        if (receipt.optString("state") == "notSent" && receipt.optString("requestId") == requestId) {
+          flow.update { it.failedWith(receipt.optString("code", "NOT_SENT"), message) }
+          return@launch
+        }
+        if (flow.value.abandoned) {
+          // Gave up (offline) while this send was in flight: do not revive a task the user was told stopped.
+          receipt.optString("taskId").takeIf { it.isNotEmpty() && steerTurn == null }?.let { task ->
+            runCatching { gateway.call("cancelQueued", JSONObject().put("threadId", threadId).put("taskId", task)) }
+          }
+          return@launch
+        }
+        flow.update { it.copy(sending = false, taskId = receipt.optString("taskId").ifEmpty { it.taskId }, task = if (steerTurn == null) "queued" else it.task) }
+        ensurePolling(threadId)
+      } catch (e: kotlinx.coroutines.CancellationException) {
+        throw e
+      } catch (e: GatewayException) {
+        Log.w(TAG, "send failed: ${e.code}")
+        // Delivery is unknown after an IPC failure; keep the text so the user can retry deliberately.
+        flow.update { it.failedWith(e.code, message) }
+      } catch (e: Exception) {
+        Log.e(TAG, "send failed", e)
+        flow.update { it.failedWith("SEND_FAILED", message) }
+      }
+    }
+  }
+
+  /** "Try again" after a failure: sends the draft, or the failed request when the draft is empty. */
+  fun retry() {
+    val text = flow.value.retryText ?: throw AssistantException("NOTHING_TO_RETRY", "there is no failed request or draft to send")
+    send(text)
+  }
+
+  /** Sends a reply the agent offered. */
+  fun reply(suggestionId: String) {
+    val suggestion = flow.value.turn?.suggestions?.firstOrNull { it.id == suggestionId }
+      ?: throw AssistantException("SUGGESTION_NOT_FOUND", "no suggestion $suggestionId on the current reply")
+    send(suggestion.reply)
+  }
+
+  /** Stops the current work: interrupt a started turn, or cancel a queued task. */
+  fun stop() = requestStop(flow.value, reportErrors = true)
+
+  private fun requestStop(s: AssistantState, reportErrors: Boolean) {
+    val threadId = s.threadId ?: throw AssistantException("NOT_WORKING", "Taku is not working on anything")
+    val turnId = s.turn?.takeIf { it.active }?.turnId
+    val taskId = s.taskId
+    if (turnId == null && taskId == null) throw AssistantException("NOT_WORKING", "Taku is not working on anything")
+    scope.launch(worker) {
+      try {
+        if (turnId != null) gateway.call("interrupt", JSONObject().put("threadId", threadId).put("turnId", turnId))
+        else gateway.call("cancelQueued", JSONObject().put("threadId", threadId).put("taskId", taskId))
+      } catch (e: GatewayException) {
+        if (reportErrors) flow.update { it.copy(error = e.code) } else Log.w(TAG, "stop after giving up: ${e.code}")
+      }
+    }
+  }
+
+  // ---- Connectivity ---------------------------------------------------------------------
+
+  /**
+   * Offline, the runtime keeps retrying and the task stays running with no end (issue #25 F3).
+   * Track the default network; while Taku is working without one for [OFFLINE_GRACE_MS], stop
+   * the work and give the request back with NETWORK_UNAVAILABLE. A brief drop resets the wait.
+   * Internet capability (not "validated") is used so networks whose validation probe is
+   * blocked but which work through the proxy are never treated as offline.
+   */
+  private fun watchNetwork() {
+    val connectivity = context.getSystemService(ConnectivityManager::class.java) ?: return
+    fun hasInternet(caps: NetworkCapabilities?) = caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+    flow.update { it.copy(online = hasInternet(connectivity.getNetworkCapabilities(connectivity.activeNetwork))) }
+    runCatching {
+      connectivity.registerDefaultNetworkCallback(object : ConnectivityManager.NetworkCallback() {
+        override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) { flow.update { it.copy(online = hasInternet(caps)) } }
+        override fun onLost(network: Network) { flow.update { it.copy(online = false) } }
+      })
+    }.onFailure { Log.w(TAG, "network callback unavailable", it) }
+    scope.launch {
+      flow.map { !it.online && it.working }.distinctUntilChanged().collectLatest { stalled ->
+        if (stalled) { delay(OFFLINE_GRACE_MS); giveUpOffline() }
+      }
+    }
+  }
+
+  private fun giveUpOffline() {
+    val s = flow.value
+    if (s.online || !s.working) return
+    Log.w(TAG, "offline for ${OFFLINE_GRACE_MS / 1000}s while working; stopping and restoring the request")
+    runCatching { requestStop(s, reportErrors = false) } // nothing started yet is fine: the receipt path cancels it
+    flow.update { it.failedWith("NETWORK_UNAVAILABLE", it.pending ?: it.turn?.userText).copy(abandoned = true) }
+  }
+
+  /** Continues this conversation in the full chat (the island's expand button). */
+  fun openConversation() {
+    liveLaunchJob?.cancel(); liveLaunchJob = null
+    revokeVoice()
+    val generation = threadCreation.generation
+    val draft = flow.value.draft.takeIf { flow.value.threadId == null }
+    scope.launch {
+      try {
+        val id = ensureThread(generation)
+        if (threadCreation.generation != generation) return@launch
+        val intent = Intent().setClassName(context.packageName, "org.agentos.agent.MainActivity")
+          .putExtra("threadId", id).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        draft?.takeIf { it.isNotBlank() }?.let { intent.putExtra(EXTRA_DRAFT, it) }
+        context.startActivity(intent)
+        flow.update { it.copy(island = IslandMode.Hidden, entry = EntryMode.None, voicePaused = false) }
+      } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+      catch (_: Exception) { if (threadCreation.generation == generation) flow.update { it.copy(error = "THREAD_UNAVAILABLE") } }
+    }
+  }
+
+  /**
+   * The full chat collapses back into the island (2-1 → 1-1): the expanded island shows
+   * [threadId]'s latest turn (or the greeting when it has none), and the next message from the
+   * entry continues that thread. Turns already in the thread count as this session's, so the
+   * island shows the reply the chat just showed. A blank [threadId] (a new chat with nothing
+   * sent yet) opens the island's greeting on a fresh session.
+   */
+  fun resume(threadId: String) {
+    val id = threadId.trim()
+    liveLaunchJob?.cancel(); liveLaunchJob = null
+    revokeVoice()
+    if (id.isEmpty()) {
+      reset()
+      flow.update { it.copy(island = IslandMode.Expanded, expansionRequest = ++expansionSequence) }
+      return
+    }
+    if (flow.value.threadId != id) {
+      reset()
+      synchronized(streamLock) { stream = SessionStreamState(id); baseline = emptySet() }
+      flow.update { it.copy(threadId = id) }
+    }
+    flow.update { it.copy(island = IslandMode.Expanded, entry = EntryMode.None, error = null,
+      voicePaused = false, expansionRequest = ++expansionSequence,
+      activityId = it.activityId ?: UUID.randomUUID().toString()) }
+    ensureStream(id)
+    ensurePolling(id)
+  }
+
+  /** Restores presentation identity only; the thread/turn/task data still come from the gateway. */
+  fun restoreIslandIdentity(id: String?) {
+    if (!id.isNullOrBlank()) flow.update { it.copy(activityId = id) }
+  }
+
+  private fun requestThreadId(): String {
+    val id = gateway.call("createThread").optJSONObject("thread")?.optString("id").orEmpty()
+    if (id.isEmpty()) throw GatewayException("THREAD_UNAVAILABLE", "Missing session ID")
+    return id
+  }
+
+  private suspend fun ensureThread(generation: Long): String = kotlinx.coroutines.withContext(Dispatchers.Main.immediate) {
+    threadCreation.resolve(generation, current = { flow.value.threadId },
+      create = { kotlinx.coroutines.withContext(worker) { requestThreadId() } },
+      bind = { id ->
+        synchronized(streamLock) { stream = SessionStreamState(id); baseline = emptySet() }
+        flow.update { it.copy(threadId = id) }
+      })
+  }
+
+  // ---- Session stream and task status --------------------------------------------------
+
+  private fun ensureStream(threadId: String) {
+    if (streamJob?.isActive == true) return
+    synchronized(streamLock) { if (stream?.threadId != threadId) stream = SessionStreamState(threadId) }
+    streamJob = scope.launch(Dispatchers.IO) {
+      var backoff = 400L
+      while (isActive && flow.value.threadId == threadId) {
+        var subscription = ""
+        var input: InputStream? = null
+        try {
+          val params = JSONObject().put("threadId", threadId)
+          synchronized(streamLock) { stream?.cursor() }?.let { (epoch, seq) -> params.put("brokerEpoch", epoch).put("afterSeq", seq) }
+          val lease = gateway.call("subscribeSession", params)
+          subscription = lease.optString("subscriptionId")
+          input = gateway.openStream(lease.getString("streamUri"))
+          backoff = 400L
+          input.bufferedReader(StandardCharsets.UTF_8).use { reader ->
+            while (isActive) {
+              val line = runInterruptible { reader.readLine() } ?: break
+              if (line.isEmpty()) continue
+              val event = JSONObject(line)
+              val changed = synchronized(streamLock) {
+                val st = stream ?: return@synchronized false
+                val applied = st.apply(event)
+                if (applied) publish(ThreadProjection.latest(st, baseline))
+                st.needsResync
+              }
+              if (changed) break
+            }
+          }
+        } catch (e: Exception) {
+          if (!isActive) break
+          Log.w(TAG, "session stream: ${(e as? GatewayException)?.code ?: e.message}")
+        } finally {
+          runCatching { input?.close() }
+          if (subscription.isNotEmpty()) runCatching { gateway.call("unsubscribeSession", JSONObject().put("subscriptionId", subscription)) }
+        }
+        if (!isActive) break
+        delay(backoff)
+        backoff = (backoff * 2).coerceAtMost(5_000L)
+      }
+    }
+  }
+
+  private fun publish(turn: TurnView?) {
+    flow.update { s ->
+      val settled = turn != null && !turn.active
+      val next = s.copy(
+        turn = turn ?: s.turn,
+        pending = if (turn?.userText != null || settled) null else s.pending,
+        task = if (settled && (s.task == "queued" || s.task == "running")) "completed" else s.task,
+      )
+      // First sight of a failed turn: give its request back like any other failure.
+      if (turn?.failed == true && s.error != "TURN_FAILED" && !s.abandoned) next.failedWith("TURN_FAILED", turn.userText ?: s.pending) else next
+    }
+  }
+
+  /** `readSession(statusOnly)` while working: queued/approval/failed states the stream does not carry. */
+  private fun ensurePolling(threadId: String) {
+    if (pollJob?.isActive == true) return
+    pollJob = scope.launch(Dispatchers.IO) {
+      while (isActive && flow.value.threadId == threadId) {
+        try {
+          val read = gateway.call("readSession", JSONObject().put("threadId", threadId).put("statusOnly", true))
+          val task = read.optJSONObject("task")
+          val taskState = task?.optString("state")?.ifEmpty { null }
+          flow.update { s ->
+            var next = s.copy(task = taskState ?: s.task, taskId = task?.optString("id")?.ifEmpty { null } ?: s.taskId)
+            // The task failed asynchronously (e.g. no network): give the request back for edit / retry.
+            if (taskState == "failed" && s.turn?.active != true && s.error != "TASK_FAILED" && !s.abandoned)
+              next = next.failedWith("TASK_FAILED", s.pending ?: s.turn?.userText)
+            if (taskState == "cancelled" && s.turn?.active != true) next = next.copy(pending = null)
+            next
+          }
+        } catch (e: GatewayException) {
+          Log.w(TAG, "status read: ${e.code}")
+        }
+        if (!flow.value.working && !flow.value.needsUser) break
+        delay(POLL_MS)
+      }
+    }
+  }
+
+  // ---- Agent view ----------------------------------------------------------------------
+
+  fun toJson(): JSONObject {
+    val s = flow.value
+    val v = voice.state.value
+    val session = v.session
+    val voiceJson = JSONObject()
+      .put("source", "engine")
+      .put("operationId", v.operationId ?: JSONObject.NULL)
+      .put("sessionId", v.sessionId ?: JSONObject.NULL)
+      .put("target", v.target?.name?.lowercase() ?: JSONObject.NULL)
+      .put("phase", v.phase.name)
+      .put("ready", v.ready).put("listening", v.listening).put("final", v.final)
+      .put("transcript", v.transcript).put("preview", v.preview)
+      .put("levels", JSONArray(v.levels.takeLast(VoiceState.LEVEL_HISTORY).map { it.toDouble() }))
+      .put("levelSource", VoiceState.LEVEL_SOURCE)
+      .put("outcome", v.outcome?.toJson() ?: JSONObject.NULL)
+      .put("error", v.error ?: s.voiceFailure ?: JSONObject.NULL)
+      .put("settingsScope", session?.settingsScope ?: JSONObject.NULL)
+      .put("settingsRevision", session?.settingsRevision ?: JSONObject.NULL)
+      .put("requestedProfileId", session?.requestedProfileId ?: JSONObject.NULL)
+      .put("profileId", session?.profileId ?: JSONObject.NULL)
+      .put("language", session?.language ?: JSONObject.NULL)
+      .put("processing", session?.processing ?: JSONObject.NULL)
+      .put("fallbackUsed", session?.fallbackUsed ?: false)
+      .put("fallbackReason", session?.fallbackReason ?: JSONObject.NULL)
+      .put("maxCaptureMs", session?.maxCaptureMs ?: JSONObject.NULL)
+      .put("drainTimeoutMs", session?.drainTimeoutMs ?: JSONObject.NULL)
+      .put("drainDeadlineMonotonicMs", session?.drainDeadlineMonotonicMs ?: JSONObject.NULL)
+      .put("delivery", delivery.current?.let { JSONObject().put("target", it.destination.name).put("state", it.state.name) } ?: JSONObject.NULL)
+      .put("retainedResult", s.retainedVoice?.toJson() ?: JSONObject.NULL)
+    return JSONObject()
+      .put("entry", s.entry.name.lowercase())
+      .put("island", org.agentos.agent.home.island.SystemIslandBridge.presentation(context))
+      .put("expansionRequest", s.expansionRequest)
+      .put("islandRequest", s.island.name.lowercase()).put("islandHost", "systemui")
+      .put("listeningHeaderHost", if (context.packageManager.resolveContentProvider("com.android.systemui.island", 0) == null) "unavailable" else "systemui-native")
+      .put("sending", s.sending).put("abandoned", s.abandoned)
+      .put("hintExpanded", s.hintExpanded).put("voiceContinuous", s.voiceContinuous).put("voicePaused", s.voicePaused).put("holdZone", s.holdZone.name.lowercase())
+      .put("gesture", JSONObject().put("id", gesture.id).put("source", gesture.source)
+        .put("phase", gesture.phase.name.lowercase()).put("sequence", gesture.sequence)
+        .put("startedAt", gesture.startedAt).put("updatedAt", gesture.updatedAt))
+      .put("threadId", s.threadId ?: JSONObject.NULL).put("activityId", s.activityId ?: JSONObject.NULL)
+      .put("buildingApp", s.buildingApp).put("appBuildTurnId", s.appBuildTurnId ?: JSONObject.NULL)
+      .put("working", s.working).put("needsUser", s.needsUser).put("online", s.online)
+      .put("pending", s.pending ?: JSONObject.NULL).put("task", s.task ?: JSONObject.NULL).put("error", s.error ?: JSONObject.NULL)
+      .put("draft", s.draft).put("failedText", s.failedText ?: JSONObject.NULL)
+      .put("turn", s.turn?.let { t ->
+        JSONObject().put("turnId", t.turnId).put("active", t.active).put("failed", t.failed)
+          .put("userText", t.userText ?: JSONObject.NULL).put("headline", t.headline ?: JSONObject.NULL).put("reply", t.reply ?: JSONObject.NULL)
+          .put("steps", JSONArray(t.steps.map { JSONObject().put("id", it.id).put("kind", it.kind.name.lowercase()).put("text", it.text).put("running", it.running) }))
+          .put("suggestions", JSONArray(t.suggestions.map { JSONObject().put("id", it.id).put("label", it.label).put("reply", it.reply) }))
+      } ?: JSONObject.NULL)
+      .put("voice", voiceJson)
+  }
+
+  companion object {
+    const val MAX_TEXT = 16_000
+    /** Saved dictation settings the desktop entry and its field microphone share. */
+    const val DESKTOP_SCOPE = "assistant-entry"
+    /** Engine reason → the session error the island explains. */
+    fun voiceError(code: String): String = when (code) {
+      "POLICY_DISABLED", "POLICY_REVOKED", "CONSUMER_NOT_AUTHORIZED" -> "VOICE_DISABLED"
+      "PERMISSION_DENIED" -> "VOICE_PERMISSION_REQUIRED"
+      "RESOURCE_BUSY", "CAPTURE_SILENCED" -> "VOICE_BUSY"
+      "NETWORK_FAILED" -> "VOICE_NETWORK_FAILED"
+      "PROVIDER_TIMEOUT", "PROCESSING_TIMEOUT" -> "VOICE_TIMEOUT"
+      "PROVIDER_AUTH_FAILED" -> "VOICE_AUTH_FAILED"
+      "PROVIDER_UNAVAILABLE", "PROVIDER_RATE_LIMITED" -> "VOICE_PROVIDER_UNAVAILABLE"
+      else -> "VOICE_UNAVAILABLE"
+    }
+    const val EXTRA_DRAFT = "org.agentos.agent.extra.DRAFT"
+    private const val POLL_MS = 1_500L
+    /** How long Taku may keep "working" with no network before the home stops it (issue #25 F3). */
+    const val OFFLINE_GRACE_MS = 30_000L
+    private const val TAG = "TakuAssistant"
+    @Volatile private var instance: AssistantSession? = null
+    fun get(context: Context): AssistantSession = instance ?: synchronized(this) {
+      instance ?: AssistantSession(context.applicationContext, AgentGateway(context.applicationContext.contentResolver)).also { instance = it }
+    }
+  }
+}

@@ -1,0 +1,110 @@
+{
+  "testKind": "Taku OS 工程候选测试",
+  "environment": "当前 Android 模拟器",
+  "groups": [
+    {
+      "group": 1,
+      "status": "passed",
+      "evidence": [
+        "/data/local/tmp/taku-os-scenarios-20261010/evidence/system.info.json",
+        "/data/local/tmp/taku-os-scenarios-20261010/evidence/displays.status.json",
+        "/data/local/tmp/taku-os-scenarios-20261010/evidence/tasks.status.json",
+        "/data/local/tmp/taku-os-scenarios-20261010/evidence/id.txt",
+        "/data/local/tmp/taku-os-scenarios-20261010/evidence/getenforce.txt",
+        "/data/local/tmp/taku-os-scenarios-20261010/evidence/unknown.json",
+        "/data/local/tmp/taku-os-scenarios-20261010/evidence/permission-denied.json"
+      ],
+      "checks": {
+        "root": true,
+        "selinux": "Enforcing",
+        "unknownMethodNonzero": true,
+        "uid2000PermissionDenied": true,
+        "taskBodiesRead": false
+      }
+    },
+    {
+      "group": 2,
+      "status": "passed",
+      "appId": "scenario_score",
+      "package": "org.agentos.scenarioscore",
+      "displayName": "双队计分",
+      "source": "/data/local/tmp/taku-os-scenarios-20261010/source",
+      "evidence": [
+        "/data/local/tmp/taku-os-scenarios-20261010/evidence/build.txt",
+        "/data/local/tmp/taku-os-scenarios-20261010/evidence/preview-start.txt",
+        "/data/local/tmp/taku-os-scenarios-20261010/evidence/preview.png",
+        "/data/local/tmp/taku-os-scenarios-20261010/evidence/package.txt",
+        "/data/local/tmp/taku-os-scenarios-20261010/evidence/scenario_score.apk",
+        "/data/local/tmp/taku-os-scenarios-20261010/evidence/apk-sha256.txt",
+        "/data/local/tmp/taku-os-scenarios-20261010/evidence/AndroidManifest.xml",
+        "/data/local/tmp/taku-os-scenarios-20261010/evidence/apk-badging.txt",
+        "/data/local/tmp/taku-os-scenarios-20261010/evidence/signature-verify.txt",
+        "/data/local/tmp/taku-os-scenarios-20261010/evidence/pm-path.txt",
+        "/data/local/tmp/taku-os-scenarios-20261010/evidence/launcher.txt",
+        "/data/local/tmp/taku-os-scenarios-20261010/evidence/apk-window-retry.txt",
+        "/data/local/tmp/taku-os-scenarios-20261010/evidence/apk-final.png",
+        "/data/local/tmp/taku-os-scenarios-20261010/evidence/cli-help.txt",
+        "/data/local/tmp/taku-os-scenarios-20261010/evidence/describe.json",
+        "/data/local/tmp/taku-os-scenarios-20261010/evidence/state-initial.json",
+        "/data/local/tmp/taku-os-scenarios-20261010/evidence/add-a3.json",
+        "/data/local/tmp/taku-os-scenarios-20261010/evidence/add-a3-repeat.json",
+        "/data/local/tmp/taku-os-scenarios-20261010/evidence/add-b2.json",
+        "/data/local/tmp/taku-os-scenarios-20261010/evidence/undo.json",
+        "/data/local/tmp/taku-os-scenarios-20261010/evidence/state-final.json",
+        "/data/local/tmp/taku-os-scenarios-20261010/evidence/delta-zero.json",
+        "/data/local/tmp/taku-os-scenarios-20261010/evidence/negative-add.json",
+        "/data/local/tmp/taku-os-scenarios-20261010/evidence/negative-undo.json",
+        "/data/local/tmp/taku-os-scenarios-20261010/evidence/invalid-team.json",
+        "/data/local/tmp/taku-os-scenarios-20261010/evidence/invalid-fraction.json",
+        "/data/local/tmp/taku-os-scenarios-20261010/evidence/state-verified.json"
+      ],
+      "finalScores": {
+        "A": 3,
+        "B": 0
+      },
+      "idempotencyVerified": true,
+      "undoVerified": true,
+      "uiScreenshotInspected": true
+    }
+  ],
+  "progress": "/data/local/tmp/taku-os-scenarios-20261010/progress.txt",
+  "permissionPrerequisites": [
+    "当前模拟器 root / su 可用",
+    "保留 SELinux Enforcing",
+    "工程 kit、设备编译工具及实验 debug 签名材料已存在",
+    "安装、授权与主屏预览由本次指令授权"
+  ],
+  "failures": [
+    {
+      "step": "finalize.txt",
+      "exit": 127,
+      "result": "默认 PATH 没有 node",
+      "recoveredBy": "finalize-retry.txt"
+    },
+    {
+      "step": "artifacts-sha256.txt",
+      "exit": 1,
+      "result": "首次汇总时 result.json 尚未生成",
+      "recoveredBy": "artifacts-sha256-retry.txt"
+    },
+    {
+      "step": "apk-window.txt",
+      "exit": 1,
+      "result": "dumpsys window windows 的筛选未命中，导致 verify-apk.sh 提前退出；原输出保留",
+      "recoveredBy": "apk-window-retry.txt 与 apk-capture.txt"
+    },
+    {
+      "step": "unknown.json、permission-denied.json、delta-zero.json、invalid-team.json、invalid-fraction.json",
+      "result": "预期负向测试，非零退出及错误 JSON 已保留"
+    }
+  ],
+  "boundaries": [
+    "仅为当前模拟器工程候选测试，不代表正式产品 Case 通过",
+    "独立 APK 和独立包窗口依赖共享本机 mini-app API 服务，不是独立虚拟机",
+    "没有重打 ROM、改原版 App、隐藏 root 或关闭 SELinux",
+    "未读取认证文件、账号或私聊内容；未发帖、点赞、发消息、拨号、短信或支付",
+    "不推断真机或所有 App 兼容性",
+    "人 Agent 冲突调度当前没有实现；手工 mirror 点按不会被宣称自动暂停 Agent"
+  ],
+  "timestampNote": "progress 使用设备 date UTC；API 历史时间来自现有 Node 服务，两者存在设备时钟差异，均保留原始时间"
+}

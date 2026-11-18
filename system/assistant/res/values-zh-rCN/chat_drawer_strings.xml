@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="chat_dismiss">下拉收起助手</string>
+    <string name="chat_history">会话</string>
+    <string name="chat_new">新对话</string>
+    <string name="chat_current_title">当前会话标题</string>
+    <string name="chat_more">更多选项</string>
+    <string name="chat_close">收起对话</string>
+    <string name="chat_input">对话输入框</string>
+    <string name="chat_input_hint">与Tako聊聊</string>
+    <string name="chat_suggest_screen">根据屏幕提建议</string>
+    <string name="chat_stop">停止任务</string>
+    <string name="chat_send">发送消息</string>
+    <string name="chat_steer">补充要求</string>
+    <string name="chat_back">返回</string>
+    <string name="chat_settings">设置</string>
+    <string name="chat_workspaces">后台屏</string>
+    <string name="chat_capabilities">能力</string>
+    <string name="chat_model">模型</string>
+    <string name="chat_effort">思考强度</string>
+    <string name="chat_queued">排队中</string>
+    <string name="chat_attach">添加附件</string>
+    <string name="chat_tools">会话工具</string>
+    <string name="chat_voice">语音输入</string>
+    <string name="chat_voice_stop">停止语音输入</string>
+    <string name="chat_camera">拍照</string>
+    <string name="chat_image">添加图片</string>
+    <string name="chat_file">添加文件</string>
+    <string name="chat_updated">下轮对话生效</string>
+    <string name="chat_loading_models">正在读取模型…</string>
+    <string name="chat_no_models">暂无可用模型</string>
+    <string name="chat_default_model">默认模型</string>
+    <string name="chat_no_efforts">此模型没有可选思考强度</string>
+    <string name="chat_voice_unavailable">设备尚未配置语音输入服务</string>
+    <string name="chat_mic_permission">请在系统设置中允许麦克风权限</string>
+    <string name="chat_listening">正在聆听，打开 + 可停止语音输入</string>
+    <string name="chat_voice_failed">语音识别未完成，草稿已保留。</string>
+    <string name="chat_preview">图片附件</string>
+    <string name="chat_remove_attachment">移除附件</string>
+    <string name="chat_effort_low">快速 · low</string>
+    <string name="chat_effort_medium">均衡 · medium</string>
+    <string name="chat_effort_high">深入 · high</string>
+    <string name="chat_effort_xhigh">更深入 · xhigh</string>
+    <string name="chat_effort_max">最大 · max</string>
+    <string name="chat_effort_ultra">极深入 · ultra</string>
+</resources>

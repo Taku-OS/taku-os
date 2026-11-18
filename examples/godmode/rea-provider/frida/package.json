@@ -1,0 +1,14 @@
+{
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "frida-compile": "19.1.0",
+    "frida-java-bridge": "7.0.13"
+  },
+  "scripts": {
+    "build": "frida-compile bridge-runner.js -o java-bridge-runner.js"
+  },
+  "overrides": {
+    "minimatch": "11.0.1"
+  }
+}

@@ -1,0 +1,4 @@
+<resources>
+ <string name="system_ai">Taku AI 系统设置</string><string name="system_ai_summary">统一账户、默认模型与应用权限</string>
+ <string name="follow_system_model">跟随系统 · %1$s</string>
+</resources>

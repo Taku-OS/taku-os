@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Taku OS · Open-source structure review</title>
+<style>
+:root{color-scheme:light;--ink:#162b35;--muted:#526571;--line:#ccd8dc;--paper:#f5f8f8;--accent:#126871;--warn:#8c451b}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.7 system-ui,-apple-system,sans-serif}main{max-width:1140px;padding:45px 36px 70px;margin:auto}a{color:var(--accent);text-underline-offset:3px}header{border-top:5px solid var(--accent);padding-top:20px}.meta{font-size:13px;color:var(--muted)}h1{font-size:clamp(28px,4vw,48px);line-height:1.2;letter-spacing:-.04em;margin:16px 0}h2{font-size:24px;margin:40px 0 12px}h3{margin:0 0 8px;font-size:18px}p{margin:10px 0}.lead{font-size:21px;max-width:850px}.checks{display:flex;flex-wrap:wrap;gap:12px;padding:15px 0}.checks span{font-size:14px;padding:4px 11px;border:1px solid var(--line);border-radius:5px;background:white}.good{color:var(--accent)}.pending{color:var(--warn)}.diagram{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;padding:24px;background:#e8eff0;border:1px solid var(--line)}.layer{border-left:3px solid var(--accent);padding-left:14px}.layer p{font-size:14px;color:var(--muted)}code{font-family:ui-monospace,SFMono-Regular,monospace;font-size:.9em;overflow-wrap:anywhere}table{width:100%;border-collapse:collapse;font-size:15px}th{text-align:left;color:var(--muted)}td,th{padding:13px 12px;border-bottom:1px solid var(--line);vertical-align:top}td:first-child{width:25%}.gap{display:grid;grid-template-columns:55px 1fr;gap:15px;padding:20px 0;border-bottom:1px solid var(--line)}.number{font-size:28px;font-weight:600;color:var(--accent)}.gap small{color:var(--muted)}.plan{display:grid;grid-template-columns:1.1fr 1fr;gap:26px}pre{padding:22px;background:#172e37;color:#e4f0f1;overflow:auto;font-size:14px;line-height:1.8}ol{padding-left:22px}footer{border-top:1px solid var(--line);margin-top:40px;padding-top:18px;font-size:14px;color:var(--muted)}.scroll{overflow:auto}button{border:1px solid var(--accent);color:var(--accent);background:transparent;padding:7px 14px;cursor:pointer;border-radius:4px}@media(max-width:720px){main{padding:24px 18px 40px}.diagram,.plan{grid-template-columns:1fr}.lead{font-size:18px}td,th{padding:10px 7px}table{min-width:570px}}@media print{body{background:white}main{padding:0}button{display:none}.gap{break-inside:avoid}}
+</style>
+<main>
+<header>
+<div class="meta">TAKU OS / Engineering structure review / 2026-10-10 · Shanghai time</div>
+<h1>The layers can stay.<br>The next open-source step is a reproducible system.</h1>
+<p class="lead">Suitable as an open-source foundation for custom system components and SDKs; full-image product definition, integration, installation, and runtime acceptance are not yet complete. The current internal license also does not authorize public redistribution.</p>
+<p class="meta">Reviewed source:<code>2525930a1469a1b68ac185ebe05f0a98d452897f</code> · Original workspace main clean · No system code or license changed this round</p>
+<div class="checks"><span class="good">npm run verify passed this round</span><span class="good">Android component build passed this round</span><span class="pending">Latest-image cold boot unverified</span><span class="pending">Physical device / OTA unverified</span></div>
+</header>
+<h2>Three boundaries in the current project</h2>
+<section class="diagram" aria-label="Responsibilities of system, contracts, and development tools">
+<div class="layer"><h3>System implementation</h3><code>system/assistant<br>system/display<br>system/overlay</code><p>Native launcher, assistant, TaskBroker, mirror viewer, independent display, and resource overlays. Source is in the main project.</p></div>
+<div class="layer"><h3>Capability contracts</h3><code>spec/ · core/<br>sdk/ · adapters/</code><p>Method catalog, protocols, probes, SDK, and engine adapters. Separate implemented methods from researched capabilities and retain one task lifecycle.</p></div>
+<div class="layer"><h3>Development and collaboration</h3><code>tooling/ · examples/<br>tests/ · docs/ · evidence/</code><p>App-generation tools, diagnostics, examples, tests, source-bound docs, and historical acceptance. Build artifacts go to ignored out.</p></div>
+</section>
+<h2>Structures worth retaining</h2>
+<div class="scroll"><table><thead><tr><th>Area</th><th>Assessment</th><th>Caution</th></tr></thead><tbody>
+<tr><td><code>system/</code></td><td>Separating assistant, display, and overlays by responsibility is reasonable.</td><td>Next, connect actual system modules to Soong builds and product configuration.</td></tr>
+<tr><td><code>spec/ · core/ · sdk/</code></td><td>Separating contracts, implementations, and consumers supports contributions.</td><td>The 57-entry catalog includes 37 research items; only 3 device-data methods currently exist.</td></tr>
+<tr><td><code>adapters/</code></td><td>Android transport and Codex runtime have clear boundaries.</td><td>Other engines remain unverified; do not prematurely create multiple duplicate runtimes.</td></tr>
+<tr><td><code>tooling/</code></td><td>Keeping app-kit and diagnostics independent of the core runtime is reasonable.</td><td>The app-kit native phone toolchain has no unified first-install bootstrap yet.</td></tr>
+<tr><td><code>docs/ · evidence/</code></td><td>Documentation is tied to source; historical evidence retains dates and scope.</td><td>172 evidence files need a clear index; contributors should start with an executable quickstart.</td></tr>
+<tr><td><code>.github/</code></td><td>Contribution templates, maintainers, least-privilege CI, and Actions pinned to SHAs already exist.</td><td>Existing CI neither compiles Android components nor verifies system boot.</td></tr>
+</tbody></table></div>
+<h2>Five concrete gaps before open source</h2>
+<section class="gap"><div class="number">01</div><div><h3>ROM builds remain outside the repository</h3><p>The main entry only compiles APK/JAR. A neighboring experiment directory holds Docker/Lineage builds, pinned manifests, image export, and boot scripts using machine-specific absolute paths. External developers cannot build the complete Taku OS by cloning this repository alone.</p><p>Both experimental full-Lineage logs and the container indicate successful completion and record an emu64a image ZIP path; however, the script includes only the Settings overlay, not all current Taku system components. The ZIP itself and cold boot were not verified this round.</p><small>Evidence: scripts/build-android.sh:8; docs/project-structure.md:3; experimental linux-build/build-rom.sh and rom-build.log</small></div></section>
+<section class="gap"><div class="number">02</div><div><h3>Installation and UI checks still depend on a particular experimental AVD</h3><p>Several scripts hard-code emulator-5582 and AgentOS_ImageCheck. No ADB device is currently connected. Standardize explicit device parameters, target-capability checks, artifact manifests, and post-install checks so contributors can use matching environments of their own.</p><small>Evidence: system/assistant/install.sh:5; system/overlay/deploy.sh:5; system/assistant/test-*.sh</small></div></section>
+<section class="gap"><div class="number">03</div><div><h3>CI does not cover Android or image layers</h3><p>Current CI checks protocol/catalog/historical evidence and app-kit APIs. Add Android-component builds with a pinned toolchain, then a separate image job and cold-boot acceptance. Successful Android compilation cannot replace device runtime results.</p><small>Evidence: .github/workflows/ci.yml:17; npm run verify and npm run build:android both exited 0 this round</small></div></section>
+<section class="gap"><div class="number">04</div><div><h3>The current license is not an open-source distribution license</h3><p>LICENSE authorizes only internal-member development and explicitly does not authorize redistribution or publication; CONTRIBUTING also remains internal. Before publication, determine the original-code license and verify upstream, font, icon, desktop-pet, and screenshot provenance/distribution scope individually. NOTICE, LICENSES, and REUSE.toml are a foundation, not proof of a complete license audit.</p><small>Evidence: LICENSE:6; NOTICE; REUSE.toml · No license changes, public repository publication, or full REUSE check this round.</small></div></section>
+<section class="gap"><div class="number">05</div><div><h3>Dependency pinning and initial device setup remain incomplete</h3><p>Codex and app-kit downloads pin versions, but their scripts do not verify artifact SHAs; native-device Node, packaging tools, and signature preparation are not unified. Define reproducible dependency inputs and device bootstrap before distributing artifacts.</p><small>Evidence: adapters/codex-runtime/bootstrap.sh:6; tooling/app-kit/bootstrap-dependencies.sh:6; tooling/app-kit/README.md</small></div></section>
+<h2>Recommended minimum evolution</h2>
+<section class="plan"><pre aria-label="Recommended repository layout">taku-os/
+├── system/             Keep custom system implementations
+├── core/ · sdk/ · spec/ Keep protocols and interfaces
+├── adapters/           Keep engine/transport adapters
+├── tooling/            Keep generation and diagnostics
+├── rom/                Add when implementing image integration
+│   ├── manifests/      Pin upstream revisions
+│   ├── products/       First ARM64 emulator product
+│   └── sepolicy/       System policies actually required
+├── scripts/            Build/install/boot/acceptance
+└── docs/ · tests/ · evidence/
+
+Keep the full AOSP/Lineage checkout in an external build directory.
+Add physical-device device/vendor/kernel trees as needed.
+Do not commit images or private keys to Git.</pre><div><p>Use <strong>centrally maintained custom code + manifests pinning upstream</strong>. The complete Android source need not be copied into the main repository, nor should more components automatically trigger splitting into many repositories.</p><ol><li>Move reproducible ROM build logic into the main project and choose the first emulator product.</li><li>Include current system components in an actual product image; track boot, permissions, and default Home/assistant configuration as integration inputs.</li><li>Cold-boot a new AVD without personal sign-in; accept Home, TaskBroker, background display, and device CLI.</li><li>Record source SHA, upstream manifest, toolchain versions, artifact SHAs, and boot results.</li><li>Then choose the first physical device and implement its flashing/recovery paths.</li></ol><p class="meta">These are proposals: no placeholder directories were created, and no image or hardware acceptance is claimed.</p></div></section>
+<footer><p>Official references (read this round, 2026-10-10):<a href="https://source.android.com/docs/setup/create/new-device">AOSP product/device build layers</a> · <a href="https://docs.github.com/en/communities/setting-up-your-project-for-healthy-contributions/creating-a-default-community-health-file">GitHub community files</a> · <a href="https://reuse.software/spec-3.3/">REUSE file-level licensing specification</a> · <a href="https://opensource.org/osd">OSI Open Source Definition</a></p><p>This records engineering inspection only. The latest complete Taku OS image, physical devices, and OTA were not run through acceptance this round.</p><button onclick="window.print()">Print / Save PDF</button></footer>
+</main>
+</html>

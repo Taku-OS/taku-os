@@ -1,0 +1,58 @@
+{
+  "schema": "taku.pixel9-flash-readiness/1",
+  "assessedOn": "2026-10-13",
+  "timezone": "Asia/Shanghai",
+  "sourceThread": "01a124ec-1809-71a1-83c4-9f6129a1c962",
+  "sourceThreadTitle": "安卓镜像",
+  "device": {
+    "model": "Pixel 9",
+    "productPreviouslyConfirmed": "tokay",
+    "bootloaderUnlockPreviouslyConfirmedInThisChat": true,
+    "bootloaderEvidence": "fastboot getvar unlocked returned unlocked: yes after physical confirmation",
+    "currentAdbTransportState": "device",
+    "currentAdbShellState": "error: closed",
+    "currentFirmware": null,
+    "firmwareCompatibilityVerified": false
+  },
+  "candidate": {
+    "file": "out/pixel9/artifacts/lineage-23.2-20261011-UNOFFICIAL-tokay.zip",
+    "bytes": 1718080173,
+    "sha256": "7a2e85d538c4184e5b89084b9adcf846bc1561002d933c779190c8b83df06a7a",
+    "sha256RecheckedMatchesManifest": true,
+    "sameBuildRecoveryImageHashesRechecked": ["boot", "dtbo", "vendor_kernel_boot", "vendor_boot"],
+    "platform": "LineageOS 23.2 / Android 16 / userdebug / test-keys",
+    "otaDevice": "tokay",
+    "otaType": "AB",
+    "platformSecurityPatch": "2026-09-01",
+    "declaredVendorBaseline": "BP4A.260205.002 / 2026-02-05",
+    "includesBootloaderFirmwarePartitions": ["abl", "bl1", "bl2", "bl31", "gcf", "gsa", "gsa_bl1", "ldfw", "modem", "pbl", "tzsw"],
+    "assistantApk": "SYSTEM_EXT/priv-app/TakuAssistant/TakuAssistant.apk",
+    "dexContainsAgentDrawerView": false,
+    "dexContainsCodexAppServer": false,
+    "dexContainsChatActivity": false,
+    "immutableSourceSnapshotContainsDrawerOrAppServerSources": false,
+    "includesOctober13AssistantChanges": false,
+    "physicalDeviceVerified": false,
+    "coldBootVerified": false
+  },
+  "assessment": {
+    "deviceSpecificCandidateExists": true,
+    "readyForUnconditionalFlash": false,
+    "reason": "Device firmware and bootloader compatibility are not yet readable or assessed; the existing candidate also predates the latest assistant interface changes.",
+    "nextSteps": [
+      "Restore the authorized ADB control connection and read exact build, security patch, bootloader and baseband versions.",
+      "Compare the phone firmware to the pinned candidate firmware and assess rollback compatibility before writing bootloader partitions.",
+      "Decide whether to test the October 11 candidate or integrate the later assistant changes into a new candidate.",
+      "Use matched recovery images and OTA only after compatibility assessment; then verify actual boot, hardware and Taku services."
+    ],
+    "devicePartitionsWrittenDuringThisAssessment": false
+  },
+  "sources": [
+    "out/pixel9/artifacts/delivery-manifest.json",
+    "out/pixel9/artifacts/lineage-23.2-20261011-UNOFFICIAL-tokay.zip:META-INF/com/android/metadata",
+    "out/pixel9/artifacts/lineage_tokay-target_files.zip:META/ab_partitions.txt",
+    "out/pixel9/artifacts/lineage_tokay-target_files.zip:SYSTEM_EXT/priv-app/TakuAssistant/TakuAssistant.apk",
+    "docs/agent-design-direction-2026-10-13.md",
+    "https://source.android.com/docs/security/features/verifiedboot/boot-flow"
+  ]
+}

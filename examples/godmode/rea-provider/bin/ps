@@ -1,0 +1,7 @@
+#!/system/bin/sh
+if [ "${1:-}" = "-axo" ]; then
+  fields="${2:-pid=,ppid=,pgid=,uid=,stat=,command=}"
+  shift 2
+  exec /system/bin/ps -A -o "$fields" "$@"
+fi
+exec /system/bin/ps "$@"
