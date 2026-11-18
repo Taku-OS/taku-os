@@ -20,6 +20,7 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
 import { callAgent, closeAgent } from "../native/agent";
 import { useTakuFonts } from "../theme/useTakuFonts";
 import { colors } from "../theme";
@@ -213,6 +214,7 @@ function FeatureIcon({ name, color }: { name: string; color: string }) {
   return <Svg width={24} height={24} viewBox="0 0 24 24" {...common}>{paths[name]}</Svg>;
 }
 export default function SystemAiScreen() {
+  const router = useRouter();
   const [fonts, fontError] = useTakuFonts();
   const insets = useSafeAreaInsets();
   const palette = useColorScheme() === "dark" ? dark : light;
@@ -296,7 +298,14 @@ export default function SystemAiScreen() {
       void refresh();
     }
   };
-  const back = useCallback(() => { void closeAgent(); }, []);
+  const back = useCallback(() => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace("/");
+    void closeAgent();
+  }, [router]);
   const openManagement = async () => {
     try { await callAgent("openMagpieManagement"); }
     catch { ToastAndroid.show("Could not open Magpie management. Retry later", ToastAndroid.LONG); }

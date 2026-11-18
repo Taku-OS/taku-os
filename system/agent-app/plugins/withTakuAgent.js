@@ -51,6 +51,8 @@ function configureConversationActivity(contents) {
     '    if (!intent.getStringExtra(TakuAgentModule.EXTRA_THREAD_ID).isNullOrBlank()) {\n' +
     '      PanelLaunchIntents.prepare(intent)\n' +
     '      PanelLaunchIntents.discardConsumed(this, intent)\n' +
+    '      setIntent(intent)\n' +
+    '    } else if (intent.data != null || getIntent()?.data != null) {\n' +
     '      setIntent(intent)\n    }\n    super.onNewIntent(intent)\n  }\n\n' +
     '  override fun onSaveInstanceState(outState: Bundle) {\n' +
     '    PanelLaunchIntents.save(this, outState)\n    super.onSaveInstanceState(outState)\n  }\n');
