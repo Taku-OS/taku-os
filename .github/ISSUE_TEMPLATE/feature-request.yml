@@ -9,9 +9,9 @@ body:
       value: |
         Start from the problem, not the solution.
 
-        - If you already have a concrete interface and test results, use the [capability proposal form](https://github.com/Taku-OS/taku-os-release/issues/new?template=capability-proposal.yml).
-        - If the idea is still open, start in [Issues](https://github.com/Taku-OS/taku-os-release/issues).
-        - A request is not a commitment to build it. See [what to expect from review](https://github.com/Taku-OS/taku-os-release/blob/main/CONTRIBUTING.md#what-to-expect-from-review).
+        - If you already have a concrete interface and test results, use the [capability proposal form](https://github.com/Taku-OS/taku-os/issues/new?template=capability-proposal.yml).
+        - If the idea is still open, start in [Issues](https://github.com/Taku-OS/taku-os/issues).
+        - A request is not a commitment to build it. See [what to expect from review](https://github.com/Taku-OS/taku-os/blob/main/CONTRIBUTING.md#what-to-expect-from-review).
   - type: dropdown
     id: area
     attributes:
