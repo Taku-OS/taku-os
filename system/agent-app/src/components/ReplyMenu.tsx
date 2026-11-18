@@ -42,8 +42,10 @@ export function ReplyMenu({target, language, top, bottom, screenWidth, renderMar
   // The card keeps the reply where it was, inside the free band; a long reply scrolls inside it.
   const maxHeight = Math.max(120, bottom - top - PILL - GAP * 2);
   const height = Math.min(target.height + PAD * 2, maxHeight);
-  const cardTop = Math.min(Math.max(target.y - PAD, top + GAP), bottom - GAP - PILL - GAP - height);
-  const left = Math.max(GAP, target.x - PAD), width = Math.min(screenWidth - GAP - left, target.width + PAD * 2);
+  const minTop = top + GAP;
+  const maxTop = Math.max(minTop, bottom - GAP - PILL - GAP - height);
+  const cardTop = Math.min(Math.max(target.y - PAD, minTop), maxTop);
+  const left = Math.max(16, target.x - PAD), width = Math.min(screenWidth - 16 - left, target.width + PAD * 2);
   const pillsTop = cardTop + height + GAP;
 
   const copy = (text: string) => {

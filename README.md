@@ -55,7 +55,7 @@ Prepare your device, let your coding agent guide the setup, then start exploring
 
 You'll need a computer, a phone that supports installing Taku OS, and a USB cable that supports data transfer. We recommend Pixel 9, our current test device. Other Android devices may work, but compatibility has not been verified. Check the current device status and back up your phone before proceeding.
 
-[Download Taku OS for Pixel 9 (`tokay`)](https://github.com/Taku-OS/taku-os/releases/latest/download/TakuOS-tokay-full.zip) · [Recovery helper](https://github.com/Taku-OS/taku-os/releases/latest/download/TakuOS-tokay-recovery.zip) · [Release notes & SHA-256](https://github.com/Taku-OS/taku-os/releases/latest)
+[Download Taku OS for Pixel 9 (`tokay`)](https://github.com/Taku-OS/taku-os/releases/latest) · [Recovery helper](https://github.com/Taku-OS/taku-os/releases/latest/download/TakuOS-tokay-recovery.zip) · [Latest metadata JSON](https://github.com/Taku-OS/taku-os/releases/latest/download/latest.json)
 
 **In an emulator**
 
