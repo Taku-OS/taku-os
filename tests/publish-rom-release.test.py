@@ -229,6 +229,42 @@ class PublishRomReleaseTests(unittest.TestCase):
                     local_full_zip=wrong_dev_zip,
                 )
 
+    def test_stages_evergreen_aliases_for_non_prerelease_and_omits_on_prerelease(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            ota_zip = base / "full.zip"
+            _, full_sha = _build_synthetic_full_ota(ota_zip)
+            url = (
+                "https://worker.taku.ai/os-update/v1/download/taku-os/android/tokay/releases/"
+                "20261118070714-22cb53203be9da8f/" + ("c" * 64) + "/full.zip"
+            )
+            packaged = MOD.package_release(
+                full_url=url,
+                full_bytes=ota_zip.stat().st_size,
+                full_sha256=full_sha,
+                version="1.4.0",
+                output_dir=base / "out",
+                repo="Taku-OS/taku-os",
+                local_full_zip=ota_zip,
+                include_full_ota=True,
+            )
+
+            latest_assets = {p.name: p for p in MOD.stage_release_assets(packaged, prerelease=False)}
+            self.assertIn("TakuOS-1.4.0-tokay-20261118070714-full.zip", latest_assets)
+            self.assertIn("TakuOS-1.4.0-tokay-20261118070714-recovery.zip", latest_assets)
+            self.assertIn("TakuOS-tokay-full.zip", latest_assets)
+            self.assertIn("TakuOS-tokay-recovery.zip", latest_assets)
+            self.assertIn("latest.json", latest_assets)
+            self.assertEqual(
+                latest_assets["TakuOS-tokay-full.zip"].read_bytes(),
+                ota_zip.read_bytes(),
+            )
+
+            prerelease_names = {p.name for p in MOD.stage_release_assets(packaged, prerelease=True)}
+            self.assertNotIn("TakuOS-tokay-full.zip", prerelease_names)
+            self.assertNotIn("TakuOS-tokay-recovery.zip", prerelease_names)
+            self.assertNotIn("latest.json", prerelease_names)
+
 
 if __name__ == "__main__":
     unittest.main()

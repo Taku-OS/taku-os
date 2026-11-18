@@ -5,9 +5,16 @@ cd /src
 export GIT_OPTIONAL_LOCKS=0
 test "$(git -C frameworks/base rev-parse HEAD)" = 7f6de40b6429462d47ba9ba351b99943269c8067
 test -f /taku/emulator-input.json
-# Required read-only mounts, verified against this snapshot before product discovery.
-python3 /taku/image/google_services.py --source /src/vendor/gapps
-python3 /taku/image/google_apps.py --source /src/vendor/taku-google-apps
+include_google_apps="${TAKU_INCLUDE_GOOGLE_APPS:-true}"
+if [ "$include_google_apps" != "true" ] && [ "$include_google_apps" != "false" ]; then
+    echo "Invalid TAKU_INCLUDE_GOOGLE_APPS=$include_google_apps (expected true or false)" >&2
+    exit 1
+fi
+if [ "$include_google_apps" = "true" ]; then
+    # Required read-only mounts, verified against this snapshot before product discovery.
+    python3 /taku/image/google_services.py --source /src/vendor/gapps
+    python3 /taku/image/google_apps.py --source /src/vendor/taku-google-apps
+fi
 python3 - <<'PY'
 import hashlib,json
 from pathlib import Path
@@ -21,6 +28,7 @@ for record in manifest['files']:
 PY
 mkdir -p vendor/taku device/taku/taku_emu64a
 rsync -a --checksum --no-times --delete /taku/ vendor/taku/
+printf 'TAKU_INCLUDE_GOOGLE_APPS := %s\n' "$include_google_apps" > vendor/taku/image/emulator/build-options.mk
 # Product discovery already finds vendor/taku/image/emulator/AndroidProducts.mk.
 # Only the board needs a device directory; a second product registration is invalid.
 cp /taku/image/emulator/BoardConfig.mk device/taku/taku_emu64a/
@@ -44,8 +52,12 @@ m -j"${TAKU_EMULATOR_JOBS:-24}" droid
 product=out/target/product/taku_emu64a
 python3 /taku/image/verify-island-artifacts.py --product "$product" \
     --aapt2 out/host/linux-x86/bin/aapt2 --output /results/island-artifacts.json
-python3 /taku/image/emulator/verify-default-apps.py --product "$product" \
-    --tools out/host/linux-x86/bin --output /results/default-apps.json
+extra_tar_files=()
+if [ "$include_google_apps" = "true" ]; then
+    python3 /taku/image/emulator/verify-default-apps.py --product "$product" \
+        --tools out/host/linux-x86/bin --output /results/default-apps.json
+    extra_tar_files+=(default-apps.json)
+fi
 mkdir -p /results/images
 for name in system-qemu.img vendor-qemu.img ramdisk-qemu.img kernel-ranchu userdata.img encryptionkey.img \
     advancedFeatures.ini kernel_cmdline.txt; do
@@ -56,14 +68,16 @@ cp "$product/system/build.prop" /results/images/build.prop
 cp "$product/system_ext/priv-app/SystemUI/SystemUI.apk" /results/SystemUI.apk
 cp "$product/system_ext/app/TakuAgent/TakuAgent.apk" /results/TakuAgent.apk
 cp /taku/emulator-input.json /results/
-python3 - <<'PY'
-import hashlib,json
+python3 - "$include_google_apps" <<'PY'
+import hashlib,json,sys
 from pathlib import Path
 root=Path('/results/images')
 files=[{'path':p.name,'bytes':p.stat().st_size,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()}
        for p in sorted(root.iterdir()) if p.is_file()]
+distribution='internal-test-only' if sys.argv[1]=='true' else 'open-source'
 Path('/results/images.json').write_text(json.dumps({'schema':'taku.emulator-images/1',
-    'product':'lineage_taku_emu_arm64','abi':'arm64-v8a','files':files,'deviceVerified':False},indent=2)+'\n')
+    'product':'lineage_taku_emu_arm64','abi':'arm64-v8a','distribution':distribution,
+    'files':files,'deviceVerified':False},indent=2)+'\n')
 PY
-tar -I 'gzip -1' -cf /results/images.tar.gz -C /results images images.json island-artifacts.json default-apps.json emulator-input.json
+tar -I 'gzip -1' -cf /results/images.tar.gz -C /results images images.json island-artifacts.json "${extra_tar_files[@]}" emulator-input.json
 echo TAKU_EMULATOR_BUILD_COMPLETE
