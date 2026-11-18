@@ -1,10 +1,10 @@
-# Taku OS
+<h1 align="center">Taku OS</h1>
 
 <p align="center"><img src="docs/media/taku-os-banner.gif" alt="Taku OS — Every era needs its OS, for your phone" width="100%"></p>
 
-**An Android system built for agents.**
+<p align="center"><strong>An Android system built for agents.</strong></p>
 
-[English](README.md) · [简体中文](README.zh-CN.md) · [日本語](README.ja.md)
+<p align="center"><a href="README.md">English</a> · <a href="README.zh-CN.md">简体中文</a> · <a href="README.ja.md">日本語</a></p>
 
 Taku OS puts an Agent runtime, system tools, a home interface and background workspaces on the phone. People and agents use the same underlying settings and application state. Model inference uses your configured online service; running the Agent on the phone does not make its models offline.
 
