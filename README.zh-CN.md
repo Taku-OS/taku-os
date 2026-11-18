@@ -1,5 +1,7 @@
 # Taku OS
 
+<p align="center"><img src="docs/media/taku-os-banner.gif" alt="Taku OS — 每个时代都需要自己的操作系统" width="100%"></p>
+
 **为 Agent 打造的 Android 系统。**
 
 [English](README.md) · 简体中文 · [日本語](README.ja.md)
