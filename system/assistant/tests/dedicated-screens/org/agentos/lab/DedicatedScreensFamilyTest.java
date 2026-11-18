@@ -128,7 +128,9 @@ public final class DedicatedScreensFamilyTest {
             f.parts.host.stopFailure="injected host stop failure";
             f.removals.submit(session(1),target);f.cycle();
             check(f.progress().getBoolean("targetReached")&&!f.progress().getBoolean("completed"),"native removal succeeds while failed resource cleanup stays pending");
-            check(f.screens.list(session(1)).getJSONObject(0).getString("status").equals("cleanup_failed"),"failed cleanup keeps the releasing screen in the ledger");
+            JSONObject cleanupRow = f.screens.list(session(1)).getJSONObject(0);
+            check(cleanupRow.getString("status").equals("cleanup_failed"),"failed cleanup keeps the releasing screen in the ledger");
+            check(!cleanupRow.getBoolean("homePreviewEligible"),"Home excludes the releasing screen even when cleanup failed");
             check(f.screens.status(session(0)).getJSONArray("apps").getJSONObject(0).getString("heldBy").equals(session(1)),"failed cleanup retains the old App hold");
             check(f.parts.host.stopped.isEmpty(),"an unconfirmed stop does not release the physical screen");
 

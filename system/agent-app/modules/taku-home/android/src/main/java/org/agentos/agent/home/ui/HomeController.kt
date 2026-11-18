@@ -15,11 +15,15 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.layer.GraphicsLayer
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.agentos.agent.home.feed.FeedActions
 import org.agentos.agent.home.feed.FeedException
 import org.agentos.agent.home.feed.FeedOrigin
 import org.agentos.agent.home.feed.FeedRepository
+import org.agentos.agent.home.assistant.AgentGateway
 import org.agentos.agent.home.assistant.AssistantSession
 import org.agentos.agent.home.assistant.EntryMode
 import org.agentos.agent.home.ui.assistant.HoldZone
@@ -29,9 +33,21 @@ import org.agentos.agent.home.apps.HomePages
 import org.agentos.agent.home.apps.Slot
 import org.agentos.agent.home.apps.HomePagerOrder
 import org.agentos.agent.home.apps.HomeEditSession
+import org.json.JSONException
+import org.json.JSONObject
+import java.io.IOException
 
 /** A card's long-press menu; [fromPin] when opened by tapping a pinned pill. */
 data class MenuTarget(val cardId: String, val fromPin: Boolean)
+
+internal data class HomeWorkspaceScreen(
+  val threadId: String,
+  val screenKey: String,
+  val generation: String,
+  val displayId: Int,
+  val status: String,
+  val previewUri: String,
+)
 
 @Stable
 class DustRun(val dissolve: DustDissolve) {
@@ -54,6 +70,46 @@ class HomeController(val context: Context, val repo: FeedRepository, val pool: R
   var feedOnScreen by mutableStateOf(false)
   var screenHeight = 0f
   var screenWidth = 0f
+  /** The visible workspace list shared by every home page. */
+  internal var workspaceScreens by mutableStateOf<List<HomeWorkspaceScreen>>(emptyList())
+    private set
+
+  internal suspend fun watchWorkspaceScreens() {
+    val gateway = AgentGateway(context.contentResolver)
+    val params = JSONObject().put("scope", "home")
+    var retryDelayMs = 0L
+    try {
+      while (true) {
+        val screens = withContext(Dispatchers.IO) {
+          try {
+            val result = gateway.call("getWorkspaces", params)
+            if (result.optString("schema") != "taku.agent-workspaces/1") return@withContext null
+            val rows = result.getJSONArray("screens")
+            List(rows.length()) { index ->
+              val row = rows.getJSONObject(index)
+              HomeWorkspaceScreen(
+                threadId = row.getString("threadId"),
+                screenKey = row.getString("screenKey"),
+                generation = row.getString("generation"),
+                displayId = row.getInt("displayId"),
+                status = row.getString("status"),
+                previewUri = row.getString("previewUri"),
+              )
+            }
+          } catch (_: IOException) {
+            null
+          } catch (_: JSONException) {
+            null
+          }
+        }
+        workspaceScreens = screens.orEmpty()
+        retryDelayMs = if (screens == null) (retryDelayMs + 2_500L).coerceAtMost(15_000L) else 0L
+        delay(if (retryDelayMs == 0L) 1_000L else retryDelayMs)
+      }
+    } finally {
+      workspaceScreens = emptyList()
+    }
+  }
 
   /** Launcher pages: drag-and-drop, icon menu and the open folder. */
   val drag = AppDragState()

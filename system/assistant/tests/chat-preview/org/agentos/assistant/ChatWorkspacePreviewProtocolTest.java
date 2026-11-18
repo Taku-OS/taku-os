@@ -61,8 +61,33 @@ public final class ChatWorkspacePreviewProtocolTest {
                 ChatWorkspacePreviewProtocol.identity(binding(THREAD, 1).put("generation", OTHER))));
         check("Display changes cannot reuse a pending frame", !ChatWorkspacePreviewProtocol.identity(own).equals(
                 ChatWorkspacePreviewProtocol.identity(binding(THREAD, 1).put("displayId", 2))));
+        homeSelectionChecks();
         verifiedCatalogChecks();
-        System.out.println("PASS: " + checks + " exact-thread, lease and stream-host checks");
+        System.out.println("PASS: " + checks + " workspace selection, lease and stream-host checks");
+    }
+
+    private static void homeSelectionChecks() throws Exception {
+        JSONObject pausing = binding(THREAD, 1).put("status", "stopping").put("homePreviewEligible", true);
+        JSONObject closing = binding(OTHER, 5).put("status", "stopping").put("homePreviewEligible", false);
+        JSONObject bothThreads = catalog(binding(OTHER, 2).put("homePreviewEligible", true), pausing, closing,
+                binding(THREAD, 3).put("status", "waiting_for_app").put("homePreviewEligible", true),
+                binding(OTHER, 4).put("status", "user_control").put("homePreviewEligible", true));
+
+        check("Empty Home catalog", ChatWorkspacePreviewProtocol.selectHome(catalog()).length() == 0);
+        check("A single eligible screen is visible during pause",
+                ChatWorkspacePreviewProtocol.selectHome(catalog(pausing, closing)).length() == 1);
+        JSONArray home = ChatWorkspacePreviewProtocol.selectHome(bothThreads);
+        check("Home lists eligible screens across threads in catalog order", home.length() == 4
+                && home.getJSONObject(0).getInt("displayId") == 2
+                && home.getJSONObject(1).getInt("displayId") == 1
+                && home.getJSONObject(2).getInt("displayId") == 3
+                && home.getJSONObject(3).getInt("displayId") == 4);
+        check("Session selection still includes its own admitted screens",
+                ChatWorkspacePreviewProtocol.select(bothThreads, OTHER).length() == 3);
+        check("Home requires the eligibility flag",
+                ChatWorkspacePreviewProtocol.selectHome(catalog(binding(THREAD, 1))).length() == 0);
+        rejects("Home checks eligible screen identity", () -> ChatWorkspacePreviewProtocol.selectHome(
+                catalog(binding("invalid", 1).put("homePreviewEligible", true))));
     }
 
     private static void verifiedCatalogChecks() throws Exception {

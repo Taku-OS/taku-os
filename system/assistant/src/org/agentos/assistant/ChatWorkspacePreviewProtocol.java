@@ -111,27 +111,37 @@ final class ChatWorkspacePreviewProtocol {
     }
 
     static JSONArray select(JSONObject catalog, String thread) throws Exception {
-        JSONArray selected = new JSONArray();
-        if (!validThread(thread)) return selected;
+        if (!validThread(thread)) return new JSONArray();
+        return selectMatching(catalog, thread);
+    }
+
+    static JSONArray selectHome(JSONObject catalog) throws Exception {
+        return selectMatching(catalog, null);
+    }
+
+    private static JSONArray selectMatching(JSONObject catalog, String thread) throws Exception {
         if (!"taku.workspaces/1".equals(catalog.getString("schema")))
             throw new IOException("INVALID_WORKSPACE_CATALOG");
+        boolean home = thread == null;
+        JSONArray selected = new JSONArray();
         JSONArray screens = catalog.getJSONArray("screens");
         Set<String> keys = new HashSet<>();
         for (int i = 0; i < screens.length(); i++) {
             JSONObject screen = screens.getJSONObject(i);
-            // There is no implicit parent/child-thread authority in this API.
-            if (!thread.equals(screen.optString("threadId"))) continue;
+            String owner = screen.optString("threadId");
+            // Session reads use the exact thread. Home reads use the broker's eligibility flag.
+            if (home ? !screen.optBoolean("homePreviewEligible") : !thread.equals(owner)) continue;
             String key = screen.optString("screenKey");
             String generation = screen.optString("generation");
             String state = screen.optString("status");
-            if (!key.matches("task-[a-f0-9]{20}") || !validThread(generation)
+            if (!validThread(owner) || !key.matches("task-[a-f0-9]{20}") || !validThread(generation)
                     || screen.optInt("displayId", -1) <= 0)
                 throw new IOException("INVALID_SCREEN_LEASE");
             if (!keys.add(key)) throw new IOException("DUPLICATE_SCREEN_LEASE");
             if (!screen.optBoolean("admitted") || state.equals("unavailable")
                     || state.equals("stale") || state.equals("disconnected")
                     || state.equals("rebind_required")) continue;
-            if (selected.length() < MAX_SCREENS)
+            if (home || selected.length() < MAX_SCREENS)
                 selected.put(new JSONObject(screen.toString()));
         }
         return selected;

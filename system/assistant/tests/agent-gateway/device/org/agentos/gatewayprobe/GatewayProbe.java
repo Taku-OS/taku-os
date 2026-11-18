@@ -50,6 +50,12 @@ public final class GatewayProbe extends Instrumentation {
                 if (!denied) throw new AssertionError("A different ordinary UID/package was accepted");
                 result.put("differentPackageDenied", true);
                 if (streamMode) deniedStream(context, result);
+            } else if ("true".equals(arguments.getString("homeWorkspaces"))) {
+                if (!context.getPackageName().equals("org.agentos.agent")) throw new AssertionError("Wrong target app");
+                String thread = arguments.getString("threadId", "");
+                result.put("homeScreens", workspaceRows(context, new JSONObject().put("scope", "home")));
+                if (!thread.isEmpty())
+                    result.put("sessionScreens", workspaceRows(context, new JSONObject().put("threadId", thread)));
             } else {
                 if (!context.getPackageName().equals("org.agentos.agent")) throw new AssertionError("Wrong target app");
                 JSONObject rejected = envelope(context, "rpc", new JSONObject());
@@ -87,6 +93,21 @@ public final class GatewayProbe extends Instrumentation {
             output.putString("error", failed.getClass().getSimpleName() + ": " + failed.getMessage());
             finish(0, output);
         }
+    }
+
+    private JSONArray workspaceRows(Context context, JSONObject params) throws Exception {
+        JSONObject catalog = call(context, "getWorkspaces", params);
+        if (!"taku.agent-workspaces/1".equals(catalog.getString("schema")))
+            throw new AssertionError("Wrong workspace catalog schema");
+        JSONArray screens = catalog.getJSONArray("screens"), rows = new JSONArray();
+        for (int i = 0; i < screens.length(); i++) {
+            JSONObject screen = screens.getJSONObject(i);
+            JSONObject row = new JSONObject();
+            for (String field : new String[]{"threadId", "screenKey", "generation", "status", "previewUri"})
+                row.put(field, screen.getString(field));
+            rows.put(row);
+        }
+        return rows;
     }
 
     private void deniedStream(Context context, JSONObject result) throws Exception {

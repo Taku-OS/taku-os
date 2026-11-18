@@ -254,7 +254,7 @@ class AgentGatewayProvider : ContentProvider() {
                 // The broker validates the current request/turn and consumes the answer atomically.
                 return NativeClient.exchange(JSONObject().put("op", "respond").put("key", input.getString("key")).put("response", input.getJSONObject("response")))
             }
-            "getWorkspaces" -> return workspaces(thread)
+            "getWorkspaces" -> return if (input.has("scope")) homeWorkspaces() else workspaces(thread)
             "openNativeConversation" -> {
                 val current = TaskRequests.control("thread/read", JSONObject().put("threadId", thread))
                 if (current.optBoolean("threadUnavailable") || !current.optBoolean("loaded") || thread != current.optString("threadId"))
@@ -416,20 +416,30 @@ class AgentGatewayProvider : ContentProvider() {
         }
     }
 
+    private fun workspaceResult(screens: JSONArray, vararg previewPath: String): JSONObject {
+        for (i in 0 until screens.length()) {
+            val screen = screens.getJSONObject(i)
+            screen.put("previewUri", uri(*previewPath, screen.getString("threadId"),
+                screen.getString("screenKey"), screen.getString("generation")).toString())
+        }
+        return JSONObject().put("schema", "taku.agent-workspaces/1").put("screens", screens)
+    }
+
+    private fun homeWorkspaces(): JSONObject {
+        val catalog = NativeClient.exchange(JSONObject().put("op", "workspaces").put("action", "list"))
+        return workspaceResult(ChatWorkspacePreviewProtocol.selectHome(catalog), "preview", "home")
+    }
+
     private fun workspaces(thread: String): JSONObject {
         val revision = previewCatalog.beginRead()
         try {
             val catalog = NativeClient.exchange(JSONObject().put("op", "workspaces").put("action", "list").put("threadId", thread))
             val checkedAt = SystemClock.elapsedRealtime()
             val verified = ChatWorkspacePreviewProtocol.CatalogSnapshot(catalog, checkedAt, checkedAt)
-            val selected = verified.select(thread, SystemClock.elapsedRealtime())
-            for (i in 0 until selected.length()) {
-                val screen = selected.getJSONObject(i)
-                screen.put("previewUri", uri("preview", thread, screen.getString("screenKey"), screen.getString("generation")).toString())
-            }
+            val result = workspaceResult(verified.select(thread, SystemClock.elapsedRealtime()), "preview")
             // A stale read must never publish over the winner.
             previewCatalog.publish(revision, verified)
-            return JSONObject().put("schema", "taku.agent-workspaces/1").put("screens", selected)
+            return result
         } catch (failure: Exception) {
             previewCatalog.failedRead(revision)
             throw failure

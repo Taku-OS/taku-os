@@ -30,6 +30,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.unit.IntSize
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import com.facebook.react.modules.core.DefaultHardwareBackBtnHandler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -85,6 +87,9 @@ class HomeActivity : AppCompatActivity(), DefaultHardwareBackBtnHandler {
       val scope = rememberCoroutineScope()
       val controller = remember { HomeController(applicationContext, repo, pool, scope) }
       DisposableEffect(controller) { onDispose { controller.dispose() } }
+      LaunchedEffect(controller) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) { controller.watchWorkspaceScreens() }
+      }
       val pager = rememberPagerState(initialPage = PAGE_HOME) { controller.pageCount }
       val feedList = rememberLazyListState()
       val homeScroll = rememberScrollState()

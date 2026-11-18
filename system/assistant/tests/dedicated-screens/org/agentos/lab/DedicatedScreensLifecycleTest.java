@@ -137,7 +137,11 @@ public final class DedicatedScreensLifecycleTest {
         Object original = field(borrowed, "occupancy");
         for (String owner : List.of("paused", "user", "agent")) {
             paused.screens.beginPause(session(1), keys[0], keys[1]);
-            paused.screens.finishControl(session(1), keys[0], keys[1], owner);
+            JSONObject pausing = paused.screens.list().getJSONObject(0);
+            check(pausing.getString("status").equals("stopping") && pausing.getBoolean("homePreviewEligible"),
+                    "Home keeps the screen during pause and takeover");
+            JSONObject controlled = paused.screens.finishControl(session(1), keys[0], keys[1], owner);
+            check(controlled.getBoolean("homePreviewEligible"), owner + " keeps the screen on Home");
             check(field(borrowed, "occupancy") == original, owner + " retains occupancy");
         }
 
@@ -154,6 +158,9 @@ public final class DedicatedScreensLifecycleTest {
         Object closeScreen = field(closeTicket, "screen");
         Object closeOccupancy = field(closeScreen, "occupancy");
         closing.screens.beginClose(session(1), closeGrant.getString("screenKey"), closeGrant.getString("generation"));
+        JSONObject closingRow = closing.screens.list().getJSONObject(0);
+        check(closingRow.getString("status").equals("stopping") && !closingRow.getBoolean("homePreviewEligible"),
+                "Home hides the screen when close begins, before physical cleanup");
         check(field(closeScreen, "occupancy") == null, "beginClose invalidates occupancy before stopping the old tool thread");
         closing.host.stopFailure = "unconfirmed close";
         CountDownLatch stopping = new CountDownLatch(1), proceed = new CountDownLatch(1);
@@ -176,6 +183,8 @@ public final class DedicatedScreensLifecycleTest {
         check(outcome.get(2, TimeUnit.SECONDS).equals("unconfirmed close")
                         && field(closeScreen, "occupancy") == closeOccupancy,
                 "failed confirmed close restores the retained allocation's occupancy");
+        check(closing.screens.list().getJSONObject(0).getBoolean("homePreviewEligible"),
+                "the retained screen returns to Home after a failed close");
     }
 
     static final class Cleanup {
