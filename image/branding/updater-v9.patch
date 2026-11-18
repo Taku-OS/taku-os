@@ -22,8 +22,8 @@ new file mode 100644
 +
 +object TakuBrand {
 +    const val NAME = "TakuOS"
-+    const val VERSION = "1.3.1"
-+    const val DISPLAY_VERSION = "TakuOS1.3.1"
++    const val VERSION = "1.4.0"
++    const val DISPLAY_VERSION = "TakuOS1.4.0"
 +    private val versionPattern = Regex("(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)")
 +    private val legacyPattern = Regex("[0-9]+\\.[0-9]+")
 +    private fun validVersion(value: String?) = value?.takeIf {

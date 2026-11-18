@@ -6,7 +6,9 @@ $(call inherit-product, vendor/taku/image/product-branding.mk)
 TAKU_INCLUDE_GOOGLE_APPS ?= true
 ifeq ($(TAKU_INCLUDE_GOOGLE_APPS),true)
 $(call inherit-product, vendor/taku/image/google-services.mk)
+ifneq ($(wildcard vendor/taku/image/google-apps.mk),)
 $(call inherit-product, vendor/taku/image/google-apps.mk)
+endif
 endif
 
 # Opt in only for a personal Pixel image. No subscription or account data ships.
