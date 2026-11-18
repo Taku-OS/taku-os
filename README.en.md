@@ -8,7 +8,7 @@
 
 Taku OS puts an Agent runtime, system tools, a home interface and background workspaces on the phone. People and agents use the same underlying settings and application state. Model inference uses your configured online service; running the Agent on the phone does not make its models offline.
 
-This is a **development preview**. This source repository remains private while publication review is in progress. Original Taku code and documentation are licensed under Apache-2.0; third-party materials keep their own terms.
+This is a **development preview**. Original Taku code and documentation are licensed under Apache-2.0; third-party materials keep their own terms.
 
 ## Try it
 

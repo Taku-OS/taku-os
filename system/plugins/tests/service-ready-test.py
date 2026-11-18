@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-FileCopyrightText: 2026 Taku OS contributors
+# SPDX-FileCopyrightText: 2026 Taku AI Inc.
 # SPDX-License-Identifier: Apache-2.0
 import concurrent.futures
 import io

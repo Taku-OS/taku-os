@@ -3,7 +3,7 @@
 Updated **2026-11-12**. Current downloadable developer preview: **TakuOS 1.3.1 / Android 17 / Pixel 9 / 20261111080323**.
 [Installation and updates](https://docs.taku.ai/zh/quickstart/mobile/) provides the full OTA, matching Recovery, and SHA-256; the [release manifest](releases/tokay-20261111080323.json) records released source and validation scope.
 
-Native system updating, restart, and selected test-data retention have physical-device records; stock-device first installation, other models, and a distributable clean emulator image remain incomplete. The source repository remains private; original materials use Apache-2.0.
+Native system updating, restart, and selected test-data retention have physical-device records; stock-device first installation, other models, and a distributable clean emulator image remain incomplete. Original materials use Apache-2.0.
 
 The component acceptance scopes below are historical. “Incomplete” or “build failed” in older entries applies to those dates, without negating later ROM releases or turning historical component tests into universal current-package acceptance.
 

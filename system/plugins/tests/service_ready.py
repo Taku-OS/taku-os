@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Taku OS contributors
+# SPDX-FileCopyrightText: 2026 Taku AI Inc.
 # SPDX-License-Identifier: Apache-2.0
 """Startup readiness for the owned plugin-host integration fixture."""
 import json

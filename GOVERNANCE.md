@@ -1,6 +1,6 @@
 # Project governance
 
-Taku OS is maintained by the Taku-OS organization. The source repository currently remains private. Original code, SDKs, examples and documentation use Apache-2.0. Repository publication, binary releases, third-party licensing and contribution review are managed separately.
+Taku OS is maintained by the Taku-OS organization. Original code, SDKs, examples and documentation use Apache-2.0. Repository publication, binary releases, third-party licensing and contribution review are managed separately.
 
 The verified GitHub administrator and default reviewer is @programmerguys. CODEOWNERS records this contact. Module maintainers are listed only after they confirm their GitHub identity and responsibilities; authorship alone does not establish module ownership.
 

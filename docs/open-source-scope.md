@@ -2,7 +2,7 @@
 
 This page describes the public-release preparation scope for Taku OS original system code, on-device integration, development tools, and documentation. Hosted server implementations are excluded. Original work now uses Apache-2.0; see [open-source readiness](open-source-readiness.md) for actual status.
 
-**Licensing for original work is effective; the repository currently remains Private.** [LICENSE](../LICENSE), [NOTICE](../NOTICE), package metadata, and REUSE declarations were aligned to Apache-2.0 in #52; third-party materials retain their original terms. Historical MIT licensing and earlier internal terms remain in [license-history](license-history/), without rewriting commit history. Distribution rights for assets, account data, proprietary binaries, and complete ROMs still require separate review.
+**Licensing for original work is effective.** [LICENSE](../LICENSE), [NOTICE](../NOTICE), package metadata, and REUSE declarations were aligned to Apache-2.0 in #52; third-party materials retain their original terms. Historical MIT licensing and earlier internal terms remain in [license-history](license-history/), without rewriting commit history. Distribution rights for assets, account data, proprietary binaries, and complete ROMs still require separate review.
 
 ## What is in preparation scope
 

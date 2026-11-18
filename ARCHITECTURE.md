@@ -1,6 +1,6 @@
 # Taku OS architecture
 
-Taku OS is an Android system with a phone-local Agent runtime, currently released as a development preview. The source repository remains private during publication review; original Taku materials are Apache-2.0. Android app compatibility depends on the exact app, device, permissions and tested scenario. Agents use system interfaces and can work across supported apps.
+Taku OS is an Android system with a phone-local Agent runtime, currently released as a development preview. Original Taku materials are Apache-2.0. Android app compatibility depends on the exact app, device, permissions and tested scenario. Agents use system interfaces and can work across supported apps.
 
 This page describes what each component does. For what has been verified on emulators and physical devices, see [current status](docs/current-status.md).
 
