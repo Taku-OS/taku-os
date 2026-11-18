@@ -1,10 +1,10 @@
-# Taku OS
+<h1 align="center">Taku OS</h1>
 
 <p align="center"><img src="docs/media/taku-os-banner.gif" alt="Taku OS — 每个时代都需要自己的操作系统" width="100%"></p>
 
-**为 Agent 打造的 Android 系统。**
+<p align="center"><strong>为 Agent 打造的 Android 系统。</strong></p>
 
-[English](README.md) · 简体中文 · [日本語](README.ja.md)
+<p align="center"><a href="README.md">English</a> · 简体中文 · <a href="README.ja.md">日本語</a></p>
 
 Taku OS 将 Agent 运行时、系统工具、主页和后台工作屏集成在手机上。用户与 Agent 共用设置和应用状态；模型推理由用户配置的在线服务提供，Agent 在手机上运行不等于模型离线运行。
 

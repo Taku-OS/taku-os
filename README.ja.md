@@ -1,10 +1,10 @@
-# Taku OS
+<h1 align="center">Taku OS</h1>
 
 <p align="center"><img src="docs/media/taku-os-banner.gif" alt="Taku OS — どの時代にも、その時代の OS がある" width="100%"></p>
 
-**AI エージェントのための Android システム。**
+<p align="center"><strong>AI エージェントのための Android システム。</strong></p>
 
-[English](README.md) · [简体中文](README.zh-CN.md) · 日本語
+<p align="center"><a href="README.md">English</a> · <a href="README.zh-CN.md">简体中文</a> · 日本語</p>
 
 Taku OS は、エージェントのランタイム、システムツール、ホーム画面、バックグラウンド作業画面をスマートフォンに統合します。ユーザーとエージェントは同じ設定とアプリ状態を利用します。モデル推論には設定したオンラインサービスを使用します。
 
