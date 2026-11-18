@@ -28,8 +28,10 @@ import datetime
 import hashlib
 import json
 import lzma
+import os
 from pathlib import Path
 import re
+import shutil
 import struct
 import subprocess
 import sys
@@ -39,6 +41,10 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[1]
 
 CANONICAL_ORIGIN = "https://worker.taku.ai"
+GITHUB_RELEASE_ASSET_LIMIT_BYTES = 2 * 1024 * 1024 * 1024 - 1024 * 1024
+EVERGREEN_FULL_FILENAME = "TakuOS-tokay-full.zip"
+EVERGREEN_RECOVERY_FILENAME = "TakuOS-tokay-recovery.zip"
+EVERGREEN_MANIFEST_FILENAME = "latest.json"
 DOWNLOAD_PATH_RE = re.compile(
     r"^/os-update/v1/download/taku-os/android/tokay/releases/"
     r"(?P<build>\d{14})-(?P<snap>[0-9a-f]{16})/(?P<manifest_sha>[0-9a-f]{64})/full\.zip$"
@@ -685,6 +691,7 @@ def package_release(
     local_full_zip: Path | None = None,
     preextracted_dir: Path | None = None,
     verify_full_sha256: bool = False,
+    include_full_ota: bool = False,
 ) -> dict[str, object]:
     url_parts = validate_full_ota_url(full_url)
     build = url_parts["build"]
@@ -697,19 +704,39 @@ def package_release(
         require(COMMIT_RE.fullmatch(source_commit) is not None, f"Invalid sourceCommit: {source_commit}")
 
     full_filename = f"TakuOS-{version}-tokay-{build}-full.zip"
+    attach_full = include_full_ota and full_bytes <= GITHUB_RELEASE_ASSET_LIMIT_BYTES
+    if include_full_ota and not attach_full:
+        print(
+            f"Note: {full_filename} ({full_bytes} bytes) exceeds GitHub 2 GiB asset limit; skipping full OTA attachment.",
+            file=sys.stderr,
+        )
+    must_verify_full = verify_full_sha256 or attach_full
+    staged_full_zip: Path | None = None
+
     if local_full_zip is not None:
         require(local_full_zip.is_file(), f"Missing local full OTA: {local_full_zip}")
         require(local_full_zip.stat().st_size == full_bytes, "Local full OTA size mismatch")
-        if verify_full_sha256:
+        if must_verify_full:
             require(sha256_file(local_full_zip) == full_sha256, "Local full OTA SHA-256 mismatch")
+        if attach_full:
+            output_dir.mkdir(parents=True, exist_ok=True)
+            staged_full_zip = output_dir / full_filename
+            if local_full_zip.resolve() != staged_full_zip.resolve():
+                staged_full_zip.unlink(missing_ok=True)
+                try:
+                    os.link(local_full_zip, staged_full_zip)
+                except OSError:
+                    shutil.copy2(local_full_zip, staged_full_zip)
         source: ByteSource = FileByteSource(local_full_zip)
     else:
-        if verify_full_sha256:
+        if must_verify_full:
             tmp_dl = output_dir / full_filename
             output_dir.mkdir(parents=True, exist_ok=True)
             subprocess.run(["curl", "-fSL", "--retry", "3", "-o", str(tmp_dl), full_url], check=True)
             require(tmp_dl.stat().st_size == full_bytes, "Downloaded full OTA size mismatch")
             require(sha256_file(tmp_dl) == full_sha256, "Downloaded full OTA SHA-256 mismatch")
+            if attach_full:
+                staged_full_zip = tmp_dl
             source = FileByteSource(tmp_dl)
         else:
             source = HttpRangeByteSource(full_url, full_bytes)
@@ -875,9 +902,41 @@ def package_release(
         "manifest": release_manifest,
         "manifestPath": manifest_path,
         "recoveryZipPath": recovery_zip_path,
+        "fullZipPath": staged_full_zip,
         "sha256SumsPath": sha256sums_path,
         "notesPath": notes_path,
     }
+
+
+def _link_or_copy_alias(source_path: Path, alias_dir: Path, alias_name: str) -> Path:
+    alias_dir.mkdir(parents=True, exist_ok=True)
+    dest = alias_dir / alias_name
+    dest.unlink(missing_ok=True)
+    try:
+        os.link(source_path, dest)
+    except OSError:
+        shutil.copy2(source_path, dest)
+    return dest
+
+
+def stage_release_assets(packaged: dict[str, object], *, prerelease: bool = False) -> list[Path]:
+    recovery_path = Path(packaged["recoveryZipPath"])  # type: ignore[arg-type]
+    manifest_path = Path(packaged["manifestPath"])  # type: ignore[arg-type]
+    sha256_path = Path(packaged["sha256SumsPath"])  # type: ignore[arg-type]
+    full_path = packaged.get("fullZipPath")
+
+    assets: list[Path] = [recovery_path, manifest_path, sha256_path]
+    if isinstance(full_path, Path) and full_path.is_file():
+        assets.append(full_path)
+
+    if not prerelease:
+        alias_dir = recovery_path.parent / "evergreen-aliases"
+        assets.append(_link_or_copy_alias(recovery_path, alias_dir, EVERGREEN_RECOVERY_FILENAME))
+        assets.append(_link_or_copy_alias(manifest_path, alias_dir, EVERGREEN_MANIFEST_FILENAME))
+        if isinstance(full_path, Path) and full_path.is_file():
+            assets.append(_link_or_copy_alias(full_path, alias_dir, EVERGREEN_FULL_FILENAME))
+
+    return assets
 
 
 def github_release_exists(repo: str, tag: str) -> bool:
@@ -899,11 +958,7 @@ def publish_to_github(
     tag = str(packaged["tag"])
     title = str(packaged["title"])
     notes_path = Path(packaged["notesPath"])  # type: ignore[arg-type]
-    assets = [
-        str(packaged["recoveryZipPath"]),
-        str(packaged["manifestPath"]),
-        str(packaged["sha256SumsPath"]),
-    ]
+    assets = [str(p) for p in stage_release_assets(packaged, prerelease=prerelease)]
 
     if github_release_exists(repo, tag):
         if clobber:
@@ -972,6 +1027,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--local-full-zip", type=Path, help="Optional local full.zip path instead of HTTP Range")
     parser.add_argument("--preextracted-dir", type=Path, help="Optional directory with pre-extracted .img files (verified against payload manifest)")
     parser.add_argument("--verify-full-sha256", action="store_true", help="Download/stream entire full.zip and verify its outer SHA-256")
+    parser.add_argument("--include-full-ota", action="store_true", help="Verify and attach full OTA ZIP (+ TakuOS-tokay-full.zip alias) when within GitHub 2 GiB asset limit")
     parser.add_argument("--output-dir", type=Path, default=ROOT / "out/rom-releases", help="Ignored output directory for generated ZIPs and notes")
     parser.add_argument("--releases-dir", type=Path, default=ROOT / "docs/releases", help="Tracked releases manifest directory")
     parser.add_argument("--write-repo-manifests", action="store_true", help="Write docs/releases/tokay-<build>.json and latest.json")
@@ -1025,6 +1081,7 @@ def main(argv: list[str] | None = None) -> int:
             local_full_zip=args.local_full_zip,
             preextracted_dir=args.preextracted_dir,
             verify_full_sha256=args.verify_full_sha256,
+            include_full_ota=args.include_full_ota,
         )
         if args.write_repo_manifests:
             write_repo_manifests(releases_dir, packaged["manifest"])  # type: ignore[arg-type]

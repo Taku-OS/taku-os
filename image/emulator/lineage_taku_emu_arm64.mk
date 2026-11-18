@@ -1,6 +1,7 @@
 # Same pinned Lineage framework and Taku runtime, with Goldfish ARM64 hardware.
-# Keep the same default apps/runtime as Pixel: weather widget taps need Pixel Weather.
-TAKU_INCLUDE_GOOGLE_APPS := true
+# Keep the same default apps/runtime as Pixel unless clean open-source mode overrides it.
+-include vendor/taku/image/emulator/build-options.mk
+TAKU_INCLUDE_GOOGLE_APPS ?= true
 TAKU_ENABLE_PIXEL_OTA := false
 WITH_ADB_INSECURE := true
 TARGET_NO_KERNEL_OVERRIDE := true

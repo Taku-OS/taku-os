@@ -103,7 +103,7 @@ jobs:
       github.ref == 'refs/heads/main' &&
       (github.event_name == 'schedule' || inputs.operation == 'sync-release')
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 25
     permissions:
       contents: write
     steps:
@@ -125,7 +125,7 @@ jobs:
           INPUT_CLOBBER: ${{ inputs.clobber }}
         run: |
           set -euo pipefail
-          args=(--publish-github --repo "$GITHUB_REPOSITORY")
+          args=(--publish-github --include-full-ota --repo "$GITHUB_REPOSITORY")
           if [ "${INPUT_PRERELEASE:-false}" = "true" ]; then
             args+=(--prerelease)
           fi
