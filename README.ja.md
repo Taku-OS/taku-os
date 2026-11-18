@@ -55,7 +55,7 @@ Taku OS では、エージェントがスマートフォンのハードウェア
 
 パソコン、Taku OS をインストールできるスマートフォン、データ転送に対応した USB ケーブルが必要です。現在のテスト端末である Pixel 9 を推奨します。他の Android 端末でも動作する可能性はありますが、互換性はまだ検証されていません。作業を始める前にデバイスの対応状況を確認し、スマートフォンをバックアップしてください。
 
-[Pixel 9（`tokay`）向けフルイメージをダウンロード](https://github.com/Taku-OS/taku-os/releases/latest/download/TakuOS-tokay-full.zip) · [Recovery パッケージ](https://github.com/Taku-OS/taku-os/releases/latest/download/TakuOS-tokay-recovery.zip) · [リリースノートと SHA-256](https://github.com/Taku-OS/taku-os/releases/latest)
+[Pixel 9（`tokay`）向け Taku OS をダウンロード](https://github.com/Taku-OS/taku-os/releases/latest) · [Recovery パッケージ](https://github.com/Taku-OS/taku-os/releases/latest/download/TakuOS-tokay-recovery.zip) · [最新メタデータ JSON](https://github.com/Taku-OS/taku-os/releases/latest/download/latest.json)
 
 **エミュレーターで試す**
 
