@@ -55,7 +55,7 @@ Taku OS 基于 Android 构建，支持常见的 Android 应用。你可以使用
 
 你需要一台电脑、一台支持安装 Taku OS 的手机，以及一根支持数据传输的 USB 线。我们推荐使用 Pixel 9，这是目前的测试设备。其他 Android 设备可能也能运行，但尚未完成兼容性验证。开始前请查看设备当前状态，并备份手机数据。
 
-下载 Taku OS（TODO: 添加链接）
+[下载 Pixel 9（`tokay`）版 Taku OS](https://github.com/Taku-OS/taku-os/releases/latest)
 
 **在模拟器中体验**
 

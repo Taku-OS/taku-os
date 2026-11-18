@@ -4,12 +4,12 @@ Identify the requested environment, inspect it, and follow the current installat
 
 ## Current release and scope
 
-The current documented development preview is **TakuOS 1.3.1, Android 17, Pixel 9 (`tokay`), build 20261111080323**. The [release manifest](releases/tokay-20261111080323.json) is the versioned source for the downloads and checksums below.
+The current documented development preview is **TakuOS 1.4.0, Android 17, Pixel 9 (`tokay`), build 20261118070714**. The [latest release manifest](releases/latest.json) ([`tokay-20261118070714.json`](releases/tokay-20261118070714.json)) and [GitHub Release](https://github.com/Taku-OS/taku-os/releases/tag/v1.4.0-20261118070714) are the versioned sources for the downloads and checksums below.
 
 | Artifact | Download | SHA-256 |
 | --- | --- | --- |
-| Full OTA | [TakuOS-1.3.1-tokay-20261111080323-full.zip](https://worker.taku.ai/os-update/v1/download/taku-os/android/tokay/releases/20261111080323-1f7d7cd84956ade1/260183030430836ecb7270118421a7fd0a0a25af9ff93dc84bba7b8ac238bf4b/full.zip) | `416f958b3f10b36091dd1ffff8450aeb86b146eaa695c69cde231c40d44ac9e8` |
-| Matching recovery | [TakuOS-1.3.1-tokay-20261111080323-recovery.zip](https://download.taku.ai/releases/1.3.1/TakuOS-1.3.1-tokay-20261111080323-recovery.zip) | `07f5c84cfdac7a26bdda52318c9e68119e24015076df6328046282a1a8d8ff24` |
+| Full OTA | [TakuOS-1.4.0-tokay-20261118070714-full.zip](https://worker.taku.ai/os-update/v1/download/taku-os/android/tokay/releases/20261118070714-22cb53203be9da8f/fbd50dcafa988357bce12a5e4e0e57879d127f898482d69d6bac913a552fdebe/full.zip) | `9812a62734f6fe1512cc630c332b1d5338f2e166889e8fbf19a7c146b68bbed3` |
+| Matching recovery | [TakuOS-1.4.0-tokay-20261118070714-recovery.zip](https://github.com/Taku-OS/taku-os/releases/download/v1.4.0-20261118070714/TakuOS-1.4.0-tokay-20261118070714-recovery.zip) | `3a04cd4054418f5fa26d6588876e5d7d074c6a3eaa617fae38adee5a162d2b5a` |
 
 The [mobile installation and update guide](https://docs.taku.ai/quickstart/mobile/) contains the actual recovery, sideload and OTA steps. Follow that procedure and its exact supported device/build conditions; do not invent a second fastboot procedure. A full OTA ZIP is not a fastboot image bundle.
 
