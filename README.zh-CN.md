@@ -2,51 +2,122 @@
 
 <p align="center"><img src="docs/media/taku-os-banner.gif" alt="Taku OS — 每个时代都需要自己的操作系统" width="100%"></p>
 
-<p align="center"><strong>为 Agent 打造的 Android 系统。</strong></p>
+<p align="center"><strong>面向 AI 时代的开源手机操作系统。</strong></p>
 
-<p align="center"><a href="README.md">English</a> · 简体中文 · <a href="README.ja.md">日本語</a></p>
+<p align="center">让 AI 成为手机系统的一部分。Agent 可以跨支持的应用执行任务、创建新应用、调用相机和传感器，并与连接的设备交互。具体能力取决于设备支持情况和权限。</p>
 
-Taku OS 将 Agent 运行时、系统工具、主页和后台工作屏集成在手机上。用户与 Agent 共用设置和应用状态；模型推理由用户配置的在线服务提供，Agent 在手机上运行不等于模型离线运行。
+<p align="center"><a href="#开始使用">开始使用</a> · <a href="https://docs.taku.ai">文档</a> · <a href="https://github.com/Taku-OS/taku-os/releases">发布版本</a></p>
 
-当前为**开发预览版**。Taku 自研代码和文档采用 Apache-2.0，第三方材料保留各自条款。
+<p align="center"><a href="https://taku.ai">官网</a> · <a href="https://discord.gg/NYK47Ngucm">Discord</a> · <a href="LICENSE">许可证</a> · <a href="https://github.com/Taku-OS/taku-os/stargazers">Stars</a></p>
+
+<p align="center"><a href="README.md">English</a> | 简体中文 | <a href="README.ja.md">日本語</a></p>
+
+> TODO: 添加 10 秒真机 GIF，使用英文界面。
+
+## Research Preview
+
+Taku OS 当前处于早期开发阶段，供测试与开发使用，不建议用于工作场景。
+
+## Taku OS 是什么？
+
+Taku OS 基于 Android 构建，支持常见的 Android 应用。你可以使用自己的 API Key（BYOK），也可以通过 ChatGPT 订阅账号登录，为 Agent 提供模型能力。
+
+大多数手机助手停留在单个应用中，等待你提问。而在 Taku OS 中，Agent 运行在手机上，可以直接使用系统能力，让一项任务跨越支持的应用、相机和系统设置。你可以查看系统代码，了解它的工作方式，并根据自己的需求进行修改。
+
+本仓库包含 Taku OS 系统 ROM 和文档，不包含服务端服务。Taku for Mac 和 Marketplace 是独立产品，并未开源。
+
+## 由你塑造，随处可用
+
+说出你的需求，留下好用的功能。
+
+- **为你打造的主页。** 说一句“帮我跟踪半马训练”，Agent 就会创建一个包含训练计划、输入框和按钮的主页。你可以通过对话继续调整、保存，并在之后随时使用。（TODO: 添加图片）
+- **找不到想要的应用？自己创建一个。** 描述你的需求，Agent 会编写代码、编译、安装到手机上并打开。
+- **调整设置，无需翻找菜单。** 不必在菜单中逐项查找，直接让 Agent 帮你调整当前支持的系统设置。
+
+## 看见，也听见
+
+通过 Taku OS，Agent 可以调用手机硬件，与周围的世界互动。
+
+- **描述一种风格，生成相机滤镜。** 告诉 Agent 你想要的画面效果，它会在拍摄时调整相机滤镜。
+- **实时翻译对话。** 例如在东京，你可以通过耳机听到对方说的日语被翻译成英语。用英语回答后，手机扬声器会播放对应的日语译文。
+- **调用手机硬件。** 相机、麦克风、Wi-Fi、蓝牙和运动传感器可以通过受支持的接口供 Agent 使用。具体可用范围取决于设备、驱动和权限。
+
+## 智能，随时在场
+
+- **点一下，直接说。** 点击屏幕底部的语音输入，说出你的需求。
+- **长按侧键。** 进入语音模式，继续与 Agent 对话。
+- **开启 Live。** 与 Agent 实时交流，让它执行任务，同时继续使用手机。
+- **你会创造什么？** 我们很好奇，当 AI 能够调用系统级能力时，还能实现什么。带上你的想法，在 Taku OS 上动手探索，看看手机还有哪些可能。
 
 ## 开始使用
 
-| 体验方式 | 当前可用内容 |
-| --- | --- |
-| Pixel 9（`tokay`） | TakuOS 1.3.1 / Android 17 / `20261111080323`；[安装与更新教程](https://docs.taku.ai/zh/quickstart/mobile/)提供完整 OTA、同批 recovery、SHA-256 与安装步骤 |
-| 模拟器 | 已有组件开发与验收路径；尚未发布可直接下载的干净 Taku OS 模拟器镜像，见[开发准备](docs/getting-started.md) |
-| 第一个插件 | 公开的 [Hello World 示例](https://github.com/Taku-OS/taku-os-plugins/tree/main/examples/taku-hello-world)包含全部源码和 ZIP，按[插件教程](https://docs.taku.ai/zh/os/extensions/first-plugin/)安装与调用 |
-| 不接手机的 SDK | 获授权的源码 checkout 可运行下面的接口清单，不需要模型账号或 npm install |
+准备好设备，让 Coding Agent 引导你完成安装，然后开始探索和开发。
 
-已发行的 Pixel 9 版本有系统更新与重启证据。原厂首装、其他机型和完整 App 兼容性仍须分别验收；LineageOS 支持的设备不自动成为 Taku OS 支持的设备。具体见[版本清单](docs/releases/tokay-20261111080323.json)和[当前状态](docs/current-status.md)。
+### 选择体验方式
 
-```sh
-# 在已获授权的 Git checkout 中，使用 Node.js 22+：
-env -u TAKU_OS_TRANSPORT -u TAKU_OS_SERIAL node sdk/cli/taku.mjs call methods.list
+**在手机上体验**
+
+你需要一台电脑、一台支持安装 Taku OS 的手机，以及一根支持数据传输的 USB 线。我们推荐使用 Pixel 9，这是目前的测试设备。其他 Android 设备可能也能运行，但尚未完成兼容性验证。开始前请查看设备当前状态，并备份手机数据。
+
+下载 Taku OS（TODO: 添加链接）
+
+**在模拟器中体验**
+
+没有合适的手机？也可以通过模拟器体验 Taku OS，无需改动现有手机。请确保电脑能够运行 Android ARM64 虚拟设备，然后下载模拟器镜像。
+
+下载模拟器镜像（TODO: 添加链接）
+
+### 让 Coding Agent 引导安装
+
+准备完成后，将以下内容粘贴给 Claude Code、Codex 或其他 Coding Agent。按照指引操作，需要你亲自执行或确认的步骤，请按提示完成。
+
+```text
+阅读 https://github.com/Taku-OS/taku-os/blob/main/docs/agent-setup.md，帮我在手机或模拟器上安装并配置 Taku OS。
 ```
 
-需要 Coding Agent 帮助安装时，让它先读[安装执行指引](docs/agent-setup.md)，核对设备与版本，再遵循链接中的安装流程。解锁或清空手机需要明确授权；完整 OTA ZIP 不能当成 fastboot 镜像包。
+### 连接模型，开始体验
 
-## 动手改造
+Taku OS 启动后，登录并选择模型。你可以使用自己的 API Key，也可以通过 ChatGPT 订阅账号登录。
 
-- **扩展 Agent：**制作 skill 或 MCP 工具，声明能力，安装、调用并验证卸载。
-- **跨应用工作：**使用已支持的 Android 接口和后台工作屏，具体可用性取决于版本、应用与权限。
-- **制作小应用和界面：**从可复现示例开始，让 GUI 与 Agent API 共用数据和校验。
-- **调用硬件能力：**相机、音频、显示和传感器有各自的实现与验收范围，不能从一个接口可用推断整个场景已完成。
+部分应用在已 Root 或修改过系统的设备上可能无法正常运行。Google 应用和 Play 商店为可选项。
 
-插件使用宿主权限；能力声明不是安全沙箱。请阅读[安全说明](SECURITY.md)和[插件开发](docs/plugins/README.md)。
+### 动手改造
 
-## 开发与贡献
+体验 Taku OS 后，你可以直接修改系统代码，也可以从开发第一个插件开始，为系统添加自己的功能。
 
-[开发准备](docs/getting-started.md)区分 SDK、原生组件、React Native 与完整 ROM。[第一次修改](docs/first-change.md)提供小练习；验证结果区分源码、构建、模拟器与真机。
+## 文档
 
-本仓库包含端上服务、SDK、工具、ROM 整合和文档，不包含托管后端、账号凭据或完整 Android/vendor 源码树。当前部分 ROM 输入仍需私有访问权限，缺口见[开源就绪清单](docs/open-source-readiness.md)。
+| 主题 | 链接 |
+| --- | --- |
+| 使用指南和 API 参考 | [docs.taku.ai](https://docs.taku.ai) |
+| 各设备当前状态 | [docs/current-status.md](docs/current-status.md) |
+| 插件开发 | [docs/plugins/README.md](docs/plugins/README.md) |
+| 设计理念 | [PHILOSOPHY.md](PHILOSOPHY.md) |
 
-[公开文档](https://docs.taku.ai/zh/) · [架构](ARCHITECTURE.md) · [贡献指南](CONTRIBUTING.md) · [获取帮助](SUPPORT.md) · [行为准则](CODE_OF_CONDUCT.md) · [第三方材料](docs/third-party-materials.md)
+## 架构
 
-漏洞请走 [SECURITY.md](SECURITY.md) 的私密报告入口，不发到公开 Issue。
+```text
+Home / Feed、Agent 应用、小组件、通知
+                 ↓
+任务服务（一个队列，一套任务生命周期）
+                 ↓
+手机上的 Agent 运行时 → 模型网关 → 在线模型 API
+                 ↓
+Android 系统工具、框架、应用和硬件
+```
+
+所有交互入口共用一个任务服务。设备端 Agent 运行时通过模型网关连接模型服务。模型推理在线上完成，因此 Agent 需要联网。详见 [ARCHITECTURE.md](ARCHITECTURE.md)。
+
+## 开发
+
+系统及其组件的构建说明见 [docs/getting-started.md](docs/getting-started.md)。提交 Pull Request 前，请先阅读 [CONTRIBUTING.md](CONTRIBUTING.md)。
+
+## 社区
+
+在 [Issues](https://github.com/Taku-OS/taku-os/issues) 中报告问题，在 [Discussions](https://github.com/Taku-OS/taku-os/discussions) 中提问，也欢迎加入 [Discord](https://discord.gg/NYK47Ngucm) 交流。
+
+如需帮助，请查看 [SUPPORT.md](SUPPORT.md)。如需报告安全漏洞，请按照 [SECURITY.md](SECURITY.md) 中的指引操作。所有参与者均应遵守 [社区行为准则](CODE_OF_CONDUCT.md)。
 
 ## 许可证
 
-Taku 自研内容采用 [Apache-2.0](LICENSE)，保留 [NOTICE](NOTICE)、第三方许可证和历史授权。源码许可、仓库可见性与完整 ROM 的再分发权分别管理。
+Taku OS 采用 [Apache-2.0](LICENSE) 许可证。第三方组件保留各自的许可证，详见 [NOTICE](NOTICE)。
