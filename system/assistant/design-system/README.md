@@ -59,7 +59,6 @@ The design handoff itself did not run Android SDK compilation or real-device
 rendering. Application compilation, bilingual layouts, keyboard, safe areas,
 font scaling and actual Chat state restoration must be verified separately.
 
-Retain the files in `licenses/` when distributing these fonts and icons. The
-handoff grants no overall open-source license; see `THIRD_PARTY_NOTICES.md`.
-The two upstream reference screenshots are internal references and are not
-included in this app import.
+Retain the files in `licenses/` when distributing these fonts and icons; see
+`THIRD_PARTY_NOTICES.md` for font, icon, and trademark terms. The two upstream
+reference screenshots are internal references and are not included in this app import.

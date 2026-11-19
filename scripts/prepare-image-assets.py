@@ -29,16 +29,20 @@ for item in lock['assets']:
     with tempfile.NamedTemporaryFile(dir=cache, delete=False) as tmp:
         temporary = pathlib.Path(tmp.name)
     try:
-        if release := item.get('githubRelease'):
-            # The Taku repository is private. gh supplies the caller's existing
-            # GitHub authorization; no token is placed in URLs or artifacts.
+        fetched = False
+        if url := item.get('url'):
+            try:
+                with urllib.request.urlopen(url, timeout=60) as source, temporary.open('wb') as output:
+                    while chunk := source.read(1024 * 1024):
+                        output.write(chunk)
+                fetched = True
+            except OSError:
+                if not item.get('githubRelease'):
+                    raise
+        if not fetched and (release := item.get('githubRelease')):
             subprocess.run(['gh', 'release', 'download', release['tag'], '--repo', release['repo'],
                             '--pattern', release['asset'], '--output', str(temporary), '--clobber'], check=True)
-        elif url := item.get('url'):
-            with urllib.request.urlopen(url, timeout=60) as source, temporary.open('wb') as output:
-                while chunk := source.read(1024 * 1024):
-                    output.write(chunk)
-        else:
+        elif not fetched:
             raise SystemExit('Locked asset has no url or githubRelease and is not cached: ' + item['path'])
         if not verified(temporary, item):
             raise SystemExit('Size or hash mismatch; keeping existing asset unchanged: ' + item['path'])

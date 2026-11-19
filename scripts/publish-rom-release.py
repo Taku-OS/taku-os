@@ -563,10 +563,10 @@ First inspect connected adb/fastboot devices with explicit -s SERIAL, verify pro
    *Settings → About phone → tap Build number 7 times*, then *Settings → System → Developer options → enable **OEM unlocking** and **USB debugging***.
 2. **Download & verify checksums** in a clean folder with [Android Platform-Tools](https://developer.android.com/tools/releases/platform-tools) (`adb` / `fastboot`):
    ```bash
-   curl -fLO "{full['url']}" -o "{full['filename']}"
+   curl -fL "{full['url']}" -o "{full['filename']}"
    curl -fLO "{rec['url']}"
    unzip "{rec['filename']}"
-   shasum -a 256 -c SHA256SUMS.txt
+   shasum -a 256 -c SHA256SUMS.txt   # Linux: sha256sum -c SHA256SUMS.txt
    ```
 3. **Reboot to bootloader & unlock** *(first install only; confirm on phone screen)*:
    ```bash
@@ -880,7 +880,7 @@ def package_release(
             "recoverySignerMatchesOta": True,
         },
         **({"sourceCommit": source_commit} if source_commit else {}),
-        "documentationUrl": "https://docs.taku.ai/zh/quickstart/mobile/",
+        "documentationUrl": "https://docs.taku.ai/quickstart/mobile/",
         "licenseScope": "Original Taku source is Apache-2.0. Bundled third-party components retain their own terms.",
     }
 

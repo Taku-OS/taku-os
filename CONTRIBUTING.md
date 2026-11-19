@@ -1,6 +1,6 @@
 # Contributing to Taku OS
 
-This guide covers how to find useful work, set up the repository, verify a change and get it reviewed. The source repository currently requires access authorization; these contribution instructions do not change its visibility.
+This guide covers how to find useful work, set up the repository, verify a change and get it reviewed.
 
 Taku OS is a research preview maintained by a small team. Read [What to expect from review](#what-to-expect-from-review) before you put time into a large change.
 

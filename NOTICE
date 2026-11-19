@@ -73,4 +73,9 @@ Taku Input Method derives from Fcitx5 for Android 0.1.3, commit
 Its product patches and build integration retain LGPL-2.1-or-later;
 Fcitx5, libime, Chinese addons and bundled data retain their own licenses,
 including GPL components. See system/inputmethod/NOTICE, LICENSE and
-source-lock.json. Root internal terms do not replace those component licenses.
+source-lock.json. The root Apache-2.0 license does not replace those component licenses.
+
+Taku Audio Engine (system/audio-engine) uses Apache-2.0 for original Taku code.
+When built or distributed with local TTS/ASR resources (sherpa-onnx, Zipformer,
+Kokoro, and espeak-ng phoneme data/libraries), sherpa-onnx retains Apache-2.0
+and espeak-ng retains GPL-3.0-or-later; see system/audio-engine/models/notices.lock.json.

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability privately
+    url: https://github.com/Taku-OS/taku-os/security/advisories/new
+    about: Do not disclose unpatched vulnerabilities, credentials, or personal data in public Issues.
+  - name: Questions & community discussions
+    url: https://github.com/Taku-OS/taku-os/discussions
+    about: Ask setup questions, share ideas, or discuss architecture with the community.
