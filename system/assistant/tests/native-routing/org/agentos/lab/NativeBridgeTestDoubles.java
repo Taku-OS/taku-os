@@ -144,6 +144,10 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
     }
 }
 final class WorkspaceControl {static JSONObject control(JSONObject input){return new JSONObject();}}
+final class AppPermissionPolicy {
+    static boolean isRootSocketAllowed(int uid) { return false; }
+    static JSONObject control(JSONObject input, int uid) { throw new UnsupportedOperationException(); }
+}
 final class PhoneAppCatalog {static JSONObject requireLaunchable(String pkg){return new JSONObject();}}
 final class PluginCreator {static JSONObject catalogAdd(java.nio.file.Path path){return new JSONObject();}}
 final class SkillCredentials {static JSONObject control(JSONObject input){return new JSONObject();}}

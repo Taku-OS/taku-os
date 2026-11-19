@@ -218,6 +218,36 @@ public final class NativeBridgeRoutingTest {
         NativeBridge.closed(); server.replies.clear(); PhoneNativeTools.executions.set(0);
     }
 
+    private static void pendingQuestionsAcrossSessions(CodexAppServer server) throws Exception {
+        String parent = "question-parent", child = "question-child", turn = "question-turn";
+        start(parent, turn);
+        start(child, turn);
+        JSONObject question = new JSONObject().put("question", "Model or version?")
+                .put("options", new JSONArray().put("Model").put("Version"));
+        NativeBridge.request(server, call(801, parent, turn, "ask_user", question));
+        NativeBridge.request(server, call(802, child, turn, "confirm_action", args()));
+        String parentKey = key(parent), childKey = key(child);
+        JSONArray shown = NativeBridge.pendingPhoneQuestions().getJSONArray("requests");
+        check(shown.length() == 2 && shown.getJSONObject(0).getString("key").equals(parentKey)
+                && shown.getJSONObject(1).getString("key").equals(childKey),
+                "System cards see both sessions in publication order");
+        shown.getJSONObject(0).getJSONObject("params").getJSONObject("arguments").put("question", "Changed");
+        check(NativeBridge.state(parent).getJSONArray("requests").getJSONObject(0)
+                .getJSONObject("params").getJSONObject("arguments").getString("question").equals("Model or version?"),
+                "Reading the cards leaves the original question intact");
+
+        NativeBridge.respond(parentKey, new JSONObject().put("optionIndex", 0));
+        shown = NativeBridge.pendingPhoneQuestions().getJSONArray("requests");
+        check(shown.length() == 1 && shown.getJSONObject(0).getString("key").equals(childKey)
+                && server.replies.get(801).getBoolean("success") && !server.replies.containsKey(802),
+                "Answering the parent withdraws only its card");
+        NativeBridge.stopPhoneTurn(child, turn);
+        check(NativeBridge.pendingPhoneQuestions().getJSONArray("requests").length() == 0,
+                "Cancelled child questions are withdrawn");
+        complete(parent, turn);
+        complete(child, turn);
+    }
+
     public static void main(String[] unused) throws Exception {
         steerRejectionClassification();
         NativeBridge.closed();CodexAppServer server=new CodexAppServer();CodexAppServer.shared=server;
@@ -227,6 +257,7 @@ public final class NativeBridgeRoutingTest {
             workspaceAdmissionRouting(server);
             archivedSessions();
             policyChangeNotices(server);
+            pendingQuestionsAcrossSessions(server);
             start(THREAD,TURN);
             JSONObject original=args(),event=call(1,THREAD,TURN,"confirm_action",original);
             NativeBridge.request(server,event);String first=key(THREAD);
@@ -313,7 +344,7 @@ public final class NativeBridgeRoutingTest {
                 NativeBridge.request(server,call(id,THREAD,TURN,"confirm_action",args()));String uncertain=key(THREAD);
                 if(id==50)server.failBeforeReply=id;else server.failAfterReply=id;
                 try { NativeBridge.respond(uncertain,new JSONObject().put("decision","confirm"));throw new AssertionError("Transport failure hidden"); }
-                catch(IOException expected) {check(expected.getMessage().contains("送达状态未确认"),"Transport uncertainty is explicit");}
+                catch(IOException expected) {check(expected.getMessage().contains("delivery has not been confirmed"),"Transport uncertainty is explicit");}
                 check(!NativeBridge.requests.containsKey(uncertain),"Uncertain delivery never restores a replayable confirmation");
                 rejectReply(uncertain,"confirm");
                 check(server.replies.containsKey(id)==(id==51),"Both pre-delivery and post-delivery failure tested");
