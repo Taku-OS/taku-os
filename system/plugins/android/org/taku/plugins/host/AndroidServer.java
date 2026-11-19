@@ -1,52 +1,51 @@
 package org.taku.plugins.host;
 
-import android.content.Context;
 import android.net.LocalServerSocket;
 import android.net.LocalSocket;
-import android.net.Uri;
-import android.os.Bundle;
-import android.os.Looper;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 public final class AndroidServer {
-    private static volatile Context systemContext;
-
-    private static Context getSystemContext() {
-        Context cached = systemContext;
-        if (cached != null) return cached;
-        synchronized (AndroidServer.class) {
-            if (systemContext != null) return systemContext;
-            try {
-                if (Looper.getMainLooper() == null) Looper.prepareMainLooper();
-                Object thread = Class.forName("android.app.ActivityThread").getMethod("systemMain").invoke(null);
-                systemContext = (Context) thread.getClass().getMethod("getSystemContext").invoke(thread);
-            } catch (Exception ignored) {
-            }
-            return systemContext;
-        }
-    }
-
     private static boolean isCallerAuthorized(int uid) {
         if (uid == 0 || uid == 1000 || uid == 2000) return true;
         if (uid < 10000) return false;
+        Process proc = null;
         try {
-            Context ctx = getSystemContext();
-            if (ctx == null) return false;
             String req = Json.write(Map.of("uid", uid, "scope", "taku.root"));
-            Bundle out = ctx.getContentResolver().call(
-                    Uri.parse("content://org.agentos.assistant.permissions"), "check", req, null);
-            if (out == null) return false;
-            String raw = out.getString("result");
-            if (raw == null || raw.isEmpty()) return false;
-            Object parsed = Json.parse(raw);
+            proc = new ProcessBuilder(
+                    "/system/bin/content",
+                    "call",
+                    "--user", "0",
+                    "--uri", "content://org.agentos.assistant.permissions",
+                    "--method", "check",
+                    "--arg", req)
+                    .redirectErrorStream(true)
+                    .start();
+            byte[] bytes;
+            try (InputStream in = proc.getInputStream(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+                byte[] buf = new byte[2048];
+                int n;
+                while ((n = in.read(buf)) != -1) {
+                    out.write(buf, 0, n);
+                    if (out.size() > 65536) return false;
+                }
+                bytes = out.toByteArray();
+            }
+            if (!proc.waitFor(5, TimeUnit.SECONDS) || proc.exitValue() != 0) return false;
+            String output = new String(bytes, StandardCharsets.UTF_8);
+            int start = output.indexOf("result="), end = output.lastIndexOf("}]");
+            if (start < 0 || end <= start) return false;
+            Object parsed = Json.parse(output.substring(start + 7, end).trim());
             if (!(parsed instanceof Map)) return false;
             Map<?, ?> map = (Map<?, ?>) parsed;
             return Boolean.TRUE.equals(map.get("ok")) && Boolean.TRUE.equals(map.get("allowed"));
         } catch (Exception failClosed) {
             return false;
+        } finally {
+            if (proc != null) proc.destroyForcibly();
         }
     }
 
