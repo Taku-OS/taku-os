@@ -44,7 +44,13 @@ export type AgentAction =
   | 'decide' | 'generateUi' | 'panels' | 'cardView'
   | 'mainReply' | 'readMatter' | 'subscribeMatter' | 'unsubscribeMatter' | 'dispatchMatter' | 'analyzeCameraFrame'
   | 'audioCapabilities' | 'audioCommand'
-  | 'readSystemAi' | 'setSystemAi' | 'bindSystemAi' | 'bindSystemAiModel' | 'reorderSystemAi' | 'restoreSystemAi' | 'deleteSystemAiGroup' | 'openAssistantConnection' | 'openMagpieManagement' | 'pluginManager';
+  | 'readSystemAi' | 'setSystemAi' | 'bindSystemAi' | 'bindSystemAiModel' | 'reorderSystemAi' | 'restoreSystemAi' | 'deleteSystemAiGroup' | 'openAssistantConnection' | 'openMagpieManagement' | 'pluginManager'
+  | 'readAppPermissions' | 'setAppPermissionMode' | 'setAppPermissionScope' | 'resetAppPermission';
+
+/** App Permission Center request/response contract; each of the four actions resolves with `AppPermissionsSnapshot`. */
+export type {
+  AppPermissionParams, AppPermissionsSnapshot, ManagedAppEntry, PermissionAuditEvent, PermissionMode, PermissionScope, ScopeGrantMap,
+} from '../model/appPermissions';
 
 export class AgentGatewayError extends Error {
   constructor(message: string, readonly code = 'GATEWAY_UNAVAILABLE') {
