@@ -157,6 +157,21 @@ public final class JevMagpieTest {
             JSONObject stored = new JSONObject(Files.readString(store));
             check(stored.getJSONArray("providers").length() == 2, "existing provider replaced");
             check(stored.getJSONArray("groups").toString().equals(original.getJSONArray("groups").toString()), "groups changed");
+            // Onboarding Jev keys: OpenRouter or TypeSafe's own API, chosen by key format.
+            check(MagpieDecisions.jevPreset("sk-or-v1-" + "a".repeat(24)).equals("openrouter"), "OpenRouter key not recognised");
+            check(MagpieDecisions.jevPreset("apikey_21abcdefGH").equals("typesafe"), "TypeSafe key not recognised");
+            for (String bad : new String[]{"", "sk-or-v1-short", "apikey_", "apikey_ab cd", "sk-proj-abcdefghijklmnopqrstuvwx", "fal-key"})
+                try { MagpieDecisions.jevPreset(bad); throw new AssertionError("accepted Jev key " + bad); }
+                catch (IOException expected) { check("INVALID_KEY".equals(expected.getMessage()), "wrong key error"); }
+            JSONArray catalog = new JSONArray()
+                    .put(new JSONObject().put("id", "other/decision-model-preview"))
+                    .put(new JSONObject().put("id", "taku-jev-typesafe/jev-1.14"))
+                    .put(new JSONObject().put("id", "taku-jev-typesafe/jev-latest"))
+                    .put(new JSONObject().put("id", "taku-jev-openrouter/typesafe/jev-1.14"));
+            check(MagpieDecisions.pickJev(catalog, "taku-jev-typesafe/").equals("taku-jev-typesafe/jev-latest"), "jev-latest not preferred");
+            check(MagpieDecisions.pickJev(catalog, "taku-jev-openrouter/").equals("taku-jev-openrouter/typesafe/jev-1.14"), "provider Jev not chosen");
+            check(MagpieDecisions.pickJev(catalog, "missing/").isEmpty(), "model invented for an unlisted provider");
+            reject(() -> gateway.control(new JSONObject().put("action", "connect").put("key", "not-a-key")), "invalid Jev key accepted");
             if (serverFailure.get() != null) throw new AssertionError(serverFailure.get());
             System.out.println("PASS JevMagpieTest: " + checks + " checks; real HTTP, synthetic gateway and credentials");
         } finally {

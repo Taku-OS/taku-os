@@ -225,7 +225,7 @@ final class NativeBridge {
   return result;
  } }
  static String publicError(Throwable e){Throwable value=e;while(value.getCause()!=null)value=value.getCause();String text=value.getMessage();if(text==null||text.isEmpty())text="The native interface cannot complete this operation right now";return redact(text).substring(0,Math.min(500,redact(text).length()));}
- static String redact(String s){return s.replaceAll("eyJ[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+","[Authorization information hidden]").replaceAll("(?i)(Bearer\\s+|(?:token|secret|password|api_key)=)[^\\s&\"']+","$1[hidden]").replaceAll("sk-[A-Za-z0-9_-]{20,}","[Key hidden]");}
+ static String redact(String s){return s.replaceAll("eyJ[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+","[Authorization information hidden]").replaceAll("(?i)(Bearer\\s+|(?:token|secret|password|api_key)=)[^\\s&\"']+","$1[hidden]").replaceAll("sk-[A-Za-z0-9_-]{20,}","[Key hidden]").replaceAll("apikey_[A-Za-z0-9_-]{8,}","[Key hidden]");}
  static JSONArray toolDefinitions()throws Exception {return PhoneNativeTools.definitions();}
  /** Inbox calls run one at a time. A blocking call made while handling one (liveTask's goal read,
   * workspace preflight) still pumps provider events but never starts another inbox call. */

@@ -129,7 +129,8 @@ class OnboardingRepository private constructor(context: Context) {
 
   /**
    * Connects one service from the AI step, through the same operation as its settings page:
-   * ChatGPT opens the official sign-in in the browser; Jev and Fal save the pasted key.
+   * ChatGPT opens the official sign-in in the browser; Jev and Fal save the pasted key. Jev with no
+   * key switches on a Jev model Magpie already serves (`NO_DECISION_MODEL` when there is none).
    */
   fun connect(service: OnboardingService, rawKey: String? = null): State {
     if (shownStep(facts()) != OnboardingStep.CONNECT_AI)
@@ -139,7 +140,8 @@ class OnboardingRepository private constructor(context: Context) {
         val result = call("connectChatGpt")
         if (result.optString("opened") != "none") watchSignIn()
       }
-      OnboardingService.JEV -> call("connectJev", JSONObject().put("key", OnboardingRules.key(rawKey)))
+      OnboardingService.JEV ->
+        if (rawKey == null) call("enableJev") else call("connectJev", JSONObject().put("key", OnboardingRules.jevKey(rawKey)))
       OnboardingService.FAL -> saveFal(OnboardingRules.key(rawKey))
     }
     return refresh()

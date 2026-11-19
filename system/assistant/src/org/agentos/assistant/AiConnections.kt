@@ -12,8 +12,8 @@ import org.json.JSONObject
 
 /**
  * One-step connections for the AI services, shared by the Home onboarding card (gateway
- * `connectChatGpt`, `cancelChatGpt`, `readJev`, `connectJev`) and Agents (open access
- * `account/login/start`, `account/login/cancel`, `jev/status`, `jev/connect`). Each path runs the
+ * `connectChatGpt`, `cancelChatGpt`, `readJev`, `connectJev`, `enableJev`) and Agents (open access
+ * `account/login/start`, `account/login/cancel`, `jev/status`, `jev/connect`, `jev/enable`). Each path runs the
  * same broker operation as the native settings pages. Call off the main thread.
  */
 internal object AiConnections {
@@ -166,34 +166,49 @@ internal object AiConnections {
     fun jevModel(context: Context): String = jevStatus(context).let { if (it.getBoolean("ready")) it.getString("model") else "" }
 
     /**
-     * Saves an OpenRouter key (the BYOK path), then binds Jev to a decision model from the Magpie
-     * catalog (preferring a Jev model) and switches Jev on, as the Jev settings page does.
+     * Onboarding's Jev key, OpenRouter (`sk-or-v1-…`) or TypeSafe (`apikey_…`): the broker adds the
+     * matching Magpie provider in the background (no Magpie key or admin page), then Jev is bound
+     * to its Jev decision model and switched on, as the Jev settings page does.
      */
     @JvmStatic
     @Synchronized
     fun connectJev(context: Context, key: String): JSONObject {
-        if (key.isBlank() || key.length > 4096 || key.any { it.isWhitespace() || it == ',' }) throw IOException("INVALID_KEY")
-        try {
-            NativeClient.exchange(JSONObject().put("op", "byok").put("action", "save").put("provider", "openrouter").put("key", key))
+        val result = try {
+            NativeClient.exchange(JSONObject().put("op", "decision").put("action", "connect").put("key", key.trim()))
         } catch (e: Exception) {
-            Log.w(TAG, "OpenRouter key not saved: ${e.message}")
-            throw IOException("KEY_NOT_SAVED")
+            Log.w(TAG, "Jev key not saved: ${e.message}")
+            throw IOException(if (e.message == "INVALID_KEY") "INVALID_KEY" else "KEY_NOT_SAVED")
         }
-        var chosen = ""
-        for (attempt in 0 until 5) {
-            val models = try {
-                JevApiClient().models().getJSONArray("models")
-            } catch (e: Exception) {
-                Log.w(TAG, "decision catalog unavailable: ${e.message}")
-                throw IOException("MAGPIE_UNAVAILABLE")
-            }
-            val ids = (0 until models.length()).map { models.getJSONObject(it).getString("id") }
-            chosen = ids.firstOrNull { it.contains("jev", ignoreCase = true) } ?: ids.firstOrNull().orEmpty()
-            if (chosen.isNotEmpty()) break
-            Thread.sleep(1_000)
+        val model = result.optString("model")
+        if (model.isEmpty()) throw IOException("NO_DECISION_MODEL")
+        return enable(context, model)
+    }
+
+    /**
+     * Switches Jev on with a Jev model Magpie already serves (the current binding when it is still
+     * listed, else jev-latest, else any Jev), so a configured Magpie needs no key. `NO_DECISION_MODEL`
+     * when there is none, which is when onboarding asks for a key.
+     */
+    @JvmStatic
+    @Synchronized
+    fun enableJev(context: Context): JSONObject {
+        val models = try {
+            JevApiClient().models().getJSONArray("models")
+        } catch (e: Exception) {
+            Log.w(TAG, "decision catalog unavailable: ${e.message}")
+            throw IOException("MAGPIE_UNAVAILABLE")
         }
-        if (chosen.isEmpty()) throw IOException("NO_DECISION_MODEL")
-        SceneRoutes.bind(context, "jev", chosen, true)
+        val bound = SceneRoutes.get(context, "jev")
+        val listed = (0 until models.length()).map { models.getJSONObject(it).getString("id") }
+        val model = bound.takeIf { it.isNotEmpty() && it in listed }
+            ?: listed.firstOrNull { it.lowercase().endsWith("jev-latest") }
+            ?: listed.firstOrNull { it.contains("jev", ignoreCase = true) }
+            ?: throw IOException("NO_DECISION_MODEL")
+        return enable(context, model)
+    }
+
+    private fun enable(context: Context, model: String): JSONObject {
+        SceneRoutes.bind(context, "jev", model, true)
         if (!context.getSharedPreferences("agent-settings", 0).edit().putBoolean("jevEnabled", true).commit())
             throw IOException("SETTINGS_WRITE_FAILED")
         return jevStatus(context)

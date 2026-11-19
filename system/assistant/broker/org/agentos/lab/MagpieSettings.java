@@ -82,17 +82,28 @@ final class MagpieSettings {
   boolean changed=!before.equals(out.toString())||!source.exists();String expected=changed?hashBytes(out.toString().getBytes(StandardCharsets.UTF_8)):fileHash;
   if(changed)save(source,out);writeHash(source,expected);audit("settings -> magpie",before,out.toString());SystemAi.catalogUntil=0;
  }
- static synchronized String importLegacy(String key)throws Exception{
+ static synchronized String importLegacy(String key)throws Exception{return addProvider("openrouter",key,"taku-jev-import","Taku Jev import");}
+ /** A Jev key from onboarding: OpenRouter (`sk-or-v1-…`) or TypeSafe's own Jev API (`apikey_…`, Magpie preset `typesafe`). */
+ static synchronized String addDecisionProvider(String preset,String key)throws Exception{
+  if("typesafe".equals(preset))return addProvider(preset,key,"taku-jev-typesafe","TypeSafe Jev");
+  if("openrouter".equals(preset))return addProvider(preset,key,"taku-jev-openrouter","Taku Jev (OpenRouter)");
+  throw new IOException("unsupported decision provider");
+ }
+ /** Reuses a provider of [preset] that already holds [key]; otherwise adds one through Settings and its credential store. */
+ private static String addProvider(String preset,String key,String baseId,String name)throws Exception{
   migrate();JSONArray providers=new JSONArray(SystemAi.SETTINGS.get(PROVIDERS));JSONObject secrets=file(SECRETS);
-  for(int i=0;i<providers.length();i++){JSONObject p=providers.getJSONObject(i),secret=secrets.optJSONObject(p.optString("credentialRef"));if(!"openrouter".equals(p.optString("preset"))||secret==null)continue;
+  for(int i=0;i<providers.length();i++){JSONObject p=providers.getJSONObject(i),secret=secrets.optJSONObject(p.optString("credentialRef"));if(!preset.equals(p.optString("preset"))||secret==null)continue;
    if(key.equals(secret.optString("key"))){sync();return p.getString("id");}JSONArray keys=secret.optJSONArray("keys");if(keys!=null)for(int n=0;n<keys.length();n++)if(key.equals(keys.getJSONObject(n).optString("key"))){sync();return p.getString("id");}
   }
-  String id="taku-jev-import";int suffix=2;boolean used;do{used=secrets.has(id);for(int i=0;i<providers.length();i++)used|=id.equals(providers.getJSONObject(i).optString("id"));if(used)id="taku-jev-import-"+suffix++;}while(used);
+  String id=baseId;int suffix=2;boolean used;do{used=secrets.has(id);for(int i=0;i<providers.length();i++)used|=id.equals(providers.getJSONObject(i).optString("id"));if(used)id=baseId+"-"+suffix++;}while(used);
   secrets.put(id,new JSONObject().put("key",key));save(SECRETS,secrets);
-  providers.put(new JSONObject().put("id",id).put("name","Taku Jev import").put("preset","openrouter").put("chat","https://openrouter.ai/api/v1").put("anthropic","https://openrouter.ai/api").put("decide","https://openrouter.ai/api/v1").put("catalog","openrouter").put("credentialRef",id));
+  JSONObject provider=new JSONObject().put("id",id).put("name",name).put("preset",preset);
+  // OpenRouter keeps the explicit endpoints the legacy import always wrote; other presets come from Magpie.
+  if("openrouter".equals(preset))provider.put("chat","https://openrouter.ai/api/v1").put("anthropic","https://openrouter.ai/api").put("decide","https://openrouter.ai/api/v1").put("catalog","openrouter");
+  providers.put(provider.put("credentialRef",id));
   SystemAi.SETTINGS.put(PROVIDERS,providers.toString());sync();
   JSONArray confirmed=new JSONArray(SystemAi.SETTINGS.get(PROVIDERS));for(int i=0;i<confirmed.length();i++){JSONObject p=confirmed.getJSONObject(i);if(id.equals(p.optString("id"))&&id.equals(p.optString("credentialRef")))return id;}
-  throw new IOException("Magpie settings changed; legacy credentials were preserved");
+  throw new IOException("Magpie settings changed; credentials were preserved");
  }
  static synchronized String bindModel(String scene,String model,boolean overwrite)throws Exception{
   migrate();String snapshot=SystemAi.SETTINGS.get(SystemAiSettings.CONFIG);JSONObject config=new JSONObject(snapshot);JSONArray groups=config.getJSONArray("groups");JSONObject bindings=config.getJSONObject("scenes");

@@ -241,6 +241,7 @@ class AgentGatewayProvider : ContentProvider() {
             "cancelChatGpt" -> return AiConnections.cancelChatGpt()
             "readJev" -> return AiConnections.jevStatus(context!!)
             "connectJev" -> return AiConnections.connectJev(context!!, input.getString("key"))
+            "enableJev" -> return AiConnections.enableJev(context!!)
             "listThreads" -> return AgentGatewayProtocol.clean(TaskRequests.control("thread/list", JSONObject()), 0) as JSONObject
             "createThread" -> {
                 val result = ComposerDelivery.createThread()

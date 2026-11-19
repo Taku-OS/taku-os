@@ -55,7 +55,7 @@ internal class AgentGatewayProtocol private constructor() {
             COMPOSER_REMOVE, COMPOSER_OPTIONS_READ, COMPOSER_OPTIONS_WRITE, COMPOSER_SUBMIT, COMPOSER_SETTLE, COMPOSER_RELEASE,
             COMPOSER_HANDOFF, COMPOSER_RESTORE, COMPOSER_RESTORE_TASK, COMPOSER_CREATE_THREAD, COMPOSER_PRESERVE_DRAFT,
             LIVE_TASK_READ, LIVE_TASK_REPLACE, LIVE_TASK_CANCEL,
-            "connectChatGpt", "cancelChatGpt", "readJev", "connectJev")
+            "connectChatGpt", "cancelChatGpt", "readJev", "connectJev", "enableJev")
         @JvmField val QUESTIONS: Set<String> = java.util.Set.of("phone/askUser", "phone/confirmAction",
             "phone/action/requestApproval", "item/tool/requestUserInput")
         private val SECRET_KEYS: Set<String> = java.util.Set.of("accesstoken", "refreshtoken", "idtoken",

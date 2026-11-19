@@ -167,6 +167,7 @@ public final class AgentOpenAccessProvider extends ContentProvider {
                 result = AiConnections.startChatGpt(getContext(), input.optString("type", "chatgpt"), input.optBoolean("open", false), true);
             } else if (method.equals("account/login/cancel")) { only(input); result = AiConnections.cancelChatGpt(); }
             else if (method.equals("jev/status")) { only(input); result = AiConnections.jevStatus(getContext()); }
+            else if (method.equals("jev/enable")) { only(input); result = AiConnections.enableJev(getContext()); }
             else if (method.equals("jev/connect")) { only(input, "key"); result = AiConnections.connectJev(getContext(), input.getString("key")); }
             else if (method.equals("sessions/removals")) result = NativeClient.exchange(input.put("op", "sessionRemovals"));
             else if (method.startsWith("workspaces/")) result = WorkspaceCommands.call(context, method, input, caller);

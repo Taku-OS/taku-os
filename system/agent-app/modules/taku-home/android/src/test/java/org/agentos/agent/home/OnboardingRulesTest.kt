@@ -6,6 +6,7 @@ import org.agentos.agent.home.onboarding.OnboardingDecision
 import org.agentos.agent.home.onboarding.OnboardingException
 import org.agentos.agent.home.onboarding.OnboardingFacts
 import org.agentos.agent.home.onboarding.OnboardingRules
+import org.agentos.agent.home.onboarding.OnboardingService
 import org.agentos.agent.home.onboarding.OnboardingStep
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -73,8 +74,24 @@ class OnboardingRulesTest {
         assertEquals("INVALID_KEY", e.code)
       }
     }
-    assertFalse(OnboardingRules.canSaveKey(""))
-    assertTrue(OnboardingRules.canSaveKey("fal-key-123"))
+    assertFalse(OnboardingRules.canSaveKey(OnboardingService.FAL, ""))
+    assertTrue(OnboardingRules.canSaveKey(OnboardingService.FAL, "fal-key-123"))
+  }
+
+  @Test fun jevTakesTypeSafeOrOpenRouterKeys() {
+    assertEquals("apikey_21abcdefGH", OnboardingRules.jevKey(" apikey_21abcdefGH "))
+    val openRouter = "sk-or-v1-" + "a".repeat(24)
+    assertEquals(openRouter, OnboardingRules.jevKey(openRouter))
+    for (bad in listOf("apikey_", "apikey_short", "sk-or-v1-short", "sk-proj-abcdefghijklmnopqrstuvwx", "fal-key-123")) {
+      try {
+        OnboardingRules.jevKey(bad)
+        fail("accepted Jev key $bad")
+      } catch (e: OnboardingException) {
+        assertEquals("INVALID_KEY", e.code)
+      }
+    }
+    assertTrue(OnboardingRules.canSaveKey(OnboardingService.JEV, "apikey_21abcdefGH"))
+    assertFalse(OnboardingRules.canSaveKey(OnboardingService.JEV, "fal-key-123"))
   }
 
   @Test fun anUnknownAccountKeepsItHiddenAndNeverCompletes() {

@@ -22,6 +22,7 @@ final class MagpieDecisions {
         switch (input.optString("action", "models")) {
             case "models": return new JSONObject().put("models", models());
             case "importLegacy": return importLegacy(input.getString("key"));
+            case "connect": return connect(input.getString("key"));
             case "decide":
                 if (!input.optBoolean("authorized")) throw new SecurityException("Confirm this page analysis first.");
                 if (!deciding.tryAcquire()) throw new IOException("The decision model is analyzing. Please retry later.");
@@ -140,6 +141,68 @@ final class MagpieDecisions {
         return false;
     }
 
+    /** The Magpie preset for a Jev key: OpenRouter or TypeSafe's own Jev API; `INVALID_KEY` otherwise. */
+    static String jevPreset(String key) throws IOException {
+        if (key.matches("sk-or-v1-[A-Za-z0-9_-]{20,}")) return "openrouter";
+        if (key.matches("apikey_[A-Za-z0-9_-]{8,}")) return "typesafe";
+        throw new IOException("INVALID_KEY");
+    }
+
+    /** The decision model Jev should use among ids starting with [prefix] ("" = any): jev-latest, then any Jev. */
+    static String pickJev(JSONArray models, String prefix) throws JSONException {
+        String any = "";
+        for (int i = 0; i < models.length(); i++) {
+            String id = models.getJSONObject(i).getString("id");
+            if (!id.startsWith(prefix)) continue;
+            String lower = id.toLowerCase(java.util.Locale.ROOT);
+            if (lower.endsWith("jev-latest")) return id;
+            if (any.isEmpty() && lower.contains("jev")) any = id;
+        }
+        return any;
+    }
+
+    /**
+     * Onboarding's Jev key: adds (or reuses) the matching Magpie provider through the canonical
+     * Settings store, asks Magpie to fetch its model list, and waits for its Jev decision model.
+     * Returns `{provider, preset, model}`; an empty model means the key was kept but no Jev model
+     * is listed yet.
+     */
+    private synchronized JSONObject connect(String raw) throws Exception {
+        String key = raw.trim(), preset = jevPreset(key), provider;
+        if (root.equals(new File("/data/local/agentos/magpie"))) {
+            try { provider = MagpieSettings.addDecisionProvider(preset, key); }
+            catch (Exception e) { throw new IOException("KEY_NOT_SAVED"); }
+            refreshProvider(provider);
+        } else {
+            // The isolated host fixture keeps the upstream management API path.
+            provider = managedKey(key, preset);
+            if (provider.isEmpty()) {
+                request(management, "/api/provider/save", new JSONObject().put("new", true)
+                        .put("id", "taku-jev-" + preset).put("name", "Taku Jev").put("preset", preset).put("key", key), true);
+                provider = managedKey(key, preset);
+            }
+            if (provider.isEmpty()) throw new IOException("KEY_NOT_SAVED");
+        }
+        String model = "";
+        long deadline = System.currentTimeMillis() + 20_000;
+        while (true) {
+            try { model = pickJev(models(), provider + "/"); } catch (Exception catalogNotReady) { /* retry */ }
+            if (!model.isEmpty() || System.currentTimeMillis() > deadline) break;
+            Thread.sleep(1_000);
+        }
+        return new JSONObject().put("provider", provider).put("preset", preset).put("model", model);
+    }
+
+    /** `magpie provider refresh <id>`, bounded; the catalog poll still decides the result. */
+    private static void refreshProvider(String provider) {
+        try {
+            Process process = new ProcessBuilder("/system_ext/bin/magpie", "provider", "refresh", provider).redirectErrorStream(true).start();
+            try (InputStream ignored = process.getInputStream()) {
+                if (!process.waitFor(10, java.util.concurrent.TimeUnit.SECONDS)) process.destroyForcibly();
+            }
+        } catch (Exception unavailable) { /* Magpie also fetches lists on its own schedule. */ }
+    }
+
     private synchronized JSONObject importLegacy(String key) throws Exception {
         if (!key.matches("sk-or-v1-[A-Za-z0-9_-]{20,}")) throw new IOException("Invalid legacy credential format. The original configuration was preserved.");
         // Production provider changes must enter the canonical Settings store.
@@ -158,7 +221,9 @@ final class MagpieDecisions {
         return new JSONObject().put("provider", found).put("imported", true);
     }
 
-    private String managedKey(String key) throws Exception {
+    private String managedKey(String key) throws Exception { return managedKey(key, "openrouter"); }
+
+    private String managedKey(String key, String preset) throws Exception {
         File file = new File(root, "config/magpie/providers.json");
         if (!file.isFile()) return "";
         JSONObject stored;
@@ -168,7 +233,7 @@ final class MagpieDecisions {
         if (providers == null) throw new IOException("Magpie service configuration cannot be read. Legacy credentials were not changed.");
         for (int i = 0; i < providers.length(); i++) {
             JSONObject p = providers.getJSONObject(i);
-            if (!"openrouter".equals(p.optString("preset"))) continue;
+            if (!preset.equals(p.optString("preset"))) continue;
             if (key.equals(p.optString("key"))) return p.getString("id");
             JSONArray keys = p.optJSONArray("keys");
             if (keys != null) for (int n = 0; n < keys.length(); n++)

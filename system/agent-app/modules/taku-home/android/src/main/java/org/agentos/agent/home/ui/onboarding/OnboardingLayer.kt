@@ -182,10 +182,29 @@ private class OnboardingActions(val context: Context, val repository: Onboarding
 
   fun cancelSignIn() = launchAction { withContext(Dispatchers.IO) { repository.cancelSignIn() } }
 
-  /** Saves a pasted Jev (OpenRouter) or Fal key through the same store as its settings page. */
+  /** Saves a pasted Jev (TypeSafe or OpenRouter) or Fal key through the same store as its settings page. */
   fun saveKey(service: OnboardingService, key: String, onSaved: () -> Unit) = launchAction {
     withContext(Dispatchers.IO) { repository.connect(service, key) }
     onSaved()
+  }
+
+  /**
+   * Jev without a key: switches on a Jev model Magpie already serves. When there is none, the key
+   * field opens instead (no error: that is the normal first-time path).
+   */
+  fun enableJev(onNeedsKey: () -> Unit) {
+    if (busy) return
+    busy = true
+    scope.launch {
+      try {
+        withContext(Dispatchers.IO) { repository.connect(OnboardingService.JEV) }
+      } catch (e: OnboardingException) {
+        Log.w(TAG, "${e.code}: ${e.message}")
+        if (e.code == "NO_DECISION_MODEL" || e.code == "MAGPIE_UNAVAILABLE") onNeedsKey() else toast(message(e.code))
+      } finally {
+        busy = false
+      }
+    }
   }
 
   /** The ChatGPT subscription page, for a chip that is already connected. */
@@ -217,9 +236,9 @@ private class OnboardingActions(val context: Context, val repository: Onboarding
 
   private fun message(code: String) = when (code) {
     "NAME_NOT_SAVED" -> "Couldn’t save your name. Try again, or tap Later."
-    "INVALID_KEY" -> "That key doesn’t look right. Check it and try again."
+    "INVALID_KEY" -> "That key doesn’t look right. Jev takes a TypeSafe (apikey_…) or OpenRouter (sk-or-…) key."
     "KEY_NOT_SAVED", "SETTINGS_WRITE_FAILED" -> "Couldn’t save the key. Try again."
-    "NO_DECISION_MODEL" -> "Key saved, but no Jev model is available for it yet."
+    "NO_DECISION_MODEL" -> "Key saved. Jev isn’t listed for it yet; tap Jev again in a moment."
     "MAGPIE_UNAVAILABLE" -> "The model service isn’t ready yet. Try again in a moment."
     "AUDIO_UNAVAILABLE" -> "Taku Audio isn’t available right now."
     "TASK_RUNNING" -> "Taku is still finishing a task. Try again in a moment."
@@ -345,7 +364,8 @@ private fun NameStep(actions: OnboardingActions) {
 
 /**
  * 1155:1073: the three services as chips. ChatGPT signs in through the official page in one tap;
- * Jev (OpenRouter) and Fal keys are pasted right here. Connecting shows the island's working dots,
+ * Jev (TypeSafe or OpenRouter, configured into Magpie in the background) and Fal keys are pasted
+ * right here; a Jev Magpie already serves is switched on without a key. Connecting shows the island's working dots,
  * connected a checkmark (product states; the frame has only the idle chips). Once AI is available
  * (ChatGPT, or Magpie with a model) Continue finishes setup; Jev and Fal stay optional.
  */
@@ -371,6 +391,11 @@ private fun ConnectAiStep(state: OnboardingRepository.State, actions: Onboarding
       OnboardingService.CHATGPT -> {
         editing = null
         if (services.chatgpt == Connection.CONNECTED) actions.manageChatGpt() else actions.connectChatGpt()
+      }
+      OnboardingService.JEV -> when {
+        editing == service.id -> editing = null
+        services.jev == Connection.CONNECTED -> editing = service.id
+        else -> actions.enableJev { editing = service.id }
       }
       else -> editing = if (editing == service.id) null else service.id
     }
@@ -472,8 +497,8 @@ private fun KeyEditor(service: OnboardingService, actions: OnboardingActions, on
   var draft by remember(service) { mutableStateOf("") }
   val focus = remember { FocusRequester() }
   val keyboard = LocalSoftwareKeyboardController.current
-  val ready = OnboardingRules.canSaveKey(draft) && !actions.busy
-  val placeholder = if (service == OnboardingService.JEV) "Paste your OpenRouter key" else "Paste your fal key"
+  val ready = OnboardingRules.canSaveKey(service, draft) && !actions.busy
+  val placeholder = if (service == OnboardingService.JEV) "Paste a TypeSafe or OpenRouter key" else "Paste your fal key"
   fun save() { if (ready) actions.saveKey(service, draft) { onClose() } }
   LaunchedEffect(service) { withFrameNanos {}; focus.requestFocus(); keyboard?.show() }
 

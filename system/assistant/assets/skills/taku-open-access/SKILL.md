@@ -408,7 +408,8 @@ content call --uri $O --method onboarding/skip-name              # name → conn
 # AI step chips (connect_ai only):
 content call --uri $O --method onboarding/connect --arg '{"service":"chatgpt"}'  # opens the official sign-in page
 content call --uri $O --method onboarding/cancel-sign-in
-content call --uri $O --method onboarding/connect --arg '{"service":"jev","key":"sk-or-v1-..."}'   # OpenRouter key
+content call --uri $O --method onboarding/connect --arg '{"service":"jev"}'   # use a Jev Magpie already serves
+content call --uri $O --method onboarding/connect --arg '{"service":"jev","key":"apikey_..."}'   # TypeSafe or OpenRouter key
 content call --uri $O --method onboarding/connect --arg '{"service":"fal","key":"..."}'
 content call --uri $O --method onboarding/finish                 # connect_ai → completed ("Continue"; needs available AI)
 # Agent-only: back to intro (available AI completes it again immediately).
@@ -436,7 +437,7 @@ Memory could not be read. Errors are `{ok:false,code,message}`:
 | `SETTINGS_WRITE_FAILED` | `taku_onboarding_step` could not be written |
 | `AI_NOT_CONNECTED` | `finish` before AI is available |
 | `INVALID_SERVICE` | `service` is not `chatgpt`, `jev` or `fal` |
-| `INVALID_KEY` | A Jev or Fal key that is blank, over 4096 characters, or contains whitespace or commas |
+| `INVALID_KEY` | A blank key, over 4096 characters, or with whitespace or commas; for Jev, not a TypeSafe (`apikey_…`) or OpenRouter (`sk-or-v1-…`) key |
 | `KEY_NOT_SAVED`, `MAGPIE_UNAVAILABLE`, `NO_DECISION_MODEL`, `AUDIO_UNAVAILABLE` | The key store rejected or could not take the key; `NO_DECISION_MODEL` keeps the saved OpenRouter key |
 | `TASK_RUNNING`, `LOGIN_UNAVAILABLE`, `ACCOUNT_UNAVAILABLE` | ChatGPT sign-in could not start (see `account/login/start`) |
 | `UNKNOWN_METHOD` | Not one of the methods above |
@@ -444,9 +445,10 @@ Memory could not be read. Errors are `{ok:false,code,message}`:
 The `connect_ai` card shows three chips (Fal only when Taku Audio is installed). **ChatGPT**
 starts browser sign-in in one tap (`account/login/start` with `open:true`): the card shrinks into
 the camera pill, the island shows "Signing in…" while Home is away and a brief "Connected" when
-the account lands, and the assistant brings Home back. **Jev** and **Fal** open a masked key field
-in the card: Jev takes an OpenRouter key (`jev/connect`), Fal a fal key (Taku Audio `settings`
-`saveFalKey`). Chips show working dots while connecting and a check when connected; a connected
+the account lands, and the assistant brings Home back. **Jev** first switches on a Jev model Magpie
+already serves (`jev/enable`); otherwise it opens a masked key field that takes a TypeSafe
+(`apikey_…`) or OpenRouter (`sk-or-v1-…`) key (`jev/connect`), configured into Magpie in the
+background. **Fal** opens a masked fal key field (Taku Audio `settings` `saveFalKey`). Chips show working dots while connecting and a check when connected; a connected
 ChatGPT chip opens the account page. ChatGPT is required to finish (or Magpie with a model); Jev
 and Fal are optional. A development device that must skip onboarding without AI can run
 `settings put secure taku_onboarding_step completed` from the shell. That writes the setting

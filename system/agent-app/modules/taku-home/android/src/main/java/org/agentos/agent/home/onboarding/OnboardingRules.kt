@@ -143,7 +143,23 @@ object OnboardingRules {
     return key
   }
 
-  fun canSaveKey(draft: String): Boolean = runCatching { key(draft) }.isSuccess
+  /**
+   * A Jev key: an OpenRouter key (`sk-or-v1-…`) or a TypeSafe Jev API key (`apikey_…`), the two
+   * Magpie providers that serve Jev (the broker's `MagpieDecisions.jevPreset`).
+   */
+  fun jevKey(raw: String?): String {
+    val key = key(raw)
+    if (!key.matches(OPENROUTER_KEY) && !key.matches(TYPESAFE_KEY))
+      throw OnboardingException("INVALID_KEY", "use a TypeSafe (apikey_…) or OpenRouter (sk-or-v1-…) key")
+    return key
+  }
+
+  fun keyFor(service: OnboardingService, raw: String?): String = if (service == OnboardingService.JEV) jevKey(raw) else key(raw)
+
+  fun canSaveKey(service: OnboardingService, draft: String): Boolean = runCatching { keyFor(service, draft) }.isSuccess
+
+  private val OPENROUTER_KEY = Regex("sk-or-v1-[A-Za-z0-9_-]{20,}")
+  private val TYPESAFE_KEY = Regex("apikey_[A-Za-z0-9_-]{8,}")
 
   /** Trimmed name, or `INVALID_NAME` (the same rule Memory enforces). */
   fun name(raw: String?): String {

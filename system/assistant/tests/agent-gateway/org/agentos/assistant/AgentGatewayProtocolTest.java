@@ -137,6 +137,8 @@ public final class AgentGatewayProtocolTest {
         rejects(() -> AgentGatewayProtocol.request("connectChatGpt", "{\"url\":\"https://example.com\"}"));
         check(AgentGatewayProtocol.request("cancelChatGpt", "{}").length() == 0);
         check(AgentGatewayProtocol.request("readJev", "{}").length() == 0);
+        check(AgentGatewayProtocol.request("enableJev", "{}").length() == 0);
+        rejects(() -> AgentGatewayProtocol.request("enableJev", "{\"model\":\"x\"}"));
         check(AgentGatewayProtocol.request("connectJev", "{\"key\":\"sk-or-v1-abc\"}").getString("key").equals("sk-or-v1-abc"));
         rejects(() -> AgentGatewayProtocol.request("connectJev", "{}"));
         rejects(() -> AgentGatewayProtocol.request("connectJev", "{\"key\":\"\"}"));
