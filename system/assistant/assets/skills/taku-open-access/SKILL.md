@@ -136,11 +136,17 @@ This root service can run arbitrary plugin code accessible to local callers;
 use only on an isolated development device.
 
 Run on the device, without the `adb shell` prefix. A response contains JSON in
-`Bundle[{result=...}]`; check `ok` before using `result`. These endpoints are
-open to device-local callers. The native runtime and Memory app remain the source
+`Bundle[{result=...}]`; check `ok` before using `result`. System/Agent/ADB shell
+callers (`UID 0 / 1000 / 2000`) pass through directly; third-party Android apps
+(`UID >= 10000`) are governed by `content://org.agentos.assistant.permissions`
+(default mode `deny`). The native runtime and Memory app remain the source
 of truth. Values may contain personal data.
 
 ```sh
+# Third-party App Permission Center snapshot and non-escalating mode controls
+# Note: in `manual` mode, per-app grants and mode escalation are locked to the Taku AI UI (`MANUAL_MODE_LOCKED`).
+content call --uri content://org.agentos.assistant.permissions --method read --arg '{}'
+content call --uri content://org.agentos.assistant.permissions --method setMode --arg '{"mode":"deny"}'
 # Skill list, enabled state, provenance commit and content hash
 content call --uri content://org.agentos.assistant.open-access --method skills/read --arg '{}'
 # Install, enable, upgrade, rollback or uninstall a managed skill using the

@@ -21,7 +21,21 @@ import {
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
+import { useLocales } from "expo-localization";
 import { callAgent, closeAgent } from "../native/agent";
+import { languageFor } from "../i18n";
+import { permissionTextFor } from "../i18n/permissions";
+import {
+  systemAiTextFor,
+  type SystemAiScene,
+  type SystemAiText,
+} from "../i18n/systemAi";
+import {
+  hasAnyGrant,
+  rootExposure,
+  type AppPermissionsSnapshot,
+} from "../model/appPermissions";
+import { createNativeAppPermissionsRepository } from "../model/appPermissionsRepository";
 import { useTakuFonts } from "../theme/useTakuFonts";
 import { colors } from "../theme";
 
@@ -41,28 +55,17 @@ type State = {
   groups: Group[];
   bindings: Record<string, string>;
 };
-const features = [
-  { scene: "assistant", title: "Main assistant" },
-  {
-    scene: "ime.vision",
-    title: "Input method vision",
-  },
-  { scene: "screen", title: "Screen reading" },
-  { scene: "memory.text", title: "Memory" },
-  { scene: "jev", title: "Jev" },
-  {
-    scene: "org.agentos.assistant.text",
-    title: "App text processing",
-  },
+const featureScenes: { scene: SystemAiScene; icon: string }[] = [
+  { scene: "assistant", icon: "assistant" },
+  { scene: "ime.vision", icon: "vision" },
+  { scene: "screen", icon: "screen" },
+  { scene: "memory.text", icon: "memory" },
+  { scene: "jev", icon: "jev" },
+  { scene: "org.agentos.assistant.text", icon: "text" },
 ];
-const builtInNames: Record<string, string> = {
-  "route-memory": "Text model",
-  "route-vision": "Vision model",
-  "route-assistant": "Main assistant model",
-  "taku-memory-jev": "Taku Memory",
-};
-function groupName(group: Group): string {
-  if (builtInNames[group.id]) return builtInNames[group.id];
+function groupName(group: Group, t: SystemAiText): string {
+  const builtIn = t.builtInGroup(group.id);
+  if (builtIn) return builtIn;
   const name = group.name?.trim();
   if (
     !name ||
@@ -72,14 +75,14 @@ function groupName(group: Group): string {
     name.startsWith("Legacy route") ||
     /^route[-/]/.test(name)
   )
-    return "Custom model group";
+    return t("customModelGroup");
   return name;
 }
-function modelName(id: string, models: Model[]): string {
+function modelName(id: string, models: Model[], t: SystemAiText): string {
   const name = models.find((m) => m.id === id)?.name;
   if (name && name !== id && !name.includes("/")) return name;
   const last = id.split("/").pop() || "";
-  if (!last || /^(local|model)$/i.test(last)) return "Unnamed model";
+  if (!last || /^(local|model)$/i.test(last)) return t("unnamedModel");
   return last
     .replace(/[-_]+/g, " ")
     .replace(/\b\w/g, (c) => c.toUpperCase())
@@ -89,10 +92,10 @@ function findGroup(state: State, scene: string) {
   const id = state.bindings[scene]?.replace(/^group\//, "");
   return state.groups.find((g) => g.id === id);
 }
-function featureGroup(state: State, scene: string) {
-  if (!state.bindings[scene]) return "No model group selected";
+function featureGroup(state: State, scene: string, t: SystemAiText) {
+  if (!state.bindings[scene]) return t("noModelGroupSelected");
   const group = findGroup(state, scene);
-  return group ? groupName(group) : "Model group unavailable";
+  return group ? groupName(group, t) : t("modelGroupUnavailable");
 }
 function compatible(scene: string | null, group: Group, models: Model[]) {
   const model = models?.find((item) => item.id === `group/${group.id}`);
@@ -158,7 +161,7 @@ function Row({
   palette,
   trailing = "›",
   icon,
-  paused,
+  pausedLabel,
   issue,
 }: {
   title: string;
@@ -167,7 +170,7 @@ function Row({
   palette: Palette;
   trailing?: string;
   icon?: string;
-  paused?: boolean;
+  pausedLabel?: string;
   issue?: string;
 }) {
   return (
@@ -195,7 +198,7 @@ function Row({
           </View>
         ) : null}
       </View>
-      {paused ? <View style={[styles.badge, { backgroundColor: palette.soft }]}><Label color={palette.sub} size={12}>Paused</Label></View> : null}
+      {pausedLabel ? <View style={[styles.badge, { backgroundColor: palette.soft }]}><Label color={palette.sub} size={12}>{pausedLabel}</Label></View> : null}
       {trailing ? <Label color={trailing === "✓" ? colors.brand : palette.sub} size={23}>{trailing}</Label> : null}
     </Pressable>
   );
@@ -210,6 +213,7 @@ function FeatureIcon({ name, color }: { name: string; color: string }) {
     jev: <><Circle cx="12" cy="12" r="8" /><Path d="m9 12 2 2 4-5" /></>,
     text: <Path d="M4 5h16M12 5v14M8 19h8M5 9v-4M19 9v-4" />,
     manage: <><Rect x="4" y="4" width="16" height="16" rx="3" /><Path d="M8 9h8M8 13h8M8 17h5" /></>,
+    shield: <><Path d="M12 3 5 6v5c0 4.5 3 8.3 7 10 4-1.7 7-5.5 7-10V6l-7-3Z" /><Path d="m9 12 2 2 4-4" /></>,
   };
   return <Svg width={24} height={24} viewBox="0 0 24 24" {...common}>{paths[name]}</Svg>;
 }
@@ -218,9 +222,16 @@ export default function SystemAiScreen() {
   const [fonts, fontError] = useTakuFonts();
   const insets = useSafeAreaInsets();
   const palette = useColorScheme() === "dark" ? dark : light;
+  const language = languageFor(useLocales()[0]?.languageTag);
+  const t = systemAiTextFor(language);
+  const permissionText = permissionTextFor(language);
+  const [permissions, setPermissions] = useState<AppPermissionsSnapshot | null>(null);
+  const [permissionRepository] = useState(() =>
+    createNativeAppPermissionsRepository((action, params) => callAgent(action, params)),
+  );
   const [data, setData] = useState<State | null>(null),
     [error, setError] = useState(false),
-    [scene, setScene] = useState<string | null>(null),
+    [scene, setScene] = useState<SystemAiScene | null>(null),
     [busy, setBusy] = useState(false),
     [undo, setUndo] = useState<Record<string, unknown> | null>(null);
   const mounted = useRef(true),
@@ -266,6 +277,40 @@ export default function SystemAiScreen() {
       sub.remove();
     };
   }, [refresh]);
+  useEffect(() => {
+    let active = true;
+    // Summary for the App permissions entry. Without a snapshot (older system, gateway offline)
+    // the entry falls back to its static subtitle; the permissions screen explains the failure.
+    const readPermissions = () => {
+      void permissionRepository.read().then((result) => {
+        if (active && result.ok) setPermissions(result.value);
+      });
+    };
+    readPermissions();
+    const sub = AppState.addEventListener("change", (s) => {
+      if (s === "active") readPermissions();
+    });
+    return () => {
+      active = false;
+      sub.remove();
+    };
+  }, [permissionRepository]);
+  const permissionSummary = permissions
+    ? [
+        permissionText.mode(permissions.mode),
+        permissions.apps.some((app) => hasAnyGrant(app.effectiveScopes))
+          ? permissionText("entryAllowed", {
+              n: permissions.apps.filter((app) => hasAnyGrant(app.effectiveScopes)).length,
+            })
+          : null,
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : permissionText("entrySubtitle");
+  const permissionIssue =
+    permissions && rootExposure(permissions) === "all"
+      ? `${permissionText.mode(permissions.mode)} · ${permissionText("entryRootForAll")}`
+      : undefined;
   const mutate = async (
     action: Parameters<typeof callAgent>[0],
     params: Record<string, unknown>,
@@ -282,14 +327,14 @@ export default function SystemAiScreen() {
       if (result.undo) setUndo(result.undo);
       else
         ToastAndroid.show(
-          action === "restoreSystemAi" ? "Undone" : "Updated",
+          action === "restoreSystemAi" ? t("undone") : t("updated"),
           ToastAndroid.SHORT,
         );
       return true;
     } catch (e) {
       const msg = String(e).includes("ASSISTANT_MODE_NOT_MAGPIE")
-        ? "Switch the main assistant to a model service first"
-        : "Update failed. Check the current settings and retry";
+        ? t("switchAssistantFirst")
+        : t("updateFailed");
       ToastAndroid.show(msg, ToastAndroid.LONG);
       return false;
     } finally {
@@ -308,7 +353,7 @@ export default function SystemAiScreen() {
   }, [router]);
   const openManagement = async () => {
     try { await callAgent("openMagpieManagement"); }
-    catch { ToastAndroid.show("Could not open Magpie management. Retry later", ToastAndroid.LONG); }
+    catch { ToastAndroid.show(t("openMagpieFailed"), ToastAndroid.LONG); }
   };
   useEffect(() => {
     const sub = BackHandler.addEventListener("hardwareBackPress", () => {
@@ -326,7 +371,7 @@ export default function SystemAiScreen() {
       <SafeAreaView style={[styles.center, { backgroundColor: palette.bg }]}>
         <ActivityIndicator color={colors.brand} />
         <Label color={palette.sub} style={{ marginTop: 12 }}>
-          Reading settings…
+          {t("readingSettings")}
         </Label>
       </SafeAreaView>
     );
@@ -334,13 +379,13 @@ export default function SystemAiScreen() {
     return (
       <SafeAreaView style={[styles.center, { backgroundColor: palette.bg }]}>
         <Label color={palette.ink} medium>
-          System AI is temporarily unavailable
+          {t("unavailableTitle")}
         </Label>
         <Label color={palette.sub} size={14} style={{ marginTop: 8 }}>
-          Check the system service and retry
+          {t("unavailableBody")}
         </Label>
         <Pressable onPress={() => void refresh()} style={styles.retry}>
-          <Label color={palette.ink}>Retry</Label>
+          <Label color={palette.ink}>{t("retry")}</Label>
         </Pressable>
       </SafeAreaView>
     );
@@ -356,13 +401,13 @@ export default function SystemAiScreen() {
         <Pressable
           onPress={back}
           accessibilityRole="button"
-          accessibilityLabel="Back"
+          accessibilityLabel={t("back")}
           style={styles.back}
         >
           <Text style={{ fontSize: 28, color: palette.ink }}>‹</Text>
         </Pressable>
         <Label color={palette.ink} size={22} medium style={{ flex: 1 }}>
-          Taku AI
+          {t("title")}
         </Label>
       </View>
       <ScrollView contentContainerStyle={styles.content}>
@@ -372,7 +417,7 @@ export default function SystemAiScreen() {
             style={{ marginBottom: 16 }}
           >
             <Label color="#CC2A4A" size={13}>
-              Could not refresh. Showing the last settings read. Tap to retry.
+              {t("refreshFailed")}
             </Label>
           </Pressable>
         )}
@@ -380,10 +425,10 @@ export default function SystemAiScreen() {
               <View style={styles.switchRow}>
                 <View style={{ flex: 1, gap: 4 }}>
                   <Label color={palette.ink} medium>
-                    Enable Taku AI
+                    {t("enableTitle")}
                   </Label>
                   <Label color={palette.sub} size={13}>
-                    Turning off pauses new AI requests
+                    {t("enableSubtitle")}
                   </Label>
                 </View>
                 <Switch
@@ -397,42 +442,52 @@ export default function SystemAiScreen() {
                 />
               </View>
             </View>
+            <View style={[styles.card, styles.manage, { backgroundColor: palette.card }]}>
+              <Row
+                palette={palette}
+                title={permissionText("title")}
+                sub={permissionSummary}
+                issue={permissionIssue}
+                icon="shield"
+                onPress={() => router.push("/app-permissions")}
+              />
+            </View>
             <View style={styles.section}>
               <Label color={palette.ink} size={18} medium>
-                Features
+                {t("featuresTitle")}
               </Label>
               <Label color={palette.sub} size={13} style={{ marginTop: 4 }}>
-                Choose a model group for each feature. Changes apply immediately.
+                {t("featuresSubtitle")}
               </Label>
             </View>
             <View style={[styles.card, { backgroundColor: palette.card }]}>
-              {features.map((f, i) => (
+              {featureScenes.map((f) => (
                 <Row
                   key={f.scene}
                   palette={palette}
-                  title={f.title}
+                  title={t.scene(f.scene)}
                   sub={
                     f.scene === "assistant" && data.assistantMode !== "magpie"
                       ? data.assistantMode === "openai"
-                        ? "ChatGPT subscription"
-                        : featureGroup(data, f.scene)
-                      : featureGroup(data, f.scene)
+                        ? t("chatGptSubscription")
+                        : featureGroup(data, f.scene, t)
+                      : featureGroup(data, f.scene, t)
                   }
-                  icon={["assistant", "vision", "screen", "memory", "jev", "text"][i]}
-                  paused={f.scene === "jev" && !data.jevEnabled}
-                  issue={data.bindings[f.scene] && !findGroup(data, f.scene) && !(f.scene === "assistant" && data.assistantMode !== "magpie") ? "Model group unavailable" : undefined}
+                  icon={f.icon}
+                  pausedLabel={f.scene === "jev" && !data.jevEnabled ? t("paused") : undefined}
+                  issue={data.bindings[f.scene] && !findGroup(data, f.scene) && !(f.scene === "assistant" && data.assistantMode !== "magpie") ? t("modelGroupUnavailable") : undefined}
                   onPress={() => {
                     if (
                       f.scene === "assistant" &&
                       data.assistantMode !== "magpie"
                     ) {
                       Alert.alert(
-                        "The main assistant currently uses a ChatGPT subscription",
-                        "Switch to a model service in Main assistant connection before selecting a model.",
+                        t("subscriptionAlertTitle"),
+                        t("subscriptionAlertBody"),
                         [
-                          { text: "Cancel", style: "cancel" },
+                          { text: t("cancel"), style: "cancel" },
                           {
-                            text: "Open connection",
+                            text: t("openConnection"),
                             onPress: () =>
                               void callAgent("openAssistantConnection"),
                           },
@@ -446,8 +501,8 @@ export default function SystemAiScreen() {
             <View style={[styles.card, styles.manage, { backgroundColor: palette.card }]}>
               <Row
                 palette={palette}
-                title="Manage models and providers"
-                sub="Configure models, providers, and model groups in Magpie"
+                title={t("manageTitle")}
+                sub={t("manageSubtitle")}
                 icon="manage"
                 onPress={() => void openManagement()}
               />
@@ -461,7 +516,7 @@ export default function SystemAiScreen() {
           ]}
         >
           <Label color={palette.bg} size={14} style={{ flex: 1 }}>
-            Updated
+            {t("updated")}
           </Label>
           <Pressable
             accessibilityRole="button"
@@ -472,7 +527,7 @@ export default function SystemAiScreen() {
             }}
           >
             <Label color={palette.bg} medium>
-              Undo
+              {t("undo")}
             </Label>
           </Pressable>
         </View>
@@ -496,14 +551,14 @@ export default function SystemAiScreen() {
           >
             <View style={[styles.grabber, { backgroundColor: palette.line }]} />
             <Label color={palette.ink} size={20} medium>
-              Select model group
+              {t("selectModelGroup")}
             </Label>
             <Label
               color={palette.sub}
               size={14}
               style={{ marginTop: 5, marginBottom: 16 }}
             >
-              {features.find((f) => f.scene === scene)?.title} · Applies immediately after selection
+              {scene ? t.scene(scene) : ""} · {t("appliesImmediately")}
             </Label>
             <ScrollView style={{ maxHeight: 420 }}>
               {data.groups.some((g) => compatible(scene, g, data.models)) ? (
@@ -513,7 +568,7 @@ export default function SystemAiScreen() {
                     if (target) void mutate("bindSystemAi", { scene: target, group: g.id });
                   }} style={[styles.sheetGroup, { borderBottomColor: palette.line }]}>
                     <View style={{ flexDirection: "row", alignItems: "center" }}>
-                      <Label color={palette.ink} medium style={{ flex: 1 }}>{groupName(g)}</Label>
+                      <Label color={palette.ink} medium style={{ flex: 1 }}>{groupName(g, t)}</Label>
                       {findGroup(data, scene || "")?.id === g.id ? <Label color={colors.brand} size={22}>✓</Label> : null}
                     </View>
                     <View style={styles.sheetChips}>
@@ -521,26 +576,26 @@ export default function SystemAiScreen() {
                         <React.Fragment key={`${m}-${i}`}>
                           {i > 0 ? <Label color={palette.sub} size={14}>→</Label> : null}
                           <View style={[styles.sheetChip, { backgroundColor: palette.soft }]}>
-                            <Label color={palette.sub} size={12}>{modelName(m, data.models)}</Label>
+                            <Label color={palette.sub} size={12}>{modelName(m, data.models, t)}</Label>
                           </View>
                         </React.Fragment>
-                      )) : <Label color={palette.sub} size={13}>No models</Label>}
+                      )) : <Label color={palette.sub} size={13}>{t("noModels")}</Label>}
                     </View>
                   </Pressable>
                 ))
               ) : (
                 <View style={styles.empty}>
                   <Label color={palette.ink} medium>
-                    No available model groups
+                    {t("noAvailableGroupsTitle")}
                   </Label>
                   <Label color={palette.sub} size={13}>
-                    Configure a model group supporting this feature in Magpie.
+                    {t("noAvailableGroupsBody")}
                   </Label>
                 </View>
               )}
             </ScrollView>
             <Pressable accessibilityRole="button" style={styles.managementLink} onPress={() => { setScene(null); void openManagement(); }}>
-              <Label color={palette.ink} medium>Manage models and providers  ›</Label>
+              <Label color={palette.ink} medium>{t("manageLink")}</Label>
             </Pressable>
           </View>
         </View>

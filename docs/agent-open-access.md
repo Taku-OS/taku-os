@@ -20,12 +20,32 @@ requirement applies to new features. Built-in skills do not overwrite an existin
 installed, so updating preinstalled documentation still needs a migration path.
 See [current status](current-status.md) for what has been verified.
 
-## Device-local trust boundary and remaining risks
+## Caller trust boundary and App Permission Center
 
-The open interfaces intentionally do not distinguish platform-signed Agents,
-shell callers, and other installed device-local applications. This follows the
-engineering contract, not Android's usual separation of unrelated app data.
-They are **not safe to describe as restricted to trusted apps**. In particular:
+Agent and developer CLI callers (`UID 0` root, `UID 1000` system, `UID 2000` ADB
+shell, and platform-signed first-party Taku components) pass through directly to
+these interfaces. Ordinary third-party Android applications (`UID >= 10000`
+without the platform signing certificate) are governed by the central **App
+Permission Center** (`content://org.agentos.assistant.permissions`, persisted at
+`/data/local/agentos/ai/app-permissions.json`, UI in `Taku AI -> App
+Permissions`):
+
+- **`deny` (default)**: rejects all ungranted third-party app access across
+  `memory.read`, `memory.write`, `taku.control`, and `taku.root` (including the
+  `\0taku-godmode` and `\0taku-agent-native` local sockets).
+- **`manual`**: requires explicit user toggles in the App Permissions UI per
+  `(packageName, certSha256)`; CLI callers cannot escalate out of `manual` mode
+  or modify per-app grants (`MANUAL_MODE_LOCKED`).
+- **`auto`**: evaluates non-root requests (`memory.read`, `taku.control`) via
+  deterministic package checks and bounded model review cached per APK
+  fingerprint; `memory.write` and `taku.root` remain manual-only.
+- **`yolo`**: grants `memory.read`, `memory.write`, and `taku.control` to
+  installed apps, while `taku.root` stays gated behind an independent opt-in
+  `allowRootInYolo` toggle. Global settings mutations (`Memory` `configure`,
+  `SystemAi` `configure`, `Audio` `fal` credential replacement) remain restricted
+  to the trusted system/Agent/GUI plane in every mode.
+
+When authorized under an active mode or grant, the following surfaces are exposed:
 
 | Interface | Read/write surface available to any device-local caller |
 | --- | --- |

@@ -16,6 +16,9 @@ export const colors = {
   peach: token('color-peach'), lavender: token('color-lavender'), mist: token('color-mist'), rose: token('color-rose'), sand: token('color-sand'),
   brand: token('color-brand'), error: token('semantic-status-error'), errorSurface: token('semantic-status-error-surface'),
   success: token('semantic-status-success-strong'), white: token('color-surface'),
+  // Status dots (status.md) and the off track of the DS switch drawing (controls/switch-off.svg).
+  attention: token('semantic-status-attention'), successDot: token('semantic-status-success'), switchOff: token('content-300'),
+  overlay: token('color-overlay'),
 };
 export const layout = {gutter: 16, gap: 12, touch: 48, glyph: 20, radius: 16, buttonRadius: 6};
 export type TypeRole = 'heading' | 'context' | 'body' | 'label' | 'meta' | 'caption';

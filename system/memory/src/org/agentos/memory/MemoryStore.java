@@ -133,7 +133,11 @@ final class MemoryStore extends SQLiteOpenHelper {
   * org.agentos.agent, whose feed shows memory's own reminder cards and whose chat holds what Taku said), the system display
   * and System UI. Recording them would feed memory its own output.
   */
- static final Set<String> NEVER_OBSERVED=Set.of("org.agentos.memory","org.agentos.assistant","org.agentos.agent","org.agentos.surfaces","com.android.systemui");
+ static final Set<String> NEVER_OBSERVED=Set.of(
+  "org.agentos.memory","org.agentos.assistant","org.agentos.agent","org.agentos.surfaces","com.android.systemui",
+  "com.android.settings","com.google.android.gms","com.android.vending",
+  "com.google.android.apps.authenticator2","com.azure.authenticator","com.authy.authy",
+  "com.onepassword.android","com.bitwarden.mobile","com.proton.android.pass");
  boolean observing(String source){return prefs.getBoolean("enabled",false)&&sourceAllowed(source)&&!NEVER_OBSERVED.contains(source);}
  static String digest(String text)throws Exception{byte[] b=MessageDigest.getInstance("SHA-256").digest(text.getBytes(StandardCharsets.UTF_8));StringBuilder s=new StringBuilder();for(byte v:b)s.append(String.format(Locale.ROOT,"%02x",v));return s.toString();}
  static String bounded(String s,int n){return s==null?"":s.substring(0,Math.min(n,s.length()));}

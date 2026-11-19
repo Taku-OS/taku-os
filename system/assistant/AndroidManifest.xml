@@ -38,6 +38,7 @@
   </receiver>
   <receiver android:name=".JevTestTrigger" android:exported="true" android:permission="android.permission.DUMP"/>
   <provider android:name=".AgentOpenAccessProvider" android:authorities="org.agentos.assistant.open-access" android:exported="true"/>
+  <provider android:name=".AppPermissionProvider" android:authorities="org.agentos.assistant.permissions" android:exported="true"/>
   <provider android:name=".MemoryGatewayProvider" android:authorities="org.agentos.assistant.memory-gateway" android:permission="org.agentos.memory.ACCESS_MEMORY" android:exported="true"/>
   <provider android:name=".AgentGatewayProvider" android:authorities="org.agentos.assistant.agent-gateway" android:permission="org.agentos.permission.AGENT_CLIENT" android:exported="true" android:grantUriPermissions="false"/>
   <provider android:name=".ImeReplyProvider" android:authorities="org.agentos.assistant.ime-replies" android:permission="org.agentos.assistant.permission.IME_REPLIES" android:exported="true"/>

@@ -22,7 +22,8 @@ internal class AgentGatewayProtocol private constructor() {
             "resumeThread", "sendMessage", "steer", "interrupt", "answer", "getWorkspaces",
             "openWorkspace", "openSettings", "cancelQueued", "openNativeConversation", "subscribeSession", "unsubscribeSession",
             "decide", "generateUi", "mainReply", "panels", "cardView", "readMatter", "subscribeMatter", "unsubscribeMatter", "dispatchMatter", "analyzeCameraFrame", "audioCapabilities", "audioCommand",
-            "readSystemAi", "setSystemAi", "bindSystemAi", "bindSystemAiModel", "reorderSystemAi", "restoreSystemAi", "deleteSystemAiGroup", "openAssistantConnection", "openMagpieManagement", "pluginManager")
+            "readSystemAi", "setSystemAi", "bindSystemAi", "bindSystemAiModel", "reorderSystemAi", "restoreSystemAi", "deleteSystemAiGroup", "openAssistantConnection", "openMagpieManagement", "pluginManager",
+            "readAppPermissions", "setAppPermissionMode", "setAppPermissionScope", "resetAppPermission")
         @JvmField val QUESTIONS: Set<String> = java.util.Set.of("phone/askUser", "phone/confirmAction",
             "phone/action/requestApproval", "item/tool/requestUserInput")
         private val SECRET_KEYS: Set<String> = java.util.Set.of("accesstoken", "refreshtoken", "idtoken",
@@ -75,6 +76,10 @@ internal class AgentGatewayProtocol private constructor() {
                 "reorderSystemAi" -> java.util.Set.of("group", "members")
                 "restoreSystemAi" -> java.util.Set.of("undo")
                 "deleteSystemAiGroup" -> java.util.Set.of("group")
+                "readAppPermissions" -> java.util.Set.of("query")
+                "setAppPermissionMode" -> java.util.Set.of("mode", "allowRootInYolo")
+                "setAppPermissionScope" -> java.util.Set.of("packageName", "scope", "allowed")
+                "resetAppPermission" -> java.util.Set.of("packageName")
                 else -> java.util.Set.of()
             }
             val keys = input.keys()
