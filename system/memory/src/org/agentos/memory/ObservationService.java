@@ -48,7 +48,7 @@ public final class ObservationService extends AccessibilityService {
   if((n.flags&(android.app.Notification.FLAG_ONGOING_EVENT|android.app.Notification.FLAG_FOREGROUND_SERVICE|android.app.Notification.FLAG_GROUP_SUMMARY))!=0||n.visibility==android.app.Notification.VISIBILITY_SECRET)return;
   Bundle x=n.extras;if(x==null)return;CharSequence title=x.getCharSequence(android.app.Notification.EXTRA_TITLE),text=x.getCharSequence(android.app.Notification.EXTRA_BIG_TEXT);if(text==null)text=x.getCharSequence(android.app.Notification.EXTRA_TEXT);
   String t=title==null?"":title.toString().trim(),b=text==null?"":text.toString().trim();if(b.isEmpty())return;
-  String body=(t.isEmpty()?"":t+"\n")+b;if(body.matches("(?s).*(sk-[A-Za-z0-9_-]{20,}|Bearer [A-Za-z0-9._-]{20,}|验证码|校验码|动态码|verification code|one-time).*"))return;
+  String body=(t.isEmpty()?"":t+"\n")+b;if(body.matches("(?s).*(sk-[A-Za-z0-9_-]{20,}|Bearer [A-Za-z0-9._-]{20,}|\\bG-\\d{6}\\b|验证码|校验码|动态码|認証コード|確認コード|(?i:verification code|security code|authentication code|2-step verification|one-time)).*"))return;
   long generation=store.prefs.getLong("generation",0);String label=t.isEmpty()?pkg:t;
   notes.execute(()->{try{store.ingest(pkg,"notification",label,body,generation);}catch(Exception failed){store.failed("Notification",failed);}});
  }
@@ -60,7 +60,7 @@ public final class ObservationService extends AccessibilityService {
   for(AccessibilityWindowInfo w:getWindows())if(w.getId()==id&&w.getDisplayId()==0&&w.isActive()){mainWindow=true;title=String.valueOf(w.getTitle()==null?source:w.getTitle());break;}
   if(!mainWindow)return null;
   StringBuilder text=new StringBuilder();int[] count={0};boolean[] sensitive={false};collect(root,text,count,sensitive,0);
-  String body=text.toString().trim();if(sensitive[0]||body.length()<16||body.matches("(?s).*(sk-[A-Za-z0-9_-]{20,}|Bearer [A-Za-z0-9._-]{20,}).*"))return null;
+  String body=text.toString().trim();if(sensitive[0]||body.length()<16||body.matches("(?s).*(sk-[A-Za-z0-9_-]{20,}|Bearer [A-Za-z0-9._-]{20,}|\\bG-\\d{6}\\b|(?i:verification code|security code|authentication code)).*"))return null;
   String documentTitle=webTitle(root,new int[]{0},0);if(!documentTitle.isEmpty()&&Arrays.asList(body.split("\\n")).contains(documentTitle))title=documentTitle;
   return new Page(source,title,body,id);
  }

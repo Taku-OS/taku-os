@@ -20,6 +20,12 @@ class HomeLayoutProvider : ContentProvider() {
 
   override fun call(method: String, arg: String?, extras: Bundle?): Bundle {
     val out = Bundle()
+    val callerUid = Binder.getCallingUid()
+    val appCtx = context
+    if (appCtx != null && !org.agentos.agent.home.TakuCallerAccess.isAllowed(appCtx, callerUid)) {
+      out.putString("result", JSONObject().put("ok", false).put("code", "PERMISSION_DENIED").put("message", "Home layout access denied by App Permission Center").toString())
+      return out
+    }
     val identity = Binder.clearCallingIdentity()
     try {
       val ctx = context ?: throw FeedException("UNAVAILABLE", "provider not attached")

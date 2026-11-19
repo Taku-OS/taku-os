@@ -41,10 +41,37 @@ public final class AgentOpenAccessProvider extends ContentProvider {
         boolean opened;
         Payload(int uid, byte[] bytes) { this.uid = uid; this.bytes = bytes; }
     }
+    private static final Set<String> ROOT_MUTATIONS = new HashSet<>(Arrays.asList(
+        "plugin/install", "plugin/uninstall", "config/value/write", "config/mcpServer/reload",
+        "skills/set-enabled", "skills/community/install", "skills/community/uninstall",
+        "skills/community/upgrade", "skills/community/rollback"));
     @Override public boolean onCreate() { return true; }
     @Override public Bundle call(String method, String arg, Bundle extras) {
         Bundle out = new Bundle();
         int caller = Binder.getCallingUid();
+        if (method == null || method.isEmpty()) {
+            out.putString("result", error("INVALID_ARGUMENT").toString());
+            return out;
+        }
+        android.content.Context ctx = getContext();
+        if (ctx == null) {
+            out.putString("result", error("SOURCE_UNAVAILABLE").toString());
+            return out;
+        }
+        if (method.equals("workspaces/list") || method.equals("workspaces/configure") || method.equals("workspaces/release")) {
+            if (caller != 0 && caller != android.os.Process.SYSTEM_UID && caller != android.os.Process.SHELL_UID) {
+                out.putString("result", error("WORKSPACE_PERMISSION_DENIED").toString());
+                return out;
+            }
+        } else {
+            String requiredScope = ROOT_MUTATIONS.contains(method)
+                    ? AppPermissionCatalog.SCOPE_TAKU_ROOT
+                    : AppPermissionCatalog.SCOPE_TAKU_CONTROL;
+            if (!AppPermissionProvider.isAllowedLocal(ctx, caller, requiredScope)) {
+                out.putString("result", error("PERMISSION_DENIED").toString());
+                return out;
+            }
+        }
         long identity = Binder.clearCallingIdentity();
         JSONObject envelope;
         try {

@@ -21,6 +21,12 @@ class HomeFeedProvider : ContentProvider() {
 
   override fun call(method: String, arg: String?, extras: Bundle?): Bundle {
     val out = Bundle()
+    val callerUid = Binder.getCallingUid()
+    val appCtx = context
+    if (appCtx != null && !org.agentos.agent.home.TakuCallerAccess.isAllowed(appCtx, callerUid)) {
+      out.putString("result", JSONObject().put("ok", false).put("code", "PERMISSION_DENIED").put("message", "Home feed access denied by App Permission Center").toString())
+      return out
+    }
     val identity = Binder.clearCallingIdentity()
     try {
       val ctx = context ?: throw FeedException("UNAVAILABLE", "provider not attached")
@@ -81,6 +87,11 @@ class HomeFeedProvider : ContentProvider() {
     org.agentos.agent.home.MainThread.call(onTimeout = { FeedException("TIMEOUT", "main thread busy") }, block = block)
 
   override fun openFile(uri: Uri, mode: String): ParcelFileDescriptor {
+    val callerUid = Binder.getCallingUid()
+    val appCtx = context
+    if (appCtx != null && !org.agentos.agent.home.TakuCallerAccess.isAllowed(appCtx, callerUid)) {
+      throw FileNotFoundException("PERMISSION_DENIED: Home feed events denied by App Permission Center")
+    }
     val identity = Binder.clearCallingIdentity()
     try {
       if (mode != "r") throw FeedException("INVALID_ARGUMENT", "Feed events are read-only")
