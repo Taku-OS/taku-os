@@ -374,6 +374,60 @@ Discovery/turn preparation updates `taku-open-access/SKILL.md` when it matches t
 
 `workspaces/list` shows `cleanup_failed` with `lastError:"SCREEN_CLEANUP_FAILED"`, `heldApps` and `cleanupRetryDelayMs`. The screen remains reserved. The worker retries after 30 seconds until close is confirmed. Wait and query while `stopping:true,admitted:false,canResume:false`. Empty `packageName` means current page unknown.
 
+## First-run onboarding
+
+Home shows a first-run onboarding card (Figma 1155:527, 1155:619, 1155:846) when **all** hold:
+onboarding is not completed, ChatGPT is not confirmed signed in, and the phone is ready
+(`device_provisioned=1`, this user's `user_setup_complete=1`, user unlocked). It cannot be
+dismissed: while it shows, Home composes only the wallpaper, the empty-Home message and the card
+(no Feed, home pages, status bar or AI entry; assistant intents are ignored). It is not a Feed
+item and is not the SystemUI island, so `feed/list` never contains it.
+
+Progress is per Android user in `Settings.Secure` `taku_onboarding_step`
+(`intro`, `name`, `connect_ai`, `completed`; missing or unknown means `intro`). A factory reset
+clears it, so onboarding runs again. A confirmed ChatGPT sign-in (`account/status`
+`chatgptConnected:true`) writes `completed` from any step, and nothing ever moves it back, so it
+runs once. A ChatGPT sign-out after completion does not restart it. An unknown account state
+(`phase:"loading"`, broker unavailable) never completes it. The name is Memory's `userName`
+(`content://org.agentos.memory.open-access`, unset value `我`); when it is already set, the name
+step is skipped and `connect_ai` is stored.
+
+```sh
+O=content://org.agentos.agent.home-onboarding
+content call --uri $O --method onboarding/get
+# Card actions, with the GUI's validation, in order:
+content call --uri $O --method onboarding/set-up                 # intro → name ("Set up Taku")
+content call --uri $O --method onboarding/submit-name --arg '{"name":"Deki"}'   # name → connect_ai ("Continue")
+content call --uri $O --method onboarding/skip-name              # name → connect_ai ("Later")
+# Agent-only: back to intro (a confirmed ChatGPT sign-in completes it again immediately).
+content call --uri $O --method onboarding/reset
+settings get secure taku_onboarding_step
+```
+
+Every method returns `{ok:true,result}` with the fresh state:
+`{setting, stored, visible, step, hiddenReason, phoneReady, chatgpt, nameSet}`. `step` is the
+card being shown (`null` when hidden). `hiddenReason` is `completed`, `chatgpt_connected` or
+`phone_not_ready`. `chatgpt` is `signed_in`, `signed_out` or `unknown`. `nameSet` is `null` when
+Memory could not be read. Errors are `{ok:false,code,message}`:
+
+| Code | Meaning |
+|---|---|
+| `WRONG_STEP` | The action belongs to another step (for example `submit-name` at `intro`) |
+| `ALREADY_COMPLETED` | Onboarding is completed or ChatGPT is signed in |
+| `PHONE_NOT_READY` | Setup wizard, provisioning or unlock not finished |
+| `INVALID_NAME` | `name` missing, blank after trimming, or over 20 characters (Memory's rule) |
+| `NAME_NOT_SAVED` | Memory rejected or could not save the name; the step does not change |
+| `UNSUPPORTED_PARAMETER` | An argument the method does not take |
+| `SETTINGS_WRITE_FAILED` | `taku_onboarding_step` could not be written |
+| `UNKNOWN_METHOD` | Not one of the methods above |
+
+The `connect_ai` card currently offers **Connect ChatGPT**, which opens the existing ChatGPT
+subscription page (gateway `openSettings {"page":"account"}`, the same page as Taku AI settings →
+ChatGPT subscription). Agents sign in through that same page; the full ChatGPT / Jev / Fal step is
+not implemented yet. A development device that must skip onboarding without ChatGPT can run
+`settings put secure taku_onboarding_step completed` from the shell. That writes the setting
+directly, without the provider's checks.
+
 ## Home feed
 
 ```sh
@@ -737,3 +791,7 @@ first unlock following reboot.
 ### Native assistant card dismissal
 
 Use `cmd statusbar island collapse` for the same presentation dismissal as the accessible Dismiss action or upward swipe. Read back `presentation.card` (null) and `presentation.reason`. Collapse leaves tasks and voice running; use `assistant/voice-cancel` to stop input separately. New explicit interaction increments `assistant/get.expansionRequest`; passive updates honor dismissal. See the installed Taku Island skill for its provider and Quickstep recents.
+
+## Onboarding account status
+
+`taku_call "$D" account/status '{}'` reads the broker account view without its sign-in code or URL. `chatgptConnected` is true only after a confirmed ChatGPT account read; loading means unknown.

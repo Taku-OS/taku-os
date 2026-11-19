@@ -232,6 +232,11 @@ class AgentGatewayProvider : ContentProvider() {
             }
             "readAppPermissions", "setAppPermissionMode", "setAppPermissionScope", "resetAppPermission" ->
                 return AppPermissionUiBridge.execute(context!!, action, input)
+            "readAccount" -> return AccountStatus.read()
+            "openAssistantConnection" -> {
+                if (!AgentFrontendLauncher.openRoute(context!!, "/system-ai?section=connection")) throw IOException("AGENT_UI_UNAVAILABLE")
+                return JSONObject().put("opened", true)
+            }
             "listThreads" -> return AgentGatewayProtocol.clean(TaskRequests.control("thread/list", JSONObject()), 0) as JSONObject
             "createThread" -> {
                 val result = ComposerDelivery.createThread()

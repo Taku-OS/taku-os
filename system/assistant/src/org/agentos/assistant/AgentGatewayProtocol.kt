@@ -49,7 +49,7 @@ internal class AgentGatewayProtocol private constructor() {
             "accounts/read", "accounts/refresh", "accounts/login", "accounts/cancel", "accounts/openMagpie", "accounts/keys", "accounts/removeKey", "accounts/saveKey",
             "requests/list", "requests/read", "requests/respond", "requests/submit", "requests/cancel",
             "decide", "generateUi", "mainReply", "panels", "cardView", "readMatter", "subscribeMatter", "unsubscribeMatter", "dispatchMatter", "analyzeCameraFrame", "audioCapabilities", "audioCommand",
-            "readSystemAi", "setSystemAi", "bindSystemAi", "bindSystemAiModel", "reorderSystemAi", "restoreSystemAi", "deleteSystemAiGroup", "openMagpieManagement", "pluginManager",
+            "readSystemAi", "setSystemAi", "bindSystemAi", "bindSystemAiModel", "reorderSystemAi", "restoreSystemAi", "deleteSystemAiGroup", "openMagpieManagement", "pluginManager", "readAccount", "openAssistantConnection",
             "readAppPermissions", "setAppPermissionMode", "setAppPermissionScope", "resetAppPermission",
             COMPOSER_READ, COMPOSER_WRITE, COMPOSER_IMPORT, COMPOSER_MOVE, COMPOSER_RECEIPT, COMPOSER_ATTACH,
             COMPOSER_REMOVE, COMPOSER_OPTIONS_READ, COMPOSER_OPTIONS_WRITE, COMPOSER_SUBMIT, COMPOSER_SETTLE, COMPOSER_RELEASE,
@@ -317,7 +317,7 @@ internal class AgentGatewayProtocol private constructor() {
                     nonnegativeInteger(cursor, "afterSeq")
                 }
             }
-            if (action == "openSettings" && !java.util.Set.of("models", "system", "workspaces").contains(input.optString("page", "models")))
+            if (action == "openSettings" && !java.util.Set.of("models", "system", "workspaces", "account").contains(input.optString("page", "models")))
                 throw IOException("INVALID_SETTINGS_PAGE")
             if (action == "pluginManager") {
                 val operation = text(input, "operation", 64)

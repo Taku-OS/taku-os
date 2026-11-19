@@ -161,6 +161,7 @@ public final class AgentOpenAccessProvider extends ContentProvider {
                 JSONObject usage = NativeClient.state(input.getString("threadId")).optJSONObject("usage");
                 result = new JSONObject().put("threadId", input.getString("threadId")).put("usage", usage == null ? JSONObject.NULL : usage);
             }
+            else if (method.equals("account/status")) result = AccountStatus.read();
             else if (method.equals("sessions/removals")) result = NativeClient.exchange(input.put("op", "sessionRemovals"));
             else if (method.startsWith("workspaces/")) result = WorkspaceCommands.call(context, method, input, caller);
             else if (method.startsWith("capture/")) result = AssistantCaptureBackend.execute(context, method, input);

@@ -44,6 +44,7 @@ Responses over 256 KiB return `{ok:true,resultUri:"content://org.agentos.assista
 | `openSettings` | `{page?:"models"\|"system"\|"workspaces"}` | `{opened:true}` for the matching Expo page |
 | `readTaskDetail` | `{taskId}` | `{taskId,state,prompt,message}` from the native task store |
 | `manageSystemAi`, `manageAssistant` | `{operation,...fields}` | Shared settings or native management result. See `taku-system-ai-settings` and `taku-open-access`. |
+| `readAccount` | `{}` | `{connected,phase,kind,plan,message,chatgptConnected}` from the broker's RAM account view, without sign-in URL or one-time code; `chatgptConnected` only after `account/read` returned a ChatGPT account, `phase:"loading"` means unknown; `ACCOUNT_UNAVAILABLE` when the broker is unreachable. Agents read the same view with open-access `account/status` |
 | `pluginManager` | `{operation,argument?:string,name?:string,arguments?:object}` | God Mode manager envelope inside the gateway result; see operation and error contract below |
 | `decide` | `{state,questions}` | Jev `{answers}` for 1–64 `choice` questions (one per composition candidate); uses the Agent settings Jev switch and model (`JEV_DISABLED`, `JEV_NOT_CONFIGURED`) |
 | `generateUi` | `{requestId,instructions,prompt,catalogVersion}` | `{text,model,elapsedMs,usage}` from the system text model (consumer `agent-ui`); non-streaming, output is untrusted JSONL the app validates |

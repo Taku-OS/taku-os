@@ -131,6 +131,10 @@ public final class AgentGatewayProtocolTest {
         rejects(() -> AgentGatewayProtocol.request("bindSystemAi", "{\"scene\":\"memory.text\",\"group\":\"memory\",\"credentials\":\"secret\"}"));
         rejects(() -> AgentGatewayProtocol.request("readSystemAi", "{\"command\":\"settings\"}"));
         check(AgentGatewayProtocol.request("openMagpieManagement", "{}").length() == 0);
+        check(AgentGatewayProtocol.request("readAccount", "{}").length() == 0);
+        rejects(() -> AgentGatewayProtocol.request("readAccount", "{\"refreshToken\":true}"));
+        check(AgentGatewayProtocol.request("openSettings", "{\"page\":\"account\"}").getString("page").equals("account"));
+        rejectsWithCode("INVALID_SETTINGS_PAGE", () -> AgentGatewayProtocol.request("openSettings", "{\"page\":\"login\"}"));
         rejects(() -> AgentGatewayProtocol.request("openMagpieManagement", "{\"url\":\"https://example.com\"}"));
         rejectsWithCode("UNSUPPORTED_PLUGIN_OPERATION", () -> AgentGatewayProtocol.request("pluginManager", "{\"operation\":\"rpc\"}"));
         rejectsWithCode("INVALID_argument", () -> AgentGatewayProtocol.request("pluginManager", "{\"operation\":\"show\",\"argument\":\"\"}"));

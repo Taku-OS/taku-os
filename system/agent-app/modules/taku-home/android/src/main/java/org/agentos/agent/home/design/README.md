@@ -27,7 +27,7 @@ same roles, so switching later is a change to `TakuColors.dark` and the `dark` a
 | Lines | `strokeHairline`, `strokeFrosted`, `strokeDropTarget`, `strokeDropTargetActive` |
 | Effects | `scrim`, `scrimLight`, `shadowMenu`, `shadowBadge`, `textGlow`, `edgeFade`, `glassRim`, `dataInk` |
 | Accents | `accentPositive` (green/300), `accentBrand` (brand/200), `accentSend` (Main/Brand) |
-| AI entry / island | `islandSurface` (Content/900), `islandSolid` (camera pill), `islandText`, `islandTextMuted`, `islandInk`, `islandChip`, `islandChipText` — dark in both themes; `voiceAurora` (1-1 blobs), `workingGlow` (1-4 edge) |
+| AI entry / island | `islandSurface` (Content/900), `islandSolid` (camera pill), `islandText`, `islandTextMuted`, `islandInk`, `islandChip`, `islandChipText`, `islandTextStrong`, `islandField`, `islandPlaceholder`, `islandAction`/`islandActionText`, `islandBrand`, `islandActionDisabled`/`islandActionDisabledText` (onboarding card, Figma 1155:527/619/846) — dark in both themes; `voiceAurora` (1-1 blobs), `workingGlow` (1-4 edge) |
 
 ## Components
 

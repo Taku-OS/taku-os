@@ -52,6 +52,8 @@ import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.rememberScrollState
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.agentos.agent.home.ui.effects.Shaders
+import org.agentos.agent.home.onboarding.OnboardingDecision
+import org.agentos.agent.home.ui.onboarding.OnboardingLayer
 
 /** The feed: the leftmost page. */
 const val PAGE_FEED = 0
@@ -68,6 +70,7 @@ internal fun HomeScreen(controller: HomeController, backdrop: Backdrop?, pager: 
   val density = LocalDensity.current
   val gestureBoundary = rememberHomeGestureBoundary(gestures, pager, controller)
   val state by controller.repo.state.collectAsStateWithLifecycle()
+  val onboarding by controller.onboarding.state.collectAsStateWithLifecycle()
   // Ignoring visibility: the expanded Dynamic Island hides the status bar without moving the page.
   val statusInset = with(density) { WindowInsets.statusBarsIgnoringVisibility.getTop(this).toDp() }
   val navInset = with(density) { WindowInsets.navigationBars.getBottom(this).toDp() }
@@ -143,6 +146,15 @@ internal fun HomeScreen(controller: HomeController, backdrop: Backdrop?, pager: 
       }
       kotlinx.coroutines.delay(50)
     }
+  }
+
+  if (onboarding.decision is OnboardingDecision.Show) {
+    // Not a Feed item: the Feed, home pages and AI entry are not composed until it is done.
+    val canvas = TakuTheme.colors.canvas
+    Box(Modifier.fillMaxSize().drawBehind {
+      if (backdrop != null) drawImage(backdrop.sharp, dstSize = IntSize(size.width.toInt(), size.height.toInt())) else drawRect(canvas)
+    }) { OnboardingLayer(onboarding, controller.onboarding) }
+    return
   }
 
   run {

@@ -71,6 +71,8 @@ class HomeController(val context: Context, val repo: FeedRepository, val pool: R
     get() = assistant.state.value.hintExpanded
     set(value) { assistant.setHint(value) }
   var feedOnScreen by mutableStateOf(false)
+  /** First-run onboarding; while it shows, Home renders only the onboarding layer. */
+  val onboarding = org.agentos.agent.home.onboarding.OnboardingRepository.get(context)
   var screenHeight = 0f
   var screenWidth = 0f
   private val workspaceGateway = AgentGateway(context.contentResolver)

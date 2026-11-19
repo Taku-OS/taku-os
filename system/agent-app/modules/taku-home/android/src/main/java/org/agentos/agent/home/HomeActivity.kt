@@ -249,6 +249,8 @@ class HomeActivity : AppCompatActivity(), DefaultHardwareBackBtnHandler {
   private fun requestAssistant(intent: Intent?): Boolean {
     if (intent == null) return false
     if (getSystemService(android.app.KeyguardManager::class.java).isKeyguardLocked) return false
+    // Before onboarding is done there is no usable AI; the card stays the only surface.
+    if (org.agentos.agent.home.onboarding.OnboardingRepository.get(this).state.value.decision is org.agentos.agent.home.onboarding.OnboardingDecision.Show) return false
     val key = org.agentos.agent.home.assistant.SystemAssistantEntry.EXTRA_OPEN
     val voice = intent.action == org.agentos.agent.home.assistant.SystemAssistantEntry.ACTION_VOICE_ASSIST || intent.action == Intent.ACTION_VOICE_COMMAND
     if (intent.getBooleanExtra(key, false) || intent.action == Intent.ACTION_ASSIST || voice) {
@@ -296,6 +298,7 @@ class HomeActivity : AppCompatActivity(), DefaultHardwareBackBtnHandler {
   override fun onResume() {
     super.onResume()
     pool.host?.onHostResume(this, this)
+    org.agentos.agent.home.onboarding.OnboardingRepository.get(this).setForeground(true)
     // Invalidation is only a hint; a resume reads the revision again.
     PanelDirectory.get(this).refresh()
     if (resetOnResume) { resetOnResume = false; homeSignal++ }
@@ -303,6 +306,7 @@ class HomeActivity : AppCompatActivity(), DefaultHardwareBackBtnHandler {
 
   override fun onPause() {
     pool.host?.onHostPause(this)
+    org.agentos.agent.home.onboarding.OnboardingRepository.get(this).setForeground(false)
     super.onPause()
   }
 

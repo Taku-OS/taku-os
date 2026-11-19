@@ -54,6 +54,8 @@ When authorized under an active mode or grant, the following surfaces are expose
 | `org.agentos.agent.home-feed` | Reads cards and event history, including form `values`, and invokes the same card management/actions as the GUI. Event values are not anonymized. |
 | `org.agentos.agent.home-layout` | Reads rendered widget text and invokes enabled widget controls; the receiving widget's PendingIntent may have real effects. |
 | `org.agentos.agent.home-assistant` and `AssistantOverlayActivity` | Opens UI, starts/stops voice, reads transcripts and manages the same session as the GUI. Gesture IDs order pointer events; they are not credentials. Recording continues to depend on Audio Engine availability and Android microphone policy. |
+| `org.agentos.agent.home-onboarding` | Reads first-run progress (`Settings.Secure` `taku_onboarding_step`), ChatGPT sign-in state and whether a name is set; performs the card's own steps (set up, save or skip the name, saving the name to Memory) and can reset onboarding to the intro, which blocks Home again until ChatGPT is signed in. It cannot mark onboarding completed: only a confirmed ChatGPT sign-in does. |
+| `org.agentos.assistant.open-access` / `account/status` | Reads whether ChatGPT is signed in, the plan type and the account phase. The sign-in URL and one-time code are never included. |
 | `org.taku.widgets.data` and `WidgetActionActivity` | Reads media/alarm metadata, invokes media transport and launches the corresponding calendar/alarm/music UI. |
 | `org.taku.weather.data` | Reads cached city/weather, changes location and requests forecast/geocoding. The shared request limits bound ordinary repeated traffic, not malicious process restarts. |
 
