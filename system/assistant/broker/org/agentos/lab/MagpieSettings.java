@@ -27,9 +27,16 @@ final class MagpieSettings {
    JSONObject p=new JSONObject(input.getJSONObject(i).toString());String id=p.getString("id"),ref=p.optString("credentialRef",id);if(ref.isEmpty())ref=id;JSONObject secret=secrets.optJSONObject(ref);
    if(secret==null)secret=new JSONObject();String before=p.toString();MagpieProviderSecrets.split(p,secret);
    if(!before.equals(p.toString())){secrets.put(ref,secret);p.put("credentialRef",ref);}
-   if(models!=null&&p.has("models"))models.put(id,p.remove("models"));clean.put(p);
+   if(models!=null&&p.has("models"))models.put(id,p.remove("models"));completeDecisionEndpoint(p);clean.put(p);
   }
   return clean;
+ }
+ /** Magpie 0.1.2204 treats preset-only records as account picks, not providers.
+  * Fill the official endpoint for new keys and old Settings/runtime records alike.
+  * Preserve any explicit endpoint, credential reference, model picks and routes. */
+ static void completeDecisionEndpoint(JSONObject provider)throws JSONException{
+  if("typesafe".equals(provider.optString("preset"))&&provider.optString("decide").isBlank())
+   provider.put("decide","https://api.typesafe.ai/v1");
  }
  static synchronized void migrate()throws Exception{migrate(SystemAi.SETTINGS,FILE,SECRETS);}
  static void migrate(SystemAiSettings.Store store,File source,File secretFile)throws Exception{
@@ -98,7 +105,8 @@ final class MagpieSettings {
   String id=baseId;int suffix=2;boolean used;do{used=secrets.has(id);for(int i=0;i<providers.length();i++)used|=id.equals(providers.getJSONObject(i).optString("id"));if(used)id=baseId+"-"+suffix++;}while(used);
   secrets.put(id,new JSONObject().put("key",key));save(SECRETS,secrets);
   JSONObject provider=new JSONObject().put("id",id).put("name",name).put("preset",preset);
-  // OpenRouter keeps the explicit endpoints the legacy import always wrote; other presets come from Magpie.
+  // A preset name alone does not expand endpoints when Magpie reads providers.json.
+  completeDecisionEndpoint(provider);
   if("openrouter".equals(preset))provider.put("chat","https://openrouter.ai/api/v1").put("anthropic","https://openrouter.ai/api").put("decide","https://openrouter.ai/api/v1").put("catalog","openrouter");
   providers.put(provider.put("credentialRef",id));
   SystemAi.SETTINGS.put(PROVIDERS,providers.toString());sync();
