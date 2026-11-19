@@ -40,8 +40,9 @@ internal object AiConnections {
      * Starts ChatGPT sign-in through the same broker control as the account page. Switches the
      * assistant from Magpie to ChatGPT first, as the Model connection page does (refused while
      * tasks run); if that sign-in then does not land, Magpie and its model are switched back.
-     * With [open], opens the official page in the browser; with no browser, opens the account
-     * page so the device code can be used. With [returnHome] (the Home onboarding card, never
+     * With [open], a browser sign-in (`chatgpt`) opens the official page in the browser, and a
+     * device-code sign-in (`chatgptDeviceCode`, Home onboarding) or a device with no browser opens
+     * the account page with the one-time code. With [returnHome] (the Home onboarding card, never
      * Agents), brings Home forward once the account connects.
      */
     @JvmStatic

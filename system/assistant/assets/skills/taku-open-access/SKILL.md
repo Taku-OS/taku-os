@@ -414,7 +414,7 @@ content call --uri $O --method onboarding/set-up                 # intro → nam
 content call --uri $O --method onboarding/submit-name --arg '{"name":"Deki"}'   # name → connect_ai ("Continue")
 content call --uri $O --method onboarding/skip-name              # name → connect_ai ("Later")
 # AI step chips (connect_ai only):
-content call --uri $O --method onboarding/connect --arg '{"service":"chatgpt"}'  # opens the official sign-in page
+content call --uri $O --method onboarding/connect --arg '{"service":"chatgpt"}'  # device-code sign-in; opens the account page
 content call --uri $O --method onboarding/cancel-sign-in
 content call --uri $O --method onboarding/connect --arg '{"service":"jev"}'   # use a Jev Magpie already serves
 content call --uri $O --method onboarding/connect --arg '{"service":"jev","key":"apikey_..."}'   # TypeSafe or OpenRouter key
@@ -452,8 +452,11 @@ Memory could not be read. Errors are `{ok:false,code,message}`:
 | `UNKNOWN_METHOD` | Not one of the methods above |
 
 The `connect_ai` card shows three chips (Fal only when Taku Audio is installed). **ChatGPT**
-starts browser sign-in in one tap (`account/login/start` with `open:true`): the card shrinks into
-the camera pill, the island shows "Signing in…" while Home is away and a brief "Connected" when
+starts device-code sign-in in one tap (`account/login/start` with `type:"chatgptDeviceCode"`,
+`open:true`): the card shrinks into the camera pill and the account page opens with the one-time
+code and "Open official authorization page"; the user enters the code on that official page. Accounts without
+device codes can cancel there and use the account page's "Authorize in browser". The island
+shows "Signing in…" while Home is away and a brief "Connected" when
 the account lands, and the assistant brings Home back. Backing out (Cancel sign-in, a failed or
 abandoned sign-in) switches a previous Magpie connection back. **Jev** first switches on a Jev model Magpie
 already serves (`jev/enable`); otherwise it opens a masked key field that takes a TypeSafe

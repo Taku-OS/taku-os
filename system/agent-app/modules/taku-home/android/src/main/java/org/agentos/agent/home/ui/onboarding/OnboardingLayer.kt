@@ -159,7 +159,7 @@ fun BoxScope.OnboardingLayer(state: OnboardingRepository.State, repository: Onbo
 private class OnboardingActions(val context: Context, val repository: OnboardingRepository, val scope: CoroutineScope) {
   var busy by mutableStateOf(false)
     private set
-  /** The card has shrunk into the camera pill while a sign-in is in the browser. */
+  /** The card has shrunk into the camera pill while a sign-in is away from Home. */
   var away by mutableStateOf(false)
   var resumed = true
 
@@ -168,8 +168,9 @@ private class OnboardingActions(val context: Context, val repository: Onboarding
   }
 
   /**
-   * One tap: the card shrinks into the pill and the official ChatGPT page opens; the island
-   * follows the sign-in and the assistant brings Home back when it lands.
+   * One tap: the card shrinks into the pill and the account page opens with a device code to
+   * enter on the official ChatGPT page; the island follows the sign-in and the assistant brings
+   * Home back when it lands.
    */
   fun connectChatGpt() {
     if (busy) return
@@ -379,7 +380,7 @@ private fun NameStep(actions: OnboardingActions) {
 }
 
 /**
- * 1155:1073: the three services as chips. ChatGPT signs in through the official page in one tap;
+ * 1155:1073: the three services as chips. ChatGPT starts device-code sign-in in one tap;
  * Jev (TypeSafe or OpenRouter, configured into Magpie in the background) and Fal keys are pasted
  * right here; a Jev Magpie already serves is switched on without a key. Connecting shows the island's working dots,
  * connected a checkmark (product states; the frame has only the idle chips). Once AI is available

@@ -146,7 +146,7 @@ class OnboardingRepository private constructor(context: Context) {
 
   /**
    * Connects one service from the AI step, through the same operation as its settings page:
-   * ChatGPT opens the official sign-in in the browser; Jev and Fal save the pasted key. Jev with no
+   * ChatGPT starts device-code sign-in and opens the account page with the one-time code; Jev and Fal save the pasted key. Jev with no
    * key switches on a Jev model Magpie already serves (`NO_DECISION_MODEL` when there is none).
    */
   fun connect(service: OnboardingService, rawKey: String? = null): State {
@@ -211,7 +211,7 @@ class OnboardingRepository private constructor(context: Context) {
   }
 
   /**
-   * Follows a sign-in that left Home for the browser: the island shows "Signing in…" while Home
+   * Follows a sign-in that left Home for the account page and the official page: the island shows "Signing in…" while Home
    * is away and a brief "Connected" when it lands. The assistant brings Home back on success.
    */
   private fun watchSignIn() {
