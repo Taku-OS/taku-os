@@ -73,6 +73,19 @@ class HomeController(val context: Context, val repo: FeedRepository, val pool: R
   var feedOnScreen by mutableStateOf(false)
   /** First-run onboarding; while it shows, Home renders only the onboarding layer. */
   val onboarding = org.agentos.agent.home.onboarding.OnboardingRepository.get(context)
+
+  /**
+   * A tap on a Feed card during "You’re all set" is the same as "I’ll explore": onboarding
+   * completes and the card leaves. The tap itself still reaches the card.
+   */
+  fun feedCardTapped() {
+    if (onboarding.state.value.step != org.agentos.agent.home.onboarding.OnboardingStep.ALL_SET) return
+    scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+      // WRONG_STEP: the card's own button or an Agent got there first. Never take Home down.
+      try { onboarding.perform(org.agentos.agent.home.onboarding.OnboardingAction.EXPLORE) }
+      catch (e: Exception) { Log.w(TAG, "explore from Feed failed", e) }
+    }
+  }
   var screenHeight = 0f
   var screenWidth = 0f
   private val workspaceGateway = AgentGateway(context.contentResolver)

@@ -462,16 +462,11 @@ class AssistantSession private constructor(private val context: Context, private
   }
 
   private var hintJob: Job? = null
-  /**
-   * Shows or hides the entry hint (expanded sphere, prismatic glow and "Double tap to type or hold
-   * to talk"). It folds away after 4 s unless [sticky], which onboarding's "You’re all set" uses
-   * to keep the entry open while it introduces it.
-   */
-  fun setHint(expanded: Boolean, sticky: Boolean = false) {
+  fun setHint(expanded: Boolean) {
     if (expanded && state.value.entry != EntryMode.None) throw AssistantException("BUSY", "an input is already open")
     hintJob?.cancel()
     flow.update { it.copy(hintExpanded = expanded) }
-    if (expanded && !sticky) hintJob = scope.launch { delay(4_000); flow.update { it.copy(hintExpanded = false) } }
+    if (expanded) hintJob = scope.launch { delay(4_000); flow.update { it.copy(hintExpanded = false) } }
   }
 
   // ---- Entry and island ---------------------------------------------------------------

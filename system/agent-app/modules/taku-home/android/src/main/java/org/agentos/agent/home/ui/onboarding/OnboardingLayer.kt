@@ -528,8 +528,8 @@ private fun KeyEditor(service: OnboardingService, actions: OnboardingActions, on
 }
 
 /**
- * 1341:782 "You’re all set": over the real Feed, with the AI entry held open below. "I’ll explore"
- * completes onboarding and the card leaves.
+ * 1341:782 "You’re all set": over the real Feed. "I’ll explore", or a tap on any Feed card
+ * ([org.agentos.agent.home.ui.HomeController.feedCardTapped]), completes onboarding and the card leaves.
  */
 @Composable
 private fun AllSetStep(userName: String?, actions: OnboardingActions) {

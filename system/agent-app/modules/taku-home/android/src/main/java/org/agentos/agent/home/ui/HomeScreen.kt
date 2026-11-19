@@ -23,6 +23,7 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
@@ -151,22 +152,16 @@ internal fun HomeScreen(controller: HomeController, backdrop: Backdrop?, pager: 
 
   // Onboarding (never a Feed item). Its first steps take over Home: nothing but the wallpaper, the
   // empty Home and the card is composed. "You’re all set" (Figma 1341:782) puts the card over the
-  // real Feed, pinned to the Feed page, with the AI entry held open to introduce it.
+  // real Feed, pinned to the Feed page; the AI entry shows its usual hint once to introduce it.
   val takeover = OnboardingRules.takesOverHome(onboarding.step)
   val allSet = onboarding.step == OnboardingStep.ALL_SET
-  val entryState by controller.assistant.state.collectAsStateWithLifecycle()
+  // Continue composes the pager for the first time, still at its initial Home page. Ask for the
+  // Feed in the apply phase, before that first layout, so Home never flashes before the Feed.
+  SideEffect { if (allSet && pager.currentPage != PAGE_FEED) pager.requestScrollToPage(PAGE_FEED) }
   LaunchedEffect(allSet) {
     if (!allSet) return@LaunchedEffect
+    runCatching { controller.assistant.setHint(true) }
     snapshotFlow { pager.currentPage }.collect { if (it != PAGE_FEED) pager.scrollToPage(PAGE_FEED) }
-  }
-  LaunchedEffect(allSet, entryState.entry, entryState.hintExpanded) {
-    if (allSet && entryState.entry == org.agentos.agent.home.assistant.EntryMode.None && !entryState.hintExpanded)
-      runCatching { controller.assistant.setHint(true, sticky = true) }
-  }
-  var wasAllSet by remember { mutableStateOf(false) }
-  LaunchedEffect(allSet) {
-    if (wasAllSet && !allSet && controller.assistant.state.value.entry == org.agentos.agent.home.assistant.EntryMode.None) controller.assistant.setHint(false)
-    wasAllSet = allSet
   }
 
   run {

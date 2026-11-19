@@ -388,8 +388,10 @@ moves to **You’re all set** (`all_set`). It cannot be dismissed. During `intro
 `connect_ai` Home composes only the wallpaper, the empty-Home message and the card (no Feed, home
 pages, status bar or AI entry; assistant intents are ignored). During `all_set` Home shows the
 real Feed (its usual cards, or the Ask Taku invitation when empty) pinned to the Feed page, with
-the card on top and the AI entry held expanded (`assistant/get` `hintExpanded:true`); the entry
-and Feed cards work, and **I’ll explore** (`onboarding/explore`) completes onboarding. The card is
+the card on top. The AI entry shows its usual hint on arrival (`assistant/get` `hintExpanded:true`,
+folding back after 4 s as always). The entry and Feed cards work. **I’ll explore**, or tapping
+any Feed card or the Ask Taku invitation (the tap still reaches the card), completes onboarding;
+for Agents both are `onboarding/explore`. The card is
 not a Feed item and is not the SystemUI island, so `feed/list` never contains it.
 
 Progress is per Android user in `Settings.Secure` `taku_onboarding_step`

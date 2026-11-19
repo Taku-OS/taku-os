@@ -117,7 +117,10 @@ class HomeActivity : AppCompatActivity(), DefaultHardwareBackBtnHandler {
       LaunchedEffect(controller) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) { controller.watchWorkspaceScreens() }
       }
-      val pager = rememberPagerState(initialPage = PAGE_HOME) { controller.pageCount }
+      // "You’re all set" opens straight on the Feed (also after a restart at that step).
+      val pager = rememberPagerState(
+        initialPage = if (controller.onboarding.state.value.step == org.agentos.agent.home.onboarding.OnboardingStep.ALL_SET) org.agentos.agent.home.ui.PAGE_FEED else PAGE_HOME,
+      ) { controller.pageCount }
       val feedList = rememberLazyListState()
       val homeScroll = rememberScrollState()
       val metrics = resources.displayMetrics
