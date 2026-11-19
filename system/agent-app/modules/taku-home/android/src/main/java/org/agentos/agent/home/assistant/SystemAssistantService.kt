@@ -1,8 +1,11 @@
 package org.agentos.agent.home.assistant
 
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.ServiceConnection
 import android.os.Bundle
+import android.os.IBinder
 import android.service.voice.VoiceInteractionService
 import android.service.voice.VoiceInteractionSession
 import android.service.voice.VoiceInteractionSessionService
@@ -11,9 +14,50 @@ import android.speech.SpeechRecognizer
 
 /** The real selected Android assistant lives in Taku Agent, independent of the backend UI. */
 class SystemAssistantService : VoiceInteractionService() {
-  override fun onReady() { super.onReady(); active = this }
-  override fun onShutdown() { if (active === this) active = null; super.onShutdown() }
-  override fun onDestroy() { if (active === this) active = null; super.onDestroy() }
+  private var questionCardsBound = false
+  private val questionCards = object : ServiceConnection {
+    override fun onServiceConnected(name: ComponentName, service: IBinder) = Unit
+    override fun onServiceDisconnected(name: ComponentName) = Unit
+    override fun onBindingDied(name: ComponentName) {
+      unbindQuestionCards()
+      if (active === this@SystemAssistantService) bindQuestionCards()
+    }
+  }
+
+  override fun onReady() {
+    super.onReady()
+    active = this
+    bindQuestionCards()
+  }
+
+  override fun onShutdown() {
+    if (active === this) active = null
+    unbindQuestionCards()
+    super.onShutdown()
+  }
+
+  override fun onDestroy() {
+    if (active === this) active = null
+    unbindQuestionCards()
+    super.onDestroy()
+  }
+
+  private fun bindQuestionCards() {
+    if (questionCardsBound) return
+    val intent = Intent().setClassName("org.agentos.assistant", "org.agentos.assistant.ConversationQuestionCardsService")
+    questionCardsBound = try {
+      bindService(intent, questionCards, Context.BIND_AUTO_CREATE)
+    } catch (error: SecurityException) {
+      android.util.Log.w("SystemAssistantService", "Question cards service is unavailable", error)
+      false
+    }
+  }
+
+  private fun unbindQuestionCards() {
+    if (!questionCardsBound) return
+    questionCardsBound = false
+    unbindService(questionCards)
+  }
 
   companion object {
     @Volatile private var active: SystemAssistantService? = null
