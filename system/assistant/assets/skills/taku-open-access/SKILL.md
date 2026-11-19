@@ -376,24 +376,28 @@ Discovery/turn preparation updates `taku-open-access/SKILL.md` when it matches t
 
 ## First-run onboarding
 
-Home shows a first-run onboarding card (Figma 1155:527, 1155:619, 1155:846, 1155:1073) only when **all**
+Home shows a first-run onboarding card (Figma 1155:527, 1155:619, 1155:846, 1155:1073, 1341:782) only when **all**
 are confirmed: onboarding is not completed, AI is confirmed unavailable (`account/status`
 `aiAvailable:false` with a settled `phase`), and the phone is ready (`device_provisioned=1`, this
 user's `user_setup_complete=1`, user unlocked). Anything uncertain keeps it hidden: a broker that
 is still loading, verifying or unreachable, or a readiness value Home cannot read. While it is
 pending, Home re-checks every 3 s in the foreground, so the card appears once everything is
 confirmed. Once the user reaches the AI step (`connect_ai`), the card stays there through
-sign-in and verification, and after AI connects, until **Continue** (`onboarding/finish`). It cannot be
-dismissed: while it shows, Home composes only the wallpaper, the empty-Home message and the card
-(no Feed, home pages, status bar or AI entry; assistant intents are ignored). It is not a Feed
-item and is not the SystemUI island, so `feed/list` never contains it.
+sign-in and verification, and after AI connects, until **Continue** (`onboarding/finish`), which
+moves to **You’re all set** (`all_set`). It cannot be dismissed. During `intro`, `name` and
+`connect_ai` Home composes only the wallpaper, the empty-Home message and the card (no Feed, home
+pages, status bar or AI entry; assistant intents are ignored). During `all_set` Home shows the
+real Feed (its usual cards, or the Ask Taku invitation when empty) pinned to the Feed page, with
+the card on top and the AI entry held expanded (`assistant/get` `hintExpanded:true`); the entry
+and Feed cards work, and **I’ll explore** (`onboarding/explore`) completes onboarding. The card is
+not a Feed item and is not the SystemUI island, so `feed/list` never contains it.
 
 Progress is per Android user in `Settings.Secure` `taku_onboarding_step`
-(`intro`, `name`, `connect_ai`, `completed`; missing or unknown means `intro`). A factory reset
+(`intro`, `name`, `connect_ai`, `all_set`, `completed`; missing or unknown means `intro`). A factory reset
 clears it, so onboarding runs again. Before the AI step, confirmed available AI
 (`aiAvailable:true`: a ChatGPT sign-in, or Magpie running with a model) writes `completed`, even
 if the card was never shown (existing users). At `connect_ai` it enables Continue instead, so Jev
-and Fal can still be added. Nothing ever moves `completed` back, so it runs once. Losing AI after completion does not
+and Fal can still be added; `all_set` waits for I’ll explore. Nothing ever moves `completed` back, so it runs once. Losing AI after completion does not
 restart it. An unknown account state never completes it. The name is Memory's `userName`
 (`content://org.agentos.memory.open-access`, unset value `我`); when it is already set, the name
 step is skipped and `connect_ai` is stored.
@@ -411,7 +415,8 @@ content call --uri $O --method onboarding/cancel-sign-in
 content call --uri $O --method onboarding/connect --arg '{"service":"jev"}'   # use a Jev Magpie already serves
 content call --uri $O --method onboarding/connect --arg '{"service":"jev","key":"apikey_..."}'   # TypeSafe or OpenRouter key
 content call --uri $O --method onboarding/connect --arg '{"service":"fal","key":"..."}'
-content call --uri $O --method onboarding/finish                 # connect_ai → completed ("Continue"; needs available AI)
+content call --uri $O --method onboarding/finish                 # connect_ai → all_set ("Continue"; needs available AI)
+content call --uri $O --method onboarding/explore                # all_set → completed ("I’ll explore")
 # Agent-only: back to intro (available AI completes it again immediately).
 content call --uri $O --method onboarding/reset
 settings get secure taku_onboarding_step

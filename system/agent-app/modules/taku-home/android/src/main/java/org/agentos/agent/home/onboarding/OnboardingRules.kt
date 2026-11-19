@@ -9,6 +9,8 @@ enum class OnboardingStep(val id: String) {
   INTRO("intro"),
   NAME("name"),
   CONNECT_AI("connect_ai"),
+  /** "You’re all set": Home shows the Feed and the expanded AI entry under the card (Figma 1341:782). */
+  ALL_SET("all_set"),
   COMPLETED("completed");
 
   companion object {
@@ -70,8 +72,10 @@ enum class OnboardingAction(val id: String) {
   SET_UP("set-up"),
   SUBMIT_NAME("submit-name"),
   SKIP_NAME("skip-name"),
-  /** "Continue" on the AI step, once AI is available. */
+  /** "Continue" on the AI step, once AI is available: on to "You’re all set". */
   FINISH("finish"),
+  /** "I’ll explore" on "You’re all set": onboarding is complete. */
+  EXPLORE("explore"),
 }
 
 object OnboardingRules {
@@ -97,8 +101,8 @@ object OnboardingRules {
    */
   fun decide(facts: OnboardingFacts): OnboardingDecision = when {
     facts.stored == OnboardingStep.COMPLETED -> OnboardingDecision.Hidden(HIDDEN_COMPLETED)
-    facts.stored == OnboardingStep.CONNECT_AI ->
-      if (facts.phoneReady) OnboardingDecision.Show(OnboardingStep.CONNECT_AI) else OnboardingDecision.Hidden(HIDDEN_PHONE)
+    facts.stored == OnboardingStep.CONNECT_AI || facts.stored == OnboardingStep.ALL_SET ->
+      if (facts.phoneReady) OnboardingDecision.Show(facts.stored) else OnboardingDecision.Hidden(HIDDEN_PHONE)
     facts.ai == AiAccess.AVAILABLE -> OnboardingDecision.Hidden(HIDDEN_AI)
     facts.ai == AiAccess.UNKNOWN -> OnboardingDecision.Hidden(HIDDEN_AI_UNKNOWN)
     !facts.phoneReady -> OnboardingDecision.Hidden(HIDDEN_PHONE)
@@ -110,7 +114,11 @@ object OnboardingRules {
    * step (existing users, or AI set up elsewhere); there it waits for Continue.
    */
   fun shouldComplete(facts: OnboardingFacts): Boolean =
-    facts.stored != OnboardingStep.COMPLETED && facts.stored != OnboardingStep.CONNECT_AI && facts.ai == AiAccess.AVAILABLE
+    facts.stored != OnboardingStep.COMPLETED && facts.stored != OnboardingStep.CONNECT_AI &&
+      facts.stored != OnboardingStep.ALL_SET && facts.ai == AiAccess.AVAILABLE
+
+  /** The step takes over the whole Home (wallpaper, empty Home, card); "all set" sits over the real Home. */
+  fun takesOverHome(step: OnboardingStep?): Boolean = step != null && step != OnboardingStep.ALL_SET && step != OnboardingStep.COMPLETED
 
   /** Continue needs a working AI: a ChatGPT sign-in or Magpie with a model. */
   fun canFinish(facts: OnboardingFacts): Boolean = facts.ai == AiAccess.AVAILABLE
@@ -125,13 +133,15 @@ object OnboardingRules {
       OnboardingAction.SET_UP -> OnboardingStep.INTRO
       OnboardingAction.SUBMIT_NAME, OnboardingAction.SKIP_NAME -> OnboardingStep.NAME
       OnboardingAction.FINISH -> OnboardingStep.CONNECT_AI
+      OnboardingAction.EXPLORE -> OnboardingStep.ALL_SET
     }
     if (current != expected)
       throw OnboardingException("WRONG_STEP", "${action.id} applies to step ${expected.id}; onboarding is at ${current.id}")
     return when (action) {
       OnboardingAction.SET_UP -> OnboardingStep.NAME
       OnboardingAction.SUBMIT_NAME, OnboardingAction.SKIP_NAME -> OnboardingStep.CONNECT_AI
-      OnboardingAction.FINISH -> OnboardingStep.COMPLETED
+      OnboardingAction.FINISH -> OnboardingStep.ALL_SET
+      OnboardingAction.EXPLORE -> OnboardingStep.COMPLETED
     }
   }
 

@@ -60,8 +60,26 @@ class OnboardingRulesTest {
     assertTrue(OnboardingRules.canFinish(facts(stored = OnboardingStep.CONNECT_AI, ai = AiAccess.AVAILABLE)))
     assertFalse(OnboardingRules.canFinish(facts(stored = OnboardingStep.CONNECT_AI, ai = AiAccess.UNAVAILABLE)))
     assertFalse(OnboardingRules.canFinish(facts(stored = OnboardingStep.CONNECT_AI, ai = AiAccess.UNKNOWN)))
-    assertEquals(OnboardingStep.COMPLETED, OnboardingRules.advance(OnboardingStep.CONNECT_AI, OnboardingAction.FINISH))
+    assertEquals(OnboardingStep.ALL_SET, OnboardingRules.advance(OnboardingStep.CONNECT_AI, OnboardingAction.FINISH))
     assertEquals(OnboardingDecision.Hidden(OnboardingRules.HIDDEN_PHONE), OnboardingRules.decide(facts(stored = OnboardingStep.CONNECT_AI, ready = false)))
+  }
+
+  @Test fun allSetStaysOverTheFeedUntilExplore() {
+    for (ai in AiAccess.entries) {
+      val f = facts(stored = OnboardingStep.ALL_SET, ai = ai)
+      assertEquals(OnboardingDecision.Show(OnboardingStep.ALL_SET), OnboardingRules.decide(f))
+      assertFalse(OnboardingRules.shouldComplete(f))
+    }
+    assertEquals(OnboardingStep.COMPLETED, OnboardingRules.advance(OnboardingStep.ALL_SET, OnboardingAction.EXPLORE))
+    assertFalse(OnboardingRules.takesOverHome(OnboardingStep.ALL_SET))
+    for (step in listOf(OnboardingStep.INTRO, OnboardingStep.NAME, OnboardingStep.CONNECT_AI)) assertTrue(OnboardingRules.takesOverHome(step))
+    assertFalse(OnboardingRules.takesOverHome(null))
+    try {
+      OnboardingRules.advance(OnboardingStep.CONNECT_AI, OnboardingAction.EXPLORE)
+      fail("explore before all set")
+    } catch (e: OnboardingException) {
+      assertEquals("WRONG_STEP", e.code)
+    }
   }
 
   @Test fun keysFollowTheKeyStoreRules() {

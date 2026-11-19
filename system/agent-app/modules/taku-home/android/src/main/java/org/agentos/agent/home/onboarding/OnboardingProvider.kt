@@ -46,6 +46,7 @@ class OnboardingProvider : ContentProvider() {
         }
         "onboarding/cancel-sign-in" -> { only(); repo.cancelSignIn() }
         "onboarding/finish" -> { only(); repo.perform(OnboardingAction.FINISH) }
+        "onboarding/explore" -> { only(); repo.perform(OnboardingAction.EXPLORE) }
         "onboarding/reset" -> { only(); repo.reset() }
         else -> throw OnboardingException("UNKNOWN_METHOD", "unknown method $method")
       }

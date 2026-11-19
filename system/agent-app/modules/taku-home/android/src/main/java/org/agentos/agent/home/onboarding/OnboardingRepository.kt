@@ -118,7 +118,7 @@ class OnboardingRepository private constructor(context: Context) {
     when (action) {
       OnboardingAction.SUBMIT_NAME -> saveName(OnboardingRules.name(rawName))
       OnboardingAction.SET_UP -> readName()
-      OnboardingAction.SKIP_NAME -> Unit
+      OnboardingAction.SKIP_NAME, OnboardingAction.EXPLORE -> Unit
       OnboardingAction.FINISH -> if (!OnboardingRules.canFinish(facts))
         throw OnboardingException("AI_NOT_CONNECTED", "connect ChatGPT (or Magpie) before finishing")
     }

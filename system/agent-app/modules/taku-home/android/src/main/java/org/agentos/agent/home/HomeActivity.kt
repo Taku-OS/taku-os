@@ -134,7 +134,9 @@ class HomeActivity : AppCompatActivity(), DefaultHardwareBackBtnHandler {
         if (controller.assistant.state.value.island != org.agentos.agent.home.assistant.IslandMode.Hidden) controller.assistant.dismiss()
         controller.drag.menu = null; controller.openFolderId = null
         controller.setHomeEditing(false)
-        if (pager.currentPage != PAGE_HOME) pager.animateScrollToPage(PAGE_HOME) else homeScroll.animateScrollTo(0)
+        // "You’re all set" keeps Home on the Feed until onboarding is done.
+        val home = if (controller.onboarding.state.value.step == org.agentos.agent.home.onboarding.OnboardingStep.ALL_SET) org.agentos.agent.home.ui.PAGE_FEED else PAGE_HOME
+        if (pager.currentPage != home) pager.animateScrollToPage(home) else homeScroll.animateScrollTo(0)
       }
       LaunchedEffect(panelRequest, controller.panelsLoaded, controller.directoryReads) {
         val request = panelRequest ?: return@LaunchedEffect
@@ -249,8 +251,9 @@ class HomeActivity : AppCompatActivity(), DefaultHardwareBackBtnHandler {
   private fun requestAssistant(intent: Intent?): Boolean {
     if (intent == null) return false
     if (getSystemService(android.app.KeyguardManager::class.java).isKeyguardLocked) return false
-    // Before onboarding is done there is no usable AI; the card stays the only surface.
-    if (org.agentos.agent.home.onboarding.OnboardingRepository.get(this).state.value.decision is org.agentos.agent.home.onboarding.OnboardingDecision.Show) return false
+    // While onboarding takes over Home there is no usable AI; the card stays the only surface.
+    // "You’re all set" already has AI, and introduces the entry, so it lets the assistant open.
+    if (org.agentos.agent.home.onboarding.OnboardingRules.takesOverHome(org.agentos.agent.home.onboarding.OnboardingRepository.get(this).state.value.step)) return false
     val key = org.agentos.agent.home.assistant.SystemAssistantEntry.EXTRA_OPEN
     val voice = intent.action == org.agentos.agent.home.assistant.SystemAssistantEntry.ACTION_VOICE_ASSIST || intent.action == Intent.ACTION_VOICE_COMMAND
     if (intent.getBooleanExtra(key, false) || intent.action == Intent.ACTION_ASSIST || voice) {

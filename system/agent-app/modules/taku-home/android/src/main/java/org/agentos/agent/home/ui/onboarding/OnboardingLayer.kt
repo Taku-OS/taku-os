@@ -120,7 +120,7 @@ import org.agentos.agent.home.ui.effects.Shaders
 
 /**
  * First-run onboarding over the Home wallpaper (Figma 1155:527 "0 empty", 1155:619 "1-name",
- * 1155:846 "1-name_input", 1155:1073 "2-connect AI"). It is not a Feed item and not the SystemUI island: a Compose card
+ * 1155:846 "1-name_input", 1155:1073 "2-connect AI", 1341:782 "6-proactive"). It is not a Feed item and not the SystemUI island: a Compose card
  * with the expanded island's look that can take keyboard input. It cannot be dismissed; the
  * Feed, home pages and AI entry stay behind it until [OnboardingRepository] says it is done.
  */
@@ -144,11 +144,12 @@ fun BoxScope.OnboardingLayer(state: OnboardingRepository.State, repository: Onbo
   }
 
   HiddenStatusBar()
-  // Back does nothing: the only ways forward are the card's own actions. Nothing else of Home
-  // is composed underneath, so there is no Feed, page or AI entry to reach around the card.
-  BackHandler(enabled = true) {}
-
-  EmptyHome(Modifier.align(Alignment.Center))
+  if (OnboardingRules.takesOverHome(step)) {
+    // Back does nothing: the only ways forward are the card's own actions. Nothing else of Home
+    // is composed underneath, so there is no Feed, page or AI entry to reach around the card.
+    BackHandler(enabled = true) {}
+    EmptyHome(Modifier.align(Alignment.Center))
+  }
   OnboardingCard(step, state, actions, Modifier.align(Alignment.TopCenter))
 }
 
@@ -309,6 +310,7 @@ private fun OnboardingCard(step: OnboardingStep, state: OnboardingRepository.Sta
           OnboardingStep.INTRO -> IntroStep(actions)
           OnboardingStep.NAME -> NameStep(actions)
           OnboardingStep.CONNECT_AI -> ConnectAiStep(state, actions)
+          OnboardingStep.ALL_SET -> AllSetStep(state.userName, actions)
           OnboardingStep.COMPLETED -> Unit
         }
       }
@@ -522,6 +524,29 @@ private fun KeyEditor(service: OnboardingService, actions: OnboardingActions, on
   Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
     IslandButton("Cancel", IslandButtonStyle.Secondary, enabled = true) { onClose() }
     IslandButton("Save", IslandButtonStyle.Primary, enabled = ready) { save() }
+  }
+}
+
+/**
+ * 1341:782 "You’re all set": over the real Feed, with the AI entry held open below. "I’ll explore"
+ * completes onboarding and the card leaves.
+ */
+@Composable
+private fun AllSetStep(userName: String?, actions: OnboardingActions) {
+  val c = TakuTheme.colors
+  val type = TakuTheme.type
+  val text = buildAnnotatedString {
+    if (userName == null) append("You’re all set.")
+    else {
+      append("You’re all set, ")
+      withStyle(SpanStyle(fontFamily = type.bodyXlMedium.fontFamily, fontWeight = type.bodyXlMedium.fontWeight, color = c.islandTextStrong)) { append(userName) }
+      append(".")
+    }
+    append("\nHold any card to pin it, remove it, or ask Taku.")
+  }
+  Header { BasicText(text, style = type.bodyXl.copy(color = c.islandText)) }
+  Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    IslandButton("I’ll explore", IslandButtonStyle.Primary, enabled = !actions.busy) { actions.perform(OnboardingAction.EXPLORE) }
   }
 }
 
