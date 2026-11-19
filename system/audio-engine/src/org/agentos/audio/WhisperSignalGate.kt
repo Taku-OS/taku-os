@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: LicenseRef-Taku-OS-Internal
+// SPDX-License-Identifier: Apache-2.0
 package org.agentos.audio
 
 /** Suppress empty/near-silent file-ASR requests; this is an energy floor, not a speech classifier.

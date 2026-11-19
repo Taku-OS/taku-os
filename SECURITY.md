@@ -12,7 +12,7 @@ Include the component, version/build, source SHA, caller's original UID and perm
 
 - Users and their agents can access the system's exposed capabilities. The GUI and Agent use the same authoritative state.
 - Skill/MCP and God Mode plugins are trusted code. Capability and permission fields are declarations, not isolation boundaries.
-- The God Mode development service runs with elevated privileges. Android socket access depends on UID, SELinux and ROM configuration; the service does not currently validate the peer UID. Ordinary app reachability, malicious plugin isolation and default release policy require separate acceptance checks.
+- The God Mode plugin host runs with elevated privileges; platform-signed system components, the primary Agent, and ADB (`UID 0 / 1000 / 2000`) receive direct access, while ordinary third-party Android apps (`UID >= 10000`) are verified by peer UID against the central App Permission Center (`content://org.agentos.assistant.permissions`, default mode `deny`, requiring explicit per-app user confirmation for Root access even in `YOLO` mode). Preview ROM and emulator images remain unlocked-bootloader development builds signed with public development keys, and plugins granted Root execute without sandbox isolation.
 - Installing a trusted plugin can still cause irreversible external effects. Disabling or uninstalling it does not undo every action it has already performed.
 - Do not disable SELinux to pass tests. An Enforcing runtime state does not demonstrate that every permission boundary has been verified.
 
