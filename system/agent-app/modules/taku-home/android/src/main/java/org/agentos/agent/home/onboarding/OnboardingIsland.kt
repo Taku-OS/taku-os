@@ -18,7 +18,7 @@ import org.json.JSONObject
 
 /**
  * The compact island while a ChatGPT sign-in has taken the user to the browser (Figma
- * 1155:1323 "4-connecting" / 1155:1453 "5-connected"): working dots and "Signing in…", then a
+ * 1155:1323 "4-connecting" / 1155:1453 "5-connected"): working dots and "Signing...", then a
  * brief check and "Connected". Published as an ordinary island notification (Home holds
  * POST_ISLAND); it never expands over the browser page by itself. Tapping returns to Home.
  */
@@ -26,7 +26,7 @@ internal class OnboardingIsland(private val context: Context) {
   private val manager = context.getSystemService(NotificationManager::class.java)
   private var shown: String? = null
 
-  fun signingIn() = post("signing", JSONObject().put("type", "pic").put("pic", "taku").put("animated", "working"), "Signing in…",
+  fun signingIn() = post("signing", JSONObject().put("type", "pic").put("pic", "taku").put("animated", "working"), "Signing...",
     "Signing in to ChatGPT", "Finish signing in on the ChatGPT page, then Taku continues setup.", timeoutS = 900)
 
   fun connected() = post("connected", JSONObject().put("type", "pic").put("pic", "check"), "Connected",

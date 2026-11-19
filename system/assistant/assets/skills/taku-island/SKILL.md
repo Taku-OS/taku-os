@@ -132,3 +132,13 @@ A dismissed card stays dismissed during passive updates. A new voice entry, text
 explicit expand creates a fresh presentation request, including after process recovery.
 All card windows preserve the underlying app's input focus; swipe/header and the `collapse`
 command close them. Landscape closes expanded cards and restores the status bar.
+
+### Expanded Taku setup progress
+
+Simple setup progress cards use native, content-sized SystemUI chrome. `Close`
+only folds the card (`cmd statusbar island collapse`); it does not cancel sign-in.
+`Back to setup` uses the notification action shown by `get` / `list` (normally
+`cmd statusbar island action KEY '{"id":"open"}'`). The body remains the current
+notification text; expanding a sign-in does not mean onboarding is complete.
+`state` exposes `presentation.card.layout=native-progress`, `renderer`,
+`nativeReady`, `focusable`, and `progress.text` / `progress.buttonCount`.

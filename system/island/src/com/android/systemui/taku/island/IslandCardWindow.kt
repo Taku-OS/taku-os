@@ -3,6 +3,7 @@ package com.android.systemui.taku.island
 
 import android.animation.ValueAnimator
 import android.content.Context
+import android.graphics.Outline
 import android.graphics.Color
 import android.graphics.Path
 import android.graphics.PixelFormat
@@ -12,6 +13,7 @@ import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
 import android.view.SurfaceView
 import android.view.View
+import android.view.ViewOutlineProvider
 import android.view.ViewTreeObserver
 import android.view.WindowInsets
 import android.view.WindowManager
@@ -37,15 +39,25 @@ internal class IslandCardWindow(context: Context, initial: IslandActivity, cover
     private var activity = initial
     private val nativeAssistant = choices == null && initial.category == "assistant"
     private val nativeView = if (nativeAssistant) IslandAssistantCard(windowContext, command, collapse) else null
+    private val nativeProgress = choices == null && initial.nativeProgressCard
+    private val progressView = if (nativeProgress) IslandProgressCard(windowContext, command, collapse) else null
+    private val nativeContent = nativeAssistant || nativeProgress
     /** Every other activity (and the activity chooser) is drawn by the native template card. */
-    private val templateView = if (nativeAssistant) null else IslandTemplateCard(windowContext, command, collapse)
+    private val templateView = if (nativeContent) null else IslandTemplateCard(windowContext, command, collapse)
     private val cardWidth = minOf(dp(420), metrics.bounds.width() - dp(16))
-    private val fullCard = nativeAssistant || choices == null && initial.payload.getJSONObject("expanded").optJSONObject("content")?.optString("layout") == "card"
+    private val fullCard = nativeContent || choices == null && initial.payload.getJSONObject("expanded").optJSONObject("content")?.optString("layout") == "card"
     private val root = FrameLayout(windowContext).apply {
         background = GradientDrawable().apply { setColor(IslandStyle.CARD); cornerRadius = dp(IslandStyle.CORNER_DP).toFloat() }
         clipToOutline = true
+        outlineProvider = object : ViewOutlineProvider() {
+            override fun getOutline(view: View, outline: Outline) {
+                outline.setRoundRect(0, 0, view.width, view.height, dp(40).toFloat())
+            }
+        }
         importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
     }
+    private var blurListening = false
+    private val blurListener = java.util.function.Consumer<Boolean> { if (attached) updateProgressBackdrop() }
     private var host: IslandContentConnection? = null
     private var hostView: SurfaceView? = null
     private var hostIdentity: String? = null
@@ -60,7 +72,7 @@ internal class IslandCardWindow(context: Context, initial: IslandActivity, cover
     private var availableHeight = Int.MAX_VALUE
     private var heightCap = finalHeight
     private val params = WindowManager.LayoutParams(
-        cardWidth, if (nativeAssistant) finalHeight else dp(48),
+        cardWidth, if (nativeContent) finalHeight else dp(48),
         WindowManager.LayoutParams.TYPE_STATUS_BAR_ADDITIONAL, flags(), PixelFormat.TRANSLUCENT,
     ).apply {
         title = "TakuIsland"
@@ -78,7 +90,7 @@ internal class IslandCardWindow(context: Context, initial: IslandActivity, cover
     }
 
     init {
-        root.addView(nativeView ?: templateView, FrameLayout.LayoutParams(-1, -1))
+        root.addView(nativeView ?: progressView ?: templateView, FrameLayout.LayoutParams(-1, -1))
         root.setOnApplyWindowInsetsListener { _, insets ->
             if (insets.isVisible(WindowInsets.Type.ime()) && cover) {
                 cover = false
@@ -106,7 +118,8 @@ internal class IslandCardWindow(context: Context, initial: IslandActivity, cover
 
     private fun flags(): Int = WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
         WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+        (if (nativeProgress) WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED else 0)
 
     fun show() {
         root.viewTreeObserver.addOnComputeInternalInsetsListener(insetsListener)
@@ -114,7 +127,12 @@ internal class IslandCardWindow(context: Context, initial: IslandActivity, cover
         attached = true
         covering(cover)
         // Native content is complete before addView: no template/remote-surface transition.
-        if (nativeAssistant) return
+        if (nativeProgress) {
+            updateProgressBackdrop()
+            wm.addCrossWindowBlurEnabledListener(windowContext.mainExecutor, blurListener)
+            blurListening = true
+        }
+        if (nativeContent) return
         animation = ValueAnimator.ofInt(dp(48), finalHeight).apply {
             duration = 220
             addUpdateListener {
@@ -134,6 +152,7 @@ internal class IslandCardWindow(context: Context, initial: IslandActivity, cover
         val template = templateView
         when {
             nativeView != null -> nativeView.update(next)
+            progressView != null -> progressView.update(next)
             choices != null -> template!!.showChoices(choices)
             else -> template!!.update(next)
         }
@@ -178,15 +197,27 @@ internal class IslandCardWindow(context: Context, initial: IslandActivity, cover
         }
     }
 
+    /** Blur browser text behind sign-in progress; opaque fallback when compositor blur is off. */
+    private fun updateProgressBackdrop() {
+        val blurred = if (wm.isCrossWindowBlurEnabled) runCatching {
+            root.viewRootImpl.createBackgroundBlurDrawable().apply {
+                setBlurRadius(dp(24)); setCornerRadius(dp(40).toFloat()); setColor(0xeb000000.toInt())
+            }
+        }.getOrNull() else null
+        root.background = blurred ?: GradientDrawable().apply { setColor(0xff121212.toInt()); cornerRadius = dp(40).toFloat() }
+    }
+
     fun state(): JSONObject = JSONObject().put("key", activity.key).put("windowType", params.type)
-        .put("cover", cover).put("focusable", cover && !fullCard).put("layout", if (nativeAssistant) "native-assistant" else if (fullCard) "card" else "body").put("richReady", richReady)
+        .put("cover", cover).put("focusable", params.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE == 0).put("layout", if (nativeAssistant) "native-assistant" else if (nativeProgress) "native-progress" else if (fullCard) "card" else "body").put("richReady", richReady)
         .put("renderer", if (richReady) "remote-surface" else "systemui-native").put("nativeReady", attached && !richReady)
         .put("assistant", nativeView?.state() ?: JSONObject.NULL)
         .put("template", templateView?.state() ?: JSONObject.NULL)
+        .put("progress", progressView?.state() ?: JSONObject.NULL)
         .put("width", root.width).put("height", root.height).put("top", params.y)
         .put("touchRegion", region.toString()).put("outsideTapCollapses", false)
 
     fun close() {
+        if (blurListening) { wm.removeCrossWindowBlurEnabledListener(blurListener); blurListening = false }
         covering(false)
         templateGeneration++
         animation?.cancel()
@@ -201,6 +232,7 @@ internal class IslandCardWindow(context: Context, initial: IslandActivity, cover
 
     private fun desiredHeight(item: IslandActivity): Int {
         val cap = metrics.bounds.height() / 3
+        if (progressView != null) return minOf(progressView.desiredHeight(item, cardWidth), cap)
         if (nativeView != null) return minOf(nativeView.desiredHeight(item, cardWidth), cap)
         // A remote full card asks for its height; everything else follows its native content.
         val requested = if (fullCard && choices == null) item.payload.getJSONObject("expanded").optJSONObject("content")?.optInt("heightDp", 300) else null

@@ -426,8 +426,28 @@ content call --uri $O --method onboarding/reset
 settings get secure taku_onboarding_step
 ```
 
+For a local full-flow replay without deleting accounts, keys, Memory or desktop layout:
+
+```sh
+settings put secure taku_onboarding_test_mode 1
+content call --uri content://org.agentos.agent.home-onboarding --method onboarding/reset
+# Disable replay and return to ordinary first-run rules:
+settings put secure taku_onboarding_test_mode 0
+```
+
+This per-user switch defaults off; only `1` enables it (missing/other values mean off).
+`onboarding/get.testMode` reports the same value used by Home, and `testModeSetting` names it.
+In replay, existing AI does not auto-complete intro/name and an existing name does not skip
+that page. The phone must still be provisioned and unlocked. All chips show real connection
+states; Continue still requires working AI. Connected ChatGPT opens account management,
+where the user can explicitly sign out to test a fresh browser sign-in; replay never signs
+out or clears credentials. Jev/Fal can be reconfigured through their existing chip actions.
+Completing the replay hides the card normally; call reset again for another run, or disable
+replay. To leave an unfinished local test without working AI, the existing shell escape is
+`settings put secure taku_onboarding_step completed`.
+
 Every method returns `{ok:true,result}` with the fresh state:
-`{setting, stored, visible, step, hiddenReason, phoneReady, ai, nameSet, canFinish, services}`, where
+`{setting, testModeSetting, testMode, stored, visible, step, hiddenReason, phoneReady, ai, nameSet, canFinish, services}`, where
 `services` is `{chatgpt, jev, fal}`, each `not_connected`, `connecting`, `connected` or `unknown`
 (`fal` is `null` when Taku Audio is not installed; the GUI hides that chip). `step` is the
 card being shown (`null` when hidden). `hiddenReason` is `completed`, `ai_available`,

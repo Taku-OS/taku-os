@@ -77,10 +77,15 @@ class OnboardingRepository private constructor(context: Context) {
 
   init {
     val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
-      override fun onChange(selfChange: Boolean) { scope.launch { publish() } }
+      override fun onChange(selfChange: Boolean) { scope.launch {
+        publish()
+        // A completed run stops polling. Replaying it must resume real account updates.
+        if (foreground && poll?.isActive != true) setForeground(true)
+      } }
     }
     for (uri in listOf(
       Settings.Secure.getUriFor(OnboardingRules.SETTING),
+      Settings.Secure.getUriFor(OnboardingRules.TEST_SETTING),
       Settings.Secure.getUriFor(USER_SETUP_COMPLETE),
       Settings.Global.getUriFor(Settings.Global.DEVICE_PROVISIONED),
     )) resolver.registerContentObserver(uri, false, observer)
@@ -139,7 +144,7 @@ class OnboardingRepository private constructor(context: Context) {
       OnboardingAction.FINISH -> if (!OnboardingRules.canFinish(facts))
         throw OnboardingException("AI_NOT_CONNECTED", "connect ChatGPT (or Magpie) before finishing")
     }
-    next = OnboardingRules.resolve(next, nameSet())
+    next = OnboardingRules.resolve(next, nameSet(), facts.testMode)
     write(next)
     publish()
   }
@@ -172,10 +177,10 @@ class OnboardingRepository private constructor(context: Context) {
     return refresh()
   }
 
-  /** Agent-only: start over from the intro. Confirmed available AI completes it again. */
+  /** Start over without clearing accounts or Memory. Test mode keeps the intro visible. */
   fun reset(): State = synchronized(lock) {
     write(OnboardingStep.INTRO)
-    refresh()
+    refresh().also { if (foreground) setForeground(true) }
   }
 
   /** The authoritative snapshot for Agents, freshly read. */
@@ -184,6 +189,8 @@ class OnboardingRepository private constructor(context: Context) {
     val decision = s.decision
     return JSONObject()
       .put("setting", OnboardingRules.SETTING)
+      .put("testModeSetting", OnboardingRules.TEST_SETTING)
+      .put("testMode", s.facts.testMode)
       .put("stored", s.facts.stored?.id ?: JSONObject.NULL)
       .put("visible", decision is OnboardingDecision.Show)
       .put("step", s.step?.id ?: JSONObject.NULL)
@@ -254,7 +261,8 @@ class OnboardingRepository private constructor(context: Context) {
   private fun snapshotOf(facts: OnboardingFacts) =
     State(facts, OnboardingRules.decide(facts), userName.takeIf { OnboardingRules.isNameSet(it) }, services)
 
-  private fun facts() = OnboardingFacts(stored(), phoneReady(), ai, nameSet())
+  private fun facts() = OnboardingFacts(stored(), phoneReady(), ai, nameSet(),
+    Settings.Secure.getString(resolver, OnboardingRules.TEST_SETTING) == "1")
 
   private fun nameSet(): Boolean? = if (nameKnown) OnboardingRules.isNameSet(userName) else null
 

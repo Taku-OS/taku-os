@@ -4,6 +4,12 @@ Versioned, user-facing records. Source-project versions are distinct from ROM re
 
 ## Unreleased
 
+- Restyle the expanded Taku sign-in island with content-sized native chrome: shared Taku eyes, Hanken typography, pill actions and a bounded blurred background with opaque fallback. Closing folds the card without cancelling sign-in; Back to setup retains the real action.
+
+- Fix onboarding sign-in capsule: camera-anchored seamless SystemUI silhouette, designer nine-dot working animation, and design-matched `Signing...` label.
+
+- Onboarding has an opt-in, device-local replay switch (`Settings.Secure` `taku_onboarding_test_mode=1`) for testing every step with existing accounts and desktop data retained. The GUI and Agent provider share it; connection checks remain real and completed runs stay dismissed.
+
 - Onboarding and AI connection fixes: backing out of a ChatGPT sign-in (Cancel, a failed or abandoned sign-in, a refused start) now switches a previous Magpie connection and model back instead of leaving the assistant without AI; a sign-in started by an Agent no longer pulls the user to Home when it finishes (only Home's own ChatGPT chip does); a failed onboarding action shows an error instead of closing Home; one busy or failed account read no longer hides the onboarding card mid-step (the last confirmed status holds for 15 s); adding a Jev key answers within about 30 s, so a slow Magpie no longer reports "Couldn't save the key" after saving it; sign-in errors from an unreachable account service are reported as `ACCOUNT_UNAVAILABLE`; and Home polls less: it backs off to 1 min while the account can't be read, stops reading Memory on every tick while the card is hidden, and Agents' `onboarding/get` reads each source once.
 
 - After the AI step, **Continue** now opens **You’re all set** (Figma 1341:782): Home goes straight to the Feed with its usual cards (or the Ask Taku invitation when empty), the AI entry showing its usual hint (it folds back after 4 s as always), and the island-style card on top. Home opens directly on the Feed, with no flash of the home page. **I’ll explore**, or tapping any Feed card or the Ask Taku invitation, completes onboarding and the card leaves; the tap still reaches the card. The step is stored as `all_set`, survives restarts, and is available to Agents as `onboarding/explore`.

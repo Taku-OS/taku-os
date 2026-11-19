@@ -153,6 +153,28 @@ class OnboardingRulesTest {
     }
   }
 
+  @Test fun replayShowsEveryStepWithoutClearingExistingConnectionsOrName() {
+    for (ai in AiAccess.entries) {
+      for (step in listOf(null, OnboardingStep.INTRO, OnboardingStep.NAME, OnboardingStep.CONNECT_AI, OnboardingStep.ALL_SET)) {
+        val f = facts(stored = step, ai = ai, nameSet = true).copy(testMode = true)
+        assertEquals(OnboardingDecision.Show(step ?: OnboardingStep.INTRO), OnboardingRules.decide(f))
+        assertFalse(OnboardingRules.shouldComplete(f))
+        assertEquals(ai == AiAccess.AVAILABLE, OnboardingRules.canFinish(f))
+        assertEquals(OnboardingDecision.Hidden(OnboardingRules.HIDDEN_PHONE), OnboardingRules.decide(f.copy(phoneReady = false)))
+      }
+    }
+    assertEquals(OnboardingStep.NAME, OnboardingRules.resolve(OnboardingStep.NAME, true, testMode = true))
+    assertEquals(OnboardingDecision.Hidden(OnboardingRules.HIDDEN_COMPLETED),
+      OnboardingRules.decide(facts(stored = OnboardingStep.COMPLETED).copy(testMode = true)))
+  }
+
+  @Test fun turningReplayOffRestoresExistingUserRules() {
+    val f = facts(stored = OnboardingStep.INTRO, ai = AiAccess.AVAILABLE).copy(testMode = true)
+    assertFalse(OnboardingRules.shouldComplete(f))
+    assertTrue(OnboardingRules.shouldComplete(f.copy(testMode = false)))
+    assertEquals(OnboardingDecision.Hidden(OnboardingRules.HIDDEN_AI), OnboardingRules.decide(f.copy(testMode = false)))
+  }
+
   @Test fun namesFollowMemoryRules() {
     assertEquals("Deki", OnboardingRules.name("  Deki "))
     for (bad in listOf(null, "", "   ", "x".repeat(21))) {

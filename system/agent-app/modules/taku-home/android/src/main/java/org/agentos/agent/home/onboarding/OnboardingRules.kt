@@ -58,6 +58,8 @@ data class OnboardingFacts(
   val ai: AiAccess,
   /** Memory `userName` is set; null when Memory could not be read. */
   val nameSet: Boolean?,
+  /** Explicit local replay; retains real accounts and never bypasses Continue validation. */
+  val testMode: Boolean = false,
 )
 
 sealed interface OnboardingDecision {
@@ -80,6 +82,8 @@ enum class OnboardingAction(val id: String) {
 
 object OnboardingRules {
   const val SETTING = "taku_onboarding_step"
+  /** Per-user opt-in; only the exact value "1" enables replay. Defaults off. */
+  const val TEST_SETTING = "taku_onboarding_test_mode"
   /** Memory's `userName` until the user picks one (`MemoryStore.userName()`). */
   const val MEMORY_UNSET_NAME = "我"
   /** Memory's own limit (`MemoryStore.configure`); Memory remains the authority. */
@@ -103,6 +107,9 @@ object OnboardingRules {
     facts.stored == OnboardingStep.COMPLETED -> OnboardingDecision.Hidden(HIDDEN_COMPLETED)
     facts.stored == OnboardingStep.CONNECT_AI || facts.stored == OnboardingStep.ALL_SET ->
       if (facts.phoneReady) OnboardingDecision.Show(facts.stored) else OnboardingDecision.Hidden(HIDDEN_PHONE)
+    facts.testMode -> if (facts.phoneReady)
+      OnboardingDecision.Show(facts.stored ?: OnboardingStep.INTRO)
+      else OnboardingDecision.Hidden(HIDDEN_PHONE)
     facts.ai == AiAccess.AVAILABLE -> OnboardingDecision.Hidden(HIDDEN_AI)
     facts.ai == AiAccess.UNKNOWN -> OnboardingDecision.Hidden(HIDDEN_AI_UNKNOWN)
     !facts.phoneReady -> OnboardingDecision.Hidden(HIDDEN_PHONE)
@@ -114,7 +121,7 @@ object OnboardingRules {
    * step (existing users, or AI set up elsewhere); there it waits for Continue.
    */
   fun shouldComplete(facts: OnboardingFacts): Boolean =
-    facts.stored != OnboardingStep.COMPLETED && facts.stored != OnboardingStep.CONNECT_AI &&
+    !facts.testMode && facts.stored != OnboardingStep.COMPLETED && facts.stored != OnboardingStep.CONNECT_AI &&
       facts.stored != OnboardingStep.ALL_SET && facts.ai == AiAccess.AVAILABLE
 
   /** The step takes over the whole Home (wallpaper, empty Home, card); "all set" sits over the real Home. */
@@ -124,8 +131,8 @@ object OnboardingRules {
   fun canFinish(facts: OnboardingFacts): Boolean = facts.ai == AiAccess.AVAILABLE
 
   /** Skips steps that are already done: the name step when Memory already has a name. */
-  fun resolve(step: OnboardingStep, nameSet: Boolean?): OnboardingStep =
-    if (step == OnboardingStep.NAME && nameSet == true) OnboardingStep.CONNECT_AI else step
+  fun resolve(step: OnboardingStep, nameSet: Boolean?, testMode: Boolean = false): OnboardingStep =
+    if (!testMode && step == OnboardingStep.NAME && nameSet == true) OnboardingStep.CONNECT_AI else step
 
   /** The step after [action]; throws `WRONG_STEP` when the card is not showing that step. */
   fun advance(current: OnboardingStep, action: OnboardingAction): OnboardingStep {
