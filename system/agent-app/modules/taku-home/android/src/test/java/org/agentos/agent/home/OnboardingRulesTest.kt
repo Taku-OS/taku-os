@@ -1,6 +1,6 @@
 package org.agentos.agent.home
 
-import org.agentos.agent.home.onboarding.ChatGpt
+import org.agentos.agent.home.onboarding.AiAccess
 import org.agentos.agent.home.onboarding.OnboardingAction
 import org.agentos.agent.home.onboarding.OnboardingDecision
 import org.agentos.agent.home.onboarding.OnboardingException
@@ -15,8 +15,8 @@ import org.junit.Assert.fail
 import org.junit.Test
 
 class OnboardingRulesTest {
-  private fun facts(stored: OnboardingStep? = null, ready: Boolean = true, chatgpt: ChatGpt = ChatGpt.SIGNED_OUT, nameSet: Boolean? = false) =
-    OnboardingFacts(stored, ready, chatgpt, nameSet)
+  private fun facts(stored: OnboardingStep? = null, ready: Boolean = true, ai: AiAccess = AiAccess.UNAVAILABLE, nameSet: Boolean? = false) =
+    OnboardingFacts(stored, ready, ai, nameSet)
 
   @Test fun aFreshUserSeesTheIntro() {
     // No stored value: first boot, or after a factory reset cleared Settings.Secure.
@@ -33,28 +33,33 @@ class OnboardingRulesTest {
     assertEquals(OnboardingDecision.Show(OnboardingStep.CONNECT_AI), OnboardingRules.decide(facts(stored = OnboardingStep.CONNECT_AI)))
   }
 
-  @Test fun completedNeverShowsAgainEvenWhenChatGptIsSignedOut() {
-    for (chatgpt in ChatGpt.entries)
-      assertEquals(OnboardingDecision.Hidden(OnboardingRules.HIDDEN_COMPLETED), OnboardingRules.decide(facts(stored = OnboardingStep.COMPLETED, chatgpt = chatgpt)))
-    assertFalse(OnboardingRules.shouldComplete(facts(stored = OnboardingStep.COMPLETED, chatgpt = ChatGpt.SIGNED_IN)))
+  @Test fun completedNeverShowsAgainEvenWhenAiIsUnavailable() {
+    for (ai in AiAccess.entries)
+      assertEquals(OnboardingDecision.Hidden(OnboardingRules.HIDDEN_COMPLETED), OnboardingRules.decide(facts(stored = OnboardingStep.COMPLETED, ai = ai)))
+    assertFalse(OnboardingRules.shouldComplete(facts(stored = OnboardingStep.COMPLETED, ai = AiAccess.AVAILABLE)))
   }
 
-  @Test fun aConfirmedChatGptSignInHidesAndCompletesFromAnyStep() {
+  @Test fun availableAiHidesAndCompletesFromAnyStep() {
+    // ChatGPT signed in, or Magpie running with a model: both arrive as AVAILABLE.
     for (stored in listOf(null, OnboardingStep.INTRO, OnboardingStep.NAME, OnboardingStep.CONNECT_AI)) {
-      val f = facts(stored = stored, chatgpt = ChatGpt.SIGNED_IN)
-      assertEquals(OnboardingDecision.Hidden(OnboardingRules.HIDDEN_CHATGPT), OnboardingRules.decide(f))
+      val f = facts(stored = stored, ai = AiAccess.AVAILABLE)
+      assertEquals(OnboardingDecision.Hidden(OnboardingRules.HIDDEN_AI), OnboardingRules.decide(f))
       assertTrue(OnboardingRules.shouldComplete(f))
     }
   }
 
-  @Test fun anUnknownAccountStillShowsAndNeverCompletes() {
-    val f = facts(chatgpt = ChatGpt.UNKNOWN)
-    assertEquals(OnboardingDecision.Show(OnboardingStep.INTRO), OnboardingRules.decide(f))
-    assertFalse(OnboardingRules.shouldComplete(f))
+  @Test fun anUnknownAccountKeepsItHiddenAndNeverCompletes() {
+    // An existing user whose broker is still starting must not see the card.
+    for (stored in listOf(null, OnboardingStep.INTRO, OnboardingStep.NAME, OnboardingStep.CONNECT_AI)) {
+      val f = facts(stored = stored, ai = AiAccess.UNKNOWN)
+      assertEquals(OnboardingDecision.Hidden(OnboardingRules.HIDDEN_AI_UNKNOWN), OnboardingRules.decide(f))
+      assertFalse(OnboardingRules.shouldComplete(f))
+    }
   }
 
   @Test fun itWaitsUntilThePhoneIsReady() {
     assertEquals(OnboardingDecision.Hidden(OnboardingRules.HIDDEN_PHONE), OnboardingRules.decide(facts(ready = false)))
+    assertEquals(OnboardingDecision.Hidden(OnboardingRules.HIDDEN_AI_UNKNOWN), OnboardingRules.decide(facts(ready = false, ai = AiAccess.UNKNOWN)))
   }
 
   @Test fun anExistingNameSkipsTheNameStep() {

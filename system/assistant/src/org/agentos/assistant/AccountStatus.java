@@ -10,7 +10,7 @@ import org.json.JSONObject;
 /**
  * The broker's RAM account view (`taku-agent-account`), read synchronously. The native account
  * page, the Home onboarding (gateway `readAccount`) and Agents (`account/status`) all read this one
- * snapshot, so they can never disagree about whether ChatGPT is signed in.
+ * snapshot, so they can never disagree about whether ChatGPT is signed in or AI is available.
  */
 final class AccountStatus {
     private static final int MAX_VIEW = 32768;
@@ -49,8 +49,10 @@ final class AccountStatus {
     }
 
     /**
-     * Drops sign-in artifacts (`url`, `code`) and adds `chatgptConnected`: the broker's own
-     * `account/read` returned a ChatGPT account. `phase:"loading"` means not yet known.
+     * Drops sign-in artifacts (`url`, `code`) and adds `chatgptConnected` (the broker's own
+     * `account/read` returned a ChatGPT account) and `aiAvailable` (that, or Magpie mode running
+     * with at least one model, the broker's own readiness check). `phase:"loading"` or
+     * `"verifying"` means not yet settled.
      */
     static JSONObject status(JSONObject view) {
         try {
@@ -62,7 +64,8 @@ final class AccountStatus {
                     .put("kind", kind)
                     .put("plan", view.optString("plan"))
                     .put("message", view.optString("message"))
-                    .put("chatgptConnected", connected && "chatgpt".equals(kind));
+                    .put("chatgptConnected", connected && "chatgpt".equals(kind))
+                    .put("aiAvailable", connected && ("chatgpt".equals(kind) || "magpie".equals(kind)));
         } catch (org.json.JSONException impossible) {
             throw new IllegalStateException(impossible);
         }

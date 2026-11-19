@@ -26,7 +26,7 @@ import org.json.JSONObject
  * The one onboarding state for this Android user, shared by the Home card and Agents
  * (`content://org.agentos.agent.home-onboarding`). Sources of truth:
  * - progress: `Settings.Secure` [OnboardingRules.SETTING] (per user; cleared by factory reset);
- * - ChatGPT: the broker account view through the assistant gateway (`readAccount`);
+ * - AI: the broker account view through the assistant gateway (`readAccount` `aiAvailable`);
  * - name: Memory `userName` (`content://org.agentos.memory.open-access`).
  * Blocking methods run on the caller's thread: an IO dispatcher or a provider binder thread.
  */
@@ -42,7 +42,7 @@ class OnboardingRepository private constructor(context: Context) {
   private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO + CoroutineExceptionHandler { _, e -> Log.w(TAG, "onboarding update failed", e) })
   private val lock = Any()
 
-  @Volatile private var chatgpt = ChatGpt.UNKNOWN
+  @Volatile private var ai = AiAccess.UNKNOWN
   @Volatile private var userName: String? = null
   @Volatile private var nameKnown = false
 
@@ -63,22 +63,25 @@ class OnboardingRepository private constructor(context: Context) {
     scope.launch { refresh() }
   }
 
-  /** Home in the foreground: re-read now, then poll the account while the card is up. */
+  /**
+   * Home in the foreground: re-read now, then poll while onboarding is pending, so the card
+   * appears as soon as every condition is confirmed and leaves once AI is available.
+   */
   fun setForeground(foreground: Boolean) {
     poll?.cancel()
     poll = if (!foreground) null else scope.launch {
       runCatching { refresh() }.onFailure { Log.w(TAG, "onboarding refresh failed", it) }
-      while (isActive && state.value.decision is OnboardingDecision.Show) {
+      while (isActive && state.value.facts.stored != OnboardingStep.COMPLETED) {
         delay(POLL_MS)
         runCatching { refresh() }.onFailure { Log.w(TAG, "onboarding refresh failed", it) }
       }
     }
   }
 
-  /** While onboarding is pending, re-reads ChatGPT and the name, then publishes. Completed costs nothing. */
+  /** While onboarding is pending, re-reads AI access and the name, then publishes. Completed costs nothing. */
   fun refresh(): State {
     if (stored() != OnboardingStep.COMPLETED) {
-      chatgpt = readChatGpt()
+      ai = readAi()
       readName()
     }
     return publish()
@@ -92,6 +95,7 @@ class OnboardingRepository private constructor(context: Context) {
       is OnboardingDecision.Hidden -> throw OnboardingException(
         when (decision.reason) {
           OnboardingRules.HIDDEN_PHONE -> "PHONE_NOT_READY"
+          OnboardingRules.HIDDEN_AI_UNKNOWN -> "AI_STATUS_UNKNOWN"
           else -> "ALREADY_COMPLETED"
         },
         "onboarding is not showing (${decision.reason})",
@@ -108,7 +112,7 @@ class OnboardingRepository private constructor(context: Context) {
     publish()
   }
 
-  /** Agent-only: start over from the intro. A confirmed ChatGPT sign-in completes it again. */
+  /** Agent-only: start over from the intro. Confirmed available AI completes it again. */
   fun reset(): State = synchronized(lock) {
     write(OnboardingStep.INTRO)
     refresh()
@@ -116,7 +120,7 @@ class OnboardingRepository private constructor(context: Context) {
 
   /** The authoritative snapshot for Agents, freshly read. */
   fun describe(): JSONObject {
-    chatgpt = readChatGpt()
+    ai = readAi()
     val s = refresh()
     val decision = s.decision
     return JSONObject()
@@ -126,7 +130,7 @@ class OnboardingRepository private constructor(context: Context) {
       .put("step", s.step?.id ?: JSONObject.NULL)
       .put("hiddenReason", (decision as? OnboardingDecision.Hidden)?.reason ?: JSONObject.NULL)
       .put("phoneReady", s.facts.phoneReady)
-      .put("chatgpt", s.facts.chatgpt.id)
+      .put("ai", s.facts.ai.id)
       .put("nameSet", s.facts.nameSet ?: JSONObject.NULL)
   }
 
@@ -145,7 +149,7 @@ class OnboardingRepository private constructor(context: Context) {
 
   private fun snapshotOf(facts: OnboardingFacts) = State(facts, OnboardingRules.decide(facts), userName.takeIf { OnboardingRules.isNameSet(it) })
 
-  private fun facts() = OnboardingFacts(stored(), phoneReady(), chatgpt, nameSet())
+  private fun facts() = OnboardingFacts(stored(), phoneReady(), ai, nameSet())
 
   private fun nameSet(): Boolean? = if (nameKnown) OnboardingRules.isNameSet(userName) else null
 
@@ -158,25 +162,28 @@ class OnboardingRepository private constructor(context: Context) {
 
   private fun phoneReady(): Boolean {
     val provisioned = Settings.Global.getInt(resolver, Settings.Global.DEVICE_PROVISIONED, 0) == 1
+    // Unreadable means unconfirmed, and unconfirmed keeps the card hidden.
     val setupComplete = try {
       Settings.Secure.getInt(resolver, USER_SETUP_COMPLETE, 0) == 1
-    } catch (_: SecurityException) {
-      provisioned
+    } catch (e: SecurityException) {
+      Log.w(TAG, "cannot read $USER_SETUP_COMPLETE", e)
+      false
     }
     val unlocked = app.getSystemService(UserManager::class.java)?.isUserUnlocked ?: true
     return provisioned && setupComplete && unlocked
   }
 
-  private fun readChatGpt(): ChatGpt = try {
+  private fun readAi(): AiAccess = try {
     val account = gateway.call("readAccount")
     when {
-      account.optBoolean("chatgptConnected") -> ChatGpt.SIGNED_IN
-      account.optString("phase", "loading") == "loading" -> ChatGpt.UNKNOWN
-      else -> ChatGpt.SIGNED_OUT
+      account.optBoolean("aiAvailable") -> AiAccess.AVAILABLE
+      // Still reading, or a finished sign-in being confirmed: not settled either way.
+      account.optString("phase", "loading") in UNSETTLED_PHASES -> AiAccess.UNKNOWN
+      else -> AiAccess.UNAVAILABLE
     }
   } catch (e: GatewayException) {
     Log.w(TAG, "account status unavailable: ${e.code}")
-    ChatGpt.UNKNOWN
+    AiAccess.UNKNOWN
   }
 
   private fun readName() {
@@ -215,6 +222,7 @@ class OnboardingRepository private constructor(context: Context) {
     /** `Settings.Secure.USER_SETUP_COMPLETE` (hidden constant; per user). */
     private const val USER_SETUP_COMPLETE = "user_setup_complete"
     private const val POLL_MS = 3_000L
+    private val UNSETTLED_PHASES = setOf("loading", "verifying")
     private val MEMORY: Uri = Uri.parse("content://org.agentos.memory.open-access")
 
     @Volatile private var instance: OnboardingRepository? = null

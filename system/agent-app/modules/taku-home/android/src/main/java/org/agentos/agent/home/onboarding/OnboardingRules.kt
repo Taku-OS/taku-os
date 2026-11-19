@@ -16,20 +16,23 @@ enum class OnboardingStep(val id: String) {
   }
 }
 
-/** ChatGPT availability from the broker's account view (gateway `readAccount`). */
-enum class ChatGpt(val id: String) {
-  /** The broker is still reading the account, or it cannot be reached. */
+/**
+ * Whether the assistant's AI is usable, from the broker's account view (gateway `readAccount`
+ * `aiAvailable`): a ChatGPT sign-in, or Magpie mode running with at least one model.
+ */
+enum class AiAccess(val id: String) {
+  /** The broker is still reading or verifying the account, or it cannot be reached. */
   UNKNOWN("unknown"),
-  SIGNED_OUT("signed_out"),
-  SIGNED_IN("signed_in"),
+  UNAVAILABLE("unavailable"),
+  AVAILABLE("available"),
 }
 
 /** The authoritative inputs; GUI and Agents both decide from these. */
 data class OnboardingFacts(
   val stored: OnboardingStep?,
-  /** Setup wizard finished, device provisioned and this user unlocked. */
+  /** Setup wizard finished, device provisioned and this user unlocked, all confirmed. */
   val phoneReady: Boolean,
-  val chatgpt: ChatGpt,
+  val ai: AiAccess,
   /** Memory `userName` is set; null when Memory could not be read. */
   val nameSet: Boolean?,
 )
@@ -56,24 +59,26 @@ object OnboardingRules {
   const val NAME_MAX = 20
 
   const val HIDDEN_COMPLETED = "completed"
-  const val HIDDEN_CHATGPT = "chatgpt_connected"
+  const val HIDDEN_AI = "ai_available"
+  const val HIDDEN_AI_UNKNOWN = "ai_unknown"
   const val HIDDEN_PHONE = "phone_not_ready"
 
   /**
-   * Shown when onboarding is not completed, ChatGPT is not confirmed signed in, and the phone is
-   * ready. An unknown account state counts as "not yet available": only a confirmed sign-in ends
-   * onboarding, so a slow or failed broker never skips it.
+   * Shown only when all three are confirmed: onboarding is not completed, AI is confirmed
+   * unavailable, and the phone is ready. Anything uncertain keeps it hidden, so an existing user
+   * never sees it while the broker is still starting.
    */
   fun decide(facts: OnboardingFacts): OnboardingDecision = when {
     facts.stored == OnboardingStep.COMPLETED -> OnboardingDecision.Hidden(HIDDEN_COMPLETED)
-    facts.chatgpt == ChatGpt.SIGNED_IN -> OnboardingDecision.Hidden(HIDDEN_CHATGPT)
+    facts.ai == AiAccess.AVAILABLE -> OnboardingDecision.Hidden(HIDDEN_AI)
+    facts.ai == AiAccess.UNKNOWN -> OnboardingDecision.Hidden(HIDDEN_AI_UNKNOWN)
     !facts.phoneReady -> OnboardingDecision.Hidden(HIDDEN_PHONE)
     else -> OnboardingDecision.Show(resolve(facts.stored ?: OnboardingStep.INTRO, facts.nameSet))
   }
 
-  /** A confirmed ChatGPT sign-in completes onboarding for good, even if it was never shown. */
+  /** Confirmed available AI completes onboarding for good, even if it was never shown. */
   fun shouldComplete(facts: OnboardingFacts): Boolean =
-    facts.stored != OnboardingStep.COMPLETED && facts.chatgpt == ChatGpt.SIGNED_IN
+    facts.stored != OnboardingStep.COMPLETED && facts.ai == AiAccess.AVAILABLE
 
   /** Skips steps that are already done: the name step when Memory already has a name. */
   fun resolve(step: OnboardingStep, nameSet: Boolean?): OnboardingStep =
