@@ -161,36 +161,64 @@ final class MagpieDecisions {
         return any;
     }
 
+    /** connect() stays well inside the assistant client's 45 s socket timeout. */
+    static final long CONNECT_BUDGET_MS = 30_000;
+    private static final long REFRESH_MS = 8_000;
+    private static final int POLL_READ_MS = 5_000;
+
     /**
      * Onboarding's Jev key: adds (or reuses) the matching Magpie provider through the canonical
      * Settings store, asks Magpie to fetch its model list, and waits for its Jev decision model.
      * Returns `{provider, preset, model}`; an empty model means the key was kept but no Jev model
-     * is listed yet.
+     * is listed yet. The whole call is bounded by [CONNECT_BUDGET_MS], so a slow Magpie answers
+     * "saved, not listed yet" instead of timing the caller out after the key was stored.
      */
-    private synchronized JSONObject connect(String raw) throws Exception {
+    private JSONObject connect(String raw) throws Exception {
+        long deadline = System.currentTimeMillis() + CONNECT_BUDGET_MS;
         String key = raw.trim(), preset = jevPreset(key), provider;
-        if (root.equals(new File("/data/local/agentos/magpie"))) {
-            try { provider = MagpieSettings.addDecisionProvider(preset, key); }
-            catch (Exception e) { throw new IOException("KEY_NOT_SAVED"); }
-            refreshProvider(provider);
-        } else {
-            // The isolated host fixture keeps the upstream management API path.
-            provider = managedKey(key, preset);
-            if (provider.isEmpty()) {
-                request(management, "/api/provider/save", new JSONObject().put("new", true)
-                        .put("id", "taku-jev-" + preset).put("name", "Taku Jev").put("preset", preset).put("key", key), true);
+        // Only the provider write shares the monitor with importLegacy; the wait below does not.
+        synchronized (this) {
+            if (root.equals(new File("/data/local/agentos/magpie"))) {
+                try { provider = MagpieSettings.addDecisionProvider(preset, key); }
+                catch (Exception e) { throw new IOException("KEY_NOT_SAVED"); }
+            } else {
+                // The isolated host fixture keeps the upstream management API path.
                 provider = managedKey(key, preset);
+                if (provider.isEmpty()) {
+                    request(management, "/api/provider/save", new JSONObject().put("new", true)
+                            .put("id", "taku-jev-" + preset).put("name", "Taku Jev").put("preset", preset).put("key", key), true);
+                    provider = managedKey(key, preset);
+                }
+                if (provider.isEmpty()) throw new IOException("KEY_NOT_SAVED");
             }
-            if (provider.isEmpty()) throw new IOException("KEY_NOT_SAVED");
         }
+        if (root.equals(new File("/data/local/agentos/magpie"))) refreshProvider(provider);
         String model = "";
-        long deadline = System.currentTimeMillis() + 20_000;
         while (true) {
-            try { model = pickJev(models(), provider + "/"); } catch (Exception catalogNotReady) { /* retry */ }
-            if (!model.isEmpty() || System.currentTimeMillis() > deadline) break;
+            long left = deadline - System.currentTimeMillis();
+            if (left <= 0) break;
+            try { model = pickJev(catalogIds((int) Math.max(1_000, Math.min(POLL_READ_MS, left))), provider + "/"); }
+            catch (Exception catalogNotReady) { /* retry until the budget runs out */ }
+            if (!model.isEmpty() || System.currentTimeMillis() + 1_000 > deadline) break;
             Thread.sleep(1_000);
         }
         return new JSONObject().put("provider", provider).put("preset", preset).put("model", model);
+    }
+
+    /**
+     * Decision model ids from the gateway catalog only (`/v1/models`), as `[{id}]`. Enough for
+     * [pickJev]; the full [models] also reads two management endpoints per call.
+     */
+    private JSONArray catalogIds(int readTimeoutMs) throws Exception {
+        JSONArray data = request(gateway, "/v1/models", null, false, readTimeoutMs).optJSONArray("data"), ids = new JSONArray();
+        if (data == null) throw new IOException("Invalid Magpie decision model catalog format.");
+        for (int i = 0; i < data.length(); i++) {
+            JSONObject item = data.optJSONObject(i);
+            if (item == null || !"decision".equals(item.optString("kind"))) continue;
+            String id = item.optString("id");
+            if (!id.isBlank() && id.length() <= 512) ids.put(new JSONObject().put("id", id));
+        }
+        return ids;
     }
 
     /** `magpie provider refresh <id>`, bounded; the catalog poll still decides the result. */
@@ -198,7 +226,7 @@ final class MagpieDecisions {
         try {
             Process process = new ProcessBuilder("/system_ext/bin/magpie", "provider", "refresh", provider).redirectErrorStream(true).start();
             try (InputStream ignored = process.getInputStream()) {
-                if (!process.waitFor(10, java.util.concurrent.TimeUnit.SECONDS)) process.destroyForcibly();
+                if (!process.waitFor(REFRESH_MS, java.util.concurrent.TimeUnit.MILLISECONDS)) process.destroyForcibly();
             }
         } catch (Exception unavailable) { /* Magpie also fetches lists on its own schedule. */ }
     }
@@ -243,8 +271,12 @@ final class MagpieDecisions {
     }
 
     private JSONObject request(String base, String path, JSONObject body, boolean admin) throws Exception {
+        return request(base, path, body, admin, 20000);
+    }
+
+    private JSONObject request(String base, String path, JSONObject body, boolean admin, int readTimeoutMs) throws Exception {
         HttpURLConnection connection = (HttpURLConnection) new URL(base + path).openConnection(Proxy.NO_PROXY);
-        connection.setConnectTimeout(1500); connection.setReadTimeout(20000);
+        connection.setConnectTimeout(1500); connection.setReadTimeout(readTimeoutMs);
         connection.setInstanceFollowRedirects(false);
         connection.setRequestProperty("Content-Type", "application/json; charset=utf-8");
         connection.setRequestProperty("User-Agent", "taku-android-decisions/1");

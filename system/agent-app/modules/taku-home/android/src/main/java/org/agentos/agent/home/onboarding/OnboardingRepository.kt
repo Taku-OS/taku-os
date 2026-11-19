@@ -56,6 +56,12 @@ class OnboardingRepository private constructor(context: Context) {
 
   @Volatile private var ai = AiAccess.UNKNOWN
   @Volatile private var services = Services.UNKNOWN
+  /** Guards read-modify-write of [ai], [services] and [settledAt] from concurrent readers. */
+  private val factsLock = Any()
+  /** When the account last gave a settled answer ([SystemClock.elapsedRealtime]). */
+  private var settledAt = 0L
+  /** Consecutive account reads the gateway could not answer; slows the poll down. */
+  @Volatile private var accountFailures = 0
   @Volatile private var userName: String? = null
   @Volatile private var nameKnown = false
   @Volatile private var foreground = false
@@ -93,20 +99,31 @@ class OnboardingRepository private constructor(context: Context) {
     poll = if (!foreground) null else scope.launch {
       runCatching { refresh() }.onFailure { Log.w(TAG, "onboarding refresh failed", it) }
       while (isActive && state.value.facts.stored != OnboardingStep.COMPLETED) {
-        delay(POLL_MS)
+        // An unreachable gateway (no assistant on this build, broker down) backs off to 1 min.
+        delay((POLL_MS shl accountFailures.coerceAtMost(4)).coerceAtMost(MAX_POLL_MS))
         runCatching { refresh() }.onFailure { Log.w(TAG, "onboarding refresh failed", it) }
       }
     }
   }
 
-  /** While onboarding is pending, re-reads the authoritative sources, then publishes. Completed costs nothing. */
-  fun refresh(): State {
+  /**
+   * While onboarding is pending, re-reads the authoritative sources, then publishes. Completed
+   * costs nothing, and "all set" needs no account read (its card does not depend on AI). [full]
+   * (Agents' [describe]) reads every source once, whatever the step.
+   */
+  fun refresh(full: Boolean = false): State {
     val stored = stored()
-    if (stored != OnboardingStep.COMPLETED) {
-      readAccount()
-      if (stored == OnboardingStep.CONNECT_AI) services = services.copy(jev = readJev(), fal = readFal())
-      if (!nameKnown || stored == null || stored == OnboardingStep.INTRO || stored == OnboardingStep.NAME) readName()
+    val pending = stored != OnboardingStep.COMPLETED && stored != OnboardingStep.ALL_SET
+    if (full || pending) readAccount()
+    if (full || stored == OnboardingStep.CONNECT_AI) {
+      val jev = readJev()
+      val fal = readFal()
+      updateServices { it.copy(jev = jev, fal = fal) }
     }
+    // Read the name once; re-read it only while the card shows the intro or name step (an Agent
+    // may set it there). A hidden card does not call Memory on every poll.
+    val shown = (OnboardingRules.decide(facts()) as? OnboardingDecision.Show)?.step
+    if (stored != OnboardingStep.COMPLETED && (!nameKnown || shown == OnboardingStep.INTRO || shown == OnboardingStep.NAME)) readName()
     return publish()
   }
 
@@ -163,9 +180,7 @@ class OnboardingRepository private constructor(context: Context) {
 
   /** The authoritative snapshot for Agents, freshly read. */
   fun describe(): JSONObject {
-    readAccount()
-    services = services.copy(jev = readJev(), fal = readFal())
-    val s = refresh()
+    val s = refresh(full = true)
     val decision = s.decision
     return JSONObject()
       .put("setting", OnboardingRules.SETTING)
@@ -246,8 +261,13 @@ class OnboardingRepository private constructor(context: Context) {
   private fun stored(): OnboardingStep? = OnboardingStep.parse(Settings.Secure.getString(resolver, OnboardingRules.SETTING))
 
   private fun write(step: OnboardingStep) {
-    if (!Settings.Secure.putString(resolver, OnboardingRules.SETTING, step.id))
-      throw OnboardingException("SETTINGS_WRITE_FAILED", "could not save ${OnboardingRules.SETTING}")
+    val saved = try {
+      Settings.Secure.putString(resolver, OnboardingRules.SETTING, step.id)
+    } catch (e: SecurityException) {
+      Log.w(TAG, "cannot write ${OnboardingRules.SETTING}", e)
+      false
+    }
+    if (!saved) throw OnboardingException("SETTINGS_WRITE_FAILED", "could not save ${OnboardingRules.SETTING}")
   }
 
   private fun phoneReady(): Boolean {
@@ -263,32 +283,50 @@ class OnboardingRepository private constructor(context: Context) {
     return provisioned && setupComplete && unlocked
   }
 
-  /** AI availability and the ChatGPT chip from one account read; reports a failed sign-in once. */
+  /**
+   * AI availability and the ChatGPT chip from one account read; reports a failed sign-in once.
+   * An unsettled or failed read keeps the last settled answer for [UNSETTLED_GRACE_MS], so one
+   * busy gateway call or a broker restart does not hide a card the user is working in. Longer
+   * than that, it is unknown again (and an unknown status never shows the card).
+   */
   private fun readAccount() {
-    val previous = services.chatgpt
-    try {
-      val account = gateway.call("readAccount")
-      val phase = account.optString("phase", "loading")
-      ai = when {
-        account.optBoolean("aiAvailable") -> AiAccess.AVAILABLE
-        // Still reading, or a finished sign-in being confirmed: not settled either way.
-        phase in UNSETTLED_PHASES -> AiAccess.UNKNOWN
-        else -> AiAccess.UNAVAILABLE
-      }
-      val chatgpt = when {
-        account.optBoolean("chatgptConnected") -> Connection.CONNECTED
-        phase in SIGNING_IN_PHASES -> Connection.CONNECTING
-        phase == "loading" -> Connection.UNKNOWN
-        else -> Connection.NOT_CONNECTED
-      }
-      services = services.copy(chatgpt = chatgpt)
-      if (previous == Connection.CONNECTING && phase == "failed") noticeFlow.tryEmit(account.optString("message").ifBlank { FAILED })
+    val account = try {
+      gateway.call("readAccount").also { accountFailures = 0 }
     } catch (e: GatewayException) {
       Log.w(TAG, "account status unavailable: ${e.code}")
-      ai = AiAccess.UNKNOWN
-      services = services.copy(chatgpt = Connection.UNKNOWN)
+      accountFailures = (accountFailures + 1).coerceAtMost(8)
+      synchronized(factsLock) { if (!withinGrace()) { ai = AiAccess.UNKNOWN; services = services.copy(chatgpt = Connection.UNKNOWN) } }
+      return
     }
+    val phase = account.optString("phase", "loading")
+    val read = when {
+      account.optBoolean("aiAvailable") -> AiAccess.AVAILABLE
+      // Still reading, or a finished sign-in being confirmed: not settled either way.
+      phase in UNSETTLED_PHASES -> AiAccess.UNKNOWN
+      else -> AiAccess.UNAVAILABLE
+    }
+    val chatgpt = when {
+      account.optBoolean("chatgptConnected") -> Connection.CONNECTED
+      phase in SIGNING_IN_PHASES -> Connection.CONNECTING
+      phase == "loading" -> Connection.UNKNOWN
+      else -> Connection.NOT_CONNECTED
+    }
+    // Read the previous chip and write the new one atomically, so two concurrent reads of the
+    // same failure report it once and neither overwrites the other's Jev or Fal update.
+    val failed = synchronized(factsLock) {
+      val previous = services.chatgpt
+      if (read != AiAccess.UNKNOWN) { ai = read; settledAt = SystemClock.elapsedRealtime() }
+      else if (!withinGrace()) ai = AiAccess.UNKNOWN
+      if (chatgpt != Connection.UNKNOWN || !withinGrace()) services = services.copy(chatgpt = chatgpt)
+      previous == Connection.CONNECTING && phase == "failed"
+    }
+    if (failed) noticeFlow.tryEmit(account.optString("message").ifBlank { FAILED })
   }
+
+  /** A settled account answer is recent enough to stand in for an unsettled or failed read. Under [factsLock]. */
+  private fun withinGrace(): Boolean = ai != AiAccess.UNKNOWN && SystemClock.elapsedRealtime() - settledAt < UNSETTLED_GRACE_MS
+
+  private fun updateServices(change: (Services) -> Services) = synchronized(factsLock) { services = change(services) }
 
   private fun readJev(): Connection = try {
     if (gateway.call("readJev").optBoolean("ready")) Connection.CONNECTED else Connection.NOT_CONNECTED
@@ -325,7 +363,7 @@ class OnboardingRepository private constructor(context: Context) {
     } catch (e: RuntimeException) {
       throw OnboardingException("AUDIO_UNAVAILABLE", e.message ?: "Taku Audio is unavailable")
     } ?: throw OnboardingException("AUDIO_UNAVAILABLE", "Taku Audio is unavailable")
-    val envelope = JSONObject(bundle.getString("result") ?: throw OnboardingException("AUDIO_UNAVAILABLE", "Taku Audio returned nothing"))
+    val envelope = envelope(bundle.getString("result"), "AUDIO_UNAVAILABLE", "Taku Audio")
     if (!envelope.optBoolean("ok")) {
       val code = envelope.optString("code").ifBlank { "KEY_NOT_SAVED" }
       throw OnboardingException(if (code == "INVALID_ARGUMENT") "INVALID_KEY" else code, envelope.optString("message", code))
@@ -359,9 +397,16 @@ class OnboardingRepository private constructor(context: Context) {
     } catch (e: RuntimeException) {
       throw OnboardingException("MEMORY_UNAVAILABLE", e.message ?: "Memory is unavailable")
     } ?: throw OnboardingException("MEMORY_UNAVAILABLE", "Memory is unavailable")
-    val envelope = JSONObject(bundle.getString("result") ?: throw OnboardingException("MEMORY_UNAVAILABLE", "Memory returned nothing"))
+    val envelope = envelope(bundle.getString("result"), "MEMORY_UNAVAILABLE", "Memory")
     if (!envelope.optBoolean("ok")) throw OnboardingException("MEMORY_ERROR", envelope.optString("message", "Memory rejected the request"))
     return envelope.optJSONObject("result") ?: JSONObject()
+  }
+
+  /** A provider's `{ok, result}` envelope; missing or malformed is [code], never a raw JSON error. */
+  private fun envelope(raw: String?, code: String, source: String): JSONObject = try {
+    JSONObject(raw ?: throw OnboardingException(code, "$source returned nothing"))
+  } catch (e: org.json.JSONException) {
+    throw OnboardingException(code, "$source returned an invalid result")
   }
 
   companion object {
@@ -369,6 +414,9 @@ class OnboardingRepository private constructor(context: Context) {
     /** `Settings.Secure.USER_SETUP_COMPLETE` (hidden constant; per user). */
     private const val USER_SETUP_COMPLETE = "user_setup_complete"
     private const val POLL_MS = 3_000L
+    private const val MAX_POLL_MS = 60_000L
+    /** How long a settled account answer outlives failed or unsettled reads (a few polls). */
+    private const val UNSETTLED_GRACE_MS = 15_000L
     private const val SIGN_IN_POLL_MS = 1_500L
     private const val SIGN_IN_MS = 15 * 60_000L
     private const val CONNECTED_PILL_MS = 3_000L

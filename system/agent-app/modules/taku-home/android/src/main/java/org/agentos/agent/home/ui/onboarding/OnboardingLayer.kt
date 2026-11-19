@@ -77,6 +77,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.caverock.androidsvg.SVG
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -202,6 +203,12 @@ private class OnboardingActions(val context: Context, val repository: Onboarding
       } catch (e: OnboardingException) {
         Log.w(TAG, "${e.code}: ${e.message}")
         if (e.code == "NO_DECISION_MODEL" || e.code == "MAGPIE_UNAVAILABLE") onNeedsKey() else toast(message(e.code))
+      } catch (e: CancellationException) {
+        throw e
+      } catch (e: Exception) {
+        // Anything unexpected is a failed action, never a crashed Home.
+        Log.w(TAG, "Jev enable failed", e)
+        toast(message(""))
       } finally {
         busy = false
       }
@@ -227,6 +234,13 @@ private class OnboardingActions(val context: Context, val repository: Onboarding
         Log.w(TAG, "${e.code}: ${e.message}")
         onFailure()
         toast(message(e.code))
+      } catch (e: CancellationException) {
+        throw e
+      } catch (e: Exception) {
+        // Anything unexpected is a failed action, never a crashed Home; the card grows back too.
+        Log.w(TAG, "onboarding action failed", e)
+        onFailure()
+        toast(message(""))
       } finally {
         busy = false
       }

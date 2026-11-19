@@ -380,9 +380,11 @@ Home shows a first-run onboarding card (Figma 1155:527, 1155:619, 1155:846, 1155
 are confirmed: onboarding is not completed, AI is confirmed unavailable (`account/status`
 `aiAvailable:false` with a settled `phase`), and the phone is ready (`device_provisioned=1`, this
 user's `user_setup_complete=1`, user unlocked). Anything uncertain keeps it hidden: a broker that
-is still loading, verifying or unreachable, or a readiness value Home cannot read. While it is
-pending, Home re-checks every 3 s in the foreground, so the card appears once everything is
-confirmed. Once the user reaches the AI step (`connect_ai`), the card stays there through
+is still loading, verifying or unreachable, or a readiness value Home cannot read. Once a
+settled answer exists, a failed or unsettled account read keeps it for up to 15 s, so a single
+busy call or a broker restart does not hide a card the user is working in; after that the status
+is unknown again. While it is pending, Home re-checks every 3 s in the foreground (backing off to
+1 min while the account cannot be read), so the card appears once everything is confirmed. Once the user reaches the AI step (`connect_ai`), the card stays there through
 sign-in and verification, and after AI connects, until **Continue** (`onboarding/finish`), which
 moves to **You’re all set** (`all_set`). It cannot be dismissed. During `intro`, `name` and
 `connect_ai` Home composes only the wallpaper, the empty-Home message and the card (no Feed, home
@@ -452,7 +454,8 @@ Memory could not be read. Errors are `{ok:false,code,message}`:
 The `connect_ai` card shows three chips (Fal only when Taku Audio is installed). **ChatGPT**
 starts browser sign-in in one tap (`account/login/start` with `open:true`): the card shrinks into
 the camera pill, the island shows "Signing in…" while Home is away and a brief "Connected" when
-the account lands, and the assistant brings Home back. **Jev** first switches on a Jev model Magpie
+the account lands, and the assistant brings Home back. Backing out (Cancel sign-in, a failed or
+abandoned sign-in) switches a previous Magpie connection back. **Jev** first switches on a Jev model Magpie
 already serves (`jev/enable`); otherwise it opens a masked key field that takes a TypeSafe
 (`apikey_…`) or OpenRouter (`sk-or-v1-…`) key (`jev/connect`), configured into Magpie in the
 background. **Fal** opens a masked fal key field (Taku Audio `settings` `saveFalKey`). Chips show working dots while connecting and a check when connected; a connected
