@@ -2,6 +2,8 @@
 
 This directory supplies the previously missing builder definition. `Dockerfile` pins the Ubuntu base-image digest and repo-launcher checksum. APT packages come from Ubuntu repositories and are not yet pinned to historical snapshots, so byte-for-byte reproducibility is not claimed.
 
+APT uses a prioritized mirror list with a 15-second connection/data timeout and one retry before falling back to another Ubuntu mirror. Set `--build-arg UBUNTU_MIRROR=http://your-ubuntu-mirror/ubuntu/` to prefer a local mirror; CI prefers `azure.archive.ubuntu.com`, then falls back to `archive.ubuntu.com` and `security.ubuntu.com`. Ubuntu package signature verification remains enabled. Repository-index errors fail the build, and the checksum-verified repo launcher download also has bounded timeouts. The CI job retains its 20-minute limit and runs the builder tool smoke check after a successful image build.
+
 Linux amd64 Docker is required (Apple Silicon uses amd64 emulation). Complete Android source, kernel, and outputs require substantial disk space and memory; see `image/build-config.json` for resource settings. Use a dedicated build machine or a new Docker volume.
 
 ```sh
