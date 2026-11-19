@@ -80,11 +80,15 @@ Same-thread preflight and publication are serialized through a session gate. Rec
 Use `{scope:"home"}` by itself to list all eligible Home screens in broker order. The
 broker publishes `homePreviewEligible` on its workspace rows. Home uses this list for
 both the count and the cards. Each row carries a Home preview URI at
-`/preview/home/<threadId>/<screenKey>/<generation>`, reserved for the Home frame reader.
+`/preview/home/<threadId>/<screenKey>/<generation>` on the same gateway. Open it with
+`openInputStream` on a worker thread for a single JPEG when the card becomes visible.
+The Home UI keeps the frame for that expansion and reads again on the next expansion.
 An unsupported scope returns `INVALID_WORKSPACE_SCOPE`. Mixing scope with `threadId`
 returns `UNSUPPORTED_PARAMETER`.
 
-Session previews use `content://org.agentos.assistant.agent-gateway/preview/<threadId>/<screenKey>/<generation>`. Read with `openInputStream` on a worker thread. The native directory read is scoped to the exact requested thread, so unrelated screens cannot delay its validation. A successful session `getWorkspaces` read publishes an immutable, verified native catalog with a five-second monotonic lifetime. Frame reads share that catalog instead of performing two full directory reads per frame. They validate socket UID/PID, display identity, generation and JPEG dimensions, then recheck both the original catalog lifetime and the current exact lease before returning. New catalog responses do not renew an old frame's verification time. Selection, current read failure and current frame failure invalidate the applicable catalog; stale asynchronous failures cannot erase newer results. `openWorkspace` still performs a fresh native catalog validation. Only the selected session's admitted independent screens are exposed (maximum three). Frame bytes travel over a pipe, not a Binder Bundle. This is a view-only snapshot; touching the preview should call `openWorkspace`, never generate input from JS. Stop polling when the UI is hidden and clear stale frames on read failure.
+Session previews use `content://org.agentos.assistant.agent-gateway/preview/<threadId>/<screenKey>/<generation>`. Read with `openInputStream` on a worker thread. The native directory read is scoped to the exact requested thread and exposes up to three of its admitted independent screens. The JPEG is view-only. Use `openWorkspace` to open the full screen from a session preview. It performs a fresh native catalog validation. Stop session frame polling when the UI is hidden and clear stale frames on read failure.
+
+Home and session `getWorkspaces` reads publish independent, immutable verified catalogs with a five-second monotonic lifetime. Each frame read uses the matching catalog and validates socket UID/PID, display identity, generation and JPEG dimensions. Before returning the JPEG over a pipe, it rechecks the original catalog lifetime and the current exact lease. Current read and frame failures invalidate the applicable catalog. Session selection invalidates the session catalog. Stale asynchronous failures leave newer results intact.
 
 Validation: `bash system/assistant/test-agent-gateway-host.sh` checks capability/parameter rejection, request/session scoping, secret-field omission, and duplicate publication across a store restart. Building or passing host checks does not establish installed IPC, emulator UI, Pixel, or ROM acceptance.
 

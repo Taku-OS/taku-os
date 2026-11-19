@@ -14,18 +14,15 @@ final class ChatWorkspacePreviewProtocol {
 
     private ChatWorkspacePreviewProtocol() {}
 
-    /** One real catalog response, with its original monotonic verification time. */
+    /** The screens selected by one real catalog read, with its original verification time. */
     static final class CatalogSnapshot {
-        private final JSONObject catalog;
+        private final JSONArray screens;
         final long checkedAt;
 
-        CatalogSnapshot(JSONObject catalog, long checkedAt, long now) throws Exception {
+        CatalogSnapshot(JSONObject catalog, String thread, long checkedAt, long now) throws Exception {
             this.checkedAt = checkedAt;
             requireFresh(now);
-            this.catalog = new JSONObject(catalog.toString());
-            if (!"taku.workspaces/1".equals(this.catalog.getString("schema")))
-                throw new IOException("INVALID_WORKSPACE_CATALOG");
-            this.catalog.getJSONArray("screens");
+            screens = thread == null ? selectHome(catalog) : select(catalog, thread);
         }
 
         private void requireFresh(long now) throws IOException {
@@ -33,17 +30,19 @@ final class ChatWorkspacePreviewProtocol {
                 throw new IOException("CATALOG_EXPIRED");
         }
 
-        JSONArray select(String thread, long now) throws Exception {
+        JSONArray screens(long now) throws Exception {
             requireFresh(now);
-            return ChatWorkspacePreviewProtocol.select(catalog, thread);
+            return new JSONArray(screens.toString());
         }
 
         JSONObject exact(String thread, String key, String generation, long now) throws Exception {
-            JSONArray screens = select(thread, now);
+            requireFresh(now);
             for (int i = 0; i < screens.length(); i++) {
                 JSONObject screen = screens.getJSONObject(i);
-                if (key.equals(screen.optString("screenKey"))
-                        && generation.equals(screen.optString("generation"))) return screen;
+                if (screen.getString("threadId").equals(thread)
+                        && screen.getString("screenKey").equals(key)
+                        && screen.getString("generation").equals(generation))
+                    return new JSONObject(screen.toString());
             }
             throw new IOException("SCREEN_LEASE_CHANGED");
         }

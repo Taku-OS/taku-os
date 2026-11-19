@@ -1,6 +1,7 @@
 package org.agentos.agent.home.ui
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.util.Log
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
@@ -70,19 +71,19 @@ class HomeController(val context: Context, val repo: FeedRepository, val pool: R
   var feedOnScreen by mutableStateOf(false)
   var screenHeight = 0f
   var screenWidth = 0f
+  private val workspaceGateway = AgentGateway(context.contentResolver)
   /** The visible workspace list shared by every home page. */
   internal var workspaceScreens by mutableStateOf<List<HomeWorkspaceScreen>>(emptyList())
     private set
 
   internal suspend fun watchWorkspaceScreens() {
-    val gateway = AgentGateway(context.contentResolver)
     val params = JSONObject().put("scope", "home")
     var retryDelayMs = 0L
     try {
       while (true) {
         val screens = withContext(Dispatchers.IO) {
           try {
-            val result = gateway.call("getWorkspaces", params)
+            val result = workspaceGateway.call("getWorkspaces", params)
             if (result.optString("schema") != "taku.agent-workspaces/1") return@withContext null
             val rows = result.getJSONArray("screens")
             List(rows.length()) { index ->
@@ -108,6 +109,16 @@ class HomeController(val context: Context, val repo: FeedRepository, val pool: R
       }
     } finally {
       workspaceScreens = emptyList()
+    }
+  }
+
+  internal suspend fun readWorkspacePreview(previewUri: String): Bitmap? = withContext(Dispatchers.IO) {
+    try {
+      workspaceGateway.readWorkspacePreview(previewUri)
+    } catch (_: IOException) {
+      null
+    } catch (_: SecurityException) {
+      null
     }
   }
 

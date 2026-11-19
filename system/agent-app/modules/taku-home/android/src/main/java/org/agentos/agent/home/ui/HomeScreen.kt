@@ -212,6 +212,7 @@ internal fun HomeScreen(controller: HomeController, backdrop: Backdrop?, pager: 
           PageDots(pager.pageCount, pager.currentPage, Modifier.align(Alignment.BottomCenter).padding(bottom = navInset + TakuSpacing.sm))
         } else AssistantEntry(scene, controller, pager.pageCount, pager.currentPage, navInset, gestures)
       }
+      HomeWorkspacePreviews(controller)
       FolderSheet(controller, backdrop)
       if (controller.editingHome) HomeEditingToolbar(controller, scene, statusInset)
       LauncherHomeMenu(controller, scene)

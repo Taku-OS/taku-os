@@ -100,8 +100,7 @@ final class ChatWorkspacePreview extends LinearLayout {
         try {
             long now = SystemClock.elapsedRealtime();
             ChatWorkspacePreviewProtocol.CatalogSnapshot verified =
-                    new ChatWorkspacePreviewProtocol.CatalogSnapshot(catalog, checkedAt, now);
-            verified.select(thread, now);
+                    new ChatWorkspacePreviewProtocol.CatalogSnapshot(catalog, thread, checkedAt, now);
             floatingCatalog = verified;
             start(thread);
         } catch (Exception invalid) { floatingCatalog = null; stop(); }
@@ -471,7 +470,7 @@ final class ChatWorkspacePreview extends LinearLayout {
                         if (floating) {
                             ChatWorkspacePreviewProtocol.CatalogSnapshot snapshot = floatingCatalog;
                             if (snapshot == null) throw new IOException("CATALOG_EXPIRED");
-                            selected = snapshot.select(thread, SystemClock.elapsedRealtime());
+                            selected = snapshot.screens(SystemClock.elapsedRealtime());
                             checkedAt = snapshot.checkedAt;
                         } else {
                             JSONObject latest = list(); checkedAt = SystemClock.elapsedRealtime();
