@@ -42,6 +42,15 @@ data class Services(val chatgpt: Connection, val jev: Connection, val fal: Conne
   companion object { val UNKNOWN = Services(Connection.UNKNOWN, Connection.UNKNOWN, Connection.UNKNOWN) }
 }
 
+/**
+ * A pending ChatGPT device-code sign-in as the card shows it: the official page to open on
+ * another device where the user is signed in, and the one-time code to enter there.
+ */
+data class DeviceCodeSignIn(val url: String, val code: String) {
+  /** The URL without its scheme, as the card prints it ("auth.openai.com/codex/device"). */
+  val displayUrl: String get() = url.removePrefix("https://")
+}
+
 enum class OnboardingService(val id: String) {
   CHATGPT("chatgpt"),
   JEV("jev"),
@@ -177,6 +186,25 @@ object OnboardingRules {
 
   private val OPENROUTER_KEY = Regex("sk-or-v1-[A-Za-z0-9_-]{20,}")
   private val TYPESAFE_KEY = Regex("apikey_[A-Za-z0-9_-]{8,}")
+
+  /**
+   * The broker's pending device-code challenge, or null when there is none or it is not safe to
+   * hand to the user: the URL must be an https page on OpenAI's own sign-in hosts (the hosts the
+   * assistant opens for browser sign-in), and the code a short run of letters, digits and dashes.
+   */
+  fun deviceCode(url: String?, code: String?): DeviceCodeSignIn? {
+    val u = url?.trim().orEmpty()
+    val c = code?.trim().orEmpty()
+    if (!c.matches(DEVICE_CODE)) return null
+    val host = HTTPS_URL.matchEntire(u)?.groupValues?.get(1)?.lowercase() ?: return null
+    if (host !in SIGN_IN_HOSTS) return null
+    return DeviceCodeSignIn(u, c)
+  }
+
+  private val DEVICE_CODE = Regex("[A-Za-z0-9-]{4,32}")
+  /** An https URL with a bare host (no port or user info); group 1 is the host. */
+  private val HTTPS_URL = Regex("https://([^/?#:@]+)(?:[/?#].*)?")
+  private val SIGN_IN_HOSTS = setOf("auth.openai.com", "chatgpt.com")
 
   /** Trimmed name, or `INVALID_NAME` (the same rule Memory enforces). */
   fun name(raw: String?): String {

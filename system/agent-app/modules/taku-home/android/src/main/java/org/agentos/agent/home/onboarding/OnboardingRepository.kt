@@ -29,7 +29,8 @@ import org.json.JSONObject
  * The one onboarding state for this Android user, shared by the Home card and Agents
  * (`content://org.agentos.agent.home-onboarding`). Sources of truth:
  * - progress: `Settings.Secure` [OnboardingRules.SETTING] (per user; cleared by factory reset);
- * - AI and ChatGPT: the broker account view through the assistant gateway (`readAccount`);
+ * - AI and ChatGPT, including a pending device code: the broker account view through the
+ *   assistant gateway (`readAccount`);
  * - Jev: the assistant's Jev switch and decision-model binding (gateway `readJev`);
  * - Fal: Taku Audio's key status (`content://org.agentos.audio.open-access` `settings`);
  * - name: Memory `userName` (`content://org.agentos.memory.open-access`).
@@ -41,6 +42,8 @@ class OnboardingRepository private constructor(context: Context) {
     val decision: OnboardingDecision,
     val userName: String?,
     val services: Services,
+    /** The device code and official URL while a ChatGPT sign-in waits for them; else null. */
+    val signIn: DeviceCodeSignIn?,
   ) {
     val step: OnboardingStep? get() = (decision as? OnboardingDecision.Show)?.step
     val canFinish: Boolean get() = step == OnboardingStep.CONNECT_AI && OnboardingRules.canFinish(facts)
@@ -56,6 +59,7 @@ class OnboardingRepository private constructor(context: Context) {
 
   @Volatile private var ai = AiAccess.UNKNOWN
   @Volatile private var services = Services.UNKNOWN
+  @Volatile private var signIn: DeviceCodeSignIn? = null
   /** Guards read-modify-write of [ai], [services] and [settledAt] from concurrent readers. */
   private val factsLock = Any()
   /** When the account last gave a settled answer ([SystemClock.elapsedRealtime]). */
@@ -73,7 +77,7 @@ class OnboardingRepository private constructor(context: Context) {
   val notices: SharedFlow<String> = noticeFlow
 
   private var poll: Job? = null
-  private var signIn: Job? = null
+  private var signInWatch: Job? = null
 
   init {
     val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
@@ -151,8 +155,10 @@ class OnboardingRepository private constructor(context: Context) {
 
   /**
    * Connects one service from the AI step, through the same operation as its settings page:
-   * ChatGPT starts device-code sign-in and opens the account page with the one-time code; Jev and Fal save the pasted key. Jev with no
-   * key switches on a Jev model Magpie already serves (`NO_DECISION_MODEL` when there is none).
+   * ChatGPT starts device-code sign-in and returns at once with the official URL and one-time
+   * code in [State.signIn] (nothing opens: the card shows them, to use on another device); Jev
+   * and Fal save the pasted key. Jev with no key switches on a Jev model Magpie already serves
+   * (`NO_DECISION_MODEL` when there is none).
    */
   fun connect(service: OnboardingService, rawKey: String? = null): State {
     if (shownStep(facts()) != OnboardingStep.CONNECT_AI)
@@ -160,7 +166,17 @@ class OnboardingRepository private constructor(context: Context) {
     when (service) {
       OnboardingService.CHATGPT -> {
         val result = call("connectChatGpt")
-        if (result.optString("opened") != "none") watchSignIn()
+        if (result.optString("phase") == "pending") {
+          val challenge = OnboardingRules.deviceCode(result.optString("url"), result.optString("code"))
+          // The card then shows only Cancel; the broker's URL is not one the user should be sent to.
+          if (challenge == null) Log.w(TAG, "device-code challenge missing or not on an OpenAI sign-in host")
+          synchronized(factsLock) {
+            signIn = challenge
+            services = services.copy(chatgpt = Connection.CONNECTING)
+          }
+          publish()
+          watchSignIn()
+        }
       }
       OnboardingService.JEV ->
         if (rawKey == null) call("enableJev") else call("connectJev", JSONObject().put("key", OnboardingRules.jevKey(rawKey)))
@@ -172,7 +188,8 @@ class OnboardingRepository private constructor(context: Context) {
   /** Cancels a pending ChatGPT sign-in, as the account page's "Cancel this sign-in". */
   fun cancelSignIn(): State {
     call("cancelChatGpt")
-    signIn?.cancel()
+    signInWatch?.cancel()
+    synchronized(factsLock) { signIn = null }
     island.clear()
     return refresh()
   }
@@ -203,6 +220,7 @@ class OnboardingRepository private constructor(context: Context) {
         .put("chatgpt", s.services.chatgpt.id)
         .put("jev", s.services.jev.id)
         .put("fal", s.services.fal?.id ?: JSONObject.NULL))
+      .put("chatgptSignIn", s.signIn?.let { JSONObject().put("url", it.url).put("code", it.code) } ?: JSONObject.NULL)
   }
 
   private fun shownStep(facts: OnboardingFacts): OnboardingStep = when (val decision = OnboardingRules.decide(facts)) {
@@ -218,12 +236,13 @@ class OnboardingRepository private constructor(context: Context) {
   }
 
   /**
-   * Follows a sign-in that left Home for the account page and the official page: the island shows "Signing in…" while Home
-   * is away and a brief "Connected" when it lands. The assistant brings Home back on success.
+   * Follows a device-code sign-in the user completes on another device: the card shows the code
+   * while Home is in front; if they leave Home meanwhile, the island shows "Signing in…" and a
+   * brief "Connected" when it lands, and the assistant brings Home back on success.
    */
   private fun watchSignIn() {
-    signIn?.cancel()
-    signIn = scope.launch {
+    signInWatch?.cancel()
+    signInWatch = scope.launch {
       val deadline = SystemClock.elapsedRealtime() + SIGN_IN_MS
       try {
         while (isActive && SystemClock.elapsedRealtime() < deadline) {
@@ -259,7 +278,8 @@ class OnboardingRepository private constructor(context: Context) {
   }
 
   private fun snapshotOf(facts: OnboardingFacts) =
-    State(facts, OnboardingRules.decide(facts), userName.takeIf { OnboardingRules.isNameSet(it) }, services)
+    State(facts, OnboardingRules.decide(facts), userName.takeIf { OnboardingRules.isNameSet(it) }, services,
+      signIn.takeIf { services.chatgpt == Connection.CONNECTING })
 
   private fun facts() = OnboardingFacts(stored(), phoneReady(), ai, nameSet(),
     Settings.Secure.getString(resolver, OnboardingRules.TEST_SETTING) == "1")
@@ -303,7 +323,7 @@ class OnboardingRepository private constructor(context: Context) {
     } catch (e: GatewayException) {
       Log.w(TAG, "account status unavailable: ${e.code}")
       accountFailures = (accountFailures + 1).coerceAtMost(8)
-      synchronized(factsLock) { if (!withinGrace()) { ai = AiAccess.UNKNOWN; services = services.copy(chatgpt = Connection.UNKNOWN) } }
+      synchronized(factsLock) { if (!withinGrace()) { ai = AiAccess.UNKNOWN; services = services.copy(chatgpt = Connection.UNKNOWN); signIn = null } }
       return
     }
     val phase = account.optString("phase", "loading")
@@ -325,7 +345,11 @@ class OnboardingRepository private constructor(context: Context) {
       val previous = services.chatgpt
       if (read != AiAccess.UNKNOWN) { ai = read; settledAt = SystemClock.elapsedRealtime() }
       else if (!withinGrace()) ai = AiAccess.UNKNOWN
-      if (chatgpt != Connection.UNKNOWN || !withinGrace()) services = services.copy(chatgpt = chatgpt)
+      if (chatgpt != Connection.UNKNOWN || !withinGrace()) {
+        services = services.copy(chatgpt = chatgpt)
+        // Only "pending" carries a code; starting, verifying and every settled phase clear it.
+        signIn = if (phase == "pending") OnboardingRules.deviceCode(account.optString("url"), account.optString("code")) else null
+      }
       previous == Connection.CONNECTING && phase == "failed"
     }
     if (failed) noticeFlow.tryEmit(account.optString("message").ifBlank { FAILED })

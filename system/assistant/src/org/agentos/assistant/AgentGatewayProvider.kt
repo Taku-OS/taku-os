@@ -232,12 +232,12 @@ class AgentGatewayProvider : ContentProvider() {
             }
             "readAppPermissions", "setAppPermissionMode", "setAppPermissionScope", "resetAppPermission" ->
                 return AppPermissionUiBridge.execute(context!!, action, input)
-            "readAccount" -> return AccountStatus.read()
+            "readAccount" -> return AccountStatus.readWithDeviceCode()
             "openAssistantConnection" -> {
                 if (!AgentFrontendLauncher.openRoute(context!!, "/system-ai?section=connection")) throw IOException("AGENT_UI_UNAVAILABLE")
                 return JSONObject().put("opened", true)
             }
-            "connectChatGpt" -> return AiConnections.startChatGpt(context!!, "chatgptDeviceCode", true, false, true)
+            "connectChatGpt" -> return AiConnections.startChatGpt(context!!, "chatgptDeviceCode", false, true, true)
             "cancelChatGpt" -> return AiConnections.cancelChatGpt()
             "readJev" -> return AiConnections.jevStatus(context!!)
             "connectJev" -> return AiConnections.connectJev(context!!, input.getString("key"))

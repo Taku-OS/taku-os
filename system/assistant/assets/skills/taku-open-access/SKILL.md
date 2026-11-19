@@ -414,7 +414,7 @@ content call --uri $O --method onboarding/set-up                 # intro → nam
 content call --uri $O --method onboarding/submit-name --arg '{"name":"Deki"}'   # name → connect_ai ("Continue")
 content call --uri $O --method onboarding/skip-name              # name → connect_ai ("Later")
 # AI step chips (connect_ai only):
-content call --uri $O --method onboarding/connect --arg '{"service":"chatgpt"}'  # device-code sign-in; opens the account page
+content call --uri $O --method onboarding/connect --arg '{"service":"chatgpt"}'  # device-code sign-in; the card shows chatgptSignIn
 content call --uri $O --method onboarding/cancel-sign-in
 content call --uri $O --method onboarding/connect --arg '{"service":"jev"}'   # use a Jev Magpie already serves
 content call --uri $O --method onboarding/connect --arg '{"service":"jev","key":"apikey_..."}'   # TypeSafe or OpenRouter key
@@ -447,12 +447,15 @@ replay. To leave an unfinished local test without working AI, the existing shell
 `settings put secure taku_onboarding_step completed`.
 
 Every method returns `{ok:true,result}` with the fresh state:
-`{setting, testModeSetting, testMode, stored, visible, step, hiddenReason, phoneReady, ai, nameSet, canFinish, services}`, where
+`{setting, testModeSetting, testMode, stored, visible, step, hiddenReason, phoneReady, ai, nameSet, canFinish, services, chatgptSignIn}`, where
 `services` is `{chatgpt, jev, fal}`, each `not_connected`, `connecting`, `connected` or `unknown`
 (`fal` is `null` when Taku Audio is not installed; the GUI hides that chip). `step` is the
 card being shown (`null` when hidden). `hiddenReason` is `completed`, `ai_available`,
 `ai_unknown` or `phone_not_ready`. `ai` is `available`, `unavailable` or `unknown`. `nameSet` is `null` when
-Memory could not be read. Errors are `{ok:false,code,message}`:
+Memory could not be read. `chatgptSignIn` is `{url, code}` exactly as the card shows them while a
+ChatGPT device-code sign-in is pending (`services.chatgpt` is `connecting` and the broker phase is
+`pending`), and `null` otherwise, including when the broker's URL is not an `https` page on
+`auth.openai.com` or `chatgpt.com` (the card then shows only Cancel sign-in). Errors are `{ok:false,code,message}`:
 
 | Code | Meaning |
 |---|---|
@@ -473,11 +476,15 @@ Memory could not be read. Errors are `{ok:false,code,message}`:
 
 The `connect_ai` card shows three chips (Fal only when Taku Audio is installed). **ChatGPT**
 starts device-code sign-in in one tap (`account/login/start` with `type:"chatgptDeviceCode"`,
-`open:true`): the card shrinks into the camera pill and the account page opens with the one-time
-code and "Open official authorization page"; the user enters the code on that official page. Accounts without
-device codes can cancel there and use the account page's "Authorize in browser". The island
-shows "Signing in…" while Home is away and a brief "Connected" when
-the account lands, and the assistant brings Home back. Backing out (Cancel sign-in, a failed or
+`open:false`). Nothing opens: Home stays in front and the card shows the instruction, the official
+link (`chatgptSignIn.url`, printed without `https://`) and the one-time code
+(`chatgptSignIn.code`), each tap-to-copy, with **Cancel** and **Copy link** (the primary action,
+because the usual path is to open the link on another device that is already signed in, such as a
+computer's browser, and enter the code there). The card watches the account and moves on by itself
+when the sign-in lands. Accounts that cannot use device codes can cancel and sign in from the
+assistant's account page ("Authorize in browser"). If the user leaves Home while it is pending, the
+island shows "Signing in…" and a brief "Connected" when the account lands, and the assistant
+brings Home back. Backing out (Cancel sign-in, a failed or
 abandoned sign-in) switches a previous Magpie connection back. **Jev** first switches on a Jev model Magpie
 already serves (`jev/enable`); otherwise it opens a masked key field that takes a TypeSafe
 (`apikey_…`) or OpenRouter (`sk-or-v1-…`) key (`jev/connect`), configured into Magpie in the

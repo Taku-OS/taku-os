@@ -1,6 +1,7 @@
 package org.agentos.agent.home
 
 import org.agentos.agent.home.onboarding.AiAccess
+import org.agentos.agent.home.onboarding.DeviceCodeSignIn
 import org.agentos.agent.home.onboarding.OnboardingAction
 import org.agentos.agent.home.onboarding.OnboardingDecision
 import org.agentos.agent.home.onboarding.OnboardingException
@@ -190,5 +191,27 @@ class OnboardingRulesTest {
     assertFalse(OnboardingRules.isNameSet(OnboardingRules.MEMORY_UNSET_NAME))
     assertFalse(OnboardingRules.isNameSet(""))
     assertTrue(OnboardingRules.isNameSet("Dekidiscool"))
+  }
+
+  @Test fun theCardShowsTheBrokersDeviceCodeOnTheOfficialPage() {
+    val shown = OnboardingRules.deviceCode("https://auth.openai.com/codex/device", "ABCD-EFGH")
+    assertEquals(DeviceCodeSignIn("https://auth.openai.com/codex/device", "ABCD-EFGH"), shown)
+    assertEquals("auth.openai.com/codex/device", shown!!.displayUrl)
+    assertEquals("chatgpt.com", OnboardingRules.deviceCode(" https://chatgpt.com ", "1234")!!.displayUrl)
+  }
+
+  @Test fun aChallengeOffTheOfficialHostsOrWithoutACodeIsNotShown() {
+    val code = "ABCD-EFGH"
+    // A browser sign-in has no code: its URL only works on this phone.
+    assertNull(OnboardingRules.deviceCode("https://auth.openai.com/codex/device", ""))
+    assertNull(OnboardingRules.deviceCode("https://auth.openai.com/codex/device", null))
+    assertNull(OnboardingRules.deviceCode("https://auth.openai.com/codex/device", "AB CD"))
+    assertNull(OnboardingRules.deviceCode("https://auth.openai.com/codex/device", "A".repeat(33)))
+    assertNull(OnboardingRules.deviceCode("", code))
+    assertNull(OnboardingRules.deviceCode("http://auth.openai.com/codex/device", code))
+    assertNull(OnboardingRules.deviceCode("https://auth.openai.com.example.com/codex/device", code))
+    assertNull(OnboardingRules.deviceCode("https://auth.openai.com@example.com/", code))
+    assertNull(OnboardingRules.deviceCode("https://auth.openai.com:8443/codex/device", code))
+    assertNull(OnboardingRules.deviceCode("https://example.com/?next=https://auth.openai.com", code))
   }
 }

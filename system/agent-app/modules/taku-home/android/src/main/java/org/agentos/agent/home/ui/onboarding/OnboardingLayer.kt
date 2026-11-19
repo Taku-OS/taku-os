@@ -92,7 +92,13 @@ import org.agentos.agent.home.onboarding.OnboardingRepository
 import org.agentos.agent.home.onboarding.OnboardingRules
 import org.agentos.agent.home.onboarding.OnboardingStep
 import org.json.JSONObject
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.graphics.BitmapFactory
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.sp
+import org.agentos.agent.home.onboarding.DeviceCodeSignIn
 import android.os.Build
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.offset
@@ -107,9 +113,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.coroutines.delay
 import org.agentos.agent.home.design.TakuIcon
 import org.agentos.agent.home.design.TakuIcons
@@ -133,16 +136,6 @@ fun BoxScope.OnboardingLayer(state: OnboardingRepository.State, repository: Onbo
   val actions = remember(repository) { OnboardingActions(context.applicationContext, repository, scope) }
   // Why a ChatGPT sign-in failed, in the broker's own words, once per failure.
   LaunchedEffect(repository) { repository.notices.collect { actions.toast(it) } }
-  // Back from the browser (or anywhere else): the card grows out of the pill again.
-  val lifecycle = LocalLifecycleOwner.current.lifecycle
-  DisposableEffect(lifecycle) {
-    val observer = LifecycleEventObserver { _, event ->
-      if (event == Lifecycle.Event.ON_RESUME) { actions.resumed = true; actions.away = false }
-      if (event == Lifecycle.Event.ON_PAUSE) actions.resumed = false
-    }
-    lifecycle.addObserver(observer)
-    onDispose { lifecycle.removeObserver(observer) }
-  }
 
   HiddenStatusBar()
   if (OnboardingRules.takesOverHome(step)) {
@@ -159,29 +152,16 @@ fun BoxScope.OnboardingLayer(state: OnboardingRepository.State, repository: Onbo
 private class OnboardingActions(val context: Context, val repository: OnboardingRepository, val scope: CoroutineScope) {
   var busy by mutableStateOf(false)
     private set
-  /** The card has shrunk into the camera pill while a sign-in is away from Home. */
-  var away by mutableStateOf(false)
-  var resumed = true
 
   fun perform(action: OnboardingAction, name: String? = null) = launchAction {
     withContext(Dispatchers.IO) { repository.perform(action, name) }
   }
 
   /**
-   * One tap: the card shrinks into the pill and the account page opens with a device code to
-   * enter on the official ChatGPT page; the island follows the sign-in and the assistant brings
-   * Home back when it lands.
+   * One tap starts device-code sign-in; Home stays in front and the card shows the code and the
+   * official link ([DeviceCodePanel]) until the account lands on the user's other device.
    */
-  fun connectChatGpt() {
-    if (busy) return
-    away = true
-    launchAction(onFailure = { away = false }) {
-      withContext(Dispatchers.IO) { repository.connect(OnboardingService.CHATGPT) }
-      // Nothing opened (already signed in, or the page could not start): grow back.
-      delay(LEAVE_GRACE_MS)
-      if (resumed) away = false
-    }
-  }
+  fun connectChatGpt() = launchAction { withContext(Dispatchers.IO) { repository.connect(OnboardingService.CHATGPT) } }
 
   fun cancelSignIn() = launchAction { withContext(Dispatchers.IO) { repository.cancelSignIn() } }
 
@@ -225,7 +205,24 @@ private class OnboardingActions(val context: Context, val repository: Onboarding
     }
   }
 
-  private fun launchAction(onFailure: () -> Unit = {}, block: suspend () -> Unit) {
+  /**
+   * Puts [text] on the clipboard. Android 13+ confirms with its own clipboard preview, so the card
+   * only marks the copied item; older releases get a short toast.
+   */
+  fun copy(label: String, text: String): Boolean {
+    val clipboard = context.getSystemService(ClipboardManager::class.java) ?: return false
+    return try {
+      clipboard.setPrimaryClip(ClipData.newPlainText(label, text))
+      if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) toast("$label copied")
+      true
+    } catch (e: RuntimeException) {
+      Log.w(TAG, "could not copy $label", e)
+      toast("Couldn’t copy. Try again.")
+      false
+    }
+  }
+
+  private fun launchAction(block: suspend () -> Unit) {
     if (busy) return
     busy = true
     scope.launch {
@@ -233,14 +230,12 @@ private class OnboardingActions(val context: Context, val repository: Onboarding
         block()
       } catch (e: OnboardingException) {
         Log.w(TAG, "${e.code}: ${e.message}")
-        onFailure()
         toast(message(e.code))
       } catch (e: CancellationException) {
         throw e
       } catch (e: Exception) {
-        // Anything unexpected is a failed action, never a crashed Home; the card grows back too.
+        // Anything unexpected is a failed action, never a crashed Home.
         Log.w(TAG, "onboarding action failed", e)
-        onFailure()
         toast(message(""))
       } finally {
         busy = false
@@ -265,8 +260,6 @@ private class OnboardingActions(val context: Context, val repository: Onboarding
 
   private companion object {
     const val TAG = "TakuOnboarding"
-    /** How long the browser may take to cover Home before the card grows back. */
-    const val LEAVE_GRACE_MS = 1_500L
   }
 }
 
@@ -299,8 +292,7 @@ private fun OnboardingCard(step: OnboardingStep, state: OnboardingRepository.Sta
   val c = TakuTheme.colors
   var appeared by remember { mutableStateOf(false) }
   LaunchedEffect(Unit) { appeared = true }
-  // Leaving for the browser shrinks the card back into the pill (the reverse of its entrance).
-  val expanded = appeared && !actions.away
+  val expanded = appeared
   val contentAlpha by animateFloatAsState(if (expanded) 1f else 0f, tween(durationMillis = 220, delayMillis = 120), label = "onboardingContent")
   Box(
     modifier
@@ -380,7 +372,8 @@ private fun NameStep(actions: OnboardingActions) {
 }
 
 /**
- * 1155:1073: the three services as chips. ChatGPT starts device-code sign-in in one tap;
+ * 1155:1073: the three services as chips. ChatGPT starts device-code sign-in in one tap and the
+ * card itself shows the code and official link to use on another device ([DeviceCodePanel]);
  * Jev (TypeSafe or OpenRouter, configured into Magpie in the background) and Fal keys are pasted
  * right here; a Jev Magpie already serves is switched on without a key. Connecting shows the island's working dots,
  * connected a checkmark (product states; the frame has only the idle chips). Once AI is available
@@ -419,6 +412,7 @@ private fun ConnectAiStep(state: OnboardingRepository.State, actions: Onboarding
   }
   when {
     editingService != null -> KeyEditor(editingService, actions) { editing = null }
+    state.signIn != null -> DeviceCodePanel(state.signIn, actions)
     services.chatgpt == Connection.CONNECTING -> Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
       IslandButton("Cancel sign-in", IslandButtonStyle.Secondary, enabled = !actions.busy) { actions.cancelSignIn() }
     }
@@ -506,6 +500,65 @@ private fun ServiceMark(service: OnboardingService) {
         .wrapContentSize(Alignment.TopStart, unbounded = true)
         .offset(x = (-3.8208).dp, y = (-3.9056).dp)
         .size(width = 23.6048.dp, height = 23.7728.dp))
+    }
+  }
+}
+
+/**
+ * ChatGPT device-code sign-in inside the card (product addition; no Figma frame, built from the
+ * card's own field, chip and button styles). Most people finish it on another device that is
+ * already signed in, such as a computer's browser, so copying the link is the primary action and
+ * nothing opens on this phone: a short instruction, the link and the one-time code as tap-to-copy
+ * fields, then Cancel and Copy link. The ChatGPT chip keeps its working dots until the account lands.
+ */
+@Composable
+private fun DeviceCodePanel(signIn: DeviceCodeSignIn, actions: OnboardingActions) {
+  val c = TakuTheme.colors
+  val type = TakuTheme.type
+  // Which item was just copied ("link" or "code"); the mark reverts after a moment.
+  var copied by remember(signIn) { mutableStateOf<String?>(null) }
+  LaunchedEffect(copied) { if (copied != null) { delay(COPIED_MS); copied = null } }
+  fun copyLink() { if (actions.copy("Link", signIn.url)) copied = "link" }
+  fun copyCode() { if (actions.copy("Code", signIn.code)) copied = "code" }
+
+  Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    BasicText(
+      "On a device where you’re signed in to ChatGPT, like your computer, open this link and enter the code.",
+      style = type.bodyLg.copy(color = c.islandText),
+      modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
+    )
+    CopyField("Link", signIn.displayUrl, type.bodyLg.copy(color = c.islandTextStrong), copied == "link") { copyLink() }
+    CopyField("Code", signIn.code, type.headingXl.copy(color = c.islandTextStrong, letterSpacing = 2.sp), copied == "code") { copyCode() }
+  }
+  Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    IslandButton("Cancel", IslandButtonStyle.Secondary, enabled = !actions.busy) { actions.cancelSignIn() }
+    IslandButton(if (copied == "link") "Link copied" else "Copy link", IslandButtonStyle.Primary, enabled = true) { copyLink() }
+  }
+}
+
+/** A tap-to-copy value in the name field's pill: small label over the value, copy mark at the end. */
+@Composable
+private fun CopyField(label: String, value: String, valueStyle: TextStyle, copied: Boolean, onCopy: () -> Unit) {
+  val c = TakuTheme.colors
+  Row(
+    verticalAlignment = Alignment.CenterVertically,
+    horizontalArrangement = Arrangement.spacedBy(12.dp),
+    modifier = Modifier
+      .fillMaxWidth()
+      .clip(RoundedCornerShape(24.dp))
+      .background(c.islandField)
+      .clickable(onClick = onCopy)
+      .semantics(mergeDescendants = true) { role = Role.Button; contentDescription = "Copy ${label.lowercase()}, $value" }
+      .padding(start = 16.dp, end = 12.dp, top = 10.dp, bottom = 10.dp),
+  ) {
+    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+      BasicText(label, style = TakuTheme.type.bodySm.copy(color = c.islandPlaceholder), maxLines = 1)
+      BasicText(value, style = valueStyle, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+    // The connected chip's disc once copied; the copy mark until then.
+    Box(Modifier.size(32.dp).clip(CircleShape).background(if (copied) c.islandAction else c.islandChip), contentAlignment = Alignment.Center) {
+      if (copied) TakuIcon(TakuIcons.Check, 16.dp, tint = c.islandActionText)
+      else TakuIcon(TakuIcons.Copy, 16.dp, tint = c.islandChipText)
     }
   }
 }
@@ -685,6 +738,8 @@ private fun SvgAsset(path: String, width: Dp, height: Dp, tint: Color? = null) {
 }
 
 private val CARD_RADIUS = 40.dp
+/** How long a copied link or code keeps its check mark. */
+private const val COPIED_MS = 2_000L
 /** Collapsed island pill the card grows from (Figma 4-connecting compact pill height). */
 private val PILL_WIDTH = 128.dp
 private val PILL_HEIGHT = 32.dp

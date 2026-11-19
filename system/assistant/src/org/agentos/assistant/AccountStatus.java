@@ -49,6 +49,30 @@ final class AccountStatus {
     }
 
     /**
+     * [read] plus a pending device-code sign-in's official `url` and one-time `code`, the two
+     * things the Home onboarding card shows for the user to enter on another device. Absent for a
+     * browser sign-in (its URL only works on this phone) and when nothing is pending.
+     */
+    static JSONObject readWithDeviceCode() throws IOException {
+        JSONObject view;
+        try {
+            view = raw();
+        } catch (IOException e) {
+            throw new IOException("ACCOUNT_UNAVAILABLE", e);
+        }
+        JSONObject out = status(view);
+        String code = view.optString("code");
+        if ("pending".equals(view.optString("phase")) && !code.isEmpty()) {
+            try {
+                out.put("url", view.optString("url")).put("code", code);
+            } catch (org.json.JSONException impossible) {
+                throw new IllegalStateException(impossible);
+            }
+        }
+        return out;
+    }
+
+    /**
      * Drops sign-in artifacts (`url`, `code`) and adds `chatgptConnected` (the broker's own
      * `account/read` returned a ChatGPT account) and `aiAvailable` (that, or Magpie mode running
      * with at least one model, the broker's own readiness check). `phase:"loading"` or
