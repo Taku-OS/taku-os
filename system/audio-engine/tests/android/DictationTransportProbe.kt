@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: LicenseRef-Taku-OS-Internal
+// SPDX-License-Identifier: Apache-2.0
 package org.agentos.audio.tests
 
 import android.app.Instrumentation

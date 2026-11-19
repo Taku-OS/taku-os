@@ -26,7 +26,7 @@ This repository contains the Taku OS system ROM and documentation, but not the s
 
 Say what you need. Keep what works.
 
-- **A home screen made for you.** Say, "Track my half-marathon training." The agent creates a home screen with your plan, input fields, and buttons. Refine it through conversation, save it, and come back to it later. (TODO: Add image)
+- **A home screen made for you.** Say, "Track my half-marathon training." The agent creates a home screen with your plan, input fields, and buttons. Refine it through conversation, save it, and come back to it later.
 - **Can't find the app you need? Build one.** Describe what you want. The agent writes the code, compiles it, installs it on your phone, and opens it.
 - **Settings, without the search.** No more digging through menus. Ask the agent to change supported system settings for you.
 

@@ -90,12 +90,6 @@ jobs:
           REQUEST_ID: ${{ inputs.request_id }}
           GOOGLE_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
         run: python3 scripts/cloud-builder-control.py
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: taku-builder-endpoint-${{ inputs.request_id }}
-          path: out/cloud-control/endpoint.json
-          if-no-files-found: error
-          retention-days: 3
 
   sync-release:
     if: >-
