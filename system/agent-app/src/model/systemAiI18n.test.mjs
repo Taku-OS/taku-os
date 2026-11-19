@@ -2,9 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {languageFor} from '../i18n/index.ts';
 import {permissionTextFor} from '../i18n/permissions.ts';
-import {systemAiTextFor, type SystemAiScene} from '../i18n/systemAi.ts';
+import {systemAiTextFor} from '../i18n/systemAi.ts';
 
-const SCENES: SystemAiScene[] = [
+/** @type {const} */
+const SCENES = [
   'assistant',
   'ime.vision',
   'screen',
