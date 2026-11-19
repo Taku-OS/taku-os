@@ -459,7 +459,7 @@ private fun ServiceChips(services: Services, onTap: (OnboardingService) -> Unit)
   }
 }
 
-/** A Surface/200 pill: 16 dp mark, 4 dp, label; dots while connecting, a check once connected. */
+/** A Surface/200 pill: 16 dp mark, 4 dp, label; dots while connecting, a check disc once connected. */
 @Composable
 private fun ServiceChip(service: OnboardingService, label: String, connection: Connection, minWidth: Dp, onTap: (OnboardingService) -> Unit) {
   val c = TakuTheme.colors
@@ -483,7 +483,11 @@ private fun ServiceChip(service: OnboardingService, label: String, connection: C
     BasicText(label, style = TakuTheme.type.bodyLgMedium.copy(color = c.islandChipText), maxLines = 1)
     when (connection) {
       Connection.CONNECTING -> WorkingDots(ink = c.islandChipText)
-      Connection.CONNECTED -> TakuIcon(TakuIcons.Check, 16.dp, tint = c.islandChipText)
+      // A solid white 16 dp disc with the dark check (the Continue button's colours), so the
+      // connected state reads at a glance against the dark chip.
+      Connection.CONNECTED -> Box(Modifier.size(16.dp).background(c.islandAction, CircleShape), contentAlignment = Alignment.Center) {
+        TakuIcon(TakuIcons.Check, 12.dp, tint = c.islandActionText)
+      }
       else -> Unit
     }
   }
