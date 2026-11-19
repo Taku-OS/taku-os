@@ -231,7 +231,9 @@ internal object AiConnections {
     /**
      * Onboarding's Jev key, OpenRouter (`sk-or-v1-…`) or TypeSafe (`apikey_…`): the broker adds the
      * matching Magpie provider in the background (no Magpie key or admin page), then Jev is bound
-     * to its Jev decision model and switched on, as the Jev settings page does.
+     * to its Jev decision model and switched on, as the Jev settings page does. When no Jev model is
+     * listed within the broker's budget the key stays saved and this throws `NO_DECISION_MODEL`, or
+     * `MAGPIE_UNAVAILABLE` when Magpie's catalog never answered; [enableJev] finishes the job later.
      */
     @JvmStatic
     @Synchronized
@@ -243,7 +245,8 @@ internal object AiConnections {
             throw IOException(if (e.message == "INVALID_KEY") "INVALID_KEY" else "KEY_NOT_SAVED")
         }
         val model = result.optString("model")
-        if (model.isEmpty()) throw IOException("NO_DECISION_MODEL")
+        // The key is saved either way; say whether Magpie lists no Jev model for it or never answered.
+        if (model.isEmpty()) throw IOException(if (result.optBoolean("catalog", true)) "NO_DECISION_MODEL" else "MAGPIE_UNAVAILABLE")
         return enable(context, model)
     }
 

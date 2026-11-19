@@ -113,6 +113,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import kotlinx.coroutines.delay
 import org.agentos.agent.home.design.TakuIcon
 import org.agentos.agent.home.design.TakuIcons
@@ -165,11 +166,16 @@ private class OnboardingActions(val context: Context, val repository: Onboarding
 
   fun cancelSignIn() = launchAction { withContext(Dispatchers.IO) { repository.cancelSignIn() } }
 
-  /** Saves a pasted Jev (TypeSafe or OpenRouter) or Fal key through the same store as its settings page. */
-  fun saveKey(service: OnboardingService, key: String, onSaved: () -> Unit) = launchAction {
-    withContext(Dispatchers.IO) { repository.connect(service, key) }
-    onSaved()
-  }
+  /**
+   * Saves a pasted Jev (TypeSafe or OpenRouter) or Fal key through the same store as its settings
+   * page. Failures go to [onError] so the key field can say why in place, not in a toast the
+   * keyboard covers.
+   */
+  fun saveKey(service: OnboardingService, key: String, onSaved: () -> Unit, onError: (String) -> Unit) =
+    launchAction(onError) {
+      withContext(Dispatchers.IO) { repository.connect(service, key) }
+      onSaved()
+    }
 
   /**
    * Jev without a key: switches on a Jev model Magpie already serves. When there is none, the key
@@ -222,21 +228,23 @@ private class OnboardingActions(val context: Context, val repository: Onboarding
     }
   }
 
-  private fun launchAction(block: suspend () -> Unit) {
+  /** Runs [block] as the one card action; a failure is shown through [onError], else a toast. */
+  private fun launchAction(onError: ((String) -> Unit)? = null, block: suspend () -> Unit) {
     if (busy) return
     busy = true
+    val report: (String) -> Unit = onError ?: { toast(it) }
     scope.launch {
       try {
         block()
       } catch (e: OnboardingException) {
         Log.w(TAG, "${e.code}: ${e.message}")
-        toast(message(e.code))
+        report(message(e.code))
       } catch (e: CancellationException) {
         throw e
       } catch (e: Exception) {
         // Anything unexpected is a failed action, never a crashed Home.
         Log.w(TAG, "onboarding action failed", e)
-        toast(message(""))
+        report(message(""))
       } finally {
         busy = false
       }
@@ -249,7 +257,7 @@ private class OnboardingActions(val context: Context, val repository: Onboarding
     "NAME_NOT_SAVED" -> "Couldn’t save your name. Try again, or tap Later."
     "INVALID_KEY" -> "That key doesn’t look right. Jev takes a TypeSafe (apikey_…) or OpenRouter (sk-or-…) key."
     "KEY_NOT_SAVED", "SETTINGS_WRITE_FAILED" -> "Couldn’t save the key. Try again."
-    "NO_DECISION_MODEL" -> "Key saved. Jev isn’t listed for it yet; tap Jev again in a moment."
+    "NO_DECISION_MODEL" -> "No Jev model is available for this key yet. Tap Jev to try again."
     "MAGPIE_UNAVAILABLE" -> "The model service isn’t ready yet. Try again in a moment."
     "AUDIO_UNAVAILABLE" -> "Taku Audio isn’t available right now."
     "TASK_RUNNING" -> "Taku is still finishing a task. Try again in a moment."
@@ -563,39 +571,73 @@ private fun CopyField(label: String, value: String, valueStyle: TextStyle, copie
   }
 }
 
-/** The Jev or Fal key, pasted in place (the name field's style); masked like any secret. */
+/**
+ * The Jev or Fal key, pasted in place (the name field's style). Masked like any secret, with an
+ * eye to show it for checking. While it saves (Jev can take up to ~30 s while Magpie lists the
+ * model) the field locks, Save reads "Saving…" and the chip shows working dots; a failure is said
+ * right under the field. A Jev key that saved before its model was listed closes the editor and
+ * keeps connecting in the background ([OnboardingRepository.connect]).
+ */
 @Composable
 private fun KeyEditor(service: OnboardingService, actions: OnboardingActions, onClose: () -> Unit) {
   val c = TakuTheme.colors
   val type = TakuTheme.type
   var draft by remember(service) { mutableStateOf("") }
+  var shown by remember(service) { mutableStateOf(false) }
+  var error by remember(service) { mutableStateOf<String?>(null) }
   val focus = remember { FocusRequester() }
   val keyboard = LocalSoftwareKeyboardController.current
-  val ready = OnboardingRules.canSaveKey(service, draft) && !actions.busy
+  val saving = actions.busy
+  val ready = OnboardingRules.canSaveKey(service, draft) && !saving
   val placeholder = if (service == OnboardingService.JEV) "Paste a TypeSafe or OpenRouter key" else "Paste your fal key"
-  fun save() { if (ready) actions.saveKey(service, draft) { onClose() } }
+  fun save() {
+    if (!ready) return
+    error = null
+    keyboard?.hide()
+    actions.saveKey(service, draft, onSaved = onClose, onError = { error = it })
+  }
   LaunchedEffect(service) { withFrameNanos {}; focus.requestFocus(); keyboard?.show() }
 
   BasicTextField(
     value = draft,
-    onValueChange = { if (it.length <= 4096) draft = it },
+    onValueChange = { if (it.length <= 4096) { draft = it; error = null } },
+    enabled = !saving,
     singleLine = true,
     textStyle = type.bodyLg.copy(color = c.islandTextStrong),
     cursorBrush = SolidColor(c.islandInk),
-    visualTransformation = PasswordVisualTransformation(),
+    visualTransformation = if (shown) VisualTransformation.None else PasswordVisualTransformation(),
     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false, imeAction = ImeAction.Done),
     keyboardActions = KeyboardActions(onDone = { save() }),
     modifier = Modifier.fillMaxWidth().focusRequester(focus).semantics { contentDescription = placeholder },
     decorationBox = { field ->
-      Box(Modifier.fillMaxWidth().clip(CircleShape).background(c.islandField).padding(12.dp), contentAlignment = Alignment.CenterStart) {
-        if (draft.isEmpty()) BasicText(placeholder, style = type.bodyLg.copy(color = c.islandPlaceholder), maxLines = 1)
-        field()
+      Row(
+        Modifier.fillMaxWidth().clip(CircleShape).background(c.islandField).padding(start = 12.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        Box(Modifier.weight(1f).padding(vertical = 12.dp), contentAlignment = Alignment.CenterStart) {
+          if (draft.isEmpty()) BasicText(placeholder, style = type.bodyLg.copy(color = c.islandPlaceholder), maxLines = 1)
+          field()
+        }
+        // Show or mask the key; 40 dp target, the icon in the chip ink.
+        Box(
+          Modifier
+            .size(40.dp)
+            .clip(CircleShape)
+            .clickable { shown = !shown }
+            .semantics { role = Role.Button; contentDescription = if (shown) "Hide key" else "Show key" },
+          contentAlignment = Alignment.Center,
+        ) {
+          TakuIcon(if (shown) TakuIcons.EyeOff else TakuIcons.Eye, 20.dp, tint = c.islandChipText)
+        }
       }
     },
   )
+  error?.let {
+    BasicText(it, style = type.bodyMd.copy(color = c.islandTextStrong), modifier = Modifier.padding(horizontal = 12.dp))
+  }
   Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
     IslandButton("Cancel", IslandButtonStyle.Secondary, enabled = true) { onClose() }
-    IslandButton("Save", IslandButtonStyle.Primary, enabled = ready) { save() }
+    IslandButton(if (saving) "Saving…" else "Save", IslandButtonStyle.Primary, enabled = ready) { save() }
   }
 }
 

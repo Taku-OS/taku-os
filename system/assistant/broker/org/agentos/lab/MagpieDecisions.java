@@ -169,8 +169,8 @@ final class MagpieDecisions {
     /**
      * Onboarding's Jev key: adds (or reuses) the matching Magpie provider through the canonical
      * Settings store, asks Magpie to fetch its model list, and waits for its Jev decision model.
-     * Returns `{provider, preset, model}`; an empty model means the key was kept but no Jev model
-     * is listed yet. The whole call is bounded by [CONNECT_BUDGET_MS], so a slow Magpie answers
+     * Returns `{provider, preset, model, catalog}`; an empty model means the key was kept but no Jev
+     * model is listed yet, and `catalog:false` that Magpie's catalog never answered at all. The whole call is bounded by [CONNECT_BUDGET_MS], so a slow Magpie answers
      * "saved, not listed yet" instead of timing the caller out after the key was stored.
      */
     private JSONObject connect(String raw) throws Exception {
@@ -194,15 +194,20 @@ final class MagpieDecisions {
         }
         if (root.equals(new File("/data/local/agentos/magpie"))) refreshProvider(provider);
         String model = "";
+        boolean answered = false;
         while (true) {
             long left = deadline - System.currentTimeMillis();
             if (left <= 0) break;
-            try { model = pickJev(catalogIds((int) Math.max(1_000, Math.min(POLL_READ_MS, left))), provider + "/"); }
+            try {
+                JSONArray ids = catalogIds((int) Math.max(1_000, Math.min(POLL_READ_MS, left)));
+                answered = true;
+                model = pickJev(ids, provider + "/");
+            }
             catch (Exception catalogNotReady) { /* retry until the budget runs out */ }
             if (!model.isEmpty() || System.currentTimeMillis() + 1_000 > deadline) break;
             Thread.sleep(1_000);
         }
-        return new JSONObject().put("provider", provider).put("preset", preset).put("model", model);
+        return new JSONObject().put("provider", provider).put("preset", preset).put("model", model).put("catalog", answered);
     }
 
     /**

@@ -470,7 +470,7 @@ ChatGPT device-code sign-in is pending (`services.chatgpt` is `connecting` and t
 | `AI_NOT_CONNECTED` | `finish` before AI is available |
 | `INVALID_SERVICE` | `service` is not `chatgpt`, `jev` or `fal` |
 | `INVALID_KEY` | A blank key, over 4096 characters, or with whitespace or commas; for Jev, not a TypeSafe (`apikey_…`) or OpenRouter (`sk-or-v1-…`) key |
-| `KEY_NOT_SAVED`, `MAGPIE_UNAVAILABLE`, `NO_DECISION_MODEL`, `AUDIO_UNAVAILABLE` | The key store rejected or could not take the key; `NO_DECISION_MODEL` keeps the saved OpenRouter key |
+| `KEY_NOT_SAVED`, `MAGPIE_UNAVAILABLE`, `NO_DECISION_MODEL`, `AUDIO_UNAVAILABLE` | The key store rejected or could not take the key. With a Jev `key`, `NO_DECISION_MODEL` and `MAGPIE_UNAVAILABLE` are not errors: the key is saved, `services.jev` reads `connecting`, and onboarding keeps retrying `jev/enable` every 5 s for up to 3 minutes (then `not_connected` and a card notice). Without a key, `NO_DECISION_MODEL` means a key is needed |
 | `TASK_RUNNING`, `LOGIN_UNAVAILABLE`, `ACCOUNT_UNAVAILABLE` | ChatGPT sign-in could not start (see `account/login/start`) |
 | `UNKNOWN_METHOD` | Not one of the methods above |
 
@@ -488,7 +488,12 @@ brings Home back. Backing out (Cancel sign-in, a failed or
 abandoned sign-in) switches a previous Magpie connection back. **Jev** first switches on a Jev model Magpie
 already serves (`jev/enable`); otherwise it opens a masked key field that takes a TypeSafe
 (`apikey_…`) or OpenRouter (`sk-or-v1-…`) key (`jev/connect`), configured into Magpie in the
-background. **Fal** opens a masked fal key field (Taku Audio `settings` `saveFalKey`). Chips show working dots while connecting and a check when connected; a connected
+background. While it saves (up to about 30 s) the field locks, Save reads "Saving…" and the Jev chip
+shows working dots. If the key is saved before Magpie lists its Jev model, the field closes and the
+chip keeps its dots while onboarding retries `jev/enable` (every 5 s, up to 3 minutes). Other
+failures are shown under the field. **Fal** opens a masked fal key field (Taku Audio `settings`
+`saveFalKey`). Both key fields have an eye button that shows or masks the key; this is
+presentation only and changes no state. Chips show working dots while connecting and a check when connected; a connected
 ChatGPT chip opens the account page. ChatGPT is required to finish (or Magpie with a model); Jev
 and Fal are optional. A development device that must skip onboarding without AI can run
 `settings put secure taku_onboarding_step completed` from the shell. That writes the setting

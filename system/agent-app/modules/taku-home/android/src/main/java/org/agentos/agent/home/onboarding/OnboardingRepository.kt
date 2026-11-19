@@ -78,6 +78,8 @@ class OnboardingRepository private constructor(context: Context) {
 
   private var poll: Job? = null
   private var signInWatch: Job? = null
+  /** Finishes a saved Jev key whose model Magpie had not listed yet ([finishJev]). */
+  @Volatile private var jevWatch: Job? = null
 
   init {
     val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
@@ -125,7 +127,8 @@ class OnboardingRepository private constructor(context: Context) {
     val pending = stored != OnboardingStep.COMPLETED && stored != OnboardingStep.ALL_SET
     if (full || pending) readAccount()
     if (full || stored == OnboardingStep.CONNECT_AI) {
-      val jev = readJev()
+      // A saved key still waiting for its model stays "connecting", not "not connected".
+      val jev = readJev().let { if (it != Connection.CONNECTED && jevWatch?.isActive == true) Connection.CONNECTING else it }
       val fal = readFal()
       updateServices { it.copy(jev = jev, fal = fal) }
     }
@@ -158,7 +161,9 @@ class OnboardingRepository private constructor(context: Context) {
    * ChatGPT starts device-code sign-in and returns at once with the official URL and one-time
    * code in [State.signIn] (nothing opens: the card shows them, to use on another device); Jev
    * and Fal save the pasted key. Jev with no key switches on a Jev model Magpie already serves
-   * (`NO_DECISION_MODEL` when there is none).
+   * (`NO_DECISION_MODEL` when there is none). A Jev key is saved even when Magpie has not listed
+   * its model yet (the broker waits about 30 s): the chip then stays "connecting" while
+   * [finishJev] keeps trying, rather than failing a key that will work in a moment.
    */
   fun connect(service: OnboardingService, rawKey: String? = null): State {
     if (shownStep(facts()) != OnboardingStep.CONNECT_AI)
@@ -179,10 +184,57 @@ class OnboardingRepository private constructor(context: Context) {
         }
       }
       OnboardingService.JEV ->
-        if (rawKey == null) call("enableJev") else call("connectJev", JSONObject().put("key", OnboardingRules.jevKey(rawKey)))
+        if (rawKey == null) call("enableJev") else connectJev(OnboardingRules.jevKey(rawKey))
       OnboardingService.FAL -> saveFal(OnboardingRules.key(rawKey))
     }
     return refresh()
+  }
+
+  /**
+   * Saves a Jev key and switches Jev on. The chip shows working dots for the whole wait. When the
+   * key is saved but its model is not listed yet (`NO_DECISION_MODEL`, or `MAGPIE_UNAVAILABLE`
+   * when Magpie's catalog did not answer), this returns normally and [finishJev] takes over.
+   */
+  private fun connectJev(key: String) {
+    jevWatch?.cancel()
+    updateServices { it.copy(jev = Connection.CONNECTING) }
+    publish()
+    try {
+      call("connectJev", JSONObject().put("key", key))
+    } catch (e: OnboardingException) {
+      if (e.code != "NO_DECISION_MODEL" && e.code != "MAGPIE_UNAVAILABLE") {
+        updateServices { it.copy(jev = readJev()) }
+        throw e
+      }
+      Log.i(TAG, "jev key saved; waiting for its model (${e.code})")
+      finishJev()
+    }
+  }
+
+  /**
+   * Keeps switching Jev on with the model Magpie serves (gateway `enableJev`) until one is listed,
+   * for up to [JEV_WAIT_MS]; then says why it did not connect, once.
+   */
+  private fun finishJev() {
+    jevWatch = scope.launch {
+      val deadline = SystemClock.elapsedRealtime() + JEV_WAIT_MS
+      var last = "NO_DECISION_MODEL"
+      while (isActive && SystemClock.elapsedRealtime() < deadline) {
+        delay(JEV_POLL_MS)
+        try {
+          call("enableJev")
+          updateServices { it.copy(jev = Connection.CONNECTED) }
+          publish()
+          return@launch
+        } catch (e: OnboardingException) {
+          last = e.code
+        }
+      }
+      if (!isActive) return@launch
+      updateServices { it.copy(jev = Connection.NOT_CONNECTED) }
+      publish()
+      noticeFlow.tryEmit(if (last == "MAGPIE_UNAVAILABLE") JEV_NO_MAGPIE else JEV_NO_MODEL)
+    }
   }
 
   /** Cancels a pending ChatGPT sign-in, as the account page's "Cancel this sign-in". */
@@ -453,6 +505,10 @@ class OnboardingRepository private constructor(context: Context) {
     private const val SIGN_IN_MS = 15 * 60_000L
     private const val CONNECTED_PILL_MS = 3_000L
     private const val FAILED = "ChatGPT sign-in didn’t finish. Try again."
+    private const val JEV_POLL_MS = 5_000L
+    private const val JEV_WAIT_MS = 3 * 60_000L
+    private const val JEV_NO_MAGPIE = "Jev key saved, but the model service isn’t running. Tap Jev to try again."
+    private const val JEV_NO_MODEL = "Jev key saved, but no Jev model is available for it yet. Tap Jev to try again."
     private val UNSETTLED_PHASES = setOf("loading", "verifying")
     private val SIGNING_IN_PHASES = setOf("starting", "pending", "verifying")
     private val MEMORY: Uri = Uri.parse("content://org.agentos.memory.open-access")
