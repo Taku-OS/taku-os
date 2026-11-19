@@ -376,22 +376,24 @@ Discovery/turn preparation updates `taku-open-access/SKILL.md` when it matches t
 
 ## First-run onboarding
 
-Home shows a first-run onboarding card (Figma 1155:527, 1155:619, 1155:846) only when **all**
+Home shows a first-run onboarding card (Figma 1155:527, 1155:619, 1155:846, 1155:1073) only when **all**
 are confirmed: onboarding is not completed, AI is confirmed unavailable (`account/status`
 `aiAvailable:false` with a settled `phase`), and the phone is ready (`device_provisioned=1`, this
 user's `user_setup_complete=1`, user unlocked). Anything uncertain keeps it hidden: a broker that
 is still loading, verifying or unreachable, or a readiness value Home cannot read. While it is
 pending, Home re-checks every 3 s in the foreground, so the card appears once everything is
-confirmed. It cannot be
+confirmed. Once the user reaches the AI step (`connect_ai`), the card stays there through
+sign-in and verification, and after AI connects, until **Continue** (`onboarding/finish`). It cannot be
 dismissed: while it shows, Home composes only the wallpaper, the empty-Home message and the card
 (no Feed, home pages, status bar or AI entry; assistant intents are ignored). It is not a Feed
 item and is not the SystemUI island, so `feed/list` never contains it.
 
 Progress is per Android user in `Settings.Secure` `taku_onboarding_step`
 (`intro`, `name`, `connect_ai`, `completed`; missing or unknown means `intro`). A factory reset
-clears it, so onboarding runs again. Confirmed available AI (`aiAvailable:true`: a ChatGPT
-sign-in, or Magpie running with a model) writes `completed` from any step, even if the card was
-never shown, and nothing ever moves it back, so it runs once. Losing AI after completion does not
+clears it, so onboarding runs again. Before the AI step, confirmed available AI
+(`aiAvailable:true`: a ChatGPT sign-in, or Magpie running with a model) writes `completed`, even
+if the card was never shown (existing users). At `connect_ai` it enables Continue instead, so Jev
+and Fal can still be added. Nothing ever moves `completed` back, so it runs once. Losing AI after completion does not
 restart it. An unknown account state never completes it. The name is Memory's `userName`
 (`content://org.agentos.memory.open-access`, unset value `我`); when it is already set, the name
 step is skipped and `connect_ai` is stored.
@@ -403,13 +405,21 @@ content call --uri $O --method onboarding/get
 content call --uri $O --method onboarding/set-up                 # intro → name ("Set up Taku")
 content call --uri $O --method onboarding/submit-name --arg '{"name":"Deki"}'   # name → connect_ai ("Continue")
 content call --uri $O --method onboarding/skip-name              # name → connect_ai ("Later")
+# AI step chips (connect_ai only):
+content call --uri $O --method onboarding/connect --arg '{"service":"chatgpt"}'  # opens the official sign-in page
+content call --uri $O --method onboarding/cancel-sign-in
+content call --uri $O --method onboarding/connect --arg '{"service":"jev","key":"sk-or-v1-..."}'   # OpenRouter key
+content call --uri $O --method onboarding/connect --arg '{"service":"fal","key":"..."}'
+content call --uri $O --method onboarding/finish                 # connect_ai → completed ("Continue"; needs available AI)
 # Agent-only: back to intro (available AI completes it again immediately).
 content call --uri $O --method onboarding/reset
 settings get secure taku_onboarding_step
 ```
 
 Every method returns `{ok:true,result}` with the fresh state:
-`{setting, stored, visible, step, hiddenReason, phoneReady, ai, nameSet}`. `step` is the
+`{setting, stored, visible, step, hiddenReason, phoneReady, ai, nameSet, canFinish, services}`, where
+`services` is `{chatgpt, jev, fal}`, each `not_connected`, `connecting`, `connected` or `unknown`
+(`fal` is `null` when Taku Audio is not installed; the GUI hides that chip). `step` is the
 card being shown (`null` when hidden). `hiddenReason` is `completed`, `ai_available`,
 `ai_unknown` or `phone_not_ready`. `ai` is `available`, `unavailable` or `unknown`. `nameSet` is `null` when
 Memory could not be read. Errors are `{ok:false,code,message}`:
@@ -424,12 +434,21 @@ Memory could not be read. Errors are `{ok:false,code,message}`:
 | `NAME_NOT_SAVED` | Memory rejected or could not save the name; the step does not change |
 | `UNSUPPORTED_PARAMETER` | An argument the method does not take |
 | `SETTINGS_WRITE_FAILED` | `taku_onboarding_step` could not be written |
+| `AI_NOT_CONNECTED` | `finish` before AI is available |
+| `INVALID_SERVICE` | `service` is not `chatgpt`, `jev` or `fal` |
+| `INVALID_KEY` | A Jev or Fal key that is blank, over 4096 characters, or contains whitespace or commas |
+| `KEY_NOT_SAVED`, `MAGPIE_UNAVAILABLE`, `NO_DECISION_MODEL`, `AUDIO_UNAVAILABLE` | The key store rejected or could not take the key; `NO_DECISION_MODEL` keeps the saved OpenRouter key |
+| `TASK_RUNNING`, `LOGIN_UNAVAILABLE`, `ACCOUNT_UNAVAILABLE` | ChatGPT sign-in could not start (see `account/login/start`) |
 | `UNKNOWN_METHOD` | Not one of the methods above |
 
-The `connect_ai` card currently offers **Connect ChatGPT**, which opens the existing ChatGPT
-subscription page (gateway `openSettings {"page":"account"}`, the same page as Taku AI settings →
-ChatGPT subscription). Agents sign in through that same page; the full ChatGPT / Jev / Fal step is
-not implemented yet. A development device that must skip onboarding without AI can run
+The `connect_ai` card shows three chips (Fal only when Taku Audio is installed). **ChatGPT**
+starts browser sign-in in one tap (`account/login/start` with `open:true`): the card shrinks into
+the camera pill, the island shows "Signing in…" while Home is away and a brief "Connected" when
+the account lands, and the assistant brings Home back. **Jev** and **Fal** open a masked key field
+in the card: Jev takes an OpenRouter key (`jev/connect`), Fal a fal key (Taku Audio `settings`
+`saveFalKey`). Chips show working dots while connecting and a check when connected; a connected
+ChatGPT chip opens the account page. ChatGPT is required to finish (or Magpie with a model); Jev
+and Fal are optional. A development device that must skip onboarding without AI can run
 `settings put secure taku_onboarding_step completed` from the shell. That writes the setting
 directly, without the provider's checks.
 

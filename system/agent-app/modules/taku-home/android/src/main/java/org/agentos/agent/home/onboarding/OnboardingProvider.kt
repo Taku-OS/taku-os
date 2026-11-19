@@ -37,6 +37,15 @@ class OnboardingProvider : ContentProvider() {
           repo.perform(OnboardingAction.SUBMIT_NAME, p.getString("name"))
         }
         "onboarding/skip-name" -> { only(); repo.perform(OnboardingAction.SKIP_NAME) }
+        "onboarding/connect" -> {
+          only("service", "key")
+          val service = OnboardingService.parse(p.optString("service"))
+            ?: throw OnboardingException("INVALID_SERVICE", "service must be chatgpt, jev or fal")
+          if (service == OnboardingService.CHATGPT && p.has("key")) throw OnboardingException("UNSUPPORTED_PARAMETER", "chatgpt signs in through the official page; no key")
+          repo.connect(service, if (p.isNull("key")) null else p.optString("key"))
+        }
+        "onboarding/cancel-sign-in" -> { only(); repo.cancelSignIn() }
+        "onboarding/finish" -> { only(); repo.perform(OnboardingAction.FINISH) }
         "onboarding/reset" -> { only(); repo.reset() }
         else -> throw OnboardingException("UNKNOWN_METHOD", "unknown method $method")
       }

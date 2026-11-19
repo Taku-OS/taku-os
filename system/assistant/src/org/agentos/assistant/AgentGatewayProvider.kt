@@ -237,6 +237,10 @@ class AgentGatewayProvider : ContentProvider() {
                 if (!AgentFrontendLauncher.openRoute(context!!, "/system-ai?section=connection")) throw IOException("AGENT_UI_UNAVAILABLE")
                 return JSONObject().put("opened", true)
             }
+            "connectChatGpt" -> return AiConnections.startChatGpt(context!!, "chatgpt", true, false)
+            "cancelChatGpt" -> return AiConnections.cancelChatGpt()
+            "readJev" -> return AiConnections.jevStatus(context!!)
+            "connectJev" -> return AiConnections.connectJev(context!!, input.getString("key"))
             "listThreads" -> return AgentGatewayProtocol.clean(TaskRequests.control("thread/list", JSONObject()), 0) as JSONObject
             "createThread" -> {
                 val result = ComposerDelivery.createThread()
@@ -318,7 +322,8 @@ class AgentGatewayProvider : ContentProvider() {
             "pluginManager" -> return PluginManagerBridge.execute(input)
             "decide" -> {
                 if (!preferences().getBoolean("jevEnabled", false)) throw IOException("JEV_DISABLED")
-                val model = preferences().getString("jevModel", "")!!
+                // The same `jev` scene binding the Jev settings page writes (the old `jevModel` pref is migrated away).
+                val model = AiConnections.jevModel(context!!)
                 if (model.isEmpty()) throw IOException("JEV_NOT_CONFIGURED")
                 return AgentGatewayProtocol.clean(JevApiClient().decide(model, input.getJSONObject("state"), input.getJSONObject("questions"), true), 0) as JSONObject
             }

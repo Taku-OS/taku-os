@@ -20,6 +20,8 @@
     <provider android:authorities="org.agentos.assistant.permissions" />
     <!-- Onboarding reads and saves the user's name in Memory (same open-access API as Agents). -->
     <provider android:authorities="org.agentos.memory.open-access" />
+    <!-- Onboarding reads and saves the fal key through Taku Audio's settings API. -->
+    <provider android:authorities="org.agentos.audio.open-access" />
     <intent><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent>
     <intent>
       <action android:name="android.intent.action.MAIN" />

@@ -27,6 +27,27 @@ enum class AiAccess(val id: String) {
   AVAILABLE("available"),
 }
 
+/** One service's connection on the AI step (chips: not connected, animated dots, checkmark). */
+enum class Connection(val id: String) {
+  UNKNOWN("unknown"),
+  NOT_CONNECTED("not_connected"),
+  CONNECTING("connecting"),
+  CONNECTED("connected"),
+}
+
+/** The three services on the AI step. [fal] is null when Taku Audio is not installed. */
+data class Services(val chatgpt: Connection, val jev: Connection, val fal: Connection?) {
+  companion object { val UNKNOWN = Services(Connection.UNKNOWN, Connection.UNKNOWN, Connection.UNKNOWN) }
+}
+
+enum class OnboardingService(val id: String) {
+  CHATGPT("chatgpt"),
+  JEV("jev"),
+  FAL("fal");
+
+  companion object { fun parse(raw: String?) = entries.firstOrNull { it.id == raw } }
+}
+
 /** The authoritative inputs; GUI and Agents both decide from these. */
 data class OnboardingFacts(
   val stored: OnboardingStep?,
@@ -49,6 +70,8 @@ enum class OnboardingAction(val id: String) {
   SET_UP("set-up"),
   SUBMIT_NAME("submit-name"),
   SKIP_NAME("skip-name"),
+  /** "Continue" on the AI step, once AI is available. */
+  FINISH("finish"),
 }
 
 object OnboardingRules {
@@ -67,18 +90,30 @@ object OnboardingRules {
    * Shown only when all three are confirmed: onboarding is not completed, AI is confirmed
    * unavailable, and the phone is ready. Anything uncertain keeps it hidden, so an existing user
    * never sees it while the broker is still starting.
+   *
+   * A user who has reached the AI step is mid-setup: the card stays there, through sign-in and
+   * verification, until they tap Continue (which needs available AI), so Jev and Fal can still be
+   * added after ChatGPT.
    */
   fun decide(facts: OnboardingFacts): OnboardingDecision = when {
     facts.stored == OnboardingStep.COMPLETED -> OnboardingDecision.Hidden(HIDDEN_COMPLETED)
+    facts.stored == OnboardingStep.CONNECT_AI ->
+      if (facts.phoneReady) OnboardingDecision.Show(OnboardingStep.CONNECT_AI) else OnboardingDecision.Hidden(HIDDEN_PHONE)
     facts.ai == AiAccess.AVAILABLE -> OnboardingDecision.Hidden(HIDDEN_AI)
     facts.ai == AiAccess.UNKNOWN -> OnboardingDecision.Hidden(HIDDEN_AI_UNKNOWN)
     !facts.phoneReady -> OnboardingDecision.Hidden(HIDDEN_PHONE)
     else -> OnboardingDecision.Show(resolve(facts.stored ?: OnboardingStep.INTRO, facts.nameSet))
   }
 
-  /** Confirmed available AI completes onboarding for good, even if it was never shown. */
+  /**
+   * Confirmed available AI completes onboarding for good when the user has not reached the AI
+   * step (existing users, or AI set up elsewhere); there it waits for Continue.
+   */
   fun shouldComplete(facts: OnboardingFacts): Boolean =
-    facts.stored != OnboardingStep.COMPLETED && facts.ai == AiAccess.AVAILABLE
+    facts.stored != OnboardingStep.COMPLETED && facts.stored != OnboardingStep.CONNECT_AI && facts.ai == AiAccess.AVAILABLE
+
+  /** Continue needs a working AI: a ChatGPT sign-in or Magpie with a model. */
+  fun canFinish(facts: OnboardingFacts): Boolean = facts.ai == AiAccess.AVAILABLE
 
   /** Skips steps that are already done: the name step when Memory already has a name. */
   fun resolve(step: OnboardingStep, nameSet: Boolean?): OnboardingStep =
@@ -89,14 +124,26 @@ object OnboardingRules {
     val expected = when (action) {
       OnboardingAction.SET_UP -> OnboardingStep.INTRO
       OnboardingAction.SUBMIT_NAME, OnboardingAction.SKIP_NAME -> OnboardingStep.NAME
+      OnboardingAction.FINISH -> OnboardingStep.CONNECT_AI
     }
     if (current != expected)
       throw OnboardingException("WRONG_STEP", "${action.id} applies to step ${expected.id}; onboarding is at ${current.id}")
     return when (action) {
       OnboardingAction.SET_UP -> OnboardingStep.NAME
       OnboardingAction.SUBMIT_NAME, OnboardingAction.SKIP_NAME -> OnboardingStep.CONNECT_AI
+      OnboardingAction.FINISH -> OnboardingStep.COMPLETED
     }
   }
+
+  /** An API key as the key stores accept it (Taku Audio and the OpenRouter BYOK path). */
+  fun key(raw: String?): String {
+    val key = raw?.trim().orEmpty()
+    if (key.isEmpty() || key.length > 4096 || key.any { it.isWhitespace() || it == ',' })
+      throw OnboardingException("INVALID_KEY", "key must be one complete API key")
+    return key
+  }
+
+  fun canSaveKey(draft: String): Boolean = runCatching { key(draft) }.isSuccess
 
   /** Trimmed name, or `INVALID_NAME` (the same rule Memory enforces). */
   fun name(raw: String?): String {

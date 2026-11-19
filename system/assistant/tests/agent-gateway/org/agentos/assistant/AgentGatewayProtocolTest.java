@@ -133,6 +133,14 @@ public final class AgentGatewayProtocolTest {
         check(AgentGatewayProtocol.request("openMagpieManagement", "{}").length() == 0);
         check(AgentGatewayProtocol.request("readAccount", "{}").length() == 0);
         rejects(() -> AgentGatewayProtocol.request("readAccount", "{\"refreshToken\":true}"));
+        check(AgentGatewayProtocol.request("connectChatGpt", "{}").length() == 0);
+        rejects(() -> AgentGatewayProtocol.request("connectChatGpt", "{\"url\":\"https://example.com\"}"));
+        check(AgentGatewayProtocol.request("cancelChatGpt", "{}").length() == 0);
+        check(AgentGatewayProtocol.request("readJev", "{}").length() == 0);
+        check(AgentGatewayProtocol.request("connectJev", "{\"key\":\"sk-or-v1-abc\"}").getString("key").equals("sk-or-v1-abc"));
+        rejects(() -> AgentGatewayProtocol.request("connectJev", "{}"));
+        rejects(() -> AgentGatewayProtocol.request("connectJev", "{\"key\":\"\"}"));
+        rejects(() -> AgentGatewayProtocol.request("connectJev", "{\"key\":\"k\",\"model\":\"x\"}"));
         check(AgentGatewayProtocol.request("openSettings", "{\"page\":\"account\"}").getString("page").equals("account"));
         rejectsWithCode("INVALID_SETTINGS_PAGE", () -> AgentGatewayProtocol.request("openSettings", "{\"page\":\"login\"}"));
         rejects(() -> AgentGatewayProtocol.request("openMagpieManagement", "{\"url\":\"https://example.com\"}"));

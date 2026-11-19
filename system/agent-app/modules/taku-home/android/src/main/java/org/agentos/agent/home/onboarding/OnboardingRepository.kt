@@ -5,6 +5,7 @@ import android.database.ContentObserver
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.os.UserManager
 import android.provider.Settings
 import android.util.Log
@@ -14,7 +15,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -26,13 +29,21 @@ import org.json.JSONObject
  * The one onboarding state for this Android user, shared by the Home card and Agents
  * (`content://org.agentos.agent.home-onboarding`). Sources of truth:
  * - progress: `Settings.Secure` [OnboardingRules.SETTING] (per user; cleared by factory reset);
- * - AI: the broker account view through the assistant gateway (`readAccount` `aiAvailable`);
+ * - AI and ChatGPT: the broker account view through the assistant gateway (`readAccount`);
+ * - Jev: the assistant's Jev switch and decision-model binding (gateway `readJev`);
+ * - Fal: Taku Audio's key status (`content://org.agentos.audio.open-access` `settings`);
  * - name: Memory `userName` (`content://org.agentos.memory.open-access`).
  * Blocking methods run on the caller's thread: an IO dispatcher or a provider binder thread.
  */
 class OnboardingRepository private constructor(context: Context) {
-  data class State(val facts: OnboardingFacts, val decision: OnboardingDecision, val userName: String?) {
+  data class State(
+    val facts: OnboardingFacts,
+    val decision: OnboardingDecision,
+    val userName: String?,
+    val services: Services,
+  ) {
     val step: OnboardingStep? get() = (decision as? OnboardingDecision.Show)?.step
+    val canFinish: Boolean get() = step == OnboardingStep.CONNECT_AI && OnboardingRules.canFinish(facts)
   }
 
   private val app = context.applicationContext
@@ -41,15 +52,22 @@ class OnboardingRepository private constructor(context: Context) {
   // A failed background read or write is logged; it must never take Home down.
   private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO + CoroutineExceptionHandler { _, e -> Log.w(TAG, "onboarding update failed", e) })
   private val lock = Any()
+  private val island = OnboardingIsland(app)
 
   @Volatile private var ai = AiAccess.UNKNOWN
+  @Volatile private var services = Services.UNKNOWN
   @Volatile private var userName: String? = null
   @Volatile private var nameKnown = false
+  @Volatile private var foreground = false
 
   private val mutable = MutableStateFlow(snapshotOf(facts()))
   val state: StateFlow<State> = mutable
+  private val noticeFlow = MutableSharedFlow<String>(extraBufferCapacity = 4)
+  /** One-off messages for the card, such as why a ChatGPT sign-in failed (the broker's own words). */
+  val notices: SharedFlow<String> = noticeFlow
 
   private var poll: Job? = null
+  private var signIn: Job? = null
 
   init {
     val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
@@ -65,9 +83,12 @@ class OnboardingRepository private constructor(context: Context) {
 
   /**
    * Home in the foreground: re-read now, then poll while onboarding is pending, so the card
-   * appears as soon as every condition is confirmed and leaves once AI is available.
+   * appears as soon as every condition is confirmed. The island pill is only for while Home is
+   * away; the card itself shows progress when Home is visible.
    */
   fun setForeground(foreground: Boolean) {
+    this.foreground = foreground
+    if (foreground) island.clear()
     poll?.cancel()
     poll = if (!foreground) null else scope.launch {
       runCatching { refresh() }.onFailure { Log.w(TAG, "onboarding refresh failed", it) }
@@ -78,11 +99,13 @@ class OnboardingRepository private constructor(context: Context) {
     }
   }
 
-  /** While onboarding is pending, re-reads AI access and the name, then publishes. Completed costs nothing. */
+  /** While onboarding is pending, re-reads the authoritative sources, then publishes. Completed costs nothing. */
   fun refresh(): State {
-    if (stored() != OnboardingStep.COMPLETED) {
-      ai = readAi()
-      readName()
+    val stored = stored()
+    if (stored != OnboardingStep.COMPLETED) {
+      readAccount()
+      if (stored == OnboardingStep.CONNECT_AI) services = services.copy(jev = readJev(), fal = readFal())
+      if (!nameKnown || stored == null || stored == OnboardingStep.INTRO || stored == OnboardingStep.NAME) readName()
     }
     return publish()
   }
@@ -90,26 +113,44 @@ class OnboardingRepository private constructor(context: Context) {
   /** Runs one card action exactly as the GUI does; returns the new state. */
   fun perform(action: OnboardingAction, rawName: String? = null): State = synchronized(lock) {
     val facts = facts()
-    val step = when (val decision = OnboardingRules.decide(facts)) {
-      is OnboardingDecision.Show -> decision.step
-      is OnboardingDecision.Hidden -> throw OnboardingException(
-        when (decision.reason) {
-          OnboardingRules.HIDDEN_PHONE -> "PHONE_NOT_READY"
-          OnboardingRules.HIDDEN_AI_UNKNOWN -> "AI_STATUS_UNKNOWN"
-          else -> "ALREADY_COMPLETED"
-        },
-        "onboarding is not showing (${decision.reason})",
-      )
-    }
+    val step = shownStep(facts)
     var next = OnboardingRules.advance(step, action)
     when (action) {
       OnboardingAction.SUBMIT_NAME -> saveName(OnboardingRules.name(rawName))
       OnboardingAction.SET_UP -> readName()
       OnboardingAction.SKIP_NAME -> Unit
+      OnboardingAction.FINISH -> if (!OnboardingRules.canFinish(facts))
+        throw OnboardingException("AI_NOT_CONNECTED", "connect ChatGPT (or Magpie) before finishing")
     }
     next = OnboardingRules.resolve(next, nameSet())
     write(next)
     publish()
+  }
+
+  /**
+   * Connects one service from the AI step, through the same operation as its settings page:
+   * ChatGPT opens the official sign-in in the browser; Jev and Fal save the pasted key.
+   */
+  fun connect(service: OnboardingService, rawKey: String? = null): State {
+    if (shownStep(facts()) != OnboardingStep.CONNECT_AI)
+      throw OnboardingException("WRONG_STEP", "services are connected on the connect_ai step")
+    when (service) {
+      OnboardingService.CHATGPT -> {
+        val result = call("connectChatGpt")
+        if (result.optString("opened") != "none") watchSignIn()
+      }
+      OnboardingService.JEV -> call("connectJev", JSONObject().put("key", OnboardingRules.key(rawKey)))
+      OnboardingService.FAL -> saveFal(OnboardingRules.key(rawKey))
+    }
+    return refresh()
+  }
+
+  /** Cancels a pending ChatGPT sign-in, as the account page's "Cancel this sign-in". */
+  fun cancelSignIn(): State {
+    call("cancelChatGpt")
+    signIn?.cancel()
+    island.clear()
+    return refresh()
   }
 
   /** Agent-only: start over from the intro. Confirmed available AI completes it again. */
@@ -120,7 +161,8 @@ class OnboardingRepository private constructor(context: Context) {
 
   /** The authoritative snapshot for Agents, freshly read. */
   fun describe(): JSONObject {
-    ai = readAi()
+    readAccount()
+    services = services.copy(jev = readJev(), fal = readFal())
     val s = refresh()
     val decision = s.decision
     return JSONObject()
@@ -132,6 +174,51 @@ class OnboardingRepository private constructor(context: Context) {
       .put("phoneReady", s.facts.phoneReady)
       .put("ai", s.facts.ai.id)
       .put("nameSet", s.facts.nameSet ?: JSONObject.NULL)
+      .put("canFinish", s.canFinish)
+      .put("services", JSONObject()
+        .put("chatgpt", s.services.chatgpt.id)
+        .put("jev", s.services.jev.id)
+        .put("fal", s.services.fal?.id ?: JSONObject.NULL))
+  }
+
+  private fun shownStep(facts: OnboardingFacts): OnboardingStep = when (val decision = OnboardingRules.decide(facts)) {
+    is OnboardingDecision.Show -> decision.step
+    is OnboardingDecision.Hidden -> throw OnboardingException(
+      when (decision.reason) {
+        OnboardingRules.HIDDEN_PHONE -> "PHONE_NOT_READY"
+        OnboardingRules.HIDDEN_AI_UNKNOWN -> "AI_STATUS_UNKNOWN"
+        else -> "ALREADY_COMPLETED"
+      },
+      "onboarding is not showing (${decision.reason})",
+    )
+  }
+
+  /**
+   * Follows a sign-in that left Home for the browser: the island shows "Signing in…" while Home
+   * is away and a brief "Connected" when it lands. The assistant brings Home back on success.
+   */
+  private fun watchSignIn() {
+    signIn?.cancel()
+    signIn = scope.launch {
+      val deadline = SystemClock.elapsedRealtime() + SIGN_IN_MS
+      try {
+        while (isActive && SystemClock.elapsedRealtime() < deadline) {
+          delay(SIGN_IN_POLL_MS)
+          runCatching { readAccount(); publish() }
+          when (services.chatgpt) {
+            Connection.CONNECTING, Connection.UNKNOWN -> if (foreground) island.clear() else island.signingIn()
+            Connection.CONNECTED -> {
+              island.connected()
+              delay(CONNECTED_PILL_MS)
+              return@launch
+            }
+            Connection.NOT_CONNECTED -> return@launch
+          }
+        }
+      } finally {
+        island.clear()
+      }
+    }
   }
 
   private fun publish(): State = synchronized(lock) {
@@ -147,7 +234,8 @@ class OnboardingRepository private constructor(context: Context) {
     return snapshotOf(facts).also { mutable.value = it }
   }
 
-  private fun snapshotOf(facts: OnboardingFacts) = State(facts, OnboardingRules.decide(facts), userName.takeIf { OnboardingRules.isNameSet(it) })
+  private fun snapshotOf(facts: OnboardingFacts) =
+    State(facts, OnboardingRules.decide(facts), userName.takeIf { OnboardingRules.isNameSet(it) }, services)
 
   private fun facts() = OnboardingFacts(stored(), phoneReady(), ai, nameSet())
 
@@ -173,17 +261,74 @@ class OnboardingRepository private constructor(context: Context) {
     return provisioned && setupComplete && unlocked
   }
 
-  private fun readAi(): AiAccess = try {
-    val account = gateway.call("readAccount")
-    when {
-      account.optBoolean("aiAvailable") -> AiAccess.AVAILABLE
-      // Still reading, or a finished sign-in being confirmed: not settled either way.
-      account.optString("phase", "loading") in UNSETTLED_PHASES -> AiAccess.UNKNOWN
-      else -> AiAccess.UNAVAILABLE
+  /** AI availability and the ChatGPT chip from one account read; reports a failed sign-in once. */
+  private fun readAccount() {
+    val previous = services.chatgpt
+    try {
+      val account = gateway.call("readAccount")
+      val phase = account.optString("phase", "loading")
+      ai = when {
+        account.optBoolean("aiAvailable") -> AiAccess.AVAILABLE
+        // Still reading, or a finished sign-in being confirmed: not settled either way.
+        phase in UNSETTLED_PHASES -> AiAccess.UNKNOWN
+        else -> AiAccess.UNAVAILABLE
+      }
+      val chatgpt = when {
+        account.optBoolean("chatgptConnected") -> Connection.CONNECTED
+        phase in SIGNING_IN_PHASES -> Connection.CONNECTING
+        phase == "loading" -> Connection.UNKNOWN
+        else -> Connection.NOT_CONNECTED
+      }
+      services = services.copy(chatgpt = chatgpt)
+      if (previous == Connection.CONNECTING && phase == "failed") noticeFlow.tryEmit(account.optString("message").ifBlank { FAILED })
+    } catch (e: GatewayException) {
+      Log.w(TAG, "account status unavailable: ${e.code}")
+      ai = AiAccess.UNKNOWN
+      services = services.copy(chatgpt = Connection.UNKNOWN)
     }
+  }
+
+  private fun readJev(): Connection = try {
+    if (gateway.call("readJev").optBoolean("ready")) Connection.CONNECTED else Connection.NOT_CONNECTED
   } catch (e: GatewayException) {
-    Log.w(TAG, "account status unavailable: ${e.code}")
-    AiAccess.UNKNOWN
+    Log.w(TAG, "jev status unavailable: ${e.code}")
+    Connection.UNKNOWN
+  }
+
+  /** Null when Taku Audio is not installed (component builds): the Fal chip is hidden. */
+  private fun readFal(): Connection? {
+    if (app.packageManager.resolveContentProvider(AUDIO.authority!!, 0) == null) return null
+    return try {
+      if (audio(JSONObject().put("action", "read")).optJSONObject("fal")?.optBoolean("configured") == true) Connection.CONNECTED
+      else Connection.NOT_CONNECTED
+    } catch (e: OnboardingException) {
+      Log.w(TAG, "fal status unavailable: ${e.code}")
+      Connection.UNKNOWN
+    }
+  }
+
+  private fun saveFal(key: String) {
+    audio(JSONObject().put("action", "saveFalKey").put("key", key))
+  }
+
+  private fun call(action: String, params: JSONObject = JSONObject()): JSONObject = try {
+    gateway.call(action, params)
+  } catch (e: GatewayException) {
+    throw OnboardingException(e.code, e.message ?: e.code)
+  }
+
+  private fun audio(arg: JSONObject): JSONObject {
+    val bundle = try {
+      resolver.call(AUDIO, "settings", arg.toString(), null)
+    } catch (e: RuntimeException) {
+      throw OnboardingException("AUDIO_UNAVAILABLE", e.message ?: "Taku Audio is unavailable")
+    } ?: throw OnboardingException("AUDIO_UNAVAILABLE", "Taku Audio is unavailable")
+    val envelope = JSONObject(bundle.getString("result") ?: throw OnboardingException("AUDIO_UNAVAILABLE", "Taku Audio returned nothing"))
+    if (!envelope.optBoolean("ok")) {
+      val code = envelope.optString("code").ifBlank { "KEY_NOT_SAVED" }
+      throw OnboardingException(if (code == "INVALID_ARGUMENT") "INVALID_KEY" else code, envelope.optString("message", code))
+    }
+    return envelope.optJSONObject("result") ?: JSONObject()
   }
 
   private fun readName() {
@@ -222,8 +367,14 @@ class OnboardingRepository private constructor(context: Context) {
     /** `Settings.Secure.USER_SETUP_COMPLETE` (hidden constant; per user). */
     private const val USER_SETUP_COMPLETE = "user_setup_complete"
     private const val POLL_MS = 3_000L
+    private const val SIGN_IN_POLL_MS = 1_500L
+    private const val SIGN_IN_MS = 15 * 60_000L
+    private const val CONNECTED_PILL_MS = 3_000L
+    private const val FAILED = "ChatGPT sign-in didn’t finish. Try again."
     private val UNSETTLED_PHASES = setOf("loading", "verifying")
+    private val SIGNING_IN_PHASES = setOf("starting", "pending", "verifying")
     private val MEMORY: Uri = Uri.parse("content://org.agentos.memory.open-access")
+    private val AUDIO: Uri = Uri.parse("content://org.agentos.audio.open-access")
 
     @Volatile private var instance: OnboardingRepository? = null
     fun get(context: Context): OnboardingRepository =

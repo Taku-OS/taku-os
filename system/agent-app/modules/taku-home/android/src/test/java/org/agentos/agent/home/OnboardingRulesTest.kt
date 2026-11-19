@@ -39,18 +39,47 @@ class OnboardingRulesTest {
     assertFalse(OnboardingRules.shouldComplete(facts(stored = OnboardingStep.COMPLETED, ai = AiAccess.AVAILABLE)))
   }
 
-  @Test fun availableAiHidesAndCompletesFromAnyStep() {
+  @Test fun availableAiHidesAndCompletesBeforeTheAiStep() {
     // ChatGPT signed in, or Magpie running with a model: both arrive as AVAILABLE.
-    for (stored in listOf(null, OnboardingStep.INTRO, OnboardingStep.NAME, OnboardingStep.CONNECT_AI)) {
+    for (stored in listOf(null, OnboardingStep.INTRO, OnboardingStep.NAME)) {
       val f = facts(stored = stored, ai = AiAccess.AVAILABLE)
       assertEquals(OnboardingDecision.Hidden(OnboardingRules.HIDDEN_AI), OnboardingRules.decide(f))
       assertTrue(OnboardingRules.shouldComplete(f))
     }
   }
 
+  @Test fun theAiStepStaysUntilContinue() {
+    // Mid sign-in (unknown while verifying), unavailable, or connected: the card stays so Jev
+    // and Fal can still be added, and only Continue completes it.
+    for (ai in AiAccess.entries) {
+      val f = facts(stored = OnboardingStep.CONNECT_AI, ai = ai)
+      assertEquals(OnboardingDecision.Show(OnboardingStep.CONNECT_AI), OnboardingRules.decide(f))
+      assertFalse(OnboardingRules.shouldComplete(f))
+    }
+    assertTrue(OnboardingRules.canFinish(facts(stored = OnboardingStep.CONNECT_AI, ai = AiAccess.AVAILABLE)))
+    assertFalse(OnboardingRules.canFinish(facts(stored = OnboardingStep.CONNECT_AI, ai = AiAccess.UNAVAILABLE)))
+    assertFalse(OnboardingRules.canFinish(facts(stored = OnboardingStep.CONNECT_AI, ai = AiAccess.UNKNOWN)))
+    assertEquals(OnboardingStep.COMPLETED, OnboardingRules.advance(OnboardingStep.CONNECT_AI, OnboardingAction.FINISH))
+    assertEquals(OnboardingDecision.Hidden(OnboardingRules.HIDDEN_PHONE), OnboardingRules.decide(facts(stored = OnboardingStep.CONNECT_AI, ready = false)))
+  }
+
+  @Test fun keysFollowTheKeyStoreRules() {
+    assertEquals("sk-or-v1-abc", OnboardingRules.key("  sk-or-v1-abc "))
+    for (bad in listOf(null, "", "  ", "two words", "a,b", "x".repeat(4097))) {
+      try {
+        OnboardingRules.key(bad)
+        fail("accepted $bad")
+      } catch (e: OnboardingException) {
+        assertEquals("INVALID_KEY", e.code)
+      }
+    }
+    assertFalse(OnboardingRules.canSaveKey(""))
+    assertTrue(OnboardingRules.canSaveKey("fal-key-123"))
+  }
+
   @Test fun anUnknownAccountKeepsItHiddenAndNeverCompletes() {
     // An existing user whose broker is still starting must not see the card.
-    for (stored in listOf(null, OnboardingStep.INTRO, OnboardingStep.NAME, OnboardingStep.CONNECT_AI)) {
+    for (stored in listOf(null, OnboardingStep.INTRO, OnboardingStep.NAME)) {
       val f = facts(stored = stored, ai = AiAccess.UNKNOWN)
       assertEquals(OnboardingDecision.Hidden(OnboardingRules.HIDDEN_AI_UNKNOWN), OnboardingRules.decide(f))
       assertFalse(OnboardingRules.shouldComplete(f))
@@ -78,6 +107,7 @@ class OnboardingRulesTest {
       OnboardingStep.NAME to OnboardingAction.SET_UP,
       OnboardingStep.INTRO to OnboardingAction.SKIP_NAME,
       OnboardingStep.CONNECT_AI to OnboardingAction.SUBMIT_NAME,
+      OnboardingStep.NAME to OnboardingAction.FINISH,
     )) {
       try {
         OnboardingRules.advance(step, action)
