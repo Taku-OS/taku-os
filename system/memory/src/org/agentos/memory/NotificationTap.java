@@ -22,7 +22,7 @@ public final class NotificationTap extends NotificationListenerService {
    CharSequence title=x.getCharSequence(Notification.EXTRA_TITLE),text=x.getCharSequence(Notification.EXTRA_BIG_TEXT);if(text==null)text=x.getCharSequence(Notification.EXTRA_TEXT);
    String t=title==null?"":title.toString().trim(),b=text==null?"":text.toString().trim();if(b.isEmpty())return;
    String body=(t.isEmpty()?"":t+"\n")+b;
-   if(body.matches("(?s).*(sk-[A-Za-z0-9_-]{20,}|Bearer [A-Za-z0-9._-]{20,}|验证码|校验码|动态码|verification code|one-time).*"))return;
+   if(body.matches("(?s).*(sk-[A-Za-z0-9_-]{20,}|Bearer [A-Za-z0-9._-]{20,}|\\bG-\\d{6}\\b|验证码|校验码|动态码|認証コード|確認コード|(?i:verification code|security code|authentication code|2-step verification|one-time)).*"))return;
    long generation=store.prefs.getLong("generation",0);String label=t.isEmpty()?pkg:t;
    io.execute(()->{try{store.ingest(pkg,"notification",label,body,generation);}catch(Exception e){store.failed("Notification",e);}});
   }catch(Exception e){try{MemoryStore.get(this).failed("Notification",e);}catch(Exception ignored){}}

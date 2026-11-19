@@ -35,3 +35,13 @@ compile_jvm "$out/classes" "$cp" \
 "$JDK/bin/java" -cp "$out/classes:$cp:$KOTLIN_LIB/kotlin-stdlib.jar" org.agentos.lab.MagpieProjectionRaceTest
 
 "$JDK/bin/java" -cp "$out/classes:$cp:$KOTLIN_LIB/kotlin-stdlib.jar" org.agentos.lab.MagpieSyncTest
+
+perm_out="$PWD/out/app-perm-host"
+rm -rf "$perm_out"
+mkdir -p "$perm_out"
+compile_jvm "$perm_out" "$cp:$ANDROID_JAR" \
+ system/assistant/broker/org/agentos/lab/*.java \
+ system/assistant/broker/org/agentos/lab/*.kt \
+ tooling/app-kit/apk-shell/src/org/agentos/runtime/AppApiClient.java \
+ system/assistant/tests/org/agentos/lab/AppPermissionPolicyTest.java
+"$JDK/bin/java" -cp "$perm_out:$cp:$ANDROID_JAR:$KOTLIN_LIB/kotlin-stdlib.jar" org.agentos.lab.AppPermissionPolicyTest

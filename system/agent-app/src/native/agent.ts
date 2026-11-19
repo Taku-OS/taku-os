@@ -20,6 +20,7 @@ type AgentNativeModule = {
   showKeyboard(): Promise<void>;
   addListener(event: 'onSessionEventBatch', listener: (event: NativeSessionBatch) => void): {remove(): void};
   addListener(event: 'onMatterEventBatch', listener: (event: NativeMatterBatch) => void): {remove(): void};
+  addListener(event: 'onOpenConversation', listener: () => void): {remove(): void};
   addListener(event: 'onOpenThread', listener: (event: {threadId: string; generation: string; panelTarget?: PanelTarget | string; errorCode?: string}) => void): {remove(): void};
   addListener(event: 'onDraft', listener: () => void): {remove(): void};
   addListener(event: 'onImeInsets', listener: (event: ImeGeometry) => void): {remove(): void};
@@ -43,7 +44,13 @@ export type AgentAction =
   | 'decide' | 'generateUi' | 'panels' | 'cardView'
   | 'mainReply' | 'readMatter' | 'subscribeMatter' | 'unsubscribeMatter' | 'dispatchMatter' | 'analyzeCameraFrame'
   | 'audioCapabilities' | 'audioCommand'
-  | 'readSystemAi' | 'setSystemAi' | 'bindSystemAi' | 'bindSystemAiModel' | 'reorderSystemAi' | 'restoreSystemAi' | 'deleteSystemAiGroup' | 'openAssistantConnection' | 'openMagpieManagement' | 'pluginManager';
+  | 'readSystemAi' | 'setSystemAi' | 'bindSystemAi' | 'bindSystemAiModel' | 'reorderSystemAi' | 'restoreSystemAi' | 'deleteSystemAiGroup' | 'openAssistantConnection' | 'openMagpieManagement' | 'pluginManager'
+  | 'readAppPermissions' | 'setAppPermissionMode' | 'setAppPermissionScope' | 'resetAppPermission';
+
+/** App Permission Center request/response contract; each of the four actions resolves with `AppPermissionsSnapshot`. */
+export type {
+  AppPermissionParams, AppPermissionsSnapshot, ManagedAppEntry, PermissionAuditEvent, PermissionMode, PermissionScope, ScopeGrantMap,
+} from '../model/appPermissions';
 
 export class AgentGatewayError extends Error {
   constructor(message: string, readonly code = 'GATEWAY_UNAVAILABLE') {
@@ -83,6 +90,8 @@ export const showKeyboard = () => nativeModule?.showKeyboard() ?? Promise.resolv
 
 /** Collapse (2-1 → 1-1): the home Dynamic Island takes over [threadId] and Home comes forward. */
 export const collapseToIsland = (threadId: string) => requireAgentNative().collapseToIsland(threadId);
+export const onOpenConversation = (listener: () => void): {remove(): void} =>
+  nativeModule?.addListener('onOpenConversation', listener) ?? {remove() {}};
 export const onOpenThread = (listener: (threadId: string, target: PanelTarget | null, problem?: AgentGatewayError) => void) =>
   requireAgentNative().addListener('onOpenThread', event => {
     if (typeof event.threadId !== 'string' || !event.threadId) return;

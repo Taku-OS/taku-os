@@ -15,6 +15,7 @@
   <queries>
     <!-- Discover the native ROM island host; the app never draws an island card. -->
     <provider android:authorities="com.android.systemui.island" />
+    <provider android:authorities="org.agentos.assistant.permissions" />
     <intent><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent>
     <intent>
       <action android:name="android.intent.action.MAIN" />

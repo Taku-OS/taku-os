@@ -12,7 +12,7 @@ Capabilities grow through use: state a need → use an existing capability or wr
 
 People keep using familiar apps. The home screen presents progress, results, utilities and companion experiences. The Agent combines context with existing commands, tools and interfaces to complete the user's task. When a reusable capability is missing, it can create and verify a script, skill, plugin or app. Developers and users can modify, replace, combine and share these parts.
 
-This describes the product and ecosystem direction, not a list of delivered capabilities. The source repository currently remains private. Original code, SDKs, examples and documentation use Apache-2.0. Licensing and public repository access are managed separately.
+This describes the product and ecosystem direction, not a list of delivered capabilities. Original code, SDKs, examples and documentation use Apache-2.0. Licensing and public repository access are managed separately.
 
 ## Direct access, convenient interfaces and customization
 

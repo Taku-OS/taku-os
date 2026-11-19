@@ -127,6 +127,7 @@ regexTarget = "secret"
 paths = ['''^image/runtime\-assets\.lock\.json$''']
 regexes = [
     '''^8521cd388a48f7a906fa78363333ff5cf0e02677b03d6e099c045ff6da836ce3$''',
+    '''^9f6953acfa229929a9c91c9b482d7f7c2a44cbe2dd22e5de9efa7fe87c58a1e8$''',
     '''^db0e52a00e7f4bfa6050b9cf07296ac350a5e6056e2d46714e2bc013b0dec365$''',
     '''^fba064635a5f33116a3262e6a569ab255c388ffa2fc8f4b445bf722b4dbf309a$''',
 ]
@@ -188,6 +189,7 @@ regexes = [
     '''^82fc838d0af035e561598c80c010d7399328a010039dedf4abb646e7ef06b0d3$''',
     '''^84794c45a621741b555e1153042251cc4faad5b33cade583dd057ea3e8c964e4$''',
     '''^c85e2382e2ca12b0513826be926eaccfea896b4cbf568182e287671ba526f80d$''',
+    '''^c9514a5836cd515e7dfdfb6e89362e944956b5578076b11a22b824c3d251aed6$''',
 ]
 
 [[rules.allowlists]]

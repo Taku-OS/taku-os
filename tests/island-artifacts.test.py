@@ -41,6 +41,13 @@ class IslandArtifactChecks(unittest.TestCase):
             self.assertFalse(result['deviceVerified'])
             self.assertFalse(result['daggerRuntimeVerified'])
 
+    def test_agent_components_match_taku_home_manifest(self):
+        manifest = (ROOT / 'system/agent-app/modules/taku-home/android/src/main/AndroidManifest.xml').read_text()
+        for component in gate.AGENT_COMPONENTS:
+            self.assertIn(component, manifest)
+        self.assertIn('com.android.systemui.island', manifest)
+        self.assertNotIn('IslandContentService', manifest)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -17,8 +17,8 @@ Taku OS is a research preview. See [current status](current-status.md) for what 
 ## Get the source
 
 ```sh
-git clone https://github.com/Taku-OS/taku-os-release.git
-cd taku-os-release
+git clone https://github.com/Taku-OS/taku-os.git
+cd taku-os
 node --version
 env -u TAKU_OS_TRANSPORT -u TAKU_OS_SERIAL node sdk/cli/taku.mjs call methods.list
 ```

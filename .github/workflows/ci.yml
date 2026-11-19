@@ -137,12 +137,7 @@ jobs:
           SCAN_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
           SCAN_HEAD: ${{ github.sha }}
         run: bash scripts/ci-secret-scan.sh
-  rom-builder:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - run: docker build --platform linux/amd64 -t taku-rom-builder:check image/builder
-      - run: docker run --rm taku-rom-builder:check bash -c 'command -v repo && git --version && python3 --version && gcc --version && lz4 --version'
-# These jobs compile the plugin Android component and validate the builder tools.
-# Full ROM builds, installation and device acceptance remain separate evidence.
+# These jobs compile the plugin Android component and check the builder control scripts.
+# The ROM builder image is built and checked on the build machines, not in push CI
+# (see image/builder/README.md). Full ROM builds, installation and device acceptance
+# remain separate evidence.

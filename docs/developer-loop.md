@@ -120,6 +120,6 @@ For extension changes, run the extension and verify business output. For assista
 - Contract and maintenance: declarations, errors, event/version changes, licensing origins, authors, and future maintenance scope; research capabilities must remain labeled research.
 - Materials: submit only necessary public/redacted test evidence, excluding account login state, production private keys, app user data, and personal runtimes.
 
-Use the [capability proposal](../.github/ISSUE_TEMPLATE/capability-proposal.yml), [compatibility report](../.github/ISSUE_TEMPLATE/compatibility-report.yml), and [PR template](../.github/pull_request_template.md). Current templates serve internal Issues/PRs for members of the Taku-OS/taku-os Private repository; public recruitment has not started.
+Use the [capability proposal](../.github/ISSUE_TEMPLATE/capability-proposal.yml), [compatibility report](../.github/ISSUE_TEMPLATE/compatibility-report.yml), and [PR template](../.github/pull_request_template.md).
 
 The composed JS example in this documentation was actually run on 2026-10-10 Shanghai time, with an explicit development emulator and adb path: it read API36, UID0, and SELinux Enforcing and confirmed both primary and actual background displays existed. This check did not install, restart, create tasks, or replace ROM/physical-device acceptance; display IDs vary at runtime, so the example does not hardcode a background ID.

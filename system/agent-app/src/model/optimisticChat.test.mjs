@@ -204,3 +204,41 @@ test('a primary prefix or explicit primary failure settles loading without ordin
     assert.equal(part.card?.kind, phase === 'streaming' ? 'primary' : undefined);
   }
 });
+
+test('steering while an earlier segment switches to reply-anchor never splices the steer above the earlier reply', () => {
+  const tool = {id: 'tool1', type: 'commandExecution', command: 'ls', status: 'completed'};
+  const before = session([turn([user('u0', 'Original'), tool])]);
+  let first = reconcileOptimisticSubmission(begin(session(), {requestId: 'r0', text: 'Original'}), before, 150);
+  let steer = begin(before, {requestId: 'r1', text: 'Steer follow-up', action: 'steer', expectedTurnId: 'turn'});
+
+  const primary0 = mainReply('t', 'primary-0', 1, 'streaming', {readableText: 'First answer'});
+  const midStream = session([{...turn([user('u0', 'Original'), tool, ...replyItems(primary0)]), mainReplies: {[primary0.id]: primary0}}]);
+
+  first = reconcileOptimisticSubmission(first, midStream, 200);
+  steer = reconcileOptimisticSubmission(steer, midStream, 200);
+  assert.equal(first.assistantBlockId, 'turn/reply-anchor/0');
+  assert.equal(steer.assistantBlockId, undefined);
+
+  const midBlocks = chatPresentation(midStream.blocks, [first, steer]);
+  assert.deepEqual(midBlocks.map(b => [b.role, b.id, b.text]), [
+    ['user', 'optimistic/r0/user', 'Original'],
+    ['assistant', 'optimistic/r0/assistant', 'First answer'],
+    ['user', 'optimistic/r1/user', 'Steer follow-up'],
+    ['assistant', 'optimistic/r1/assistant', ''],
+  ]);
+});
+
+test('an unanswered earlier segment never steals the assistant reply belonging to a subsequent steered user message', () => {
+  const before = session();
+  const withFirst = session([turn([user('u0', 'First')])]);
+  let second = begin(withFirst, {requestId: 'r1', text: 'Second', action: 'steer', expectedTurnId: 'turn'});
+
+  // Simulate u0 having no assistant output before u1 arrived (e.g. recovered/reconnected turn history)
+  const afterSteer = session([turn([user('u0', 'First'), user('u1', 'Second'), {id: 'a1', type: 'agentMessage', text: 'Second reply'}])]);
+  let freshFirst = beginOptimisticSubmission({threadId: 't', requestId: 'r0-fresh', text: 'First', action: 'sendMessage'}, before, 100);
+  freshFirst = reconcileOptimisticSubmission(freshFirst, afterSteer, 200);
+  second = reconcileOptimisticSubmission(second, afterSteer, 200);
+
+  assert.equal(freshFirst.assistantBlockId, undefined);
+  assert.equal(second.assistantBlockId, 'turn/after/u1');
+});

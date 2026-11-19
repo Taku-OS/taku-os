@@ -13,7 +13,6 @@ SYSTEM_COMPONENTS = (
 )
 AGENT_COMPONENTS = (
     'org.agentos.agent.home.island.IslandPublisherService',
-    'org.agentos.agent.home.island.IslandContentService',
     'org.agentos.agent.home.island.IslandActionReceiver',
 )
 DOC = 'assets/skills/taku-island/SKILL.md'
@@ -47,7 +46,7 @@ def verify(product, aapt2):
                         ('com.android.systemui.island', 'org.agentos.permission.POST_ISLAND',
                          'org.agentos.permission.BIND_ISLAND_CONTENT'))
     agent = verify_apk(one('TakuAgent.apk'), aapt2, AGENT_COMPONENTS,
-                       (':island_content', 'org.agentos.permission.BIND_ISLAND_CONTENT',
+                       ('com.android.systemui.island', 'org.agentos.permission.BIND_ISLAND_CONTENT',
                         'org.agentos.permission.POST_ISLAND'))
     with zipfile.ZipFile(one('TakuAssistant.apk')) as archive:
         require(DOC in archive.namelist(), 'Missing preinstalled island Agent documentation')

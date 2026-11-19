@@ -60,9 +60,18 @@ export function reconcileOptimisticSubmission(request: OptimisticSubmission, ses
   const turnId = user?.turnId || runtimeTurn || request.turnId || (request.action === 'sendMessage' && !request.correlationPending
     ? blocks.find(block => block.role === 'assistant' && !request.baselineTurnIds.includes(block.turnId))?.turnId : '');
   const userIndex = user ? blocks.indexOf(user) : -1;
+  const nextUserIndex = userIndex >= 0
+    ? blocks.findIndex((block, index) => index > userIndex && block.role === 'user' && block.turnId === turnId)
+    : -1;
+  const segmentAssistant = userIndex >= 0 && blocks[userIndex + 1]?.role === 'assistant' && blocks[userIndex + 1].turnId === turnId
+    ? blocks[userIndex + 1]
+    : undefined;
   const assistant = blocks.find(block => block.id === request.assistantBlockId)
+    || segmentAssistant
     || blocks.find((block, index) => block.role === 'assistant' && block.turnId === turnId
-      && !request.baselineBlockIds.includes(block.id) && (userIndex < 0 || index > userIndex));
+      && !request.baselineBlockIds.includes(block.id)
+      && (request.action === 'steer' ? userIndex >= 0 && index > userIndex : (userIndex < 0 || index > userIndex))
+      && (nextUserIndex < 0 || index < nextUserIndex));
   let next = {...request, ...(turnId ? {turnId} : {}), ...(user ? {userBlockId: user.id} : {}),
     ...(assistant ? {assistantBlockId: assistant.id} : {})};
   if (hasResponse(assistant)) {

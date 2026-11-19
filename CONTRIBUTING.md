@@ -11,7 +11,7 @@ Quick links:
 - [Development checks](docs/development.md)
 - [Project structure](docs/project-structure.md)
 - [Current status](docs/current-status.md)
-- [Issues](https://github.com/Taku-OS/taku-os-release/issues)
+- [Issues](https://github.com/Taku-OS/taku-os/issues)
 - [Discord](https://discord.gg/NYK47Ngucm)
 
 ## Table of contents
@@ -38,19 +38,19 @@ You don't need to write code to help. Each kind of contribution below says what 
 
 ### Report a bug
 
-Use the [bug report form](https://github.com/Taku-OS/taku-os-release/issues/new?template=bug-report.yml). A good report covers one problem, starts from a clean state and includes the exact steps, what you expected, what happened and the build you ran. Search existing issues first. If a report turns out to be a vulnerability, follow [SECURITY](SECURITY.md) and do not open a public issue.
+Use the [bug report form](https://github.com/Taku-OS/taku-os/issues/new?template=bug-report.yml). A good report covers one problem, starts from a clean state and includes the exact steps, what you expected, what happened and the build you ran. Search existing issues first. If a report turns out to be a vulnerability, follow [SECURITY](SECURITY.md) and do not open a public issue.
 
 ### Report compatibility
 
-Use the [compatibility report form](https://github.com/Taku-OS/taku-os-release/issues/new?template=compatibility-report.yml). A good report names one device, one app version and one scenario. Install, launch, signed-out use, account features, media and background displays are separate checks, so report only the ones you tested. Report failures as well as successes. An observed failure is not a confirmed root cause, so say which it is.
+Use the [compatibility report form](https://github.com/Taku-OS/taku-os/issues/new?template=compatibility-report.yml). A good report names one device, one app version and one scenario. Install, launch, signed-out use, account features, media and background displays are separate checks, so report only the ones you tested. Report failures as well as successes. An observed failure is not a confirmed root cause, so say which it is.
 
 ### Suggest a feature
 
-Use the [feature request form](https://github.com/Taku-OS/taku-os-release/issues/new?template=feature-request.yml). A good request starts from the problem, says who has it and describes how you would know it is solved.
+Use the [feature request form](https://github.com/Taku-OS/taku-os/issues/new?template=feature-request.yml). A good request starts from the problem, says who has it and describes how you would know it is solved.
 
 ### Propose a capability or extension
 
-Use the [capability proposal form](https://github.com/Taku-OS/taku-os-release/issues/new?template=capability-proposal.yml) when you have a concrete interface in mind. A good proposal gives one real input and the state it changes, the entry point, inputs, outputs and errors, the permissions it needs and the test status in each environment.
+Use the [capability proposal form](https://github.com/Taku-OS/taku-os/issues/new?template=capability-proposal.yml) when you have a concrete interface in mind. A good proposal gives one real input and the state it changes, the entry point, inputs, outputs and errors, the permissions it needs and the test status in each environment.
 
 ### Write a plugin
 
@@ -66,7 +66,7 @@ Pick something you can verify on its own. A good fix is small, targets one probl
 
 ### Help other people
 
-Answer questions in [Issues](https://github.com/Taku-OS/taku-os-release/issues) or on [Discord](https://discord.gg/NYK47Ngucm), reproduce an open issue on your own device and name the build, or test a pull request and report what you ran.
+Answer questions in [Issues](https://github.com/Taku-OS/taku-os/issues) or on [Discord](https://discord.gg/NYK47Ngucm), reproduce an open issue on your own device and name the build, or test a pull request and report what you ran.
 
 ## Development setup
 
@@ -87,9 +87,9 @@ Choose the row that matches what you are changing.
 Fork the repository on GitHub, then clone your fork and add this repository as `upstream`.
 
 ```sh
-git clone https://github.com/YOUR-USERNAME/taku-os-release.git
-cd taku-os-release
-git remote add upstream https://github.com/Taku-OS/taku-os-release.git
+git clone https://github.com/YOUR-USERNAME/taku-os.git
+cd taku-os
+git remote add upstream https://github.com/Taku-OS/taku-os.git
 ```
 
 ### Run a first check

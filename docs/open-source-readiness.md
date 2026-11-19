@@ -1,6 +1,6 @@
 # Open-source readiness remediation (updated 2026-11-13)
 
-This round preserves both repositories' private visibility and all Git history. New commits fix only current source and documentation, without rewriting historical evidence or released artifacts. Original code, SDK, examples, and documentation use Apache-2.0 as confirmed by the project owner; third-party components retain their original licenses.
+This round preserves all Git history. New commits fix only current source and documentation, without rewriting historical evidence or released artifacts. Original code, SDK, examples, and documentation use Apache-2.0 as confirmed by the project owner; third-party components retain their original licenses.
 
 | Work item | Delivered this round | Still to verify or decide |
 | --- | --- | --- |

@@ -199,6 +199,8 @@ class AgentGatewayProvider : ContentProvider() {
             }
             "readSystemAi", "setSystemAi", "bindSystemAi", "bindSystemAiModel", "reorderSystemAi", "restoreSystemAi",
             "deleteSystemAiGroup", "openAssistantConnection", "openMagpieManagement" -> return SystemAiUiBridge.execute(context!!, action, input)
+            "readAppPermissions", "setAppPermissionMode", "setAppPermissionScope", "resetAppPermission" ->
+                return AppPermissionUiBridge.execute(context!!, action, input)
             "listThreads" -> return AgentGatewayProtocol.clean(TaskRequests.control("thread/list", JSONObject()), 0) as JSONObject
             "createThread" -> {
                 val result = TaskRequests.control("thread/start", JSONObject())

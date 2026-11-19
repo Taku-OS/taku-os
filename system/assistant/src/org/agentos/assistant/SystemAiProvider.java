@@ -15,15 +15,20 @@ public final class SystemAiProvider extends ContentProvider {
    if(!"ai".equals(method)||arg==null||arg.length()>400000)throw new IllegalArgumentException("Invalid AI request");
    JSONObject source=new JSONObject(arg);String action=source.optString("action");
    if(!Set.of("read","resolve","generate","configure").contains(action))throw new IllegalArgumentException("Unknown system AI operation");
-   // Configuration is intentionally open; clients may use this content call
-   // even when Android restricts direct writes to Settings.Global.
-   if(!action.equals("configure"))getContext().enforceCallingPermission("org.agentos.assistant.permission.USE_AI","System AI access denied");
+   if(action.equals("configure")){
+    if(!AppPermissionCatalog.isSystemOrShellUid(uid)&&!AppPermissionCatalog.isTrustedEnforcementHost(getContext(),uid))
+     throw new SecurityException("System AI configuration denied");
+   }else{
+    getContext().enforceCallingPermission("org.agentos.assistant.permission.USE_AI","System AI access denied");
+   }
    String consumer="";
    if(!action.equals("configure")){
     String[] packages=getContext().getPackageManager().getPackagesForUid(uid);if(packages==null||packages.length!=1)throw new SecurityException("AI caller identity is ambiguous");
     String pkg=packages[0];consumer=pkg;
     if(pkg.equals("org.agentos.memory")&&getContext().getPackageManager().checkSignatures(pkg,getContext().getPackageName())==android.content.pm.PackageManager.SIGNATURE_MATCH)consumer="memory";
     if(pkg.equals("org.agentos.inputmethod"))for(String digest:getContext().getResources().getStringArray(R.array.ime_reply_signers)){byte[] cert=new byte[digest.length()/2];for(int i=0;i<cert.length;i++)cert[i]=(byte)Integer.parseInt(digest.substring(i*2,i*2+2),16);if(getContext().getPackageManager().hasSigningCertificate(pkg,cert,android.content.pm.PackageManager.CERT_INPUT_SHA256))consumer="ime";}
+    if(!consumer.equals("memory")&&!consumer.equals("ime")&&!AppPermissionProvider.isAllowedLocal(getContext(),uid,AppPermissionCatalog.SCOPE_TAKU_CONTROL))
+     throw new SecurityException("PERMISSION_DENIED");
    }
    JSONObject request=new JSONObject().put("op","systemAi").put("action",action).put("consumer",consumer);
    for(String key:new String[]{"role","model","prompt","image"})if(source.has(key))request.put(key,source.get(key));
