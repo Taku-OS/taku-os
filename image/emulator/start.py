@@ -76,13 +76,21 @@ def prepare_avd(home, name, directory, digest):
     return avd
 
 
+def default_sdk() -> Path:
+    for env_key in ('ANDROID_SDK_ROOT', 'ANDROID_HOME'):
+        if val := os.environ.get(env_key):
+            return Path(val)
+    mac_sdk = Path.home() / 'Library/Android/sdk'
+    return mac_sdk if mac_sdk.exists() else Path.home() / 'Android/Sdk'
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--images', type=Path, required=True, help='Directory containing images.json and images/')
     parser.add_argument('--avd-home', type=Path, required=True, help='Dedicated AVD directory; no existing AVD is cloned')
     parser.add_argument('--name', required=True)
     parser.add_argument('--port', type=int, required=True)
-    parser.add_argument('--sdk', type=Path, default=Path.home() / 'Library/Android/sdk')
+    parser.add_argument('--sdk', type=Path, default=default_sdk())
     args = parser.parse_args()
     if not re.fullmatch(r'[A-Za-z0-9_][A-Za-z0-9_.-]*', args.name):
         parser.error('Invalid AVD name')

@@ -46,14 +46,14 @@ Offline image acceptance passed in this round; UI acceptance remains blocked by 
 
 Candidate input commit is `778ce07a9e7d095124c0a5f204ff8eb4c816c472`, on private branch `codex/takuos-google-apps-internal-20261028`. Later acceptance-document commits are not ROM compiler inputs. The source closure retains 453 compiler files; IME `10062`, Assistant `74`, Memory `8`, and original AI backend inputs remain. Previous complete build `20261028042638`, its signed archives, containers, caches, and snapshots are retained.
 
-The final immutable snapshot is `8b77b5c8829ae9d968de8d95c689828869ca6b95bcbc0ec37643e95b062a7565`. The real entry report is on the Mac mini at `out/pixel9-android17/google-apps-previews/20261028T105945301274Z-8b77b5c8829ae9d9/`; the complete build started only after the same snapshot's entry-success receipt, report hash, and exact container exit status passed.
+The final immutable snapshot is `8b77b5c8829ae9d968de8d95c689828869ca6b95bcbc0ec37643e95b062a7565`. The real entry report is on the local build host at `out/pixel9-android17/google-apps-previews/20261028T105945301274Z-8b77b5c8829ae9d9/`; the complete build started only after the same snapshot's entry-success receipt, report hash, and exact container exit status passed.
 
 ## Internal artifacts
 
-The following directory is on the **Mac mini**, accessed through authorized private SSH alias `macmini`; nothing was uploaded to public R2, Worker, CloudFront, or update channels.
+The following directory is on the dedicated local build host, accessed through authorized the authorized local build host; nothing was uploaded to public R2, Worker, CloudFront, or update channels.
 
 ```text
-/Users/haipro/experiments/android-agent-os/taku-os/out/worktrees/branding-release-20261024/out/pixel9-android17/artifacts/20261028112718-8b77b5c8829ae9d9
+<workspace>/taku-os/out/worktrees/branding-release-20261024/out/pixel9-android17/artifacts/20261028112718-8b77b5c8829ae9d9
 ```
 
 | File | Bytes | SHA256 |

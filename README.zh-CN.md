@@ -12,7 +12,7 @@
 
 ## Research Preview
 
-Taku OS 当前处于早期开发阶段，供测试与开发使用，不建议用于工作场景。
+Taku OS 当前处于早期开发阶段，供测试与开发使用。预览镜像为面向解锁 Bootloader 的 `userdebug` 构建，使用公开 AOSP 开发密钥（`test-keys`）签名——**刷入后切勿回锁 Bootloader（`fastboot flashing lock`）**，请勿侧载来源不明的 APK，也不要在主力机、工作机或网银设备上使用。
 
 ## Taku OS 是什么？
 

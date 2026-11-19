@@ -6,7 +6,7 @@ The user authorized moving development and emulator acceptance to Mac mini, then
 
 ## Implementation and versions
 
-Workspace: `/Users/haipro/experiments/android-agent-os/taku-os-rn-md-streaming-20261029`, branch `codex/rn-md-streaming-20261029`. Air visual-fix commit `b643a35` was synced to Mini; `3d380fe` merged then-current main `8319d1a`, and `6351458` subsequently merged main `0a1bb31` containing memory 0.8.0. `76da44a` completed the host-test fixture for memory event forwarding. Current `3b876e190720a03fcd853ec113d88fba62ffc477` contains the performance optimizations below. Air's UI worktree and emulator were not touched.
+Workspace: `<workspace>/taku-os-rn-md-streaming-20261029`, branch `codex/rn-md-streaming-20261029`. Air visual-fix commit `b643a35` was synced to Mini; `3d380fe` merged then-current main `8319d1a`, and `6351458` subsequently merged main `0a1bb31` containing memory 0.8.0. `76da44a` completed the host-test fixture for memory event forwarding. Current `3b876e190720a03fcd853ec113d88fba62ffc477` contains the performance optimizations below. Air's UI worktree and emulator were not touched.
 
 | Visual-review issue | Implementation |
 | --- | --- |
@@ -172,8 +172,8 @@ Acceptance of a pre-merge candidate APK does not mean main has merged or artifac
 Run in the isolated worktree above. RN uses JDK17; assistant/host checks use JDK21. Prefer `/opt/homebrew/bin` for Python to avoid missing required modules in system Python3.9. Commands below are for reproduction only. Before running, confirm the previous acceptance round has ended and designated ports are free, preserving existing instances belonging to other tasks.
 
 ```sh
-export PATH=/Users/haipro/.local/share/mise/installs/node/22.23.3/bin:/opt/homebrew/bin:$PATH
-export JAVA_HOME=/Users/haipro/.local/share/taku-tools/jdk17
+export PATH=<local-tools>/mise/installs/node/22.23.3/bin:/opt/homebrew/bin:$PATH
+export JAVA_HOME=<local-tools>/taku-tools/jdk17
 export TAKU_NDK_VERSION=28.0.13004108 TAKU_CMAKE_VERSION=3.31.6
 export GRADLE_OPTS='-Dorg.gradle.workers.max=2 -Dorg.gradle.parallel=false'
 export CMAKE_BUILD_PARALLEL_LEVEL=2
@@ -188,16 +188,16 @@ JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home bash sy
 Launch arguments for the separate network daemon and AVD follow. Run each as a managed background process with retained PID and logs, cleaning up only processes created by this task. Passing only the netsim instance while still relying on global default discovery is insufficient.
 
 ```sh
-/Users/haipro/Library/Android/sdk/emulator/netsimd --instance 64 \
+$ANDROID_SDK_ROOT/emulator/netsimd --instance 64 \
   --grpc-port 62560 --tcp-port 62561 --hci-port 62562 \
   --startup-timeout 120000 --no-web-ui
-/Users/haipro/Library/Android/sdk/emulator/emulator \
+$ANDROID_SDK_ROOT/emulator/emulator \
   -avd Taku_MDStreaming_Mini_GPU_20261029 -port 5664 -gpu host \
   -packet-streamer-endpoint 127.0.0.1:62560 \
   -no-window -no-audio -no-boot-anim -no-snapshot
-/Users/haipro/Library/Android/sdk/platform-tools/adb -s emulator-5664 emu avd name
-/Users/haipro/Library/Android/sdk/platform-tools/adb -s emulator-5664 shell dumpsys SurfaceFlinger
-/Users/haipro/Library/Android/sdk/platform-tools/adb -s emulator-5664 shell dumpsys gfxinfo org.agentos.agent
+$ANDROID_SDK_ROOT/platform-tools/adb -s emulator-5664 emu avd name
+$ANDROID_SDK_ROOT/platform-tools/adb -s emulator-5664 shell dumpsys SurfaceFlinger
+$ANDROID_SDK_ROOT/platform-tools/adb -s emulator-5664 shell dumpsys gfxinfo org.agentos.agent
 ```
 
 After reboot, restore this AVD's private `/system_ext` bind, virtual displays, and broker using archived preparation steps and runtime hashes. Accounts remain only in device-private directories. If a proxy is needed, restore only this serial's reverse and restricted CONNECT proxy. Performance suite `/tmp/mdimpl4-suite.py` invokes `/tmp/mdimpl4-run.py`; scripts are archived in `final-pass/`. After temporary directories are cleared, restore scripts and their explicitly specified APK/evidence paths. Alternate three runs per version after stopping this task's builds; do not change source, install packages, or add screenshot actions during sampling.

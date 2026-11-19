@@ -323,27 +323,9 @@
     "deviceClassVerdict": "An unlockable Pixel 9 / tokay suits Taku development and flashing adaptation; official LineageOS metadata and GrapheneOS installation materials support alternative-OS routes.",
     "takuVerdict": "There is no complete flashable Pixel 9 Taku package; the existing emulator system.img cannot be flashed directly. Agent, independent display, and Taku Quickstep are unverified on Pixel 9 hardware.",
     "recommendation": "Choose Pixel 9 12GB/256GB without carrier restrictions or with proven unlockability. 128GB also works as a first development device; 256GB provides storage headroom.",
-    "priorConversation": {
-      "threadId": "01a11a34-8d10-7173-a374-d57881fce929",
-      "verifiedBy": "Reread the original conversation and viewed three earlier product/seller-message screenshots supplied by the user; did not visit the current listing.",
-      "seller": "Feifan Digital (seller name, transliterated)",
-      "listingRegion": "US variant",
-      "listingModel": "Pixel 9",
-      "listingRamGB": 12,
-      "listingStorageGB": 256,
-      "screenshotCouponPriceYuan": 2686,
-      "priceIsLiveVerified": false,
-      "sellerClaimsOemUnlockAvailable": true,
-      "sellerClaimsReturnsAvailable": true,
-      "actualUnitVideoAvailable": false,
-      "actualUnitUnlockVerified": false,
-      "priceForSelectedCapacityVerified": false,
-      "notes": "The capacity field says 256GB, but the description covers 128/256GB; the listing says new/sealed while the description says opened with three matching identifiers. Seller promises do not replace unlock verification of the actually shipped device."
-    },
     "acceptance": [
       "Exact model/codename is Pixel 9/tokay",
       "OEM unlocking can be enabled on the actual shipped device after network connection, or fastboot shows already unlocked / get_unlock_ability=1",
-      "Confirm actual capacity, opened/sealed status, and return terms for an ununlockable device at CNY 2686",
       "Do not treat US variant, overseas unlocked, or SIM unlocked alone as evidence of bootloader unlockability"
     ],
     "purchaseCompleted": false

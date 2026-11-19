@@ -12,7 +12,7 @@
 
 ## Research Preview
 
-Taku OS is currently in an early stage of development and is intended for testing and development. It is not recommended for work use.
+Taku OS is currently in an early stage of development and is intended for testing and development. Preview images are `userdebug` builds signed with public AOSP development keys (`test-keys`) for unlocked bootloaders — **do not re-lock the bootloader (`fastboot flashing lock`)**, do not sideload untrusted APKs, and do not use Taku OS on a primary work or banking phone.
 
 ## What is Taku OS?
 
