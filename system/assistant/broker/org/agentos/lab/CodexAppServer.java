@@ -565,7 +565,8 @@ public final class CodexAppServer implements AutoCloseable {
             } else if ("thread/read".equals(method)) {
                 String id = params.getString("threadId");
                 if (!id.matches("[a-f0-9-]{36}")) throw new IOException("Invalid conversation identifier");
-                if (server.freshThreads.containsKey(id)) {
+                boolean fresh = server.freshThreads.containsKey(id);
+                if (fresh) {
                     result = new JSONObject(server.freshThreads.get(id).toString());
                     JSONObject projected = AgentViews.snapshot(id);
                     if (projected != null) result.put("thread", projected);
@@ -584,7 +585,9 @@ public final class CodexAppServer implements AutoCloseable {
             if (result.has("thread")) {
                 JSONObject nativeThread = result.getJSONObject("thread");
                 AgentViews.saveMetadata(nativeThread);
-                result = new JSONObject().put("threadId", nativeThread.getString("id")).put("loaded", true);
+                JSONArray turns = nativeThread.optJSONArray("turns");
+                result = new JSONObject().put("threadId", nativeThread.getString("id")).put("loaded", true)
+                        .put("freshEmpty", fresh && turns != null && turns.length() == 0);
             }
             } else throw new IOException("Unsupported conversation operation");
             if (result.has("thread")) {
@@ -677,12 +680,7 @@ public final class CodexAppServer implements AutoCloseable {
             else AgentViews.save(thread);
             HarnessContext.prepare(server, activeThread,
                     new JSONObject(request.toString()).put("replyMode", chat ? "primary" : "disabled"));
-            JSONArray content =
-                    new JSONArray()
-                            .put(
-                                    new JSONObject()
-                                            .put("type", "text")
-                                            .put("text", request.getString("prompt")));
+            JSONArray content = ComposerInput.text(request.getString("prompt"));
             if ((!chat || request.optBoolean("includeScreenshot", false))
                     && new File(request.optString("screenshot")).isFile())
                 content.put(
@@ -696,14 +694,7 @@ public final class CodexAppServer implements AutoCloseable {
                     content.put(new JSONObject().put("type", "skill").put("name", skill.getString("name")).put("path", skill.getString("path")));
                 }
             }
-            JSONArray attached = request.optJSONArray("attachments");
-            if (attached != null) for (int i=0;i<Math.min(8,attached.length());i++) {
-                JSONObject item=attached.getJSONObject(i);File file=new File(item.getString("path"));
-                String canonical=file.getCanonicalPath();
-                if (!canonical.startsWith(new File("/data/user/0/org.agentos.assistant/files/composer-attachments").getCanonicalPath()+"/") || !file.isFile()) throw new IOException("The attachment is no longer available. Select it again");
-                if(item.optString("mime").startsWith("image/"))content.put(new JSONObject().put("type","localImage").put("path",canonical));
-                else content.put(new JSONObject().put("type","text").put("text","User-selected attachment: "+item.optString("name")+"\nLocal path: "+canonical));
-            }
+            ComposerInput.appendAttachments(content, request.optJSONArray("attachments"));
             if (cancelledBeforeTurn(directory, request)) return;
             JSONObject params =
                     new JSONObject().put("threadId", activeThread).put("input", content);

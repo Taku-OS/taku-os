@@ -1,6 +1,8 @@
 package org.agentos.assistant;
 
 import android.content.ContentProvider;
+import android.content.Context;
+import android.content.SharedPreferences;
 import android.content.ContentValues;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteException;
@@ -29,6 +31,9 @@ public final class AgentOpenAccessProvider extends ContentProvider {
     private static final Set<String> RPC = new HashSet<>(Arrays.asList(
         "plugin/list", "plugin/installed", "plugin/read", "plugin/install", "plugin/uninstall",
         "config/value/write", "config/mcpServer/reload", "mcpServerStatus/list", "account/usage/read", "account/rateLimits/read"));
+    private static final Set<String> SYSTEM_AI = Set.of("readSystemAi", "manageSystemAi", "setSystemAi",
+            "bindSystemAi", "bindSystemAiModel", "reorderSystemAi", "restoreSystemAi", "deleteSystemAiGroup");
+    private static final Set<String> TURN_CONTROL = Set.of("interrupt", "cancelQueued");
     private static final int INLINE_BYTES = 256 * 1024, MAX_RESULT_BYTES = 8 * 1024 * 1024, TOTAL_BYTES = 16 * 1024 * 1024;
     private final LinkedHashMap<String, Payload> payloads = new LinkedHashMap<>();
     private final ScheduledExecutorService expiry = Executors.newSingleThreadScheduledExecutor(r -> {
@@ -72,9 +77,47 @@ public final class AgentOpenAccessProvider extends ContentProvider {
                 return out;
             }
         }
+        int callerPid = Binder.getCallingPid();
+        boolean composer = method.startsWith("composer/") && !AgentGatewayProtocol.COMPOSER_IMPORT.equals(method);
+        Context context = getContext();
+        if (composer || method.startsWith("capture/") || method.startsWith("accounts/") || method.startsWith("requests/") ||
+                method.equals("readTaskDetail") || SYSTEM_AI.contains(method) || TURN_CONTROL.contains(method) ||
+                method.equals("manageAssistant") || method.equals("sessions/removals")) {
+            String code = ComposerState.userError(context, caller);
+            if (code != null) {
+                out.putString("result", error(code).toString());
+                return out;
+            }
+        }
         long identity = Binder.clearCallingIdentity();
         JSONObject envelope;
         try {
+            if (composer) {
+                JSONObject input = AgentGatewayProtocol.request(method, arg);
+                JSONObject result;
+                SharedPreferences prefs = context.getSharedPreferences("agent-settings", Context.MODE_PRIVATE);
+                String thread = input.optString("threadId");
+                switch (method) {
+                    case AgentGatewayProtocol.COMPOSER_READ: result = ComposerState.read(prefs, thread); break;
+                    case AgentGatewayProtocol.COMPOSER_WRITE: result = ComposerState.write(prefs, thread, input.getString("revision"), input.getString("text")); break;
+                    case AgentGatewayProtocol.COMPOSER_MOVE: result = ComposerDelivery.move(context, input); break;
+                    case AgentGatewayProtocol.COMPOSER_CREATE_THREAD: result = (JSONObject) AgentGatewayProtocol.clean(ComposerDelivery.createThread(), 0); break;
+                    case AgentGatewayProtocol.COMPOSER_PRESERVE_DRAFT: result = ComposerState.preserveDraft(prefs, thread, input.getString("recoveryId"), input.getString("text")); break;
+                    case AgentGatewayProtocol.COMPOSER_RECEIPT:
+                    case AgentGatewayProtocol.COMPOSER_SUBMIT:
+                    case AgentGatewayProtocol.COMPOSER_SETTLE:
+                    case AgentGatewayProtocol.COMPOSER_RELEASE: result = ComposerDelivery.call(context, method, input); break;
+                    case AgentGatewayProtocol.COMPOSER_ATTACH: result = ComposerAttachments.attach(context, input, extras, caller, callerPid); break;
+                    case AgentGatewayProtocol.COMPOSER_REMOVE: result = ComposerState.removeAttachment(prefs, thread, input.getString("expectedRevision"), input.getString("attachmentId")); break;
+                    case AgentGatewayProtocol.COMPOSER_HANDOFF: result = ComposerState.handoff(prefs, thread, input.getString("handoffId"), input.getString("text")); break;
+                    case AgentGatewayProtocol.COMPOSER_RESTORE: result = ComposerState.restore(prefs, thread, input.getString("expectedRevision"), input.getString("recoveryId")); break;
+                    case AgentGatewayProtocol.COMPOSER_RESTORE_TASK: result = ComposerDelivery.restoreTask(context, input); break;
+                    case AgentGatewayProtocol.COMPOSER_OPTIONS_READ:
+                    case AgentGatewayProtocol.COMPOSER_OPTIONS_WRITE: result = ComposerOptions.call(context, method, input); break;
+                    default: throw new IOException("UNKNOWN_METHOD");
+                }
+                return transport(out, new JSONObject().put("ok", true).put("result", result), caller);
+            }
             if (arg != null && arg.length() > AgentGatewayProtocol.MAX_REQUEST) throw new IOException("INVALID_ARGUMENT");
             JSONObject input = arg == null || arg.isEmpty() ? new JSONObject() : new JSONObject(arg);
             JSONObject result;
@@ -95,14 +138,33 @@ public final class AgentOpenAccessProvider extends ContentProvider {
                 return transport(out, envelope, caller);
             } else if (method.startsWith("skills/")) result = TaskRequests.control(method, input);
             else if (RPC.contains(method)) result = NativeClient.rpcSync(method, input);
-            else if (method.equals("thread/usage")) result = NativeClient.state(input.getString("threadId"));
+            else if (method.equals("thread/usage")) {
+                AgentGatewayProtocol.requireId(input, "threadId");
+                JSONObject usage = NativeClient.state(input.getString("threadId")).optJSONObject("usage");
+                result = new JSONObject().put("threadId", input.getString("threadId")).put("usage", usage == null ? JSONObject.NULL : usage);
+            }
             else if (method.equals("sessions/removals")) result = NativeClient.exchange(input.put("op", "sessionRemovals"));
-            else if (method.equals("workspaces/list") || method.equals("workspaces/configure") || method.equals("workspaces/release")) {
-                if (caller != 0 && caller != android.os.Process.SYSTEM_UID) throw new SecurityException("WORKSPACE_PERMISSION_DENIED");
-                result = NativeClient.exchange(input.put("op", "workspaces").put("action", method.substring("workspaces/".length())));
+            else if (method.startsWith("workspaces/")) result = WorkspaceCommands.call(context, method, input, caller);
+            else if (method.startsWith("capture/")) result = AssistantCaptureBackend.execute(context, method, input);
+            else if (method.startsWith("accounts/")) result = AssistantAccounts.command(context, method, input, extras);
+            else if (method.startsWith("requests/")) result = AssistantRequests.execute(context, method, input);
+            else if (method.equals("manageAssistant")) result = AssistantManagement.execute(context, AssistantManagement.parse(arg));
+            else if (method.equals("readTaskDetail")) {
+                result = TaskDetails.read(context.getFilesDir(), AgentGatewayProtocol.request(method, arg).getString("taskId"));
+            } else if (TURN_CONTROL.contains(method)) {
+                JSONObject validated = AgentGatewayProtocol.request(method, arg);
+                String thread = validated.getString("threadId");
+                result = method.equals("interrupt")
+                        ? TaskRequests.interrupt(thread, validated.getString("turnId"))
+                        : TaskRequests.cancelQueued(thread, validated.getString("taskId"));
+            } else if (SYSTEM_AI.contains(method)) {
+                result = SystemAiUiBridge.execute(context, method, AgentGatewayProtocol.request(method, arg));
             } else throw new IOException("UNKNOWN_METHOD");
             envelope = new JSONObject().put("ok", true).put("result", result);
             return transport(out, envelope, caller);
+        } catch (ComposerState.RevisionConflict conflict) {
+            out.putString("result", error("DRAFT_REVISION_CONFLICT", conflict.getRevision()).toString());
+            return out;
         } catch (Exception failure) {
             String code = failure instanceof SQLiteException ? "STORAGE_ERROR" : failure.getMessage();
             if (failure instanceof org.json.JSONException) code = "INVALID_ARGUMENT";
@@ -111,9 +173,13 @@ public final class AgentOpenAccessProvider extends ContentProvider {
             return out;
         } finally { Binder.restoreCallingIdentity(identity); }
     }
-    private static JSONObject error(String code) {
-        try { return new JSONObject().put("ok", false).put("code", code).put("message", code); }
-        catch (Exception impossible) { throw new IllegalStateException(impossible); }
+    private static JSONObject error(String code) { return error(code, null); }
+    private static JSONObject error(String code, String revision) {
+        try {
+            JSONObject envelope = new JSONObject().put("ok", false).put("code", code).put("message", code);
+            if (revision != null) envelope.put("revision", revision);
+            return envelope;
+        } catch (Exception impossible) { throw new IllegalStateException(impossible); }
     }
     private Bundle transport(Bundle out, JSONObject envelope, int uid) throws Exception {
         byte[] bytes = envelope.toString().getBytes(StandardCharsets.UTF_8);

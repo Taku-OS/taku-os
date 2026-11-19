@@ -4,11 +4,11 @@
  * operation identity keeps late terminal snapshots from an earlier recording out of a newer run.
  * Leaving the screen cancels a recording; nothing is sent by voice alone.
  */
-import {useCallback, useEffect, useRef, useState} from 'react';
+import {useCallback, useEffect, useRef, useState, type RefObject} from 'react';
 import {cancelVoice, finishVoice, onVoice, startVoice, voiceAvailable, type VoiceSnapshot} from '../native/voice';
 import {dictationResult, failureOf, latestDictationSnapshot, type DictationFailure} from './dictationText';
 
-export {appendDictation, type DictationFailure} from './dictationText';
+export type {DictationFailure} from './dictationText';
 
 export type DictationPhase = 'idle' | 'starting' | 'recording' | 'finishing';
 
@@ -16,6 +16,7 @@ type DictationRun = {
   generation: number;
   operationId: number | null;
   pending: Map<number, VoiceSnapshot>;
+  deliver: (text: string) => void;
   snapshot?: VoiceSnapshot;
   stopping: boolean;
 };
@@ -29,15 +30,16 @@ export type Dictation = {
   cancel(): void;
 };
 
-export function useDictation(language: 'en' | 'zh', onHeard: (text: string) => void, onFailure: (reason: DictationFailure) => void): Dictation {
+export function useDictation(threadId: string, activeOwner: RefObject<string | null>, bindDraft: () => ((text: string) => void) | null, onFailure: (reason: DictationFailure) => void): Dictation {
   const [phase, setPhase] = useState<DictationPhase>('idle');
   const [transcript, setTranscript] = useState('');
   const [levels, setLevels] = useState<number[]>([]);
   const phaseRef = useRef<DictationPhase>('idle');
   const generation = useRef(0);
   const run = useRef<DictationRun | null>(null);
-  const heard = useRef(onHeard), failed = useRef(onFailure);
-  useEffect(() => { heard.current = onHeard; failed.current = onFailure; }, [onHeard, onFailure]);
+  const binding = useRef(bindDraft), failed = useRef(onFailure);
+  const lastOperation = useRef(0);
+  useEffect(() => { binding.current = bindDraft; failed.current = onFailure; }, [bindDraft, onFailure]);
   const move = useCallback((next: DictationPhase) => { phaseRef.current = next; setPhase(next); }, []);
 
   const reset = useCallback(() => {
@@ -58,7 +60,7 @@ export function useDictation(language: 'en' | 'zh', onHeard: (text: string) => v
     if (s.phase !== 'Closed') return;
     const result = dictationResult(s.outcome);
     reset();
-    if (result && 'text' in result) { if (result.text.trim()) heard.current(result.text); }
+    if (result && 'text' in result) { if (result.text.trim()) current.deliver(result.text); }
     else if (result) failed.current(result.reason);
   }, [move, reset]);
 
@@ -72,9 +74,20 @@ export function useDictation(language: 'en' | 'zh', onHeard: (text: string) => v
 
   useEffect(() => {
     const subscription = onVoice((s: VoiceSnapshot) => {
-      const current = run.current;
-      if (!current || s.operationId == null) return;
+      if (s.threadId !== threadId || s.owner !== activeOwner.current || s.operationId == null) return;
+      let current = run.current;
+      if (!current) {
+        if (s.operationId <= lastOperation.current) return;
+        lastOperation.current = s.operationId;
+        if (s.phase === 'Idle' || s.phase === 'Closed') return;
+        const deliver = binding.current();
+        if (!deliver) { void cancelVoice(s.operationId).catch(() => {}); return; }
+        current = {generation: ++generation.current, operationId: s.operationId, pending: new Map(), deliver, stopping: false};
+        run.current = current;
+        move('starting');
+      }
       if (current.operationId == null) {
+        lastOperation.current = Math.max(lastOperation.current, s.operationId);
         current.pending.set(s.operationId, latestDictationSnapshot(current.pending.get(s.operationId), s));
       } else {
         accept(s);
@@ -84,16 +97,21 @@ export function useDictation(language: 'en' | 'zh', onHeard: (text: string) => v
       subscription.remove();
       cancel();
     };
-  }, [accept, cancel]);
+  }, [accept, activeOwner, cancel, move, threadId]);
 
   const start = useCallback(() => {
     if (phaseRef.current !== 'idle') return;
+    const owner = activeOwner.current;
+    if (owner === null) return;
     if (!voiceAvailable()) { failed.current('unavailable'); return; }
-    const current: DictationRun = {generation: ++generation.current, operationId: null, pending: new Map(), stopping: false};
+    const deliver = binding.current();
+    if (!deliver) return;
+    const current: DictationRun = {generation: ++generation.current, operationId: null, pending: new Map(), deliver, stopping: false};
     run.current = current;
     setTranscript(''); setLevels([]);
     move('starting');
-    void startVoice(language === 'zh' ? 'zh-CN' : 'en-US').then(started => {
+    void startVoice(owner, threadId).then(started => {
+      lastOperation.current = Math.max(lastOperation.current, started.operationId);
       if (generation.current !== current.generation || run.current !== current) {
         void cancelVoice(started.operationId).catch(() => {});
         return;
@@ -108,7 +126,7 @@ export function useDictation(language: 'en' | 'zh', onHeard: (text: string) => v
       reset();
       failed.current(failureOf(error?.code));
     });
-  }, [language, move, accept, reset]);
+  }, [activeOwner, threadId, move, accept, reset]);
 
   const stop = useCallback(() => {
     const current = run.current;

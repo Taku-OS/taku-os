@@ -138,6 +138,7 @@ final class NativeBridge {
    case "modelConnection":Call local=new Call("taku/modelConnection",input);if(!enqueue(local))throw new IOException("Runtime is busy. Please retry later");answer=local.result.get(40,TimeUnit.SECONDS);break;
    case "decision":if(input.optString("action").equals("decide")){long revision=SystemAi.config().getLong("revision");SystemAi.requireEnabled();answer=decisions.control(input);SystemAi.requireEnabled();if(revision!=SystemAi.config().getLong("revision"))throw new IOException("System AI settings changed; this result was cancelled");}else answer=decisions.control(input);break;
    case "skillCredential":answer=SkillCredentials.control(input);break;
+   case "workspaceTextFiles":answer=WorkspaceTextFiles.control(input);break;
    case "memory":answer=MemoryBridge.control(input);break;
    case "imeReplies":answer=ImeReplies.control(input,uid);break;
    case "systemAi":answer=SystemAi.control(input);break;
@@ -147,7 +148,19 @@ final class NativeBridge {
    case "matterAudio":answer=AudioBridge.control(input);break;
    case "mainReply":answer=AgentViews.mainReplyRead(input);break;
    case "magpieSettingsChanged":MagpieSettings.schedule();answer=new JSONObject();break;
-   case "rpc":String method=input.getString("method");if(!allowed(method))throw new IOException("This interface is not part of the locked native protocol");Call c=new Call(method,input.optJSONObject("params"));if(!enqueue(c))throw new IOException("Runtime is busy. Please retry later");answer=c.result.get(40,TimeUnit.SECONDS);break;
+   case "rpc": {
+    String method=input.getString("method");
+    if(!allowed(method))throw new IOException("This interface is not part of the locked native protocol");
+    JSONObject params=input.optJSONObject("params");
+    if(method.equals("plugin/list")) {
+     if(params==null)params=new JSONObject();
+     if(params.isNull("marketplaceKinds"))params.put("marketplaceKinds",new JSONArray().put("local"));
+    }
+    Call call=new Call(method,params);
+    if(!enqueue(call))throw new IOException("Runtime is busy. Please retry later");
+    answer=call.result.get(40,TimeUnit.SECONDS);
+    break;
+   }
    default:throw new IOException("Unsupported native operation");
   } } catch(Exception failure) { JSONObject error=new JSONObject().put("ok",false).put("message",publicError(failure));Throwable cause=failure;while(cause.getCause()!=null)cause=cause.getCause();if(cause instanceof SteerNotSubmitted)error.put("code","STEER_NOT_SUBMITTED");s.getOutputStream().write(error.toString().getBytes(StandardCharsets.UTF_8)); return; }
   s.getOutputStream().write(new JSONObject().put("ok",true).put("result",answer).toString().getBytes(StandardCharsets.UTF_8));

@@ -5,23 +5,27 @@ import android.app.UiAutomation;
 import android.accessibilityservice.AccessibilityServiceInfo;
 import android.view.accessibility.AccessibilityWindowInfo;
 import java.util.List;
-import android.util.Xml;
 import android.view.accessibility.AccessibilityNodeInfo;
 import com.android.uiautomator.core.*;
 import com.android.uiautomator.testrunner.UiAutomatorTestCase;
 import org.json.*;
-import org.xmlpull.v1.XmlPullParser;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
 /** Real DocumentsUI, task queue and upstream errors. No model result is simulated. */
 public final class ComposerReliabilityTest extends UiAutomatorTestCase {
-    static final String PKG = "org.agentos.assistant";
+    static final String CHAT = "org.agentos.agent";
     static final String DOCS = "com.android.documentsui";
-    static final String APP = "/data/user/0/" + PKG;
+    static final String APP = "/data/user/0/org.agentos.assistant";
+    static final String OPEN_ACCESS = "content://org.agentos.assistant.open-access";
+    static final String INPUT = "message-input";
+    static final String SEND = "send-message";
+    static final String STOP = "stop-turn";
     static final String RUNTIME = APP + "/files/runtime/";
     String run, phase, thread = "", ownedTurn = "", imageCode, textCode;
+    String unavailableModel = "";
+    boolean staleModelInstalled;
     File output, fixtures;
     JSONObject evidence;
     UiAutomation automation;
@@ -39,9 +43,8 @@ public final class ComposerReliabilityTest extends UiAutomatorTestCase {
             }
             assertNotNull("Use the existing UiAutomator connection", automation);
             AccessibilityServiceInfo info = automation.getServiceInfo();
-            info.flags |= AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS;
+            info.flags |= AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS | AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS;
             automation.setServiceInfo(info);
-            // Allow the initial accessibility connection to settle once. Each selector owns its deadline.
             try { automation.waitForIdle(100, 1500); } catch (java.util.concurrent.TimeoutException ignored) {}
         }
         UiAutomation.class.getMethod("clearCache").invoke(automation);
@@ -69,10 +72,13 @@ public final class ComposerReliabilityTest extends UiAutomatorTestCase {
                 CharSequence actual = field.equals("description") ? node.getContentDescription() : node.getText();
                 String actualText = actual == null ? "" : actual.toString();
                 String description = node.getContentDescription() == null ? "" : node.getContentDescription().toString();
+                String id = node.getViewIdResourceName();
                 if (field.equals("package") || (field.equals("scrollable") && node.isScrollable())
+                        || (field.equals("id") && (value.equals(id) || (pkg + ":id/" + value).equals(id)))
                         || (field.equals("document") && (actualText.equals(value) || description.equals(value)
                                 || description.startsWith(value + ",")))
-                        || (!field.equals("scrollable") && (regex ? actualText.matches(value) : actualText.equals(value)))) return node;
+                        || ((field.equals("description") || field.equals("text"))
+                                && (regex ? actualText.matches(value) : actualText.equals(value)))) return node;
             }
             for (int i = 0; i < node.getChildCount(); i++) {
                 AccessibilityNodeInfo found = matching(node.getChild(i), depth+1, budget);
@@ -139,7 +145,7 @@ public final class ComposerReliabilityTest extends UiAutomatorTestCase {
     }
     Entry textEntry(String pkg, String value) { return new Entry(pkg, "text", value, false); }
     final class Node extends Entry {
-        Node(String description) { super(PKG, "description", description, false); }
+        Node(String id) { super(CHAT, "id", id, false); }
         boolean replace(String value) throws Exception {
             AccessibilityNodeInfo node = findAccessibilityNodeInfo(4000);
             Bundle args = new Bundle();
@@ -151,15 +157,7 @@ public final class ComposerReliabilityTest extends UiAutomatorTestCase {
             if (node == null) throw new AssertionError("Composer is missing");
             return node.isShowingHintText() || node.getText() == null ? "" : node.getText().toString();
         }
-        boolean act() throws Exception {
-            // The controller can replace a node between lookup and ACTION_CLICK.
-            for (int attempt = 0; attempt < 3; attempt++) {
-                AccessibilityNodeInfo node = findAccessibilityNodeInfo(4000);
-                if (node != null && node.performAction(AccessibilityNodeInfo.ACTION_CLICK)) return true;
-                sleep(150);
-            }
-            return false;
-        }
+        boolean act() { return click(); }
     }
 
     String read(File file) throws Exception {
@@ -180,20 +178,31 @@ public final class ComposerReliabilityTest extends UiAutomatorTestCase {
     }
     JSONObject object(String key, Object value) throws Exception { return new JSONObject().put(key, value); }
 
-    // Read only the named test-thread value. Never dump the user's preferences or auth material.
-    String preference(String key, String fallback) throws Exception {
-        File file = new File(APP + "/shared_prefs/agent-settings.xml");
-        try (InputStream in = new FileInputStream(file)) {
-            XmlPullParser parser = Xml.newPullParser(); parser.setInput(in, "UTF-8");
-            for (int event = parser.getEventType(); event != XmlPullParser.END_DOCUMENT; event = parser.next()) {
-                if (event == XmlPullParser.START_TAG && "string".equals(parser.getName())
-                        && key.equals(parser.getAttributeValue(null, "name"))) return parser.nextText();
-            }
-        }
-        return fallback;
+    JSONObject access(String method, JSONObject args) throws Exception {
+        return content(OPEN_ACCESS, method, args);
+    }
+
+    JSONObject home(String method, JSONObject args) throws Exception {
+        return content("content://org.agentos.agent.home-assistant", "assistant/" + method, args);
+    }
+
+    private JSONObject content(String authority, String method, JSONObject args) throws Exception {
+        String reply = command("/system/bin/content", "call", "--uri", authority,
+                "--user", "0", "--method", method, "--arg", args.toString());
+        int start = reply.indexOf("Bundle[{result=");
+        int end = reply.lastIndexOf("}]");
+        assertTrue("Missing Open Access response for " + method + ": " + reply, start >= 0 && end > start);
+        JSONObject envelope = new JSONObject(reply.substring(start + "Bundle[{result=".length(), end));
+        assertTrue(method + ": " + envelope, envelope.optBoolean("ok"));
+        return envelope.getJSONObject("result");
+    }
+    JSONObject draft() throws Exception {
+        JSONObject value = access("composer/read", object("threadId", thread));
+        assertEquals(thread, value.getString("threadId"));
+        return value;
     }
     JSONArray attachments() throws Exception {
-        return new JSONArray(preference("composer." + thread + ".attachments", "[]"));
+        return draft().getJSONArray("attachments");
     }
     void expectAttachments(int count) throws Exception {
         long until = System.nanoTime() + 8_000_000_000L;
@@ -203,56 +212,76 @@ public final class ComposerReliabilityTest extends UiAutomatorTestCase {
     void expectDraft(String value) throws Exception {
         long until = System.nanoTime() + 12_000_000_000L;
         while (System.nanoTime() < until) {
-            if (value.equals(new Node("Taku 对话输入框").value())
-                    && value.equals(preference("draft-" + thread, ""))) return;
+            if (value.equals(new Node(INPUT).value()) && value.equals(draft().getString("text"))) return;
             sleep(150);
         }
-        assertEquals("Visible draft must survive failure", value, new Node("Taku 对话输入框").value());
-        assertEquals("Persisted draft must survive failure", value, preference("draft-" + thread, ""));
-    }
-    boolean keyboardVisible() throws Exception {
-        refreshAccessibility();
-        List<AccessibilityWindowInfo> windows = automation.getWindowsOnAllDisplays().get(0);
-        if (windows != null) for (AccessibilityWindowInfo window : windows) {
-            AccessibilityNodeInfo root = window.getRoot();
-            if (window.getType() == AccessibilityWindowInfo.TYPE_INPUT_METHOD
-                    && root != null && root.isVisibleToUser()) return true;
-        }
-        return false;
-    }
-    void expectKeyboard(boolean visible) throws Exception {
-        long until = System.nanoTime() + 20_000_000_000L;
-        do {
-            if (keyboardVisible() == visible) return;
-            sleep(150);
-        } while (System.nanoTime() < until);
-        assertEquals("Soft keyboard visibility on display 0", visible, keyboardVisible());
-    }
-    void showKeyboard() throws Exception {
-        assertTrue(new Node("Taku 对话输入框").act());
-        expectKeyboard(true);
+        assertEquals("Expo composer text", value, new Node(INPUT).value());
+        assertEquals("Public composer text", value, draft().getString("text"));
     }
     void openThread() throws Exception {
-        command("/system/bin/am", "start", "-n", PKG + "/.PanelActivity", "--es", "conversationId", thread);
-        assertTrue("Composer accessibility missing", waitAccessible(new Node("Taku 对话输入框"), 25000));
-        long until = System.nanoTime() + 8_000_000_000L;
-        while (!thread.equals(preference("conversation", "")) && System.nanoTime() < until) sleep(100);
-        assertEquals("Test conversation must be selected", thread, preference("conversation", ""));
-        sleep(350);
+        command("/system/bin/am", "start", "-W", "--display", "0", "-a", "android.intent.action.MAIN",
+                "-n", CHAT + "/.MainActivity", "--es", "threadId", thread);
+        assertTrue("Expo composer missing", waitAccessible(new Node(INPUT), 25000));
     }
     void createThread() throws Exception {
         JSONObject options = object("developerInstructions",
                 "这是独立、静音的输入框回归。仅按用户要求读取其主动选择的附件或执行 sleep。"
                 + "不要调用手机操作，不修改文件，不发通知，不播放声音。图片必须实际读取；无法读取时明确报错。");
         if (phase.equals("failure-async")) {
-            String unavailable = "taku-composer-unavailable-" + run;
-            options.put("model", unavailable);
-            evidence.put("failureTrigger", "unavailable-model-on-isolated-test-thread").put("requestedModel", unavailable);
+            unavailableModel = "taku-composer-unavailable-" + run;
+            evidence.put("failureTrigger", "unavailable-model-on-isolated-test-thread").put("requestedModel", unavailableModel);
         }
         thread = NativeSocketProbe.rpc("thread/start", options)
                 .getJSONObject("thread").getString("id");
         assertTrue(thread.matches("[a-f0-9-]{36}"));
-        evidence.put("threadId", thread); saveEvidence(); openThread();
+        evidence.put("threadId", thread); saveEvidence();
+        if (!unavailableModel.isEmpty()) installStaleModel();
+        String marker = "Composer fixture " + thread;
+        String revision = draft().getString("revision");
+        access("composer/write", object("threadId", thread).put("revision", revision).put("text", marker));
+        openThread();
+        expectDraft(marker);
+        assertTrue(new Node(INPUT).replace(""));
+        expectDraft("");
+    }
+    void installStaleModel() throws Exception {
+        // Simulate a saved per-thread model that disappeared from the catalog. The public writer rejects new unknown IDs.
+        command("/system/bin/am", "force-stop", "--user", "0", "org.agentos.assistant");
+        File settings = new File(APP + "/shared_prefs/agent-settings.xml");
+        assertFalse("Assistant preferences have an unfinished Android write", new File(settings + ".bak").exists());
+        String xml = read(settings);
+        String key = "composer." + thread + ".model";
+        int close = xml.lastIndexOf("</map>");
+        assertTrue("Expected a fresh thread in an existing preference map", close >= 0 && !xml.contains(key));
+        android.system.StructStat metadata = android.system.Os.stat(settings.getPath());
+        File replacement = File.createTempFile("composer-model-fixture-", ".xml", settings.getParentFile());
+        try {
+            write(replacement, xml.substring(0, close) + "<string name=\"" + key + "\">" + unavailableModel
+                    + "</string>\n" + xml.substring(close));
+            android.system.Os.chown(replacement.getPath(), metadata.st_uid, metadata.st_gid);
+            android.system.Os.chmod(replacement.getPath(), metadata.st_mode & 0777);
+            command("/system/bin/restorecon", replacement.getPath());
+            android.system.Os.rename(replacement.getPath(), settings.getPath());
+            staleModelInstalled = true;
+        } finally { replacement.delete(); }
+        assertEquals("The stale model fixture is scoped to this thread", unavailableModel,
+                access("composer/options/read", object("threadId", thread)).getJSONObject("effective").getString("model"));
+    }
+    void assertUnavailableModelFailure(String task) throws Exception {
+        JSONObject state = NativeSocketProbe.exchange(object("op", "state").put("threadId", thread));
+        JSONObject completed = state.optJSONObject("completedTurn");
+        if (completed != null && completed.optString("status").equals("failed")) {
+            String error = state.optString("error");
+            assertTrue("Expected an upstream model error: " + error, error.contains(unavailableModel));
+            evidence.put("turnId", completed.getString("id")).put("nativeTurnStatus", "failed");
+            return;
+        }
+        // App Server can reject the turn/start request before creating a turn.
+        File diagnostic = new File(RUNTIME + "tasks/" + task + "/diagnostic.json");
+        assertTrue("Expected a native turn failure or a turn/start rejection: " + state, diagnostic.isFile());
+        String error = new JSONObject(read(diagnostic)).optString("operationError");
+        assertTrue("Expected a native turn/start rejection: " + error, error.startsWith("Assistant connection failed: turn/start"));
+        evidence.put("nativeRequestRejected", true);
     }
     void createFixtures() throws Exception {
         assertTrue(fixtures.mkdirs() || fixtures.isDirectory());
@@ -280,9 +309,8 @@ public final class ComposerReliabilityTest extends UiAutomatorTestCase {
         assertTrue("DocumentsUI entry could not be activated: " + text, item.click());
     }
     void pick(String filename, boolean image, int expectedCount) throws Exception {
-        assertTrue(new Node("添加附件").act());
-        UiObject choice = textEntry(PKG, image ? "添加图片" : "添加文件");
-        // Popup accessibility can arrive after its opening animation on the shared AVD.
+        assertTrue(new Node("composer-tools").act());
+        UiObject choice = new Node(image ? "attach-image" : "attach-file");
         assertTrue("Attachment menu missing", waitAccessible(choice, 8000)); assertTrue(choice.click());
         assertTrue("Real Android document picker did not open", waitAccessible(new Entry(DOCS, "package", "", false), 25000));
         UiObject roots = new Entry(DOCS, "description", "(?i)(Show roots|Show navigation drawer|显示根目录|显示导航抽屉|显示根路径)", true);
@@ -302,37 +330,49 @@ public final class ComposerReliabilityTest extends UiAutomatorTestCase {
         long returnUntil = System.nanoTime() + 25_000_000_000L;
         boolean returned = false, accepted = false;
         do {
-            if (new Node("Taku 对话输入框").exists()) { returned = true; break; }
+            if (!new Entry(DOCS, "package", "", false).exists() && new Node(INPUT).exists()) {
+                returned = true; break;
+            }
             UiObject accept = new Entry(DOCS, "text", "(?i)(Open|Select|打开|选择)", true);
             if (!accepted && accept.exists()) { assertTrue(accept.click()); accepted = true; }
             sleep(150);
         } while (System.nanoTime() < returnUntil);
         assertTrue("Picker must return to the assistant", returned);
         expectAttachments(expectedCount);
+        assertEquals("Picker selection order", filename, attachments().getJSONObject(expectedCount - 1).getString("name"));
+        expectAttachment(filename);
         evidence.put("actualAndroidPickerSelections", evidence.optInt("actualAndroidPickerSelections") + 1);
         saveEvidence();
     }
 
-    String latest() throws Exception {
-        File file = new File(RUNTIME + "latest.id"); return file.exists() ? read(file).trim() : "";
+    String ownTask() throws Exception {
+        File[] published = new File(RUNTIME + "tasks").listFiles((dir, name) -> name.matches("[0-9]{1,20}"));
+        assertNotNull("Task directory is unavailable", published);
+        String owned = "";
+        for (File task : published) {
+            if (!new File(task, "ready").isFile()) continue;
+            File request = new File(task, "request.json");
+            if (!request.isFile() || !thread.equals(new JSONObject(read(request)).optString("conversationId"))) continue;
+            assertTrue("More than one task published for " + thread, owned.isEmpty());
+            owned = task.getName();
+        }
+        return owned;
     }
-    String ownTask(String previous) throws Exception {
-        String id = latest();
-        if (id.equals(previous) || !id.matches("[0-9]+")) return "";
-        File request = new File(RUNTIME + "tasks/" + id + "/request.json");
-        return request.isFile() && thread.equals(new JSONObject(read(request)).optString("conversationId")) ? id : "";
-    }
-    String waitOwnTask(String previous) throws Exception {
+    String waitOwnTask() throws Exception {
         long until = System.nanoTime() + 20_000_000_000L;
-        while (System.nanoTime() < until) { String id = ownTask(previous); if (!id.isEmpty()) return id; sleep(100); }
+        while (System.nanoTime() < until) {
+            String id = ownTask();
+            if (!id.isEmpty()) return id;
+            sleep(100);
+        }
         fail("No actual queue task for the isolated test thread"); return "";
     }
     JSONObject waitDone(String id) throws Exception {
         long until = System.nanoTime() + 150_000_000_000L;
-        File directory = new File(RUNTIME + "tasks/" + id);
         while (System.nanoTime() < until) {
-            if (new File(directory, "done").exists()) return new JSONObject(read(new File(directory, "state.json")));
-            sleep(200);
+            JSONObject detail = access("readTaskDetail", object("taskId", id));
+            if (detail.getString("state").matches("completed|cancelled|failed|needs_user")) return detail;
+            sleep(250);
         }
         fail("Actual task did not finish within 150 seconds: " + id); return null;
     }
@@ -348,48 +388,68 @@ public final class ComposerReliabilityTest extends UiAutomatorTestCase {
             assertTrue("Clean temporary hierarchy", hierarchy.delete());
         }
     }
-    void failureMissing() throws Exception {
-        String draft = "未发送草稿：附件失效时请保留这段文字。";
-        assertTrue(new Node("Taku 对话输入框").replace(draft)); pick("document.txt", false, 1);
-        expectDraft(draft); JSONArray selected = attachments();
-        File privateFile = new File(selected.getJSONObject(0).getString("path"));
-        assertEquals("document.txt", selected.getJSONObject(0).getString("name"));
-        assertTrue(privateFile.getCanonicalPath().startsWith(new File(APP + "/files/composer-attachments").getCanonicalPath() + "/"));
-        assertTrue("Delete only the freshly selected test attachment", privateFile.delete());
-        showKeyboard();
-        String previous = latest(); assertTrue(new Node("发送消息").act());
-        long until = System.nanoTime() + 20_000_000_000L; String task = ""; boolean rejected = false;
-        while (System.nanoTime() < until) {
-            task = ownTask(previous);
-            if (!task.isEmpty()) { evidence.put("taskId", task).put("taskState", waitDone(task)); break; }
-            if (new Entry(PKG, "text",
-                    ".*附件.*(失效|不存在|不可|重新选择).*|发送失败，消息仍保留在输入框。|发送未开始，草稿已保留。", true).exists()) {
-                rejected = true; break;
-            }
-            sleep(150);
+    void expectAttachment(String filename) throws Exception {
+        assertTrue("Expo attachment chip missing: " + filename,
+                new Entry(CHAT, "description", "(Remove attachment |移除附件 )" + java.util.regex.Pattern.quote(filename), true)
+                        .waitForExists(8000));
+    }
+    void restoreFailedTask(String text, JSONArray selected) throws Exception {
+        expectDraft("");
+        expectAttachments(0);
+        Node restore = new Node("restore-failed-task");
+        assertTrue("Failed task must offer draft recovery", restore.waitForExists(25000));
+        capture("failure");
+        assertTrue(restore.act());
+        expectDraft(text);
+        expectAttachments(selected.length());
+        JSONArray restored = attachments();
+        for (int i = 0; i < selected.length(); i++) {
+            JSONObject expected = selected.getJSONObject(i);
+            JSONObject actual = restored.getJSONObject(i);
+            for (String key : new String[]{"id", "name", "mime", "size"})
+                assertEquals("Restored attachment " + key, expected.get(key), actual.get(key));
+            expectAttachment(expected.getString("name"));
         }
-        evidence.put("queueCreated", !task.isEmpty()).put("prequeueRejectionVisible", rejected); saveEvidence(); capture("failure");
-        expectDraft(draft); expectAttachments(1);
-        assertEquals("Failed submit must preserve the selected attachment metadata", selected.toString(), attachments().toString());
-        assertTrue("Invalid attachment must be rejected before queue publication", rejected && task.isEmpty());
-        expectKeyboard(true);
-        evidence.put("keyboardPreservedOnFailure", true);
-        evidence.put("draftPreserved", true).put("attachmentsPreserved", true).put("noQueuePublished", true);
+        assertEquals("Restoring a draft must not publish another task", evidence.getString("taskId"), ownTask());
+        evidence.put("draftRestored", true).put("attachmentsRestored", true);
+        capture("restored");
+    }
+    void failureMissing() throws Exception {
+        String text = "未发送草稿：附件失效时请保留这段文字。";
+        assertTrue(new Node(INPUT).replace(text));
+        pick("document.txt", false, 1);
+        expectDraft(text);
+        JSONArray selected = attachments();
+        JSONObject attachment = selected.getJSONObject(0);
+        assertEquals("document.txt", attachment.getString("name"));
+        String id = attachment.getString("id");
+        assertTrue(id.matches("[a-f0-9-]{36}"));
+        File copy = new File(APP + "/files/composer-attachments", id);
+        assertTrue("Invalidate only the freshly selected fixture copy", !java.nio.file.Files.isSymbolicLink(copy.toPath()) && copy.delete());
+        assertTrue(new Node(SEND).act());
+        String task = waitOwnTask();
+        JSONObject detail = waitDone(task);
+        evidence.put("taskId", task).put("taskState", detail); saveEvidence();
+        assertEquals("Missing attachment must fail the send", "failed", detail.getString("state"));
+        JSONObject nativeState = NativeSocketProbe.exchange(object("op", "state").put("threadId", thread));
+        assertEquals("Missing attachment must not start an upstream turn", "", nativeState.optString("activeTurnId"));
+        assertNull("Missing attachment must not finish an upstream turn", nativeState.optJSONObject("completedTurn"));
+        restoreFailedTask(text, selected);
     }
     void failureAsync() throws Exception {
-        String draft = "异步发送失败时保留本草稿及图片附件。";
-        assertTrue(new Node("Taku 对话输入框").replace(draft)); pick("image.png", true, 1);
-        showKeyboard();
-        JSONArray selected = attachments(); String previous = latest(); assertTrue(new Node("发送消息").act());
-        String task = waitOwnTask(previous); JSONObject state = waitDone(task);
-        evidence.put("taskId", task).put("taskState", state).put("queueCreated", true); saveEvidence();
-        assertEquals("The real unavailable-model request must fail", "failed", state.optString("state"));
-        expectDraft(draft); expectAttachments(1);
-        assertEquals("Asynchronous failure must restore attachment metadata", selected.toString(), attachments().toString());
-        expectKeyboard(true);
-        evidence.put("keyboardPreservedOnFailure", true);
-        capture("failure");
-        evidence.put("draftPreserved", true).put("attachmentsPreserved", true).put("realUpstreamFailure", true);
+        String text = "异步发送失败时保留本草稿及文件附件。";
+        assertTrue(new Node(INPUT).replace(text));
+        pick("document.txt", false, 1);
+        expectDraft(text);
+        JSONArray selected = attachments();
+        assertTrue(new Node(SEND).act());
+        String task = waitOwnTask();
+        JSONObject detail = waitDone(task);
+        evidence.put("taskId", task).put("taskState", detail); saveEvidence();
+        assertEquals("The real unavailable-model request must fail", "failed", detail.getString("state"));
+        assertUnavailableModelFailure(task);
+        restoreFailedTask(text, selected);
+        evidence.put("realUpstreamFailure", true);
     }
     void addBoth() throws Exception {
         pick("image.png", true, 1); pick("document.txt", false, 2);
@@ -403,69 +463,71 @@ public final class ComposerReliabilityTest extends UiAutomatorTestCase {
         assertTrue("Actual text-file token missing from real response: " + answer, answer.contains(textCode));
     }
     void sendAttachments() throws Exception {
-        assertTrue(new Node("Taku 对话输入框").replace(requestPrompt())); addBoth();
-        showKeyboard(); capture("before-send-keyboard");
-        String previous = latest(); assertTrue(new Node("发送消息").act());
-        String task = waitOwnTask(previous);
-        expectKeyboard(false); capture("sent-keyboard-hidden");
-        evidence.put("keyboardHiddenAfterSend", true);
-        JSONObject state = waitDone(task);
-        evidence.put("taskId", task).put("taskState", state); saveEvidence();
-        assertEquals(state.optString("message"), "completed", state.optString("state"));
-        JSONObject request = new JSONObject(read(new File(RUNTIME + "tasks/" + task + "/request.json")));
-        assertEquals(2, request.getJSONArray("attachments").length());
-        String answer = read(new File(RUNTIME + "tasks/" + task + "/result.txt")); expectCodes(answer);
+        assertTrue(new Node(INPUT).replace(requestPrompt())); addBoth();
+        capture("before-send");
+        assertTrue(new Node(SEND).act());
+        String task = waitOwnTask();
+        JSONObject detail = waitDone(task);
+        evidence.put("taskId", task).put("taskState", detail); saveEvidence();
+        assertEquals(detail.getString("message"), "completed", detail.getString("state"));
+        String answer = access("manageAssistant", object("operation", "taskFiles/read")
+                .put("threadId", thread).put("taskId", task).put("path", "result.txt")).getString("text");
+        expectCodes(answer);
         expectDraft(""); expectAttachments(0);
-        AccessibilityNodeInfo message = new Entry(PKG, "text", requestPrompt(), false).findAccessibilityNodeInfo(5000);
-        assertNotNull("Sent message remains visible", message);
-        Bundle locations = new Bundle();
-        locations.putInt(AccessibilityNodeInfo.EXTRA_DATA_TEXT_CHARACTER_LOCATION_ARG_START_INDEX, requestPrompt().length() - 4);
-        locations.putInt(AccessibilityNodeInfo.EXTRA_DATA_TEXT_CHARACTER_LOCATION_ARG_LENGTH, 4);
-        android.os.Parcelable[] chars = null;
-        // IME dismissal and streamed-message updates can replace/layout the text node.
-        // Obtain geometry from a fresh node after those asynchronous updates settle.
-        for (int attempt = 0; attempt < 20 && chars == null; attempt++) {
-            message = new Entry(PKG, "text", requestPrompt(), false).findAccessibilityNodeInfo(1000);
-            if (message != null && message.refreshWithExtraData(
-                    AccessibilityNodeInfo.EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY, locations)) {
-                chars = message.getExtras().getParcelableArray(AccessibilityNodeInfo.EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY);
-            }
-            if (chars == null) sleep(100);
-        }
-        assertNotNull("Last line has character geometry", chars);
-        assertEquals(4, chars.length);
-        android.graphics.Rect bounds = new android.graphics.Rect(); message.getBoundsInScreen(bounds);
-        for (android.os.Parcelable value : chars) {
-            assertNotNull("Last-line characters are not clipped by attachments", value);
-            android.graphics.RectF rect = (android.graphics.RectF) value;
-            assertTrue("Last line stays inside its text view", rect.bottom <= bounds.bottom + 1);
-        }
-        evidence.put("sentMessageLastLineVisible", true);
+        assertTrue("The real reply is visible in Expo",
+                new Entry(CHAT, "text", "(?s).*" + imageCode + ".*", true).waitForExists(25000));
         capture("completed");
-        showKeyboard();
-        evidence.put("keyboardReopensOnTap", true);
         evidence.put("reply", answer).put("realImageAndTextUnderstanding", true);
+    }
+
+    void sendThroughHome() throws Exception {
+        assertTrue(new Node(INPUT).replace(requestPrompt()));
+        addBoth();
+        expectDraft(requestPrompt());
+        home("resume", object("threadId", thread));
+        try {
+            home("open", object("mode", "text"));
+            JSONObject visible = home("get", new JSONObject());
+            assertEquals("Home reopened the same conversation", thread, visible.optString("threadId"));
+            assertEquals("Home reads the shared text", requestPrompt(), visible.optString("draft"));
+            assertEquals(new JSONArray().put("image.png").put("document.txt").toString(),
+                    visible.getJSONArray("draftAttachmentNames").toString());
+            capture("home-before-send");
+            Entry names = new Entry(CHAT, "text", "image.png · document.txt", false);
+            assertTrue("Home shows the files picked in Expo", names.waitForExists(12000));
+            assertTrue("Home sends its shared draft", new Entry(CHAT, "description", "Send", false).click());
+            String task = waitOwnTask();
+            JSONObject detail = waitDone(task);
+            evidence.put("taskId", task).put("taskState", detail); saveEvidence();
+            assertEquals(detail.getString("message"), "completed", detail.getString("state"));
+            String answer = access("manageAssistant", object("operation", "taskFiles/read")
+                    .put("threadId", thread).put("taskId", task).put("path", "result.txt")).getString("text");
+            expectCodes(answer);
+            assertEquals("", draft().getString("text"));
+            expectAttachments(0);
+            evidence.put("reply", answer).put("homeSharedAttachmentsDelivered", true);
+        } finally {
+            home("reset", new JSONObject());
+        }
+    }
+    JSONArray turns() throws Exception {
+        return NativeSocketProbe.rpc("thread/read", object("threadId", thread).put("includeTurns", true))
+                .getJSONObject("thread").getJSONArray("turns");
     }
     JSONObject waitNativeTurn(boolean completed) throws Exception {
         long until = System.nanoTime() + 150_000_000_000L;
-        File view = new File(RUNTIME + "agent-view/" + thread + ".json");
         while (System.nanoTime() < until) {
-            if (view.isFile()) {
-                JSONArray turns = new JSONObject(read(view)).optJSONArray("turns");
-                if (turns != null) for (int i = 0; i < turns.length(); i++) {
-                    JSONObject turn = turns.getJSONObject(i);
-                    if (ownedTurn.equals(turn.optString("id"))) {
-                        String status = turn.optString("status");
-                        if (status.equals("completed") || status.equals("interrupted") || status.equals("failed")) {
-                            if (completed) assertEquals(turn.toString(), "completed", status);
-                            return turn;
-                        }
-                    }
+            JSONArray turns = turns();
+            for (int i = 0; i < turns.length(); i++) {
+                JSONObject turn = turns.getJSONObject(i);
+                if (ownedTurn.equals(turn.optString("id")) && turn.optString("status").matches("completed|interrupted|failed")) {
+                    if (completed) assertEquals(turn.toString(), "completed", turn.getString("status"));
+                    return turn;
                 }
             }
-            sleep(200);
+            sleep(250);
         }
-        fail("Actual native turn did not reach a terminal state"); return null;
+        fail("Actual native turn did not reach a terminal state: " + ownedTurn); return null;
     }
     void startNativeSleep() throws Exception {
         ownedTurn = NativeSocketProbe.rpc("turn/start", object("threadId", thread).put("input", new JSONArray()
@@ -475,12 +537,11 @@ public final class ComposerReliabilityTest extends UiAutomatorTestCase {
         evidence.put("turnId", ownedTurn); saveEvidence();
     }
     void steerAttachments() throws Exception {
-        addBoth(); assertTrue(new Node("Taku 对话输入框").replace(requestPrompt()));
+        addBoth(); assertTrue(new Node(INPUT).replace(requestPrompt()));
+        expectDraft(requestPrompt());
         startNativeSleep(); openThread();
-        showKeyboard();
-        assertTrue(new Node("追加指令").waitForExists(8000)); assertTrue(new Node("追加指令").act());
-        expectKeyboard(false);
-        evidence.put("keyboardHiddenAfterSteer", true);
+        assertTrue("Expo must show Stop before steering", new Node(STOP).waitForExists(25000));
+        assertTrue(new Node(SEND).act());
         JSONObject turn = waitNativeTurn(true); StringBuilder answer = new StringBuilder();
         JSONArray items = turn.getJSONArray("items");
         for (int i = 0; i < items.length(); i++) {
@@ -488,17 +549,18 @@ public final class ComposerReliabilityTest extends UiAutomatorTestCase {
             if (item.optString("type").equals("agentMessage")) answer.append(item.optString("text"));
         }
         expectCodes(answer.toString()); expectDraft(""); expectAttachments(0);
-        // Native completion precedes the UI's next snapshot; capture the rendered terminal state.
-        assertTrue("Steered reply exposes its completed copy action", waitAccessible(new Node("复制回复"), 8000));
-        assertTrue("Steered composer returns to Send", waitAccessible(new Node("发送消息"), 8000));
-        evidence.put("nativeCompletionRendered", true); capture("completed");
+        assertTrue("Expo shows the reply from the steered turn",
+                new Entry(CHAT, "text", "(?s).*" + imageCode + ".*", true).waitForExists(15000));
+        assertEquals("Steering must produce no fallback task", "", ownTask());
+        assertEquals("Steering must not start a second turn", 1, turns().length());
+        capture("completed");
         evidence.put("reply", answer.toString()).put("realSteerSameTurn", true).put("steeredAttachmentCount", 2);
     }
     void stopTurn() throws Exception {
-        assertTrue(new Node("Taku 对话输入框").replace(
+        assertTrue(new Node(INPUT).replace(
                 "请真实执行 /system/bin/sleep 60，等待命令完成后再回复。不要执行其他操作。"));
-        String previous = latest(); assertTrue(new Node("发送消息").act());
-        String task = waitOwnTask(previous);
+        assertTrue(new Node(SEND).act());
+        String task = waitOwnTask();
         evidence.put("taskId", task).put("queueCreated", true).put("submittedThroughComposer", true);
         saveEvidence();
         long until = System.nanoTime() + 30_000_000_000L;
@@ -510,20 +572,22 @@ public final class ComposerReliabilityTest extends UiAutomatorTestCase {
         } while (System.nanoTime() < until);
         assertFalse("The composer task must start a real native turn in its own thread", ownedTurn.isEmpty());
         evidence.put("turnId", ownedTurn); saveEvidence();
-        assertTrue(new Node("停止当前执行").waitForExists(8000));
-        assertTrue(new Node("Taku 对话输入框").replace("尚未提交的追加指令"));
-        assertTrue(new Node("追加指令").waitForExists(3000));
-        assertTrue("Stop stays available with an unsent draft", new Node("停止当前执行").exists());
-        assertTrue(new Node("停止当前执行").waitForExists(3000)); assertTrue(new Node("停止当前执行").act());
+        assertTrue(new Node(STOP).waitForExists(8000));
+        String text = "尚未提交的追加指令";
+        assertTrue(new Node(INPUT).replace(text));
+        expectDraft(text);
+        assertTrue(new Node(SEND).waitForExists(8000));
+        assertTrue("Stop stays available with an unsent draft", new Node(STOP).act());
         JSONObject state = waitDone(task);
         JSONObject turn = waitNativeTurn(false);
         evidence.put("taskState", state).put("nativeTurnStatus", turn.optString("status")); saveEvidence();
         assertEquals("Stop must cancel the actual composer queue task", "cancelled", state.optString("state"));
         assertEquals("Stop must interrupt the matching real upstream turn", "interrupted", turn.optString("status"));
-        assertTrue("Stopped composer must return to the Send action", waitAccessible(new Node("发送消息"), 25000));
-        assertFalse("Stop must disappear after interruption", new Node("停止当前执行").exists());
-        expectDraft("尚未提交的追加指令");
-        assertTrue("Native stopped state stays visible", new Entry(PKG, "text", ".*本轮已停止.*", true).waitForExists(8000));
+        assertTrue("Stopped composer must still offer Send", waitAccessible(new Node(SEND), 25000));
+        assertTrue("Expo must show the interrupted state", new Entry(CHAT, "text",
+                "Request stopped|Response stopped|该请求已停止|回复已停止", true).waitForExists(15000));
+        assertFalse("Stop must disappear after interruption", new Node(STOP).exists());
+        expectDraft(text);
         evidence.put("nativeStoppedStateRendered", true);
         evidence.put("stopWithDraftPreserved", true).put("actualTurnInterrupted", true).put("actualTaskCancelled", true)
                 .put("composerReturnedToSend", true); capture("stopped");
@@ -533,7 +597,7 @@ public final class ComposerReliabilityTest extends UiAutomatorTestCase {
         Configurator.getInstance().setWaitForIdleTimeout(0).setWaitForSelectorTimeout(2500);
         run = getParams().getString("runId", ""); phase = getParams().getString("phase", "");
         assertTrue("A unique host runId is required", run.matches("[a-zA-Z0-9-]{1,80}"));
-        assertTrue("Unknown phase", phase.matches("failure-missing|failure-async|attachments|steer|stop"));
+        assertTrue("Unknown phase", phase.matches("failure-missing|failure-async|attachments|home-attachments|steer|stop"));
         output = new File("/data/local/tmp/taku-composer-tests/" + run + "/" + phase);
         fixtures = new File("/sdcard/Download/taku-composer-" + run + "-" + phase);
         assertTrue(output.mkdirs());
@@ -545,6 +609,7 @@ public final class ComposerReliabilityTest extends UiAutomatorTestCase {
                 case "failure-missing": failureMissing(); break;
                 case "failure-async": failureAsync(); break;
                 case "attachments": sendAttachments(); break;
+                case "home-attachments": sendThroughHome(); break;
                 case "steer": steerAttachments(); break;
                 case "stop": stopTurn(); break;
                 default: throw new AssertionError("Unknown phase");
@@ -562,7 +627,16 @@ public final class ComposerReliabilityTest extends UiAutomatorTestCase {
                 if (ownedTurn.equals(state.optString("activeTurnId")))
                     NativeSocketProbe.rpc("turn/interrupt", object("threadId", thread).put("turnId", ownedTurn));
             } catch (Exception cleanup) { evidence.put("turnCleanupError", cleanup.toString()); }
-            saveEvidence();
+            try {
+                if (staleModelInstalled) access("composer/options/write", object("threadId", thread)
+                        .put("options", object("model", JSONObject.NULL)));
+            } catch (Exception | AssertionError cleanup) {
+                evidence.put("modelFixtureCleanupError", cleanup.toString());
+                if (evidence.optBoolean("passed")) {
+                    evidence.put("passed", false);
+                    throw cleanup;
+                }
+            } finally { saveEvidence(); }
         }
     }
 }

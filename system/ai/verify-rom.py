@@ -35,6 +35,130 @@ def definitions(raw):
     return result
 
 
+def manifest_tree(text):
+    stack = []
+    root = None
+    for line in text.splitlines():
+        element = re.match(r'^( +)E: ([\w-]+)\b', line)
+        if element:
+            depth = len(element[1])
+            while stack and stack[-1][0] >= depth:
+                stack.pop()
+            node = ET.Element(element[2])
+            if stack:
+                stack[-1][1].append(node)
+            elif root is None:
+                root = node
+            else:
+                raise ValueError('APK manifest has multiple roots')
+            stack.append((depth, node))
+        elif stack:
+            attribute = re.match(r'^ +A: (?:[^ =]+:)?([\w-]+)(?:\(0x[\da-f]+\))?=(?:"([^"]*)"|(\S+))', line)
+            if attribute:
+                stack[-1][1].set(attribute[1], attribute[2] if attribute[2] is not None else attribute[3])
+    if root is None or root.tag != 'manifest':
+        raise ValueError('APK has no compiled manifest')
+    return root
+
+
+def declared(parent, tag, name, **attributes):
+    nodes = [node for node in parent.findall(tag) if node.get('name') == name]
+    if len(nodes) != 1 or any(nodes[0].get(key) != value for key, value in attributes.items()):
+        raise ValueError('Invalid APK declaration: ' + name)
+    return nodes[0]
+
+
+def intent_filter(component, action, categories=(), priority=None):
+    for node in component.findall('intent-filter'):
+        if (action in {child.get('name') for child in node.findall('action')}
+                and set(categories) <= {child.get('name') for child in node.findall('category')}
+                and (priority is None or node.get('priority') == priority)):
+            return
+    raise ValueError('Missing ' + action + ' filter on ' + component.get('name'))
+
+
+def pair_identity(raw, manifest, signature, package, code, shared_uid=None):
+    signer = re.findall(r'^(?:Signer #\d+|V3\.0 Signer):? certificate SHA-256 digest: ([0-9a-f]{64})$',
+                        signature(raw), re.M)
+    if (manifest.get('package'), manifest.get('versionCode'), manifest.get('sharedUserId')) != (
+            package, str(code), shared_uid) or len(signer) != 1:
+        raise ValueError('Wrong APK package, version, UID or signing identity: ' + package)
+    return {'package': package, 'versionCode': code, 'certificateSha256': signer[0]}
+
+
+def verify_assistant_pair(backend, frontend, manifest, signature, root):
+    if signature is None:
+        raise ValueError('Assistant cutover verification requires apksigner')
+    backend_code = int(ET.parse(root / 'system/assistant/AndroidManifest.xml').getroot().get(ANDROID + 'versionCode'))
+    frontend_code = json.loads((root / 'system/agent-app/app.json').read_text())['expo']['android']['versionCode']
+    retired = ('AgentDrawerView', 'AgentDrawerController', 'NativeAssistantSurface', 'NativeControlsActivity',
+               'AssistantService', 'AssistantSession', 'SessionService', 'RecognitionUnavailableService',
+               'ChatActivity', 'ComposerAttachmentActivity', 'ModelManagementActivity', 'ByokSettingsActivity',
+               'NativeConversationView', 'NativeTurnView', 'NativeMarkdownView')
+    classes = definitions(backend)
+    if any(f'Lorg/agentos/assistant/{cls};' in classes for cls in retired):
+        raise ValueError('Backend APK still includes retired assistant classes')
+    backend_xml = manifest(backend)
+    backend_manifest = manifest_tree(backend_xml)
+    backend_identity = pair_identity(backend, backend_manifest, signature, 'org.agentos.assistant',
+                                     backend_code, 'android.uid.system')
+    app = backend_manifest.find('application')
+    if app is None or any(marker in backend_xml.partition('E: application')[2] for marker in (
+            'android.service.voice.VoiceInteractionService', 'android.intent.category.HOME',
+            'android.intent.category.LAUNCHER', 'com.android.settings.action.IA_SETTINGS')):
+        raise ValueError('Backend APK still advertises an assistant UI entry or lacks an application')
+    settings_action = 'org.agentos.action.AI_SETTINGS'
+    default = 'android.intent.category.DEFAULT'
+    forwarder = declared(app, 'activity', '.SystemAiActivity', exported='true')
+    intent_filter(forwarder, settings_action, (default,), priority='-1')
+    if sum(node.get('name') == settings_action for node in app.iter('action')) != 1:
+        raise ValueError('Multiple backend handlers for ' + settings_action)
+    ime_permission = 'org.agentos.assistant.permission.IME_REPLIES'
+    agent_permission = 'org.agentos.permission.AGENT_CLIENT'
+    declared(backend_manifest, 'permission', agent_permission, protectionLevel='0x00000002')
+    ime_declaration = declared(backend_manifest, 'permission', ime_permission, protectionLevel='0x08000002')
+    if not re.fullmatch(r'@0x[\da-f]+', ime_declaration.get('knownCerts', '')):
+        raise ValueError('Backend IME permission has no known-signer certificate resource')
+    for provider, authority, permission in (
+            ('AgentGatewayProvider', 'org.agentos.assistant.agent-gateway', agent_permission),
+            ('AgentOpenAccessProvider', 'org.agentos.assistant.open-access', None),
+            ('ImeReplyProvider', 'org.agentos.assistant.ime-replies', ime_permission),
+            ('MemoryGatewayProvider', 'org.agentos.assistant.memory-gateway', 'org.agentos.memory.ACCESS_MEMORY'),
+            ('SystemAiProvider', 'org.agentos.ai', None)):
+        declared(app, 'provider', '.' + provider, authorities=authority, exported='true', permission=permission)
+        if f'Lorg/agentos/assistant/{provider};' not in classes:
+            raise ValueError('Backend APK is missing ' + provider)
+    frontend_manifest = manifest_tree(manifest(frontend))
+    frontend_identity = pair_identity(frontend, frontend_manifest, signature, 'org.agentos.agent', frontend_code)
+    if frontend_identity['certificateSha256'] != backend_identity['certificateSha256']:
+        raise ValueError('Assistant frontend and backend signers differ')
+    app = frontend_manifest.find('application')
+    if app is None:
+        raise ValueError('Frontend APK has no application')
+    home = 'org.agentos.agent.home.HomeActivity'
+    voice = 'org.agentos.agent.home.assistant.SystemAssistantService'
+    session = 'org.agentos.agent.home.assistant.SystemAssistantSessionService'
+    settings = 'org.agentos.agent.bridge.SystemAiEntryActivity'
+    home_activity = declared(app, 'activity', home, exported='true')
+    intent_filter(home_activity, 'android.intent.action.MAIN', ('android.intent.category.HOME', default))
+    settings_activity = declared(app, 'activity', settings, exported='true')
+    intent_filter(settings_activity, settings_action, (default,))
+    intent_filter(settings_activity, 'com.android.settings.action.IA_SETTINGS')
+    binding = 'android.permission.BIND_VOICE_INTERACTION'
+    voice_service = declared(app, 'service', voice, exported='true', permission=binding)
+    declared(app, 'service', session, exported='true', permission=binding)
+    intent_filter(voice_service, 'android.service.voice.VoiceInteractionService')
+    metadata = declared(voice_service, 'meta-data', 'android.voice_interaction')
+    if not re.fullmatch(r'@0x[\da-f]+', metadata.get('resource', '')):
+        raise ValueError('Frontend voice service has no Android metadata resource')
+    classes = definitions(frontend)
+    for cls in (home, voice, session, settings):
+        if 'L' + cls.replace('.', '/') + ';' not in classes:
+            raise ValueError('Frontend APK is missing ' + cls)
+    return {'backendSha256': sha(backend), 'frontendSha256': sha(frontend),
+            'backendIdentity': backend_identity, 'frontendIdentity': frontend_identity}
+
+
 def native_sidecars(archive, lock):
     expected = {item['installPath'] for item in lock['jni']} | {item['path'] for item in lock['jniSymlinks']}
     actual = {n for n in archive.namelist() if not n.endswith('/') and
@@ -74,8 +198,9 @@ def native_sidecars(archive, lock):
     return report, links
 
 
-def verify(archive, root, badging):
-    workspace_runtime = int(ET.parse(root / 'system/assistant/AndroidManifest.xml').getroot().get(ANDROID + 'versionCode')) >= 73
+def verify(archive, root, badging, manifest=None, signature=None):
+    backend_code = int(ET.parse(root / 'system/assistant/AndroidManifest.xml').getroot().get(ANDROID + 'versionCode'))
+    workspace_runtime = backend_code >= 73
     lock = json.loads((root / 'system/inputmethod/rom-input-lock.json').read_text())
     report = {'status': 'artifact_verified', 'physicalVerified': False, 'runtimeBindRequired': False, 'components': {}}
     names = set(archive.namelist())
@@ -97,8 +222,8 @@ def verify(archive, root, badging):
                                 ('priv-app/TakuMemory/TakuMemory.apk', 'org.agentos.memory', None)]:
         raw = ime if path.startswith('app/') else member(path)
         if code is None:
-            source = 'assistant' if package.endswith('.assistant') else 'memory'
-            code = int(ET.parse(root / 'system' / source / 'AndroidManifest.xml').getroot().get(ANDROID + 'versionCode'))
+            code = backend_code if package.endswith('.assistant') else int(ET.parse(
+                root / 'system/memory/AndroidManifest.xml').getroot().get(ANDROID + 'versionCode'))
         text = badging(raw)
         match = re.search(r"^package: name='([^']+)' versionCode='(\d+)'", text, re.M)
         if not match or match.groups() != (package, str(code)):
@@ -106,9 +231,14 @@ def verify(archive, root, badging):
         report['components'][path].update(package=package, versionCode=code)
         if package.endswith('.assistant'):
             dex = definitions(raw)
-            for cls in ['SystemAiActivity', 'SystemAiProvider', 'ImeReplyProvider']:
+            for cls in ['SystemAiProvider', 'ImeReplyProvider']:
                 if 'Lorg/agentos/assistant/' + cls + ';' not in dex:
                     raise ValueError('Missing shared AI class definition: ' + cls)
+            if backend_code >= 79:
+                if manifest is None:
+                    raise ValueError('Assistant cutover verification requires the APK manifest reader')
+                frontend = member('app/TakuAgent/TakuAgent.apk')
+                report['assistantPair'] = verify_assistant_pair(raw, frontend, manifest, signature, root)
     broker = member('framework/agentos-task-broker.jar')
     dex = definitions(broker)
     broker_classes = ['TaskBroker', 'NativeBridge', 'SystemAi', 'AiPolicy', 'ImeReplies', 'ImeReplyReuse', 'MemoryDecisionJson']
@@ -145,27 +275,42 @@ def verify(archive, root, badging):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('target_files', type=Path)
+    parser.add_argument('target_files', type=Path, nargs='?')
+    parser.add_argument('--assistant-pair', type=Path, nargs=2, metavar=('BACKEND_APK', 'FRONTEND_APK'))
     parser.add_argument('--aapt2', type=Path)
+    parser.add_argument('--apksigner', type=Path)
     parser.add_argument('--output', type=Path)
     args = parser.parse_args()
+    if (args.target_files is None) == (args.assistant_pair is None):
+        parser.error('Supply target-files or --assistant-pair')
     aapt = args.aapt2 or (Path(shutil.which('aapt2')) if shutil.which('aapt2') else None)
     if aapt is None:
         sdk = Path(os.environ.get('ANDROID_SDK_ROOT', os.environ.get('ANDROID_HOME', str(Path.home() / 'Library/Android/sdk'))))
         aapt = sdk / 'build-tools' / os.environ.get('TAKU_BUILD_TOOLS', '36.1.0') / 'aapt2'
-    def badging(raw):
+    signer = args.apksigner or aapt.with_name('apksigner')
+    def inspect(raw, *args):
         with tempfile.TemporaryDirectory(prefix='taku-rom-apk-') as folder:
             apk = Path(folder) / 'component.apk'
             apk.write_bytes(raw)
-            return subprocess.check_output([str(aapt), 'dump', 'badging', str(apk)], text=True)
-    target = args.target_files
-    if target.is_dir():
-        targets = list((target / 'obj/PACKAGING/target_files_intermediates').glob('*.zip'))
-        if len(targets) != 1:
-            raise SystemExit('Expected one target-files package for the built product')
-        target = targets[0]
-    with zipfile.ZipFile(target) as archive:
-        report = verify(archive, ROOT, badging)
+            return subprocess.check_output([str(aapt), 'dump', args[0], str(apk), *args[1:]], text=True)
+    def manifest(raw):
+        return inspect(raw, 'xmltree', '--file', 'AndroidManifest.xml')
+    def signature(raw):
+        with tempfile.TemporaryDirectory(prefix='taku-rom-signature-') as folder:
+            apk = Path(folder) / 'component.apk'
+            apk.write_bytes(raw)
+            return subprocess.check_output([str(signer), 'verify', '--print-certs', str(apk)], text=True)
+    if args.assistant_pair is not None:
+        report = verify_assistant_pair(*(apk.read_bytes() for apk in args.assistant_pair), manifest, signature, ROOT)
+    else:
+        target = args.target_files
+        if target.is_dir():
+            targets = list((target / 'obj/PACKAGING/target_files_intermediates').glob('*.zip'))
+            if len(targets) != 1:
+                raise SystemExit('Expected one target-files package for the built product')
+            target = targets[0]
+        with zipfile.ZipFile(target) as archive:
+            report = verify(archive, ROOT, lambda raw: inspect(raw, 'badging'), manifest, signature)
     if args.output:
         args.output.write_text(json.dumps(report, indent=2) + '\n')
     print(json.dumps(report, indent=2))

@@ -14,7 +14,6 @@ test('makes the manifest launch theme translucent while preserving the native sp
   configureTranslucentThemes(styles);
   for (const theme of styles.resources.style) {
     assert.equal(theme.item.find((item) => item.$.name === 'android:windowIsTranslucent')._, 'true');
-    assert.equal(theme.item.find((item) => item.$.name === 'android:windowBackground')._, '@android:color/transparent');
   }
   const splash = styles.resources.style[1];
   assert.equal(splash.$.parent, 'Theme.SplashScreen');

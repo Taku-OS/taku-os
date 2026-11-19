@@ -32,7 +32,7 @@
     "system/audio-engine/record-build.py": "69637f25ee28ed3483074e9c3f1282ae6795939d829992e2ceb8301eac76ae08",
     "system/audio-engine/res/drawable/audio_dropdown.xml": "3f39e957e704373d7b14f49bcf836a13b8157cf780b4b5da18e4e4fd12e27414",
     "system/audio-engine/res/drawable/taku_brand_mark.xml": "cf9907c383b723237a107802182523c4bef8148e7e4b60b32bbba01cbf821757",
-    "system/audio-engine/res/values-zh/strings_dictation.xml": "0158d299b493a0c45b8af9087d2fa5e707a29e3de565d56f0920ae422e848306",
+    "system/audio-engine/res/values-zh/strings_dictation.xml": "7a690a6dc6f80c9be69961936fbcfa138790bf5c8e861481c86140e4d92e9620",
     "system/audio-engine/res/values-zh/strings_home.xml": "8fb4e6575565bb7b596bf4f9e51491e35e3d0dfb5b96e4668f7b926246b12d7b",
     "system/audio-engine/res/values-zh/strings_media.xml": "a2817dee6c1c5a8f77cabc441ceb4530e35193bf8d0ea4a1c7c24dc351e94194",
     "system/audio-engine/res/values-zh/strings_reading.xml": "d0f0ec9740f760e6850a5e52451206ab4b8310afec365a26c2f1e6cd1bc26eae",
@@ -40,7 +40,7 @@
     "system/audio-engine/res/values-zh/strings_ui.xml": "5a714b706f727716a36707b5a4aeb69622f6a3690f94678a3208a6487fd524a7",
     "system/audio-engine/res/values/ids.xml": "2cb1d86c007ec4713ffc571efb90bf830b07c64f99351e2cbfc9ee06f6ed4ae6",
     "system/audio-engine/res/values/strings.xml": "a3fcf5866e22408f789b8ef2ba36531235d39cc838686af42c5289959c019470",
-    "system/audio-engine/res/values/strings_dictation.xml": "eb3b420a7f583c0e4c39cf2e4fa8472b27a6c20f2747254730fe715af22d8dd0",
+    "system/audio-engine/res/values/strings_dictation.xml": "7912055392c74ea017ed50ca6064d6608b24d0a8c20f603b9c64fcbad6ce4845",
     "system/audio-engine/res/values/strings_home.xml": "e3573a9428d984f36ad223ce063cb49867455e2e1d30189f77d7f0095df3c1e2",
     "system/audio-engine/res/values/strings_media.xml": "a144cbcdf2840644253f8994c9df4c2df327db90dec0d9f4cb247a00969e076e",
     "system/audio-engine/res/values/strings_reading.xml": "6f007436ae74335fc3a6c39acac8c5a4de7d989e107cdf66cf8f0366d0226948",
@@ -101,13 +101,13 @@
   "assets": [
     {
       "path": "system/audio-engine/prebuilt/TakuAudioEngine.apk",
-      "sha256": "1824faa7c0b158d4f4f48578ce9f3110e450f990ee8762ba626edb760cfaa3a8",
-      "bytes": 34662139
+      "sha256": "058287592ad49d61280ea5fc698eb4cc270dc916c6ab6a63d03687197f2c5afa",
+      "bytes": 34711291
     },
     {
       "path": "system/audio-engine/prebuilt/audio-bridge.jar",
-      "sha256": "99fc6553452a18fe4899169d6f2ce1f8387bde5b05e2fc3217d1f90eb672df4d",
-      "bytes": 1800352
+      "sha256": "52883702619b625ac6138e6fa262ad4d8de0cbe9af70276a8236a051961a9462",
+      "bytes": 1856133
     },
     {
       "path": "system/audio-engine/prebuilt/models/asr/README.md",
@@ -2054,7 +2054,7 @@
     "AndroidManifest.xml": "8589bd9bb633c00a96dd928ea958a365169743821a8081843a37bbaf7bb78777",
     "res/drawable/audio_dropdown.xml": "e264f67600326bfd7e95fbfd0f975fe9436d2aa00bf86391b59610b8e7ffcf9f",
     "res/drawable/taku_brand_mark.xml": "7c8f32d7719ad6076394e72df96cdd4e489c7dc83bd56f3197e4b8059f8896a8",
-    "resources.arsc": "9457040ef9eb2d8b2e5d92275992cb7767e0b0d60a2e1538b4550605b8f4ef50",
+    "resources.arsc": "8f40ec862d9193243c3f7113ed12bd12eec9010f7752bb6b789d6a7665aa70f9",
     "assets/licenses/asr-MODEL_CARD.md": "c914dd28e23310a6dd345ea10495003d3e4820d2ed987181e4c2d67e501b6b76",
     "assets/licenses/asr-zh-MODEL_CARD.md": "98b45ea81164d1e1a1dd82255207053b15cd6c69d922a1c5cf3387ce604d4b74",
     "assets/licenses/espeak-ng-COPYING": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903",
@@ -2066,7 +2066,7 @@
     "assets/licenses/onnxruntime-LICENSE": "2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c",
     "assets/licenses/onnxruntime-ThirdPartyNotices.txt": "0e07b95f3a8d6230037707c5c4a2b554d12c4cb67369669ac255635528ffcee2",
     "assets/licenses/sherpa-onnx-LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-    "classes.dex": "046eda0481e4b0f364bef0c58a0c9e2a4bde04a85121c426106581bd845f473d",
+    "classes.dex": "f50c55a1d1ffe0702d6179bf5d30de2af7a08704623ff7816e53c07e58c263b7",
     "lib/arm64-v8a/libsherpa-onnx-c-api.so": "c85e2382e2ca12b0513826be926eaccfea896b4cbf568182e287671ba526f80d",
     "lib/arm64-v8a/libsherpa-onnx-cxx-api.so": "5eabb2bcf5a8af66aeab37431c09fab4a9c65cdebf02bd7e50f8c589044bd70e",
     "lib/arm64-v8a/libsherpa-onnx-jni.so": "3c6492ea91ea68fd3b72b9495efdde6dd913f6b58c387e3b07389cf335f4d26f",

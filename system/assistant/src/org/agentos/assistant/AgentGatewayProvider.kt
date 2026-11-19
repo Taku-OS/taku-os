@@ -2,7 +2,6 @@ package org.agentos.assistant
 
 import android.content.ContentProvider
 import android.content.ContentValues
-import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.database.Cursor
@@ -12,8 +11,6 @@ import android.net.LocalSocketAddress
 import android.net.Uri
 import android.os.Binder
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.os.ParcelFileDescriptor
 import android.os.SystemClock
 import android.system.ErrnoException
@@ -32,7 +29,6 @@ import java.nio.charset.StandardCharsets
 import java.util.HashSet
 import java.util.LinkedHashMap
 import java.util.UUID
-import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import java.util.concurrent.Semaphore
@@ -93,6 +89,12 @@ class AgentGatewayProvider : ContentProvider() {
     }
 
     override fun call(method: String, arg: String?, extras: Bundle?): Bundle {
+        val callerUid = Binder.getCallingUid()
+        if (method.startsWith("composer/") || method.startsWith("workspaces/") || method.startsWith("capture/") ||
+            method.startsWith("accounts/") || method.startsWith("requests/") ||
+            method in setOf("assistCapture", "assistInvocation", "readTaskDetail", "manageSystemAi", "manageAssistant")) {
+            ComposerState.userError(context!!, callerUid)?.let { return error(Bundle(), it) }
+        }
         if ("nativeMatter" == method || "nativeAudio" == method) {
             val uid = Binder.getCallingUid()
             if (uid != 0 && uid != android.os.Process.SYSTEM_UID && uid != android.os.Process.SHELL_UID)
@@ -100,40 +102,14 @@ class AgentGatewayProvider : ContentProvider() {
         } else enforceCaller()
         val output = Bundle()
         if (!calls.tryAcquire()) return error(output, "BUSY")
-        val callerUid = Binder.getCallingUid()
+        val callerPid = Binder.getCallingPid()
         val identity = Binder.clearCallingIdentity()
         try {
-            if (method == "assistCapture") {
+            if (method == "assistCapture" || method == "assistInvocation") {
                 if (arg == null || arg.length > 4096) throw IOException("INVALID_ARGUMENT")
-                val input = JSONObject(arg)
-                if (input.keys().asSequence().any { it !in setOf("jevTestToken", "manualScreen", "captureForeground") }) throw IOException("INVALID_ARGUMENT")
-                val token = input.getString("jevTestToken")
-                if (!JevTestTrigger.pending(token)) throw IOException("CAPTURE_EXPIRED")
-                val descriptor = extras?.getParcelable("capture", ParcelFileDescriptor::class.java)
-                val bitmap = descriptor?.let { ParcelFileDescriptor.AutoCloseInputStream(it).use { stream ->
-                    val bytes = stream.readNBytes(16_777_217)
-                    if (bytes.size > 16_777_216) throw IOException("INVALID_CAPTURE")
-                    val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
-                    android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
-                    if (bounds.outWidth <= 0 || bounds.outHeight <= 0 ||
-                        bounds.outWidth.toLong() * bounds.outHeight > 16_777_216) throw IOException("INVALID_CAPTURE")
-                    android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                        ?: throw IOException("INVALID_CAPTURE")
-                } }
-                val shown = CompletableFuture<Boolean>()
-                Handler(Looper.getMainLooper()).post {
-                    try {
-                        if (!JevTestTrigger.pending(token)) { shown.complete(false); return@post }
-                        NativeControlsActivity.open(context!!, Bundle().apply {
-                            putString("jevTestToken", token)
-                            putBoolean("manualScreen", input.optBoolean("manualScreen"))
-                            putString("captureForeground", input.optString("captureForeground", "Current app").take(256))
-                        }, bitmap)
-                        shown.complete(true)
-                    } catch (_: Exception) { shown.complete(false) }
-                }
-                if (!shown.get(3, TimeUnit.SECONDS)) throw IOException("NATIVE_CONTROLS_UNAVAILABLE")
-                output.putString("result", JSONObject().put("ok", true).put("result", JSONObject().put("opened", true)).toString())
+                val result = if (method == "assistCapture") AssistantCaptureBackend.receive(context!!, JSONObject(arg), extras)
+                    else AssistantInvocationCapture.receive(context!!, JSONObject(arg), extras)
+                output.putString("result", JSONObject().put("ok", true).put("result", result).toString())
                 return output
             }
             val request: JSONObject
@@ -141,7 +117,12 @@ class AgentGatewayProvider : ContentProvider() {
                 if (arg == null || arg.length > AgentGatewayProtocol.MAX_REQUEST) throw IOException("REQUEST_TOO_LARGE")
                 request = JSONObject(arg)
             } else request = AgentGatewayProtocol.request(method, arg)
-            val envelope = JSONObject().put("ok", true).put("result", execute(method, request, callerUid))
+            val result = when {
+                method == AgentGatewayProtocol.COMPOSER_ATTACH -> ComposerAttachments.attach(context!!, request, extras, callerUid, callerPid)
+                method.startsWith("accounts/") -> AssistantAccounts.command(context!!, method, request, extras)
+                else -> execute(method, request, callerUid)
+            }
+            val envelope = JSONObject().put("ok", true).put("result", result)
             val bytes = envelope.toString().toByteArray(StandardCharsets.UTF_8)
             if (bytes.size > MAX_RESULT_BYTES) return error(output, "RESPONSE_TOO_LARGE")
             if (bytes.size <= INLINE_BYTES) output.putString("result", envelope.toString())
@@ -149,6 +130,8 @@ class AgentGatewayProvider : ContentProvider() {
                 val token = retain(bytes)
                 output.putString("result", JSONObject().put("ok", true).put("resultUri", uri("result", token).toString()).toString())
             }
+        } catch (conflict: ComposerState.RevisionConflict) {
+            error(output, "DRAFT_REVISION_CONFLICT", conflict.revision)
         } catch (failure: Exception) {
             val code = failure.message
             error(output, if (code != null && java.util.regex.Pattern.matches("[A-Z][A-Z_]{2,80}", code)) code else "RUNTIME_UNAVAILABLE")
@@ -159,9 +142,11 @@ class AgentGatewayProvider : ContentProvider() {
         return output
     }
 
-    private fun error(output: Bundle, code: String): Bundle {
+    private fun error(output: Bundle, code: String, revision: String? = null): Bundle {
         try {
-            output.putString("result", JSONObject().put("ok", false).put("code", code).put("message", code).toString())
+            val envelope = JSONObject().put("ok", false).put("code", code).put("message", code)
+            if (revision != null) envelope.put("revision", revision)
+            output.putString("result", envelope.toString())
         } catch (_: Exception) { }
         return output
     }
@@ -178,6 +163,15 @@ class AgentGatewayProvider : ContentProvider() {
             "subscribeMatter" -> return matterStreams.subscribe(input.getJSONArray("matterIds"), callerUid)
             "unsubscribeMatter" -> return matterStreams.unsubscribe(input.getString("subscriptionId"), callerUid)
             "dispatchMatter" -> return matters.dispatch(input)
+            "readTaskDetail" -> return TaskDetails.read(context!!.filesDir, input.getString("taskId"))
+            "capture/read", "capture/accept", "capture/dismiss", "capture/request", "capture/openConversation" ->
+                return AssistantCaptureBackend.execute(context!!, action, input)
+            "manageAssistant" -> return AssistantManagement.execute(context!!, input)
+            "requests/list", "requests/open", "requests/respond", "requests/cancel" ->
+                return AssistantRequests.execute(context!!, action, input)
+            "workspaces/list", "workspaces/apps", "workspaces/configure", "workspaces/release", "workspaces/preview", "workspaces/open",
+            "workspaces/pause", "workspaces/takeControl", "workspaces/input", "workspaces/returnAndResume", "workspaces/addRequirement", "workspaces/executionStatus" ->
+                return WorkspaceCommands.call(context!!, action, input, callerUid)
             "analyzeCameraFrame" -> return CameraGuide.analyze(input)
             "audioCapabilities" -> return AudioSessionBridge.get(context!!).capabilities()
             "audioCommand" -> return audioCommand(input)
@@ -197,12 +191,20 @@ class AgentGatewayProvider : ContentProvider() {
                 return audioCommand(AgentGatewayProtocol.request("audioCommand", params.toString()))
             }
             "readSystemAi", "setSystemAi", "bindSystemAi", "bindSystemAiModel", "reorderSystemAi", "restoreSystemAi",
-            "deleteSystemAiGroup", "openAssistantConnection", "openMagpieManagement" -> return SystemAiUiBridge.execute(context!!, action, input)
+            "deleteSystemAiGroup", "manageSystemAi" ->
+                return SystemAiUiBridge.execute(context!!, action, input)
+            "openAssistantConnection", "openMagpieManagement" -> {
+                val page = if (action == "openMagpieManagement") "magpie" else input.optString("page", "connection")
+                if (page == "connection") {
+                    if (!AgentFrontendLauncher.openRoute(context!!, "/system-ai?section=connection")) throw IOException("AGENT_UI_UNAVAILABLE")
+                } else AssistantAccounts.open(context!!, page)
+                return JSONObject().put("opened", true)
+            }
             "readAppPermissions", "setAppPermissionMode", "setAppPermissionScope", "resetAppPermission" ->
                 return AppPermissionUiBridge.execute(context!!, action, input)
             "listThreads" -> return AgentGatewayProtocol.clean(TaskRequests.control("thread/list", JSONObject()), 0) as JSONObject
             "createThread" -> {
-                val result = TaskRequests.control("thread/start", JSONObject())
+                val result = ComposerDelivery.createThread()
                 val created = result.getJSONObject("thread")
                 completeHistory[created.getString("id")] = historyIds(created)
                 return AgentGatewayProtocol.clean(result, 0) as JSONObject
@@ -219,6 +221,19 @@ class AgentGatewayProvider : ContentProvider() {
             "readSession" -> return snapshot(thread, input.optBoolean("refresh"), input.optBoolean("statusOnly"))
             "subscribeSession" -> return subscribe(input, callerUid)
             "unsubscribeSession" -> return unsubscribe(input.getString("subscriptionId"), callerUid)
+            AgentGatewayProtocol.COMPOSER_READ -> return ComposerState.read(preferences(), thread)
+            AgentGatewayProtocol.COMPOSER_WRITE -> return ComposerState.write(preferences(), thread, input.getString("revision"), input.getString("text"))
+            AgentGatewayProtocol.COMPOSER_IMPORT -> return ComposerState.importLegacy(preferences(), thread, input.getString("text"))
+            AgentGatewayProtocol.COMPOSER_MOVE -> return ComposerDelivery.move(context!!, input)
+            AgentGatewayProtocol.COMPOSER_RECEIPT, AgentGatewayProtocol.COMPOSER_SUBMIT,
+            AgentGatewayProtocol.COMPOSER_SETTLE, AgentGatewayProtocol.COMPOSER_RELEASE -> return ComposerDelivery.call(context!!, action, input)
+            AgentGatewayProtocol.COMPOSER_REMOVE -> return ComposerState.removeAttachment(preferences(), thread, input.getString("expectedRevision"), input.getString("attachmentId"))
+            AgentGatewayProtocol.COMPOSER_OPTIONS_READ, AgentGatewayProtocol.COMPOSER_OPTIONS_WRITE -> return ComposerOptions.call(context!!, action, input)
+            AgentGatewayProtocol.COMPOSER_CREATE_THREAD -> return AgentGatewayProtocol.clean(ComposerDelivery.createThread(), 0) as JSONObject
+            AgentGatewayProtocol.COMPOSER_HANDOFF -> return ComposerState.handoff(preferences(), thread, input.getString("handoffId"), input.getString("text"))
+            AgentGatewayProtocol.COMPOSER_RESTORE -> return ComposerState.restore(preferences(), thread, input.getString("expectedRevision"), input.getString("recoveryId"))
+            AgentGatewayProtocol.COMPOSER_PRESERVE_DRAFT -> return ComposerState.preserveDraft(preferences(), thread, input.getString("recoveryId"), input.getString("text"))
+            AgentGatewayProtocol.COMPOSER_RESTORE_TASK -> return ComposerDelivery.restoreTask(context!!, input)
             "sendMessage" -> return submit(input)
             "steer" -> return submissions.steer(input.getString("requestId"), thread, input.getString("expectedTurnId"), input.getString("text"), {
                 val state = NativeClient.state(thread)
@@ -231,63 +246,24 @@ class AgentGatewayProvider : ContentProvider() {
                 override fun check() { checkSubmitAfterTurn(thread) }
                 @Throws(Exception::class)
                 override fun publish(before: TaskRequests.BeforePublish): String = publishSubmit(thread, input.getString("text"), false, before)
-                override fun published(taskId: String): Boolean = java.util.regex.Pattern.matches("[0-9]+", taskId) && File(File(AssistantSession.TASKS, taskId), "ready").isFile
+                override fun published(taskId: String): Boolean = java.util.regex.Pattern.matches("[0-9]+", taskId) && File(File(TaskRuntime.TASKS, taskId), "ready").isFile
             })
-            "cancelQueued" -> {
-                val taskId = input.getString("taskId")
-                val task = File(AssistantSession.TASKS, taskId)
-                val original = readObject(File(task, "request.json"))
-                if (thread != original.optString("conversationId")) throw IOException("TASK_THREAD_MISMATCH")
-                if (File(task, "done").isFile) throw IOException("TASK_FINISHED")
-                if (NativeClient.state(thread).optString("activeTurnId").isNotEmpty()) throw IOException("TURN_STARTED")
-                TaskRequests.write(File(task, "cancel"), "1")
-                return JSONObject().put("threadId", thread).put("taskId", taskId).put("cancellationRequested", true)
-            }
-            "interrupt" -> {
-                val state = NativeClient.state(thread)
-                if (input.getString("turnId") != state.optString("activeTurnId")) throw IOException("TURN_CHANGED")
-                val goal = state.optJSONObject("goal")
-                if (goal != null && "active" == goal.optString("status"))
-                    NativeClient.rpcSync("thread/goal/set", JSONObject().put("threadId", thread).put("status", "paused").put("origin", "user"))
-                return NativeClient.rpcSync("turn/interrupt", JSONObject().put("threadId", thread).put("turnId", input.getString("turnId")))
-            }
+            "cancelQueued" -> return TaskRequests.cancelQueued(thread, input.getString("taskId"))
+            "interrupt" -> return TaskRequests.interrupt(thread, input.getString("turnId"))
             "answer" -> {
                 AgentGatewayProtocol.pending(NativeClient.state(thread), thread, input.getString("key"))
                 // The broker validates the current request/turn and consumes the answer atomically.
                 return NativeClient.exchange(JSONObject().put("op", "respond").put("key", input.getString("key")).put("response", input.getJSONObject("response")))
             }
             "getWorkspaces" -> return workspaces(thread)
-            "openNativeConversation" -> {
-                val current = TaskRequests.control("thread/read", JSONObject().put("threadId", thread))
-                if (current.optBoolean("threadUnavailable") || !current.optBoolean("loaded") || thread != current.optString("threadId"))
-                    throw IOException("THREAD_UNAVAILABLE")
-                val shown = CompletableFuture<Boolean>()
-                Handler(Looper.getMainLooper()).post {
-                    try {
-                        val args = Bundle()
-                        args.putString("conversationId", thread)
-                        args.putBoolean(AgentFrontendRoute.NATIVE_CONTROLS_ONLY, true)
-                        NativeControlsActivity.open(context!!, args, null)
-                        shown.complete(true)
-                    } catch (_: Exception) { shown.complete(false) }
-                }
-                if (!shown.get(3, TimeUnit.SECONDS)) throw IOException("NATIVE_CONTROLS_UNAVAILABLE")
-                return JSONObject().put("opened", true).put("threadId", thread)
-            }
-            "openWorkspace" -> {
-                val lease = exactLease(thread, input.getString("screenKey"), input.getString("generation"))
-                val intent = Intent(context!!, MirrorActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                for (key in arrayOf("threadId", "screenKey", "generation")) intent.putExtra(key, lease.getString(key))
-                intent.putExtra(AgentFrontendLauncher.RETURN_AGENT_FRONTEND, true)
-                intent.putExtra(AgentFrontendLauncher.RETURN_CONVERSATION_ID, thread)
-                context!!.startActivity(intent)
-                return JSONObject().put("opened", true)
-            }
+            "openWorkspace" -> return WorkspaceCommands.call(context!!, "workspaces/preview", input, callerUid)
             "openSettings" -> {
-                val page = input.optString("page", "models")
-                val screen = if (page == "system") SystemAiActivity::class.java
-                    else if (page == "workspaces") BackgroundWorkspacesActivity::class.java else ModelManagementActivity::class.java
-                context!!.startActivity(Intent(context!!, screen).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                val route = when (input.optString("page", "models")) {
+                    "workspaces" -> "/workspaces"
+                    "system" -> "/system-ai"
+                    else -> "/system-ai?section=connection"
+                }
+                if (!AgentFrontendLauncher.openRoute(context!!, route)) throw IOException("AGENT_UI_UNAVAILABLE")
                 return JSONObject().put("opened", true)
             }
             "pluginManager" -> return PluginManagerBridge.execute(input)
@@ -344,7 +320,7 @@ class AgentGatewayProvider : ContentProvider() {
     private fun snapshot(threadId: String, refresh: Boolean): JSONObject = snapshot(threadId, refresh, false)
 
     private fun snapshot(threadId: String, refresh: Boolean, statusOnly: Boolean): JSONObject {
-        val projection = File(AssistantSession.ROOT, "agent-view/" + threadId + ".json")
+        val projection = File(TaskRuntime.ROOT, "agent-view/" + threadId + ".json")
         val nativeState = try { NativeClient.state(threadId) } catch (_: Exception) { JSONObject().put("ready", false) }
         val result: JSONObject
         if (statusOnly) result = JSONObject().put("thread", JSONObject().put("id", threadId))
@@ -377,7 +353,7 @@ class AgentGatewayProvider : ContentProvider() {
         }
         val taskId = preferences().getString("task-" + threadId, "")!!
         if (java.util.regex.Pattern.matches("[0-9]+", taskId)) {
-            val task = File(AssistantSession.TASKS, taskId)
+            val task = File(TaskRuntime.TASKS, taskId)
             val state = File(task, "state.json")
             val request = File(task, "request.json")
             val runtime = File(task, "runtime-info.json")
@@ -436,15 +412,6 @@ class AgentGatewayProvider : ContentProvider() {
             previewCatalog.failedRead(revision)
             throw failure
         }
-    }
-
-    private fun exactLease(thread: String, key: String, generation: String): JSONObject {
-        val screens = workspaces(thread).getJSONArray("screens")
-        for (i in 0 until screens.length()) {
-            val screen = screens.getJSONObject(i)
-            if (key == screen.optString("screenKey") && generation == screen.optString("generation")) return screen
-        }
-        throw IOException("SCREEN_LEASE_CHANGED")
     }
 
     private fun preview(thread: String, key: String, generation: String): ByteArray {

@@ -72,7 +72,7 @@ checks the saved voice after a GUI speed change rather than pinning button text.
 
 `review-package-device.py` supports the data-installed Audio APK used by this
 AVD. `--apk` selects the built APK restored after per-user removal; its default is
-`system/audio-engine/out/TakuAudioEngine.apk`. Uninstall keeps application data.
+`system/audio-engine/out/TakuAudioEngine.apk`. Uninstall keeps application data. The test checks Audio availability in the live Expo settings page, the System AI provider, and the Home app catalog without restarting either Assistant process.
 
 Run settings and GUI acceptance independently of synthetic audio sessions:
 

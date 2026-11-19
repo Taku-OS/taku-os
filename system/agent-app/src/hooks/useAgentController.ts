@@ -3,9 +3,10 @@ import {AppState, BackHandler} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {useLocales} from 'expo-localization';
 import {callAgent, closeAgent, consumePanelLaunch, isPanelLaunchConsumed, launchPanelTarget, launchThreadId, newRequestId, onOpenThread, selectConversation, subscribeSession, watchConversationVisible, AgentGatewayError, type PanelTarget} from '../native/agent';
-import {continuePanel} from '../panels/client';
-import {projectSession, projectThreads, projectWorkspaces, failedTaskDraft, record, string, type Json, type SessionView, type ThreadSummary, type WorkspaceView} from '../model/session';
-import {isAcceptedReceipt, isNotSentReceipt, preserveAndReleaseUnconfirmed, requestReceiptWithRetry, retireAcceptedSubmission, type PendingSubmission} from './submission';
+import {pickComposerAttachment, type ComposerPickerKind} from '../native/composerPicker';
+import {projectSession, projectThreads, projectWorkspaces, record, string, type Json, type SessionView, type ThreadSummary, type WorkspaceView} from '../model/session';
+import {isAcceptedReceipt, isNotSentReceipt, pendingKey, preserveAndReleaseUnconfirmed, unconfirmedArchivePrefix, type PendingSubmission} from './submission';
+import {ComposerDraft, isDraftRevisionConflict, parseComposerSnapshot, type ComposerSnapshot, type ComposerSubmission} from './composerDraft';
 import {readCurrent, restoreConversation} from './readLifecycle';
 import {sessionReadOptions} from './sessionRead';
 import {emptySessionStream, reduceSessionBatch, retainSessionBlocks, streamCursor, streamSessionRoot, sessionRootForDisplay, reconcileStreamHistory} from '../model/sessionStream';
@@ -17,14 +18,17 @@ type ChatSubmission = {threadId: string; requestId: string; text: string; action
 const asChatSubmission = (pending: PendingSubmission): ChatSubmission => ({
   threadId: pending.threadId, requestId: pending.requestId, text: pending.text,
   action: pending.action === 'continue' ? 'sendMessage' : pending.action, expectedTurnId: pending.expectedTurnId});
-/** panels/continue returns the task receipt, optionally alongside its panel association. */
-const unwrapPanelReceipt = (value: Json): Json => {
-  const receipt = record(value.receipt);
-  return Object.keys(receipt).length ? receipt : value;
-};
-const draftKey = (id: string) => `taku.agent.draft.v1.${id || 'new'}`;
-const pendingKey = (id: string) => `taku.agent.pending.v1.${id}`;
-const unconfirmedArchiveKey = (threadId: string, requestId: string) => `taku.agent.unconfirmed.v1.${threadId}.${requestId}`;
+const submissionTarget = (pending: ComposerSubmission) => ({
+  action: pending.action,
+  ...(pending.expectedTurnId ? {expectedTurnId: pending.expectedTurnId} : {}),
+  ...(pending.action === 'continue' ? {panelId: pending.panel?.panelId, expectedSourceVersion: pending.panel?.expectedSourceVersion} : {}),
+});
+const unconfirmedArchiveKey = (threadId: string, requestId: string) => `${unconfirmedArchivePrefix(threadId)}${requestId}`;
+
+const lookupPending = (pending: ComposerSubmission) => callAgent('composer/receipt', {
+  threadId: pending.threadId, requestId: pending.requestId,
+  ...(pending.attachmentIds ? {} : {text: pending.text, ...submissionTarget(pending)}),
+});
 
 export function useAgentController() {
   const [session, setSession] = useState<SessionView | null>(null);
@@ -35,11 +39,13 @@ export function useAgentController() {
   const [optimisticSubmissions, setOptimisticSubmissions] = useState<OptimisticSubmission[]>([]);
   const visibleOptimisticSubmissions = useMemo(() => optimisticSubmissions.filter(request => request.threadId === selected), [optimisticSubmissions, selected]);
   const [draft, setDraft] = useState('');
+  const [draftSnapshot, setDraftSnapshot] = useState<ComposerSnapshot>();
   const [loading, setLoading] = useState(true);
   const [restoring, setRestoring] = useState(true);
-  const [pendingSubmission, setPendingSubmission] = useState<PendingSubmission | null>(null);
+  const [pendingSubmission, setPendingSubmission] = useState<ComposerSubmission | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [draftError, setDraftError] = useState('');
   const [readError, setReadError] = useState('');
   const [selectionError, setSelectionError] = useState('');
   const [historyError, setHistoryError] = useState('');
@@ -52,16 +58,14 @@ export function useAgentController() {
   const selectedRef = useRef(''), draftRef = useRef(''), sessionRef = useRef<SessionView | null>(null), taskRef = useRef<Json>({});
   const streamRef = useRef({state: emptySessionStream(''), healthy: false, failed: false});
   const sidebandRef = useRef<Json>({});
-  const draftWrites = useRef(Promise.resolve());
+  const [drafts] = useState(() => new Map<string, ComposerDraft>());
   const navigationWrites = useRef(Promise.resolve());
   const selectionWrites = useRef(Promise.resolve());
   const historyRevision = useRef(0);
-  const draftRevision = useRef(0);
   const pendingOpen = useRef('');
   const launchFailure = useRef<unknown>(null);
   /** Navigation context only: the panel whose original conversation this send continues. */
   const panelTarget = useRef<PanelTarget | null>(null);
-  const recoveredPending = useRef(new Set<string>());
   const draftReady = useRef(false);
   const optimisticRef = useRef<OptimisticSubmission[]>([]);
   sessionRef.current = session;
@@ -103,6 +107,9 @@ export function useAgentController() {
       HISTORY_UNAVAILABLE: ['Conversation history could not refresh. Please try again.', '会话列表暂未刷新，请稍后重试。'],
       WORKSPACE_UNAVAILABLE: ['Workspace preview is temporarily unavailable.', '工作区预览暂不可用。'],
       DRAFT_RESTORE_UNAVAILABLE: ['Your saved draft could not be restored. Refresh before sending.', '暂时无法恢复已保存的草稿，请刷新后再发送。'],
+      DRAFT_SAVE_UNAVAILABLE: ['Your draft could not be saved. Please try again.', '草稿暂时无法保存，请重试。'],
+      DRAFT_REVISION_CONFLICT: ['The saved draft changed elsewhere. Your edits are still here. Review the other draft before sending.', '已保存的草稿在其他界面发生变化。此处的编辑仍保留，请核对另一份草稿后再发送。'],
+      SCREENSHOT_UNAVAILABLE: ['The system did not supply a screen from before invocation. Reopen the assistant or disable screenshots in Composer tools. Your draft is preserved.', '系统未提供唤起前的屏幕。请重新唤起助手，或在输入工具中关闭截图。草稿已保留。'],
       UNKNOWN_DELIVERY: ['Delivery is not confirmed. Your draft is saved; do not submit it as a new request.', '发送状态尚未确认。草稿已保存，请勿作为新请求重复提交。'],
       PENDING_DIFFERENT: ['A previous message still needs confirmation. Use “Retry original request”; your new draft will be retained.', '上一条消息尚未确认，请使用“重试原请求”。新的草稿会保留。'],
       QUEUED: ['Your message is queued. You can add a requirement once execution starts.', '消息正在排队，开始执行后可补充要求。'],
@@ -123,20 +130,55 @@ export function useAgentController() {
   const messageRef = useRef(message);
   messageRef.current = message;
 
-  const saveDraft = useCallback((id: string, value: string) => {
-    // Serialize writes so rapid input cannot restore an older draft after a newer one.
-    draftWrites.current = draftWrites.current.catch(() => {}).then(() => AsyncStorage.setItem(draftKey(id), value));
-    return draftWrites.current;
+  const composer = useCallback((id: string) => {
+    let slot = drafts.get(id);
+    if (!slot) { slot = new ComposerDraft(id); drafts.set(id, slot); }
+    return slot;
+  }, [drafts]);
+
+  const showDraft = useCallback((text: string) => {
+    draftRef.current = text;
+    setDraft(text);
   }, []);
 
+  const saveDraft = useCallback(async (id: string, value: string) => {
+    const slot = composer(id), ticket = generation.current;
+    slot.setText(value);
+    showDraft(value);
+    try {
+      const snapshot = await slot.flush();
+      if (mounted.current && generation.current === ticket) {
+        setDraftSnapshot(snapshot);
+        setDraftError('');
+      }
+    } catch (problem) {
+      if (mounted.current && generation.current === ticket) {
+        if (isDraftRevisionConflict(problem)) { setDraftSnapshot(slot.snapshot); showDraft(slot.text); }
+        const code = isDraftRevisionConflict(problem) ? 'DRAFT_REVISION_CONFLICT' : 'DRAFT_SAVE_UNAVAILABLE';
+        setDraftError(messageRef.current(new AgentGatewayError('Draft save failed', code)));
+      }
+      throw problem;
+    }
+  }, [composer, showDraft]);
+
+  const draftSelection = generation.current;
   const updateDraft = useCallback((value: string) => {
-    if (!draftReady.current || actionRunning.current) return false;
-    ++draftRevision.current;
-    draftRef.current = value;
-    setDraft(value);
-    void saveDraft(selectedRef.current, value).catch(() => setError(zh ? '草稿暂时无法保存。' : 'Your draft could not be saved.'));
+    if (!draftReady.current || actionRunning.current || generation.current !== draftSelection || selectedRef.current !== selected) return false;
+    void saveDraft(selected, value).catch(() => {});
     return true;
-  }, [saveDraft, zh]);
+  }, [draftSelection, saveDraft, selected]);
+
+  const applyDictation = useCallback(async (value: string, expected: {threadId: string; revision: string; text: string}) => {
+    if (!draftReady.current || actionRunning.current || generation.current !== draftSelection ||
+        selectedRef.current !== expected.threadId || draftRef.current !== expected.text) return false;
+    const slot = composer(expected.threadId);
+    const applied = await slot.applyDictation(value, expected);
+    if (mounted.current && generation.current === draftSelection) {
+      setDraftSnapshot(slot.snapshot);
+      showDraft(slot.text);
+    }
+    return applied;
+  }, [composer, draftSelection, showDraft]);
 
   const syncNativeSelection = useCallback((id: string, ticket: number) => {
     const resume = navigationWrites.current.catch(() => {}).then(async () => {
@@ -150,7 +192,7 @@ export function useAgentController() {
     if (!mounted.current) return;
     if (panelTarget.current && panelTarget.current.originThreadId !== id) panelTarget.current = null;
     const ticket = ++generation.current;
-    const draftTicket = ++draftRevision.current;
+    const slot = composer(id);
     draftReady.current = false; setRestoring(true); setPendingSubmission(null);
     selectedRef.current = id;
     if (!preserveConversationKey) setConversationKey(id || 'new');
@@ -160,31 +202,52 @@ export function useAgentController() {
     // Reopening the already-selected thread also invalidates the previous polling ticket.
     setRefreshRevision(value => value + 1);
     setWorkspaces([]); setWorkspaceError(''); setError(''); setReadError(''); setSelectionError(''); setLoading(Boolean(id));
-    draftRef.current = ''; setDraft('');
+    setDraftError('');
+    showDraft(slot.text);
+    setDraftSnapshot(undefined);
     // Native settings and the frontend keep the same selected conversation.
     // A slow earlier resume must finish before a later selection writes the preference.
     void syncNativeSelection(id, ticket).catch(e => {
       if (mounted.current && generation.current === ticket) setSelectionError(messageRef.current(e));
     });
-    const isCurrent = () => mounted.current && generation.current === ticket && draftRevision.current === draftTicket;
+    const isCurrent = () => mounted.current && generation.current === ticket;
     await readCurrent({
       isCurrent,
       read: async () => {
-        await draftWrites.current.catch(() => {});
         selectionWrites.current = selectionWrites.current.catch(() => {}).then(async () => {
           if (isCurrent()) await AsyncStorage.setItem(SELECTED, id);
         });
         await selectionWrites.current;
-        return Promise.all([
-          AsyncStorage.getItem(draftKey(id)),
-          id ? AsyncStorage.getItem(pendingKey(id)) : Promise.resolve(null),
-        ]);
+        const [restored, stored] = await Promise.all([slot.restore(), id ? AsyncStorage.getItem(pendingKey(id)) : Promise.resolve(null)]);
+        const pendingValue = stored ?? (slot.snapshot?.pending ? JSON.stringify(slot.snapshot.pending) : null);
+        if (!pendingValue) return [restored, null] as const;
+        try {
+          const pending = JSON.parse(pendingValue) as ComposerSubmission;
+          if (pending.threadId !== id) return [restored, stored] as const;
+          const receipt = await lookupPending(pending);
+          const remove = async () => {
+            if (await AsyncStorage.getItem(pendingKey(id)) === stored) await AsyncStorage.removeItem(pendingKey(id));
+          };
+          if (pending.attachmentIds && (isAcceptedReceipt(pending, receipt) || isNotSentReceipt(pending, receipt)))
+            await callAgent('composer/settle', {threadId: id, requestId: pending.requestId});
+          if (isAcceptedReceipt(pending, receipt)) {
+            if (pending.panel?.launchId) await consumePanelLaunch(pending.panel.launchId);
+            if (pending.attachmentIds) { await slot.restore(); await remove(); }
+            else await slot.retireAccepted(pending, remove);
+            return [restored, null] as const;
+          }
+          if (isNotSentReceipt(pending, receipt)) {
+            await remove();
+            if (!pending.attachmentIds) await slot.restore();
+            return [restored, null] as const;
+          }
+        } catch { /* Preserve the pending content until its receipt can be read. */ }
+        return [restored, pendingValue] as const;
       },
-      accept: ([text, pendingValue]) => {
-        let restored = text || '';
+      accept: ([restoredDraft, pendingValue]) => {
         if (pendingValue) {
           try {
-            const pending = JSON.parse(pendingValue) as PendingSubmission;
+            const pending = JSON.parse(pendingValue) as ComposerSubmission;
             if (pending.threadId === id && typeof pending.text === 'string' && typeof pending.requestId === 'string') {
               setPendingSubmission(pending);
               updateOptimistic(requests => requests.some(request => request.requestId === pending.requestId) ? requests
@@ -192,19 +255,20 @@ export function useAgentController() {
                   baselineBlockIds: pending.baselineBlockIds || [], baselineTurnIds: pending.baselineTurnIds || [],
                   correlationPending: !pending.baselineBlockIds, state: 'failed', errorKey: 'replyFailed',
                   error: messageRef.current(new AgentGatewayError('Unconfirmed delivery', 'UNKNOWN_DELIVERY'))}]);
-              if (!restored) restored = pending.text;
               setError(messageRef.current(new AgentGatewayError('Unconfirmed delivery', 'UNKNOWN_DELIVERY')));
             }
           } catch { setError(messageRef.current(new AgentGatewayError('Unconfirmed delivery', 'UNKNOWN_DELIVERY'))); }
         }
-        draftRef.current = restored; setDraft(restored);
+        showDraft(slot.text);
+        setDraftSnapshot(slot.snapshot);
+        if (restoredDraft.saveError) setDraftError(messageRef.current(restoredDraft.saveError));
         draftReady.current = true;
       },
       // A missing receipt read must never enable a new request ID. Release the spinner, keep Send guarded.
       reject: () => setError(messageRef.current(new AgentGatewayError('Draft restore failed', 'DRAFT_RESTORE_UNAVAILABLE'))),
       settled: () => setRestoring(false),
     });
-  }, [syncNativeSelection, updateOptimistic]);
+  }, [composer, showDraft, syncNativeSelection, updateOptimistic]);
 
   const loadThreads = useCallback(async () => {
     const ticket = ++historyRevision.current;
@@ -220,10 +284,11 @@ export function useAgentController() {
   }, []);
 
   const hide = useCallback(() => {
-    void draftWrites.current.catch(() => {}).then(() => closeAgent()).catch(e => {
+    const saved = draftReady.current ? composer(selectedRef.current).flush() : Promise.resolve();
+    void saved.catch(() => {}).then(() => closeAgent()).catch(e => {
       if (mounted.current) setError(messageRef.current(e));
     });
-  }, []);
+  }, [composer]);
 
   useEffect(() => {
     const back = BackHandler.addEventListener('hardwareBackPress', () => { hide(); return true; });
@@ -254,6 +319,11 @@ export function useAgentController() {
         if (!mounted.current || generation.current !== initialGeneration) return;
         panelTarget.current = target;
         const previous = panelTarget.current?.originThreadId || launchThreadId() || await AsyncStorage.getItem(SELECTED);
+        if (previous === '' && mounted.current && generation.current === initialGeneration) {
+          void loadThreads().catch(() => {});
+          await select('');
+          return;
+        }
         await restoreConversation({preferred: previous || '', list: loadThreads, select,
           isCurrent: () => mounted.current && generation.current === initialGeneration,
           onListError: () => { /* The history index owns its separate error state. */ },
@@ -414,31 +484,70 @@ export function useAgentController() {
     }
   }, [message, select]);
 
-  const create = useCallback(async (migrateDraft = false, optimisticRequestId?: string) => {
+  const changeAttachments = useCallback((operation: (draft: ComposerSnapshot) => Promise<ComposerSnapshot | null>) => run(async () => {
+    if (!draftReady.current) return;
+    const id = selectedRef.current, ticket = generation.current, slot = composer(id);
+    try { await slot.mutate(operation); }
+    catch (problem) {
+      if (isDraftRevisionConflict(problem)) await slot.restore();
+      throw problem;
+    } finally {
+      if (mounted.current && generation.current === ticket) { setDraftSnapshot(slot.snapshot); showDraft(slot.text); }
+    }
+  }), [composer, run, showDraft]);
+
+  const pickAttachment = useCallback((kind: ComposerPickerKind) => changeAttachments(async snapshot => {
+    const result = await pickComposerAttachment(kind, snapshot.threadId, snapshot.revision);
+    if (result === null) return null;
+    if (!result.ok) throw new AgentGatewayError(result.message || result.code, result.code);
+    return parseComposerSnapshot(result.result, snapshot.threadId);
+  }), [changeAttachments]);
+
+  const removeAttachment = useCallback((attachmentId: string) => changeAttachments(async ({threadId, revision}) =>
+    parseComposerSnapshot(await callAgent('composer/removeAttachment', {threadId, expectedRevision: revision, attachmentId}), threadId)), [changeAttachments]);
+
+  const create = useCallback(async (move?: {revision: string; requestId: string}) => {
     const result = await callAgent('createThread');
     const id = string(record(result.thread).id);
     if (!id) throw new AgentGatewayError('Missing session ID');
-    if (migrateDraft) await saveDraft(id, draftRef.current);
-    if (migrateDraft) updateOptimistic(requests => requests.map(request => request.requestId === optimisticRequestId ? {...request, threadId: id} : request));
-    await select(id, migrateDraft);
+    const draft = move ? await composer('').move(move.revision, id) : null;
+    if (move) updateOptimistic(requests => requests.map(request => request.requestId === move.requestId ? {...request, threadId: id} : request));
+    await select(id, Boolean(move));
     void loadThreads().catch(() => {});
-    return id;
-  }, [loadThreads, saveDraft, select, updateOptimistic]);
+    return {id, draft};
+  }, [composer, loadThreads, select, updateOptimistic]);
 
-  const deliver = useCallback(async (pending: PendingSubmission) => {
-    const id = pending.threadId, text = pending.text;
-    const params: Json = {threadId: id, text, requestId: pending.requestId};
-    if (pending.expectedTurnId) params.expectedTurnId = pending.expectedTurnId;
-    const receipt = pending.action === 'continue'
-      ? unwrapPanelReceipt(await requestReceiptWithRetry(() => continuePanel(pending.panel!.panelId, text,
-        pending.panel!.expectedSourceVersion, pending.requestId)))
-      : await requestReceiptWithRetry(() => callAgent(pending.action === 'steer' ? 'steer' : 'sendMessage', params));
+  const deliver = useCallback(async (pending: ComposerSubmission, lookupOnly = false) => {
+    const id = pending.threadId, ticket = generation.current;
+    const isCurrent = () => mounted.current && generation.current === ticket && selectedRef.current === id;
+    const params = {threadId: id, requestId: pending.requestId};
+    let receipt: Json;
+    if (lookupOnly) receipt = await lookupPending(pending);
+    else {
+      try {
+        receipt = await callAgent('composer/submit', {...params, ...submissionTarget(pending), revision: pending.draftRevision, attachmentIds: pending.attachmentIds});
+      } catch (failure) {
+        receipt = await lookupPending(pending);
+        if (receipt.state === 'missing' && failure instanceof AgentGatewayError &&
+            ['DRAFT_REVISION_CONFLICT', 'ATTACHMENT_UNAVAILABLE', 'SCREENSHOT_UNAVAILABLE', 'INVALID_TEXT', 'MODEL_UNAVAILABLE'].includes(failure.code))
+          receipt = {...params, state: 'notSent', code: failure.code};
+      }
+    }
     if (isNotSentReceipt(pending, receipt)) {
       updateOptimistic(requests => requests.map(request => request.requestId === pending.requestId
         ? {...request, state: 'failed', nonDeliverable: true, errorKey: 'replyFailed',
           error: messageRef.current(new AgentGatewayError('Request was not submitted', string(receipt.code)))} : request));
+      if (pending.attachmentIds) {
+        try { await callAgent('composer/settle', params); }
+        catch (error) { if (!(error instanceof AgentGatewayError) || error.code !== 'REQUEST_UNAVAILABLE') throw error; }
+      }
       await AsyncStorage.removeItem(pendingKey(id));
-      if (selectedRef.current === id) setPendingSubmission(null);
+      if (!pending.attachmentIds) {
+        const slot = composer(id);
+        await slot.restore();
+        if (isCurrent()) { showDraft(slot.text); setDraftSnapshot(slot.snapshot); }
+      }
+      if (isCurrent()) setPendingSubmission(null);
       throw new AgentGatewayError('Request was not submitted', string(receipt.code));
     }
     if (!isAcceptedReceipt(pending, receipt)) throw new AgentGatewayError('Unknown delivery', 'UNKNOWN_DELIVERY');
@@ -449,27 +558,25 @@ export function useAgentController() {
     }
     updateOptimistic(requests => requests.map(request => request.requestId === pending.requestId
       ? reconcileOptimisticSubmission(acceptOptimisticReceipt(request, receipt), sessionRef.current) : request));
-    if (selectedRef.current === id) await saveDraft(id, draftRef.current);
-    else await draftWrites.current;
-    await retireAcceptedSubmission(pending, {
-      readDraft: () => AsyncStorage.getItem(draftKey(id)),
-      writeDraft: value => saveDraft(id, value),
-      removePending: () => AsyncStorage.removeItem(pendingKey(id)),
-    });
-    if (selectedRef.current === id) {
+    const slot = composer(id);
+    if (pending.attachmentIds) {
+      await callAgent('composer/settle', params);
+      await slot.restore();
+      await AsyncStorage.removeItem(pendingKey(id));
+    } else await slot.retireAccepted(pending, () => AsyncStorage.removeItem(pendingKey(id)));
+    if (isCurrent()) {
       setPendingSubmission(null);
-      if (draftRef.current.trim() === text) {
-        ++draftRevision.current; draftRef.current = ''; setDraft('');
-      }
+      showDraft(slot.text);
+      setDraftSnapshot(slot.snapshot);
     }
     setRefreshRevision(v => v + 1);
     void loadThreads().catch(() => {});
-  }, [loadThreads, saveDraft, updateOptimistic]);
+  }, [composer, loadThreads, showDraft, updateOptimistic]);
 
   const submit = useCallback(async (text: string) => {
     if (launchFailure.current) throw launchFailure.current;
     if (!draftReady.current) return;
-    if (!text || text.length > 16000) return;
+    if ((!text && !composer(selectedRef.current).snapshot?.attachments.length) || text.length > 16000) return;
     let id = selectedRef.current;
     const current = sessionRef.current;
     const existingPending = pendingSubmission?.threadId === id ? pendingSubmission : null;
@@ -485,7 +592,7 @@ export function useAgentController() {
     if (panelTarget.current && isPanelLaunchConsumed(panelTarget.current.launchId)) panelTarget.current = null;
     const target = panelTarget.current;
     const continuing = !!target && !!id && target.originThreadId === id && !existingPending;
-    let pending: PendingSubmission = existingPending || {threadId: id, text, requestId: newRequestId(),
+    let pending: ComposerSubmission = existingPending || {threadId: id, text, requestId: newRequestId(),
       action: continuing ? 'continue' : current?.activeTurnId ? 'steer' : 'sendMessage',
       ...(continuing && target ? {panel: {panelId: target.panelId, expectedSourceVersion: target.sourceVersion, launchId: target.launchId}} : {}),
       ...(!continuing && current?.activeTurnId ? {expectedTurnId: current.activeTurnId} : {})};
@@ -503,11 +610,18 @@ export function useAgentController() {
     });
     let deliveryAttempted = false;
     try {
-      if (!id) id = await create(true, requestId);
+      let sentDraft: ComposerSnapshot | null = await composer(id).flush();
+      setDraftError('');
+      if (!id) ({id, draft: sentDraft} = await create({revision: sentDraft.revision, requestId}));
       pending = {...pending, threadId: id};
+      if (!existingPending) {
+        if (!sentDraft || sentDraft.text.trim() !== text) throw new AgentGatewayError('Draft changed before submission', 'DRAFT_REVISION_CONFLICT');
+        pending.draftRevision = sentDraft.revision;
+        pending.attachmentIds = sentDraft.attachments.map(item => item.id);
+      }
       const existing = await AsyncStorage.getItem(pendingKey(id));
       if (existing) {
-        const stored = JSON.parse(existing) as PendingSubmission;
+        const stored = JSON.parse(existing) as ComposerSubmission;
         if (stored.threadId !== id || stored.text !== text || stored.requestId !== pending.requestId)
           throw new AgentGatewayError('Pending message differs', 'PENDING_DIFFERENT');
         pending = stored;
@@ -517,82 +631,74 @@ export function useAgentController() {
       }
       setPendingSubmission(pending);
       deliveryAttempted = true;
-      await deliver(pending);
+      await deliver(pending, Boolean(existingPending || existing));
     } catch (problem) {
       updateOptimistic(requests => requests.map(request => request.requestId === requestId
         ? reconcileOptimisticSubmission({...request, state: 'failed', nonDeliverable: request.nonDeliverable || !deliveryAttempted,
           error: message(problem), errorKey: 'replyFailed'}, sessionRef.current) : request));
       throw problem;
     }
-  }, [create, deliver, message, pendingSubmission, updateOptimistic]);
+  }, [composer, create, deliver, message, pendingSubmission, updateOptimistic]);
 
   const send = useCallback(() => run(() => submit(draftRef.current.trim())), [run, submit]);
-
-  // A card action is the user's own reply in the card's thread, with the same receipt and retry rules as typed text.
-  const sendText = useCallback((threadId: string, text: string) => run(async () => {
-    if (threadId && threadId !== selectedRef.current) await select(threadId);
-    await submit(text.trim());
-  }), [run, select, submit]);
 
   const retrySubmission = useCallback(() => run(async () => {
     if (!draftReady.current) return;
     const id = selectedRef.current;
     const stored = await AsyncStorage.getItem(pendingKey(id));
-    if (!stored) { setPendingSubmission(null); return; }
-    const pending = JSON.parse(stored) as PendingSubmission;
+    const pending = stored ? JSON.parse(stored) as ComposerSubmission : pendingSubmission;
+    if (!pending) { setPendingSubmission(null); return; }
     if (pending.threadId !== id) throw new AgentGatewayError('Pending message differs', 'PENDING_DIFFERENT');
     updateOptimistic(requests => requests.map(request => request.requestId === pending.requestId
       ? {...request, state: 'sending', startedAt: Date.now(), error: undefined, errorKey: undefined} : request));
-    try { await deliver(pending); }
+    try { await deliver(pending, true); }
     catch (problem) {
       updateOptimistic(requests => requests.map(request => request.requestId === pending.requestId
         ? reconcileOptimisticSubmission({...request, state: 'failed', error: message(problem), errorKey: 'replyFailed'}, sessionRef.current) : request));
       throw problem;
     }
-  }), [deliver, message, run, updateOptimistic]);
+  }), [deliver, message, pendingSubmission, run, updateOptimistic]);
 
   const continueWithoutResending = useCallback(() => run(async () => {
     if (!draftReady.current) return;
     const id = selectedRef.current;
     const stored = await AsyncStorage.getItem(pendingKey(id));
-    if (!stored) { setPendingSubmission(null); return; }
-    const pending = JSON.parse(stored) as PendingSubmission;
+    const pending = stored ? JSON.parse(stored) as ComposerSubmission : pendingSubmission;
+    if (!pending) { setPendingSubmission(null); return; }
     if (pending.threadId !== id || !pending.requestId || pending.requestId !== pendingSubmission?.requestId)
       throw new AgentGatewayError('Pending message changed', 'PENDING_DIFFERENT');
+    if (pending.attachmentIds) {
+      const slot = composer(id);
+      try { await callAgent('composer/release', {threadId: id, requestId: pending.requestId}); }
+      catch (error) { if (!(error instanceof AgentGatewayError) || error.code !== 'REQUEST_UNAVAILABLE') throw error; }
+      await slot.restore();
+      if (selectedRef.current === id) { showDraft(slot.text); setDraftSnapshot(slot.snapshot); }
+      if (stored && await AsyncStorage.getItem(pendingKey(id)) === stored) await AsyncStorage.removeItem(pendingKey(id));
+    }
     const archive = unconfirmedArchiveKey(id, pending.requestId);
-    await preserveAndReleaseUnconfirmed(stored, {
-      readPending: () => AsyncStorage.getItem(pendingKey(id)),
-      readArchive: () => AsyncStorage.getItem(archive),
-      writeArchive: value => AsyncStorage.setItem(archive, value),
-      removePending: () => AsyncStorage.removeItem(pendingKey(id)),
-    });
+    if (stored && !pending.attachmentIds) {
+      await preserveAndReleaseUnconfirmed(stored, {
+        readPending: () => AsyncStorage.getItem(pendingKey(id)),
+        readArchive: () => AsyncStorage.getItem(archive),
+        writeArchive: value => AsyncStorage.setItem(archive, value),
+        removePending: () => AsyncStorage.removeItem(pendingKey(id)),
+      });
+      const slot = composer(id);
+      await slot.restore();
+      if (selectedRef.current === id) { showDraft(slot.text); setDraftSnapshot(slot.snapshot); }
+    }
     updateOptimistic(requests => requests.filter(request => request.requestId !== pending.requestId));
     if (selectedRef.current === id) { setPendingSubmission(null); setError(''); }
-  }), [pendingSubmission, run, updateOptimistic]);
+  }), [composer, pendingSubmission, run, showDraft, updateOptimistic]);
 
-  useEffect(() => {
-    if (!pendingSubmission || restoring || !draftReady.current || actionRunning.current) return;
-    const key = `${pendingSubmission.threadId}/${pendingSubmission.requestId}`;
-    if (recoveredPending.current.has(key)) return;
-    recoveredPending.current.add(key);
-    void retrySubmission();
-  }, [pendingSubmission, restoring, retrySubmission]);
-
-  const restoreFailedTask = useCallback((taskId: string) => run(async () => {
-    if (!draftReady.current) return;
-    const id = selectedRef.current, current = sessionRef.current;
-    const failure = current?.taskFailure;
-    if (!current || current.id !== id || !failure || failure.taskId !== taskId)
+  const restoreFailedTask = useCallback((taskId: string) => changeAttachments(async ({threadId, revision}) => {
+    if (sessionRef.current?.id !== threadId || sessionRef.current.taskFailure?.taskId !== taskId)
       throw new AgentGatewayError('Task changed', 'TASK_FAILURE_CHANGED');
-    if (!failure.prompt.trim()) throw new AgentGatewayError('Original request unavailable', 'NO_FAILED_PROMPT');
-    const restored = failedTaskDraft(failure, draftRef.current);
-    if (restored === null) throw new AgentGatewayError('Newer draft retained', 'DRAFT_NOT_EMPTY');
-    // Saving does not clear a pending receipt or issue any gateway/model operation.
-    await saveDraft(id, restored);
-    if (mounted.current && selectedRef.current === id) {
-      ++draftRevision.current; draftRef.current = restored; setDraft(restored);
-    }
-  }), [run, saveDraft]);
+    return parseComposerSnapshot(await callAgent('composer/restoreTask', {threadId, expectedRevision: revision, taskId}), threadId);
+  }), [changeAttachments]);
+
+  const restoreSavedDraft = useCallback((recoveryId: string) => changeAttachments(async ({threadId, revision}) =>
+    parseComposerSnapshot(await callAgent('composer/restore', {threadId, expectedRevision: revision, recoveryId}), threadId)), [changeAttachments]);
 
   const stop = useCallback(() => run(async () => {
     const current = sessionRef.current, task = taskRef.current;
@@ -619,14 +725,13 @@ export function useAgentController() {
       }
       return;
     }
-    await restoreConversation({preferred: selectedRef.current, list: loadThreads, select,
-      isCurrent: () => mounted.current && generation.current === ticket,
-      onListError: () => { /* Kept in historyError, separate from the selected conversation. */ },
-    });
+    if (!mounted.current || generation.current !== ticket) return;
+    void loadThreads().catch(() => {});
+    await select(selectedRef.current);
   }), [loadThreads, run, select]);
 
   return {
-    session, threads, workspaces, loading: loading || restoring, busy, error: error || selectionError || readError, draft,
+    session, threads, workspaces, loading: loading || restoring, busy, error: draftError || error || selectionError || readError, draft,
     historyError, workspaceError, visible,
     draftSessionId: selected, pendingSubmission, conversationKey,
     optimisticSubmissions: visibleOptimisticSubmissions,
@@ -634,8 +739,14 @@ export function useAgentController() {
     onContinueWithoutResending: () => { void continueWithoutResending(); },
     onRestoreFailedTask: (taskId: string) => { void restoreFailedTask(taskId); },
     onDraftChange: updateDraft,
+    draftRevision: draftSnapshot?.revision ?? null,
+    attachments: draftSnapshot?.attachments ?? [],
+    recovery: draftSnapshot?.recovery ?? [],
+    onRestoreSavedDraft: restoreSavedDraft,
+    onPickAttachment: pickAttachment,
+    onRemoveAttachment: removeAttachment,
+    onDictationDraftChange: applyDictation,
     onSend: () => { void send(); }, onStop: () => { void stop(); },
-    onSendText: (threadId: string, text: string) => { void sendText(threadId, text); },
     onSelectThread: (id: string) => {
       if (actionRunning.current) return;
       selectConversation(id);
@@ -648,15 +759,14 @@ export function useAgentController() {
       panelTarget.current = null;
       launchFailure.current = null;
       pendingOpen.current = '';
-      const id = await create();
+      const {id} = await create();
       selectConversation(id);
     }); },
     onRefresh: () => { void refresh(); },
     onOpenHistory: () => { void loadThreads().catch(() => {}); },
     onAnswer: (key: string, response: Json) => { void run(async () => { await callAgent('answer', {threadId: selectedRef.current, key, response}); setRefreshRevision(v => v + 1); }); },
     onOpenWorkspace: (screen: WorkspaceView) => { void run(async () => { await callAgent('openWorkspace', {threadId: screen.threadId, screenKey: screen.screenKey, generation: screen.generation}); }); },
-    onOpenSettings: () => { void run(async () => { await callAgent('openSettings', {page: 'models'}); }); },
-    onOpenNativeControls: () => { void run(async () => { await callAgent('openNativeConversation', {threadId: selectedRef.current}); }); },
+    onOpenRequest: (key?: string) => { void run(async () => { await callAgent('requests/open', {threadId: selectedRef.current, ...(key ? {key} : {})}); }); },
     onClose: hide,
   };
 }

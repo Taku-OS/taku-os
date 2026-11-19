@@ -14,8 +14,10 @@ const mocks = new Map([
   ['react-native', mock(`export const AppState = {currentState: 'active', addEventListener() {return {remove() {}};}};
     export const BackHandler = {addEventListener() {return {remove() {}};}};`)],
   ['expo-localization', mock(`export const useLocales = () => [{languageCode: 'en'}];`)],
+  ['../native/composerPicker', mock(`export const pickComposerAttachment = async () => null;`)],
   ['@react-native-async-storage/async-storage', mock(`export default {
     getItem: async key => runtime.storage.get(key) ?? null,
+    getAllKeys: async () => [...runtime.storage.keys()],
     setItem: async (key, value) => {runtime.storage.set(key, value);},
     removeItem: async key => {runtime.events.push(['remove', key]); runtime.storage.delete(key);},
   };`)],
@@ -43,7 +45,6 @@ registerHooks({resolve(specifier, context, nextResolve) {
   return nextResolve(specifier, context);
 }});
 const {useAgentController} = await import('./useAgentController.ts');
-const {PANEL_CONTRACT} = await import('../model/panel.ts');
 
 const target = {panelId: 'panel-a', sourceVersion: 3, originThreadId: 'thread-a', launchId: 'launch-a'};
 const pendingKey = id => `taku.agent.pending.v1.${id}`;
@@ -53,18 +54,44 @@ const accepted = (args, panelId) => ({threadId: panelId === 'panel-b' ? 'thread-
 const deferred = () => {let resolve; const promise = new Promise(yes => {resolve = yes;}); return {promise, resolve};};
 
 function reset(t) {
-  Object.assign(runtime, {sequence: 0, storage: new Map(), consumed: new Set(), events: [], calls: [], completed: [],
-    openListeners: new Set(), target: {...target}, threadId: 'thread-a', failConsumption: false, mounts: [],
-    receipt: async (args, panelId) => accepted(args, panelId)});
+  Object.assign(runtime, {sequence: 0, storage: new Map(), drafts: new Map(), receipts: new Map(), consumed: new Set(),
+    events: [], calls: [], lookups: [], completed: [], openListeners: new Set(), target: {...target}, threadId: 'thread-a',
+    failConsumption: false, mounts: [], receipt: async (args, panelId) => accepted(args, panelId)});
   runtime.callAgent = async (action, params = {}) => {
-    if (action === 'panels' && params.operation === 'describe') return {version: PANEL_CONTRACT};
-    if (action === 'panels' && params.operation === 'continue' || action === 'sendMessage' || action === 'steer') {
-      const args = action === 'panels' ? params.args : params;
-      runtime.calls.push({action: action === 'panels' ? 'continue' : action, ...args});
-      const receipt = await runtime.receipt(args, action === 'panels' ? args.panelId : undefined);
-      if (receipt.state === 'queued') runtime.completed.push({...args, threadId: receipt.threadId});
+    const threadId = params.threadId;
+    const snapshot = () => runtime.drafts.get(threadId) || {threadId, revision: '', text: '', attachments: []};
+    if (action === 'composer/read') return snapshot();
+    if (action === 'composer/write' || action === 'composer/import') {
+      const next = {...snapshot(), text: params.text, revision: `draft-${++runtime.sequence}`};
+      runtime.drafts.set(threadId, next);
+      return next;
+    }
+    if (action === 'composer/preserveDraft') {
+      const current = snapshot();
+      const recovery = current.recovery ?? [];
+      const next = recovery.some(item => item.id === params.recoveryId) ? current : {...current, recovery: [...recovery,
+        {id: params.recoveryId, text: params.text, status: 'saved-draft', attachments: []}]};
+      runtime.drafts.set(threadId, next);
+      return next;
+    }
+    if (action === 'composer/submit') {
+      const args = {...params, text: snapshot().text};
+      assert.equal(params.revision, snapshot().revision);
+      runtime.calls.push(args);
+      const receipt = await runtime.receipt(args, args.panelId);
+      runtime.receipts.set(args.requestId, receipt);
+      if (receipt.state === 'queued') {
+        runtime.completed.push({...args, threadId: receipt.threadId});
+        if (snapshot().revision === params.revision) runtime.drafts.set(threadId, {...snapshot(), text: '', revision: `draft-${++runtime.sequence}`});
+      }
       return receipt;
     }
+    if (action === 'composer/receipt') {
+      runtime.lookups.push(params);
+      if (params.action) return runtime.receipt(params, params.panelId);
+      return runtime.receipts.get(params.requestId) || {threadId, requestId: params.requestId, state: 'missing'};
+    }
+    if (action === 'composer/settle') return runtime.receipts.get(params.requestId) || {threadId, requestId: params.requestId, state: 'missing'};
     if (action === 'listThreads') return {threads: [{id: 'thread-a'}, {id: 'thread-b'}]};
     if (action === 'readSession') return {native: {ready: true}, historyComplete: true,
       thread: {id: params.threadId, turns: runtime.completed.filter(item => item.threadId === params.threadId).map(item => ({
@@ -162,8 +189,9 @@ test('a reconciled accepted pending continuation consumes its original launch af
   runtime.storage.set(pendingKey('thread-a'), JSON.stringify(pending));
   runtime.storage.set(draftKey('thread-a'), pending.text);
   const restored = mount(); await flush(restored);
-  assert.equal(runtime.calls[0].requestId, pending.requestId);
-  assert.equal(runtime.calls[0].expectedSourceVersion, 3);
+  assert.equal(runtime.calls.length, 0);
+  assert.equal(runtime.lookups[0].requestId, pending.requestId);
+  assert.equal(runtime.lookups[0].expectedSourceVersion, 3);
   assert.equal(runtime.consumed.has('launch-a'), true);
   assert.equal(runtime.storage.has(pendingKey('thread-a')), false);
   await send(restored, 'A later ordinary turn');
@@ -210,6 +238,10 @@ for (const state of ['notSent', 'deliveryUnknown']) {
     assert.equal(first.result.draft, 'Keep this panel edit');
     assert.equal(runtime.storage.has(pendingKey('thread-a')), state !== 'notSent');
     first.unmount();
+    if (state === 'deliveryUnknown') {
+      const request = runtime.calls[0];
+      runtime.receipts.set(request.requestId, accepted(request, request.panelId));
+    }
     runtime.receipt = async (args, panelId) => accepted(args, panelId);
     const restored = mount(); await flush(restored);
     if (state === 'notSent') await send(restored, 'Retry the panel edit');
@@ -271,8 +303,58 @@ test('a crash after consumption but before pending cleanup reconciles the same r
   runtime.storage.set(pendingKey('thread-a'), JSON.stringify(pending));
   runtime.storage.set(draftKey('thread-a'), pending.text);
   const restored = mount(); await flush(restored);
-  assert.equal(runtime.calls[0].requestId, pending.requestId);
+  assert.equal(runtime.calls.length, 0);
+  assert.equal(runtime.lookups[0].requestId, pending.requestId);
+  assert.equal(restored.result.draft, '');
   assert.equal(runtime.storage.has(pendingKey('thread-a')), false);
   await send(restored, 'An ordinary message after cleanup');
   assert.equal(runtime.calls.at(-1).action, 'sendMessage');
+});
+
+test('an unresolved legacy draft stays out of the composer until its receipt confirms failure', async t => {
+  reset(t);
+  const pending = {threadId: 'thread-a', requestId: 'legacy-send', text: 'Unconfirmed draft', action: 'sendMessage'};
+  runtime.storage.set(pendingKey(pending.threadId), JSON.stringify(pending));
+  runtime.storage.set(draftKey(pending.threadId), pending.text);
+  runtime.receipt = async () => ({...pending, state: 'missing'});
+  const host = mount(); await flush(host);
+  assert.equal(host.result.draft, '');
+  runtime.receipt = async () => ({...pending, state: 'notSent', code: 'MODEL_UNAVAILABLE'});
+  host.result.onRetrySubmission(); await flush(host);
+  assert.equal(host.result.draft, pending.text);
+  assert.equal(runtime.storage.has(pendingKey(pending.threadId)), false);
+  assert.deepEqual(runtime.calls, []);
+});
+
+test('an accepted legacy receipt preserves a different follow-up draft', async t => {
+  reset(t);
+  const pending = {threadId: 'thread-a', requestId: 'legacy-send', text: 'Already delivered', action: 'sendMessage'};
+  const followup = 'A new unsent edit';
+  runtime.storage.set(pendingKey(pending.threadId), JSON.stringify(pending));
+  runtime.storage.set(draftKey(pending.threadId), followup);
+  const host = mount(); await flush(host);
+  assert.equal(host.result.draft, followup);
+  assert.deepEqual(runtime.calls, []);
+});
+
+test('an archived unconfirmed message survives an interrupted migration without a resend', async t => {
+  reset(t);
+  const requestId = '85036b24-6662-4b42-9da2-de71f7a30d04';
+  const key = `taku.agent.unconfirmed.v1.thread-a.${requestId}`;
+  const text = 'Keep the unconfirmed message after upgrading';
+  runtime.storage.set(key, JSON.stringify({threadId: 'thread-a', requestId, text}));
+  const gateway = runtime.callAgent;
+  runtime.callAgent = async (action, params) => {
+    const result = await gateway(action, params);
+    if (action === 'composer/preserveDraft') throw new Error('Reply was lost after persistence');
+    return result;
+  };
+  const first = mount(); await flush(first);
+  assert.equal(runtime.storage.has(key), true);
+  first.unmount();
+  runtime.callAgent = gateway;
+  const restored = mount(); await flush(restored);
+  assert.equal(runtime.storage.has(key), false);
+  assert.deepEqual(runtime.drafts.get('thread-a')?.recovery.map(item => [item.id, item.text]), [[requestId, text]]);
+  assert.deepEqual(runtime.calls, []);
 });

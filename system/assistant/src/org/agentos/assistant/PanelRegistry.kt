@@ -208,6 +208,7 @@ internal class PanelRegistry(private val context: Context, private val runtime: 
         for (i in 0 until rows.length()) {
             val update = rows.getJSONObject(i)
             if (update.getString("originThreadId") != matter.getString("threadId")) continue
+            if (update.optString("taskId").isEmpty()) continue
             if (update.optString("turnId").isNotEmpty()) {
                 if (update.getString("turnId") == provenance.optString("turnId")) return "PANEL_UPDATE_PENDING"
             } else if (!(update.optJSONArray("knownReplies") ?: JSONArray()).let { known -> (0 until known.length()).any { known.optString(it) == provenance.optString("replyId") } }) return "PANEL_UPDATE_PENDING"
@@ -215,9 +216,37 @@ internal class PanelRegistry(private val context: Context, private val runtime: 
         return null
     }
 
-    private fun continuePanel(input: JSONObject): JSONObject {
+    fun composerReceipt(input: JSONObject): JSONObject {
         val requestId = input.getString("requestId")
-        val hash = PanelProtocol.hash("continue\n" + PanelProtocol.canonical(input))
+        val thread = input.getString("threadId")
+        val action = input.getString("action")
+        if (action != "continue") {
+            if (action == "sendMessage" && runtime.state { store.get("panel_updates", requestId) != null })
+                throw IOException("REQUEST_ID_REUSED")
+            return services.submissions.lookup(requestId, thread, input.getString("text"), input.optString("expectedTurnId").takeIf { it.isNotEmpty() }, composer = input.has("options"))
+        }
+        val args = JSONObject().put("requestId", requestId).put("panelId", input.getString("panelId"))
+            .put("expectedSourceVersion", input.getLong("expectedSourceVersion")).put("text", input.getString("text"))
+        val target = runtime.state { store.get("panel_updates", requestId) }
+            ?: return JSONObject().put("requestId", requestId).put("threadId", thread).put("state", "missing")
+        if (target.getString("originThreadId") != thread || target.getString("hash") != continueHash(args))
+            throw IOException("REQUEST_ID_REUSED")
+        val receipt = services.submissions.lookup(requestId, thread, input.getString("text"), panel = target, composer = input.has("options"))
+        return (if (receipt.getString("state") == "missing") target.getJSONObject("submission") else receipt)
+            .put("panelId", args.getString("panelId"))
+    }
+
+    private fun continueHash(input: JSONObject): String = PanelProtocol.hash("continue\n" + PanelProtocol.canonical(input))
+
+    fun continueComposer(request: JSONObject): JSONObject {
+        val args = JSONObject().put("requestId", request.getString("requestId")).put("panelId", request.getString("panelId"))
+            .put("expectedSourceVersion", request.getLong("expectedSourceVersion")).put("text", request.getString("text"))
+        return continuePanel(args, request)
+    }
+
+    private fun continuePanel(input: JSONObject, composerRequest: JSONObject? = null): JSONObject {
+        val requestId = input.getString("requestId")
+        val hash = continueHash(input)
         val existingSubmission = AgentGatewaySubmissions.existing(context.filesDir, requestId)
         var created = false
         val target = runtime.state(true) {
@@ -228,6 +257,8 @@ internal class PanelRegistry(private val context: Context, private val runtime: 
             } else {
                 if (existingSubmission != null || store.get("panel_receipts", requestId) != null || store.hasCardViewReceipt(requestId)) throw IOException("IDEMPOTENCY_CONFLICT")
                 val record = panel(input.getString("panelId"))
+                if (composerRequest != null && composerRequest.getString("threadId") != record.getString("originThreadId"))
+                    throw IOException("SOURCE_CHANGED")
                 expect(record.getLong("sourceVersion"), input.getLong("expectedSourceVersion"))
                 val known = runtime.knownReplyIds(record.getString("originThreadId"))
                 JSONObject().put("requestId", requestId).put("panelId", record.getString("panelId")).put("originThreadId", record.getString("originThreadId"))
@@ -238,19 +269,21 @@ internal class PanelRegistry(private val context: Context, private val runtime: 
                     .also { store.put("panel_updates", requestId, it); created = true }
             }
         }
-        if (created) submitUpdate(target)
+        if (created) submitUpdate(target, composerRequest)
         runtime.recoverPanelUpdates()
         return runtime.state { submissionResult(store.get("panel_updates", requestId)!!, !created) }
     }
 
-    internal fun submitUpdate(target: JSONObject): JSONObject {
+    private fun submitUpdate(target: JSONObject, composerRequest: JSONObject?): JSONObject {
         val requestId = target.getString("requestId")
         val trusted = JSONObject()
         for (key in arrayOf("panelId", "originThreadId", "matterId", "sourceVersion", "requestId")) trusted.put(key, target.get(key))
         val publication = JSONObject().put("threadId", target.getString("originThreadId")).put("text", target.getString("text"))
             .put("requestId", requestId).put("panelUpdate", trusted)
+        if (composerRequest != null) publication.put("options", composerRequest.getJSONObject("options"))
         val receipt = services.submissions.submit(requestId, target.getString("originThreadId"), target.getString("text"), {
             services.checkSubmit(target.getString("originThreadId"))
+            services.checkScreenshot(publication)
             runtime.state(background = true) { checkTarget(target) }
         }, { before -> services.publish(publication) { task ->
             before.persist(task)

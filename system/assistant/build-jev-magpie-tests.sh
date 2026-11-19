@@ -22,7 +22,9 @@ JAVA_HOME="$JDK" "$TOOLS/apksigner" sign --key "$SIGNING/platform.pk8" --cert "$
  -d "$OUTPUT/classes" system/assistant/tests/org/agentos/tests/NativeSocketProbe.java \
  system/assistant/tests/org/agentos/tests/AgentInterfaceTest.java \
  system/assistant/tests/org/agentos/tests/JevMagpieUiTest.java \
- system/assistant/tests/org/agentos/tests/JevMagpieLiveUiTest.java
+ system/assistant/tests/org/agentos/tests/JevMagpieLiveUiTest.java \
+ system/assistant/tests/org/agentos/tests/ModelConnectionUiTest.java \
+ system/assistant/tests/org/agentos/tests/UnicodePasteTest.java
 "$JDK/bin/jar" --create --file "$OUTPUT/classes.jar" -C "$OUTPUT/classes" .
 JAVA_HOME="$JDK" "$TOOLS/d8" --min-api 36 --lib "$ANDROID_JAR" \
  --lib "$SDK/platforms/android-36/uiautomator.jar" --lib "$SDK/platforms/android-36/optional/android.test.base.jar" \

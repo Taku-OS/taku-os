@@ -227,11 +227,11 @@ class HomeController(val context: Context, val repo: FeedRepository, val pool: R
 
   fun askTaku(cardId: String) {
     closeMenu()
-    guard { FeedActions.askAbout(context, cardId, FeedOrigin.GUI) }
+    scope.launch { guard { FeedActions.askAbout(context, cardId, FeedOrigin.GUI) } }
   }
 
   fun pinAction(cardId: String, actionId: String) {
-    guard { FeedActions.dispatch(context, cardId, actionId, org.json.JSONObject(), FeedOrigin.GUI) }
+    scope.launch { guard { FeedActions.dispatch(context, cardId, actionId, org.json.JSONObject(), FeedOrigin.GUI) } }
   }
 
   // ---- AI entry ----------------------------------------------------------------------

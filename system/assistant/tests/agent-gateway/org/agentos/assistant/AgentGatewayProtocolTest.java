@@ -126,8 +126,6 @@ public final class AgentGatewayProtocolTest {
                 .put("taskId", "../ready").toString()));
         check(AgentGatewayProtocol.request("cancelQueued", new JSONObject().put("threadId", THREAD)
                 .put("taskId", "12345").toString()).getString("taskId").equals("12345"));
-        check(AgentGatewayProtocol.request("openNativeConversation", new JSONObject().put("threadId", THREAD).toString()).getString("threadId").equals(THREAD));
-        rejects(() -> AgentGatewayProtocol.request("openNativeConversation", new JSONObject().put("threadId", THREAD).put("manualScreen", true).toString()));
         rejects(() -> AgentGatewayProtocol.request("openWorkspace", new JSONObject().put("threadId", THREAD)
                 .put("screenKey", "default").put("generation", KEY).toString()));
         JSONObject question = new JSONObject().put("key", KEY).put("method", "phone/confirmAction")

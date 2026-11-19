@@ -27,3 +27,15 @@ This round accepted screenshot capture, real image-model suggestions, tap-to-con
 bash system/assistant/build.sh
 bash system/assistant/test-screen-suggestion-host.sh
 ```
+
+## Expo device regression
+
+Run `bash system/assistant/build-screen-tests.sh` and install `out/screen-background-tests/fixture.apk` on a dedicated API 36 emulator with the current Expo and Kotlin Assistant components. Enable assistant screenshots and a live system image model in Taku AI. Push `out/screen-background-tests/test.jar` to `/data/local/tmp/taku-screen-tests.jar` and run the live probe with `-e liveAuthorized true`.
+
+```sh
+adb -s "$SERIAL" shell uiautomator runtest /system/framework/android.test.base.jar \
+  /data/local/tmp/taku-screen-tests.jar -c org.agentos.tests.BackgroundScreenUiTest#testLiveBackgroundAskUser \
+  -e liveAuthorized true -e output /data/local/tmp/taku-background-screen/
+```
+
+The probe opens the Expo suggestion on a synthetic page, accepts it, and closes the suggestion. It checks that the Agent asks its question over the source app and continues after the selected answer, while the chat composer stays closed.

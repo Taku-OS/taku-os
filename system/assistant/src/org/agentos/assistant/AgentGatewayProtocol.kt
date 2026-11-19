@@ -18,12 +18,39 @@ internal class AgentGatewayProtocol private constructor() {
         const val PERMISSION = "org.agentos.permission.AGENT_CLIENT"
         const val CLIENT_PACKAGE = "org.agentos.agent"
         const val MAX_REQUEST = 48_000
+        const val COMPOSER_READ = "composer/read"
+        const val COMPOSER_WRITE = "composer/write"
+        const val COMPOSER_IMPORT = "composer/import"
+        const val COMPOSER_MOVE = "composer/move"
+        const val COMPOSER_RECEIPT = "composer/receipt"
+        const val COMPOSER_ATTACH = "composer/attach"
+        const val COMPOSER_REMOVE = "composer/removeAttachment"
+        const val COMPOSER_OPTIONS_READ = "composer/options/read"
+        const val COMPOSER_OPTIONS_WRITE = "composer/options/write"
+        const val COMPOSER_SUBMIT = "composer/submit"
+        const val COMPOSER_SETTLE = "composer/settle"
+        const val COMPOSER_RELEASE = "composer/release"
+        const val COMPOSER_HANDOFF = "composer/handoff"
+        const val COMPOSER_RESTORE = "composer/restore"
+        const val COMPOSER_RESTORE_TASK = "composer/restoreTask"
+        const val COMPOSER_CREATE_THREAD = "composer/createThread"
+        const val COMPOSER_PRESERVE_DRAFT = "composer/preserveDraft"
+        private val DRAFT_ACTIONS: Set<String> = java.util.Set.of(COMPOSER_READ, COMPOSER_WRITE, COMPOSER_IMPORT, COMPOSER_MOVE)
+        private val UUID_PATTERN = Pattern.compile("[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}")
         @JvmField val ACTIONS: Set<String> = java.util.Set.of("listThreads", "readSession", "createThread",
             "resumeThread", "sendMessage", "steer", "interrupt", "answer", "getWorkspaces",
-            "openWorkspace", "openSettings", "cancelQueued", "openNativeConversation", "subscribeSession", "unsubscribeSession",
+            "openWorkspace", "openSettings", "cancelQueued", "subscribeSession", "unsubscribeSession",
+            "readTaskDetail", "workspaces/list", "workspaces/apps", "workspaces/configure", "workspaces/release", "workspaces/preview", "workspaces/open", "manageSystemAi",
+            "workspaces/pause", "workspaces/takeControl", "workspaces/input", "workspaces/returnAndResume", "workspaces/addRequirement", "workspaces/executionStatus",
+            "capture/read", "capture/accept", "capture/dismiss", "capture/request", "capture/openConversation", "manageAssistant",
+            "accounts/read", "accounts/refresh", "accounts/login", "accounts/cancel", "accounts/open", "accounts/keys", "accounts/removeKey", "accounts/saveKey",
+            "requests/list", "requests/open", "requests/respond", "requests/cancel",
             "decide", "generateUi", "mainReply", "panels", "cardView", "readMatter", "subscribeMatter", "unsubscribeMatter", "dispatchMatter", "analyzeCameraFrame", "audioCapabilities", "audioCommand",
             "readSystemAi", "setSystemAi", "bindSystemAi", "bindSystemAiModel", "reorderSystemAi", "restoreSystemAi", "deleteSystemAiGroup", "openAssistantConnection", "openMagpieManagement", "pluginManager",
-            "readAppPermissions", "setAppPermissionMode", "setAppPermissionScope", "resetAppPermission")
+            "readAppPermissions", "setAppPermissionMode", "setAppPermissionScope", "resetAppPermission",
+            COMPOSER_READ, COMPOSER_WRITE, COMPOSER_IMPORT, COMPOSER_MOVE, COMPOSER_RECEIPT, COMPOSER_ATTACH,
+            COMPOSER_REMOVE, COMPOSER_OPTIONS_READ, COMPOSER_OPTIONS_WRITE, COMPOSER_SUBMIT, COMPOSER_SETTLE, COMPOSER_RELEASE,
+            COMPOSER_HANDOFF, COMPOSER_RESTORE, COMPOSER_RESTORE_TASK, COMPOSER_CREATE_THREAD, COMPOSER_PRESERVE_DRAFT)
         @JvmField val QUESTIONS: Set<String> = java.util.Set.of("phone/askUser", "phone/confirmAction",
             "phone/action/requestApproval", "item/tool/requestUserInput")
         private val SECRET_KEYS: Set<String> = java.util.Set.of("accesstoken", "refreshtoken", "idtoken",
@@ -39,13 +66,126 @@ internal class AgentGatewayProtocol private constructor() {
             return parts
         }
 
+        fun isDraftAction(action: String): Boolean = action in DRAFT_ACTIONS
+
+        private fun draftRequest(action: String, json: String): JSONObject {
+            val input = try { JSONObject(json) } catch (_: org.json.JSONException) { throw IOException("INVALID_ARGUMENT") }
+            val size = when (action) {
+                COMPOSER_READ -> 1
+                COMPOSER_IMPORT -> 2
+                else -> 3
+            }
+            if (input.length() != size) throw IOException("INVALID_ARGUMENT")
+            val thread = input.opt("threadId") as? String ?: throw IOException("INVALID_ARGUMENT")
+            if (thread.isNotEmpty() && !UUID_PATTERN.matcher(thread).matches()) throw IOException("INVALID_ARGUMENT")
+            if (action == COMPOSER_WRITE || action == COMPOSER_MOVE) {
+                val revision = input.opt("revision") as? String ?: throw IOException("INVALID_ARGUMENT")
+                if (revision.length > 128) throw IOException("INVALID_ARGUMENT")
+            }
+            if (action == COMPOSER_WRITE || action == COMPOSER_IMPORT) {
+                val text = input.opt("text") as? String ?: throw IOException("INVALID_ARGUMENT")
+                if (text.length > 16_000) throw IOException("INVALID_ARGUMENT")
+            }
+            if (action == COMPOSER_MOVE) {
+                val target = input.opt("targetThreadId") as? String ?: throw IOException("INVALID_ARGUMENT")
+                if (thread.isNotEmpty() || !UUID_PATTERN.matcher(target).matches()) throw IOException("INVALID_ARGUMENT")
+            }
+            return input
+        }
+
         @JvmStatic
         @Throws(Exception::class)
         fun request(action: String, json: String?): JSONObject {
             if (!ACTIONS.contains(action)) throw IOException("UNSUPPORTED_ACTION")
             val jsonText = json ?: "{}"
             if (jsonText.length > limit(action)) throw IOException("REQUEST_TOO_LARGE")
+            if (isDraftAction(action)) return draftRequest(action, jsonText)
             val input = JSONObject(jsonText)
+            if (action in setOf(COMPOSER_SUBMIT, COMPOSER_SETTLE, COMPOSER_RELEASE) || action == COMPOSER_RECEIPT && !input.has("action")) {
+                requireId(input, "threadId")
+                requireId(input, "requestId")
+                val fields = mutableSetOf("threadId", "requestId")
+                if (action == COMPOSER_SUBMIT) {
+                    fields.addAll(setOf("revision", "attachmentIds", "action"))
+                    val revision = input.opt("revision") as? String ?: throw IOException("INVALID_ARGUMENT")
+                    if (revision.length > 128) throw IOException("INVALID_ARGUMENT")
+                    val ids = input.getJSONArray("attachmentIds")
+                    if (ids.length() > 8) throw IOException("ATTACHMENT_LIMIT")
+                    val unique = HashSet<String>()
+                    for (index in 0 until ids.length()) {
+                        val id = ids.get(index) as? String ?: throw IOException("INVALID_ARGUMENT")
+                        if (!UUID_PATTERN.matcher(id).matches() || !unique.add(id)) throw IOException("INVALID_ARGUMENT")
+                    }
+                    when (text(input, "action", 16)) {
+                        "steer" -> { fields.add("expectedTurnId"); text(input, "expectedTurnId", 160) }
+                        "continue" -> {
+                            fields.addAll(setOf("panelId", "expectedSourceVersion"))
+                            requireId(input, "panelId")
+                            PanelProtocol.number(input, "expectedSourceVersion")
+                        }
+                        "sendMessage" -> Unit
+                        else -> throw IOException("INVALID_ARGUMENT")
+                    }
+                }
+                PanelProtocol.exact(input, fields)
+                return input
+            }
+            when (action) {
+                COMPOSER_ATTACH, COMPOSER_REMOVE, COMPOSER_OPTIONS_READ, COMPOSER_OPTIONS_WRITE, COMPOSER_PRESERVE_DRAFT,
+                COMPOSER_HANDOFF, COMPOSER_RESTORE, COMPOSER_RESTORE_TASK -> {
+                    val fields = when (action) {
+                        COMPOSER_ATTACH -> setOf("threadId", "expectedRevision", "name", "mime", "uri")
+                        COMPOSER_REMOVE -> setOf("threadId", "expectedRevision", "attachmentId")
+                        COMPOSER_OPTIONS_WRITE -> setOf("threadId", "options")
+                        COMPOSER_HANDOFF -> setOf("threadId", "handoffId", "text")
+                        COMPOSER_PRESERVE_DRAFT -> setOf("threadId", "recoveryId", "text")
+                        COMPOSER_RESTORE -> setOf("threadId", "expectedRevision", "recoveryId")
+                        COMPOSER_RESTORE_TASK -> setOf("threadId", "expectedRevision", "taskId")
+                        else -> setOf("threadId")
+                    }
+                    PanelProtocol.exact(input, fields)
+                    val thread = input.opt("threadId") as? String ?: throw IOException("INVALID_ARGUMENT")
+                    if (thread.isNotEmpty() && !UUID_PATTERN.matcher(thread).matches()) throw IOException("INVALID_ARGUMENT")
+                    if (action in setOf(COMPOSER_ATTACH, COMPOSER_REMOVE, COMPOSER_RESTORE, COMPOSER_RESTORE_TASK)) {
+                        val revision = input.opt("expectedRevision") as? String ?: throw IOException("INVALID_ARGUMENT")
+                        if (revision.length > 128) throw IOException("INVALID_ARGUMENT")
+                    }
+                    if (action == COMPOSER_ATTACH) {
+                        if (text(input, "name", 255).any { it.isISOControl() } ||
+                            !text(input, "mime", 128).matches(Regex("[A-Za-z0-9!#$&^_.+-]+/[A-Za-z0-9!#$&^_.+-]+"))) throw IOException("INVALID_ARGUMENT")
+                        if (input.has("uri")) text(input, "uri", 4096)
+                    }
+                    if (action == COMPOSER_REMOVE) requireId(input, "attachmentId")
+                    if (action == COMPOSER_OPTIONS_WRITE) input.getJSONObject("options")
+                    if (action == COMPOSER_HANDOFF) { requireId(input, "handoffId"); text(input, "text", 16_000) }
+                    if (action == COMPOSER_PRESERVE_DRAFT) {
+                        requireId(input, "recoveryId")
+                        if ((input.opt("text") as? String ?: throw IOException("INVALID_ARGUMENT")).length > 16_000) throw IOException("INVALID_ARGUMENT")
+                    }
+                    if (action == COMPOSER_RESTORE) requireId(input, "recoveryId")
+                    if (action == COMPOSER_RESTORE_TASK && !text(input, "taskId", 20).matches(Regex("[0-9]{1,20}"))) throw IOException("INVALID_TASK_ID")
+                    return input
+                }
+            }
+            if (action == COMPOSER_RECEIPT) {
+                val operation = text(input, "action", 16)
+                val fields = when (operation) {
+                    "sendMessage" -> setOf("action", "threadId", "text", "requestId")
+                    "steer" -> setOf("action", "threadId", "text", "requestId", "expectedTurnId")
+                    "continue" -> setOf("action", "threadId", "text", "requestId", "panelId", "expectedSourceVersion")
+                    else -> throw IOException("INVALID_ARGUMENT")
+                }
+                PanelProtocol.exact(input, fields)
+                requireId(input, "threadId")
+                requireId(input, "requestId")
+                text(input, "text", 16_000)
+                if (operation == "steer") text(input, "expectedTurnId", 160)
+                if (operation == "continue") {
+                    requireId(input, "panelId")
+                    PanelProtocol.number(input, "expectedSourceVersion")
+                }
+                return input
+            }
             val fields: Set<String> = when (action) {
                 "readSession" -> java.util.Set.of("threadId", "refresh", "statusOnly")
                 "mainReply" -> java.util.Set.of("action", "threadId", "turnId", "replyId")
@@ -58,14 +198,21 @@ internal class AgentGatewayProtocol private constructor() {
                 "analyzeCameraFrame" -> java.util.Set.of("image", "language", "instruction")
                 "audioCapabilities" -> java.util.Set.of()
                 "audioCommand" -> java.util.Set.of("matterId", "requestId", "operation", "sessionId", "purpose", "language", "profileId", "targetLanguage", "targetPackage", "recordAudio")
-                "resumeThread", "getWorkspaces", "openNativeConversation" -> java.util.Set.of("threadId")
+                "resumeThread", "getWorkspaces" -> java.util.Set.of("threadId")
                 "sendMessage" -> java.util.Set.of("threadId", "text", "requestId")
                 "steer" -> java.util.Set.of("threadId", "text", "expectedTurnId", "requestId")
                 "interrupt" -> java.util.Set.of("threadId", "turnId")
                 "cancelQueued" -> java.util.Set.of("threadId", "taskId")
+                "readTaskDetail" -> setOf("taskId")
                 "answer" -> java.util.Set.of("threadId", "key", "response")
                 "openWorkspace" -> java.util.Set.of("threadId", "screenKey", "generation")
                 "openSettings" -> java.util.Set.of("page")
+                "openAssistantConnection" -> setOf("page")
+                "workspaces/list", "workspaces/apps", "workspaces/configure", "workspaces/release", "workspaces/preview", "workspaces/open", "manageSystemAi" -> return input
+                "workspaces/pause", "workspaces/takeControl", "workspaces/input", "workspaces/returnAndResume", "workspaces/addRequirement", "workspaces/executionStatus" -> return input
+                "capture/read", "capture/accept", "capture/dismiss", "capture/request", "capture/openConversation",
+                "accounts/read", "accounts/refresh", "accounts/login", "accounts/cancel", "accounts/open", "accounts/keys", "accounts/removeKey", "accounts/saveKey" -> return input
+                "manageAssistant", "requests/list", "requests/open", "requests/respond", "requests/cancel" -> return input
                 "pluginManager" -> java.util.Set.of("operation", "argument", "name", "arguments")
                 "decide" -> java.util.Set.of("state", "questions")
                 "generateUi" -> java.util.Set.of("requestId", "instructions", "prompt", "catalogVersion")
@@ -346,9 +493,10 @@ internal class AgentGatewayProtocol private constructor() {
         @JvmStatic
         @Throws(Exception::class)
         fun requireId(objectValue: JSONObject, key: String) {
-            if (!Pattern.matches("[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}", text(objectValue, key, 36)))
-                throw IOException("INVALID_$key")
+            if (!UUID_PATTERN.matcher(text(objectValue, key, 36)).matches()) throw IOException("INVALID_$key")
         }
+
+        fun isUuid(value: String): Boolean = UUID_PATTERN.matcher(value).matches()
 
         @JvmStatic
         @Throws(Exception::class)

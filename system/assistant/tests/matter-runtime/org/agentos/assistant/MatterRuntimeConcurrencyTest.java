@@ -631,7 +631,7 @@ public final class MatterRuntimeConcurrencyTest {
     }
     private static JSONObject candidate(JSONObject reply) throws Exception {return new JSONObject().put("replyId",reply.getString("id")).put("key",reply.getString("key")).put("revision",reply.getLong("revision")).put("contractHash",reply.getJSONObject("provenance").getString("contractHash")).put("anchorOrdinal",reply.getJSONObject("provenance").getLong("anchorOrdinal"));}
     private static void terminal(String task,String turn,String status,JSONArray candidates,JSONObject reply,String code) throws Exception {
-        File dir=new File(AssistantSession.TASKS,task);
+        File dir=new File(TaskRuntime.TASKS,task);
         TaskRequests.write(new File(dir,"runtime-info.json"),new JSONObject().put("threadId",THREAD).put("turnId",turn).toString());
         JSONObject manifest=new JSONObject().put("schema","taku.panel-completion/1").put("taskId",task).put("threadId",THREAD).put("turnId",turn).put("status",status).put("candidates",candidates).put("reply",reply==null?JSONObject.NULL:reply);
         if(code!=null)manifest.put("code",code);TaskRequests.write(new File(dir,"panel-completion.json"),manifest.toString());
@@ -657,12 +657,12 @@ public final class MatterRuntimeConcurrencyTest {
         TaskRequests.beforeWrite=(file,text)->{if(file.getName().equals("ready")){try {JSONObject binding=f.store.get("panel_updates",id("continue-main"));check(binding!=null&&binding.getString("taskId").equals(file.getParentFile().getName())&&f.store.get("sources","task-"+binding.getString("taskId"))!=null,"Task became ready before its Panel binding and source hold");}catch(Exception failure){throw new IllegalStateException(failure);}}};
         JSONObject submission;try{submission=continuePanel(f,panel,"continue-main");}finally{TaskRequests.beforeWrite=null;}
         String task=submission.getString("taskId");
-        JSONObject request=SourceAdapters.readObject(new File(new File(AssistantSession.TASKS,task),"request.json"));
+        JSONObject request=SourceAdapters.readObject(new File(new File(TaskRuntime.TASKS,task),"request.json"));
         check(request.getJSONObject("panelUpdate").getString("panelId").equals(panelId)&&request.getJSONObject("panelUpdate").getLong("sourceVersion")==0,"Continue omitted the trusted exact target");
         JSONObject reply=completionReply("replacement","turn-main");
         JSONArray updatedBlocks=reply.getJSONObject("card").getJSONObject("request").getJSONArray("blocks");
         for(int i=0;i<updatedBlocks.length();i++){JSONObject block=updatedBlocks.getJSONObject(i);if(block.getString("id").equals("quantity")){block.put("value",new JSONObject().put("type","text").put("value","new source"));block.put("config",new JSONObject().put("editor","text"));}}
-        TaskRequests.write(new File(new File(AssistantSession.TASKS,task),"runtime-info.json"),new JSONObject().put("threadId",THREAD).put("turnId","turn-main").toString());f.runtime.taskChanged(task);
+        TaskRequests.write(new File(new File(TaskRuntime.TASKS,task),"runtime-info.json"),new JSONObject().put("threadId",THREAD).put("turnId","turn-main").toString());f.runtime.taskChanged(task);
         f.runtime.observeReply(THREAD,"turn-main",reply);
         check(f.store.get("matters",THREAD+"/replacement")==null,"Pending continuation independently admitted its candidate");
         f.runtime.setReplyReader(input->new JSONObject().put("ok",true).put("reply",reply));
@@ -714,7 +714,7 @@ public final class MatterRuntimeConcurrencyTest {
         JSONObject failed=continuePanel(f,current,"failed-update");terminal(failed.getString("taskId"),"","cancelled",new JSONArray(),null,null);f.runtime.taskChanged(failed.getString("taskId"));
         check(f.panels.call("get",new JSONObject().put("panelId",panelId)).getJSONObject("updateReceipt").getString("outcome").equals("interrupted"),"Cancelled task appeared published");
         JSONObject rebound=continuePanel(f,current,"rebound-update");String reboundTask=rebound.getString("taskId");
-        TaskRequests.write(new File(new File(AssistantSession.TASKS,reboundTask),"runtime-info.json"),new JSONObject().put("threadId",THREAD).put("turnId","bound-turn").toString());f.runtime.taskChanged(reboundTask);
+        TaskRequests.write(new File(new File(TaskRuntime.TASKS,reboundTask),"runtime-info.json"),new JSONObject().put("threadId",THREAD).put("turnId","bound-turn").toString());f.runtime.taskChanged(reboundTask);
         JSONObject wrongTurn=completionReply("wrong-turn-source","different-turn");terminal(reboundTask,"different-turn","completed",new JSONArray().put(candidate(wrongTurn)),wrongTurn,null);f.runtime.taskChanged(reboundTask);
         check(f.panels.call("get",new JSONObject().put("panelId",panelId)).getJSONObject("updateReceipt").getString("code").equals("SOURCE_CHANGED")&&f.store.get("matters",THREAD+"/wrong-turn-source")==null,"Changed task-turn identity published unrelated content");
         JSONObject removed=continuePanel(f,current,"removed-update");f.unpin("first-result");JSONObject afterRemoval=completionReply("after-unpin","turn-removed");
@@ -750,11 +750,11 @@ public final class MatterRuntimeConcurrencyTest {
         JSONObject panel=f.pin("legacy").getJSONObject("panel");TaskRequests.beforeWrite=(file,text)->{if(file.getName().equals("ready"))throw new IllegalStateException("uncertain transport");};
         JSONObject uncertain;try{uncertain=continuePanel(f,panel,"unknown-delivery");}finally{TaskRequests.beforeWrite=null;}
         check(uncertain.getString("state").equals("deliveryUnknown"),"Unknown publication was declared successful");
-        int tasks=AssistantSession.TASKS.list().length;JSONObject replay=continuePanel(f,panel,"unknown-delivery");
-        check(replay.getString("taskId").equals(uncertain.getString("taskId"))&&AssistantSession.TASKS.list().length==tasks,"Unknown delivery replay created a second task");
-        String task=uncertain.getString("taskId");TaskRequests.write(new File(new File(AssistantSession.TASKS,task),"ready"),"1");
+        int tasks=TaskRuntime.TASKS.list().length;JSONObject replay=continuePanel(f,panel,"unknown-delivery");
+        check(replay.getString("taskId").equals(uncertain.getString("taskId"))&&TaskRuntime.TASKS.list().length==tasks,"Unknown delivery replay created a second task");
+        String task=uncertain.getString("taskId");TaskRequests.write(new File(new File(TaskRuntime.TASKS,task),"ready"),"1");
         JSONObject recovered=continuePanel(f,panel,"unknown-delivery");check(recovered.getString("state").equals("queued")&&recovered.getString("taskId").equals(task),"Known ready evidence did not recover the original unknown receipt");
-        TaskRequests.write(new File(new File(AssistantSession.TASKS,task),"state.json"),new JSONObject().put("id",task).put("state","completed").toString());TaskRequests.write(new File(new File(AssistantSession.TASKS,task),"done"),"completed");f.runtime.taskChanged(task);
+        TaskRequests.write(new File(new File(TaskRuntime.TASKS,task),"state.json"),new JSONObject().put("id",task).put("state","completed").toString());TaskRequests.write(new File(new File(TaskRuntime.TASKS,task),"done"),"completed");f.runtime.taskChanged(task);
         check(f.panels.call("get",new JSONObject().put("panelId",panel.getString("panelId"))).getJSONObject("updateReceipt").getString("code").equals("SOURCE_UNAVAILABLE"),"Missing completion manifest guessed a source");
     }
     private static final class ProcessStopped extends Error {}
@@ -766,44 +766,34 @@ public final class MatterRuntimeConcurrencyTest {
         check(f.store.get("panel_updates",id(name))!=null&&AgentGatewaySubmissions.existing(f.context.getFilesDir(),id(name))==null,"Crash did not leave the precise pre-submission reservation");
     }
     private static void preSubmissionRecovery() throws Exception {
-        for(boolean retry:List.of(false,true)) {
-            Fixture f=new Fixture();f.present("reserved","Reserved source");JSONObject panel=f.pin("reserved").getJSONObject("panel");
-            String name="pre-submission-"+retry;int tasks=AssistantSession.TASKS.list().length;
-            reserveWithoutSubmission(f,panel,name);
-            Fixture restarted=new Fixture(f.context);
-            if(!retry){restarted.runtime.recover();restarted.io.drain();}
-            JSONObject receipt=continuePanel(restarted,panel,name);String task=receipt.getString("taskId");
-            check(receipt.getBoolean("replayed")&&receipt.getString("state").equals("queued")&&receipt.getString("requestId").equals(id(name)),"Pre-submission recovery lost the original request identity");
-            check(AssistantSession.TASKS.list().length==tasks+1,"Pre-submission recovery did not publish exactly one task");
-            JSONObject taskRequest=SourceAdapters.readObject(new File(new File(AssistantSession.TASKS,task),"request.json"));
-            check(taskRequest.getString("prompt").equals("Update the existing card")&&taskRequest.getJSONObject("panelUpdate").getString("requestId").equals(id(name)),"Recovered task did not retain the authorized payload and target");
-            restarted.runtime.recover();restarted.io.drain();
-            check(continuePanel(restarted,panel,name).getString("taskId").equals(task)&&AssistantSession.TASKS.list().length==tasks+1,"Repeated recovery duplicated a task");
-            JSONObject reply=completionReply("recovered-"+retry,"recovered-turn-"+retry);
-            terminal(task,"recovered-turn-"+retry,"completed",new JSONArray().put(candidate(reply)),reply,null);restarted.runtime.taskChanged(task);
-            check(restarted.panels.call("get",new JSONObject().put("panelId",panel.getString("panelId"))).getJSONObject("panel").getLong("sourceVersion")==1,"Recovered submission did not publish its exact completion");
-            JSONObject later=completionReply("later-"+retry,"later-turn-"+retry);restarted.runtime.observeReply(THREAD,"later-turn-"+retry,later);
-            restarted.runtime.setReplyReader(input->new JSONObject().put("ok",true).put("reply",later));
-            check(restarted.pin("later-"+retry).getBoolean("created"),"Recovered reservation fenced unrelated later sources forever");
-        }
+        Fixture interrupted=new Fixture();interrupted.present("reserved","Reserved source");JSONObject reservedPanel=interrupted.pin("reserved").getJSONObject("panel");
+        int interruptedTasks=TaskRuntime.TASKS.list().length;
+        reserveWithoutSubmission(interrupted,reservedPanel,"pre-submission");
+        Fixture reopened=new Fixture(interrupted.context);reopened.runtime.recover();reopened.io.drain();
+        JSONObject unresolved=continuePanel(reopened,reservedPanel,"pre-submission");
+        check(unresolved.getString("state").equals("deliveryUnknown")&&unresolved.getString("requestId").equals(id("pre-submission")),"Pre-submission recovery lost the original unresolved request");
+        check(TaskRuntime.TASKS.list().length==interruptedTasks,"Recovery or receipt retry published an interrupted request");
+        JSONObject laterReply=completionReply("after-interruption","later-turn");reopened.runtime.observeReply(THREAD,"later-turn",laterReply);
+        reopened.runtime.setReplyReader(input->new JSONObject().put("ok",true).put("reply",laterReply));
+        check(reopened.pin("after-interruption").getBoolean("created"),"Unpublished reservation fenced an unrelated later reply");
         Fixture racing=new Fixture();racing.present("racing-reservation","Original");JSONObject racingPanel=racing.pin("racing-reservation").getJSONObject("panel");
-        reserveWithoutSubmission(racing,racingPanel,"racing-reservation");Fixture recovering=new Fixture(racing.context);int racingTasks=AssistantSession.TASKS.list().length;
+        int racingTasks=TaskRuntime.TASKS.list().length;
         CountDownLatch publishing=new CountDownLatch(1),release=new CountDownLatch(1);
         TaskRequests.beforeWrite=(file,text)->{if(file.getName().equals("ready")){publishing.countDown();try{await(release);}catch(Exception failure){throw new IllegalStateException(failure);}}};
         try {
-            FutureTask<Void> recovery=fork(()->{recovering.runtime.recover();recovering.io.drain();return null;});await(publishing);
-            JSONObject concurrent=continuePanel(recovering,racingPanel,"racing-reservation");
-            check(concurrent.getString("state").equals("deliveryUnknown")&&AssistantSession.TASKS.list().length==racingTasks+1,"Concurrent retry crossed the in-progress recovery journal");
-            release.countDown();result(recovery);
-            JSONObject queued=continuePanel(recovering,racingPanel,"racing-reservation");
-            check(queued.getString("state").equals("queued")&&queued.getString("taskId").equals(concurrent.getString("taskId"))&&AssistantSession.TASKS.list().length==racingTasks+1,"Concurrent recovery and retry published more than one task");
+            FutureTask<JSONObject> initial=fork(()->continuePanel(racing,racingPanel,"racing-reservation"));await(publishing);
+            JSONObject concurrent=continuePanel(racing,racingPanel,"racing-reservation");
+            check(concurrent.getString("state").equals("deliveryUnknown")&&TaskRuntime.TASKS.list().length==racingTasks+1,"Concurrent retry crossed the in-progress recovery journal");
+            release.countDown();result(initial);
+            JSONObject queued=continuePanel(racing,racingPanel,"racing-reservation");
+            check(queued.getString("state").equals("queued")&&queued.getString("taskId").equals(concurrent.getString("taskId"))&&TaskRuntime.TASKS.list().length==racingTasks+1,"Concurrent recovery and retry published more than one task");
         } finally {release.countDown();TaskRequests.beforeWrite=null;}
         Fixture legacy=new Fixture();legacy.present("old-reservation","Original");JSONObject panel=legacy.pin("old-reservation").getJSONObject("panel");
         reserveWithoutSubmission(legacy,panel,"legacy-reservation");JSONObject old=legacy.store.get("panel_updates",id("legacy-reservation"));old.remove("text");legacy.store.put("panel_updates",id("legacy-reservation"),old);
-        int tasks=AssistantSession.TASKS.list().length;Fixture restarted=new Fixture(legacy.context);restarted.runtime.recover();restarted.io.drain();
+        int tasks=TaskRuntime.TASKS.list().length;Fixture restarted=new Fixture(legacy.context);restarted.runtime.recover();restarted.io.drain();
         JSONObject receipt=continuePanel(restarted,panel,"legacy-reservation");
         check(receipt.getString("state").equals("notSent")&&receipt.getJSONObject("update").getBoolean("settled")&&receipt.getString("requestId").equals(id("legacy-reservation")),"Legacy reservation without a journal remained deliveryUnknown");
-        check(AssistantSession.TASKS.list().length==tasks,"Legacy recovery invented a task without its original text");
+        check(TaskRuntime.TASKS.list().length==tasks,"Legacy recovery invented a task without its original text");
         JSONObject later=completionReply("after-legacy-reservation","later-turn");restarted.runtime.observeReply(THREAD,"later-turn",later);
         restarted.runtime.setReplyReader(input->new JSONObject().put("ok",true).put("reply",later));
         check(restarted.pin("after-legacy-reservation").getBoolean("created"),"Legacy pre-submission reservation kept fencing future sources");

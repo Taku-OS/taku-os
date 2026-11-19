@@ -3,17 +3,14 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 
 function configureTranslucentThemes(styles) {
-  // Android decides whether this Activity occludes the previous one from the
-  // manifest's launch theme, before Expo switches to postSplashScreenTheme.
-  // Both themes must therefore be translucent; changing only AppTheme leaves
-  // a transparent React surface over an already hidden launcher/application.
+  // The launch and runtime themes must both keep the previous Activity available for blur.
   for (const name of ['AppTheme', 'Theme.App.SplashScreen']) {
     const theme = styles.resources.style?.find((style) => style.$.name === name);
     if (!theme) throw new Error(`Taku Agent: expected Android theme ${name}; review the Expo template.`);
     theme.item ??= [];
     for (const [attribute, value] of Object.entries({
       'android:windowIsTranslucent': 'true',
-      'android:windowBackground': '@android:color/transparent',
+      'android:windowBackground': '@color/taku_conversation_background',
       'android:windowLightStatusBar': 'true',
     })) {
       const item = theme.item.find((item) => item.$.name === attribute);

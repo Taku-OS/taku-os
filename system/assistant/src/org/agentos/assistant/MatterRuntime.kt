@@ -298,10 +298,9 @@ internal class MatterRuntime(
         val updates = state(background = true) { store.pendingPanelUpdates() }
         for (i in 0 until updates.length()) {
             val update = updates.getJSONObject(i)
-            var receipt = AgentGatewaySubmissions.existing(context.filesDir, update.getString("requestId"))
-            if (receipt == null && update.optString("taskId").isEmpty()) {
-                if (update.has("text")) receipt = panels.submitUpdate(update)
-                else state(true, true) {
+            val receipt = AgentGatewaySubmissions.existing(context.filesDir, update.getString("requestId"))
+            if (receipt == null && update.optString("taskId").isEmpty() && !update.has("text")) {
+                state(true, true) {
                     val current = store.get("panel_updates", update.getString("requestId"))!!
                     current.put("submission", JSONObject().put("requestId", current.getString("requestId"))
                         .put("threadId", current.getString("originThreadId")).put("state", "notSent").put("code", "SUBMISSION_NOT_STARTED"))
@@ -309,7 +308,7 @@ internal class MatterRuntime(
                 }
             }
             val binding = if (receipt?.optString("taskId")?.isNotEmpty() == true) try {
-                SourceAdapters.readObject(File(File(AssistantSession.TASKS, receipt.getString("taskId")), "request.json")).optJSONObject("panelUpdate")
+                SourceAdapters.readObject(File(File(TaskRuntime.TASKS, receipt.getString("taskId")), "request.json")).optJSONObject("panelUpdate")
             } catch (_: Exception) { null } else null
             if (receipt != null) state(true, true) {
                 val current = store.get("panel_updates", update.getString("requestId"))!!
@@ -335,7 +334,7 @@ internal class MatterRuntime(
     fun taskChanged(taskId: String) {
         if (!taskId.matches(Regex("[0-9]{1,20}"))) return
         val bound = state(background = true) { store.panelUpdateForTask(taskId) } ?: return
-        val directory = File(AssistantSession.TASKS, taskId)
+        val directory = File(TaskRuntime.TASKS, taskId)
         var evidenceFailure: String? = null
         fun evidence(file: File, maximum: Int = 128_000): JSONObject? = try { SourceAdapters.readObject(file, maximum) }
             catch (invalid: Exception) { evidenceFailure = if (invalid is org.json.JSONException) "SOURCE_CHANGED" else "SOURCE_UNAVAILABLE"; null }
@@ -1413,7 +1412,7 @@ internal class MatterRuntime(
         for (field in arrayOf("requestId", "threadId", "taskId", "state", "code", "createdAt")) if (raw.has(field)) receipt.put(field, raw.get(field))
         if ("publishing" == receipt.optString("state")) {
             val task = receipt.optString("taskId")
-            val published = Pattern.matches("[0-9]{1,20}", task) && File(File(AssistantSession.TASKS, task), "ready").isFile
+            val published = Pattern.matches("[0-9]{1,20}", task) && File(File(TaskRuntime.TASKS, task), "ready").isFile
             receipt.put("state", if (published) "queued" else "deliveryUnknown")
         }
         return receipt.put("effect", "conversational-followup")

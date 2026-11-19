@@ -1,6 +1,6 @@
 ---
 name: taku-open-access
-description: Inspect and manage Taku OS skills, plugins, memory, Audio settings, home feed actions, the panel directory, primary replies, usage, session removal and background workspaces using Android content commands.
+description: Inspect and manage Taku OS assistant drafts, skills, plugins, memory, Audio settings, home feed actions, the panel directory, primary replies, usage, session removal and background workspaces using Android content commands.
 ---
 
 # TakuOS open access
@@ -93,9 +93,7 @@ old desktop. Manual screenshot analysis uses the existing command
 the new selected voice service captures, and the original backend analyzes. Secure screens
 may supply no screenshot. No capture or model result is fabricated. `system/capture` is
 the internal handoff with a backend-issued token, not a reusable capture token API.
-The Android assistant privacy controls share `settings get secure assist_screenshot_enabled`
-and `settings get secure assist_structure_enabled`; `settings put secure KEY 1` enables
-the corresponding control and `0` disables it. The new service honors both settings.
+Check Android's `assist_structure_enabled` and `assist_screenshot_enabled` with `settings get secure KEY`. Android needs both permissions to provide an assistant screenshot. Set a key to `1` to enable it or `0` to disable it.
 Hardware voice-key routing also requires the PhoneWindowManager ROM patch; a standalone
 APK update on stock Android does not replace that platform's web-search key behavior.
 
@@ -104,6 +102,8 @@ The existing Codex plugin manager also has `/system_ext/bin/taku-plugin list`,
 `uninstall ID` (alias `remove ID`), and `reload` (reloads MCP configuration).
 It returns JSON on success, exits 1 on errors, and exits 2 when a change
 succeeded but MCP reload failed. It uses the same native RPC as the plugin GUI.
+The default list covers marketplace sources registered on the device, including the workspace.
+It does not request the unbounded account-wide remote catalog.
 For God Mode use `taku-plugin godmode list`, `show ID`, `install PATH`,
 `install-url '{"url":"HTTPS_URL","sha256":"64_HEX_CHARS","signature":"BASE64","publicKey":"BASE64_X509"}'`, `rollback ID`,
 `taku-plugin godmode mcp` exposes the live catalog as one stdio MCP server for
@@ -115,6 +115,7 @@ enable/disable changes without restarting the host,
 sockets). The service and management screen use the same
 `/data/local/agentos/godmode/registry.json` and installed generations, separate
 from Codex marketplace state.
+
 `tools TOOLSET` filters summaries; `tool ID NAME` returns full tool details.
 `checks [ID]` discovers checks and `run-check ID NAME '{}'` runs one.
 `evidence [ID]` exports or verifies the host's content-addressed records under
@@ -135,6 +136,48 @@ Tool-provider skills are discovery metadata, not automatic Codex skill installs.
 This root service can run arbitrary plugin code accessible to local callers;
 use only on an isolated development device.
 
+### Advanced assistant management
+
+The **Assistant management** screen uses `manageAssistant` on
+`content://org.agentos.assistant.open-access`. It operates on the current Android
+user's local runtime and reports `USER_UNAVAILABLE` for unsupported Android users.
+For example, read the goal using the exact thread ID from the conversation:
+
+```sh
+content call --uri content://org.agentos.assistant.open-access --method manageAssistant \
+  --arg '{"operation":"thread/goal/get","threadId":"THREAD_ID"}'
+```
+
+Pass `operation` and the fields listed below in `--arg`. Extra fields fail with
+`UNSUPPORTED_PARAMETER`. The response's `result` contains the native operation's
+data. If the provider returns a `resultUri`, read it once using the same UID.
+
+| Expo page | Operations and fields |
+| --- | --- |
+| Conversation title | `thread/name/get` takes `threadId` and returns `threadId`, `name`, and the displayed `title`. `thread/name/set` takes `threadId` and `name`. The trimmed name must be nonempty and at most 120 UTF-16 code units. Success returns `threadId` and `loaded:true`. |
+| Conversation goal | `thread/goal/get` and `thread/goal/clear` take `threadId`. `thread/goal/set` also takes `status` (`active` or `paused`). Supply `objective` for `active`. `tokenBudget` accepts a positive integer or `null`. |
+| Task queue | `thread/queue/list` takes `threadId` and optional `cursor`. `thread/queue/submit` takes `threadId`, UUID `requestId`, and nonempty `text`. The result reports `submission` as `queued` or `started`. `thread/queue/start` takes `threadId` and optional `queuedSubmissionId`. `thread/queue/delete` requires both fields. `thread/queue/reorder` takes `threadId` and the ordered `queuedSubmissionIds` array. |
+| Task files | `taskFiles/list` takes an optional workspace-relative `path`. `taskFiles/read` takes `path` and returns `text`. `taskFiles/write` takes `path` and `text` (up to 32,000 characters). Supply `taskId` instead to list a published task's result. To read that result, pass `taskId` and `path:"result.txt"`. Task results are read-only. On either task operation, supply `threadId` to check task ownership. |
+| Skills | `skills/read` takes optional `threadId`. `skills/set-enabled` takes `path` and boolean `enabled`. `skills/select` takes `threadId` and `path` and toggles that skill's selection for the thread. Use paths returned by `skills/read`. |
+| Skill sources | `skills/community/catalog` takes `sourceId`. `skills/community/detail` and `skills/community/install` take `sourceId`, `name`, and `commit` from the catalog. `skills/community/add` takes `repo` (`owner/repo`), optional relative `path`, and optional boolean `private`. `skills/community/check-update`, `skills/community/rollback`, and `skills/community/uninstall` take installed `path`. `skills/community/upgrade` also takes `commit` from the update check. |
+| Skill credentials | `skills/credentials/status`, `skills/credentials/open`, and `skills/credentials/remove` take `repo`. Status returns `configured`. Open shows the Android password field. Enter and replace tokens there. |
+| Harness | `harness/read` and `harness/refresh` take `threadId`. Refresh uses the assistant's current response style and screenshot preference in its context metadata. |
+| Codex plugins | `plugin/list` takes no extra fields. `plugin/install` takes `pluginName` and `marketplacePath` from the list. `plugin/uninstall` takes `pluginId`. `plugin/set-enabled` takes `pluginId` and boolean `enabled`. A completed mutation reports `mcpReloaded:false` if the configuration reload needs a separate retry. |
+| Codex apps and MCP | `app/list` and `mcpServerStatus/list` take optional `cursor`. Pass `nextCursor` from the previous result for the next page. `mcpServer/tool/call` takes `threadId`, `server`, `tool`, and a JSON object in `arguments`. Use the exact server and tool names listed by `mcpServerStatus/list`. The tool result retains `isError`. `config/mcpServer/reload` takes no extra fields. |
+
+The title update refreshes the chat header and History. A blank or overlong title
+and a non-object `arguments` value return `INVALID_ARGUMENT`. A server or tool
+missing from the conversation's catalog returns `MCP_TOOL_UNAVAILABLE`. Tool calls
+use the conversation's existing runtime policy.
+
+Workspace files are visible UTF-8 text documents with extensions `.txt`, `.md`,
+`.csv`, `.tsv`, or `.log`. Reads are limited to 128 KiB. The file interface
+rejects traversal and symlinks. A task linked to a different conversation
+returns `TASK_THREAD_MISMATCH`. Goal, queue, Skills, and Harness use the existing
+native owners. A frozen skill catalog remains readable during an active turn.
+When a queue submission reply is lost, check the queue and conversation before
+submitting again. The God Mode market has its own registry and its own controls.
+
 Run on the device, without the `adb shell` prefix. A response contains JSON in
 `Bundle[{result=...}]`; check `ok` before using `result`. System/Agent/ADB shell
 callers (`UID 0 / 1000 / 2000`) pass through directly; third-party Android apps
@@ -147,17 +190,8 @@ of truth. Values may contain personal data.
 # Note: in `manual` mode, per-app grants and mode escalation are locked to the Taku AI UI (`MANUAL_MODE_LOCKED`).
 content call --uri content://org.agentos.assistant.permissions --method read --arg '{}'
 content call --uri content://org.agentos.assistant.permissions --method setMode --arg '{"mode":"deny"}'
-# Skill list, enabled state, provenance commit and content hash
+# Read installed skills. The Assistant management table above lists all lifecycle operations.
 content call --uri content://org.agentos.assistant.open-access --method skills/read --arg '{}'
-# Install, enable, upgrade, rollback or uninstall a managed skill using the
-# sourceId/name/commit or path returned by skills/read.
-content call --uri content://org.agentos.assistant.open-access --method skills/set-enabled --arg '{"path":"/data/local/agentos/home/.codex/skills/NAME/SKILL.md","enabled":false}'
-content call --uri content://org.agentos.assistant.open-access --method skills/community/catalog --arg '{"sourceId":"openai"}'
-content call --uri content://org.agentos.assistant.open-access --method skills/community/install --arg '{"sourceId":"openai","name":"NAME","commit":"COMMIT"}'
-content call --uri content://org.agentos.assistant.open-access --method skills/community/uninstall --arg '{"path":"/data/local/agentos/home/.codex/skills/NAME/SKILL.md"}'
-content call --uri content://org.agentos.assistant.open-access --method skills/community/check-update --arg '{"path":"/data/local/agentos/home/.codex/skills/NAME/SKILL.md"}'
-content call --uri content://org.agentos.assistant.open-access --method skills/community/upgrade --arg '{"path":"/data/local/agentos/home/.codex/skills/NAME/SKILL.md","commit":"COMMIT"}'
-content call --uri content://org.agentos.assistant.open-access --method skills/community/rollback --arg '{"path":"/data/local/agentos/home/.codex/skills/NAME/SKILL.md"}'
 # Plugin catalog and installed plugins, plus MCP status
 content call --uri content://org.agentos.assistant.open-access --method plugin/list --arg '{"cwds":["/data/local/agentos/work"]}'
 content call --uri content://org.agentos.assistant.open-access --method plugin/installed --arg '{}'
@@ -198,6 +232,104 @@ Upstream account usage or costs may be unavailable; missing cost is not zero.
 The current main branch has no persistent Case registry or cost ledger, so no
 Case list or total currency amount can yet be reported. Plugin changes should be
 followed by `config/mcpServer/reload` as in the native plugin UI.
+
+## Assistant settings and authorization
+
+The system Settings entry, input method, Memory and chat all open the same Taku AI settings. See the installed `taku-system-ai-settings` skill for model routing, app policy, usage and Jev settings. `readTaskDetail` reads the native record behind a task notification.
+
+```sh
+D=content://org.agentos.assistant.open-access
+am start -a org.agentos.action.AI_SETTINGS -p org.agentos.agent
+content call --uri "$D" --method readTaskDetail --arg '{"taskId":"TASK_ID"}'
+content call --uri "$D" --method accounts/read
+content call --uri "$D" --method accounts/refresh
+content call --uri "$D" --method accounts/login --arg '{"type":"chatgptDeviceCode"}'
+content call --uri "$D" --method accounts/open --arg '{"page":"account"}'
+content call --uri "$D" --method accounts/cancel
+content call --uri "$D" --method accounts/keys
+content call --uri "$D" --method accounts/open --arg '{"page":"byok"}'
+content call --uri "$D" --method accounts/removeKey --arg '{"id":"PROVIDER_ID","ref":"KEY_REF"}'
+content call --uri "$D" --method requests/list --arg '{"threadId":"THREAD_UUID"}'
+content call --uri "$D" --method requests/open --arg '{"threadId":"THREAD_UUID","key":"REQUEST_UUID"}'
+content call --uri "$D" --method requests/cancel --arg '{"threadId":"THREAD_UUID","key":"REQUEST_UUID"}'
+```
+
+`accounts/login` also accepts `type:"chatgpt"` for browser authorization. Status returns `connected`, `phase`, `kind` and `plan`. Complete authorization on the official page opened from Kotlin. `accounts/open` with `page:"magpie"` opens the device's Magpie management browser flow. `accounts/keys` returns masked key summaries, including the `id` and `ref` needed to replace or remove an OpenRouter key. To supply a key programmatically, use `ContentResolver.call` with method `accounts/saveKey`, a regular read-only UTF-8 file descriptor in `extras["credential"]` and `{}` in `arg` for a new key or `{id,ref}` for replacement. The shell `content` command cannot pass this descriptor. Invalid credentials return `INVALID_CREDENTIAL`, an absent descriptor returns `KEY_SOURCE_REQUIRED`, an invalid `id`/`ref` pair returns `INVALID_KEY_REFERENCE`, and a broker failure returns `KEY_OPERATION_FAILED`.
+
+`requests/list` returns `{threadId,key,method,secure}` for each supported pending request. Use `threadId:""` for runtime-wide requests. `requests/respond` accepts `{threadId,key,response}`. For a normal question, `response` follows the conversation's answer payload. Extension tool results take `response:{text}` and native permission, file and command approvals take `response:{decision:"accept"}`. Requests marked `secure` return `SECURE_INPUT_REQUIRED` on a direct response. Open the Kotlin form to provide the answer, complete an MCP authorization, or submit existing external account authorization or attestation. The upstream device attestation service must supply an existing token. Taku does not issue one. A different thread, stale request or repeated response returns `REQUEST_EXPIRED`.
+
+Task detail returns `{taskId,state,prompt,message}`. The task ID is a decimal string. Missing and unreadable task records return `TASK_NOT_FOUND` and `TASK_UNAVAILABLE` respectively. Context usage is available as `thread/usage` with `{threadId,usage}`. A `null` usage value indicates the source has not published usage for this thread.
+
+## Screen suggestions
+
+Call capture with the source app visible. The public capture ID identifies the Expo preview and, after acceptance, the corresponding background job.
+
+```sh
+D=content://org.agentos.assistant.open-access
+content call --uri "$D" --method capture/request --arg '{"manual":true}'
+content call --uri "$D" --method capture/request --arg '{"manual":true,"source":"invocation"}'
+content call --uri "$D" --method capture/read --arg '{"captureId":"CAPTURE_UUID"}'
+content call --uri "$D" --method capture/accept --arg '{"captureId":"CAPTURE_UUID"}'
+content call --uri "$D" --method capture/openConversation --arg '{"captureId":"CAPTURE_UUID"}'
+content call --uri "$D" --method capture/dismiss --arg '{"captureId":"CAPTURE_UUID"}'
+content call --uri "$D" --method manageSystemAi --arg '{"operation":"setAssistScreenshots","enabled":true}'
+```
+
+`source:"system"` requests a fresh capture. `source:"invocation"` reuses the latest Android assistant screenshot and requires `manual:true`. Invalid fields return `INVALID_ARGUMENT`. Resolve an open suggestion before retrying `CAPTURE_BUSY`.
+
+`manual:true` is the default. `manual:false` applies the enabled Jev decision gate and can return `JEV_DISABLED`. Reads distinguish `capturing`, `analyzing`, `ready`, `no_screenshot`, `no_suggestion`, `expired`, `accepted`, `dismissed`, and `failed`. `no_screenshot` indicates Android withheld the image, for example from a protected screen or when screenshot access is disabled. Only a `ready` suggestion can start work. Acceptance is idempotent and keeps the same task ID after publication. Missing and expired captures cannot be accepted. A ready suggestion expires after two minutes. To read the Android privacy setting directly, run `settings --user 0 get secure assist_screenshot_enabled`. Screenshots and authorization tokens stay inside the signed Android handoff.
+
+`capture/openConversation` opens the accepted suggestion's thread and returns `{opened:true,threadId}`. It returns `THREAD_UNAVAILABLE` if the task has no thread yet, or `AGENT_UI_UNAVAILABLE` if Taku Agent cannot launch.
+
+## Assistant drafts
+
+The Agent UI and ordinary apps in unlocked Android user 0 use the same composer. Pass the lowercase conversation UUID, or use `threadId:""` for the single new-conversation slot. Draft commands return `{threadId,revision,text,attachments,recovery,pendingReceipts}` inside `Bundle.result`. Attachment metadata includes `{id,name,mime,size}`.
+
+```sh
+D=content://org.agentos.assistant.open-access
+content call --uri "$D" --method composer/read --arg '{"threadId":""}'
+content call --uri "$D" --method composer/write --arg '{"threadId":"","revision":"CURRENT_REVISION","text":"A draft to review"}'
+content call --uri "$D" --method composer/createThread --arg '{}'
+content call --uri "$D" --method composer/move --arg '{"threadId":"","revision":"REVISION","targetThreadId":"FRESH_THREAD_UUID"}'
+content call --uri "$D" --method composer/removeAttachment --arg '{"threadId":"THREAD_UUID","expectedRevision":"REVISION","attachmentId":"ATTACHMENT_UUID"}'
+content call --uri "$D" --method composer/options/read --arg '{"threadId":"THREAD_UUID"}'
+content call --uri "$D" --method composer/options/write --arg '{"threadId":"THREAD_UUID","options":{"responseStyle":"detailed"}}'
+content call --uri "$D" --method composer/submit --arg '{"threadId":"THREAD_UUID","revision":"REVISION","requestId":"REQUEST_UUID","action":"sendMessage","attachmentIds":[]}'
+content call --uri "$D" --method composer/receipt --arg '{"threadId":"THREAD_UUID","requestId":"REQUEST_UUID"}'
+content call --uri "$D" --method composer/settle --arg '{"threadId":"THREAD_UUID","requestId":"REQUEST_UUID"}'
+content call --uri "$D" --method composer/release --arg '{"threadId":"THREAD_UUID","requestId":"REQUEST_UUID"}'
+content call --uri "$D" --method composer/restore --arg '{"threadId":"THREAD_UUID","expectedRevision":"REVISION","recoveryId":"RECOVERY_UUID"}'
+content call --uri "$D" --method composer/restoreTask --arg '{"threadId":"THREAD_UUID","expectedRevision":"REVISION","taskId":"TASK_ID"}'
+content call --uri "$D" --method composer/preserveDraft --arg '{"threadId":"THREAD_UUID","recoveryId":"RECOVERY_UUID","text":"An edit to keep"}'
+content call --uri "$D" --method composer/handoff --arg '{"threadId":"THREAD_UUID","handoffId":"HANDOFF_UUID","text":"A draft to review"}'
+content call --uri "$D" --method interrupt --arg '{"threadId":"THREAD_UUID","turnId":"ACTIVE_TURN_ID"}'
+content call --uri "$D" --method cancelQueued --arg '{"threadId":"THREAD_UUID","taskId":"QUEUED_TASK_ID"}'
+```
+
+Use the revision from the read in the write. The initial revision is `""`. Write accepts up to 16000 characters and keeps the text exactly as supplied. An empty string clears the text. Writing identical text keeps the revision.
+
+If the revision changed, write returns `ok:false` with `code:"DRAFT_REVISION_CONFLICT"` and the current `revision`. Read the current draft before deciding how to merge or replace it. Wrong types, missing fields, and extra fields return `INVALID_ARGUMENT`. Arguments over 48000 characters return `REQUEST_TOO_LARGE`. A failed disk write returns `DRAFT_SAVE_FAILED`. Other Android users receive `USER_UNAVAILABLE`, and locked user 0 receives `USER_LOCKED` when the provider is reachable.
+
+To add a file with `composer/attach`, call `ContentResolver.call` with `arg` containing `{threadId,expectedRevision,name,mime}` and a read-only `ParcelFileDescriptor` in `extras["attachment"]`. For the URI form, pass `uri` in `arg` after granting the assistant read access to the same `content:` URI. The shell `content` command cannot carry a file descriptor. Attachment intake accepts up to eight files and 20,000,000 bytes per file. Errors include `ATTACHMENT_LIMIT`, `ATTACHMENT_TOO_LARGE`, `ATTACHMENT_UNAVAILABLE`, and `ATTACHMENT_ACCESS_DENIED`.
+
+Submit an existing thread with its draft revision and the attachment IDs in selection order. Use `action:"steer"` with `expectedTurnId` for a follow-up, or `action:"continue"` with `panelId` and `expectedSourceVersion` to continue a Panel. An empty message can include attachments. Reusing a request ID with different input returns `REQUEST_ID_REUSED`. Read `composer/receipt` after IPC loss. `queued` and `accepted` identify a published request. `notSent` identifies a rejected request. `missing` and `deliveryUnknown` require review. `composer/settle` applies a confirmed receipt to its original revision. `composer/release` keeps recoverable content and allows editing after an unresolved request.
+
+The composer screenshot preference uses the same setting as **Include previous screen when sending** in the Expo composer. It is separate from the Android screenshot privacy setting.
+
+```sh
+content call --uri "$D" --method manageSystemAi --arg '{"operation":"readComposerScreenshots"}'
+content call --uri "$D" --method manageSystemAi --arg '{"operation":"setComposerScreenshots","enabled":true}'
+```
+
+Both operations return `{enabled}`. The setter requires a JSON boolean. Missing or extra fields return `INVALID_ARGUMENT`. A failed settings write returns `SETTINGS_WRITE_FAILED`. When enabled, a new request uses the screenshot from the latest Android invocation for up to two minutes, subject to Android's screenshot privacy setting. Without an authorized image, the composer returns `notSent` with `SCREENSHOT_UNAVAILABLE` and preserves the original draft. Invoke the system assistant again to refresh the screenshot, or turn the preference off to send without it. Receipt lookup neither recaptures nor republishes a request.
+
+`interrupt` stops the active turn for the exact thread and pauses its active goal. It returns `TURN_CHANGED` if the turn is no longer active. `cancelQueued` returns `cancellationRequested:true` for a queued task in the same thread. It rejects a task from another thread with `TASK_THREAD_MISMATCH`, a finished task with `TASK_FINISHED`, and a thread with an active turn with `TURN_STARTED`. Read the task state to confirm cancellation.
+
+`composer/handoff` installs editable text and saves the displaced draft. Repeating the same handoff ID and input leaves the active draft intact. Restore into an empty editor using a recovery entry or a task in `failed` or `needs_user` state from the same thread. `DRAFT_NOT_EMPTY`, `RECOVERY_UNAVAILABLE`, and `TASK_FAILURE_CHANGED` identify conditions that require a fresh read.
+
+`composer/options/write` accepts `model`, `effort`, `serviceTier`, `multiAgentMode`, `permissionMode`, and `responseStyle`. A JSON `null` removes a thread override. Read `options`, `effective`, and `models` to compare selected and inherited values. Model-dependent choices come from the runtime catalog. Unsupported changes return `MODEL_UNAVAILABLE`, `EFFORT_UNSUPPORTED`, or `SERVICE_TIER_UNSUPPORTED`.
+
+For private upgrades the signed UI imports its own legacy drafts. If saved text matches an old pending submission, the UI checks the original receipt before importing it. Accepted text is retired. A different draft remains available.
 
 ## Taku Audio settings
 
@@ -248,14 +380,14 @@ validated the key. `enabled` is global AI state and is read-only here.
 disabled. This endpoint reads no OpenRouter state, refreshes no model catalog,
 and makes no paid validation or inference call.
 
-The `dictation.assistant-entry` view reports the saved desktop preference,
+The `dictation.assistant-entry` view reports the saved assistant preference,
 resolved system language, default provenance, local errors and backend
 prerequisites. Primary is `zipformer` or `fal-whisper`; fallback is null or the
 other profile; language is `system`, `zh-CN`, or `en-US`. All three fields are
 required when configuring. Cloud primary or fallback requires a saved readable
 fal Key. Defaults are local, follow-system, and no fallback. Reset affects only
 this scope. The active session keeps its selected settings. New recordings use
-the next snapshot. Full chat, reading and translation keep their own defaults.
+the next snapshot. The full-chat microphone uses the saved language with local Zipformer.
 
 Backend rows expose `processing`, supported languages, `unavailableReasons`,
 `maxCaptureMs`, and `drainTimeoutMs`. Static availability is not proof of remote
@@ -381,8 +513,12 @@ paths have physical-device evidence; the 1.5.0 Frida path has a same-device Andr
 
 ## Background workspace App access
 
-Run these workspace commands as root or the system user. They use the same
-policy, screen identities and control checks as the GUI.
+The Expo `/workspaces` page and ordinary apps in unlocked Android user 0 use
+the same Kotlin workspace commands and broker policy. Root or system UID is
+not required. Other Android users receive `USER_UNAVAILABLE`; a locked user
+receives `USER_LOCKED`. These checks do not enable background work or grant
+input control. Existing app policy, exact leases, execution stop confirmation,
+control revisions, and native request approvals still apply.
 
 ### Read and configure
 
@@ -397,6 +533,7 @@ version. Send changes inside `patch`; omitted settings keep their values.
 
 ```sh
 content call --uri content://org.agentos.assistant.open-access --method workspaces/list --arg '{}'
+content call --uri content://org.agentos.assistant.open-access --method workspaces/apps --arg '{}'
 content call --uri content://org.agentos.assistant.open-access --method workspaces/configure --arg '{"patch":{"allowBackground":false}}'
 content call --uri content://org.agentos.assistant.open-access --method workspaces/configure --arg '{"patch":{"maxActiveScreens":2}}'
 content call --uri content://org.agentos.assistant.open-access --method workspaces/configure --arg '{"patch":{"blockedPackages":["com.android.deskclock"]}}'
@@ -404,6 +541,12 @@ content call --uri content://org.agentos.assistant.open-access --method workspac
 
 Use `{"patch":{"allowBackground":true}}` to accept new requests again. The
 examples change real settings; restore the previously read policy after a test.
+
+`list` accepts an optional `threadId` to select one native thread. `apps`
+returns `{apps,policy}`. Each app has `packageName`, `label`, `installed`, and
+`allowed`. The catalog includes launchable apps and saved blocked packages
+that are no longer installed. Preserve blocked entries when replacing the
+array. Both entry points read the existing broker policy store.
 
 Typical rejected patches (pass them as `--arg` to `workspaces/configure`):
 
@@ -434,8 +577,7 @@ the target changed before cleanup started. Receipts are recent broker state.
 The saved policy survives a broker restart.
 
 Queue requests containing a revoked App fail with `APP_NOT_ALLOWED`.
-On `WORKSPACE_PERMISSION_DENIED`, use the root runtime. After a failed cleanup,
-check the screen and policy before retrying.
+After a failed cleanup, check the screen and policy before retrying.
 
 ### Force-close a specified workspace
 
@@ -454,16 +596,72 @@ Closing your own workspace can interrupt the turn issuing the command. Have
 an independent caller query the list afterwards; an absent reply is not a
 reason to replay the close blindly.
 
-The content result contains `ok` and either `result` (the shared workspace
-list) or `message`. `WORKSPACE_PERMISSION_DENIED` requires root/system;
-`SCREEN_NOT_BOUND` means no current allocation; `SCREEN_OWNER_MISMATCH`
-rejects an outdated or wrong screen key/generation; `WORKSPACE_CONTROL_BUSY`
+The content result contains `ok` and either `result`, the shared workspace
+list, or `code` and `message`. `SCREEN_NOT_BOUND` means no current allocation;
+`SCREEN_OWNER_MISMATCH` rejects an outdated or wrong screen key/generation; `WORKSPACE_CONTROL_BUSY`
 means another management action holds the control lock. Stop confirmation can
 fail with `WORKSPACE_EXECUTION_STOP_UNCONFIRMED` or
 `WORKSPACE_PROCESS_STOP_UNCONFIRMED`. Refresh identity/state before a retry.
 The existing explicit-close path can remove a row while a physical-stop
 failure is only logged. An `ok` reply or missing row alone therefore does not
 prove physical cleanup completed; inspect that instance independently if needed.
+
+`release` accepts optional `returnToThread:true`. After successful release,
+it opens that lease's original conversation in Expo. `opened:false` and
+`returnError` report a navigation failure after cleanup succeeded. Do not
+repeat the release to retry navigation. Omitting this flag preserves the
+command's existing behavior without opening a screen.
+
+### Preview, open, and control an exact lease
+
+All methods below require the same `threadId`, `screenKey`, and `generation`
+returned by `list`. A stale generation never selects a replacement screen.
+
+```sh
+W=content://org.agentos.assistant.open-access
+content call --uri "$W" --method workspaces/preview --arg '{"threadId":"THREAD_ID","screenKey":"SCREEN_KEY","generation":"GENERATION"}'
+content call --uri "$W" --method workspaces/open --arg '{"threadId":"THREAD_ID","screenKey":"SCREEN_KEY","generation":"GENERATION"}'
+content call --uri "$W" --method workspaces/pause --arg '{"threadId":"THREAD_ID","screenKey":"SCREEN_KEY","generation":"GENERATION"}'
+content call --uri "$W" --method workspaces/takeControl --arg '{"threadId":"THREAD_ID","screenKey":"SCREEN_KEY","generation":"GENERATION"}'
+content call --uri "$W" --method workspaces/input --arg '{"threadId":"THREAD_ID","screenKey":"SCREEN_KEY","generation":"GENERATION","controlRevision":CURRENT_REVISION,"input":{"type":"tap","x":100,"y":200}}'
+content call --uri "$W" --method workspaces/returnAndResume --arg '{"threadId":"THREAD_ID","screenKey":"SCREEN_KEY","generation":"GENERATION","controlRevision":CURRENT_REVISION,"requestId":"REQUEST_UUID"}'
+content call --uri "$W" --method workspaces/addRequirement --arg '{"threadId":"THREAD_ID","screenKey":"SCREEN_KEY","generation":"GENERATION","controlRevision":CURRENT_REVISION,"requestId":"REQUEST_UUID","text":"Review the current screen before continuing."}'
+content call --uri "$W" --method workspaces/executionStatus --arg '{"threadId":"THREAD_ID","screenKey":"SCREEN_KEY","generation":"GENERATION","requestId":"REQUEST_UUID"}'
+```
+
+Replace `CURRENT_REVISION` with the integer `controlRevision` from the latest
+screen state. Replace `REQUEST_UUID` with a new lowercase UUID for each new
+execution request. These commands act on real workspaces.
+
+`preview` opens the retained live viewer in read-only mode. It rejects an
+unavailable, unadmitted, stopping, or stale screen. Its exit returns to the
+same thread. `open` checks the current lease and native conversation before
+opening that conversation. Both return `{opened:true,threadId}` after Android
+accepts the launch. `SCREEN_LEASE_CHANGED`, `SCREEN_REBIND_REQUIRED`,
+`THREAD_UNAVAILABLE`, and `AGENT_FRONTEND_UNAVAILABLE` identify failed handoffs.
+
+`pause` and `takeControl` use the viewer's existing stop-confirmation path.
+Only a confirmed `controlOwner:"user"` grant permits `input`. Input also
+requires the current control revision. Supported input objects are
+`{type:"tap",x,y}`, `{type:"swipe",fromX,fromY,toX,toY,durationMs}`, and
+`{type:"key",keyCode:4}`. Coordinates must be integer pixels inside the exact
+screen. Swipe duration must be an integer from 100 through 2000 milliseconds.
+The broker validates live host identity and quiescent execution for every input.
+
+`returnAndResume` and `addRequirement` keep the native durable receipt
+protocol. Requirement text must be nonblank and at most 4000 characters.
+Reuse the same request ID only for identical input. `executionStatus` reads
+that request's receipt even after its screen disappears. Read the receipt's
+`status`, `requiresReconciliation`, and `screenAvailable`; a delivery receipt
+does not prove current ownership. Unknown delivery must be reconciled before
+submitting another request. Errors include `WORKSPACE_REQUEST_ID_CONFLICT`,
+`WORKSPACE_REQUEST_NOT_FOUND`, `WORKSPACE_EXECUTION_BUSY`, and
+`SCREEN_CONTROL_CHANGED`.
+
+The native viewer retains takeover, touch and Back input, pause, return and
+continue, requirement editing, receipt reconciliation, minimize, and exit.
+The Expo page manages the catalog, policy, pause, preview, original-conversation
+opening, and release. Neither frontend owns a second lease or execution store.
 
 ### Delete or archive a session and track cleanup
 
@@ -479,8 +677,9 @@ content call --uri content://org.agentos.assistant.open-access --method sessions
 
 Check the outer `ok`, then `result.accepted` and `result.completed` separately.
 Acceptance means the intent is saved; the session is hidden from session lists
-while processing. GUI progress is under session history's deletion/archive
-progress button. A pending family cannot start new turns or acquire resources.
+while processing. In Taku Agent, open Assistant management → Conversation cleanup
+to submit either operation and refresh the same receipts. A pending family cannot
+start new turns or acquire resources.
 `targetReached` verifies the native session goal; `completed: true` confirms
 processing ended with the family's local cancellation and resource cleanup done.
 An absent archive target ends with `completed: true`, `targetReached: false`
@@ -971,23 +1170,28 @@ cmd overlay enable-exclusive --category com.android.internal.systemui.navbar.ges
 cmd overlay enable-exclusive --category com.android.internal.systemui.navbar.threebutton
 ```
 
-Opening the assistant (physical button, voice, or a double tap on the gesture navigation handle)
-goes through the same system assist route as the "Taku System Assistant" app icon, so all of them open the
-same Taku chat (`org.agentos.agent`, the last selected thread). The double tap is built into the
-ROM's Quickstep; it has no setting. You can open it the same ways:
+Android dispatches system assist to `org.agentos.agent/.home.assistant.SystemAssistantService`.
+Taku Agent owns full-screen chat and the Home and gesture overlays. The Quickstep double tap is
+built into the ROM and has no separate setting. Use these commands to open chat, an exact thread,
+system assist, or the same Taku AI settings page shown in Android Settings:
 
 ```sh
-am start -n org.agentos.assistant/.PanelActivity                        # app icon
-am start -n org.agentos.assistant/.PanelActivity --es conversationId <thread-uuid>
-am start -a android.intent.action.ASSIST                                # assist intent
-cmd voiceinteraction show                                               # assist key / double tap
+am start -a android.intent.action.MAIN -n org.agentos.agent/.MainActivity
+am start -a android.intent.action.MAIN -n org.agentos.agent/.MainActivity --es threadId <thread-uuid>
+am start -a android.intent.action.ASSIST
+content call --uri content://org.agentos.agent.home-assistant --method system/open
+am start -a org.agentos.action.AI_SETTINGS -p org.agentos.agent
 ```
+Read `assistant/get` on that provider after launch to confirm the assistant is open.
+The platform debug command `cmd voiceinteraction show` can time out on the first
+invocation even when Taku opens.
+Installed older keyboards may send the same action with `-p org.agentos.assistant`.
+That package-scoped link opens the same Taku Agent settings page.
 
-The call opens the native assistant sheet instead of the chat when the chat cannot take its
-context over: a `page`, `nativeControlsOnly`, `task_id` or other unknown extra; `includeScreenshot`
-turned on in `agent-settings`; or unsent native composer state for the thread (a draft, picked
-attachments, failed or unconfirmed deliveries, or Home pending text). It also falls back if the
-`org.agentos.agent` app is missing or signed with a different key.
+Existing notifications targeting `org.agentos.assistant/.PanelActivity` keep their original
+`task_id`. A current task opens its thread or task detail. An expired task opens details with
+an unavailable status. If Taku Agent cannot launch, the old explicit link shows an error.
+The task remains readable through the task interfaces below.
 The older bottom-corner swipe is off by default and stays a standard setting:
 
 ```sh
@@ -1172,7 +1376,8 @@ content call --uri $A --method assistant/open --arg '{"mode":"text"}'  # or "voi
 content call --uri $A --method assistant/draft --arg '{"text":"Can you check"}'
 content call --uri $A --method assistant/ask --arg '{"text":"Find a flight to Kyoto"}'  # steers an active turn
 content call --uri $A --method assistant/reply --arg '{"suggestionId":"ID"}'  # a reply chip the agent offered
-content call --uri $A --method assistant/retry                       # "Try again": resend draft, else failedText
+content call --uri $A --method assistant/retry                       # checks a pending ID, or retries after confirmed failure
+content call --uri $A --method assistant/release                     # keep original content and release an unresolved submission
 content call --uri $A --method assistant/stop                        # interrupt the turn / cancel the queued task
 content call --uri $A --method assistant/expand --arg '{"full":true}' # read the whole reply; false = ⅓ screen
 content call --uri $A --method assistant/collapse                    # camera pill while working
@@ -1187,6 +1392,8 @@ content call --uri $A --method assistant/voice-finish                # hold: sen
 content call --uri $A --method assistant/voice-cancel                # revoke this operation; retain the existing draft
 content call --uri $A --method assistant/voice-to-text               # finish the same capture and append its complete result to Text
 ```
+
+`assistant/get` returns `draftAttachmentNames` in the order shown in Home. `assistant/ask` submits the current draft with those attachments when its `text` matches the draft. An empty `text` is valid when the draft has attachments. A different new request uses the existing handoff and preserves the displaced draft and its attachments for recovery.
 
 ### System gesture handle and temporary voice
 
@@ -1293,10 +1500,38 @@ content call --uri $A --method assistant/voice-to-text    # finalize into the ed
 ```
 
 `live-start` accepts the chat's `threadId` (empty starts a new conversation on first send).
-`live-stop` and `live-toggle-mic` take no parameters and are harmless when Live Talk is inactive.
+`live-stop` and `live-toggle-mic` accept an optional `threadId` to scope the action.
+They leave the session unchanged if Live Talk is inactive or the supplied ID belongs to another conversation.
 `voice-continue` requires an active/latched hold; an unavailable chat gateway leaves 1-1 open
 and reports `THREAD_UNAVAILABLE`. Live actions return the same `{ok,result}` state as the GUI;
 provider argument failures return `INVALID_ARGUMENT`.
+
+### Full chat dictation and reply playback
+
+These commands use the same voice state as the visible Expo chat. Open the target chat first.
+`threadId` is the current thread ID, or `""` for the new-conversation draft. `Bundle.result` returns
+`{ok:true,result:{dictation,speech}}` or `{ok:false,code,message}`.
+
+```sh
+A=content://org.agentos.agent.home-assistant
+content call --uri "$A" --method assistant/chat-voice-get
+content call --uri "$A" --method assistant/chat-voice-start --arg '{"threadId":""}'
+# Use the integer operationId returned by start or get. The value 1 is an example.
+content call --uri "$A" --method assistant/chat-voice-finish --arg '{"operationId":1}'
+content call --uri "$A" --method assistant/chat-voice-cancel --arg '{"operationId":1}'
+content call --uri "$A" --method assistant/reply-speak --arg '{"threadId":"THREAD_UUID","replyId":"REPLY_ID","text":"Reply text to read aloud."}'
+content call --uri "$A" --method assistant/reply-stop --arg '{"threadId":"THREAD_UUID","replyId":"REPLY_ID"}'
+```
+
+`dictation` reports the recording phase, transcript, terminal outcome, and actual Audio Engine
+session settings. The visible chat inserts a successful transcript at the selection captured
+when recording starts, provided the draft revision still matches. Finish and cancel with an old
+operation ID leave the current recording alone. `speech` is null when idle or contains the
+thread ID, reply ID, phase (`preparing`, `speaking`, or `failed`), and error. Pass up to 12,000
+characters of readable text to `reply-speak`. Stop applies only to the specified thread and reply.
+Switching chats or leaving the chat releases both operations. Starting a microphone stops reading.
+An unmatched chat returns `CHAT_NOT_VISIBLE`. Starts also report `DEVICE_LOCKED`, `VOICE_BUSY`,
+or `VOICE_UNAVAILABLE` when applicable.
 
 For a system/Agent gesture producer, `gesture/event` accepts JSON:
 - `prepare`: `id` (8–128 ASCII letters/digits/underscore/hyphen), `source`

@@ -3,7 +3,7 @@
     "name": "Taku Agent",
     "slug": "taku-agent",
     "scheme": "taku-agent",
-    "version": "0.4.1",
+    "version": "0.5.0",
     "orientation": "default",
     "userInterfaceStyle": "automatic",
     "android": {

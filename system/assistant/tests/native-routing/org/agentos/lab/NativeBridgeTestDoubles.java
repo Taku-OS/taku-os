@@ -62,6 +62,10 @@ final class MemoryGen {
 }
 final class ImeReplies { static JSONObject control(JSONObject input,int uid) { return new JSONObject(); } }
 final class AudioConfigBridge { static void start() { throw new AssertionError("Audio service is outside this routing test"); } }
+final class AppPermissionPolicy {
+    static boolean isRootSocketAllowed(int uid) { throw new AssertionError("App permissions are outside this routing test"); }
+    static JSONObject control(JSONObject input, int uid) { throw new AssertionError("App permissions are outside this routing test"); }
+}
 final class MatterBridge { static JSONObject control(JSONObject input) { throw new AssertionError("Matter service is outside this routing test"); } }
 final class AudioBridge { static JSONObject control(JSONObject input) { throw new AssertionError("Audio commands are outside this routing test"); } }
 final class SystemAi {

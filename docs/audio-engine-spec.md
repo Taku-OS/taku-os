@@ -505,7 +505,7 @@ fal uses manually configured keys in Taku AI and direct device Kotlin adapters. 
 
 ## 14. Basis and references
 
-- main: [voice-input entry](../system/assistant/src/org/agentos/assistant/ComposerToolbar.java), [realtime-voice entry](../system/assistant/src/org/agentos/assistant/NativeVoiceView.java), [existing voice acceptance/authorization limits](native-codex-implementation-2026-10-15.md).
+- Main assistant voice paths: [dictation](../system/agent-app/src/chat/useDictation.ts), [continuous conversation](../system/agent-app/src/chat/useLiveTalk.ts), and [historical voice acceptance](native-codex-implementation-2026-10-15.md).
 - main: [Taku AI](../system/ai/README.md), [system surfaces](../system/surfaces/README.md), [engineering standards](standards.md), [Android 17 / 1.0.1 device-version acceptance](reviews/versioning-2026-10-26/README.md).
 - Magpie used by existing system AI/OpenRouter: [device gateway/credentials](../adapters/magpie-runtime/README.md), [device startup configuration](../adapters/magpie-runtime/magpie), [existing model connections](../system/assistant/broker/org/agentos/lab/ModelConnection.java).
 - Developer entries: [protocol/event status](protocol.md), [JS SDK](../sdk/client.mjs), [current method registry](../core/methods.json), [extensible system](extensibility.md), [React/WebView scope](../tooling/app-kit/README.md).

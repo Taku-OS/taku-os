@@ -13,7 +13,7 @@ import {chatText} from '../chat/chatText';
 import {containsChinese} from '../theme';
 
 /** A reply's text and where it sits in the window (dp). */
-export type ReplyMenuTarget = {id: string; text: string; x: number; y: number; width: number; height: number};
+export type ReplyMenuTarget = {id: string; threadId: string; text: string; x: number; y: number; width: number; height: number};
 
 type Props = {
   target: ReplyMenuTarget;
@@ -23,12 +23,13 @@ type Props = {
   bottom: number;
   screenWidth: number;
   renderMarkdown?: (text: string, active: boolean, itemId: string) => ReactNode;
+  speechAction?: {speaking: boolean; run: () => void};
   onClose: () => void;
 };
 
 const PAD = 12, PILL = 40, GAP = 8;
 
-export function ReplyMenu({target, language, top, bottom, screenWidth, renderMarkdown, onClose}: Props) {
+export function ReplyMenu({target, language, top, bottom, screenWidth, renderMarkdown, speechAction, onClose}: Props) {
   const t = chatText(language);
   const [selecting, setSelecting] = useState(false);
   const [selection, setSelection] = useState({start: 0, end: target.text.length});
@@ -59,7 +60,9 @@ export function ReplyMenu({target, language, top, bottom, screenWidth, renderMar
     ? [{key: 'copy', label: t('copy'), onPress: () => copy(target.text.slice(selection.start, selection.end) || target.text)},
       {key: 'done', label: t('done'), onPress: onClose}]
     : [{key: 'copy', label: t('copy'), onPress: () => copy(target.text)},
-      {key: 'select', label: t('select'), onPress: () => setSelecting(true)}];
+      {key: 'select', label: t('select'), onPress: () => setSelecting(true)},
+      ...(speechAction ? [{key: speechAction.speaking ? 'stop-speech' : 'speak',
+        label: t(speechAction.speaking ? 'replySpeechStop' : 'replySpeechStart'), onPress: speechAction.run}] : [])];
 
   return <Animated.View style={[StyleSheet.absoluteFill, {opacity: shown}]}>
     <Pressable testID="reply-menu-overlay" accessibilityRole="button" accessibilityLabel={t('done')} onPress={onClose} style={styles.overlay}/>

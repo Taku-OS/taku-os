@@ -6,7 +6,6 @@
  <instrumentation android:name=".RomModelsProbe" android:targetPackage="org.agentos.audio"/>
  <instrumentation android:name=".FalDirectProbe" android:targetPackage="org.agentos.audio"/>
  <instrumentation android:name=".MediaRouteProbe" android:targetPackage="org.agentos.audio"/>
- <instrumentation android:name="org.agentos.assistant.ReadingUiProbe" android:targetPackage="org.agentos.assistant"/>
  <instrumentation android:name=".ReviewRegressionProbe" android:targetPackage="org.agentos.audio"/>
  <instrumentation android:name="org.agentos.assistant.AvailabilityProbe" android:targetPackage="org.agentos.assistant"/>
  <instrumentation android:name=".DictationSessionProbe" android:targetPackage="org.agentos.audio"/>

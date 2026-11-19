@@ -5,7 +5,7 @@ E3, F4 and R2's user_control, paused and mainThreadId (design doc section 2).
 
 The session taken over is a real Codex thread, started like the UI's new conversation, because giving back starts a
 turn on it: three short real model turns, each interrupted at once (by the script, by closing the screen, by the
-script). Its phone tools still go through the root-only test entry. Two plain-id sessions hold Clock and wait for
+script). Its phone tools still go through the root-only test entry. Two other real threads hold Clock and wait for
 Settings meanwhile.
 
 Needs what S1 needs, plus Codex logged in with a model that takes images.
@@ -64,9 +64,11 @@ def main():
     on_main = set(apps_on(0))
     if on_main & {SETTINGS, CLOCK}:
         sys.exit(f'clear {sorted(on_main & {SETTINGS, CLOCK})} from the main screen first')
-    a = rpc('thread/start', {})['thread']['id']
-    b, c = str(uuid.uuid4()), str(uuid.uuid4())
+    threads = []
     try:
+        for _ in range(3):
+            threads.append(rpc('thread/start', {})['thread']['id'])
+        a, b, c = threads
         display = tool(a, 'request_apps', {'packages': [SETTINGS], 'taskTitle': 'S5 settings'})['displayId']
         tool(a, 'open_app', {'packageName': SETTINGS})
         s1.until(lambda: SETTINGS in apps_on(display), f'Settings opens on the screen: {tasks()}')
@@ -115,7 +117,9 @@ def main():
         request_id = str(uuid.uuid4())
         control('returnAndResume', row, requestId=request_id, controlRevision=row['controlRevision'])
         receipt = s1.until(lambda: settled(row, request_id), 'the give-back settles', seconds=60)
-        check(receipt['status'] == 'accepted' and receipt['screenshotAttached'], f'E3: a new turn with the screen: {receipt}')
+        check(receipt['status'] == 'accepted' and receipt['targetThreadId'] == a
+              and receipt['screen']['generation'] == row['generation'] and receipt['screen']['controlOwner'] == 'agent',
+              f'E3: a new turn on the original thread and screen: {receipt}')
         try:
             rpc('turn/interrupt', {'threadId': a, 'turnId': receipt['turnId']})
         except Refused:
@@ -172,12 +176,12 @@ def main():
         except Refused:
             pass  # it ended on its own
     finally:
-        for t in (a, b, c):
-            turn_ended(t)
-        try:
-            rpc('thread/archive', {'threadId': a})
-        except Refused as error:
-            print(f'archive {a}: {error}')
+        for thread in threads:
+            turn_ended(thread)
+            try:
+                rpc('thread/archive', {'threadId': thread})
+            except Refused as error:
+                print(f'archive {thread}: {error}')
     print(f'S5: {s1.checks} checks passed')
 
 

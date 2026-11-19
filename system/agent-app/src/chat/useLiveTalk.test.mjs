@@ -8,6 +8,7 @@ globalThis[Symbol.for('taku.live-talk.lifecycle-test')] = runtime;
 const mock = source => `data:text/javascript,${encodeURIComponent(`const runtime = globalThis[Symbol.for('taku.live-talk.lifecycle-test')];\n${source}`)}`;
 const hookUrl = new URL('./useLiveTalk.ts', import.meta.url).href;
 const react = mock(`
+  export const useRef = initial => runtime.current.ref(initial);
   export const useState = initial => runtime.current.state(initial);
   export const useCallback = (callback, dependencies) => runtime.current.memo(callback, dependencies);
   export const useEffect = (effect, dependencies) => runtime.current.effect(effect, dependencies);
@@ -35,6 +36,7 @@ function environment(t, threadId = '') {
   const select = id => { selected.push(id); host.threadId = id; host.dirty = true; };
   const host = {
     threadId, loading: false, slots: [], queued: [], index: 0, dirty: true, result: null,
+    ref(initialValue) { return this.slots[this.index++] ??= {current: initialValue}; },
     state(initialValue) {
       const index = this.index++;
       const slot = this.slots[index] ??= {value: initialValue, set: value => { slot.value = value; this.dirty = true; }};
@@ -99,7 +101,7 @@ test('explicit stop ends Live Talk while unmount only removes its subscription',
   const env = environment(t, 'current');
   env.emit(snapshot('current')); await env.settle();
   env.host.result.stop(); await env.settle();
-  assert.deepEqual(env.actions, [['assistant/live-stop', {}]]);
+  assert.deepEqual(env.actions, [['assistant/live-stop', {threadId: 'current'}]]);
   env.host.remove(); await env.settle();
   assert.equal(env.listeners.size, 0);
   assert.equal(env.actions.length, 1);
@@ -110,7 +112,7 @@ test('delayed initial state cannot overwrite a native handoff event', async t =>
   env.emit(snapshot('new')); await env.settle();
   env.initial(snapshot('old', false)); await env.settle();
   assert.equal(env.host.result.state.threadId, 'new');
-  assert.equal(env.host.result.active, true);
+  assert.equal(env.host.result.active, false);
   assert.deepEqual(env.actions, []);
 });
 
@@ -123,4 +125,13 @@ test('inactive and loading empty chats do not adopt stale conversations', async 
   assert.deepEqual(env.selected, []);
   env.host.loading = false; env.host.render(); await env.settle();
   assert.deepEqual(env.selected, ['new']);
+});
+
+test('switching away from an owned conversation stops only that conversation', async t => {
+  const env = environment(t, 'current');
+  env.emit(snapshot('current')); await env.settle();
+  await env.host.result.toggleMic();
+  env.host.threadId = 'next'; env.host.render(); await env.settle();
+  assert.equal(env.host.result.active, false);
+  assert.deepEqual(env.actions, [['assistant/live-toggle-mic', {threadId: 'current'}], ['assistant/live-stop', {threadId: 'current'}]]);
 });

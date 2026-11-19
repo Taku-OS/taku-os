@@ -58,17 +58,13 @@ The official [App Server documentation](https://developers.openai.com/codex/app-
 
 ## Testing
 
-The current `test-harness.sh` is restricted to serial `emulator-5634` and AVD `Taku_ImageIntegration_20261010`; it is not an arbitrary-device installer. Prepare that dedicated test environment, components, built-in skills and `security-threat-model` first, and run it without other UI tests competing for the same emulator:
+Install the paired Taku Agent and Assistant APKs on an isolated emulator with built-in skills and an existing test conversation. The runner defaults to `Taku_ImageIntegration_20261010` at `emulator-5634`. Set `TAKU_SERIAL` and `TAKU_AVD` to select another isolated emulator.
 
 ```sh
 bash system/assistant/test-harness.sh <existing-session-id>
 ```
 
-To check only the compact context page, add `--density`. This covers module visibility, body and JSON expansion, top bar reload and light and dark themes.
-
-```sh
-bash system/assistant/test-harness.sh <existing-session-id> --density
-```
+The runner checks the filesystem store, opens the conversation's Harness context and verifies it against Open Access. It also searches the installed skills in Expo and checks the selected skill's runtime recognition status.
 
 Real model background checks use `scripts/run-agent-request.py` with `examples/scenarios/harness-context-probe.txt` and need an account already connected on the device.
 

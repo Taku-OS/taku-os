@@ -166,7 +166,8 @@ fun BoxScope.TextComposer(scene: GraphicsLayer, open: Boolean, state: AssistantS
   }
   // Keep (or bring back) the keyboard across dictation start/stop, e.g. after the stop button.
   LaunchedEffect(dictating) { if (open) { runCatching { focus.requestFocus() }; keyboard?.show() } }
-  val send: () -> Unit = { if (value.text.isNotBlank()) { runCatching { session.send(value.text) } } }
+  val canSend = value.text.isNotBlank() || state.draftAttachmentNames.isNotEmpty()
+  val send: () -> Unit = { if (canSend) { runCatching { session.send(value.text) } } }
   val textScroll = rememberScrollState()
   LaunchedEffect(capturing, voice.preview, textScroll.maxValue) {
     if (capturing) textScroll.animateScrollTo(textScroll.maxValue) else textScroll.scrollTo(0)
@@ -210,6 +211,9 @@ fun BoxScope.TextComposer(scene: GraphicsLayer, open: Boolean, state: AssistantS
           }
           // Preparing, or recognising the tail: the draft stays visible, the state is separate.
           if (!capturing && tailStatus != null) DictationText(tailStatus)
+          if (state.draftAttachmentNames.isNotEmpty()) {
+            BasicText(state.draftAttachmentNames.joinToString(" · "), style = TakuTheme.type.bodyLg.copy(color = colors.textSecondary))
+          }
         }
         when {
           dictating && voice.phase != VoicePhase.Preparing && voice.phase != VoicePhase.Capturing ->
@@ -218,7 +222,7 @@ fun BoxScope.TextComposer(scene: GraphicsLayer, open: Boolean, state: AssistantS
             Box(Modifier.size(12.dp).clip(RoundedCornerShape(TakuRadius.sm)).background(colors.iconOnInverse))
           }
           // Figma 1-3 send (node 1:3663): #1B1B1B arrow on Main/Brand (issue #32 C3).
-          value.text.isNotBlank() -> RoundButton(colors.accentSend, "Send", onClick = { send() }) { TakuIcon(TakuIcons.ArrowUp, 18.dp, tint = colors.icon) }
+          canSend -> RoundButton(colors.accentSend, "Send", onClick = { send() }) { TakuIcon(TakuIcons.ArrowUp, 18.dp, tint = colors.icon) }
           else -> RoundButton(null, "Dictate", onClick = { session.startDictation() }) { TakuIcon(TakuIcons.Mic, 18.dp, tint = colors.icon) }
         }
       }

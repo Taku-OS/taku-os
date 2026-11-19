@@ -137,8 +137,8 @@ E7 retains corrected triggers. “Stopping a turn always waits 15 seconds” is 
 Design tradeoffs, deferral decisions, and historical experiments come from the original dedicated-display design, 2026-11-11 review, and ticket 12 component-emulator acceptance records, consolidated here. Implementation references below point into this repository; line numbers match the implementation commit at the top. Historical runtime-internal observations retain their original version scope. Static broker code does not replace runtime or device retesting.
 
 [native-cards]: ../system/assistant/broker/org/agentos/lab/NativeBridge.java#L231
-[jobs]: ../system/assistant/src/org/agentos/assistant/BackgroundScreenTasks.java#L198
-[detail]: ../system/assistant/src/org/agentos/assistant/WorkspaceDetailActivity.java#L80
+[jobs]: ../system/assistant/src/org/agentos/assistant/BackgroundScreenTasks.kt
+[detail]: ../system/agent-app/src/components/WorkspaceManagementScreen.tsx
 [control]: ../system/assistant/broker/org/agentos/lab/WorkspaceControl.java#L34
 [revoke]: ../system/assistant/broker/org/agentos/lab/WorkspaceControl.java#L230
 [screen-close]: ../system/assistant/broker/org/agentos/lab/DedicatedScreens.java#L1210

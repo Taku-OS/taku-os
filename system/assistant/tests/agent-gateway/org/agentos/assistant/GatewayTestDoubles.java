@@ -16,7 +16,7 @@ final class TaskRequests {
         Files.move(temporary.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
     }
 }
-final class AssistantSession {
+final class TaskRuntime {
     static final File TASKS = tasks();
     private static File tasks(){try{return Files.createTempDirectory("taku-gateway-host-tasks-").toFile();}catch(java.io.IOException failure){throw new ExceptionInInitializerError(failure);}}
 }

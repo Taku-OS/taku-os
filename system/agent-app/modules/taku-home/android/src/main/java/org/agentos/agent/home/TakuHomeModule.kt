@@ -2,7 +2,7 @@ package org.agentos.agent.home
 
 import com.facebook.react.bridge.ReactContext
 import expo.modules.kotlin.exception.Exceptions
-import expo.modules.kotlin.functions.Queues
+import expo.modules.kotlin.functions.Coroutine
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import kotlinx.coroutines.CoroutineScope
@@ -75,14 +75,14 @@ class TakuHomeModule : Module() {
     /** The desktop's actual navigation state; the same projection the native provider serves. */
     Function("panelNavigation") { PanelNavigation.state.value.toJson().toString() }
 
-    AsyncFunction("dispatchAction") { cardId: String, actionId: String, valuesJson: String ->
+    AsyncFunction("dispatchAction") Coroutine { cardId: String, actionId: String, valuesJson: String ->
       try {
         val values = if (valuesJson.isBlank()) JSONObject() else JSONObject(valuesJson)
         JSONObject().put("ok", true).put("result", FeedActions.dispatch(context, cardId, actionId, values, FeedOrigin.GUI)).toString()
       } catch (e: FeedException) {
         JSONObject().put("ok", false).put("code", e.code).put("message", e.message).toString()
       }
-    }.runOnQueue(Queues.MAIN)
+    }
 
     OnStartObserving {
       watcher?.cancel()
