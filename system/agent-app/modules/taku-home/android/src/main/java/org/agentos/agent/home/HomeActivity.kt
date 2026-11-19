@@ -205,6 +205,12 @@ class HomeActivity : AppCompatActivity(), DefaultHardwareBackBtnHandler {
   override fun onNewIntent(intent: Intent) {
     super.onNewIntent(intent)
     setIntent(intent)
+    if (intent.action == Intent.ACTION_MAIN && intent.hasCategory(Intent.CATEGORY_HOME)
+      && intent.getBooleanExtra(RETURN_FROM_WORKSPACE, false)) {
+      intent.removeExtra(RETURN_FROM_WORKSPACE)
+      resetOnResume = false
+      return
+    }
     val assistantEntry = requestAssistant(intent)
     if (!requestPanel(intent) && !assistantEntry && intent.hasCategory(Intent.CATEGORY_HOME)) homeSignal++
   }
@@ -290,5 +296,8 @@ class HomeActivity : AppCompatActivity(), DefaultHardwareBackBtnHandler {
     var settled = true
   }
 
-  private companion object { const val TAG = "TakuHomePanels" }
+  private companion object {
+    const val TAG = "TakuHomePanels"
+    const val RETURN_FROM_WORKSPACE = "org.agentos.agent.home.extra.RETURN_FROM_WORKSPACE"
+  }
 }

@@ -65,7 +65,7 @@ internal class AgentGatewayProtocol private constructor() {
                 "interrupt" -> java.util.Set.of("threadId", "turnId")
                 "cancelQueued" -> java.util.Set.of("threadId", "taskId")
                 "answer" -> java.util.Set.of("threadId", "key", "response")
-                "openWorkspace" -> java.util.Set.of("threadId", "screenKey", "generation")
+                "openWorkspace" -> java.util.Set.of("threadId", "screenKey", "generation", "source")
                 "openSettings" -> java.util.Set.of("page")
                 "pluginManager" -> java.util.Set.of("operation", "argument", "name", "arguments")
                 "decide" -> java.util.Set.of("state", "questions")
@@ -100,6 +100,7 @@ internal class AgentGatewayProtocol private constructor() {
             if (action == "openWorkspace") {
                 if (!Pattern.matches("task-[a-f0-9]{20}", text(input, "screenKey", 64))) throw IOException("INVALID_SCREEN_KEY")
                 requireId(input, "generation")
+                if (input.has("source") && input.get("source") != "home") throw IOException("INVALID_WORKSPACE_SOURCE")
             }
             if (action == "decide") decision(input)
             if (action == "generateUi") {

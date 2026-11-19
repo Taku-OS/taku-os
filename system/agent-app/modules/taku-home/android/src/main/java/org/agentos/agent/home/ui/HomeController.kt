@@ -17,9 +17,11 @@ import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.layer.GraphicsLayer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.agentos.agent.home.R
 import org.agentos.agent.home.feed.FeedActions
 import org.agentos.agent.home.feed.FeedException
 import org.agentos.agent.home.feed.FeedOrigin
@@ -72,6 +74,7 @@ class HomeController(val context: Context, val repo: FeedRepository, val pool: R
   var screenHeight = 0f
   var screenWidth = 0f
   private val workspaceGateway = AgentGateway(context.contentResolver)
+  private var workspaceOpen: Job? = null
   /** The visible workspace list shared by every home page. */
   internal var workspaceScreens by mutableStateOf<List<HomeWorkspaceScreen>>(emptyList())
     private set
@@ -119,6 +122,25 @@ class HomeController(val context: Context, val repo: FeedRepository, val pool: R
       null
     } catch (_: SecurityException) {
       null
+    }
+  }
+
+  internal fun openWorkspace(screen: HomeWorkspaceScreen) {
+    if (workspaceOpen?.isActive == true) return
+    workspaceOpen = scope.launch {
+      try {
+        withContext(Dispatchers.IO) {
+          workspaceGateway.call("openWorkspace", JSONObject()
+            .put("source", "home")
+            .put("threadId", screen.threadId)
+            .put("screenKey", screen.screenKey)
+            .put("generation", screen.generation))
+        }
+      } catch (_: IOException) {
+        notice(context.getString(R.string.home_workspace_open_failed))
+      } catch (_: JSONException) {
+        notice(context.getString(R.string.home_workspace_open_failed))
+      }
     }
   }
 

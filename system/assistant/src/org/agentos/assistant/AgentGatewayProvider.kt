@@ -276,11 +276,16 @@ class AgentGatewayProvider : ContentProvider() {
                 return JSONObject().put("opened", true).put("threadId", thread)
             }
             "openWorkspace" -> {
-                val lease = exactLease(thread, input.getString("screenKey"), input.getString("generation"))
+                val fromHome = input.optString("source") == "home"
+                val lease = exactLease(thread, input.getString("screenKey"), input.getString("generation"), fromHome)
                 val intent = Intent(context!!, MirrorActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 for (key in arrayOf("threadId", "screenKey", "generation")) intent.putExtra(key, lease.getString(key))
-                intent.putExtra(AgentFrontendLauncher.RETURN_AGENT_FRONTEND, true)
-                intent.putExtra(AgentFrontendLauncher.RETURN_CONVERSATION_ID, thread)
+                if (fromHome) {
+                    intent.putExtra(AgentFrontendLauncher.RETURN_WORKSPACE_HOME, true)
+                } else {
+                    intent.putExtra(AgentFrontendLauncher.RETURN_AGENT_FRONTEND, true)
+                    intent.putExtra(AgentFrontendLauncher.RETURN_CONVERSATION_ID, thread)
+                }
                 context!!.startActivity(intent)
                 return JSONObject().put("opened", true)
             }
@@ -449,11 +454,12 @@ class AgentGatewayProvider : ContentProvider() {
         }
     }
 
-    private fun exactLease(thread: String, key: String, generation: String): JSONObject {
-        val screens = workspaces(thread).getJSONArray("screens")
+    private fun exactLease(thread: String, key: String, generation: String, fromHome: Boolean): JSONObject {
+        val screens = workspaces(if (fromHome) null else thread).getJSONArray("screens")
         for (i in 0 until screens.length()) {
             val screen = screens.getJSONObject(i)
-            if (key == screen.optString("screenKey") && generation == screen.optString("generation")) return screen
+            if (thread == screen.optString("threadId") && key == screen.optString("screenKey") &&
+                generation == screen.optString("generation")) return screen
         }
         throw IOException("SCREEN_LEASE_CHANGED")
     }

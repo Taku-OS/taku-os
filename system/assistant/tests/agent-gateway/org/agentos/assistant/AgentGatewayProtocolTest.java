@@ -141,6 +141,16 @@ public final class AgentGatewayProtocolTest {
         }
         rejects(() -> AgentGatewayProtocol.request("openWorkspace", new JSONObject().put("threadId", THREAD)
                 .put("screenKey", "default").put("generation", KEY).toString()));
+        JSONObject workspaceLease = new JSONObject().put("threadId", THREAD)
+                .put("screenKey", "task-0123456789abcdef0123").put("generation", KEY);
+        check(AgentGatewayProtocol.request("openWorkspace", workspaceLease.toString()).similar(workspaceLease));
+        JSONObject homeWorkspace = new JSONObject(workspaceLease.toString()).put("source", "home");
+        check(AgentGatewayProtocol.request("openWorkspace", homeWorkspace.toString()).similar(homeWorkspace));
+        for (Object source : new Object[]{"session", "", true, JSONObject.NULL}) {
+            homeWorkspace.put("source", source);
+            rejectsWithCode("INVALID_WORKSPACE_SOURCE",
+                    () -> AgentGatewayProtocol.request("openWorkspace", homeWorkspace.toString()));
+        }
         JSONObject question = new JSONObject().put("key", KEY).put("method", "phone/confirmAction")
                 .put("params", new JSONObject().put("threadId", THREAD));
         JSONObject auth = new JSONObject().put("key", "auth").put("method", "account/chatgptAuthTokens/refresh")

@@ -21,7 +21,7 @@ Responses over 256 KiB return `{ok:true,resultUri:"content://org.agentos.assista
 | `cancelQueued` | `{threadId,taskId}` | `{threadId,taskId,cancellationRequested:true}`; same-thread queued task only; a started turn requires `interrupt` |
 | `answer` | `{threadId,key,response}` | Native response receipt; supported pending request must belong to the same thread |
 | `getWorkspaces` | `{threadId}` or `{scope:"home"}` | `{schema:"taku.agent-workspaces/1",screens:[lease with previewUri]}` |
-| `openWorkspace` | `{threadId,screenKey,generation}` | `{opened:true}`; opens existing native control UI after exact lease check |
+| `openWorkspace` | `{threadId,screenKey,generation,source?:"home"}` | `{opened:true}`; opens existing native control UI after exact lease check |
 | `openNativeConversation` | `{threadId}` | `{opened:true,threadId}`; opens exact native conversation controls with `nativeControlsOnly:true`, no screenshot/assist flags or Jev token; does not consume Home pending input |
 | `openSettings` | `{page?:"models"|"system"|"workspaces"}` | `{opened:true}`; opens existing native settings |
 | `pluginManager` | `{operation,argument?:string,name?:string,arguments?:object}` | God Mode manager envelope inside the gateway result; see operation and error contract below |
@@ -87,6 +87,14 @@ An unsupported scope returns `INVALID_WORKSPACE_SCOPE`. Mixing scope with `threa
 returns `UNSUPPORTED_PARAMETER`.
 
 Session previews use `content://org.agentos.assistant.agent-gateway/preview/<threadId>/<screenKey>/<generation>`. Read with `openInputStream` on a worker thread. The native directory read is scoped to the exact requested thread and exposes up to three of its admitted independent screens. The JPEG is view-only. Use `openWorkspace` to open the full screen from a session preview. It performs a fresh native catalog validation. Stop session frame polling when the UI is hidden and clear stale frames on read failure.
+
+For a Home card, pass `source: "home"` to `openWorkspace` along with the card's
+`threadId`, `screenKey` and `generation`. The gateway rechecks the identity against
+the current Home list, and cards can open while their frames are loading. Back and
+the viewer's exit control return to the previous Home page with the previews
+collapsed. Omitting `source` uses the session list and returns to the original
+conversation on Back. An unsupported source returns `INVALID_WORKSPACE_SOURCE`.
+A screen that no longer matches the list returns `SCREEN_LEASE_CHANGED`.
 
 Home and session `getWorkspaces` reads publish independent, immutable verified catalogs with a five-second monotonic lifetime. Each frame read uses the matching catalog and validates socket UID/PID, display identity, generation and JPEG dimensions. Before returning the JPEG over a pipe, it rechecks the original catalog lifetime and the current exact lease. Current read and frame failures invalidate the applicable catalog. Session selection invalidates the session catalog. Stale asynchronous failures leave newer results intact.
 

@@ -71,7 +71,10 @@ private val HomeWorkspaceScreen.previewIdentity: Pair<String, Int>
   get() = previewUri to displayId
 
 @Composable
-internal fun BoxScope.HomeWorkspacePreviews(controller: HomeController) {
+internal fun BoxScope.HomeWorkspacePreviews(
+  controller: HomeController,
+  onOpenWorkspace: (HomeWorkspaceScreen) -> Unit,
+) {
   val screens = controller.workspaceScreens
   if (screens.isEmpty()) return
 
@@ -149,7 +152,15 @@ internal fun BoxScope.HomeWorkspacePreviews(controller: HomeController) {
         modifier = Modifier.absolutePadding(right = margin).pointerInput(Unit) { detectTapGestures {} },
       ) {
         items(screens, key = { it.previewIdentity }) { screen ->
-          WorkspacePreviewCard(status = screen.status, frame = frames[screen.previewIdentity])
+          WorkspacePreviewCard(
+            status = screen.status,
+            frame = frames[screen.previewIdentity],
+            enabled = expanded,
+            onOpen = {
+              close()
+              onOpenWorkspace(screen)
+            },
+          )
         }
       }
     }
@@ -183,7 +194,7 @@ private fun WorkspaceBookmark(count: Int, onOpen: () -> Unit) {
 }
 
 @Composable
-private fun WorkspacePreviewCard(status: String, frame: Bitmap?) {
+private fun WorkspacePreviewCard(status: String, frame: Bitmap?, enabled: Boolean, onOpen: () -> Unit) {
   val colors = TakuTheme.colors
   val shape = RoundedCornerShape(TakuRadius.md)
   val label = when (status) {
@@ -198,7 +209,15 @@ private fun WorkspacePreviewCard(status: String, frame: Bitmap?) {
     Modifier.size(width = PreviewWidth, height = PreviewHeight)
       .shadow(TakuElevation.badge, shape)
       .background(colors.fillPlaceholder)
-      .border(1.dp, colors.strokeHairline, shape),
+      .border(1.dp, colors.strokeHairline, shape)
+      .clickable(
+        interactionSource = null,
+        indication = null,
+        enabled = enabled,
+        role = Role.Button,
+        onClickLabel = stringResource(R.string.home_workspace_open_screen),
+        onClick = onOpen,
+      ),
   ) {
     if (frame != null) Image(
       bitmap = remember(frame) { frame.asImageBitmap() },

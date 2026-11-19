@@ -20,6 +20,8 @@
   <string name="home_rename_folder">重命名文件夹</string>
   <string name="home_workspace_show_previews">展开后台屏预览</string>
   <string name="home_workspace_hide_previews">收起后台屏预览</string>
+  <string name="home_workspace_open_screen">打开后台屏</string>
+  <string name="home_workspace_open_failed">无法打开后台屏</string>
   <string name="home_workspace_running">运行中</string>
   <string name="home_workspace_waiting">等待中</string>
   <string name="home_workspace_paused">已暂停</string>
