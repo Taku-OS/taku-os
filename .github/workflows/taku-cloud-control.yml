@@ -72,6 +72,7 @@ jobs:
         env:
           OPERATION: ${{ inputs.operation }}
           REQUEST_ID: ${{ inputs.request_id }}
+          ENDPOINT_SEAL_PUBLIC_KEY: ${{ vars.TAKU_GCP_ENDPOINT_PUBLIC_KEY }}
         run: python3 scripts/cloud-builder-control.py --validate-only
       - id: auth
         uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
@@ -86,8 +87,15 @@ jobs:
         env:
           OPERATION: ${{ inputs.operation }}
           REQUEST_ID: ${{ inputs.request_id }}
+          ENDPOINT_SEAL_PUBLIC_KEY: ${{ vars.TAKU_GCP_ENDPOINT_PUBLIC_KEY }}
           GOOGLE_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
         run: python3 scripts/cloud-builder-control.py
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: taku-builder-endpoint-${{ inputs.request_id }}
+          path: out/cloud-control/endpoint.json
+          if-no-files-found: error
+          retention-days: 1
 
   sync-release:
     if: >-

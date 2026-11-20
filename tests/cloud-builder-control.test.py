@@ -85,5 +85,13 @@ class ControlTests(unittest.TestCase):
                       'https://www.googleapis.com.attacker.invalid/compute/v1/projects/'+c.PROJECT+c.INSTANCE_PATH]:
             self.assertFalse(c.resource_link(value,c.INSTANCE_PATH))
 
+    def test_seal_endpoint_redacts_public_ip(self):
+        with self.assertRaises(ValueError):
+            c.seal_endpoint(c.control(c.request_context(ENV), lambda *_: vm()), '')
+        stopped = c.control(c.request_context({**ENV, 'OPERATION': 'stop'}), lambda *_: vm('TERMINATED'))
+        sealed_stopped = c.seal_endpoint(stopped, '-----BEGIN PUBLIC KEY-----\ndummy\n-----END PUBLIC KEY-----')
+        self.assertIsNone(sealed_stopped['externalIp'])
+        self.assertIsNone(sealed_stopped['encryptedEndpoint'])
+
 
 if __name__ == '__main__':unittest.main()

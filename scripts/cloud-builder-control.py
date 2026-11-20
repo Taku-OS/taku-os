@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 """Narrow GitHub WIF control plane. No SSH key, human login or artifact deletion."""
 import argparse
+import base64
 import datetime
 import ipaddress
 import json
 import os
 from pathlib import Path
 import re
+import subprocess
 import sys
+import tempfile
 import time
 import urllib.error
 import urllib.request
@@ -141,15 +144,46 @@ def control(context, api, *, monotonic=time.monotonic, sleep=time.sleep):
             'observedAt': datetime.datetime.now(datetime.timezone.utc).isoformat()}
 
 
+def validate_seal_public_key(pem):
+    text = (pem or '').strip()
+    require(text.startswith('-----BEGIN PUBLIC KEY-----') and text.endswith('-----END PUBLIC KEY-----'),
+            'Missing endpoint seal public key')
+    return text + '\n'
+
+
+def seal_endpoint(endpoint, public_key_pem, *, openssl='openssl'):
+    key_text = validate_seal_public_key(public_key_pem)
+    sealed = dict(endpoint)
+    if sealed.get('status') == 'RUNNING':
+        payload = json.dumps({'requestId': sealed['requestId'], 'instanceId': sealed['instanceId'],
+                              'externalIp': sealed['externalIp']}, separators=(',', ':')).encode()
+        with tempfile.NamedTemporaryFile('w', suffix='.pem', delete=True) as key_file:
+            key_file.write(key_text)
+            key_file.flush()
+            proc = subprocess.run(
+                [openssl, 'pkeyutl', '-encrypt', '-pubin', '-inkey', key_file.name,
+                 '-pkeyopt', 'rsa_padding_mode:oaep', '-pkeyopt', 'rsa_oaep_md:sha256',
+                 '-pkeyopt', 'rsa_mgf1_md:sha256'],
+                input=payload, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=15, check=False)
+        require(proc.returncode == 0 and len(proc.stdout) >= 256, 'Failed to seal endpoint address')
+        sealed['encryptedEndpoint'] = base64.b64encode(proc.stdout).decode('ascii')
+        sealed['externalIp'] = None
+    else:
+        sealed['encryptedEndpoint'] = None
+    return sealed
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--validate-only', action='store_true')
     args = parser.parse_args()
     context = request_context(os.environ)
+    seal_key = os.environ.get('ENDPOINT_SEAL_PUBLIC_KEY', '')
+    validate_seal_public_key(seal_key)
     if args.validate_only:
         print('Fixed builder request validated')
         return
-    endpoint = control(context, GoogleApi(os.environ.get('GOOGLE_ACCESS_TOKEN', '')))
+    endpoint = seal_endpoint(control(context, GoogleApi(os.environ.get('GOOGLE_ACCESS_TOKEN', ''))), seal_key)
     target = Path('out/cloud-control/endpoint.json')
     target.parent.mkdir(parents=True, exist_ok=True)
     with target.open('x') as out:
