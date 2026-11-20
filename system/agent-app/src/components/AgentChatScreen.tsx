@@ -301,7 +301,7 @@ function PendingCard({question, language, busy, onAnswer, onOpenNativeControls}:
   </View>;
 }
 
-type Layer = {kind: 'home'};
+type Layer = {kind: 'home'; source: 'history' | 'composer'};
 
 export function AgentChatScreen(props: AgentChatScreenProps) {
   const router = useRouter();
@@ -406,12 +406,12 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
     requestAnimationFrame(() => { if (!reading.current) scroll.current?.scrollToEnd({animated: false}); });
   };
   const collapseChat = () => { live.stop(); (props.onCollapse ?? props.onClose)(); };
-  const openHome = () => {
+  const openHome = (source: Layer['source']) => {
     live.stop();
     props.onOpenHistory?.();
     Keyboard.dismiss();
     setReplyMenu(null);
-    setLayer({kind: 'home'});
+    setLayer({kind: 'home', source});
   };
   const running = props.session?.running;
   const hasActiveTurn = !!(running || props.session?.activeTurnId || props.session?.queued);
@@ -423,10 +423,11 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
   const closeCamera = useCallback(() => setCameraSession(undefined), []);
   useEffect(() => closeCamera, [props.draftSessionId, closeCamera]);
   const openCamera = useCallback(() => {
+    setLayer(null);
     Keyboard.dismiss();
     if (useMediaStore.getState().camera.owner) updateCamera({owner: null, ready: false});
     setCameraSession(props.draftSessionId);
-  }, [props.draftSessionId]);
+  }, [props.draftSessionId, setLayer]);
   // Figma 1-5: the microphone records through the Audio Engine; Stop puts the words in the draft.
   const draftRef = useRef(props.draft);
   useEffect(() => { draftRef.current = props.draft; }, [props.draft]);
@@ -542,7 +543,7 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
     {/* Figma 2-1 title row: Taku Home (history for now), the fixed title, collapse to the island. */}
     <View style={[styles.header, {top: insets.top}]} pointerEvents="box-none">
       <Text accessibilityRole="header" numberOfLines={1} style={[chatType.bodyXlMedium(), styles.title]}>{props.session?.title || (live.active ? 'Live Talk' : chatTitle)}</Text>
-      <Pressable testID="open-history" accessibilityRole="button" accessibilityLabel={t('history')} onPress={openHome} hitSlop={8}
+      <Pressable testID="open-history" accessibilityRole="button" accessibilityLabel={t('history')} onPress={() => openHome('history')} hitSlop={8}
         style={({pressed}) => [styles.headerButton, pressed && styles.pressed]}><VoiceIcon name="home" size={24}/></Pressable>
       <Pressable testID="collapse-chat" accessibilityRole="button" accessibilityLabel={ct('collapseToIsland')} onPress={collapseChat} hitSlop={8}
         style={({pressed}) => [styles.headerButton, pressed && styles.pressed]}><VoiceIcon name="collapse" size={24}/></Pressable>
@@ -557,7 +558,7 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
       </View>
       <View style={styles.liveControls}>
         <View style={styles.liveControlGroup}>
-          <Pressable accessibilityRole="button" accessibilityLabel="More tools" onPress={openHome} style={styles.liveControl}><VoiceIcon name="plusLive"/></Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel={ct('moreTools')} onPress={() => openHome('history')} style={styles.liveControl}><VoiceIcon name="plusLive"/></Pressable>
           <View accessibilityRole="button" accessibilityLabel="Video input unavailable" accessibilityState={{disabled: true}} style={[styles.liveControl, {opacity: 0.45}]}><VoiceIcon name="video"/></View>
         </View>
         <View style={styles.liveControlGroup}>
@@ -581,12 +582,8 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
       <View style={[styles.composerRow, multilineComposer && !dictating && styles.composerRowMultiline]}>
       {dictating ? <DictationBar transcript={dictation.transcript} placeholder={ct('listening')} levels={dictation.levels}
         finishing={dictation.phase === 'finishing'} stopLabel={ct('stopVoice')} onStop={dictation.stop}/> : <>
-      {!taskView && <Pressable testID="chat-open-camera" accessibilityRole="button" accessibilityLabel={ct('openCamera')}
-        accessibilityState={{disabled: cameraDisabled}} disabled={cameraDisabled} onPress={openCamera}
-        style={({pressed}) => [styles.composerAction, cameraDisabled && styles.sendDisabled, pressed && styles.pressed]}>
-        <ChatIcon name="camera" size={20}/>
-      </Pressable>}
-      <Pressable accessibilityRole="button" accessibilityLabel="More tools" onPress={openHome} style={styles.composerAction}>
+      <Pressable testID="chat-more-tools" accessibilityRole="button" accessibilityLabel={ct('moreTools')}
+        onPress={() => openHome('composer')} style={styles.composerAction}>
         <VoiceIcon name="plus" size={18}/>
       </Pressable>
       <TextInput key={props.draftSessionId} testID="message-input" accessibilityLabel={running ? t('addRequirement') : ct('ask')} placeholder={running ? t('addRequirement') : ct('ask')}
@@ -618,6 +615,7 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
     {layer?.kind === 'home' && <View style={StyleSheet.absoluteFill}>
       <TakuHomePage language={language} threads={props.threads} threadId={sessionId} historyError={props.historyError} insets={insets}
         actions={{
+          camera: layer.source === 'composer' && !taskView ? {open: openCamera, disabled: cameraDisabled} : undefined,
           openThread: id => { live.stop(); showConversation(); props.onSelectThread(id); },
           newChat: () => { live.stop(); showConversation(); props.onCreateThread(); },
           openSettings: () => { setLayer(null); props.onOpenSettings(); },

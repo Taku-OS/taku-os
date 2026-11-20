@@ -25,6 +25,7 @@ type Item = {key: string; render: () => React.ReactElement};
 export type TakuHomeActions = {
   openThread: (threadId: string) => void;
   newChat: () => void;
+  camera?: {open: () => void; disabled: boolean};
   openSettings?: () => void;
   openRoute?: (route: 'plugin-market') => void;
   openNativeControls?: () => void;
@@ -52,12 +53,17 @@ export function TakuHomePage({language, threads, threadId, historyError = '', in
   const showPanels = !searching && tab !== 'chats';
   const showChats = searching || tab !== 'panels';
   const shownChats = tab === 'all' && !searching ? chats.slice(0, 6) : chats;
-  const {openThread, openRoute, openSettings, openNativeControls} = actions;
+  const {camera, openThread, openRoute, openSettings, openNativeControls} = actions;
 
   const items: Item[] = [];
   items.push({key: 'controls', render: () => <View style={styles.controls}>
     {searching ? <SearchField query={query} language={language} onQuery={setQuery} onClose={() => { setSearching(false); setQuery(''); }}/>
       : <Segmented tab={tab} language={language} onTab={setTab}/>}
+  </View>});
+  if (camera && tab === 'all' && !searching) items.push({key: 'camera', render: () => <View style={styles.section}>
+    <View style={styles.toolCard}>
+      <ToolRow testID="chat-open-camera" icon="camera" label={t('cameraTool')} onPress={camera.disabled ? undefined : camera.open}/>
+    </View>
   </View>});
   if (showPanels) items.push({key: 'panels', render: () => <View style={styles.section}>
     <SectionHeader title={t('panels')} seeAll={tab === 'all' ? () => setTab('panels') : undefined} language={language}/>
@@ -161,9 +167,12 @@ function ChatRowItem({thread, language, onOpen}: {thread: TakuHomeThread; langua
   </Pressable>;
 }
 
-function ToolRow({label, onPress}: {label: string; onPress?: () => void}) {
+function ToolRow({label, onPress, icon, testID}: {label: string; onPress?: () => void; icon?: 'camera'; testID?: string}) {
   const disabled = !onPress;
-  return <Pressable accessibilityRole="button" accessibilityState={{disabled}} disabled={disabled} onPress={onPress} style={({pressed}) => [styles.toolRow, pressed && styles.pressed]}>
+  return <Pressable testID={testID} accessibilityRole="button" accessibilityState={{disabled}} disabled={disabled} onPress={onPress}
+    style={({pressed}) => [styles.toolRow, pressed && styles.pressed]}>
+    {icon && <View style={styles.toolIcon}><ChatIcon name={icon} size={20}
+      color={disabled ? chatColors.textPlaceholder : chatColors.icon}/></View>}
     <Text style={[chatType.bodyLg(containsChinese(label)), styles.grow, {color: disabled ? chatColors.textPlaceholder : chatColors.textPrimary}]}>{label}</Text>
     <ChatIcon name="chevronRight" size={16} color={chatColors.textPlaceholder}/>
   </Pressable>;
@@ -196,6 +205,7 @@ const styles = StyleSheet.create({
   newChat: {position: 'absolute', right: 8, width: 56, height: 56, borderRadius: 28,
     backgroundColor: 'rgba(255,255,255,0.92)', alignItems: 'center', justifyContent: 'center'},
   toolRow: {flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14},
+  toolIcon: {marginRight: 12},
   primary: {color: chatColors.textPrimary},
   secondary: {color: chatColors.textSecondary},
   tertiary: {color: chatColors.textTertiary},

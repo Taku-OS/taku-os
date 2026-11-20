@@ -7,8 +7,11 @@ description: Inspect and manage Taku OS skills, plugins, memory, Audio settings,
 
 ## Menu scan
 
-On a TakuAgent build with Menu Scan, tap **Open camera** in the system assistant
-or full chat. The Home Assistant command uses the same conversation and camera:
+In full chat, tap **More tools** (the composer’s **+**), then **Camera**. In the
+system assistant, tap **Open camera** on the left of the composer. Both entries
+open the same viewfinder with **Photo** and **Menu scan**. In Photo mode, **Use
+photo** attaches the capture to the originating chat draft and preserves its text.
+The Home Assistant command opens the same camera from the system assistant:
 
 ```sh
 content call --uri content://org.agentos.agent.home-assistant --method assistant/open-camera
