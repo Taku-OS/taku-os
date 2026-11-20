@@ -53,3 +53,10 @@ of `PERMISSION_DENIED`. Installing the rebuilt Assistant made all 28 control-pro
 checks pass; the real Agent UID passed all five gateway/shared-draft checks. The
 shell UID could also read, write, read back and restore the same draft. This is
 component-level verification; the earlier full image predates this security fix.
+
+The 28 control and five gateway checks were repeated successfully after installing
+both APKs rebuilt from `c78db819bc307628bd39545d7b1f3ce656e9f1bc`, which includes
+the latest main merge and preserves this permission fix as `53dae94a`. The published
+Agent APK is locked to those 500 source inputs; its SHA-256 is
+`e4af55a12e944e51c43bc7da4aedfdaad3f89fc70551ccdbb0b84d7584a83a66`.
+This remains a component upgrade on the earlier emulator image, not a new ROM build.
