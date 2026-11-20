@@ -93,11 +93,13 @@ class OnboardingProvider : ContentProvider() {
         }
         "onboarding/cancel-sign-in" -> { only(); repo.cancelSignIn() }
         "onboarding/finish" -> { only(); repo.perform(OnboardingAction.FINISH) }
+        "onboarding/dismiss" -> { only(); repo.dismiss() }
         "onboarding/explore" -> { only(); repo.perform(OnboardingAction.EXPLORE) }
         "onboarding/reset" -> { only(); repo.reset() }
         else -> throw OnboardingException("UNKNOWN_METHOD", "unknown method $method")
       }
-      val described = repo.describe()
+      // The offline escape must not wait for a broker/account refresh before replying.
+      val described = repo.describe(refreshSources = method != "onboarding/dismiss")
       if (!trusted) described.put("chatgptSignIn", JSONObject.NULL)
       out.putString("result", JSONObject().put("ok", true).put("result", described).toString())
     } catch (e: OnboardingException) {

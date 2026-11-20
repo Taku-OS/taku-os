@@ -112,7 +112,7 @@ class OnboardingRepository private constructor(context: Context) {
     poll?.cancel()
     poll = if (!foreground) null else scope.launch {
       runCatching { refresh() }.onFailure { Log.w(TAG, "onboarding refresh failed", it) }
-      while (isActive && state.value.facts.stored != OnboardingStep.COMPLETED) {
+      while (isActive && !OnboardingRules.isTerminal(state.value.facts.stored)) {
         // An unreachable gateway (no assistant on this build, broker down) backs off to 1 min.
         delay((POLL_MS shl accountFailures.coerceAtMost(4)).coerceAtMost(MAX_POLL_MS))
         runCatching { refresh() }.onFailure { Log.w(TAG, "onboarding refresh failed", it) }
@@ -127,7 +127,7 @@ class OnboardingRepository private constructor(context: Context) {
    */
   fun refresh(full: Boolean = false): State {
     val stored = stored()
-    val pending = stored != OnboardingStep.COMPLETED && stored != OnboardingStep.ALL_SET
+    val pending = !OnboardingRules.isTerminal(stored) && stored != OnboardingStep.ALL_SET
     if (full || pending) readAccount()
     if (full || stored == OnboardingStep.CONNECT_AI) {
       // A saved key still waiting for its model stays "connecting", not "not connected".
@@ -138,7 +138,7 @@ class OnboardingRepository private constructor(context: Context) {
     // Read the name once; re-read it only while the card shows the intro or name step (an Agent
     // may set it there). A hidden card does not call Memory on every poll.
     val shown = (OnboardingRules.decide(facts()) as? OnboardingDecision.Show)?.step
-    if (stored != OnboardingStep.COMPLETED && (!nameKnown || shown == OnboardingStep.INTRO || shown == OnboardingStep.NAME)) readName()
+    if (!OnboardingRules.isTerminal(stored) && (!nameKnown || shown == OnboardingStep.INTRO || shown == OnboardingStep.NAME)) readName()
     return publish()
   }
 
@@ -296,15 +296,24 @@ class OnboardingRepository private constructor(context: Context) {
     return refresh()
   }
 
+  /** Exit immediately without calling the broker, changing credentials or waiting for a key save. */
+  fun dismiss(): State = synchronized(lock) {
+    write(OnboardingRules.dismiss(stored()))
+    poll?.cancel()
+    signInWatch?.cancel()
+    island.clear()
+    publish()
+  }
+
   /** Start over without clearing accounts or Memory. Test mode keeps the intro visible. */
   fun reset(): State = synchronized(lock) {
     write(OnboardingStep.INTRO)
     refresh().also { if (foreground) setForeground(true) }
   }
 
-  /** The authoritative snapshot for Agents, freshly read. */
-  fun describe(): JSONObject {
-    val s = refresh(full = true)
+  /** The authoritative snapshot for Agents; dismiss can return local progress without external reads. */
+  fun describe(refreshSources: Boolean = true): JSONObject {
+    val s = if (refreshSources) refresh(full = true) else publish()
     val decision = s.decision
     return JSONObject()
       .put("setting", OnboardingRules.SETTING)
@@ -318,6 +327,7 @@ class OnboardingRepository private constructor(context: Context) {
       .put("ai", s.facts.ai.id)
       .put("nameSet", s.facts.nameSet ?: JSONObject.NULL)
       .put("canFinish", s.canFinish)
+      .put("canDismiss", s.step == OnboardingStep.CONNECT_AI)
       .put("services", JSONObject()
         .put("chatgpt", s.services.chatgpt.id)
         .put("jev", s.services.jev.id)
@@ -347,9 +357,10 @@ class OnboardingRepository private constructor(context: Context) {
     signInWatch = scope.launch {
       val deadline = SystemClock.elapsedRealtime() + SIGN_IN_MS
       try {
-        while (isActive && SystemClock.elapsedRealtime() < deadline) {
+        while (isActive && !OnboardingRules.isTerminal(stored()) && SystemClock.elapsedRealtime() < deadline) {
           delay(SIGN_IN_POLL_MS)
           runCatching { readAccount(); publish() }
+          if (!isActive || OnboardingRules.isTerminal(stored())) return@launch
           when (services.chatgpt) {
             Connection.CONNECTING, Connection.UNKNOWN -> if (foreground) island.clear() else island.signingIn()
             Connection.CONNECTED -> {

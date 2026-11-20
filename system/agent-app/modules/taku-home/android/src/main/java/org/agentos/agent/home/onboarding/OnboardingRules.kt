@@ -11,7 +11,9 @@ enum class OnboardingStep(val id: String) {
   CONNECT_AI("connect_ai"),
   /** "You’re all set": Home shows the Feed and the expanded AI entry under the card (Figma 1341:782). */
   ALL_SET("all_set"),
-  COMPLETED("completed");
+  COMPLETED("completed"),
+  /** User chose to use Home now and configure AI later; never resumes automatically. */
+  DISMISSED("dismissed");
 
   companion object {
     fun parse(raw: String?): OnboardingStep? = entries.firstOrNull { it.id == raw }
@@ -99,6 +101,7 @@ object OnboardingRules {
   const val NAME_MAX = 20
 
   const val HIDDEN_COMPLETED = "completed"
+  const val HIDDEN_DISMISSED = "dismissed"
   const val HIDDEN_AI = "ai_available"
   const val HIDDEN_AI_UNKNOWN = "ai_unknown"
   const val HIDDEN_PHONE = "phone_not_ready"
@@ -114,6 +117,7 @@ object OnboardingRules {
    */
   fun decide(facts: OnboardingFacts): OnboardingDecision = when {
     facts.stored == OnboardingStep.COMPLETED -> OnboardingDecision.Hidden(HIDDEN_COMPLETED)
+    facts.stored == OnboardingStep.DISMISSED -> OnboardingDecision.Hidden(HIDDEN_DISMISSED)
     facts.stored == OnboardingStep.CONNECT_AI || facts.stored == OnboardingStep.ALL_SET ->
       if (facts.phoneReady) OnboardingDecision.Show(facts.stored) else OnboardingDecision.Hidden(HIDDEN_PHONE)
     facts.testMode -> if (facts.phoneReady)
@@ -130,11 +134,21 @@ object OnboardingRules {
    * step (existing users, or AI set up elsewhere); there it waits for Continue.
    */
   fun shouldComplete(facts: OnboardingFacts): Boolean =
-    !facts.testMode && facts.stored != OnboardingStep.COMPLETED && facts.stored != OnboardingStep.CONNECT_AI &&
+    !facts.testMode && !isTerminal(facts.stored) && facts.stored != OnboardingStep.CONNECT_AI &&
       facts.stored != OnboardingStep.ALL_SET && facts.ai == AiAccess.AVAILABLE
 
-  /** The step takes over the whole Home (wallpaper, empty Home, card); "all set" sits over the real Home. */
-  fun takesOverHome(step: OnboardingStep?): Boolean = step != null && step != OnboardingStep.ALL_SET && step != OnboardingStep.COMPLETED
+  /** Settled onboarding stays hidden even after AI becomes unavailable. */
+  fun isTerminal(step: OnboardingStep?): Boolean = step == OnboardingStep.COMPLETED || step == OnboardingStep.DISMISSED
+
+  /** The early steps take over Home; "all set" sits over the real Home. */
+  fun takesOverHome(step: OnboardingStep?): Boolean = step != null && step != OnboardingStep.ALL_SET && !isTerminal(step)
+
+  /** Local escape, including when AI is unavailable or still connecting. Repeats are harmless. */
+  fun dismiss(current: OnboardingStep?): OnboardingStep = when (current) {
+    OnboardingStep.CONNECT_AI, OnboardingStep.DISMISSED -> OnboardingStep.DISMISSED
+    OnboardingStep.COMPLETED -> OnboardingStep.COMPLETED
+    else -> throw OnboardingException("WRONG_STEP", "dismiss applies to step connect_ai")
+  }
 
   /** Continue needs a working AI: a ChatGPT sign-in or Magpie with a model. */
   fun canFinish(facts: OnboardingFacts): Boolean = facts.ai == AiAccess.AVAILABLE

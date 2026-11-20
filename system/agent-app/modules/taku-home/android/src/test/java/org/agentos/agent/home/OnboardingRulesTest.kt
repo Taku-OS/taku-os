@@ -17,6 +17,28 @@ import org.junit.Assert.fail
 import org.junit.Test
 
 class OnboardingRulesTest {
+  @Test fun dismissUnlocksHomeRegardlessOfAiAndSurvivesReplayOrRestart() {
+    val saved = OnboardingRules.dismiss(OnboardingStep.CONNECT_AI)
+    assertEquals(OnboardingStep.DISMISSED, saved)
+    assertEquals(saved, OnboardingStep.parse(saved.id))
+    for (ai in AiAccess.entries) for (replay in listOf(false, true)) {
+      val f = facts(stored = saved, ai = ai).copy(testMode = replay)
+      assertEquals(OnboardingDecision.Hidden(OnboardingRules.HIDDEN_DISMISSED), OnboardingRules.decide(f))
+      assertFalse(OnboardingRules.shouldComplete(f))
+      assertFalse(OnboardingRules.takesOverHome(saved))
+    }
+    assertEquals(saved, OnboardingRules.dismiss(saved))
+    assertEquals(OnboardingStep.COMPLETED, OnboardingRules.dismiss(OnboardingStep.COMPLETED))
+  }
+
+  @Test fun dismissDoesNotSkipTheNameOrClaimAiWasConnected() {
+    for (step in listOf(null, OnboardingStep.INTRO, OnboardingStep.NAME, OnboardingStep.ALL_SET)) {
+      try { OnboardingRules.dismiss(step); fail("dismiss at $step") }
+      catch (e: OnboardingException) { assertEquals("WRONG_STEP", e.code) }
+    }
+    assertFalse(OnboardingRules.canFinish(facts(stored = OnboardingStep.CONNECT_AI)))
+  }
+
   private fun facts(stored: OnboardingStep? = null, ready: Boolean = true, ai: AiAccess = AiAccess.UNAVAILABLE, nameSet: Boolean? = false) =
     OnboardingFacts(stored, ready, ai, nameSet)
 

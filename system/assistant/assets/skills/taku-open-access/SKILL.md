@@ -386,7 +386,11 @@ busy call or a broker restart does not hide a card the user is working in; after
 is unknown again. While it is pending, Home re-checks every 3 s in the foreground (backing off to
 1 min while the account cannot be read), so the card appears once everything is confirmed. Once the user reaches the AI step (`connect_ai`), the card stays there through
 sign-in and verification, and after AI connects, until **Continue** (`onboarding/finish`), which
-moves to **You’re all set** (`all_set`). It cannot be dismissed. During `intro`, `name` and
+moves to **You’re all set** (`all_set`). Every AI connection page also offers **Set up later**
+(`onboarding/dismiss`), including while connecting or offline. It writes `dismissed` and immediately
+restores Home without requiring AI or showing a misleading connected/all-set screen. It does not
+clear the name, accounts or keys; an already submitted connection may still complete. Configure AI
+later from Taku AI settings, or explicitly reset onboarding to replay it. During `intro`, `name` and
 `connect_ai` Home composes only the wallpaper, the empty-Home message and the card (no Feed, home
 pages, status bar or AI entry; assistant intents are ignored). During `all_set` Home shows the
 real Feed (its usual cards, or the Ask Taku invitation when empty) pinned to the Feed page, with
@@ -397,11 +401,11 @@ for Agents both are `onboarding/explore`. The card is
 not a Feed item and is not the SystemUI island, so `feed/list` never contains it.
 
 Progress is per Android user in `Settings.Secure` `taku_onboarding_step`
-(`intro`, `name`, `connect_ai`, `all_set`, `completed`; missing or unknown means `intro`). A factory reset
+(`intro`, `name`, `connect_ai`, `all_set`, `completed`, `dismissed`; missing or unknown means `intro`). A factory reset
 clears it, so onboarding runs again. Before the AI step, confirmed available AI
 (`aiAvailable:true`: a ChatGPT sign-in, or Magpie running with a model) writes `completed`, even
 if the card was never shown (existing users). At `connect_ai` it enables Continue instead, so Jev
-and Fal can still be added; `all_set` waits for I’ll explore. Nothing ever moves `completed` back, so it runs once. Losing AI after completion does not
+and Fal can still be added; `all_set` waits for I’ll explore. Neither `completed` nor `dismissed` restarts automatically, including after reboot or OTA. Losing AI afterwards does not
 restart it. An unknown account state never completes it. The name is Memory's `userName`
 (`content://org.agentos.memory.open-access`, unset value `我`); when it is already set, the name
 step is skipped and `connect_ai` is stored.
@@ -423,6 +427,7 @@ content call --uri $O --method onboarding/connect --arg '{"service":"jev","key":
 content call --uri $O --method onboarding/connect --arg '{"service":"fal","key":"..."}'
 content call --uri $O --method onboarding/finish                 # connect_ai → all_set (last page's "Continue" or "Skip for now"; needs available AI)
 content call --uri $O --method onboarding/explore                # all_set → completed ("I’ll explore")
+content call --uri $O --method onboarding/dismiss                # connect_ai → dismissed ("Set up later"); no parameters or working AI needed
 # Jev or Fal skipped during onboarding: the same setup page (Figma 2-3 / 2-5) at any step,
 # with the same validation as the card. Answers {service, connection[, opened]}.
 content call --uri $O --method ai-setup/get --arg '{"service":"jev"}'      # connection: not_connected | connecting | connected | unknown
@@ -451,14 +456,15 @@ states; Continue still requires working AI. A service that is already connected 
 connected state and the way forward; to test a fresh sign-in, sign out from the assistant's
 account page first. Replay never signs out or clears credentials.
 Completing the replay hides the card normally; call reset again for another run, or disable
-replay. To leave an unfinished local test without working AI, the existing shell escape is
-`settings put secure taku_onboarding_step completed`.
+replay. On the AI step, `onboarding/dismiss` exits without working AI; repeated dismiss calls are
+harmless. On other unfinished steps it returns `WRONG_STEP`.
 
-Every method returns `{ok:true,result}` with the fresh state:
-`{setting, testModeSetting, testMode, stored, visible, step, hiddenReason, phoneReady, ai, nameSet, canFinish, services, chatgptSignIn}`, where
+Every method returns `{ok:true,result}` with the state (`dismiss` reads local progress only so
+it never waits for an account/network refresh; service fields retain the last observed values):
+`{setting, testModeSetting, testMode, stored, visible, step, hiddenReason, phoneReady, ai, nameSet, canFinish, canDismiss, services, chatgptSignIn}`, where
 `services` is `{chatgpt, jev, fal}`, each `not_connected`, `connecting`, `connected` or `unknown`
 (`fal` is `null` when Taku Audio is not installed; the card then has no Fal page). `step` is the
-card being shown (`null` when hidden). `hiddenReason` is `completed`, `ai_available`,
+card being shown (`null` when hidden). `canDismiss` is true on `connect_ai`. `hiddenReason` is `completed`, `dismissed`, `ai_available`,
 `ai_unknown` or `phone_not_ready`. `ai` is `available`, `unavailable` or `unknown`. `nameSet` is `null` when
 Memory could not be read. `chatgptSignIn` is `{url, code}` exactly as the card shows them while a
 ChatGPT device-code sign-in is pending (`services.chatgpt` is `connecting` and the broker phase is

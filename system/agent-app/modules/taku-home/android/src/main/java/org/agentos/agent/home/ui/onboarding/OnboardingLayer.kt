@@ -115,7 +115,7 @@ import org.agentos.agent.home.ui.assistant.WorkingDots
 /**
  * First-run onboarding over the Home wallpaper (Figma 1155:527 "0 empty", 1379:1785 "1-name",
  * 1379:2012 "1-name_input", 1379:2239–1379:2907 "2-x connect AI" pages, 1341:782 "6-proactive"). It is not a Feed item and not the SystemUI island: a Compose card
- * with the expanded island's look that can take keyboard input. It cannot be dismissed; the
+ * with the expanded island's look that can take keyboard input. The AI step can be dismissed; the
  * Feed, home pages and AI entry stay behind it until [OnboardingRepository] says it is done.
  */
 @Composable
@@ -156,6 +156,18 @@ private class OnboardingActions(val context: Context, val repository: Onboarding
 
   fun perform(action: OnboardingAction, name: String? = null) = launchAction {
     withContext(Dispatchers.IO) { repository.perform(action, name) }
+  }
+
+  /** Always available, even while a network-dependent Connect operation is busy. */
+  fun dismiss() {
+    scope.launch {
+      try { withContext(Dispatchers.IO) { repository.dismiss() } }
+      catch (e: CancellationException) { throw e }
+      catch (e: Exception) {
+        Log.w(TAG, "onboarding dismiss failed", e)
+        toast(message((e as? OnboardingException)?.code.orEmpty()))
+      }
+    }
   }
 
   /**
@@ -323,7 +335,7 @@ private fun OnboardingCard(step: OnboardingStep, state: OnboardingRepository.Sta
           OnboardingStep.NAME -> NameStep(actions)
           OnboardingStep.CONNECT_AI -> ConnectAiStep(state, actions)
           OnboardingStep.ALL_SET -> AllSetStep(state.userName, actions)
-          OnboardingStep.COMPLETED -> Unit
+          OnboardingStep.COMPLETED, OnboardingStep.DISMISSED -> Unit
         }
       }
     }
@@ -426,33 +438,38 @@ private fun ConnectAiStep(state: OnboardingRepository.State, actions: Onboarding
   // System back follows the card's chevron; on the first page it stays a no-op (OnboardingLayer).
   BackHandler(enabled = page != AiPage.INTRO) { back() }
 
-  AnimatedContent(
-    targetState = page,
-    transitionSpec = {
-      fadeIn(tween(220, delayMillis = 90)) togetherWith fadeOut(tween(90)) using SizeTransform(clip = false) { _, _ -> TakuMotion.morph() }
-    },
-    label = "onboardingAiPage",
-  ) { shown ->
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-      if (shown == AiPage.INTRO) {
-        AiIntro(state.userName) { open(AiPage.CHATGPT) }
-        return@Column
-      }
-      BackChevron { back() }
-      ServiceProgress(pages, shown, services)
-      val service = shown.service
-      val next = pages.getOrNull(pages.indexOf(shown) + 1)
-      val nextLabel = next?.let { "Next: ${it.service.label}" } ?: "Continue"
-      val forwardEnabled = !actions.busy
-      if (connectionOf(services, service) == Connection.CONNECTED) {
-        ServiceTitle(service, connected = true)
-        Row(Modifier.fillMaxWidth()) {
-          IslandButton(nextLabel, IslandButtonStyle.Primary, enabled = forwardEnabled) { forward(shown) }
+  Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    AnimatedContent(
+      targetState = page,
+      transitionSpec = {
+        fadeIn(tween(220, delayMillis = 90)) togetherWith fadeOut(tween(90)) using SizeTransform(clip = false) { _, _ -> TakuMotion.morph() }
+      },
+      label = "onboardingAiPage",
+    ) { shown ->
+      Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        if (shown == AiPage.INTRO) {
+          AiIntro(state.userName) { open(AiPage.CHATGPT) }
+          return@Column
         }
-      } else when (service) {
-        OnboardingService.CHATGPT -> ChatGptPage(state, actions)
-        else -> KeyPage(service, connectionOf(services, service), actions) { forward(shown) }
+        BackChevron { back() }
+        ServiceProgress(pages, shown, services)
+        val service = shown.service
+        val next = pages.getOrNull(pages.indexOf(shown) + 1)
+        val nextLabel = next?.let { "Next: ${it.service.label}" } ?: "Continue"
+        val forwardEnabled = !actions.busy
+        if (connectionOf(services, service) == Connection.CONNECTED) {
+          ServiceTitle(service, connected = true)
+          Row(Modifier.fillMaxWidth()) {
+            IslandButton(nextLabel, IslandButtonStyle.Primary, enabled = forwardEnabled) { forward(shown) }
+          }
+        } else when (service) {
+          OnboardingService.CHATGPT -> ChatGptPage(state, actions)
+          else -> KeyPage(service, connectionOf(services, service), actions) { forward(shown) }
+        }
       }
+    }
+    Row(Modifier.fillMaxWidth()) {
+      IslandButton("Set up later", IslandButtonStyle.Secondary, enabled = true) { actions.dismiss() }
     }
   }
 }
