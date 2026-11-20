@@ -1403,7 +1403,7 @@ content call --uri $A --method assistant/close-input
 content call --uri $A --method assistant/reset
 # Voice (hold to talk, or dictation when the text field is open):
 content call --uri $A --method assistant/voice-start
-content call --uri $A --method assistant/voice-finish                # hold: sends after successful finalization; dictation: appends once
+content call --uri $A --method assistant/voice-finish                # hold: the release, sends after successful finalization; dictation: appends once
 content call --uri $A --method assistant/voice-cancel                # revoke this operation; retain the existing draft
 content call --uri $A --method assistant/voice-to-text               # finish the same capture and append its complete result to Text
 ```
@@ -1413,8 +1413,8 @@ content call --uri $A --method assistant/voice-to-text               # finish th
 ### System gesture handle and temporary voice
 
 On the patched Quickstep image, double-tapping the system handle opens the focused text
-composer and keyboard over the current app. Releasing the opening voice gesture keeps
-the recorder and the listening page open; silence never navigates away from that page.
+composer and keyboard over the current app. Holding records; releasing the opening voice
+gesture finalizes the recording and sends its transcript (release to send).
 Explicit dismissal/collapse returns focus to the underlying app without cancelling a
 submitted task. Holding the handle opens temporary voice through
 `VoiceInteractionSession.startAssistantActivity`, with the same `AssistantSession` as Home.
@@ -1423,12 +1423,13 @@ The default assistant must be Taku (`settings get secure assistant` and
 assistant's upstream behavior. Google packages are not disabled/uninstalled. A Home APK update
 alone cannot replace Quickstep's system gesture dispatch.
 
-Holding then releasing latches the **listening** page (1-1). The island says “Taku is
-listening...”; the center shows the real recognition transcript and measured-RMS waveform.
-After release, measured speech followed by at least 1.5 s of silence (checked every 500 ms)
-finalizes the recording. Its successful, nonempty final transcript is sent to the Agent once,
-without another tap. Cloud finalization and the Agent reply take additional time. The page
-stays open: the native SystemUI card shows processing and then the actual reply/options.
+Hold to talk: speech is recognized **only while the hold lasts**. The listening page (1-1)
+shows the real recognition transcript and measured-RMS waveform, and the island says “Taku is
+listening...”. Pauses never send. **Releasing** stops recognition and finalizes the recording;
+its successful, nonempty final transcript is sent to the Agent once, with no further tap
+(release to send). Cloud finalization and the Agent reply take additional time. The page stays
+open: the native SystemUI card shows processing and then the actual reply/options. Releasing
+before capture started, or a release that heard nothing, sends nothing and closes the page.
 **Cancel** revokes any still-undelivered audio immediately, dissolves the transcript, then
 closes the input; it does not retract a request already sent to the Agent.
 **Keep talking** expands the black surface and opens **the same chat** in Live Talk mode,
@@ -1446,20 +1447,18 @@ The plus control opens the existing panels. Failed recognition stays visible; re
 Backend capture/deadline limits still apply. Reaching a limit or a recognition error on 1-1
 keeps that page and its transcript/error visible. A successful final result after release is
 submitted once; failed or cancelled recognition and empty results are never submitted.
-An empty successful result automatically resumes capture on the same latched page/card;
-the card continues to say “Taku is listening...”, without showing a finished message or
-an older reply. `assistant/get` shows a new voice operation ID in Preparing/Capturing and
-no new Agent turn. Cancel revokes this restart; real recognition errors are not retried this way.
-The original pointer's later events cannot affect latched or continuous voice. The 3 s system
+An empty successful result is not sent and does not reopen capture: the voice page closes.
+The original pointer's later events cannot affect a released or continuous recording. The 3 s system
 bridge lease and 120 s held-pointer cap apply only while the opening pointer is still held.
 Multi-pointer interruption and focus loss cancel recording without submitting partial text.
 
 Agent equivalents, using the same session and geometry: `assistant/open {"mode":"voice"}`
-and `assistant/voice-start` outside text entry immediately latch/arm the same automatic flow
-(no held pointer). `assistant/get` exposes `entry:voice`, `voice.phase`, `voice.delivery`,
+and `assistant/voice-start` outside text entry are the press: recording starts and continues,
+through any pause, until `assistant/voice-finish` (the release: finalize and send once) or
+`assistant/voice-cancel`. The 120 s held cap applies, so an unfinished Agent hold is cancelled
+without sending. `assistant/get` exposes `entry:voice`, `voice.phase`, `voice.delivery`,
 `working`, `turn` and `error`; after success the entry stays `voice`, delivery is `Consumed`,
-and the actual Agent turn/reply becomes readable. `assistant/voice-finish` can explicitly
-finalize earlier. These commands do not send partial previews.
+and the actual Agent turn/reply becomes readable. These commands do not send partial previews.
 
 Microphone permission belongs to the recording engine, independently of FAL/ChatGPT login and
 the voice-AI switch. Taku Audio → **Allow microphone access** uses the Android runtime permission;
@@ -1509,15 +1508,15 @@ content call --uri $A --method assistant/voice-cancel
 content call --uri $A --method assistant/live-start --arg '{"threadId":"ID"}'
 content call --uri $A --method assistant/live-toggle-mic
 content call --uri $A --method assistant/live-stop
-# Explicit legacy operations remain available to Agents; there are no such buttons on 1-1:
-content call --uri $A --method assistant/voice-finish     # finalize and submit once
+content call --uri $A --method assistant/voice-finish     # the release: finalize and submit once
+# An explicit legacy operation remains available to Agents; there is no such button on 1-1:
 content call --uri $A --method assistant/voice-to-text    # finalize into the editable draft
 ```
 
 `live-start` accepts the chat's `threadId` (empty starts a new conversation on first send).
 `live-stop` and `live-toggle-mic` accept an optional `threadId` to scope the action.
 They leave the session unchanged if Live Talk is inactive or the supplied ID belongs to another conversation.
-`voice-continue` requires an active/latched hold; an unavailable chat gateway leaves 1-1 open
+`voice-continue` requires an active (held) recording; an unavailable chat gateway leaves 1-1 open
 and reports `THREAD_UNAVAILABLE`. Live actions return the same `{ok,result}` state as the GUI;
 provider argument failures return `INVALID_ARGUMENT`.
 

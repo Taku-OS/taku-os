@@ -83,9 +83,9 @@ class HomeAssistantProvider : ContentProvider() {
               "voice" -> EntryMode.Voice
               else -> throw AssistantException("INVALID_ARGUMENT", "mode must be text or voice")
             }
+            // Voice opens held, as a press does: it records until assistant/voice-finish (the
+            // release, which sends) or assistant/voice-cancel. A pause never sends.
             session.open(mode)
-            // Agent calls have no held pointer; use the same released/latching path as the GUI.
-            if (mode == EntryMode.Voice) session.releaseHold()
           }
           "assistant/close-input" -> session.closeEntry()
           "assistant/choose-prompt" -> session.choosePrompt(p.optString("text"))
@@ -105,9 +105,9 @@ class HomeAssistantProvider : ContentProvider() {
             if (p.optBoolean("home", true)) ctx.startActivity(Intent().setClassName(ctx.packageName, HOME_ACTIVITY).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
           }
           "assistant/voice-start" -> {
-            if (session.state.value.entry != EntryMode.Text) {
-              session.open(EntryMode.Voice); session.releaseHold()
-            } else session.startDictation()
+            // Outside text entry: a press with no finger to lift; assistant/voice-finish releases and sends.
+            if (session.state.value.entry != EntryMode.Text) session.open(EntryMode.Voice)
+            else session.startDictation()
           }
           "assistant/voice-finish" -> if (session.voice.state.value.target == VoiceTarget.Dictation) session.stopDictation() else session.finishVoice()
           "assistant/voice-cancel" -> session.cancelVoice()

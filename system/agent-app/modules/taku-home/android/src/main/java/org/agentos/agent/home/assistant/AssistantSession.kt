@@ -198,14 +198,12 @@ class AssistantSession private constructor(private val context: Context, private
             (gesture.held && android.os.SystemClock.uptimeMillis() - gesture.startedAt > 120_000)) cancelVoice()
         val s = flow.value
         val v = voice.state.value
-        // Releasing the opening pointer arms one automatic utterance on the hold page.
-        // Keep capture/navigation separate: sending must not dismiss that page.
-        if (s.entry == EntryMode.Voice && gesture.phase == VoiceGesture.Phase.Listening) {
-          if (v.ready && liveEndpoint.shouldFinish(android.os.SystemClock.uptimeMillis())) finishVoice()
-          else if (v.emptySuccess && delivery.current?.state == VoiceDeliveryState.Consumed && !s.working && s.error == null) {
-            // No words is not a completed conversation. Reopen capture on the same page/card.
-            restartVoice()
-          }
+        // Hold to talk records only while held: a pause never sends, and releasing finalizes and
+        // sends (releaseHold). A release that heard nothing leaves nothing to show, so the voice
+        // page closes instead of listening again.
+        if (s.entry == EntryMode.Voice && gesture.phase == VoiceGesture.Phase.Listening &&
+            v.emptySuccess && delivery.current?.state == VoiceDeliveryState.Consumed && !s.working && s.error == null) {
+          closeEntry()
         }
         if (s.voiceContinuous && s.entry == EntryMode.None && !s.voicePaused) {
           val now = android.os.SystemClock.uptimeMillis()
@@ -295,12 +293,9 @@ class AssistantSession private constructor(private val context: Context, private
     when (gesture.zone) {
       VoiceGesture.Zone.Cancel -> cancelVoice()
       VoiceGesture.Zone.KeepTalking -> keepTalking()
-      VoiceGesture.Zone.None -> {
-        gesture.latch(); publishGesture()
-        delivery.aim(VoiceDestination.Submit)
-        // A backend may have finalized while the opening pointer was still held.
-        apply(delivery.settle(voice.state.value, flow.value.draft))
-      }
+      // Release to send: recognition stops here and its complete transcript is sent once. A
+      // backend that already finalized while the pointer was held sends that result.
+      VoiceGesture.Zone.None -> finishVoice()
     }
   }
 
@@ -588,8 +583,9 @@ class AssistantSession private constructor(private val context: Context, private
   // ---- Voice ---------------------------------------------------------------------------
 
   /**
-   * Explicit Agent finish or a measured utterance boundary: finalize and send exactly once.
-   * Releasing the opening gesture only latches the listening page; it never calls this.
+   * Releasing the hold (or an Agent's `assistant/voice-finish`, its release) or, in Keep Talking,
+   * a measured utterance boundary: finalize and send exactly once. Released before capture
+   * started, nothing was heard and the operation is dropped.
    */
   fun finishVoice() {
     val v = voice.state.value
