@@ -57,7 +57,7 @@ public final class MemoryProvider extends ContentProvider {
        }
        r=new JSONObject().put("checked",n).put("woke",w);break;}
       case "nudge":if(!root)throw new SecurityException("Only TaskBroker may read reminders");r=s.nudge(p.getLong("id"));break;
-      case "nudgeTask":if(!root)throw new SecurityException("Only TaskBroker may record reminder tasks");s.nudgeTask(p.getLong("id"),p.getString("taskId"));r=new JSONObject();break;
+      case "nudgeTask":if(!root)throw new SecurityException("Only TaskBroker may record reminder tasks");s.nudgeTask(p.getLong("id"),p.getString("taskId"));ProactiveNotice.handedOff(getContext(),s,p.getLong("id"));r=new JSONObject();break;
       case "maintain":if(p.has("now")&&(!BuildFlags.DEBUG||!root))throw new SecurityException("A specified organization time is available only in debug builds");r=new JSONObject().put("started",Organizer.start(getContext(),p.optLong("now",0),BuildFlags.DEBUG&&root&&p.optBoolean("graphOnly")));break;
       case "clearDerived":s.clearDerived();r=new JSONObject().put("cleared",true);break;
       case "deleteBoardItem":s.deleteBoardItem(p.getString("part"),p.getString("name"));r=new JSONObject();break;

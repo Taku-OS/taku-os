@@ -147,13 +147,38 @@ final class ProactiveNotice {
     // Older installed launchers have no eventCursor; keep upgrade compatibility.
     if(head.isEmpty()){
      org.json.JSONArray merged=FeedFeedback.merge(n.getJSONArray("feedback"),snap,card,now);
-     if(merged!=null){s.nudgeFeedback(n.getLong("id"),merged);changed.add(n.getLong("id"));}
+     if(merged!=null){s.nudgeFeedback(n.getLong("id"),merged);n.put("feedback",merged);changed.add(n.getLong("id"));}
     }
+    // Dealt with on Home: the notification or system hint for the same reminder would only repeat it.
+    if(changed.contains(n.getLong("id"))&&FeedFeedback.handled(n.getJSONArray("feedback")))settle(c,n.getLong("id"));
     if(due.has(card)&&FeedFeedback.has(snap.optJSONArray("removed"),card))
      try{FeedCards.retract(c,card);forget(s,card);}catch(FeedCards.Refused r){if(FeedCards.gone(r))forget(s,card);}catch(Exception later){}
    }
    return changed.size();
   }catch(Exception e){android.util.Log.i("TakuMemory","Could not read Home card feedback: "+e.getMessage());return 0;}
+ }
+ /** Takes down the notification and the system hint of one reminder; the stored reminder and its card are kept. */
+ static void settle(Context c,long id){
+  ObservationService.withdraw("nudge-"+id);
+  NotificationManager nm=c.getSystemService(NotificationManager.class);if(nm!=null)nm.cancel("nudge",(int)id);
+ }
+ /**
+  * The user handed this reminder to Taku outside Home (notification or Suggestions page). Clears its notification and hint,
+  * which still offer the hand-off; the notification path then posts its own "handed over" status. A message reminder's Home
+  * card is retracted too, unless the user pinned it there: it only repeats the same reminder and button. The evening brief
+  * card stays, since it is the overview of tomorrow. Card work runs on {@link #FEED} after reading reactions back.
+  */
+ static void handedOff(Context c,MemoryStore s,long id){
+  settle(c,id);
+  Context app=c.getApplicationContext();
+  FEED.execute(()->{
+   try{
+    readBack(app,s,s.now());
+    org.json.JSONObject n=s.nudge(id);String card=n.optString("card");
+    if(card.isEmpty()||n.optString("kind").equals("evening")||FeedFeedback.reactions(n.optJSONArray("feedback")).contains("pinned"))return;
+    try{FeedCards.retract(app,card);forget(s,card);}catch(FeedCards.Refused r){if(FeedCards.gone(r))forget(s,card);}
+   }catch(Exception e){android.util.Log.i("TakuMemory","Could not retract the card of a handed-off reminder: "+e.getMessage());}
+  });
  }
  /** Retracts memory's cards whose time is up. Runs on {@link #FEED}; the list lives in kv feedExpiring as {cardId: until}. Returns how many it cleared. */
  static int sweep(Context c,MemoryStore s,long now){
