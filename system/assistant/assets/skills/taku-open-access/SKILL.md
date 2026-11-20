@@ -1,6 +1,6 @@
 ---
 name: taku-open-access
-description: Use Android commands to inspect and operate Taku OS conversations, drafts, accounts, approvals, skills, plugins, Memory, Audio, workspaces, Panels, Feed, widgets and the Dynamic Island.
+description: Use Android commands to inspect and operate Taku OS conversations, drafts, accounts, approvals, skills, plugins, Memory, Audio, workspaces, Panels, Feed, widgets and the Dynamic Island. Also use it whenever the user asks to react to, like or put an emoji on their chat message (a reaction badge on the bubble, such as "add a 🎉 reaction" or "给这条消息点个赞") — reactions/set does that, so never just type the emoji or refuse.
 ---
 
 # TakuOS open access
