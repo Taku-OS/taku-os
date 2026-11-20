@@ -304,6 +304,7 @@ def live_roundtrip():
     assert replaced['live']['profileId'] == 'gemini-live' and replaced['live']['configured'] and replaced['fal'] == grok['fal']
     assert adb('shell', 'stat', '-c', '%u:%a', base + 'gemini-live.json') == '0:600'
     probe('gemini-key-replaced', geminiCredentialKey=gui_key)
+    home()
     tap(control('gemini-key-remove', 'org.agentos.audio:id/audio_remove_gemini_key'))
     tap(control('gemini-key-remove-confirm', 'android:id/button1'))
     removed = wait_state(lambda state: not state['live']['gemini']['configured'])
