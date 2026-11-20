@@ -8,6 +8,8 @@ One standalone Android APK, org.agentos.memory, combines automatic local memory,
 
 Feed no longer caps publications at 100 or evicts old cards. Memory consumes finite `/events` replay and stores the processed checkpoint in kv `feedFeedbackCursor`. Disconnects keep the previous cursor; replay deduplicates by event cursor. Reminders retain their latest 20 feedback entries. Accepted actions show `selected`, without claiming an external effect completed. The GUI suggestions page, public Agent `nudges`, and existing root/Broker `nudge` read the same feedback. Legacy launchers without `eventCursor` still use `recentActions`. The 0.15.0 notes below describe that older contract.
 
+A reminder's notification, system hint and Home card stay in step. When read-back finds that the user removed the card, chose one of its buttons or handed it to Taku on Home, memory clears that reminder's notification and hint; pinning alone keeps them. When the user hands a reminder to Taku from the notification or the Suggestions page, memory clears the hint and the old notification (the notification then shows the hand-off status) and retracts a message reminder's Home card unless the user pinned it. The evening brief card stays up until the next brief replaces it.
+
 ## 0.15.1: five bugs fixed
 
 After #38 and #33 landed on main, memory was checked again against the home feed's real code:

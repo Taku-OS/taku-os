@@ -11,6 +11,8 @@ final class FeedFeedback {
  static final Set<String> OPS=Set.of("remove","restore","pin","unpin");
  /** Reactions, in the order they are shown. */
  static final List<String> REACTIONS=List.of("selected","asked","opened","pinned","removed");
+ /** Reactions that mean the user has dealt with the reminder on Home; pinning alone keeps it for later. */
+ static final Set<String> HANDLED=Set.of("selected","asked","opened","removed");
 
  /**
   * Merges what the home feed reports about one card into what was recorded before. Each event is {at, op, origin, effect?}:
@@ -56,6 +58,8 @@ final class FeedFeedback {
   List<String> ordered=new ArrayList<>();for(String x:REACTIONS)if(r.contains(x))ordered.add(x);
   return ordered;
  }
+ /** Whether the user has dealt with the card on Home, so the same reminder elsewhere is no longer needed. */
+ static boolean handled(JSONArray events){for(String r:reactions(events))if(HANDLED.contains(r))return true;return false;}
  static String key(JSONObject e){return e.has("cursor")?e.optString("cursor"):legacyKey(e);}
  static String legacyKey(JSONObject e){return e.optLong("at")+"|"+e.optString("op")+"|"+e.optString("origin");}
  /** The later of two opposite operations, or "" when neither happened (durable events are in commit order). */
