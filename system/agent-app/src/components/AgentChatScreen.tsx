@@ -1,11 +1,10 @@
 import React, {useCallback, useEffect, useMemo, useReducer, useRef, useState, type ReactNode} from 'react';
-import {ActivityIndicator, AppState, BackHandler, FlatList, Image, Keyboard, KeyboardAvoidingView, PixelRatio, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, ToastAndroid, useWindowDimensions, View} from 'react-native';
+import {ActivityIndicator, AppState, BackHandler, FlatList, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, ToastAndroid, useWindowDimensions, View} from 'react-native';
 import type {NativeScrollEvent, NativeSyntheticEvent, TextProps} from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useLocales} from 'expo-localization';
 import {useRouter} from 'expo-router';
 import {StatusBar} from 'expo-status-bar';
-import {BlurTargetView, BlurView} from 'expo-blur';
 import {VoiceEffect} from '../native/VoiceEffect';
 import {VoiceIcon} from '../chat/VoiceIcon';
 import {AssistantBubble, ComposerGlassRim} from '../chat/ChatSurfaces';
@@ -179,7 +178,6 @@ function MessageBody({block, language, renderMarkdown, renderCard, demand}: {blo
 function Message({block, language, renderMarkdown, renderCard, expanded, demand, onToggleActivity, onLongPressReply}: {block: ChatMessageBlock; language: Language; renderMarkdown?: AgentChatScreenProps['renderMarkdown']; renderCard?: AgentChatScreenProps['renderCard']; expanded: boolean; demand: CardDemand; onToggleActivity: () => void; onLongPressReply?: (block: ChatMessageBlock, body: ViewHandle) => void}) {
   const t = textFor(language);
   const body = useRef<ViewHandle>(null);
-  const reactionBackdrop = useRef<ViewHandle>(null);
   const {fontScale} = useWindowDimensions();
   const hasText = Boolean(block.text.trim());
   // A restored turn/started snapshot can precede both its user item and task metadata.
@@ -202,11 +200,12 @@ function Message({block, language, renderMarkdown, renderCard, expanded, demand,
       {block.requestStopped && <Label role="caption" style={styles.secondary}>{t('requestStopped')}</Label>}
     </View>;
     return <View style={styles.userWrap}>{block.reaction ? <View>
-      <BlurTargetView ref={reactionBackdrop} style={styles.userWrapReacted}>{bubble}</BlurTargetView>
+      <View style={styles.userWrapReacted}>{bubble}</View>
       <View testID={`reaction-${block.id}`} accessible accessibilityLabel={`${t('reactionLabel')} ${block.reaction}`} style={styles.reaction}>
-        <BlurView pointerEvents="none" style={StyleSheet.absoluteFill} blurTarget={reactionBackdrop}
-          blurMethod="dimezisBlurViewSdk31Plus" blurReductionFactor={1}
-          intensity={Math.min(100, 16 * PixelRatio.get())} tint={getChatAppearance()}/>
+        {Platform.OS === 'android' && Number(Platform.Version) >= 33 &&
+          <EdgeBlur pointerEvents="none" style={StyleSheet.absoluteFill} uniformSigma={16} fade={false}>
+            <View style={styles.reactionBubbleSample}/>
+          </EdgeBlur>}
         <View pointerEvents="none" style={styles.reactionTint}/>
         <Text allowFontScaling={false} style={styles.reactionText}>{block.reaction}</Text>
       </View>
@@ -738,6 +737,8 @@ const styles = themedStyles(() => StyleSheet.create({
   userWrapReacted: {paddingBottom: 16},
   reaction: {position: 'absolute', right: 8, bottom: 0, width: 32, height: 24, borderRadius: 12,
     alignItems: 'center', justifyContent: 'center', backgroundColor: chatColors.backdropFallback, overflow: 'hidden'},
+  // Blur the two surfaces directly under the badge. The overlap is entirely in the bubble's padding.
+  reactionBubbleSample: {height: 8, backgroundColor: chatColors.bubble},
   reactionTint: {...StyleSheet.absoluteFill, borderRadius: 12, borderWidth: 2,
     borderColor: chatColors.reactionRing, backgroundColor: chatColors.reactionFill},
   reactionText: {...chatType.bodyLg(), color: '#FFFFFF'}, assistant: {gap: chatMetrics.replyGap}, messageParts: {gap: chatMetrics.replyGap},
