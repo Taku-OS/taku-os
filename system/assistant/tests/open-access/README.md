@@ -60,3 +60,15 @@ the latest main merge and preserves this permission fix as `53dae94a`. The publi
 Agent APK is locked to those 500 source inputs; its SHA-256 is
 `e4af55a12e944e51c43bc7da4aedfdaad3f89fc70551ccdbb0b84d7584a83a66`.
 This remains a component upgrade on the earlier emulator image, not a new ROM build.
+
+Follow-up `9cff4f85` also gates the entire `capture/*` family, `interrupt`,
+`cancelQueued` and `readTaskDetail` with root. The expanded host test fails on the
+old policy at `capture/read` and passes with the fix, including manual/auto/yolo
+and explicit root coverage. The old installed backend likewise reached argument
+validation instead of denying that call. Rebuilding only Assistant made all 36
+control-probe checks and all five signed Agent gateway checks pass. Shell calls
+to capture/task routes still reached argument validation. Probes used malformed
+arguments, so no screenshot, Jev request or background task was started.
+Main `ac97ce3` was merged, and the existing TakuAgent APK/source lock still passes
+`image/agent_ui.py check`; neither the APK nor its lock was changed. The isolated
+emulator was restored to deny mode and stopped after verification.
