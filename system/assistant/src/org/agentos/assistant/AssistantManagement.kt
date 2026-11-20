@@ -1,18 +1,7 @@
 package org.agentos.assistant
 
-import android.app.Activity
 import android.content.Context
-import android.content.Intent
 import android.os.Bundle
-import android.text.InputType
-import android.view.View
-import android.view.WindowInsets
-import android.view.WindowManager
-import android.view.inputmethod.EditorInfo
-import android.widget.Button
-import android.widget.EditText
-import android.widget.LinearLayout
-import android.widget.TextView
 import java.io.File
 import java.io.IOException
 import java.nio.file.Files
@@ -49,7 +38,7 @@ internal object AssistantManagement {
         "skills/community/upgrade" to setOf("path", "commit"),
         "skills/community/rollback" to setOf("path"),
         "skills/credentials/status" to setOf("repo"),
-        "skills/credentials/open" to setOf("repo"),
+        "skills/credentials/set" to setOf("repo", "token"),
         "skills/credentials/remove" to setOf("repo"),
         "harness/read" to setOf("threadId"),
         "harness/refresh" to setOf("threadId"),
@@ -76,7 +65,7 @@ internal object AssistantManagement {
     }
 
     @JvmStatic
-    fun execute(context: Context, input: JSONObject): JSONObject {
+    fun execute(context: Context, input: JSONObject, extras: Bundle?): JSONObject {
         val operation = text(input, "operation", 64)
         val allowed = fields[operation] ?: throw IOException("UNSUPPORTED_MANAGEMENT_OPERATION")
         val params = JSONObject()
@@ -146,11 +135,11 @@ internal object AssistantManagement {
             "taskFiles/list", "taskFiles/read", "taskFiles/write" -> files(context, operation, params, thread)
             "skills/credentials/status", "skills/credentials/remove" ->
                 credential(repository(params), operation.substringAfterLast('/'))
-            "skills/credentials/open" -> {
+            "skills/credentials/set" -> {
                 val repo = repository(params)
-                context.startActivity(Intent(context, SkillRepositoryCredentialActivity::class.java)
-                    .putExtra("repo", repo).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                JSONObject().put("opened", true)
+                val token = AssistantAccounts.secret(params, "token", extras).trim()
+                if (token.length !in 8..1024 || token.any { it !in '!'..'~' }) throw IOException("INVALID_CREDENTIAL")
+                credential(repo, "set", token)
             }
             "harness/read", "harness/refresh" -> {
                 requireCurrentThread(context, thread!!)
@@ -329,62 +318,9 @@ internal object AssistantManagement {
     private fun repository(input: JSONObject): String = match(input, "repo", 200, repoPattern)
         .also { if (it.split('/').any { part -> part == "." || part == ".." }) throw IOException("INVALID_ARGUMENT") }
 
-    internal fun credential(repo: String, action: String, token: String? = null): JSONObject {
+    private fun credential(repo: String, action: String, token: String? = null): JSONObject {
         val request = JSONObject().put("op", "skillCredential").put("repo", repo).put("action", action)
         if (token != null) request.put("token", token)
         return NativeClient.exchange(request)
-    }
-}
-
-class SkillRepositoryCredentialActivity : Activity() {
-    override fun onCreate(state: Bundle?) {
-        super.onCreate(state)
-        window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
-        val repo = intent.getStringExtra("repo") ?: run { finish(); return }
-        val layout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            val padding = (24 * resources.displayMetrics.density).toInt()
-            setOnApplyWindowInsetsListener { view, insets ->
-                val bars = insets.getInsets(WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout())
-                view.setPadding(padding + bars.left, padding + bars.top, padding + bars.right, padding + bars.bottom)
-                insets
-            }
-        }
-        val prompt = TextView(this).apply { text = "GitHub read-only token for $repo" }
-        val token = EditText(this).apply {
-            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
-            isSaveEnabled = false
-            importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
-            imeOptions = EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING
-            setSingleLine()
-            contentDescription = "GitHub token"
-        }
-        val status = TextView(this)
-        val save = Button(this).apply { text = "Save token" }
-        save.setOnClickListener {
-            val secret = token.text.toString()
-            if (secret.length !in 8..1024 || secret.any { it !in '!'..'~' }) {
-                status.text = "Enter a valid GitHub token."
-                return@setOnClickListener
-            }
-            token.text.clear()
-            save.isEnabled = false
-            NativeClient.io.execute {
-                val saved = runCatching { AssistantManagement.credential(repo, "set", secret).optBoolean("configured") }.getOrDefault(false)
-                runOnUiThread {
-                    if (isFinishing || isDestroyed) return@runOnUiThread
-                    if (saved) finish() else {
-                        save.isEnabled = true
-                        status.text = "Could not save the token."
-                    }
-                }
-            }
-        }
-        layout.addView(prompt)
-        layout.addView(token)
-        layout.addView(save)
-        layout.addView(Button(this).apply { text = "Cancel"; setOnClickListener { finish() } })
-        layout.addView(status)
-        setContentView(layout)
     }
 }

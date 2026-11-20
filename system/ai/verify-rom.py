@@ -94,7 +94,8 @@ def verify_assistant_pair(backend, frontend, manifest, signature, root):
     retired = ('AgentDrawerView', 'AgentDrawerController', 'NativeAssistantSurface', 'NativeControlsActivity',
                'AssistantService', 'AssistantSession', 'SessionService', 'RecognitionUnavailableService',
                'ChatActivity', 'ComposerAttachmentActivity', 'ModelManagementActivity', 'ByokSettingsActivity',
-               'NativeConversationView', 'NativeTurnView', 'NativeMarkdownView')
+               'NativeConversationView', 'NativeTurnView', 'NativeMarkdownView',
+               'AssistantAuthorizationActivity', 'SkillRepositoryCredentialActivity')
     classes = definitions(backend)
     if any(f'Lorg/agentos/assistant/{cls};' in classes for cls in retired):
         raise ValueError('Backend APK still includes retired assistant classes')

@@ -338,8 +338,9 @@ class TakuAgentModule : Module() {
 
   override fun definition() = ModuleDefinition {
     Name("TakuAgent")
-    Events("onOpenConversation", "onOpenThread", "onDraft", "onImeInsets", "onSessionEventBatch", "onMatterEventBatch", "onConversationVisibility")
+    Events("onOpenConversation", "onOpenThread", "onDraft", "onImeInsets", "onSessionEventBatch", "onMatterEventBatch", "onConversationVisibility", "onSecretSubmit")
     OnCreate {
+      SecretFields.onSubmit = { fieldId -> sendEvent("onSecretSubmit", mapOf("fieldId" to fieldId)) }
       val application = appContext.reactContext?.applicationContext as? Application
         ?: appContext.currentActivity?.application
       // Expo can create this module after MainActivity has already resumed. Seed
@@ -374,6 +375,7 @@ class TakuAgentModule : Module() {
       if (backdrop?.activity?.isDestroyed == true) releaseBackdrop(backdrop)
     } }
     OnDestroy {
+      SecretFields.onSubmit = null
       composerPicker.close()
       conversationVisibility?.let { tracker -> conversationApplication?.let(tracker::detach) }
       conversationVisibility = null
@@ -541,6 +543,56 @@ class TakuAgentModule : Module() {
     AsyncFunction("setWindowBackdrop") { enabled: Boolean, sigmaDp: Double, tint: String, fallback: String ->
       android.util.Log.d("TakuBackdrop", "enabled=$enabled host=${appContext.currentActivity?.javaClass?.simpleName} chat=${chatActivity?.javaClass?.simpleName}")
       applyBackdrop(if (enabled) Backdrop(sigmaDp, Color.parseColor(tint), Color.parseColor(fallback)) else null)
+    }.runOnQueue(Queues.MAIN)
+
+    View(SecretFieldView::class) {
+      Prop("fieldId") { view: SecretFieldView, value: String -> view.fieldId = value }
+      Prop("placeholder") { view: SecretFieldView, value: String -> view.placeholder(value) }
+      Prop("textColor") { view: SecretFieldView, value: String -> view.textColor(value) }
+      Prop("placeholderColor") { view: SecretFieldView, value: String -> view.placeholderColor(value) }
+      Prop("revealed") { view: SecretFieldView, value: Boolean -> view.reveal(value) }
+      Prop("autoFocus") { view: SecretFieldView, value: Boolean -> view.autoFocus = value }
+    }
+
+    /**
+     * Sends a gateway call whose secret is the text of a mounted [SecretFieldView]. The value
+     * goes from the field to the gateway as a file descriptor and is never returned to React.
+     * The field is emptied once the gateway accepts it.
+     */
+    AsyncFunction("submitSecret") { fieldId: String, action: String, params: String, promise: Promise ->
+      val context = appContext.reactContext
+      if (context == null) { promise.reject("NATIVE_UNAVAILABLE", "Agent UI is not ready", null); return@AsyncFunction }
+      if (action != "accounts/saveKey" && action != "manageAssistant") {
+        promise.reject("INVALID_ARGUMENT", "Unsupported secret action", null); return@AsyncFunction
+      }
+      val bytes = try { SecretFields.bytes(fieldId) } catch (error: IOException) {
+        promise.reject(error.message ?: "SECRET_FIELD_UNAVAILABLE", "Secret field is unavailable", null); return@AsyncFunction
+      }
+      appContext.backgroundCoroutineScope.launch {
+        try {
+          val envelope = SecretFields.descriptor(context, bytes).use { descriptor ->
+            callGateway(context.contentResolver, action, params, Bundle().apply { putParcelable("credential", descriptor) })
+          }
+          if (JSONObject(envelope).optBoolean("ok")) mainHandler.post { SecretFields.clear(fieldId) }
+          promise.resolve(envelope)
+        } catch (error: Exception) {
+          val code = error.message?.takeIf { Regex("[A-Z][A-Z_]{2,80}").matches(it) } ?: "GATEWAY_UNAVAILABLE"
+          promise.reject(code, "Could not submit the credential", null)
+        }
+      }
+      Unit
+    }.runOnQueue(Queues.MAIN)
+
+    AsyncFunction("clearSecret") { fieldId: String ->
+      SecretFields.clear(fieldId)
+    }.runOnQueue(Queues.MAIN)
+
+    // Credential entry and one-time sign-in codes stay out of screenshots and the recents preview.
+    AsyncFunction("setSecureScreen") { enabled: Boolean ->
+      val window = appContext.currentActivity?.window ?: return@AsyncFunction Unit
+      val flag = android.view.WindowManager.LayoutParams.FLAG_SECURE
+      if (enabled) window.addFlags(flag) else window.clearFlags(flag)
+      Unit
     }.runOnQueue(Queues.MAIN)
 
     // The composer asks for the keyboard explicitly once focused (WindowInsetsController on 11+).

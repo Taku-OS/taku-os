@@ -15,11 +15,12 @@ import org.json.JSONObject
 internal object AssistantAccounts {
     private const val MAX_KEY_BYTES = 16_384
 
+    /** Opens the upstream Magpie console; its one-time access link never leaves this process. */
     @JvmStatic
-    fun open(context: Context, page: String) {
-        if (page !in setOf("account", "byok", "magpie")) throw IOException("INVALID_SETTINGS_PAGE")
-        context.startActivity(Intent(context, AssistantAuthorizationActivity::class.java)
-            .putExtra("page", page).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    fun openMagpie(context: Context) {
+        val uri = try { magpieManagement() } catch (_: Exception) { throw IOException("MAGPIE_MANAGEMENT_UNAVAILABLE") }
+        try { context.startActivity(Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+        catch (_: android.content.ActivityNotFoundException) { throw IOException("BROWSER_UNAVAILABLE") }
     }
 
     @JvmStatic
@@ -32,37 +33,58 @@ internal object AssistantAccounts {
         JSONObject(bytes.toString(Charsets.UTF_8))
     }
 
+    /**
+     * [challenge] says whether this caller may read a pending sign-in's one-time code and
+     * authorization page: the settings screen and the on-device Agent, never a third-party app.
+     */
     @JvmStatic
-    fun command(context: Context, method: String, input: JSONObject, extras: Bundle?): JSONObject = when (method) {
-        "accounts/read" -> { PanelProtocol.exact(input, emptySet()); status() }
-        "accounts/refresh" -> { PanelProtocol.exact(input, emptySet()); refresh(); status() }
-        "accounts/login" -> { PanelProtocol.exact(input, setOf("type")); login(input.getString("type")); status() }
-        "accounts/cancel" -> { PanelProtocol.exact(input, emptySet()); cancel(); status() }
-        "accounts/open" -> { PanelProtocol.exact(input, setOf("page")); open(context, input.getString("page")); JSONObject().put("opened", true) }
+    fun command(context: Context, method: String, input: JSONObject, extras: Bundle?, challenge: Boolean): JSONObject = when (method) {
+        "accounts/read" -> { PanelProtocol.exact(input, emptySet()); status(challenge) }
+        "accounts/refresh" -> { PanelProtocol.exact(input, emptySet()); refresh(); status(challenge) }
+        "accounts/login" -> { PanelProtocol.exact(input, setOf("type")); login(input.getString("type")); status(challenge) }
+        "accounts/cancel" -> { PanelProtocol.exact(input, emptySet()); cancel(); status(challenge) }
+        "accounts/openMagpie" -> { PanelProtocol.exact(input, emptySet()); openMagpie(context); JSONObject().put("opened", true) }
         "accounts/keys" -> { PanelProtocol.exact(input, emptySet()); keys() }
         "accounts/removeKey" -> { PanelProtocol.exact(input, setOf("id", "ref")); removeKey(input.getString("id"), input.getString("ref")) }
         "accounts/saveKey" -> {
-            PanelProtocol.exact(input, setOf("id", "ref"))
+            PanelProtocol.exact(input, setOf("id", "ref", "key"))
             val id = if (input.has("id")) input.getString("id") else ""
             val ref = if (input.has("ref")) input.getString("ref") else ""
-            val descriptor = extras?.getParcelable("credential", ParcelFileDescriptor::class.java)
-                ?: throw IOException("KEY_SOURCE_REQUIRED")
-            val key = ParcelFileDescriptor.AutoCloseInputStream(descriptor).use { stream ->
-                val mode = Os.fcntlInt(descriptor.fileDescriptor, OsConstants.F_GETFL, 0) and OsConstants.O_ACCMODE
-                if (mode != OsConstants.O_RDONLY) throw IOException("KEY_SOURCE_NOT_READ_ONLY")
-                val stat = Os.fstat(descriptor.fileDescriptor)
-                if (!OsConstants.S_ISREG(stat.st_mode)) throw IOException("KEY_SOURCE_NOT_REGULAR")
-                if (stat.st_size > MAX_KEY_BYTES) throw IOException("KEY_TOO_LARGE")
-                val bytes = stream.readNBytes(MAX_KEY_BYTES + 1)
-                try {
-                    if (bytes.size > MAX_KEY_BYTES) throw IOException("KEY_TOO_LARGE")
-                    bytes.toString(Charsets.UTF_8)
-                } finally { bytes.fill(0) }
-            }
-            saveKey(key, id, ref)
+            saveKey(secret(input, "key", extras), id, ref)
         }
         else -> throw IOException("UNKNOWN_METHOD")
     }
+
+    /**
+     * A secret supplied either as a regular read-only UTF-8 file descriptor in
+     * `extras["credential"]`, which keeps it out of the caller's argument string, or in [field].
+     */
+    @JvmStatic
+    fun secret(input: JSONObject, field: String, extras: Bundle?): String {
+        val descriptor = extras?.getParcelable("credential", ParcelFileDescriptor::class.java)
+        return when {
+            input.has(field) -> {
+                if (descriptor != null) { descriptor.close(); throw IOException("KEY_SOURCE_AMBIGUOUS") }
+                input.remove(field) as? String ?: throw IOException("INVALID_CREDENTIAL")
+            }
+            descriptor != null -> readKey(descriptor)
+            else -> throw IOException("KEY_SOURCE_REQUIRED")
+        }
+    }
+
+    private fun readKey(descriptor: ParcelFileDescriptor): String =
+        ParcelFileDescriptor.AutoCloseInputStream(descriptor).use { stream ->
+            val mode = Os.fcntlInt(descriptor.fileDescriptor, OsConstants.F_GETFL, 0) and OsConstants.O_ACCMODE
+            if (mode != OsConstants.O_RDONLY) throw IOException("KEY_SOURCE_NOT_READ_ONLY")
+            val stat = Os.fstat(descriptor.fileDescriptor)
+            if (!OsConstants.S_ISREG(stat.st_mode)) throw IOException("KEY_SOURCE_NOT_REGULAR")
+            if (stat.st_size > MAX_KEY_BYTES) throw IOException("KEY_TOO_LARGE")
+            val bytes = stream.readNBytes(MAX_KEY_BYTES + 1)
+            try {
+                if (bytes.size > MAX_KEY_BYTES) throw IOException("KEY_TOO_LARGE")
+                bytes.toString(Charsets.UTF_8)
+            } finally { bytes.fill(0) }
+        }
 
     fun refresh() { TaskRequests.control("account/read", JSONObject()) }
 
@@ -77,10 +99,18 @@ internal object AssistantAccounts {
         catch (_: Exception) { throw IOException("ACCOUNT_CANCEL_FAILED") }
     }
 
-    private fun status(): JSONObject {
+    /**
+     * The sign-in state the settings screen shows. While a sign-in is pending, a caller allowed
+     * the [challenge] also gets the one-time device code and the official authorization page;
+     * both are empty otherwise.
+     */
+    private fun status(challenge: Boolean): JSONObject {
         val view = accountView()
+        val pending = challenge && view.optString("phase") == "pending"
+        val page = if (pending) runCatching { officialPage(view).toString() }.getOrDefault("") else ""
         return JSONObject().put("connected", view.getBoolean("connected")).put("phase", view.optString("phase"))
             .put("kind", view.optString("kind")).put("plan", view.optString("plan"))
+            .put("code", if (pending) view.optString("code") else "").put("url", page)
     }
 
     fun keys(): JSONObject = byok(JSONObject().put("action", "read"))
@@ -111,7 +141,7 @@ internal object AssistantAccounts {
         return result
     }
 
-    fun magpieManagement(): Uri {
+    private fun magpieManagement(): Uri {
         val result = NativeClient.exchange(JSONObject().put("op", "modelConnection").put("action", "manage"))
         val uri = Uri.parse(result.getString("url"))
         if (uri.scheme != "http" || uri.encodedAuthority != "127.0.0.1:3430" || uri.path != "/" ||
@@ -120,7 +150,7 @@ internal object AssistantAccounts {
         return uri
     }
 
-    fun officialPage(state: JSONObject): Uri {
+    private fun officialPage(state: JSONObject): Uri {
         if (state.optString("phase") != "pending") throw IOException("ACCOUNT_LOGIN_UNAVAILABLE")
         val uri = Uri.parse(state.optString("url"))
         if (uri.scheme != "https" || uri.encodedAuthority !in setOf("auth.openai.com", "chatgpt.com"))

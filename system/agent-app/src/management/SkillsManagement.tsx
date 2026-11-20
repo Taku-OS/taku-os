@@ -1,5 +1,8 @@
-import {useCallback, useEffect, useState} from 'react';
-import {AppState} from 'react-native';
+import {useCallback, useEffect, useRef, useState} from 'react';
+import {StyleSheet, View} from 'react-native';
+import {holdSecureScreen} from '../native/agent';
+import {SecretField, type SecretFieldHandle} from '../native/SecretField';
+import {colors} from '../theme';
 import {Button, Card, confirm, Copy, Details, Field, manage, Status, useManagementData} from './controls';
 
 type Provenance = {repo?: string; commit?: string; bodySha256?: string};
@@ -27,21 +30,27 @@ export function SkillsPanel({threadId}: {threadId?: string}) {
   const [folder, setFolder] = useState('');
   const [privateRepo, setPrivateRepo] = useState(false);
   const [configured, setConfigured] = useState<boolean>();
-  const [awaitingCredential, setAwaitingCredential] = useState(false);
+  const [enteringToken, setEnteringToken] = useState(false);
+  const tokenField = useRef<SecretFieldHandle>(null);
   const frozen = data?.catalogFrozenForActiveTurn === true;
   const validRepo = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repo.trim());
-  useEffect(() => {
-    if (!awaitingCredential) return;
-    const listener = AppState.addEventListener('change', state => {
-      if (state !== 'active') return;
-      setAwaitingCredential(false);
-      void run(async () => setConfigured((await manage<{configured: boolean}>('skills/credentials/status', {repo: repo.trim()})).configured));
-    });
-    return () => listener.remove();
-  }, [awaitingCredential, repo, run]);
+  // The token field must not reach screenshots or the recents preview.
+  useEffect(() => (enteringToken ? holdSecureScreen() : undefined), [enteringToken]);
 
+  const closeToken = () => setEnteringToken(false);
+  // The native field holds the token and hands it to the gateway itself; it stays open until accepted.
+  const saveToken = () => {
+    const entry = tokenField.current;
+    if (!entry) return;
+    void run(async () => {
+      const saved = await entry.submit<{configured: boolean}>('manageAssistant', {operation: 'skills/credentials/set', repo: repo.trim()});
+      setConfigured(saved.configured);
+      closeToken();
+    });
+  };
   const navigate = (next: Display) => {
     setDisplay(next);
+    closeToken();
     setQuery('');
     setLimit(initialPageSize);
     setUpdate(undefined);
@@ -133,17 +142,22 @@ export function SkillsPanel({threadId}: {threadId?: string}) {
       </Card>;
     })()}
     {display.kind === 'source' && <Card title="Skill repository settings">
-      <Field label="GitHub repository (owner/repo)" value={repo} onChangeText={value => { setRepo(value); setConfigured(undefined); }} editable={!busy}/>
+      <Field label="GitHub repository (owner/repo)" value={repo} onChangeText={value => { setRepo(value); setConfigured(undefined); closeToken(); }} editable={!busy}/>
       <Field label="Relative skill directory" value={folder} onChangeText={setFolder} editable={!busy}/>
       <Button label={privateRepo ? 'Private repository · Change to public' : 'Public repository · Change to private'} disabled={busy} onPress={() => setPrivateRepo(!privateRepo)}/>
       {privateRepo && <>
         {configured !== undefined && <Copy muted>{configured ? 'Repository token configured.' : 'No repository token configured.'}</Copy>}
         <Button label="Check token status" disabled={!validRepo || busy} onPress={() => void run(async () =>
           setConfigured((await manage<{configured: boolean}>('skills/credentials/status', {repo: repo.trim()})).configured))}/>
-        <Button label="Enter GitHub token" disabled={!validRepo || busy} onPress={() => void run(async () => {
-          await manage('skills/credentials/open', {repo: repo.trim()});
-          setAwaitingCredential(true);
-        })}/>
+        {enteringToken ? <>
+          <Copy muted>{`GitHub read-only token for ${repo.trim()}`}</Copy>
+          <View style={styles.token}>
+            <SecretField ref={tokenField} placeholder="GitHub token" textColor={colors.ink} placeholderColor={colors.secondary}
+              autoFocus onSubmitEditing={saveToken} style={styles.tokenInput}/>
+          </View>
+          <Button label="Save token" disabled={busy} onPress={saveToken}/>
+          <Button label="Cancel token entry" disabled={busy} onPress={closeToken}/>
+        </> : <Button label={configured ? 'Replace GitHub token' : 'Enter GitHub token'} disabled={!validRepo || busy} onPress={() => setEnteringToken(true)}/>}
         <Button label="Clear saved token" disabled={!validRepo || busy} onPress={() => confirm('Clear repository token?', 'Browsing this private repository needs a token.', () =>
           change('skills/credentials/remove', {repo: repo.trim()}, () => setConfigured(false)), true)}/>
       </>}
@@ -153,3 +167,8 @@ export function SkillsPanel({threadId}: {threadId?: string}) {
     </Card>}
   </>;
 }
+
+const styles = StyleSheet.create({
+  token: {minHeight: 48, paddingHorizontal: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 8, justifyContent: 'center'},
+  tokenInput: {height: 46},
+});

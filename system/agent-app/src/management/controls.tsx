@@ -20,6 +20,8 @@ const errors: Record<string, string> = {
   FILE_TOO_LARGE: 'This file exceeds the editor’s size limit.',
   FILES_UNAVAILABLE: 'The task workspace could not be accessed.',
   USER_UNAVAILABLE: 'Assistant management is unavailable for this Android user.',
+  INVALID_CREDENTIAL: 'Enter a valid token.',
+  SECRET_EMPTY: 'Enter a token.',
   RUNTIME_UNAVAILABLE: 'The native runtime could not complete this operation. Refresh before trying again.',
 };
 

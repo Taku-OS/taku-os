@@ -146,9 +146,13 @@ public final class AgentOpenAccessProvider extends ContentProvider {
             else if (method.equals("sessions/removals")) result = NativeClient.exchange(input.put("op", "sessionRemovals"));
             else if (method.startsWith("workspaces/")) result = WorkspaceCommands.call(context, method, input, caller);
             else if (method.startsWith("capture/")) result = AssistantCaptureBackend.execute(context, method, input);
-            else if (method.startsWith("accounts/")) result = AssistantAccounts.command(context, method, input, extras);
+            else if (method.startsWith("accounts/")) {
+                // A granted third-party app sees sign-in progress, not the one-time code or its page.
+                boolean agent = caller == 0 || caller == android.os.Process.SYSTEM_UID || caller == android.os.Process.SHELL_UID;
+                result = AssistantAccounts.command(context, method, input, extras, agent);
+            }
             else if (method.startsWith("requests/")) result = AssistantRequests.execute(context, method, input);
-            else if (method.equals("manageAssistant")) result = AssistantManagement.execute(context, AssistantManagement.parse(arg));
+            else if (method.equals("manageAssistant")) result = AssistantManagement.execute(context, AssistantManagement.parse(arg), extras);
             else if (method.equals("readTaskDetail")) {
                 result = TaskDetails.read(context.getFilesDir(), AgentGatewayProtocol.request(method, arg).getString("taskId"));
             } else if (TURN_CONTROL.contains(method)) {

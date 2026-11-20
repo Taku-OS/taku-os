@@ -119,7 +119,8 @@ class AgentGatewayProvider : ContentProvider() {
             } else request = AgentGatewayProtocol.request(method, arg)
             val result = when {
                 method == AgentGatewayProtocol.COMPOSER_ATTACH -> ComposerAttachments.attach(context!!, request, extras, callerUid, callerPid)
-                method.startsWith("accounts/") -> AssistantAccounts.command(context!!, method, request, extras)
+                method.startsWith("accounts/") -> AssistantAccounts.command(context!!, method, request, extras, challenge = true)
+                method == "manageAssistant" -> AssistantManagement.execute(context!!, request, extras)
                 else -> execute(method, request, callerUid)
             }
             val envelope = JSONObject().put("ok", true).put("result", result)
@@ -166,7 +167,6 @@ class AgentGatewayProvider : ContentProvider() {
             "readTaskDetail" -> return TaskDetails.read(context!!.filesDir, input.getString("taskId"))
             "capture/read", "capture/accept", "capture/dismiss", "capture/request", "capture/openConversation" ->
                 return AssistantCaptureBackend.execute(context!!, action, input)
-            "manageAssistant" -> return AssistantManagement.execute(context!!, input)
             "requests/list", "requests/open", "requests/respond", "requests/cancel" ->
                 return AssistantRequests.execute(context!!, action, input)
             "workspaces/list", "workspaces/apps", "workspaces/configure", "workspaces/release", "workspaces/preview", "workspaces/open",
@@ -193,11 +193,8 @@ class AgentGatewayProvider : ContentProvider() {
             "readSystemAi", "setSystemAi", "bindSystemAi", "bindSystemAiModel", "reorderSystemAi", "restoreSystemAi",
             "deleteSystemAiGroup", "manageSystemAi" ->
                 return SystemAiUiBridge.execute(context!!, action, input)
-            "openAssistantConnection", "openMagpieManagement" -> {
-                val page = if (action == "openMagpieManagement") "magpie" else input.optString("page", "connection")
-                if (page == "connection") {
-                    if (!AgentFrontendLauncher.openRoute(context!!, "/system-ai?section=connection")) throw IOException("AGENT_UI_UNAVAILABLE")
-                } else AssistantAccounts.open(context!!, page)
+            "openMagpieManagement" -> {
+                AssistantAccounts.openMagpie(context!!)
                 return JSONObject().put("opened", true)
             }
             "readAppPermissions", "setAppPermissionMode", "setAppPermissionScope", "resetAppPermission" ->

@@ -1,9 +1,10 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   AppState,
   BackHandler,
+  KeyboardAvoidingView,
   Modal,
   Pressable,
   ScrollView,
@@ -24,6 +25,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useLocales } from "expo-localization";
 import { callAgent, closeAgent } from "../native/agent";
 import { languageFor } from "../i18n";
+import { accountTextFor, type AccountText } from "../i18n/accounts";
 import { permissionTextFor } from "../i18n/permissions";
 import {
   systemAiTextFor,
@@ -36,6 +38,7 @@ import {
   type AppPermissionsSnapshot,
 } from "../model/appPermissions";
 import { createNativeAppPermissionsRepository } from "../model/appPermissionsRepository";
+import { ChatGptAccount, OpenRouterKeys } from "../settings/AccountSettings";
 import { useTakuFonts } from "../theme/useTakuFonts";
 import { colors } from "../theme";
 
@@ -290,9 +293,10 @@ function FeatureIcon({ name, color }: { name: string; color: string }) {
   };
   return <Svg width={24} height={24} viewBox="0 0 24 24" {...common}>{paths[name]}</Svg>;
 }
-function ManagementDetails({ section, palette, onUpdated, onManagement, onSelectJev }: {
+function ManagementDetails({ section, palette, accountText, onUpdated, onManagement, onSelectJev }: {
   section: Section;
   palette: Palette;
+  accountText: AccountText;
   onUpdated: () => void;
   onManagement: () => void;
   onSelectJev: () => void;
@@ -365,10 +369,6 @@ function ManagementDetails({ section, palette, onUpdated, onManagement, onSelect
       if (active.current) { setBusy(false); void refresh(); }
     }
   };
-  const openAccount = async (page: "account" | "byok") => {
-    try { await callAgent("openAssistantConnection", { page }); }
-    catch (problem) { if (active.current) setOperationError(failure(problem)); }
-  };
   return <View style={{ gap: 12 }}>
     {error ? <Label color="#CC2A4A" size={14}>{error}</Label> : null}
     {operationError ? <Label color="#CC2A4A" size={14}>{operationError}</Label> : null}
@@ -388,14 +388,13 @@ function ManagementDetails({ section, palette, onUpdated, onManagement, onSelect
       <Label color={palette.sub} size={13}>The new connection applies to the next turn. Finish running and queued tasks before switching.</Label>
       <Row palette={palette} title="Manage models and providers" onPress={onManagement} />
     </> : null}
-    {details?.section === "account" ? <>
-      <Label color={palette.ink} medium>{details.value.connected ? `Connected${details.value.planType ? ` · ${details.value.planType}` : ""}` : "ChatGPT is not connected"}</Label>
-      {details.value.type ? <Label color={palette.sub} size={14}>Account type · {details.value.type}</Label> : null}
-    </> : null}
     {section === "account" ? <>
-      <Row palette={palette} title="ChatGPT sign-in" sub="Connect an account, check authorization, or cancel sign-in" onPress={() => void openAccount("account")} />
-      <Row palette={palette} title="Bring your own API key" sub="Manage the existing OpenRouter credential" onPress={() => void openAccount("byok")} />
-      <Row palette={palette} title="Manage Magpie services" sub="Manage provider credentials and model routing" onPress={onManagement} />
+      <ChatGptAccount palette={palette} t={accountText} onChanged={onUpdated} />
+      {details?.section === "account" && details.value.type ? <Label color={palette.sub} size={14}>Account type · {details.value.type}</Label> : null}
+      <View style={[styles.divider, { backgroundColor: palette.line }]} />
+      <OpenRouterKeys palette={palette} t={accountText} onChanged={onUpdated} />
+      <View style={[styles.divider, { backgroundColor: palette.line }]} />
+      <Row palette={palette} title="Manage Magpie services" sub="Manage provider credentials and model routing in the Magpie console" onPress={onManagement} />
     </> : null}
     {details?.section === "usage" ? (["limits", "usage"] as const).map((kind) => <View key={kind} style={{ gap: 8 }}>
       <Label color={palette.ink} medium>{kind === "limits" ? "Account limits" : "Token usage"}</Label>
@@ -439,6 +438,11 @@ export default function SystemAiScreen() {
   const language = languageFor(useLocales()[0]?.languageTag);
   const t = systemAiTextFor(language);
   const permissionText = permissionTextFor(language);
+  const accountText = useMemo(() => accountTextFor(language), [language]);
+  // Sign-in and key entry are a page of this screen, not a sheet: a sheet is a separate window,
+  // which the screenshot protection for one-time codes and key fields would not cover.
+  const accountPage = section === "account";
+  const sheetSection = accountPage ? null : section;
   const [permissions, setPermissions] = useState<AppPermissionsSnapshot | null>(null);
   const [permissionRepository] = useState(() =>
     createNativeAppPermissionsRepository((action, params) => callAgent(action, params)),
@@ -621,7 +625,7 @@ export default function SystemAiScreen() {
       />
       <View style={styles.header}>
         <Pressable
-          onPress={back}
+          onPress={accountPage ? () => setSection(null) : back}
           accessibilityRole="button"
           accessibilityLabel={t("back")}
           style={styles.back}
@@ -629,9 +633,19 @@ export default function SystemAiScreen() {
           <Text style={{ fontSize: 28, color: palette.ink }}>‹</Text>
         </Pressable>
         <Label color={palette.ink} size={22} medium style={{ flex: 1 }}>
-          {t("title")}
+          {accountPage ? sectionTitles.account : t("title")}
         </Label>
       </View>
+      {accountPage ? (
+        <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
+          <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+            <View style={[styles.card, styles.page, { backgroundColor: palette.card }]}>
+              <ManagementDetails key="account" section="account" palette={palette} accountText={accountText}
+                onUpdated={() => void refresh()} onManagement={() => void openManagement()} onSelectJev={() => undefined} />
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      ) : (
       <ScrollView contentContainerStyle={styles.content}>
         {error && (
           <Pressable
@@ -723,7 +737,7 @@ export default function SystemAiScreen() {
                 sub={data.assistantMode === "magpie" ? "Magpie model service" : data.assistantMode === "openai" ? "ChatGPT subscription" : "Connection status unavailable"}
                 onPress={() => setSection("connection")} />
               <Row palette={palette} title="Accounts and model services"
-                sub={data.connected ? "Magpie connected · Sign-in and API key management" : "Magpie unavailable · Check account and provider settings"}
+                sub={data.connected ? "Magpie connected · ChatGPT sign-in and API keys" : "Magpie unavailable · ChatGPT sign-in and API keys"}
                 onPress={() => setSection("account")} />
               <Row palette={palette} title="Subscription limits and usage" sub="Read account limits and native token activity" onPress={() => setSection("usage")} />
               {data.providers.map((provider, index) => <View key={`${provider.name}-${index}`} style={styles.switchRow}>
@@ -776,6 +790,7 @@ export default function SystemAiScreen() {
               <Label color={palette.ink} medium>Refresh connection and calls</Label>
             </Pressable>
       </ScrollView>
+      )}
       {undo && (
         <View
           style={[
@@ -868,17 +883,17 @@ export default function SystemAiScreen() {
           </View>
         </View>
       </Modal>
-      <Modal visible={section !== null} transparent animationType="slide" onRequestClose={() => setSection(null)}>
+      <Modal visible={sheetSection !== null} transparent animationType="slide" onRequestClose={() => setSection(null)}>
         <View style={[styles.modal, { backgroundColor: palette.overlay }]}>
           <Pressable accessibilityLabel="Close settings details" style={{ flex: 1 }} onPress={() => setSection(null)} />
           <View style={[styles.sheet, { backgroundColor: palette.card, maxHeight: "85%", paddingBottom: Math.max(insets.bottom, 16) + 20 }]}>
             <View style={[styles.grabber, { backgroundColor: palette.line }]} />
             <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 16 }}>
-              <Label color={palette.ink} size={20} medium style={{ flex: 1 }}>{section ? sectionTitles[section] : ""}</Label>
+              <Label color={palette.ink} size={20} medium style={{ flex: 1 }}>{sheetSection ? sectionTitles[sheetSection] : ""}</Label>
               <Pressable accessibilityRole="button" style={{ padding: 10 }} onPress={() => setSection(null)}><Label color={palette.ink} size={14}>Done</Label></Pressable>
             </View>
             <ScrollView>
-              {section ? <ManagementDetails key={section} section={section} palette={palette} onUpdated={() => void refresh()}
+              {sheetSection ? <ManagementDetails key={sheetSection} section={sheetSection} palette={palette} accountText={accountText} onUpdated={() => void refresh()}
                 onManagement={() => void openManagement()} onSelectJev={() => { setSection(null); setScene("jev"); }} /> : null}
             </ScrollView>
           </View>
@@ -937,6 +952,8 @@ const styles = StyleSheet.create({
   managementLink: { paddingVertical: 16, alignItems: "center" },
   manage: { marginTop: 24 },
   dot: { width: 8, height: 8, borderRadius: 4 },
+  divider: { height: StyleSheet.hairlineWidth, marginVertical: 8 },
+  page: { padding: 16 },
   empty: { padding: 24, gap: 8 },
   modal: { flex: 1, justifyContent: "flex-end" },
   sheet: {

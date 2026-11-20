@@ -43,10 +43,10 @@ internal class AgentGatewayProtocol private constructor() {
             "readTaskDetail", "workspaces/list", "workspaces/apps", "workspaces/configure", "workspaces/release", "workspaces/preview", "workspaces/open", "manageSystemAi",
             "workspaces/pause", "workspaces/takeControl", "workspaces/input", "workspaces/returnAndResume", "workspaces/addRequirement", "workspaces/executionStatus",
             "capture/read", "capture/accept", "capture/dismiss", "capture/request", "capture/openConversation", "manageAssistant",
-            "accounts/read", "accounts/refresh", "accounts/login", "accounts/cancel", "accounts/open", "accounts/keys", "accounts/removeKey", "accounts/saveKey",
+            "accounts/read", "accounts/refresh", "accounts/login", "accounts/cancel", "accounts/openMagpie", "accounts/keys", "accounts/removeKey", "accounts/saveKey",
             "requests/list", "requests/open", "requests/respond", "requests/cancel",
             "decide", "generateUi", "mainReply", "panels", "cardView", "readMatter", "subscribeMatter", "unsubscribeMatter", "dispatchMatter", "analyzeCameraFrame", "audioCapabilities", "audioCommand",
-            "readSystemAi", "setSystemAi", "bindSystemAi", "bindSystemAiModel", "reorderSystemAi", "restoreSystemAi", "deleteSystemAiGroup", "openAssistantConnection", "openMagpieManagement", "pluginManager",
+            "readSystemAi", "setSystemAi", "bindSystemAi", "bindSystemAiModel", "reorderSystemAi", "restoreSystemAi", "deleteSystemAiGroup", "openMagpieManagement", "pluginManager",
             "readAppPermissions", "setAppPermissionMode", "setAppPermissionScope", "resetAppPermission",
             COMPOSER_READ, COMPOSER_WRITE, COMPOSER_IMPORT, COMPOSER_MOVE, COMPOSER_RECEIPT, COMPOSER_ATTACH,
             COMPOSER_REMOVE, COMPOSER_OPTIONS_READ, COMPOSER_OPTIONS_WRITE, COMPOSER_SUBMIT, COMPOSER_SETTLE, COMPOSER_RELEASE,
@@ -207,11 +207,10 @@ internal class AgentGatewayProtocol private constructor() {
                 "answer" -> java.util.Set.of("threadId", "key", "response")
                 "openWorkspace" -> java.util.Set.of("threadId", "screenKey", "generation")
                 "openSettings" -> java.util.Set.of("page")
-                "openAssistantConnection" -> setOf("page")
                 "workspaces/list", "workspaces/apps", "workspaces/configure", "workspaces/release", "workspaces/preview", "workspaces/open", "manageSystemAi" -> return input
                 "workspaces/pause", "workspaces/takeControl", "workspaces/input", "workspaces/returnAndResume", "workspaces/addRequirement", "workspaces/executionStatus" -> return input
                 "capture/read", "capture/accept", "capture/dismiss", "capture/request", "capture/openConversation",
-                "accounts/read", "accounts/refresh", "accounts/login", "accounts/cancel", "accounts/open", "accounts/keys", "accounts/removeKey", "accounts/saveKey" -> return input
+                "accounts/read", "accounts/refresh", "accounts/login", "accounts/cancel", "accounts/openMagpie", "accounts/keys", "accounts/removeKey", "accounts/saveKey" -> return input
                 "manageAssistant", "requests/list", "requests/open", "requests/respond", "requests/cancel" -> return input
                 "pluginManager" -> java.util.Set.of("operation", "argument", "name", "arguments")
                 "decide" -> java.util.Set.of("state", "questions")

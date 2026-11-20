@@ -45,8 +45,9 @@ every voice model is ready.
 | `openFeature` | `feature` equal to `audio`, `ime`, or `memory` | Opens the owning app's existing settings entry. Returns an empty object after Android accepts the launch. |
 | `setAssistScreenshots` | Boolean `enabled` | Updates Android `Settings.Secure` key `assist_screenshot_enabled` for the current user. `readSystemAi` returns `assistScreenshotsEnabled`. |
 
-The account projection excludes email addresses, tokens, authorization URLs, and
-device codes. Limits include returned percentage use, window duration, reset time,
+The `readAccount` projection excludes email addresses, tokens, authorization URLs, and
+device codes. A pending sign-in's device code and official authorization page are
+read through `accounts/read` in the installed open-access guide. Limits include returned percentage use, window duration, reset time,
 credit state, token counts, and supported cost fields. `resetsAt` uses epoch seconds.
 Absent upstream fields stay absent. An empty array means that upstream returned no
 supported metrics. It does not mean zero usage or unlimited quota. The installed
@@ -79,8 +80,10 @@ Memory group. Select IDs from the actual catalog. Missing models remain visible
 as unavailable and are not silently replaced.
 
 Magpie management owns provider credentials and routing configuration. The Expo
-page opens that existing browser flow. ChatGPT sign-in and BYOK use the native
-credential flow. They do not accept secrets through the public status projection.
+page opens that existing browser flow. ChatGPT sign-in and OpenRouter keys are
+handled on the same Expo page, under `/system-ai?section=account`, through the
+`accounts/*` methods in the installed open-access guide. `manageSystemAi` does not
+accept secrets.
 Do not place credentials in Global Settings. A direct `settings put global
 taku_system_ai_config 'JSON'` replaces the entire object and requires Android
 Settings permission. Preserve unrelated fields and avoid concurrent writes.
