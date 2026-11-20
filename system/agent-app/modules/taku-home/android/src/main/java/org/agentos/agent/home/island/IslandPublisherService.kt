@@ -21,7 +21,6 @@ import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.launch
 import org.agentos.agent.home.assistant.AssistantSession
 import org.agentos.agent.home.assistant.AssistantState
-import org.agentos.agent.home.assistant.EntryMode
 import org.agentos.agent.home.assistant.IslandMode
 import org.agentos.agent.home.assistant.VoiceState
 import org.json.JSONArray
@@ -38,7 +37,6 @@ class IslandPublisherService : Service() {
   private var lastExpansionRequest = 0L
   private var lastRequest = IslandMode.Hidden
   private var postedTag: String? = null
-  private var inputActive = false
 
   override fun onCreate() {
     super.onCreate()
@@ -69,7 +67,6 @@ class IslandPublisherService : Service() {
       fingerprint = null
       postedTag = null
       lastRequest = IslandMode.Hidden
-      inputActive = false
       return
     }
     val thread = state.threadId ?: "entry"
@@ -156,13 +153,9 @@ class IslandPublisherService : Service() {
         .onSuccess { fingerprint = value }
         .onFailure { android.util.Log.w("TakuIsland", "Notification unavailable", it) }
     }
-    if (state.entry == EntryMode.Text) {
-      if (!inputActive) SystemIslandBridge.request(this, "collapse")
-      inputActive = true
-      lastRequest = IslandMode.Hidden // Reconsider the result after the input relinquishes focus.
-      return
-    }
-    inputActive = false
+    // The text input stays open under the expanded card (Figma 1-3): SystemUI's card never takes
+    // focus and moves below the status bar while the keyboard shows, so a reply appears at the top
+    // as soon as it arrives instead of after the keyboard closes.
     if (state.island != lastRequest || state.expansionRequest != lastExpansionRequest) {
       if (state.island == IslandMode.Expanded || state.island == IslandMode.Full) SystemIslandBridge.request(this, "expand")
       else if (state.island == IslandMode.Collapsed) SystemIslandBridge.request(this, "collapse")
