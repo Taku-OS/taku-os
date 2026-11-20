@@ -101,12 +101,12 @@
   "assets": [
     {
       "path": "system/audio-engine/prebuilt/TakuAudioEngine.apk",
-      "sha256": "1bb1ee62e7f1e7a583c6451e529cf07b005628589e6eefd65f2658006788f8cf",
+      "sha256": "720751b4edd1dc7774a4047261badc2a9d16e83e79379162b11b1af1619567e1",
       "bytes": 34711291
     },
     {
       "path": "system/audio-engine/prebuilt/audio-bridge.jar",
-      "sha256": "93fb0672f0edd5d5430881e32e2e80ac752a906cb06d66a7e2e482c4179a9976",
+      "sha256": "1fc9a40a372738e91fceaa21345b5d14f52c339a3bcc65473062f2dc39845ffe",
       "bytes": 1856133
     },
     {
