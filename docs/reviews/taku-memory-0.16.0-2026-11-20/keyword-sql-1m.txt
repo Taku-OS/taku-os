@@ -1,0 +1,6 @@
+rows 1000000 database 1.63 GB
+built memory_kw in 2 s; database 1.89 GB
+  natural-language (no hit): 1532.6 -> 642.3 ms (same rows)
+  phrase (no hit): 1411.9 -> 753.9 ms (same rows)
+  name (hits): 0.2 -> 0.1 ms (same rows)
+  english (hits): 0.2 -> 0.1 ms (same rows)

@@ -1,0 +1,3 @@
+1000 memories | keyword SQL: natural-language (no hit) 1.2 -> 0.6 ms | name (hits) 0.2 -> 0.1 ms (same rows)
+10000 memories | keyword SQL: natural-language (no hit) 11.2 -> 5.2 ms | name (hits) 0.1 -> 0.0 ms (same rows)
+50000 memories | keyword SQL: natural-language (no hit) 63.6 -> 27.4 ms | name (hits) 0.1 -> 0.0 ms (same rows)
