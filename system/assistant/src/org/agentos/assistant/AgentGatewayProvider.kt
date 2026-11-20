@@ -322,8 +322,12 @@ class AgentGatewayProvider : ContentProvider() {
             }
             "pluginManager" -> return PluginManagerBridge.execute(input)
             "decide" -> {
-                if (!preferences().getBoolean("jevEnabled", false)) throw IOException("JEV_DISABLED")
                 // The same `jev` scene binding the Jev settings page writes (the old `jevModel` pref is migrated away).
+                // No binding: Jev was never set up (e.g. skipped in onboarding), so the card offers its setup page.
+                // A binding with the switch off: the user turned Jev off, which the card respects without asking.
+                val status = AiConnections.jevStatus(context!!)
+                if (status.optString("model").isEmpty()) throw IOException("JEV_NOT_CONFIGURED")
+                if (!status.optBoolean("enabled")) throw IOException("JEV_DISABLED")
                 val model = AiConnections.jevModel(context!!)
                 if (model.isEmpty()) throw IOException("JEV_NOT_CONFIGURED")
                 return AgentGatewayProtocol.clean(JevApiClient().decide(model, input.getJSONObject("state"), input.getJSONObject("questions"), true), 0) as JSONObject

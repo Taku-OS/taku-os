@@ -32,12 +32,15 @@ internal class OnboardingIsland(private val context: Context) {
   fun connected() = post("connected", JSONObject().put("type", "pic").put("pic", "check"), "Connected",
     "ChatGPT connected", "Taku is ready. Continue setup on the home screen.", timeoutS = 5)
 
+  @Synchronized
   fun clear() {
     if (shown == null) return
     shown = null
     runCatching { manager?.cancel(TAG, ID) }
   }
 
+  // The sign-in watcher (a background thread) and Home's foreground changes (main) both post and clear.
+  @Synchronized
   private fun post(kind: String, leading: JSONObject, trailing: String, title: String, body: String, timeoutS: Int) {
     if (shown == kind || manager == null) return
     try {

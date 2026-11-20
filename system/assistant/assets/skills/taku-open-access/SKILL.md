@@ -446,10 +446,10 @@ settings put secure taku_onboarding_test_mode 0
 This per-user switch defaults off; only `1` enables it (missing/other values mean off).
 `onboarding/get.testMode` reports the same value used by Home, and `testModeSetting` names it.
 In replay, existing AI does not auto-complete intro/name and an existing name does not skip
-that page. The phone must still be provisioned and unlocked. All chips show real connection
-states; Continue still requires working AI. Connected ChatGPT opens account management,
-where the user can explicitly sign out to test a fresh browser sign-in; replay never signs
-out or clears credentials. Jev/Fal can be reconfigured through their existing chip actions.
+that page. The phone must still be provisioned and unlocked. Every page shows real connection
+states; Continue still requires working AI. A service that is already connected shows its
+connected state and the way forward; to test a fresh sign-in, sign out from the assistant's
+account page first. Replay never signs out or clears credentials.
 Completing the replay hides the card normally; call reset again for another run, or disable
 replay. To leave an unfinished local test without working AI, the existing shell escape is
 `settings put secure taku_onboarding_step completed`.
@@ -457,13 +457,19 @@ replay. To leave an unfinished local test without working AI, the existing shell
 Every method returns `{ok:true,result}` with the fresh state:
 `{setting, testModeSetting, testMode, stored, visible, step, hiddenReason, phoneReady, ai, nameSet, canFinish, services, chatgptSignIn}`, where
 `services` is `{chatgpt, jev, fal}`, each `not_connected`, `connecting`, `connected` or `unknown`
-(`fal` is `null` when Taku Audio is not installed; the GUI hides that chip). `step` is the
+(`fal` is `null` when Taku Audio is not installed; the card then has no Fal page). `step` is the
 card being shown (`null` when hidden). `hiddenReason` is `completed`, `ai_available`,
 `ai_unknown` or `phone_not_ready`. `ai` is `available`, `unavailable` or `unknown`. `nameSet` is `null` when
 Memory could not be read. `chatgptSignIn` is `{url, code}` exactly as the card shows them while a
 ChatGPT device-code sign-in is pending (`services.chatgpt` is `connecting` and the broker phase is
 `pending`), and `null` otherwise, including when the broker's URL is not an `https` page on
-`auth.openai.com` or `chatgpt.com` (the card then shows only Cancel sign-in). Errors are `{ok:false,code,message}`:
+`auth.openai.com` or `chatgpt.com` (the ChatGPT page then shows empty wells and waits).
+
+Callers: Agents and ADB (root, system, shell) and platform-signed components have full access. A
+third-party app needs App Permission Center `taku.control` (default deny); even then
+`chatgptSignIn` is always `null` for it, and `onboarding/connect` and `ai-setup/connect` (starting
+a sign-in, saving a key) are refused with `PERMISSION_DENIED`. No method ever returns a Jev or Fal
+key. Errors are `{ok:false,code,message}`:
 
 | Code | Meaning |
 |---|---|
@@ -480,29 +486,34 @@ ChatGPT device-code sign-in is pending (`services.chatgpt` is `connecting` and t
 | `INVALID_KEY` | A blank key, over 4096 characters, or with whitespace or commas; for Jev, not a TypeSafe (`apikey_…`) or OpenRouter (`sk-or-v1-…`) key |
 | `KEY_NOT_SAVED`, `MAGPIE_UNAVAILABLE`, `NO_DECISION_MODEL`, `AUDIO_UNAVAILABLE` | The key store rejected or could not take the key. With a Jev `key`, `NO_DECISION_MODEL` and `MAGPIE_UNAVAILABLE` are not errors: the key is saved, `services.jev` reads `connecting`, and onboarding keeps retrying `jev/enable` every 5 s for up to 3 minutes (then `not_connected` and a card notice). Without a key, `NO_DECISION_MODEL` means a key is needed |
 | `TASK_RUNNING`, `LOGIN_UNAVAILABLE`, `ACCOUNT_UNAVAILABLE` | ChatGPT sign-in could not start (see `account/login/start`) |
+| `PERMISSION_DENIED` | A third-party app without a `taku.control` grant, or one calling a credential method (`connect`) |
 | `UNKNOWN_METHOD` | Not one of the methods above |
 
-The `connect_ai` card shows three chips (Fal only when Taku Audio is installed). **ChatGPT**
-starts device-code sign-in in one tap (`account/login/start` with `type:"chatgptDeviceCode"`,
-`open:false`). Nothing opens: Home stays in front and the card shows the instruction, the official
-link (`chatgptSignIn.url`, printed without `https://`) and the one-time code
-(`chatgptSignIn.code`), each tap-to-copy, with **Cancel** and **Copy link** (the primary action,
-because the usual path is to open the link on another device that is already signed in, such as a
-computer's browser, and enter the code there). The card watches the account and moves on by itself
-when the sign-in lands. Accounts that cannot use device codes can cancel and sign in from the
-assistant's account page ("Authorize in browser"). If the user leaves Home while it is pending, the
-island shows "Signing in…" and a brief "Connected" when the account lands, and the assistant
-brings Home back. Backing out (Cancel sign-in, a failed or
-abandoned sign-in) switches a previous Magpie connection back. **Jev** first switches on a Jev model Magpie
-already serves (`jev/enable`); otherwise it opens a masked key field that takes a TypeSafe
-(`apikey_…`) or OpenRouter (`sk-or-v1-…`) key (`jev/connect`), configured into Magpie in the
-background. While it saves (up to about 30 s) the field locks, Save reads "Saving…" and the Jev chip
-shows working dots. If the key is saved before Magpie lists its Jev model, the field closes and the
-chip keeps its dots while onboarding retries `jev/enable` (every 5 s, up to 3 minutes). Other
-failures are shown under the field. **Fal** opens a masked fal key field (Taku Audio `settings`
-`saveFalKey`). Both key fields have an eye button that shows or masks the key; this is
-presentation only and changes no state. Chips show working dots while connecting and a check when connected; a connected
-ChatGPT chip opens the account page. ChatGPT is required to finish (or Magpie with a model); Jev
+The `connect_ai` card walks the services one page at a time (Figma 2-0 to 2-5): a greeting with
+**Connect AI Agent**, then **ChatGPT**, **Jev** and **Fal** (no Fal page when Taku Audio is not
+installed), with a progress bar (green once a service is connected) and a back chevron (Android
+Back does the same; leaving ChatGPT mid-sign-in cancels it). A service that is already connected
+shows "… Connected" with the next step and is not managed there. The pages are card navigation
+only; the stored step stays `connect_ai`.
+
+**ChatGPT** asks for a device code on arrival when no AI is available yet (`account/login/start`
+with `type:"chatgptDeviceCode"`, `open:false`); when Magpie already serves a model it waits for
+Connect, because a sign-in switches Magpie away. Nothing opens: the page shows three steps, the
+official link (`chatgptSignIn.url`, printed without `https://`) and the one-time code
+(`chatgptSignIn.code`), each with a copy button. Connect stays disabled while the sign-in waits
+for approval on another device and asks again after a failure; the page turns connected by itself
+when the account lands. If the user leaves Home while it is pending, the island shows "Signing…"
+and a brief "Connected" when the account lands (only while Home is away), and the assistant
+brings Home back. Backing out (Back, a failed or abandoned sign-in) switches a previous Magpie
+connection back. **Jev** first switches on a Jev model Magpie already serves (`jev/enable`); the
+page otherwise shows where to make a key, then a key field that takes a TypeSafe (`apikey_…`) or
+OpenRouter (`sk-or-v1-…`) key (`jev/connect`), configured into Magpie in the background.
+**Fal** shows the same steps for a fal key (Taku Audio `settings` `saveFalKey`). Key fields show the
+key by default; the eye masks it (presentation only, no state). While a key saves (Jev up to about
+30 s) the field locks and Connect reads "Connecting…". If a Jev key is saved before Magpie lists
+its model, the page stays "Connecting…" while onboarding retries `jev/enable` (every 5 s, up to 3
+minutes); a rejected key is said under the field at once. **Skip for now** moves on unconnected.
+ChatGPT is required to finish (or Magpie with a model); Jev
 and Fal are optional. A development device that must skip onboarding without AI can run
 `settings put secure taku_onboarding_step completed` from the shell. That writes the setting
 directly, without the provider's checks.

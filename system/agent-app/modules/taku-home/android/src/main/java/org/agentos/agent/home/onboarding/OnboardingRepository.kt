@@ -37,6 +37,9 @@ import org.json.JSONObject
  * Blocking methods run on the caller's thread: an IO dispatcher or a provider binder thread.
  */
 class OnboardingRepository private constructor(context: Context) {
+  /** A one-off message for the screen setting up [service], such as why its connection failed. */
+  data class Notice(val service: OnboardingService, val text: String)
+
   data class State(
     val facts: OnboardingFacts,
     val decision: OnboardingDecision,
@@ -72,9 +75,9 @@ class OnboardingRepository private constructor(context: Context) {
 
   private val mutable = MutableStateFlow(snapshotOf(facts()))
   val state: StateFlow<State> = mutable
-  private val noticeFlow = MutableSharedFlow<String>(extraBufferCapacity = 4)
-  /** One-off messages for the card, such as why a ChatGPT sign-in failed (the broker's own words). */
-  val notices: SharedFlow<String> = noticeFlow
+  private val noticeFlow = MutableSharedFlow<Notice>(extraBufferCapacity = 4)
+  /** One-off messages, each for the screen setting up its service (why a sign-in or a Jev key did not connect). */
+  val notices: SharedFlow<Notice> = noticeFlow
 
   private var poll: Job? = null
   private var signInWatch: Job? = null
@@ -213,6 +216,18 @@ class OnboardingRepository private constructor(context: Context) {
     return status
   }
 
+  /**
+   * Whether Jev has a decision model bound (gateway `readJev` `model`), switched on or not. A bound
+   * Jev that is off was turned off by the user; only an unbound one is "not set up".
+   */
+  fun jevBound(): Boolean = try {
+    gateway.call("readJev").optString("model").isNotEmpty()
+  } catch (e: GatewayException) {
+    Log.w(TAG, "jev status unavailable: ${e.code}")
+    // Unknown: treat as bound, so nothing is switched on without the user asking.
+    true
+  }
+
   /** Jev: the pasted key, or with none a Jev model Magpie already serves. Fal: the pasted key. */
   private fun connectKeyed(service: OnboardingService, rawKey: String?) {
     when (service) {
@@ -235,7 +250,10 @@ class OnboardingRepository private constructor(context: Context) {
       call("connectJev", JSONObject().put("key", key))
     } catch (e: OnboardingException) {
       if (e.code != "NO_DECISION_MODEL" && e.code != "MAGPIE_UNAVAILABLE") {
-        updateServices { it.copy(jev = readJev()) }
+        // Not connecting after all: say so at once (the gateway read stays outside factsLock).
+        val jev = readJev()
+        updateServices { it.copy(jev = jev) }
+        publish()
         throw e
       }
       Log.i(TAG, "jev key saved; waiting for its model (${e.code})")
@@ -265,7 +283,7 @@ class OnboardingRepository private constructor(context: Context) {
       if (!isActive) return@launch
       updateServices { it.copy(jev = Connection.NOT_CONNECTED) }
       publish()
-      noticeFlow.tryEmit(if (last == "MAGPIE_UNAVAILABLE") JEV_NO_MAGPIE else JEV_NO_MODEL)
+      noticeFlow.tryEmit(Notice(OnboardingService.JEV, if (last == "MAGPIE_UNAVAILABLE") JEV_NO_MAGPIE else JEV_NO_MODEL))
     }
   }
 
@@ -335,8 +353,11 @@ class OnboardingRepository private constructor(context: Context) {
           when (services.chatgpt) {
             Connection.CONNECTING, Connection.UNKNOWN -> if (foreground) island.clear() else island.signingIn()
             Connection.CONNECTED -> {
-              island.connected()
-              delay(CONNECTED_PILL_MS)
+              // The pill is for while Home is away; in front, the card itself turns connected.
+              if (!foreground) {
+                island.connected()
+                delay(CONNECTED_PILL_MS)
+              }
               return@launch
             }
             Connection.NOT_CONNECTED -> return@launch
@@ -436,7 +457,7 @@ class OnboardingRepository private constructor(context: Context) {
       }
       previous == Connection.CONNECTING && phase == "failed"
     }
-    if (failed) noticeFlow.tryEmit(account.optString("message").ifBlank { FAILED })
+    if (failed) noticeFlow.tryEmit(Notice(OnboardingService.CHATGPT, account.optString("message").ifBlank { FAILED }))
   }
 
   /** A settled account answer is recent enough to stand in for an unsettled or failed read. Under [factsLock]. */

@@ -1,11 +1,11 @@
-import React, {Component, useEffect, useMemo, useState, type ReactNode} from 'react';
-import {Alert, AppState, Pressable, StyleSheet, View} from 'react-native';
+import React, {Component, useMemo, useState, type ReactNode} from 'react';
+import {Alert, Pressable, StyleSheet, View} from 'react-native';
 import {JSONUIProvider, Renderer, createStandardActionHandlers, type Spec} from '@json-render/react-native';
 import {spacing} from '../feed/feedTokens';
 import {textFor, type Language} from '../i18n';
 import {chatText} from '../chat/chatText';
 import {presentationRequest, templateSpec, type CardPresentation} from '../model/genui';
-import {useGenUiCard} from '../hooks/useGenUi';
+import {noteJevSetupOpened, useGenUiCard} from '../hooks/useGenUi';
 import {registry, ChatReplySurface} from './genuiRegistry';
 import {isTextReplySpec} from '../model/chatReplySurface';
 import {CardLanguage, CardMatter, openSafeUrl} from './genuiWidgets';
@@ -53,13 +53,7 @@ function LiveCard({threadId, presentation, language, active = true, preload = fa
   const {store, spec, dispatch, pin} = card;
   const [pinBusy, setPinBusy] = useState(false), [pinError, setPinError] = useState('');
   const [reviewOpen, setReviewOpen] = useState(false);
-  // Back from the Jev setup page: compose again, so a now-configured Jev designs the card.
-  const {jevSetupNeeded, recompose} = card;
-  useEffect(() => {
-    if (!jevSetupNeeded) return;
-    const subscription = AppState.addEventListener('change', state => { if (state === 'active') recompose(); });
-    return () => subscription.remove();
-  }, [jevSetupNeeded, recompose]);
+  const {jevSetupNeeded} = card;
   const renderSpec = useMemo(() => assemblySpec(spec), [spec]);
   const handlers = useMemo(() => ({
     setState: createStandardActionHandlers().setState,
@@ -109,7 +103,7 @@ function LiveCard({threadId, presentation, language, active = true, preload = fa
       {card.layoutError && <FeedStatus state="error" text={t('cardLayoutFailed')}/>}
       {jevSetupNeeded && <View style={styles.setup}>
         <FeedStatus state="info" text={t('cardJevSetupNeeded')}/>
-        <FeedButton label={t('cardSetUpJev')} size="md" onPress={() => { openAiSetup('jev'); }}/>
+        <FeedButton label={t('cardSetUpJev')} size="md" onPress={() => { if (openAiSetup('jev')) noteJevSetupOpened(); }}/>
       </View>}
       {!!card.review.length && <View style={styles.review}>
         <FeedPressable label={`${reviewOpen ? t('hideDetails') : t('showDetails')} · ${t('cardReviewSavedInputs')} (${card.review.length})`}

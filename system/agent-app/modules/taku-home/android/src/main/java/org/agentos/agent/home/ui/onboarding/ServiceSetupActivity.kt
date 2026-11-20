@@ -100,15 +100,18 @@ private class ServiceSetupModel(
   }
 
   /**
-   * Jev not connected: first switch on a Jev model Magpie already serves (a key saved earlier, or
-   * Jev only switched off), as the onboarding Jev page does. When there is none the key steps stay;
-   * that is the normal path, so it is not reported.
+   * Jev never set up: first switch on a Jev model Magpie already serves, as the onboarding Jev page
+   * does. A Jev the user turned off (a model still bound) is left off: only Connect with a key, an
+   * explicit choice, turns it back on. When nothing is served the key steps stay; that is the
+   * normal path, so it is not reported.
    */
   suspend fun tryServedJev() {
     if (service != OnboardingService.JEV || connection != Connection.NOT_CONNECTED || busy) return
     busy = true
     try {
-      connection = withContext(Dispatchers.IO) { repository.setUp(OnboardingService.JEV, null) }
+      connection = withContext(Dispatchers.IO) {
+        if (repository.jevBound()) connection else repository.setUp(OnboardingService.JEV, null)
+      }
     } catch (e: OnboardingException) {
       Log.i(TAG, "no served Jev model: ${e.code}")
     } catch (e: CancellationException) {
@@ -159,8 +162,10 @@ private fun ServiceSetupScreen(service: OnboardingService, onClose: () -> Unit) 
   LaunchedEffect(model.connection) {
     while (model.connection == Connection.CONNECTING) { delay(POLL_MS); model.read() }
   }
-  // Why a saved Jev key did not connect after all, in the repository's words, once.
-  LaunchedEffect(repository) { repository.notices.collect { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() } }
+  // Why this service did not connect after all, in the repository's words, once; never another service's.
+  LaunchedEffect(repository, service) {
+    repository.notices.collect { if (it.service == service) Toast.makeText(context, it.text, Toast.LENGTH_SHORT).show() }
+  }
 
   HiddenStatusBar()
   Box(Modifier.fillMaxSize()) {

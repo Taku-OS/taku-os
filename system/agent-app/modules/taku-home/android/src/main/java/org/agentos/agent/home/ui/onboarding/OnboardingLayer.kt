@@ -107,6 +107,7 @@ import kotlinx.coroutines.delay
 import org.agentos.agent.home.design.TakuIcon
 import org.agentos.agent.home.design.TakuIcons
 import org.agentos.agent.home.onboarding.Connection
+import org.agentos.agent.home.onboarding.AiAccess
 import org.agentos.agent.home.onboarding.OnboardingService
 import org.agentos.agent.home.onboarding.Services
 import org.agentos.agent.home.ui.assistant.WorkingDots
@@ -123,8 +124,9 @@ fun BoxScope.OnboardingLayer(state: OnboardingRepository.State, repository: Onbo
   val context = LocalContext.current
   val scope = rememberCoroutineScope()
   val actions = remember(repository) { OnboardingActions(context.applicationContext, repository, scope) }
-  // Why a ChatGPT sign-in failed, in the broker's own words, once per failure.
-  LaunchedEffect(repository) { repository.notices.collect { actions.toast(it) } }
+  // Why a ChatGPT sign-in or a saved Jev key did not connect, once per failure. Only while the AI
+  // step shows them: a reopened setup page (ServiceSetupActivity) speaks for itself.
+  LaunchedEffect(repository, step) { if (step == OnboardingStep.CONNECT_AI) repository.notices.collect { actions.toast(it.text) } }
 
   HiddenStatusBar()
   if (OnboardingRules.takesOverHome(step)) {
@@ -394,8 +396,11 @@ private fun ConnectAiStep(state: OnboardingRepository.State, actions: Onboarding
 
   fun open(next: AiPage) {
     when (next) {
-      // Arriving at ChatGPT asks for a device code right away, as the frame shows it.
-      AiPage.CHATGPT -> if (services.chatgpt == Connection.NOT_CONNECTED && state.signIn == null) actions.connectChatGpt()
+      // Arriving at ChatGPT asks for a device code right away, as the frame shows it, but only when
+      // there is no AI yet: starting a sign-in switches a working Magpie away (and is refused while
+      // a task runs), so with Magpie serving, Connect waits to be tapped.
+      AiPage.CHATGPT -> if (services.chatgpt == Connection.NOT_CONNECTED && state.signIn == null &&
+        state.facts.ai == AiAccess.UNAVAILABLE) actions.connectChatGpt()
       // Arriving at Jev first tries a Jev model Magpie already serves (no key needed).
       AiPage.JEV -> if (services.jev == Connection.NOT_CONNECTED) actions.enableJev()
       else -> Unit

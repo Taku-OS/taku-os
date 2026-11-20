@@ -46,6 +46,8 @@ public final class AgentOpenAccessProvider extends ContentProvider {
         boolean opened;
         Payload(int uid, byte[] bytes) { this.uid = uid; this.bytes = bytes; }
     }
+    /** Methods that hand out or replace a credential; trusted callers only. */
+    private static final Set<String> CREDENTIAL_METHODS = new HashSet<>(Arrays.asList("account/login/start", "jev/connect"));
     @Override public boolean onCreate() { return true; }
     @Override public Bundle call(String method, String arg, Bundle extras) {
         Bundle out = new Bundle();
@@ -85,6 +87,15 @@ public final class AgentOpenAccessProvider extends ContentProvider {
                 out.putString("result", error(code).toString());
                 return out;
             }
+
+        }
+        // Credentials stay with trusted callers (root, system, shell, platform-signed), whatever
+        // the Permission Center grants: a ChatGPT sign-in hands out its device code, and a Jev
+        // key replaces the user's own, as Taku Audio refuses Fal key changes.
+        if (CREDENTIAL_METHODS.contains(method)
+                && !AppPermissionCatalog.isTrustedSubject(ctx, caller, AppPermissionCatalog.SCOPE_TAKU_CONTROL)) {
+            out.putString("result", error("PERMISSION_DENIED").toString());
+            return out;
         }
         long identity = Binder.clearCallingIdentity();
         JSONObject envelope;

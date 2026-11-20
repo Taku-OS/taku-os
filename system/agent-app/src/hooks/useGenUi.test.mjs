@@ -9,7 +9,6 @@ const access = "const runtime = globalThis[Symbol.for('taku.genui.hook-test')];"
 const mock = source => `data:text/javascript,${encodeURIComponent(`${access}\n${source}`)}`;
 const mocks = new Map([
   ['react', mock(`export const useMemo = compute => compute();
-    export const useCallback = callback => callback;
     export const useEffect = (effect, dependencies) => runtime.current.effect(effect, dependencies);
     export const useLayoutEffect = useEffect;`)],
   ['zustand', mock('export const useStore = (store, select) => select(store.getState());')],
@@ -86,10 +85,9 @@ function nativeCalls(reply, {pin = pinCapability(reply), cardView} = {}) {
   };
 }
 
-test('only a Jev that is not set up or switched off asks for its setup page', () => {
+test('only a Jev that was never set up asks for its setup page; one switched off is respected', () => {
   assert.equal(needsJevSetup('jev-jev_not_configured'), true);
-  assert.equal(needsJevSetup('jev-jev_disabled'), true);
-  for (const other of ['', 'jev-timeout', 'jev-gateway_unavailable', 'llm-jev_not_configured', 'invalid-layout'])
+  for (const other of ['', 'jev-jev_disabled', 'jev-timeout', 'jev-gateway_unavailable', 'llm-jev_not_configured', 'invalid-layout'])
     assert.equal(needsJevSetup(other), false, other);
 });
 

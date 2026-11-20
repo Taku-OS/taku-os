@@ -7,7 +7,7 @@ import android.net.Uri
 import android.os.SystemClock
 import android.util.Log
 import java.io.IOException
-import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 import org.json.JSONObject
 
 /**
@@ -21,7 +21,8 @@ internal object AiConnections {
     private val AUTH_HOSTS = setOf("auth.openai.com", "chatgpt.com")
     private val LOGIN_TYPES = setOf("chatgpt", "chatgptDeviceCode")
     private const val WATCH_MS = 15 * 60_000L
-    private val watching = AtomicBoolean(false)
+    /** The current sign-in's watcher; a new sign-in or a cancel retires the previous one. */
+    private val watchGeneration = AtomicLong()
 
     // ChatGPT
 
@@ -52,6 +53,9 @@ internal object AiConnections {
         app = context.applicationContext
         var view = account()
         if (chatGptConnected(view)) return result(view, "none", includeChallenge)
+        // This sign-in replaces any earlier one: retire its watcher before anything can fail.
+        watchGeneration.incrementAndGet()
+        this.returnHome = false
         val magpie = magpieModel()
         if (magpie != null) {
             switchConnection(context, "openai", "")
@@ -73,7 +77,7 @@ internal object AiConnections {
             throw e
         }
         // Watch before opening: if the page cannot open, the watcher still restores Magpie.
-        if (returnHome) this.returnHome = true
+        this.returnHome = returnHome
         watch()
         val opened = if (open) open(context, view) else "none"
         return result(view, opened, includeChallenge)
@@ -88,6 +92,9 @@ internal object AiConnections {
             Log.w(TAG, "login cancel failed: ${e.message}")
             throw IOException("LOGIN_UNAVAILABLE")
         }
+        // The cancelled sign-in's watcher must not act on a later one; Magpie is restored here.
+        watchGeneration.incrementAndGet()
+        returnHome = false
         restoreMagpie()
         return AccountStatus.status(account())
     }
@@ -177,18 +184,22 @@ internal object AiConnections {
 
     /**
      * Follows the sign-in until it lands, fails, is cancelled or times out. Landing brings Home
-     * back only if Home started it ([returnHome]); not landing switches Magpie back. One watcher
-     * at a time.
+     * back only if Home started it ([returnHome]); not landing switches Magpie back. Each sign-in
+     * has its own watcher: a newer sign-in or a cancel retires this one, and a retired watcher
+     * leaves [returnHome] and the model connection to the sign-in that replaced it.
      */
     private fun watch() {
-        if (!watching.compareAndSet(false, true)) return
+        val generation = watchGeneration.incrementAndGet()
+        fun current() = watchGeneration.get() == generation
         Thread({
             var landed = false
             try {
                 val deadline = SystemClock.elapsedRealtime() + WATCH_MS
                 while (SystemClock.elapsedRealtime() < deadline) {
                     Thread.sleep(1_000)
+                    if (!current()) return@Thread
                     val view = try { AccountStatus.raw() } catch (_: IOException) { continue }
+                    if (!current()) return@Thread
                     if (chatGptConnected(view)) {
                         landed = true
                         markLanded()
@@ -200,9 +211,10 @@ internal object AiConnections {
             } catch (e: Exception) {
                 Log.w(TAG, "sign-in watch ended", e)
             } finally {
-                returnHome = false
-                watching.set(false)
-                if (!landed) restoreMagpie()
+                if (current()) {
+                    returnHome = false
+                    if (!landed) restoreMagpie()
+                }
             }
         }, "taku-chatgpt-signin").apply { isDaemon = true }.start()
     }
