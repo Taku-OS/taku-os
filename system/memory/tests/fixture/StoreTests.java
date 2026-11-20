@@ -273,6 +273,8 @@ public final class StoreTests extends Instrumentation {
   JSONArray accepted=FeedFeedback.merge(null,events,"memory.nudge.6",t);
   check(accepted.length()==1&&FeedFeedback.reactions(accepted).equals(List.of("selected"))&&!accepted.getJSONObject(0).has("effect"),"durable accepted actions do not claim that an external app opened");
   check(FeedFeedback.merge(accepted,events,"memory.nudge.6",t)==null,"durable events deduplicate by cursor on reconnect");
+  JSONArray pinnedOnly=new JSONArray().put(new JSONObject().put("at",t).put("op","pin").put("origin","gui"));
+  check(FeedFeedback.handled(hidden)&&FeedFeedback.handled(used)&&FeedFeedback.handled(accepted)&&!FeedFeedback.handled(back)&&!FeedFeedback.handled(pinnedOnly)&&!FeedFeedback.handled(null),"removed, asked or selected on Home settles the reminder; pinned or restored does not");
   selected=new JSONObject(selected.toString()).put("cursor","epoch:61");
   JSONArray twice=FeedFeedback.merge(accepted,new JSONObject().put("events",new JSONArray().put(selected)),"memory.nudge.6",t);
   check(twice.length()==2,"distinct cursors preserve two identical selections in the same millisecond");
