@@ -1,10 +1,11 @@
 import React, {useCallback, useEffect, useMemo, useReducer, useRef, useState, type ReactNode} from 'react';
-import {ActivityIndicator, AppState, BackHandler, FlatList, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, ToastAndroid, useWindowDimensions, View} from 'react-native';
+import {ActivityIndicator, AppState, BackHandler, FlatList, Image, Keyboard, KeyboardAvoidingView, PixelRatio, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, ToastAndroid, useWindowDimensions, View} from 'react-native';
 import type {NativeScrollEvent, NativeSyntheticEvent, TextProps} from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useLocales} from 'expo-localization';
 import {useRouter} from 'expo-router';
 import {StatusBar} from 'expo-status-bar';
+import {BlurTargetView, BlurView} from 'expo-blur';
 import {VoiceEffect} from '../native/VoiceEffect';
 import {VoiceIcon} from '../chat/VoiceIcon';
 import {AssistantBubble, ComposerGlassRim} from '../chat/ChatSurfaces';
@@ -178,6 +179,7 @@ function MessageBody({block, language, renderMarkdown, renderCard, demand}: {blo
 function Message({block, language, renderMarkdown, renderCard, expanded, demand, onToggleActivity, onLongPressReply}: {block: ChatMessageBlock; language: Language; renderMarkdown?: AgentChatScreenProps['renderMarkdown']; renderCard?: AgentChatScreenProps['renderCard']; expanded: boolean; demand: CardDemand; onToggleActivity: () => void; onLongPressReply?: (block: ChatMessageBlock, body: ViewHandle) => void}) {
   const t = textFor(language);
   const body = useRef<ViewHandle>(null);
+  const reactionBackdrop = useRef<ViewHandle>(null);
   const {fontScale} = useWindowDimensions();
   const hasText = Boolean(block.text.trim());
   // A restored turn/started snapshot can precede both its user item and task metadata.
@@ -193,16 +195,23 @@ function Message({block, language, renderMarkdown, renderCard, expanded, demand,
     const timer = setTimeout(() => setTimedOutBlock(id), FIRST_RESPONSE_TIMEOUT_MS);
     return () => clearTimeout(timer);
   }, [block.id, untrackedPending]);
-  if (block.role === 'user') return <View style={[styles.userWrap, !!block.reaction && styles.userWrapReacted]}><View>
-    <View style={styles.userBubble}>
+  if (block.role === 'user') {
+    const bubble = <View style={styles.userBubble}>
       {!!block.text && <Text selectable style={[chatType.bodyLg(containsChinese(block.text)), styles.userText]}>{block.text}</Text>}
       {block.attachments.map((name, i) => <Label key={`${name}-${i}`} role="caption" style={styles.attachment}>{name === 'image' ? t('image') : name}</Label>)}
       {block.requestStopped && <Label role="caption" style={styles.secondary}>{t('requestStopped')}</Label>}
-    </View>
-    {!!block.reaction && <View testID={`reaction-${block.id}`} accessible accessibilityLabel={`${t('reactionLabel')} ${block.reaction}`} style={styles.reaction}>
-      <Text style={styles.reactionText}>{block.reaction}</Text>
-    </View>}
-  </View></View>;
+    </View>;
+    return <View style={styles.userWrap}>{block.reaction ? <View>
+      <BlurTargetView ref={reactionBackdrop} style={styles.userWrapReacted}>{bubble}</BlurTargetView>
+      <View testID={`reaction-${block.id}`} accessible accessibilityLabel={`${t('reactionLabel')} ${block.reaction}`} style={styles.reaction}>
+        <BlurView pointerEvents="none" style={StyleSheet.absoluteFill} blurTarget={reactionBackdrop}
+          blurMethod="dimezisBlurViewSdk31Plus" blurReductionFactor={1}
+          intensity={Math.min(100, 16 * PixelRatio.get())} tint={getChatAppearance()}/>
+        <View pointerEvents="none" style={styles.reactionTint}/>
+        <Text allowFontScaling={false} style={styles.reactionText}>{block.reaction}</Text>
+      </View>
+    </View> : bubble}</View>;
+  }
   // Long press opens Copy / Select once the reply text is final (or a primary card while streaming).
   const canCopy = !!block.text && (!block.active || block.parts.some(part => part.card?.kind === 'primary'));
   const responseError = block.responseError || (block.responseErrorKey ? t(block.responseErrorKey) : untrackedPending && untrackedTimeout ? t('replyTimeout') : '');
@@ -725,12 +734,13 @@ const styles = themedStyles(() => StyleSheet.create({
   // instead of the frame's 129 dp column (issue #32 C4).
   userWrap: {alignItems: 'flex-end', paddingLeft: chatMetrics.bubbleMinInset}, userBubble: {backgroundColor: chatColors.bubble, padding: 8, borderRadius: 16, borderBottomRightRadius: 4, gap: 8},
   attachment: {color: chatColors.userText},
-  // Figma 297:433 / 300:682: the reaction overlaps the bubble's bottom-right corner (8 dp in,
-  // 8 dp over its edge) and the row keeps 16 dp below the bubble for it.
+  // Figma 297:462: the 32 × 24 badge starts 8 dp above the bubble's bottom edge.
   userWrapReacted: {paddingBottom: 16},
-  reaction: {position: 'absolute', right: 8, bottom: -20, paddingHorizontal: 8, borderRadius: 999, borderWidth: 2,
-    borderColor: chatColors.reactionRing, backgroundColor: chatColors.reactionFill, overflow: 'hidden'},
-  reactionText: {fontSize: 16, lineHeight: 24, includeFontPadding: false, color: '#FFFFFF'}, assistant: {gap: chatMetrics.replyGap}, messageParts: {gap: chatMetrics.replyGap},
+  reaction: {position: 'absolute', right: 8, bottom: 0, width: 32, height: 24, borderRadius: 12,
+    alignItems: 'center', justifyContent: 'center', backgroundColor: chatColors.backdropFallback, overflow: 'hidden'},
+  reactionTint: {...StyleSheet.absoluteFill, borderRadius: 12, borderWidth: 2,
+    borderColor: chatColors.reactionRing, backgroundColor: chatColors.reactionFill},
+  reactionText: {...chatType.bodyLg(), color: '#FFFFFF'}, assistant: {gap: chatMetrics.replyGap}, messageParts: {gap: chatMetrics.replyGap},
   replyActions: {flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', maxWidth: '100%', gap: 8},
   activityToggle: {flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 48, flexShrink: 1, paddingRight: 4},
   activityGroup: {gap: 8}, activityHeading: {lineHeight: 20},
