@@ -137,7 +137,7 @@ class OnboardingRulesTest {
   @Test fun actionsMoveForwardOnlyFromTheirOwnStep() {
     assertEquals(OnboardingStep.NAME, OnboardingRules.advance(OnboardingStep.INTRO, OnboardingAction.SET_UP))
     assertEquals(OnboardingStep.CONNECT_AI, OnboardingRules.advance(OnboardingStep.NAME, OnboardingAction.SUBMIT_NAME))
-    // "Later" skips only the name; onboarding goes on to the AI connection.
+    // "Skip for now" skips only the name; onboarding goes on to the AI connection.
     assertEquals(OnboardingStep.CONNECT_AI, OnboardingRules.advance(OnboardingStep.NAME, OnboardingAction.SKIP_NAME))
     for ((step, action) in listOf(
       OnboardingStep.NAME to OnboardingAction.SET_UP,

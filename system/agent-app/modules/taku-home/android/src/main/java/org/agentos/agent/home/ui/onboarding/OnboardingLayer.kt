@@ -18,6 +18,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -28,6 +29,7 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -82,8 +84,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.agentos.agent.home.assistant.AgentGateway
-import org.agentos.agent.home.assistant.GatewayException
 import org.agentos.agent.home.design.TakuMotion
 import org.agentos.agent.home.design.TakuTheme
 import org.agentos.agent.home.onboarding.OnboardingAction
@@ -91,26 +91,15 @@ import org.agentos.agent.home.onboarding.OnboardingException
 import org.agentos.agent.home.onboarding.OnboardingRepository
 import org.agentos.agent.home.onboarding.OnboardingRules
 import org.agentos.agent.home.onboarding.OnboardingStep
-import org.json.JSONObject
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.graphics.BitmapFactory
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.sp
-import org.agentos.agent.home.onboarding.DeviceCodeSignIn
 import android.os.Build
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.wrapContentSize
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.graphics.asComposeRenderEffect
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.layout
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -121,11 +110,10 @@ import org.agentos.agent.home.onboarding.Connection
 import org.agentos.agent.home.onboarding.OnboardingService
 import org.agentos.agent.home.onboarding.Services
 import org.agentos.agent.home.ui.assistant.WorkingDots
-import org.agentos.agent.home.ui.effects.Shaders
 
 /**
- * First-run onboarding over the Home wallpaper (Figma 1155:527 "0 empty", 1155:619 "1-name",
- * 1155:846 "1-name_input", 1155:1073 "2-connect AI", 1341:782 "6-proactive"). It is not a Feed item and not the SystemUI island: a Compose card
+ * First-run onboarding over the Home wallpaper (Figma 1155:527 "0 empty", 1379:1785 "1-name",
+ * 1379:2012 "1-name_input", 1379:2239–1379:2907 "2-x connect AI" pages, 1341:782 "6-proactive"). It is not a Feed item and not the SystemUI island: a Compose card
  * with the expanded island's look that can take keyboard input. It cannot be dismissed; the
  * Feed, home pages and AI entry stay behind it until [OnboardingRepository] says it is done.
  */
@@ -159,8 +147,8 @@ private class OnboardingActions(val context: Context, val repository: Onboarding
   }
 
   /**
-   * One tap starts device-code sign-in; Home stays in front and the card shows the code and the
-   * official link ([DeviceCodePanel]) until the account lands on the user's other device.
+   * Starts device-code sign-in; Home stays in front and the ChatGPT page shows the official link
+   * and the code ([ChatGptPage]) until the account lands on the user's other device.
    */
   fun connectChatGpt() = launchAction { withContext(Dispatchers.IO) { repository.connect(OnboardingService.CHATGPT) } }
 
@@ -178,10 +166,11 @@ private class OnboardingActions(val context: Context, val repository: Onboarding
     }
 
   /**
-   * Jev without a key: switches on a Jev model Magpie already serves. When there is none, the key
-   * field opens instead (no error: that is the normal first-time path).
+   * Jev without a key, on arriving at the Jev page: switches on a Jev model Magpie already serves,
+   * and the page then shows Jev connected. When there is none the page keeps its key steps; that
+   * is the normal first-time path, so it is not reported as an error.
    */
-  fun enableJev(onNeedsKey: () -> Unit) {
+  fun enableJev() {
     if (busy) return
     busy = true
     scope.launch {
@@ -189,7 +178,7 @@ private class OnboardingActions(val context: Context, val repository: Onboarding
         withContext(Dispatchers.IO) { repository.connect(OnboardingService.JEV) }
       } catch (e: OnboardingException) {
         Log.w(TAG, "${e.code}: ${e.message}")
-        if (e.code == "NO_DECISION_MODEL" || e.code == "MAGPIE_UNAVAILABLE") onNeedsKey() else toast(message(e.code))
+        if (e.code != "NO_DECISION_MODEL" && e.code != "MAGPIE_UNAVAILABLE") toast(message(e.code))
       } catch (e: CancellationException) {
         throw e
       } catch (e: Exception) {
@@ -199,15 +188,6 @@ private class OnboardingActions(val context: Context, val repository: Onboarding
       } finally {
         busy = false
       }
-    }
-  }
-
-  /** The ChatGPT subscription page, for a chip that is already connected. */
-  fun manageChatGpt() = launchAction {
-    try {
-      withContext(Dispatchers.IO) { AgentGateway(context.contentResolver).call("openSettings", JSONObject().put("page", "account")) }
-    } catch (e: GatewayException) {
-      throw OnboardingException(e.code, e.message ?: e.code)
     }
   }
 
@@ -254,10 +234,10 @@ private class OnboardingActions(val context: Context, val repository: Onboarding
   fun toast(text: String) = Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
 
   private fun message(code: String) = when (code) {
-    "NAME_NOT_SAVED" -> "Couldn’t save your name. Try again, or tap Later."
+    "NAME_NOT_SAVED" -> "Couldn’t save your name. Try again, or tap Skip for now."
     "INVALID_KEY" -> "That key doesn’t look right. Jev takes a TypeSafe (apikey_…) or OpenRouter (sk-or-…) key."
     "KEY_NOT_SAVED", "SETTINGS_WRITE_FAILED" -> "Couldn’t save the key. Try again."
-    "NO_DECISION_MODEL" -> "No Jev model is available for this key yet. Tap Jev to try again."
+    "NO_DECISION_MODEL" -> "No Jev model is available for this key yet. Try again in a moment."
     "MAGPIE_UNAVAILABLE" -> "The model service isn’t ready yet. Try again in a moment."
     "AUDIO_UNAVAILABLE" -> "Taku Audio isn’t available right now."
     "TASK_RUNNING" -> "Taku is still finishing a task. Try again in a moment."
@@ -342,7 +322,7 @@ private fun IntroStep(actions: OnboardingActions) {
   }
 }
 
-/** 1155:619 (empty: Continue disabled) and 1155:846 (a name entered: Continue enabled). */
+/** 1379:1785 (empty: Continue disabled) and 1379:2012 (a name entered: Continue enabled). */
 @Composable
 private fun NameStep(actions: OnboardingActions) {
   val c = TakuTheme.colors
@@ -355,7 +335,7 @@ private fun NameStep(actions: OnboardingActions) {
   // The frames show the keyboard already up for this step.
   LaunchedEffect(Unit) { withFrameNanos {}; focus.requestFocus(); keyboard?.show() }
 
-  Message("Before we start,\nwhat should I call you?")
+  Message("What should I call you?")
   BasicTextField(
     value = draft,
     onValueChange = { if (it.length <= OnboardingRules.NAME_MAX) draft = it },
@@ -373,271 +353,397 @@ private fun NameStep(actions: OnboardingActions) {
     },
   )
   Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-    // "Later" skips only the name; onboarding continues with the AI connection.
-    IslandButton("Later", IslandButtonStyle.Secondary, enabled = true) { actions.perform(OnboardingAction.SKIP_NAME) }
+    // "Skip for now" skips only the name; onboarding continues with the AI connection (2-0).
+    IslandButton("Skip for now", IslandButtonStyle.Secondary, enabled = true) { actions.perform(OnboardingAction.SKIP_NAME) }
     IslandButton("Continue", IslandButtonStyle.Primary, enabled = ready) { submit() }
   }
 }
 
 /**
- * 1155:1073: the three services as chips. ChatGPT starts device-code sign-in in one tap and the
- * card itself shows the code and official link to use on another device ([DeviceCodePanel]);
- * Jev (TypeSafe or OpenRouter, configured into Magpie in the background) and Fal keys are pasted
- * right here; a Jev Magpie already serves is switched on without a key. Connecting shows the island's working dots,
- * connected a checkmark (product states; the frame has only the idle chips). Once AI is available
- * (ChatGPT, or Magpie with a model) Continue finishes setup; Jev and Fal stay optional.
+ * The AI step's pages (Figma 1379:2239 "2-0 connect AI", then one page per service: ChatGPT
+ * 1379:2331/2454, Jev 1379:2556/2680, fal 1379:2782/2907). They are the card's own navigation:
+ * the stored step stays `connect_ai` throughout, every connection goes through the same
+ * [OnboardingRepository] calls as before, and only Continue on the last page moves on
+ * (FINISH, "You’re all set"). A service that is already connected shows its connected state
+ * with the way forward; it is not managed here.
  */
+private enum class AiPage { INTRO, CHATGPT, JEV, FAL }
+
 @Composable
 private fun ConnectAiStep(state: OnboardingRepository.State, actions: OnboardingActions) {
+  val services = state.services
+  var pageId by rememberSaveable { mutableStateOf(AiPage.INTRO.name) }
+  // Fal is null when Taku Audio is not installed: the flow then ends at Jev.
+  val pages = listOfNotNull(AiPage.CHATGPT, AiPage.JEV, AiPage.FAL.takeIf { services.fal != null })
+  val page = AiPage.valueOf(pageId).let { if (it == AiPage.FAL && services.fal == null) AiPage.JEV else it }
+
+  fun open(next: AiPage) {
+    when (next) {
+      // Arriving at ChatGPT asks for a device code right away, as the frame shows it.
+      AiPage.CHATGPT -> if (services.chatgpt == Connection.NOT_CONNECTED && state.signIn == null) actions.connectChatGpt()
+      // Arriving at Jev first tries a Jev model Magpie already serves (no key needed).
+      AiPage.JEV -> if (services.jev == Connection.NOT_CONNECTED) actions.enableJev()
+      else -> Unit
+    }
+    pageId = next.name
+  }
+  fun forward(from: AiPage) {
+    val next = pages.getOrNull(pages.indexOf(from) + 1)
+    if (next == null) actions.perform(OnboardingAction.FINISH) else open(next)
+  }
+  fun back() {
+    when (page) {
+      AiPage.CHATGPT -> {
+        // Leaving a sign-in in progress cancels it, as Cancel did; coming back starts a new one.
+        if (services.chatgpt == Connection.CONNECTING) actions.cancelSignIn()
+        pageId = AiPage.INTRO.name
+      }
+      AiPage.JEV -> pageId = AiPage.CHATGPT.name
+      AiPage.FAL -> pageId = AiPage.JEV.name
+      AiPage.INTRO -> Unit
+    }
+  }
+  // System back follows the card's chevron; on the first page it stays a no-op (OnboardingLayer).
+  BackHandler(enabled = page != AiPage.INTRO) { back() }
+
+  AnimatedContent(
+    targetState = page,
+    transitionSpec = {
+      fadeIn(tween(220, delayMillis = 90)) togetherWith fadeOut(tween(90)) using SizeTransform(clip = false) { _, _ -> TakuMotion.morph() }
+    },
+    label = "onboardingAiPage",
+  ) { shown ->
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+      if (shown == AiPage.INTRO) {
+        AiIntro(state.userName) { open(AiPage.CHATGPT) }
+        return@Column
+      }
+      BackChevron { back() }
+      ServiceProgress(pages, shown, services)
+      val service = shown.service
+      val next = pages.getOrNull(pages.indexOf(shown) + 1)
+      val nextLabel = next?.let { "Next: ${it.service.label}" } ?: "Continue"
+      val forwardEnabled = !actions.busy
+      if (connectionOf(services, service) == Connection.CONNECTED) {
+        ServiceTitle(service, connected = true)
+        Row(Modifier.fillMaxWidth()) {
+          IslandButton(nextLabel, IslandButtonStyle.Primary, enabled = forwardEnabled) { forward(shown) }
+        }
+      } else when (service) {
+        OnboardingService.CHATGPT -> ChatGptPage(state, actions)
+        else -> KeyPage(service, connectionOf(services, service), actions) { forward(shown) }
+      }
+    }
+  }
+}
+
+private val AiPage.service: OnboardingService get() = when (this) {
+  AiPage.JEV -> OnboardingService.JEV
+  AiPage.FAL -> OnboardingService.FAL
+  else -> OnboardingService.CHATGPT
+}
+
+private val OnboardingService.label: String get() = when (this) {
+  OnboardingService.CHATGPT -> "ChatGPT"
+  OnboardingService.JEV -> "Jev"
+  OnboardingService.FAL -> "Fal"
+}
+
+private fun connectionOf(services: Services, service: OnboardingService): Connection = when (service) {
+  OnboardingService.CHATGPT -> services.chatgpt
+  OnboardingService.JEV -> services.jev
+  OnboardingService.FAL -> services.fal ?: Connection.NOT_CONNECTED
+}
+
+/** 1379:2239: the greeting and "Connect AI Agent", which opens the ChatGPT page. */
+@Composable
+private fun AiIntro(userName: String?, onStart: () -> Unit) {
   val c = TakuTheme.colors
   val type = TakuTheme.type
-  val services = state.services
-  var editing by rememberSaveable { mutableStateOf<String?>(null) }
-  val editingService = OnboardingService.parse(editing)
   val greeting = buildAnnotatedString {
-    if (state.userName == null) append("Nice to meet you.")
+    if (userName == null) append("Nice to meet you.")
     else {
       append("Nice to meet you, ")
-      withStyle(SpanStyle(fontFamily = type.bodyXlMedium.fontFamily, fontWeight = type.bodyXlMedium.fontWeight, color = c.islandTextStrong)) { append(state.userName) }
+      withStyle(SpanStyle(fontFamily = type.bodyXlMedium.fontFamily, fontWeight = type.bodyXlMedium.fontWeight, color = c.islandTextStrong)) { append(userName) }
       append(".")
     }
-    append("\nConnect these AI accounts so I can answer and help with tasks.")
+    append("\nSet up AI connections so I can answer and help with tasks.")
   }
+  // The frame draws a back chevron here; there is no step to return to from the AI step (the name
+  // is saved or skipped for good), so this page keeps the eyes like the other first pages.
   Header { BasicText(greeting, style = type.bodyXl.copy(color = c.islandText)) }
-  ServiceChips(services) { service ->
-    when (service) {
-      OnboardingService.CHATGPT -> {
-        editing = null
-        if (services.chatgpt == Connection.CONNECTED) actions.manageChatGpt() else actions.connectChatGpt()
-      }
-      OnboardingService.JEV -> when {
-        editing == service.id -> editing = null
-        services.jev == Connection.CONNECTED -> editing = service.id
-        else -> actions.enableJev { editing = service.id }
-      }
-      else -> editing = if (editing == service.id) null else service.id
-    }
+  Row(Modifier.fillMaxWidth()) {
+    IslandButton("Connect AI Agent", IslandButtonStyle.Primary, enabled = true, onClick = onStart)
   }
-  when {
-    editingService != null -> KeyEditor(editingService, actions) { editing = null }
-    state.signIn != null -> DeviceCodePanel(state.signIn, actions)
-    services.chatgpt == Connection.CONNECTING -> Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-      IslandButton("Cancel sign-in", IslandButtonStyle.Secondary, enabled = !actions.busy) { actions.cancelSignIn() }
-    }
-    state.canFinish -> Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-      IslandButton("Continue", IslandButtonStyle.Primary, enabled = !actions.busy) { actions.perform(OnboardingAction.FINISH) }
+}
+
+/** The 32 dp back chevron at the top of each service page. */
+@Composable
+private fun BackChevron(onBack: () -> Unit) {
+  Box(
+    Modifier
+      .size(32.dp)
+      .clip(CircleShape)
+      .clickable(onClick = onBack)
+      .semantics { role = Role.Button; contentDescription = "Back" },
+    contentAlignment = Alignment.Center,
+  ) {
+    SvgAsset("onboarding/chevron-back.svg", 32.dp, 32.dp)
+  }
+}
+
+/**
+ * One 2 dp segment per service, 4 dp apart: Green/300 once that service is connected, Main/Surface/
+ * Secondary for the page being shown, Surface/200 otherwise.
+ */
+@Composable
+private fun ServiceProgress(pages: List<AiPage>, current: AiPage, services: Services) {
+  val c = TakuTheme.colors
+  Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+    for (page in pages) {
+      val color = when {
+        connectionOf(services, page.service) == Connection.CONNECTED -> c.accentPositive
+        page == current -> c.islandProgress
+        else -> c.islandChip
+      }
+      Box(Modifier.weight(1f).height(2.dp).clip(CircleShape).background(color))
     }
   }
 }
 
 /**
- * The chip row (1155:1084): 8 dp apart, scrolling sideways when the chips do not fit. It runs
- * into the card's right padding, where the Figma "Taku · Edge Refraction" lens bends what
- * scrolls under the card edge (the same shader and values as the pinned row).
+ * The service mark (or, once connected, the check in a solid white disc) and Heading/lg title,
+ * over its Body/md line.
  */
 @Composable
-private fun ServiceChips(services: Services, onTap: (OnboardingService) -> Unit) {
-  val scroll = rememberScrollState()
-  val density = LocalDensity.current.density
-  Row(
-    horizontalArrangement = Arrangement.spacedBy(8.dp),
-    verticalAlignment = Alignment.CenterVertically,
-    modifier = Modifier
-      .layout { measurable, constraints ->
-        val bleed = 16.dp.roundToPx()
-        val width = constraints.maxWidth + bleed
-        val placeable = measurable.measure(constraints.copy(minWidth = width, maxWidth = width))
-        layout(constraints.maxWidth, placeable.height) { placeable.place(0, 0) }
-      }
-      .graphicsLayer {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && size.width > 0f)
-          renderEffect = Shaders.edgeRefraction(size.width, size.height, density, left = scroll.value > 0, right = true).asComposeRenderEffect()
-      }
-      .horizontalScroll(scroll)
-      .padding(end = 16.dp),
-  ) {
-    ServiceChip(OnboardingService.CHATGPT, "ChatGPT", services.chatgpt, 124.dp, onTap)
-    ServiceChip(OnboardingService.JEV, "Jev", services.jev, 86.dp, onTap)
-    services.fal?.let { ServiceChip(OnboardingService.FAL, "Fal", it, 82.dp, onTap) }
-  }
-}
-
-/** A Surface/200 pill: 16 dp mark, 4 dp, label; dots while connecting, a check disc once connected. */
-@Composable
-private fun ServiceChip(service: OnboardingService, label: String, connection: Connection, minWidth: Dp, onTap: (OnboardingService) -> Unit) {
+private fun ServiceTitle(service: OnboardingService, connected: Boolean) {
   val c = TakuTheme.colors
-  val status = when (connection) {
-    Connection.CONNECTED -> "connected"
-    Connection.CONNECTING -> "connecting"
-    else -> "not connected"
+  val type = TakuTheme.type
+  val subtitle = when (service) {
+    OnboardingService.CHATGPT -> "Answer questions, write and plan"
+    OnboardingService.JEV -> "Help you make decisions"
+    OnboardingService.FAL -> "Create images, video and audio"
   }
-  Row(
-    horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
-    verticalAlignment = Alignment.CenterVertically,
-    modifier = Modifier
-      .widthIn(min = minWidth)
-      .clip(CircleShape)
-      .background(c.islandChip)
-      .clickable { onTap(service) }
-      .semantics { role = Role.Button; contentDescription = "$label, $status" }
-      .padding(horizontal = 12.dp, vertical = 8.dp),
-  ) {
-    ServiceMark(service)
-    BasicText(label, style = TakuTheme.type.bodyLgMedium.copy(color = c.islandChipText), maxLines = 1)
-    when (connection) {
-      Connection.CONNECTING -> WorkingDots(ink = c.islandChipText)
-      // A solid white 16 dp disc with the dark check (the Continue button's colours), so the
-      // connected state reads at a glance against the dark chip.
-      Connection.CONNECTED -> Box(Modifier.size(16.dp).background(c.islandAction, CircleShape), contentAlignment = Alignment.Center) {
-        TakuIcon(TakuIcons.Check, 12.dp, tint = c.islandActionText)
-      }
-      else -> Unit
+  Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+      if (connected) ConnectedDisc() else ServiceMark(service)
+      BasicText(
+        if (connected) "${service.label} Connected" else "Connect ${service.label}",
+        style = type.headingLg.copy(color = c.islandTextStrong),
+        maxLines = 1,
+      )
     }
+    BasicText(subtitle, style = type.bodyMd.copy(color = c.islandText))
   }
 }
 
-/** The Figma marks: OpenAI (tinted like the label), Jev in a 16 dp circle, Fal with its crop. */
+/** Connected: the existing check in a solid white 20 dp disc (the primary button's colours). */
+@Composable
+private fun ConnectedDisc() {
+  val c = TakuTheme.colors
+  Box(Modifier.size(20.dp).background(c.islandAction, CircleShape), contentAlignment = Alignment.Center) {
+    TakuIcon(TakuIcons.Check, 12.dp, tint = c.islandActionText)
+  }
+}
+
+/** The Figma title marks, 20 dp: OpenAI in white, Jev centre-cropped into a circle, fal. */
 @Composable
 private fun ServiceMark(service: OnboardingService) {
   when (service) {
-    OnboardingService.CHATGPT -> SvgAsset("onboarding/chatgpt-openai.svg", 16.dp, 16.dp, tint = TakuTheme.colors.islandChipText)
-    OnboardingService.JEV -> AssetBitmap("onboarding/jev.png", Modifier.size(16.dp).clip(CircleShape))
-    OnboardingService.FAL -> Box(Modifier.size(16.dp).clipToBounds()) {
-      // Figma 1326:772: the image is 147.53% × 148.58% of the box, offset −23.88% / −24.41%.
-      AssetBitmap("onboarding/fal.png", Modifier
-        .wrapContentSize(Alignment.TopStart, unbounded = true)
-        .offset(x = (-3.8208).dp, y = (-3.9056).dp)
-        .size(width = 23.6048.dp, height = 23.7728.dp))
-    }
+    OnboardingService.CHATGPT -> SvgAsset("onboarding/chatgpt-openai.svg", 20.dp, 20.dp, tint = TakuTheme.colors.islandInk)
+    OnboardingService.JEV -> AssetBitmap("onboarding/jev-mark.png", 20.dp, Modifier.size(20.dp).clip(CircleShape), ContentScale.Crop)
+    OnboardingService.FAL -> SvgAsset("onboarding/fal-mark.svg", 20.dp, 20.dp)
   }
 }
 
 /**
- * ChatGPT device-code sign-in inside the card (product addition; no Figma frame, built from the
- * card's own field, chip and button styles). Most people finish it on another device that is
- * already signed in, such as a computer's browser, so copying the link is the primary action and
- * nothing opens on this phone: a short instruction, the link and the one-time code as tap-to-copy
- * fields, then Cancel and Copy link. The ChatGPT chip keeps its working dots until the account lands.
+ * 1379:2331: ChatGPT device-code sign-in, with the broker's real link and one-time code. Arriving
+ * here starts the sign-in; Connect stays disabled while it waits for approval on the user's other
+ * device, and asks again if a sign-in failed or was never started. The page turns into the
+ * connected state (1379:2454) when the account lands.
  */
 @Composable
-private fun DeviceCodePanel(signIn: DeviceCodeSignIn, actions: OnboardingActions) {
-  val c = TakuTheme.colors
-  val type = TakuTheme.type
-  // Which item was just copied ("link" or "code"); the mark reverts after a moment.
+private fun ChatGptPage(state: OnboardingRepository.State, actions: OnboardingActions) {
+  val chatgpt = state.services.chatgpt
+  val waiting = chatgpt == Connection.CONNECTING || actions.busy
+  // After approval the broker verifies for a moment and no longer reports the code; keep the last
+  // one on screen until the account lands instead of flashing back to empty wells.
+  var lastSignIn by remember { mutableStateOf(state.signIn) }
+  LaunchedEffect(state.signIn) { state.signIn?.let { lastSignIn = it } }
+  val signIn = state.signIn ?: lastSignIn.takeIf { chatgpt == Connection.CONNECTING }
   var copied by remember(signIn) { mutableStateOf<String?>(null) }
   LaunchedEffect(copied) { if (copied != null) { delay(COPIED_MS); copied = null } }
-  fun copyLink() { if (actions.copy("Link", signIn.url)) copied = "link" }
-  fun copyCode() { if (actions.copy("Code", signIn.code)) copied = "code" }
+  val type = TakuTheme.type
+  val strong = TakuTheme.colors.islandTextStrong
 
-  Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-    BasicText(
-      "On a device where you’re signed in to ChatGPT, like your computer, open this link and enter the code.",
-      style = type.bodyLg.copy(color = c.islandText),
-      modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
-    )
-    CopyField("Link", signIn.displayUrl, type.bodyLg.copy(color = c.islandTextStrong), copied == "link") { copyLink() }
-    CopyField("Code", signIn.code, type.headingXl.copy(color = c.islandTextStrong, letterSpacing = 2.sp), copied == "code") { copyCode() }
-  }
-  Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-    IslandButton("Cancel", IslandButtonStyle.Secondary, enabled = !actions.busy) { actions.cancelSignIn() }
-    IslandButton(if (copied == "link") "Link copied" else "Copy link", IslandButtonStyle.Primary, enabled = true) { copyLink() }
-  }
-}
-
-/** A tap-to-copy value in the name field's pill: small label over the value, copy mark at the end. */
-@Composable
-private fun CopyField(label: String, value: String, valueStyle: TextStyle, copied: Boolean, onCopy: () -> Unit) {
-  val c = TakuTheme.colors
-  Row(
-    verticalAlignment = Alignment.CenterVertically,
-    horizontalArrangement = Arrangement.spacedBy(12.dp),
-    modifier = Modifier
-      .fillMaxWidth()
-      .clip(RoundedCornerShape(24.dp))
-      .background(c.islandField)
-      .clickable(onClick = onCopy)
-      .semantics(mergeDescendants = true) { role = Role.Button; contentDescription = "Copy ${label.lowercase()}, $value" }
-      .padding(start = 16.dp, end = 12.dp, top = 10.dp, bottom = 10.dp),
-  ) {
-    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-      BasicText(label, style = TakuTheme.type.bodySm.copy(color = c.islandPlaceholder), maxLines = 1)
-      BasicText(value, style = valueStyle, maxLines = 1, overflow = TextOverflow.Ellipsis)
+  ServiceTitle(OnboardingService.CHATGPT, connected = false)
+  Step(1, "Open this link below") {
+    CopyWell("link", signIn?.displayUrl, type.bodyLg.copy(color = strong), copied == "link", waiting) {
+      if (signIn != null && actions.copy("Link", signIn.url)) copied = "link"
     }
-    // The connected chip's disc once copied; the copy mark until then.
-    Box(Modifier.size(32.dp).clip(CircleShape).background(if (copied) c.islandAction else c.islandChip), contentAlignment = Alignment.Center) {
-      if (copied) TakuIcon(TakuIcons.Check, 16.dp, tint = c.islandActionText)
-      else TakuIcon(TakuIcons.Copy, 16.dp, tint = c.islandChipText)
+  }
+  Step(2, "Sign in to ChatGPT")
+  Step(3, "Enter the code and approve") {
+    CopyWell("code", signIn?.code, type.subHeadingLg.copy(color = strong), copied == "code", waiting) {
+      if (signIn != null && actions.copy("Code", signIn.code)) copied = "code"
     }
+  }
+  Row(Modifier.fillMaxWidth()) {
+    IslandButton("Connect", IslandButtonStyle.Primary, enabled = !waiting) { actions.connectChatGpt() }
   }
 }
 
 /**
- * The Jev or Fal key, pasted in place (the name field's style). Masked like any secret, with an
- * eye to show it for checking. While it saves (Jev can take up to ~30 s while Magpie lists the
- * model) the field locks, Save reads "Saving…" and the chip shows working dots; a failure is said
- * right under the field. A Jev key that saved before its model was listed closes the editor and
- * keeps connecting in the background ([OnboardingRepository.connect]).
+ * 1379:2556 (Jev) and 1379:2782 (fal): where to get a key, then the key itself. The key is shown
+ * by default and the eye masks it. While it saves (Jev can take up to ~30 s while Magpie lists the
+ * model, and may keep connecting in the background after that) the field locks and Connect reads
+ * "Connecting…"; a failure is said right under the field. "Skip for now" moves on unconnected.
  */
 @Composable
-private fun KeyEditor(service: OnboardingService, actions: OnboardingActions, onClose: () -> Unit) {
+private fun KeyPage(service: OnboardingService, connection: Connection, actions: OnboardingActions, onSkip: () -> Unit) {
   val c = TakuTheme.colors
   val type = TakuTheme.type
+  val (who, keysUrl) = when (service) {
+    OnboardingService.JEV -> "Jev" to JEV_KEYS_URL
+    else -> "fal" to FAL_KEYS_URL
+  }
+  // The key itself is never put in saved instance state.
   var draft by remember(service) { mutableStateOf("") }
-  var shown by remember(service) { mutableStateOf(false) }
+  var shown by rememberSaveable(service) { mutableStateOf(true) }
   var error by remember(service) { mutableStateOf<String?>(null) }
-  val focus = remember { FocusRequester() }
+  var copied by remember(service) { mutableStateOf(false) }
+  LaunchedEffect(copied) { if (copied) { delay(COPIED_MS); copied = false } }
   val keyboard = LocalSoftwareKeyboardController.current
-  val saving = actions.busy
-  val ready = OnboardingRules.canSaveKey(service, draft) && !saving
-  val placeholder = if (service == OnboardingService.JEV) "Paste a TypeSafe or OpenRouter key" else "Paste your fal key"
+  val connecting = actions.busy || connection == Connection.CONNECTING
+  val ready = OnboardingRules.canSaveKey(service, draft) && !connecting
   fun save() {
     if (!ready) return
     error = null
     keyboard?.hide()
-    actions.saveKey(service, draft, onSaved = onClose, onError = { error = it })
+    actions.saveKey(service, draft, onSaved = {}, onError = { error = it })
   }
-  LaunchedEffect(service) { withFrameNanos {}; focus.requestFocus(); keyboard?.show() }
 
-  BasicTextField(
-    value = draft,
-    onValueChange = { if (it.length <= 4096) { draft = it; error = null } },
-    enabled = !saving,
-    singleLine = true,
-    textStyle = type.bodyLg.copy(color = c.islandTextStrong),
-    cursorBrush = SolidColor(c.islandInk),
-    visualTransformation = if (shown) VisualTransformation.None else PasswordVisualTransformation(),
-    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false, imeAction = ImeAction.Done),
-    keyboardActions = KeyboardActions(onDone = { save() }),
-    modifier = Modifier.fillMaxWidth().focusRequester(focus).semantics { contentDescription = placeholder },
-    decorationBox = { field ->
-      Row(
-        Modifier.fillMaxWidth().clip(CircleShape).background(c.islandField).padding(start = 12.dp, end = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-      ) {
-        Box(Modifier.weight(1f).padding(vertical = 12.dp), contentAlignment = Alignment.CenterStart) {
-          if (draft.isEmpty()) BasicText(placeholder, style = type.bodyLg.copy(color = c.islandPlaceholder), maxLines = 1)
-          field()
-        }
-        // Show or mask the key; 40 dp target, the icon in the chip ink.
-        Box(
-          Modifier
-            .size(40.dp)
-            .clip(CircleShape)
-            .clickable { shown = !shown }
-            .semantics { role = Role.Button; contentDescription = if (shown) "Hide key" else "Show key" },
-          contentAlignment = Alignment.Center,
-        ) {
-          TakuIcon(if (shown) TakuIcons.EyeOff else TakuIcons.Eye, 20.dp, tint = c.islandChipText)
-        }
-      }
-    },
-  )
-  error?.let {
-    BasicText(it, style = type.bodyMd.copy(color = c.islandTextStrong), modifier = Modifier.padding(horizontal = 12.dp))
+  ServiceTitle(service, connected = false)
+  Step(1, "Sign up or sign in to $who") {
+    CopyWell("link", keysUrl, type.bodyLg.copy(color = c.islandTextStrong), copied, waiting = false) {
+      if (actions.copy("Link", keysUrl)) copied = true
+    }
   }
-  Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-    IslandButton("Cancel", IslandButtonStyle.Secondary, enabled = true) { onClose() }
-    IslandButton(if (saving) "Saving…" else "Save", IslandButtonStyle.Primary, enabled = ready) { save() }
+  Step(2, "Create and copy an API key")
+  Step(3, "Paste the key below") {
+    BasicTextField(
+      value = draft,
+      onValueChange = { if (it.length <= 4096) { draft = it; error = null } },
+      enabled = !connecting,
+      singleLine = true,
+      textStyle = type.bodyLg.copy(color = c.islandText),
+      cursorBrush = SolidColor(c.islandInk),
+      visualTransformation = if (shown) VisualTransformation.None else PasswordVisualTransformation(),
+      keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false, imeAction = ImeAction.Done),
+      keyboardActions = KeyboardActions(onDone = { save() }),
+      modifier = Modifier.fillMaxWidth().semantics { contentDescription = "$who API key" },
+      decorationBox = { field ->
+        Well(Modifier.height(48.dp)) {
+          Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+            if (draft.isEmpty()) BasicText("API key", style = type.bodyLg.copy(color = c.islandPlaceholder), maxLines = 1)
+            field()
+          }
+          // The eye shows the key's state: open while shown (the default), slashed while masked.
+          Box(
+            Modifier
+              .size(32.dp)
+              .clip(CircleShape)
+              .clickable { shown = !shown }
+              .semantics { role = Role.Button; contentDescription = if (shown) "Hide key" else "Show key" },
+            contentAlignment = Alignment.Center,
+          ) {
+            if (shown) SvgAsset("onboarding/eye.svg", 18.1495.dp, 18.dp) else SvgAsset("onboarding/eye-off.svg", 18.dp, 18.dp)
+          }
+        }
+      },
+    )
+    error?.let {
+      BasicText(it, style = type.bodyMd.copy(color = c.islandTextStrong), modifier = Modifier.padding(horizontal = 12.dp))
+    }
+  }
+  Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(Modifier.fillMaxWidth()) {
+      IslandButton(if (connecting) "Connecting…" else "Connect", IslandButtonStyle.Primary, enabled = ready) { save() }
+    }
+    // A text action, 40 dp tall: Body/Medium/lg in Surface/800, no fill.
+    Box(
+      Modifier
+        .fillMaxWidth()
+        .height(40.dp)
+        .clip(CircleShape)
+        .clickable(enabled = !actions.busy, onClick = onSkip)
+        .semantics { role = Role.Button; if (actions.busy) disabled() },
+      contentAlignment = Alignment.Center,
+    ) {
+      BasicText("Skip for now", style = type.bodyLgMedium.copy(color = c.islandText), maxLines = 1)
+    }
+  }
+}
+
+/** A numbered step: the number in a 28 dp Surface/200 ring, 8 dp, the instruction; then its well. */
+@Composable
+private fun Step(number: Int, text: String, content: (@Composable () -> Unit)? = null) {
+  val c = TakuTheme.colors
+  val type = TakuTheme.type
+  Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+      Box(Modifier.size(28.dp).border(1.dp, c.islandChip, CircleShape), contentAlignment = Alignment.Center) {
+        BasicText(number.toString(), style = type.bodyLgMedium.copy(color = c.islandTextStrong, textAlign = TextAlign.Center))
+      }
+      BasicText(text, style = type.bodyLg.copy(color = c.islandText))
+    }
+    content?.invoke()
+  }
+}
+
+/** Surface/50 row, radius 24, 12 dp in at the start and 8 dp elsewhere, at least 48 dp tall. */
+@Composable
+private fun Well(modifier: Modifier = Modifier, content: @Composable RowScope.() -> Unit) {
+  Row(
+    modifier
+      .fillMaxWidth()
+      .heightIn(min = 48.dp)
+      .clip(RoundedCornerShape(24.dp))
+      .background(TakuTheme.colors.islandWell)
+      .padding(start = 12.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
+    verticalAlignment = Alignment.CenterVertically,
+    horizontalArrangement = Arrangement.spacedBy(8.dp),
+    content = content,
+  )
+}
+
+/**
+ * A value to use on another device with its copy button (32 dp, Surface/200). Working dots stand
+ * in until the value arrives; the button shows the white check disc for a moment once copied.
+ */
+@Composable
+private fun CopyWell(what: String, value: String?, style: TextStyle, copied: Boolean, waiting: Boolean, onCopy: () -> Unit) {
+  val c = TakuTheme.colors
+  Well {
+    Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+      when {
+        value != null -> BasicText(value, style = style, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        waiting -> WorkingDots(ink = c.islandInk)
+        else -> BasicText("—", style = style.copy(color = c.islandPlaceholder), maxLines = 1)
+      }
+    }
+    Box(
+      Modifier
+        .size(32.dp)
+        .clip(CircleShape)
+        .background(if (copied) c.islandAction else c.islandChip)
+        .clickable(enabled = value != null, onClick = onCopy)
+        .semantics { role = Role.Button; contentDescription = "Copy $what"; if (value == null) disabled() },
+      contentAlignment = Alignment.Center,
+    ) {
+      if (copied) TakuIcon(TakuIcons.Check, 16.dp, tint = c.islandActionText)
+      else SvgAsset("onboarding/copy.svg", 18.dp, 18.dp)
+    }
   }
 }
 
@@ -746,15 +852,25 @@ private fun DotStar() {
   }
 }
 
-/** A bundled raster asset, decoded once. */
+/**
+ * A bundled raster asset, decoded once and downsampled (by powers of two) to no less than [drawn]
+ * on its short side, so a large source costs only what it shows. The file itself is unchanged.
+ */
 @Composable
-private fun AssetBitmap(path: String, modifier: Modifier) {
+private fun AssetBitmap(path: String, drawn: Dp, modifier: Modifier, contentScale: ContentScale = ContentScale.FillBounds) {
   val context = LocalContext.current
-  val bitmap = remember(path) {
-    runCatching { context.assets.open(path).use { BitmapFactory.decodeStream(it) }?.asImageBitmap() }
-      .onFailure { Log.w("TakuOnboarding", "could not draw $path", it) }.getOrNull()
+  val target = with(LocalDensity.current) { drawn.roundToPx() }.coerceAtLeast(1)
+  val bitmap = remember(path, target) {
+    runCatching {
+      val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+      context.assets.open(path).use { BitmapFactory.decodeStream(it, null, bounds) }
+      var sample = 1
+      while (minOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= target) sample *= 2
+      val options = BitmapFactory.Options().apply { inSampleSize = sample }
+      context.assets.open(path).use { BitmapFactory.decodeStream(it, null, options) }?.asImageBitmap()
+    }.onFailure { Log.w("TakuOnboarding", "could not draw $path", it) }.getOrNull()
   }
-  if (bitmap != null) Image(bitmap, contentDescription = null, contentScale = ContentScale.FillBounds, modifier = modifier)
+  if (bitmap != null) Image(bitmap, contentDescription = null, contentScale = contentScale, modifier = modifier)
   else Spacer(modifier)
 }
 
@@ -782,6 +898,9 @@ private fun SvgAsset(path: String, width: Dp, height: Dp, tint: Color? = null) {
 private val CARD_RADIUS = 40.dp
 /** How long a copied link or code keeps its check mark. */
 private const val COPIED_MS = 2_000L
+/** Where each service's API keys are made (Figma 1379:2659, 1382:3245). */
+private const val JEV_KEYS_URL = "https://console.typesafe.ai/keys"
+private const val FAL_KEYS_URL = "https://fal.ai/dashboard/keys"
 /** Collapsed island pill the card grows from (Figma 4-connecting compact pill height). */
 private val PILL_WIDTH = 128.dp
 private val PILL_HEIGHT = 32.dp

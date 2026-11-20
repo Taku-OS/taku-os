@@ -50,6 +50,15 @@
                 ]
               },
               {
+                "fontFamily": "TakuBodySemiBold",
+                "fontDefinitions": [
+                  {
+                    "path": "./src/theme/fonts/hanken_grotesk_semibold.ttf",
+                    "weight": 600
+                  }
+                ]
+              },
+              {
                 "fontFamily": "TakuDisplay",
                 "fontDefinitions": [
                   {

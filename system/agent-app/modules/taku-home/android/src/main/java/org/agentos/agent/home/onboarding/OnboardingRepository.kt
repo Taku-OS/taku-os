@@ -507,8 +507,8 @@ class OnboardingRepository private constructor(context: Context) {
     private const val FAILED = "ChatGPT sign-in didn’t finish. Try again."
     private const val JEV_POLL_MS = 5_000L
     private const val JEV_WAIT_MS = 3 * 60_000L
-    private const val JEV_NO_MAGPIE = "Jev key saved, but the model service isn’t running. Tap Jev to try again."
-    private const val JEV_NO_MODEL = "Jev key saved, but no Jev model is available for it yet. Tap Jev to try again."
+    private const val JEV_NO_MAGPIE = "Jev key saved, but the model service isn’t running. Try connecting Jev again."
+    private const val JEV_NO_MODEL = "Jev key saved, but no Jev model is available for it yet. Try connecting Jev again."
     private val UNSETTLED_PHASES = setOf("loading", "verifying")
     private val SIGNING_IN_PHASES = setOf("starting", "pending", "verifying")
     private val MEMORY: Uri = Uri.parse("content://org.agentos.memory.open-access")

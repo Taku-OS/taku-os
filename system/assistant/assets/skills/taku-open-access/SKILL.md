@@ -376,7 +376,7 @@ Discovery/turn preparation updates `taku-open-access/SKILL.md` when it matches t
 
 ## First-run onboarding
 
-Home shows a first-run onboarding card (Figma 1155:527, 1155:619, 1155:846, 1155:1073, 1341:782) only when **all**
+Home shows a first-run onboarding card (Figma 1155:527, 1379:1785, 1379:2012, 1379:2239–1379:2907, 1341:782) only when **all**
 are confirmed: onboarding is not completed, AI is confirmed unavailable (`account/status`
 `aiAvailable:false` with a settled `phase`), and the phone is ready (`device_provisioned=1`, this
 user's `user_setup_complete=1`, user unlocked). Anything uncertain keeps it hidden: a broker that
@@ -412,14 +412,16 @@ content call --uri $O --method onboarding/get
 # Card actions, with the GUI's validation, in order:
 content call --uri $O --method onboarding/set-up                 # intro → name ("Set up Taku")
 content call --uri $O --method onboarding/submit-name --arg '{"name":"Deki"}'   # name → connect_ai ("Continue")
-content call --uri $O --method onboarding/skip-name              # name → connect_ai ("Later")
-# AI step chips (connect_ai only):
+content call --uri $O --method onboarding/skip-name              # name → connect_ai ("Skip for now")
+# AI step (connect_ai only). The card walks ChatGPT → Jev → Fal one page at a time ("Connect AI
+# Agent", then each page's Connect / "Skip for now" / "Next"); the pages are card navigation only,
+# not stored state, and these calls work whichever page the card shows:
 content call --uri $O --method onboarding/connect --arg '{"service":"chatgpt"}'  # device-code sign-in; the card shows chatgptSignIn
 content call --uri $O --method onboarding/cancel-sign-in
-content call --uri $O --method onboarding/connect --arg '{"service":"jev"}'   # use a Jev Magpie already serves
+content call --uri $O --method onboarding/connect --arg '{"service":"jev"}'   # use a Jev Magpie already serves (the card tries this on opening the Jev page)
 content call --uri $O --method onboarding/connect --arg '{"service":"jev","key":"apikey_..."}'   # TypeSafe or OpenRouter key
 content call --uri $O --method onboarding/connect --arg '{"service":"fal","key":"..."}'
-content call --uri $O --method onboarding/finish                 # connect_ai → all_set ("Continue"; needs available AI)
+content call --uri $O --method onboarding/finish                 # connect_ai → all_set (last page's "Continue" or "Skip for now"; needs available AI)
 content call --uri $O --method onboarding/explore                # all_set → completed ("I’ll explore")
 # Agent-only: back to intro (available AI completes it again immediately).
 content call --uri $O --method onboarding/reset

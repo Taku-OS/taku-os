@@ -128,6 +128,10 @@ data class TakuColors(
   /** Disabled island action: Surface/50 fill, Surface/400 label. */
   val islandActionDisabled: Color,
   val islandActionDisabledText: Color,
+  /** Island read-only well: the onboarding link, code and key rows (Surface/50). */
+  val islandWell: Color,
+  /** Onboarding progress segment for the service being set up (Main/Surface/Secondary). */
+  val islandProgress: Color,
   /** Voice aurora under the 1-1 glass: yellow, blue, red, green. */
   val voiceAurora: List<Color>,
   /** Screen-edge "Taku is working" glows: bottom, left, right, top. */
@@ -154,6 +158,7 @@ data class TakuColors(
         islandTextStrong = surface900, islandField = surface200, islandPlaceholder = surface500,
         islandAction = surfaceDefault, islandActionText = foreground, islandBrand = brand,
         islandActionDisabled = surface50, islandActionDisabledText = surface400,
+        islandWell = surface50, islandProgress = surfaceSecondary,
         voiceAurora = listOf(auroraYellow, auroraBlue, auroraRed, auroraGreen),
         workingGlow = listOf(glowGreen, glowSky, glowOrange, glowIndigo),
       )
@@ -177,6 +182,7 @@ data class TakuColors(
         islandTextStrong = surface900, islandField = surface200, islandPlaceholder = surface500,
         islandAction = surfaceDefault, islandActionText = foreground, islandBrand = brand,
         islandActionDisabled = surface50, islandActionDisabledText = surface400,
+        islandWell = surface50, islandProgress = surfaceSecondary,
         voiceAurora = listOf(auroraYellow, auroraBlue, auroraRed, auroraGreen),
         workingGlow = listOf(glowGreen, glowSky, glowOrange, glowIndigo),
       )
