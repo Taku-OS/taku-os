@@ -27,6 +27,11 @@ Each line has this shape (the epoch/sequence are Taku relay fields):
   older/equal revision cannot roll it back. Its `card` contains the typed V2
   request, directly supplied view and field readiness. No model records are
   parsed in the client, and no second transport cursor is introduced.
+- `session/reaction` with `params:{turnId,itemId,reaction}` puts Taku's emoji reaction
+  (`""` clears it) on that `userMessage` item. It is out of band: it repeats the
+  stream's latest `brokerEpoch`/`seq`, does not advance the cursor and is never a gap.
+  Apply it only to a known user item of the current epoch; otherwise ignore it, since
+  snapshots and `readSession` already carry `item.reaction`.
 - Native code suppresses framed source deltas until a valid prefix is available.
   Public item text, canonical reads and terminal events contain the deterministic
   readable projection, never primary wire JSON. One participating source item

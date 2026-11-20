@@ -427,6 +427,28 @@ credential getter remains private to its verified root config connection.
 Open `org.agentos.audio/.AudioHomeActivity` for the GUI. It starts no inference.
 
 
+## Message reactions
+
+Besides its normal reply, Taku may put one emoji reaction on a user message (Figma 297:433:
+a small badge on the bubble's bottom-right corner). For each new user message (one whose turn
+is still being answered) Jev decides once whether to react and with which of 👍 ❤️ 😂 🎉 😮 🙏 👋;
+most messages get none, a low-confidence answer counts as none, and nothing is decided unless
+Jev is enabled with a model (the same switch and model as gateway `decide`). History is never
+back-filled. Reactions are stored per thread/turn/item and appear as `reaction` on `userMessage`
+items in session reads and snapshots, and as a live `session/reaction` stream event.
+
+```sh
+A=content://org.agentos.assistant.open-access
+content call --uri $A --method reactions/list --arg '{"threadId":"THREAD_ID"}'
+# {threadId, reactions:[{turnId,itemId,reaction:"👍"|null,source:"jev"|"agent",decidedAt}]}, newest first
+content call --uri $A --method reactions/set --arg '{"threadId":"THREAD_ID","turnId":"TURN_ID","itemId":"ITEM_ID","reaction":"🎉"}'
+content call --uri $A --method reactions/set --arg '{"threadId":"THREAD_ID","turnId":"TURN_ID","itemId":"ITEM_ID","reaction":null}'
+```
+
+`reactions/set` accepts only those seven emoji (`INVALID_REACTION` otherwise) or `null` to
+clear, updates an open chat at once, and returns the same list. Unknown parameters are
+`UNSUPPORTED_PARAMETER`.
+
 ## Primary conversation replies
 
 The main model's component/data stream is validated by the native owner. This

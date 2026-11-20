@@ -174,3 +174,30 @@ test('polling-only fallback keeps valid history proof before any stream has atta
   const sideband = {thread: {id: 'thread', turns: [{id: 'turn'}]}, historyComplete: true};
   assert.equal(reconcileStreamHistory(empty, empty, sideband), sideband);
 });
+
+test('a late reaction lands on its user message in place, without advancing or breaking the sequence', () => {
+  const user = {id: 'ask', type: 'userMessage', content: [{type: 'text', text: 'Thanks so much!'}]};
+  let state = reduceSessionBatch(initial(), [event(1, 'item/started', {turnId: 'turn', item: user}), delta(2, 'You are welcome.')]);
+  assert.equal(view(state).blocks.find(block => block.role === 'user').reaction, undefined);
+  state = reduceSessionEvent(state, event(2, 'session/reaction', {turnId: 'turn', itemId: 'ask', reaction: '❤️'}));
+  assert.equal(state.seq, 2, 'out of band: the sequence is unchanged');
+  assert.equal(state.needsResync, false);
+  assert.equal(view(state).blocks.find(block => block.role === 'user').reaction, '❤️');
+  state = reduceSessionEvent(state, delta(3, ' Anytime.'));
+  assert.equal(state.needsResync, false, 'the next native event still follows');
+  assert.equal(view(state).blocks.find(block => block.role === 'user').reaction, '❤️');
+  // Unknown messages, assistant items and another epoch are left alone.
+  for (const stray of [event(3, 'session/reaction', {turnId: 'turn', itemId: 'missing', reaction: '👍'}),
+    event(3, 'session/reaction', {turnId: 'turn', itemId: 'answer', reaction: '👍'}),
+    event(3, 'session/reaction', {turnId: 'turn', itemId: 'ask', reaction: '👍'}, 'epoch-b')])
+    assert.equal(reduceSessionEvent(state, stray), state);
+});
+
+test('a snapshot carries a stored reaction onto the user message; none shows no badge', () => {
+  const state = reduceSessionEvent(emptySessionStream('thread'), snapshot(0, [{id: 'turn', status: 'completed', items: [
+    {id: 'hi', type: 'userMessage', content: [{type: 'text', text: 'Hi Taku'}], reaction: '👋'},
+    {id: 'plain', type: 'userMessage', content: [{type: 'text', text: 'What time is it?'}]},
+  ]}]));
+  const users = view(state).blocks.filter(block => block.role === 'user');
+  assert.deepEqual(users.map(block => block.reaction), ['👋', undefined]);
+});

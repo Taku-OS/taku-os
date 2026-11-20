@@ -140,6 +140,18 @@ public final class AgentOpenAccessProvider extends ContentProvider {
                 return transport(out, envelope, caller);
             } else if (method.startsWith("skills/")) result = TaskRequests.control(method, input);
             else if (RPC.contains(method)) result = NativeClient.rpcSync(method, input);
+            else if (method.equals("reactions/list")) {
+                only(input, "threadId");
+                AgentGatewayProtocol.requireId(input, "threadId");
+                result = MessageReactions.INSTANCE.list(getContext(), input.getString("threadId"));
+            } else if (method.equals("reactions/set")) {
+                only(input, "threadId", "turnId", "itemId", "reaction");
+                if (!input.has("reaction")) throw new IOException("INVALID_ARGUMENT");
+                AgentGatewayProtocol.requireId(input, "threadId");
+                MessageReactions.INSTANCE.set(getContext(), input.getString("threadId"), input.getString("turnId"), input.getString("itemId"),
+                        input.isNull("reaction") ? null : input.getString("reaction"));
+                result = MessageReactions.INSTANCE.list(getContext(), input.getString("threadId"));
+            }
             else if (method.equals("thread/usage")) {
                 AgentGatewayProtocol.requireId(input, "threadId");
                 JSONObject usage = NativeClient.state(input.getString("threadId")).optJSONObject("usage");
@@ -233,4 +245,11 @@ public final class AgentOpenAccessProvider extends ContentProvider {
     @Override public Uri insert(Uri uri, ContentValues values) { throw new UnsupportedOperationException(); }
     @Override public int update(Uri uri, ContentValues values, String selection, String[] args) { throw new UnsupportedOperationException(); }
     @Override public int delete(Uri uri, String selection, String[] args) { throw new UnsupportedOperationException(); }
+
+    /** Rejects any parameter outside [allowed] (`UNSUPPORTED_PARAMETER`), like the gateway's protocol check. */
+    private static void only(JSONObject input, String... allowed) throws IOException {
+        java.util.List<String> fields = java.util.Arrays.asList(allowed);
+        java.util.Iterator<String> keys = input.keys();
+        while (keys.hasNext()) if (!fields.contains(keys.next())) throw new IOException("UNSUPPORTED_PARAMETER");
+    }
 }

@@ -45,6 +45,8 @@ const dark = {
   errorSurface: '#402322',
   /** Stop: a solid Main/Surface/Default disc with a Main/Foreground square, clear on the dark glass. */
   stopFill: '#FFFFFF', stopGlyph: '#1B1B1B',
+  /** Reaction badge (300:682): Surface/50 glass inside a 2 dp Content/900 ring that cuts it from the bubble. */
+  reactionFill: surface(0.04), reactionRing: content(0.92),
 };
 
 export type ChatColors = typeof dark;
@@ -60,6 +62,8 @@ const light: ChatColors = {
   errorSurface: '#F9DEDC',
   /** On the light background the stop disc inverts: Main/Foreground with a white square. */
   stopFill: '#1B1B1B', stopGlyph: '#FFFFFF',
+  /** On the light background the ring is the light canvas and the badge a white glass. */
+  reactionFill: surface(0.8), reactionRing: '#E3E3E3',
 };
 
 export type ChatAppearance = 'dark' | 'light';

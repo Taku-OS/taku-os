@@ -47,6 +47,11 @@ class AgentGatewayProvider : ContentProvider() {
     private class SessionStream(val uid: Int, val request: JSONObject) {
         val created = SystemClock.elapsedRealtime()
         var opened = false
+        /** The worker and out-of-band events (reactions) write whole lines, one at a time. */
+        val writeLock = Any()
+        /** The latest native event's epoch and sequence, which an out-of-band event repeats. */
+        @Volatile var lastEpoch = ""
+        @Volatile var lastSeq = -1L
         @Volatile var closed = false
         var socket: LocalSocket? = null
         var output: ParcelFileDescriptor? = null
@@ -74,7 +79,25 @@ class AgentGatewayProvider : ContentProvider() {
         submissions = AgentGatewaySubmissions.get(context!!.filesDir)
         matters = MatterRuntime.get(context!!)
         matterStreams = MatterStreams(matters)
+        // A reaction decided after its message was shown reaches open chat streams at once.
+        MessageReactions.listener = { thread, turn, item, emoji -> pushReaction(thread, turn, item, emoji) }
         return true
+    }
+
+    /**
+     * `session/reaction` on every open stream of [thread]: out of band, it repeats the stream's
+     * last epoch and sequence instead of taking a new one, and the chat applies it in place.
+     */
+    private fun pushReaction(thread: String, turn: String, item: String, emoji: String) {
+        val targets = synchronized(this) { streams.values.filter { it.opened && !it.closed && it.request.optString("threadId") == thread } }
+        for (stream in targets) {
+            if (stream.lastSeq < 0 || stream.lastEpoch.isEmpty()) continue
+            val event = JSONObject().put("schema", "taku.session-events/1").put("threadId", thread)
+                .put("brokerEpoch", stream.lastEpoch).put("seq", stream.lastSeq).put("method", "session/reaction")
+                .put("params", JSONObject().put("turnId", turn).put("itemId", item).put("reaction", emoji))
+            val bytes = (event.toString() + "\n").toByteArray(StandardCharsets.UTF_8)
+            try { synchronized(stream.writeLock) { writeEvent(stream, bytes) } } catch (_: Exception) { }
+        }
     }
 
     private fun enforceCaller() {
@@ -341,7 +364,10 @@ class AgentGatewayProvider : ContentProvider() {
             if (complete) completeHistory[threadId] = historyIds(thread)
             val turns = thread.optJSONArray("turns")
             matters.observeThread(thread)
-            result = JSONObject().put("thread", AgentGatewayProtocol.threadView(thread))
+            MessageReactions.observe(context!!, thread)
+            val view = AgentGatewayProtocol.threadView(thread)
+            MessageReactions.decorate(context!!, view)
+            result = JSONObject().put("thread", view)
                 .put("native", AgentGatewayProtocol.nativeView(nativeState, threadId))
                 .put("historyComplete", complete).put("historyStatus", if (complete) "complete" else "unknown")
                 .put("knownEmpty", complete && turns != null && turns.length() == 0).put("totalTurns", if (turns == null) 0 else turns.length())
@@ -543,9 +569,27 @@ class AgentGatewayProvider : ContentProvider() {
                                 // pin) is missing, so the chat retries quietly. Say why, for diagnosis.
                                 android.util.Log.w("TakuMatters", "card projection unavailable for ${event.optString("method")}: ${failure.message}", failure)
                             }
+                            // Reactions: new user messages get a Jev decision; known reactions ride along.
+                            try {
+                                val params = event.getJSONObject("params")
+                                val threadId = stream.request.getString("threadId")
+                                when (event.optString("method")) {
+                                    "session/snapshot" -> params.getJSONObject("thread").let {
+                                        MessageReactions.observe(context!!, it); MessageReactions.decorate(context!!, it)
+                                    }
+                                    "item/started", "item/completed" -> params.getJSONObject("item").let {
+                                        MessageReactions.observeItem(context!!, threadId, params.getString("turnId"), it)
+                                        MessageReactions.decorateItem(context!!, threadId, params.getString("turnId"), it)
+                                    }
+                                }
+                            } catch (failure: Exception) {
+                                android.util.Log.w("TakuReactions", "reaction projection skipped: ${failure.message}")
+                            }
+                            stream.lastEpoch = event.optString("brokerEpoch")
+                            stream.lastSeq = event.optLong("seq", -1L)
                             val bytes = (event.toString() + "\n").toByteArray(StandardCharsets.UTF_8)
                             if (bytes.size > MAX_RESULT_BYTES) throw IOException("STREAM_EVENT_TOO_LARGE")
-                            writeEvent(stream, bytes)
+                            synchronized(stream.writeLock) { writeEvent(stream, bytes) }
                         }
                     }
                 }

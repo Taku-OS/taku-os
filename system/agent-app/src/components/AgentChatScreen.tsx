@@ -193,10 +193,15 @@ function Message({block, language, renderMarkdown, renderCard, expanded, demand,
     const timer = setTimeout(() => setTimedOutBlock(id), FIRST_RESPONSE_TIMEOUT_MS);
     return () => clearTimeout(timer);
   }, [block.id, untrackedPending]);
-  if (block.role === 'user') return <View style={styles.userWrap}><View style={styles.userBubble}>
-    {!!block.text && <Text selectable style={[chatType.bodyLg(containsChinese(block.text)), styles.userText]}>{block.text}</Text>}
-    {block.attachments.map((name, i) => <Label key={`${name}-${i}`} role="caption" style={styles.attachment}>{name === 'image' ? t('image') : name}</Label>)}
-    {block.requestStopped && <Label role="caption" style={styles.secondary}>{t('requestStopped')}</Label>}
+  if (block.role === 'user') return <View style={[styles.userWrap, !!block.reaction && styles.userWrapReacted]}><View>
+    <View style={styles.userBubble}>
+      {!!block.text && <Text selectable style={[chatType.bodyLg(containsChinese(block.text)), styles.userText]}>{block.text}</Text>}
+      {block.attachments.map((name, i) => <Label key={`${name}-${i}`} role="caption" style={styles.attachment}>{name === 'image' ? t('image') : name}</Label>)}
+      {block.requestStopped && <Label role="caption" style={styles.secondary}>{t('requestStopped')}</Label>}
+    </View>
+    {!!block.reaction && <View testID={`reaction-${block.id}`} accessible accessibilityLabel={`${t('reactionLabel')} ${block.reaction}`} style={styles.reaction}>
+      <Text style={styles.reactionText}>{block.reaction}</Text>
+    </View>}
   </View></View>;
   // Long press opens Copy / Select once the reply text is final (or a primary card while streaming).
   const canCopy = !!block.text && (!block.active || block.parts.some(part => part.card?.kind === 'primary'));
@@ -699,7 +704,13 @@ const styles = themedStyles(() => StyleSheet.create({
   // shrinks to its text as in the frame; a long one uses the width up to a 48 dp left margin
   // instead of the frame's 129 dp column (issue #32 C4).
   userWrap: {alignItems: 'flex-end', paddingLeft: chatMetrics.bubbleMinInset}, userBubble: {backgroundColor: chatColors.bubble, padding: 8, borderRadius: 16, borderBottomRightRadius: 4, gap: 8},
-  attachment: {color: chatColors.userText}, assistant: {gap: chatMetrics.replyGap}, messageParts: {gap: chatMetrics.replyGap},
+  attachment: {color: chatColors.userText},
+  // Figma 297:433 / 300:682: the reaction overlaps the bubble's bottom-right corner (8 dp in,
+  // 8 dp over its edge) and the row keeps 16 dp below the bubble for it.
+  userWrapReacted: {paddingBottom: 16},
+  reaction: {position: 'absolute', right: 8, bottom: -20, paddingHorizontal: 8, borderRadius: 999, borderWidth: 2,
+    borderColor: chatColors.reactionRing, backgroundColor: chatColors.reactionFill, overflow: 'hidden'},
+  reactionText: {fontSize: 16, lineHeight: 24, includeFontPadding: false, color: '#FFFFFF'}, assistant: {gap: chatMetrics.replyGap}, messageParts: {gap: chatMetrics.replyGap},
   replyActions: {flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', maxWidth: '100%', gap: 8},
   activityToggle: {flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 48, flexShrink: 1, paddingRight: 4},
   activityGroup: {gap: 8}, activityHeading: {lineHeight: 20},
