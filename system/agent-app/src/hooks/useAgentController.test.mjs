@@ -14,7 +14,11 @@ const mocks = new Map([
   ['react-native', mock(`export const AppState = {currentState: 'active', addEventListener() {return {remove() {}};}};
     export const BackHandler = {addEventListener() {return {remove() {}};}};`)],
   ['expo-localization', mock(`export const useLocales = () => [{languageCode: 'en'}];`)],
-  ['../native/composerPicker', mock(`export const pickComposerAttachment = async () => null;`)],
+  ['../native/composerPicker', mock(`export const pickComposerAttachment = async () => null;
+    export const onComposerAttachment = listener => {
+      runtime.attachmentListeners.add(listener);
+      return {remove() {runtime.attachmentListeners.delete(listener);}};
+    };`)],
   ['@react-native-async-storage/async-storage', mock(`export default {
     getItem: async key => runtime.storage.get(key) ?? null,
     getAllKeys: async () => [...runtime.storage.keys()],
@@ -55,7 +59,7 @@ const deferred = () => {let resolve; const promise = new Promise(yes => {resolve
 
 function reset(t) {
   Object.assign(runtime, {sequence: 0, storage: new Map(), drafts: new Map(), receipts: new Map(), consumed: new Set(),
-    events: [], calls: [], lookups: [], completed: [], openListeners: new Set(), target: {...target}, threadId: 'thread-a',
+    events: [], calls: [], lookups: [], completed: [], openListeners: new Set(), attachmentListeners: new Set(), target: {...target}, threadId: 'thread-a',
     failConsumption: false, mounts: [], receipt: async (args, panelId) => accepted(args, panelId)});
   runtime.callAgent = async (action, params = {}) => {
     const threadId = params.threadId;
@@ -357,4 +361,35 @@ test('an archived unconfirmed message survives an interrupted migration without 
   assert.equal(runtime.storage.has(key), false);
   assert.deepEqual(runtime.drafts.get('thread-a')?.recovery.map(item => [item.id, item.text]), [[requestId, text]]);
   assert.deepEqual(runtime.calls, []);
+});
+
+test('a recovered attachment event reloads the current saved draft and unsubscribes on unmount', async t => {
+  reset(t);
+  const host = mount(); await flush(host);
+  const attachment = {id: 'photo-a', name: 'Photo.jpg', mime: 'image/jpeg', size: 1234};
+  runtime.drafts.set('thread-a', {threadId: 'thread-a', revision: 'after-picker', text: 'Saved caption', attachments: [attachment]});
+  assert.equal(runtime.attachmentListeners.size, 1);
+  for (const listener of runtime.attachmentListeners) listener('thread-a');
+  await flush(host);
+  assert.equal(host.result.draft, 'Saved caption');
+  assert.equal(host.result.draftRevision, 'after-picker');
+  assert.deepEqual(host.result.attachments, [attachment]);
+  host.unmount();
+  assert.equal(runtime.attachmentListeners.size, 0);
+});
+
+test('an attachment event for another conversation does not reload the selected draft', async t => {
+  reset(t);
+  const host = mount(); await flush(host);
+  const reads = [];
+  const callAgent = runtime.callAgent;
+  runtime.callAgent = async (action, params) => {
+    if (action === 'composer/read') reads.push(params.threadId);
+    return callAgent(action, params);
+  };
+  for (const listener of runtime.attachmentListeners) listener('thread-b');
+  await flush(host);
+  assert.deepEqual(reads, []);
+  assert.equal(host.result.draft, '');
+  assert.deepEqual(host.result.attachments, []);
 });
