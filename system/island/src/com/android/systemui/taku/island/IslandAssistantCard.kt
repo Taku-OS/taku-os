@@ -51,6 +51,25 @@ internal class IslandAssistantCard(context: Context, private val command: (Strin
     private var downY = 0f
     private var swipeEligible = false
     private var swiped = false
+    /** A tap on the card itself (not a chip or the corner glyph) opens it, like the glyph. */
+    private var tapEligible = false
+    private var downAt = 0L
+    private val tapTimeout = ViewConfiguration.getLongPressTimeout().toLong()
+
+    /** The card's primary action (the full conversation, or e.g. the fal key setup), else "open". */
+    private fun openPrimary() {
+        item?.let { current ->
+            val id = current.payload.getJSONObject("expanded").optString("primaryAction")
+            if (current.actions.containsKey(id)) invoke(current, id) else command("open", current.key, null)
+        }
+    }
+
+    private fun inside(view: View, x: Float, y: Float): Boolean {
+        val at = IntArray(2); val card = IntArray(2)
+        view.getLocationInWindow(at); getLocationInWindow(card)
+        val left = at[0] - card[0]; val top = at[1] - card[1]
+        return view.isShown && x >= left && x < left + view.width && y >= top && y < top + view.height
+    }
 
     init {
         orientation = VERTICAL
@@ -60,12 +79,7 @@ internal class IslandAssistantCard(context: Context, private val command: (Strin
             addView(expand, FrameLayout.LayoutParams(dp(32), dp(32), Gravity.RIGHT))
         }
         expand.contentDescription = "Open conversation"
-        expand.setOnClickListener {
-            item?.let { current ->
-                val id = current.payload.getJSONObject("expanded").optString("primaryAction")
-                if (current.actions.containsKey(id)) invoke(current, id) else command("open", current.key, null)
-            }
-        }
+        expand.setOnClickListener { openPrimary() }
         addView(header, LayoutParams(-1, dp(32)).apply { rightMargin = dp(16) })
         addView(scroll, LayoutParams(-1, 0, 1f).apply { topMargin = dp(4); rightMargin = dp(16) })
         // Five dp shader bleed above/below the 40 dp chips, without changing the 16 dp gap.
@@ -89,13 +103,18 @@ internal class IslandAssistantCard(context: Context, private val command: (Strin
                 val reading = event.x >= scroll.left && event.x < scroll.right &&
                     event.y >= scroll.top && event.y < scroll.bottom
                 swipeEligible = !(reading && scroll.canScrollVertically(1))
+                // Chips and the corner glyph keep their own taps; everything else opens the card.
+                downAt = event.eventTime
+                tapEligible = !inside(chipScroll, event.x, event.y) && !inside(expand, event.x, event.y)
             }
-            MotionEvent.ACTION_POINTER_DOWN, MotionEvent.ACTION_CANCEL -> swipeEligible = false
+            MotionEvent.ACTION_POINTER_DOWN, MotionEvent.ACTION_CANCEL -> { swipeEligible = false; tapEligible = false }
             MotionEvent.ACTION_MOVE, MotionEvent.ACTION_UP -> {
                 if (swiped) return true
                 val dx = kotlin.math.abs(event.rawX - downX)
                 val up = downY - event.rawY
                 if (dx > swipeSlop && dx > kotlin.math.abs(up)) swipeEligible = false
+                // A scroll, a swipe or a long press is not a tap.
+                if (dx > swipeSlop || kotlin.math.abs(up) > swipeSlop || event.eventTime - downAt > tapTimeout) tapEligible = false
                 if (swipeEligible && event.pointerCount == 1 && up > maxOf(dp(24), swipeSlop) && up > dx * 1.3f) {
                     swipeEligible = false; swiped = true
                     val cancel = MotionEvent.obtain(event).apply { action = MotionEvent.ACTION_CANCEL }
@@ -103,7 +122,15 @@ internal class IslandAssistantCard(context: Context, private val command: (Strin
                     post { collapse("swipe_up") }
                     return true
                 }
-                if (event.actionMasked == MotionEvent.ACTION_UP) swipeEligible = false
+                if (event.actionMasked == MotionEvent.ACTION_UP) {
+                    swipeEligible = false
+                    if (tapEligible && event.pointerCount == 1) {
+                        tapEligible = false
+                        val handled = super.dispatchTouchEvent(event)
+                        post { openPrimary() }
+                        return handled
+                    }
+                }
             }
         }
         return super.dispatchTouchEvent(event)
@@ -115,10 +142,13 @@ internal class IslandAssistantCard(context: Context, private val command: (Strin
         super.onInitializeAccessibilityNodeInfo(info)
         info.addAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_DISMISS)
         info.isDismissable = true
+        info.addAction(AccessibilityNodeInfo.AccessibilityAction(AccessibilityNodeInfo.ACTION_CLICK, "Open conversation"))
+        info.isClickable = true
     }
 
     override fun performAccessibilityAction(action: Int, arguments: Bundle?): Boolean {
         if (action == AccessibilityNodeInfo.ACTION_DISMISS) { collapse("accessibility_dismiss"); return true }
+        if (action == AccessibilityNodeInfo.ACTION_CLICK) { openPrimary(); return true }
         return super.performAccessibilityAction(action, arguments)
     }
 

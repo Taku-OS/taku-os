@@ -1424,12 +1424,18 @@ assistant's upstream behavior. Google packages are not disabled/uninstalled. A H
 alone cannot replace Quickstep's system gesture dispatch.
 
 Hold to talk: speech is recognized **only while the hold lasts**. The listening page (1-1)
-shows the real recognition transcript and measured-RMS waveform, and the island says “Taku is
-listening...”. Pauses never send. **Releasing** stops recognition and finalizes the recording;
+shows the real recognition transcript and measured-RMS waveform. The microphone starts as soon as
+the hold is recognized, before the speech model or fal key is ready; what is said meanwhile is
+kept and recognized first. Until the microphone records, the island says “One moment…”
+(`voice.phase:"Preparing"`); then it says “Taku is listening...” (`Capturing`) and the phone gives
+a confirm haptic: speak from then on. Pauses never send. **Releasing** stops recognition and finalizes the recording;
 its successful, nonempty final transcript is sent to the Agent once, with no further tap
 (release to send). Cloud finalization and the Agent reply take additional time. The page stays
 open: the native SystemUI card shows processing and then the actual reply/options. Releasing
 before capture started, or a release that heard nothing, sends nothing and closes the page.
+Tapping anywhere on the expanded assistant card (outside its suggestion chips) runs the card's
+primary action, as the top-right glyph does: the full conversation, or the fal key setup when
+the card reports the missing key. Swiping it up still collapses it.
 **Cancel** revokes any still-undelivered audio immediately, dissolves the transcript, then
 closes the input; it does not retract a request already sent to the Agent.
 **Keep talking** expands the black surface and opens **the same chat** in Live Talk mode,
