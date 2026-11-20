@@ -7,7 +7,7 @@
 import React, {useRef} from 'react';
 import {ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
 import Svg, {Defs, LinearGradient, Rect, Stop} from 'react-native-svg';
-import {chatColors, chatType} from '../chat/chatTheme';
+import {chatColors, chatType, themedStyles} from '../chat/chatTheme';
 import {containsChinese} from '../theme';
 import {barHeights} from '../chat/dictationText';
 
@@ -56,7 +56,7 @@ export function DictationBar({transcript, placeholder, levels, finishing, stopLa
   </>;
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   textBox: {flex: 1, minWidth: 0, height: 40, justifyContent: 'center', overflow: 'hidden'},
   textContent: {alignItems: 'center', flexGrow: 1, paddingRight: 32},
   transcript: {color: chatColors.textSecondary},
@@ -67,4 +67,4 @@ const styles = StyleSheet.create({
   bar: {width: UNIT, borderRadius: UNIT / 2, backgroundColor: chatColors.icon},
   stop: {width: 40, height: 40, borderRadius: 20, backgroundColor: chatColors.inverse, alignItems: 'center', justifyContent: 'center', flexShrink: 0},
   stopGlyph: {width: 12, height: 12, borderRadius: 4, backgroundColor: chatColors.iconOnInverse},
-});
+}));

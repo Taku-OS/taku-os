@@ -8,7 +8,7 @@
 import React, {useEffect, useState, type ReactNode} from 'react';
 import {Animated, BackHandler, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, ToastAndroid, View} from 'react-native';
 import * as Clipboard from 'expo-clipboard';
-import {chatColors, chatType} from '../chat/chatTheme';
+import {chatColors, chatType, themedStyles} from '../chat/chatTheme';
 import {chatText} from '../chat/chatText';
 import {containsChinese} from '../theme';
 
@@ -85,7 +85,7 @@ export function ReplyMenu({target, language, top, bottom, screenWidth, renderMar
   </Animated.View>;
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   // Figma 0-3 "Overlay": Content/400 (24 % black); the blur behind is the host's EdgeBlur.
   overlay: {...StyleSheet.absoluteFill, backgroundColor: 'rgba(0,0,0,0.24)'},
   card: {position: 'absolute', backgroundColor: chatColors.surfaceRaised, borderRadius: 24, padding: PAD, overflow: 'hidden'},
@@ -97,4 +97,4 @@ const styles = StyleSheet.create({
     boxShadow: `0px 0px 48px 0px ${chatColors.shadow}`},
   pillPressed: {backgroundColor: chatColors.surfaceRaised},
   pillText: {color: chatColors.icon},
-});
+}));

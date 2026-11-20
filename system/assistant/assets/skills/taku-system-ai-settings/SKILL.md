@@ -92,6 +92,25 @@ taku_system_ai_config 'JSON'` replaces the entire object and requires Android
 Settings permission. Preserve unrelated fields and avoid concurrent writes.
 The Settings provider does not offer compare-and-swap.
 
+## Chat appearance
+
+Taku AI settings → **Chat appearance** chooses the chat assistant's background: **Dark** (the
+default, Figma 300:661: 92 % black over a moderate blur of what lies behind the chat) or **Light**
+(a 24 % white tint over a stronger blur, dark text). It applies to the chat, its Taku Home page and
+the window behind them, at once and for the current Android user. The GUI and Agents share one
+value, `Settings.Secure` `taku_chat_appearance`:
+
+```sh
+settings get secure taku_chat_appearance          # dark | light; null (never set) reads as dark
+settings put secure taku_chat_appearance light    # the open chat switches at once
+settings put secure taku_chat_appearance dark
+settings delete secure taku_chat_appearance       # back to the default, dark
+```
+
+Any other value reads as `dark`. The settings page writes the same key; if Android refuses the
+write it says so and keeps the previous appearance. Where the device cannot blur (battery saver, no
+GPU blur) the window shows an opaque fallback instead: `#121212` for Dark, `#E3E3E3` for Light.
+
 
 ## Taku Audio settings
 

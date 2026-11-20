@@ -79,6 +79,8 @@ class TakuAgentModule : Module() {
   private var backdrop: Backdrop? = null
   private var backdropApplication: android.app.Application? = null
   @Volatile private var chatActivity: android.app.Activity? = null
+  /** Follows `taku_chat_appearance` while JS listens for `onChatAppearance`. */
+  private var appearanceObserver: android.database.ContentObserver? = null
   private val backdropLifecycle = object : android.app.Application.ActivityLifecycleCallbacks {
     override fun onActivityResumed(activity: android.app.Activity) {
       if (activity.javaClass.name != CONVERSATION) return
@@ -368,7 +370,7 @@ class TakuAgentModule : Module() {
 
   override fun definition() = ModuleDefinition {
     Name("TakuAgent")
-    Events("onOpenConversation", "onOpenThread", "onDraft", "onImeInsets", "onSessionEventBatch", "onMatterEventBatch", "onConversationVisibility", "onSecretSubmit", "onComposerAttachment")
+    Events("onOpenConversation", "onOpenThread", "onDraft", "onImeInsets", "onSessionEventBatch", "onMatterEventBatch", "onConversationVisibility", "onSecretSubmit", "onComposerAttachment", "onChatAppearance")
     OnCreate {
       SecretFields.onSubmit = { fieldId -> sendEvent("onSecretSubmit", mapOf("fieldId" to fieldId)) }
       val application = appContext.reactContext?.applicationContext as? Application
@@ -387,6 +389,32 @@ class TakuAgentModule : Module() {
           onChange = { visible -> mainHandler.post { sendEvent("onConversationVisibility", mapOf("visible" to visible)) } },
         ).also { it.attach(host, appContext.currentActivity) }
       }
+    }
+    /** The chat background, `dark` (default) or `light`; see [ChatAppearance]. */
+    Function("chatAppearance") {
+      val context = appContext.reactContext?.applicationContext ?: return@Function ChatAppearance.DARK
+      ChatAppearance.read(context)
+    }
+    /** Saves the chat background; answers `{ok, appearance}` or `{ok:false, code}`. */
+    Function("setChatAppearance") { value: String ->
+      try {
+        val context = appContext.reactContext?.applicationContext ?: throw IllegalStateException("SETTINGS_WRITE_FAILED")
+        JSONObject().put("ok", true).put("appearance", ChatAppearance.write(context, value)).toString()
+      } catch (e: IllegalArgumentException) {
+        JSONObject().put("ok", false).put("code", e.message).toString()
+      } catch (e: IllegalStateException) {
+        JSONObject().put("ok", false).put("code", e.message).toString()
+      }
+    }
+    OnStartObserving("onChatAppearance") {
+      val context = appContext.reactContext?.applicationContext ?: return@OnStartObserving
+      appearanceObserver?.let { context.contentResolver.unregisterContentObserver(it) }
+      appearanceObserver = ChatAppearance.observe(context) { value -> sendEvent("onChatAppearance", mapOf("appearance" to value)) }
+    }
+    OnStopObserving("onChatAppearance") {
+      val context = appContext.reactContext?.applicationContext ?: return@OnStopObserving
+      appearanceObserver?.let { context.contentResolver.unregisterContentObserver(it) }
+      appearanceObserver = null
     }
     OnStartObserving("onImeInsets") {
       mainHandler.post { observingIme = true; attachImeObserver() }

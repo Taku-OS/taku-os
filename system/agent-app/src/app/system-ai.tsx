@@ -41,6 +41,8 @@ import {
 import { createNativeAppPermissionsRepository } from "../model/appPermissionsRepository";
 import { ChatGptAccount, OpenRouterKeys } from "../settings/AccountSettings";
 import { ModelRouting } from "../settings/ModelRouting";
+import { useChatAppearance } from "../chat/chatTheme";
+import { saveChatAppearance } from "../native/chatAppearance";
 import { useTakuFonts } from "../theme/useTakuFonts";
 import { colors } from "../theme";
 
@@ -439,6 +441,8 @@ export default function SystemAiScreen() {
   const palette = useColorScheme() === "dark" ? dark : light;
   const language = languageFor(useLocales()[0]?.languageTag);
   const t = systemAiTextFor(language);
+  // The chat's background (Settings.Secure taku_chat_appearance); Dark is the default.
+  const chatAppearance = useChatAppearance();
   const permissionText = permissionTextFor(language);
   const accountText = accountTextFor(language);
   // Sign-in and key entry are a page of this screen, not a sheet: a sheet is a separate window,
@@ -751,6 +755,18 @@ export default function SystemAiScreen() {
                 icon="manage"
                 onPress={() => setSection("routing")}
               />
+            </View>
+            <View style={styles.section}>
+              <Label color={palette.ink} size={18} medium>{t("appearanceTitle")}</Label>
+            </View>
+            <View style={[styles.card, { backgroundColor: palette.card }]}>
+              {(["dark", "light"] as const).map((option) => <Row key={option} palette={palette}
+                title={t(option === "dark" ? "appearanceDark" : "appearanceLight")}
+                sub={t(option === "dark" ? "appearanceDarkSubtitle" : "appearanceLightSubtitle")}
+                trailing={chatAppearance === option ? "✓" : ""}
+                onPress={() => {
+                  if (option !== chatAppearance && !saveChatAppearance(option)) ToastAndroid.show(t("appearanceFailed"), ToastAndroid.SHORT);
+                }} />)}
             </View>
             <View style={styles.section}>
               <Label color={palette.ink} size={18} medium>Account and connection</Label>

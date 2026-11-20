@@ -21,7 +21,7 @@ import {onImeInsets, setWindowBackdrop, showKeyboard} from '../native/agent';
 import {ReplyMenu, type ReplyMenuTarget} from './ReplyMenu';
 import {EdgeBlur} from '../native/EdgeBlur';
 import {ChatIcon} from '../chat/ChatIcon';
-import {chatBlur, chatColors, homeColors, chatMetrics, chatTitle, chatType} from '../chat/chatTheme';
+import {chatBlur, chatColors, getChatAppearance, homeColors, chatMetrics, chatTitle, chatType, themed, themedStyles} from '../chat/chatTheme';
 import {chatText} from '../chat/chatText';
 import {useDictation, type DictationFailure} from '../chat/useDictation';
 import {failureOf, insertDictation, type DraftSelection} from '../chat/dictationText';
@@ -38,10 +38,10 @@ import type {ComposerAttachment, ComposerRecovery} from '../hooks/composerDraft'
 import {attachmentPreviewUri} from '../native/composerPicker';
 import type {ComposerPickerKind} from '../native/composerPicker';
 
-const colors = {...baseColors, ink: chatColors.textPrimary, secondary: chatColors.textSecondary,
+const colors = themed(() => ({...baseColors, ink: chatColors.textPrimary, secondary: chatColors.textSecondary,
   muted: chatColors.textTertiary, border: chatColors.hairline, subtle: chatColors.fillControl,
   control: chatColors.fillControl, surface: chatColors.surfaceRaised, page: chatColors.backdropFallback,
-  error: chatColors.textError, errorSurface: '#402322'};
+  error: chatColors.textError, errorSurface: chatColors.errorSurface}));
 
 // Route transitions can briefly mount two chat screens in the shared React host.
 // Their common backdrop must survive until the last screen releases it.
@@ -491,7 +491,7 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
   const closeReplyMenu = useCallback(() => setReplyMenu(null), []);
   return <KeyboardAvoidingView style={styles.flex} behavior="padding" enabled={!nativeIme && keyboardVisible}
     onLayout={event => {if (nativeIme) setMeasuredHostHeight(event.nativeEvent.layout.height);}}>
-    <StatusBar style="light"/>
+    <StatusBar style={getChatAppearance() === 'dark' ? 'light' : 'dark'}/>
     <View style={[styles.host, nativeIme && {paddingBottom: space.bottom}]}
       onLayout={event => {if (!nativeIme) setMeasuredHostHeight(event.nativeEvent.layout.height);}}>
     <View style={StyleSheet.absoluteFill} pointerEvents={layer ? 'none' : 'box-none'} importantForAccessibility={layer ? 'no-hide-descendants' : 'auto'}>
@@ -661,7 +661,7 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
   </KeyboardAvoidingView>;
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   host: {flex: 1},
   livePanel: {position: 'absolute', left: 16, right: 16},
   liveTranscript: {alignItems: 'center', gap: 24, marginBottom: 24},
@@ -728,4 +728,4 @@ const styles = StyleSheet.create({
   pendingSubmission: {padding: 16, gap: 8, borderRadius: 16, borderColor: colors.border, borderWidth: 1, backgroundColor: colors.surface},
   pendingPreviewToggle: {minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 8}, pendingPreviewExpanded: {maxHeight: 96},
   pendingRetry: {minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', gap: 8, paddingHorizontal: 8, borderRadius: 6, backgroundColor: colors.control},
-});
+}));

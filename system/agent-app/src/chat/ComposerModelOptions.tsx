@@ -1,6 +1,6 @@
 import React, {useState} from 'react';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
-import {chatColors, chatType} from './chatTheme';
+import {chatColors, chatType, themedStyles} from './chatTheme';
 
 const fieldOrder = ['model', 'effort', 'serviceTier', 'multiAgentMode', 'permissionMode', 'responseStyle'] as const;
 type ComposerOption = typeof fieldOrder[number];
@@ -119,7 +119,7 @@ export function ComposerModelOptions({language, value, busy, onChange}: {
   </View>;
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   group: {gap: 4},
   row: {minHeight: 48, justifyContent: 'space-between', alignItems: 'center', flexDirection: 'row', gap: 12,
     paddingHorizontal: 12, paddingVertical: 8, backgroundColor: chatColors.fillControl, borderRadius: 12},
@@ -128,4 +128,4 @@ const styles = StyleSheet.create({
   choice: {minHeight: 48, paddingHorizontal: 12, paddingVertical: 8, justifyContent: 'center', borderRadius: 12},
   selected: {backgroundColor: chatColors.surfaceRaised},
   unavailable: {paddingHorizontal: 12, paddingVertical: 8, color: chatColors.textTertiary},
-});
+}));

@@ -4,7 +4,7 @@ import {AgentGatewayError, callAgent} from '../native/agent';
 import type {ComposerPickerKind} from '../native/composerPicker';
 import type {Language} from '../i18n';
 import {ComposerModelOptions, type ComposerOptionPatch, type ComposerOptionsSnapshot} from './ComposerModelOptions';
-import {chatColors, chatType} from './chatTheme';
+import {chatColors, chatType, themedStyles} from './chatTheme';
 
 const copy = {
   en: {tools: 'Composer tools', options: 'Model and response options', file: 'Choose file', image: 'Choose image', camera: 'Take photo', done: 'Done', unavailable: 'Could not load or save model options.', retry: 'Try again',
@@ -111,7 +111,7 @@ export function ComposerTools({threadId, language, attachmentLimit, onPick, onCl
   </Modal>;
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   backdrop: {flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.48)', padding: 24},
   sheet: {width: '100%', maxWidth: 440, maxHeight: '86%', borderRadius: 24, padding: 20, gap: 12, backgroundColor: chatColors.surfaceRaised},
   scroll: {flexGrow: 0},
@@ -120,4 +120,4 @@ const styles = StyleSheet.create({
   toggleLabel: {flex: 1},
   disabled: {opacity: 0.45},
   error: {color: chatColors.textError},
-});
+}));
