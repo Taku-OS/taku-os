@@ -3,7 +3,7 @@
   "repository": "frameworks/base",
   "revision": "7f6de40b6429462d47ba9ba351b99943269c8067",
   "patch": "systemui-probe.patch",
-  "patchSha256": "bd7029bd247ef0fc9b4637f6fa2d82748246c9d7370ba4e501611967eb971c6e",
+  "patchSha256": "5733696b5d409dca37c01943e31d3d89c42368a2758d93b858377f5bb2dc9d99",
   "files": [
     {
       "path": "packages/SystemUI/AndroidManifest.xml",
@@ -39,7 +39,7 @@
     {
       "path": "packages/SystemUI/src/com/android/systemui/taku/island/IslandAssistantCard.kt",
       "beforeSha256": null,
-      "afterSha256": "58d455d7331702d1f47ec85a438c6c268e2a8b69722d36f7c2f4096ae2674981",
+      "afterSha256": "94ef531dd09254af2a68003bf486ee6bc9f996d3e8bc534c4e69b76d04a991a3",
       "source": "system/island/src/com/android/systemui/taku/island/IslandAssistantCard.kt"
     },
     {

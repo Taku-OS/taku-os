@@ -91,22 +91,22 @@
     "system/audio-engine/src/org/agentos/audio/TranslationOverlayService.kt": "be85331248ba542d12e36f72a59041fd7ebce5651593838687d9524581409629",
     "system/audio-engine/src/org/agentos/audio/Uninterruptible.kt": "3ba34977f2456dced91e3d71598ea4cc95b4f6dcf67750eeb48bc69d8772b794",
     "system/audio-engine/src/org/agentos/audio/WhisperCaptionSession.kt": "02d24ef51d1eec9e814a91b6fdbdc2c8e5c283171e899f2484a0c58896eadb49",
-    "system/audio-engine/src/org/agentos/audio/WhisperDictationDriver.kt": "d560dc5ae53698d18460b3db343a121748bf86d27e428a48b4fecc1d9863b6bb",
+    "system/audio-engine/src/org/agentos/audio/WhisperDictationDriver.kt": "7b2bfba43d93f8ee779f0d531e54e2e14f16a9b8bb59bda481a970409712be9f",
     "system/audio-engine/src/org/agentos/audio/WhisperPcmRanges.kt": "44a7e60b32223663e3acf336c88044fe52b9d8d8289e90bda7b0dab94aa0a3b7",
     "system/audio-engine/src/org/agentos/audio/WhisperSignalGate.kt": "98cee40dbe03a08cac2be53ff5e586d059ca3312ff5efcc073211272c903769c",
     "system/audio-engine/src/org/agentos/audio/WhisperTranscriber.kt": "fec7522d06775dba0106180c5ee06d077e08a22c89b0cb52f5e2bda5653d8967",
-    "system/audio-engine/src/org/agentos/audio/ZipformerDriver.kt": "fbe9a61840f8a90408fd160ee3046b095cad8a4c7810ba2f7bbdce629a99c080",
+    "system/audio-engine/src/org/agentos/audio/ZipformerDriver.kt": "5bf7fe870fbbde88464d59117273ef7c02dcbb284e6091b69bcebb9c7e7cac1b",
     "system/audio-engine/verify-rom.py": "32daa6f5f22832a86a823a80e695e3af4b522ef75f055bb5e2dd0e8d1956de4c"
   },
   "assets": [
     {
       "path": "system/audio-engine/prebuilt/TakuAudioEngine.apk",
-      "sha256": "720751b4edd1dc7774a4047261badc2a9d16e83e79379162b11b1af1619567e1",
+      "sha256": "0318ce516022448067e4af0e98d90b75fc47310a600b9458b5ef04b600780acd",
       "bytes": 34711291
     },
     {
       "path": "system/audio-engine/prebuilt/audio-bridge.jar",
-      "sha256": "1fc9a40a372738e91fceaa21345b5d14f52c339a3bcc65473062f2dc39845ffe",
+      "sha256": "78f57b246201568b32936d89d6d83aa87f3c74c68990ec037a5606b81ab3e63f",
       "bytes": 1856133
     },
     {
@@ -2066,7 +2066,7 @@
     "assets/licenses/onnxruntime-LICENSE": "2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c",
     "assets/licenses/onnxruntime-ThirdPartyNotices.txt": "0e07b95f3a8d6230037707c5c4a2b554d12c4cb67369669ac255635528ffcee2",
     "assets/licenses/sherpa-onnx-LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-    "classes.dex": "f50c55a1d1ffe0702d6179bf5d30de2af7a08704623ff7816e53c07e58c263b7",
+    "classes.dex": "a83d144847ad275c37d28092ee679097fd0fa58bc756e3421f17f742fbeaa7e8",
     "lib/arm64-v8a/libsherpa-onnx-c-api.so": "c85e2382e2ca12b0513826be926eaccfea896b4cbf568182e287671ba526f80d",
     "lib/arm64-v8a/libsherpa-onnx-cxx-api.so": "5eabb2bcf5a8af66aeab37431c09fab4a9c65cdebf02bd7e50f8c589044bd70e",
     "lib/arm64-v8a/libsherpa-onnx-jni.so": "3c6492ea91ea68fd3b72b9495efdde6dd913f6b58c387e3b07389cf335f4d26f",
