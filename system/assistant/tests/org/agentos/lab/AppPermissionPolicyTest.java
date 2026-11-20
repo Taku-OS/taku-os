@@ -19,6 +19,8 @@ public final class AppPermissionPolicyTest {
                 "accounts/saveKey", "accounts/removeKey", "accounts/login", "accounts/openMagpie",
                 "accounts/cancel", "accounts/refresh", "manageSystemAi", "setSystemAi", "bindSystemAi",
                 "bindSystemAiModel", "reorderSystemAi", "restoreSystemAi", "deleteSystemAiGroup",
+                "capture/read", "capture/request", "capture/accept", "capture/dismiss",
+                "capture/openConversation", "capture/futureOperation", "interrupt", "cancelQueued", "readTaskDetail",
                 "requests/futureMutation", "accounts/futureMutation", "composer/futureMutation"}) {
             check("PERMISSION_DENIED".equals(AgentOpenAccessPolicy.denial(method, scope -> {
                 try { return store.check(app, scope).getBoolean("allowed"); }

@@ -9,7 +9,8 @@ public final class AgentOpenAccessPolicy {
             "plugin/install", "plugin/uninstall", "config/value/write", "config/mcpServer/reload",
             // Gate the entire multiplexed endpoint, including future inner operations.
             "manageAssistant", "manageSystemAi", "setSystemAi", "bindSystemAi",
-            "bindSystemAiModel", "reorderSystemAi", "restoreSystemAi", "deleteSystemAiGroup");
+            "bindSystemAiModel", "reorderSystemAi", "restoreSystemAi", "deleteSystemAiGroup",
+            "interrupt", "cancelQueued", "readTaskDetail");
     private static final Set<String> CONTROL_READS = Set.of(
             "requests/list", "requests/read", "accounts/read", "accounts/keys",
             "composer/read", "composer/receipt", "composer/options/read",
@@ -21,7 +22,8 @@ public final class AgentOpenAccessPolicy {
     public static String requiredScope(String method) {
         // Draft/option writes can alter a later GUI submission; protect those as well as submit.
         boolean sensitiveFamily = method.startsWith("requests/") || method.startsWith("accounts/")
-                || method.startsWith("composer/") || method.startsWith("skills/");
+                || method.startsWith("composer/") || method.startsWith("skills/")
+                || method.startsWith("capture/");
         return ROOT_METHODS.contains(method) || sensitiveFamily && !CONTROL_READS.contains(method)
                 ? "taku.root" : "taku.control";
     }

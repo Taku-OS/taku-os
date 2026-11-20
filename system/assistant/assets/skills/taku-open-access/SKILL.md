@@ -33,6 +33,9 @@ On `$D`, third-party callers need an explicit `taku.root` grant for `manageAssis
 configuration writes/reloads, System AI mutations, and writes under `requests/`,
 `accounts/`, `composer/` and `skills/`. This includes approval responses, account
 login/cancel/refresh/key changes, draft/option changes and message submission.
+All `capture/*` operations (including reads), `interrupt`, `cancelQueued` and
+`readTaskDetail` also require root: capture can analyze screenshots and start tasks,
+and task control/detail must not be available through a control-only grant.
 `taku.control` alone returns `PERMISSION_DENIED` before argument parsing or execution,
 including in auto/yolo mode unless root access is separately enabled by policy.
 

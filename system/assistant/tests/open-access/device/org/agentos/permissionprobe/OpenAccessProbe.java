@@ -65,7 +65,9 @@ public final class OpenAccessProbe extends Instrumentation {
                         "requests/respond", "requests/submit", "requests/cancel", "accounts/saveKey",
                         "accounts/removeKey", "accounts/login", "accounts/openMagpie", "accounts/cancel",
                         "accounts/refresh", "manageSystemAi", "setSystemAi", "bindSystemAi", "bindSystemAiModel",
-                        "reorderSystemAi", "restoreSystemAi", "deleteSystemAiGroup", "skills/community/install"}) {
+                        "reorderSystemAi", "restoreSystemAi", "deleteSystemAiGroup", "skills/community/install",
+                        "capture/read", "capture/request", "capture/accept", "capture/dismiss",
+                        "capture/openConversation", "interrupt", "cancelQueued", "readTaskDetail"}) {
                     // Permission must be checked before parsing even malformed inputs.
                     JSONObject result = call(open, method, "{");
                     if (!"PERMISSION_DENIED".equals(result.optString("code")))
