@@ -8,7 +8,7 @@ transport, places, religious or gendered variants, and nothing crude, hostile or
 (DENY). The ranking predates Emoji 11.0, so newer chat staples (NEW) are placed near the top by
 hand. Names come from assets/emoji/emoji-catalog.tsv (scripts/sync-emoji-catalog.py). On the
 phone, MessageReactions drops any of these the font cannot draw, then offers the rest plus "none"
-in one Jev choice.
+in one Jev choice. Lines are `emoji<TAB>name[<TAB>hint]`; HINTS adds chat meanings (🐮 = 牛).
 
 Usage: scripts/curate-reaction-emoji.py [saved-frequency-page.html]   (default: download)
 """
@@ -34,13 +34,17 @@ WHOLE = {
 # Individually kept from other subgroups, in ranking order.
 PICK = set("""😵‍💫 🤯 🥴 💀 😤 🤖 👻 💯 💥 💫 💤 👀 💪 🧠 🫂 🤦 🤷 🙋 🙆 🙇 💁 🙅 💃 🕺 🫡 🔥 ⭐ 🌟 ☀️ 🌈
 ⚡ ❄️ 🌙 🌞 🌹 🌸 💐 🌷 🌻 🌺 🌼 🍀 🌱 🎂 🍰 🧁 🍕 ☕ 🍻 🥂 🍾 🍿 🍩 🍪 🍫 🍦 🦄 🐐 🦋 🐶 🐱 ✅ ✔️ ‼️ ❗ ❓
-⁉️ 💰 💸 🎯 🏁 🚀 💎 👑 🎶 🤑 ✍️ 💡 🎓 💍 👶 ✈️ 🏖️ 🌍 📚 💻 🎮 ⚽ 🏀 🍜 🍣 🍔 🍷 🍺 📸 🎨 🧋""".split())
+⁉️ 💰 💸 🎯 🏁 🚀 💎 👑 🎶 🤑 ✍️ 💡 🎓 💍 👶 ✈️ 🏖️ 🌍 📚 💻 🎮 ⚽ 🏀 🍜 🍣 🍔 🍷 🍺 📸 🎨 🧋 🐮""".split())
 # Crude, hostile, alarming, dismissive or low-value as a reaction.
 DENY = set("""🖕 💩 🤡 👹 👺 🤬 😡 👿 😈 ☠️ 💋 👎 💦 🍆 🍑 🤮 🤢 🤧 🤒 🤕 😷 🥵 🥶 👅 🔫 💣 🗡️ 🩸 ✊ 🤛 🤜
 🫳 🫴 🤚 🫷 🫸 🫦 😾 😿 🙀 😼 🤥 📻 🎏 🎫 🎋 🎟️ 🎖️ 🎎 🎐 🎍 🎚️ 🎑 🎛️ 🎗️ 🎙️ 🥈 🥉 🖐️ 🖖 ✋ 🎼""".split())
 # Emoji 11.0+ chat staples the 2021 ranking does not cover, placed after the top 40.
 NEW = """🥰 🥺 🥳 🤍 ❤️‍🔥 🫶 🤌 🫂 🥹 🫠 🙂‍↕️ 😮‍💨 ❤️‍🩹 🥲 🫡 🫢 🫣 🤎 🩷 🩵 🩶 🫨 🥱 😶‍🌫️ 😵‍💫
 🪩""".split()
+# Chat meanings Jev cannot infer from the Unicode name, appended to its description.
+HINTS = {
+    "🐮": "Chinese chat slang 牛 (niú): awesome, impressive, well done",
+}
 
 
 def ranking(page: str) -> list:
@@ -92,7 +96,8 @@ def main() -> None:
     with open(OUT, "w", encoding="utf-8") as out:
         out.write("# Jev's reaction choices: Unicode frequency order, curated for chat; "
                   "regenerate with scripts/curate-reaction-emoji.py\n")
-        out.writelines(f"{emoji}\t{catalog[emoji][2]}\n" for emoji in chosen)
+        out.writelines("\t".join([emoji, catalog[emoji][2]] + ([HINTS[emoji]] if emoji in HINTS else [])) + "\n"
+                       for emoji in chosen)
     print(f"{len(chosen)} emoji -> {os.path.relpath(OUT, ROOT)}")
 
 

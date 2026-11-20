@@ -52,16 +52,19 @@ internal object MessageReactions {
     /** Whether [emoji] is a fully-qualified emoji this phone renders (any skin tone). */
     fun supported(context: Context, emoji: String): Boolean = catalog(context).any { it.emoji == emoji }
 
-    @Volatile private var reactions: List<Pair<String, String>>? = null
+    /** One of Jev's choices; [hint] carries a chat meaning the Unicode name lacks (🐮 = 牛). */
+    private class Reaction(val emoji: String, val name: String, val hint: String?)
 
-    /** Jev's choices as (emoji, name): the curated list, minus emoji this phone cannot draw. */
-    private fun reactions(context: Context): List<Pair<String, String>> = reactions ?: synchronized(this) {
+    @Volatile private var reactions: List<Reaction>? = null
+
+    /** Jev's choices: the curated list, minus emoji this phone cannot draw. */
+    private fun reactions(context: Context): List<Reaction> = reactions ?: synchronized(this) {
         reactions ?: run {
             val rendered = catalog(context).mapTo(HashSet()) { it.emoji }
             context.assets.open(REACTIONS).bufferedReader().useLines { lines ->
                 lines.filter { it.isNotEmpty() && !it.startsWith("#") }.mapNotNull { line ->
                     val f = line.split('\t')
-                    if (f.size == 2 && f[0] in rendered) f[0] to f[1] else null
+                    if (f.size in 2..3 && f[0] in rendered) Reaction(f[0], f[1], f.getOrNull(2)) else null
                 }.toList()
             }.also { reactions = it }
         }
@@ -133,9 +136,9 @@ internal object MessageReactions {
         if (model.isEmpty()) return
         val offered = reactions(context)
         if (offered.isEmpty()) return
-        val keys = keys(offered.map { it.second })
+        val keys = keys(offered.map { it.name })
         val criteria = JSONObject().put("none", "No reaction: neutral, routine, sensitive, sad, angry, unclear, or anything where an emoji could feel dismissive")
-        offered.forEach { (emoji, name) -> criteria.put(keys.getValue(name), "$emoji $name") }
+        offered.forEach { criteria.put(keys.getValue(it.name), "${it.emoji} ${it.name}" + (it.hint?.let { hint -> " ($hint)" } ?: "")) }
         val answer = ask(model, JSONArray().put("User message: " + text.take(MAX_TEXT)),
             "Taku, a phone assistant, will reply to the user's message normally. Decide whether Taku should ALSO put one emoji " +
                 "reaction on that message, as a friend would in a chat, and if so pick the single most fitting, kind emoji. React " +
@@ -146,9 +149,9 @@ internal object MessageReactions {
         val probabilities = answer.optJSONObject("probabilities")
         val react = if (probabilities != null) 1.0 - probabilities.optDouble("none", 1.0)
             else if (answer.optString("choice") != "none") answer.optDouble("confidence", 0.0) else 0.0
-        val chosen = if (probabilities != null) offered.maxByOrNull { probabilities.optDouble(keys.getValue(it.second), 0.0) }
-            else offered.firstOrNull { keys.getValue(it.second) == answer.optString("choice") }
-        store(context, thread, turn, item, if (react >= MIN_CONFIDENCE && chosen != null) chosen.first else "", "jev", model)
+        val chosen = if (probabilities != null) offered.maxByOrNull { probabilities.optDouble(keys.getValue(it.name), 0.0) }
+            else offered.firstOrNull { keys.getValue(it.name) == answer.optString("choice") }
+        store(context, thread, turn, item, if (react >= MIN_CONFIDENCE && chosen != null) chosen.emoji else "", "jev", model)
     }
 
     /** Asks Jev one choice question; Magpie runs one decision at a time, so a busy moment is retried. */
