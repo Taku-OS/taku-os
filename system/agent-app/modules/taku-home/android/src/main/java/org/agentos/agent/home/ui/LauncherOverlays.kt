@@ -69,7 +69,7 @@ fun DragOverlay(controller: HomeController, backdrop: Backdrop?) {
   Box(
     Modifier
       .offset { (drag.pointer - drag.grab).let { IntOffset(it.x.roundToInt(), it.y.roundToInt()) } }
-      .graphicsLayer { scaleX = lift.value; scaleY = lift.value; shadowElevation = TakuElevation.lifted.toPx(); shape = CircleShape; clip = false },
+      .graphicsLayer { scaleX = lift.value; scaleY = lift.value; shadowElevation = TakuElevation.lifted.toPx(); shape = if (item.slot is Slot.Widget) CircleShape else iconShape(plate); clip = false },
   ) {
     when (val slot = item.slot) {
       is Slot.Widget -> WidgetDragPreview(controller, slot, plate)

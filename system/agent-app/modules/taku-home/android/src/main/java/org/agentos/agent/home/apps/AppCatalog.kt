@@ -149,11 +149,8 @@ class AppCatalog private constructor(private val context: Context) {
     if (adaptive) {
       val inset = size * (108f / 72f - 1f) / 2f
       d.setBounds((-inset).toInt(), (-inset).toInt(), (size + inset).toInt(), (size + inset).toInt())
-      if (d is AdaptiveIconDrawable) {
-        // Brand icons keep their own background, clipped to a circle.
-        val path = android.graphics.Path().apply { addCircle(size / 2f, size / 2f, size / 2f, android.graphics.Path.Direction.CW) }
-        canvas.clipPath(path)
-      }
+      // Brand icons keep their own background edge to edge; Home clips them to the icon's
+      // rounded rectangle, so the artwork fills the shape rather than a circle.
     } else d.setBounds(0, 0, size, size)
     d.draw(canvas)
     return bitmap

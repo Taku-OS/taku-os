@@ -72,7 +72,7 @@ data class TakuColors(
   val surfaceInverse: Color,
   /** Media placeholders, the vinyl label (Main/Surface/Secondary). */
   val surfaceMuted: Color,
-  /** Backplate of brand icons drawn inside circles. */
+  /** Backplate of folder miniatures (rounded, like the icons). */
   val surfaceIcon: Color,
   /** Subtle circular controls (Content/50). */
   val fillSubtle: Color,

@@ -37,11 +37,14 @@ while an icon is dragged past the last app page, and an app page other than 0 di
 
 * **Home page 0** (Figma 4-1): two widget rows (clock with 12 edge ticks and staggered digits,
   next alarm with switch, weather glyph, date; sleep pixel trend, now playing), then three rows
-  of four apps/folders on 83 dp Surface/600 glass plates. On first launch every launchable app
+  of four apps/folders on 83 dp rounded-rectangle icons (corners 18/60 of the size, Figma 338:3610).
+  Glyph apps and folders sit on a Surface/600 glass plate with a 1 dp Surface/400 rim; folder
+  miniatures are rounded the same way. On first launch every launchable app
   (LauncherApps; phone, browser, messaging, camera first, shipped Taku apps in a folder) is laid
   out from page 0 on. The four core roles (phone, browser, messaging, camera) and unbranded AOSP
   utilities are drawn as #1B1B1B glyphs like the design; every other app (Google, third-party,
-  Taku) keeps its brand icon in a 48 dp circle.
+  Taku) fills the whole rounded rectangle with its adaptive icon (background layer edge to edge),
+  deliberately unlike the frame's 48 dp circles, so no artwork is cropped to a circle.
 * **Panel pages** follow all app pages and come from the Assistant's authoritative
   `PanelRegistry`. There are no default Kyoto, Home or Work panels. Compose hosts the
   page and its lifecycle; the `TakuPanel` React Native root accepts only `panelId`,
