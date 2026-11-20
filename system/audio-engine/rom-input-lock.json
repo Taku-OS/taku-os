@@ -67,12 +67,13 @@
     "system/audio-engine/src/org/agentos/audio/FalMessagePack.kt": "254511ccb02061e19d6350065a56ce183d352e10db7b2a5fbc07fb05245f99c2",
     "system/audio-engine/src/org/agentos/audio/FeedGate.kt": "0f13b57629775c6888b3a86b247a33e2ace030c21aece2ff34db75a11421e387",
     "system/audio-engine/src/org/agentos/audio/FileSpeechSegments.kt": "99a7e07aa6a2794d586dc85cc01c5549147c50ce7a51c7255de3ab19621323ff",
-    "system/audio-engine/src/org/agentos/audio/GeminiLiveDriver.kt": "764d750a98fff8b4fd5bcef360d6ad509ff19f6533fe969da63face889469e37",
-    "system/audio-engine/src/org/agentos/audio/GrokLiveDriver.kt": "f8d119e7b0fc9a5c73d2f2c48c4b233e15e45a2b87ce840013b47bcde3cdde96",
+    "system/audio-engine/src/org/agentos/audio/GeminiLiveDriver.kt": "ee545623a06ca44509213d5369336542ff2617c13f86ed356e66775af57ecd79",
+    "system/audio-engine/src/org/agentos/audio/GrokLiveDriver.kt": "e6099da0a54528e47f12a1bdbc87c42fc0dbe5282f357517d141953c5723cbba",
     "system/audio-engine/src/org/agentos/audio/GrokSession.kt": "5d151d9dfeef53091d8b04826596dd566ddb57cda3447324ed4970344cf02845",
     "system/audio-engine/src/org/agentos/audio/HybridTranslation.kt": "e1f904b1a5ce380b51ca10a424d709f7f08793d2d728bc031da52eac4c42d962",
     "system/audio-engine/src/org/agentos/audio/KokoroDriver.kt": "c0cb678772bc2a6cf91b18dbd71575338fad3ecddfdd3f1aaa6e5f153a0f7982",
     "system/audio-engine/src/org/agentos/audio/KotobaSession.kt": "eff8882ca08059464cd5975431a8fa1672d5cc510d76d565ec750db83839ae5f",
+    "system/audio-engine/src/org/agentos/audio/LiveAudioIo.kt": "76dd3145b3d416b41d69bb70ad74bf2d79e1b931d3acff2365676b23a8751733",
     "system/audio-engine/src/org/agentos/audio/LocalSynthesizer.kt": "53385791686c12fa85f9591c0a4d3942c4a736e4b84c2c3d5a77d16e910c144b",
     "system/audio-engine/src/org/agentos/audio/MediaTranslationActivity.kt": "c3b5fc0bc1b963f30bd9ee3d49cd0f1c753ed2589e3724ad0789650309986caa",
     "system/audio-engine/src/org/agentos/audio/MediaTranslationController.kt": "626a46476a9b2828ae2fc29db38e3d6a1c9a00d800b63afbb24630b532d38baf",
@@ -93,7 +94,7 @@
     "system/audio-engine/src/org/agentos/audio/TranslationOverlayService.kt": "be85331248ba542d12e36f72a59041fd7ebce5651593838687d9524581409629",
     "system/audio-engine/src/org/agentos/audio/Uninterruptible.kt": "3ba34977f2456dced91e3d71598ea4cc95b4f6dcf67750eeb48bc69d8772b794",
     "system/audio-engine/src/org/agentos/audio/WhisperCaptionSession.kt": "02d24ef51d1eec9e814a91b6fdbdc2c8e5c283171e899f2484a0c58896eadb49",
-    "system/audio-engine/src/org/agentos/audio/WhisperDictationDriver.kt": "7b2bfba43d93f8ee779f0d531e54e2e14f16a9b8bb59bda481a970409712be9f",
+    "system/audio-engine/src/org/agentos/audio/WhisperDictationDriver.kt": "c4d1a3f341eb669fa11d2e57b67fab8eb0d8889bc84faf71f55e33b8979e6842",
     "system/audio-engine/src/org/agentos/audio/WhisperPcmRanges.kt": "44a7e60b32223663e3acf336c88044fe52b9d8d8289e90bda7b0dab94aa0a3b7",
     "system/audio-engine/src/org/agentos/audio/WhisperSignalGate.kt": "98cee40dbe03a08cac2be53ff5e586d059ca3312ff5efcc073211272c903769c",
     "system/audio-engine/src/org/agentos/audio/WhisperTranscriber.kt": "fec7522d06775dba0106180c5ee06d077e08a22c89b0cb52f5e2bda5653d8967",
@@ -103,12 +104,12 @@
   "assets": [
     {
       "path": "system/audio-engine/prebuilt/TakuAudioEngine.apk",
-      "sha256": "8ff3b3aff67477668fd6bcd4981d1f2c6f128a0605e7a4c5071838ad561fea79",
+      "sha256": "5d665e4d3eee9e30a3157bf040fec7fb08ab3dda6f8fb73cff5459b658e0d513",
       "bytes": 34776827
     },
     {
       "path": "system/audio-engine/prebuilt/audio-bridge.jar",
-      "sha256": "239c5198a4e4eb4ddbf8e58d680f9acd237e980ff513ef7733edda3faed4e4b8",
+      "sha256": "891370828405d7c21c1bf63bad5a26e7e3f586218129118430b48a1d3716f75a",
       "bytes": 1863187
     },
     {
@@ -2068,7 +2069,7 @@
     "assets/licenses/onnxruntime-LICENSE": "2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c",
     "assets/licenses/onnxruntime-ThirdPartyNotices.txt": "0e07b95f3a8d6230037707c5c4a2b554d12c4cb67369669ac255635528ffcee2",
     "assets/licenses/sherpa-onnx-LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-    "classes.dex": "6f2c9b984cec12fc29e6b343e170569f06210be9529ff9bfb53cff1fad803ed6",
+    "classes.dex": "ac17129ebcb81e293d889803e280e2c07803fcfffa7fd04a3f314bf13077cb39",
     "lib/arm64-v8a/libsherpa-onnx-c-api.so": "c85e2382e2ca12b0513826be926eaccfea896b4cbf568182e287671ba526f80d",
     "lib/arm64-v8a/libsherpa-onnx-cxx-api.so": "5eabb2bcf5a8af66aeab37431c09fab4a9c65cdebf02bd7e50f8c589044bd70e",
     "lib/arm64-v8a/libsherpa-onnx-jni.so": "3c6492ea91ea68fd3b72b9495efdde6dd913f6b58c387e3b07389cf335f4d26f",
