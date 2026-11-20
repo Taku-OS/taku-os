@@ -1,5 +1,5 @@
 import React, {useCallback, useEffect, useMemo, useReducer, useRef, useState, type ReactNode} from 'react';
-import {ActivityIndicator, AppState, BackHandler, FlatList, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, ToastAndroid, useWindowDimensions, View} from 'react-native';
+import {ActivityIndicator, Alert, AppState, BackHandler, FlatList, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, ToastAndroid, useWindowDimensions, View} from 'react-native';
 import type {NativeScrollEvent, NativeSyntheticEvent, TextProps} from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useLocales} from 'expo-localization';
@@ -32,6 +32,7 @@ import {failureOf, insertDictation, type DraftSelection} from '../chat/dictation
 import {useReplySpeechState, useVoiceChatFocus} from '../chat/useVoiceChatFocus';
 import {openVoiceSettings, speakReply, stopReplySpeech} from '../native/voice';
 import {markdownSpeechText} from '../native/MarkdownStream';
+import {openAiSetup} from '../native/aiSetup';
 import {DictationBar} from './DictationBar';
 import {TakuHomePage} from '../chat/TakuHomePage';
 import {sheetSpace, type ImeGeometry} from '../model/sheetGeometry';
@@ -461,6 +462,14 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
   const draftNow = useRef({threadId: draftSessionId, revision: draftRevision, text: draft});
   useEffect(() => { draftNow.current = {threadId: draftSessionId, revision: draftRevision, text: draft}; }, [draftSessionId, draftRevision, draft]);
   const onVoiceFailure = (reason: DictationFailure) => {
+    // A missing fal key is fixable here: the prompt opens the fal setup page (Figma 2-5).
+    if (reason === 'falKeyMissing') {
+      Alert.alert(ct('voiceFalKeyTitle'), ct('voiceFalKeyMissing'), [
+        {text: ct('cancel'), style: 'cancel'},
+        {text: ct('addFalKey'), onPress: () => { openAiSetup('fal'); }},
+      ]);
+      return;
+    }
     const key = {disabled: 'voiceDisabled', busy: 'voiceBusy', unavailable: 'voiceUnavailable', draftChanged: 'dictationDraftChanged', draftFull: 'dictationDraftFull'} as const;
     if (Platform.OS === 'android') ToastAndroid.show(ct(key[reason]), ToastAndroid.SHORT);
   };

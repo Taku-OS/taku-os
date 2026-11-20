@@ -9,6 +9,7 @@ const access = "const runtime = globalThis[Symbol.for('taku.genui.hook-test')];"
 const mock = source => `data:text/javascript,${encodeURIComponent(`${access}\n${source}`)}`;
 const mocks = new Map([
   ['react', mock(`export const useMemo = compute => compute();
+    export const useCallback = callback => callback;
     export const useEffect = (effect, dependencies) => runtime.current.effect(effect, dependencies);
     export const useLayoutEffect = useEffect;`)],
   ['zustand', mock('export const useStore = (store, select) => select(store.getState());')],
@@ -29,7 +30,7 @@ registerHooks({resolve(specifier, context, nextResolve) {
   return nextResolve(specifier, context);
 }});
 
-const {useGenUiCard} = await import('./useGenUi.ts');
+const {useGenUiCard, needsJevSetup} = await import('./useGenUi.ts');
 const {getCard, applyMatterSnapshot} = await import('../model/genuiStore.ts');
 const {mainReply, matterSnapshot, primary} = await import('../model/mainReplyFixtures.mjs');
 
@@ -84,6 +85,13 @@ function nativeCalls(reply, {pin = pinCapability(reply), cardView} = {}) {
     return {};
   };
 }
+
+test('only a Jev that is not set up or switched off asks for its setup page', () => {
+  assert.equal(needsJevSetup('jev-jev_not_configured'), true);
+  assert.equal(needsJevSetup('jev-jev_disabled'), true);
+  for (const other of ['', 'jev-timeout', 'jev-gateway_unavailable', 'llm-jev_not_configured', 'invalid-layout'])
+    assert.equal(needsJevSetup(other), false, other);
+});
 
 test('a card only reports Pinned after the native pin receipt', async () => {
   const reply = mainReply('pin-thread', 'pin-card', 1, 'completed');

@@ -51,6 +51,11 @@
       android:exported="true" android:launchMode="singleTop" android:excludeFromRecents="true"
       android:taskAffinity="org.agentos.agent.assistant" android:screenOrientation="portrait"
       android:windowSoftInputMode="adjustNothing" android:theme="@style/Theme.TakuAssistantOverlay" />
+    <!-- The Jev or Fal setup page reopened after onboarding (GUI card, voice input, Agents). -->
+    <activity android:name="org.agentos.agent.home.ui.onboarding.ServiceSetupActivity"
+      android:exported="false" android:launchMode="singleTop" android:excludeFromRecents="true"
+      android:taskAffinity="org.agentos.agent.setup" android:screenOrientation="portrait"
+      android:windowSoftInputMode="adjustNothing" android:theme="@style/Theme.TakuAssistantOverlay" />
     <activity android:name="org.agentos.agent.home.widgets.WidgetSetupActivity" android:exported="false" android:theme="@android:style/Theme.Material.Light.NoActionBar" />
     <!-- TakuOS home. Holds android.app.role.HOME once selected (see README). -->
     <activity

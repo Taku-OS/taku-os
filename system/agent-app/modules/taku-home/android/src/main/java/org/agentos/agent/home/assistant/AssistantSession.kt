@@ -639,6 +639,21 @@ class AssistantSession private constructor(private val context: Context, private
     org.agentos.agent.home.island.SystemIslandBridge.request(context, "collapse")
   }
 
+  /**
+   * The user followed the "fal API key missing" prompt to the fal setup page: the prompt has done
+   * its job, so it leaves the island. Anything else on show (a reply, work in progress) stays. Once
+   * a key is saved, the next voice input simply works.
+   */
+  fun clearVoiceSetupError() {
+    if (flow.value.error != VOICE_FAL_KEY_MISSING) return
+    revokeVoice()
+    flow.update { s ->
+      if (s.error != VOICE_FAL_KEY_MISSING) s
+      else s.copy(error = null, voiceFailure = null, entry = EntryMode.None,
+        island = if (s.working || s.turn != null) s.island else IslandMode.Hidden)
+    }
+  }
+
   /** Explicit assistant dismissal; outside card taps are owned by SystemUI and never call this. */
   fun dismiss() {
     endLiveTalk()
@@ -1354,8 +1369,13 @@ class AssistantSession private constructor(private val context: Context, private
       "PROVIDER_TIMEOUT", "PROCESSING_TIMEOUT" -> "VOICE_TIMEOUT"
       "PROVIDER_AUTH_FAILED" -> "VOICE_AUTH_FAILED"
       "PROVIDER_UNAVAILABLE", "PROVIDER_RATE_LIMITED" -> "VOICE_PROVIDER_UNAVAILABLE"
+      // The chosen dictation backend runs on fal and no fal key is saved (skipped in onboarding).
+      "PROVIDER_NOT_CONFIGURED" -> VOICE_FAL_KEY_MISSING
       else -> "VOICE_UNAVAILABLE"
     }
+    /** Voice input needs a fal API key; the island's tap opens the fal setup page (Figma 1379:2782). */
+    const val VOICE_FAL_KEY_MISSING = "VOICE_FAL_KEY_MISSING"
+    const val EXTRA_DRAFT = "org.agentos.agent.extra.DRAFT"
     private const val POLL_MS = 1_500L
     /** How long Taku may keep "working" with no network before the home stops it (issue #25 F3). */
     const val OFFLINE_GRACE_MS = 30_000L

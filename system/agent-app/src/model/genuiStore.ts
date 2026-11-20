@@ -25,6 +25,8 @@ export interface GenUiCardState {
   editTokens: Record<string, number>;
   layoutResolved: boolean;
   layoutError: string;
+  /** Why the last completed layout fell back to the template ('' when it did not), e.g. `jev-jev_not_configured`. */
+  layoutFallback: string;
   /** The native business revision, independent of the card's own uiRevision. */
   nativeRevision: number;
   /** The newest canonical card-view revision seen. */
@@ -70,7 +72,7 @@ export function ensureCard(threadId: string, presentation: CardPresentation): st
     id, threadId, presentation, request, sourceId,
     snapshot: {...state, meta: {}, commands: {}, ...(primary ? {assembly: primary.assembly} : {})},
     view: primary?.view ?? immediateView(request), hydrated: false, hydrationError: '', hydrationEdits: {}, editSequence: 0, editTokens: {},
-    layoutResolved: !!primary, layoutError: '', nativeRevision: 0, uiRevision: 0, baseUiRevision: 0,
+    layoutResolved: !!primary, layoutError: '', layoutFallback: '', nativeRevision: 0, uiRevision: 0, baseUiRevision: 0,
     acknowledgedUi: {}, review: [], pin: null, syncError: '', submissions: {}, lastActionId: '',
   }}}));
   return id;
@@ -165,7 +167,9 @@ export function applyLayout(id: string, sourceId: string, signature: string, vie
     }
     accepted = true;
     const retained = admitted.metrics.level === 'template' ? parseUiView(card.view, card.request) : null;
-    return {...card, view: retained ?? admitted, layoutResolved: complete, layoutError: ''};
+    // The retained template view carries no reason; keep the completed layout's own.
+    const layoutFallback = complete ? (admitted.metrics.level === 'template' ? admitted.metrics.fallback : '') : card.layoutFallback;
+    return {...card, view: retained ?? admitted, layoutResolved: complete, layoutError: '', layoutFallback};
   });
   return accepted;
 }

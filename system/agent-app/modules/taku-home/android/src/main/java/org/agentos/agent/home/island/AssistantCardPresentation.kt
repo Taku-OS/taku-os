@@ -34,6 +34,7 @@ private fun errorText(code: String) = when (code) {
   "VOICE_TIMEOUT" -> "Voice recognition took too long. Please try again."
   "VOICE_AUTH_FAILED" -> "Check your voice service credentials in Taku Audio settings."
   "VOICE_PROVIDER_UNAVAILABLE" -> "The voice service is temporarily unavailable. Please try again."
+  AssistantSession.VOICE_FAL_KEY_MISSING -> "Voice input needs a fal API key, and none is set up yet. Tap here to add your key."
   "VOICE_UNAVAILABLE" -> "Voice input isn’t available right now."
   else -> "Taku couldn’t send that. Try again."
 }

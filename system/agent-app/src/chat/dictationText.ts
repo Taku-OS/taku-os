@@ -2,9 +2,11 @@
 import type {VoicePhase, VoiceSnapshot} from '../native/voice';
 
 /** Engine and session codes → a short reason for the toast. */
-export type DictationFailure = 'unavailable' | 'disabled' | 'busy' | 'draftChanged' | 'draftFull';
+export type DictationFailure = 'unavailable' | 'disabled' | 'busy' | 'draftChanged' | 'draftFull' | 'falKeyMissing';
 
 export function failureOf(code: string | null | undefined): DictationFailure {
+  // The chosen dictation backend runs on fal and no fal key is saved (engine code, or Home's session code).
+  if (code === 'PROVIDER_NOT_CONFIGURED' || code === 'VOICE_FAL_KEY_MISSING') return 'falKeyMissing';
   if (code === 'POLICY_DISABLED' || code === 'POLICY_REVOKED' || code === 'CONSUMER_NOT_AUTHORIZED' || code === 'PERMISSION_DENIED') return 'disabled';
   if (code === 'RESOURCE_BUSY' || code === 'VOICE_BUSY' || code === 'CAPTURE_SILENCED') return 'busy';
   return 'unavailable';

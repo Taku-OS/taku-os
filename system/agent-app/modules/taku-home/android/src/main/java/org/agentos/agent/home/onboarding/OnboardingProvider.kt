@@ -12,7 +12,8 @@ import org.json.JSONObject
  * Device-local Agent access to first-run onboarding:
  * `content call --uri content://org.agentos.agent.home-onboarding --method onboarding/get`.
  * Every method runs the same [OnboardingRepository] operation as the Home card, with the same
- * validation. Open to device-local callers by product decision (see AGENTS.md).
+ * validation. `ai-setup/…` read, connect and open the Jev or Fal setup page after onboarding
+ * ([ServiceSetup]). Open to device-local callers by product decision (see AGENTS.md).
  */
 class OnboardingProvider : ContentProvider() {
   override fun onCreate() = true
@@ -27,6 +28,30 @@ class OnboardingProvider : ContentProvider() {
       fun only(vararg keys: String) {
         val names = p.keys()
         while (names.hasNext()) names.next().let { if (it !in keys) throw OnboardingException("UNSUPPORTED_PARAMETER", "unexpected parameter $it") }
+      }
+      // The Jev or Fal setup page after onboarding; these answer with that service, not the card.
+      fun setupService(): OnboardingService = OnboardingService.parse(p.optString("service"))
+        ?.takeIf { it != OnboardingService.CHATGPT }
+        ?: throw OnboardingException("INVALID_SERVICE", "service must be jev or fal")
+      val setup: JSONObject? = when (method) {
+        "ai-setup/get" -> { only("service"); val s = setupService(); JSONObject().put("service", s.id).put("connection", repo.serviceStatus(s).id) }
+        "ai-setup/connect" -> {
+          only("service", "key")
+          val s = setupService()
+          if (s == OnboardingService.FAL && (!p.has("key") || p.isNull("key"))) throw OnboardingException("INVALID_KEY", "fal needs a key")
+          JSONObject().put("service", s.id).put("connection", repo.setUp(s, if (!p.has("key") || p.isNull("key")) null else p.getString("key")).id)
+        }
+        "ai-setup/open" -> {
+          only("service")
+          val s = setupService()
+          ServiceSetup.open(ctx, s)
+          JSONObject().put("service", s.id).put("connection", repo.serviceStatus(s).id).put("opened", true)
+        }
+        else -> null
+      }
+      if (setup != null) {
+        out.putString("result", JSONObject().put("ok", true).put("result", setup).toString())
+        return out
       }
       when (method) {
         "onboarding/get" -> only()

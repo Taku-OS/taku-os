@@ -423,6 +423,12 @@ content call --uri $O --method onboarding/connect --arg '{"service":"jev","key":
 content call --uri $O --method onboarding/connect --arg '{"service":"fal","key":"..."}'
 content call --uri $O --method onboarding/finish                 # connect_ai → all_set (last page's "Continue" or "Skip for now"; needs available AI)
 content call --uri $O --method onboarding/explore                # all_set → completed ("I’ll explore")
+# Jev or Fal skipped during onboarding: the same setup page (Figma 2-3 / 2-5) at any step,
+# with the same validation as the card. Answers {service, connection[, opened]}.
+content call --uri $O --method ai-setup/get --arg '{"service":"jev"}'      # connection: not_connected | connecting | connected | unknown
+content call --uri $O --method ai-setup/connect --arg '{"service":"jev","key":"apikey_..."}'   # no key: a Jev model Magpie already serves
+content call --uri $O --method ai-setup/connect --arg '{"service":"fal","key":"..."}'
+content call --uri $O --method ai-setup/open --arg '{"service":"fal"}'      # shows the page over the current screen
 # Agent-only: back to intro (available AI completes it again immediately).
 content call --uri $O --method onboarding/reset
 settings get secure taku_onboarding_step

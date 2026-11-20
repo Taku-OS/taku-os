@@ -1,4 +1,4 @@
-import {useEffect, useLayoutEffect, useMemo} from 'react';
+import {useCallback, useEffect, useLayoutEffect, useMemo} from 'react';
 import {useStore} from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type {Spec} from '@json-render/react-native';
@@ -23,6 +23,9 @@ async function pruneObsoleteLayouts(): Promise<void> {
     if (keys.length) await AsyncStorage.multiRemove(keys);
   } catch {}
 }
+/** A layout that fell back because Jev is not set up, or is switched off (gateway `decide`). */
+export const needsJevSetup = (fallback: string): boolean => fallback === 'jev-jev_not_configured' || fallback === 'jev-jev_disabled';
+
 const hydrations = new Map<string, Promise<void>>();
 /**
  * A finished reply's saved state (edits, pin capability) can lag the reply itself: the native
@@ -267,9 +270,17 @@ export function useGenUiCard(threadId: string, presentation: CardPresentation, a
   useEffect(() => {
     if (active && !primary && card.hydrated && !card.layoutResolved) void compose(id);
   }, [active, id, primary, card.hydrated, card.layoutResolved, card.request]);
+  /** Composes the layout again (after Jev was set up); a cached Jev layout or a new one replaces the template. */
+  const recompose = useCallback(() => {
+    if (getCard(id).presentation.kind === 'primary' || resolutions.has(id)) return;
+    updateCard(id, current => ({...current, layoutResolved: false, layoutFallback: ''}));
+  }, [id]);
   return {
     store, request: card.request, presentation: card.presentation, spec, matterAdmitted, hydrated: card.hydrated,
     syncError: card.syncError, hydrationError: card.hydrationError, layoutError: card.layoutError,
+    /** The layout fell back to the template because Jev is not set up; the card offers its setup page. */
+    jevSetupNeeded: !primary && needsJevSetup(card.layoutFallback),
+    recompose,
     submission: card.submissions[card.lastActionId],
     meta: record(card.snapshot.meta), commands: record(card.snapshot.commands), pin: card.pin, review: card.review,
     async retry() {

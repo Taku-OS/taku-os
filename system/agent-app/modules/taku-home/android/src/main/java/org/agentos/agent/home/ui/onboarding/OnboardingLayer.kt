@@ -136,10 +136,20 @@ fun BoxScope.OnboardingLayer(state: OnboardingRepository.State, repository: Onbo
   OnboardingCard(step, state, actions, Modifier.align(Alignment.TopCenter))
 }
 
+/**
+ * What a Jev or Fal key page needs from its host: the onboarding card ([OnboardingActions]) or the
+ * same page reopened later ([ServiceSetupActivity]).
+ */
+internal interface ServiceKeyActions {
+  val busy: Boolean
+  fun copy(label: String, text: String): Boolean
+  fun saveKey(service: OnboardingService, key: String, onSaved: () -> Unit, onError: (String) -> Unit)
+}
+
 /** Runs card actions off the main thread, one at a time, through the shared repository. */
 @Stable
-private class OnboardingActions(val context: Context, val repository: OnboardingRepository, val scope: CoroutineScope) {
-  var busy by mutableStateOf(false)
+private class OnboardingActions(val context: Context, val repository: OnboardingRepository, val scope: CoroutineScope) : ServiceKeyActions {
+  override var busy by mutableStateOf(false)
     private set
 
   fun perform(action: OnboardingAction, name: String? = null) = launchAction {
@@ -159,7 +169,7 @@ private class OnboardingActions(val context: Context, val repository: Onboarding
    * page. Failures go to [onError] so the key field can say why in place, not in a toast the
    * keyboard covers.
    */
-  fun saveKey(service: OnboardingService, key: String, onSaved: () -> Unit, onError: (String) -> Unit) =
+  override fun saveKey(service: OnboardingService, key: String, onSaved: () -> Unit, onError: (String) -> Unit) =
     launchAction(onError) {
       withContext(Dispatchers.IO) { repository.connect(service, key) }
       onSaved()
@@ -191,22 +201,7 @@ private class OnboardingActions(val context: Context, val repository: Onboarding
     }
   }
 
-  /**
-   * Puts [text] on the clipboard. Android 13+ confirms with its own clipboard preview, so the card
-   * only marks the copied item; older releases get a short toast.
-   */
-  fun copy(label: String, text: String): Boolean {
-    val clipboard = context.getSystemService(ClipboardManager::class.java) ?: return false
-    return try {
-      clipboard.setPrimaryClip(ClipData.newPlainText(label, text))
-      if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) toast("$label copied")
-      true
-    } catch (e: RuntimeException) {
-      Log.w(TAG, "could not copy $label", e)
-      toast("Couldn’t copy. Try again.")
-      false
-    }
-  }
+  override fun copy(label: String, text: String): Boolean = copyText(context, label, text)
 
   /** Runs [block] as the one card action; a failure is shown through [onError], else a toast. */
   private fun launchAction(onError: ((String) -> Unit)? = null, block: suspend () -> Unit) {
@@ -233,27 +228,47 @@ private class OnboardingActions(val context: Context, val repository: Onboarding
 
   fun toast(text: String) = Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
 
-  private fun message(code: String) = when (code) {
-    "NAME_NOT_SAVED" -> "Couldn’t save your name. Try again, or tap Skip for now."
-    "INVALID_KEY" -> "That key doesn’t look right. Jev takes a TypeSafe (apikey_…) or OpenRouter (sk-or-…) key."
-    "KEY_NOT_SAVED", "SETTINGS_WRITE_FAILED" -> "Couldn’t save the key. Try again."
-    "NO_DECISION_MODEL" -> "No Jev model is available for this key yet. Try again in a moment."
-    "MAGPIE_UNAVAILABLE" -> "The model service isn’t ready yet. Try again in a moment."
-    "AUDIO_UNAVAILABLE" -> "Taku Audio isn’t available right now."
-    "TASK_RUNNING" -> "Taku is still finishing a task. Try again in a moment."
-    "AI_NOT_CONNECTED" -> "Connect ChatGPT first."
-    "LOGIN_UNAVAILABLE", "ACCOUNT_UNAVAILABLE", "GATEWAY_UNAVAILABLE" -> "ChatGPT sign-in isn’t available right now. Try again."
-    else -> "Something went wrong. Try again."
-  }
+  private fun message(code: String) = onboardingMessage(code)
 
   private companion object {
     const val TAG = "TakuOnboarding"
   }
 }
 
+/** The card's words for a repository failure code. */
+internal fun onboardingMessage(code: String) = when (code) {
+  "NAME_NOT_SAVED" -> "Couldn’t save your name. Try again, or tap Skip for now."
+  "INVALID_KEY" -> "That key doesn’t look right. Jev takes a TypeSafe (apikey_…) or OpenRouter (sk-or-…) key."
+  "KEY_NOT_SAVED", "SETTINGS_WRITE_FAILED" -> "Couldn’t save the key. Try again."
+  "NO_DECISION_MODEL" -> "No Jev model is available for this key yet. Try again in a moment."
+  "MAGPIE_UNAVAILABLE" -> "The model service isn’t ready yet. Try again in a moment."
+  "AUDIO_UNAVAILABLE" -> "Taku Audio isn’t available right now."
+  "TASK_RUNNING" -> "Taku is still finishing a task. Try again in a moment."
+  "AI_NOT_CONNECTED" -> "Connect ChatGPT first."
+  "LOGIN_UNAVAILABLE", "ACCOUNT_UNAVAILABLE", "GATEWAY_UNAVAILABLE" -> "ChatGPT sign-in isn’t available right now. Try again."
+  else -> "Something went wrong. Try again."
+}
+
+/**
+ * Puts [text] on the clipboard. Android 13+ confirms with its own clipboard preview, so the card
+ * only marks the copied item; older releases get a short toast.
+ */
+internal fun copyText(context: Context, label: String, text: String): Boolean {
+  val clipboard = context.getSystemService(ClipboardManager::class.java) ?: return false
+  return try {
+    clipboard.setPrimaryClip(ClipData.newPlainText(label, text))
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) Toast.makeText(context, "$label copied", Toast.LENGTH_SHORT).show()
+    true
+  } catch (e: RuntimeException) {
+    Log.w("TakuOnboarding", "could not copy $label", e)
+    Toast.makeText(context, "Couldn’t copy. Try again.", Toast.LENGTH_SHORT).show()
+    false
+  }
+}
+
 /** The design shows no status bar while the card covers the top; a swipe still reveals it. */
 @Composable
-private fun HiddenStatusBar() {
+internal fun HiddenStatusBar() {
   val view = LocalView.current
   DisposableEffect(view) {
     val window = view.context.findActivity()?.window
@@ -479,7 +494,7 @@ private fun AiIntro(userName: String?, onStart: () -> Unit) {
 
 /** The 32 dp back chevron at the top of each service page. */
 @Composable
-private fun BackChevron(onBack: () -> Unit) {
+internal fun BackChevron(onBack: () -> Unit) {
   Box(
     Modifier
       .size(32.dp)
@@ -516,7 +531,7 @@ private fun ServiceProgress(pages: List<AiPage>, current: AiPage, services: Serv
  * over its Body/md line.
  */
 @Composable
-private fun ServiceTitle(service: OnboardingService, connected: Boolean) {
+internal fun ServiceTitle(service: OnboardingService, connected: Boolean) {
   val c = TakuTheme.colors
   val type = TakuTheme.type
   val subtitle = when (service) {
@@ -600,7 +615,7 @@ private fun ChatGptPage(state: OnboardingRepository.State, actions: OnboardingAc
  * "Connecting…"; a failure is said right under the field. "Skip for now" moves on unconnected.
  */
 @Composable
-private fun KeyPage(service: OnboardingService, connection: Connection, actions: OnboardingActions, onSkip: () -> Unit) {
+internal fun KeyPage(service: OnboardingService, connection: Connection, actions: ServiceKeyActions, onSkip: () -> Unit) {
   val c = TakuTheme.colors
   val type = TakuTheme.type
   val (who, keysUrl) = when (service) {
@@ -796,11 +811,11 @@ private fun Eyes() {
   }
 }
 
-private enum class IslandButtonStyle { Brand, Primary, Secondary }
+internal enum class IslandButtonStyle { Brand, Primary, Secondary }
 
 /** Full-width pill action: 12/8 dp padding, Body/Medium/lg (Figma 1155:539, 1155:861, 1155:863). */
 @Composable
-private fun RowScope.IslandButton(label: String, style: IslandButtonStyle, enabled: Boolean, onClick: () -> Unit) {
+internal fun RowScope.IslandButton(label: String, style: IslandButtonStyle, enabled: Boolean, onClick: () -> Unit) {
   val c = TakuTheme.colors
   val (fill, ink) = when {
     !enabled -> c.islandActionDisabled to c.islandActionDisabledText
@@ -895,7 +910,7 @@ private fun SvgAsset(path: String, width: Dp, height: Dp, tint: Color? = null) {
   else Spacer(Modifier.size(width, height))
 }
 
-private val CARD_RADIUS = 40.dp
+internal val CARD_RADIUS = 40.dp
 /** How long a copied link or code keeps its check mark. */
 private const val COPIED_MS = 2_000L
 /** Where each service's API keys are made (Figma 1379:2659, 1382:3245). */

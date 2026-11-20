@@ -183,11 +183,43 @@ class OnboardingRepository private constructor(context: Context) {
           watchSignIn()
         }
       }
-      OnboardingService.JEV ->
-        if (rawKey == null) call("enableJev") else connectJev(OnboardingRules.jevKey(rawKey))
-      OnboardingService.FAL -> saveFal(OnboardingRules.key(rawKey))
+      OnboardingService.JEV, OnboardingService.FAL -> connectKeyed(service, rawKey)
     }
     return refresh()
+  }
+
+  /**
+   * The Jev or Fal setup page reopened after onboarding (a GUI card that Jev could not compose, or
+   * voice input that needs a Fal key): the same operations as [connect], with the same validation,
+   * at any step. ChatGPT is not offered here; it has its own account page.
+   */
+  fun setUp(service: OnboardingService, rawKey: String?): Connection {
+    if (service == OnboardingService.CHATGPT) throw OnboardingException("INVALID_SERVICE", "set up jev or fal here; chatgpt has its own account page")
+    connectKeyed(service, rawKey)
+    return serviceStatus(service)
+  }
+
+  /**
+   * The current Jev or Fal connection, read from its authority. A saved Jev key whose model is
+   * still being listed is `connecting`; Fal is `unknown` when Taku Audio is not installed.
+   */
+  fun serviceStatus(service: OnboardingService): Connection {
+    val status = when (service) {
+      OnboardingService.JEV -> readJev().let { if (it != Connection.CONNECTED && jevWatch?.isActive == true) Connection.CONNECTING else it }
+      OnboardingService.FAL -> readFal() ?: Connection.UNKNOWN
+      OnboardingService.CHATGPT -> throw OnboardingException("INVALID_SERVICE", "set up jev or fal here; chatgpt has its own account page")
+    }
+    updateServices { if (service == OnboardingService.JEV) it.copy(jev = status) else if (it.fal != null) it.copy(fal = status) else it }
+    return status
+  }
+
+  /** Jev: the pasted key, or with none a Jev model Magpie already serves. Fal: the pasted key. */
+  private fun connectKeyed(service: OnboardingService, rawKey: String?) {
+    when (service) {
+      OnboardingService.JEV -> if (rawKey == null) call("enableJev") else connectJev(OnboardingRules.jevKey(rawKey))
+      OnboardingService.FAL -> saveFal(OnboardingRules.key(rawKey))
+      OnboardingService.CHATGPT -> Unit
+    }
   }
 
   /**
