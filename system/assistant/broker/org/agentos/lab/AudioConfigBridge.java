@@ -12,6 +12,9 @@ import org.json.*;
 /** Root-owned settings subscription for the separately signed audio host. No credentials in snapshots. */
 final class AudioConfigBridge {
  private static final Map<LocalSocket,BlockingQueue<String>> subscribers=new ConcurrentHashMap<>();
+ private static final String DEFAULT_LIVE_PROFILE="fal-grok";
+ private static final String GEMINI_LIVE_PROFILE="gemini-live";
+ private static final Set<String> LIVE_PROFILES=Set.of(DEFAULT_LIVE_PROFILE,GEMINI_LIVE_PROFILE);
  private static boolean started;
  static synchronized void start()throws Exception {
   if(started)return;LocalServerSocket server=new LocalServerSocket("taku-audio-config");started=true;
@@ -96,17 +99,39 @@ final class AudioConfigBridge {
   JSONObject profile=readingProfile(request,request.optString("op").equals("resetReading"));
   writeReading(request.getString("language"),profile);return snapshot();
  }
+ private static JSONObject liveSettings(JSONObject audio,JSONObject fal)throws Exception {
+  Object profileId=audio.has("liveProfileId")?audio.opt("liveProfileId"):DEFAULT_LIVE_PROFILE;
+  if(!(profileId instanceof String)||!LIVE_PROFILES.contains(profileId))
+   throw new AudioConfigFailure("SETTINGS_UNREADABLE","Select the Live Talk provider again");
+  JSONObject gemini=NativeBridge.byok.geminiSettings();
+  boolean configured=(GEMINI_LIVE_PROFILE.equals(profileId)?gemini:fal).getBoolean("configured");
+  return new JSONObject().put("profileId",profileId).put("configured",configured).put("gemini",gemini);
+ }
+ private static synchronized void selectLiveProvider(String profileId)throws Exception {
+  if(!LIVE_PROFILES.contains(profileId))
+   throw new AudioConfigFailure("INVALID_ARGUMENT","Select an available Live Talk provider");
+  JSONObject current;
+  try {current=audioSettings();current.getLong("revision");current.getJSONObject("profiles");}
+  catch(Exception unreadable){throw new AudioConfigFailure("SETTINGS_UNREADABLE","Saved voice settings cannot be read; no configuration was changed");}
+  Object previous=current.has("liveProfileId")?current.opt("liveProfileId"):DEFAULT_LIVE_PROFILE;
+  if(profileId.equals(previous))return;
+  current.put("liveProfileId",profileId).put("revision",current.getLong("revision")+1);
+  SystemAi.save(new File(SystemAi.ROOT,"audio-settings.json"),current);changed();
+ }
  private static JSONObject snapshot()throws Exception {
   JSONObject c=SystemAi.config(),reading=audioSettings();
+  JSONObject fal=NativeBridge.byok.falSettings();
   return new JSONObject().put("enabled",c.optBoolean("enabled")).put("audioEnabled",c.optBoolean("audioEnabled",true))
    .put("textTranslationConfigured",!MagpieSettings.binding("org.agentos.audio","text").isBlank()).put("systemRevision",c.optLong("revision")).put("audioRevision",reading.getLong("revision")).put("reading",reading.getJSONObject("profiles")).put("dictation",dictation(reading)).put("apps",consumers(c.getJSONObject("apps")))
-   .put("fal",NativeBridge.byok.falSettings());
+   .put("fal",fal).put("live",liveSettings(reading,fal));
  }
  private static JSONObject settingsSnapshot(JSONObject fal)throws Exception {
   JSONObject config=SystemAi.config(),audio=audioSettings();
+  if(fal==null)fal=NativeBridge.byok.falSettings();
   return new JSONObject().put("enabled",config.getBoolean("enabled")).put("audioEnabled",config.optBoolean("audioEnabled",true))
    .put("systemRevision",config.getLong("revision")).put("audioRevision",audio.getLong("revision"))
-   .put("reading",audio.getJSONObject("profiles")).put("dictation",dictation(audio)).put("fal",fal==null?NativeBridge.byok.falSettings():fal);
+   .put("reading",audio.getJSONObject("profiles")).put("dictation",dictation(audio))
+   .put("fal",fal).put("live",liveSettings(audio,fal));
  }
  static JSONObject settings(JSONObject request)throws Exception {
   String action=settingsAction(request);
@@ -115,6 +140,8 @@ final class AudioConfigBridge {
    switch(action){
     case "read":break;
     case "saveFalKey","removeFalKey","selectFalModel":fal=NativeBridge.byok.falControl(request);break;
+    case "saveLiveKey","removeLiveKey":NativeBridge.byok.liveControl(request);break;
+    case "selectLiveProvider":selectLiveProvider(request.getString("profileId"));break;
     case "setAudioEnabled":SystemAi.control(new JSONObject().put("action","configure").put("patch",new JSONObject().put("audioEnabled",request.getBoolean("enabled"))));break;
     case "configureReading","resetReading":{
      JSONObject profile;
@@ -133,9 +160,10 @@ final class AudioConfigBridge {
   if(!"settings".equals(request.opt("op"))||!(request.opt("action") instanceof String))throw new AudioConfigFailure("INVALID_ARGUMENT","Invalid voice settings parameters");
   String action=request.getString("action");
   Set<String> fields=switch(action){
-   case "read","removeFalKey"->Set.of("op","action");
-   case "saveFalKey"->Set.of("op","action","key");
+   case "read","removeFalKey","removeLiveKey"->Set.of("op","action");
+   case "saveFalKey","saveLiveKey"->Set.of("op","action","key");
    case "selectFalModel"->Set.of("op","action","model");
+   case "selectLiveProvider"->Set.of("op","action","profileId");
    case "setAudioEnabled"->Set.of("op","action","enabled");
    case "configureReading"->Set.of("op","action","language","voiceId","speed");
    case "resetReading"->Set.of("op","action","language");
@@ -164,9 +192,11 @@ final class AudioConfigBridge {
  static JSONObject consumers(JSONObject apps)throws Exception {
   return new JSONObject(apps.toString()).put(AGENT_UI_PACKAGE,apps.optBoolean("agent-ui",true));
  }
- static synchronized void falChanged()throws Exception {
-  JSONObject current=audioSettings();current.put("revision",current.getLong("revision")+1);
-  SystemAi.save(new File(SystemAi.ROOT,"audio-settings.json"),current);changed();
+ static synchronized void credentialsChanged()throws Exception {
+  try {
+   JSONObject current=audioSettings();current.put("revision",current.getLong("revision")+1);
+   SystemAi.save(new File(SystemAi.ROOT,"audio-settings.json"),current);
+  } finally {changed();}
  }
  private static synchronized void attach(LocalSocket socket,BlockingQueue<String> queue)throws Exception {
   queue.add(snapshot().toString());subscribers.put(socket,queue);
@@ -183,15 +213,15 @@ final class AudioConfigBridge {
    case "settings"->"CONFIG_UNAVAILABLE";
    case "configureReading","resetReading"->"SETTINGS_NOT_SAVED";
    case "configureDictation","resetDictation"->"SETTINGS_NOT_SAVED";
-   case "falCredential"->"PROVIDER_NOT_CONFIGURED";
+   case "falCredential","liveCredential"->"PROVIDER_NOT_CONFIGURED";
    case "prepareTranslation","translate"->"TEXT_TRANSLATION_FAILED";
    default->"UNSUPPORTED_OPERATION";
   };
  }
- static String failureMessage(String code){
+ private static String failureMessage(String operation,String code){
   return switch(code){
    case "POLICY_REVOKED"->"Voice AI is paused";
-   case "PROVIDER_NOT_CONFIGURED"->"Add or save your fal Key again in Taku Audio";
+   case "PROVIDER_NOT_CONFIGURED"->operation.equals("liveCredential")?"Add or save your Gemini API key again in Taku Audio":"Add or save your fal Key again in Taku Audio";
    case "SETTINGS_UNREADABLE"->"Saved voice settings cannot be read. Select them again in Taku Audio";
    case "SETTINGS_NOT_SAVED"->"Voice settings could not be saved";
    case "TEXT_TRANSLATION_FAILED"->"Text translation did not complete";
@@ -209,8 +239,22 @@ final class AudioConfigBridge {
    JSONObject message=new JSONObject(request.toString("UTF-8"));String operation=message.optString("op");
    if(!operation.equals("subscribe")){
     JSONObject response;
-    try{if(!Set.of("read","settings","configureReading","resetReading","falCredential","prepareTranslation","translate").contains(operation))throw new IOException("Unknown voice configuration operation");response=new JSONObject().put("ok",true).put("result",operation.equals("settings")?settings(message):operation.equals("read")?snapshot():operation.equals("falCredential")?NativeBridge.byok.falCredential():operation.equals("prepareTranslation")?AudioTextTranslation.prepare():operation.equals("translate")?AudioTextTranslation.translate(message):configureReading(message));}
-    catch(Exception error){String code=failureCode(operation,error);response=new JSONObject().put("ok",false).put("code",code).put("message",failureMessage(code));}
+    try {
+     JSONObject result=switch(operation){
+      case "settings"->settings(message);
+      case "read"->snapshot();
+      case "falCredential"->NativeBridge.byok.falCredential();
+      case "liveCredential"->NativeBridge.byok.liveCredential();
+      case "prepareTranslation"->AudioTextTranslation.prepare();
+      case "translate"->AudioTextTranslation.translate(message);
+      case "configureReading","resetReading"->configureReading(message);
+      default->throw new IOException("Unknown voice configuration operation");
+     };
+     response=new JSONObject().put("ok",true).put("result",result);
+    } catch(Exception error) {
+     String code=failureCode(operation,error);
+     response=new JSONObject().put("ok",false).put("code",code).put("message",failureMessage(operation,code));
+    }
     s.getOutputStream().write((response.toString()+"\n").getBytes(StandardCharsets.UTF_8));return;
    }
    BlockingQueue<String> queue=new ArrayBlockingQueue<>(16);attach(s,queue);

@@ -45,6 +45,9 @@ class EngineVoiceInput(context: Context, private val settingsScope: String, priv
   private var deadline = 0L
   private var deadlineArmed = false
   private val heard = DictationTranscript()
+  private val releaseWaiters = mutableListOf<(Boolean) -> Unit>()
+  private var releaseRequested = false
+  private val releaseTimeout = Runnable { finishRelease(false) }
 
   private val finishTimeout = Runnable {
     if (flow.value.phase != VoicePhase.Finalizing) return@Runnable
@@ -79,10 +82,15 @@ class EngineVoiceInput(context: Context, private val settingsScope: String, priv
       }
 
       override fun event(event: String) {
+        if (run == generation && releaseWaiters.isNotEmpty()) {
+          try { handleRelease(JSONObject(event)) } catch (_: Exception) { finishRelease(false) }
+          return
+        }
         if (run == generation) runCatching { handle(JSONObject(event)) }.onFailure { fail("ENGINE_UNAVAILABLE") }
       }
 
       override fun failed(message: String) {
+        if (run == generation && releaseWaiters.isNotEmpty()) { finishRelease(false); return }
         if (run == generation) fail("ENGINE_UNAVAILABLE")
       }
     })
@@ -114,6 +122,46 @@ class EngineVoiceInput(context: Context, private val settingsScope: String, priv
     if (flow.value.phase == VoicePhase.Idle) return
     closeTransport(cancelSession = true)
     flow.value = VoiceState()
+  }
+
+  private fun releaseForLive(released: (Boolean) -> Unit) {
+    if (client == null || openRequest.isEmpty()) { cancel(); released(true); return }
+    releaseWaiters.add(released)
+    if (releaseWaiters.size != 1) return
+    main.removeCallbacks(finishTimeout)
+    flow.value = VoiceState()
+    main.postDelayed(releaseTimeout, TRANSPORT_GRACE_MS)
+    requestRelease()
+  }
+
+  private fun requestRelease() {
+    if (sessionId.isEmpty() || releaseRequested) return
+    releaseRequested = true
+    runCatching { client?.cancel(sessionId) }.onFailure { finishRelease(false) }
+  }
+
+  private fun handleRelease(message: JSONObject) {
+    if (message.optString("type") == "response") {
+      if (message.optString("id") != openRequest) return
+      if (!message.optBoolean("ok")) { finishRelease(true); return }
+      sessionId = message.getJSONObject("result").getString("sessionId")
+      requestRelease()
+      return
+    }
+    val data = message.optJSONObject("data") ?: return
+    val id = data.optString("sessionId")
+    if (id.isEmpty() || sessionId.isNotEmpty() && sessionId != id) return
+    sessionId = id
+    if (data.optString("kind") == "Closed") finishRelease(data.optBoolean("restored")) else requestRelease()
+  }
+
+  private fun finishRelease(released: Boolean) {
+    val waiters = releaseWaiters.toList()
+    releaseWaiters.clear()
+    releaseRequested = false
+    main.removeCallbacks(releaseTimeout)
+    closeTransport(cancelSession = !released)
+    waiters.forEach { it(released) }
   }
 
   private fun handle(message: JSONObject) {
@@ -239,6 +287,10 @@ class EngineVoiceInput(context: Context, private val settingsScope: String, priv
     private val SERVICE = ComponentName("org.agentos.audio", "org.agentos.audio.AudioEngineService")
 
     /** The instance currently holding the microphone, across the home and the chat. */
+    internal fun releaseActive(released: (Boolean) -> Unit) {
+      active?.releaseForLive(released) ?: released(true)
+    }
+
     private var active: EngineVoiceInput? = null
 
     /** The engine is installed and its service resolves (dev images may omit it). */

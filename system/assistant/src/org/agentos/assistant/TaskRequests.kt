@@ -55,6 +55,19 @@ internal object TaskRequests {
 
     @JvmStatic
     @Throws(Exception::class)
+    fun liveTask(submissions: AgentGatewaySubmissions, input: JSONObject, action: String): JSONObject {
+        val operation = when (action) {
+            AgentGatewayProtocol.LIVE_TASK_READ -> "read"
+            AgentGatewayProtocol.LIVE_TASK_REPLACE -> "replace"
+            AgentGatewayProtocol.LIVE_TASK_CANCEL -> "cancel"
+            else -> throw IOException("INVALID_ARGUMENT")
+        }
+        submissions.requireLiveTask(input.getString("requestId"), input.getString("threadId"), input.getString("text"), input.getString("taskId"))
+        return NativeClient.exchange(JSONObject(input.toString()).put("op", "liveTask").put("action", operation))
+    }
+
+    @JvmStatic
+    @Throws(Exception::class)
     fun submit(prompt: String, foreground: String?, screen: Bitmap?): String =
         submit(prompt, foreground, screen, null)
 

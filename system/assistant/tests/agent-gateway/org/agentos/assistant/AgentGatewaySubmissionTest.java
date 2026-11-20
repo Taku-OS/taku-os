@@ -120,7 +120,49 @@ public final class AgentGatewaySubmissionTest {
             throw new AssertionError("Preflight error leaked detail");
         sameThreadSequencing();
         fallbackSequencing();
+        liveTaskReceipts();
         System.out.println("AgentGatewaySubmissionTest: durable send/steer receipt/restart/reuse/failure checks passed");
+    }
+    private interface Checked { void run() throws Exception; }
+    private static void rejects(String code, Checked operation) throws Exception {
+        try { operation.run(); }
+        catch (java.io.IOException expected) {
+            if (expected.getMessage().equals(code)) return;
+            throw new AssertionError("Expected " + code + ", got " + expected.getMessage(), expected);
+        }
+        throw new AssertionError("Expected " + code);
+    }
+    private static void liveTaskReceipts() throws Exception {
+        File root = Files.createTempDirectory("live-task-receipts-").toFile();
+        AgentGatewaySubmissions store = new AgentGatewaySubmissions(root);
+        rejects("LIVE_TASK_UNCONFIRMED", () -> store.requireLiveTask("missing", "thread", "Query", "210"));
+        File directory = new File(TaskRuntime.TASKS, "210"); directory.mkdirs();
+        JSONObject request = new JSONObject().put("id", "210").put("conversationId", "thread").put("prompt", "Query");
+        store.submit("live", "thread", "Query", () -> {}, before -> {
+            TaskRequests.write(new File(directory, "request.json"), request.toString());
+            before.persist("210");
+            TaskRequests.write(new File(directory, "ready"), "1");
+            return "210";
+        });
+        String receipt = Files.readString(new File(root, "live.json").toPath());
+        new AgentGatewaySubmissions(root).requireLiveTask("live", "thread", "Query", "210");
+        rejects("LIVE_TASK_MISMATCH", () -> store.requireLiveTask("live", "thread", "Query", "211"));
+        rejects("REQUEST_ID_REUSED", () -> store.requireLiveTask("live", "other", "Query", "210"));
+        rejects("REQUEST_ID_REUSED", () -> store.requireLiveTask("live", "thread", "Changed", "210"));
+        TaskRequests.write(new File(directory, "request.json"), new JSONObject(request.toString()).put("composerRequestId", "live").toString());
+        rejects("LIVE_TASK_MISMATCH", () -> store.requireLiveTask("live", "thread", "Query", "210"));
+        TaskRequests.write(new File(directory, "request.json"), new JSONObject(request.toString()).put("prompt", "Changed").toString());
+        rejects("LIVE_TASK_UNCONFIRMED", () -> store.requireLiveTask("live", "thread", "Query", "210"));
+        store.steer("steer-only", "thread", "turn", "Query", () -> {}, JSONObject::new);
+        rejects("LIVE_TASK_UNCONFIRMED", () -> store.requireLiveTask("steer-only", "thread", "Query", "210"));
+        store.submit("unknown", "thread", "Query", () -> {}, before -> { throw new java.io.IOException("lost"); });
+        rejects("LIVE_TASK_UNCONFIRMED", () -> store.requireLiveTask("unknown", "thread", "Query", "210"));
+        store.submit("rejected", "thread", "Query", () -> { throw new java.io.IOException("THREAD_BUSY"); }, before -> {
+            throw new AssertionError("Rejected publication ran");
+        });
+        rejects("LIVE_TASK_UNCONFIRMED", () -> store.requireLiveTask("rejected", "thread", "Query", "210"));
+        if (!receipt.equals(Files.readString(new File(root, "live.json").toPath())) || new File(directory, "cancel").exists())
+            throw new AssertionError("Receipt verification changed publication or cancellation state");
     }
     private static void await(java.util.concurrent.CountDownLatch latch) throws Exception {
         if(!latch.await(5,java.util.concurrent.TimeUnit.SECONDS))throw new AssertionError("Submission interleaving blocked");

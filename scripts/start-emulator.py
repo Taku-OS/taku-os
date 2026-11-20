@@ -26,6 +26,7 @@ def main():
     parser.add_argument("--port", type=int, required=True, help="Unused even emulator console port")
     parser.add_argument("--configure-only", action="store_true", help="Prepare keyboard for the next cold start")
     parser.add_argument("--writable-system", action="store_true", help="Use a temporary writable system image for development")
+    parser.add_argument("--allow-host-audio", action="store_true", help="Send the host microphone to the emulator instead of silent input")
     args = parser.parse_args()
     if not re.fullmatch(r"[A-Za-z0-9_.-]+", args.avd) or args.avd in (".", ".."):
         parser.error("Invalid AVD name")
@@ -71,6 +72,8 @@ def main():
     command = [str(emulator), "-avd", args.avd, "-port", str(args.port), "-gpu", "host", "-no-snapshot"]
     if args.writable_system:
         command.append("-writable-system")
+    if args.allow_host_audio:
+        command.append("-allow-host-audio")
     print(f"Starting {args.avd} on emulator-{args.port} with host keyboard enabled", flush=True)
     os.execv(command[0], command)
 

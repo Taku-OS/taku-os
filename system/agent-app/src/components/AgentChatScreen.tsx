@@ -25,7 +25,7 @@ import {presentationRequest} from '../model/genui';
 import {EdgeBlur} from '../native/EdgeBlur';
 import {ChatIcon} from '../chat/ChatIcon';
 import {chatBlur, chatColors, getChatAppearance, homeColors, chatMetrics, chatTitle, chatType, themed, themedStyles} from '../chat/chatTheme';
-import {chatText} from '../chat/chatText';
+import {chatText, type ChatTextKey} from '../chat/chatText';
 import {useDictation, type DictationFailure} from '../chat/useDictation';
 import {failureOf, insertDictation, type DraftSelection} from '../chat/dictationText';
 import {useReplySpeechState, useVoiceChatFocus} from '../chat/useVoiceChatFocus';
@@ -40,6 +40,13 @@ import {ComposerTools} from '../chat/ComposerTools';
 import type {ComposerAttachment, ComposerRecovery} from '../hooks/composerDraft';
 import {attachmentPreviewUri} from '../native/composerPicker';
 import type {ComposerPickerKind} from '../native/composerPicker';
+
+const liveTaskLabels: Record<string, ChatTextKey | undefined> = {
+  submitting: 'liveTaskSubmitting', queued: 'liveTaskQueued', accepted: 'liveTaskQueued', running: 'liveTaskRunning',
+  correcting: 'liveTaskCorrecting', cancelling: 'liveTaskCancelling', needs_user: 'liveTaskNeedsUser',
+  deliveryUnknown: 'liveTaskUnverified', unverified: 'liveTaskUnverified', blocked: 'liveTaskBlocked',
+  notSent: 'liveTaskBlocked', failed: 'liveTaskFailed', cancelled: 'liveTaskCancelled', completed: 'liveTaskCompleted',
+};
 
 const colors = themed(() => ({...baseColors, ink: chatColors.textPrimary, secondary: chatColors.textSecondary,
   muted: chatColors.textTertiary, border: chatColors.hairline, subtle: chatColors.fillControl,
@@ -471,7 +478,7 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
   }, onVoiceFailure);
   const dictating = dictation.phase !== 'idle';
   const {cancel: cancelDictation} = dictation;
-  useVoiceChatFocus(props.draftSessionId, voiceEnabled, setVoiceOwner, cancelDictation);
+  useVoiceChatFocus(props.draftSessionId, !layer && !taskView, setVoiceOwner, cancelDictation);
   const speech = useReplySpeechState();
   const speaking = speech?.threadId === props.draftSessionId && speech.phase !== 'failed' ? speech : null;
   useEffect(() => {
@@ -479,12 +486,29 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
       ToastAndroid.show(chatText(language)('replySpeechUnavailable'), ToastAndroid.SHORT);
   }, [speech, props.draftSessionId, language]);
   const stopReading = () => { if (speaking) void stopReplySpeech(speaking.threadId, speaking.replyId).catch(() => {}); };
+  const voice = live.active ? live.state : null;
+  const liveLevel = voice?.capturing ? voice.levels.at(-1) ?? 0 : 0;
+  const liveStatus = voice?.lifecycle === 'connecting' ? 'liveConnecting'
+    : voice?.lifecycle === 'disconnected' ? 'liveDisconnected'
+    : voice?.lifecycle === 'failed' ? 'liveFailed'
+    : voice?.muted ? 'liveMicPaused' : voice?.playback.state === 'speaking' ? 'liveSpeaking'
+    : voice?.capturing ? 'listening' : 'liveReady';
+  const liveProvider = voice && (voice.lifecycle === 'active' || voice.lifecycle === 'connecting') ? voice.provider : null;
+  const liveDisclosure = liveProvider === 'fal-grok' ? 'liveDisclosureGrok'
+    : liveProvider === 'gemini-live' ? 'liveDisclosureGemini' : 'liveDisclosure';
+  const liveTask = voice?.task && liveTaskLabels[voice.task.state];
+  const beginLiveTalk = () => { void live.start().catch(error => onVoiceFailure(failureOf(error?.code))); };
   const caret = insertedCaret?.threadId === props.draftSessionId && insertedCaret.text === props.draft ? insertedCaret.caret : null;
   useEffect(() => {
     if (!dictating) return;
     const back = BackHandler.addEventListener('hardwareBackPress', () => { cancelDictation(); return true; });
     return () => back.remove();
   }, [dictating, cancelDictation]);
+  useEffect(() => {
+    if (!live.active) return;
+    const back = BackHandler.addEventListener('hardwareBackPress', () => { live.stop(); return true; });
+    return () => back.remove();
+  }, [live]);
   // Back: Taku Home returns to the conversation. Panels live on the desktop.
   useEffect(() => {
     if (!layer) return;
@@ -516,7 +540,7 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
       onLayout={event => {if (!nativeIme) setMeasuredHostHeight(event.nativeEvent.layout.height);}}>
     <View style={StyleSheet.absoluteFill} pointerEvents={layer ? 'none' : 'box-none'} importantForAccessibility={layer ? 'no-hide-descendants' : 'auto'}>
     <View style={[StyleSheet.absoluteFill, layer && styles.hidden]} pointerEvents="box-none">
-    {live.active && <VoiceEffect kind="light" target="live" level={live.state?.voice.ready ? live.state.voice.levels.at(-1) ?? 0 : 0}
+    {live.active && <VoiceEffect kind="light" target="live" level={liveLevel}
       style={{position: 'absolute', left: 0, right: 0, bottom: 0, height: dimensions.width * 357 / 412}}/>}
     {/* The conversation runs under the title row and the composer; both edges blur and fade. */}
     <EdgeBlur style={StyleSheet.absoluteFill} topSharp={headerBottom + 8} topFull={0}
@@ -584,12 +608,18 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
         style={({pressed}) => [styles.headerButton, pressed && styles.pressed]}><VoiceIcon name="collapse" size={24}/></Pressable>
     </View>
     {!!error && <View style={[styles.error, styles.errorBar, {top: headerBottom}]}><Label role="meta" style={styles.errorText}>{error}</Label><IconButton name="refresh" label={t('retry')} color={chatColors.icon} onPress={props.onRefresh}/></View>}
-    {live.active ? <View style={[styles.livePanel, {bottom: composerBottom}]} onLayout={event => setComposerBox(event.nativeEvent.layout.height)}>
+    {voice ? <View style={[styles.livePanel, {bottom: composerBottom}]} onLayout={event => setComposerBox(event.nativeEvent.layout.height)}>
       <View style={styles.liveTranscript}>
-        <VoiceEffect kind="wave" target="live" level={live.state?.voice.ready ? live.state.voice.levels.at(-1) ?? 0 : 0} style={{width: 66, height: 28}}/>
-        <Text numberOfLines={3} style={[chatType.bodyMd(language === 'zh'), {textAlign: 'center', minHeight: 20}]}>
-          {live.state?.error ? ct('voiceUnavailable') : live.state?.voicePaused ? ct('liveMicPaused') : live.state?.voice.transcript ? `“${live.state.voice.transcript}”` : ''}
-        </Text>
+        <VoiceEffect kind="wave" target="live" level={liveLevel} style={{width: 66, height: 28}}/>
+        <Text accessibilityLiveRegion="polite" style={[chatType.bodyMd(language === 'zh'), styles.center]}>{ct(liveStatus)}</Text>
+        {!!voice.error && <Label role="caption" style={styles.secondary}>{voice.error}</Label>}
+        {!!voice.input?.text && <Text numberOfLines={2} style={[chatType.bodyMd(language === 'zh'), styles.center]}>{voice.input.text}</Text>}
+        {!!voice.output?.text && <Text numberOfLines={3} style={[chatType.bodyMd(language === 'zh'), styles.center, styles.secondary]}>{voice.output.text}</Text>}
+        {voice.playback.state === 'interrupted' && <Label role="caption" style={styles.secondary}>{ct('liveInterrupted')}</Label>}
+        {liveTask && <Label role="meta" style={styles.secondary}>{ct(liveTask)}</Label>}
+        {(voice.lifecycle === 'disconnected' || voice.lifecycle === 'failed') &&
+          <Pressable testID="live-talk-reconnect" accessibilityRole="button" onPress={beginLiveTalk}><Label role="label">{ct('liveReconnect')}</Label></Pressable>}
+        <Label role="caption" style={[styles.secondary, styles.center]}>{ct(liveDisclosure)}</Label>
       </View>
       <View style={styles.liveControls}>
         <View style={styles.liveControlGroup}>
@@ -597,8 +627,9 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
           <View accessibilityRole="button" accessibilityLabel="Video input unavailable" accessibilityState={{disabled: true}} style={[styles.liveControl, {opacity: 0.45}]}><VoiceIcon name="video"/></View>
         </View>
         <View style={styles.liveControlGroup}>
-          <Pressable testID="live-talk-mic" accessibilityRole="button" accessibilityLabel={ct(live.state?.voicePaused ? 'liveMicResume' : 'liveMicPause')}
-            onPress={() => { void live.toggleMic().catch(error => onVoiceFailure(failureOf(error?.code))); }} style={[styles.liveControl, live.state?.voicePaused && {opacity: 0.5}]}><VoiceIcon name="micLive"/></Pressable>
+          <Pressable testID="live-talk-mic" accessibilityRole="button" accessibilityLabel={ct(voice.muted ? 'liveMicResume' : 'liveMicPause')}
+            disabled={voice.lifecycle === 'disconnected' || voice.lifecycle === 'failed'}
+            onPress={() => { void live.toggleMic().catch(error => onVoiceFailure(failureOf(error?.code))); }} style={[styles.liveControl, voice.muted && {opacity: 0.5}]}><VoiceIcon name="micLive"/></Pressable>
           <Pressable testID="live-talk-close" accessibilityRole="button" accessibilityLabel={ct('liveStop')} onPress={live.stop} style={[styles.liveControl, {backgroundColor: 'rgba(255,255,255,0.92)'}]}><VoiceIcon name="close"/></Pressable>
         </View>
       </View>
@@ -646,8 +677,9 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
             {props.busy ? <ActivityIndicator size="small" color={homeColors.icon}/> : <ChatIcon name="arrowUp" color={homeColors.icon} size={18}/>}
           </Pressable>}
       {!hasDraft && <Pressable testID="live-talk-start" accessibilityRole="button" accessibilityLabel={ct('liveTalk')}
-        disabled={sendHeld || !voiceEnabled} onPress={() => {
-          Keyboard.dismiss(); dictation.cancel(); void live.start().catch(error => onVoiceFailure(failureOf(error?.code)));
+        disabled={!voiceEnabled} onPress={() => {
+          Keyboard.dismiss();
+          beginLiveTalk();
         }} style={styles.composerAction}><VoiceIcon name="voice" size={18}/></Pressable>}
       </>}
     </View>

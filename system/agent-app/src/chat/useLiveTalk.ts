@@ -1,10 +1,25 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
 import {requireOptionalNativeModule} from 'expo';
 
+type Caption = {text: string; final: boolean};
 export type LiveTalkState = {
-  voiceContinuous: boolean; voicePaused: boolean; threadId: string | null; error: string | null;
-  voice: {phase: string; ready: boolean; listening: boolean; transcript: string; levels: number[]};
+  sessionId: string;
+  sequence: number;
+  generation: number;
+  threadId: string | null;
+  lifecycle: 'connecting' | 'active' | 'disconnected' | 'closed' | 'failed';
+  provider: string | null;
+  muted: boolean;
+  capturing: boolean;
+  speech: boolean;
+  playback: {state: 'speaking' | 'stopped' | 'interrupted'; responseId: string | null};
+  input: (Caption & {itemId: string}) | null;
+  output: (Caption & {responseId: string; source: 'generated'}) | null;
+  levels: number[];
+  task: {requestId: string | null; taskId: string | null; turnId: string | null; state: string; version: number; error: string | null} | null;
+  error: string | null;
 };
+type Snapshot = {liveTalk: LiveTalkState | null};
 type Bridge = {
   liveState(): Promise<string>;
   liveAction(method: string, params: string): Promise<string>;
@@ -14,42 +29,45 @@ const native = requireOptionalNativeModule<Bridge>('TakuVoice');
 
 export function useLiveTalk(threadId: string, loading: boolean, selectThread: (id: string) => void) {
   const [state, setState] = useState<LiveTalkState | null>(null);
+  const latest = useRef<LiveTalkState | null>(null);
   const previousThread = useRef(threadId);
-  const action = useCallback(async (method: string, params = {}) => {
+  const accept = useCallback((snapshot: Snapshot) => {
+    const next = snapshot?.liveTalk;
+    if (!next || (latest.current && next.sequence <= latest.current.sequence)) return;
+    latest.current = next;
+    setState(next);
+  }, []);
+  const action = useCallback(async (method: string, params: object) => {
     if (!native) throw new Error('Live Talk is not available');
     const response = JSON.parse(await native.liveAction(method, JSON.stringify(params)));
-    if (!response.ok) throw Object.assign(new Error(response.message || response.code), {code: response.code});
-  }, []);
-  const stopThread = useCallback((id: string) => { void action('assistant/live-stop', {threadId: id}).catch(() => {}); }, [action]);
+    if (!response?.ok) throw Object.assign(new Error(response?.message || 'Live Talk did not respond'), {code: response?.code});
+    accept(response.result);
+  }, [accept]);
+  const stopSession = useCallback((sessionId: string) => {
+    void action('assistant/live-stop', {sessionId}).catch(() => {});
+  }, [action]);
   useEffect(() => {
     if (!native) return;
-    let mounted = true, revision = 0;
-    const accept = (json: string) => {
-      if (!mounted) return;
-      const next: LiveTalkState = JSON.parse(json);
-      setState(next);
-    };
-    const subscription = native.addListener('onLiveTalk', event => { revision++; accept(event.json); });
-    void native.liveState().then(json => { if (revision === 0) accept(json); }).catch(() => {});
-    // Android owns foreground lifetime: React's shared host briefly reports background
-    // between HomeActivity and MainActivity during the same-recording handoff.
+    let mounted = true;
+    const subscription = native.addListener('onLiveTalk', event => accept(JSON.parse(event.json)));
+    void native.liveState().then(json => { if (mounted) accept(JSON.parse(json)); }).catch(() => {});
     return () => { mounted = false; subscription.remove(); };
-  }, []);
+  }, [accept]);
+  const open = !!state && state.lifecycle !== 'closed';
   useEffect(() => {
-    // The first utterance lazily creates a thread for an empty chat. A mounted old
-    // chat must neither navigate nor stop the desktop's pending native handoff.
-    if (!loading && !threadId && state?.voiceContinuous && state.threadId) selectThread(state.threadId);
-  }, [loading, state?.voiceContinuous, state?.threadId, threadId, selectThread]);
+    if (!loading && !threadId && open && state?.threadId) selectThread(state.threadId);
+  }, [loading, open, state?.threadId, threadId, selectThread]);
   useEffect(() => {
     const previous = previousThread.current;
     previousThread.current = threadId;
-    if (previous && previous !== threadId && state?.voiceContinuous && state.threadId === previous) stopThread(previous);
-  }, [threadId, state?.voiceContinuous, state?.threadId, stopThread]);
-  const active = !!state?.voiceContinuous && (!threadId || state.threadId === threadId);
+    if (open && previous !== threadId && state && (state.threadId ?? '') === previous) stopSession(state.sessionId);
+  }, [threadId, open, state, stopSession]);
+  const active = open && (!threadId || state?.threadId === threadId);
   return {
     state, active,
     start: () => action('assistant/live-start', {threadId}),
-    stop: () => { if (active) stopThread(state?.threadId ?? ''); },
-    toggleMic: () => action('assistant/live-toggle-mic', {threadId: state?.threadId ?? ''}),
+    stop: () => { if (active && state) stopSession(state.sessionId); },
+    toggleMic: () => state && active
+      ? action('assistant/live-set-mic', {sessionId: state.sessionId, muted: !state.muted}) : Promise.resolve(),
   };
 }

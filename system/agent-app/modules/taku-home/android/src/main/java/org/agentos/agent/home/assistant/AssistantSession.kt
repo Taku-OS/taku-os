@@ -134,6 +134,19 @@ class AssistantSession private constructor(private val context: Context, private
   private var pollJob: Job? = null
   private var voiceJob: Job? = null
   private var liveLaunchJob: Job? = null
+  private var handoffOperation: Long? = null
+  private var handoffActivityLaunched = false
+  private var handoffEditor: Editor? = null
+  private val startedChats = mutableSetOf<android.app.Activity>()
+  private val liveFlow = MutableStateFlow<LiveTalkSnapshot?>(null)
+  internal val liveState = liveFlow.asStateFlow()
+  private val liveDelivery = LiveTalkDelivery(context, gateway, worker)
+  private val live = LiveTalk(context, scope, liveDelivery, { snapshot ->
+    val paused = snapshot.open && snapshot.muted
+    if (flow.value.voiceContinuous != snapshot.open || flow.value.voicePaused != paused)
+      flow.update { it.copy(voiceContinuous = snapshot.open, voicePaused = paused) }
+    liveFlow.value = snapshot
+  }, { text -> handoffEditor?.let { recoverFailure(it, "VOICE_UNAVAILABLE", text) } })
   private var voiceStartSequence = 0L
   internal var voiceStartPending = false
     private set
@@ -167,26 +180,28 @@ class AssistantSession private constructor(private val context: Context, private
     // Activity start precedes the previous activity's stop. This preserves capture during
     // Home → chat, while leaving the visible chat still releases the microphone. React's
     // shared host onPause/AppState signal is too early for this cross-activity handoff.
-    val chatActivities = mutableSetOf<android.app.Activity>()
     (context.applicationContext as? android.app.Application)?.registerActivityLifecycleCallbacks(object : android.app.Application.ActivityLifecycleCallbacks {
       override fun onActivityStarted(activity: android.app.Activity) {
-        if (activity.javaClass.name == "org.agentos.agent.MainActivity") chatActivities.add(activity)
+        if (activity.javaClass.name == CHAT_ACTIVITY) startedChats.add(activity)
       }
       override fun onActivityStopped(activity: android.app.Activity) {
-        if (activity.javaClass.name != "org.agentos.agent.MainActivity") return
-        chatActivities.remove(activity)
-        if (!activity.isChangingConfigurations && chatActivities.isEmpty() && flow.value.voiceContinuous) stopLiveTalk()
+        if (activity.javaClass.name != CHAT_ACTIVITY) return
+        startedChats.remove(activity)
+        if (!activity.isChangingConfigurations && startedChats.isEmpty()) endLiveTalk()
       }
       override fun onActivityCreated(activity: android.app.Activity, savedInstanceState: android.os.Bundle?) = Unit
       override fun onActivityResumed(activity: android.app.Activity) {
-        if (activity.javaClass.name == "org.agentos.agent.MainActivity") chatActivities.add(activity)
+        if (activity.javaClass.name == CHAT_ACTIVITY) {
+          startedChats.add(activity)
+          onChatVoiceFocus(ChatVoiceSession.get(context).visibleThread)
+        }
         if (activity is AssistantOverlayActivity || activity.javaClass.name == "org.agentos.agent.home.HomeActivity") {
           if (flow.value.entry == EntryMode.Text) refreshDraft()
         }
       }
       override fun onActivityPaused(activity: android.app.Activity) = Unit
       override fun onActivitySaveInstanceState(activity: android.app.Activity, outState: android.os.Bundle) = Unit
-      override fun onActivityDestroyed(activity: android.app.Activity) { chatActivities.remove(activity) }
+      override fun onActivityDestroyed(activity: android.app.Activity) { startedChats.remove(activity) }
     })
     scope.launch {
       while (isActive) {
@@ -205,15 +220,7 @@ class AssistantSession private constructor(private val context: Context, private
             v.emptySuccess && delivery.current?.state == VoiceDeliveryState.Consumed && !s.working && s.error == null) {
           closeEntry()
         }
-        if (s.voiceContinuous && s.entry == EntryMode.None && !s.voicePaused) {
-          val now = android.os.SystemClock.uptimeMillis()
-          if (v.ready) {
-            if (liveEndpoint.shouldFinish(now)) finishVoice()
-          } else if (!s.working && s.error == null && (v.phase == VoicePhase.Idle ||
-              v.phase == VoicePhase.Closed && v.outcome is VoiceOutcome.Success)) {
-            restartVoice()
-          }
-        }
+        if (live.handingOff && v.ready && liveEndpoint.shouldFinish(android.os.SystemClock.uptimeMillis())) finishVoice()
       }
     }
   }
@@ -224,6 +231,7 @@ class AssistantSession private constructor(private val context: Context, private
 
   private fun interruptVoiceForScreenOff() {
     ChatVoiceSession.interrupt()
+    endLiveTalk()
     if (gesture.held || gesture.phase == VoiceGesture.Phase.Listening ||
         flow.value.voiceContinuous || voice.state.value.listening) cancelVoice()
   }
@@ -231,7 +239,8 @@ class AssistantSession private constructor(private val context: Context, private
   /** A hidden voice page releases capture; rotation and the Continuous handoff retain it. */
   fun onVoiceSurfaceStopped(gestureId: String, changingConfigurations: Boolean) {
     if (!changingConfigurations && gesture.id == gestureId &&
-        (gesture.held || gesture.phase == VoiceGesture.Phase.Listening)) cancelVoice()
+        (gesture.held || gesture.phase == VoiceGesture.Phase.Listening ||
+          gesture.phase == VoiceGesture.Phase.Continuous && !handoffActivityLaunched)) cancelVoice()
   }
 
   /** Automatic retries have no RPC caller to receive failures; never throw on the main loop. */
@@ -251,11 +260,11 @@ class AssistantSession private constructor(private val context: Context, private
     }
   }
 
-  private fun publishGesture() = flow.update { it.copy(holdZone = gesture.zone,
-    voiceContinuous = gesture.phase == VoiceGesture.Phase.Continuous) }
+  private fun publishGesture() = flow.update { it.copy(holdZone = gesture.zone) }
 
   fun prepareHold(id: String, source: String, startedAt: Long): Boolean {
     if (id == gesture.id) return false
+    if (live.snapshot?.open == true) throw AssistantException("VOICE_BUSY", "Live Talk is already active")
     if (voice.state.value.listening) throw AssistantException("VOICE_BUSY", "voice is already active")
     val changed = gesture.prepare(id, source, startedAt, android.os.SystemClock.uptimeMillis())
     if (changed) publishGesture()
@@ -302,69 +311,140 @@ class AssistantSession private constructor(private val context: Context, private
   fun keepTalking() {
     if (!gesture.keepTalking()) return
     val gestureId = gesture.id
-    val generation = threadCreation.generation
+    val currentEditor = editor
+    handoffEditor = currentEditor
+    handoffActivityLaunched = false
+    live.begin(flow.value.threadId, handoff = true)
     publishGesture()
-    // Keep the same scoped Engine recording while the designer's 820 ms surface opens.
+    handoffOperation = delivery.handoff()
+    apply(delivery.settle(voice.state.value, flow.value.draft))
+    if (handoffOperation == null && !voiceStartPending) live.finishHandoff(null)
     liveLaunchJob = scope.launch {
       try {
         val started = android.os.SystemClock.uptimeMillis()
-        val id = ensureThread(generation)
+        val id = flow.value.threadId ?: liveDelivery.createThread()
         delay((820 - (android.os.SystemClock.uptimeMillis() - started)).coerceAtLeast(0))
-        if (!flow.value.voiceContinuous || gesture.id != gestureId ||
-            threadCreation.generation != generation || flow.value.threadId != id) return@launch
+        if (live.snapshot?.open != true || gesture.id != gestureId) return@launch
+        live.bindHandoff(id)
         flow.update { it.copy(entry = EntryMode.None, island = IslandMode.Hidden) }
-        context.startActivity(Intent().setClassName(context.packageName, "org.agentos.agent.MainActivity")
+        handoffActivityLaunched = true
+        context.startActivity(Intent().setClassName(context.packageName, CHAT_ACTIVITY)
           .putExtra("threadId", id).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP))
-        delivery.aim(VoiceDestination.Submit)
-        apply(delivery.settle(voice.state.value, flow.value.draft))
+        connectLiveTalk()
+        delay(10_000)
+        if (live.snapshot?.generation == 0L && !chatVisible(id)) {
+          live.failHandoff("HOST_REQUIRED")
+          revokeVoice()
+        }
       } catch (cancelled: kotlinx.coroutines.CancellationException) {
         throw cancelled
       } catch (_: Exception) {
-        if (flow.value.voiceContinuous && gesture.id == gestureId) {
-          gesture.returnToListening(); publishGesture()
+        if (live.snapshot?.open == true && gesture.id == gestureId) {
+          live.failHandoff("THREAD_UNAVAILABLE")
+          revokeVoice()
           flow.update { it.copy(error = "THREAD_UNAVAILABLE") }
         }
       }
     }
   }
 
-  /** Live Talk and text chat share the same thread and the desktop's scoped fal preference. */
   fun startLiveTalk(threadId: String) {
-    if (flow.value.voiceContinuous) {
-      if (flow.value.threadId.orEmpty() == threadId) return
-      throw AssistantException("VOICE_BUSY", "Live Talk is active in another conversation")
-    }
-    resume(threadId)
-    beginDesktopHold()
-    if (flow.value.error != null || (!voiceStartPending && !voice.state.value.listening)) {
-      val reason = flow.value.error ?: voice.state.value.error ?: "VOICE_UNAVAILABLE"
-      revokeVoice()
-      throw AssistantException(reason, "Voice input could not start")
-    }
-    gesture.keepTalking(); publishGesture()
-    flow.update { it.copy(entry = EntryMode.None, island = IslandMode.Hidden, voicePaused = false) }
-    delivery.aim(VoiceDestination.Submit)
+    val id = threadId.trim().ifEmpty { null }
+    requireLiveHost(id)
+    val snapshot = live.snapshot
+    if (snapshot?.open == true && snapshot.threadId == id && snapshot.lifecycle in setOf("connecting", "active")) return
+    if (snapshot?.open == true && snapshot.threadId != id)
+      throw AssistantException("SESSION_CHANGED", "Live Talk belongs to another conversation")
+    revokeVoice(cancelCapture = false)
+    if (voice !is EngineVoiceInput) voice.cancel()
+    flow.update { it.copy(entry = EntryMode.None, island = IslandMode.Hidden) }
+    live.begin(id)
+    connectLiveTalk()
   }
 
-  fun stopLiveTalk(threadId: String? = null) {
-    if (threadId != null && (!flow.value.voiceContinuous || flow.value.threadId.orEmpty() != threadId)) return
-    liveLaunchJob?.cancel(); liveLaunchJob = null
-    revokeVoice()
-    flow.update { it.copy(entry = EntryMode.None, island = IslandMode.Hidden, voicePaused = false) }
+  fun stopLiveTalk(threadId: String? = null, sessionId: String? = null) {
+    requireLiveSession(threadId, sessionId)
+    endLiveTalk()
   }
 
   fun toggleLiveMic(threadId: String? = null) {
-    if (!flow.value.voiceContinuous || (threadId != null && flow.value.threadId.orEmpty() != threadId)) return
-    if (!flow.value.voicePaused) {
-      flow.update { it.copy(voicePaused = true) }
+    val current = requireLiveSession(threadId, null)?.takeIf { it.open } ?: return
+    setLiveMic(current.sessionId, !current.muted)
+  }
+
+  fun setLiveMic(sessionId: String, muted: Boolean) {
+    val current = requireLiveSession(null, sessionId) ?: return
+    if (!current.open || current.muted == muted) return
+    if (!muted) requireLiveHost(current.threadId)
+    live.setMuted(muted)
+    if (muted && live.handingOff) {
       cancelPendingVoiceStart()
-      finishVoice()
-    } else {
-      flow.update { it.copy(voicePaused = false, error = null, voiceFailure = null) }
-      // Finalizing already owns its result; the normal endpoint loop resumes after it settles.
-      if (!flow.value.working && voice.state.value.phase in setOf(VoicePhase.Idle, VoicePhase.Closed))
-        startVoice(VoiceTarget.Hold, VoiceDestination.Submit)
+      delivery.revoke()
+      voice.cancel()
+      handoffOperation = null
+      live.finishHandoff(null)
+      connectLiveTalk()
     }
+  }
+
+  private fun requireLiveSession(threadId: String?, sessionId: String?): LiveTalkSnapshot? {
+    val current = live.snapshot
+    if (sessionId != null && sessionId.isBlank()) throw AssistantException("INVALID_ARGUMENT", "sessionId must be nonempty")
+    if ((sessionId != null && current?.sessionId != sessionId) ||
+        (threadId != null && (current == null || current.threadId.orEmpty() != threadId)))
+      throw AssistantException("SESSION_CHANGED", "Live Talk has changed")
+    return current
+  }
+
+  private fun chatVisible(threadId: String?) = startedChats.isNotEmpty() &&
+    ChatVoiceSession.get(context).visibleThread == threadId.orEmpty()
+
+  private fun requireLiveHost(threadId: String?) {
+    if (voiceDeviceUnavailable()) throw AssistantException("DEVICE_LOCKED", "Wake and unlock the device before opening Live Talk")
+    if (!chatVisible(threadId)) throw AssistantException("HOST_REQUIRED", "Open the target chat first")
+    if (!EngineVoiceInput.available(context)) throw AssistantException("VOICE_UNAVAILABLE", "The Taku Audio Engine is not installed")
+  }
+
+  internal fun onChatVoiceFocus(threadId: String?, previousThreadId: String? = null) {
+    val current = live.snapshot?.takeIf { it.open } ?: return
+    if (handoffEditor != null && current.generation == 0L && current.threadId.orEmpty() != threadId) return
+    if (threadId == null) {
+      if (previousThreadId == null) return
+      if (previousThreadId.isNotEmpty() || current.threadId == null) { endLiveTalk(); return }
+      // React releases the empty chat owner immediately before adopting the new thread.
+      scope.launch {
+        delay(150)
+        val latest = live.snapshot
+        if (latest?.sessionId == current.sessionId && !chatVisible(latest.threadId)) endLiveTalk()
+      }
+    } else if (threadId != current.threadId.orEmpty()) {
+      endLiveTalk()
+    } else {
+      connectLiveTalk()
+    }
+  }
+
+  private fun connectLiveTalk() {
+    val current = live.snapshot ?: return
+    if (handoffEditor != null && !handoffActivityLaunched) return
+    if (live.handingOff || current.lifecycle != "connecting" || !chatVisible(current.threadId)) return
+    val chat = ChatVoiceSession.get(context)
+    chat.releaseForLive { released ->
+      if (live.snapshot?.sessionId != current.sessionId || live.snapshot?.lifecycle != "connecting" ||
+          voiceDeviceUnavailable() || !chatVisible(current.threadId)) return@releaseForLive
+      if (released) live.connect(current.sessionId) else live.failHandoff("RESOURCE_BUSY")
+    }
+  }
+
+  private fun endLiveTalk() {
+    if (live.snapshot?.open != true) return
+    liveLaunchJob?.cancel(); liveLaunchJob = null
+    live.close()
+    handoffOperation = null
+    handoffActivityLaunched = false
+    handoffEditor = null
+    revokeVoice()
+    flow.update { it.copy(entry = EntryMode.None, island = IslandMode.Hidden) }
   }
 
   fun gestureEvent(p: JSONObject) {
@@ -406,6 +486,7 @@ class AssistantSession private constructor(private val context: Context, private
 
   /** Closes the input; an undelivered result loses eligibility. The island stays while there is something to show. */
   fun closeEntry() {
+    endLiveTalk()
     revokeVoice()
     flow.update { s ->
       val keep = s.working || s.turn != null || s.error != null
@@ -560,6 +641,7 @@ class AssistantSession private constructor(private val context: Context, private
 
   /** Explicit assistant dismissal; outside card taps are owned by SystemUI and never call this. */
   fun dismiss() {
+    endLiveTalk()
     org.agentos.agent.home.island.SystemIslandBridge.request(context, "collapse")
     val s = flow.value
     if (s.working || s.needsUser) { revokeVoice(); flow.update { it.copy(island = IslandMode.Collapsed, entry = EntryMode.None) }; return }
@@ -568,6 +650,7 @@ class AssistantSession private constructor(private val context: Context, private
 
   /** Ends this home conversation; the thread stays in the full chat history. */
   fun reset() {
+    endLiveTalk()
     threadCreation.invalidate()
     editor = Editor("")
     openingConversation = false
@@ -592,22 +675,14 @@ class AssistantSession private constructor(private val context: Context, private
     // No recording: a recycled or repeated finish must not close an unrelated open input.
     if (v.target != VoiceTarget.Hold || v.phase == VoicePhase.Idle || (flow.value.entry != EntryMode.Voice && !flow.value.voiceContinuous)) return
     // Released before capture: drop the operation instead of finishing nothing.
-    if (v.phase == VoicePhase.Preparing) {
-      if (flow.value.voiceContinuous) { delivery.revoke(); voice.cancel() } else cancelVoice()
-      return
-    }
-    if (!flow.value.voiceContinuous) { gesture.latch(); publishGesture() }
-    // Live Talk stays in chat; the same operation finishes before it can send.
-    if (flow.value.voiceContinuous) flow.update { it.copy(entry = EntryMode.None) }
-    delivery.aim(VoiceDestination.Submit)
+    if (v.phase == VoicePhase.Preparing) return cancelVoice()
+    if (!live.handingOff) { gesture.latch(); publishGesture(); delivery.aim(VoiceDestination.Submit) }
     voice.finish()
     apply(delivery.settle(voice.state.value, flow.value.draft))
   }
 
   /** Slide to "Cancel" and release (1-1-2): revoke first, so no late result can be delivered. */
   fun cancelVoice() {
-    liveLaunchJob?.cancel(); liveLaunchJob = null
-    revokeVoice()
     closeEntry()
   }
 
@@ -648,6 +723,7 @@ class AssistantSession private constructor(private val context: Context, private
   fun beginCancelledVoice(): Long? {
     gesture.end(true); publishGesture()
     val operation = delivery.revoke()
+    if (handoffEditor != null && live.snapshot?.generation == 0L) endLiveTalk()
     if (voice.state.value.phase != VoicePhase.Idle) voice.cancel()
     return operation
   }
@@ -661,15 +737,16 @@ class AssistantSession private constructor(private val context: Context, private
   }
 
   private fun startVoice(target: VoiceTarget, destination: VoiceDestination) {
+    if (live.snapshot?.open == true) throw AssistantException("VOICE_BUSY", "Live Talk is already active")
     if (voiceDeviceUnavailable())
       throw AssistantException("DEVICE_LOCKED", "Wake and unlock the device before starting voice input")
     if (voiceStartPending) return
     if (voice.state.value.phase != VoicePhase.Idle) voice.cancel()
     flow.update {
       it.copy(
-        entry = if (it.voiceContinuous) EntryMode.None else if (target == VoiceTarget.Hold) EntryMode.Voice else EntryMode.Text,
+        entry = if (target == VoiceTarget.Hold) EntryMode.Voice else EntryMode.Text,
         activityId = it.activityId ?: UUID.randomUUID().toString(),
-        island = if (it.voiceContinuous) IslandMode.Hidden else if (it.island == IslandMode.Hidden || it.island == IslandMode.Collapsed) IslandMode.Expanded else it.island,
+        island = if (it.island == IslandMode.Hidden || it.island == IslandMode.Collapsed) IslandMode.Expanded else it.island,
         hintExpanded = false, voiceFailure = null, error = null, retainedVoice = null,
       )
     }
@@ -684,7 +761,12 @@ class AssistantSession private constructor(private val context: Context, private
       if (voiceDeviceUnavailable()) { interruptVoiceForScreenOff(); return@afterSpeech }
       voice.start(target)
       val operation = voice.state.value.operationId ?: return@afterSpeech
-      val settledDestination = if (destination == VoiceDestination.AwaitGesture && !gesture.held) VoiceDestination.Submit else destination
+      val settledDestination = when {
+        live.handingOff -> VoiceDestination.Live
+        destination == VoiceDestination.AwaitGesture && !gesture.held -> VoiceDestination.Submit
+        else -> destination
+      }
+      if (settledDestination == VoiceDestination.Live) handoffOperation = operation
       delivery.begin(operation, settledDestination)
       apply(delivery.settle(voice.state.value, flow.value.draft))
     }
@@ -696,11 +778,11 @@ class AssistantSession private constructor(private val context: Context, private
   }
 
   /** Any conversation boundary: an undelivered result may no longer touch the session. */
-  private fun revokeVoice() {
+  private fun revokeVoice(cancelCapture: Boolean = true) {
     cancelPendingVoiceStart()
     gesture.end(true); publishGesture()
     delivery.newGeneration()
-    if (voice.state.value.phase != VoicePhase.Idle) voice.cancel()
+    if (cancelCapture && voice.state.value.phase != VoicePhase.Idle) voice.cancel()
   }
 
   private fun watchVoice() {
@@ -712,8 +794,22 @@ class AssistantSession private constructor(private val context: Context, private
   }
 
   private fun apply(effect: VoiceEffect) {
+    if (live.handingOff && effect is VoiceEffect.Failed) {
+      live.finishHandoff(null)
+      handoffOperation = null
+      voice.cancel()
+      connectLiveTalk()
+      return
+    }
     when (effect) {
       VoiceEffect.None -> Unit
+      is VoiceEffect.Live -> {
+        if (!live.handingOff || handoffOperation != effect.operationId) return
+        handoffOperation = null
+        live.finishHandoff(effect.text)
+        voice.cancel()
+        connectLiveTalk()
+      }
       is VoiceEffect.Draft -> {
         setDraft(effect.text)
         flow.update { it.copy(retainedVoice = null) }
@@ -999,6 +1095,7 @@ class AssistantSession private constructor(private val context: Context, private
   /** Continues this conversation in the full chat (the island's expand button). */
   fun openConversation() {
     if (openingConversation) return
+    endLiveTalk()
     liveLaunchJob?.cancel(); liveLaunchJob = null
     revokeVoice()
     val generation = threadCreation.generation
@@ -1032,6 +1129,7 @@ class AssistantSession private constructor(private val context: Context, private
    * sent yet) opens the island's greeting on a fresh session.
    */
   fun resume(threadId: String) {
+    endLiveTalk()
     val id = threadId.trim()
     liveLaunchJob?.cancel(); liveLaunchJob = null
     revokeVoice()
@@ -1060,14 +1158,6 @@ class AssistantSession private constructor(private val context: Context, private
     if (!id.isNullOrBlank()) flow.update { it.copy(activityId = id) }
   }
 
-  private suspend fun ensureThread(generation: Long): String = withContext(Dispatchers.Main.immediate) {
-    composerLock.withLock {
-      val current = editor
-      val id = ensureComposerThread(generation, current)
-      while (current.edit != null && editor === current) current.edit?.let { writeDraft(current, it) }
-      id
-    }
-  }
 
   private suspend fun ensureComposerThread(generation: Long, current: Editor): String {
     return threadCreation.resolve(generation, current = { flow.value.threadId }, create = {
@@ -1179,8 +1269,15 @@ class AssistantSession private constructor(private val context: Context, private
 
   // ---- Agent view ----------------------------------------------------------------------
 
+  internal fun liveSnapshotJson(): JSONObject {
+    val snapshot = live.snapshot
+    return JSONObject().put("liveTalk", snapshot?.json() ?: JSONObject.NULL)
+      .put("liveTalkDisclosure", snapshot?.disclosure ?: LiveTalk.DISCLOSURE)
+  }
+
   fun toJson(): JSONObject {
     val s = flow.value
+    val liveSnapshot = live.snapshot
     val v = voice.state.value
     val session = v.session
     val voiceJson = JSONObject()
@@ -1232,9 +1329,12 @@ class AssistantSession private constructor(private val context: Context, private
           .put("suggestions", JSONArray(t.suggestions.map { JSONObject().put("id", it.id).put("label", it.label).put("reply", it.reply) }))
       } ?: JSONObject.NULL)
       .put("voice", voiceJson)
+      .put("liveTalk", liveSnapshot?.json() ?: JSONObject.NULL)
+      .put("liveTalkDisclosure", liveSnapshot?.disclosure ?: LiveTalk.DISCLOSURE)
   }
 
   companion object {
+    private const val CHAT_ACTIVITY = "org.agentos.agent.MainActivity"
     const val MAX_TEXT = 16_000
     /** Saved dictation settings the desktop entry and its field microphone share. */
     const val DESKTOP_SCOPE = "assistant-entry"

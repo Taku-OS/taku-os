@@ -35,6 +35,9 @@ internal class AgentGatewayProtocol private constructor() {
         const val COMPOSER_RESTORE_TASK = "composer/restoreTask"
         const val COMPOSER_CREATE_THREAD = "composer/createThread"
         const val COMPOSER_PRESERVE_DRAFT = "composer/preserveDraft"
+        const val LIVE_TASK_READ = "live/task-read"
+        const val LIVE_TASK_REPLACE = "live/task-replace"
+        const val LIVE_TASK_CANCEL = "live/task-cancel"
         private val DRAFT_ACTIONS: Set<String> = java.util.Set.of(COMPOSER_READ, COMPOSER_WRITE, COMPOSER_IMPORT, COMPOSER_MOVE)
         private val UUID_PATTERN = Pattern.compile("[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}")
         @JvmField val ACTIONS: Set<String> = java.util.Set.of("listThreads", "readSession", "createThread",
@@ -50,7 +53,8 @@ internal class AgentGatewayProtocol private constructor() {
             "readAppPermissions", "setAppPermissionMode", "setAppPermissionScope", "resetAppPermission",
             COMPOSER_READ, COMPOSER_WRITE, COMPOSER_IMPORT, COMPOSER_MOVE, COMPOSER_RECEIPT, COMPOSER_ATTACH,
             COMPOSER_REMOVE, COMPOSER_OPTIONS_READ, COMPOSER_OPTIONS_WRITE, COMPOSER_SUBMIT, COMPOSER_SETTLE, COMPOSER_RELEASE,
-            COMPOSER_HANDOFF, COMPOSER_RESTORE, COMPOSER_RESTORE_TASK, COMPOSER_CREATE_THREAD, COMPOSER_PRESERVE_DRAFT)
+            COMPOSER_HANDOFF, COMPOSER_RESTORE, COMPOSER_RESTORE_TASK, COMPOSER_CREATE_THREAD, COMPOSER_PRESERVE_DRAFT,
+            LIVE_TASK_READ, LIVE_TASK_REPLACE, LIVE_TASK_CANCEL)
         @JvmField val QUESTIONS: Set<String> = java.util.Set.of("phone/askUser", "phone/confirmAction",
             "phone/action/requestApproval", "item/tool/requestUserInput")
         private val SECRET_KEYS: Set<String> = java.util.Set.of("accesstoken", "refreshtoken", "idtoken",
@@ -166,6 +170,14 @@ internal class AgentGatewayProtocol private constructor() {
                     if (action == COMPOSER_RESTORE_TASK && !text(input, "taskId", 20).matches(Regex("[0-9]{1,20}"))) throw IOException("INVALID_TASK_ID")
                     return input
                 }
+            }
+            if (action == LIVE_TASK_READ || action == LIVE_TASK_REPLACE || action == LIVE_TASK_CANCEL) {
+                PanelProtocol.exact(input, setOf("threadId", "taskId", "requestId", "text"))
+                requireId(input, "threadId")
+                requireId(input, "requestId")
+                text(input, "text", 16_000)
+                if (!text(input, "taskId", 20).matches(Regex("[0-9]{1,20}"))) throw IOException("INVALID_TASK_ID")
+                return input
             }
             if (action == COMPOSER_RECEIPT) {
                 val operation = text(input, "action", 16)

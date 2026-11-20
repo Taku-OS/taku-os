@@ -114,7 +114,7 @@ class AgentGatewayProvider : ContentProvider() {
     override fun call(method: String, arg: String?, extras: Bundle?): Bundle {
         val callerUid = Binder.getCallingUid()
         if (method.startsWith("composer/") || method.startsWith("workspaces/") || method.startsWith("capture/") ||
-            method.startsWith("accounts/") || method.startsWith("requests/") ||
+            method.startsWith("accounts/") || method.startsWith("requests/") || method.startsWith("live/") ||
             method in setOf("assistCapture", "assistInvocation", "readTaskDetail", "manageSystemAi", "manageAssistant")) {
             ComposerState.userError(context!!, callerUid)?.let { return error(Bundle(), it) }
         }
@@ -269,6 +269,8 @@ class AgentGatewayProvider : ContentProvider() {
             })
             "cancelQueued" -> return TaskRequests.cancelQueued(thread, input.getString("taskId"))
             "interrupt" -> return TaskRequests.interrupt(thread, input.getString("turnId"))
+            AgentGatewayProtocol.LIVE_TASK_READ, AgentGatewayProtocol.LIVE_TASK_REPLACE, AgentGatewayProtocol.LIVE_TASK_CANCEL ->
+                return TaskRequests.liveTask(submissions, input, action)
             "answer" -> {
                 AgentGatewayProtocol.pending(NativeClient.state(thread), thread, input.getString("key"))
                 // The broker validates the current request/turn and consumes the answer atomically.

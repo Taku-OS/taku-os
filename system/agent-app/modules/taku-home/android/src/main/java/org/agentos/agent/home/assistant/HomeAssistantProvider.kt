@@ -74,9 +74,11 @@ class HomeAssistantProvider : ContentProvider() {
           "gesture/event" -> session.gestureEvent(p)
           "gesture/activate" -> session.activateHold(p.getString("id"))
           "assistant/voice-continue" -> session.keepTalking()
-          "assistant/live-start" -> session.startLiveTalk(p.optString("threadId"))
-          "assistant/live-stop" -> session.stopLiveTalk(if (p.has("threadId")) p.threadId() else null)
-          "assistant/live-toggle-mic" -> session.toggleLiveMic(if (p.has("threadId")) p.threadId() else null)
+          "assistant/live-start" -> session.startLiveTalk(p.optionalString("threadId").orEmpty())
+          "assistant/live-stop" -> session.stopLiveTalk(p.optionalString("threadId"), p.optionalString("sessionId"))
+          "assistant/live-toggle-mic" -> session.toggleLiveMic(p.optionalString("threadId"))
+          "assistant/live-set-mic" -> session.setLiveMic(p.requiredString("sessionId"), p.opt("muted") as? Boolean
+            ?: throw AssistantException("INVALID_ARGUMENT", "muted must be a boolean"))
           "assistant/open" -> {
             val mode = when (p.optString("mode", "text")) {
               "text" -> EntryMode.Text
@@ -131,6 +133,8 @@ class HomeAssistantProvider : ContentProvider() {
 
   private fun JSONObject.requiredString(key: String): String = opt(key) as? String
     ?: throw AssistantException("INVALID_ARGUMENT", "$key must be a string")
+
+  private fun JSONObject.optionalString(key: String): String? = if (has(key)) requiredString(key) else null
 
   private fun JSONObject.threadId(): String = requiredString("threadId")
 

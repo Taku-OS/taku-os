@@ -248,6 +248,10 @@ fun BoxScope.VoiceHoldOverlay(
     verticalArrangement = Arrangement.spacedBy(TakuSpacing.xl),
   ) {
     VoiceBars(if (shownVoice.ready) shownVoice.levels else emptyList(), flat = shownZone == HoldZone.Cancel)
+    if (shownZone == HoldZone.KeepTalking || continuous) {
+      BasicText(org.agentos.agent.home.assistant.LiveTalk.DISCLOSURE,
+        style = voiceTranscriptStyle("").copy(color = colors.textSecondary, textAlign = TextAlign.Center))
+    }
     if (shownVoice.transcript.isNotBlank()) {
       BasicText(
         "“${shownVoice.transcript.trim()}”",

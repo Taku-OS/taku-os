@@ -26,9 +26,10 @@ synthetic call owner, not interruption of an established provider connection.
 
 First build the engine and assistant as described in ../ROM.md. Start the
 isolated fixture with host audio input/output disabled and root adb. Do not
-seed real credentials. The config script refuses existing fal files, disables
-Wi-Fi/mobile data before writing a conspicuously fake key, and restores network
-and voice-switch values and removes its files in finally.
+seed real credentials. The config script refuses to overwrite existing fal key,
+fal model, or Gemini key files. It disables Wi-Fi and mobile data before writing
+synthetic keys, then removes its files and restores the network and voice switches
+in `finally`.
 
 ```sh
 bash system/audio-engine/tests/build.sh
@@ -69,6 +70,14 @@ and saving is read back through the standard shell settings provider without
 changing the model. Checking the filled input catches the password transformation
 being overwritten by a later single-line setter. The unknown-voice regression
 checks the saved voice after a GUI speed change rather than pinning button text.
+
+The script checks that the GUI and shell report the same Live Talk provider and
+that each provider uses its own key. It loads a `gemini-live.json` file saved in
+the original format, replaces its key in the GUI, and checks that selecting or
+configuring Gemini preserves the fal translation model. It checks root ownership
+and file permissions for both key files, password masking in the GUI, and key
+retrieval through the protected Audio Engine configuration socket. Voice policy
+and key removal both deny retrieval.
 
 `review-package-device.py` supports the data-installed Audio APK used by this
 AVD. `--apk` selects the built APK restored after per-user removal; its default is

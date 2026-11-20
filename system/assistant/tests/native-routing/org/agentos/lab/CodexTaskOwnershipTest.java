@@ -30,6 +30,10 @@ public final class CodexTaskOwnershipTest {
     private static JSONObject message(String id) {return new JSONObject().put("id",id).put("type","agentMessage").put("text",id);}
     private static void runtime() throws Exception {
         JSONObject owner=null;List<JSONObject> nativeStarts=new ArrayList<>();
+        JSONObject goal = new JSONObject().put("goal", JSONObject.NULL);
+        JSONObject starting = null;
+        JSONArray interruptions = new JSONArray();
+        int goalMutations = 0;
         try(BufferedReader input=new BufferedReader(new InputStreamReader(System.in,StandardCharsets.UTF_8))) {
             String line;
             while((line=input.readLine())!=null) {
@@ -38,6 +42,19 @@ public final class CodexTaskOwnershipTest {
                 JSONObject params=request.optJSONObject("params");
                 if(method.equals("turn/start")) {
                     String text=params.getJSONArray("input").getJSONObject(0).getString("text");
+                    if (text.equals("owned:live")) {
+                        emit(result(request, new JSONObject().put("turn", turn("live-turn", "inProgress"))));
+                        event("turn/started", THREAD, "live-turn", null);
+                        continue;
+                    }
+                    if (text.equals("owned:starting")) { starting = request; continue; }
+                    if (text.equals("owned:completed")) {
+                        emit(result(request, new JSONObject().put("turn", turn("completed-turn", "inProgress"))));
+                        event("turn/started", THREAD, "completed-turn", null);
+                        event("item/completed", THREAD, "completed-turn", message("completed-reply"));
+                        event("turn/completed", THREAD, "completed-turn", null);
+                        continue;
+                    }
                     if(text.startsWith("owned:"))owner=request;else nativeStarts.add(request);
                     if(owner==null||nativeStarts.size()!=3)continue;
                     for(int i=0;i<2;i++) {
@@ -59,6 +76,26 @@ public final class CodexTaskOwnershipTest {
                 } else if(method.equals("account/read"))emit(result(request,new JSONObject().put("account",new JSONObject().put("type","host"))));
                 else if(method.equals("model/list"))emit(result(request,new JSONObject().put("data",new JSONArray().put(new JSONObject().put("model","host-model").put("isDefault",true)))));
                 else if(method.equals("thread/resume")||method.equals("thread/read"))emit(result(request,new JSONObject().put("model","host-model").put("thread",new JSONObject().put("id",params.getString("threadId")).put("turns",new JSONArray()))));
+                else if (method.equals("thread/goal/get")) {
+                    emit(result(request, goal));
+                    if (starting != null) {
+                        emit(result(starting, new JSONObject().put("turn", turn("starting-turn", "inProgress"))));
+                        event("turn/started", THREAD, "starting-turn", null);
+                        event("item/completed", THREAD, "starting-turn", message("starting-reply"));
+                        event("turn/completed", THREAD, "starting-turn", null);
+                        starting = null;
+                    }
+                }
+                else if (method.equals("test/goal")) { goal = new JSONObject().put("goal", params.opt("goal") == null ? JSONObject.NULL : params.opt("goal")); emit(result(request, new JSONObject())); }
+                else if (method.equals("test/goal-response")) { goal = params; emit(result(request, new JSONObject())); }
+                else if (method.equals("thread/goal/set") || method.equals("thread/goal/clear")) {
+                    goalMutations++; emit(result(request, new JSONObject()));
+                } else if (method.equals("turn/interrupt")) {
+                    interruptions.put(params);
+                    emit(result(request, new JSONObject()));
+                    emit(new JSONObject().put("method", "turn/completed").put("params", new JSONObject().put("threadId", params.getString("threadId"))
+                            .put("turn", turn(params.getString("turnId"), "interrupted"))));
+                } else if (method.equals("test/observed")) emit(result(request, new JSONObject().put("interruptions", interruptions).put("goalMutations", goalMutations)));
                 else emit(result(request,new JSONObject()));
             }
         }
@@ -115,9 +152,177 @@ public final class CodexTaskOwnershipTest {
             NativeBridge.inbox.clear();
         }
     }
+    private interface Checked { void run() throws Exception; }
+    private static void rejects(String code, Checked operation) throws Exception {
+        try { operation.run(); }
+        catch (IOException expected) {
+            check(code.equals(expected.getMessage()), "Expected " + code + ", got " + expected.getMessage());
+            return;
+        }
+        throw new AssertionError("Expected " + code);
+    }
+    private static JSONObject liveInput(String id, String text, String action) {
+        return new JSONObject().put("op", "liveTask").put("action", action).put("threadId", THREAD).put("taskId", id)
+                .put("requestId", "30000000-0000-4000-8000-000000000003").put("text", text);
+    }
+    private static JSONObject live(JSONObject input, NativeBridge.Call... following) throws Exception {
+        NativeBridge.Call call = new NativeBridge.Call("taku/liveTask", input);
+        check(NativeBridge.enqueue(call), "Live control was not admitted");
+        for (NativeBridge.Call pending : following) check(NativeBridge.enqueue(pending), "Concurrent control was not admitted");
+        long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(5);
+        while (!call.result.isDone()) {
+            if (System.nanoTime() > deadline) throw new AssertionError("Live control did not finish");
+            CodexAppServer.shared.pump(10);
+        }
+        try { return call.result.get(); }
+        catch (java.util.concurrent.ExecutionException failure) { throw (Exception) failure.getCause(); }
+    }
+    private static File publish(String id, String text, String permission) throws Exception {
+        File directory = new File(new File(TaskBroker.ROOT, "tasks"), id); directory.mkdirs();
+        JSONObject request = new JSONObject().put("id", id).put("conversationId", THREAD).put("prompt", text).put("permissionMode", permission);
+        TaskBroker.write(new File(directory, "request.json"), request.toString());
+        TaskBroker.state(directory, request, "queued", "");
+        TaskBroker.write(new File(directory, "ready"), "1");
+        return directory;
+    }
+    private static void liveTaskControl(String action) throws Exception {
+        TaskBroker.ROOT = Files.createTempDirectory("live-task-control-").toFile();
+        NativeBridge.state.clear(); NativeBridge.requests.clear(); NativeBridge.phonePermissions.clear();
+        try {
+            CodexAppServer server = CodexAppServer.shared();
+            File queued = publish("201", "Queued query", "readOnly");
+            JSONObject read = liveInput("201", "Queued query", "read"), control = liveInput("201", "Queued query", action);
+            JSONObject queuedState = live(read);
+            check(!queuedState.getBoolean("terminal") && !queuedState.has("turnId") && !new File(queued, "cancel").exists(), "Reading queued work changed it");
+            rejects("LIVE_TASK_MISMATCH", () -> live(new JSONObject(read.toString()).put("threadId", OTHER)));
+            rejects("LIVE_TASK_MISMATCH", () -> live(new JSONObject(control.toString()).put("threadId", OTHER)));
+            rejects("LIVE_TASK_MISMATCH", () -> live(new JSONObject(control.toString()).put("text", "Changed query")));
+            NativeBridge.state.put(THREAD, new JSONObject().put("activeTurnId", "unrelated"));
+            rejects("TURN_CHANGED", () -> live(control));
+            check(!new File(queued, "cancel").exists(), "Live cancellation affected unrelated active work");
+            NativeBridge.state.clear();
+            server.call("test/goal", new JSONObject().put("goal", new JSONObject().put("status", "active")));
+            rejects("LIVE_GOAL_ACTIVE", () -> live(control));
+            check(!new File(queued, "cancel").exists(), "An authoritative active goal was changed");
+            for (JSONObject unconfirmed : new JSONObject[]{new JSONObject(), new JSONObject().put("goal", new JSONObject()),
+                    new JSONObject().put("goal", 7), new JSONObject().put("goal", new JSONObject().put("status", " ")),
+                    new JSONObject().put("goal", new JSONObject().put("status", "unknown"))}) {
+                server.call("test/goal-response", unconfirmed);
+                rejects("LIVE_GOAL_UNCONFIRMED", () -> live(control));
+                check(!new File(queued, "cancel").exists(), "An unconfirmed goal allowed cancellation");
+            }
+            server.call("test/goal", new JSONObject());
+            for (String method : new String[]{"thread/goal/set", "thread/goal/clear"}) {
+                NativeBridge.Call mutation = new NativeBridge.Call(method, new JSONObject().put("threadId", THREAD).put("status", "paused"));
+                rejects("LIVE_GOAL_UNCONFIRMED", () -> live(control, mutation));
+                server.call("test/observed", new JSONObject());
+                check(mutation.result.isDone() && !new File(queued, "cancel").exists(), "An in-flight goal change allowed cancellation");
+            }
+            File unrestricted = publish("202", "Unrestricted query", "full");
+            rejects("LIVE_TASK_NOT_READ_ONLY", () -> live(liveInput("202", "Unrestricted query", "replace")));
+            if (action.equals("cancel")) {
+                JSONObject cancelled = live(liveInput("202", "Unrestricted query", "cancel"));
+                check(cancelled.getBoolean("cancellationRequested") && !cancelled.getBoolean("terminal"), "Explicit cancellation required read-only permission");
+                CodexAppServer.run(unrestricted, new JSONObject(TaskBroker.read(new File(unrestricted, "request.json"))));
+                check(live(liveInput("202", "Unrestricted query", "cancel")).getString("state").equals("cancelled"), "Repeated cancellation lost the terminal state");
+            }
+            JSONObject cancellation = live(control);
+            check(cancellation.getBoolean("cancellationRequested") && !cancellation.getBoolean("terminal") && new File(queued, "cancel").isFile(), "Queued cancellation was reported as completion");
+            check(live(control).getBoolean("cancellationRequested"), "Repeated queued cancellation lost its receipt");
+            CodexAppServer.run(queued, new JSONObject(TaskBroker.read(new File(queued, "request.json"))));
+            check(live(read).getBoolean("terminal") && live(read).getString("state").equals("cancelled"), "Queued cancellation never reached its actual terminal record");
+            File startingTask = publish("204", "owned:starting", "readOnly");
+            NativeBridge.Call startingControl = new NativeBridge.Call("taku/liveTask", liveInput("204", "owned:starting", action));
+            HarnessContext.prepareHook = request -> {
+                if (request.optString("id").equals("204")) check(NativeBridge.enqueue(startingControl), "Startup control was not admitted");
+            };
+            CodexAppServer.run(startingTask, new JSONObject(TaskBroker.read(new File(startingTask, "request.json"))));
+            HarnessContext.prepareHook = null;
+            rejects("LIVE_TASK_STARTING", () -> {
+                try { startingControl.result.get(); }
+                catch (java.util.concurrent.ExecutionException failure) { throw (Exception) failure.getCause(); }
+            });
+            check(!new File(startingTask, "cancel").exists() && TaskBroker.read(new File(startingTask, "done")).equals("completed"), "Unbound startup cancellation affected the running turn");
+            File running = publish("203", "owned:live", action.equals("cancel") ? "full" : "readOnly");
+            AgentViews.eventHook = event -> {
+                if (!event.optString("method").equals("turn/started")) return;
+                JSONObject params = event.getJSONObject("params");
+                if (!params.getJSONObject("turn").getString("id").equals("live-turn")) return;
+                JSONObject query = liveInput("203", "owned:live", "read"), stop = liveInput("203", "owned:live", action);
+                check(live(query).getString("turnId").equals("live-turn"), "Live read lost the exact owning turn");
+                NativeBridge.requests.put("foreign", new JSONObject().put("params", new JSONObject().put("threadId", THREAD).put("turnId", "other-turn")));
+                check(!live(query).getBoolean("needsUser"), "An unrelated pending request leaked into the owned task");
+                NativeBridge.requests.put("owned", new JSONObject().put("params", new JSONObject().put("threadId", THREAD).put("turnId", "live-turn")));
+                check(live(query).getBoolean("needsUser"), "The owned pending request was omitted");
+                NativeBridge.requests.clear();
+                File info = new File(running, "runtime-info.json");
+                String binding = TaskBroker.read(info);
+                TaskBroker.write(info, new JSONObject(binding).put("turnId", "foreign-turn").toString());
+                rejects("LIVE_TASK_MISMATCH", () -> live(query));
+                rejects("LIVE_TASK_MISMATCH", () -> live(stop));
+                TaskBroker.write(info, binding);
+                NativeBridge.state.get(THREAD).put("activeTurnId", "unrelated");
+                rejects("TURN_CHANGED", () -> live(stop));
+                NativeBridge.state.get(THREAD).put("activeTurnId", "live-turn");
+                NativeBridge.phonePermissions.put(THREAD, "full");
+                rejects("LIVE_TASK_NOT_READ_ONLY", () -> live(liveInput("203", "owned:live", "replace")));
+                if (action.equals("replace")) NativeBridge.phonePermissions.put(THREAD, "readOnly");
+                NativeBridge.state.get(THREAD).put("goal", new JSONObject().put("status", "active"));
+                rejects("LIVE_GOAL_ACTIVE", () -> live(stop));
+                NativeBridge.state.get(THREAD).remove("goal");
+                check(server.call("test/observed", new JSONObject()).getJSONArray("interruptions").length() == 0, "A rejected live cancellation interrupted work");
+                JSONObject stopped = live(stop);
+                check(stopped.getBoolean("cancellationRequested") && !stopped.getBoolean("terminal"), "Interruption receipt claimed terminal completion");
+            };
+            CodexAppServer.run(running, new JSONObject(TaskBroker.read(new File(running, "request.json"))));
+            AgentViews.eventHook = null;
+            JSONObject stopped = live(liveInput("203", "owned:live", "read"));
+            check(stopped.getBoolean("terminal") && stopped.getString("state").equals("cancelled")
+                    && stopped.getString("turnId").equals("live-turn") && !stopped.has("reply"), "Cancelled work exposed a completion reply");
+            check(!new File(running, "cancel").exists(), "Running cancellation armed the ordinary queued-cancel path");
+            JSONObject observed = server.call("test/observed", new JSONObject());
+            JSONArray interruptions = observed.getJSONArray("interruptions");
+            check(interruptions.length() == 1 && interruptions.getJSONObject(0).getString("threadId").equals(THREAD)
+                    && interruptions.getJSONObject(0).getString("turnId").equals("live-turn") && observed.getInt("goalMutations") == 2,
+                    "Live cancellation changed a goal or interrupted another turn");
+            TaskBroker.state(running, new JSONObject().put("id", "203"), "completed", "");
+            TaskBroker.write(new File(running, "done"), "completed");
+            TaskBroker.write(new File(running, "result.txt"), "a".repeat(3999) + "\uD83D\uDE00" + "latest");
+            JSONObject completed = live(liveInput("203", "owned:live", "read"));
+            check(completed.getString("reply").equals("a".repeat(3999)) && completed.getBoolean("replyTruncated"), "Bounded final reply split a surrogate or leaked excess content");
+            TaskBroker.write(new File(running, "done"), "cancelled");
+            rejects("LIVE_TASK_MISMATCH", () -> live(liveInput("203", "owned:live", "read")));
+            File finished = publish("205", "owned:completed", action.equals("cancel") ? "full" : "readOnly");
+            CodexAppServer.run(finished, new JSONObject(TaskBroker.read(new File(finished, "request.json"))));
+            JSONObject finishedControl = liveInput("205", "owned:completed", action);
+            NativeBridge.state.put(THREAD, new JSONObject().put("activeTurnId", "new-unrelated-turn")
+                    .put("goal", new JSONObject().put("status", "active")));
+            JSONObject before = live(liveInput("205", "owned:completed", "read"));
+            String current = NativeBridge.state.get(THREAD).toString();
+            String terminal = TaskBroker.read(new File(finished, "done"));
+            String reply = TaskBroker.read(new File(finished, "result.txt"));
+            server.call("test/goal", new JSONObject().put("goal", new JSONObject().put("status", "active")));
+            JSONObject completedControl = live(finishedControl);
+            check(completedControl.similar(before) && completedControl.getBoolean("terminal")
+                    && completedControl.getString("state").equals("completed") && !completedControl.getBoolean("cancellationRequested")
+                    && completedControl.getString("reply").equals("Completed reply"), "Cancellation replaced a completed outcome");
+            server.call("test/goal-response", new JSONObject());
+            check(live(finishedControl).similar(before), "Repeated terminal cancellation depended on goal confirmation");
+            check(!new File(finished, "cancel").exists() && TaskBroker.read(new File(finished, "done")).equals(terminal)
+                    && TaskBroker.read(new File(finished, "result.txt")).equals(reply)
+                    && NativeBridge.state.get(THREAD).toString().equals(current), "Terminal cancellation mutated task or conversation state");
+            check(server.call("test/observed", new JSONObject()).similar(observed), "Terminal cancellation interrupted a turn or changed a goal");
+        } finally {
+            HarnessContext.prepareHook = null; AgentViews.eventHook = null;
+            if (CodexAppServer.shared != null) CodexAppServer.shared.close(); CodexAppServer.shared = null;
+            NativeBridge.inbox.clear(); NativeBridge.requests.clear(); NativeBridge.state.clear(); NativeBridge.phonePermissions.clear();
+        }
+    }
     public static void main(String[] args) throws Exception {
         if(args.length>0&&args[0].equals("runtime")){runtime();return;}
         ownership("success");ownership("conflict");ownership("reject");
+        liveTaskControl("replace");
+        liveTaskControl("cancel");
         System.out.println("CodexTaskOwnershipTest: "+checks+" ownership assertions passed");
     }
 }

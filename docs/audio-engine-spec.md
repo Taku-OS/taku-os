@@ -311,6 +311,14 @@ A default-off “Interruptible · Experimental” path is added, explicitly sele
 
 Continuous mode requests cancellation only of its bound old Agent task; acceptance of cancellation does not mean completion. It sends the interruption through the original composer only after both old-task terminal state and audio closure are confirmed. If waiting exceeds 5 seconds or cancellation fails, retain the final interruption in the original conversation's empty draft and exit, without overwriting edits or automatically pausing the Agent goal. Real echo behavior, false triggers, human quality, and latency still need separate acceptance; compilation/lifecycle regression does not prove those effects.
 
+### 6.3 Live Talk
+
+The rightmost wave button in chat starts Live Talk after disclosing the possible audio recipients. **Keep talking** opens the same mode from a voice hold and keeps the existing Agent thread. Live Talk sends microphone audio, conversation context, and details needed for spoken task replies to the selected provider. The original Agent thread runs Agent tasks with its existing permissions.
+
+Chat requests `purpose:"LIVE_TALK"` without a `profileId`. The Audio Engine uses the saved provider at open. Grok Voice via fal (`fal-grok`) is the default, and Google Gemini Live (`gemini-live`) is also available. Provider changes apply to the next open, including reconnect. There is no automatic fallback. Live Talk requires microphone permission and active acoustic echo cancellation. Playback can be interrupted while the microphone continues recording. Muting releases the microphone, stops playback, and discards unsubmitted audio. Ending Live Talk, locking the device, or leaving chat releases the session. Reconnect keeps the chat, mute state, and confirmed text context. The video control remains disabled.
+
+The Audio Engine returns the effective `profileId` with the session ID. The Agent access API reports that ID in `liveTalk.provider`, which is null until the engine accepts the open request. The chat names the effective provider during the connection. Output subtitles have `source:"generated"` and no sample-aligned timestamps. Connection and audio errors appear in `liveTalk.error`. A missing or unreadable key reports `PROVIDER_NOT_CONFIGURED`. A rejected key reports `PROVIDER_AUTH_FAILED`. Removing the session's key reports `PROVIDER_REMOVED`. Other errors include `NETWORK_FAILED`, `RESOURCE_BUSY`, and `AEC_UNAVAILABLE`.
+
 ## 7. Video and call integration behavior
 
 Video retains “Captions only / Captions and translated audio,” “Keep original / Replace original,” and voice preferences. Caption-only mode creates no TTS/player. Captions follow latest results by default; scrolling up pauses following and offers a return-to-latest entry, without updates stealing scroll position. Display cache is bounded, initially retaining the latest 4000 characters.
@@ -330,6 +338,7 @@ Call mode must not fake integration by changing global mute, taking the original
 | Hybrid translation | Local ASR → restricted cloud text translation → optional local TTS | Only recognized text leaves the device; translation needs network |
 | Cloud captions | fal Whisper segmented recognition + system text translation, connected as experimental profile | Device uploads short WAV to fal temporary-file service for Whisper; captions only, original audio retained, no TTS/player. Requests 300-second expiry; fal controls actual retention. Not native streaming ASR |
 | Cloud live translated audio | Default Kotoba STS; retain Grok adapter for comparison | Device adapter connects directly to fal, streaming translated text/audio according to actual capabilities |
+| Live Talk | `fal-grok` (Grok Voice via fal) or `gemini-live` (Google Gemini Live) | `LIVE_TALK` uses cloud audio for duplex conversation. Translation sessions with `fal-grok` keep their purpose-specific behavior. |
 | Existing realtime | main native realtime-session integration | Current Codex realtime uses a separate OpenAI API key; retain legacy experimental entry, without subscription integration/new realtime adapter this round. Continuous conversation uses local ASR → original Agent text conversation → local TTS |
 
 Moonshine, MeloTTS, and others remain independent candidates rather than defaults based on one faster measurement. The old Azure implementation stays on the reference branch; first migration adds no Azure dependency and does not delete the old path.
@@ -391,9 +400,17 @@ The standalone entry reuses `org.agentos.audio` package, signature, and data dir
 
 GUI and Agent share the `settings` method at `content://org.agentos.audio.open-access`. Operations include `read`, `saveFalKey`, `removeFalKey`, `selectFalModel`, `setAudioEnabled`, `configureReading`, and `resetReading`. The root configuration module performs the same validation, persistence, and revision notifications. fal settings bypass comprehensive BYOK status reads that depend on OpenRouter. The old assistant page removes its fal editor and opens Taku Audio; OpenRouter settings remain.
 
-Ordinary readback includes system/voice toggles, configuration revision, reading preferences, and fal configuration state, mask, model list, and errors. Public commands cannot express `falCredential`, translation-runtime operations, or arbitrary root operations. Full parameter/error contracts are in preinstalled system AI settings documentation.
+Ordinary readback includes system and voice toggles, configuration revision, reading preferences, and masked credential status. Public commands expose settings actions. Full credentials and translation runtime operations use private channels. Full parameter and error contracts are in the preinstalled system AI settings guide.
 
 The 2026-10-27 BYOK section records the earlier entry's initial implementation. New app entry/settings migration still require component builds and isolated-emulator acceptance; old acceptance is not evidence this migration passed.
+
+#### Live Talk provider and credentials
+
+`selectLiveProvider` sets `profileId` to `fal-grok` or `gemini-live`. Grok uses the fal key shared with cloud dictation and translation. `saveFalKey` and `removeFalKey` manage that key. `saveLiveKey` and `removeLiveKey` manage the separate Gemini key. Both save actions take a string `key` and check its format locally. Removing a key stops active sessions that depend on it. The selected provider remains saved.
+
+The settings snapshot reports the selected provider as `result.live.profileId`. `result.live.configured` reflects whether the selected key is readable. `result.live.gemini` contains the Gemini key's `configured`, `masked`, and `error` fields. `result.fal.model` controls the translation model independently of Live Talk.
+
+The Audio Engine reads the selected provider's credentials through its private broker channel under the system and voice AI policy.
 
 ### 9.2 Invocation authorization and data
 

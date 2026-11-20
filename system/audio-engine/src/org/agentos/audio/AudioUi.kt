@@ -143,7 +143,6 @@ internal class AudioUi(private val activity: Activity) {
         control.buttonTintList = ColorStateList(arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()), intArrayOf(ORANGE, MUTED))
         control.minHeight = dp(48)
     }
-    /** Shared secret entry used by the home fal card and the desktop dictation page. */
     fun keyDialog(
         title: String,
         privacy: String,

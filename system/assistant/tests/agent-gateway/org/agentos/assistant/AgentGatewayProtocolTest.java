@@ -103,6 +103,24 @@ public final class AgentGatewayProtocolTest {
     public static void main(String[] args) throws Exception {
         JSONObject send = new JSONObject().put("threadId", THREAD).put("requestId", KEY).put("text", "Hello");
         check(AgentGatewayProtocol.request("sendMessage", send.toString()).getString("text").equals("Hello"));
+        JSONObject live = new JSONObject(send.toString()).put("taskId", "12345");
+        for (String action : new String[]{"live/task-read", "live/task-replace", "live/task-cancel"}) {
+            check(AgentGatewayProtocol.request(action, live.toString()).similar(live));
+            for (String field : new String[]{"threadId", "taskId", "requestId", "text"}) {
+                JSONObject missing = new JSONObject(live.toString()); missing.remove(field);
+                rejects(() -> AgentGatewayProtocol.request(action, missing.toString()));
+                JSONObject wrongType = new JSONObject(live.toString()).put(field, 12);
+                rejects(() -> AgentGatewayProtocol.request(action, wrongType.toString()));
+            }
+            for (String field : new String[]{"turnId", "action", "permissionMode", "goalActive"})
+                rejects(() -> AgentGatewayProtocol.request(action, new JSONObject(live.toString()).put(field, "untrusted").toString()));
+            rejects(() -> AgentGatewayProtocol.request(action, new JSONObject(live.toString()).put("threadId", "../thread").toString()));
+            rejects(() -> AgentGatewayProtocol.request(action, new JSONObject(live.toString()).put("requestId", "../receipt").toString()));
+            rejects(() -> AgentGatewayProtocol.request(action, new JSONObject(live.toString()).put("taskId", "../12345").toString()));
+            rejects(() -> AgentGatewayProtocol.request(action, new JSONObject(live.toString()).put("taskId", "1".repeat(21)).toString()));
+            rejects(() -> AgentGatewayProtocol.request(action, new JSONObject(live.toString()).put("text", " ").toString()));
+            rejects(() -> AgentGatewayProtocol.request(action, new JSONObject(live.toString()).put("text", "x".repeat(16001)).toString()));
+        }
         rejects(() -> AgentGatewayProtocol.request("rpc", "{}"));
         rejects(() -> AgentGatewayProtocol.request("sendMessage", new JSONObject(send.toString()).put("command", "sh").toString()));
         rejects(() -> AgentGatewayProtocol.request("sendMessage", new JSONObject(send.toString()).put("text", " ").toString()));

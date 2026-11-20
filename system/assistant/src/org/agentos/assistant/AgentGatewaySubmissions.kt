@@ -224,6 +224,15 @@ internal class AgentGatewaySubmissions(private val root: File) {
         return receipt
     }
 
+    @Throws(Exception::class)
+    fun requireLiveTask(requestId: String, threadId: String, text: String, taskId: String) {
+        val receipt = lookup(requestId, threadId, text)
+        if (receipt.optString("state") != "queued") throw IOException("LIVE_TASK_UNCONFIRMED")
+        if (receipt.optString("taskId") != taskId) throw IOException("LIVE_TASK_MISMATCH")
+        val request = read(File(File(TaskRuntime.TASKS, taskId), "request.json"))
+        if (request.has("composerRequestId") || request.has("kind")) throw IOException("LIVE_TASK_MISMATCH")
+    }
+
     private fun matchesPublishedTask(task: String, thread: String, text: String, panel: JSONObject?, composerRequestId: String?): Boolean {
         if (!task.matches(Regex("[0-9]{1,20}"))) return false
         val directory = File(TaskRuntime.TASKS, task)

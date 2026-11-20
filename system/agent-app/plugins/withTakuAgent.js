@@ -26,13 +26,16 @@ function configureConversationActivity(contents) {
 }
 
 function configureConversationRoutes(contents) {
-  if (contents.includes('PanelLaunchIntents.restore(')) return contents;
   const activity = 'class MainActivity : ReactActivity() {';
   const create = '  override fun onCreate(savedInstanceState: Bundle?) {';
+  const initializeVoice = '    org.agentos.agent.home.assistant.AssistantSession.get(this)';
   const capture = '    ConversationDrafts.offer(intent.getStringExtra(ConversationDrafts.EXTRA_DRAFT))\n' +
     '    intent.removeExtra(ConversationDrafts.EXTRA_DRAFT)';
   if (!contents.includes('import android.os.Bundle') || !contents.includes(activity) || !contents.includes(create)) {
     throw new Error('Taku routes: expected Expo activity lifecycle hooks; review the generated template.');
+  }
+  if (contents.includes('PanelLaunchIntents.restore(')) {
+    return contents.includes(initializeVoice) ? contents : contents.replace(create, `${create}\n${initializeVoice}`);
   }
   if (contents.includes('ConversationDrafts.offer(')) {
     const previous = `  override fun onNewIntent(intent: Intent) {\n${capture}\n` +
@@ -57,7 +60,7 @@ function configureConversationRoutes(contents) {
     '      setIntent(intent)\n    }\n    super.onNewIntent(intent)\n  }\n\n' +
     '  override fun onSaveInstanceState(outState: Bundle) {\n' +
     '    PanelLaunchIntents.save(this, outState)\n    super.onSaveInstanceState(outState)\n  }\n');
-  return contents.replace(create, `${create}\n    PanelLaunchIntents.restore(this, savedInstanceState)\n${capture}`);
+  return contents.replace(create, `${create}\n${initializeVoice}\n    PanelLaunchIntents.restore(this, savedInstanceState)\n${capture}`);
 }
 
 function configurePickerState(contents) {

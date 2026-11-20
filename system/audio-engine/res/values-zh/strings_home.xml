@@ -1,6 +1,6 @@
 <resources>
     <string name="audio_home_title">语音</string>
-    <string name="audio_home_subtitle">管理语音、fal 和本地朗读。打开设置不会录音，也不会向云端发送验证请求。</string>
+    <string name="audio_home_subtitle">管理语音服务和本地朗读。打开设置不会录音，也不会向云端发送验证请求。</string>
     <string name="audio_home_settings_section">设置</string>
     <string name="audio_home_refresh">刷新设置</string>
     <string name="audio_home_voice_section">语音 AI</string>
@@ -10,9 +10,29 @@
     <string name="audio_home_add_key">添加 fal Key</string>
     <string name="audio_home_replace_key">替换 fal Key</string>
     <string name="audio_home_remove_key">移除 fal Key</string>
-    <string name="audio_home_default_model">默认 fal 模型</string>
-    <string name="audio_home_default_model_value">默认 fal 模型：%1$s</string>
+    <string name="audio_home_default_model">默认翻译模型</string>
+    <string name="audio_home_default_model_value">默认翻译模型：%1$s</string>
     <string name="audio_home_fal_summary">密钥状态表示本机已保存且可读取，未验证云端授权或余额。默认模型用于下一次翻译，正在进行的会话保持当前设置。</string>
+    <string name="audio_home_live_section">实时语音</string>
+    <string name="audio_home_live_provider">实时语音服务</string>
+    <string name="audio_home_live_provider_value">实时语音服务：%1$s</string>
+    <string name="audio_home_live_grok">Grok Voice（fal）</string>
+    <string name="audio_home_live_gemini">Gemini Live</string>
+    <string name="audio_home_live_grok_summary">Grok Voice 使用上方的 fal Key。实时语音会将麦克风音频和播报所需的任务结果发送给 fal。</string>
+    <string name="audio_home_live_grok_missing">请先在上方添加 fal Key，再使用 Grok Voice 进行实时语音对话。</string>
+    <string name="audio_home_live_gemini_summary">实时语音会将麦克风音频和播报所需的任务结果发送给 Google。</string>
+    <string name="audio_home_live_gemini_missing">请先在下方添加 Gemini API 密钥，再使用 Gemini Live 进行实时语音对话。</string>
+    <string name="audio_home_live_pending">刷新设置后显示实时语音服务。</string>
+    <string name="audio_home_live_next">所选服务在下次打开实时语音时生效。</string>
+    <string name="audio_home_gemini_key_pending">刷新设置后显示 Gemini API 密钥状态。</string>
+    <string name="audio_home_gemini_key_saved">Gemini API 密钥已保存 · %1$s</string>
+    <string name="audio_home_gemini_key_missing">尚未配置 Gemini API 密钥</string>
+    <string name="audio_home_gemini_key_hint">请输入完整的 Gemini API 密钥</string>
+    <string name="audio_home_add_gemini_key">添加 Gemini API 密钥</string>
+    <string name="audio_home_replace_gemini_key">替换 Gemini API 密钥</string>
+    <string name="audio_home_remove_gemini_key">移除 Gemini API 密钥</string>
+    <string name="audio_home_remove_gemini_key_title">移除 Gemini API 密钥？</string>
+    <string name="audio_home_remove_gemini_key_summary">移除密钥会停止正在进行的 Gemini Live 会话。再次启动 Gemini Live 时需要密钥。</string>
     <string name="audio_home_features_section">语音功能</string>
     <string name="audio_home_dictation">桌面语音输入</string>
     <string name="audio_home_dictation_summary">桌面语音入口的识别后端、语言与备用设置</string>
@@ -46,8 +66,7 @@
     <string name="audio_home_key_privacy">仅保存到本机配置。保存不会验证云端授权，也不会发起付费请求。</string>
     <string name="audio_home_cancel">取消</string>
     <string name="audio_home_save">保存</string>
-    <string name="audio_home_key_required">请输入完整的 fal Key</string>
     <string name="audio_home_remove_key_title">移除 fal Key？</string>
-    <string name="audio_home_remove_key_summary">移除后无法启动 fal 翻译。正在使用 fal 的会话会停止，默认模型偏好保留。</string>
+    <string name="audio_home_remove_key_summary">移除 Key 会停止正在使用 fal 的会话。Grok Voice 和 fal 翻译都需要 Key 才能启动。默认翻译模型将保留。</string>
     <string name="audio_home_remove">移除</string>
 </resources>

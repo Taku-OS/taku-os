@@ -10,6 +10,12 @@ import java.util.concurrent.*;
 /** Version-pinned stdio client; owned by TaskBroker, never a second scheduler. */
 public final class CodexAppServer implements AutoCloseable {
     private static final int MAX_MESSAGE_CHARS = 8 * 1024 * 1024;
+    private static final Set<String> LIVE_TASK_FIELDS = Set.of("op", "action", "threadId", "taskId", "requestId", "text");
+    private static final Set<String> LIVE_TASK_STATES = Set.of("queued", "running", "completed", "failed", "needs_user", "cancelled");
+    private static final Set<String> LIVE_TERMINAL_STATES = Set.of("completed", "failed", "needs_user", "cancelled");
+    private static final Set<String> LIVE_GOAL_STATES = Set.of("active", "paused", "blocked", "usageLimited", "budgetLimited", "complete");
+    private static final java.util.regex.Pattern LIVE_UUID = java.util.regex.Pattern.compile("[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}");
+    private static final java.util.regex.Pattern LIVE_TASK_ID = java.util.regex.Pattern.compile("[0-9]{1,20}");
     interface Events {
         void accept(JSONObject event) throws Exception;
     }
@@ -56,6 +62,145 @@ public final class CodexAppServer implements AutoCloseable {
             TaskBroker.write(file, value.put("taskId", taskId).put("threadId", threadId).put("turnId", turn).toString());
             return turn;
         }
+    }
+
+    private static final class LiveTask {
+        final File directory;
+        final JSONObject request;
+        final String id, thread, state, turn;
+        final boolean terminal;
+
+        LiveTask(JSONObject input) throws Exception {
+            id = input.getString("taskId");
+            thread = input.getString("threadId");
+            directory = new File(new File(TaskBroker.ROOT, "tasks"), id);
+            if (!new File(directory, "ready").isFile()) throw new IOException("LIVE_TASK_UNCONFIRMED");
+            request = record("request.json");
+            if (!id.equals(request.optString("id")) || !thread.equals(request.optString("conversationId"))
+                    || !input.getString("text").equals(request.optString("prompt"))
+                    || request.has("kind") || request.has("panelUpdate") || request.has("composerRequestId"))
+                throw new IOException("LIVE_TASK_MISMATCH");
+            JSONObject status = record("state.json");
+            state = status.optString("state");
+            if (!id.equals(status.optString("id")) || !LIVE_TASK_STATES.contains(state))
+                throw new IOException("LIVE_TASK_MISMATCH");
+            terminal = new File(directory, "done").isFile();
+            if (terminal && (!LIVE_TERMINAL_STATES.contains(state)
+                    || !state.equals(TaskBroker.read(new File(directory, "done")).trim())))
+                throw new IOException("LIVE_TASK_MISMATCH");
+            if (new File(directory, "runtime-info.json").isFile()) {
+                JSONObject runtime = record("runtime-info.json");
+                Object boundTurn = runtime.opt("turnId");
+                if (!id.equals(runtime.optString("taskId")) || !thread.equals(runtime.optString("threadId"))
+                        || runtime.has("conversationId") && !thread.equals(runtime.optString("conversationId"))
+                        || !(boundTurn instanceof String) || ((String) boundTurn).isBlank() || ((String) boundTurn).length() > 160)
+                    throw new IOException("LIVE_TASK_MISMATCH");
+                turn = (String) boundTurn;
+            } else {
+                if (state.equals("completed")) throw new IOException("LIVE_TASK_UNCONFIRMED");
+                turn = "";
+            }
+        }
+
+        private JSONObject record(String name) throws Exception {
+            File file = new File(directory, name);
+            if (!file.isFile()) throw new IOException("LIVE_TASK_UNCONFIRMED");
+            return new JSONObject(TaskBroker.read(file));
+        }
+
+        JSONObject snapshot(JSONObject current) throws Exception {
+            boolean needsUser = state.equals("needs_user");
+            if (!terminal && !turn.isEmpty()) for (JSONObject pending : NativeBridge.requests.values()) {
+                JSONObject params = pending.optJSONObject("params");
+                if (params != null && thread.equals(params.optString("threadId")) && turn.equals(params.optString("turnId")))
+                    needsUser = true;
+            }
+            JSONObject result = new JSONObject().put("taskId", id).put("state", state).put("terminal", terminal)
+                    .put("needsUser", needsUser).put("cancellationRequested", new File(directory, "cancel").isFile()
+                            || !turn.isEmpty() && current != null && turn.equals(current.optString("phoneStoppedTurnId")));
+            if (!turn.isEmpty()) result.put("turnId", turn);
+            if (current != null && current.has("goal")) result.put("goalActive", goalActive(current));
+            File reply = new File(directory, "result.txt");
+            if (terminal && state.equals("completed") && reply.isFile()) {
+                char[] text = new char[4001];
+                int length = 0;
+                try (Reader reader = new InputStreamReader(new FileInputStream(reply), StandardCharsets.UTF_8)) {
+                    while (length < text.length) {
+                        int count = reader.read(text, length, text.length - length);
+                        if (count < 0) break;
+                        length += count;
+                    }
+                }
+                int visible = Math.min(length, 4000);
+                if (visible > 0 && Character.isHighSurrogate(text[visible - 1])) visible--;
+                result.put("reply", new String(text, 0, visible)).put("replyTruncated", length > visible);
+            }
+            return result;
+        }
+    }
+
+    private static boolean goalActive(JSONObject state) {
+        JSONObject goal = state.optJSONObject("goal");
+        return goal != null && goal.optString("status").equals("active");
+    }
+
+    static JSONObject liveTask(JSONObject input) throws Exception {
+        if (input.length() != LIVE_TASK_FIELDS.size()) throw new IOException("INVALID_ARGUMENT");
+        for (String field : LIVE_TASK_FIELDS) if (!(input.opt(field) instanceof String)) throw new IOException("INVALID_ARGUMENT");
+        if (!LIVE_UUID.matcher(input.getString("threadId")).matches() || !LIVE_UUID.matcher(input.getString("requestId")).matches()
+                || !LIVE_TASK_ID.matcher(input.getString("taskId")).matches()
+                || input.getString("text").isBlank() || input.getString("text").length() > 16000
+                || !input.getString("action").equals("read") && !input.getString("action").equals("replace")
+                    && !input.getString("action").equals("cancel")) throw new IOException("INVALID_ARGUMENT");
+        boolean replace = input.getString("action").equals("replace");
+        boolean cancel = !input.getString("action").equals("read");
+        LiveTask task = new LiveTask(input);
+        if (replace && !task.request.optString("permissionMode").equals("readOnly")) throw new IOException("LIVE_TASK_NOT_READ_ONLY");
+        CodexAppServer server = shared;
+        JSONObject goal = null;
+        if (cancel && !task.terminal) {
+            if (server == null || server.closed) throw new IOException("RUNTIME_UNAVAILABLE");
+            goal = server.call("thread/goal/get", new JSONObject().put("threadId", task.thread));
+            task = new LiveTask(input);
+        }
+        try (CleanupWork.Held held = NativeBridge.lock()) {
+            JSONObject current = NativeBridge.state.get(task.thread);
+            if (currentRequest != null && task.id.equals(currentRequest.optString("id"))
+                    && (!task.thread.equals(currentRequest.optString("conversationId"))
+                        || !activeThread.isEmpty() && !task.thread.equals(activeThread)
+                        || !activeTurn.isEmpty() && !task.turn.equals(activeTurn))) throw new IOException("LIVE_TASK_MISMATCH");
+            if (replace && !task.request.optString("permissionMode").equals("readOnly")) throw new IOException("LIVE_TASK_NOT_READ_ONLY");
+            JSONObject result = task.snapshot(current);
+            if (!cancel || task.terminal || !task.state.equals("queued") && !task.state.equals("running")) return result;
+            if (server != shared || server.closed) throw new IOException("RUNTIME_UNAVAILABLE");
+            JSONObject detail = goal.optJSONObject("goal");
+            if (!goal.has("goal") || !goal.isNull("goal") && (detail == null
+                    || !(detail.opt("status") instanceof String) || !LIVE_GOAL_STATES.contains(detail.getString("status"))))
+                throw new IOException("LIVE_GOAL_UNCONFIRMED");
+            if (goalActive(goal) || current != null && goalActive(current)) throw new IOException("LIVE_GOAL_ACTIVE");
+            for (NativeBridge.Call pending : NativeBridge.calls.values()) requireNoGoalMutation(pending, task.thread);
+            for (NativeBridge.Call pending : NativeBridge.inbox) requireNoGoalMutation(pending, task.thread);
+            result.put("goalActive", false);
+            if (task.turn.isEmpty()) {
+                if (current != null && !current.optString("activeTurnId").isEmpty()) throw new IOException("TURN_CHANGED");
+                if (server.taskStart != null && task.thread.equals(server.taskStart.threadId)) throw new IOException("LIVE_TASK_STARTING");
+                TaskBroker.write(new File(task.directory, "cancel"), "1");
+            } else {
+                if (currentRequest == null || !task.id.equals(currentRequest.optString("id"))
+                        || !task.thread.equals(activeThread) || !task.turn.equals(activeTurn)
+                        || current == null || !task.turn.equals(current.optString("activeTurnId"))) throw new IOException("TURN_CHANGED");
+                if (replace && !"readOnly".equals(NativeBridge.phonePermissions.get(task.thread))) throw new IOException("LIVE_TASK_NOT_READ_ONLY");
+                // This check and exact-turn send run on the task pump without another event dispatch.
+                server.interrupt(task.thread, task.turn);
+            }
+            return result.put("cancellationRequested", true);
+        }
+    }
+
+    private static void requireNoGoalMutation(NativeBridge.Call pending, String thread) throws IOException {
+        if ((pending.method.equals("thread/goal/set") || pending.method.equals("thread/goal/clear"))
+                && pending.params != null && thread.equals(pending.params.optString("threadId")))
+            throw new IOException("LIVE_GOAL_UNCONFIRMED");
     }
 
     CodexAppServer(File diagnostics, Events events) throws Exception {

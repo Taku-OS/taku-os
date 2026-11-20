@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Offline settings/default-model probes on a disposable AVD with no real fal credentials."""
+"""Offline settings/default-model probes on a disposable AVD with no real voice credentials."""
 import argparse
 import json
 import os
@@ -29,14 +29,15 @@ assert a.serial.startswith('emulator-') and adb('emu', 'avd', 'name').splitlines
 assert adb('shell', 'id', '-u') == '0'
 assert adb('shell', 'su', '2000', 'id', '-u') == '2000'
 base = '/data/local/agentos/ai/credentials/'
-for name in ['fal.json', 'fal-model.json']:
-    assert adb('shell', f'test ! -e {base + name} && echo absent') == 'absent', 'Refuse to overwrite existing fal configuration'
+for name in ['fal.json', 'fal-model.json', 'gemini-live.json']:
+    assert adb('shell', f'test ! -e {base + name} && echo absent') == 'absent', 'Refuse to overwrite existing voice configuration'
 wifi = adb('shell', 'settings get global wifi_on')
 mobile = adb('shell', 'settings get global mobile_data')
 assert wifi in ('0', '1') and mobile in ('0', '1')
 voice = adb('shell', 'settings get global taku_ai_audio_enabled')
 assert voice in ('null', '0', '1')
 synthetic_key = 'local-validation-only-not-a-real-key'
+gemini_key = 'offline-gemini-settings-fixture'
 
 
 def write(name, text):
@@ -76,16 +77,18 @@ def public(request=None, *, method='settings', raw=None, code=None):
     if raw is not None or request is not None:
         command += ['--arg', raw if raw is not None else json.dumps(request, separators=(',', ':'))]
     output = adb('shell', shlex.join(command))
-    assert synthetic_key not in output, 'A settings response exposed the submitted key'
+    assert synthetic_key not in output and gemini_key not in output, 'A settings response exposed the submitted key'
     envelope, _ = json.JSONDecoder().raw_decode(output[output.index('result=') + 7:])
     if code is not None:
         assert envelope['ok'] is False and envelope['code'] == code, envelope
         return envelope
     assert envelope['ok'] is True, envelope
     result = envelope['result']
-    assert set(result) == {'enabled', 'audioEnabled', 'systemRevision', 'audioRevision', 'reading', 'fal', 'dictation'}, result
+    assert set(result) == {'enabled', 'audioEnabled', 'systemRevision', 'audioRevision', 'reading', 'fal', 'dictation', 'live'}, result
     assert set(result['fal']) == {'configured', 'masked', 'model', 'models', 'realtimeAvailable', 'error'}, result
     assert result['fal']['realtimeAvailable'] is False
+    assert set(result['live']) == {'configured', 'profileId', 'gemini'}, result
+    assert set(result['live']['gemini']) == {'configured', 'masked', 'error'}, result
     view = result['dictation'].get('assistant-entry')
     assert isinstance(view, dict), result
     assert set(view) == {'primaryProfileId', 'fallbackProfileId', 'language', 'resolvedLanguage', 'isDefault', 'error', 'backends'}, view
@@ -138,9 +141,18 @@ def home(page=None):
 
 def public_roundtrip():
     before = public({'action': 'read'})
+    assert not before['fal']['configured']
     for request, code in [
         ({'action': 'falCredential'}, 'UNSUPPORTED_OPERATION'),
         ({'action': 'read', 'op': 'falCredential'}, 'INVALID_ARGUMENT'),
+        ({'action': 'liveCredential'}, 'UNSUPPORTED_OPERATION'),
+        ({'action': 'read', 'op': 'liveCredential'}, 'INVALID_ARGUMENT'),
+        ({'action': 'saveLiveKey', 'key': ''}, 'INVALID_ARGUMENT'),
+        ({'action': 'saveLiveKey', 'key': 'invalid key'}, 'INVALID_ARGUMENT'),
+        ({'action': 'saveLiveKey', 'key': 17}, 'INVALID_ARGUMENT'),
+        ({'action': 'removeLiveKey', 'key': gemini_key}, 'INVALID_ARGUMENT'),
+        ({'action': 'selectLiveProvider', 'profileId': 'fal-kotoba'}, 'INVALID_ARGUMENT'),
+        ({'action': 'selectLiveProvider', 'profileId': 17}, 'INVALID_ARGUMENT'),
         ({'action': 'saveFalKey', 'key': ''}, 'INVALID_ARGUMENT'),
         ({'action': 'saveFalKey', 'key': 'invalid key'}, 'INVALID_ARGUMENT'),
         ({'action': 'saveFalKey', 'key': 17}, 'INVALID_ARGUMENT'),
@@ -162,6 +174,7 @@ def public_roundtrip():
         public(request, code=code)
         assert public({'action': 'read'}) == before, 'Rejected settings changed authoritative state'
     public({'action': 'read'}, method='falCredential', code='UNSUPPORTED_OPERATION')
+    public({'action': 'read'}, method='liveCredential', code='UNSUPPORTED_OPERATION')
     for raw in ['[]', '{', '{"action":"read"} trailing']:
         public(raw=raw, code='INVALID_ARGUMENT')
     public(code='INVALID_ARGUMENT')
@@ -169,17 +182,23 @@ def public_roundtrip():
 
     saved = public({'action': 'saveFalKey', 'key': synthetic_key})
     assert saved['fal']['configured'] and saved['fal']['masked'] and saved['fal']['error'] is None
+    assert saved['audioRevision'] == before['audioRevision'] + 1
+    assert adb('shell', 'stat', '-c', '%u:%a', base + 'fal.json') == '0:600'
+    probe('shared-fal-key-saved', configured=True, credentialKey=synthetic_key)
     selected = public({'action': 'selectFalModel', 'model': 'grok'})
-    assert selected['fal']['model'] == 'grok'
+    assert selected['fal']['configured'] and selected['fal']['model'] == 'grok'
     assert public({'action': 'saveFalKey', 'key': synthetic_key})['fal']['model'] == 'grok'
     removed = public({'action': 'removeFalKey'})
     assert not removed['fal']['configured'] and removed['fal']['masked'] is None and removed['fal']['model'] == 'grok'
+    probe('shared-fal-key-removed', configured=False, credentialError='PROVIDER_NOT_CONFIGURED')
     public({'action': 'selectFalModel', 'model': 'kotoba'}, code='PROVIDER_NOT_CONFIGURED')
     public({'action': 'saveFalKey', 'key': synthetic_key})
-    public({'action': 'selectFalModel', 'model': 'kotoba'})
+    kotoba = public({'action': 'selectFalModel', 'model': 'kotoba'})
+    assert kotoba['fal']['configured'] and kotoba['fal']['model'] == 'kotoba'
 
     paused = public({'action': 'setAudioEnabled', 'enabled': False})
     assert not paused['audioEnabled'] and paused['enabled'] == before['enabled']
+    probe('shared-fal-key-policy-revoked', configured=True, credentialError='POLICY_REVOKED')
     home()
     switch = control('voice-agent-to-gui', 'org.agentos.audio:id/audio_enabled')
     assert switch.get('checked') == 'false'
@@ -201,6 +220,7 @@ def public_roundtrip():
     tap(control('key-dialog-save', 'android:id/button1'))
     gui_saved = wait_state(lambda state: state['fal']['configured'] and state['fal']['masked'].endswith('-gui'))
     assert gui_saved['fal']['model'] == resumed['fal']['model'], 'GUI key replacement must preserve the selected model'
+    probe('shared-fal-key-replaced', configured=True, credentialKey=gui_key)
 
     public({'action': 'configureReading', 'language': 'en-US', 'voiceId': 'en-US-local-999', 'speed': .5})
     home('reading')
@@ -245,8 +265,74 @@ def public_roundtrip():
                 'language': dictation_before['language']})
     return {'publicSettingsRoundtrip': True, 'rejectedSettingsPreservedState': True, 'maskedKeyAndModelRetention': True,
             'voiceGuiAgentRoundtrip': True, 'guiKeyInputMasked': True, 'guiKeySaveAndModelRetention': True,
+            'falCredentialPrivateStorage': True,
             'readingGuiAgentRoundtrip': True, 'unknownSavedVoicePreserved': True,
             'dictationGuiAgentRoundtrip': True, 'dictationRevisionAtomicity': True, 'callerUid': 2000}
+
+
+def live_roundtrip():
+    grok = public({'action': 'selectLiveProvider', 'profileId': 'fal-grok'})
+    assert grok['live'] == {'profileId': 'fal-grok', 'configured': True,
+                            'gemini': {'configured': False, 'masked': None, 'error': None}}, grok
+    missing = public({'action': 'selectLiveProvider', 'profileId': 'gemini-live'})
+    assert missing['live']['profileId'] == 'gemini-live' and not missing['live']['configured']
+    assert missing['fal'] == grok['fal'] and missing['audioRevision'] == grok['audioRevision'] + 1
+    probe('gemini-no-fal-fallback', liveProfile='gemini-live', liveConfigured=False, geminiConfigured=False,
+          geminiCredentialError='PROVIDER_NOT_CONFIGURED')
+
+    write('gemini-live.json', json.dumps({'key': gemini_key}))
+    legacy = public({'action': 'read'})
+    assert legacy['live'] == {'profileId': 'gemini-live', 'configured': True,
+                             'gemini': {'configured': True, 'masked': '•••• ture', 'error': None}}, legacy
+    probe('legacy-gemini-key', liveProfile='gemini-live', liveConfigured=True, geminiConfigured=True,
+          geminiCredentialKey=gemini_key)
+    public({'action': 'setAudioEnabled', 'enabled': False})
+    probe('gemini-policy-revoked', liveConfigured=True, geminiCredentialError='POLICY_REVOKED')
+    public({'action': 'setAudioEnabled', 'enabled': True})
+
+    home()
+    selector = control('gemini-provider-selected', 'org.agentos.audio:id/audio_live_provider')
+    assert 'Gemini Live' in selector.get('text', ''), 'The GUI must show the persisted selection'
+    tap(control('gemini-key-open', 'org.agentos.audio:id/audio_save_gemini_key'))
+    gui_key = gemini_key + '-gui'
+    tap(control('gemini-key-input', 'org.agentos.audio:id/audio_gemini_key_input'))
+    adb('shell', 'input', 'text', gui_key)
+    filled = control('gemini-key-filled', 'org.agentos.audio:id/audio_gemini_key_input')
+    assert filled.get('password') == 'true' and gui_key not in filled.get('text', ''), 'Gemini key must stay masked in its input'
+    tap(control('gemini-key-save', 'android:id/button1'))
+    replaced = wait_state(lambda state: (state['live']['gemini']['masked'] or '').endswith('-gui'))
+    assert replaced['live']['profileId'] == 'gemini-live' and replaced['live']['configured'] and replaced['fal'] == grok['fal']
+    assert adb('shell', 'stat', '-c', '%u:%a', base + 'gemini-live.json') == '0:600'
+    probe('gemini-key-replaced', geminiCredentialKey=gui_key)
+    tap(control('gemini-key-remove', 'org.agentos.audio:id/audio_remove_gemini_key'))
+    tap(control('gemini-key-remove-confirm', 'android:id/button1'))
+    removed = wait_state(lambda state: not state['live']['gemini']['configured'])
+    assert removed['live'] == missing['live'] and removed['fal'] == grok['fal']
+    probe('gemini-key-removed', liveProfile='gemini-live', liveConfigured=False,
+          geminiCredentialError='PROVIDER_NOT_CONFIGURED')
+
+    saved = public({'action': 'saveLiveKey', 'key': gemini_key})
+    assert saved['live'] == legacy['live'] and saved['fal'] == grok['fal']
+    fal_removed = public({'action': 'removeFalKey'})
+    assert fal_removed['live'] == saved['live'] and not fal_removed['fal']['configured']
+    home()
+    tap(control('choose-live-provider', 'org.agentos.audio:id/audio_live_provider'))
+    tap(next(node for node in capture('live-provider-picker') if node.get('text', '').startswith('Grok Voice')))
+    selected = wait_state(lambda state: state['live']['profileId'] == 'fal-grok')
+    assert not selected['live']['configured'] and selected['live']['gemini']['configured']
+    probe('grok-no-gemini-fallback', liveProfile='fal-grok', liveConfigured=False, geminiConfigured=True,
+          credentialError='PROVIDER_NOT_CONFIGURED', geminiCredentialKey=gemini_key)
+    restored = public({'action': 'saveFalKey', 'key': synthetic_key + '-gui'})
+    assert restored['live']['configured'] and restored['fal'] == grok['fal']
+
+    write('gemini-live.json', '{')
+    corrupt = public({'action': 'read'})
+    assert corrupt['live']['profileId'] == 'fal-grok' and corrupt['live']['configured']
+    assert corrupt['live']['gemini'] == {'configured': False, 'masked': None, 'error': 'KEY_UNREADABLE'}
+    probe('gemini-key-unreadable', liveConfigured=True, geminiError='KEY_UNREADABLE', geminiCredentialError='PROVIDER_NOT_CONFIGURED')
+    assert public({'action': 'removeLiveKey'})['live'] == grok['live']
+    return {'liveProviderGuiAgentRoundtrip': True, 'liveProviderSelectionWithoutFallback': True,
+            'geminiLegacyKeyReadable': True, 'geminiKeyGuiMaskedAndPrivate': True, 'liveSettingsPreserveTranslation': True}
 
 
 reports = []
@@ -261,7 +347,10 @@ try:
     reports.append(probe('policy-revoked', configured=False, credentialError='POLICY_REVOKED'))
     adb('shell', 'settings put global taku_ai_audio_enabled 1')
     reports.append(probe('missing-key', configured=False, credentialError='PROVIDER_NOT_CONFIGURED'))
+    if adb('shell', f'test -f {SETTINGS_PATH} && echo yes || echo no') == 'no' or 'liveProfileId' not in json.loads(settings_bytes()):
+        assert original['live']['profileId'] == 'fal-grok', 'Unconfigured Live Talk defaults to Grok Voice'
     reports.append(public_roundtrip())
+    reports.append(live_roundtrip())
     raw_settings = settings_bytes()
     try:
         parsed_settings = json.loads(raw_settings)
@@ -318,6 +407,7 @@ finally:
             profile = original['reading'].get('en-US')
             public({'action': 'resetReading', 'language': 'en-US'} if profile is None else {'action': 'configureReading', 'language': 'en-US', **profile})
             public({'action': 'setAudioEnabled', 'enabled': original['audioEnabled']})
+            public({'action': 'selectLiveProvider', 'profileId': original['live']['profileId']})
             view = original['dictation']['assistant-entry']
             try:
                 if view['isDefault']:
@@ -332,7 +422,7 @@ finally:
     finally:
         adb('shell', 'am', 'force-stop', 'org.taku.callfixture.target')
         adb('shell', 'am', 'force-stop', 'org.agentos.audio')
-        adb('shell', 'rm', '-f', base + 'fal.json', base + 'fal-model.json')
+        adb('shell', 'rm', '-f', base + 'fal.json', base + 'fal-model.json', base + 'gemini-live.json')
         adb('shell', 'settings delete global taku_ai_audio_enabled' if voice == 'null' else 'settings put global taku_ai_audio_enabled ' + voice)
         adb('shell', 'svc', 'wifi', 'enable' if wifi == '1' else 'disable')
         adb('shell', 'svc', 'data', 'enable' if mobile == '1' else 'disable')

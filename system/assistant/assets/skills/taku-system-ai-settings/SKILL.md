@@ -115,17 +115,18 @@ GPU blur) the window shows an opaque fallback instead: `#121212` for Dark, `#E3E
 ## Taku Audio settings
 
 Open `org.agentos.audio/.AudioHomeActivity` for the Taku Audio app. It owns the
-voice switch, fal Key, default fal model, local reading preferences, and links
-to video translation, call translation, and audio status. Opening it starts no
-recording or inference. OpenRouter keys and global AI remain in Taku AI.
+voice switch, Live Talk provider and keys, default fal translation model,
+local reading preferences, and links to video translation, call translation,
+and audio status. Opening it starts no recording or inference. OpenRouter
+keys and global AI remain in Taku AI.
 
 Use the same root settings owner as the Audio GUI through standard device-local
 content calls. No assistant permission or private socket access is needed.
 
 The provider is exported without a caller permission. Any installed device-local
-app can use these settings commands, including replacing or removing the fal Key
-and changing voice policy. This follows TakuOS's Agent access contract. Public
-reads return only masked key status; the runtime credential channel stays private.
+app can use these settings commands, including replacing or removing a fal or
+Gemini key, selecting the Live Talk provider, and changing voice policy. Public
+reads return only masked key status. The runtime credential channel stays private.
 
 ```sh
 content call --uri content://org.agentos.audio.open-access --method settings --arg '{"action":"read"}'
@@ -134,6 +135,9 @@ content call --uri content://org.agentos.audio.open-access --method settings --a
 content call --uri content://org.agentos.audio.open-access --method settings --arg '{"action":"resetReading","language":"en-US"}'
 content call --uri content://org.agentos.audio.open-access --method settings --arg '{"action":"configureDictation","scope":"assistant-entry","primaryProfileId":"zipformer","fallbackProfileId":null,"language":"system"}'
 content call --uri content://org.agentos.audio.open-access --method settings --arg '{"action":"resetDictation","scope":"assistant-entry"}'
+content call --uri content://org.agentos.audio.open-access --method settings --arg '{"action":"selectLiveProvider","profileId":"gemini-live"}'
+content call --uri content://org.agentos.audio.open-access --method settings --arg '{"action":"saveLiveKey","key":"GEMINI_API_KEY"}'
+content call --uri content://org.agentos.audio.open-access --method settings --arg '{"action":"removeLiveKey"}'
 content call --uri content://org.agentos.audio.open-access --method settings --arg '{"action":"removeFalKey"}'
 ```
 
@@ -145,6 +149,9 @@ Each `arg` is a JSON object with exactly the fields for its action.
 | `saveFalKey` | `key`, one string containing a complete fal API Key. |
 | `removeFalKey` | None. |
 | `selectFalModel` | `model`, a string ID from the latest returned `fal.models`. |
+| `selectLiveProvider` | `profileId`, either `fal-grok` or `gemini-live`. |
+| `saveLiveKey` | `key`, one string containing a Google Gemini API key. |
+| `removeLiveKey` | None. Removes only the Gemini key. |
 | `setAudioEnabled` | `enabled`, a JSON boolean. |
 | `configureReading` | `language`, `voiceId`, and `speed`. |
 | `resetReading` | `language`. |
@@ -160,14 +167,29 @@ wrong JSON types, invalid voices, and invalid values fail before any write.
 The API cannot select arbitrary operations, providers, files, or runtime sessions.
 
 `Bundle.result` contains `{ok:true,result:Snapshot}` on success. The snapshot has
-`enabled`, `audioEnabled`, `systemRevision`, `audioRevision`, `reading`, and `fal`.
+`enabled`, `audioEnabled`, `systemRevision`, `audioRevision`, `reading`, `fal`, `live`,
+and `dictation`.
 `reading` maps language IDs to `{voiceId,speed}`. `fal` contains `configured`,
 `masked`, `model`, `models` with `{id,name}` entries, `realtimeAvailable:false`, and
 `error`, which is null, `KEY_UNREADABLE`, or `MODEL_UNREADABLE`. `masked` is null
-when no readable key exists. A configured key is saved and readable, not validated
-by fal. Reading or saving settings makes no provider validation call and does not
-require OpenRouter or a model catalog refresh. Key replacement and removal retain
-the selected model. Model selection requires a readable fal Key.
+when no readable key exists. Both key setters trim whitespace at the ends,
+require 1 through 4096 characters, and reject internal whitespace, control
+characters, and commas. Reading or saving settings makes no provider validation
+call and does not require OpenRouter or a model catalog refresh. Key replacement
+and removal retain the selected model. Model selection requires a readable fal key.
+
+`live.profileId` is the selected Live Talk provider. The default is `fal-grok`
+(Grok Voice via fal). The other profile is `gemini-live` (Google Gemini Live).
+`live.gemini` reports `configured`, `masked`, and `error` for the separate Gemini
+key. `masked` is null without a readable key. `error` is null or `KEY_UNREADABLE`.
+`live.configured` reports whether the selected provider has a saved, readable key.
+The Audio Engine checks provider authorization and applies voice policy at session open.
+
+You can select either provider before saving its key. The selection applies to
+the next Live Talk open, including reconnect. Live Talk has no automatic provider
+fallback. Grok uses the fal key shared by translation and cloud dictation.
+`fal.model` applies to translation. Removing a key ends sessions that depend
+on that key. Saving and removing keys preserve the Live Talk provider selection.
 
 `dictation.assistant-entry` contains the saved desktop recognition preference and
 its Engine-derived status. `primaryProfileId` is `zipformer` or `fal-whisper`.

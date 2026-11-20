@@ -12,7 +12,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.flow.combine
 import org.agentos.agent.home.assistant.AssistantException
 import org.agentos.agent.home.assistant.AssistantSession
 import org.agentos.agent.home.assistant.ChatDictation
@@ -72,17 +71,17 @@ class TakuVoiceModule : Module() {
     }
     OnStopObserving("onReplySpeech") { speechWatcher?.cancel(); speechWatcher = null }
 
-    AsyncFunction("liveState") { AssistantSession.get(context).toJson().toString() }.runOnQueue(Queues.MAIN)
+    AsyncFunction("liveState") { AssistantSession.get(context).liveSnapshotJson().toString() }.runOnQueue(Queues.MAIN)
     AsyncFunction("liveAction") { method: String, params: String ->
-      require(method in setOf("assistant/live-start", "assistant/live-stop", "assistant/live-toggle-mic"))
+      require(method in setOf("assistant/live-start", "assistant/live-stop", "assistant/live-toggle-mic", "assistant/live-set-mic"))
       context.contentResolver.call(android.net.Uri.parse("content://org.agentos.agent.home-assistant"), method, params, null)?.getString("result")
     }.runOnQueue(Queues.MAIN)
     OnStartObserving("onLiveTalk") {
       liveWatcher?.cancel()
       liveWatcher = scope.launch {
         val session = AssistantSession.get(context)
-        combine(session.state, session.voice.state) { _, _ -> session.toJson().toString() }.collect {
-          sendEvent("onLiveTalk", mapOf("json" to it))
+        session.liveState.collect {
+          sendEvent("onLiveTalk", mapOf("json" to session.liveSnapshotJson().toString()))
         }
       }
     }

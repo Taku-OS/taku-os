@@ -25,6 +25,7 @@ internal class ChatVoiceSession private constructor(private val context: Context
   val dictation = dictationFlow.asStateFlow()
   private val engine = EngineVoiceInput(context, settingsScope = AssistantSession.DESKTOP_SCOPE, localOnly = true)
   private var focus: Focus? = null
+  val visibleThread: String? get() = focus?.threadId
   private var recording: Recording? = null
   private var nextOperation = 0L
   private var reader: AudioReader? = null
@@ -46,12 +47,14 @@ internal class ChatVoiceSession private constructor(private val context: Context
     if (focus == next) return
     release()
     focus = next
+    AssistantSession.get(context).onChatVoiceFocus(threadId)
   }
 
   fun leave(owner: String) {
-    if (focus?.owner != owner) return
+    val leaving = focus?.takeIf { it.owner == owner } ?: return
     focus = null
     release()
+    AssistantSession.get(context).onChatVoiceFocus(null, previousThreadId = leaving.threadId)
   }
 
   fun start(threadId: String, owner: String? = null): ChatDictation {
@@ -90,6 +93,13 @@ internal class ChatVoiceSession private constructor(private val context: Context
   }
 
   fun cancelDictation() { recording?.let { cancel(it.operationId) } }
+
+  fun releaseForLive(released: (Boolean) -> Unit) {
+    val run = recording
+    recording = null
+    if (run != null) publish(run, VoiceState())
+    afterSpeech { EngineVoiceInput.releaseActive(released) }
+  }
 
   private fun publish(run: Recording, voice: VoiceState) {
     dictationFlow.value = ChatDictation(run.focus.owner, run.focus.threadId, voice.copy(operationId = run.operationId))

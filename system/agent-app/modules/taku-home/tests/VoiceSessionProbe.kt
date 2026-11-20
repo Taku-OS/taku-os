@@ -56,22 +56,24 @@ class VoiceSessionProbe : Instrumentation() {
           session.cancelVoice()
           expect(recording.state.value.phase == VoicePhase.Idle && session.state.value.entry == EntryMode.None, "explicit cancel revokes preparation")
         }
-        case("Live Talk pause follows user intent through finalization") {
-          session.startLiveTalk("")
-          recording.capture()
-          session.toggleLiveMic()
-          expect(session.state.value.voicePaused && recording.state.value.phase == VoicePhase.Finalizing, "pause finalizes the existing capture")
-          session.toggleLiveMic()
-          expect(!session.state.value.voicePaused && recording.state.value.phase == VoicePhase.Finalizing, "resume waits for the in-flight final result")
-          recording.success("")
-          expect(session.state.value.voiceContinuous, "empty result keeps Live Talk enabled")
-          val starts = recording.starts
-          session.toggleLiveMic()
-          expect(session.state.value.voicePaused && recording.starts == starts, "mute after capture closes must not start a recorder")
-          session.resume("")
-          expect(!session.state.value.voiceContinuous && !session.state.value.voicePaused, "conversation boundary clears the pause intent")
-          session.stopLiveTalk()
-          expect(!session.state.value.voiceContinuous && session.state.value.entry == EntryMode.None, "explicit stop releases voice")
+        case("Live Talk requires the target chat to be visible") {
+          val failure = runCatching { session.startLiveTalk("") }.exceptionOrNull() as? AssistantException
+          expect(failure?.code == "HOST_REQUIRED", "a background caller cannot start capture")
+          expect(recording.state.value.phase == VoicePhase.Idle, "no legacy capture started")
+        }
+        case("handoff mute discards its pending transcription and is idempotent") {
+          hold(); recording.capture(); session.keepTalking()
+          val initial = session.toJson().getJSONObject("liveTalk")
+          val id = initial.getString("sessionId")
+          session.setLiveMic(id, true)
+          expect(recording.state.value.phase == VoicePhase.Idle, "mute cancels rather than finalizes old capture")
+          val muted = session.toJson().getJSONObject("liveTalk")
+          session.setLiveMic(id, true)
+          expect(muted.getBoolean("muted") && muted.toString() == session.toJson().getJSONObject("liveTalk").toString(), "same value keeps the same snapshot")
+          val wrong = runCatching { session.stopLiveTalk(sessionId = "stale") }.exceptionOrNull() as? AssistantException
+          expect(wrong?.code == "SESSION_CHANGED", "stale stop cannot close the current session")
+          session.stopLiveTalk(sessionId = id)
+          expect(session.toJson().getJSONObject("liveTalk").getString("lifecycle") == "closed", "session-scoped stop closes the handoff")
         }
         case("release during automatic finalization still chooses Submit") {
           hold(); recording.capture(); recording.finish()
@@ -127,10 +129,9 @@ class VoiceSessionProbe : Instrumentation() {
           hold(); session.releaseHold()
           expect(session.gesture.phase == VoiceGesture.Phase.Listening, "next gesture is not VOICE_BUSY")
           session.cancelVoice()
-          session.startLiveTalk("")
+          hold(); recording.capture(); session.keepTalking()
           session.onVoiceSurfaceStopped(session.gesture.id, false)
-          expect(session.state.value.voiceContinuous && recording.state.value.listening, "Continuous handoff keeps capture")
-          session.stopLiveTalk()
+          expect(!session.state.value.voiceContinuous && !recording.state.value.listening, "backgrounding before chat launches cancels handoff")
         }
         case("automatic restart failures are contained and revoke recording ownership") {
           val restart = AssistantSession::class.java.getDeclaredMethod("restartVoice").apply { isAccessible = true }

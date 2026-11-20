@@ -216,6 +216,9 @@ taku_call "$V" settings '{"action":"configureReading","language":"zh-CN","voiceI
 taku_call "$V" settings '{"action":"resetReading","language":"zh-CN"}'
 taku_call "$V" settings '{"action":"configureDictation","scope":"assistant-entry","primaryProfileId":"zipformer","fallbackProfileId":null,"language":"system"}'
 taku_call "$V" settings '{"action":"resetDictation","scope":"assistant-entry"}'
+taku_call "$V" settings '{"action":"selectLiveProvider","profileId":"gemini-live"}'
+taku_call "$V" settings '{"action":"saveLiveKey","key":"GEMINI_API_KEY"}'
+taku_call "$V" settings '{"action":"removeLiveKey"}'
 taku_call "$V" settings '{"action":"removeFalKey"}'
 ```
 
@@ -223,8 +226,9 @@ Use `$V`, method `settings`, JSON `action`. Supply only the fields listed for ea
 
 | Action | Fields |
 |---|---|
-| `read`, `removeFalKey` | none |
-| `saveFalKey` | `key` (trimmed 1–4096 characters, no internal whitespace, control characters or commas) |
+| `read`, `removeFalKey`, `removeLiveKey` | none |
+| `saveFalKey`, `saveLiveKey` | `key` (trimmed 1–4096 characters, no internal whitespace, control characters or commas) |
+| `selectLiveProvider` | `profileId` (`fal-grok` or `gemini-live`), effective on next open |
 | `selectFalModel` | `model` from `fal.models`; needs a readable key |
 | `setAudioEnabled` | boolean `enabled`; disabling revokes managed sessions |
 | `configureReading`, `resetReading` | `language` (`zh-CN` or `en-US`); configure also needs `voiceId` (shipped choices, `LANG-local-N`) and `speed` (0.5–2.0) |
@@ -232,7 +236,8 @@ Use `$V`, method `settings`, JSON `action`. Supply only the fields listed for ea
 
 Dictation defaults to `zipformer`, null fallback, and `system` language. The other profile is `fal-whisper`. A fallback must differ from the primary, and any cloud route needs a readable key. `language` accepts `system/zh-CN/en-US`; unsupported system language returns `UNSUPPORTED_LANGUAGE`. Existing sessions retain their settings. Full chat dictation uses local Zipformer and the saved language.
 
-Read returns `enabled,audioEnabled,systemRevision,audioRevision,reading,dictation,fal`. `enabled` (global AI) is read-only here. Dictation backend rows expose availability reasons, processing location, languages and capture/drain limits. `fal` returns `configured,masked,model,models,realtimeAvailable:false,error`; configured means readable, not remotely validated. `KEY_UNREADABLE/MODEL_UNREADABLE` indicate saved-state problems. Replacing/removing keys retains model preference. This API starts no inference/capture and cannot return plaintext keys. Keep real keys out of conversations, task files, logs, Intents and shell history. Use the password field in `am start -n org.agentos.audio/.AudioHomeActivity` for real credentials. Errors include `INVALID_ARGUMENT`, `UNSUPPORTED_OPERATION`, `PROVIDER_NOT_CONFIGURED`, `SETTINGS_UNREADABLE`, `SETTINGS_NOT_SAVED`, `CONFIG_UNAVAILABLE`.
+Read returns `enabled,audioEnabled,systemRevision,audioRevision,reading,dictation,fal,live`. `enabled` (global AI) is read-only here. Dictation backend rows expose availability reasons, processing location, languages and capture/drain limits. `fal` returns `configured,masked,model,models,realtimeAvailable:false,error`; configured means readable, not remotely validated. `KEY_UNREADABLE/MODEL_UNREADABLE` indicate saved-state problems. Replacing/removing keys retains model preference. This API starts no inference/capture and cannot return plaintext keys. Keep real keys out of conversations, task files, logs, Intents and shell history. Use the password field in `am start -n org.agentos.audio/.AudioHomeActivity` for real credentials. Errors include `INVALID_ARGUMENT`, `UNSUPPORTED_OPERATION`, `PROVIDER_NOT_CONFIGURED`, `SETTINGS_UNREADABLE`, `SETTINGS_NOT_SAVED`, `CONFIG_UNAVAILABLE`.
+
 
 ## Message reactions
 
@@ -574,6 +579,7 @@ taku_call "$A" assistant/app-build '{"threadId":"CURRENT_THREAD","turnId":"CURRE
 taku_call "$A" assistant/voice-continue   # Keep talking → existing chat
 taku_call "$A" assistant/live-start '{"threadId":"ID"}'
 taku_call "$A" assistant/live-toggle-mic
+taku_call "$A" assistant/live-set-mic '{"sessionId":"SESSION_ID","muted":true}'
 taku_call "$A" assistant/live-stop
 taku_call "$A" assistant/voice-finish     # release: finalize and submit once
 # Legacy operation without a button on 1-1:
@@ -589,6 +595,48 @@ Recording uses Taku Audio's `assistant-entry` settings. Local Zipformer stays on
 Check recording permission with `cmd appops get org.agentos.audio RECORD_AUDIO` and `dumpsys package org.agentos.audio`. Use Taku Audio's Allow microphone access or `pm grant org.agentos.audio android.permission.RECORD_AUDIO` as shell; `pm revoke` revokes. Missing permission yields `PERMISSION_DENIED` / `VOICE_PERMISSION_REQUIRED`. On Mac, `adb -s SERIAL emu avd hostmicon` enables host mic forwarding and `hostmicoff` disables it; Android cannot inspect or change macOS consent. Nonzero PCM levels verify input reception.
 
 `assistant/app-build` takes the current `threadId,turnId` and boolean `active`. Set false on completion. It toggles presentation only; only actual app builds may show a compact pill. Errors: `INVALID_ARGUMENT`, `STALE_TURN`, `NOT_WORKING`. Read `buildingApp,appBuildTurnId` and `cmd statusbar island state` (`compactVisible`).
+
+The chat waveform button starts Live Talk with one tap. The Live Talk panel
+displays the provider disclosure during the session.
+
+`live-start` accepts the visible chat's `threadId`. Pass `""` for a new chat. A repeated
+start on the same active or connecting session returns its current state. To reconnect,
+repeat `live-start` while the same chat is visible. Reconnect uses the current
+provider selection and preserves the mute state and confirmed text context.
+The connection generation advances.
+
+`live-set-mic` requires a nonempty `sessionId` and a JSON boolean `muted`. A repeated
+setter with the same target state makes no change. `live-stop` accepts an optional
+`sessionId` and `threadId`. `live-toggle-mic` accepts an optional `threadId`.
+Wrong IDs return `SESSION_CHANGED`. Missing or mistyped required fields return
+`INVALID_ARGUMENT`. Starting or resuming capture requires an unlocked device and the
+visible chat. The errors are `DEVICE_LOCKED`, `HOST_REQUIRED`, and `VOICE_UNAVAILABLE`
+when Taku Audio is absent. Audio Engine errors appear in `result.liveTalk.error`.
+`PROVIDER_NOT_CONFIGURED` means the selected provider's key is missing or
+unreadable. `PROVIDER_AUTH_FAILED` means the provider rejected the key. For
+either error, update that provider's key in Taku Audio before reconnecting.
+`PROVIDER_REMOVED` means the session's key was removed.
+Other errors include `NETWORK_FAILED`, `RESOURCE_BUSY`, and `AEC_UNAVAILABLE`.
+
+`assistant/get` and Live Talk actions return the same `result.liveTalk` shown by the GUI.
+It is null before the first session. Read `sessionId`, `threadId`, `sequence`, `generation`,
+`lifecycle`, `provider`, `muted`, `capturing`, `speech`, `playback`, `input`, `output`,
+`levels`, `task`, and `error`. `provider` is the effective `fal-grok` or
+`gemini-live` returned by the Audio Engine. It is null until the engine
+accepts the open request for that connection. `liveTalkDisclosure` names the
+provider while that connection is in use and explains the selection otherwise.
+Lifecycle values are `connecting`, `active`, `disconnected`, `closed`, and
+`failed`. `playback` exposes a local response ID and state. `input` has
+`itemId`, `text`, and `final`. `output` has `responseId`, `text`, `final`, and
+`source:"generated"`. Generated subtitles have no sample-aligned timestamps.
+`task` carries `requestId`, `taskId`, `turnId`, `state`, `version` and `error`. Read the
+original chat for full task replies, references, approval and user-input requests. An
+uncertain receipt is reconciled with its original ID. Only a verified `readOnly` task
+can be automatically replaced. If replacement is blocked, use the original chat.
+`voice-continue` requires an active hold. A handoff that cannot open the
+thread reports `THREAD_UNAVAILABLE`.
+
+Grok Voice uses the shared fal key. Gemini Live uses the separate key managed by `saveLiveKey` and `removeLiveKey`. Removing a key ends sessions that depend on it. Provider selection takes effect on the next open, including reconnect, with no automatic fallback. The default is `fal-grok`. Settings `live.profileId` reports the selection and `live.configured` reports whether its key is readable. `live.gemini` exposes `configured`, `masked`, and `error` even when Grok is selected. Its error is null or `KEY_UNREADABLE`. Either provider can be selected before saving its key. Translation model selection is independent.
 
 ### Full chat dictation and reply playback
 

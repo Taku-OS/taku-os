@@ -12,6 +12,11 @@
  <item type="id" name="audio_remove_fal_key"/>
  <item type="id" name="audio_fal_key_input"/>
  <item type="id" name="audio_model"/>
+ <item type="id" name="audio_live_provider"/>
+ <item type="id" name="audio_gemini_state"/>
+ <item type="id" name="audio_save_gemini_key"/>
+ <item type="id" name="audio_remove_gemini_key"/>
+ <item type="id" name="audio_gemini_key_input"/>
  <item type="id" name="audio_media"/>
  <item type="id" name="audio_call"/>
  <item type="id" name="audio_reading"/>

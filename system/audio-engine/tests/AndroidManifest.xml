@@ -3,6 +3,7 @@
  <application android:label="Audio Engine verification"/>
  <instrumentation android:name=".ReadingSettingsProbe" android:targetPackage="org.agentos.audio"/>
  <instrumentation android:name=".RecognitionProbe" android:targetPackage="org.agentos.audio"/>
+ <instrumentation android:name=".LiveResultProbe" android:targetPackage="org.agentos.audio"/>
  <instrumentation android:name=".RomModelsProbe" android:targetPackage="org.agentos.audio"/>
  <instrumentation android:name=".FalDirectProbe" android:targetPackage="org.agentos.audio"/>
  <instrumentation android:name=".MediaRouteProbe" android:targetPackage="org.agentos.audio"/>
