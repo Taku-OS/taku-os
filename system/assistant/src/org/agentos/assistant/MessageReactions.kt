@@ -17,8 +17,8 @@ import java.util.concurrent.Executors
  * to react and with which emoji; nothing is decided without a configured Jev, and history is never
  * back-filled. Jev picks in one choice between "none" and 240 curated reaction emoji
  * (assets/emoji/reactions.tsv: Unicode frequency order, filtered for chat), minus any the phone's
- * font cannot draw. Agents may set any fully-qualified emoji the phone renders
- * (assets/emoji/emoji-catalog.tsv, from UTS #51 emoji-test.txt). Decisions are stored per thread/turn/item, so the chat (session reads and streams),
+ * font cannot draw. Agents set reactions from the same curated set, so every reaction, whoever
+ * picked it, is one of these. Decisions are stored per thread/turn/item, so the chat (session reads and streams),
  * the Home island and Agents (open access `reactions/list`, `reactions/set`) read the same value.
  * A decision that lands after the message was shown is pushed to open chat streams ([listener]).
  */
@@ -28,47 +28,36 @@ internal object MessageReactions {
     private const val KEPT = 400
     private const val MIN_CONFIDENCE = 0.6
     private const val MAX_TEXT = 2000
-    private const val CATALOG = "emoji/emoji-catalog.tsv"
     private const val REACTIONS = "emoji/reactions.tsv"
 
-    /** One fully-qualified catalog emoji (skin-tone variants included, [toned]). */
-    private class Emoji(val group: String, val subgroup: String, val emoji: String, val name: String, val toned: Boolean)
-
-    @Volatile private var catalog: List<Emoji>? = null
-
-    /** The catalog's emoji that this phone's font draws as one glyph (newer ones would show as tofu). */
-    private fun catalog(context: Context): List<Emoji> = catalog ?: synchronized(this) {
-        catalog ?: run {
-            val paint = Paint()
-            context.assets.open(CATALOG).bufferedReader().useLines { lines ->
-                lines.filter { it.isNotEmpty() && !it.startsWith("#") }.mapNotNull { line ->
-                    val f = line.split('\t')
-                    if (f.size != 5) null else Emoji(f[0], f[1], f[2], f[3], f[4] == "1")
-                }.filter { paint.hasGlyph(it.emoji) }.toList()
-            }.also { catalog = it }
-        }
-    }
-
-    /** Whether [emoji] is a fully-qualified emoji this phone renders (any skin tone). */
-    fun supported(context: Context, emoji: String): Boolean = catalog(context).any { it.emoji == emoji }
-
-    /** One of Jev's choices; [hint] carries a chat meaning the Unicode name lacks (🐮 = 牛). */
+    /** One of the curated reactions; [hint] carries a chat meaning the Unicode name lacks (🐮 = 牛). */
     private class Reaction(val emoji: String, val name: String, val hint: String?)
 
-    @Volatile private var reactions: List<Reaction>? = null
+    /** The curated reactions this phone's font draws as one glyph, in order, and the same as a set. */
+    private class Offered(val list: List<Reaction>) { val emoji: Set<String> = list.mapTo(HashSet()) { it.emoji } }
 
-    /** Jev's choices: the curated list, minus emoji this phone cannot draw. */
-    private fun reactions(context: Context): List<Reaction> = reactions ?: synchronized(this) {
-        reactions ?: run {
-            val rendered = catalog(context).mapTo(HashSet()) { it.emoji }
-            context.assets.open(REACTIONS).bufferedReader().useLines { lines ->
+    @Volatile private var offered: Offered? = null
+
+    /** Loaded once (about 240 glyph checks): the curated list minus emoji that would show as tofu. */
+    private fun offered(context: Context): Offered = offered ?: synchronized(this) {
+        offered ?: run {
+            val paint = Paint()
+            Offered(context.assets.open(REACTIONS).bufferedReader().useLines { lines ->
                 lines.filter { it.isNotEmpty() && !it.startsWith("#") }.mapNotNull { line ->
                     val f = line.split('\t')
-                    if (f.size in 2..3 && f[0] in rendered) Reaction(f[0], f[1], f.getOrNull(2)) else null
+                    if (f.size in 2..3 && paint.hasGlyph(f[0])) Reaction(f[0], f[1], f.getOrNull(2)) else null
                 }.toList()
-            }.also { reactions = it }
+            }).also { offered = it }
         }
     }
+
+    /** Agents: the reactions `reactions/set` accepts (and Jev chooses from), in curated order. */
+    fun options(context: Context): JSONObject = JSONObject().put("reactions", JSONArray().apply {
+        offered(context).list.forEach { put(JSONObject().put("emoji", it.emoji).put("name", it.name).put("hint", it.hint ?: JSONObject.NULL)) }
+    })
+
+    /** Whether [emoji] is one of the curated reactions this phone renders. */
+    fun supported(context: Context, emoji: String): Boolean = emoji in offered(context).emoji
 
     /** Called with (threadId, turnId, itemId, emoji or "") whenever a reaction is decided or set. */
     @Volatile var listener: ((String, String, String, String) -> Unit)? = null
@@ -134,7 +123,7 @@ internal object MessageReactions {
         if (!settings.getBoolean("jevEnabled", false)) return
         val model = settings.getString("jevModel", "").orEmpty()
         if (model.isEmpty()) return
-        val offered = reactions(context)
+        val offered = offered(context).list
         if (offered.isEmpty()) return
         val keys = keys(offered.map { it.name })
         val criteria = JSONObject().put("none", "No reaction: neutral, routine, sensitive, sad, angry, unclear, or anything where an emoji could feel dismissive")
@@ -179,7 +168,7 @@ internal object MessageReactions {
         }
     }
 
-    /** Agents: sets ([emoji] any fully-qualified emoji this phone renders) or clears (null) a reaction. */
+    /** Agents: sets ([emoji] one of the curated reactions this phone renders) or clears (null) a reaction. */
     fun set(context: Context, thread: String, turn: String, item: String, emoji: String?) {
         if (thread.isEmpty() || turn.isEmpty() || item.isEmpty()) throw IOException("INVALID_ARGUMENT")
         if (emoji != null && !supported(context, emoji)) throw IOException("INVALID_REACTION")
@@ -205,11 +194,15 @@ internal object MessageReactions {
         val prefs = prefs(context)
         val record = JSONObject().put("emoji", emoji).put("source", source).put("decidedAt", System.currentTimeMillis())
         if (model != null) record.put("model", model)
-        val editor = prefs.edit().putString(key(thread, turn, item), record.toString())
-        // Bounded: the oldest decisions go first.
+        val key = key(thread, turn, item)
+        val editor = prefs.edit().putString(key, record.toString())
+        // Bounded: the oldest decisions go first, never the one being written (a pending remove()
+        // would win over its put()).
         val all = prefs.all
-        if (all.size >= KEPT) all.entries.sortedBy { (it.value as? String)?.let { v -> runCatching { JSONObject(v).optLong("decidedAt") }.getOrNull() } ?: 0L }
-            .take(all.size - KEPT + 1).forEach { editor.remove(it.key) }
+        val excess = all.size + (if (key in all) 0 else 1) - KEPT
+        if (excess > 0) all.entries.filter { it.key != key }
+            .sortedBy { (it.value as? String)?.let { v -> runCatching { JSONObject(v).optLong("decidedAt") }.getOrNull() } ?: 0L }
+            .take(excess).forEach { editor.remove(it.key) }
         editor.apply()
         listener?.let { notify -> runCatching { notify(thread, turn, item, emoji) } }
     }

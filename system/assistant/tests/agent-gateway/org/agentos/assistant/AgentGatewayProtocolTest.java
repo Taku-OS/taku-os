@@ -200,6 +200,12 @@ public final class AgentGatewayProtocolTest {
         JSONObject decide = new JSONObject().put("state", new JSONObject()).put("questions", new JSONObject().put("root", uiQuestion));
         check(AgentGatewayProtocol.request("decide", decide.toString()).has("questions"));
         rejects(() -> AgentGatewayProtocol.request("decide", new JSONObject(decide.toString()).put("questions", new JSONObject()).toString()));
+        JSONObject manyOptions = new JSONObject();
+        for (int i = 0; i < 241; i++) manyOptions.put("option_" + i, "Option " + i);
+        check(AgentGatewayProtocol.request("decide", new JSONObject(decide.toString()).put("questions", new JSONObject()
+                .put("reaction", new JSONObject(uiQuestion.toString()).put("criteria", manyOptions))).toString()).has("questions"));
+        rejects(() -> AgentGatewayProtocol.request("decide", new JSONObject(decide.toString()).put("questions", new JSONObject()
+                .put("root", new JSONObject(uiQuestion.toString()).put("criteria", new JSONObject()))).toString()));
         rejects(() -> AgentGatewayProtocol.request("decide", new JSONObject(decide.toString()).put("questions", new JSONObject().put("root", new JSONObject(uiQuestion.toString()).put("type", "noul"))).toString()));
         rejects(() -> AgentGatewayProtocol.request("decide", new JSONObject(decide.toString()).put("model", "other").toString()));
         JSONObject generate = new JSONObject().put("requestId", KEY).put("instructions", "x".repeat(70_000)).put("prompt", "Water tracker").put("catalogVersion", "taku-ui-1");

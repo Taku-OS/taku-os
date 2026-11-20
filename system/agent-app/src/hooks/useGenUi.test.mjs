@@ -217,6 +217,23 @@ test('a streaming card waits for native completion before loading its saved stat
   mounted.unmount();
 });
 
+test('a finished reply whose card cannot be read for another reason reports it and offers Retry', async () => {
+  const reply = mainReply('denied-thread', 'denied-card', 1, 'completed');
+  runtime.calls = [];
+  runtime.callAgent = async () => { throw Object.assign(new Error('lease revoked'), {code: 'LEASE_REVOKED'}); };
+  const mounted = mount('denied-thread', primary(reply));
+  await settle();
+  mounted.Render();
+  assert.equal(mounted.result.hydrated, false);
+  assert.equal(mounted.result.hydrationError, 'LEASE_REVOKED', 'only a not-yet-projected record is retried quietly');
+  nativeCalls(reply);
+  await mounted.result.retry();
+  mounted.Render();
+  assert.equal(mounted.result.hydrated, true);
+  assert.equal(mounted.result.hydrationError, '');
+  mounted.unmount();
+});
+
 test('a finished reply whose card record is missing shows no error and loads it quietly once it appears', async t => {
   t.mock.timers.enable({apis: ['setTimeout']});
   const reply = mainReply('quiet-thread', 'quiet-card', 1, 'completed');

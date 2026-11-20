@@ -248,20 +248,21 @@ chat-reaction emoji (Unicode's emoji frequency ranking filtered for chat reactio
 staples such as 🥹 🫶 🫡), minus any this phone's font cannot draw. A reaction needs 60 % of the
 probability away from "none"; most messages get none. Nothing is decided unless Jev is enabled
 with a model (the same switch and model as gateway `decide`), and history is never back-filled.
-Agents are not limited to that list: any fully-qualified Unicode emoji (Emoji 18.0) the phone
-renders can be set. Reactions are stored per thread/turn/item and appear as `reaction` on `userMessage`
+Agents set reactions from the same curated list; `reactions/options` returns it. Reactions are stored per thread/turn/item and appear as `reaction` on `userMessage`
 items in session reads and snapshots, and as a live `session/reaction` stream event.
 
 ```sh
+taku_call "$D" reactions/options '{}'
+# {reactions:[{emoji:"😂",name:"face with tears of joy",hint:null}, ...]}: curated order, only emoji this phone draws
 taku_call "$D" reactions/list '{"threadId":"THREAD_ID"}'
 # {threadId, reactions:[{turnId,itemId,reaction:"👍"|null,source:"jev"|"agent",decidedAt}]}, newest first
 taku_call "$D" reactions/set '{"threadId":"THREAD_ID","turnId":"TURN_ID","itemId":"ITEM_ID","reaction":"🎉"}'
 taku_call "$D" reactions/set '{"threadId":"THREAD_ID","turnId":"TURN_ID","itemId":"ITEM_ID","reaction":null}'
 ```
 
-`reactions/set` accepts any fully-qualified emoji the phone renders, skin-tone variants included
-(for example "👍🏽" or "🧑‍💻"; unqualified forms such as a bare "❤" without U+FE0F, text, or several
-emoji are `INVALID_REACTION`), or `null` to clear. It updates an open chat at once and returns
+`reactions/set` accepts one `emoji` from `reactions/options` exactly as returned (for example
+"🎉" or "❤️" with U+FE0F), or `null` to clear. Anything else, including skin-tone variants,
+unqualified forms such as a bare "❤", text, or several emoji, is `INVALID_REACTION`. It updates an open chat at once and returns
 the same list. Unknown parameters are `UNSUPPORTED_PARAMETER`.
 
 ## Primary conversation replies

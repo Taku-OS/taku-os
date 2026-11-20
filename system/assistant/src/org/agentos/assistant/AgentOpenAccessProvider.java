@@ -140,7 +140,10 @@ public final class AgentOpenAccessProvider extends ContentProvider {
                 return transport(out, envelope, caller);
             } else if (method.startsWith("skills/")) result = TaskRequests.control(method, input);
             else if (RPC.contains(method)) result = NativeClient.rpcSync(method, input);
-            else if (method.equals("reactions/list")) {
+            else if (method.equals("reactions/options")) {
+                only(input);
+                result = MessageReactions.INSTANCE.options(getContext());
+            } else if (method.equals("reactions/list")) {
                 only(input, "threadId");
                 AgentGatewayProtocol.requireId(input, "threadId");
                 result = MessageReactions.INSTANCE.list(getContext(), input.getString("threadId"));

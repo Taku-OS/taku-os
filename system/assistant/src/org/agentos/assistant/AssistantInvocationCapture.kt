@@ -99,13 +99,17 @@ internal object AssistantInvocationCapture {
     /**
      * Removes screenshots that outlived their request. A steer the runtime accepted directly reads
      * its screenshot as the turn continues, and a request whose delivery is unknown may still be
-     * retried, so neither can be deleted the moment it settles; an hour later both are done with.
-     * A screenshot of the user's screen must not stay on disk indefinitely.
+     * retried, so neither can be deleted the moment it settles; an hour later the accepted steer
+     * is done with. A request a conversation is still waiting on keeps its screenshot until it
+     * settles (settle/discard), however long that takes. A screenshot of the user's screen must
+     * not stay on disk indefinitely otherwise.
      */
     fun sweep(context: Context) {
         val cutoff = System.currentTimeMillis() - SCREENSHOT_RETENTION_MS
+        val waiting = ComposerState.pendingRequestIds(context.getSharedPreferences("agent-settings", Context.MODE_PRIVATE))
+            .mapTo(HashSet()) { "screen-$it.png" }
         File(context.filesDir, "composer-attachments").listFiles()?.forEach { file ->
-            if (file.isFile && file.name.startsWith("screen-") && file.lastModified() < cutoff) file.delete()
+            if (file.isFile && file.name.startsWith("screen-") && file.name !in waiting && file.lastModified() < cutoff) file.delete()
         }
     }
 

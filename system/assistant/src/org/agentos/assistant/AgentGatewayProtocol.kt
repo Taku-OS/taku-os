@@ -483,7 +483,8 @@ internal class AgentGatewayProtocol private constructor() {
                 if (key.length > 64 || question == null || "choice" != question.optString("type")) throw IOException("INVALID_questions")
                 text(question, "instructions", 4000)
                 val criteria = question.optJSONObject("criteria")
-                if (criteria == null || criteria.length() < 1 || criteria.length() > 64) throw IOException("INVALID_questions")
+                // No upper bound on options: a reaction choice offers about 240.
+                if (criteria == null || criteria.length() < 1) throw IOException("INVALID_questions")
             }
         }
 

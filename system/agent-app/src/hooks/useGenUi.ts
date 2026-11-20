@@ -160,16 +160,20 @@ async function hydrate(id: string): Promise<void> {
       hydrationRetries.delete(id);
       updateCard(id, card => card.hydrationError ? {...card, hydrationError: ''} : card);
     } catch (error) {
-      if (getCard(id).presentation.kind === 'primary') {
-        // Nothing the user sees is missing: no error, no Retry; Pin waits until the load succeeds.
+      const code = errorCode(error);
+      if (getCard(id).presentation.kind === 'primary' && code === 'MATTER_UNAVAILABLE') {
+        // The record is not projected yet. Nothing the user sees is missing: no error, no Retry;
+        // Pin waits until the load succeeds.
         const attempt = hydrationRetries.get(id) ?? 0;
         if (attempt < QUIET_HYDRATION_DELAYS.length) {
           hydrationRetries.set(id, attempt + 1);
           setTimeout(() => { void hydrate(id); }, QUIET_HYDRATION_DELAYS[attempt]);
-        }
+        } else hydrationRetries.delete(id); // A later mount or card action starts a fresh round.
         return;
       }
-      updateCard(id, card => ({...card, hydrationError: errorCode(error)}));
+      // Any other failure (a revoked lease, an unreadable snapshot) is real and gets Retry.
+      hydrationRetries.delete(id);
+      updateCard(id, card => ({...card, hydrationError: code}));
     }
   })();
   hydrations.set(id, pending);
@@ -207,7 +211,11 @@ async function compose(id: string): Promise<void> {
 async function dispatchCard(id: string, actionId: string) {
   if (!getCard(id).hydrated) {
     await hydrate(id);
-    if (!getCard(id).hydrated) return;
+    if (!getCard(id).hydrated) {
+      // The action was not sent; say so instead of doing nothing.
+      if (!getCard(id).hydrationError) updateCard(id, card => ({...card, syncError: 'MATTER_UNAVAILABLE'}));
+      return;
+    }
   }
   const current = getCard(id), action = current.request.actions.find(item => item.id === actionId);
   if (!action?.actionRef) throw new Error('CAPABILITY_UNAVAILABLE');

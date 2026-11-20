@@ -43,15 +43,21 @@ class AgentGatewayProvider : ContentProvider() {
     private val streamExpiry = Executors.newSingleThreadScheduledExecutor { runnable ->
         Thread(runnable, "agent-stream-expiry").apply { isDaemon = true }
     }
+    private val reactionPushes = Executors.newSingleThreadExecutor { runnable ->
+        Thread(runnable, "agent-reaction-push").apply { isDaemon = true }
+    }
 
     private class SessionStream(val uid: Int, val request: JSONObject) {
         val created = SystemClock.elapsedRealtime()
         var opened = false
         /** The worker and out-of-band events (reactions) write whole lines, one at a time. */
         val writeLock = Any()
-        /** The latest native event's epoch and sequence, which an out-of-band event repeats. */
-        @Volatile var lastEpoch = ""
-        @Volatile var lastSeq = -1L
+        /**
+         * The epoch and sequence of the latest native event already written, which an out-of-band
+         * event repeats. Both change only under [writeLock], after the event's line is written.
+         */
+        var lastEpoch = ""
+        var lastSeq = -1L
         @Volatile var closed = false
         var socket: LocalSocket? = null
         var output: ParcelFileDescriptor? = null
@@ -79,8 +85,9 @@ class AgentGatewayProvider : ContentProvider() {
         submissions = AgentGatewaySubmissions.get(context!!.filesDir)
         matters = MatterRuntime.get(context!!)
         matterStreams = MatterStreams(matters)
-        // A reaction decided after its message was shown reaches open chat streams at once.
-        MessageReactions.listener = { thread, turn, item, emoji -> pushReaction(thread, turn, item, emoji) }
+        // A reaction decided after its message was shown reaches open chat streams at once. Pushes
+        // run on their own thread: a stalled stream must not hold Jev or an Agent's reactions/set.
+        MessageReactions.listener = { thread, turn, item, emoji -> reactionPushes.execute { pushReaction(thread, turn, item, emoji) } }
         return true
     }
 
@@ -90,14 +97,16 @@ class AgentGatewayProvider : ContentProvider() {
      */
     private fun pushReaction(thread: String, turn: String, item: String, emoji: String) {
         val targets = synchronized(this) { streams.values.filter { it.opened && !it.closed && it.request.optString("threadId") == thread } }
-        for (stream in targets) {
-            if (stream.lastSeq < 0 || stream.lastEpoch.isEmpty()) continue
-            val event = JSONObject().put("schema", "taku.session-events/1").put("threadId", thread)
-                .put("brokerEpoch", stream.lastEpoch).put("seq", stream.lastSeq).put("method", "session/reaction")
-                .put("params", JSONObject().put("turnId", turn).put("itemId", item).put("reaction", emoji))
-            val bytes = (event.toString() + "\n").toByteArray(StandardCharsets.UTF_8)
-            try { synchronized(stream.writeLock) { writeEvent(stream, bytes) } } catch (_: Exception) { }
-        }
+        for (stream in targets) try {
+            synchronized(stream.writeLock) {
+                // Read under the lock, so the repeated sequence is one the chat has already received.
+                if (stream.lastSeq < 0 || stream.lastEpoch.isEmpty()) return@synchronized
+                val event = JSONObject().put("schema", "taku.session-events/1").put("threadId", thread)
+                    .put("brokerEpoch", stream.lastEpoch).put("seq", stream.lastSeq).put("method", "session/reaction")
+                    .put("params", JSONObject().put("turnId", turn).put("itemId", item).put("reaction", emoji))
+                writeEvent(stream, (event.toString() + "\n").toByteArray(StandardCharsets.UTF_8))
+            }
+        } catch (_: Exception) { }
     }
 
     private fun enforceCaller() {
@@ -587,11 +596,13 @@ class AgentGatewayProvider : ContentProvider() {
                             } catch (failure: Exception) {
                                 android.util.Log.w("TakuReactions", "reaction projection skipped: ${failure.message}")
                             }
-                            stream.lastEpoch = event.optString("brokerEpoch")
-                            stream.lastSeq = event.optLong("seq", -1L)
                             val bytes = (event.toString() + "\n").toByteArray(StandardCharsets.UTF_8)
                             if (bytes.size > MAX_RESULT_BYTES) throw IOException("STREAM_EVENT_TOO_LARGE")
-                            synchronized(stream.writeLock) { writeEvent(stream, bytes) }
+                            synchronized(stream.writeLock) {
+                                writeEvent(stream, bytes)
+                                stream.lastEpoch = event.optString("brokerEpoch")
+                                stream.lastSeq = event.optLong("seq", -1L)
+                            }
                         }
                     }
                 }

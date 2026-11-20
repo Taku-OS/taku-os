@@ -141,6 +141,13 @@ internal object ComposerState {
     }
     private fun pendingKey(thread: String) = ComposerPreferences.key(thread, "pendingRequest")
 
+    /** Requests a conversation is still waiting on; an unresolved delivery may still be retried. */
+    fun pendingRequestIds(prefs: SharedPreferences): Set<String> = synchronized(monitor) {
+        prefs.all.mapNotNullTo(HashSet()) { (name, value) ->
+            (value as? String)?.takeIf { name.startsWith("composer.") && name.endsWith(".pendingRequest") }
+        }
+    }
+
     fun submission(prefs: SharedPreferences, id: String): JSONObject? = synchronized(monitor) {
         prefs.getString(requestKey(id), null)?.let(::JSONObject)
     }

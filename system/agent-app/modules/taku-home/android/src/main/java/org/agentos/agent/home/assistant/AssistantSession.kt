@@ -671,6 +671,13 @@ class AssistantSession private constructor(private val context: Context, private
    * started, nothing was heard and the operation is dropped.
    */
   fun finishVoice() {
+    // Released while the start still waits for a reply reader to stop: latch now, as a release
+    // after the start would, so the deferred start aims at Submit (finalize on silence, send once)
+    // instead of waiting for a release that already happened.
+    if (voiceStartPending && voice.state.value.phase == VoicePhase.Idle && flow.value.entry == EntryMode.Voice) {
+      if (!live.handingOff && gesture.latch()) publishGesture()
+      return
+    }
     val v = voice.state.value
     // No recording: a recycled or repeated finish must not close an unrelated open input.
     if (v.target != VoiceTarget.Hold || v.phase == VoicePhase.Idle || (flow.value.entry != EntryMode.Voice && !flow.value.voiceContinuous)) return
