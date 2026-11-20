@@ -45,7 +45,7 @@ abstract class PhoneStatusBarView(context: android.content.Context) : android.wi
 }
 ''',
     'Res.kt': '''package com.android.systemui.res
-object R { object id { const val clock_center = 1; const val network_traffic_center = 2; const val clock = 3; const val status_bar_end_side_content = 4; const val status_bar_start_side_except_heads_up = 5; const val network_traffic_holder_center = 6 } }
+object R { object id { const val clock_center = 1; const val network_traffic_center = 2; const val clock = 3; const val status_bar_end_side_content = 4; const val status_bar_start_side_except_heads_up = 5; const val network_traffic_holder_center = 6; const val status_bar_contents = 7; const val statusIcons = 8 } }
 ''',
     'Users.kt': '''package com.android.systemui.settings
 interface UserTracker {

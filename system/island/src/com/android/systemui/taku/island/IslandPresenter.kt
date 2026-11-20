@@ -240,19 +240,24 @@ class IslandPresenter @Inject constructor(
         }
         val cutout = view.rootWindowInsets?.displayCutout?.boundingRectTop ?: Rect()
         val physical = if (!cutout.isEmpty && cutout.centerX() in view.width / 3..view.width * 2 / 3) cutout.width() else 0
-        val clock = maxOf(view.findViewById<View>(R.id.clock)?.width ?: 0, dp(52))
-        val icons = maxOf(view.findViewById<View>(R.id.status_bar_end_side_content)?.width ?: 0, dp(64))
+        val contents = view.findViewById<View>(R.id.status_bar_contents)
+        val contentLeft = view.paddingLeft + (contents?.paddingLeft ?: 0)
+        val contentRight = view.width - view.paddingRight - (contents?.paddingRight ?: 0)
+        val clock = maxOf(view.findViewById<View>(R.id.clock)?.width ?: 0,
+            view.findViewById<View>(R.id.clock_center)?.width ?: 0, dp(52))
+        val endWidth = view.findViewById<View>(R.id.status_bar_end_side_content)?.width ?: dp(64)
+        val icons = view.findViewById<View>(R.id.statusIcons)?.takeIf { it.visibility != View.GONE }?.width ?: 0
         // Figma 1379:889 anchors the island to the camera: the disc extends CAMERA_DP to its
         // left and the pill grows to its right. FrameLayout centering would include asymmetric
         // status-bar padding, so position from the actual display cutout instead.
         val location = IntArray(2)
         view.getLocationOnScreen(location)
         val cameraX = if (physical > 0) cutout.centerX() - location[0] else view.width / 2
-        val leftRoom = cameraX - clock - dp(12)
-        val rightRoom = view.width - cameraX - icons - dp(12)
+        val cameraLeftWidth = dp(IslandCapsuleView.CAMERA_DP)
+        val maximumWidth = IslandCapsuleGeometry.maximumWidth(contentLeft, contentRight,
+            cameraX, cameraLeftWidth, clock, endWidth, icons, dp(12))
         val wantsSecondary = !activity.building && items.count { it.data.compactVisible } > 1
-        val width = if (leftRoom < dp(IslandCapsuleView.CAMERA_DP)) 0
-            else pill.layoutWidth(activity, dp(IslandCapsuleView.CAMERA_DP) + rightRoom, wantsSecondary)
+        val width = pill.layoutWidth(activity, maximumWidth, wantsSecondary)
         if (width == 0) {
             IslandPresentationOwnership.show(null)
             pill.visibility = View.GONE
@@ -273,7 +278,8 @@ class IslandPresenter @Inject constructor(
         val previous = pill.layoutParams as FrameLayout.LayoutParams
         if (previous.width != width || previous.height != height || previous.gravity != params.gravity ||
             previous.leftMargin != params.leftMargin || previous.topMargin != params.topMargin) pill.layoutParams = params
-        view.setTakuIslandProbeWidth(width)
+        view.setTakuIslandProbeWidth(IslandCapsuleGeometry.reservationWidth(
+            contentLeft, contentRight, cameraX, cameraLeftWidth, width))
     }
 
     private fun relocateCentered() {
