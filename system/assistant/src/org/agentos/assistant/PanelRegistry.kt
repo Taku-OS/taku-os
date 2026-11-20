@@ -274,6 +274,12 @@ internal class PanelRegistry(private val context: Context, private val runtime: 
         return runtime.state { submissionResult(store.get("panel_updates", requestId)!!, !created) }
     }
 
+    /** Submits a stored update again after an interruption, with the composer options it was sent with. */
+    internal fun resubmitUpdate(target: JSONObject): JSONObject {
+        val prefs = context.getSharedPreferences("agent-settings", android.content.Context.MODE_PRIVATE)
+        return submitUpdate(target, ComposerState.submission(prefs, target.getString("requestId")))
+    }
+
     private fun submitUpdate(target: JSONObject, composerRequest: JSONObject?): JSONObject {
         val requestId = target.getString("requestId")
         val trusted = JSONObject()

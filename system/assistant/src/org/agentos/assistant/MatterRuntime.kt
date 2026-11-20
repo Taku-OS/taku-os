@@ -298,8 +298,15 @@ internal class MatterRuntime(
         val updates = state(background = true) { store.pendingPanelUpdates() }
         for (i in 0 until updates.length()) {
             val update = updates.getJSONObject(i)
-            val receipt = AgentGatewaySubmissions.existing(context.filesDir, update.getString("requestId"))
-            if (receipt == null && update.optString("taskId").isEmpty() && !update.has("text")) {
+            var receipt = AgentGatewaySubmissions.existing(context.filesDir, update.getString("requestId"))
+            if (receipt == null && update.optString("taskId").isEmpty() && update.has("text")) {
+                // Interrupted between storing the update and submitting it. The request ID makes the
+                // submission idempotent, so finish it here; otherwise it would stay pending forever.
+                receipt = try { panels.resubmitUpdate(update) } catch (failure: Exception) {
+                    android.util.Log.w("MatterRuntime", "Panel update will be retried during recovery", failure)
+                    null
+                }
+            } else if (receipt == null && update.optString("taskId").isEmpty()) {
                 state(true, true) {
                     val current = store.get("panel_updates", update.getString("requestId"))!!
                     current.put("submission", JSONObject().put("requestId", current.getString("requestId"))

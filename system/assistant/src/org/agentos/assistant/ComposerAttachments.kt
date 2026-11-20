@@ -19,6 +19,9 @@ import org.json.JSONObject
 internal object ComposerAttachments {
     private const val LIMIT = 20_000_000L
     private const val THUMBNAIL_PX = 256
+    private const val UNREFERENCED_MS = 7L * 24 * 60 * 60 * 1000
+    /** An attachment path as stored in preferences; JSON text may escape the slash. */
+    private val STORED_NAME = Regex("""composer-attachments\\?/([0-9a-fA-F-]{36})""")
 
     @JvmStatic
     fun attach(context: Context, input: JSONObject, extras: Bundle?, uid: Int, pid: Int): JSONObject {
@@ -36,6 +39,29 @@ internal object ComposerAttachments {
             throw IOException("INVALID_ARGUMENT")
         } else supplied
         return attachFd(context, input, descriptor ?: throw IOException("ATTACHMENT_UNAVAILABLE"))
+    }
+
+    /**
+     * Deletes copied attachment files that no draft, saved draft or kept request refers to any
+     * more. Removing an attachment or finishing a send only drops the reference, so without this
+     * the files (up to 20 MB each) would stay for good. Files stay a week after their last
+     * reference so a queued or failed task that still names one can use or restore it.
+     */
+    @JvmStatic
+    fun sweep(context: Context) {
+        val files = File(context.filesDir, "composer-attachments").listFiles() ?: return
+        val cutoff = System.currentTimeMillis() - UNREFERENCED_MS
+        val stale = files.filter { it.isFile && !it.name.startsWith("screen-") && it.lastModified() < cutoff }
+        if (stale.isEmpty()) return
+        val prefs = context.getSharedPreferences("agent-settings", Context.MODE_PRIVATE)
+        // The lock composer state changes under, so a file is never judged while it is being referenced.
+        synchronized(ComposerPreferences::class.java) {
+            val referenced = HashSet<String>()
+            for (value in prefs.all.values)
+                if (value is String && value.contains("composer-attachments"))
+                    STORED_NAME.findAll(value).forEach { referenced.add(it.groupValues[1]) }
+            for (file in stale) if (file.name !in referenced) file.delete()
+        }
     }
 
     /** A small JPEG of an image attached to [thread]'s draft, for the composer's attachment strip. */

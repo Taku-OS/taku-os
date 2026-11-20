@@ -18,6 +18,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 internal object AssistantInvocationCapture {
+    private const val SCREENSHOT_RETENTION_MS = 60L * 60 * 1000
     private data class Invocation(
         val token: String,
         val capturedAt: Long,
@@ -95,7 +96,21 @@ internal object AssistantInvocationCapture {
             current?.capturedAt ?: SystemClock.elapsedRealtime(), current?.foreground ?: "Current app")
     }
 
+    /**
+     * Removes screenshots that outlived their request. A steer the runtime accepted directly reads
+     * its screenshot as the turn continues, and a request whose delivery is unknown may still be
+     * retried, so neither can be deleted the moment it settles; an hour later both are done with.
+     * A screenshot of the user's screen must not stay on disk indefinitely.
+     */
+    fun sweep(context: Context) {
+        val cutoff = System.currentTimeMillis() - SCREENSHOT_RETENTION_MS
+        File(context.filesDir, "composer-attachments").listFiles()?.forEach { file ->
+            if (file.isFile && file.name.startsWith("screen-") && file.lastModified() < cutoff) file.delete()
+        }
+    }
+
     fun reserve(context: Context, requestId: String, options: JSONObject) {
+        sweep(context)
         if (!options.optBoolean("includeScreenshot")) return
         val current = current(context)
         val image = current?.image ?: return
@@ -139,6 +154,7 @@ internal object AssistantInvocationCapture {
     }
 
     fun settle(context: Context, request: JSONObject, receipt: JSONObject) {
+        sweep(context)
         val state = receipt.optString("state")
         if (state == "notSent" || state == "queued" ||
             state == "accepted" && receipt.optJSONObject("result")?.optBoolean("queuedAfterTurn") == true) {

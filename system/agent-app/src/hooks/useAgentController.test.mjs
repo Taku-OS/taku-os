@@ -393,3 +393,31 @@ test('an attachment event for another conversation does not reload the selected 
   assert.equal(host.result.draft, '');
   assert.deepEqual(host.result.attachments, []);
 });
+
+test('a refusal before reservation reports not sent whatever its code and keeps the draft', async t => {
+  reset(t); runtime.target = null;
+  const {AgentGatewayError} = await import('../native/agent');
+  runtime.receipt = async () => {throw new AgentGatewayError('Busy', 'BUSY');};
+  const host = mount(); await flush(host);
+  await send(host, 'Send while busy');
+  assert.equal(runtime.storage.has(pendingKey('thread-a')), false);
+  assert.equal(host.result.draft, 'Send while busy');
+  runtime.receipt = async (args, panelId) => accepted(args, panelId);
+  await send(host, 'Send while busy');
+  assert.equal(runtime.completed.length, 1);
+  assert.notEqual(runtime.calls[0].requestId, runtime.calls[1].requestId);
+});
+
+test('a transport failure before reservation stays unconfirmed and retry resubmits the same request', async t => {
+  reset(t); runtime.target = null;
+  const {AgentGatewayError} = await import('../native/agent');
+  runtime.receipt = async () => {throw new AgentGatewayError('Timed out', 'GATEWAY_UNAVAILABLE');};
+  const host = mount(); await flush(host);
+  await send(host, 'Send over a flaky link');
+  const stored = JSON.parse(runtime.storage.get(pendingKey('thread-a')));
+  runtime.receipt = async (args, panelId) => accepted(args, panelId);
+  host.result.onRetrySubmission(); await flush(host);
+  assert.deepEqual(runtime.calls.map(call => call.requestId), [stored.requestId, stored.requestId]);
+  assert.equal(runtime.completed.length, 1);
+  assert.equal(runtime.storage.has(pendingKey('thread-a')), false);
+});

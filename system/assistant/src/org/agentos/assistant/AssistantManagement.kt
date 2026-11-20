@@ -144,7 +144,8 @@ internal object AssistantManagement {
             "harness/read", "harness/refresh" -> {
                 requireCurrentThread(context, thread!!)
                 val prefs = context.getSharedPreferences("agent-settings", Context.MODE_PRIVATE)
-                TaskRequests.control(operation, params.put("responseStyle", prefs.getString("responseStyle", "concise"))
+                // The harness is built for the style this conversation actually sends with.
+                TaskRequests.control(operation, params.put("responseStyle", ComposerOptions.responseStyle(prefs, thread))
                     .put("includeScreenshot", prefs.getBoolean("includeScreenshot", false)))
             }
             "plugin/list" -> pluginList()

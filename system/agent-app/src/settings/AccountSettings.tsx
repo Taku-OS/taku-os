@@ -15,6 +15,9 @@ type SavedKey = {id: string; ref: string; name: string; masked: string; provider
 type SavedKeys = {keys?: SavedKey[]};
 
 const danger = '#CC2A4A';
+/** Phases in which the runtime is working through a sign-in and its state changes by the second. */
+const signInPhases = ['starting', 'pending', 'verifying'];
+const idlePollMs = 15_000;
 const officialHosts = ['auth.openai.com', 'chatgpt.com'];
 const errorKeys: Record<string, AccountTextKey> = {
   INVALID_CREDENTIAL: 'errorInvalidCredential',
@@ -104,6 +107,8 @@ export function ChatGptAccount({palette, t, onChanged}: Shared) {
   const {busy, error, setError, work, running, mounted, isMounted} = useWork(t);
   const reading = useRef(false);
   const connected = useRef<boolean | null>(null);
+  const phase = useRef('');
+  const lastRead = useRef(0);
   const changed = useRef(onChanged);
   useEffect(() => { changed.current = onChanged; }, [onChanged]);
 
@@ -113,23 +118,28 @@ export function ChatGptAccount({palette, t, onChanged}: Shared) {
     setUnavailable(false);
     if (connected.current !== null && connected.current !== next.connected) changed.current?.();
     connected.current = next.connected;
+    phase.current = next.phase;
   }, [isMounted]);
 
   useEffect(() => {
     let foreground = AppState.currentState === 'active';
-    const read = () => {
+    const read = (now = false) => {
       if (!foreground || reading.current || running.current) return;
+      // Follow a sign-in closely; otherwise only look occasionally for a change made elsewhere.
+      const signingIn = signInPhases.includes(phase.current);
+      if (!now && !signingIn && Date.now() - lastRead.current < idlePollMs) return;
+      lastRead.current = Date.now();
       reading.current = true;
       void callAgent<AccountStatus>('accounts/read')
         .then(show, () => { if (mounted.current) setUnavailable(true); })
         .finally(() => { reading.current = false; });
     };
-    read();
+    read(true);
     // The runtime reports sign-in progress only through its account state, so follow it while visible.
-    const timer = setInterval(read, 1000);
+    const timer = setInterval(() => read(), 1000);
     const subscription = AppState.addEventListener('change', state => {
       foreground = state === 'active';
-      if (foreground) read();
+      if (foreground) read(true);
     });
     return () => { clearInterval(timer); subscription.remove(); };
   }, [mounted, running, show]);

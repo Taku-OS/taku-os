@@ -69,6 +69,12 @@ internal object ComposerOptions {
         }
     }
 
+    /** The response style a send in [thread] uses: its own override, else the global setting. */
+    @JvmStatic
+    fun responseStyle(prefs: SharedPreferences, thread: String): String = synchronized(monitor) {
+        resolved(prefs, thread, Field.RESPONSE_STYLE) ?: "concise"
+    }
+
     @JvmStatic
     @Throws(Exception::class)
     fun captureSubmission(prefs: SharedPreferences, thread: String, request: JSONObject) {
@@ -121,6 +127,7 @@ internal object ComposerOptions {
             invalid()
         val selected = NativeClient.exchange(JSONObject().put("op", "modelConnection").put("action", "select")
             .put("mode", mode).put("model", model))
+        cachedCatalog = null
         syncConnection(context, selected, resetModel = true)
         selected
     }
@@ -138,6 +145,7 @@ internal object ComposerOptions {
         val prefs = context.getSharedPreferences("agent-settings", Context.MODE_PRIVATE)
         val previous = prefs.getString("modelConnectionMode", "openai") ?: "openai"
         val changed = mode != previous
+        if (changed) cachedCatalog = null
         if (!changed && !resetModel) return@synchronized
         val editor = prefs.edit()
         if (changed) {
@@ -171,7 +179,30 @@ internal object ComposerOptions {
         }
     }
 
+    private class CachedCatalog(val models: String, val readAt: Long)
+    @Volatile private var cachedCatalog: CachedCatalog? = null
+    private const val CATALOG_FRESH_MS = 30_000L
+    private const val CATALOG_USABLE_MS = 10 * 60_000L
+
+    /**
+     * The runtime's model catalog. Options are read, written and resolved on every send, so the
+     * catalog is reused for a short while instead of paging through `model/list` each time, and
+     * a recent copy still serves when the runtime briefly cannot answer, so a transient failure
+     * does not stop a message from being sent. Changing the connection drops the copy.
+     */
     private fun loadCatalog(): Catalog {
+        val now = android.os.SystemClock.elapsedRealtime()
+        val cached = cachedCatalog
+        if (cached != null && now - cached.readAt < CATALOG_FRESH_MS) return Catalog(JSONArray(cached.models))
+        return try {
+            fetchCatalog().also { cachedCatalog = CachedCatalog(it.models.toString(), now) }
+        } catch (failure: Exception) {
+            if (cached == null || now - cached.readAt > CATALOG_USABLE_MS) throw failure
+            Catalog(JSONArray(cached.models))
+        }
+    }
+
+    private fun fetchCatalog(): Catalog {
         val params = JSONObject().put("limit", 100)
         var result = NativeClient.rpcSync("model/list", params)
         val models = result.optJSONArray("data") ?: throw IOException("MODEL_CATALOG_INVALID")

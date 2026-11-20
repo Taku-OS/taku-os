@@ -109,6 +109,36 @@ internal object ComposerState {
     private val optionNames = arrayOf("model", "effort", "serviceTier", "multiAgentMode", "permissionMode", "responseStyle")
 
     private fun requestKey(id: String) = "composer-request-$id"
+    private const val REQUEST_PREFIX = "composer-request-"
+    private const val REQUEST_LEDGER = "composer-ledger.requests"
+    private const val MARKER_LEDGER = "composer-ledger.markers"
+    private val markerPrefixes = arrayOf("composer-handoff-", "composer-recovery-")
+    private const val KEPT_RECORDS = 64
+    private const val LEDGER_SLACK = 32
+
+    /**
+     * Notes a new per-submission record in an insertion-ordered ledger. Once the ledger outgrows
+     * its limit, the oldest records of that kind are removed, together with any written before
+     * the ledger existed. Otherwise every send would leave a record behind, and the settings
+     * file, which is rewritten on each draft save, would grow without bound. A request that a
+     * conversation is still waiting on is always kept.
+     */
+    private fun retire(prefs: SharedPreferences, ledgerKey: String, key: String, prefixes: Array<String>) {
+        var ledger = try { JSONArray(prefs.getString(ledgerKey, "[]")) } catch (_: org.json.JSONException) { JSONArray() }
+        ledger.put(key)
+        val editor = prefs.edit()
+        if (ledger.length() > KEPT_RECORDS + LEDGER_SLACK) {
+            val all = prefs.all
+            val kept = LinkedHashSet<String>()
+            if (REQUEST_PREFIX in prefixes) for ((name, value) in all)
+                if (name.startsWith("composer.") && name.endsWith(".pendingRequest")) kept.add(requestKey(value.toString()))
+            for (index in ledger.length() - KEPT_RECORDS until ledger.length()) kept.add(ledger.getString(index))
+            for (name in all.keys) if (prefixes.any(name::startsWith) && name !in kept) editor.remove(name)
+            ledger = JSONArray(kept)
+        }
+        // Housekeeping only: a lost write here costs nothing but a later trim.
+        editor.putString(ledgerKey, ledger.toString()).apply()
+    }
     private fun pendingKey(thread: String) = ComposerPreferences.key(thread, "pendingRequest")
 
     fun submission(prefs: SharedPreferences, id: String): JSONObject? = synchronized(monitor) {
@@ -136,6 +166,7 @@ internal object ComposerState {
         options.put("attachments", attachments)
         val request = JSONObject(input.toString()).put("hash", hash).put("text", text).put("options", options)
         persist(prefs, prefs.edit().putString(key, request.toString()).putString(pending, id), key, pending)
+        retire(prefs, REQUEST_LEDGER, key, arrayOf(REQUEST_PREFIX))
         request to true
     }
 
@@ -167,7 +198,9 @@ internal object ComposerState {
         if (id == prefs.getString(pending, null)) {
             val editor = prefs.edit().remove(pending)
             val sent = ComposerDraft(thread, request.getString("revision"), request.getString("text"), request.getJSONObject("options").getJSONArray("attachments").toString())
-            if (sent != ComposerPreferences.draft(prefs, thread)) ComposerPreferences.stashDraft(prefs, editor, sent)
+            // The request holds the trimmed text; surrounding whitespace alone is not a different draft.
+            val current = ComposerPreferences.draft(prefs, thread)
+            if (sent != current.copy(text = current.text.trim())) ComposerPreferences.stashDraft(prefs, editor, sent)
             persist(prefs, editor, pending, recoveryKey(thread))
         }
         snapshot(prefs, thread)
@@ -191,6 +224,7 @@ internal object ComposerState {
             editor.remove(attachments)
             persist(prefs, editor, key, recoveryKey(thread), ComposerPreferences.draftTextKey(thread), ComposerPreferences.draftRevisionKey(thread), attachments)
         } else persist(prefs, editor, key)
+        retire(prefs, MARKER_LEDGER, key, markerPrefixes)
         snapshot(prefs, thread)
     }
 
@@ -205,6 +239,7 @@ internal object ComposerState {
             val entries = JSONArray(prefs.getString(key, "[]"))
             entries.put(JSONObject().put("token", id).put("text", text).put("status", "saved-draft").put("attachments", JSONArray()))
             persist(prefs, prefs.edit().putString(marker, hash).putString(key, entries.toString()), marker, key)
+            retire(prefs, MARKER_LEDGER, marker, markerPrefixes)
         }
         snapshot(prefs, thread)
     }

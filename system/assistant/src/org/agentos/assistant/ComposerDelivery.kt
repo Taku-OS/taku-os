@@ -90,6 +90,7 @@ internal object ComposerDelivery {
         if (state == "queued" || state == "accepted") ComposerState.finishSubmission(prefs, request, true)
         else if (state == "notSent") ComposerState.finishSubmission(prefs, request, false)
         AssistantInvocationCapture.settle(context, request, receipt)
+        try { ComposerAttachments.sweep(context) } catch (_: Exception) { }
     }
 
     private fun steer(services: PanelNativeServices, request: JSONObject): JSONObject {

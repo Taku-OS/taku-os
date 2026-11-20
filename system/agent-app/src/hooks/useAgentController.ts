@@ -25,6 +25,9 @@ const submissionTarget = (pending: ComposerSubmission) => ({
 });
 const unconfirmedArchiveKey = (threadId: string, requestId: string) => `${unconfirmedArchivePrefix(threadId)}${requestId}`;
 
+/** Gateway failures after which a submission may still be in flight (as HomeComposer.deliveryCouldBeUnknown). */
+const deliveryMayBeUnknown = ['GATEWAY_UNAVAILABLE', 'NATIVE_UNAVAILABLE', 'INVALID_RESPONSE', 'RUNTIME_UNAVAILABLE',
+  'RESULT_EXPIRED', 'RESULT_TOO_LARGE', 'RESPONSE_TOO_LARGE', 'DRAFT_SAVE_FAILED'];
 const lookupPending = (pending: ComposerSubmission) => callAgent('composer/receipt', {
   threadId: pending.threadId, requestId: pending.requestId,
   ...(pending.attachmentIds ? {} : {text: pending.text, ...submissionTarget(pending)}),
@@ -547,18 +550,25 @@ export function useAgentController() {
     const id = pending.threadId, ticket = generation.current;
     const isCurrent = () => mounted.current && generation.current === ticket && selectedRef.current === id;
     const params = {threadId: id, requestId: pending.requestId};
-    let receipt: Json;
-    if (lookupOnly) receipt = await lookupPending(pending);
-    else {
+    const submitOnce = async (): Promise<Json> => {
       try {
-        receipt = await callAgent('composer/submit', {...params, ...submissionTarget(pending), revision: pending.draftRevision, attachmentIds: pending.attachmentIds});
+        return await callAgent('composer/submit', {...params, ...submissionTarget(pending), revision: pending.draftRevision, attachmentIds: pending.attachmentIds});
       } catch (failure) {
-        receipt = await lookupPending(pending);
-        if (receipt.state === 'missing' && failure instanceof AgentGatewayError &&
-            ['DRAFT_REVISION_CONFLICT', 'ATTACHMENT_UNAVAILABLE', 'SCREENSHOT_UNAVAILABLE', 'INVALID_TEXT', 'MODEL_UNAVAILABLE'].includes(failure.code))
-          receipt = {...params, state: 'notSent', code: failure.code};
+        const receipt = await lookupPending(pending);
+        // The gateway answered with a refusal and holds no reservation: whatever the reason
+        // (busy, a stale draft or panel, an unavailable model), the request was not sent. A
+        // transport failure proves nothing, since the submission may still be reserved after the
+        // lookup; it stays unconfirmed, and retrying resubmits it under the same request ID.
+        if (receipt.state === 'missing' && failure instanceof AgentGatewayError && /^[A-Z][A-Z_]{2,80}$/.test(failure.code)
+            && !deliveryMayBeUnknown.includes(failure.code))
+          return {...params, state: 'notSent', code: failure.code};
+        return receipt;
       }
-    }
+    };
+    let receipt = lookupOnly ? await lookupPending(pending) : await submitOnce();
+    // The gateway never reserved this composer request. Its request ID makes the submission
+    // idempotent, so sending it again settles it instead of leaving it unconfirmed forever.
+    if (lookupOnly && receipt.state === 'missing' && pending.attachmentIds) receipt = await submitOnce();
     if (isNotSentReceipt(pending, receipt)) {
       updateOptimistic(requests => requests.map(request => request.requestId === pending.requestId
         ? {...request, state: 'failed', nonDeliverable: true, errorKey: 'replyFailed',

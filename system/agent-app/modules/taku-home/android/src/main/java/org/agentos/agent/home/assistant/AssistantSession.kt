@@ -465,7 +465,7 @@ class AssistantSession private constructor(private val context: Context, private
   private suspend fun writeDraft(current: Editor, edit: Edit): HomeComposer.Draft {
     var saved = current.saved ?: composer.read(current.threadId).also { acceptDraft(current, it) }
     if (edit.text != saved.text) {
-      if (edit.baseText != saved.text) throw GatewayException("DRAFT_REVISION_CONFLICT", "The shared draft changed")
+      if (edit.baseText != saved.text) throw draftConflict(current, edit, saved)
       saved = try {
         composer.write(saved, edit.text)
       } catch (failure: GatewayException) {
@@ -474,12 +474,24 @@ class AssistantSession private constructor(private val context: Context, private
         when (fresh.text) {
           edit.text -> fresh
           edit.baseText -> composer.write(fresh, edit.text)
-          else -> throw failure
+          else -> throw draftConflict(current, edit, fresh)
         }
       }
     }
     acceptDraft(current, saved, edit)
     return saved
+  }
+
+  /**
+   * The shared draft changed under an unsaved edit. The conflict is reported once and the edit
+   * is rebased onto the draft that is saved now: the user's text stays in the field, and if they
+   * keep it, their next keystroke or send replaces the other draft. Without the rebase every
+   * later save and send would fail on the same stale base.
+   */
+  private fun draftConflict(current: Editor, edit: Edit, saved: HomeComposer.Draft): GatewayException {
+    edit.baseText = saved.text
+    current.edit?.baseText = saved.text
+    return GatewayException("DRAFT_REVISION_CONFLICT", "The shared draft changed")
   }
 
   private fun saveDraft(current: Editor) {
@@ -797,7 +809,26 @@ class AssistantSession private constructor(private val context: Context, private
   }
 
   private suspend fun reconcile(current: Editor, request: HomeComposer.Request) {
-    val receipt = composer.receipt(request)
+    var receipt = composer.receipt(request)
+    if (receipt.state == "missing") {
+      // The gateway never reserved this request. Its ID makes submitting it again idempotent,
+      // so settle it now instead of asking about the same unsent request on every later send.
+      receipt = try {
+        composer.submit(request)
+      } catch (failure: Exception) {
+        if (failure is kotlinx.coroutines.CancellationException) throw failure
+        val after = try { composer.receipt(request) } catch (lookup: Exception) {
+          if (lookup is kotlinx.coroutines.CancellationException) throw lookup
+          null
+        }
+        if (after?.state == "missing") {
+          // Refused again and still unreserved: it was not sent. The caller reports why and keeps the text.
+          composer.forget(request)
+          throw failure
+        }
+        after ?: return deliveryError(current, "UNKNOWN_DELIVERY", request.text)
+      }
+    }
     if (receipt.terminal) {
       val saved = composer.read(request.threadId)
       if (saved.pending?.id == request.id) composer.settle(request)
