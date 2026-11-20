@@ -58,6 +58,9 @@ fun rememberAppIcon(key: String, size: Dp): ImageBitmap? {
 /** Corner radius of icon plates as a share of their size: Figma 338:3610's 18 dp on a 60 dp tile. */
 private const val ICON_CORNER = 18f / 60f
 
+/** Figma 338:3610: a 60 dp icon centred in an 83 dp grid column. */
+val HOME_ICON_SIZE = 60.dp
+
 /** Rounded-rectangle outline of an app, folder or folder-miniature icon of [size]. */
 fun iconShape(size: Dp): Shape = RoundedCornerShape(size * ICON_CORNER)
 
@@ -98,7 +101,7 @@ fun FolderIcon(folder: Slot.Folder, backdrop: Backdrop?, plate: Dp, modifier: Mo
       val x = if (i % 2 == 0) 14.dp else 43.5.dp
       val y = if (i < 2) 13.85.dp else 43.5.dp
       Box(Modifier.offset(x * k, y * k).size(mini).clip(iconShape(mini)).background(TakuTheme.colors.surfaceIcon)) {
-        if (icon != null) Image(icon, null, contentScale = ContentScale.Crop, modifier = Modifier.size(mini))
+        if (icon != null) Image(icon, null, contentScale = ContentScale.Fit, modifier = Modifier.size(mini))
       }
     }
   }
@@ -106,7 +109,7 @@ fun FolderIcon(folder: Slot.Folder, backdrop: Backdrop?, plate: Dp, modifier: Mo
 
 /** Grid cell: backplate + 4 dp + label (Body/Regular/sm, Content/800, one line). */
 @Composable
-fun IconCell(label: String, plate: Dp, modifier: Modifier = Modifier, icon: @Composable () -> Unit) {
+fun IconCell(label: String, plate: Dp, modifier: Modifier = Modifier, labelWidth: Dp = plate + 12.dp, icon: @Composable () -> Unit) {
   Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(TakuSpacing.xs), modifier = modifier) {
     icon()
     BasicText(
@@ -114,7 +117,7 @@ fun IconCell(label: String, plate: Dp, modifier: Modifier = Modifier, icon: @Com
       style = TakuTheme.type.bodySm.copy(color = TakuTheme.colors.textSecondary, textAlign = TextAlign.Center),
       maxLines = 1,
       overflow = TextOverflow.Ellipsis,
-      modifier = Modifier.width(plate + 12.dp).height(16.dp),
+      modifier = Modifier.width(labelWidth).height(16.dp),
     )
   }
 }

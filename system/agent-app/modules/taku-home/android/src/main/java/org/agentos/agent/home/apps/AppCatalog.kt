@@ -140,19 +140,38 @@ class AppCatalog private constructor(private val context: Context) {
     return bitmap
   }
 
-  /** Adaptive layers are 108 dp with a 72 dp safe zone; draw them so the safe zone fills [size]. */
+  /** Keep the platform's adaptive-layer scale, replacing only its mask with Home's rounded square. */
   private fun render(drawable: Drawable, size: Int, adaptive: Boolean, tint: Int?): Bitmap {
     val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
     val d = drawable.mutate()
     if (tint != null) d.setTint(tint)
-    if (adaptive) {
+    if (d is AdaptiveIconDrawable) {
+      // setBounds already applies Android's adaptive inset to each layer. Enlarging the
+      // whole drawable again zooms the artwork twice and cuts off brand details. Draw the
+      // layers at their platform bounds without the platform's circular mask; Compose
+      // supplies our rounded rectangle, while the background continues to fill it.
+      d.setBounds(0, 0, size, size)
+      d.background?.draw(canvas)
+      d.foreground?.draw(canvas)
+    } else if (adaptive) {
+      // A standalone monochrome layer does not have an AdaptiveIconDrawable to apply
+      // the 108 dp layer / 72 dp viewport inset for it.
       val inset = size * (108f / 72f - 1f) / 2f
       d.setBounds((-inset).toInt(), (-inset).toInt(), (size + inset).toInt(), (size + inset).toInt())
-      // Brand icons keep their own background edge to edge; Home clips them to the icon's
-      // rounded rectangle, so the artwork fills the shape rather than a circle.
-    } else d.setBounds(0, 0, size, size)
-    d.draw(canvas)
+      d.draw(canvas)
+    } else {
+      // Legacy icons may not be square. Fit them uniformly instead of stretching them.
+      val width = d.intrinsicWidth.takeIf { it > 0 } ?: size
+      val height = d.intrinsicHeight.takeIf { it > 0 } ?: size
+      val scale = size.toFloat() / maxOf(width, height)
+      val fittedWidth = (width * scale).toInt().coerceAtLeast(1)
+      val fittedHeight = (height * scale).toInt().coerceAtLeast(1)
+      val left = (size - fittedWidth) / 2
+      val top = (size - fittedHeight) / 2
+      d.setBounds(left, top, left + fittedWidth, top + fittedHeight)
+      d.draw(canvas)
+    }
     return bitmap
   }
 

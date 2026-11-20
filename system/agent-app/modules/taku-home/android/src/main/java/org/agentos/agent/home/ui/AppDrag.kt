@@ -37,7 +37,7 @@ data class DropTarget(val page: Int, val gap: Int, val intoKey: String? = null)
  * Cell geometry of one page's icon grid in root coordinates. Cells are fixed: icons slide
  * between them, so hit-testing never follows an animation.
  */
-data class GridGeometry(val origin: Offset, val cellWidth: Float, val rowHeight: Float, val gapX: Float, val gapY: Float, val plate: Float, val columns: Int = 4, val cells: List<Rect>? = null) {
+data class GridGeometry(val origin: Offset, val cellWidth: Float, val rowHeight: Float, val gapX: Float, val gapY: Float, val plate: Float, val columns: Int = 4, val cells: List<Rect>? = null, val plateSizes: List<Float>? = null) {
   fun cellRect(index: Int): Rect {
     cells?.getOrNull(index)?.let { return it.translate(origin) }
     val col = index % columns
@@ -50,8 +50,9 @@ data class GridGeometry(val origin: Offset, val cellWidth: Float, val rowHeight:
   /** The icon plate (square, centred at the top of the cell) of cell [index]. */
   fun plateRect(index: Int): Rect {
     val cell = cellRect(index)
-    val left = cell.left + (cellWidth - plate) / 2
-    return Rect(left, cell.top, left + plate, cell.top + plate)
+    val size = plateSizes?.getOrNull(index) ?: plate
+    val left = cell.left + (cellWidth - size) / 2
+    return Rect(left, cell.top, left + size, cell.top + size)
   }
 
   /** Cell under [at], or null above the grid or beside it. */
