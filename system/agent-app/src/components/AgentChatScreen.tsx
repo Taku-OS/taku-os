@@ -5,6 +5,7 @@ import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useLocales} from 'expo-localization';
 import {useRouter} from 'expo-router';
 import {StatusBar} from 'expo-status-bar';
+import Svg, {Defs, LinearGradient, Rect, Stop} from 'react-native-svg';
 import {VoiceEffect} from '../native/VoiceEffect';
 import {VoiceIcon} from '../chat/VoiceIcon';
 import {AssistantBubble, ComposerGlassRim} from '../chat/ChatSurfaces';
@@ -202,10 +203,13 @@ function Message({block, language, renderMarkdown, renderCard, expanded, demand,
     return <View style={styles.userWrap}>{block.reaction ? <View>
       <View style={styles.userWrapReacted}>{bubble}</View>
       <View testID={`reaction-${block.id}`} accessible accessibilityLabel={`${t('reactionLabel')} ${block.reaction}`} style={styles.reaction}>
-        {Platform.OS === 'android' && Number(Platform.Version) >= 33 &&
-          <EdgeBlur pointerEvents="none" style={StyleSheet.absoluteFill} uniformSigma={16} fade={false}>
-            <View style={styles.reactionBubbleSample}/>
-          </EdgeBlur>}
+        <Svg pointerEvents="none" style={StyleSheet.absoluteFill} width="100%" height="100%">
+          <Defs><LinearGradient id="reaction-frost" x1="0%" y1="0%" x2="0%" y2="100%">
+            <Stop offset="0" stopColor={chatColors.bubble} stopOpacity={0.32}/>
+            <Stop offset="1" stopColor={chatColors.bubble} stopOpacity={0.12}/>
+          </LinearGradient></Defs>
+          <Rect width="100%" height="100%" fill="url(#reaction-frost)"/>
+        </Svg>
         <View pointerEvents="none" style={styles.reactionTint}/>
         <Text allowFontScaling={false} style={styles.reactionText}>{block.reaction}</Text>
       </View>
@@ -737,8 +741,6 @@ const styles = themedStyles(() => StyleSheet.create({
   userWrapReacted: {paddingBottom: 16},
   reaction: {position: 'absolute', right: 8, bottom: 0, width: 32, height: 24, borderRadius: 12,
     alignItems: 'center', justifyContent: 'center', backgroundColor: chatColors.backdropFallback, overflow: 'hidden'},
-  // Blur the two surfaces directly under the badge. The overlap is entirely in the bubble's padding.
-  reactionBubbleSample: {height: 8, backgroundColor: chatColors.bubble},
   reactionTint: {...StyleSheet.absoluteFill, borderRadius: 12, borderWidth: 2,
     borderColor: chatColors.reactionRing, backgroundColor: chatColors.reactionFill},
   reactionText: {...chatType.bodyLg(), color: '#FFFFFF'}, assistant: {gap: chatMetrics.replyGap}, messageParts: {gap: chatMetrics.replyGap},
