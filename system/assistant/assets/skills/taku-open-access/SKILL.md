@@ -604,6 +604,10 @@ start on the same active or connecting session returns its current state. To rec
 repeat `live-start` while the same chat is visible. Reconnect uses the current
 provider selection and preserves the mute state and confirmed text context.
 The connection generation advances.
+A muted session keeps no provider connection open for either provider. When
+Gemini Live retires its connection after its fixed lifetime, the Audio Engine
+replaces it in place with the same confirmed text context: `lifecycle` stays
+`active`, the generation does not change and no error is reported.
 
 `live-set-mic` requires a nonempty `sessionId` and a JSON boolean `muted`. A repeated
 setter with the same target state makes no change. `live-stop` accepts an optional

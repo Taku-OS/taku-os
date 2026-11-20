@@ -204,6 +204,20 @@ public final class CodexTaskOwnershipTest {
             server.call("test/goal", new JSONObject().put("goal", new JSONObject().put("status", "active")));
             rejects("LIVE_GOAL_ACTIVE", () -> live(control));
             check(!new File(queued, "cancel").exists(), "An authoritative active goal was changed");
+            NativeBridge.Call outer = new NativeBridge.Call("taku/liveTask", control), nested = new NativeBridge.Call("taku/liveTask", read);
+            boolean[] overlapped = {false};
+            nested.result.whenComplete((value, failure) -> overlapped[0] = !outer.result.isDone());
+            check(NativeBridge.enqueue(outer) && NativeBridge.enqueue(nested), "Live controls were not admitted");
+            long drained = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(5);
+            while (!outer.result.isDone() || !nested.result.isDone()) {
+                if (System.nanoTime() > drained) throw new AssertionError("Queued live controls did not finish");
+                server.pump(10);
+            }
+            check(!overlapped[0], "An inbox call ran inside another live control's blocking goal read");
+            rejects("LIVE_GOAL_ACTIVE", () -> {
+                try { outer.result.get(); }
+                catch (java.util.concurrent.ExecutionException failure) { throw (Exception) failure.getCause(); }
+            });
             for (JSONObject unconfirmed : new JSONObject[]{new JSONObject(), new JSONObject().put("goal", new JSONObject()),
                     new JSONObject().put("goal", 7), new JSONObject().put("goal", new JSONObject().put("status", " ")),
                     new JSONObject().put("goal", new JSONObject().put("status", "unknown"))}) {

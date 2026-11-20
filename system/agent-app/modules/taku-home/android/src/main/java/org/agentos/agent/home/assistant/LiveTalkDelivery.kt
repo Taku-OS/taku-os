@@ -29,8 +29,13 @@ internal data class LiveReceipt(val state: String, val taskId: String? = null, v
 }
 
 internal class LiveTalkDelivery(context: Context, private val gateway: AgentGateway, private val worker: CoroutineDispatcher) {
+  /**
+   * Only requests whose delivery is still unknown are kept: they block a duplicate resend and are
+   * reconciled when Live Talk reopens. Resolved requests are removed immediately.
+   */
   private val receipts = context.getSharedPreferences("live-talk-delivery", Context.MODE_PRIVATE)
   private val pendingKey = "pending-requests"
+  @Volatile private var pruned = false
 
   suspend fun createThread(): String = withContext(worker) { HomeComposer.createThread(gateway) }
 
@@ -63,11 +68,6 @@ internal class LiveTalkDelivery(context: Context, private val gateway: AgentGate
     lookup(request).also { if (!it.pending) persist(request, it) }
   }
 
-  suspend fun persistTask(request: LiveRequest, taskId: String, turnId: String?, state: String) = withContext(worker) {
-    val value = JSONObject().put("taskId", taskId).put("turnId", turnId ?: JSONObject.NULL).put("state", state)
-    receipts.edit().putString("task:${request.requestId}", value.toString()).apply()
-  }
-
   suspend fun task(method: String, request: LiveRequest, taskId: String, allowed: () -> Boolean = { true }): JSONObject = withContext(worker) {
     if (!allowed()) throw GatewayException("INPUT_REVOKED", "The voice request is no longer current")
     gateway.call(method, request.taskArguments(taskId)).also {
@@ -93,11 +93,7 @@ internal class LiveTalkDelivery(context: Context, private val gateway: AgentGate
     }
   }
 
-  fun persistResult(request: LiveRequest, outcome: String) {
-    receipts.edit().putString("announced:${request.requestId}", outcome).apply()
-  }
-
-  private fun unresolved(threadId: String): List<LiveRequest> = receipts.getStringSet(pendingKey, null).orEmpty().mapNotNull { key ->
+  private fun unresolved(threadId: String): List<LiveRequest> = pending().mapNotNull { key ->
     val item = receipts.getString(key, null) ?: return@mapNotNull null
     runCatching {
       val value = JSONObject(item)
@@ -113,14 +109,38 @@ internal class LiveTalkDelivery(context: Context, private val gateway: AgentGate
   }
 
   private fun persist(request: LiveRequest, receipt: LiveReceipt) {
-    val inputs = JSONArray(request.inputs.map { JSONObject().put("itemId", it.itemId).put("text", it.text) })
-    val value = request.arguments().put("sessionId", request.sessionId).put("callId", request.callId)
-      .put("version", request.version).put("inputs", inputs).put("state", receipt.state)
-      .put("createdAt", request.createdAt)
-      .put("taskId", receipt.taskId ?: JSONObject.NULL).put("code", receipt.code ?: JSONObject.NULL)
-    val pending = receipts.getStringSet(pendingKey, null).orEmpty()
-    val updated = if (receipt.pending) pending + request.requestId else pending - request.requestId
-    if (!receipts.edit().putString(request.requestId, value.toString()).putStringSet(pendingKey, updated).commit())
-      throw GatewayException("RECEIPT_SAVE_FAILED", "Could not save the Live Talk receipt")
+    val pending = pending()
+    val edit = receipts.edit()
+    if (receipt.pending) {
+      val inputs = JSONArray(request.inputs.map { JSONObject().put("itemId", it.itemId).put("text", it.text) })
+      val value = request.arguments().put("sessionId", request.sessionId).put("callId", request.callId)
+        .put("version", request.version).put("inputs", inputs).put("state", receipt.state)
+        .put("createdAt", request.createdAt)
+        .put("taskId", receipt.taskId ?: JSONObject.NULL).put("code", receipt.code ?: JSONObject.NULL)
+      // Bound the unknown set: the oldest unresolved request is the least likely to be retried.
+      val kept = (pending + request.requestId).sortedByDescending { key ->
+        if (key == request.requestId) Long.MAX_VALUE
+        else receipts.getString(key, null)?.let { runCatching { JSONObject(it).optLong("createdAt") }.getOrNull() } ?: 0L
+      }.take(MAX_PENDING).toSet()
+      (pending - kept).forEach(edit::remove)
+      edit.putString(request.requestId, value.toString()).putStringSet(pendingKey, kept)
+    } else {
+      edit.remove(request.requestId).putStringSet(pendingKey, pending - request.requestId)
+    }
+    if (!edit.commit()) throw GatewayException("RECEIPT_SAVE_FAILED", "Could not save the Live Talk receipt")
+  }
+
+  /** Pending request IDs. The first read also drops records earlier builds never cleaned up. */
+  private fun pending(): Set<String> {
+    val pending = receipts.getStringSet(pendingKey, null).orEmpty().toSet()
+    if (!pruned) {
+      val stale = receipts.all.keys.filter { it != pendingKey && it !in pending }
+      if (stale.isEmpty() || receipts.edit().apply { stale.forEach { remove(it) } }.commit()) pruned = true
+    }
+    return pending
+  }
+
+  private companion object {
+    const val MAX_PENDING = 32
   }
 }

@@ -100,6 +100,9 @@ internal class LiveTalk(
     var afterInput = ""
     var announcement: Announcement? = null
     var awaitingResponse = false
+    /** Bumped on every provider event; a quiet gap after speech means no reply is coming. */
+    var activity = 0L
+    var responseWatch: Job? = null
     val seenInputs = HashSet<String>()
     val calls = HashSet<String>()
     val history = ArrayDeque<Pair<String, String>>()
@@ -242,6 +245,8 @@ internal class LiveTalk(
     s.permit = Permit()
     s.input = null
     s.awaitingResponse = false
+    s.responseWatch?.cancel()
+    s.responseWatch = null
     s.command?.permit?.valid = false
     s.command = null
   }
@@ -326,10 +331,7 @@ internal class LiveTalk(
     if (kind == "TaskResult") {
       val offer = s.announcement?.takeIf { it.offerId == value.getString("offerId") } ?: return
       s.announcement = null
-      if (value.getBoolean("sent")) {
-        offer.task.announcedState = offer.outcome
-        delivery.persistResult(offer.task.request, offer.outcome)
-      }
+      if (value.getBoolean("sent")) offer.task.announcedState = offer.outcome
       return
     }
     if (kind == "Mic") {
@@ -351,6 +353,7 @@ internal class LiveTalk(
       return
     }
     if (s.view.muted || !s.connected) return
+    s.activity++
     when (kind) {
       "Speech" -> {
         val active = value.getBoolean("active")
@@ -398,6 +401,28 @@ internal class LiveTalk(
         maybeAnnounce(s)
       }
       "Tool" -> tool(s, value)
+    }
+    watchResponse(s)
+  }
+
+  /**
+   * The provider stays silent for noise and may never answer a turn, so no Playback or
+   * ResponseDone arrives. Once speech has ended and no provider event follows for a grace
+   * period, stop waiting so held submits, corrections and task announcements can proceed.
+   */
+  private fun watchResponse(s: Session) {
+    s.responseWatch?.cancel()
+    s.responseWatch = null
+    if (!s.awaitingResponse || s.view.speech || s.view.playback == "speaking") return
+    val mark = s.activity
+    s.responseWatch = scope.launch {
+      delay(RESPONSE_GRACE_MS)
+      if (session !== s || !s.view.open || !s.connected || s.activity != mark || !s.awaitingResponse ||
+        s.view.speech || s.view.playback == "speaking") return@launch
+      s.responseWatch = null
+      s.awaitingResponse = false
+      maybeAnnounce(s)
+      ensureWork(s)
     }
   }
 
@@ -560,8 +585,6 @@ internal class LiveTalk(
       val turn = (status.opt("turnId") as? String)?.takeIf(String::isNotBlank)
       if (task.turnId != null && turn != task.turnId) throw GatewayException("LIVE_TASK_MISMATCH", "The task turn changed")
       val state = if (status.optBoolean("needsUser")) "needs_user" else status.optString("state")
-      if (turn != task.turnId || state != task.state) delivery.persistTask(task.request, id, turn, state)
-      if (!s.view.open || session !== s || s.command != null || s.task !== task) return false
       task.turnId = turn
       task.terminal = status.optBoolean("terminal")
       task.state = state
@@ -611,6 +634,7 @@ internal class LiveTalk(
 
   companion object {
     const val DISCLOSURE = "Live Talk sends microphone audio, conversation context, and task details for spoken replies to the provider selected in Taku Audio (Grok Voice via fal or Google Gemini Live)."
+    private const val RESPONSE_GRACE_MS = 8_000L
     private val COMMANDS = setOf("submit", "correct", "cancel")
     private val CONNECTION_ERRORS = setOf("NETWORK_FAILED", "ENGINE_UNAVAILABLE", "QUEUE_BACKLOG", "CONNECT_TIMEOUT", "PROVIDER_DISCONNECTED", "SESSION_EXPIRED")
     private val RETRYABLE_REPLACEMENT = setOf("LIVE_TASK_STARTING", "GATEWAY_UNAVAILABLE", "RUNTIME_UNAVAILABLE")

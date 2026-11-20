@@ -2,16 +2,6 @@
 package org.agentos.audio
 
 import android.content.Context
-import android.media.AudioAttributes
-import android.media.AudioDeviceInfo
-import android.media.AudioFocusRequest
-import android.media.AudioFormat
-import android.media.AudioManager
-import android.media.AudioRecord
-import android.media.AudioTrack
-import android.media.MediaRecorder
-import android.media.audiofx.AcousticEchoCanceler
-import android.media.audiofx.AudioEffect
 import android.os.SystemClock
 import android.util.Base64
 import android.util.Log
@@ -32,12 +22,8 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
-import java.util.concurrent.locks.ReentrantLock
-import kotlin.concurrent.withLock
-import kotlin.math.log10
-import kotlin.math.sqrt
 
-internal class GrokLiveDriver(private val context: Context, request: AudioRequest) : AudioDriver {
+internal class GrokLiveDriver(context: Context, request: AudioRequest) : AudioDriver {
     private sealed interface Work {
         data class Open(val generation: Long, val socket: WebSocket) : Work
         data class Message(val generation: Long, val json: String?, val binary: ByteString?) : Work {
@@ -46,16 +32,16 @@ internal class GrokLiveDriver(private val context: Context, request: AudioReques
         data class Command(val generation: Long, val command: LiveAudioCommand) : Work
         data object MuteChanged : Work
     }
-    private data class InputTurn(val id: String, var text: String = "", var final: Boolean = false, var committed: Boolean = false)
-    private data class OutputTurn(val id: String, val inputId: String?, val text: StringBuilder = StringBuilder(),
-        var final: Boolean = false, var interrupted: Boolean = false, var speaking: Boolean = false,
-        var complete: Boolean = false, var pendingBytes: Int = 0, var endFrame: Long = 0, var tool: PendingTool? = null)
-    {
+    private data class InputTurn(val id: String, val order: Long, var text: String = "", var final: Boolean = false, var committed: Boolean = false)
+    private class OutputTurn(id: String, inputId: String?, interrupted: Boolean) : LiveOutputTurn(id, inputId) {
+        init { this.interrupted = interrupted }
         val itemIds = mutableSetOf<String>()
         var linkedToInput = false
+        var tool: PendingTool? = null
     }
-    private data class PcmChunk(val turn: OutputTurn, val bytes: ByteArray, var offset: Int = 0)
     private data class PendingTool(val id: String, val action: String)
+    /** A tool call whose owning user turn is not yet confirmed by its final transcript. */
+    private data class WaitingTool(val tool: PendingTool, val ownerId: String)
     private data class ToolCall(val id: String, val itemId: String, val result: AtomicReference<String?> = AtomicReference(null))
 
     private val stopped = AtomicBoolean()
@@ -64,66 +50,46 @@ internal class GrokLiveDriver(private val context: Context, request: AudioReques
     private val generation = AtomicLong()
     private val failure = AtomicReference<String?>()
     private val incomingBytes = AtomicInteger()
-    private val nativeLock = ReentrantLock()
     private val work = ArrayBlockingQueue<Work>(128)
     private val calls = ConcurrentHashMap<String, ToolCall>()
     private val client = OkHttpClient.Builder().connectTimeout(15, TimeUnit.SECONDS).readTimeout(0, TimeUnit.SECONDS)
         .pingInterval(20, TimeUnit.SECONDS).retryOnConnectionFailure(false).build()
-    private val manager = context.getSystemService(AudioManager::class.java)
-    private val attributes = AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
-        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build()
-    private val focus = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
-        .setAudioAttributes(attributes).setOnAudioFocusChangeListener { change ->
-            if(change < 0) failure.compareAndSet(null, "AUDIO_FOCUS_LOST")
-        }.build()
-    private val deviceListener = AudioManager.OnCommunicationDeviceChangedListener { device ->
-        if(routeDevice != 0 && device?.id != routeDevice && !stopped.get()) failure.compareAndSet(null, "AUDIO_ROUTE_CHANGED")
-    }
+    private val io: LiveAudioIo = LiveAudioIo(context, failure, stopped, ::captureAllowed, object : LiveAudioIo.Listener {
+        override fun emit(event: LiveAudioEvent) = this@GrokLiveDriver.emit(event)
+        override fun level(level: Float, frames: Int) = sink.level(level, frames)
+        override fun upload(bytes: ByteArray, count: Int) = send(JSONObject().put("type", "input_audio_buffer.append")
+            .put("audio", Base64.encodeToString(bytes, 0, count, Base64.NO_WRAP)))
+        override fun localSpeechStarted() = beginSpeech(null)
+        override fun localSpeechMayEnd() = !providerSpeech
+        override fun speechChanged(active: Boolean) { if(!active) deliverTools() }
+        override fun remember(turn: LiveOutputTurn) = this@GrokLiveDriver.remember("model", turn.text.toString())
+    })
     @Volatile private var socket: WebSocket? = null
     @Volatile private var credential: EngineConfig.Control? = null
-    @Volatile private var recorder: AudioRecord? = null
-    @Volatile private var player: AudioTrack? = null
-    @Volatile private var routeDevice = 0
-    private var echo: AcousticEchoCanceler? = null
+    /** Written only by the worker; read by [live] to reject commands before the provider is ready. */
+    @Volatile private var connected = false
     private var worker: Thread? = null
     private lateinit var sink: AudioDriver.Sink
-    private var oldMode = AudioManager.MODE_NORMAL
-    private var oldDevice: AudioDeviceInfo? = null
-    private var routeOwned = false
-    private var focusOwned = false
-    private var deviceListenerAdded = false
-    private var connected = false
     private var announced = false
     private var connectionGeneration = 0L
     private var connectDeadline = 0L
     private var inputCounter = 0L
+    private var inputOrder = 0L
+    private var confirmedOrder = 0L
     private var historyAcks = 0
     private var input: InputTurn? = null
+    /** Earlier provider turns still waiting for their transcript after a newer turn started. */
+    private val parkedInputs = LinkedHashMap<String, InputTurn>()
+    private val waitingTools = ArrayDeque<WaitingTool>()
     private var lastConfirmedInput = ""
     private var output: OutputTurn? = null
     private var nextResponseInput: String? = null
     private var responseRequested = false
     private var receiptToSpeak: String? = null
     private var providerSpeech = false
-    private val outputs = ArrayDeque<OutputTurn>()
-    private val pcm = ArrayDeque<PcmChunk>()
     private val history = ArrayDeque<LiveHistoryTurn>(request.history)
     private var historyChars = request.history.sumOf { it.text.length }
-    private var queuedBytes = 0
-    private var writtenFrames = 0L
-    private var backlogSince = 0L
-    private val captureBuffer = ByteArray(1280)
-    private var speaking = false
-    private var voicedFrames = 0
-    private var quietFrames = 0
-    private var noiseRms = 100.0
-    private var lastCapture = 0L
-    private var lastHealthCheck = 0L
-    private var capturedFrames = 0L
-    private var uploadedFrames = 0L
-    private var playbackFrames = 0L
-    private var meterFrames = 0
-    private var meterSquares = 0.0
+    private val speaking get() = io.speaking
 
     override fun start(sink: AudioDriver.Sink) {
         this.sink = sink
@@ -136,11 +102,12 @@ internal class GrokLiveDriver(private val context: Context, request: AudioReques
             if(muted.getAndSet(command.muted) == command.muted) return
             generation.incrementAndGet()
             socket?.cancel()
-            stopNativeNow()
+            io.stopNow()
             offer(Work.MuteChanged)
             return
         }
         if(muted.get()) throw AudioFailure("MIC_MUTED", "Resume Live Talk before sending input")
+        if(!connected) throw AudioFailure("LIVE_CONNECTING", "Wait for Live Talk to connect")
         if(command is LiveAudioCommand.ToolResult) {
             val call = calls[command.callId] ?: throw AudioFailure("SESSION_CHANGED", "The provider tool call is no longer active")
             val prior = call.result.get()
@@ -159,16 +126,8 @@ internal class GrokLiveDriver(private val context: Context, request: AudioReques
         generation.incrementAndGet()
         credential?.close()
         socket?.cancel()
-        stopNativeNow()
+        io.stopNow()
         worker?.interrupt()
-    }
-
-    private fun stopNativeNow() {
-        if(!nativeLock.tryLock()) return
-        try {
-            runCatching { recorder?.stop() }
-            runCatching { player?.pause(); player?.flush() }
-        } finally { nativeLock.unlock() }
     }
 
     private fun captureAllowed(): Boolean = !muted.get() && !stopped.get() && connectionGeneration == generation.get()
@@ -193,8 +152,8 @@ internal class GrokLiveDriver(private val context: Context, request: AudioReques
                 if(!connected && connectDeadline != 0L && SystemClock.elapsedRealtime() >= connectDeadline)
                     throw AudioFailure("CONNECT_TIMEOUT", "Live Talk did not become ready")
                 if(connected && !muted.get() && connectionGeneration == generation.get()) {
-                    capture()
-                    play()
+                    io.capture()
+                    io.play()
                     speakReceiptWhenIdle()
                 }
             }
@@ -204,14 +163,15 @@ internal class GrokLiveDriver(private val context: Context, request: AudioReques
             if(!stopped.get()) sink.failed((error as? AudioFailure)?.code ?: "AUDIO_UNAVAILABLE")
         } finally {
             stopped.set(true)
+            connected = false
             generation.incrementAndGet()
             credential?.close()
             socket?.cancel(); socket = null
-            restored = releaseNative() && restored
-            work.clear(); pcm.clear(); outputs.clear(); calls.clear(); history.clear()
+            restored = io.release() && restored
+            work.clear(); io.clear(); calls.clear(); history.clear(); parkedInputs.clear(); waitingTools.clear()
             client.dispatcher.executorService.shutdown()
             client.connectionPool.evictAll()
-            Log.i("AudioLive", "released monotonicMs=${SystemClock.elapsedRealtime()} capturedFrames=$capturedFrames uploadedFrames=$uploadedFrames playbackFrames=$playbackFrames restored=$restored")
+            Log.i("AudioLive", "released monotonicMs=${SystemClock.elapsedRealtime()} capturedFrames=${io.capturedFrames} uploadedFrames=${io.uploadedFrames} playbackFrames=${io.playbackFrames} restored=$restored")
             if(finishing.get()) sink.completed()
             sink.released(restored)
         }
@@ -278,11 +238,12 @@ internal class GrokLiveDriver(private val context: Context, request: AudioReques
             Work.MuteChanged -> {
                 connected = false; connectDeadline = 0
                 socket?.cancel(); socket = null
-                stopPlayback("interrupted")
-                if(!releaseNative()) throw AudioFailure("RESTORE_FAILED", "Live audio route could not be restored")
-                input = null; output = null; nextResponseInput = null; calls.clear(); lastConfirmedInput = ""
+                io.stopPlayback("interrupted", output)
+                if(!io.release()) throw AudioFailure("RESTORE_FAILED", "Live audio route could not be restored")
+                input = null; output = null; nextResponseInput = null; calls.clear(); lastConfirmedInput = ""; confirmedOrder = 0
+                parkedInputs.clear(); waitingTools.clear()
                 responseRequested = false; receiptToSpeak = null; providerSpeech = false; historyAcks = 0
-                setSpeech(false)
+                io.setSpeech(false)
                 if(muted.get()) {
                     if(!announced) { announced = true; sink.ready() }
                     sink.live(LiveAudioEvent.Mic(true))
@@ -347,35 +308,36 @@ internal class GrokLiveDriver(private val context: Context, request: AudioReques
         when(type) {
             "input_audio_buffer.speech_started" -> {
                 providerSpeech = true
-                beginSpeech(InputTurn(providerId(message, "item_id")))
+                val id = providerId(message, "item_id")
+                beginSpeech(inputTurn(id) ?: InputTurn(id, ++inputOrder))
             }
             "input_audio_buffer.speech_stopped" -> if(input?.id == message.optString("item_id")) {
                 providerSpeech = false
-                voicedFrames = 0
-                setSpeech(false)
+                io.resetVoice()
+                io.setSpeech(false)
             }
-            "input_audio_buffer.committed" -> input?.takeIf { it.id == message.optString("item_id") }?.let { turn ->
+            "input_audio_buffer.committed" -> inputTurn(message.optString("item_id"))?.let { turn ->
                 turn.committed = true
                 nextResponseInput = turn.id
             }
             "conversation.item.input_audio_transcription.updated", "conversation.item.input_audio_transcription.completed" ->
-                input?.takeIf { it.id == message.optString("item_id") && !it.final }?.let { turn ->
+                inputTurn(message.optString("item_id"))?.takeUnless { it.final }?.let { turn ->
                     val text = boundedText(message.optString("transcript"))
                     if(turn.committed && type.endsWith(".completed")) {
                         turn.text = text
-                        finalizeInput(turn)
+                        if(text.isBlank()) discardInput(turn) else finalizeInput(turn)
                     } else if(text != turn.text) {
                         turn.text = text
-                        emit(LiveAudioEvent.Input(turn.id, text, false))
+                        if(turn === input) emit(LiveAudioEvent.Input(turn.id, text, false))
                     }
                 }
             "response.created" -> {
                 val id = providerId(message.getJSONObject("response"), "id")
                 if(output?.id == id) return
-                if(output != null) stopPlayback("interrupted")
+                if(output != null) io.stopPlayback("interrupted", output)
                 val turn = OutputTurn(id, nextResponseInput, interrupted = speaking)
                 output = turn
-                if(!turn.interrupted) outputs.addLast(turn)
+                if(!turn.interrupted) io.outputs.addLast(turn)
                 nextResponseInput = null
                 responseRequested = false
             }
@@ -399,11 +361,11 @@ internal class GrokLiveDriver(private val context: Context, request: AudioReques
                 if(text.isNotBlank()) { turn.text.setLength(0); turn.text.append(text) }
             }
             "response.output_audio.delta", "response.audio.delta" -> activeResponse(message)?.let { turn ->
-                enqueuePcm(turn, Base64.decode(message.getString("delta"), Base64.DEFAULT))
+                io.enqueue(turn, Base64.decode(message.getString("delta"), Base64.DEFAULT))
             }
             "response.function_call_arguments.done" -> activeResponse(message)?.let { turn ->
                 val id = providerId(message, "call_id")
-                if(turn.tool?.id == id || calls.containsKey(id)) return
+                if(turn.tool?.id == id || calls.containsKey(id) || waitingTools.any { it.tool.id == id }) return
                 val action = runCatching { JSONObject(message.getString("arguments")).optString("action") }.getOrDefault("")
                 if(turn.tool == null && turn.inputId != null && message.optString("item_id") in turn.itemIds && message.optString("name") == "taku_agent" &&
                     action in listOf("submit", "correct", "cancel")) {
@@ -416,7 +378,7 @@ internal class GrokLiveDriver(private val context: Context, request: AudioReques
 
     private fun ready() {
         if(!captureAllowed()) return
-        startNative()
+        io.start()
         if(!captureAllowed()) return
         connected = true; connectDeadline = 0
         if(!announced) { announced = true; sink.ready() }
@@ -435,11 +397,13 @@ internal class GrokLiveDriver(private val context: Context, request: AudioReques
         it.id == message.optString("response_id") && !it.interrupted
     }
 
+    private fun inputTurn(id: String?): InputTurn? = if(id.isNullOrEmpty()) null else input?.takeIf { it.id == id } ?: parkedInputs[id]
+
     private fun finishResponse(response: JSONObject) {
         val turn = output?.takeIf { it.id == providerId(response, "id") } ?: return
         val status = response.optString("status")
         if(status == "failed") throw AudioFailure("PROVIDER_REJECTED", "Grok could not generate a response")
-        if(status != "completed" && !turn.interrupted) stopPlayback("interrupted")
+        if(status != "completed" && !turn.interrupted) io.stopPlayback("interrupted", output)
         output = null
         if(turn.interrupted) {
             if(!speaking) emit(LiveAudioEvent.ResponseDone(turn.id, turn.inputId ?: ""))
@@ -450,26 +414,52 @@ internal class GrokLiveDriver(private val context: Context, request: AudioReques
             emit(LiveAudioEvent.Output(turn.id, turn.text.toString(), true))
         }
         turn.tool?.let { tool ->
-            val owner = input?.takeIf { turn.linkedToInput && !speaking && it.id == turn.inputId && it.final }
-            if(owner == null) rejectTool(tool.id) else {
-                calls.entries.removeAll { it.value.result.get() != null && it.value.itemId != owner.id }
-                if(calls.size >= 64) throw AudioFailure("QUEUE_BACKLOG", "Live tool history exceeds capacity")
-                calls[tool.id] = ToolCall(tool.id, owner.id)
-                emit(LiveAudioEvent.Tool(tool.id, owner.id, tool.action, owner.text))
+            val owner = inputTurn(turn.inputId)
+            if(owner == null || !turn.linkedToInput) rejectTool(tool.id)
+            else {
+                // The transcript of a committed turn arrives asynchronously and often after
+                // response.done; hold the call until that turn is final instead of rejecting it.
+                waitingTools.addLast(WaitingTool(tool, owner.id))
+                deliverTools()
             }
         }
         turn.complete = true
     }
 
+    /** Hands held tool calls to the Agent once their user turn is final and the user is not speaking. */
+    private fun deliverTools() {
+        val iterator = waitingTools.iterator()
+        while(iterator.hasNext()) {
+            val waiting = iterator.next()
+            val owner = inputTurn(waiting.ownerId)
+            if(owner == null || owner.final && owner.id != lastConfirmedInput) {
+                iterator.remove()
+                rejectTool(waiting.tool.id)
+            } else if(owner.final && !speaking) {
+                iterator.remove()
+                calls.entries.removeAll { it.value.result.get() != null && it.value.itemId != owner.id }
+                if(calls.size >= 64) throw AudioFailure("QUEUE_BACKLOG", "Live tool history exceeds capacity")
+                calls[waiting.tool.id] = ToolCall(waiting.tool.id, owner.id)
+                emit(LiveAudioEvent.Tool(waiting.tool.id, owner.id, waiting.tool.action, owner.text))
+            }
+        }
+    }
+
     private fun handleCommand(command: LiveAudioCommand) {
         if(muted.get()) return
-        if(!connected) throw AudioFailure("LIVE_CONNECTING", "Wait for Live Talk to connect")
+        if(!connected) {
+            // live() rejects commands until the provider is ready; a command that raced a
+            // reconnect is dropped here without ending the session.
+            if(command is LiveAudioCommand.Result) emit(LiveAudioEvent.TaskResult(command.offerId, false))
+            return
+        }
         when(command) {
             is LiveAudioCommand.Text -> {
-                stopPlayback("interrupted")
-                val turn = InputTurn("g$connectionGeneration-text-${++inputCounter}", command.text, committed = true)
+                io.stopPlayback("interrupted", output)
+                val turn = InputTurn("g$connectionGeneration-text-${++inputCounter}", ++inputOrder, command.text, committed = true)
+                parkInput()
                 input = turn
-                setSpeech(false)
+                io.setSpeech(false)
                 finalizeInput(turn)
                 if(sendText(command.text, id = turn.id)) requestResponse(turn.id)
             }
@@ -505,7 +495,7 @@ internal class GrokLiveDriver(private val context: Context, request: AudioReques
         return true
     }
 
-    private fun idle() = !speaking && output == null && outputs.isEmpty() && !responseRequested && nextResponseInput == null
+    private fun idle() = !speaking && output == null && io.outputs.isEmpty() && !responseRequested && nextResponseInput == null
 
     private fun speakReceiptWhenIdle() {
         val item = receiptToSpeak ?: return
@@ -517,11 +507,31 @@ internal class GrokLiveDriver(private val context: Context, request: AudioReques
     }
 
     private fun beginSpeech(turn: InputTurn?) {
+        if(turn == null || turn !== input) parkInput()
         input = turn
+        parkedInputs.remove(turn?.id)
         nextResponseInput = null
         receiptToSpeak = null
-        stopPlayback("interrupted")
-        setSpeech(true)
+        io.stopPlayback("interrupted", output)
+        io.setSpeech(true)
+    }
+
+    /** Keeps a provider turn whose transcript is still pending when a newer turn replaces it. */
+    private fun parkInput() {
+        val prior = input ?: return
+        input = null
+        if(prior.final) return
+        parkedInputs[prior.id] = prior
+        if(parkedInputs.size > MAX_PARKED_INPUTS) {
+            parkedInputs.remove(parkedInputs.keys.first())
+            deliverTools()
+        }
+    }
+
+    private fun discardInput(turn: InputTurn) {
+        if(input === turn) input = null
+        parkedInputs.remove(turn.id)
+        deliverTools()
     }
 
     private fun emit(event: LiveAudioEvent) {
@@ -534,223 +544,22 @@ internal class GrokLiveDriver(private val context: Context, request: AudioReques
         history.addLast(LiveHistoryTurn(role, text)); historyChars += text.length
         while(history.size > 24 || historyChars > 12000) historyChars -= history.removeFirst().text.length
     }
+
     private fun finalizeInput(turn: InputTurn) {
         if(turn.final || turn.text.isBlank()) return
         turn.final = true
-        lastConfirmedInput = turn.id
         remember("user", turn.text)
-        emit(LiveAudioEvent.Input(turn.id, turn.text, true))
+        if(turn.order > confirmedOrder) {
+            // A parked turn whose transcript lands after a newer turn was confirmed stays in
+            // history but never becomes the confirmed input, so its held tool call is rejected.
+            confirmedOrder = turn.order
+            lastConfirmedInput = turn.id
+            emit(LiveAudioEvent.Input(turn.id, turn.text, true))
+        }
+        deliverTools()
     }
 
-    private fun startNative() {
-        if(!AcousticEchoCanceler.isAvailable()) throw AudioFailure("AEC_UNAVAILABLE", "This device cannot enable echo cancellation")
-        oldMode = manager.mode; oldDevice = manager.communicationDevice
-        if(oldMode == AudioManager.MODE_IN_CALL || oldMode == AudioManager.MODE_IN_COMMUNICATION)
-            throw AudioFailure("RESOURCE_BUSY", "A call is using audio resources")
-        if(manager.requestAudioFocus(focus) != AudioManager.AUDIOFOCUS_REQUEST_GRANTED)
-            throw AudioFailure("RESOURCE_BUSY", "Audio focus is unavailable")
-        focusOwned = true
-        routeOwned = true
-        manager.mode = AudioManager.MODE_IN_COMMUNICATION
-        val selected = oldDevice?.takeIf { it.type != AudioDeviceInfo.TYPE_BUILTIN_EARPIECE }
-            ?: manager.availableCommunicationDevices.firstOrNull { it.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER }
-            ?: throw AudioFailure("AUDIO_ROUTE_UNAVAILABLE", "No communication output is available")
-        if(!manager.setCommunicationDevice(selected)) throw AudioFailure("AUDIO_ROUTE_UNAVAILABLE", "Communication audio route could not be selected")
-        routeDevice = selected.id
-        manager.addOnCommunicationDeviceChangedListener(context.mainExecutor, deviceListener)
-        deviceListenerAdded = true
-        val minimum = AudioRecord.getMinBufferSize(16000, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
-        if(minimum <= 0) throw AudioFailure("CAPTURE_FAILED", "Microphone PCM format is unavailable")
-        val capture = AudioRecord(MediaRecorder.AudioSource.VOICE_COMMUNICATION, 16000, AudioFormat.CHANNEL_IN_MONO,
-            AudioFormat.ENCODING_PCM_16BIT, maxOf(6400, minimum))
-        recorder = capture
-        if(capture.state != AudioRecord.STATE_INITIALIZED) throw AudioFailure("CAPTURE_FAILED", "Microphone could not initialize")
-        echo = AcousticEchoCanceler.create(capture.audioSessionId)
-        if(echo?.setEnabled(true) != AudioEffect.SUCCESS || echo?.enabled != true)
-            throw AudioFailure("AEC_UNAVAILABLE", "Microphone echo cancellation could not be enabled")
-        val trackMinimum = AudioTrack.getMinBufferSize(24000, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT)
-        if(trackMinimum <= 0) throw AudioFailure("PLAYBACK_FAILED", "Live output PCM format is unavailable")
-        player = AudioTrack.Builder().setAudioAttributes(attributes)
-            .setAudioFormat(AudioFormat.Builder().setSampleRate(24000).setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
-                .setEncoding(AudioFormat.ENCODING_PCM_16BIT).build())
-            .setBufferSizeInBytes(maxOf(4800, trackMinimum)).build()
-        if(player!!.state != AudioTrack.STATE_INITIALIZED) throw AudioFailure("PLAYBACK_FAILED", "Live output could not initialize")
-        nativeLock.withLock {
-            if(!captureAllowed()) return
-            capture.startRecording()
-            if(capture.recordingState != AudioRecord.RECORDSTATE_RECORDING) throw AudioFailure("CAPTURE_FAILED", "Microphone did not start")
-        }
-        if(!captureAllowed()) { stopNativeNow(); return }
-        voicedFrames = 0; quietFrames = 0; noiseRms = 100.0
-        lastCapture = SystemClock.elapsedRealtime(); lastHealthCheck = lastCapture
-        Log.i("AudioLive", "captureReady monotonicMs=$lastCapture source=VOICE_COMMUNICATION rate=16000 aec=${echo?.enabled} captureBufferFrames=${capture.bufferSizeInFrames} outputBufferFrames=${player!!.bufferSizeInFrames} playbackBoundMs=8000 uploadBoundBytes=48000")
-    }
-
-    private fun capture() {
-        val capture = recorder ?: return
-        val now = SystemClock.elapsedRealtime()
-        if(now - lastCapture > 250) throw AudioFailure("QUEUE_BACKLOG", "Live capture processing stalled")
-        lastCapture = now
-        if(now - lastHealthCheck >= 1000) {
-            lastHealthCheck = now
-            if(capture.activeRecordingConfiguration?.isClientSilenced == true) throw AudioFailure("CAPTURE_SILENCED", "Microphone capture was silenced")
-            if(echo?.enabled != true) throw AudioFailure("AEC_UNAVAILABLE", "Echo cancellation stopped")
-        }
-        repeat(5) {
-            if(muted.get() || stopped.get() || connectionGeneration != generation.get()) return
-            val count = nativeLock.withLock {
-                if(!captureAllowed()) return
-                capture.read(captureBuffer, 0, captureBuffer.size, AudioRecord.READ_NON_BLOCKING)
-            }
-            if(!captureAllowed()) { stopNativeNow(); return }
-            if(count < 0) throw AudioFailure("CAPTURE_FAILED", "Live microphone capture failed")
-            if(count == 0) return
-            capturedFrames += count / 2
-            detectSpeech(captureBuffer, count)
-            if(!muted.get() && connectionGeneration == generation.get()) {
-                if(send(JSONObject().put("type", "input_audio_buffer.append")
-                    .put("audio", Base64.encodeToString(captureBuffer, 0, count, Base64.NO_WRAP)))) uploadedFrames += count / 2
-            }
-        }
-    }
-
-    private fun detectSpeech(bytes: ByteArray, count: Int) {
-        val frames = count / 2
-        if(frames == 0) return
-        var sum = 0.0; var crossings = 0; var previous = 0
-        for(i in 0 until frames) {
-            val sample = ((bytes[i * 2].toInt() and 255) or (bytes[i * 2 + 1].toInt() shl 8)).toShort().toInt()
-            sum += sample.toDouble() * sample
-            if(i > 0 && (sample >= 0) != (previous >= 0)) crossings++
-            previous = sample
-        }
-        val rms = sqrt(sum / frames)
-        meterFrames += frames; meterSquares += sum
-        if(meterFrames >= 1600) {
-            val level = ((20 * log10(maxOf(sqrt(meterSquares / meterFrames), 1.0) / 32768) + 60) / 60).toFloat().coerceIn(0f, 1f)
-            if(!muted.get() && connectionGeneration == generation.get()) sink.level(level, meterFrames)
-            meterFrames = 0; meterSquares = 0.0
-        }
-        val crossingRate = crossings.toDouble() / frames
-        val voice = rms > maxOf(450.0, noiseRms * 3.5) && crossingRate in 0.015..0.40
-        if(voice) { voicedFrames += frames; quietFrames = 0 }
-        else {
-            voicedFrames = 0; quietFrames += frames
-            if(!speaking) noiseRms = noiseRms * 0.98 + minOf(rms, 1000.0) * 0.02
-        }
-        if(!speaking && voicedFrames >= 1920) beginSpeech(null)
-        else if(speaking && !providerSpeech && quietFrames >= 9600) setSpeech(false)
-    }
-
-    private fun setSpeech(active: Boolean) {
-        if(speaking == active) return
-        speaking = active
-        emit(LiveAudioEvent.Speech(active))
-    }
-
-    private fun enqueuePcm(turn: OutputTurn, bytes: ByteArray) {
-        if(bytes.size % 2 != 0) throw AudioFailure("PROVIDER_PROTOCOL_ERROR", "Live PCM is not aligned")
-        val track = player ?: throw AudioFailure("PLAYBACK_FAILED", "Live output is unavailable")
-        val pending = queuedBytes + (writtenFrames - playedFrames(track)).coerceAtLeast(0) * 2
-        if(pending + bytes.size > 24000 * 2 * 8) throw AudioFailure("QUEUE_BACKLOG", "Live playback exceeds eight seconds")
-        if(bytes.isNotEmpty()) {
-            queuedBytes += bytes.size; turn.pendingBytes += bytes.size
-            pcm.addLast(PcmChunk(turn, bytes))
-        }
-    }
-
-    private fun playedFrames(track: AudioTrack): Long = track.playbackHeadPosition.toLong() and 0xffffffffL
-    private fun play() {
-        if(!captureAllowed()) return
-        val track = player ?: return
-        val chunk = pcm.peekFirst()
-        if(chunk != null) {
-            val count = nativeLock.withLock {
-                if(!captureAllowed()) return
-                if(track.playState != AudioTrack.PLAYSTATE_PLAYING) track.play()
-                track.write(chunk.bytes, chunk.offset, chunk.bytes.size - chunk.offset, AudioTrack.WRITE_NON_BLOCKING)
-            }
-            if(!captureAllowed()) { stopNativeNow(); return }
-            if(count < 0) throw AudioFailure("PLAYBACK_FAILED", "Live playback write failed")
-            if(count > 0) {
-                writtenFrames += count / 2
-                playbackFrames += count / 2
-                queuedBytes -= count; chunk.turn.pendingBytes -= count
-                chunk.offset += count; chunk.turn.endFrame = writtenFrames
-                if(!chunk.turn.speaking) {
-                    chunk.turn.speaking = true
-                    emit(LiveAudioEvent.Playback(chunk.turn.id, "speaking"))
-                    Log.i("AudioLive", "firstTrack monotonicMs=${SystemClock.elapsedRealtime()} responseId=${chunk.turn.id} writtenFrames=$writtenFrames")
-                }
-                if(chunk.offset == chunk.bytes.size) pcm.removeFirst()
-            }
-        }
-        val played = playedFrames(track)
-        while(outputs.isNotEmpty()) {
-            val turn = outputs.peekFirst()
-            if(!turn.complete || turn.pendingBytes != 0 || played < turn.endFrame) break
-            outputs.removeFirst()
-            if(!turn.interrupted) {
-                if(turn.speaking) emit(LiveAudioEvent.Playback(turn.id, "stopped"))
-                else emit(LiveAudioEvent.ResponseDone(turn.id, turn.inputId ?: ""))
-                if(turn.final) remember("model", turn.text.toString())
-            }
-        }
-        val pending = queuedBytes + (writtenFrames - played).coerceAtLeast(0) * 2
-        val now = SystemClock.elapsedRealtime()
-        if(pending > 24000 * 2 * 4) {
-            if(backlogSince == 0L) backlogSince = now
-            if(now - backlogSince > 5000) throw AudioFailure("QUEUE_BACKLOG", "Live playback backlog persists")
-        } else backlogSince = 0
-    }
-
-    private fun stopPlayback(state: String) {
-        val track = player
-        if(outputs.isNotEmpty()) Log.i("AudioLive", "playbackStop monotonicMs=${SystemClock.elapsedRealtime()} state=$state playedFrames=${track?.let { playedFrames(it) } ?: 0} queuedBytes=$queuedBytes")
-        if(track != null) nativeLock.withLock { track.pause(); track.flush() }
-        pcm.clear(); queuedBytes = 0; writtenFrames = 0; backlogSince = 0
-        for(turn in outputs) {
-            turn.pendingBytes = 0; turn.endFrame = 0
-            if(!turn.interrupted) {
-                turn.interrupted = true
-                if(turn.speaking) emit(LiveAudioEvent.Playback(turn.id, state))
-            }
-        }
-        output?.interrupted = true
-        outputs.clear()
-    }
-
-    private fun releaseNative(): Boolean = nativeLock.withLock {
-        var restored = true
-        recorder?.let { capture ->
-            runCatching { capture.stop() }
-            if(runCatching { capture.release() }.isFailure) restored = false
-        }
-        recorder = null
-        echo?.let { if(runCatching { it.release() }.isFailure) restored = false }; echo = null
-        player?.let { track ->
-            runCatching { track.pause(); track.flush() }
-            if(runCatching { track.release() }.isFailure) restored = false
-        }
-        player = null
-        routeDevice = 0
-        if(deviceListenerAdded) {
-            if(runCatching { manager.removeOnCommunicationDeviceChangedListener(deviceListener) }.isFailure) restored = false
-            deviceListenerAdded = false
-        }
-        if(routeOwned) {
-            if(runCatching {
-                val previous = oldDevice
-                if(previous != null) { if(!manager.setCommunicationDevice(previous)) restored = false }
-                else manager.clearCommunicationDevice()
-                manager.mode = oldMode
-            }.isFailure) restored = false
-            routeOwned = false
-        }
-        if(focusOwned) {
-            if(runCatching { manager.abandonAudioFocusRequest(focus) }.isFailure) restored = false
-            focusOwned = false
-        }
-        restored
+    private companion object {
+        const val MAX_PARKED_INPUTS = 4
     }
 }
