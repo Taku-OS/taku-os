@@ -5,6 +5,7 @@ import android.content.*;
 public final class MemoryMaintenance extends JobService {
  static void schedule(Context c){JobScheduler j=c.getSystemService(JobScheduler.class);if(j.getPendingJob(4101)==null||j.getPendingJob(4101).getIntervalMillis()!=900000L)j.schedule(new JobInfo.Builder(4101,new ComponentName(c,MemoryMaintenance.class)).setPeriodic(900000L).setPersisted(true).build());}
  @Override public boolean onStartJob(JobParameters p){new Thread(()->{try{MemoryStore s=MemoryStore.get(this);s.prune();s.changed();AnalysisJob.schedule(this);
+  s.ensureKeywordIndex();   // Keyword search index added in 0.16; a no-op once it exists.
   try{s.ensureVectors();}catch(Exception ignored){}
   long now=s.now(); // Release builds use the system clock; isolated debug tests can advance the existing test clock.
   ProactiveNotice.tidyLater(this,s,now);   // Home cards: retract expired items and read reactions without waiting for nightly organization.

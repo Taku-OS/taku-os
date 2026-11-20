@@ -1,8 +1,20 @@
-# Taku Memory 0.15.1
+# Taku Memory 0.16.0
 
 [中文](README.md) · [Content-aware titles and suggestions](../../docs/reviews/taku-memory-content-2026-10-22/README.en.md) · [Daily-app acceptance](../../docs/reviews/taku-memory-daily-apps-2026-10-22/README.md)
 
 One standalone Android APK, org.agentos.memory, combines automatic local memory, a native library, and proactive suggestions. It has its own UID and private SQLite database. Existing on-device Magpie owns models and credentials; the existing Assistant and TaskBroker own Agent execution.
+
+## 0.16.0: faster recall, same results
+
+Search, shared by Agents (`memory_search`, open-access `search`), the Suggestions page and the user card, now returns the same ranked results in less time. On a cloud test machine a whole-sentence question took about 12 ms instead of 29 ms at 10k memories, and about 55 ms instead of 159 ms at 50k.
+
+- **Vectors run alongside the keyword scan.** The query vector and the evidence top 30 run on a `memory-query` thread while the caller scans keywords and node text. The last 64 query vectors are cached. The model's first load takes its own lock, so a cold start no longer blocks other searches.
+- **Only the top 30 are kept.** Evidence vectors live in plain arrays, and scoring keeps the best 30 as it goes. Equal scores keep the earlier row, as the previous stable sort did.
+- **Nodes are prepared once.** Lowercased node text and `related` sets are computed when nodes load; the one-hop expansion builds its reverse map once per search.
+- **Cheaper keyword SQL.** A covering index `memory_kw(first_seen,id,title,head,fresh)` lets the newest-first scan read the index alone. Existing databases get it from the 15-minute maintenance job. Terms without cased letters use `instr()` instead of `LIKE`; terms with letters stay case-insensitive.
+- **Pruning is throttled.** Search prunes at most once a minute instead of every time; changing settings makes the next search prune first.
+
+Rankings match the previous code entry by entry on 16 queries at 1k, 10k and 50k memories. Debug builds add a read-only, root-only `benchSearch` hook for timing each stage on a device. Not yet measured on a device. See the [0.16.0 acceptance record](../../docs/reviews/taku-memory-0.16.0-2026-11-20/README.md).
 
 ## Current Feed event protocol
 

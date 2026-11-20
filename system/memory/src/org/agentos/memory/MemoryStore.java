@@ -55,8 +55,15 @@ final class MemoryStore extends SQLiteOpenHelper {
   db.execSQL("CREATE TABLE revisions(id TEXT NOT NULL,revision INTEGER NOT NULL,title TEXT NOT NULL,body TEXT NOT NULL,at INTEGER NOT NULL,PRIMARY KEY(id,revision))");
   db.execSQL("CREATE TABLE forgotten(digest TEXT PRIMARY KEY,until_at INTEGER NOT NULL)");
   db.execSQL("CREATE INDEX memory_recent ON memories(last_seen DESC)");
-  createQueue(db);v3(db);
+  createQueue(db);v3(db);db.execSQL(KEYWORD_INDEX);
  }
+ /**
+  * Covers the evidence keyword search (Recall.search): the newest-first scan reads first_seen, id and the three text
+  * columns from the index instead of whole rows, and stops early when enough rows match.
+  */
+ static final String KEYWORD_INDEX="CREATE INDEX IF NOT EXISTS memory_kw ON memories(first_seen,id,title,head,fresh)";
+ /** Builds the keyword index on a database from before 0.16, from the maintenance job: it can take seconds on a large store. */
+ synchronized void ensureKeywordIndex(){try{getWritableDatabase().execSQL(KEYWORD_INDEX);}catch(Exception e){android.util.Log.w("TakuMemory","Keyword search index was not built",e);}}
  /** Idempotent: safe to run again on a database that already has some of it. */
  static void v3(SQLiteDatabase d){
   Set<String> cols=new HashSet<>();try(Cursor c=d.rawQuery("PRAGMA table_info(memories)",null)){while(c.moveToNext())cols.add(c.getString(1));}
@@ -106,7 +113,7 @@ final class MemoryStore extends SQLiteOpenHelper {
   }
  }
  synchronized JSONObject configure(JSONObject input)throws Exception{
-  SharedPreferences.Editor e=prefs.edit();boolean feedWas=feedOn();
+  SharedPreferences.Editor e=prefs.edit();boolean feedWas=feedOn();lastPrune=0;   // Retention may have changed: prune before the next search.
   for(String key:new String[]{"enabled","analysisEnabled","queryEnabled","proactive","nudges","feedCards","feedDescribe"})if(input.has(key))e.putBoolean(key,input.getBoolean(key));
   if(input.has("model")){String m=input.getString("model");if(m.length()>512)throw new IllegalArgumentException(context.getString(R.string.error_model_id_too_long));e.putString("model",m);if(!input.has("followSystem"))e.putBoolean("followSystem",m.isEmpty());}
   if(input.has("followSystem"))e.putBoolean("followSystem",input.getBoolean("followSystem"));
@@ -241,10 +248,17 @@ final class MemoryStore extends SQLiteOpenHelper {
   return r;
  }
  /** Agent search: hybrid keyword + on-device vector + memory graph (see Recall). */
- JSONArray search(String query,int limit)throws Exception{
-  if(query.length()>500)throw new IllegalArgumentException(context.getString(R.string.error_query_too_long));prune();
-  return Recall.search(this,query,Math.max(1,Math.min(20,limit)));
+ JSONArray search(String query,int limit)throws Exception{return search(query,limit,null);}
+ JSONArray search(String query,int limit,long[] times)throws Exception{
+  if(query.length()>500)throw new IllegalArgumentException(context.getString(R.string.error_query_too_long));pruneSoon();
+  return Recall.search(this,query,Math.max(1,Math.min(20,limit)),times);
  }
+ volatile long lastPrune;
+ /**
+  * Retention and expired forget marks before a search, at most once a minute: prune takes the store lock and a write
+  * transaction, so on every search it queued reads behind ingestion. The 15-minute maintenance job prunes as well.
+  */
+ void pruneSoon(){long t=System.currentTimeMillis();if(t-lastPrune<60000L)return;lastPrune=t;prune();}
  synchronized JSONObject evidenceItem(String id)throws Exception{
   try(Cursor c=getReadableDatabase().rawQuery("SELECT rowid,id,source,title,head,body,first_seen,last_seen,revision,category FROM memories WHERE id=?",new String[]{id})){
    if(!c.moveToFirst())throw new IllegalArgumentException(context.getString(R.string.error_memory_not_found));String title=c.getString(3),body=(c.getString(4).isEmpty()?"":c.getString(4)+"\n")+c.getString(5);
