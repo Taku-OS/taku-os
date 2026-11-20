@@ -25,8 +25,8 @@ registerHooks({resolve(specifier, context, nextResolve) {
 }});
 const {useDictation} = await import('./useDictation.ts');
 
-const snapshot = (operationId, phase, {text = '', outcome = null, levels = null} = {}) => ({
-  operationId, phase, active: phase !== 'Idle', sessionId: null,
+const snapshot = (operationId, phase, {text = '', outcome = null, levels = null, threadId = 'thread', owner = 'chat'} = {}) => ({
+  owner, threadId, operationId, phase, active: phase !== 'Idle', sessionId: null,
   listening: ['Preparing', 'Capturing', 'Finalizing'].includes(phase), ready: phase === 'Capturing',
   transcript: text, preview: text, levels: levels ?? (phase === 'Capturing' ? [0.2, 0.6] : []),
   levelSource: 'pcm-rms', final: phase === 'Closed',
@@ -54,7 +54,8 @@ function environment(t) {
       if (env.current?.operationId === value.operationId) env.current = value;
       env.emit(value);
     },
-    mount(language = 'en') {
+    mount(threadId = 'thread', owner = 'chat') {
+      const activeOwner = {current: owner};
       const heard = [], failures = [];
       const onHeard = text => heard.push(text), onFailure = reason => failures.push(reason);
       const host = {
@@ -87,7 +88,7 @@ function environment(t) {
           this.index = 0;
           this.dirty = false;
           runtime.current = this;
-          this.result = useDictation(language, onHeard, onFailure);
+          this.result = useDictation(threadId, activeOwner, () => onHeard, onFailure);
           runtime.current = null;
           for (const effect of this.queued.splice(0)) effect();
         },
@@ -112,10 +113,10 @@ function environment(t) {
   };
   runtime.native = {
     isAvailable: () => env.available,
-    start(language) {
+    start(owner, threadId) {
       const operationId = requests.length + 1, pending = deferred();
-      const initial = snapshot(operationId, 'Preparing');
-      const request = {operationId, language, initial, ...pending};
+      const initial = snapshot(operationId, 'Preparing', {owner, threadId});
+      const request = {operationId, threadId, initial, ...pending};
       requests.push(request);
       env.current = initial;
       return pending.promise;
@@ -177,7 +178,7 @@ test('A start/cancel/B start ignores delayed A events and delivers B terminal re
 });
 
 test('buffered Running enters recording and a stale start result can cancel only A', async t => {
-  const env = environment(t), host = env.mount('zh');
+  const env = environment(t), host = env.mount();
   host.result.start();
   const a = env.requests[0];
   host.result.cancel();
@@ -190,7 +191,7 @@ test('buffered Running enters recording and a stale start result can cancel only
   assert.equal(host.result.phase, 'recording');
   assert.equal(host.result.transcript, '新的录音');
   assert.deepEqual(host.result.levels, [0.2, 0.6]);
-  assert.equal(b.language, 'zh-CN');
+  assert.equal(b.threadId, 'thread');
   a.resolve(a.initial);
   env.emit(snapshot(a.operationId, 'Idle'));
   await env.settle();
@@ -379,4 +380,18 @@ test('a current native start rejection clears starting and reports the engine re
   assert.equal(host.result.phase, 'idle');
   assert.deepEqual(host.failures, ['busy']);
   assert.deepEqual(host.heard, []);
+});
+
+test('a standard Android recording adopts the visible composer and excludes other threads', async t => {
+  const env = environment(t), host = env.mount();
+  env.emit(snapshot(1, 'Capturing', {threadId: 'other'}));
+  env.emit(snapshot(1, 'Capturing', {owner: 'old-chat'}));
+  await env.settle();
+  assert.equal(host.result.phase, 'idle');
+  env.capture(2, 'started by Android');
+  await env.settle();
+  assert.equal(host.result.phase, 'recording');
+  env.close(success(2, 'started by Android'));
+  await env.settle();
+  assert.deepEqual(host.heard, ['started by Android']);
 });

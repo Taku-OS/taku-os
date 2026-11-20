@@ -25,13 +25,15 @@ class ReviewRegressionProbe : Instrumentation() {
                     options.getString("model")?.let { check(fal.getString("model") == it) }
                     options.getString("configured")?.let { check(fal.getBoolean("configured") == it.toBoolean()) }
                     report.put("fal", fal).put("configReadable", true)
-                    options.getString("credentialError")?.let { expected ->
-                        var caught: AudioFailure? = null
-                        try { EngineConfig.control(JSONObject().put("op", "falCredential")) }
-                        catch (failure: AudioFailure) { caught = failure }
-                        check(caught?.code == expected) { "Expected credential error $expected" }
-                        report.put("credentialError", caught.code).put("credentialMessage", caught.message)
-                    }
+                    val live = snapshot.getJSONObject("live")
+                    val gemini = live.getJSONObject("gemini")
+                    options.getString("liveProfile")?.let { check(live.getString("profileId") == it) }
+                    options.getString("liveConfigured")?.let { check(live.getBoolean("configured") == it.toBoolean()) }
+                    options.getString("geminiConfigured")?.let { check(gemini.getBoolean("configured") == it.toBoolean()) }
+                    options.getString("geminiError")?.let { check(gemini.getString("error") == it) }
+                    report.put("live", live)
+                    verifyCredential(snapshot, report, "falCredential", "credentialKey", "credentialError")
+                    verifyCredential(snapshot, report, "liveCredential", "geminiCredentialKey", "geminiCredentialError")
                 }
                 "playbackCleanup" -> {
                     val entered = CountDownLatch(1); val release = CountDownLatch(1)
@@ -116,5 +118,23 @@ class ReviewRegressionProbe : Instrumentation() {
             report.put("passed", true)
         } catch (error: Throwable) { report.put("error", error.javaClass.simpleName).put("message", error.message?.take(240)) }
         finish(if (report.optBoolean("passed")) -1 else 0, Bundle().apply { putString("report", report.toString()) })
+    }
+
+    private fun verifyCredential(snapshot: JSONObject, report: JSONObject, op: String, keyOption: String, errorOption: String) {
+        val expectedError = options.getString(errorOption)
+        val expectedKey = options.getString(keyOption)
+        if (expectedError == null && expectedKey == null) return
+        val request = JSONObject().put("op", op)
+        if (expectedError != null) {
+            val failure = runCatching { EngineConfig.control(request) }.exceptionOrNull() as? AudioFailure
+            check(failure?.code == expectedError) { "Expected $op error $expectedError" }
+            report.put(errorOption, expectedError)
+        } else {
+            check(expectedKey != null && !snapshot.toString().contains(expectedKey)) { "Configuration snapshot exposed the key" }
+            val credential = EngineConfig.control(request)
+            check(credential.keys().asSequence().toSet() == setOf("key"))
+            check(credential.getString("key") == expectedKey) { "$op key mismatch" }
+            report.put(op + "Verified", true)
+        }
     }
 }

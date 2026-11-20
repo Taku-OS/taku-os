@@ -1,5 +1,7 @@
 package org.agentos.agent.home
 
+import android.content.Intent
+import expo.modules.kotlin.exception.CodedException
 import expo.modules.kotlin.exception.Exceptions
 import expo.modules.kotlin.functions.Queues
 import expo.modules.kotlin.modules.Module
@@ -10,44 +12,117 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.flow.combine
+import org.agentos.agent.home.assistant.AssistantException
+import org.agentos.agent.home.assistant.AssistantSession
+import org.agentos.agent.home.assistant.ChatDictation
+import org.agentos.agent.home.assistant.ChatVoiceSession
+import org.agentos.agent.home.assistant.ReplySpeech
 import org.agentos.agent.home.assistant.EngineVoiceInput
 import org.agentos.agent.home.assistant.VoiceInput
 import org.agentos.agent.home.assistant.VoiceOutcome
 import org.agentos.agent.home.assistant.VoiceState
-import org.agentos.agent.home.assistant.VoiceTarget
 
-/**
- * Voice input for the full chat's composer (Figma 1-5 in 2-1): the same [EngineVoiceInput] the
- * home uses, as unscoped DICTATION so the chat keeps its own language choice. JavaScript starts,
- * finishes and cancels by operation ID. Start returns that operation's snapshot, and `onVoice`
- * carries subsequent recognition phases and explicit terminal outcomes. Only a successful
- * outcome carries text the chat may put in its draft.
- */
 class TakuVoiceModule : Module() {
   private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-  private var voice: EngineVoiceInput? = null
-  private var watcher: Job? = null
-  private var lastOperationId: Long? = null
+  private var voiceWatcher: Job? = null
+  private var speechWatcher: Job? = null
+  private var chatOwner: String? = null
+  private var ownedChat: ChatVoiceSession? = null
   private var liveWatcher: Job? = null
 
   private val context
     get() = appContext.reactContext ?: throw Exceptions.ReactContextLost()
 
-  private fun input(): EngineVoiceInput = voice ?: EngineVoiceInput(context).also { created ->
-    voice = created
-    watcher = scope.launch {
-      created.state.collect { s ->
-        if (s.operationId != null) lastOperationId = s.operationId
-        // Idle revokes the operation that ended, even if its event reaches JS after a new start.
-        sendEvent("onVoice", snapshot(s, lastOperationId))
-      }
-    }
+  private val chat get() = ChatVoiceSession.get(context)
+
+  private fun <T> voiceCall(action: () -> T): T = try {
+    action()
+  } catch (error: AssistantException) {
+    throw CodedException(error.code, error.message, error)
   }
 
-  private fun snapshot(s: VoiceState, operationId: Long? = s.operationId): Map<String, Any?> = mapOf(
+  override fun definition() = ModuleDefinition {
+    Name("TakuVoice")
+    Events("onVoice", "onLiveTalk", "onReplySpeech")
+
+    AsyncFunction("enterChat") { owner: String, threadId: String ->
+      val session = chat
+      session.enter(owner, threadId)
+      ownedChat = session
+      chatOwner = owner
+    }.runOnQueue(Queues.MAIN)
+    AsyncFunction("leaveChat") { owner: String ->
+      chat.leave(owner)
+      if (chatOwner == owner) chatOwner = null
+    }.runOnQueue(Queues.MAIN)
+
+    OnStartObserving("onVoice") {
+      voiceWatcher?.cancel()
+      voiceWatcher = scope.launch {
+        chat.dictation.collect { if (it != null) sendEvent("onVoice", it.snapshot()) }
+      }
+    }
+    OnStopObserving("onVoice") { voiceWatcher?.cancel(); voiceWatcher = null }
+    OnStartObserving("onReplySpeech") {
+      speechWatcher?.cancel()
+      speechWatcher = scope.launch {
+        chat.speech.collect { sendEvent("onReplySpeech", mapOf("speech" to it?.snapshot())) }
+      }
+    }
+    OnStopObserving("onReplySpeech") { speechWatcher?.cancel(); speechWatcher = null }
+
+    AsyncFunction("liveState") { AssistantSession.get(context).liveSnapshotJson().toString() }.runOnQueue(Queues.MAIN)
+    AsyncFunction("liveAction") { method: String, params: String ->
+      require(method in setOf("assistant/live-start", "assistant/live-stop", "assistant/live-toggle-mic", "assistant/live-set-mic"))
+      context.contentResolver.call(android.net.Uri.parse("content://org.agentos.agent.home-assistant"), method, params, null)?.getString("result")
+    }.runOnQueue(Queues.MAIN)
+    OnStartObserving("onLiveTalk") {
+      liveWatcher?.cancel()
+      liveWatcher = scope.launch {
+        val session = AssistantSession.get(context)
+        session.liveState.collect {
+          sendEvent("onLiveTalk", mapOf("json" to session.liveSnapshotJson().toString()))
+        }
+      }
+    }
+    OnStopObserving("onLiveTalk") { liveWatcher?.cancel(); liveWatcher = null }
+
+    Function("isAvailable") { EngineVoiceInput.available(context) }
+    AsyncFunction("openSettings") {
+      val activity = appContext.currentActivity
+        ?: throw CodedException("VOICE_UNAVAILABLE", "Open the conversation first", null)
+      activity.startActivity(Intent().setClassName("org.agentos.audio", "org.agentos.audio.DictationSettingsActivity"))
+    }.runOnQueue(Queues.MAIN)
+    AsyncFunction("start") { owner: String, threadId: String -> voiceCall { chat.start(threadId, owner).snapshot() } }.runOnQueue(Queues.MAIN)
+    AsyncFunction("finish") { operationId: Long -> chat.finish(operationId) }.runOnQueue(Queues.MAIN)
+    AsyncFunction("cancel") { operationId: Long -> chat.cancel(operationId) }.runOnQueue(Queues.MAIN)
+    AsyncFunction("speak") { threadId: String, replyId: String, text: String ->
+      voiceCall { chat.speak(threadId, replyId, text) }
+    }.runOnQueue(Queues.MAIN)
+    AsyncFunction("stopSpeech") { threadId: String, replyId: String -> chat.stopSpeech(threadId, replyId) }.runOnQueue(Queues.MAIN)
+
+    OnDestroy {
+      val owner = chatOwner
+      val session = ownedChat
+      if (owner != null && session != null) android.os.Handler(android.os.Looper.getMainLooper()).post {
+        session.leave(owner)
+      }
+      scope.cancel()
+    }
+  }
+}
+
+internal fun ReplySpeech.snapshot(): Map<String, Any?> = mapOf(
+  "threadId" to threadId, "replyId" to replyId, "phase" to phase, "error" to error,
+)
+
+internal fun ChatDictation.snapshot(): Map<String, Any?> {
+  val s = voice
+  return mapOf(
+    "owner" to owner,
+    "threadId" to threadId,
     "active" to (s.target != null),
-    "operationId" to operationId,
+    "operationId" to s.operationId,
     "sessionId" to s.sessionId,
     "phase" to s.phase.name,
     "listening" to s.listening,
@@ -80,55 +155,6 @@ class TakuVoiceModule : Module() {
       )
     },
   )
-
-  override fun definition() = ModuleDefinition {
-    Name("TakuVoice")
-    Events("onVoice", "onLiveTalk")
-
-    AsyncFunction("liveState") { org.agentos.agent.home.assistant.AssistantSession.get(context).toJson().toString() }.runOnQueue(Queues.MAIN)
-    AsyncFunction("liveAction") { method: String, params: String ->
-      require(method in setOf("assistant/live-start", "assistant/live-stop", "assistant/live-toggle-mic"))
-      context.contentResolver.call(android.net.Uri.parse("content://org.agentos.agent.home-assistant"), method, params, null)?.getString("result")
-    }.runOnQueue(Queues.MAIN)
-    OnStartObserving("onLiveTalk") {
-      liveWatcher?.cancel()
-      liveWatcher = scope.launch {
-        val session = org.agentos.agent.home.assistant.AssistantSession.get(context)
-        combine(session.state, session.voice.state) { _, _ -> session.toJson().toString() }.collect {
-          sendEvent("onLiveTalk", mapOf("json" to it))
-        }
-      }
-    }
-    OnStopObserving("onLiveTalk") { liveWatcher?.cancel(); liveWatcher = null }
-
-    Function("isAvailable") { EngineVoiceInput.available(context) }
-
-    /** [language] is the engine tag (zh-CN, en-US); empty follows the device. */
-    AsyncFunction("start") { language: String ->
-      if (!EngineVoiceInput.available(context)) throw VoiceUnavailable()
-      val started = input().apply {
-        this.language = language.ifBlank { null }
-        start(VoiceTarget.Dictation)
-      }.state.value
-      lastOperationId = started.operationId
-      snapshot(started)
-    }.runOnQueue(Queues.MAIN)
-
-    AsyncFunction("finish") { operationId: Long -> voice?.finish(operationId); Unit }.runOnQueue(Queues.MAIN)
-
-    AsyncFunction("cancel") { operationId: Long -> voice?.cancel(operationId); Unit }.runOnQueue(Queues.MAIN)
-
-    OnDestroy {
-      liveWatcher?.cancel()
-      // Voice state is main-thread owned; a reload must not leave the microphone running.
-      val last = voice
-      android.os.Handler(android.os.Looper.getMainLooper()).post { last?.cancel() }
-      watcher?.cancel()
-      scope.cancel()
-    }
-  }
-
-  private class VoiceUnavailable : expo.modules.kotlin.exception.CodedException("VOICE_UNAVAILABLE", "The Taku Audio Engine is not installed", null)
 }
 
 internal fun VoiceInput.finish(operationId: Long) {

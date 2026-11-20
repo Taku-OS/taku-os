@@ -170,11 +170,16 @@ final class PanelNativeServices {
     String contractHash(){return "a".repeat(64);}
     String threadState(String thread){return availability;}
     void checkSubmit(String thread) throws IOException {if(availability.equals("thread-unavailable"))throw new IOException("SOURCE_THREAD_NOT_FOUND");}
+    void checkScreenshot(JSONObject input) throws IOException {
+        JSONObject options=input.optJSONObject("options");
+        if(options!=null&&options.optBoolean("includeScreenshot")&&!input.optString("requestId").equals(options.optString("invocationScreenshot")))
+            throw new IOException("SCREENSHOT_UNAVAILABLE");
+    }
     JSONObject submit(JSONObject input) throws Exception {
         return submissions.submit(input.getString("requestId"),input.getString("threadId"),input.getString("text"),()->checkSubmit(input.getString("threadId")),before->publish(input,before));
     }
     String publish(JSONObject input,TaskRequests.BeforePublish before) throws Exception {
-        String id=Long.toString(System.nanoTime());File dir=new File(AssistantSession.TASKS,id);dir.mkdirs();
+        String id=Long.toString(System.nanoTime());File dir=new File(TaskRuntime.TASKS,id);dir.mkdirs();
         JSONObject request=new JSONObject().put("id",id).put("conversationId",input.getString("threadId")).put("prompt",input.getString("text"));
         if(input.has("panelUpdate"))request.put("panelUpdate",input.getJSONObject("panelUpdate"));
         TaskRequests.write(new File(dir,"request.json"),request.toString());

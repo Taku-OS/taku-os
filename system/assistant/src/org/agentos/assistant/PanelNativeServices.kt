@@ -17,7 +17,7 @@ internal class PanelNativeServices(private val context: Context) {
     fun contractHash(): String = installedContractHash
     fun reply(input: JSONObject): JSONObject = NativeClient.exchange(input)
     fun threadState(thread: String): String {
-        val marker = try { SourceAdapters.readObject(File(AssistantSession.ROOT, "thread-availability/$thread.json")) } catch (_: Exception) { null }
+        val marker = try { SourceAdapters.readObject(File(TaskRuntime.ROOT, "thread-availability/$thread.json")) } catch (_: Exception) { null }
         val known = if (marker?.optString("schema") == "taku.thread-availability/1" && marker.optString("threadId") == thread) marker.optString("state") else ""
         if (known == "deleted") return "thread-unavailable"
         return try {
@@ -34,24 +34,31 @@ internal class PanelNativeServices(private val context: Context) {
         if (!state.optBoolean("ready") || state.optString("activeTurnId").isNotEmpty()) throw IOException("THREAD_BUSY")
         val priorId = preferences().getString("task-$thread", "")!!
         if (priorId.matches(Regex("[0-9]+"))) {
-            val prior = File(AssistantSession.TASKS, priorId)
+            val prior = File(TaskRuntime.TASKS, priorId)
             if (File(prior, "ready").isFile && !File(prior, "done").isFile) throw IOException("THREAD_QUEUED")
         }
     }
+    fun checkScreenshot(input: JSONObject) = AssistantInvocationCapture.check(context, input)
+    fun appendScreenshot(input: JSONObject, content: JSONArray) = AssistantInvocationCapture.append(context, input, content)
     fun submit(input: JSONObject): JSONObject = submissions.submit(input.getString("requestId"), input.getString("threadId"), input.getString("text"),
-        { checkSubmit(input.getString("threadId")) }, { before -> publish(input, before) })
+        { checkSubmit(input.getString("threadId")); checkScreenshot(input) }, { before -> publish(input, before) })
     fun publish(input: JSONObject, before: TaskRequests.BeforePublish): String {
         val thread = input.getString("threadId")
         val prefs = preferences()
-        val options = JSONObject().put("includeScreenshot", false).put("responseStyle", prefs.getString("responseStyle", "concise"))
-        ComposerPreferences.apply(prefs, thread, options)
-        options.remove("attachments")
+        val options = input.optJSONObject("options")?.let { JSONObject(it.toString()) } ?: JSONObject().also {
+            it.put("includeScreenshot", false)
+            ComposerOptions.prepareSubmission().apply(prefs, thread, it)
+        }
+        if (input.has("options")) options.put("composerRequestId", input.getString("requestId"))
         if (input.optBoolean("requireConfirmation")) options.put("permissionMode", "ask")
         if (input.has("panelUpdate")) options.put("panelUpdate", input.getJSONObject("panelUpdate"))
-        return TaskRequests.submit(input.getString("text"), "Taku Agent", null, thread, options) { task ->
-            before.persist(task)
-            if (!prefs.edit().putString("task-$thread", task).commit()) throw IOException("RECEIPT_SAVE_FAILED")
-        }
+        val image = AssistantInvocationCapture.image(context, input)
+        try {
+            return TaskRequests.submit(input.getString("text"), options.optString("invocationForeground", "Taku Agent"), image, thread, options) { task ->
+                before.persist(task)
+                if (!prefs.edit().putString("task-$thread", task).commit()) throw IOException("RECEIPT_SAVE_FAILED")
+            }
+        } finally { image?.recycle() }
     }
     fun notifyDirectory() { context.contentResolver.notifyChange(Uri.parse("content://org.agentos.assistant.open-access/panels"), null) }
     fun notifyMatter(id: String) { context.contentResolver.notifyChange(Uri.parse("content://org.agentos.assistant.open-access/matters").buildUpon().appendPath(id).build(), null) }

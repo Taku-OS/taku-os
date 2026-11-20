@@ -135,17 +135,23 @@ fun HomePage(controller: HomeController, page: Int, feed: FeedState, backdrop: B
 private fun IconGrid(controller: HomeController, page: Int, items: List<Slot>, ghost: Slot?, apps: Map<String, org.agentos.agent.home.apps.LaunchableApp>, backdrop: Backdrop?, cell: Dp, maxGridHeight: Dp?) {
   val density = LocalDensity.current
   val gap = TakuSpacing.lg
+  val plate = cell.coerceAtMost(HOME_ICON_SIZE)
   val dragged = controller.drag.item?.slot
   val placements = HomeGrid.place(items)
   val rows = placements.maxOfOrNull { it.y + it.h } ?: 0
   val naturalHeights = (0 until rows).map { row ->
-    if (placements.indices.any { items[it] !is Slot.Widget && placements[it].y == row }) cell + LABEL_BLOCK else cell
+    // A row containing a widget retains its widget grid height. App-only rows use the
+    // design's 60 dp plates, 4 dp label gap and 16 dp labels.
+    val containsWidget = placements.indices.any { items[it] is Slot.Widget && row in placements[it].y until (placements[it].y + placements[it].h) }
+    val containsIcon = placements.indices.any { items[it] !is Slot.Widget && placements[it].y == row }
+    maxOf(if (containsWidget) cell else 0.dp, if (containsIcon) plate + LABEL_BLOCK else 0.dp)
   }
   val naturalTotal = naturalHeights.fold(0.dp) { a, b -> a + b }
   val scale = if (maxGridHeight == null || rows == 0) 1f else ((maxGridHeight - gap * (rows - 1)).value / naturalTotal.value).coerceIn(0.5f, 1f)
   val heights = naturalHeights.map { it * scale }
   val tops = heights.runningFold(0.dp) { a, b -> a + b + gap }
   fun height(c: HomeGrid.Cell): Dp = (c.y until c.y + c.h).fold(0.dp) { a, row -> a + heights[row] } + gap * (c.h - 1)
+  fun iconPlate(c: HomeGrid.Cell?): Dp = plate.coerceAtMost((c?.let(::height) ?: plate + LABEL_BLOCK) - LABEL_BLOCK).coerceAtLeast(1.dp)
   Layout(
     content = {
       // One keyed loop for the items and the ghost, so an item turning into the ghost keeps its
@@ -163,7 +169,7 @@ private fun IconGrid(controller: HomeController, page: Int, items: List<Slot>, g
               val preview = dragged?.itemKey == slot.itemKey && controller.displayPages.getOrElse(page) { emptyList() }.none { it.itemKey == slot.itemKey }
               if (preview) Box(Modifier.size(w, h))
               else HostedWidget(controller, slot, page, index.takeIf { shown }, backdrop, Modifier.size(w, h).graphicsLayer { alpha = if (!shown || dragged?.itemKey == slot.itemKey) 0f else 1f })
-            } else GridIcon(controller, slot, apps, backdrop, cell.coerceAtMost((placements.getOrNull(index)?.let(::height) ?: cell + LABEL_BLOCK) - LABEL_BLOCK), page, index.takeIf { shown },
+            } else GridIcon(controller, slot, apps, backdrop, iconPlate(placements.getOrNull(index)), cell, page, index.takeIf { shown },
               placeholder = !shown || (dragged != null && slot.itemKey == dragged.itemKey))
           }
         }
@@ -171,10 +177,10 @@ private fun IconGrid(controller: HomeController, page: Int, items: List<Slot>, g
     },
     modifier = Modifier.fillMaxWidth().onGloballyPositioned { coords ->
       with(density) {
-        controller.drag.grids[page] = GridGeometry(coords.positionInRoot(), cell.toPx(), (cell + LABEL_BLOCK).toPx(), gap.toPx(), gap.toPx(), cell.toPx(), cells = placements.map { c ->
+        controller.drag.grids[page] = GridGeometry(coords.positionInRoot(), cell.toPx(), (plate + LABEL_BLOCK).toPx(), gap.toPx(), gap.toPx(), plate.toPx(), cells = placements.map { c ->
           val x = c.x * (cell + gap).toPx(); val y = tops[c.y].toPx()
           Rect(x, y, x + (cell * c.w + gap * (c.w - 1)).toPx(), y + height(c).toPx())
-        })
+        }, plateSizes = placements.map { iconPlate(it).toPx() })
       }
     },
   ) { measurables, constraints ->
@@ -193,15 +199,15 @@ private fun IconGrid(controller: HomeController, page: Int, items: List<Slot>, g
 }
 
 @Composable
-private fun GridIcon(controller: HomeController, slot: Slot, apps: Map<String, org.agentos.agent.home.apps.LaunchableApp>, backdrop: Backdrop?, cell: Dp, page: Int, index: Int?, placeholder: Boolean) {
-  Box(Modifier.graphicsLayer { alpha = if (placeholder) 0f else 1f }) {
+private fun GridIcon(controller: HomeController, slot: Slot, apps: Map<String, org.agentos.agent.home.apps.LaunchableApp>, backdrop: Backdrop?, plate: Dp, columnWidth: Dp, page: Int, index: Int?, placeholder: Boolean) {
+  Box(Modifier.fillMaxSize().graphicsLayer { alpha = if (placeholder) 0f else 1f }, contentAlignment = Alignment.TopCenter) {
     when (slot) {
       is Slot.Widget -> Unit
       is Slot.App -> {
         val app = apps[slot.key]
-        DraggableIcon(controller, slot, app?.label ?: "", page = page, index = index, plate = cell) { AppIcon(app, slot.key, backdrop, cell) }
+        DraggableIcon(controller, slot, app?.label ?: "", page = page, index = index, plate = plate, labelWidth = columnWidth) { AppIcon(app, slot.key, backdrop, plate) }
       }
-      is Slot.Folder -> DraggableIcon(controller, slot, slot.name, page = page, index = index, plate = cell) { FolderIcon(slot, backdrop, cell) }
+      is Slot.Folder -> DraggableIcon(controller, slot, slot.name, page = page, index = index, plate = plate, labelWidth = columnWidth) { FolderIcon(slot, backdrop, plate) }
     }
   }
 }
@@ -233,7 +239,7 @@ private fun Modifier.animatePlacement(): Modifier = composed {
  * the item alone so it survives the item sliding to another cell while dragged.
  */
 @Composable
-fun DraggableIcon(controller: HomeController, slot: Slot, label: String, page: Int?, index: Int?, plate: Dp, icon: @Composable () -> Unit) {
+fun DraggableIcon(controller: HomeController, slot: Slot, label: String, page: Int?, index: Int?, plate: Dp, labelWidth: Dp = plate + 12.dp, icon: @Composable () -> Unit) {
   val drag = controller.drag
   val haptics = LocalHapticFeedback.current
   var bounds by remember { mutableStateOf(Rect.Zero) }
@@ -248,7 +254,8 @@ fun DraggableIcon(controller: HomeController, slot: Slot, label: String, page: I
   IconCell(
     label,
     plate,
-    Modifier
+    labelWidth = labelWidth,
+    modifier = Modifier
       .graphicsLayer { rotationZ = rotation }
       .onGloballyPositioned { origin = it.positionInRoot(); bounds = it.boundsInRoot() }
       .semantics { contentDescription = label }
@@ -261,7 +268,7 @@ fun DraggableIcon(controller: HomeController, slot: Slot, label: String, page: I
         onStart = { p ->
           drag.menu = null
           haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-          drag.start(DragItem(slot, label, null), p, Rect(bounds.left, bounds.top, bounds.left + bounds.width, bounds.top + bounds.width), where)
+          drag.start(DragItem(slot, label, null), p, iconBounds, where)
         },
         onMove = { drag.move(it) },
         onEnd = { cancelled -> controller.dropDragged(cancelled) },

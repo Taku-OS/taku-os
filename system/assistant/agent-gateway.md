@@ -15,15 +15,35 @@ Responses over 256 KiB return `{ok:true,resultUri:"content://org.agentos.assista
 | `mainReply` | `{action:"read",threadId,turnId,replyId?}` | Logical native read envelope: bounded summaries or exact canonical primary reply; no inference |
 | `subscribeSession` | `{threadId,brokerEpoch?:string,afterSeq?:number}` | `{subscriptionId,streamUri}`; read-only UID-bound JSONL pipe |
 | `unsubscribeSession` | `{subscriptionId}` | `{closed:true}`; closes only this view subscription |
+| `composer/read` | `{threadId}` | `{threadId,revision,text,attachments,recovery,pendingReceipts}` |
+| `composer/write` | `{threadId,revision,text}` | Draft snapshot after a revision-checked text replacement |
+| `composer/import` | `{threadId,text}` | Current draft snapshot after importing legacy text, with retries deduplicated by conversation and exact text |
+| `composer/move` | `{threadId:"",revision,targetThreadId}` | Target draft snapshot after moving the new-conversation draft |
+| `composer/attach` | `{threadId,expectedRevision,name,mime,uri?}` plus optional `extras.attachment` read-only FD | Draft snapshot with one imported attachment. Send either the FD or a granted `content:` URI. |
+| `composer/removeAttachment` | `{threadId,expectedRevision,attachmentId}` | Draft snapshot after removing that attachment |
+| `composer/submit` | `{threadId,revision,requestId,action,attachmentIds}` plus `expectedTurnId` for `steer` or `panelId,expectedSourceVersion` for `continue` | Receipt for a frozen draft and target. The `sendMessage` action starts a new turn. |
+| `composer/receipt` | `{threadId,requestId}` | Read-only receipt lookup |
+| `composer/settle` | `{threadId,requestId}` | Receipt and revision-checked retirement when delivery is confirmed |
+| `composer/release` | `{threadId,requestId}` | Draft snapshot after releasing a pending request and preserving recoverable content |
+| `composer/handoff` | `{threadId,handoffId,text}` | Draft snapshot after applying a handoff once and saving any displaced draft |
+| `composer/preserveDraft` | `{threadId,recoveryId,text}` | Draft snapshot after preserving an edit in recovery without changing the active text |
+| `composer/restore` | `{threadId,expectedRevision,recoveryId}` | Draft snapshot after restoring a saved draft into an empty editor |
+| `composer/restoreTask` | `{threadId,expectedRevision,taskId}` | Draft snapshot after restoring a failed task from that conversation |
+| `composer/options/read`, `composer/options/write` | `{threadId}` or `{threadId,options}` | `{threadId,options,effective,models}`. `null` removes a thread override. |
 | `sendMessage` | `{threadId,text,requestId}` | `{threadId,requestId,taskId?,state,code?,replayed,createdAt}` |
 | `steer` | `{threadId,text,expectedTurnId,requestId}` | Durable `{requestId,threadId,state,code?,result?,replayed,createdAt}`; exact current turn required |
 | `interrupt` | `{threadId,turnId}` | Native `turn/interrupt` result; pauses an active goal before interruption |
 | `cancelQueued` | `{threadId,taskId}` | `{threadId,taskId,cancellationRequested:true}`; same-thread queued task only; a started turn requires `interrupt` |
+| `live/task-read` | `{threadId,taskId,requestId,text}` | `{taskId,state,terminal,needsUser,cancellationRequested,turnId?,goalActive?,reply?,replyTruncated?}` for the exact published `sendMessage` receipt |
+| `live/task-replace` | `{threadId,taskId,requestId,text}` | Same task snapshot after requesting cancellation of an owned read-only query. It never submits the replacement. |
+| `live/task-cancel` | `{threadId,taskId,requestId,text}` | Same task snapshot after explicit cancellation of an owned task, regardless of its permission mode. A finished task returns its actual terminal snapshot. |
 | `answer` | `{threadId,key,response}` | Native response receipt; supported pending request must belong to the same thread |
 | `getWorkspaces` | `{threadId}` or `{scope:"home"}` | `{schema:"taku.agent-workspaces/1",screens:[lease with previewUri]}` |
 | `openWorkspace` | `{threadId,screenKey,generation,source?:"home"}` | `{opened:true}`; opens existing native control UI after exact lease check |
-| `openNativeConversation` | `{threadId}` | `{opened:true,threadId}`; opens exact native conversation controls with `nativeControlsOnly:true`, no screenshot/assist flags or Jev token; does not consume Home pending input |
-| `openSettings` | `{page?:"models"|"system"|"workspaces"}` | `{opened:true}`; opens existing native settings |
+| `requests/list`, `requests/read`, `requests/submit`, `requests/respond`, `requests/cancel` | `{threadId,key?,values?,response?}` | Request identities, a request as a form, an answer by form field (secrets in `extras["credential"]`), a raw response, or cancellation |
+| `openSettings` | `{page?:"models"\|"system"\|"workspaces"}` | `{opened:true}` for the matching Expo page |
+| `readTaskDetail` | `{taskId}` | `{taskId,state,prompt,message}` from the native task store |
+| `manageSystemAi`, `manageAssistant` | `{operation,...fields}` | Shared settings or native management result. See `taku-system-ai-settings` and `taku-open-access`. |
 | `pluginManager` | `{operation,argument?:string,name?:string,arguments?:object}` | God Mode manager envelope inside the gateway result; see operation and error contract below |
 | `decide` | `{state,questions}` | Jev `{answers}` for 1–64 `choice` questions (one per composition candidate); uses the Agent settings Jev switch and model (`JEV_DISABLED`, `JEV_NOT_CONFIGURED`) |
 | `generateUi` | `{requestId,instructions,prompt,catalogVersion}` | `{text,model,elapsedMs,usage}` from the system text model (consumer `agent-ui`); non-streaming, output is untrusted JSONL the app validates |
@@ -63,15 +83,29 @@ Body updates use the ordered subscription described in [session streaming](SESSI
 
 Call `resumeThread` on an explicit conversation selection so native system entry and the React UI agree on the selected conversation. Serialize selection requests and discard stale UI reads; concurrent selection requests can otherwise persist preferences in response order. Regular `readSession` polling is read-only and never changes the selected conversation. A selection failure leaves drafts, Home pending content and task state intact.
 
-The broker's `thread/read` control returns `{threadId,loaded:true}` after loading the native conversation. `resumeThread` and `openNativeConversation` validate this acknowledgment before reading the projection or opening controls. `threadUnavailable:true`, a missing load acknowledgment, or a different thread ID returns `THREAD_UNAVAILABLE`.
+The broker's `thread/read` control returns `{threadId,loaded:true}` after loading the native conversation. `resumeThread` validates this acknowledgment before reading the projection. `threadUnavailable:true`, a missing load acknowledgment, or a different thread ID returns `THREAD_UNAVAILABLE`.
 
-`readSession` returns the same native `thread.turns[].items[]` used by the existing assistant. Regular polling only reads the current projection. `refresh:true` requests complete native history when there is no active turn; subsequent snapshots remain complete only while the known turn/item identities remain present. If no completeness evidence exists, `historyStatus` is `unknown` and `knownEmpty` is false even for an empty array. Account/authentication requests and user questions marked `isSecret` are withheld; `native.unsupportedRequestCount` indicates that the original native UI may be needed. `native.requests` includes only `phone/askUser`, `phone/confirmAction`, `phone/action/requestApproval` and nonsecret `item/tool/requestUserInput` belonging to the exact session.
+`readSession` returns native conversation items. Normal polling reads the current projection. `refresh:true` requests complete native history while no turn is active. Completeness survives only while the known turn and item identities remain visible. Missing evidence sets `historyStatus:"unknown"` and `knownEmpty:false`. `native.requests` contains the exact thread's phone questions, phone approvals, and nonsecret user-input requests. `native.unsupportedRequestCount` directs the UI to the Kotlin request form. The provider never adds authorization payloads to the session projection.
+
+A `userMessage` item may carry `reaction` (one emoji): Taku's reaction to that message, decided once by Jev for new messages when Jev is enabled, in addition to the reply. Reads and stream snapshots include it; a later decision arrives as the out-of-band `session/reaction` stream event. Agents list and set reactions through open access `reactions/list` and `reactions/set` (see the taku-open-access skill).
 
 `sendMessage` reuses TaskBroker publication with the supplied conversation ID and existing model preferences. It sends text only; it never inherits another editor's screenshot or attachments. Generate one `requestId` per explicit send and retain it until the result is reconciled. The durable receipt prevents automatic replay after process death or a lost IPC response. `queued` means accepted for execution, not task success; `publishing`/`deliveryUnknown` must retain the draft and request inspection, not resubmit under a fresh ID.
 
 `state:"notSent"` with matching `threadId` and `requestId` is the sole definitive rejection receipt. It proves that the read-only preflight failed before the publication or RPC callback ran. Its `code` can be `THREAD_UNAVAILABLE`, `THREAD_BUSY`, `THREAD_QUEUED`, `TURN_CHANGED` or a sanitized read failure. The client may remove its pending record, retain the editable draft, and use a new ID for the next explicit send. Replaying the rejected ID only returns its original rejection; it never starts executing later. Do not infer non-delivery from an error code alone: identical-looking errors after publication starts remain `deliveryUnknown`, and an IPC error or malformed/mismatched receipt must retain the original pending record.
 
 The server rejects a new publication while this session has a published TaskBroker task without a `done` marker, even before `native.activeTurnId` exists. `readSession.task` contains the existing `id`, `state`, `message`, plus `published`, `turnStarted` and `cancelRequested`. States include `queued`, `running`, `completed`, `failed`, `needs_user` and `cancelled`. Treat a published queued/running task as busy: before a turn starts, Stop calls `cancelQueued`; after `native.activeTurnId` appears, Stop calls `interrupt`. A cancellation receipt only requests cancellation; wait for the actual task state. A race returning `TURN_STARTED` requires a refreshed snapshot before deciding how to stop.
+
+The Live Talk task actions require the original `sendMessage` text and request ID. The gateway checks their immutable receipt and the published task request. The broker checks the task state, terminal marker, and task/thread/turn runtime binding. Composer submissions, panel continuations, and steer receipts do not establish Live Talk ownership. All three actions require unlocked Android user 0 and the existing signed Agent caller.
+
+`live/task-read` leaves the task unchanged. `terminal:true` requires the task's matching `done` marker. `needsUser` reports a pending request from the bound turn or the terminal `needs_user` state. `goalActive` is present when the broker has a goal observation. A completed task can return its final public `reply`, limited to 4000 UTF-16 code units without splitting a surrogate pair. `replyTruncated` reports truncation. Failed and cancelled tasks do not return a completion reply.
+
+`live/task-cancel` explicitly requests cancellation of an owned Live Talk task, regardless of its saved permission mode or current phone policy. `live/task-replace` requires saved `permissionMode:"readOnly"` and, for a running task, the current read-only phone policy. Neither action submits a replacement.
+
+Both cancellation actions run on the broker task pump. Before mutation, the broker queries the authoritative goal, rejects active or unconfirmed goals, and checks for concurrent goal mutations. A running task also requires an exact match between its runtime binding, the broker's executing task, and the active native turn. Before a turn starts, the broker writes only that task's cancel marker. Once the turn starts, it sends an exact-turn interrupt without pausing a goal or arming the ordinary cancel path.
+
+If the task already has a matching terminal marker, both actions return its actual snapshot without cancellation or goal mutation. Current goal and turn checks do not apply to this read-only terminal result. The saved read-only permission requirement still applies to `live/task-replace`. A completed task retains its completion reply and does not become cancelled. `cancellationRequested:true` only acknowledges a cancellation request. The client waits for `terminal:true` to report the outcome. For replacement, the client also checks its current session and condition version before submitting the full corrected query through `sendMessage` with a new request ID.
+
+Live task errors include `LIVE_TASK_UNCONFIRMED` for a missing or unresolved receipt/publication, `LIVE_TASK_MISMATCH` for conflicting task or runtime evidence, `REQUEST_ID_REUSED` for changed receipt input, `LIVE_TASK_NOT_READ_ONLY` for unproven read-only replacement permission, `LIVE_GOAL_ACTIVE`, `LIVE_GOAL_UNCONFIRMED`, and `TURN_CHANGED`. `LIVE_TASK_STARTING` means the owning start response has not yet established the turn. A fresh read can resolve it. Unconfirmed ownership or goals require handling in the original conversation. An unrestricted task supports explicit `live/task-cancel`, but not `live/task-replace`. These actions keep ordinary submission and Stop behavior intact.
 
 Same-thread preflight and publication are serialized through a session gate. Receipt reservation/finalization hold only the receipt lock; MatterRuntime releases its monitor before submission callbacks. Audio invalidations use an asynchronous serial dispatcher, so observer callbacks do not retain the audio owner's monitor.
 
@@ -98,7 +132,23 @@ A screen that no longer matches the list returns `SCREEN_LEASE_CHANGED`.
 
 Home and session `getWorkspaces` reads publish independent, immutable verified catalogs with a five-second monotonic lifetime. Each frame read uses the matching catalog and validates socket UID/PID, display identity, generation and JPEG dimensions. Before returning the JPEG over a pipe, it rechecks the original catalog lifetime and the current exact lease. Current read and frame failures invalidate the applicable catalog. Session selection invalidates the session catalog. Stale asynchronous failures leave newer results intact.
 
+`MirrorActivity` and `WorkspaceFloatService` are Kotlin runtime components. Workspace commands use `WorkspaceCommands`; control revisions, pointer translation, request receipts, and preview rendering keep their existing owners. For a session preview, explicit Back, a confirmed Stop, and the floating preview's chat action return through `AgentFrontendLauncher.openThread` to the admitted lease's `threadId`. A supplied return-conversation extra cannot select another thread. If the Agent application cannot open, the component displays an unavailable message and keeps the workspace available. For a Home preview, Back and the viewer exit restore the original Home page through `RETURN_FROM_WORKSPACE`, collapsing the preview list. Replacing a lease suppresses this return so it cannot cover the new viewer. Session minimization, closing the floating preview, and destroying either component do not open chat or resume execution.
+
 Validation: `bash system/assistant/test-agent-gateway-host.sh` checks capability/parameter rejection, request/session scoping, secret-field omission, and duplicate publication across a store restart. Building or passing host checks does not establish installed IPC, emulator UI, Pixel, or ROM acceptance.
+
+## Composer drafts
+
+Composer commands require unlocked Android user 0. Other users receive `USER_UNAVAILABLE`. A locked user receives `USER_LOCKED` when the provider is reachable. Ordinary callers use `content://org.agentos.assistant.open-access` for the same commands, including `composer/createThread`. The signed gateway's `composer/import` handles private app upgrade data.
+
+Pass `threadId:""` explicitly for the single new-conversation draft. For a real thread, use its lowercase UUID. Draft text can be empty and is stored as supplied, up to 16000 characters. A revision is an opaque string of at most 128 characters. The initial revision is `""` and a change returns a new revision. A write of identical text keeps the current revision.
+
+Write and move compare the supplied revision with the source slot. A mismatch leaves both drafts intact and returns `{ok:false,code:"DRAFT_REVISION_CONFLICT",message:"DRAFT_REVISION_CONFLICT",revision:"CURRENT_REVISION"}`. Invalid fields return `INVALID_ARGUMENT`, and a request over 48000 characters returns `REQUEST_TOO_LARGE`. A failed disk write returns `DRAFT_SAVE_FAILED`.
+
+Import ignores empty text. It loads legacy text into an empty editor. If the editor already contains different content, import adds the legacy text to the recovery list. If the current text matches, import leaves the editor as it is. Repeating the same import for the same conversation returns the current snapshot without adding a duplicate.
+
+To move a new-conversation draft, use a fresh UUID from `createThread` and the current new-conversation revision. Move clears the source and transfers its text, attachments, saved drafts, and options. `THREAD_UNAVAILABLE` means the target or its history could not be verified. `DRAFT_TARGET_OCCUPIED` means the target has saved draft or conversation content. Both failures preserve the source.
+
+The GUI and Open Access share `interrupt` with `{threadId,turnId}` and `cancelQueued` with `{threadId,taskId}`. An old turn ID returns `TURN_CHANGED`. Cancelling a queued task returns `cancellationRequested:true`; read the task state for its terminal result.
 
 ## Installed ordinary-UID IPC acceptance
 

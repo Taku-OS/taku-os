@@ -11,7 +11,7 @@ import {FlatList, Pressable, StyleSheet, Text, TextInput, View} from 'react-nati
 import {ChatIcon} from './ChatIcon';
 import {SvgXml} from 'react-native-svg';
 import homeAssets from './assets/home/assets.json';
-import {chatBlur, chatColors, chatMetrics, chatType} from './chatTheme';
+import {chatBlur, chatColors, chatMetrics, chatType, themedStyles} from './chatTheme';
 import {chatText} from './chatText';
 import {matchingChats, shortDate, type TakuHomeThread} from './homeModel';
 import {containsChinese} from '../theme';
@@ -169,7 +169,7 @@ function ToolRow({label, onPress}: {label: string; onPress?: () => void}) {
   </Pressable>;
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   root: {flex: 1},
   content: {paddingHorizontal: chatMetrics.side},
   header: {position: 'absolute', left: 0, right: 0, top: 0, flexDirection: 'row', alignItems: 'center', paddingHorizontal: chatMetrics.side},
@@ -201,4 +201,4 @@ const styles = StyleSheet.create({
   tertiary: {color: chatColors.textTertiary},
   grow: {flex: 1},
   pressed: {opacity: 0.7},
-});
+}));

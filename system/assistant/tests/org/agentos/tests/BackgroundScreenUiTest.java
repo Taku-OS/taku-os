@@ -1,80 +1,132 @@
 package org.agentos.tests;
+import android.os.SystemClock;
 import android.view.accessibility.AccessibilityNodeInfo;
-import java.io.*;
-import java.nio.file.*;
-import java.util.*;
-import org.json.*;
+import com.android.uiautomator.core.Configurator;
+import java.io.File;
+import java.nio.file.Files;
+import java.util.Locale;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
-/** Opt-in live model test on the existing AVD. The foreground page is explicitly synthetic. */
+/** Opt-in live model acceptance on a synthetic foreground page. */
 public final class BackgroundScreenUiTest extends AgentInterfaceTest {
- static final File TASKS=new File("/data/user/0/org.agentos.assistant/files/runtime/tasks");
- JSONObject read(File file)throws Exception{return new JSONObject(new String(Files.readAllBytes(file.toPath()),java.nio.charset.StandardCharsets.UTF_8));}
- Set<String> tasks()throws Exception{
-  Set<String> ids=new HashSet<>();File[] files=TASKS.listFiles();if(files!=null)for(File file:files)
-   if(new File(file,"ready").isFile())try{JSONObject r=read(new File(file,"request.json"));if(!r.has("method")&&!r.has("op")&&!r.optString("prompt").isEmpty())ids.add(file.getName());}catch(Exception old){}
-  return ids;
- }
- public void testLiveBackgroundAskUser()throws Exception{
-  assertEquals("true",getParams().getString("liveAuthorized"));
-  assertEquals("AVD-only integration test","1",command("/system/bin/getprop","ro.kernel.qemu").trim());
-  com.android.uiautomator.core.Configurator.getInstance().setWaitForIdleTimeout(0);connect();new File(OUT).mkdirs();
-  String original=preference("conversation");
-  NativeSocketProbe.exchange(new JSONObject().put("op","systemAi").put("action","configure")
-   .put("patch",new JSONObject().put("apps",new JSONObject().put("org.agentos.assistant",true))));
-  command("/system/bin/cmd","voiceinteraction","show");node("Taku 对话输入框");
-  command("/system/bin/cmd","voiceinteraction","hide");sleep(300);original=preference("conversation");
-  command("/system/bin/am","start","--display","0","-n","org.agentos.screenfixture/.ScreenFixtureActivity");
-  node("合成约饭 · 后台交互验收");sleep(700);capture("00-synthetic-foreground");
-  Set<String> baseline=tasks();
-  command("/system/bin/am","broadcast","-a","org.agentos.assistant.MANUAL_SCREEN_SUGGESTION","-n",PKG+"/.JevTestTrigger");
-  assertNotNull("Real image model must generate an offer",find("Accept screen suggestion and hand to Agent",40000));capture("01-real-image-model-hint");
-  assertEquals("No Agent task before acceptance",baseline,tasks());assertNull(find("手动触发",100));
-  click("Accept screen suggestion and hand to Agent");
-  Set<String> added=new HashSet<>();long until=System.currentTimeMillis()+45000;
-  while(System.currentTimeMillis()<until){added=tasks();added.removeAll(baseline);if(added.size()==1)break;sleep(100);}
-  assertEquals("Exactly one background task",1,added.size());
-  String task=added.iterator().next();File directory=new File(TASKS,task);JSONObject request=read(new File(directory,"request.json"));String thread=request.getString("conversationId");
-  assertNotNull("Original foreground remains visible",find("合成约饭 · 后台交互验收",3000));
-  assertNull("No main chat is opened",find("Taku 对话输入框",300));
-  assertEquals("Current main conversation is preserved",original,preference("conversation"));
-  capture("02-background-task-keeps-foreground");
-  JSONObject question=null;until=System.currentTimeMillis()+90000;
-  while(System.currentTimeMillis()<until){
-   JSONObject state=NativeSocketProbe.exchange(new JSONObject().put("op","state").put("threadId",thread));
-   JSONArray pending=state.optJSONArray("requests");
-   if(pending!=null)for(int i=0;i<pending.length();i++){JSONObject q=pending.getJSONObject(i);if(q.optString("method").equals("phone/askUser")){question=q;break;}}
-   if(question!=null)break;
-   if(new File(directory,"done").isFile())break;
-   sleep(300);
-  }
-  assertNotNull("Real Agent must request a necessary choice through ask_user",question);
-  JSONObject args=question.getJSONObject("params").getJSONObject("arguments");String title=args.getString("question");String answer=args.getJSONArray("options").getString(0);
-  node(title);node(answer);assertNull(find("Taku 对话输入框",100));capture("03-real-agent-bottom-question");
-  String choiceText=(title+" "+answer).toLowerCase(java.util.Locale.ROOT);
-  for(String forbidden:new String[]{"付款","支付","下单","Submit","发送消息","confirm booking","book now","purchase","payment","submit"})
-   assertFalse("Integration test never authorizes external commitments: "+forbidden,choiceText.contains(forbidden));
-  assertFalse("Task remains pending before answer",new File(directory,"done").isFile());
-  click(answer);String key=question.getString("key");boolean resolved=false;until=System.currentTimeMillis()+20000;
-  while(System.currentTimeMillis()<until){JSONArray pending=NativeSocketProbe.exchange(new JSONObject().put("op","state").put("threadId",thread)).getJSONArray("requests");resolved=true;
-   for(int i=0;i<pending.length();i++)if(key.equals(pending.getJSONObject(i).optString("key")))resolved=false;
-   if(resolved)break;sleep(150);
-  }
-  assertTrue("Actual user answer resolves the pending native tool call",resolved);
-  boolean resumed=false;until=System.currentTimeMillis()+30000;
-  while(System.currentTimeMillis()<until){
-   JSONObject state=NativeSocketProbe.exchange(new JSONObject().put("op","state").put("threadId",thread));
-   if(state.has("completedTurn")){resumed=true;break;}
-   JSONArray pending=state.getJSONArray("requests");
-   for(int i=0;i<pending.length();i++)if(!key.equals(pending.getJSONObject(i).optString("key")))resumed=true;
-   if(resumed)break;sleep(200);
-  }
-  assertTrue("Real Agent must continue after receiving the choice",resumed);
-  assertNotNull(find("合成约饭 · 后台交互验收",2000));assertNull(find("Taku 对话输入框",100));capture("04-answered-without-opening-chat");
-  JSONObject report=new JSONObject().put("passed",true).put("target","emulator").put("foregroundPageSynthetic",true).put("modelResponsesSimulated",false)
-   .put("taskId",task).put("threadId",thread).put("noTaskBeforeConsent",true).put("exactlyOneTask",true).put("foregroundPreserved",true)
-   .put("mainChatNotOpened",true).put("realAskUserQuestion",title).put("actualOptionChosen",answer).put("nativeToolCallResolved",true).put("agentResumedAfterAnswer",true)
-   .put("fullCrossAppCasePassed",false).put("physicalDevicePassed",false);
-  Files.write(new File(OUT,"background-acceptance.json").toPath(),report.toString(2).getBytes(java.nio.charset.StandardCharsets.UTF_8));
-  Files.write(new File(directory,"cancel").toPath(),new byte[]{49});
- }
+    private static final String PAGE = "合成约饭 · 后台交互验收";
+    private static final String ACCEPT = "Accept screen suggestion and hand to Agent";
+
+    public void testLiveBackgroundAskUser() throws Exception {
+        assertEquals("true", getParams().getString("liveAuthorized"));
+        assertEquals("AVD-only integration test", "1", command("/system/bin/getprop", "ro.kernel.qemu").trim());
+        Configurator.getInstance().setWaitForIdleTimeout(0);
+        connect();
+        Files.createDirectories(new File(OUT).toPath());
+        command("/system/bin/am", "start", "-W", "-n", "org.agentos.screenfixture/.ScreenFixtureActivity");
+        node(PAGE);
+        capture("00-synthetic-foreground");
+        JSONObject capture = access("capture/request", new JSONObject().put("manual", true));
+        JSONObject key = new JSONObject().put("captureId", capture.getString("captureId"));
+        String thread = "";
+        try {
+            AccessibilityNodeInfo consent = findExpo(ACCEPT, ACCEPT, 40000);
+            assertNotNull("Real image model must generate an offer", consent);
+            capture("01-real-image-model-hint");
+            JSONObject before = access("capture/read", key);
+            assertEquals("ready", before.getString("state"));
+            assertFalse("No Agent task before acceptance", before.has("job"));
+            assertTrue(before.getJSONObject("receipt").getBoolean("userTriggered"));
+            click(consent);
+            node("Background task accepted");
+            click("Close screen suggestions");
+            expectForeground();
+            capture("02-background-task-keeps-foreground");
+
+            JSONObject job = waitForTask(key);
+            thread = job.getString("threadId");
+            String task = job.getString("taskId");
+            JSONObject repeated = access("capture/accept", key).getJSONObject("job");
+            assertEquals("Acceptance publishes one task", task, repeated.getString("taskId"));
+            JSONObject question = waitForQuestion(thread, key);
+            JSONObject args = question.getJSONObject("params").getJSONObject("arguments");
+            String title = args.getString("question"), answer = args.getJSONArray("options").getString(0);
+            node(title);
+            node(answer);
+            assertNull("Asking does not open chat", findComposer(500));
+            capture("03-real-agent-bottom-question");
+            String choice = (title + " " + answer).toLowerCase(Locale.ROOT);
+            for (String forbidden : new String[]{"付款", "支付", "下单", "发送消息", "confirm booking", "book now", "purchase", "payment", "submit"}) {
+                assertFalse("Test never authorizes external commitments: " + forbidden, choice.contains(forbidden));
+            }
+            click(answer);
+            String request = question.getString("key");
+            boolean resolved = false, resumed = false;
+            long deadline = SystemClock.uptimeMillis() + 30000;
+            do {
+                JSONObject state = state(thread);
+                JSONArray pending = state.getJSONArray("requests");
+                boolean same = false;
+                for (int i = 0; i < pending.length(); i++) same |= request.equals(pending.getJSONObject(i).optString("key"));
+                resolved |= !same;
+                resumed |= !same && (state.has("completedTurn") || pending.length() > 0);
+                if (resumed) break;
+                sleep(200);
+            } while (SystemClock.uptimeMillis() < deadline);
+            assertTrue("Actual answer resolves the pending question", resolved);
+            assertTrue("Real Agent continues after receiving the choice", resumed);
+            expectForeground();
+            capture("04-answered-without-opening-chat");
+            JSONObject report = new JSONObject().put("passed", true).put("target", "emulator")
+                    .put("foregroundPageSynthetic", true).put("modelResponsesSimulated", false)
+                    .put("taskId", task).put("threadId", thread).put("noTaskBeforeConsent", true)
+                    .put("exactlyOneTask", true).put("foregroundPreserved", true).put("mainChatNotOpened", true)
+                    .put("realAskUserQuestion", title).put("actualOptionChosen", answer)
+                    .put("nativeToolCallResolved", true).put("agentResumedAfterAnswer", true)
+                    .put("fullCrossAppCasePassed", false).put("physicalDevicePassed", false);
+            Files.writeString(new File(OUT, "background-acceptance.json").toPath(), report.toString(2));
+        } finally {
+            JSONObject job = access("capture/dismiss", key).optJSONObject("job");
+            if (thread.isEmpty() && job != null) thread = job.optString("threadId");
+            if (!thread.isEmpty()) {
+                String active = state(thread).optString("activeTurnId");
+                if (!active.isEmpty()) try {
+                    NativeSocketProbe.rpc("turn/interrupt", new JSONObject().put("threadId", thread).put("turnId", active));
+                } catch (java.io.IOException ended) {
+                    if (!state(thread).optString("activeTurnId").isEmpty()) throw ended;
+                }
+            }
+        }
+    }
+
+    private void expectForeground() throws Exception {
+        assertNotNull("Original foreground remains visible", find(PAGE, 8000));
+        assertNull("No main chat is opened", findComposer(500));
+    }
+
+    private JSONObject waitForTask(JSONObject capture) throws Exception {
+        long deadline = SystemClock.uptimeMillis() + 45000;
+        do {
+            JSONObject job = access("capture/read", capture).getJSONObject("job");
+            if (!job.getString("taskId").isEmpty()) return job;
+            assertEquals(job.toString(), "starting", job.getString("state"));
+            sleep(200);
+        } while (SystemClock.uptimeMillis() < deadline);
+        throw new AssertionError("Accepted background task was not published");
+    }
+
+    private JSONObject waitForQuestion(String thread, JSONObject capture) throws Exception {
+        long deadline = SystemClock.uptimeMillis() + 90000;
+        do {
+            JSONArray pending = state(thread).optJSONArray("requests");
+            if (pending != null) for (int i = 0; i < pending.length(); i++) {
+                JSONObject item = pending.getJSONObject(i);
+                if ("phone/askUser".equals(item.optString("method"))) return item;
+            }
+            JSONObject job = access("capture/read", capture).getJSONObject("job");
+            assertEquals("Expected Agent to request a necessary choice: " + job, "running", job.getString("state"));
+            sleep(300);
+        } while (SystemClock.uptimeMillis() < deadline);
+        throw new AssertionError("Real Agent did not ask a question");
+    }
+
+    private JSONObject state(String thread) throws Exception {
+        return NativeSocketProbe.exchange(new JSONObject().put("op", "state").put("threadId", thread));
+    }
 }

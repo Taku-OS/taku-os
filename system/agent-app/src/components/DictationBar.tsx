@@ -1,13 +1,14 @@
 /**
  * Figma 1-5 "voice text", inside the chat's composer pill while dictating: the running
  * transcript fading out toward the waveform, the "Voice waveform · Gap 2" strip and the
- * Main/Foreground stop button (a 12 dp white rounded square). The same geometry as the home's
+ * stop button (a solid disc with a 12 dp rounded square: white with a dark square on the dark
+ * chat, inverted on the light one). The same geometry as the home's
  * Compose composer (modules/taku-home …/ui/assistant/Composer.kt, DictationText/DictationWave).
  */
 import React, {useRef} from 'react';
 import {ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
 import Svg, {Defs, LinearGradient, Rect, Stop} from 'react-native-svg';
-import {chatColors, chatType} from '../chat/chatTheme';
+import {chatColors, chatType, themedStyles} from '../chat/chatTheme';
 import {containsChinese} from '../theme';
 import {barHeights} from '../chat/dictationText';
 
@@ -56,7 +57,7 @@ export function DictationBar({transcript, placeholder, levels, finishing, stopLa
   </>;
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   textBox: {flex: 1, minWidth: 0, height: 40, justifyContent: 'center', overflow: 'hidden'},
   textContent: {alignItems: 'center', flexGrow: 1, paddingRight: 32},
   transcript: {color: chatColors.textSecondary},
@@ -65,6 +66,6 @@ const styles = StyleSheet.create({
   wave: {height: 32, flexDirection: 'row', alignItems: 'center', gap: PITCH - UNIT, flexShrink: 0},
   dot: {width: UNIT, height: UNIT, borderRadius: UNIT / 2, backgroundColor: chatColors.icon, opacity: 0.2},
   bar: {width: UNIT, borderRadius: UNIT / 2, backgroundColor: chatColors.icon},
-  stop: {width: 40, height: 40, borderRadius: 20, backgroundColor: chatColors.inverse, alignItems: 'center', justifyContent: 'center', flexShrink: 0},
-  stopGlyph: {width: 12, height: 12, borderRadius: 4, backgroundColor: chatColors.iconOnInverse},
-});
+  stop: {width: 40, height: 40, borderRadius: 20, backgroundColor: chatColors.stopFill, alignItems: 'center', justifyContent: 'center', flexShrink: 0},
+  stopGlyph: {width: 12, height: 12, borderRadius: 4, backgroundColor: chatColors.stopGlyph},
+}));

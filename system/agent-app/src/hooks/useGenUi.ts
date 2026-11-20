@@ -24,6 +24,13 @@ async function pruneObsoleteLayouts(): Promise<void> {
   } catch {}
 }
 const hydrations = new Map<string, Promise<void>>();
+/**
+ * A finished reply's saved state (edits, pin capability) can lag the reply itself: the native
+ * record appears once the reply is projected (e.g. after a pending panel update). Its content is
+ * already complete and shown, so a failed load is retried quietly instead of reported.
+ */
+const QUIET_HYDRATION_DELAYS = [1000, 3000, 8000, 20000];
+const hydrationRetries = new Map<string, number>();
 const resolutions = new Map<string, Promise<void>>();
 let inferenceQueue: Promise<unknown> = Promise.resolve();
 
@@ -102,6 +109,45 @@ async function resolveLayout(request: UiRequest, onProgress?: (view: UiView) => 
   return fallback;
 }
 
+/**
+ * What the long-press menu may offer for a card: `pin` only for a reply the agent made a panel
+ * (`mode:"panel"`, requested by the user or suited to one) that native says can be pinned;
+ * `pinned` (Open panel, Unpin) for one already on Panels. Null otherwise: no pin action at all.
+ */
+export function cardPanelActions(id: string): {pinned: boolean} | null {
+  const card = getCard(id);
+  if (!card?.hydrated || !card.pin) return null;
+  if (card.pin.panelId) return {pinned: true};
+  return card.request.mode === 'panel' && card.pin.canPin && card.pin.source ? {pinned: false} : null;
+}
+
+/** Only a committed native receipt reports Pinned; a failure leaves the previous capability. */
+export async function pinCardToPanels(id: string) {
+  const pin = getCard(id).pin;
+  if (!pin?.canPin || !pin.source) throw new Error('REPLY_INCOMPLETE');
+  const receipt = await pinPanel(pin.source);
+  updateCard(id, current => ({...current, pin: current.pin && receipt.listRevision >= current.pin.listRevision
+    ? {...current.pin, panelId: receipt.panel.panelId, listRevision: receipt.listRevision} : current.pin}));
+  return receipt.panel;
+}
+
+export async function unpinCard(id: string) {
+  const pin = getCard(id).pin;
+  if (!pin?.panelId) throw new Error('PANEL_NOT_FOUND');
+  const current = await getPanel(pin.panelId);
+  const receipt = await unpinPanel(pin.panelId, current.listRevision);
+  updateCard(id, current => ({...current, pin: current.pin && receipt.listRevision >= current.pin.listRevision
+    ? {...current.pin, panelId: null, listRevision: receipt.listRevision} : current.pin}));
+  await refresh(id);
+  return receipt;
+}
+
+export async function openPinnedCard(id: string) {
+  const pin = getCard(id).pin;
+  if (!pin?.panelId) throw new Error('PANEL_NOT_FOUND');
+  await openPanel(pin.panelId);
+}
+
 /** Native matter snapshots are the whole hydration: content, card view and pin capability together. */
 async function hydrate(id: string): Promise<void> {
   if (getCard(id).hydrated) return;
@@ -111,9 +157,23 @@ async function hydrate(id: string): Promise<void> {
     try {
       const result = await callAgent<{snapshot: unknown}>('readMatter', {matterId: id});
       if (!applyMatterSnapshot(result.snapshot)) throw new Error('SOURCE_UNAVAILABLE');
+      hydrationRetries.delete(id);
       updateCard(id, card => card.hydrationError ? {...card, hydrationError: ''} : card);
     } catch (error) {
-      updateCard(id, card => ({...card, hydrationError: errorCode(error)}));
+      const code = errorCode(error);
+      if (getCard(id).presentation.kind === 'primary' && code === 'MATTER_UNAVAILABLE') {
+        // The record is not projected yet. Nothing the user sees is missing: no error, no Retry;
+        // Pin waits until the load succeeds.
+        const attempt = hydrationRetries.get(id) ?? 0;
+        if (attempt < QUIET_HYDRATION_DELAYS.length) {
+          hydrationRetries.set(id, attempt + 1);
+          setTimeout(() => { void hydrate(id); }, QUIET_HYDRATION_DELAYS[attempt]);
+        } else hydrationRetries.delete(id); // A later mount or card action starts a fresh round.
+        return;
+      }
+      // Any other failure (a revoked lease, an unreadable snapshot) is real and gets Retry.
+      hydrationRetries.delete(id);
+      updateCard(id, card => ({...card, hydrationError: code}));
     }
   })();
   hydrations.set(id, pending);
@@ -151,7 +211,11 @@ async function compose(id: string): Promise<void> {
 async function dispatchCard(id: string, actionId: string) {
   if (!getCard(id).hydrated) {
     await hydrate(id);
-    if (!getCard(id).hydrated) return;
+    if (!getCard(id).hydrated) {
+      // The action was not sent; say so instead of doing nothing.
+      if (!getCard(id).hydrationError) updateCard(id, card => ({...card, syncError: 'MATTER_UNAVAILABLE'}));
+      return;
+    }
   }
   const current = getCard(id), action = current.request.actions.find(item => item.id === actionId);
   if (!action?.actionRef) throw new Error('CAPABILITY_UNAVAILABLE');
@@ -219,30 +283,9 @@ export function useGenUiCard(threadId: string, presentation: CardPresentation, a
       await flushCardView(id);
       await refresh(id);
     },
-    /** Only a committed native receipt reports Pinned; a failure leaves the previous capability. */
-    async pinToPanels() {
-      const pin = getCard(id).pin;
-      if (!pin?.canPin || !pin.source) throw new Error('REPLY_INCOMPLETE');
-      const receipt = await pinPanel(pin.source);
-      updateCard(id, current => ({...current, pin: current.pin && receipt.listRevision >= current.pin.listRevision
-        ? {...current.pin, panelId: receipt.panel.panelId, listRevision: receipt.listRevision} : current.pin}));
-      return receipt.panel;
-    },
-    async unpin() {
-      const pin = getCard(id).pin;
-      if (!pin?.panelId) throw new Error('PANEL_NOT_FOUND');
-      const current = await getPanel(pin.panelId);
-      const receipt = await unpinPanel(pin.panelId, current.listRevision);
-      updateCard(id, current => ({...current, pin: current.pin && receipt.listRevision >= current.pin.listRevision
-        ? {...current.pin, panelId: null, listRevision: receipt.listRevision} : current.pin}));
-      await refresh(id);
-      return receipt;
-    },
-    async openPinned() {
-      const pin = getCard(id).pin;
-      if (!pin?.panelId) throw new Error('PANEL_NOT_FOUND');
-      await openPanel(pin.panelId);
-    },
+    pinToPanels: () => pinCardToPanels(id),
+    unpin: () => unpinCard(id),
+    openPinned: () => openPinnedCard(id),
     dispatch: (actionId: string) => dispatchCard(id, actionId),
   };
 }

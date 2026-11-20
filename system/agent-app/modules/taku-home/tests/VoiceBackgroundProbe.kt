@@ -84,9 +84,10 @@ class VoiceBackgroundProbe : Instrumentation() {
       desktopHold(); main { session.cancelVoice() }
       cases += "wake permits a new gesture instead of VOICE_BUSY"
 
-      main { session.startLiveTalk(""); check(session.state.value.voiceContinuous) }
+      desktopHold()
+      main { session.keepTalking(); check(session.state.value.voiceContinuous) }
       shell("input keyevent 223"); settle(); assertStopped()
-      cases += "screen-off also stops Continuous Live Talk"
+      cases += "screen-off also stops the Live Talk handoff"
       shell("input keyevent 224"); shell("wm dismiss-keyguard"); settle()
 
       desktopHold()

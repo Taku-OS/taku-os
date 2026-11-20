@@ -1,6 +1,6 @@
 <resources>
     <string name="audio_home_title">Audio</string>
-    <string name="audio_home_subtitle">Manage voice, fal, and local reading. Opening settings never records audio or sends a cloud validation request.</string>
+    <string name="audio_home_subtitle">Manage voice services and local reading. Opening settings never records audio or sends a cloud validation request.</string>
     <string name="audio_home_settings_section">Settings</string>
     <string name="audio_home_refresh">Refresh settings</string>
     <string name="audio_home_voice_section">Voice AI</string>
@@ -10,9 +10,29 @@
     <string name="audio_home_add_key">Add fal Key</string>
     <string name="audio_home_replace_key">Replace fal Key</string>
     <string name="audio_home_remove_key">Remove fal Key</string>
-    <string name="audio_home_default_model">Default fal model</string>
-    <string name="audio_home_default_model_value">Default fal model: %1$s</string>
+    <string name="audio_home_default_model">Default translation model</string>
+    <string name="audio_home_default_model_value">Default translation model: %1$s</string>
     <string name="audio_home_fal_summary">Key status only confirms that a key is saved and readable on this device. Cloud authorization and balance have not been checked. The default model applies to the next translation; active sessions keep their current settings.</string>
+    <string name="audio_home_live_section">Live Talk</string>
+    <string name="audio_home_live_provider">Live Talk provider</string>
+    <string name="audio_home_live_provider_value">Live Talk provider: %1$s</string>
+    <string name="audio_home_live_grok">Grok Voice (fal)</string>
+    <string name="audio_home_live_gemini">Gemini Live</string>
+    <string name="audio_home_live_grok_summary">Grok Voice uses the fal Key above. Live Talk sends microphone audio and task results needed for spoken replies to fal.</string>
+    <string name="audio_home_live_grok_missing">Add a fal Key above to start Live Talk with Grok Voice.</string>
+    <string name="audio_home_live_gemini_summary">Live Talk sends microphone audio and task results needed for spoken replies to Google.</string>
+    <string name="audio_home_live_gemini_missing">Add a Gemini API key below to start Live Talk with Gemini Live.</string>
+    <string name="audio_home_live_pending">Refresh settings to see the Live Talk provider.</string>
+    <string name="audio_home_live_next">Provider changes apply the next time you open Live Talk.</string>
+    <string name="audio_home_gemini_key_pending">Refresh settings to see the Gemini API key status.</string>
+    <string name="audio_home_gemini_key_saved">Gemini API key saved · %1$s</string>
+    <string name="audio_home_gemini_key_missing">No Gemini API key configured</string>
+    <string name="audio_home_gemini_key_hint">Enter the complete Gemini API key</string>
+    <string name="audio_home_add_gemini_key">Add Gemini API key</string>
+    <string name="audio_home_replace_gemini_key">Replace Gemini API key</string>
+    <string name="audio_home_remove_gemini_key">Remove Gemini API key</string>
+    <string name="audio_home_remove_gemini_key_title">Remove Gemini API key?</string>
+    <string name="audio_home_remove_gemini_key_summary">Removing the key stops any active Gemini Live session. You need a key to start another Gemini Live session.</string>
     <string name="audio_home_features_section">Voice features</string>
     <string name="audio_home_dictation">Desktop voice input</string>
     <string name="audio_home_dictation_summary">Recognition backend, language, and fallback for the desktop voice entry</string>
@@ -46,8 +66,7 @@
     <string name="audio_home_key_privacy">Saved only in the local configuration. Saving does not check cloud authorization or make a paid request.</string>
     <string name="audio_home_cancel">Cancel</string>
     <string name="audio_home_save">Save</string>
-    <string name="audio_home_key_required">Enter the complete fal Key</string>
     <string name="audio_home_remove_key_title">Remove fal Key?</string>
-    <string name="audio_home_remove_key_summary">fal translation cannot start without a Key. Active fal sessions will stop. Your default model preference will be kept.</string>
+    <string name="audio_home_remove_key_summary">Removing the Key stops active fal sessions. Grok Voice and fal translation need a Key to start. Your default translation model stays saved.</string>
     <string name="audio_home_remove">Remove</string>
 </resources>

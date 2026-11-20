@@ -4,7 +4,7 @@
  */
 import React, {useState} from 'react';
 import {ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View} from 'react-native';
-import {chatColors, chatType} from '../chat/chatTheme';
+import {chatColors, chatType, themedStyles} from '../chat/chatTheme';
 import {chatText} from '../chat/chatText';
 import {shortDate} from '../chat/homeModel';
 import {movePanel, openPanel, renamePanel, unpinPanel, requirePanelContract} from './client';
@@ -97,7 +97,7 @@ export function PanelCatalogView({language, active, limit}: {language: Language;
   </View>;
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   root: {gap: 8},
   loading: {paddingVertical: 12, alignItems: 'center'},
   list: {borderRadius: 24, backgroundColor: chatColors.surfaceRaised, overflow: 'hidden'},
@@ -117,4 +117,4 @@ const styles = StyleSheet.create({
   secondary: {color: chatColors.textSecondary},
   tertiary: {color: chatColors.textTertiary},
   disabled: {color: chatColors.textPlaceholder},
-});
+}));

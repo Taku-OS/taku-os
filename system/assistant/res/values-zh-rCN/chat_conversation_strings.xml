@@ -1,24 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="chat_welcome">想做什么？</string>
-    <string name="chat_speaker">Tako</string>
-    <string name="chat_sent_attachment">已发送附件：%1$s</string>
-    <string name="chat_current_screen">当前屏幕</string>
-    <string name="chat_activity_count">活动 %1$d</string>
-    <string name="chat_copy_reply">复制回复</string>
-    <string name="chat_copy">复制</string>
-    <string name="chat_copy_code">复制代码</string>
-    <string name="chat_code_copied">代码已复制</string>
-    <string name="chat_plan">计划</string>
-    <string name="chat_turn_failed">本轮执行失败</string>
-    <string name="chat_turn_stopped">已停止</string>
-    <string name="chat_working">处理中…</string>
     <string name="chat_expand_activity">展开执行过程</string>
     <string name="chat_collapse_activity">收起执行过程</string>
-    <string name="chat_expand_item">展开%1$s</string>
-    <string name="chat_collapse_item">收起%1$s</string>
-    <string name="chat_commentary">过程说明</string>
-    <string name="chat_no_output">暂无执行输出</string>
     <string name="chat_tool_device_info">读取设备信息</string>
     <string name="chat_tool_observe_background">查看后台画面</string>
     <string name="chat_tool_open_app">打开应用</string>
@@ -43,7 +26,4 @@
     <string name="chat_tool_image_result">工具返回了图片</string>
     <string name="chat_tool_exit_code">退出码：%1$d</string>
     <string name="chat_tool_output_tail">…（仅显示末尾输出）</string>
-    <plurals name="chat_activity_failures">
-        <item quantity="other">%1$d 项失败</item>
-    </plurals>
 </resources>

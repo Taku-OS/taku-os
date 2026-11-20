@@ -15,9 +15,10 @@ monetary totals cannot be returned from an authoritative GUI source. Token usage
 is whatever the native App Server and Memory actually return, and a missing cost
 is not zero. Unimplemented features and upstream errors are returned as they are.
 
-The implementation does not yet cover every GUI setting and state. The
-requirement applies to new features. Built-in skills do not overwrite an existing directory when
-installed, so updating preinstalled documentation still needs a migration path.
+New features must expose the same commands and state as the GUI. The installer
+refreshes an existing `taku-open-access` skill when its contents match the
+last verified official digest. It preserves local edits and files without a
+trusted baseline. The installed skill details report why it kept a file.
 See [current status](current-status.md) for what has been verified.
 
 ## Caller trust boundary and App Permission Center
@@ -49,7 +50,7 @@ When authorized under an active mode or grant, the following surfaces are expose
 
 | Interface | Read/write surface available to any device-local caller |
 | --- | --- |
-| `org.agentos.audio.open-access` / `settings` | Reads masked credential/configuration state; can replace/remove the fal key, choose available models and change audio/dictation policy using the same validation as the GUI. It cannot read the full saved key. A caller can disrupt voice or select cloud processing using a credential it supplies; future audio may then go to that configured cloud account. |
+| `org.agentos.audio.open-access` / `settings` | Reads masked credential and configuration state. Can select the Live Talk provider and replace or remove its Gemini key or the fal key shared with translation and cloud dictation. Can choose translation models and change audio and dictation policy with the same validation as the GUI. Only the Audio Engine can retrieve the full keys. A caller can disrupt these features or change which provider or account handles future audio. |
 | `org.agentos.agent.home-feed` | Reads cards and event history, including form `values`, and invokes the same card management/actions as the GUI. Event values are not anonymized. |
 | `org.agentos.agent.home-layout` | Reads rendered widget text and invokes enabled widget controls; the receiving widget's PendingIntent may have real effects. |
 | `org.agentos.agent.home-assistant` and `AssistantOverlayActivity` | Opens UI, starts/stops voice, reads transcripts and manages the same session as the GUI. Gesture IDs order pointer events; they are not credentials. Recording continues to depend on Audio Engine availability and Android microphone policy. |

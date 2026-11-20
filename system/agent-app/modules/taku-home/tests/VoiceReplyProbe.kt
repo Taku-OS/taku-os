@@ -34,10 +34,10 @@ class VoiceReplyProbe : Instrumentation() {
         }
         override fun cancel() { state.value = VoiceState() }
     }
-    private fun api(method: String): JSONObject = JSONObject(targetContext.contentResolver.call(
-        Uri.parse("content://org.agentos.agent.home-assistant"), method, null, null)!!.getString("result")!!).also {
-        check(it.getBoolean("ok")) { it.toString() }
-    }.getJSONObject("result")
+    private fun api(method: String, authority: String = "org.agentos.agent.home-assistant", arg: String? = null): JSONObject =
+        JSONObject(targetContext.contentResolver.call(Uri.parse("content://$authority"), method, arg, null)!!.getString("result")!!).also {
+            check(it.getBoolean("ok")) { it.toString() }
+        }.getJSONObject("result")
     private fun await(timeout: Long = 8000, test: () -> Boolean) {
         val end = SystemClock.uptimeMillis() + timeout
         while (!test()) { check(SystemClock.uptimeMillis() < end) { "Timed out waiting for state" }; SystemClock.sleep(50) }
@@ -55,6 +55,14 @@ class VoiceReplyProbe : Instrumentation() {
         val original = session.voice
         try {
             check(!session.state.value.working && session.state.value.entry == EntryMode.None)
+            val liveSettings = api("settings", "org.agentos.audio.open-access", """{"action":"read"}""").getJSONObject("live")
+            val expectedProvider = liveSettings.getString("profileId")
+            val (expectedProviderName, otherProviderName) = when (expectedProvider) {
+                "fal-grok" -> "Grok Voice via fal" to "Google Gemini Live"
+                "gemini-live" -> "Google Gemini Live" to "Grok Voice via fal"
+                else -> error("Unknown Live Talk profile: $expectedProvider")
+            }
+            check(liveSettings.getBoolean("configured")) { "Configure a key for $expectedProvider in Taku Audio" }
             val text = File("/data/local/tmp/taku-voice-check-text.txt").readText().trim()
             check(text.contains("测试") && text.length < 100)
             // Replay into the Engine's existing state stream too: the native publisher is already
@@ -136,10 +144,24 @@ class VoiceReplyProbe : Instrumentation() {
                 .put("automaticSendWithoutTap", true).put("retainedHoldPage", true).put("nativeReply", true).put("sentOnce", true)
             // Keep talking remains usable after automatic send, in this same conversation.
             report.put("stage", "keep-talking")
-            api("assistant/voice-continue")
+            val handoff = api("assistant/voice-continue")
+            check(handoff.getJSONObject("liveTalk").get("provider") == JSONObject.NULL)
+            val handoffDisclosure = handoff.getString("liveTalkDisclosure")
+            check(expectedProviderName in handoffDisclosure && otherProviderName in handoffDisclosure) { handoffDisclosure }
             await { session.state.value.entry == EntryMode.None && session.state.value.voiceContinuous }
             check(session.state.value.threadId == replied.threadId)
-            report.put("keepTalkingUsesSameThread", true).put("passed", true)
+            await(30_000) {
+                val live = api("assistant/get").getJSONObject("liveTalk")
+                check(live.isNull("error")) { live.toString() }
+                live.getString("lifecycle") == "active"
+            }
+            val active = api("assistant/get")
+            val live = active.getJSONObject("liveTalk")
+            check(live.getString("threadId") == replied.threadId)
+            check(live.getString("provider") == expectedProvider && live.getString("sessionId").isNotBlank()) { live.toString() }
+            val disclosure = active.getString("liveTalkDisclosure")
+            check(expectedProviderName in disclosure && otherProviderName !in disclosure) { disclosure }
+            report.put("provider", expectedProvider).put("keepTalkingUsesSameThread", true).put("passed", true)
         } catch (e: Throwable) {
             report.put("error", e.toString()).put("entry", session.state.value.entry.name)
                 .put("voicePhase", session.voice.state.value.phase.name)

@@ -232,6 +232,15 @@ class HomeController(val context: Context, val repo: FeedRepository, val pool: R
   /** Long-press on empty home space: the layout menu at this root position. */
   var homeMenu by mutableStateOf<Offset?>(null)
     private set
+
+  /**
+   * Something Back would close is open: a card, Home or icon menu, a folder, Home or pin editing,
+   * a removal, hidden-apps or widget dialog. Otherwise the desktop is being browsed, and Home
+   * takes the side edges from the back gesture (HomeActivity) so they swipe between pages.
+   */
+  val backTargetOpen: Boolean
+    get() = menu != null || homeMenu != null || drag.menu != null || openFolderId != null || editingHome || editingPins ||
+      removingApp != null || showingHiddenApps || showingWidgetPicker || resizingWidget != null
   private val catalog = org.agentos.agent.home.apps.AppCatalog.get(context)
   private val layout = org.agentos.agent.home.apps.HomeLayoutRepository.get(context)
 
@@ -316,11 +325,11 @@ class HomeController(val context: Context, val repo: FeedRepository, val pool: R
 
   fun askTaku(cardId: String) {
     closeMenu()
-    guard { FeedActions.askAbout(context, cardId, FeedOrigin.GUI) }
+    scope.launch { guard { FeedActions.askAbout(context, cardId, FeedOrigin.GUI) } }
   }
 
   fun pinAction(cardId: String, actionId: String) {
-    guard { FeedActions.dispatch(context, cardId, actionId, org.json.JSONObject(), FeedOrigin.GUI) }
+    scope.launch { guard { FeedActions.dispatch(context, cardId, actionId, org.json.JSONObject(), FeedOrigin.GUI) } }
   }
 
   // ---- AI entry ----------------------------------------------------------------------

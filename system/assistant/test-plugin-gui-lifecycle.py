@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Use actual GUI controls and confirm state via the CLI on the lifecycle AVD."""
-import json, pathlib, re, subprocess, sys, time, xml.etree.ElementTree as ET
+import json, os, pathlib, re, subprocess, sys, time, xml.etree.ElementTree as ET
 
 if len(sys.argv) != 2 or not sys.argv[1].startswith('emulator-'):
     raise SystemExit('usage: test-plugin-gui-lifecycle.py EMULATOR_SERIAL')
@@ -23,26 +23,40 @@ def catalog():
 
 def nodes():
     result = adb('shell', 'uiautomator', 'dump', '/data/local/tmp/taku-plugin-gui.xml', stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
-    if result.returncode: return []
+    if result.returncode: return None
     try:
-        return list(ET.fromstring(adb('exec-out', 'cat', '/data/local/tmp/taku-plugin-gui.xml', capture_output=True).stdout).iter('node'))
+        return ET.fromstring(adb('exec-out', 'cat', '/data/local/tmp/taku-plugin-gui.xml', capture_output=True).stdout)
     except ET.ParseError:
-        return []
+        return None
 
-def wait(label, timeout=45):
-    deadline = time.monotonic() + timeout
+def bounds(node):
+    match = re.fullmatch(r'\[(\d+),(\d+)\]\[(\d+),(\d+)\]', node.get('bounds', ''))
+    if not match: raise RuntimeError('Accessibility node has no bounds')
+    return tuple(map(int, match.groups()))
+
+def wait(label, state=None, scroll=False):
+    deadline = time.monotonic() + 45
     while time.monotonic() < deadline:
-        current = nodes()
-        for node in current:
-            if node.get('text') == label or node.get('content-desc') == label:
-                return node
+        tree = nodes()
+        if tree is None: continue
+        for node in tree.iter('node'):
+            if state is not None and not any(child.get('text') == state for child in node): continue
+            candidates = node.iter('node') if state is not None else (node,)
+            for child in candidates:
+                if label in (child.get('text'), child.get('content-desc'), child.get('resource-id')):
+                    return child
+        if scroll:
+            container = next((node for node in tree.iter('node') if node.get('scrollable') == 'true'), None)
+            if container is not None:
+                left, top, right, bottom = bounds(container)
+                x = (left + right) // 2
+                inset = (bottom - top) // 5
+                adb('shell', 'input', 'swipe', str(x), str(bottom - inset), str(x), str(top + inset), '350')
         time.sleep(.5)
-    raise RuntimeError('GUI did not show ' + label + ': ' + repr([(n.get('text'), n.get('content-desc')) for n in current]))
+    raise RuntimeError(f'GUI did not show {label!r} in fixture state {state!r}')
 
-def tap(label):
-    bounds = re.fullmatch(r'\[(\d+),(\d+)\]\[(\d+),(\d+)\]', wait(label).get('bounds', ''))
-    if not bounds: raise RuntimeError('no bounds for ' + label)
-    x1, y1, x2, y2 = map(int, bounds.groups())
+def tap(label, state=None):
+    x1, y1, x2, y2 = bounds(wait(label, state, scroll=state is not None))
     adb('shell', 'input', 'tap', str((x1+x2)//2), str((y1+y2)//2))
 
 def wait_catalog(installed, enabled=None):
@@ -53,7 +67,11 @@ def wait_catalog(installed, enabled=None):
         time.sleep(.5)
     raise RuntimeError('CLI state did not follow GUI: ' + repr(row))
 
-if adb('emu', 'avd', 'name', text=True, capture_output=True).stdout.splitlines()[0].strip() != 'Taku_SkillsLifecycle_20261030':
+def fixture_status(label, row):
+    version = row.get('localVersion')
+    return f'taku-test-marketplace · {label}' + (f' · {version}' if version else '')
+
+if adb('emu', 'avd', 'name', text=True, capture_output=True).stdout.splitlines()[0].strip() != os.environ.get('TAKU_AVD', 'Taku_SkillsLifecycle_20261030'):
     raise RuntimeError('wrong AVD')
 if adb('shell', 'test', '-e', market, check=False).returncode == 0:
     raise RuntimeError('workspace marketplace already exists')
@@ -66,26 +84,36 @@ for source in fixture.rglob('*'):
 installed = False
 try:
     adb('push', str(root / 'examples/codex-plugin-lifecycle/.agents/plugins/marketplace.json'), market, stdout=subprocess.DEVNULL)
-    if catalog()['installed']: raise RuntimeError('fixture already installed')
-    adb('shell', 'am', 'force-stop', 'org.agentos.assistant')
-    adb('shell', 'am', 'start', '-n', 'org.agentos.assistant/.PanelActivity', stdout=subprocess.DEVNULL)
-    for label in ('Conversation tools', 'More options', 'Capabilities', 'Extension connections', 'Plugins and marketplace', 'taku-local-example', 'Install plugin', 'Confirm Install'):
-        tap(label)
+    row = catalog()
+    if row['installed']: raise RuntimeError('fixture already installed')
+    available = fixture_status('Available to install', row)
+    adb('shell', 'am', 'start', '-S', '-W', '-a', 'android.intent.action.VIEW', '-n', 'org.agentos.agent/.MainActivity',
+        '-d', "'taku-agent:///assistant-management?section=codex-plugins'", stdout=subprocess.DEVNULL)
+    wait('Codex plugins')
+    tap('Install plugin', available)
+    wait('Install Codex plugin?')
+    tap('android:id/button1')
     installed = True
     wait_catalog(True, True)
-    wait('Plugins and marketplace')
+    row = catalog()
+    enabled = fixture_status('Enabled', row)
+    disabled = fixture_status('Disabled', row)
     print('PASS GUI install confirmed through CLI', flush=True)
-    for label in ('taku-local-example', 'Disable plugin'): tap(label)
+    tap('Disable plugin', enabled)
     wait_catalog(True, False)
-    wait('Plugins and marketplace')
     print('PASS GUI disable confirmed through CLI', flush=True)
-    for label in ('taku-local-example', 'Enable plugin'): tap(label)
+    tap('Enable plugin', disabled)
     wait_catalog(True, True)
-    wait('Plugins and marketplace')
     print('PASS GUI enable confirmed through CLI', flush=True)
-    for label in ('taku-local-example', 'Uninstall plugin', 'Confirm uninstall'): tap(label)
+    cli('disable', plugin)
+    wait(disabled, scroll=True)
+    cli('enable', plugin)
+    wait(enabled, scroll=True)
+    print('PASS open Expo page follows CLI state changes', flush=True)
+    tap('Uninstall plugin', enabled)
+    wait('Uninstall Codex plugin?')
+    tap('android:id/button1')
     wait_catalog(False); installed = False
-    wait('Plugins and marketplace')
     print('PASS GUI uninstall confirmed through CLI', flush=True)
 finally:
     if installed:

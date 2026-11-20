@@ -1,12 +1,12 @@
 <resources>
-    <string name="audio_dictation_title">桌面语音输入</string>
-    <string name="audio_dictation_subtitle">作用于 AssistantEntry 长按与桌面输入框麦克风。打开本页不会录音，也不会向云端发送请求。</string>
+    <string name="audio_dictation_title">助手语音输入</string>
+    <string name="audio_dictation_subtitle">桌面语音和实时语音使用本页所有设置。聊天输入框麦克风使用已保存的语言，并始终在本机识别。打开本页不会录音，也不会向云端发送请求。</string>
     <string name="audio_dictation_settings_section">设置</string>
     <string name="audio_dictation_refresh">刷新设置</string>
     <string name="audio_dictation_voice_section">语音 AI</string>
     <string name="audio_dictation_enable_voice">启用语音 AI</string>
     <string name="audio_dictation_enable_summary">与 Taku Audio 首页使用同一个总开关。关闭会停止当前由系统管理的语音会话。</string>
-    <string name="audio_dictation_preferences_section">桌面识别</string>
+    <string name="audio_dictation_preferences_section">语音识别</string>
     <string name="audio_dictation_primary">识别后端</string>
     <string name="audio_dictation_zipformer">本地 Zipformer</string>
     <string name="audio_dictation_whisper">fal Whisper</string>

@@ -84,6 +84,8 @@ def validate_saved(archive, report, handoff, lock, descriptor, run_sha, entries,
                 'bin/taku-runtime-start', 'etc/init/taku-magpie.rc', 'etc/init/taku-runtime.rc', 'bin/magpie-runtime'}
     if component_versions['assistant'] >= 73:
         required |= {'framework/agentos-virtual-display.jar', 'bin/phone-display', 'priv-app/TakuSurfaces/TakuSurfaces.apk'}
+    if component_versions['assistant'] >= 79:
+        required.add('app/TakuAgent/TakuAgent.apk')
     require(set(components) == required, 'Runtime component proof set differs')
     for name, item in components.items():
         path = 'SYSTEM_EXT/' + name
@@ -172,8 +174,13 @@ def verify(root, archive, results, run_input_bytes):
         with tempfile.TemporaryDirectory(prefix='system-ai-manifest-', dir=results) as folder:
             path = pathlib.Path(folder) / 'component.apk'; path.write_bytes(raw)
             return tool('aapt2', 'dump', 'xmltree', path, '--file', 'AndroidManifest.xml')
+    def apk_signature(raw):
+        with tempfile.TemporaryDirectory(prefix='system-ai-signature-', dir=results) as folder:
+            path = pathlib.Path(folder) / 'component.apk'
+            path.write_bytes(raw)
+            return tool('apksigner', 'verify', '--print-certs', path)
     gate = runpy.run_path(str(root / 'system/ai/verify-rom.py'), run_name='actual_baked_system_ai')
-    report = gate['verify'](archive, root, apk_badging)
+    report = gate['verify'](archive, root, apk_badging, apk_manifest, apk_signature)
     policy = runpy.run_path(str(root / 'image/privapp_permissions.py'))
     memory_badging = apk_badging(archive.read(policy['APK']))
     requested = policy['requested_permissions'](memory_badging)

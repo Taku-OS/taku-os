@@ -10,18 +10,12 @@ import android.graphics.RectF
 import android.graphics.Region
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
-import android.view.MotionEvent
 import android.view.SurfaceView
 import android.view.View
 import android.view.ViewTreeObserver
 import android.view.WindowInsets
 import android.view.WindowManager
-import android.widget.Button
 import android.widget.FrameLayout
-import android.widget.LinearLayout
-import android.widget.ProgressBar
-import android.widget.ScrollView
-import android.widget.TextView
 import android.window.OnBackInvokedCallback
 import android.window.OnBackInvokedDispatcher
 import org.json.JSONObject
@@ -43,19 +37,15 @@ internal class IslandCardWindow(context: Context, initial: IslandActivity, cover
     private var activity = initial
     private val nativeAssistant = choices == null && initial.category == "assistant"
     private val nativeView = if (nativeAssistant) IslandAssistantCard(windowContext, command, collapse) else null
+    /** Every other activity (and the activity chooser) is drawn by the native template card. */
+    private val templateView = if (nativeAssistant) null else IslandTemplateCard(windowContext, command, collapse)
+    private val cardWidth = minOf(dp(420), metrics.bounds.width() - dp(16))
     private val fullCard = nativeAssistant || choices == null && initial.payload.getJSONObject("expanded").optJSONObject("content")?.optString("layout") == "card"
     private val root = FrameLayout(windowContext).apply {
-        background = GradientDrawable().apply { setColor(0xeb000000.toInt()); cornerRadius = dp(40).toFloat() }
+        background = GradientDrawable().apply { setColor(IslandStyle.CARD); cornerRadius = dp(IslandStyle.CORNER_DP).toFloat() }
         clipToOutline = true
         importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
     }
-    private val fallback = LinearLayout(windowContext).apply { orientation = LinearLayout.VERTICAL }
-    private val header = LinearLayout(windowContext).apply { gravity = Gravity.CENTER_VERTICAL }
-    private val title = TextView(windowContext).apply { setTextColor(Color.WHITE); textSize = 18f; maxLines = 2 }
-    private val body = FrameLayout(windowContext)
-    private val template = LinearLayout(windowContext).apply { orientation = LinearLayout.VERTICAL }
-    private val scroll = ScrollView(windowContext).apply { addView(template) }
-    private val actions = LinearLayout(windowContext)
     private var host: IslandContentConnection? = null
     private var hostView: SurfaceView? = null
     private var hostIdentity: String? = null
@@ -70,7 +60,7 @@ internal class IslandCardWindow(context: Context, initial: IslandActivity, cover
     private var availableHeight = Int.MAX_VALUE
     private var heightCap = finalHeight
     private val params = WindowManager.LayoutParams(
-        minOf(dp(420), metrics.bounds.width() - dp(16)), if (nativeAssistant) finalHeight else dp(48),
+        cardWidth, if (nativeAssistant) finalHeight else dp(48),
         WindowManager.LayoutParams.TYPE_STATUS_BAR_ADDITIONAL, flags(), PixelFormat.TRANSLUCENT,
     ).apply {
         title = "TakuIsland"
@@ -88,28 +78,7 @@ internal class IslandCardWindow(context: Context, initial: IslandActivity, cover
     }
 
     init {
-        header.addView(title, LinearLayout.LayoutParams(0, -2, 1f))
-        header.addView(Button(windowContext).apply {
-            text = "⌃"
-            contentDescription = "Collapse island"
-            setOnClickListener { collapse("handle") }
-        }, LinearLayout.LayoutParams(dp(48), dp(48)))
-        var startY = 0f
-        header.setOnTouchListener { _, event ->
-            when (event.actionMasked) {
-                MotionEvent.ACTION_DOWN -> { startY = event.y; true }
-                MotionEvent.ACTION_UP -> {
-                    if (startY - event.y > dp(24)) collapse("swipe_up")
-                    true
-                }
-                else -> true
-            }
-        }
-        body.addView(scroll, FrameLayout.LayoutParams(-1, -1))
-        fallback.addView(header, LinearLayout.LayoutParams(-1, -2))
-        fallback.addView(body, LinearLayout.LayoutParams(-1, 0, 1f))
-        fallback.addView(actions, LinearLayout.LayoutParams(-1, -2))
-        root.addView(nativeView ?: fallback, FrameLayout.LayoutParams(-1, -1))
+        root.addView(nativeView ?: templateView, FrameLayout.LayoutParams(-1, -1))
         root.setOnApplyWindowInsetsListener { _, insets ->
             if (insets.isVisible(WindowInsets.Type.ime()) && cover) {
                 cover = false
@@ -118,7 +87,6 @@ internal class IslandCardWindow(context: Context, initial: IslandActivity, cover
                 params.y = topInset + dp(8)
                 backDispatcher?.unregisterOnBackInvokedCallback(back)
                 backDispatcher = null
-                updatePadding()
             }
             if (attached) {
                 val available = metrics.bounds.height() - insets.getInsets(WindowInsets.Type.ime()).bottom - params.y - dp(8)
@@ -133,17 +101,12 @@ internal class IslandCardWindow(context: Context, initial: IslandActivity, cover
             }
             insets
         }
-        updatePadding()
         update(initial)
     }
 
     private fun flags(): Int = WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
         WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
         WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
-
-    private fun updatePadding() {
-        fallback.setPadding(dp(16), dp(16), dp(16), dp(16))
-    }
 
     fun show() {
         root.viewTreeObserver.addOnComputeInternalInsetsListener(insetsListener)
@@ -168,7 +131,12 @@ internal class IslandCardWindow(context: Context, initial: IslandActivity, cover
     /** Content snapshots update views; they do not restart the shell's geometry animation. */
     fun update(next: IslandActivity) {
         activity = next
-        title.text = next.title
+        val template = templateView
+        when {
+            nativeView != null -> nativeView.update(next)
+            choices != null -> template!!.showChoices(choices)
+            else -> template!!.update(next)
+        }
         val wantedHeight = desiredHeight(next)
         if (wantedHeight != finalHeight) {
             finalHeight = wantedHeight
@@ -180,65 +148,8 @@ internal class IslandCardWindow(context: Context, initial: IslandActivity, cover
                 changed()
             }
         }
-        if (nativeView != null) { nativeView.update(next); return }
-        template.removeAllViews()
-        if (choices != null) {
-            title.text = "Activities"
-            choices.forEach { choice -> template.addView(Button(windowContext).apply {
-                text = choice.title
-                setOnClickListener { command("expand", choice.key, null) }
-            }) }
-            actions.removeAllViews()
-            return
-        }
-        val currentTemplate = ++templateGeneration
+        if (template == null || choices != null) return
         val expanded = next.payload.getJSONObject("expanded")
-        expanded.optString("pic").takeIf { it.isNotEmpty() }?.let { key ->
-            next.pics[key]?.let { icon ->
-                val picture = android.widget.ImageView(windowContext).apply {
-                    scaleType = android.widget.ImageView.ScaleType.CENTER_INSIDE
-                    contentDescription = next.title
-                }
-                template.addView(picture, LinearLayout.LayoutParams(-1, dp(64)))
-                icon.loadDrawableAsync(windowContext, { drawable ->
-                    if (currentTemplate == templateGeneration) picture.setImageDrawable(drawable)
-                }, android.os.Handler(android.os.Looper.getMainLooper()))
-            }
-        }
-        if (next.body.isNotBlank()) template.addView(text(next.body))
-        expanded.optJSONArray("steps")?.let { steps ->
-            for (index in 0 until steps.length()) {
-                val step = steps.getJSONObject(index)
-                template.addView(text((if (step.optBoolean("running")) "• " else "✓ ") + step.getString("text")))
-            }
-        }
-        expanded.optJSONObject("progress")?.let { progress ->
-            template.addView(ProgressBar(windowContext, null, android.R.attr.progressBarStyleHorizontal).apply {
-                isIndeterminate = !progress.has("value")
-                max = 1000
-                this.progress = (progress.optDouble("value", 0.0) * 1000).toInt()
-                contentDescription = if (isIndeterminate) "In progress" else "${this.progress / 10}%"
-            }, LinearLayout.LayoutParams(-1, dp(12)))
-        }
-        actions.removeAllViews()
-        next.actions.forEach { (id, action) ->
-            actions.addView(Button(windowContext).apply {
-                text = action.title
-                if (expanded.optString("primaryAction") == id) setTypeface(typeface, android.graphics.Typeface.BOLD)
-                maxLines = 2
-                setOnClickListener { command("action", next.key, JSONObject().put("id", id).toString()) }
-            }, LinearLayout.LayoutParams(0, -2, 1f))
-        }
-        next.nativeActions.forEach { (id, action) ->
-            actions.addView(Button(windowContext).apply {
-                text = action.title
-                setOnClickListener { command("action", next.key, JSONObject().put("id", id).toString()) }
-            })
-        }
-        if (actions.childCount == 0 && next.openIntent != null) actions.addView(Button(windowContext).apply {
-            text = "Open"
-            setOnClickListener { command("open", next.key, null) }
-        })
         val identity = next.contentService?.flattenToString()?.plus(":" + expanded.optJSONObject("content")?.optString("token"))
         if (identity != hostIdentity) {
             host?.close()
@@ -247,20 +158,20 @@ internal class IslandCardWindow(context: Context, initial: IslandActivity, cover
             hostView = null
             hostIdentity = identity
             richReady = false
-            scroll.visibility = View.VISIBLE
-            fallback.visibility = View.VISIBLE
+            template.showTemplateText(true)
+            template.visibility = View.VISIBLE
             if (identity != null) {
                 val surface = SurfaceView(windowContext).apply {
                     alpha = 0f
                     holder.setFormat(PixelFormat.TRANSLUCENT)
                 }
-                (if (fullCard) root else body).addView(surface, FrameLayout.LayoutParams(-1, -1))
+                (if (fullCard) root else template.bodyHost).addView(surface, FrameLayout.LayoutParams(-1, -1))
                 hostView = surface
                 host = IslandContentConnection(windowContext, next, surface) { ready ->
                     richReady = ready
-                    if (fullCard) (root.background as GradientDrawable).setColor(if (ready) Color.TRANSPARENT else 0xeb000000.toInt())
-                    if (fullCard) fallback.visibility = if (ready) View.INVISIBLE else View.VISIBLE
-                    else scroll.visibility = if (ready) View.INVISIBLE else View.VISIBLE
+                    if (fullCard) (root.background as GradientDrawable).setColor(if (ready) Color.TRANSPARENT else IslandStyle.CARD)
+                    if (fullCard) template.visibility = if (ready) View.INVISIBLE else View.VISIBLE
+                    else template.showTemplateText(!ready)
                     surface.alpha = if (ready) 1f else 0f
                 }.also { it.start() }
             }
@@ -269,8 +180,9 @@ internal class IslandCardWindow(context: Context, initial: IslandActivity, cover
 
     fun state(): JSONObject = JSONObject().put("key", activity.key).put("windowType", params.type)
         .put("cover", cover).put("focusable", cover && !fullCard).put("layout", if (nativeAssistant) "native-assistant" else if (fullCard) "card" else "body").put("richReady", richReady)
-        .put("renderer", if (nativeAssistant) "systemui-native" else "template").put("nativeReady", nativeAssistant && attached)
+        .put("renderer", if (richReady) "remote-surface" else "systemui-native").put("nativeReady", attached && !richReady)
         .put("assistant", nativeView?.state() ?: JSONObject.NULL)
+        .put("template", templateView?.state() ?: JSONObject.NULL)
         .put("width", root.width).put("height", root.height).put("top", params.y)
         .put("touchRegion", region.toString()).put("outsideTapCollapses", false)
 
@@ -287,16 +199,12 @@ internal class IslandCardWindow(context: Context, initial: IslandActivity, cover
         if (attached) { attached = false; wm.removeViewImmediate(root) }
     }
 
-    private fun text(value: String) = TextView(windowContext).apply {
-        text = value
-        setTextColor(Color.WHITE)
-        textSize = 15f
-        setPadding(0, dp(3), 0, dp(3))
-    }
     private fun desiredHeight(item: IslandActivity): Int {
-        if (nativeView != null) return minOf(nativeView.desiredHeight(item, minOf(dp(420), metrics.bounds.width() - dp(16))), metrics.bounds.height() / 3)
-        val requested = if (fullCard) item.payload.getJSONObject("expanded").optJSONObject("content")?.optInt("heightDp", 300) ?: 300 else 340
-        return minOf(dp(requested.coerceIn(96, 340)), metrics.bounds.height() / 3)
+        val cap = metrics.bounds.height() / 3
+        if (nativeView != null) return minOf(nativeView.desiredHeight(item, cardWidth), cap)
+        // A remote full card asks for its height; everything else follows its native content.
+        val requested = if (fullCard && choices == null) item.payload.getJSONObject("expanded").optJSONObject("content")?.optInt("heightDp", 300) else null
+        return minOf(requested?.let { dp(it.coerceIn(96, 340)) } ?: templateView!!.heightFor(cardWidth), cap)
     }
     private fun dp(value: Int) = (value * density).toInt()
 }

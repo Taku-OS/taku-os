@@ -15,6 +15,7 @@ mkdir -p "$task_out/classes" "$task_out/generated"
  system/assistant/tests/workspace-ui-host/android/content/Context.java \
  system/assistant/tests/workspace-ui-host/android/os/*.java \
  system/assistant/tests/workspace-ui-host/org/agentos/assistant/*.java \
+ system/assistant/src/org/agentos/assistant/NativeToolPresentation.java \
  system/assistant/src/org/agentos/assistant/WorkspaceUi.java \
  system/assistant/src/org/agentos/assistant/WorkspaceExecutionRequest.java
 "$JDK/bin/java" -cp "$task_out/classes:$task_json:$ANDROID_JAR" org.agentos.assistant.WorkspaceUiLogicTest "$@" | tee "$task_out/result.txt"

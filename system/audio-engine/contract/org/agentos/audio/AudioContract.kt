@@ -4,10 +4,10 @@ package org.agentos.audio
 /** Device-independent session semantics. PCM and credentials stay behind the driver. */
 enum class AudioPhase { Preparing, Ready, Running, Draining, Stopping, Closed }
 data class AudioRequest @JvmOverloads constructor(val purpose: String = "DICTATION", val language: String = "zh-CN",
-    val profileId: String = if(purpose=="LEGACY_REALTIME") "native-realtime" else if(purpose=="SPEAK") "kokoro" else if(purpose in listOf("MEDIA_TRANSLATE","CALL_TRANSLATE")) "fal-kotoba" else "zipformer", val voiceId: String = "", val speed: Float = 1f,
+    val profileId: String = if(purpose=="LIVE_TALK") AudioProfiles.LIVE_GROK else if(purpose=="LEGACY_REALTIME") "native-realtime" else if(purpose=="SPEAK") "kokoro" else if(purpose in listOf("MEDIA_TRANSLATE","CALL_TRANSLATE")) "fal-kotoba" else "zipformer", val voiceId: String = "", val speed: Float = 1f,
     val targetLanguage: String = "zh-CN", val targetPackage: String = "", val output: String = "CAPTIONS", val originalAudio: String = "KEEP",
     val outgoingProfileId: String = profileId, val outgoingVoiceId: String = "", val outgoingSpeed: Float = 1f,
-    val interruptible: Boolean = false)
+    val interruptible: Boolean = false, val muted: Boolean = false, val history: List<LiveHistoryTurn> = emptyList())
 data class AudioEvent(val sessionId: String, val sequence: Long, val phase: AudioPhase, val type: String,
     val text: String = "", val segment: Long = 0, val final: Boolean = false,
     val reason: String = "", val completion: String = "unknown", val restored: Boolean = false,
@@ -15,7 +15,24 @@ data class AudioEvent(val sessionId: String, val sequence: Long, val phase: Audi
     val sampleRate: Int = 0, val nonSilent: Boolean = false, val monotonicMs: Long = 0,
     val textKind: String = "source", val direction: String = "input",
     val dictation: DictationSessionMetadata? = null, val profileId: String = "", val language: String = "",
-    val drainDeadlineMonotonicMs: Long? = null, val level: Float = 0f)
+    val drainDeadlineMonotonicMs: Long? = null, val level: Float = 0f, val live: LiveAudioEvent? = null)
+sealed interface LiveAudioEvent {
+    data class Input(val itemId: String, val text: String, val final: Boolean) : LiveAudioEvent
+    data class Output(val responseId: String, val text: String, val final: Boolean) : LiveAudioEvent
+    data class Playback(val responseId: String, val state: String) : LiveAudioEvent
+    data class ResponseDone(val responseId: String, val itemId: String) : LiveAudioEvent
+    data class Tool(val callId: String, val itemId: String, val action: String, val text: String) : LiveAudioEvent
+    data class Mic(val muted: Boolean) : LiveAudioEvent
+    data class Speech(val active: Boolean) : LiveAudioEvent
+    data class TaskResult(val offerId: String, val sent: Boolean) : LiveAudioEvent
+}
+sealed interface LiveAudioCommand {
+    data class Mute(val muted: Boolean) : LiveAudioCommand
+    data class Text(val text: String) : LiveAudioCommand
+    data class ToolResult(val callId: String, val result: String) : LiveAudioCommand
+    data class Result(val offerId: String, val afterInput: String, val text: String) : LiveAudioCommand
+}
+data class LiveHistoryTurn(val role: String, val text: String)
 data class DictationBackend(
     val profileId: String,
     val languages: List<String>,
@@ -50,12 +67,14 @@ interface AudioDriver {
         fun playback(index: Long, state: String, frames: Long, rate: Int, nonSilent: Boolean) {}
         fun directionalPlayback(direction: String,index: Long,state: String,frames: Long,rate: Int,nonSilent: Boolean){playback(index,state,frames,rate,nonSilent)}
         fun interrupted() {}
+        fun live(event: LiveAudioEvent) {}
         fun completed()
         fun failed(code: String)
         fun released(restored: Boolean = true)
     }
     fun start(sink: Sink)
     fun submit(index: Long, text: String) { throw AudioFailure("UNEXPECTED_INPUT", "This session does not accept text") }
+    fun live(command: LiveAudioCommand) { throw AudioFailure("UNEXPECTED_INPUT", "This session does not accept live commands") }
     fun finish()
     fun drainTimeoutMs(): Long = 5000
     /** Request cancellation; Sink.released confirms native resources are no longer in use. */
@@ -64,6 +83,9 @@ interface AudioDriver {
 
 /** Implemented cloud profiles and the voices exposed by this build. */
 object AudioProfiles {
+    const val LIVE_GROK = "fal-grok"
+    const val LIVE_GEMINI = "gemini-live"
+    val live = setOf(LIVE_GROK, LIVE_GEMINI)
     val dictation: Map<String,DictationBackend> = linkedMapOf(
         "zipformer" to DictationBackend("zipformer",listOf("zh-CN","en-US"),"LOCAL",true,false,null,5000),
         "fal-whisper" to DictationBackend("fal-whisper",listOf("zh-CN","en-US"),"CLOUD_AUDIO",false,true,60000,100000),

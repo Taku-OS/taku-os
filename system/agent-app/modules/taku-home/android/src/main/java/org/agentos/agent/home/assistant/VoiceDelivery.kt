@@ -2,7 +2,7 @@ package org.agentos.agent.home.assistant
 
 import org.json.JSONObject
 
-internal enum class VoiceDestination { AwaitGesture, Draft, Submit }
+internal enum class VoiceDestination { AwaitGesture, Draft, Submit, Live }
 
 internal enum class VoiceDeliveryState { Pending, Consumed, Retained, Revoked }
 
@@ -21,6 +21,7 @@ internal sealed interface VoiceEffect {
   data object None : VoiceEffect
   data class Draft(val text: String) : VoiceEffect
   data class Send(val text: String) : VoiceEffect
+  data class Live(val operationId: Long, val text: String) : VoiceEffect
   data class Retained(val result: RetainedVoiceResult) : VoiceEffect
   data class Failed(val code: String) : VoiceEffect
   data object CloseEntry : VoiceEffect
@@ -50,6 +51,12 @@ internal class VoiceDeliveryMachine(private val maxText: Int) {
   fun aim(destination: VoiceDestination) {
     delivery?.takeIf { it.state == VoiceDeliveryState.Pending && it.destination == VoiceDestination.AwaitGesture }?.destination = destination
   }
+  fun handoff(): Long? {
+    val record = delivery?.takeIf { it.state == VoiceDeliveryState.Pending && it.destination != VoiceDestination.Draft } ?: return null
+    record.destination = VoiceDestination.Live
+    return record.operationId
+  }
+
 
   /** Revokes now and returns the operation the caller must clean up, if there was one. */
   fun revoke(): Long? {
@@ -78,10 +85,15 @@ internal class VoiceDeliveryMachine(private val maxText: Int) {
       }
       is VoiceOutcome.Cancelled -> {
         record.state = VoiceDeliveryState.Consumed
-        if (voice.target == VoiceTarget.Hold) VoiceEffect.CloseEntry else VoiceEffect.None
+        if (record.destination == VoiceDestination.Live) VoiceEffect.Live(record.operationId, "")
+        else if (voice.target == VoiceTarget.Hold) VoiceEffect.CloseEntry else VoiceEffect.None
       }
       is VoiceOutcome.Success -> when (record.destination) {
         VoiceDestination.AwaitGesture -> VoiceEffect.None
+        VoiceDestination.Live -> {
+          record.state = VoiceDeliveryState.Consumed
+          VoiceEffect.Live(record.operationId, outcome.text)
+        }
         VoiceDestination.Submit -> {
           record.state = VoiceDeliveryState.Consumed
           if (outcome.text.isBlank()) VoiceEffect.CloseEntry else VoiceEffect.Send(outcome.text)

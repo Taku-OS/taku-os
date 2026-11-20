@@ -4,6 +4,7 @@ import {
   Alert,
   AppState,
   BackHandler,
+  KeyboardAvoidingView,
   Modal,
   Pressable,
   ScrollView,
@@ -20,11 +21,13 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useLocales } from "expo-localization";
 import { callAgent, closeAgent } from "../native/agent";
 import { languageFor } from "../i18n";
+import { accountTextFor, type AccountText } from "../i18n/accounts";
 import { permissionTextFor } from "../i18n/permissions";
+import { routingTextFor } from "../i18n/routing";
 import {
   systemAiTextFor,
   type SystemAiScene,
@@ -36,6 +39,10 @@ import {
   type AppPermissionsSnapshot,
 } from "../model/appPermissions";
 import { createNativeAppPermissionsRepository } from "../model/appPermissionsRepository";
+import { ChatGptAccount, OpenRouterKeys } from "../settings/AccountSettings";
+import { ModelRouting } from "../settings/ModelRouting";
+import { useChatAppearance } from "../chat/chatTheme";
+import { saveChatAppearance } from "../native/chatAppearance";
 import { useTakuFonts } from "../theme/useTakuFonts";
 import { colors } from "../theme";
 
@@ -49,12 +56,85 @@ type Model = {
 type Group = { id: string; name?: string; members: string[] };
 type State = {
   enabled: boolean;
+  assistScreenshotsEnabled: boolean;
   assistantMode: string;
   jevEnabled: boolean;
   models: Model[];
   groups: Group[];
   bindings: Record<string, string>;
+  assistantModel: string;
+  connected: boolean;
+  apps: { id: string; name: string; enabled: boolean }[];
+  usage: UsageRecord[];
+  audioAvailable: boolean;
+  providers: { name: string; configured: boolean }[];
 };
+type UsageRecord = {
+  consumer: string;
+  model: string;
+  at: number;
+  elapsedMs: number;
+  status: string;
+  code?: string;
+};
+type Section = "connection" | "account" | "usage" | "jev";
+type Connection = { mode: string; model: string; models: Model[]; running: boolean; message: string; version: string };
+type Account = { connected: boolean; type: string; planType: string; requiresOpenaiAuth: boolean };
+type Metric = { key: string; label: string; value: string | number | boolean };
+type Limits = { limits?: Metric[]; usage?: Metric[]; limitsError?: string; usageError?: string };
+type Jev = { enabled: boolean; selected: string; models: Model[] };
+type Details =
+  | { section: "connection"; value: Connection }
+  | { section: "account"; value: Account }
+  | { section: "usage"; value: Limits }
+  | { section: "jev"; value: Jev };
+const sectionTitles: Record<Section, string> = {
+  connection: "Main assistant connection",
+  account: "Accounts and model services",
+  usage: "Limits and token usage",
+  jev: "Jev decision model",
+};
+const detailOperations: Record<Section, string> = {
+  connection: "readConnection", account: "readAccount", usage: "readLimits", jev: "readJev",
+};
+function failure(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  const known: Record<string, string> = {
+    INVALID_ARGUMENT: "Check the settings and try again.",
+    INVALID_CONNECTION: "Choose an available connection and model.",
+    APP_NOT_FOUND: "This app is no longer registered for system AI.",
+    FEATURE_UNAVAILABLE: "Install or enable the corresponding Taku app first.",
+    ASSISTANT_MODE_NOT_MAGPIE: "Switch the main assistant to a model service first.",
+    SETTINGS_CHANGED: "These settings changed. Refresh before trying again.",
+  };
+  return known[message] ?? message;
+}
+function consumerName(consumer: string): string {
+  return ({ ime: "Input method", memory: "Memory", "agent-ui": "Agent UI cards", "org.agentos.audio": "Voice translation" } as Record<string, string>)[consumer] ?? consumer;
+}
+function usageReason(record: UsageRecord): string {
+  const reasons: Record<string, string> = {
+    auth_required: "Account sign-in expired. Reconnect the account.",
+    quota: "The model quota or rate limit was reached.",
+    timeout: "The model response timed out.",
+    rate_limited: "Too many calls. Retry later.",
+    disabled: "System AI permission for this feature is paused.",
+    invalid_request: "The model does not support this input.",
+  };
+  return reasons[record.code ?? ""] ?? (record.status === "completed" ? "Completed" : record.status === "canceled" ? "Canceled" : "Connection temporarily unavailable");
+}
+function metricLabel(value: string): string {
+  return value.replace(/rateLimitsByLimitId/g, "Limit groups").replace(/rateLimits/g, "Account limits")
+    .replace(/primary/g, "Short window").replace(/secondary/g, "Long window")
+    .replace(/([a-z])([A-Z])/g, "$1 $2").replace(/\./g, " · ");
+}
+function metricValue(metric: Metric): string {
+  if (metric.key === "resetsAt" && typeof metric.value === "number") return new Date(metric.value * 1000).toLocaleString();
+  if (metric.key === "usedPercent") return `${metric.value}% used`;
+  if (metric.key === "windowDurationMins") return `${metric.value} minutes`;
+  if (typeof metric.value === "boolean") return metric.value ? "Yes" : "No";
+  return String(metric.value);
+}
 const featureScenes: { scene: SystemAiScene; icon: string }[] = [
   { scene: "assistant", icon: "assistant" },
   { scene: "ime.vision", icon: "vision" },
@@ -217,14 +297,162 @@ function FeatureIcon({ name, color }: { name: string; color: string }) {
   };
   return <Svg width={24} height={24} viewBox="0 0 24 24" {...common}>{paths[name]}</Svg>;
 }
+function ManagementDetails({ section, palette, accountText, onUpdated, onManagement, onSelectJev }: {
+  section: Section;
+  palette: Palette;
+  accountText: AccountText;
+  onUpdated: () => void;
+  onManagement: () => void;
+  onSelectJev: () => void;
+}) {
+  const [details, setDetails] = useState<Details | null>(null);
+  const [error, setError] = useState("");
+  const [operationError, setOperationError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [busy, setBusy] = useState(false);
+  const active = useRef(true);
+  const loading = useRef(false);
+  const changing = useRef(false);
+  const refresh = useCallback(async () => {
+    if (loading.current || changing.current) return;
+    loading.current = true;
+    setBusy(true);
+    try {
+      switch (section) {
+        case "connection": {
+          const value = await callAgent<Connection>("manageSystemAi", { operation: detailOperations[section] });
+          if (active.current) setDetails({ section, value });
+          break;
+        }
+        case "account": {
+          const value = await callAgent<Account>("manageSystemAi", { operation: detailOperations[section] });
+          if (active.current) setDetails({ section, value });
+          break;
+        }
+        case "usage": {
+          const value = await callAgent<Limits>("manageSystemAi", { operation: detailOperations[section] });
+          if (active.current) setDetails({ section, value });
+          break;
+        }
+        case "jev": {
+          const value = await callAgent<Jev>("manageSystemAi", { operation: detailOperations[section] });
+          if (active.current) setDetails({ section, value });
+          break;
+        }
+      }
+      if (active.current) setError("");
+    } catch (problem) {
+      if (active.current) setError(failure(problem));
+    } finally {
+      loading.current = false;
+      if (active.current) setBusy(false);
+    }
+  }, [section]);
+  useEffect(() => {
+    active.current = true;
+    // Read the owning service when this sheet opens or its native flow returns.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void refresh();
+    const subscription = AppState.addEventListener("change", (state) => { if (state === "active") void refresh(); });
+    return () => { active.current = false; subscription.remove(); };
+  }, [refresh]);
+  const change = async (params: Record<string, unknown>) => {
+    if (changing.current || loading.current) return;
+    changing.current = true;
+    setBusy(true);
+    setNotice("");
+    setOperationError("");
+    try {
+      await callAgent("manageSystemAi", params);
+      if (active.current) setNotice(params.operation === "testJev" ? "Connected. The synthetic text test completed." : "Updated");
+      onUpdated();
+    } catch (problem) {
+      if (active.current) setOperationError(failure(problem));
+    } finally {
+      changing.current = false;
+      if (active.current) { setBusy(false); void refresh(); }
+    }
+  };
+  return <View style={{ gap: 12 }}>
+    {error ? <Label color="#CC2A4A" size={14}>{error}</Label> : null}
+    {operationError ? <Label color="#CC2A4A" size={14}>{operationError}</Label> : null}
+    {notice ? <Label color={palette.ink} size={14}>{notice}</Label> : null}
+    {!details && !error ? <ActivityIndicator color={colors.brand} /> : null}
+    {details?.section === "connection" ? <>
+      <Label color={palette.sub} size={14}>{details.value.message}</Label>
+      <Label color={palette.sub} size={13}>Magpie {details.value.version} · {details.value.running ? "Available" : "Unavailable"}</Label>
+      <Row palette={palette} title="ChatGPT subscription" sub="Use the connected ChatGPT account" trailing={details.value.mode === "openai" ? "✓" : ""}
+        onPress={() => { if (!busy) void change({ operation: "selectConnection", mode: "openai", model: "" }); }} />
+      {details.value.models.map((model) => <Row key={model.id} palette={palette} title={model.name || model.id} sub="Magpie model service"
+        trailing={details.value.mode === "magpie" && details.value.model === model.id ? "✓" : ""}
+        onPress={() => { if (!busy) void change({ operation: "selectConnection", mode: "magpie", model: model.id }); }} />)}
+      {!details.value.models.length ? <Label color={palette.sub} size={14}>No models are available. Add a service in Magpie, then refresh.</Label> : null}
+      {details.value.mode === "magpie" && !details.value.models.some((model) => model.id === details.value.model)
+        ? <Label color="#CC2A4A" size={14}>The selected model is unavailable. Your selection is preserved.</Label> : null}
+      <Label color={palette.sub} size={13}>The new connection applies to the next turn. Finish running and queued tasks before switching.</Label>
+      <Row palette={palette} title="Manage models and providers" onPress={onManagement} />
+    </> : null}
+    {section === "account" ? <>
+      <ChatGptAccount palette={palette} t={accountText} onChanged={onUpdated} />
+      {details?.section === "account" && details.value.type ? <Label color={palette.sub} size={14}>Account type · {details.value.type}</Label> : null}
+      <View style={[styles.divider, { backgroundColor: palette.line }]} />
+      <OpenRouterKeys palette={palette} t={accountText} onChanged={onUpdated} />
+      <View style={[styles.divider, { backgroundColor: palette.line }]} />
+      <Row palette={palette} title="Manage Magpie services" sub="Manage provider credentials and model routing in the Magpie console" onPress={onManagement} />
+    </> : null}
+    {details?.section === "usage" ? (["limits", "usage"] as const).map((kind) => <View key={kind} style={{ gap: 8 }}>
+      <Label color={palette.ink} medium>{kind === "limits" ? "Account limits" : "Token usage"}</Label>
+      {details.value[`${kind}Error`] ? <Label color="#CC2A4A" size={14}>{details.value[`${kind}Error`]}</Label>
+        : details.value[kind]?.length ? details.value[kind]?.map((metric, index) => <View key={`${metric.label}-${index}`} style={{ paddingVertical: 8 }}>
+          <Label color={palette.sub} size={13}>{metricLabel(metric.label)}</Label>
+          <Label color={palette.ink} size={16} style={{ marginTop: 4 }}>{metricValue(metric)}</Label>
+        </View>) : <Label color={palette.sub} size={14}>The account service has not provided {kind === "limits" ? "limit values" : "token usage"}.</Label>}
+    </View>) : null}
+    {details?.section === "jev" ? <>
+      <View style={styles.switchRow}>
+        <Label color={palette.ink} medium style={{ flex: 1 }}>Enable Jev</Label>
+        <Switch accessibilityLabel="Enable Jev decision model" disabled={busy} value={details.value.enabled}
+          onValueChange={(enabled) => void change({ operation: "setJev", enabled })}
+          trackColor={{ true: colors.brand, false: palette.line }} thumbColor="#fff" />
+      </View>
+      <Label color={palette.sub} size={14}>{details.value.models.some((model) => model.id === details.value.selected)
+        ? `Selected · ${details.value.models.find((model) => model.id === details.value.selected)?.name || details.value.selected}`
+        : "Select an available decision model. The previous selection is preserved."}</Label>
+      <Row palette={palette} title="Decision model group" sub="Select the Jev scene routing group" onPress={onSelectJev} />
+      <Row palette={palette} title="Test connection" sub="Send synthetic text. This uses a small amount of model quota."
+        onPress={() => { if (!busy) Alert.alert("Test Jev connection", "Send synthetic text through the selected decision model? This uses model quota.", [
+          { text: "Cancel", style: "cancel" }, { text: "Test", onPress: () => void change({ operation: "testJev" }) },
+        ]); }} />
+      <Label color={palette.sub} size={13}>Jev runs on explicit screen requests. Enabling it does not continuously observe your screen.</Label>
+    </> : null}
+    {busy ? <ActivityIndicator color={colors.brand} /> : null}
+    <Pressable accessibilityRole="button" disabled={busy} style={styles.managementLink} onPress={() => void refresh()}>
+      <Label color={palette.ink} medium>Refresh</Label>
+    </Pressable>
+  </View>;
+}
 export default function SystemAiScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ section?: string }>();
+  const section = typeof params.section === "string" && Object.hasOwn(sectionTitles, params.section) ? params.section as Section : null;
+  const setSection = useCallback((next: Section | "routing" | null) => router.setParams({ section: next ?? "" }), [router]);
   const [fonts, fontError] = useTakuFonts();
   const insets = useSafeAreaInsets();
   const palette = useColorScheme() === "dark" ? dark : light;
   const language = languageFor(useLocales()[0]?.languageTag);
   const t = systemAiTextFor(language);
+  // The chat's background (Settings.Secure taku_chat_appearance); Dark is the default.
+  const chatAppearance = useChatAppearance();
   const permissionText = permissionTextFor(language);
+  const accountText = accountTextFor(language);
+  // Sign-in and key entry are a page of this screen, not a sheet: a sheet is a separate window,
+  // which the screenshot protection for one-time codes and key fields would not cover.
+  const accountPage = section === "account";
+  const sheetSection = accountPage ? null : section;
+  // Hand-edited model groups and scene bindings are a page of this screen too.
+  const routingPage = params.section === "routing";
+  const routingText = routingTextFor(language);
+  const subPage = accountPage || routingPage;
   const [permissions, setPermissions] = useState<AppPermissionsSnapshot | null>(null);
   const [permissionRepository] = useState(() =>
     createNativeAppPermissionsRepository((action, params) => callAgent(action, params)),
@@ -355,17 +583,25 @@ export default function SystemAiScreen() {
     try { await callAgent("openMagpieManagement"); }
     catch { ToastAndroid.show(t("openMagpieFailed"), ToastAndroid.LONG); }
   };
+  const openFeature = async (feature: "audio" | "ime" | "memory") => {
+    try { await callAgent("manageSystemAi", { operation: "openFeature", feature }); }
+    catch (problem) { ToastAndroid.show(failure(problem), ToastAndroid.LONG); }
+  };
   useEffect(() => {
     const sub = BackHandler.addEventListener("hardwareBackPress", () => {
       if (scene) {
         setScene(null);
         return true;
       }
+      if (section || routingPage) {
+        setSection(null);
+        return true;
+      }
       back();
       return true;
     });
     return () => sub.remove();
-  }, [back, scene]);
+  }, [back, routingPage, scene, section, setSection]);
   if ((!fonts && !fontError) || (!data && !error))
     return (
       <SafeAreaView style={[styles.center, { backgroundColor: palette.bg }]}>
@@ -399,7 +635,7 @@ export default function SystemAiScreen() {
       />
       <View style={styles.header}>
         <Pressable
-          onPress={back}
+          onPress={subPage ? () => setSection(null) : back}
           accessibilityRole="button"
           accessibilityLabel={t("back")}
           style={styles.back}
@@ -407,9 +643,29 @@ export default function SystemAiScreen() {
           <Text style={{ fontSize: 28, color: palette.ink }}>‹</Text>
         </Pressable>
         <Label color={palette.ink} size={22} medium style={{ flex: 1 }}>
-          {t("title")}
+          {accountPage ? sectionTitles.account : routingPage ? routingText("title") : t("title")}
         </Label>
       </View>
+      {accountPage ? (
+        <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
+          <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+            <View style={[styles.card, styles.page, { backgroundColor: palette.card }]}>
+              <ManagementDetails key="account" section="account" palette={palette} accountText={accountText}
+                onUpdated={() => void refresh()} onManagement={() => void openManagement()} onSelectJev={() => undefined} />
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      ) : routingPage ? (
+        <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
+          <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+            <View style={[styles.card, styles.page, { backgroundColor: palette.card }]}>
+              <ModelRouting palette={palette} t={routingText} groups={data.groups} bindings={data.bindings}
+                sceneName={(id) => featureScenes.some((f) => f.scene === id) ? t.scene(id as SystemAiScene) : undefined}
+                onChanged={() => void refresh()} />
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      ) : (
       <ScrollView contentContainerStyle={styles.content}>
         {error && (
           <Pressable
@@ -469,7 +725,7 @@ export default function SystemAiScreen() {
                   sub={
                     f.scene === "assistant" && data.assistantMode !== "magpie"
                       ? data.assistantMode === "openai"
-                        ? t("chatGptSubscription")
+                        ? data.assistantModel ? `ChatGPT · ${data.assistantModel}` : t("chatGptSubscription")
                         : featureGroup(data, f.scene, t)
                       : featureGroup(data, f.scene, t)
                   }
@@ -477,23 +733,9 @@ export default function SystemAiScreen() {
                   pausedLabel={f.scene === "jev" && !data.jevEnabled ? t("paused") : undefined}
                   issue={data.bindings[f.scene] && !findGroup(data, f.scene) && !(f.scene === "assistant" && data.assistantMode !== "magpie") ? t("modelGroupUnavailable") : undefined}
                   onPress={() => {
-                    if (
-                      f.scene === "assistant" &&
-                      data.assistantMode !== "magpie"
-                    ) {
-                      Alert.alert(
-                        t("subscriptionAlertTitle"),
-                        t("subscriptionAlertBody"),
-                        [
-                          { text: t("cancel"), style: "cancel" },
-                          {
-                            text: t("openConnection"),
-                            onPress: () =>
-                              void callAgent("openAssistantConnection"),
-                          },
-                        ],
-                      );
-                    } else setScene(f.scene);
+                    if (f.scene === "jev") setSection("jev");
+                    else if (f.scene === "assistant" && data.assistantMode !== "magpie") setSection("connection");
+                    else setScene(f.scene);
                   }}
                 />
               ))}
@@ -506,8 +748,88 @@ export default function SystemAiScreen() {
                 icon="manage"
                 onPress={() => void openManagement()}
               />
+              <Row
+                palette={palette}
+                title={routingText("title")}
+                sub={routingText("entrySubtitle")}
+                icon="manage"
+                onPress={() => setSection("routing")}
+              />
             </View>
+            <View style={styles.section}>
+              <Label color={palette.ink} size={18} medium>{t("appearanceTitle")}</Label>
+            </View>
+            <View style={[styles.card, { backgroundColor: palette.card }]}>
+              {(["dark", "light"] as const).map((option) => <Row key={option} palette={palette}
+                title={t(option === "dark" ? "appearanceDark" : "appearanceLight")}
+                sub={t(option === "dark" ? "appearanceDarkSubtitle" : "appearanceLightSubtitle")}
+                trailing={chatAppearance === option ? "✓" : ""}
+                onPress={() => {
+                  if (option !== chatAppearance && !saveChatAppearance(option)) ToastAndroid.show(t("appearanceFailed"), ToastAndroid.SHORT);
+                }} />)}
+            </View>
+            <View style={styles.section}>
+              <Label color={palette.ink} size={18} medium>Account and connection</Label>
+            </View>
+            <View style={[styles.card, { backgroundColor: palette.card }]}>
+              <Row palette={palette} title="Main assistant connection"
+                sub={data.assistantMode === "magpie" ? "Magpie model service" : data.assistantMode === "openai" ? "ChatGPT subscription" : "Connection status unavailable"}
+                onPress={() => setSection("connection")} />
+              <Row palette={palette} title="Accounts and model services"
+                sub={data.connected ? "Magpie connected · ChatGPT sign-in and API keys" : "Magpie unavailable · ChatGPT sign-in and API keys"}
+                onPress={() => setSection("account")} />
+              <Row palette={palette} title="Subscription limits and usage" sub="Read account limits and native token activity" onPress={() => setSection("usage")} />
+              {data.providers.map((provider, index) => <View key={`${provider.name}-${index}`} style={styles.switchRow}>
+                <Label color={palette.ink} size={14} style={{ flex: 1 }}>{provider.name}</Label>
+                <Label color={palette.sub} size={13}>{provider.configured ? "Credential configured" : "No credential"}</Label>
+              </View>)}
+            </View>
+            <View style={styles.section}>
+              <Label color={palette.ink} size={18} medium>Apps and features</Label>
+            </View>
+            <View style={[styles.card, { backgroundColor: palette.card }]}>
+              {data.apps.map((app) => <View key={app.id} style={styles.switchRow}>
+                <View style={{ flex: 1, gap: 4 }}>
+                  <Label color={palette.ink} medium>Allow {app.name} to use AI</Label>
+                  <Label color={palette.sub} size={13}>{app.id === "ime" ? "Screenshot app permissions remain in input method settings"
+                    : app.id === "memory" ? "Recording and analysis settings remain independent"
+                    : app.id === "agent-ui" ? "Lay out the supplied card data"
+                    : "Process content explicitly submitted by this app"}</Label>
+                </View>
+                <Switch accessibilityLabel={`Allow ${app.name} to use AI`} disabled={busy} value={app.enabled}
+                  onValueChange={(enabled) => void mutate("manageSystemAi", { operation: "setApp", app: app.id, enabled })}
+                  trackColor={{ true: colors.brand, false: palette.line }} thumbColor="#fff" />
+              </View>)}
+              <Row palette={palette} title="Input method settings" sub="Reply suggestions and apps allowed for screenshots" onPress={() => void openFeature("ime")} />
+              <Row palette={palette} title="Memory settings" sub="Recording sources, analysis, and retention" onPress={() => void openFeature("memory")} />
+              <Row palette={palette} title="Taku Audio" sub={data.audioAvailable ? "Voice, models, translation, and local reading" : "Install or enable Taku Audio first"} onPress={() => void openFeature("audio")} />
+              <Row palette={palette} title="Background workspaces" sub="Preview, take over, pause, and release task screens" onPress={() => router.push("/workspaces")} />
+              <View style={styles.switchRow}>
+                <View style={{ flex: 1, gap: 4 }}>
+                  <Label color={palette.ink} medium>Allow assistant screenshots</Label>
+                  <Label color={palette.sub} size={13}>Android supplies a screenshot when requested. Protected screens remain hidden.</Label>
+                </View>
+                <Switch accessibilityLabel="Allow assistant screenshots" disabled={busy} value={data.assistScreenshotsEnabled}
+                  onValueChange={(enabled) => void mutate("manageSystemAi", { operation: "setAssistScreenshots", enabled })}
+                  trackColor={{ true: colors.brand, false: palette.line }} thumbColor="#fff" />
+              </View>
+            </View>
+            <View style={styles.section}>
+              <Label color={palette.ink} size={18} medium>Recent calls</Label>
+              <Label color={palette.sub} size={13} style={{ marginTop: 4 }}>Call source, model, duration, status, and error type.</Label>
+            </View>
+            <View style={[styles.card, { backgroundColor: palette.card }]}>
+              {data.usage.length ? data.usage.slice().reverse().map((record, index) => <Row key={`${record.at}-${index}`} palette={palette}
+                title={`${consumerName(record.consumer)} · ${record.status === "completed" ? "Completed" : record.status === "canceled" ? "Canceled" : "Incomplete"}`}
+                sub={`${modelName(record.model, data.models, t)} · ${(record.elapsedMs / 1000).toFixed(1)} seconds`}
+                onPress={() => Alert.alert("Call details", `${consumerName(record.consumer)}\n${modelName(record.model, data.models, t)}\n${new Date(record.at).toLocaleString()}\n${usageReason(record)}`)} />)
+                : <View style={styles.empty}><Label color={palette.sub} size={14}>No system AI call records yet.</Label></View>}
+            </View>
+            <Pressable accessibilityRole="button" style={styles.managementLink} onPress={() => void refresh()}>
+              <Label color={palette.ink} medium>Refresh connection and calls</Label>
+            </Pressable>
       </ScrollView>
+      )}
       {undo && (
         <View
           style={[
@@ -600,6 +922,22 @@ export default function SystemAiScreen() {
           </View>
         </View>
       </Modal>
+      <Modal visible={sheetSection !== null} transparent animationType="slide" onRequestClose={() => setSection(null)}>
+        <View style={[styles.modal, { backgroundColor: palette.overlay }]}>
+          <Pressable accessibilityLabel="Close settings details" style={{ flex: 1 }} onPress={() => setSection(null)} />
+          <View style={[styles.sheet, { backgroundColor: palette.card, maxHeight: "85%", paddingBottom: Math.max(insets.bottom, 16) + 20 }]}>
+            <View style={[styles.grabber, { backgroundColor: palette.line }]} />
+            <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 16 }}>
+              <Label color={palette.ink} size={20} medium style={{ flex: 1 }}>{sheetSection ? sectionTitles[sheetSection] : ""}</Label>
+              <Pressable accessibilityRole="button" style={{ padding: 10 }} onPress={() => setSection(null)}><Label color={palette.ink} size={14}>Done</Label></Pressable>
+            </View>
+            <ScrollView>
+              {sheetSection ? <ManagementDetails key={sheetSection} section={sheetSection} palette={palette} accountText={accountText} onUpdated={() => void refresh()}
+                onManagement={() => void openManagement()} onSelectJev={() => { setSection(null); setScene("jev"); }} /> : null}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -653,6 +991,8 @@ const styles = StyleSheet.create({
   managementLink: { paddingVertical: 16, alignItems: "center" },
   manage: { marginTop: 24 },
   dot: { width: 8, height: 8, borderRadius: 4 },
+  divider: { height: StyleSheet.hairlineWidth, marginVertical: 8 },
+  page: { padding: 16 },
   empty: { padding: 24, gap: 8 },
   modal: { flex: 1, justifyContent: "flex-end" },
   sheet: {

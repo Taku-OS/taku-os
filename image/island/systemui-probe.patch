@@ -175,7 +175,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandAssistantCard.kt
-@@ -0,0 +1,242 @@
+@@ -0,0 +1,150 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -184,15 +184,8 @@
 +import android.graphics.Canvas
 +import android.graphics.Color
 +import android.graphics.Paint
-+import android.graphics.Typeface
-+import android.graphics.drawable.GradientDrawable
-+import android.util.PathParser
 +import android.view.Gravity
-+import android.view.MotionEvent
 +import android.view.View
-+import android.view.ViewConfiguration
-+import android.view.accessibility.AccessibilityNodeInfo
-+import android.os.Bundle
 +import android.view.animation.LinearInterpolator
 +import android.widget.FrameLayout
 +import android.widget.HorizontalScrollView
@@ -204,15 +197,12 @@
 +
 +/** Figma 297:415. All views, text, animation and input are owned and drawn by SystemUI.
 + * Payloads contain data and PendingIntent IDs only; no remote surface or Compose renderer. */
-+internal class IslandAssistantCard(context: Context, private val command: (String, String?, String?) -> Unit,
-+    private val collapse: (String) -> Unit) : LinearLayout(context) {
-+    private val density = resources.displayMetrics.density
-+    private val scaled = resources.displayMetrics.scaledDensity
-+    private val regular = font("hanken_grotesk_regular")
-+    private val medium = font("hanken_grotesk_medium")
++internal class IslandAssistantCard(context: Context, command: (String, String?, String?) -> Unit,
++    collapse: (String) -> Unit) : IslandNativeCard(context, command, collapse) {
++    private val regular = IslandStyle.regular(context)
 +    private val status = StatusGlyph(context)
-+    private val expand = ExpandGlyph(context)
-+    private val text = label(18f, 0xccffffff.toInt(), regular).apply { setLineHeight((27.9f * scaled).toInt()) }
++    private val expand = IslandStyle.ExpandGlyph(context)
++    private val text = IslandStyle.label(context, 18f, IslandStyle.TEXT_BODY).apply { setLineHeight((27.9f * scaled).toInt()) }
 +    private val content = LinearLayout(context).apply { orientation = VERTICAL; addView(text) }
 +    private val scroll = ScrollView(context).apply { isVerticalScrollBarEnabled = false; addView(content); isFillViewport = false }
 +    private val chips = LinearLayout(context).apply { orientation = HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
@@ -220,15 +210,12 @@
 +        isHorizontalScrollBarEnabled = false; overScrollMode = OVER_SCROLL_NEVER
 +        addView(chips); setPadding(0, dp(5), 0, dp(5)); clipToPadding = false
 +    }
-+    private var item: IslandActivity? = null
 +    private var bodyFingerprint: String? = null
 +    private var actionFingerprint: String? = null
 +    private var optionIds: List<String> = emptyList()
-+    private val swipeSlop = ViewConfiguration.get(context).scaledTouchSlop
-+    private var downX = 0f
-+    private var downY = 0f
-+    private var swipeEligible = false
-+    private var swiped = false
++    override val reading: ScrollView get() = scroll
++    override val primaryLabel = "Open conversation"
++    override fun ownTaps(): List<View> = listOf(chipScroll, expand)
 +
 +    init {
 +        orientation = VERTICAL
@@ -238,12 +225,7 @@
 +            addView(expand, FrameLayout.LayoutParams(dp(32), dp(32), Gravity.RIGHT))
 +        }
 +        expand.contentDescription = "Open conversation"
-+        expand.setOnClickListener {
-+            item?.let { current ->
-+                val id = current.payload.getJSONObject("expanded").optString("primaryAction")
-+                if (current.actions.containsKey(id)) invoke(current, id) else command("open", current.key, null)
-+            }
-+        }
++        expand.setOnClickListener { openPrimary() }
 +        addView(header, LayoutParams(-1, dp(32)).apply { rightMargin = dp(16) })
 +        addView(scroll, LayoutParams(-1, 0, 1f).apply { topMargin = dp(4); rightMargin = dp(16) })
 +        // Five dp shader bleed above/below the 40 dp chips, without changing the 16 dp gap.
@@ -254,50 +236,6 @@
 +        }
 +        scroll.viewTreeObserver.addOnScrollChangedListener { updateBottomEdge() }
 +        scroll.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> updateBottomEdge() }
-+    }
-+
-+    /** Observe before children consume motion: ScrollView disallows parent interception after
-+     * touch slop, so a header-only listener cannot close a swipe starting on reply text/chips.
-+     * A long reply keeps scrolling until its end; horizontal option gestures and taps stay intact. */
-+    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
-+        when (event.actionMasked) {
-+            MotionEvent.ACTION_DOWN -> {
-+                downX = event.rawX; downY = event.rawY; swiped = false
-+                // Child bounds and event.x/y share this card's coordinates (raw coordinates do not).
-+                val reading = event.x >= scroll.left && event.x < scroll.right &&
-+                    event.y >= scroll.top && event.y < scroll.bottom
-+                swipeEligible = !(reading && scroll.canScrollVertically(1))
-+            }
-+            MotionEvent.ACTION_POINTER_DOWN, MotionEvent.ACTION_CANCEL -> swipeEligible = false
-+            MotionEvent.ACTION_MOVE, MotionEvent.ACTION_UP -> {
-+                if (swiped) return true
-+                val dx = kotlin.math.abs(event.rawX - downX)
-+                val up = downY - event.rawY
-+                if (dx > swipeSlop && dx > kotlin.math.abs(up)) swipeEligible = false
-+                if (swipeEligible && event.pointerCount == 1 && up > maxOf(dp(24), swipeSlop) && up > dx * 1.3f) {
-+                    swipeEligible = false; swiped = true
-+                    val cancel = MotionEvent.obtain(event).apply { action = MotionEvent.ACTION_CANCEL }
-+                    super.dispatchTouchEvent(cancel); cancel.recycle()
-+                    post { collapse("swipe_up") }
-+                    return true
-+                }
-+                if (event.actionMasked == MotionEvent.ACTION_UP) swipeEligible = false
-+            }
-+        }
-+        return super.dispatchTouchEvent(event)
-+    }
-+
-+    override fun onTouchEvent(event: MotionEvent): Boolean = true
-+
-+    override fun onInitializeAccessibilityNodeInfo(info: AccessibilityNodeInfo) {
-+        super.onInitializeAccessibilityNodeInfo(info)
-+        info.addAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_DISMISS)
-+        info.isDismissable = true
-+    }
-+
-+    override fun performAccessibilityAction(action: Int, arguments: Bundle?): Boolean {
-+        if (action == AccessibilityNodeInfo.ACTION_DISMISS) { collapse("accessibility_dismiss"); return true }
-+        return super.performAccessibilityAction(action, arguments)
 +    }
 +
 +    fun update(next: IslandActivity) {
@@ -314,7 +252,7 @@
 +            while (content.childCount > 1) content.removeViewAt(1)
 +            if (steps != null) for (i in 0 until steps.length()) {
 +                val step = steps.getJSONObject(i)
-+                content.addView(label(14f, 0xa3ffffff.toInt(), regular).apply {
++                content.addView(IslandStyle.label(context, 14f, IslandStyle.TEXT_SECONDARY, regular).apply {
 +                    text = (if (step.optBoolean("running")) "• " else "✓ ") + step.getString("text")
 +                }, LayoutParams(-1, -2).apply { topMargin = dp(if (i == 0) 16 else 8) })
 +            }
@@ -327,15 +265,8 @@
 +        if (actionKey != actionFingerprint) {
 +            chips.removeAllViews()
 +            optionIds.forEachIndexed { index, id ->
-+                chips.addView(label(16f, 0xebffffff.toInt(), medium).apply {
-+                    text = next.actions.getValue(id).title
-+                    isSingleLine = true
-+                    gravity = Gravity.CENTER
-+                    setPadding(dp(12), dp(8), dp(12), dp(8))
-+                    minHeight = (24 * scaled).toInt() + dp(16)
-+                    background = GradientDrawable().apply { setColor(0x14ffffff); cornerRadius = dp(999).toFloat() }
-+                    isClickable = true; isFocusable = true
-+                    setOnClickListener { item?.let { current -> if (id in optionIds) invoke(current, id) } }
++                chips.addView(IslandStyle.chip(context, next.actions.getValue(id).title, false) {
++                    item?.let { current -> if (id in optionIds) invoke(current, id) }
 +                }, LayoutParams(-2, -2).apply { if (index > 0) leftMargin = dp(8) })
 +            }
 +            actionFingerprint = actionKey
@@ -363,16 +294,6 @@
 +        scroll.setRenderEffect(if (scroll.height > 0 && scroll.canScrollVertically(1))
 +            IslandCardEffects.bottomEdge(scroll.width.toFloat(), scroll.height.toFloat(), density) else null)
 +    }
-+    private fun invoke(current: IslandActivity, id: String) = command("action", current.key, JSONObject().put("id", id).toString())
-+    private fun label(size: Float, color: Int, face: Typeface) = TextView(context).apply {
-+        textSize = size; setTextColor(color); typeface = face; includeFontPadding = false; letterSpacing = -.01f
-+    }
-+    private fun font(name: String): Typeface = runCatching {
-+        val app = context.createPackageContext("org.agentos.agent", 0)
-+        app.resources.getFont(app.resources.getIdentifier(name, "font", app.packageName))
-+    }.getOrDefault(Typeface.create("sans-serif", Typeface.NORMAL))
-+    private fun dp(value: Int) = (value * density).toInt()
-+
 +    private class StatusGlyph(context: Context) : View(context) {
 +        private val d = resources.displayMetrics.density
 +        private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
@@ -404,23 +325,44 @@
 +            }
 +        }
 +    }
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandCapsuleGeometry.java
+@@ -0,0 +1,31 @@
++/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
++package com.android.systemui.taku.island;
 +
-+    private class ExpandGlyph(context: Context) : View(context) {
-+        private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-+            color = Color.WHITE; style = Paint.Style.STROKE; strokeWidth = 1.66667f; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND
-+        }
-+        // Exact 20x20 paths from design/assistant-card/expand.svg (Figma 297:423).
-+        private val path = PathParser.createPathFromPathData("M1.77626 8.33333L1.71196 4.4221C1.69616 3.46072 1.68826 2.98003 1.87147 2.61455C2.03255 2.2932 2.2932 2.03255 2.61455 1.87146C2.98003 1.68826 3.46072 1.69616 4.4221 1.71196L8.33333 1.77626M18.2237 11.6667L18.288 15.5779C18.3038 16.5393 18.3117 17.02 18.1285 17.3854C17.9675 17.7068 17.7068 17.9675 17.3854 18.1285C17.02 18.3117 16.5393 18.3038 15.5779 18.288L11.6667 18.2237")
-+        override fun onDraw(canvas: Canvas) {
-+            val d = resources.displayMetrics.density
-+            canvas.save(); canvas.translate((width - 20 * d) / 2, (height - 20 * d) / 2); canvas.scale(d, d)
-+            canvas.drawPath(path, paint); canvas.restore()
-+        }
++/** Pixel geometry shared by the camera-anchored capsule and the centered native cutout slot. */
++public final class IslandCapsuleGeometry {
++    private IslandCapsuleGeometry() {}
++
++    public static int maximumWidth(int contentLeft, int contentRight, int cameraX,
++            int cameraLeftWidth, int clockWidth, int endWidth, int collapsibleIconsWidth, int gap) {
++        if (contentRight <= contentLeft || cameraLeftWidth <= 0) return 0;
++        // StatusIconContainer collapses into the space remaining after cutout allocation.
++        // Charging its current width here makes the capsule compete with its own reservation.
++        int fixedEnd = Math.max(0, endWidth - Math.max(0, collapsibleIconsWidth));
++        int side = Math.max(Math.max(0, clockWidth), fixedEnd) + Math.max(0, gap);
++        int center = contentLeft + (contentRight - contentLeft) / 2;
++        int radius = Math.min(center - contentLeft, contentRight - center) - side;
++        int left = cameraX - cameraLeftWidth;
++        if (radius <= 0 || left < center - radius || cameraX > center + radius) return 0;
++        return Math.max(0, center + radius - left);
++    }
++
++    public static int reservationWidth(int contentLeft, int contentRight, int cameraX,
++            int cameraLeftWidth, int capsuleWidth) {
++        if (capsuleWidth <= 0) return 0;
++        int center = contentLeft + (contentRight - contentLeft) / 2;
++        int left = cameraX - cameraLeftWidth;
++        // PhoneStatusBarView's cutout slot is centered between equally weighted sides.
++        // The capsule grows to the camera's right, so reserving only its width undercounts it.
++        return 2 * Math.max(center - left, left + capsuleWidth - center);
 +    }
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandCapsuleView.kt
-@@ -0,0 +1,304 @@
+@@ -0,0 +1,325 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -430,8 +372,8 @@
 +import android.graphics.Color
 +import android.graphics.Paint
 +import android.graphics.Path
-+import android.graphics.RectF
-+import android.graphics.Typeface
++import android.graphics.PorterDuff
++import android.graphics.PorterDuffColorFilter
 +import android.graphics.drawable.Drawable
 +import android.os.Handler
 +import android.os.Looper
@@ -445,28 +387,29 @@
 +import kotlin.math.abs
 +import kotlin.math.max
 +
-+/** Native cutout slots. Vertical drags are left to the parent status-bar shade dispatcher. */
++/**
++ * Compact island, Figma 1379:889 for every activity: a 32 dp disc whose centre is 36 dp left of
++ * the camera, the 24 dp camera disc, and a 32 dp text pill starting 20 dp right of it, joined by
++ * the authored metaball necks. The disc shows the activity's glyph (loader, picture, progress
++ * ring or app icon); the pill shows its text, timer or number in Hanken 12 sp. The view's left
++ * edge sits [CAMERA_DP] left of the camera centre. Vertical drags are left to the shade.
++ */
 +internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
 +    private val cycle: (Int) -> Unit, private val choose: () -> Unit) : View(context) {
-+    private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
 +    private val density = resources.displayMetrics.density
-+    private val buildingPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-+        typeface = runCatching {
-+            val source = context.createPackageContext("org.agentos.agent", 0)
-+            val id = source.resources.getIdentifier("hanken_grotesk_regular", "font", source.packageName)
-+            source.resources.getFont(id)
-+        }.getOrDefault(Typeface.create("sans-serif", Typeface.NORMAL))
++    private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
++    private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
++        typeface = IslandStyle.regular(context)
 +        textSize = 12f * resources.displayMetrics.scaledDensity
-+        color = 0xebffffff.toInt()
++        letterSpacing = -.01f
 +    }
-+    fun buildingWidth(): Int = kotlin.math.ceil(dp(88) + buildingTextWidth()).toInt()
-+    private fun buildingTextWidth(): Float = buildingPaint.measureText("Building...") - dp(.12f) * 10
 +    private val icons = mutableMapOf<String, Drawable>()
 +    private val secondaryIcons = mutableMapOf<String, Drawable>()
 +    private var second: IslandActivity? = null
 +    private var secondaryIdentity: JSONObject? = null
 +    private var secondaryGeneration = 0
 +    var stale = false
++    /** Exact MetaballShape1 path (Figma 1379:904), 16.0743 × 21.3333. */
 +    private val neck = Path().apply {
 +        moveTo(16.0743f, 1.72239f)
 +        cubicTo(10.9102f, 6.34134f, 6.1586f, 6.88552f, 0f, 0f)
@@ -483,9 +426,10 @@
 +    private var downY = 0f
 +    private var downX = 0f
 +    private var vertical = false
-+    var cutoutWidth = 0f
-+    var widthMode = 0 // full slots, leading only, single glyph
++    /** The pill text for the current layout width; empty when only the disc fits. */
++    private var shownText = ""
 +    var secondary = false
++        private set
 +    private val gestures = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
 +        override fun onDown(event: MotionEvent) = true
 +        override fun onSingleTapUp(event: MotionEvent): Boolean { performClick(); return true }
@@ -507,15 +451,77 @@
 +        setOnLongClickListener { choose(); true }
 +    }
 +
++    /** What the disc shows: a slot from the payload, or null for the resting dot loader. */
++    private fun discSlot(activity: IslandActivity): JSONObject? {
++        if (activity.building) return JSONObject().put("animated", "working")
++        val big = activity.payload.getJSONObject("bigIsland")
++        val leading = big.optJSONObject("leading")
++        val small = activity.payload.optJSONObject("smallIsland")
++        fun glyph(slot: JSONObject?) = slot?.takeIf { it.optString("type") in setOf("pic", "progress") || it.has("animated") }
++        return glyph(leading) ?: glyph(small)
++            ?: listOf(leading, big.optJSONObject("trailing")).firstNotNullOfOrNull { slot ->
++                slot?.optString("pic")?.takeIf { it.isNotEmpty() }?.let { JSONObject().put("type", "pic").put("pic", it) } }
++            ?: if (activity.pics.containsKey("app")) JSONObject().put("type", "pic").put("pic", "app").put("tint", true) else null
++    }
++
++    /** What the pill says: the trailing slot, else a textual leading slot. */
++    private fun pillSlot(activity: IslandActivity): JSONObject? {
++        if (activity.building) return JSONObject().put("type", "text").put("text", "Building...")
++        val big = activity.payload.getJSONObject("bigIsland")
++        val textual = setOf("text", "timer", "countdown", "number", "progress")
++        return big.optJSONObject("trailing")?.takeIf { it.optString("type") in textual }
++            ?: big.optJSONObject("leading")?.takeIf { it.optString("type") in textual && it !== discSlot(activity) }
++                ?.takeUnless { it.optString("type") == "progress" }
++    }
++
++    private fun pillText(slot: JSONObject?): String = when (slot?.optString("type")) {
++        "text" -> slot.optString("text")
++        "number" -> slot.optString("value") + slot.optString("unit")
++        "progress" -> "${(slot.optDouble("value", 0.0) * 100).toInt()}%"
++        "timer", "countdown" -> {
++            val millis = if (slot.optString("type") == "timer") System.currentTimeMillis() - slot.optLong("startEpochMs")
++                else slot.optLong("endEpochMs") - System.currentTimeMillis()
++            val seconds = max(0, millis / 1000)
++            if (seconds >= 3600) "%d:%02d:%02d".format(seconds / 3600, seconds / 60 % 60, seconds % 60)
++            else "%d:%02d".format(seconds / 60, seconds % 60)
++        }
++        else -> ""
++    }
++
++    /**
++     * Width for [activity] within [maximum] (measured from the view's left edge): the disc and
++     * camera always; the pill when at least a short label fits; one more 24 dp disc for a
++     * [secondaryWanted] activity when room remains. Returns 0 when not even the disc fits.
++     */
++    fun layoutWidth(activity: IslandActivity, maximum: Int, secondaryWanted: Boolean): Int {
++        val base = px(CAMERA_DP + 12)
++        if (maximum < base) return 0
++        val slot = pillSlot(activity)
++        val text = pillText(slot)
++        var width = base
++        shownText = ""
++        if (text.isNotEmpty()) {
++            // Timers reserve their widest digits so the pill does not jitter every second.
++            val natural = max(textPaint.measureText(text), if (slot?.optString("type") in setOf("timer", "countdown")) textPaint.measureText(text.replace(Regex("[0-9]"), "0")) else 0f)
++            val room = maximum - px(PILL_START_DP) - px(16) - if (secondaryWanted) px(28) else 0
++            val fitted = minOf(natural, room.toFloat())
++            if (fitted >= minOf(natural, dp(24))) {
++                shownText = text.take(textPaint.breakText(text, true, fitted + 1, null))
++                width = px(PILL_START_DP) + px(16) + kotlin.math.ceil(fitted).toInt()
++            }
++        }
++        secondary = secondaryWanted && width + px(28) <= maximum
++        return width + if (secondary) px(28) else 0
++    }
++
 +    fun bind(activity: IslandActivity, other: IslandActivity?) {
 +        item = activity
-+        second = other
-+        secondary = other != null
-+        if (secondaryIdentity !== other?.payload) {
-+            secondaryIdentity = other?.payload
++        second = other.takeIf { secondary }
++        if (secondaryIdentity !== second?.payload) {
++            secondaryIdentity = second?.payload
 +            val current = ++secondaryGeneration
 +            secondaryIcons.clear()
-+            other?.pics?.forEach { (key, icon) ->
++            second?.pics?.forEach { (key, icon) ->
 +                icon.loadDrawableAsync(context, { drawable ->
 +                    if (current == secondaryGeneration && drawable != null) { secondaryIcons[key] = drawable; invalidate() }
 +                }, Handler(Looper.getMainLooper()))
@@ -532,10 +538,10 @@
 +                }, Handler(Looper.getMainLooper()))
 +            }
 +        }
-+        val text = activity.payload.toString()
-+        val moving = activity.building || text.contains("\"animated\":\"working\"") || text.contains("\"animated\":\"listening\"")
++        val disc = discSlot(activity)
++        val moving = disc?.has("animated") == true
 +        if (moving && animation == null && ValueAnimator.areAnimatorsEnabled() && visibility == VISIBLE) animation = ValueAnimator.ofFloat(0f, 1f).apply {
-+            duration = if (activity.building) DotMatrixLoader.CYCLE_MS else 1400
++            duration = if (disc?.optString("animated") == "listening") 1400 else DotMatrixLoader.CYCLE_MS
 +            interpolator = LinearInterpolator()
 +            repeatCount = ValueAnimator.INFINITE
 +            addUpdateListener { phase = it.animatedValue as Float; invalidate() }
@@ -574,156 +580,113 @@
 +
 +    override fun onDraw(canvas: Canvas) {
 +        val activity = item ?: return
-+        if (activity.building) { drawBuilding(canvas); return }
-+        val h = height.toFloat()
-+        val islandWidth = width - if (secondary) dp(28) else 0f
-+        paint.color = Color.BLACK
-+        val center = islandWidth / 2
-+        if (cutoutWidth > 0 && widthMode == 0) {
-+            // Native port of the existing 1-6 neck path; physical cutout mask remains authoritative.
-+            val cameraRadius = minOf(h / 2, cutoutWidth / 2, dp(14))
-+            val gap = cameraRadius + dp(8)
-+            canvas.drawCircle(center, h / 2, cameraRadius, paint)
-+            canvas.drawRoundRect(0f, 0f, center - gap, h, h / 2, h / 2, paint)
-+            canvas.drawRoundRect(center + gap, 0f, islandWidth, h, h / 2, h / 2, paint)
-+            for (direction in -1..1 step 2) {
-+                canvas.save()
-+                canvas.translate(center + direction * gap, (h - dp(21)) / 2)
-+                canvas.scale(-direction * (gap - cameraRadius + dp(4)) / 16.0743f, dp(21) / 21.3333f)
-+                canvas.drawPath(neck, paint)
-+                canvas.restore()
-+            }
-+        } else canvas.drawRoundRect(0f, 0f, islandWidth, h, h / 2, h / 2, paint)
-+        val safe = max(cutoutWidth, dp(22)) / 2 + dp(4)
-+        val big = activity.payload.getJSONObject("bigIsland")
-+        val leading = big.optJSONObject("leading") ?: big.optJSONObject("trailing")
-+        if (widthMode == 2) drawGlyph(canvas, leading, dp(6), h)
-+        else {
-+            drawSlot(canvas, if (widthMode == 0) big.optJSONObject("leading") else leading,
-+                RectF(dp(8), 0f, center - safe, h))
-+            if (widthMode == 0) drawSlot(canvas, big.optJSONObject("trailing"), RectF(center + safe, 0f, islandWidth - dp(8), h))
-+        }
-+        if (secondary) {
-+            paint.color = Color.BLACK
-+            val cx = width - dp(12)
-+            canvas.drawCircle(cx, h / 2, dp(12), paint)
-+            val slot = second?.payload?.optJSONObject("smallIsland")
-+                ?: second?.payload?.optJSONObject("bigIsland")?.optJSONObject("leading")?.takeIf { it.optString("type") == "pic" }
-+            val icon = slot?.optString("pic")?.let(secondaryIcons::get) ?: secondaryIcons.values.firstOrNull()
-+            if (slot?.optString("type") == "progress") {
-+                paint.color = Color.WHITE
-+                paint.style = Paint.Style.STROKE
-+                paint.strokeWidth = dp(2)
-+                canvas.drawArc(cx - dp(7), h / 2 - dp(7), cx + dp(7), h / 2 + dp(7), -90f,
-+                    (slot.optDouble("value", .25) * 360).toFloat(), false, paint)
-+                paint.style = Paint.Style.FILL
-+            } else if (icon != null) {
-+                icon.setBounds((cx - dp(7)).toInt(), (h / 2 - dp(7)).toInt(), (cx + dp(7)).toInt(), (h / 2 + dp(7)).toInt())
-+                icon.draw(canvas)
-+            } else {
-+                paint.color = Color.WHITE
-+                canvas.drawCircle(cx, h / 2, dp(2), paint)
-+            }
-+        }
-+    }
-+
-+    /** Exact 1-6 geometry: 32 dp loading disc, 24 dp camera, 32 dp text pill.
-+     * The physical exclusion rectangle is NOT the camera's visual shape or radius. */
-+    private fun drawBuilding(canvas: Canvas) {
 +        val cy = height / 2f
-+        val camera = dp(52)
++        val camera = dp(CAMERA_DP)
++        val pillEnd = width - if (secondary) dp(28) else 0f
++        val hasPill = shownText.isNotEmpty()
 +        paint.color = Color.BLACK
++        paint.style = Paint.Style.FILL
 +        canvas.drawCircle(dp(16), cy, dp(16), paint)
 +        canvas.drawCircle(camera, cy, dp(12), paint)
-+        canvas.drawRoundRect(dp(72), cy - dp(16), width.toFloat(), cy + dp(16), dp(16), dp(16), paint)
-+        for (direction in listOf(1, -1)) {
++        if (hasPill) canvas.drawRoundRect(dp(PILL_START_DP), cy - dp(16), pillEnd.toFloat(), cy + dp(16), dp(16), dp(16), paint)
++        for (direction in if (hasPill) listOf(1, -1) else listOf(1)) {
 +            canvas.save()
 +            canvas.translate(camera - direction * dp(24), cy - dp(21.3333f) / 2 + dp(.167f))
 +            canvas.scale(direction * density, density)
 +            canvas.drawPath(neck, paint)
 +            canvas.restore()
 +        }
-+        val pose = if (ValueAnimator.areAnimatorsEnabled()) DotMatrixLoader.thinking(phase * 1000.0, loaderPose)
-+            else DotMatrixLoader.rest(loaderPose)
-+        for (row in 0..2) for (col in 0..2) {
-+            val index = row * 3 + col
-+            paint.color = Color.argb((pose.opacity[index] * 255).toInt(), 255, 255, 255)
-+            canvas.drawCircle(dp(10 + col * 6), cy + dp(-6 + row * 6), dp(2) * pose.scale[index].toFloat(), paint)
++        drawDisc(canvas, discSlot(activity), dp(16), cy)
++        if (hasPill) {
++            val slot = pillSlot(activity)
++            val text = if (slot?.optString("type") in setOf("timer", "countdown")) pillText(slot) else shownText
++            textPaint.color = if (stale || slot?.optString("emphasis") == "muted") IslandStyle.TEXT_MUTED
++                else if (slot?.optString("emphasis") == "accent") IslandStyle.ACCENT else IslandStyle.TEXT_PRIMARY
++            val start = dp(PILL_START_DP) + dp(8)
++            val end = textPaint.breakText(text, true, pillEnd - dp(8) - start, null)
++            canvas.drawText(text.take(end), start, cy - (textPaint.ascent() + textPaint.descent()) / 2, textPaint)
++            // Live clocks: redraw on the next whole second while shown.
++            if (slot?.optString("type") in setOf("timer", "countdown")) postInvalidateDelayed(1000 - System.currentTimeMillis() % 1000)
 +        }
-+        var x = dp(80)
-+        val baseline = cy - (buildingPaint.ascent() + buildingPaint.descent()) / 2
-+        for (letter in "Building...") {
-+            val glyph = letter.toString()
-+            canvas.drawText(glyph, x, baseline, buildingPaint)
-+            x += buildingPaint.measureText(glyph) - dp(.12f)
++        if (secondary) drawSecondary(canvas, width - dp(12), cy)
++    }
++
++    /** 16 dp glyph area centred on ([cx], [cy]): Figma's 3×3 loader, a picture or a progress ring. */
++    private fun drawDisc(canvas: Canvas, slot: JSONObject?, cx: Float, cy: Float) {
++        val motion = slot?.optString("animated").orEmpty()
++        val icon = slot?.optString("pic")?.let(icons::get)
++        when {
++            motion == "listening" -> {
++                paint.color = IslandStyle.TEXT_PRIMARY
++                val wave = (kotlin.math.sin(phase * 2 * Math.PI) + 1) / 2
++                canvas.drawCircle(cx, cy, dp(3) + dp(2) * wave.toFloat(), paint)
++            }
++            slot?.optString("type") == "progress" -> {
++                paint.style = Paint.Style.STROKE
++                paint.strokeWidth = dp(2)
++                paint.strokeCap = Paint.Cap.ROUND
++                paint.color = IslandStyle.TRACK
++                canvas.drawCircle(cx, cy, dp(7), paint)
++                paint.color = IslandStyle.TEXT_PRIMARY
++                canvas.drawArc(cx - dp(7), cy - dp(7), cx + dp(7), cy + dp(7), -90f,
++                    (slot.optDouble("value", 0.0).coerceIn(0.0, 1.0) * 360).toFloat(), false, paint)
++                paint.style = Paint.Style.FILL
++            }
++            icon != null && motion.isEmpty() -> {
++                icon.colorFilter = if (slot?.optBoolean("tint") == true) PorterDuffColorFilter(IslandStyle.TEXT_PRIMARY, PorterDuff.Mode.SRC_IN) else null
++                icon.setBounds((cx - dp(8)).toInt(), (cy - dp(8)).toInt(), (cx + dp(8)).toInt(), (cy + dp(8)).toInt())
++                icon.draw(canvas)
++            }
++            else -> {
++                // Figma's 16 dp dot loader: animated while working, its resting pose otherwise.
++                val pose = if (motion.isNotEmpty() && ValueAnimator.areAnimatorsEnabled()) DotMatrixLoader.thinking(phase * DotMatrixLoader.CYCLE_MS.toDouble(), loaderPose)
++                    else DotMatrixLoader.rest(loaderPose)
++                for (row in 0..2) for (col in 0..2) {
++                    val index = row * 3 + col
++                    paint.color = Color.argb((pose.opacity[index] * 255).toInt(), 255, 255, 255)
++                    canvas.drawCircle(cx + dp(-6 + col * 6), cy + dp(-6 + row * 6), dp(2) * pose.scale[index].toFloat(), paint)
++                }
++            }
 +        }
 +    }
 +
-+    private fun drawGlyph(canvas: Canvas, slot: JSONObject?, x: Float, h: Float) {
-+        val icon = slot?.optString("pic")?.let(icons::get)
-+        val motion = slot?.optString("animated")
-+        if (motion == "working") {
-+            paint.color = Color.WHITE
-+            for (index in 0..2) {
-+                val wave = (kotlin.math.sin((phase * 2 * Math.PI) - index * .8) + 1) / 2
-+                canvas.drawCircle(x + dp(3 + index * 5), h / 2, dp(1) + dp(1) * wave.toFloat(), paint)
-+            }
-+        } else if (motion == "listening") {
-+            paint.color = Color.WHITE
-+            val wave = (kotlin.math.sin(phase * 2 * Math.PI) + 1) / 2
-+            canvas.drawCircle(x + dp(8), h / 2, dp(4) + dp(3) * wave.toFloat(), paint)
++    /** Another live activity: a 24 dp disc with its small-island glyph. */
++    private fun drawSecondary(canvas: Canvas, cx: Float, cy: Float) {
++        paint.color = Color.BLACK
++        canvas.drawCircle(cx, cy, dp(12), paint)
++        val slot = second?.payload?.optJSONObject("smallIsland")
++            ?: second?.payload?.optJSONObject("bigIsland")?.optJSONObject("leading")?.takeIf { it.optString("type") == "pic" }
++        val icon = slot?.optString("pic")?.let(secondaryIcons::get) ?: secondaryIcons["app"] ?: secondaryIcons.values.firstOrNull()
++        if (slot?.optString("type") == "progress") {
++            paint.style = Paint.Style.STROKE
++            paint.strokeWidth = dp(2)
++            paint.color = IslandStyle.TEXT_PRIMARY
++            canvas.drawArc(cx - dp(7), cy - dp(7), cx + dp(7), cy + dp(7), -90f,
++                (slot.optDouble("value", .25) * 360).toFloat(), false, paint)
++            paint.style = Paint.Style.FILL
 +        } else if (icon != null) {
-+            val side = minOf(dp(18), h - dp(4)).toInt()
-+            icon.setBounds(x.toInt(), ((h - side) / 2).toInt(), x.toInt() + side, ((h + side) / 2).toInt())
++            icon.colorFilter = if (slot == null) PorterDuffColorFilter(IslandStyle.TEXT_PRIMARY, PorterDuff.Mode.SRC_IN) else null
++            icon.setBounds((cx - dp(7)).toInt(), (cy - dp(7)).toInt(), (cx + dp(7)).toInt(), (cy + dp(7)).toInt())
 +            icon.draw(canvas)
 +        } else {
-+            paint.color = Color.WHITE
-+            canvas.drawCircle(x + dp(7), h / 2, dp(3 + (phase * 2).toInt()), paint)
++            paint.color = IslandStyle.TEXT_PRIMARY
++            canvas.drawCircle(cx, cy, dp(2), paint)
 +        }
 +    }
 +
-+    private fun drawSlot(canvas: Canvas, slot: JSONObject?, rect: RectF) {
-+        if (slot == null || rect.width() < dp(12)) return
-+        canvas.save()
-+        canvas.clipRect(rect)
-+        val type = slot.optString("type")
-+        if (type != "pic" && slot.has("pic") && rect.width() >= dp(34)) {
-+            drawGlyph(canvas, slot, rect.left, rect.height())
-+            rect.left += dp(22)
-+            canvas.clipRect(rect)
-+        }
-+        if (type == "pic") drawGlyph(canvas, slot, rect.left, rect.height())
-+        else if (type == "progress") {
-+            paint.color = Color.DKGRAY
-+            canvas.drawRoundRect(rect.left, height / 2f - dp(2), rect.right, height / 2f + dp(2), dp(2), dp(2), paint)
-+            paint.color = Color.WHITE
-+            val progress = slot.optDouble("value", .35).toFloat()
-+            canvas.drawRoundRect(rect.left, height / 2f - dp(2), rect.left + rect.width() * progress,
-+                height / 2f + dp(2), dp(2), dp(2), paint)
-+        } else {
-+            val text = when (type) {
-+                "text" -> slot.optString("text")
-+                "number" -> slot.optString("value") + slot.optString("unit")
-+                "timer", "countdown" -> {
-+                    val millis = if (type == "timer") System.currentTimeMillis() - slot.optLong("startEpochMs")
-+                        else slot.optLong("endEpochMs") - System.currentTimeMillis()
-+                    val seconds = max(0, millis / 1000)
-+                    "%d:%02d".format(seconds / 60, seconds % 60)
-+                }
-+                else -> "●"
-+            }
-+            paint.color = if (stale || slot.optString("emphasis") == "muted") Color.LTGRAY
-+                else if (slot.optString("emphasis") == "accent") 0xffff6a28.toInt() else Color.WHITE
-+            paint.textSize = minOf(dp(12) * resources.configuration.fontScale, rect.height() * .55f)
-+            val end = paint.breakText(text, true, rect.width(), null)
-+            val baseline = height / 2f - (paint.ascent() + paint.descent()) / 2
-+            canvas.drawText(text.take(end), rect.left, baseline, paint)
-+        }
-+        canvas.restore()
-+    }
++    fun state(): JSONObject = JSONObject().put("text", shownText).put("secondary", secondary)
++        .put("disc", item?.let { discSlot(it)?.let { slot -> slot.optString("animated").ifEmpty { slot.optString("type") } } ?: "loader" } ?: JSONObject.NULL)
 +
 +    private fun dp(value: Float) = value * density
 +    private fun dp(value: Int) = value * density
++    /** Whole pixels for layout sizes. */
++    private fun px(value: Int) = (value * density).toInt()
++
++    companion object {
++        /** Camera centre and pill start, measured from the capsule's left edge (dp). */
++        const val CAMERA_DP = 52
++        const val PILL_START_DP = 72
++    }
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandCardEffects.kt
@@ -814,7 +777,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandCardWindow.kt
-@@ -0,0 +1,302 @@
+@@ -0,0 +1,210 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -827,18 +790,12 @@
 +import android.graphics.Region
 +import android.graphics.drawable.GradientDrawable
 +import android.view.Gravity
-+import android.view.MotionEvent
 +import android.view.SurfaceView
 +import android.view.View
 +import android.view.ViewTreeObserver
 +import android.view.WindowInsets
 +import android.view.WindowManager
-+import android.widget.Button
 +import android.widget.FrameLayout
-+import android.widget.LinearLayout
-+import android.widget.ProgressBar
-+import android.widget.ScrollView
-+import android.widget.TextView
 +import android.window.OnBackInvokedCallback
 +import android.window.OnBackInvokedDispatcher
 +import org.json.JSONObject
@@ -860,19 +817,15 @@
 +    private var activity = initial
 +    private val nativeAssistant = choices == null && initial.category == "assistant"
 +    private val nativeView = if (nativeAssistant) IslandAssistantCard(windowContext, command, collapse) else null
++    /** Every other activity (and the activity chooser) is drawn by the native template card. */
++    private val templateView = if (nativeAssistant) null else IslandTemplateCard(windowContext, command, collapse)
++    private val cardWidth = minOf(dp(420), metrics.bounds.width() - dp(16))
 +    private val fullCard = nativeAssistant || choices == null && initial.payload.getJSONObject("expanded").optJSONObject("content")?.optString("layout") == "card"
 +    private val root = FrameLayout(windowContext).apply {
-+        background = GradientDrawable().apply { setColor(0xeb000000.toInt()); cornerRadius = dp(40).toFloat() }
++        background = GradientDrawable().apply { setColor(IslandStyle.CARD); cornerRadius = dp(IslandStyle.CORNER_DP).toFloat() }
 +        clipToOutline = true
 +        importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
 +    }
-+    private val fallback = LinearLayout(windowContext).apply { orientation = LinearLayout.VERTICAL }
-+    private val header = LinearLayout(windowContext).apply { gravity = Gravity.CENTER_VERTICAL }
-+    private val title = TextView(windowContext).apply { setTextColor(Color.WHITE); textSize = 18f; maxLines = 2 }
-+    private val body = FrameLayout(windowContext)
-+    private val template = LinearLayout(windowContext).apply { orientation = LinearLayout.VERTICAL }
-+    private val scroll = ScrollView(windowContext).apply { addView(template) }
-+    private val actions = LinearLayout(windowContext)
 +    private var host: IslandContentConnection? = null
 +    private var hostView: SurfaceView? = null
 +    private var hostIdentity: String? = null
@@ -887,7 +840,7 @@
 +    private var availableHeight = Int.MAX_VALUE
 +    private var heightCap = finalHeight
 +    private val params = WindowManager.LayoutParams(
-+        minOf(dp(420), metrics.bounds.width() - dp(16)), if (nativeAssistant) finalHeight else dp(48),
++        cardWidth, if (nativeAssistant) finalHeight else dp(48),
 +        WindowManager.LayoutParams.TYPE_STATUS_BAR_ADDITIONAL, flags(), PixelFormat.TRANSLUCENT,
 +    ).apply {
 +        title = "TakuIsland"
@@ -905,28 +858,7 @@
 +    }
 +
 +    init {
-+        header.addView(title, LinearLayout.LayoutParams(0, -2, 1f))
-+        header.addView(Button(windowContext).apply {
-+            text = "⌃"
-+            contentDescription = "Collapse island"
-+            setOnClickListener { collapse("handle") }
-+        }, LinearLayout.LayoutParams(dp(48), dp(48)))
-+        var startY = 0f
-+        header.setOnTouchListener { _, event ->
-+            when (event.actionMasked) {
-+                MotionEvent.ACTION_DOWN -> { startY = event.y; true }
-+                MotionEvent.ACTION_UP -> {
-+                    if (startY - event.y > dp(24)) collapse("swipe_up")
-+                    true
-+                }
-+                else -> true
-+            }
-+        }
-+        body.addView(scroll, FrameLayout.LayoutParams(-1, -1))
-+        fallback.addView(header, LinearLayout.LayoutParams(-1, -2))
-+        fallback.addView(body, LinearLayout.LayoutParams(-1, 0, 1f))
-+        fallback.addView(actions, LinearLayout.LayoutParams(-1, -2))
-+        root.addView(nativeView ?: fallback, FrameLayout.LayoutParams(-1, -1))
++        root.addView(nativeView ?: templateView, FrameLayout.LayoutParams(-1, -1))
 +        root.setOnApplyWindowInsetsListener { _, insets ->
 +            if (insets.isVisible(WindowInsets.Type.ime()) && cover) {
 +                cover = false
@@ -935,7 +867,6 @@
 +                params.y = topInset + dp(8)
 +                backDispatcher?.unregisterOnBackInvokedCallback(back)
 +                backDispatcher = null
-+                updatePadding()
 +            }
 +            if (attached) {
 +                val available = metrics.bounds.height() - insets.getInsets(WindowInsets.Type.ime()).bottom - params.y - dp(8)
@@ -950,17 +881,12 @@
 +            }
 +            insets
 +        }
-+        updatePadding()
 +        update(initial)
 +    }
 +
 +    private fun flags(): Int = WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
 +        WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
 +        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
-+
-+    private fun updatePadding() {
-+        fallback.setPadding(dp(16), dp(16), dp(16), dp(16))
-+    }
 +
 +    fun show() {
 +        root.viewTreeObserver.addOnComputeInternalInsetsListener(insetsListener)
@@ -985,7 +911,12 @@
 +    /** Content snapshots update views; they do not restart the shell's geometry animation. */
 +    fun update(next: IslandActivity) {
 +        activity = next
-+        title.text = next.title
++        val template = templateView
++        when {
++            nativeView != null -> nativeView.update(next)
++            choices != null -> template!!.showChoices(choices)
++            else -> template!!.update(next)
++        }
 +        val wantedHeight = desiredHeight(next)
 +        if (wantedHeight != finalHeight) {
 +            finalHeight = wantedHeight
@@ -997,65 +928,8 @@
 +                changed()
 +            }
 +        }
-+        if (nativeView != null) { nativeView.update(next); return }
-+        template.removeAllViews()
-+        if (choices != null) {
-+            title.text = "Activities"
-+            choices.forEach { choice -> template.addView(Button(windowContext).apply {
-+                text = choice.title
-+                setOnClickListener { command("expand", choice.key, null) }
-+            }) }
-+            actions.removeAllViews()
-+            return
-+        }
-+        val currentTemplate = ++templateGeneration
++        if (template == null || choices != null) return
 +        val expanded = next.payload.getJSONObject("expanded")
-+        expanded.optString("pic").takeIf { it.isNotEmpty() }?.let { key ->
-+            next.pics[key]?.let { icon ->
-+                val picture = android.widget.ImageView(windowContext).apply {
-+                    scaleType = android.widget.ImageView.ScaleType.CENTER_INSIDE
-+                    contentDescription = next.title
-+                }
-+                template.addView(picture, LinearLayout.LayoutParams(-1, dp(64)))
-+                icon.loadDrawableAsync(windowContext, { drawable ->
-+                    if (currentTemplate == templateGeneration) picture.setImageDrawable(drawable)
-+                }, android.os.Handler(android.os.Looper.getMainLooper()))
-+            }
-+        }
-+        if (next.body.isNotBlank()) template.addView(text(next.body))
-+        expanded.optJSONArray("steps")?.let { steps ->
-+            for (index in 0 until steps.length()) {
-+                val step = steps.getJSONObject(index)
-+                template.addView(text((if (step.optBoolean("running")) "• " else "✓ ") + step.getString("text")))
-+            }
-+        }
-+        expanded.optJSONObject("progress")?.let { progress ->
-+            template.addView(ProgressBar(windowContext, null, android.R.attr.progressBarStyleHorizontal).apply {
-+                isIndeterminate = !progress.has("value")
-+                max = 1000
-+                this.progress = (progress.optDouble("value", 0.0) * 1000).toInt()
-+                contentDescription = if (isIndeterminate) "In progress" else "${this.progress / 10}%"
-+            }, LinearLayout.LayoutParams(-1, dp(12)))
-+        }
-+        actions.removeAllViews()
-+        next.actions.forEach { (id, action) ->
-+            actions.addView(Button(windowContext).apply {
-+                text = action.title
-+                if (expanded.optString("primaryAction") == id) setTypeface(typeface, android.graphics.Typeface.BOLD)
-+                maxLines = 2
-+                setOnClickListener { command("action", next.key, JSONObject().put("id", id).toString()) }
-+            }, LinearLayout.LayoutParams(0, -2, 1f))
-+        }
-+        next.nativeActions.forEach { (id, action) ->
-+            actions.addView(Button(windowContext).apply {
-+                text = action.title
-+                setOnClickListener { command("action", next.key, JSONObject().put("id", id).toString()) }
-+            })
-+        }
-+        if (actions.childCount == 0 && next.openIntent != null) actions.addView(Button(windowContext).apply {
-+            text = "Open"
-+            setOnClickListener { command("open", next.key, null) }
-+        })
 +        val identity = next.contentService?.flattenToString()?.plus(":" + expanded.optJSONObject("content")?.optString("token"))
 +        if (identity != hostIdentity) {
 +            host?.close()
@@ -1064,20 +938,20 @@
 +            hostView = null
 +            hostIdentity = identity
 +            richReady = false
-+            scroll.visibility = View.VISIBLE
-+            fallback.visibility = View.VISIBLE
++            template.showTemplateText(true)
++            template.visibility = View.VISIBLE
 +            if (identity != null) {
 +                val surface = SurfaceView(windowContext).apply {
 +                    alpha = 0f
 +                    holder.setFormat(PixelFormat.TRANSLUCENT)
 +                }
-+                (if (fullCard) root else body).addView(surface, FrameLayout.LayoutParams(-1, -1))
++                (if (fullCard) root else template.bodyHost).addView(surface, FrameLayout.LayoutParams(-1, -1))
 +                hostView = surface
 +                host = IslandContentConnection(windowContext, next, surface) { ready ->
 +                    richReady = ready
-+                    if (fullCard) (root.background as GradientDrawable).setColor(if (ready) Color.TRANSPARENT else 0xeb000000.toInt())
-+                    if (fullCard) fallback.visibility = if (ready) View.INVISIBLE else View.VISIBLE
-+                    else scroll.visibility = if (ready) View.INVISIBLE else View.VISIBLE
++                    if (fullCard) (root.background as GradientDrawable).setColor(if (ready) Color.TRANSPARENT else IslandStyle.CARD)
++                    if (fullCard) template.visibility = if (ready) View.INVISIBLE else View.VISIBLE
++                    else template.showTemplateText(!ready)
 +                    surface.alpha = if (ready) 1f else 0f
 +                }.also { it.start() }
 +            }
@@ -1086,8 +960,9 @@
 +
 +    fun state(): JSONObject = JSONObject().put("key", activity.key).put("windowType", params.type)
 +        .put("cover", cover).put("focusable", cover && !fullCard).put("layout", if (nativeAssistant) "native-assistant" else if (fullCard) "card" else "body").put("richReady", richReady)
-+        .put("renderer", if (nativeAssistant) "systemui-native" else "template").put("nativeReady", nativeAssistant && attached)
++        .put("renderer", if (richReady) "remote-surface" else "systemui-native").put("nativeReady", attached && !richReady)
 +        .put("assistant", nativeView?.state() ?: JSONObject.NULL)
++        .put("template", templateView?.state() ?: JSONObject.NULL)
 +        .put("width", root.width).put("height", root.height).put("top", params.y)
 +        .put("touchRegion", region.toString()).put("outsideTapCollapses", false)
 +
@@ -1104,16 +979,12 @@
 +        if (attached) { attached = false; wm.removeViewImmediate(root) }
 +    }
 +
-+    private fun text(value: String) = TextView(windowContext).apply {
-+        text = value
-+        setTextColor(Color.WHITE)
-+        textSize = 15f
-+        setPadding(0, dp(3), 0, dp(3))
-+    }
 +    private fun desiredHeight(item: IslandActivity): Int {
-+        if (nativeView != null) return minOf(nativeView.desiredHeight(item, minOf(dp(420), metrics.bounds.width() - dp(16))), metrics.bounds.height() / 3)
-+        val requested = if (fullCard) item.payload.getJSONObject("expanded").optJSONObject("content")?.optInt("heightDp", 300) ?: 300 else 340
-+        return minOf(dp(requested.coerceIn(96, 340)), metrics.bounds.height() / 3)
++        val cap = metrics.bounds.height() / 3
++        if (nativeView != null) return minOf(nativeView.desiredHeight(item, cardWidth), cap)
++        // A remote full card asks for its height; everything else follows its native content.
++        val requested = if (fullCard && choices == null) item.payload.getJSONObject("expanded").optJSONObject("content")?.optInt("heightDp", 300) else null
++        return minOf(requested?.let { dp(it.coerceIn(96, 340)) } ?: templateView!!.heightFor(cardWidth), cap)
 +    }
 +    private fun dp(value: Int) = (value * density).toInt()
 +}
@@ -1742,6 +1613,125 @@
 +    fun bindStartable(impl: IslandStartable): CoreStartable
 +}
 --- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandNativeCard.kt
+@@ -0,0 +1,116 @@
++/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
++package com.android.systemui.taku.island
++
++import android.content.Context
++import android.os.Bundle
++import android.view.MotionEvent
++import android.view.View
++import android.view.ViewConfiguration
++import android.view.accessibility.AccessibilityNodeInfo
++import android.widget.LinearLayout
++import android.widget.ScrollView
++import org.json.JSONObject
++
++/**
++ * Shared input for SystemUI-drawn island cards: an upward swipe collapses, a tap on the card
++ * (outside its own controls) runs the primary action, and readable text keeps scrolling first.
++ */
++internal abstract class IslandNativeCard(context: Context, protected val command: (String, String?, String?) -> Unit,
++    protected val collapse: (String) -> Unit) : LinearLayout(context) {
++    protected val density = resources.displayMetrics.density
++    protected val scaled = resources.displayMetrics.scaledDensity
++    protected var item: IslandActivity? = null
++    private val swipeSlop = ViewConfiguration.get(context).scaledTouchSlop
++    private val tapTimeout = ViewConfiguration.getLongPressTimeout().toLong()
++    private var downX = 0f
++    private var downY = 0f
++    private var downAt = 0L
++    private var swipeEligible = false
++    private var swiped = false
++    private var tapEligible = false
++
++    /** The scrolling text area; a swipe starting there scrolls until its end before collapsing. */
++    protected abstract val reading: ScrollView
++    /** Controls that keep their own taps (chips, the corner glyph). */
++    protected abstract fun ownTaps(): List<View>
++    /** Accessibility label for the card's primary action. */
++    protected abstract val primaryLabel: String
++
++    /** The publisher's primary action when it has one, otherwise its content intent ("open"). */
++    protected open fun openPrimary() {
++        item?.let { current ->
++            val id = current.payload.getJSONObject("expanded").optString("primaryAction")
++            if (current.actions.containsKey(id)) invoke(current, id) else command("open", current.key, null)
++        }
++    }
++
++    protected fun invoke(current: IslandActivity, id: String) =
++        command("action", current.key, JSONObject().put("id", id).toString())
++
++    protected fun dp(value: Int) = (value * density).toInt()
++
++    private fun inside(view: View, x: Float, y: Float): Boolean {
++        val at = IntArray(2); val card = IntArray(2)
++        view.getLocationInWindow(at); getLocationInWindow(card)
++        val left = at[0] - card[0]; val top = at[1] - card[1]
++        return view.isShown && x >= left && x < left + view.width && y >= top && y < top + view.height
++    }
++
++    /** Observe before children consume motion: ScrollView disallows parent interception after
++     * touch slop, so a header-only listener cannot close a swipe starting on text or chips. */
++    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
++        when (event.actionMasked) {
++            MotionEvent.ACTION_DOWN -> {
++                downX = event.rawX; downY = event.rawY; swiped = false
++                // Child bounds and event.x/y share this card's coordinates (raw coordinates do not).
++                val inText = event.x >= reading.left && event.x < reading.right &&
++                    event.y >= reading.top && event.y < reading.bottom
++                swipeEligible = !(inText && reading.canScrollVertically(1))
++                downAt = event.eventTime
++                tapEligible = ownTaps().none { inside(it, event.x, event.y) }
++            }
++            MotionEvent.ACTION_POINTER_DOWN, MotionEvent.ACTION_CANCEL -> { swipeEligible = false; tapEligible = false }
++            MotionEvent.ACTION_MOVE, MotionEvent.ACTION_UP -> {
++                if (swiped) return true
++                val dx = kotlin.math.abs(event.rawX - downX)
++                val up = downY - event.rawY
++                if (dx > swipeSlop && dx > kotlin.math.abs(up)) swipeEligible = false
++                // A scroll, a swipe or a long press is not a tap.
++                if (dx > swipeSlop || kotlin.math.abs(up) > swipeSlop || event.eventTime - downAt > tapTimeout) tapEligible = false
++                if (swipeEligible && event.pointerCount == 1 && up > maxOf(dp(24), swipeSlop) && up > dx * 1.3f) {
++                    swipeEligible = false; swiped = true
++                    val cancel = MotionEvent.obtain(event).apply { action = MotionEvent.ACTION_CANCEL }
++                    super.dispatchTouchEvent(cancel); cancel.recycle()
++                    post { collapse("swipe_up") }
++                    return true
++                }
++                if (event.actionMasked == MotionEvent.ACTION_UP) {
++                    swipeEligible = false
++                    if (tapEligible && event.pointerCount == 1) {
++                        tapEligible = false
++                        val handled = super.dispatchTouchEvent(event)
++                        post { openPrimary() }
++                        return handled
++                    }
++                }
++            }
++        }
++        return super.dispatchTouchEvent(event)
++    }
++
++    override fun onTouchEvent(event: MotionEvent): Boolean = true
++
++    override fun onInitializeAccessibilityNodeInfo(info: AccessibilityNodeInfo) {
++        super.onInitializeAccessibilityNodeInfo(info)
++        info.addAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_DISMISS)
++        info.isDismissable = true
++        info.addAction(AccessibilityNodeInfo.AccessibilityAction(AccessibilityNodeInfo.ACTION_CLICK, primaryLabel))
++        info.isClickable = true
++    }
++
++    override fun performAccessibilityAction(action: Int, arguments: Bundle?): Boolean {
++        if (action == AccessibilityNodeInfo.ACTION_DISMISS) { collapse("accessibility_dismiss"); return true }
++        if (action == AccessibilityNodeInfo.ACTION_CLICK) { openPrimary(); return true }
++        return super.performAccessibilityAction(action, arguments)
++    }
++}
+--- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandPayload.java
 @@ -0,0 +1,295 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
@@ -2166,7 +2156,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandPresenter.kt
-@@ -0,0 +1,307 @@
+@@ -0,0 +1,317 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -2296,8 +2286,12 @@
 +        if (card != null && expanded == null) collapse("source_ended")
 +        if (automatic && expanded != null && expanded.alertUntil <= SystemClock.elapsedRealtime()) collapse("alert_timeout")
 +        if (expanded != null && expanded.revision != cardRevision) {
-+            card?.update(expanded.data)
 +            cardRevision = expanded.revision
++            // An update the card cannot draw closes it rather than leaving stale or partial chrome.
++            try { card?.update(expanded.data) } catch (failure: RuntimeException) {
++                collapse("render_failed")
++                reason = "render_failed:${failure.javaClass.simpleName}"
++            }
 +        }
 +        layoutCapsule()
 +        if (first != null && first.alertUntil > SystemClock.elapsedRealtime() && alerted[first.key] != first.revision) {
@@ -2347,14 +2341,16 @@
 +    private fun open(item: IslandStore.Entry<IslandActivity>, cover: Boolean, isAlert: Boolean,
 +        choices: List<IslandActivity>? = null): Boolean {
 +        val view = bar ?: return false
-+        val candidate = IslandCardWindow(view.context, item.data, cover, ::invoke, ::collapse,
-+            covering = { covered ->
-+                view.alpha = if (covered) 0f else 1f
-+                // show/close update the card reference after this callback. Reconcile afterward,
-+                // avoiding a recursive close during rotation to landscape.
-+                handler.post { layoutCapsule() }
-+            }, changed = engine::presentationChanged, choices = choices)
++        var candidate: IslandCardWindow? = null
 +        return try {
++            // Construction binds the first content; a payload the card cannot draw never shows.
++            candidate = IslandCardWindow(view.context, item.data, cover, ::invoke, ::collapse,
++                covering = { covered ->
++                    view.alpha = if (covered) 0f else 1f
++                    // show/close update the card reference after this callback. Reconcile afterward,
++                    // avoiding a recursive close during rotation to landscape.
++                    handler.post { layoutCapsule() }
++                }, changed = engine::presentationChanged, choices = choices)
 +            candidate.show()
 +            card = candidate
 +            cardKey = item.key
@@ -2364,7 +2360,7 @@
 +            reason = if (isAlert) "alert" else "expanded"
 +            true
 +        } catch (failure: RuntimeException) {
-+            candidate.close()
++            candidate?.close()
 +            reason = "window_failed:${failure.javaClass.simpleName}"
 +            false
 +        }
@@ -2403,11 +2399,25 @@
 +        }
 +        val cutout = view.rootWindowInsets?.displayCutout?.boundingRectTop ?: Rect()
 +        val physical = if (!cutout.isEmpty && cutout.centerX() in view.width / 3..view.width * 2 / 3) cutout.width() else 0
-+        val clock = maxOf(view.findViewById<View>(R.id.clock)?.width ?: 0, dp(52))
-+        val icons = maxOf(view.findViewById<View>(R.id.status_bar_end_side_content)?.width ?: 0, dp(64))
-+        val budget = (view.width - 2 * (maxOf(clock, icons) + dp(12))).coerceAtLeast(0)
-+        val minimum = if (activity.building) pill.buildingWidth() else physical + dp(48)
-+        if (budget < minimum) {
++        val contents = view.findViewById<View>(R.id.status_bar_contents)
++        val contentLeft = view.paddingLeft + (contents?.paddingLeft ?: 0)
++        val contentRight = view.width - view.paddingRight - (contents?.paddingRight ?: 0)
++        val clock = maxOf(view.findViewById<View>(R.id.clock)?.width ?: 0,
++            view.findViewById<View>(R.id.clock_center)?.width ?: 0, dp(52))
++        val endWidth = view.findViewById<View>(R.id.status_bar_end_side_content)?.width ?: dp(64)
++        val icons = view.findViewById<View>(R.id.statusIcons)?.takeIf { it.visibility != View.GONE }?.width ?: 0
++        // Figma 1379:889 anchors the island to the camera: the disc extends CAMERA_DP to its
++        // left and the pill grows to its right. FrameLayout centering would include asymmetric
++        // status-bar padding, so position from the actual display cutout instead.
++        val location = IntArray(2)
++        view.getLocationOnScreen(location)
++        val cameraX = if (physical > 0) cutout.centerX() - location[0] else view.width / 2
++        val cameraLeftWidth = dp(IslandCapsuleView.CAMERA_DP)
++        val maximumWidth = IslandCapsuleGeometry.maximumWidth(contentLeft, contentRight,
++            cameraX, cameraLeftWidth, clock, endWidth, icons, dp(12))
++        val wantsSecondary = !activity.building && items.count { it.data.compactVisible } > 1
++        val width = pill.layoutWidth(activity, maximumWidth, wantsSecondary)
++        if (width == 0) {
 +            IslandPresentationOwnership.show(null)
 +            pill.visibility = View.GONE
 +            view.setTakuIslandProbeWidth(0)
@@ -2415,31 +2425,20 @@
 +            return
 +        }
 +        relocateCentered()
-+        val width = if (activity.building) pill.buildingWidth() else minOf(dp(220), budget)
-+        pill.widthMode = if (width >= physical + dp(120)) 0 else if (width >= physical + dp(80)) 1 else 2
-+        pill.cutoutWidth = physical.toFloat()
-+        val secondary = !activity.building && items.count { it.data.compactVisible } > 1 && width >= physical + dp(80)
 +        pill.stale = items.find { it.key == selected }?.stale(SystemClock.elapsedRealtime()) == true
-+        pill.bind(activity, if (secondary) items.firstOrNull { it.key != selected && it.data.compactVisible }?.data else null)
-+        pill.translationX = if (secondary) dp(14).toFloat() else 0f
++        pill.bind(activity, if (pill.secondary) items.firstOrNull { it.key != selected && it.data.compactVisible }?.data else null)
++        pill.translationX = 0f
 +        pill.visibility = View.VISIBLE
 +        IslandPresentationOwnership.show(if (view.isShown) activity else null)
 +        val height = minOf(dp(32), view.height.coerceAtLeast(dp(24)))
-+        val params = FrameLayout.LayoutParams(width, height, Gravity.CENTER)
-+        if (activity.building) {
-+            // FrameLayout centering includes asymmetric status-bar padding. Anchor to the
-+            // actual display cutout instead, keeping the centre disc exactly on the camera.
-+            val location = IntArray(2)
-+            view.getLocationOnScreen(location)
-+            val cameraX = if (physical > 0) cutout.centerX() - location[0] else view.width / 2
-+            params.gravity = Gravity.TOP or Gravity.LEFT
-+            params.leftMargin = cameraX - dp(52) - view.paddingLeft
-+            params.topMargin = (view.height - height) / 2 - view.paddingTop
-+        }
++        val params = FrameLayout.LayoutParams(width, height, Gravity.TOP or Gravity.LEFT)
++        params.leftMargin = cameraX - dp(IslandCapsuleView.CAMERA_DP) - view.paddingLeft
++        params.topMargin = (view.height - height) / 2 - view.paddingTop
 +        val previous = pill.layoutParams as FrameLayout.LayoutParams
 +        if (previous.width != width || previous.height != height || previous.gravity != params.gravity ||
 +            previous.leftMargin != params.leftMargin || previous.topMargin != params.topMargin) pill.layoutParams = params
-+        view.setTakuIslandProbeWidth(width)
++        view.setTakuIslandProbeWidth(IslandCapsuleGeometry.reservationWidth(
++            contentLeft, contentRight, cameraX, cameraLeftWidth, width))
 +    }
 +
 +    private fun relocateCentered() {
@@ -2465,6 +2464,7 @@
 +
 +    override fun state(): JSONObject = JSONObject().put("selected", selected ?: JSONObject.NULL)
 +        .put("compactVisible", capsule?.visibility == View.VISIBLE && bar?.alpha != 0f).put("reason", reason)
++        .put("compact", capsule?.takeIf { it.visibility == View.VISIBLE }?.state() ?: JSONObject.NULL)
 +        .put("expanded", card != null).put("card", card?.state() ?: JSONObject.NULL)
 +
 +    private fun invoke(method: String, arg: String?, extra: String? = null) {
@@ -2978,6 +2978,93 @@
 +    }
 +}
 --- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandStyle.kt
+@@ -0,0 +1,84 @@
++/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
++package com.android.systemui.taku.island
++
++import android.content.Context
++import android.graphics.Canvas
++import android.graphics.Color
++import android.graphics.Paint
++import android.graphics.Typeface
++import android.graphics.drawable.GradientDrawable
++import android.util.PathParser
++import android.view.Gravity
++import android.view.View
++import android.widget.TextView
++
++/**
++ * Taku island design tokens (Figma 1:4031 expanded, 1379:776 compact). Every island surface, the
++ * native assistant card, the template card for other publishers and the compact capsule, draws
++ * with these; SystemUI never falls back to stock widgets for island chrome.
++ */
++internal object IslandStyle {
++    /** content/900 at 92 %: the card and capsule fill. */
++    const val CARD = 0xeb000000.toInt()
++    const val CORNER_DP = 40
++    const val PADDING_DP = 16
++    /** surface/900, /800, /600, /200 (white at 92, 80, 48 and 8 %). */
++    const val TEXT_PRIMARY = 0xebffffff.toInt()
++    const val TEXT_BODY = 0xccffffff.toInt()
++    const val TEXT_SECONDARY = 0xa3ffffff.toInt()
++    const val TEXT_MUTED = 0x7affffff
++    const val CHIP = 0x14ffffff
++    const val TRACK = 0x29ffffff
++    const val ACCENT = 0xffff6a28.toInt()
++
++    @Volatile private var fonts: Pair<Typeface, Typeface>? = null
++
++    /** Hanken Grotesk regular/medium from the Agent package that ships it; sans-serif otherwise. */
++    private fun fonts(context: Context): Pair<Typeface, Typeface> = fonts ?: synchronized(this) {
++        fonts ?: run {
++            fun load(name: String, weight: Int) = runCatching {
++                val app = context.createPackageContext("org.agentos.agent", 0)
++                app.resources.getFont(app.resources.getIdentifier(name, "font", app.packageName))
++            }.getOrDefault(Typeface.create("sans-serif", weight))
++            Pair(load("hanken_grotesk_regular", Typeface.NORMAL), load("hanken_grotesk_medium", Typeface.NORMAL))
++        }.also { fonts = it }
++    }
++
++    fun regular(context: Context): Typeface = fonts(context).first
++    fun medium(context: Context): Typeface = fonts(context).second
++
++    /** Body text: [size] sp with the design's −1 % tracking and no font padding. */
++    fun label(context: Context, size: Float, color: Int, face: Typeface = regular(context)) = TextView(context).apply {
++        textSize = size; setTextColor(color); typeface = face; includeFontPadding = false; letterSpacing = -.01f
++    }
++
++    /** Body/Medium/lg chip, 40 dp high: white 8 % (or white 92 % with dark text when [primary]). */
++    fun chip(context: Context, title: CharSequence, primary: Boolean, click: () -> Unit): TextView {
++        val density = context.resources.displayMetrics.density
++        val scaled = context.resources.displayMetrics.scaledDensity
++        return label(context, 16f, if (primary) CARD else TEXT_PRIMARY, medium(context)).apply {
++            text = title
++            isSingleLine = true
++            gravity = Gravity.CENTER
++            val horizontal = (12 * density).toInt(); val vertical = (8 * density).toInt()
++            setPadding(horizontal, vertical, horizontal, vertical)
++            minHeight = (24 * scaled).toInt() + 2 * vertical
++            background = GradientDrawable().apply { setColor(if (primary) TEXT_PRIMARY else CHIP); cornerRadius = 999 * density }
++            isClickable = true; isFocusable = true
++            setOnClickListener { click() }
++        }
++    }
++
++    /** The 20 dp expand/collapse corner icon, exact paths from design/assistant-card/expand.svg. */
++    class ExpandGlyph(context: Context) : View(context) {
++        private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
++            color = Color.WHITE; style = Paint.Style.STROKE; strokeWidth = 1.66667f; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND
++        }
++        private val path = PathParser.createPathFromPathData("M1.77626 8.33333L1.71196 4.4221C1.69616 3.46072 1.68826 2.98003 1.87147 2.61455C2.03255 2.2932 2.2932 2.03255 2.61455 1.87146C2.98003 1.68826 3.46072 1.69616 4.4221 1.71196L8.33333 1.77626M18.2237 11.6667L18.288 15.5779C18.3038 16.5393 18.3117 17.02 18.1285 17.3854C17.9675 17.7068 17.7068 17.9675 17.3854 18.1285C17.02 18.3117 16.5393 18.3038 15.5779 18.288L11.6667 18.2237")
++        override fun onDraw(canvas: Canvas) {
++            val d = resources.displayMetrics.density
++            canvas.save(); canvas.translate((width - 20 * d) / 2, (height - 20 * d) / 2); canvas.scale(d, d)
++            canvas.drawPath(path, paint); canvas.restore()
++        }
++    }
++}
+--- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandSystemNotifications.kt
 @@ -0,0 +1,33 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
@@ -3096,6 +3183,213 @@
 +        engine.putSystem(IslandActivity(key, context.packageName, Process.myUid(), users.userId, payload,
 +            emptyMap(), emptyMap(), null, null, null, mapOf("stop" to IslandNativeAction("Stop", stop))),
 +            SystemClock.elapsedRealtime())
++    }
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandTemplateCard.kt
+@@ -0,0 +1,204 @@
++/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
++package com.android.systemui.taku.island
++
++import android.animation.ValueAnimator
++import android.content.Context
++import android.graphics.Canvas
++import android.graphics.Paint
++import android.graphics.drawable.Drawable
++import android.graphics.drawable.Icon
++import android.os.Handler
++import android.os.Looper
++import android.view.Gravity
++import android.view.View
++import android.view.animation.LinearInterpolator
++import android.widget.FrameLayout
++import android.widget.HorizontalScrollView
++import android.widget.ImageView
++import android.widget.LinearLayout
++import android.widget.ScrollView
++import org.json.JSONObject
++
++/**
++ * Figma 1:4031 for every publisher other than the Taku assistant: the same 92 % black card,
++ * Hanken type, corner glyph and option chips, filled from the notification's island payload
++ * (`expanded.title/body/pic/steps/progress/actions/primaryAction`). Nothing here is a stock
++ * widget, so an island never shows unstyled Android buttons.
++ */
++internal class IslandTemplateCard(context: Context, command: (String, String?, String?) -> Unit,
++    collapse: (String) -> Unit) : IslandNativeCard(context, command, collapse) {
++    private val leading = ImageView(context).apply { scaleType = ImageView.ScaleType.FIT_CENTER; importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO }
++    private val expand = IslandStyle.ExpandGlyph(context)
++    private val title = IslandStyle.label(context, 18f, IslandStyle.TEXT_BODY).apply { setLineHeight((27.9f * scaled).toInt()) }
++    private val body = IslandStyle.label(context, 16f, IslandStyle.TEXT_SECONDARY).apply { setLineHeight((24 * scaled).toInt()) }
++    private val content = LinearLayout(context).apply {
++        orientation = VERTICAL
++        addView(title)
++        addView(body, LayoutParams(-1, -2).apply { topMargin = dp(4) })
++    }
++    private val scroll = ScrollView(context).apply { isVerticalScrollBarEnabled = false; addView(content); isFillViewport = false }
++    /** Text area; an optional rich-content surface is layered over it by the card window. */
++    val bodyHost = FrameLayout(context).apply { addView(scroll, FrameLayout.LayoutParams(-1, -2)) }
++    private val progress = ProgressLine(context)
++    private val chips = LinearLayout(context).apply { orientation = HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
++    private val chipScroll = HorizontalScrollView(context).apply {
++        isHorizontalScrollBarEnabled = false; overScrollMode = OVER_SCROLL_NEVER
++        addView(chips); setPadding(0, dp(5), 0, dp(5)); clipToPadding = false
++    }
++    private var iconGeneration = 0
++    private var iconIdentity: Any? = null
++    private var choiceKeys: List<String> = emptyList()
++    override val reading: ScrollView get() = scroll
++    override val primaryLabel = "Open"
++    override fun ownTaps(): List<View> = listOf(chipScroll, expand)
++
++    init {
++        orientation = VERTICAL
++        setPadding(dp(16), dp(16), 0, dp(16))
++        val header = FrameLayout(context).apply {
++            addView(leading, FrameLayout.LayoutParams(dp(20), dp(20), Gravity.LEFT or Gravity.CENTER_VERTICAL).apply { leftMargin = dp(6) })
++            addView(expand, FrameLayout.LayoutParams(dp(32), dp(32), Gravity.RIGHT))
++        }
++        expand.setOnClickListener { openPrimary() }
++        addView(header, LayoutParams(-1, dp(32)).apply { rightMargin = dp(16) })
++        addView(bodyHost, LayoutParams(-1, 0, 1f).apply { topMargin = dp(4); rightMargin = dp(16) })
++        addView(progress, LayoutParams(-1, dp(4)).apply { topMargin = dp(16); rightMargin = dp(16) })
++        addView(chipScroll, LayoutParams(-1, -2).apply { topMargin = dp(11); bottomMargin = -dp(5) })
++        chipScroll.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
++            if (chipScroll.width > 0 && chipScroll.height > 0)
++                chipScroll.setRenderEffect(IslandCardEffects.chipEdge(chipScroll.width.toFloat(), chipScroll.height.toFloat(), density))
++        }
++        scroll.viewTreeObserver.addOnScrollChangedListener { updateBottomEdge() }
++        scroll.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> updateBottomEdge() }
++    }
++
++    /** Opening a card with no content intent and no primary action does nothing, and says so. */
++    override fun openPrimary() {
++        val current = item ?: return
++        val primary = current.payload.getJSONObject("expanded").optString("primaryAction")
++        if (current.actions.containsKey(primary) || current.openIntent != null) super.openPrimary()
++    }
++
++    fun update(next: IslandActivity) {
++        item = next
++        choiceKeys = emptyList()
++        val expanded = next.payload.getJSONObject("expanded")
++        title.text = next.title
++        body.text = next.body
++        body.visibility = if (next.body.isBlank()) GONE else VISIBLE
++        while (content.childCount > 2) content.removeViewAt(2)
++        expanded.optJSONArray("steps")?.let { steps ->
++            for (i in 0 until steps.length()) {
++                val step = steps.getJSONObject(i)
++                content.addView(IslandStyle.label(context, 14f, IslandStyle.TEXT_SECONDARY).apply {
++                    text = (if (step.optBoolean("running")) "• " else "✓ ") + step.getString("text")
++                }, LayoutParams(-1, -2).apply { topMargin = dp(if (i == 0) 16 else 8) })
++            }
++        }
++        val track = expanded.optJSONObject("progress")
++        progress.visibility = if (track == null) GONE else VISIBLE
++        progress.value = track?.takeIf { it.has("value") }?.optDouble("value")?.toFloat()
++        progress.contentDescription = progress.value?.let { "${(it * 100).toInt()}%" } ?: "In progress"
++        // The expanded picture when the publisher set one, else the posting app's small icon.
++        val picKey = expanded.optString("pic").takeIf { next.pics.containsKey(it) }
++        showIcon(picKey?.let(next.pics::get) ?: next.pics["app"], tint = picKey == null)
++        val primary = expanded.optString("primaryAction")
++        chips.removeAllViews()
++        var index = 0
++        next.actions.forEach { (id, action) ->
++            chips.addView(IslandStyle.chip(context, action.title, id == primary) { item?.let { invoke(it, id) } },
++                LayoutParams(-2, -2).apply { if (index++ > 0) leftMargin = dp(8) })
++        }
++        next.nativeActions.forEach { (id, action) ->
++            chips.addView(IslandStyle.chip(context, action.title, false) { item?.let { invoke(it, id) } },
++                LayoutParams(-2, -2).apply { if (index++ > 0) leftMargin = dp(8) })
++        }
++        chipScroll.visibility = if (chips.childCount == 0) GONE else VISIBLE
++        expand.visibility = if (next.openIntent != null || next.actions.containsKey(primary)) VISIBLE else INVISIBLE
++        expand.contentDescription = "Open ${next.title}"
++        scroll.post { updateBottomEdge() }
++    }
++
++    /** Several activities compete for one long-press: list them as chips; a chip expands that one. */
++    fun showChoices(choices: List<IslandActivity>) {
++        item = null
++        title.text = "Activities"
++        body.visibility = GONE
++        progress.visibility = GONE
++        while (content.childCount > 2) content.removeViewAt(2)
++        showIcon(null, false)
++        expand.visibility = INVISIBLE
++        choiceKeys = choices.map { it.key }
++        chips.removeAllViews()
++        choices.forEachIndexed { index, choice ->
++            chips.addView(IslandStyle.chip(context, choice.title, false) { command("expand", choice.key, null) },
++                LayoutParams(-2, -2).apply { if (index > 0) leftMargin = dp(8) })
++        }
++        chipScroll.visibility = if (choices.isEmpty()) GONE else VISIBLE
++    }
++
++    /** Hides the native text while a ready rich surface covers [bodyHost]. */
++    fun showTemplateText(visible: Boolean) { scroll.visibility = if (visible) VISIBLE else INVISIBLE }
++
++    /** Height for [width] with this content, from a real measure pass (fonts are already loaded). */
++    fun heightFor(width: Int): Int {
++        measure(MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED))
++        return measuredHeight.coerceAtLeast(dp(96))
++    }
++
++    fun state(): JSONObject = JSONObject().put("renderer", "systemui-native").put("title", title.text.toString())
++        .put("body", body.text.toString()).put("actionCount", if (choiceKeys.isEmpty()) chips.childCount else 0)
++        .put("choices", choiceKeys.size).put("progress", if (progress.visibility == VISIBLE) progress.value ?: -1f else JSONObject.NULL)
++
++    private fun showIcon(icon: Icon?, tint: Boolean) {
++        if (icon === iconIdentity) return
++        iconIdentity = icon
++        val generation = ++iconGeneration
++        leading.setImageDrawable(null)
++        leading.visibility = if (icon == null) INVISIBLE else VISIBLE
++        icon?.loadDrawableAsync(context, { drawable: Drawable? ->
++            if (generation != iconGeneration || drawable == null) return@loadDrawableAsync
++            // Small icons are alpha masks: draw them white like the rest of the island's glyphs.
++            if (tint) drawable.mutate().setTint(IslandStyle.TEXT_PRIMARY)
++            leading.setImageDrawable(drawable)
++        }, Handler(Looper.getMainLooper()))
++    }
++
++    private fun updateBottomEdge() {
++        scroll.setRenderEffect(if (scroll.height > 0 && scroll.canScrollVertically(1))
++            IslandCardEffects.bottomEdge(scroll.width.toFloat(), scroll.height.toFloat(), density) else null)
++    }
++
++    /** 4 dp rounded line: white 16 % track, white 92 % fill; a sweeping segment when indeterminate. */
++    private class ProgressLine(context: Context) : View(context) {
++        private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
++        private var sweep: ValueAnimator? = null
++        private var phase = 0f
++        var value: Float? = null
++            set(next) { field = next?.coerceIn(0f, 1f); syncSweep(); invalidate() }
++
++        private fun syncSweep() {
++            val wanted = value == null && isAttachedToWindow && visibility == VISIBLE && ValueAnimator.areAnimatorsEnabled()
++            if (wanted && sweep == null) sweep = ValueAnimator.ofFloat(0f, 1f).apply {
++                duration = 1400; interpolator = LinearInterpolator(); repeatCount = ValueAnimator.INFINITE
++                addUpdateListener { phase = it.animatedValue as Float; invalidate() }; start()
++            } else if (!wanted) { sweep?.cancel(); sweep = null }
++        }
++        override fun onAttachedToWindow() { super.onAttachedToWindow(); syncSweep() }
++        override fun onDetachedFromWindow() { sweep?.cancel(); sweep = null; super.onDetachedFromWindow() }
++        override fun onVisibilityChanged(changedView: View, visibility: Int) { super.onVisibilityChanged(changedView, visibility); syncSweep() }
++        override fun onDraw(canvas: Canvas) {
++            val h = height.toFloat(); val w = width.toFloat(); val r = h / 2
++            paint.color = IslandStyle.TRACK
++            canvas.drawRoundRect(0f, 0f, w, h, r, r, paint)
++            paint.color = IslandStyle.TEXT_PRIMARY
++            val current = value
++            if (current != null) canvas.drawRoundRect(0f, 0f, maxOf(h, w * current), h, r, r, paint)
++            else {
++                val segment = w * .3f
++                val start = (w + segment) * phase - segment
++                canvas.drawRoundRect(maxOf(0f, start), 0f, minOf(w, start + segment), h, r, r, paint)
++            }
++        }
 +    }
 +}
 --- /dev/null

@@ -8,12 +8,12 @@
 import React, {useEffect, useState, type ReactNode} from 'react';
 import {Animated, BackHandler, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, ToastAndroid, View} from 'react-native';
 import * as Clipboard from 'expo-clipboard';
-import {chatColors, chatType} from '../chat/chatTheme';
+import {chatColors, chatType, themedStyles} from '../chat/chatTheme';
 import {chatText} from '../chat/chatText';
 import {containsChinese} from '../theme';
 
 /** A reply's text and where it sits in the window (dp). */
-export type ReplyMenuTarget = {id: string; text: string; x: number; y: number; width: number; height: number};
+export type ReplyMenuTarget = {id: string; threadId: string; text: string; x: number; y: number; width: number; height: number};
 
 type Props = {
   target: ReplyMenuTarget;
@@ -23,12 +23,18 @@ type Props = {
   bottom: number;
   screenWidth: number;
   renderMarkdown?: (text: string, active: boolean, itemId: string) => ReactNode;
+  speechAction?: {speaking: boolean; run: () => void};
+  /**
+   * Panels actions for a reply the agent made a panel (Pin to Panels), or one already pinned
+   * (Open panel, Unpin). Absent for every other reply: they never offer pinning.
+   */
+  panel?: {pinned: boolean; pin: () => void; open: () => void; unpin: () => void};
   onClose: () => void;
 };
 
 const PAD = 12, PILL = 40, GAP = 8;
 
-export function ReplyMenu({target, language, top, bottom, screenWidth, renderMarkdown, onClose}: Props) {
+export function ReplyMenu({target, language, top, bottom, screenWidth, renderMarkdown, speechAction, panel, onClose}: Props) {
   const t = chatText(language);
   const [selecting, setSelecting] = useState(false);
   const [selection, setSelection] = useState({start: 0, end: target.text.length});
@@ -59,7 +65,13 @@ export function ReplyMenu({target, language, top, bottom, screenWidth, renderMar
     ? [{key: 'copy', label: t('copy'), onPress: () => copy(target.text.slice(selection.start, selection.end) || target.text)},
       {key: 'done', label: t('done'), onPress: onClose}]
     : [{key: 'copy', label: t('copy'), onPress: () => copy(target.text)},
-      {key: 'select', label: t('select'), onPress: () => setSelecting(true)}];
+      {key: 'select', label: t('select'), onPress: () => setSelecting(true)},
+      ...(speechAction ? [{key: speechAction.speaking ? 'stop-speech' : 'speak',
+        label: t(speechAction.speaking ? 'replySpeechStop' : 'replySpeechStart'), onPress: speechAction.run}] : []),
+      ...(!panel ? [] : panel.pinned
+        ? [{key: 'open-panel', label: t('openPanel'), onPress: () => { onClose(); panel.open(); }},
+          {key: 'unpin-panel', label: t('unpinPanel'), onPress: () => { onClose(); panel.unpin(); }}]
+        : [{key: 'pin-panel', label: t('pinToPanels'), onPress: () => { onClose(); panel.pin(); }}])];
 
   return <Animated.View style={[StyleSheet.absoluteFill, {opacity: shown}]}>
     <Pressable testID="reply-menu-overlay" accessibilityRole="button" accessibilityLabel={t('done')} onPress={onClose} style={styles.overlay}/>
@@ -82,16 +94,16 @@ export function ReplyMenu({target, language, top, bottom, screenWidth, renderMar
   </Animated.View>;
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   // Figma 0-3 "Overlay": Content/400 (24 % black); the blur behind is the host's EdgeBlur.
   overlay: {...StyleSheet.absoluteFill, backgroundColor: 'rgba(0,0,0,0.24)'},
   card: {position: 'absolute', backgroundColor: chatColors.surfaceRaised, borderRadius: 24, padding: PAD, overflow: 'hidden'},
   replyText: {color: chatColors.textSecondary},
   select: {padding: 0, margin: 0, textAlignVertical: 'top'},
   // Figma 0-3 action pills ("Pin to top", "Ask Taku"): Surface/900, 40 dp, 16 dp sides, 48 dp shadow.
-  pills: {position: 'absolute', right: 16, flexDirection: 'row', gap: GAP},
+  pills: {position: 'absolute', left: 16, right: 16, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-end', gap: GAP},
   pill: {height: PILL, paddingHorizontal: 16, borderRadius: PILL / 2, backgroundColor: chatColors.surfaceRaised, alignItems: 'center', justifyContent: 'center',
     boxShadow: `0px 0px 48px 0px ${chatColors.shadow}`},
   pillPressed: {backgroundColor: chatColors.surfaceRaised},
   pillText: {color: chatColors.icon},
-});
+}));

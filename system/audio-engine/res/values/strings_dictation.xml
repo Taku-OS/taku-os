@@ -1,12 +1,12 @@
 <resources>
-    <string name="audio_dictation_title">Desktop voice input</string>
-    <string name="audio_dictation_subtitle">Applies to the AssistantEntry hold gesture and the desktop text-field microphone. Opening this page never records audio or contacts the cloud.</string>
+    <string name="audio_dictation_title">Assistant voice input</string>
+    <string name="audio_dictation_subtitle">Desktop voice and Live Talk use all settings on this page. The chat microphone uses the saved language and always recognizes speech on device. Opening this page never records audio or contacts the cloud.</string>
     <string name="audio_dictation_settings_section">Settings</string>
     <string name="audio_dictation_refresh">Refresh settings</string>
     <string name="audio_dictation_voice_section">Voice AI</string>
     <string name="audio_dictation_enable_voice">Enable voice AI</string>
     <string name="audio_dictation_enable_summary">Uses the same global switch as Taku Audio home. Turning it off stops the current system voice session.</string>
-    <string name="audio_dictation_preferences_section">Desktop recognition</string>
+    <string name="audio_dictation_preferences_section">Speech recognition</string>
     <string name="audio_dictation_primary">Recognition backend</string>
     <string name="audio_dictation_zipformer">Local Zipformer</string>
     <string name="audio_dictation_whisper">fal Whisper</string>

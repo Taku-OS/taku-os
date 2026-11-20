@@ -1,48 +1,46 @@
-# System Agent composer
+# Taku Assistant composer
 
-v47 simplifies the bottom of the composer to attachments, a model ring, a reasoning-effort dial, voice, and send. Persistent background-display, lightning, and permission-shield entries are removed; task execution cards still open background displays. All icons use a 24dp canvas with a 1.8 stroke, buttons have 44dp touch targets, and the circular send background is 40dp.
+Expo chat opens in `org.agentos.agent/.MainActivity`. To open a specific conversation, pass its UUID as the `threadId` extra.
 
-When the composer contains text or attachments, it submits a message; when additional content is entered during execution, native `turn/steer` continues the same turn. An empty composer during execution shows a stop button that stops the real task through `turn/interrupt`.
+**Composer tools** opens the Android document picker for files and images, or the Android camera for a photo. The Kotlin assistant copies the selected content and keeps it with the draft. Images enter the native turn as `localImage` inputs. Text files are available to the model by their local paths.
 
-`ComposerToolbar` owns icons and menus, `ComposerPreferences` saves conversation options, and `ComposerAttachmentActivity` obtains attachments through the Android system file picker and copies them into the app-private directory. New messages and steering instructions both use native `localImage` for images; other files pass the user-selected local path. Model and reasoning-effort options come from the actual runtime catalog.
+**Send** starts a new request when the conversation is idle. During an active turn, **Send** steers that turn. **Stop** remains available while you write a follow-up and keeps that draft when it interrupts the turn.
 
-Voice uses Android's local SpeechRecognizer; if the system has no recognition engine configured, it explicitly reports that voice is unavailable. The camera entry is implemented; photo capture was not accepted in this round.
+## Drafts and failed requests
 
-## Validation record
+Expo and on-device agents share the Kotlin composer. `composer/read` on `content://org.agentos.assistant.open-access` returns the conversation's current draft revision, text, and attachment metadata. Sending records the conversation, draft revision, and attachment IDs. Acceptance of a queued request clears the submitted draft. The task can still fail later.
 
-- v46: an image was actually selected and sent on the emulator; the real model identified folder names and an empty directory in it. After send changed to stop, the actual task was canceled.
-- v46: a real running turn received a steering instruction, and the model changed its final response within that same turn. An actual phone-tool request required approval; canceling in the UI caused the executor to block the operation.
-- v47: component build passed; the emulator verified removal of lightning and permission-shield controls while retaining the other five, and checked the actual layout with multiline input and the keyboard open.
-- `ComposerAcceptanceTest` and `ComposerInteractionTest` are real end-to-end tests requiring an already logged-in Android runtime; they do not supply simulated model responses.
+After a task fails, use **Restore to draft** to recover its text and attachments into an empty composer. Save a newer draft before clearing it to make room. Review the recovered request before sending. If an attachment is missing, remove it and select the file again.
 
-Acceptance metadata is in `evidence/builds/2026-10-15-mobile-composer.json` and `evidence/builds/2026-10-15-composer-aligned.json`. Original screenshots and test logs remain local, excluding APKs, login state, and account keys.
+Home handoffs open editable drafts. If a handoff displaces an existing draft, **Restore saved draft** recovers the displaced text and attachments. See the [installed Assistant draft commands](../system/assistant/assets/skills/taku-open-access/SKILL.md#assistant-drafts).
 
-See [assistant recovery](assistant-recovery.md) for v48's immediate draft saving and acceptance of recovery after abnormal exit/full-device restart.
+Android supplies the foreground screenshot when both `assist_structure_enabled` and `assist_screenshot_enabled` are enabled. The system assistant also checks Android's assist metadata before handing off the image. If Android marks the foreground window as protected, `capture/read` reports `no_screenshot`. `capture/accept` returns `CAPTURE_NOT_ACTIONABLE`, and no task starts.
 
-## v49 sending and failure recovery
+## Run the live composer regression
 
-Sending snapshots the current conversation, text, attachments, and draft revision. An asynchronous callback clears only content still matching that snapshot; switching conversations or continuing to type cannot be cleared by an old callback. A send record is saved before enqueueing; being enqueued no longer means final send success.
-
-While a conversation loads, sending, attachments, and recovery can act only on the loaded conversation. Home handoff content is first written into the draft and then its one-time handoff record is consumed, preventing duplicate sends or steering after UI refresh. A pending Home request cannot be consumed by a different manual steering instruction. If another draft already exists, its original text and attachments are stashed atomically with a “Restore stashed draft” entry. Home requests do not mix with old attachments, and nothing sends if saving fails.
-
-When sending fails, an empty composer automatically restores the original text and attachments. If a new draft has been written, it is preserved and an entry appears to recover failed content; save or clear the current draft before recovery. Content from repeated failures is retained in order. Same-turn steering has separate acknowledgement records, so unacknowledged steering can also be recovered after app exit. Recovery does not send automatically; for requests that already started executing or cannot be confirmed, check conversation results before retrying.
-
-Before submission, attachments are checked for private-directory location, existence, and size. Invalid attachments remain in the draft for removal or reselection. Failures after enqueueing, such as image decoding or upstream request errors, likewise retain recoverable content.
-
-Retest entry points (dedicated, logged-in `Taku_ImageIntegration_20261010 / emulator-5634`):
+Install the Expo Agent and Kotlin Assistant APKs on an isolated emulator with a connected test account. The runner defaults to `Taku_ImageIntegration_20261010` at `emulator-5634`. Set `TAKU_SERIAL` and `TAKU_AVD` to use another isolated emulator. Open a conversation before running the test so the script can restore the selection. The script requires root ADB.
 
 ```sh
 bash system/assistant/test-composer.sh
-bash system/assistant/test-turn-cancellation.sh
-bash system/assistant/test-recovery.sh
 ```
 
-Composer tests select image and text files through the system picker, actually send them to the model, and verify randomized content. They also test same-turn steering with attachments, stopping, invalid attachments, and triggering a real request failure by selecting a nonexistent model only in an isolated test conversation. An invalid image may produce a model explanation and a normally completed conversation; that reply is not treated as send failure. Logs and screenshots are in `out/composer-reliability-tests/`; test threads are archived, and the original conversation and device settings are restored.
+Use `--compile-only` to build the suite on the host. Use `--phase` to run one scenario on the emulator.
 
-The v49 acceptance on 2026-10-18 covered image and text-file sending, same-turn steering with attachments, actual task and turn stopping, and draft retention for failures both before and after enqueueing, all with real Android UI and upstream results. Another 95 state assertions covered callbacks across conversations, new-draft protection, repeated failures, process exit, and Home handoff boundaries. Six background Chinese-input scenarios, process-exit recovery, and full-device restart recovery were also verified. Complete metadata is in the [v49 acceptance record](../evidence/builds/2026-10-18-composer-reliability.json), with screenshots in `evidence/scenarios/composer-2026-10-18/`. These results are from the dedicated emulator, not physical-device acceptance.
+| Phase | What it checks |
+| --- | --- |
+| `attachments` | Select an image and a text file through DocumentsUI. Send from Expo, verify that the real reply contains both random fixture markers, and read back the cleared draft. |
+| `home-attachments` | Pick both files in Expo and open the conversation's Home composer. Check the two visible filenames against `assistant/get`, send from Home, and verify both fixture markers in the real reply. |
+| `steer` | Select both attachments through DocumentsUI. Send while a real native turn is active and verify that the same turn returns both markers. |
+| `stop` | Submit an actual task through Expo. Stop its running native turn while an unsent follow-up is in the composer. Check the cancelled task, interrupted turn, and preserved follow-up. |
+| `failure-missing` | Select a document and remove only the fixture copy to simulate a missing attachment. Verify that the task fails before a native turn starts. Restore the text and attachment metadata through the Expo UI. |
+| `failure-async` | Seed a stale model override for a fresh test conversation. Send a text attachment and require a real upstream failure or native turn-start rejection. Restore the original draft through the Expo UI. |
 
-## v52 hiding the keyboard after sending
+The runner uses fresh test conversations, archives them on exit, and restores the original conversation and device settings. Logs, screenshots, and JSON evidence are in `out/composer-reliability-tests/<run-id>/`. The [recovery suite](assistant-recovery.md) covers process death and Android reboot.
 
-For new messages, the soft keyboard hides after Codex starts accepting the turn; for same-turn steering, it hides after `turn/steer` succeeds. The composer keeps focus so the Mac input-method bridge can continue typing; tapping the composer reopens the soft keyboard. Enqueueing alone does not hide it, nor does it hide if the next draft was edited while waiting.
+## Historical acceptance
 
-Validation failures before sending retain the keyboard. If a request fails asynchronously after acceptance and the current draft is still the original empty draft, the sent content is restored and the previously hidden keyboard reopens. After navigating, switching conversations, or editing a new draft, the old send no longer affects keyboard state. See the [v52 acceptance record](reviews/composer-keyboard-2026-10-19/README.md) for real-emulator validation scope and screenshots.
+The [v49 acceptance record](../evidence/builds/2026-10-18-composer-reliability.json) and [v52 keyboard report](reviews/composer-keyboard-2026-10-19/README.md) describe the retired Java chat. The Expo suite uses the current controls and public draft state.
+
+## Composer model options
+
+Expo chat can set the model, reasoning effort, service tier, multi-agent policy, permissions, and response style for the active conversation. **Use default** removes that conversation's override and shows the inherited setting. A model change selects a supported effort from the runtime catalog. The service-tier choices come from the selected model's catalog entry.

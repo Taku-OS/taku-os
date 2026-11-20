@@ -5,6 +5,7 @@ import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useLocales} from 'expo-localization';
 import {useRouter} from 'expo-router';
 import {StatusBar} from 'expo-status-bar';
+import Svg, {Defs, LinearGradient, Rect, Stop} from 'react-native-svg';
 import {VoiceEffect} from '../native/VoiceEffect';
 import {VoiceIcon} from '../chat/VoiceIcon';
 import {AssistantBubble, ComposerGlassRim} from '../chat/ChatSurfaces';
@@ -19,21 +20,32 @@ import {FIRST_RESPONSE_TIMEOUT_MS, type OptimisticSubmission} from '../model/opt
 import {ReplyLoading} from './ReplyLoading';
 import {onImeInsets, setWindowBackdrop, showKeyboard} from '../native/agent';
 import {ReplyMenu, type ReplyMenuTarget} from './ReplyMenu';
+import {cardPanelActions, openPinnedCard, pinCardToPanels, unpinCard} from '../hooks/useGenUi';
+import {cardId} from '../model/genuiStore';
+import {presentationRequest} from '../model/genui';
 import {EdgeBlur} from '../native/EdgeBlur';
 import {ChatIcon} from '../chat/ChatIcon';
-import {chatBlur, chatColors, homeColors, chatMetrics, chatTitle, chatType} from '../chat/chatTheme';
+import {chatBlur, chatColors, getChatAppearance, homeColors, chatMetrics, chatTitle, chatType, themed, themedStyles} from '../chat/chatTheme';
 import {chatText} from '../chat/chatText';
-import {appendDictation, useDictation, type DictationFailure} from '../chat/useDictation';
+import {useDictation, type DictationFailure} from '../chat/useDictation';
+import {failureOf, insertDictation, type DraftSelection} from '../chat/dictationText';
+import {useReplySpeechState, useVoiceChatFocus} from '../chat/useVoiceChatFocus';
+import {openVoiceSettings, speakReply, stopReplySpeech} from '../native/voice';
+import {markdownSpeechText} from '../native/MarkdownStream';
 import {DictationBar} from './DictationBar';
 import {TakuHomePage} from '../chat/TakuHomePage';
 import {sheetSpace, type ImeGeometry} from '../model/sheetGeometry';
 import {emptyPreview, PREVIEW_FRESH_MS, PREVIEW_LOAD_TIMEOUT_MS, PREVIEW_REFRESH_MS, previewReducer} from '../model/preview';
 import {rowDemand, sameBand, visibleBand, type CardDemand, type RowBand} from '../chat/cardDemand';
+import {ComposerTools} from '../chat/ComposerTools';
+import type {ComposerAttachment, ComposerRecovery} from '../hooks/composerDraft';
+import {attachmentPreviewUri} from '../native/composerPicker';
+import type {ComposerPickerKind} from '../native/composerPicker';
 
-const colors = {...baseColors, ink: chatColors.textPrimary, secondary: chatColors.textSecondary,
+const colors = themed(() => ({...baseColors, ink: chatColors.textPrimary, secondary: chatColors.textSecondary,
   muted: chatColors.textTertiary, border: chatColors.hairline, subtle: chatColors.fillControl,
   control: chatColors.fillControl, surface: chatColors.surfaceRaised, page: chatColors.backdropFallback,
-  error: chatColors.textError, errorSurface: '#402322'};
+  error: chatColors.textError, errorSurface: chatColors.errorSurface}));
 
 // Route transitions can briefly mount two chat screens in the shared React host.
 // Their common backdrop must survive until the last screen releases it.
@@ -50,6 +62,12 @@ export interface AgentChatScreenProps {
   workspaceError?: string;
   draft: string;
   draftSessionId: string;
+  draftRevision: string | null;
+  attachments: readonly ComposerAttachment[];
+  recovery: readonly ComposerRecovery[];
+  onRestoreSavedDraft: (id: string) => void;
+  onPickAttachment: (kind: ComposerPickerKind) => void;
+  onRemoveAttachment: (id: string) => void;
   conversationKey?: string;
   optimisticSubmissions?: readonly OptimisticSubmission[];
   pendingSubmission?: {threadId: string; text: string; requestId: string; action: 'sendMessage' | 'steer' | 'continue'} | null;
@@ -57,6 +75,7 @@ export interface AgentChatScreenProps {
   onContinueWithoutResending: () => void;
   onRestoreFailedTask: (taskId: string) => void;
   onDraftChange: (value: string) => void;
+  onDictationDraftChange: (value: string, expected: {threadId: string; revision: string; text: string}) => Promise<boolean>;
   onSend: () => void;
   onStop: () => void;
   onSelectThread: (id: string) => void;
@@ -64,8 +83,6 @@ export interface AgentChatScreenProps {
   onRefresh: () => void;
   onAnswer: (key: string, response: Json) => void;
   onOpenWorkspace: (workspace: WorkspaceView) => void;
-  onOpenSettings: () => void;
-  onOpenNativeControls: () => void;
   onClose: () => void;
   onOpenHistory?: () => void;
   renderMarkdown?: (text: string, active: boolean, itemId: string) => ReactNode;
@@ -120,8 +137,8 @@ function FailedTaskCard({failure, language, busy, onRestore}: {failure: {taskId:
     {!!failure.prompt && <OriginalRequestPreview text={failure.prompt} language={language}/>}
     <Label role="caption" style={styles.secondary}>{t('restoreDraftExplanation')}</Label>
     <Pressable testID="restore-failed-task" accessibilityRole="button" accessibilityLabel={t('restoreFailedRequest')}
-      accessibilityState={{disabled: busy || !failure.prompt}} disabled={busy || !failure.prompt} onPress={() => onRestore(failure.taskId)}
-      style={[styles.pendingRetry, (busy || !failure.prompt) && styles.sendDisabled]}>
+      accessibilityState={{disabled: busy}} disabled={busy} onPress={() => onRestore(failure.taskId)}
+      style={[styles.pendingRetry, busy && styles.sendDisabled]}>
       <Icon name="arrow_left" size={16} color={chatColors.icon}/><Label role="meta">{t('restoreFailedRequest')}</Label>
     </Pressable>
   </View>;
@@ -177,11 +194,27 @@ function Message({block, language, renderMarkdown, renderCard, expanded, demand,
     const timer = setTimeout(() => setTimedOutBlock(id), FIRST_RESPONSE_TIMEOUT_MS);
     return () => clearTimeout(timer);
   }, [block.id, untrackedPending]);
-  if (block.role === 'user') return <View style={styles.userWrap}><View style={styles.userBubble}>
-    {!!block.text && <Text selectable style={[chatType.bodyLg(containsChinese(block.text)), styles.userText]}>{block.text}</Text>}
-    {block.attachments.map((name, i) => <Label key={`${name}-${i}`} role="caption" style={styles.attachment}>{name === 'image' ? t('image') : name}</Label>)}
-    {block.requestStopped && <Label role="caption" style={styles.secondary}>{t('requestStopped')}</Label>}
-  </View></View>;
+  if (block.role === 'user') {
+    const bubble = <View style={styles.userBubble}>
+      {!!block.text && <Text selectable style={[chatType.bodyLg(containsChinese(block.text)), styles.userText]}>{block.text}</Text>}
+      {block.attachments.map((name, i) => <Label key={`${name}-${i}`} role="caption" style={styles.attachment}>{name === 'image' ? t('image') : name}</Label>)}
+      {block.requestStopped && <Label role="caption" style={styles.secondary}>{t('requestStopped')}</Label>}
+    </View>;
+    return <View style={styles.userWrap}>{block.reaction ? <View>
+      <View style={styles.userWrapReacted}>{bubble}</View>
+      <View testID={`reaction-${block.id}`} accessible accessibilityLabel={`${t('reactionLabel')} ${block.reaction}`} style={styles.reaction}>
+        <Svg pointerEvents="none" style={StyleSheet.absoluteFill} width="100%" height="100%">
+          <Defs><LinearGradient id="reaction-frost" x1="0%" y1="0%" x2="0%" y2="100%">
+            <Stop offset="0" stopColor={chatColors.bubble} stopOpacity={0.32}/>
+            <Stop offset="1" stopColor={chatColors.bubble} stopOpacity={0.12}/>
+          </LinearGradient></Defs>
+          <Rect width="100%" height="100%" fill="url(#reaction-frost)"/>
+        </Svg>
+        <View pointerEvents="none" style={styles.reactionTint}/>
+        <Text allowFontScaling={false} style={styles.reactionText}>{block.reaction}</Text>
+      </View>
+    </View> : bubble}</View>;
+  }
   // Long press opens Copy / Select once the reply text is final (or a primary card while streaming).
   const canCopy = !!block.text && (!block.active || block.parts.some(part => part.card?.kind === 'primary'));
   const responseError = block.responseError || (block.responseErrorKey ? t(block.responseErrorKey) : untrackedPending && untrackedTimeout ? t('replyTimeout') : '');
@@ -266,7 +299,7 @@ function WorkspaceCard({workspace, language, onPress}: {workspace: WorkspaceView
   </Pressable>;
 }
 
-function PendingCard({question, language, busy, onAnswer, onOpenNativeControls}: {question: PendingQuestion; language: Language; busy: boolean; onAnswer: AgentChatScreenProps['onAnswer']; onOpenNativeControls: () => void}) {
+function PendingCard({question, language, busy, onAnswer, onOpenRequest}: {question: PendingQuestion; language: Language; busy: boolean; onAnswer: AgentChatScreenProps['onAnswer']; onOpenRequest: () => void}) {
   const t = textFor(language), [answers, setAnswers] = useState<Record<string, string>>({});
   const args = record(question.params.arguments), method = question.method;
   let title = string(args.title) || string(args.question) || t('needsYou');
@@ -293,7 +326,7 @@ function PendingCard({question, language, busy, onAnswer, onOpenNativeControls}:
       style={({pressed}) => [styles.answerButton, option.primary && styles.primaryButton, busy && {opacity: 0.4}, pressed && {opacity: 0.7}]}><Label role="meta" style={{color: option.primary ? colors.white : colors.ink}}>{option.label}</Label></Pressable>)}
     {questions.length > 0 && <Pressable accessibilityRole="button" disabled={busy || questions.some(q => !answers[string(q.id)]?.trim())} onPress={submitAnswers}
       style={[styles.answerButton, styles.primaryButton, (busy || questions.some(q => !answers[string(q.id)]?.trim())) && {opacity: 0.4}]}><Label role="meta" style={{color: colors.white}}>{t('submit')}</Label></Pressable>}
-    {!supported && <><Label role="meta" style={styles.questionDescription}>{t('unsupportedRequest')}</Label><Pressable accessibilityRole="button" onPress={onOpenNativeControls} style={styles.answerButton}><Label role="meta">{t('nativeControls')}</Label></Pressable></>}
+    {!supported && <><Label role="meta" style={styles.questionDescription}>{t('unsupportedRequest')}</Label><Pressable accessibilityRole="button" onPress={onOpenRequest} style={styles.answerButton}><Label role="meta">{t('nativeControls')}</Label></Pressable></>}
   </View>;
 }
 
@@ -361,7 +394,10 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
   const positions = useRef<Record<string, {y: number; follow: boolean}>>({});
   const restoreY = useRef<number | null>(null);
   const sessionId = props.session?.id || '';
-  const live = useLiveTalk(sessionId, props.loading, props.onSelectThread);
+  // Requests the cards cannot answer in place are handled on the pending-requests page.
+  const openRequests = (requestKey?: string) => router.push({pathname: '/assistant-management',
+    params: {section: 'requests', ...(sessionId ? {threadId: sessionId} : {}), ...(requestKey ? {requestKey} : {})}});
+  const live = useLiveTalk(props.draftSessionId, props.loading, props.onSelectThread);
   const pendingSubmission = props.pendingSubmission?.threadId === props.draftSessionId ? props.pendingSubmission : null;
   const viewKey = `${props.conversationKey ?? sessionId}/${taskView ? 'tasks' : 'chat'}`;
   useEffect(() => {
@@ -401,39 +437,80 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
     // Optimistic rows are rendered after the press; content-size changes keep following.
     requestAnimationFrame(() => { if (!reading.current) scroll.current?.scrollToEnd({animated: false}); });
   };
-  const collapseChat = () => { live.stop(); (props.onCollapse ?? props.onClose)(); };
+  const collapseChat = () => { cancelDictation(); stopReading(); live.stop(); (props.onCollapse ?? props.onClose)(); };
   const openHome = () => {
     live.stop();
+    cancelDictation();
+    stopReading();
     props.onOpenHistory?.();
     Keyboard.dismiss();
     setReplyMenu(null);
     setLayer({kind: 'home'});
   };
   const running = props.session?.running;
-  // Mic while the field is empty, the brand send button once there is text (Figma 2-1 / 1-3).
-  const hasDraft = !!props.draft.trim();
+  const hasDraft = !!props.draft.trim() || props.attachments.length > 0;
+  const [composerTools, setComposerTools] = useState<string | null>(null);
   // Only a send in flight or a queued task holds the send button back.
   const sendHeld = props.busy || props.loading || !!props.session?.queued;
-  // Figma 1-5: the microphone records through the Audio Engine; Stop puts the words in the draft.
-  const draftRef = useRef(props.draft);
-  useEffect(() => { draftRef.current = props.draft; }, [props.draft]);
-  // The hook keeps the latest callbacks itself, so these need no memoization.
-  const onHeard = (text: string) => props.onDraftChange(appendDictation(draftRef.current, text));
+  const [insertedCaret, setInsertedCaret] = useState<{threadId: string; text: string; caret: number} | null>(null);
+  const selection = useRef<{threadId: string; range: DraftSelection} | null>(null);
+  const voiceOwner = useRef<string | null>(null);
+  const setVoiceOwner = useCallback((owner: string | null) => { voiceOwner.current = owner; }, []);
+  const voiceEnabled = !props.loading && !layer && !taskView;
+  const {draftSessionId, draftRevision, draft} = props;
+  const draftNow = useRef({threadId: draftSessionId, revision: draftRevision, text: draft});
+  useEffect(() => { draftNow.current = {threadId: draftSessionId, revision: draftRevision, text: draft}; }, [draftSessionId, draftRevision, draft]);
   const onVoiceFailure = (reason: DictationFailure) => {
-    const message = ct(reason === 'disabled' ? 'voiceDisabled' : reason === 'busy' ? 'voiceBusy' : 'voiceUnavailable');
-    if (Platform.OS === 'android') ToastAndroid.show(message, ToastAndroid.SHORT);
+    const key = {disabled: 'voiceDisabled', busy: 'voiceBusy', unavailable: 'voiceUnavailable', draftChanged: 'dictationDraftChanged', draftFull: 'dictationDraftFull'} as const;
+    if (Platform.OS === 'android') ToastAndroid.show(ct(key[reason]), ToastAndroid.SHORT);
   };
-  const dictation = useDictation(language, onHeard, onVoiceFailure);
+  const dictation = useDictation(props.draftSessionId, voiceOwner, () => {
+    const {threadId, revision, text} = draftNow.current;
+    if (!voiceEnabled || props.busy || live.active || revision === null) return null;
+    const range = selection.current?.threadId === threadId ? selection.current.range : {start: text.length, end: text.length};
+    return heard => {
+      const current = draftNow.current;
+      if (current.threadId !== threadId) return;
+      if (current.revision !== revision || current.text !== text) { onVoiceFailure('draftChanged'); return; }
+      const inserted = insertDictation(text, range, heard);
+      if (inserted.text.length > 16_000) { onVoiceFailure('draftFull'); return; }
+      void props.onDictationDraftChange(inserted.text, {threadId, revision, text}).then(applied => {
+        if (draftNow.current.threadId !== threadId) return;
+        if (applied) setInsertedCaret({threadId, ...inserted});
+        else onVoiceFailure('draftChanged');
+      }).catch(() => onVoiceFailure('draftChanged'));
+    };
+  }, onVoiceFailure);
   const dictating = dictation.phase !== 'idle';
   const {cancel: cancelDictation} = dictation;
+  useVoiceChatFocus(props.draftSessionId, !layer && !taskView, setVoiceOwner, cancelDictation);
+  const speech = useReplySpeechState();
+  const speaking = speech?.threadId === props.draftSessionId && speech.phase !== 'failed' ? speech : null;
+  useEffect(() => {
+    if (speech?.threadId === props.draftSessionId && speech.phase === 'failed' && Platform.OS === 'android')
+      ToastAndroid.show(chatText(language)('replySpeechUnavailable'), ToastAndroid.SHORT);
+  }, [speech, props.draftSessionId, language]);
+  const stopReading = () => { if (speaking) void stopReplySpeech(speaking.threadId, speaking.replyId).catch(() => {}); };
+  const voice = live.active ? live.state : null;
+  const liveLevel = voice?.capturing ? voice.levels.at(-1) ?? 0 : 0;
+  const liveStatus = voice?.lifecycle === 'connecting' ? 'liveConnecting'
+    : voice?.lifecycle === 'disconnected' ? 'liveDisconnected'
+    : voice?.lifecycle === 'failed' ? 'liveFailed'
+    : voice?.muted ? 'liveMicPaused' : voice?.playback.state === 'speaking' ? 'liveSpeaking'
+    : voice?.capturing ? 'listening' : 'liveReady';
+  const liveDisconnected = voice?.lifecycle === 'disconnected' || voice?.lifecycle === 'failed';
+  const beginLiveTalk = () => { void live.start().catch(error => onVoiceFailure(failureOf(error?.code))); };
+  const caret = insertedCaret?.threadId === props.draftSessionId && insertedCaret.text === props.draft ? insertedCaret.caret : null;
   useEffect(() => {
     if (!dictating) return;
     const back = BackHandler.addEventListener('hardwareBackPress', () => { cancelDictation(); return true; });
     return () => back.remove();
   }, [dictating, cancelDictation]);
-  // A new conversation never inherits a recording meant for the previous draft.
-  useEffect(() => cancelDictation, [props.draftSessionId, cancelDictation]);
-  useEffect(() => { if (layer) cancelDictation(); }, [layer, cancelDictation]);
+  useEffect(() => {
+    if (!live.active) return;
+    const back = BackHandler.addEventListener('hardwareBackPress', () => { live.stop(); return true; });
+    return () => back.remove();
+  }, [live]);
   // Back: Taku Home returns to the conversation. Panels live on the desktop.
   useEffect(() => {
     if (!layer) return;
@@ -441,19 +518,31 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
     return () => back.remove();
   }, [layer]);
   const [replyMenu, setReplyMenu] = useState<ReplyMenuTarget | null>(null);
+  // The long-pressed reply's card, when it may offer Panels actions (a panel reply, or pinned).
+  const [menuCard, setMenuCard] = useState<{id: string; pinned: boolean} | null>(null);
   const openReplyMenu = (block: ChatMessageBlock, view: ViewHandle) => {
     void Haptics.performAndroidHapticsAsync(Haptics.AndroidHaptics.Long_Press).catch(() => {});
-    view.measureInWindow((x, y, width, height) => setReplyMenu({id: block.id, text: block.text, x, y, width, height}));
+    const card = block.parts.find(part => part.card && !part.superseded)?.card;
+    const id = card && sessionId ? cardId(sessionId, presentationRequest(card).key) : '';
+    const actions = id ? cardPanelActions(id) : null;
+    setMenuCard(actions ? {id, pinned: actions.pinned} : null);
+    view.measureInWindow((x, y, width, height) => setReplyMenu({id: block.id, threadId: props.draftSessionId, text: block.text, x, y, width, height}));
+  };
+  const panelAction = (run: (id: string) => Promise<unknown>, done?: 'pinned' | 'unpinned') => {
+    const card = menuCard;
+    if (!card) return;
+    void run(card.id).then(() => { if (done && Platform.OS === 'android') ToastAndroid.show(ct(done), ToastAndroid.SHORT); },
+      () => { if (Platform.OS === 'android') ToastAndroid.show(ct('panelActionFailed'), ToastAndroid.SHORT); });
   };
   const closeReplyMenu = useCallback(() => setReplyMenu(null), []);
   return <KeyboardAvoidingView style={styles.flex} behavior="padding" enabled={!nativeIme && keyboardVisible}
     onLayout={event => {if (nativeIme) setMeasuredHostHeight(event.nativeEvent.layout.height);}}>
-    <StatusBar style="light"/>
+    <StatusBar style={getChatAppearance() === 'dark' ? 'light' : 'dark'}/>
     <View style={[styles.host, nativeIme && {paddingBottom: space.bottom}]}
       onLayout={event => {if (!nativeIme) setMeasuredHostHeight(event.nativeEvent.layout.height);}}>
     <View style={StyleSheet.absoluteFill} pointerEvents={layer ? 'none' : 'box-none'} importantForAccessibility={layer ? 'no-hide-descendants' : 'auto'}>
     <View style={[StyleSheet.absoluteFill, layer && styles.hidden]} pointerEvents="box-none">
-    {live.active && <VoiceEffect kind="light" target="live" level={live.state?.voice.ready ? live.state.voice.levels.at(-1) ?? 0 : 0}
+    {live.active && <VoiceEffect kind="light" target="live" level={liveLevel}
       style={{position: 'absolute', left: 0, right: 0, bottom: 0, height: dimensions.width * 357 / 412}}/>}
     {/* The conversation runs under the title row and the composer; both edges blur and fade. */}
     <EdgeBlur style={StyleSheet.absoluteFill} topSharp={headerBottom + 8} topFull={0}
@@ -500,27 +589,37 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
       ListFooterComponent={<View style={styles.stack}>
       {!!props.workspaceError && <Label role="meta" style={styles.secondary}>{props.workspaceError}</Label>}
       {workspaces.map(workspace => <WorkspaceCard key={`${workspace.screenKey}/${workspace.generation}`} workspace={workspace} language={language} onPress={() => props.onOpenWorkspace(workspace)}/>)}
-      {props.session?.questions.map(question => <PendingCard key={question.key} question={question} language={language} busy={props.busy} onAnswer={props.onAnswer} onOpenNativeControls={props.onOpenNativeControls}/>)}
-      {!!props.session?.nativeOnlyRequests && <View style={styles.question}><Label role="label">{t('needsYou')}</Label><Label role="meta">{t('unsupportedRequest')}</Label><Pressable accessibilityRole="button" onPress={props.onOpenNativeControls} style={styles.answerButton}><Label role="meta">{t('nativeControls')}</Label></Pressable></View>}
+      {props.session?.questions.map(question => <PendingCard key={question.key} question={question} language={language} busy={props.busy} onAnswer={props.onAnswer} onOpenRequest={() => openRequests(question.key)}/>)}
+      {!!props.session?.nativeOnlyRequests && <View style={styles.question}><Label role="label">{t('needsYou')}</Label><Pressable accessibilityRole="button" onPress={() => openRequests()} style={styles.answerButton}><Label role="meta">{language === 'zh' ? '查看待处理请求' : 'Review pending requests'}</Label></Pressable></View>}
       {taskFailure && <FailedTaskCard key={taskFailure.taskId} failure={taskFailure} language={language} busy={props.busy || props.loading} onRestore={props.onRestoreFailedTask}/>}
+      {props.recovery.map(entry => <View key={entry.id} style={styles.pendingSubmission}>
+        {!!entry.text && <OriginalRequestPreview text={entry.text} language={language}/>}
+        {entry.attachments.map(item => <Label key={item.id} role="caption">{item.name}</Label>)}
+        <Pressable testID="restore-saved-draft" accessibilityRole="button" disabled={props.busy || props.loading} style={styles.pendingRetry}
+          onPress={() => props.onRestoreSavedDraft(entry.id)}><Label role="meta">{language === 'zh' ? '恢复已保存草稿' : 'Restore saved draft'}</Label></Pressable>
+      </View>)}
       {pendingSubmission && !props.busy && <PendingSubmissionCard key={`${pendingSubmission.threadId}/${pendingSubmission.requestId}`} text={pendingSubmission.text} language={language} onRetry={props.onRetrySubmission} onContinue={props.onContinueWithoutResending}/>}
       </View>}/>
     </EdgeBlur>
     {/* Figma 2-1 title row: Taku Home (history for now), the fixed title, collapse to the island. */}
     <View style={[styles.header, {top: insets.top}]} pointerEvents="box-none">
-      <Text accessibilityRole="header" numberOfLines={1} style={[chatType.bodyXlMedium(), styles.title]}>{props.session?.title || (live.active ? 'Live Talk' : chatTitle)}</Text>
+      <Text accessibilityRole="header" numberOfLines={1} style={[chatType.bodyXlMedium(), styles.title]}>{live.active ? ct('liveTalk') : props.session?.title || chatTitle}</Text>
       <Pressable testID="open-history" accessibilityRole="button" accessibilityLabel={t('history')} onPress={openHome} hitSlop={8}
         style={({pressed}) => [styles.headerButton, pressed && styles.pressed]}><VoiceIcon name="home" size={24}/></Pressable>
       <Pressable testID="collapse-chat" accessibilityRole="button" accessibilityLabel={ct('collapseToIsland')} onPress={collapseChat} hitSlop={8}
         style={({pressed}) => [styles.headerButton, pressed && styles.pressed]}><VoiceIcon name="collapse" size={24}/></Pressable>
     </View>
     {!!error && <View style={[styles.error, styles.errorBar, {top: headerBottom}]}><Label role="meta" style={styles.errorText}>{error}</Label><IconButton name="refresh" label={t('retry')} color={chatColors.icon} onPress={props.onRefresh}/></View>}
-    {live.active ? <View style={[styles.livePanel, {bottom: composerBottom}]} onLayout={event => setComposerBox(event.nativeEvent.layout.height)}>
+    {voice ? <View style={[styles.livePanel, {bottom: composerBottom}]} onLayout={event => setComposerBox(event.nativeEvent.layout.height)}>
       <View style={styles.liveTranscript}>
-        <VoiceEffect kind="wave" target="live" level={live.state?.voice.ready ? live.state.voice.levels.at(-1) ?? 0 : 0} style={{width: 66, height: 28}}/>
-        <Text numberOfLines={3} style={[chatType.bodyMd(language === 'zh'), {textAlign: 'center', minHeight: 20}]}>
-          {live.state?.voice.transcript ? `“${live.state.voice.transcript}”` : live.state?.error ? ct('voiceUnavailable') : live.state?.voicePaused ? 'Microphone paused' : ''}
-        </Text>
+        {/* Figma 297:433: speech and waveform only; connection state remains accessible. */}
+        <View accessible accessibilityLabel={ct(liveStatus)} accessibilityLiveRegion="polite">
+          <VoiceEffect kind="wave" target="live" level={liveLevel} flat={!voice.capturing} style={{width: 66, height: 28, opacity: voice.capturing ? 1 : 0.45}}/>
+        </View>
+        {!!voice.input?.text && <Text numberOfLines={2} style={[chatType.bodyMd(language === 'zh'), styles.center]}>{voice.input.text}</Text>}
+        {!!voice.output?.text && <Text numberOfLines={3} style={[chatType.bodyMd(language === 'zh'), styles.center, styles.secondary]}>{voice.output.text}</Text>}
+        {liveDisconnected &&
+          <Pressable testID="live-talk-reconnect" accessibilityRole="button" onPress={beginLiveTalk}><Label role="label">{ct('liveReconnect')}</Label></Pressable>}
       </View>
       <View style={styles.liveControls}>
         <View style={styles.liveControlGroup}>
@@ -528,41 +627,76 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
           <View accessibilityRole="button" accessibilityLabel="Video input unavailable" accessibilityState={{disabled: true}} style={[styles.liveControl, {opacity: 0.45}]}><VoiceIcon name="video"/></View>
         </View>
         <View style={styles.liveControlGroup}>
-          <Pressable testID="live-talk-mic" accessibilityRole="button" accessibilityLabel={live.state?.voice.listening ? 'Pause microphone' : 'Resume microphone'}
-            onPress={() => { void live.toggleMic().catch(() => onVoiceFailure('unavailable')); }} style={[styles.liveControl, live.state?.voicePaused && {opacity: 0.5}]}><VoiceIcon name="micLive"/></Pressable>
-          <Pressable testID="live-talk-close" accessibilityRole="button" accessibilityLabel="End Live Talk" onPress={live.stop} style={[styles.liveControl, {backgroundColor: 'rgba(255,255,255,0.92)'}]}><VoiceIcon name="close"/></Pressable>
+          <Pressable testID="live-talk-mic" accessibilityRole="button" accessibilityLabel={ct(voice.muted ? 'liveMicResume' : 'liveMicPause')}
+            accessibilityState={{disabled: liveDisconnected, selected: !voice.muted && !liveDisconnected}} disabled={liveDisconnected}
+            onPress={() => { void live.toggleMic().catch(error => onVoiceFailure(failureOf(error?.code))); }} style={[styles.liveControl, (voice.muted || liveDisconnected) && {opacity: 0.5}]}><VoiceIcon name="micLive"/></Pressable>
+          <Pressable testID="live-talk-close" accessibilityRole="button" accessibilityLabel={ct('liveStop')} onPress={live.stop} style={[styles.liveControl, {backgroundColor: 'rgba(255,255,255,0.92)'}]}><VoiceIcon name="close"/></Pressable>
         </View>
       </View>
     </View> : <>
-    <View style={[styles.composer, multilineComposer && !dictating && styles.composerMultiline, {bottom: composerBottom, alignItems: multilineComposer && !dictating ? 'flex-end' : 'center'}]}
+    <View style={[styles.composerStack, {bottom: composerBottom}]}
       onLayout={event => setComposerBox(Math.round(event.nativeEvent.layout.height))}>
+    {!dictating && props.attachments.length > 0 && <ScrollView horizontal style={styles.attachmentStrip} keyboardShouldPersistTaps="handled">
+      {props.attachments.map(item => <Pressable key={item.id} accessibilityRole="button" disabled={props.busy || props.loading}
+        accessibilityLabel={`${language === 'zh' ? '移除附件' : 'Remove attachment'} ${item.name}`} onPress={() => props.onRemoveAttachment(item.id)} style={styles.attachmentChip}>
+        {item.mime.startsWith('image/') && <Image source={{uri: attachmentPreviewUri(sessionId, item.id)}} resizeMode="cover" style={styles.attachmentThumb}/>}
+        <Label role="meta" numberOfLines={1} style={styles.attachmentLabel}>{item.name}</Label><Icon name="close" size={16} color={chatColors.icon}/>
+      </Pressable>)}
+    </ScrollView>}
+    <View style={[styles.composer, multilineComposer && !dictating && styles.composerMultiline, {alignItems: multilineComposer && !dictating ? 'flex-end' : 'center'}]}>
       <ComposerGlassRim multiline={multilineComposer && !dictating}/>
-      {!dictating && <Pressable accessibilityRole="button" accessibilityLabel="More tools" onPress={openHome} style={styles.composerAction}><VoiceIcon name="plus" size={18}/></Pressable>}
+      {!dictating && <Pressable testID="composer-tools" accessibilityRole="button" accessibilityLabel={language === 'zh' ? '输入工具' : 'Composer tools'}
+        disabled={props.busy || props.loading} onPress={() => { Keyboard.dismiss(); setComposerTools(props.draftSessionId); }} style={styles.composerAction}>
+        <VoiceIcon name="plus" size={18}/>
+      </Pressable>}
       {dictating ? <DictationBar transcript={dictation.transcript} placeholder={ct('listening')} levels={dictation.levels}
         finishing={dictation.phase === 'finishing'} stopLabel={ct('stopVoice')} onStop={dictation.stop}/> : <>
       <TextInput key={props.draftSessionId} testID="message-input" accessibilityLabel={running ? t('addRequirement') : ct('ask')} placeholder={running ? t('addRequirement') : ct('ask')}
         placeholderTextColor={chatColors.placeholder} value={props.draft} onChangeText={props.onDraftChange} multiline textAlignVertical={multilineComposer ? 'top' : 'center'}
+        selection={caret === null ? undefined : {start: caret, end: caret}}
+        onSelectionChange={event => {
+          const range = event.nativeEvent.selection;
+          selection.current = {threadId: props.draftSessionId, range};
+          if (caret !== null && range.start === caret && range.end === caret) setInsertedCaret(null);
+        }}
         editable={!props.loading && !props.busy} onFocus={() => { void showKeyboard().catch(() => {}); }}
         onContentSizeChange={event => setComposerHeight(Math.max(40, Math.min(144, Math.ceil(event.nativeEvent.contentSize.height))))}
         style={[chatType.bodyLg(language === 'zh' || containsChinese(props.draft)), styles.input, {height: Math.min(composerHeight, composerMaximum)}]} maxLength={16000}/>
       {(running || props.session?.queued) && <Pressable testID="stop-turn" accessibilityRole="button" accessibilityLabel={t(props.session?.queued ? 'cancelQueued' : 'stop')}
         accessibilityState={{disabled: props.busy}} disabled={props.busy} onPress={props.onStop}
-        style={({pressed}) => [styles.composerAction, props.busy && styles.sendDisabled, pressed && styles.pressed]}><Icon name="stop" size={18} color={chatColors.icon}/></Pressable>}
-      {hasDraft
-        ? <Pressable testID="send-message" accessibilityRole="button" accessibilityLabel={t('send')} accessibilityState={{busy: props.busy}}
+        style={({pressed}) => [styles.composerAction, styles.stop, props.busy && styles.sendDisabled, pressed && styles.stopPressed]}><View style={styles.stopGlyph}/></Pressable>}
+      {speaking && <Pressable testID="stop-reply-speech" accessibilityRole="button" accessibilityLabel={ct('replySpeechStop')}
+        onPress={stopReading} style={({pressed}) => [styles.composerAction, styles.stop, pressed && styles.stopPressed]}><View style={styles.stopGlyph}/></Pressable>}
+      <Pressable testID="voice-input" accessibilityRole="button" accessibilityLabel={ct('voice')} accessibilityHint={ct('voiceSettingsHint')}
+        accessibilityState={{disabled: sendHeld || props.draftRevision === null || !voiceEnabled}} disabled={sendHeld || props.draftRevision === null || !voiceEnabled}
+        onLongPress={() => { void openVoiceSettings().catch(() => onVoiceFailure('unavailable')); }}
+        onPress={dictation.start} style={({pressed}) => [styles.composerAction, pressed && styles.pressed]}><VoiceIcon name="mic" size={18}/></Pressable>
+      {hasDraft && <Pressable testID="send-message" accessibilityRole="button" accessibilityLabel={t('send')} accessibilityState={{busy: props.busy}}
             onPress={() => { if (!sendHeld) sendAndFollow(); }} style={({pressed}) => [styles.composerAction, styles.send, pressed && {opacity: 0.8}]}>
             {/* Figma 1-3 send (node 1:3663): #1B1B1B arrow on Main/Brand (issue #32 C3). */}
             {props.busy ? <ActivityIndicator size="small" color={homeColors.icon}/> : <ChatIcon name="arrowUp" color={homeColors.icon} size={18}/>}
-          </Pressable>
-        : <Pressable testID="voice-input" accessibilityRole="button" accessibilityLabel={ct('voice')} onPress={dictation.start}
-            style={({pressed}) => [styles.composerAction, pressed && styles.pressed]}><VoiceIcon name="mic" size={18}/></Pressable>}
-      {!hasDraft && <Pressable testID="live-talk-start" accessibilityRole="button" accessibilityLabel="Live Talk"
-        onPress={() => { Keyboard.dismiss(); dictation.cancel(); void live.start().catch(() => onVoiceFailure('unavailable')); }} style={styles.composerAction}><VoiceIcon name="voice" size={18}/></Pressable>}
+          </Pressable>}
+      {!hasDraft && <Pressable testID="live-talk-start" accessibilityRole="button" accessibilityLabel={ct('liveTalk')}
+        disabled={!voiceEnabled} onPress={() => {
+          Keyboard.dismiss();
+          beginLiveTalk();
+        }} style={styles.composerAction}><VoiceIcon name="voice" size={18}/></Pressable>}
       </>}
     </View>
+    </View>
+    {composerTools === props.draftSessionId && <ComposerTools key={composerTools} threadId={composerTools} language={language}
+      attachmentLimit={props.attachments.length >= 8} onPick={props.onPickAttachment} onClose={() => setComposerTools(null)}/>}
     </>}
-    {replyMenu && <ReplyMenu target={replyMenu} language={language} top={headerBottom} bottom={composerTop} screenWidth={dimensions.width}
-      renderMarkdown={props.renderMarkdown} onClose={closeReplyMenu}/>}
+    {replyMenu?.threadId === props.draftSessionId && <ReplyMenu target={replyMenu} language={language} top={headerBottom} bottom={composerTop} screenWidth={dimensions.width}
+      panel={menuCard ? {pinned: menuCard.pinned, pin: () => panelAction(pinCardToPanels, 'pinned'),
+        open: () => panelAction(openPinnedCard), unpin: () => panelAction(unpinCard, 'unpinned')} : undefined}
+      renderMarkdown={props.renderMarkdown} onClose={closeReplyMenu}
+      speechAction={speaking?.replyId === replyMenu.id ? {speaking: true, run: stopReading}
+        : voiceEnabled && !live.active && !dictating ? {speaking: false, run: () => {
+          void speakReply(replyMenu.threadId, replyMenu.id, markdownSpeechText(replyMenu.text)).catch(() => {
+            if (Platform.OS === 'android') ToastAndroid.show(ct('replySpeechUnavailable'), ToastAndroid.SHORT);
+          });
+        }} : undefined}/>}
     </View>
     </View>
     {layer?.kind === 'home' && <View style={StyleSheet.absoluteFill}>
@@ -570,9 +704,9 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
         actions={{
           openThread: id => { live.stop(); setLayer(null); props.onSelectThread(id); },
           newChat: () => { live.stop(); setLayer(null); props.onCreateThread(); },
-          openSettings: () => { setLayer(null); props.onOpenSettings(); },
+          openSettings: () => { setLayer(null); router.push('/system-ai'); },
           openRoute: () => { setLayer(null); router.push('/plugin-market'); },
-          openNativeControls: props.busy || props.loading ? undefined : () => { setLayer(null); props.onOpenNativeControls(); },
+          openNativeControls: () => { setLayer(null); router.push({pathname: '/assistant-management', params: sessionId ? {threadId: sessionId} : {}}); },
           collapse: collapseChat,
           taskView: {on: taskView, toggle: () => { setLayer(null); setTaskView(!taskView); }},
         }}/>
@@ -581,7 +715,7 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
   </KeyboardAvoidingView>;
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   host: {flex: 1},
   livePanel: {position: 'absolute', left: 16, right: 16},
   liveTranscript: {alignItems: 'center', gap: 24, marginBottom: 24},
@@ -602,7 +736,14 @@ const styles = StyleSheet.create({
   // shrinks to its text as in the frame; a long one uses the width up to a 48 dp left margin
   // instead of the frame's 129 dp column (issue #32 C4).
   userWrap: {alignItems: 'flex-end', paddingLeft: chatMetrics.bubbleMinInset}, userBubble: {backgroundColor: chatColors.bubble, padding: 8, borderRadius: 16, borderBottomRightRadius: 4, gap: 8},
-  attachment: {color: chatColors.userText}, assistant: {gap: chatMetrics.replyGap}, messageParts: {gap: chatMetrics.replyGap},
+  attachment: {color: chatColors.userText},
+  // Figma 297:462: the 32 × 24 badge starts 8 dp above the bubble's bottom edge.
+  userWrapReacted: {paddingBottom: 16},
+  reaction: {position: 'absolute', right: 8, bottom: 0, width: 32, height: 24, borderRadius: 12,
+    alignItems: 'center', justifyContent: 'center', backgroundColor: chatColors.backdropFallback, overflow: 'hidden'},
+  reactionTint: {...StyleSheet.absoluteFill, borderRadius: 12, borderWidth: 2,
+    borderColor: chatColors.reactionRing, backgroundColor: chatColors.reactionFill},
+  reactionText: {...chatType.bodyLg(), color: '#FFFFFF'}, assistant: {gap: chatMetrics.replyGap}, messageParts: {gap: chatMetrics.replyGap},
   replyActions: {flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', maxWidth: '100%', gap: 8},
   activityToggle: {flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 48, flexShrink: 1, paddingRight: 4},
   activityGroup: {gap: 8}, activityHeading: {lineHeight: 20},
@@ -628,7 +769,12 @@ const styles = StyleSheet.create({
   error: {flexDirection: 'row', backgroundColor: colors.errorSurface, paddingLeft: 16, alignItems: 'center'}, errorText: {flex: 1, color: colors.error},
   // Figma 2-1 field: Surface/900 pill, 12 dp padding, 48 dp ambient shadow, 16 dp from the sides.
   hidden: {opacity: 0},
-  composer: {position: 'absolute', left: chatMetrics.side, right: chatMetrics.side, minHeight: 64, flexDirection: 'row', backgroundColor: chatColors.composer,
+  composerStack: {position: 'absolute', left: chatMetrics.side, right: chatMetrics.side, gap: 8},
+  attachmentStrip: {flexGrow: 0},
+  attachmentChip: {flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44, paddingHorizontal: 12, marginRight: 8, borderRadius: 16, backgroundColor: chatColors.surfaceRaised},
+  attachmentLabel: {maxWidth: 180},
+  attachmentThumb: {width: 36, height: 36, borderRadius: 8, marginLeft: -4, backgroundColor: chatColors.fillControl},
+  composer: {minHeight: 64, flexDirection: 'row', backgroundColor: chatColors.composer,
     borderRadius: 32, padding: 12, gap: 0},
   input: {flex: 1, minWidth: 0, paddingHorizontal: 0, paddingVertical: 8, margin: 0},
   composerAction: {width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', flexShrink: 0},
@@ -637,10 +783,13 @@ const styles = StyleSheet.create({
   // Figma 1-3 send: Main/Brand circle with the white arrow.
   send: {backgroundColor: chatColors.send},
   sendDisabled: {opacity: 0.35},
+  // The stop control (as Figma 1-5's stop): a solid 40 dp disc with a 12 dp rounded square.
+  stop: {backgroundColor: chatColors.stopFill}, stopPressed: {opacity: 0.8},
+  stopGlyph: {width: 12, height: 12, borderRadius: 4, backgroundColor: chatColors.stopGlyph},
   treeNode: {marginLeft: 8, borderLeftWidth: 1, borderLeftColor: colors.border, paddingLeft: 16, gap: 8}, treeRoot: {borderLeftWidth: 3, borderLeftColor: colors.sage, paddingVertical: 8}, treeAnswer: {paddingTop: 8},
   historyList: {padding: 16, gap: 8}, historyItem: {padding: 16, borderRadius: 12, gap: 4, minHeight: 64}, historySelected: {backgroundColor: colors.surface},
   advancedControls: {minHeight: 48, marginHorizontal: 16, marginTop: 8, paddingHorizontal: 12, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 8, backgroundColor: colors.surface},
   pendingSubmission: {padding: 16, gap: 8, borderRadius: 16, borderColor: colors.border, borderWidth: 1, backgroundColor: colors.surface},
   pendingPreviewToggle: {minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 8}, pendingPreviewExpanded: {maxHeight: 96},
   pendingRetry: {minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', gap: 8, paddingHorizontal: 8, borderRadius: 6, backgroundColor: colors.control},
-});
+}));

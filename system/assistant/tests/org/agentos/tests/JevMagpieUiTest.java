@@ -1,95 +1,248 @@
 package org.agentos.tests;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.view.accessibility.AccessibilityNodeInfo;
-import java.io.*;
-import java.nio.file.*;
-import java.util.*;
-import org.json.*;
+import com.android.uiautomator.core.Configurator;
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
-/** Actual Android UI, Broker, Magpie and Codex; only the model upstream is a labelled fixture. */
+/** Actual Expo UI, Magpie and Codex with a deterministic model upstream. */
 public class JevMagpieUiTest extends AgentInterfaceTest {
- static final File TASKS=new File("/data/user/0/org.agentos.assistant/files/runtime/tasks");
- Set<String> tasks() throws Exception {
-  Set<String> ids=new HashSet<>();File[] files=TASKS.listFiles();if(files==null)return ids;
-  for(File p:files)if(new File(p,"ready").isFile()&&new File(p,"request.json").isFile()){
-   JSONObject q;
-   try{q=new JSONObject(new String(Files.readAllBytes(new File(p,"request.json").toPath()),java.nio.charset.StandardCharsets.UTF_8));}
-   catch(JSONException oldRecord){if(new File(p,"done").isFile())continue;throw oldRecord;}
-   if(!q.has("op")&&!q.has("method")&&!q.optString("prompt").isEmpty())ids.add(p.getName());
-  }
-  return ids;
- }
- JSONObject decisionModels()throws Exception{return NativeSocketProbe.exchange(new JSONObject().put("op","decision").put("action","models"));}
- void selectDecision(String id)throws Exception{
-  click("会话工具");click("更多选项");click("设置");scrollTo("Jev decision model");click("Jev decision model");
-  JSONArray models=decisionModels().getJSONArray("models");String name="";
-  for(int i=0;i<models.length();i++)if(id.equals(models.getJSONObject(i).getString("id"))){
-   JSONObject m=models.getJSONObject(i);name=m.getString("name")+(m.optBoolean("imageInput")?" · Text and images":m.optBoolean("inputKnown")?" · Text":" · Page text (image capability unknown)");
-  }
-  assertFalse(name.isEmpty());scrollTo(name);click(name);sleep(500);
-  if(!"true".equals(command("/system/bin/sh","-c","cat /data/user/0/org.agentos.assistant/shared_prefs/agent-settings.xml | grep -o 'name=\"jevEnabled\" value=\"true\"' | sed 's/.*/true/'").trim())){
-   click("Enable Jev decision model");sleep(600);
-  }
-  assertEquals(id,preference("jevModel"));
- }
- public void testJevMagpieChain()throws Exception{
-  ConfiguratorSetup();connect();new File(OUT).mkdirs();
-  String thread=preference("conversation"),draftText="Jev 迁移回归草稿：这段不要发送。";
-  JSONObject before=NativeSocketProbe.exchange(new JSONObject().put("op","modelConnection").put("action","read"));
-  JSONArray verified=new JSONArray();
-  // Screen suggestions deliberately send the original image to Jev. A
-  // text-only model is not a valid substitute for this path.
-  String[] models={"fixture/jev-vision"};
-  for(String model:models){
-   open(thread);
-   Bundle args=new Bundle();args.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,draftText);
-   assertTrue(node("对话输入框").performAction(AccessibilityNodeInfo.ACTION_SET_TEXT,args));sleep(300);
-   selectDecision(model);open(thread);assertEquals(draftText,draft());
-   command("/system/bin/input","keyevent","KEYCODE_BACK");sleep(350);
-   command("/system/bin/am","start","-n","org.agentos.jevfixture/.ChatFixtureActivity");
-   node("合成聊天 · Jev/Magpie 协议验收");sleep(1200);
-   Set<String> baseline=tasks();
-   command("/system/bin/am","broadcast","-n",PKG+"/.JevTestTrigger","-a",PKG+".TEST_JEV_SIMULATED_POWER");
-   assertNotNull("Jev should offer a suggestion",find("Accept screen suggestion and hand to Agent",35000));capture(model.endsWith("text")?"text-hint":"image-hint");
-   assertEquals("No task before consent",baseline,tasks());
-   command("/system/bin/am","broadcast","-n",PKG+"/.JevTestTrigger","-a",PKG+".TEST_JEV_SIMULATED_POWER");sleep(300);
-   assertEquals("Duplicate trigger creates no task",baseline,tasks());
-   click("Accept screen suggestion and hand to Agent");
-   Set<String> added=new HashSet<>();long until=System.currentTimeMillis()+45000;
-   while(System.currentTimeMillis()<until){added=tasks();added.removeAll(baseline);if(added.size()==1)break;sleep(150);}
-   assertEquals("One accepted suggestion creates one task",1,added.size());
-   String id=added.iterator().next();File task=new File(TASKS,id);
-   until=System.currentTimeMillis()+90000;
-   while(!new File(task,"done").isFile()&&System.currentTimeMillis()<until)sleep(200);
-   JSONObject state=new JSONObject(new String(Files.readAllBytes(new File(task,"state.json").toPath()),java.nio.charset.StandardCharsets.UTF_8));
-   assertEquals(state.toString(),"completed",state.getString("state"));
-   JSONObject request=new JSONObject(new String(Files.readAllBytes(new File(task,"request.json").toPath()),java.nio.charset.StandardCharsets.UTF_8));
-   assertTrue("Original screenshot reaches Agent",new File(request.getString("screenshot")).length()>1000);
-   assertTrue("Unsent draft attachments excluded",request.optJSONArray("attachments")==null||request.getJSONArray("attachments").length()==0);
-   assertFalse("Unsent draft text excluded",request.getString("prompt").contains(draftText));
-   open(thread);
-   assertEquals("Unsent draft survives",draftText,draft());
-   assertNotNull("Unsent attachment remains visible",find("keep-jev-fixture.txt",1000));
-   capture(model.endsWith("text")?"text-completed":"image-completed");
-   verified.put(new JSONObject().put("model",model).put("taskId",id).put("completed",true)
-    .put("consentBeforeTask",true).put("duplicateTriggerSuppressed",true).put("draftAndAttachmentPreserved",true)
-    .put("contextScreenshot",request.getString("screenshot")));
-  }
-  JSONObject after=NativeSocketProbe.exchange(new JSONObject().put("op","modelConnection").put("action","read"));
-  assertEquals(before.getString("mode"),after.getString("mode"));assertEquals(before.getString("model"),after.getString("model"));
-  JSONObject result=new JSONObject().put("passed",true).put("modelResponsesSimulated",true)
-   .put("gatewayOnAndroid",true).put("nativeCodexOnAndroid",true).put("cases",verified).put("mainConnectionUnchanged",true);
-  Files.write(new File(OUT,"jev-magpie-ui.json").toPath(),result.toString(2).getBytes(java.nio.charset.StandardCharsets.UTF_8));
- }
- @Override void scrollTo(String text)throws Exception{
-  int w=getUiDevice().getDisplayWidth(),h=getUiDevice().getDisplayHeight();
-  for(int i=0;i<7&&find(text,150)==null;i++)getUiDevice().swipe(w/2,h*4/5,w/2,h/3,20);
-  node(text);
- }
- @Override void open(String thread)throws Exception{
-  command("/system/bin/am","start","--display","0","-n",PKG+"/.PanelActivity","--es","conversationId",thread);
-  node("对话输入框");sleep(500);
- }
- @Override String draft()throws Exception{return String.valueOf(node("对话输入框").getText());}
- void ConfiguratorSetup(){com.android.uiautomator.core.Configurator.getInstance().setWaitForIdleTimeout(0);}
+    static final String ACCEPT = "Accept screen suggestion and hand to Agent";
+    static final String PAGE = "合成聊天 · Jev/Magpie 协议验收";
+
+    public void testJevMagpieChain() throws Exception {
+        String thread = getParams().getString("thread");
+        assertNotNull("Fixture conversation", thread);
+        String model = "group/jev-fixture-vision";
+        String pending = "Jev 迁移回归草稿：这段不要发送。";
+        String attachment = "keep-jev-fixture.txt";
+        prepare();
+        JSONObject connection = connection();
+        try {
+            stageDraft(thread, pending, attachment);
+            enableJev(model);
+            checkDraft(thread, pending, attachment);
+            showSyntheticPage();
+            JSONObject capture = requestCapture();
+            assertNotNull("Jev should offer a suggestion", findExpo(ACCEPT, ACCEPT, 35000));
+            capture("image-hint");
+            JSONObject receipt = readyReceipt(capture, model);
+            JSONObject job = acceptAndWait(capture, 90000);
+            JSONObject turn = backgroundTurn(job, thread, pending, attachment);
+            assertTrue("Fixture Agent response", agentReply(turn).contains("已整理合成约饭方案"));
+            checkDraft(thread, pending, attachment);
+            capture("image-completed");
+            assertConnection(connection);
+            JSONObject result = new JSONObject().put("model", model).put("taskId", job.getString("taskId"))
+                    .put("completed", true).put("consentBeforeTask", true).put("duplicateTriggerSuppressed", true)
+                    .put("draftAndAttachmentPreserved", true).put("contextScreenshot", true).put("decisionReceipt", receipt);
+            writeReport("jev-magpie-ui.json", new JSONObject().put("passed", true).put("modelResponsesSimulated", true)
+                    .put("gatewayOnAndroid", true).put("nativeCodexOnAndroid", true).put("mainConnectionUnchanged", true)
+                    .put("cases", new JSONArray().put(result)));
+        } finally {
+            clearDraft(thread);
+        }
+    }
+
+    void prepare() throws Exception {
+        Configurator.getInstance().setWaitForIdleTimeout(0);
+        connect();
+        Files.createDirectories(new File(OUT).toPath());
+    }
+
+    JSONObject connection() throws Exception {
+        return access("manageSystemAi", new JSONObject().put("operation", "readConnection"));
+    }
+
+    void assertConnection(JSONObject before) throws Exception {
+        JSONObject after = connection();
+        assertEquals(before.getString("mode"), after.getString("mode"));
+        assertEquals(before.getString("model"), after.getString("model"));
+    }
+
+    void enableJev(String model) throws Exception {
+        openRoute("/system-ai?section=jev");
+        AccessibilityNodeInfo toggle = node("Enable Jev decision model");
+        JSONObject request = new JSONObject().put("operation", "readJev");
+        JSONObject config = access("manageSystemAi", request);
+        assertEquals("Selected Jev decision model", model, config.getString("selected"));
+        if (!config.getBoolean("enabled")) click(toggle);
+        long deadline = SystemClock.uptimeMillis() + 10000;
+        while (!config.getBoolean("enabled") && SystemClock.uptimeMillis() < deadline) {
+            sleep(200);
+            config = access("manageSystemAi", request);
+        }
+        assertTrue("Jev enabled through Expo settings", config.getBoolean("enabled"));
+    }
+
+    void stageDraft(String thread, String text, String name) throws Exception {
+        File dir = Files.createTempDirectory(new File("/sdcard/Download").toPath(), "taku-jev-").toFile();
+        File file = new File(dir, name);
+        try {
+            Files.writeString(file.toPath(), "Synthetic unsent attachment. Do not send.");
+            open(thread);
+            click(control("composer-tools", 10000));
+            click(control("attach-file", 10000));
+            AccessibilityNodeInfo roots = find("Show roots", 5000);
+            if (roots == null) roots = find("Show navigation drawer", 2000);
+            if (roots == null) roots = find("显示根目录", 2000);
+            click(roots);
+            AccessibilityNodeInfo storage = find(command("/system/bin/getprop", "ro.product.model").trim(), 3000);
+            if (storage == null) storage = find("Internal storage", 2000);
+            if (storage == null) storage = find("内部存储设备", 2000);
+            click(storage);
+            click("Download");
+            click(dir.getName());
+            click(name);
+            if (findComposer(2500) == null) {
+                AccessibilityNodeInfo confirm = find("Open", 3000);
+                if (confirm == null) confirm = find("打开", 2000);
+                click(confirm);
+            }
+            composer();
+        } finally {
+            Files.deleteIfExists(file.toPath());
+            Files.deleteIfExists(dir.toPath());
+        }
+        assertNotNull("Fixture attachment is visible", findAttachment(name));
+        Bundle args = new Bundle();
+        args.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text);
+        assertTrue("Edit Expo draft", composer().performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args));
+        expectDraft(thread, text);
+    }
+
+    private AccessibilityNodeInfo findAttachment(String name) throws Exception {
+        return findExpo("Remove attachment " + name, "移除附件 " + name, 10000);
+    }
+
+    void checkDraft(String thread, String text, String name) throws Exception {
+        open(thread);
+        expectDraft(thread, text);
+        assertNotNull("Unsent attachment is visible", findAttachment(name));
+        JSONArray attachments = composerState(thread).getJSONArray("attachments");
+        assertEquals("Exactly one unsent attachment", 1, attachments.length());
+        assertEquals(name, attachments.getJSONObject(0).getString("name"));
+    }
+
+    void clearDraft(String thread) throws Exception {
+        JSONObject draft = composerState(thread);
+        JSONArray attachments = draft.getJSONArray("attachments");
+        for (int i = 0; i < attachments.length(); i++) {
+            draft = access("composer/removeAttachment", new JSONObject().put("threadId", thread)
+                    .put("expectedRevision", draft.getString("revision"))
+                    .put("attachmentId", attachments.getJSONObject(i).getString("id")));
+        }
+        writeDraft(thread, "");
+    }
+
+    void showSyntheticPage() throws Exception {
+        command("/system/bin/am", "start", "-W", "-n", "org.agentos.jevfixture/.ChatFixtureActivity");
+        node(PAGE);
+    }
+
+    JSONObject requestCapture() throws Exception {
+        return access("capture/request", new JSONObject().put("manual", false));
+    }
+
+    void stopUnfinishedCapture(JSONObject capture) throws Exception {
+        JSONObject key = new JSONObject().put("captureId", capture.getString("captureId"));
+        JSONObject job = access("capture/dismiss", key).optJSONObject("job");
+        if (job == null || !"running".equals(job.getString("state"))) return;
+        String thread = job.getString("threadId");
+        JSONObject query = new JSONObject().put("op", "state").put("threadId", thread);
+        String turn = NativeSocketProbe.exchange(query).optString("activeTurnId");
+        if (turn.isEmpty()) return;
+        try {
+            NativeSocketProbe.rpc("turn/interrupt", new JSONObject().put("threadId", thread).put("turnId", turn));
+        } catch (IOException ended) {
+            if (turn.equals(NativeSocketProbe.exchange(query).optString("activeTurnId"))) throw ended;
+        }
+    }
+
+    JSONObject readyReceipt(JSONObject capture, String model) throws Exception {
+        JSONObject key = new JSONObject().put("captureId", capture.getString("captureId"));
+        JSONObject ready = access("capture/read", key);
+        assertEquals("ready", ready.getString("state"));
+        assertFalse("No Agent task before consent", ready.has("job"));
+        try {
+            access("capture/request", new JSONObject().put("manual", false));
+            fail("Duplicate capture should be rejected while the suggestion is ready");
+        } catch (IOException busy) {
+            assertEquals("CAPTURE_BUSY", busy.getMessage());
+        }
+        JSONObject unchanged = access("capture/read", key);
+        assertEquals("ready", unchanged.getString("state"));
+        assertFalse("Duplicate request does not create an Agent task", unchanged.has("job"));
+        JSONObject receipt = ready.getJSONObject("receipt");
+        assertEquals(model, receipt.getString("gateModel"));
+        assertTrue("Screenshot was analyzed", receipt.getInt("imageWidth") > 0 && receipt.getInt("imageHeight") > 0);
+        return receipt;
+    }
+
+    JSONObject acceptAndWait(JSONObject capture, long timeout) throws Exception {
+        click(findExpo(ACCEPT, ACCEPT, 10000));
+        JSONObject key = new JSONObject().put("captureId", capture.getString("captureId"));
+        long deadline = SystemClock.uptimeMillis() + timeout;
+        JSONObject state;
+        do {
+            state = access("capture/read", key);
+            JSONObject job = state.optJSONObject("job");
+            if (job != null) {
+                String status = job.getString("state");
+                if (status.equals("completed")) {
+                    JSONObject repeated = access("capture/accept", key).getJSONObject("job");
+                    assertFalse("Acceptance published a task", job.getString("taskId").isEmpty());
+                    assertEquals("Repeat consent returns the same task", job.getString("taskId"), repeated.getString("taskId"));
+                    return job;
+                }
+                assertTrue(job.toString(), status.equals("starting") || status.equals("running"));
+            }
+            sleep(250);
+        } while (SystemClock.uptimeMillis() < deadline);
+        throw new IOException("Background task did not complete: " + state);
+    }
+
+    JSONObject backgroundTurn(JSONObject job, String originalThread, String text, String attachment) throws Exception {
+        String background = job.getString("threadId");
+        assertFalse("The background task uses its own conversation", background.equals(originalThread));
+        JSONObject history = NativeSocketProbe.rpc("thread/read", new JSONObject().put("threadId", background)
+                .put("includeTurns", true)).getJSONObject("thread");
+        JSONArray turns = history.getJSONArray("turns");
+        assertEquals("Exactly one accepted turn", 1, turns.length());
+        JSONObject turn = turns.getJSONObject(0);
+        assertEquals("completed", turn.getString("status"));
+        JSONArray items = turn.getJSONArray("items");
+        int images = 0;
+        for (int i = 0; i < items.length(); i++) {
+            JSONObject item = items.getJSONObject(i);
+            if (!"userMessage".equals(item.getString("type"))) continue;
+            JSONArray content = item.getJSONArray("content");
+            for (int j = 0; j < content.length(); j++) {
+                JSONObject part = content.getJSONObject(j);
+                if ("localImage".equals(part.getString("type")) || "image".equals(part.getString("type"))) images++;
+                assertFalse("Unsent draft text is excluded", part.optString("text").contains(text));
+                assertFalse("Unsent attachment is excluded", part.optString("text").contains(attachment));
+            }
+        }
+        assertEquals("One screenshot reaches the Agent", 1, images);
+        return turn;
+    }
+
+    String agentReply(JSONObject turn) throws Exception {
+        JSONArray items = turn.getJSONArray("items");
+        StringBuilder reply = new StringBuilder();
+        for (int i = 0; i < items.length(); i++) {
+            JSONObject item = items.getJSONObject(i);
+            if ("agentMessage".equals(item.getString("type"))) reply.append(item.getString("text")).append('\n');
+        }
+        return reply.toString().trim();
+    }
+
+    void writeReport(String name, JSONObject report) throws Exception {
+        Files.writeString(new File(OUT, name).toPath(), report.toString(2));
+    }
 }

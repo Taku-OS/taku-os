@@ -9,8 +9,15 @@ import java.io.File
 
 /** Fixed audio through the production ASR adapter. Does not simulate microphone quality. */
 class RecognitionProbe : Instrumentation() {
-    private var inject=false
-    override fun onCreate(arguments: Bundle?) { super.onCreate(arguments);inject=arguments?.getString("injectMicrophone")=="true";start() }
+    private var inject = false
+    private var communicationSource = false
+
+    override fun onCreate(arguments: Bundle?) {
+        super.onCreate(arguments)
+        inject = arguments?.getString("injectMicrophone") == "true"
+        communicationSource = arguments?.getString("captureSource") == "communication"
+        start()
+    }
     override fun onStart() {
         if(inject){injectMicrophone();return}
         val report=JSONObject().put("passed",false).put("qualityApproved",false).put("scope","fixed synthetic audio through production local ASR")
@@ -37,13 +44,15 @@ class RecognitionProbe : Instrumentation() {
         val report=JSONObject().put("passed",false).put("syntheticInput",true).put("hostMicrophoneUsed",false)
         val context=targetContext
         val audio=context.getSystemService(android.media.AudioManager::class.java)
+        val source = if (communicationSource) android.media.MediaRecorder.AudioSource.VOICE_COMMUNICATION
+            else android.media.MediaRecorder.AudioSource.VOICE_RECOGNITION
         fun type(name: String)=Class.forName("android.media.audiopolicy.$name")
         fun call(receiver: Any,name: String,vararg args: Pair<Class<*>,Any>): Any?=receiver.javaClass.getMethod(name,*args.map{it.first}.toTypedArray()).invoke(receiver,*args.map{it.second}.toTypedArray())
         fun integer(v: Int)=Int::class.javaPrimitiveType!! to v
         var policy: Any?=null;var output: android.media.AudioTrack?=null
         try {
             val attributes=android.media.AudioAttributes.Builder()
-            call(attributes,"setInternalCapturePreset",integer(android.media.MediaRecorder.AudioSource.VOICE_RECOGNITION))
+            call(attributes,"setInternalCapturePreset",integer(source))
             val rule=type("AudioMixingRule\$Builder").getConstructor().newInstance()
             call(rule,"addMixRule",integer(2),Any::class.java to attributes.build())
             call(rule,"addMixRule",integer(4),Any::class.java to context.applicationInfo.uid)
@@ -59,13 +68,23 @@ class RecognitionProbe : Instrumentation() {
             output.play()
             sendStatus(0,Bundle().apply{putString("phase","microphone-route-ready")})
             val deadline=android.os.SystemClock.elapsedRealtime()+45000
-            while(android.os.SystemClock.elapsedRealtime()<deadline && audio.activeRecordingConfigurations.none{it.clientAudioSource==6 && it.javaClass.getMethod("getClientUid").invoke(it)==context.applicationInfo.uid})Thread.sleep(50)
+            while (android.os.SystemClock.elapsedRealtime() < deadline && audio.activeRecordingConfigurations.none {
+                it.clientAudioSource == source && it.javaClass.getMethod("getClientUid").invoke(it) == context.applicationInfo.uid
+            }) Thread.sleep(50)
             check(android.os.SystemClock.elapsedRealtime()<deadline)
+            sendStatus(0, Bundle().apply {
+                putString("phase", "microphone-capture-active")
+                putLong("elapsedRealtimeMs", android.os.SystemClock.elapsedRealtime())
+            })
             val bytes=File("/data/local/tmp/taku-conversation.pcm").readBytes()
             val pcm=ByteArray(9600)+bytes+ByteArray(64000)
             var offset=0
             while(offset<pcm.size){val count=output.write(pcm,offset,minOf(640,pcm.size-offset),android.media.AudioTrack.WRITE_BLOCKING);check(count>0);offset+=count}
             report.put("injectedPcmMs",pcm.size*1000/32000)
+            sendStatus(0, Bundle().apply {
+                putString("phase", "microphone-replay-complete")
+                putLong("elapsedRealtimeMs", android.os.SystemClock.elapsedRealtime())
+            })
             Thread.sleep(30000)
             report.put("passed",true)
         }catch(e: Throwable){report.put("error",e.javaClass.simpleName).put("message",(e.cause?.message ?: e.message)?.take(200))}

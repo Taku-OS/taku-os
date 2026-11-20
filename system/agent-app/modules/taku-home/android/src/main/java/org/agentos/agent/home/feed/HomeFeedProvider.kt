@@ -7,6 +7,7 @@ import android.net.Uri
 import android.os.Binder
 import android.os.Bundle
 import android.os.ParcelFileDescriptor
+import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
 import java.io.FileNotFoundException
 
@@ -53,12 +54,12 @@ class HomeFeedProvider : ContentProvider() {
         "feed/reorder-pins" -> repo.reorderPins(p.optJSONArray("ids")?.strings() ?: throw FeedException("INVALID_ARGUMENT", "ids is required"), ORIGIN)
         "feed/publish" -> repo.publishCard(p.optJSONObject("card") ?: throw FeedException("INVALID_ARGUMENT", "card is required"), ORIGIN)
         "feed/retract" -> repo.retract(id(p), ORIGIN)
-        "feed/action" -> onMain {
+        "feed/action" -> runBlocking {
           val values = if (!p.has("values")) JSONObject() else p.optJSONObject("values")
             ?: throw FeedException("INVALID_ARGUMENT", "values must be an object")
           FeedActions.dispatch(ctx, id(p), p.optString("actionId").ifBlank { throw FeedException("INVALID_ARGUMENT", "actionId is required") }, values, ORIGIN)
         }
-        "feed/ask-taku" -> onMain { FeedActions.askAbout(ctx, id(p), ORIGIN) }
+        "feed/ask-taku" -> runBlocking { FeedActions.askAbout(ctx, id(p), ORIGIN) }
         "feed/reset" -> repo.reset(ORIGIN)
         else -> throw FeedException("UNKNOWN_METHOD", "unknown method $method")
       }
@@ -82,9 +83,6 @@ class HomeFeedProvider : ContentProvider() {
     while (repo.state.value.loading && System.currentTimeMillis() < deadline) Thread.sleep(20)
   }
 
-  /** Activity starts and shell callbacks must run on the main thread. */
-  private fun onMain(block: () -> JSONObject): JSONObject =
-    org.agentos.agent.home.MainThread.call(onTimeout = { FeedException("TIMEOUT", "main thread busy") }, block = block)
 
   override fun openFile(uri: Uri, mode: String): ParcelFileDescriptor {
     val callerUid = Binder.getCallingUid()

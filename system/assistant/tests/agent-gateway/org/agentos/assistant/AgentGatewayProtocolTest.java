@@ -103,6 +103,24 @@ public final class AgentGatewayProtocolTest {
     public static void main(String[] args) throws Exception {
         JSONObject send = new JSONObject().put("threadId", THREAD).put("requestId", KEY).put("text", "Hello");
         check(AgentGatewayProtocol.request("sendMessage", send.toString()).getString("text").equals("Hello"));
+        JSONObject live = new JSONObject(send.toString()).put("taskId", "12345");
+        for (String action : new String[]{"live/task-read", "live/task-replace", "live/task-cancel"}) {
+            check(AgentGatewayProtocol.request(action, live.toString()).similar(live));
+            for (String field : new String[]{"threadId", "taskId", "requestId", "text"}) {
+                JSONObject missing = new JSONObject(live.toString()); missing.remove(field);
+                rejects(() -> AgentGatewayProtocol.request(action, missing.toString()));
+                JSONObject wrongType = new JSONObject(live.toString()).put(field, 12);
+                rejects(() -> AgentGatewayProtocol.request(action, wrongType.toString()));
+            }
+            for (String field : new String[]{"turnId", "action", "permissionMode", "goalActive"})
+                rejects(() -> AgentGatewayProtocol.request(action, new JSONObject(live.toString()).put(field, "untrusted").toString()));
+            rejects(() -> AgentGatewayProtocol.request(action, new JSONObject(live.toString()).put("threadId", "../thread").toString()));
+            rejects(() -> AgentGatewayProtocol.request(action, new JSONObject(live.toString()).put("requestId", "../receipt").toString()));
+            rejects(() -> AgentGatewayProtocol.request(action, new JSONObject(live.toString()).put("taskId", "../12345").toString()));
+            rejects(() -> AgentGatewayProtocol.request(action, new JSONObject(live.toString()).put("taskId", "1".repeat(21)).toString()));
+            rejects(() -> AgentGatewayProtocol.request(action, new JSONObject(live.toString()).put("text", " ").toString()));
+            rejects(() -> AgentGatewayProtocol.request(action, new JSONObject(live.toString()).put("text", "x".repeat(16001)).toString()));
+        }
         rejects(() -> AgentGatewayProtocol.request("rpc", "{}"));
         rejects(() -> AgentGatewayProtocol.request("sendMessage", new JSONObject(send.toString()).put("command", "sh").toString()));
         rejects(() -> AgentGatewayProtocol.request("sendMessage", new JSONObject(send.toString()).put("text", " ").toString()));
@@ -126,8 +144,6 @@ public final class AgentGatewayProtocolTest {
                 .put("taskId", "../ready").toString()));
         check(AgentGatewayProtocol.request("cancelQueued", new JSONObject().put("threadId", THREAD)
                 .put("taskId", "12345").toString()).getString("taskId").equals("12345"));
-        check(AgentGatewayProtocol.request("openNativeConversation", new JSONObject().put("threadId", THREAD).toString()).getString("threadId").equals(THREAD));
-        rejects(() -> AgentGatewayProtocol.request("openNativeConversation", new JSONObject().put("threadId", THREAD).put("manualScreen", true).toString()));
         JSONObject threadWorkspaces = new JSONObject().put("threadId", THREAD);
         JSONObject homeWorkspaces = new JSONObject().put("scope", "home");
         check(AgentGatewayProtocol.request("getWorkspaces", threadWorkspaces.toString()).similar(threadWorkspaces));
@@ -205,6 +221,12 @@ public final class AgentGatewayProtocolTest {
         JSONObject decide = new JSONObject().put("state", new JSONObject()).put("questions", new JSONObject().put("root", uiQuestion));
         check(AgentGatewayProtocol.request("decide", decide.toString()).has("questions"));
         rejects(() -> AgentGatewayProtocol.request("decide", new JSONObject(decide.toString()).put("questions", new JSONObject()).toString()));
+        JSONObject manyOptions = new JSONObject();
+        for (int i = 0; i < 241; i++) manyOptions.put("option_" + i, "Option " + i);
+        check(AgentGatewayProtocol.request("decide", new JSONObject(decide.toString()).put("questions", new JSONObject()
+                .put("reaction", new JSONObject(uiQuestion.toString()).put("criteria", manyOptions))).toString()).has("questions"));
+        rejects(() -> AgentGatewayProtocol.request("decide", new JSONObject(decide.toString()).put("questions", new JSONObject()
+                .put("root", new JSONObject(uiQuestion.toString()).put("criteria", new JSONObject()))).toString()));
         rejects(() -> AgentGatewayProtocol.request("decide", new JSONObject(decide.toString()).put("questions", new JSONObject().put("root", new JSONObject(uiQuestion.toString()).put("type", "noul"))).toString()));
         rejects(() -> AgentGatewayProtocol.request("decide", new JSONObject(decide.toString()).put("model", "other").toString()));
         JSONObject generate = new JSONObject().put("requestId", KEY).put("instructions", "x".repeat(70_000)).put("prompt", "Water tracker").put("catalogVersion", "taku-ui-1");

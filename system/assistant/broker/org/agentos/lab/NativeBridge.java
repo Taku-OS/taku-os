@@ -139,6 +139,7 @@ final class NativeBridge {
    case "modelConnection":Call local=new Call("taku/modelConnection",input);if(!enqueue(local))throw new IOException("Runtime is busy. Please retry later");answer=local.result.get(40,TimeUnit.SECONDS);break;
    case "decision":if(input.optString("action").equals("decide")){long revision=SystemAi.config().getLong("revision");SystemAi.requireEnabled();answer=decisions.control(input);SystemAi.requireEnabled();if(revision!=SystemAi.config().getLong("revision"))throw new IOException("System AI settings changed; this result was cancelled");}else answer=decisions.control(input);break;
    case "skillCredential":answer=SkillCredentials.control(input);break;
+   case "workspaceTextFiles":answer=WorkspaceTextFiles.control(input);break;
    case "memory":answer=MemoryBridge.control(input);break;
    case "imeReplies":answer=ImeReplies.control(input,uid);break;
    case "systemAi":answer=SystemAi.control(input);break;
@@ -147,8 +148,21 @@ final class NativeBridge {
    case "matter":answer=MatterBridge.control(input);break;
    case "matterAudio":answer=AudioBridge.control(input);break;
    case "mainReply":answer=AgentViews.mainReplyRead(input);break;
+   case "liveTask":Call live=new Call("taku/liveTask",input);if(!enqueue(live))throw new IOException("BUSY");answer=live.result.get(40,TimeUnit.SECONDS);break;
    case "magpieSettingsChanged":MagpieSettings.schedule();answer=new JSONObject();break;
-   case "rpc":String method=input.getString("method");if(!allowed(method))throw new IOException("This interface is not part of the locked native protocol");Call c=new Call(method,input.optJSONObject("params"));if(!enqueue(c))throw new IOException("Runtime is busy. Please retry later");answer=c.result.get(40,TimeUnit.SECONDS);break;
+   case "rpc": {
+    String method=input.getString("method");
+    if(!allowed(method))throw new IOException("This interface is not part of the locked native protocol");
+    JSONObject params=input.optJSONObject("params");
+    if(method.equals("plugin/list")) {
+     if(params==null)params=new JSONObject();
+     if(params.isNull("marketplaceKinds"))params.put("marketplaceKinds",new JSONArray().put("local"));
+    }
+    Call call=new Call(method,params);
+    if(!enqueue(call))throw new IOException("Runtime is busy. Please retry later");
+    answer=call.result.get(40,TimeUnit.SECONDS);
+    break;
+   }
    default:throw new IOException("Unsupported native operation");
   } } catch(Exception failure) { JSONObject error=new JSONObject().put("ok",false).put("message",publicError(failure));Throwable cause=failure;while(cause.getCause()!=null)cause=cause.getCause();if(cause instanceof SteerNotSubmitted)error.put("code","STEER_NOT_SUBMITTED");s.getOutputStream().write(error.toString().getBytes(StandardCharsets.UTF_8)); return; }
   s.getOutputStream().write(new JSONObject().put("ok",true).put("result",answer).toString().getBytes(StandardCharsets.UTF_8));
@@ -213,7 +227,11 @@ final class NativeBridge {
  static String publicError(Throwable e){Throwable value=e;while(value.getCause()!=null)value=value.getCause();String text=value.getMessage();if(text==null||text.isEmpty())text="The native interface cannot complete this operation right now";return redact(text).substring(0,Math.min(500,redact(text).length()));}
  static String redact(String s){return s.replaceAll("eyJ[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+","[Authorization information hidden]").replaceAll("(?i)(Bearer\\s+|(?:token|secret|password|api_key)=)[^\\s&\"']+","$1[hidden]").replaceAll("sk-[A-Za-z0-9_-]{20,}","[Key hidden]");}
  static JSONArray toolDefinitions()throws Exception {return PhoneNativeTools.definitions();}
- static void tick()throws Exception {if(initializing||CodexAppServer.booting)return;for(int n=0;n<4;n++){Call call=inbox.poll();if(call==null)break;if(call.result.isDone())continue;try{if(call.method.equals("taku/modelConnection")){call.result.complete(ModelConnection.control(call.params));continue;}if(Set.of("turn/start","turn/steer","thread/realtime/start").contains(call.method)&&call.params!=null&&!DedicatedScreensOnDevice.shared().agentAdmitted(call.params.optString("threadId")))throw new IOException("SCREEN_AGENT_PAUSED");initializing=true;CodexAppServer server;try{server=CodexAppServer.shared();}finally{initializing=false;}if(call.method.equals("thread/start")){JSONObject p=call.params;if(p==null)p=new JSONObject();if(!p.has("cwd"))p.put("cwd","/data/local/agentos/work");if(!p.has("approvalPolicy"))p.put("approvalPolicy","never");if(!p.has("sandbox"))p.put("sandbox","danger-full-access");if(!p.has("dynamicTools"))p.put("dynamicTools",toolDefinitions());call.params=p;}server.nativeRequest(call);}catch(Exception e){admissions.failedBeforeSend(call.admission);call.result.completeExceptionally(e);}}}
+ /** Inbox calls run one at a time. A blocking call made while handling one (liveTask's goal read,
+  * workspace preflight) still pumps provider events but never starts another inbox call. */
+ static void tick()throws Exception {if(initializing||CodexAppServer.booting||draining)return;draining=true;try{drainInbox();}finally{draining=false;}}
+ private static boolean draining;
+ private static void drainInbox()throws Exception {for(int n=0;n<4;n++){Call call=inbox.poll();if(call==null)break;if(call.result.isDone())continue;try{if(call.method.equals("taku/modelConnection")){call.result.complete(ModelConnection.control(call.params));continue;}if(call.method.equals("taku/liveTask")){call.result.complete(CodexAppServer.liveTask(call.params));continue;}if(Set.of("turn/start","turn/steer","thread/realtime/start").contains(call.method)&&call.params!=null&&!DedicatedScreensOnDevice.shared().agentAdmitted(call.params.optString("threadId")))throw new IOException("SCREEN_AGENT_PAUSED");initializing=true;CodexAppServer server;try{server=CodexAppServer.shared();}finally{initializing=false;}if(call.method.equals("thread/start")){JSONObject p=call.params;if(p==null)p=new JSONObject();if(!p.has("cwd"))p.put("cwd","/data/local/agentos/work");if(!p.has("approvalPolicy"))p.put("approvalPolicy","never");if(!p.has("sandbox"))p.put("sandbox","danger-full-access");if(!p.has("dynamicTools"))p.put("dynamicTools",toolDefinitions());call.params=p;}server.nativeRequest(call);}catch(Exception e){admissions.failedBeforeSend(call.admission);call.result.completeExceptionally(e);}}}
  static boolean complete(JSONObject response)throws Exception {int id=response.optInt("id",-1);Call c=calls.remove(id);if(c==null)return false;c.responseReceived=true;if(response.has("error")){JSONObject error=response.getJSONObject("error");if(c.method.equals("turn/steer")&&error.optInt("code")==-32600&&error.optString("message").equals("no active turn to steer"))c.result.completeExceptionally(new SteerNotSubmitted());else c.result.completeExceptionally(new IOException(error.optString("message","The native interface returned an error")));return true;}JSONObject result=response.optJSONObject("result");if(result==null)result=new JSONObject().put("value",response.opt("result"));if(!c.cleanup){if(c.method.equals("thread/list"))SessionRemovalRuntime.filter(result);observe(c.method,c.params,result);}c.result.complete(result);return true;}
  static void observe(String method,JSONObject params,JSONObject result)throws Exception { try(CleanupWork.Held observeHeld=lock()){
   CodexAppServer.shared.rememberModel(method,params,result);

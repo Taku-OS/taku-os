@@ -8,14 +8,15 @@ aapt=sdk/'build-tools'/os.environ.get('TAKU_BUILD_TOOLS','36.1.0')/'aapt2'
 manifest=subprocess.check_output([str(aapt),'dump','badging',str(apk)],text=True)
 assert "name='org.agentos.inputmethod'" in manifest, 'Wrong product package'
 assert "versionName='0.4.0'" in manifest, 'Wrong product version'
-assert "versionCode='10062'" in manifest or "versionCode='10064'" in manifest, 'Wrong product version code'
+assert "versionCode='10072'" in manifest or "versionCode='10074'" in manifest, 'Wrong product version code'
 assert 'android.permission.INTERNET' not in manifest, 'IME must work offline'
 assert 'application-debuggable' not in manifest, 'Product APK must be a release build'
 xml=subprocess.check_output([str(aapt),'dump','xmltree',str(apk),'--file','AndroidManifest.xml'],text=True)
 assert 'org.fcitx.fcitx5.android.input.FcitxInputMethodService' in xml, 'Missing Android IME service'
 assert 'android.permission.BIND_INPUT_METHOD' in xml, 'IME service must require Android binding permission'
 assert 'android:sharedUserId' not in xml, 'IME must use its own application UID'
-assert "application-label:'Taku Input Method'" in manifest, 'Wrong product brand'
+allowed_labels = {"application-label:'Taku Input Method'", "application-label:'Taku 输入法'"}
+assert allowed_labels.intersection(manifest.splitlines()), 'Wrong product brand'
 with zipfile.ZipFile(apk) as z:
  names=z.namelist()
  for suffix in ['libnative-lib.so','libpinyin.so','libIMEPinyin.so','libFcitx5Core.so']:

@@ -10,3 +10,7 @@
 # Verified against the exact source blobs bound by each historical lock entry.
 485a7b7417984ede1694cc33b1ed20609804e224:image/runtime-assets.lock.json:generic-api-key:223
 e94e1bc9ebef0969742ccbb829bd20d99424b2dd:image/runtime-assets.lock.json:generic-api-key:229
+# SHA-256 content digests of SecretFieldView.kt and SecretField.tsx, not credentials.
+# Both verified against the exact ea188bde source blobs bound by this APK release.
+917127ec8c8c885f0fa6d43e39bada781446e3a7:image/runtime-assets.lock.json:generic-api-key:83
+917127ec8c8c885f0fa6d43e39bada781446e3a7:image/runtime-assets.lock.json:generic-api-key:491

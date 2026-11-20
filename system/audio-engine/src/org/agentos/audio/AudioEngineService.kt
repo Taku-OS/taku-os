@@ -12,7 +12,19 @@ import java.util.UUID
 class AudioEngineService : Service() {
     private val main = Handler(Looper.getMainLooper())
     private val clients = mutableMapOf<IBinder, Pair<String,IBinder.DeathRecipient>>()
-    private val runtime = AudioRuntime(clock={SystemClock.elapsedRealtime()}) { request -> when(request.purpose){"SPEAK"->KokoroDriver(this,request);"MEDIA_TRANSLATE"->MediaTranslationDriver(this,request);"CALL_TRANSLATE"->CallTranslationDriver(this,request);else->if(request.profileId=="fal-whisper")WhisperDictationDriver(this,request)else ZipformerDriver(this,request)} }
+    private val runtime = AudioRuntime(clock={SystemClock.elapsedRealtime()}) { request ->
+        when (request.purpose) {
+            "LIVE_TALK" -> when (request.profileId) {
+                AudioProfiles.LIVE_GEMINI -> GeminiLiveDriver(this, request)
+                AudioProfiles.LIVE_GROK -> GrokLiveDriver(this, request)
+                else -> throw AudioFailure("UNSUPPORTED_PROFILE", "Choose a Live Talk provider")
+            }
+            "SPEAK" -> KokoroDriver(this, request)
+            "MEDIA_TRANSLATE" -> MediaTranslationDriver(this, request)
+            "CALL_TRANSLATE" -> CallTranslationDriver(this, request)
+            else -> if (request.profileId == "fal-whisper") WhisperDictationDriver(this, request) else ZipformerDriver(this, request)
+        }
+    }
     private val dictationResolver by lazy { DictationResolver(this) }
     private class PendingRead(val operation: EngineConfig.Control,var failure: AudioFailure?=null)
     private val pendingReads=mutableMapOf<IBinder,MutableSet<PendingRead>>()
@@ -37,7 +49,7 @@ class AudioEngineService : Service() {
         val next=if(updatePolicy)snapshot else JSONObject().apply{snapshot.keys().forEach{key->put(key,snapshot.get(key))}}
         val current=config
         if(current!=null && current.optLong("audioRevision")>next.optLong("audioRevision")) {
-            for(key in listOf("audioRevision","reading","dictation","fal"))next.put(key,current.opt(key) ?: JSONObject.NULL)
+            for(key in listOf("audioRevision","reading","dictation","fal","live"))next.put(key,current.opt(key) ?: JSONObject.NULL)
         }
         if(!updatePolicy && current!=null) {
             for(key in listOf("systemRevision","enabled","audioEnabled","apps","textTranslationConfigured"))next.put(key,current.opt(key) ?: JSONObject.NULL)
@@ -45,6 +57,7 @@ class AudioEngineService : Service() {
         config=next
         if(!next.optBoolean("enabled") || !next.optBoolean("audioEnabled"))runtime.revoke("POLICY_REVOKED")
         if(next.optJSONObject("fal")?.optBoolean("configured")!=true)runtime.revokeProfiles(AudioProfiles.fal,"PROVIDER_REMOVED")
+        if(!geminiConfigured(next))runtime.revokeProfiles(setOf(AudioProfiles.LIVE_GEMINI),"PROVIDER_REMOVED")
         for((binder,value) in clients.toMap()) {
             val uid=value.first.substringBefore(':').toInt()
             if(!allowedConfig(uid)) {
@@ -53,6 +66,12 @@ class AudioEngineService : Service() {
             }
         }
     }
+
+    private fun liveProfile(snapshot: JSONObject?): String =
+        snapshot?.optJSONObject("live")?.optString("profileId")?.takeIf { it in AudioProfiles.live } ?: AudioProfiles.LIVE_GROK
+
+    private fun geminiConfigured(snapshot: JSONObject?): Boolean =
+        snapshot?.optJSONObject("live")?.optJSONObject("gemini")?.optBoolean("configured") == true
     private fun cancelPendingReads(binder: IBinder,code: String) {
         pendingReads[binder]?.forEach { pending ->
             if(pending.failure==null)pending.failure=AudioFailure(code,"Audio configuration is no longer valid")
@@ -106,7 +125,7 @@ class AudioEngineService : Service() {
                     }
                 }
             }
-            if(refreshed==null && (method=="audio.session.open" && params.optString("purpose","DICTATION")=="DICTATION" || method=="audio.capabilities" && params.has("settingsScope"))) {
+            if(refreshed==null && (method=="audio.session.open" && params.optString("purpose","DICTATION") in setOf("DICTATION","LIVE_TALK") || method=="audio.capabilities" && (params.has("settingsScope") || params.optString("purpose")=="LIVE_TALK"))) {
                 refresh(message,owner)
                 return
             }
@@ -118,20 +137,29 @@ class AudioEngineService : Service() {
                     val legacy = method == "audio.legacy.acquire"
                     if (legacy && uid != 1000) throw AudioFailure("PERMISSION_DENIED","For existing native audio entry points only")
                     val mode=getSystemService(android.media.AudioManager::class.java).mode
-                    if(params.optString("purpose")!="CALL_TRANSLATE" && (mode==android.media.AudioManager.MODE_IN_CALL || mode==android.media.AudioManager.MODE_IN_COMMUNICATION))throw AudioFailure("RESOURCE_BUSY","A call is using audio resources")
+                    if(params.optString("purpose")!="CALL_TRANSLATE" && runtime.findRequest(owner,params.optString("requestKey"))==null && (mode==android.media.AudioManager.MODE_IN_CALL || mode==android.media.AudioManager.MODE_IN_COMMUNICATION))throw AudioFailure("RESOURCE_BUSY","A call is using audio resources")
                     val purpose=if(legacy) "LEGACY_REALTIME" else params.optString("purpose","DICTATION")
                     val language=params.optString("language","zh-CN")
                     val call=purpose=="CALL_TRANSLATE"
                     val media=purpose in listOf("MEDIA_TRANSLATE","CALL_TRANSLATE")
                     val targetLanguage=params.optString("targetLanguage","zh-CN")
-                    val selectedProfile=params.optString("profileId",if(legacy)"native-realtime" else if(media)AudioProfiles.defaultMedia(snapshot?.optJSONObject("fal")?.optString("model"),call) else if(purpose=="SPEAK")"kokoro" else "zipformer")
+                    val liveProfile = if (purpose == "LIVE_TALK") {
+                        val previous = runtime.findRequest(owner, params.optString("requestKey"))
+                        val profile = previous?.let { runtime.request(owner, it).profileId } ?: liveProfile(snapshot)
+                        if (params.has("profileId") && params.getString("profileId") != profile)
+                            throw AudioFailure(if (previous == null) "UNSUPPORTED_PROFILE" else "REQUEST_CONFLICT", "Live Talk uses the selected provider")
+                        profile
+                    } else null
+                    val selectedProfile=liveProfile ?: params.optString("profileId",if(legacy)"native-realtime" else if(media)AudioProfiles.defaultMedia(snapshot?.optJSONObject("fal")?.optString("model"),call) else if(purpose=="SPEAK")"kokoro" else "zipformer")
                     val hybrid=selectedProfile=="local-hybrid"
                     val defaults=snapshot?.optJSONObject("reading")?.optJSONObject(if(hybrid)targetLanguage else language)
                     val outgoingProfile=params.optString("outgoingProfileId",selectedProfile)
-                    if(media && (selectedProfile in AudioProfiles.fal || call && outgoingProfile in AudioProfiles.fal) && snapshot?.optJSONObject("fal")?.optBoolean("configured")!=true)throw AudioFailure("PROVIDER_NOT_CONFIGURED","Add a fal Key in Taku Audio first")
+                    val needsFal = liveProfile == AudioProfiles.LIVE_GROK || media && (selectedProfile in AudioProfiles.fal || call && outgoingProfile in AudioProfiles.fal)
+                    if(needsFal && snapshot?.optJSONObject("fal")?.optBoolean("configured")!=true)throw AudioFailure("PROVIDER_NOT_CONFIGURED","Add a fal Key in Taku Audio first")
+                    if(liveProfile == AudioProfiles.LIVE_GEMINI && !geminiConfigured(snapshot))throw AudioFailure("PROVIDER_NOT_CONFIGURED","Add a Gemini Live key in Taku Audio first")
                     val voice=if(purpose=="SPEAK" || media)params.optString("voiceId",if(purpose=="SPEAK" || hybrid)defaults?.optString("voiceId") ?: "" else "")else ""
                     val speed=if(purpose=="SPEAK" || hybrid)params.optDouble("speed",defaults?.optDouble("speed",1.0) ?: 1.0).toFloat()else 1f
-                    if(purpose=="DICTATION") {
+                    if(purpose=="DICTATION" || purpose=="LIVE_TALK") {
                         if(checkSelfPermission("android.permission.RECORD_AUDIO")!=PackageManager.PERMISSION_GRANTED)throw AudioFailure("PERMISSION_DENIED","Allow the audio engine to use the microphone")
                         if(runtime.resources(owner).busy && runtime.findRequest(owner,params.optString("requestKey"))==null)throw AudioFailure("RESOURCE_BUSY","Audio resources are in use")
                     }
@@ -140,18 +168,19 @@ class AudioEngineService : Service() {
                         snapshot ?: throw AudioFailure("CONFIG_UNAVAILABLE","Audio configuration service unavailable"))else null
                     val request=resolved?.request ?: AudioRequest(purpose,language,selectedProfile,voice,speed,targetLanguage,params.optString("targetPackage",""),params.optString("output","CAPTIONS"),params.optString("originalAudio","KEEP"),outgoingProfile,
                         params.optString("outgoingVoiceId",if(outgoingProfile=="local-hybrid")snapshot?.optJSONObject("reading")?.optJSONObject(language)?.optString("voiceId") ?: "" else ""),
-                        params.optDouble("outgoingSpeed",if(outgoingProfile=="local-hybrid")snapshot?.optJSONObject("reading")?.optJSONObject(language)?.optDouble("speed",1.0) ?: 1.0 else 1.0).toFloat(),params.optBoolean("interruptible",false))
+                        params.optDouble("outgoingSpeed",if(outgoingProfile=="local-hybrid")snapshot?.optJSONObject("reading")?.optJSONObject(language)?.optDouble("speed",1.0) ?: 1.0 else 1.0).toFloat(),params.optBoolean("interruptible",false),params.optBoolean("muted",false),
+                        params.optJSONArray("history")?.let{turns->List(turns.length()){index->turns.getJSONObject(index).let{LiveHistoryTurn(it.getString("role"),it.getString("text"))}}} ?: emptyList())
                     if(purpose=="SPEAK")VoiceCatalog.select(request.language,request.voiceId)
-                    if(request.interruptible) {
+                    if(request.interruptible || purpose=="LIVE_TALK") {
                         if(checkSelfPermission("android.permission.RECORD_AUDIO")!=PackageManager.PERMISSION_GRANTED)throw AudioFailure("PERMISSION_DENIED","Allow the audio engine to use the microphone")
                         if(!android.media.audiofx.AcousticEchoCanceler.isAvailable())throw AudioFailure("AEC_UNAVAILABLE","This device has no echo cancellation. Use turn-taking mode")
                     }
-                    if(purpose=="SPEAK" || media)showPlaybackNotification(if(call)"Taku is translating this call in both directions" else if(media)"Taku is translating video audio" else if(request.interruptible)"Taku is reading and listening for interruptions"else "Taku is reading",call || request.interruptible)
+                    if(purpose=="SPEAK" || media || purpose=="LIVE_TALK")showPlaybackNotification(if(purpose=="LIVE_TALK")"Taku Live Talk" else if(call)"Taku is translating this call in both directions" else if(media)"Taku is translating video audio" else if(request.interruptible)"Taku is reading and listening for interruptions"else "Taku is reading",call || request.interruptible || purpose=="LIVE_TALK")
                     val id=try {runtime.open(owner,request,{ event -> main.post {
                         send(reply,event.json())
                         if(event.type=="Closed" && speechSession==event.sessionId){speechSession=null;stopForeground(STOP_FOREGROUND_REMOVE)}
                     } },params.optString("requestKey"),resolved?.metadata)}catch(e: Exception){if(speechSession==null)stopForeground(STOP_FOREGROUND_REMOVE);throw e}
-                    if((purpose=="SPEAK" || media) && runtime.status(owner,id).phase!=AudioPhase.Closed)speechSession=id
+                    if((purpose=="SPEAK" || media || purpose=="LIVE_TALK") && runtime.status(owner,id).phase!=AudioPhase.Closed)speechSession=id
                     sessionInfo(owner,id).put("generation",id).put("phase",runtime.status(owner,id).phase.name)
                 }
                 "audio.session.append" -> {
@@ -162,6 +191,10 @@ class AudioEngineService : Service() {
                     JSONObject()
                 }
                 "audio.session.close" -> { runtime.close(owner,params.getString("sessionId")); JSONObject() }
+                "audio.live.mute" -> {runtime.live(owner,params.getString("sessionId"),LiveAudioCommand.Mute(params.getBoolean("muted")));JSONObject()}
+                "audio.live.text" -> {runtime.live(owner,params.getString("sessionId"),LiveAudioCommand.Text(params.getString("text")));JSONObject()}
+                "audio.live.result" -> {runtime.live(owner,params.getString("sessionId"),LiveAudioCommand.Result(params.getString("offerId"),params.getString("afterInput"),params.getString("text")));JSONObject()}
+                "audio.live.tool" -> {runtime.live(owner,params.getString("sessionId"),LiveAudioCommand.ToolResult(params.getString("callId"),params.getString("result")));JSONObject()}
                 "audio.session.status" -> { val id=params.getString("sessionId");val data=runtime.status(owner,id).json().getJSONObject("data");val info=sessionInfo(owner,id);info.keys().forEach{key->data.put(key,info.get(key))};data }
                 else -> throw AudioFailure("METHOD_NOT_FOUND","Audio method is not implemented")
             }
@@ -193,7 +226,7 @@ class AudioEngineService : Service() {
                     }
                 }finally{retained.recycle()}
             }
-        },"audio-dictation-settings").start()
+        },"audio-settings-read").start()
     }
     private fun respond(reply: Messenger,id: String,result: JSONObject) {
         send(reply,JSONObject().put("protocol","taku/0.1").put("type","response").put("id",id).put("ok",true).put("result",result))
@@ -205,7 +238,7 @@ class AudioEngineService : Service() {
     private fun sessionInfo(owner: String,id: String): JSONObject {
         val request=runtime.request(owner,id)
         return JSONObject().put("sessionId",id).put("purpose",request.purpose).put("language",request.language)
-            .put("profileId",request.profileId).put("processing",if(request.purpose=="LEGACY_REALTIME")"EXTERNAL_LEGACY" else if(request.purpose=="CALL_TRANSLATE")if(request.profileId in AudioProfiles.fal || request.outgoingProfileId in AudioProfiles.fal)"CLOUD_AUDIO" else "CLOUD_TEXT" else if(request.profileId=="local-hybrid")"CLOUD_TEXT" else if(request.purpose in listOf("MEDIA_TRANSLATE","CALL_TRANSLATE"))"CLOUD_AUDIO" else "LOCAL_ONLY")
+            .put("profileId",request.profileId).put("processing",if(request.purpose=="LIVE_TALK")"CLOUD_AUDIO" else if(request.purpose=="LEGACY_REALTIME")"EXTERNAL_LEGACY" else if(request.purpose=="CALL_TRANSLATE")if(request.profileId in AudioProfiles.fal || request.outgoingProfileId in AudioProfiles.fal)"CLOUD_AUDIO" else "CLOUD_TEXT" else if(request.profileId=="local-hybrid")"CLOUD_TEXT" else if(request.purpose in listOf("MEDIA_TRANSLATE","CALL_TRANSLATE"))"CLOUD_AUDIO" else "LOCAL_ONLY")
             .put("voiceId",if(request.purpose=="SPEAK")VoiceCatalog.select(request.language,request.voiceId).id else if(request.profileId=="fal-grok")request.voiceId.ifBlank{"eve"} else if(request.profileId=="local-hybrid")VoiceCatalog.select(request.targetLanguage,request.voiceId).id else "").put("speed",request.speed).put("interruptible",request.interruptible)
             .put("outgoingProfileId",request.outgoingProfileId).put("outgoingProcessing",if(request.outgoingProfileId=="local-hybrid")"CLOUD_TEXT" else "CLOUD_AUDIO").put("outgoingVoiceId",if(request.outgoingProfileId=="fal-grok")request.outgoingVoiceId.ifBlank{"eve"}else if(request.outgoingProfileId=="local-hybrid")VoiceCatalog.select(request.language,request.outgoingVoiceId).id else "").put("outgoingSpeed",request.outgoingSpeed)
             .put("targetLanguage",request.targetLanguage).put("targetPackage",request.targetPackage).put("output",request.output).put("originalAudio",request.originalAudio)
@@ -263,10 +296,10 @@ class AudioEngineService : Service() {
         if(resource.busy)common.add("RESOURCE_BUSY")
         if((uid==0 || uid==2000) && !AudioHostActivity.visible)common.add("HOST_REQUIRED")
         val availability=org.json.JSONArray()
-        for(purpose in listOf("DICTATION","SPEAK","MEDIA_TRANSLATE","CALL_TRANSLATE")) {
+        for(purpose in listOf("DICTATION","SPEAK","MEDIA_TRANSLATE","CALL_TRANSLATE","LIVE_TALK")) {
             if(selectedPurpose.isNotEmpty() && selectedPurpose!=purpose)continue
             val media=purpose in listOf("MEDIA_TRANSLATE","CALL_TRANSLATE")
-            val profiles=if(media)AudioProfiles.media else if(purpose=="DICTATION")AudioProfiles.dictation.keys else listOf("kokoro")
+            val profiles=if(purpose=="LIVE_TALK")listOf(liveProfile(snapshot)) else if(media)AudioProfiles.media else if(purpose=="DICTATION")AudioProfiles.dictation.keys else listOf("kokoro")
             for(profile in profiles) {
                 if(purpose=="CALL_TRANSLATE" && profile=="fal-whisper")continue
                 val supported=if(purpose=="DICTATION")AudioProfiles.dictation.getValue(profile).languages else if(media && profile!="local-hybrid")listOf("en-US","zh-CN","ja-JP","ko-KR")else listOf("en-US","zh-CN")
@@ -280,7 +313,8 @@ class AudioEngineService : Service() {
                     }else null
                     if(dictationStatus!=null)reasons.addAll(dictationStatus.unavailableReasons)
                     else if(language !in supported)reasons.add("UNSUPPORTED_LANGUAGE")
-                    if(purpose=="DICTATION" || purpose=="CALL_TRANSLATE")required.add("RECORD_AUDIO")
+                    if(purpose=="DICTATION" || purpose=="CALL_TRANSLATE" || purpose=="LIVE_TALK")required.add("RECORD_AUDIO")
+                    if(purpose=="LIVE_TALK" && !android.media.audiofx.AcousticEchoCanceler.isAvailable())reasons.add("AEC_UNAVAILABLE")
                     if(media){required.add("CAPTURE_AUDIO_OUTPUT");required.add("MODIFY_AUDIO_ROUTING")}
                     if(purpose=="CALL_TRANSLATE")required.add("CALL_AUDIO_INTERCEPTION")
                     val missing=required.filter{!permissions.optBoolean(it)}
@@ -292,8 +326,13 @@ class AudioEngineService : Service() {
                     val modelReady=if(dictationStatus!=null)"MODEL_MISSING" !in dictationStatus.unavailableReasons else (!needsAsr || language in installedLanguages) && (!needsTts || ttsReady)
                     if(dictationStatus==null && language in supported && !modelReady)reasons.add("MODEL_MISSING")
                     val textConfigured=snapshot?.optBoolean("textTranslationConfigured")==true
-                    val configured=if(profile in AudioProfiles.fal)fal else if(profile=="local-hybrid")textConfigured else true
-                    if(dictationStatus==null && profile in AudioProfiles.fal && !fal)reasons.add("PROVIDER_NOT_CONFIGURED")
+                    val configured=when {
+                        profile in AudioProfiles.fal -> fal
+                        profile==AudioProfiles.LIVE_GEMINI -> geminiConfigured(snapshot)
+                        profile=="local-hybrid" -> textConfigured
+                        else -> true
+                    }
+                    if(dictationStatus==null && !configured && (purpose=="LIVE_TALK" || profile in AudioProfiles.fal))reasons.add("PROVIDER_NOT_CONFIGURED")
                     if(media && profile in listOf("local-hybrid","fal-whisper") && !textConfigured)reasons.add("TEXT_MODEL_NOT_CONFIGURED")
                     val row=JSONObject().put("purpose",purpose).put("profileId",profile).put("language",language).put("output",output)
                         .put("registered",true).put("configured",configured).put("modelResourcesReady",modelReady)
@@ -308,10 +347,11 @@ class AudioEngineService : Service() {
             .put("requiresMicrophone",true).put("readyRecognitionLanguages",languages).put("qualityVerified",false)
         return JSONObject().put("speechInterruption",interruption).put("availability",availability).put("permissions",permissions).put("consumerAuthorized",authorizedConsumer(uid,snapshot))
             .put("dictation",JSONObject().put("assistant-entry",dictationView.toJson()))
+            .put("live",JSONObject().put("configured",if(liveProfile(snapshot)==AudioProfiles.LIVE_GEMINI)geminiConfigured(snapshot) else fal).put("profileId",liveProfile(snapshot)).put("echoCancelerAvailable",android.media.audiofx.AcousticEchoCanceler.isAvailable()).put("qualityVerified",false))
             .put("resourceState",JSONObject().put("busy",resource.busy).put("purpose",resource.purpose).put("profileId",resource.profileId).put("phase",resource.phase?.name ?: "Idle")
                 .put("ownedByCaller",resource.ownedByCaller).put("previousRestoreConfirmed",resource.previousRestoreConfirmed ?: JSONObject.NULL))
             .put("availabilityScope","Local prerequisites only; source, remote authorization and connectivity are checked at open")
-            .put("purposes",org.json.JSONArray().put("DICTATION").put("SPEAK").put("MEDIA_TRANSLATE").put("CALL_TRANSLATE"))
+            .put("purposes",org.json.JSONArray().put("DICTATION").put("SPEAK").put("MEDIA_TRANSLATE").put("CALL_TRANSLATE").put("LIVE_TALK"))
             .put("ttsResourcesReady",ttsReady).put("voices",voices).put("readingDefaults",snapshot?.optJSONObject("reading") ?: JSONObject()).put("systemRevision",snapshot?.optLong("systemRevision") ?: 0).put("audioRevision",snapshot?.optLong("audioRevision") ?: 0)
             .put("languages",languages).put("profileId","zipformer").put("processing","LOCAL_ONLY")
             .put("configured",snapshot != null).put("enabled",snapshot?.optBoolean("enabled") == true && snapshot?.optBoolean("audioEnabled") == true)

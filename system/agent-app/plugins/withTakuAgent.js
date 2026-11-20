@@ -3,17 +3,14 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 
 function configureTranslucentThemes(styles) {
-  // Android decides whether this Activity occludes the previous one from the
-  // manifest's launch theme, before Expo switches to postSplashScreenTheme.
-  // Both themes must therefore be translucent; changing only AppTheme leaves
-  // a transparent React surface over an already hidden launcher/application.
+  // The launch and runtime themes must both keep the previous Activity available for blur.
   for (const name of ['AppTheme', 'Theme.App.SplashScreen']) {
     const theme = styles.resources.style?.find((style) => style.$.name === name);
     if (!theme) throw new Error(`Taku Agent: expected Android theme ${name}; review the Expo template.`);
     theme.item ??= [];
     for (const [attribute, value] of Object.entries({
       'android:windowIsTranslucent': 'true',
-      'android:windowBackground': '@android:color/transparent',
+      'android:windowBackground': '@color/taku_conversation_background',
       'android:windowLightStatusBar': 'true',
     })) {
       const item = theme.item.find((item) => item.$.name === attribute);
@@ -25,13 +22,20 @@ function configureTranslucentThemes(styles) {
 }
 
 function configureConversationActivity(contents) {
-  if (contents.includes('PanelLaunchIntents.restore(')) return contents;
+  return configurePickerState(configureConversationRoutes(contents));
+}
+
+function configureConversationRoutes(contents) {
   const activity = 'class MainActivity : ReactActivity() {';
   const create = '  override fun onCreate(savedInstanceState: Bundle?) {';
+  const initializeVoice = '    org.agentos.agent.home.assistant.AssistantSession.get(this)';
   const capture = '    ConversationDrafts.offer(intent.getStringExtra(ConversationDrafts.EXTRA_DRAFT))\n' +
     '    intent.removeExtra(ConversationDrafts.EXTRA_DRAFT)';
   if (!contents.includes('import android.os.Bundle') || !contents.includes(activity) || !contents.includes(create)) {
     throw new Error('Taku routes: expected Expo activity lifecycle hooks; review the generated template.');
+  }
+  if (contents.includes('PanelLaunchIntents.restore(')) {
+    return contents.includes(initializeVoice) ? contents : contents.replace(create, `${create}\n${initializeVoice}`);
   }
   if (contents.includes('ConversationDrafts.offer(')) {
     const previous = `  override fun onNewIntent(intent: Intent) {\n${capture}\n` +
@@ -56,7 +60,24 @@ function configureConversationActivity(contents) {
     '      setIntent(intent)\n    }\n    super.onNewIntent(intent)\n  }\n\n' +
     '  override fun onSaveInstanceState(outState: Bundle) {\n' +
     '    PanelLaunchIntents.save(this, outState)\n    super.onSaveInstanceState(outState)\n  }\n');
-  return contents.replace(create, `${create}\n    PanelLaunchIntents.restore(this, savedInstanceState)\n${capture}`);
+  return contents.replace(create, `${create}\n${initializeVoice}\n    PanelLaunchIntents.restore(this, savedInstanceState)\n${capture}`);
+}
+
+function configurePickerState(contents) {
+  if (contents.includes('ComposerPickerState.restore(')) return contents;
+  if (!contents.includes('super.onCreate(null)')) {
+    throw new Error('Taku picker: expected Expo null saved-state hook; review activity result restoration.');
+  }
+  // Expo intentionally does not restore React navigation fragments. Preserve the Android
+  // result registry separately so external camera/document results survive process death.
+  contents = contents.replace('import android.os.Bundle',
+    'import android.os.Bundle\nimport org.agentos.agent.bridge.ComposerPickerState');
+  contents = contents.replace('super.onCreate(null)',
+    'ComposerPickerState.restore(this, savedInstanceState)\n    super.onCreate(null)');
+  const save = '  override fun onSaveInstanceState(outState: Bundle) {';
+  if (contents.includes(save)) return contents.replace(save, `${save}\n    ComposerPickerState.save(this, outState)`);
+  // The conversation hook below creates onSaveInstanceState on first generation.
+  return contents;
 }
 
 module.exports = function withTakuAgent(config) {

@@ -35,7 +35,7 @@ class AudioRuntime(private val clock: ()->Long = {System.nanoTime()/1_000_000},
                 return existing.id
             }
         }
-        if(request.purpose !in listOf("DICTATION","SPEAK","MEDIA_TRANSLATE","CALL_TRANSLATE","LEGACY_REALTIME")) throw AudioFailure("UNSUPPORTED", "This purpose is not integrated yet")
+        if(request.purpose !in listOf("DICTATION","SPEAK","MEDIA_TRANSLATE","CALL_TRANSLATE","LEGACY_REALTIME","LIVE_TALK")) throw AudioFailure("UNSUPPORTED", "This purpose is not integrated yet")
         if(request.purpose in listOf("MEDIA_TRANSLATE","CALL_TRANSLATE")) {
             if(request.language !in listOf("zh-CN","en-US","ja-JP","ko-KR") || request.targetLanguage !in listOf("zh-CN","en-US","ja-JP","ko-KR") || request.language==request.targetLanguage)throw AudioFailure("UNSUPPORTED_LANGUAGE","Select different translation languages")
             if(request.profileId !in AudioProfiles.media)throw AudioFailure("UNSUPPORTED_PROFILE","Select an integrated media model")
@@ -46,6 +46,9 @@ class AudioRuntime(private val clock: ()->Long = {System.nanoTime()/1_000_000},
                 if(!request.speed.isFinite() || request.speed !in .5f..2f)throw AudioFailure("UNSUPPORTED_VOICE","Speed must be between 0.5 and 2")
                 VoiceCatalog.select(request.targetLanguage,request.voiceId)
             } else if(request.speed!=1f || request.profileId=="fal-kotoba" && request.voiceId.isNotEmpty() || request.profileId=="fal-grok" && request.voiceId.isNotEmpty() && request.voiceId !in AudioProfiles.grokVoices)throw AudioFailure("UNSUPPORTED_VOICE","The selected model does not support this voice or speed")
+        } else if(request.purpose=="LIVE_TALK") {
+            if(request.profileId !in AudioProfiles.live)throw AudioFailure("UNSUPPORTED_PROFILE","Choose a Live Talk provider")
+            if(request.voiceId.isNotEmpty() || request.speed!=1f)throw AudioFailure("UNSUPPORTED_VOICE","Live Talk uses its configured voice")
         } else if(request.purpose != "LEGACY_REALTIME") {
             if(request.language !in listOf("zh-CN","en-US")) throw AudioFailure("UNSUPPORTED_LANGUAGE", "Select Chinese or English")
             if(request.purpose=="DICTATION") {
@@ -98,7 +101,7 @@ class AudioRuntime(private val clock: ()->Long = {System.nanoTime()/1_000_000},
                     }
                 }
                 override fun level(level: Float, frames: Int) = synchronized(this@AudioRuntime) {
-                    if(entry.phase==AudioPhase.Running && entry.request.purpose=="DICTATION" && level.isFinite() && frames>0) {
+                    if(entry.phase==AudioPhase.Running && entry.request.purpose in listOf("DICTATION","LIVE_TALK") && level.isFinite() && frames>0) {
                         publish(entry,AudioEvent(entry.id,++entry.sequence,entry.phase,"Level",segment=entry.segment,
                             frames=frames.toLong(),sampleRate=16000,level=level.coerceIn(0f,1f)))
                     }
@@ -124,6 +127,10 @@ class AudioRuntime(private val clock: ()->Long = {System.nanoTime()/1_000_000},
                 }
                 override fun directionalPlayback(direction: String,index: Long,state: String,frames: Long,rate: Int,nonSilent: Boolean) = synchronized(this@AudioRuntime) {
                     if(entry.phase in listOf(AudioPhase.Running,AudioPhase.Draining))publish(entry,AudioEvent(entry.id,++entry.sequence,entry.phase,"Playback",chunkIndex=index,playbackState=state,frames=frames,sampleRate=rate,nonSilent=nonSilent,direction=direction))
+                }
+                override fun live(event: LiveAudioEvent) = synchronized(this@AudioRuntime) {
+                    if(entry.request.purpose=="LIVE_TALK" && entry.phase==AudioPhase.Running)
+                        publish(entry,AudioEvent(entry.id,++entry.sequence,entry.phase,"Live",live=event))
                 }
                 override fun interrupted() = synchronized(this@AudioRuntime) {
                     if(entry.request.interruptible && !entry.interrupted && entry.phase in listOf(AudioPhase.Running,AudioPhase.Draining)) {
@@ -162,6 +169,12 @@ class AudioRuntime(private val clock: ()->Long = {System.nanoTime()/1_000_000},
         e.driver!!.submit(index,text)
         e.recentChunks[index]=text;e.nextChunk++
         while(e.recentChunks.size>32)e.recentChunks.remove(e.recentChunks.keys.first())
+    }
+    @Synchronized fun live(owner: String, id: String, command: LiveAudioCommand) {
+        val e=owned(owner,id)
+        if(e.request.purpose!="LIVE_TALK")throw AudioFailure("UNEXPECTED_INPUT","Live commands require a Live Talk session")
+        if(e.phase !in listOf(AudioPhase.Preparing,AudioPhase.Ready,AudioPhase.Running))throw AudioFailure("INPUT_CLOSED","The live session has closed")
+        e.driver!!.live(command)
     }
     @Synchronized fun finish(owner: String, id: String) {
         val e=owned(owner,id)

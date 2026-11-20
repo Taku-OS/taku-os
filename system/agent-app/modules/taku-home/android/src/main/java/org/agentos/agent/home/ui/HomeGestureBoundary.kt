@@ -36,7 +36,7 @@ internal fun rememberHomeGestureBoundary(policy: HomeGesturePolicy, pager: Pager
       val r = policy.region
       JSONObject().put("available", true).put("sequence", policy.sequence)
         .put("active", policy.active).put("owner", policy.owner.name.lowercase())
-        .put("systemStart", policy.systemStart).put("terminal", policy.terminal)
+        .put("systemStart", policy.systemStart).put("sideBackExcluded", policy.sideBackExcluded).put("terminal", policy.terminal)
         .put("startX", policy.startX).put("startY", policy.startY).put("dx", policy.dx).put("dy", policy.dy)
         .put("region", JSONObject().put("width", r.width).put("height", r.height)
           .put("left", r.left).put("top", r.top).put("right", r.right).put("bottom", r.bottom))

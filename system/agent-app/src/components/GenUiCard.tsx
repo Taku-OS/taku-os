@@ -122,13 +122,8 @@ function LiveCard({threadId, presentation, language, active = true, preload = fa
       {card.submission && <FeedStatus state={failed ? 'error' : sending ? 'pending' : 'info'} text={t(phase === 'notSent' ? 'cardRequestNotSent' : failed ? 'cardRequestFailed' : sending ? 'cardSubmitting'
         : phase === 'deferred' ? 'cardRequestDeferred' : result.effect === 'source-refresh-requested' ? 'cardRefreshRequested'
         : result.effect === 'local-rule-change' ? 'cardRuleUpdated' : phase === 'taskCompleted' ? 'cardRequestHandled' : 'cardRequestAccepted')}/>}
-      {surface === 'chat' && !!pin?.panelId && <View style={styles.pinRow}>
-        <FeedText text={t('pinned')} variant="body-sm" tone="tertiary"/>
-        <FeedButton label={t('openPanel')} size="md" onPress={() => pinAction(card.openPinned)}/>
-        <FeedButton label={t('unpinPanel')} size="md" disabled={pinBusy} onPress={() => pinAction(card.unpin)}/>
-      </View>}
-      {surface === 'chat' && pin && !pin.panelId && pin.canPin && <FeedButton label={t('pinPanel')} size="md" disabled={!card.hydrated || pinBusy}
-        onPress={() => pinAction(card.pinToPanels)}/>}
+      {/* Pin to Panels, Open panel and Unpin live in the reply's long-press menu (ReplyMenu), and
+          only for panel replies; no pin control sits under a message (Figma 2-4, 300:1001). */}
       {!!pinMessage && <FeedStatus state="error" text={pinMessage}/>}
     </View>;
   return <CardLanguage.Provider value={language}><CardMatter.Provider value={`${threadId}/${request.key}`}>
@@ -143,7 +138,6 @@ export function GenUiCard(props: CardProps & {superseded?: boolean}) {
 
 const styles = StyleSheet.create({
   container: {gap: spacing[4]},
-  pinRow: {flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: spacing[4]},
   review: {gap: spacing[8]},
   reviewToggle: {minHeight: 36, paddingHorizontal: spacing[4], flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing[12]},
   reviewDetails: {paddingHorizontal: spacing[4], gap: spacing[12]},

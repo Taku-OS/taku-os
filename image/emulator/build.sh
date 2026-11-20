@@ -32,6 +32,7 @@ printf 'TAKU_INCLUDE_GOOGLE_APPS := %s\n' "$include_google_apps" > vendor/taku/i
 # Product discovery already finds vendor/taku/image/emulator/AndroidProducts.mk.
 # Only the board needs a device directory; a second product registration is invalid.
 cp /taku/image/emulator/BoardConfig.mk device/taku/taku_emu64a/
+python3 /taku/image/emulator/prepare-audio.py --source-root /src
 python3 /taku/image/apply-home-policy.py --source-root /src --results-dir /results
 python3 /taku/image/apply-launcher-patches.py --source-root /src --results-dir /results
 python3 /taku/image/apply-recents-patches.py --source-root /src --results-dir /results
@@ -48,11 +49,15 @@ source vendor/lineage/vars/aosp_target_release
 TARGET_PRODUCT=lineage_taku_emu_arm64 TARGET_RELEASE="$aosp_target_release" TARGET_BUILD_VARIANT=userdebug \
     build/soong/soong_ui.bash --dumpvar-mode TARGET_PRODUCT
 lunch "lineage_taku_emu_arm64-${aosp_target_release}-userdebug"
-m -j"${TAKU_EMULATOR_JOBS:-24}" droid
+m -j"${TAKU_EMULATOR_JOBS:-24}" droid apksigner
 product=out/target/product/taku_emu64a
+python3 /taku/image/emulator/prepare-audio.py --product "$product" > /results/emulator-audio.json
 python3 /taku/image/verify-island-artifacts.py --product "$product" \
     --aapt2 out/host/linux-x86/bin/aapt2 --output /results/island-artifacts.json
-extra_tar_files=()
+python3 /taku/system/ai/verify-rom.py --assistant-pair \
+    "$product/system_ext/priv-app/TakuAssistant/TakuAssistant.apk" "$product/system_ext/app/TakuAgent/TakuAgent.apk" \
+    --aapt2 out/host/linux-x86/bin/aapt2 --output /results/assistant-pair.json
+extra_tar_files=(assistant-pair.json emulator-audio.json)
 if [ "$include_google_apps" = "true" ]; then
     python3 /taku/image/emulator/verify-default-apps.py --product "$product" \
         --tools out/host/linux-x86/bin --output /results/default-apps.json

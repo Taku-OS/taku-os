@@ -1,7 +1,7 @@
 import React, {useState, type ReactNode} from 'react';
 import {StyleSheet, View, useWindowDimensions} from 'react-native';
 import Svg, {Defs, LinearGradient, Rect, Stop} from 'react-native-svg';
-import {chatColors, chatMetrics} from './chatTheme';
+import {chatColors, chatMetrics, themedStyles} from './chatTheme';
 
 /** Figma 300:677 / 300:686: hug the reply, leaving 48dp at the opposite edge. */
 export function AssistantBubble({children}: {children: ReactNode}) {
@@ -26,7 +26,7 @@ export function ComposerGlassRim({multiline}: {multiline: boolean}) {
   </View>;
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   bubble: {alignSelf: 'flex-start', backgroundColor: chatColors.assistantBubble, borderRadius: 16,
     borderBottomLeftRadius: 4, padding: 8, gap: 8},
-});
+}));

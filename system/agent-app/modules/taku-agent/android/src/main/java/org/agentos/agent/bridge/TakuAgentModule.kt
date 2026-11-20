@@ -1,6 +1,7 @@
 package org.agentos.agent.bridge
 
 import android.app.Application
+import android.content.ContentResolver
 import android.content.Context
 import android.content.Intent
 import android.view.WindowInsets
@@ -9,12 +10,14 @@ import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import android.util.Log
 import java.util.function.Consumer
 import android.os.Handler
 import android.os.Looper
 import android.view.ViewGroup
 import expo.modules.kotlin.exception.CodedException
+import expo.modules.kotlin.Promise
 import expo.modules.kotlin.functions.Queues
 import expo.modules.kotlin.functions.Coroutine
 import expo.modules.kotlin.modules.Module
@@ -65,12 +68,19 @@ class TakuAgentModule : Module() {
   /** Written from the intent callbacks and the route read; read by JS on its own thread. */
   @Volatile private var latestThreadId: String? = null
   private val mainHandler = Handler(Looper.getMainLooper())
+  private val composerPicker by lazy {
+    ComposerPicker(mainHandler, appContext.backgroundCoroutineScope, ::callGateway) { threadId ->
+      sendEvent("onComposerAttachment", mapOf("threadId" to threadId))
+    }
+  }
   private var observingIme = false
   private var imeObserver: ImeInsetsObserver? = null
   /** Window backdrop of the full-screen chat (2-1); null while another screen shows. */
   private var backdrop: Backdrop? = null
   private var backdropApplication: android.app.Application? = null
   @Volatile private var chatActivity: android.app.Activity? = null
+  /** Follows `taku_chat_appearance` while JS listens for `onChatAppearance`. */
+  private var appearanceObserver: android.database.ContentObserver? = null
   private val backdropLifecycle = object : android.app.Application.ActivityLifecycleCallbacks {
     override fun onActivityResumed(activity: android.app.Activity) {
       if (activity.javaClass.name != CONVERSATION) return
@@ -80,11 +90,14 @@ class TakuAgentModule : Module() {
       }
     }
     override fun onActivityDestroyed(activity: android.app.Activity) {
+      composerPicker.onActivityDestroyed(activity)
       if (backdrop?.activity === activity) releaseBackdrop(backdrop)
       if (chatActivity === activity) { chatActivity = null; detachImeObserver() }
     }
     override fun onActivityCreated(activity: android.app.Activity, state: android.os.Bundle?) {
-      if (activity.javaClass.name == CONVERSATION) chatActivity = activity
+      if (activity.javaClass.name != CONVERSATION) return
+      chatActivity = activity
+      composerPicker.onActivityAvailable(activity)
     }
     override fun onActivityStarted(activity: android.app.Activity) = Unit
     override fun onActivityPaused(activity: android.app.Activity) = Unit
@@ -169,7 +182,7 @@ class TakuAgentModule : Module() {
       previous?.listener?.let { listener -> previous.windowManager?.removeCrossWindowBlurEnabledListener(listener) }
       previous?.activity?.window?.setBackgroundBlurRadius(0)
     }
-    previous?.activity?.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+    previous?.activity?.window?.setBackgroundDrawableResource(R.color.taku_conversation_background)
     previous?.listener = null
     previous?.windowManager = null
     previous?.activity = null
@@ -182,16 +195,15 @@ class TakuAgentModule : Module() {
    * Android 16's Kawase blur shows a grid at this radius; Android 17's renders it smoothly.
    */
   private fun applyBackdrop(next: Backdrop?) {
-    // Release the previous listener first, even when the activity is already gone (destroy),
-    // so the WindowManager never keeps a destroyed window alive.
     val previous = backdrop
+    val activity = if (next == null) null else conversationActivity()
+    if (next != null && next === previous && next.activity === activity) return
     backdrop = null
     releaseBackdrop(previous)
     // JS can mount before ReactActivity resumes. Keep the request and attach on foreground;
     // never tint HomeActivity merely because it is still ReactHost's current activity.
     backdrop = next
-    if (next == null) return
-    val activity = conversationActivity() ?: return
+    if (next == null || activity == null) return
     val window = activity.window
     next.activity = activity
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
@@ -202,14 +214,14 @@ class TakuAgentModule : Module() {
     val sigmaPx = next.sigmaDp * activity.resources.displayMetrics.density
     val radius = (sigmaPx / 0.57735).toInt().coerceAtLeast(0)
     val listener = Consumer<Boolean> { enabled ->
-      if (backdrop !== next) return@Consumer
+      if (backdrop !== next || next.activity !== activity) return@Consumer
       window.setBackgroundDrawable(ColorDrawable(if (enabled) next.tint else next.fallback))
       window.setBackgroundBlurRadius(if (enabled) radius else 0)
       android.util.Log.d("TakuBackdrop", "blur=$enabled radius=${if (enabled) radius else 0} window=${activity.javaClass.simpleName}")
     }
     next.listener = listener
     next.windowManager = activity.windowManager
-    // Called right away with the current state, then on every change.
+    // Android dispatches the current blur state to a newly registered listener.
     activity.windowManager.addCrossWindowBlurEnabledListener(listener)
   }
 
@@ -308,10 +320,59 @@ class TakuAgentModule : Module() {
     }
   }
 
+  /**
+   * Reads the credential on the main thread, where its fields live, then sends it to the gateway
+   * as a read-only descriptor from the background scope. Empties [fieldIds] once accepted.
+   */
+  private fun submitCredential(action: String, params: String, fieldIds: List<String>, promise: Promise, credential: () -> ByteArray) {
+    val context = appContext.reactContext
+    if (context == null) { promise.reject("NATIVE_UNAVAILABLE", "Agent UI is not ready", null); return }
+    val bytes = try { credential() } catch (error: IOException) {
+      promise.reject(error.message ?: "SECRET_FIELD_UNAVAILABLE", "Secret field is unavailable", null); return
+    }
+    appContext.backgroundCoroutineScope.launch {
+      try {
+        val envelope = SecretFields.descriptor(context, bytes).use { descriptor ->
+          callGateway(context.contentResolver, action, params, Bundle().apply { putParcelable("credential", descriptor) })
+        }
+        if (JSONObject(envelope).optBoolean("ok")) mainHandler.post { fieldIds.forEach(SecretFields::clear) }
+        promise.resolve(envelope)
+      } catch (error: Exception) {
+        val code = error.message?.takeIf { Regex("[A-Z][A-Z_]{2,80}").matches(it) } ?: "GATEWAY_UNAVAILABLE"
+        promise.reject(code, "Could not submit the credential", null)
+      }
+    }
+  }
+
+  private fun callGateway(resolver: ContentResolver, action: String, params: String, extras: Bundle?): String {
+    val response = resolver.call(Uri.parse("content://$authority"), action, params, extras)
+      ?: throw IOException("Taku Agent gateway is unavailable")
+    val envelope = response.getString("result") ?: throw IOException("Invalid gateway response")
+    val resultUri = JSONObject(envelope).optString("resultUri")
+    if (resultUri.isEmpty()) return envelope
+    val uri = Uri.parse(resultUri)
+    require(uri.scheme == "content" && uri.authority == authority && uri.path?.startsWith("/result/") == true) {
+      "Invalid gateway result URI"
+    }
+    val stream = resolver.openInputStream(uri) ?: throw IOException("Gateway result expired")
+    return stream.use { input ->
+      val output = ByteArrayOutputStream()
+      val buffer = ByteArray(8192)
+      while (true) {
+        val count = input.read(buffer)
+        if (count < 0) break
+        if (output.size() + count > 8 * 1024 * 1024) throw IOException("Gateway result exceeds client limit")
+        output.write(buffer, 0, count)
+      }
+      output.toString("UTF-8")
+    }
+  }
+
   override fun definition() = ModuleDefinition {
     Name("TakuAgent")
-    Events("onOpenConversation", "onOpenThread", "onDraft", "onImeInsets", "onSessionEventBatch", "onMatterEventBatch", "onConversationVisibility")
+    Events("onOpenConversation", "onOpenThread", "onDraft", "onImeInsets", "onSessionEventBatch", "onMatterEventBatch", "onConversationVisibility", "onSecretSubmit", "onComposerAttachment", "onChatAppearance")
     OnCreate {
+      SecretFields.onSubmit = { fieldId -> sendEvent("onSecretSubmit", mapOf("fieldId" to fieldId)) }
       val application = appContext.reactContext?.applicationContext as? Application
         ?: appContext.currentActivity?.application
       // Expo can create this module after MainActivity has already resumed. Seed
@@ -319,6 +380,8 @@ class TakuAgentModule : Module() {
       chatActivity = conversationActivity()
       backdropApplication = application
       application?.registerActivityLifecycleCallbacks(backdropLifecycle)
+      // A picker that was open when the process died reports to the Activity Android restored.
+      mainHandler.post { conversationActivity()?.let(composerPicker::onActivityAvailable) }
       conversationApplication = application
       conversationVisibility = application?.let { host ->
         ConversationVisibility(
@@ -326,6 +389,32 @@ class TakuAgentModule : Module() {
           onChange = { visible -> mainHandler.post { sendEvent("onConversationVisibility", mapOf("visible" to visible)) } },
         ).also { it.attach(host, appContext.currentActivity) }
       }
+    }
+    /** The chat background, `dark` (default) or `light`; see [ChatAppearance]. */
+    Function("chatAppearance") {
+      val context = appContext.reactContext?.applicationContext ?: return@Function ChatAppearance.DARK
+      ChatAppearance.read(context)
+    }
+    /** Saves the chat background; answers `{ok, appearance}` or `{ok:false, code}`. */
+    Function("setChatAppearance") { value: String ->
+      try {
+        val context = appContext.reactContext?.applicationContext ?: throw IllegalStateException("SETTINGS_WRITE_FAILED")
+        JSONObject().put("ok", true).put("appearance", ChatAppearance.write(context, value)).toString()
+      } catch (e: IllegalArgumentException) {
+        JSONObject().put("ok", false).put("code", e.message).toString()
+      } catch (e: IllegalStateException) {
+        JSONObject().put("ok", false).put("code", e.message).toString()
+      }
+    }
+    OnStartObserving("onChatAppearance") {
+      val context = appContext.reactContext?.applicationContext ?: return@OnStartObserving
+      appearanceObserver?.let { context.contentResolver.unregisterContentObserver(it) }
+      appearanceObserver = ChatAppearance.observe(context) { value -> sendEvent("onChatAppearance", mapOf("appearance" to value)) }
+    }
+    OnStopObserving("onChatAppearance") {
+      val context = appContext.reactContext?.applicationContext ?: return@OnStopObserving
+      appearanceObserver?.let { context.contentResolver.unregisterContentObserver(it) }
+      appearanceObserver = null
     }
     OnStartObserving("onImeInsets") {
       mainHandler.post { observingIme = true; attachImeObserver() }
@@ -345,6 +434,8 @@ class TakuAgentModule : Module() {
       if (backdrop?.activity?.isDestroyed == true) releaseBackdrop(backdrop)
     } }
     OnDestroy {
+      SecretFields.onSubmit = null
+      composerPicker.close()
       conversationVisibility?.let { tracker -> conversationApplication?.let(tracker::detach) }
       conversationVisibility = null
       conversationApplication = null
@@ -395,33 +486,14 @@ class TakuAgentModule : Module() {
       }
     }
 
+    AsyncFunction("pickComposerAttachment") { kind: String, threadId: String, expectedRevision: String, promise: Promise ->
+      val activity = conversationActivity()?.takeIf { it === appContext.currentActivity }
+      composerPicker.pick(activity, kind, threadId, expectedRevision, appContext.permissions, promise)
+    }.runOnQueue(Queues.MAIN)
+
     AsyncFunction("call") { action: String, params: String ->
       val context = appContext.reactContext ?: throw IOException("Agent UI is not ready")
-      val response = context.contentResolver.call(
-        Uri.parse("content://$authority"), action, params, null
-      ) ?: throw IOException("Taku Agent gateway is unavailable")
-      val envelope = response.getString("result") ?: throw IOException("Invalid gateway response")
-      val json = JSONObject(envelope)
-      val resultUri = json.optString("resultUri")
-      if (resultUri.isEmpty()) envelope else {
-        val uri = Uri.parse(resultUri)
-        require(uri.scheme == "content" && uri.authority == authority && uri.path?.startsWith("/result/") == true) {
-          "Invalid gateway result URI"
-        }
-        val stream = context.contentResolver.openInputStream(uri)
-          ?: throw IOException("Gateway result expired")
-        stream.use { input ->
-          val output = ByteArrayOutputStream()
-          val buffer = ByteArray(8192)
-          while (true) {
-            val count = input.read(buffer)
-            if (count < 0) break
-            if (output.size() + count > 8 * 1024 * 1024) throw IOException("Gateway result exceeds client limit")
-            output.write(buffer, 0, count)
-          }
-          output.toString("UTF-8")
-        }
-      }
+      callGateway(context.contentResolver, action, params, null)
     }.runOnQueue(appContext.backgroundCoroutineScope)
 
     Function("launchThreadId") {
@@ -527,10 +599,60 @@ class TakuAgentModule : Module() {
       OnViewDidUpdateProps { view: EdgeBlurView -> view.update() }
     }
 
-    /** [enabled] false restores the plain translucent window. Colours are #AARRGGBB. */
     AsyncFunction("setWindowBackdrop") { enabled: Boolean, sigmaDp: Double, tint: String, fallback: String ->
       android.util.Log.d("TakuBackdrop", "enabled=$enabled host=${appContext.currentActivity?.javaClass?.simpleName} chat=${chatActivity?.javaClass?.simpleName}")
       applyBackdrop(if (enabled) Backdrop(sigmaDp, Color.parseColor(tint), Color.parseColor(fallback)) else null)
+    }.runOnQueue(Queues.MAIN)
+
+    View(SecretFieldView::class) {
+      Prop("fieldId") { view: SecretFieldView, value: String -> view.fieldId = value }
+      Prop("placeholder") { view: SecretFieldView, value: String -> view.placeholder(value) }
+      Prop("textColor") { view: SecretFieldView, value: String -> view.textColor(value) }
+      Prop("placeholderColor") { view: SecretFieldView, value: String -> view.placeholderColor(value) }
+      Prop("revealed") { view: SecretFieldView, value: Boolean -> view.reveal(value) }
+      Prop("autoFocus") { view: SecretFieldView, value: Boolean -> view.autoFocus = value }
+    }
+
+    /**
+     * Sends a gateway call whose secret is the text of a mounted [SecretFieldView]. The value
+     * goes from the field to the gateway as a file descriptor and is never returned to React.
+     * The field is emptied once the gateway accepts it.
+     */
+    AsyncFunction("submitSecret") { fieldId: String, action: String, params: String, promise: Promise ->
+      if (action != "accounts/saveKey" && action != "manageAssistant") {
+        promise.reject("INVALID_ARGUMENT", "Unsupported secret action", null); return@AsyncFunction
+      }
+      submitCredential(action, params, listOf(fieldId), promise) { SecretFields.bytes(fieldId) }
+    }.runOnQueue(Queues.MAIN)
+
+    /**
+     * The same for a form with several secret fields: [fields] maps each form field name to its
+     * mounted [SecretFieldView], and the gateway receives them as one JSON object.
+     */
+    AsyncFunction("submitSecretFields") { fields: Map<String, String>, action: String, params: String, promise: Promise ->
+      if (action != "requests/submit") {
+        promise.reject("INVALID_ARGUMENT", "Unsupported secret action", null); return@AsyncFunction
+      }
+      submitCredential(action, params, fields.values.toList(), promise) {
+        val secrets = JSONObject()
+        for ((name, fieldId) in fields) {
+          val bytes = SecretFields.bytes(fieldId)
+          try { secrets.put(name, String(bytes, Charsets.UTF_8)) } finally { bytes.fill(0) }
+        }
+        secrets.toString().toByteArray(Charsets.UTF_8)
+      }
+    }.runOnQueue(Queues.MAIN)
+
+    AsyncFunction("clearSecret") { fieldId: String ->
+      SecretFields.clear(fieldId)
+    }.runOnQueue(Queues.MAIN)
+
+    // Credential entry and one-time sign-in codes stay out of screenshots and the recents preview.
+    AsyncFunction("setSecureScreen") { enabled: Boolean ->
+      val window = appContext.currentActivity?.window ?: return@AsyncFunction Unit
+      val flag = android.view.WindowManager.LayoutParams.FLAG_SECURE
+      if (enabled) window.addFlags(flag) else window.clearFlags(flag)
+      Unit
     }.runOnQueue(Queues.MAIN)
 
     // The composer asks for the keyboard explicitly once focused (WindowInsetsController on 11+).

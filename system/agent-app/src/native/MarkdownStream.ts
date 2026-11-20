@@ -18,6 +18,21 @@ const parse = (text: string) => fromMarkdown(text, {
 });
 type Node = {type: string; value?: string; children?: Node[]};
 
+export function markdownSpeechText(text: string): string {
+  const words: string[] = [];
+  function visit(node: Node) {
+    switch (node.type) {
+      case 'text': case 'inlineCode': words.push(node.value ?? ''); break;
+      case 'break': words.push('\n'); break;
+      default:
+        node.children?.forEach(visit);
+        if (['heading', 'paragraph', 'tableCell', 'tableRow'].includes(node.type)) words.push('\n');
+    }
+  }
+  visit(parse(text));
+  return words.join('').trim();
+}
+
 // Later definitions can change earlier shortcut references. Keep their context
 // together until completion, including brackets currently parsed as plain text.
 function needsContext(node: Node): boolean {

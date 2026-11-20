@@ -30,6 +30,11 @@ class AudioHomeActivity : Activity() {
     private lateinit var saveKey: TextView
     private lateinit var removeKey: TextView
     private lateinit var model: TextView
+    private lateinit var liveProvider: TextView
+    private lateinit var liveService: TextView
+    private lateinit var geminiState: TextView
+    private lateinit var saveGeminiKey: TextView
+    private lateinit var removeGeminiKey: TextView
     private lateinit var refresh: TextView
     private lateinit var ui: AudioUi
 
@@ -69,10 +74,22 @@ class AudioHomeActivity : Activity() {
         val fal = ui.card(root)
         falState = ui.text("", 13, AudioUi.INK).apply { id = ui.id("audio_fal_state") }
         ui.add(fal, falState, bottom = 16)
-        saveKey = ui.action(fal, ui.s("audio_home_add_key"), "audio_save_fal_key", primary = true) { editKey() }
-        removeKey = ui.action(fal, ui.s("audio_home_remove_key"), "audio_remove_fal_key") { confirmRemoveKey() }
+        saveKey = ui.action(fal, ui.s("audio_home_add_key"), "audio_save_fal_key", primary = true) { editKey(AudioLiveProvider.GROK) }
+        removeKey = ui.action(fal, ui.s("audio_home_remove_key"), "audio_remove_fal_key") { confirmRemoveKey(AudioLiveProvider.GROK) }
         model = ui.action(fal, ui.s("audio_home_default_model"), "audio_model") { selectModel() }
         ui.add(fal, ui.text(ui.s("audio_home_fal_summary"), 12), 4)
+
+        ui.section(root, ui.s("audio_home_live_section"))
+        val live = ui.card(root)
+        liveProvider = ui.action(live, ui.s("audio_home_live_provider"), "audio_live_provider") { selectLiveProvider() }
+        liveService = ui.text("", 12)
+        ui.add(live, liveService, bottom = 4)
+        ui.add(live, ui.text(ui.s("audio_home_live_next"), 12), bottom = 14)
+        ui.rule(live)
+        geminiState = ui.text("", 13, AudioUi.INK).apply { id = ui.id("audio_gemini_state") }
+        ui.add(live, geminiState, 14)
+        saveGeminiKey = ui.action(live, ui.s("audio_home_add_gemini_key"), "audio_save_gemini_key", primary = true) { editKey(AudioLiveProvider.GEMINI) }
+        removeGeminiKey = ui.action(live, ui.s("audio_home_remove_gemini_key"), "audio_remove_gemini_key") { confirmRemoveKey(AudioLiveProvider.GEMINI) }
 
         ui.section(root, ui.s("audio_home_features_section"))
         val features = ui.card(root)
@@ -181,28 +198,68 @@ class AudioHomeActivity : Activity() {
         removeKey.isEnabled = editable && (current?.fal?.configured == true || current?.fal?.error == AudioFalError.KEY_UNREADABLE)
         model.text = current?.fal?.let { fal -> ui.s("audio_home_default_model_value", fal.models.firstOrNull { it.id == fal.model }?.name ?: fal.model) } ?: ui.s("audio_home_default_model")
         model.isEnabled = editable && current?.fal?.let { it.configured && it.models.isNotEmpty() } == true
+        val live = current?.live
+        liveProvider.text = live?.let { ui.s("audio_home_live_provider_value", providerName(it.provider)) } ?: ui.s("audio_home_live_provider")
+        liveProvider.isEnabled = editable
+        liveService.text = when (live?.provider) {
+            AudioLiveProvider.GROK -> ui.s(if (live.configured) "audio_home_live_grok_summary" else "audio_home_live_grok_missing")
+            AudioLiveProvider.GEMINI -> ui.s(if (live.configured) "audio_home_live_gemini_summary" else "audio_home_live_gemini_missing")
+            null -> ui.s("audio_home_live_pending")
+        }
+        val gemini = live?.gemini
+        val geminiHasKey = gemini?.configured == true || gemini?.error == AudioGeminiError.KEY_UNREADABLE
+        geminiState.text = when {
+            gemini == null -> ui.s("audio_home_gemini_key_pending")
+            gemini.configured -> ui.s("audio_home_gemini_key_saved", gemini.masked ?: ui.s("audio_home_key_hidden"))
+            gemini.error == AudioGeminiError.KEY_UNREADABLE -> ui.s("audio_home_key_unreadable")
+            else -> ui.s("audio_home_gemini_key_missing")
+        }
+        saveGeminiKey.text = ui.s(if (geminiHasKey) "audio_home_replace_gemini_key" else "audio_home_add_gemini_key")
+        saveGeminiKey.isEnabled = editable
+        removeGeminiKey.isEnabled = editable && geminiHasKey
         rendering = false
     }
 
-    private fun editKey() {
+    private fun editKey(provider: AudioLiveProvider) {
         if (busy || snapshot == null || keyDialog != null) return
+        val gemini = provider == AudioLiveProvider.GEMINI
+        val hint = ui.s(if (gemini) "audio_home_gemini_key_hint" else "audio_home_key_hint")
         keyDialog = ui.keyDialog(
-            title = saveKey.text.toString(),
+            title = (if (gemini) saveGeminiKey else saveKey).text.toString(),
             privacy = ui.s("audio_home_key_privacy"),
-            hint = ui.s("audio_home_key_hint"),
-            required = ui.s("audio_home_key_required"),
+            hint = hint,
+            required = hint,
             cancel = ui.s("audio_home_cancel"),
             save = ui.s("audio_home_save"),
-            inputId = "audio_fal_key_input",
+            inputId = if (gemini) "audio_gemini_key_input" else "audio_fal_key_input",
             onDismiss = { keyDialog = null }
-        ) { value -> request(AudioSettingsCommand.SaveFalKey(value)) }
+        ) { value -> request(if (gemini) AudioSettingsCommand.SaveLiveKey(value) else AudioSettingsCommand.SaveFalKey(value)) }
     }
 
-    private fun confirmRemoveKey() {
+    private fun confirmRemoveKey(provider: AudioLiveProvider) {
         if (busy || snapshot == null) return
-        AlertDialog.Builder(this).setTitle(ui.s("audio_home_remove_key_title"))
-            .setMessage(ui.s("audio_home_remove_key_summary"))
-            .setNegativeButton(ui.s("audio_home_cancel"), null).setPositiveButton(ui.s("audio_home_remove")) { _, _ -> request(AudioSettingsCommand.RemoveFalKey) }.show()
+        val gemini = provider == AudioLiveProvider.GEMINI
+        AlertDialog.Builder(this).setTitle(ui.s(if (gemini) "audio_home_remove_gemini_key_title" else "audio_home_remove_key_title"))
+            .setMessage(ui.s(if (gemini) "audio_home_remove_gemini_key_summary" else "audio_home_remove_key_summary"))
+            .setNegativeButton(ui.s("audio_home_cancel"), null).setPositiveButton(ui.s("audio_home_remove")) { _, _ ->
+                request(if (gemini) AudioSettingsCommand.RemoveLiveKey else AudioSettingsCommand.RemoveFalKey)
+            }.show()
+    }
+
+    private fun providerName(provider: AudioLiveProvider): String = ui.s(when (provider) {
+        AudioLiveProvider.GROK -> "audio_home_live_grok"
+        AudioLiveProvider.GEMINI -> "audio_home_live_gemini"
+    })
+
+    private fun selectLiveProvider() {
+        val selected = snapshot?.live?.provider ?: return
+        if (busy) return
+        val providers = AudioLiveProvider.entries
+        AlertDialog.Builder(this).setTitle(ui.s("audio_home_live_provider"))
+            .setSingleChoiceItems(providers.map(::providerName).toTypedArray(), providers.indexOf(selected)) { dialog, index ->
+                dialog.dismiss()
+                if (providers[index] != selected) request(AudioSettingsCommand.SelectLiveProvider(providers[index]))
+            }.setNegativeButton(ui.s("audio_home_cancel"), null).show()
     }
 
     private fun selectModel() {

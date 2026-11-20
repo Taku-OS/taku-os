@@ -28,15 +28,11 @@ CP="$OUTPUT/json-20240303.jar:$ANDROID_JAR"
  system/assistant/tests/org/agentos/assistant/SceneRoutesTest.java \
  system/assistant/src/org/agentos/assistant/SystemAiCompatibility.java \
  system/assistant/tests/org/agentos/assistant/SystemAiCompatibilityTest.java \
- system/assistant/src/org/agentos/assistant/ComposerDraft.java \
- system/assistant/src/org/agentos/assistant/ComposerPreferences.java \
- system/assistant/tests/org/agentos/assistant/ComposerPreferencesTest.java \
  system/assistant/src/org/agentos/assistant/AgentConversation.java \
  system/assistant/src/org/agentos/assistant/NativeToolPresentation.java \
- system/assistant/src/org/agentos/assistant/NativeTurnPresentation.java \
  system/assistant/tests/org/agentos/assistant/NativeConversationTest.java
 for test in org.agentos.lab.JevDecisionClientTest org.agentos.lab.JevMagpieTest \
- org.agentos.assistant.JevCredentialStoreTest org.agentos.assistant.SceneRoutesTest org.agentos.assistant.SystemAiCompatibilityTest org.agentos.assistant.ComposerPreferencesTest \
+ org.agentos.assistant.JevCredentialStoreTest org.agentos.assistant.SceneRoutesTest org.agentos.assistant.SystemAiCompatibilityTest \
  org.agentos.assistant.NativeConversationTest; do
  "$JDK/bin/java" --add-modules jdk.httpserver -cp "$OUTPUT/classes:$CP" "$test"
 done | tee "$OUTPUT/result.txt"

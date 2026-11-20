@@ -53,6 +53,15 @@ export function reduceSessionEvent(state: SessionStream, value: unknown): Sessio
   if (!brokerEpoch || typeof seq !== 'number' || !Number.isSafeInteger(seq) || seq < 0)
     return {...state, ready: false, needsResync: true};
   if (method === 'session/heartbeat') return state;
+  // Out of band: a reaction decided after its message arrived repeats the last sequence and is
+  // applied in place; an unknown message waits for the next snapshot, which carries it.
+  if (method === 'session/reaction') {
+    if (state.needsResync || brokerEpoch !== state.brokerEpoch) return state;
+    const turn = state.turns[string(params.turnId)], item = turn?.items[string(params.itemId)];
+    if (!turn || !item || item.type !== 'userMessage') return state;
+    const reaction = typeof params.reaction === 'string' ? params.reaction : '';
+    return {...state, turns: {...state.turns, [string(params.turnId)]: upsertItem(turn, {...item, reaction})}, revision: state.revision + 1};
+  }
   if (method === 'session/resync') return {...state, ready: false, needsResync: true};
   if (method === 'session/snapshot') {
     const thread = record(params.thread);

@@ -74,6 +74,33 @@ centres/edges are anchored to the camera, not symmetric halves of an arbitrary 2
 The two existing authored metaball paths are reused without stretching. The 16 dp loader uses
 the designer's `dot-matrix-loader` thinking loop; SystemUI uses the shared native `DotMatrixLoader` timing code.
 
+## How SystemUI draws your slots
+
+Every island is drawn natively by SystemUI in the Taku design (Figma `1379:776` compact,
+`1:4031` expanded); publishers supply data and actions, never chrome, and there is no
+stock-widget fallback.
+
+- **Compact (big island):** a 32 dp black disc centred 36 dp left of the camera, the 24 dp
+  camera disc and a 32 dp pill starting 20 dp right of it, joined by the authored metaball
+  necks. The disc shows the first of: a `pic`/`progress`/`animated` `bigIsland.leading`, the
+  same kinds of `smallIsland`, a slot's `pic`, the app's small icon (tinted white), or the dot
+  loader at rest (`animated:"working"` runs it). The pill shows `bigIsland.trailing` (text,
+  timer, countdown, number, or progress as a percentage), else a textual `leading`, in Hanken
+  Grotesk 12 sp at 92 % white (`emphasis` `muted` 48 %, `accent` orange). It grows with its
+  text and is cut to the room left of the status icons; with no room only the disc remains.
+- **Small island:** with several visible activities, the next one appears as a 24 dp disc
+  after the pill, drawing `smallIsland` (pic or progress ring) or the app icon.
+- **Expanded:** a 92 % black card, 40 dp corners and 16 dp padding. The header has the
+  `expanded.pic` (or the app icon) on the left and the expand glyph on the right, which runs
+  `primaryAction` or the content intent; tapping the card body does the same and an upward
+  swipe collapses it. `title` uses Body/xl (18 sp, 80 %), `body` Body/lg (16 sp, 64 %),
+  `steps` 14 sp; `progress` is a 4 dp line (a sweeping segment without `value`). `actions` are
+  40 dp pill chips (white 8 %), the `primaryAction` chip filled white. Height follows the
+  content up to a third of the screen; longer text scrolls.
+
+A payload SystemUI cannot draw closes the card (`render_failed`) rather than leaving partial
+chrome visible; the notification itself is untouched.
+
 ## Native assistant cards
 
 Taku Agent publishes `expanded.template:"assistant"` with bounded reply text and

@@ -46,6 +46,8 @@ import org.agentos.agent.home.ui.HomeScreen
 import org.agentos.agent.home.ui.PAGE_HOME
 import org.agentos.agent.home.ui.ReactCardPool
 import org.agentos.agent.home.ui.HomeGesturePolicy
+import android.view.View
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 /**
  * The TakuOS home (HOME intent). Native Compose shell; feed card bodies are React Native
@@ -65,6 +67,30 @@ class HomeActivity : AppCompatActivity(), DefaultHardwareBackBtnHandler {
   private var resetOnResume = false
   private val gestures = HomeGesturePolicy()
   private var gesturePointer = -1
+  /**
+   * Plain desktop browsing (nothing Back would close, no AI input, no onboarding takeover): the
+   * left/right back gesture is excluded over the full edge height, so an edge swipe always moves
+   * the pages instead of sometimes going Back. As the home activity, Home is exempt from
+   * Android's 200 dp exclusion cap. Anything Back would close brings the gesture back.
+   */
+  private var sideEdgesOwned = false
+  private val edgeExclusion = View.OnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> applyEdgeExclusion() }
+
+  private fun applyEdgeExclusion() {
+    if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q) return
+    val view = window.decorView
+    val zones = ViewCompat.getRootWindowInsets(view)?.getInsets(WindowInsetsCompat.Type.systemGestures())
+    view.systemGestureExclusionRects = if (!sideEdgesOwned || zones == null || view.width == 0) emptyList() else listOfNotNull(
+      android.graphics.Rect(0, 0, zones.left, view.height).takeIf { zones.left > 0 },
+      android.graphics.Rect(view.width - zones.right, 0, view.width, view.height).takeIf { zones.right > 0 },
+    )
+  }
+
+  private fun setSideEdgesOwned(owned: Boolean) {
+    if (owned == sideEdgesOwned) return
+    sideEdgesOwned = owned
+    applyEdgeExclusion()
+  }
 
   private val screenOff = object : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) { resetOnResume = true }
@@ -83,6 +109,7 @@ class HomeActivity : AppCompatActivity(), DefaultHardwareBackBtnHandler {
     requestPanel(intent)
     if (savedInstanceState == null) requestAssistant(intent)
     HomeRole.claim(this)
+    window.decorView.addOnLayoutChangeListener(edgeExclusion)
     setContent {
       val scope = rememberCoroutineScope()
       val controller = remember { HomeController(applicationContext, repo, pool, scope) }
@@ -170,6 +197,9 @@ class HomeActivity : AppCompatActivity(), DefaultHardwareBackBtnHandler {
             }
           }
       }
+      val assistantState by controller.assistant.state.collectAsStateWithLifecycle()
+      val browsing = !controller.backTargetOpen && assistantState.entry == org.agentos.agent.home.assistant.EntryMode.None
+      LaunchedEffect(browsing) { setSideEdgesOwned(browsing) }
       TakuTheme { HomeScreen(controller, backdrop, pager, feedList, homeScroll, gestures) }
     }
   }
@@ -183,7 +213,8 @@ class HomeActivity : AppCompatActivity(), DefaultHardwareBackBtnHandler {
         ) ?: androidx.core.graphics.Insets.NONE
         gesturePointer = event.getPointerId(0)
         gestures.down(event.x, event.y, HomeGesturePolicy.Region(view.width, view.height,
-          insets.left, insets.top, insets.right, insets.bottom), ViewConfiguration.get(this).scaledTouchSlop.toFloat())
+          insets.left, insets.top, insets.right, insets.bottom), ViewConfiguration.get(this).scaledTouchSlop.toFloat(),
+          sideEdgesOwned = sideEdgesOwned)
       }
       MotionEvent.ACTION_MOVE -> {
         val index = event.findPointerIndex(gesturePointer)
@@ -276,6 +307,7 @@ class HomeActivity : AppCompatActivity(), DefaultHardwareBackBtnHandler {
   }
 
   override fun onDestroy() {
+    window.decorView.removeOnLayoutChangeListener(edgeExclusion)
     unregisterReceiver(screenOff)
     panelRequest = null
     PanelNavigation.publish(PanelNavigation.Snapshot())

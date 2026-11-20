@@ -66,7 +66,8 @@ public final class Widgets {
             for (int i = 0; i < 24; i++) card.circle(startX + (i % 6) * pitch, startY + (i / 6) * pitch, r,
                 i < now.getHour() ? Card.LIGHT : i == now.getHour() ? Card.ORANGE : Card.FOREGROUND);
             description = hours + " " + (hours == 1 ? "hour" : "hours") + " left today";
-            card.text(hours + " " + (hours == 1 ? "hour" : "hours") + " left", w / 2, h - 54, 20, 21, Card.INK, true, true);
+            // Match the calendar month label and make the remaining-time period explicit.
+            card.text(description, w / 2, h - 54, 14, 19.88f, Card.INK, true, false);
         } else if (kind.equals("MusicWidget")) {
             MediaController media = ClockData.media();
             MediaMetadata meta = media == null ? null : media.getMetadata();

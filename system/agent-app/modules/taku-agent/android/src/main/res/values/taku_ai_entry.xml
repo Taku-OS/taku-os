@@ -1,0 +1,5 @@
+<resources>
+  <string name="taku_ai_title">Taku AI</string>
+  <string name="taku_ai_summary">Models, accounts, and AI settings</string>
+  <string name="taku_ai_unavailable">Taku AI settings are unavailable.</string>
+</resources>

@@ -14,7 +14,6 @@ test('makes the manifest launch theme translucent while preserving the native sp
   configureTranslucentThemes(styles);
   for (const theme of styles.resources.style) {
     assert.equal(theme.item.find((item) => item.$.name === 'android:windowIsTranslucent')._, 'true');
-    assert.equal(theme.item.find((item) => item.$.name === 'android:windowBackground')._, '@android:color/transparent');
   }
   const splash = styles.resources.style[1];
   assert.equal(splash.$.parent, 'Theme.SplashScreen');
@@ -48,6 +47,16 @@ test('captures drafts and route identity before Expo and restores the saved curr
   assert.ok(onNew.indexOf('setIntent(intent)') < onNew.indexOf('super.onNewIntent(intent)'));
   assert.match(result, /PanelLaunchIntents.save\(this, outState\)\s+super.onSaveInstanceState\(outState\)/);
   assert.equal(configureConversationActivity(result), result);
+});
+
+test('preserves external picker results while leaving React fragment restoration disabled', () => {
+  const result = configureConversationActivity(activityTemplate);
+  assert.match(result, /ComposerPickerState.restore\(this, savedInstanceState\)\s+super.onCreate\(null\)/);
+  assert.match(result, /onSaveInstanceState\(outState: Bundle\) \{\s+ComposerPickerState.save\(this, outState\)/);
+  const previous = result.replace('import org.agentos.agent.bridge.ComposerPickerState\n', '')
+    .replace('    ComposerPickerState.restore(this, savedInstanceState)\n', '')
+    .replace('    ComposerPickerState.save(this, outState)\n', '');
+  assert.equal(configureConversationActivity(previous), result);
 });
 
 test('upgrades the previously generated activity hooks without duplicating draft delivery', () => {

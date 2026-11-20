@@ -8,6 +8,7 @@ import java.nio.file.*;
 import java.security.MessageDigest;
 
 final class ByokProviders {
+    private static final String GEMINI_FILE = "gemini-live.json";
     private final File directory, magpie;
     private final String management;
     private final boolean notifyAudio;
@@ -97,8 +98,43 @@ final class ByokProviders {
             }
             default: throw new AudioConfigFailure("UNSUPPORTED_OPERATION", "Unknown fal settings operation");
         }
-        if (notifyAudio) AudioConfigBridge.falChanged();
+        if (notifyAudio) AudioConfigBridge.credentialsChanged();
         return falSettings();
+    }
+
+    synchronized void liveControl(JSONObject request) throws Exception {
+        switch (request.getString("action")) {
+            case "saveLiveKey": {
+                String key;
+                try { key = validate(request.getString("key")); }
+                catch (IOException invalid) { throw new AudioConfigFailure("INVALID_ARGUMENT", "Enter one complete Gemini API key"); }
+                store(GEMINI_FILE, new JSONObject().put("key", key));
+                break;
+            }
+            case "removeLiveKey":
+                if (!Files.deleteIfExists(new File(directory, GEMINI_FILE).toPath())) return;
+                break;
+            default: throw new AudioConfigFailure("UNSUPPORTED_OPERATION", "Unknown Gemini Live settings operation");
+        }
+        if (notifyAudio) AudioConfigBridge.credentialsChanged();
+    }
+
+    private String savedGeminiKey() throws Exception {
+        File file = new File(directory, GEMINI_FILE);
+        if (!file.exists()) return null;
+        Object value = new JSONObject(new String(Files.readAllBytes(file.toPath()), StandardCharsets.UTF_8)).get("key");
+        if (!(value instanceof String)) throw new IOException("Invalid Gemini API key format");
+        return validate((String)value);
+    }
+
+    JSONObject geminiSettings() throws JSONException {
+        String key = null;
+        boolean unreadable = false;
+        try { key = savedGeminiKey(); }
+        catch (Exception error) { unreadable = true; }
+        return new JSONObject().put("configured", key != null)
+                .put("masked", key == null ? JSONObject.NULL : masked(key))
+                .put("error", unreadable ? "KEY_UNREADABLE" : JSONObject.NULL);
     }
 
     private static boolean isFalModel(String model) {
@@ -167,15 +203,29 @@ final class ByokProviders {
     }
     /** Only the UID-verified engine configuration socket may return this object. */
     JSONObject falCredential() throws Exception {
-        JSONObject config = SystemAi.config();
-        if (!config.optBoolean("enabled") || !config.optBoolean("audioEnabled", true))
-            throw new AudioConfigFailure("POLICY_REVOKED", "Voice features are paused");
+        requireVoiceEnabled();
         File file = new File(directory, "fal.json");
         if (!file.isFile()) throw new AudioConfigFailure("PROVIDER_NOT_CONFIGURED", "Add a fal Key in Taku Audio");
         String key;
         try { key = validate(new JSONObject(new String(Files.readAllBytes(file.toPath()), StandardCharsets.UTF_8)).getString("key")); }
         catch (Exception unreadable) { throw new AudioConfigFailure("PROVIDER_NOT_CONFIGURED", "The fal Key cannot be read. Save it again in Taku Audio"); }
         return new JSONObject().put("key", key);
+    }
+
+    /** Used by the signed Audio Engine for Gemini Live sessions. */
+    JSONObject liveCredential() throws Exception {
+        requireVoiceEnabled();
+        String key;
+        try { key = savedGeminiKey(); }
+        catch (Exception unreadable) { key = null; }
+        if (key == null) throw new AudioConfigFailure("PROVIDER_NOT_CONFIGURED", "Add or save your Gemini API key again in Taku Audio");
+        return new JSONObject().put("key", key);
+    }
+
+    private static void requireVoiceEnabled() throws Exception {
+        JSONObject config = SystemAi.config();
+        if (!config.optBoolean("enabled") || !config.optBoolean("audioEnabled", true))
+            throw new AudioConfigFailure("POLICY_REVOKED", "Voice features are paused");
     }
     private JSONObject summary(String provider, String id, String ref, String name, String key) throws Exception {
         return new JSONObject().put("provider", provider).put("id", id).put("ref", ref)

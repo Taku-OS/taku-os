@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from 'react';
 import {AccessibilityInfo, Animated, AppState, Easing, StyleSheet, View} from 'react-native';
-import {chatColors} from '../chat/chatTheme';
+import {chatColors, themedStyles} from '../chat/chatTheme';
 
 /** A native-driven pulse changes only opacity/transform, never the reply's layout. */
 export function ReplyLoading({label}: {label: string}) {
@@ -36,7 +36,7 @@ export function ReplyLoading({label}: {label: string}) {
   </View>;
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   row: {height: '100%', minHeight: 26, flexDirection: 'row', alignItems: 'center', gap: 5},
   dot: {width: 5, height: 5, borderRadius: 2.5, backgroundColor: chatColors.textSecondary},
-});
+}));

@@ -5,42 +5,128 @@ description: Inspect and update Taku AI model routing and Taku Audio voice setti
 
 # Taku AI model settings
 
-Android Settings.Global is the source of truth shared with the Taku AI settings page. Use the device's `settings` CLI to read the current values before changing them:
+The Expo `/system-ai` page and Android content calls use the same backend settings owners.
+Direct sections are `/system-ai?section=connection`, `account`, `usage`, `jev`, and `routing` (hand-edited model groups and scene bindings).
+The background workspace entry opens `/workspaces`.
 
 ```sh
-settings get global taku_magpie_groups
-settings get global taku_magpie_scene_bindings
-settings get global taku_magpie_providers
-settings get global taku_magpie_models
+content call --uri content://org.agentos.assistant.open-access --method readSystemAi --arg '{}'
+content call --uri content://org.agentos.assistant.open-access --method manageSystemAi --arg '{"operation":"setApp","app":"ime","enabled":false}'
+content call --uri content://org.agentos.assistant.open-access --method manageSystemAi --arg '{"operation":"readConnection"}'
+content call --uri content://org.agentos.assistant.open-access --method manageSystemAi --arg '{"operation":"selectConnection","mode":"openai","model":""}'
+content call --uri content://org.agentos.assistant.open-access --method manageSystemAi --arg '{"operation":"readAccount"}'
+content call --uri content://org.agentos.assistant.open-access --method manageSystemAi --arg '{"operation":"readLimits"}'
+content call --uri content://org.agentos.assistant.open-access --method manageSystemAi --arg '{"operation":"readJev"}'
+content call --uri content://org.agentos.assistant.open-access --method manageSystemAi --arg '{"operation":"setJev","enabled":false}'
+content call --uri content://org.agentos.assistant.open-access --method manageSystemAi --arg '{"operation":"openFeature","feature":"audio"}'
 ```
 
-Groups are a JSON array of Magpie group objects (`id`, `name`, `members`, `routing`); scene bindings are a JSON object mapping scene IDs to `group/<id>`. Common scenes: `assistant` (main assistant), `jev` (Jev decisions), `memory.text` (Memory analysis), `ime.vision` (keyboard vision), and `screen` (screen analysis). Other app scenes may also exist. `group/taku-memory-jev` is the independent Memory group. Check the actual available models and current settings; do not invent a provider or model.
+`readSystemAi` returns `enabled`, `connected`, `assistantMode`, `assistantModel`,
+`jevEnabled`, `models`, `groups`, `bindings`, `providers`, `apps`, `usage`, and
+`audioAvailable`. `apps` contains `{id,name,enabled}` for each registered consumer.
+`providers` contains `{name,configured}` without credentials. `usage` contains
+`{consumer,model,at,elapsedMs,status,code}` for retained system AI calls.
+`at` is epoch milliseconds. Requests, responses, images, and credentials are absent.
+`audioAvailable` reports whether the Audio Engine service resolves, not whether
+every voice model is ready.
 
-To change a binding or group, make a minimal edit to the corresponding complete JSON value, preserving all unrelated entries, and write it with `settings put global KEY 'JSON'`. For example, after reading and preserving all existing bindings, a value containing only one binding can be written as:
+`manageSystemAi` accepts exactly the fields for one operation.
+
+| Operation | Required fields besides `operation` | Result |
+| --- | --- | --- |
+| `saveGroup` | `id` (`[A-Za-z0-9_-]{1,64}`), `name`, `members` (1–32 model ids in routing order), boolean `create` | `{group}`. `create:true` adds a group with `routing:"order"` and fails with `GROUP_EXISTS` if the id is taken; `create:false` replaces the name and members of an existing group or fails with `GROUP_NOT_FOUND`. Member ids are stored as typed, without a catalog check. Bad input returns `INVALID_GROUP` or `INVALID_MEMBERS`. |
+| `bindScene` | `scene` (`[A-Za-z0-9_.-]{1,128}`), `group` id | Binds any scene id to an existing group. A built-in scene behaves exactly like `bindSystemAi` and returns its undo receipt; any other scene returns `{scene,binding}` without a compatibility check. |
+| `unbindScene` | `scene` | `{scene}`. Removes an added scene's binding. A built-in scene returns `INVALID_SCENE` and an unbound one `SCENE_NOT_FOUND`. |
+| `setApp` | `app` from `readSystemAi.apps[].id`, boolean `enabled` | `{app,enabled}`. Uses the system AI broker's existing app policy. |
+| `readConnection` | None. | `{mode,model,models,running,message,version}` from the current broker. Reconciles composer options with the selected connection. |
+| `selectConnection` | `mode`, `model` | The selected connection. `openai` requires an empty model. `magpie` requires an ID from `readConnection.models`. The broker rejects switching while tasks run or remain queued. |
+| `readAccount` | None. | `{connected,type,planType,requiresOpenaiAuth}`. A service failure returns an error, not a disconnected account. |
+| `readLimits` | None. | `limits` and `usage` arrays of `{key,label,value}`. Each array projects supported limit or usage fields. An unavailable request has `limitsError` or `usageError` instead. |
+| `readJev` | None. | The existing Jev catalog with `models`, `selected`, and `enabled`. Runs the existing legacy credential and model migration before reading. |
+| `setJev` | Boolean `enabled` | `{enabled}`. Enabling requires the selected scene model to remain in the decision catalog. |
+| `testJev` | None. | `{connected:true}` after the existing synthetic text test completes. This consumes model quota and is not idempotent. It captures no screen. |
+| `openFeature` | `feature` equal to `audio`, `ime`, or `memory` | Opens the owning app's existing settings entry. Returns an empty object after Android accepts the launch. |
+| `setAssistScreenshots` | Boolean `enabled` | Updates Android `Settings.Secure` key `assist_screenshot_enabled` for the current user. `readSystemAi` returns `assistScreenshotsEnabled`. |
+
+The `readAccount` projection excludes email addresses, tokens, authorization URLs, and
+device codes. A pending sign-in's device code and official authorization page are
+read through `accounts/read` in the installed open-access guide. Limits include returned percentage use, window duration, reset time,
+credit state, token counts, and supported cost fields. `resetsAt` uses epoch seconds.
+Absent upstream fields stay absent. An empty array means that upstream returned no
+supported metrics. It does not mean zero usage or unlimited quota. The installed
+open-access guide also documents the existing `account/usage/read` and
+`account/rateLimits/read` methods for their full runtime responses.
+
+Unknown fields, wrong JSON types, missing values, and control characters fail
+before a mutation. Strings are at most 512 characters. Errors include
+`INVALID_ARGUMENT`, `INVALID_CONNECTION`, `APP_NOT_FOUND`, `INVALID_FEATURE`,
+`FEATURE_UNAVAILABLE`, and `UNSUPPORTED_OPERATION`, plus the owning service's
+validation errors. Public calls also retain the runtime's user and unlock checks.
+After a failed or interrupted write, read the current state before retrying.
+Setting the same app or Jev value converges to the same preference. Opening a
+feature or testing a connection performs the action on each call.
+
+Model routing resides in the single `Settings.Global` value
+`taku_system_ai_config`. The legacy `taku_magpie_groups`,
+`taku_magpie_scene_bindings`, `taku_magpie_providers`, and `taku_magpie_models`
+keys are migration sources and are removed after the unified value is published.
 
 ```sh
-settings put global taku_magpie_scene_bindings '{"memory.text":"group/taku-memory-jev"}'
-settings get global taku_magpie_scene_bindings
+settings get global taku_system_ai_config
 ```
 
-The example replaces the entire value; do not use it unchanged if other bindings exist. Verify the readback and that Taku AI displays the change. Writes require an identity with Android Settings permission; report a permission failure instead of claiming success. Settings writes are not transactional across keys: avoid concurrent edits and re-read immediately before and after writing. Configure group members before binding a scene.
+`groups` is an array of `{id,name,members,routing}`. `scenes` maps scene IDs to
+`group/<id>`. Other fields include `providers`, `models`, `version`, `updated_at`,
+and `updated_by`. Common scenes are `assistant`, `jev`, `memory.text`, `ime.vision`,
+`screen`, and app-specific scenes. `group/taku-memory-jev` is the independent
+Memory group. Select IDs from the actual catalog. Missing models remain visible
+as unavailable and are not silently replaced.
 
-Do not store credentials, keys, headers or tokens in Global Settings, which other applications can read. Credentials stay in the private system credential store. Direct edits to Magpie's projected provider/group files are reverted; use Android Settings for these values.
+Magpie management owns provider credentials and routing configuration. The Expo
+page opens that existing browser flow. ChatGPT sign-in and OpenRouter keys are
+handled on the same Expo page, under `/system-ai?section=account`, through the
+`accounts/*` methods in the installed open-access guide. `manageSystemAi` does not
+accept secrets.
+Do not place credentials in Global Settings. A direct `settings put global
+taku_system_ai_config 'JSON'` replaces the entire object and requires Android
+Settings permission. Preserve unrelated fields and avoid concurrent writes.
+The Settings provider does not offer compare-and-swap.
+
+## Chat appearance
+
+Taku AI settings → **Chat appearance** chooses the chat assistant's background: **Dark** (the
+default, Figma 300:661: 92 % black over a moderate blur of what lies behind the chat) or **Light**
+(a 24 % white tint over a stronger blur, dark text). It applies to the chat, its Taku Home page and
+the window behind them, at once and for the current Android user. The GUI and Agents share one
+value, `Settings.Secure` `taku_chat_appearance`:
+
+```sh
+settings get secure taku_chat_appearance          # dark | light; null (never set) reads as dark
+settings put secure taku_chat_appearance light    # the open chat switches at once
+settings put secure taku_chat_appearance dark
+settings delete secure taku_chat_appearance       # back to the default, dark
+```
+
+Any other value reads as `dark`. The settings page writes the same key; if Android refuses the
+write it says so and keeps the previous appearance. Where the device cannot blur (battery saver, no
+GPU blur) the window shows an opaque fallback instead: `#121212` for Dark, `#E3E3E3` for Light.
+
 
 ## Taku Audio settings
 
 Open `org.agentos.audio/.AudioHomeActivity` for the Taku Audio app. It owns the
-voice switch, fal Key, default fal model, local reading preferences, and links
-to video translation, call translation, and audio status. Opening it starts no
-recording or inference. OpenRouter keys and global AI remain in Taku AI.
+voice switch, Live Talk provider and keys, default fal translation model,
+local reading preferences, and links to video translation, call translation,
+and audio status. Opening it starts no recording or inference. OpenRouter
+keys and global AI remain in Taku AI.
 
 Use the same root settings owner as the Audio GUI through standard device-local
 content calls. No assistant permission or private socket access is needed.
 
 The provider is exported without a caller permission. Any installed device-local
-app can use these settings commands, including replacing or removing the fal Key
-and changing voice policy. This follows TakuOS's Agent access contract. Public
-reads return only masked key status; the runtime credential channel stays private.
+app can use these settings commands, including replacing or removing a fal or
+Gemini key, selecting the Live Talk provider, and changing voice policy. Public
+reads return only masked key status. The runtime credential channel stays private.
 
 ```sh
 content call --uri content://org.agentos.audio.open-access --method settings --arg '{"action":"read"}'
@@ -49,6 +135,9 @@ content call --uri content://org.agentos.audio.open-access --method settings --a
 content call --uri content://org.agentos.audio.open-access --method settings --arg '{"action":"resetReading","language":"en-US"}'
 content call --uri content://org.agentos.audio.open-access --method settings --arg '{"action":"configureDictation","scope":"assistant-entry","primaryProfileId":"zipformer","fallbackProfileId":null,"language":"system"}'
 content call --uri content://org.agentos.audio.open-access --method settings --arg '{"action":"resetDictation","scope":"assistant-entry"}'
+content call --uri content://org.agentos.audio.open-access --method settings --arg '{"action":"selectLiveProvider","profileId":"gemini-live"}'
+content call --uri content://org.agentos.audio.open-access --method settings --arg '{"action":"saveLiveKey","key":"GEMINI_API_KEY"}'
+content call --uri content://org.agentos.audio.open-access --method settings --arg '{"action":"removeLiveKey"}'
 content call --uri content://org.agentos.audio.open-access --method settings --arg '{"action":"removeFalKey"}'
 ```
 
@@ -60,6 +149,9 @@ Each `arg` is a JSON object with exactly the fields for its action.
 | `saveFalKey` | `key`, one string containing a complete fal API Key. |
 | `removeFalKey` | None. |
 | `selectFalModel` | `model`, a string ID from the latest returned `fal.models`. |
+| `selectLiveProvider` | `profileId`, either `fal-grok` or `gemini-live`. |
+| `saveLiveKey` | `key`, one string containing a Google Gemini API key. |
+| `removeLiveKey` | None. Removes only the Gemini key. |
 | `setAudioEnabled` | `enabled`, a JSON boolean. |
 | `configureReading` | `language`, `voiceId`, and `speed`. |
 | `resetReading` | `language`. |
@@ -75,14 +167,29 @@ wrong JSON types, invalid voices, and invalid values fail before any write.
 The API cannot select arbitrary operations, providers, files, or runtime sessions.
 
 `Bundle.result` contains `{ok:true,result:Snapshot}` on success. The snapshot has
-`enabled`, `audioEnabled`, `systemRevision`, `audioRevision`, `reading`, and `fal`.
+`enabled`, `audioEnabled`, `systemRevision`, `audioRevision`, `reading`, `fal`, `live`,
+and `dictation`.
 `reading` maps language IDs to `{voiceId,speed}`. `fal` contains `configured`,
 `masked`, `model`, `models` with `{id,name}` entries, `realtimeAvailable:false`, and
 `error`, which is null, `KEY_UNREADABLE`, or `MODEL_UNREADABLE`. `masked` is null
-when no readable key exists. A configured key is saved and readable, not validated
-by fal. Reading or saving settings makes no provider validation call and does not
-require OpenRouter or a model catalog refresh. Key replacement and removal retain
-the selected model. Model selection requires a readable fal Key.
+when no readable key exists. Both key setters trim whitespace at the ends,
+require 1 through 4096 characters, and reject internal whitespace, control
+characters, and commas. Reading or saving settings makes no provider validation
+call and does not require OpenRouter or a model catalog refresh. Key replacement
+and removal retain the selected model. Model selection requires a readable fal key.
+
+`live.profileId` is the selected Live Talk provider. The default is `fal-grok`
+(Grok Voice via fal). The other profile is `gemini-live` (Google Gemini Live).
+`live.gemini` reports `configured`, `masked`, and `error` for the separate Gemini
+key. `masked` is null without a readable key. `error` is null or `KEY_UNREADABLE`.
+`live.configured` reports whether the selected provider has a saved, readable key.
+The Audio Engine checks provider authorization and applies voice policy at session open.
+
+You can select either provider before saving its key. The selection applies to
+the next Live Talk open, including reconnect. Live Talk has no automatic provider
+fallback. Grok uses the fal key shared by translation and cloud dictation.
+`fal.model` applies to translation. Removing a key ends sessions that depend
+on that key. Saving and removing keys preserve the Live Talk provider selection.
 
 `dictation.assistant-entry` contains the saved desktop recognition preference and
 its Engine-derived status. `primaryProfileId` is `zipformer` or `fal-whisper`.
@@ -100,7 +207,8 @@ report `SETTINGS_UNREADABLE` instead of pretending to be defaults. An unsupporte
 system language reports `UNSUPPORTED_LANGUAGE`; the Taku Audio app locale does
 not choose the recognition language.
 
-Only the desktop hold gesture and desktop text-field microphone use this scope.
+The desktop hold gesture, desktop microphone, and Live Talk use this scope.
+The full-chat microphone reads the saved language from this scope and uses local Zipformer.
 An active recording keeps its selected settings. The next recording uses the
 latest preference. Static fallback may select the saved alternate once before
 capture for missing local models, unsupported backend language, or an absent
@@ -149,9 +257,9 @@ characters, or commas inside it. Only a masked summary can be returned. The
 private engine credential getter, runtime read and subscription, translation
 operations, and inference are not public settings actions.
 
-The text translation scene remains `org.agentos.audio.text` in
-`taku_magpie_scene_bindings`. An unbound scene reports that text translation is
-not configured. A binding change during a session requires restarting that
+The text translation scene remains `org.agentos.audio.text` in the `scenes`
+object of `taku_system_ai_config`. An unbound scene reports that text translation
+is not configured. A binding change during a session requires restarting that
 session. This route is separate from the fal default model.
 
 Check installation with `pm list packages org.agentos.audio`. The desktop

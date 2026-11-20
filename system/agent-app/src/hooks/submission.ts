@@ -11,11 +11,8 @@ export type PendingSubmission = {
   baselineTurnIds?: string[];
 };
 
-/** A retry must reuse the same request object and its durable gateway receipt. */
-export async function requestReceiptWithRetry<T>(request: () => Promise<T>): Promise<T> {
-  try { return await request(); }
-  catch { return await request(); }
-}
+export const pendingKey = (threadId: string) => `taku.agent.pending.v1.${threadId}`;
+export const unconfirmedArchivePrefix = (threadId: string) => `taku.agent.unconfirmed.v1.${threadId}.`;
 
 /** Explicitly leave an ambiguous request without replaying it or discarding its evidence. */
 export async function preserveAndReleaseUnconfirmed(stored: string, storage: {

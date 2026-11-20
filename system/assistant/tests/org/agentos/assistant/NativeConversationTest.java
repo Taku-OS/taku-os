@@ -62,7 +62,6 @@ public final class NativeConversationTest {
                 .put("content", new JSONArray().put(new JSONObject().put("type", "text").put("text", englishAttachment)));
         user = AgentConversation.read(thread).entries.get(0);
         check(user.text.isEmpty() && user.attachments.get(0).equals("notes.txt"), "English broker file envelope also becomes an attachment label");
-        turnPresentation();
         primaryProjection();
         staleTaskDoesNotBecomeLiveTurn();
         System.out.println("PASS NativeConversationTest: " + checks + " assertions (protocol fixtures only)");
@@ -94,56 +93,6 @@ public final class NativeConversationTest {
                         .contains("History is not fully loaded"), "cold metadata is never presented as loaded full history");
     }
 
-    static void turnPresentation() throws Exception {
-        JSONObject record = object("{id:'grouping',turns:[{id:'native-turn',status:'inProgress',items:["
-                + "{id:'u',type:'userMessage',content:[{type:'text',text:'开始'}]},"
-                + "{id:'c',type:'agentMessage',phase:'commentary',text:'检查中文输入'},"
-                + "{id:'a',type:'agentMessage',phase:'final_answer',text:'正文第一段'},"
-                + "{id:'x',type:'commandExecution',status:'completed',exitCode:0},"
-                + "{id:'c2',type:'agentMessage',phase:'commentary',text:'继续处理'},"
-                + "{id:'a2',type:'agentMessage',phase:'final_answer',text:'正文第二段'}]}]}");
-        java.util.List<NativeTurnPresentation.Block> blocks = NativeTurnPresentation.blocks(AgentConversation.read(record));
-        check(blocks.size() == 2, "one native user and one assistant group, no workflow");
-        NativeTurnPresentation.Block block = blocks.get(1);
-        check(block.activities.size() == 3 && block.answers.size() == 2, "native phases separate commentary and final answer");
-        check(block.answerText().equals("正文第一段\n\n正文第二段"), "answer segments stay in order across tools");
-        check(block.active && !block.terminal() && block.stateLabel().equals("Replying…"), "tool completion is not turn completion");
-        check(block.key.equals("turn/native-turn/after/u"), "native identity anchors stable group");
-        JSONObject turn = record.getJSONArray("turns").getJSONObject(0);
-        JSONArray items = turn.getJSONArray("items");
-        items.remove(5); items.remove(2);
-        block = NativeTurnPresentation.blocks(AgentConversation.read(record)).get(1);
-        check(block.stateLabel().equals("Waiting for reply…"), "tool-to-answer gap stays active");
-        items.put(object("{id:'steer',type:'userMessage',content:[{type:'text',text:'同轮追加'}]}"));
-        items.put(object("{id:'tail',type:'agentMessage',phase:'final_answer',text:'追加后的答复'}"));
-        blocks = NativeTurnPresentation.blocks(AgentConversation.read(record));
-        check(blocks.size() == 4 && blocks.get(2).user.text.equals("同轮追加"), "steer retains its native position");
-        check(!blocks.get(1).active && blocks.get(3).active, "only last segment awaits new content");
-        check(blocks.get(3).key.equals("turn/native-turn/after/steer"), "steer group has stable native anchor");
-        turn.put("status", "interrupted");
-        block = NativeTurnPresentation.blocks(AgentConversation.read(record)).get(3);
-        check(block.terminal() && !block.active && block.stateLabel().equals("This turn stopped"), "interrupted partial answer remains readable");
-        JSONObject legacy = object("{id:'legacy',turns:[{id:'t',status:'completed',items:["
-                + "{id:'a',type:'agentMessage',text:'旧过程'},"
-                + "{id:'b',type:'agentMessage',phase:'future_phase',text:'保留未知公开阶段'},"
-                + "{id:'tool',type:'commandExecution',status:'completed',exitCode:2},"
-                + "{id:'c',type:'agentMessage',text:'旧正文'}]}]}");
-        block = NativeTurnPresentation.blocks(AgentConversation.read(legacy)).get(0);
-        check(block.activities.size() == 2 && block.answers.size() == 2, "legacy fallback keeps trailing and unknown-phase text visible");
-        check(block.failures() == 1 && block.terminal(), "nonzero command exit remains a failure in collapsed summary");
-        for (String status : new String[]{"interrupted", "failed", "cancelled"}) {
-            JSONObject emptyTurn = object("{id:'early-stop',turns:[{id:'t',items:[{id:'u',type:'userMessage',content:[{type:'text',text:'开始'}]}]}]}");
-            emptyTurn.getJSONArray("turns").getJSONObject(0).put("status", status);
-            java.util.List<NativeTurnPresentation.Block> stopped = NativeTurnPresentation.blocks(AgentConversation.read(emptyTurn));
-            check(stopped.size() == 2 && stopped.get(0).user != null && stopped.get(1).terminal(),
-                    "early " + status + " retains native end state without a phantom block before user");
-        }
-        check(NativeTurnPresentation.visibleText("中", true).equals("中"), "first Chinese character has no word threshold");
-        check(NativeTurnPresentation.visibleText("中文\uD83D", true).equals("中文"), "hold unfinished emoji pair");
-        check(NativeTurnPresentation.visibleText("中文😊", true).equals("中文😊"), "complete emoji appears with Chinese immediately");
-        check(NativeTurnPresentation.blocks(AgentConversation.read(object("{id:'empty',turns:[]}"))).isEmpty(), "no fixed process for empty conversation");
-    }
-
     static void primaryProjection() throws Exception {
         String readable = "消费明细\n咖啡\n12.50 USD\n继续";
         JSONObject reply = new JSONObject().put("schema", "taku.main-reply/1").put("id", "reply-one").put("readableText", readable)
@@ -159,12 +108,8 @@ public final class NativeConversationTest {
         JSONObject turn = new JSONObject().put("id", "turn").put("status", "completed")
                 .put("mainReplies", new JSONObject().put("reply-one", reply)).put("items", items);
         JSONObject record = new JSONObject().put("id", "thread").put("turns", new JSONArray().put(turn));
-        AgentConversation conversation = AgentConversation.read(record);
-        NativeTurnPresentation.Block primary = NativeTurnPresentation.blocks(conversation).get(1);
-        check(primary.answers.size() == 1 && primary.answerText().equals(readable), "native human answer and Copy use only the canonical primary projection");
-        check(primary.activities.size() == 4, "same-anchor commentary and tools remain visible outside the primary answer");
         check(AgentConversation.lastReply(record).equals(readable), "later commentary and empty source aliases cannot replace the primary background summary");
-        check(items.getJSONObject(3).isNull("phase") && items.getJSONObject(5).isNull("phase"), "presentation classification does not mutate native source phases");
+        check(items.getJSONObject(3).isNull("phase") && items.getJSONObject(5).isNull("phase"), "background summary does not mutate native source phases");
         reply.put("readableText", "");
         check(AgentConversation.lastReply(record).isEmpty(), "an empty failed primary reply cannot fall back to commentary as its result");
         reply.put("readableText", readable);
@@ -172,8 +117,6 @@ public final class NativeConversationTest {
         check(AgentConversation.lastReply(record).isEmpty(), "a newer user anchor cannot inherit the preceding primary answer");
         items.put(new JSONObject().put("id", "ordinary").put("type", "agentMessage").put("phase", "final_answer").put("text", "普通文本答案"));
         check(AgentConversation.lastReply(record).equals("普通文本答案"), "ordinary prose at a later user anchor remains the background answer");
-        java.util.List<NativeTurnPresentation.Block> blocks = NativeTurnPresentation.blocks(AgentConversation.read(record));
-        check(blocks.get(3).answerText().equals("普通文本答案"), "a preceding primary reply cannot hide a later ordinary answer");
         record.getJSONArray("turns").put(new JSONObject().put("id", "next").put("status", "failed").put("items", new JSONArray()
                 .put(new JSONObject().put("id", "tool").put("type", "commandExecution").put("status", "failed"))));
         check(AgentConversation.lastReply(record).isEmpty(), "a new turn without an answer cannot report the preceding reply as its result");

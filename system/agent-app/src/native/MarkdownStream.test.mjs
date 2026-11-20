@@ -1,6 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {advanceMarkdown, completedMarkdownBoundary, repairMarkdownTail} from './MarkdownStream.ts';
+import {advanceMarkdown, completedMarkdownBoundary, markdownSpeechText, repairMarkdownTail} from './MarkdownStream.ts';
+
+test('reply playback reads prose and inline code without markup, URLs, or code blocks', () => {
+  const reply = '# Summary\n\nOpen [settings](https://example.test) and select `en-US`.\n\n```sh\necho debug\n```\n\n![Graph](graph.png)';
+  assert.equal(markdownSpeechText(reply), 'Summary\nOpen settings and select en-US.');
+});
 
 test('freeze complete blocks with source-offset keys and retain their object identities', () => {
   const first = advanceMarkdown(undefined, '# Hello\n\n正文 first\n\nLive', true);

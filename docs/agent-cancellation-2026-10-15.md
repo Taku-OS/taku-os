@@ -10,7 +10,7 @@ A dedicated Android 16 emulator made real model calls and used the actual stop b
 
 One retest read history before the native completion event and misclassified a transient state as final interruption; the failure log is retained. Acceptance now waits for native `turn/completed` and then verifies its status against persisted history, without inferring success from model text or tool completion status.
 
-Retest: `bash system/assistant/test-turn-cancellation.sh`. Only `Taku_ImageIntegration_20261010 / emulator-5634` is accepted; current components must already be installed and the device already logged in. It does not log in, log out, or change accounts. See the [acceptance record](../evidence/builds/2026-10-15-turn-cancellation.json).
+Run `bash system/assistant/test-turn-cancellation.sh` on `Taku_ImageIntegration_20261010` at `emulator-5634` with the current Expo and Kotlin Assistant components and an existing account. The test clicks Expo's Stop control and checks the target shell and nested process directly. The [acceptance record](../evidence/builds/2026-10-15-turn-cancellation.json) describes the original run.
 
 This mechanism is not a production sandbox and does not undo system operations that already happened. Long-running services that deliberately detach from the process tree, independent plugin lifecycles, and complete physical-device acceptance still require separate validation.
 

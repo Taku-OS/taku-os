@@ -2,21 +2,27 @@
 import type {VoicePhase, VoiceSnapshot} from '../native/voice';
 
 /** Engine and session codes → a short reason for the toast. */
-export type DictationFailure = 'unavailable' | 'disabled' | 'busy';
+export type DictationFailure = 'unavailable' | 'disabled' | 'busy' | 'draftChanged' | 'draftFull';
 
 export function failureOf(code: string | null | undefined): DictationFailure {
   if (code === 'POLICY_DISABLED' || code === 'POLICY_REVOKED' || code === 'CONSUMER_NOT_AUTHORIZED' || code === 'PERMISSION_DENIED') return 'disabled';
-  if (code === 'RESOURCE_BUSY' || code === 'CAPTURE_SILENCED') return 'busy';
+  if (code === 'RESOURCE_BUSY' || code === 'VOICE_BUSY' || code === 'CAPTURE_SILENCED') return 'busy';
   return 'unavailable';
 }
 
-/** Chinese runs together; other scripts get a space. */
-export function appendDictation(draft: string, heard: string): string {
+export type DraftSelection = {start: number; end: number};
+
+const joinsWords = (left: string, right: string) => /[\p{L}\p{N}]$/u.test(left) && /^[\p{L}\p{N}]/u.test(right)
+  && !/\p{Script=Han}$/u.test(left) && !/^\p{Script=Han}/u.test(right);
+
+export function insertDictation(draft: string, selection: DraftSelection, heard: string) {
+  const start = Math.max(0, Math.min(selection.start, selection.end, draft.length));
+  const end = Math.max(start, Math.min(Math.max(selection.start, selection.end), draft.length));
   const text = heard.trim();
-  if (!text) return draft;
-  const base = draft.replace(/\s+$/, '');
-  if (!base) return text;
-  return /[㐀-鿿　-〿＀-￯]$/.test(base) || /^[㐀-鿿]/.test(text) ? base + text : `${base} ${text}`;
+  if (!text) return {text: draft, caret: end};
+  const before = draft.slice(0, start), after = draft.slice(end);
+  const inserted = (joinsWords(before, text) ? ' ' : '') + text + (joinsWords(text, after) ? ' ' : '');
+  return {text: before + inserted + after, caret: start + inserted.length};
 }
 
 /** The outcome fields of a closed snapshot; `null` means it never reported how it ended. */

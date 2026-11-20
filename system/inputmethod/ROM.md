@@ -1,6 +1,6 @@
 # ROM-preinstalled input method and shared AI
 
-Input-method functionality remains 0.4.0 with ROM release code 10062. Assistant 64 and Memory 8 retain their features. Increasing release codes lets the new system versions supersede existing `/data/app` updates without uninstalling or clearing data. Input-method settings, model choices, and source allowlists remain in each app's data directory; system model configuration and subscription sign-in remain in device-private data.
+The input method remains at feature version 0.4.0. The assistant migration increases the ARM64 keyboard candidate to version code 10072 so Android can supersede existing code-10062 updates. Input-method settings, model choices, and source allowlists remain in each app's data directory. System model configuration and subscription sign-in remain in device-private data.
 
 ## Build inputs
 
@@ -14,6 +14,8 @@ python3 system/inputmethod/prepare-rom.py --verify-only
 ```
 
 `prebuilt/TakuInputMethod.apk` is not committed. `rom-input-lock.json` pins APK SHA-256, signing certificate, release version, and source patch inputs. Snapshot creation explicitly includes the ignored artifact. Source changes or different rebuilt artifacts require review of a new release lock; old hashes cannot be reused.
+
+The keyboard's **Taku AI 系统设置** button opens `org.agentos.action.AI_SETTINGS` in `org.agentos.agent`. The reply bar's account button uses the same action with `section=account`, which opens the account page of those settings. Older keyboard APKs reach Expo through the backend's forwarding activity. The ROM lock remains bound to code 10062 until the key owner signs code 10072 with the original IME signing certificate and the new artifact and source hashes are verified. The key owner can sign the aligned APK in place on their signing host. The standalone development APK uses a separate certificate.
 
 On 2026-10-31, the ROM variant was rebuilt from main `f15eec1` patches and signed locally on the MacBook Air holding the original key. APK SHA-256 was `3722bdc2518fb5744819b481bed2f7b505bfc8b089949a213142e40b3484b1ca`, with the same certificate as the existing ROM lock. Source/submodule verification, release build/unit tests, APK v2/v3 signing, package identity, 24 JNI entries, CRC, and 16 KiB alignment passed. It was not installed on a device in that run. Release code remained 10062; whether a same-version data-partition update shadows it at runtime requires separate device acceptance.
 
@@ -32,7 +34,7 @@ python3 system/ai/verify-rom.py path/to/target-files.zip \
   --aapt2 /path/to/aapt2 --output /path/to/system-ai-rom.json
 ```
 
-Checks cover exact IME bytes in ROM; all three app versions; Assistant settings/Provider DEX class_defs; Broker shared-AI/screenshot/deduplication classes; exact native files/hashes; both symlink targets and fs_config root ownership/tool execution permissions; startup scripts/init files matching immutable source; and exclusion of private runtime state. Passing establishes artifact validity, not a booted phone or successful suggestions.
+Checks cover the pinned IME bytes, the Assistant and Agent pair's package names, version codes, signing compatibility, Manifest entries and DEX definitions, and the Memory version. They also cover Broker shared-AI classes, native files and symlinks, startup files, and exclusion of private runtime state. Verify cold startup and real suggestions on the booted device.
 
 Existing `taku_broker` and `taku_magpie` init services start at `sys.boot_completed=1`, retaining userdebug's su domain. This change only creates the root-owned 0700 AI configuration directory; it adds no production SELinux domain or elevated IME permissions. Startup wrappers restore loopback-gateway UID rules and use existing phone sign-in from the original `CODEX_HOME`. ROM contains no account tokens, provider keys, management keys, or preset personal model configuration.
 
