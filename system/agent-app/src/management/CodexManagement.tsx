@@ -1,6 +1,5 @@
 import {useCallback, useState} from 'react';
-import {useFocusEffect} from 'expo-router';
-import {callAgent} from '../native/agent';
+import {useFocusEffect, useRouter} from 'expo-router';
 import {Button, Card, confirm, Copy, Details, Field, manage, Status, useManagementData, useOperation} from './controls';
 
 type Plugin = {
@@ -135,7 +134,7 @@ function McpToolPanel({threadId, selection: {server, tool, definition}, close}: 
   threadId: string; selection: ToolSelection; close: () => void;
 }) {
   const {busy, error, run} = useOperation();
-  const requests = useOperation();
+  const router = useRouter();
   const [args, setArgs] = useState('{}');
   const [result, setResult] = useState<ToolResult>();
   const invoke = () => void run(async () => {
@@ -153,10 +152,7 @@ function McpToolPanel({threadId, selection: {server, tool, definition}, close}: 
       <Details label="argument schema" value={definition.inputSchema}/>
       <Field label="Tool arguments (JSON object)" value={args} onChangeText={setArgs} editable={!busy} multiline autoCorrect={false}/>
       <Button label="Call tool" disabled={busy} onPress={invoke}/>
-      {busy && <Button label="Open pending requests" disabled={requests.busy} onPress={() => void requests.run(async () => {
-        await callAgent('requests/open', {threadId});
-      })}/>}
-      <Status busy={requests.busy} error={requests.error}/>
+      {busy && <Button label="Open pending requests" onPress={() => router.push({pathname: '/assistant-management', params: {section: 'requests', threadId}})}/>}
       <Button label="Back to MCP tools" disabled={busy} onPress={close}/>
     </Card>
     {result && <Card title={result.isError ? 'Tool reported an error' : 'Tool result'}>

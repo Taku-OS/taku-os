@@ -35,6 +35,7 @@ import {emptyPreview, PREVIEW_FRESH_MS, PREVIEW_LOAD_TIMEOUT_MS, PREVIEW_REFRESH
 import {rowDemand, sameBand, visibleBand, type CardDemand, type RowBand} from '../chat/cardDemand';
 import {ComposerTools} from '../chat/ComposerTools';
 import type {ComposerAttachment, ComposerRecovery} from '../hooks/composerDraft';
+import {attachmentPreviewUri} from '../native/composerPicker';
 import type {ComposerPickerKind} from '../native/composerPicker';
 
 const colors = {...baseColors, ink: chatColors.textPrimary, secondary: chatColors.textSecondary,
@@ -78,7 +79,6 @@ export interface AgentChatScreenProps {
   onRefresh: () => void;
   onAnswer: (key: string, response: Json) => void;
   onOpenWorkspace: (workspace: WorkspaceView) => void;
-  onOpenRequest: (key?: string) => void;
   onClose: () => void;
   onOpenHistory?: () => void;
   renderMarkdown?: (text: string, active: boolean, itemId: string) => ReactNode;
@@ -374,6 +374,9 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
   const positions = useRef<Record<string, {y: number; follow: boolean}>>({});
   const restoreY = useRef<number | null>(null);
   const sessionId = props.session?.id || '';
+  // Requests the cards cannot answer in place are handled on the pending-requests page.
+  const openRequests = (requestKey?: string) => router.push({pathname: '/assistant-management',
+    params: {section: 'requests', ...(sessionId ? {threadId: sessionId} : {}), ...(requestKey ? {requestKey} : {})}});
   const live = useLiveTalk(props.draftSessionId, props.loading, props.onSelectThread);
   const pendingSubmission = props.pendingSubmission?.threadId === props.draftSessionId ? props.pendingSubmission : null;
   const viewKey = `${props.conversationKey ?? sessionId}/${taskView ? 'tasks' : 'chat'}`;
@@ -540,8 +543,8 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
       ListFooterComponent={<View style={styles.stack}>
       {!!props.workspaceError && <Label role="meta" style={styles.secondary}>{props.workspaceError}</Label>}
       {workspaces.map(workspace => <WorkspaceCard key={`${workspace.screenKey}/${workspace.generation}`} workspace={workspace} language={language} onPress={() => props.onOpenWorkspace(workspace)}/>)}
-      {props.session?.questions.map(question => <PendingCard key={question.key} question={question} language={language} busy={props.busy} onAnswer={props.onAnswer} onOpenRequest={() => props.onOpenRequest(question.key)}/>)}
-      {!!props.session?.nativeOnlyRequests && <View style={styles.question}><Label role="label">{t('needsYou')}</Label><Pressable accessibilityRole="button" onPress={() => props.onOpenRequest()} style={styles.answerButton}><Label role="meta">{language === 'zh' ? '查看待处理请求' : 'Review pending requests'}</Label></Pressable></View>}
+      {props.session?.questions.map(question => <PendingCard key={question.key} question={question} language={language} busy={props.busy} onAnswer={props.onAnswer} onOpenRequest={() => openRequests(question.key)}/>)}
+      {!!props.session?.nativeOnlyRequests && <View style={styles.question}><Label role="label">{t('needsYou')}</Label><Pressable accessibilityRole="button" onPress={() => openRequests()} style={styles.answerButton}><Label role="meta">{language === 'zh' ? '查看待处理请求' : 'Review pending requests'}</Label></Pressable></View>}
       {taskFailure && <FailedTaskCard key={taskFailure.taskId} failure={taskFailure} language={language} busy={props.busy || props.loading} onRestore={props.onRestoreFailedTask}/>}
       {props.recovery.map(entry => <View key={entry.id} style={styles.pendingSubmission}>
         {!!entry.text && <OriginalRequestPreview text={entry.text} language={language}/>}
@@ -585,6 +588,7 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
     {!dictating && props.attachments.length > 0 && <ScrollView horizontal style={styles.attachmentStrip} keyboardShouldPersistTaps="handled">
       {props.attachments.map(item => <Pressable key={item.id} accessibilityRole="button" disabled={props.busy || props.loading}
         accessibilityLabel={`${language === 'zh' ? '移除附件' : 'Remove attachment'} ${item.name}`} onPress={() => props.onRemoveAttachment(item.id)} style={styles.attachmentChip}>
+        {item.mime.startsWith('image/') && <Image source={{uri: attachmentPreviewUri(sessionId, item.id)}} resizeMode="cover" style={styles.attachmentThumb}/>}
         <Label role="meta" numberOfLines={1} style={styles.attachmentLabel}>{item.name}</Label><Icon name="close" size={16} color={chatColors.icon}/>
       </Pressable>)}
     </ScrollView>}
@@ -708,6 +712,7 @@ const styles = StyleSheet.create({
   attachmentStrip: {flexGrow: 0},
   attachmentChip: {flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44, paddingHorizontal: 12, marginRight: 8, borderRadius: 16, backgroundColor: chatColors.surfaceRaised},
   attachmentLabel: {maxWidth: 180},
+  attachmentThumb: {width: 36, height: 36, borderRadius: 8, marginLeft: -4, backgroundColor: chatColors.fillControl},
   composer: {minHeight: 64, flexDirection: 'row', backgroundColor: chatColors.composer,
     borderRadius: 32, padding: 12, gap: 0},
   input: {flex: 1, minWidth: 0, paddingHorizontal: 0, paddingVertical: 8, margin: 0},

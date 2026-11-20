@@ -240,6 +240,7 @@ The system Settings entry, input method, Memory and chat all open the same Taku 
 ```sh
 D=content://org.agentos.assistant.open-access
 am start -a org.agentos.action.AI_SETTINGS -p org.agentos.agent
+am start -a org.agentos.action.AI_SETTINGS -p org.agentos.agent --es section account
 content call --uri "$D" --method readTaskDetail --arg '{"taskId":"TASK_ID"}'
 content call --uri "$D" --method accounts/read
 content call --uri "$D" --method accounts/refresh
@@ -251,7 +252,8 @@ content call --uri "$D" --method accounts/saveKey --arg '{"id":"PROVIDER_ID","re
 content call --uri "$D" --method accounts/removeKey --arg '{"id":"PROVIDER_ID","ref":"KEY_REF"}'
 content call --uri "$D" --method accounts/openMagpie
 content call --uri "$D" --method requests/list --arg '{"threadId":"THREAD_UUID"}'
-content call --uri "$D" --method requests/open --arg '{"threadId":"THREAD_UUID","key":"REQUEST_UUID"}'
+content call --uri "$D" --method requests/read --arg '{"threadId":"THREAD_UUID","key":"REQUEST_UUID"}'
+content call --uri "$D" --method requests/submit --arg '{"threadId":"THREAD_UUID","key":"REQUEST_UUID","values":{"FIELD_ID":"VALUE"}}'
 content call --uri "$D" --method requests/cancel --arg '{"threadId":"THREAD_UUID","key":"REQUEST_UUID"}'
 ```
 
@@ -263,7 +265,13 @@ Sign-in, key entry and Magpie management live in Taku AI settings (`/system-ai?s
 
 `accounts/openMagpie` opens the device's Magpie management console in the browser and returns `{opened:true}`. The console's access link stays inside the system service. It returns `MAGPIE_MANAGEMENT_UNAVAILABLE` when Magpie is not running and `BROWSER_UNAVAILABLE` when no browser can open the page.
 
-`requests/list` returns `{threadId,key,method,secure}` for each supported pending request. Use `threadId:""` for runtime-wide requests. `requests/respond` accepts `{threadId,key,response}`. For a normal question, `response` follows the conversation's answer payload. Extension tool results take `response:{text}` and native permission, file and command approvals take `response:{decision:"accept"}`. Requests marked `secure` return `SECURE_INPUT_REQUIRED` on a direct response. Open the Kotlin form to provide the answer, complete an MCP authorization, or submit existing external account authorization or attestation. The upstream device attestation service must supply an existing token. Taku does not issue one. A different thread, stale request or repeated response returns `REQUEST_EXPIRED`.
+`requests/list` returns `{threadId,key,method,secure,inline}` for each supported pending request. Use `threadId:""` for runtime-wide requests, and address each request with the `threadId` it was listed with. `inline` requests are the question cards a conversation answers in place; the rest appear on Taku Agent's Pending requests page (`/assistant-management?section=requests`), which uses these same methods. There is no separate native request page.
+
+`requests/read` returns the request as a form: `{threadId,key,method,secure,inline,kind,url,details,fields}`. `kind` is `attestation`, `accountAuthorization`, `mcp`, `questions`, `toolResult`, `permissionApproval`, `commandApproval`, `fileChangeApproval` or `action`. `details` is the text to show (reason, command, requested permissions, MCP message or tool name). `url` is an HTTPS page an MCP request asks the user to open, or empty. Each field is `{id,label,secret,required,type,multiline,options}` with `type` `string`, `boolean`, `integer` or `number`. A request with no fields is an approval.
+
+`requests/submit` answers a request from its form: `values` maps field ids to strings (`"true"`/`"false"` and decimal text for typed MCP fields), and an approval takes `values:{}`. Secret fields may instead be supplied as a JSON object of `{fieldId:value}` in a regular read-only file descriptor in `extras["credential"]`; naming a field in both places returns `KEY_SOURCE_AMBIGUOUS`. A missing required field, an unknown field or a value that does not match its type returns `INVALID_ARGUMENT`. `requests/cancel` declines the request.
+
+`requests/respond` accepts `{threadId,key,response}` with the runtime's own payload. For a normal question, `response` follows the conversation's answer payload. Extension tool results take `response:{text}` and native permission, file and command approvals take `response:{decision:"accept"}`. Requests marked `secure` carry or ask for a secret: MCP requests, questions with a secret field, external account authorization and device attestation. Root, system and shell callers can read and answer them; a third-party app gets `SECURE_INPUT_REQUIRED`. The upstream device attestation service must supply an existing token. Taku does not issue one. A different thread, stale request or repeated response returns `REQUEST_EXPIRED`; an unconfirmed response returns `REQUEST_RESPONSE_FAILED`.
 
 Task detail returns `{taskId,state,prompt,message}`. The task ID is a decimal string. Missing and unreadable task records return `TASK_NOT_FOUND` and `TASK_UNAVAILABLE` respectively. Context usage is available as `thread/usage` with `{threadId,usage}`. A `null` usage value indicates the source has not published usage for this thread.
 

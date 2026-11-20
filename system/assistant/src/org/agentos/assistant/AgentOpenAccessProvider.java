@@ -78,6 +78,8 @@ public final class AgentOpenAccessProvider extends ContentProvider {
             }
         }
         int callerPid = Binder.getCallingPid();
+        // The on-device Agent, as opposed to a third-party app holding a granted scope.
+        boolean agent = caller == 0 || caller == android.os.Process.SYSTEM_UID || caller == android.os.Process.SHELL_UID;
         boolean composer = method.startsWith("composer/") && !AgentGatewayProtocol.COMPOSER_IMPORT.equals(method);
         Context context = getContext();
         if (composer || method.startsWith("capture/") || method.startsWith("accounts/") || method.startsWith("requests/") ||
@@ -148,10 +150,9 @@ public final class AgentOpenAccessProvider extends ContentProvider {
             else if (method.startsWith("capture/")) result = AssistantCaptureBackend.execute(context, method, input);
             else if (method.startsWith("accounts/")) {
                 // A granted third-party app sees sign-in progress, not the one-time code or its page.
-                boolean agent = caller == 0 || caller == android.os.Process.SYSTEM_UID || caller == android.os.Process.SHELL_UID;
                 result = AssistantAccounts.command(context, method, input, extras, agent);
             }
-            else if (method.startsWith("requests/")) result = AssistantRequests.execute(context, method, input);
+            else if (method.startsWith("requests/")) result = AssistantRequests.execute(method, input, extras, agent);
             else if (method.equals("manageAssistant")) result = AssistantManagement.execute(context, AssistantManagement.parse(arg), extras);
             else if (method.equals("readTaskDetail")) {
                 result = TaskDetails.read(context.getFilesDir(), AgentGatewayProtocol.request(method, arg).getString("taskId"));

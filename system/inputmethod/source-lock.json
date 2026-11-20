@@ -55,7 +55,7 @@
     "settings.gradle.kts": "fea61d65e07021d4a35131e25d84f0262c77ce11cdb0838131e14b0482a79fe2",
     "app/src/main/java/org/fcitx/fcitx5/android/input/FcitxInputMethodService.kt": "f6ede94b162eaba6dedb5e452e56e5f87cf64c4e630fb6019ab075bb1f051c86",
     "app/src/main/AndroidManifest.xml": "d58a7c0c1f68fad0565a64151328bc2c46c14a55caeb53342fc4cfd8665117b0",
-    "app/src/main/java/org/fcitx/fcitx5/android/input/ai/AiRepliesBar.kt": "6b274d80dd86f2ed02bb00ea3ae000b21e29d2a7b723a1745d2ae0f0aebd7fc6",
+    "app/src/main/java/org/fcitx/fcitx5/android/input/ai/AiRepliesBar.kt": "941d89e5f4e60fb5e8f8e71829573435cd6d0f6511234271fd52430293a5cab1",
     "app/src/main/java/org/fcitx/fcitx5/android/input/ai/AiRepliesSettingsActivity.kt": "46385d238af5a7b17bd68bb44057b61538a17986127d9a5c2eb91e6f273f298a",
     "app/src/main/java/org/fcitx/fcitx5/android/ui/main/MainFragment.kt": "285ae448464ef9f80d378accfff6474519d4671ca3624ed52a7917d102681b92",
     "app/src/main/java/org/fcitx/fcitx5/android/input/InputView.kt": "a2267af1414cdc55f26927398173c4a9cf832d3ce01d2a49217e82299306f080",

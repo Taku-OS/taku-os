@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+ <string name="taku_owner_only">Taku is set up for this phone\'s owner. Switch to the owner profile to use it.</string>
+ <string name="taku_unlock_first">Unlock your phone, then try again.</string>
+ <string name="taku_link_unavailable">Taku couldn\'t open this link.</string>
+ <string name="taku_settings_unavailable">Taku AI settings are unavailable.</string>
+ <string name="taku_home_unavailable">Taku Home is unavailable.</string>
+</resources>

@@ -27,6 +27,8 @@ export type SecretFieldProps = ViewProps & {
   autoFocus?: boolean;
   /** The keyboard's Done key. */
   onSubmitEditing?: () => void;
+  /** An id from `newSecretFieldId`, for a form that submits several fields with `submitSecretFields`. */
+  fieldId?: string;
   ref?: React.Ref<SecretFieldHandle>;
 };
 
@@ -35,8 +37,9 @@ export type SecretFieldProps = ViewProps & {
  * it, but the typed value is held natively and is only ever handed to the system gateway.
  * It renders nothing off-device, where there is no gateway to receive a credential.
  */
-export function SecretField({revealed = false, autoFocus = false, onSubmitEditing, ref, ...props}: SecretFieldProps) {
-  const [fieldId] = useState(newFieldId);
+export function SecretField({revealed = false, autoFocus = false, onSubmitEditing, fieldId: given, ref, ...props}: SecretFieldProps) {
+  const [generated] = useState(newSecretFieldId);
+  const fieldId = given ?? generated;
   const submitted = useRef(onSubmitEditing);
   useEffect(() => { submitted.current = onSubmitEditing; }, [onSubmitEditing]);
   useEffect(() => {
@@ -50,6 +53,6 @@ export function SecretField({revealed = false, autoFocus = false, onSubmitEditin
   return <NativeSecretField {...props} fieldId={fieldId} revealed={revealed} autoFocus={autoFocus}/>;
 }
 
-function newFieldId(): string {
+export function newSecretFieldId(): string {
   try { return newRequestId(); } catch { return `field-${Date.now()}-${Math.random().toString(36).slice(2)}`; }
 }

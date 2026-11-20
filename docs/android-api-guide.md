@@ -746,7 +746,7 @@ settings get system screen_brightness
 **Status:** Verified on an emulator (within the cited evidence). Historical native HOME Chinese drafts and restart readback; current APK minSdk36.
 **Version/device:** Minimum declared API 36; Key method used by the example / project target version. This example starts at API 36. HOME exists in early APIs; this project's assistant APK explicitly requires minSdk36, without promising installation on older versions.; Public APIs require corresponding hardware / OEM support; this inventory covers only AgentOS_ImageCheck ARM64, with no verified physical device
 **Entry point:** HOME Activity / TaskRequests / launcher intents
-**Permissions/authorization:** HOME Intent: Ordinary apps declare HOME; the current Taku assistant uses system UID1000 and a platform test signature, with minSdk36; user selects the default launcher: Ordinary apps declare HOME; the current Taku assistant uses system UID1000 and a platform test signature, with minSdk36; system preinstallation can set the default: Ordinary apps declare HOME; the current Taku assistant uses system UID1000 and a platform test signature, with minSdk36
+**Permissions/authorization:** HOME Intent: Ordinary apps declare HOME; the current Taku Home is HomeActivity in the platform-signed Taku Agent app (org.agentos.agent, ordinary UID); the system-UID assistant backend no longer declares HOME; user selects the default launcher: Ordinary apps declare HOME; the current Taku Home is HomeActivity in the platform-signed Taku Agent app (org.agentos.agent, ordinary UID); the system-UID assistant backend no longer declares HOME; system preinstallation can set the default: Ordinary apps declare HOME; the current Taku Home is HomeActivity in the platform-signed Taku Agent app (org.agentos.agent, ordinary UID); the system-UID assistant backend no longer declares HOME
 
 **Example (Root shell on the phone): **
 
@@ -785,7 +785,7 @@ getSystemService(WindowManager::class.java).addView(TextView(this).apply { text 
 **Limitations:**
 
 - Not a SystemUI permission; system policy constrains overlays on sensitive windows and touch delivery.
-- This project has a NativeHOME pet only, with no verified cross-app pet overlay.
+- The former native HOME pet was removed with the legacy assistant UI; this project has no verified cross-app pet overlay.
 
 **Evidence:** No execution evidence yet.
 **Primary sources:** [android.view.WindowManager](https://developer.android.com/reference/android/view/WindowManager); [Android Manifest permission reference](https://developer.android.com/reference/android/Manifest.permission). Access/registration date 2026-10-10.
@@ -797,19 +797,20 @@ getSystemService(WindowManager::class.java).addView(TextView(this).apply { text 
 **Status:** Research proposal / not yet tested. Source and installed identity were checked, but this inventory lacks complete independent acceptance for global invocation/context capture; HOME tests do not make this item pass.
 **Version/device:** Minimum declared API 21; Key method used by the example / project target version. This example starts at API 21. An API declaration is not a device guarantee; check targetSdk and the OEM branch.; Public APIs require corresponding hardware / OEM support; this inventory covers only AgentOS_ImageCheck ARM64, with no verified physical device
 **Entry point:** VoiceInteractionService / android.intent.action.ASSIST
-**Permissions/authorization:** BIND_VOICE_INTERACTION (service binding): Implement VoiceInteractionService/SessionService and select the default assistant; the current test-signed system app integrates these; default assistant role: Implement VoiceInteractionService/SessionService and select the default assistant; the current test-signed system app integrates these
+**Permissions/authorization:** BIND_VOICE_INTERACTION (service binding): Implement VoiceInteractionService/VoiceInteractionSessionService and select the default assistant; the platform-signed Taku Agent app (org.agentos.agent, ordinary UID) provides SystemAssistantService/SystemAssistantSessionService; default assistant role: Implement VoiceInteractionService/VoiceInteractionSessionService and select the default assistant; the platform-signed Taku Agent app (org.agentos.agent, ordinary UID) provides SystemAssistantService/SystemAssistantSessionService
 
 **Example (Root shell on the phone): **
 
 ```sh
+settings get secure voice_interaction_service
 am start -a android.intent.action.ASSIST
 ```
 
-**Expected result / success criteria:** Opens the current default assistant entry point; not speech recognition or low-power wake-up
+**Expected result / success criteria:** Prints org.agentos.agent/org.agentos.agent.home.assistant.SystemAssistantService in the Taku image, then opens the entry point of that assistant; not speech recognition or low-power wake-up
 
 **Limitations:**
 
-- RecognitionUnavailableService in the Manifest indicates that speech transcription is not implemented.
+- SystemRecognitionService in the Taku Agent Manifest only completes the assistant declaration and answers ERROR_LANGUAGE_NOT_SUPPORTED; speech transcription through RecognitionService is not implemented.
 - The system may redact background/main-screen context; secure content is not promised.
 
 **Evidence:** No execution evidence yet.

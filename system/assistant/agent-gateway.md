@@ -37,7 +37,7 @@ Responses over 256 KiB return `{ok:true,resultUri:"content://org.agentos.assista
 | `answer` | `{threadId,key,response}` | Native response receipt; supported pending request must belong to the same thread |
 | `getWorkspaces` | `{threadId}` | `{schema:"taku.agent-workspaces/1",screens:[lease with previewUri]}` |
 | `openWorkspace` | `{threadId,screenKey,generation}` | `{opened:true}`; opens existing native control UI after exact lease check |
-| `requests/list`, `requests/open`, `requests/respond`, `requests/cancel` | `{threadId,key?,response?}` | Redacted request identities, secure Kotlin input, response, or cancellation |
+| `requests/list`, `requests/read`, `requests/submit`, `requests/respond`, `requests/cancel` | `{threadId,key?,values?,response?}` | Request identities, a request as a form, an answer by form field (secrets in `extras["credential"]`), a raw response, or cancellation |
 | `openSettings` | `{page?:"models"\|"system"\|"workspaces"}` | `{opened:true}` for the matching Expo page |
 | `readTaskDetail` | `{taskId}` | `{taskId,state,prompt,message}` from the native task store |
 | `manageSystemAi`, `manageAssistant` | `{operation,...fields}` | Shared settings or native management result. See `taku-system-ai-settings` and `taku-open-access`. |

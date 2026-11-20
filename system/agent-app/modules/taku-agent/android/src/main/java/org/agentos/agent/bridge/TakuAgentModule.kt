@@ -68,7 +68,11 @@ class TakuAgentModule : Module() {
   /** Written from the intent callbacks and the route read; read by JS on its own thread. */
   @Volatile private var latestThreadId: String? = null
   private val mainHandler = Handler(Looper.getMainLooper())
-  private val composerPicker by lazy { ComposerPicker(mainHandler, appContext.backgroundCoroutineScope, ::callGateway) }
+  private val composerPicker by lazy {
+    ComposerPicker(mainHandler, appContext.backgroundCoroutineScope, ::callGateway) { threadId ->
+      sendEvent("onComposerAttachment", mapOf("threadId" to threadId))
+    }
+  }
   private var observingIme = false
   private var imeObserver: ImeInsetsObserver? = null
   /** Window backdrop of the full-screen chat (2-1); null while another screen shows. */
@@ -89,7 +93,9 @@ class TakuAgentModule : Module() {
       if (chatActivity === activity) { chatActivity = null; detachImeObserver() }
     }
     override fun onActivityCreated(activity: android.app.Activity, state: android.os.Bundle?) {
-      if (activity.javaClass.name == CONVERSATION) chatActivity = activity
+      if (activity.javaClass.name != CONVERSATION) return
+      chatActivity = activity
+      composerPicker.onActivityAvailable(activity)
     }
     override fun onActivityStarted(activity: android.app.Activity) = Unit
     override fun onActivityPaused(activity: android.app.Activity) = Unit
@@ -312,6 +318,30 @@ class TakuAgentModule : Module() {
     }
   }
 
+  /**
+   * Reads the credential on the main thread, where its fields live, then sends it to the gateway
+   * as a read-only descriptor from the background scope. Empties [fieldIds] once accepted.
+   */
+  private fun submitCredential(action: String, params: String, fieldIds: List<String>, promise: Promise, credential: () -> ByteArray) {
+    val context = appContext.reactContext
+    if (context == null) { promise.reject("NATIVE_UNAVAILABLE", "Agent UI is not ready", null); return }
+    val bytes = try { credential() } catch (error: IOException) {
+      promise.reject(error.message ?: "SECRET_FIELD_UNAVAILABLE", "Secret field is unavailable", null); return
+    }
+    appContext.backgroundCoroutineScope.launch {
+      try {
+        val envelope = SecretFields.descriptor(context, bytes).use { descriptor ->
+          callGateway(context.contentResolver, action, params, Bundle().apply { putParcelable("credential", descriptor) })
+        }
+        if (JSONObject(envelope).optBoolean("ok")) mainHandler.post { fieldIds.forEach(SecretFields::clear) }
+        promise.resolve(envelope)
+      } catch (error: Exception) {
+        val code = error.message?.takeIf { Regex("[A-Z][A-Z_]{2,80}").matches(it) } ?: "GATEWAY_UNAVAILABLE"
+        promise.reject(code, "Could not submit the credential", null)
+      }
+    }
+  }
+
   private fun callGateway(resolver: ContentResolver, action: String, params: String, extras: Bundle?): String {
     val response = resolver.call(Uri.parse("content://$authority"), action, params, extras)
       ?: throw IOException("Taku Agent gateway is unavailable")
@@ -338,7 +368,7 @@ class TakuAgentModule : Module() {
 
   override fun definition() = ModuleDefinition {
     Name("TakuAgent")
-    Events("onOpenConversation", "onOpenThread", "onDraft", "onImeInsets", "onSessionEventBatch", "onMatterEventBatch", "onConversationVisibility", "onSecretSubmit")
+    Events("onOpenConversation", "onOpenThread", "onDraft", "onImeInsets", "onSessionEventBatch", "onMatterEventBatch", "onConversationVisibility", "onSecretSubmit", "onComposerAttachment")
     OnCreate {
       SecretFields.onSubmit = { fieldId -> sendEvent("onSecretSubmit", mapOf("fieldId" to fieldId)) }
       val application = appContext.reactContext?.applicationContext as? Application
@@ -348,7 +378,8 @@ class TakuAgentModule : Module() {
       chatActivity = conversationActivity()
       backdropApplication = application
       application?.registerActivityLifecycleCallbacks(backdropLifecycle)
-      application?.let { host -> mainHandler.post { ComposerPicker.prepareCameraCache(host) } }
+      // A picker that was open when the process died reports to the Activity Android restored.
+      mainHandler.post { conversationActivity()?.let(composerPicker::onActivityAvailable) }
       conversationApplication = application
       conversationVisibility = application?.let { host ->
         ConversationVisibility(
@@ -560,27 +591,28 @@ class TakuAgentModule : Module() {
      * The field is emptied once the gateway accepts it.
      */
     AsyncFunction("submitSecret") { fieldId: String, action: String, params: String, promise: Promise ->
-      val context = appContext.reactContext
-      if (context == null) { promise.reject("NATIVE_UNAVAILABLE", "Agent UI is not ready", null); return@AsyncFunction }
       if (action != "accounts/saveKey" && action != "manageAssistant") {
         promise.reject("INVALID_ARGUMENT", "Unsupported secret action", null); return@AsyncFunction
       }
-      val bytes = try { SecretFields.bytes(fieldId) } catch (error: IOException) {
-        promise.reject(error.message ?: "SECRET_FIELD_UNAVAILABLE", "Secret field is unavailable", null); return@AsyncFunction
+      submitCredential(action, params, listOf(fieldId), promise) { SecretFields.bytes(fieldId) }
+    }.runOnQueue(Queues.MAIN)
+
+    /**
+     * The same for a form with several secret fields: [fields] maps each form field name to its
+     * mounted [SecretFieldView], and the gateway receives them as one JSON object.
+     */
+    AsyncFunction("submitSecretFields") { fields: Map<String, String>, action: String, params: String, promise: Promise ->
+      if (action != "requests/submit") {
+        promise.reject("INVALID_ARGUMENT", "Unsupported secret action", null); return@AsyncFunction
       }
-      appContext.backgroundCoroutineScope.launch {
-        try {
-          val envelope = SecretFields.descriptor(context, bytes).use { descriptor ->
-            callGateway(context.contentResolver, action, params, Bundle().apply { putParcelable("credential", descriptor) })
-          }
-          if (JSONObject(envelope).optBoolean("ok")) mainHandler.post { SecretFields.clear(fieldId) }
-          promise.resolve(envelope)
-        } catch (error: Exception) {
-          val code = error.message?.takeIf { Regex("[A-Z][A-Z_]{2,80}").matches(it) } ?: "GATEWAY_UNAVAILABLE"
-          promise.reject(code, "Could not submit the credential", null)
+      submitCredential(action, params, fields.values.toList(), promise) {
+        val secrets = JSONObject()
+        for ((name, fieldId) in fields) {
+          val bytes = SecretFields.bytes(fieldId)
+          try { secrets.put(name, String(bytes, Charsets.UTF_8)) } finally { bytes.fill(0) }
         }
+        secrets.toString().toByteArray(Charsets.UTF_8)
       }
-      Unit
     }.runOnQueue(Queues.MAIN)
 
     AsyncFunction("clearSecret") { fieldId: String ->

@@ -2,34 +2,41 @@ package org.agentos.assistant
 
 import android.app.Activity
 import android.os.Bundle
-import android.widget.Toast
 
 /** Existing notification and shortcut targets address this component by name. */
 class PanelActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val opened = ComposerState.userError(this, android.os.Process.myUid()) == null && runCatching {
+        val opened = runCatching {
             val args = intent.extras ?: Bundle.EMPTY
             when {
                 args.containsKey(TaskNotificationReceiver.EXTRA_TASK_ID) -> openTask(args.getString(TaskNotificationReceiver.EXTRA_TASK_ID))
                 args.containsKey("page") -> openPage(args.getString("page").orEmpty())
-                args.containsKey("conversationId") -> args.getString("conversationId")?.let { AgentFrontendLauncher.openThread(this, it) } == true
-                else -> AgentFrontendLauncher.openRoute(this, "/")
+                else -> openConversation(args.getString("conversationId"))
             }
         }.getOrDefault(false)
-        if (!opened) Toast.makeText(this, "Taku couldn't open this link.", Toast.LENGTH_LONG).show()
+        if (!opened) AgentFrontendLauncher.showUnavailable(this, R.string.taku_link_unavailable)
         finish()
     }
 
-    private fun openPage(page: String): Boolean {
-        val route = when (page) {
-            "modelConnection" -> "/system-ai?section=connection"
-            "account" -> "/system-ai?section=account"
-            "aiUsage" -> "/system-ai?section=usage"
-            "jevConnection" -> "/system-ai?section=jev"
-            else -> return false
-        }
-        return AgentFrontendLauncher.openRoute(this, route)
+    /** Every page an old link can name was a settings page; one this version no longer has opens settings. */
+    private fun openPage(page: String): Boolean = AgentFrontendLauncher.openRoute(this, when (page) {
+        "modelConnection" -> "/system-ai?section=connection"
+        "account" -> "/system-ai?section=account"
+        "aiUsage" -> "/system-ai?section=usage"
+        "jevConnection" -> "/system-ai?section=jev"
+        else -> "/system-ai"
+    })
+
+    /**
+     * The conversation the link names, else the one the user last had open, else a new one. A
+     * link whose conversation id is malformed still opens the chat.
+     */
+    private fun openConversation(requested: String?): Boolean {
+        val last = getSharedPreferences("agent-settings", MODE_PRIVATE).getString("conversation", "").orEmpty()
+        for (thread in listOf(requested.orEmpty(), last))
+            if (AgentGatewayProtocol.isUuid(thread) && AgentFrontendLauncher.openThread(this, thread)) return true
+        return AgentFrontendLauncher.openRoute(this, "/")
     }
 
     private fun openTask(id: String?): Boolean {

@@ -3,7 +3,6 @@ package org.agentos.assistant
 import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
-import android.widget.Toast
 
 /** Old pinned desktop links retain their component identity across package updates. */
 class CodexHomeActivity : Activity() {
@@ -19,7 +18,7 @@ class CodexHomeActivity : Activity() {
 
     private fun forward() {
         if (!AgentFrontendLauncher.openHome(this))
-            Toast.makeText(this, "Taku Home is unavailable.", Toast.LENGTH_LONG).show()
+            AgentFrontendLauncher.showUnavailable(this, R.string.taku_home_unavailable)
         finish()
     }
 }

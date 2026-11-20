@@ -27,6 +27,7 @@ import { callAgent, closeAgent } from "../native/agent";
 import { languageFor } from "../i18n";
 import { accountTextFor, type AccountText } from "../i18n/accounts";
 import { permissionTextFor } from "../i18n/permissions";
+import { routingTextFor } from "../i18n/routing";
 import {
   systemAiTextFor,
   type SystemAiScene,
@@ -39,6 +40,7 @@ import {
 } from "../model/appPermissions";
 import { createNativeAppPermissionsRepository } from "../model/appPermissionsRepository";
 import { ChatGptAccount, OpenRouterKeys } from "../settings/AccountSettings";
+import { ModelRouting } from "../settings/ModelRouting";
 import { useTakuFonts } from "../theme/useTakuFonts";
 import { colors } from "../theme";
 
@@ -431,7 +433,7 @@ export default function SystemAiScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ section?: string }>();
   const section = typeof params.section === "string" && Object.hasOwn(sectionTitles, params.section) ? params.section as Section : null;
-  const setSection = useCallback((next: Section | null) => router.setParams({ section: next ?? "" }), [router]);
+  const setSection = useCallback((next: Section | "routing" | null) => router.setParams({ section: next ?? "" }), [router]);
   const [fonts, fontError] = useTakuFonts();
   const insets = useSafeAreaInsets();
   const palette = useColorScheme() === "dark" ? dark : light;
@@ -443,6 +445,10 @@ export default function SystemAiScreen() {
   // which the screenshot protection for one-time codes and key fields would not cover.
   const accountPage = section === "account";
   const sheetSection = accountPage ? null : section;
+  // Hand-edited model groups and scene bindings are a page of this screen too.
+  const routingPage = params.section === "routing";
+  const routingText = routingTextFor(language);
+  const subPage = accountPage || routingPage;
   const [permissions, setPermissions] = useState<AppPermissionsSnapshot | null>(null);
   const [permissionRepository] = useState(() =>
     createNativeAppPermissionsRepository((action, params) => callAgent(action, params)),
@@ -583,7 +589,7 @@ export default function SystemAiScreen() {
         setScene(null);
         return true;
       }
-      if (section) {
+      if (section || routingPage) {
         setSection(null);
         return true;
       }
@@ -591,7 +597,7 @@ export default function SystemAiScreen() {
       return true;
     });
     return () => sub.remove();
-  }, [back, scene, section, setSection]);
+  }, [back, routingPage, scene, section, setSection]);
   if ((!fonts && !fontError) || (!data && !error))
     return (
       <SafeAreaView style={[styles.center, { backgroundColor: palette.bg }]}>
@@ -625,7 +631,7 @@ export default function SystemAiScreen() {
       />
       <View style={styles.header}>
         <Pressable
-          onPress={accountPage ? () => setSection(null) : back}
+          onPress={subPage ? () => setSection(null) : back}
           accessibilityRole="button"
           accessibilityLabel={t("back")}
           style={styles.back}
@@ -633,7 +639,7 @@ export default function SystemAiScreen() {
           <Text style={{ fontSize: 28, color: palette.ink }}>‹</Text>
         </Pressable>
         <Label color={palette.ink} size={22} medium style={{ flex: 1 }}>
-          {accountPage ? sectionTitles.account : t("title")}
+          {accountPage ? sectionTitles.account : routingPage ? routingText("title") : t("title")}
         </Label>
       </View>
       {accountPage ? (
@@ -642,6 +648,16 @@ export default function SystemAiScreen() {
             <View style={[styles.card, styles.page, { backgroundColor: palette.card }]}>
               <ManagementDetails key="account" section="account" palette={palette} accountText={accountText}
                 onUpdated={() => void refresh()} onManagement={() => void openManagement()} onSelectJev={() => undefined} />
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      ) : routingPage ? (
+        <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
+          <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+            <View style={[styles.card, styles.page, { backgroundColor: palette.card }]}>
+              <ModelRouting palette={palette} t={routingText} groups={data.groups} bindings={data.bindings}
+                sceneName={(id) => featureScenes.some((f) => f.scene === id) ? t.scene(id as SystemAiScene) : undefined}
+                onChanged={() => void refresh()} />
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
@@ -727,6 +743,13 @@ export default function SystemAiScreen() {
                 sub={t("manageSubtitle")}
                 icon="manage"
                 onPress={() => void openManagement()}
+              />
+              <Row
+                palette={palette}
+                title={routingText("title")}
+                sub={routingText("entrySubtitle")}
+                icon="manage"
+                onPress={() => setSection("routing")}
               />
             </View>
             <View style={styles.section}>

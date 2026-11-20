@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Process
+import android.widget.Toast
 
 internal object AgentFrontendLauncher {
     private const val PACKAGE = "org.agentos.agent"
@@ -25,6 +26,20 @@ internal object AgentFrontendLauncher {
         if (!path.startsWith('/') || path.startsWith("//")) return false
         val uri = Uri.parse("taku-agent://$path")
         return uri.encodedPath in routes && start(context, MAIN_ACTIVITY, Intent(Intent.ACTION_VIEW, uri))
+    }
+
+    /**
+     * Tells the user why a link did not open. Taku runs for the phone's owner once the phone has
+     * been unlocked; anyone else gets that reason instead of the caller's [fallback].
+     */
+    @JvmStatic
+    fun showUnavailable(context: Context, fallback: Int) {
+        val reason = when (ComposerState.userError(context, Process.myUid())) {
+            "USER_UNAVAILABLE" -> R.string.taku_owner_only
+            "USER_LOCKED" -> R.string.taku_unlock_first
+            else -> fallback
+        }
+        Toast.makeText(context, reason, Toast.LENGTH_LONG).show()
     }
 
     private fun start(context: Context, activity: String, intent: Intent): Boolean = try {

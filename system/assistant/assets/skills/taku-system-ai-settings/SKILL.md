@@ -6,7 +6,7 @@ description: Inspect and update Taku AI model routing and Taku Audio voice setti
 # Taku AI model settings
 
 The Expo `/system-ai` page and Android content calls use the same backend settings owners.
-Direct sections are `/system-ai?section=connection`, `account`, `usage`, and `jev`.
+Direct sections are `/system-ai?section=connection`, `account`, `usage`, `jev`, and `routing` (hand-edited model groups and scene bindings).
 The background workspace entry opens `/workspaces`.
 
 ```sh
@@ -34,6 +34,9 @@ every voice model is ready.
 
 | Operation | Required fields besides `operation` | Result |
 | --- | --- | --- |
+| `saveGroup` | `id` (`[A-Za-z0-9_-]{1,64}`), `name`, `members` (1–32 model ids in routing order), boolean `create` | `{group}`. `create:true` adds a group with `routing:"order"` and fails with `GROUP_EXISTS` if the id is taken; `create:false` replaces the name and members of an existing group or fails with `GROUP_NOT_FOUND`. Member ids are stored as typed, without a catalog check. Bad input returns `INVALID_GROUP` or `INVALID_MEMBERS`. |
+| `bindScene` | `scene` (`[A-Za-z0-9_.-]{1,128}`), `group` id | Binds any scene id to an existing group. A built-in scene behaves exactly like `bindSystemAi` and returns its undo receipt; any other scene returns `{scene,binding}` without a compatibility check. |
+| `unbindScene` | `scene` | `{scene}`. Removes an added scene's binding. A built-in scene returns `INVALID_SCENE` and an unbound one `SCENE_NOT_FOUND`. |
 | `setApp` | `app` from `readSystemAi.apps[].id`, boolean `enabled` | `{app,enabled}`. Uses the system AI broker's existing app policy. |
 | `readConnection` | None. | `{mode,model,models,running,message,version}` from the current broker. Reconciles composer options with the selected connection. |
 | `selectConnection` | `mode`, `model` | The selected connection. `openai` requires an empty model. `magpie` requires an ID from `readConnection.models`. The broker rejects switching while tasks run or remain queued. |

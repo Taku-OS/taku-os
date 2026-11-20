@@ -121,6 +121,7 @@ class AgentGatewayProvider : ContentProvider() {
                 method == AgentGatewayProtocol.COMPOSER_ATTACH -> ComposerAttachments.attach(context!!, request, extras, callerUid, callerPid)
                 method.startsWith("accounts/") -> AssistantAccounts.command(context!!, method, request, extras, challenge = true)
                 method == "manageAssistant" -> AssistantManagement.execute(context!!, request, extras)
+                method.startsWith("requests/") -> AssistantRequests.execute(method, request, extras, trusted = true)
                 else -> execute(method, request, callerUid)
             }
             val envelope = JSONObject().put("ok", true).put("result", result)
@@ -167,8 +168,6 @@ class AgentGatewayProvider : ContentProvider() {
             "readTaskDetail" -> return TaskDetails.read(context!!.filesDir, input.getString("taskId"))
             "capture/read", "capture/accept", "capture/dismiss", "capture/request", "capture/openConversation" ->
                 return AssistantCaptureBackend.execute(context!!, action, input)
-            "requests/list", "requests/open", "requests/respond", "requests/cancel" ->
-                return AssistantRequests.execute(context!!, action, input)
             "workspaces/list", "workspaces/apps", "workspaces/configure", "workspaces/release", "workspaces/preview", "workspaces/open",
             "workspaces/pause", "workspaces/takeControl", "workspaces/input", "workspaces/returnAndResume", "workspaces/addRequirement", "workspaces/executionStatus" ->
                 return WorkspaceCommands.call(context!!, action, input, callerUid)
@@ -460,6 +459,8 @@ class AgentGatewayProvider : ContentProvider() {
                 val lease = AgentGatewayProtocol.request("openWorkspace", JSONObject().put("threadId", parts[1])
                     .put("screenKey", parts[2]).put("generation", parts[3]).toString())
                 bytes = preview(lease.getString("threadId"), lease.getString("screenKey"), lease.getString("generation"))
+            } else if (parts.size == 2 && parts[0] == "attachment") {
+                bytes = ComposerAttachments.thumbnail(context!!, uri.getQueryParameter("threadId").orEmpty(), parts[1])
             } else throw IOException("UNKNOWN_RESOURCE")
             return openPipeHelper(uri, getType(uri), null, bytes) { output, _, _, _, data ->
                 try {
@@ -582,7 +583,7 @@ class AgentGatewayProvider : ContentProvider() {
 
     override fun getType(uri: Uri): String {
         val path = uri.path!!
-        return if (path.startsWith("/preview/")) "image/jpeg"
+        return if (path.startsWith("/preview/") || path.startsWith("/attachment/")) "image/jpeg"
             else if (path.startsWith("/audio/")) "audio/mp4"
             else if (path.startsWith("/events/") || path.startsWith("/matter-events/") || path.startsWith("/audio-transcript/")) "application/x-ndjson"
             else "application/json"

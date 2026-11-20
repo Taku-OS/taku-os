@@ -305,6 +305,61 @@ final class SystemAiUiBridge {
   private static JSONObject manage(Context c, JSONObject input) throws Exception {
     String operation = string(input, "operation");
     switch (operation) {
+      case "saveGroup": {
+        // A model group typed by hand: its id, name and ordered member model ids.
+        fields(input, "id", "name", "members", "create");
+        String id = string(input, "id"), name = string(input, "name").trim();
+        boolean create = bool(input, "create");
+        JSONArray typed = input.optJSONArray("members"), members = new JSONArray();
+        if (!id.matches("[A-Za-z0-9_-]{1,64}") || name.isEmpty() || name.length() > 120 || typed == null || typed.length() > 32)
+          throw new IOException("INVALID_GROUP");
+        for (int i = 0; i < typed.length(); i++) {
+          Object member = typed.opt(i);
+          if (!(member instanceof String)) throw new IOException("INVALID_MEMBERS");
+          String model = ((String) member).trim();
+          if (model.length() > 512) throw new IOException("INVALID_MEMBERS");
+          for (int n = 0; n < model.length(); n++)
+            if (Character.isISOControl(model.charAt(n))) throw new IOException("INVALID_MEMBERS");
+          if (!model.isEmpty()) members.put(model);
+        }
+        if (members.length() == 0) throw new IOException("INVALID_MEMBERS");
+        JSONArray groups = new JSONArray(value(c, GROUPS, "[]"));
+        int found = -1;
+        for (int i = 0; i < groups.length(); i++)
+          if (id.equals(groups.getJSONObject(i).optString("id"))) { found = i; break; }
+        if (create && found >= 0) throw new IOException("GROUP_EXISTS");
+        if (!create && found < 0) throw new IOException("GROUP_NOT_FOUND");
+        JSONObject group = found < 0 ? new JSONObject().put("id", id).put("routing", "order") : groups.getJSONObject(found);
+        group.put("name", name).put("members", members);
+        if (found < 0) groups.put(group);
+        put(c, GROUPS, groups.toString());
+        return new JSONObject().put("group", group);
+      }
+      case "bindScene": {
+        // Any scene id, including ones this build has no feature row for. The built-in scenes
+        // keep the compatibility checks of bindSystemAi.
+        fields(input, "scene", "group");
+        String scene = string(input, "scene"), id = string(input, "group");
+        if (!scene.matches("[A-Za-z0-9_.-]{1,128}")) throw new IOException("INVALID_SCENE");
+        if (SCENE_IDS.contains(scene))
+          return execute(c, "bindSystemAi", new JSONObject().put("scene", scene).put("group", id));
+        group(new JSONArray(value(c, GROUPS, "[]")), id);
+        JSONObject bindings = new JSONObject(value(c, SCENES, "{}"));
+        bindings.put(scene, "group/" + id);
+        put(c, SCENES, bindings.toString());
+        return new JSONObject().put("scene", scene).put("binding", "group/" + id);
+      }
+      case "unbindScene": {
+        fields(input, "scene");
+        String scene = string(input, "scene");
+        // The built-in features always keep a binding; only added scenes can be removed.
+        if (SCENE_IDS.contains(scene) || !scene.matches("[A-Za-z0-9_.-]{1,128}")) throw new IOException("INVALID_SCENE");
+        JSONObject bindings = new JSONObject(value(c, SCENES, "{}"));
+        if (!bindings.has(scene)) throw new IOException("SCENE_NOT_FOUND");
+        bindings.remove(scene);
+        put(c, SCENES, bindings.toString());
+        return new JSONObject().put("scene", scene);
+      }
       case "setApp": {
         fields(input, "app", "enabled");
         String app = string(input, "app");

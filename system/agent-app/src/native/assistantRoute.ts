@@ -1,5 +1,5 @@
 const scheme = 'taku-agent://';
-const sections = {connection: true, account: true, usage: true, jev: true};
+const sections = {connection: true, account: true, usage: true, jev: true, routing: true};
 const threadIdPattern = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
 const screenKeyPattern = /^task-[a-f0-9]{20}$/;
 

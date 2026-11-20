@@ -22,6 +22,10 @@ const errors: Record<string, string> = {
   USER_UNAVAILABLE: 'Assistant management is unavailable for this Android user.',
   INVALID_CREDENTIAL: 'Enter a valid token.',
   SECRET_EMPTY: 'Enter a token.',
+  REQUEST_EXPIRED: 'This request has ended. Refresh the pending requests.',
+  REQUEST_RESPONSE_FAILED: 'The response was not confirmed. Refresh the pending requests.',
+  REQUEST_UNAVAILABLE: 'This request cannot be shown.',
+  SECURE_INPUT_REQUIRED: 'This request must be answered in Taku Agent.',
   RUNTIME_UNAVAILABLE: 'The native runtime could not complete this operation. Refresh before trying again.',
 };
 

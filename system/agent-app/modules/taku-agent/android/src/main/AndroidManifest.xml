@@ -1,7 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
   <application>
     <activity android:name="org.agentos.agent.bridge.SystemAiEntryActivity" android:exported="true"
-      android:label="@string/taku_ai_title" android:theme="@android:style/Theme.NoDisplay">
+      android:label="@string/taku_ai_title" android:icon="@drawable/taku_ai_settings"
+      android:theme="@android:style/Theme.NoDisplay">
       <intent-filter>
         <action android:name="org.agentos.action.AI_SETTINGS" />
         <category android:name="android.intent.category.DEFAULT" />
@@ -11,14 +12,5 @@
       <meta-data android:name="com.android.settings.summary" android:resource="@string/taku_ai_summary" />
       <meta-data android:name="com.android.settings.order" android:value="-50" />
     </activity>
-    <provider
-      android:name="org.agentos.agent.bridge.ComposerCameraProvider"
-      android:authorities="${applicationId}.composer-camera"
-      android:exported="false"
-      android:grantUriPermissions="true">
-      <meta-data
-        android:name="android.support.FILE_PROVIDER_PATHS"
-        android:resource="@xml/taku_composer_camera_paths" />
-    </provider>
   </application>
 </manifest>

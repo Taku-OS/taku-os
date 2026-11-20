@@ -3,7 +3,7 @@ import {AppState, BackHandler} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {useLocales} from 'expo-localization';
 import {callAgent, closeAgent, consumePanelLaunch, isPanelLaunchConsumed, launchPanelTarget, launchThreadId, newRequestId, onOpenThread, selectConversation, subscribeSession, watchConversationVisible, AgentGatewayError, type PanelTarget} from '../native/agent';
-import {pickComposerAttachment, type ComposerPickerKind} from '../native/composerPicker';
+import {onComposerAttachment, pickComposerAttachment, type ComposerPickerKind} from '../native/composerPicker';
 import {projectSession, projectThreads, projectWorkspaces, record, string, type Json, type SessionView, type ThreadSummary, type WorkspaceView} from '../model/session';
 import {isAcceptedReceipt, isNotSentReceipt, pendingKey, preserveAndReleaseUnconfirmed, unconfirmedArchivePrefix, type PendingSubmission} from './submission';
 import {ComposerDraft, isDraftRevisionConflict, parseComposerSnapshot, type ComposerSnapshot, type ComposerSubmission} from './composerDraft';
@@ -124,6 +124,14 @@ export function useAgentController() {
       PANEL_CONTRACT_MISMATCH: ['Update the Assistant to continue editing this panel.', '请更新 Assistant 后继续修改此面板。'],
       VERSION_CONFLICT: ['The panel changed on another surface. Review it before sending again.', '面板在另一个界面已变化，请核对后再发送。'],
       IDEMPOTENCY_CONFLICT: ['A different request already used this request ID. Start a new message.', '另一个请求已使用此请求 ID，请重新发送。'],
+      ATTACHMENT_TOO_LARGE: ['Attachments must be at most 20 MB. Larger files were not added.', '附件不能超过 20 MB，过大的文件未添加。'],
+      ATTACHMENT_LIMIT: ['A message can carry up to 8 attachments. The rest were not added.', '每条消息最多 8 个附件，其余未添加。'],
+      CAMERA_PERMISSION_DENIED: ['Camera access is off. Allow it for Taku Agent in system settings to take a photo.', '相机权限已关闭。请在系统设置中允许 Taku Agent 使用相机后再拍照。'],
+      ATTACHMENT_UNREADABLE: ['That file could not be read. Choose another file.', '无法读取该文件，请选择其他文件。'],
+      ATTACHMENT_UNAVAILABLE: ['That attachment is no longer available. Add it again.', '该附件已不可用，请重新添加。'],
+      ATTACHMENT_ACCESS_DENIED: ['Taku could not get access to that file. Choose it again.', 'Taku 无法访问该文件，请重新选择。'],
+      PICKER_UNAVAILABLE: ['The attachment picker could not open. Please try again.', '无法打开附件选择器，请重试。'],
+      PICKER_BUSY: ['An attachment picker is already open.', '附件选择器已经打开。'],
     };
     return messages[code]?.[zh ? 1 : 0] || (zh ? '暂时无法连接 Agent。内容已保留，请重试。' : 'Could not reach Agent. Your content is retained; please try again.');
   }, [zh]);
@@ -496,12 +504,30 @@ export function useAgentController() {
     }
   }), [composer, run, showDraft]);
 
-  const pickAttachment = useCallback((kind: ComposerPickerKind) => changeAttachments(async snapshot => {
-    const result = await pickComposerAttachment(kind, snapshot.threadId, snapshot.revision);
-    if (result === null) return null;
-    if (!result.ok) throw new AgentGatewayError(result.message || result.code, result.code);
-    return parseComposerSnapshot(result.result, snapshot.threadId);
-  }), [changeAttachments]);
+  const pickAttachment = useCallback(async (kind: ComposerPickerKind) => {
+    let refused = '';
+    await changeAttachments(async snapshot => {
+      const result = await pickComposerAttachment(kind, snapshot.threadId, snapshot.revision);
+      if (result === null) return null;
+      if (!result.ok) throw new AgentGatewayError(result.message || result.code, result.code);
+      refused = result.partial ?? '';
+      return parseComposerSnapshot(result.result, snapshot.threadId);
+    });
+    // Some of a multiple selection was attached; say why the rest was not.
+    if (refused && mounted.current) setError(messageRef.current(new AgentGatewayError(refused, refused)));
+  }, [changeAttachments]);
+
+  useEffect(() => {
+    // The picker outlived the screen that opened it; show the draft the selection went into.
+    const subscription = onComposerAttachment(threadId => {
+      if (threadId !== selectedRef.current || !draftReady.current) return;
+      const ticket = generation.current, slot = composer(threadId);
+      void slot.restore().then(() => {
+        if (mounted.current && generation.current === ticket) { setDraftSnapshot(slot.snapshot); showDraft(slot.text); }
+      }, () => {});
+    });
+    return () => subscription.remove();
+  }, [composer, showDraft]);
 
   const removeAttachment = useCallback((attachmentId: string) => changeAttachments(async ({threadId, revision}) =>
     parseComposerSnapshot(await callAgent('composer/removeAttachment', {threadId, expectedRevision: revision, attachmentId}), threadId)), [changeAttachments]);
@@ -766,7 +792,6 @@ export function useAgentController() {
     onOpenHistory: () => { void loadThreads().catch(() => {}); },
     onAnswer: (key: string, response: Json) => { void run(async () => { await callAgent('answer', {threadId: selectedRef.current, key, response}); setRefreshRevision(v => v + 1); }); },
     onOpenWorkspace: (screen: WorkspaceView) => { void run(async () => { await callAgent('openWorkspace', {threadId: screen.threadId, screenKey: screen.screenKey, generation: screen.generation}); }); },
-    onOpenRequest: (key?: string) => { void run(async () => { await callAgent('requests/open', {threadId: selectedRef.current, ...(key ? {key} : {})}); }); },
     onClose: hide,
   };
 }

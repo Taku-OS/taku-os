@@ -68,7 +68,7 @@ function useWork(t: AccountText) {
   return {busy, error, setError, work, running, mounted, isMounted};
 }
 
-function Copy({children, color, size = 14, medium = false, selectable = false}: {
+export function Copy({children, color, size = 14, medium = false, selectable = false}: {
   children: React.ReactNode; color: string; size?: number; medium?: boolean; selectable?: boolean;
 }) {
   return <Text selectable={selectable} style={{fontFamily: medium ? 'TakuChineseMedium' : 'TakuChinese', color, fontSize: size, includeFontPadding: false}}>
@@ -76,7 +76,7 @@ function Copy({children, color, size = 14, medium = false, selectable = false}: 
   </Text>;
 }
 
-function Action({label, onPress, palette, primary = false, destructive = false, disabled = false}: {
+export function Action({label, onPress, palette, primary = false, destructive = false, disabled = false}: {
   label: string; onPress: () => void; palette: AccountPalette; primary?: boolean; destructive?: boolean; disabled?: boolean;
 }) {
   return <Pressable accessibilityRole="button" accessibilityState={{disabled}} disabled={disabled} onPress={onPress}
@@ -117,23 +117,19 @@ export function ChatGptAccount({palette, t, onChanged}: Shared) {
 
   useEffect(() => {
     let foreground = AppState.currentState === 'active';
-    const read = async () => {
+    const read = () => {
       if (!foreground || reading.current || running.current) return;
       reading.current = true;
-      try {
-        show(await callAgent<AccountStatus>('accounts/read'));
-      } catch {
-        if (mounted.current) setUnavailable(true);
-      } finally {
-        reading.current = false;
-      }
+      void callAgent<AccountStatus>('accounts/read')
+        .then(show, () => { if (mounted.current) setUnavailable(true); })
+        .finally(() => { reading.current = false; });
     };
-    void read();
+    read();
     // The runtime reports sign-in progress only through its account state, so follow it while visible.
-    const timer = setInterval(() => void read(), 1000);
+    const timer = setInterval(read, 1000);
     const subscription = AppState.addEventListener('change', state => {
       foreground = state === 'active';
-      if (foreground) void read();
+      if (foreground) read();
     });
     return () => { clearInterval(timer); subscription.remove(); };
   }, [mounted, running, show]);

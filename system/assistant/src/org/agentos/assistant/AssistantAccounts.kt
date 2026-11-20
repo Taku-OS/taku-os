@@ -61,16 +61,19 @@ internal object AssistantAccounts {
      */
     @JvmStatic
     fun secret(input: JSONObject, field: String, extras: Bundle?): String {
-        val descriptor = extras?.getParcelable("credential", ParcelFileDescriptor::class.java)
+        val supplied = credentialText(extras)
         return when {
             input.has(field) -> {
-                if (descriptor != null) { descriptor.close(); throw IOException("KEY_SOURCE_AMBIGUOUS") }
+                if (supplied != null) throw IOException("KEY_SOURCE_AMBIGUOUS")
                 input.remove(field) as? String ?: throw IOException("INVALID_CREDENTIAL")
             }
-            descriptor != null -> readKey(descriptor)
-            else -> throw IOException("KEY_SOURCE_REQUIRED")
+            else -> supplied ?: throw IOException("KEY_SOURCE_REQUIRED")
         }
     }
+
+    /** The UTF-8 text of the descriptor in `extras["credential"]`, or null when there is none. */
+    fun credentialText(extras: Bundle?): String? =
+        extras?.getParcelable("credential", ParcelFileDescriptor::class.java)?.let(::readKey)
 
     private fun readKey(descriptor: ParcelFileDescriptor): String =
         ParcelFileDescriptor.AutoCloseInputStream(descriptor).use { stream ->

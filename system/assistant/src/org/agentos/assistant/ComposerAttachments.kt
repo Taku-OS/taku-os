@@ -2,11 +2,14 @@ package org.agentos.assistant
 
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
 import android.os.ParcelFileDescriptor
 import android.system.Os
 import android.system.OsConstants
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -15,6 +18,7 @@ import org.json.JSONObject
 
 internal object ComposerAttachments {
     private const val LIMIT = 20_000_000L
+    private const val THUMBNAIL_PX = 256
 
     @JvmStatic
     fun attach(context: Context, input: JSONObject, extras: Bundle?, uid: Int, pid: Int): JSONObject {
@@ -32,6 +36,30 @@ internal object ComposerAttachments {
             throw IOException("INVALID_ARGUMENT")
         } else supplied
         return attachFd(context, input, descriptor ?: throw IOException("ATTACHMENT_UNAVAILABLE"))
+    }
+
+    /** A small JPEG of an image attached to [thread]'s draft, for the composer's attachment strip. */
+    @JvmStatic
+    fun thumbnail(context: Context, thread: String, id: String): ByteArray {
+        if (thread.isNotEmpty() && !AgentGatewayProtocol.isUuid(thread)) throw IOException("INVALID_ARGUMENT")
+        val items = ComposerPreferences.attachments(context.getSharedPreferences("agent-settings", Context.MODE_PRIVATE), thread)
+        val item = (0 until items.length()).map(items::getJSONObject).firstOrNull { ComposerState.attachmentId(it) == id }
+            ?: throw IOException("ATTACHMENT_UNAVAILABLE")
+        if (!item.optString("mime").startsWith("image/")) throw IOException("ATTACHMENT_UNAVAILABLE")
+        val path = item.getString("path")
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(path, bounds)
+        val longest = maxOf(bounds.outWidth, bounds.outHeight)
+        if (longest <= 0 || longest > 32_768) throw IOException("ATTACHMENT_UNAVAILABLE")
+        var sample = 1
+        while (longest / sample > THUMBNAIL_PX) sample *= 2
+        val bitmap = BitmapFactory.decodeFile(path, BitmapFactory.Options().apply { inSampleSize = sample })
+            ?: throw IOException("ATTACHMENT_UNAVAILABLE")
+        try {
+            return ByteArrayOutputStream().also { bitmap.compress(Bitmap.CompressFormat.JPEG, 80, it) }.toByteArray()
+        } finally {
+            bitmap.recycle()
+        }
     }
 
     @JvmStatic

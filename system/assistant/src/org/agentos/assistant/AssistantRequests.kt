@@ -1,7 +1,7 @@
 package org.agentos.assistant
 
-import android.content.Context
-import android.content.Intent
+import android.net.Uri
+import android.os.Bundle
 import java.io.IOException
 import org.json.JSONArray
 import org.json.JSONObject
@@ -26,12 +26,18 @@ internal object AssistantRequests {
         "item/fileChange/requestApproval", "item/permissions/requestApproval")
     private val legacyApproval = setOf("applyPatchApproval", "execCommandApproval")
 
+    /**
+     * [trusted] callers are the settings app and the on-device Agent. Only they may read or
+     * answer a request that carries or asks for a secret; a third-party app gets
+     * `SECURE_INPUT_REQUIRED` for those.
+     */
     @JvmStatic
-    fun execute(context: Context, method: String, input: JSONObject): JSONObject {
+    fun execute(method: String, input: JSONObject, extras: Bundle?, trusted: Boolean): JSONObject {
         val fields = when (method) {
             "requests/list" -> setOf("threadId")
-            "requests/open", "requests/cancel" -> setOf("threadId", "key")
+            "requests/read", "requests/cancel" -> setOf("threadId", "key")
             "requests/respond" -> setOf("threadId", "key", "response")
+            "requests/submit" -> setOf("threadId", "key", "values")
             else -> throw IOException("UNKNOWN_METHOD")
         }
         PanelProtocol.exact(input, fields)
@@ -40,19 +46,149 @@ internal object AssistantRequests {
         val key = if (input.has("key")) input.getString("key").also { AgentGatewayProtocol.requireId(input, "key") } else ""
         return when (method) {
             "requests/list" -> JSONObject().put("requests", JSONArray(visible(thread).map(::description)))
-            "requests/open" -> {
-                if (key.isNotEmpty()) find(thread, key)
-                context.startActivity(Intent(context, AssistantRequestActivity::class.java)
-                    .putExtra("threadId", thread).putExtra("key", key).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                JSONObject().put("opened", true)
+            "requests/read" -> find(thread, key).let { request ->
+                if (request.secret && !trusted) throw IOException("SECURE_INPUT_REQUIRED")
+                form(request)
+            }
+            "requests/submit" -> {
+                val request = find(thread, key)
+                if (request.secret && !trusted) throw IOException("SECURE_INPUT_REQUIRED")
+                val values = input.optJSONObject("values") ?: JSONObject()
+                // Secret fields may arrive as a JSON object in a read-only descriptor instead.
+                AssistantAccounts.credentialText(extras)?.let { text ->
+                    val secrets = try { JSONObject(text) } catch (_: org.json.JSONException) { throw IOException("INVALID_ARGUMENT") }
+                    for (id in secrets.keys()) {
+                        if (values.has(id)) throw IOException("KEY_SOURCE_AMBIGUOUS")
+                        values.put(id, secrets.get(id))
+                    }
+                }
+                respond(request, answer(request, values), secure = true)
             }
             "requests/cancel" -> cancel(find(thread, key))
-            else -> respond(find(thread, key), input.getJSONObject("response"), secure = false)
+            else -> respond(find(thread, key), input.getJSONObject("response"), secure = trusted)
+        }
+    }
+
+    private fun field(id: String, label: String, secret: Boolean = false, required: Boolean = true, type: String = "string",
+        multiline: Boolean = false, options: List<String> = emptyList()): JSONObject = JSONObject().put("id", id)
+        .put("label", label).put("secret", secret).put("required", required).put("type", type).put("multiline", multiline)
+        .put("options", JSONArray(options))
+
+    private fun kind(method: String): String = when (method) {
+        "attestation/generate" -> "attestation"
+        "account/chatgptAuthTokens/refresh" -> "accountAuthorization"
+        "mcpServer/elicitation/request" -> "mcp"
+        "item/tool/requestUserInput" -> "questions"
+        "item/tool/call" -> "toolResult"
+        "item/permissions/requestApproval" -> "permissionApproval"
+        "item/commandExecution/requestApproval", "execCommandApproval" -> "commandApproval"
+        "item/fileChange/requestApproval", "applyPatchApproval" -> "fileChangeApproval"
+        else -> "action"
+    }
+
+    private fun elicitation(request: Request): Pair<JSONObject, Set<String>> {
+        val schema = request.params.optJSONObject("requestedSchema")
+        val properties = schema?.optJSONObject("properties") ?: JSONObject()
+        if (properties.length() > 32) throw IOException("REQUEST_UNAVAILABLE")
+        val required = schema?.optJSONArray("required") ?: JSONArray()
+        return properties to (0 until required.length()).map(required::getString).toSet()
+    }
+
+    /**
+     * What a client needs to present one pending request: its [kind], the text to show, an
+     * optional page to open, and the fields to collect. A request with no fields is an approval.
+     */
+    fun form(request: Request): JSONObject {
+        val params = request.params
+        val details = ArrayList<String>()
+        val fields = ArrayList<JSONObject>()
+        var page = ""
+        when (request.method) {
+            "attestation/generate" -> fields.add(field("token", "Attestation token", secret = true))
+            "account/chatgptAuthTokens/refresh" -> {
+                fields.add(field("accessToken", "Access token", secret = true))
+                fields.add(field("chatgptAccountId", "ChatGPT account ID", secret = true))
+            }
+            "item/tool/requestUserInput" -> for (question in request.questions()) {
+                val id = question.getString("id")
+                val options = question.optJSONArray("options")
+                fields.add(field(id, question.optString("question", id), secret = question.optBoolean("isSecret"),
+                    options = if (options == null) emptyList() else List(options.length()) { options.getJSONObject(it).getString("label") }))
+            }
+            "item/tool/call" -> {
+                details.add(params.optString("tool"))
+                fields.add(field("text", "Tool result", multiline = true))
+            }
+            "mcpServer/elicitation/request" -> {
+                details.add(params.optString("message"))
+                if (params.optString("mode") == "url") {
+                    val uri = Uri.parse(params.optString("url"))
+                    if (uri.scheme == "https" && uri.host != null && uri.userInfo == null) page = uri.toString()
+                }
+                val (properties, mandatory) = elicitation(request)
+                for (id in properties.keys()) {
+                    val property = properties.getJSONObject(id)
+                    val type = property.optString("type").takeIf { it in setOf("boolean", "integer", "number") } ?: "string"
+                    fields.add(field(id, property.optString("title", id), secret = property.optString("format") == "password",
+                        required = id in mandatory, type = type))
+                }
+            }
+            else -> {
+                details.add(params.optString("reason"))
+                details.add(params.optString("command"))
+                params.optJSONObject("permissions")?.let { details.add(it.toString(2)) }
+            }
+        }
+        return description(request).put("kind", kind(request.method)).put("url", page)
+            .put("details", JSONArray(details.filter(String::isNotBlank))).put("fields", JSONArray(fields))
+    }
+
+    /** The response [respond] expects, built from the [form]'s field [values]. */
+    private fun answer(request: Request, values: JSONObject): JSONObject {
+        fun text(id: String): String {
+            if (!values.has(id)) return ""
+            val value = values.opt(id) as? String ?: throw IOException("INVALID_ARGUMENT")
+            if (value.length > 16_000) throw IOException("INVALID_ARGUMENT")
+            return value
+        }
+        val fields = form(request).getJSONArray("fields")
+        val known = (0 until fields.length()).map { fields.getJSONObject(it).getString("id") }
+        PanelProtocol.exact(values, known.toSet())
+        return when (request.method) {
+            "attestation/generate", "account/chatgptAuthTokens/refresh" ->
+                JSONObject().also { answer -> known.forEach { answer.put(it, text(it)) } }
+            "item/tool/requestUserInput" -> {
+                val answers = JSONObject()
+                known.forEach { answers.put(it, JSONObject().put("answers", JSONArray().put(text(it).trim()))) }
+                JSONObject().put("answers", answers)
+            }
+            "item/tool/call" -> JSONObject().put("text", text("text"))
+            "mcpServer/elicitation/request" -> {
+                val (properties, mandatory) = elicitation(request)
+                val content = JSONObject()
+                for (id in known) {
+                    val value = text(id)
+                    if (value.isEmpty() && id !in mandatory) continue
+                    if (value.isEmpty()) throw IOException("INVALID_ARGUMENT")
+                    try {
+                        content.put(id, when (properties.getJSONObject(id).optString("type")) {
+                            "boolean" -> value.toBooleanStrict()
+                            "integer" -> value.toLong()
+                            "number" -> value.toDouble()
+                            else -> value
+                        })
+                    } catch (_: IllegalArgumentException) { throw IOException("INVALID_ARGUMENT") }
+                }
+                JSONObject().put("content", content)
+            }
+            else -> JSONObject().put("decision", "accept")
         }
     }
 
     private fun description(request: Request): JSONObject = JSONObject().put("threadId", request.owner)
         .put("key", request.key).put("method", request.method).put("secure", request.secret)
+        // `inline` requests are the question cards a conversation answers in place.
+        .put("inline", request.owner.isNotEmpty() && !request.secret && request.method in AgentGatewayProtocol.QUESTIONS)
 
     fun visible(thread: String): List<Request> {
         val pending = NativeClient.state(thread).optJSONArray("requests") ?: return emptyList()
@@ -67,10 +203,6 @@ internal object AssistantRequests {
                 add(Request(owner, value.getString("key"), method, params))
             }
         }
-    }
-
-    fun nativeOnly(thread: String): List<Request> = visible(thread).filter {
-        it.owner.isEmpty() || it.secret || it.method !in AgentGatewayProtocol.QUESTIONS
     }
 
     fun find(thread: String, key: String): Request = visible(thread).firstOrNull { it.key == key }

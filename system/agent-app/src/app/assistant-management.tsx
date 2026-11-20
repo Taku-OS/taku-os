@@ -4,11 +4,13 @@ import {SafeAreaView} from 'react-native-safe-area-context';
 import {Button, Card, Copy} from '../management/controls';
 import {ConversationCleanupPanel, ConversationTitlePanel, FilesPanel, GoalPanel, HarnessPanel, QueuePanel} from '../management/ConversationManagement';
 import {CodexPluginsPanel, McpPanel} from '../management/CodexManagement';
+import {RequestsPanel} from '../management/RequestsManagement';
 import {SkillsPanel} from '../management/SkillsManagement';
 import {colors, typography} from '../theme';
 import {useTakuFonts} from '../theme/useTakuFonts';
 
 const titles = {
+  requests: 'Pending requests',
   title: 'Conversation title',
   goal: 'Conversation goal',
   queue: 'Task queue',
@@ -25,10 +27,11 @@ const sections = Object.keys(titles) as Section[];
 export default function AssistantManagementRoute() {
   useTakuFonts();
   const router = useRouter();
-  const query = useLocalSearchParams<{section?: Section; threadId?: string; taskId?: string}>();
+  const query = useLocalSearchParams<{section?: Section; threadId?: string; taskId?: string; requestKey?: string}>();
   const section = sections.find(name => name === query.section);
   const threadId = typeof query.threadId === 'string' ? query.threadId : undefined;
   const taskId = typeof query.taskId === 'string' ? query.taskId : undefined;
+  const requestKey = typeof query.requestKey === 'string' ? query.requestKey : undefined;
   const needsThread = (section === 'title' || section === 'goal' || section === 'queue' || section === 'harness') && !threadId;
   const back = () => {
     if (router.canGoBack()) router.back();
@@ -50,6 +53,7 @@ export default function AssistantManagementRoute() {
         </Card>
       </>}
       {needsThread && <Card><Copy>Open a conversation to use this control.</Copy></Card>}
+      {section === 'requests' && <RequestsPanel threadId={threadId} requestKey={requestKey}/>}
       {section === 'title' && threadId && <ConversationTitlePanel threadId={threadId}/>}
       {section === 'goal' && threadId && <GoalPanel threadId={threadId}/>}
       {section === 'queue' && threadId && <QueuePanel threadId={threadId}/>}

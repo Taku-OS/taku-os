@@ -352,8 +352,8 @@ index 0000000..70a91b8
 +    }
 +    private fun openAccount() {
 +        dismiss(); service.requestHideSelf(0)
-+        runCatching { context.startActivity(Intent().setClassName("org.agentos.assistant", "org.agentos.assistant.PanelActivity")
-+            .putExtra("page", "account").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
++        runCatching { context.startActivity(Intent("org.agentos.action.AI_SETTINGS").setPackage("org.agentos.agent")
++            .putExtra("section", "account").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
 +    }
 +    private fun cancelRound() {
 +        generation++; task?.cancel(); task = null; preview?.dismiss(); preview = null

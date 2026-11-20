@@ -18,6 +18,7 @@ type AgentNativeModule = {
   setWindowBackdrop(enabled: boolean, sigmaDp: number, tint: string, fallback: string): Promise<void>;
   setSecureScreen(enabled: boolean): Promise<void>;
   submitSecret(fieldId: string, action: string, params: string): Promise<string>;
+  submitSecretFields(fields: Record<string, string>, action: string, params: string): Promise<string>;
   collapseToIsland(threadId: string): Promise<void>;
   showKeyboard(): Promise<void>;
   addListener(event: 'onSessionEventBatch', listener: (event: NativeSessionBatch) => void): {remove(): void};
@@ -47,7 +48,8 @@ export type AgentAction =
   | 'composer/submit' | 'composer/settle' | 'composer/release'
   | 'composer/handoff' | 'composer/restore' | 'composer/restoreTask' | 'composer/preserveDraft'
   | 'sendMessage' | 'steer' | 'interrupt' | 'cancelQueued' | 'answer'
-  | 'getWorkspaces' | 'openWorkspace' | 'openSettings' | 'requests/open'
+  | 'getWorkspaces' | 'openWorkspace' | 'openSettings'
+  | 'requests/list' | 'requests/read' | 'requests/submit' | 'requests/cancel'
   | 'readTaskDetail' | 'workspaces/list' | 'workspaces/apps' | 'workspaces/configure'
   | 'workspaces/release' | 'workspaces/preview' | 'workspaces/open' | 'manageSystemAi'
   | 'workspaces/pause' | 'workspaces/takeControl' | 'workspaces/input' | 'workspaces/returnAndResume'
@@ -94,10 +96,22 @@ function gatewayResult<T>(envelope: string): T {
  * A gateway call whose secret is the text of the mounted native credential field [fieldId]
  * (see `SecretField`). The secret travels natively; [params] must not contain it.
  */
-export async function submitSecret<T>(fieldId: string, action: AgentAction, params: Record<string, unknown>): Promise<T> {
+export function submitSecret<T>(fieldId: string, action: AgentAction, params: Record<string, unknown>): Promise<T> {
+  return secretResult<T>(() => requireAgentNative().submitSecret(fieldId, action, JSON.stringify(params)));
+}
+
+/**
+ * The same for a form with several secrets: [fields] maps each form field name to the id of
+ * its mounted native credential field. The gateway receives them together.
+ */
+export function submitSecretFields<T>(fields: Record<string, string>, action: AgentAction, params: Record<string, unknown>): Promise<T> {
+  return secretResult<T>(() => requireAgentNative().submitSecretFields(fields, action, JSON.stringify(params)));
+}
+
+async function secretResult<T>(send: () => Promise<string>): Promise<T> {
   let envelope: string;
   try {
-    envelope = await requireAgentNative().submitSecret(fieldId, action, JSON.stringify(params));
+    envelope = await send();
   } catch (error) {
     if (error instanceof AgentGatewayError) throw error;
     const code = typeof record(error).code === 'string' && record(error).code ? String(record(error).code) : 'GATEWAY_UNAVAILABLE';
