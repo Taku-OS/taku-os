@@ -1432,9 +1432,9 @@ alone cannot replace Quickstep's system gesture dispatch.
 Hold to talk: speech is recognized **only while the hold lasts**. The listening page (1-1)
 shows the real recognition transcript and measured-RMS waveform. The microphone starts as soon as
 the hold is recognized, before the speech model or fal key is ready; what is said meanwhile is
-kept and recognized first. Until the microphone records, the island says “One moment…”
-(`voice.phase:"Preparing"`); then it says “Taku is listening...” (`Capturing`) and the phone gives
-a confirm haptic: speak from then on. Pauses never send. **Releasing** stops recognition and finalizes the recording;
+kept and recognized first. While the microphone is still starting (`voice.phase:"Preparing"`)
+the island shows no listening text or animation; once it records (`Capturing`) the island says
+“Taku is listening...” and the phone vibrates once, the hold's only vibration: speak from then on. Pauses never send. **Releasing** stops recognition and finalizes the recording;
 its successful, nonempty final transcript is sent to the Agent once, with no further tap
 (release to send). Cloud finalization and the Agent reply take additional time. The page stays
 open: the native SystemUI card shows processing and then the actual reply/options. Releasing

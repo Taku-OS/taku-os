@@ -22,7 +22,9 @@ import kotlinx.coroutines.launch
 import org.agentos.agent.home.assistant.AssistantSession
 import org.agentos.agent.home.assistant.AssistantState
 import org.agentos.agent.home.assistant.IslandMode
+import org.agentos.agent.home.assistant.VoicePhase
 import org.agentos.agent.home.assistant.VoiceState
+import org.agentos.agent.home.assistant.VoiceTarget
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -80,10 +82,13 @@ class IslandPublisherService : Service() {
     if (prefs.getString("thread", null) != state.threadId) {
       prefs.edit().putString("thread", state.threadId).putLong("created", System.currentTimeMillis()).apply()
     }
+    // A hold whose microphone has not started recording yet shows no listening cue at all.
+    val holdStarting = voice.target == VoiceTarget.Hold && voice.phase == VoicePhase.Preparing
     val title = when {
       state.error != null -> "Taku couldn’t finish"
       state.needsUser -> "Taku needs your confirmation"
-      voice.listening -> "Taku is listening..."
+      // Only once the microphone records (Capturing), never while it is still starting.
+      voice.listening && !holdStarting -> "Taku is listening..."
       state.working -> "Taku is working"
       else -> "Taku"
     }
@@ -121,7 +126,7 @@ class IslandPublisherService : Service() {
     })
     val payload = JSONObject().put("version", 1).put("category", "assistant").put("compact", if (state.buildingApp) "building" else "hidden").put("relevance", if (state.needsUser) 1 else .5)
       .put("bigIsland", JSONObject()
-        .put("leading", JSONObject().put("type", "pic").put("pic", "taku").put("animated", if (state.working) "working" else if (voice.listening) "listening" else "none"))
+        .put("leading", JSONObject().put("type", "pic").put("pic", "taku").put("animated", if (state.working) "working" else if (voice.listening && !holdStarting) "listening" else "none"))
         .put("trailing", JSONObject().put("type", "text").put("text", if (state.buildingApp) short else "Taku")))
       .put("expanded", JSONObject().put("template", "assistant")
         .put("title", title).put("body", bounded(body, 1200)).put("steps", if (listening) JSONArray() else steps)

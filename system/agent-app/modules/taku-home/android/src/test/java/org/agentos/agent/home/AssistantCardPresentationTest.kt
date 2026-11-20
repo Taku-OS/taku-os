@@ -10,7 +10,7 @@ class AssistantCardPresentationTest {
   @Test fun holdSaysListeningOnlyOnceTheMicrophoneRecords() {
     val hold = AssistantState(entry = EntryMode.Voice)
     val preparing = VoiceState(operationId = 1, target = VoiceTarget.Hold, phase = VoicePhase.Preparing)
-    assertEquals("One moment…", assistantCardHeadline(hold, preparing))
+    assertEquals("no listening cue before the microphone records", "", assistantCardHeadline(hold, preparing))
     assertEquals("Taku is listening...", assistantCardHeadline(hold, preparing.copy(phase = VoicePhase.Capturing)))
   }
   @Test fun holdEntryShowsOnlyListeningTextEvenWithAnOlderReply() {
