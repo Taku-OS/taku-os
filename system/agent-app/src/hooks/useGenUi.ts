@@ -24,6 +24,13 @@ async function pruneObsoleteLayouts(): Promise<void> {
   } catch {}
 }
 const hydrations = new Map<string, Promise<void>>();
+/**
+ * A finished reply's saved state (edits, pin capability) can lag the reply itself: the native
+ * record appears once the reply is projected (e.g. after a pending panel update). Its content is
+ * already complete and shown, so a failed load is retried quietly instead of reported.
+ */
+const QUIET_HYDRATION_DELAYS = [1000, 3000, 8000, 20000];
+const hydrationRetries = new Map<string, number>();
 const resolutions = new Map<string, Promise<void>>();
 let inferenceQueue: Promise<unknown> = Promise.resolve();
 
@@ -111,8 +118,18 @@ async function hydrate(id: string): Promise<void> {
     try {
       const result = await callAgent<{snapshot: unknown}>('readMatter', {matterId: id});
       if (!applyMatterSnapshot(result.snapshot)) throw new Error('SOURCE_UNAVAILABLE');
+      hydrationRetries.delete(id);
       updateCard(id, card => card.hydrationError ? {...card, hydrationError: ''} : card);
     } catch (error) {
+      if (getCard(id).presentation.kind === 'primary') {
+        // Nothing the user sees is missing: no error, no Retry; Pin waits until the load succeeds.
+        const attempt = hydrationRetries.get(id) ?? 0;
+        if (attempt < QUIET_HYDRATION_DELAYS.length) {
+          hydrationRetries.set(id, attempt + 1);
+          setTimeout(() => { void hydrate(id); }, QUIET_HYDRATION_DELAYS[attempt]);
+        }
+        return;
+      }
       updateCard(id, card => ({...card, hydrationError: errorCode(error)}));
     }
   })();

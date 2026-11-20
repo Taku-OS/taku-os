@@ -216,3 +216,24 @@ test('a streaming card waits for native completion before loading its saved stat
   assert.equal(mounted.result.pin.canPin, true);
   mounted.unmount();
 });
+
+test('a finished reply whose card record is missing shows no error and loads it quietly once it appears', async t => {
+  t.mock.timers.enable({apis: ['setTimeout']});
+  const reply = mainReply('quiet-thread', 'quiet-card', 1, 'completed');
+  runtime.calls = [];
+  runtime.callAgent = async () => { throw Object.assign(new Error('not projected yet'), {code: 'MATTER_UNAVAILABLE'}); };
+  const mounted = mount('quiet-thread', primary(reply));
+  for (let i = 0; i < 5; i++) await Promise.resolve();
+  await new Promise(resolve => setImmediate(resolve));
+  mounted.Render();
+  assert.equal(mounted.result.hydrated, false);
+  assert.equal(mounted.result.hydrationError, '', 'the complete reply is not reported as a failed load');
+  nativeCalls(reply);
+  t.mock.timers.tick(1000);
+  for (let i = 0; i < 5; i++) await new Promise(resolve => setImmediate(resolve));
+  mounted.Render();
+  assert.equal(mounted.result.hydrated, true);
+  assert.equal(mounted.result.hydrationError, '');
+  assert.equal(mounted.result.pin.canPin, true);
+  mounted.unmount();
+});

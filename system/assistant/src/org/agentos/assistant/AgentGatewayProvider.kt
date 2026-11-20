@@ -538,7 +538,11 @@ class AgentGatewayProvider : ContentProvider() {
                                     "turn/completed" -> matters.observeThread(JSONObject().put("id", stream.request.getString("threadId"))
                                         .put("turns", JSONArray().put(params.getJSONObject("turn"))))
                                 }
-                            } catch (_: Exception) { System.err.println("Agent card projection unavailable") }
+                            } catch (failure: Exception) {
+                                // The reply still streams to the chat; only its card record (saved edits,
+                                // pin) is missing, so the chat retries quietly. Say why, for diagnosis.
+                                android.util.Log.w("TakuMatters", "card projection unavailable for ${event.optString("method")}: ${failure.message}", failure)
+                            }
                             val bytes = (event.toString() + "\n").toByteArray(StandardCharsets.UTF_8)
                             if (bytes.size > MAX_RESULT_BYTES) throw IOException("STREAM_EVENT_TOO_LARGE")
                             writeEvent(stream, bytes)
