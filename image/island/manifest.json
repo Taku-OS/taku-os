@@ -3,7 +3,7 @@
   "repository": "frameworks/base",
   "revision": "7f6de40b6429462d47ba9ba351b99943269c8067",
   "patch": "systemui-probe.patch",
-  "patchSha256": "b0872c62b38640c1279228404bcbb3c109872d4958bf8bd4ea94495ee6b188bf",
+  "patchSha256": "007ffc71b54c8b727c1fc1b7293764a14bbe5193f3eb0bc50073550d47e0aca0",
   "files": [
     {
       "path": "packages/SystemUI/AndroidManifest.xml",
@@ -41,6 +41,12 @@
       "beforeSha256": null,
       "afterSha256": "bbcfa1bb65551f3acbc7e4f0d58505cc97c8259d59ed97d83e06079875bd8052",
       "source": "system/island/src/com/android/systemui/taku/island/IslandAssistantCard.kt"
+    },
+    {
+      "path": "packages/SystemUI/src/com/android/systemui/taku/island/IslandCapsuleGeometry.java",
+      "beforeSha256": null,
+      "afterSha256": "9090581db2df8b7c55df7a226650d6d933163d6dd77271d5950767a2a9550ee9",
+      "source": "system/island/src/com/android/systemui/taku/island/IslandCapsuleGeometry.java"
     },
     {
       "path": "packages/SystemUI/src/com/android/systemui/taku/island/IslandCapsuleView.kt",
@@ -111,7 +117,7 @@
     {
       "path": "packages/SystemUI/src/com/android/systemui/taku/island/IslandPresenter.kt",
       "beforeSha256": null,
-      "afterSha256": "9fbdcb4886306e6fddc57e6ddbcaf9f59184ca4a60d0e406a513bdecf1e258ae",
+      "afterSha256": "a458eb160525da88ec1bd73bb077104a9c9f90c40e82b2e9764a7ebf654fb258",
       "source": "system/island/src/com/android/systemui/taku/island/IslandPresenter.kt"
     },
     {
