@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -438,7 +438,7 @@ export default function SystemAiScreen() {
   const language = languageFor(useLocales()[0]?.languageTag);
   const t = systemAiTextFor(language);
   const permissionText = permissionTextFor(language);
-  const accountText = useMemo(() => accountTextFor(language), [language]);
+  const accountText = accountTextFor(language);
   // Sign-in and key entry are a page of this screen, not a sheet: a sheet is a separate window,
   // which the screenshot protection for one-time codes and key fields would not cover.
   const accountPage = section === "account";

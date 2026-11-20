@@ -64,7 +64,8 @@ function useWork(t: AccountText) {
       if (mounted.current) setBusy(false);
     }
   }, [t]);
-  return {busy, error, setError, work, running, mounted};
+  const isMounted = useCallback(() => mounted.current, []);
+  return {busy, error, setError, work, running, mounted, isMounted};
 }
 
 function Copy({children, color, size = 14, medium = false, selectable = false}: {
@@ -100,19 +101,19 @@ export function ChatGptAccount({palette, t, onChanged}: Shared) {
   const [status, setStatus] = useState<AccountStatus | null>(null);
   const [unavailable, setUnavailable] = useState(false);
   const [notice, setNotice] = useState('');
-  const {busy, error, setError, work, running, mounted} = useWork(t);
+  const {busy, error, setError, work, running, mounted, isMounted} = useWork(t);
   const reading = useRef(false);
   const connected = useRef<boolean | null>(null);
   const changed = useRef(onChanged);
   useEffect(() => { changed.current = onChanged; }, [onChanged]);
 
   const show = useCallback((next: AccountStatus) => {
-    if (!mounted.current) return;
+    if (!isMounted()) return;
     setStatus(next);
     setUnavailable(false);
     if (connected.current !== null && connected.current !== next.connected) changed.current?.();
     connected.current = next.connected;
-  }, [mounted]);
+  }, [isMounted]);
 
   useEffect(() => {
     let foreground = AppState.currentState === 'active';
