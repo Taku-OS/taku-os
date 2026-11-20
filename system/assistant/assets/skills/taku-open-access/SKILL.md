@@ -33,7 +33,7 @@ On `$D`, third-party callers need an explicit `taku.root` grant for `manageAssis
 configuration writes/reloads, System AI mutations, and writes under `requests/`,
 `accounts/`, `composer/` and `skills/`. This includes approval responses, account
 login/cancel/refresh/key changes, draft/option changes and message submission.
-All `capture/*` operations (including reads), `interrupt`, `cancelQueued` and
+All `capture/*`, `jev/*`, `account/login/*` operations (including reads), `interrupt`, `cancelQueued` and
 `readTaskDetail` also require root: capture can analyze screenshots and start tasks,
 and task control/detail must not be available through a control-only grant.
 `taku.control` alone returns `PERMISSION_DENIED` before argument parsing or execution,
@@ -888,6 +888,52 @@ first unlock following reboot.
 
 Use `cmd statusbar island collapse` for the same presentation dismissal as the accessible Dismiss action or upward swipe. Read back `presentation.card` (null) and `presentation.reason`. Collapse leaves tasks and voice running; use `assistant/voice-cancel` to stop input separately. New explicit interaction increments `assistant/get.expansionRequest`; passive updates honor dismissal. See the installed Taku Island skill for its provider and Quickstep recents.
 
-## Onboarding account status
+## Onboarding accounts and Jev
 
-`taku_call "$D" account/status '{}'` reads the broker account view without its sign-in code or URL. `chatgptConnected` is true only after a confirmed ChatGPT account read; loading means unknown.
+All `jev/*` and `account/login/*` operations require `taku.root` for ordinary
+applications, including status and future methods; `taku.control` alone returns
+`PERMISSION_DENIED` before parsing. Local agent/root/system/shell callers retain direct
+access and Home uses the signature-protected gateway. `account/login/start` and
+`jev/connect` additionally remain trusted-only even with an ordinary app's root grant.
+`account/status` is a redacted control read.
+
+```sh
+# ChatGPT sign-in and AI availability (the same broker account view as the account page and Home
+# onboarding; no sign-in URL or one-time code). chatgptConnected:true only after the broker's
+# account/read returned a ChatGPT account; aiAvailable:true for that or for Magpie mode
+# (kind:"magpie") running with at least one model. phase:"loading" or "verifying" means not yet
+# settled. A cold broker's loading snapshot starts a background account/read (one at a time,
+# with retry backoff); it never starts sign-in or changes the model connection.
+# ACCOUNT_UNAVAILABLE when the broker cannot be reached.
+taku_call "$D" account/status '{}'
+# Start ChatGPT sign-in (the account page's broker control). type: "chatgpt" (browser, default) or
+# "chatgptDeviceCode". Returns the account/status fields plus url and code (what the account page
+# shows) and opened. open:true also opens the official page in the browser for "chatgpt", or the
+# account page with the one-time code for "chatgptDeviceCode". Home's ChatGPT page uses
+# "chatgptDeviceCode" without opening anything: its card shows the url and code itself.
+# Trusted callers only (root, system, shell, platform-signed): it hands out the device code, so a
+# third-party app gets PERMISSION_DENIED even with a Permission Center grant. jev/connect, which
+# replaces the Jev key, is trusted-only for the same reason.
+# Switches the assistant from Magpie to ChatGPT mode first; if that sign-in then does not land
+# (account/login/cancel, failure, a refused start, or 15 min without finishing), Magpie and its
+# selected model are switched back. Agent sign-ins never bring Home forward; only Home's own page
+# does. Codes: INVALID_LOGIN_TYPE, TASK_RUNNING (tasks still running), LOGIN_UNAVAILABLE,
+# ACCOUNT_UNAVAILABLE (account view unreachable or invalid).
+taku_call "$D" account/login/start '{"type":"chatgpt","open":false}'
+taku_call "$D" account/login/cancel '{}'
+# Jev decision model: {enabled, model, ready}. Jev always runs through the phone's Magpie.
+# jev/enable switches Jev on with a Jev model Magpie already serves (NO_DECISION_MODEL: no Jev model is listed).
+# TypeSafe providers include decide=https://api.typesafe.ai/v1. Broker startup/config sync repairs
+# older preset-only entries in the shared Settings store without replacing keys or explicit endpoints.
+# After updating the Broker, retry jev/enable; an already saved key does not need to be entered again.
+# jev/connect takes a TypeSafe Jev key (apikey_..., Magpie preset "typesafe") or an OpenRouter key
+# (sk-or-v1-...), adds or reuses the Magpie provider in the background (no Magpie key or admin page),
+# waits for its Jev model (preferring jev-latest; the whole call is bounded to about 30 s), binds it
+# and switches Jev on. Codes:
+# INVALID_KEY, KEY_NOT_SAVED, NO_DECISION_MODEL (key kept; Magpie lists no Jev model for it yet;
+# retry jev/enable), MAGPIE_UNAVAILABLE (key kept; Magpie's catalog never answered; retry
+# jev/enable once Magpie runs), SETTINGS_WRITE_FAILED.
+taku_call "$D" jev/status '{}'
+taku_call "$D" jev/enable '{}'
+taku_call "$D" jev/connect '{"key":"apikey_..."}'
+```

@@ -4,12 +4,14 @@ set -euo pipefail
 cd "$(dirname "$0")"
 source ../../scripts/android-env.sh
 : "${KOTLINC:?Set KOTLINC to the installed Kotlin compiler}"
+: "${ANDROID_FRAMEWORK_JAR:?Set ANDROID_FRAMEWORK_JAR to an Android 17 framework test jar for hidden SystemUI APIs}"
 : "${KOTLIN_STDLIB:?Set KOTLIN_STDLIB to the matching cached Kotlin stdlib jar}"
 output=../../out/island-capsule-tests
 mkdir -p "$output/classes" "$output/dex"
 "$TOOLS/aapt2" link -o "$output/resources.apk" -I "$ANDROID_JAR" --manifest capsule-tests/AndroidManifest.xml
-"$JDK/bin/javac" --release 17 -d "$output/classes" src/org/agentos/island/DotMatrixLoader.java
-"$KOTLINC" -jvm-target 17 -classpath "$ANDROID_JAR:$output/classes" -d "$output/classes"     src/com/android/systemui/taku/island/IslandActivity.kt     src/com/android/systemui/taku/island/IslandCapsuleView.kt \
+"$JDK/bin/javac" --release 17 -d "$output/classes" src/org/agentos/island/DotMatrixLoader.java src/com/android/systemui/taku/island/IslandCapsuleGeometry.java
+"$KOTLINC" -jvm-target 17 -classpath "$ANDROID_FRAMEWORK_JAR:$output/classes" -d "$output/classes"     src/com/android/systemui/taku/island/IslandActivity.kt     src/com/android/systemui/taku/island/IslandCapsuleView.kt \
+    src/com/android/systemui/taku/island/IslandStyle.kt \
     src/com/android/systemui/taku/island/IslandStatusGlyph.kt \
     src/com/android/systemui/taku/island/IslandProgressCard.kt capsule-tests/CapsuleRenderTests.kt
 "$JDK/bin/jar" --create --file "$output/classes.jar" -C "$output/classes" .

@@ -6,22 +6,16 @@ The three SVGs here are unmodified exports of `1155:1437`, `1155:1451` and
 
 SystemUI renders the native equivalent: 32 dp icon disc (centre 16), 24 dp
 camera (centre 52), text pill starting at 72, 8 dp text insets, Hanken Grotesk
-Regular 12 sp, tracking -0.12 dp, white at 92%. The neck Path uses the SVG's
-original coordinates. It is unioned with the discs and text pill once per size,
-then drawn in one pass, so shared antialiased edges cannot create seams.
+Regular 12 sp, tracking -0.12 dp, white at 92%. The neck Path uses the SVG's original coordinates. Onboarding now uses the same
+compact renderer as every activity on main, preserving secondary activities,
+whole-capsule taps, long-press selection and the crowded status-bar geometry fix.
 
-`IslandActivity.statusLabel` selects this layout for progress notifications with
-a picture leading slot and a text trailing slot, and preserves assistant Building.
-The existing notification, tap/long-press, timeout and `cmd statusbar island`
-interfaces remain authoritative. No package-name or title matching, new setting,
-extra window, or fake sign-in state is introduced. The compact shape has one
-primary activity; long-press still opens the activity chooser.
-
-The presenter anchors the camera to DisplayCutout's visual path, not the padded
-exclusion rectangle or the View's midpoint. If the physical hole exceeds 24 dp,
-the complete shape scales uniformly to cover it. Actual left/right/top/bottom
-bounds are checked against the clock, system icons and bar; insufficient space
-hides the compact surface while leaving the notification and Agent access intact.
+The presenter anchors the camera to the centered DisplayCutout bounds (or screen
+center without a centered cutout), rather than centering the asymmetric capsule.
+It reserves the actual clock and status-icon space, shortens the label when
+necessary and hides the capsule if even its disc cannot fit. The current shared
+renderer retains main's 24 dp camera disc; larger physical holes still require
+real-device layout validation.
 
 The login publisher now sends **Signing...**, then **Connected**, with its real
 account state and existing actions. `animated: working` uses the existing native
@@ -38,7 +32,8 @@ Figma returned no additional keyframe tracks for this compact group.
 - `system/island/typecheck.py`: Android 17 + narrow SystemUI doubles; not Soong.
 - `system/island/build-capsule-tests.sh`: builds a separate instrumentation APK
   from the production capsule View and Activity model. Supply `KOTLINC` and
-  `KOTLIN_STDLIB` for the installed Kotlin distribution (plus the usual Android env).
+  `KOTLIN_STDLIB` for the installed Kotlin distribution, and `ANDROID_FRAMEWORK_JAR`
+  for the Android 17 framework test jar (plus the usual Android env).
 - On the assigned emulator:
 
 ```sh
@@ -49,6 +44,6 @@ adb -s SERIAL pull /sdcard/Android/data/org.agentos.island.capsule.tests/files/f
 
 The test renders offscreen with Android Canvas, covers login/connected/Building
 selection and media isolation, and checks the opaque neck, circular left slot,
-camera centre and changing loader poses at reference/physical-hole scales.
+camera centre and changing loader poses at two available-width budgets.
 It never publishes a login notification or replaces SystemUI. A full platform
 SystemUI build and real status-bar sign-in acceptance remain separate requirements.

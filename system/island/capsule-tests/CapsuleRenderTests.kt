@@ -45,10 +45,10 @@ class CapsuleRenderTests : Instrumentation() {
         fun px(value: Float) = (value * density).toInt()
         val phase = IslandCapsuleView::class.java.getDeclaredField("phase").apply { isAccessible = true }
         val dir = File(targetContext.getExternalFilesDir(null), "frames").apply { mkdirs() }
-        for (scale in listOf(1f, 72.5f / (24f * density))) {
-            view.statusScale = scale
-            val width = view.statusWidth("Signing...")
-            val height = kotlin.math.ceil(32f * scale * density).toInt()
+        for (budgetDp in listOf(220f, 180f)) {
+            val scale = 1f
+            val width = view.layoutWidth(activity("Signing..."), px(budgetDp), false)
+            val height = px(32f)
             view.layout(0, 0, width, height)
             view.visibility = View.VISIBLE
             view.bind(activity("Signing..."), null)

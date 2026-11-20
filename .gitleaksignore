@@ -15,4 +15,4 @@ e94e1bc9ebef0969742ccbb829bd20d99424b2dd:image/runtime-assets.lock.json:generic-
 917127ec8c8c885f0fa6d43e39bada781446e3a7:image/runtime-assets.lock.json:generic-api-key:83
 917127ec8c8c885f0fa6d43e39bada781446e3a7:image/runtime-assets.lock.json:generic-api-key:491
 # Figma design document identifier in the onboarding asset provenance, not a credential.
-8c2059af37f0b5d252129d631a8dc7c8fe389726:system/agent-app/modules/taku-home/android/src/main/assets/onboarding/connect-ai.source.json:generic-api-key:2
+f9026a95b0093e181ef824947624cf94bb48f6b4:system/agent-app/modules/taku-home/android/src/main/assets/onboarding/connect-ai.source.json:generic-api-key:2

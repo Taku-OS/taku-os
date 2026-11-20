@@ -118,12 +118,11 @@ internal object AiConnections {
 
     private fun switchConnection(context: Context, mode: String, model: String) {
         try {
-            NativeClient.exchange(JSONObject().put("op", "modelConnection").put("action", "select").put("mode", mode).put("model", model))
+            ComposerOptions.switchConnection(context, mode, model)
         } catch (e: Exception) {
             Log.w(TAG, "mode switch to $mode refused: ${e.message}")
             throw IOException("TASK_RUNNING")
         }
-        ModelConnectionView.saveOverrides(context.getSharedPreferences("agent-settings", 0), mode, model)
     }
 
     /** The sign-in landed: ChatGPT stays, nothing to restore. */
@@ -178,7 +177,7 @@ internal object AiConnections {
         } catch (_: ActivityNotFoundException) {
             Log.w(TAG, "no browser; opening the account page")
         }
-        context.startActivity(Intent(context, PanelActivity::class.java).putExtra("page", "account").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        if (!AgentFrontendLauncher.openRoute(context, "/system-ai?section=account")) throw IOException("AGENT_UI_UNAVAILABLE")
         return "accountPage"
     }
 

@@ -48,6 +48,14 @@ public final class OpenAccessProbe extends Instrumentation {
                                 .put("text", before.getString("text")).toString());
                 if (!restored.optBoolean("ok")) throw new AssertionError("Draft restore failed");
                 checks += 4;
+                for (String method : new String[]{"readAccount", "readJev"}) {
+                    JSONObject onboarding = call("org.agentos.assistant.agent-gateway", method, "{}");
+                    if (!onboarding.optBoolean("ok")) throw new AssertionError("Signed onboarding read failed: " + method);
+                    JSONObject state = onboarding.getJSONObject("result");
+                    if (!state.has(method.equals("readAccount") ? "aiAvailable" : "ready"))
+                        throw new AssertionError("Missing authoritative onboarding state: " + method);
+                    checks++;
+                }
             } else {
                 try {
                     call("org.agentos.assistant.agent-gateway", "composer/read", new JSONObject().put("threadId", "").toString());
@@ -66,6 +74,7 @@ public final class OpenAccessProbe extends Instrumentation {
                         "accounts/removeKey", "accounts/login", "accounts/openMagpie", "accounts/cancel",
                         "accounts/refresh", "manageSystemAi", "setSystemAi", "bindSystemAi", "bindSystemAiModel",
                         "reorderSystemAi", "restoreSystemAi", "deleteSystemAiGroup", "skills/community/install",
+                        "jev/status", "jev/connect", "jev/enable", "account/login/start", "account/login/cancel",
                         "capture/read", "capture/request", "capture/accept", "capture/dismiss",
                         "capture/openConversation", "interrupt", "cancelQueued", "readTaskDetail"}) {
                     // Permission must be checked before parsing even malformed inputs.

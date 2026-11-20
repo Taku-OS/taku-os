@@ -87,7 +87,6 @@ public final class AgentOpenAccessProvider extends ContentProvider {
                 out.putString("result", error(code).toString());
                 return out;
             }
-
         }
         // Credentials stay with trusted callers (root, system, shell, platform-signed), whatever
         // the Permission Center grants: a ChatGPT sign-in hands out its device code, and a Jev

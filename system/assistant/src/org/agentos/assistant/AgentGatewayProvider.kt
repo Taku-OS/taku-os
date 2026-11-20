@@ -315,6 +315,7 @@ class AgentGatewayProvider : ContentProvider() {
                 val route = when (input.optString("page", "models")) {
                     "workspaces" -> "/workspaces"
                     "system" -> "/system-ai"
+                    "account" -> "/system-ai?section=account"
                     else -> "/system-ai?section=connection"
                 }
                 if (!AgentFrontendLauncher.openRoute(context!!, route)) throw IOException("AGENT_UI_UNAVAILABLE")

@@ -23,7 +23,8 @@ public final class AgentOpenAccessPolicy {
         // Draft/option writes can alter a later GUI submission; protect those as well as submit.
         boolean sensitiveFamily = method.startsWith("requests/") || method.startsWith("accounts/")
                 || method.startsWith("composer/") || method.startsWith("skills/")
-                || method.startsWith("capture/");
+                || method.startsWith("capture/") || method.startsWith("jev/")
+                || method.startsWith("account/login/");
         return ROOT_METHODS.contains(method) || sensitiveFamily && !CONTROL_READS.contains(method)
                 ? "taku.root" : "taku.control";
     }

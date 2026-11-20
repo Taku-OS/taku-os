@@ -109,3 +109,9 @@ ASSIST candidate. Frontend launchers validate the destination certificate. `taku
 is a public HOME-package selector, so its SELinux read access is deliberately shared;
 this does not grant property writes. `WITH_ADB_INSECURE` appears only in the emulator product
 makefile, never the physical-device product.
+
+Assistant `jev/*` and `account/login/*` methods (including reads and future methods)
+require `taku.root` from ordinary apps before argument parsing. `taku.control` alone
+returns `PERMISSION_DENIED`; local agent/root/system/shell and the signed gateway
+retain access. `account/login/start` and `jev/connect` also retain their trusted-caller
+credential restriction. `account/status` remains a redacted `taku.control` read.
