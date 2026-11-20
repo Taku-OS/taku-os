@@ -1,9 +1,142 @@
 ---
 name: taku-open-access
-description: Inspect and manage Taku OS skills, plugins, memory, Audio settings, home feed actions, the panel directory, primary replies, usage, session removal and background workspaces using Android content commands.
+description: Inspect and manage Taku OS skills, plugins, memory, Audio settings, home feed actions, the panel directory, primary replies, usage, session removal, background workspaces, and active menu scans using Android content commands.
 ---
 
 # TakuOS open access
+
+## Menu scan
+
+On a TakuAgent build with Menu Scan, tap **Open camera** in the system assistant
+or full chat. The Home Assistant command uses the same conversation and camera:
+
+```sh
+content call --uri content://org.agentos.agent.home-assistant --method assistant/open-camera
+```
+
+Run the command while Taku Home or the system assistant is visible. It follows
+the Home Assistant access policy. `CAMERA_BUSY` means the assistant is working,
+recording, or already opening the camera. Opening the camera preserves unsent text.
+In the camera, choose **Menu scan**, then use **Scan menu**. An Agent can control
+these visible buttons, **Retake**,
+and **Close camera** with `uiautomator dump /data/local/tmp/menu-ui.xml` and
+`input tap X Y` at the center of the matching node's `bounds`. These operations
+require a foreground chat and Android camera permission. Read the current node
+bounds again after each screen change. If the camera or scan fails, the camera
+shows the error and lets the user retry.
+
+Run these commands as the Android shell, system, root, or a caller granted
+`org.agentos.permission.AGENT_CLIENT`:
+
+```sh
+content call --uri content://org.agentos.agent.menu-scan --method read
+content call --uri content://org.agentos.agent.menu-scan --method showPicks --arg '{"scanId":"SCAN_ID"}'
+content call --uri content://org.agentos.agent.menu-scan --method showLighter --arg '{"scanId":"SCAN_ID"}'
+content call --uri content://org.agentos.agent.menu-scan --method comparePicks --arg '{"scanId":"SCAN_ID"}'
+content call --uri content://org.agentos.agent.menu-scan --method openPreferences --arg '{"scanId":"SCAN_ID"}'
+content call --uri content://org.agentos.agent.menu-scan --method select --arg '{"scanId":"SCAN_ID","dishId":"DISH_ID"}'
+content call --uri content://org.agentos.agent.menu-scan --method retryArtwork --arg '{"scanId":"SCAN_ID","dishId":"DISH_ID"}'
+content call --uri content://org.agentos.agent.menu-scan --method searchVideo --arg '{"scanId":"SCAN_ID","dishId":"DISH_ID"}'
+content call --uri content://org.agentos.agent.menu-scan --method add --arg '{"scanId":"SCAN_ID","dishId":"DISH_ID"}'
+content call --uri content://org.agentos.agent.menu-scan --method openOrder --arg '{"scanId":"SCAN_ID"}'
+content call --uri content://org.agentos.agent.menu-scan --method setQuantity --arg '{"scanId":"SCAN_ID","dishId":"DISH_ID","quantity":2}'
+content call --uri content://org.agentos.agent.menu-scan --method remove --arg '{"scanId":"SCAN_ID","dishId":"DISH_ID"}'
+content call --uri content://org.agentos.agent.menu-scan --method showToStaff --arg '{"scanId":"SCAN_ID"}'
+content call --uri content://org.agentos.agent.menu-scan --method back --arg '{"scanId":"SCAN_ID"}'
+content read --uri content://org.agentos.agent.menu-scan/photo/SCAN_ID
+content read --uri content://org.agentos.agent.menu-scan/artwork/SCAN_ID/DISH_ID
+```
+
+Read `Bundle[{result=...}]` as JSON. `result` is `null` without an active scan.
+An active snapshot provides `scanId`, `revision`, image `width` and `height`,
+`dishes` with stable IDs and pixel boxes, `selectedDishId`, `view`, `suggestionView`,
+`orderItems` with `dishId` and `quantity`, and `orderIds` with the same dish IDs.
+`content read` streams the same JPEG used by the overlay. Prices retain the
+source label. `dishes[].currency` gives the ISO currency code if the scan confirms it from the printed price or matched venue. The UI uses it when the source label does not already specify a currency. A known menu match may supply a candidate `venue` with `name`,
+`address`, `officialUrl`, `currency`, and any available `pickupUrl` and `pickupDishNames`.
+Check that the address is the location the user wants. A dish may carry
+`evidence` with localized facts, `menuUrl`, alternate names
+for the same dish, `socialPostUrls` with candidate original posts, and `videoSourcePages`
+with public pages linking to original posts.
+`evidence.ingredients` can supply a localized ingredient list from the restaurant menu when OCR did not capture the description.
+`evidence.tasteTags`, when present, contains localized ingredient or flavor labels from the restaurant menu.
+The island's **My order** count is the sum of `orderItems[].quantity`. The **Added** marker is shown for each dish ID in the order.
+A dish may include `nutrition` with `kind` (`official` or
+`estimated`), `calories`, `carbs`, `fat`, and `protein` ranges, and
+`sourceUrl`. Values are per serving unless `scope` is `piece`, which gives values for one piece even if the menu item is a bucket. An estimate can include ingredient and portion assumptions or a localized `note` about its scope, reference market and exclusions. Missing values mean the source data could not support an estimate. For a known
+menu, a dish may carry `suggestions.picks` or `suggestions.lighter` with the
+localized label displayed on the menu. These labels do not contain nutrition estimates.
+
+`artwork` maps every recognized dish ID to `queued`, `generating`, `ready`,
+or `unavailable`. A scan queues each dish automatically. Selecting a dish gives
+it and its neighbors priority for available workers. A `ready` entry has the
+exact `uri` for the transparent PNG shown in the dish carousel. Read that URI
+to stream the image. Use `retryArtwork` to queue an unavailable image again or replace an unreadable one.
+Artwork uses the dish name and description with the phone's configured image
+model. It requires Taku AI for TakuAgent and the phone's network connection.
+Failures return `unavailable`. A previous scan's URI or a URI for a dish
+without an image returns `FileNotFoundException`. Original social posts are
+the source for seeing a dish served by the restaurant.
+
+For a known restaurant, all dishes automatically enter the first public social
+search round, with up to four dishes searched concurrently. After that round
+finishes for the whole menu, a focused round can try another name for the same
+dish or recover an incomplete search. Selection prioritizes a dish within its round.
+The menu shows one looking-for-posts message while work is pending.
+`videoSearch` maps dish IDs to `queued`, `searching`,
+`found`, `notFound`, or `unavailable`. Entries with verified posts
+contain `videos`, each with `platform` (`tiktok`, `instagram`, `youtube`,
+`x`, or `facebook`), `author`, `mediaType` (`video`, `photo`, `carousel`, or `text`),
+`sameBrand: true`, and original `url`. A result may include `title`, `thumbnailUrl`,
+`playbackUrl`, `viewerUrl`, or a tagged `venue`. The array grows with each verified
+original about the dish at the scanned restaurant, including distinct originals
+from the same platform. `found` means at least one original was verified.
+The recommendation section is hidden when the search settles with no originals.
+Use `searchVideo` to retry an unavailable or empty result, then read the same scan again.
+`VENUE_UNKNOWN` means the scan did not match a
+known restaurant. Search uses the configured local Magpie/ChatGPT account
+through the system Assistant. The installed Assistant must support menu video
+search and Taku AI must be enabled. A missing or failing search service returns
+`unavailable`.
+Android's standard `ACTION_VIEW` opens `playbackUrl` for video when available,
+including the official Facebook player for verified Facebook videos. It then
+uses `viewerUrl` when available or the original post at `url`. The original
+post at `url` can also be opened separately.
+For pickup, the user adds dishes and checks out at the
+restaurant. The scan remains a review list.
+
+`timing.scanMs` is elapsed time from shutter tap to OCR and local menu matching.
+`timing.artwork` and `timing.social` map dish IDs to milestones, in milliseconds
+after enrichment starts. Artwork records `startedMs`, `settledMs`, and whether
+the image was `cached`. Social records `queuedMs`, `startedMs`, `firstPostMs`,
+`twoPlatformsMs`, `threePlatformsMs`, `firstRoundFinishedMs`,
+`supplementStartedMs`, and `settledMs`. Missing milestones have not occurred or
+do not apply to that dish. An explicit retry starts new timing for that dish.
+Artwork and social lookup overlap.
+
+`suggestionView` starts at `picks` for each scan. Use `showPicks` for `picks`,
+`showLighter` for `lighter`, `comparePicks` for `comparison`, and `openPreferences`
+for `preferences`. These commands require `view` to be `menu` and `selectedDishId`
+to be `null`. They update the view for the current scan and return the updated
+snapshot. Repeating a command for the current suggestion view keeps the revision.
+
+The GUI and commands share the same scan and order. `add` starts a line at one
+and leaves its quantity unchanged if it is already in the order. `setQuantity`
+accepts a JSON number from 1 to 99 with no fractional part for a dish already in
+the order. `remove` removes the entire line. `openOrder` opens review (`order`)
+and `showToStaff` opens the display for restaurant staff (`staff`). Both require
+an order with at least one line. `back` returns from the staff display to
+review, and from review to the menu. Retaking or closing clears the scan and
+order.
+
+Errors return `ok: false` with `INVALID_ARGUMENT`, `NO_ACTIVE_SCAN`, `STALE_SCAN`,
+`DISH_NOT_FOUND`, `DISH_NOT_IN_ORDER`, `ORDER_EMPTY`, `SUGGESTIONS_UNAVAILABLE`, or
+`UNKNOWN_ACTION`. `SUGGESTIONS_UNAVAILABLE` means a dish is selected or the scan
+is in order review or the staff display.
+`DISH_NOT_IN_ORDER` means the quantity request refers to a dish with no current
+order line. Read the current scan again after `STALE_SCAN`. An old photo URI
+returns `FileNotFoundException`. Android rejects unprivileged callers with
+`SecurityException`.
 
 ## Default desktop on Taku images
 

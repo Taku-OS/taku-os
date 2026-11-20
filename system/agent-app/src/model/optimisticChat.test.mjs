@@ -28,6 +28,21 @@ test('both rows exist before any gateway result and keep their keys through ever
   assert.equal(request.state, 'settled');
 });
 
+test('a photo stays on the same request as it reconciles to its native attachment', () => {
+  const request = begin(session(), {photo: 'data:image/jpeg;base64,/9j/AA=='});
+  assert.equal(request.photo, undefined);
+  assert.deepEqual(visible(session(), request)[0].attachments, ['image']);
+  const textOnly = session([turn([user(), reply()])]);
+  assert.equal(reconcileOptimisticSubmission(request, textOnly, 200), request);
+  const attached = user();
+  attached.content.push({type: 'localImage', path: '/private/capture.jpg'});
+  const view = session([turn([attached, reply()])]);
+  const reconciled = reconcileOptimisticSubmission(request, view, 200);
+  assert.equal(reconciled.userBlockId, 'turn/u');
+  assert.deepEqual(visible(view, reconciled)[0].attachments, ['image']);
+  assert.equal(visible(view, reconciled)[0].id, 'optimistic/r/user');
+});
+
 test('a tool event stops the initial loading state even before answer text', () => {
   const view = session([turn([user(), {id: 'tool', type: 'commandExecution', command: 'date', status: 'inProgress'}])]);
   const request = reconcileOptimisticSubmission(begin(), view, 200);

@@ -101,8 +101,25 @@ public final class AgentGatewayProtocolTest {
         rejectsWithCode("INVALID_ARGUMENT", () -> AgentGatewayProtocol.request("mainReply", new JSONObject(protectedRead.toString()).put("action", "write").toString()));
     }
     public static void main(String[] args) throws Exception {
+        String search = "searchMenuVideos";
+        JSONObject menu = new JSONObject().put("dish", "French Onion Soup").put("venue", "Café Lunette").put("address", "1741 Lower Water St");
+        check(AgentGatewayProtocol.request(search, menu.toString()).similar(menu));
+        check(AgentGatewayProtocol.request(search, new JSONObject(menu.toString()).put("platforms", new JSONArray().put("tiktok").put("x")).toString())
+                .getJSONArray("platforms").length() == 2);
+        rejectsWithCode("UNSUPPORTED_PARAMETER", () -> AgentGatewayProtocol.request(search, new JSONObject(menu.toString()).put("tools", new JSONArray()).toString()));
+        rejectsWithCode("INVALID_dish", () -> AgentGatewayProtocol.request(search, new JSONObject(menu.toString()).put("dish", 19).toString()));
+        rejectsWithCode("INVALID_address", () -> AgentGatewayProtocol.request(search, new JSONObject(menu.toString()).put("address", "x".repeat(301)).toString()));
+        for (JSONArray platforms : new JSONArray[]{new JSONArray(), new JSONArray().put("tiktok").put("tiktok"),
+                new JSONArray().put("example"), new JSONArray().put(true)})
+            rejectsWithCode("INVALID_MENU_SEARCH_PLATFORMS", () -> AgentGatewayProtocol.request(search, new JSONObject(menu.toString()).put("platforms", platforms).toString()));
         JSONObject send = new JSONObject().put("threadId", THREAD).put("requestId", KEY).put("text", "Hello");
         check(AgentGatewayProtocol.request("sendMessage", send.toString()).getString("text").equals("Hello"));
+        String photo = "data:image/jpeg;base64," + "AAAA".repeat(74_994);
+        check(AgentGatewayProtocol.request("sendMessage", new JSONObject(send.toString()).put("photo", photo).toString()).getString("photo").equals(photo));
+        rejectsWithCode("INVALID_PHOTO", () -> AgentGatewayProtocol.request("sendMessage", new JSONObject(send.toString()).put("photo", photo + "AAAA").toString()));
+        rejectsWithCode("INVALID_PHOTO", () -> AgentGatewayProtocol.request("sendMessage", new JSONObject(send.toString()).put("photo", "file:///sdcard/photo.jpg").toString()));
+        rejectsWithCode("INVALID_PHOTO", () -> AgentGatewayProtocol.request("sendMessage", new JSONObject(send.toString()).put("photo", "data:image/jpeg;base64,===").toString()));
+        rejectsWithCode("UNSUPPORTED_PARAMETER", () -> AgentGatewayProtocol.request("steer", new JSONObject(send.toString()).put("expectedTurnId", "turn-1").put("photo", "data:image/jpeg;base64,AAAA").toString()));
         rejects(() -> AgentGatewayProtocol.request("rpc", "{}"));
         rejects(() -> AgentGatewayProtocol.request("sendMessage", new JSONObject(send.toString()).put("command", "sh").toString()));
         rejects(() -> AgentGatewayProtocol.request("sendMessage", new JSONObject(send.toString()).put("text", " ").toString()));

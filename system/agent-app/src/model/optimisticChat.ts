@@ -6,6 +6,7 @@ export interface OptimisticSubmission {
   threadId: string;
   requestId: string;
   text: string;
+  hasPhoto?: boolean;
   action: 'sendMessage' | 'steer';
   expectedTurnId?: string;
   startedAt: number;
@@ -23,10 +24,11 @@ export interface OptimisticSubmission {
 }
 
 export function beginOptimisticSubmission(
-  request: Pick<OptimisticSubmission, 'threadId' | 'requestId' | 'text' | 'action' | 'expectedTurnId'>,
+  submission: Pick<OptimisticSubmission, 'threadId' | 'requestId' | 'text' | 'action' | 'expectedTurnId'> & {photo?: string},
   session: SessionView | null, now = Date.now(),
 ): OptimisticSubmission {
-  return {...request, startedAt: now, baselineBlockIds: session?.blocks.map(block => block.id) || [],
+  const {photo, ...request} = submission;
+  return {...request, ...(photo ? {hasPhoto: true} : {}), startedAt: now, baselineBlockIds: session?.blocks.map(block => block.id) || [],
     baselineTurnIds: [...new Set(session?.blocks.map(block => block.turnId) || [])], state: 'sending'};
 }
 
@@ -54,10 +56,11 @@ export function reconcileOptimisticSubmission(request: OptimisticSubmission, ses
   const runtimeTurn = taskMatches ? session?.taskTurnId : '';
   const user = blocks.find(block => block.id === request.userBlockId) || blocks.find(block => block.role === 'user'
     && (!request.baselineBlockIds.includes(block.id) || Boolean(runtimeTurn)) && block.text.trim() === request.text
+    && (!request.hasPhoto || block.attachments.includes('image'))
     && (!request.correlationPending || Boolean(runtimeTurn))
     && (request.action !== 'steer' || block.turnId === request.expectedTurnId)
     && (!runtimeTurn || block.turnId === runtimeTurn));
-  const turnId = user?.turnId || runtimeTurn || request.turnId || (request.action === 'sendMessage' && !request.correlationPending
+  const turnId = user?.turnId || runtimeTurn || request.turnId || (request.action === 'sendMessage' && !request.hasPhoto && !request.correlationPending
     ? blocks.find(block => block.role === 'assistant' && !request.baselineTurnIds.includes(block.turnId))?.turnId : '');
   const userIndex = user ? blocks.indexOf(user) : -1;
   const nextUserIndex = userIndex >= 0

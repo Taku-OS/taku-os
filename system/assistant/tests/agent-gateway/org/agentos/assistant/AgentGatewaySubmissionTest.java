@@ -15,6 +15,7 @@ public final class AgentGatewaySubmissionTest {
         if (calls[0] != 1 || !repeated.getBoolean("replayed") || !repeated.getString("taskId").equals("123")) throw new AssertionError("Duplicate published");
         try { store.submit("first", "thread", "Changed", () -> {}, before -> "456"); throw new AssertionError(); }
         catch (java.io.IOException expected) { if (!expected.getMessage().equals("REQUEST_ID_REUSED")) throw expected; }
+        photoReceipts(store, root);
         JSONObject failed = store.submit("failed", "thread", "No replay", () -> {}, before -> { calls[0]++; throw new java.io.IOException(); });
         store.submit("failed", "thread", "No replay", () -> {}, before -> { calls[0]++; return "789"; });
         if (calls[0] != 2 || !failed.getString("state").equals("deliveryUnknown")) throw new AssertionError("Uncertain publication replayed");
@@ -121,6 +122,30 @@ public final class AgentGatewaySubmissionTest {
         sameThreadSequencing();
         fallbackSequencing();
         System.out.println("AgentGatewaySubmissionTest: durable send/steer receipt/restart/reuse/failure checks passed");
+    }
+
+    private static void photoReceipts(AgentGatewaySubmissions store, File root) throws Exception {
+        String photo = "data:image/jpeg;base64,AAAA";
+        JSONObject sent = store.submit("photo", "thread", "Caption", photo, () -> {}, before -> "501");
+        JSONObject replayed = new AgentGatewaySubmissions(root).submit("photo", "thread", "Caption", photo,
+                () -> {}, before -> { throw new AssertionError("Photo is already queued"); });
+        if (!sent.getString("state").equals("queued") || sent.has("photo") || !replayed.getBoolean("replayed")
+                || !replayed.getString("taskId").equals("501") || Files.readString(new File(root, "photo.json").toPath()).contains(photo))
+            throw new AssertionError("Photo replay changed the receipt or exposed the image");
+        for (String changedPhoto : new String[]{null, "data:image/jpeg;base64,BBBB"}) {
+            try {
+                store.submit("photo", "thread", "Caption", changedPhoto, () -> {}, before -> "502");
+                throw new AssertionError("Request ID accepted a different photo");
+            } catch (java.io.IOException expected) {
+                if (!expected.getMessage().equals("REQUEST_ID_REUSED")) throw expected;
+            }
+        }
+        JSONObject busy = store.submit("busy-photo", "thread", "Caption", photo, () -> {
+            throw new java.io.IOException("THREAD_BUSY");
+        }, before -> { throw new AssertionError("Photo published while another turn was active"); });
+        if (!busy.getString("requestId").equals("busy-photo") || !busy.getString("threadId").equals("thread")
+                || !busy.getString("state").equals("notSent") || !busy.getString("code").equals("THREAD_BUSY"))
+            throw new AssertionError("Busy photo did not return an exact rejection receipt");
     }
     private static void await(java.util.concurrent.CountDownLatch latch) throws Exception {
         if(!latch.await(5,java.util.concurrent.TimeUnit.SECONDS))throw new AssertionError("Submission interleaving blocked");

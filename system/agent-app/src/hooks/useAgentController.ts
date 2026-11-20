@@ -5,7 +5,7 @@ import {useLocales} from 'expo-localization';
 import {callAgent, closeAgent, consumePanelLaunch, isPanelLaunchConsumed, launchPanelTarget, launchThreadId, newRequestId, onOpenThread, selectConversation, subscribeSession, watchConversationVisible, AgentGatewayError, type PanelTarget} from '../native/agent';
 import {continuePanel} from '../panels/client';
 import {projectSession, projectThreads, projectWorkspaces, failedTaskDraft, record, string, type Json, type SessionView, type ThreadSummary, type WorkspaceView} from '../model/session';
-import {isAcceptedReceipt, isNotSentReceipt, preserveAndReleaseUnconfirmed, requestReceiptWithRetry, retireAcceptedSubmission, type PendingSubmission} from './submission';
+import {isAcceptedReceipt, isChatPhoto, isNotSentReceipt, matchesDraft, preserveAndReleaseUnconfirmed, requestReceiptWithRetry, retireAcceptedSubmission, type DraftContent, type PendingSubmission} from './submission';
 import {readCurrent, restoreConversation} from './readLifecycle';
 import {sessionReadOptions} from './sessionRead';
 import {emptySessionStream, reduceSessionBatch, retainSessionBlocks, streamCursor, streamSessionRoot, sessionRootForDisplay, reconcileStreamHistory} from '../model/sessionStream';
@@ -13,9 +13,8 @@ import {acceptOptimisticReceipt, beginOptimisticSubmission, reconcileOptimisticS
 
 const SELECTED = 'taku.agent.selected.v1';
 /** A continue publishes one new task: optimistic correlation treats it as a fresh message. */
-type ChatSubmission = {threadId: string; requestId: string; text: string; action: 'sendMessage' | 'steer'; expectedTurnId?: string};
-const asChatSubmission = (pending: PendingSubmission): ChatSubmission => ({
-  threadId: pending.threadId, requestId: pending.requestId, text: pending.text,
+const asChatSubmission = (pending: PendingSubmission): Parameters<typeof beginOptimisticSubmission>[0] => ({
+  threadId: pending.threadId, requestId: pending.requestId, text: pending.text, photo: pending.photo,
   action: pending.action === 'continue' ? 'sendMessage' : pending.action, expectedTurnId: pending.expectedTurnId});
 /** panels/continue returns the task receipt, optionally alongside its panel association. */
 const unwrapPanelReceipt = (value: Json): Json => {
@@ -23,8 +22,15 @@ const unwrapPanelReceipt = (value: Json): Json => {
   return Object.keys(receipt).length ? receipt : value;
 };
 const draftKey = (id: string) => `taku.agent.draft.v1.${id || 'new'}`;
+const draftPhotoKey = (id: string) => `taku.agent.draft-photo.v1.${id || 'new'}`;
 const pendingKey = (id: string) => `taku.agent.pending.v1.${id}`;
 const unconfirmedArchiveKey = (threadId: string, requestId: string) => `taku.agent.unconfirmed.v1.${threadId}.${requestId}`;
+
+async function readSavedDraft(id: string): Promise<DraftContent> {
+  const [[, text], [, photo]] = await AsyncStorage.multiGet([draftKey(id), draftPhotoKey(id)]);
+  if (photo && !isChatPhoto(photo)) throw new AgentGatewayError('Invalid saved photograph', 'DRAFT_RESTORE_UNAVAILABLE');
+  return {text: text ?? '', photo: photo || undefined};
+}
 
 export function useAgentController() {
   const [session, setSession] = useState<SessionView | null>(null);
@@ -35,6 +41,7 @@ export function useAgentController() {
   const [optimisticSubmissions, setOptimisticSubmissions] = useState<OptimisticSubmission[]>([]);
   const visibleOptimisticSubmissions = useMemo(() => optimisticSubmissions.filter(request => request.threadId === selected), [optimisticSubmissions, selected]);
   const [draft, setDraft] = useState('');
+  const [draftPhoto, setDraftPhoto] = useState<string>();
   const [loading, setLoading] = useState(true);
   const [restoring, setRestoring] = useState(true);
   const [pendingSubmission, setPendingSubmission] = useState<PendingSubmission | null>(null);
@@ -50,6 +57,7 @@ export function useAgentController() {
   const zh = locale === 'zh';
   const mounted = useRef(true), generation = useRef(0), actionRunning = useRef(false);
   const selectedRef = useRef(''), draftRef = useRef(''), sessionRef = useRef<SessionView | null>(null), taskRef = useRef<Json>({});
+  const draftPhotoRef = useRef<string | undefined>(undefined);
   const streamRef = useRef({state: emptySessionStream(''), healthy: false, failed: false});
   const sidebandRef = useRef<Json>({});
   const draftWrites = useRef(Promise.resolve());
@@ -117,17 +125,26 @@ export function useAgentController() {
       PANEL_CONTRACT_MISMATCH: ['Update the Assistant to continue editing this panel.', '请更新 Assistant 后继续修改此面板。'],
       VERSION_CONFLICT: ['The panel changed on another surface. Review it before sending again.', '面板在另一个界面已变化，请核对后再发送。'],
       IDEMPOTENCY_CONFLICT: ['A different request already used this request ID. Start a new message.', '另一个请求已使用此请求 ID，请重新发送。'],
+      INVALID_PHOTO: ['The photo could not be attached. Retake it and try again.', '无法附上照片，请重新拍摄后再试。'],
+      PHOTO_TURN_ACTIVE: ['Wait for the current turn to finish before sending a photo.', '请等当前轮次结束后再发送照片。'],
+      PANEL_PHOTO_UNSUPPORTED: ['Remove the photo to continue editing this panel.', '请移除照片后再继续修改面板。'],
     };
     return messages[code]?.[zh ? 1 : 0] || (zh ? '暂时无法连接 Agent。内容已保留，请重试。' : 'Could not reach Agent. Your content is retained; please try again.');
   }, [zh]);
   const messageRef = useRef(message);
   messageRef.current = message;
 
-  const saveDraft = useCallback((id: string, value: string) => {
+  const queueDraftWrite = useCallback((write: () => Promise<void>) => {
     // Serialize writes so rapid input cannot restore an older draft after a newer one.
-    draftWrites.current = draftWrites.current.catch(() => {}).then(() => AsyncStorage.setItem(draftKey(id), value));
+    draftWrites.current = draftWrites.current.catch(() => {}).then(write);
     return draftWrites.current;
   }, []);
+
+  const saveDraft = useCallback((id: string, value: string) =>
+    queueDraftWrite(() => AsyncStorage.setItem(draftKey(id), value)), [queueDraftWrite]);
+
+  const saveDraftContent = useCallback((id: string, content: DraftContent) =>
+    queueDraftWrite(() => AsyncStorage.multiSet([[draftKey(id), content.text], [draftPhotoKey(id), content.photo ?? '']])), [queueDraftWrite]);
 
   const updateDraft = useCallback((value: string) => {
     if (!draftReady.current || actionRunning.current) return false;
@@ -137,6 +154,17 @@ export function useAgentController() {
     void saveDraft(selectedRef.current, value).catch(() => setError(zh ? '草稿暂时无法保存。' : 'Your draft could not be saved.'));
     return true;
   }, [saveDraft, zh]);
+
+  const updateDraftPhoto = useCallback((id: string, photo?: string) => {
+    if (!draftReady.current || actionRunning.current || selectedRef.current !== id) return false;
+    if (photo !== undefined && !isChatPhoto(photo)) return false;
+    ++draftRevision.current;
+    draftPhotoRef.current = photo;
+    setDraftPhoto(photo);
+    void queueDraftWrite(() => AsyncStorage.setItem(draftPhotoKey(id), photo ?? ''))
+      .catch(() => { if (selectedRef.current === id) setError(zh ? '草稿照片暂时无法保存。' : 'Your draft photo could not be saved.'); });
+    return true;
+  }, [queueDraftWrite, zh]);
 
   const syncNativeSelection = useCallback((id: string, ticket: number) => {
     const resume = navigationWrites.current.catch(() => {}).then(async () => {
@@ -161,6 +189,7 @@ export function useAgentController() {
     setRefreshRevision(value => value + 1);
     setWorkspaces([]); setWorkspaceError(''); setError(''); setReadError(''); setSelectionError(''); setLoading(Boolean(id));
     draftRef.current = ''; setDraft('');
+    draftPhotoRef.current = undefined; setDraftPhoto(undefined);
     // Native settings and the frontend keep the same selected conversation.
     // A slow earlier resume must finish before a later selection writes the preference.
     void syncNativeSelection(id, ticket).catch(e => {
@@ -176,12 +205,12 @@ export function useAgentController() {
         });
         await selectionWrites.current;
         return Promise.all([
-          AsyncStorage.getItem(draftKey(id)),
+          readSavedDraft(id),
           id ? AsyncStorage.getItem(pendingKey(id)) : Promise.resolve(null),
         ]);
       },
-      accept: ([text, pendingValue]) => {
-        let restored = text || '';
+      accept: ([savedDraft, pendingValue]) => {
+        let restored = savedDraft;
         if (pendingValue) {
           try {
             const pending = JSON.parse(pendingValue) as PendingSubmission;
@@ -192,12 +221,13 @@ export function useAgentController() {
                   baselineBlockIds: pending.baselineBlockIds || [], baselineTurnIds: pending.baselineTurnIds || [],
                   correlationPending: !pending.baselineBlockIds, state: 'failed', errorKey: 'replyFailed',
                   error: messageRef.current(new AgentGatewayError('Unconfirmed delivery', 'UNKNOWN_DELIVERY'))}]);
-              if (!restored) restored = pending.text;
+              if (!restored.text && !restored.photo) restored = {text: pending.text, photo: pending.photo};
               setError(messageRef.current(new AgentGatewayError('Unconfirmed delivery', 'UNKNOWN_DELIVERY')));
             }
           } catch { setError(messageRef.current(new AgentGatewayError('Unconfirmed delivery', 'UNKNOWN_DELIVERY'))); }
         }
-        draftRef.current = restored; setDraft(restored);
+        draftRef.current = restored.text; setDraft(restored.text);
+        draftPhotoRef.current = restored.photo; setDraftPhoto(restored.photo);
         draftReady.current = true;
       },
       // A missing receipt read must never enable a new request ID. Release the spinner, keep Send guarded.
@@ -418,16 +448,27 @@ export function useAgentController() {
     const result = await callAgent('createThread');
     const id = string(record(result.thread).id);
     if (!id) throw new AgentGatewayError('Missing session ID');
-    if (migrateDraft) await saveDraft(id, draftRef.current);
-    if (migrateDraft) updateOptimistic(requests => requests.map(request => request.requestId === optimisticRequestId ? {...request, threadId: id} : request));
+    const migrated = migrateDraft ? {text: draftRef.current, photo: draftPhotoRef.current} : undefined;
+    if (migrated) {
+      await saveDraftContent(id, migrated);
+      updateOptimistic(requests => requests.map(request => request.requestId === optimisticRequestId ? {...request, threadId: id} : request));
+    }
     await select(id, migrateDraft);
+    if (migrated?.photo) {
+      if (!draftReady.current) throw new AgentGatewayError('Draft migration could not be confirmed', 'DRAFT_RESTORE_UNAVAILABLE');
+      await saveDraftContent('', {text: ''});
+    }
     void loadThreads().catch(() => {});
     return id;
-  }, [loadThreads, saveDraft, select, updateOptimistic]);
+  }, [loadThreads, saveDraftContent, select, updateOptimistic]);
 
   const deliver = useCallback(async (pending: PendingSubmission) => {
-    const id = pending.threadId, text = pending.text;
-    const params: Json = {threadId: id, text, requestId: pending.requestId};
+    const {threadId: id, text, requestId} = pending;
+    const params: Json = {threadId: id, text, requestId};
+    if (pending.photo !== undefined) {
+      if (pending.action !== 'sendMessage' || !isChatPhoto(pending.photo)) throw new AgentGatewayError('Invalid request photograph', 'INVALID_PHOTO');
+      params.photo = pending.photo;
+    }
     if (pending.expectedTurnId) params.expectedTurnId = pending.expectedTurnId;
     const receipt = pending.action === 'continue'
       ? unwrapPanelReceipt(await requestReceiptWithRetry(() => continuePanel(pending.panel!.panelId, text,
@@ -449,31 +490,35 @@ export function useAgentController() {
     }
     updateOptimistic(requests => requests.map(request => request.requestId === pending.requestId
       ? reconcileOptimisticSubmission(acceptOptimisticReceipt(request, receipt), sessionRef.current) : request));
-    if (selectedRef.current === id) await saveDraft(id, draftRef.current);
+    if (selectedRef.current === id) await saveDraftContent(id, {text: draftRef.current, photo: draftPhotoRef.current});
     else await draftWrites.current;
     await retireAcceptedSubmission(pending, {
-      readDraft: () => AsyncStorage.getItem(draftKey(id)),
-      writeDraft: value => saveDraft(id, value),
+      readDraft: () => readSavedDraft(id),
+      writeDraft: value => saveDraftContent(id, value),
       removePending: () => AsyncStorage.removeItem(pendingKey(id)),
     });
     if (selectedRef.current === id) {
       setPendingSubmission(null);
-      if (draftRef.current.trim() === text) {
+      if (matchesDraft({text: draftRef.current, photo: draftPhotoRef.current}, pending)) {
         ++draftRevision.current; draftRef.current = ''; setDraft('');
+        draftPhotoRef.current = undefined; setDraftPhoto(undefined);
       }
     }
     setRefreshRevision(v => v + 1);
     void loadThreads().catch(() => {});
-  }, [loadThreads, saveDraft, updateOptimistic]);
+  }, [loadThreads, saveDraftContent, updateOptimistic]);
 
-  const submit = useCallback(async (text: string) => {
+  const submit = useCallback(async (text: string, photo?: string) => {
     if (launchFailure.current) throw launchFailure.current;
     if (!draftReady.current) return;
     if (!text || text.length > 16000) return;
     let id = selectedRef.current;
     const current = sessionRef.current;
     const existingPending = pendingSubmission?.threadId === id ? pendingSubmission : null;
-    if (existingPending && existingPending.text !== text) throw new AgentGatewayError('Pending message differs', 'PENDING_DIFFERENT');
+    if (existingPending && !matchesDraft({text, photo}, existingPending)) throw new AgentGatewayError('Pending message differs', 'PENDING_DIFFERENT');
+    if (photo !== undefined && !isChatPhoto(photo)) throw new AgentGatewayError('Invalid draft photograph', 'INVALID_PHOTO');
+    if (!existingPending && photo && (current?.running || current?.activeTurnId || current?.queued))
+      throw new AgentGatewayError('Current turn still active', 'PHOTO_TURN_ACTIVE');
     if (!existingPending && ['queued', 'running'].includes(string(taskRef.current.state)) && !current?.activeTurnId)
       throw new AgentGatewayError('Task is queued', 'QUEUED');
     if (!existingPending && !current?.activeTurnId && optimisticRef.current.some(request => request.threadId === id
@@ -485,7 +530,8 @@ export function useAgentController() {
     if (panelTarget.current && isPanelLaunchConsumed(panelTarget.current.launchId)) panelTarget.current = null;
     const target = panelTarget.current;
     const continuing = !!target && !!id && target.originThreadId === id && !existingPending;
-    let pending: PendingSubmission = existingPending || {threadId: id, text, requestId: newRequestId(),
+    if (continuing && photo) throw new AgentGatewayError('Panel continuation requires a text request', 'PANEL_PHOTO_UNSUPPORTED');
+    let pending: PendingSubmission = existingPending || {threadId: id, text, photo, requestId: newRequestId(),
       action: continuing ? 'continue' : current?.activeTurnId ? 'steer' : 'sendMessage',
       ...(continuing && target ? {panel: {panelId: target.panelId, expectedSourceVersion: target.sourceVersion, launchId: target.launchId}} : {}),
       ...(!continuing && current?.activeTurnId ? {expectedTurnId: current.activeTurnId} : {})};
@@ -505,10 +551,11 @@ export function useAgentController() {
     try {
       if (!id) id = await create(true, requestId);
       pending = {...pending, threadId: id};
+      if (photo) await saveDraftContent(id, {text: draftRef.current, photo});
       const existing = await AsyncStorage.getItem(pendingKey(id));
       if (existing) {
         const stored = JSON.parse(existing) as PendingSubmission;
-        if (stored.threadId !== id || stored.text !== text || stored.requestId !== pending.requestId)
+        if (stored.threadId !== id || !matchesDraft({text, photo}, stored) || stored.requestId !== pending.requestId)
           throw new AgentGatewayError('Pending message differs', 'PENDING_DIFFERENT');
         pending = stored;
       } else {
@@ -524,9 +571,9 @@ export function useAgentController() {
           error: message(problem), errorKey: 'replyFailed'}, sessionRef.current) : request));
       throw problem;
     }
-  }, [create, deliver, message, pendingSubmission, updateOptimistic]);
+  }, [create, deliver, message, pendingSubmission, saveDraftContent, updateOptimistic]);
 
-  const send = useCallback(() => run(() => submit(draftRef.current.trim())), [run, submit]);
+  const send = useCallback(() => run(() => submit(draftRef.current.trim(), draftPhotoRef.current)), [run, submit]);
 
   // A card action is the user's own reply in the card's thread, with the same receipt and retry rules as typed text.
   const sendText = useCallback((threadId: string, text: string) => run(async () => {
@@ -585,6 +632,7 @@ export function useAgentController() {
     if (!current || current.id !== id || !failure || failure.taskId !== taskId)
       throw new AgentGatewayError('Task changed', 'TASK_FAILURE_CHANGED');
     if (!failure.prompt.trim()) throw new AgentGatewayError('Original request unavailable', 'NO_FAILED_PROMPT');
+    if (draftPhotoRef.current) throw new AgentGatewayError('Newer photo retained', 'DRAFT_NOT_EMPTY');
     const restored = failedTaskDraft(failure, draftRef.current);
     if (restored === null) throw new AgentGatewayError('Newer draft retained', 'DRAFT_NOT_EMPTY');
     // Saving does not clear a pending receipt or issue any gateway/model operation.
@@ -626,7 +674,7 @@ export function useAgentController() {
   }), [loadThreads, run, select]);
 
   return {
-    session, threads, workspaces, loading: loading || restoring, busy, error: error || selectionError || readError, draft,
+    session, threads, workspaces, loading: loading || restoring, busy, error: error || selectionError || readError, draft, draftPhoto,
     historyError, workspaceError, visible,
     draftSessionId: selected, pendingSubmission, conversationKey,
     optimisticSubmissions: visibleOptimisticSubmissions,
@@ -634,6 +682,7 @@ export function useAgentController() {
     onContinueWithoutResending: () => { void continueWithoutResending(); },
     onRestoreFailedTask: (taskId: string) => { void restoreFailedTask(taskId); },
     onDraftChange: updateDraft,
+    onDraftPhotoChange: updateDraftPhoto,
     onSend: () => { void send(); }, onStop: () => { void stop(); },
     onSendText: (threadId: string, text: string) => { void sendText(threadId, text); },
     onSelectThread: (id: string) => {

@@ -15,6 +15,7 @@ import org.agentos.agent.home.feed.FeedException
 import org.agentos.agent.home.feed.FeedGeneration
 import org.agentos.agent.home.feed.FeedOrigin
 import org.agentos.agent.home.feed.FeedRepository
+import org.agentos.agent.home.island.IslandAnchorView
 import org.agentos.agent.home.panels.PanelDirectory
 import org.agentos.agent.home.panels.PanelNavigation
 import org.json.JSONObject
@@ -46,6 +47,9 @@ class TakuHomeModule : Module() {
       OnViewDidUpdateProps { view: VoiceEffectExpoView -> view.effect.update() }
     }
 
+    View(IslandAnchorView::class) {
+      Events("onAnchorChanged")
+    }
 
     Function("beginFeedGeneration") { attemptId: String ->
       FeedGeneration.begin(attemptId, context)

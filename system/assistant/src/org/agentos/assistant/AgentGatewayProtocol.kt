@@ -1,6 +1,7 @@
 package org.agentos.assistant
 
 import java.io.IOException
+import java.util.Base64
 import java.util.HashSet
 import java.util.Locale
 import java.util.regex.Pattern
@@ -18,10 +19,13 @@ internal class AgentGatewayProtocol private constructor() {
         const val PERMISSION = "org.agentos.permission.AGENT_CLIENT"
         const val CLIENT_PACKAGE = "org.agentos.agent"
         const val MAX_REQUEST = 48_000
+        private const val MAX_PHOTO = 300_000
+        private val chatPhotoPattern = Pattern.compile("data:image/(?:jpeg|png);base64,[A-Za-z0-9+/]+={0,2}")
+        internal val menuSearchPlatforms = listOf("tiktok", "instagram", "youtube", "x", "facebook")
         @JvmField val ACTIONS: Set<String> = java.util.Set.of("listThreads", "readSession", "createThread",
             "resumeThread", "sendMessage", "steer", "interrupt", "answer", "getWorkspaces",
             "openWorkspace", "openSettings", "cancelQueued", "openNativeConversation", "subscribeSession", "unsubscribeSession",
-            "decide", "generateUi", "mainReply", "panels", "cardView", "readMatter", "subscribeMatter", "unsubscribeMatter", "dispatchMatter", "analyzeCameraFrame", "audioCapabilities", "audioCommand",
+            "decide", "generateUi", "mainReply", "panels", "cardView", "readMatter", "subscribeMatter", "unsubscribeMatter", "dispatchMatter", "analyzeCameraFrame", "searchMenuVideos", "audioCapabilities", "audioCommand",
             "readSystemAi", "setSystemAi", "bindSystemAi", "bindSystemAiModel", "reorderSystemAi", "restoreSystemAi", "deleteSystemAiGroup", "openAssistantConnection", "openMagpieManagement", "pluginManager",
             "readAppPermissions", "setAppPermissionMode", "setAppPermissionScope", "resetAppPermission")
         @JvmField val QUESTIONS: Set<String> = java.util.Set.of("phone/askUser", "phone/confirmAction",
@@ -56,10 +60,11 @@ internal class AgentGatewayProtocol private constructor() {
                 "unsubscribeMatter" -> java.util.Set.of("subscriptionId")
                 "dispatchMatter" -> java.util.Set.of("matterId", "requestId", "actionRef", "expectedRevision", "values")
                 "analyzeCameraFrame" -> java.util.Set.of("image", "language", "instruction")
+                "searchMenuVideos" -> java.util.Set.of("dish", "venue", "address", "platforms")
                 "audioCapabilities" -> java.util.Set.of()
                 "audioCommand" -> java.util.Set.of("matterId", "requestId", "operation", "sessionId", "purpose", "language", "profileId", "targetLanguage", "targetPackage", "recordAudio")
                 "resumeThread", "getWorkspaces", "openNativeConversation" -> java.util.Set.of("threadId")
-                "sendMessage" -> java.util.Set.of("threadId", "text", "requestId")
+                "sendMessage" -> java.util.Set.of("threadId", "text", "requestId", "photo")
                 "steer" -> java.util.Set.of("threadId", "text", "expectedTurnId", "requestId")
                 "interrupt" -> java.util.Set.of("threadId", "turnId")
                 "cancelQueued" -> java.util.Set.of("threadId", "taskId")
@@ -84,8 +89,15 @@ internal class AgentGatewayProtocol private constructor() {
             }
             val keys = input.keys()
             while (keys.hasNext()) if (!fields.contains(keys.next())) throw IOException("UNSUPPORTED_PARAMETER")
+            if (action == "sendMessage" && !input.has("photo") && jsonText.length > MAX_REQUEST)
+                throw IOException("REQUEST_TOO_LARGE")
             if (fields.contains("threadId")) requireId(input, "threadId")
             if (fields.contains("text")) text(input, "text", 16000)
+            if (input.has("photo")) {
+                val photo = input.opt("photo") as? String ?: throw IOException("INVALID_PHOTO")
+                if (photo.length > MAX_PHOTO || !chatPhotoPattern.matcher(photo).matches() ||
+                    (photo.length - photo.indexOf(',') - 1) % 4 != 0) throw IOException("INVALID_PHOTO")
+            }
             if (fields.contains("requestId")) requireId(input, "requestId")
             if (fields.contains("subscriptionId")) requireId(input, "subscriptionId")
             if (fields.contains("taskId") && !Pattern.matches("[0-9]{1,20}", text(input, "taskId", 20))) throw IOException("INVALID_TASK_ID")
@@ -110,6 +122,20 @@ internal class AgentGatewayProtocol private constructor() {
                 if (!Pattern.matches("data:image/(jpeg|png);base64,[A-Za-z0-9+/=]+", image)) throw IOException("INVALID_CAMERA_FRAME")
                 if (!java.util.Set.of("zh", "en").contains(text(input, "language", 2))) throw IOException("INVALID_LANGUAGE")
                 if (input.has("instruction")) text(input, "instruction", 1000)
+            }
+            if (action == "searchMenuVideos") {
+                text(input, "dish", 200)
+                text(input, "venue", 200)
+                text(input, "address", 300)
+                if (input.has("platforms")) {
+                    val platforms = input.optJSONArray("platforms") ?: throw IOException("INVALID_MENU_SEARCH_PLATFORMS")
+                    val unique = HashSet<String>()
+                    if (platforms.length() !in 1..menuSearchPlatforms.size) throw IOException("INVALID_MENU_SEARCH_PLATFORMS")
+                    for (i in 0 until platforms.length()) {
+                        val platform = platforms.opt(i) as? String ?: throw IOException("INVALID_MENU_SEARCH_PLATFORMS")
+                        if (platform !in menuSearchPlatforms || !unique.add(platform)) throw IOException("INVALID_MENU_SEARCH_PLATFORMS")
+                    }
+                }
             }
             if (action == "panels" || action == "cardView") {
                 text(input, "operation", 32)
@@ -303,12 +329,19 @@ internal class AgentGatewayProtocol private constructor() {
         fun replyReadError(code: String): JSONObject = JSONObject().put("ok", false)
             .put("error", JSONObject().put("code", code).put("message", code))
 
-        // A catalog prompt and a saved layout exceed ordinary chat requests; everything else keeps the 48k fence.
         @JvmStatic
         fun limit(action: String): Int = when (action) {
+            "sendMessage" -> MAX_REQUEST + MAX_PHOTO
             "analyzeCameraFrame" -> 360_000
+            "searchMenuVideos" -> 2_000
             "generateUi" -> 96_000
             else -> MAX_REQUEST
+        }
+
+        internal fun chatPhotoBytes(photo: String): ByteArray = try {
+            Base64.getDecoder().decode(photo.substringAfter(','))
+        } catch (_: IllegalArgumentException) {
+            throw IOException("INVALID_PHOTO")
         }
 
         /** Jev choice questions only with opaque keys and short text, never page content or credentials. */

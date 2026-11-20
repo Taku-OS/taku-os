@@ -1,7 +1,20 @@
-export type PendingSubmission = {
+export type DraftContent = {text: string; photo?: string};
+
+export const CHAT_PHOTO_PREFIX = 'data:image/jpeg;base64,';
+export const MAX_CHAT_PHOTO_LENGTH = 300000;
+export function isChatPhoto(value: unknown): value is string {
+  if (typeof value !== 'string' || value.length > MAX_CHAT_PHOTO_LENGTH || !value.startsWith(CHAT_PHOTO_PREFIX)) return false;
+  const base64 = value.slice(CHAT_PHOTO_PREFIX.length);
+  return base64.length % 4 === 0 && /^[A-Za-z0-9+/]+={0,2}$/.test(base64);
+}
+
+export function matchesDraft(draft: DraftContent, request: DraftContent): boolean {
+  return draft.text.trim() === request.text && draft.photo === request.photo;
+}
+
+export type PendingSubmission = DraftContent & {
   threadId: string;
   requestId: string;
-  text: string;
   action: 'sendMessage' | 'steer' | 'continue';
   /** The panel this send updates. Native revalidates the source at the actual send. */
   panel?: {panelId: string; expectedSourceVersion: number; launchId: string};
@@ -51,15 +64,15 @@ export function isNotSentReceipt(pending: PendingSubmission, value: Record<strin
 }
 
 export async function retireAcceptedSubmission(pending: PendingSubmission, storage: {
-  readDraft(): Promise<string | null>;
-  writeDraft(text: string): Promise<void>;
+  readDraft(): Promise<DraftContent>;
+  writeDraft(draft: DraftContent): Promise<void>;
   removePending(): Promise<void>;
 }): Promise<boolean> {
   const draft = await storage.readDraft();
-  const cleared = typeof draft === 'string' && draft.trim() === pending.text;
+  const cleared = matchesDraft(draft, pending);
   // A crash between these operations may leave the old receipt, but must never
   // leave a resendable old draft without its original request ID.
-  if (cleared) await storage.writeDraft('');
+  if (cleared) await storage.writeDraft({text: ''});
   await storage.removePending();
   return cleared;
 }

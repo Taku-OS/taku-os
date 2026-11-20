@@ -186,6 +186,11 @@ fun BoxScope.TextComposer(scene: GraphicsLayer, open: Boolean, state: AssistantS
   ) {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(TakuSpacing.sm)) {
       Row(Modifier.fillMaxWidth().weight(1f, fill = false), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(TakuSpacing.sm)) {
+        if (open && !dictating) {
+          RoundButton(null, "Open camera", enabled = !state.working, onClick = { runCatching { session.openConversation(openCamera = true) } }) {
+            TakuIcon(TakuIcons.Camera, 20.dp, tint = if (state.working) colors.textPlaceholder else colors.icon)
+          }
+        }
         Column(Modifier.weight(1f).padding(start = 4.dp).verticalScroll(textScroll)) {
           Box(contentAlignment = Alignment.CenterStart) {
             // The field stays composed and focused while recording (1-5): swapping it out would
@@ -250,10 +255,10 @@ private fun RetainedVoice(result: RetainedVoiceResult, modifier: Modifier = Modi
 }
 
 @Composable
-private fun RoundButton(fill: androidx.compose.ui.graphics.Color?, description: String, onClick: () -> Unit, content: @Composable () -> Unit) {
+private fun RoundButton(fill: androidx.compose.ui.graphics.Color?, description: String, enabled: Boolean = true, onClick: () -> Unit, content: @Composable () -> Unit) {
   Box(
     Modifier.size(TakuSize.control).clip(CircleShape).then(if (fill != null) Modifier.background(fill) else Modifier)
-      .clickable(onClick = onClick).semantics { contentDescription = description },
+      .clickable(enabled = enabled, onClick = onClick).semantics { contentDescription = description },
     contentAlignment = Alignment.Center,
   ) { content() }
 }

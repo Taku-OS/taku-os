@@ -25,7 +25,7 @@ function configureTranslucentThemes(styles) {
 }
 
 function configureConversationActivity(contents) {
-  if (contents.includes('PanelLaunchIntents.restore(')) return contents;
+  if (contents.includes('PanelLaunchIntents.restore(')) return configureChatCameraActivity(contents);
   const activity = 'class MainActivity : ReactActivity() {';
   const create = '  override fun onCreate(savedInstanceState: Bundle?) {';
   const capture = '    ConversationDrafts.offer(intent.getStringExtra(ConversationDrafts.EXTRA_DRAFT))\n' +
@@ -56,7 +56,19 @@ function configureConversationActivity(contents) {
     '      setIntent(intent)\n    }\n    super.onNewIntent(intent)\n  }\n\n' +
     '  override fun onSaveInstanceState(outState: Bundle) {\n' +
     '    PanelLaunchIntents.save(this, outState)\n    super.onSaveInstanceState(outState)\n  }\n');
-  return contents.replace(create, `${create}\n    PanelLaunchIntents.restore(this, savedInstanceState)\n${capture}`);
+  return configureChatCameraActivity(contents.replace(create, `${create}\n    PanelLaunchIntents.restore(this, savedInstanceState)\n${capture}`));
+}
+
+function configureChatCameraActivity(contents) {
+  const discard = '    ChatCameraLaunch.invalidatePrevious(getIntent(), intent)';
+  if (contents.includes(discard)) return contents;
+  const routeImport = 'import org.agentos.agent.bridge.PanelLaunchIntents';
+  const newIntent = '  override fun onNewIntent(intent: Intent) {';
+  if (!contents.includes(routeImport) || !contents.includes(newIntent)) {
+    throw new Error('Taku camera: expected the conversation activity lifecycle hooks.');
+  }
+  return contents.replace(routeImport, `${routeImport}\nimport org.agentos.agent.bridge.ChatCameraLaunch`)
+    .replace(newIntent, `${newIntent}\n${discard}`);
 }
 
 module.exports = function withTakuAgent(config) {

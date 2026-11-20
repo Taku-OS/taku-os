@@ -17,7 +17,7 @@ function optimisticBlocks(blocks: readonly MessageBlock[], requests: readonly Op
       const nextNativeIndex = result.findIndex(block => nextRequests.some(next => block.id === next.userBlockId || block.id === next.assistantBlockId));
       // A failed local attempt remains before the next request when its native rows arrive.
       userIndex = assistantIndex >= 0 ? assistantIndex : nextNativeIndex >= 0 ? nextNativeIndex : result.length;
-      result.splice(userIndex, 0, {...base, id: `${prefix}/user`, role: 'user', text: request.text});
+      result.splice(userIndex, 0, {...base, id: `${prefix}/user`, role: 'user', text: request.text, attachments: request.hasPhoto ? ['image'] : []});
       if (assistantIndex >= 0) ++assistantIndex;
     } else result[userIndex] = {...result[userIndex], id: `${prefix}/user`};
     if (assistantIndex < 0) {

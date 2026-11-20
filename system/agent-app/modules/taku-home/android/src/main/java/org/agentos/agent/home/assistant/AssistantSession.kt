@@ -5,6 +5,8 @@ import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
+import android.os.Binder
+import android.os.Bundle
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -130,6 +132,7 @@ class AssistantSession private constructor(private val context: Context, private
   private var pollJob: Job? = null
   private var voiceJob: Job? = null
   private var liveLaunchJob: Job? = null
+  private var cameraLaunchJob: Job? = null
   private val liveEndpoint = LiveTalkEndpoint()
   private val threadCreation = SessionThreadCreation()
   private var expansionSequence = 0L
@@ -681,24 +684,43 @@ class AssistantSession private constructor(private val context: Context, private
     flow.update { it.failedWith("NETWORK_UNAVAILABLE", it.pending ?: it.turn?.userText).copy(abandoned = true) }
   }
 
-  /** Continues this conversation in the full chat (the island's expand button). */
-  fun openConversation() {
+  /** Continues this conversation in the full chat, optionally starting its camera. */
+  fun openConversation(openCamera: Boolean = false) {
+    if (openCamera && (flow.value.working || !canOpenText || cameraLaunchJob?.isActive == true)) {
+      throw AssistantException("CAMERA_BUSY", "Wait for the current assistant activity before opening the camera")
+    }
     liveLaunchJob?.cancel(); liveLaunchJob = null
     revokeVoice()
     val generation = threadCreation.generation
     val draft = flow.value.draft.takeIf { flow.value.threadId == null }
-    scope.launch {
+    val launch = scope.launch {
       try {
         val id = ensureThread(generation)
         if (threadCreation.generation != generation) return@launch
         val intent = Intent().setClassName(context.packageName, "org.agentos.agent.MainActivity")
           .putExtra("threadId", id).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-        draft?.takeIf { it.isNotBlank() }?.let { intent.putExtra(EXTRA_DRAFT, it) }
+        val transferredDraft = (if (openCamera) flow.value.draft else draft)?.takeIf(String::isNotBlank)
+        if (openCamera) {
+          intent.putExtras(Bundle().apply {
+            fun putTicket(key: String) = putBinder(key, Binder().apply { attachInterface(null, "$key:$id") })
+            putTicket(EXTRA_OPEN_CHAT_CAMERA)
+            if (transferredDraft != null) {
+              putTicket(CAMERA_DRAFT_TICKET)
+              putString(CAMERA_DRAFT, transferredDraft)
+            }
+          })
+        } else if (transferredDraft != null) {
+          intent.putExtra(EXTRA_DRAFT, transferredDraft)
+        }
         context.startActivity(intent)
-        flow.update { it.copy(island = IslandMode.Hidden, entry = EntryMode.None, voicePaused = false) }
+        flow.update {
+          it.copy(island = IslandMode.Hidden, entry = EntryMode.None, voicePaused = false,
+            draft = if (openCamera && it.draft == transferredDraft) "" else it.draft)
+        }
       } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
       catch (_: Exception) { if (threadCreation.generation == generation) flow.update { it.copy(error = "THREAD_UNAVAILABLE") } }
     }
+    if (openCamera) cameraLaunchJob = launch
   }
 
   /**
@@ -905,6 +927,9 @@ class AssistantSession private constructor(private val context: Context, private
       else -> "VOICE_UNAVAILABLE"
     }
     const val EXTRA_DRAFT = "org.agentos.agent.extra.DRAFT"
+    private const val EXTRA_OPEN_CHAT_CAMERA = "org.agentos.agent.extra.OPEN_CHAT_CAMERA"
+    private const val CAMERA_DRAFT = "$EXTRA_OPEN_CHAT_CAMERA.draft"
+    private const val CAMERA_DRAFT_TICKET = "$CAMERA_DRAFT.ticket"
     private const val POLL_MS = 1_500L
     /** How long Taku may keep "working" with no network before the home stops it (issue #25 F3). */
     const val OFFLINE_GRACE_MS = 30_000L

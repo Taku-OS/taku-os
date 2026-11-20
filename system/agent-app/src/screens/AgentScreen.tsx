@@ -6,7 +6,7 @@ import {useAgentController} from '../hooks/useAgentController';
 import {useTakuFonts} from '../theme/useTakuFonts';
 import {chatColors} from '../chat/chatTheme';
 import {AgentMarkdown} from '../native/Markdown';
-import {collapseToIsland, launchDraft, onDraft} from '../native/agent';
+import {collapseToIsland, consumeChatCameraDraft, launchDraft, onChatCameraLaunch, onDraft} from '../native/agent';
 import type {Language} from '../i18n';
 import {appendHomeDrafts} from '../chat/homeDraft';
 import type {CardDemand} from '../chat/cardDemand';
@@ -21,7 +21,7 @@ export default function AgentScreen() {
   const {visible: conversationVisible} = controller;
   const [fonts, fontError] = useTakuFonts();
   const threadId = controller.session?.id || '';
-  const {loading, busy, draft, onDraftChange} = controller;
+  const {loading, busy, draft, draftSessionId, onDraftChange} = controller;
   // Ask-Taku from Home arrives as editable composer text; it is never sent automatically.
   // Each request is queued once, applied once after the session has loaded, then dropped, so
   // the user may edit or delete it freely and later requests never repeat it (issue #35).
@@ -30,6 +30,7 @@ export default function AgentScreen() {
     return text.trim() ? [text] : [];
   });
   const pendingDrafts = useRef(initialDrafts);
+  const cameraDrafts = useRef(new Map<string, string[]>());
   const [draftArrivals, setDraftArrivals] = useState(0);
   useEffect(() => {
     const receiveDraft = () => {
@@ -39,15 +40,25 @@ export default function AgentScreen() {
       setDraftArrivals(count => count + 1);
     };
     const subscription = onDraft(receiveDraft);
+    const cameraSubscription = onChatCameraLaunch(() => setDraftArrivals(count => count + 1));
     receiveDraft();
-    return () => subscription.remove();
+    return () => { subscription.remove(); cameraSubscription.remove(); };
   }, []);
   useEffect(() => {
-    if (!pendingDrafts.current.length || loading || busy) return;
-    const incoming = pendingDrafts.current;
+    if (loading || busy) return;
+    const cameraDraft = consumeChatCameraDraft(draftSessionId);
+    const threadDrafts = cameraDrafts.current.get(draftSessionId) ?? [];
+    if (cameraDraft.trim()) {
+      threadDrafts.push(cameraDraft);
+      cameraDrafts.current.set(draftSessionId, threadDrafts);
+    }
+    const incoming = [...pendingDrafts.current, ...threadDrafts];
     // Keep whatever the user had already typed; append rather than replace it.
-    if (onDraftChange(appendHomeDrafts(draft, incoming))) pendingDrafts.current = [];
-  }, [draftArrivals, loading, busy, draft, onDraftChange]);
+    if (incoming.length && onDraftChange(appendHomeDrafts(draft, incoming))) {
+      pendingDrafts.current = [];
+      cameraDrafts.current.delete(draftSessionId);
+    }
+  }, [draftArrivals, loading, busy, draft, draftSessionId, onDraftChange]);
   // A card holds a native reader only while the conversation shows and its row is in demand; a
   // row just off screen is preload, which the coordinator drops before visible demand.
   const renderCard = useCallback((part: MessagePart, cardLanguage: Language, demand: CardDemand) => part.card && threadId

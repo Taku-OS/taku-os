@@ -43,6 +43,7 @@ import org.json.JSONObject
 /** Signed ordinary-UID UI to system-owned runtime boundary. */
 class AgentGatewayProvider : ContentProvider() {
     private val calls = Semaphore(4)
+    private val menuSearchCalls = Semaphore(MenuWebSearch.MAX_CONCURRENT_CALLS)
     private val streams = LinkedHashMap<String, SessionStream>()
     private val streamExpiry = Executors.newSingleThreadScheduledExecutor { runnable ->
         Thread(runnable, "agent-stream-expiry").apply { isDaemon = true }
@@ -99,7 +100,8 @@ class AgentGatewayProvider : ContentProvider() {
                 throw SecurityException("Native runtime only")
         } else enforceCaller()
         val output = Bundle()
-        if (!calls.tryAcquire()) return error(output, "BUSY")
+        val permits = if (method == "searchMenuVideos") menuSearchCalls else calls
+        if (!permits.tryAcquire()) return error(output, "BUSY")
         val callerUid = Binder.getCallingUid()
         val identity = Binder.clearCallingIdentity()
         try {
@@ -154,7 +156,7 @@ class AgentGatewayProvider : ContentProvider() {
             error(output, if (code != null && java.util.regex.Pattern.matches("[A-Z][A-Z_]{2,80}", code)) code else "RUNTIME_UNAVAILABLE")
         } finally {
             Binder.restoreCallingIdentity(identity)
-            calls.release()
+            permits.release()
         }
         return output
     }
@@ -179,6 +181,12 @@ class AgentGatewayProvider : ContentProvider() {
             "unsubscribeMatter" -> return matterStreams.unsubscribe(input.getString("subscriptionId"), callerUid)
             "dispatchMatter" -> return matters.dispatch(input)
             "analyzeCameraFrame" -> return CameraGuide.analyze(input)
+            "searchMenuVideos" -> {
+                val revision = requireMenuAi()
+                val candidates = MenuWebSearch.candidates(input)
+                requireMenuAi(revision)
+                return candidates
+            }
             "audioCapabilities" -> return AudioSessionBridge.get(context!!).capabilities()
             "audioCommand" -> return audioCommand(input)
             "nativeAudio" -> {
@@ -306,6 +314,14 @@ class AgentGatewayProvider : ContentProvider() {
             }
             else -> throw IOException("UNSUPPORTED_ACTION")
         }
+    }
+
+    private fun requireMenuAi(expectedRevision: Long? = null): Long {
+        val config = NativeClient.exchange(JSONObject().put("op", "systemAi").put("action", "register").put("consumer", "agent-ui"))
+        val revision = config.getLong("revision")
+        if (expectedRevision != null && expectedRevision != revision) throw IOException("AI_CONFIGURATION_CHANGED")
+        if (!config.optBoolean("enabled") || !config.getJSONObject("apps").optBoolean("agent-ui")) throw IOException("AI_DISABLED")
+        return revision
     }
 
     private fun audioCommand(input: JSONObject): JSONObject = matters.retain(input.getString("matterId")).use {
@@ -479,7 +495,12 @@ class AgentGatewayProvider : ContentProvider() {
         if (!calls.tryAcquire()) throw FileNotFoundException("BUSY")
         val callerUid = Binder.getCallingUid()
         val identity = Binder.clearCallingIdentity()
+        val artwork = uri.path == "/menu-dish-artwork"
         try {
+            if (artwork) {
+                val revision = requireMenuAi()
+                return MenuDishArtworkGateway.open(uri) { requireMenuAi(revision) }
+            }
             val parts = uri.pathSegments
             if (parts.size == 2 && parts[0] == "events") return openSession(parts[1], callerUid)
             if (parts.size == 2 && parts[0] == "matter-events") return matterStreams.open(parts[1], callerUid)
@@ -502,7 +523,10 @@ class AgentGatewayProvider : ContentProvider() {
                     ParcelFileDescriptor.AutoCloseOutputStream(output).use { stream -> stream.write(data) }
                 } catch (_: IOException) { }
             }
-        } catch (_: Exception) {
+        } catch (failure: Exception) {
+            if (artwork && failure is IOException &&
+                failure.message in setOf("AI_DISABLED", "INVALID_ARGUMENT", "BUSY"))
+                throw FileNotFoundException(failure.message)
             throw FileNotFoundException("RESOURCE_UNAVAILABLE")
         } finally {
             Binder.restoreCallingIdentity(identity)
@@ -617,8 +641,9 @@ class AgentGatewayProvider : ContentProvider() {
     }
 
     override fun getType(uri: Uri): String {
-        val path = uri.path!!
-        return if (path.startsWith("/preview/")) "image/jpeg"
+        val path = uri.path.orEmpty()
+        return if (path == "/menu-dish-artwork") "image/png"
+            else if (path.startsWith("/preview/")) "image/jpeg"
             else if (path.startsWith("/audio/")) "audio/mp4"
             else if (path.startsWith("/events/") || path.startsWith("/matter-events/") || path.startsWith("/audio-transcript/")) "application/x-ndjson"
             else "application/json"

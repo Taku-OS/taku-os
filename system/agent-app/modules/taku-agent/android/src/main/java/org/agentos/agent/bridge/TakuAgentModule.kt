@@ -19,6 +19,7 @@ import expo.modules.kotlin.functions.Queues
 import expo.modules.kotlin.functions.Coroutine
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
@@ -53,6 +54,7 @@ class TakuAgentModule : Module() {
     const val EXTRA_PANEL_ID = "panelId"
     const val EXTRA_SOURCE_VERSION = "sourceVersion"
     const val EXTRA_ORIGIN_THREAD_ID = "originThreadId"
+    internal const val GATEWAY_AUTHORITY = "org.agentos.assistant.agent-gateway"
 
     /** How long an awaited launch route may wait for `panels/get` before JS uses its default. */
     private const val ROUTE_TIMEOUT_MS = 3_000L
@@ -61,7 +63,7 @@ class TakuAgentModule : Module() {
     private const val TAG = "TakuAgentPanels"
   }
 
-  private val authority = "org.agentos.assistant.agent-gateway"
+  private val authority = GATEWAY_AUTHORITY
   /** Written from the intent callbacks and the route read; read by JS on its own thread. */
   @Volatile private var latestThreadId: String? = null
   private val mainHandler = Handler(Looper.getMainLooper())
@@ -103,6 +105,8 @@ class TakuAgentModule : Module() {
   private val sessionReaders = HashMap<String, SessionEventReader>()
   private val matterLock = Any()
   private val matterReaders = HashMap<String, MatterEventReader>()
+  private val menuScanOwner = Any()
+  private var menuScanObserver: Job? = null
 
   /** The Panel half of the conversation route: one fenced `panels/get` per route. */
   private val panelLaunch by lazy {
@@ -310,7 +314,8 @@ class TakuAgentModule : Module() {
 
   override fun definition() = ModuleDefinition {
     Name("TakuAgent")
-    Events("onOpenConversation", "onOpenThread", "onDraft", "onImeInsets", "onSessionEventBatch", "onMatterEventBatch", "onConversationVisibility")
+    Events("onOpenConversation", "onOpenThread", "onDraft", "onImeInsets", "onSessionEventBatch", "onMatterEventBatch",
+      "onConversationVisibility", "onMenuScanChanged", "onChatCameraLaunch")
     OnCreate {
       val application = appContext.reactContext?.applicationContext as? Application
         ?: appContext.currentActivity?.application
@@ -333,6 +338,15 @@ class TakuAgentModule : Module() {
     OnStopObserving("onImeInsets") {
       mainHandler.post { observingIme = false; detachImeObserver() }
     }
+    OnStartObserving("onMenuScanChanged") {
+      menuScanObserver = appContext.backgroundCoroutineScope.launch {
+        MenuScanSession.changes.collect { state -> sendEvent("onMenuScanChanged", mapOf("state" to state)) }
+      }
+    }
+    OnStopObserving("onMenuScanChanged") {
+      menuScanObserver?.cancel()
+      menuScanObserver = null
+    }
     OnActivityEntersForeground {
       mainHandler.post {
         attachImeObserver()
@@ -345,6 +359,8 @@ class TakuAgentModule : Module() {
       if (backdrop?.activity?.isDestroyed == true) releaseBackdrop(backdrop)
     } }
     OnDestroy {
+      menuScanObserver?.cancel()
+      MenuScanSession.finishOwner(menuScanOwner)
       conversationVisibility?.let { tracker -> conversationApplication?.let(tracker::detach) }
       conversationVisibility = null
       conversationApplication = null
@@ -393,6 +409,35 @@ class TakuAgentModule : Module() {
         // Retain the route when JS has not attached its listener or its context is rebuilt.
         rememberLaunchIntent(intent, announce = true)
       }
+      if (conversationActivity()?.intent === intent && ChatCameraLaunch.isPending(intent)) {
+        sendEvent("onChatCameraLaunch", emptyMap<String, Any>())
+      }
+    }
+
+    Function("consumeChatCameraLaunch") { threadId: String ->
+      ChatCameraLaunch.consume(conversationActivity()?.intent, threadId)
+    }
+
+    Function("consumeChatCameraDraft") { threadId: String ->
+      ChatCameraLaunch.consumeDraft(conversationActivity()?.intent, threadId)
+    }
+
+    Function("beginMenuScan") { photoUri: String, scanJson: String ->
+      val context = appContext.reactContext ?: throw IOException("Agent UI is not ready")
+      val photo = MenuTextRecognition.cameraPhoto(appContext.cacheDirectory, photoUri)
+      MenuScanSession.begin(menuScanOwner, context.applicationContext, photo, scanJson).toString()
+    }
+
+    Function("readMenuScan") { MenuScanSession.read().toString() }
+
+    Function("menuScanAction") { action: String, scanId: String, dishId: String, quantity: Double? ->
+      MenuScanSession.action(action, scanId, dishId, quantity).toString()
+    }
+
+    Function("finishMenuScan") { scanId: String -> MenuScanSession.finish(scanId) }
+
+    AsyncFunction("recognizeMenuText") Coroutine { photoUri: String ->
+      MenuTextRecognition.recognize(appContext.cacheDirectory, photoUri)
     }
 
     AsyncFunction("call") { action: String, params: String ->

@@ -2,13 +2,18 @@ package org.agentos.assistant
 
 import android.content.Context
 import android.content.Intent
+import android.graphics.BitmapFactory
 import android.net.Uri
 import java.io.File
+import java.io.FileOutputStream
 import java.io.IOException
+import java.util.UUID
 import org.json.JSONArray
 import org.json.JSONObject
 
 internal class PanelNativeServices(private val context: Context) {
+    private data class ChatPhoto(val bytes: ByteArray, val mime: String)
+
     val submissions = AgentGatewaySubmissions.get(context.filesDir)
     private fun preferences() = context.getSharedPreferences("agent-settings", 0)
     private val installedContractHash: String by lazy {
@@ -38,9 +43,29 @@ internal class PanelNativeServices(private val context: Context) {
             if (File(prior, "ready").isFile && !File(prior, "done").isFile) throw IOException("THREAD_QUEUED")
         }
     }
-    fun submit(input: JSONObject): JSONObject = submissions.submit(input.getString("requestId"), input.getString("threadId"), input.getString("text"),
-        { checkSubmit(input.getString("threadId")) }, { before -> publish(input, before) })
-    fun publish(input: JSONObject, before: TaskRequests.BeforePublish): String {
+    fun submit(input: JSONObject): JSONObject {
+        val thread = input.getString("threadId")
+        val photo = input.opt("photo") as? String
+        var attachment: ChatPhoto? = null
+        return submissions.submit(input.getString("requestId"), thread, input.getString("text"), photo, {
+            checkSubmit(thread)
+            attachment = photo?.let(::validatePhoto)
+        }, { before -> publish(input, before, attachment) })
+    }
+
+    private fun validatePhoto(photo: String): ChatPhoto {
+        val bytes = AgentGatewayProtocol.chatPhotoBytes(photo)
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+        val mime = photo.substringAfter("data:").substringBefore(';')
+        if (bounds.outMimeType != mime || bounds.outWidth !in 1..4096 || bounds.outHeight !in 1..4096)
+            throw IOException("INVALID_PHOTO")
+        return ChatPhoto(bytes, mime)
+    }
+
+    fun publish(input: JSONObject, before: TaskRequests.BeforePublish): String = publish(input, before, null)
+
+    private fun publish(input: JSONObject, before: TaskRequests.BeforePublish, photo: ChatPhoto?): String {
         val thread = input.getString("threadId")
         val prefs = preferences()
         val options = JSONObject().put("includeScreenshot", false).put("responseStyle", prefs.getString("responseStyle", "concise"))
@@ -48,9 +73,26 @@ internal class PanelNativeServices(private val context: Context) {
         options.remove("attachments")
         if (input.optBoolean("requireConfirmation")) options.put("permissionMode", "ask")
         if (input.has("panelUpdate")) options.put("panelUpdate", input.getJSONObject("panelUpdate"))
-        return TaskRequests.submit(input.getString("text"), "Taku Agent", null, thread, options) { task ->
-            before.persist(task)
-            if (!prefs.edit().putString("task-$thread", task).commit()) throw IOException("RECEIPT_SAVE_FAILED")
+        var attachment: File? = null
+        try {
+            if (photo != null) {
+                val directory = File(context.filesDir, "composer-attachments")
+                if (!directory.mkdirs() && !directory.isDirectory) throw IOException("ATTACHMENT_UNAVAILABLE")
+                val file = File(directory, UUID.randomUUID().toString())
+                attachment = file
+                FileOutputStream(file).use {
+                    it.write(photo.bytes)
+                    it.fd.sync()
+                }
+                options.put("attachments", JSONArray().put(JSONObject().put("path", file.absolutePath).put("name", "Photo").put("mime", photo.mime)))
+            }
+            return TaskRequests.submit(input.getString("text"), "Taku Agent", null, thread, options) { task ->
+                before.persist(task)
+                if (!prefs.edit().putString("task-$thread", task).commit()) throw IOException("RECEIPT_SAVE_FAILED")
+            }
+        } catch (failure: Exception) {
+            attachment?.delete()
+            throw failure
         }
     }
     fun notifyDirectory() { context.contentResolver.notifyChange(Uri.parse("content://org.agentos.assistant.open-access/panels"), null) }

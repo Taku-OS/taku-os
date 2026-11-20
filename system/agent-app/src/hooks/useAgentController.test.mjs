@@ -17,6 +17,8 @@ const mocks = new Map([
   ['@react-native-async-storage/async-storage', mock(`export default {
     getItem: async key => runtime.storage.get(key) ?? null,
     setItem: async (key, value) => {runtime.storage.set(key, value);},
+    multiGet: async keys => keys.map(key => [key, runtime.storage.get(key) ?? null]),
+    multiSet: async entries => {for (const [key, value] of entries) runtime.storage.set(key, value);},
     removeItem: async key => {runtime.events.push(['remove', key]); runtime.storage.delete(key);},
   };`)],
   ['../native/agent', mock(`export const callAgent = (...args) => runtime.callAgent(...args);
@@ -48,6 +50,8 @@ const {PANEL_CONTRACT} = await import('../model/panel.ts');
 const target = {panelId: 'panel-a', sourceVersion: 3, originThreadId: 'thread-a', launchId: 'launch-a'};
 const pendingKey = id => `taku.agent.pending.v1.${id}`;
 const draftKey = id => `taku.agent.draft.v1.${id}`;
+const photoKey = id => `taku.agent.draft-photo.v1.${id}`;
+const photo = 'data:image/jpeg;base64,/9j/AA==';
 const accepted = (args, panelId) => ({threadId: panelId === 'panel-b' ? 'thread-b' : 'thread-a',
   requestId: args.requestId, state: 'queued', ...(panelId ? {panelId} : {})});
 const deferred = () => {let resolve; const promise = new Promise(yes => {resolve = yes;}); return {promise, resolve};};
@@ -69,7 +73,8 @@ function reset(t) {
     if (action === 'readSession') return {native: {ready: true}, historyComplete: true,
       thread: {id: params.threadId, turns: runtime.completed.filter(item => item.threadId === params.threadId).map(item => ({
         id: `turn-${item.requestId}`, status: 'completed', items: [
-          {id: `user-${item.requestId}`, type: 'userMessage', content: [{type: 'text', text: item.text}]},
+          {id: `user-${item.requestId}`, type: 'userMessage', content: [{type: 'text', text: item.text},
+            ...(item.photo ? [{type: 'localImage', path: '/private/capture.jpg'}] : [])]},
           {id: `answer-${item.requestId}`, type: 'agentMessage', text: 'Completed'},
         ],
       }))}};
@@ -152,6 +157,50 @@ test('an accepted continuation consumes the restored launch before retiring its 
   const restored = mount(); await flush(restored);
   await send(restored, 'An ordinary follow-up');
   assert.equal(runtime.calls.at(-1).action, 'sendMessage');
+});
+
+test('a photo draft preserves its panel launch until the attachment is removed', async t => {
+  reset(t);
+  const host = mount(); await flush(host);
+  assert.equal(host.result.onDraftPhotoChange('thread-a', photo), true);
+  await send(host, 'Update the panel');
+  assert.deepEqual(runtime.calls, []);
+  assert.equal(runtime.storage.has(pendingKey('thread-a')), false);
+  assert.equal(host.result.draft, 'Update the panel');
+  assert.equal(host.result.draftPhoto, photo);
+  assert.equal(runtime.storage.get(photoKey('thread-a')), photo);
+  assert.equal(host.result.onDraftPhotoChange('thread-a'), true);
+  host.result.onSend(); await flush(host);
+  assert.equal(runtime.calls[0].action, 'continue');
+  assert.equal(runtime.consumed.has('launch-a'), true);
+});
+
+test('a photo submission reuses its saved attachment and request ID after an interrupted delivery', async t => {
+  reset(t);
+  runtime.target = null;
+  runtime.receipt = async () => {throw new Error('receipt unavailable');};
+  const host = mount(); await flush(host);
+  assert.equal(host.result.onDraftPhotoChange('thread-a', photo), true);
+  await send(host, 'Read the menu');
+  const pending = JSON.parse(runtime.storage.get(pendingKey('thread-a')));
+  assert.equal(pending.photo, photo);
+  assert.equal(host.result.draftPhoto, photo);
+  const attemptsBeforeRestart = runtime.calls.length;
+  assert.ok(attemptsBeforeRestart > 0);
+  host.unmount();
+  runtime.receipt = async args => accepted(args);
+  const restored = mount(); await flush(restored);
+  assert.equal(runtime.calls.length, attemptsBeforeRestart + 1);
+  for (const call of runtime.calls) {
+    assert.equal(call.action, 'sendMessage');
+    assert.equal(call.requestId, pending.requestId);
+    assert.equal(call.photo, photo);
+  }
+  assert.equal(restored.result.draft, '');
+  assert.equal(restored.result.draftPhoto, undefined);
+  assert.equal(runtime.storage.get(photoKey('thread-a')), '');
+  assert.equal(runtime.storage.has(pendingKey('thread-a')), false);
+  assert.deepEqual(restored.result.session?.blocks.find(block => block.role === 'user')?.attachments, ['image']);
 });
 
 test('a reconciled accepted pending continuation consumes its original launch after restart', async t => {

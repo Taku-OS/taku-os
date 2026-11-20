@@ -17,7 +17,7 @@ import {Icon, IconButton} from './Icon';
 import {chatPresentation, type ChatMessageBlock} from '../model/chatPresentation';
 import {FIRST_RESPONSE_TIMEOUT_MS, type OptimisticSubmission} from '../model/optimisticChat';
 import {ReplyLoading} from './ReplyLoading';
-import {onImeInsets, setWindowBackdrop, showKeyboard} from '../native/agent';
+import {consumeChatCameraLaunch, onChatCameraLaunch, onImeInsets, onOpenConversation, setWindowBackdrop, showKeyboard} from '../native/agent';
 import {ReplyMenu, type ReplyMenuTarget} from './ReplyMenu';
 import {EdgeBlur} from '../native/EdgeBlur';
 import {ChatIcon} from '../chat/ChatIcon';
@@ -28,6 +28,8 @@ import {DictationBar} from './DictationBar';
 import {TakuHomePage} from '../chat/TakuHomePage';
 import {sheetSpace, type ImeGeometry} from '../model/sheetGeometry';
 import {emptyPreview, PREVIEW_FRESH_MS, PREVIEW_LOAD_TIMEOUT_MS, PREVIEW_REFRESH_MS, previewReducer} from '../model/preview';
+import {ChatPhotoCamera} from './ChatPhotoCamera';
+import {updateCamera, useMediaStore} from '../model/genuiMediaStore';
 import {rowDemand, sameBand, visibleBand, type CardDemand, type RowBand} from '../chat/cardDemand';
 
 const colors = {...baseColors, ink: chatColors.textPrimary, secondary: chatColors.textSecondary,
@@ -49,6 +51,7 @@ export interface AgentChatScreenProps {
   historyError?: string;
   workspaceError?: string;
   draft: string;
+  draftPhoto?: string;
   draftSessionId: string;
   conversationKey?: string;
   optimisticSubmissions?: readonly OptimisticSubmission[];
@@ -57,6 +60,7 @@ export interface AgentChatScreenProps {
   onContinueWithoutResending: () => void;
   onRestoreFailedTask: (taskId: string) => void;
   onDraftChange: (value: string) => void;
+  onDraftPhotoChange: (sessionId: string, photo?: string) => boolean;
   onSend: () => void;
   onStop: () => void;
   onSelectThread: (id: string) => void;
@@ -330,7 +334,7 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
       if (backdropUsers === 0) void setWindowBackdrop(null).catch(() => {});
     };
   }, []);
-  // Taku Home lists panels; opening one hands off to the desktop.
+  const [cameraSession, setCameraSession] = useState<string>();
   const [taskView, setTaskView] = useState(false), [composerHeight, setComposerHeight] = useState(40);
   const [composerBox, setComposerBox] = useState(64);
   const [expandedActivities, setExpandedActivities] = useState<Set<string>>(() => new Set());
@@ -410,10 +414,19 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
     setLayer({kind: 'home'});
   };
   const running = props.session?.running;
+  const hasActiveTurn = !!(running || props.session?.activeTurnId || props.session?.queued);
+  const cameraDisabled = props.loading || props.busy || hasActiveTurn;
   // Mic while the field is empty, the brand send button once there is text (Figma 2-1 / 1-3).
   const hasDraft = !!props.draft.trim();
   // Only a send in flight or a queued task holds the send button back.
-  const sendHeld = props.busy || props.loading || !!props.session?.queued;
+  const sendHeld = props.busy || props.loading || !!props.session?.queued || !!(props.draftPhoto && hasActiveTurn);
+  const closeCamera = useCallback(() => setCameraSession(undefined), []);
+  useEffect(() => closeCamera, [props.draftSessionId, closeCamera]);
+  const openCamera = useCallback(() => {
+    Keyboard.dismiss();
+    if (useMediaStore.getState().camera.owner) updateCamera({owner: null, ready: false});
+    setCameraSession(props.draftSessionId);
+  }, [props.draftSessionId]);
   // Figma 1-5: the microphone records through the Audio Engine; Stop puts the words in the draft.
   const draftRef = useRef(props.draft);
   useEffect(() => { draftRef.current = props.draft; }, [props.draft]);
@@ -446,6 +459,26 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
     view.measureInWindow((x, y, width, height) => setReplyMenu({id: block.id, text: block.text, x, y, width, height}));
   };
   const closeReplyMenu = useCallback(() => setReplyMenu(null), []);
+  const showConversation = useCallback(() => {
+    setLayer(null);
+    setTaskView(false);
+    closeCamera();
+    closeReplyMenu();
+  }, [closeCamera, closeReplyMenu, setLayer, setTaskView]);
+  useEffect(() => {
+    const entry = onOpenConversation(showConversation);
+    return () => entry.remove();
+  }, [showConversation]);
+  useEffect(() => {
+    const receiveCameraLaunch = () => {
+      if (cameraDisabled || !consumeChatCameraLaunch(props.draftSessionId)) return;
+      showConversation();
+      openCamera();
+    };
+    const entry = onChatCameraLaunch(receiveCameraLaunch);
+    receiveCameraLaunch();
+    return () => entry.remove();
+  }, [cameraDisabled, openCamera, props.draftSessionId, showConversation]);
   return <KeyboardAvoidingView style={styles.flex} behavior="padding" enabled={!nativeIme && keyboardVisible}
     onLayout={event => {if (nativeIme) setMeasuredHostHeight(event.nativeEvent.layout.height);}}>
     <StatusBar style="light"/>
@@ -534,12 +567,28 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
         </View>
       </View>
     </View> : <>
-    <View style={[styles.composer, multilineComposer && !dictating && styles.composerMultiline, {bottom: composerBottom, alignItems: multilineComposer && !dictating ? 'flex-end' : 'center'}]}
+    <View style={[styles.composer, (props.draftPhoto || multilineComposer && !dictating) && styles.composerMultiline, {bottom: composerBottom}]}
       onLayout={event => setComposerBox(Math.round(event.nativeEvent.layout.height))}>
-      <ComposerGlassRim multiline={multilineComposer && !dictating}/>
-      {!dictating && <Pressable accessibilityRole="button" accessibilityLabel="More tools" onPress={openHome} style={styles.composerAction}><VoiceIcon name="plus" size={18}/></Pressable>}
+      <ComposerGlassRim multiline={Boolean(props.draftPhoto) || multilineComposer && !dictating}/>
+      {!!props.draftPhoto && !dictating && <View style={styles.composerPhotoRow}>
+        <Image testID="chat-draft-photo" accessibilityLabel={ct('attachedPhoto')} source={{uri: props.draftPhoto}} resizeMode="contain" style={styles.composerPhoto}/>
+        <Pressable testID="chat-remove-photo" accessibilityRole="button" accessibilityLabel={ct('removePhoto')} disabled={props.busy || props.loading}
+          onPress={() => props.onDraftPhotoChange(props.draftSessionId)} style={({pressed}) => [styles.composerAction, pressed && styles.pressed]}>
+          <Icon name="close" size={16}/>
+        </Pressable>
+        {!hasDraft && <Text style={[chatType.bodySm(language === 'zh'), styles.composerPhotoHint]}>{ct('photoNeedsText')}</Text>}
+      </View>}
+      <View style={[styles.composerRow, multilineComposer && !dictating && styles.composerRowMultiline]}>
       {dictating ? <DictationBar transcript={dictation.transcript} placeholder={ct('listening')} levels={dictation.levels}
         finishing={dictation.phase === 'finishing'} stopLabel={ct('stopVoice')} onStop={dictation.stop}/> : <>
+      {!taskView && <Pressable testID="chat-open-camera" accessibilityRole="button" accessibilityLabel={ct('openCamera')}
+        accessibilityState={{disabled: cameraDisabled}} disabled={cameraDisabled} onPress={openCamera}
+        style={({pressed}) => [styles.composerAction, cameraDisabled && styles.sendDisabled, pressed && styles.pressed]}>
+        <ChatIcon name="camera" size={20}/>
+      </Pressable>}
+      <Pressable accessibilityRole="button" accessibilityLabel="More tools" onPress={openHome} style={styles.composerAction}>
+        <VoiceIcon name="plus" size={18}/>
+      </Pressable>
       <TextInput key={props.draftSessionId} testID="message-input" accessibilityLabel={running ? t('addRequirement') : ct('ask')} placeholder={running ? t('addRequirement') : ct('ask')}
         placeholderTextColor={chatColors.placeholder} value={props.draft} onChangeText={props.onDraftChange} multiline textAlignVertical={multilineComposer ? 'top' : 'center'}
         editable={!props.loading && !props.busy} onFocus={() => { void showKeyboard().catch(() => {}); }}
@@ -549,8 +598,8 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
         accessibilityState={{disabled: props.busy}} disabled={props.busy} onPress={props.onStop}
         style={({pressed}) => [styles.composerAction, props.busy && styles.sendDisabled, pressed && styles.pressed]}><Icon name="stop" size={18} color={chatColors.icon}/></Pressable>}
       {hasDraft
-        ? <Pressable testID="send-message" accessibilityRole="button" accessibilityLabel={t('send')} accessibilityState={{busy: props.busy}}
-            onPress={() => { if (!sendHeld) sendAndFollow(); }} style={({pressed}) => [styles.composerAction, styles.send, pressed && {opacity: 0.8}]}>
+        ? <Pressable testID="send-message" accessibilityRole="button" accessibilityLabel={t('send')} accessibilityState={{busy: props.busy, disabled: sendHeld}}
+            disabled={sendHeld} onPress={sendAndFollow} style={({pressed}) => [styles.composerAction, styles.send, props.draftPhoto && hasActiveTurn && styles.sendDisabled, pressed && {opacity: 0.8}]}>
             {/* Figma 1-3 send (node 1:3663): #1B1B1B arrow on Main/Brand (issue #32 C3). */}
             {props.busy ? <ActivityIndicator size="small" color={homeColors.icon}/> : <ChatIcon name="arrowUp" color={homeColors.icon} size={18}/>}
           </Pressable>
@@ -559,6 +608,7 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
       {!hasDraft && <Pressable testID="live-talk-start" accessibilityRole="button" accessibilityLabel="Live Talk"
         onPress={() => { Keyboard.dismiss(); dictation.cancel(); void live.start().catch(() => onVoiceFailure('unavailable')); }} style={styles.composerAction}><VoiceIcon name="voice" size={18}/></Pressable>}
       </>}
+      </View>
     </View>
     </>}
     {replyMenu && <ReplyMenu target={replyMenu} language={language} top={headerBottom} bottom={composerTop} screenWidth={dimensions.width}
@@ -568,8 +618,8 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
     {layer?.kind === 'home' && <View style={StyleSheet.absoluteFill}>
       <TakuHomePage language={language} threads={props.threads} threadId={sessionId} historyError={props.historyError} insets={insets}
         actions={{
-          openThread: id => { live.stop(); setLayer(null); props.onSelectThread(id); },
-          newChat: () => { live.stop(); setLayer(null); props.onCreateThread(); },
+          openThread: id => { live.stop(); showConversation(); props.onSelectThread(id); },
+          newChat: () => { live.stop(); showConversation(); props.onCreateThread(); },
           openSettings: () => { setLayer(null); props.onOpenSettings(); },
           openRoute: () => { setLayer(null); router.push('/plugin-market'); },
           openNativeControls: props.busy || props.loading ? undefined : () => { setLayer(null); props.onOpenNativeControls(); },
@@ -577,6 +627,8 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
           taskView: {on: taskView, toggle: () => { setLayer(null); setTaskView(!taskView); }},
         }}/>
     </View>}
+    {cameraSession !== undefined && cameraSession === props.draftSessionId && <ChatPhotoCamera key={cameraSession}
+      language={language} insets={insets} onClose={closeCamera} onAttach={photo => props.onDraftPhotoChange(cameraSession, photo)}/>}
     </View>
   </KeyboardAvoidingView>;
 }
@@ -628,8 +680,13 @@ const styles = StyleSheet.create({
   error: {flexDirection: 'row', backgroundColor: colors.errorSurface, paddingLeft: 16, alignItems: 'center'}, errorText: {flex: 1, color: colors.error},
   // Figma 2-1 field: Surface/900 pill, 12 dp padding, 48 dp ambient shadow, 16 dp from the sides.
   hidden: {opacity: 0},
-  composer: {position: 'absolute', left: chatMetrics.side, right: chatMetrics.side, minHeight: 64, flexDirection: 'row', backgroundColor: chatColors.composer,
-    borderRadius: 32, padding: 12, gap: 0},
+  composer: {position: 'absolute', left: chatMetrics.side, right: chatMetrics.side, minHeight: 64, backgroundColor: chatColors.composer,
+    borderRadius: 32, padding: 12, gap: 4},
+  composerRow: {flexDirection: 'row', alignItems: 'center', gap: 4},
+  composerRowMultiline: {alignItems: 'flex-end'},
+  composerPhotoRow: {flexDirection: 'row', alignItems: 'center', gap: 4},
+  composerPhoto: {width: 64, height: 64, borderRadius: 12, backgroundColor: chatColors.fillControl},
+  composerPhotoHint: {color: chatColors.textTertiary, flex: 1},
   input: {flex: 1, minWidth: 0, paddingHorizontal: 0, paddingVertical: 8, margin: 0},
   composerAction: {width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', flexShrink: 0},
   // Several lines: a rounded rectangle (Rounded/3xl) instead of the one-line pill.

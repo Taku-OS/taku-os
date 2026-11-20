@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {isAcceptedReceipt, isNotSentReceipt, preserveAndReleaseUnconfirmed, requestReceiptWithRetry, retireAcceptedSubmission} from './submission.ts';
+import {CHAT_PHOTO_PREFIX, MAX_CHAT_PHOTO_LENGTH, isAcceptedReceipt, isChatPhoto, isNotSentReceipt, preserveAndReleaseUnconfirmed, requestReceiptWithRetry, retireAcceptedSubmission} from './submission.ts';
 
 const pending = {threadId: 'session-A', requestId: 'send-A', action: 'sendMessage', text: 'Check the screen'};
 
@@ -94,31 +94,55 @@ test('only an exact durable preflight receipt allows a new explicit submission',
 });
 
 test('storage failure cannot leave a resendable accepted draft without its request ID', async () => {
-  let draft = pending.text, hasPending = true;
+  let draft = {text: pending.text}, hasPending = true;
   await assert.rejects(retireAcceptedSubmission(pending, {
     readDraft: async () => draft,
     writeDraft: async () => {throw new Error('Disk full');},
     removePending: async () => {hasPending = false;},
   }));
-  assert.equal(draft, pending.text);
+  assert.equal(draft.text, pending.text);
   assert.equal(hasPending, true);
   await assert.rejects(retireAcceptedSubmission(pending, {
     readDraft: async () => draft,
     writeDraft: async text => {draft = text;},
     removePending: async () => {throw new Error('Process ended after draft write');},
   }));
-  assert.equal(draft, '');
+  assert.equal(draft.text, '');
   assert.equal(hasPending, true);
 });
 
 test('reconciling an older receipt preserves the newer unsent draft', async () => {
-  let draft = 'A different follow-up', hasPending = true;
+  let draft = {text: 'A different follow-up'}, hasPending = true;
   const cleared = await retireAcceptedSubmission(pending, {
     readDraft: async () => draft,
     writeDraft: async text => {draft = text;},
     removePending: async () => {hasPending = false;},
   });
   assert.equal(cleared, false);
-  assert.equal(draft, 'A different follow-up');
+  assert.equal(draft.text, 'A different follow-up');
   assert.equal(hasPending, false);
+});
+
+test('an accepted photo request clears only the exact text and attachment it sent', async () => {
+  const original = {...pending, photo: 'data:image/jpeg;base64,/9j/AA=='};
+  for (const photo of [original.photo, undefined, 'data:image/jpeg;base64,/9j/BB==']) {
+    let draft = {text: pending.text, photo};
+    const cleared = await retireAcceptedSubmission(original, {
+      readDraft: async () => draft,
+      writeDraft: async value => {draft = value;},
+      removePending: async () => {},
+    });
+    assert.equal(cleared, photo === original.photo);
+    assert.deepEqual(draft, cleared ? {text: ''} : {text: pending.text, photo});
+  }
+});
+
+test('the photo draft accepts bounded JPEG data URLs with valid base64', () => {
+  const groups = Math.floor((MAX_CHAT_PHOTO_LENGTH - CHAT_PHOTO_PREFIX.length) / 4);
+  assert.equal(isChatPhoto(`${CHAT_PHOTO_PREFIX}/9j/AA==`), true);
+  assert.equal(isChatPhoto(`${CHAT_PHOTO_PREFIX}${'AAAA'.repeat(groups)}`), true);
+  for (const value of [undefined, CHAT_PHOTO_PREFIX, `${CHAT_PHOTO_PREFIX}/9j/AA=`, `${CHAT_PHOTO_PREFIX}AA?=`,
+    `${CHAT_PHOTO_PREFIX}${'AAAA'.repeat(groups + 1)}`, 'file:///private/menu.jpg']) {
+    assert.equal(isChatPhoto(value), false);
+  }
 });

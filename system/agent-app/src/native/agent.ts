@@ -2,6 +2,49 @@ import {requireOptionalNativeModule} from 'expo';
 import type {SessionCursor} from '../model/sessionStream';
 import type {ImeGeometry} from '../model/sheetGeometry';
 import {record} from '../model/session';
+import type {MenuDish, MenuTextRecognition, MenuVenue} from '../model/menuScan';
+
+export type MenuVideo = {
+  platform: 'tiktok' | 'instagram' | 'youtube' | 'x' | 'facebook';
+  mediaType?: 'video' | 'photo' | 'carousel' | 'text';
+  author: string;
+  url: string;
+  title?: string;
+  thumbnailUrl?: string;
+  playbackUrl?: string;
+  viewerUrl?: string;
+  sameBrand?: boolean;
+  venue?: string;
+};
+
+export type MenuVideoSearchResult = {
+  state: 'queued' | 'searching' | 'notFound' | 'unavailable' | 'partial' | 'found';
+  videos?: MenuVideo[];
+};
+
+export type MenuSuggestionView = 'picks' | 'lighter' | 'comparison' | 'preferences';
+export type MenuDishArtwork =
+  | {state: 'queued' | 'generating' | 'unavailable'}
+  | {state: 'ready'; uri: string};
+
+export type MenuScanSnapshot = {
+  scanId: string;
+  revision: number;
+  width: number;
+  height: number;
+  dishes: MenuDish[];
+  venue?: MenuVenue;
+  videoSearch: Record<string, MenuVideoSearchResult>;
+  artwork: Record<string, MenuDishArtwork>;
+  orderIds: string[];
+  orderItems: {dishId: string; quantity: number}[];
+  selectedDishId: string | null;
+  view: 'menu' | 'order' | 'staff';
+  suggestionView: MenuSuggestionView;
+};
+export type MenuScanAction =
+  | 'select' | 'add' | 'remove' | 'setQuantity' | 'openOrder' | 'showToStaff' | 'back' | 'searchVideo'
+  | 'showPicks' | 'showLighter' | 'comparePicks' | 'openPreferences' | 'retryArtwork';
 
 type AgentNativeModule = {
   call(action: string, params: string): Promise<string>;
@@ -18,6 +61,14 @@ type AgentNativeModule = {
   setWindowBackdrop(enabled: boolean, sigmaDp: number, tint: string, fallback: string): Promise<void>;
   collapseToIsland(threadId: string): Promise<void>;
   showKeyboard(): Promise<void>;
+  recognizeMenuText(uri: string): Promise<MenuTextRecognition>;
+  beginMenuScan(uri: string, scanJson: string): string;
+  readMenuScan(): string;
+  menuScanAction(action: MenuScanAction, scanId: string, dishId: string, quantity: number | null): string;
+  finishMenuScan(scanId: string): void;
+  consumeChatCameraLaunch(threadId: string): boolean;
+  consumeChatCameraDraft(threadId: string): string;
+  addListener(event: 'onChatCameraLaunch', listener: () => void): {remove(): void};
   addListener(event: 'onSessionEventBatch', listener: (event: NativeSessionBatch) => void): {remove(): void};
   addListener(event: 'onMatterEventBatch', listener: (event: NativeMatterBatch) => void): {remove(): void};
   addListener(event: 'onOpenConversation', listener: () => void): {remove(): void};
@@ -30,6 +81,7 @@ type AgentNativeModule = {
   consumePanelLaunch(launchId: string): Promise<void>;
   isPanelLaunchConsumed(launchId: string): boolean;
   conversationVisible(): boolean;
+  addListener(event: 'onMenuScanChanged', listener: (event: {state: string}) => void): {remove(): void};
 };
 
 /** Where a desktop Continue came from. Only navigation context: the send still asks the gateway. */
@@ -76,6 +128,17 @@ export async function callAgent<T = Record<string, unknown>>(
 export const launchThreadId = () => requireAgentNative().launchThreadId();
 export const newRequestId = () => requireAgentNative().requestId();
 export const closeAgent = () => requireAgentNative().close();
+export const recognizeMenuText = (uri: string) => requireAgentNative().recognizeMenuText(uri);
+export const beginMenuScan = (uri: string, scan: Pick<MenuScanSnapshot, 'width' | 'height' | 'dishes' | 'venue'> & {scanMs: number}): MenuScanSnapshot =>
+  JSON.parse(requireAgentNative().beginMenuScan(uri, JSON.stringify(scan)));
+export const readMenuScan = () => requireAgentNative().readMenuScan();
+export const applyMenuScanAction = (action: MenuScanAction, scanId: string, dishId = '', quantity?: number): MenuScanSnapshot =>
+  JSON.parse(requireAgentNative().menuScanAction(action, scanId, dishId, quantity ?? null));
+export const finishMenuScan = (scanId: string) => requireAgentNative().finishMenuScan(scanId);
+export const subscribeMenuScan = (listener: () => void) => {
+  const subscription = requireAgentNative().addListener('onMenuScanChanged', listener);
+  return () => subscription.remove();
+};
 
 /**
  * The chat window's backdrop (Figma 2-1): the system blurs whatever lies under the window (Feed,
@@ -90,6 +153,10 @@ export const showKeyboard = () => nativeModule?.showKeyboard() ?? Promise.resolv
 
 /** Collapse (2-1 → 1-1): the home Dynamic Island takes over [threadId] and Home comes forward. */
 export const collapseToIsland = (threadId: string) => requireAgentNative().collapseToIsland(threadId);
+export const consumeChatCameraLaunch = (threadId: string) => nativeModule?.consumeChatCameraLaunch(threadId) ?? false;
+export const consumeChatCameraDraft = (threadId: string) => nativeModule?.consumeChatCameraDraft(threadId) ?? '';
+export const onChatCameraLaunch = (listener: () => void) =>
+  nativeModule?.addListener('onChatCameraLaunch', listener) ?? {remove() {}};
 export const onOpenConversation = (listener: () => void): {remove(): void} =>
   nativeModule?.addListener('onOpenConversation', listener) ?? {remove() {}};
 export const onOpenThread = (listener: (threadId: string, target: PanelTarget | null, problem?: AgentGatewayError) => void) =>

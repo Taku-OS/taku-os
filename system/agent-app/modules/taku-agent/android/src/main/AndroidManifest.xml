@@ -1,1 +1,10 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" />
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+  <application>
+    <provider
+      android:name="org.agentos.agent.bridge.MenuScanProvider"
+      android:authorities="org.agentos.agent.menu-scan"
+      android:exported="true"
+      android:grantUriPermissions="false" />
+  </application>
+</manifest>

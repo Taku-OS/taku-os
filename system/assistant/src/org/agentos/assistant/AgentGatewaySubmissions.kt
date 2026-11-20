@@ -124,9 +124,15 @@ internal class AgentGatewaySubmissions(private val root: File) {
     }
 
     @Throws(Exception::class)
-    fun submit(requestId: String, threadId: String, text: String, preflight: Preflight, publish: Publish): JSONObject {
+    fun submit(requestId: String, threadId: String, text: String, preflight: Preflight, publish: Publish): JSONObject =
+        submit(requestId, threadId, text, null, preflight, publish)
+
+    @Throws(Exception::class)
+    fun submit(requestId: String, threadId: String, text: String, photo: String?, preflight: Preflight, publish: Publish): JSONObject {
         val receipt = File(root, "$requestId.json")
-        val reservation = reserve(receipt, requestId, threadId, digest("$threadId\n$text"))
+        // Keep text-only hashes compatible with receipts already on the device.
+        val hash = if (photo == null) digest("$threadId\n$text") else digest("photo\n$threadId\n${digest(photo)}\n$text")
+        val reservation = reserve(receipt, requestId, threadId, hash)
         if (reservation.has("replayed")) return reservation
         val gate = sequence(threadId)
         try {

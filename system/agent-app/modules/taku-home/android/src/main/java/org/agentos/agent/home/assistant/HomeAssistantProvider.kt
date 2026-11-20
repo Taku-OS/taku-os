@@ -65,6 +65,7 @@ class HomeAssistantProvider : ContentProvider() {
           "assistant/dismiss" -> session.dismiss()
           "assistant/reset" -> session.reset()
           "assistant/open-conversation" -> session.openConversation()
+          "assistant/open-camera" -> session.openConversation(openCamera = true)
           // The full chat's collapse button (2-1 → 1-1). home=false when the caller shows Home itself.
           "assistant/resume" -> {
             session.resume(p.optString("threadId"))
