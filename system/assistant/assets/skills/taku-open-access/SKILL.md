@@ -26,6 +26,25 @@ taku_call() {
 
 Check the JSON in `Bundle.result` for `ok` before using `result`. Error shape varies by provider (`code,message` or `error`). If a mutation's reply is lost, read back state or the receipt before retrying. Root, system and ADB shell (UID 0/1000/2000) and trusted platform-signed components pass the ordinary app permission check. Operation-specific user, state and caller requirements still apply. Where App Permission Center policy applies, ordinary third-party apps use `$Q` (default `deny`). App callers may need the provider authorities in manifest `<queries>`. See [Taku system AI settings](../taku-system-ai-settings/SKILL.md) for permissions, model routing, usage and Jev settings, and [Taku Island](../taku-island/SKILL.md) for the SystemUI interface.
 
+### Open-access permission boundary
+
+On `$D`, third-party callers need an explicit `taku.root` grant for `manageAssistant`
+(the whole endpoint, regardless of its inner `operation`), plugin installation/removal,
+configuration writes/reloads, System AI mutations, and writes under `requests/`,
+`accounts/`, `composer/` and `skills/`. This includes approval responses, account
+login/cancel/refresh/key changes, draft/option changes and message submission.
+`taku.control` alone returns `PERMISSION_DENIED` before argument parsing or execution,
+including in auto/yolo mode unless root access is separately enabled by policy.
+
+The family read exceptions remain `taku.control`: `requests/list`, `requests/read`,
+`accounts/read`, `accounts/keys`, `composer/read`, `composer/receipt`,
+`composer/options/read`, `skills/read`, `skills/community/catalog`,
+`skills/community/detail`, `skills/community/check-update` and
+`skills/credentials/status`. `readSystemAi` also remains a control read. Existing
+secret-request restrictions still apply even to third-party root grants.
+UID 0/1000/2000 retain direct access; the first-party GUI uses the signature-protected
+`AgentGatewayProvider` for these operations. Workspace calls remain local-agent-only.
+
 ## Default desktop on Taku images
 
 ```sh

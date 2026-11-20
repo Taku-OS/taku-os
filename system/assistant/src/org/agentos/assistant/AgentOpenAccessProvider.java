@@ -46,10 +46,6 @@ public final class AgentOpenAccessProvider extends ContentProvider {
         boolean opened;
         Payload(int uid, byte[] bytes) { this.uid = uid; this.bytes = bytes; }
     }
-    private static final Set<String> ROOT_MUTATIONS = new HashSet<>(Arrays.asList(
-        "plugin/install", "plugin/uninstall", "config/value/write", "config/mcpServer/reload",
-        "skills/set-enabled", "skills/community/install", "skills/community/uninstall",
-        "skills/community/upgrade", "skills/community/rollback"));
     @Override public boolean onCreate() { return true; }
     @Override public Bundle call(String method, String arg, Bundle extras) {
         Bundle out = new Bundle();
@@ -69,11 +65,10 @@ public final class AgentOpenAccessProvider extends ContentProvider {
                 return out;
             }
         } else {
-            String requiredScope = ROOT_MUTATIONS.contains(method)
-                    ? AppPermissionCatalog.SCOPE_TAKU_ROOT
-                    : AppPermissionCatalog.SCOPE_TAKU_CONTROL;
-            if (!AppPermissionProvider.isAllowedLocal(ctx, caller, requiredScope)) {
-                out.putString("result", error("PERMISSION_DENIED").toString());
+            String denied = AgentOpenAccessPolicy.denial(method,
+                    scope -> AppPermissionProvider.isAllowedLocal(ctx, caller, scope));
+            if (denied != null) {
+                out.putString("result", error(denied).toString());
                 return out;
             }
         }
