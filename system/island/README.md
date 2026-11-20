@@ -15,8 +15,11 @@ see the current review receipt for the new verification scope.
   Five upstream hooks register the Dagger startable/provider, attach to the real status bar, and
   reserve compact width. SystemUI already has `STATUS_BAR_SERVICE`; the launcher UID is unchanged.
 - `IslandEngine` owns the notification repository and policy. `IslandPresenter` owns selection,
-  expansion and transitions. Native capsule slots use the display cutout, width degradation and
-  the existing 1-6 metaball neck geometry. Centered clock/network Views are temporarily moved to
+  expansion and transitions. Every compact island uses the Figma `1379:889` geometry anchored
+  to the display cutout: glyph disc, camera disc and a text pill sized to its content, joined by
+  the authored metaball necks. Every expanded card is SystemUI-native in the `1:4031` design
+  (`IslandAssistantCard` for Taku, `IslandTemplateCard` for other publishers, shared
+  `IslandStyle` tokens); no stock widgets are used for island chrome. Centered clock/network Views are temporarily moved to
   the start container, then restored. Landscape supports compact presentation only.
 - `IslandCardWindow` uses `TYPE_STATUS_BAR_ADDITIONAL`, a bounded window with rounded touchable
   insets updated during animation. Outside input has no collapse handler. Shade/keyguard/heads-up

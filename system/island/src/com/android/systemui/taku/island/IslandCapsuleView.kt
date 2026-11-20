@@ -7,8 +7,8 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
-import android.graphics.RectF
-import android.graphics.Typeface
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffColorFilter
 import android.graphics.drawable.Drawable
 import android.os.Handler
 import android.os.Looper
@@ -22,28 +22,29 @@ import org.json.JSONObject
 import kotlin.math.abs
 import kotlin.math.max
 
-/** Native cutout slots. Vertical drags are left to the parent status-bar shade dispatcher. */
+/**
+ * Compact island, Figma 1379:889 for every activity: a 32 dp disc whose centre is 36 dp left of
+ * the camera, the 24 dp camera disc, and a 32 dp text pill starting 20 dp right of it, joined by
+ * the authored metaball necks. The disc shows the activity's glyph (loader, picture, progress
+ * ring or app icon); the pill shows its text, timer or number in Hanken 12 sp. The view's left
+ * edge sits [CAMERA_DP] left of the camera centre. Vertical drags are left to the shade.
+ */
 internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
     private val cycle: (Int) -> Unit, private val choose: () -> Unit) : View(context) {
-    private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val density = resources.displayMetrics.density
-    private val buildingPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        typeface = runCatching {
-            val source = context.createPackageContext("org.agentos.agent", 0)
-            val id = source.resources.getIdentifier("hanken_grotesk_regular", "font", source.packageName)
-            source.resources.getFont(id)
-        }.getOrDefault(Typeface.create("sans-serif", Typeface.NORMAL))
+    private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        typeface = IslandStyle.regular(context)
         textSize = 12f * resources.displayMetrics.scaledDensity
-        color = 0xebffffff.toInt()
+        letterSpacing = -.01f
     }
-    fun buildingWidth(): Int = kotlin.math.ceil(dp(88) + buildingTextWidth()).toInt()
-    private fun buildingTextWidth(): Float = buildingPaint.measureText("Building...") - dp(.12f) * 10
     private val icons = mutableMapOf<String, Drawable>()
     private val secondaryIcons = mutableMapOf<String, Drawable>()
     private var second: IslandActivity? = null
     private var secondaryIdentity: JSONObject? = null
     private var secondaryGeneration = 0
     var stale = false
+    /** Exact MetaballShape1 path (Figma 1379:904), 16.0743 × 21.3333. */
     private val neck = Path().apply {
         moveTo(16.0743f, 1.72239f)
         cubicTo(10.9102f, 6.34134f, 6.1586f, 6.88552f, 0f, 0f)
@@ -60,9 +61,10 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
     private var downY = 0f
     private var downX = 0f
     private var vertical = false
-    var cutoutWidth = 0f
-    var widthMode = 0 // full slots, leading only, single glyph
+    /** The pill text for the current layout width; empty when only the disc fits. */
+    private var shownText = ""
     var secondary = false
+        private set
     private val gestures = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
         override fun onDown(event: MotionEvent) = true
         override fun onSingleTapUp(event: MotionEvent): Boolean { performClick(); return true }
@@ -84,15 +86,77 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
         setOnLongClickListener { choose(); true }
     }
 
+    /** What the disc shows: a slot from the payload, or null for the resting dot loader. */
+    private fun discSlot(activity: IslandActivity): JSONObject? {
+        if (activity.building) return JSONObject().put("animated", "working")
+        val big = activity.payload.getJSONObject("bigIsland")
+        val leading = big.optJSONObject("leading")
+        val small = activity.payload.optJSONObject("smallIsland")
+        fun glyph(slot: JSONObject?) = slot?.takeIf { it.optString("type") in setOf("pic", "progress") || it.has("animated") }
+        return glyph(leading) ?: glyph(small)
+            ?: listOf(leading, big.optJSONObject("trailing")).firstNotNullOfOrNull { slot ->
+                slot?.optString("pic")?.takeIf { it.isNotEmpty() }?.let { JSONObject().put("type", "pic").put("pic", it) } }
+            ?: if (activity.pics.containsKey("app")) JSONObject().put("type", "pic").put("pic", "app").put("tint", true) else null
+    }
+
+    /** What the pill says: the trailing slot, else a textual leading slot. */
+    private fun pillSlot(activity: IslandActivity): JSONObject? {
+        if (activity.building) return JSONObject().put("type", "text").put("text", "Building...")
+        val big = activity.payload.getJSONObject("bigIsland")
+        val textual = setOf("text", "timer", "countdown", "number", "progress")
+        return big.optJSONObject("trailing")?.takeIf { it.optString("type") in textual }
+            ?: big.optJSONObject("leading")?.takeIf { it.optString("type") in textual && it !== discSlot(activity) }
+                ?.takeUnless { it.optString("type") == "progress" }
+    }
+
+    private fun pillText(slot: JSONObject?): String = when (slot?.optString("type")) {
+        "text" -> slot.optString("text")
+        "number" -> slot.optString("value") + slot.optString("unit")
+        "progress" -> "${(slot.optDouble("value", 0.0) * 100).toInt()}%"
+        "timer", "countdown" -> {
+            val millis = if (slot.optString("type") == "timer") System.currentTimeMillis() - slot.optLong("startEpochMs")
+                else slot.optLong("endEpochMs") - System.currentTimeMillis()
+            val seconds = max(0, millis / 1000)
+            if (seconds >= 3600) "%d:%02d:%02d".format(seconds / 3600, seconds / 60 % 60, seconds % 60)
+            else "%d:%02d".format(seconds / 60, seconds % 60)
+        }
+        else -> ""
+    }
+
+    /**
+     * Width for [activity] within [maximum] (measured from the view's left edge): the disc and
+     * camera always; the pill when at least a short label fits; one more 24 dp disc for a
+     * [secondaryWanted] activity when room remains. Returns 0 when not even the disc fits.
+     */
+    fun layoutWidth(activity: IslandActivity, maximum: Int, secondaryWanted: Boolean): Int {
+        val base = px(CAMERA_DP + 12)
+        if (maximum < base) return 0
+        val slot = pillSlot(activity)
+        val text = pillText(slot)
+        var width = base
+        shownText = ""
+        if (text.isNotEmpty()) {
+            // Timers reserve their widest digits so the pill does not jitter every second.
+            val natural = max(textPaint.measureText(text), if (slot?.optString("type") in setOf("timer", "countdown")) textPaint.measureText(text.replace(Regex("[0-9]"), "0")) else 0f)
+            val room = maximum - px(PILL_START_DP) - px(16) - if (secondaryWanted) px(28) else 0
+            val fitted = minOf(natural, room.toFloat())
+            if (fitted >= minOf(natural, dp(24))) {
+                shownText = text.take(textPaint.breakText(text, true, fitted + 1, null))
+                width = px(PILL_START_DP) + px(16) + kotlin.math.ceil(fitted).toInt()
+            }
+        }
+        secondary = secondaryWanted && width + px(28) <= maximum
+        return width + if (secondary) px(28) else 0
+    }
+
     fun bind(activity: IslandActivity, other: IslandActivity?) {
         item = activity
-        second = other
-        secondary = other != null
-        if (secondaryIdentity !== other?.payload) {
-            secondaryIdentity = other?.payload
+        second = other.takeIf { secondary }
+        if (secondaryIdentity !== second?.payload) {
+            secondaryIdentity = second?.payload
             val current = ++secondaryGeneration
             secondaryIcons.clear()
-            other?.pics?.forEach { (key, icon) ->
+            second?.pics?.forEach { (key, icon) ->
                 icon.loadDrawableAsync(context, { drawable ->
                     if (current == secondaryGeneration && drawable != null) { secondaryIcons[key] = drawable; invalidate() }
                 }, Handler(Looper.getMainLooper()))
@@ -109,10 +173,10 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
                 }, Handler(Looper.getMainLooper()))
             }
         }
-        val text = activity.payload.toString()
-        val moving = activity.building || text.contains("\"animated\":\"working\"") || text.contains("\"animated\":\"listening\"")
+        val disc = discSlot(activity)
+        val moving = disc?.has("animated") == true
         if (moving && animation == null && ValueAnimator.areAnimatorsEnabled() && visibility == VISIBLE) animation = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = if (activity.building) DotMatrixLoader.CYCLE_MS else 1400
+            duration = if (disc?.optString("animated") == "listening") 1400 else DotMatrixLoader.CYCLE_MS
             interpolator = LinearInterpolator()
             repeatCount = ValueAnimator.INFINITE
             addUpdateListener { phase = it.animatedValue as Float; invalidate() }
@@ -151,154 +215,111 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
 
     override fun onDraw(canvas: Canvas) {
         val activity = item ?: return
-        if (activity.building) { drawBuilding(canvas); return }
-        val h = height.toFloat()
-        val islandWidth = width - if (secondary) dp(28) else 0f
-        paint.color = Color.BLACK
-        val center = islandWidth / 2
-        if (cutoutWidth > 0 && widthMode == 0) {
-            // Native port of the existing 1-6 neck path; physical cutout mask remains authoritative.
-            val cameraRadius = minOf(h / 2, cutoutWidth / 2, dp(14))
-            val gap = cameraRadius + dp(8)
-            canvas.drawCircle(center, h / 2, cameraRadius, paint)
-            canvas.drawRoundRect(0f, 0f, center - gap, h, h / 2, h / 2, paint)
-            canvas.drawRoundRect(center + gap, 0f, islandWidth, h, h / 2, h / 2, paint)
-            for (direction in -1..1 step 2) {
-                canvas.save()
-                canvas.translate(center + direction * gap, (h - dp(21)) / 2)
-                canvas.scale(-direction * (gap - cameraRadius + dp(4)) / 16.0743f, dp(21) / 21.3333f)
-                canvas.drawPath(neck, paint)
-                canvas.restore()
-            }
-        } else canvas.drawRoundRect(0f, 0f, islandWidth, h, h / 2, h / 2, paint)
-        val safe = max(cutoutWidth, dp(22)) / 2 + dp(4)
-        val big = activity.payload.getJSONObject("bigIsland")
-        val leading = big.optJSONObject("leading") ?: big.optJSONObject("trailing")
-        if (widthMode == 2) drawGlyph(canvas, leading, dp(6), h)
-        else {
-            drawSlot(canvas, if (widthMode == 0) big.optJSONObject("leading") else leading,
-                RectF(dp(8), 0f, center - safe, h))
-            if (widthMode == 0) drawSlot(canvas, big.optJSONObject("trailing"), RectF(center + safe, 0f, islandWidth - dp(8), h))
-        }
-        if (secondary) {
-            paint.color = Color.BLACK
-            val cx = width - dp(12)
-            canvas.drawCircle(cx, h / 2, dp(12), paint)
-            val slot = second?.payload?.optJSONObject("smallIsland")
-                ?: second?.payload?.optJSONObject("bigIsland")?.optJSONObject("leading")?.takeIf { it.optString("type") == "pic" }
-            val icon = slot?.optString("pic")?.let(secondaryIcons::get) ?: secondaryIcons.values.firstOrNull()
-            if (slot?.optString("type") == "progress") {
-                paint.color = Color.WHITE
-                paint.style = Paint.Style.STROKE
-                paint.strokeWidth = dp(2)
-                canvas.drawArc(cx - dp(7), h / 2 - dp(7), cx + dp(7), h / 2 + dp(7), -90f,
-                    (slot.optDouble("value", .25) * 360).toFloat(), false, paint)
-                paint.style = Paint.Style.FILL
-            } else if (icon != null) {
-                icon.setBounds((cx - dp(7)).toInt(), (h / 2 - dp(7)).toInt(), (cx + dp(7)).toInt(), (h / 2 + dp(7)).toInt())
-                icon.draw(canvas)
-            } else {
-                paint.color = Color.WHITE
-                canvas.drawCircle(cx, h / 2, dp(2), paint)
-            }
-        }
-    }
-
-    /** Exact 1-6 geometry: 32 dp loading disc, 24 dp camera, 32 dp text pill.
-     * The physical exclusion rectangle is NOT the camera's visual shape or radius. */
-    private fun drawBuilding(canvas: Canvas) {
         val cy = height / 2f
-        val camera = dp(52)
+        val camera = dp(CAMERA_DP)
+        val pillEnd = width - if (secondary) dp(28) else 0f
+        val hasPill = shownText.isNotEmpty()
         paint.color = Color.BLACK
+        paint.style = Paint.Style.FILL
         canvas.drawCircle(dp(16), cy, dp(16), paint)
         canvas.drawCircle(camera, cy, dp(12), paint)
-        canvas.drawRoundRect(dp(72), cy - dp(16), width.toFloat(), cy + dp(16), dp(16), dp(16), paint)
-        for (direction in listOf(1, -1)) {
+        if (hasPill) canvas.drawRoundRect(dp(PILL_START_DP), cy - dp(16), pillEnd.toFloat(), cy + dp(16), dp(16), dp(16), paint)
+        for (direction in if (hasPill) listOf(1, -1) else listOf(1)) {
             canvas.save()
             canvas.translate(camera - direction * dp(24), cy - dp(21.3333f) / 2 + dp(.167f))
             canvas.scale(direction * density, density)
             canvas.drawPath(neck, paint)
             canvas.restore()
         }
-        val pose = if (ValueAnimator.areAnimatorsEnabled()) DotMatrixLoader.thinking(phase * 1000.0, loaderPose)
-            else DotMatrixLoader.rest(loaderPose)
-        for (row in 0..2) for (col in 0..2) {
-            val index = row * 3 + col
-            paint.color = Color.argb((pose.opacity[index] * 255).toInt(), 255, 255, 255)
-            canvas.drawCircle(dp(10 + col * 6), cy + dp(-6 + row * 6), dp(2) * pose.scale[index].toFloat(), paint)
+        drawDisc(canvas, discSlot(activity), dp(16), cy)
+        if (hasPill) {
+            val slot = pillSlot(activity)
+            val text = if (slot?.optString("type") in setOf("timer", "countdown")) pillText(slot) else shownText
+            textPaint.color = if (stale || slot?.optString("emphasis") == "muted") IslandStyle.TEXT_MUTED
+                else if (slot?.optString("emphasis") == "accent") IslandStyle.ACCENT else IslandStyle.TEXT_PRIMARY
+            val start = dp(PILL_START_DP) + dp(8)
+            val end = textPaint.breakText(text, true, pillEnd - dp(8) - start, null)
+            canvas.drawText(text.take(end), start, cy - (textPaint.ascent() + textPaint.descent()) / 2, textPaint)
+            // Live clocks: redraw on the next whole second while shown.
+            if (slot?.optString("type") in setOf("timer", "countdown")) postInvalidateDelayed(1000 - System.currentTimeMillis() % 1000)
         }
-        var x = dp(80)
-        val baseline = cy - (buildingPaint.ascent() + buildingPaint.descent()) / 2
-        for (letter in "Building...") {
-            val glyph = letter.toString()
-            canvas.drawText(glyph, x, baseline, buildingPaint)
-            x += buildingPaint.measureText(glyph) - dp(.12f)
+        if (secondary) drawSecondary(canvas, width - dp(12), cy)
+    }
+
+    /** 16 dp glyph area centred on ([cx], [cy]): Figma's 3×3 loader, a picture or a progress ring. */
+    private fun drawDisc(canvas: Canvas, slot: JSONObject?, cx: Float, cy: Float) {
+        val motion = slot?.optString("animated").orEmpty()
+        val icon = slot?.optString("pic")?.let(icons::get)
+        when {
+            motion == "listening" -> {
+                paint.color = IslandStyle.TEXT_PRIMARY
+                val wave = (kotlin.math.sin(phase * 2 * Math.PI) + 1) / 2
+                canvas.drawCircle(cx, cy, dp(3) + dp(2) * wave.toFloat(), paint)
+            }
+            slot?.optString("type") == "progress" -> {
+                paint.style = Paint.Style.STROKE
+                paint.strokeWidth = dp(2)
+                paint.strokeCap = Paint.Cap.ROUND
+                paint.color = IslandStyle.TRACK
+                canvas.drawCircle(cx, cy, dp(7), paint)
+                paint.color = IslandStyle.TEXT_PRIMARY
+                canvas.drawArc(cx - dp(7), cy - dp(7), cx + dp(7), cy + dp(7), -90f,
+                    (slot.optDouble("value", 0.0).coerceIn(0.0, 1.0) * 360).toFloat(), false, paint)
+                paint.style = Paint.Style.FILL
+            }
+            icon != null && motion.isEmpty() -> {
+                icon.colorFilter = if (slot?.optBoolean("tint") == true) PorterDuffColorFilter(IslandStyle.TEXT_PRIMARY, PorterDuff.Mode.SRC_IN) else null
+                icon.setBounds((cx - dp(8)).toInt(), (cy - dp(8)).toInt(), (cx + dp(8)).toInt(), (cy + dp(8)).toInt())
+                icon.draw(canvas)
+            }
+            else -> {
+                // Figma's 16 dp dot loader: animated while working, its resting pose otherwise.
+                val pose = if (motion.isNotEmpty() && ValueAnimator.areAnimatorsEnabled()) DotMatrixLoader.thinking(phase * DotMatrixLoader.CYCLE_MS.toDouble(), loaderPose)
+                    else DotMatrixLoader.rest(loaderPose)
+                for (row in 0..2) for (col in 0..2) {
+                    val index = row * 3 + col
+                    paint.color = Color.argb((pose.opacity[index] * 255).toInt(), 255, 255, 255)
+                    canvas.drawCircle(cx + dp(-6 + col * 6), cy + dp(-6 + row * 6), dp(2) * pose.scale[index].toFloat(), paint)
+                }
+            }
         }
     }
 
-    private fun drawGlyph(canvas: Canvas, slot: JSONObject?, x: Float, h: Float) {
-        val icon = slot?.optString("pic")?.let(icons::get)
-        val motion = slot?.optString("animated")
-        if (motion == "working") {
-            paint.color = Color.WHITE
-            for (index in 0..2) {
-                val wave = (kotlin.math.sin((phase * 2 * Math.PI) - index * .8) + 1) / 2
-                canvas.drawCircle(x + dp(3 + index * 5), h / 2, dp(1) + dp(1) * wave.toFloat(), paint)
-            }
-        } else if (motion == "listening") {
-            paint.color = Color.WHITE
-            val wave = (kotlin.math.sin(phase * 2 * Math.PI) + 1) / 2
-            canvas.drawCircle(x + dp(8), h / 2, dp(4) + dp(3) * wave.toFloat(), paint)
+    /** Another live activity: a 24 dp disc with its small-island glyph. */
+    private fun drawSecondary(canvas: Canvas, cx: Float, cy: Float) {
+        paint.color = Color.BLACK
+        canvas.drawCircle(cx, cy, dp(12), paint)
+        val slot = second?.payload?.optJSONObject("smallIsland")
+            ?: second?.payload?.optJSONObject("bigIsland")?.optJSONObject("leading")?.takeIf { it.optString("type") == "pic" }
+        val icon = slot?.optString("pic")?.let(secondaryIcons::get) ?: secondaryIcons["app"] ?: secondaryIcons.values.firstOrNull()
+        if (slot?.optString("type") == "progress") {
+            paint.style = Paint.Style.STROKE
+            paint.strokeWidth = dp(2)
+            paint.color = IslandStyle.TEXT_PRIMARY
+            canvas.drawArc(cx - dp(7), cy - dp(7), cx + dp(7), cy + dp(7), -90f,
+                (slot.optDouble("value", .25) * 360).toFloat(), false, paint)
+            paint.style = Paint.Style.FILL
         } else if (icon != null) {
-            val side = minOf(dp(18), h - dp(4)).toInt()
-            icon.setBounds(x.toInt(), ((h - side) / 2).toInt(), x.toInt() + side, ((h + side) / 2).toInt())
+            icon.colorFilter = if (slot == null) PorterDuffColorFilter(IslandStyle.TEXT_PRIMARY, PorterDuff.Mode.SRC_IN) else null
+            icon.setBounds((cx - dp(7)).toInt(), (cy - dp(7)).toInt(), (cx + dp(7)).toInt(), (cy + dp(7)).toInt())
             icon.draw(canvas)
         } else {
-            paint.color = Color.WHITE
-            canvas.drawCircle(x + dp(7), h / 2, dp(3 + (phase * 2).toInt()), paint)
+            paint.color = IslandStyle.TEXT_PRIMARY
+            canvas.drawCircle(cx, cy, dp(2), paint)
         }
     }
 
-    private fun drawSlot(canvas: Canvas, slot: JSONObject?, rect: RectF) {
-        if (slot == null || rect.width() < dp(12)) return
-        canvas.save()
-        canvas.clipRect(rect)
-        val type = slot.optString("type")
-        if (type != "pic" && slot.has("pic") && rect.width() >= dp(34)) {
-            drawGlyph(canvas, slot, rect.left, rect.height())
-            rect.left += dp(22)
-            canvas.clipRect(rect)
-        }
-        if (type == "pic") drawGlyph(canvas, slot, rect.left, rect.height())
-        else if (type == "progress") {
-            paint.color = Color.DKGRAY
-            canvas.drawRoundRect(rect.left, height / 2f - dp(2), rect.right, height / 2f + dp(2), dp(2), dp(2), paint)
-            paint.color = Color.WHITE
-            val progress = slot.optDouble("value", .35).toFloat()
-            canvas.drawRoundRect(rect.left, height / 2f - dp(2), rect.left + rect.width() * progress,
-                height / 2f + dp(2), dp(2), dp(2), paint)
-        } else {
-            val text = when (type) {
-                "text" -> slot.optString("text")
-                "number" -> slot.optString("value") + slot.optString("unit")
-                "timer", "countdown" -> {
-                    val millis = if (type == "timer") System.currentTimeMillis() - slot.optLong("startEpochMs")
-                        else slot.optLong("endEpochMs") - System.currentTimeMillis()
-                    val seconds = max(0, millis / 1000)
-                    "%d:%02d".format(seconds / 60, seconds % 60)
-                }
-                else -> "●"
-            }
-            paint.color = if (stale || slot.optString("emphasis") == "muted") Color.LTGRAY
-                else if (slot.optString("emphasis") == "accent") 0xffff6a28.toInt() else Color.WHITE
-            paint.textSize = minOf(dp(12) * resources.configuration.fontScale, rect.height() * .55f)
-            val end = paint.breakText(text, true, rect.width(), null)
-            val baseline = height / 2f - (paint.ascent() + paint.descent()) / 2
-            canvas.drawText(text.take(end), rect.left, baseline, paint)
-        }
-        canvas.restore()
-    }
+    fun state(): JSONObject = JSONObject().put("text", shownText).put("secondary", secondary)
+        .put("disc", item?.let { discSlot(it)?.let { slot -> slot.optString("animated").ifEmpty { slot.optString("type") } } ?: "loader" } ?: JSONObject.NULL)
 
     private fun dp(value: Float) = value * density
     private fun dp(value: Int) = value * density
+    /** Whole pixels for layout sizes. */
+    private fun px(value: Int) = (value * density).toInt()
+
+    companion object {
+        /** Camera centre and pill start, measured from the capsule's left edge (dp). */
+        const val CAMERA_DP = 52
+        const val PILL_START_DP = 72
+    }
 }

@@ -55,6 +55,15 @@ visible activity (such as media or progress). Its notification remains available
 `expand KEY`; expanding it keeps that card selected until collapse. Read `state.presentation`
 to inspect the actual selected key and compact visibility.
 
+Every island SystemUI shows is drawn natively in the Taku design; there is no stock-widget
+fallback. `state.presentation.compact` (null when hidden) reports what the capsule shows:
+`text` (the pill, empty when only the disc fits), `disc` (`loader`, `pic`, `progress`,
+`working` or `listening`) and `secondary` (a second activity's disc). `state.presentation.card`
+reports `renderer` (`systemui-native`, or `remote-surface` once a rich body is ready) and, for
+non-assistant cards, `template:{title,body,actionCount,choices,progress}` read from the drawn
+views. A card whose content cannot be drawn closes with `reason` `render_failed:...` (or
+`window_failed:...` when it never opened) instead of staying on screen.
+
 ## Settings shared with the GUI
 
 Open Android Settings → Display → Activity island, or use the explicit activity:
