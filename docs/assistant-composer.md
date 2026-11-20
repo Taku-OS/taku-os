@@ -37,6 +37,14 @@ Use `--compile-only` to build the suite on the host. Use `--phase` to run one sc
 
 The runner uses fresh test conversations, archives them on exit, and restores the original conversation and device settings. Logs, screenshots, and JSON evidence are in `out/composer-reliability-tests/<run-id>/`. The [recovery suite](assistant-recovery.md) covers process death and Android reboot.
 
+Run the camera regression on its own in an isolated AOSP development emulator with Camera2 and a configured back camera. Disable access to external hosts. Use the ordinary-UID Agent APK with the matching Assistant backend and grant the Agent camera permission before running the test.
+
+```sh
+bash system/assistant/test-composer.sh --phase camera
+```
+
+The test takes a photo through Camera2 from the conversation composer. It checks that the original text and an exact copy of the captured JPEG are both present after returning, and that a second conversation's draft stays unchanged. It presses Send once and checks the queued request and receipt for the original conversation ID, text and JPEG. It waits for the task to reach a terminal state and removes the photo from the emulator gallery.
+
 ## Historical acceptance
 
 The [v49 acceptance record](../evidence/builds/2026-10-18-composer-reliability.json) and [v52 keyboard report](reviews/composer-keyboard-2026-10-19/README.md) describe the retired Java chat. The Expo suite uses the current controls and public draft state.

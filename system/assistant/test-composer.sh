@@ -9,10 +9,10 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --phase) PHASE="${2:?--phase requires a value}"; shift 2 ;;
     --compile-only) COMPILE_ONLY=true; shift ;;
-    *) echo 'Usage: test-composer.sh [--compile-only] [--phase all|failure-missing|failure-async|attachments|home-attachments|steer|stop]' >&2; exit 2 ;;
+    *) echo 'Usage: test-composer.sh [--compile-only] [--phase all|failure-missing|failure-async|attachments|home-attachments|steer|stop|camera]' >&2; exit 2 ;;
   esac
 done
-case "$PHASE" in all|failure-missing|failure-async|attachments|home-attachments|steer|stop) ;; *) echo 'Unknown phase' >&2; exit 2 ;; esac
+case "$PHASE" in all|failure-missing|failure-async|attachments|home-attachments|steer|stop|camera) ;; *) echo 'Unknown phase' >&2; exit 2 ;; esac
 RUN_ID="$(date -u +%Y%m%dT%H%M%SZ)-$$"
 OUTPUT="../../out/composer-reliability-tests/$RUN_ID"
 mkdir -p "$OUTPUT/classes" "$OUTPUT/dex"
@@ -35,6 +35,13 @@ AVD=${TAKU_AVD:-Taku_ImageIntegration_20261010}
 [[ "$("$ADB" -s "$SERIAL" emu avd name | head -1 | tr -d '\r')" == "$AVD" ]] || { echo 'Wrong AVD' >&2; exit 1; }
 [[ "$("$ADB" -s "$SERIAL" shell id -u | tr -d '\r')" == 0 ]] || { echo 'Root ADB required on isolated AVD.' >&2; exit 1; }
 "$ADB" -s "$SERIAL" shell pm path --user 0 org.agentos.agent | grep -q '^package:' || { echo 'Install the Expo Agent APK first.' >&2; exit 1; }
+if [[ "$PHASE" == camera ]]; then
+  routes=$("$ADB" -s "$SERIAL" shell 'ip route show table all && ip -6 route show table all')
+  if grep -E '^default ' <<< "$routes" | grep -Ev '^default dev dummy0( |$)' >&2; then
+    echo 'Disable external network access on the isolated camera AVD first.' >&2; exit 1
+  fi
+  "$ADB" -s "$SERIAL" shell dumpsys package org.agentos.agent | sed -n '/versionCode=/p; /versionName=/p' > "$OUTPUT/agent-version.txt"
+fi
 sound=$("$ADB" -s "$SERIAL" shell settings get system sound_effects_enabled | tr -d '\r')
 stay=$("$ADB" -s "$SERIAL" shell settings get global stay_on_while_plugged_in | tr -d '\r')
 # Read only the Kotlin backend's selection so the runner can reopen it on exit.
@@ -64,8 +71,10 @@ import json,re,sys
 ids=set()
 for path in Path(sys.argv[1]).rglob('result.json'):
  try:
-  value=json.loads(path.read_text()).get('threadId','')
-  if re.fullmatch(r'[a-f0-9-]{36}',value):ids.add(value)
+  result=json.loads(path.read_text())
+  for name in ('threadId', 'otherThreadId'):
+   value=result.get(name,'')
+   if re.fullmatch(r'[a-f0-9-]{36}',value):ids.add(value)
  except (ValueError,OSError):pass
 print('\n'.join(sorted(ids)))
 PY
@@ -80,18 +89,22 @@ PY
     "$ADB" -s "$SERIAL" shell rm -rf "/sdcard/Download/taku-composer-$RUN_ID-$p" >/dev/null 2>&1
   done
   if "$pulled"; then "$ADB" -s "$SERIAL" shell rm -rf "$DEVICE_OUTPUT" >/dev/null 2>&1; fi
-  python3 - "$OUTPUT/run-result.json" "$original_exit" "$restore_failed" <<'PY'
+  python3 - "$OUTPUT/run-result.json" "$original_exit" "$restore_failed" "$PHASE" <<'PY'
 import json,sys
-with open(sys.argv[1],'w') as out:json.dump({'testExitCode':int(sys.argv[2]),'restoreFailed':bool(int(sys.argv[3])),'modelResponsesSimulated':False},out,indent=2)
+model_check='modelResponseVerified' if sys.argv[4]=='camera' else 'modelResponsesSimulated'
+with open(sys.argv[1],'w') as out:json.dump({'testExitCode':int(sys.argv[2]),'restoreFailed':bool(int(sys.argv[3])),model_check:False},out,indent=2)
 PY
   if [[ "$original_exit" == 0 && "$restore_failed" != 0 ]]; then exit 1; fi
   exit "$original_exit"
 }
 trap restore EXIT
-"$JDK/bin/java" -Djava.awt.headless=true tests/host/ComposerImageFixture.java "$OUTPUT/image.png" "$OUTPUT/image-code.txt"
-IMAGE_CODE=$(cat "$OUTPUT/image-code.txt")
 "$ADB" -s "$SERIAL" push "$OUTPUT/test.jar" "$DEVICE_JAR"
-"$ADB" -s "$SERIAL" push "$OUTPUT/image.png" "$DEVICE_IMAGE"
+IMAGE_CODE=none
+if [[ "$PHASE" != camera ]]; then
+  "$JDK/bin/java" -Djava.awt.headless=true tests/host/ComposerImageFixture.java "$OUTPUT/image.png" "$OUTPUT/image-code.txt"
+  IMAGE_CODE=$(cat "$OUTPUT/image-code.txt")
+  "$ADB" -s "$SERIAL" push "$OUTPUT/image.png" "$DEVICE_IMAGE"
+fi
 "$ADB" -s "$SERIAL" shell settings put system sound_effects_enabled 0
 "$ADB" -s "$SERIAL" shell svc power stayon true
 "$ADB" -s "$SERIAL" shell input keyevent 224
@@ -108,9 +121,10 @@ log=Path(sys.argv[1]).read_text()
 assert re.search(r'\bOK \(1 test\)',log) and not re.search(r'FAILURES|aborted|shortMsg=|INSTRUMENTATION_STATUS_CODE: -2',log),log
 PY
   "$ADB" -s "$SERIAL" exec-out cat "$DEVICE_OUTPUT/$phase/result.json" > "$OUTPUT/$phase.json"
-  python3 - "$OUTPUT/$phase.json" <<'PY'
+  python3 - "$OUTPUT/$phase.json" "$phase" <<'PY'
 import json,sys
-result=json.load(open(sys.argv[1]));assert result['passed'] is True and result['modelResponsesSimulated'] is False,result
+model_check='modelResponseVerified' if sys.argv[2]=='camera' else 'modelResponsesSimulated'
+result=json.load(open(sys.argv[1]));assert result['passed'] is True and result[model_check] is False,result
 PY
 done
 printf 'PASS: requested real composer phases; evidence: %s\n' "$OUTPUT"

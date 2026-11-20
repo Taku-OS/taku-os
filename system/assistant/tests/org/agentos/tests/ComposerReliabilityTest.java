@@ -3,6 +3,8 @@ package org.agentos.tests;
 import android.os.Bundle;
 import android.app.UiAutomation;
 import android.accessibilityservice.AccessibilityServiceInfo;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.view.accessibility.AccessibilityWindowInfo;
 import java.util.List;
 import android.view.accessibility.AccessibilityNodeInfo;
@@ -11,12 +13,17 @@ import com.android.uiautomator.testrunner.UiAutomatorTestCase;
 import org.json.*;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
-/** Real DocumentsUI, task queue and upstream errors. No model result is simulated. */
+/** Real Android pickers, task queue and upstream errors. No model result is simulated. */
 public final class ComposerReliabilityTest extends UiAutomatorTestCase {
     static final String CHAT = "org.agentos.agent";
     static final String DOCS = "com.android.documentsui";
+    static final String CAMERA = "com.android.camera2";
+    static final String MEDIA = "content://media/external/images/media";
     static final String APP = "/data/user/0/org.agentos.assistant";
     static final String OPEN_ACCESS = "content://org.agentos.assistant.open-access";
     static final String INPUT = "message-input";
@@ -25,6 +32,7 @@ public final class ComposerReliabilityTest extends UiAutomatorTestCase {
     static final String RUNTIME = APP + "/files/runtime/";
     String run, phase, thread = "", ownedTurn = "", imageCode, textCode;
     String unavailableModel = "";
+    String cameraMediaId = "", cameraTaskId = "";
     boolean staleModelInstalled;
     File output, fixtures;
     JSONObject evidence;
@@ -197,8 +205,11 @@ public final class ComposerReliabilityTest extends UiAutomatorTestCase {
         return envelope.getJSONObject("result");
     }
     JSONObject draft() throws Exception {
-        JSONObject value = access("composer/read", object("threadId", thread));
-        assertEquals(thread, value.getString("threadId"));
+        return draft(thread);
+    }
+    JSONObject draft(String threadId) throws Exception {
+        JSONObject value = access("composer/read", object("threadId", threadId));
+        assertEquals(threadId, value.getString("threadId"));
         return value;
     }
     JSONArray attachments() throws Exception {
@@ -219,9 +230,17 @@ public final class ComposerReliabilityTest extends UiAutomatorTestCase {
         assertEquals("Public composer text", value, draft().getString("text"));
     }
     void openThread() throws Exception {
+        openThread(thread);
+    }
+    void openThread(String threadId) throws Exception {
         command("/system/bin/am", "start", "-W", "--display", "0", "-a", "android.intent.action.MAIN",
-                "-n", CHAT + "/.MainActivity", "--es", "threadId", thread);
+                "-n", CHAT + "/.MainActivity", "--es", "threadId", threadId);
         assertTrue("Expo composer missing", waitAccessible(new Node(INPUT), 25000));
+    }
+    String startThread(JSONObject options) throws Exception {
+        String id = NativeSocketProbe.rpc("thread/start", options).getJSONObject("thread").getString("id");
+        assertTrue(id.matches("[a-f0-9-]{36}"));
+        return id;
     }
     void createThread() throws Exception {
         JSONObject options = object("developerInstructions",
@@ -231,9 +250,7 @@ public final class ComposerReliabilityTest extends UiAutomatorTestCase {
             unavailableModel = "taku-composer-unavailable-" + run;
             evidence.put("failureTrigger", "unavailable-model-on-isolated-test-thread").put("requestedModel", unavailableModel);
         }
-        thread = NativeSocketProbe.rpc("thread/start", options)
-                .getJSONObject("thread").getString("id");
-        assertTrue(thread.matches("[a-f0-9-]{36}"));
+        thread = startThread(options);
         evidence.put("threadId", thread); saveEvidence();
         if (!unavailableModel.isEmpty()) installStaleModel();
         String marker = "Composer fixture " + thread;
@@ -346,14 +363,17 @@ public final class ComposerReliabilityTest extends UiAutomatorTestCase {
     }
 
     String ownTask() throws Exception {
+        return ownTask(thread);
+    }
+    String ownTask(String threadId) throws Exception {
         File[] published = new File(RUNTIME + "tasks").listFiles((dir, name) -> name.matches("[0-9]{1,20}"));
         assertNotNull("Task directory is unavailable", published);
         String owned = "";
         for (File task : published) {
             if (!new File(task, "ready").isFile()) continue;
             File request = new File(task, "request.json");
-            if (!request.isFile() || !thread.equals(new JSONObject(read(request)).optString("conversationId"))) continue;
-            assertTrue("More than one task published for " + thread, owned.isEmpty());
+            if (!request.isFile() || !threadId.equals(new JSONObject(read(request)).optString("conversationId"))) continue;
+            assertTrue("More than one task published for " + threadId, owned.isEmpty());
             owned = task.getName();
         }
         return owned;
@@ -480,6 +500,123 @@ public final class ComposerReliabilityTest extends UiAutomatorTestCase {
         evidence.put("reply", answer).put("realImageAndTextUnderstanding", true);
     }
 
+    void cameraAttachment() throws Exception {
+        String otherThread = startThread(new JSONObject());
+        evidence.put("otherThreadId", otherThread);
+        saveEvidence();
+        String otherText = "Unsent draft in conversation B " + run;
+        access("composer/write", object("threadId", otherThread)
+                .put("revision", draft(otherThread).getString("revision")).put("text", otherText));
+        JSONObject otherDraft = draft(otherThread);
+
+        String text = "Camera request in conversation A " + run;
+        assertTrue(new Node(INPUT).replace(text));
+        expectDraft(text);
+        expectAttachments(0);
+        Map<String, String> galleryBefore = cameraPhotos();
+        assertTrue("Composer tools did not open", new Node("composer-tools").act());
+        assertTrue("Take photo did not open", new Node("attach-camera").act());
+        UiObject shutter = new Entry(CAMERA, "id", "shutter_button", false);
+        assertTrue("AOSP Camera2 did not open from Composer", waitAccessible(shutter, 25000));
+        Map<String, String> newPhotos = cameraPhotos();
+        newPhotos.keySet().removeAll(galleryBefore.keySet());
+        assertEquals("Composer must allocate one MediaStore row for Camera2", 1, newPhotos.size());
+        cameraMediaId = newPhotos.keySet().iterator().next();
+        assertTrue("Camera shutter could not be pressed", shutter.click());
+        UiObject done = new Entry(CAMERA, "id", "done_button", false);
+        assertTrue("Camera did not show its photo confirmation", waitAccessible(done, 25000));
+        assertTrue("Camera photo could not be confirmed", done.click());
+
+        assertTrue("Camera did not return to Composer", waitAccessible(new Node(INPUT), 25000));
+        expectDraft(text);
+        expectAttachments(1);
+        JSONObject photo = attachments().getJSONObject(0);
+        String cameraPhotoName = photo.getString("name");
+        assertEquals("The attachment must refer to the new camera output", cameraPhotoName, cameraPhotos().get(cameraMediaId));
+        expectAttachment(cameraPhotoName);
+        File copy = checkCameraJpeg(photo);
+        capture("camera-returned");
+
+        openThread(otherThread);
+        assertTrue("Conversation B must show its own draft", new Entry(CHAT, "text", otherText, false).waitForExists(12000));
+        assertFalse("Conversation B must not show the photo", new Entry(CHAT, "description",
+                "(Remove attachment |移除附件 )" + java.util.regex.Pattern.quote(cameraPhotoName), true).exists());
+        assertOtherDraftUnchanged(otherThread, otherDraft);
+        openThread();
+        expectDraft(text);
+        expectAttachment(cameraPhotoName);
+        assertEquals("Camera confirmation must not send the draft", "", ownTask());
+        assertTrue("Composer send could not be pressed", new Node(SEND).act());
+        String task = cameraTaskId = waitOwnTask();
+        JSONObject request = new JSONObject(read(new File(RUNTIME + "tasks/" + task + "/request.json")));
+        assertEquals(thread, request.getString("conversationId"));
+        assertEquals(text, request.getString("prompt"));
+        JSONArray sentAttachments = request.getJSONArray("attachments");
+        assertEquals(1, sentAttachments.length());
+        JSONObject sentPhoto = sentAttachments.getJSONObject(0);
+        assertEquals(copy.getPath(), sentPhoto.getString("path"));
+        assertEquals(photo.getString("name"), sentPhoto.getString("name"));
+        assertEquals(photo.getString("mime"), sentPhoto.getString("mime"));
+        assertEquals(photo.getLong("size"), sentPhoto.getLong("size"));
+        String requestId = request.getString("composerRequestId");
+        JSONObject receipt = access("composer/receipt", object("threadId", thread).put("requestId", requestId));
+        assertEquals(thread, receipt.getString("threadId"));
+        assertEquals(task, receipt.getString("taskId"));
+        expectDraft("");
+        expectAttachments(0);
+        assertEquals("Only one Composer task may be published in A", task, ownTask());
+        assertOtherDraftUnchanged(otherThread, otherDraft);
+        evidence.put("taskId", task).put("requestId", requestId).put("otherDraftUnchanged", true)
+                .put("publishedRequestCount", 1).put("requestContainsTextAndPhoto", true);
+    }
+
+    File checkCameraJpeg(JSONObject photo) throws Exception {
+        assertEquals("image/jpeg", photo.getString("mime"));
+        String id = photo.getString("id");
+        assertTrue(id.matches("[a-f0-9-]{36}"));
+        File copy = new File(APP + "/files/composer-attachments", id);
+        byte[] jpeg = java.nio.file.Files.readAllBytes(copy.toPath());
+        assertEquals(photo.getLong("size"), (long) jpeg.length);
+        File original = new File("/sdcard/Pictures/Taku", photo.getString("name"));
+        assertTrue("Attachment bytes must match the actual camera output",
+                java.util.Arrays.equals(java.nio.file.Files.readAllBytes(original.toPath()), jpeg));
+        assertTrue("Camera JPEG must include both start and end markers", jpeg.length > 4
+                && jpeg[0] == (byte) 0xff && jpeg[1] == (byte) 0xd8
+                && jpeg[jpeg.length - 2] == (byte) 0xff && jpeg[jpeg.length - 1] == (byte) 0xd9);
+        Bitmap bitmap = BitmapFactory.decodeByteArray(jpeg, 0, jpeg.length);
+        assertNotNull("Decode the entire camera JPEG", bitmap);
+        try {
+            evidence.put("cameraJpeg", object("bytes", jpeg.length)
+                    .put("width", bitmap.getWidth()).put("height", bitmap.getHeight())
+                    .put("sha256", java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(jpeg))));
+        } finally {
+            bitmap.recycle();
+        }
+        return copy;
+    }
+
+    Map<String, String> cameraPhotos() throws Exception {
+        String rows = command("/system/bin/content", "query", "--uri", MEDIA, "--projection", "_id:_display_name",
+                "--where", "owner_package_name='" + CHAT + "' AND relative_path='Pictures/Taku/'");
+        Map<String, String> photos = new HashMap<>();
+        if (rows.equals("No result found.")) return photos;
+        Pattern columns = Pattern.compile("Row: [0-9]+ _id=([0-9]+), _display_name=(Taku-[0-9]+\\.jpg)");
+        for (String row : rows.split("\n")) {
+            var match = columns.matcher(row);
+            assertTrue("Could not identify the app's camera output: " + row, match.matches());
+            photos.put(match.group(1), match.group(2));
+        }
+        return photos;
+    }
+
+    void assertOtherDraftUnchanged(String otherThread, JSONObject before) throws Exception {
+        JSONObject after = draft(otherThread);
+        assertEquals(before.getString("revision"), after.getString("revision"));
+        assertEquals(before.getString("text"), after.getString("text"));
+        assertEquals(before.getJSONArray("attachments").toString(), after.getJSONArray("attachments").toString());
+        assertEquals("Conversation B must not submit any request", "", ownTask(otherThread));
+    }
+
     void sendThroughHome() throws Exception {
         assertTrue(new Node(INPUT).replace(requestPrompt()));
         addBoth();
@@ -597,19 +734,22 @@ public final class ComposerReliabilityTest extends UiAutomatorTestCase {
         Configurator.getInstance().setWaitForIdleTimeout(0).setWaitForSelectorTimeout(2500);
         run = getParams().getString("runId", ""); phase = getParams().getString("phase", "");
         assertTrue("A unique host runId is required", run.matches("[a-zA-Z0-9-]{1,80}"));
-        assertTrue("Unknown phase", phase.matches("failure-missing|failure-async|attachments|home-attachments|steer|stop"));
+        assertTrue("Unknown phase", phase.matches("failure-missing|failure-async|attachments|home-attachments|steer|stop|camera"));
         output = new File("/data/local/tmp/taku-composer-tests/" + run + "/" + phase);
         fixtures = new File("/sdcard/Download/taku-composer-" + run + "-" + phase);
         assertTrue(output.mkdirs());
-        evidence = object("phase", phase).put("runId", run).put("modelResponsesSimulated", false).put("passed", false);
+        evidence = object("phase", phase).put("runId", run).put("passed", false)
+                .put(phase.equals("camera") ? "modelResponseVerified" : "modelResponsesSimulated", false);
         try {
             command("/system/bin/input", "-d", "0", "keyevent", "KEYCODE_HOME");
-            createFixtures(); createThread();
+            if (!phase.equals("camera")) createFixtures();
+            createThread();
             switch (phase) {
                 case "failure-missing": failureMissing(); break;
                 case "failure-async": failureAsync(); break;
                 case "attachments": sendAttachments(); break;
                 case "home-attachments": sendThroughHome(); break;
+                case "camera": cameraAttachment(); break;
                 case "steer": steerAttachments(); break;
                 case "stop": stopTurn(); break;
                 default: throw new AssertionError("Unknown phase");
@@ -630,8 +770,17 @@ public final class ComposerReliabilityTest extends UiAutomatorTestCase {
             try {
                 if (staleModelInstalled) access("composer/options/write", object("threadId", thread)
                         .put("options", object("model", JSONObject.NULL)));
+                try {
+                    if (!cameraTaskId.isEmpty())
+                        evidence.put("localTaskTerminalState", waitDone(cameraTaskId).getString("state"));
+                } finally {
+                    if (!cameraMediaId.isEmpty()) {
+                        command("/system/xbin/su", "shell", "/system/bin/content", "delete", "--uri", MEDIA + "/" + cameraMediaId);
+                        assertFalse("The test photo must be removed from the gallery", cameraPhotos().containsKey(cameraMediaId));
+                    }
+                }
             } catch (Exception | AssertionError cleanup) {
-                evidence.put("modelFixtureCleanupError", cleanup.toString());
+                evidence.put("fixtureCleanupError", cleanup.toString());
                 if (evidence.optBoolean("passed")) {
                     evidence.put("passed", false);
                     throw cleanup;
