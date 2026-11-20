@@ -107,15 +107,17 @@ export function FeedSurface({kind, children}: {kind: 'card' | 'control' | 'sheet
 export function FeedInset({children, fill = 'content-100', radius = radii.xl}: {children: ReactNode; fill?: Fill; radius?: number}) {
   return <View style={[styles.inset, {backgroundColor: fills[fill], borderRadius: radius}]}>{children}</View>;
 }
-export function FeedButton({label, variant = 'secondary', size = 'lg', icon, flex, busy, selected, disabled, onPress}: FeedControlState & {
-  label: string; variant?: 'primary' | 'secondary'; size?: 'lg' | 'md'; icon?: 'sparkle'; flex?: number; onPress: () => void;
+export function FeedButton({label, variant = 'secondary', appearance = 'light', size = 'lg', icon, flex, busy, selected, disabled, onPress}: FeedControlState & {
+  label: string; variant?: 'primary' | 'secondary'; appearance?: 'light' | 'dark'; size?: 'lg' | 'md'; icon?: 'sparkle'; flex?: number; onPress: () => void;
 }) {
-  const primary = variant === 'primary', ink = primary ? main.surface : main.foreground;
+  const primary = variant === 'primary', inverse = appearance === 'dark' ? !primary : primary;
+  const ink = inverse ? main.surface : main.foreground;
+  const background = appearance === 'dark' ? (primary ? main.surface : surface[200]) : (primary ? main.foreground : content[200]);
   return <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{busy, selected, disabled: disabled || busy}} disabled={disabled || busy} onPress={onPress}
-    style={({pressed}) => [styles.button, size === 'md' ? styles.buttonMd : styles.buttonLg, {backgroundColor: primary ? main.foreground : content[200]},
+    style={({pressed}) => [styles.button, size === 'md' ? styles.buttonMd : styles.buttonLg, {backgroundColor: background},
       flex != null ? {flex, minWidth: 0} : {alignSelf: 'stretch'}, selected && styles.selected, (pressed || busy) && styles.pressed, disabled && styles.disabled]}>
     {busy ? <ActivityIndicator size={size === 'md' ? 12 : 16} color={ink}/> : icon === 'sparkle' ? <FeedIcon name="sparkle"/> : null}
-    <FeedText text={label} variant={size === 'md' ? 'body-md' : 'body-lg'} tone={primary ? 'inverse' : 'foreground'} lines={1}/>
+    <FeedText text={label} variant={size === 'md' ? 'body-md' : 'body-lg'} tone={inverse ? 'inverse' : 'foreground'} lines={1}/>
   </Pressable>;
 }
 export function FeedPressable({label, role = 'button', expanded, onPress, onLongPress, children, disabled, busy, selected}: FeedControlState & {

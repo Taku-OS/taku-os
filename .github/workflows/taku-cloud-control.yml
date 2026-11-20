@@ -87,7 +87,10 @@ jobs:
           OPERATION: ${{ inputs.operation }}
           REQUEST_ID: ${{ inputs.request_id }}
           GOOGLE_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
-        run: python3 scripts/cloud-builder-control.py
+        run: |
+          python3 scripts/cloud-builder-control.py
+          # Validated VM identity and public endpoint only; no credentials.
+          cat out/cloud-control/endpoint.json
 
   sync-release:
     if: >-

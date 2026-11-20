@@ -49,6 +49,16 @@ test('captures drafts and route identity before Expo and restores the saved curr
   assert.equal(configureConversationActivity(result), result);
 });
 
+test('preserves external picker results while leaving React fragment restoration disabled', () => {
+  const result = configureConversationActivity(activityTemplate);
+  assert.match(result, /ComposerPickerState.restore\(this, savedInstanceState\)\s+super.onCreate\(null\)/);
+  assert.match(result, /onSaveInstanceState\(outState: Bundle\) \{\s+ComposerPickerState.save\(this, outState\)/);
+  const previous = result.replace('import org.agentos.agent.bridge.ComposerPickerState\n', '')
+    .replace('    ComposerPickerState.restore(this, savedInstanceState)\n', '')
+    .replace('    ComposerPickerState.save(this, outState)\n', '');
+  assert.equal(configureConversationActivity(previous), result);
+});
+
 test('upgrades the previously generated activity hooks without duplicating draft delivery', () => {
   const capture = '    ConversationDrafts.offer(intent.getStringExtra(ConversationDrafts.EXTRA_DRAFT))\n' +
     '    intent.removeExtra(ConversationDrafts.EXTRA_DRAFT)';

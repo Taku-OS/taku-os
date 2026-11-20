@@ -7,5 +7,7 @@ internal class LiveTalkEndpoint {
   fun observe(level: Float, now: Long) {
     if (level.isFinite() && level > 0.18f) lastSpeechAt = now
   }
-  fun shouldFinish(now: Long): Boolean = lastSpeechAt?.let { now - it >= 1_500 } ?: false
+  // A short pause inside a sentence (e.g. "please only reply: ...") is not submission.
+  // Keep the microphone open through a two-second pause; cloud preview latency is irrelevant.
+  fun shouldFinish(now: Long): Boolean = lastSpeechAt?.let { now - it >= 3_000 } ?: false
 }

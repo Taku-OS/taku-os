@@ -8,7 +8,7 @@
     "userInterfaceStyle": "automatic",
     "android": {
       "package": "org.agentos.agent",
-      "versionCode": 10,
+      "versionCode": 11,
       "permissions": [
         "org.agentos.permission.AGENT_CLIENT"
       ],

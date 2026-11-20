@@ -22,6 +22,10 @@ function configureTranslucentThemes(styles) {
 }
 
 function configureConversationActivity(contents) {
+  return configurePickerState(configureConversationRoutes(contents));
+}
+
+function configureConversationRoutes(contents) {
   if (contents.includes('PanelLaunchIntents.restore(')) return contents;
   const activity = 'class MainActivity : ReactActivity() {';
   const create = '  override fun onCreate(savedInstanceState: Bundle?) {';
@@ -54,6 +58,23 @@ function configureConversationActivity(contents) {
     '  override fun onSaveInstanceState(outState: Bundle) {\n' +
     '    PanelLaunchIntents.save(this, outState)\n    super.onSaveInstanceState(outState)\n  }\n');
   return contents.replace(create, `${create}\n    PanelLaunchIntents.restore(this, savedInstanceState)\n${capture}`);
+}
+
+function configurePickerState(contents) {
+  if (contents.includes('ComposerPickerState.restore(')) return contents;
+  if (!contents.includes('super.onCreate(null)')) {
+    throw new Error('Taku picker: expected Expo null saved-state hook; review activity result restoration.');
+  }
+  // Expo intentionally does not restore React navigation fragments. Preserve the Android
+  // result registry separately so external camera/document results survive process death.
+  contents = contents.replace('import android.os.Bundle',
+    'import android.os.Bundle\nimport org.agentos.agent.bridge.ComposerPickerState');
+  contents = contents.replace('super.onCreate(null)',
+    'ComposerPickerState.restore(this, savedInstanceState)\n    super.onCreate(null)');
+  const save = '  override fun onSaveInstanceState(outState: Bundle) {';
+  if (contents.includes(save)) return contents.replace(save, `${save}\n    ComposerPickerState.save(this, outState)`);
+  // The conversation hook below creates onSaveInstanceState on first generation.
+  return contents;
 }
 
 module.exports = function withTakuAgent(config) {

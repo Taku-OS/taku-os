@@ -123,11 +123,11 @@ function LiveCard({threadId, presentation, language, active = true, preload = fa
         : phase === 'deferred' ? 'cardRequestDeferred' : result.effect === 'source-refresh-requested' ? 'cardRefreshRequested'
         : result.effect === 'local-rule-change' ? 'cardRuleUpdated' : phase === 'taskCompleted' ? 'cardRequestHandled' : 'cardRequestAccepted')}/>}
       {surface === 'chat' && !!pin?.panelId && <View style={styles.pinRow}>
-        <FeedText text={t('pinned')} variant="body-sm" tone="tertiary"/>
-        <FeedButton label={t('openPanel')} size="md" onPress={() => pinAction(card.openPinned)}/>
-        <FeedButton label={t('unpinPanel')} size="md" disabled={pinBusy} onPress={() => pinAction(card.unpin)}/>
+        <FeedText text={t('pinned')} variant="body-sm" tone="inverse"/>
+        <FeedButton label={t('openPanel')} appearance="dark" size="md" onPress={() => pinAction(card.openPinned)}/>
+        <FeedButton label={t('unpinPanel')} appearance="dark" size="md" disabled={pinBusy} onPress={() => pinAction(card.unpin)}/>
       </View>}
-      {surface === 'chat' && pin && !pin.panelId && pin.canPin && <FeedButton label={t('pinPanel')} size="md" disabled={!card.hydrated || pinBusy}
+      {surface === 'chat' && pin && !pin.panelId && pin.canPin && <FeedButton label={t('pinPanel')} appearance="dark" size="md" disabled={!card.hydrated || pinBusy}
         onPress={() => pinAction(card.pinToPanels)}/>}
       {!!pinMessage && <FeedStatus state="error" text={pinMessage}/>}
     </View>;

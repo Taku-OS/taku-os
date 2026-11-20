@@ -5,10 +5,10 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
-final class MemoryPreferences implements SharedPreferences {
+public final class MemoryPreferences implements SharedPreferences {
     private final Map<String, Object> values = new HashMap<>();
     boolean failNextCommit;
-    MemoryPreferences() {}
+    public MemoryPreferences() {}
     MemoryPreferences(MemoryPreferences other) { values.putAll(other.values); }
     public Map<String, ?> getAll() { return new HashMap<>(values); }
     public String getString(String key, String fallback) { return (String) values.getOrDefault(key, fallback); }

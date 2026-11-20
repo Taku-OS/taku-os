@@ -6,6 +6,9 @@ import java.util.zip.*;
 
 /** The installed assistant APK is the single distribution source for context and builtin skills. */
 final class HarnessCatalog {
+    // Bundled agent documentation grows with the public API; retain a bounded read
+    // without rejecting the current open-access skill (larger than 128 KiB).
+    private static final int MAX_ASSET_BYTES = 1024 * 1024;
     private static JSONObject replyContract;
     static synchronized JSONObject replyContract() throws Exception {
         if(replyContract==null) {
@@ -53,7 +56,7 @@ final class HarnessCatalog {
             if(entry==null)throw new IOException("Harness asset missing: "+path);
             try(InputStream input=apk.getInputStream(entry)) {
                 ByteArrayOutputStream output=new ByteArrayOutputStream();byte[] buffer=new byte[4096];int n;
-                while((n=input.read(buffer))!=-1){output.write(buffer,0,n);if(output.size()>131072)throw new IOException("Harness asset too large");}
+                while((n=input.read(buffer))!=-1){output.write(buffer,0,n);if(output.size()>MAX_ASSET_BYTES)throw new IOException("Harness asset too large: "+path);}
                 return output.toString("UTF-8");
             }
         }

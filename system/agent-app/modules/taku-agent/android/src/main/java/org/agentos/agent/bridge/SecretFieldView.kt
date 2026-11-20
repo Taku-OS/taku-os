@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Color
 import android.os.ParcelFileDescriptor
 import android.text.InputType
+import android.text.TextUtils
 import android.util.TypedValue
 import android.view.ActionMode
 import android.view.Menu
@@ -117,7 +118,7 @@ class SecretFieldView(context: Context, appContext: AppContext) : ExpoView(conte
     while (start < end && text[start].isWhitespace()) start++
     while (end > start && text[end - 1].isWhitespace()) end--
     val chars = CharArray(end - start)
-    text.getChars(start, end, chars, 0)
+    TextUtils.getChars(text, start, end, chars, 0)
     try {
       val encoded = Charsets.UTF_8.encode(CharBuffer.wrap(chars))
       val bytes = ByteArray(encoded.remaining())

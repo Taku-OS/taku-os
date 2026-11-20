@@ -469,7 +469,7 @@ Figma 1-1 … 1-6. Native Kotlin/Compose (`assistant/`, `ui/assistant/`); state 
   transcript. Keep talking expands a black surface over 820 ms and transfers the same capture
   into the full chat's Live Talk mode. Text and voice share the 80% black translucent chat
   surface (300:661 / 297:433), thread and message history. Closing Live Talk returns to text.
-  Live Talk finalizes after measured speech plus 1.5 s silence and resumes after the reply;
+  Live Talk finalizes after measured speech plus 3 s silence and resumes after the reply;
   it uses the desktop's scoped backend preference. Unavailable video input is disabled.
   Designer waveform and light-field source/masks are bundled locally by
   `scripts/build-voice-effects.cjs`; see `voice-effects/README.md` for provenance and isolation.
