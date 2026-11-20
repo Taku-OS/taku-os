@@ -254,11 +254,20 @@ items in session reads and snapshots, and as a live `session/reaction` stream ev
 ```sh
 taku_call "$D" reactions/options '{}'
 # {reactions:[{emoji:"😂",name:"face with tears of joy",hint:null}, ...]}: curated order, only emoji this phone draws
+# React to the message you are answering: no IDs needed. In an Agent shell the conversation is $CODEX_THREAD_ID.
+taku_call "$D" reactions/set "{\"threadId\":\"$CODEX_THREAD_ID\",\"reaction\":\"🎉\"}"
+# {threadId, reactions:[...], target:{turnId,itemId}}
 taku_call "$D" reactions/list '{"threadId":"THREAD_ID"}'
-# {threadId, reactions:[{turnId,itemId,reaction:"👍"|null,source:"jev"|"agent",decidedAt}]}, newest first
+# {threadId, reactions:[{turnId,itemId,reaction:"👍"|null,source:"jev"|"agent",decidedAt}], newest first,
+#  messages:[{turnId,itemId,text,reaction}]}: the 20 latest user messages, newest first, text cut to 200 chars
 taku_call "$D" reactions/set '{"threadId":"THREAD_ID","turnId":"TURN_ID","itemId":"ITEM_ID","reaction":"🎉"}'
 taku_call "$D" reactions/set '{"threadId":"THREAD_ID","turnId":"TURN_ID","itemId":"ITEM_ID","reaction":null}'
 ```
+
+Without `turnId`/`itemId`, `reactions/set` targets the thread's latest user message (including
+the one whose turn is still being answered) and reports it in `target`. To react to an earlier
+message, take its `turnId`/`itemId` from `reactions/list` `messages`; give both or neither
+(`INVALID_ARGUMENT`). A thread with no user message returns `MESSAGE_UNAVAILABLE`.
 
 `reactions/set` accepts one `emoji` from `reactions/options` exactly as returned (for example
 "🎉" or "❤️" with U+FE0F), or `null` to clear. Anything else, including skin-tone variants,

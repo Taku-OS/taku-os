@@ -146,14 +146,20 @@ public final class AgentOpenAccessProvider extends ContentProvider {
             } else if (method.equals("reactions/list")) {
                 only(input, "threadId");
                 AgentGatewayProtocol.requireId(input, "threadId");
-                result = MessageReactions.INSTANCE.list(getContext(), input.getString("threadId"));
+                String thread = input.getString("threadId");
+                result = MessageReactions.INSTANCE.list(getContext(), thread)
+                        .put("messages", MessageReactions.INSTANCE.messages(getContext(), thread, 20));
             } else if (method.equals("reactions/set")) {
                 only(input, "threadId", "turnId", "itemId", "reaction");
-                if (!input.has("reaction")) throw new IOException("INVALID_ARGUMENT");
+                if (!input.has("reaction") || !input.isNull("reaction") && !(input.get("reaction") instanceof String)) throw new IOException("INVALID_ARGUMENT");
+                for (String key : new String[]{"turnId", "itemId"})
+                    if (input.has(key) && !(input.get(key) instanceof String)) throw new IOException("INVALID_ARGUMENT");
                 AgentGatewayProtocol.requireId(input, "threadId");
-                MessageReactions.INSTANCE.set(getContext(), input.getString("threadId"), input.getString("turnId"), input.getString("itemId"),
+                String thread = input.getString("threadId");
+                JSONObject target = MessageReactions.INSTANCE.set(getContext(), thread,
+                        input.has("turnId") ? input.getString("turnId") : null, input.has("itemId") ? input.getString("itemId") : null,
                         input.isNull("reaction") ? null : input.getString("reaction"));
-                result = MessageReactions.INSTANCE.list(getContext(), input.getString("threadId"));
+                result = MessageReactions.INSTANCE.list(getContext(), thread).put("target", target);
             }
             else if (method.equals("thread/usage")) {
                 AgentGatewayProtocol.requireId(input, "threadId");

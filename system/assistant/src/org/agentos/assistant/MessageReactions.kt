@@ -5,6 +5,7 @@ import android.graphics.Paint
 import android.util.Log
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
 import java.io.IOException
 import java.text.Normalizer
 import java.util.concurrent.ConcurrentHashMap
@@ -168,11 +169,46 @@ internal object MessageReactions {
         }
     }
 
-    /** Agents: sets ([emoji] one of the curated reactions this phone renders) or clears (null) a reaction. */
-    fun set(context: Context, thread: String, turn: String, item: String, emoji: String?) {
-        if (thread.isEmpty() || turn.isEmpty() || item.isEmpty()) throw IOException("INVALID_ARGUMENT")
+    /**
+     * Agents: sets ([emoji] one of the curated reactions this phone renders) or clears (null) a
+     * reaction. Without [turn]/[item] it targets the thread's latest user message, the one the
+     * Agent is answering, so a reaction needs no IDs the Agent cannot see. Returns the target.
+     */
+    fun set(context: Context, thread: String, turn: String?, item: String?, emoji: String?): JSONObject {
+        if (thread.isEmpty() || (turn == null) != (item == null) || turn?.isEmpty() == true || item?.isEmpty() == true)
+            throw IOException("INVALID_ARGUMENT")
         if (emoji != null && !supported(context, emoji)) throw IOException("INVALID_REACTION")
-        store(context, thread, turn, item, emoji.orEmpty(), "agent", null)
+        val target = if (turn != null && item != null) JSONObject().put("turnId", turn).put("itemId", item)
+            else messages(context, thread, 1).optJSONObject(0) ?: throw IOException("MESSAGE_UNAVAILABLE")
+        store(context, thread, target.getString("turnId"), target.getString("itemId"), emoji.orEmpty(), "agent", null)
+        return JSONObject().put("turnId", target.getString("turnId")).put("itemId", target.getString("itemId"))
+    }
+
+    /**
+     * Agents: the thread's most recent user messages, newest first, as `{turnId,itemId,text,reaction}`
+     * (text cut to 200 characters). Read from the live session projection the chat uses, which
+     * includes the turn still being answered; the native thread is read only when there is none.
+     */
+    fun messages(context: Context, thread: String, limit: Int = 20): JSONArray {
+        val view = File(TaskRuntime.ROOT, "agent-view/$thread.json").takeIf { it.isFile }
+            ?.let { runCatching { JSONObject(it.readText()) }.getOrNull() }?.takeIf { it.optString("id") == thread && it.has("turns") }
+            ?: NativeClient.rpcSync("thread/read", JSONObject().put("threadId", thread).put("includeTurns", true)).getJSONObject("thread")
+                .also { if (it.optString("id") != thread) throw IOException("THREAD_ID_MISMATCH") }
+        val turns = view.optJSONArray("turns") ?: JSONArray()
+        val out = JSONArray()
+        for (i in turns.length() - 1 downTo 0) {
+            val turn = turns.optJSONObject(i) ?: continue
+            val items = turn.optJSONArray("items") ?: continue
+            for (j in items.length() - 1 downTo 0) {
+                val item = items.optJSONObject(j) ?: continue
+                if (item.optString("type") != "userMessage" || item.optString("id").isEmpty()) continue
+                out.put(JSONObject().put("turnId", turn.optString("id")).put("itemId", item.getString("id"))
+                    .put("text", text(item).take(200))
+                    .put("reaction", reaction(context, thread, turn.optString("id"), item.getString("id"))?.ifEmpty { null } ?: JSONObject.NULL))
+                if (out.length() >= limit) return out
+            }
+        }
+        return out
     }
 
     /** Agents: every decided reaction in [thread] (none included), newest first. */
