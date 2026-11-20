@@ -245,8 +245,9 @@ Besides its normal reply, Taku may put one emoji reaction on a user message (Fig
 a small badge on the bubble's bottom-right corner). For each new user message (one whose turn is
 still being answered) Jev decides once, in a single choice between "No reaction" and 240 curated
 chat-reaction emoji (Unicode's emoji frequency ranking filtered for chat reactions, plus newer
-staples such as 🥹 🫶 🫡), minus any this phone's font cannot draw. A reaction needs 60 % of the
-probability away from "none"; most messages get none. Nothing is decided unless Jev is enabled
+staples such as 🥹 🫶 🫡), minus any this phone's font cannot draw. Jev judges each message on
+its own, without a preference either way, and reacts when more than half of the probability is
+away from "none". Nothing is decided unless Jev is enabled
 with a model (the same switch and model as gateway `decide`), and history is never back-filled.
 Agents set reactions from the same curated list; `reactions/options` returns it. Reactions are stored per thread/turn/item and appear as `reaction` on `userMessage`
 items in session reads and snapshots, and as a live `session/reaction` stream event.
