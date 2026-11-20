@@ -1,0 +1,14 @@
+{
+  "source": "Designer handoff taku-animation-handoff-10-15/effects/screen-edge-glow",
+  "preview": "http://localhost:5173/#/effects/screen-edge-glow",
+  "files": {
+    "material.ts": "58301c20f2dfcd3a927a844f38cd630a02a50ae2fab4020b68b71bbe9dfb181b",
+    "ScreenEdgeGlow.tsx": "66b6b7ca2f80433cf2145e8eed029b0cddfa898240f7246f684c2d95dc1a23b1"
+  },
+  "port": "Kotlin + AGSL; CSS pixels map to dp; no WebView; no backdrop sampling. Full-display overlay has no occluders, as requested. Screen corner radius comes from Android.",
+  "timing": {
+    "attackMs": 200,
+    "releaseMs": 400,
+    "maxFrameDeltaMs": 64
+  }
+}

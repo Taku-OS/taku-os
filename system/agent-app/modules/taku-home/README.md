@@ -499,18 +499,22 @@ Figma 1-1 … 1-6. Native Kotlin/Compose (`assistant/`, `ui/assistant/`); state 
   or tap outside to fold it into the camera pill while working (1-6: dots, metaball necks,
   status label around the cutout from `DisplayCutout`; tap anywhere on it to reopen), otherwise
   it closes.
-* **Working edge (1-4, 1-5)**: the four Figma "working gradient" layers, each a full-frame inset
-  shadow (blur 32 → σ16, erfc falloff, ~½ at the edge) with its own 4 dp offset, drawn in Figma
-  order and blend mode: green (0, −4) and indigo (0, 4) plus-lighter, sky (4, 0) and orange
-  (−4, 0) normal (plus-lighter is what washes them to the frame's pale edge on the light home),
-  along the display's rounded corner radius. It shows only while Taku responds (from the send
-  until the turn and its task complete), fading in over 700 ms and out over 250 ms; meanwhile the
-  offsets turn slowly together and the strength breathes slightly (92–100 %). It is drawn in its
-  own full-display system overlay window (`WorkingGlowOverlay`, `INTERNAL_SYSTEM_WINDOW`), so the
-  whole glow sits above the keyboard, the status bar and every app, never taking focus or
-  touches (window alpha 0.8, the system's touch-occlusion limit, with the strength compensated).
-  In that separate window the plus-lighter layers blend with each other, not with the screen
-  beneath. Where the overlay is refused, the glow is drawn in Home's own window as before.
+* **Working edge (1-4, 1-5)**: the designer handoff's `screen-edge-glow`, ported to Kotlin
+  and AGSL (`working-glow.source.json` records exact source hashes). Seven packets flow in
+  both directions around one continuous rounded perimeter, breathing between 20–150 dp
+  filaments/blooms with 90 dp colour drift. The original four-layer palette, Gaussian σ13.5,
+  normalised brightness and inward depth warp replace the old rotating shadow offsets.
+  A reversible smoothstep envelope fades in over 200 ms and out over 400 ms. The flow clock
+  survives toggling; Android's disabled animator setting uses static light and stops continuous
+  redraw once the fade completes. Hidden/detached views stop their frame callbacks.
+  The authoritative trigger remains `AssistantSession.working`, also readable through
+  `assistant/get.working`; the effect adds no separate runtime state or Agent-only switch.
+  It stays in a non-touchable full-display system overlay above the IME and status bar,
+  without masking the Dynamic Island. Window alpha remains 0.8 for touch pass-through;
+  the shader compensates its folded colour/coverage before window composition. Where the
+  system refuses the overlay, the same renderer runs inside Home (below other windows).
+  Run `bash system/agent-app/modules/taku-home/scripts/test-working-glow.sh` for envelope,
+  interrupted-fade and continuous-clock regression checks.
 * **Voice recognition** uses the shared Audio Engine (`system/audio-engine`) exclusively.
   The desktop hold gesture and text-field microphone open `DICTATION` with
   `settingsScope:"assistant-entry"`. Taku Audio saves the backend, language, and optional
