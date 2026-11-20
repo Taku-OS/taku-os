@@ -15,9 +15,22 @@ import org.json.*;
 
 /** Read-only by default. Managed input is mediated by the broker's exact screen lease. */
 public final class MirrorActivity extends Activity {
-    private boolean returnedToConversation, suppressReturnToConversation;
+    private boolean returnedFromWorkspace, suppressWorkspaceReturn;
 
     @Override public void finish() {
+        if (!suppressWorkspaceReturn && !returnedFromWorkspace) {
+            returnedFromWorkspace = true;
+            if (returnsHome()) AgentFrontendLauncher.returnToWorkspaceHome(this);
+            else returnToConversation();
+        }
+        super.finish();
+    }
+
+    private boolean returnsHome() {
+        return getIntent() != null && getIntent().getBooleanExtra(AgentFrontendLauncher.RETURN_WORKSPACE_HOME, false);
+    }
+
+    private void returnToConversation() {
         Intent source = getIntent();
         boolean returnAgent = source != null && source.getBooleanExtra(AgentFrontendLauncher.RETURN_AGENT_FRONTEND, false);
         String thread = source == null ? null : source.getStringExtra(AgentFrontendLauncher.RETURN_CONVERSATION_ID);
@@ -25,15 +38,13 @@ public final class MirrorActivity extends Activity {
         // A marked return is tied to the admitted workspace, never an arbitrary conversation extra.
         boolean exactReturn = AgentFrontendLauncher.matchesWorkspaceReturn(returnAgent, leaseThread, thread);
         if (returnAgent && !exactReturn || thread == null) thread = leaseThread;
-        if (!suppressReturnToConversation && !returnedToConversation && AgentRepository.validId(thread)) {
-            returnedToConversation = true;
+        if (AgentRepository.validId(thread)) {
             if (!AgentFrontendLauncher.returnFromWorkspace(this, exactReturn, leaseThread, thread)) {
                 Intent fallback = new Intent(this, PanelActivity.class).putExtra("conversationId", thread);
                 if (returnAgent) fallback.putExtra(AgentFrontendRoute.NATIVE_CONTROLS_ONLY, true);
                 startActivity(fallback);
             }
         }
-        super.finish();
     }
     private WorkspaceUi w;
     private final Handler main = new Handler(Looper.getMainLooper());
@@ -95,6 +106,7 @@ public final class MirrorActivity extends Activity {
             WorkspaceFloatService.hide(this);
             if (WorkspaceUi.same(lease, next)) {
                 setIntent(intent);
+                minimize.setContentDescription(getString(exitLabel()));
                 if (requirement != null) requirement.start();
             } else {
                 // A frame reader and its input gate are immutable for one lease. A different
@@ -102,11 +114,16 @@ public final class MirrorActivity extends Activity {
                 Intent fresh = new Intent(this, MirrorActivity.class);
                 if (intent.getExtras() != null) fresh.putExtras(intent.getExtras());
                 startActivity(fresh);
-                suppressReturnToConversation = true;
+                suppressWorkspaceReturn = true;
                 finish();
             }
         } catch (Exception invalid) { showNote(getString(R.string.workspace_interaction_changed)); }
     }
+
+    private int exitLabel() {
+        return returnsHome() ? R.string.workspace_back : R.string.workspace_interaction_minimize;
+    }
+
     private void buildLayout() {
         getWindow().setDecorFitsSystemWindows(false);
         getWindow().setStatusBarColor(color(R.color.workspace_viewer_background));
@@ -152,9 +169,10 @@ public final class MirrorActivity extends Activity {
         header.addView(labels, names);
         edit = icon(R.drawable.ic_taku_edit, R.string.workspace_interaction_edit, () -> setEditingRequirement(!editingRequirement));
         edit.setEnabled(lease != null); header.addView(edit);
-        minimize = icon(R.drawable.ic_taku_fullscreen_exit, R.string.workspace_interaction_minimize, () -> {
+        minimize = icon(R.drawable.ic_taku_fullscreen_exit, exitLabel(), () -> {
+            if (returnsHome()) { finish(); return; }
             boolean requested = lease != null && WorkspaceFloatService.show(this, lease, () -> {
-                if (!isFinishing() && !isDestroyed()) { suppressReturnToConversation = true; finish(); }
+                if (!isFinishing() && !isDestroyed()) { suppressWorkspaceReturn = true; finish(); }
             });
             if (!requested) showNote(getString(R.string.workspace_interaction_float_unavailable));
         });

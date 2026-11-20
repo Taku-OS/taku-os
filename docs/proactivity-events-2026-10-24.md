@@ -137,9 +137,9 @@ The catalog covers 89 events in 12 categories, including opportunity sources, ob
 
 | ID and event | Source documentation and entry point | Current status and integration conditions | Priority |
 | --- | --- | --- | --- |
-| L01 Entering a geographic area (integrated) | [Geofencing][android-geofence]: ENTER | **Adapter required**. No geofence module exists. This approach requires Play services and location/background-location authorization; images without GMS need another implementation | P2 |
-| L02 Leaving a geographic area (integrated) | [Geofencing][android-geofence]: EXIT | **Adapter required**. Same as L01; may invalidate location-related opportunities | P2 |
-| L03 Remaining within an area (integrated) | [Geofencing][android-geofence]: DWELL, loitering delay | **Adapter required**. Same as L01; reduces false positives from passing through, rather than prompting on every location update | P2 |
+| L01 Entering a geographic area (integrated) | Android GPS provider | [Location arrival events](../system/environment-signals/arrival/README.md) persist a one-shot arrival event for a registered caller. Callers handle any presentation. | P2 |
+| L02 Leaving a geographic area (integrated) | [Geofencing][android-geofence]: EXIT | **Adapter required**. Exit may invalidate location-related opportunities. | P2 |
+| L03 Remaining within an area (integrated) | [Geofencing][android-geofence]: DWELL, loitering delay | **Adapter required**. A dwell event models remaining inside an area for a configured period. | P2 |
 | L04 Location updated or movement exceeds a threshold (native plus derived) | [LocationListener][android-location]: `onLocationChanged` | **Direct integration, authorization required**. Android location interfaces need not depend on GMS, but available providers, background restrictions and power consumption require real testing; the scheduler defines thresholds | P2 |
 | L05 Transition between stationary, walking, running, cycling or riding in a vehicle (integrated) | [ActivityRecognitionClient][google-activity]: Transition API | **Adapter required**. Depends on Play services, ACTIVITY_RECOGNITION permission and classification results; no such source currently exists | P2 |
 | L06 Significant motion, stationary detection or step count changes (native) | [Sensor][android-sensors]: `TYPE_SIGNIFICANT_MOTION/STATIONARY_DETECT/STEP_*` | **Direct integration, hardware and relevant permissions required**. No sensor-observation module exists; start with capability discovery | P2 |

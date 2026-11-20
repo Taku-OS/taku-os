@@ -1,0 +1,21 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="@PACKAGE@">
+    <uses-sdk android:minSdkVersion="36" android:targetSdkVersion="36" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <queries>
+        <provider android:authorities="org.agentos.environment.arrival" />
+    </queries>
+    <application android:label="@LABEL@">
+        <provider android:name="org.agentos.arrivalfixture.Fixture$Control"
+            android:authorities="@PACKAGE@.control" android:exported="true" />
+        <receiver android:name="org.agentos.arrivalfixture.ArrivalReceiver"
+            android:exported="true"
+            android:permission="org.agentos.permission.SEND_LOCATION_ARRIVAL">
+            <intent-filter>
+                <action android:name="org.agentos.environment.arrival.AVAILABLE" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>
