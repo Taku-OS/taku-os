@@ -37,6 +37,7 @@ internal class IslandCardWindow(context: Context, initial: IslandActivity, cover
     private val wm = windowContext.getSystemService(WindowManager::class.java)
     private val density = windowContext.resources.displayMetrics.density
     private val metrics = wm.currentWindowMetrics
+    private val cardWidth = minOf(dp(420), metrics.bounds.width() - dp(16))
     private val topInset = metrics.windowInsets.getInsetsIgnoringVisibility(
         WindowInsets.Type.statusBars() or WindowInsets.Type.displayCutout()).top
     private var cover = coverRequested && !metrics.windowInsets.isVisible(WindowInsets.Type.ime())
@@ -70,7 +71,7 @@ internal class IslandCardWindow(context: Context, initial: IslandActivity, cover
     private var availableHeight = Int.MAX_VALUE
     private var heightCap = finalHeight
     private val params = WindowManager.LayoutParams(
-        minOf(dp(420), metrics.bounds.width() - dp(16)), if (nativeAssistant) finalHeight else dp(48),
+        cardWidth, if (nativeAssistant) finalHeight else dp(48),
         WindowManager.LayoutParams.TYPE_STATUS_BAR_ADDITIONAL, flags(), PixelFormat.TRANSLUCENT,
     ).apply {
         title = "TakuIsland"
@@ -180,7 +181,7 @@ internal class IslandCardWindow(context: Context, initial: IslandActivity, cover
                 changed()
             }
         }
-        if (nativeView != null) { nativeView.update(next); return }
+        if (nativeView != null) return
         template.removeAllViews()
         if (choices != null) {
             title.text = "Activities"
@@ -294,7 +295,7 @@ internal class IslandCardWindow(context: Context, initial: IslandActivity, cover
         setPadding(0, dp(3), 0, dp(3))
     }
     private fun desiredHeight(item: IslandActivity): Int {
-        if (nativeView != null) return minOf(nativeView.desiredHeight(item, minOf(dp(420), metrics.bounds.width() - dp(16))), metrics.bounds.height() / 3)
+        if (nativeView != null) return minOf(nativeView.updateAndMeasure(item, cardWidth), metrics.bounds.height() / 3)
         val requested = if (fullCard) item.payload.getJSONObject("expanded").optJSONObject("content")?.optInt("heightDp", 300) ?: 300 else 340
         return minOf(dp(requested.coerceIn(96, 340)), metrics.bounds.height() / 3)
     }

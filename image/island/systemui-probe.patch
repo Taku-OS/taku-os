@@ -175,7 +175,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandAssistantCard.kt
-@@ -0,0 +1,242 @@
+@@ -0,0 +1,343 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -184,15 +184,18 @@
 +import android.graphics.Canvas
 +import android.graphics.Color
 +import android.graphics.Paint
++import android.graphics.Rect
 +import android.graphics.Typeface
 +import android.graphics.drawable.GradientDrawable
++import android.os.Bundle
++import android.text.TextUtils
 +import android.util.PathParser
 +import android.view.Gravity
 +import android.view.MotionEvent
 +import android.view.View
 +import android.view.ViewConfiguration
++import android.view.ViewGroup
 +import android.view.accessibility.AccessibilityNodeInfo
-+import android.os.Bundle
 +import android.view.animation.LinearInterpolator
 +import android.widget.FrameLayout
 +import android.widget.HorizontalScrollView
@@ -215,15 +218,37 @@
 +    private val text = label(18f, 0xccffffff.toInt(), regular).apply { setLineHeight((27.9f * scaled).toInt()) }
 +    private val content = LinearLayout(context).apply { orientation = VERTICAL; addView(text) }
 +    private val scroll = ScrollView(context).apply { isVerticalScrollBarEnabled = false; addView(content); isFillViewport = false }
++    private val headerHeight = dp(32)
++    private val bodyMargin = dp(4)
++    private val chipGap = dp(8)
++    private val chipBleed = dp(5)
++    private val chipTouchSize = kotlin.math.ceil(48 * density).toInt()
 +    private val chips = LinearLayout(context).apply { orientation = HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-+    private val chipScroll = HorizontalScrollView(context).apply {
++    private val horizontalChips = HorizontalScrollView(context).apply {
 +        isHorizontalScrollBarEnabled = false; overScrollMode = OVER_SCROLL_NEVER
-+        addView(chips); setPadding(0, dp(5), 0, dp(5)); clipToPadding = false
++        addView(chips); setPadding(0, chipBleed, 0, chipBleed); clipToPadding = false
++    }
++    private val rows = SuggestionRows(context, chipGap)
++    private val wrappedChips = ScrollView(context).apply {
++        isVerticalScrollBarEnabled = false
++        overScrollMode = OVER_SCROLL_NEVER
++        setPadding(0, 0, dp(16), 0)
++        addView(rows, FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
++        visibility = GONE
++    }
++    private val chipArea = FrameLayout(context).apply {
++        addView(horizontalChips, FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
++        addView(wrappedChips, FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
++        visibility = GONE
++    }
++    // Keep the shader bleed outside the gap and bottom inset of the horizontal strip.
++    private val chipAreaParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
++        topMargin = dp(11)
++        bottomMargin = -chipBleed
 +    }
 +    private var item: IslandActivity? = null
 +    private var bodyFingerprint: String? = null
-+    private var actionFingerprint: String? = null
-+    private var optionIds: List<String> = emptyList()
++    private var suggestions: List<Pair<String, CharSequence>> = emptyList()
 +    private val swipeSlop = ViewConfiguration.get(context).scaledTouchSlop
 +    private var downX = 0f
 +    private var downY = 0f
@@ -244,13 +269,12 @@
 +                if (current.actions.containsKey(id)) invoke(current, id) else command("open", current.key, null)
 +            }
 +        }
-+        addView(header, LayoutParams(-1, dp(32)).apply { rightMargin = dp(16) })
-+        addView(scroll, LayoutParams(-1, 0, 1f).apply { topMargin = dp(4); rightMargin = dp(16) })
-+        // Five dp shader bleed above/below the 40 dp chips, without changing the 16 dp gap.
-+        addView(chipScroll, LayoutParams(-1, -2).apply { topMargin = dp(11); bottomMargin = -dp(5) })
-+        chipScroll.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
-+            if (chipScroll.width > 0 && chipScroll.height > 0)
-+                chipScroll.setRenderEffect(IslandCardEffects.chipEdge(chipScroll.width.toFloat(), chipScroll.height.toFloat(), density))
++        addView(header, LayoutParams(-1, headerHeight).apply { rightMargin = dp(16) })
++        addView(scroll, LayoutParams(-1, 0, 1f).apply { topMargin = bodyMargin; rightMargin = dp(16) })
++        addView(chipArea, chipAreaParams)
++        horizontalChips.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
++            if (horizontalChips.width > 0 && horizontalChips.height > 0)
++                horizontalChips.setRenderEffect(IslandCardEffects.chipEdge(horizontalChips.width.toFloat(), horizontalChips.height.toFloat(), density))
 +        }
 +        scroll.viewTreeObserver.addOnScrollChangedListener { updateBottomEdge() }
 +        scroll.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> updateBottomEdge() }
@@ -264,9 +288,10 @@
 +            MotionEvent.ACTION_DOWN -> {
 +                downX = event.rawX; downY = event.rawY; swiped = false
 +                // Child bounds and event.x/y share this card's coordinates (raw coordinates do not).
-+                val reading = event.x >= scroll.left && event.x < scroll.right &&
-+                    event.y >= scroll.top && event.y < scroll.bottom
-+                swipeEligible = !(reading && scroll.canScrollVertically(1))
++                val reading = touches(scroll, event) && scroll.canScrollVertically(1)
++                val scrollingChips = wrappedChips.isShown && touches(chipArea, event) &&
++                    wrappedChips.canScrollVertically(1)
++                swipeEligible = !reading && !scrollingChips
 +            }
 +            MotionEvent.ACTION_POINTER_DOWN, MotionEvent.ACTION_CANCEL -> swipeEligible = false
 +            MotionEvent.ACTION_MOVE, MotionEvent.ACTION_UP -> {
@@ -287,6 +312,9 @@
 +        return super.dispatchTouchEvent(event)
 +    }
 +
++    private fun touches(view: View, event: MotionEvent): Boolean =
++        event.x >= view.left && event.x < view.right && event.y >= view.top && event.y < view.bottom
++
 +    override fun onTouchEvent(event: MotionEvent): Boolean = true
 +
 +    override fun onInitializeAccessibilityNodeInfo(info: AccessibilityNodeInfo) {
@@ -300,7 +328,7 @@
 +        return super.performAccessibilityAction(action, arguments)
 +    }
 +
-+    fun update(next: IslandActivity) {
++    fun updateAndMeasure(next: IslandActivity, width: Int): Int {
 +        item = next
 +        val expanded = next.payload.getJSONObject("expanded")
 +        val data = expanded.optJSONObject("assistant")
@@ -322,42 +350,81 @@
 +            scroll.post { updateBottomEdge() }
 +        }
 +        val ids = data?.optJSONArray("suggestions")
-+        optionIds = if (ids == null) emptyList() else (0 until ids.length()).map { ids.getString(it) }.filter { next.actions.containsKey(it) }
-+        val actionKey = next.key + optionIds.joinToString { it + next.actions[it]?.title }
-+        if (actionKey != actionFingerprint) {
-+            chips.removeAllViews()
-+            optionIds.forEachIndexed { index, id ->
-+                chips.addView(label(16f, 0xebffffff.toInt(), medium).apply {
-+                    text = next.actions.getValue(id).title
-+                    isSingleLine = true
-+                    gravity = Gravity.CENTER
-+                    setPadding(dp(12), dp(8), dp(12), dp(8))
-+                    minHeight = (24 * scaled).toInt() + dp(16)
-+                    background = GradientDrawable().apply { setColor(0x14ffffff); cornerRadius = dp(999).toFloat() }
-+                    isClickable = true; isFocusable = true
-+                    setOnClickListener { item?.let { current -> if (id in optionIds) invoke(current, id) } }
-+                }, LayoutParams(-2, -2).apply { if (index > 0) leftMargin = dp(8) })
-+            }
-+            actionFingerprint = actionKey
++        val options = if (ids == null) emptyList() else (0 until ids.length()).mapNotNull { index ->
++            val id = ids.getString(index)
++            next.actions[id]?.let { id to it.title }
 +        }
-+        chipScroll.visibility = if (optionIds.isEmpty()) GONE else VISIBLE
++        if (options != suggestions) updateSuggestions(options)
++        return desiredHeight(body, steps?.length() ?: 0, width)
 +    }
 +
-+    fun desiredHeight(next: IslandActivity, width: Int): Int {
-+        val expanded = next.payload.getJSONObject("expanded")
++    private fun updateSuggestions(options: List<Pair<String, CharSequence>>) {
++        suggestions = options
++        val wraps = options.size > 2
++        chipAreaParams.topMargin = dp(if (wraps) 10 else 11)
++        chipAreaParams.bottomMargin = if (wraps) 0 else -chipBleed
++        chips.removeAllViews()
++        rows.removeAllViews()
++        wrappedChips.scrollTo(0, 0)
++        options.forEachIndexed { index, (id, title) ->
++            val chip = label(16f, 0xebffffff.toInt(), medium).apply {
++                text = title
++                isSingleLine = true
++                gravity = Gravity.CENTER
++                setPadding(dp(12), dp(8), dp(12), dp(8))
++                minHeight = if (wraps) chipTouchSize else (24 * scaled).toInt() + dp(16)
++                background = GradientDrawable().apply { setColor(0x14ffffff); cornerRadius = dp(999).toFloat() }
++                isFocusable = true
++                setOnClickListener {
++                    if (suggestions.any { it.first == id }) item?.let { current -> invoke(current, id) }
++                }
++            }
++            if (wraps) {
++                chip.minWidth = chipTouchSize
++                chip.ellipsize = TextUtils.TruncateAt.END
++                rows.addView(chip)
++            } else {
++                chips.addView(chip, LayoutParams(-2, -2).apply { if (index > 0) leftMargin = chipGap })
++            }
++        }
++        horizontalChips.visibility = if (wraps) GONE else VISIBLE
++        wrappedChips.visibility = if (wraps) VISIBLE else GONE
++        chipArea.visibility = if (options.isEmpty()) GONE else VISIBLE
++    }
++
++    private fun desiredHeight(message: String, stepCount: Int, width: Int): Int {
 +        val available = (width - dp(32)).coerceAtLeast(dp(48))
-+        val message = next.body.ifBlank { next.title }
 +        val layout = android.text.StaticLayout.Builder.obtain(message, 0, message.length, text.paint, available)
 +            .setIncludePad(false).setLineSpacing(text.lineSpacingExtra, text.lineSpacingMultiplier).build()
-+        var height = dp(68) + maxOf(layout.height, (27.9f * scaled).toInt())
-+        val steps = expanded.optJSONArray("steps")
-+        if (steps != null && steps.length() > 0) height += dp(16) + steps.length() * ((22 * scaled).toInt() + dp(8))
-+        if ((expanded.optJSONObject("assistant")?.optJSONArray("suggestions")?.length() ?: 0) > 0) height += dp(32) + (24 * scaled).toInt()
++        var height = chromeHeight() + maxOf(layout.height, text.lineHeight)
++        if (stepCount > 0) height += dp(16) + stepCount * ((22 * scaled).toInt() + dp(8))
++        if (suggestions.isNotEmpty()) height += measureChipArea(width) + chipMargins()
 +        return height.coerceAtLeast(dp(96))
 +    }
 +
++    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
++        chipAreaParams.height = LayoutParams.WRAP_CONTENT
++        if (wrappedChips.visibility == VISIBLE && MeasureSpec.getMode(heightMeasureSpec) != MeasureSpec.UNSPECIFIED) {
++            val available = (MeasureSpec.getSize(heightMeasureSpec) - chromeHeight() - chipMargins()).coerceAtLeast(0)
++            // Keep at least one line of reply and one full touch target when the window has room for both.
++            val line = text.paint.fontMetricsInt
++            val bodySpace = (available - chipTouchSize).coerceIn(0, line.descent - line.ascent)
++            chipAreaParams.height = minOf(measureChipArea(MeasureSpec.getSize(widthMeasureSpec)), available - bodySpace)
++        }
++        super.onMeasure(widthMeasureSpec, heightMeasureSpec)
++    }
++
++    private fun chromeHeight() = paddingTop + paddingBottom + headerHeight + bodyMargin
++    private fun chipMargins() = chipAreaParams.topMargin + chipAreaParams.bottomMargin
++    private fun measureChipArea(width: Int): Int {
++        val available = (width - paddingLeft - paddingRight).coerceAtLeast(0)
++        chipArea.measure(MeasureSpec.makeMeasureSpec(available, MeasureSpec.EXACTLY),
++            MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED))
++        return chipArea.measuredHeight
++    }
++
 +    fun state(): JSONObject = JSONObject().put("renderer", "systemui-native")
-+        .put("text", text.text.toString()).put("suggestionCount", optionIds.size)
++        .put("text", text.text.toString()).put("suggestionCount", suggestions.size)
 +
 +    private fun updateBottomEdge() {
 +        scroll.setRenderEffect(if (scroll.height > 0 && scroll.canScrollVertically(1))
@@ -372,6 +439,40 @@
 +        app.resources.getFont(app.resources.getIdentifier(name, "font", app.packageName))
 +    }.getOrDefault(Typeface.create("sans-serif", Typeface.NORMAL))
 +    private fun dp(value: Int) = (value * density).toInt()
++
++    private class SuggestionRows(context: Context, private val gap: Int) : ViewGroup(context) {
++        private val bounds = mutableListOf<Rect>()
++
++        override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
++            val width = MeasureSpec.getSize(widthMeasureSpec)
++            val childWidth = MeasureSpec.makeMeasureSpec(width, MeasureSpec.AT_MOST)
++            val childHeight = MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED)
++            var x = 0
++            var y = 0
++            var rowHeight = 0
++            bounds.clear()
++            for (index in 0 until childCount) {
++                val child = getChildAt(index)
++                child.measure(childWidth, childHeight)
++                if (x > 0 && x + child.measuredWidth > width) {
++                    x = 0
++                    y += rowHeight + gap
++                    rowHeight = 0
++                }
++                bounds.add(Rect(x, y, x + child.measuredWidth, y + child.measuredHeight))
++                x += child.measuredWidth + gap
++                rowHeight = maxOf(rowHeight, child.measuredHeight)
++            }
++            setMeasuredDimension(width, y + rowHeight)
++        }
++
++        override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
++            for ((index, rect) in bounds.withIndex()) {
++                val x = if (layoutDirection == LAYOUT_DIRECTION_RTL) width - rect.right else rect.left
++                getChildAt(index).layout(x, rect.top, x + rect.width(), rect.bottom)
++            }
++        }
++    }
 +
 +    private class StatusGlyph(context: Context) : View(context) {
 +        private val d = resources.displayMetrics.density
@@ -814,7 +915,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandCardWindow.kt
-@@ -0,0 +1,302 @@
+@@ -0,0 +1,303 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -854,6 +955,7 @@
 +    private val wm = windowContext.getSystemService(WindowManager::class.java)
 +    private val density = windowContext.resources.displayMetrics.density
 +    private val metrics = wm.currentWindowMetrics
++    private val cardWidth = minOf(dp(420), metrics.bounds.width() - dp(16))
 +    private val topInset = metrics.windowInsets.getInsetsIgnoringVisibility(
 +        WindowInsets.Type.statusBars() or WindowInsets.Type.displayCutout()).top
 +    private var cover = coverRequested && !metrics.windowInsets.isVisible(WindowInsets.Type.ime())
@@ -887,7 +989,7 @@
 +    private var availableHeight = Int.MAX_VALUE
 +    private var heightCap = finalHeight
 +    private val params = WindowManager.LayoutParams(
-+        minOf(dp(420), metrics.bounds.width() - dp(16)), if (nativeAssistant) finalHeight else dp(48),
++        cardWidth, if (nativeAssistant) finalHeight else dp(48),
 +        WindowManager.LayoutParams.TYPE_STATUS_BAR_ADDITIONAL, flags(), PixelFormat.TRANSLUCENT,
 +    ).apply {
 +        title = "TakuIsland"
@@ -997,7 +1099,7 @@
 +                changed()
 +            }
 +        }
-+        if (nativeView != null) { nativeView.update(next); return }
++        if (nativeView != null) return
 +        template.removeAllViews()
 +        if (choices != null) {
 +            title.text = "Activities"
@@ -1111,7 +1213,7 @@
 +        setPadding(0, dp(3), 0, dp(3))
 +    }
 +    private fun desiredHeight(item: IslandActivity): Int {
-+        if (nativeView != null) return minOf(nativeView.desiredHeight(item, minOf(dp(420), metrics.bounds.width() - dp(16))), metrics.bounds.height() / 3)
++        if (nativeView != null) return minOf(nativeView.updateAndMeasure(item, cardWidth), metrics.bounds.height() / 3)
 +        val requested = if (fullCard) item.payload.getJSONObject("expanded").optJSONObject("content")?.optInt("heightDp", 300) ?: 300 else 340
 +        return minOf(dp(requested.coerceIn(96, 340)), metrics.bounds.height() / 3)
 +    }
