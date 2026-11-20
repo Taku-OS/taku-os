@@ -29,12 +29,16 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.agentos.agent.home.assistant.EntryMode
-import org.agentos.agent.home.assistant.VoiceTarget
 import org.agentos.agent.home.design.TakuTheme
 import org.agentos.agent.home.ui.HomeController
 import org.agentos.agent.home.ui.effects.Shaders
 import kotlin.math.cos
 import kotlin.math.sin
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.currentStateAsState
 
 /**
  * Everything the AI entry puts over the home: the working edge glow, voice hold (1-1), the text
@@ -58,7 +62,8 @@ fun BoxScope.AssistantLayer(
   Box(Modifier.fillMaxSize().onSizeChanged { width = it.width.toFloat(); height = it.height.toFloat() })
   if (width <= 0f) return
 
-  WorkingGlow(active = state.working || (voice.target == VoiceTarget.Dictation && voice.listening))
+  // While the AI responds, and only then: from the send until the turn and its task complete.
+  WorkingGlow(active = state.working)
 
   VoiceHoldOverlay(scene, visible = state.entry == EntryMode.Voice, voice = voice,
     zone = state.holdZone, continuous = state.voiceContinuous, session = session)
@@ -89,7 +94,24 @@ fun BoxScope.AssistantLayer(
  */
 @Composable
 fun WorkingGlow(active: Boolean) {
-  val strength by animateFloatAsState(if (active) 1f else 0f, tween(if (active) 700 else 500), label = "glow")
+  val context = LocalContext.current
+  val overlay = remember { WorkingGlowOverlay.get(context.applicationContext) }
+  val owner = remember { Any() }
+  val lifecycle = LocalLifecycleOwner.current.lifecycle
+  val lifecycleState by lifecycle.currentStateAsState()
+  // Only a surface actually on screen asks for the glow; the overlay draws it above the keyboard.
+  val onScreen = lifecycleState.isAtLeast(Lifecycle.State.STARTED)
+  val colors = TakuTheme.colors.workingGlow
+  LaunchedEffect(active, onScreen, colors) { overlay.request(owner, active && onScreen, colors) }
+  DisposableEffect(overlay) { onDispose { overlay.release(owner) } }
+  if (overlay.available) return
+  InWindowGlow(active)
+}
+
+/** The same glow drawn in this window, for builds where the overlay window is refused. */
+@Composable
+private fun InWindowGlow(active: Boolean) {
+  val strength by animateFloatAsState(if (active) 1f else 0f, tween(if (active) 700 else 250), label = "glow")
   if (strength <= 0.002f) return
   val colors = TakuTheme.colors.workingGlow // bottom (green), left (sky), right (orange), top (indigo)
   val view = LocalView.current

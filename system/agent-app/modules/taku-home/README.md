@@ -500,8 +500,14 @@ Figma 1-1 … 1-6. Native Kotlin/Compose (`assistant/`, `ui/assistant/`); state 
   shadow (blur 32 → σ16, erfc falloff, ~½ at the edge) with its own 4 dp offset, drawn in Figma
   order and blend mode: green (0, −4) and indigo (0, 4) plus-lighter, sky (4, 0) and orange
   (−4, 0) normal (plus-lighter is what washes them to the frame's pale edge on the light home),
-  along the display's rounded corner radius. While Taku works or dictates the offsets turn slowly
-  together and the strength breathes slightly (92–100 %).
+  along the display's rounded corner radius. It shows only while Taku responds (from the send
+  until the turn and its task complete), fading in over 700 ms and out over 250 ms; meanwhile the
+  offsets turn slowly together and the strength breathes slightly (92–100 %). It is drawn in its
+  own full-display system overlay window (`WorkingGlowOverlay`, `INTERNAL_SYSTEM_WINDOW`), so the
+  whole glow sits above the keyboard, the status bar and every app, never taking focus or
+  touches (window alpha 0.8, the system's touch-occlusion limit, with the strength compensated).
+  In that separate window the plus-lighter layers blend with each other, not with the screen
+  beneath. Where the overlay is refused, the glow is drawn in Home's own window as before.
 * **Voice recognition** uses the shared Audio Engine (`system/audio-engine`) exclusively.
   The desktop hold gesture and text-field microphone open `DICTATION` with
   `settingsScope:"assistant-entry"`. Taku Audio saves the backend, language, and optional

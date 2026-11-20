@@ -8,6 +8,8 @@
   <!-- Repair HOME/ASSISTANT after boot, unlock and package updates (platform-signed). -->
   <uses-permission android:name="android.permission.MANAGE_ROLE_HOLDERS" />
   <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
+  <!-- Signature (platform development key): the "Taku is working" edge glow window above the keyboard. -->
+  <uses-permission android:name="android.permission.INTERNAL_SYSTEM_WINDOW" />
   <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
   <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
   <uses-permission android:name="org.agentos.permission.POST_ISLAND" />
