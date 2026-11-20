@@ -21,6 +21,21 @@ class HomeGesturePolicyTest {
     }
   }
 
+  @Test fun whileBrowsingSideEdgesSwipePanelsButTopAndBottomStayAndroids() {
+    val insets = region // inside apply, `region` would be the policy's own (empty) property
+    for (x in listOf(10f, 1070f)) {
+      val p = HomeGesturePolicy().apply { down(x, 1000f, insets, 24f, sideEdgesOwned = true) }
+      assertFalse(p.systemStart); assertTrue(p.sideBackExcluded)
+      p.move(if (x < 500f) 200f else 880f, 1005f)
+      assertEquals(Owner.Horizontal, p.owner)
+      assertFalse("the pager moves", p.blockX())
+    }
+    for (y in listOf(100f, 2400f)) {
+      val p = HomeGesturePolicy().apply { down(500f, y, insets, 24f, sideEdgesOwned = true) }
+      assertTrue(p.systemStart); assertEquals(Owner.System, p.owner)
+    }
+  }
+
   @Test fun contentCanCrossEdgesAndDirectionDoesNotFlip() {
     val p = policy(78f, 164f)
     p.move(120f, 170f)

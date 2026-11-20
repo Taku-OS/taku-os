@@ -960,14 +960,20 @@ The source folder is found automatically; do not supply `folderId` when moving a
 It returns `available:false` if Home is not composed. Otherwise it includes the last
 pointer sequence (`sequence`, `active`, `terminal`: `none|up|cancel`, `startX/Y`, `dx/dy`),
 the snapshotted system/mandatory gesture `region` (window width/height and four inset
-edges, all in pixels), `systemStart`, and policy `owner` (`pending|system|horizontal|vertical`).
+edges, all in pixels), `systemStart`, `sideBackExcluded`, and policy `owner`
+(`pending|system|horizontal|vertical`).
 `owner` describes Home's input policy, not proof that SystemUI actually executed Back.
 The `currentPage`, `settledPage`, `pageOffset`, `scrolling` fields come directly from the
 GUI Pager; `dragging` comes from its icon drag controller. Reads do not synthesize input,
 alter layout, or persist coordinates. Invalid JSON returns `INVALID_ARGUMENT`; a busy
 UI thread returns `TIMEOUT`. This is a read-only diagnostic, with no enable switch.
 System gesture dimensions come from the current window, not a hard-coded Pixel width.
-Edge-origin scrolling stays with Android; content direction locks after touch slop.
+While the desktop is simply being browsed (no menu, folder, editing, dialog, AI input or
+onboarding takeover), Home excludes the left and right back gesture over the full edge height
+(as the home activity it is exempt from Android's 200 dp cap), so a side-edge swipe always
+switches pages; `sideBackExcluded:true` and `systemStart:false` show this. Opening anything Back
+would close restores the back gesture. Top and bottom edge starts (status bar, home gesture)
+always stay with Android; content direction locks after touch slop.
 Icon edge paging remains a separate long-press drag operation. The desktop assistant
 entry does not claim a touch beginning in the system gesture region; this does not
 implement system navigation-handle long-press voice (tracked separately).
