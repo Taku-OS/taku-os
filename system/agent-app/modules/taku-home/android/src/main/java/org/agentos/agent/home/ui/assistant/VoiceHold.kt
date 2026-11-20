@@ -139,6 +139,13 @@ fun BoxScope.VoiceHoldOverlay(
   var pressedZone by remember { mutableStateOf(HoldZone.None) }
   var cancelledVoice by remember { mutableStateOf<VoiceState?>(null) }
   val shownVoice = cancelledVoice ?: voice
+  // "Speak now": a confirm tick the moment the microphone is actually recording (the long-press
+  // haptic only says the hold began), matching the island switching to "Taku is listening...".
+  val holdView = androidx.compose.ui.platform.LocalView.current
+  LaunchedEffect(voice.operationId, voice.ready) {
+    if (voice.ready && voice.target == org.agentos.agent.home.assistant.VoiceTarget.Hold)
+      holdView.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM)
+  }
   val shownZone = if (pressedZone != HoldZone.None) pressedZone else zone
   val scope = rememberCoroutineScope()
   LaunchedEffect(visible) { if (!visible) { cancelledVoice = null; pressedZone = HoldZone.None } }

@@ -41,10 +41,6 @@ internal class WhisperDictationDriver(private val context: Context,private val r
             var restored=true
             try {
                 active()
-                val operation=EngineConfig.Control(JSONObject().put("op","falCredential"))
-                credential=operation
-                val key=try{active();operation.execute().getString("key")}finally{operation.close();credential=null}
-                active()
                 val samples=ShortArray((backend.maxCaptureMs!!*16).toInt())
                 pcm=samples
                 val recorder=AudioRecord(MediaRecorder.AudioSource.VOICE_RECOGNITION,16000,AudioFormat.CHANNEL_IN_MONO,
@@ -60,7 +56,13 @@ internal class WhisperDictationDriver(private val context: Context,private val r
                 recorder.registerAudioRecordingCallback(context.mainExecutor,callback)
                 recorder.startRecording()
                 if(recorder.recordingState!=AudioRecord.RECORDSTATE_RECORDING)throw AudioFailure("CAPTURE_FAILED","Microphone has not started recording")
+                // The microphone is on before the fal key is read: a press can be spoken into at
+                // once, and the recorder's buffer keeps what is said while the key arrives.
                 active();sink.ready()
+                val operation=EngineConfig.Control(JSONObject().put("op","falCredential"))
+                credential=operation
+                val key=try{active();operation.execute().getString("key")}finally{operation.close();credential=null}
+                active()
                 val meter=PcmLevelMeter { level, frames -> if(!canceled.get())sink.level(level,frames) }
                 networkWorker=Thread({
                     try {

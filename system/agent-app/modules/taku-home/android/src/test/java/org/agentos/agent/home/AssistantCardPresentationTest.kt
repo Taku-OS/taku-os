@@ -7,6 +7,12 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class AssistantCardPresentationTest {
+  @Test fun holdSaysListeningOnlyOnceTheMicrophoneRecords() {
+    val hold = AssistantState(entry = EntryMode.Voice)
+    val preparing = VoiceState(operationId = 1, target = VoiceTarget.Hold, phase = VoicePhase.Preparing)
+    assertEquals("One moment…", assistantCardHeadline(hold, preparing))
+    assertEquals("Taku is listening...", assistantCardHeadline(hold, preparing.copy(phase = VoicePhase.Capturing)))
+  }
   @Test fun holdEntryShowsOnlyListeningTextEvenWithAnOlderReply() {
     val old = TurnView("old", "old headline", false, false, "old question", "old reply", emptyList(), emptyList())
     assertEquals("Taku is listening...", assistantCardHeadline(AssistantState(entry = EntryMode.Voice, turn = old), VoiceState()))
