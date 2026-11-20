@@ -193,9 +193,7 @@ class HomeActivity : AppCompatActivity(), DefaultHardwareBackBtnHandler {
           }
       }
       val assistantState by controller.assistant.state.collectAsStateWithLifecycle()
-      val onboarding by org.agentos.agent.home.onboarding.OnboardingRepository.get(applicationContext).state.collectAsStateWithLifecycle()
-      val browsing = !controller.backTargetOpen && assistantState.entry == org.agentos.agent.home.assistant.EntryMode.None &&
-        !org.agentos.agent.home.onboarding.OnboardingRules.takesOverHome(onboarding.step)
+      val browsing = !controller.backTargetOpen && assistantState.entry == org.agentos.agent.home.assistant.EntryMode.None
       LaunchedEffect(browsing) { setSideEdgesOwned(browsing) }
       TakuTheme { HomeScreen(controller, backdrop, pager, feedList, homeScroll, gestures) }
     }
