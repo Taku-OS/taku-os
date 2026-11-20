@@ -160,6 +160,7 @@ internal class GrokLiveDriver(context: Context, request: AudioRequest) : AudioDr
         } catch(_: InterruptedException) {
             if(!stopped.get()) sink.failed("CAPTURE_FAILED")
         } catch(error: Exception) {
+            Log.w("AudioLive", "provider=fal-grok failure=${(error as? AudioFailure)?.code ?: "AUDIO_UNAVAILABLE"} detail=${if(error is AudioFailure) error.message else error.javaClass.simpleName}")
             if(!stopped.get()) sink.failed((error as? AudioFailure)?.code ?: "AUDIO_UNAVAILABLE")
         } finally {
             stopped.set(true)

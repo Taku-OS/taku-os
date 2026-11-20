@@ -25,7 +25,7 @@ import {presentationRequest} from '../model/genui';
 import {EdgeBlur} from '../native/EdgeBlur';
 import {ChatIcon} from '../chat/ChatIcon';
 import {chatBlur, chatColors, getChatAppearance, homeColors, chatMetrics, chatTitle, chatType, themed, themedStyles} from '../chat/chatTheme';
-import {chatText, type ChatTextKey} from '../chat/chatText';
+import {chatText} from '../chat/chatText';
 import {useDictation, type DictationFailure} from '../chat/useDictation';
 import {failureOf, insertDictation, type DraftSelection} from '../chat/dictationText';
 import {useReplySpeechState, useVoiceChatFocus} from '../chat/useVoiceChatFocus';
@@ -40,13 +40,6 @@ import {ComposerTools} from '../chat/ComposerTools';
 import type {ComposerAttachment, ComposerRecovery} from '../hooks/composerDraft';
 import {attachmentPreviewUri} from '../native/composerPicker';
 import type {ComposerPickerKind} from '../native/composerPicker';
-
-const liveTaskLabels: Record<string, ChatTextKey | undefined> = {
-  submitting: 'liveTaskSubmitting', queued: 'liveTaskQueued', accepted: 'liveTaskQueued', running: 'liveTaskRunning',
-  correcting: 'liveTaskCorrecting', cancelling: 'liveTaskCancelling', needs_user: 'liveTaskNeedsUser',
-  deliveryUnknown: 'liveTaskUnverified', unverified: 'liveTaskUnverified', blocked: 'liveTaskBlocked',
-  notSent: 'liveTaskBlocked', failed: 'liveTaskFailed', cancelled: 'liveTaskCancelled', completed: 'liveTaskCompleted',
-};
 
 const colors = themed(() => ({...baseColors, ink: chatColors.textPrimary, secondary: chatColors.textSecondary,
   muted: chatColors.textTertiary, border: chatColors.hairline, subtle: chatColors.fillControl,
@@ -493,10 +486,7 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
     : voice?.lifecycle === 'failed' ? 'liveFailed'
     : voice?.muted ? 'liveMicPaused' : voice?.playback.state === 'speaking' ? 'liveSpeaking'
     : voice?.capturing ? 'listening' : 'liveReady';
-  const liveProvider = voice && (voice.lifecycle === 'active' || voice.lifecycle === 'connecting') ? voice.provider : null;
-  const liveDisclosure = liveProvider === 'fal-grok' ? 'liveDisclosureGrok'
-    : liveProvider === 'gemini-live' ? 'liveDisclosureGemini' : 'liveDisclosure';
-  const liveTask = voice?.task && liveTaskLabels[voice.task.state];
+  const liveDisconnected = voice?.lifecycle === 'disconnected' || voice?.lifecycle === 'failed';
   const beginLiveTalk = () => { void live.start().catch(error => onVoiceFailure(failureOf(error?.code))); };
   const caret = insertedCaret?.threadId === props.draftSessionId && insertedCaret.text === props.draft ? insertedCaret.caret : null;
   useEffect(() => {
@@ -601,7 +591,7 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
     </EdgeBlur>
     {/* Figma 2-1 title row: Taku Home (history for now), the fixed title, collapse to the island. */}
     <View style={[styles.header, {top: insets.top}]} pointerEvents="box-none">
-      <Text accessibilityRole="header" numberOfLines={1} style={[chatType.bodyXlMedium(), styles.title]}>{props.session?.title || (live.active ? ct('liveTalk') : chatTitle)}</Text>
+      <Text accessibilityRole="header" numberOfLines={1} style={[chatType.bodyXlMedium(), styles.title]}>{live.active ? ct('liveTalk') : props.session?.title || chatTitle}</Text>
       <Pressable testID="open-history" accessibilityRole="button" accessibilityLabel={t('history')} onPress={openHome} hitSlop={8}
         style={({pressed}) => [styles.headerButton, pressed && styles.pressed]}><VoiceIcon name="home" size={24}/></Pressable>
       <Pressable testID="collapse-chat" accessibilityRole="button" accessibilityLabel={ct('collapseToIsland')} onPress={collapseChat} hitSlop={8}
@@ -610,16 +600,14 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
     {!!error && <View style={[styles.error, styles.errorBar, {top: headerBottom}]}><Label role="meta" style={styles.errorText}>{error}</Label><IconButton name="refresh" label={t('retry')} color={chatColors.icon} onPress={props.onRefresh}/></View>}
     {voice ? <View style={[styles.livePanel, {bottom: composerBottom}]} onLayout={event => setComposerBox(event.nativeEvent.layout.height)}>
       <View style={styles.liveTranscript}>
-        <VoiceEffect kind="wave" target="live" level={liveLevel} style={{width: 66, height: 28}}/>
-        <Text accessibilityLiveRegion="polite" style={[chatType.bodyMd(language === 'zh'), styles.center]}>{ct(liveStatus)}</Text>
-        {!!voice.error && <Label role="caption" style={styles.secondary}>{voice.error}</Label>}
+        {/* Figma 297:433: speech and waveform only; connection state remains accessible. */}
+        <View accessible accessibilityLabel={ct(liveStatus)} accessibilityLiveRegion="polite">
+          <VoiceEffect kind="wave" target="live" level={liveLevel} flat={!voice.capturing} style={{width: 66, height: 28, opacity: voice.capturing ? 1 : 0.45}}/>
+        </View>
         {!!voice.input?.text && <Text numberOfLines={2} style={[chatType.bodyMd(language === 'zh'), styles.center]}>{voice.input.text}</Text>}
         {!!voice.output?.text && <Text numberOfLines={3} style={[chatType.bodyMd(language === 'zh'), styles.center, styles.secondary]}>{voice.output.text}</Text>}
-        {voice.playback.state === 'interrupted' && <Label role="caption" style={styles.secondary}>{ct('liveInterrupted')}</Label>}
-        {liveTask && <Label role="meta" style={styles.secondary}>{ct(liveTask)}</Label>}
-        {(voice.lifecycle === 'disconnected' || voice.lifecycle === 'failed') &&
+        {liveDisconnected &&
           <Pressable testID="live-talk-reconnect" accessibilityRole="button" onPress={beginLiveTalk}><Label role="label">{ct('liveReconnect')}</Label></Pressable>}
-        <Label role="caption" style={[styles.secondary, styles.center]}>{ct(liveDisclosure)}</Label>
       </View>
       <View style={styles.liveControls}>
         <View style={styles.liveControlGroup}>
@@ -628,8 +616,8 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
         </View>
         <View style={styles.liveControlGroup}>
           <Pressable testID="live-talk-mic" accessibilityRole="button" accessibilityLabel={ct(voice.muted ? 'liveMicResume' : 'liveMicPause')}
-            disabled={voice.lifecycle === 'disconnected' || voice.lifecycle === 'failed'}
-            onPress={() => { void live.toggleMic().catch(error => onVoiceFailure(failureOf(error?.code))); }} style={[styles.liveControl, voice.muted && {opacity: 0.5}]}><VoiceIcon name="micLive"/></Pressable>
+            accessibilityState={{disabled: liveDisconnected, selected: !voice.muted && !liveDisconnected}} disabled={liveDisconnected}
+            onPress={() => { void live.toggleMic().catch(error => onVoiceFailure(failureOf(error?.code))); }} style={[styles.liveControl, (voice.muted || liveDisconnected) && {opacity: 0.5}]}><VoiceIcon name="micLive"/></Pressable>
           <Pressable testID="live-talk-close" accessibilityRole="button" accessibilityLabel={ct('liveStop')} onPress={live.stop} style={[styles.liveControl, {backgroundColor: 'rgba(255,255,255,0.92)'}]}><VoiceIcon name="close"/></Pressable>
         </View>
       </View>

@@ -67,8 +67,8 @@
     "system/audio-engine/src/org/agentos/audio/FalMessagePack.kt": "254511ccb02061e19d6350065a56ce183d352e10db7b2a5fbc07fb05245f99c2",
     "system/audio-engine/src/org/agentos/audio/FeedGate.kt": "0f13b57629775c6888b3a86b247a33e2ace030c21aece2ff34db75a11421e387",
     "system/audio-engine/src/org/agentos/audio/FileSpeechSegments.kt": "99a7e07aa6a2794d586dc85cc01c5549147c50ce7a51c7255de3ab19621323ff",
-    "system/audio-engine/src/org/agentos/audio/GeminiLiveDriver.kt": "ee545623a06ca44509213d5369336542ff2617c13f86ed356e66775af57ecd79",
-    "system/audio-engine/src/org/agentos/audio/GrokLiveDriver.kt": "e6099da0a54528e47f12a1bdbc87c42fc0dbe5282f357517d141953c5723cbba",
+    "system/audio-engine/src/org/agentos/audio/GeminiLiveDriver.kt": "ddeddc1ebeb31a2a4c7cf828923bd496f43440583999fb3ee25d2b4abd861187",
+    "system/audio-engine/src/org/agentos/audio/GrokLiveDriver.kt": "21de96ea94b6eb3c26916952d1c64619d14732dd5690457a9dfdf6e99cabfc01",
     "system/audio-engine/src/org/agentos/audio/GrokSession.kt": "5d151d9dfeef53091d8b04826596dd566ddb57cda3447324ed4970344cf02845",
     "system/audio-engine/src/org/agentos/audio/HybridTranslation.kt": "e1f904b1a5ce380b51ca10a424d709f7f08793d2d728bc031da52eac4c42d962",
     "system/audio-engine/src/org/agentos/audio/KokoroDriver.kt": "c0cb678772bc2a6cf91b18dbd71575338fad3ecddfdd3f1aaa6e5f153a0f7982",
@@ -104,12 +104,12 @@
   "assets": [
     {
       "path": "system/audio-engine/prebuilt/TakuAudioEngine.apk",
-      "sha256": "5d665e4d3eee9e30a3157bf040fec7fb08ab3dda6f8fb73cff5459b658e0d513",
+      "sha256": "62fac33f5d0419a5cb2c6f5abf60564c87896c3e9d40f686eff5c75100a17fc8",
       "bytes": 34776827
     },
     {
       "path": "system/audio-engine/prebuilt/audio-bridge.jar",
-      "sha256": "891370828405d7c21c1bf63bad5a26e7e3f586218129118430b48a1d3716f75a",
+      "sha256": "d026741083163986b20d2de0a87ff23c06f45784e4c65a3e3d1b90b0600dcb1d",
       "bytes": 1863187
     },
     {
@@ -2069,7 +2069,7 @@
     "assets/licenses/onnxruntime-LICENSE": "2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c",
     "assets/licenses/onnxruntime-ThirdPartyNotices.txt": "0e07b95f3a8d6230037707c5c4a2b554d12c4cb67369669ac255635528ffcee2",
     "assets/licenses/sherpa-onnx-LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-    "classes.dex": "ac17129ebcb81e293d889803e280e2c07803fcfffa7fd04a3f314bf13077cb39",
+    "classes.dex": "8ae41529c46e2e60fdbafc064116247d7e0c5fbff05fbf672b23dadc7eac8195",
     "lib/arm64-v8a/libsherpa-onnx-c-api.so": "c85e2382e2ca12b0513826be926eaccfea896b4cbf568182e287671ba526f80d",
     "lib/arm64-v8a/libsherpa-onnx-cxx-api.so": "5eabb2bcf5a8af66aeab37431c09fab4a9c65cdebf02bd7e50f8c589044bd70e",
     "lib/arm64-v8a/libsherpa-onnx-jni.so": "3c6492ea91ea68fd3b72b9495efdde6dd913f6b58c387e3b07389cf335f4d26f",
