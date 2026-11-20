@@ -430,10 +430,13 @@ Open `org.agentos.audio/.AudioHomeActivity` for the GUI. It starts no inference.
 ## Message reactions
 
 Besides its normal reply, Taku may put one emoji reaction on a user message (Figma 297:433:
-a small badge on the bubble's bottom-right corner). For each new user message (one whose turn
-is still being answered) Jev decides once whether to react and with which of 👍 ❤️ 😂 🎉 😮 🙏 👋;
-most messages get none, a low-confidence answer counts as none, and nothing is decided unless
-Jev is enabled with a model (the same switch and model as gateway `decide`). History is never
+a small badge on the bubble's bottom-right corner). Any fully-qualified Unicode emoji (UTS #51,
+Emoji 18.0 catalog in the assistant) that this phone's font renders can be used; newer emoji the
+font lacks are never offered or accepted. For each new user message (one whose turn is still being
+answered) Jev decides once, in up to three choices: react or not and from which Unicode group (a
+reaction needs 60 % of the probability away from "none"), then the subgroup, then the emoji in
+its default skin tone. Most messages get none after the first choice. Nothing is decided unless
+Jev is enabled with a model (the same switch and model as gateway `decide`), and history is never
 back-filled. Reactions are stored per thread/turn/item and appear as `reaction` on `userMessage`
 items in session reads and snapshots, and as a live `session/reaction` stream event.
 
@@ -445,9 +448,10 @@ content call --uri $A --method reactions/set --arg '{"threadId":"THREAD_ID","tur
 content call --uri $A --method reactions/set --arg '{"threadId":"THREAD_ID","turnId":"TURN_ID","itemId":"ITEM_ID","reaction":null}'
 ```
 
-`reactions/set` accepts only those seven emoji (`INVALID_REACTION` otherwise) or `null` to
-clear, updates an open chat at once, and returns the same list. Unknown parameters are
-`UNSUPPORTED_PARAMETER`.
+`reactions/set` accepts any fully-qualified emoji the phone renders, skin-tone variants included
+(for example "👍🏽" or "🧑‍💻"; unqualified forms such as a bare "❤" without U+FE0F, text, or several
+emoji are `INVALID_REACTION`), or `null` to clear. It updates an open chat at once and returns
+the same list. Unknown parameters are `UNSUPPORTED_PARAMETER`.
 
 ## Primary conversation replies
 

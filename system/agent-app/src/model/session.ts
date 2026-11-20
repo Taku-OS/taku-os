@@ -230,7 +230,7 @@ export function projectSession(value: unknown): SessionView {
         flush(false);
         anchor = label(item.id) || `user-${itemIndex}`;
         const content = userContent(item);
-        const reaction = typeof item.reaction === 'string' && item.reaction.length > 0 && item.reaction.length <= 16 ? item.reaction : undefined;
+        const reaction = typeof item.reaction === 'string' && item.reaction.length > 0 && item.reaction.length <= 32 ? item.reaction : undefined;
         if (content.text || content.attachments.length) blocks.push({id: `${turnId}/${anchor}`, turnId, role: 'user', ...content, parts: [], activity: [], status, active: false,
           ...(reaction ? {reaction} : {})});
       } else if (type === 'agentMessage' || type === 'plan' || toolTypes.has(type)) segment.push(item);
