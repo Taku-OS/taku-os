@@ -1,5 +1,7 @@
 # Cellular network country observation
 
+For GPS-based place monitoring, see [location arrival events](arrival/README.md).
+
 This small Android Java SDK observes the country associated with the current cellular network. The caller owns its hosting process and lifecycle. It targets Android 36, matching this workspace.
 
 Cases using existing God Mode tools should prefer the [country observation plugin](plugin/README.md). It reuses this SDK for reading, subscribing, polling, and unsubscribing; the existing PluginManager manages enabling, disabling, and reloading. Direct app or plugin SDK integration is documented below.

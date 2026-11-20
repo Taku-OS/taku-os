@@ -1,0 +1,25 @@
+android_app {
+    name: "TakuArrival",
+    manifest: "AndroidManifest.xml",
+    srcs: ["src/**/*.java"],
+    sdk_version: "current",
+    certificate: "platform",
+    system_ext_specific: true,
+    required: ["taku-arrival-location-policy", "taku-arrival-default-permissions"],
+}
+
+prebuilt_etc {
+    name: "taku-arrival-location-policy",
+    src: "location-policy.xml",
+    filename_from_src: true,
+    sub_dir: "sysconfig",
+    system_ext_specific: true,
+}
+
+prebuilt_etc {
+    name: "taku-arrival-default-permissions",
+    src: "default-permissions.xml",
+    filename: "taku-arrival.xml",
+    sub_dir: "default-permissions",
+    system_ext_specific: true,
+}

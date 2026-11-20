@@ -1460,6 +1460,34 @@ content call --uri content://org.taku.weather.data --method refresh
 content call --uri content://org.taku.weather.data --method cities/search --arg '{"query":"Guangzhou"}'
 ```
 
+## Location arrival events
+
+The Agent shell can register a time-limited arrival watch. Choose the destination with
+the user. Each watch emits one event after Android GPS confirms an outside-to-inside
+transition. The Agent can use the place ID to look up the user's relevant content.
+
+```sh
+R=content://org.agentos.environment.arrival
+expires=$((($(date +%s) + 5400) * 1000))
+content call --uri "$R" --method register --arg "{\"id\":\"visit-1\",\"placeId\":\"saved-place\",\"latitude\":37.0,\"longitude\":-122.0,\"radiusMeters\":200,\"expiresAtMs\":$expires}"
+content call --uri "$R" --method list
+content call --uri "$R" --method pending
+content call --uri "$R" --method ack --arg '{"eventId":"EVENT_ID_FROM_PENDING"}'
+content call --uri "$R" --method cancel --arg '{"id":"visit-1"}'
+```
+
+Use actual destination coordinates in place of the example. Use the same shell identity
+for each call. A watch persists until cancellation or expiry. Acknowledge only after handling
+the event, and use its stable event ID to avoid duplicate reminders. An app can register its
+own receiver to be woken for arrivals. It chooses what to show and handles notification access.
+
+Results are JSON in the Bundle's `result` field. `PERMISSION_DENIED` means the caller
+lacks access. `LOCATION_PERMISSION_REQUIRED` means Taku Location Arrival needs precise
+location and Allow all the time in Android Settings. `LOCATION_UNAVAILABLE` means the
+image has no GPS provider. `INVALID_ARGUMENT` covers malformed input, a radius outside
+100–5000 m, a past expiry or one more than 24 hours away. Monitoring resumes after the
+first unlock following reboot.
+
 ### Native assistant card dismissal
 
 An upward swipe of more than 24 dp on the native assistant card (including short reply
