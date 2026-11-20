@@ -18,7 +18,7 @@ LINK = 'https://www.googleapis.com/compute/v1/projects/' + c.PROJECT
 def vm(status='RUNNING'):
     return {'id': c.INSTANCE_ID, 'name': c.INSTANCE, 'zone': LINK + '/zones/' + c.ZONE,
             'selfLink': LINK + c.INSTANCE_PATH, 'status': status,
-            'networkInterfaces': [{'accessConfigs': [{'natIP': '35.221.149.4'}]}]}
+            'networkInterfaces': [{'accessConfigs': [{'natIP': '93.184.216.34'}]}]}
 
 
 def operation(status='DONE'):
@@ -39,7 +39,7 @@ class ControlTests(unittest.TestCase):
             calls.append(args); return {**vm(), 'metadata': {'items': [{'key':'private', 'value':'never export'}]}}
         result = c.control(c.request_context(ENV), api)
         self.assertEqual(calls, [('GET', c.INSTANCE_PATH)])
-        self.assertEqual(result['externalIp'], '35.221.149.4')
+        self.assertEqual(result['externalIp'], '93.184.216.34')
         self.assertNotIn('metadata', result)
 
     def test_wrong_vm_rejected_before_mutation(self):

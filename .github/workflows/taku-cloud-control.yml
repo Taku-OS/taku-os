@@ -1,8 +1,6 @@
 name: Taku OS Cloud Build & Release
-run-name: taku-cloud-release:${{ inputs.operation || 'scheduled-sync' }}:${{ inputs.request_id || github.run_id }}
+run-name: taku-cloud-release:${{ inputs.operation || 'manual-sync' }}:${{ inputs.request_id || github.run_id }}
 on:
-  schedule:
-    - cron: '20,50 * * * *'
   workflow_dispatch:
     inputs:
       operation:
@@ -90,18 +88,13 @@ jobs:
           REQUEST_ID: ${{ inputs.request_id }}
           GOOGLE_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
         run: python3 scripts/cloud-builder-control.py
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: taku-builder-endpoint-${{ inputs.request_id }}
-          path: out/cloud-control/endpoint.json
-          if-no-files-found: error
-          retention-days: 3
 
   sync-release:
     if: >-
       github.repository == 'Taku-OS/taku-os' &&
+      github.repository_id == '1462376421' &&
       github.ref == 'refs/heads/main' &&
-      (github.event_name == 'schedule' || inputs.operation == 'sync-release')
+      inputs.operation == 'sync-release'
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     permissions:

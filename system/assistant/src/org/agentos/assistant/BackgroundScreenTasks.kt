@@ -355,6 +355,10 @@ internal class BackgroundScreenTasks private constructor(context: Context) : Sur
             current ?: BackgroundScreenTasks(context).also { current = it }
 
         @JvmStatic
+        fun ownsThread(thread: String): Boolean =
+            current?.jobs?.values?.any { it.thread == thread } == true
+
+        @JvmStatic
         fun ownsTask(context: Context, id: String): Boolean {
             if (current?.jobs?.values?.any { it.task == id } == true) return true
             try {

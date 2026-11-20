@@ -154,6 +154,24 @@ regexes = [
 description = "Reviewed digest, public identifier, synthetic fixture, or function-call false positive"
 condition = "AND"
 regexTarget = "secret"
+paths = ['''^system/agent\-app/modules/taku\-home/android/src/main/assets/onboarding/chips\.source\.json$''']
+regexes = [
+    '''^MdImIDNqePpNZ62C0GLArW$''',
+]
+
+[[rules.allowlists]]
+description = "Reviewed digest, public identifier, synthetic fixture, or function-call false positive"
+condition = "AND"
+regexTarget = "secret"
+paths = ['''^system/agent\-app/modules/taku\-home/android/src/main/assets/onboarding/star\.source\.json$''']
+regexes = [
+    '''^MdImIDNqePpNZ62C0GLArW$''',
+]
+
+[[rules.allowlists]]
+description = "Reviewed digest, public identifier, synthetic fixture, or function-call false positive"
+condition = "AND"
+regexTarget = "secret"
 paths = ['''^system/assistant/design\-system/upstream\-SOURCE\.json$''']
 regexes = [
     '''^042d5fb76771a1ef11f7dd95a01060e9584e9c379f6a020785c7d025d3a0d928$''',
@@ -189,6 +207,7 @@ regexes = [
     '''^82fc838d0af035e561598c80c010d7399328a010039dedf4abb646e7ef06b0d3$''',
     '''^84794c45a621741b555e1153042251cc4faad5b33cade583dd057ea3e8c964e4$''',
     '''^c85e2382e2ca12b0513826be926eaccfea896b4cbf568182e287671ba526f80d$''',
+    '''^c8cbb28bdaf7855d38702703e1319e206e8040110a85fd2cdc15472e13b0e55f$''',
     '''^c9514a5836cd515e7dfdfb6e89362e944956b5578076b11a22b824c3d251aed6$''',
 ]
 

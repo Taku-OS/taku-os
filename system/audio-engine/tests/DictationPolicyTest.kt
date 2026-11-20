@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: LicenseRef-Taku-OS-Internal
+// SPDX-License-Identifier: Apache-2.0
 package org.agentos.audio
 
 private fun saved(primary: String = "zipformer", fallback: String? = null, language: String = "system"): StoredDictation =
