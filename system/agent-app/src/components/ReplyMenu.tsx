@@ -24,12 +24,17 @@ type Props = {
   screenWidth: number;
   renderMarkdown?: (text: string, active: boolean, itemId: string) => ReactNode;
   speechAction?: {speaking: boolean; run: () => void};
+  /**
+   * Panels actions for a reply the agent made a panel (Pin to Panels), or one already pinned
+   * (Open panel, Unpin). Absent for every other reply: they never offer pinning.
+   */
+  panel?: {pinned: boolean; pin: () => void; open: () => void; unpin: () => void};
   onClose: () => void;
 };
 
 const PAD = 12, PILL = 40, GAP = 8;
 
-export function ReplyMenu({target, language, top, bottom, screenWidth, renderMarkdown, speechAction, onClose}: Props) {
+export function ReplyMenu({target, language, top, bottom, screenWidth, renderMarkdown, speechAction, panel, onClose}: Props) {
   const t = chatText(language);
   const [selecting, setSelecting] = useState(false);
   const [selection, setSelection] = useState({start: 0, end: target.text.length});
@@ -62,7 +67,11 @@ export function ReplyMenu({target, language, top, bottom, screenWidth, renderMar
     : [{key: 'copy', label: t('copy'), onPress: () => copy(target.text)},
       {key: 'select', label: t('select'), onPress: () => setSelecting(true)},
       ...(speechAction ? [{key: speechAction.speaking ? 'stop-speech' : 'speak',
-        label: t(speechAction.speaking ? 'replySpeechStop' : 'replySpeechStart'), onPress: speechAction.run}] : [])];
+        label: t(speechAction.speaking ? 'replySpeechStop' : 'replySpeechStart'), onPress: speechAction.run}] : []),
+      ...(!panel ? [] : panel.pinned
+        ? [{key: 'open-panel', label: t('openPanel'), onPress: () => { onClose(); panel.open(); }},
+          {key: 'unpin-panel', label: t('unpinPanel'), onPress: () => { onClose(); panel.unpin(); }}]
+        : [{key: 'pin-panel', label: t('pinToPanels'), onPress: () => { onClose(); panel.pin(); }}])];
 
   return <Animated.View style={[StyleSheet.absoluteFill, {opacity: shown}]}>
     <Pressable testID="reply-menu-overlay" accessibilityRole="button" accessibilityLabel={t('done')} onPress={onClose} style={styles.overlay}/>
@@ -92,7 +101,7 @@ const styles = themedStyles(() => StyleSheet.create({
   replyText: {color: chatColors.textSecondary},
   select: {padding: 0, margin: 0, textAlignVertical: 'top'},
   // Figma 0-3 action pills ("Pin to top", "Ask Taku"): Surface/900, 40 dp, 16 dp sides, 48 dp shadow.
-  pills: {position: 'absolute', right: 16, flexDirection: 'row', gap: GAP},
+  pills: {position: 'absolute', left: 16, right: 16, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-end', gap: GAP},
   pill: {height: PILL, paddingHorizontal: 16, borderRadius: PILL / 2, backgroundColor: chatColors.surfaceRaised, alignItems: 'center', justifyContent: 'center',
     boxShadow: `0px 0px 48px 0px ${chatColors.shadow}`},
   pillPressed: {backgroundColor: chatColors.surfaceRaised},

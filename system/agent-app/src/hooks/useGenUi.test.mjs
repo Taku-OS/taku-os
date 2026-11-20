@@ -237,3 +237,26 @@ test('a finished reply whose card record is missing shows no error and loads it 
   assert.equal(mounted.result.pin.canPin, true);
   mounted.unmount();
 });
+
+test('only a panel reply offers Pin to Panels; an ordinary reply offers no Panels action', async () => {
+  const {cardPanelActions} = await import('./useGenUi.ts');
+  const {request} = await import('../model/mainReplyFixtures.mjs');
+  const panelReply = mainReply('menu-thread', 'menu-panel', 1, 'completed');
+  nativeCalls(panelReply);
+  const panel = mount('menu-thread', primary(panelReply));
+  await settle(); panel.Render();
+  assert.deepEqual(cardPanelActions('menu-thread/menu-panel'), {pinned: false}, 'mode:"panel" with native pin capability');
+
+  const plain = mainReply('menu-thread', 'menu-card', 1, 'completed', {request: {...request('menu-card'), mode: 'card'}});
+  nativeCalls(plain);
+  const card = mount('menu-thread', primary(plain));
+  await settle(); card.Render();
+  assert.equal(card.result.hydrated, true);
+  assert.equal(cardPanelActions('menu-thread/menu-card'), null, 'a greeting or one-off answer never offers pinning');
+
+  nativeCalls(panelReply, {pin: pinCapability(panelReply, {panelId: 'panel-1'})});
+  const pinned = mount('menu-thread', primary(panelReply));
+  await settle(); pinned.Render(); await pinned.result.retry(); pinned.Render();
+  assert.deepEqual(cardPanelActions('menu-thread/menu-panel'), {pinned: true}, 'a pinned reply offers Open panel and Unpin');
+  for (const mounted of [panel, card, pinned]) mounted.unmount();
+});

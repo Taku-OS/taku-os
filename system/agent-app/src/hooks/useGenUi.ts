@@ -109,6 +109,45 @@ async function resolveLayout(request: UiRequest, onProgress?: (view: UiView) => 
   return fallback;
 }
 
+/**
+ * What the long-press menu may offer for a card: `pin` only for a reply the agent made a panel
+ * (`mode:"panel"`, requested by the user or suited to one) that native says can be pinned;
+ * `pinned` (Open panel, Unpin) for one already on Panels. Null otherwise: no pin action at all.
+ */
+export function cardPanelActions(id: string): {pinned: boolean} | null {
+  const card = getCard(id);
+  if (!card?.hydrated || !card.pin) return null;
+  if (card.pin.panelId) return {pinned: true};
+  return card.request.mode === 'panel' && card.pin.canPin && card.pin.source ? {pinned: false} : null;
+}
+
+/** Only a committed native receipt reports Pinned; a failure leaves the previous capability. */
+export async function pinCardToPanels(id: string) {
+  const pin = getCard(id).pin;
+  if (!pin?.canPin || !pin.source) throw new Error('REPLY_INCOMPLETE');
+  const receipt = await pinPanel(pin.source);
+  updateCard(id, current => ({...current, pin: current.pin && receipt.listRevision >= current.pin.listRevision
+    ? {...current.pin, panelId: receipt.panel.panelId, listRevision: receipt.listRevision} : current.pin}));
+  return receipt.panel;
+}
+
+export async function unpinCard(id: string) {
+  const pin = getCard(id).pin;
+  if (!pin?.panelId) throw new Error('PANEL_NOT_FOUND');
+  const current = await getPanel(pin.panelId);
+  const receipt = await unpinPanel(pin.panelId, current.listRevision);
+  updateCard(id, current => ({...current, pin: current.pin && receipt.listRevision >= current.pin.listRevision
+    ? {...current.pin, panelId: null, listRevision: receipt.listRevision} : current.pin}));
+  await refresh(id);
+  return receipt;
+}
+
+export async function openPinnedCard(id: string) {
+  const pin = getCard(id).pin;
+  if (!pin?.panelId) throw new Error('PANEL_NOT_FOUND');
+  await openPanel(pin.panelId);
+}
+
 /** Native matter snapshots are the whole hydration: content, card view and pin capability together. */
 async function hydrate(id: string): Promise<void> {
   if (getCard(id).hydrated) return;
@@ -236,30 +275,9 @@ export function useGenUiCard(threadId: string, presentation: CardPresentation, a
       await flushCardView(id);
       await refresh(id);
     },
-    /** Only a committed native receipt reports Pinned; a failure leaves the previous capability. */
-    async pinToPanels() {
-      const pin = getCard(id).pin;
-      if (!pin?.canPin || !pin.source) throw new Error('REPLY_INCOMPLETE');
-      const receipt = await pinPanel(pin.source);
-      updateCard(id, current => ({...current, pin: current.pin && receipt.listRevision >= current.pin.listRevision
-        ? {...current.pin, panelId: receipt.panel.panelId, listRevision: receipt.listRevision} : current.pin}));
-      return receipt.panel;
-    },
-    async unpin() {
-      const pin = getCard(id).pin;
-      if (!pin?.panelId) throw new Error('PANEL_NOT_FOUND');
-      const current = await getPanel(pin.panelId);
-      const receipt = await unpinPanel(pin.panelId, current.listRevision);
-      updateCard(id, current => ({...current, pin: current.pin && receipt.listRevision >= current.pin.listRevision
-        ? {...current.pin, panelId: null, listRevision: receipt.listRevision} : current.pin}));
-      await refresh(id);
-      return receipt;
-    },
-    async openPinned() {
-      const pin = getCard(id).pin;
-      if (!pin?.panelId) throw new Error('PANEL_NOT_FOUND');
-      await openPanel(pin.panelId);
-    },
+    pinToPanels: () => pinCardToPanels(id),
+    unpin: () => unpinCard(id),
+    openPinned: () => openPinnedCard(id),
     dispatch: (actionId: string) => dispatchCard(id, actionId),
   };
 }

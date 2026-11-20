@@ -19,6 +19,9 @@ import {FIRST_RESPONSE_TIMEOUT_MS, type OptimisticSubmission} from '../model/opt
 import {ReplyLoading} from './ReplyLoading';
 import {onImeInsets, setWindowBackdrop, showKeyboard} from '../native/agent';
 import {ReplyMenu, type ReplyMenuTarget} from './ReplyMenu';
+import {cardPanelActions, openPinnedCard, pinCardToPanels, unpinCard} from '../hooks/useGenUi';
+import {cardId} from '../model/genuiStore';
+import {presentationRequest} from '../model/genui';
 import {EdgeBlur} from '../native/EdgeBlur';
 import {ChatIcon} from '../chat/ChatIcon';
 import {chatBlur, chatColors, getChatAppearance, homeColors, chatMetrics, chatTitle, chatType, themed, themedStyles} from '../chat/chatTheme';
@@ -484,9 +487,21 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
     return () => back.remove();
   }, [layer]);
   const [replyMenu, setReplyMenu] = useState<ReplyMenuTarget | null>(null);
+  // The long-pressed reply's card, when it may offer Panels actions (a panel reply, or pinned).
+  const [menuCard, setMenuCard] = useState<{id: string; pinned: boolean} | null>(null);
   const openReplyMenu = (block: ChatMessageBlock, view: ViewHandle) => {
     void Haptics.performAndroidHapticsAsync(Haptics.AndroidHaptics.Long_Press).catch(() => {});
+    const card = block.parts.find(part => part.card && !part.superseded)?.card;
+    const id = card && sessionId ? cardId(sessionId, presentationRequest(card).key) : '';
+    const actions = id ? cardPanelActions(id) : null;
+    setMenuCard(actions ? {id, pinned: actions.pinned} : null);
     view.measureInWindow((x, y, width, height) => setReplyMenu({id: block.id, threadId: props.draftSessionId, text: block.text, x, y, width, height}));
+  };
+  const panelAction = (run: (id: string) => Promise<unknown>, done?: 'pinned' | 'unpinned') => {
+    const card = menuCard;
+    if (!card) return;
+    void run(card.id).then(() => { if (done && Platform.OS === 'android') ToastAndroid.show(ct(done), ToastAndroid.SHORT); },
+      () => { if (Platform.OS === 'android') ToastAndroid.show(ct('panelActionFailed'), ToastAndroid.SHORT); });
   };
   const closeReplyMenu = useCallback(() => setReplyMenu(null), []);
   return <KeyboardAvoidingView style={styles.flex} behavior="padding" enabled={!nativeIme && keyboardVisible}
@@ -636,6 +651,8 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
       attachmentLimit={props.attachments.length >= 8} onPick={props.onPickAttachment} onClose={() => setComposerTools(null)}/>}
     </>}
     {replyMenu?.threadId === props.draftSessionId && <ReplyMenu target={replyMenu} language={language} top={headerBottom} bottom={composerTop} screenWidth={dimensions.width}
+      panel={menuCard ? {pinned: menuCard.pinned, pin: () => panelAction(pinCardToPanels, 'pinned'),
+        open: () => panelAction(openPinnedCard), unpin: () => panelAction(unpinCard, 'unpinned')} : undefined}
       renderMarkdown={props.renderMarkdown} onClose={closeReplyMenu}
       speechAction={speaking?.replyId === replyMenu.id ? {speaking: true, run: stopReading}
         : voiceEnabled && !live.active && !dictating ? {speaking: false, run: () => {

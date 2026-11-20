@@ -1222,7 +1222,11 @@ settings put secure assist_touch_gesture_enabled 1
 
 ## Panels
 
-A chat card shows **Pin to Panels** only when the native snapshot reports `pin.canPin`. Pinning
+No pin control sits under chat messages. **Pin to Panels** appears in a reply's long-press menu
+only for a panel reply (its card request `mode:"panel"`: the user asked for a panel, or the agent
+judged the content worth keeping, such as a plan, schedule, checklist or tracker) whose native
+snapshot reports `pin.canPin`; an already pinned reply offers **Open panel** and **Unpin** there
+instead. Ordinary replies (greetings, questions, one-off answers, `mode:"card"`) offer none. Pinning
 writes one record into a native directory, and the home **Panels** list and the desktop pages both
 read that directory. The desktop places panel pages after the app pages, and every page is keyed by
 `panelId`. Rename, reorder, open and Unpin act on the same record from the chat, the home list,
