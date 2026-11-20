@@ -43,6 +43,8 @@ const dark = {
   // One native tint over the existing cross-window blur, never another opaque React layer.
   backdropTint: content(0.92), backdropTintArgb: '#EB000000', backdropFallback: '#121212',
   errorSurface: '#402322',
+  /** Stop: a solid Main/Surface/Default disc with a Main/Foreground square, clear on the dark glass. */
+  stopFill: '#FFFFFF', stopGlyph: '#1B1B1B',
 };
 
 export type ChatColors = typeof dark;
@@ -56,6 +58,8 @@ const light: ChatColors = {
   ...homeColors,
   bubble: content(0.06), assistantBubble: surface(0.48), userText: content(0.8),
   errorSurface: '#F9DEDC',
+  /** On the light background the stop disc inverts: Main/Foreground with a white square. */
+  stopFill: '#1B1B1B', stopGlyph: '#FFFFFF',
 };
 
 export type ChatAppearance = 'dark' | 'light';

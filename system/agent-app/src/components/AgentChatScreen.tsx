@@ -628,9 +628,9 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
         style={[chatType.bodyLg(language === 'zh' || containsChinese(props.draft)), styles.input, {height: Math.min(composerHeight, composerMaximum)}]} maxLength={16000}/>
       {(running || props.session?.queued) && <Pressable testID="stop-turn" accessibilityRole="button" accessibilityLabel={t(props.session?.queued ? 'cancelQueued' : 'stop')}
         accessibilityState={{disabled: props.busy}} disabled={props.busy} onPress={props.onStop}
-        style={({pressed}) => [styles.composerAction, props.busy && styles.sendDisabled, pressed && styles.pressed]}><Icon name="stop" size={18} color={chatColors.icon}/></Pressable>}
+        style={({pressed}) => [styles.composerAction, styles.stop, props.busy && styles.sendDisabled, pressed && styles.stopPressed]}><View style={styles.stopGlyph}/></Pressable>}
       {speaking && <Pressable testID="stop-reply-speech" accessibilityRole="button" accessibilityLabel={ct('replySpeechStop')}
-        onPress={stopReading} style={styles.composerAction}><Icon name="stop" size={18} color={chatColors.icon}/></Pressable>}
+        onPress={stopReading} style={({pressed}) => [styles.composerAction, styles.stop, pressed && styles.stopPressed]}><View style={styles.stopGlyph}/></Pressable>}
       <Pressable testID="voice-input" accessibilityRole="button" accessibilityLabel={ct('voice')} accessibilityHint={ct('voiceSettingsHint')}
         accessibilityState={{disabled: sendHeld || props.draftRevision === null || !voiceEnabled}} disabled={sendHeld || props.draftRevision === null || !voiceEnabled}
         onLongPress={() => { void openVoiceSettings().catch(() => onVoiceFailure('unavailable')); }}
@@ -739,6 +739,9 @@ const styles = themedStyles(() => StyleSheet.create({
   // Figma 1-3 send: Main/Brand circle with the white arrow.
   send: {backgroundColor: chatColors.send},
   sendDisabled: {opacity: 0.35},
+  // The stop control (as Figma 1-5's stop): a solid 40 dp disc with a 12 dp rounded square.
+  stop: {backgroundColor: chatColors.stopFill}, stopPressed: {opacity: 0.8},
+  stopGlyph: {width: 12, height: 12, borderRadius: 4, backgroundColor: chatColors.stopGlyph},
   treeNode: {marginLeft: 8, borderLeftWidth: 1, borderLeftColor: colors.border, paddingLeft: 16, gap: 8}, treeRoot: {borderLeftWidth: 3, borderLeftColor: colors.sage, paddingVertical: 8}, treeAnswer: {paddingTop: 8},
   historyList: {padding: 16, gap: 8}, historyItem: {padding: 16, borderRadius: 12, gap: 4, minHeight: 64}, historySelected: {backgroundColor: colors.surface},
   advancedControls: {minHeight: 48, marginHorizontal: 16, marginTop: 8, paddingHorizontal: 12, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 8, backgroundColor: colors.surface},
