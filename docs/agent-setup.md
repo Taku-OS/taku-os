@@ -10,10 +10,11 @@ The current documented development preview is **TakuOS 1.4.0, Android 17, Pixel 
 | --- | --- | --- |
 | Full OTA | [TakuOS-1.4.0-tokay-20261118070714-full.zip](https://worker.taku.ai/os-update/v1/download/taku-os/android/tokay/releases/20261118070714-22cb53203be9da8f/fbd50dcafa988357bce12a5e4e0e57879d127f898482d69d6bac913a552fdebe/full.zip) | `9812a62734f6fe1512cc630c332b1d5338f2e166889e8fbf19a7c146b68bbed3` |
 | Matching recovery | [TakuOS-1.4.0-tokay-20261118070714-recovery.zip](https://github.com/Taku-OS/taku-os/releases/download/v1.4.0-20261118070714/TakuOS-1.4.0-tokay-20261118070714-recovery.zip) | `3a04cd4054418f5fa26d6588876e5d7d074c6a3eaa617fae38adee5a162d2b5a` |
+| ARM64 emulator image | [TakuOS-emulator-arm64-images.tar.gz](https://github.com/Taku-OS/taku-os/releases/download/v1.4.0-20261118070714/TakuOS-emulator-arm64-images.tar.gz) | `1f086efaa4e658079ae83366af4cecb942a11b735964454b7a637caedbf3323d` |
 
-The [mobile installation and update guide](https://docs.taku.ai/quickstart/mobile/) contains the actual recovery, sideload and OTA steps. Follow that procedure and its exact supported device/build conditions; do not invent a second fastboot procedure. A full OTA ZIP is not a fastboot image bundle.
+The [mobile installation and update guide](https://docs.taku.ai/quickstart/mobile/) and [GitHub Release notes](https://github.com/Taku-OS/taku-os/releases/tag/v1.4.0-20261118070714) contain the exact recovery, sideload and OTA steps. Follow that procedure and its exact supported device/build conditions; do not invent a second fastboot procedure. A full OTA ZIP is not a fastboot image bundle. **Never run `fastboot flashing lock` after installing a preview build** (preview builds use public AOSP development keys without custom AVB key enrollment, so re-locking the bootloader prevents booting).
 
-System update and reboot from the recorded source build have passed. Installation from stock and recovery after a failed first installation have not been accepted on this exact release. Do not label them verified or run a data-erasing step without the user's explicit approval.
+Check [`verification`](releases/latest.json) in the release manifest for exact per-build verification status (`firstInstallFromStockVerified` and `nativeUpdateAndRebootVerified`). Do not label unverified paths verified or run a data-erasing step without the user's explicit approval.
 
 ## Inspect before changing anything
 
@@ -33,16 +34,20 @@ For an existing compatible Taku installation, prefer the system updater procedur
 
 ## Emulator and source development
 
-A clean, downloadable Taku OS emulator image is **not currently published**. Do not promise an image URL or create an AVD named `TakuOS` and call it a product install. Authorized developers can use the component paths in [getting started](getting-started.md), a separately created AOSP ARM64 AVD and the module's actual installation instructions. Preserve other AVDs and their account state. An AOSP emulator with selected APKs is a component test, not complete-ROM acceptance.
+On an **Apple Silicon Mac (M1+)** or **ARM64 Linux host with KVM** and Android SDK (`emulator` + `platform-tools` installed; x86_64 hosts cannot hardware-accelerate this ARM64 image), download, verify, unpack, and boot the published open-source Taku OS ARM64 emulator image in an isolated AVD directory without modifying existing AVDs:
 
-For the default app experience, use a Google-enabled ARM64 API 36+ development emulator
-and run `python3 scripts/install-default-apps.py --serial emulator-N` after the Taku
-components. This installs Pixel Weather, YouTube Music, Taku Audio with local speech
-models, and the widget providers. Bare AOSP without Google services is rejected. The
-source ROM product includes these apps by default; this does not change the published
-release downloads above. See [default applications](getting-started.md#default-applications).
+```sh
+curl -fLO "https://github.com/Taku-OS/taku-os/releases/download/v1.4.0-20261118070714/TakuOS-emulator-arm64-images.tar.gz"
+echo "1f086efaa4e658079ae83366af4cecb942a11b735964454b7a637caedbf3323d  TakuOS-emulator-arm64-images.tar.gz" | shasum -a 256 -c -
+mkdir -p taku-emu && tar -xzf TakuOS-emulator-arm64-images.tar.gz -C taku-emu
+python3 image/emulator/start.py --images taku-emu --avd-home ~/.taku-avd --name TakuOS_1_4_0 --port 5580
+```
 
-For a phone-free first step, Node.js 22+ and an authorized checkout can run:
+Developers building individual modules from source can also follow the component paths in [getting started](getting-started.md) on a separately created ARM64 API 36+ AVD. Preserve other AVDs and their account state.
+
+For the optional Google-enabled default app experience on a custom development AVD, run `python3 scripts/install-default-apps.py --serial emulator-N` after the Taku components. See [default applications](getting-started.md#default-applications).
+
+For a phone-free first step, Node.js 22+ and a local checkout can run:
 
 ```sh
 env -u TAKU_OS_TRANSPORT -u TAKU_OS_SERIAL node sdk/cli/taku.mjs call methods.list

@@ -126,6 +126,7 @@ final class NativeBridge {
  static void serve(LocalSocket socket){try(LocalSocket s=socket){int uid=s.getPeerCredentials().getUid();s.setSoTimeout(45000);JSONObject input=new JSONObject(read(s.getInputStream(),2000000));if(uid!=1000&&uid!=0&&!(uid==2000&&pluginClient(input))&&!(pluginClient(input)&&AppPermissionPolicy.isRootSocketAllowed(uid)))return;if("subscribeSession".equals(input.optString("op"))){serveSession(s,input);return;}JSONObject answer;
   try { switch(input.getString("op")){
    case "state":answer=state(input.optString("threadId"));break;
+   case "pendingPhoneQuestions":answer=pendingPhoneQuestions();break;
    case "workspaces":answer=WorkspaceControl.control(input);break;
    case "appPermissions":answer=AppPermissionPolicy.control(input,uid);break;
    case "sessionRemovals":answer=SessionRemovalRuntime.control(input);break;
@@ -236,6 +237,24 @@ final class NativeBridge {
  static JSONObject state(String thread)throws Exception { try (CleanupWork.Held held9 = lock()) {
   JSONObject r=state.containsKey(thread)?new JSONObject(state.get(thread).toString()):new JSONObject();JSONArray pending=new JSONArray();for(JSONObject q:requests.values()){String t=q.optJSONObject("params").optString("threadId");if(t.isEmpty()||t.equals(thread))pending.put(q);}r.put("executionScreen",DedicatedScreensOnDevice.shared().describe(thread));r.put("requests",pending);r.put("runtimeEvents",new JSONArray(globalEvents.toString()));r.put("ready",CodexAppServer.shared!=null);return r;
  } }
+ /** Ordered, read-only snapshot for the system question cards. */
+ static JSONObject pendingPhoneQuestions() throws Exception {
+  try (CleanupWork.Held held = lock()) {
+   JSONArray pending = new JSONArray();
+   for (JSONObject request : requests.values()) {
+    String method = request.getString("method");
+    if (!method.equals("phone/askUser") && !method.equals("phone/confirmAction")) continue;
+    JSONObject params = request.getJSONObject("params");
+    if (!phoneTurnActive(params)) continue;
+    JSONObject question = new JSONObject()
+      .put("threadId", params.getString("threadId"))
+      .put("turnId", params.getString("turnId"))
+      .put("arguments", new JSONObject(params.getJSONObject("arguments").toString()));
+    pending.put(new JSONObject().put("key", request.getString("key")).put("method", method).put("params", question));
+   }
+   return new JSONObject().put("requests", pending);
+  }
+ }
  static void threadAvailability(String thread,String state){AgentViews.threadAvailability(thread,state);}
  static void cancellation(String thread,JSONObject result)throws Exception { try (CleanupWork.Held held10 = lock()) {
   JSONObject current=state.computeIfAbsent(thread,k->new JSONObject());current.put("cancellationCleanup",result);

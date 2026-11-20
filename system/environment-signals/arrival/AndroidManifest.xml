@@ -1,0 +1,29 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="org.agentos.environment.arrival" android:versionCode="1" android:versionName="0.1.0">
+    <uses-sdk android:minSdkVersion="36" android:targetSdkVersion="36"/>
+    <permission android:name="org.agentos.permission.SEND_LOCATION_ARRIVAL" android:protectionLevel="signature"/>
+    <uses-permission android:name="org.agentos.permission.SEND_LOCATION_ARRIVAL"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION"/>
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <queries>
+        <provider android:authorities="org.agentos.assistant.permissions"/>
+        <intent><action android:name="org.agentos.environment.arrival.AVAILABLE"/></intent>
+    </queries>
+    <application android:label="Taku Location Arrival" android:allowBackup="false">
+        <provider android:name=".ArrivalProvider" android:authorities="org.agentos.environment.arrival"
+            android:exported="true"/>
+        <receiver android:name=".ArrivalReceiver" android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+                <action android:name="android.intent.action.TIME_SET"/>
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.PACKAGE_FULLY_REMOVED"/>
+                <data android:scheme="package"/>
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>

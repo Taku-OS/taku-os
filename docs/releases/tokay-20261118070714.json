@@ -50,7 +50,7 @@
     "nativeUpdateTargetBuild": "20261118070714",
     "nativeUpdateAndRebootVerified": false,
     "firstInstallFromStockVerified": false,
-    "emulatorImagePublished": false,
+    "emulatorImagePublished": true,
     "recoverySignerMatchesOta": true
   },
   "documentationUrl": "https://docs.taku.ai/zh/quickstart/mobile/",

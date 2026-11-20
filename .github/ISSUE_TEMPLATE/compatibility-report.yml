@@ -1,6 +1,7 @@
 name: Android or app compatibility report
 description: Report a real result for a specific device, app version and scenario.
 title: "[Compatibility] "
+labels: ["compatibility"]
 body:
   - type: markdown
     attributes:

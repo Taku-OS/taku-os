@@ -1,6 +1,6 @@
 # Starter contribution task drafts
 
-The following 10 documentation tasks can be broken down further into Issues. They do not imply that GitHub Issues have been created, external contributors have claimed them, or the tasks are complete. Contributions currently still require authorized repository access; first read the [contribution guide](../CONTRIBUTING.md) and [first change](first-change.md).
+The following 10 documentation tasks can be broken down further into Issues. They do not imply that GitHub Issues have been created, external contributors have claimed them, or the tasks are complete. First read the [contribution guide](../CONTRIBUTING.md) and [first change](first-change.md).
 
 For each task, the claimant first supplies a minimal change and evidence, then the relevant module maintainer reviews it. Specific reviewers are determined by [CODEOWNERS](../.github/CODEOWNERS) and explicit ownership in the Issue. Roles in the table are suggested responsibilities, not commitments made on anyone's behalf.
 

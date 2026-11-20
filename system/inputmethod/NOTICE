@@ -10,7 +10,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later. Fcitx5, libime,
 fcitx5-chinese-addons, dictionaries, and bundled dependencies retain their
 own copyright notices and licenses, including LGPL and GPL components.
 See the locked upstream tree, LICENSES/, native dependency source trees,
-and the in-app open source license list. The repository's root internal
+and the in-app open source license list. The repository's root Apache-2.0
 license does not replace the licenses of this derived input method.
 
 Taku modifications: product identity, Chinese-first initial profile,

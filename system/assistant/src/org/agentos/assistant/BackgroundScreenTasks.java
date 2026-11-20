@@ -68,6 +68,9 @@ final class BackgroundScreenTasks implements SurfaceClient.Listener {
         if(current==null)current=new BackgroundScreenTasks(context);
         return current;
     }
+    static boolean ownsThread(String thread) {
+        return current != null && current.jobs.values().stream().anyMatch(job -> thread.equals(job.thread));
+    }
     static boolean ownsTask(Context context,String id) {
         if(current!=null && current.jobs.values().stream().anyMatch(job->id.equals(job.task)))return true;
         try {

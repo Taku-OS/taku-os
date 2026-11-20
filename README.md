@@ -12,7 +12,7 @@
 
 ## Research Preview
 
-Taku OS is currently in an early stage of development and is intended for testing and development. It is not recommended for work use.
+Taku OS is currently in an early stage of development and is intended for testing and development. Preview images are `userdebug` builds signed with public AOSP development keys (`test-keys`) for unlocked bootloaders — **do not re-lock the bootloader (`fastboot flashing lock`)**, do not sideload untrusted APKs, and do not use Taku OS on a primary work or banking phone.
 
 ## What is Taku OS?
 
@@ -26,7 +26,7 @@ This repository contains the Taku OS system ROM and documentation, but not the s
 
 Say what you need. Keep what works.
 
-- **A home screen made for you.** Say, "Track my half-marathon training." The agent creates a home screen with your plan, input fields, and buttons. Refine it through conversation, save it, and come back to it later. (TODO: Add image)
+- **A home screen made for you.** Say, "Track my half-marathon training." The agent creates a home screen with your plan, input fields, and buttons. Refine it through conversation, save it, and come back to it later.
 - **Can't find the app you need? Build one.** Describe what you want. The agent writes the code, compiles it, installs it on your phone, and opens it.
 - **Settings, without the search.** No more digging through menus. Ask the agent to change supported system settings for you.
 

@@ -18,7 +18,7 @@ LINK = 'https://www.googleapis.com/compute/v1/projects/' + c.PROJECT
 def vm(status='RUNNING'):
     return {'id': c.INSTANCE_ID, 'name': c.INSTANCE, 'zone': LINK + '/zones/' + c.ZONE,
             'selfLink': LINK + c.INSTANCE_PATH, 'status': status,
-            'networkInterfaces': [{'accessConfigs': [{'natIP': '35.221.149.4'}]}]}
+            'networkInterfaces': [{'accessConfigs': [{'natIP': '93.184.216.34'}]}]}
 
 
 def operation(status='DONE'):
@@ -39,7 +39,7 @@ class ControlTests(unittest.TestCase):
             calls.append(args); return {**vm(), 'metadata': {'items': [{'key':'private', 'value':'never export'}]}}
         result = c.control(c.request_context(ENV), api)
         self.assertEqual(calls, [('GET', c.INSTANCE_PATH)])
-        self.assertEqual(result['externalIp'], '35.221.149.4')
+        self.assertEqual(result['externalIp'], '93.184.216.34')
         self.assertNotIn('metadata', result)
 
     def test_wrong_vm_rejected_before_mutation(self):
@@ -84,6 +84,14 @@ class ControlTests(unittest.TestCase):
                       LINK+c.INSTANCE_PATH+'?override=1', LINK+c.INSTANCE_PATH+'#x',
                       'https://www.googleapis.com.attacker.invalid/compute/v1/projects/'+c.PROJECT+c.INSTANCE_PATH]:
             self.assertFalse(c.resource_link(value,c.INSTANCE_PATH))
+
+    def test_seal_endpoint_redacts_public_ip(self):
+        with self.assertRaises(ValueError):
+            c.seal_endpoint(c.control(c.request_context(ENV), lambda *_: vm()), '')
+        stopped = c.control(c.request_context({**ENV, 'OPERATION': 'stop'}), lambda *_: vm('TERMINATED'))
+        sealed_stopped = c.seal_endpoint(stopped, '-----BEGIN PUBLIC KEY-----\ndummy\n-----END PUBLIC KEY-----')
+        self.assertIsNone(sealed_stopped['externalIp'])
+        self.assertIsNone(sealed_stopped['encryptedEndpoint'])
 
 
 if __name__ == '__main__':unittest.main()
