@@ -18,4 +18,14 @@
   <string name="home_pages">Show Apps on Pages</string>
   <string name="home_scroll">Show Apps on One Page</string>
   <string name="home_rename_folder">Rename Folder</string>
+  <string name="home_workspace_show_previews">Show background screen previews</string>
+  <string name="home_workspace_hide_previews">Hide background screen previews</string>
+  <string name="home_workspace_open_screen">Open background screen</string>
+  <string name="home_workspace_open_failed">Could not open the background screen</string>
+  <string name="home_workspace_running">Working</string>
+  <string name="home_workspace_waiting">Waiting</string>
+  <string name="home_workspace_paused">Paused</string>
+  <string name="home_workspace_user_control">Your control</string>
+  <string name="home_workspace_switching">Switching</string>
+  <string name="home_workspace_unavailable">Unavailable</string>
 </resources>

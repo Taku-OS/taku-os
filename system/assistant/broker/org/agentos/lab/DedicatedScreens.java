@@ -1770,6 +1770,7 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
                 .put("controlOwner", screen.controlOwner)
                 .put("controlRevision", screen.controlRevision)
                 .put("admitted", !screen.releasing)
+                .put("homePreviewEligible", screen.session != null && !screen.closing && !screen.releasing)
                 .put("stopping", screen.stopping || screen.releasing)
                 .put("resumeRequired", screen.resumeRequired)
                 .put("canResume", !screen.releasing && !screen.controlOwner.equals("agent") && !screen.stopping)

@@ -6,19 +6,32 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 
-/** Opens the Taku Agent chat (org.agentos.agent) for a thread, or reports that it cannot. */
+/** Launches the signed Taku Home and Agent chat entry points. */
 final class AgentFrontendLauncher {
     static final String RETURN_AGENT_FRONTEND = "returnAgentFrontend";
     static final String RETURN_CONVERSATION_ID = "returnConversationId";
+    static final String RETURN_WORKSPACE_HOME = "org.agentos.agent.home.extra.RETURN_FROM_WORKSPACE";
 
     private AgentFrontendLauncher() {}
 
     static void openHome(Context context) {
+        context.startActivity(homeIntent(context));
+    }
+
+    static void returnToWorkspaceHome(Context context) {
+        try {
+            context.startActivity(homeIntent(context).putExtra(RETURN_WORKSPACE_HOME, true));
+        } catch (RuntimeException unavailable) {
+            android.util.Log.w("TakuHome", "Workspace return unavailable", unavailable);
+        }
+    }
+
+    private static Intent homeIntent(Context context) {
         if (context.getPackageManager().checkSignatures(context.getPackageName(), AgentFrontendRoute.PACKAGE)
                 != PackageManager.SIGNATURE_MATCH) throw new IllegalStateException("Taku frontend unavailable");
-        context.startActivity(new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+        return new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
                 .setClassName(AgentFrontendRoute.PACKAGE, "org.agentos.agent.home.HomeActivity")
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP));
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
     }
 
     static boolean matchesWorkspaceReturn(boolean requested, String leaseThread, String returnThread) {

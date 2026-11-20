@@ -58,13 +58,14 @@ internal class AgentGatewayProtocol private constructor() {
                 "analyzeCameraFrame" -> java.util.Set.of("image", "language", "instruction")
                 "audioCapabilities" -> java.util.Set.of()
                 "audioCommand" -> java.util.Set.of("matterId", "requestId", "operation", "sessionId", "purpose", "language", "profileId", "targetLanguage", "targetPackage", "recordAudio")
-                "resumeThread", "getWorkspaces", "openNativeConversation" -> java.util.Set.of("threadId")
+                "getWorkspaces" -> if (input.has("scope")) java.util.Set.of("scope") else java.util.Set.of("threadId")
+                "resumeThread", "openNativeConversation" -> java.util.Set.of("threadId")
                 "sendMessage" -> java.util.Set.of("threadId", "text", "requestId")
                 "steer" -> java.util.Set.of("threadId", "text", "expectedTurnId", "requestId")
                 "interrupt" -> java.util.Set.of("threadId", "turnId")
                 "cancelQueued" -> java.util.Set.of("threadId", "taskId")
                 "answer" -> java.util.Set.of("threadId", "key", "response")
-                "openWorkspace" -> java.util.Set.of("threadId", "screenKey", "generation")
+                "openWorkspace" -> java.util.Set.of("threadId", "screenKey", "generation", "source")
                 "openSettings" -> java.util.Set.of("page")
                 "pluginManager" -> java.util.Set.of("operation", "argument", "name", "arguments")
                 "decide" -> java.util.Set.of("state", "questions")
@@ -85,6 +86,7 @@ internal class AgentGatewayProtocol private constructor() {
             val keys = input.keys()
             while (keys.hasNext()) if (!fields.contains(keys.next())) throw IOException("UNSUPPORTED_PARAMETER")
             if (fields.contains("threadId")) requireId(input, "threadId")
+            if (fields.contains("scope") && input.get("scope") != "home") throw IOException("INVALID_WORKSPACE_SCOPE")
             if (fields.contains("text")) text(input, "text", 16000)
             if (fields.contains("requestId")) requireId(input, "requestId")
             if (fields.contains("subscriptionId")) requireId(input, "subscriptionId")
@@ -98,6 +100,7 @@ internal class AgentGatewayProtocol private constructor() {
             if (action == "openWorkspace") {
                 if (!Pattern.matches("task-[a-f0-9]{20}", text(input, "screenKey", 64))) throw IOException("INVALID_SCREEN_KEY")
                 requireId(input, "generation")
+                if (input.has("source") && input.get("source") != "home") throw IOException("INVALID_WORKSPACE_SOURCE")
             }
             if (action == "decide") decision(input)
             if (action == "generateUi") {

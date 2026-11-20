@@ -61,8 +61,34 @@ public final class ChatWorkspacePreviewProtocolTest {
                 ChatWorkspacePreviewProtocol.identity(binding(THREAD, 1).put("generation", OTHER))));
         check("Display changes cannot reuse a pending frame", !ChatWorkspacePreviewProtocol.identity(own).equals(
                 ChatWorkspacePreviewProtocol.identity(binding(THREAD, 1).put("displayId", 2))));
+        homeSelectionChecks();
         verifiedCatalogChecks();
-        System.out.println("PASS: " + checks + " exact-thread, lease and stream-host checks");
+        interleavedCatalogChecks();
+        System.out.println("PASS: " + checks + " workspace selection, lease and stream-host checks");
+    }
+
+    private static void homeSelectionChecks() throws Exception {
+        JSONObject pausing = binding(THREAD, 1).put("status", "stopping").put("homePreviewEligible", true);
+        JSONObject closing = binding(OTHER, 5).put("status", "stopping").put("homePreviewEligible", false);
+        JSONObject bothThreads = catalog(binding(OTHER, 2).put("homePreviewEligible", true), pausing, closing,
+                binding(THREAD, 3).put("status", "waiting_for_app").put("homePreviewEligible", true),
+                binding(OTHER, 4).put("status", "user_control").put("homePreviewEligible", true));
+
+        check("Empty Home catalog", ChatWorkspacePreviewProtocol.selectHome(catalog()).length() == 0);
+        check("A single eligible screen is visible during pause",
+                ChatWorkspacePreviewProtocol.selectHome(catalog(pausing, closing)).length() == 1);
+        JSONArray home = ChatWorkspacePreviewProtocol.selectHome(bothThreads);
+        check("Home lists eligible screens across threads in catalog order", home.length() == 4
+                && home.getJSONObject(0).getInt("displayId") == 2
+                && home.getJSONObject(1).getInt("displayId") == 1
+                && home.getJSONObject(2).getInt("displayId") == 3
+                && home.getJSONObject(3).getInt("displayId") == 4);
+        check("Session selection still includes its own admitted screens",
+                ChatWorkspacePreviewProtocol.select(bothThreads, OTHER).length() == 3);
+        check("Home requires the eligibility flag",
+                ChatWorkspacePreviewProtocol.selectHome(catalog(binding(THREAD, 1))).length() == 0);
+        rejects("Home checks eligible screen identity", () -> ChatWorkspacePreviewProtocol.selectHome(
+                catalog(binding("invalid", 1).put("homePreviewEligible", true))));
     }
 
     private static void verifiedCatalogChecks() throws Exception {
@@ -70,20 +96,20 @@ public final class ChatWorkspacePreviewProtocolTest {
         String key = own.getString("screenKey");
         JSONObject original = catalog(own);
         ChatWorkspacePreviewProtocol.CatalogSnapshot snapshot =
-                new ChatWorkspacePreviewProtocol.CatalogSnapshot(original, 100, 100);
+                new ChatWorkspacePreviewProtocol.CatalogSnapshot(original, THREAD, 100, 100);
         original.getJSONArray("screens").getJSONObject(0).put("admitted", false);
-        check("Verified catalog owns an immutable copy", snapshot.select(THREAD, 100).length() == 1);
-        snapshot.select(THREAD, 100).getJSONObject(0).put("admitted", false);
-        check("A consumer cannot mutate the verified catalog", snapshot.select(THREAD, 100).length() == 1);
-        check("Original five-second boundary is retained", snapshot.select(THREAD, 5100).length() == 1);
-        rejects("Verified catalog expires without timestamp renewal", () -> snapshot.select(THREAD, 5101));
-        rejects("A clock before verification is rejected", () -> snapshot.select(THREAD, 99));
+        check("Verified catalog owns an immutable copy", snapshot.screens(100).getJSONObject(0).getBoolean("admitted"));
+        snapshot.screens(100).getJSONObject(0).put("admitted", false);
+        check("A consumer cannot mutate the verified catalog", snapshot.screens(100).getJSONObject(0).getBoolean("admitted"));
+        check("Original five-second boundary is retained", snapshot.screens(5100).length() == 1);
+        rejects("Verified catalog expires without timestamp renewal", () -> snapshot.screens(5101));
+        rejects("A clock before verification is rejected", () -> snapshot.screens(99));
         rejects("Zero verification time is rejected", () ->
-                new ChatWorkspacePreviewProtocol.CatalogSnapshot(catalog(binding(THREAD, 1)), 0, 100));
+                new ChatWorkspacePreviewProtocol.CatalogSnapshot(catalog(binding(THREAD, 1)), THREAD, 0, 100));
         rejects("Future verification time is rejected", () ->
-                new ChatWorkspacePreviewProtocol.CatalogSnapshot(catalog(binding(THREAD, 1)), 101, 100));
+                new ChatWorkspacePreviewProtocol.CatalogSnapshot(catalog(binding(THREAD, 1)), THREAD, 101, 100));
         rejects("Already-expired verification time is rejected", () ->
-                new ChatWorkspacePreviewProtocol.CatalogSnapshot(catalog(binding(THREAD, 1)), 100, 5101));
+                new ChatWorkspacePreviewProtocol.CatalogSnapshot(catalog(binding(THREAD, 1)), THREAD, 100, 5101));
         rejects("Exact preview cannot follow another thread", () -> snapshot.exact(OTHER, key, GENERATION, 100));
         rejects("Exact preview cannot follow another generation", () -> snapshot.exact(THREAD, key, OTHER, 100));
         rejects("Exact preview cannot follow another key", () -> snapshot.exact(THREAD,
@@ -102,7 +128,7 @@ public final class ChatWorkspacePreviewProtocolTest {
         rejects("A frame completing after source expiry is rejected", () -> shared.recheck(frame, 5101));
         long older = shared.beginRead(), newer = shared.beginRead();
         ChatWorkspacePreviewProtocol.CatalogSnapshot newerSnapshot =
-                new ChatWorkspacePreviewProtocol.CatalogSnapshot(catalog(binding(THREAD, 1)), 5000, 5000);
+                new ChatWorkspacePreviewProtocol.CatalogSnapshot(catalog(binding(THREAD, 1)), THREAD, 5000, 5000);
         check("Newest response wins", shared.publish(newer, newerSnapshot));
         check("A late response cannot replace the winning catalog", !shared.publish(older, snapshot));
         shared.failedRead(older);
@@ -138,9 +164,42 @@ public final class ChatWorkspacePreviewProtocolTest {
         for (Object[] change : replacements) {
             JSONObject changed = binding(THREAD, 1).put((String) change[0], change[1]);
             long revision = shared.beginRead();
-            shared.publish(revision, new ChatWorkspacePreviewProtocol.CatalogSnapshot(catalog(changed), 5000, 5000));
+            shared.publish(revision, new ChatWorkspacePreviewProtocol.CatalogSnapshot(catalog(changed), THREAD, 5000, 5000));
             rejects("Frame return rejects replaced " + change[0], () -> shared.recheck(beforeReplacement, 5001));
         }
+    }
+
+    private static void interleavedCatalogChecks() throws Exception {
+        ChatWorkspacePreviewProtocol.VerifiedCatalog home = new ChatWorkspacePreviewProtocol.VerifiedCatalog();
+        ChatWorkspacePreviewProtocol.VerifiedCatalog session = new ChatWorkspacePreviewProtocol.VerifiedCatalog();
+        JSONObject homeScreen = binding(OTHER, 2).put("homePreviewEligible", true);
+        JSONObject sessionScreen = binding(THREAD, 1);
+        String homeKey = homeScreen.getString("screenKey"), sessionKey = sessionScreen.getString("screenKey");
+        long homeRead = home.beginRead(), sessionRead = session.beginRead();
+        ChatWorkspacePreviewProtocol.CatalogSnapshot sessionSnapshot =
+                new ChatWorkspacePreviewProtocol.CatalogSnapshot(catalog(sessionScreen), THREAD, 101, 101);
+        session.publish(sessionRead, sessionSnapshot);
+        home.publish(homeRead, new ChatWorkspacePreviewProtocol.CatalogSnapshot(
+                catalog(homeScreen, sessionScreen), null, 102, 102));
+
+        ChatWorkspacePreviewProtocol.VerifiedCatalog.Lease homeFrame = home.lease(OTHER, homeKey, GENERATION, 103);
+        check("Home resolves a screen after a session query", homeFrame.binding.getInt("displayId") == 2);
+        check("Session resolves its own screen after a Home query",
+                session.lease(THREAD, sessionKey, GENERATION, 103).binding.getInt("displayId") == 1);
+        rejects("Home requires an eligible screen", () -> home.lease(THREAD, sessionKey, GENERATION, 103));
+        rejects("Home requires the exact owner", () -> home.lease(THREAD, homeKey, GENERATION, 103));
+        rejects("Home requires the exact generation", () -> home.lease(OTHER, homeKey, OTHER, 103));
+        rejects("Session cannot use the Home catalog", () -> session.lease(OTHER, homeKey, GENERATION, 103));
+
+        session.invalidate();
+        check("Changing conversations keeps the Home frame valid", home.recheck(homeFrame, 104).getInt("displayId") == 2);
+        session.publish(session.beginRead(), sessionSnapshot);
+        ChatWorkspacePreviewProtocol.VerifiedCatalog.Lease sessionFrame = session.lease(THREAD, sessionKey, GENERATION, 104);
+        homeScreen.put("homePreviewEligible", false);
+        home.publish(home.beginRead(), new ChatWorkspacePreviewProtocol.CatalogSnapshot(
+                catalog(homeScreen, sessionScreen), null, 105, 105));
+        rejects("Home rejects the pending frame once a screen leaves its list", () -> home.recheck(homeFrame, 105));
+        check("Refreshing Home keeps the session frame valid", session.recheck(sessionFrame, 105).getInt("displayId") == 1);
     }
 
     private static JSONObject binding(String thread, int index) throws Exception {

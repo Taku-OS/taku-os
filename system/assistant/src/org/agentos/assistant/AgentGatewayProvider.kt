@@ -65,7 +65,8 @@ class AgentGatewayProvider : ContentProvider() {
 
     private val payloads = LinkedHashMap<String, Payload>()
     private val completeHistory = ConcurrentHashMap<String, Set<String>>()
-    private val previewCatalog = ChatWorkspacePreviewProtocol.VerifiedCatalog()
+    private val sessionPreviewCatalog = ChatWorkspacePreviewProtocol.VerifiedCatalog()
+    private val homePreviewCatalog = ChatWorkspacePreviewProtocol.VerifiedCatalog()
     private lateinit var submissions: AgentGatewaySubmissions
     private lateinit var matters: MatterRuntime
     private lateinit var matterStreams: MatterStreams
@@ -208,7 +209,7 @@ class AgentGatewayProvider : ContentProvider() {
                 return AgentGatewayProtocol.clean(result, 0) as JSONObject
             }
             "resumeThread" -> {
-                previewCatalog.invalidate()
+                sessionPreviewCatalog.invalidate()
                 val resumed = TaskRequests.control("thread/read", JSONObject().put("threadId", thread))
                 if (resumed.optBoolean("threadUnavailable") || !resumed.optBoolean("loaded") || thread != resumed.optString("threadId"))
                     throw IOException("THREAD_UNAVAILABLE")
@@ -256,7 +257,7 @@ class AgentGatewayProvider : ContentProvider() {
                 // The broker validates the current request/turn and consumes the answer atomically.
                 return NativeClient.exchange(JSONObject().put("op", "respond").put("key", input.getString("key")).put("response", input.getJSONObject("response")))
             }
-            "getWorkspaces" -> return workspaces(thread)
+            "getWorkspaces" -> return workspaces(if (input.has("scope")) null else thread)
             "openNativeConversation" -> {
                 val current = TaskRequests.control("thread/read", JSONObject().put("threadId", thread))
                 if (current.optBoolean("threadUnavailable") || !current.optBoolean("loaded") || thread != current.optString("threadId"))
@@ -275,11 +276,18 @@ class AgentGatewayProvider : ContentProvider() {
                 return JSONObject().put("opened", true).put("threadId", thread)
             }
             "openWorkspace" -> {
-                val lease = exactLease(thread, input.getString("screenKey"), input.getString("generation"))
-                val intent = Intent(context!!, MirrorActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                val fromHome = input.optString("source") == "home"
+                val lease = exactLease(thread, input.getString("screenKey"), input.getString("generation"), fromHome)
+                // A background viewer may have another lease. Deliver the selected lease to onNewIntent.
+                val intent = Intent(context!!, MirrorActivity::class.java).addFlags(
+                    Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
                 for (key in arrayOf("threadId", "screenKey", "generation")) intent.putExtra(key, lease.getString(key))
-                intent.putExtra(AgentFrontendLauncher.RETURN_AGENT_FRONTEND, true)
-                intent.putExtra(AgentFrontendLauncher.RETURN_CONVERSATION_ID, thread)
+                if (fromHome) {
+                    intent.putExtra(AgentFrontendLauncher.RETURN_WORKSPACE_HOME, true)
+                } else {
+                    intent.putExtra(AgentFrontendLauncher.RETURN_AGENT_FRONTEND, true)
+                    intent.putExtra(AgentFrontendLauncher.RETURN_CONVERSATION_ID, thread)
+                }
                 context!!.startActivity(intent)
                 return JSONObject().put("opened", true)
             }
@@ -418,36 +426,48 @@ class AgentGatewayProvider : ContentProvider() {
         }
     }
 
-    private fun workspaces(thread: String): JSONObject {
+    private fun workspaceResult(screens: JSONArray, vararg previewPath: String): JSONObject {
+        for (i in 0 until screens.length()) {
+            val screen = screens.getJSONObject(i)
+            screen.put("previewUri", uri(*previewPath, screen.getString("threadId"),
+                screen.getString("screenKey"), screen.getString("generation")).toString())
+        }
+        return JSONObject().put("schema", "taku.agent-workspaces/1").put("screens", screens)
+    }
+
+    private fun workspaces(thread: String?): JSONObject {
+        val previewCatalog = if (thread == null) homePreviewCatalog else sessionPreviewCatalog
         val revision = previewCatalog.beginRead()
         try {
-            val catalog = NativeClient.exchange(JSONObject().put("op", "workspaces").put("action", "list").put("threadId", thread))
+            val request = JSONObject().put("op", "workspaces").put("action", "list")
+            if (thread != null) request.put("threadId", thread)
+            val catalog = NativeClient.exchange(request)
             val checkedAt = SystemClock.elapsedRealtime()
-            val verified = ChatWorkspacePreviewProtocol.CatalogSnapshot(catalog, checkedAt, checkedAt)
-            val selected = verified.select(thread, SystemClock.elapsedRealtime())
-            for (i in 0 until selected.length()) {
-                val screen = selected.getJSONObject(i)
-                screen.put("previewUri", uri("preview", thread, screen.getString("screenKey"), screen.getString("generation")).toString())
-            }
+            val verified = ChatWorkspacePreviewProtocol.CatalogSnapshot(catalog, thread, checkedAt, checkedAt)
+            val screens = verified.screens(SystemClock.elapsedRealtime())
+            val result = if (thread == null) workspaceResult(screens, "preview", "home")
+                else workspaceResult(screens, "preview")
             // A stale read must never publish over the winner.
             previewCatalog.publish(revision, verified)
-            return JSONObject().put("schema", "taku.agent-workspaces/1").put("screens", selected)
+            return result
         } catch (failure: Exception) {
             previewCatalog.failedRead(revision)
             throw failure
         }
     }
 
-    private fun exactLease(thread: String, key: String, generation: String): JSONObject {
-        val screens = workspaces(thread).getJSONArray("screens")
+    private fun exactLease(thread: String, key: String, generation: String, fromHome: Boolean): JSONObject {
+        val screens = workspaces(if (fromHome) null else thread).getJSONArray("screens")
         for (i in 0 until screens.length()) {
             val screen = screens.getJSONObject(i)
-            if (key == screen.optString("screenKey") && generation == screen.optString("generation")) return screen
+            if (thread == screen.optString("threadId") && key == screen.optString("screenKey") &&
+                generation == screen.optString("generation")) return screen
         }
         throw IOException("SCREEN_LEASE_CHANGED")
     }
 
-    private fun preview(thread: String, key: String, generation: String): ByteArray {
+    private fun preview(previewCatalog: ChatWorkspacePreviewProtocol.VerifiedCatalog,
+                        thread: String, key: String, generation: String): ByteArray {
         val lease = previewCatalog.lease(thread, key, generation, SystemClock.elapsedRealtime())
         val binding = lease.binding
         try {
@@ -492,10 +512,15 @@ class AgentGatewayProvider : ContentProvider() {
             }
             val bytes: ByteArray
             if (parts.size == 2 && parts[0] == "result") bytes = take(parts[1])
-            else if (parts.size == 4 && parts[0] == "preview") {
-                val lease = AgentGatewayProtocol.request("openWorkspace", JSONObject().put("threadId", parts[1])
-                    .put("screenKey", parts[2]).put("generation", parts[3]).toString())
-                bytes = preview(lease.getString("threadId"), lease.getString("screenKey"), lease.getString("generation"))
+            else if (parts.firstOrNull() == "preview") {
+                val home = parts.getOrNull(1) == "home"
+                val offset = if (home) 2 else 1
+                if (parts.size != offset + 3) throw IOException("UNKNOWN_RESOURCE")
+                val lease = AgentGatewayProtocol.request("openWorkspace", JSONObject().put("threadId", parts[offset])
+                    .put("screenKey", parts[offset + 1]).put("generation", parts[offset + 2]).toString())
+                val previewCatalog = if (home) homePreviewCatalog else sessionPreviewCatalog
+                bytes = preview(previewCatalog, lease.getString("threadId"), lease.getString("screenKey"),
+                    lease.getString("generation"))
             } else throw IOException("UNKNOWN_RESOURCE")
             return openPipeHelper(uri, getType(uri), null, bytes) { output, _, _, _, data ->
                 try {

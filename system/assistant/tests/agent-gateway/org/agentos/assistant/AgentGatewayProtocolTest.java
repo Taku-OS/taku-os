@@ -128,8 +128,29 @@ public final class AgentGatewayProtocolTest {
                 .put("taskId", "12345").toString()).getString("taskId").equals("12345"));
         check(AgentGatewayProtocol.request("openNativeConversation", new JSONObject().put("threadId", THREAD).toString()).getString("threadId").equals(THREAD));
         rejects(() -> AgentGatewayProtocol.request("openNativeConversation", new JSONObject().put("threadId", THREAD).put("manualScreen", true).toString()));
+        JSONObject threadWorkspaces = new JSONObject().put("threadId", THREAD);
+        JSONObject homeWorkspaces = new JSONObject().put("scope", "home");
+        check(AgentGatewayProtocol.request("getWorkspaces", threadWorkspaces.toString()).similar(threadWorkspaces));
+        check(AgentGatewayProtocol.request("getWorkspaces", homeWorkspaces.toString()).similar(homeWorkspaces));
+        rejects(() -> AgentGatewayProtocol.request("getWorkspaces", "{}"));
+        rejectsWithCode("UNSUPPORTED_PARAMETER", () -> AgentGatewayProtocol.request("getWorkspaces",
+                new JSONObject().put("scope", "home").put("threadId", THREAD).toString()));
+        for (Object scope : new Object[]{"desktop", "", true, JSONObject.NULL}) {
+            rejectsWithCode("INVALID_WORKSPACE_SCOPE", () -> AgentGatewayProtocol.request("getWorkspaces",
+                    new JSONObject().put("scope", scope).toString()));
+        }
         rejects(() -> AgentGatewayProtocol.request("openWorkspace", new JSONObject().put("threadId", THREAD)
                 .put("screenKey", "default").put("generation", KEY).toString()));
+        JSONObject workspaceLease = new JSONObject().put("threadId", THREAD)
+                .put("screenKey", "task-0123456789abcdef0123").put("generation", KEY);
+        check(AgentGatewayProtocol.request("openWorkspace", workspaceLease.toString()).similar(workspaceLease));
+        JSONObject homeWorkspace = new JSONObject(workspaceLease.toString()).put("source", "home");
+        check(AgentGatewayProtocol.request("openWorkspace", homeWorkspace.toString()).similar(homeWorkspace));
+        for (Object source : new Object[]{"session", "", true, JSONObject.NULL}) {
+            homeWorkspace.put("source", source);
+            rejectsWithCode("INVALID_WORKSPACE_SOURCE",
+                    () -> AgentGatewayProtocol.request("openWorkspace", homeWorkspace.toString()));
+        }
         JSONObject question = new JSONObject().put("key", KEY).put("method", "phone/confirmAction")
                 .put("params", new JSONObject().put("threadId", THREAD));
         JSONObject auth = new JSONObject().put("key", "auth").put("method", "account/chatgptAuthTokens/refresh")

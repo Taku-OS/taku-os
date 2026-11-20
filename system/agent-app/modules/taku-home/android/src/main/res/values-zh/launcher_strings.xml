@@ -18,4 +18,14 @@
   <string name="home_pages">分页显示应用</string>
   <string name="home_scroll">在一页显示全部应用</string>
   <string name="home_rename_folder">重命名文件夹</string>
+  <string name="home_workspace_show_previews">展开后台屏预览</string>
+  <string name="home_workspace_hide_previews">收起后台屏预览</string>
+  <string name="home_workspace_open_screen">打开后台屏</string>
+  <string name="home_workspace_open_failed">无法打开后台屏</string>
+  <string name="home_workspace_running">运行中</string>
+  <string name="home_workspace_waiting">等待中</string>
+  <string name="home_workspace_paused">已暂停</string>
+  <string name="home_workspace_user_control">已接管</string>
+  <string name="home_workspace_switching">切换中</string>
+  <string name="home_workspace_unavailable">不可用</string>
 </resources>
