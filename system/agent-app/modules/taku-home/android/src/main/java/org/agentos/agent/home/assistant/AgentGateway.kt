@@ -1,6 +1,8 @@
 package org.agentos.agent.home.assistant
 
 import android.content.ContentResolver
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
@@ -35,6 +37,15 @@ class AgentGateway(private val resolver: ContentResolver) {
   fun openStream(streamUri: String) = Uri.parse(streamUri).let { u ->
     if (u.scheme != "content" || u.authority != AUTHORITY || u.path?.startsWith("/events/") != true) throw GatewayException("INVALID_STREAM", "Invalid session stream URI")
     resolver.openInputStream(u) ?: throw GatewayException("STREAM_EXPIRED", "Session lease expired")
+  }
+
+  /** Reads one frame on a worker thread. */
+  fun readWorkspacePreview(previewUri: String): Bitmap? {
+    val u = Uri.parse(previewUri)
+    if (u.scheme != "content" || u.authority != AUTHORITY || u.path?.startsWith("/preview/home/") != true) {
+      throw GatewayException("INVALID_PREVIEW_URI", "Invalid workspace preview URI")
+    }
+    return resolver.openInputStream(u)?.use { BitmapFactory.decodeStream(it) }
   }
 
   private fun readResult(u: Uri): String {

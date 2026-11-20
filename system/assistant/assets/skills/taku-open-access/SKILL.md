@@ -1,6 +1,6 @@
 ---
 name: taku-open-access
-description: Use Android commands to inspect and operate Taku OS conversations, drafts, accounts, approvals, skills, plugins, Memory, Audio, workspaces, Panels, Feed, widgets and the Dynamic Island.
+description: Use Android commands to inspect and operate Taku OS conversations, drafts, accounts, approvals, skills, plugins, Memory, Audio, workspaces, Panels, Feed, widgets and the Dynamic Island. Also use it whenever the user asks to react to, like or put an emoji on their chat message (a reaction badge on the bubble, such as "add a 🎉 reaction" or "给这条消息点个赞") — reactions/set does that, so never just type the emoji or refuse.
 ---
 
 # TakuOS open access
@@ -25,6 +25,25 @@ taku_call() {
 ```
 
 Check the JSON in `Bundle.result` for `ok` before using `result`. Error shape varies by provider (`code,message` or `error`). If a mutation's reply is lost, read back state or the receipt before retrying. Root, system and ADB shell (UID 0/1000/2000) and trusted platform-signed components pass the ordinary app permission check. Operation-specific user, state and caller requirements still apply. Where App Permission Center policy applies, ordinary third-party apps use `$Q` (default `deny`). App callers may need the provider authorities in manifest `<queries>`. See [Taku system AI settings](../taku-system-ai-settings/SKILL.md) for permissions, model routing, usage and Jev settings, and [Taku Island](../taku-island/SKILL.md) for the SystemUI interface.
+
+### Open-access permission boundary
+
+On `$D`, third-party callers need an explicit `taku.root` grant for `manageAssistant`
+(the whole endpoint, regardless of its inner `operation`), plugin installation/removal,
+configuration writes/reloads, System AI mutations, and writes under `requests/`,
+`accounts/`, `composer/` and `skills/`. This includes approval responses, account
+login/cancel/refresh/key changes, draft/option changes and message submission.
+`taku.control` alone returns `PERMISSION_DENIED` before argument parsing or execution,
+including in auto/yolo mode unless root access is separately enabled by policy.
+
+The family read exceptions remain `taku.control`: `requests/list`, `requests/read`,
+`accounts/read`, `accounts/keys`, `composer/read`, `composer/receipt`,
+`composer/options/read`, `skills/read`, `skills/community/catalog`,
+`skills/community/detail`, `skills/community/check-update` and
+`skills/credentials/status`. `readSystemAi` also remains a control read. Existing
+secret-request restrictions still apply even to third-party root grants.
+UID 0/1000/2000 retain direct access; the first-party GUI uses the signature-protected
+`AgentGatewayProvider` for these operations. Workspace calls remain local-agent-only.
 
 ## Default desktop on Taku images
 
@@ -245,8 +264,9 @@ Besides its normal reply, Taku may put one emoji reaction on a user message (Fig
 a small badge on the bubble's bottom-right corner). For each new user message (one whose turn is
 still being answered) Jev decides once, in a single choice between "No reaction" and 240 curated
 chat-reaction emoji (Unicode's emoji frequency ranking filtered for chat reactions, plus newer
-staples such as 🥹 🫶 🫡), minus any this phone's font cannot draw. A reaction needs 60 % of the
-probability away from "none"; most messages get none. Nothing is decided unless Jev is enabled
+staples such as 🥹 🫶 🫡), minus any this phone's font cannot draw. Jev judges each message on
+its own, without a preference either way, and reacts when more than half of the probability is
+away from "none". Nothing is decided unless Jev is enabled
 with a model (the same switch and model as gateway `decide`), and history is never back-filled.
 Agents set reactions from the same curated list; `reactions/options` returns it. Reactions are stored per thread/turn/item and appear as `reaction` on `userMessage`
 items in session reads and snapshots, and as a live `session/reaction` stream event.
@@ -300,6 +320,10 @@ taku_call "$D" workspaces/configure '{"patch":{"blockedPackages":["com.android.d
 `workspaces/list` optionally takes `threadId`; `apps` returns `{apps,policy}` with `packageName,label,installed,allowed` (including saved blocks for uninstalled apps). `configure.patch` updates only included settings: boolean `allowBackground` (default true; false blocks new ordinary/additional requests), integer `maxActiveScreens` (currently 1–10, default 10; reducing retires excess idle screens at acquisition), and `blockedPackages` (replaces full array, default empty). Errors: `UNKNOWN_WORKSPACE_SETTING`, `INVALID_BACKGROUND_SETTING`, `INVALID_WORKSPACE_LIMIT`, `INVALID_APP_PACKAGE`, `INVALID_SCREEN_PACKAGE`, `DUPLICATE_APP_PACKAGE`.
 
 Policy is saved before cleanup. Read `revocations` by generation: pending, released (blocked Apps cleaned up, other allowed Apps/turn/screen can remain), retained (user controls), failed (may be partial), superseded (target changed). Inspect `released,heldApps,screenRetained`. Revoked queued requests fail `APP_NOT_ALLOWED`. The next phone tool call in an affected turn returns a permission-change notice; reevaluate before further operations.
+
+To match the Taku Home bookmark count, count `result.screens` rows with
+`homePreviewEligible:true`. Pausing/taking over preserves eligibility during `stopping`;
+closing/releasing clears it. Home previews return to the previous Home page on exit.
 
 ### Force-close a specified workspace
 
@@ -678,6 +702,34 @@ taku_call "$A" gesture/activate '{"id":"my-gesture-001"}'
 ### Open-access boundary and request behavior
 
 Audio, Feed events, widget actions, alarms/media and voice can expose personal data or act on the device. Check the per-provider permission policy and Android runtime restrictions. Gesture IDs only sequence operations. SystemUI supplies the native island; `listeningHeaderHost:"unavailable"` means its ROM provider is absent. Use `cmd statusbar island state` for renderer/native readiness, visible text and suggestion count, and `cmd statusbar island action 'KEY' '{"id":"ID"}'` for the same action as a card tap.
+
+## Location arrival events
+
+The Agent shell can register a time-limited arrival watch. Choose the destination with
+the user. Each watch emits one event after Android GPS confirms an outside-to-inside
+transition. The Agent can use the place ID to look up the user's relevant content.
+
+```sh
+R=content://org.agentos.environment.arrival
+expires=$((($(date +%s) + 5400) * 1000))
+content call --uri "$R" --method register --arg "{\"id\":\"visit-1\",\"placeId\":\"saved-place\",\"latitude\":37.0,\"longitude\":-122.0,\"radiusMeters\":200,\"expiresAtMs\":$expires}"
+content call --uri "$R" --method list
+content call --uri "$R" --method pending
+content call --uri "$R" --method ack --arg '{"eventId":"EVENT_ID_FROM_PENDING"}'
+content call --uri "$R" --method cancel --arg '{"id":"visit-1"}'
+```
+
+Use actual destination coordinates in place of the example. Use the same shell identity
+for each call. A watch persists until cancellation or expiry. Acknowledge only after handling
+the event, and use its stable event ID to avoid duplicate reminders. An app can register its
+own receiver to be woken for arrivals. It chooses what to show and handles notification access.
+
+Results are JSON in the Bundle's `result` field. `PERMISSION_DENIED` means the caller
+lacks access. `LOCATION_PERMISSION_REQUIRED` means Taku Location Arrival needs precise
+location and Allow all the time in Android Settings. `LOCATION_UNAVAILABLE` means the
+image has no GPS provider. `INVALID_ARGUMENT` covers malformed input, a radius outside
+100–5000 m, a past expiry or one more than 24 hours away. Monitoring resumes after the
+first unlock following reboot.
 
 ### Native assistant card dismissal
 

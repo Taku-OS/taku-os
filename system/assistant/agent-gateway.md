@@ -38,8 +38,8 @@ Responses over 256 KiB return `{ok:true,resultUri:"content://org.agentos.assista
 | `live/task-replace` | `{threadId,taskId,requestId,text}` | Same task snapshot after requesting cancellation of an owned read-only query. It never submits the replacement. |
 | `live/task-cancel` | `{threadId,taskId,requestId,text}` | Same task snapshot after explicit cancellation of an owned task, regardless of its permission mode. A finished task returns its actual terminal snapshot. |
 | `answer` | `{threadId,key,response}` | Native response receipt; supported pending request must belong to the same thread |
-| `getWorkspaces` | `{threadId}` | `{schema:"taku.agent-workspaces/1",screens:[lease with previewUri]}` |
-| `openWorkspace` | `{threadId,screenKey,generation}` | `{opened:true}`; opens existing native control UI after exact lease check |
+| `getWorkspaces` | `{threadId}` or `{scope:"home"}` | `{schema:"taku.agent-workspaces/1",screens:[lease with previewUri]}` |
+| `openWorkspace` | `{threadId,screenKey,generation,source?:"home"}` | `{opened:true}`; opens existing native control UI after exact lease check |
 | `requests/list`, `requests/read`, `requests/submit`, `requests/respond`, `requests/cancel` | `{threadId,key?,values?,response?}` | Request identities, a request as a form, an answer by form field (secrets in `extras["credential"]`), a raw response, or cancellation |
 | `openSettings` | `{page?:"models"\|"system"\|"workspaces"}` | `{opened:true}` for the matching Expo page |
 | `readTaskDetail` | `{taskId}` | `{taskId,state,prompt,message}` from the native task store |
@@ -111,7 +111,26 @@ Same-thread preflight and publication are serialized through a session gate. Rec
 
 `steer` also requires a stable UUID `requestId`. Its receipt is persisted before calling `turn/steer`; an accepted reply returns `state:"accepted"` and the original result. If the preflight proves the expected turn changed, or the pinned native runtime explicitly returns JSON-RPC `-32600` / `no active turn to steer`, the gateway first confirms the thread is idle and the previous queued task is finished, then publishes the same message as the next task. Its durable receipt retains the original request ID and records the queued task ID. A repeated call reconciles a published task through its `ready` marker without publishing twice. A transport error or other native error remains `deliveryUnknown`; repeating that same ID returns the receipt without issuing the mutation again. Existing unknown receipts cannot be converted to a new task without evidence that the old mutation was not delivered. Reusing an ID with different text or turn fails.
 
-Preview URI: `content://org.agentos.assistant.agent-gateway/preview/<threadId>/<screenKey>/<generation>`. Read with `openInputStream` on a worker thread. The native directory read is scoped to the exact requested thread, so unrelated screens cannot delay its validation. A successful `getWorkspaces` read publishes an immutable, verified native catalog with a five-second monotonic lifetime. Frame reads share that catalog instead of performing two full directory reads per frame. They validate socket UID/PID, display identity, generation and JPEG dimensions, then recheck both the original catalog lifetime and the current exact lease before returning. New catalog responses do not renew an old frame's verification time. Selection, current read failure and current frame failure invalidate the applicable catalog; stale asynchronous failures cannot erase newer results. `openWorkspace` still performs a fresh native catalog validation. Only the selected session's admitted independent screens are exposed (maximum three). Frame bytes travel over a pipe, not a Binder Bundle. This is a view-only snapshot; touching the preview should call `openWorkspace`, never generate input from JS. Stop polling when the UI is hidden and clear stale frames on read failure.
+Use `{scope:"home"}` by itself to list all eligible Home screens in broker order. The
+broker publishes `homePreviewEligible` on its workspace rows. Home uses this list for
+both the count and the cards. Each row carries a Home preview URI at
+`/preview/home/<threadId>/<screenKey>/<generation>` on the same gateway. Open it with
+`openInputStream` on a worker thread for a single JPEG when the card becomes visible.
+The Home UI keeps the frame for that expansion and reads again on the next expansion.
+An unsupported scope returns `INVALID_WORKSPACE_SCOPE`. Mixing scope with `threadId`
+returns `UNSUPPORTED_PARAMETER`.
+
+Session previews use `content://org.agentos.assistant.agent-gateway/preview/<threadId>/<screenKey>/<generation>`. Read with `openInputStream` on a worker thread. The native directory read is scoped to the exact requested thread and exposes up to three of its admitted independent screens. The JPEG is view-only. Use `openWorkspace` to open the full screen from a session preview. It performs a fresh native catalog validation. Stop session frame polling when the UI is hidden and clear stale frames on read failure.
+
+For a Home card, pass `source: "home"` to `openWorkspace` along with the card's
+`threadId`, `screenKey` and `generation`. The gateway rechecks the identity against
+the current Home list, and cards can open while their frames are loading. Back and
+the viewer's exit control return to the previous Home page with the previews
+collapsed. Omitting `source` uses the session list and returns to the original
+conversation on Back. An unsupported source returns `INVALID_WORKSPACE_SOURCE`.
+A screen that no longer matches the list returns `SCREEN_LEASE_CHANGED`.
+
+Home and session `getWorkspaces` reads publish independent, immutable verified catalogs with a five-second monotonic lifetime. Each frame read uses the matching catalog and validates socket UID/PID, display identity, generation and JPEG dimensions. Before returning the JPEG over a pipe, it rechecks the original catalog lifetime and the current exact lease. Current read and frame failures invalidate the applicable catalog. Session selection invalidates the session catalog. Stale asynchronous failures leave newer results intact.
 
 `MirrorActivity` and `WorkspaceFloatService` are Kotlin runtime components. Workspace commands use `WorkspaceCommands`; control revisions, pointer translation, request receipts, and preview rendering keep their existing owners. Explicit Back, a confirmed Stop, and the floating preview's chat action return through `AgentFrontendLauncher.openThread` to the admitted lease's `threadId`. A supplied return-conversation extra cannot select another thread. If the Agent application cannot open, the component displays an unavailable message and keeps the workspace available. Minimizing, replacing a lease, closing the floating preview, and destroying either component do not open chat or resume execution.
 
@@ -145,5 +164,9 @@ adb -s emulator-5590 shell am instrument -w -e expectDenied true org.agentos.gat
 The positive instrumentation runs inside the installed `org.agentos.agent` process and verifies its ordinary UID, real thread list/snapshot identity, prohibited raw RPC/parameter rejection, and exact-session workspace catalog. If a real screen lease exists it reads a JPEG via the protected content URI. The negative APK has the same development signature and signature permission, but its different ordinary package must still be rejected. No message, new session, answer, cancellation, control handoff or model turn is submitted. Instrumentation may restart the UI process, so run it before collecting final screenshots and reopen the UI afterward.
 
 Before the Expo build is available, `client.apk` is a minimal ordinary-UID APK with the exact `org.agentos.agent` package and self-targeting instrumentation. It uses only Android SDK Java, no React Native dependencies. On a development emulator with no production Agent app to preserve, the device owner may install it and run `adb -s emulator-5590 shell am instrument -w -e threadId EXISTING_REAL_THREAD_ID org.agentos.agent/org.agentos.gatewayprobe.GatewayProbe`. Later install the same-signed Expo APK with `-r` to preserve the UID; do not uninstall to work around a signing mismatch. This temporary probe proves the gateway boundary only, never the Expo bridge or actual UI. Once the Expo APK is installed, use the separate `allowed.apk` instrumentation above to test the final application's UID.
+
+Add `-e homeWorkspaces true` to read the Home list. Supply `-e threadId THREAD_ID`
+to read the session list in the same run. Compare `homeScreens` by screen identity and
+status with the eligible rows from the Agent's `workspaces/list` command.
 
 `previewSamples` accepts 1–10 (default 1) and records per-sample catalog/JPEG timings, verified counts and failure phase without conversation contents. Save the instrumentation JSON with the APK hashes and device build fingerprint. `passed:true` covers only the reported checks. `previewVerified:false` or `workspaceCount:0` means frame transport remains unverified. `largeResultPipeExercised:false` means the actual history did not exercise the oversized-result path. These are not UI layout, live streaming, mutation, Pixel or ROM acceptance; those need separate evidence from the actual APK.

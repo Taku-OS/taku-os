@@ -8,6 +8,7 @@ import android.os.Process
 import android.widget.Toast
 
 internal object AgentFrontendLauncher {
+    const val RETURN_WORKSPACE_HOME = "org.agentos.agent.home.extra.RETURN_FROM_WORKSPACE"
     private const val PACKAGE = "org.agentos.agent"
     private const val MAIN_ACTIVITY = "$PACKAGE.MainActivity"
     private const val HOME_ACTIVITY = "$PACKAGE.home.HomeActivity"
@@ -16,6 +17,10 @@ internal object AgentFrontendLauncher {
 
     @JvmStatic
     fun openHome(context: Context): Boolean = start(context, HOME_ACTIVITY, Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME))
+
+    @JvmStatic
+    fun returnToWorkspaceHome(context: Context): Boolean = start(context, HOME_ACTIVITY,
+        Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME).putExtra(RETURN_WORKSPACE_HOME, true))
 
     @JvmStatic
     fun openThread(context: Context, threadId: String): Boolean = AgentGatewayProtocol.isUuid(threadId) &&

@@ -51,6 +51,7 @@ class MirrorActivity : Activity() {
     private var stop: Button? = null
     private lateinit var appIcon: ImageView
     private lateinit var edit: ImageButton
+    private lateinit var minimize: ImageButton
     private lateinit var backInApp: ImageButton
     private lateinit var activityToggle: ImageButton
     private lateinit var statusDot: View
@@ -85,6 +86,7 @@ class MirrorActivity : Activity() {
     private var lease: JSONObject? = null
     private var admittedThread: String? = null
     private var returnedToConversation = false
+    private var suppressWorkspaceReturn = false
     @Volatile private var width = 720
     @Volatile private var height = 1280
     private var downX = 0f
@@ -122,12 +124,14 @@ class MirrorActivity : Activity() {
             WorkspaceFloatService.hide(this)
             if (WorkspaceUi.same(lease, next)) {
                 setIntent(intent)
+                minimize.contentDescription = getString(exitLabel())
                 requirement?.start()
             } else {
                 // Readers and input gates stay bound to one lease for the Activity's lifetime.
                 val fresh = Intent(this, MirrorActivity::class.java)
                 intent.extras?.let { fresh.putExtras(it) }
                 startActivity(fresh)
+                suppressWorkspaceReturn = true
                 finish()
             }
         } catch (_: Exception) {
@@ -145,8 +149,31 @@ class MirrorActivity : Activity() {
     @Deprecated("Uses the platform back dispatcher")
     override fun onBackPressed() = returnToConversation()
 
+    private fun returnsHome(): Boolean = intent?.getBooleanExtra(AgentFrontendLauncher.RETURN_WORKSPACE_HOME, false) == true
+
+    private fun exitLabel(): Int = if (returnsHome()) R.string.workspace_back else R.string.workspace_interaction_minimize
+
+    override fun finish() {
+        // Home launches restore its saved page even if the preview closes before admission.
+        // Replacing a lease must not bring Home over the newly opened viewer.
+        if (returnsHome() && !suppressWorkspaceReturn && !returnedToConversation) {
+            returnedToConversation = true
+            AgentFrontendLauncher.returnToWorkspaceHome(this)
+        }
+        super.finish()
+    }
+
     private fun returnToConversation() {
         if (isFinishing || isDestroyed || returnedToConversation) return
+        if (returnsHome()) {
+            if (!AgentFrontendLauncher.returnToWorkspaceHome(this)) {
+                Toast.makeText(this, R.string.workspace_unavailable_copy, Toast.LENGTH_LONG).show()
+                return
+            }
+            returnedToConversation = true
+            finish()
+            return
+        }
         val thread = admittedThread
         if (thread != null && thread == lease?.optString("threadId")) {
             if (!AgentFrontendLauncher.openThread(this, thread)) {
@@ -215,7 +242,11 @@ class MirrorActivity : Activity() {
             setEditingRequirement(!editingRequirement)
         }.apply { isEnabled = lease != null }
         header.addView(edit)
-        val minimize = icon(R.drawable.ic_taku_fullscreen_exit, R.string.workspace_interaction_minimize) {
+        minimize = icon(R.drawable.ic_taku_fullscreen_exit, exitLabel()) {
+            if (returnsHome()) {
+                returnToConversation()
+                return@icon
+            }
             val origin = lease
             val requested = origin != null && WorkspaceFloatService.show(this, origin) {
                 if (!isFinishing && !isDestroyed) finish()
