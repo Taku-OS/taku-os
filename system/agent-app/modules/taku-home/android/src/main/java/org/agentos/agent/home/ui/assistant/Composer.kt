@@ -94,6 +94,13 @@ import org.agentos.agent.home.design.TakuTheme
 import org.agentos.agent.home.ui.effects.Shaders
 import kotlin.math.max
 import kotlin.math.roundToInt
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Color
 
 /**
  * The text input (1-2 → 1-3, dictation 1-5). Opening pops a glass capsule off the top of the
@@ -187,8 +194,9 @@ fun BoxScope.TextComposer(scene: GraphicsLayer, open: Boolean, state: AssistantS
   ) {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(TakuSpacing.sm)) {
       Row(Modifier.fillMaxWidth().weight(1f, fill = false), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(TakuSpacing.sm)) {
-        Column(Modifier.weight(1f).padding(start = 4.dp).verticalScroll(textScroll)) {
-          Box(contentAlignment = Alignment.CenterStart) {
+        // 1-5 (node 1:4164) while capturing: one 40 dp line beside the meter and the stop button.
+        Column(Modifier.weight(1f).padding(start = 4.dp).then(if (capturing) Modifier.height(TakuSize.control) else Modifier.verticalScroll(textScroll))) {
+          Box(Modifier.then(if (capturing) Modifier.fillMaxHeight().clipToBounds() else Modifier), contentAlignment = Alignment.CenterStart) {
             // The field stays composed and focused while recording (1-5): swapping it out would
             // drop focus and the IME connection. It is only hidden behind the live preview, and
             // keystrokes are held off only while capture is actually running.
@@ -207,14 +215,15 @@ fun BoxScope.TextComposer(scene: GraphicsLayer, open: Boolean, state: AssistantS
                 inner()
               },
             )
-            if (capturing) DictationText(tailStatus ?: "Listening…")
+            if (capturing) DictationLine(tailStatus ?: "Listening…")
           }
           // Preparing, or recognising the tail: the draft stays visible, the state is separate.
           if (!capturing && tailStatus != null) DictationText(tailStatus)
-          if (state.draftAttachmentNames.isNotEmpty()) {
+          if (!capturing && state.draftAttachmentNames.isNotEmpty()) {
             BasicText(state.draftAttachmentNames.joinToString(" · "), style = TakuTheme.type.bodyLg.copy(color = colors.textSecondary))
           }
         }
+        if (capturing) DictationMeter(voice.levels)
         when {
           dictating && voice.phase != VoicePhase.Preparing && voice.phase != VoicePhase.Capturing ->
             Box(Modifier.size(TakuSize.control).semantics { contentDescription = "Recognising" }, contentAlignment = Alignment.Center) { WorkingDots(ink = TakuTheme.colors.textPrimary) }
@@ -225,9 +234,6 @@ fun BoxScope.TextComposer(scene: GraphicsLayer, open: Boolean, state: AssistantS
           canSend -> RoundButton(colors.accentSend, "Send", onClick = { send() }) { TakuIcon(TakuIcons.ArrowUp, 18.dp, tint = colors.icon) }
           else -> RoundButton(null, "Dictate", onClick = { session.startDictation() }) { TakuIcon(TakuIcons.Mic, 18.dp, tint = colors.icon) }
         }
-      }
-      if (dictating) {
-        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { DictationWave(voice.levels) }
       }
       state.retainedVoice?.let { RetainedVoice(it, Modifier.weight(1f, fill = false)) }
     }
@@ -273,22 +279,57 @@ private fun DictationText(text: String) {
   )
 }
 
+/**
+ * The live transcript on one line (1-5, node 1:4167): Body/Regular/lg in Content/800. It keeps
+ * the newest words in view; once the line overflows, the older words fade out over 90 dp at the
+ * start (to 24 %, the frame's fade), so nothing just said disappears under the meter.
+ */
 @Composable
-private fun DictationWave(levels: List<Float>) {
+private fun DictationLine(text: String) {
+  val colors = TakuTheme.colors
+  val scroll = rememberScrollState()
+  LaunchedEffect(text, scroll.maxValue) { scroll.scrollTo(scroll.maxValue) }
+  val overflowing = scroll.maxValue > 0
+  BasicText(
+    text.ifEmpty { " " },
+    style = TakuTheme.type.bodyLg.copy(color = colors.textSecondary),
+    maxLines = 1,
+    softWrap = false,
+    modifier = Modifier
+      .fillMaxWidth()
+      .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+      .drawWithContent {
+        drawContent()
+        if (overflowing) {
+          val fade = minOf(90.dp.toPx(), size.width)
+          drawRect(Brush.horizontalGradient(0f to Color.Black.copy(alpha = 0.24f), fade / size.width to Color.Black), blendMode = BlendMode.DstIn)
+        }
+      }
+      .horizontalScroll(scroll, enabled = false),
+  )
+}
+
+/**
+ * "Voice waveform · Gap 2" (1-5, node 1:4169): 29 resting 3 dp dots (Main/Foreground at 20 %),
+ * then six bars (55 %, the last 38 %) whose Figma heights 8/13/6/8/11/4 dp scale with the latest
+ * measured levels, as in the chat's dictation bar; 2 dp apart, 32 dp tall.
+ */
+@Composable
+private fun DictationMeter(levels: List<Float>) {
   val ink = TakuTheme.colors.surfaceInverse
-  val shape = remember { floatArrayOf(6f, 10f, 16f, 22f, 28f, 32f, 32f, 28f, 22f, 16f, 10f, 6f) }
-  val dots = 8
-  Canvas(Modifier.size(width = ((dots * 2 + shape.size) * 5 - 2).dp, height = 40.dp)) {
+  val shape = remember { floatArrayOf(8f, 13f, 6f, 8f, 11f, 4f) }
+  val dots = 29
+  Canvas(Modifier.size(width = ((dots + shape.size) * 5 - 2).dp, height = 32.dp).semantics { contentDescription = "Listening" }) {
     val unit = 3.dp.toPx(); val pitch = 5.dp.toPx(); val cy = size.height / 2f
     for (i in 0 until dots) {
       drawRoundRect(ink, Offset(i * pitch, cy - unit / 2), androidx.compose.ui.geometry.Size(unit, unit), CornerRadius(unit / 2), alpha = 0.2f)
-      drawRoundRect(ink, Offset((dots + shape.size + i) * pitch, cy - unit / 2), androidx.compose.ui.geometry.Size(unit, unit), CornerRadius(unit / 2), alpha = 0.2f)
     }
     for (i in shape.indices) {
-      val level = levels.getOrNull(levels.size - shape.size + i) ?: 0f
-      val amplitude = ((level - 0.15f) / 0.45f).coerceIn(0f, 1f)
-      val h = (3f + (shape[i] - 3f) * amplitude).dp.toPx()
-      drawRoundRect(ink, Offset((dots + i) * pitch, cy - h / 2), androidx.compose.ui.geometry.Size(unit, h), CornerRadius(unit / 2), alpha = 0.7f)
+      val level = levels.getOrNull(levels.size - shape.size + i)
+      val scale = if (level == null) 0.4f else 0.4f + level.coerceIn(0f, 1f) * 1.2f
+      val h = (3f + (shape[i] - 3f) * scale).coerceIn(3f, 16f).dp.toPx()
+      drawRoundRect(ink, Offset((dots + i) * pitch, cy - h / 2), androidx.compose.ui.geometry.Size(unit, h), CornerRadius(unit / 2),
+        alpha = if (i == shape.lastIndex) 0.38f else 0.55f)
     }
   }
 }
