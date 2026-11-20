@@ -430,14 +430,14 @@ Open `org.agentos.audio/.AudioHomeActivity` for the GUI. It starts no inference.
 ## Message reactions
 
 Besides its normal reply, Taku may put one emoji reaction on a user message (Figma 297:433:
-a small badge on the bubble's bottom-right corner). Any fully-qualified Unicode emoji (UTS #51,
-Emoji 18.0 catalog in the assistant) that this phone's font renders can be used; newer emoji the
-font lacks are never offered or accepted. For each new user message (one whose turn is still being
-answered) Jev decides once, in up to three choices: react or not and from which Unicode group (a
-reaction needs 60 % of the probability away from "none"), then the subgroup, then the emoji in
-its default skin tone. Most messages get none after the first choice. Nothing is decided unless
-Jev is enabled with a model (the same switch and model as gateway `decide`), and history is never
-back-filled. Reactions are stored per thread/turn/item and appear as `reaction` on `userMessage`
+a small badge on the bubble's bottom-right corner). For each new user message (one whose turn is
+still being answered) Jev decides once, in a single choice between "No reaction" and 240 curated
+chat-reaction emoji (Unicode's emoji frequency ranking filtered for chat reactions, plus newer
+staples such as 🥹 🫶 🫡), minus any this phone's font cannot draw. A reaction needs 60 % of the
+probability away from "none"; most messages get none. Nothing is decided unless Jev is enabled
+with a model (the same switch and model as gateway `decide`), and history is never back-filled.
+Agents are not limited to that list: any fully-qualified Unicode emoji (Emoji 18.0) the phone
+renders can be set. Reactions are stored per thread/turn/item and appear as `reaction` on `userMessage`
 items in session reads and snapshots, and as a live `session/reaction` stream event.
 
 ```sh
