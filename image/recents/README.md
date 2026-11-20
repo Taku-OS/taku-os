@@ -26,6 +26,9 @@ not a rule that only the center card can be manipulated. Tapping an exposed side
 task; dragging upward there dismisses that task. All cards whose bounds intersect the screen load
 preview data. Overlap uses actual page spacing, so scroll positions and the native live-task geometry
 use the same positions; depth scaling is shared with the live-window simulator rather than applied to screenshots alone.
+The ClearAll gap is widened only to cancel the deck's negative page spacing, so the oldest-task
+scroll bound (`getLastTaskScroll`) keeps upstream's carousel distance; counting that gap there would
+clamp every task to one page scroll (deck shifted left, cards bunched, paging snapping back).
 
 ## Build
 

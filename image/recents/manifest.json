@@ -1,7 +1,7 @@
 {
   "schema": "taku.recents-patch/1",
   "upstreamCommit": "818f72b74e6f914cbca2b465776d6d20f960ee87",
-  "patchSha256": "e070ee4cc07105bca54107bb868b39933b1215c4c8a491b689c3f4741afce747",
+  "patchSha256": "2beaf950ba407edd0ba73a020a371323579e4c03e1aeb88314590dc2cd32c8f0",
   "files": [
     {
       "path": "quickstep/AndroidManifest.xml",
@@ -76,7 +76,7 @@
     {
       "path": "quickstep/src/com/android/quickstep/views/RecentsView.java",
       "beforeSha256": "f5379751aaa53f8e479a3814a69a86d0c16ff3b1be596813748c9c4551ee33b7",
-      "afterSha256": "e080e48ce7ee9a68aa99bca64e190deba3f15c159d5e1e394b93eef56a371208"
+      "afterSha256": "7f3c3a83b4c1f93f9df11722ad56369dbd7232b097378811d8f225027dc23c9c"
     },
     {
       "path": "quickstep/src/com/android/quickstep/views/RecentsViewUtils.kt",
