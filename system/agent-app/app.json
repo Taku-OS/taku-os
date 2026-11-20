@@ -3,12 +3,12 @@
     "name": "Taku Agent",
     "slug": "taku-agent",
     "scheme": "taku-agent",
-    "version": "0.5.0",
+    "version": "0.5.1",
     "orientation": "default",
     "userInterfaceStyle": "automatic",
     "android": {
       "package": "org.agentos.agent",
-      "versionCode": 11,
+      "versionCode": 12,
       "permissions": [
         "org.agentos.permission.AGENT_CLIENT"
       ],

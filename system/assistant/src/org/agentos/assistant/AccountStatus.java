@@ -14,6 +14,8 @@ import org.json.JSONObject;
  */
 final class AccountStatus {
     private static final int MAX_VIEW = 32768;
+    private static boolean refreshing;
+    private static long nextRefresh;
 
     private AccountStatus() {}
 
@@ -31,10 +33,34 @@ final class AccountStatus {
                 bytes.write(buffer, 0, count);
                 if (bytes.size() > MAX_VIEW) throw new IOException("Account view too large");
             }
-            return new JSONObject(bytes.toString(StandardCharsets.UTF_8.name()));
+            JSONObject view = new JSONObject(bytes.toString(StandardCharsets.UTF_8.name()));
+            if ("loading".equals(view.optString("phase"))) refreshColdAccount();
+            return view;
         } catch (org.json.JSONException e) {
             throw new IOException("Invalid account view", e);
         }
+    }
+
+    /** A cold broker has no account snapshot until account/read starts its lazy runtime. */
+    private static synchronized void refreshColdAccount() {
+        long now = android.os.SystemClock.elapsedRealtime();
+        if (refreshing || now < nextRefresh) return;
+        refreshing = true;
+        Thread worker = new Thread(() -> {
+            try {
+                // Same read as the account page: never starts sign-in or changes model mode.
+                TaskRequests.control("account/read", new JSONObject());
+            } catch (Exception unavailable) {
+                // Keep the honest loading state; retry after backoff, without logging secrets.
+            } finally {
+                synchronized (AccountStatus.class) {
+                    nextRefresh = android.os.SystemClock.elapsedRealtime() + 15_000;
+                    refreshing = false;
+                }
+            }
+        }, "taku-account-refresh");
+        worker.setDaemon(true);
+        worker.start();
     }
 
     /** The shareable status; throws `ACCOUNT_UNAVAILABLE` when the broker cannot be reached. */
