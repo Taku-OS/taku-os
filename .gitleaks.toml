@@ -128,6 +128,9 @@ paths = ['''^image/runtime\-assets\.lock\.json$''']
 regexes = [
     # SHA-256 of system/agent-app/modules/taku-home/android/src/main/java/org/agentos/agent/home/design/Tokens.kt.
     '''^56d2d3c9a73137ca1d84d335e355f83b5acebe2db26e72517b66ce216255aad7$''',
+    # Verified onboarding source SHA-256 digests: Tokens.kt and TakuCallerAccess.kt.
+    '''^4a3cd2d45986a0b63081ad4c9eee63ca3e3cecfe9adcfa470cbfb9f83543ebb2$''',
+    '''^78882e1d0704ea3b41acabd85821b2bdb42bcc0040f7132a95e932484a540c81$''',
     '''^8521cd388a48f7a906fa78363333ff5cf0e02677b03d6e099c045ff6da836ce3$''',
     '''^9f6953acfa229929a9c91c9b482d7f7c2a44cbe2dd22e5de9efa7fe87c58a1e8$''',
     '''^db0e52a00e7f4bfa6050b9cf07296ac350a5e6056e2d46714e2bc013b0dec365$''',
