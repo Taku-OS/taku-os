@@ -1,0 +1,4 @@
+tokens 24: median 1.7 ms, p95 1.8 ms
+tokens 40: median 2.4 ms, p95 2.7 ms
+tokens 64: median 4.0 ms, p95 4.6 ms
+session init 76 ms

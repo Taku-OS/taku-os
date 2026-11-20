@@ -1,0 +1,4 @@
+loaded 1000000 vectors in 3.9 s; heap used 2.41 GB
+loaded 100000 nodes; heap used 3.68 GB
+b1m.db: 1000000 memories, 100000 nodes; ranked lists identical for 16/16 queries
+  evidence vector top-30: 1298.06 -> 710.79 ms | node lists: 295.57 -> 132.38 ms | whole in-memory ranking: 2029.63 -> 955.39 ms (median)

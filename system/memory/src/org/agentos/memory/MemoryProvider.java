@@ -37,6 +37,15 @@ public final class MemoryProvider extends ContentProvider {
        if(!BuildFlags.DEBUG||!root)throw new SecurityException("Available only in debug builds");long at=p.optLong("now",s.now());String kind=p.optString("kind").equals("evening")?"evening":"message";
        long id=ProactiveNotice.deliver(getContext(),s,kind,p.optString("title"),kind.equals("evening")?String.join("\n",Proactive.strings(p.optJSONArray("items"))):p.getString("say"),"","",at,new JSONObject().put("message",p.optString("text")).put("conflict",p.optBoolean("conflict")).put("package",p.optString("package")));
        r=new JSONObject().put("id",id).put("nudge",s.nudge(id));break;}
+      case "benchSearch":{   // Debug: read-only timing of each search stage (median ms); changes no data; the first call includes the cold start.
+       if(!BuildFlags.DEBUG||!root)throw new SecurityException("Available only in debug builds");JSONArray qs=p.optJSONArray("queries");int reps=Math.max(1,Math.min(20,p.optInt("repeat",5))),lim=Math.max(1,Math.min(20,p.optInt("limit",10)));
+       String[] names={"keyword","waitVectors","nodes","nodeKeyword","nodeVectors","fuseHop","items","total","queryVector","evidenceVectors"};
+       JSONArray per=new JSONArray();long[] first=new long[10];boolean cold=true;
+       for(int i=0;qs!=null&&i<qs.length();i++){String q=qs.getString(i);long[][] all=new long[reps][];int hits=0;
+        for(int j=0;j<reps;j++){long[] t=new long[10];hits=s.search(q,lim,t).length();all[j]=t;if(cold){first=t.clone();cold=false;}}
+        JSONObject m=new JSONObject().put("query",q).put("hits",hits);for(int k=0;k<10;k++){long[] x=new long[reps];for(int j=0;j<reps;j++)x[j]=all[j][k];java.util.Arrays.sort(x);m.put(names[k],x[reps/2]/1e6);}per.put(m);}
+       JSONObject f=new JSONObject();for(int k=0;k<10;k++)f.put(names[k],first[k]/1e6);
+       r=new JSONObject().put("medianMs",per).put("firstCallMs",f).put("vectors",Recall.vecCount).put("nodes",Recall.nodeVers==null?0:Recall.nodeVers.size());break;}
       case "feedTidy":{   // Debug: run nightly cleanup immediately on the Home-card thread: read reactions and retract expired/deleted cards; withdraw retracts all.
        if(!BuildFlags.DEBUG||!root)throw new SecurityException("Available only in debug builds");long at=p.optLong("now",s.now());boolean all=p.optBoolean("withdraw");
        JSONObject out=ProactiveNotice.FEED.submit(()->{JSONObject o=new JSONObject();if(all)o.put("withdrawn",ProactiveNotice.withdraw(getContext(),s));else o.put("read",ProactiveNotice.readBack(getContext(),s,at)).put("swept",ProactiveNotice.sweep(getContext(),s,at));return o.put("feedExpiring",ProactiveNotice.expiringCards(s));}).get(150,java.util.concurrent.TimeUnit.SECONDS);
