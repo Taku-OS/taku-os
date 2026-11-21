@@ -302,7 +302,7 @@ private fun DictationLine(text: String) {
         drawContent()
         if (overflowing) {
           val fade = minOf(90.dp.toPx(), size.width)
-          drawRect(Brush.horizontalGradient(0f to Color.Black.copy(alpha = 0.24f), fade / size.width to Color.Black), blendMode = BlendMode.DstIn)
+          drawRect(Brush.horizontalGradient(0f to colors.textPrimary.copy(alpha = 0.24f), fade / size.width to colors.textPrimary.copy(alpha = 1f)), blendMode = BlendMode.DstIn)
         }
       }
       .horizontalScroll(scroll, enabled = false),
