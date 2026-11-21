@@ -54,6 +54,9 @@ public final class TryOnController {
     }
     /** Visible image/prompt draft, shared by the activity and Agent. No model work. */
     public static synchronized Bundle draft(Context context, Bundle args) {
+        return draft(context,args,false);
+    }
+    private static synchronized Bundle draft(Context context,Bundle args,boolean referenceChanged) {
         android.content.SharedPreferences prefs=context.getSharedPreferences("tryon-draft",Context.MODE_PRIVATE);
         if(args!=null) {
             if(!validArguments(args,"mode","referenceUri","prompt","referenceExpires"))return result(false,"invalid_arguments");
@@ -66,7 +69,7 @@ public final class TryOnController {
             if(prompt.length()>2000)return result(false,"invalid_prompt");
             long expires=args.getLong("referenceExpires",prefs.getLong("referenceExpires",0));
             if(expires<0)return result(false,"invalid_request");
-            if(mode.equals(prefs.getString("mode",OUTFIT))&&uri.equals(prefs.getString("referenceUri",""))&&prompt.equals(prefs.getString("prompt",""))&&expires==prefs.getLong("referenceExpires",0))return draft(context,null);
+            if(!referenceChanged&&mode.equals(prefs.getString("mode",OUTFIT))&&uri.equals(prefs.getString("referenceUri",""))&&prompt.equals(prefs.getString("prompt",""))&&expires==prefs.getLong("referenceExpires",0))return draft(context,null);
             if(!prefs.edit().putLong("revision",prefs.getLong("revision",0)+1).putString("mode",mode).putString("referenceUri",uri).putString("prompt",prompt).putLong("referenceExpires",expires).commit())return result(false,"storage_failed");
         }
         Bundle out=result(true,"draft");
@@ -87,7 +90,7 @@ public final class TryOnController {
             if(referenceExpires!=0&&SystemClock.elapsedRealtime()>=referenceExpires){file.failWrite(out);return result(false,"reference_expired");}
             Bundle b=new Bundle();b.putString("referenceUri","content://org.taku.tryon.api/reference/current");b.putLong("referenceExpires",referenceExpires);
             Bundle before=draft(context,null),saved;
-            try{saved=draft(context,b);}catch(RuntimeException failed){saved=result(false,"storage_failed");}
+            try{saved=draft(context,b,true);}catch(RuntimeException failed){saved=result(false,"storage_failed");}
             if(!saved.getBoolean("ok")){file.failWrite(out);out=null;restoreImportedDraft(context,before);return saved;}
             file.finishWrite(out);return saved;
         }catch(java.io.IOException|RuntimeException failed){if(out!=null)file.failWrite(out);return result(false,"storage_failed");}

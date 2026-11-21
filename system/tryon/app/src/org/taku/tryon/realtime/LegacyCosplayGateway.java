@@ -72,15 +72,17 @@ public final class LegacyCosplayGateway {
         if(values==null||!CosplayContract.SCHEMA.equals(values.get("schema"))||values.size()<2
                 ||!Set.of("schema","enabled","voiceOnly","provider","environment").containsAll(values.keySet()))return response(false,"Invalid voice settings.");
         for(String key:values.keySet())if((key.equals("enabled")||key.equals("voiceOnly"))?!(values.get(key) instanceof Boolean):!(values.get(key) instanceof String))return response(false,"Invalid voice settings.");
-        if(CallTryOnService.busy())return response(false,"Stop the previous preview before changing settings.");
-        Bundle config=new Bundle();config.putString("mode",TryOnController.CHARACTER);
-        if(values.containsKey("provider"))config.putString("provider",values.getString("provider"));
-        if(values.containsKey("environment"))config.putString("region",values.getString("environment"));
-        Bundle configured=TryOnController.configure(context,config);if(!configured.getBoolean("ok"))return response(false,"Invalid character model settings.");
-        android.content.SharedPreferences.Editor edit=prefs(context).edit();
-        if(values.containsKey("enabled"))edit.putBoolean("enabled",values.getBoolean("enabled"));
-        if(values.containsKey("voiceOnly"))edit.putBoolean("voiceOnly",values.getBoolean("voiceOnly"));
-        return edit.commit()?state(context,true):response(false,"Could not save voice settings.");
+        synchronized(TryOnController.class){
+            if(CallTryOnService.busy())return response(false,"Stop the previous preview before changing settings.");
+            Bundle config=new Bundle();config.putString("mode",TryOnController.CHARACTER);
+            if(values.containsKey("provider"))config.putString("provider",values.getString("provider"));
+            if(values.containsKey("environment"))config.putString("region",values.getString("environment"));
+            Bundle configured=TryOnController.configure(context,config);if(!configured.getBoolean("ok"))return response(false,"Invalid character model settings.");
+            android.content.SharedPreferences.Editor edit=prefs(context).edit();
+            if(values.containsKey("enabled"))edit.putBoolean("enabled",values.getBoolean("enabled"));
+            if(values.containsKey("voiceOnly"))edit.putBoolean("voiceOnly",values.getBoolean("voiceOnly"));
+            return edit.commit()?state(context,true):response(false,"Could not save voice settings.");
+        }
     }
     private static Bundle prepare(Context context,Bundle extras){
         byte[] owned=null;

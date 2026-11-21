@@ -57,21 +57,30 @@ public final class DirectCosplayActivity extends Activity {
         deadline=Math.min(request.invokedAtElapsedMs()+CosplayContract.MAX_INVOCATION_AGE_MS,request.capturedAtElapsedMs()+CosplayContract.MAX_CAPTURE_AGE_MS);
         if(!ReferenceImport.begin()){Arrays.fill(request.jpeg(),(byte)0);fail("Another reference is being prepared. Please wait.");return;}
         work.execute(()->{
-            try{ReferenceImport.write(this,new ByteArrayInputStream(request.jpeg()),deadline);}
+            final Bundle imported;
+            try{imported=ReferenceImport.write(this,new ByteArrayInputStream(request.jpeg()),deadline);}
             finally{Arrays.fill(request.jpeg(),(byte)0);}
             main.post(()->{
                 if(closed||!resumed)return;
                 if(!unlocked()||SystemClock.elapsedRealtime()>=deadline){fail("Character request expired before startup. Ask again from TikTok.");return;}
-                if(!"ready".equals(ReferenceImport.status().optString("state"))){fail("Could not prepare the character image. Ask again from TikTok.");return;}
-                if(!LegacyCosplayGateway.ready(this)||LegacyCosplayGateway.voiceOnly(this)){fail("Character preview is not ready. Check model settings and ask again.");return;}
-                Bundle draft=new Bundle();draft.putString("mode",TryOnController.CHARACTER);
-                // Preserve the existing Pixel voice feature's fixed outfit/accessory-only policy.
-                // Its old model metadata declares these as requested constraints, not a face-lock guarantee.
-                draft.putString("prompt","Transfer only the reference character's outfit and worn accessories to the live person. Preserve the live person's face, hair, skin, identity and body. Do not copy the reference person's face or hair. These outfit-only constraints take priority over the general target-character description.");
-                Bundle result=TryOnController.draft(this,draft);
-                if(result.getBoolean("ok"))result=TryOnController.start(this,new Bundle());
-                if(!result.getBoolean("ok")){fail("Could not start character preview: "+result.getString("code","unavailable"));return;}
-                started=true;main.post(check);
+                if(!imported.getBoolean("ok")){fail("Could not prepare the character image. Ask again from TikTok.");return;}
+                synchronized(TryOnController.class){
+                    Bundle current=TryOnController.draft(this,null);
+                    if(!current.getBoolean("ok")||current.getLong("revision")!=imported.getLong("revision")
+                            ||!current.getString("referenceUri","").equals(imported.getString("referenceUri",""))
+                            ||current.getLong("referenceExpires")!=deadline||imported.getLong("referenceExpires")!=deadline){
+                        fail("The reference image changed. Return to TikTok and ask again.");return;
+                    }
+                    if(!LegacyCosplayGateway.ready(this)||LegacyCosplayGateway.voiceOnly(this)){fail("Character preview is not ready. Check model settings and ask again.");return;}
+                    Bundle draft=new Bundle();draft.putString("mode",TryOnController.CHARACTER);
+                    // Preserve the existing Pixel voice feature's fixed outfit/accessory-only policy.
+                    // Its old model metadata declares these as requested constraints, not a face-lock guarantee.
+                    draft.putString("prompt","Transfer only the reference character's outfit and worn accessories to the live person. Preserve the live person's face, hair, skin, identity and body. Do not copy the reference person's face or hair. These outfit-only constraints take priority over the general target-character description.");
+                    Bundle result=TryOnController.draft(this,draft);
+                    if(result.getBoolean("ok"))result=TryOnController.start(this,new Bundle());
+                    if(!result.getBoolean("ok")){fail("Could not start character preview: "+result.getString("code","unavailable"));return;}
+                    started=true;main.post(check);
+                }
             });
         });
     }

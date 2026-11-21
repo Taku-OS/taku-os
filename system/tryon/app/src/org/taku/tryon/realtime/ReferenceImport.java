@@ -19,10 +19,10 @@ public final class ReferenceImport {
     public static void write(Context context,InputStream input){
         write(context,input,0);
     }
-    public static void write(Context context,InputStream input,long referenceExpires){
+    public static Bundle write(Context context,InputStream input,long referenceExpires){
         RealtimeImage image=null;
         try {
-            if(referenceExpires<0||referenceExpires!=0&&SystemClock.elapsedRealtime()>=referenceExpires){state="failed";code=referenceExpires<0?"invalid_request":"reference_expired";return;}
+            if(referenceExpires<0||referenceExpires!=0&&SystemClock.elapsedRealtime()>=referenceExpires){state="failed";code=referenceExpires<0?"invalid_request":"reference_expired";return TryOnController.result(false,code);}
             byte[] bytes=input.readNBytes(MAX_INPUT_BYTES+1);
             if(bytes.length>MAX_INPUT_BYTES)throw new IOException("too_large");
             image=RealtimeImage.decode(bytes);
@@ -30,7 +30,8 @@ public final class ReferenceImport {
             if(!image.preview.compress(android.graphics.Bitmap.CompressFormat.JPEG,90,output))throw new IOException("decode_failed");
             Bundle result=TryOnController.importedReference(context,output.toByteArray(),referenceExpires);
             code=result.getString("code","import_failed");state=result.getBoolean("ok")?"ready":"failed";if(result.getBoolean("ok"))revision++;
-        }catch(Exception|OutOfMemoryError invalid){state="failed";code="invalid_reference";}
+            return result;
+        }catch(Exception|OutOfMemoryError invalid){state="failed";code="invalid_reference";return TryOnController.result(false,code);}
         finally {if(image!=null)image.close();WRITING.set(false);}
     }
     public static JSONObject status(){
