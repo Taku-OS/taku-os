@@ -4,6 +4,12 @@ set -euo pipefail
 APP_ROOT="$(cd "$(dirname "$0")" && pwd)"
 MODULE_ROOT="$(cd "$APP_ROOT/.." && pwd)"
 REPO_ROOT="$(cd "$MODULE_ROOT/../.." && pwd)"
+# Keep installed development builds upgradeable without editing an APK or clearing data.
+MANIFEST_ARGS=(--manifest "$APP_ROOT/AndroidManifest.xml")
+if [ -n "${TAKU_TRYON_VERSION_CODE:-}" ]; then
+  [[ "$TAKU_TRYON_VERSION_CODE" =~ ^[1-9][0-9]*$ ]] || { echo 'TAKU_TRYON_VERSION_CODE must be a positive integer.' >&2; exit 2; }
+  MANIFEST_ARGS+=(--replace-version --version-code "$TAKU_TRYON_VERSION_CODE")
+fi
 source "$REPO_ROOT/scripts/android-env.sh"
 NATIVE_DEPS="${TAKU_TRYON_NATIVE_DEPS:-$REPO_ROOT/out/tryon-native-deps}"
 python3 "$APP_ROOT/prepare-native-deps.py" --output "$NATIVE_DEPS" >/dev/null
@@ -13,7 +19,7 @@ find "$BUILD_DIR/classes" -type f -delete
 cp "$NATIVE_DEPS/verified.json" "$BUILD_DIR/assets/native-dependencies/"
 cp -R "$APP_ROOT/third-party" "$BUILD_DIR/assets/native-dependencies/"
 "$TOOLS/aapt2" compile --dir "$APP_ROOT/res" -o "$BUILD_DIR/resources.zip"
-"$TOOLS/aapt2" link -o "$BUILD_DIR/resources.apk" -I "$ANDROID_JAR" --manifest "$APP_ROOT/AndroidManifest.xml" -A "$BUILD_DIR/assets" "$BUILD_DIR/resources.zip"
+"$TOOLS/aapt2" link -o "$BUILD_DIR/resources.apk" -I "$ANDROID_JAR" "${MANIFEST_ARGS[@]}" -A "$BUILD_DIR/assets" "$BUILD_DIR/resources.zip"
 find "$APP_ROOT/src" "$MODULE_ROOT/contract" "$MODULE_ROOT/common" -name '*.java' > "$BUILD_DIR/sources.txt"
 NATIVE_CLASSPATH="$(cat "$NATIVE_DEPS/classpath.txt")"
 "$JDK/bin/javac" --release 17 -cp "$ANDROID_JAR:$NATIVE_CLASSPATH" -d "$BUILD_DIR/classes" @"$BUILD_DIR/sources.txt"

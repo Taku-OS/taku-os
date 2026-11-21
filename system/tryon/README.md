@@ -180,6 +180,14 @@ keystore may build a standalone native app, but it is not automatically trusted 
 Home. Confirm public fingerprints using `apksigner verify --print-certs` before
 installation; keep the runtime trust list fixed.
 
+For a data-preserving development test over an older prototype with a higher
+version code, `TAKU_TRYON_VERSION_CODE` optionally overrides that metadata through
+`aapt2 link --replace-version`. Match the installed test version to allow both
+`install -r` and restoration of its backed-up APK. This does not edit a built APK
+or change the manifest's default release version. Verify package, version and
+signer before installation. The backend's equivalent build parameter is
+`TAKU_ASSISTANT_VERSION_CODE`; its existing manifest default is also retained.
+
 Runtime acceptance must be recorded separately for host tests, isolated Android,
 physical device, provider/account/region, and full ROM. Compiling the package or
 running the bounded handoff fixtures does not establish paid model availability or

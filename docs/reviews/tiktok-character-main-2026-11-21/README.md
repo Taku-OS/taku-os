@@ -48,7 +48,7 @@ normal source build scripts.
 | Transparent entry on an isolated emulator | Five Android lifecycle cases passed using the final production Direct entry source with explicit controller/import doubles: transparent preparation and simulated acknowledgement, closeable English failure, and pause/late-callback cleanup. This does not establish a real camera or model acknowledgement. |
 | Home release on an isolated emulator | After installing the matching source-built backend and Audio Engine, actual Home visibility, public Assistant projection and system-assistant declaration checks passed (3/3). The first launch failed because the bare AOSP AVD lacked the backend; that setup attempt is retained separately. No private injection seam was used for the release smoke. |
 | Home interaction on an isolated emulator | The normal source debug APK passed 3/3 checks: compact confirmation with GUI cancellation and sanitized Agent projection, cancellation through the Agent API, and Try on reaching the final Core's real missing-credentials rejection with a closeable failure card. The real Home owner/UI and Core IPC ran; the transcript and frame were synthetic private test inputs. Debug APK SHA-256: `dee8a2d6946afe4743502edfa9646dac741f743bc0110c3acb49120f9ee8a71f`. |
-| Physical gesture, real ASR, camera/model, ROM | Not run for this source port. Older prototype Pixel results do not establish these results for the new Home source. |
+| Physical gesture, real ASR, camera/model, ROM | The later physical entry check failed before reaching Home; see the follow-up below. Real ASR, camera/model and ROM acceptance remain unverified. Older prototype Pixel results do not establish these results for the new Home source. |
 
 The existing dictation alpha mask now uses the theme's text colour instead of a
 literal RGB value, as required by the existing design-system test. Its `DstIn`
@@ -68,9 +68,40 @@ gesture and actual authorized system screenshot must be verified on a matching
 Taku image separately. Real ASR, positive ticket handoff, camera/model
 acknowledgement and provider/account/region behavior remain unverified by this
 local source port. No model key was written or cloud model called during these
-checks; the connected Pixel was not updated.
+isolated checks. The later Pixel attempt is recorded below.
 
 Development ROM preinstallation is opt-in with `TAKU_PREINSTALL_TRYON=true` after
 checksum-verified Soong dependency staging. The saved Agent runtime asset is not
 replaced by this local-only work; a future image must bind its component artifact
 to the merged source through the existing build/release process.
+
+## Physical Pixel follow-up
+
+The source-built Home, backend, Audio Engine and Try-On APKs were installed over
+the connected Pixel 9 using their existing signers and version codes. Native build
+metadata overrides (`TAKU_ASSISTANT_VERSION_CODE=117` and
+`TAKU_TRYON_VERSION_CODE=83`) used normal source packaging, with no APK/Dex patching
+or application-data clearing. All four package UIDs were retained; Try-On still
+reported the existing model key, permissions and enabled preview as ready.
+
+The complete physical workflow **did not pass**. A real navigation-handle hold in
+TikTok opened Google's screen instead of preparing the Home gesture. The installed
+Quickstep v40 uses the older `taku.voice.gesture.v1` protocol and fixed legacy
+Assistant target; it lacks main's Home `gesture/event` route. Home's real public
+projection remained idle, with no character frame or ASR session. The installed
+root voice configuration runtime also returned `UNSUPPORTED_OPERATION` to the
+new Audio settings interface. This is a mismatch between the phone's earlier
+system components and the current source integration, before character consent
+or model startup.
+
+No matching source-built Quickstep APK was available locally. The historical
+Linux builder could not be reached using its existing SSH configuration. No cloud
+machine was started, Launcher modified, root broker restarted or ROM flashed.
+Testing needs the matching main Launcher and voice runtime first; replacing the
+four app APKs alone is insufficient. Actual ASR, positive handoff and camera/model
+startup remain unverified on this phone, and no Try-On model session was started.
+
+All four original APKs and assistant/recognition selections were restored after
+the failed entry check, with exact installed APK hash and UID verification. The
+existing Try-On configuration remained ready. Detailed preflight, screenshots,
+install and restoration receipts are in ignored `out/character-pixel-20261121/`.
