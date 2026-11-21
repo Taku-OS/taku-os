@@ -14,6 +14,7 @@ from pathlib import Path
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 
@@ -22,7 +23,7 @@ MODULE = HERE.parent
 SOURCE_ROOT = MODULE.parents[3]
 PRODUCTION = MODULE / 'android/src/main/java/org/agentos/agent/home/assistant'
 BUILD = SOURCE_ROOT / 'out/character-owner-host'
-SOURCES = [PRODUCTION / name for name in ('CharacterTryOn.kt', 'CharacterTryOnPolicy.kt', 'VoiceGesture.kt')]
+SOURCES = [PRODUCTION / name for name in ('CharacterTryOn.kt', 'CharacterTryOnPolicy.kt', 'CharacterTextInvocation.kt', 'VoiceGesture.kt')]
 CONTRACT = SOURCE_ROOT / 'system/tryon/contract/org/taku/cosplay/api/CosplayContract.java'
 
 
@@ -165,14 +166,29 @@ private class Fixture {
  val scope=CoroutineScope(SupervisorJob()+dispatcher)
  val resolver=Resolver();val context=TestContext(resolver)
  @Volatile var eligible=true;@Volatile var unlocked=true;@Volatile var state:CharacterTryOnState?=null
+ @Volatile var textInput=false
+ @Volatile var textFieldOpen=false
+ val textPresentations=Collections.synchronizedList(mutableListOf<Boolean>())
+ val textLease=CharacterTextInvocation()
  val fallback=Collections.synchronizedList(mutableListOf<String>());val handoffs=AtomicInteger()
- val owner=CharacterTryOn(context,scope,{eligible},{unlocked},{state=it},{fallback.add(it)},{handoffs.incrementAndGet()})
+ val owner=CharacterTryOn(context,scope,{id->if(textInput)textLease.matches(id,SystemClock.elapsedRealtime())else eligible},{unlocked},{
+  state=it
+  if(textInput){if(textLease.closesTextInput(it?.phase))textFieldOpen=false;textPresentations.add(textFieldOpen)}
+ },{fallback.add(it)},{handoffs.incrementAndGet()})
  suspend fun <T> onOwner(block:()->T):T=withContext(dispatcher){block()}
  suspend fun reference():ByteArray=onOwner {
   val jpeg=byteArrayOf(0xff.toByte(),0xd8.toByte(),0xff.toByte(),0xd9.toByte())
   owner.offer("gesture_1234","com.zhiliaoapp.musically",950,975,jpeg);jpeg
  }
  suspend fun intercept():Boolean=onOwner{owner.intercept("I wanna cosplay as him.")}
+ suspend fun textReference():ByteArray=onOwner {
+  textInput=true;textFieldOpen=true
+  check(textLease.reserve("system_text_1234",950,SystemClock.elapsedRealtime()))
+  check(textLease.ready("system_text_1234",SystemClock.elapsedRealtime()))
+  check(textLease.activate("system_text_1234",SystemClock.elapsedRealtime()))
+  val jpeg=byteArrayOf(0xff.toByte(),0xd8.toByte(),0xff.toByte(),0xd9.toByte())
+  owner.offer("system_text_1234","com.zhiliaoapp.musically",950,975,jpeg);jpeg
+ }
  suspend fun until(message:String,condition:()->Boolean){
   withTimeout(2500){while(!condition())delay(5)};expect(true,message)
  }
@@ -252,6 +268,73 @@ fun main()=runBlocking {
   val jpeg=reference();expect(!onOwner{owner.intercept("What is the weather today?")},"ordinary final returned to generic sender")
   expect(jpeg.all{it==0.toByte()}&&resolver.statusCalls.get()==0,"discard reference without provider request")
  }
+ case("typed system reference uses the same confirmation and one-use handoff"){
+  resolver.statusEntered=CountDownLatch(1);resolver.statusRelease=CountDownLatch(1)
+  val jpeg=textReference()
+  expect(onOwner{owner.reference()?.source}=="com.zhiliaoapp.musically","real frame metadata available before send")
+  expect(onOwner{val intercepted=owner.intercept("Turn me into this character");check(textLease.submit(SystemClock.elapsedRealtime()));intercepted},"typed command intercepted and owned")
+  until("typed checking"){resolver.statusEntered!!.count==0L}
+  expect(textFieldOpen,"availability checking keeps the typed field and keyboard")
+  expect(onOwner{owner.reference()}==null,"consumed frame not advertised as ready")
+  resolver.statusRelease!!.countDown()
+  until("typed confirming"){state?.phase==CharacterTryOnPhase.Confirming}
+  expect(!textFieldOpen,"actual confirmation replaces text input")
+  expect(resolver.prepares.get()==0&&context.launched.isEmpty(),"typing alone cannot open camera")
+  expect(!onOwner{owner.intercept("Turn me into this character")},"duplicate cannot consume reference twice")
+  confirm();until("typed handoff"){handoffs.get()==1}
+  expect(context.launched.size==1&&resolver.prepares.get()==1,"typed route uses one normal capability")
+  expect(jpeg.all{it==0.toByte()}&&fallback.isEmpty(),"typed source erased without generic chat")
+ }
+ case("closed text entry rejects a late authorized image"){
+  textInput=true
+  onOwner{textLease.reserve("system_text_1234",950,1000);textLease.clear()}
+  val jpeg=byteArrayOf(0xff.toByte(),0xd8.toByte(),0xff.toByte(),0xd9.toByte())
+  onOwner{owner.offer("system_text_1234","com.zhiliaoapp.musically",950,975,jpeg)}
+  expect(jpeg.all{it==0.toByte()},"late image erased")
+  expect(!onOwner{owner.intercept("Turn me into this character")},"closed entry cannot claim image")
+  expect(resolver.statusCalls.get()==0&&state==null,"late image cannot create confirmation")
+ }
+ case("long press can explicitly transfer its reference to text"){
+  val gesture=VoiceGesture()
+  expect(gesture.prepare("gesture_1234","system",950,1000),"real system gesture prepared")
+  gesture.activate("gesture_1234")
+  val jpeg=reference()
+  onOwner{check(textLease.transfer(gesture.id,950,1000));textInput=true;gesture.end(false)}
+  expect(gesture.phase==VoiceGesture.Phase.Ended,"voice gesture ended")
+  expect(onOwner{owner.intercept("Help me put on this outfit of his")},"transferred reference accepts typed command")
+  until("transferred confirming"){state?.phase==CharacterTryOnPhase.Confirming}
+  cancel();expect(jpeg.all{it==0.toByte()}&&resolver.prepares.get()==0,"cancel before camera erases transferred image")
+ }
+ case("desktop text cannot manufacture a system reference"){
+  textInput=true
+  val jpeg=reference()
+  expect(jpeg.all{it==0.toByte()},"image without reserved text entry erased")
+  expect(!onOwner{owner.intercept("Turn me into this character")},"ordinary desktop text stays generic")
+  expect(resolver.statusCalls.get()==0,"no provider discovery without frame authority")
+ }
+ case("text editing cannot renew the invocation deadline"){
+  val jpeg=textReference()
+  onOwner{SystemClock.now=120950;check(textLease.activate("system_text_1234",SystemClock.now));SystemClock.now=120951}
+  expect(!onOwner{owner.intercept("Turn me into this character")},"original deadline retained")
+  expect(jpeg.all{it==0.toByte()}&&resolver.statusCalls.get()==0,"expired text reference erased without provider calls")
+ }
+ case("locked text entry cannot start confirmation"){
+  val jpeg=textReference();unlocked=false
+  expect(!onOwner{owner.intercept("Turn me into this character")},"locked entry not intercepted")
+  expect(jpeg.all{it==0.toByte()}&&resolver.statusCalls.get()==0,"lock clears reference at admission")
+ }
+ case("unavailable text route returns the original request exactly once"){
+  resolver.available=false;resolver.statusEntered=CountDownLatch(1);resolver.statusRelease=CountDownLatch(1);textReference()
+  expect(onOwner{val intercepted=owner.intercept("Turn me into this character");check(textLease.submit(SystemClock.elapsedRealtime()));intercepted},"typed request owned during status")
+  until("unavailable typed checking"){resolver.statusEntered!!.count==0L}
+  expect(textFieldOpen,"unavailable route still has its original field while checking")
+  resolver.statusRelease!!.countDown()
+  until("one typed fallback"){fallback.size==1}
+  expect(textFieldOpen&&textPresentations.all{it},"unavailable checking and fallback never close and reopen input")
+  expect(fallback.single()=="Turn me into this character","typed request preserved")
+  expect(!onOwner{owner.intercept("Turn me into this character")},"fallback cannot re-intercept consumed frame")
+  delay(30);expect(fallback.size==1&&resolver.prepares.get()==0,"typed fallback sent once")
+ }
  println("RESULT cases=$cases assertions=$assertions")
 }
 '''
@@ -291,11 +374,12 @@ def main():
     classpath = ':'.join(map(str, [classes, java, coroutines, kotlin_lib / 'kotlin-stdlib.jar']))
     output = run([jdk / 'bin/java', '-cp', classpath, 'org.agentos.agent.home.assistant.OwnerTestKt'])
     assert hashes == {path.relative_to(SOURCE_ROOT).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest() for path in production}, 'Production changed during test; repeat with stable source'
-    assert 'RESULT cases=9 ' in output, output
+    result = re.search(r'RESULT cases=(\d+) assertions=(\d+)', output)
+    assert result and int(result[1]) == 16, output
     (BUILD / 'compile.log').write_text(compile_log)
     (BUILD / 'test.log').write_text(output)
     receipt = {'schema': 'taku.character-owner.host-qa/1', 'passed': True, 'sourceSha256': hashes,
-               'cases': 9, 'assertions': 47, 'execution': 'Actual production owner and policy; Android/ContentResolver/Activity doubles',
+               'cases': int(result[1]), 'assertions': int(result[2]), 'execution': 'Actual production owner, policy and text invocation lease; Android/ContentResolver/Activity doubles',
                'androidRuntime': False, 'gestureOrAsrVerified': False, 'uiVerified': False, 'cameraOrCloudInvoked': False}
     (BUILD / 'report.json').write_text(json.dumps(receipt, indent=2) + '\n')
     print(output.strip())

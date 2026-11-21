@@ -19,7 +19,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.taku.cosplay.api.CosplayContract
 
-/** Main-thread owner of one gesture's reference. No independent microphone or language setting. */
+/** Main-thread owner of one system invocation's reference, shared by voice and text input. */
 internal class CharacterTryOn(
   private val context: Context,
   private val scope: CoroutineScope,
@@ -35,6 +35,12 @@ internal class CharacterTryOn(
   private var state: CharacterTryOnState? = null
   private var ticket: String? = null
   private var expiry: Job? = null
+
+  internal data class Reference(val id: String, val source: String, val expiresAtElapsedMs: Long)
+  fun reference(): Reference? = frame?.takeIf(::current)?.let {
+    Reference(it.gesture, it.source, minOf(it.invoked + CosplayContract.MAX_INVOCATION_AGE_MS,
+      it.captured + CosplayContract.MAX_CAPTURE_AGE_MS))
+  }
 
   private class Frame(val gesture: String, val source: String, val invoked: Long, val captured: Long, val jpeg: ByteArray) {
     val requestId: String = UUID.randomUUID().toString().replace("-", "")
@@ -58,7 +64,7 @@ internal class CharacterTryOn(
     }
   }
 
-  /** Only final, once-delivered hold dictation reaches this method. Ordinary requests return false. */
+  /** Final hold dictation or an explicit text send; ordinary requests return false. */
   fun intercept(text: String): Boolean {
     val reference = frame ?: return false
     frame = null

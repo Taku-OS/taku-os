@@ -50,8 +50,8 @@ UID 0/1000/2000 retain direct access; the first-party GUI uses the signature-pro
 
 ## TikTok character preview
 
-This optional native feature uses Home's existing system-assistant capture and
-Audio Engine dictation. It is not a LIVE observer. Read state before acting:
+This optional native feature uses Home's existing system-assistant capture with
+typed requests or Audio Engine dictation. It is not a LIVE observer. Read state before acting:
 
 ```sh
 content call --uri content://org.taku.tryon.api --method cosplayStatus
@@ -70,6 +70,31 @@ am start -n org.agentos.audio/.DictationSettingsActivity
 Home uses the authoritative Audio Engine `assistant-entry` language preference,
 including `en-US`. Preserve the user's primary/fallback profiles when changing its
 dictation settings; Try-On does not keep another speech-language value.
+
+For text, double-tap the navigation handle while the desired TikTok character is
+visible, type a complete request such as `Help me put on this outfit of his` or
+`帮我换成这个角色`, and send. This opens the same English confirmation without
+starting a microphone. Within that currently open system text entry, an Agent can
+use the GUI's same send handler:
+
+```sh
+content call --uri content://org.agentos.agent.home-assistant --method assistant/ask --arg '{"text":"Help me put on this outfit of his"}'
+```
+
+`assistant/voice-to-text` can also transfer the current system hold to editable
+text. Text and voice use the same original authorized frame and its 120-second
+invocation limit; switching to text does not renew it. Closing/cancelling the
+entry, locking the screen, switching conversations or invoking a new entry
+invalidates that reference. Ordinary desktop text, `assistant/open` and caller
+parameters cannot create a TikTok reference. Non-character text and submissions
+with attachments keep the ordinary chat path. A second submission while the
+character confirmation is pending returns `BUSY`.
+
+`assistant/get.characterReference` is `null` or
+`{input:"text"|"voice",sourcePackage,expiresAtElapsedMs}` for the current unused,
+fresh reference. The expiry uses device elapsed realtime, not wall-clock time.
+The projection never contains a frame, invocation ID or ticket. After sending,
+read `characterTryOn.phase` (`checking`, `confirming`, `starting`, `failed`) instead.
 
 For the current `characterTryOn.requestId` returned by `assistant/get`, these calls
 use the card's exact confirm/cancel handlers:

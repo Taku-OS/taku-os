@@ -270,3 +270,104 @@ camera/model success is claimed by this recovery.
 Sanitized recovery/build/runtime receipts remain under
 `out/character-pixel-upgrade-20261121/marquee-20261122/`; the isolated broadcast
 receipt and fixture are under `out/notification-broadcast-regression-20261122/`.
+
+## Typed character requests (2026-11-22)
+
+The existing system navigation-handle double tap now supports typed character
+requests from TikTok. It captures through the same Android assistant and gateway
+authorization as hold dictation, then opens the existing text composer. GUI Send
+and public `assistant/ask` share dispatch into the same compact confirmation and
+Try on handoff. No microphone, separate text plugin or caller-supplied reference
+is needed. Explicit `assistant/voice-to-text` also transfers the current system
+hold reference without renewing its age.
+
+A process-local text invocation lease binds capture, the text overlay and one
+submission. Cancel, close, screen lock, a new entry and conversation changes
+invalidate it, including pending callbacks. Overlay intents cannot mint or revive
+the lease. Configuration restoration can render the same pending confirmation
+without permitting ordinary intent replay. The original 120-second invocation
+limit still covers capture and editing. `assistant/get.characterReference` exposes
+only fresh, unused input/source/elapsed-expiry metadata; image bytes and tickets
+remain private.
+
+Typed dispatch reads the authoritative composer under its existing lock before
+interception, preserving attachments and pending receipts. A captured invocation
+and submission marker prevent an older asynchronous send from consuming a newer
+frame. Duplicate sends during checking/confirmation/start return `BUSY`.
+Unrelated messages and requests with attachments retain ordinary chat behavior;
+disabled/unavailable Try-On falls back with the text surface still visible.
+
+The text policy/lease/IME gate suite passes 20 JUnit cases. The production owner
+fixture passes 16 scenarios / 82 assertions; the existing gesture policy (7) and
+voice interaction (20) suites, lint and typecheck also pass. Review caught and
+fixed authoritative-attachment admission, visible text fallback and confirmation
+configuration restoration before device acceptance.
+
+The first normally built text Home release was `78c9d620c8953636b0ce4986d6d5ecb867aaa06bb4fd5843455e9053f0980ad2`.
+The source-built backend documentation APK is
+`188c17619e7dd46ee9982f0a052abb6ac7ac519c65964e51c6098337645bbdbd`;
+its DEX is unchanged, and its only non-signing payload change is the preinstalled
+open-access documentation. Both retain the existing development certificate.
+
+On a dedicated API 36 AVD, a standard framework assistant invocation captured an
+explicitly synthetic TikTok fixture; it did not inject a frame, Home lease or
+ticket. GUI keyboard Send and public `assistant/ask` each reached the real English
+confirmation with voice idle. Duplicate ask returned `BUSY`, confirmation survived
+configuration restoration, and cancel cleared its reference. Screen sleep cleared
+the reference. A real 120-second wait invalidated the original frame without
+changing the clock or invoking again. No cloud model or credential was used there.
+
+That AVD also exposed one intermittent early text-window closure and a disabled
+fallback whose text window disappeared. The exact close caller was not captured;
+the startup IME visibility transition is a hypothesis, not a confirmed stack.
+The composer now arms keyboard-dismiss only after a visible keyboard has positive
+height, and closes after it is both invisible and zero-height. This uses no delay
+heuristic. Four pure production-gate regressions cover failed show, animation,
+reopening and dictation. The resulting `b2efdf54f80c` release passed ten consecutive
+fresh entries, GUI/API confirmation and configuration restoration, but the
+disabled fallback still exposed a programmatic hide/show overlap. Its fixed,
+non-private IME diagnostic confirmed the close caller. The final structural fix
+keeps the text composer and matching draft throughout Checking; it hides the
+composer only for confirmation/start/failure and clears a matching draft only on
+Confirming. An unavailable/disabled result now retains Text without a hide/show
+transition. Owner regressions replay both sides of that asynchronous boundary;
+final device acceptance is recorded below.
+
+On Pixel, the normal in-place update retained Home UID `10256`. Real navigation
+double tap captured the actual TikTok screen; actual keyboard typing and GUI Send
+reached confirmation with the microphone idle. A GUI Try on click transferred the
+reference to Core and opened camera device 1. It supplied 15 camera input frames,
+then Lucy returned `lucy_session_busy` before receiving any answer, image/prompt
+acknowledgement or generation-start signal. Returned frames were **0**. This is
+not successful model output. The English failure sheet was visible, no automatic
+retry occurred, and GUI Close removed it; camera-service readback then showed no
+active clients and Core cleanup was complete. Core's terminal snapshot retains
+its historical `presentation:"compact"` after that separate result sheet closes.
+
+The camera/model checkpoint used Home `78c9d620c895`; the later IME-only fix is
+validated separately and does not imply another cloud attempt. Private/sanitized
+Pixel acceptance artifacts are retained under
+`out/character-pixel-upgrade-20261121/text-pixel-2/` and `text-camera-1/`.
+Synthetic AVD fixtures and receipts are under `out/text-character-20261122/`.
+
+The final normal source release, including the Checking transition fix, is
+`b7b56c29c4116e1058de7ed6fc3eaa0190f98a9a5983c7d5c811248a88457530`
+(build succeeded in 4m23s). On the dedicated AVD, both disabled Core and a real
+`pm disable-user` unavailable Core retained the actual text field, keyboard and
+original draft through the subsequent genuine `RUNTIME_UNAVAILABLE` chat failure;
+the AVD has no ordinary-chat runtime and no successful chat reply is claimed.
+Core was re-enabled afterward.
+The same final release passed five further fresh framework entries and the
+authoritative attachment race: adding an attachment through the backend without
+refreshing Home prevented interception and preserved that attachment. The test
+attachment was removed through the public API. Final AVD receipts are under
+`out/text-character-20261122/runs/b7b56c29/`.
+
+The final APK was installed in place on Pixel with the same UID, then verified by
+installed-byte hash. Actual English keyboard GUI Send and Chinese public text
+submission each reached confirmation; duplicate send returned `BUSY`. GUI Not now
+and public cancel both cleared the reference and confirmation. The final state
+was input closed, microphone idle, no task/error and no working glow. The backend
+was ready with no active turn, queued task/request or cleanup pending. This final
+verification started **no** additional cloud model session. Its receipts and
+screenshots are in `out/character-pixel-upgrade-20261121/text-pixel-complete/`.

@@ -28,6 +28,10 @@ CLASSES="$ROOT/out/character-tryon-tests"
 compile_jvm "$CLASSES" "$CP" \
   "$ROOT/system/tryon/contract/org/taku/cosplay/api/CosplayContract.java" \
   "$MODULE/android/src/main/java/org/agentos/agent/home/assistant/CharacterTryOnPolicy.kt" \
-  "$MODULE/android/src/test/java/org/agentos/agent/home/CharacterTryOnPolicyTest.kt"
+  "$MODULE/android/src/main/java/org/agentos/agent/home/assistant/CharacterTextInvocation.kt" \
+  "$MODULE/android/src/main/java/org/agentos/agent/home/ui/assistant/ComposerImeDismiss.kt" \
+  "$MODULE/android/src/test/java/org/agentos/agent/home/CharacterTryOnPolicyTest.kt" \
+  "$MODULE/android/src/test/java/org/agentos/agent/home/CharacterTextInvocationTest.kt" \
+  "$MODULE/android/src/test/java/org/agentos/agent/home/ComposerImeDismissTest.kt"
 "$JDK/bin/java" -cp "$CLASSES:$CP:$KOTLIN_LIB/kotlin-stdlib.jar" \
-  org.junit.runner.JUnitCore org.agentos.agent.home.CharacterTryOnPolicyTest
+  org.junit.runner.JUnitCore org.agentos.agent.home.CharacterTryOnPolicyTest org.agentos.agent.home.CharacterTextInvocationTest org.agentos.agent.home.ComposerImeDismissTest

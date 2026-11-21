@@ -602,6 +602,23 @@ content call --uri $A --method assistant/voice-cancel
   identity through cancellation, so old cleanup cannot stop or deliver into a newer recording.
   Starting one recorder cancels the other because the Engine owns one microphone lease.
 
+* **TikTok character requests**: double-tap the system navigation handle while the
+  desired character is visible, enter a complete request such as
+  `Help me put on this outfit of his` or `帮我换成这个角色`, and send. This uses the
+  same compact English confirmation and Try on handoff as hold dictation, without
+  starting the microphone. `assistant/ask` invokes the same handler as GUI Send
+  within that system text entry. `assistant/voice-to-text` also retains the
+  current system hold's reference for an editable submission. Ordinary desktop
+  text and `assistant/open` do not create a reference; attachments and unrelated
+  requests retain normal chat behavior. The frame belongs to one system
+  invocation for at most 120 seconds, including text editing. Closing/cancelling,
+  locking, changing conversations or invoking again invalidates it; delayed
+  screenshots or Activity intents cannot restore it. A duplicate submission
+  during character checking/confirmation/start returns `BUSY`.
+  `assistant/get.characterReference` exposes the same unused, fresh reference as
+  `{input:"text"|"voice",sourcePackage,expiresAtElapsedMs}` or `null`, without
+  image bytes or invocation/ticket IDs. Expiry is device elapsed realtime.
+
 * **Keyboard**: the frames show a neutral keyboard (Main/Canvas #E3E3E3, white keys r6,
   Surface/Secondary #F1F1F3 function keys, #1B1B1B accent keys). The preinstalled Taku IME's
   `TakuLight` theme is warm (#F4F1EB / #FFFDFA keys, brand-orange accent, radius 10), so it

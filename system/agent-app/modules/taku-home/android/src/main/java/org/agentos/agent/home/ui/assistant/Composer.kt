@@ -140,13 +140,15 @@ fun BoxScope.TextComposer(scene: GraphicsLayer, open: Boolean, state: AssistantS
   val focus = remember { FocusRequester() }
   val keyboard = LocalSoftwareKeyboardController.current
   LaunchedEffect(open) { if (open) { runCatching { focus.requestFocus() }; keyboard?.show() } else keyboard?.hide() }
-  // Closing the keyboard (back / swipe) closes the input.
-  var imeSeen by remember { mutableStateOf(false) }
+  // A failed show can toggle requested visibility without ever presenting the keyboard.
+  // Close only after a real keyboard inset was displayed and its hide has completed.
+  val imeDismiss = remember { ComposerImeDismiss() }
   val imeVisible = WindowInsets.isImeVisible
-  LaunchedEffect(imeVisible, open) {
-    if (!open) { imeSeen = false; return@LaunchedEffect }
-    if (imeVisible) imeSeen = true
-    else if (imeSeen && !voice.listening) { imeSeen = false; session.closeEntry() }
+  LaunchedEffect(imeVisible, imeBottom, open, voice.listening) {
+    if (imeDismiss.update(open, imeVisible, imeBottom, voice.listening)) {
+      android.util.Log.d("TakuTextComposer", "Closing text input after the displayed keyboard was dismissed")
+      session.closeEntry()
+    }
   }
 
   var value by remember { mutableStateOf(TextFieldValue(state.draft, TextRange(state.draft.length))) }

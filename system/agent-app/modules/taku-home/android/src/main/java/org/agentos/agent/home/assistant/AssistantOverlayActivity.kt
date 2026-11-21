@@ -33,7 +33,7 @@ class AssistantOverlayActivity : AppCompatActivity() {
     window.isNavigationBarContrastEnforced = false
     window.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
     window.attributes = window.attributes.apply { blurBehindRadius = (24 * resources.displayMetrics.density).toInt() }
-    presenting = open(intent)
+    presenting = open(intent, restoring = state != null)
     if (!presenting) { finish(); return }
     setContent {
       val ui by session.state.collectAsStateWithLifecycle()
@@ -60,12 +60,16 @@ class AssistantOverlayActivity : AppCompatActivity() {
     }
   }
 
-  private fun open(intent: Intent): Boolean {
+  private fun open(intent: Intent, restoring: Boolean = false): Boolean {
     if (getSystemService(android.app.KeyguardManager::class.java).isKeyguardLocked) return false
     when (intent.getStringExtra("mode")) {
       "text" -> {
         if (!session.canOpenText) return false
-        session.open(EntryMode.Text)
+        val reference = intent.getStringExtra(CHARACTER_TEXT_ID)
+        if (reference != null) {
+          if (restoring && session.restoreCharacterTextInvocation(reference)) return true
+          if (!session.openCharacterTextInvocation(reference)) return false
+        } else session.open(EntryMode.Text)
       }
       "voice" -> {
         val id = intent.getStringExtra("gestureId").orEmpty()
@@ -90,8 +94,12 @@ class AssistantOverlayActivity : AppCompatActivity() {
     else if (presenting && focusedOnce && resumed && session.gesture.held) session.cancelVoice()
   }
   override fun onStop() {
+    if (presenting) session.onCharacterTextSurfaceStopped(
+      intent.getStringExtra(CHARACTER_TEXT_ID) ?: intent.getStringExtra("gestureId").orEmpty(), isChangingConfigurations)
     if (presenting && intent.getStringExtra("mode") == "voice")
       session.onVoiceSurfaceStopped(intent.getStringExtra("gestureId").orEmpty(), isChangingConfigurations)
     super.onStop()
   }
+
+  companion object { internal const val CHARACTER_TEXT_ID = "org.agentos.agent.extra.CHARACTER_TEXT_ID" }
 }

@@ -4,7 +4,7 @@ import java.text.Normalizer
 import java.util.Locale
 import org.taku.cosplay.api.CosplayContract
 
-/** Admission uses a real system gesture and a complete utterance, never text found in a frame. */
+/** Admission uses a real system entry and a complete request, never text found in a frame. */
 internal object CharacterTryOnPolicy {
   private val sources = setOf("com.zhiliaoapp.musically", "com.ss.android.ugc.trill")
   private val excluded = setOf("page", "conversationId", "jevTestToken", "manualScreen", "nativeControlsOnly")
@@ -27,6 +27,9 @@ internal object CharacterTryOnPolicy {
   fun acceptsEntry(trigger: String?, gestureId: String?, keys: Set<String>, systemGesture: Boolean): Boolean =
     systemGesture && trigger == "nav_handle_long_press" &&
       gestureId?.matches(Regex("[A-Za-z0-9_-]{8,128}")) == true && keys.none { it in excluded }
+
+  fun acceptsTextEntry(trigger: String?, keys: Set<String>, systemGesture: Boolean): Boolean =
+    systemGesture && trigger == "nav_handle_double_tap" && keys.none { it in excluded }
 
   fun command(text: String): Boolean {
     if (text.length > 160) return false

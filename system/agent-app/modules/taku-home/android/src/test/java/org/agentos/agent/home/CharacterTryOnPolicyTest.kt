@@ -24,6 +24,16 @@ class CharacterTryOnPolicyTest {
     assertNull(CharacterTryOnPolicy.source(null))
   }
 
+  @Test fun systemDoubleTapTextRequiresItsOwnCaptureAdmission() {
+    assertTrue(CharacterTryOnPolicy.acceptsTextEntry("nav_handle_double_tap", emptySet(), true))
+    assertFalse(CharacterTryOnPolicy.acceptsTextEntry("nav_handle_double_tap", emptySet(), false))
+    assertFalse(CharacterTryOnPolicy.acceptsTextEntry("nav_handle_long_press", emptySet(), true))
+    assertFalse(CharacterTryOnPolicy.acceptsTextEntry(null, emptySet(), true))
+    for (key in listOf("page", "conversationId", "jevTestToken", "manualScreen", "nativeControlsOnly")) {
+      assertFalse(key, CharacterTryOnPolicy.acceptsTextEntry("nav_handle_double_tap", setOf(key), true))
+    }
+  }
+
   @Test fun completeCharacterRequestsWorkInBothSupportedDictationLanguages() {
     for (text in listOf("帮我换成这个角色", "帮我变成屏幕里的角色。", "Turn me into this character!",
       "Make me this character.", "I wanna cosplay as her", "ＣＯＳＰＬＡＹ this character")) {

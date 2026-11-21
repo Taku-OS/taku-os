@@ -15,6 +15,7 @@ import android.service.voice.VoiceInteractionSession
 import android.util.Log
 import java.io.File
 import java.util.concurrent.Executors
+import java.util.UUID
 import org.json.JSONObject
 
 /** System invocation has no legacy drawer: hardware entries always present the new UI. */
@@ -32,6 +33,7 @@ class SystemAssistantSession(private val ctx: Context) : VoiceInteractionSession
   @Volatile private var invocationToken: String? = null
   private var invokedAt = 0L
   private var capturedAt = 0L
+  private var textInvocationId: String? = null
 
   override fun onPrepareShow(args: Bundle?, flags: Int) {
     super.onPrepareShow(args, flags)
@@ -39,6 +41,13 @@ class SystemAssistantSession(private val ctx: Context) : VoiceInteractionSession
     invokedAt = SystemClock.elapsedRealtime()
     capturedAt = 0L
     request = args?.let(::Bundle) ?: Bundle()
+    val assistant = AssistantSession.get(ctx)
+    assistant.invalidateCharacterReference()
+    textInvocationId = if (CharacterTryOnPolicy.acceptsTextEntry(
+        request?.getString(SystemAssistantEntry.TRIGGER), request!!.keySet(),
+        flags and (SHOW_SOURCE_ASSIST_GESTURE or SHOW_SOURCE_PUSH_TO_TALK) != 0,
+      )) UUID.randomUUID().toString().takeIf { assistant.reserveCharacterTextInvocation(it, invokedAt) }
+      else null
     showFlags = flags
     capture = null
     screenshotReceived = false
@@ -108,10 +117,11 @@ class SystemAssistantSession(private val ctx: Context) : VoiceInteractionSession
     val invoked = invokedAt
     val captured = capturedAt
     val source = CharacterTryOnPolicy.source(foreground)
-    val characterEntry = source != null && CharacterTryOnPolicy.acceptsEntry(
+    val textId = textInvocationId
+    val characterEntry = source != null && (textId != null || CharacterTryOnPolicy.acceptsEntry(
       args.getString(SystemAssistantEntry.TRIGGER), args.getString(SystemAssistantEntry.GESTURE_ID), args.keySet(),
       flags and (SHOW_SOURCE_ASSIST_GESTURE or SHOW_SOURCE_PUSH_TO_TALK) != 0,
-    )
+    ))
     val suggestion = args.containsKey("jevTestToken")
     request = null
     shown = false
@@ -163,13 +173,19 @@ class SystemAssistantSession(private val ctx: Context) : VoiceInteractionSession
         main.post {
           if (version == generation) {
             try {
+              val assistant = AssistantSession.get(ctx)
+              // Closing input while PNG/gateway work was pending also cancels the eventual UI launch.
+              if (textId != null && !assistant.readyCharacterTextInvocation(textId)) return@post
               characterJpeg?.let { jpeg ->
-                AssistantSession.get(ctx).offerCharacterReference(args.getString(SystemAssistantEntry.GESTURE_ID).orEmpty(), source!!, invoked, captured, jpeg)
+                assistant.offerCharacterReference(textId ?: args.getString(SystemAssistantEntry.GESTURE_ID).orEmpty(), source!!, invoked, captured, jpeg)
                 characterJpeg = null
               }
+              if (textId != null) target?.putExtra(AssistantOverlayActivity.CHARACTER_TEXT_ID, textId)
               target?.let(::startAssistantActivity)
             }
             catch (failure: RuntimeException) {
+              if (textId != null && AssistantSession.get(ctx).ownsCharacterTextInvocation(textId))
+                AssistantSession.get(ctx).invalidateCharacterReference()
               Log.w("TakuSystemAssistant", "Assistant UI unavailable", failure)
               android.widget.Toast.makeText(ctx, "Assistant could not open. Retry from Taku", android.widget.Toast.LENGTH_LONG).show()
             } finally { characterJpeg?.fill(0); hide() }
@@ -187,10 +203,15 @@ class SystemAssistantSession(private val ctx: Context) : VoiceInteractionSession
   }
 
   override fun onHide() {
+    textInvocationId?.let { AssistantSession.get(ctx).cancelPendingCharacterTextInvocation(it) }
+    textInvocationId = null
     generation++; shown = false; request = null; capture = null; screenshotReceived = false; invocationToken = null
     super.onHide()
   }
-  override fun onDestroy() { main.removeCallbacksAndMessages(null); generation++; super.onDestroy() }
+  override fun onDestroy() {
+    textInvocationId?.let { AssistantSession.get(ctx).cancelPendingCharacterTextInvocation(it) }
+    main.removeCallbacksAndMessages(null); generation++; super.onDestroy()
+  }
 
   companion object { private val IO = Executors.newSingleThreadExecutor() }
 }
