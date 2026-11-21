@@ -233,3 +233,40 @@ Synthetic AVD reports and reproducible drivers are retained under
 `out/legacy-feed-compat-20261121/`; sanitized Pixel receipts are under
 `out/character-pixel-upgrade-20261121/black-screen-1/`. Private phone data and
 generated APKs are not source contributions.
+
+## Stale working indicator follow-up (2026-11-22)
+
+The moving colored border was Home's `working` indicator for an earlier ordinary
+chat task, not microphone capture. Public state showed voice idle and Live Talk
+closed. The exact task was ownership-checked through `taskFiles/list`; a public
+cancel request wrote its marker but did not end the running task. The init-managed
+broker was blocked in synchronous `am broadcast` before starting its execution
+screen. Restart recovery marked the task `failed` with `done`; Home then cleared
+working and the border disappeared. History and phone data were retained.
+
+The restarted broker also waited for the notification receiver during recovery,
+before `NativeBridge.start()`. `notifyUser` now sends the same action, component
+and task ID through `cmd activity broadcast --async`, using the existing bounded
+command runner. Notification failure remains best effort and does not rewrite
+task outcomes. No global command execution or Receiver behavior changed.
+
+The normal backend build and existing SessionRemovals (875 checks) and RoundRobin
+(99 checks) regressions passed. A dedicated API 36 AVD receiver held `goAsync()`
+for 6.003 seconds: the default command waited 6.130 seconds, while `--async`
+returned in 0.010 seconds, before receiver completion. This fixture verifies
+Android's wait behavior, not the exact internal cause of the production receiver
+delay. The temporary test package was removed and its isolated AVD stopped.
+
+The rebuilt broker SHA-256 is
+`c6139e9e9cd833480888a7f42f123e8b3fadacbf130bf7a93d276e94d46e91e4`.
+It replaced the previous broker through a reversible boot-session bind mount;
+the previous bytes were retained and the app APKs were not changed. On Pixel,
+the six queued management requests drained, notification output files were
+cleaned, the native endpoint became ready, and the read-only runtime projection
+reported no active turn, pending request, task queue or cleanup. The failed test
+conversation was then reset through Home's public interface. No new speech or
+camera/model success is claimed by this recovery.
+
+Sanitized recovery/build/runtime receipts remain under
+`out/character-pixel-upgrade-20261121/marquee-20261122/`; the isolated broadcast
+receipt and fixture are under `out/notification-broadcast-regression-20261122/`.

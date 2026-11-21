@@ -75,9 +75,15 @@ public final class TaskBroker {
 
     static void notifyUser(String id) {
         try {
-            command(
-                    "/system/bin/am",
+            // The receiver uses goAsync(); waiting for it can stall recovery before NativeBridge starts.
+            // Invoke cmd directly so a timed-out broadcast cannot leave an am shell child behind.
+            BoundedCommand.run(
+                    new File(ROOT, "notification-output"),
+                    5_000,
+                    "/system/bin/cmd",
+                    "activity",
                     "broadcast",
+                    "--async",
                     "-a",
                     "org.agentos.assistant.TASK_UPDATE",
                     "-n",
