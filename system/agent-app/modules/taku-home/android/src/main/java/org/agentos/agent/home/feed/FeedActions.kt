@@ -29,6 +29,7 @@ object FeedActions {
       is Intent.AskTaku -> askTaku(context, draft(intent.prompt, card, selected), accepted.cursor)
       is Intent.OpenApp -> openApp(context, intent)
       is Intent.OpenUrl -> start(context, AndroidIntent(AndroidIntent.ACTION_VIEW, Uri.parse(intent.url)), "open-url")
+      Intent.Unavailable -> throw FeedException(Intent.Unavailable.CODE, Intent.Unavailable.MESSAGE)
       Intent.Dismiss -> repo.remove(cardId, origin).put("effect", "dismiss")
       Intent.None -> JSONObject().put("effect", "none").put("note", "This card has no connected integration; nothing was executed.")
     }

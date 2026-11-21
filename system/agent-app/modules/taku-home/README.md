@@ -174,7 +174,7 @@ content call --uri $U --method feed/reset --arg '{}'
 | Method | Parameters | Result |
 |---|---|---|
 | `feed/list` | – | `revision`, `eventCursor`, `cards[]` (visible order), `pins[]`, `removed[]`, `loading`, `endReached`, `error`, `sources[]` |
-| `feed/get` | `id` | `card` (full FeedCard JSON), `pinned`, `removed` |
+| `feed/get` | `id` | `card` (unchanged full FeedCard JSON), `actionAvailability`, `pinned`, `removed` |
 | `feed/load-more` | – | loads the next page (what scrolling does), then `feed/list` |
 | `feed/remove` / `feed/restore` | `id` | `removed`, `changed`, `animated` (the dust animation played on screen) |
 | `feed/pin` | `id`, optional `index` into the `pins` shown by `feed/list` (default 0 = first); no pin limit | `pinned`, `changed`, `index` |
@@ -191,12 +191,43 @@ Errors (`ok:false`, `code`): `NOT_FOUND` (card not loaded – call `feed/list` o
 `feed/load-more`), `INVALID_ARGUMENT`, `INVALID_CARD` (message names the field),
 `CARD_TOO_LARGE` (256 KiB), `CARD_REMOVED` (restore before pinning),
 `INVALID_ORDER`, `ID_CONFLICT` (id belongs to another source), `NOT_AGENT_CARD`,
-`UNKNOWN_ACTION`, `APP_NOT_INSTALLED`, `NO_ACTIVITY`, `STATE_READ_FAILED`,
+`UNKNOWN_ACTION`, `ACTION_UNAVAILABLE`, `APP_NOT_INSTALLED`, `NO_ACTIVITY`, `STATE_READ_FAILED`,
 `STATE_WRITE_FAILED`, `EVENT_TOO_LARGE`, `TIMEOUT`, `UNKNOWN_METHOD`.
 
 `ask-taku` intents only pre-fill the conversation; nothing is sent until the user sends
 it. Sample cards whose real integration does not exist use `none` or an `ask-taku`
 prompt; they never report a fake success.
+
+`feed/get.actionAvailability` and every `feed/list` card/pin summary's
+`actionAvailability` map describe each action by its ID. An available action has
+`{"available":true}`. A historical action whose integration was removed has
+`{"available":false,"code":"ACTION_UNAVAILABLE","message":"This action is no longer available."}`.
+The GUI shows the same availability and disables affected controls. Calling
+`feed/action` for one still returns `ACTION_UNAVAILABLE`, with no action execution
+or accepted event. Original stored card JSON, pins, removals and legacy history
+survive upgrade; the storage-only compatibility parser does not permit new
+published/generated `panel` intents.
+
+The stored-card upgrade fixture uses only a fresh, dedicated API 36 AVD named
+`Taku_Character_Legacy_Feed_20261121` on `emulator-5592`. Supply a reviewed arm64
+source Debug APK, the matching native backend and this checkout's own Metro
+connection for real Feed rendering. The seed refuses to replace an existing Home
+installation or data; the driver refuses physical phones and other AVD names.
+After the normal Debug build, with `TAKU_KOTLINC` and `JAVA_HOME` set:
+
+```sh
+python3 system/agent-app/modules/taku-home/scripts/build-feed-stored-action-probe.py
+python3 system/agent-app/modules/taku-home/scripts/verify-feed-stored-migration.py \
+  --serial emulator-5592 --phase seed --apk /absolute/path/to/reviewed-debug.apk
+python3 system/agent-app/modules/taku-home/scripts/verify-feed-stored-migration.py \
+  --serial emulator-5592 --phase verify --label first --require-ui \
+  --action-probe out/legacy-feed-compat-20261121/action-probe/FeedStoredActionTests.apk
+```
+
+Fully stop and cold-start that same AVD without a snapshot, then repeat verification
+with `--label cold`. This checks unchanged database epoch, one-time history import,
+raw card/preference retention, visible control availability and rejection before
+either GUI or Agent execution. Generated fixtures and reports stay in ignored `out/`.
 
 ## Read and follow card actions
 

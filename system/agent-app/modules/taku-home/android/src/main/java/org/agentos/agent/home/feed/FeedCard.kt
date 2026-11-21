@@ -29,11 +29,26 @@ sealed interface Intent {
   data class AskTaku(val prompt: String) : Intent
   data class OpenApp(val packageName: String, val uri: String?) : Intent
   data class OpenUrl(val url: String) : Intent
+  /** A retained storage-only intent whose integration was removed. Never executable. */
+  data object Unavailable : Intent {
+    const val CODE = "ACTION_UNAVAILABLE"
+    const val MESSAGE = "This action is no longer available."
+  }
   data object Dismiss : Intent
   data object None : Intent
 }
 
-data class CardAction(val id: String, val label: String, val intent: Intent)
+data class CardAction(val id: String, val label: String, val intent: Intent) {
+  val available: Boolean get() = intent != Intent.Unavailable
+
+  fun availability() = JSONObject().put("available", available).apply {
+    if (!available) put("code", Intent.Unavailable.CODE).put("message", Intent.Unavailable.MESSAGE)
+  }
+
+  fun requireAvailable() {
+    if (!available) throw FeedException(Intent.Unavailable.CODE, Intent.Unavailable.MESSAGE)
+  }
+}
 
 /**
  * One feed card (`taku.feed-card/1`, see CONTRACT.md). The validated fields drive the
@@ -57,6 +72,13 @@ data class FeedCard(
 ) {
   fun expired(now: Long) = expiresAt != null && expiresAt <= now
 
+  fun actionAvailability() = JSONObject().apply {
+    for ((id, action) in actions) put(id, action.availability())
+  }
+
+  /** Add runtime availability for rendering; keep the persisted card and its old intent intact. */
+  fun presentationJson() = JSONObject(json.toString()).put("actionAvailability", actionAvailability())
+
   companion object {
     const val SCHEMA = "taku.feed-card/1"
     private val ID = Regex("^[A-Za-z0-9._:-]{1,96}$")
@@ -67,7 +89,12 @@ data class FeedCard(
     fun isValidId(id: String) = ID.matches(id)
 
     /** Parses and validates; the returned card's [json] is a defensive copy. */
-    fun parse(input: JSONObject, forcedSource: String? = null): FeedCard {
+    fun parse(input: JSONObject, forcedSource: String? = null): FeedCard = parse(input, forcedSource, stored = false)
+
+    /** Only committed local storage may retain a removed integration; new input stays strict. */
+    internal fun parseStored(input: JSONObject, forcedSource: String? = null): FeedCard = parse(input, forcedSource, stored = true)
+
+    private fun parse(input: JSONObject, forcedSource: String?, stored: Boolean): FeedCard {
       val raw = JSONObject(input.toString())
       if (raw.toString().length > MAX_BYTES) fail("CARD_TOO_LARGE", "card exceeds $MAX_BYTES bytes")
       if (raw.optString("schema") != SCHEMA) fail("INVALID_CARD", "schema must be $SCHEMA")
@@ -93,7 +120,7 @@ data class FeedCard(
       val spec = ui.optJSONObject("spec") ?: fail("INVALID_CARD", "ui.spec is required")
       val elements = spec.optJSONObject("elements") ?: fail("INVALID_CARD", "ui.spec.elements is required")
       if (!elements.has(spec.optString("root"))) fail("INVALID_CARD", "ui.spec.root must name an element")
-      val actions = parseActions(raw.optJSONObject("actions") ?: JSONObject())
+      val actions = parseActions(raw.optJSONObject("actions") ?: JSONObject(), stored)
       val pin = parsePin(raw.optJSONObject("pin") ?: fail("INVALID_CARD", "pin is required"), actions)
       val expires = if (raw.isNull("expiresAt") || !raw.has("expiresAt")) null else raw.getLong("expiresAt")
       return FeedCard(
@@ -171,7 +198,7 @@ data class FeedCard(
       return Pin(label, detail, value, icon, trailing)
     }
 
-    private fun parseActions(o: JSONObject): Map<String, CardAction> = buildMap {
+    private fun parseActions(o: JSONObject, stored: Boolean): Map<String, CardAction> = buildMap {
       for (key in o.keys()) {
         val a = o.optJSONObject(key) ?: fail("INVALID_CARD", "actions.$key must be an object")
         val i = a.optJSONObject("intent") ?: fail("INVALID_CARD", "actions.$key.intent is required")
@@ -179,6 +206,7 @@ data class FeedCard(
           "ask-taku" -> Intent.AskTaku(i.optString("prompt").ifBlank { fail("INVALID_CARD", "actions.$key.intent.prompt is required") })
           "open-app" -> Intent.OpenApp(i.optString("package").ifBlank { fail("INVALID_CARD", "actions.$key.intent.package is required") }, i.optString("uri").ifBlank { null })
           "open-url" -> Intent.OpenUrl(i.optString("url").also { if (!it.startsWith("https://")) fail("INVALID_CARD", "actions.$key.intent.url must be https") })
+          "panel" -> if (stored) Intent.Unavailable else fail("INVALID_CARD", "actions.$key.intent.type is not supported")
           "dismiss" -> Intent.Dismiss
           "none" -> Intent.None
           else -> fail("INVALID_CARD", "actions.$key.intent.type is not supported")

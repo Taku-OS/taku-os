@@ -164,6 +164,7 @@ internal class FeedEvent private constructor(private val fields: JSONObject, val
         is Intent.AskTaku -> "ask-taku"
         is Intent.OpenApp -> "open-app"
         is Intent.OpenUrl -> "open-url"
+        Intent.Unavailable -> "unavailable"
         Intent.Dismiss -> "dismiss"
         Intent.None -> "none"
       }

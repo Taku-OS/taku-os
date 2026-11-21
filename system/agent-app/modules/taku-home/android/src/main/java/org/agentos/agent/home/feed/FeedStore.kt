@@ -94,7 +94,7 @@ internal class FeedStore(context: Context) : SQLiteOpenHelper(
       val preferences = FeedPreferences.parse(JSONObject(requiredMeta(db, "preferences")))
       db.rawQuery("SELECT id, json FROM published_cards ORDER BY ordinal", null).use { cursor ->
         while (cursor.moveToNext()) {
-          val card = FeedCard.parse(JSONObject(cursor.getString(1)), forcedSource = "agent")
+          val card = FeedCard.parseStored(JSONObject(cursor.getString(1)), forcedSource = "agent")
           require(card.id == cursor.getString(0)) { "stored card identity mismatch" }
           published[card.id] = card
         }
@@ -220,7 +220,7 @@ internal class FeedStore(context: Context) : SQLiteOpenHelper(
     try {
       preferences = legacy?.let { FeedPreferences.parse(it) } ?: FeedPreferences()
       cards = legacy?.getJSONArray("published")?.let { array ->
-        (0 until array.length()).map { FeedCard.parse(array.getJSONObject(it), forcedSource = "agent") }
+        (0 until array.length()).map { FeedCard.parseStored(array.getJSONObject(it), forcedSource = "agent") }
       } ?: emptyList()
       actions = legacy?.getJSONArray("actions") ?: JSONArray()
       for (index in 0 until actions.length()) actions.getJSONObject(index)

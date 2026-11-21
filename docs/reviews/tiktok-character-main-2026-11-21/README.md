@@ -169,12 +169,67 @@ individually. Both screen-context settings still read `1`; the assistant and voi
 interaction service both resolve to
 `org.agentos.agent/org.agentos.agent.home.assistant.SystemAssistantService`.
 
-The user has been asked to repeat the real English request, tap Try on and face the
-front camera. At this checkpoint no new user action or reply has been observed,
-and the observer remains idle. A fresh authorized screenshot, compact character
+The user was asked to repeat the real English request, tap Try on and face the
+front camera. That checkpoint's bounded observer saw no new input; the subsequent
+black-screen report and its fix are recorded below. A fresh authorized screenshot, compact character
 confirmation, positive transparent ticket handoff, camera preview and returned
 model frames are still pending; this record does not claim a successful
 camera/model session. Full hashes and the
 installation, runtime, permission, settings and actual ASR receipts are retained
 in ignored `out/character-pixel-upgrade-20261121/`; OTA extraction and APK checks
 are in ignored `out/launcher-from-official-rom/`.
+
+## Preserved-data Home startup follow-up
+
+The next user attempt exposed a Home startup crash before camera launch.
+`HomeActivity` synchronously restored Feed state; two cards saved by the older
+Home contained three retired `panel` actions, which main's strict parser rejected.
+The SQLite database was healthy, with migration still uncommitted. This was a
+preserved-data upgrade case that the earlier fresh-emulator checks had missed.
+The original database and legacy JSON were backed up privately on the phone.
+Quickstep temporarily served as Home while the failure was repaired.
+
+The storage-only parser now retains those cards and represents the removed actions
+as unavailable. New published/generated `panel` actions remain invalid. Original
+card JSON, all pins/removals and legacy history survive migration and later
+restoration. GUI and Agent read the same action-availability projection; affected
+controls display an English notice and are disabled. Dispatch rejects them before
+recording an accepted event or executing an integration. No removed panel bridge
+or LIVE observer was restored.
+
+Validation passed: 24 Feed JVM cases, 472 Node tests including 19 directed binding
+and renderer checks, typecheck and lint. A separate API 36 AVD used synthetic legacy
+JSON and an empty SQLite v1 database. Both first migration and a genuine cold AVD
+restart retained the two cards, three unavailable actions, 41 removals, four pins
+and 50 original history payloads, with the same database epoch after restart.
+Actual GUI-origin dispatch and Agent calls each rejected all three removed
+actions, started no Activity and left the event head unchanged. Real React Native
+card rendering showed the notice, disabled old controls and an enabled valid
+control; the native pinned play control was also disabled. The device fixture
+does not claim layout/touch acceptance for every catalog control; those bindings
+also have directed React SSR coverage.
+
+The normal Home release build succeeded in 4m46s. Its APK SHA-256 is
+`ac5dacdcbdf98eac4097e178d17c5daa94e8bb3cce8456a965cb8143323c05a0`,
+with the same platform development certificate and package UID. The backend was
+normally rebuilt with the updated preinstalled Agent documentation, SHA-256
+`2fb13276196e5ec49240a031de3ab4341bac0d9c4b8d3d2e0fe87a65747e0f71`;
+its DEX and all non-signing payload entries except that documentation match the
+preceding backend APK.
+
+On Pixel, the actual original JSON passed a read-only check using the production
+parser before installation. After the source release was installed without data
+clearing, migration and two cold Home launches passed, the original JSON hash was
+unchanged and all counts above were retained. The default Taku Home role was
+restored. The real Feed showed the unavailable-action notices and disabled
+controls, while three public Agent action calls returned `ACTION_UNAVAILABLE`
+without changing the event cursor. A real system-handle hold then reached local
+Zipformer capture with `assistant-entry/en-US`; it was cancelled before finger
+release, submitted no speech and returned to idle without an error.
+
+The user has been asked to perform a new real spoken character request. Positive
+reference/confirmation/camera/model acceptance is still pending at this checkpoint.
+Synthetic AVD reports and reproducible drivers are retained under
+`out/legacy-feed-compat-20261121/`; sanitized Pixel receipts are under
+`out/character-pixel-upgrade-20261121/black-screen-1/`. Private phone data and
+generated APKs are not source contributions.

@@ -147,7 +147,8 @@ fun Pill(
         }
         pin.value?.let { BasicText(displayValue(it, type), style = type.headingXl, maxLines = 1) }
         pin.trailing?.let { trailing ->
-          TakuIconButton(TakuIcons.PlaySmall, trailing.icon, { onTrailing(trailing.actionId) }, style = IconButtonStyle.Inverse, iconSize = TakuSize.iconSm)
+          TakuIconButton(TakuIcons.PlaySmall, trailing.icon, { onTrailing(trailing.actionId) }, style = IconButtonStyle.Inverse,
+            iconSize = TakuSize.iconSm, enabled = card.actions[trailing.actionId]?.available == true)
         }
       }
     }
