@@ -145,6 +145,21 @@ Local source checks: `npm run check:island`. `system/island/typecheck.py` additi
 Android 17 framework test JAR and an existing Gradle cache. It uses narrow API doubles for SystemUI
 and does **not** run Dagger annotation processing, Soong, or ROM/device acceptance.
 
+## Onboarding sign-in capsule
+
+Progress notifications with picture + text slots use the camera-anchored compact
+status layout, shared with Building. The working glyph uses the designer's native
+nine-dot loader; the login text is `Signing...`. Geometry, source assets, and the
+non-invasive Android render checks are documented in
+[onboarding-connecting](design/onboarding-connecting/README.md). This source change
+requires a new SystemUI build; updating the Home APK alone cannot change the shape.
+
+Simple Taku progress notifications also use a content-sized native expanded card
+styled from Figma 1155:1965. It shares the assistant eyes, preserves actual login
+text/actions, and replaces the fixed-height generic template for that scope.
+See [expanded onboarding](design/onboarding-expanded/README.md) for metrics,
+background fallback, Agent commands and test/deployment boundaries.
+
 ## Acceptance to run on the final build
 
 Record exact source revision, image digest, target, build type, screen geometry, navigation mode,

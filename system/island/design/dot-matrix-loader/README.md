@@ -4,7 +4,7 @@ Source: user-provided `taku-animation-handoff-10-15/effects/dot-matrix-loader`.
 `pose.ts` and `effect.json` are verbatim handoff source; no npm package is installed or executed.
 The handoff labels its code private/UNLICENSED; these files retain the designer provenance.
 
-`DotMatrixLoader.java` ports only the default `thinking` loop needed for Building. SystemUI
+`DotMatrixLoader.java` ports only the default `thinking` loop used by Building and working progress capsules (including onboarding sign-in). SystemUI
 and the Compose fallback call this same allocation-free implementation: 1000 ms period,
 125 ms clockwise steps, 40/50/110 ms outer attack/hold/decay, centre floor .86 and peak .92,
 scale growth .03. Reduced motion uses the exact static Figma pose.

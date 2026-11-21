@@ -33,7 +33,7 @@ On `$D`, third-party callers need an explicit `taku.root` grant for `manageAssis
 configuration writes/reloads, System AI mutations, and writes under `requests/`,
 `accounts/`, `composer/` and `skills/`. This includes approval responses, account
 login/cancel/refresh/key changes, draft/option changes and message submission.
-All `capture/*` operations (including reads), `interrupt`, `cancelQueued` and
+All `capture/*`, `jev/*`, `account/login/*` operations (including reads), `interrupt`, `cancelQueued` and
 `readTaskDetail` also require root: capture can analyze screenshots and start tasks,
 and task control/detail must not be available through a control-only grant.
 `taku.control` alone returns `PERMISSION_DENIED` before argument parsing or execution,
@@ -373,6 +373,156 @@ Discovery/turn preparation updates `taku-open-access/SKILL.md` when it matches t
 ### Turn-end cleanup
 
 `workspaces/list` shows `cleanup_failed` with `lastError:"SCREEN_CLEANUP_FAILED"`, `heldApps` and `cleanupRetryDelayMs`. The screen remains reserved. The worker retries after 30 seconds until close is confirmed. Wait and query while `stopping:true,admitted:false,canResume:false`. Empty `packageName` means current page unknown.
+
+## First-run onboarding
+
+Home shows a first-run onboarding card (Figma 1155:527, 1379:1785, 1379:2012, 1379:2239–1379:2907, 1341:782) only when **all**
+are confirmed: onboarding is not completed, AI is confirmed unavailable (`account/status`
+`aiAvailable:false` with a settled `phase`), and the phone is ready (`device_provisioned=1`, this
+user's `user_setup_complete=1`, user unlocked). Anything uncertain keeps it hidden: a broker that
+is still loading, verifying or unreachable, or a readiness value Home cannot read. Once a
+settled answer exists, a failed or unsettled account read keeps it for up to 15 s, so a single
+busy call or a broker restart does not hide a card the user is working in; after that the status
+is unknown again. While it is pending, Home re-checks every 3 s in the foreground (backing off to
+1 min while the account cannot be read), so the card appears once everything is confirmed. Once the user reaches the AI step (`connect_ai`), the card stays there through
+sign-in and verification, and after AI connects, until **Continue** (`onboarding/finish`), which
+moves to **You’re all set** (`all_set`). Every AI connection page also offers **Set up later**
+(`onboarding/dismiss`), including while connecting or offline. It writes `dismissed` and immediately
+restores Home without requiring AI or showing a misleading connected/all-set screen. It does not
+clear the name, accounts or keys; an already submitted connection may still complete. Configure AI
+later from Taku AI settings, or explicitly reset onboarding to replay it. During `intro`, `name` and
+`connect_ai` Home composes only the wallpaper, the empty-Home message and the card (no Feed, home
+pages, status bar or AI entry; assistant intents are ignored). During `all_set` Home shows the
+real Feed (its usual cards, or the Ask Taku invitation when empty) pinned to the Feed page, with
+the card on top. The AI entry shows its usual hint on arrival (`assistant/get` `hintExpanded:true`,
+folding back after 4 s as always). The entry and Feed cards work. **I’ll explore**, or tapping
+any Feed card or the Ask Taku invitation (the tap still reaches the card), completes onboarding;
+for Agents both are `onboarding/explore`. The card is
+not a Feed item and is not the SystemUI island, so `feed/list` never contains it.
+
+Progress is per Android user in `Settings.Secure` `taku_onboarding_step`
+(`intro`, `name`, `connect_ai`, `all_set`, `completed`, `dismissed`; missing or unknown means `intro`). A factory reset
+clears it, so onboarding runs again. Before the AI step, confirmed available AI
+(`aiAvailable:true`: a ChatGPT sign-in, or Magpie running with a model) writes `completed`, even
+if the card was never shown (existing users). At `connect_ai` it enables Continue instead, so Jev
+and Fal can still be added; `all_set` waits for I’ll explore. Neither `completed` nor `dismissed` restarts automatically, including after reboot or OTA. Losing AI afterwards does not
+restart it. An unknown account state never completes it. The name is Memory's `userName`
+(`content://org.agentos.memory.open-access`, unset value `我`); when it is already set, the name
+step is skipped and `connect_ai` is stored.
+
+```sh
+O=content://org.agentos.agent.home-onboarding
+content call --uri $O --method onboarding/get
+# Card actions, with the GUI's validation, in order:
+content call --uri $O --method onboarding/set-up                 # intro → name ("Set up Taku")
+content call --uri $O --method onboarding/submit-name --arg '{"name":"Deki"}'   # name → connect_ai ("Continue")
+content call --uri $O --method onboarding/skip-name              # name → connect_ai ("Skip for now")
+# AI step (connect_ai only). The card walks ChatGPT → Jev → Fal one page at a time ("Connect AI
+# Agent", then each page's Connect / "Skip for now" / "Next"); the pages are card navigation only,
+# not stored state, and these calls work whichever page the card shows:
+content call --uri $O --method onboarding/connect --arg '{"service":"chatgpt"}'  # device-code sign-in; the card shows chatgptSignIn
+content call --uri $O --method onboarding/cancel-sign-in
+content call --uri $O --method onboarding/connect --arg '{"service":"jev"}'   # use a Jev Magpie already serves (the card tries this on opening the Jev page)
+content call --uri $O --method onboarding/connect --arg '{"service":"jev","key":"apikey_..."}'   # TypeSafe or OpenRouter key
+content call --uri $O --method onboarding/connect --arg '{"service":"fal","key":"..."}'
+content call --uri $O --method onboarding/finish                 # connect_ai → all_set (last page's "Continue" or "Skip for now"; needs available AI)
+content call --uri $O --method onboarding/explore                # all_set → completed ("I’ll explore")
+content call --uri $O --method onboarding/dismiss                # connect_ai → dismissed ("Set up later"); no parameters or working AI needed
+# Jev or Fal skipped during onboarding: the same setup page (Figma 2-3 / 2-5) at any step,
+# with the same validation as the card. Answers {service, connection[, opened]}.
+content call --uri $O --method ai-setup/get --arg '{"service":"jev"}'      # connection: not_connected | connecting | connected | unknown
+content call --uri $O --method ai-setup/connect --arg '{"service":"jev","key":"apikey_..."}'   # no key: a Jev model Magpie already serves
+content call --uri $O --method ai-setup/connect --arg '{"service":"fal","key":"..."}'
+content call --uri $O --method ai-setup/open --arg '{"service":"fal"}'      # shows the page over the current screen
+# Agent-only: back to intro (available AI completes it again immediately).
+content call --uri $O --method onboarding/reset
+settings get secure taku_onboarding_step
+```
+
+For a local full-flow replay without deleting accounts, keys, Memory or desktop layout:
+
+```sh
+settings put secure taku_onboarding_test_mode 1
+content call --uri content://org.agentos.agent.home-onboarding --method onboarding/reset
+# Disable replay and return to ordinary first-run rules:
+settings put secure taku_onboarding_test_mode 0
+```
+
+This per-user switch defaults off; only `1` enables it (missing/other values mean off).
+`onboarding/get.testMode` reports the same value used by Home, and `testModeSetting` names it.
+In replay, existing AI does not auto-complete intro/name and an existing name does not skip
+that page. The phone must still be provisioned and unlocked. Every page shows real connection
+states; Continue still requires working AI. A service that is already connected shows its
+connected state and the way forward; to test a fresh sign-in, sign out from the assistant's
+account page first. Replay never signs out or clears credentials.
+Completing the replay hides the card normally; call reset again for another run, or disable
+replay. On the AI step, `onboarding/dismiss` exits without working AI; repeated dismiss calls are
+harmless. On other unfinished steps it returns `WRONG_STEP`.
+
+Every method returns `{ok:true,result}` with the state (`dismiss` reads local progress only so
+it never waits for an account/network refresh; service fields retain the last observed values):
+`{setting, testModeSetting, testMode, stored, visible, step, hiddenReason, phoneReady, ai, nameSet, canFinish, canDismiss, services, chatgptSignIn}`, where
+`services` is `{chatgpt, jev, fal}`, each `not_connected`, `connecting`, `connected` or `unknown`
+(`fal` is `null` when Taku Audio is not installed; the card then has no Fal page). `step` is the
+card being shown (`null` when hidden). `canDismiss` is true on `connect_ai`. `hiddenReason` is `completed`, `dismissed`, `ai_available`,
+`ai_unknown` or `phone_not_ready`. `ai` is `available`, `unavailable` or `unknown`. `nameSet` is `null` when
+Memory could not be read. `chatgptSignIn` is `{url, code}` exactly as the card shows them while a
+ChatGPT device-code sign-in is pending (`services.chatgpt` is `connecting` and the broker phase is
+`pending`), and `null` otherwise, including when the broker's URL is not an `https` page on
+`auth.openai.com` or `chatgpt.com` (the ChatGPT page then shows empty wells and waits).
+
+Callers: Agents and ADB (root, system, shell) and platform-signed components have full access. A
+third-party app needs App Permission Center `taku.control` (default deny); even then
+`chatgptSignIn` is always `null` for it, and `onboarding/connect` and `ai-setup/connect` (starting
+a sign-in, saving a key) are refused with `PERMISSION_DENIED`. No method ever returns a Jev or Fal
+key. Errors are `{ok:false,code,message}`:
+
+| Code | Meaning |
+|---|---|
+| `WRONG_STEP` | The action belongs to another step (for example `submit-name` at `intro`) |
+| `ALREADY_COMPLETED` | Onboarding is completed or AI is available |
+| `AI_STATUS_UNKNOWN` | The broker has not settled whether AI is available; the card is hidden |
+| `PHONE_NOT_READY` | Setup wizard, provisioning or unlock not finished |
+| `INVALID_NAME` | `name` missing, blank after trimming, or over 20 characters (Memory's rule) |
+| `NAME_NOT_SAVED` | Memory rejected or could not save the name; the step does not change |
+| `UNSUPPORTED_PARAMETER` | An argument the method does not take |
+| `SETTINGS_WRITE_FAILED` | `taku_onboarding_step` could not be written |
+| `AI_NOT_CONNECTED` | `finish` before AI is available |
+| `INVALID_SERVICE` | `service` is not `chatgpt`, `jev` or `fal` |
+| `INVALID_KEY` | A blank key, over 4096 characters, or with whitespace or commas; for Jev, not a TypeSafe (`apikey_…`) or OpenRouter (`sk-or-v1-…`) key |
+| `KEY_NOT_SAVED`, `MAGPIE_UNAVAILABLE`, `NO_DECISION_MODEL`, `AUDIO_UNAVAILABLE` | The key store rejected or could not take the key. With a Jev `key`, `NO_DECISION_MODEL` and `MAGPIE_UNAVAILABLE` are not errors: the key is saved, `services.jev` reads `connecting`, and onboarding keeps retrying `jev/enable` every 5 s for up to 3 minutes (then `not_connected` and a card notice). Without a key, `NO_DECISION_MODEL` means a key is needed |
+| `TASK_RUNNING`, `LOGIN_UNAVAILABLE`, `ACCOUNT_UNAVAILABLE` | ChatGPT sign-in could not start (see `account/login/start`) |
+| `PERMISSION_DENIED` | A third-party app without a `taku.control` grant, or one calling a credential method (`connect`) |
+| `UNKNOWN_METHOD` | Not one of the methods above |
+
+The `connect_ai` card walks the services one page at a time (Figma 2-0 to 2-5): a greeting with
+**Connect AI Agent**, then **ChatGPT**, **Jev** and **Fal** (no Fal page when Taku Audio is not
+installed), with a progress bar (green once a service is connected) and a back chevron (Android
+Back does the same; leaving ChatGPT mid-sign-in cancels it). A service that is already connected
+shows "… Connected" with the next step and is not managed there. The pages are card navigation
+only; the stored step stays `connect_ai`.
+
+**ChatGPT** asks for a device code on arrival when no AI is available yet (`account/login/start`
+with `type:"chatgptDeviceCode"`, `open:false`); when Magpie already serves a model it waits for
+Connect, because a sign-in switches Magpie away. Nothing opens: the page shows three steps, the
+official link (`chatgptSignIn.url`, printed without `https://`) and the one-time code
+(`chatgptSignIn.code`), each with a copy button. Connect stays disabled while the sign-in waits
+for approval on another device and asks again after a failure; the page turns connected by itself
+when the account lands. If the user leaves Home while it is pending, the island shows "Signing…"
+and a brief "Connected" when the account lands (only while Home is away), and the assistant
+brings Home back. Backing out (Back, a failed or abandoned sign-in) switches a previous Magpie
+connection back. **Jev** first switches on a Jev model Magpie already serves (`jev/enable`); the
+page otherwise shows where to make a key, then a key field that takes a TypeSafe (`apikey_…`) or
+OpenRouter (`sk-or-v1-…`) key (`jev/connect`), configured into Magpie in the background.
+**Fal** shows the same steps for a fal key (Taku Audio `settings` `saveFalKey`). Key fields show the
+key by default; the eye masks it (presentation only, no state). While a key saves (Jev up to about
+30 s) the field locks and Connect reads "Connecting…". If a Jev key is saved before Magpie lists
+its model, the page stays "Connecting…" while onboarding retries `jev/enable` (every 5 s, up to 3
+minutes); a rejected key is said under the field at once. **Skip for now** moves on unconnected.
+ChatGPT is required to finish (or Magpie with a model); Jev
+and Fal are optional. A development device that must skip onboarding without AI can run
+`settings put secure taku_onboarding_step completed` from the shell. That writes the setting
+directly, without the provider's checks.
 
 ## Home feed
 
@@ -737,3 +887,53 @@ first unlock following reboot.
 ### Native assistant card dismissal
 
 Use `cmd statusbar island collapse` for the same presentation dismissal as the accessible Dismiss action or upward swipe. Read back `presentation.card` (null) and `presentation.reason`. Collapse leaves tasks and voice running; use `assistant/voice-cancel` to stop input separately. New explicit interaction increments `assistant/get.expansionRequest`; passive updates honor dismissal. See the installed Taku Island skill for its provider and Quickstep recents.
+
+## Onboarding accounts and Jev
+
+All `jev/*` and `account/login/*` operations require `taku.root` for ordinary
+applications, including status and future methods; `taku.control` alone returns
+`PERMISSION_DENIED` before parsing. Local agent/root/system/shell callers retain direct
+access and Home uses the signature-protected gateway. `account/login/start` and
+`jev/connect` additionally remain trusted-only even with an ordinary app's root grant.
+`account/status` is a redacted control read.
+
+```sh
+# ChatGPT sign-in and AI availability (the same broker account view as the account page and Home
+# onboarding; no sign-in URL or one-time code). chatgptConnected:true only after the broker's
+# account/read returned a ChatGPT account; aiAvailable:true for that or for Magpie mode
+# (kind:"magpie") running with at least one model. phase:"loading" or "verifying" means not yet
+# settled. A cold broker's loading snapshot starts a background account/read (one at a time,
+# with retry backoff); it never starts sign-in or changes the model connection.
+# ACCOUNT_UNAVAILABLE when the broker cannot be reached.
+taku_call "$D" account/status '{}'
+# Start ChatGPT sign-in (the account page's broker control). type: "chatgpt" (browser, default) or
+# "chatgptDeviceCode". Returns the account/status fields plus url and code (what the account page
+# shows) and opened. open:true also opens the official page in the browser for "chatgpt", or the
+# account page with the one-time code for "chatgptDeviceCode". Home's ChatGPT page uses
+# "chatgptDeviceCode" without opening anything: its card shows the url and code itself.
+# Trusted callers only (root, system, shell, platform-signed): it hands out the device code, so a
+# third-party app gets PERMISSION_DENIED even with a Permission Center grant. jev/connect, which
+# replaces the Jev key, is trusted-only for the same reason.
+# Switches the assistant from Magpie to ChatGPT mode first; if that sign-in then does not land
+# (account/login/cancel, failure, a refused start, or 15 min without finishing), Magpie and its
+# selected model are switched back. Agent sign-ins never bring Home forward; only Home's own page
+# does. Codes: INVALID_LOGIN_TYPE, TASK_RUNNING (tasks still running), LOGIN_UNAVAILABLE,
+# ACCOUNT_UNAVAILABLE (account view unreachable or invalid).
+taku_call "$D" account/login/start '{"type":"chatgpt","open":false}'
+taku_call "$D" account/login/cancel '{}'
+# Jev decision model: {enabled, model, ready}. Jev always runs through the phone's Magpie.
+# jev/enable switches Jev on with a Jev model Magpie already serves (NO_DECISION_MODEL: no Jev model is listed).
+# TypeSafe providers include decide=https://api.typesafe.ai/v1. Broker startup/config sync repairs
+# older preset-only entries in the shared Settings store without replacing keys or explicit endpoints.
+# After updating the Broker, retry jev/enable; an already saved key does not need to be entered again.
+# jev/connect takes a TypeSafe Jev key (apikey_..., Magpie preset "typesafe") or an OpenRouter key
+# (sk-or-v1-...), adds or reuses the Magpie provider in the background (no Magpie key or admin page),
+# waits for its Jev model (preferring jev-latest; the whole call is bounded to about 30 s), binds it
+# and switches Jev on. Codes:
+# INVALID_KEY, KEY_NOT_SAVED, NO_DECISION_MODEL (key kept; Magpie lists no Jev model for it yet;
+# retry jev/enable), MAGPIE_UNAVAILABLE (key kept; Magpie's catalog never answered; retry
+# jev/enable once Magpie runs), SETTINGS_WRITE_FAILED.
+taku_call "$D" jev/status '{}'
+taku_call "$D" jev/enable '{}'
+taku_call "$D" jev/connect '{"key":"apikey_..."}'
+```

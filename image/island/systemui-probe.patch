@@ -135,7 +135,7 @@
                  }
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandActivity.kt
-@@ -0,0 +1,37 @@
+@@ -0,0 +1,52 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -164,6 +164,21 @@
 +    val category: String get() = payload.getString("category")
 +    // Assistant notifications from older publishers must not resurrect listening/error pills.
 +    val building: Boolean get() = category == "assistant" && payload.optString("compact") == "building"
++    /** Pic + short progress label uses the same camera-anchored silhouette as Building. */
++    val statusLabel: String? get() {
++        if (building) return "Building..."
++        val slots = payload.optJSONObject("bigIsland") ?: return null
++        if (category != "progress" || slots.optJSONObject("leading")?.optString("type") != "pic") return null
++        val trailing = slots.optJSONObject("trailing") ?: return null
++        return trailing.optString("text").takeIf { trailing.optString("type") == "text" && it.isNotEmpty() }
++    }
++    val nativeProgressCard: Boolean get() {
++        val expanded = payload.getJSONObject("expanded")
++        return packageName == "org.agentos.agent" && category == "progress" &&
++            expanded.optString("template") == "text" && !expanded.has("content") &&
++            !expanded.has("pic") && !expanded.has("steps") && !expanded.has("progress") &&
++            (expanded.optJSONArray("actions")?.length() ?: 0) <= 1
++    }
 +    val compactVisible: Boolean get() = if (category == "assistant") building else payload.optString("compact") != "hidden"
 +    val priority: Int get() = CATEGORIES.indexOf(category).let { if (it < 0) 8 else it }
 +    val title: String get() = payload.getJSONObject("expanded").getString("title")
@@ -777,12 +792,13 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandCardWindow.kt
-@@ -0,0 +1,210 @@
+@@ -0,0 +1,242 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
 +import android.animation.ValueAnimator
 +import android.content.Context
++import android.graphics.Outline
 +import android.graphics.Color
 +import android.graphics.Path
 +import android.graphics.PixelFormat
@@ -792,6 +808,7 @@
 +import android.view.Gravity
 +import android.view.SurfaceView
 +import android.view.View
++import android.view.ViewOutlineProvider
 +import android.view.ViewTreeObserver
 +import android.view.WindowInsets
 +import android.view.WindowManager
@@ -817,15 +834,25 @@
 +    private var activity = initial
 +    private val nativeAssistant = choices == null && initial.category == "assistant"
 +    private val nativeView = if (nativeAssistant) IslandAssistantCard(windowContext, command, collapse) else null
++    private val nativeProgress = choices == null && initial.nativeProgressCard
++    private val progressView = if (nativeProgress) IslandProgressCard(windowContext, command, collapse) else null
++    private val nativeContent = nativeAssistant || nativeProgress
 +    /** Every other activity (and the activity chooser) is drawn by the native template card. */
-+    private val templateView = if (nativeAssistant) null else IslandTemplateCard(windowContext, command, collapse)
++    private val templateView = if (nativeContent) null else IslandTemplateCard(windowContext, command, collapse)
 +    private val cardWidth = minOf(dp(420), metrics.bounds.width() - dp(16))
-+    private val fullCard = nativeAssistant || choices == null && initial.payload.getJSONObject("expanded").optJSONObject("content")?.optString("layout") == "card"
++    private val fullCard = nativeContent || choices == null && initial.payload.getJSONObject("expanded").optJSONObject("content")?.optString("layout") == "card"
 +    private val root = FrameLayout(windowContext).apply {
 +        background = GradientDrawable().apply { setColor(IslandStyle.CARD); cornerRadius = dp(IslandStyle.CORNER_DP).toFloat() }
 +        clipToOutline = true
++        outlineProvider = object : ViewOutlineProvider() {
++            override fun getOutline(view: View, outline: Outline) {
++                outline.setRoundRect(0, 0, view.width, view.height, dp(40).toFloat())
++            }
++        }
 +        importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
 +    }
++    private var blurListening = false
++    private val blurListener = java.util.function.Consumer<Boolean> { if (attached) updateProgressBackdrop() }
 +    private var host: IslandContentConnection? = null
 +    private var hostView: SurfaceView? = null
 +    private var hostIdentity: String? = null
@@ -840,7 +867,7 @@
 +    private var availableHeight = Int.MAX_VALUE
 +    private var heightCap = finalHeight
 +    private val params = WindowManager.LayoutParams(
-+        cardWidth, if (nativeAssistant) finalHeight else dp(48),
++        cardWidth, if (nativeContent) finalHeight else dp(48),
 +        WindowManager.LayoutParams.TYPE_STATUS_BAR_ADDITIONAL, flags(), PixelFormat.TRANSLUCENT,
 +    ).apply {
 +        title = "TakuIsland"
@@ -858,7 +885,7 @@
 +    }
 +
 +    init {
-+        root.addView(nativeView ?: templateView, FrameLayout.LayoutParams(-1, -1))
++        root.addView(nativeView ?: progressView ?: templateView, FrameLayout.LayoutParams(-1, -1))
 +        root.setOnApplyWindowInsetsListener { _, insets ->
 +            if (insets.isVisible(WindowInsets.Type.ime()) && cover) {
 +                cover = false
@@ -886,7 +913,8 @@
 +
 +    private fun flags(): Int = WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
 +        WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-+        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
++        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
++        (if (nativeProgress) WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED else 0)
 +
 +    fun show() {
 +        root.viewTreeObserver.addOnComputeInternalInsetsListener(insetsListener)
@@ -894,7 +922,12 @@
 +        attached = true
 +        covering(cover)
 +        // Native content is complete before addView: no template/remote-surface transition.
-+        if (nativeAssistant) return
++        if (nativeProgress) {
++            updateProgressBackdrop()
++            wm.addCrossWindowBlurEnabledListener(windowContext.mainExecutor, blurListener)
++            blurListening = true
++        }
++        if (nativeContent) return
 +        animation = ValueAnimator.ofInt(dp(48), finalHeight).apply {
 +            duration = 220
 +            addUpdateListener {
@@ -914,6 +947,7 @@
 +        val template = templateView
 +        when {
 +            nativeView != null -> nativeView.update(next)
++            progressView != null -> progressView.update(next)
 +            choices != null -> template!!.showChoices(choices)
 +            else -> template!!.update(next)
 +        }
@@ -958,15 +992,27 @@
 +        }
 +    }
 +
++    /** Blur browser text behind sign-in progress; opaque fallback when compositor blur is off. */
++    private fun updateProgressBackdrop() {
++        val blurred = if (wm.isCrossWindowBlurEnabled) runCatching {
++            root.viewRootImpl.createBackgroundBlurDrawable().apply {
++                setBlurRadius(dp(24)); setCornerRadius(dp(40).toFloat()); setColor(0xeb000000.toInt())
++            }
++        }.getOrNull() else null
++        root.background = blurred ?: GradientDrawable().apply { setColor(0xff121212.toInt()); cornerRadius = dp(40).toFloat() }
++    }
++
 +    fun state(): JSONObject = JSONObject().put("key", activity.key).put("windowType", params.type)
-+        .put("cover", cover).put("focusable", cover && !fullCard).put("layout", if (nativeAssistant) "native-assistant" else if (fullCard) "card" else "body").put("richReady", richReady)
++        .put("cover", cover).put("focusable", params.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE == 0).put("layout", if (nativeAssistant) "native-assistant" else if (nativeProgress) "native-progress" else if (fullCard) "card" else "body").put("richReady", richReady)
 +        .put("renderer", if (richReady) "remote-surface" else "systemui-native").put("nativeReady", attached && !richReady)
 +        .put("assistant", nativeView?.state() ?: JSONObject.NULL)
 +        .put("template", templateView?.state() ?: JSONObject.NULL)
++        .put("progress", progressView?.state() ?: JSONObject.NULL)
 +        .put("width", root.width).put("height", root.height).put("top", params.y)
 +        .put("touchRegion", region.toString()).put("outsideTapCollapses", false)
 +
 +    fun close() {
++        if (blurListening) { wm.removeCrossWindowBlurEnabledListener(blurListener); blurListening = false }
 +        covering(false)
 +        templateGeneration++
 +        animation?.cancel()
@@ -981,6 +1027,7 @@
 +
 +    private fun desiredHeight(item: IslandActivity): Int {
 +        val cap = metrics.bounds.height() / 3
++        if (progressView != null) return minOf(progressView.desiredHeight(item, cardWidth), cap)
 +        if (nativeView != null) return minOf(nativeView.desiredHeight(item, cardWidth), cap)
 +        // A remote full card asks for its height; everything else follows its native content.
 +        val requested = if (fullCard && choices == null) item.payload.getJSONObject("expanded").optJSONObject("content")?.optInt("heightDp", 300) else null
@@ -2559,6 +2606,160 @@
 +    }
 +}
 --- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandProgressCard.kt
+@@ -0,0 +1,151 @@
++/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
++package com.android.systemui.taku.island
++
++import android.content.Context
++import android.content.res.ColorStateList
++import android.graphics.Color
++import android.graphics.Typeface
++import android.graphics.drawable.GradientDrawable
++import android.graphics.drawable.RippleDrawable
++import android.os.Bundle
++import android.view.Gravity
++import android.view.MotionEvent
++import android.view.View
++import android.view.ViewConfiguration
++import android.view.accessibility.AccessibilityNodeInfo
++import android.widget.LinearLayout
++import android.widget.ScrollView
++import android.widget.TextView
++import org.json.JSONObject
++
++/** Figma 1155:1965 chrome, with actual notification text/actions rather than All set demo data. */
++internal class IslandProgressCard(context: Context, private val command: (String, String?, String?) -> Unit,
++    private val collapse: (String) -> Unit) : LinearLayout(context) {
++    private val density = resources.displayMetrics.density
++    private val scaled = resources.displayMetrics.scaledDensity
++    private val regular = font("hanken_grotesk_regular")
++    private val medium = font("hanken_grotesk_medium")
++    private val message = label(18f, 0xccffffff.toInt(), regular).apply {
++        val line = (27.9f * scaled).toInt()
++        setLineHeight(line)
++        // Android adds line spacing only between baselines; CSS includes half-leading
++        // above the first line and below the last. Preserve the Figma 27.9 sp line box.
++        val metrics = paint.fontMetricsInt
++        val leading = (line - (metrics.descent - metrics.ascent)).coerceAtLeast(0)
++        setPadding(0, leading / 2, 0, leading - leading / 2)
++    }
++    private val scroll = ScrollView(context).apply {
++        isVerticalScrollBarEnabled = false; isFillViewport = false
++        addView(message, LayoutParams(-1, -2))
++    }
++    private val actions = LinearLayout(context).apply { orientation = HORIZONTAL }
++    private var current: IslandActivity? = null
++    private var fingerprint: String? = null
++    private var downX = 0f
++    private var downY = 0f
++    private var eligible = false
++    private var swiped = false
++    private val slop = ViewConfiguration.get(context).scaledTouchSlop
++
++    init {
++        orientation = VERTICAL
++        setPadding(dp(16), dp(16), dp(16), dp(16))
++        addView(IslandStatusGlyph(context).apply { contentDescription = "Taku" }, LayoutParams(dp(32), dp(32)))
++        addView(scroll, LayoutParams(-1, 0, 1f).apply { topMargin = dp(4) })
++        addView(actions, LayoutParams(-1, -2).apply { topMargin = dp(16) })
++    }
++
++    fun update(next: IslandActivity) {
++        current = next
++        message.text = next.body.ifBlank { next.title }
++        val expanded = next.payload.getJSONObject("expanded")
++        val declared = expanded.optJSONArray("actions")
++        val ids = if (declared == null) emptyList() else (0 until declared.length()).map { declared.getString(it) }
++            .filter { next.actions.containsKey(it) || next.nativeActions.containsKey(it) }
++        val primary = expanded.optString("primaryAction")
++        val key = next.key + primary + ids.joinToString { it + (next.actions[it]?.title ?: next.nativeActions[it]?.title) }
++        if (key == fingerprint) return
++        fingerprint = key
++        actions.removeAllViews()
++        // Closing only folds the card. It never cancels the browser sign-in or the notification.
++        addButton("Close", false) { collapse("button") }
++        ids.forEach { id ->
++            val title = next.actions[id]?.title ?: next.nativeActions.getValue(id).title
++            addButton(title, id == primary) {
++                current?.let { item -> command("action", item.key, JSONObject().put("id", id).toString()) }
++            }
++        }
++        if (ids.isEmpty() && next.openIntent != null) addButton("Open", true) {
++            current?.let { command("open", it.key, null) }
++        }
++    }
++
++    /** UNSPECIFIED measurement lets the weighted ScrollView measure its natural content.
++     * At the real window's capped EXACT height it shrinks and scrolls, keeping actions visible. */
++    fun desiredHeight(next: IslandActivity, width: Int): Int {
++        update(next)
++        measure(MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED))
++        return measuredHeight
++    }
++
++    private fun addButton(title: CharSequence, primary: Boolean, clicked: () -> Unit) {
++        val button = object : TextView(context) {
++            override fun getAccessibilityClassName(): CharSequence = "android.widget.Button"
++        }.apply {
++            text = title; typeface = medium; textSize = 16f; letterSpacing = -.01f; includeFontPadding = false
++            setTextColor(if (primary) 0xff1b1b1b.toInt() else 0xebffffff.toInt())
++            setLineHeight((24 * scaled).toInt()); gravity = Gravity.CENTER
++            setPadding(dp(12), dp(8), dp(12), dp(8))
++            minHeight = (24 * scaled).toInt() + dp(16)
++            val shape = GradientDrawable().apply { setColor(if (primary) Color.WHITE else 0x14ffffff); cornerRadius = dp(999).toFloat() }
++            background = RippleDrawable(ColorStateList.valueOf(if (primary) 0x22000000 else 0x33ffffff), shape, null)
++            isClickable = true; isFocusable = true
++            setOnClickListener { clicked() }
++        }
++        actions.addView(button, LayoutParams(0, -2, 1f).apply { if (actions.childCount > 0) leftMargin = dp(8) })
++    }
++
++    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
++        when (event.actionMasked) {
++            MotionEvent.ACTION_DOWN -> {
++                downX = event.rawX; downY = event.rawY; swiped = false
++                val reading = event.y >= scroll.top && event.y < scroll.bottom
++                eligible = !(reading && scroll.canScrollVertically(1))
++            }
++            MotionEvent.ACTION_POINTER_DOWN, MotionEvent.ACTION_CANCEL -> eligible = false
++            MotionEvent.ACTION_MOVE, MotionEvent.ACTION_UP -> {
++                if (swiped) return true
++                val dx = kotlin.math.abs(event.rawX - downX)
++                val up = downY - event.rawY
++                if (dx > slop && dx > kotlin.math.abs(up)) eligible = false
++                if (eligible && event.pointerCount == 1 && up > maxOf(dp(24), slop) && up > dx * 1.3f) {
++                    eligible = false; swiped = true
++                    val cancel = MotionEvent.obtain(event).apply { action = MotionEvent.ACTION_CANCEL }
++                    super.dispatchTouchEvent(cancel); cancel.recycle()
++                    post { collapse("swipe_up") }; return true
++                }
++                if (event.actionMasked == MotionEvent.ACTION_UP) eligible = false
++            }
++        }
++        return super.dispatchTouchEvent(event)
++    }
++    override fun onTouchEvent(event: MotionEvent): Boolean = true
++    override fun onInitializeAccessibilityNodeInfo(info: AccessibilityNodeInfo) {
++        super.onInitializeAccessibilityNodeInfo(info)
++        info.addAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_DISMISS); info.isDismissable = true
++    }
++    override fun performAccessibilityAction(action: Int, arguments: Bundle?): Boolean {
++        if (action == AccessibilityNodeInfo.ACTION_DISMISS) { collapse("accessibility_dismiss"); return true }
++        return super.performAccessibilityAction(action, arguments)
++    }
++    fun state(): JSONObject = JSONObject().put("renderer", "systemui-native").put("text", message.text.toString())
++        .put("buttonCount", actions.childCount)
++    private fun label(size: Float, color: Int, face: Typeface) = TextView(context).apply {
++        textSize = size; setTextColor(color); typeface = face; includeFontPadding = false; letterSpacing = -.01f
++    }
++    private fun font(name: String): Typeface = runCatching {
++        val app = context.createPackageContext("org.agentos.agent", 0)
++        app.resources.getFont(app.resources.getIdentifier(name, "font", app.packageName))
++    }.getOrDefault(Typeface.create("sans-serif", Typeface.NORMAL))
++    private fun dp(value: Int) = (value * density).toInt()
++}
+--- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandProvider.kt
 @@ -0,0 +1,45 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
@@ -2829,6 +3030,53 @@
 +    override fun dump(pw: PrintWriter, args: Array<out String>) {
 +        // dumpsys may run off-main; read the immutable snapshot, never traverse Views here.
 +        pw.println(engine.snapshot)
++    }
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandStatusGlyph.kt
+@@ -0,0 +1,44 @@
++/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
++package com.android.systemui.taku.island
++
++import android.animation.ValueAnimator
++import android.content.Context
++import android.graphics.Canvas
++import android.graphics.Color
++import android.graphics.Paint
++import android.view.View
++import android.view.animation.LinearInterpolator
++import org.agentos.island.DotMatrixLoader
++
++/** Shared native Taku eyes / working glyph; preserves the existing assistant animation. */
++internal class IslandStatusGlyph(context: Context) : View(context) {
++    private val d = resources.displayMetrics.density
++    private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
++    private val pose = DotMatrixLoader.Pose()
++    private var time = 0f
++    private var clock: ValueAnimator? = null
++    var working = false
++        set(value) { if (field != value) { field = value; contentDescription = if (value) "Working" else "Taku"; invalidate() } }
++    override fun onAttachedToWindow() {
++        super.onAttachedToWindow()
++        if (ValueAnimator.areAnimatorsEnabled()) clock = ValueAnimator.ofFloat(0f, 4000f).apply {
++            duration = 4000; interpolator = LinearInterpolator(); repeatCount = ValueAnimator.INFINITE
++            addUpdateListener { time = it.animatedValue as Float; invalidate() }; start()
++        }
++    }
++    override fun onDetachedFromWindow() { clock?.cancel(); clock = null; super.onDetachedFromWindow() }
++    override fun onDraw(canvas: Canvas) {
++        val x = width / 2f; val y = height / 2f
++        if (working) {
++            if (ValueAnimator.areAnimatorsEnabled()) DotMatrixLoader.thinking(time.toDouble(), pose) else DotMatrixLoader.rest(pose)
++            for (i in 0..8) {
++                paint.color = Color.argb((pose.opacity[i] * 255).toInt(), 255, 255, 255)
++                canvas.drawCircle(x + (i % 3 - 1) * 6 * d, y + (i / 3 - 1) * 6 * d, 2 * d * pose.scale[i].toFloat(), paint)
++            }
++        } else {
++            val blink = if (time < 3700 || !ValueAnimator.areAnimatorsEnabled()) 1f else if (time < 3780) 1f - .88f * (time - 3700) / 80 else if (time < 3890) .12f + .88f * (time - 3780) / 110 else 1f
++            paint.color = Color.WHITE
++            for (left in listOf(-8, 2)) canvas.drawRoundRect(x + left * d, y - 6 * d * blink, x + (left + 6) * d, y + 6 * d * blink, 3 * d, 3 * d, paint)
++        }
 +    }
 +}
 --- /dev/null

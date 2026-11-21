@@ -29,7 +29,7 @@ registerHooks({resolve(specifier, context, nextResolve) {
   return nextResolve(specifier, context);
 }});
 
-const {useGenUiCard} = await import('./useGenUi.ts');
+const {useGenUiCard, needsJevSetup} = await import('./useGenUi.ts');
 const {getCard, applyMatterSnapshot} = await import('../model/genuiStore.ts');
 const {mainReply, matterSnapshot, primary} = await import('../model/mainReplyFixtures.mjs');
 
@@ -84,6 +84,12 @@ function nativeCalls(reply, {pin = pinCapability(reply), cardView} = {}) {
     return {};
   };
 }
+
+test('only a Jev that was never set up asks for its setup page; one switched off is respected', () => {
+  assert.equal(needsJevSetup('jev-jev_not_configured'), true);
+  for (const other of ['', 'jev-jev_disabled', 'jev-timeout', 'jev-gateway_unavailable', 'llm-jev_not_configured', 'invalid-layout'])
+    assert.equal(needsJevSetup(other), false, other);
+});
 
 test('a card only reports Pinned after the native pin receipt', async () => {
   const reply = mainReply('pin-thread', 'pin-card', 1, 'completed');

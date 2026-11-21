@@ -1,4 +1,4 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="org.agentos.assistant" android:versionCode="79" android:versionName="20261118-assistant" android:sharedUserId="android.uid.system">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="org.agentos.assistant" android:versionCode="80" android:versionName="20261120-assistant" android:sharedUserId="android.uid.system">
  <uses-sdk android:minSdkVersion="36" android:targetSdkVersion="36"/>
  <permission android:name="org.agentos.assistant.permission.IME_REPLIES" android:protectionLevel="signature|knownSigner" android:knownCerts="@array/ime_reply_signers"/>
  <permission android:name="org.agentos.assistant.permission.USE_AI" android:protectionLevel="normal"/>

@@ -18,6 +18,10 @@
     <!-- Discover the native ROM island host; the app never draws an island card. -->
     <provider android:authorities="com.android.systemui.island" />
     <provider android:authorities="org.agentos.assistant.permissions" />
+    <!-- Onboarding reads and saves the user's name in Memory (same open-access API as Agents). -->
+    <provider android:authorities="org.agentos.memory.open-access" />
+    <!-- Onboarding reads and saves the fal key through Taku Audio's settings API. -->
+    <provider android:authorities="org.agentos.audio.open-access" />
     <intent><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent>
     <intent>
       <action android:name="android.intent.action.MAIN" />
@@ -46,6 +50,11 @@
     <activity android:name="org.agentos.agent.home.assistant.AssistantOverlayActivity"
       android:exported="true" android:launchMode="singleTop" android:excludeFromRecents="true"
       android:taskAffinity="org.agentos.agent.assistant" android:screenOrientation="portrait"
+      android:windowSoftInputMode="adjustNothing" android:theme="@style/Theme.TakuAssistantOverlay" />
+    <!-- The Jev or Fal setup page reopened after onboarding (GUI card, voice input, Agents). -->
+    <activity android:name="org.agentos.agent.home.ui.onboarding.ServiceSetupActivity"
+      android:exported="false" android:launchMode="singleTop" android:excludeFromRecents="true"
+      android:taskAffinity="org.agentos.agent.setup" android:screenOrientation="portrait"
       android:windowSoftInputMode="adjustNothing" android:theme="@style/Theme.TakuAssistantOverlay" />
     <activity android:name="org.agentos.agent.home.widgets.WidgetSetupActivity" android:exported="false" android:theme="@android:style/Theme.Material.Light.NoActionBar" />
     <!-- TakuOS home. Holds android.app.role.HOME once selected (see README). -->
@@ -95,6 +104,11 @@
     <provider
       android:name="org.agentos.agent.home.assistant.HomeAssistantProvider"
       android:authorities="org.agentos.agent.home-assistant"
+      android:exported="true" />
+    <!-- Agent access to first-run onboarding (same OnboardingRepository as the Home card). -->
+    <provider
+      android:name="org.agentos.agent.home.onboarding.OnboardingProvider"
+      android:authorities="org.agentos.agent.home-onboarding"
       android:exported="true" />
     <!-- Agent access to the desktop's own navigation state (read-only; it never launches it). -->
     <provider

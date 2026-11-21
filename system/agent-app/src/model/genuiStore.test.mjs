@@ -161,6 +161,21 @@ test('a rejected final layout retains known content and settles into an explicit
   assert.equal(store.get('/ui/fields/notes/draft'), 'Keep this draft');
 });
 
+test('a template fallback keeps its reason for the card, and a later Jev layout clears it', () => {
+  const ui = request('jev-setup-reason'), sourceId = 'jev-setup-source', signature = uiSignature(ui);
+  const id = ensureCard('jev-setup-thread', matter(ui, sourceId)), known = getCard(id).view;
+  assert.equal(getCard(id).layoutFallback, '');
+  const fallback = {catalogVersion: CATALOG_VERSION, signature, spec: templateSpec(ui),
+    metrics: {...known.metrics, level: 'template', fallback: 'jev-jev_not_configured'}};
+  assert.equal(applyLayout(id, sourceId, signature, fallback, true), true);
+  assert.equal(getCard(id).layoutResolved, true);
+  assert.equal(getCard(id).layoutFallback, 'jev-jev_not_configured', 'the retained template view would have lost the reason');
+  const composed = {catalogVersion: CATALOG_VERSION, signature, spec: templateSpec(ui),
+    metrics: {...known.metrics, level: 'jev', fallback: '', jevSteps: 2}};
+  assert.equal(applyLayout(id, sourceId, signature, composed, true), true);
+  assert.equal(getCard(id).layoutFallback, '');
+});
+
 test('current catalog and signature fence every layout flight and retained view', () => {
   const ui = request('retained-catalog-fence'), signature = uiSignature(ui);
   const id = ensureCard('retained-catalog-thread', matter(ui, 'source'));

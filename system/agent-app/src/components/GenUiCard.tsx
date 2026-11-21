@@ -5,7 +5,7 @@ import {spacing} from '../feed/feedTokens';
 import {textFor, type Language} from '../i18n';
 import {chatText} from '../chat/chatText';
 import {presentationRequest, templateSpec, type CardPresentation} from '../model/genui';
-import {useGenUiCard} from '../hooks/useGenUi';
+import {noteJevSetupOpened, useGenUiCard} from '../hooks/useGenUi';
 import {registry, ChatReplySurface} from './genuiRegistry';
 import {isTextReplySpec} from '../model/chatReplySurface';
 import {CardLanguage, CardMatter, openSafeUrl} from './genuiWidgets';
@@ -14,6 +14,7 @@ import {assemblySpec} from '../model/genuiAssembly';
 import {FeedButton, FeedPressable, FeedStatus, FeedText} from '../feed/feedVisual';
 import {list, record, type Json} from '../model/session';
 import {formatUiValue} from './genuiFormat';
+import {openAiSetup} from '../native/aiSetup';
 
 interface CardProps {threadId: string; presentation: CardPresentation; language: Language; active?: boolean; preload?: boolean; surface?: 'chat' | 'panel'}
 
@@ -52,6 +53,7 @@ function LiveCard({threadId, presentation, language, active = true, preload = fa
   const {store, spec, dispatch, pin} = card;
   const [pinBusy, setPinBusy] = useState(false), [pinError, setPinError] = useState('');
   const [reviewOpen, setReviewOpen] = useState(false);
+  const {jevSetupNeeded} = card;
   const renderSpec = useMemo(() => assemblySpec(spec), [spec]);
   const handlers = useMemo(() => ({
     setState: createStandardActionHandlers().setState,
@@ -99,6 +101,10 @@ function LiveCard({threadId, presentation, language, active = true, preload = fa
         : card.syncError === 'VERSION_CONFLICT' ? 'panelStaleState' : 'cardSyncUnavailable')}/>}
       {card.hydrationError && <FeedStatus state="error" text={t('cardLoadingFailed')}/>}
       {card.layoutError && <FeedStatus state="error" text={t('cardLayoutFailed')}/>}
+      {jevSetupNeeded && <View style={styles.setup}>
+        <FeedStatus state="info" text={t('cardJevSetupNeeded')}/>
+        <FeedButton label={t('cardSetUpJev')} size="md" onPress={() => { if (openAiSetup('jev')) noteJevSetupOpened(); }}/>
+      </View>}
       {!!card.review.length && <View style={styles.review}>
         <FeedPressable label={`${reviewOpen ? t('hideDetails') : t('showDetails')} · ${t('cardReviewSavedInputs')} (${card.review.length})`}
           expanded={reviewOpen} onPress={() => setReviewOpen(!reviewOpen)}>
@@ -138,6 +144,7 @@ export function GenUiCard(props: CardProps & {superseded?: boolean}) {
 
 const styles = StyleSheet.create({
   container: {gap: spacing[4]},
+  setup: {gap: spacing[4], alignItems: 'flex-start'},
   review: {gap: spacing[8]},
   reviewToggle: {minHeight: 36, paddingHorizontal: spacing[4], flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing[12]},
   reviewDetails: {paddingHorizontal: spacing[4], gap: spacing[12]},

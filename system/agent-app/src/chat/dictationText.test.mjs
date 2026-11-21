@@ -19,6 +19,13 @@ test('engine reasons map to the three toasts', () => {
   assert.equal(failureOf(undefined), 'unavailable');
 });
 
+test('a missing fal key is its own failure, from the engine or from Home', () => {
+  assert.equal(failureOf('PROVIDER_NOT_CONFIGURED'), 'falKeyMissing');
+  assert.equal(failureOf('VOICE_FAL_KEY_MISSING'), 'falKeyMissing');
+  assert.equal(dictationResult({kind: 'Failed', code: 'PROVIDER_NOT_CONFIGURED'}).reason, 'falKeyMissing');
+  assert.equal(failureOf('PROVIDER_AUTH_FAILED'), 'unavailable', 'a saved but rejected key is not a missing one');
+});
+
 test('only a successful outcome delivers, and it delivers its own complete text', () => {
   assert.deepEqual(dictationResult({kind: 'Success', text: 'the whole tail'}), {text: 'the whole tail'});
   // A failed session with a partial preview still fails: text alone never means success.

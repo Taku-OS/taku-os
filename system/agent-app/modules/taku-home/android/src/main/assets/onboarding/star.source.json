@@ -1,0 +1,62 @@
+{
+  "fileKey": "MdImIDNqePpNZ62C0GLArW",
+  "referenceNode": "1155:527",
+  "glyphNode": "1155:545",
+  "name": "Star \u00b7 dot pixel \u00b7 4px / gap 1px",
+  "usage": "64dp dot-pixel star above \"Your Day, In One Place\" in the onboarding empty Home (frames 1155:527, 1155:619, 1155:846); rows stacked with a 1dp gap",
+  "assets": [
+    {
+      "asset": "star-row-1.svg",
+      "rowNodes": [
+        "1155:546",
+        "1155:548",
+        "1155:612",
+        "1155:614"
+      ],
+      "width": 4,
+      "height": 4,
+      "sha256": "07e5db8aedcb531d0f9b2d09fee8d414ec027dfa7bf449a175d61b0a3551209f"
+    },
+    {
+      "asset": "star-row-3.svg",
+      "rowNodes": [
+        "1155:550",
+        "1155:554",
+        "1155:604",
+        "1155:608"
+      ],
+      "width": 14,
+      "height": 4,
+      "sha256": "30a3db7174907b864c01717e88ae1689aa5ed4b6ce34911fb205b15a4ce983f1"
+    },
+    {
+      "asset": "star-row-5.svg",
+      "rowNodes": [
+        "1155:558",
+        "1155:598"
+      ],
+      "width": 24,
+      "height": 4,
+      "sha256": "d5f8979e75f3e549c24d2fc15113fbcb2759151607505b056ac7ab35fdfcdced"
+    },
+    {
+      "asset": "star-row-6.svg",
+      "rowNodes": [
+        "1155:564",
+        "1155:588"
+      ],
+      "width": 44,
+      "height": 4,
+      "sha256": "8fca60f4937d8dbad6d1de793dcc146344a18bd9b2846541afa887621055c7a8"
+    },
+    {
+      "asset": "star-row-7.svg",
+      "rowNodes": [
+        "1155:574"
+      ],
+      "width": 64,
+      "height": 4,
+      "sha256": "2f7e6ec00b19adc7277dcae5c0b530380d1857d8658f9e92a6e7d33a858f5a00"
+    }
+  ]
+}

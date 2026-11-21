@@ -22,9 +22,12 @@ class SecretScanAllowlist(unittest.TestCase):
             '8d6eeb9f4d1056b583670e46e5dc21d27363f4ff5148ff9b9b0badb2c38c1566')
 
     def test_runtime_asset_digest_exception_is_exact_and_path_bound(self):
-        self.assert_path_bound_allowlist(
-            'image/runtime-assets.lock.json',
-            '56d2d3c9a73137ca1d84d335e355f83b5acebe2db26e72517b66ce216255aad7')
+        for digest in (
+                '56d2d3c9a73137ca1d84d335e355f83b5acebe2db26e72517b66ce216255aad7',
+                '4a3cd2d45986a0b63081ad4c9eee63ca3e3cecfe9adcfa470cbfb9f83543ebb2',
+                '78882e1d0704ea3b41acabd85821b2bdb42bcc0040f7132a95e932484a540c81'):
+            with self.subTest(digest=digest):
+                self.assert_path_bound_allowlist('image/runtime-assets.lock.json', digest)
 
     def assert_path_bound_allowlist(self, reviewed_path, known):
         config = SCRIPT.parents[1] / '.gitleaks.toml'

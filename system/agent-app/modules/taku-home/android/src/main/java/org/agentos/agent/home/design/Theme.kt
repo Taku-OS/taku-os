@@ -26,6 +26,8 @@ data class TakuTypography(
   val heading2xl: TextStyle,
   val headingXl: TextStyle,
   val headingLg: TextStyle,
+  /** Sub Heading/lg (Hanken Grotesk SemiBold 24/1.2, −2%): the onboarding one-time code. */
+  val subHeadingLg: TextStyle,
   val bodyXl: TextStyle,
   val bodyXlMedium: TextStyle,
   val bodyLg: TextStyle,
@@ -84,6 +86,7 @@ private fun rememberTypography(color: Color): TakuTypography {
     val display = font(context, "space_grotesk_regular", FontWeight.Normal)
     val body = font(context, "hanken_grotesk_regular", FontWeight.Normal)
     val medium = font(context, "hanken_grotesk_medium", FontWeight.Medium)
+    val semiBold = font(context, "hanken_grotesk_semibold", FontWeight.SemiBold)
     fun style(family: FontFamily?, weight: FontWeight, size: Float, lineHeight: Float, tracking: Float = -0.01f) = TextStyle(
       fontFamily = family ?: FontFamily.SansSerif, fontWeight = weight, fontSize = size.sp, lineHeight = (size * lineHeight).sp,
       letterSpacing = tracking.em, lineHeightStyle = noTrim, color = color,
@@ -93,6 +96,7 @@ private fun rememberTypography(color: Color): TakuTypography {
       heading2xl = style(display, FontWeight.Normal, 32f, 1.05f, -0.02f),
       headingXl = style(display, FontWeight.Normal, 24f, 1.05f),
       headingLg = style(display, FontWeight.Normal, 20f, 1.05f),
+      subHeadingLg = style(semiBold, FontWeight.SemiBold, 24f, 1.2f, -0.02f),
       bodyXl = style(body, FontWeight.Normal, 18f, 1.55f),
       bodyXlMedium = style(medium, FontWeight.Medium, 18f, 1.55f),
       bodyLg = style(body, FontWeight.Normal, 16f, 1.5f),

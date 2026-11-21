@@ -49,12 +49,13 @@ internal class AgentGatewayProtocol private constructor() {
             "accounts/read", "accounts/refresh", "accounts/login", "accounts/cancel", "accounts/openMagpie", "accounts/keys", "accounts/removeKey", "accounts/saveKey",
             "requests/list", "requests/read", "requests/respond", "requests/submit", "requests/cancel",
             "decide", "generateUi", "mainReply", "panels", "cardView", "readMatter", "subscribeMatter", "unsubscribeMatter", "dispatchMatter", "analyzeCameraFrame", "audioCapabilities", "audioCommand",
-            "readSystemAi", "setSystemAi", "bindSystemAi", "bindSystemAiModel", "reorderSystemAi", "restoreSystemAi", "deleteSystemAiGroup", "openMagpieManagement", "pluginManager",
+            "readSystemAi", "setSystemAi", "bindSystemAi", "bindSystemAiModel", "reorderSystemAi", "restoreSystemAi", "deleteSystemAiGroup", "openMagpieManagement", "pluginManager", "readAccount", "openAssistantConnection",
             "readAppPermissions", "setAppPermissionMode", "setAppPermissionScope", "resetAppPermission",
             COMPOSER_READ, COMPOSER_WRITE, COMPOSER_IMPORT, COMPOSER_MOVE, COMPOSER_RECEIPT, COMPOSER_ATTACH,
             COMPOSER_REMOVE, COMPOSER_OPTIONS_READ, COMPOSER_OPTIONS_WRITE, COMPOSER_SUBMIT, COMPOSER_SETTLE, COMPOSER_RELEASE,
             COMPOSER_HANDOFF, COMPOSER_RESTORE, COMPOSER_RESTORE_TASK, COMPOSER_CREATE_THREAD, COMPOSER_PRESERVE_DRAFT,
-            LIVE_TASK_READ, LIVE_TASK_REPLACE, LIVE_TASK_CANCEL)
+            LIVE_TASK_READ, LIVE_TASK_REPLACE, LIVE_TASK_CANCEL,
+            "connectChatGpt", "cancelChatGpt", "readJev", "connectJev", "enableJev")
         @JvmField val QUESTIONS: Set<String> = java.util.Set.of("phone/askUser", "phone/confirmAction",
             "phone/action/requestApproval", "item/tool/requestUserInput")
         private val SECRET_KEYS: Set<String> = java.util.Set.of("accesstoken", "refreshtoken", "idtoken",
@@ -239,6 +240,7 @@ internal class AgentGatewayProtocol private constructor() {
                 "setAppPermissionMode" -> java.util.Set.of("mode", "allowRootInYolo")
                 "setAppPermissionScope" -> java.util.Set.of("packageName", "scope", "allowed")
                 "resetAppPermission" -> java.util.Set.of("packageName")
+                "connectJev" -> java.util.Set.of("key")
                 else -> java.util.Set.of()
             }
             val keys = input.keys()
@@ -317,7 +319,8 @@ internal class AgentGatewayProtocol private constructor() {
                     nonnegativeInteger(cursor, "afterSeq")
                 }
             }
-            if (action == "openSettings" && !java.util.Set.of("models", "system", "workspaces").contains(input.optString("page", "models")))
+            if (action == "connectJev") text(input, "key", 4096)
+            if (action == "openSettings" && !java.util.Set.of("models", "system", "workspaces", "account").contains(input.optString("page", "models")))
                 throw IOException("INVALID_SETTINGS_PAGE")
             if (action == "pluginManager") {
                 val operation = text(input, "operation", 64)

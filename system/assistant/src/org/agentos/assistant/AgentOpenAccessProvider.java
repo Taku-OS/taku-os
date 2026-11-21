@@ -46,6 +46,8 @@ public final class AgentOpenAccessProvider extends ContentProvider {
         boolean opened;
         Payload(int uid, byte[] bytes) { this.uid = uid; this.bytes = bytes; }
     }
+    /** Methods that hand out or replace a credential; trusted callers only. */
+    private static final Set<String> CREDENTIAL_METHODS = new HashSet<>(Arrays.asList("account/login/start", "jev/connect"));
     @Override public boolean onCreate() { return true; }
     @Override public Bundle call(String method, String arg, Bundle extras) {
         Bundle out = new Bundle();
@@ -85,6 +87,14 @@ public final class AgentOpenAccessProvider extends ContentProvider {
                 out.putString("result", error(code).toString());
                 return out;
             }
+        }
+        // Credentials stay with trusted callers (root, system, shell, platform-signed), whatever
+        // the Permission Center grants: a ChatGPT sign-in hands out its device code, and a Jev
+        // key replaces the user's own, as Taku Audio refuses Fal key changes.
+        if (CREDENTIAL_METHODS.contains(method)
+                && !AppPermissionCatalog.isTrustedSubject(ctx, caller, AppPermissionCatalog.SCOPE_TAKU_CONTROL)) {
+            out.putString("result", error("PERMISSION_DENIED").toString());
+            return out;
         }
         long identity = Binder.clearCallingIdentity();
         JSONObject envelope;
@@ -161,6 +171,14 @@ public final class AgentOpenAccessProvider extends ContentProvider {
                 JSONObject usage = NativeClient.state(input.getString("threadId")).optJSONObject("usage");
                 result = new JSONObject().put("threadId", input.getString("threadId")).put("usage", usage == null ? JSONObject.NULL : usage);
             }
+            else if (method.equals("account/status")) result = AccountStatus.read();
+            else if (method.equals("account/login/start")) {
+                only(input, "type", "open");
+                result = AiConnections.startChatGpt(getContext(), input.optString("type", "chatgpt"), input.optBoolean("open", false), true, false);
+            } else if (method.equals("account/login/cancel")) { only(input); result = AiConnections.cancelChatGpt(); }
+            else if (method.equals("jev/status")) { only(input); result = AiConnections.jevStatus(getContext()); }
+            else if (method.equals("jev/enable")) { only(input); result = AiConnections.enableJev(getContext()); }
+            else if (method.equals("jev/connect")) { only(input, "key"); result = AiConnections.connectJev(getContext(), input.getString("key")); }
             else if (method.equals("sessions/removals")) result = NativeClient.exchange(input.put("op", "sessionRemovals"));
             else if (method.startsWith("workspaces/")) result = WorkspaceCommands.call(context, method, input, caller);
             else if (method.startsWith("capture/")) result = AssistantCaptureBackend.execute(context, method, input);

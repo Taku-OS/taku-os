@@ -84,7 +84,9 @@ class IslandPublisherService : Service() {
     }
     // A hold whose microphone has not started recording yet shows no listening cue at all.
     val holdStarting = voice.target == VoiceTarget.Hold && voice.phase == VoicePhase.Preparing
+    val falKeyMissing = state.error == AssistantSession.VOICE_FAL_KEY_MISSING
     val title = when {
+      falKeyMissing -> "fal API key missing"
       state.error != null -> "Taku couldn’t finish"
       state.needsUser -> "Taku needs your confirmation"
       // Only once the microphone records (Capturing), never while it is still starting.
@@ -104,7 +106,12 @@ class IslandPublisherService : Service() {
       ids.put(id)
     }
     if (state.working || state.needsUser) add("stop", "Stop", action("stop", thread, state.activityId))
-    val open = PendingIntent.getActivity(this, ID, Intent().setClassName(packageName, "org.agentos.agent.MainActivity")
+    // Voice needs a fal key: tapping the prompt (or its action) opens the fal setup page directly.
+    val falSetup = if (!falKeyMissing) null else PendingIntent.getActivity(this, ID + 2,
+      org.agentos.agent.home.onboarding.ServiceSetup.intent(this, org.agentos.agent.home.onboarding.OnboardingService.FAL),
+      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+    if (falSetup != null) add("falKey", "Add fal key", falSetup)
+    val open = falSetup ?: PendingIntent.getActivity(this, ID, Intent().setClassName(packageName, "org.agentos.agent.MainActivity")
       .putExtra("threadId", state.threadId).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP),
       PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
     add("open", "Open conversation", action("open", thread, state.activityId))
@@ -130,7 +137,7 @@ class IslandPublisherService : Service() {
         .put("trailing", JSONObject().put("type", "text").put("text", if (state.buildingApp) short else "Taku")))
       .put("expanded", JSONObject().put("template", "assistant")
         .put("title", title).put("body", bounded(body, 1200)).put("steps", if (listening) JSONArray() else steps)
-        .put("actions", ids).put("primaryAction", "open")
+        .put("actions", ids).put("primaryAction", if (falSetup != null) "falKey" else "open")
         .put("assistant", JSONObject().put("token", token).put("phase", if (listening) "listening" else if (state.working) "working" else "message")
           .put("suggestions", suggestions)
           .put("heightDp", if (listening) kotlin.math.ceil(68 + 27.9 * resources.configuration.fontScale).toInt().coerceIn(96, 340) else 300)))

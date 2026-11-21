@@ -1,4 +1,5 @@
 import {useEffect, useLayoutEffect, useMemo} from 'react';
+import {AppState, type NativeEventSubscription} from 'react-native';
 import {useStore} from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type {Spec} from '@json-render/react-native';
@@ -23,6 +24,32 @@ async function pruneObsoleteLayouts(): Promise<void> {
     if (keys.length) await AsyncStorage.multiRemove(keys);
   } catch {}
 }
+/**
+ * A layout that fell back because Jev was never set up (gateway `decide` JEV_NOT_CONFIGURED, e.g.
+ * skipped in onboarding). A Jev the user switched off (JEV_DISABLED) is respected without asking.
+ */
+export const needsJevSetup = (fallback: string): boolean => fallback === 'jev-jev_not_configured';
+
+let jevSetupOpened = false;
+let jevSetupWatch: NativeEventSubscription | null = null;
+
+/**
+ * The user opened the Jev setup page from a card. On the next return to the app, once, every card
+ * that fell back for Jev composes again, so a now-configured Jev designs them; a plain app switch
+ * without opening the page never recomposes anything.
+ */
+export function noteJevSetupOpened(): void {
+  jevSetupOpened = true;
+  jevSetupWatch ??= AppState.addEventListener('change', state => {
+    if (state !== 'active' || !jevSetupOpened) return;
+    jevSetupOpened = false;
+    for (const [id, card] of Object.entries(genUiStore.getState().cards)) {
+      if (card.presentation.kind === 'primary' || resolutions.has(id) || !needsJevSetup(card.layoutFallback)) continue;
+      updateCard(id, current => ({...current, layoutResolved: false, layoutFallback: ''}));
+    }
+  });
+}
+
 const hydrations = new Map<string, Promise<void>>();
 /**
  * A finished reply's saved state (edits, pin capability) can lag the reply itself: the native
@@ -270,6 +297,8 @@ export function useGenUiCard(threadId: string, presentation: CardPresentation, a
   return {
     store, request: card.request, presentation: card.presentation, spec, matterAdmitted, hydrated: card.hydrated,
     syncError: card.syncError, hydrationError: card.hydrationError, layoutError: card.layoutError,
+    /** The layout fell back to the template because Jev is not set up; the card offers its setup page. */
+    jevSetupNeeded: !primary && needsJevSetup(card.layoutFallback),
     submission: card.submissions[card.lastActionId],
     meta: record(card.snapshot.meta), commands: record(card.snapshot.commands), pin: card.pin, review: card.review,
     async retry() {

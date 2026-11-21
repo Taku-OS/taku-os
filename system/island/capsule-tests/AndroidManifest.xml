@@ -1,0 +1,7 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="org.agentos.island.capsule.tests">
+    <uses-sdk android:minSdkVersion="36" android:targetSdkVersion="36" />
+    <queries><package android:name="org.agentos.agent" /></queries>
+    <application android:label="Taku capsule render checks" android:hasCode="true" />
+    <instrumentation android:name="com.android.systemui.taku.island.CapsuleRenderTests"
+        android:targetPackage="org.agentos.island.capsule.tests" />
+</manifest>

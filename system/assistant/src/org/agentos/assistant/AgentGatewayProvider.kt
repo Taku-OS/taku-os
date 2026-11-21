@@ -232,6 +232,16 @@ class AgentGatewayProvider : ContentProvider() {
             }
             "readAppPermissions", "setAppPermissionMode", "setAppPermissionScope", "resetAppPermission" ->
                 return AppPermissionUiBridge.execute(context!!, action, input)
+            "readAccount" -> return AccountStatus.readWithDeviceCode()
+            "openAssistantConnection" -> {
+                if (!AgentFrontendLauncher.openRoute(context!!, "/system-ai?section=connection")) throw IOException("AGENT_UI_UNAVAILABLE")
+                return JSONObject().put("opened", true)
+            }
+            "connectChatGpt" -> return AiConnections.startChatGpt(context!!, "chatgptDeviceCode", false, true, true)
+            "cancelChatGpt" -> return AiConnections.cancelChatGpt()
+            "readJev" -> return AiConnections.jevStatus(context!!)
+            "connectJev" -> return AiConnections.connectJev(context!!, input.getString("key"))
+            "enableJev" -> return AiConnections.enableJev(context!!)
             "listThreads" -> return AgentGatewayProtocol.clean(TaskRequests.control("thread/list", JSONObject()), 0) as JSONObject
             "createThread" -> {
                 val result = ComposerDelivery.createThread()
@@ -305,6 +315,7 @@ class AgentGatewayProvider : ContentProvider() {
                 val route = when (input.optString("page", "models")) {
                     "workspaces" -> "/workspaces"
                     "system" -> "/system-ai"
+                    "account" -> "/system-ai?section=account"
                     else -> "/system-ai?section=connection"
                 }
                 if (!AgentFrontendLauncher.openRoute(context!!, route)) throw IOException("AGENT_UI_UNAVAILABLE")
@@ -312,8 +323,13 @@ class AgentGatewayProvider : ContentProvider() {
             }
             "pluginManager" -> return PluginManagerBridge.execute(input)
             "decide" -> {
-                if (!preferences().getBoolean("jevEnabled", false)) throw IOException("JEV_DISABLED")
-                val model = preferences().getString("jevModel", "")!!
+                // The same `jev` scene binding the Jev settings page writes (the old `jevModel` pref is migrated away).
+                // No binding: Jev was never set up (e.g. skipped in onboarding), so the card offers its setup page.
+                // A binding with the switch off: the user turned Jev off, which the card respects without asking.
+                val status = AiConnections.jevStatus(context!!)
+                if (status.optString("model").isEmpty()) throw IOException("JEV_NOT_CONFIGURED")
+                if (!status.optBoolean("enabled")) throw IOException("JEV_DISABLED")
+                val model = AiConnections.jevModel(context!!)
                 if (model.isEmpty()) throw IOException("JEV_NOT_CONFIGURED")
                 return AgentGatewayProtocol.clean(JevApiClient().decide(model, input.getJSONObject("state"), input.getJSONObject("questions"), true), 0) as JSONObject
             }
