@@ -2,6 +2,7 @@
 package org.taku.tryon.realtime;
 import android.content.Context;
 import android.os.Bundle;
+import android.os.SystemClock;
 import java.io.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.json.JSONObject;
@@ -16,14 +17,18 @@ public final class ReferenceImport {
     public static boolean writing(){return WRITING.get();}
     public static void abort(){state="failed";code="reference_import_failed";WRITING.set(false);}
     public static void write(Context context,InputStream input){
+        write(context,input,0);
+    }
+    public static void write(Context context,InputStream input,long referenceExpires){
         RealtimeImage image=null;
         try {
+            if(referenceExpires<0||referenceExpires!=0&&SystemClock.elapsedRealtime()>=referenceExpires){state="failed";code=referenceExpires<0?"invalid_request":"reference_expired";return;}
             byte[] bytes=input.readNBytes(MAX_INPUT_BYTES+1);
             if(bytes.length>MAX_INPUT_BYTES)throw new IOException("too_large");
             image=RealtimeImage.decode(bytes);
             ByteArrayOutputStream output=new ByteArrayOutputStream();
             if(!image.preview.compress(android.graphics.Bitmap.CompressFormat.JPEG,90,output))throw new IOException("decode_failed");
-            Bundle result=TryOnController.importedReference(context,output.toByteArray());
+            Bundle result=TryOnController.importedReference(context,output.toByteArray(),referenceExpires);
             code=result.getString("code","import_failed");state=result.getBoolean("ok")?"ready":"failed";if(result.getBoolean("ok"))revision++;
         }catch(Exception|OutOfMemoryError invalid){state="failed";code="invalid_reference";}
         finally {if(image!=null)image.close();WRITING.set(false);}

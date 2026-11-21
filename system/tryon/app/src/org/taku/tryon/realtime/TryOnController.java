@@ -74,14 +74,31 @@ public final class TryOnController {
         out.putString("prompt",prefs.getString("prompt",""));out.putLong("referenceExpires",prefs.getLong("referenceExpires",0));return out;
     }
     static synchronized Bundle importedReference(Context context, byte[] jpeg) {
+        return importedReference(context,jpeg,0);
+    }
+    static synchronized Bundle importedReference(Context context,byte[] jpeg,long referenceExpires) {
+        if(referenceExpires<0)return result(false,"invalid_request");
+        if(referenceExpires!=0&&SystemClock.elapsedRealtime()>=referenceExpires)return result(false,"reference_expired");
         if(CallTryOnService.busy())return result(false,"busy");
         android.util.AtomicFile file=new android.util.AtomicFile(new java.io.File(context.getFilesDir(),"imported-reference.jpg"));
         java.io.FileOutputStream out=null;
         try {
-            out=file.startWrite();out.write(jpeg);file.finishWrite(out);
-            Bundle b=new Bundle();b.putString("referenceUri","content://org.taku.tryon.api/reference/current");b.putLong("referenceExpires",0);
-            return draft(context,b);
-        }catch(java.io.IOException failed){if(out!=null)file.failWrite(out);return result(false,"storage_failed");}
+            out=file.startWrite();out.write(jpeg);
+            if(referenceExpires!=0&&SystemClock.elapsedRealtime()>=referenceExpires){file.failWrite(out);return result(false,"reference_expired");}
+            Bundle b=new Bundle();b.putString("referenceUri","content://org.taku.tryon.api/reference/current");b.putLong("referenceExpires",referenceExpires);
+            Bundle before=draft(context,null),saved;
+            try{saved=draft(context,b);}catch(RuntimeException failed){saved=result(false,"storage_failed");}
+            if(!saved.getBoolean("ok")){file.failWrite(out);out=null;restoreImportedDraft(context,before);return saved;}
+            file.finishWrite(out);return saved;
+        }catch(java.io.IOException|RuntimeException failed){if(out!=null)file.failWrite(out);return result(false,"storage_failed");}
+    }
+    private static void restoreImportedDraft(Context context,Bundle before) {
+        // commit(false) can already change SharedPreferences memory; restore only this draft.
+        // This is process-local failure rollback, not a cross-file crash transaction.
+        try{context.getSharedPreferences("tryon-draft",Context.MODE_PRIVATE).edit()
+                .putLong("revision",before.getLong("revision")).putString("mode",before.getString("mode"))
+                .putString("referenceUri",before.getString("referenceUri")).putString("prompt",before.getString("prompt"))
+                .putLong("referenceExpires",before.getLong("referenceExpires")).commit();}catch(RuntimeException ignored){}
     }
     public static synchronized Bundle configure(Context context, Bundle args) {
         try {
