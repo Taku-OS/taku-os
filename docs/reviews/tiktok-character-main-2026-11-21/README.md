@@ -48,7 +48,7 @@ normal source build scripts.
 | Transparent entry on an isolated emulator | Five Android lifecycle cases passed using the final production Direct entry source with explicit controller/import doubles: transparent preparation and simulated acknowledgement, closeable English failure, and pause/late-callback cleanup. This does not establish a real camera or model acknowledgement. |
 | Home release on an isolated emulator | After installing the matching source-built backend and Audio Engine, actual Home visibility, public Assistant projection and system-assistant declaration checks passed (3/3). The first launch failed because the bare AOSP AVD lacked the backend; that setup attempt is retained separately. No private injection seam was used for the release smoke. |
 | Home interaction on an isolated emulator | The normal source debug APK passed 3/3 checks: compact confirmation with GUI cancellation and sanitized Agent projection, cancellation through the Agent API, and Try on reaching the final Core's real missing-credentials rejection with a closeable failure card. The real Home owner/UI and Core IPC ran; the transcript and frame were synthetic private test inputs. Debug APK SHA-256: `dee8a2d6946afe4743502edfa9646dac741f743bc0110c3acb49120f9ee8a71f`. |
-| Physical gesture, real ASR, camera/model, ROM | The later physical entry check failed before reaching Home; see the follow-up below. Real ASR, camera/model and ROM acceptance remain unverified. Older prototype Pixel results do not establish these results for the new Home source. |
+| Physical Pixel entry and ASR | The subsequent Pixel upgrade verified the real navigation-handle entry and microphone-based English ASR with the matching runtime. Its first natural-utterance run failed before character confirmation; see the upgrade follow-up below. Positive screenshot/character handoff, camera/model and full-ROM acceptance remain pending. |
 
 The existing dictation alpha mask now uses the theme's text colour instead of a
 literal RGB value, as required by the existing design-system test. Its `DstIn`
@@ -63,12 +63,13 @@ unrelated project or user data was removed to work around that condition.
 
 ## Remaining acceptance
 
-A stock SDK AVD lacks the Taku Launcher handle patch. A physical bottom-handle
-gesture and actual authorized system screenshot must be verified on a matching
-Taku image separately. Real ASR, positive ticket handoff, camera/model
-acknowledgement and provider/account/region behavior remain unverified by this
-local source port. No model key was written or cloud model called during these
-isolated checks. The later Pixel attempt is recorded below.
+A stock SDK AVD lacks the Taku Launcher handle patch. The later Pixel upgrade
+verified physical bottom-handle entry and real English microphone ASR. A fresh
+authorized screenshot, character confirmation, positive ticket handoff,
+camera/model acknowledgement and provider/account/region behavior still require
+the complete Pixel retest described below. No model key was written or cloud
+model called during the isolated emulator checks. Full-ROM acceptance remains
+separate from the installed component updates.
 
 Development ROM preinstallation is opt-in with `TAKU_PREINSTALL_TRYON=true` after
 checksum-verified Soong dependency staging. The saved Agent runtime asset is not
@@ -97,11 +98,83 @@ or model startup.
 No matching source-built Quickstep APK was available locally. The historical
 Linux builder could not be reached using its existing SSH configuration. No cloud
 machine was started, Launcher modified, root broker restarted or ROM flashed.
-Testing needs the matching main Launcher and voice runtime first; replacing the
-four app APKs alone is insufficient. Actual ASR, positive handoff and camera/model
-startup remain unverified on this phone, and no Try-On model session was started.
+That attempt needed the matching Launcher and voice runtime first; replacing the
+four app APKs alone was insufficient. At that point, actual ASR, positive handoff
+and camera/model startup remained unverified on this phone, and no Try-On model
+session was started.
 
 All four original APKs and assistant/recognition selections were restored after
 the failed entry check, with exact installed APK hash and UID verification. The
 existing Try-On configuration remained ready. Detailed preflight, screenshots,
 install and restoration receipts are in ignored `out/character-pixel-20261121/`.
+
+## Pixel upgrade follow-up (2026-11-21)
+
+A later attempt installed the matching runtime and restored the real Launcher to
+Home entry. Quickstep was extracted unchanged from the official November 18 OTA's
+`system_ext` partition, after verifying all 763 payload operation hashes and the
+complete partition hash. Its APK SHA-256 is
+`50da56c51c2e39f7b0b9dc68353d39ca71aed104bd12b8085fa9befad503be10`;
+the verified testkey certificate is
+`a40da80a59d170caa950cf15c18c454d47a39b26989d8b640ecd745ba71bf5dc`.
+The standard root `pm install -r -d` path installed version 37 over the prototype's
+version 40 while preserving its UID and data. The APK was not patched or resigned,
+and no complete ROM was flashed. Actual DEX inspection confirmed the new Home
+`prepare`/`gesture/event` contract. The published ROM has no recorded build source
+commit, so this does not establish binary identity with the current main Launcher
+or its later Recents fixes.
+
+The current installed set is:
+
+| Component | Identity / SHA-256 prefix |
+| --- | --- |
+| Quickstep | `37`, `50da56c51c2e` |
+| Home | `12 / 0.5.1`, `7175b504d295`, UID `10256` |
+| Backend | Normal source packaging with version override `117`, `b8319d166360` |
+| Audio Engine | `d45142510fa8` |
+| Try-On | Normal source packaging with version override `85`, `db160ff29a9d` |
+| Task broker | `a97143c75f25` |
+| Audio bridge | `ff7f07e816e4` |
+
+The broker and audio bridge were bind-mounted at their existing system paths and
+the init-managed broker was restarted. These replacements last only for this boot
+session; rollback copies and the original underlying files were retained. The App
+Permission Center changed from `deny` to `manual`, with only Launcher's
+`taku.control` granted. Launcher has no `taku.root` or memory grant; other untrusted
+callers remain denied.
+
+The first microphone run used the preceding Home APK, `05e113da0d26`. Audio
+Engine's authoritative `assistant-entry` preference resolved to Zipformer,
+`en-US`, local processing and no fallback. The user's real microphone utterance
+`HELP ME PUT ON THIS OUTFIT OF HIS` reached voice `Closed / Success` and delivery
+`Submit / Consumed`. This verifies actual English ASR and system gesture entry,
+rather than the earlier synthetic emulator inputs. It did not complete the
+character case: `characterTryOn` stayed null and the ordinary submission reported
+`SCREENSHOT_UNAVAILABLE`.
+
+Two independent prerequisites explained that first run. Both standard Android
+screen-context settings, `assist_structure_enabled` and
+`assist_screenshot_enabled`, were `0`; the Android 17 framework requires both for
+this screenshot handoff. The original exact character-command list also did not
+accept the user's natural outfit wording. Both system settings have now been set
+to `1` through the standard settings interface. A narrow command-policy update
+accepts the requested wording. Its nine policy tests, nine asynchronous owner
+scenarios with 47 assertions, lint and typecheck passed.
+
+The normal Home release build succeeded in 5m44s and was installed in place
+successfully, retaining UID `10256`. Its APK SHA-256 is
+`7175b504d2957669207388e1deeb7cbfa44540714fabe021e24a2d11fd8f192f`,
+with verified certificate SHA-256 prefix `c8a2e9bccf59`. All five installed APK hashes were checked
+individually. Both screen-context settings still read `1`; the assistant and voice
+interaction service both resolve to
+`org.agentos.agent/org.agentos.agent.home.assistant.SystemAssistantService`.
+
+The user has been asked to repeat the real English request, tap Try on and face the
+front camera. At this checkpoint no new user action or reply has been observed,
+and the observer remains idle. A fresh authorized screenshot, compact character
+confirmation, positive transparent ticket handoff, camera preview and returned
+model frames are still pending; this record does not claim a successful
+camera/model session. Full hashes and the
+installation, runtime, permission, settings and actual ASR receipts are retained
+in ignored `out/character-pixel-upgrade-20261121/`; OTA extraction and APK checks
+are in ignored `out/launcher-from-official-rom/`.

@@ -31,10 +31,37 @@ class CharacterTryOnPolicyTest {
     }
   }
 
+  @Test fun naturalOutfitRequestsReferToTheCurrentVideo() {
+    assertTrue(CharacterTryOnPolicy.command("HELP ME PUT ON THIS OUTFIT OF HIS"))
+    assertTrue(CharacterTryOnPolicy.command("Try on this outfit"))
+    for (prefix in listOf("", "Help me ", "Please ", "Please help me ")) {
+      for (verb in listOf("put on ", "try on ")) {
+        for (reference in listOf("this outfit", "this outfit of his", "this outfit of her",
+          "this outfit of hers", "his outfit", "her outfit")) {
+          val text = "$prefix$verb$reference."
+          assertTrue(text, CharacterTryOnPolicy.command(text))
+        }
+      }
+    }
+  }
+
   @Test fun negationPartialTranscriptsAndUnrelatedRequestsStayGeneric() {
     for (text in listOf("", "Turn me into", "Don't turn me into this character", "帮我换成这个角色吗？",
-      "帮我换成这个角色，然后发给朋友", "Turn me into this character and post it", "Try on this outfit",
+      "帮我换成这个角色，然后发给朋友", "Turn me into this character and post it",
       "Make me this character!.", "What character is this?", "a".repeat(161))) {
+      assertFalse(text, CharacterTryOnPolicy.command(text))
+    }
+  }
+
+  @Test fun outfitRequestsMustBeCompleteDirectInstructions() {
+    for (text in listOf("Help me put on", "Help me put on this", "Help me put on this outfit of",
+      "Don't help me put on this outfit of his", "Do not try on this outfit",
+      "I don't want to try on this outfit", "Tell me how to try on this outfit",
+      "Explain how to put on her outfit", "The caption says try on this outfit",
+      "He said help me put on this outfit of his", "\"Help me put on this outfit of his\"",
+      "Say \"try on this outfit\"", "If I say try on this outfit, what happens?",
+      "Help me put on this outfit and send a photo", "Help me put on this outfit of his and post it",
+      "Try on this outfit!.", "Try on this outfit from your shopping catalog")) {
       assertFalse(text, CharacterTryOnPolicy.command(text))
     }
   }

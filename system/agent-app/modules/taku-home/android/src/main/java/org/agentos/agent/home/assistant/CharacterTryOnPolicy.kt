@@ -17,6 +17,9 @@ internal object CharacterTryOnPolicy {
     "turnmeintothischaracter", "changemeintothischaracter",
     "iwannacosplayashim", "iwannacosplayasher", "iwanttocosplayashim", "iwanttocosplayasher",
   )
+  private val outfitRequest = Regex(
+    "(?:please)?(?:helpme)?(?:puton|tryon)(?:thisoutfit(?:of(?:his|her|hers))?|(?:his|her)outfit)"
+  )
 
   fun source(foreground: String?): String? = foreground?.takeIf { it.length <= 256 }
     ?.substringBefore('/')?.takeIf { it in sources }
@@ -30,7 +33,7 @@ internal object CharacterTryOnPolicy {
     val normalized = Normalizer.normalize(text, Normalizer.Form.NFKC).trim().lowercase(Locale.ROOT)
       .replace(Regex("\\s+"), "")
     val command = if (normalized.lastOrNull() in setOf('.', '!', '。')) normalized.dropLast(1) else normalized
-    return command in commands
+    return command in commands || outfitRequest.matches(command)
   }
 
   fun fresh(invoked: Long, captured: Long, now: Long): Boolean = invoked >= 0 && captured >= invoked &&
