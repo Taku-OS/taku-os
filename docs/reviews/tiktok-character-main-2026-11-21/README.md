@@ -29,37 +29,46 @@ available without accepting arbitrary target signatures.
 
 ## Verification as recorded locally
 
-Environment: macOS arm64, Node 22.21.1, Python 3.13, JDK 23 with Java 17 target,
-Kotlin 2.3.20, Android SDK/build-tools 36. The source APK uses the normal build script.
+Environment: macOS arm64, Node 22.21.1, Python 3.14.3, JDK 23 with Java 17 target,
+Kotlin 2.3.20 and Android build-tools 36. Runtime checks use an API 36 ARM64 AVD;
+Home retains main's compile SDK 37 and target SDK 36. Both release APKs use the
+normal source build scripts.
 
 | Layer | Result and limit |
 | --- | --- |
 | Root checks | `npm run verify` and whitespace checks passed. |
 | Agent UI checks | Typecheck, ESLint and all 453 Node tests passed after installation from main's lockfile. |
 | Native core | Host policy, wire, reference, presentation, credential-pipe and lifecycle regressions passed. RTC cleanup fixture passed without JNI/network/model execution. |
-| Try-On APK | Normal source build and signing verification passed, including the independent character task affinity. SHA-256: `80e6f2e9be5e3fa89e43cc4d69ac3db94bf3ed42632e49c0ca508614c461877a`. |
+| Try-On APK | Normal source build and signing verification passed, including the independent character task affinity. SHA-256: `03b756535f474b1fd2fad434e850af01e48cb65eb9a9c1c8c2453d38910a6eef`. |
 | Home policy/owner | Seven JUnit policy cases and nine asynchronous owner scenarios (47 assertions) passed. The owner fixture compiles actual production sources with explicit Android/provider doubles. |
-| Home targeted SDK/Compose compile | The actual confirmation card, current Session, owner/policy, voice helpers and Audio client (26 source files) compiled with Android 36 and the Compose compiler. Existing UI/theme ABI came from a cached module JAR. This is not whole-module or APK acceptance. |
 | Existing runtime components | Audio Engine, its client and the native Assistant/backend compiled from this main snapshot. No account or model session was used. |
-| Home Gradle/APK | Not completed. NDK and grammar prerequisites were resolved; the subsequent React Android AAR download failed with `No space left on device` before production Kotlin compilation. Full compilation and runtime checks remain required. |
-| Isolated emulator | A new stock API 36 ARM64 AVD booted, was verified and stopped. No feature installation or GUI/Agent runtime acceptance is claimed. |
+| Home Gradle | Real release Kotlin compilation and all 184 debug JVM tests passed, including the seven new character policy cases. |
+| Home release APK | The complete normal source build, alignment and signing verification passed. Package `org.agentos.agent`, version `12 / 0.5.1`. SHA-256: `05e113da0d26934096cce54837d759c40c4bdfadbf336e9cbec5ab50678dc632`. |
+| Core GUI/Agent on an isolated emulator | Before the final import-binding change, four checks passed on the whole Core APK: settings round trips in both directions, rejection of the removed language preference with the Audio Engine route, and an English missing-ticket failure that closes its independent task. No model session was started. The final Core build is covered by the Home IPC checks below and the import-binding regressions. |
+| Transparent entry on an isolated emulator | Five Android lifecycle cases passed using the final production Direct entry source with explicit controller/import doubles: transparent preparation and simulated acknowledgement, closeable English failure, and pause/late-callback cleanup. This does not establish a real camera or model acknowledgement. |
+| Home release on an isolated emulator | After installing the matching source-built backend and Audio Engine, actual Home visibility, public Assistant projection and system-assistant declaration checks passed (3/3). The first launch failed because the bare AOSP AVD lacked the backend; that setup attempt is retained separately. No private injection seam was used for the release smoke. |
+| Home interaction on an isolated emulator | The normal source debug APK passed 3/3 checks: compact confirmation with GUI cancellation and sanitized Agent projection, cancellation through the Agent API, and Try on reaching the final Core's real missing-credentials rejection with a closeable failure card. The real Home owner/UI and Core IPC ran; the transcript and frame were synthetic private test inputs. Debug APK SHA-256: `dee8a2d6946afe4743502edfa9646dac741f743bc0110c3acb49120f9ee8a71f`. |
 | Physical gesture, real ASR, camera/model, ROM | Not run for this source port. Older prototype Pixel results do not establish these results for the new Home source. |
+
+The existing dictation alpha mask now uses the theme's text colour instead of a
+literal RGB value, as required by the existing design-system test. Its `DstIn`
+blend and alpha curve are unchanged. This allows the full native JVM test suite
+to run in CI without weakening that test.
 
 Detailed logs, source hashes and generated packages belong in ignored
 `out/character-main/`, `out/tiktok-character-core/` and the module's output folders.
-They are not source contributions. The Android build was paused when the host
-filesystem reached its free-space reserve; no unrelated project or user data was
-removed to work around that condition.
+They are not source contributions. An initial Android build was paused at the host
+filesystem's free-space reserve and resumed after space became available. No
+unrelated project or user data was removed to work around that condition.
 
 ## Remaining acceptance
 
-Complete Home release compilation and JVM regressions, build the Agent APK, then
-install the matching backend, Audio Engine and both feature apps on an isolated
-target. Verify GUI/Agent preference round trips, compact layout, failure close and
-pause/late callback behavior using those exact source packages. A stock SDK AVD
-lacks the Taku Launcher handle patch: verify a physical bottom-handle gesture on a
-matching Taku image separately. Real speech and provider/account/region behavior
-must also be recorded independently.
+A stock SDK AVD lacks the Taku Launcher handle patch. A physical bottom-handle
+gesture and actual authorized system screenshot must be verified on a matching
+Taku image separately. Real ASR, positive ticket handoff, camera/model
+acknowledgement and provider/account/region behavior remain unverified by this
+local source port. No model key was written or cloud model called during these
+checks; the connected Pixel was not updated.
 
 Development ROM preinstallation is opt-in with `TAKU_PREINSTALL_TRYON=true` after
 checksum-verified Soong dependency staging. The saved Agent runtime asset is not
