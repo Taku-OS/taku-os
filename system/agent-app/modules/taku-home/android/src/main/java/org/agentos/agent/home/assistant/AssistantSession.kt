@@ -75,6 +75,8 @@ data class AssistantState(
   val abandoned: Boolean = false,
   /** A successful dictation too long to join the draft, kept whole for reading and copying. */
   val retainedVoice: RetainedVoiceResult? = null,
+  /** A confirmed character action uses the same entry state and Agent API as its GUI. */
+  val characterTryOn: CharacterTryOnState? = null,
 ) {
   val working: Boolean get() = !abandoned && (sending || pending != null || turn?.active == true || task == "queued" || task == "running")
   val buildingApp: Boolean get() = appBuildTurnId != null && turn?.turnId == appBuildTurnId &&
@@ -90,7 +92,7 @@ data class AssistantState(
   }
   val needsUser: Boolean get() = task == "needs_user"
   /** Closing temporary input must not dismiss its pending result, reply or error. */
-  val overlayVisible: Boolean get() = entry != EntryMode.None
+  val overlayVisible: Boolean get() = entry != EntryMode.None || characterTryOn != null
 
   /** What "Try again" sends: the draft (restored or edited), else the failed request. */
   val retryText: String? get() = draft.ifBlank { failedText }?.takeIf { it.isNotBlank() }
@@ -262,12 +264,33 @@ class AssistantSession private constructor(private val context: Context, private
 
   private fun publishGesture() = flow.update { it.copy(holdZone = gesture.zone) }
 
+  private val characterTryOn by lazy {
+    CharacterTryOn(context, scope,
+      eligible = { id -> gesture.id == id && gesture.source == "system" &&
+        gesture.phase in setOf(VoiceGesture.Phase.Pending, VoiceGesture.Phase.Holding, VoiceGesture.Phase.Listening) },
+      unlocked = { !voiceDeviceUnavailable() },
+      publish = { value -> flow.update { it.copy(characterTryOn = value) } },
+      fallback = { text ->
+        try { send(text, keepVoiceEntry = true) }
+        catch (e: AssistantException) { recoverFailure(editor, e.code, text) }
+      },
+      handedOff = { closeEntry() },
+    )
+  }
+
+  /** Receives the same system frame after the ordinary gateway handoff, never a caller-supplied URI. */
+  internal fun offerCharacterReference(id: String, source: String, invoked: Long, captured: Long, jpeg: ByteArray) =
+    characterTryOn.offer(id, source, invoked, captured, jpeg)
+
+  fun confirmCharacter(requestId: String) = characterTryOn.confirm(requestId)
+  fun cancelCharacter(requestId: String) { characterTryOn.cancel(requestId); closeEntry() }
+
   fun prepareHold(id: String, source: String, startedAt: Long): Boolean {
     if (id == gesture.id) return false
     if (live.snapshot?.open == true) throw AssistantException("VOICE_BUSY", "Live Talk is already active")
     if (voice.state.value.listening) throw AssistantException("VOICE_BUSY", "voice is already active")
     val changed = gesture.prepare(id, source, startedAt, android.os.SystemClock.uptimeMillis())
-    if (changed) publishGesture()
+    if (changed) { characterTryOn.clear(); publishGesture() }
     return changed
   }
 
@@ -310,6 +333,7 @@ class AssistantSession private constructor(private val context: Context, private
 
   fun keepTalking() {
     if (!gesture.keepTalking()) return
+    characterTryOn.clear()
     val gestureId = gesture.id
     val currentEditor = editor
     handoffEditor = currentEditor
@@ -713,6 +737,7 @@ class AssistantSession private constructor(private val context: Context, private
    * and its complete result is joined once to the draft as it is then. Never sends.
    */
   fun voiceToText() {
+    characterTryOn.clear()
     gesture.end(false); publishGesture()
     val v = voice.state.value
     if (v.phase == VoicePhase.Idle || v.phase == VoicePhase.Preparing) {
@@ -743,6 +768,7 @@ class AssistantSession private constructor(private val context: Context, private
    * is presentation only, so it can never cancel a newer recording. Returns the revoked operation.
    */
   fun beginCancelledVoice(): Long? {
+    characterTryOn.clear()
     gesture.end(true); publishGesture()
     val operation = delivery.revoke()
     if (handoffEditor != null && live.snapshot?.generation == 0L) endLiveTalk()
@@ -801,6 +827,7 @@ class AssistantSession private constructor(private val context: Context, private
 
   /** Any conversation boundary: an undelivered result may no longer touch the session. */
   private fun revokeVoice(cancelCapture: Boolean = true) {
+    characterTryOn.clear()
     cancelPendingVoiceStart()
     gesture.end(true); publishGesture()
     delivery.newGeneration()
@@ -840,6 +867,10 @@ class AssistantSession private constructor(private val context: Context, private
         it.copy(retainedVoice = effect.result, island = if (it.island == IslandMode.Hidden) IslandMode.Expanded else it.island)
       }
       is VoiceEffect.Send -> {
+        if (characterTryOn.intercept(effect.text)) {
+          voice.cancel() // The completed final is owned by confirmation, with no recorder left open.
+          return
+        }
         // A rejected send (e.g. one already in flight) keeps the complete words instead of losing them.
         try { send(effect.text, keepVoiceEntry = true) } catch (e: AssistantException) { recoverFailure(editor, e.code, effect.text) }
       }
@@ -859,6 +890,7 @@ class AssistantSession private constructor(private val context: Context, private
     val message = text.trim()
     if (text.length > MAX_TEXT || (message.isEmpty() && flow.value.draftAttachmentNames.isEmpty()))
       throw AssistantException("INVALID_TEXT", "Enter a message or select an attachment")
+    characterTryOn.clear()
     val now = flow.value
     if (now.sending) throw AssistantException("BUSY", "a message is already being sent")
     if (openingConversation) throw AssistantException("BUSY", "the conversation is opening")
@@ -1351,6 +1383,9 @@ class AssistantSession private constructor(private val context: Context, private
           .put("suggestions", JSONArray(t.suggestions.map { JSONObject().put("id", it.id).put("label", it.label).put("reply", it.reply) }))
       } ?: JSONObject.NULL)
       .put("voice", voiceJson)
+      .put("characterTryOn", s.characterTryOn?.let { character -> JSONObject()
+        .put("requestId", character.requestId).put("phase", character.phase.name.lowercase())
+        .put("message", character.message ?: JSONObject.NULL) } ?: JSONObject.NULL)
       .put("liveTalk", liveSnapshot?.json() ?: JSONObject.NULL)
       .put("liveTalkDisclosure", liveSnapshot?.disclosure ?: LiveTalk.DISCLOSURE)
   }

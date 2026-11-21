@@ -30,10 +30,14 @@ class SystemAssistantSession(private val ctx: Context) : VoiceInteractionSession
   private var shown = false
   @Volatile private var generation = 0
   @Volatile private var invocationToken: String? = null
+  private var invokedAt = 0L
+  private var capturedAt = 0L
 
   override fun onPrepareShow(args: Bundle?, flags: Int) {
     super.onPrepareShow(args, flags)
     val version = ++generation
+    invokedAt = SystemClock.elapsedRealtime()
+    capturedAt = 0L
     request = args?.let(::Bundle) ?: Bundle()
     showFlags = flags
     capture = null
@@ -86,6 +90,7 @@ class SystemAssistantSession(private val ctx: Context) : VoiceInteractionSession
     super.onHandleScreenshot(screenshot)
     if (request == null) return
     capture = screenshot
+    capturedAt = SystemClock.elapsedRealtime()
     screenshotReceived = true
     if (shown && captureReady()) deliverCapture()
   }
@@ -100,11 +105,19 @@ class SystemAssistantSession(private val ctx: Context) : VoiceInteractionSession
     val version = generation
     val page = foreground ?: "Current app"
     val flags = showFlags
+    val invoked = invokedAt
+    val captured = capturedAt
+    val source = CharacterTryOnPolicy.source(foreground)
+    val characterEntry = source != null && CharacterTryOnPolicy.acceptsEntry(
+      args.getString(SystemAssistantEntry.TRIGGER), args.getString(SystemAssistantEntry.GESTURE_ID), args.keySet(),
+      flags and (SHOW_SOURCE_ASSIST_GESTURE or SHOW_SOURCE_PUSH_TO_TALK) != 0,
+    )
     val suggestion = args.containsKey("jevTestToken")
     request = null
     shown = false
     IO.execute {
       var file: File? = null
+      var characterJpeg: ByteArray? = null
       var target: Intent? = if (suggestion) null else SystemAssistantEntry.launch(ctx, args, flags)
       try {
         if (version != generation) return@execute
@@ -131,6 +144,11 @@ class SystemAssistantSession(private val ctx: Context) : VoiceInteractionSession
               .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
           }
         }
+        // The existing PNG/gateway path above remains authoritative for generic requests.
+        // Encoding failure only disables this optional local route; it never loses that handoff.
+        if (characterEntry && image != null && version == generation) {
+          characterJpeg = runCatching { CharacterReferenceEncoder.encode(image) }.getOrNull()
+        }
       } catch (failure: Exception) {
         Log.w("TakuSystemAssistant", "Native capture handoff failed", failure)
         main.post {
@@ -144,12 +162,18 @@ class SystemAssistantSession(private val ctx: Context) : VoiceInteractionSession
         file?.delete()
         main.post {
           if (version == generation) {
-            try { target?.let(::startAssistantActivity) }
+            try {
+              characterJpeg?.let { jpeg ->
+                AssistantSession.get(ctx).offerCharacterReference(args.getString(SystemAssistantEntry.GESTURE_ID).orEmpty(), source!!, invoked, captured, jpeg)
+                characterJpeg = null
+              }
+              target?.let(::startAssistantActivity)
+            }
             catch (failure: RuntimeException) {
               Log.w("TakuSystemAssistant", "Assistant UI unavailable", failure)
               android.widget.Toast.makeText(ctx, "Assistant could not open. Retry from Taku", android.widget.Toast.LENGTH_LONG).show()
-            } finally { hide() }
-          }
+            } finally { characterJpeg?.fill(0); hide() }
+          } else characterJpeg?.fill(0)
         }
       }
     }

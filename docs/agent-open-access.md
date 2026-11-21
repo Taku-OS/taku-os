@@ -7,6 +7,15 @@ the same Memory store and management operations. Arguments are JSON passed in
 `content call --arg`, and the returned Bundle's `result` is JSON with an `ok`
 field. The full commands ship with the assistant in the
 [skill documentation](../system/assistant/assets/skills/taku-open-access/SKILL.md).
+
+Native [Try-On](../system/tryon/README.md#gui-and-agent-api) exposes
+`content://org.taku.tryon.api`, using the same draft, model configuration and camera
+controller as its UI. Home's `assistant/get` includes `characterTryOn`; the
+`assistant/character-confirm` and `assistant/character-cancel` methods on
+`content://org.agentos.agent.home-assistant` require the current `requestId` and
+invoke the confirmation card's own handlers. No frame, ticket or credential is
+returned in Home state. Voice language remains the Audio Engine's existing
+`assistant-entry` dictation preference. See [the feature contract](../spec/tryon.md).
 These interfaces let device-local callers read and change personal data. That
 is a deliberate product choice.
 

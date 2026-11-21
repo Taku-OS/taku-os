@@ -38,6 +38,11 @@ class AssistantOverlayActivity : AppCompatActivity() {
     setContent {
       val ui by session.state.collectAsStateWithLifecycle()
       val scene = rememberGraphicsLayer()
+      LaunchedEffect(ui.characterTryOn != null) {
+        // The confirmation floats over the still-playing video; keep the regular voice blur otherwise.
+        if (ui.characterTryOn != null) window.clearFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
+        else window.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
+      }
       LaunchedEffect(ui.overlayVisible) {
         // Release closes the recorder, not the result surface. An explicit dismissal or
         // collapse hands focus back to the underlying app while work may continue.

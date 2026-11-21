@@ -52,8 +52,11 @@ fun BoxScope.AssistantLayer(
   // While the AI responds, and only then: from the send until the turn and its task complete.
   WorkingGlow(active = state.working)
 
-  VoiceHoldOverlay(scene, visible = state.entry == EntryMode.Voice, voice = voice,
-    zone = state.holdZone, continuous = state.voiceContinuous, session = session)
+  if (state.characterTryOn == null) {
+    VoiceHoldOverlay(scene, visible = state.entry == EntryMode.Voice, voice = voice,
+      zone = state.holdZone, continuous = state.voiceContinuous, session = session)
+  }
+  state.characterTryOn?.let { CharacterConfirmation(it, session) }
 
   if (state.entry == EntryMode.Text) Box(Modifier.fillMaxSize().pointerInput(session) {
     detectTapGestures { session.closeEntry() }
@@ -62,7 +65,8 @@ fun BoxScope.AssistantLayer(
   TextComposer(scene, open = state.entry == EntryMode.Text, state = state, voice = voice, session = session, screenWidth = width, screenHeight = height)
 
   // The actual status bar and every island surface now belong to SystemUI.
-  BackHandler(enabled = state.entry != EntryMode.None) {
+  BackHandler(enabled = state.overlayVisible) {
+    if (state.characterTryOn != null) { session.closeEntry(); return@BackHandler }
     when (state.entry) {
       EntryMode.Voice -> session.cancelVoice()
       EntryMode.Text -> session.closeEntry()

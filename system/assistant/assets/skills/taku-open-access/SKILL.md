@@ -48,6 +48,53 @@ secret-request restrictions still apply even to third-party root grants.
 UID 0/1000/2000 retain direct access; the first-party GUI uses the signature-protected
 `AgentGatewayProvider` for these operations. Workspace calls remain local-agent-only.
 
+## TikTok character preview
+
+This optional native feature uses Home's existing system-assistant capture and
+Audio Engine dictation. It is not a LIVE observer. Read state before acting:
+
+```sh
+content call --uri content://org.taku.tryon.api --method cosplayStatus
+content call --uri content://org.agentos.agent.home-assistant --method assistant/get
+```
+
+Enable **TikTok character requests** and **Camera preview after Try on** in Taku
+Try-On, configure its Character model and camera/overlay permissions. The same
+switches are available without starting a model:
+
+```sh
+content call --uri content://org.taku.tryon.api --method configureCosplay --extra schema:s:taku.cosplay.voice.v1 --extra enabled:b:true --extra voiceOnly:b:false
+am start -n org.agentos.audio/.DictationSettingsActivity
+```
+
+Home uses the authoritative Audio Engine `assistant-entry` language preference,
+including `en-US`. Preserve the user's primary/fallback profiles when changing its
+dictation settings; Try-On does not keep another speech-language value.
+
+For the current `characterTryOn.requestId` returned by `assistant/get`, these calls
+use the card's exact confirm/cancel handlers:
+
+```sh
+content call --uri content://org.agentos.agent.home-assistant --method assistant/character-cancel --arg '{"requestId":"CURRENT_REQUEST_ID"}'
+# Only after explicit user intent to open the camera/model preview:
+content call --uri content://org.agentos.agent.home-assistant --method assistant/character-confirm --arg '{"requestId":"CURRENT_REQUEST_ID"}'
+```
+
+Old actions return `STALE_REQUEST`. Closing the input cancels its own pending
+reference. Normal capture/recognition and unrelated requests retain Home's existing
+path. No frame, credential or invocation ticket is returned in Home state. There is
+no supported command to fabricate a gesture or mint a Home ticket as shell; use the
+ordinary native reference/draft API for a separate authorized Agent workflow.
+
+Each explicit camera/model attempt can incur provider charges for up to 60 seconds.
+Only decoded returned model frames establish a visible result. A transparent startup
+bridge is held until the camera window acknowledges; failure shows an English Close
+alert. Credential inputs are write-only, at most 1024 UTF-8 bytes, one at a time;
+EOF/commit admission must occur within 30 seconds (`credential_write_busy` or
+`credential_write_timeout`). Never put a real key in an Intent, command argument,
+conversation or log. [Native interface and signing](../../../../tryon/README.md) ·
+[Feature contract](../../../../../spec/tryon.md).
+
 ## Default desktop on Taku images
 
 ```sh

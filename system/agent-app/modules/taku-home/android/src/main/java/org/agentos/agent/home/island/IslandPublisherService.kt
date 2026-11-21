@@ -63,7 +63,9 @@ class IslandPublisherService : Service() {
   }
 
   private fun publish(state: AssistantState, voice: VoiceState) {
-    if (state.island == IslandMode.Hidden) {
+    // Confirmation owns the foreground temporarily; keep the underlying conversation's island
+    // request so cancelling the card restores any still-running task or previous reply.
+    if (state.characterTryOn != null || state.island == IslandMode.Hidden) {
       manager.activeNotifications.filter { it.id == ID && it.tag?.startsWith(TAG) == true }.forEach { manager.cancel(it.tag, ID) }
       prefs.edit().clear().apply()
       fingerprint = null

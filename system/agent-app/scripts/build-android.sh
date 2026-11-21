@@ -11,6 +11,10 @@ node scripts/build-voice-effects.cjs
 node scripts/patch-enriched-markdown.cjs
 CI=1 EXPO_NO_TELEMETRY=1 node node_modules/expo/bin/cli prebuild --platform android --no-install
 printf 'sdk.dir=%s\n' "$SDK" > android/local.properties
+if [ -n "${ANDROID_NDK_HOME:-}" ]; then
+  test -f "$ANDROID_NDK_HOME/source.properties" || { echo 'ANDROID_NDK_HOME must name a complete Android NDK.' >&2; exit 1; }
+  printf 'ndk.dir=%s\n' "$ANDROID_NDK_HOME" >> android/local.properties
+fi
 (cd android && ./gradlew :app:assembleRelease -PreactNativeArchitectures="${TAKU_AGENT_ARCHITECTURES:-arm64-v8a}" --console=plain)
 
 mkdir -p out
