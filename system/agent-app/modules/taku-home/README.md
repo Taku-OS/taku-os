@@ -618,6 +618,12 @@ content call --uri $A --method assistant/voice-cancel
   `assistant/get.characterReference` exposes the same unused, fresh reference as
   `{input:"text"|"voice",sourcePackage,expiresAtElapsedMs}` or `null`, without
   image bytes or invocation/ticket IDs. Expiry is device elapsed realtime.
+  The first Keep talking utterance with the same fresh system TikTok reference
+  also passes this native dispatch before full chat/Live Talk starts. Recognized
+  character requests never fall back to ordinary clarification chat when Core
+  is disabled or unavailable; the native card reports the failure. Unrelated
+  speech keeps the ordinary handoff, and cancellation/expiry discards the pending
+  character invocation. Old full-chat image messages cannot mint a reference.
 
 * **Keyboard**: the frames show a neutral keyboard (Main/Canvas #E3E3E3, white keys r6,
   Surface/Secondary #F1F1F3 function keys, #1B1B1B accent keys). The preinstalled Taku IME's

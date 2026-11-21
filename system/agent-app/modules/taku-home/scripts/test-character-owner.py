@@ -23,7 +23,9 @@ MODULE = HERE.parent
 SOURCE_ROOT = MODULE.parents[3]
 PRODUCTION = MODULE / 'android/src/main/java/org/agentos/agent/home/assistant'
 BUILD = SOURCE_ROOT / 'out/character-owner-host'
-SOURCES = [PRODUCTION / name for name in ('CharacterTryOn.kt', 'CharacterTryOnPolicy.kt', 'CharacterTextInvocation.kt', 'VoiceGesture.kt')]
+SOURCES = [PRODUCTION / name for name in ('CharacterTryOn.kt', 'CharacterTryOnPolicy.kt', 'CharacterTextInvocation.kt',
+                                        'CharacterVoiceHandoff.kt', 'VoiceGesture.kt', 'VoiceInput.kt', 'VoiceDelivery.kt')]
+ENGINE = PRODUCTION / 'EngineVoiceInput.kt'
 CONTRACT = SOURCE_ROOT / 'system/tryon/contract/org/taku/cosplay/api/CosplayContract.java'
 
 
@@ -44,16 +46,21 @@ def toolchain():
     kotlin_lib = Path(library).expanduser() if library else kotlinc.parent.parent / 'lib'
     selected_coroutines = os.environ.get('TAKU_TEST_COROUTINES_JAR')
     coroutines = Path(selected_coroutines).expanduser() if selected_coroutines else kotlin_lib / 'kotlinx-coroutines-core-jvm.jar'
+    json_override = os.environ.get('TAKU_TEST_JSON_JAR')
+    json_candidates = list((Path(os.environ.get('GRADLE_USER_HOME', str(Path.home() / '.gradle'))) /
+                            'caches/modules-2/files-2.1/org.json/json/20250517').glob('*/*.jar'))
+    json_jar = Path(json_override).expanduser() if json_override else (json_candidates[0] if json_candidates else Path('/missing-json.jar'))
     for path, help_text in (
         (jdk / 'bin/javac', 'Set JAVA_HOME to JDK 17 or newer'),
         (jdk / 'bin/java', 'Set JAVA_HOME to JDK 17 or newer'),
         (kotlinc, 'Set TAKU_KOTLINC to the Kotlin JVM compiler'),
         (kotlin_lib / 'kotlin-stdlib.jar', 'Set KOTLIN_LIB to the Kotlin compiler library directory'),
         (coroutines, 'Set TAKU_TEST_COROUTINES_JAR to an existing coroutines JAR; this test never downloads dependencies'),
+        (json_jar, 'Set TAKU_TEST_JSON_JAR to the cached org.json JSON JAR; this test never downloads dependencies'),
     ):
         if not path.is_file():
             raise SystemExit(f'{help_text}; missing: {path}')
-    return jdk, kotlinc, kotlin_lib, coroutines
+    return jdk, kotlinc, kotlin_lib, coroutines, json_jar
 
 STUBS = {
 'Os.kt': r'''package android.os
@@ -167,14 +174,16 @@ private class Fixture {
  val resolver=Resolver();val context=TestContext(resolver)
  @Volatile var eligible=true;@Volatile var unlocked=true;@Volatile var state:CharacterTryOnState?=null
  @Volatile var textInput=false
+ @Volatile var keepTalkingInput=false
  @Volatile var textFieldOpen=false
  val textPresentations=Collections.synchronizedList(mutableListOf<Boolean>())
  val textLease=CharacterTextInvocation()
- val fallback=Collections.synchronizedList(mutableListOf<String>());val handoffs=AtomicInteger()
- val owner=CharacterTryOn(context,scope,{id->if(textInput)textLease.matches(id,SystemClock.elapsedRealtime())else eligible},{unlocked},{
+ val voiceLease=CharacterVoiceHandoff()
+ val handoffs=AtomicInteger()
+ val owner=CharacterTryOn(context,scope,{id->when{ textInput->textLease.matches(id,SystemClock.elapsedRealtime());keepTalkingInput->voiceLease.eligible(id,SystemClock.elapsedRealtime());else->eligible}},{unlocked},{
   state=it
   if(textInput){if(textLease.closesTextInput(it?.phase))textFieldOpen=false;textPresentations.add(textFieldOpen)}
- },{fallback.add(it)},{handoffs.incrementAndGet()})
+ },{handoffs.incrementAndGet()})
  suspend fun <T> onOwner(block:()->T):T=withContext(dispatcher){block()}
  suspend fun reference():ByteArray=onOwner {
   val jpeg=byteArrayOf(0xff.toByte(),0xd8.toByte(),0xff.toByte(),0xd9.toByte())
@@ -209,21 +218,22 @@ fun main()=runBlocking {
   expect(resolver.cancellations.isEmpty(),"handed-off ticket retained")
   expect(jpeg.all{it==0.toByte()},"original reference erased")
   expect(resolver.payload!!.all{it==0.toByte()},"Binder copy erased after return")
-  expect(fallback.isEmpty()&&state==null,"no generic send or lingering confirmation")
+  expect(state==null,"no lingering confirmation")
  }
- case("cancel while checking prevents late fallback"){
+ case("cancel while checking prevents late native failure"){
   resolver.available=false;resolver.statusEntered=CountDownLatch(1);resolver.statusRelease=CountDownLatch(1)
   val jpeg=reference();expect(intercept(),"checking intercepted")
   until("status entered"){resolver.statusEntered!!.count==0L};cancel();resolver.statusRelease!!.countDown();delay(80)
-  expect(state==null&&fallback.isEmpty(),"cancelled result has no fallback")
+  expect(state==null,"cancelled status cannot create a late error card")
   expect(resolver.prepares.get()==0&&context.launched.isEmpty(),"cancelled status cannot prepare")
   expect(jpeg.all{it==0.toByte()},"checking cancel erased reference")
  }
- case("unavailable route falls back exactly once"){
-  resolver.available=false;reference();expect(intercept(),"request owned during status")
-  until("one fallback"){fallback.size==1};expect(fallback.single()=="I wanna cosplay as him.","original final preserved")
+ case("unavailable character route fails natively without submitting a chat"){
+  resolver.available=false;val jpeg=reference();expect(intercept(),"request owned during status")
+  until("native unavailable card"){state?.phase==CharacterTryOnPhase.Failed}
+  expect(state?.message?.contains("unavailable")==true,"actionable native failure")
   expect(!intercept(),"consumed reference cannot intercept duplicate")
-  delay(30);expect(fallback.size==1&&resolver.prepares.get()==0,"no duplicate owner fallback or prepare")
+  expect(jpeg.all{it==0.toByte()}&&resolver.prepares.get()==0&&context.launched.isEmpty(),"failure erased image without model or Activity")
  }
  case("cancel while preparing reclaims late ticket"){
   resolver.prepareEntered=CountDownLatch(1);resolver.prepareRelease=CountDownLatch(1)
@@ -283,7 +293,7 @@ fun main()=runBlocking {
   expect(!onOwner{owner.intercept("Turn me into this character")},"duplicate cannot consume reference twice")
   confirm();until("typed handoff"){handoffs.get()==1}
   expect(context.launched.size==1&&resolver.prepares.get()==1,"typed route uses one normal capability")
-  expect(jpeg.all{it==0.toByte()}&&fallback.isEmpty(),"typed source erased without generic chat")
+  expect(jpeg.all{it==0.toByte()},"typed source erased")
  }
  case("closed text entry rejects a late authorized image"){
   textInput=true
@@ -323,17 +333,69 @@ fun main()=runBlocking {
   expect(!onOwner{owner.intercept("Turn me into this character")},"locked entry not intercepted")
   expect(jpeg.all{it==0.toByte()}&&resolver.statusCalls.get()==0,"lock clears reference at admission")
  }
- case("unavailable text route returns the original request exactly once"){
+ case("unavailable text route shows a native error instead of a generic conversation"){
   resolver.available=false;resolver.statusEntered=CountDownLatch(1);resolver.statusRelease=CountDownLatch(1);textReference()
   expect(onOwner{val intercepted=owner.intercept("Turn me into this character");check(textLease.submit(SystemClock.elapsedRealtime()));intercepted},"typed request owned during status")
   until("unavailable typed checking"){resolver.statusEntered!!.count==0L}
   expect(textFieldOpen,"unavailable route still has its original field while checking")
   resolver.statusRelease!!.countDown()
-  until("one typed fallback"){fallback.size==1}
-  expect(textFieldOpen&&textPresentations.all{it},"unavailable checking and fallback never close and reopen input")
-  expect(fallback.single()=="Turn me into this character","typed request preserved")
-  expect(!onOwner{owner.intercept("Turn me into this character")},"fallback cannot re-intercept consumed frame")
-  delay(30);expect(fallback.size==1&&resolver.prepares.get()==0,"typed fallback sent once")
+  until("typed native failure"){state?.phase==CharacterTryOnPhase.Failed}
+  expect(!textFieldOpen&&textPresentations.first()&&textPresentations.last()==false,"native error replaces checking input without reopening it")
+  expect(!onOwner{owner.intercept("Turn me into this character")},"failure cannot re-intercept consumed frame")
+  expect(resolver.prepares.get()==0&&context.launched.isEmpty(),"typed failure cannot launch a model or chat Activity")
+ }
+ case("disabled route has an explicit native Close state"){
+  resolver.enabled=false;val jpeg=reference();intercept()
+  until("disabled native failure"){state?.phase==CharacterTryOnPhase.Failed}
+  expect(state?.message?.contains("turned off")==true,"disabled state is explicit")
+  expect(jpeg.all{it==0.toByte()}&&resolver.prepares.get()==0&&context.launched.isEmpty(),"disabled state cannot start anything")
+  cancel();expect(state==null,"native failure can close")
+ }
+ case("first Keep Talking final claims the same authorized reference"){
+  val g=VoiceGesture();g.prepare("gesture_1234","system",950,1000);g.activate(g.id)
+  val jpeg=reference();val ref=onOwner{owner.reference()}!!
+  val delivery=VoiceDeliveryMachine(16000);delivery.begin(42,VoiceDestination.AwaitGesture)
+  onOwner{check(voiceLease.begin(g.id,ref.expiresAtElapsedMs,1000));keepTalkingInput=true;check(g.keepTalking());check(voiceLease.bind(g.id,delivery.handoff()!!,1000))}
+  val final=VoiceState(operationId=42,target=VoiceTarget.Hold,phase=VoicePhase.Closed,outcome=VoiceOutcome.Success("帮我换成这个角色"))
+  val effect=delivery.settle(final,"") as VoiceEffect.Live
+  expect(onOwner{voiceLease.classify(g.id,effect.operationId,effect.text,1000)}==CharacterVoiceHandoff.Decision.Character,"first final is character, not Live")
+  expect(onOwner{owner.intercept(effect.text)},"same owner claims complete Chinese request")
+  onOwner{g.end(false);delivery.newGeneration()}
+  until("Keep Talking confirming"){state?.phase==CharacterTryOnPhase.Confirming}
+  expect(g.phase==VoiceGesture.Phase.Ended&&onOwner{voiceLease.claimed(g.id,1000)},"only claimed lease survives the ended voice gesture")
+  expect(context.launched.isEmpty()&&resolver.prepares.get()==0,"final alone only confirms; no model or chat Activity")
+  expect(delivery.settle(final,"")==VoiceEffect.None,"same final cannot also reach generic delivery")
+  expect(onOwner{voiceLease.classify(g.id,42,effect.text,1001)}==CharacterVoiceHandoff.Decision.Ignore,"late duplicate cannot become Live")
+  cancel();expect(jpeg.all{it==0.toByte()},"confirmation cancel erases preserved reference")
+ }
+ case("ordinary Keep Talking final releases the reference to the Live path"){
+  val jpeg=reference();val ref=onOwner{owner.reference()}!!
+  val delivery=VoiceDeliveryMachine(16000);delivery.begin(43,VoiceDestination.AwaitGesture)
+  onOwner{check(voiceLease.begin(ref.id,ref.expiresAtElapsedMs,1000));keepTalkingInput=true;check(voiceLease.bind(ref.id,delivery.handoff()!!,1000))}
+  val effect=delivery.settle(VoiceState(operationId=43,target=VoiceTarget.Hold,phase=VoicePhase.Closed,outcome=VoiceOutcome.Success("What is this video about?")),"") as VoiceEffect.Live
+  expect(onOwner{voiceLease.classify(ref.id,effect.operationId,effect.text,1000)}==CharacterVoiceHandoff.Decision.Live,"ordinary sentence retains normal Live routing")
+  onOwner{owner.clear()}
+  expect(jpeg.all{it==0.toByte()}&&state==null&&resolver.statusCalls.get()==0,"normal Live selection does not inspect TryOn or retain its image")
+ }
+ case("cancelled Keep Talking cannot revive its image on a late final"){
+  val jpeg=reference();val ref=onOwner{owner.reference()}!!
+  onOwner{voiceLease.begin(ref.id,ref.expiresAtElapsedMs,1000);voiceLease.bind(ref.id,44,1000);keepTalkingInput=true;voiceLease.clear();owner.clear()}
+  expect(onOwner{voiceLease.classify(ref.id,44,"帮我换成这个角色",1001)}==CharacterVoiceHandoff.Decision.Ignore,"cancelled final ignored")
+  expect(!onOwner{owner.intercept("帮我换成这个角色")},"late final cannot reclaim cleared owner")
+  expect(jpeg.all{it==0.toByte()}&&resolver.statusCalls.get()==0&&context.launched.isEmpty(),"cancelled final cannot launch any path")
+ }
+ case("leaving a claimed voice confirmation erases its attempt except during recreation"){
+  val jpeg=reference();val ref=onOwner{owner.reference()}!!
+  onOwner{voiceLease.begin(ref.id,ref.expiresAtElapsedMs,1000);voiceLease.bind(ref.id,45,1000);keepTalkingInput=true}
+  expect(onOwner{voiceLease.classify(ref.id,45,"帮我换成这个角色",1000)}==CharacterVoiceHandoff.Decision.Character,"voice reference claimed")
+  expect(onOwner{owner.intercept("帮我换成这个角色")},"claimed final intercepted")
+  until("surface confirming"){state?.phase==CharacterTryOnPhase.Confirming}
+  expect(!onOwner{voiceLease.cancelOnSurfaceStop(ref.id,true,1001)},"recreation retains native confirmation")
+  expect(!onOwner{voiceLease.cancelOnSurfaceStop("old_gesture_1234",false,1001)},"another surface cannot cancel this invocation")
+  expect(jpeg.first()==0xff.toByte(),"retained confirmation still owns its image")
+  expect(onOwner{voiceLease.cancelOnSurfaceStop(ref.id,false,1001)},"leaving the owning overlay revokes it")
+  onOwner{voiceLease.clear();owner.clear()}
+  expect(jpeg.all{it==0.toByte()}&&state==null&&resolver.prepares.get()==0,"surface loss erases the attempt before model start")
  }
  println("RESULT cases=$cases assertions=$assertions")
 }
@@ -341,7 +403,7 @@ fun main()=runBlocking {
 
 
 def main():
-    jdk, kotlinc, kotlin_lib, coroutines = toolchain()
+    jdk, kotlinc, kotlin_lib, coroutines, json_jar = toolchain()
     BUILD.mkdir(parents=True, exist_ok=True)
     java = BUILD / 'contract-classes'
     classes = BUILD / 'classes'
@@ -350,13 +412,17 @@ def main():
         if path.exists():
             shutil.rmtree(path)
         path.mkdir()
-    production = [*SOURCES, CONTRACT]
+    production = [*SOURCES, CONTRACT, ENGINE]
     hashes = {path.relative_to(SOURCE_ROOT).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest() for path in production}
     copies = []
     for path in SOURCES:
         dest = sources / path.name
         shutil.copyfile(path, dest)
         copies.append(dest)
+    transcript = sources / 'DictationTranscript.kt'
+    transcript.write_text('package org.agentos.agent.home.assistant\nclass DictationTranscript {' +
+                          ENGINE.read_text().split('class DictationTranscript {', 1)[1])
+    copies.append(transcript)
     for name, source in STUBS.items():
         path = sources / name
         path.write_text(source)
@@ -370,16 +436,16 @@ def main():
             raise RuntimeError((result.stdout + result.stderr)[-14000:])
         return result.stdout + result.stderr
     run([jdk / 'bin/javac', '--release', '17', '-d', java, CONTRACT])
-    compile_log = run([kotlinc, '-jvm-target', '17', '-cp', str(java) + ':' + str(coroutines), '-d', classes, *copies, harness])
-    classpath = ':'.join(map(str, [classes, java, coroutines, kotlin_lib / 'kotlin-stdlib.jar']))
+    compile_log = run([kotlinc, '-jvm-target', '17', '-cp', ':'.join(map(str, [java, coroutines, json_jar])), '-d', classes, *copies, harness])
+    classpath = ':'.join(map(str, [classes, java, coroutines, json_jar, kotlin_lib / 'kotlin-stdlib.jar']))
     output = run([jdk / 'bin/java', '-cp', classpath, 'org.agentos.agent.home.assistant.OwnerTestKt'])
     assert hashes == {path.relative_to(SOURCE_ROOT).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest() for path in production}, 'Production changed during test; repeat with stable source'
     result = re.search(r'RESULT cases=(\d+) assertions=(\d+)', output)
-    assert result and int(result[1]) == 16, output
+    assert result and int(result[1]) == 21, output
     (BUILD / 'compile.log').write_text(compile_log)
     (BUILD / 'test.log').write_text(output)
     receipt = {'schema': 'taku.character-owner.host-qa/1', 'passed': True, 'sourceSha256': hashes,
-               'cases': int(result[1]), 'assertions': int(result[2]), 'execution': 'Actual production owner, policy and text invocation lease; Android/ContentResolver/Activity doubles',
+               'cases': int(result[1]), 'assertions': int(result[2]), 'execution': 'Actual production owner, policy, text/voice handoff leases and final VoiceDelivery; Android/ContentResolver/Activity doubles',
                'androidRuntime': False, 'gestureOrAsrVerified': False, 'uiVerified': False, 'cameraOrCloudInvoked': False}
     (BUILD / 'report.json').write_text(json.dumps(receipt, indent=2) + '\n')
     print(output.strip())

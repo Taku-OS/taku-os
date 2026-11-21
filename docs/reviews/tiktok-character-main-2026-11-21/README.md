@@ -371,3 +371,38 @@ was input closed, microphone idle, no task/error and no working glow. The backen
 was ready with no active turn, queued task/request or cleanup pending. This final
 verification started **no** additional cloud model session. Its receipts and
 screenshots are in `out/character-pixel-upgrade-20261121/text-pixel-complete/`.
+
+## Direct first-utterance dispatch follow-up (2026-11-22)
+
+Pixel later showed the original character request and its attached frame in full
+chat, followed by clarification questions about avatars, pets and personas. That
+is not character-confirmation acceptance. Source review found that Keep talking
+discarded the authorized reference before routing its first completed recording
+to Live Talk; an unavailable Live provider could then leave that request in the
+ordinary composer. The captured screen establishes the ordinary-chat outcome,
+but does not establish every preceding gesture or recovery callback.
+
+The first Keep talking utterance now retains only the existing fresh system
+TikTok reference and defers full chat/provider startup until its final ASR result
+is classified. A matching request claims the native character owner and closes
+the provisional Live/audio delivery without clearing that claim. Unrelated
+speech follows the existing Live handoff. Gesture identity, recording operation
+and the original elapsed-time expiry bound the lease; cancellation, lock, empty
+or failed recognition and expiry revoke it. Configuration recreation preserves
+the same claimed confirmation, while leaving its surface cancels it. Old chat
+messages and arbitrary image attachments cannot recreate a reference.
+
+Recognized character requests now show a native failure/Close card when Core is
+disabled or unavailable. This supersedes the ordinary-chat fallback described in
+the earlier text-entry acceptance above; those earlier receipts remain historical
+evidence for that older release.
+
+The final source snapshot passes 25 character JUnit cases, 20 voice-interaction
+JUnit cases and 21 production-owner scenarios / 106 assertions, plus lint and
+typecheck. The snapshot and private diagnosis are under
+`out/character-direct-implementation-final.json` and
+`out/character-pixel-followup-20261122/`. Final Android build and device acceptance
+are pending: the build after the surface-stop fix failed because the host disk
+filled. Pixel still has Home `b7b56c29c411`; neither the earlier build candidate
+nor host tests establish device acceptance of this follow-up. No additional
+cloud generation has been started.

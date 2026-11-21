@@ -26,7 +26,6 @@ internal class CharacterTryOn(
   private val eligible: (String) -> Boolean,
   private val unlocked: () -> Boolean,
   private val publish: (CharacterTryOnState?) -> Unit,
-  private val fallback: (String) -> Unit,
   private val handedOff: () -> Unit,
 ) {
   private val client = CharacterTryOnClient(context)
@@ -79,8 +78,8 @@ internal class CharacterTryOn(
       if (attempt !== reference) return@launch
       if (!current(reference)) { clear(); return@launch }
       if (!status.available || !status.enabled) {
-        clear()
-        fallback(text)
+        fail(if (status.available) "Character preview is turned off. Enable it in TryOn settings and invoke Taku again."
+          else "Character preview is unavailable. Check TryOn settings and invoke Taku again.")
       } else update(CharacterTryOnState(reference.requestId, CharacterTryOnPhase.Confirming))
     }
     return true

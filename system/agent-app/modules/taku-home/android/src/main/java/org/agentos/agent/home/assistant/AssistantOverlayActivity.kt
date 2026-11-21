@@ -73,6 +73,7 @@ class AssistantOverlayActivity : AppCompatActivity() {
       }
       "voice" -> {
         val id = intent.getStringExtra("gestureId").orEmpty()
+        if (restoring && session.restoreCharacterVoiceInvocation(id)) return true
         if (session.gesture.id == id && session.gesture.phase in setOf(VoiceGesture.Phase.Continuous, VoiceGesture.Phase.Listening)) return true
         if (session.gesture.id != id || !session.gesture.held) return false
         session.activateHold(id)

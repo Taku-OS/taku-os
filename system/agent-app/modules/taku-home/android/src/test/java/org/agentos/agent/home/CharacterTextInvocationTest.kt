@@ -59,13 +59,14 @@ class CharacterTextInvocationTest {
     assertFalse(lease.reserve("bad", 2_000, 2_000))
   }
 
-  @Test fun unavailableCheckingNeverClosesAndReopensTheTextInput() {
+  @Test fun checkingKeepsTextUntilAnExplicitNativeFailureReplacesIt() {
     val lease = CharacterTextInvocation()
     lease.transfer("system_text_1", 1_000, 1_000)
     assertFalse(lease.closesTextInput(CharacterTryOnPhase.Checking))
     lease.submit(1_001)
     assertFalse(lease.closesTextInput(CharacterTryOnPhase.Checking))
-    // An unavailable status clears the character state and returns the text to the generic sender.
+    assertTrue(lease.closesTextInput(CharacterTryOnPhase.Failed))
+    // Closing the native error clears ownership; it never opens a generic text conversation.
     assertFalse(lease.closesTextInput(null))
     lease.clear()
     assertFalse(lease.closesTextInput(null))

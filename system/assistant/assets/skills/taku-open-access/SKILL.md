@@ -90,6 +90,15 @@ parameters cannot create a TikTok reference. Non-character text and submissions
 with attachments keep the ordinary chat path. A second submission while the
 character confirmation is pending returns `BUSY`.
 
+The first Keep talking utterance from a fresh authorized TikTok invocation is
+classified before opening full chat or connecting Live Talk. A complete character
+request uses the same native confirmation; unrelated speech keeps the usual chat
+handoff. Recognition failure, cancellation or expiry does not submit that held
+character request. Once a character intent is recognized, a disabled/unavailable
+Try-On shows a native failure card instead of asking the ordinary model to clarify
+avatars, pets or chat personas. Historical image messages in full chat do not
+create a fresh reference; invoke again from the video.
+
 `assistant/get.characterReference` is `null` or
 `{input:"text"|"voice",sourcePackage,expiresAtElapsedMs}` for the current unused,
 fresh reference. The expiry uses device elapsed realtime, not wall-clock time.

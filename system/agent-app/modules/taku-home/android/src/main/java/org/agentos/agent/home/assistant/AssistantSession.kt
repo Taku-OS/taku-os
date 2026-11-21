@@ -211,6 +211,7 @@ class AssistantSession private constructor(private val context: Context, private
         // Screen-off can precede Activity.onStop; also cover a missed broadcast or a
         // keyguard transition before attempting any automatic microphone restart.
         if (voiceDeviceUnavailable()) { interruptVoiceForScreenOff(); continue }
+        if (characterVoiceHandoff.expired(android.os.SystemClock.elapsedRealtime())) { cancelVoice(); continue }
         if ((gesture.source == "system" && gesture.expired(android.os.SystemClock.uptimeMillis())) ||
             (gesture.held && android.os.SystemClock.uptimeMillis() - gesture.startedAt > 120_000)) cancelVoice()
         val s = flow.value
@@ -243,6 +244,7 @@ class AssistantSession private constructor(private val context: Context, private
   fun onVoiceSurfaceStopped(gestureId: String, changingConfigurations: Boolean) {
     if (!changingConfigurations && gesture.id == gestureId &&
         (gesture.held || gesture.phase == VoiceGesture.Phase.Listening ||
+          characterVoiceHandoff.cancelOnSurfaceStop(gestureId, changingConfigurations, android.os.SystemClock.elapsedRealtime()) ||
           gesture.phase == VoiceGesture.Phase.Continuous && !handoffActivityLaunched)) cancelVoice()
   }
 
@@ -266,23 +268,18 @@ class AssistantSession private constructor(private val context: Context, private
   private fun publishGesture() = flow.update { it.copy(holdZone = gesture.zone) }
 
   private val characterTextInvocation = CharacterTextInvocation()
+  private val characterVoiceHandoff = CharacterVoiceHandoff()
   private var characterTextSubmission: Any? = null
   private var characterTextDraft: (() -> Unit)? = null
 
   private val characterTryOn by lazy {
     CharacterTryOn(context, scope,
       eligible = { id -> characterTextInvocation.matches(id, android.os.SystemClock.elapsedRealtime()) ||
+        characterVoiceHandoff.eligible(id, android.os.SystemClock.elapsedRealtime()) ||
         gesture.id == id && gesture.source == "system" &&
           gesture.phase in setOf(VoiceGesture.Phase.Pending, VoiceGesture.Phase.Holding, VoiceGesture.Phase.Listening) },
       unlocked = { !voiceDeviceUnavailable() },
       publish = ::publishCharacterTryOn,
-      fallback = { text ->
-        val textEntry = characterTextInvocation.submitted()
-        clearCharacterReference()
-        if (textEntry) presentTextEntry()
-        try { send(text, keepVoiceEntry = !textEntry) }
-        catch (e: AssistantException) { recoverFailure(editor, e.code, text) }
-      },
       handedOff = { closeEntry() },
     )
   }
@@ -302,6 +299,9 @@ class AssistantSession private constructor(private val context: Context, private
   }
 
   private fun clearCharacterReference() {
+    val deferredLive = characterVoiceHandoff.awaiting()
+    characterVoiceHandoff.clear()
+    if (deferredLive) finishCharacterLiveHandoff(cancelled = true)
     if (characterTextSubmission != null) {
       characterTextSubmission = null
       flow.update { it.copy(sending = false, pending = null) }
@@ -342,6 +342,10 @@ class AssistantSession private constructor(private val context: Context, private
   internal fun restoreCharacterTextInvocation(id: String): Boolean =
     !voiceDeviceUnavailable() && characterTextInvocation.submitted() &&
       characterTextInvocation.matches(id, android.os.SystemClock.elapsedRealtime()) && flow.value.characterTryOn != null
+
+  internal fun restoreCharacterVoiceInvocation(id: String): Boolean =
+    !voiceDeviceUnavailable() && characterVoiceHandoff.claimed(id, android.os.SystemClock.elapsedRealtime()) &&
+      gesture.id == id && flow.value.characterTryOn != null
 
   internal fun onCharacterTextSurfaceStopped(id: String, changingConfigurations: Boolean) {
     if (!changingConfigurations && characterTextInvocation.matches(id, android.os.SystemClock.elapsedRealtime()))
@@ -398,8 +402,12 @@ class AssistantSession private constructor(private val context: Context, private
   }
 
   fun keepTalking() {
+    if (flow.value.characterTryOn != null) return
+    val reference = characterTryOn.reference()?.takeIf { it.id == gesture.id && gesture.source == "system" }
     if (!gesture.keepTalking()) return
-    clearCharacterReference()
+    val deferCharacter = reference?.let { characterVoiceHandoff.begin(it.id, it.expiresAtElapsedMs, android.os.SystemClock.elapsedRealtime()) } == true
+    if (reference != null && !deferCharacter) { cancelVoice(); return }
+    if (!deferCharacter) clearCharacterReference()
     val gestureId = gesture.id
     val currentEditor = editor
     handoffEditor = currentEditor
@@ -407,8 +415,19 @@ class AssistantSession private constructor(private val context: Context, private
     live.begin(flow.value.threadId, handoff = true)
     publishGesture()
     handoffOperation = delivery.handoff()
+    if (deferCharacter && handoffOperation != null &&
+        !characterVoiceHandoff.bind(gestureId, handoffOperation!!, android.os.SystemClock.elapsedRealtime())) { closeEntry(); return }
     apply(delivery.settle(voice.state.value, flow.value.draft))
+    if (deferCharacter) {
+      if (handoffOperation == null && !voiceStartPending && live.handingOff) closeEntry()
+      return
+    }
     if (handoffOperation == null && !voiceStartPending) live.finishHandoff(null)
+    launchLiveHandoff(gestureId)
+  }
+
+  private fun launchLiveHandoff(gestureId: String) {
+    liveLaunchJob?.cancel()
     liveLaunchJob = scope.launch {
       try {
         val started = android.os.SystemClock.uptimeMillis()
@@ -438,6 +457,19 @@ class AssistantSession private constructor(private val context: Context, private
     }
   }
 
+  /** Close the provisional Live session without revoking an already-claimed character Attempt. */
+  private fun finishCharacterLiveHandoff(cancelled: Boolean) {
+    liveLaunchJob?.cancel(); liveLaunchJob = null
+    live.close()
+    handoffOperation = null
+    handoffActivityLaunched = false
+    handoffEditor = null
+    cancelPendingVoiceStart()
+    delivery.newGeneration()
+    if (voice.state.value.phase != VoicePhase.Idle) voice.cancel()
+    gesture.end(cancelled); publishGesture()
+  }
+
   fun startLiveTalk(threadId: String) {
     val id = threadId.trim().ifEmpty { null }
     requireLiveHost(id)
@@ -465,6 +497,7 @@ class AssistantSession private constructor(private val context: Context, private
   fun setLiveMic(sessionId: String, muted: Boolean) {
     val current = requireLiveSession(null, sessionId) ?: return
     if (!current.open || current.muted == muted) return
+    if (muted && characterVoiceHandoff.awaiting()) { closeEntry(); return }
     if (!muted) requireLiveHost(current.threadId)
     live.setMuted(muted)
     if (muted && live.handingOff) {
@@ -516,6 +549,7 @@ class AssistantSession private constructor(private val context: Context, private
 
   private fun connectLiveTalk() {
     val current = live.snapshot ?: return
+    if (characterVoiceHandoff.awaiting()) return
     if (handoffEditor != null && !handoffActivityLaunched) return
     if (live.handingOff || current.lifecycle != "connecting" || !chatVisible(current.threadId)) return
     val chat = ChatVoiceSession.get(context)
@@ -894,6 +928,8 @@ class AssistantSession private constructor(private val context: Context, private
         else -> destination
       }
       if (settledDestination == VoiceDestination.Live) handoffOperation = operation
+      if (settledDestination == VoiceDestination.Live && characterVoiceHandoff.awaiting() &&
+          !characterVoiceHandoff.bind(gesture.id, operation, android.os.SystemClock.elapsedRealtime())) { closeEntry(); return@afterSpeech }
       delivery.begin(operation, settledDestination)
       apply(delivery.settle(voice.state.value, flow.value.draft))
     }
@@ -923,6 +959,7 @@ class AssistantSession private constructor(private val context: Context, private
 
   private fun apply(effect: VoiceEffect) {
     if (live.handingOff && effect is VoiceEffect.Failed) {
+      if (characterVoiceHandoff.awaiting()) { closeEntry(); return }
       live.finishHandoff(null)
       handoffOperation = null
       voice.cancel()
@@ -933,6 +970,24 @@ class AssistantSession private constructor(private val context: Context, private
       VoiceEffect.None -> Unit
       is VoiceEffect.Live -> {
         if (!live.handingOff || handoffOperation != effect.operationId) return
+        if (characterVoiceHandoff.awaiting()) {
+          when (characterVoiceHandoff.classify(gesture.id, effect.operationId, effect.text, android.os.SystemClock.elapsedRealtime())) {
+            CharacterVoiceHandoff.Decision.Ignore -> return
+            CharacterVoiceHandoff.Decision.Drop -> { closeEntry(); return }
+            CharacterVoiceHandoff.Decision.Character -> {
+              if (characterTryOn.intercept(effect.text)) finishCharacterLiveHandoff(cancelled = false) else closeEntry()
+              return
+            }
+            CharacterVoiceHandoff.Decision.Live -> {
+              clearCharacterReference()
+              handoffOperation = null
+              live.finishHandoff(effect.text)
+              voice.cancel()
+              launchLiveHandoff(gesture.id)
+              return
+            }
+          }
+        }
         handoffOperation = null
         live.finishHandoff(effect.text)
         voice.cancel()
