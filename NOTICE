@@ -77,3 +77,9 @@ Taku Audio Engine (system/audio-engine) uses Apache-2.0 for original Taku code.
 When built or distributed with local TTS/ASR resources (sherpa-onnx, Zipformer,
 Kokoro, and espeak-ng phoneme data/libraries), sherpa-onnx retains Apache-2.0
 and espeak-ng retains GPL-3.0-or-later; see system/audio-engine/models/notices.lock.json.
+
+Native AI try-on (system/tryon) uses checksum-pinned WebRTC, Java-WebSocket,
+SLF4J and Agora dependencies. Their original licenses, sources and redistribution
+notices are retained in system/tryon/app/third-party/ and included in the APK.
+The XMax protocol adapter retains its upstream MIT notice there. No provider
+model weights, credentials, TikTok assets or user images are included in source.

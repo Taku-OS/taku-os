@@ -1,0 +1,22 @@
+[
+  {
+    "file": "webrtc-sdk-LICENSE.txt",
+    "source": "https://raw.githubusercontent.com/webrtc-sdk/android/main/LICENSE",
+    "sha256": "e6b282fe6c0fb353928923470457f31b44cbab203effd60c0cde4a5bb96c8aec"
+  },
+  {
+    "file": "webrtc-NOTICES.md",
+    "source": "https://raw.githubusercontent.com/webrtc-sdk/android/main/Licenses/WEBRTC.md",
+    "sha256": "d1f9382c6878ac024155fd6d44a5977329108bb8b0a01cea40e4a2f1d7de252e"
+  },
+  {
+    "file": "Java-WebSocket-LICENSE.txt",
+    "source": "https://raw.githubusercontent.com/TooTallNate/Java-WebSocket/v1.6.0/LICENSE",
+    "sha256": "15101a7cbdaa7f1c161424b760e907e7832e4a1e7f05d03373ca91fbffdb95ee"
+  },
+  {
+    "file": "slf4j-LICENSE.txt",
+    "source": "org.slf4j:slf4j-api:2.0.17!META-INF/LICENSE.txt",
+    "sha256": "4e7f90c86ab51278228bce153122f1d8df30149d13ce9ef524c8444a84c32dcc"
+  }
+]

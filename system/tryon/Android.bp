@@ -1,0 +1,59 @@
+// SPDX-License-Identifier: Apache-2.0
+// Prepare pinned archives with app/prepare-native-deps.py --download --soong.
+filegroup { name: "taku-tryon-common-sources", srcs: ["common/**/*.java"] }
+filegroup { name: "taku-tryon-contract-sources", srcs: ["contract/**/*.java"] }
+java_library {
+    name: "taku-tryon-common",
+    srcs: ["common/**/*.java"],
+    sdk_version: "system_current",
+    min_sdk_version: "33",
+    java_version: "17",
+}
+java_library {
+    name: "taku-tryon-contract",
+    srcs: ["contract/**/*.java"],
+    sdk_version: "current",
+    min_sdk_version: "33",
+    java_version: "17",
+}
+android_library_import {
+    name: "taku-tryon-webrtc",
+    aars: ["app/downloads/webrtc-150.7871.01.aar"],
+    sdk_version: "current",
+    extract_jni: true,
+}
+android_library_import {
+    name: "taku-tryon-agora",
+    aars: ["app/downloads/agora-full-rtc-basic-4.6.4.aar"],
+    sdk_version: "current",
+    extract_jni: true,
+}
+android_library_import {
+    name: "taku-tryon-aosl",
+    aars: ["app/downloads/agora-aosl-1.3.5.aar"],
+    sdk_version: "current",
+    extract_jni: true,
+}
+java_import {
+    name: "taku-tryon-websocket",
+    jars: ["app/downloads/Java-WebSocket-1.6.0.jar"],
+    sdk_version: "current",
+}
+java_import {
+    name: "taku-tryon-slf4j",
+    jars: ["app/downloads/slf4j-api-2.0.17.jar", "app/downloads/slf4j-nop-2.0.17.jar"],
+    sdk_version: "current",
+}
+android_app {
+    name: "TakuTryOn",
+    manifest: "app/AndroidManifest.xml",
+    srcs: ["app/src/**/*.java"],
+    resource_dirs: ["app/res"],
+    asset_dirs: ["app/third-party"],
+    static_libs: ["taku-tryon-common", "taku-tryon-contract", "taku-tryon-webrtc", "taku-tryon-agora", "taku-tryon-aosl", "taku-tryon-websocket", "taku-tryon-slf4j"],
+    platform_apis: true,
+    certificate: "platform",
+    system_ext_specific: true,
+    java_version: "17",
+    optimize: { enabled: false },
+}

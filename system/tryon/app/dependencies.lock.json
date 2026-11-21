@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Standalone phone realtime try-on; no runtime download or host proxy",
+  "references": [
+    "https://github.com/webrtc-sdk/android",
+    "https://github.com/TooTallNate/Java-WebSocket",
+    "https://github.com/Xmax-AI/XmaxSDK-Android/tree/main/xmax-sdk/src/main/java/ai/xmax/sdk",
+    "https://repo.maven.apache.org/maven2/io/agora/rtc/full-rtc-basic/4.6.4/full-rtc-basic-4.6.4.pom"
+  ],
+  "artifacts": [
+    {
+      "coordinate": "io.github.webrtc-sdk:android:150.7871.01",
+      "file": "webrtc-150.7871.01.aar",
+      "url": "https://repo.maven.apache.org/maven2/io/github/webrtc-sdk/android/150.7871.01/android-150.7871.01.aar",
+      "bytes": 49147033,
+      "sha256": "0a1627b1a48c2bc17d9a40d62fc47bd45166f44a311e95917f147c402de379b0",
+      "license": "MIT/BSD; upstream WebRTC notices apply"
+    },
+    {
+      "coordinate": "org.java-websocket:Java-WebSocket:1.6.0",
+      "file": "Java-WebSocket-1.6.0.jar",
+      "url": "https://repo.maven.apache.org/maven2/org/java-websocket/Java-WebSocket/1.6.0/Java-WebSocket-1.6.0.jar",
+      "bytes": 140686,
+      "sha256": "eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f",
+      "license": "MIT"
+    },
+    {
+      "coordinate": "org.slf4j:slf4j-api:2.0.17",
+      "file": "slf4j-api-2.0.17.jar",
+      "url": "https://repo.maven.apache.org/maven2/org/slf4j/slf4j-api/2.0.17/slf4j-api-2.0.17.jar",
+      "bytes": 69908,
+      "sha256": "7b751d952061954d5abfed7181c1f645d336091b679891591d63329c622eb832",
+      "license": "MIT"
+    },
+    {
+      "coordinate": "org.slf4j:slf4j-nop:2.0.17",
+      "file": "slf4j-nop-2.0.17.jar",
+      "url": "https://repo.maven.apache.org/maven2/org/slf4j/slf4j-nop/2.0.17/slf4j-nop-2.0.17.jar",
+      "bytes": 4982,
+      "sha256": "3716f83649ec66161a2edefd4f49df34d1dd1c51cdcf941996c6987260f0a829",
+      "license": "MIT"
+    },
+    {
+      "coordinate": "io.agora.rtc:full-rtc-basic:4.6.4",
+      "file": "agora-full-rtc-basic-4.6.4.aar",
+      "url": "https://repo.maven.apache.org/maven2/io/agora/rtc/full-rtc-basic/4.6.4/full-rtc-basic-4.6.4.aar",
+      "bytes": 66058210,
+      "sha256": "9513bb7d32c2ba6ad5cec7c1ad9bd749faa532d71873f51383713ce07e9cdcbd",
+      "license": "AGORA SDK License; see third-party/Xmax-NOTICES.md"
+    },
+    {
+      "coordinate": "io.agora.infra:aosl:1.3.5",
+      "file": "agora-aosl-1.3.5.aar",
+      "url": "https://repo.maven.apache.org/maven2/io/agora/infra/aosl/1.3.5/aosl-1.3.5.aar",
+      "bytes": 959185,
+      "sha256": "e20092a5c28bbe72e3350dc6b1740979f624294d4de26139329a928a0df53f26",
+      "license": "AGORA SDK License; see third-party/Xmax-NOTICES.md"
+    }
+  ]
+}
