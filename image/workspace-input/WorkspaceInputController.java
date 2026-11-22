@@ -37,6 +37,7 @@ final class WorkspaceInputController extends Binder {
     private IBinder mLedger;
     private int mLedgerPid;
     private Mirror mCandidate;
+    private long mInputTarget = 1;
     private Check mPending;
     // The proof applies only to this candidate and is cleared whenever it changes.
     private boolean mCandidateHasUserControl;
@@ -111,6 +112,25 @@ final class WorkspaceInputController extends Binder {
     @Override
     protected boolean onTransact(int code, Parcel data, Parcel reply, int flags)
             throws RemoteException {
+        if (code == WorkspaceInputConnection.INPUT_TARGET && reply != null) {
+            data.enforceInterface(WorkspaceInputConnection.CONTROLLER);
+            final IBinder token = data.readStrongBinder();
+            final Lease lease = Lease.read(data);
+            final int userId = data.readInt();
+            final long expected = data.readLong();
+            data.enforceNoDataAvail();
+            final int uid = Binder.getCallingUid();
+            final int pid = Binder.getCallingPid();
+            final long identity = Binder.clearCallingIdentity();
+            try {
+                final long target = inputTarget(token, lease, userId, expected, uid, pid);
+                reply.writeNoException();
+                reply.writeLong(target);
+                return true;
+            } finally {
+                Binder.restoreCallingIdentity(identity);
+            }
+        }
         if (code < WorkspaceInputConnection.REGISTER_LEDGER
                 || code > WorkspaceInputConnection.SET_MIRROR) {
             return super.onTransact(code, data, reply, flags);
@@ -205,6 +225,7 @@ final class WorkspaceInputController extends Binder {
             if (mLedger != ledger || mLedgerPid != pid) return false;
             // Revoke before recalculating, and discard any reply from the old state.
             if (!userControlled && mCandidate != null && mCandidate.lease().equals(lease)) {
+                ++mInputTarget;
                 cancelQueryLocked();
                 mCandidateHasUserControl = false;
             }
@@ -223,6 +244,25 @@ final class WorkspaceInputController extends Binder {
         }
         check.finish(false, true);
         return check.accepted;
+    }
+
+    private long inputTarget(IBinder token, Lease lease, int userId, long expected, int uid,
+            int pid) {
+        synchronized (mWm.mGlobalLock) {
+            final Mirror mirror = foregroundMirrorLocked();
+            if (mirror == null || mirror != mCandidate || !mirror.lease().equals(lease)
+                    || mWm.mCurrentUserId != userId) {
+                return 0;
+            }
+            if (uid == Process.ROOT_UID) {
+                return token == mLedger && pid == mLedgerPid && expected == mInputTarget
+                        ? mInputTarget : 0;
+            }
+            final WindowState window = mirror.window();
+            return uid == Process.SYSTEM_UID && expected == 0 && window.mOwnerUid == uid
+                    && window.mSession.mPid == pid && mWm.mWindowMap.get(token) == window
+                    ? mInputTarget : 0;
+        }
     }
 
     boolean keepsFocusForMirrorTouchLocked(WindowState window) {
@@ -308,6 +348,7 @@ final class WorkspaceInputController extends Binder {
     }
 
     private void resetCandidateLocked() {
+        ++mInputTarget;
         cancelQueryLocked();
         mCandidate = null;
         mCandidateHasUserControl = false;

@@ -12,6 +12,7 @@ trap 'rm -rf "$task_out"' EXIT
 # NativeBridge, all three field filters, and PhoneSubAgents are production sources.
 compile_jvm "$task_out/classes" "$task_json:$ANDROID_JAR" \
  system/assistant/broker/org/agentos/lab/NativeBridge.java \
+ system/assistant/workspace-input/org/agentos/workspace/WorkspaceInputConnection.java \
  system/assistant/broker/org/agentos/lab/SessionRemovalRuntime.java \
  system/assistant/broker/org/agentos/lab/SessionRemovals.java \
  system/assistant/broker/org/agentos/lab/CleanupWork.java \

@@ -11,8 +11,11 @@ public final class WorkspaceInputConnection {
     public static final int REGISTER_LEDGER = IBinder.FIRST_CALL_TRANSACTION;
     public static final int CONTROL_CHANGED = IBinder.FIRST_CALL_TRANSACTION + 1;
     public static final int SET_MIRROR = IBinder.FIRST_CALL_TRANSACTION + 2;
+    public static final int INPUT_TARGET = IBinder.FIRST_CALL_TRANSACTION + 3;
     public static final int QUERY_CONTROL = IBinder.FIRST_CALL_TRANSACTION;
     public static final int CONTROL_RESULT = IBinder.FIRST_CALL_TRANSACTION + 1;
+    // NativeBridge's interactive input stream starts with a byte that cannot start a JSON request.
+    public static final int INPUT_STREAM_HEADER = 0;
 
     public record Lease(String thread, String key, String generation, int displayId) {
         public static Lease read(Parcel data) {
@@ -39,6 +42,27 @@ public final class WorkspaceInputConnection {
     public static boolean setMirror(IBinder controller, IBinder window, Lease lease,
             boolean editing) throws RemoteException {
         return call(controller, SET_MIRROR, window, lease, editing);
+    }
+
+    /** Returns the foreground target's serial, zero for a stale target or -1 on older images. */
+    public static long inputTarget(IBinder controller, IBinder token, Lease lease, int userId,
+            long expected) throws RemoteException {
+        if (controller == null) return -1;
+        final Parcel request = Parcel.obtain();
+        final Parcel response = Parcel.obtain();
+        try {
+            request.writeInterfaceToken(CONTROLLER);
+            request.writeStrongBinder(token);
+            lease.write(request);
+            request.writeInt(userId);
+            request.writeLong(expected);
+            if (!controller.transact(INPUT_TARGET, request, response, 0)) return -1;
+            response.readException();
+            return response.readLong();
+        } finally {
+            response.recycle();
+            request.recycle();
+        }
     }
 
     private static boolean call(IBinder controller, int code, IBinder token, Lease lease,

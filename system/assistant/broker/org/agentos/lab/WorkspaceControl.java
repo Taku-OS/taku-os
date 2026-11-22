@@ -69,8 +69,11 @@ final class WorkspaceControl {
         }
         return true;
     }
-    static void requireQuiescent(String thread)throws Exception {
+    static void requireRuntimeIdle(String thread)throws Exception {
         if(!isQuiescent(runtime(thread)))throw new IOException("WORKSPACE_EXECUTION_STOP_UNCONFIRMED");
+    }
+    static void requireQuiescent(String thread)throws Exception {
+        requireRuntimeIdle(thread);
         JSONObject proof=CodexAppServer.workspaceProcessProof(thread);
         if(!proof.optBoolean("verified")||!proof.optBoolean("complete"))throw new IOException("WORKSPACE_PROCESS_STOP_UNCONFIRMED");
     }
@@ -305,12 +308,12 @@ final class WorkspaceControl {
     }
     static final class Channel implements Closeable {
         final LocalSocket socket=new LocalSocket();final PhoneExecutionScreens.Screen screen;
-        final DataInputStream input;final OutputStream output;
+        final DataInputStream input;final OutputStream output;final JSONObject initialStatus;
         Channel(PhoneExecutionScreens.Screen screen)throws Exception {
             this.screen=screen;
             try{
                 socket.connect(new LocalSocketAddress("taku-mirror-"+screen.screenKey,LocalSocketAddress.Namespace.ABSTRACT));
-                socket.setSoTimeout(5000);input=new DataInputStream(socket.getInputStream());output=socket.getOutputStream();status();
+                socket.setSoTimeout(5000);input=new DataInputStream(socket.getInputStream());output=socket.getOutputStream();initialStatus=status();
             }catch(Exception error){socket.close();throw error;}
         }
         byte[] call(String command)throws Exception {
@@ -329,18 +332,42 @@ final class WorkspaceControl {
     }
     static JSONObject input(PhoneExecutionScreens.Screen screen,JSONObject input)throws Exception {
         try(Channel channel=new Channel(screen)){
-            JSONObject meta=channel.status();int width=meta.getInt("width"),height=meta.getInt("height");String command;
-            switch(input.getString("type")){
-                case "tap":command="tap "+coordinate(input,"x",width)+" "+coordinate(input,"y",height);break;
-                case "swipe":
-                    Object duration=input.get("durationMs");if(!(duration instanceof Integer)||(Integer)duration<100||(Integer)duration>2000)throw new IOException("INVALID_WORKSPACE_GESTURE_DURATION");
-                    command="swipe "+coordinate(input,"fromX",width)+" "+coordinate(input,"fromY",height)+" "+coordinate(input,"toX",width)+" "+coordinate(input,"toY",height)+" "+duration;break;
-                case "key":if(!(input.get("keyCode") instanceof Integer)||input.getInt("keyCode")!=4)throw new IOException("UNSUPPORTED_WORKSPACE_KEY");command="key 4";break;
-                default:throw new IOException("UNSUPPORTED_WORKSPACE_INPUT");
-            }
-            JSONObject result=new JSONObject(new String(channel.call(command),StandardCharsets.UTF_8));
-            if(!result.optBoolean("ok"))throw new IOException("WORKSPACE_INPUT_FAILED");
+            sendInput(channel, input);
             channel.status();return new JSONObject().put("screen",screen.json()).put("inputAccepted",true);
+        }
+    }
+
+    static void sendInput(Channel channel, JSONObject input) throws Exception {
+        int width = channel.initialStatus.getInt("width");
+        int height = channel.initialStatus.getInt("height");
+        String command;
+        switch (input.getString("type")) {
+            case "tap":
+                command = "tap " + coordinate(input, "x", width) + " " + coordinate(input, "y", height);
+                break;
+            case "swipe":
+                Object duration = input.get("durationMs");
+                if (!(duration instanceof Integer) || (Integer) duration < 100
+                        || (Integer) duration > 2000) {
+                    throw new IOException("INVALID_WORKSPACE_GESTURE_DURATION");
+                }
+                command = "swipe " + coordinate(input, "fromX", width) + " "
+                        + coordinate(input, "fromY", height) + " "
+                        + coordinate(input, "toX", width) + " " + coordinate(input, "toY", height)
+                        + " " + duration;
+                break;
+            case "key":
+                if (!(input.get("keyCode") instanceof Integer) || input.getInt("keyCode") != 4) {
+                    throw new IOException("UNSUPPORTED_WORKSPACE_KEY");
+                }
+                command = "key 4";
+                break;
+            default:
+                throw new IOException("UNSUPPORTED_WORKSPACE_INPUT");
+        }
+        JSONObject result = new JSONObject(new String(channel.call(command), StandardCharsets.UTF_8));
+        if (!result.optBoolean("ok") || result.optInt("displayId", -1) != channel.screen.displayId) {
+            throw new IOException("WORKSPACE_INPUT_FAILED");
         }
     }
 }

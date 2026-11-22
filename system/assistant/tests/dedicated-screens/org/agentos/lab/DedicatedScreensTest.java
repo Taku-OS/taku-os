@@ -1811,9 +1811,16 @@ public final class DedicatedScreensTest {
                         revision,
                         s -> new JSONObject().put("ran", s.displayId));
         check(tap.getInt("ran") == d, "the user's tap runs on the screen");
+        rig.host.statusFailures.set(1);
+        JSONObject streamed = rig.screens.userInput(session(1), l[0], l[1], revision, false,
+                screen -> new JSONObject().put("ran", screen.displayId));
+        check(streamed.getInt("ran") == d, "the bound stream uses its host connection");
+        rejects(
+                "HOST_STATUS_UNAVAILABLE",
+                () -> rig.screens.userInput(session(1), l[0], l[1], revision, s -> null));
         rejects(
                 "SCREEN_CONTROL_CHANGED",
-                () -> rig.screens.userInput(session(1), l[0], l[1], revision - 1, s -> null));
+                () -> rig.screens.userInput(session(1), l[0], l[1], revision - 1, false, s -> null));
 
         control(rig, 1, "paused");
         row = rows(rig).get(session(1));
@@ -1824,7 +1831,7 @@ public final class DedicatedScreensTest {
                 "R2: paused: " + row);
         rejects(
                 "SCREEN_USER_CONTROL_REQUIRED",
-                () -> rig.screens.userInput(session(1), l[0], l[1], 4, s -> null));
+                () -> rig.screens.userInput(session(1), l[0], l[1], 4, false, s -> null));
         rejects("SCREEN_AGENT_PAUSED", () -> use(rig, 1, DedicatedScreens.Use.ACT, null));
         check(!b.done(), "E1: paused, X still not handed on");
 

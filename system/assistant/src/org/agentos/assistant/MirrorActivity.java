@@ -20,6 +20,7 @@ public final class MirrorActivity extends Activity {
     private boolean returnedFromWorkspace, suppressWorkspaceReturn;
 
     @Override public void finish() {
+        discardPendingInput();
         if (!suppressWorkspaceReturn && !returnedFromWorkspace) {
             returnedFromWorkspace = true;
             if (returnsHome()) AgentFrontendLauncher.returnToWorkspaceHome(this);
@@ -50,7 +51,9 @@ public final class MirrorActivity extends Activity {
     }
     private WorkspaceUi w;
     private final Handler main = new Handler(Looper.getMainLooper());
-    private final ExecutorService commands = Executors.newSingleThreadExecutor();
+    private final ThreadPoolExecutor commands = new ThreadPoolExecutor(
+            1, 1, 0, TimeUnit.MILLISECONDS, new ArrayBlockingQueue<>(32));
+    private InputSession inputSession;
     private ImageView preview;
     private TextView state, details, note;
     private Button control, stop;
@@ -71,7 +74,7 @@ public final class MirrorActivity extends Activity {
     private final Runnable expireResumeNotice = () -> showNote("");
     private String activitySignature = "";
     private ConversationExpansion expansion;
-    private volatile boolean resumed, userControl, connected, inputPending;
+    private volatile boolean resumed, userControl, connected;
     private volatile LocalSocket frames;
     private volatile int watchGeneration;
     private volatile long ownerCheckedAt;
@@ -235,7 +238,8 @@ public final class MirrorActivity extends Activity {
             actions.setOrientation(stack ? LinearLayout.VERTICAL : LinearLayout.HORIZONTAL);
             control = button(getString(R.string.workspace_interaction_take_over), R.drawable.ic_taku_hand, () -> {
                 if (resumeUnknown) resumeRequest.refresh();
-                else if (returnNeeded()) resumeRequest.submit(""); else change("takeControl");
+                else if (returnNeeded()) { discardPendingInput(); resumeRequest.submit(""); }
+                else change("takeControl");
             });
             stop = button(getString(R.string.workspace_interaction_stop), R.drawable.ic_taku_stop, () -> change("pause"));
             actions.addView(control, new LinearLayout.LayoutParams(stack ? -1 : 0, stack ? -2 : -1, stack ? 0 : 1));
@@ -252,7 +256,10 @@ public final class MirrorActivity extends Activity {
     private void setEditingRequirement(boolean value, boolean focusInput) {
         if (requirement == null) return;
         editingRequirement = value;
-        if (value) syncInputWindow(currentScreen);
+        if (value) {
+            discardPendingInput();
+            syncInputWindow(currentScreen);
+        }
         requirement.setVisibility(value ? View.VISIBLE : View.GONE);
         edit.setImageResource(value ? R.drawable.ic_taku_check : R.drawable.ic_taku_edit);
         edit.setContentDescription(getString(value ? R.string.workspace_interaction_done_editing : R.string.workspace_interaction_edit));
@@ -262,6 +269,7 @@ public final class MirrorActivity extends Activity {
             getSystemService(android.view.inputmethod.InputMethodManager.class).hideSoftInputFromWindow(requirement.getWindowToken(), 0);
             syncInputWindow(currentScreen);
         }
+        refreshInputSession();
     }
     private LinearLayout column() { LinearLayout view = new LinearLayout(this); view.setOrientation(LinearLayout.VERTICAL); return view; }
     private int dp(int value) { return Math.round(value * getResources().getDisplayMetrics().density); }
@@ -309,7 +317,7 @@ public final class MirrorActivity extends Activity {
         resumeUnknown = status.equals("unknown") || record.optBoolean("requiresReconciliation");
         resumeFailed = status.equals("failed") && !record.optBoolean("requiresReconciliation");
         if (WorkspaceExecutionRequest.unresolved(record)) {
-            ++controlGeneration; userControl = false; controlRevision = -1; cancelGesture();
+            userControl = false; controlRevision = -1; discardPendingInput();
         }
         if (status.equals("pending")) showNote(getString(R.string.workspace_interaction_resuming));
         else if (status.equals("unknown") || record.optBoolean("requiresReconciliation")) showNote(getString(R.string.workspace_interaction_unknown));
@@ -427,7 +435,8 @@ public final class MirrorActivity extends Activity {
     }
     @Override protected void onResume() { super.onResume(); if (w == null || isFinishing()) return; resumed = true; int token = ++watchGeneration; if (resumeRequest != null) resumeRequest.start(); if (requirement != null) requirement.start(); loadActivity(); new Thread(() -> watch(token), "workspace-preview").start(); }
     @Override protected void onPause() {
-        resumed = false; userControl = false; connected = false; controlRevision = -1; cancelGesture(); ++watchGeneration; ++controlGeneration;
+        resumed = false; userControl = false; connected = false; controlRevision = -1; ++watchGeneration;
+        discardPendingInput();
         syncInputWindow(null);
         try { if (frames != null) frames.close(); } catch (Exception ignored) {}
         main.removeCallbacks(activityPoll); main.removeCallbacks(expireResumeNotice); activityLoading = false; if (resumeRequest != null) resumeRequest.stop(); if (requirement != null) requirement.stop();
@@ -437,7 +446,12 @@ public final class MirrorActivity extends Activity {
 
     @Override public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
-        if (hasFocus && resumed) syncInputWindow(currentScreen);
+        if (hasFocus && resumed) {
+            syncInputWindow(currentScreen);
+            refreshInputSession();
+        } else {
+            discardPendingInput();
+        }
     }
 
     private void syncInputWindow(JSONObject screen) {
@@ -545,7 +559,7 @@ public final class MirrorActivity extends Activity {
                 }
             } catch (Exception error) {
                 if (token == watchGeneration) { connected = false; userControl = false; controlRevision = -1; }
-                main.post(() -> { if (resumed && token == watchGeneration) { syncInputWindow(null); preview.setImageDrawable(null); state.setText(R.string.workspace_connection_lost); controls(false); } });
+                main.post(() -> { if (resumed && token == watchGeneration) { discardPendingInput(); syncInputWindow(null); preview.setImageDrawable(null); state.setText(R.string.workspace_connection_lost); controls(false); } });
                 try { Thread.sleep(1200); } catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); break; }
             } finally { if (token == watchGeneration) frames = null; }
         }
@@ -558,7 +572,7 @@ public final class MirrorActivity extends Activity {
             if (changing || revision < lastObservedControlRevision) return;
             boolean owned = current != null && "user".equals(current.optString("controlOwner")) && revision >= 0
                     && (resumeRequest == null || !resumeRequest.busy());
-            if (revision != controlRevision || owned != userControl) { ++controlGeneration; cancelGesture(); }
+            if (revision != controlRevision || owned != userControl) discardPendingInput();
             lastObservedControlRevision = revision; controlRevision = revision;
             userControl = owned; ownerCheckedAt = SystemClock.elapsedRealtime();
             currentScreen = current;
@@ -607,7 +621,9 @@ public final class MirrorActivity extends Activity {
         // Delivery uncertainty must never take away the user's interrupt. Stop has its
         // own exact-lease freshness gate and leaves the resume receipt unresolved.
         stop.setEnabled(!changing && freshStopLease());
-        backInApp.setVisibility(userControl ? View.VISIBLE : View.GONE); backInApp.setEnabled(available && userControl && !changing && !pending);
+        backInApp.setVisibility(userControl ? View.VISIBLE : View.GONE);
+        backInApp.setEnabled(available && canQueueInput());
+        refreshInputSession();
     }
     private boolean freshStopLease() {
         return lease != null && WorkspaceUi.same(lease, currentScreen)
@@ -623,7 +639,7 @@ public final class MirrorActivity extends Activity {
         if (lease == null || changing) return;
         // Recheck at tap time: a displayed button can outlive the latest owner poll.
         if (action.equals("pause") && !freshStopLease()) { controls(connected); return; }
-        changing = true; ++controlGeneration; controlRevision = -1; cancelGesture(); userControl = false; controls(false); state.setText(R.string.workspace_action_pending);
+        changing = true; controlRevision = -1; userControl = false; discardPendingInput(); controls(false); state.setText(R.string.workspace_action_pending);
         final int token = watchGeneration;
         try {
             NativeClient.async(WorkspaceUi.request(action, lease), new NativeClient.Callback() {
@@ -643,7 +659,7 @@ public final class MirrorActivity extends Activity {
         } catch (Exception error) { changing = false; state.setText(R.string.workspace_action_failed); }
     }
     private boolean gesture(MotionEvent event) {
-        if (lease == null || !connected || !userControl || changing || SystemClock.elapsedRealtime() - ownerCheckedAt > 3000) { cancelGesture(); return false; }
+        if (!canQueueInput()) { cancelGesture(); return false; }
         float scale = Math.min((float) preview.getWidth() / width, (float) preview.getHeight() / height);
         if (scale <= 0) return false;
         float left = (preview.getWidth() - width * scale) / 2, top = (preview.getHeight() - height * scale) / 2;
@@ -667,20 +683,145 @@ public final class MirrorActivity extends Activity {
         tracking = false;
         if (preview != null && preview.getParent() != null) preview.getParent().requestDisallowInterceptTouchEvent(false);
     }
+
+    private boolean canQueueInput() {
+        return resumed && lease != null && connected && userControl && controlRevision >= 0
+                && hasWindowFocus() && !changing && !editingRequirement
+                && SystemClock.elapsedRealtime() - ownerCheckedAt <= 3000
+                && (resumeRequest == null || !resumeRequest.busy());
+    }
+
+    private void discardPendingInput() {
+        ++controlGeneration;
+        cancelGesture();
+        commands.getQueue().clear();
+        if (inputSession != null) {
+            inputSession.close();
+            inputSession = null;
+        }
+    }
+
+    private void refreshInputSession() {
+        if (!canQueueInput()) {
+            if (inputSession != null) discardPendingInput();
+            return;
+        }
+        if (inputSession != null || currentScreen == null) return;
+        View decor = getWindow().peekDecorView();
+        IBinder window = decor == null ? null : decor.getWindowToken();
+        if (window == null) return;
+        InputSession session = new InputSession(window, currentScreen, controlRevision);
+        inputSession = session;
+        commands.execute(() -> transferInput(session, null));
+    }
+
     private void input(JSONObject input) throws Exception {
         input(input, controlRevision, controlGeneration);
     }
     private void input(JSONObject input, long revision, long controlToken) throws Exception {
-        if (!resumed || lease == null || !userControl || revision < 0 || revision != controlRevision || controlToken != controlGeneration || !connected || changing || inputPending) return;
-        JSONObject request = WorkspaceUi.request("input", lease).put("controlRevision", revision).put("input", input); final int token = watchGeneration;
-        inputPending = true;
-        state.setText(R.string.workspace_input_pending);
-        commands.execute(() -> {
+        if (!canQueueInput() || revision != controlRevision || controlToken != controlGeneration) return;
+        refreshInputSession();
+        InputSession session = inputSession;
+        if (session == null) return;
+        try {
+            commands.execute(() -> transferInput(session, input));
+        } catch (RejectedExecutionException full) {
+            showNote(getString(R.string.workspace_input_failed));
+        }
+    }
+
+    private void transferInput(InputSession session, JSONObject input) {
+        if (session.closed || !connected) return;
+        try {
+            if (input == null) session.open();
+            else session.send(input);
+        } catch (Exception error) {
+            session.close();
+            main.post(() -> {
+                if (session != inputSession) return;
+                discardPendingInput();
+                userControl = false;
+                state.setText(R.string.workspace_input_failed);
+                controls(false);
+            });
+        }
+    }
+
+    /** Owned by the command worker. The UI may close it to cancel queued work and unblock reads. */
+    private static final class InputSession {
+        private final IBinder window;
+        private final JSONObject screen;
+        private final long revision;
+        private LocalSocket socket;
+        private DataOutputStream request;
+        private DataInputStream reply;
+        private boolean legacy;
+        private volatile boolean closed;
+
+        InputSession(IBinder window, JSONObject screen, long revision) {
+            this.window = window;
+            this.screen = screen;
+            this.revision = revision;
+        }
+
+        void open() throws Exception {
+            IBinder controller = WorkspaceInputConnection.controller();
+            Lease lease = new Lease(screen.getString("threadId"), screen.getString("screenKey"),
+                    screen.getString("generation"), screen.getInt("displayId"));
+            long target = WorkspaceInputConnection.inputTarget(controller, window, lease,
+                    screen.getInt("userId"), 0);
+            // Component-only images keep the fully checked one-shot route.
+            legacy = target < 0;
+            if (legacy) return;
+            if (target == 0) throw new IOException("WORKSPACE_INPUT_TARGET_CHANGED");
+            LocalSocket connection = new LocalSocket();
+            synchronized (this) {
+                if (closed) return;
+                socket = connection;
+            }
             try {
-                if (!resumed || token != watchGeneration || controlToken != controlGeneration || revision != controlRevision || !userControl) return;
-                NativeClient.exchange(request);
-            } catch (Exception error) { main.post(() -> { if (resumed && token == watchGeneration && controlToken == controlGeneration && revision == controlRevision) { userControl = false; cancelGesture(); state.setText(R.string.workspace_input_failed); controls(false); } }); }
-            finally { inputPending = false; }
-        });
+                connection.connect(new LocalSocketAddress("taku-agent-native"));
+                if (closed) return;
+                if (connection.getPeerCredentials().getUid() != 0) {
+                    throw new IOException("INVALID_RUNTIME_IDENTITY");
+                }
+                connection.setSoTimeout(8000);
+                request = new DataOutputStream(connection.getOutputStream());
+                reply = new DataInputStream(connection.getInputStream());
+                JSONObject start = binding().put("inputTarget", target);
+                request.writeByte(WorkspaceInputConnection.INPUT_STREAM_HEADER);
+                request.writeUTF(start.toString());
+                requireAccepted();
+            } finally {
+                if (closed) connection.close();
+            }
+        }
+
+        void send(JSONObject input) throws Exception {
+            if (closed) return;
+            if (legacy) {
+                NativeClient.exchange(binding().put("input", input));
+            } else {
+                if (request == null) throw new IOException("WORKSPACE_INPUT_FAILED");
+                request.writeUTF(input.toString());
+                requireAccepted();
+            }
+        }
+
+        private JSONObject binding() throws Exception {
+            return WorkspaceUi.request("input", screen).put("controlRevision", revision);
+        }
+
+        private void requireAccepted() throws IOException {
+            if (reply.readUnsignedByte() != 1) throw new IOException("WORKSPACE_INPUT_FAILED");
+        }
+
+        synchronized void close() {
+            if (closed) return;
+            closed = true;
+            if (socket != null) {
+                try { socket.close(); } catch (IOException ignored) {}
+            }
+        }
     }
 }

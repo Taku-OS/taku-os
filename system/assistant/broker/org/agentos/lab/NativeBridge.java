@@ -7,6 +7,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.zip.ZipFile;
+import org.agentos.workspace.WorkspaceInputConnection;
 
 /** Root-owned, UID-scoped IPC for native RPC and ephemeral interactive data. No credential logs. */
 final class NativeBridge {
@@ -123,7 +124,16 @@ final class NativeBridge {
   return params!=null && params.optString("keyPath").matches("plugins\\.\"[A-Za-z0-9_.@-]+\"\\.enabled")
     && params.opt("value") instanceof Boolean && "upsert".equals(params.optString("mergeStrategy"));
  }
- static void serve(LocalSocket socket){try(LocalSocket s=socket){int uid=s.getPeerCredentials().getUid();s.setSoTimeout(45000);JSONObject input=new JSONObject(read(s.getInputStream(),2000000));if(uid!=1000&&uid!=0&&!(uid==2000&&pluginClient(input))&&!(pluginClient(input)&&AppPermissionPolicy.isRootSocketAllowed(uid)))return;if("subscribeSession".equals(input.optString("op"))){serveSession(s,input);return;}JSONObject answer;
+ static void serve(LocalSocket socket){try(LocalSocket s=socket){int uid=s.getPeerCredentials().getUid();s.setSoTimeout(45000);
+  PushbackInputStream incoming=new PushbackInputStream(s.getInputStream());
+  int header=incoming.read();
+  if(header==WorkspaceInputConnection.INPUT_STREAM_HEADER){
+   if(uid==1000||uid==0)WorkspaceInputBroker.serveInput(s,incoming);
+   return;
+  }
+  if(header<0)return;
+  incoming.unread(header);
+  JSONObject input=new JSONObject(read(incoming,2000000));if(uid!=1000&&uid!=0&&!(uid==2000&&pluginClient(input))&&!(pluginClient(input)&&AppPermissionPolicy.isRootSocketAllowed(uid)))return;if("subscribeSession".equals(input.optString("op"))){serveSession(s,input);return;}JSONObject answer;
   try { switch(input.getString("op")){
    case "state":answer=state(input.optString("threadId"));break;
    case "pendingPhoneQuestions":answer=pendingPhoneQuestions();break;

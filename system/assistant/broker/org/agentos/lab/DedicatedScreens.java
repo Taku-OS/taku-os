@@ -581,6 +581,12 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
             long controlRevision,
             PhoneExecutionScreens.Action action)
             throws Exception {
+        return userInput(session, key, generation, controlRevision, true, action);
+    }
+
+    /** A bound input stream can validate its connected host and WindowManager target directly. */
+    JSONObject userInput(String session, String key, String generation, long controlRevision,
+            boolean validateHost, PhoneExecutionScreens.Action action) throws Exception {
         DedicatedScreen screen;
         try (CleanupWork.Held held23 = lock()) {
             screen = exactScreen(session, key, generation);
@@ -595,7 +601,7 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
                 if (screen.controlRevision != controlRevision)
                     throw new IOException("SCREEN_CONTROL_CHANGED");
             }
-            validate(screen);
+            if (validateHost) validate(screen);
             return action.run(screen.screenHandle());
         } finally {
             screen.input.unlock();
