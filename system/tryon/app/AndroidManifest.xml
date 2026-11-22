@@ -8,12 +8,13 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
-    <queries><package android:name="org.agentos.agent" /><package android:name="org.agentos.audio" /><provider android:authorities="org.agentos.assistant.permissions" /></queries>
+    <queries><package android:name="org.agentos.agent" /><package android:name="org.agentos.audio" /><provider android:authorities="org.agentos.assistant.permissions" /><provider android:authorities="com.android.systemui.island" /></queries>
     <application android:label="Taku Try-On" android:theme="@style/AppTheme" android:allowBackup="false" android:usesCleartextTraffic="false" android:extractNativeLibs="false">
         <activity android:name=".realtime.TryOnActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter></activity>
         <activity android:name=".realtime.TryOnRetryActivity" android:exported="false" />
         <activity android:name=".realtime.DirectCosplayActivity" android:exported="true" android:theme="@android:style/Theme.Translucent.NoTitleBar" android:excludeFromRecents="true" android:taskAffinity="org.taku.tryon.character" />
         <service android:name=".realtime.CallTryOnService" android:exported="false" android:foregroundServiceType="camera" />
+        <service android:name=".realtime.TryOnResultContentService" android:exported="true" android:permission="org.agentos.permission.BIND_ISLAND_CONTENT" />
         <receiver android:name=".realtime.TryOnActionReceiver" android:exported="false" />
         <provider android:name=".api.TryOnApiProvider" android:authorities="org.taku.tryon.api" android:exported="true" />
     </application>

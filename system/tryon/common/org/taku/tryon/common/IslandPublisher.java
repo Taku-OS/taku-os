@@ -40,6 +40,24 @@ public final class IslandPublisher {
 
     public boolean post(String id, String compact, String title, String body, boolean ongoing,
             List<Action> actions, String primaryActionId, PendingIntent open, boolean alert) {
+        return post(id, compact, title, body, ongoing, actions, primaryActionId, open, alert, null);
+    }
+
+    /** The existing SystemUI rich-card host owns placement/touch; the app supplies card content. */
+    public boolean postCard(String id, String title, String body, List<Action> actions,
+            PendingIntent open, String service, String token, int heightDp) {
+        if (service == null || !service.startsWith(context.getPackageName() + "/")
+                || token == null || token.isBlank() || token.length() > 256 || heightDp < 96 || heightDp > 340)
+            throw new IllegalArgumentException("invalid_island_content");
+        try {
+            JSONObject content = new JSONObject().put("service", service).put("token", token)
+                    .put("layout", "card").put("heightDp", heightDp);
+            return post(id, "Try-on stopped", title, body, false, actions, null, open, true, content);
+        } catch (org.json.JSONException invalid) { return false; }
+    }
+
+    private boolean post(String id, String compact, String title, String body, boolean ongoing,
+            List<Action> actions, String primaryActionId, PendingIntent open, boolean alert, JSONObject content) {
         if (id == null || id.isBlank() || id.length() > 160 || actions == null || actions.size() > 4)
             throw new IllegalArgumentException("invalid_notification");
         Set<String> identifiers = new HashSet<>();
@@ -59,6 +77,7 @@ public final class IslandPublisher {
             // Also allow for JSON's six-byte escaping of control characters.
             String detail = bounded(body, 1000);
             JSONObject expanded = new JSONObject().put("template", "text").put("title", headline).put("body", detail);
+            if (content != null) expanded.put("content", content);
             Bundle actionBundle = new Bundle(); JSONArray actionIds = new JSONArray();
             Notification.Builder builder = new Notification.Builder(context, channelId)
                     .setSmallIcon(android.R.drawable.ic_menu_camera).setContentTitle(headline).setContentText(detail)
@@ -81,7 +100,13 @@ public final class IslandPublisher {
             String wire = payload.toString();
             if (wire.getBytes(StandardCharsets.UTF_8).length > 8192) return false;
             Bundle extras = new Bundle(); extras.putString("taku.island.v1", wire);
-            extras.putBundle("taku.island.actions", actionBundle); builder.addExtras(extras);
+            extras.putBundle("taku.island.actions", actionBundle);
+            // Every payload pic reference must have an Icon, including compact Taku dots.
+            int mark = context.getResources().getIdentifier("tryon_island_mark", "drawable", context.getPackageName());
+            Bundle pictures = new Bundle(); pictures.putParcelable("taku_dots", mark == 0
+                    ? Icon.createWithResource("android", android.R.drawable.ic_menu_camera)
+                    : Icon.createWithResource(context, mark));
+            extras.putBundle("taku.island.pics", pictures); builder.addExtras(extras);
             // SDK 36 lacks the public builder method; main's Android 17 host supports it.
             try { Notification.Builder.class.getMethod("setRequestPromotedOngoing", boolean.class).invoke(builder, ongoing); }
             catch (ReflectiveOperationException | RuntimeException unsupported) { /* Normal notification fallback. */ }

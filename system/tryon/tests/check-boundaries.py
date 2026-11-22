@@ -11,6 +11,8 @@ components={node.get(ns+'name'):node for node in app}
 assert components['.realtime.TryOnRetryActivity'].get(ns+'exported')=='false'
 assert components['.realtime.CallTryOnService'].get(ns+'exported')=='false'
 assert components['.realtime.TryOnActionReceiver'].get(ns+'exported')=='false'
+assert components['.realtime.TryOnResultContentService'].get(ns+'exported')=='true'
+assert components['.realtime.TryOnResultContentService'].get(ns+'permission')=='org.agentos.permission.BIND_ISLAND_CONTENT'
 assert '.realtime.DirectLiveTryOnActivity' not in components
 assert components['.realtime.DirectCosplayActivity'].get(ns+'theme')=='@android:style/Theme.Translucent.NoTitleBar'
 assert components['.realtime.DirectCosplayActivity'].get(ns+'excludeFromRecents')=='true'

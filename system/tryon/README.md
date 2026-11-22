@@ -8,6 +8,22 @@ The result window preserves live preview, drag, pinch resize, hold-to-compare, m
 
 After the character confirmation's Try on, a movable small window shows the actual front camera while the connection starts. Camera/Connecting labels remain until a returned frame is decoded; only then can it show Character/Live. The character result stays small until the user or API explicitly chooses full screen. Its toolbar sits outside the video; the video and empty grip area both support dragging. Position is clamped to the display safe area and retained across compact/fullscreen transitions. Outfit preview retains its existing first-returned-frame automatic full-screen reveal.
 
+Terminal failures use a separate, non-ongoing `taku.island.v1` notification. SystemUI expands its top card through the existing signature-bound Messenger v1 content host; there is no bottom failure overlay. The app supplies an opaque `#121212` body with equal-width, 40dp-minimum capsule actions (8dp gap): gray Close and white Retry with dark text. Large fonts grow the buttons and scroll the message rather than hiding actions. The notification carries actual picture/action objects, so its references pass the host validator. Stock Android or an unavailable content host keeps the ordinary notification/native-template fallback.
+
+Close and Retry share one current, process-local card token with the native buttons and notification actions. Cards expire after 120 seconds; stale, replaced, dismissed and process-lost retry tokens cannot start work. Retry uses a direct one-shot Activity PendingIntent, claims the current token before UI initialization, and then follows the existing manual-retry admission. Expanding the card, reading it, or opening details never retries. Camera/transport cleanup still finishes before the failure is published.
+
+Discover the actual failure key and actions through the installed island API (Android shell commands):
+
+```sh
+cmd statusbar island list
+cmd statusbar island get 'KEY'
+cmd statusbar island action 'KEY' '{"id":"close"}'
+# Only after an explicit user request: starts the existing bounded manual retry.
+cmd statusbar island action 'KEY' '{"id":"retry"}'
+```
+
+Take KEY and IDs from the current `org.taku.tryon` activity, never from a previous card. `close` cancels that source notification; `collapse` only hides its presentation. `not_found`, `action_unavailable`, and cancelled PendingIntent errors remain failures; do not automatically retry a paid operation. These commands dispatch the same owner validation as the card buttons. The result-card host tests exercise 21 action-admission cases and exact design-icon provenance without opening a camera or model.
+
 ## Build and offline tests
 
 From repository root, with JDK 17+:

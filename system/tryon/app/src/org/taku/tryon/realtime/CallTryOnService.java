@@ -272,6 +272,8 @@ public final class CallTryOnService extends Service {
         if(window!=null&&active)window.render(last);
         if(journal!=null&&active)journal.progress("preview",state,inputs,outputs,0);
         if(island==null)return;
+        // Terminal failures have one top-island card, published only after camera onClosed.
+        if (!active && "failed".equals(state)) { island.dismiss("tryon"); return; }
         List<IslandPublisher.Action> actions=new ArrayList<>();
         actions.add(new IslandPublisher.Action("open",active?"Expand":"Open Try-on",open("expand")));
         if(active)actions.add(new IslandPublisher.Action("stop","Stop",stopAction()));

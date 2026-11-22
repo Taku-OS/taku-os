@@ -29,7 +29,9 @@ public class TryOnActivity extends Activity {
     private final Handler main=new Handler(Looper.getMainLooper());
     private final Runnable refresh=new Runnable(){public void run(){render();main.postDelayed(this,500);}};
     @Override public void onCreate(Bundle state) {
-        super.onCreate(state);ui=new Ui(this);
+        super.onCreate(state);
+        if(!allowResultIntent(getIntent())){finish();return;}
+        ui=new Ui(this);
         ScrollView scroll=new ScrollView(this);LinearLayout column=ui.column();column.setPadding(ui.dp(24),ui.dp(32),ui.dp(24),ui.dp(24));scroll.addView(column);setContentView(scroll);
         ui.add(column,ui.text("AI try-on",28,Ui.INK,true));ui.space(column,12);
         ui.add(column,ui.text("Uses your front camera and your saved model key. Each explicit start or retry opens one cloud session, up to 60 seconds. Provider charges may apply. Stop closes the camera and cloud connection.",15,Ui.MUTED,false));ui.space(column,16);
@@ -117,9 +119,10 @@ public class TryOnActivity extends Activity {
                     +(s.optBoolean("cleanupPending")?"\nFinishing the previous connection. Wait before starting again.":""));
         }catch(Exception ignored){status.setText("State unavailable");}
     }
-    @Override protected void onResume(){super.onResume();TryOnController.visible(true);loadDraft();main.post(refresh);if(resumeAction){resumeAction=false;handleAction(getIntent());}}
-    @Override protected void onPause(){TryOnController.visible(false);main.removeCallbacks(refresh);super.onPause();}
-    @Override protected void onNewIntent(Intent intent){super.onNewIntent(intent);setIntent(intent);handle(intent);}
+    protected boolean allowResultIntent(Intent intent){return true;}
+    @Override protected void onResume(){super.onResume();if(ui==null)return;TryOnController.visible(true);loadDraft();main.post(refresh);if(resumeAction){resumeAction=false;handleAction(getIntent());}}
+    @Override protected void onPause(){if(ui!=null){TryOnController.visible(false);main.removeCallbacks(refresh);}super.onPause();}
+    @Override protected void onNewIntent(Intent intent){super.onNewIntent(intent);if(!allowResultIntent(intent))return;setIntent(intent);handle(intent);}
     private void handle(Intent intent){
         resumeAction=true;
         if(hasWindowFocus()){resumeAction=false;handleAction(intent);}

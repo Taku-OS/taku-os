@@ -64,6 +64,20 @@ non-assistant cards, `template:{title,body,actionCount,choices,progress}` read f
 views. A card whose content cannot be drawn closes with `reason` `render_failed:...` (or
 `window_failed:...` when it never opened) instead of staying on screen.
 
+## Native try-on failure cards
+
+A current `org.taku.tryon` terminal failure is a top rich card with Close and Retry. Discover its KEY and `availableActions` through `list`/`get`. Its content service is `org.taku.tryon/org.taku.tryon.realtime.TryOnResultContentService`; the opaque token is not a session ID or retry authorization to retain.
+
+```sh
+cmd statusbar island list
+cmd statusbar island get 'KEY'
+cmd statusbar island action 'KEY' '{"id":"close"}'
+# Requires the user's explicit retry request; may start a new paid session.
+cmd statusbar island action 'KEY' '{"id":"retry"}'
+```
+
+Close cancels that failure's source notification through the same current-token validation as the GUI. Collapse only hides the presentation. Retry opens the existing visible retry Activity and uses normal camera/transport/session admission; it is never an automatic failure recovery. Cards expire after 120 seconds, and dismissed, replaced or process-lost tokens cannot retry. Opening details or merely expanding/reading the card starts no camera or cloud session. `not_found`, `action_unavailable` and cancelled PendingIntent errors must not trigger an automatic paid retry. Read the new current state instead. No source is stopped by changing island visibility.
+
 ## Settings shared with the GUI
 
 Open Android Settings → Display → Activity island, or use the explicit activity:

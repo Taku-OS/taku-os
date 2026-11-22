@@ -25,6 +25,7 @@ python3 "$MODULE_ROOT/tests/check-boundaries.py"
 
 python3 "$MODULE_ROOT/tests/presentation/test-service-control.py"
 python3 "$MODULE_ROOT/tests/presentation/test-move-api.py"
+python3 "$MODULE_ROOT/tests/presentation/test-result-island.py"
 python3 "$MODULE_ROOT/tests/api-pipes/test-credential-pipes.py"
 python3 "$MODULE_ROOT/tests/character/test-direct-cosplay-presentation.py"
 python3 "$MODULE_ROOT/tests/character/test-reference-deadline.py"
