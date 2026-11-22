@@ -810,3 +810,27 @@ presentation=closed, Home entry=none and no island activities. This revises styl
 and verifies real model-return plumbing; it does not add a new human speech or
 portrait-fidelity claim. Screenshots, video, source receipts and failed test
 attempts remain in ignored `out/native-character-ui-20261122/`; no remote push.
+
+
+### Opaque assistant-card follow-up (2026-11-22)
+
+The user's new photo shows TikTok search text through the character confirmation.
+The shared IslandStyle.CARD is 0xeb000000 (235/255 alpha); IslandCardWindow used
+that translucent fill for the native assistant too, without progress-card blur.
+The previous native presentation acceptance did not validate opaque compositing.
+The native-assistant root now uses Color.BLACK; capsule/template tokens, rounded
+transparent corners, window flags, action handling and payload remain unchanged.
+The pinned integration patch was regenerated with update-patch.py from all five
+hash-verified upstream files. check:island passed (patch/artifact checks, store,
+policy, capsule geometry and designer animation). An attempted extra narrow
+compile had an unsuitable framework JAR and did not establish typecheck; its
+failure log is kept instead of claiming a source-build result.
+
+This follow-up is source-only: no SystemUI APK was compiled or installed and no
+Pixel state was changed. The already installed official SystemUI still has the
+old translucent fill. A new same-platform/signer SystemUI build is needed to make
+this change visible; Home's strict payload and existing settings have no opacity
+override. This Mac has no complete pinned platform/Soong checkout; the earlier
+build-host access limitation remains unresolved. No remote code push or cloud
+build/upload was performed. Receipts are in ignored
+out/assistant-opaque-card-20261122/.

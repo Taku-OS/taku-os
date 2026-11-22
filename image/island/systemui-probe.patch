@@ -792,7 +792,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandCardWindow.kt
-@@ -0,0 +1,242 @@
+@@ -0,0 +1,246 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -842,7 +842,11 @@
 +    private val cardWidth = minOf(dp(420), metrics.bounds.width() - dp(16))
 +    private val fullCard = nativeContent || choices == null && initial.payload.getJSONObject("expanded").optJSONObject("content")?.optString("layout") == "card"
 +    private val root = FrameLayout(windowContext).apply {
-+        background = GradientDrawable().apply { setColor(IslandStyle.CARD); cornerRadius = dp(IslandStyle.CORNER_DP).toFloat() }
++        // Assistant text and actions need an opaque backing over the current app.
++        background = GradientDrawable().apply {
++            setColor(if (nativeAssistant) Color.BLACK else IslandStyle.CARD)
++            cornerRadius = dp(IslandStyle.CORNER_DP).toFloat()
++        }
 +        clipToOutline = true
 +        outlineProvider = object : ViewOutlineProvider() {
 +            override fun getOutline(view: View, outline: Outline) {
