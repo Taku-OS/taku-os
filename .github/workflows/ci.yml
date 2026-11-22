@@ -15,6 +15,8 @@ jobs:
         with:
           python-version: '3.12'
       - run: npm run verify
+      - run: npm run check:live-tryon
+      - run: python3 tests/tryon-delivery.test.py
       - run: bash -n scripts/build-android.sh && sh -n core/device-probe.sh core/taku-device.sh
       - run: python3 tests/cloud-builder-control.test.py
       - run: python3 tests/secret-scan.test.py

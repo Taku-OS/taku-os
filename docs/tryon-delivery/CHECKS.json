@@ -1,0 +1,79 @@
+{
+  "schema": "taku.tryon.delivery.checks.v1",
+  "sourceBase": "65917a4a658d06a39ac9e76b46a84e3d548f8aee",
+  "checks": [
+    {
+      "command": "npm run verify",
+      "status": "passed",
+      "environment": "Python 3.12, Node/JDK host; no device/model"
+    },
+    {
+      "command": "npm run check:live-tryon",
+      "status": "passed",
+      "details": "Native host, LIVE admission/ACK, observer, Proactivity prompt/approval suites"
+    },
+    {
+      "command": "bash system/tryon/test-rtc-cleanup.sh",
+      "status": "passed",
+      "details": "48 cleanup + 319 pressure/FIFO + 138 informational burst assertions; actual RTC adapter with deterministic actors; no network/JNI/model"
+    },
+    {
+      "command": "python3 tests/tryon-delivery.test.py",
+      "status": "passed",
+      "details": "8 packaging corruption/path/symlink/inventory/signature-metadata/dirty-source tests"
+    },
+    {
+      "command": "npm run typecheck; npm run lint; npm test (system/agent-app)",
+      "status": "passed",
+      "details": "472 JS tests; reused existing dependency cache without installing or modifying dependencies"
+    },
+    {
+      "command": "python3 tests/secret-scan.test.py",
+      "status": "passed",
+      "details": "7 cases, 2 skipped by existing test conditions; no claim of a full binary security audit"
+    },
+    {
+      "command": "native/observer/Pixel adapter/Proactivity builds",
+      "status": "passed",
+      "details": "Fresh source candidates, compiled and signed locally; not installed by this delivery task"
+    },
+    {
+      "command": "apksigner verify --print-certs and aapt2 dump badging",
+      "status": "passed",
+      "details": "Each declared APK; exact bytes pinned in artifacts.json"
+    }
+  ],
+  "existingEvidence": {
+    "native91Pixel": {
+      "durationMs": 60646,
+      "sourceFrames": 728,
+      "returnedFrames": 553,
+      "failureCode": "none",
+      "cleanupAfterStop": true
+    },
+    "observer27Pixel": {
+      "realTryOnAccepted": true,
+      "liveReferenceHandoff": true,
+      "lucyReturnedFramesObserved": 180,
+      "cameraStoppedAfterGuiClose": true
+    },
+    "native93Ui": {
+      "isolatedFixturePassed": true,
+      "combinations": 24,
+      "cameraOrCloudStarted": false,
+      "pixelInstalledAndHashChecked": true,
+      "fullPixelTouchAcceptanceClaimed": false
+    },
+    "userFeedback": "User reported the earlier LIVE flow basically worked; this is not acceptance for every fresh candidate."
+  },
+  "notRun": [
+    "New source candidate 94/28/9 install/runtime acceptance",
+    "Normal SystemUI Soong source build",
+    "Clean full-ROM installation, cold boot and OTA",
+    "Separate in-progress touch-host fix; not imported into frozen baseline"
+  ],
+  "deviceMutationsByDeliveryTask": false,
+  "deviceReads": "Only code APKs and three fixed runtime code files; no user data or credentials",
+  "remotePush": false,
+  "publicRelease": false
+}

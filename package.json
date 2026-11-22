@@ -30,7 +30,8 @@
     "check:emulator-runtime": "python3 -B -m unittest discover -s tooling/emulator-runtime -p 'test_*.py' && python3 -B tests/lineage-emulator.test.py && python3 -B tests/emulator-default-apps.test.py",
     "check:publication": "python3 tests/release-inventory.test.py && python3 tests/license-packaging.test.py && python3 tests/publish-rom-release.test.py && python3 tests/cloud-builder-prune.test.py",
     "check:island": "python3 tests/island-patches.test.py && python3 tests/island-artifacts.test.py && bash system/island/test.sh",
-    "release:rom": "python3 scripts/publish-rom-release.py"
+    "release:rom": "python3 scripts/publish-rom-release.py",
+    "check:live-tryon": "bash system/tryon/test-host.sh && bash system/shopping-observer/test-host.sh && bash system/proactivity/test.sh"
   },
   "bin": {
     "taku": "sdk/cli/taku.mjs"
