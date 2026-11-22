@@ -63,7 +63,8 @@ python3 scripts/tryon-delivery.py verify /absolute/new-delivery-directory
 
 Assembly records the exact Git commit and a complete source-file hash lock. It
 rejects symlinks, traversal, unexpected artifact types, mismatched bytes and dirty
-source. It never invokes ADB or copies arbitrary directories. `verify.py` in the
+source. It includes `source.bundle` and `source.patch` for the exact base-to-HEAD
+source range. It never invokes ADB or copies arbitrary directories. `verify.py` in the
 result verifies the exact file inventory and hashes without an Android toolchain.
 
 Updating a candidate requires rebuilding it, recording its new version/hash and
@@ -81,3 +82,12 @@ git bundle create /external/source.bundle 65917a4a658d06a39ac9e76b46a84e3d548f8a
 
 The patch/bundle contains source contributions only. The PR body is kept in
 [`PR.md`](PR.md); pushing a branch or opening a remote PR is a later action.
+
+The assembled bundle uses the `HEAD` ref and requires the declared public base.
+In an existing clone containing that base, inspect and import it locally:
+
+```sh
+git bundle verify /absolute/delivery/source.bundle
+git fetch /absolute/delivery/source.bundle HEAD:review/live-tryon
+git switch review/live-tryon
+```

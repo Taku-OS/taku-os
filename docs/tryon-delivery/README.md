@@ -9,7 +9,7 @@
 - 系统仓库源码、构建脚本、共享 LIVE 单次授权契约与测试。
 - 独立的 LIVE 观察组件和原生换装应用；顶部展示仍由配套系统组件负责。
 - 本地交付包：`verified-device/` 保存既有真机组合，`source-build/` 保存本分支新构建候选。
-- `manifest.json`、`SHA256SUMS`、源码版本与验证摘要。APK、运行时二进制和归档不提交 Git。
+- `source.bundle`、`source.patch`、`manifest.json`、`SHA256SUMS`、源码版本与验证摘要。APK、运行时二进制和归档不提交 Git。
 - [安装使用](INSTALL.zh-CN.md)、[构建与打包](BUILD.md)和 [PR 说明](PR.md)。
 
 两组安装包有各自的版本、签名和验证范围，不交叉替换。源码候选 Native 94 /

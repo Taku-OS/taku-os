@@ -119,6 +119,10 @@ def assemble(artifacts, output, declaration, repo=ROOT):
     if state.strip():
         raise ValueError('Commit source and declaration before assembling')
     commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=repo, text=True).strip()
+    base = value.get('sourceBase', '')
+    if not re.fullmatch(r'[a-f0-9]{40}', base):
+        raise ValueError('Expected a full source base commit')
+    subprocess.run(['git', 'merge-base', '--is-ancestor', base, commit], cwd=repo, check=True)
     if output.exists() or output.is_symlink():
         raise ValueError('Use a new output directory')
     artifacts = artifacts.resolve()
@@ -139,6 +143,12 @@ def assemble(artifacts, output, declaration, repo=ROOT):
         target = output / name
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(source, target)
+    # A bounded source-only range, with no remote access or unrelated refs.
+    subprocess.run(['git', 'bundle', 'create', str(output.resolve() / 'source.bundle'),
+                    base + '..HEAD'], cwd=repo, check=True)
+    with (output / 'source.patch').open('wb') as stream:
+        subprocess.run(['git', 'format-patch', '--stdout', base + '..HEAD'],
+                       cwd=repo, stdout=stream, check=True)
     (output / 'source.lock.json').write_text(json.dumps({'commit': commit, 'files': lock}, indent=2) + '\n')
     value['source'] = {'commit': commit, 'dirty': False, 'base': value['sourceBase'], 'fileLock': 'source.lock.json'}
     value['files'] = {p.relative_to(output).as_posix(): digest(p) for p in output.rglob('*') if p.is_file()}

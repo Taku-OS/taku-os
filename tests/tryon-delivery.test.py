@@ -32,12 +32,19 @@ class DeliveryTest(unittest.TestCase):
         self.declaration = self.base / 'declaration.json'; self.declaration.write_text(json.dumps(self.value))
         for args in [['init', '-q'], ['add', '.'], ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-qm', 'fixture']]:
             subprocess.run(['git', *args], cwd=self.repo, check=True, capture_output=True)
+        self.value['sourceBase'] = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=self.repo, text=True).strip()
+        self.declaration.write_text(json.dumps(self.value))
+        (docs / 'README.md').write_text('fixture feature\n')
+        for args in [['add', '.'], ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-qm', 'feature']]:
+            subprocess.run(['git', *args], cwd=self.repo, check=True, capture_output=True)
 
     def assemble(self):
         return delivery.assemble(self.inputs, self.base / 'output', self.declaration, self.repo)
 
     def test_round_trip_and_no_extra_files(self):
         self.assertTrue(self.assemble()['ok'])
+        subprocess.run(['git', 'bundle', 'verify', str(self.base / 'output/source.bundle')],
+                       cwd=self.repo, check=True, capture_output=True)
         output = self.base / 'output'; (output / 'unexpected.key').write_text('extra')
         with self.assertRaises(ValueError): delivery.verify(output)
 

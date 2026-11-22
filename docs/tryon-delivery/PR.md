@@ -13,7 +13,7 @@ Integrate the LIVE observer with the native source branch, share its handoff
 contract, retain the startup acknowledgement and informational RTC queue fix,
 and provide current-platform and explicitly separate recorded-Pixel adapter
 builds. Include opt-in image targets, automated checks, artifact assembly,
-matching component declarations and installation/setup documentation.
+matching component declarations and installation/setup documentation. Retain the installed Assistant permission-scope fix so `taku.control` setup is not incorrectly rejected as a workspace scope.
 
 ## Type of change
 

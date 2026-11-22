@@ -41,6 +41,11 @@
       "command": "apksigner verify --print-certs and aapt2 dump badging",
       "status": "passed",
       "details": "Each declared APK; exact bytes pinned in artifacts.json"
+    },
+    {
+      "command": "bash system/assistant/test-agent-gateway-host.sh",
+      "status": "passed",
+      "details": "184 gateway + 61 actual permission UI bridge assertions, composer and durable submission checks; reused external Kotlin compiler cache; no broker/model/device"
     }
   ],
   "existingEvidence": {

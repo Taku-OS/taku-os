@@ -246,7 +246,7 @@ internal class AgentGatewayProtocol private constructor() {
             val keys = input.keys()
             while (keys.hasNext()) if (!fields.contains(keys.next())) throw IOException("UNSUPPORTED_PARAMETER")
             if (fields.contains("threadId")) requireId(input, "threadId")
-            if (fields.contains("scope") && input.get("scope") != "home") throw IOException("INVALID_WORKSPACE_SCOPE")
+            if (action == "getWorkspaces" && input.has("scope") && input.get("scope") != "home") throw IOException("INVALID_WORKSPACE_SCOPE")
             if (fields.contains("text")) text(input, "text", 16000)
             if (fields.contains("requestId")) requireId(input, "requestId")
             if (fields.contains("subscriptionId")) requireId(input, "subscriptionId")
