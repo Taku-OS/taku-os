@@ -401,8 +401,59 @@ The final source snapshot passes 25 character JUnit cases, 20 voice-interaction
 JUnit cases and 21 production-owner scenarios / 106 assertions, plus lint and
 typecheck. The snapshot and private diagnosis are under
 `out/character-direct-implementation-final.json` and
-`out/character-pixel-followup-20261122/`. Final Android build and device acceptance
-are pending: the build after the surface-stop fix failed because the host disk
-filled. Pixel still has Home `b7b56c29c411`; neither the earlier build candidate
-nor host tests establish device acceptance of this follow-up. No additional
-cloud generation has been started.
+`out/character-pixel-followup-20261122/`. The first build after the surface-stop
+fix failed when the host disk filled. After space was freed, the normal
+`npm run build:android` release succeeded in 7m43s:
+`68b1968879de1bbe1377f379b4b8ff27a2f440dee737748acfc33f4e9124fa83`.
+Its production/test source hashes match the reviewed snapshot. The companion
+documentation-only backend release is
+`ca38d70dc51a2200e46d49b5215128527632191bb57067460a28f97e638e02e4`.
+Both preserve the existing development signing certificate.
+
+On the dedicated AVD, the new release passed fresh framework capture of the
+synthetic TikTok fixture, GUI English submission and public Chinese submission,
+duplicate BUSY and cancel, with no ordinary-chat dispatch. Disabled Core and
+actual package-disabled Core each showed native Failed/Close with no ordinary
+chat; Core was re-enabled afterward.
+
+The same release also passed the first Keep talking handoff on that AVD with
+synthetic Audio Engine SDK events. A partial character transcript did not create
+a chat, task or provider connection. Only the matching operation's complete final
+result produced the real native confirmation; voice became idle and provisional
+Live closed with provider null and generation 0. Leaving the confirmation for
+Home cleared its claim/reference. A separate default system-hold release/final
+also produced native confirmation without an ordinary thread, task or error.
+That default-release confirmation survived an actual horizontal/vertical
+Activity configuration recreation with the same request ID, and Home dismissal
+cleared it. This device recreation check is scoped to the default release;
+claimed Keep talking restoration is covered by the source/owner regressions.
+Frames were captured through the standard framework entry from the explicitly
+synthetic TikTok fixture, without injecting a Home reference or ticket. The
+temporary Audio test double is emulator-only; these are component checks, not
+real microphone recognition or cloud generation acceptance.
+
+The additional unrelated-speech Android control reached the ordinary dispatch
+path, but the AVD lacks the native broker and its subsequent state read timed
+out. That control remains incomplete; no ordinary-chat response or specific
+runtime error is claimed. The pure production handoff/owner regressions cover
+unrelated-speech classification.
+The original Audio APK and UID were restored and verified after the component
+checks; Core was enabled with no active session/cleanup, Home was idle with no
+reference or card, and temporary display settings were restored.
+
+Both APKs were installed normally in place on Pixel; installed hashes were read
+back, with Home UID 10256 and backend UID 1000 retained. Home opened normally.
+From the actual TikTok screen, navigation double tap captured a fresh system
+reference. The English draft was set through the public composer API (ADB text
+input passed through the active Pinyin IME and was corrected before submission).
+GUI Send then displayed the compact English Not now / Try on confirmation with
+no task, ordinary thread, error or failed text. GUI Not now dismissed it. This
+check proves text-to-card routing; real spoken first-utterance and camera/model
+verification are recorded separately when available. Build, install and private
+Pixel receipts are under `out/direct-character-followup-20261122/`.
+
+Two bounded three-minute Pixel follow-up watches observed no microphone capture
+or new Try on session after the request for human participation. Real spoken
+input and camera/model output therefore remain unverified for this installed
+release. No additional cloud generation is claimed. The phone is left idle on
+the paused TikTok scene, ready for that manual check.
