@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.agentos.agent.home.design.TakuTheme
 import org.agentos.agent.home.ui.assistant.AssistantLayer
+import org.agentos.agent.home.ui.assistant.VoicePreparationOverlay
 
 /** Translucent cross-app presentation; Quickstep keeps ownership of the original pointer stream. */
 class AssistantOverlayActivity : AppCompatActivity() {
@@ -55,6 +56,9 @@ class AssistantOverlayActivity : AppCompatActivity() {
             scene.record { this@drawWithContent.drawContent() }; drawLayer(scene)
           })
           AssistantLayer(scene, session)
+          if (ui.voicePreparation) VoicePreparationOverlay {
+            session.cancelPendingSystemVoicePreparation(intent.getStringExtra("gestureId").orEmpty())
+          }
         }
       }
     }
@@ -74,9 +78,10 @@ class AssistantOverlayActivity : AppCompatActivity() {
       "voice" -> {
         val id = intent.getStringExtra("gestureId").orEmpty()
         if (restoring && session.restoreCharacterVoiceInvocation(id)) return true
-        if (session.gesture.id == id && session.gesture.phase in setOf(VoiceGesture.Phase.Continuous, VoiceGesture.Phase.Listening)) return true
+        if (intent.getBooleanExtra(PREPARE_ONLY, false)) return session.presentSystemVoicePreparation(id)
+        if (session.gesture.id == id && session.gesture.phase in setOf(VoiceGesture.Phase.Continuous, VoiceGesture.Phase.Listening, VoiceGesture.Phase.Holding)) return true
         if (session.gesture.id != id || !session.gesture.held) return false
-        session.activateHold(id)
+        return session.activateHold(id)
       }
       else -> return false
     }
@@ -102,5 +107,8 @@ class AssistantOverlayActivity : AppCompatActivity() {
     super.onStop()
   }
 
-  companion object { internal const val CHARACTER_TEXT_ID = "org.agentos.agent.extra.CHARACTER_TEXT_ID" }
+  companion object {
+    internal const val CHARACTER_TEXT_ID = "org.agentos.agent.extra.CHARACTER_TEXT_ID"
+    internal const val PREPARE_ONLY = "org.agentos.agent.extra.PREPARE_ONLY"
+  }
 }

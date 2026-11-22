@@ -930,6 +930,17 @@ Gesture producers use `gesture/event` with `action:"prepare"`, `id` (8–128 ASC
 
 Replace the example time with current device uptime in milliseconds.
 
+During a framework system hold, `assistant/get.voicePreparation` is
+`{phase:"preparing",message:"Getting ready…"}` while the same visible preparation
+surface waits for screen-context processing. It is null otherwise. This state
+does not mean the microphone is recording: `voice.phase` remains `Idle`, and no
+listening header or speak-now vibration is emitted. Only the current capture
+owner can release that hold to the recorder. Ending, cancelling, locking or
+losing the heartbeat before readiness prevents a late microphone open or UI
+reappearance. Use `assistant/voice-cancel` for the same cancellation as the
+preparation surface's Cancel action; collapse of the SystemUI card alone does not
+cancel it. Read `voice.ready` before asking the user to speak.
+
 ```sh
 taku_call "$A" gesture/event '{"action":"prepare","id":"my-gesture-001","source":"agent","time":1234567}'
 taku_call "$A" gesture/activate '{"id":"my-gesture-001"}'

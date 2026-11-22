@@ -514,3 +514,55 @@ in ignored out/island-official-rom-20261122/ and
 out/island-pixel-upgrade-20261122/. Real spoken request, Try on and returned model
 frames still require the separate full-flow checkpoint; the successful header
 smoke is not that acceptance.
+
+## Early system-hold feedback (2026-11-22)
+
+The next real user attempts stayed Pending and then cancelled without reaching
+the recorder. A separate ADB-injected 20-second TikTok handle hold eventually recorded, first
+observed at 8.506 seconds; this was not a permanently broken entry. The overlay
+was behind the screen-context processing and its UI-readiness handshake.
+
+The framework session now presents a neutral Getting ready… surface on onShow,
+with entry None and microphone Idle, before processing finishes. A process-local
+gate requires the current reserved system gesture, framework-show permission,
+live heartbeat, unlocked device and completed original capture handoff before
+one recorder activation. Neither an exported prepareOnly Intent nor the public
+activation command can bypass an existing pending capture owner. The original
+assist-block/privacy conditions and screenshot-failure behavior are retained.
+Preparation Cancel shares assistant/voice-cancel; public voicePreparation projects
+the same GUI state. Listening text and vibration still require real capture.
+
+The pinned framework captures actual pixels before onShow; starting this Activity
+does not automatically hide its voice session. The preparing session therefore
+stays alive until the original handoff finishes. Generation, cancellation, lease,
+lock and Activity-stop guards prevent a late callback from reopening the recorder.
+Stage logs contain names and elapsed times only, with no frame or transcript.
+
+Host verification passed: 27 voice JUnit cases, 25 character cases, and 21
+production-owner scenarios / 106 assertions; lint and typecheck passed. The normal
+release build succeeded in 5m23s after selecting an existing complete NDK r27b;
+the first build attempt had encountered a missing default NDK path. APK SHA-256:
+`10ef1bf5f0b2ff93075a72237b96d4da862b4a1c5f7e5f19798cb572350dbdaa`.
+The source hashes and original platform signer were verified. The isolated AVD
+showed the actual preparation GUI and matching public projection with microphone
+Idle; further cancellation/success device regressions are recorded separately.
+
+Pixel installation retained Home UID 10256 and all four other installed component
+hashes. A readback also found both standard screen-context switches at 0; they
+were restored to the previously authorized 1, without adding a ROM pregrant for
+screen contents. A fresh ADB-injected TikTok handle hold then retained a real voice reference
+from that app and displayed the native listening card. Capture/assist callbacks
+arrived 141 ms after onPrepareShow, the gateway finished at 494 ms and activation
+at 548 ms after gesture preparation. Microphone readiness was first observed at
+4.856 seconds by the bounded host observer. This is not a controlled performance
+comparison with the preceding attempt. The brief preparation state fell between
+host polls, so its Pixel pixels are not claimed as captured by that run.
+
+Public cancellation returned to Idle with no reference/task. A separate actual
+900 ms ADB-injected handle hold and release created a new cancelled gesture; all six
+subsequent samples through 8.476 seconds retained microphone Idle, no operation,
+reference, task or working indicator. The underlying TikTok video remained visible.
+These are real touch/capture checks, not recognition or generated-video acceptance.
+The fresh spoken request and camera/model checkpoint still need user participation.
+Receipts and original failed/inconclusive test attempts remain under ignored
+out/island-pixel-upgrade-20261122/.

@@ -519,6 +519,10 @@ Figma 1-1 … 1-6. Native Kotlin/Compose (`assistant/`, `ui/assistant/`); state 
   comes from `cmd statusbar island state`. ROM preinstallation includes a revocable
   default notification grant; existing component-only upgrades need that permission
   checked separately.
+  A framework hold first shows a neutral Getting ready… surface while screen context
+  is processed. `assistant/get.voicePreparation` reads that same state; microphone
+  capture and the listening cue begin only after the current capture handoff is ready.
+  Release, cancellation, lock or an expired gesture prevents any late microphone open.
   Agent methods and protocol are in the preinstalled `taku-open-access` skill. The
   `AssistantOverlayActivity` supplies cross-app presentation through the native assistant;
   it does not create a Home controller or a second recording/session.

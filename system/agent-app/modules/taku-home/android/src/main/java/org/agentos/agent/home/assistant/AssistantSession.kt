@@ -40,6 +40,8 @@ enum class IslandMode { Hidden, Expanded, Full, Collapsed }
 
 data class AssistantState(
   val entry: EntryMode = EntryMode.None,
+  /** Framework capture is in flight; no microphone operation has started. */
+  val voicePreparation: Boolean = false,
   val voiceContinuous: Boolean = false,
   val voicePaused: Boolean = false,
   val hintExpanded: Boolean = false,
@@ -92,7 +94,7 @@ data class AssistantState(
   }
   val needsUser: Boolean get() = task == "needs_user"
   /** Closing temporary input must not dismiss its pending result, reply or error. */
-  val overlayVisible: Boolean get() = entry != EntryMode.None || characterTryOn != null
+  val overlayVisible: Boolean get() = voicePreparation || entry != EntryMode.None || characterTryOn != null
 
   /** What "Try again" sends: the draft (restored or edited), else the failed request. */
   val retryText: String? get() = draft.ifBlank { failedText }?.takeIf { it.isNotBlank() }
@@ -171,6 +173,7 @@ class AssistantSession private constructor(private val context: Context, private
   val gesture = VoiceGesture({ start ->
     gesturePrefs.edit().putInt("boot", boot).putLong("start", start).commit()
   }, if (gesturePrefs.getInt("boot", -2) == boot) gesturePrefs.getLong("start", -1) else -1)
+  private val systemVoicePreparation = SystemVoicePreparation(gesture)
 
   init {
     watchVoice(); watchNetwork()
@@ -265,7 +268,9 @@ class AssistantSession private constructor(private val context: Context, private
     }
   }
 
-  private fun publishGesture() = flow.update { it.copy(holdZone = gesture.zone) }
+  private fun publishGesture() = flow.update {
+    it.copy(holdZone = gesture.zone, voicePreparation = systemVoicePreparation.visible())
+  }
 
   private val characterTextInvocation = CharacterTextInvocation()
   private val characterVoiceHandoff = CharacterVoiceHandoff()
@@ -360,17 +365,43 @@ class AssistantSession private constructor(private val context: Context, private
     if (live.snapshot?.open == true) throw AssistantException("VOICE_BUSY", "Live Talk is already active")
     if (voice.state.value.listening) throw AssistantException("VOICE_BUSY", "voice is already active")
     val changed = gesture.prepare(id, source, startedAt, android.os.SystemClock.uptimeMillis())
-    if (changed) { clearCharacterReference(); publishGesture() }
+    if (changed) { systemVoicePreparation.clear(); clearCharacterReference(); publishGesture() }
     return changed
   }
 
+  internal fun reserveSystemVoicePreparation(id: String): Boolean =
+    systemVoicePreparation.reserve(id, android.os.SystemClock.uptimeMillis(), !voiceDeviceUnavailable())
+
+  internal fun allowSystemVoicePreparation(id: String): Boolean =
+    systemVoicePreparation.allowPresentation(id, android.os.SystemClock.uptimeMillis(), !voiceDeviceUnavailable())
+
+  /** An exported Activity can only present an already-reserved framework invocation. */
+  internal fun presentSystemVoicePreparation(id: String): Boolean {
+    if (!systemVoicePreparation.present(id, android.os.SystemClock.uptimeMillis(), !voiceDeviceUnavailable())) return false
+    flow.update { it.copy(entry = EntryMode.None, voicePreparation = true, hintExpanded = false) }
+    return true
+  }
+
+  internal fun completeSystemVoicePreparation(id: String): Boolean =
+    systemVoicePreparation.complete(id, android.os.SystemClock.uptimeMillis(), !voiceDeviceUnavailable())
+
+  /** Hide/cancel from an older framework or Activity cannot revoke a newer hold. */
+  internal fun cancelPendingSystemVoicePreparation(id: String) {
+    if (systemVoicePreparation.owns(id) && gesture.id == id) cancelVoice()
+  }
+
   /** UI handshake: a terminal event received during cold start prevents any later microphone open. */
-  fun activateHold(id: String) {
-    if (gesture.source == "system" && gesture.expired(android.os.SystemClock.uptimeMillis())) { cancelVoice(); return }
-    if (!gesture.activate(id)) return
+  fun activateHold(id: String): Boolean {
+    if (gesture.id != id) return false
+    if (gesture.source == "system" && gesture.expired(android.os.SystemClock.uptimeMillis())) { cancelVoice(); return false }
+    if (systemVoicePreparation.owns(id)) {
+      if (!systemVoicePreparation.activate(id, android.os.SystemClock.uptimeMillis(), !voiceDeviceUnavailable())) return false
+    } else if (!gesture.activate(id)) return false
+    Log.d("TakuSystemAssistant", "stage=activate elapsedSinceGestureMs=${android.os.SystemClock.uptimeMillis() - gesture.startedAt}")
     publishGesture()
     flow.update { it.copy(expansionRequest = ++expansionSequence) }
     startVoice(VoiceTarget.Hold, VoiceDestination.AwaitGesture)
+    return true
   }
 
   fun beginDesktopHold() {
@@ -816,6 +847,7 @@ class AssistantSession private constructor(private val context: Context, private
    * started, nothing was heard and the operation is dropped.
    */
   fun finishVoice() {
+    if (systemVoicePreparation.owns(gesture.id) && gesture.phase == VoiceGesture.Phase.Pending) return cancelVoice()
     // Released while the start still waits for a reply reader to stop: latch now, as a release
     // after the start would, so the deferred start aims at Submit (finalize on silence, send once)
     // instead of waiting for a release that already happened.
@@ -944,6 +976,7 @@ class AssistantSession private constructor(private val context: Context, private
   private fun revokeVoice(cancelCapture: Boolean = true, preserveCharacter: Boolean = false) {
     if (!preserveCharacter) clearCharacterReference()
     cancelPendingVoiceStart()
+    systemVoicePreparation.clear()
     gesture.end(true); publishGesture()
     delivery.newGeneration()
     if (cancelCapture && voice.state.value.phase != VoicePhase.Idle) voice.cancel()
@@ -1572,6 +1605,8 @@ class AssistantSession private constructor(private val context: Context, private
           .put("suggestions", JSONArray(t.suggestions.map { JSONObject().put("id", it.id).put("label", it.label).put("reply", it.reply) }))
       } ?: JSONObject.NULL)
       .put("voice", voiceJson)
+      .put("voicePreparation", if (s.voicePreparation) JSONObject().put("phase", "preparing")
+        .put("message", SystemVoicePreparation.MESSAGE) else JSONObject.NULL)
       .put("characterReference", characterTryOn.reference()?.takeIf { reference ->
         !characterTextInvocation.matches(reference.id, android.os.SystemClock.elapsedRealtime()) ||
           characterTextInvocation.active(android.os.SystemClock.elapsedRealtime())
