@@ -566,3 +566,98 @@ These are real touch/capture checks, not recognition or generated-video acceptan
 The fresh spoken request and camera/model checkpoint still need user participation.
 Receipts and original failed/inconclusive test attempts remain under ignored
 out/island-pixel-upgrade-20261122/.
+
+
+## Reopened text input and IME startup (2026-11-22)
+
+A bounded Pixel double-tap test used four real MotionEvents in one app_process,
+with an observed 80 ms first-UP to second-DOWN gap. It reached framework
+generation 15, real screenshot/assist callbacks and a 462 ms gateway handoff.
+The overlay then opened and focused, but logged IME dismissal about 146 ms after
+onCreate and finished. No request was sent. This isolated a text-composer error,
+not a missing navigation gesture or an expired reference. Failed entry attempts
+and bounded lifecycle logs are retained in ignored out/pixel receipts.
+
+A focus-epoch guard passed host tests but the resulting normal release 4ad5412e
+still failed the real Pixel reopen check. IME attachment itself can report a
+hidden/visible/positive-inset/hidden transition before a keyboard is actually
+shown. The client's hide request followed the guard's closeEntry, so adding a
+focus check does not establish user dismissal. Neither that build nor its host
+unit results are reported as successful text-device acceptance.
+
+The final change removes automatic closeEntry based on IME layout/visibility.
+Those insets continue to position the text field. The existing explicit Back,
+background dismissal, send and Cancel handlers retain ownership of closing the
+input; current field/window focus gates the keyboard show request. The obsolete
+IME-dismissal helper/tests are removed from the character test runner. This keeps
+ordinary keyboard transitions from revoking a valid fresh TikTok reference and
+does not introduce a show timer or alter draft/ASR/character authorization.
+
+A separate microphone attempt played a two-second synthesized English fixture
+through the Mac's built-in speaker, without changing default output or volume.
+Pixel reached real local Zipformer capture with language en-US and a real TikTok
+voice reference, but produced no transcript or request. This is not successful
+recognition, human-speech acceptance or a model/camera preview.
+
+The isolated AVD preparation regressions used Home 10ef, real framework capture,
+a synthetic TikTok fixture and explicitly identified Audio doubles. Public end,
+real screen-off/lock followed by a late callback, and a gesture already expired
+before framework show passed without opening a recorder or retaining a reference.
+The observed success handoff activated that same gesture, exposed its TikTok
+reference and opened Audio exactly once; its final host-driven end was
+inconclusive because of driver sequencing. GUI Cancel-button targeting was also
+inconclusive (entry animation and a killed test process), so the earlier observed
+GUI dismissal is not reported as a verified button click. The original failures
+are retained. Original Audio/fixture hashes were restored and only the assigned
+AVD was stopped. No ASR, cloud request, reference-byte identity or full camera
+result is inferred from those fixtures.
+
+The final normal release build passed in 4m12s. Installed Home SHA-256 is
+`66bf396123562ac840ad363ff1498397a84864ff1527c501b44d6f3029ec0d16`.
+Its production-source hashes, deleted helper, development signer and UID 10256
+were verified before/after the streamed upgrade. Backend 119, Audio 2, Native 87,
+Observer 25 and staged SystemUI hashes/UIDs were preserved, as were both standard
+screen-context switches at 1. The final character runner passed 21 remaining
+policy/text-lease/voice-handoff tests; lint and typecheck passed. The removed IME
+heuristic no longer has a standalone test pretending that insets prove dismissal.
+
+Two fresh, real Pixel navigation double-taps each captured a TikTok text reference
+and sent the complete English outfit request through the GUI-shared ask handler.
+Both displayed the compact Not now / Try on confirmation with no ordinary chat,
+thread or queued task. The second card was cancelled through its current request
+handler. The first card's actual displayed Try on text bounds were read from the
+UI hierarchy and tapped. Camera state became waiting_camera, then a generated
+floating result was visibly drawn, followed by the existing automatic full-screen
+reveal. At the 9.666-second sample the public state reported 87 source frames and
+34 returned frames; the last diagnostic snapshot recorded 108 inputs / 56 outputs.
+Screenshots show actual generated pixels, not only a connected transport counter.
+The sampled opening recording showed no old Character swap white page; nine
+sparse frames cannot exclude every possible sub-frame flash. This does not claim
+that a raw camera window was visibly shown before the first generated result.
+
+The sole cloud attempt was stopped explicitly. Final public state reported
+active=false, cleanupPending=false and presentation=closed; Home was idle with no
+card, draft, reference, task or thread. A final 12-second injected handle hold on
+this exact Home APK separately reached local en-US / Zipformer capture and the
+real native SystemUI listening card (expanded=true, nativeReady=true,
+focusable=false). Cancellation was requested before the original pointer
+stream ended; the final read was idle. No transcript was injected. A fresh complete human
+English utterance and identity/garment fidelity against a person facing the front
+camera are still unaccepted; generated reference controls are visible in the
+sample output and output quality must not be inferred from frame counts.
+
+All latest receipts are in ignored out/island-pixel-upgrade-20261122/, including
+ime-final-home-build-install-receipt.json, pixel-text-no-ime-dismiss/,
+pixel-text-no-ime-dismiss-reopen/, pixel-card-camera-final/ and
+final-home66-voice-header/. No LIVE observer code, on-device private data, APK,
+recorded video or signing material is added to this source change. No remote push
+was performed. The earlier boot-only runtime-bind limitation still applies.
+
+A supplementary text GUI test kept the entry open, populated its documented shared
+draft handler and tapped the actual displayed Send button. It rendered the exact
+English draft and produced another fresh confirmation with no thread/task; it
+was cancelled without a second cloud start. A preceding direct ASCII key-event
+attempt was not accepted as an English typing test: the phone's current Chinese
+Pinyin IME composed Hanzi from those hardware-style events. That original attempt
+is retained and its own draft was cleared. No input-method setting was changed,
+and keyboard-language behavior is not reported as an ASR result.
