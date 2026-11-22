@@ -30,3 +30,5 @@ python3 "$MODULE_ROOT/tests/api-pipes/test-credential-pipes.py"
 python3 "$MODULE_ROOT/tests/character/test-direct-cosplay-presentation.py"
 python3 "$MODULE_ROOT/tests/character/test-reference-deadline.py"
 python3 "$MODULE_ROOT/tests/character/test-character-import-binding.py"
+
+python3 "$MODULE_ROOT/tests/direct-live/test-host.py"

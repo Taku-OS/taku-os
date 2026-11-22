@@ -15,7 +15,8 @@
 | `system/agent-app/` | React Native and Expo session UI, component gallery and plugin marketplace pages. Sessions come from the native runtime |
 | `system/ai/` | Taku AI public client, scenario interfaces and documentation. The service is implemented in the native Assistant |
 | `system/memory/` | Standalone Memory APK with authoritative storage, capture, organizing and retrieval, an open provider and experimental reminders |
-| `system/tryon/` | Native reference-based camera preview, model transport, shared character handoff contract and GUI/Agent controls; no LIVE observer |
+| `system/tryon/` | Native reference-based camera preview, model transport, shared character handoff contract and GUI/Agent controls; the separate LIVE observer hands off through its shared contract |
+| `system/shopping-observer/` | Optional TikTok LIVE observation, explicit outfit selection and single-use reference handoff to the native try-on app |
 | `system/plugins/` | Plugin manager, JVM and Android hosts, root service, management page, MCP and provider, REA pack tools. Separate from the Codex marketplace |
 | `system/inputmethod/` | Taku input method source locks, product patches, build and keyboard tests |
 | `system/proactivity/` | Proactivity app, public contract and SDK, policies and native management UI |

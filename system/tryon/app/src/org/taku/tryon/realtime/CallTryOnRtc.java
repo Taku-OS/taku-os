@@ -85,13 +85,16 @@ public final class CallTryOnRtc implements RealtimeCallTransport {
     private static final int SOURCE_NEW = 0, SOURCE_STARTING = 1, SOURCE_READY = 2, SOURCE_CLOSED = 3;
     // One-way gate: late initialization can never publish READY over CLOSED.
     private final AtomicInteger sourceState = new AtomicInteger(SOURCE_NEW);
-    private final Object sourceLock = new Object(), socketLock = new Object();
+    private final Object sourceLock = new Object(), socketLock = new Object(), signalIngressLock = new Object();
     private final HandlerThread controlThread;
     private final Handler control;
     private final ExecutorService input = Executors.newSingleThreadExecutor(r -> new Thread(r, "tryon-rtc-input"));
     private final ExecutorService output = Executors.newSingleThreadExecutor(r -> new Thread(r, "tryon-rtc-return"));
     private final ScheduledExecutorService watchdog = Executors.newSingleThreadScheduledExecutor(r -> new Thread(r, "tryon-rtc-deadline"));
     private final ArrayDeque<Map<String, Object>> messages = new ArrayDeque<>();
+    // The actor owns the deque; socket readers observe this numeric diagnostic mirror only.
+    private volatile int decodedMessageCount;
+    private volatile String processingType = "none";
     private final ArrayList<IceCandidate> candidates = new ArrayList<>();
     private final FalModelUpdate updates = new FalModelUpdate();
     // Serialized by updates; input/output frame workers never take this lock.
@@ -466,49 +469,68 @@ public final class CallTryOnRtc implements RealtimeCallTransport {
             created.connect();
         }
     }
-    // Event entries share the signaling actor. Package visibility permits offline FIFO tests.
+    // Decode on the reader. Informational traffic cannot consume the bounded control actor.
+    // The ingress lock also keeps a close/error callback behind an earlier decode and control post.
     void receiveSignal(ByteBuffer data) {
-        if (data == null || data.remaining() > FalSignalCodec.MAX_BYTES) { terminate("invalid_signal"); return; }
-        if (!acceptInbound()) return;
-        byte[] bytes = new byte[data.remaining()]; data.get(bytes);
-        control.post(() -> {
-            inboundPending.decrementAndGet();
-            if (active()) try { enqueue(asMap(FalSignalCodec.decode(bytes))); }
-            catch (RuntimeException failure) { diagnostics.protocolFailure(); terminate("invalid_signal"); }
-        });
+        synchronized (signalIngressLock) {
+            if (data == null || data.remaining() > FalSignalCodec.MAX_BYTES) { terminate("invalid_signal"); return; }
+            if (!active()) return;
+            byte[] bytes = new byte[data.remaining()]; data.get(bytes);
+            try { acceptDecodedSignal(asMap(FalSignalCodec.decode(bytes))); }
+            catch (RuntimeException failure) { queueInvalidSignal(); }
+        }
     }
 
     void receiveSignal(String text) {
-        if (text == null || text.length() > FalSignalCodec.MAX_BYTES) { terminate("invalid_signal"); return; }
+        synchronized (signalIngressLock) {
+            if (text == null || text.length() > FalSignalCodec.MAX_BYTES) { terminate("invalid_signal"); return; }
+            if (!active()) return;
+            try { acceptDecodedSignal(asMap(json(new JSONObject(text), 0))); }
+            catch (Exception failure) { queueInvalidSignal(); }
+        }
+    }
+    private void acceptDecodedSignal(Map<String, Object> message) {
+        if (!active()) return;
+        String type = FalSignalPolicy.type(message);
+        if ("x-fal-message".equals(type) && FalSignalPolicy.terminalCode(message) == null) {
+            recordSignalReceived(type); return;
+        }
         if (!acceptInbound()) return;
         control.post(() -> {
             inboundPending.decrementAndGet();
-            if (active()) try { enqueue(asMap(json(new JSONObject(text), 0))); }
-            catch (Exception failure) { diagnostics.protocolFailure(); terminate("invalid_signal"); }
+            if (active()) try { enqueue(message); }
+            catch (RuntimeException failure) { diagnostics.protocolFailure(); terminate("invalid_signal"); }
+        });
+    }
+    private void queueInvalidSignal() {
+        if (!acceptInbound()) return;
+        control.post(() -> {
+            inboundPending.decrementAndGet();
+            if (active()) { diagnostics.protocolFailure(); terminate("invalid_signal"); }
         });
     }
 
     void signalClosed(int code, boolean remote) {
         // The reader may have queued a final server error immediately before close.
         // Keep FIFO with its decoder; do not delete it from another thread.
-        post(() -> {
+        synchronized (signalIngressLock) { post(() -> {
             diagnostics.websocketClosed(code, remote);
             FalSignalingSocketFactory transport = signalingTransport;
             if (transport != null && transport.timedOut()) {
                 diagnostics.websocketException(new java.net.SocketTimeoutException(), false);
                 terminate("websocket_error");
             } else terminate("websocket_closed");
-        });
+        }); }
     }
 
     void signalFailed(Exception error) {
-        post(() -> {
+        synchronized (signalIngressLock) { post(() -> {
             FalSignalingSocketFactory transport = signalingTransport;
             if (transport != null && transport.timedOut())
                 diagnostics.websocketException(new java.net.SocketTimeoutException(), false);
             else diagnostics.websocketException(error, error instanceof org.java_websocket.exceptions.InvalidDataException);
             terminate("websocket_error");
-        });
+        }); }
     }
 
     /** Observe the actual parsed HTTP status, including rejection; keep the same draft acceptance rules. */
@@ -531,8 +553,10 @@ public final class CallTryOnRtc implements RealtimeCallTransport {
     }
     private boolean acceptInbound() {
         if (!active()) return false;
-        if (inboundPending.incrementAndGet() > 8) {
-            inboundPending.decrementAndGet(); terminate("signal_backpressure"); return false;
+        int pending = inboundPending.incrementAndGet();
+        if (pending > 8) {
+            inboundPending.decrementAndGet();
+            terminateBackpressure("inbound_pending", pending, -1, -1); return false;
         }
         return true;
     }
@@ -577,7 +601,10 @@ public final class CallTryOnRtc implements RealtimeCallTransport {
         if (!active() || current == null || !current.isOpen()) return false;
         org.java_websocket.WebSocketImpl connection = (org.java_websocket.WebSocketImpl) current.getConnection();
         long queued = queuedSignalBytes(current);
-        if (connection.outQueue.size() > 128 || queued > 1024 * 1024) { terminate("signal_backpressure"); return false; }
+        int queuedMessages = connection.outQueue.size();
+        if (queuedMessages > 128 || queued > 1024 * 1024) {
+            terminateBackpressure("outbound_queue", inboundPending.get(), queuedMessages, queued); return false;
+        }
         byte[] encoded = FalSignalCodec.encode(message);
         if (initial) diagnostics.initialPayloadBytes(encoded.length);
         current.send(encoded);
@@ -585,7 +612,7 @@ public final class CallTryOnRtc implements RealtimeCallTransport {
         return true;
     }
     private void enqueue(Map<String, Object> message) {
-        diagnostics.signalReceived(FalSignalPolicy.type(message), rtcElapsedMs());
+        recordSignalReceived(FalSignalPolicy.type(message));
         // SDP processing can wait on an asynchronous native callback. A terminal
         // server control needs no SDP state and must be consumed before close.
         String terminalCode = FalSignalPolicy.terminalCode(message);
@@ -595,13 +622,19 @@ public final class CallTryOnRtc implements RealtimeCallTransport {
                     : "error".equals(message.get("status")) ? "status" : "model");
             terminate(terminalCode); return;
         }
-        if (messages.size() >= 32) { terminate("signal_backpressure"); return; }
-        messages.add(message); pump();
+        if (messages.size() >= 32) { terminateBackpressure("decoded_messages", inboundPending.get(), -1, -1); return; }
+        messages.add(message); decodedMessageCount = messages.size(); pump();
+    }
+    private void recordSignalReceived(String type) {
+        // Sample time under the same lock as the counters: reader/actor interleaving cannot lose counts.
+        synchronized (diagnostics) { diagnostics.signalReceived(type, rtcElapsedMs()); }
     }
     private void pump() {
         if (!active() || processing || messages.isEmpty()) return;
         processing = true;
-        handle(messages.remove(), () -> { processing = false; pump(); });
+        Map<String, Object> message = messages.remove(); decodedMessageCount = messages.size();
+        processingType = CallTryOnRtcDiagnostics.safeProcessingType(FalSignalPolicy.type(message));
+        handle(message, () -> { processing = false; processingType = "none"; pump(); });
     }
     private void handle(Map<String, Object> message, Runnable done) {
         String type = FalSignalPolicy.type(message);
@@ -865,8 +898,23 @@ public final class CallTryOnRtc implements RealtimeCallTransport {
             Bitmap result = bitmap; bitmap = null; return result;
         } finally { if (bitmap != null) bitmap.recycle(); if (buffer != null) buffer.release(); scaled.release(); }
     }
-    private void terminate(String code) {
+    private record SignalBackpressure(String source, String processingType, int inbound, int decoded, int outbound, long bytes) {}
+    private void terminateBackpressure(String source, int inbound, int outbound, long bytes) {
+        if (outbound < 0) {
+            WebSocketClient current = socket;
+            if (current != null) try {
+                org.java_websocket.WebSocketImpl connection = (org.java_websocket.WebSocketImpl) current.getConnection();
+                outbound = connection.outQueue.size(); bytes = queuedSignalBytes(current);
+            } catch (RuntimeException | LinkageError ignored) { outbound = -1; bytes = -1; }
+        }
+        terminate("signal_backpressure", new SignalBackpressure(source,
+                "inbound_pending".equals(source) ? "unknown" : processingType, inbound, decodedMessageCount, outbound, bytes));
+    }
+    private void terminate(String code) { terminate(code, null); }
+    private void terminate(String code, SignalBackpressure pressure) {
         if (!stopped.compareAndSet(false, true)) return;
+        if (pressure != null) diagnostics.signalBackpressure(pressure.source(), pressure.processingType(), pressure.inbound(),
+                pressure.decoded(), pressure.outbound(), pressure.bytes());
         diagnostics.finish(code);
         notifyDiagnostic(); // Preserve the originating evidence before onFailure triggers service cleanup.
         synchronized (updates) {
@@ -894,7 +942,7 @@ public final class CallTryOnRtc implements RealtimeCallTransport {
                 if (factory != null) { factory.dispose(); factory = null; }
             } catch (RuntimeException | LinkageError ignored) { confirmed=false; }
             finally {
-                messages.clear(); candidates.clear(); socket = null; signalingTransport = null;
+                messages.clear(); decodedMessageCount = 0; processingType = "none"; candidates.clear(); socket = null; signalingTransport = null;
                 try { listener.onState("closed"); } catch (RuntimeException ignored) {}
                 try { listener.onCleanup(confirmed); } catch (RuntimeException ignored) {}
                 controlThread.quitSafely();

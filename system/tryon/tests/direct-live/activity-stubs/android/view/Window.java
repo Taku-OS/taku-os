@@ -1,0 +1,2 @@
+// SPDX-License-Identifier: Apache-2.0
+package android.view;public class Window{public int width,height,flags,gravity,animations=-1,background=-1;public void setBackgroundDrawableResource(int value){background=value;}public void clearFlags(int value){flags&=~value;}public void addFlags(int value){flags|=value;}public void setGravity(int value){gravity=value;}public void setLayout(int w,int h){width=w;height=h;}public void setWindowAnimations(int value){animations=value;}}

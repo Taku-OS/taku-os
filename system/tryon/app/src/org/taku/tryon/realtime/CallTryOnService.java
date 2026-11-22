@@ -50,6 +50,24 @@ public final class CallTryOnService extends Service {
     static void releaseReservation(long generation){ADMISSION.release(generation);}
     public static boolean busy(){return ADMISSION.busy();}
     public static Snapshot snapshot(){return last;}
+    static final int STARTUP_PENDING=0,STARTUP_ATTACHED=1,STARTUP_ENDED=2;
+    /** Same main-thread window state used by the GUI; a different attempt never acknowledges this bridge. */
+    static int startupState(long generation) {
+        if(Looper.myLooper()!=Looper.getMainLooper())throw new IllegalStateException("wrong_thread");
+        if(!ADMISSION.accepted(generation))return STARTUP_ENDED;
+        CallTryOnService value=current;
+        if(value==null||value.admissionGeneration!=generation)return STARTUP_PENDING;
+        if(value.destroyed||value.terminating.get())return STARTUP_ENDED;
+        return value.window!=null&&value.window.isAttached()?STARTUP_ATTACHED:STARTUP_PENDING;
+    }
+    /** Cancellation is generation-bound even while startForegroundService is still queued. */
+    static void cancelStartup(long generation) {
+        if(Looper.myLooper()!=Looper.getMainLooper())throw new IllegalStateException("wrong_thread");
+        if(!ADMISSION.cancel(generation))return;
+        CallTryOnService value=current;
+        if(value!=null&&value.admissionGeneration==generation)
+            value.finish("stopped","Try-on cancelled before the preview opened.","user_stop");
+    }
     static boolean control(String action) {
         if("stop".equals(action))ADMISSION.cancel();
         CallTryOnService value=current;if(value==null)return "stop".equals(action)&&ADMISSION.busy();

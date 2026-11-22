@@ -1,0 +1,2 @@
+// SPDX-License-Identifier: Apache-2.0
+package android.content;import android.os.Bundle;import android.net.Uri;import java.util.concurrent.atomic.*;public class ContentResolver{public interface Reply{Bundle get(Bundle args);}public static volatile Reply reply;public static final AtomicInteger calls=new AtomicInteger();public static volatile Bundle lastArgs;public Bundle call(Uri uri,String method,String argument,Bundle args){calls.incrementAndGet();lastArgs=new Bundle(args);return reply.get(new Bundle(args));}}

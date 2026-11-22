@@ -149,7 +149,7 @@ public final class TryOnController {
         try {
             Intent service = new Intent(context,CallTryOnService.class).putExtras(request.bundle()).putExtra("attemptGeneration",generation);
             context.startForegroundService(service); previous=request;
-            return result(true,"starting");
+            Bundle accepted=result(true,"starting");accepted.putLong("attemptGeneration",generation);return accepted;
         } catch (RuntimeException denied) { CallTryOnService.releaseReservation(generation); return result(false,"foreground_service_denied"); }
     }
     public static synchronized Bundle retry(Context context) {

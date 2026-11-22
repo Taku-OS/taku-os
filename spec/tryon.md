@@ -67,3 +67,9 @@ evidence. A stock SDK emulator has no Taku Launcher navigation-handle patch.
 APK installation or an injected transcript therefore does not prove a physical
 bottom-handle gesture or real recognition. No model keys, recordings, reference
 images, APKs or generated build output belong in the source contribution.
+
+## Optional TikTok LIVE handoff
+
+`system/shopping-observer` owns LIVE verification, bounded screenshot selection, image recognition and explicit outfit selection. It provides one source-issued admission to `org.taku.tryon/.realtime.DirectLiveTryOnActivity` using the shared `contract/LiveTryOnContract.java`. The admission is bound to the target UID/signer and immutable source reference, expires after 30 seconds and can be redeemed once; the reference grant lasts at most 120 seconds. Native validates the actual source authority/package and admission response before reserving a camera attempt. The transparent entry closes only after that generation's window attaches, or after its bounded failure/cancellation path.
+
+The native app remains the owner of camera, model transport and cleanup; the observer does not receive model credentials. Observer settings and Agent actions use `content://org.agentos.shopping.api` (`status`, `configure`, `tryOn`, `cancel`, `retry`, `select`) and the same guarded handlers as its UI. Native status/stop/window controls remain at `content://org.taku.tryon.api`. A LIVE visit never starts Lucy; confirmation or a separately authorized explicit API call is required. See the observer README for parameters, errors and validity checks.

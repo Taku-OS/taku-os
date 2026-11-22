@@ -67,6 +67,9 @@ public final class CallTryOnDiagnosticStore {
     private static final Set<String> SIGNAL_TYPES = values("ready", "iceservers", "answer", "icecandidate",
             "ice-restart", "prompt_ack", "set_image_ack", "generation_started", "error", "x-fal-error",
             "x-fal-message", "unknown");
+    private static final Set<String> PROCESSING_TYPES = values("none", "ready", "iceservers", "answer", "icecandidate",
+            "ice-restart", "prompt_ack", "set_image_ack", "generation_started", "error", "x-fal-error", "x-fal-message", "unknown");
+    private static final Set<String> BACKPRESSURE_SOURCES = values("inbound_pending", "outbound_queue", "decoded_messages");
     private static final Set<String> SERVER_KINDS = values("media_connection_timeout", "media_connection_failed",
             "input_frames_timeout", "invalid_reference", "reference_required", "invalid_prompt", "unsupported_video",
             "auth_failed", "quota_exceeded", "rate_limited", "service_unavailable", "service_internal_error",
@@ -172,6 +175,12 @@ public final class CallTryOnDiagnosticStore {
                 enumeration(rtc, rtcInput, "initialImageAck", ACKS);
                 enumeration(rtc, rtcInput, "outboundCodec", CODECS);
                 enumeration(rtc, rtcInput, "lastSignalType", SIGNAL_TYPES);
+                enumeration(rtc, rtcInput, "processingType", PROCESSING_TYPES);
+                enumeration(rtc, rtcInput, "backpressureSource", BACKPRESSURE_SOURCES);
+                integer(rtc, rtcInput, "diagnosticSchemaVersion", 2, 2);
+                for (String key : new String[]{"backpressureInboundPending", "backpressureDecodedMessages", "backpressureOutboundMessages"})
+                    integer(rtc, rtcInput, key, 0, 1000000);
+                integer(rtc, rtcInput, "backpressureOutboundBytes", 0, MAX_INTEGER);
                 enumeration(rtc, rtcInput, "serverErrorKind", SERVER_KINDS);
                 enumeration(rtc, rtcInput, "serverErrorCode", SERVER_CODES);
                 enumeration(rtc, rtcInput, "serverErrorEnvelope", SERVER_ENVELOPES);

@@ -21,6 +21,7 @@ final class CallTryOnRtcDiagnostics {
     static final long CHECKPOINT_MS = 2000;
     private static final long MAX_COUNTER = 9007199254740991L;
     private static final long MAX_ELAPSED_MS = 60000;
+    private static final Set<String> BACKPRESSURE_SOURCES = Set.of("inbound_pending", "outbound_queue", "decoded_messages");
     private static final Map<String, String> SIGNAL_COUNTS = Map.ofEntries(
             Map.entry("ready", "signalReadyCount"), Map.entry("iceservers", "signalIceServersCount"),
             Map.entry("answer", "signalAnswerCount"), Map.entry("icecandidate", "signalIceCandidateCount"),
@@ -67,6 +68,7 @@ final class CallTryOnRtcDiagnostics {
     private long lastStatsRequest = -1, snapshotRevision, firstInputNs = -1, lastInputNs = -1;
 
     CallTryOnRtcDiagnostics() {
+        values.put("diagnosticSchemaVersion", 2L);
         values.put("state", "idle"); values.put("stage", "opening"); values.put("errorCode", "none");
         for (String key : new String[]{"websocketOpened", "remoteTrackReceived", "offerSent", "answerReceived", "generationStarted"})
             values.put(key, false);
@@ -129,6 +131,19 @@ final class CallTryOnRtcDiagnostics {
     }
     synchronized void signalQueueBytes(long bytes) {
         if (!terminal && bytes >= 0 && bytes <= MAX_COUNTER) values.put("signalQueueBytes", bytes);
+    }
+    /** Actual queue sizes at the winning stop boundary; unavailable queues remain absent. */
+    synchronized void signalBackpressure(String source, String processingType, int inbound, int decoded, int outbound, long bytes) {
+        if (terminal || values.containsKey("backpressureSource") || source == null || !BACKPRESSURE_SOURCES.contains(source)) return;
+        values.put("backpressureSource", source);
+        values.put("processingType", safeProcessingType(processingType));
+        metric("backpressureInboundPending", inbound, 0, 1000000);
+        metric("backpressureDecodedMessages", decoded, 0, 1000000);
+        metric("backpressureOutboundMessages", outbound, 0, 1000000);
+        metric("backpressureOutboundBytes", bytes, 0, MAX_COUNTER);
+    }
+    static String safeProcessingType(String type) {
+        return "none".equals(type) ? "none" : type != null && type.length() <= 64 && SIGNAL_COUNTS.containsKey(type) ? type : "unknown";
     }
     synchronized void mediaConnectedAt(long elapsedMs) {
         if (!terminal && elapsed(elapsedMs) && !values.containsKey("mediaConnectedAtMs")) values.put("mediaConnectedAtMs", elapsedMs);

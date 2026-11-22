@@ -1,0 +1,2 @@
+// SPDX-License-Identifier: Apache-2.0
+package org.taku.tryon.realtime;public final class CallTryOnService{static final int STARTUP_PENDING=0,STARTUP_ATTACHED=1,STARTUP_ENDED=2;static int startup=STARTUP_ATTACHED,cancelled;static long generation=1;static int startupState(long requested){return requested==generation?startup:STARTUP_ENDED;}static void cancelStartup(long requested){if(requested==generation){cancelled++;startup=STARTUP_ENDED;}}}

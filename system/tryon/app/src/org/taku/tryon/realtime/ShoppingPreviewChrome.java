@@ -31,7 +31,7 @@ final class ShoppingPreviewChrome {
     final LinearLayout toolbar;
     final TextView title, statusChip, hint, liveStatus;
     final Button minimize, close, shoppingClose, compactClose, compare, fullscreen, resizeTarget;
-    private final View brand, divider, dragGrip;
+    private final View brand, divider;
     private final Context context;
     private final float density;
     private boolean live, character;
@@ -51,12 +51,6 @@ final class ShoppingPreviewChrome {
         close = button("", "Stop and close try-on", Symbol.CLOSE, 14);
         close.setPadding(dp(14), 0, dp(14), 0); close.setTooltipText("Stop try-on");
         header.addView(close, new FrameLayout.LayoutParams(dp(44), dp(44), Gravity.RIGHT | Gravity.TOP));
-        dragGrip = new View(context);
-        dragGrip.setBackground(shape(0xffaeb4ae, 999, 0));
-        dragGrip.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-        header.addView(dragGrip, new FrameLayout.LayoutParams(dp(24), dp(4), Gravity.CENTER));
-        dragGrip.setVisibility(View.GONE);
-
         statusChip = label("Preparing", 11, TEXT); statusChip.setGravity(Gravity.CENTER);
         statusChip.setPadding(dp(10), dp(6), dp(10), dp(6));
         statusChip.setBackground(shape(0xd61b2119, 999, 0x20ffffff));
@@ -73,14 +67,10 @@ final class ShoppingPreviewChrome {
         divider = new View(context); divider.setBackgroundColor(0x22ffffff);
         LinearLayout.LayoutParams line = new LinearLayout.LayoutParams(dp(1), dp(18));
         line.gravity = Gravity.CENTER_VERTICAL; toolbar.addView(divider, line);
-        fullscreen = button("Full screen", "Expand try-on to full screen", Symbol.EXPAND, 12);
+        fullscreen = new CornerButton(context, "Expand try-on to full screen", Symbol.DIAGONAL);
         toolbar.addView(fullscreen, new LinearLayout.LayoutParams(0, -1, 1));
-        shoppingClose=button("", "Stop and close try-on", Symbol.CLOSE, 14);
+        shoppingClose = new CornerButton(context, "Stop and close try-on", Symbol.CLOSE);
         compactClose=button("", "Stop and close try-on", Symbol.CLOSE, 14);
-        for(Button exit:new Button[]{shoppingClose,compactClose}) {
-            exit.setCompoundDrawables(null,null,null,null);iconLabel(exit,"",Symbol.CLOSE,Color.WHITE,16);
-            exit.setPadding(0,0,0,0);exit.setTooltipText(null);
-        }
         // Cancel lives on the visible dot node in compact mode, with a full touch
         // target and semantics; only the expanded video shows the explicit X.
         compactClose.setText(""); compactClose.setCompoundDrawables(null,null,null,null);
@@ -108,17 +98,14 @@ final class ShoppingPreviewChrome {
                 : ShoppingPreviewLayout.shoppingControls(layout, density);
         int target = controls.height();
         place(toolbar, controls.width(), target, controls.x(), controls.y());
-        toolbar.setBackground(character ? shape(0x22ffffff,17,0x12ffffff) : null);
-        toolbar.setClipToOutline(character);
+        toolbar.setBackground(null);
+        toolbar.setClipToOutline(false);
         if(character) {
             brand.setVisibility(View.GONE); title.setVisibility(View.GONE);
             minimize.setVisibility(View.GONE); close.setVisibility(View.GONE);
-            header.setVisibility(full?View.GONE:View.VISIBLE); dragGrip.setVisibility(full?View.GONE:View.VISIBLE);
+            header.setVisibility(full?View.GONE:View.VISIBLE);
             int edge=Math.min(dp(12),Math.max(0,controls.x()));
             place(header,Math.max(1,controls.x()-edge),target,edge,controls.y());
-            FrameLayout.LayoutParams grip=(FrameLayout.LayoutParams)dragGrip.getLayoutParams();
-            grip.width=Math.min(dp(24),Math.max(1,controls.x()-edge));grip.height=Math.min(dp(4),target);
-            dragGrip.setLayoutParams(grip);
             place(resizeTarget,Math.min(dp(44),layout.window().width()),Math.min(dp(44),layout.window().height()),
                     Math.max(0,layout.window().width()-dp(44)),Math.max(0,layout.window().height()-dp(44)));
         }
@@ -126,13 +113,8 @@ final class ShoppingPreviewChrome {
         corner.width = target; corner.height = -1; corner.weight = 0; fullscreen.setLayoutParams(corner);
         shoppingClose.setVisibility(View.VISIBLE);
         LinearLayout.LayoutParams exit=(LinearLayout.LayoutParams)shoppingClose.getLayoutParams();exit.width=target;exit.height=-1;shoppingClose.setLayoutParams(exit);
-        fullscreen.setPadding(0,0,0,0);
-        fullscreen.setBackground(ripple(true));
-        Icon icon = new Icon(full ? Symbol.CONTRACT : Symbol.DIAGONAL, Color.WHITE);
-        icon.setBounds(0,0,dp(17),dp(17));
-        SpannableString glyph = new SpannableString("\ufffc");
-        glyph.setSpan(new ImageSpan(icon, ImageSpan.ALIGN_CENTER), 0, 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-        fullscreen.setCompoundDrawables(null,null,null,null); fullscreen.setText(glyph);
+        // Each glyph is centered in its own touch target, independent of text baselines.
+        ((CornerButton) fullscreen).symbol(full ? Symbol.CONTRACT : Symbol.DIAGONAL);
         fullscreen.setContentDescription(full ? character ? "Return to the floating cosplay window" : "Return to the floating try-on window"
                 : character ? "Expand cosplay to full screen" : "Expand try-on to full screen");
         fullscreen.setTooltipText(null);
@@ -213,6 +195,26 @@ final class ShoppingPreviewChrome {
     }
     private int dp(int value) { return Math.max(1, Math.round(value * density)); }
     private enum Symbol { UP, CLOSE, COMPARE, EXPAND, WINDOW, DIAGONAL, CONTRACT }
+    private final class CornerButton extends Button {
+        private Icon icon;
+        CornerButton(Context context, String description, Symbol symbol) {
+            super(context);
+            setText(""); setAllCaps(false); setStateListAnimator(null);
+            setGravity(Gravity.CENTER); setPadding(0, 0, 0, 0);
+            setMinWidth(0); setMinimumWidth(0);
+            setMinHeight(dp(44)); setMinimumHeight(dp(44));
+            setContentDescription(description); setTooltipText(null);
+            setBackground(ripple(true)); symbol(symbol);
+        }
+        void symbol(Symbol symbol) { icon = new Icon(symbol, Color.WHITE); invalidate(); }
+        @Override protected void onDraw(Canvas canvas) {
+            super.onDraw(canvas);
+            int size = Math.min(dp(20), Math.min(getWidth(), getHeight()));
+            int left = (getWidth() - size) / 2, top = (getHeight() - size) / 2;
+            icon.setBounds(left, top, left + size, top + size);
+            icon.draw(canvas);
+        }
+    }
     private final class Mark extends Drawable {
         private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final int color;

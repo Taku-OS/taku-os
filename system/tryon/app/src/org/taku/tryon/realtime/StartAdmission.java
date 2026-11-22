@@ -8,6 +8,7 @@ final class StartAdmission {
     synchronized boolean busy(){return current!=0;}
     synchronized long current(){return current;}
     synchronized void cancel(){if(current!=0)cancelled=true;}
+    synchronized boolean cancel(long generation){if(generation==0||current!=generation)return false;cancelled=true;return true;}
     synchronized boolean accepted(long generation){return generation!=0&&current==generation&&!cancelled;}
     synchronized void release(long generation){if(current==generation){current=0;cancelled=false;}}
 }

@@ -1056,3 +1056,9 @@ taku_call "$D" jev/status '{}'
 taku_call "$D" jev/enable '{}'
 taku_call "$D" jev/connect '{"key":"apikey_..."}'
 ```
+
+### Optional TikTok LIVE outfit preview
+
+Discover the installed observer through `content://org.agentos.shopping.api` method `status`; it reports connection, consent switches, supported commands and bounded preparation state. `configure` accepts actual boolean `enabled`, `classification`, `vision`; no read or setup call starts a model. After an explicit user request, `tryOn` captures the verified current LIVE and may bill recognition plus one bounded Lucy preview. `retry` requires a new explicit action. `select` opens the current frozen-image picker; optional integer `x`,`y` in 0..1000 use the same guarded GUI handler. `cancel` cancels observer preparation; after native handoff use `content://org.taku.tryon.api` method `stop`. Never invoke the native-only `redeem` protocol as an Agent or reuse a previous token/reference.
+
+Read failures such as `service_not_connected`, `disabled`, `screen_locked`, `recognition_busy`, `use_retry_or_cancel` and `source_<reason>` as actual failures. Do not turn on automatic classifiers or repeat a paid action without authorization. Lucy/fal credentials are user-owned and set in Taku Try-On; system image recognition uses the separate Taku AI configuration. Use only configured metadata to verify a key, never read or print it. Deployment and version dependencies are documented in `docs/tryon-delivery/README.md`.

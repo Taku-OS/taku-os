@@ -149,7 +149,7 @@ final class ShoppingPreviewLayout {
         int minY=moved?top:anchorTop;
         int y=clamp(moved?previousY:anchorTop,minY,Math.max(minY,bottom-height));
         return new ShoppingIslandGeometry.Layout(new ShoppingIslandGeometry.Box(x,y,width,height),
-                new ShoppingIslandGeometry.Box(0,header,width,Math.max(1,height-header)),header,Math.min(height-1,header+dp(12,density)),height,height,
+                new ShoppingIslandGeometry.Box(0,header,width,Math.max(1,height-header)),header,Math.min(height-1,header+dp(8,density)),height,height,
                 -1,-1,dp(32,density),dp(104,density),0);
     }
 

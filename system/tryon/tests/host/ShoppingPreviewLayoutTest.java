@@ -36,8 +36,8 @@ public final class ShoppingPreviewLayoutTest {
             check(fullControls.bottom()<imageTop,"controls remain above fitted image for ratio "+ratio);
         }
         var miniControls=ShoppingPreviewLayout.shoppingControls(preview,density);
-        check(miniControls.y()==preview.video().y()+Math.round(12*density),"small-window controls sit wholly inside the media with 12dp inset");
-        check(miniControls.right()==preview.video().right()-Math.round(12*density),"small-window right inset matches top");
+        check(miniControls.y()==preview.video().y()+Math.round(8*density),"small-window controls use the upper eight-dp inset");
+        check(miniControls.right()==preview.video().right()-Math.round(12*density),"small-window controls retain the right safe margin");
         check(full.video().bottom()<=full.window().height(), "portrait result stays inside viewport");
         var tiny = layout(pixel, density, ShoppingIslandGeometry.Mode.PREVIEW, 1, false, 0, 0);
         check(tiny.window().width() == Math.round(144 * density), "pinch retains an accessible corner target");
