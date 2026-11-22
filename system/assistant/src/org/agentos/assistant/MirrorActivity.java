@@ -6,6 +6,10 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.*;
 import android.os.*;
+import android.system.ErrnoException;
+import android.system.Os;
+import android.system.OsConstants;
+import android.system.StructTimeval;
 import android.view.*;
 import android.widget.*;
 import java.io.*;
@@ -21,6 +25,7 @@ public final class MirrorActivity extends Activity {
 
     @Override public void finish() {
         discardPendingInput();
+        syncInputWindow(null);
         if (!suppressWorkspaceReturn && !returnedFromWorkspace) {
             returnedFromWorkspace = true;
             if (returnsHome()) AgentFrontendLauncher.returnToWorkspaceHome(this);
@@ -747,12 +752,12 @@ public final class MirrorActivity extends Activity {
         }
     }
 
-    /** Owned by the command worker. The UI may close it to cancel queued work and unblock reads. */
+    /** Owned by the command worker. The UI may close it to discard queued work. */
     private static final class InputSession {
         private final IBinder window;
         private final JSONObject screen;
         private final long revision;
-        private LocalSocket socket;
+        private ParcelFileDescriptor connection;
         private DataOutputStream request;
         private DataInputStream reply;
         private boolean legacy;
@@ -766,34 +771,33 @@ public final class MirrorActivity extends Activity {
 
         void open() throws Exception {
             IBinder controller = WorkspaceInputConnection.controller();
+            if (controller == null) {
+                legacy = true;
+                return;
+            }
             Lease lease = new Lease(screen.getString("threadId"), screen.getString("screenKey"),
                     screen.getString("generation"), screen.getInt("displayId"));
-            long target = WorkspaceInputConnection.inputTarget(controller, window, lease,
-                    screen.getInt("userId"), 0);
-            // Component-only images keep the fully checked one-shot route.
-            legacy = target < 0;
-            if (legacy) return;
-            if (target == 0) throw new IOException("WORKSPACE_INPUT_TARGET_CHANGED");
-            LocalSocket connection = new LocalSocket();
-            synchronized (this) {
-                if (closed) return;
-                socket = connection;
-            }
-            try {
-                connection.connect(new LocalSocketAddress("taku-agent-native"));
-                if (closed) return;
-                if (connection.getPeerCredentials().getUid() != 0) {
-                    throw new IOException("INVALID_RUNTIME_IDENTITY");
+            ParcelFileDescriptor[] pair = ParcelFileDescriptor.createSocketPair();
+            ParcelFileDescriptor client = pair[0];
+            boolean attached = false;
+            try (ParcelFileDescriptor broker = pair[1]) {
+                // Component-only images keep the fully checked one-shot route.
+                legacy = !WorkspaceInputConnection.openInput(controller, window, lease,
+                        screen.getInt("userId"), revision, broker);
+                if (legacy) return;
+                FileDescriptor fd = client.getFileDescriptor();
+                StructTimeval timeout = StructTimeval.fromMillis(8000);
+                Os.setsockoptTimeval(fd, OsConstants.SOL_SOCKET, OsConstants.SO_RCVTIMEO, timeout);
+                Os.setsockoptTimeval(fd, OsConstants.SOL_SOCKET, OsConstants.SO_SNDTIMEO, timeout);
+                synchronized (this) {
+                    if (closed) return;
+                    request = new DataOutputStream(new FileOutputStream(fd));
+                    reply = new DataInputStream(new FileInputStream(fd));
+                    connection = client;
+                    attached = true;
                 }
-                connection.setSoTimeout(8000);
-                request = new DataOutputStream(connection.getOutputStream());
-                reply = new DataInputStream(connection.getInputStream());
-                JSONObject start = binding().put("inputTarget", target);
-                request.writeByte(WorkspaceInputConnection.INPUT_STREAM_HEADER);
-                request.writeUTF(start.toString());
-                requireAccepted();
             } finally {
-                if (closed) connection.close();
+                if (!attached) client.close();
             }
         }
 
@@ -804,7 +808,7 @@ public final class MirrorActivity extends Activity {
             } else {
                 if (request == null) throw new IOException("WORKSPACE_INPUT_FAILED");
                 request.writeUTF(input.toString());
-                requireAccepted();
+                if (reply.readUnsignedByte() != 1) throw new IOException("WORKSPACE_INPUT_FAILED");
             }
         }
 
@@ -812,15 +816,13 @@ public final class MirrorActivity extends Activity {
             return WorkspaceUi.request("input", screen).put("controlRevision", revision);
         }
 
-        private void requireAccepted() throws IOException {
-            if (reply.readUnsignedByte() != 1) throw new IOException("WORKSPACE_INPUT_FAILED");
-        }
-
         synchronized void close() {
             if (closed) return;
             closed = true;
-            if (socket != null) {
-                try { socket.close(); } catch (IOException ignored) {}
+            if (connection != null) {
+                try { Os.shutdown(connection.getFileDescriptor(), OsConstants.SHUT_RDWR); }
+                catch (ErrnoException ignored) { }
+                try { connection.close(); } catch (IOException ignored) { }
             }
         }
     }

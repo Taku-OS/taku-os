@@ -1,24 +1,36 @@
 package com.android.server.wm;
 
+import static android.hardware.input.InputManager.INJECT_INPUT_EVENT_MODE_ASYNC;
 import static android.view.Display.DEFAULT_DISPLAY;
-import static android.view.WindowManager.DISPLAY_IME_POLICY_LOCAL;
 import static com.android.server.wm.WindowManagerService.UPDATE_FOCUS_NORMAL;
 
 import android.content.ComponentName;
 import android.os.Binder;
 import android.os.IBinder;
 import android.os.Parcel;
+import android.os.ParcelFileDescriptor;
 import android.os.Process;
 import android.os.RemoteException;
+import android.os.SystemClock;
+import android.system.ErrnoException;
+import android.system.Os;
+import android.system.OsConstants;
 import android.util.ArrayMap;
 import android.util.Slog;
 import android.view.Display;
+import android.view.InputDevice;
+import android.view.InputEvent;
+import android.view.KeyCharacterMap;
+import android.view.KeyEvent;
+import android.view.MotionEvent;
 
 import com.android.server.inputmethod.InputMethodManagerInternal;
 
 import org.agentos.workspace.WorkspaceInputConnection;
+import org.agentos.workspace.WorkspaceInputConnection.Gesture;
 import org.agentos.workspace.WorkspaceInputConnection.Lease;
 
+import java.io.IOException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -37,13 +49,96 @@ final class WorkspaceInputController extends Binder {
     private IBinder mLedger;
     private int mLedgerPid;
     private Mirror mCandidate;
-    private long mInputTarget = 1;
+    private InputConnection mInputConnection;
     private Check mPending;
     // The proof applies only to this candidate and is cleared whenever it changes.
     private boolean mCandidateHasUserControl;
     private DisplayContent mActiveDisplay;
 
     private record Mirror(WindowState window, Lease lease, DisplayContent display, boolean editing) {}
+
+    /** One input connection for this visit to the mirror. Its Binder is never reused. */
+    private final class InputConnection extends Binder {
+        final Mirror mirror;
+        final int userId, brokerPid;
+        final ParcelFileDescriptor endpoint;
+        private long downTime = -1;
+        private int touchX, touchY;
+
+        InputConnection(Mirror mirror, int userId, int brokerPid, ParcelFileDescriptor endpoint) {
+            this.mirror = mirror;
+            this.userId = userId;
+            this.brokerPid = brokerPid;
+            this.endpoint = endpoint;
+        }
+
+        @Override
+        protected boolean onTransact(int code, Parcel data, Parcel reply, int flags)
+                throws RemoteException {
+            if (code != WorkspaceInputConnection.SEND_INPUT
+                    && code != WorkspaceInputConnection.CLOSE_INPUT) {
+                return super.onTransact(code, data, reply, flags);
+            }
+            if (Binder.getCallingUid() != Process.ROOT_UID || (code == WorkspaceInputConnection.SEND_INPUT
+                    && Binder.getCallingPid() != brokerPid)) {
+                throw new SecurityException("Invalid workspace input broker");
+            }
+            data.enforceInterface(WorkspaceInputConnection.INPUT);
+            final long identity = Binder.clearCallingIdentity();
+            try {
+                if (code == WorkspaceInputConnection.CLOSE_INPUT) {
+                    data.enforceNoDataAvail();
+                    synchronized (mWm.mGlobalLock) {
+                        if (mInputConnection == this) revokeInputLocked();
+                    }
+                    return true;
+                }
+                if (reply == null) return false;
+                int displayId = data.readInt();
+                int requestedUser = data.readInt();
+                Gesture gesture = Gesture.read(data);
+                data.enforceNoDataAvail();
+                boolean accepted = submitInput(this, displayId, requestedUser, gesture);
+                reply.writeNoException();
+                reply.writeBoolean(accepted);
+                return true;
+            } finally {
+                Binder.restoreCallingIdentity(identity);
+            }
+        }
+
+        boolean currentLocked(int displayId, int requestedUser) {
+            return mInputConnection == this && mCandidate == mirror && foregroundMirrorLocked() == mirror
+                    && mirror.display().getDisplayId() == displayId && userId == requestedUser
+                    && mWm.mCurrentUserId == userId;
+        }
+
+        boolean touchLocked(int action, long now, int x, int y) {
+            long started = action == MotionEvent.ACTION_DOWN ? now : downTime;
+            boolean finished = action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL;
+            MotionEvent event = MotionEvent.obtain(started, now, action, x, y,
+                    finished ? 0f : 1f, 1f, 0, 1f, 1f, 0, 0);
+            try {
+                event.setSource(InputDevice.SOURCE_TOUCHSCREEN);
+                if (!injectLocked(event, mirror.lease().displayId())) return false;
+                downTime = finished ? -1 : started;
+                touchX = x;
+                touchY = y;
+                return true;
+            } finally {
+                event.recycle();
+            }
+        }
+
+        void cancelTouchLocked() {
+            if (downTime < 0) return;
+            final DisplayContent display = mirror.display();
+            if (!display.isRemovedOrInvalid() && !display.isRemoving()) {
+                touchLocked(MotionEvent.ACTION_CANCEL, SystemClock.uptimeMillis(), touchX, touchY);
+            }
+            downTime = -1;
+        }
+    }
 
     private final class Check extends Binder {
         final IBinder ledger = mLedger;
@@ -112,24 +207,28 @@ final class WorkspaceInputController extends Binder {
     @Override
     protected boolean onTransact(int code, Parcel data, Parcel reply, int flags)
             throws RemoteException {
-        if (code == WorkspaceInputConnection.INPUT_TARGET && reply != null) {
+        if (code == WorkspaceInputConnection.OPEN_INPUT && reply != null) {
             data.enforceInterface(WorkspaceInputConnection.CONTROLLER);
-            final IBinder token = data.readStrongBinder();
+            final IBinder window = data.readStrongBinder();
             final Lease lease = Lease.read(data);
             final int userId = data.readInt();
-            final long expected = data.readLong();
-            data.enforceNoDataAvail();
+            final long revision = data.readLong();
+            final ParcelFileDescriptor endpoint = data.readTypedObject(ParcelFileDescriptor.CREATOR);
             final int uid = Binder.getCallingUid();
             final int pid = Binder.getCallingPid();
             final long identity = Binder.clearCallingIdentity();
-            try {
-                final long target = inputTarget(token, lease, userId, expected, uid, pid);
-                reply.writeNoException();
-                reply.writeLong(target);
-                return true;
+            boolean opened = false;
+            try (endpoint) {
+                data.enforceNoDataAvail();
+                if (endpoint != null) opened = openInput(window, lease, userId, revision, uid, pid, endpoint);
+            } catch (IOException error) {
+                Slog.w(TAG, "Workspace input endpoint error", error);
             } finally {
                 Binder.restoreCallingIdentity(identity);
             }
+            reply.writeNoException();
+            reply.writeBoolean(opened);
+            return true;
         }
         if (code < WorkspaceInputConnection.REGISTER_LEDGER
                 || code > WorkspaceInputConnection.SET_MIRROR) {
@@ -225,7 +324,7 @@ final class WorkspaceInputController extends Binder {
             if (mLedger != ledger || mLedgerPid != pid) return false;
             // Revoke before recalculating, and discard any reply from the old state.
             if (!userControlled && mCandidate != null && mCandidate.lease().equals(lease)) {
-                ++mInputTarget;
+                revokeInputLocked();
                 cancelQueryLocked();
                 mCandidateHasUserControl = false;
             }
@@ -246,22 +345,107 @@ final class WorkspaceInputController extends Binder {
         return check.accepted;
     }
 
-    private long inputTarget(IBinder token, Lease lease, int userId, long expected, int uid,
-            int pid) {
+    private boolean openInput(IBinder token, Lease lease, int userId, long revision, int uid,
+            int pid, ParcelFileDescriptor endpoint) throws RemoteException, IOException {
+        final InputConnection connection;
+        final IBinder ledger;
         synchronized (mWm.mGlobalLock) {
             final Mirror mirror = foregroundMirrorLocked();
             if (mirror == null || mirror != mCandidate || !mirror.lease().equals(lease)
-                    || mWm.mCurrentUserId != userId) {
-                return 0;
-            }
-            if (uid == Process.ROOT_UID) {
-                return token == mLedger && pid == mLedgerPid && expected == mInputTarget
-                        ? mInputTarget : 0;
+                    || mWm.mCurrentUserId != userId || revision < 0) {
+                return false;
             }
             final WindowState window = mirror.window();
-            return uid == Process.SYSTEM_UID && expected == 0 && window.mOwnerUid == uid
-                    && window.mSession.mPid == pid && mWm.mWindowMap.get(token) == window
-                    ? mInputTarget : 0;
+            if (uid != Process.SYSTEM_UID || window.mOwnerUid != uid
+                    || window.mSession.mPid != pid || mWm.mWindowMap.get(token) != window) {
+                return false;
+            }
+            connection = new InputConnection(mirror, userId, mLedgerPid,
+                    ParcelFileDescriptor.dup(endpoint.getFileDescriptor()));
+            revokeInputLocked();
+            ledger = mLedger;
+            mInputConnection = connection;
+        }
+
+        // The broker validates against its ledger and host outside the WindowManager lock.
+        boolean opened = false;
+        try {
+            boolean peerOpened = WorkspaceInputConnection.openBrokerInput(ledger, connection, lease,
+                    userId, revision, endpoint);
+            synchronized (mWm.mGlobalLock) {
+                opened = peerOpened && connection.currentLocked(lease.displayId(), userId);
+                return opened;
+            }
+        } finally {
+            if (!opened) {
+                synchronized (mWm.mGlobalLock) {
+                    if (mInputConnection == connection) revokeInputLocked();
+                }
+            }
+        }
+    }
+
+    private boolean submitInput(InputConnection connection, int displayId, int userId, Gesture gesture) {
+        final boolean swipe = "swipe".equals(gesture.type());
+        if (swipe && (gesture.durationMs() < 100 || gesture.durationMs() > 1500)) return false;
+        final long start;
+        synchronized (mWm.mGlobalLock) {
+            if (!connection.currentLocked(displayId, userId) || connection.downTime >= 0) return false;
+            start = SystemClock.uptimeMillis();
+            if ("key".equals(gesture.type())) return backLocked(displayId, start);
+            if (!swipe && !"tap".equals(gesture.type())) return false;
+            if (!connection.touchLocked(MotionEvent.ACTION_DOWN, start, gesture.x(), gesture.y())) {
+                return false;
+            }
+            if (!swipe) {
+                boolean accepted = connection.touchLocked(MotionEvent.ACTION_UP,
+                        SystemClock.uptimeMillis(), gesture.x(), gesture.y());
+                connection.cancelTouchLocked();
+                return accepted;
+            }
+        }
+
+        try {
+            while (true) {
+                SystemClock.sleep(16);
+                synchronized (mWm.mGlobalLock) {
+                    if (!connection.currentLocked(displayId, userId)) return false;
+                    long now = SystemClock.uptimeMillis();
+                    float fraction = (float) (now - start) / gesture.durationMs();
+                    if (fraction >= 1f) {
+                        return connection.touchLocked(MotionEvent.ACTION_UP, now, gesture.toX(), gesture.toY());
+                    }
+                    int x = Math.round(gesture.x() + (gesture.toX() - gesture.x()) * fraction);
+                    int y = Math.round(gesture.y() + (gesture.toY() - gesture.y()) * fraction);
+                    if (!connection.touchLocked(MotionEvent.ACTION_MOVE, now, x, y)) return false;
+                }
+            }
+        } finally {
+            synchronized (mWm.mGlobalLock) {
+                connection.cancelTouchLocked();
+            }
+        }
+    }
+
+    private boolean backLocked(int displayId, long at) {
+        KeyEvent down = new KeyEvent(at, at, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_BACK, 0, 0,
+                KeyCharacterMap.VIRTUAL_KEYBOARD, 0, 0, InputDevice.SOURCE_KEYBOARD);
+        return injectLocked(down, displayId)
+                && injectLocked(KeyEvent.changeAction(down, KeyEvent.ACTION_UP), displayId);
+    }
+
+    private boolean injectLocked(InputEvent event, int displayId) {
+        event.setDisplayId(displayId);
+        // Queue with the connection check still locked, without waiting for input dispatch.
+        long identity = Binder.clearCallingIdentity();
+        try {
+            return mWm.mInputManager.injectInputEventToTarget(event, INJECT_INPUT_EVENT_MODE_ASYNC,
+                    Process.INVALID_UID);
+        } catch (RuntimeException failure) {
+            Slog.w(TAG, "Unable to submit workspace input", failure);
+            return false;
+        } finally {
+            Binder.restoreCallingIdentity(identity);
         }
     }
 
@@ -348,10 +532,20 @@ final class WorkspaceInputController extends Binder {
     }
 
     private void resetCandidateLocked() {
-        ++mInputTarget;
+        revokeInputLocked();
         cancelQueryLocked();
         mCandidate = null;
         mCandidateHasUserControl = false;
+    }
+
+    private void revokeInputLocked() {
+        final InputConnection connection = mInputConnection;
+        mInputConnection = null;
+        if (connection == null) return;
+        connection.cancelTouchLocked();
+        try { Os.shutdown(connection.endpoint.getFileDescriptor(), OsConstants.SHUT_RDWR); }
+        catch (ErrnoException ignored) { }
+        try { connection.endpoint.close(); } catch (IOException ignored) { }
     }
 
     private void cancelQueryLocked() {

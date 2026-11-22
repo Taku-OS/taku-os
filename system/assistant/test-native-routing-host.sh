@@ -13,7 +13,6 @@ mkdir -p "$task_out/classes"
  system/assistant/broker/org/agentos/lab/SessionRemovals.java \
  system/assistant/broker/org/agentos/lab/CleanupWork.java \
  system/assistant/broker/org/agentos/lab/NativeBridge.java \
- system/assistant/workspace-input/org/agentos/workspace/WorkspaceInputConnection.java \
  system/assistant/broker/org/agentos/lab/SessionEvents.java \
  system/assistant/broker/org/agentos/lab/WorkspaceAdmissions.java \
  system/assistant/broker/org/agentos/lab/PhoneConfirmation.java \
@@ -33,7 +32,6 @@ mkdir -p "$task_out/task-ownership"
  system/assistant/broker/org/agentos/lab/SessionRemovals.java \
  system/assistant/broker/org/agentos/lab/CleanupWork.java \
  system/assistant/broker/org/agentos/lab/NativeBridge.java \
- system/assistant/workspace-input/org/agentos/workspace/WorkspaceInputConnection.java \
  system/assistant/broker/org/agentos/lab/SessionEvents.java \
  system/assistant/broker/org/agentos/lab/WorkspaceAdmissions.java \
  system/assistant/broker/org/agentos/lab/PhoneConfirmation.java \

@@ -37,12 +37,12 @@
     {
       "source": "image/workspace-input/WorkspaceInputController.java",
       "path": "services/core/java/com/android/server/wm/WorkspaceInputController.java",
-      "sha256": "38c7672934a4a10c7ac89aa08dbd302f1da73b6c3214c4e516a1b20931baafe3"
+      "sha256": "126367b89af224575af382f6b023fd6b8b5491ff3e78bfa539acd63cf1328acd"
     },
     {
       "source": "system/assistant/workspace-input/org/agentos/workspace/WorkspaceInputConnection.java",
       "path": "services/core/java/org/agentos/workspace/WorkspaceInputConnection.java",
-      "sha256": "2bb4060fde769b8d1268b800ffbb83311220f89a8a3afddcfac06ecf13cb9c2a"
+      "sha256": "0fb612e93213145253db286328647a50a5f71b308d20a11df3bd69c6f0d3036f"
     }
   ]
 }

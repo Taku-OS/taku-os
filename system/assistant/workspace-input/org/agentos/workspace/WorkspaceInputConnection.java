@@ -2,20 +2,25 @@ package org.agentos.workspace;
 
 import android.os.IBinder;
 import android.os.Parcel;
+import android.os.ParcelFileDescriptor;
 import android.os.RemoteException;
+import java.io.IOException;
 
 /** Binder protocol between WindowManager, the mirror window and TaskBroker. */
 public final class WorkspaceInputConnection {
     public static final String CONTROLLER = "org.agentos.workspace.IWorkspaceInputController";
     public static final String LEDGER = "org.agentos.workspace.IWorkspaceInputLedger";
+    public static final String INPUT = "org.agentos.workspace.IWorkspaceInput";
     public static final int REGISTER_LEDGER = IBinder.FIRST_CALL_TRANSACTION;
     public static final int CONTROL_CHANGED = IBinder.FIRST_CALL_TRANSACTION + 1;
     public static final int SET_MIRROR = IBinder.FIRST_CALL_TRANSACTION + 2;
-    public static final int INPUT_TARGET = IBinder.FIRST_CALL_TRANSACTION + 3;
+    // Skip the previous framework's input target transaction so mixed component installs can fall back.
+    public static final int OPEN_INPUT = IBinder.FIRST_CALL_TRANSACTION + 4;
     public static final int QUERY_CONTROL = IBinder.FIRST_CALL_TRANSACTION;
+    public static final int OPEN_BROKER_INPUT = IBinder.FIRST_CALL_TRANSACTION + 1;
     public static final int CONTROL_RESULT = IBinder.FIRST_CALL_TRANSACTION + 1;
-    // NativeBridge's interactive input stream starts with a byte that cannot start a JSON request.
-    public static final int INPUT_STREAM_HEADER = 0;
+    public static final int SEND_INPUT = IBinder.FIRST_CALL_TRANSACTION;
+    public static final int CLOSE_INPUT = IBinder.FIRST_CALL_TRANSACTION + 1;
 
     public record Lease(String thread, String key, String generation, int displayId) {
         public static Lease read(Parcel data) {
@@ -27,6 +32,22 @@ public final class WorkspaceInputConnection {
             data.writeString(key);
             data.writeString(generation);
             data.writeInt(displayId);
+        }
+    }
+
+    public record Gesture(String type, int x, int y, int toX, int toY, int durationMs) {
+        public static Gesture read(Parcel data) {
+            return new Gesture(data.readString(), data.readInt(), data.readInt(), data.readInt(),
+                    data.readInt(), data.readInt());
+        }
+
+        private void write(Parcel data) {
+            data.writeString(type);
+            data.writeInt(x);
+            data.writeInt(y);
+            data.writeInt(toX);
+            data.writeInt(toY);
+            data.writeInt(durationMs);
         }
     }
 
@@ -44,23 +65,77 @@ public final class WorkspaceInputConnection {
         return call(controller, SET_MIRROR, window, lease, editing);
     }
 
-    /** Returns the foreground target's serial, zero for a stale target or -1 on older images. */
-    public static long inputTarget(IBinder controller, IBinder token, Lease lease, int userId,
-            long expected) throws RemoteException {
-        if (controller == null) return -1;
+    /** Open an input connection for the caller's foreground mirror. False denotes older images. */
+    public static boolean openInput(IBinder controller, IBinder window, Lease lease, int userId,
+            long revision, ParcelFileDescriptor endpoint) throws RemoteException, IOException {
+        if (controller == null) return false;
         final Parcel request = Parcel.obtain();
         final Parcel response = Parcel.obtain();
         try {
             request.writeInterfaceToken(CONTROLLER);
-            request.writeStrongBinder(token);
+            request.writeStrongBinder(window);
             lease.write(request);
             request.writeInt(userId);
-            request.writeLong(expected);
-            if (!controller.transact(INPUT_TARGET, request, response, 0)) return -1;
+            request.writeLong(revision);
+            request.writeTypedObject(endpoint, 0);
+            if (!controller.transact(OPEN_INPUT, request, response, 0)) return false;
             response.readException();
-            return response.readLong();
+            if (!response.readBoolean()) throw new IOException("WORKSPACE_INPUT_TARGET_CHANGED");
+            return true;
         } finally {
             response.recycle();
+            request.recycle();
+        }
+    }
+
+    /** Give the broker one endpoint of the mirror's socket pair and its system-owned input handle. */
+    public static boolean openBrokerInput(IBinder ledger, IBinder target, Lease lease, int userId,
+            long revision, ParcelFileDescriptor endpoint) throws RemoteException {
+        final Parcel request = Parcel.obtain();
+        final Parcel response = Parcel.obtain();
+        try {
+            request.writeInterfaceToken(LEDGER);
+            request.writeStrongBinder(target);
+            lease.write(request);
+            request.writeInt(userId);
+            request.writeLong(revision);
+            request.writeTypedObject(endpoint, 0);
+            if (!ledger.transact(OPEN_BROKER_INPUT, request, response, 0)) return false;
+            response.readException();
+            return response.readBoolean();
+        } finally {
+            response.recycle();
+            request.recycle();
+        }
+    }
+
+    public static boolean submitInput(IBinder target, int displayId, int userId, Gesture gesture)
+            throws RemoteException {
+        final Parcel request = Parcel.obtain();
+        final Parcel response = Parcel.obtain();
+        try {
+            request.writeInterfaceToken(INPUT);
+            request.writeInt(displayId);
+            request.writeInt(userId);
+            gesture.write(request);
+            if (!target.transact(SEND_INPUT, request, response, 0)) return false;
+            response.readException();
+            return response.readBoolean();
+        } finally {
+            response.recycle();
+            request.recycle();
+        }
+    }
+
+    public static void closeInput(IBinder connection) {
+        if (connection == null) return;
+        final Parcel request = Parcel.obtain();
+        try {
+            request.writeInterfaceToken(INPUT);
+            connection.transact(CLOSE_INPUT, request, null, IBinder.FLAG_ONEWAY);
+        } catch (RemoteException ignored) {
+            // A dead peer already lost the connection.
+        } finally {
             request.recycle();
         }
     }

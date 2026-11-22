@@ -8,6 +8,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import org.agentos.workspace.WorkspaceInputConnection.Gesture;
 import org.json.*;
 
 /** User-facing management of existing leases, never another task or result store. */
@@ -337,34 +338,40 @@ final class WorkspaceControl {
         }
     }
 
-    static void sendInput(Channel channel, JSONObject input) throws Exception {
-        int width = channel.initialStatus.getInt("width");
-        int height = channel.initialStatus.getInt("height");
-        String command;
-        switch (input.getString("type")) {
-            case "tap":
-                command = "tap " + coordinate(input, "x", width) + " " + coordinate(input, "y", height);
-                break;
-            case "swipe":
+    static Gesture gesture(JSONObject input, int width, int height) throws Exception {
+        String type = input.getString("type");
+        return switch (type) {
+            case "tap" -> new Gesture(type, coordinate(input, "x", width),
+                    coordinate(input, "y", height), 0, 0, 0);
+            case "swipe" -> {
                 Object duration = input.get("durationMs");
-                if (!(duration instanceof Integer) || (Integer) duration < 100
-                        || (Integer) duration > 2000) {
+                if (!(duration instanceof Integer ms) || ms < 100 || ms > 2000) {
                     throw new IOException("INVALID_WORKSPACE_GESTURE_DURATION");
                 }
-                command = "swipe " + coordinate(input, "fromX", width) + " "
-                        + coordinate(input, "fromY", height) + " "
-                        + coordinate(input, "toX", width) + " " + coordinate(input, "toY", height)
-                        + " " + duration;
-                break;
-            case "key":
+                yield new Gesture(type, coordinate(input, "fromX", width),
+                        coordinate(input, "fromY", height), coordinate(input, "toX", width),
+                        coordinate(input, "toY", height), Math.min(ms, 1500));
+            }
+            case "key" -> {
                 if (!(input.get("keyCode") instanceof Integer) || input.getInt("keyCode") != 4) {
                     throw new IOException("UNSUPPORTED_WORKSPACE_KEY");
                 }
-                command = "key 4";
-                break;
-            default:
-                throw new IOException("UNSUPPORTED_WORKSPACE_INPUT");
-        }
+                yield new Gesture(type, 0, 0, 0, 0, 0);
+            }
+            default -> throw new IOException("UNSUPPORTED_WORKSPACE_INPUT");
+        };
+    }
+
+    private static void sendInput(Channel channel, JSONObject input) throws Exception {
+        Gesture gesture = gesture(input, channel.initialStatus.getInt("width"),
+                channel.initialStatus.getInt("height"));
+        String command = switch (gesture.type()) {
+            case "tap" -> "tap " + gesture.x() + " " + gesture.y();
+            case "swipe" -> "swipe " + gesture.x() + " " + gesture.y() + " "
+                    + gesture.toX() + " " + gesture.toY() + " " + gesture.durationMs();
+            case "key" -> "key 4";
+            default -> throw new IOException("UNSUPPORTED_WORKSPACE_INPUT");
+        };
         JSONObject result = new JSONObject(new String(channel.call(command), StandardCharsets.UTF_8));
         if (!result.optBoolean("ok") || result.optInt("displayId", -1) != channel.screen.displayId) {
             throw new IOException("WORKSPACE_INPUT_FAILED");

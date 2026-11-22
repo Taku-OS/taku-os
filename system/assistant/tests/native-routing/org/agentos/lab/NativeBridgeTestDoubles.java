@@ -148,11 +148,6 @@ final class AppPermissionPolicy {
     static boolean isRootSocketAllowed(int uid) { return false; }
     static JSONObject control(JSONObject input, int uid) { throw new UnsupportedOperationException(); }
 }
-final class WorkspaceInputBroker {
-    static void serveInput(android.net.LocalSocket socket, java.io.InputStream input) {
-        throw new AssertionError("Workspace input uses an Android socket");
-    }
-}
 final class PhoneAppCatalog {static JSONObject requireLaunchable(String pkg){return new JSONObject();}}
 final class PluginCreator {static JSONObject catalogAdd(java.nio.file.Path path){return new JSONObject();}}
 final class SkillCredentials {static JSONObject control(JSONObject input){return new JSONObject();}}
