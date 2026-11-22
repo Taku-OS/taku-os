@@ -11,6 +11,8 @@ import android.widget.*;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.*;
+import org.agentos.workspace.WorkspaceInputConnection;
+import org.agentos.workspace.WorkspaceInputConnection.Lease;
 import org.json.*;
 
 /** Read-only by default. Managed input is mediated by the broker's exact screen lease. */
@@ -77,6 +79,9 @@ public final class MirrorActivity extends Activity {
     private volatile long controlRevision = -1;
     private long lastObservedControlRevision = -1;
     private JSONObject lease;
+    private IBinder inputWindow;
+    private Lease inputLease;
+    private boolean inputEditing;
     private volatile int width = 720, height = 1280;
     private float downX, downY;
     private long downAt;
@@ -247,6 +252,7 @@ public final class MirrorActivity extends Activity {
     private void setEditingRequirement(boolean value, boolean focusInput) {
         if (requirement == null) return;
         editingRequirement = value;
+        if (value) syncInputWindow(currentScreen);
         requirement.setVisibility(value ? View.VISIBLE : View.GONE);
         edit.setImageResource(value ? R.drawable.ic_taku_check : R.drawable.ic_taku_edit);
         edit.setContentDescription(getString(value ? R.string.workspace_interaction_done_editing : R.string.workspace_interaction_edit));
@@ -254,6 +260,7 @@ public final class MirrorActivity extends Activity {
         else {
             View focused = requirement.findFocus(); if (focused != null) focused.clearFocus();
             getSystemService(android.view.inputmethod.InputMethodManager.class).hideSoftInputFromWindow(requirement.getWindowToken(), 0);
+            syncInputWindow(currentScreen);
         }
     }
     private LinearLayout column() { LinearLayout view = new LinearLayout(this); view.setOrientation(LinearLayout.VERTICAL); return view; }
@@ -421,11 +428,42 @@ public final class MirrorActivity extends Activity {
     @Override protected void onResume() { super.onResume(); if (w == null || isFinishing()) return; resumed = true; int token = ++watchGeneration; if (resumeRequest != null) resumeRequest.start(); if (requirement != null) requirement.start(); loadActivity(); new Thread(() -> watch(token), "workspace-preview").start(); }
     @Override protected void onPause() {
         resumed = false; userControl = false; connected = false; controlRevision = -1; cancelGesture(); ++watchGeneration; ++controlGeneration;
+        syncInputWindow(null);
         try { if (frames != null) frames.close(); } catch (Exception ignored) {}
         main.removeCallbacks(activityPoll); main.removeCallbacks(expireResumeNotice); activityLoading = false; if (resumeRequest != null) resumeRequest.stop(); if (requirement != null) requirement.stop();
         super.onPause();
     }
     @Override protected void onDestroy() { commands.shutdownNow(); if (activityRepository != null) activityRepository.close(); super.onDestroy(); }
+
+    @Override public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus && resumed) syncInputWindow(currentScreen);
+    }
+
+    private void syncInputWindow(JSONObject screen) {
+        View decor = getWindow().peekDecorView();
+        IBinder window = decor == null ? null : decor.getWindowToken();
+        Lease next = null;
+        if (resumed && connected && screen != null && window != null && WorkspaceUi.same(lease, screen)
+                && screen.optInt("displayId", -1) > 0) {
+            next = new Lease(lease.optString("threadId"), lease.optString("screenKey"),
+                    lease.optString("generation"), screen.optInt("displayId"));
+        }
+        if (next == null && inputLease == null) return;
+        if (next != null && next.equals(inputLease) && window == inputWindow
+                && inputEditing == editingRequirement) return;
+        try {
+            IBinder controller = WorkspaceInputConnection.controller();
+            if (controller != null && WorkspaceInputConnection.setMirror(controller,
+                    next == null ? inputWindow : window, next, editingRequirement)) {
+                inputWindow = next == null ? null : window;
+                inputLease = next;
+                inputEditing = editingRequirement;
+            }
+        } catch (RemoteException | ReflectiveOperationException | RuntimeException error) {
+            android.util.Log.w("TakuWorkspaceInput", "Mirror window update failed", error);
+        }
+    }
 
     private static final class Channel implements Closeable {
         final LocalSocket socket = new LocalSocket();
@@ -490,8 +528,16 @@ public final class MirrorActivity extends Activity {
                         if (jpeg.length > 0) {
                             Bitmap bitmap = BitmapFactory.decodeByteArray(jpeg, 0, jpeg.length);
                             if (bitmap != null) main.post(() -> {
-                                if (resumed && token == watchGeneration) { connected = true; preview.setImageBitmap(bitmap); if (currentScreen != null) bindHeaderStatus(currentScreen); else state.setText(R.string.workspace_view_only); controls(true); }
-                                else bitmap.recycle();
+                                if (resumed && token == watchGeneration) {
+                                    if (!connected) {
+                                        connected = true;
+                                        syncInputWindow(currentScreen);
+                                    }
+                                    preview.setImageBitmap(bitmap);
+                                    if (currentScreen != null) bindHeaderStatus(currentScreen);
+                                    else state.setText(R.string.workspace_view_only);
+                                    controls(true);
+                                } else bitmap.recycle();
                             });
                         } else main.post(() -> { if (resumed && token == watchGeneration) state.setText(R.string.workspace_waiting_frame); });
                         Thread.sleep(200);
@@ -499,7 +545,7 @@ public final class MirrorActivity extends Activity {
                 }
             } catch (Exception error) {
                 if (token == watchGeneration) { connected = false; userControl = false; controlRevision = -1; }
-                main.post(() -> { if (resumed && token == watchGeneration) { preview.setImageDrawable(null); state.setText(R.string.workspace_connection_lost); controls(false); } });
+                main.post(() -> { if (resumed && token == watchGeneration) { syncInputWindow(null); preview.setImageDrawable(null); state.setText(R.string.workspace_connection_lost); controls(false); } });
                 try { Thread.sleep(1200); } catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); break; }
             } finally { if (token == watchGeneration) frames = null; }
         }
@@ -516,6 +562,7 @@ public final class MirrorActivity extends Activity {
             lastObservedControlRevision = revision; controlRevision = revision;
             userControl = owned; ownerCheckedAt = SystemClock.elapsedRealtime();
             currentScreen = current;
+            syncInputWindow(current);
             details.setText(current == null ? getString(R.string.workspace_interaction_title) : getString(R.string.workspace_interaction_app, w.appLabel(current)));
             ChatDesign.text(details, ChatDesign.Role.CONTEXT);
             if (current != null && !current.optString("packageName").equals(currentPackage)) {

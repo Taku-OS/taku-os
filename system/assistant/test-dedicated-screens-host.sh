@@ -17,6 +17,8 @@ rm -rf "$task_out" && mkdir -p "$task_out/classes"
  system/assistant/broker/org/agentos/lab/WorkspacePolicy.java \
  system/assistant/broker/org/agentos/lab/WorkspaceAdmissions.java \
  system/assistant/broker/org/agentos/lab/WorkspaceControl.java \
+ system/assistant/broker/org/agentos/lab/WorkspaceInputBroker.java \
+ system/assistant/workspace-input/org/agentos/workspace/WorkspaceInputConnection.java \
  system/assistant/broker/org/agentos/lab/PhoneExecutionScreensPointers.java \
  system/assistant/broker/org/agentos/lab/PhoneGestureSession.java \
  system/assistant/tests/dedicated-screens/org/agentos/lab/DedicatedScreensTest.java \

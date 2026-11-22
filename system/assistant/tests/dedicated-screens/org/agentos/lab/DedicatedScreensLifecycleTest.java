@@ -138,9 +138,19 @@ public final class DedicatedScreensLifecycleTest {
         for (String owner : List.of("paused", "user", "agent")) {
             paused.screens.beginPause(session(1), keys[0], keys[1]);
             JSONObject pausing = paused.screens.list().getJSONObject(0);
+            int displayId = pausing.getInt("displayId");
+            check(!paused.screens.hasUserInputControl(session(1), keys[0], keys[1], displayId),
+                    "Input authorization ends at the start of a control change");
             check(pausing.getString("status").equals("stopping") && pausing.getBoolean("homePreviewEligible"),
                     "Home keeps the screen during pause and takeover");
             JSONObject controlled = paused.screens.finishControl(session(1), keys[0], keys[1], owner);
+            check(paused.screens.hasUserInputControl(session(1), keys[0], keys[1], displayId)
+                            == owner.equals("user"),
+                    "Only a taken-over screen authorizes WindowManager input");
+            check(!paused.screens.hasUserInputControl(session(2), keys[0], keys[1], displayId)
+                            && !paused.screens.hasUserInputControl(session(1), keys[0], keys[1], 0)
+                            && !paused.screens.hasUserInputControl(session(1), keys[0], "stale", displayId),
+                    "A different session, display or host generation cannot reuse the grant");
             check(controlled.getBoolean("homePreviewEligible"), owner + " keeps the screen on Home");
             check(field(borrowed, "occupancy") == original, owner + " retains occupancy");
         }

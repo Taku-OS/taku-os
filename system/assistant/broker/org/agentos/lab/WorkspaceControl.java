@@ -80,12 +80,33 @@ final class WorkspaceControl {
         if(!controlled.controlLock().tryLock())throw new IOException("WORKSPACE_CONTROL_BUSY");
         try{registry.beginPause(thread,key,generation);
         try{
+            tryInputRelease(thread, controlled);
             stopExecution(thread,key,generation);
             registry.finishControl(thread,key,generation,takeControl?"user":"paused");
+            if (takeControl) inputControlChanged(thread, controlled, true);
         }catch(Exception error){
-            try{registry.controlFailed(thread,key,generation,NativeBridge.publicError(error));}catch(Exception saveError){error.addSuppressed(saveError);}
+            try {
+                registry.controlFailed(thread,key,generation,NativeBridge.publicError(error));
+                if (takeControl) tryInputRelease(thread, controlled);
+            } catch (Exception saveError) {
+                error.addSuppressed(saveError);
+            }
             throw error;
         }}finally{controlled.controlLock().unlock();}
+    }
+
+    static void inputControlChanged(String thread, PhoneExecutionScreens.Lease lease,
+            boolean userControlled) throws IOException {
+        WorkspaceInputBroker.controlChanged(thread, lease.screenHandle(), userControlled);
+    }
+
+    private static void tryInputRelease(String thread, PhoneExecutionScreens.Lease lease) {
+        try {
+            inputControlChanged(thread, lease, false);
+        } catch (IOException error) {
+            // The controller also drops invalid leases and gives up on failed ledger checks.
+            System.err.println("Workspace input release: " + error.getMessage());
+        }
     }
     /**
      * When Codex cannot tell whether the session is a sub-agent (it was deleted with its main
@@ -102,6 +123,7 @@ final class WorkspaceControl {
             String generation, String taskTitle, List<String> revoked) throws Exception {
         DedicatedScreens.ParentNote note = null;
         try {
+            tryInputRelease(thread, screens.exact(thread, key, generation));
             stopExecution(thread, key, generation);
             JSONObject sub = WorkspaceExecutionRuntime.subAgent(thread, !revoked.isEmpty());
             if (sub != null) {

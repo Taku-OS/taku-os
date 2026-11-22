@@ -355,6 +355,16 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
         return exactScreen(session, key, generation);
     } }
 
+    /** Read only the ledger. WindowManager may ask while a control operation is in progress. */
+    boolean hasUserInputControl(String session, String key, String generation, int displayId) {
+        try (CleanupWork.Held held = lock()) {
+            DedicatedScreen screen = own(session);
+            return screen != null && screen.key.equals(key) && screen.generation.equals(generation)
+                    && screen.display == displayId && !screen.stopping
+                    && "user".equals(screen.controlOwner);
+        }
+    }
+
     private DedicatedScreen exactScreen(String session, String key, String generation)
             throws IOException {
         PhoneExecutionScreens.thread(session);

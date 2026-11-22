@@ -105,10 +105,20 @@ final class DedicatedScreens implements PhoneExecutionScreens.Lease {
     public PhoneExecutionScreens.Screen screenHandle() { return screen; }
 }
 final class WorkspaceControl {
+    static boolean inputReleased;
+    static boolean inputSwitchFails;
     static int captures;
     static JSONObject runtime(String thread) { return new JSONObject().put("activeTurnId",thread.equals(NativeBridge.parent)?parentTurn:""); }
     static String parentTurn="";
     static void stopExecution(String thread,String key,String generation) {}
+    static void inputControlChanged(String thread, PhoneExecutionScreens.Lease lease,
+            boolean userControlled) throws IOException {
+        if (userControlled || !DedicatedScreensOnDevice.registry.owner.equals("paused")) {
+            throw new AssertionError("Input release must follow relinquishing user control");
+        }
+        if (inputSwitchFails) throw new IOException("WORKSPACE_INPUT_SWITCH_FAILED");
+        inputReleased = true;
+    }
     static void requireQuiescent(String thread) {}
     static JSONObject result(String thread,boolean ignored) { return new JSONObject().put("screen",DedicatedScreensOnDevice.shared().describe(thread)); }
     static final class Credentials { int getPid(){return 1;} int getUid(){return 0;} }

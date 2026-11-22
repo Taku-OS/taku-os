@@ -1,0 +1,175 @@
+--- a/services/core/java/com/android/server/inputmethod/InputMethodManagerInternal.java
++++ b/services/core/java/com/android/server/inputmethod/InputMethodManagerInternal.java
+@@ -86,6 +86,10 @@
+     public abstract void hideInputMethod(@SoftInputShowHideReason int reason,
+             int originatingDisplayId);
+ 
++    /** Retire the old workspace IME and refresh the client on the newly focused display. */
++    public void onWorkspaceInputDisplayChanged(int previousDisplayId, int displayId,
++            @Nullable IBinder focusedWindow) {}
++
+     /**
+      * Returns the list of installed input methods for the specified user.
+      *
+--- a/services/core/java/com/android/server/inputmethod/InputMethodManagerService.java
++++ b/services/core/java/com/android/server/inputmethod/InputMethodManagerService.java
+@@ -6192,6 +6192,47 @@
+                     .sendToTarget();
+         }
+ 
++        @Override
++        public void onWorkspaceInputDisplayChanged(int previousDisplayId, int displayId,
++                @Nullable IBinder focusedWindow) {
++            synchronized (ImfLock.class) {
++                // Even if the destination changed again, retire the previous IME unless
++                // its own display regained focus in the meantime.
++                final int focusedDisplayId = mWindowManagerInternal.getTopFocusedDisplayId();
++                final int previousUserId = resolveImeUserIdFromDisplayIdLocked(previousDisplayId);
++                if (focusedDisplayId != previousDisplayId && previousUserId != UserHandle.USER_NULL) {
++                    final var previous = getUserData(previousUserId);
++                    final IBinder oldWindow = previous.mImeBindingState.mFocusedWindow;
++                    if (oldWindow != null
++                            && previous.mBindingController.getCurDisplayId() == previousDisplayId) {
++                        final int reason = SoftInputShowHideReason.HIDE_WINDOW_LOST_FOCUS;
++                        final var statsToken = createStatsTokenForFocusedClient(
++                                false /* show */, reason, previousUserId);
++                        final var focusedClient = previous.mImeBindingState.mFocusedWindowClient;
++                        final boolean oldClientStillFocused = focusedClient != null
++                                && focusedClient.mSelfReportedDisplayId == previousDisplayId;
++                        if (oldClientStillFocused) {
++                            setImeVisibilityOnFocusedWindowClient(false, previous, statsToken);
++                        }
++                        hideCurrentInputLocked(oldWindow, oldClientStillFocused,
++                                statsToken, reason, previousUserId);
++                    }
++                }
++                if (focusedDisplayId != displayId || focusedWindow == null) return;
++                final int userId = resolveImeUserIdFromDisplayIdLocked(displayId);
++                if (userId == UserHandle.USER_NULL) return;
++                final var userData = getUserData(userId);
++                // The target window may already have per-display focus and thus receive no new
++                // window focus callback. Ask its registered IME client to start input again.
++                mClientController.forAllClients(client -> {
++                    if (client.mSelfReportedDisplayId == displayId
++                            && isImeClientFocused(focusedWindow, client)) {
++                        client.mClient.scheduleStartInputIfNecessary(userData.mInFullscreenMode);
++                    }
++                });
++            }
++        }
++
+         @ImfLockFree
+         @NonNull
+         @Override
+--- a/services/core/java/com/android/server/wm/DisplayContent.java
++++ b/services/core/java/com/android/server/wm/DisplayContent.java
+@@ -4772,6 +4772,9 @@
+         if (!isTrusted()) {
+             return DISPLAY_IME_POLICY_FALLBACK_DISPLAY;
+         }
++        if (mWmService.mWorkspaceInput.usesLocalImeLocked(this)) {
++            return DISPLAY_IME_POLICY_LOCAL;
++        }
+         return mWmService.mDisplayWindowSettings.getImePolicyLocked(this);
+     }
+ 
+--- a/services/core/java/com/android/server/wm/RootWindowContainer.java
++++ b/services/core/java/com/android/server/wm/RootWindowContainer.java
+@@ -461,15 +461,17 @@
+             }
+             changed |= dc.updateFocusedWindowLocked(mode, updateInputWindows, topFocusedDisplayId);
+             final WindowState newFocus = dc.mCurrentFocus;
++            final boolean canSelectFocus = topFocusedDisplayId == INVALID_DISPLAY
++                    && mWmService.mWorkspaceInput.canSelectFocusLocked(dc);
+             if (newFocus != null) {
+                 final int pidOfNewFocus = newFocus.mSession.mPid;
+                 if (mTopFocusedAppByProcess.get(pidOfNewFocus) == null) {
+                     mTopFocusedAppByProcess.put(pidOfNewFocus, newFocus.mActivityRecord);
+                 }
+-                if (topFocusedDisplayId == INVALID_DISPLAY) {
++                if (canSelectFocus) {
+                     topFocusedDisplayId = dc.getDisplayId();
+                 }
+-            } else if (topFocusedDisplayId == INVALID_DISPLAY && dc.mFocusedApp != null) {
++            } else if (canSelectFocus && dc.mFocusedApp != null) {
+                 // The top-most display that has a focused app should still be the top focused
+                 // display even when the app window is not ready yet (process not attached or
+                 // window not added yet).
+@@ -479,6 +481,8 @@
+         if (topFocusedDisplayId == INVALID_DISPLAY) {
+             topFocusedDisplayId = DEFAULT_DISPLAY;
+         }
++        topFocusedDisplayId = mWmService.mWorkspaceInput.selectInputDisplayLocked(
++                topFocusedDisplayId);
+         if (mTopFocusedDisplayId != topFocusedDisplayId) {
+             mTopFocusedDisplayId = topFocusedDisplayId;
+             mWmService.mInputManager.setFocusedDisplay(topFocusedDisplayId);
+--- a/services/core/java/com/android/server/wm/TransitionController.java
++++ b/services/core/java/com/android/server/wm/TransitionController.java
+@@ -1218,6 +1218,7 @@
+         }
+         updateRunningRemoteAnimation(record, false /* isPlaying */);
+         record.finishTransition(chain);
++        if (record.hasTransientLaunch()) refreshWorkspaceInput();
+         mRunningLock.doNotifyLocked();
+         // Run state-validation checks when no transitions are active anymore (Note: sometimes
+         // finish can start a transition, so check afterwards -- eg. pip).
+@@ -1615,6 +1616,7 @@
+             }
+         }
+         cleanupRoundedCornerDisableOptTasks();
++        if (transition.hasTransientLaunch()) refreshWorkspaceInput();
+         // This is called during Transition.abort whose codepath will eventually check the queue
+         // via sync-engine idle.
+     }
+@@ -1628,6 +1630,13 @@
+     void setTransientLaunch(@NonNull ActivityRecord activity, @Nullable Task restoreBelowTask) {
+         if (mCollectingTransition == null) return;
+         mCollectingTransition.setTransientLaunch(activity, restoreBelowTask);
++        refreshWorkspaceInput();
++    }
++
++    private void refreshWorkspaceInput() {
++        if (mAtm.mWindowManager != null) {
++            mAtm.mWindowManager.mWorkspaceInput.refreshFocusLocked();
++        }
+     }
+ 
+     void legacyDetachNavigationBarFromApp(@NonNull IBinder token) {
+--- a/services/core/java/com/android/server/wm/WindowManagerService.java
++++ b/services/core/java/com/android/server/wm/WindowManagerService.java
+@@ -731,6 +731,7 @@
+     // The root of the device window hierarchy.
+     @NonNull
+     final RootWindowContainer mRoot;
++    final WorkspaceInputController mWorkspaceInput;
+ 
+     final BLASTSyncEngine mSyncEngine;
+ 
+@@ -1393,6 +1394,8 @@
+ 
+         mPolicy = policy;
+         mAnimator = new WindowAnimator(this);
++        mWorkspaceInput = new WorkspaceInputController(this);
++        setExtension(mWorkspaceInput);
+         mRoot = new RootWindowContainer(this);
+         mAppCompatCameraPolicy = new AppCompatCameraPolicy(this);
+ 
+@@ -2344,6 +2347,7 @@
+         ProtoLog.v(WM_DEBUG_ADD_REMOVE, "postWindowRemoveCleanupLocked: %s", win);
+         final IBinder client = win.mClient.asBinder();
+         mWindowMap.remove(client);
++        mWorkspaceInput.mirrorRemovedLocked(win);
+         if (sensitiveContentAppProtection()) {
+             notifyWindowRemovedListeners(client);
+         }
+@@ -9894,6 +9898,9 @@
+                 }
+             }
+ 
++            // The mirror still receives the pointer and forwards it to the workspace.
++            if (mWorkspaceInput.keepsFocusForMirrorTouchLocked(w)) return;
++
+             ProtoLog.i(WM_DEBUG_FOCUS_LIGHT, "onPointerDownOutsideFocusLocked called on %s", t);
+             if (mFocusedInputTarget != t && mFocusedInputTarget != null) {
+                 mFocusedInputTarget.handleTapOutsideFocusOutsideSelf();

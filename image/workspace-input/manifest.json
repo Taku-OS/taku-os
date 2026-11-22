@@ -1,0 +1,48 @@
+{
+  "revision": "7f6de40b6429462d47ba9ba351b99943269c8067",
+  "patchSha256": "da7b6d6d8cce4643f27fc1d61635995a61e319d531dba0d6bb9792e93d09a809",
+  "files": [
+    {
+      "path": "services/core/java/com/android/server/inputmethod/InputMethodManagerInternal.java",
+      "beforeSha256": "7096a98fb406230ec4ad49757caa75f514ae55feae28f76cb9f31dfcb6b8ff08",
+      "afterSha256": "d0bd2e09449c54a0072f8e83b55959c4e5d3b9c8273c3ec9b8b1185e08e67152"
+    },
+    {
+      "path": "services/core/java/com/android/server/inputmethod/InputMethodManagerService.java",
+      "beforeSha256": "3037aa8a9fb5fd855a1a2fa3b9638ea39d571ce80347254018e1bdebec68e4c2",
+      "afterSha256": "7f5523ba50f110889cf64ffa5b5ef5673da27e746b13828b72202690d2c84267"
+    },
+    {
+      "path": "services/core/java/com/android/server/wm/DisplayContent.java",
+      "beforeSha256": "37ea101f8cb1c9070df7db8a5e8a855cb999682b8aeca1e6c145dfe040a366a5",
+      "afterSha256": "793715030c32ff4e1ae1ae3cb31f9e0a4710057da4ef17390eb8896efc8b3ea1"
+    },
+    {
+      "path": "services/core/java/com/android/server/wm/RootWindowContainer.java",
+      "beforeSha256": "6f1c591a9405701901bb1f6b31761447a9338392630eb8df254f4c9025d202c1",
+      "afterSha256": "8e55bd624c657c3c6073e74302541b85c3f7e47aa23e5cd513699d1b77aadf56"
+    },
+    {
+      "path": "services/core/java/com/android/server/wm/TransitionController.java",
+      "beforeSha256": "91f55377e0723c6288fdef0f749fd056cfedfdbc7410f3af75b5b141a043fb60",
+      "afterSha256": "31b3cce4acaf21b42f22d3990733c6dc7229891e49145059897749e38b139807"
+    },
+    {
+      "path": "services/core/java/com/android/server/wm/WindowManagerService.java",
+      "beforeSha256": "6865206588f67a7b07990a197ebca45559c66cfdbd1aaac0e517c7937651b9db",
+      "afterSha256": "e11ee74e817b2801b182937fe2641b18adbacbfd24ada2bdb4a15d49610e1c56"
+    }
+  ],
+  "sources": [
+    {
+      "source": "image/workspace-input/WorkspaceInputController.java",
+      "path": "services/core/java/com/android/server/wm/WorkspaceInputController.java",
+      "sha256": "0ae7dad3fe8942cf31e27da3e90e94ae52ffb88ea66d51343cc371203b851814"
+    },
+    {
+      "source": "system/assistant/workspace-input/org/agentos/workspace/WorkspaceInputConnection.java",
+      "path": "services/core/java/org/agentos/workspace/WorkspaceInputConnection.java",
+      "sha256": "2bc1469217f3abfda2fd33672477328f5cae820b11e29b6e9e463d9b1f8c9075"
+    }
+  ]
+}

@@ -33,6 +33,7 @@ printf 'TAKU_INCLUDE_GOOGLE_APPS := %s\n' "$include_google_apps" > vendor/taku/i
 # Only the board needs a device directory; a second product registration is invalid.
 cp /taku/image/emulator/BoardConfig.mk device/taku/taku_emu64a/
 python3 /taku/image/apply-home-policy.py --source-root /src --results-dir /results
+python3 /taku/image/apply-workspace-input.py --source-root /src
 python3 /taku/image/apply-launcher-patches.py --source-root /src --results-dir /results
 python3 /taku/image/apply-recents-patches.py --source-root /src --results-dir /results
 python3 /taku/image/apply-island-patches.py --source-root /src --results-dir /results

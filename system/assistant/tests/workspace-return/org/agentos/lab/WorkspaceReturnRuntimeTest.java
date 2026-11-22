@@ -21,6 +21,8 @@ public final class WorkspaceReturnRuntimeTest {
         DedicatedScreensOnDevice.registry=new DedicatedScreens();
         NativeBridge.parent=child?PARENT:"";NativeBridge.delivered=null;
         WorkspaceControl.parentTurn=parentTurn;WorkspaceControl.captures=0;SystemAi.revision=1;
+        WorkspaceControl.inputReleased = false;
+        WorkspaceControl.inputSwitchFails = false;
         AgentViews.threads.put(THREAD,new JSONObject());AgentViews.threads.put(PARENT,new JSONObject());
     }
     static void returned(boolean child,String parentTurn) throws Exception {
@@ -28,6 +30,7 @@ public final class WorkspaceReturnRuntimeTest {
         WorkspaceExecutionRuntime runtime=new WorkspaceExecutionRuntime();
         WorkspaceExecution.Request request=request();
         try(WorkspaceExecution.Prepared prepared=runtime.prepare(request,Files.createTempDirectory("return-request").toFile())) {
+            check(WorkspaceControl.inputReleased, "input is released before preparing Agent resume");
             // Reproduce the original delay without sleeping or changing the capture validator.
             if(prepared.observation!=null)prepared.observation.put("capturedAt",System.currentTimeMillis()-20000);
             runtime.dispatch(request,prepared).result().get();
@@ -47,6 +50,18 @@ public final class WorkspaceReturnRuntimeTest {
         reset(false,"");DedicatedScreensOnDevice.registry.blocked=true;
         try { new WorkspaceExecutionRuntime().prepare(request(),Files.createTempDirectory("blocked-return").toFile());throw new AssertionError("blocked App resumed"); }
         catch(IOException error) { check(error.getMessage().equals("APP_NOT_ALLOWED"),"App policy still checked before returning"); }
+        reset(false, "");
+        WorkspaceControl.inputSwitchFails = true;
+        try {
+            new WorkspaceExecutionRuntime().prepare(request(), Files.createTempDirectory("input-return").toFile());
+            throw new AssertionError("Agent resumed before workspace input was released");
+        } catch (IOException error) {
+            check(error.getMessage().equals("WORKSPACE_INPUT_SWITCH_FAILED"),
+                    "return reports a failed input switch");
+            check(NativeBridge.delivered == null
+                            && "paused".equals(DedicatedScreensOnDevice.registry.owner),
+                    "a failed switch keeps the task paused and retryable");
+        }
         reset(false,"");WorkspaceExecutionRuntime runtime=new WorkspaceExecutionRuntime();
         WorkspaceExecution.Request request=request();
         try(WorkspaceExecution.Prepared prepared=runtime.prepare(request,Files.createTempDirectory("changed-return").toFile())) {

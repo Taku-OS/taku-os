@@ -83,7 +83,14 @@ final class WorkspaceExecutionRuntime implements WorkspaceExecution.Backend {
                     throw new IOException("WORKSPACE_NOT_WAITING_FOR_RETURN");
                 returnOwner=current.optString("controlOwner");
                 registry.beginReturn(request.thread,request.key,request.generation);paused=true;
+                IOException inputSwitchFailure = null;
+                try {
+                    WorkspaceControl.inputControlChanged(request.thread, binding, false);
+                } catch (IOException failure) {
+                    inputSwitchFailure = failure;
+                }
                 WorkspaceControl.stopExecution(request.thread,request.key,request.generation);stopped=true;
+                if (inputSwitchFailure != null) throw inputSwitchFailure;
                 binding.inputLock().lockInterruptibly();
                 try{
                     WorkspaceControl.requireQuiescent(request.thread);
@@ -144,6 +151,7 @@ final class WorkspaceExecutionRuntime implements WorkspaceExecution.Backend {
                     WorkspaceControl.requireQuiescent(request.thread);
                     String owner="APP_NOT_ALLOWED".equals(failure.getMessage())&&returnOwner.equals("user")?"user":"paused";
                     registry.finishControl(request.thread,request.key,request.generation,owner);
+                    if ("user".equals(owner)) WorkspaceControl.inputControlChanged(request.thread, binding, true);
                 }catch(Exception unconfirmed){throw new WorkspaceExecution.Uncertain("WORKSPACE_STATE_UNCONFIRMED",unconfirmed);}
             }
             throw failure;

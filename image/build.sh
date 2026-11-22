@@ -35,6 +35,13 @@ integrate_home_policy() {
     fi
 }
 
+integrate_workspace_input() {
+    # Historical narrow snapshots have no workspace input sources.
+    if [ -f /taku/image/workspace-input/manifest.json ]; then
+        python3 /taku/image/apply-workspace-input.py --source-root /src "$@"
+    fi
+}
+
 integrate_taku() {
     phase integrate
     if [ -f /taku/image/carrier-defaults/manifest.json ]; then
@@ -73,6 +80,7 @@ PY
     python3 /taku/image/apply-launcher-patches.py --source-root /src --results-dir /results
     python3 /taku/image/apply-recents-patches.py --source-root /src --results-dir /results
     integrate_home_policy
+    integrate_workspace_input
     # Complete snapshots contain the pinned island implementation; historical narrow snapshots do not.
     if [ -f /taku/image/island/manifest.json ]; then
         python3 /taku/image/apply-island-patches.py --source-root /src --results-dir /results
@@ -88,6 +96,7 @@ elif [[ "${1:-}" = "--resume" || "${1:-}" = "--verify-only" ]]; then
     python3 /taku/image/resume-check.py
     # Resume must not silently build an older framework/PermissionController policy.
     integrate_home_policy --verify-only
+    integrate_workspace_input --verify-only
     python3 /taku/image/apply-recents-patches.py --source-root /src --results-dir /results --verify-only
     python3 /taku/image/apply-launcher-patches.py --source-root /src --results-dir /results --verify-only
     if [ -f /taku/image/island/manifest.json ]; then
