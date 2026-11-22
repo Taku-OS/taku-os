@@ -2,7 +2,13 @@ package org.agentos.proactivity.api;
 
 /** Public v1 settled-event rule. IDs and event types belong to the producer package. */
 public record ObserverSpec(String id, String name, String eventType, long quietMs,
-        long cooldownMs, int maxRecords, long lookbackMs, String title, String summary) {
+        long cooldownMs, int maxRecords, long lookbackMs, String title, String summary,
+        PromptSpec prompt) {
+    /** Existing observers retain the single Viewed hint until they register an approved choice. */
+    public ObserverSpec(String id,String name,String eventType,long quietMs,long cooldownMs,
+            int maxRecords,long lookbackMs,String title,String summary) {
+        this(id,name,eventType,quietMs,cooldownMs,maxRecords,lookbackMs,title,summary,null);
+    }
     public ObserverSpec {
         identifier(id); identifier(eventType);
         text(name,80); text(title,80); text(summary,240);

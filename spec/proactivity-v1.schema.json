@@ -33,7 +33,16 @@
         "maxRecords": {"type": "integer", "minimum": 1, "maximum": 16},
         "lookbackMs": {"type": "integer", "minimum": 1000, "maximum": 600000},
         "title": {"type": "string", "minLength": 1, "maxLength": 80, "pattern": "\\S"},
-        "summary": {"type": "string", "minLength": 1, "maxLength": 240, "pattern": "\\S"}
+        "summary": {"type": "string", "minLength": 1, "maxLength": 240, "pattern": "\\S"},
+        "prompt": {"$ref": "#/$defs/promptSpec"}
+      }
+    },
+    "promptSpec": {
+      "type": "object", "additionalProperties": false,
+      "required": ["acceptLabel", "declineLabel"],
+      "properties": {
+        "acceptLabel": {"type": "string", "minLength": 1, "maxLength": 80, "pattern": "\\S"},
+        "declineLabel": {"type": "string", "minLength": 1, "maxLength": 80, "pattern": "\\S"}
       }
     }
   }

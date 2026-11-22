@@ -37,7 +37,7 @@ The outer object has exactly four fields; `args` is validated strictly for each 
 
 | Operation | `args` | Result |
 | --- | --- | --- |
-| `capabilities` | `{}` | `version=1`, `observerKind=settled_event`, at most 4 observers per package, at most 16 context records, `imageDecision=false`, `agentExecution=false` |
+| `capabilities` | `{}` | `version=1`, `observerKind=settled_event`, at most 4 observers per package, at most 16 context records, `promptTypes=["hint","choice"]`, `promptActionIds=["accept","cancel"]`, `imageDecision=false`, `agentExecution=false` |
 | `register` | `{spec: ObserverSpec}` | Saves or idempotently returns the caller's registration state; new or changed declarations and installed code version changes await user confirmation |
 | `event` | `{observerId,eventId,eventType,pageRevision}` | `{accepted,duplicate,policyRevision,producerCodeVersion}`; accepted here means the event entered the queue, distinct from a user tap callback |
 | `inspect` | `{observerId}` | Returns only the caller's registration, authorization, policy history, and bounded activity records |
@@ -56,6 +56,9 @@ The state returned by `register/inspect` includes `package/id/signer/approved/en
 | `cooldownMs` | 1000–3600000 ms, measured from the display layer's actual publication ACK. Events during cooldown are not automatically delayed and replayed; a later new change is required. |
 | `maxRecords` | 1–16; maximum selected context records |
 | `lookbackMs` | 1000–600000 ms; event lookback window when settling triggers |
+| `prompt` | Optional `{acceptLabel,declineLabel}`, each nonblank and at most 80 Java UTF-16 code units. No other prompt fields are accepted. Omit it for the original single `Viewed` hint. |
+
+An approved `prompt` uses the existing Surfaces choice renderer as an initially expanded top card. Its decline and accept action IDs are fixed to `cancel` and `accept`; labels can read `Not now` and `Try on`. Card-body taps do not accept it. The declaration cannot specify an intent, service, arbitrary action target, placement or execution. Registering a prompt or changing either label creates a pending policy revision and suspends offers until that revision is approved. The original nine-argument Java `ObserverSpec` constructor remains available; the ten-argument overload takes nullable `PromptSpec` as its final argument. A missing prompt serializes to the original nine fields; explicit JSON `null` is rejected.
 
 Limits are 32 observers overall and 4 per package. Each observer has at most 64 in-memory metadata records, 8 policy revisions, and 16 persisted activity records. The persisted store is limited to 256 KiB; exceeding it rejects the write and preserves the previous state. Each UID may send at most 240 requests per minute, with at most 128 active rate-limit buckets. The event UI example does not authorize unlimited per-keystroke uploads. At most 8 candidates may await publication at once.
 
@@ -70,10 +73,12 @@ Asynchronous messages use `{version:1,ok,type,result}`, without requestId. Clien
 | --- | --- |
 | `policy_changed` | State successfully persisted after user approval, disabling, adjustment, or rollback |
 | `published` | Actual Surfaces publication ACK; starts the hint cooldown |
-| `accepted` | User tapped the hint; the host rechecks policy and candidate validity, revokes the hint, then sends one callback |
+| `accepted` | User tapped `Viewed` or the declared accept button; the host rechecks policy and candidate validity, revokes the offer, then sends one callback. Only `promptType=choice` with `actionId=accept` identifies acceptance of a declared choice. |
 | `dismissed/expired/error` | Display-layer removal or error callback, not a task execution result |
 
-Hint-related results contain `candidateId/observerId/policyRevision/sourcePackage/producerCodeVersion/records/imageDecision/agentExecution`. Record fields are `id/type/sequence/observedAt/pageRevision`. The host generates `sequence` and `observedAt`; time is elapsedRealtime milliseconds within the current boot. `sourcePackage` comes from Binder ownership, and `producerCodeVersion` is the actual installed version, never fabricated from old policy history. Model decisions and execution capabilities are fixed to false.
+Hint-related results contain `candidateId/observerId/policyRevision/sourcePackage/producerCodeVersion/records/promptType/imageDecision/agentExecution`. `promptType` is `hint` for legacy `Viewed` and `choice` for a declared prompt. Action callbacks additionally contain `actionId`; accepting uses `accepted` plus `actionId=accept`, declining uses `dismissed` plus `actionId=cancel,reason=declined`. Display-layer dismissals without a button do not imply either action. Consumers that require a real choice must check `accepted`, `promptType=choice`, and `actionId=accept`; neither old `Viewed` callbacks nor missing `promptType` authorize that choice. All action callbacks validate the offered policy revision and freshness, and withdraw before another tap can be handled.
+
+Record fields are `id/type/sequence/observedAt/pageRevision`. The host generates `sequence` and `observedAt`; time is elapsedRealtime milliseconds within the current boot. `sourcePackage` comes from Binder ownership, and `producerCodeVersion` is the actual installed version, never fabricated from old policy history. Model decisions and execution capabilities are fixed to false.
 
 Selection order: restrict to the current observer and type → use the host's monotonic event receipt time → deduplicate IDs and enforce the 64-record bound and lookback window → take the latest N records when settled → freeze in ascending sequence order. If fewer than N exist, return the actual count; do not add bodies, other apps' records, or later events. New events, disconnection, Binder death, lock screen, and policy changes invalidate old candidates. Publication requires an unlocked, interactive screen. Candidates have a 120-second TTL; publication and acceptance revalidate versions, context generation, and device state.
 
@@ -81,7 +86,7 @@ Deduplication and context are temporary in-memory facilities. Historical eventId
 
 ## Users, AI, and revisions
 
-Authorization is performed only in the host's own Activity. External `approve/disable/rollback/apply` operations do not exist. Extras can navigate but cannot grant access. Approval and rollback are bound to the expected policy revision shown to the user; an intervening update rejects the stale action. An installed plugin version change rejects events even if the plugin skips register. Publication and acceptance also recheck signatures and installed versions. Users can adjust settling delay, hint interval, maxRecords, and lookbackMs directly. Saving checks expectedRevision; an intervening policy update rejects stale edits, and failed writes preserve the old state. Enabling/disabling, editing, and rollback immediately invalidate old candidates.
+Authorization is performed only in the host's own Activity. External `approve/disable/rollback/apply` operations do not exist. Extras can navigate but cannot grant access. Approval and rollback are bound to the expected policy revision shown to the user; an intervening update rejects the stale action. An installed plugin version change rejects events even if the plugin skips register. Publication and acceptance also recheck signatures and installed versions. Users can adjust settling delay, hint interval, maxRecords, and lookbackMs directly. Saving checks expectedRevision; an intervening policy update rejects stale edits, and failed writes preserve the old state. The editor retains `prompt` exactly; the registry rejects adding, removing or relabeling it through timing/context edits. Prompt changes use registration and fresh approval. Enabling/disabling, editing, and rollback immediately invalidate old candidates.
 
 A plugin or AI modifying an observer it owns submits a new spec through the same `register` operation. This creates a pending revision that takes effect after user confirmation. Repeating the same code version and spec is idempotent and does not overwrite user edits or rollbacks. New specs or code versions require confirmation again. Field-level merging of user overrides is not implemented; users should compare parameters before confirming. Cross-plugin AI policy tools, generic patches, simulation replay, import/export, and conflict previews are future interfaces, not callable v1 methods.
 

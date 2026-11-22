@@ -12,6 +12,8 @@ The heatmap shows 24 consecutive hours, including the current hour, in the local
 
 In details, users can allow or disable an observer, adjust four policy parameters, or roll back. New policies and plugin version changes require confirmation. Edits check the expected revision and save a new revision. Removing an observer revokes authorization and deletes its history. Refresh preserves scroll position. The full-screen policy editor keeps Save above the keyboard, preserves unsaved input across rotation, and supports large system text. See [design and emulator screenshots](../../docs/reviews/proactivity-2026-10-24/README.md).
 
+Observers may optionally declare a `PromptSpec`, such as `Try on` / `Not now`. After approval, it uses the existing initially expanded Surfaces top choice card and returns fixed `accept` / `cancel` action IDs. Legacy nine-field declarations keep the single `Viewed` hint. Receipts distinguish `promptType=choice` from `hint`; a choice consumer checks `accepted` and `actionId=accept` together. The host does not execute any service or invoke a model. The management preview includes both labels, and timing edits preserve the approved prompt.
+
 ## Build
 
 ```sh
@@ -22,6 +24,8 @@ npm run check:proactivity
 ```
 
 Dependencies match the other components: Android SDK 36, build-tools 36.0.0, and JDK 17. Outputs are in ignored `out/` directories: host `TakuProactivity.apk`, public `taku-proactivity-client.jar`, and plugin `Observer-v1.apk` / `Observer-v2.apk`. These commands only compile.
+
+`check:proactivity` runs offline scheduling, overview, prompt wire/renderer-input and registry approval/edit/rollback checks. The prompt tests use filesystem substitutes for Android Context and AtomicFile; they make no model calls and do not install or operate any device. Their results and the APK build do not establish emulator UI acceptance or whole-ROM integration.
 
 The host uses the platform development test signature to call the existing Surfaces signature bridge. It does not share the system UID. Ordinary observers need no platform signature, privileged permissions, or host source. The example's development key is in its own ignored `out/signing/` directory and differs from the host key. Production signing and system-image integration are separate work.
 

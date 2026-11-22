@@ -101,7 +101,8 @@ final class RegistryStore {
                 throw new IllegalStateException("Policy changed. Reopen it before editing");
             ObserverSpec before=activeSpec(row);
             if(!before.id().equals(spec.id()) || !before.eventType().equals(spec.eventType()) || !before.name().equals(spec.name())
-                    || !before.title().equals(spec.title()) || !before.summary().equals(spec.summary()))
+                    || !before.title().equals(spec.title()) || !before.summary().equals(spec.summary())
+                    || !java.util.Objects.equals(before.prompt(),spec.prompt()))
                 throw new IllegalArgumentException("Only timing and context limits are editable");
             if(before.equals(spec))return;
             long revision=next.getLong("nextRevision");next.put("nextRevision",revision+1);
