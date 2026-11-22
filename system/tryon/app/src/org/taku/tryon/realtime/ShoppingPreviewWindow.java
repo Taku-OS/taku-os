@@ -86,6 +86,8 @@ final class ShoppingPreviewWindow implements LocalShoppingFrameBridge.Source {
     private final ShoppingIslandStyle.Capsule capsule;
     private ShoppingIslandGeometry.Mode mode = ShoppingIslandGeometry.Mode.PREVIEW;
     private final ShoppingPreviewLayout.FloatingFrame floatingFrame = new ShoppingPreviewLayout.FloatingFrame();
+    private final ShoppingPreviewLayout.DisplayState displayState = new ShoppingPreviewLayout.DisplayState();
+    private boolean geometryRefreshPosted;
     private long presentationAnimation;
     private final ShoppingPreviewMotion.Epoch motionEpoch = new ShoppingPreviewMotion.Epoch();
     private ShoppingIslandGeometry.Layout currentLayout;
@@ -118,6 +120,14 @@ final class ShoppingPreviewWindow implements LocalShoppingFrameBridge.Source {
         if (mediaPressed && !mediaDragged && !collapsed && !closed && !closing && !captureHidden) {
             originalEpoch++; originalHeld = true; render(snapshot);
         }
+    };
+    private final Runnable refreshGeometry = () -> {
+        geometryRefreshPosted=false;
+        if (!attached || closed || closing || !characterPreview) return;
+        var display=display();
+        if (!displayState.needsReflow(display,attached,closed,closing,characterPreview)) return;
+        if (movingPresentation) cancelPresentation();
+        layout(false);
     };
     private final ComponentCallbacks configuration = new ComponentCallbacks() {
         @Override public void onConfigurationChanged(Configuration value) {
@@ -161,7 +171,7 @@ final class ShoppingPreviewWindow implements LocalShoppingFrameBridge.Source {
             if (firstReady) readyReported = true;
             cameraDetail = message; render(snapshot);
             if (firstReady) {
-                if (directFrames && !generatedFrameShown) {
+                if (!ShoppingPreviewReveal.showCameraImmediately(directFrames, characterPreview) && !generatedFrameShown) {
                     showPreparingPill();
                 }
                 actions.cameraReady();
@@ -287,6 +297,13 @@ final class ShoppingPreviewWindow implements LocalShoppingFrameBridge.Source {
         params.setTitle("Taku Live Try-On");
         params.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS;
         params.setFitInsetsTypes(0);
+        root.setOnApplyWindowInsetsListener((view,insets) -> { scheduleGeometryRefresh(); return insets; });
+        root.addOnAttachStateChangeListener(new View.OnAttachStateChangeListener() {
+            @Override public void onViewAttachedToWindow(View view) { scheduleGeometryRefresh(); view.requestApplyInsets(); }
+            @Override public void onViewDetachedFromWindow(View view) {
+                main.removeCallbacks(refreshGeometry); geometryRefreshPosted=false;
+            }
+        });
         root.setAccessibilityDelegate(new View.AccessibilityDelegate() {
             @Override public void onInitializeAccessibilityNodeInfo(View host, AccessibilityNodeInfo info) {
                 super.onInitializeAccessibilityNodeInfo(host, info);
@@ -309,14 +326,22 @@ final class ShoppingPreviewWindow implements LocalShoppingFrameBridge.Source {
 
     void show() {
         if (closed || closing || attached) return;
-        if (directFrames) params.alpha = 0f;
+        if (!ShoppingPreviewReveal.showCameraImmediately(directFrames, characterPreview)) params.alpha = 0f;
         windows.addView(root, params); attached = true;
+        scheduleGeometryRefresh();
         actions.presentationReady(this); startAttachedCamera();
     }
     private void startAttachedCamera() {
         if(closed||closing||!attached)return;
         camera.start();
-        if (!directFrames) reveal(); else revealFirstResult();
+        if (ShoppingPreviewReveal.showCameraImmediately(directFrames, characterPreview)) reveal(); else revealFirstResult();
+    }
+
+    /** Post after the actual attach/insets traversal; root insets are window-relative, not screen bounds. */
+    private void scheduleGeometryRefresh() {
+        if (closed || closing || geometryRefreshPosted) return;
+        geometryRefreshPosted=true;
+        main.post(refreshGeometry);
     }
 
     private void showPreparingPill() {
@@ -427,6 +452,21 @@ final class ShoppingPreviewWindow implements LocalShoppingFrameBridge.Source {
         }, () -> { layout(false); automaticReveal = false; });
     }
     String presentation() { return mode.name().toLowerCase(java.util.Locale.ROOT); }
+    /** GUI and Agent moves both update the same retained frame and safe-area clamp. Main thread only. */
+    boolean moveTo(int x, int y) {
+        if (!canResizePresentation()) return false;
+        interruptAutomaticReveal();
+        if (originalHeld) releaseOriginal();
+        floatingFrame.move(x,y); layout(false);
+        return canResizePresentation();
+    }
+    Bundle position() {
+        Bundle value=new Bundle();
+        value.putInt("x",params.x);value.putInt("y",params.y);
+        value.putInt("width",params.width);value.putInt("height",params.height);
+        value.putBoolean("canMove",canResizePresentation());
+        return value;
+    }
     String geometryDiagnostic() {
         return "windowX=" + params.x + " windowY=" + params.y + " windowWidth=" + params.width + " windowHeight=" + params.height
                 + " host=" + "application" + " motionActive=" + movingPresentation + " motionProgress=" + motionProgress;
@@ -472,7 +512,7 @@ final class ShoppingPreviewWindow implements LocalShoppingFrameBridge.Source {
     private float previewRadius() { return ui.dp(22); }
     private void revealFirstResult() {
         long ticket = firstReveal.claim(directFrames && generatedFrameShown && attached
-                && !closed && !closing && !captureHidden);
+                && !closed && !closing && !captureHidden, characterPreview);
         if (ticket == 0) return;
         automaticReveal = true;
         reveal(() -> {
@@ -541,11 +581,13 @@ final class ShoppingPreviewWindow implements LocalShoppingFrameBridge.Source {
     void setCharacterModel(String modelLabel) {
         automaticReveal = false; characterPreview = true; characterModelLabel = modelLabel;
         chrome.characterPreview();
+        status.setText("Opening camera");
         root.setContentDescription("Live cosplay · " + modelLabel);
         returned.setContentDescription("Live character result · " + modelLabel);
         params.setTitle("Taku Live Cosplay");
         header.setContentDescription("Drag to move cosplay. Double tap to minimize.");
         cameraPane.setContentDescription("Cosplay video. Drag to move, pinch to resize, hold to compare, double tap to minimize.");
+        installDrag(content);
         layout(false);
     }
 
@@ -553,7 +595,8 @@ final class ShoppingPreviewWindow implements LocalShoppingFrameBridge.Source {
         if (closed || closing) return;
         snapshot = value;
         String effect = characterPreview ? "Character" : "Try-on";
-        String text = !readyReported ? "Preparing " + (characterPreview ? "character" : "try-on") :
+        String text = characterPreview && !generatedFrameShown ? (!readyReported ? "Opening camera" : "Camera · Connecting") :
+                !readyReported ? "Preparing try-on" :
                 value == null ? "Connecting" : originalHeld ? "Original · " + value.remainingSeconds + "s" :
                 "running".equals(value.state) && value.returnedFrames > 0 ? effect + " · " + value.remainingSeconds + "s" :
                 value.active ? "Connecting · " + value.remainingSeconds + "s" : effect + " stopped";
@@ -657,6 +700,7 @@ final class ShoppingPreviewWindow implements LocalShoppingFrameBridge.Source {
     void close(Runnable afterClosed) {
         if (closed || closing) { if (afterClosed != null) camera.close(afterClosed); return; }
         closing = true; firstReveal.interrupt(); automaticReveal=false; cancelMediaHold(); cancelPresentation(); releaseOriginal(); decoder.shutdown();
+        main.removeCallbacks(refreshGeometry); geometryRefreshPosted=false;
         if (directRenderer != null) directRenderer.close();
         root.setAlpha(1f); params.alpha = 0f;
         params.flags &= ~WindowManager.LayoutParams.FLAG_BLUR_BEHIND;
@@ -692,14 +736,17 @@ final class ShoppingPreviewWindow implements LocalShoppingFrameBridge.Source {
                 hole.left, hole.top, hole.right, hole.bottom);
     }
     private void layout(boolean initial) {
-        ShoppingIslandGeometry.Layout target = mode == ShoppingIslandGeometry.Mode.COMPACT ? compactLayout()
-                : floatingFrame.layout(display(), density(), mode, characterPreview);
+        var display=display();
+        displayState.applied(display);
+        ShoppingIslandGeometry.Layout target = mode == ShoppingIslandGeometry.Mode.COMPACT
+                ? ShoppingPreviewLayout.applicationOverlayLayout(display,density(),mode,0,false,0,0,characterPreview)
+                : floatingFrame.layout(display, density(), mode, characterPreview);
         collapsed = mode == ShoppingIslandGeometry.Mode.COMPACT; expanded = mode == ShoppingIslandGeometry.Mode.FULLSCREEN;
         backgroundFull = expanded ? 1 : 0;
         // The camera subtree retains its last logical size in compact mode. Only its
         // compositor visibility changes; no SurfaceTexture is detached or reparented.
         ShoppingIslandGeometry.Layout body = collapsed && currentLayout != null ? currentLayout
-                : collapsed ? floatingFrame.layout(display(), density(), ShoppingIslandGeometry.Mode.PREVIEW, characterPreview) : target;
+                : collapsed ? floatingFrame.layout(display, density(), ShoppingIslandGeometry.Mode.PREVIEW, characterPreview) : target;
         applyBodyLayout(body, expanded);
         configurePill(compactLayout());
         params.flags &= ~WindowManager.LayoutParams.FLAG_BLUR_BEHIND;
@@ -758,13 +805,16 @@ final class ShoppingPreviewWindow implements LocalShoppingFrameBridge.Source {
             image.setLayoutParams(mediaLayout);
         }
         chrome.layout(body, full);
-        header.setVisibility(View.GONE); videoControls.setVisibility(View.VISIBLE);
+        if (!characterPreview) header.setVisibility(View.GONE);
+        videoControls.setVisibility(View.VISIBLE);
         status.setVisibility(!generatedFrameShown ? View.VISIBLE : View.GONE);
         bottomHandle.setVisibility(View.GONE); resizeHandle.setVisibility(characterPreview && !full ? View.VISIBLE : View.GONE);
         camera.updateTransform();
     }
 
-    private boolean canResizePresentation() { return !closed && !closing && !captureHidden && !collapsed && !expanded && !movingPresentation; }
+    private boolean canResizePresentation() {
+        return ShoppingPreviewLayout.movable(attached,closed,closing,captureHidden,mode,movingPresentation);
+    }
 
     /** Two-finger sizing changes this same View's bounds, never the camera/RTC session. */
     private final class PreviewRoot extends FrameLayout {
@@ -827,8 +877,7 @@ final class ShoppingPreviewWindow implements LocalShoppingFrameBridge.Source {
                     float dx = event.getRawX() - downX, dy = event.getRawY() - downY;
                     if (Math.abs(dx) + Math.abs(dy) > ui.dp(6)) dragged = true;
                     if (dragged) {
-                        floatingFrame.move(startX + Math.round(dx), startY + Math.round(dy));
-                        layout(false);
+                        moveTo(startX + Math.round(dx), startY + Math.round(dy));
                     }
                     return true;
                 }
@@ -913,7 +962,8 @@ final class ShoppingPreviewWindow implements LocalShoppingFrameBridge.Source {
     private boolean shoppingMediaTouch(View view, MotionEvent event) {
         switch (event.getActionMasked()) {
             case MotionEvent.ACTION_DOWN -> {
-                mediaDownX=event.getRawX(); mediaDownY=event.getRawY(); mediaStartX=params.x; mediaStartY=params.y+(!floatingFrame.moved&&!expanded&&currentLayout!=null?currentLayout.video().y():0);
+                mediaDownX=event.getRawX(); mediaDownY=event.getRawY(); mediaStartX=params.x;
+                mediaStartY=ShoppingPreviewLayout.mediaDragStartY(params.y,currentLayout,floatingFrame.moved,expanded,characterPreview);
                 mediaDragged=false; mediaPressed=true;
                 main.postDelayed(compareHold, ViewConfiguration.getLongPressTimeout()); return true;
             }
@@ -923,7 +973,7 @@ final class ShoppingPreviewWindow implements LocalShoppingFrameBridge.Source {
                     mediaDragged=true; main.removeCallbacks(compareHold);
                     if (originalHeld) releaseOriginal();
                     if (!expanded && !collapsed && !movingPresentation) {
-                        floatingFrame.move(mediaStartX+Math.round(dx),mediaStartY+Math.round(dy)); layout(false);
+                        moveTo(mediaStartX+Math.round(dx),mediaStartY+Math.round(dy));
                     }
                 }
                 return true;

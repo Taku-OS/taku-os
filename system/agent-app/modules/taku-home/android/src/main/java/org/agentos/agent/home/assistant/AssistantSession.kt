@@ -285,7 +285,7 @@ class AssistantSession private constructor(private val context: Context, private
           gesture.phase in setOf(VoiceGesture.Phase.Pending, VoiceGesture.Phase.Holding, VoiceGesture.Phase.Listening) },
       unlocked = { !voiceDeviceUnavailable() },
       publish = ::publishCharacterTryOn,
-      handedOff = { closeEntry() },
+      handedOff = { closeEntry(hideIsland = true) },
     )
   }
 
@@ -645,13 +645,13 @@ class AssistantSession private constructor(private val context: Context, private
     refreshDraft()
   }
 
-  /** Closes the input; an undelivered result loses eligibility. The island stays while there is something to show. */
-  fun closeEntry() {
+  /** Successful character handoff also hides the old reply, preserving its conversation and task. */
+  fun closeEntry(hideIsland: Boolean = false) {
     endLiveTalk()
     revokeVoice()
     flow.update { s ->
       val keep = s.working || s.turn != null || s.error != null
-      s.copy(entry = EntryMode.None, island = if (keep) s.island else IslandMode.Hidden)
+      s.copy(entry = EntryMode.None, island = if (hideIsland || !keep) IslandMode.Hidden else s.island)
     }
   }
 

@@ -711,3 +711,102 @@ Both states have actual Pixel screenshots. Cancellation returned to idle; the
 old completed user conversation was kept. These verify typed routing and native
 presentation, not a fabricated voice final. A new human speech/camera checkpoint
 was requested and is observed separately.
+
+The real-user checkpoint subsequently observed local en-US recognition containing
+HELP ME PUT ON THIS OUTFIT OF HIS followed by an actual camera/model handoff and
+155 returned frames (218 source frames). A later separate gesture exposed a
+confirming card and then 77 returned frames (143 source frames); the observer did
+not sample that gesture's final transcript, so it is not evidence for the exact
+short alias as human speech. Another attempt finalized as DON'T WE PUT ON THIS
+OUTFIT OF HIS and entered ordinary chat. That negative-looking recognition is
+not silently whitelisted as a positive camera intent. Original observations and
+screenshots, including the failed attempt, are retained; no transcript was
+injected. This demonstrates successful real voice-to-video operation without
+claiming perfect speech recognition or portrait fidelity.
+
+Those real shots also exposed a separate presentation bug: the preceding normal
+chat reply could reappear over the camera after a successful handoff. Clearing
+the character state resumed normal notification publication, while closeEntry
+kept an expanded island whenever an old turn existed. Only the successful
+handedOff cleanup now calls closeEntry with hideIsland=true. It hides the normal
+assistant surface and keeps the conversation, turn, task, stream and draft;
+normal cancellation/failure/default close behavior is preserved. It does not
+cancel the broker, dismiss/reset a conversation or affect another app's island.
+
+
+### Five-image character presentation revision (2026-11-22)
+
+The system preparation modal is removed on native-island ROMs. Preparation,
+character confirmation and failure now use SystemUI's existing v1 assistant
+renderer, including the same Taku mark and expand affordance as ordinary chat.
+Confirmation provides Not now / Try on through actual native notification actions.
+The native renderer currently styles both suggestion pills gray; this change does
+not rebuild SystemUI to introduce a white primary pill. Starting publishes no
+Opening preview card and cannot fall through to a preceding ordinary reply.
+The transparent input Activity retains its real reference/Back lifecycle rather
+than finishing early. Request-specific immutable PendingIntents reject stale
+IDs before ordinary conversation recovery. Body/expand only re-expands the card;
+it cannot start a camera. Disabled native notification/channel settings retain
+the existing Compose fallback. Successful handoff hides the preceding chat
+surface while preserving its state, as described above.
+
+Character preview now shows the real camera immediately while connecting, labels
+it Camera/Connecting until a decoded model return, and remains floating after the
+first return. Expand and close occupy separate 44dp targets in a toolbar above
+the video. The visible grip, blank toolbar and video support dragging. GUI dragging
+and strict public move{x,y} use the same retained/clamped frame. Public position
+reads actual main-thread window bounds; full/compact/capture-hidden/closing
+windows reject movement. Outfit first-result behavior and legacy start/lifecycle
+signatures are preserved. Actual attach/insets updates re-clamp character bounds:
+the first AVD exposed pre-attach top 74 versus attached physical cutout safe-top
+136, fixed by a deduplicated post-attach refresh using global display metrics.
+
+Normal Home release build passed in 5m6s, all 585 recorded source inputs matched.
+Normal Native source build passed with 69 matching inputs. Installed Pixel Home
+is `44c15259ade229b890ec3a508b23ac436035de00d5a304a250b6451b5b6863c5`;
+Native base is `f027d0d427eb0eb1adb204d3995c77742e76a929f2da0a914c309ef505f4b13c`.
+Pixel Native v88 is
+`2a34daa42dcb6cf930446effd90cbdfd76528475642907654a09ec877573f649`:
+it retains the exact already-installed v87 six-class entry Dex and manifest
+compatibility additions solely in ignored local packaging, without copying LIVE
+observer/entry source into this contribution. All 38 non-manifest/non-signature
+base entry payloads survive byte-for-byte, added class definitions do not overlap,
+legacy ABI and the installed Native signer `093755c8…48c9f5` are verified.
+Both updates retained their actual package UID, other package hashes, runtime
+broker/bridge/model hashes and both screen-context settings. An initial installer
+preflight stopped before mutation because its package-substring UID query matched
+a preview helper; the final run uses exact package-line matching and verified
+Native UID 10245 and Home UID 10256.
+
+Host validation: 17 Home presentation/action/owner-lifetime tests, 27 voice tests,
+23 character tests, 29 owner scenarios/145 assertions, lint/typecheck and narrow
+SDK compilation passed. Native host suite passed, including layout 938, motion
+2055, reveal 12, service control 74 and provider 34 checks. Isolated AVD v1 was a
+harness failure; v2 correctly failed the actual initial safe-top boundary. New
+base v3 passed all 34 real Android window/GUI/API assertions, including initial
+y136, real touch drag/readback, public move/readback, four safe corners, full and
+compact rejection/restoration and actual CameraDevice close/Service destruction.
+Its controlled real window setup does not establish production session startup
+or model acceptance. The separate Home fallback AVD could not boot due to the
+emulator disk guard after two attempts; no bypass was used, and that Android
+fallback result remains unverified. All owned AVD clones/processes were cleaned;
+original 5592, peer 5680 and their worktrees were unchanged.
+
+On Pixel, a real navigation double-tap captured the current TikTok frame and the
+shared English text route produced the native black confirmation (SystemUI
+TYPE2041, native-assistant, two actions). Real Not now cancelled without camera.
+The native card is not exposed by UIAutomator; actual action taps used fresh
+screenshot-observed bounds guarded by native/current-request state. A separate
+single actual Try on GUI click opened the camera directly: extracted video
+frames at 1/2/3/5 seconds show no center modal, Opening preview card or white page;
+raw camera is labeled Connecting before actual return. The first sampled decoded
+result at 11.983s had 113 source / 50 returned frames and stayed in preview. Actual
+header touch drag updated public position; API move changed that same visible
+window; explicit fullscreen/return and compact/expand retained the position.
+The toolbar was visually above the image and the old reply stayed hidden.
+The one attempt's bounded diagnostics reached 409 inputs / 313 outputs with no
+recovery. It was stopped and verified active=false, cleanupPending=false,
+presentation=closed, Home entry=none and no island activities. This revises style
+and verifies real model-return plumbing; it does not add a new human speech or
+portrait-fidelity claim. Screenshots, video, source receipts and failed test
+attempts remain in ignored `out/native-character-ui-20261122/`; no remote push.

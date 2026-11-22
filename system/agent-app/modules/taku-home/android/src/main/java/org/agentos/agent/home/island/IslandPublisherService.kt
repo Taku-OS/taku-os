@@ -37,6 +37,7 @@ class IslandPublisherService : Service() {
   private var lastExpansionRequest = 0L
   private var lastRequest = IslandMode.Hidden
   private var postedTag: String? = null
+  private var entryPresentation: String? = null
 
   override fun onCreate() {
     super.onCreate()
@@ -52,7 +53,7 @@ class IslandPublisherService : Service() {
     }
     SystemIslandBridge.observe(this)
     scope.launch {
-      combine(session.state, session.voice.state) { state, voice -> state to voice }.sample(250).collect { (state, voice) ->
+      combine(session.state, session.voice.state, SystemIslandBridge.nativeEnabled) { state, voice, _ -> state to voice }.sample(250).collect { (state, voice) ->
         // Agent readers observe the same state published to the native SystemUI card.
         contentResolver.notifyChange(Uri.parse("content://org.agentos.agent.home-assistant"), null)
         publish(state, voice)
@@ -61,16 +62,18 @@ class IslandPublisherService : Service() {
   }
 
   private fun publish(state: AssistantState, voice: VoiceState) {
-    // Confirmation owns the foreground temporarily; keep the underlying conversation's island
-    // request so cancelling the card restores any still-running task or previous reply.
-    if (state.characterTryOn != null || state.island == IslandMode.Hidden) {
-      manager.activeNotifications.filter { it.id == ID && it.tag?.startsWith(TAG) == true }.forEach { manager.cancel(it.tag, ID) }
-      prefs.edit().clear().apply()
-      fingerprint = null
-      postedTag = null
+    // The transparent Home Activity retains the source lease; only SystemUI draws these cards.
+    if (assistantEntryOwnsPresentation(state)) {
+      val gesture = AssistantSession.get(this).gesture
+      val preparing = gesture.id.takeIf { gesture.source == "system" && gesture.phase == org.agentos.agent.home.assistant.VoiceGesture.Phase.Pending }
+      val card = assistantEntryCard(state, preparing)
+      if (SystemIslandBridge.nativeAssistantAvailable(this) && card != null) publishEntry(card)
+      else clearPosted() // Starting has no card; never fall through to an old reply.
       lastRequest = IslandMode.Hidden
       return
     }
+    entryPresentation = null
+    if (state.island == IslandMode.Hidden) { clearPosted(); return }
     val thread = state.threadId ?: "entry"
     val tag = "$TAG:${state.activityId ?: thread}"
     if (postedTag != null && postedTag != tag) manager.cancel(postedTag, ID)
@@ -163,6 +166,56 @@ class IslandPublisherService : Service() {
       else if (state.island == IslandMode.Collapsed) SystemIslandBridge.request(this, "collapse")
       lastRequest = state.island
       lastExpansionRequest = state.expansionRequest
+    }
+  }
+
+  private fun clearPosted() {
+    manager.activeNotifications.filter { it.id == ID && it.tag?.startsWith(TAG) == true }.forEach { manager.cancel(it.tag, ID) }
+    prefs.edit().clear().apply()
+    fingerprint = null
+    postedTag = null
+    entryPresentation = null
+    lastRequest = IslandMode.Hidden
+  }
+
+  private fun entryAction(card: AssistantEntryCard, action: String): PendingIntent = PendingIntent.getBroadcast(this, 0,
+    Intent(this, IslandActionReceiver::class.java).setAction(AssistantEntryCard.INTENT_ACTION)
+      .setData(Uri.parse(card.actionIdentity(action))).putExtra("entryKind", card.kind)
+      .putExtra("entryId", card.id).putExtra("entryAction", action),
+    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+
+  private fun publishEntry(card: AssistantEntryCard) {
+    val tag = "$TAG:${card.token}"
+    manager.activeNotifications.filter { it.id == ID && it.tag?.startsWith(TAG) == true && it.tag != tag }.forEach { manager.cancel(it.tag, ID) }
+    // One-use entry cards cannot be restored as an ordinary conversation after process death.
+    // Only island presentation metadata is cleared; the Session/thread/draft/task remain intact.
+    if (postedTag != tag) prefs.edit().clear().apply()
+    postedTag = tag
+    val payload = card.payload()
+    val value = tag + payload.toString() + card.actions.toString()
+    if (fingerprint != value) {
+      val icon = Icon.createWithResource(this, applicationInfo.icon.takeIf { it != 0 } ?: android.R.drawable.ic_dialog_info)
+      val actions = Bundle()
+      val notification = Notification.Builder(this, CHANNEL).setSmallIcon(icon).setContentTitle("Taku")
+        .setContentText(card.body).setContentIntent(entryAction(card, "open")).setOnlyAlertOnce(true)
+        .setCategory(Notification.CATEGORY_SERVICE).setOngoing(true)
+      for ((id, label) in card.actions) {
+        val action = Notification.Action.Builder(null as Icon?, label, entryAction(card, id)).build()
+        actions.putParcelable(id, action)
+        notification.addAction(action)
+      }
+      notification.addExtras(Bundle().apply {
+        putString("taku.island.v1", payload.toString())
+        putBundle("taku.island.pics", Bundle().apply { putParcelable("taku", icon) })
+        putBundle("taku.island.actions", actions)
+      })
+      runCatching { manager.notify(tag, ID, notification.build()) }
+        .onSuccess { fingerprint = value }
+        .onFailure { android.util.Log.w("TakuIsland", "Native entry notification unavailable", it) }
+    }
+    if (fingerprint == value && entryPresentation != value) {
+      entryPresentation = value
+      SystemIslandBridge.request(this, "expand", card.token)
     }
   }
 

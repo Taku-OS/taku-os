@@ -114,6 +114,31 @@ content call --uri content://org.agentos.agent.home-assistant --method assistant
 content call --uri content://org.agentos.agent.home-assistant --method assistant/character-confirm --arg '{"requestId":"CURRENT_REQUEST_ID"}'
 ```
 
+A successful Try on handoff hides the ordinary assistant reply card so it does
+not cover the camera. Its conversation, task and draft remain available; hiding
+the card does not stop that task. Not now and launch failure keep the usual
+assistant presentation.
+
+The camera and returned character video share one movable small window. The
+grip and video drag the same frame; expand and close are above the video. Only
+an explicit expand enters full screen. Read its actual bounds before moving:
+
+```sh
+content call --uri content://org.taku.tryon.api --method status
+content call --uri content://org.taku.tryon.api --method move --arg '{"x":40,"y":650}'
+content call --uri content://org.taku.tryon.api --method fullscreen
+content call --uri content://org.taku.tryon.api --method expand
+```
+
+`status.position` reports integer display-pixel `x,y,width,height,canMove` from
+the current GUI window. `move` requires exactly integer `x,y` within signed
+32-bit range and uses the GUI's safe-area clamp; read status again for the
+accepted position. Invalid fields/types return `invalid_arguments`. Compact,
+fullscreen, hidden, moving or closing presentation returns
+`presentation_unavailable`; absent bounds contain only `canMove:false`.
+Moving does not start/retry a session. `expand` returns to the retained floating
+position; `minimize` uses the same compact handler as the GUI.
+
 Old actions return `STALE_REQUEST`. Closing the input cancels its own pending
 reference. Normal capture/recognition and unrelated requests retain Home's existing
 path. No frame, credential or invocation ticket is returned in Home state. There is

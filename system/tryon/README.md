@@ -6,6 +6,8 @@ Selecting a reference, editing a draft, saving a model, or reading the API never
 
 The result window preserves live preview, drag, pinch resize, hold-to-compare, minimize, expand, full screen, and close. Only a decoded cloud frame changes Preparing to Live or triggers the first result reveal. Compact progress is an ordinary ongoing notification carrying main's `taku.island.v1` payload; SystemUI owns its typography and placement. The app renders its own preview window. Stock Android shows the notification fallback.
 
+After the character confirmation's Try on, a movable small window shows the actual front camera while the connection starts. Camera/Connecting labels remain until a returned frame is decoded; only then can it show Character/Live. The character result stays small until the user or API explicitly chooses full screen. Its toolbar sits outside the video; the video and empty grip area both support dragging. Position is clamped to the display safe area and retained across compact/fullscreen transitions. Outfit preview retains its existing first-returned-frame automatic full-screen reveal.
+
 ## Build and offline tests
 
 From repository root, with JDK 17+:
@@ -49,7 +51,7 @@ adb shell content call --uri content://org.taku.tryon.api --method status
 
 Root, system, shell, self, and platform-signed callers have direct access. Other app UIDs are checked against the central App Permission Center (`taku.control`), with failure closed. There is no separate API state or alternate validation. The UI's persisted draft, model choices, permission metadata, session state, and credential-configured metadata are readable through `status`; credentials and invocation tickets are never returned. `query` returns the same status JSON in one `json` column.
 
-`call` returns a Bundle with `ok:boolean` and a fixed `code:string`. `status` adds `json`, schema `taku.tryon.v1`, containing `referenceImport`, `draft`, `outfit`, `character`, `foreground`, `cameraPermission`, `overlayPermission`, `lucyKeyConfigured`, `xmaxKeyConfigured`, `state`, `detail`, `code`, `active`, `cleanupPending`, `remainingSeconds`, `sourceFrames`, `returnedFrames`, `presentation`. `diagnostics` adds the bounded, sanitized last-attempt JSON (fixed stages, HTTP status, WebRTC/Agora media and cleanup evidence; no keys, tokens, reference pixels, URLs, prompts or raw exceptions). Invalid types, unknown fields, malformed JSON, mixed non-empty extras plus `arg`, or an `arg` on a no-argument method produce `invalid_arguments` before mutation. `configure`, `draft`, `start`, and `clearCredential` also accept their fields as a strict JSON object in `arg` (32 KiB UTF-8 maximum). Values are strings except integer `referenceExpires` (stored as Long); duplicates, nested values, booleans, nulls, floating point and numeric coercion are rejected. Both carriers use the same Controller validation.
+`call` returns a Bundle with `ok:boolean` and a fixed `code:string`. `status` adds `json`, schema `taku.tryon.v1`, containing `referenceImport`, `draft`, `outfit`, `character`, `foreground`, `cameraPermission`, `overlayPermission`, `lucyKeyConfigured`, `xmaxKeyConfigured`, `state`, `detail`, `code`, `active`, `cleanupPending`, `remainingSeconds`, `sourceFrames`, `returnedFrames`, `presentation`, and `position`. `position` reads the current GUI window on its main thread: `x`, `y`, `width`, `height` are display pixels and `canMove` reports current move eligibility. With no available window, or an unavailable main-thread read, it contains only `canMove:false`; missing bounds are not guessed from a previous frame. GUI dragging is reflected on the next status read. `diagnostics` adds the bounded, sanitized last-attempt JSON (fixed stages, HTTP status, WebRTC/Agora media and cleanup evidence; no keys, tokens, reference pixels, URLs, prompts or raw exceptions). Invalid types, unknown fields, malformed JSON, mixed non-empty extras plus `arg`, or an `arg` on a no-argument method produce `invalid_arguments` before mutation. `configure`, `draft`, `start`, `clearCredential`, and `move` also accept their fields as a strict JSON object in `arg` (32 KiB UTF-8 maximum). Values are strings except integer `referenceExpires` (stored as Long) and `move` coordinates (signed 32-bit range); duplicates, nested values, booleans, nulls, floating point and numeric coercion are rejected. Both carriers use the same Controller validation.
 
 | Method | Extras and result |
 | --- | --- |
@@ -59,6 +61,7 @@ Root, system, shell, self, and platform-signed callers have direct access. Other
 | `retry` | No extras. Reuses this process's previous explicit reference/prompt, revalidates expiry/permissions, and uses current saved model settings. Requires the visible Activity. Never retries automatically. |
 | `stop` | No extras. Stops active attempt; idempotent when already stopped. |
 | `minimize`, `expand`, `fullscreen` | No extras. Same window handlers used by GUI controls and gestures. Returns `ok:false` when no active host exists. |
+| `move` | Required integer `x`, `y`: absolute top-left of the floating window in display pixels. JSON integers or integer/long extras within signed 32-bit range are accepted. Uses the GUI's same safe-area clamping; read `status.position` for actual bounds. Only an attached, movable preview accepts it; compact/fullscreen, capture-hidden, moving or closing windows return `presentation_unavailable`. Does not expand a window, start a camera/model, or alter the session. |
 | `clearCredential` | Required string `provider` (`lucy`/`xmax`). Same encrypted store/validation as UI. |
 | `describe`, `status`, `diagnostics` | No extras; read only. |
 
@@ -68,6 +71,7 @@ Examples below run inside the device shell (`adb shell` first, or directly from 
 content call --uri content://org.taku.tryon.api --method configure --arg '{"mode":"outfit","provider":"lucy","region":"global"}'
 content call --uri content://org.taku.tryon.api --method configure --arg '{"mode":"character","provider":"xmax","region":"china"}'
 content call --uri content://org.taku.tryon.api --method draft --arg '{"mode":"character","referenceUri":"content://SOURCE/AUTHORIZED_IMAGE","prompt":"robot","referenceExpires":0}'
+content call --uri content://org.taku.tryon.api --method move --arg '{"x":24,"y":360}'
 # Explicit billed operation, only after camera/overlay permission and visible UI:
 content call --uri content://org.taku.tryon.api --method start
 content call --uri content://org.taku.tryon.api --method stop

@@ -20,6 +20,9 @@ import androidx.compose.ui.graphics.layer.GraphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.agentos.agent.home.assistant.EntryMode
+import org.agentos.agent.home.island.SystemIslandBridge
+import org.agentos.agent.home.island.assistantEntryBackAction
+import org.agentos.agent.home.island.assistantEntryUsesFallback
 import org.agentos.agent.home.ui.HomeController
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.platform.LocalContext
@@ -41,9 +44,17 @@ fun BoxScope.AssistantLayer(scene: GraphicsLayer, controller: HomeController) {
 fun BoxScope.AssistantLayer(
   scene: GraphicsLayer,
   session: org.agentos.agent.home.assistant.AssistantSession,
+  cancelPreparation: (() -> Unit)? = null,
 ) {
   val state by session.state.collectAsStateWithLifecycle()
   val voice by session.voice.state.collectAsStateWithLifecycle()
+  val context = LocalContext.current
+  val nativeEnabled by SystemIslandBridge.nativeEnabled.collectAsStateWithLifecycle()
+  val nativeEntry = remember(context, nativeEnabled, state.voicePreparation, state.entry,
+    state.characterTryOn?.requestId, state.characterTryOn?.phase) {
+    SystemIslandBridge.nativeAssistantAvailable(context, nativeEnabled)
+  }
+  val cancelPreparing = cancelPreparation ?: { session.cancelPendingSystemVoicePreparation(session.gesture.id) }
   var width by remember { mutableFloatStateOf(0f) }
   var height by remember { mutableFloatStateOf(0f) }
   Box(Modifier.fillMaxSize().onSizeChanged { width = it.width.toFloat(); height = it.height.toFloat() })
@@ -56,7 +67,10 @@ fun BoxScope.AssistantLayer(
     VoiceHoldOverlay(scene, visible = state.entry == EntryMode.Voice, voice = voice,
       zone = state.holdZone, continuous = state.voiceContinuous, session = session)
   }
-  state.characterTryOn?.let { CharacterConfirmation(it, session) }
+  if (assistantEntryUsesFallback(state, nativeEntry)) {
+    state.characterTryOn?.let { CharacterConfirmation(it, session) }
+    if (state.voicePreparation) VoicePreparationOverlay(cancelPreparing)
+  }
 
   if (state.entry == EntryMode.Text) Box(Modifier.fillMaxSize().pointerInput(session) {
     detectTapGestures { session.closeEntry() }
@@ -66,11 +80,12 @@ fun BoxScope.AssistantLayer(
 
   // The actual status bar and every island surface now belong to SystemUI.
   BackHandler(enabled = state.overlayVisible) {
-    if (state.characterTryOn != null) { session.closeEntry(); return@BackHandler }
-    when (state.entry) {
-      EntryMode.Voice -> session.cancelVoice()
-      EntryMode.Text -> session.closeEntry()
-      EntryMode.None -> Unit
+    when (assistantEntryBackAction(state)) {
+      "character" -> session.closeEntry()
+      "preparation" -> cancelPreparing()
+      "voice" -> session.cancelVoice()
+      "text" -> session.closeEntry()
+      else -> Unit
     }
   }
 }

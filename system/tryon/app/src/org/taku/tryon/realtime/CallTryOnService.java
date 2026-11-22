@@ -83,6 +83,49 @@ public final class CallTryOnService extends Service {
             publish();return true;
         }catch(RuntimeException unavailable){return false;}
     }
+    static boolean move(int x,int y) {
+        CallTryOnService value=current;
+        return value!=null&&value.requestMove(x,y);
+    }
+    private boolean requestMove(int x,int y) {
+        if(Looper.myLooper()==main.getLooper())return applyMove(x,y);
+        long postedAt=System.nanoTime();
+        FutureTask<Boolean> command=new FutureTask<>(()->System.nanoTime()-postedAt
+                <TimeUnit.MILLISECONDS.toNanos(PRESENTATION_RESPONSE_MS)&&applyMove(x,y));
+        if(!main.post(command))return false;
+        try{return command.get(PRESENTATION_RESPONSE_MS,TimeUnit.MILLISECONDS);}
+        catch(InterruptedException interrupted){Thread.currentThread().interrupt();}
+        catch(ExecutionException|TimeoutException unavailable){ }
+        command.cancel(false);main.removeCallbacks(command);return false;
+    }
+    private boolean applyMove(int x,int y) {
+        if(current!=this||window==null||terminating.get()||destroyed)return false;
+        try {
+            if(!window.moveTo(x,y))return false;
+            publish();return true;
+        } catch(RuntimeException unavailable){return false;}
+    }
+    /** Read the live GUI geometry on main; never infer it from a cached presentation label. */
+    static Bundle position() {
+        CallTryOnService value=current;
+        return value==null?new Bundle():value.requestPosition();
+    }
+    private Bundle requestPosition() {
+        if(Looper.myLooper()==main.getLooper())return applyPosition();
+        long postedAt=System.nanoTime();
+        FutureTask<Bundle> command=new FutureTask<>(()->System.nanoTime()-postedAt
+                <TimeUnit.MILLISECONDS.toNanos(PRESENTATION_RESPONSE_MS)?applyPosition():new Bundle());
+        if(!main.post(command))return new Bundle();
+        try{return command.get(PRESENTATION_RESPONSE_MS,TimeUnit.MILLISECONDS);}
+        catch(InterruptedException interrupted){Thread.currentThread().interrupt();}
+        catch(ExecutionException|TimeoutException unavailable){ }
+        command.cancel(false);main.removeCallbacks(command);return new Bundle();
+    }
+    private Bundle applyPosition() {
+        if(current!=this||window==null||terminating.get()||destroyed)return new Bundle();
+        try{return window.position();}
+        catch(RuntimeException unavailable){return new Bundle();}
+    }
     @Override public void onCreate() {
         super.onCreate(); current=this;admissionGeneration=ADMISSION.current();
         island=new IslandPublisher(this,"tryon-progress","AI try-on");

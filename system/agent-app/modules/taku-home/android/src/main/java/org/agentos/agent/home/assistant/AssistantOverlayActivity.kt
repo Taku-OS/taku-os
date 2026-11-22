@@ -19,7 +19,6 @@ import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.agentos.agent.home.design.TakuTheme
 import org.agentos.agent.home.ui.assistant.AssistantLayer
-import org.agentos.agent.home.ui.assistant.VoicePreparationOverlay
 
 /** Translucent cross-app presentation; Quickstep keeps ownership of the original pointer stream. */
 class AssistantOverlayActivity : AppCompatActivity() {
@@ -32,16 +31,18 @@ class AssistantOverlayActivity : AppCompatActivity() {
     enableEdgeToEdge(SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT), SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT))
     super.onCreate(state)
     window.isNavigationBarContrastEnforced = false
-    window.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
     window.attributes = window.attributes.apply { blurBehindRadius = (24 * resources.displayMetrics.density).toInt() }
     presenting = open(intent, restoring = state != null)
     if (!presenting) { finish(); return }
+    if (session.state.value.voicePreparation || session.state.value.characterTryOn != null)
+      window.clearFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
+    else window.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
     setContent {
       val ui by session.state.collectAsStateWithLifecycle()
       val scene = rememberGraphicsLayer()
-      LaunchedEffect(ui.characterTryOn != null) {
-        // The confirmation floats over the still-playing video; keep the regular voice blur otherwise.
-        if (ui.characterTryOn != null) window.clearFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
+      LaunchedEffect(ui.voicePreparation, ui.characterTryOn != null) {
+        // Native entry cards float above the untouched app; this transparent Activity owns only lifecycle.
+        if (ui.voicePreparation || ui.characterTryOn != null) window.clearFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
         else window.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
       }
       LaunchedEffect(ui.overlayVisible) {
@@ -55,8 +56,7 @@ class AssistantOverlayActivity : AppCompatActivity() {
           Box(Modifier.fillMaxSize().drawWithContent {
             scene.record { this@drawWithContent.drawContent() }; drawLayer(scene)
           })
-          AssistantLayer(scene, session)
-          if (ui.voicePreparation) VoicePreparationOverlay {
+          AssistantLayer(scene, session) {
             session.cancelPendingSystemVoicePreparation(intent.getStringExtra("gestureId").orEmpty())
           }
         }

@@ -9,7 +9,7 @@ import java.util.Set;
 /** Strict, bounded CLI object syntax. Nested values, duplicate keys and coercions are forbidden. */
 public final class ApiArguments {
     private static final int MAX_BYTES=32*1024;
-    private static final Set<String> FIELDS=Set.of("mode","provider","region","referenceUri","prompt","referenceExpires");
+    private static final Set<String> FIELDS=Set.of("mode","provider","region","referenceUri","prompt","referenceExpires","x","y");
     private final String source;
     private int at;
     private ApiArguments(String source){this.source=source;}
@@ -24,7 +24,7 @@ public final class ApiArguments {
             space();String key=string();
             if(!FIELDS.contains(key)||result.containsKey(key))throw invalid();
             space();expect(':');space();
-            Object value="referenceExpires".equals(key)?integer():string();result.put(key,value);space();
+            Object value=("referenceExpires".equals(key)||"x".equals(key)||"y".equals(key))?integer():string();result.put(key,value);space();
             if(take('}')){end();return result;}
             expect(',');
         }

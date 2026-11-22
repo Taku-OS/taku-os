@@ -41,7 +41,7 @@ public final class TryOnApiProvider extends ContentProvider {
         Bundle args=extras==null?new Bundle():extras;
         if(method==null)return TryOnController.result(false,"invalid_arguments");
         if(arg!=null){
-            if(!args.isEmpty()||!("configure".equals(method)||"draft".equals(method)||"start".equals(method)||"clearCredential".equals(method)))return TryOnController.result(false,"invalid_arguments");
+            if(!args.isEmpty()||!("configure".equals(method)||"draft".equals(method)||"start".equals(method)||"clearCredential".equals(method)||"move".equals(method)))return TryOnController.result(false,"invalid_arguments");
             try{
                 args=new Bundle();
                 for(java.util.Map.Entry<String,Object> field:ApiArguments.parse(arg).entrySet()){
@@ -54,10 +54,11 @@ public final class TryOnApiProvider extends ContentProvider {
             case "configure":if(!TryOnController.validArguments(args,"mode","provider","region"))return TryOnController.result(false,"invalid_arguments");break;
             case "draft":case "start":if(!TryOnController.validArguments(args,"mode","referenceUri","prompt","referenceExpires"))return TryOnController.result(false,"invalid_arguments");break;
             case "clearCredential":if(!TryOnController.validArguments(args,"provider"))return TryOnController.result(false,"invalid_arguments");break;
+            case "move":break; // Required integer coordinates are checked by the same Controller entry.
             default:if(!args.isEmpty())return TryOnController.result(false,"invalid_arguments");
         }
         switch(method){
-            case "describe":{Bundle b=TryOnController.result(true,"describe");b.putString("methods","status,draft,configure,start,retry,stop,minimize,expand,fullscreen,diagnostics,clearCredential");b.putString("arguments","configure,draft,start,clearCredential accept strict JSON object in arg (32 KiB maximum), mutually exclusive with non-empty extras; same validation");b.putString("credentialWrite","content://org.taku.tryon.api/credentials/lucy or /xmax; one bounded UTF-8 input at a time; EOF/commit admission within 30 seconds; credential_write_busy or credential_write_timeout; metadata only on read");b.putString("startRequires","Open org.taku.tryon/.realtime.TryOnActivity; camera permission and display-over-apps permission; content referenceUri; explicit billed start");b.putString("voiceMethods","cosplayStatus,cosplayModelStatus,configureCosplay,prepareCosplay,cancelCosplay,reportCosplayVoice");b.putString("voiceProtocol","taku.cosplay.voice.v1; setup at org.taku.tryon/.realtime.TryOnActivity; invocation preparation requires the installed signed org.agentos.agent package and a real current TikTok frame");b.putString("voiceLanguage","Audio Engine settingsScope=assistant-entry; open org.agentos.audio/.DictationSettingsActivity or use content://org.agentos.audio.open-access settings; configureCosplay rejects speechLanguage");return b;}
+            case "describe":{Bundle b=TryOnController.result(true,"describe");b.putString("methods","status,draft,configure,start,retry,stop,minimize,expand,fullscreen,move,diagnostics,clearCredential");b.putString("arguments","configure,draft,start,clearCredential,move accept strict JSON object in arg (32 KiB maximum), mutually exclusive with non-empty extras; same validation");b.putString("moveArguments","Required x,y integer display pixels, each within signed 32-bit range; window top-left, clamped by the GUI geometry. Only a movable active preview accepts move; status.position reads actual bounds and canMove.");b.putString("credentialWrite","content://org.taku.tryon.api/credentials/lucy or /xmax; one bounded UTF-8 input at a time; EOF/commit admission within 30 seconds; credential_write_busy or credential_write_timeout; metadata only on read");b.putString("startRequires","Open org.taku.tryon/.realtime.TryOnActivity; camera permission and display-over-apps permission; content referenceUri; explicit billed start");b.putString("voiceMethods","cosplayStatus,cosplayModelStatus,configureCosplay,prepareCosplay,cancelCosplay,reportCosplayVoice");b.putString("voiceProtocol","taku.cosplay.voice.v1; setup at org.taku.tryon/.realtime.TryOnActivity; invocation preparation requires the installed signed org.agentos.agent package and a real current TikTok frame");b.putString("voiceLanguage","Audio Engine settingsScope=assistant-entry; open org.agentos.audio/.DictationSettingsActivity or use content://org.agentos.audio.open-access settings; configureCosplay rejects speechLanguage");return b;}
             case "status":return TryOnController.status(getContext());
             case "diagnostics":return TryOnController.diagnostics(getContext());
             case "draft":return TryOnController.draft(getContext(),arg==null?extras:args);
@@ -66,6 +67,7 @@ public final class TryOnApiProvider extends ContentProvider {
             case "retry":return TryOnController.retry(getContext());
             case "stop":return TryOnController.stop(getContext());
             case "minimize":case "expand":case "fullscreen":return TryOnController.presentation(method);
+            case "move":return TryOnController.move(args);
             case "clearCredential":return TryOnController.credential(getContext(),args.getString("provider",""),null,true);
             default:return TryOnController.result(false,"unknown_method");
         }

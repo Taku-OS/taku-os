@@ -67,7 +67,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.activity.compose.BackHandler
 import org.agentos.agent.home.assistant.VoicePhase
 import org.agentos.agent.home.assistant.VoiceState
 import org.agentos.agent.home.design.TakuSpacing
@@ -83,11 +82,10 @@ import kotlin.math.sin
 /** Where a held finger is: over "Cancel" (1-1-2), over "Keep talking", or neither (release arms automatic utterance submission). */
 typealias HoldZone = org.agentos.agent.home.assistant.VoiceGesture.Zone
 
-/** Screen capture preparation is feedback only: no waveform, listening claim or haptic. */
+/** Non-native ROM fallback only; official ROM preparation is drawn by SystemUI. */
 @Composable
 internal fun BoxScope.VoicePreparationOverlay(cancel: () -> Unit) {
   val colors = TakuTheme.colors
-  BackHandler { cancel() }
   Column(Modifier.align(Alignment.Center).padding(TakuSpacing.xl)
     .clip(RoundedCornerShape(24.dp)).background(colors.surfaceInverse).padding(TakuSpacing.xl),
     horizontalAlignment = Alignment.CenterHorizontally,

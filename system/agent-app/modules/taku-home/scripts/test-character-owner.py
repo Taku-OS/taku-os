@@ -24,8 +24,10 @@ SOURCE_ROOT = MODULE.parents[3]
 PRODUCTION = MODULE / 'android/src/main/java/org/agentos/agent/home/assistant'
 BUILD = SOURCE_ROOT / 'out/character-owner-host'
 SOURCES = [PRODUCTION / name for name in ('CharacterTryOn.kt', 'CharacterTryOnPolicy.kt', 'CharacterTextInvocation.kt',
-                                        'CharacterVoiceHandoff.kt', 'VoiceGesture.kt', 'VoiceInput.kt', 'VoiceDelivery.kt')]
+                                        'CharacterVoiceHandoff.kt', 'VoiceGesture.kt', 'VoiceInput.kt', 'VoiceDelivery.kt',
+                                        'ThreadProjection.kt')]
 ENGINE = PRODUCTION / 'EngineVoiceInput.kt'
+SESSION = PRODUCTION / 'AssistantSession.kt'
 CONTRACT = SOURCE_ROOT / 'system/tryon/contract/org/taku/cosplay/api/CosplayContract.java'
 
 
@@ -61,6 +63,49 @@ def toolchain():
         if not path.is_file():
             raise SystemExit(f'{help_text}; missing: {path}')
     return jdk, kotlinc, kotlin_lib, coroutines, json_jar
+
+
+def session_fixture_source():
+    """Run the production state/close/publish bodies without constructing Android's full session."""
+    source = SESSION.read_text()
+    state_start = source.index('enum class EntryMode')
+    state_end = source.index('\n}\n', source.index('data class AssistantState(')) + len('\n}\n')
+
+    def member(signature):
+        start = source.index('  ' + signature)
+        line_end = source.index('\n', start)
+        if source[start:line_end].rstrip().endswith('}'):
+            return source[start:line_end]
+        # These methods' nested blocks are indented; their closing brace is at two spaces.
+        end = source.index('\n  }', start) + len('\n  }')
+        return source[start:end]
+
+    handoff = re.search(r'handedOff = \{ ([^\n]+) \},', source)
+    maximum = re.search(r'const val MAX_TEXT = ([0-9_]+)', source)
+    assert handoff and maximum, 'Missing production handoff or text limit'
+    return ('package org.agentos.agent.home.assistant\n'
+            'import java.util.UUID\nimport kotlinx.coroutines.flow.MutableStateFlow\n'
+            'import kotlinx.coroutines.flow.update\n' + source[state_start:state_end] + '\n' +
+            'class AssistantSession {\n'
+            ' val flow=MutableStateFlow(AssistantState())\n'
+            ' internal lateinit var characterTryOn:CharacterTryOn\n'
+            ' var liveCleanups=0;var voiceCleanups=0;var brokerStops=0;var draftRefreshes=0\n'
+            ' val streamActive=true\n private val editor=Any()\n'
+            ' private fun endLiveTalk(){liveCleanups++}\n'
+            ' private fun revokeVoice(){voiceCleanups++;characterTryOn.clear()}\n'
+            ' private fun refreshDraft(){draftRefreshes++}\n'
+            ' fun stop(){brokerStops++}\n'
+            ' private fun recoverFailure(editor:Any,code:String,text:String?):Unit=error("Unexpected stream recovery")\n'
+            ' fun dismiss():Unit=error("Character handoff must not dismiss the conversation")\n'
+            ' fun reset():Unit=error("Character handoff must not reset the conversation")\n'
+            ' fun characterHandedOff(){' + handoff[1] + '}\n'
+            ' fun replayTurn(turn:TurnView?){publish(turn)}\n'
+            ' fun showTextEntry(){presentTextEntry()}\n' +
+            member('fun closeEntry(') + '\n' +
+            member('fun cancelCharacter(') + '\n' +
+            member('private fun presentTextEntry(') + '\n' +
+            member('private fun publish(turn:') + '\n' +
+            ' companion object {const val MAX_TEXT=' + maximum[1] + '}\n}\n')
 
 STUBS = {
 'Os.kt': r'''package android.os
@@ -135,6 +180,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.update
 import org.taku.cosplay.api.CosplayContract as C
 
 private var assertions=0
@@ -179,11 +225,13 @@ private class Fixture {
  val textPresentations=Collections.synchronizedList(mutableListOf<Boolean>())
  val textLease=CharacterTextInvocation()
  val voiceLease=CharacterVoiceHandoff()
+ val session=AssistantSession()
  val handoffs=AtomicInteger()
  val owner=CharacterTryOn(context,scope,{id->when{ textInput->textLease.matches(id,SystemClock.elapsedRealtime());keepTalkingInput->voiceLease.eligible(id,SystemClock.elapsedRealtime());else->eligible}},{unlocked},{
   state=it
   if(textInput){if(textLease.closesTextInput(it?.phase))textFieldOpen=false;textPresentations.add(textFieldOpen)}
- },{handoffs.incrementAndGet()})
+ },{session.characterHandedOff();handoffs.incrementAndGet()})
+ init {session.characterTryOn=owner}
  suspend fun <T> onOwner(block:()->T):T=withContext(dispatcher){block()}
  suspend fun reference():ByteArray=onOwner {
   val jpeg=byteArrayOf(0xff.toByte(),0xd8.toByte(),0xff.toByte(),0xd9.toByte())
@@ -202,7 +250,7 @@ private class Fixture {
   withTimeout(2500){while(!condition())delay(5)};expect(true,message)
  }
  suspend fun confirm(){onOwner{owner.confirm(state!!.requestId)}}
- suspend fun cancel(){onOwner{owner.cancel(state!!.requestId)}}
+ suspend fun cancel(){onOwner{session.cancelCharacter(state!!.requestId)}}
  suspend fun dispose(){resolver.statusRelease?.countDown();resolver.prepareRelease?.countDown();onOwner{owner.clear()};scope.cancel();dispatcher.close()}
 }
 private suspend fun case(name:String,body:suspend Fixture.()->Unit){
@@ -219,6 +267,53 @@ fun main()=runBlocking {
   expect(jpeg.all{it==0.toByte()},"original reference erased")
   expect(resolver.payload!!.all{it==0.toByte()},"Binder copy erased after return")
   expect(state==null,"no lingering confirmation")
+ }
+ case("successful character handoff hides only the old assistant presentation"){
+  val oldTurn=TurnView("old_turn","old question",false,false,"old reply","old reply",emptyList(),emptyList())
+  val before=AssistantState(entry=EntryMode.Voice,island=IslandMode.Expanded,threadId="old_thread",
+   activityId="old_activity",turn=oldTurn,draft="Keep my unsent draft",task="completed",taskId="old_task")
+  onOwner{session.flow.value=before}
+  reference();expect(intercept(),"fresh character final intercepted beside existing conversation")
+  until("old-reply confirming"){state?.phase==CharacterTryOnPhase.Confirming};confirm()
+  until("old-reply handoff"){handoffs.get()==1}
+  expect(session.flow.value==before.copy(entry=EntryMode.None,island=IslandMode.Hidden),"success hides the card without losing thread, turn, draft or task")
+  expect(session.liveCleanups==1&&session.voiceCleanups==1,"existing entry cleanups still run once")
+  expect(session.brokerStops==0&&session.streamActive,"handoff does not stop a task or its stream")
+  val later=oldTurn.copy(headline="Later old reply",reply="Later old reply")
+  onOwner{session.replayTurn(later)}
+  expect(session.flow.value.island==IslandMode.Hidden,"late ordinary turn update cannot cover the camera")
+  expect(session.flow.value.turn==later&&session.flow.value.draft==before.draft,"hidden conversation continues receiving updates without losing the draft")
+  onOwner{session.showTextEntry()}
+  expect(session.flow.value.entry==EntryMode.Text&&session.flow.value.island==IslandMode.Expanded,"explicit text input can reopen the retained conversation")
+  expect(session.flow.value.threadId==before.threadId&&session.flow.value.draft==before.draft&&session.brokerStops==0,"reopening preserves the same conversation and draft")
+ }
+ case("successful character handoff preserves a running ordinary task"){
+  val oldTurn=TurnView("active_turn","old question",true,false,"Working",null,emptyList(),emptyList())
+  val before=AssistantState(entry=EntryMode.Voice,island=IslandMode.Full,threadId="running_thread",
+   turn=oldTurn,draft="Unsent notes",task="running",taskId="running_task",pending="Existing request")
+  onOwner{session.flow.value=before}
+  reference();intercept();until("running-task confirming"){state?.phase==CharacterTryOnPhase.Confirming};confirm()
+  until("running-task handoff"){handoffs.get()==1}
+  expect(session.flow.value==before.copy(entry=EntryMode.None,island=IslandMode.Hidden),"only the presentation changes while ordinary work stays active")
+  expect(session.flow.value.working&&session.brokerStops==0&&session.streamActive,"running work is neither cancelled nor detached")
+ }
+ case("Not now preserves the original assistant island request"){
+  val oldTurn=TurnView("old_turn","old question",false,false,"Old answer","Old answer",emptyList(),emptyList())
+  val before=AssistantState(entry=EntryMode.Voice,island=IslandMode.Full,threadId="old_thread",turn=oldTurn,draft="Unsent draft")
+  onOwner{session.flow.value=before}
+  reference();intercept();until("cancel-with-history confirming"){state?.phase==CharacterTryOnPhase.Confirming};cancel()
+  expect(session.flow.value==before.copy(entry=EntryMode.None),"ordinary close keeps the original full island and conversation")
+  expect(handoffs.get()==0&&context.launched.isEmpty()&&session.brokerStops==0,"Not now never runs successful handoff or stops a task")
+ }
+ case("failed character launch does not apply successful handoff hiding"){
+  val oldTurn=TurnView("old_turn","old question",false,false,"Old answer","Old answer",emptyList(),emptyList())
+  val before=AssistantState(entry=EntryMode.Voice,island=IslandMode.Expanded,threadId="old_thread",turn=oldTurn,draft="Unsent draft")
+  onOwner{session.flow.value=before};context.launchFails=true
+  reference();intercept();until("failure-with-history confirming"){state?.phase==CharacterTryOnPhase.Confirming};confirm()
+  until("failure-with-history card"){state?.phase==CharacterTryOnPhase.Failed}
+  expect(session.flow.value==before&&handoffs.get()==0,"failure retains the previous presentation request until explicit Close")
+  cancel()
+  expect(session.flow.value==before.copy(entry=EntryMode.None)&&session.brokerStops==0,"closing the failure preserves the old reply and draft")
  }
  case("cancel while checking prevents late native failure"){
   resolver.available=false;resolver.statusEntered=CountDownLatch(1);resolver.statusRelease=CountDownLatch(1)
@@ -446,7 +541,7 @@ def main():
         if path.exists():
             shutil.rmtree(path)
         path.mkdir()
-    production = [*SOURCES, CONTRACT, ENGINE]
+    production = [*SOURCES, CONTRACT, ENGINE, SESSION]
     hashes = {path.relative_to(SOURCE_ROOT).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest() for path in production}
     copies = []
     for path in SOURCES:
@@ -457,6 +552,9 @@ def main():
     transcript.write_text('package org.agentos.agent.home.assistant\nclass DictationTranscript {' +
                           ENGINE.read_text().split('class DictationTranscript {', 1)[1])
     copies.append(transcript)
+    session = sources / 'SessionCloseFixture.kt'
+    session.write_text(session_fixture_source())
+    copies.append(session)
     for name, source in STUBS.items():
         path = sources / name
         path.write_text(source)
@@ -475,11 +573,11 @@ def main():
     output = run([jdk / 'bin/java', '-cp', classpath, 'org.agentos.agent.home.assistant.OwnerTestKt'])
     assert hashes == {path.relative_to(SOURCE_ROOT).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest() for path in production}, 'Production changed during test; repeat with stable source'
     result = re.search(r'RESULT cases=(\d+) assertions=(\d+)', output)
-    assert result and int(result[1]) == 25, output
+    assert result and int(result[1]) == 29, output
     (BUILD / 'compile.log').write_text(compile_log)
     (BUILD / 'test.log').write_text(output)
     receipt = {'schema': 'taku.character-owner.host-qa/1', 'passed': True, 'sourceSha256': hashes,
-               'cases': int(result[1]), 'assertions': int(result[2]), 'execution': 'Actual production owner, policy, text/voice handoff leases and final VoiceDelivery; Android/ContentResolver/Activity doubles',
+               'cases': int(result[1]), 'assertions': int(result[2]), 'execution': 'Actual production owner, policy, leases, final VoiceDelivery, state and extracted session handoff/close/turn-publication/text-presentation methods; Android/ContentResolver/Activity and entry-cleanup doubles',
                'androidRuntime': False, 'gestureOrAsrVerified': False, 'uiVerified': False, 'cameraOrCloudInvoked': False}
     (BUILD / 'report.json').write_text(json.dumps(receipt, indent=2) + '\n')
     print(output.strip())

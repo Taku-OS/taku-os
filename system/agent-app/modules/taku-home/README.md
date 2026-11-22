@@ -519,8 +519,10 @@ Figma 1-1 … 1-6. Native Kotlin/Compose (`assistant/`, `ui/assistant/`); state 
   comes from `cmd statusbar island state`. ROM preinstallation includes a revocable
   default notification grant; existing component-only upgrades need that permission
   checked separately.
-  A framework hold first shows a neutral Getting ready… surface while screen context
-  is processed. `assistant/get.voicePreparation` reads that same state; microphone
+  A framework hold first shows Getting ready… only in the real SystemUI native island,
+  without a central modal or preparation blur. The transparent Home Activity keeps
+  the same invocation/reference lifetime and Back cancellation; it does not close
+  just because SystemUI draws the card. `assistant/get.voicePreparation` reads that same state; microphone
   capture and the listening cue begin only after the current capture handoff is ready.
   Release, cancellation, lock or an expired gesture prevents any late microphone open.
   Agent methods and protocol are in the preinstalled `taku-open-access` skill. The
@@ -529,7 +531,8 @@ Figma 1-1 … 1-6. Native Kotlin/Compose (`assistant/`, `ui/assistant/`); state 
 * **Text (1-2, 1-3)**: double tap. A glass capsule pops off the sphere with a metaball neck and
   flies up, widening into the 380 × 64 Surface/900 field 16 dp above the keyboard; the lower
   screen frosts (σ0→6, #E3E3E3 → 90 %). Empty field: microphone (dictation, 1-5); text: brand
-  send button. Closing the keyboard closes the field. Dictation keeps the field focused (hidden
+  send button. Dismiss input explicitly with Back or a background tap; keyboard attachment
+  and inset changes do not close it. Dictation keeps the field focused (hidden
   behind the transcript), so the keyboard stays up as in 1-5.
 * **Island**: covers the status bar (hidden while expanded or collapsed: the status bar window
   would otherwise swallow taps on the pill) at 8 dp, radius 40, Content/900 composited over
@@ -632,6 +635,17 @@ content call --uri $A --method assistant/voice-cancel
   is disabled or unavailable; the native card reports the failure. Unrelated
   speech keeps the ordinary handoff, and cancellation/expiry discards the pending
   character invocation. Old full-chat image messages cannot mint a reference.
+  On the official ROM, confirmation and failure use the existing v1 SystemUI black
+  assistant template, with its native logo, expand glyph and pill actions. Not now /
+  Try on and failure Close call the same request-ID-checked Session handlers as the
+  Agent API. Each immutable PendingIntent has a distinct request/action identity;
+  stale buttons cannot resume an old conversation. The body/expand action only
+  re-expands the current native card and cannot start TryOn. Existing v1 suggestion
+  pills share the renderer's gray style. After Try on, the confirmation disappears
+  while the ordinary reply stays suppressed: no central Opening preview card is
+  shown. Successful handoff preserves the conversation/draft/task while hiding
+  its old island reply. Non-native ROMs, disabled islands or blocked Home notifications retain the Home fallback
+  confirmation; the invisible source owner and expiry/lock/cancel rules are shared.
 
 * **Keyboard**: the frames show a neutral keyboard (Main/Canvas #E3E3E3, white keys r6,
   Surface/Secondary #F1F1F3 function keys, #1B1B1B accent keys). The preinstalled Taku IME's

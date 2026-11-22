@@ -14,6 +14,22 @@ import kotlinx.coroutines.withTimeout
 class IslandActionReceiver : BroadcastReceiver() {
   override fun onReceive(context: Context, intent: Intent) {
     val session = AssistantSession.get(context)
+    if (intent.action == AssistantEntryCard.INTENT_ACTION) {
+      // A stale native card must never restore the old ordinary conversation after process death.
+      val kind = intent.getStringExtra("entryKind") ?: return
+      val id = intent.getStringExtra("entryId") ?: return
+      val action = intent.getStringExtra("entryAction") ?: return
+      val gesture = session.gesture
+      val preparationId = gesture.id.takeIf { gesture.source == "system" && gesture.phase == org.agentos.agent.home.assistant.VoiceGesture.Phase.Pending }
+      val card = assistantEntryCard(session.state.value, preparationId) ?: return
+      if (intent.data?.toString() != card.actionIdentity(action)) return
+      try {
+        dispatchAssistantEntryAction(session.state.value, preparationId, kind, id, action,
+          session::confirmCharacter, session::cancelCharacter, session::cancelPendingSystemVoicePreparation,
+          { token -> SystemIslandBridge.request(context, "expand", token) })
+      } catch (failure: Exception) { android.util.Log.w("TakuIsland", "Native entry action rejected", failure) }
+      return
+    }
     val thread = intent.getStringExtra("thread") ?: return
     val activity = intent.getStringExtra("activity") ?: return
     if (session.state.value.threadId == null && thread != "entry" &&

@@ -9,6 +9,12 @@ final class ShoppingPreviewReveal {
         if (!realResultReady || claimed || interrupted) return 0;
         claimed = true; return epoch;
     }
+    long claim(boolean realResultReady, boolean characterPreview) {
+        return characterPreview ? 0 : claim(realResultReady);
+    }
+    static boolean showCameraImmediately(boolean directFrames, boolean characterPreview) {
+        return !directFrames || characterPreview;
+    }
     void interrupt() { interrupted = true; epoch++; }
     boolean current(long ticket) { return ticket != 0 && ticket == epoch && claimed && !interrupted; }
 }

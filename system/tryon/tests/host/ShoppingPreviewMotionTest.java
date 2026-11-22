@@ -7,7 +7,7 @@ public final class ShoppingPreviewMotionTest {
     private static final ShoppingIslandGeometry.Box PREVIEW = new ShoppingIslandGeometry.Box(360,100,360,434);
     public static void main(String[] args) {
         shoppingGrowsAroundPhysicalLens(); revealDoesNotScaleContent(); movedCardReturnsBeforeRolling(); anchoredCardRollsImmediately(); reverseStartsAtCurrentFrame();
-        paperDoesNotFadeDuringVerticalRevealOrRoll(); morphKeepsCurrentOrigin(); epochRejectsStaleCompletion(); dimensionsAndAlphaRemainBounded();
+        paperDoesNotFadeDuringVerticalRevealOrRoll(); morphKeepsCurrentOrigin(); characterToolbarNeverCrossesTheVideo(); epochRejectsStaleCompletion(); dimensionsAndAlphaRemainBounded();
         System.out.println("ShoppingPreviewMotionTest: " + checks + " checks passed; pure display geometry");
     }
     private static void shoppingGrowsAroundPhysicalLens() {
@@ -138,6 +138,20 @@ public final class ShoppingPreviewMotionTest {
         var e=new ShoppingPreviewMotion.Epoch();long opening=e.next();check(e.current(opening),"initial animation owns completion");
         long reverse=e.next();check(!e.current(opening)&&e.current(reverse),"reverse invalidates old completion");
         long close=e.next();check(!e.current(opening)&&!e.current(reverse)&&e.current(close),"privacy close fences all old callbacks");
+    }
+    private static void characterToolbarNeverCrossesTheVideo() {
+        var display=new ShoppingIslandGeometry.Display(1080,2424,0,173,0,64,497,44,582,129);
+        var mini=ShoppingPreviewLayout.applicationOverlayLayout(display,2.625f,ShoppingIslandGeometry.Mode.PREVIEW,580,true,200,700,true);
+        var full=ShoppingPreviewLayout.applicationOverlayLayout(display,2.625f,ShoppingIslandGeometry.Mode.FULLSCREEN,580,true,200,700,true);
+        for(var start:new ShoppingIslandGeometry.Layout[]{mini,full}){
+            var end=start==mini?full:mini;
+            for(int step=0;step<=100;step++){
+                var body=ShoppingPreviewMotion.layout(start,end,step/100f);
+                var controls=ShoppingPreviewLayout.characterControls(body,2.625f);
+                check(controls.bottom()+Math.round(12*2.625f)-1<=body.video().y(),"character toolbar remains above every interpolated video frame");
+                check(body.window().width()-controls.right()==Math.round(12*2.625f),"character toolbar right inset is constant during fullscreen transitions");
+            }
+        }
     }
     private static void dimensionsAndAlphaRemainBounded() {
         for(int i=0;i<=100;i++){

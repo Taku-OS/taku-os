@@ -31,7 +31,7 @@ final class ShoppingPreviewChrome {
     final LinearLayout toolbar;
     final TextView title, statusChip, hint, liveStatus;
     final Button minimize, close, shoppingClose, compactClose, compare, fullscreen, resizeTarget;
-    private final View brand, divider;
+    private final View brand, divider, dragGrip;
     private final Context context;
     private final float density;
     private boolean live, character;
@@ -51,6 +51,11 @@ final class ShoppingPreviewChrome {
         close = button("", "Stop and close try-on", Symbol.CLOSE, 14);
         close.setPadding(dp(14), 0, dp(14), 0); close.setTooltipText("Stop try-on");
         header.addView(close, new FrameLayout.LayoutParams(dp(44), dp(44), Gravity.RIGHT | Gravity.TOP));
+        dragGrip = new View(context);
+        dragGrip.setBackground(shape(0xffaeb4ae, 999, 0));
+        dragGrip.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        header.addView(dragGrip, new FrameLayout.LayoutParams(dp(24), dp(4), Gravity.CENTER));
+        dragGrip.setVisibility(View.GONE);
 
         statusChip = label("Preparing", 11, TEXT); statusChip.setGravity(Gravity.CENTER);
         statusChip.setPadding(dp(10), dp(6), dp(10), dp(6));
@@ -99,10 +104,24 @@ final class ShoppingPreviewChrome {
     private void shoppingLayout(ShoppingIslandGeometry.Layout layout, boolean full) {
         header.setVisibility(View.GONE); hintRow.setVisibility(View.GONE);
         compare.setVisibility(View.GONE); liveStatus.setVisibility(View.GONE); divider.setVisibility(View.GONE);
-        var controls = ShoppingPreviewLayout.shoppingControls(layout, density);
+        var controls = character ? ShoppingPreviewLayout.characterControls(layout, density)
+                : ShoppingPreviewLayout.shoppingControls(layout, density);
         int target = controls.height();
         place(toolbar, controls.width(), target, controls.x(), controls.y());
-        toolbar.setBackground(null); toolbar.setClipToOutline(false);
+        toolbar.setBackground(character ? shape(0x22ffffff,17,0x12ffffff) : null);
+        toolbar.setClipToOutline(character);
+        if(character) {
+            brand.setVisibility(View.GONE); title.setVisibility(View.GONE);
+            minimize.setVisibility(View.GONE); close.setVisibility(View.GONE);
+            header.setVisibility(full?View.GONE:View.VISIBLE); dragGrip.setVisibility(full?View.GONE:View.VISIBLE);
+            int edge=Math.min(dp(12),Math.max(0,controls.x()));
+            place(header,Math.max(1,controls.x()-edge),target,edge,controls.y());
+            FrameLayout.LayoutParams grip=(FrameLayout.LayoutParams)dragGrip.getLayoutParams();
+            grip.width=Math.min(dp(24),Math.max(1,controls.x()-edge));grip.height=Math.min(dp(4),target);
+            dragGrip.setLayoutParams(grip);
+            place(resizeTarget,Math.min(dp(44),layout.window().width()),Math.min(dp(44),layout.window().height()),
+                    Math.max(0,layout.window().width()-dp(44)),Math.max(0,layout.window().height()-dp(44)));
+        }
         LinearLayout.LayoutParams corner = (LinearLayout.LayoutParams) fullscreen.getLayoutParams();
         corner.width = target; corner.height = -1; corner.weight = 0; fullscreen.setLayoutParams(corner);
         shoppingClose.setVisibility(View.VISIBLE);

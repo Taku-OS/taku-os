@@ -25,6 +25,16 @@ final class ShoppingPreviewLayout {
         }
     }
 
+    /** Only the immediately visible character window reacts; outfit retains its result-driven reveal. */
+    static final class DisplayState {
+        private ShoppingIslandGeometry.Display applied;
+        void applied(ShoppingIslandGeometry.Display display) { applied=display; }
+        boolean needsReflow(ShoppingIslandGeometry.Display display, boolean attached, boolean closed,
+                            boolean closing, boolean character) {
+            return character&&attached&&!closed&&!closing&&!display.equals(applied);
+        }
+    }
+
     static ShoppingIslandGeometry.Layout applicationOverlayLayout(ShoppingIslandGeometry.Display d, float density,
             ShoppingIslandGeometry.Mode mode, int requestedWidth, boolean moved, int previousX, int previousY) {
         return applicationOverlayLayout(d, density, mode, requestedWidth, moved, previousX, previousY, false);
@@ -32,10 +42,46 @@ final class ShoppingPreviewLayout {
 
     static ShoppingIslandGeometry.Layout applicationOverlayLayout(ShoppingIslandGeometry.Display d, float density,
             ShoppingIslandGeometry.Mode mode, int requestedWidth, boolean moved, int previousX, int previousY, boolean character) {
-        // Character and garment sessions share the same presentation. The effect
-        // changes the pixels and labels, never the island or saved floating frame.
         if (mode == ShoppingIslandGeometry.Mode.COMPACT) return shoppingCompact(d, density);
+        if (character && mode == ShoppingIslandGeometry.Mode.PREVIEW)
+            return characterPreview(d, density, requestedWidth, moved, previousX, previousY);
         return shopping(d, density, mode, requestedWidth, moved, previousX, previousY);
+    }
+
+    /** A stable independent toolbar keeps controls outside both the camera and returned image. */
+    private static ShoppingIslandGeometry.Layout characterPreview(ShoppingIslandGeometry.Display d, float density,
+            int requestedWidth, boolean moved, int previousX, int previousY) {
+        int sw=Math.max(1,d.width()), sh=Math.max(1,d.height());
+        int left=clamp(d.insetLeft(),0,sw-1),right=clamp(sw-Math.max(0,d.insetRight()),left+1,sw);
+        int bottom=clamp(sh-Math.max(0,d.insetBottom()),1,sh);
+        int safeTop=Math.max(0,d.insetTop());
+        if(ShoppingIslandGeometry.trustedHole(d,density))safeTop=Math.max(safeTop,d.cutoutBottom());
+        int top=clamp(safeTop,0,bottom-1),margin=Math.min(dp(8,density),Math.max(0,(right-left-1)/2));
+        int availableWidth=Math.max(1,right-left-margin*2);
+        int availableHeight=Math.max(1,bottom-top-Math.min(dp(8,density),Math.max(0,bottom-top-1)));
+        int controlsTop=Math.min(dp(8,density),Math.max(0,availableHeight/4));
+        int header=Math.min(Math.max(0,availableHeight-1),controlsTop+dp(TOOLBAR_DP,density)+dp(12,density));
+        int maxWidth=Math.min(availableWidth,Math.max(1,Math.round(Math.max(1,availableHeight-header)/1.2f)));
+        // 44dp grip + two 44dp controls, their gap and side insets, when the display permits it.
+        int width=clamp(requestedWidth>0?requestedWidth:Math.round((right-left)*.45f),Math.min(maxWidth,dp(164,density)),maxWidth);
+        int videoHeight=Math.min(Math.max(1,availableHeight-header),Math.max(1,Math.round(width*1.2f)));
+        int height=Math.min(availableHeight,header+videoHeight);
+        int x=clamp(moved?previousX:(left+right-width)/2,left+margin,Math.max(left+margin,right-margin-width));
+        int y=clamp(moved?previousY:top,top,Math.max(top,bottom-height));
+        return new ShoppingIslandGeometry.Layout(new ShoppingIslandGeometry.Box(x,y,width,height),
+                new ShoppingIslandGeometry.Box(0,header,width,Math.max(1,height-header)),header,
+                Math.min(controlsTop,Math.max(0,header-1)),height,height,-1,-1,dp(32,density),dp(104,density),0);
+    }
+
+    static boolean movable(boolean attached, boolean closed, boolean closing, boolean captureHidden,
+                           ShoppingIslandGeometry.Mode mode, boolean moving) {
+        return attached&&!closed&&!closing&&!captureHidden&&mode==ShoppingIslandGeometry.Mode.PREVIEW&&!moving;
+    }
+
+    /** Garment's first drag removes its old camera reserve; character's toolbar never disappears. */
+    static int mediaDragStartY(int windowY, ShoppingIslandGeometry.Layout layout, boolean moved,
+                              boolean expanded, boolean character) {
+        return windowY+(!character&&!moved&&!expanded&&layout!=null?layout.video().y():0);
     }
 
     /** Visual nodes share the physical lens; the system host owns their status-bar input region. */
@@ -117,6 +163,17 @@ final class ShoppingPreviewLayout {
         // This field is interpolated by ShoppingPreviewMotion.layout in both directions.
         int y=clamp(layout.headerContentTop(),0,Math.max(0,window.height()-target));
         return new ShoppingIslandGeometry.Box(x,y,Math.min(window.width(),target*2),target);
+    }
+
+    static ShoppingIslandGeometry.Box characterControls(ShoppingIslandGeometry.Layout layout, float density) {
+        var window=layout.window();
+        int top=clamp(layout.headerContentTop(),0,Math.max(0,window.height()-1));
+        int room=Math.max(1,layout.video().y()-top);
+        int target=Math.max(1,Math.min(dp(TOOLBAR_DP,density),Math.min(window.width()/2,Math.min(window.height(),room))));
+        int edge=Math.min(dp(12,density),Math.max(0,window.width()-target*2));
+        int x=Math.max(0,window.width()-target*2-edge);
+        return new ShoppingIslandGeometry.Box(x,Math.min(top,Math.max(0,window.height()-target)),
+                Math.min(window.width(),target*2),target);
     }
 
     /** Same portrait content in both modes; the mini viewport only clips its center. */

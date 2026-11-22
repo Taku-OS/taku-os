@@ -1,6 +1,72 @@
 package org.agentos.agent.home.island
 
 import org.agentos.agent.home.assistant.*
+import org.json.JSONArray
+import org.json.JSONObject
+
+/** Data for the existing SystemUI v1 assistant renderer, never a Home-drawn island. */
+internal data class AssistantEntryCard(val kind: String, val id: String, val body: String,
+                                      val buttons: List<Pair<String, String>>) {
+  val token: String get() = "entry:$kind:$id"
+  val actions: List<Pair<String, String>> get() = listOf("open" to "Expand") + buttons
+  fun actionIdentity(action: String): String = "taku-island-entry://$kind/$id/$action"
+
+  fun payload(): JSONObject = JSONObject().put("version", 1).put("category", "assistant")
+    .put("compact", "hidden").put("relevance", 1)
+    .put("bigIsland", JSONObject()
+      .put("leading", JSONObject().put("type", "pic").put("pic", "taku").put("animated", "none"))
+      .put("trailing", JSONObject().put("type", "text").put("text", "Taku")))
+    .put("expanded", JSONObject().put("template", "assistant").put("title", "Taku").put("body", body)
+      .put("steps", JSONArray()).put("actions", JSONArray(actions.map { it.first })).put("primaryAction", "open")
+      .put("assistant", JSONObject().put("token", token).put("phase", "message").put("heightDp", 160)
+        .put("suggestions", JSONArray(buttons.map { it.first }))))
+    .put("islandTimeoutS", 120).put("statusBar", "auto")
+
+  companion object { const val INTENT_ACTION = "org.agentos.agent.island.ENTRY_ACTION" }
+}
+
+internal fun assistantEntryOwnsPresentation(state: AssistantState): Boolean =
+  state.voicePreparation || state.characterTryOn != null
+
+internal fun assistantEntryUsesFallback(state: AssistantState, nativeAvailable: Boolean): Boolean =
+  !nativeAvailable && assistantEntryOwnsPresentation(state) && state.characterTryOn?.phase != CharacterTryOnPhase.Starting
+
+/** Starting remains owned but has no waiting card; the existing capability handoff continues. */
+internal fun assistantEntryCard(state: AssistantState, preparationId: String?): AssistantEntryCard? {
+  state.characterTryOn?.let { character ->
+    return when (character.phase) {
+      CharacterTryOnPhase.Checking -> AssistantEntryCard("character", character.requestId, "Getting ready…", listOf("cancel" to "Not now"))
+      CharacterTryOnPhase.Confirming -> AssistantEntryCard("character", character.requestId, "Try this character?", listOf("cancel" to "Not now", "confirm" to "Try on"))
+      CharacterTryOnPhase.Failed -> AssistantEntryCard("character", character.requestId, character.message ?: "Character preview could not open.", listOf("cancel" to "Close"))
+      CharacterTryOnPhase.Starting -> null
+    }
+  }
+  return if (state.voicePreparation && !preparationId.isNullOrBlank())
+    AssistantEntryCard("preparation", preparationId, "Getting ready…", listOf("cancel" to "Cancel")) else null
+}
+
+/** One main-thread admission path for native buttons and their safe body/expand action. */
+internal fun dispatchAssistantEntryAction(state: AssistantState, preparationId: String?, kind: String, id: String,
+    action: String, confirm: (String) -> Unit, cancel: (String) -> Unit,
+    cancelPreparation: (String) -> Unit, expand: (String) -> Unit): Boolean {
+  val card = assistantEntryCard(state, preparationId) ?: return false
+  if (card.kind != kind || card.id != id || card.actions.none { it.first == action }) return false
+  when (action) {
+    "open" -> expand(card.token)
+    "confirm" -> confirm(id)
+    "cancel" -> if (kind == "character") cancel(id) else cancelPreparation(id)
+    else -> return false
+  }
+  return true
+}
+
+internal fun assistantEntryBackAction(state: AssistantState): String = when {
+  state.characterTryOn != null -> "character"
+  state.voicePreparation -> "preparation"
+  state.entry == EntryMode.Voice -> "voice"
+  state.entry == EntryMode.Text -> "text"
+  else -> "none"
+}
 
 /** A retained hold page can show a completed reply; it is not itself a listening state. */
 fun assistantCardListening(s: AssistantState, v: VoiceState): Boolean =

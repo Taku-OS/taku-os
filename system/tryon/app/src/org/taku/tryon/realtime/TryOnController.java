@@ -159,6 +159,22 @@ public final class TryOnController {
     }
     public static Bundle stop(Context context) { new android.os.Handler(android.os.Looper.getMainLooper()).post(TryOnResultWindow::dismissCurrent);CallTryOnService.control("stop"); return result(true,"stopping"); }
     public static Bundle presentation(String value) { boolean active=CallTryOnService.control(value);return result(active,active?"requested":"no_active_session"); }
+    /** Absolute window coordinates use the same clamped move operation as a GUI drag. */
+    public static Bundle move(Bundle args) {
+        int x,y;
+        try {
+            if(args==null||args.keySet().size()!=2||!args.keySet().containsAll(java.util.Set.of("x","y")))return result(false,"invalid_arguments");
+            x=moveCoordinate(args.get("x"));y=moveCoordinate(args.get("y"));
+        } catch(RuntimeException malformed) { return result(false,"invalid_arguments"); }
+        boolean moved=CallTryOnService.move(x,y);
+        return result(moved,moved?"requested":"presentation_unavailable");
+    }
+    private static int moveCoordinate(Object value) {
+        if(!(value instanceof Integer)&&!(value instanceof Long))throw new IllegalArgumentException("invalid_arguments");
+        long coordinate=((Number)value).longValue();
+        if(coordinate<Integer.MIN_VALUE||coordinate>Integer.MAX_VALUE)throw new IllegalArgumentException("invalid_arguments");
+        return (int)coordinate;
+    }
     public static Bundle status(Context context) {
         try {
             JSONObject json = new JSONObject();
@@ -178,6 +194,10 @@ public final class TryOnController {
             json.put("state",s.state).put("detail",s.detail).put("code",s.code).put("active",s.active)
                     .put("cleanupPending",CallTryOnService.busy()&&!s.active).put("remainingSeconds",s.remainingSeconds)
                     .put("sourceFrames",s.sourceFrames).put("returnedFrames",s.returnedFrames).put("presentation",s.presentation);
+            Bundle bounds=CallTryOnService.position();
+            JSONObject position=new JSONObject().put("canMove",bounds.getBoolean("canMove"));
+            for(String key:new String[]{"x","y","width","height"})if(bounds.get(key) instanceof Integer)position.put(key,bounds.get(key));
+            json.put("position",position);
             Bundle out=result(true,"status");out.putString("json",json.toString());return out;
         } catch(Exception failure){return result(false,"status_failed");}
     }

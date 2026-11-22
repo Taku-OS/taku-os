@@ -5,6 +5,7 @@ package org.taku.tryon.realtime;
 public final class ShoppingPreviewLayoutTest {
     private static int checks;
     public static void main(String[] args) {
+        attachedDisplayChangesReflowOnlyTheCurrentWindow();
         var pixel = new ShoppingIslandGeometry.Display(1080, 2424, 0, 173, 0, 64, 497, 44, 582, 129);
         float density = 2.625f;
         var compact = layout(pixel, density, ShoppingIslandGeometry.Mode.COMPACT, 0, false, 0, 0);
@@ -56,22 +57,57 @@ public final class ShoppingPreviewLayoutTest {
         floating.layout(pixel, density, ShoppingIslandGeometry.Mode.COMPACT);
         check(floating.layout(pixel, density, ShoppingIslandGeometry.Mode.PREVIEW).equals(saved), "island restore keeps the floating frame");
         var cosplay = ShoppingPreviewLayout.applicationOverlayLayout(pixel, density, ShoppingIslandGeometry.Mode.PREVIEW, 0, false, 0, 0, true);
-        check(cosplay.equals(preview), "cosplay uses the same camera-anchored black portrait window");
+        check(cosplay.window().y()>=pixel.insetTop(), "cosplay window starts below the system touch lane");
         var cosplayCompact = ShoppingPreviewLayout.applicationOverlayLayout(pixel, density, ShoppingIslandGeometry.Mode.COMPACT, 0, false, 0, 0, true);
         check(cosplayCompact.equals(compact), "cosplay preparing island reserves the same physical lens and status lanes");
-        var cosplayControls=ShoppingPreviewLayout.shoppingControls(cosplay,density);
-        check(cosplayControls.equals(miniControls), "cosplay controls overlay the media without a white header or footer");
+        var cosplayControls=ShoppingPreviewLayout.characterControls(cosplay,density);
+        check(cosplayControls.height()==Math.round(44*density), "cosplay controls retain two 44dp targets");
+        check(cosplayControls.width()==Math.round(44*density)*2, "cosplay toolbar has exactly two equal controls");
+        check(cosplayControls.bottom()+Math.round(12*density)<=cosplay.video().y(), "floating cosplay toolbar never overlays the camera or result");
+        check(cosplayControls.right()==cosplay.window().width()-Math.round(12*density), "cosplay toolbar stays at the independent top right");
         var cosplayFrame = new ShoppingPreviewLayout.FloatingFrame();
         cosplayFrame.resize(580); cosplayFrame.move(390, 1150);
         var cosplaySaved = cosplayFrame.layout(pixel, density, ShoppingIslandGeometry.Mode.PREVIEW, true);
         var cosplayFull = cosplayFrame.layout(pixel, density, ShoppingIslandGeometry.Mode.FULLSCREEN, true);
-        check(ShoppingPreviewLayout.shoppingControls(cosplayFull,density).bottom() < cosplayFull.video().y(),
+        check(ShoppingPreviewLayout.characterControls(cosplayFull,density).bottom() < cosplayFull.video().y(),
                 "full cosplay keeps controls above the contained video");
         check(cosplayFrame.layout(pixel, density, ShoppingIslandGeometry.Mode.PREVIEW, true).equals(cosplaySaved),
                 "cosplay returns from fullscreen to the same dragged and resized card");
         cosplayFrame.layout(pixel, density, ShoppingIslandGeometry.Mode.COMPACT, true);
         check(cosplayFrame.layout(pixel, density, ShoppingIslandGeometry.Mode.PREVIEW, true).equals(cosplaySaved),
                 "cosplay restore preserves its floating placement");
+        var firstDrag=new ShoppingPreviewLayout.FloatingFrame();
+        var initial=firstDrag.layout(pixel,density,ShoppingIslandGeometry.Mode.PREVIEW,true);
+        int firstY=ShoppingPreviewLayout.mediaDragStartY(initial.window().y(),initial,false,false,true);
+        check(firstY==initial.window().y(),"first character drag starts at the actual window, not below its toolbar");
+        firstDrag.move(initial.window().x()+70,firstY+220);
+        var dragged=firstDrag.layout(pixel,density,ShoppingIslandGeometry.Mode.PREVIEW,true);
+        check(dragged.window().y()==initial.window().y()+220,"first drag has exactly the requested vertical delta");
+        check(dragged.video().y()==initial.video().y(),"dragging cannot remove the toolbar or jump the media");
+        var apiFrame=new ShoppingPreviewLayout.FloatingFrame();
+        apiFrame.move(initial.window().x()+70,initial.window().y()+220);
+        check(apiFrame.layout(pixel,density,ShoppingIslandGeometry.Mode.PREVIEW,true).equals(dragged),"GUI and absolute API positions share one retained frame and clamp");
+        check(ShoppingPreviewLayout.mediaDragStartY(preview.window().y(),preview,false,false,false)==preview.window().y()+preview.video().y(),
+                "ordinary outfit retains its legacy first-drag camera-reserve compensation");
+        for(int[] corner:new int[][]{{-10000,-10000},{10000,-10000},{-10000,10000},{10000,10000}}){
+            firstDrag.move(corner[0],corner[1]);
+            var placed=firstDrag.layout(pixel,density,ShoppingIslandGeometry.Mode.PREVIEW,true);
+            check(placed.window().x()>=0&&placed.window().right()<=pixel.width(),"corner moves keep the full window horizontally reachable");
+            check(placed.window().y()>=pixel.insetTop()&&placed.window().bottom()<=pixel.height()-pixel.insetBottom(),"corner moves clamp only to the vertical safe region");
+            firstDrag.layout(pixel,density,ShoppingIslandGeometry.Mode.FULLSCREEN,true);
+            check(firstDrag.layout(pixel,density,ShoppingIslandGeometry.Mode.PREVIEW,true).equals(placed),"fullscreen returns to each actual clamped corner");
+            firstDrag.layout(pixel,density,ShoppingIslandGeometry.Mode.COMPACT,true);
+            check(firstDrag.layout(pixel,density,ShoppingIslandGeometry.Mode.PREVIEW,true).equals(placed),"compact returns to each actual clamped corner");
+        }
+        firstDrag.resize(650);
+        var resized=firstDrag.layout(pixel,density,ShoppingIslandGeometry.Mode.PREVIEW,true);
+        firstDrag.layout(pixel,density,ShoppingIslandGeometry.Mode.FULLSCREEN,true);
+        check(firstDrag.layout(pixel,density,ShoppingIslandGeometry.Mode.PREVIEW,true).equals(resized),"resize and fullscreen retain the same clamped floating bounds");
+        check(ShoppingPreviewLayout.movable(true,false,false,false,ShoppingIslandGeometry.Mode.PREVIEW,false),"visible settled preview permits GUI and API move");
+        for(boolean[] gate:new boolean[][]{{false,false,false,false,false},{true,true,false,false,false},{true,false,true,false,false},{true,false,false,true,false},{true,false,false,false,true}})
+            check(!ShoppingPreviewLayout.movable(gate[0],gate[1],gate[2],gate[3],ShoppingIslandGeometry.Mode.PREVIEW,gate[4]),"unattached/closed/closing/hidden/moving preview rejects move");
+        check(!ShoppingPreviewLayout.movable(true,false,false,false,ShoppingIslandGeometry.Mode.FULLSCREEN,false),"fullscreen movement is rejected");
+        check(!ShoppingPreviewLayout.movable(true,false,false,false,ShoppingIslandGeometry.Mode.COMPACT,false),"compact movement is rejected");
         var bottomDrag = layout(pixel, density, ShoppingIslandGeometry.Mode.PREVIEW, 600, true, 100, 10000);
         check(bottomDrag.window().bottom() <= pixel.height() - pixel.insetBottom(), "dragging down keeps the whole card visible");
         for (int width : new int[]{1, 30, 180, 280, 320, 412, 600, 1080})
@@ -95,6 +131,11 @@ public final class ShoppingPreviewLayoutTest {
                             "cosplay card remains reachable after rotation or transient sizing: " + width + "x" + height + " " + mode);
                     check(cv.width() > 0 && cv.height() > 0 && cv.x() >= 0 && cv.y() >= 0 && cv.right() <= cw.width() && cv.bottom() <= cw.height(),
                             "cosplay camera subtree remains positive and contained: " + width + "x" + height + " " + mode);
+                    if(mode!=ShoppingIslandGeometry.Mode.COMPACT){
+                        var controls=ShoppingPreviewLayout.characterControls(cosplayResult,1);
+                        check(controls.x()>=0&&controls.y()>=0&&controls.right()<=cw.width()&&controls.bottom()<=cw.height(),"character toolbar stays in even transient window bounds");
+                        if(cv.y()>0)check(controls.bottom()<=cv.y(),"character toolbar remains outside media whenever there is vertical room");
+                    }
                 }
         check(ShoppingPreviewLayout.scaledWidth(350, 1.2f) == 420, "two-finger outward gesture grows only presentation width");
         check(ShoppingPreviewLayout.scaledWidth(350, .8f) == 280, "two-finger inward gesture shrinks width");
@@ -106,6 +147,36 @@ public final class ShoppingPreviewLayoutTest {
     private static ShoppingIslandGeometry.Layout layout(ShoppingIslandGeometry.Display d, float density,
             ShoppingIslandGeometry.Mode mode, int width, boolean moved, int x, int y) {
         return ShoppingPreviewLayout.applicationOverlayLayout(d, density, mode, width, moved, x, y);
+    }
+    private static void attachedDisplayChangesReflowOnlyTheCurrentWindow() {
+        var before=new ShoppingIslandGeometry.Display(1080,2400,0,74,0,126,0,0,0,0);
+        var attached=new ShoppingIslandGeometry.Display(1080,2400,0,136,0,126,506,34,574,102);
+        var state=new ShoppingPreviewLayout.DisplayState();
+        var frame=new ShoppingPreviewLayout.FloatingFrame();
+        var first=frame.layout(before,2.625f,ShoppingIslandGeometry.Mode.PREVIEW,true);
+        state.applied(before);
+        check(first.window().y()==74,"pre-attach service metrics reproduce the original initial position");
+        check(!state.needsReflow(before,true,false,false,true),"unchanged metrics do not create an update/insets feedback loop");
+        check(!state.needsReflow(attached,false,false,false,true),"queued work cannot lay out an unattached window");
+        check(!state.needsReflow(attached,true,true,false,true),"closed window cannot be revived by late insets");
+        check(!state.needsReflow(attached,true,false,true,true),"closing window ignores queued geometry work");
+        check(state.needsReflow(attached,true,false,false,true),"actual post-attach metrics require one reflow");
+        var fixed=frame.layout(attached,2.625f,ShoppingIslandGeometry.Mode.PREVIEW,true);
+        state.applied(attached);
+        check(fixed.window().y()==136,"late physical-cutout metrics correct the initial window safe top");
+        check(ShoppingPreviewLayout.characterControls(fixed,2.625f).y()+fixed.window().y()>=136,"corrected toolbar is below the actual system touch lane");
+        check(!state.needsReflow(attached,true,false,false,true),"relative root-inset dispatch after moving cannot trigger another global reflow");
+        frame.move(300,900);
+        var moved=frame.layout(attached,2.625f,ShoppingIslandGeometry.Mode.PREVIEW,true);
+        var next=new ShoppingIslandGeometry.Display(1080,2400,0,180,0,126,506,34,574,102);
+        var retained=frame.layout(next,2.625f,ShoppingIslandGeometry.Mode.PREVIEW,true);
+        check(retained.window().x()==moved.window().x()&&retained.window().y()==moved.window().y(),"later insets preserve a user position that remains safe");
+        frame.layout(next,2.625f,ShoppingIslandGeometry.Mode.FULLSCREEN,true);
+        check(frame.layout(next,2.625f,ShoppingIslandGeometry.Mode.PREVIEW,true).equals(retained),"reflow does not replace the retained floating frame with fullscreen bounds");
+        state.applied(before);
+        check(!state.needsReflow(attached,true,false,false,false),"new attach callback cannot expose an outfit waiting for its first model result");
+        state.applied(attached);
+        check(!state.needsReflow(attached,true,false,false,false),"outfit retains its existing completion-driven geometry path");
     }
     private static void check(boolean value, String message) { checks++; if (!value) throw new AssertionError(message); }
 }

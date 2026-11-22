@@ -37,6 +37,7 @@ import org.agentos.agent.home.design.TakuTheme
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun BoxScope.CharacterConfirmation(state: CharacterTryOnState, session: AssistantSession) {
+  if (state.phase == CharacterTryOnPhase.Starting) return
   Box(Modifier.fillMaxSize().clickable { ignoreStaleCard { session.cancelCharacter(state.requestId) } })
   val colors = TakuTheme.colors
   BoxWithConstraints(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(16.dp)) {
@@ -49,7 +50,7 @@ internal fun BoxScope.CharacterConfirmation(state: CharacterTryOnState, session:
       val title = when (state.phase) {
         CharacterTryOnPhase.Checking -> "Checking character preview…"
         CharacterTryOnPhase.Confirming -> "Try this character?"
-        CharacterTryOnPhase.Starting -> "Opening preview…"
+        CharacterTryOnPhase.Starting -> ""
         CharacterTryOnPhase.Failed -> state.message ?: "Character preview could not open."
       }
       BasicText(title, Modifier.fillMaxWidth(), style = TakuTheme.type.bodyXl.copy(color = colors.textOnInverse))
