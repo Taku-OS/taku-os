@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="org.taku.tryon" android:versionCode="94" android:versionName="1.0.0-live-preview">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="org.taku.tryon" android:versionCode="97" android:versionName="1.0.0-delivery-preview">
     <uses-sdk android:minSdkVersion="33" android:targetSdkVersion="36" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -8,8 +8,9 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="org.agentos.surfaces.permission.HOST_ISLAND_VIEW" />
     <uses-permission android:name="org.agentos.permission.POST_ISLAND" />
-    <queries><package android:name="org.agentos.agent" /><package android:name="org.agentos.audio" /><provider android:authorities="org.agentos.assistant.permissions" /><provider android:authorities="com.android.systemui.island" /><package android:name="org.agentos.shopping" /><provider android:authorities="org.agentos.shopping.api" /></queries>
+    <queries><package android:name="org.agentos.assistant" /><package android:name="org.agentos.agent" /><package android:name="org.agentos.audio" /><provider android:authorities="org.agentos.assistant.permissions" /><provider android:authorities="com.android.systemui.island" /><package android:name="org.agentos.shopping" /><provider android:authorities="org.agentos.shopping.api" /></queries>
     <application android:label="Taku Try-On" android:theme="@style/AppTheme" android:allowBackup="false" android:usesCleartextTraffic="false" android:extractNativeLibs="false">
         <activity android:name=".realtime.TryOnActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter></activity>
         <activity android:name=".realtime.TryOnRetryActivity" android:exported="false" />

@@ -17,8 +17,8 @@ bash system/proactivity/build.sh
 bash system/shopping-observer/pixel-compat/build.sh
 ```
 
-Native output is `out/tryon/app/TakuTryOn.apk` (candidate 94); Observer output is
-`system/shopping-observer/out/TakuShoppingObserver.apk` (candidate 28). These
+Native output is `out/tryon/app/TakuTryOn.apk` (candidate 97); Observer output is
+`system/shopping-observer/out/TakuShoppingObserver.apk` (candidate 30). These
 commands compile current source, and do not install, capture or start a model.
 Pinned native dependencies and their licenses are recorded by the existing builder.
 The optional adapter output is `out/shopping-observer-pixel-compat/TakuShoppingObserver.apk`.
@@ -27,10 +27,20 @@ Native uses the public AOSP development test signer by default. The normal
 Observer builder generates a local development signer; an integrator must arrange
 the matching trusted signer for its central permission enforcement. Soong targets
 use the platform certificate, with ordinary app UIDs. Public test signing material
-is not a production identity. The recorded Pixel Native 93 and Observer 27 use
+is not a production identity. The recorded Pixel Native 96 and Observer 29 use
 their existing development signers; fresh differently signed builds do not replace
 them through `install -r`. Do not distribute signing keys or uninstall to bypass
 an upgrade mismatch.
+
+The recorded applications and fresh candidates are separate builds with separate
+acceptance. The five source repairs are now included; a higher candidate version
+does not establish new live-camera or cloud-service acceptance. Lucy's observed
+INTERNAL_ERROR remains unresolved.
+
+The restored capsule uses the existing platform-signed Assistant legacy view
+host only when its exact component and HOST_ISLAND_VIEW grant are available.
+This module includes the client, not a privileged host service. See INSTALL.zh-CN.md
+for the dependency and the ordinary overlay fallback's status-bar input limit.
 
 ## System integration
 

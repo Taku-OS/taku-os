@@ -22,6 +22,10 @@ A system integration may install a `LiveFrameProgressHost.Factory` to use its ex
 
 Selectors currently cover `com.zhiliaoapp.musically` and `com.ss.android.ugc.trill`. TikTok UI changes can make a room unrecognizable; the app then fails closed with a fixed source reason. Short-video character replacement is outside this LIVE observer port.
 
+LIVE parsing supports the original `.LivePlayActivity` container and the exact `com.ss.android.ugc.aweme.detail.ui.DetailActivity` container. Both still require the complete, unique native presenter/header/close/viewer/composer anchors with matching identity and positions; an Activity alone never verifies a room. The shared container check also applies when retaining an existing invitation behind its trusted system host. Rotating gift/goal text does not invalidate an otherwise verified room in either container.
+
+While the actual Native try-on/cosplay preview is present, passive observation withdraws its offer and pauses automatic classification/reminders. Detection uses a bounded accessibility scan of the Native root's existing fixed description and package, including its trusted system host; it never reads preview text or calls another app's control API. `status.phase=preview_active` and the fixed window-read reason `try_on_preview` expose this state. The previous verified room/generation remains intact across preview presentation changes. Removing the preview resumes ordinary observation without a global cooldown. Strong screenshot/explicit-start source checks are unchanged.
+
 ## Agent / ADB API
 
 `content://org.agentos.shopping.api` implements `ContentProvider.call`. Root, system, shell, self, and platform-signed callers are direct. Other apps use the central App Permission Center's `taku.control` approval; no module-local allowlist exists. UI and Agent commands use the same Preferences and main-thread runtime handlers.

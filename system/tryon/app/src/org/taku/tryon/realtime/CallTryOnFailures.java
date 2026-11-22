@@ -3,7 +3,14 @@ package org.taku.tryon.realtime;
 
 /** Fixed, non-sensitive product messages. Never includes provider response bodies or exception text. */
 final class CallTryOnFailures {
+    private static final java.util.Set<String> PREVIEW_HOST_FAILURES = java.util.Set.of(
+            "preview_host_failed", "system_island_timeout", "system_island_unavailable", "system_island_disconnected",
+            "system_island_binding_died", "system_island_bind_failed", "system_island_layout_failed", "system_island_error",
+            "system_island_invalid_display", "system_island_missing_surface", "system_island_attach_failed", "system_island_connection_lost");
     private CallTryOnFailures() {}
+    static String previewHostCode(String code) {
+        return code != null && PREVIEW_HOST_FAILURES.contains(code) ? code : "preview_host_failed";
+    }
     static String token(String code, int status) {
         if ("missing_key".equals(code)) return "Save your fal Key in connection settings first.";
         if ("token_auth_failed".equals(code)) return "fal authorization failed. Check your saved key and account access.";
@@ -73,6 +80,7 @@ final class CallTryOnFailures {
     }
     static String safeCode(String code) {
         if (code == null) return "unknown_failure";
+        if (PREVIEW_HOST_FAILURES.contains(code)) return code;
         switch (code) {
             case "none": case "unknown_failure":
             case "invalid_reference": case "overlay_permission_required": case "foreground_service_denied":

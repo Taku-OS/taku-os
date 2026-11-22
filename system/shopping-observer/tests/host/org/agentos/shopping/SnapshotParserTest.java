@@ -121,6 +121,7 @@ public final class SnapshotParserTest {
             1080,2424,noGift) != null, "Activity plus full native live controls should work without a gift label");
         check(SnapshotParser.parse(RecordedLiveNodes.PACKAGE, "",100,0,
             1080,2424,RecordedLiveNodes.highland()) != null, "Actual gift label plus full controls should not require shell activity access");
+        detailLiveContainer(noGift, search);
 
         LivePage normalized = RecordedLiveNodes.page("  Highland   Fashion ", "  RED   HOODIE ",101);
         LivePage equivalent = RecordedLiveNodes.page("Highland Fashion", "red hoodie",102);
@@ -129,5 +130,62 @@ public final class SnapshotParserTest {
         check(!highland.contentKey().equals(RecordedLiveNodes.page("Highland Fashion","",100).contentKey()),
             "Product-card disappearance must create a different context");
         System.out.println(assertions + " shopping parser assertions passed");
+    }
+
+    private static void detailLiveContainer(List<SnapshotParser.Node> noGift,List<SnapshotParser.Node> search) {
+        String detail = "com.ss.android.ugc.aweme.detail.ui.DetailActivity";
+        LivePage room = SnapshotParser.parse(RecordedLiveNodes.PACKAGE,detail,100,0,1080,2424,noGift);
+        check(room != null && room.hasProduct(), "Verified DetailActivity LIVE does not require rotating gift text");
+        check(SnapshotParser.parse(RecordedLiveNodes.PACKAGE,detail,100,0,1080,2424,List.of()) == null
+            && SnapshotParser.parse(RecordedLiveNodes.PACKAGE,detail,100,0,1080,2424,search) == null,
+            "DetailActivity short video or search alone cannot prove a LIVE room");
+        for (String other : new String[]{"", "example.other.DetailActivity",
+                "com.ss.android.ugc.aweme.detail.ui.DetailActivityExtra", "DetailActivity"}) {
+            check(SnapshotParser.parse(RecordedLiveNodes.PACKAGE,other,100,0,1080,2424,noGift) == null,
+                "Only the exact verified DetailActivity container is supported: " + other);
+        }
+        for (String anchor : new String[]{"wei", "ahd", "d1i", "mr1", "f7z"}) {
+            var base = new ArrayList<>(noGift);
+            if (anchor.equals("mr1")) base.removeIf(n -> n.viewId().endsWith("/vey"));
+            var missing = new ArrayList<>(base); missing.removeIf(n -> n.viewId().endsWith("/" + anchor));
+            check(SnapshotParser.parse(RecordedLiveNodes.PACKAGE,detail,100,0,1080,2424,missing) == null,
+                "DetailActivity cannot replace missing native anchor " + anchor);
+            var invisible = new ArrayList<>(base);
+            invisible.replaceAll(n -> n.viewId().endsWith("/" + anchor)
+                ? new SnapshotParser.Node(n.packageName(),n.className(),n.text(),n.description(),n.viewId(),
+                    n.left(),n.top(),n.right(),n.bottom(),false) : n);
+            check(SnapshotParser.parse(RecordedLiveNodes.PACKAGE,detail,100,0,1080,2424,invisible) == null,
+                "DetailActivity cannot replace invisible native anchor " + anchor);
+            var ambiguous = new ArrayList<>(base);
+            ambiguous.add(base.stream().filter(n -> n.viewId().endsWith("/" + anchor)).findFirst().orElseThrow());
+            check(SnapshotParser.parse(RecordedLiveNodes.PACKAGE,detail,100,0,1080,2424,ambiguous) == null,
+                "DetailActivity cannot replace ambiguous native anchor " + anchor);
+        }
+        for (String anchor : new String[]{"wei", "d1i", "f7z"}) {
+            var misplaced = new ArrayList<>(noGift);
+            misplaced.replaceAll(n -> !n.viewId().endsWith("/" + anchor) ? n
+                : new SnapshotParser.Node(n.packageName(),n.className(),n.text(),n.description(),n.viewId(),
+                    anchor.equals("wei") ? 700 : anchor.equals("d1i") ? 300 : n.left(),
+                    anchor.equals("f7z") ? 1500 : n.top(),
+                    anchor.equals("wei") ? 1000 : anchor.equals("d1i") ? 400 : n.right(),
+                    anchor.equals("f7z") ? 1600 : n.bottom(),true));
+            check(SnapshotParser.parse(RecordedLiveNodes.PACKAGE,detail,100,0,1080,2424,misplaced) == null,
+                "DetailActivity retains native position checks for " + anchor);
+        }
+        var conflicting = new ArrayList<>(noGift);
+        conflicting.removeIf(n -> n.viewId().endsWith("/ahd"));
+        conflicting.add(RecordedLiveNodes.node("ahd","","Other presenter",32,194,679,289));
+        check(SnapshotParser.parse(RecordedLiveNodes.PACKAGE,detail,100,0,1080,2424,conflicting) == null,
+            "DetailActivity retains matching host/header identity");
+        check(SnapshotParser.parse("example.other",detail,100,0,1080,2424,noGift) == null,
+            "The verified Activity cannot authorize another foreground package");
+        ObservationPolicy policy = new ObservationPolicy(); policy.configure(true,true,true,0); policy.observe(room,0);
+        long generation = policy.generation();
+        for (String label : new String[]{"目标已结束", "目標已結束", "禮物庫"}) {
+            var rotating = new ArrayList<>(noGift); rotating.add(RecordedLiveNodes.node("",label,label,502,305,754,368));
+            LivePage next = SnapshotParser.parse(RecordedLiveNodes.PACKAGE,detail,100,0,1080,2424,rotating);
+            check(next != null && !policy.observe(next,1000) && policy.generation() == generation,
+                "Gift/goal rotation must retain the same verified DetailActivity LIVE visit");
+        }
     }
 }

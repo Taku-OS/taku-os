@@ -1,4 +1,4 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="org.agentos.shopping" android:versionCode="28" android:versionName="0.11.1-preview">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="org.agentos.shopping" android:versionCode="30" android:versionName="0.13.0-delivery-preview">
  <uses-sdk android:minSdkVersion="36" android:targetSdkVersion="36"/>
  <uses-permission android:name="org.agentos.assistant.permission.USE_AI"/>
  <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>

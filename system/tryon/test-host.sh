@@ -32,3 +32,9 @@ python3 "$MODULE_ROOT/tests/character/test-reference-deadline.py"
 python3 "$MODULE_ROOT/tests/character/test-character-import-binding.py"
 
 python3 "$MODULE_ROOT/tests/direct-live/test-host.py"
+
+python3 "$MODULE_ROOT/tests/presentation/test-camera-notification.py"
+python3 "$MODULE_ROOT/tests/presentation/test-window-pill.py"
+python3 "$MODULE_ROOT/tests/presentation/test-window-host-attach.py"
+python3 "$MODULE_ROOT/tests/presentation/test-system-host.py"
+python3 "$MODULE_ROOT/tests/presentation/test-host-failure.py"

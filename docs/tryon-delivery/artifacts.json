@@ -92,14 +92,15 @@
     {
       "file": "verified-device/apk/org.agentos.shopping.apk",
       "package": "org.agentos.shopping",
-      "versionCode": 27,
-      "versionName": "0.12.3-pixel-verified-accept",
-      "sha256": "991b851f12a4bb75bcccb8d8b5c5969fb89ae3cb695fd05da070d34e4203fb1b",
+      "versionCode": 29,
+      "versionName": "0.12.5-pixel-live-container",
+      "sha256": "b3a3410df337d3bbf70f00b98f78474e5cdfcfcce3652e4576b3656342bd6269",
       "bytes": 131568,
       "certificateSha256": "14c68be13ee1442fc59a0669bcdc9a0603cc574dbf92a2ddaa6a988164ce99df",
       "signatureVerified": true,
       "kind": "recorded-pixel-development-artifact",
-      "presentInRecordedPixelSet": true
+      "presentInRecordedPixelSet": true,
+      "validationScope": "Recorded installed Observer29; automatic invitation stable24.81s in verified DetailActivity; no try-on started"
     },
     {
       "file": "verified-device/apk/org.agentos.surfaces.apk",
@@ -116,50 +117,59 @@
     {
       "file": "verified-device/apk/org.taku.tryon.apk",
       "package": "org.taku.tryon",
-      "versionCode": 93,
+      "versionCode": 96,
       "versionName": "1.0.0",
-      "sha256": "9c3fbac269c83e2f5b526f98a5e6c49a964c2c9d9a2c09ca287c12301db46ceb",
-      "bytes": 194179199,
+      "sha256": "d69815eb6f8027ed4fb902391639b51c6bdee7e003ee52d2fcd1abed4b746502",
+      "bytes": 194195583,
       "certificateSha256": "093755c8c6f8c0fd1fd9ceab905f53c139e257e1d019942faebcc6f30448c9f5",
       "signatureVerified": true,
       "kind": "recorded-pixel-development-artifact",
-      "presentInRecordedPixelSet": true
+      "presentInRecordedPixelSet": true,
+      "validationScope": "Recorded installed Native96; initialization failure cleanup confirmed, no new crash observed; natural timeout/real X/PID acceptance pending"
     },
     {
-      "file": "source-build/apk/TakuShoppingObserver-28-main-platform-development.apk",
+      "file": "source-build/apk/TakuShoppingObserver-30-main-platform-development.apk",
       "package": "org.agentos.shopping",
-      "versionCode": 28,
-      "versionName": "0.11.1-preview",
-      "sha256": "68221cb10f6fe0da0a56508766b53d4d1434da5372eaadff6116a32e948a1878",
+      "versionCode": 30,
+      "versionName": "0.13.0-delivery-preview",
+      "sha256": "5cbe963e86c6d702a085aff5b20ec79832eb558e4a1ba15b5bb719e8a333258b",
       "bytes": 131568,
       "certificateSha256": "c8a2e9bccf597c2fb6dc66bee293fc13f2fc47ec77bc6b2b0d52c11f51192ab8",
       "signatureVerified": true,
-      "kind": "fresh-source-candidate-not-installed",
-      "presentInRecordedPixelSet": false
+      "kind": "fresh-source-candidate",
+      "presentInRecordedPixelSet": false,
+      "validationScope": "Current-platform source build; no physical-device acceptance",
+      "physicalDeviceAccepted": false
     },
     {
-      "file": "source-build/apk/TakuShoppingObserver-28-pixel-adapter-platform-development.apk",
+      "file": "source-build/apk/TakuShoppingObserver-30-pixel-adapter-platform-development.apk",
       "package": "org.agentos.shopping",
-      "versionCode": 28,
-      "versionName": "0.12.4-pixel-preview",
-      "sha256": "14636def178ae75729964b27488ef90e7589be322dbefe7720cb2668dc93f0df",
-      "bytes": 131568,
+      "versionCode": 30,
+      "versionName": "0.13.0-pixel-delivery-preview",
+      "sha256": "74c4fac487e9de3b1381bd0d5535c278569be07f0384b4b8918a3b0ac74d3c9d",
+      "bytes": 135664,
       "certificateSha256": "c8a2e9bccf597c2fb6dc66bee293fc13f2fc47ec77bc6b2b0d52c11f51192ab8",
       "signatureVerified": true,
-      "kind": "fresh-source-candidate-not-installed",
-      "presentInRecordedPixelSet": false
+      "kind": "fresh-source-candidate",
+      "presentInRecordedPixelSet": false,
+      "validationScope": "Recorded-host-wire adapter source build; no physical-device acceptance",
+      "physicalDeviceAccepted": false,
+      "isolatedValidation": "Window/Chrome/system-host touch and passive preview guard passed; no camera/model/provider-API acceptance"
     },
     {
-      "file": "source-build/apk/TakuTryOn-94-platform-development.apk",
+      "file": "source-build/apk/TakuTryOn-97-platform-development.apk",
       "package": "org.taku.tryon",
-      "versionCode": 94,
-      "versionName": "1.0.0-live-preview",
-      "sha256": "74fec6aea1893a8d64c02d50edde5026f63c984927fa4056dedaa195d7f44813",
-      "bytes": 194179199,
+      "versionCode": 97,
+      "versionName": "1.0.0-delivery-preview",
+      "sha256": "9d524b786f2f248e26e46ae9bd2b28fcdb8e897fa5e68de3034ad64bd140c42e",
+      "bytes": 194195583,
       "certificateSha256": "c8a2e9bccf597c2fb6dc66bee293fc13f2fc47ec77bc6b2b0d52c11f51192ab8",
       "signatureVerified": true,
-      "kind": "fresh-source-candidate-not-installed",
-      "presentInRecordedPixelSet": false
+      "kind": "fresh-source-candidate",
+      "presentInRecordedPixelSet": false,
+      "validationScope": "Rebuilt from refreshed delivery source including host-failure routing; no physical-device acceptance",
+      "physicalDeviceAccepted": false,
+      "isolatedValidation": "Window/Chrome/system-host touch and passive preview guard passed; no camera/model/provider-API acceptance"
     },
     {
       "file": "source-build/apk/TakuProactivity-9-platform-development.apk",
@@ -170,8 +180,9 @@
       "bytes": 74233,
       "certificateSha256": "c8a2e9bccf597c2fb6dc66bee293fc13f2fc47ec77bc6b2b0d52c11f51192ab8",
       "signatureVerified": true,
-      "kind": "fresh-source-candidate-not-installed",
-      "presentInRecordedPixelSet": false
+      "kind": "fresh-source-candidate",
+      "presentInRecordedPixelSet": false,
+      "physicalDeviceAccepted": false
     }
   ],
   "runtimeArtifacts": [
@@ -207,8 +218,42 @@
     }
   ],
   "pendingAcceptance": [
-    "Normal SystemUI Soong/ROM build and clean boot",
-    "Fresh-source Native 94 / Observer 28 / Proactivity 9 installation and runtime acceptance",
-    "In-progress separate Pixel touch-host restoration is outside this frozen baseline"
+    "Natural 60-second timeout and real close-button PID continuity for recorded Native96",
+    "Fresh Native97 / Observer30 / Proactivity9 physical-device installation and end-to-end runtime acceptance",
+    "Lucy INTERNAL_ERROR root cause and stable cloud initialization",
+    "Normal SystemUI Soong/ROM build and clean boot"
+  ],
+  "repairSet": [
+    "remove_extra_running_control_card",
+    "restore_capsule_and_existing_system_view_host_input",
+    "suppress_invitation_over_attached_preview",
+    "verify_detail_activity_live_container",
+    "await_off_main_tls_websocket_and_late_socket_cleanup"
+  ],
+  "recordedEvidence": {
+    "native96": {
+      "localCleanupAfterInitializationFailure": true,
+      "cameraClientsEmpty": true,
+      "noNewCrashObserved": true,
+      "pidContinuityVerified": false,
+      "full60SecondTimeoutAndRealCloseAcceptance": false
+    },
+    "observer29": {
+      "automaticInvitationStableSeconds": 24.81,
+      "phase": "suggesting",
+      "generation": 4,
+      "published": 1,
+      "stale": 0,
+      "tryOnStartedByThisCheck": false
+    }
+  },
+  "knownIssues": [
+    {
+      "code": "lucy_platform_INTERNAL_ERROR",
+      "status": "unresolved",
+      "observedElapsedMs": 9428,
+      "generatedFrames": 0,
+      "exactRootCauseKnown": false
+    }
   ]
 }

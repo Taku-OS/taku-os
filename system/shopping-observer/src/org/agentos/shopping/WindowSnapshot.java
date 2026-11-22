@@ -38,6 +38,7 @@ public final class WindowSnapshot {
     private static final String[] IDS = {"wei", "ahd", "d1i", "mr1", "vey", "f7z", "f5p", "f62", "f4m", "f63", "f64"};
     private static final String[] GIFT_QUERIES = {"禮物庫", "礼物库", "Gift"};
     private static final int MAX_GIFT_NODES = 250;
+    private static final int MAX_PREVIEW_NODES = 256, MAX_PREVIEW_DEPTH = 12, MAX_PREVIEW_CHILDREN = 32;
     private WindowSnapshot() {}
 
     public static ReadResult read(AccessibilityService service, String activityName) {
@@ -54,8 +55,18 @@ public final class WindowSnapshot {
         return read(service,activityName,false,source);
     }
 
+    /** Passive observation must not replace an attached preview with another outfit suggestion. */
+    static ReadResult readPassive(AccessibilityService service,String activityName,LivePage source) {
+        return read(service,activityName,false,source,true);
+    }
+
     private static ReadResult read(AccessibilityService service,String activityName,boolean withLayout,
             LivePage offerSource) {
+        return read(service,activityName,withLayout,offerSource,false);
+    }
+
+    private static ReadResult read(AccessibilityService service,String activityName,boolean withLayout,
+            LivePage offerSource,boolean passive) {
         if (Looper.myLooper() != Looper.getMainLooper()) return finish(absent("wrong_thread"),null,null);
         List<AccessibilityWindowInfo> windows = null;
         AccessibilityNodeInfo root = null;
@@ -71,6 +82,8 @@ public final class WindowSnapshot {
             if (width <= 0 || height <= width) return finish(absent("unsupported_orientation"),windows,root);
             windows = service.getWindows();
             if (windows == null || windows.size() > 64) return finish(absent("window_unavailable"),windows,root);
+            if(passive && visibleTryOnPreview(service,windows,screen))
+                return finish(absent("try_on_preview"),windows,root);
             AccessibilityWindowInfo selected = null, soleApp = null;
             int appWindows = 0;
             for (AccessibilityWindowInfo window : windows) {
@@ -125,12 +138,61 @@ public final class WindowSnapshot {
         }
     }
 
+    /** One read-wide budget; only the Native tree or its trusted SCVH parent may be traversed. */
+    private static boolean visibleTryOnPreview(AccessibilityService service,List<AccessibilityWindowInfo> windows,Rect screen) {
+        int remaining=MAX_PREVIEW_NODES;
+        for(AccessibilityWindowInfo window:windows) {
+            if(remaining<=0)break;
+            if(window==null || window.getDisplayId()!=Display.DEFAULT_DISPLAY)continue;
+            Rect bounds=new Rect();window.getBoundsInScreen(bounds);
+            if(bounds.isEmpty() || !Rect.intersects(bounds,screen))continue;
+            AccessibilityNodeInfo candidate=null;
+            ArrayDeque<PreviewNode> pending=new ArrayDeque<>();
+            try {
+                candidate=window.getRoot();
+                if(candidate==null)continue;
+                String owner=string(candidate.getPackageName());
+                if(!"org.taku.tryon".equals(owner) && !("org.agentos.assistant".equals(owner) && trustedOwner(service,owner)))continue;
+                if(!candidate.refresh())continue;
+                pending.add(new PreviewNode(AccessibilityNodeInfo.obtain(candidate),0));
+                while(!pending.isEmpty() && remaining>0) {
+                    PreviewNode entry=pending.remove();AccessibilityNodeInfo node=entry.node();remaining--;
+                    try {
+                        if("org.taku.tryon".contentEquals(node.getPackageName()==null?"":node.getPackageName())
+                                && node.isVisibleToUser() && !node.isEditable() && !node.isPassword()) {
+                            CharSequence description=node.getContentDescription();
+                            if(previewDescription(description)) {
+                                Rect visible=new Rect();node.getBoundsInScreen(visible);
+                                if(!visible.isEmpty() && Rect.intersects(visible,screen))return true;
+                            }
+                        }
+                        if(entry.depth()>=MAX_PREVIEW_DEPTH || node.isEditable() || node.isPassword())continue;
+                        int count=Math.min(MAX_PREVIEW_CHILDREN,node.getChildCount());
+                        for(int index=0;index<count && pending.size()<remaining;index++) {
+                            AccessibilityNodeInfo child=node.getChild(index);
+                            if(child!=null)pending.add(new PreviewNode(child,entry.depth()+1));
+                        }
+                    } finally {node.recycle();}
+                }
+            } finally {
+                while(!pending.isEmpty())pending.remove().node().recycle();
+                if(candidate!=null)candidate.recycle();
+            }
+        }
+        return false;
+    }
+    private record PreviewNode(AccessibilityNodeInfo node,int depth) {}
+    private static boolean previewDescription(CharSequence value) {
+        if(value==null || value.length()>160)return false;
+        String description=value.toString();
+        return description.equals("Live try-on window") || description.startsWith("Live cosplay · ");
+    }
+
     private static OfferOcclusionGuard.Evidence offerOcclusion(AccessibilityService service,
             List<AccessibilityWindowInfo> windows,AccessibilityWindowInfo app,AccessibilityNodeInfo root,
             Rect screen,String activityName,LivePage source) {
         String pkg=string(root.getPackageName());
-        boolean focused=app.isActive() && app.isFocused() && activityName!=null
-            && activityName.endsWith(".LivePlayActivity");
+        boolean focused=app.isActive() && app.isFocused() && SnapshotParser.isLiveContainerActivity(activityName);
         if(!focused || app.getId()!=source.windowId() || !pkg.equals(source.packageName()))return null;
         Identity host=identityAnchor(root,source,"wei",screen,false);
         Identity header=identityAnchor(root,source,"ahd",screen,true);

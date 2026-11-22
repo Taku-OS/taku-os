@@ -8,7 +8,6 @@ import android.os.*;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.taku.tryon.common.IslandPublisher;
 import org.taku.tryon.data.XmaxKeyStore;
 
 /** One explicit, bounded attempt using this app's Camera2 preview. Never injects third-party cameras. */
@@ -29,7 +28,8 @@ public final class CallTryOnService extends Service {
     private RealtimeImage reference;
     private TryOnController.Request request;
     private CallTryOnDiagnosticRecorder journal;
-    private IslandPublisher island;
+    private boolean foregroundStarted;
+    private String notifiedDetail;
     private long began,inputs,outputs,sequence;
     private volatile long lastSource;
     private final AttemptOwner<RealtimeCallTransport> owner=new AttemptOwner<>(RealtimeCallTransport::stop);
@@ -146,7 +146,8 @@ public final class CallTryOnService extends Service {
     }
     @Override public void onCreate() {
         super.onCreate(); current=this;admissionGeneration=ADMISSION.current();
-        island=new IslandPublisher(this,"tryon-progress","AI try-on");
+        NotificationManager manager=getSystemService(NotificationManager.class);
+        if(manager!=null)manager.cancel("tryon",1);
         registerReceiver(screen,new IntentFilter(Intent.ACTION_SCREEN_OFF),Context.RECEIVER_NOT_EXPORTED);
     }
     @Override public int onStartCommand(Intent intent,int flags,int id) {
@@ -155,12 +156,7 @@ public final class CallTryOnService extends Service {
         if(!ADMISSION.accepted(admissionGeneration)||intent.getLongExtra("attemptGeneration",0)!=admissionGeneration){finish("stopped","Try-on cancelled before camera start.","user_stop");return START_NOT_STICKY;}
         try {
             request=TryOnController.Request.from(this,intent.getExtras());
-            NotificationManager manager=getSystemService(NotificationManager.class);
-            manager.createNotificationChannel(new NotificationChannel("tryon-camera","Try-on camera",NotificationManager.IMPORTANCE_LOW));
-            Notification notification=new Notification.Builder(this,"tryon-camera").setSmallIcon(android.R.drawable.ic_menu_camera)
-                    .setContentTitle("AI try-on").setContentText("Preparing a camera preview").setOngoing(true)
-                    .setContentIntent(open("open")).build();
-            startForeground(401,notification,ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA);
+            startCameraForeground();
             journal=new CallTryOnDiagnosticRecorder(new CallTryOnDiagnosticStore(this),"shopping","preview",SystemClock::elapsedRealtime,System::currentTimeMillis);
             journal.provider(request.configuration.providerId(),request.configuration.environment);journal.segment(1);
             publish();
@@ -187,12 +183,16 @@ public final class CallTryOnService extends Service {
                 public void cameraReady(){if(!terminating.get()&&bridge==null)startVideo();}
                 public void resultReady(){if(!terminating.get()){resultShown=true;state="running";detail="Live try-on";publish();}}
                 public void failed(String message){finish("failed","Camera preview is unavailable. Close other camera apps and try again.","camera_stopped");}
+                public void presentationFailed(String code){CallTryOnService.this.presentationFailed(code);}
                 public void close(){finish("stopped","Try-on stopped.","user_stop");}
             },true);
             if(TryOnController.CHARACTER.equals(request.mode))window.setCharacterModel(request.configuration.cosplayModelLabel());
             window.show();publish();
             main.postDelayed(()->{if(!terminating.get()&&bridge==null)finish("failed","Camera did not become ready in time.","camera_wait_timeout");},25000);
         } catch(RuntimeException unavailable){finish("failed","Could not open the preview window. Check display-over-other-apps permission.","overlay_permission_required");}
+    }
+    private void presentationFailed(String failure) {
+        finish("failed","The try-on window could not open. Camera is off. Please try again.",CallTryOnFailures.previewHostCode(failure));
     }
     private void startVideo() {
         try {bridge=new LocalShoppingFrameBridge(window);bridge.start(60000);}
@@ -278,8 +278,22 @@ public final class CallTryOnService extends Service {
         if(reference!=null){reference.close();reference=null;}
         if(destroyed)ADMISSION.release(admissionGeneration);else {publish();stopSelf();}
     }
-    private PendingIntent open(String action) {
-        return PendingIntent.getActivity(this,action.hashCode(),new Intent(this,"expand".equals(action)?TryOnRetryActivity.class:TryOnActivity.class).setAction(action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_SINGLE_TOP),PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
+    private PendingIntent expandAction() {
+        return PendingIntent.getBroadcast(this,403,new Intent(this,TryOnActionReceiver.class).setAction("expand"),PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
+    }
+    private void startCameraForeground() {
+        NotificationManager manager=getSystemService(NotificationManager.class);
+        manager.createNotificationChannel(new NotificationChannel("tryon-camera","Try-on camera",NotificationManager.IMPORTANCE_LOW));
+        startForeground(401,cameraNotification(),ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA);
+        foregroundStarted=true;notifiedDetail=detail;
+    }
+    /** Required camera foreground notification only; the preview owns its controls and presentation. */
+    private Notification cameraNotification() {
+        return new Notification.Builder(this,"tryon-camera").setSmallIcon(android.R.drawable.ic_menu_camera)
+                .setContentTitle("Taku Live Try-On").setContentText(detail)
+                .setStyle(new Notification.BigTextStyle().bigText(detail)).setOngoing(true).setOnlyAlertOnce(true)
+                .setVisibility(Notification.VISIBILITY_PRIVATE).setContentIntent(expandAction())
+                .addAction(new Notification.Action.Builder(null,"Stop try-on",stopAction()).build()).build();
     }
     private PendingIntent stopAction() {
         return PendingIntent.getBroadcast(this,402,new Intent(this,TryOnActionReceiver.class).setAction("stop"),PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
@@ -289,13 +303,10 @@ public final class CallTryOnService extends Service {
         last=new Snapshot(state,detail,code,active,remaining,inputs,outputs,window==null?"closed":window.presentation());
         if(window!=null&&active)window.render(last);
         if(journal!=null&&active)journal.progress("preview",state,inputs,outputs,0);
-        if(island==null)return;
-        // Terminal failures have one top-island card, published only after camera onClosed.
-        if (!active && "failed".equals(state)) { island.dismiss("tryon"); return; }
-        List<IslandPublisher.Action> actions=new ArrayList<>();
-        actions.add(new IslandPublisher.Action("open",active?"Expand":"Open Try-on",open("expand")));
-        if(active)actions.add(new IslandPublisher.Action("stop","Stop",stopAction()));
-        island.post("tryon",active?(resultShown?"Live":"Preparing"):"Try-on ended","AI try-on",detail,active,actions,"open",open("open"),!active);
+        if(active&&foregroundStarted&&!detail.equals(notifiedDetail)) {
+            NotificationManager manager=getSystemService(NotificationManager.class);
+            if(manager!=null){manager.notify(401,cameraNotification());notifiedDetail=detail;}
+        }
     }
     private final BroadcastReceiver screen=new BroadcastReceiver(){public void onReceive(Context context,Intent intent){finish("stopped","Screen off. Camera stopped.","screen_off");}};
     @Override public IBinder onBind(Intent intent){return null;}

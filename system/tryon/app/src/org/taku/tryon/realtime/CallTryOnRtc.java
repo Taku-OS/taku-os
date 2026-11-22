@@ -922,16 +922,23 @@ public final class CallTryOnRtc implements RealtimeCallTransport {
         }
         sourceState.set(SOURCE_CLOSED);
         watchdog.shutdownNow(); input.shutdown(); output.shutdown();
+        final FalSignalingSocketFactory transport;
+        final WebSocketClient current;
         synchronized (socketLock) {
-            FalSignalingSocketFactory transport = signalingTransport;
+            transport = signalingTransport;
             if (transport != null) transport.cancel();
-            WebSocketClient current = socket;
-            if (current != null) try { current.closeConnection(1000, "tryon_session_complete"); } catch (RuntimeException ignored) {}
+            current = socket;
         }
         if (code != null) try { listener.onFailure(code); } catch (RuntimeException ignored) {}
         control.removeCallbacksAndMessages(null);
         boolean cleanupQueued=control.post(() -> {
             boolean confirmed=true;
+            // Conscrypt TLS close-notify can write even after raw-socket cancellation.
+            // Keep both close paths off the UI thread and before the cleanup receipt.
+            try { if (transport != null) confirmed = transport.completeClose(); }
+            catch (RuntimeException | LinkageError failed) { confirmed=false; }
+            try { if (current != null) current.closeConnection(1000, "tryon_session_complete"); }
+            catch (RuntimeException | LinkageError failed) { confirmed=false; }
             try {
                 if (remoteTrack != null) remoteTrack.removeSink(remoteSink);
                 if (peer != null) { peer.close(); peer.dispose(); peer = null; }

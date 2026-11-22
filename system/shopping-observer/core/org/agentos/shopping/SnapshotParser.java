@@ -37,7 +37,7 @@ public final class SnapshotParser {
                 || host.left() > width * .50 || composer.top() < height * .75) return null;
         String headerLabel = LivePage.canonical(header.description() + " " + header.text());
         if (!headerLabel.contains(LivePage.canonical(name))) return null;
-        boolean liveActivity = activityName != null && activityName.endsWith(".LivePlayActivity");
+        boolean liveActivity = isLiveContainerActivity(activityName);
         boolean giftRegion = visible.stream().anyMatch(node -> node.top() < height * .25
             && isGiftLabel(node.text(), node.description()));
         // A search tab saying LIVE, an arbitrary creator label, or an activity name alone is insufficient.
@@ -57,6 +57,12 @@ public final class SnapshotParser {
             if (product.length() > 1024) product = "";
         }
         return LivePage.of(foregroundPackage, windowId, name, product);
+    }
+
+    /** Known containers still require the complete, unique native room anchors above. */
+    static boolean isLiveContainerActivity(String activityName) {
+        return activityName != null && (activityName.endsWith(".LivePlayActivity")
+            || activityName.equals("com.ss.android.ugc.aweme.detail.ui.DetailActivity"));
     }
 
     private static boolean isGiftLabel(String text, String description) {

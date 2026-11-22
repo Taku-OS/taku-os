@@ -57,6 +57,7 @@ final class ShoppingPreviewWindow implements LocalShoppingFrameBridge.Source {
         default void resultReady() {}
         void cameraReady();
         void failed(String message);
+        default void presentationFailed(String code) { failed("The try-on window is unavailable."); }
         void close();
     }
     private static final int INK = Color.rgb(13, 13, 13);
@@ -66,6 +67,7 @@ final class ShoppingPreviewWindow implements LocalShoppingFrameBridge.Source {
     private final Ui ui;
     private final ShoppingPreviewChrome chrome;
     private final WindowManager windows;
+    private final ShoppingPreviewHost host;
     private final Handler main = new Handler(Looper.getMainLooper());
     final FrameLayout root, cameraPane;
     private final FrameLayout content;
@@ -103,7 +105,7 @@ final class ShoppingPreviewWindow implements LocalShoppingFrameBridge.Source {
     private final AtomicReference<OriginalFrame> pendingOriginal = new AtomicReference<>();
     private final AtomicBoolean decoding = new AtomicBoolean();
     volatile boolean collapsed, expanded, captureHidden;
-    private boolean attached, readyReported, generatedFrameShown;
+    private boolean attached, attaching, readyReported, generatedFrameShown;
     private final ShoppingPreviewReveal firstReveal = new ShoppingPreviewReveal();
     private boolean automaticReveal;
     private float mediaDownX, mediaDownY;
@@ -297,6 +299,7 @@ final class ShoppingPreviewWindow implements LocalShoppingFrameBridge.Source {
         params.setTitle("Taku Live Try-On");
         params.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS;
         params.setFitInsetsTypes(0);
+        host = ShoppingPreviewHost.create(context, root);
         root.setOnApplyWindowInsetsListener((view,insets) -> { scheduleGeometryRefresh(); return insets; });
         root.addOnAttachStateChangeListener(new View.OnAttachStateChangeListener() {
             @Override public void onViewAttachedToWindow(View view) { scheduleGeometryRefresh(); view.requestApplyInsets(); }
@@ -325,11 +328,20 @@ final class ShoppingPreviewWindow implements LocalShoppingFrameBridge.Source {
     }
 
     void show() {
-        if (closed || closing || attached) return;
+        if (closed || closing || attached || attaching) return;
+        attaching = true;
         if (!ShoppingPreviewReveal.showCameraImmediately(directFrames, characterPreview)) params.alpha = 0f;
-        windows.addView(root, params); attached = true;
-        scheduleGeometryRefresh();
-        actions.presentationReady(this); startAttachedCamera();
+        host.attach(params, () -> {
+            attaching = false;
+            if (closed || closing) { host.close(); return; }
+            if (attached) return;
+            attached = true;
+            scheduleGeometryRefresh();
+            actions.presentationReady(this); startAttachedCamera();
+        }, message -> {
+            attaching = false;
+            if (!closed && !closing) actions.presentationFailed(message);
+        });
     }
     private void startAttachedCamera() {
         if(closed||closing||!attached)return;
@@ -345,7 +357,7 @@ final class ShoppingPreviewWindow implements LocalShoppingFrameBridge.Source {
     }
 
     private void showPreparingPill() {
-        mode = ShoppingIslandGeometry.Mode.COMPACT; params.alpha = 0f; layout(false);
+        mode = ShoppingIslandGeometry.Mode.COMPACT; params.alpha = captureHidden ? 0f : 1f; layout(false);
     }
 
     boolean isAttached() { return attached && !closed && !closing; }
@@ -465,11 +477,12 @@ final class ShoppingPreviewWindow implements LocalShoppingFrameBridge.Source {
         value.putInt("x",params.x);value.putInt("y",params.y);
         value.putInt("width",params.width);value.putInt("height",params.height);
         value.putBoolean("canMove",canResizePresentation());
+        value.putString("host",host.id());
         return value;
     }
     String geometryDiagnostic() {
         return "windowX=" + params.x + " windowY=" + params.y + " windowWidth=" + params.width + " windowHeight=" + params.height
-                + " host=" + "application" + " motionActive=" + movingPresentation + " motionProgress=" + motionProgress;
+                + " host=" + host.id() + " motionActive=" + movingPresentation + " motionProgress=" + motionProgress;
     }
     private float density() { return context.getResources().getDisplayMetrics().density; }
     private ShoppingIslandGeometry.Layout compactLayout() {
@@ -561,8 +574,9 @@ final class ShoppingPreviewWindow implements LocalShoppingFrameBridge.Source {
     }
     private void applyMotion(ShoppingPreviewMotion.Frame frame) {
         motionFrame = frame;
-        params.alpha = captureHidden || mode == ShoppingIslandGeometry.Mode.COMPACT ? 0f : 1f;
-        if (mode == ShoppingIslandGeometry.Mode.COMPACT) params.flags |= WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE;
+        params.alpha = captureHidden || closing ? 0f : 1f;
+        if (captureHidden || closing) params.flags |= WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE;
+        else params.flags &= ~WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE;
         ShoppingIslandGeometry.Box box = frame.box();
         params.x = box.x(); params.y = box.y(); params.width = box.width(); params.height = box.height();
         visualRadius = frame.radius(); root.invalidateOutline();
@@ -572,7 +586,7 @@ final class ShoppingPreviewWindow implements LocalShoppingFrameBridge.Source {
         FrameLayout.LayoutParams pp=(FrameLayout.LayoutParams)pill.getLayoutParams();
         pp.width=anchor.window().width();pp.height=anchor.window().height();pp.gravity=Gravity.TOP|Gravity.LEFT;
         pp.leftMargin=anchor.window().x()-box.x();pp.topMargin=anchor.window().y()-box.y();pill.setLayoutParams(pp);
-        pill.setVisibility(View.GONE); pill.setAlpha(frame.pillAlpha());
+        pill.setVisibility(frame.pillAlpha() > 0 ? View.VISIBLE : View.INVISIBLE); pill.setAlpha(frame.pillAlpha());
         backplate.setVisibility(View.VISIBLE); backplate.setAlpha(frame.bodyAlpha()==0?0:1-frame.pillAlpha());
         backplate.setBackground(chrome.motionBackplate(backgroundFull, frame.radius(), frame.ink()));
         root.setScaleX(1); root.setScaleY(1); updateLayout();
@@ -707,8 +721,8 @@ final class ShoppingPreviewWindow implements LocalShoppingFrameBridge.Source {
         if (Build.VERSION.SDK_INT >= 31) params.setBlurBehindRadius(0);
         params.flags |= WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE; updateLayout();
         camera.close(() -> {
-            closed = true; attached = false; camera.dispose();
-            try { windows.removeViewImmediate(root); } catch (RuntimeException ignored) { }
+            closed = true; attached = false; attaching = false; camera.dispose();
+            host.close();
             context.unregisterComponentCallbacks(configuration);
             if (afterClosed != null) afterClosed.run();
         });
@@ -861,9 +875,9 @@ final class ShoppingPreviewWindow implements LocalShoppingFrameBridge.Source {
         if (closed) return;
         try {
             // Pending binds still need the newest capture flag and rotation geometry.
-            if(attached)windows.updateViewLayout(root, params);
+            host.update(params);
         }
-        catch (RuntimeException revoked) { if (!closing) actions.failed("The overlay is unavailable. Try-on has stopped."); }
+        catch (RuntimeException revoked) { if (!closing) actions.presentationFailed("preview_host_failed"); }
     }
     private void installDrag(View handle) {
         handle.setOnTouchListener(new View.OnTouchListener() {

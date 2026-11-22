@@ -15,6 +15,15 @@ and provide current-platform and explicitly separate recorded-Pixel adapter
 builds. Include opt-in image targets, automated checks, artifact assembly,
 matching component declarations and installation/setup documentation. Retain the installed Assistant permission-scope fix so `taku.control` setup is not incorrectly rejected as a workspace scope.
 
+Remove the extra running/normal-stop AI try-on text control card, restore the
+visible Preparing/Live capsule and existing system-owned video host input path,
+withdraw automatic suggestions while the real preview is open, and recognize the
+verified TikTok DetailActivity LIVE container without relaxing its native room
+anchor checks. Keep the approved corner controls and terminal failure card.
+Abort the raw signaling connection immediately on stop, then close TLS/WebSocket
+on the existing cleanup actor and wait for late socket creation before confirming
+local cleanup. No automatic paid retry or new UI is introduced.
+
 ## Type of change
 
 - [x] New feature or capability
@@ -36,9 +45,9 @@ must remain attached to the exact commit and package hashes.
 
 | Layer | Scope |
 | --- | --- |
-| Source/build/offline | Root verify; native/observer/proactivity host suites; actual RTC cleanup, pressure/FIFO and 40-message burst tests; Native 94, Observer 28 and Pixel adapter builds; packaging integrity tests |
-| Emulator | Existing Native 93 UI fixture: 24 layout/control combinations, no camera/model; recorded LIVE Activity/ACK deterministic checks are host checks |
-| Physical device | Existing designated Pixel 9 / Android 17 LIVE/Lucy records and user acceptance; Native 93 installed/hash checked; fresh 94/28 candidates are not newly installed by this delivery task |
+| Source/build/offline | Root verify; native/observer/proactivity host suites; actual RTC cleanup, pressure/FIFO, informational burst and signaling-close race tests; Native 97, Observer 30 and Pixel adapter builds; packaging integrity tests |
+| Emulator | Fresh Native 97 / Observer 30 Pixel adapter: 24 layouts, 18 actual Window operations, 30 system-host assertions and 3 real touch events; preview guard enters/exits. No camera/model or new content-provider device parity claim; recorded LIVE Activity/ACK deterministic checks are host checks |
+| Physical device | Recorded Native 96 local cleanup after failed initialization, with no new crash observed; Observer 29 automatic invitation stable for 24.81 seconds without starting try-on. Fresh 97/30 candidates are not newly installed by this delivery task |
 | Full ROM | Not run; normal SystemUI Soong build, clean-image install, reboot and OTA acceptance remain pending |
 
 ## Agent parity
@@ -56,9 +65,16 @@ retained; no new device/UI parity test is claimed for packaging-only commands.
   have separate signatures, dependencies and verification scope.
 - The included black SystemUI artifact is a local development compatibility
   rewrite. The source fix is present, but full source/ROM validation is pending.
-- A separate in-progress Pixel touch-host restoration is outside the frozen
-  Native 93 baseline. Its final source/package must be incorporated and retested
-  before this preview becomes a public user release.
+- The five follow-up repairs are included in source and rebuilt candidates. The
+  recorded Pixel set is updated to Native 96 / Observer 29; historical success on
+  older packages is not acceptance for this new source build.
+- Lucy still returned platform INTERNAL_ERROR during initialization in a recorded
+  attempt at about 9.4 seconds, with zero generated frames. The exact upstream
+  cause remains unknown. Natural 60-second timeout and real close-button process
+  persistence checks for Native 96, and fresh 97/30 device acceptance, are pending.
+- The restored input path needs the existing platform-signed Assistant legacy
+  view-host service and HOST_ISLAND_VIEW grant. Ordinary overlay fallback cannot
+  receive input above the system status bar; no privileged service is bundled.
 - This is a development-preview handoff, not an arbitrary-Android installer or
   a publicly released ROM. TikTok UI changes and provider session limits remain
   real failure conditions. Each retry remains explicit and bounded.

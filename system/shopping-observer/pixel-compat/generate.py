@@ -11,8 +11,8 @@ HERE.mkdir(parents=True,exist_ok=True)
 ns='{http://schemas.android.com/apk/res/android}'
 ET.register_namespace('android',ns[1:-1])
 tree=ET.parse(ROOT/'system/shopping-observer/AndroidManifest.xml')
-tree.getroot().set(ns+'versionCode',os.environ.get('TAKU_OBSERVER_VERSION_CODE','28'))
-tree.getroot().set(ns+'versionName','0.12.4-pixel-preview')
+tree.getroot().set(ns+'versionCode',os.environ.get('TAKU_OBSERVER_VERSION_CODE',tree.getroot().get(ns+'versionCode')))
+tree.getroot().set(ns+'versionName','0.13.0-pixel-delivery-preview')
 tree.getroot().find('application').set(ns+'name','org.agentos.shopping.PixelObserverApplication')
 tree.write(HERE/'AndroidManifest.xml',encoding='utf-8',xml_declaration=True)
 

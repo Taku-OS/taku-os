@@ -5,50 +5,66 @@
     {
       "command": "npm run verify",
       "status": "passed",
-      "environment": "Python 3.12, Node/JDK host; no device/model"
+      "environment": "Python3.12.11 / Node / JDK; no physical device or model",
+      "note": "Initial run with default Python3.10 stopped at missing hashlib.file_digest; rerun uses documented Python3.11+ requirement."
     },
     {
-      "command": "npm run check:live-tryon",
+      "command": "bash system/tryon/test-host.sh",
       "status": "passed",
-      "details": "Native host, LIVE admission/ACK, observer, Proactivity prompt/approval suites"
+      "details": "Complete suite, including notification47/pill132/async attach64/system host78 and126 actual host-failure state/cleanup/card checks; terminal failure behavior retained"
     },
     {
       "command": "bash system/tryon/test-rtc-cleanup.sh",
       "status": "passed",
-      "details": "48 cleanup + 319 pressure/FIFO + 138 informational burst assertions; actual RTC adapter with deterministic actors; no network/JNI/model"
+      "details": "48 cleanup +319 pressure/FIFO +138 informational burst +110 real signaling-close/thread/creation-race checks; no network/JNI/model"
+    },
+    {
+      "command": "bash system/shopping-observer/test-host.sh",
+      "status": "passed",
+      "details": "Complete suite, including parser73, actual window148, preview guard31; single-admission and strong capture rules retained"
+    },
+    {
+      "command": "bash system/shopping-observer/pixel-compat/test-host.sh",
+      "status": "passed",
+      "details": "21 progress +29 phone progress +14 legacy adapter assertions"
     },
     {
       "command": "python3 tests/tryon-delivery.test.py",
       "status": "passed",
-      "details": "8 packaging corruption/path/symlink/inventory/signature-metadata/dirty-source tests"
+      "details": "8 packaging corruption/path/symlink/inventory/signature-metadata/dirty-source cases"
     },
     {
-      "command": "npm run typecheck; npm run lint; npm test (system/agent-app)",
+      "command": "native97 / observer30 main and Pixel adapter builds",
       "status": "passed",
-      "details": "472 JS tests; reused existing dependency cache without installing or modifying dependencies"
-    },
-    {
-      "command": "python3 tests/secret-scan.test.py",
-      "status": "passed",
-      "details": "7 cases, 2 skipped by existing test conditions; no claim of a full binary security audit"
-    },
-    {
-      "command": "native/observer/Pixel adapter/Proactivity builds",
-      "status": "passed",
-      "details": "Fresh source candidates, compiled and signed locally; not installed by this delivery task"
+      "details": "Fresh Native97 (final host-failure revision), Observer30 main/Pixel adapter built and signed; no physical-device acceptance"
     },
     {
       "command": "apksigner verify --print-certs and aapt2 dump badging",
       "status": "passed",
-      "details": "Each declared APK; exact bytes pinned in artifacts.json"
+      "details": "All five replaced APKs checked for exact package/version/certificate; final hashes pinned in artifacts.json"
+    }
+  ],
+  "carriedForwardChecks": [
+    {
+      "command": "npm run typecheck; npm run lint; npm test (system/agent-app)",
+      "status": "passed",
+      "details": "472 JS tests; reused existing dependency cache without installing or modifying dependencies",
+      "scope": "historical 34545f1c baseline; not rerun by refresh"
+    },
+    {
+      "command": "python3 tests/secret-scan.test.py",
+      "status": "passed",
+      "details": "7 cases, 2 skipped by existing test conditions; no claim of a full binary security audit",
+      "scope": "historical 34545f1c baseline; not rerun by refresh"
     },
     {
       "command": "bash system/assistant/test-agent-gateway-host.sh",
       "status": "passed",
-      "details": "184 gateway + 61 actual permission UI bridge assertions, composer and durable submission checks; reused external Kotlin compiler cache; no broker/model/device"
+      "details": "184 gateway + 61 actual permission UI bridge assertions, composer and durable submission checks; reused external Kotlin compiler cache; no broker/model/device",
+      "scope": "historical 34545f1c baseline; not rerun by refresh"
     }
   ],
-  "existingEvidence": {
+  "historicalEvidence": {
     "native91Pixel": {
       "durationMs": 60646,
       "sourceFrames": 728,
@@ -69,16 +85,72 @@
       "pixelInstalledAndHashChecked": true,
       "fullPixelTouchAcceptanceClaimed": false
     },
-    "userFeedback": "User reported the earlier LIVE flow basically worked; this is not acceptance for every fresh candidate."
+    "userFeedback": "User reported the earlier LIVE flow basically worked; this is not acceptance for every fresh candidate.",
+    "scope": "Earlier versions; never transferred as current end-to-end acceptance"
+  },
+  "recordedPixelEvidence": {
+    "native96": {
+      "versionCode": 96,
+      "sha256": "d69815eb6f8027ed4fb902391639b51c6bdee7e003ee52d2fcd1abed4b746502",
+      "localCleanupConfirmedAfterFailure": true,
+      "cameraClientsEmpty": true,
+      "noNewCrashObserved": true,
+      "pidContinuityVerified": false,
+      "full60SecondAndRealCloseAcceptance": false
+    },
+    "observer29": {
+      "versionCode": 29,
+      "sha256": "b3a3410df337d3bbf70f00b98f78474e5cdfcfcce3652e4576b3656342bd6269",
+      "automaticInvitationStableSeconds": 24.81,
+      "verifiedContainer": "com.ss.android.ugc.aweme.detail.ui.DetailActivity",
+      "generation": 4,
+      "published": 1,
+      "stale": 0,
+      "tryOnStartedByCheck": false
+    }
+  },
+  "knownUnresolved": {
+    "code": "lucy_platform_INTERNAL_ERROR",
+    "elapsedMs": 9428,
+    "generatedFrames": 0,
+    "exactRootCauseKnown": false,
+    "safeReasonAvailable": false,
+    "localCleanupConfirmed": true
+  },
+  "freshCandidateIsolatedEmulator": {
+    "status": "passed",
+    "nativeVersion": 97,
+    "observerPixelAdapterVersion": 30,
+    "nativeSha256": "9d524b786f2f248e26e46ae9bd2b28fcdb8e897fa5e68de3034ad64bd140c42e",
+    "observerSha256": "74c4fac487e9de3b1381bd0d5535c278569be07f0384b4b8918a3b0ac74d3c9d",
+    "layoutCombinations": 24,
+    "actualWindowCompactChecks": 18,
+    "systemHostAssertions": 30,
+    "realTouchClicks": 3,
+    "sameViewTree": true,
+    "observerPhases": [
+      "idle",
+      "preview_active",
+      "idle"
+    ],
+    "cameraOrCloudStarted": false,
+    "contentProviderDeviceParityNewlyTested": false,
+    "scope": "Actual Window/Chrome controls and system-host touch plus passive preview guard; provider/shared service parity covered by host suites",
+    "sourceAvdAll21FilesUnchanged": true,
+    "ownedCloneRemoved": true,
+    "physicalDeviceTouched": false,
+    "networkFenceBeforeFixtures": true,
+    "bootBeforeNetworkFenceClaimed": false,
+    "receiptSha256": "96fc22cfab20dab0a72aa219a8270c6e60cc8a4fdb4ec3ded6958023b836c19e"
   },
   "notRun": [
-    "New source candidate 94/28/9 install/runtime acceptance",
+    "New source97/30/9 physical-device runtime acceptance",
+    "Recorded Native96 natural60s timeout and real close-button PID continuity checks",
     "Normal SystemUI Soong source build",
-    "Clean full-ROM installation, cold boot and OTA",
-    "Separate in-progress touch-host fix; not imported into frozen baseline"
+    "Clean full-ROM installation, cold boot and OTA"
   ],
-  "deviceMutationsByDeliveryTask": false,
-  "deviceReads": "Only code APKs and three fixed runtime code files; no user data or credentials",
+  "physicalDeviceMutationsByRefresh": false,
+  "deviceReads": "Refresh assembles existing code APKs/runtime files and curated prior evidence; no phone app data or credentials",
   "remotePush": false,
   "publicRelease": false
 }

@@ -9,7 +9,7 @@ import java.util.Map;
 /** Each returned handle has independent recycling; the model stays mutable between fresh reads. */
 public final class AccessibilityNodeInfo {
     public String packageName="com.zhiliaoapp.musically",className="android.view.View",text="",description="",viewId="";
-    public int windowId=100,refreshes,recycles,textQueries;
+    public int windowId=100,refreshes,recycles,textQueries,textReads,descriptionReads,childReads;
     public boolean visible=true,editable,password,refreshable=true,throwBounds;
     public Rect bounds=new Rect(0,0,1080,2424);
     public final Map<String,List<AccessibilityNodeInfo>> ids=new HashMap<>(),texts=new HashMap<>();
@@ -24,8 +24,8 @@ public final class AccessibilityNodeInfo {
     public int getWindowId(){return model.windowId;}
     public CharSequence getPackageName(){return model.packageName;}
     public CharSequence getClassName(){return model.className;}
-    public CharSequence getText(){return model.text;}
-    public CharSequence getContentDescription(){return model.description;}
+    public CharSequence getText(){model.textReads++;return model.text;}
+    public CharSequence getContentDescription(){model.descriptionReads++;return model.description;}
     public String getViewIdResourceName(){return model.viewId;}
     public boolean isVisibleToUser(){return model.visible;}
     public boolean isEditable(){return model.editable;}
@@ -36,7 +36,7 @@ public final class AccessibilityNodeInfo {
     }
     public List<AccessibilityNodeInfo> findAccessibilityNodeInfosByText(String text){model.textQueries++;return handles(model.texts.get(text));}
     public int getChildCount(){return model.children.size();}
-    public AccessibilityNodeInfo getChild(int index){return obtain(model.children.get(index));}
+    public AccessibilityNodeInfo getChild(int index){model.childReads++;return obtain(model.children.get(index));}
     public void recycle(){if(recycled)throw new AssertionError("Node recycled twice");recycled=true;model.recycles++;}
     private static List<AccessibilityNodeInfo> handles(List<AccessibilityNodeInfo> models){
         List<AccessibilityNodeInfo> result=new ArrayList<>();

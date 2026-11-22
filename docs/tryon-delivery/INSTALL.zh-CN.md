@@ -7,6 +7,11 @@
 再用随包校验工具核对 `SHA256SUMS`。任意原厂 Android 或旧 Taku OS 仅安装两个 APK，
 不能保证顶部卡片、权限和整个 LIVE 流程可用。
 
+本包记录的 Pixel 应用为 Native 96 / Observer 29；新源码候选为 Native 97 /
+Observer 30（主平台与旧 Pixel 提示协议适配包分开）。不能只按版本号选择安装包。
+候选 97 / 30 使用平台开发签名，与记录中 Native 96 / Observer 29 的开发签名不同，
+不能在那台 Pixel 上直接用候选 APK 保数据升级。
+
 ### 系统集成方
 
 正式源码路径：构建并签名配套 SystemUI、Assistant、Proactivity、Surfaces、Home，以及
@@ -35,6 +40,15 @@ adb -s SERIAL install -r verified-device/apk/org.agentos.shopping.apk
 
 其余依赖由系统维护者按清单安排。不要混用两组包；包名相同不意味着签名、协议和
 系统环境相同。本交付的校验与构建命令都不会自动安装或开始模型会话。
+Observer 升级后，若“主动性 → 观察者”显示“更新待确认”，打开该观察者并点
+“确认更新并启用”；更新确认前不会产生新邀请。
+
+顶部 Preparing / Live 胶囊的原触摸路径使用已有系统服务：
+`org.agentos.assistant/org.agentos.surfaces.IslandViewHostService`。
+服务必须启用、导出、由平台签名，应用还须获授
+`org.agentos.surfaces.permission.HOST_ISLAND_VIEW`。不要绑定到 Surfaces 包内同名类。
+未满足该依赖时使用普通应用浮窗；它无法在更高层的系统状态栏上接收触摸，不能据此
+宣称顶部胶囊已经通过该环境的交互验收。宿主服务由配套系统提供，本应用不打包新宿主。
 
 ## 第一次配置：Lucy
 
@@ -55,6 +69,7 @@ adb -s SERIAL install -r verified-device/apk/org.agentos.shopping.apk
 3. 开启 **Try-on reminders in TikTok LIVE**，并通过 **Allow try-on reminders** 批准提示。
 4. 点 **System AI permissions and models**，在 Taku AI 中允许该应用使用模型并配置可用的图片模型。
 5. 自动标题分类和无商品卡时的自动图片检查有独立开关，按需要开启；它们默认关闭。
+   启用自动标题分类时，还须在系统 AI 中配置可用的文字模型；图片模型不能代替文字模型。
 
 识衣使用 Taku AI 图片模型；生成换装视频使用 Taku Try-On 中的 fal key。
 两者缺一时，分别检查识别失败或 Lucy 未配置，不重复写入 key 来修复所有错误。
@@ -63,19 +78,25 @@ adb -s SERIAL install -r verified-device/apk/org.agentos.shopping.apk
 
 进入受支持 TikTok 的服装 LIVE，保持手机解锁。接受提示中的 **Try on**，或在观察组件
 使用其明确的 Try on 入口。识别结束后前摄小窗出现，等待实际返回的换装视频。
-可拖动窗口、缩放、点右上角放大，点关闭结束。仅进入直播、看到提示或打开设置不会
+可拖动窗口、缩放、点右上角放大，点关闭结束；收起后点 Preparing / Live 胶囊恢复
+同一个小窗。正常会话不再额外生成 AI try-on / Expand / Stop 控制卡，失败提示保留。
+仅进入直播、看到提示或打开设置不会
 自动开启 Lucy。点 Retry 会开始新的明确尝试；遇到会话正在释放时，等待关闭完成再试。
 
 支持的 TikTok 包名为 `com.zhiliaoapp.musically`、`com.ss.android.ugc.trill`。
 不同机型、TikTok 界面变更、完整 ROM/OTA 和重启恢复需各自验证。
-本次冻结包的真机顶部控件触摸问题仍由另一任务修复；因此该包用于评审和复现，
-不是已完成全部触摸验收的普通用户安装包。
+本次已合入 DetailActivity 直播入口兼容、原触摸宿主和预览暂停重复邀请的修复。
+Lucy 的 INTERNAL_ERROR 仍未根治，当前链路未标为稳定通过；Native 96 的真实关闭
+按钮与自然 60 秒退出仍需完成进程持续性回归，新候选 97 / 30 尚未完成新的真机验收。
+该包用于评审和开发复现，不能作为已验收的普通用户发行包。
 
 ## 开发者只读检查
 
 ```sh
 adb -s SERIAL shell content call --uri content://org.taku.tryon.api --method status
 adb -s SERIAL shell content call --uri content://org.agentos.shopping.api --method status
+# 需要核对实际宿主时，使用配套系统的服务诊断；不启动会话：
+adb -s SERIAL shell dumpsys activity service org.agentos.assistant/org.agentos.surfaces.IslandViewHostService
 ```
 
 读取状态不开始模型，不返回 key。退出后应看到 `active=false`、`cleanupPending=false`；

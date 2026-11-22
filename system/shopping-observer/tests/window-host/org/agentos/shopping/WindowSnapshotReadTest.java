@@ -62,7 +62,7 @@ public final class WindowSnapshotReadTest {
     }
     public static void main(String[] args)throws Exception {
         Looper.getMainLooper();
-        countedSampling();freshBoundaryChanges();geometryRules();windowRules();offerOcclusion();compatibilityAndOwnership();
+        countedSampling();freshBoundaryChanges();geometryRules();windowRules();offerOcclusion();detailLiveContainer();previewWindows();compatibilityAndOwnership();
         System.out.println(assertions+" window snapshot adapter assertions passed");
     }
     private static void countedSampling(){
@@ -215,6 +215,29 @@ public final class WindowSnapshotReadTest {
         f=new Fixture();source=f.read().page();f.hint("org.agentos.assistant");f.window.focused=false;f.window.active=false;
         read=f.occluded(source);check("app_not_focused".equals(read.reason())&&read.offerOcclusion()==null,"app switch cannot preserve a displayed offer");
     }
+    private static void detailLiveContainer(){
+        String detail="com.ss.android.ugc.aweme.detail.ui.DetailActivity";
+        Fixture f=new Fixture();f.root.texts.clear();
+        var strong=WindowSnapshot.read(f.service,detail,true);
+        check(strong.page()!=null&&strong.layout()!=null&&"live_room".equals(strong.reason()),
+            "fresh DetailActivity LIVE anchors authorize page and geometry without gift text");
+        var passive=WindowSnapshot.readPassive(f.service,detail,null);
+        check(passive.page()!=null&&passive.page().contentKey().equals(strong.page().contentKey()),
+            "passive and strong DetailActivity reads share the verified page");
+        LivePage source=strong.page();f.hint("org.agentos.assistant");f.get("mr1").visible=false;
+        var occluded=WindowSnapshot.readForOffer(f.service,detail,source);
+        check(occluded.page()==null&&"not_live_room".equals(occluded.reason())&&retained(occluded,source),
+            "DetailActivity hint retention uses the same verified container helper");
+        check(WindowSnapshot.read(f.service,detail,true).page()==null
+            &&WindowSnapshot.read(f.service,detail,true).layout()==null,
+            "retained DetailActivity offer metadata cannot bypass strong source validation");
+        var unknown=WindowSnapshot.readForOffer(f.service,"example.other.DetailActivity",source);
+        check(unknown.page()==null&&unknown.offerOcclusion()==null,
+            "unverified DetailActivity aliases cannot retain an occluded offer");
+        f.get("mr1").visible=true;f.service.windows.remove(1);
+        check(WindowSnapshot.read(f.service,detail,true).layout()!=null,
+            "DetailActivity recovers ordinary fresh source validation after hint exit");
+    }
     private static void compatibilityAndOwnership()throws Exception {
         Fixture f=new Fixture();var old=WindowSnapshot.read(f.service,ACTIVITY);
         check(old.page()!=null&&old.layout()==null,"legacy page-only overload retains its original behavior");
@@ -226,5 +249,64 @@ public final class WindowSnapshotReadTest {
         Fixture offThread=new Fixture();WindowSnapshot.ReadResult[] result=new WindowSnapshot.ReadResult[1];
         Thread worker=new Thread(()->result[0]=offThread.read());worker.start();worker.join();
         check("wrong_thread".equals(result[0].reason())&&result[0].layout()==null&&offThread.service.windowReads==0,"fresh combined reads retain the Android main-thread requirement");
+    }
+
+    private static void previewWindows(){
+        for(Rect bounds:new Rect[]{new Rect(402,28,743,144),new Rect(296,44,782,777),new Rect(0,0,1080,2424)}) {
+            Fixture f=new Fixture();LivePage before=f.read().page();
+            AccessibilityWindowInfo preview=f.hint("org.taku.tryon");preview.root.description="Live try-on window";
+            preview.bounds=new Rect(bounds);preview.root.bounds=new Rect(bounds);
+            var read=WindowSnapshot.readPassive(f.service,ACTIVITY,before);
+            check(read.page()==null&&read.layout()==null&&"try_on_preview".equals(read.reason()),"actual passive read detects compact/preview/fullscreen Native root");
+            check(WindowSnapshot.diagnostic().contains("\"reason\":\"try_on_preview\""),"preview reason remains readable as fixed diagnostic metadata");
+            check(preview.root.textReads==0,"preview detection never reads Native text");
+            check(WindowSnapshot.read(f.service,ACTIVITY).page()!=null,"strong LIVE/source read retains its original overlay rules");
+            f.service.windows.remove(preview);
+            check(WindowSnapshot.readPassive(f.service,ACTIVITY,before).page()!=null,"preview removal immediately restores ordinary LIVE read without cooldown");
+        }
+        Fixture f=new Fixture();AccessibilityWindowInfo host=f.hint("org.agentos.assistant");
+        AccessibilityNodeInfo child=f.node("",402,28,743,144,"private Native text","Live cosplay · Lucy");child.packageName="org.taku.tryon";host.root.children.add(child);
+        check("try_on_preview".equals(WindowSnapshot.readPassive(f.service,ACTIVITY,null).reason()),"bounded child traversal finds the Native root embedded in trusted Assistant SCVH");
+        check(child.textReads==0&&host.root.descriptionReads==0,"embedded detection reads only the Native fixed description, not Assistant text or description");
+        check(child.recycles==1,"embedded Native child handle is recycled on an early matching return");
+        for(int kind=0;kind<10;kind++) {
+            f=new Fixture();host=f.hint("org.taku.tryon");host.root.description="Live try-on window";
+            switch(kind) {
+                case 0 -> host.root.description="AI try-on settings";
+                case 1 -> {host.root.description="";host.root.text="Live try-on window";}
+                case 2 -> host.root.visible=false;
+                case 3 -> host.root.bounds=new Rect(0,0,0,0);
+                case 4 -> host.root.bounds=new Rect(1500,0,1800,100);
+                case 5 -> host.displayId=1;
+                case 6 -> host.root.packageName="other.overlay";
+                case 7 -> host.root.packageName="org.agentos.assistant";
+                case 8 -> host.root.editable=true;
+                case 9 -> host.root.password=true;
+            }
+            check(WindowSnapshot.readPassive(f.service,ACTIVITY,null).page()!=null,"settings, text spoof, hidden/offscreen/foreign windows never pause LIVE observation: "+kind);
+            check(host.root.textReads==0,"Native/settings node text never enters preview detection");
+        }
+        for(boolean trusted:new boolean[]{true,false}) {
+            f=new Fixture();host=f.hint("org.agentos.assistant");child=f.node("",402,28,743,144,"private","Live try-on window");child.packageName="org.taku.tryon";host.root.children.add(child);
+            if(!trusted)f.service.packages.platformSigned.remove("org.agentos.assistant");
+            check("try_on_preview".equals(WindowSnapshot.readPassive(f.service,ACTIVITY,null).reason())==trusted,"only platform-signed Assistant can introduce an embedded Native preview");
+        }
+        f=new Fixture();host=f.hint("org.taku.tryon");host.root.description="Live try-on window";host.type=AccessibilityWindowInfo.TYPE_APPLICATION;
+        check("try_on_preview".equals(WindowSnapshot.readPassive(f.service,ACTIVITY,null).reason()),"passive read recognizes a real separate Native application window");
+        check("multiple_app_windows".equals(WindowSnapshot.read(f.service,ACTIVITY).reason()),"strong screenshot/explicit read does not gain a multiple-window exception");
+        // Exhaust one shared read-wide node budget before the second trusted window.
+        f=new Fixture();host=f.hint("org.agentos.assistant");
+        for(int branch=0;branch<32;branch++) {
+            AccessibilityNodeInfo parent=host.root;
+            for(int depth=0;depth<8;depth++) {
+                AccessibilityNodeInfo node=f.node("",402,28,743,144,"private","");node.packageName="org.taku.tryon";parent.children.add(node);parent=node;
+            }
+        }
+        AccessibilityWindowInfo beyond=f.hint("org.taku.tryon");beyond.root.description="Live try-on window";
+        check(WindowSnapshot.readPassive(f.service,ACTIVITY,null).page()!=null,"one shared bounded node budget prevents walking arbitrary additional trees");
+        check(beyond.root.refreshes==0&&beyond.root.descriptionReads==0,"later windows cannot reset the read-wide node budget");
+        f=new Fixture();host=f.hint("org.agentos.assistant");AccessibilityNodeInfo parent=host.root;
+        for(int depth=0;depth<14;depth++) {AccessibilityNodeInfo node=f.node("",402,28,743,144,"private",depth==13?"Live try-on window":"");node.packageName="org.taku.tryon";parent.children.add(node);parent=node;}
+        check(WindowSnapshot.readPassive(f.service,ACTIVITY,null).page()!=null,"depth bound rejects a marker hidden beyond the supported embedded view depth");
     }
 }

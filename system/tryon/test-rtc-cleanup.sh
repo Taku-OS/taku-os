@@ -29,3 +29,4 @@ find "$MODULE/tests/rtc-cleanup" -name '*.java' > "$OUT/fixtures.txt"
 "$JDK/bin/java" -cp "$OUT:$JSON_JAR:$CP:$ANDROID_JAR" org.taku.tryon.realtime.LucyCleanupTest
 "$JDK/bin/java" -cp "$OUT:$JSON_JAR:$CP:$ANDROID_JAR" org.taku.tryon.realtime.RtcBackpressureTest
 "$JDK/bin/java" -cp "$OUT:$JSON_JAR:$CP:$ANDROID_JAR" org.taku.tryon.realtime.RtcInformationalBurstTest
+"$JDK/bin/java" -cp "$OUT:$JSON_JAR:$CP:$ANDROID_JAR" org.taku.tryon.realtime.SignalingCloseTest

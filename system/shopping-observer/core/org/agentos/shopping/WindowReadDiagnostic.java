@@ -19,7 +19,7 @@ final class WindowReadDiagnostic {
     private static final Set<String> REASONS=Set.of("none","wrong_thread","screen_locked","window_unavailable",
         "unsupported_orientation","keyboard_visible","picture_in_picture","multiple_app_windows",
         "app_not_focused","window_not_fullscreen","root_unavailable","outside_tiktok","not_live_room",
-        "live_room","snapshot_unavailable","unknown");
+        "live_room","try_on_preview","snapshot_unavailable","unknown");
     private WindowReadDiagnostic(){}
     static PackageKind packageKind(CharSequence value) {
         if(value==null||value.length()==0)return PackageKind.UNKNOWN;

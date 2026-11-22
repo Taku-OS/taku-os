@@ -17,6 +17,7 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.CancellationException;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
@@ -50,6 +51,9 @@ public final class FalSignalingSocketFactory extends SocketFactory implements Au
     private static final ThreadPoolExecutor RESOLVERS = new ThreadPoolExecutor(0, 2, 30, TimeUnit.SECONDS,
             new SynchronousQueue<>(), daemon("tryon-proxy-resolver"));
     private final Object lock = new Object();
+    private final Object releaseLock = new Object();
+    private final CountDownLatch abortComplete = new CountDownLatch(1);
+    private final CountDownLatch creationComplete = new CountDownLatch(1);
     private final InetSocketAddress proxyAddress;
     private final Observer observer;
     private final SSLSocketFactory tlsFactory;
@@ -58,6 +62,8 @@ public final class FalSignalingSocketFactory extends SocketFactory implements Au
     private final LongSupplier nanoTime;
     private final long budgetNanos;
     private boolean started, opened, closed, expired;
+    private boolean tlsReleased, releaseConfirmed;
+    private volatile boolean abortFailed;
     private long began;
     private Socket raw;
     private SSLSocket tls;
@@ -125,7 +131,7 @@ public final class FalSignalingSocketFactory extends SocketFactory implements Au
             connectTunnel(transport);
             eventStage("tls_handshaking");
             Socket secured = tlsFactory.createSocket(transport, HOST, PORT, true);
-            if (!(secured instanceof SSLSocket)) { closeQuietly(secured); throw new IOException("signaling_tls_socket_required"); }
+            if (!(secured instanceof SSLSocket)) { closeRejected(secured); throw new IOException("signaling_tls_socket_required"); }
             SSLSocket secure = (SSLSocket) secured;
             register(secure, true);
             SSLParameters parameters = secure.getSSLParameters();
@@ -140,10 +146,17 @@ public final class FalSignalingSocketFactory extends SocketFactory implements Au
             return secure;
         } catch (IOException | RuntimeException failure) {
             boolean timeout = isExpired();
-            shutdown(timeout);
+            abort(timeout);
             if (timeout) throw timeout();
             if (failure instanceof IOException) throw (IOException) failure;
             throw new IOException("signaling_transport_failed", failure);
+        } finally {
+            // Cancellation can win while the TLS factory is still creating its wrapper.
+            // Publish completion only after any rejected late socket has been released.
+            creationComplete.countDown();
+            boolean cancelled;
+            synchronized (lock) { cancelled = closed; }
+            if (cancelled) completeClose();
         }
     }
 
@@ -161,7 +174,7 @@ public final class FalSignalingSocketFactory extends SocketFactory implements Au
             remainingMillis();
             return address;
         } catch (TimeoutException failed) {
-            shutdown(true); throw timeout();
+            abort(true); throw timeout();
         } catch (CancellationException failed) {
             synchronized (lock) { requireOpen(); }
             throw new IOException("signaling_proxy_resolution_cancelled");
@@ -237,8 +250,36 @@ public final class FalSignalingSocketFactory extends SocketFactory implements Au
         eventStage("connected"); return true;
     }
     public boolean timedOut() { synchronized (lock) { return expired || started && !opened && isExpiredLocked(); } }
-    public void cancel() { shutdown(false); }
-    @Override public void close() { cancel(); }
+    /** Immediately aborts DNS and the raw socket; safe for the UI stop path. */
+    public void cancel() { abort(false); }
+    /** TLS close-notify may write to the network. Call on the transport cleanup actor. */
+    @Override public void close() { completeClose(); }
+
+    /** Completes local TLS release before the owner reports cleanup; never runs on the UI path. */
+    public boolean completeClose() {
+        cancel();
+        boolean interrupted = false;
+        while (true) try { abortComplete.await(); break; }
+        catch (InterruptedException ignored) { interrupted = true; }
+        boolean creating;
+        synchronized (lock) { creating = started; }
+        if (creating) while (true) try { creationComplete.await(); break; }
+        catch (InterruptedException ignored) { interrupted = true; }
+        boolean confirmed;
+        synchronized (releaseLock) {
+            if (!tlsReleased) {
+                SSLSocket secure;
+                synchronized (lock) { secure = tls; }
+                releaseConfirmed = !abortFailed;
+                try { if (secure != null) secure.close(); }
+                catch (IOException | RuntimeException failed) { releaseConfirmed = false; }
+                finally { tlsReleased = true; }
+            }
+            confirmed = releaseConfirmed;
+        }
+        if (interrupted) Thread.currentThread().interrupt();
+        return confirmed && !interrupted;
+    }
 
     private int remainingMillis() throws IOException {
         synchronized (lock) {
@@ -262,23 +303,34 @@ public final class FalSignalingSocketFactory extends SocketFactory implements Au
             if (accepted) { if (secure) tls = (SSLSocket) socket; else raw = socket; }
         }
         if (!accepted) {
-            closeQuietly(socket);
+            closeRejected(socket);
             synchronized (lock) { requireOpen(); }
         }
     }
     private void shutdown(boolean deadlineExpired) {
-        Socket plain, secure; Future<?> resolving;
+        if (abort(deadlineExpired)) completeClose();
+    }
+    private boolean abort(boolean deadlineExpired) {
+        Socket plain; Future<?> resolving;
         synchronized (lock) {
-            if (closed || deadlineExpired && opened) return;
+            if (closed || deadlineExpired && opened) return false;
             closed = true; expired = deadlineExpired;
-            plain = raw; secure = tls; resolving = lookup;
+            plain = raw; resolving = lookup;
             if (deadline != null) deadline.cancel(false);
         }
-        if (resolving != null) resolving.cancel(true);
-        closeQuietly(plain); // Abort native TLS IO before attempting TLS close-notify.
-        if (secure != plain) closeQuietly(secure);
+        try {
+            if (resolving != null) resolving.cancel(true);
+            // A TLS close can still attempt close-notify after this abort. Only close the
+            // raw descriptor here; completeClose releases the wrapper on the cleanup actor.
+            if (plain != null) plain.close();
+        } catch (IOException | RuntimeException failed) { abortFailed = true; }
+        finally { abortComplete.countDown(); }
+        return true;
     }
-    private static void closeQuietly(Socket socket) { if (socket != null) try { socket.close(); } catch (IOException ignored) {} }
+    private void closeRejected(Socket socket) {
+        if (socket != null) try { socket.close(); }
+        catch (IOException | RuntimeException failed) { abortFailed = true; }
+    }
     private void eventRoute() { try { observer.onRoute("http_connect_proxy"); } catch (RuntimeException ignored) {} }
     private void eventStatus(int status) { try { observer.onProxyConnectStatus(status); } catch (RuntimeException ignored) {} }
     private void eventStage(String stage) { try { observer.onConnectionStage(stage); } catch (RuntimeException ignored) {} }

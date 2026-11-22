@@ -280,9 +280,9 @@ public final class ShoppingObserverService extends AccessibilityService {
         reading = true;
         try {
             if (force) clearCache();
-            WindowSnapshot.ReadResult result = offer==null ? WindowSnapshot.read(this, activityName)
-                : WindowSnapshot.readForOffer(this,activityName,offer.page());
+            WindowSnapshot.ReadResult result = WindowSnapshot.readPassive(this,activityName,offer==null?null:offer.page());
             reads++; lastRead = now();
+            if(pauseForPreview(result))return;
             if(maintainPendingAcceptance(offer,result) || retainOccludedOffer(offer,result))return;
             if (policy.observe(result.page(), now())) { if (offer != null) lastOfferInvalidation = result.reason(); lifecycle++; withdraw(); }
             LivePage page = policy.currentPage();
@@ -322,10 +322,18 @@ public final class ShoppingObserverService extends AccessibilityService {
     }
     private boolean refreshCurrent(ObservationPolicy.Candidate candidate) {
         if (destroyed || !Preferences.enabled(this) || !unlocked()) return false;
-        clearCache(); WindowSnapshot.ReadResult read = WindowSnapshot.read(this, activityName); reads++; lastRead = now();
+        clearCache(); WindowSnapshot.ReadResult read = WindowSnapshot.readPassive(this,activityName,null); reads++; lastRead = now();
         lastRefreshReason = acceptanceReadReason(read);
+        if(pauseForPreview(read))return false;
         if (policy.observe(read.page(), now())) { if (offer != null) lastOfferInvalidation = read.reason(); lifecycle++; withdraw(); }
         return policy.isCurrent(candidate, now());
+    }
+
+    /** Presentation changes do not create a new LIVE visit or an overlapping automatic suggestion. */
+    private boolean pauseForPreview(WindowSnapshot.ReadResult read) {
+        if(!"try_on_preview".equals(read.reason()))return false;
+        withdraw();phase="preview_active";displayStatus="Try-on preview is open.";
+        return true;
     }
 
     private boolean retainOccludedOffer(ObservationPolicy.Candidate candidate,WindowSnapshot.ReadResult read) {
@@ -352,7 +360,7 @@ public final class ShoppingObserverService extends AccessibilityService {
         return switch(read.reason()) {
             case "live_room","not_live_room","root_unavailable","app_not_focused","wrong_thread","screen_locked",
                 "window_unavailable","unsupported_orientation","keyboard_visible","picture_in_picture",
-                "multiple_app_windows","window_not_fullscreen","outside_tiktok","snapshot_unavailable" -> read.reason();
+                "multiple_app_windows","window_not_fullscreen","outside_tiktok","snapshot_unavailable","try_on_preview" -> read.reason();
             default -> "other_read_rejection";
         };
     }
@@ -380,8 +388,9 @@ public final class ShoppingObserverService extends AccessibilityService {
     private boolean refreshDisplayedOffer(ObservationPolicy.Candidate candidate) {
         if(candidate==null || candidate!=offer || destroyed || !Preferences.enabled(this) || !unlocked())return false;
         clearCache();
-        WindowSnapshot.ReadResult read=WindowSnapshot.readForOffer(this,activityName,candidate.page());
+        WindowSnapshot.ReadResult read=WindowSnapshot.readPassive(this,activityName,candidate.page());
         reads++;lastRead=now();
+        if(pauseForPreview(read))return false;
         if(maintainPendingAcceptance(candidate,read) || retainOccludedOffer(candidate,read))return true;
         if(policy.observe(read.page(),now())) {lastOfferInvalidation=read.reason();lifecycle++;withdraw();}
         return policy.isCurrent(candidate,now());
@@ -456,6 +465,7 @@ public final class ShoppingObserverService extends AccessibilityService {
         if (current && modelCalled) ProductTypeStore.save(this, candidate.page(), result);
         // Completion, not a UI timeout or a page switch, releases the one real model lease.
         ObservationPolicy.Candidate next = policy.resolveClassification(candidate, result, now());
+        if(!current && "preview_active".equals(phase))return;
         if (destroyed || !sameClassificationPage(candidate)) return;
         ProductTypeAnswer.Result settled = policy.classificationResult();
         if (settled != null) classificationStatus = (modelCalled ? "model_" : "local_") + settled.name();

@@ -13,3 +13,4 @@ bash tests/test-observation-history-host.sh
 bash tests/test-window-snapshot-host.sh
 bash tests/test-reminder-host.sh
 python3 tests/test-live-progress-host.py
+python3 tests/test-preview-guard-host.py
