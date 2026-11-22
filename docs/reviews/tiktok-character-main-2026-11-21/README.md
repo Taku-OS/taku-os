@@ -457,3 +457,60 @@ or new Try on session after the request for human participation. Real spoken
 input and camera/model output therefore remain unverified for this installed
 release. No additional cloud generation is claimed. The phone is left idle on
 the paused TikTok scene, ready for that manual check.
+
+## Native SystemUI island restoration (2026-11-22)
+
+The matching native island was recovered from the official
+[November 18 v1.4 release](https://github.com/Taku-OS/taku-os/releases/tag/v1.4.0-20261118070714).
+No local full SystemUI/Soong build or cloud builder was used. The range extraction
+verified fresh OTA metadata, every system_ext operation hash and the reconstructed
+partition SHA-256 `bf9658453a1e2e05f8a5240fba1dcba9b933dd415bbbb2f2fb08c7bbe4fa22c4`.
+Only that partition was downloaded; the whole OTA archive hash was not verified.
+The unmodified SystemUI APK SHA-256 is
+`7ea34206bdbf01bde2cbed047fcee2b83e1e0fc70cd0845c1885c6275e85c896`.
+Its platform signer, package/shared UID, SDK and native assistant provider were
+checked against Pixel. Scoped DEX inspection also confirmed the nonfocusable
+card flags in both window creation and IME reflow. This official package predates
+the later main capsule cosmetics; it is not claimed to be a build of this branch.
+
+Because SystemUI is persistent, installation used Android's standard staged
+package-update flow with a retained-data rollback, followed by a real kernel
+reboot. The session applied without failure; UID 10194 was preserved and the
+installed APK hash was read back. The rollback remained available and its health
+check passed. No verity change, SystemUI APK patch, new signature or full image
+flash was needed. The existing three development runtime bind mounts were
+restored through the independent root service while user 0 remained locked,
+before the first unlock. Those runtime binds still last for this boot only;
+another kernel reboot needs the same restoration. The staged SystemUI update
+itself survives reboot. Runtime data was backed up privately on the phone.
+
+The first actual hold showed no header despite a connected producer. Home's
+Android notification permission was absent, so its notification never reached
+SystemUI's notification pipeline. Granting only Home's POST_NOTIFICATIONS and
+starting a fresh hold produced the real black `Taku is listening...` card. Public
+SystemUI state matched the screenshot: native-assistant, systemui-native,
+nativeReady=true, expanded=true and focusable=false. Cancellation removed the
+card and returned microphone and Home to idle without a task or model request.
+The header-host field alone is not visual acceptance: it reports provider
+availability, whereas SystemUI presentation state records what is drawn.
+
+Future ROM builds now include a TakuAgent-required default-permissions XML with
+only POST_NOTIFICATIONS and fixed=false, following the existing Arrival module
+pattern. A user can revoke it; the broker startup script does not regrant it on
+every launch. This XML was not installed into the current ROM: Pixel's existing
+component upgrade was repaired separately through the standard permission API.
+The ROM-only XML is excluded from the APK source binding, while APK manifest and
+resource XML changes still invalidate an old APK pin. XML/module checks, Agent UI
+ROM (10), Home policy (6 / 46 assertions),
+privileged-permission (7) regressions, root metadata check, Home lint and Home
+typecheck passed. A complete new ROM/Soong build was not run.
+
+During a coordinated idle window, the separately authorized LIVE task installed
+its Native 87 and Observer 25 packages. Its code is not imported into this branch;
+subsequent Pixel checks use those installed versions, not the earlier source-only
+Native 85 baseline. Home, Audio, backend and SystemUI were preserved. Detailed
+extraction, staging, restoration, header screenshots and state receipts remain
+in ignored out/island-official-rom-20261122/ and
+out/island-pixel-upgrade-20261122/. Real spoken request, Try on and returned model
+frames still require the separate full-flow checkpoint; the successful header
+smoke is not that acceptance.

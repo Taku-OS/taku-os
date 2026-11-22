@@ -1,0 +1,6 @@
+<exceptions>
+    <exception package="org.agentos.agent">
+        <!-- SystemUI projects native Assistant island notifications; users can revoke this grant. -->
+        <permission name="android.permission.POST_NOTIFICATIONS" fixed="false"/>
+    </exception>
+</exceptions>

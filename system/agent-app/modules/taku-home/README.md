@@ -513,8 +513,12 @@ Figma 1-1 … 1-6. Native Kotlin/Compose (`assistant/`, `ui/assistant/`); state 
   `scripts/build-voice-effects.cjs`; see `voice-effects/README.md` for provenance and isolation.
   Multi-touch, focus loss and system cancellation never send. System gestures carry ordered
   ids/sequences, a UI-ready handshake and a heartbeat lease while the pointer is held.
-  Stock images without the SystemUI island provider show an in-page listening header;
-  ROMs with that provider use SystemUI only. `assistant/get.listeningHeaderHost` records it.
+  The listening header requires the matching SystemUI island provider and Home's
+  Android notification permission. There is no in-page header fallback.
+  `assistant/get.listeningHeaderHost` records provider availability; actual visibility
+  comes from `cmd statusbar island state`. ROM preinstallation includes a revocable
+  default notification grant; existing component-only upgrades need that permission
+  checked separately.
   Agent methods and protocol are in the preinstalled `taku-open-access` skill. The
   `AssistantOverlayActivity` supplies cross-app presentation through the native assistant;
   it does not create a Home controller or a second recording/session.

@@ -50,7 +50,8 @@ def source_paths(files):
         and not name.startswith(('system/agent-app/out/', 'system/agent-app/android/',
                                  'system/agent-app/ios/', 'system/agent-app/node_modules/',
                                  'system/agent-app/public/'))
-        and name != 'system/agent-app/Android.bp'))
+        and name not in ('system/agent-app/Android.bp',
+                         'system/agent-app/default-permissions.xml')))
 
 
 def source_names(root):

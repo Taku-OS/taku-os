@@ -52,6 +52,38 @@ class AgentUiInputContract(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'file set differs'):
             UI['validate_inputs'](self.root)
 
+    def test_rom_default_permissions_do_not_require_a_new_apk_pin(self):
+        name = 'system/agent-app/default-permissions.xml'
+        path = self.root / name
+        original = (ROOT / name).read_text()
+        path.write_text(original)
+        self.manifest['files'].append({'path': name})
+        self.save_manifest()
+        for content in (original, original + '<!-- ROM policy changed -->\n'):
+            with self.subTest(content=content):
+                path.write_text(content)
+                self.assertEqual(UI['validate_inputs'](self.root), self.lock)
+                self.assertEqual(UI['source_inputs'](self.root), self.lock['sourceInputs'])
+
+    def test_new_android_manifest_and_resource_xml_still_require_a_new_apk(self):
+        names = (
+            'system/agent-app/modules/taku-home/android/src/main/AndroidManifest.xml',
+            'system/agent-app/modules/taku-home/android/src/main/res/values/strings.xml',
+        )
+        for name in names:
+            with self.subTest(name=name):
+                path = self.root / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text('<resources/>')
+                self.manifest['files'].append({'path': name})
+                self.save_manifest()
+                try:
+                    with self.assertRaisesRegex(ValueError, 'file set differs'):
+                        UI['validate_inputs'](self.root)
+                finally:
+                    self.manifest['files'].pop()
+                    self.save_manifest()
+
     def test_shared_island_wire_is_an_apk_input(self):
         name = 'system/island/src/org/agentos/island/IslandContentProtocol.java'
         self.assertEqual(UI['source_paths']([name, 'system/island/src/com/android/systemui/IslandEngine.kt']), [name])
@@ -104,6 +136,8 @@ class AgentUiInputContract(unittest.TestCase):
             archive.writestr(UI['APK_ENTRY'], self.raw)
         with zipfile.ZipFile(memory) as archive:
             UI['validate_saved'](archive, {'assets': [self.lock]}, proof, inputs, entries, 'c' * 64)
+            rom_policy = {**entries, 'system/agent-app/default-permissions.xml': 'e' * 64}
+            UI['validate_saved'](archive, {'assets': [self.lock]}, proof, inputs, rom_policy, 'c' * 64)
             with self.assertRaisesRegex(ValueError, 'proof'):
                 UI['validate_saved'](archive, {'assets': [self.lock]}, None, inputs, entries, 'c' * 64)
             changed = {**entries, 'system/agent-app/src/new-screen.tsx': 'e' * 64}
