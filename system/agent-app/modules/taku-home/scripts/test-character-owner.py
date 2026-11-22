@@ -278,6 +278,26 @@ fun main()=runBlocking {
   val jpeg=reference();expect(!onOwner{owner.intercept("What is the weather today?")},"ordinary final returned to generic sender")
   expect(jpeg.all{it==0.toByte()}&&resolver.statusCalls.get()==0,"discard reference without provider request")
  }
+ case("pointing final without a reference stays available to ordinary chat"){
+  expect(!onOwner{owner.intercept("THIS OUTFIT OF HIS")},"recognized short phrase without frame returned to generic sender")
+  expect(state==null&&resolver.statusCalls.get()==0&&resolver.prepares.get()==0&&context.launched.isEmpty(),"words alone cannot create confirmation or open camera")
+ }
+ case("fresh pointing final only confirms until the user chooses Try on"){
+  resolver.statusEntered=CountDownLatch(1);resolver.statusRelease=CountDownLatch(1)
+  val jpeg=reference();expect(onOwner{owner.intercept("THIS OUTFIT OF HIS")},"exact actual ASR final intercepted with its authorized frame")
+  until("pointing checking"){resolver.statusEntered!!.count==0L}
+  expect(state?.phase==CharacterTryOnPhase.Checking&&resolver.prepares.get()==0&&context.launched.isEmpty(),"checking cannot open model or camera")
+  resolver.statusRelease!!.countDown();until("pointing confirming"){state?.phase==CharacterTryOnPhase.Confirming}
+  expect(resolver.prepares.get()==0&&context.launched.isEmpty()&&handoffs.get()==0,"confirmation alone cannot open model, camera or chat Activity")
+  expect(!onOwner{owner.intercept("THIS OUTFIT OF HIS")},"short phrase cannot consume its frame twice")
+  cancel();expect(jpeg.all{it==0.toByte()},"Not now erases the pointing reference")
+ }
+ case("pointing aliases cannot acquire another app's reference"){
+  val jpeg=byteArrayOf(0xff.toByte(),0xd8.toByte(),0xff.toByte(),0xd9.toByte())
+  onOwner{owner.offer("gesture_1234","com.android.chrome",950,975,jpeg)}
+  expect(!onOwner{owner.intercept("this outfit of hers")},"foreign app's image cannot authorize the alias")
+  expect(jpeg.all{it==0.toByte()}&&state==null&&resolver.statusCalls.get()==0,"foreign image erased without TryOn discovery")
+ }
  case("typed system reference uses the same confirmation and one-use handoff"){
   resolver.statusEntered=CountDownLatch(1);resolver.statusRelease=CountDownLatch(1)
   val jpeg=textReference()
@@ -325,7 +345,7 @@ fun main()=runBlocking {
  case("text editing cannot renew the invocation deadline"){
   val jpeg=textReference()
   onOwner{SystemClock.now=120950;check(textLease.activate("system_text_1234",SystemClock.now));SystemClock.now=120951}
-  expect(!onOwner{owner.intercept("Turn me into this character")},"original deadline retained")
+  expect(!onOwner{owner.intercept("THIS OUTFIT OF HIS")},"pointing alias retains original deadline")
   expect(jpeg.all{it==0.toByte()}&&resolver.statusCalls.get()==0,"expired text reference erased without provider calls")
  }
  case("locked text entry cannot start confirmation"){
@@ -377,11 +397,25 @@ fun main()=runBlocking {
   onOwner{owner.clear()}
   expect(jpeg.all{it==0.toByte()}&&state==null&&resolver.statusCalls.get()==0,"normal Live selection does not inspect TryOn or retain its image")
  }
+ case("first Keep Talking pointing final shares the same confirmation owner"){
+  val jpeg=reference();val ref=onOwner{owner.reference()}!!
+  val delivery=VoiceDeliveryMachine(16000);delivery.begin(46,VoiceDestination.AwaitGesture)
+  onOwner{check(voiceLease.begin(ref.id,ref.expiresAtElapsedMs,1000));keepTalkingInput=true;check(voiceLease.bind(ref.id,delivery.handoff()!!,1000))}
+  val final=VoiceState(operationId=46,target=VoiceTarget.Hold,phase=VoicePhase.Closed,outcome=VoiceOutcome.Success("this outfit of hers"))
+  val effect=delivery.settle(final,"") as VoiceEffect.Live
+  expect(onOwner{voiceLease.classify(ref.id,47,effect.text,1000)}==CharacterVoiceHandoff.Decision.Ignore,"wrong recording cannot use the alias")
+  expect(onOwner{voiceLease.classify(ref.id,effect.operationId,effect.text,1000)}==CharacterVoiceHandoff.Decision.Character,"same bound first final selects confirmation, not Live")
+  expect(onOwner{owner.intercept(effect.text)},"shared owner accepts the second exact pointing alias")
+  until("pointing Keep Talking confirming"){state?.phase==CharacterTryOnPhase.Confirming}
+  expect(context.launched.isEmpty()&&resolver.prepares.get()==0,"pointing Live handoff cannot launch without Try on")
+  expect(delivery.settle(final,"")==VoiceEffect.None,"pointing final delivered only once")
+  cancel();expect(jpeg.all{it==0.toByte()},"pointing handoff cancelled without camera")
+ }
  case("cancelled Keep Talking cannot revive its image on a late final"){
   val jpeg=reference();val ref=onOwner{owner.reference()}!!
   onOwner{voiceLease.begin(ref.id,ref.expiresAtElapsedMs,1000);voiceLease.bind(ref.id,44,1000);keepTalkingInput=true;voiceLease.clear();owner.clear()}
-  expect(onOwner{voiceLease.classify(ref.id,44,"帮我换成这个角色",1001)}==CharacterVoiceHandoff.Decision.Ignore,"cancelled final ignored")
-  expect(!onOwner{owner.intercept("帮我换成这个角色")},"late final cannot reclaim cleared owner")
+  expect(onOwner{voiceLease.classify(ref.id,44,"THIS OUTFIT OF HIS",1001)}==CharacterVoiceHandoff.Decision.Ignore,"cancelled pointing final ignored")
+  expect(!onOwner{owner.intercept("THIS OUTFIT OF HIS")},"late pointing final cannot reclaim cleared owner")
   expect(jpeg.all{it==0.toByte()}&&resolver.statusCalls.get()==0&&context.launched.isEmpty(),"cancelled final cannot launch any path")
  }
  case("leaving a claimed voice confirmation erases its attempt except during recreation"){
@@ -441,7 +475,7 @@ def main():
     output = run([jdk / 'bin/java', '-cp', classpath, 'org.agentos.agent.home.assistant.OwnerTestKt'])
     assert hashes == {path.relative_to(SOURCE_ROOT).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest() for path in production}, 'Production changed during test; repeat with stable source'
     result = re.search(r'RESULT cases=(\d+) assertions=(\d+)', output)
-    assert result and int(result[1]) == 21, output
+    assert result and int(result[1]) == 25, output
     (BUILD / 'compile.log').write_text(compile_log)
     (BUILD / 'test.log').write_text(output)
     receipt = {'schema': 'taku.character-owner.host-qa/1', 'passed': True, 'sourceSha256': hashes,

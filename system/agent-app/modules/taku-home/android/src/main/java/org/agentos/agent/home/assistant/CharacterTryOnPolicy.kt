@@ -4,7 +4,7 @@ import java.text.Normalizer
 import java.util.Locale
 import org.taku.cosplay.api.CosplayContract
 
-/** Admission uses a real system entry and a complete request, never text found in a frame. */
+/** Invocation-scoped request matching, including exact pointing aliases; never text found in a frame. */
 internal object CharacterTryOnPolicy {
   private val sources = setOf("com.zhiliaoapp.musically", "com.ss.android.ugc.trill")
   private val excluded = setOf("page", "conversationId", "jevTestToken", "manualScreen", "nativeControlsOnly")
@@ -16,6 +16,7 @@ internal object CharacterTryOnPolicy {
     "makemethischaracter", "helpmebecomethischaracter", "cosplaythischaracter",
     "turnmeintothischaracter", "changemeintothischaracter",
     "iwannacosplayashim", "iwannacosplayasher", "iwanttocosplayashim", "iwanttocosplayasher",
+    "thisoutfitofhis", "thisoutfitofhers",
   )
   private val outfitRequest = Regex(
     "(?:please)?(?:helpme)?(?:puton|tryon)(?:thisoutfit(?:of(?:his|her|hers))?|(?:his|her)outfit)"

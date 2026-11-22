@@ -4,21 +4,41 @@ import org.agentos.agent.home.assistant.*
 
 /** A retained hold page can show a completed reply; it is not itself a listening state. */
 fun assistantCardListening(s: AssistantState, v: VoiceState): Boolean =
-  s.entry == EntryMode.Voice && s.error == null && !s.working &&
-    (v.phase in setOf(VoicePhase.Idle, VoicePhase.Preparing, VoicePhase.Capturing) || v.emptySuccess)
+  s.entry == EntryMode.Voice && s.error == null && !s.working && v.ready
+
+private fun assistantCardStarting(s: AssistantState, v: VoiceState): Boolean =
+  s.entry == EntryMode.Voice && !s.working && v.phase in setOf(VoicePhase.Idle, VoicePhase.Preparing)
+
+/** Notification title, glyph and native phase share the same actual-capture boundary. */
+fun assistantCardTitle(s: AssistantState, v: VoiceState): String = when {
+  s.error == AssistantSession.VOICE_FAL_KEY_MISSING -> "fal API key missing"
+  s.error != null -> "Taku couldn’t finish"
+  s.needsUser -> "Taku needs your confirmation"
+  assistantCardStarting(s, v) -> "Getting ready…"
+  v.ready -> "Taku is listening..."
+  s.working -> "Taku is working"
+  else -> "Taku"
+}
+
+fun assistantCardAnimation(s: AssistantState, v: VoiceState): String =
+  if (s.working) "working" else if (v.ready) "listening" else "none"
+
+fun assistantCardPhase(s: AssistantState, v: VoiceState): String =
+  if (assistantCardListening(s, v)) "listening" else if (s.working) "working" else "message"
 
 /** Status line for the island and its collapsed pill; never invented beyond what the session reports. */
 fun assistantCardHeadline(s: AssistantState, v: VoiceState): String = when {
   s.error != null -> errorText(s.error)
   s.needsUser -> "Taku needs your confirmation to continue."
   v.target == VoiceTarget.Hold && v.phase == VoicePhase.Finalizing -> "Taku is finishing that, one moment."
-  // The microphone is not recording yet: say nothing rather than invite words that cannot be heard.
-  s.entry == EntryMode.Voice && v.target == VoiceTarget.Hold && v.phase == VoicePhase.Preparing -> ""
+  // Entry may open before Audio.start, while the preceding spoken reply is still stopping.
+  assistantCardStarting(s, v) -> "Getting ready…"
   assistantCardListening(s, v) -> "Taku is listening..."
+  s.entry == EntryMode.Voice && !s.working && v.emptySuccess -> ""
   s.turn?.reply?.isNotBlank() == true && !s.working -> s.turn.reply
   s.turn?.headline != null -> s.turn.headline
   s.working -> s.pending?.let { "“$it”" } ?: s.turn?.userText?.let { "“$it”" } ?: "Taku is working"
-  s.entry == EntryMode.Voice -> "Taku is listening..."
+  s.entry == EntryMode.Voice -> ""
   else -> "Taku is here, how can I help you?"
 }
 

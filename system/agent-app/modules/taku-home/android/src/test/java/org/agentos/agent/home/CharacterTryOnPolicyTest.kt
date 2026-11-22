@@ -55,6 +55,23 @@ class CharacterTryOnPolicyTest {
     }
   }
 
+  @Test fun exactPointingAliasesUseTheExistingNormalization() {
+    for (text in listOf("THIS OUTFIT OF HIS", "this outfit of hers", " This\toutfit of his. ",
+      "This outfit of hers!")) {
+      assertTrue(text, CharacterTryOnPolicy.command(text))
+    }
+  }
+
+  @Test fun pointingAliasesDoNotAcceptOtherFragmentsQuestionsOrDescriptions() {
+    for (text in listOf("this outfit", "his outfit", "her outfit", "this outfit of her", "this outfit of",
+      "this outfit of his?", "not this outfit of his", "Don't use this outfit of his",
+      "I like this outfit of his", "this outfit of hers looks good", "Tell me about this outfit of his",
+      "The caption says this outfit of his", "\"this outfit of his\"", "Say this outfit of hers",
+      "this outfit of his and post it", "this outfit of hers and send a photo", "this outfit of his!.")) {
+      assertFalse(text, CharacterTryOnPolicy.command(text))
+    }
+  }
+
   @Test fun negationPartialTranscriptsAndUnrelatedRequestsStayGeneric() {
     for (text in listOf("", "Turn me into", "Don't turn me into this character", "帮我换成这个角色吗？",
       "帮我换成这个角色，然后发给朋友", "Turn me into this character and post it",

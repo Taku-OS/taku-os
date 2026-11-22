@@ -661,3 +661,53 @@ attempt was not accepted as an English typing test: the phone's current Chinese
 Pinyin IME composed Hanzi from those hardware-style events. That original attempt
 is retained and its own draft was cleared. No input-method setting was changed,
 and keyboard-language behavior is not reported as an ASR result.
+
+## Human pointing-phrase regression (2026-11-22)
+
+The next real user utterance finished as local en-US / Zipformer Success with
+final text THIS OUTFIT OF HIS and a consumed Submit delivery. It entered ordinary
+chat and produced the garment-commentary reply shown in the user's photo. The
+exact final fragment did not satisfy the previous imperative-only predicate;
+interception therefore cleared its one-use reference and ordinary submission
+continued. This proves a routing gap for that fragment; the available evidence
+does not establish whether other words were spoken before capture was ready.
+The completed user conversation was preserved when its input surface was closed.
+
+The command predicate now also accepts exactly normalized thisoutfitofhis and
+thisoutfitofhers. It does not make the verb optional for arbitrary text, match
+substrings or add standalone outfit/character pronouns. Existing source, real
+framework capture, age, gesture/recording-operation ownership, attachment and
+single-consumption checks remain authoritative. A match only checks availability
+and presents confirmation; explicit Try on is still required to open a camera.
+23 character JVM tests and 25 actual production-owner scenarios / 124 assertions
+passed, including absent/wrong-source/expired/cancelled references and the first
+Keep talking operation. They are host tests, not injected device transcripts.
+
+Separately, the notification previously advertised listening during the Idle
+window before Audio.start and assigned a listening phase during Preparing.
+Listening text, animation and native phase now use the actual voice.ready capture
+boundary; Idle/Preparing show Getting ready… without an older reply. Finalizing,
+working, errors and retained completed replies keep their existing meanings.
+The existing real-capture vibration and waveform checks, Audio state lifecycle,
+ASR language settings and Live Talk internals are not changed. This removes a
+misleading preparation hint without claiming that it caused this user's fragment.
+
+The combined normal release built in 4m50s and was upgraded on Pixel with the same
+signer/UID. Home SHA-256 is
+`461cd48af193d7847c2e4f147e6522549854739afe2de852852a62dd1d318d57`.
+Other package hashes and both screen-context switches were preserved. Ten actual
+presentation tests, 27 voice tests, lint/typecheck and independent source review
+passed in addition to the 23 character / 25-owner suite above.
+
+On this APK, a new physical navigation double-tap and the exact text THIS OUTFIT
+OF HIS produced a real confirming card. The existing completed conversation's
+thread/turn IDs stayed unchanged; it did not create another commentary reply.
+The test card was cancelled without opening the camera. A separate injected
+handle hold observed the same operation on both sides of the native state read:
+while Preparing and ready=false, SystemUI's actual native text/title were
+Getting ready… and phase=message; while Capturing and ready=true, they became
+Taku is listening... and phase=listening, with local en-US / Zipformer metadata.
+Both states have actual Pixel screenshots. Cancellation returned to idle; the
+old completed user conversation was kept. These verify typed routing and native
+presentation, not a fabricated voice final. A new human speech/camera checkpoint
+was requested and is observed separately.
