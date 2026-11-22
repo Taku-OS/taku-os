@@ -45,9 +45,11 @@ def apply(source_root, verify_only):
         source = ROOT / item["source"]
         target = base / item["path"]
         require(sha(source) == item["sha256"], f"Workspace input source differs: {source}")
-        require(not target.is_symlink() and (not target.exists() or sha(target) == item["sha256"]),
+        require(not target.is_symlink() and (not target.exists() or target.is_file()),
                 f"Unknown workspace input source target: {target}")
-        additions.append((source, target))
+        if sha(target) != item["sha256"]:
+            require(not verify_only, f"Workspace input source target differs: {target}")
+            additions.append((source, target))
 
     if not all(states):
         require(not verify_only, "Workspace input framework patch is missing")
@@ -55,10 +57,8 @@ def apply(source_root, verify_only):
         subprocess.run([*command, "--check", patch], check=True)
         subprocess.run([*command, patch], check=True)
     for source, target in additions:
-        if not target.exists():
-            require(not verify_only, f"Workspace input source is missing: {target}")
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_bytes(source.read_bytes())
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(source.read_bytes())
     for item in manifest["files"]:
         require(sha(base / item["path"]) == item["afterSha256"],
                 f"Workspace input target verification failed: {item['path']}")
