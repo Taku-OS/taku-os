@@ -65,10 +65,10 @@ content call --uri content://com.android.systemui.island --method action --arg '
 `state` returns policy, active activities and actual presentation (selected key, compact visibility,
 card geometry, rich readiness, focusability and reason). `get` additionally returns revision,
 firstSeenElapsedMs, triggeredAtElapsedMs, expiresElapsedMs, stale, dismissed, `source`
-(`custom-v2`, `custom-v1`, `live-update` or `system`), `tier` (0 call, 1 alarm, 2 recording/cast,
+(`custom` for `taku.island.v2` extras, `live-update` or `system`), `tier` (0 call, 1 alarm, 2 recording/cast,
 3 every other activity), `timeoutKind` (`explicit`, `default` or `cap`) and payload. `payload` is
-always the canonical v2 shape (`compact.a`/`compact.b`, `expanded`, `tap`, `cardPosition`,
-`timeoutS`), whichever wire format or Live Update produced it. The list contains active,
+always the `taku.island.v2` shape (`compact.a`/`compact.b`, `expanded`, `tap`, `cardPosition`,
+`timeoutS`), also for Live Updates and system sources. The list contains active,
 undismissed items even when the global switch hides them; presentation says what is on screen.
 
 Order: system tier first, then an activity inside its five-second alert, then the most recently
@@ -105,7 +105,7 @@ app. The default home app and SystemUI's own recording/cast sources are exempt.
 `secondaryKey` the activity drawn as the 32 dp waiting circle left of the capsule, and `tap` the
 selected activity's tap behaviour. An `alert` from the app in front does not expand.
 
-A Taku-format island activity (`taku.island.v2`/`v1`) does not also raise a stock heads-up while
+A Taku-format island activity (`taku.island.v2`) does not also raise a stock heads-up while
 the island can present it (unlocked, shade closed, portrait, island enabled, activity not hidden);
 its `alert` expands the card instead, at its `cardPosition`. A false-to-true `alert` counts at
 most once per 30 s per notification key (cancel and repost included); faster flips neither expand
@@ -121,13 +121,12 @@ selected until collapse. Read `state.presentation` to inspect the actual selecte
 compact visibility.
 
 To check a payload without posting it: `cmd statusbar island-validate PACKAGE 'JSON'`. It runs the
-production v2 parser (or v1 plus the v1→v2 adapter when `version` is 1) with the package's real
-platform-signature identity, and returns `{"valid":…,"error":…}`. It grants nothing and runs no
+production parser with the package's real platform-signature identity, and returns `{"valid":…,"error":…}`. It grants nothing and runs no
 action. The publisher contract is `docs/dynamic-island-developer.md` in the source tree.
 
 Every island SystemUI shows is drawn natively in the Taku design; there is no stock-widget
 fallback. `state.presentation.compact` (null when hidden) reports what the capsule shows:
-`text` (the pill, empty when only the disc fits), `disc` (`dot` when there is no glyph, `pic`, `progress`,
+`text` (the pill as drawn, ending in `…` when cut; empty only when not even one character and the ellipsis fit), `disc` (`dot` when there is no glyph, `pic`, `progress`,
 `working` or `listening`), `pillGlyph` (group B drawn as `pic`, `working` or `listening`, else
 null), `animatingIcons` (running app animated icons; each loops for at most 60 s and never
 with animations disabled), `secondary` (a second activity's circle), `secondaryPosition` (`left`),
@@ -155,22 +154,23 @@ settings get global taku_island_protocol
 settings get global taku_island_allowed_packages
 ```
 
-On first boot, when the allow-list was never written, SystemUI seeds it with
-`org.agentos.notebook` (the first authorized partner). Any later write, including an empty list,
-is kept as is. `setAllowed` replaces the **whole** allow-list; read first, preserve unrelated entries, then write
+Apps signed with the platform certificate (the same certificate as SystemUI, such as Taku Agent
+and Notebook) may publish custom extras without any entry; the allow-list holds reviewed
+third-party packages only and starts empty. `canShowIsland` reports `customAllowed` and
+`platformSigned`. `setAllowed` replaces the **whole** allow-list; read first, preserve unrelated entries, then write
 and read back. Empty clears it. At most 128 comma-separated Android package names, each ≤255
 characters; total input ≤32768 characters. Leading/trailing whitespace is trimmed, duplicates
 removed, storage sorted. Noninstalled names are allowed for later installation. The list governs
-custom publishing, not Agent access, not Android Live Updates, and not already-granted signature
-publication permission. The GUI and Agent operations use the same provider validation.
+custom publishing by apps without the platform certificate, not Agent access and not Android
+Live Updates. The GUI and Agent operations use the same provider validation.
 
 Enabled is strictly `0` or `1`; it hides islands without stopping sources. Global settings affect
 all users; only the current unlocked/profile-available user's activities are presented. Protocol
-is capability value `2` (v1 extras are still accepted), not user configuration. `setProtocol` returns `read_only_protocol`. Global
+is capability value `2` (`taku.island.v2`, the only custom protocol), not user configuration. `setProtocol` returns `read_only_protocol`. Global
 Settings has no per-key immutable primitive: invalid direct `settings put` values are restored by
-an observer; use the provider for immediate validation. Ordinary Agent provider access needs no
-POST_ISLAND permission. Publishing a custom notification requires the signature POST_ISLAND
-permission or this allow-list, in addition to normal Android notification permissions.
+an observer; use the provider for immediate validation. Publishing a custom notification requires
+the platform certificate or this allow-list, in addition to normal Android notification
+permissions.
 
 Errors: `permission_denied` (caller not allowed; see Caller access), `no_other_activity` (`next` with fewer than two capsules), `not_found` (removed/dismissed/expired activity), `island_disabled`, `presentation_unavailable`
 (no attached bar, locked/shade/heads-up/landscape, or window failure), `action_unavailable`,
@@ -193,7 +193,7 @@ existing recording/casting controllers are available. A clock that omits a snooz
 cannot be snoozed through this island API. A nonpromoted ordinary notification is not automatically
 an island; invalid custom data falls back to an eligible Live Update or remains an ordinary notification.
 Full-screen call/alarm and heads-up policy remain with Android. The island does not dismiss them.
-No lockscreen/AOD or secondary-display island presentation is promised in v1.
+No lockscreen/AOD or secondary-display island presentation is promised yet.
 
 The rich body token is opaque and actions remain with the notification owner. Content-host failure
 leaves the native template; it does not cancel the backend task. Capsule/counter geometry and

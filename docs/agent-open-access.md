@@ -85,8 +85,9 @@ for installed APKs or other build variants.
 They clear Binder identity to use their owning system service, then apply the same validation
 and authoritative state as the GUI. This includes `setEnabled`, `setAllowed`, notification
 summaries/actions and recent-task switching/removal. The package allow-list governs custom
-notification rendering, not authorization to change phone settings. An installed local app
-can change it; `POST_ISLAND` is not a security boundary against that operation.
+notification rendering by apps without the platform certificate, not authorization to change
+phone settings. Only trusted callers (shell, system and platform-signed components) can change it;
+ordinary apps receive `permission_denied`.
 
 Use `content call --uri content://com.android.systemui.island --method state` (Bundle `json`),
 `--method setEnabled --arg 0`, `--method setAllowed --arg PACKAGE_A,PACKAGE_B`,

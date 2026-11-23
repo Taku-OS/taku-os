@@ -15,10 +15,12 @@ adb -s SERIAL shell content query --uri content://org.agentos.island.fixture
 adb -s SERIAL shell content call --uri content://org.agentos.island.fixture --method publish
 ```
 
-The fixture does not request the signature custom-publication permission. Test rejection before
-adding its package to the **actual island Settings allow-list**; then repost and check both the GUI
-and `cmd statusbar island list/get`. Preserve any existing allowed entries rather than replacing
-another user's configuration. The fresh dedicated emulator has no user allow-list to preserve.
+The fixture is signed with the platform development key, so SystemUI accepts its island extras
+without any allow-list entry (`canShowIsland` reports `platformSigned: true`). To test third-party
+rejection (`publisher_not_allowed`) and the allow-list, use an app signed with any other key, add
+it in the **actual island Settings allow-list**, repost and check both the GUI and
+`cmd statusbar island list/get`. Preserve any existing allowed entries rather than replacing
+another user's configuration.
 
 Available provider `call` methods are `publish`, `publish-v2-memo`, `publish-v2-highlight`, `publish-live-update`, `publish-surface`, `publish-alert`, `publish-building`, `publish-listening`, `publish-error`, `publish-reply`, `publish-native-listening`, `publish-native-reply`, `crash-content`, `cancel`, `tap`
 and `reset`.
@@ -29,13 +31,14 @@ These coexist with the id-1 cases, so two activities can be compared side by sid
 
 | Case | Payload | What to verify |
 |---|---|---|
-| `publish-v2-memo` | Mic icon in A, timer in B, `tap: open`, 2 h `timeoutS`, `basic` card with Stop | Capsule tap opens the fixture; long press expands; `get` shows `source: custom-v2`, `timeoutKind: explicit` |
+| `publish-v2-memo` | Mic icon in A, timer in B, `tap: open`, 2 h `timeoutS`, `basic` card with Stop | Capsule tap opens the fixture; long press expands; `get` shows `source: custom`, `timeoutKind: explicit` |
 | `publish-v2-highlight` | High-importance channel, `alert`, `cardPosition: below`, `highlight` card with "A123", `accentColor`, 40 actions, `tapAction` | No stock heads-up while unlocked; the card opens below the cutout for ≤ 5 s; one scrolling chip row; a body tap increments `outsideTaps` via `tapAction`; the A icon has a 60 % ring |
 | `publish-live-update` | Plain promoted `ProgressStyle` notification with `shortCriticalText` "12 min" and `setTimeoutAfter` 2 h, no Taku extras | Island without allow-listing; B shows "12 min"; `progress` card at 40 %; `source: live-update` |
 
 Then, with an id-1 case and an id-2 case active:
 - **Swipe left** selects the other activity (`state.presentation.selected`).
-- The secondary disc shows the next activity's A glyph (`secondaryKey`).
+- The 32 dp waiting circle left of the capsule shows the next activity's A glyph (`secondaryKey`);
+  tapping it brings that activity forward.
 - **Swipe right** hides the selected one (`dismissed`).
 - An open card hides every capsule.
 - Opening the fixture app hides its capsules (`suppressedByForeground`), and going home restores
@@ -82,15 +85,10 @@ delivery receipts, or Save / Send to / Edit actions.
 uninstall only `org.agentos.island.fixture` from the selected emulator and remove its allow-list
 entry if the test environment is being handed over without the fixture.
 
-The four assistant modes verify compact policy. Only `publish-building` carries the explicit
-`compact:building` flag. Listening/error/reply intentionally omit it to cover cached legacy
-notifications. Their ordinary notification and expandable card remain inspectable.
-
-`publish-native-listening` and `publish-native-reply` exercise the native assistant renderer.
-The first contains zero options; the second has one `Show details` option whose PendingIntent
-increments the fixture tap counter (no conversation/model call). Compare a GUI tap with
-`cmd statusbar island action 'KEY' '{"id":"reply_0"}'`; both must update the same provider tap count.
-Neither native fixture publishes a remote service or starts its content process.
+`publish-building`, `publish-listening`, `publish-error` and `publish-reply` change only group B's
+label, for checking pill text and ellipsizing. `publish-native-listening` and `publish-native-reply`
+are rejected (`reserved_template`); the native assistant card is covered by the Agent's
+`NativeIslandProbe`.
 
 For focused-editor regression checks, start `.Fixture --ez editorOnly true` to hide the button
 list and keep its real EditText on screen. This fixture is also rotation-capable, unlike Home.

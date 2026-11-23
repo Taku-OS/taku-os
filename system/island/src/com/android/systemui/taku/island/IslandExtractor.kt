@@ -24,18 +24,12 @@ class IslandExtractor @Inject constructor(private val context: Context, private 
             val notification = sbn.notification
             val systemCategory = systemNotifications.category(sbn)
             if (systemCategory != null) return Extraction(baseline(sbn, systemCategory, null), null)
-            val extras = notification.extras
-            val version = when {
-                extras.containsKey(EXTRA_V2) -> 2
-                extras.containsKey(EXTRA_V1) -> 1
-                else -> 0
-            }
-            if (version != 0) {
+            val raw = notification.extras.getString(EXTRA_V2)
+            if (raw != null) {
                 if (!customAllowed) error = "publisher_not_allowed"
                 else {
-                    val raw = extras.get(if (version == 2) EXTRA_V2 else EXTRA_V1) as? String
                     val publisher = publisher(sbn)
-                    val result = if (version == 2) IslandPayload.parseV2(raw, publisher) else IslandPayload.parseV1(raw, publisher)
+                    val result = IslandPayload.parse(raw, publisher)
                     // The island is for ongoing activities: a one-off or dismissible notification
                     // (a static error, a finished event) stays in the shade. Taku Agent's own
                     // reply cards are exempt; they are the assistant's conversation surface.
@@ -43,8 +37,7 @@ class IslandExtractor @Inject constructor(private val context: Context, private 
                         error = "not_ongoing"
                     } else if (result.isValid) {
                         try {
-                            return Extraction(custom(sbn, result.payload,
-                                if (version == 2) IslandActivity.SOURCE_V2 else IslandActivity.SOURCE_V1), null)
+                            return Extraction(custom(sbn, result.payload), null)
                         } catch (invalid: Exception) {
                             error = "invalid_references_or_host"
                         }
@@ -68,7 +61,7 @@ class IslandExtractor @Inject constructor(private val context: Context, private 
         return IslandPayload.Publisher(sbn.packageName, platform)
     }
 
-    private fun custom(sbn: StatusBarNotification, payload: JSONObject, source: String): IslandActivity {
+    private fun custom(sbn: StatusBarNotification, payload: JSONObject): IslandActivity {
         val extras = sbn.notification.extras
         val picBundle = extras.getBundle("taku.island.pics") ?: Bundle.EMPTY
         val actionBundle = extras.getBundle("taku.island.actions") ?: Bundle.EMPTY
@@ -116,7 +109,7 @@ class IslandExtractor @Inject constructor(private val context: Context, private 
         }
         return IslandActivity(sbn.key, sbn.packageName, sbn.uid, sbn.userId, payload, pics.toMap(),
             actions.toMap(), sbn.notification.contentIntent?.takeIf { it.creatorUid == sbn.uid }, service, null,
-            source = source)
+            source = IslandActivity.SOURCE_CUSTOM)
     }
 
     /**
@@ -218,7 +211,6 @@ class IslandExtractor @Inject constructor(private val context: Context, private 
 
     companion object {
         const val EXTRA_V2 = "taku.island.v2"
-        const val EXTRA_V1 = "taku.island.v1"
         const val APP_PIC = IslandActivity.APP_PIC
         const val LARGE_PIC = IslandActivity.LARGE_PIC
     }

@@ -110,7 +110,7 @@ class IslandEngine @Inject constructor(
         }
         val extras = sbn.notification.extras
         val candidate = sbn.notification.isPromotedOngoing || extras.containsKey(IslandExtractor.EXTRA_V2) ||
-            extras.containsKey(IslandExtractor.EXTRA_V1) || IslandSystemNotifications.candidate(sbn.notification)
+            IslandSystemNotifications.candidate(sbn.notification)
         if (!candidate) {
             store.remove(entry.key)
             changed()
@@ -192,14 +192,13 @@ class IslandEngine @Inject constructor(
      */
     fun headsUpCandidate(sbn: android.service.notification.StatusBarNotification): Boolean = try {
         val n = sbn.notification
-        val v2 = n.extras.getString(IslandExtractor.EXTRA_V2)
-        val v1 = n.extras.getString(IslandExtractor.EXTRA_V1)
+        val raw = n.extras.getString(IslandExtractor.EXTRA_V2)
         when {
             IslandSystemNotifications.candidate(n) -> false
-            (v2 != null || v1 != null) && policy.canPost(sbn.packageName) -> {
+            raw != null && policy.canPost(sbn.packageName) -> {
                 val publisher = extractor.publisher(sbn)
                 (publisher.taku || n.flags and android.app.Notification.FLAG_ONGOING_EVENT != 0) &&
-                    (if (v2 != null) IslandPayload.parseV2(v2, publisher) else IslandPayload.parseV1(v1, publisher)).isValid
+                    IslandPayload.parse(raw, publisher).isValid
             }
             else -> false
         }
@@ -256,13 +255,13 @@ class IslandEngine @Inject constructor(
     fun command(method: String, arg: String?, extra: String?): JSONObject {
         return when (method) {
             "capabilities" -> JSONObject().put("ok", true).put("protocol", IslandPolicy.PROTOCOL_VERSION)
-                .put("protocols", JSONArray(listOf(1, 2)))
                 .put("enabled", policy.enabled).put("presentationAttached", presentation != null)
                 .put("takuProducer", IslandRuntime.producerStatus)
                 .put("compiledAndDeviceVerified", false)
                 .put("operations", JSONArray(listOf("list", "get", "select", "next", "tap", "expand", "collapse", "dismiss", "hide", "action", "open", "settings", "setEnabled", "setAllowed")))
             "canShowIsland" -> JSONObject().put("ok", true).put("enabled", policy.enabled)
                 .put("package", arg ?: JSONObject.NULL).put("customAllowed", arg != null && policy.canPost(arg))
+                .put("platformSigned", arg != null && policy.platformSigned(arg))
                 .put("liveUpdates", true)
             "list" -> JSONObject().put("ok", true).put("activities", list())
             "state" -> JSONObject().put("ok", true).put("settings", policy.snapshot())

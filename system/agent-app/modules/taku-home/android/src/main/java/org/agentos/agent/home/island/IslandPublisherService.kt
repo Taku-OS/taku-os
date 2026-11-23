@@ -131,41 +131,34 @@ class IslandPublisherService : Service() {
     val steps = JSONArray(state.turn?.steps.orEmpty().takeLast(8).map { step ->
       JSONObject().put("kind", step.kind.name.lowercase()).put("text", bounded(step.text, 120)).put("running", step.running)
     })
-    val payload = JSONObject().put("version", 1).put("category", "assistant").put("compact", if (state.buildingApp) "building" else "hidden").put("relevance", if (state.needsUser) 1 else .5)
-      .put("bigIsland", JSONObject()
-        .put("leading", JSONObject().put("type", "pic").put("pic", "taku").put("animated", if (state.working) "working" else if (voice.listening && !holdStarting) "listening" else "none"))
-        .put("trailing", JSONObject().put("type", "text").put("text", if (state.buildingApp) short else "Taku")))
+    val primary = if (falSetup != null) "falKey" else "open"
+    val payload: JSONObject = JSONObject().put("version", 2).put("timeoutS", 28800)
       .put("expanded", JSONObject().put("template", "assistant")
         .put("title", title).put("body", bounded(body, 1200)).put("steps", if (listening) JSONArray() else steps)
-        .put("actions", ids).put("primaryAction", if (falSetup != null) "falKey" else "open")
+        .put("actions", ids).put("primaryAction", primary).put("tapAction", primary)
         .put("assistant", JSONObject().put("token", token).put("phase", if (listening) "listening" else if (state.working) "working" else "message")
           .put("suggestions", suggestions)
           .put("heightDp", if (listening) kotlin.math.ceil(68 + 27.9 * resources.configuration.fontScale).toInt().coerceIn(96, 340) else 300)))
-      .put("islandTimeoutS", 28800).put("statusBar", "auto")
-    // UTF-8, not String.length: leave ample headroom for CJK/emoji and structural overhead.
-    while (payload.toString().toByteArray(Charsets.UTF_8).size > 8192 && payload.getJSONObject("expanded").getString("body").isNotEmpty()) {
-      val text = payload.getJSONObject("expanded").getString("body")
-      payload.getJSONObject("expanded").put("body", bounded(text, (text.codePointCount(0, text.length) / 2)))
-    }
-    if (payload.toString().toByteArray(Charsets.UTF_8).size > 8192) payload.getJSONObject("expanded").put("steps", JSONArray())
-    // taku.island.v2 carries the same card. Taku Agent supplies its own capsule (AI animation plus
-    // "Building...") only while building an app; otherwise it has none. v1 stays alongside until
-    // every image reads v2: an in-place APK update can run on an older SystemUI.
-    val v2 = JSONObject().put("version", 2).put("timeoutS", 28800)
-      .put("expanded", JSONObject(payload.getJSONObject("expanded").toString()).apply { put("tapAction", getString("primaryAction")) })
-    if (state.buildingApp) v2.put("compact", JSONObject()
+    // Taku Agent supplies its own capsule (AI animation plus "Building...") only while building an
+    // app; otherwise it has none.
+    if (state.buildingApp) payload.put("compact", JSONObject()
       .put("a", when {
         state.working -> JSONObject().put("type", "animation").put("name", "ai-working")
         voice.listening && !holdStarting -> JSONObject().put("type", "animation").put("name", "ai-listening")
         else -> JSONObject().put("type", "icon").put("pic", "taku")
       })
       .put("b", JSONObject().put("type", "text").put("text", short)))
+    // UTF-8, not String.length: leave ample headroom for CJK/emoji and structural overhead.
+    while (payload.toString().toByteArray(Charsets.UTF_8).size > 8192 && payload.getJSONObject("expanded").getString("body").isNotEmpty()) {
+      val text = payload.getJSONObject("expanded").getString("body")
+      payload.getJSONObject("expanded").put("body", bounded(text, (text.codePointCount(0, text.length) / 2)))
+    }
+    if (payload.toString().toByteArray(Charsets.UTF_8).size > 8192) payload.getJSONObject("expanded").put("steps", JSONArray())
     val value = payload.toString() + state.working + state.island.name + tag + state.turn?.suggestions?.take(2).toString()
     if (fingerprint != value) {
       val icon = Icon.createWithResource(this, applicationInfo.icon.takeIf { it != 0 } ?: android.R.drawable.ic_dialog_info)
       val extras = Bundle().apply {
-        putString("taku.island.v2", v2.toString())
-        putString("taku.island.v1", payload.toString())
+        putString("taku.island.v2", payload.toString())
         putBundle("taku.island.pics", Bundle().apply { putParcelable("taku", icon) })
         putBundle("taku.island.actions", actions)
       }

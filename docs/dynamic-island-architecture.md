@@ -17,8 +17,12 @@ Status: **implementation in progress; integrated ROM/device acceptance pending**
 > - Island activities replace their stock heads-up while presentable.
 > - Provider callers are authorized: third-party apps need an App Permission Center grant.
 >
-> v1 extras are adapted onto v2. Statements below about big/small island, category arbitration,
-> the 8 h cap and the long-press chooser describe v1.
+> - Only `taku.island.v2` is read; v1 and its adapter were removed before release. Apps signed
+>   with the platform certificate publish without registration; the `POST_ISLAND` permission is
+>   gone and the allow-list is for reviewed third-party apps.
+>
+> Statements below about `taku.island.v1`, big/small island, category arbitration, `POST_ISLAND`,
+> the 8 h cap and the long-press chooser are historical.
 
 ## Goal
 

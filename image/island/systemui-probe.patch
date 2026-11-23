@@ -1,17 +1,15 @@
 --- a/packages/SystemUI/AndroidManifest.xml
 +++ b/packages/SystemUI/AndroidManifest.xml
-@@ -21,6 +21,10 @@
+@@ -21,6 +21,8 @@
      android:sharedUserId="android.uid.systemui"
      xmlns:tools="http://schemas.android.com/tools"
      coreApp="true">
 +
 +    <uses-permission android:name="org.agentos.permission.BIND_ISLAND_CONTENT" />
-+    <permission android:name="org.agentos.permission.POST_ISLAND"
-+        android:protectionLevel="signature" />
  
      <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
  
-@@ -1337,5 +1341,21 @@
+@@ -1337,5 +1339,21 @@
              android:exported="true"
             />
  
@@ -193,7 +191,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandActivity.kt
-@@ -0,0 +1,61 @@
+@@ -0,0 +1,60 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -221,8 +219,8 @@
 +    val contentService: ComponentName?,
 +    val fallback: String?,
 +    val nativeActions: Map<String, IslandNativeAction> = emptyMap(),
-+    /** `custom-v2`, `custom-v1`, `live-update` or `system`. */
-+    val source: String = SOURCE_V2,
++    /** `custom` (Taku Island extras), `live-update` or `system`. */
++    val source: String = SOURCE_CUSTOM,
 +    /** [IslandStore] tier, derived from Android roles and SystemUI controllers, never from JSON. */
 +    val tier: Int = IslandStore.TIER_ACTIVITY,
 +) {
@@ -246,8 +244,7 @@
 +    val timed: Boolean get() = listOf("a", "b").any { compact?.optJSONObject(it)?.optString("type") in setOf("timer", "countdown") }
 +
 +    companion object {
-+        const val SOURCE_V2 = "custom-v2"
-+        const val SOURCE_V1 = "custom-v1"
++        const val SOURCE_CUSTOM = "custom"
 +        const val SOURCE_LIVE_UPDATE = "live-update"
 +        const val SOURCE_SYSTEM = "system"
 +        /** Reserved picture keys for the notification's own icons (publisher keys cannot start with `_`). */
@@ -472,7 +469,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandCapsuleView.kt
-@@ -0,0 +1,466 @@
+@@ -0,0 +1,476 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -524,7 +521,7 @@
 +    /** The waiting activity's circle sits left of the main capsule. */
 +    private var lead = 0f
 +    private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-+    private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
++    private val textPaint = android.text.TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
 +        typeface = IslandStyle.regular(context)
 +        textSize = 12f * resources.displayMetrics.scaledDensity
 +        letterSpacing = -.01f
@@ -545,7 +542,7 @@
 +    private var downY = 0f
 +    private var downX = 0f
 +    private var vertical = false
-+    /** The pill text for the current layout width; empty when only the disc fits. */
++    /** The pill text for the current layout width, ellipsized when cut; empty when only the disc fits. */
 +    private var shownText = ""
 +    /** Group B is an icon or animation and the pill has room for it. */
 +    private var pillGlyphShown = false
@@ -694,8 +691,9 @@
 +
 +    /**
 +     * Width for [activity] within [maximum] (pixels from the view's left edge, which includes the
-+     * waiting circle when [withSecondary]): the disc and camera always; the pill when at least a
-+     * short label fits. Returns 0 when not even the disc fits.
++     * waiting circle when [withSecondary]): the disc and camera always, and the pill with as much
++     * of group B as fits. Text that does not fit ends with an ellipsis; only when not even one
++     * character and the ellipsis fit is the pill left out. Returns 0 when not even the disc fits.
 +     */
 +    fun layoutWidth(activity: IslandActivity, maximum: Int, withSecondary: Boolean): Int {
 +        secondary = withSecondary
@@ -712,16 +710,23 @@
 +            pillGlyphShown = true
 +            width = kotlin.math.ceil(pillStart() + 32 * unit).toInt()
 +        }
-+        if (text.isNotEmpty()) {
++        if (text.isNotEmpty() && room > 0) {
 +            // Timers reserve their widest digits so the pill does not jitter every second.
 +            val natural = max(textPaint.measureText(text), if (slot?.optString("type") in setOf("timer", "countdown")) textPaint.measureText(text.replace(Regex("[0-9]"), "0")) else 0f)
-+            val fitted = minOf(natural, room)
-+            if (fitted >= minOf(natural, 24 * unit)) {
-+                shownText = text.take(textPaint.breakText(text, true, fitted + 1, null))
-+                width = kotlin.math.ceil(pillStart() + 16 * unit + fitted).toInt()
++            val fitted = ellipsized(text, room)
++            if (fitted.isNotEmpty()) {
++                shownText = fitted
++                width = kotlin.math.ceil(pillStart() + 16 * unit + if (fitted == text) minOf(natural, room) else textPaint.measureText(fitted)).toInt()
 +            }
 +        }
 +        return width
++    }
++
++    /** [text] within [room] pixels: whole, or cut with a trailing ellipsis; empty when not even one character fits. */
++    private fun ellipsized(text: String, room: Float): String {
++        if (textPaint.measureText(text) <= room) return text
++        val cut = android.text.TextUtils.ellipsize(text, textPaint, room, android.text.TextUtils.TruncateAt.END).toString()
++        return if (cut.isEmpty() || cut == ELLIPSIS) "" else cut
 +    }
 +
 +    fun bind(activity: IslandActivity, other: IslandActivity?) {
@@ -821,14 +826,15 @@
 +            drawDisc(canvas, pillGlyph(activity), pill + r, cy, icons)
 +        } else if (hasPill) {
 +            val slot = pillSlot(activity)
-+            val text = if (slot?.optString("type") in setOf("timer", "countdown")) pillText(slot) else shownText
++            val timed = slot?.optString("type") in setOf("timer", "countdown")
 +            textPaint.color = if (stale || slot?.optString("emphasis") == "muted") IslandStyle.TEXT_MUTED
 +                else if (slot?.optString("emphasis") == "accent") accent(activity) else IslandStyle.TEXT_PRIMARY
 +            val start = pill + 8 * unit
-+            val end = textPaint.breakText(text, true, width - 8 * unit - start, null)
-+            canvas.drawText(text.take(end), start, cy - (textPaint.ascent() + textPaint.descent()) / 2, textPaint)
++            // A live clock is re-measured every tick; it ellipsizes like any text if it outgrows its room.
++            val text = if (timed) ellipsized(pillText(slot), width - 8 * unit - start) else shownText
++            canvas.drawText(text, start, cy - (textPaint.ascent() + textPaint.descent()) / 2, textPaint)
 +            // Live clocks: redraw on the next whole second while shown.
-+            if (slot?.optString("type") in setOf("timer", "countdown")) postInvalidateDelayed(1000 - System.currentTimeMillis() % 1000)
++            if (timed) postInvalidateDelayed(1000 - System.currentTimeMillis() % 1000)
 +        }
 +        if (secondary) drawSecondary(canvas, 16 * unit, cy)
 +    }
@@ -934,6 +940,7 @@
 +    companion object {
 +        /** An app's animated icon loops for at most this long per binding. */
 +        const val ICON_LOOP_MS = 60_000L
++        private const val ELLIPSIS = "\u2026"
 +        /** Camera centre and pill start from the main capsule's left edge for the 24 dp design camera (dp). */
 +        const val CAMERA_DP = 52
 +        const val PILL_START_DP = 72
@@ -1427,7 +1434,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandEngine.kt
-@@ -0,0 +1,352 @@
+@@ -0,0 +1,351 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -1540,7 +1547,7 @@
 +        }
 +        val extras = sbn.notification.extras
 +        val candidate = sbn.notification.isPromotedOngoing || extras.containsKey(IslandExtractor.EXTRA_V2) ||
-+            extras.containsKey(IslandExtractor.EXTRA_V1) || IslandSystemNotifications.candidate(sbn.notification)
++            IslandSystemNotifications.candidate(sbn.notification)
 +        if (!candidate) {
 +            store.remove(entry.key)
 +            changed()
@@ -1622,14 +1629,13 @@
 +     */
 +    fun headsUpCandidate(sbn: android.service.notification.StatusBarNotification): Boolean = try {
 +        val n = sbn.notification
-+        val v2 = n.extras.getString(IslandExtractor.EXTRA_V2)
-+        val v1 = n.extras.getString(IslandExtractor.EXTRA_V1)
++        val raw = n.extras.getString(IslandExtractor.EXTRA_V2)
 +        when {
 +            IslandSystemNotifications.candidate(n) -> false
-+            (v2 != null || v1 != null) && policy.canPost(sbn.packageName) -> {
++            raw != null && policy.canPost(sbn.packageName) -> {
 +                val publisher = extractor.publisher(sbn)
 +                (publisher.taku || n.flags and android.app.Notification.FLAG_ONGOING_EVENT != 0) &&
-+                    (if (v2 != null) IslandPayload.parseV2(v2, publisher) else IslandPayload.parseV1(v1, publisher)).isValid
++                    IslandPayload.parse(raw, publisher).isValid
 +            }
 +            else -> false
 +        }
@@ -1686,13 +1692,13 @@
 +    fun command(method: String, arg: String?, extra: String?): JSONObject {
 +        return when (method) {
 +            "capabilities" -> JSONObject().put("ok", true).put("protocol", IslandPolicy.PROTOCOL_VERSION)
-+                .put("protocols", JSONArray(listOf(1, 2)))
 +                .put("enabled", policy.enabled).put("presentationAttached", presentation != null)
 +                .put("takuProducer", IslandRuntime.producerStatus)
 +                .put("compiledAndDeviceVerified", false)
 +                .put("operations", JSONArray(listOf("list", "get", "select", "next", "tap", "expand", "collapse", "dismiss", "hide", "action", "open", "settings", "setEnabled", "setAllowed")))
 +            "canShowIsland" -> JSONObject().put("ok", true).put("enabled", policy.enabled)
 +                .put("package", arg ?: JSONObject.NULL).put("customAllowed", arg != null && policy.canPost(arg))
++                .put("platformSigned", arg != null && policy.platformSigned(arg))
 +                .put("liveUpdates", true)
 +            "list" -> JSONObject().put("ok", true).put("activities", list())
 +            "state" -> JSONObject().put("ok", true).put("settings", policy.snapshot())
@@ -1782,7 +1788,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandExtractor.kt
-@@ -0,0 +1,225 @@
+@@ -0,0 +1,217 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -1809,18 +1815,12 @@
 +            val notification = sbn.notification
 +            val systemCategory = systemNotifications.category(sbn)
 +            if (systemCategory != null) return Extraction(baseline(sbn, systemCategory, null), null)
-+            val extras = notification.extras
-+            val version = when {
-+                extras.containsKey(EXTRA_V2) -> 2
-+                extras.containsKey(EXTRA_V1) -> 1
-+                else -> 0
-+            }
-+            if (version != 0) {
++            val raw = notification.extras.getString(EXTRA_V2)
++            if (raw != null) {
 +                if (!customAllowed) error = "publisher_not_allowed"
 +                else {
-+                    val raw = extras.get(if (version == 2) EXTRA_V2 else EXTRA_V1) as? String
 +                    val publisher = publisher(sbn)
-+                    val result = if (version == 2) IslandPayload.parseV2(raw, publisher) else IslandPayload.parseV1(raw, publisher)
++                    val result = IslandPayload.parse(raw, publisher)
 +                    // The island is for ongoing activities: a one-off or dismissible notification
 +                    // (a static error, a finished event) stays in the shade. Taku Agent's own
 +                    // reply cards are exempt; they are the assistant's conversation surface.
@@ -1828,8 +1828,7 @@
 +                        error = "not_ongoing"
 +                    } else if (result.isValid) {
 +                        try {
-+                            return Extraction(custom(sbn, result.payload,
-+                                if (version == 2) IslandActivity.SOURCE_V2 else IslandActivity.SOURCE_V1), null)
++                            return Extraction(custom(sbn, result.payload), null)
 +                        } catch (invalid: Exception) {
 +                            error = "invalid_references_or_host"
 +                        }
@@ -1853,7 +1852,7 @@
 +        return IslandPayload.Publisher(sbn.packageName, platform)
 +    }
 +
-+    private fun custom(sbn: StatusBarNotification, payload: JSONObject, source: String): IslandActivity {
++    private fun custom(sbn: StatusBarNotification, payload: JSONObject): IslandActivity {
 +        val extras = sbn.notification.extras
 +        val picBundle = extras.getBundle("taku.island.pics") ?: Bundle.EMPTY
 +        val actionBundle = extras.getBundle("taku.island.actions") ?: Bundle.EMPTY
@@ -1901,7 +1900,7 @@
 +        }
 +        return IslandActivity(sbn.key, sbn.packageName, sbn.uid, sbn.userId, payload, pics.toMap(),
 +            actions.toMap(), sbn.notification.contentIntent?.takeIf { it.creatorUid == sbn.uid }, service, null,
-+            source = source)
++            source = IslandActivity.SOURCE_CUSTOM)
 +    }
 +
 +    /**
@@ -2003,7 +2002,6 @@
 +
 +    companion object {
 +        const val EXTRA_V2 = "taku.island.v2"
-+        const val EXTRA_V1 = "taku.island.v1"
 +        const val APP_PIC = IslandActivity.APP_PIC
 +        const val LARGE_PIC = IslandActivity.LARGE_PIC
 +    }
@@ -2247,7 +2245,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandPayload.java
-@@ -0,0 +1,622 @@
+@@ -0,0 +1,385 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island;
 +
@@ -2265,10 +2263,9 @@
 +import org.json.JSONObject;
 +
 +/**
-+ * Bounded validation of the custom island extras. No class loading, URI fetching, action execution
-+ * or view inflation. {@link #parseV2} returns the canonical (v2-shaped) payload SystemUI renders;
-+ * {@link #adaptV1} maps an already validated v1 payload onto that shape and re-validates it under
-+ * v2 rules, so both wire versions obey one set of publisher restrictions.
++ * Bounded validation of the Taku Island extras ({@code taku.island.v2}, the only protocol). No
++ * class loading, URI fetching, action execution or view inflation. {@link #parse} returns the
++ * validated payload SystemUI renders.
 + */
 +public final class IslandPayload {
 +    public static final int MAX_BYTES = 8192;
@@ -2306,70 +2303,13 @@
 +        public boolean isValid() { return payload != null; }
 +    }
 +
-+    /** Producer ownership/permission and referenced Icon/Action checks belong to the extractor. */
-+    public static Result parse(String json, String postingPackage, boolean systemSource) {
-+        if (json == null) return new Result(null, "missing_payload");
-+        // Reject before allocating an arbitrarily large UTF-8 copy or entering the JSON parser.
-+        if (json.length() > MAX_BYTES || json.getBytes(StandardCharsets.UTF_8).length > MAX_BYTES) {
-+            return new Result(null, "payload_too_large");
-+        }
++    /** Validates {@code taku.island.v2}. The result is the payload SystemUI renders. */
++    public static Result parse(String json, Publisher publisher) {
 +        try {
-+            checkDepth(json);
-+            JSONObject value;
-+            try (JsonReader reader = new JsonReader(new StringReader(json))) {
-+                reader.setLenient(false);
-+                Object parsed = readJson(reader);
-+                require(parsed instanceof JSONObject && reader.peek() == JsonToken.END_DOCUMENT, "invalid_json");
-+                value = (JSONObject) parsed;
-+            }
-+            keys(value, "version category bigIsland smallIsland expanded relevance statusBar alert islandTimeoutS staleAfterS compact");
-+            integer(value, "version", 1, 1, true);
-+            choice(value, "category", "call alarm recording navigation timer assistant media progress other", true);
-+            String category = value.getString("category");
-+            choice(value, "compact", "auto hidden building", false);
-+            require(!"building".equals(value.optString("compact")) || category.equals("assistant"), "invalid_building_category");
-+            require(systemSource || !(category.equals("call") || category.equals("alarm")), "reserved_category");
-+            number(value, "relevance", 0, 1);
-+            JSONObject big = object(value, "bigIsland");
-+            keys(big, "leading trailing");
-+            require(big.length() > 0, "empty_big_island");
-+            for (String side : new String[]{"leading", "trailing"}) {
-+                if (big.has(side)) slot(object(big, side), false);
-+            }
-+            if (value.has("smallIsland")) slot(object(value, "smallIsland"), true);
-+            expanded(object(value, "expanded"), postingPackage);
-+            if (object(value, "expanded").has("assistant")) require(category.equals("assistant"), "assistant_category");
-+            choice(value, "statusBar", "auto cover below", false);
-+            bool(value, "alert");
-+            integer(value, "islandTimeoutS", 1, 28800, false);
-+            integer(value, "staleAfterS", 1, 28800, false);
-+            return new Result(value, null);
-+        } catch (JSONException | IOException | IllegalArgumentException | IllegalStateException error) {
-+            // Never return untrusted text or a parser exception to the status bar renderer.
-+            return new Result(null, "invalid_payload");
-+        }
-+    }
-+
-+    /** Validates {@code taku.island.v2}. The result is the canonical payload. */
-+    public static Result parseV2(String json, Publisher publisher) {
-+        try {
-+            return validateV2(read(json), publisher);
++            return validate(read(json), publisher);
 +        } catch (IllegalArgumentException error) {
 +            return new Result(null, code(error));
 +        } catch (JSONException | IOException | IllegalStateException error) {
-+            return new Result(null, "invalid_payload");
-+        }
-+    }
-+
-+    /** Validates {@code taku.island.v1}, then maps it onto the canonical v2 shape. */
-+    public static Result parseV1(String json, Publisher publisher) {
-+        Result v1 = parse(json, publisher.packageName, false);
-+        if (!v1.isValid()) return v1;
-+        try {
-+            return validateV2(adaptV1(v1.payload), publisher);
-+        } catch (IllegalArgumentException error) {
-+            return new Result(null, code(error));
-+        } catch (JSONException error) {
 +            return new Result(null, "invalid_payload");
 +        }
 +    }
@@ -2380,7 +2320,7 @@
 +        return message != null && message.matches("[a-z][a-z_]{0,47}") ? message : "invalid_payload";
 +    }
 +
-+    /** Strict reader shared by both versions: size, depth, duplicate keys and number grammar. */
++    /** Strict reader: size, depth, duplicate keys and number grammar. */
 +    private static JSONObject read(String json) throws IOException, JSONException {
 +        require(json != null, "missing_payload");
 +        // Reject before allocating an arbitrarily large UTF-8 copy or entering the JSON parser.
@@ -2395,17 +2335,17 @@
 +        }
 +    }
 +
-+    private static Result validateV2(JSONObject value, Publisher publisher) throws JSONException {
++    private static Result validate(JSONObject value, Publisher publisher) throws JSONException {
 +        keys(value, "version compact expanded tap cardPosition alert timeoutS staleAfterS");
 +        integer(value, "version", 2, 2, true);
 +        if (value.has("compact")) {
 +            JSONObject compact = object(value, "compact");
 +            keys(compact, "a b");
 +            require(compact.length() > 0, "empty_compact");
-+            if (compact.has("a")) slotV2(object(compact, "a"), true, publisher);
-+            if (compact.has("b")) slotV2(object(compact, "b"), false, publisher);
++            if (compact.has("a")) slot(object(compact, "a"), true, publisher);
++            if (compact.has("b")) slot(object(compact, "b"), false, publisher);
 +        }
-+        expandedV2(object(value, "expanded"), publisher);
++        expanded(object(value, "expanded"), publisher);
 +        choice(value, "tap", "expand open", false);
 +        choice(value, "cardPosition", "cover below", false);
 +        bool(value, "alert");
@@ -2414,7 +2354,7 @@
 +        return new Result(value, null);
 +    }
 +
-+    private static void slotV2(JSONObject slot, boolean groupA, Publisher publisher) throws JSONException {
++    private static void slot(JSONObject slot, boolean groupA, Publisher publisher) throws JSONException {
 +        choice(slot, "type", groupA ? "icon animation progress" : "text number timer countdown progress icon animation", true);
 +        switch (slot.getString("type")) {
 +            case "icon":
@@ -2457,7 +2397,7 @@
 +        }
 +    }
 +
-+    private static void expandedV2(JSONObject value, Publisher publisher) throws JSONException {
++    private static void expanded(JSONObject value, Publisher publisher) throws JSONException {
 +        keys(value, "template title body pic steps progress highlight actions primaryAction tapAction accentColor backgroundColor assistant content");
 +        choice(value, "template", "basic progress highlight assistant", true);
 +        String template = value.getString("template");
@@ -2537,83 +2477,6 @@
 +        return .2126 * channels[0] + .7152 * channels[1] + .0722 * channels[2];
 +    }
 +
-+    /** Maps a validated v1 payload onto the canonical shape; category/relevance have no v2 meaning. */
-+    static JSONObject adaptV1(JSONObject v1) throws JSONException {
-+        JSONObject v2 = new JSONObject().put("version", 2);
-+        String category = v1.getString("category");
-+        String mode = v1.optString("compact", "auto");
-+        boolean capsule = category.equals("assistant") ? mode.equals("building") : !mode.equals("hidden");
-+        if (capsule) {
-+            JSONObject big = v1.getJSONObject("bigIsland");
-+            JSONObject leading = big.optJSONObject("leading");
-+            JSONObject trailing = big.optJSONObject("trailing");
-+            JSONObject a = glyphV1(leading);
-+            if (a == null) a = glyphV1(v1.optJSONObject("smallIsland"));
-+            JSONObject b = trailing != null ? valueV1(trailing) : glyphV1(leading) == null && leading != null ? valueV1(leading) : null;
-+            JSONObject compact = new JSONObject();
-+            if (a != null) compact.put("a", a);
-+            if (b != null) compact.put("b", b);
-+            if (compact.length() > 0) v2.put("compact", compact);
-+        }
-+        JSONObject old = v1.getJSONObject("expanded");
-+        JSONObject expanded = new JSONObject();
-+        String template = old.getString("template");
-+        expanded.put("template", template.equals("progress") || template.equals("assistant") ? template : "basic");
-+        for (String field : new String[]{"title", "body", "pic", "steps", "actions", "primaryAction", "assistant", "content"}) {
-+            if (old.has(field)) expanded.put(field, old.get(field));
-+        }
-+        if (old.has("progress")) {
-+            JSONObject progress = new JSONObject();
-+            if (old.getJSONObject("progress").has("value")) progress.put("value", old.getJSONObject("progress").get("value"));
-+            expanded.put("progress", progress);
-+        }
-+        v2.put("expanded", expanded);
-+        if ("below".equals(v1.optString("statusBar"))) v2.put("cardPosition", "below");
-+        if (v1.has("alert")) v2.put("alert", v1.get("alert"));
-+        if (v1.has("islandTimeoutS")) v2.put("timeoutS", v1.get("islandTimeoutS"));
-+        if (v1.has("staleAfterS")) v2.put("staleAfterS", v1.get("staleAfterS"));
-+        return v2;
-+    }
-+
-+    /** v1 glyphs (pic, progress, host animation) become group A content. */
-+    private static JSONObject glyphV1(JSONObject slot) throws JSONException {
-+        if (slot == null) return null;
-+        String type = slot.getString("type");
-+        if (type.equals("progress")) {
-+            JSONObject result = new JSONObject().put("type", "progress");
-+            if (slot.has("value")) result.put("value", slot.get("value"));
-+            return result;
-+        }
-+        if (!type.equals("pic")) return null;
-+        String animated = slot.optString("animated", "none");
-+        if (!animated.equals("none")) return new JSONObject().put("type", "animation").put("name", "ai-" + animated);
-+        JSONObject icon = new JSONObject().put("type", "icon").put("pic", slot.getString("pic"));
-+        if (slot.has("contentDescription")) icon.put("contentDescription", slot.get("contentDescription"));
-+        return icon;
-+    }
-+
-+    /** v1 textual slots become group B content; the pill never drew their optional pic. */
-+    private static JSONObject valueV1(JSONObject slot) throws JSONException {
-+        String type = slot.getString("type");
-+        JSONObject result = new JSONObject().put("type", type);
-+        switch (type) {
-+            case "text":
-+                result.put("text", slot.get("text"));
-+                if (slot.has("emphasis")) result.put("emphasis", slot.get("emphasis"));
-+                return result;
-+            case "number":
-+                result.put("value", slot.get("value"));
-+                if (slot.has("unit")) result.put("unit", slot.get("unit"));
-+                return result;
-+            case "timer": return result.put("startEpochMs", slot.get("startEpochMs"));
-+            case "countdown": return result.put("endEpochMs", slot.get("endEpochMs"));
-+            case "progress":
-+                if (slot.has("value")) result.put("value", slot.get("value"));
-+                return result;
-+            default: return glyphV1(slot);
-+        }
-+    }
-+
 +    private static void steps(JSONObject value) throws JSONException {
 +        JSONArray steps = array(value, "steps", 8);
 +        for (int index = 0; index < steps.length(); index++) {
@@ -2649,108 +2512,6 @@
 +        require(service.matches("^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+/[A-Za-z0-9_.$]+$"), "invalid_service");
 +        require(postingPackage != null && service.substring(0, service.indexOf('/')).equals(postingPackage), "foreign_service");
 +        text(content, "token", 0, 256, false);
-+    }
-+
-+    private static void expanded(JSONObject value, String postingPackage) throws JSONException {
-+        keys(value, "template title body pic steps progress actions primaryAction content assistant");
-+        choice(value, "template", "text steps progress media assistant", true);
-+        text(value, "title", 1, 80, true);
-+        text(value, "body", 0, 2000, false);
-+        key(value, "pic", false);
-+        String template = value.getString("template");
-+        require(!template.equals("steps") || value.has("steps"), "missing_steps");
-+        require(!template.equals("progress") || value.has("progress"), "missing_progress");
-+        if (value.has("steps")) {
-+            JSONArray steps = array(value, "steps", 8);
-+            for (int index = 0; index < steps.length(); index++) {
-+                JSONObject step = steps.getJSONObject(index);
-+                keys(step, "kind text running");
-+                choice(step, "kind", "search browse act info", true);
-+                text(step, "text", 1, 120, true);
-+                bool(step, "running");
-+            }
-+        }
-+        if (value.has("progress")) {
-+            JSONObject progress = object(value, "progress");
-+            require("progress".equals(progress.opt("type")), "invalid_progress");
-+            slot(progress, true);
-+        }
-+        Set<String> actions = new HashSet<>();
-+        if (value.has("actions")) {
-+            JSONArray list = array(value, "actions", 4);
-+            for (int index = 0; index < list.length(); index++) {
-+                Object action = list.get(index);
-+                require(action instanceof String && validKey((String) action), "invalid_action_key");
-+                require(actions.add((String) action), "duplicate_action");
-+            }
-+        }
-+        key(value, "primaryAction", false);
-+        if (value.has("primaryAction")) {
-+            require(actions.contains(value.getString("primaryAction")), "missing_primary_action");
-+        }
-+        if (value.has("assistant")) {
-+            require(template.equals("assistant") && !value.has("content"), "native_assistant_only");
-+            JSONObject assistant = object(value, "assistant");
-+            keys(assistant, "token phase heightDp suggestions");
-+            text(assistant, "token", 1, 256, true);
-+            choice(assistant, "phase", "listening working message", true);
-+            integer(assistant, "heightDp", 96, 340, true);
-+            JSONArray suggestions = array(assistant, "suggestions", 4);
-+            Set<String> seen = new HashSet<>();
-+            for (int i = 0; i < suggestions.length(); i++) {
-+                String id = suggestions.getString(i);
-+                require(actions.contains(id) && seen.add(id), "invalid_suggestion_action");
-+            }
-+        }
-+        require(!template.equals("assistant") || value.has("assistant"), "missing_assistant");
-+        if (value.has("content")) {
-+            JSONObject content = object(value, "content");
-+            keys(content, "service token layout heightDp");
-+            choice(content, "layout", "body card", false);
-+            integer(content, "heightDp", 96, 340, false);
-+            text(content, "service", 1, 512, true);
-+            String service = content.getString("service");
-+            require(service.matches("^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+/[A-Za-z0-9_.$]+$"), "invalid_service");
-+            require(postingPackage != null && service.substring(0, service.indexOf('/')).equals(postingPackage), "foreign_service");
-+            text(content, "token", 0, 256, false);
-+        }
-+    }
-+
-+    private static void slot(JSONObject slot, boolean small) throws JSONException {
-+        choice(slot, "type", small ? "pic progress" : "pic text timer countdown progress number", true);
-+        String type = slot.getString("type");
-+        switch (type) {
-+            case "pic":
-+                keys(slot, "type pic animated contentDescription");
-+                key(slot, "pic", true);
-+                choice(slot, "animated", "none working listening", false);
-+                text(slot, "contentDescription", 0, 80, false);
-+                break;
-+            case "text":
-+                keys(slot, "type text pic emphasis");
-+                text(slot, "text", 1, 16, true);
-+                choice(slot, "emphasis", "normal accent muted", false);
-+                break;
-+            case "timer":
-+            case "countdown":
-+                String field = type.equals("timer") ? "startEpochMs" : "endEpochMs";
-+                keys(slot, "type pic " + field);
-+                // Keep integer arithmetic exact across native/JS producers.
-+                integer(slot, field, 0, 9007199254740991L, true);
-+                break;
-+            case "progress":
-+                keys(slot, "type value pic");
-+                number(slot, "value", 0, 1);
-+                break;
-+            case "number":
-+                keys(slot, "type value unit pic");
-+                text(slot, "value", 1, 3, true);
-+                require(slot.getString("value").matches("[0-9]{1,3}"), "invalid_digits");
-+                text(slot, "unit", 0, 4, false);
-+                break;
-+            default: throw new IllegalArgumentException("unsupported_slot");
-+        }
-+        key(slot, "pic", false);
 +    }
 +
 +    private static void keys(JSONObject object, String allowed) {
@@ -2872,7 +2633,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandPolicy.kt
-@@ -0,0 +1,109 @@
+@@ -0,0 +1,111 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -2909,8 +2670,16 @@
 +        reload()
 +    }
 +
-+    fun canPost(packageName: String): Boolean = packageName in allowedPackages ||
-+        context.packageManager.checkPermission(POST_PERMISSION, packageName) == PackageManager.PERMISSION_GRANTED
++    /**
++     * Custom island extras from apps signed with the platform certificate (the same certificate as
++     * SystemUI, such as Taku Agent and Notebook) are accepted without any registration. Ordinary
++     * third-party apps need an entry in the reviewed allow-list.
++     */
++    fun canPost(packageName: String): Boolean = packageName in allowedPackages || platformSigned(packageName)
++
++    fun platformSigned(packageName: String): Boolean = runCatching {
++        context.packageManager.checkSignatures("android", packageName) == PackageManager.SIGNATURE_MATCH
++    }.getOrDefault(false)
 +
 +    fun setEnabled(value: String) {
 +        require(value == "0" || value == "1") { "invalid_enabled" }
@@ -2944,11 +2713,8 @@
 +                Settings.Global.putString(resolver, ENABLED, if (enabled) "1" else "0")
 +            }
 +        }
-+        // First run only: seed the first-party partners. A user's later edit, including an empty
-+        // list, is a non-null value and is never overwritten.
-+        val stored = Settings.Global.getString(resolver, ALLOWED)
-+        if (stored == null) Settings.Global.putString(resolver, ALLOWED, DEFAULT_ALLOWED)
-+        val rawAllowed = stored ?: DEFAULT_ALLOWED
++        // Platform-signed apps need no entry; the list holds reviewed third-party apps only.
++        val rawAllowed = Settings.Global.getString(resolver, ALLOWED).orEmpty()
 +        try { allowedPackages = validatePackages(rawAllowed) }
 +        catch (invalid: IllegalArgumentException) {
 +            lastError = "invalid_allowed_packages"
@@ -2975,10 +2741,7 @@
 +        const val ENABLED = "taku_island_enabled"
 +        const val ALLOWED = "taku_island_allowed_packages"
 +        const val PROTOCOL = "taku_island_protocol"
-+        const val POST_PERMISSION = "org.agentos.permission.POST_ISLAND"
-+        /** Seeded once when the allow-list was never written: Notebook is the first partner. */
-+        const val DEFAULT_ALLOWED = "org.agentos.notebook"
-+        /** Newest custom wire version; v1 is still accepted through the adapter. */
++        /** The Taku Island protocol (`taku.island.v2`); there is no other custom wire version. */
 +        const val PROTOCOL_VERSION = 2
 +    }
 +}
@@ -3791,7 +3554,7 @@
 +        summary = TextView(this)
 +        content.addView(summary)
 +        val label = TextView(this).apply {
-+            text = "Apps allowed to publish custom island content\nEnter package names separated by commas. Android Live Updates work without this list. Platform-signed publishers retain their signature permission."
++            text = "Apps allowed to publish custom island content\nEnter package names separated by commas. Android Live Updates and apps signed with the platform certificate work without this list."
 +            setPadding(0, padding, 0, padding / 2)
 +        }
 +        content.addView(label)
@@ -3867,7 +3630,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandStartable.kt
-@@ -0,0 +1,71 @@
+@@ -0,0 +1,70 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -3922,8 +3685,7 @@
 +                        context.packageManager.checkSignatures("android", args[0]) == android.content.pm.PackageManager.SIGNATURE_MATCH
 +                    }.getOrDefault(false)
 +                    val publisher = IslandPayload.Publisher(args[0], platform)
-+                    val version = runCatching { JSONObject(args[1]).optInt("version") }.getOrDefault(0)
-+                    val result = if (version == 1) IslandPayload.parseV1(args[1], publisher) else IslandPayload.parseV2(args[1], publisher)
++                    val result = IslandPayload.parse(args[1], publisher)
 +                    pw.println(JSONObject().put("valid", result.isValid)
 +                        .put("error", result.error ?: JSONObject.NULL))
 +                }

@@ -4,7 +4,7 @@ import com.android.systemui.taku.island.IslandPayload.Publisher;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-/** Host checks for taku.island.v2 and the v1 adapter. Android's own JSON stack is covered by IslandParserTests. */
+/** Host checks for the Taku Island protocol (taku.island.v2). Android's own JSON stack is covered by IslandParserTests. */
 public final class IslandPayloadTest {
     private static final Publisher TAKU = new Publisher("org.agentos.agent", true);
     private static final Publisher NOTEBOOK = new Publisher("org.agentos.notebook", true);
@@ -13,7 +13,7 @@ public final class IslandPayloadTest {
     private static int checks;
 
     private static IslandPayload.Result v2(JSONObject payload, Publisher publisher) {
-        return IslandPayload.parseV2(payload.toString(), publisher);
+        return IslandPayload.parse(payload.toString(), publisher);
     }
     private static JSONObject valid(JSONObject payload, Publisher publisher, String what) {
         checks++;
@@ -24,17 +24,6 @@ public final class IslandPayloadTest {
     private static void invalid(JSONObject payload, Publisher publisher, String error, String what) {
         checks++;
         IslandPayload.Result result = v2(payload, publisher);
-        if (result.isValid() || !error.equals(result.error)) throw new AssertionError(what + ": " + result.error);
-    }
-    private static JSONObject v1(String json, Publisher publisher, String what) {
-        checks++;
-        IslandPayload.Result result = IslandPayload.parseV1(json, publisher);
-        if (!result.isValid()) throw new AssertionError(what + ": " + result.error);
-        return result.payload;
-    }
-    private static void v1Invalid(String json, Publisher publisher, String error, String what) {
-        checks++;
-        IslandPayload.Result result = IslandPayload.parseV1(json, publisher);
         if (result.isValid() || !error.equals(result.error)) throw new AssertionError(what + ": " + result.error);
     }
     private static void check(boolean condition, String what) {
@@ -155,55 +144,24 @@ public final class IslandPayloadTest {
         valid(with("expanded.content", new JSONObject().put("service", "org.agentos.notebook/.Card")), NOTEBOOK, "platform app surface");
         invalid(with("expanded.content", new JSONObject().put("service", "org.example.delivery/.Card")), NOTEBOOK, "foreign_service", "own service only");
 
-        // Reader bounds shared with v1.
+        // Reader bounds.
         checks++;
-        if (IslandPayload.parseV2("{\"version\":2,\"version\":2,\"expanded\":{}}", THIRD).isValid()) throw new AssertionError("duplicate key");
+        if (IslandPayload.parse("{\"version\":2,\"version\":2,\"expanded\":{}}", THIRD).isValid()) throw new AssertionError("duplicate key");
         checks++;
-        if (!"payload_too_large".equals(IslandPayload.parseV2("{\"x\":\"" + "y".repeat(9000) + "\"}", THIRD).error)) throw new AssertionError("size");
+        if (!"payload_too_large".equals(IslandPayload.parse("{\"x\":\"" + "y".repeat(9000) + "\"}", THIRD).error)) throw new AssertionError("size");
         checks++;
-        if (!"too_deep".equals(IslandPayload.parseV2("[[[[[[[[[]]]]]]]]]", THIRD).error)) throw new AssertionError("depth");
+        if (!"too_deep".equals(IslandPayload.parse("[[[[[[[[[]]]]]]]]]", THIRD).error)) throw new AssertionError("depth");
         checks++;
-        if (!"unbalanced_json".equals(IslandPayload.parseV2("{\"version\":2,", THIRD).error)) throw new AssertionError("unbalanced");
+        if (!"unbalanced_json".equals(IslandPayload.parse("{\"version\":2,", THIRD).error)) throw new AssertionError("unbalanced");
         checks++;
-        if (!"invalid_payload".equals(IslandPayload.parseV2("{\"version\":2 \"x\":1}", THIRD).error)) throw new AssertionError("malformed");
+        if (!"invalid_payload".equals(IslandPayload.parse("{\"version\":2 \"x\":1}", THIRD).error)) throw new AssertionError("malformed");
         checks++;
-        if (!"missing_payload".equals(IslandPayload.parseV2(null, THIRD).error)) throw new AssertionError("null");
+        if (!"missing_payload".equals(IslandPayload.parse(null, THIRD).error)) throw new AssertionError("null");
 
-        // v1 adapter.
-        String building = "{\"version\":1,\"category\":\"assistant\",\"compact\":\"building\",\"islandTimeoutS\":28800,"
-                + "\"bigIsland\":{\"leading\":{\"type\":\"pic\",\"pic\":\"taku\",\"animated\":\"working\"},"
-                + "\"trailing\":{\"type\":\"text\",\"text\":\"Building...\"}},"
-                + "\"expanded\":{\"template\":\"text\",\"title\":\"Taku\"},\"statusBar\":\"auto\"}";
-        JSONObject adapted = v1(building, TAKU, "Taku Agent building");
-        check(adapted.getJSONObject("compact").getJSONObject("a").getString("name").equals("ai-working"), "working pic becomes AI animation");
-        check(adapted.getJSONObject("compact").getJSONObject("b").getString("text").equals("Building..."), "publisher text kept");
-        check(adapted.getInt("timeoutS") == 28800 && !adapted.has("cardPosition"), "lifetime renamed, auto position defaults");
-        check(adapted.getJSONObject("expanded").getString("template").equals("basic"), "text template becomes basic");
-        v1Invalid(building, NOTEBOOK, "invalid_animation", "v1 cannot smuggle the AI loader");
-        JSONObject quiet = v1(building.replace("\"building\"", "\"auto\""), TAKU, "assistant not building");
-        check(!quiet.has("compact"), "assistant without building has no capsule");
-        JSONObject hidden = v1(building.replace("\"assistant\"", "\"media\"").replace("\"building\"", "\"hidden\""), TAKU, "hidden");
-        check(!hidden.has("compact"), "hidden v1 capsule");
-        String progressV1 = "{\"version\":1,\"category\":\"progress\",\"statusBar\":\"below\","
-                + "\"bigIsland\":{\"leading\":{\"type\":\"pic\",\"pic\":\"app_icon\"},\"trailing\":{\"type\":\"text\",\"text\":\"Connecting\"}},"
-                + "\"expanded\":{\"template\":\"progress\",\"title\":\"Sign in\",\"progress\":{\"type\":\"progress\",\"value\":0.5},"
-                + "\"actions\":[\"open\"],\"primaryAction\":\"open\"}}";
-        JSONObject p = v1(progressV1, NOTEBOOK, "v1 progress");
-        check(p.getJSONObject("compact").getJSONObject("a").getString("pic").equals("app_icon"), "pic becomes A icon");
-        check(p.getString("cardPosition").equals("below"), "statusBar below becomes cardPosition");
-        check(p.getJSONObject("expanded").getJSONObject("progress").getDouble("value") == .5, "progress value kept");
-        String textual = "{\"version\":1,\"category\":\"timer\",\"bigIsland\":{\"leading\":{\"type\":\"countdown\",\"endEpochMs\":5}},"
-                + "\"smallIsland\":{\"type\":\"pic\",\"pic\":\"timer\"},\"expanded\":{\"template\":\"text\",\"title\":\"Timer\"}}";
-        JSONObject t = v1(textual, THIRD, "textual leading");
-        check(t.getJSONObject("compact").getJSONObject("b").getString("type").equals("countdown"), "textual leading moves to B");
-        check(t.getJSONObject("compact").getJSONObject("a").getString("pic").equals("timer"), "small island glyph fills A");
-        String nativeCard = building.replace("\"template\":\"text\",\"title\":\"Taku\"",
-                "\"template\":\"assistant\",\"title\":\"Taku\",\"actions\":[\"open\"],"
-                + "\"assistant\":{\"token\":\"t\",\"phase\":\"working\",\"heightDp\":300,\"suggestions\":[]}");
-        v1(nativeCard, TAKU, "v1 assistant card from Taku Agent");
-        v1Invalid(nativeCard.replace("\"animated\":\"working\"", "\"animated\":\"none\""), NOTEBOOK, "reserved_template", "v1 assistant card reserved");
-        v1Invalid(building.replace("\"assistant\"", "\"call\"").replace("\"building\"", "\"auto\""), THIRD, "invalid_payload", "v1 reserved call category");
-        // The exact v2 shapes Taku Agent posts (IslandPublisherService, OnboardingIsland).
+        // The previous wire version is gone: one protocol only.
+        invalid(new JSONObject("{\"version\":1,\"category\":\"progress\",\"bigIsland\":{},\"expanded\":{\"template\":\"text\",\"title\":\"x\"}}"),
+                THIRD, "unknown_field", "v1 fields are rejected");
+        // The exact shapes Taku Agent posts (IslandPublisherService, OnboardingIsland).
         JSONObject takuCard = new JSONObject().put("version", 2).put("timeoutS", 28800)
                 .put("expanded", new JSONObject().put("template", "assistant").put("title", "Taku is working")
                         .put("body", "Building your app").put("steps", new JSONArray())
@@ -227,6 +185,6 @@ public final class IslandPayloadTest {
                 java.nio.file.Paths.get("../../spec/taku-island-v2.schema.json")), java.nio.charset.StandardCharsets.UTF_8));
         JSONArray examples = schema.getJSONArray("examples");
         for (int i = 0; i < examples.length(); i++) valid(examples.getJSONObject(i), THIRD, "schema example " + i);
-        System.out.println("PASS: " + checks + " island payload v2/adapter checks");
+        System.out.println("PASS: " + checks + " island payload checks");
     }
 }

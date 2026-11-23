@@ -98,7 +98,7 @@ The SystemUI startable subscribes to `NotifPipeline`. Worker extraction validate
 and Icon/Action references; rejected custom data falls back to a promoted ongoing notification or
 leaves the ordinary notification untouched. Only resource icons from the posting package/Android
 and bitmaps up to 512×512 / 1 MiB are accepted; URI/data icons are not fetched. Custom publishing
-requires the signature `org.agentos.permission.POST_ISLAND` permission or explicit allow-list entry.
+is automatic for apps signed with the platform certificate; other apps need an allow-list entry.
 Agent access to already-visible state and operations has no publication-permission gate.
 
 ```sh
@@ -123,10 +123,10 @@ adb shell cmd statusbar island setEnabled 1
 adb shell cmd statusbar island setAllowed org.example.app,org.example.other
 ```
 
-Protocol: `taku.island.v2` ([schema](../../spec/taku-island-v2.schema.json), [developer guide](../../docs/dynamic-island-developer.md));
-v1 extras are adapted onto the same canonical payload. Host tests (`test.sh`) cover the store,
-access policy, v2 validator and v1 adapter (via a test-only `android.util.JsonReader` shim) and
-system-source classification.
+Protocol: `taku.island.v2`, the only custom protocol ([schema](../../spec/taku-island-v2.schema.json),
+[developer guide](../../docs/dynamic-island-developer.md)). Host tests (`test.sh`) cover the store,
+access policy, payload validator (via a test-only `android.util.JsonReader` shim), capsule
+geometry and system-source classification.
 
 Provider queries return one `json` column; provider calls return a Bundle containing `json`.
 Callers are authorized first (`IslandAccessPolicy`). UID 0/1000/2000, SystemUI and platform-signed

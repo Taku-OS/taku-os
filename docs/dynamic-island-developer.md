@@ -49,7 +49,8 @@ The island has two states, never both at once:
   - **Group B**, right of the camera, is key information as a short phrase or number, a running
     timer, a percentage, or an icon.
   - Text is a single line and is ellipsized to the room left of the status icons. There is no
-    scrolling and no font shrinking. If not even a short label fits, only group A remains.
+    scrolling and no font shrinking. Text that does not fit shows as much as fits and ends with an
+    ellipsis (…). Only when not even one character and the ellipsis fit does group A stand alone.
 - **Expanded card.** A card with 40 dp corners, 8 dp from the screen edges, drawn natively by
   SystemUI from a template: black at 92 % over a 24 dp blur of the screen behind it, or your
   `backgroundColor` (a white card, say). It sits over the camera cutout (`cardPosition: "cover"`,
@@ -138,14 +139,14 @@ Live Updates always use `tap: expand` and `cardPosition: cover`.
 ### Authorization
 
 Custom extras are read only from an authorized package:
-- **Platform-signed Taku apps** declare
-  `<uses-permission android:name="org.agentos.permission.POST_ISLAND"/>`. This is a signature
-  permission.
+- **Apps signed with the platform certificate** (the same certificate as SystemUI, such as Taku
+  Agent and Notebook) are authorized automatically. There is nothing to declare and no package
+  name to register.
 - **Other apps** must be added to the user-visible allow-list (Settings → Display → Activity island,
   or `taku_island_allowed_packages`) after review against §1. Contact the Taku OS team to request
   it.
-- `org.agentos.notebook` is pre-authorized. The allow-list is seeded with it on first boot, and as
-  a platform-signed app it may also declare `POST_ISLAND`.
+
+`canShowIsland` reports `customAllowed` and `platformSigned` for your package (§5).
 
 Without authorization, or with invalid extras, SystemUI ignores the extras and shows your Live
 Update presentation, if any. The notification is never dropped.
@@ -219,8 +220,8 @@ Shared rules:
 - Actions are real `Notification.Action`s whose PendingIntents your app created.
 - No markup, scripts or URLs.
 
-`category`, `relevance`, `bigIsland`, `smallIsland`, `statusBar` and `islandTimeoutS` belong to
-v1 and are rejected in v2.
+`taku.island.v2` is the only Taku Island protocol; there is no earlier format to support or
+fall back to.
 
 ### Design constraints
 
@@ -238,7 +239,7 @@ the package answers for it:
 // Add <queries><provider android:authorities="com.android.systemui.island" /></queries> to your manifest.
 context.contentResolver.query(Uri.parse("content://com.android.systemui.island/canShowIsland"),
     null, null, null, null)?.use { if (it.moveToFirst()) JSONObject(it.getString(0)) }
-// → {"ok":true,"enabled":true,"package":"…","customAllowed":false,"liveUpdates":true}
+// → {"ok":true,"enabled":true,"package":"…","customAllowed":false,"platformSigned":false,"liveUpdates":true}
 ```
 
 Over ADB (a development shell has full access):
@@ -253,7 +254,7 @@ adb shell cmd statusbar island get 'KEY'   # canonical payload, source, tier, tr
 
 | Code | Meaning |
 |---|---|
-| `publisher_not_allowed` | No `POST_ISLAND` permission and not on the allow-list |
+| `publisher_not_allowed` | Not signed with the platform certificate and not on the allow-list |
 | `not_ongoing` | The notification is not ongoing |
 | `invalid_references_or_host` | A `pic` or action key is missing from its bundle, an icon is not allowed, or a PendingIntent is not yours |
 | `unknown_field`, `invalid_enum`, `text_length`, `number_range`, `invalid_key`, `expected_*` | Schema violations |
@@ -267,25 +268,7 @@ Third-party apps cannot read other apps' activities. Reading or operating the is
 needs a `taku.control` grant in the App Permission Center, and settings writes are never available
 to apps (see the [Agent commands](../system/assistant/assets/skills/taku-island/SKILL.md)).
 
-## 6. Migrating from v1
-
-`taku.island.v1` is still accepted. It is mapped onto v2 and checked under v2's publisher rules:
-
-| v1 field | v2 field |
-|---|---|
-| `bigIsland.leading` glyph | `compact.a` |
-| `bigIsland.trailing` | `compact.b` |
-| `smallIsland` | Fills `compact.a` when `leading` was text |
-| `compact: hidden` | No `compact` |
-| `statusBar: below` | `cardPosition: below` |
-| `islandTimeoutS` | `timeoutS` (now up to 43200) |
-| `text`, `steps`, `media` templates | `basic` |
-| `category`, `relevance` | Dropped. Ordering is by recency |
-
-Post `taku.island.v2`. If your app also runs on older Taku images, keep posting v1 next to it until
-those images are updated; the current SystemUI prefers v2.
-
-## 7. Platform-signed apps: rich content process
+## 6. Platform-signed apps: rich content process
 
 `expanded.content` embeds a body rendered by your own process (`SurfaceControlViewHost`). It is
 limited to **platform-signed** publishers (else `reserved_content`).
@@ -307,9 +290,9 @@ Protocol ([`IslandContentProtocol.java`](../system/island/src/org/agentos/island
   in the same open card.
 - Never cancel work when the content service dies.
 
-## 8. Taku Agent
+## 7. Taku Agent
 
-Taku Agent posts `taku.island.v2`, and keeps v1 next to it for older images.
+Taku Agent posts `taku.island.v2` like any other publisher.
 - Its card uses the reserved `assistant` template, `expanded.assistant:{token,phase,heightDp,suggestions}`.
   It is drawn by `IslandAssistantCard`, with `suggestions` naming real action IDs only.
 - It shows a capsule (`ai-working` plus "Building...") only while building an app.

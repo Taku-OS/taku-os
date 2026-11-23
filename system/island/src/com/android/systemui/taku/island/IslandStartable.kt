@@ -52,8 +52,7 @@ class IslandStartable @Inject constructor(
                         context.packageManager.checkSignatures("android", args[0]) == android.content.pm.PackageManager.SIGNATURE_MATCH
                     }.getOrDefault(false)
                     val publisher = IslandPayload.Publisher(args[0], platform)
-                    val version = runCatching { JSONObject(args[1]).optInt("version") }.getOrDefault(0)
-                    val result = if (version == 1) IslandPayload.parseV1(args[1], publisher) else IslandPayload.parseV2(args[1], publisher)
+                    val result = IslandPayload.parse(args[1], publisher)
                     pw.println(JSONObject().put("valid", result.isValid)
                         .put("error", result.error ?: JSONObject.NULL))
                 }

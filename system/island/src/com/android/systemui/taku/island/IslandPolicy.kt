@@ -34,8 +34,16 @@ class IslandPolicy @Inject constructor(private val context: Context, @Main priva
         reload()
     }
 
-    fun canPost(packageName: String): Boolean = packageName in allowedPackages ||
-        context.packageManager.checkPermission(POST_PERMISSION, packageName) == PackageManager.PERMISSION_GRANTED
+    /**
+     * Custom island extras from apps signed with the platform certificate (the same certificate as
+     * SystemUI, such as Taku Agent and Notebook) are accepted without any registration. Ordinary
+     * third-party apps need an entry in the reviewed allow-list.
+     */
+    fun canPost(packageName: String): Boolean = packageName in allowedPackages || platformSigned(packageName)
+
+    fun platformSigned(packageName: String): Boolean = runCatching {
+        context.packageManager.checkSignatures("android", packageName) == PackageManager.SIGNATURE_MATCH
+    }.getOrDefault(false)
 
     fun setEnabled(value: String) {
         require(value == "0" || value == "1") { "invalid_enabled" }
@@ -69,11 +77,8 @@ class IslandPolicy @Inject constructor(private val context: Context, @Main priva
                 Settings.Global.putString(resolver, ENABLED, if (enabled) "1" else "0")
             }
         }
-        // First run only: seed the first-party partners. A user's later edit, including an empty
-        // list, is a non-null value and is never overwritten.
-        val stored = Settings.Global.getString(resolver, ALLOWED)
-        if (stored == null) Settings.Global.putString(resolver, ALLOWED, DEFAULT_ALLOWED)
-        val rawAllowed = stored ?: DEFAULT_ALLOWED
+        // Platform-signed apps need no entry; the list holds reviewed third-party apps only.
+        val rawAllowed = Settings.Global.getString(resolver, ALLOWED).orEmpty()
         try { allowedPackages = validatePackages(rawAllowed) }
         catch (invalid: IllegalArgumentException) {
             lastError = "invalid_allowed_packages"
@@ -100,10 +105,7 @@ class IslandPolicy @Inject constructor(private val context: Context, @Main priva
         const val ENABLED = "taku_island_enabled"
         const val ALLOWED = "taku_island_allowed_packages"
         const val PROTOCOL = "taku_island_protocol"
-        const val POST_PERMISSION = "org.agentos.permission.POST_ISLAND"
-        /** Seeded once when the allow-list was never written: Notebook is the first partner. */
-        const val DEFAULT_ALLOWED = "org.agentos.notebook"
-        /** Newest custom wire version; v1 is still accepted through the adapter. */
+        /** The Taku Island protocol (`taku.island.v2`); there is no other custom wire version. */
         const val PROTOCOL_VERSION = 2
     }
 }

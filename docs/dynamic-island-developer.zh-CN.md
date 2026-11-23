@@ -41,7 +41,7 @@
 - **紧凑态胶囊。** 位于前置摄像头周围的黑色胶囊：32 dp 圆形、摄像头和 32 dp 胶囊条，由平滑的连接曲线相连，曲线会随设备实际开孔尺寸调整。
   - **A 组**在摄像头左侧，显示一个图形，可以是图标、动态图标或环形进度。
   - **B 组**在摄像头右侧，用短语、数字、运行中的计时器、百分比或图标展示关键信息。
-  - 文字只显示一行，在状态栏图标前按可用空间截断并加省略号。文字不滚动，也不缩小字号。连短文案都放不下时，只保留 A 组。
+  - 文字只显示一行，在状态栏图标前按可用空间截断并加省略号。文字不滚动，也不缩小字号。放不下的文字会显示尽可能多的内容，并以省略号（…）结尾。只有连一个字符加省略号都放不下时，才只显示 A 组。
 - **展开态卡片。** SystemUI 根据模板原生绘制，40 dp 圆角，距屏幕左右边缘 8 dp。背景为 92% 不透明度的黑色，叠加在 24 dp 背景模糊之上；也可以通过 `backgroundColor` 改为其他颜色（例如白色）。卡片覆盖摄像头开孔（`cardPosition: "cover"`，默认值）还是位于开孔下方（`"below"`），完全由应用决定；键盘只会限制卡片高度。Taku Agent 自己的卡片始终覆盖开孔。
 
 | 位置 | 手势 | 结果 |
@@ -116,10 +116,10 @@ Live Updates 固定使用 `tap: expand` 和 `cardPosition: cover`。
 
 SystemUI 只读取已获授权应用的自定义扩展字段：
 
-- **使用平台签名的 Taku 应用**在 manifest 中声明
-  `<uses-permission android:name="org.agentos.permission.POST_ISLAND"/>`。这是签名权限。
+- **使用平台证书签名的应用**（与 SystemUI 使用同一证书，例如 Taku Agent 和 Notebook）自动获得授权，无需声明任何权限，也无需提交包名。
 - **其他应用**需要按第 1 节的规则通过审核，之后才可加入用户可见的允许名单（设置 → 显示 → Activity island，对应 `taku_island_allowed_packages`）。请联系 Taku OS 团队申请。
-- `org.agentos.notebook` 已预授权。系统会在首次启动时将它加入允许名单。若使用平台签名，也可以声明 `POST_ISLAND`。
+
+`canShowIsland` 会返回应用的 `customAllowed` 和 `platformSigned`（见第 5 节）。
 
 未获授权或扩展字段无效时，SystemUI 会忽略这些字段。如果该通知符合 Live Update 条件，则使用对应的展示方式。通知本身不会被丢弃。
 
@@ -190,7 +190,7 @@ notificationManager.notify("memo:" + memoId, 1, notification)
 - 操作使用真实的 `Notification.Action`，其中的 PendingIntent 必须由发布应用创建。
 - 不允许标记语言、脚本或 URL。
 
-`category`、`relevance`、`bigIsland`、`smallIsland`、`statusBar` 和 `islandTimeoutS` 属于 v1 协议，在 v2 中会被拒绝。
+`taku.island.v2` 是唯一的 Taku Island 协议，不存在需要兼容或回退的旧格式。
 
 ### 设计限制
 
@@ -204,7 +204,7 @@ B 组尽量使用短语或数字，建议控制在约 8 个拉丁字符或 4 个
 // Add <queries><provider android:authorities="com.android.systemui.island" /></queries> to your manifest.
 context.contentResolver.query(Uri.parse("content://com.android.systemui.island/canShowIsland"),
     null, null, null, null)?.use { if (it.moveToFirst()) JSONObject(it.getString(0)) }
-// → {"ok":true,"enabled":true,"package":"…","customAllowed":false,"liveUpdates":true}
+// → {"ok":true,"enabled":true,"package":"…","customAllowed":false,"platformSigned":false,"liveUpdates":true}
 ```
 
 通过 ADB 检查（开发用 shell 拥有完整访问权限）：
@@ -219,7 +219,7 @@ adb shell cmd statusbar island get 'KEY'   # canonical payload, source, tier, tr
 
 | 错误码 | 含义 |
 | --- | --- |
-| `publisher_not_allowed` | 应用没有 `POST_ISLAND` 权限，也未加入允许名单 |
+| `publisher_not_allowed` | 应用未使用平台证书签名，也未加入允许名单 |
 | `not_ongoing` | 通知不是持续通知 |
 | `invalid_references_or_host` | Bundle 中缺少引用的 `pic` 或操作键，图标类型不受支持，或 PendingIntent 不属于发布应用 |
 | `unknown_field`、`invalid_enum`、`text_length`、`number_range`、`invalid_key`、`expected_*` | 不符合 Schema 约束 |
@@ -231,24 +231,7 @@ adb shell cmd statusbar island get 'KEY'   # canonical payload, source, tier, tr
 
 第三方应用不能读取其他应用的活动。应用读取或操作灵动岛需要应用权限中心授予 `taku.control` 权限，且始终无法写入设置。详见 [Agent 命令](../system/assistant/assets/skills/taku-island/SKILL.md)。
 
-## 6. 从 v1 迁移
-
-系统仍然接受 `taku.island.v1`，会先将它转换为 v2，再按 v2 的发布方规则校验：
-
-| v1 字段 | v2 字段 |
-| --- | --- |
-| `bigIsland.leading` 中的图形 | `compact.a` |
-| `bigIsland.trailing` | `compact.b` |
-| `smallIsland` | 当 `leading` 为文字时，用它填充 `compact.a` |
-| `compact: hidden` | 省略 `compact` |
-| `statusBar: below` | `cardPosition: below` |
-| `islandTimeoutS` | `timeoutS`，上限现为 43200 秒 |
-| `text`、`steps`、`media` 模板 | `basic` |
-| `category`、`relevance` | 移除，活动按触发时间排序 |
-
-请发布 `taku.island.v2`。如果应用还需要在旧版 Taku 系统镜像上运行，请在同一条通知中同时发送 v1，直到这些镜像完成更新。当前 SystemUI 优先读取 v2。
-
-## 7. 平台签名应用：富内容进程
+## 6. 平台签名应用：富内容进程
 
 `expanded.content` 可以通过 `SurfaceControlViewHost` 嵌入由应用自身进程渲染的正文。只有**使用平台签名的发布方**可以使用，否则返回 `reserved_content`。
 
@@ -265,9 +248,9 @@ adb shell cmd statusbar island get 'KEY'   # canonical payload, source, tier, tr
 - 绑定过程中或绑定失败后，原生模板继续显示。同一张已打开的卡片不会自动重试。
 - 内容服务终止时，不要取消正在进行的任务。
 
-## 8. Taku Agent
+## 7. Taku Agent
 
-Taku Agent 会发布 `taku.island.v2`，并同时发送 v1 以兼容旧版镜像。
+Taku Agent 与其他发布方一样发布 `taku.island.v2`。
 
 - 卡片使用专用的 `assistant` 模板和 `expanded.assistant:{token,phase,heightDp,suggestions}`。由 `IslandAssistantCard` 绘制，`suggestions` 只能引用实际存在的操作 ID。
 - 只有在构建应用时才显示胶囊，使用 `ai-working` 动效及 “Building...” 文案。

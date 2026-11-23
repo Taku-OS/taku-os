@@ -25,8 +25,8 @@ data class IslandActivity(
     val contentService: ComponentName?,
     val fallback: String?,
     val nativeActions: Map<String, IslandNativeAction> = emptyMap(),
-    /** `custom-v2`, `custom-v1`, `live-update` or `system`. */
-    val source: String = SOURCE_V2,
+    /** `custom` (Taku Island extras), `live-update` or `system`. */
+    val source: String = SOURCE_CUSTOM,
     /** [IslandStore] tier, derived from Android roles and SystemUI controllers, never from JSON. */
     val tier: Int = IslandStore.TIER_ACTIVITY,
 ) {
@@ -50,8 +50,7 @@ data class IslandActivity(
     val timed: Boolean get() = listOf("a", "b").any { compact?.optJSONObject(it)?.optString("type") in setOf("timer", "countdown") }
 
     companion object {
-        const val SOURCE_V2 = "custom-v2"
-        const val SOURCE_V1 = "custom-v1"
+        const val SOURCE_CUSTOM = "custom"
         const val SOURCE_LIVE_UPDATE = "live-update"
         const val SOURCE_SYSTEM = "system"
         /** Reserved picture keys for the notification's own icons (publisher keys cannot start with `_`). */

@@ -118,6 +118,15 @@ class CapsuleRenderTests : Instrumentation() {
             "scaled disc reaches the bar's edges")
         assertThat(Color.alpha(shortBitmap.getPixel(0, 0)) == 0, "scaled disc stays round")
         shortBitmap.recycle()
+        // Group B that does not fit shows as much as fits and ends with an ellipsis.
+        val narrow = IslandCapsuleView(targetContext, {}, {}, {}, {})
+        narrow.configure(px(48f), 0)
+        val narrowWidth = narrow.layoutWidth(activity("Delivering to the north entrance"), px(140f), false)
+        val shown = narrow.state().getString("text")
+        assertThat(shown.endsWith("\u2026") && shown.length > 1 && narrowWidth <= px(140f), "long label is ellipsized, not dropped: $shown")
+        assertThat(narrow.layoutWidth(activity("Ready"), px(220f), false) > 0 && narrow.state().getString("text") == "Ready", "short label stays whole")
+        narrow.layoutWidth(activity("Delivering"), px(52f + 12f + 8f + 16f + 4f), false)
+        assertThat(narrow.state().getString("text").isEmpty(), "no pill when not even one character and the ellipsis fit")
         // Two activities: the waiting circle is 32 dp on the left; the main capsule keeps its offset.
         val pair = IslandCapsuleView(targetContext, {}, {}, {}, {})
         pair.configure(px(48f), 0)

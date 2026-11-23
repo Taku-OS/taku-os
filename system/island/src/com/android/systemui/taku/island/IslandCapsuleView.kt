@@ -49,7 +49,7 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
     /** The waiting activity's circle sits left of the main capsule. */
     private var lead = 0f
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    private val textPaint = android.text.TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
         typeface = IslandStyle.regular(context)
         textSize = 12f * resources.displayMetrics.scaledDensity
         letterSpacing = -.01f
@@ -70,7 +70,7 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
     private var downY = 0f
     private var downX = 0f
     private var vertical = false
-    /** The pill text for the current layout width; empty when only the disc fits. */
+    /** The pill text for the current layout width, ellipsized when cut; empty when only the disc fits. */
     private var shownText = ""
     /** Group B is an icon or animation and the pill has room for it. */
     private var pillGlyphShown = false
@@ -219,8 +219,9 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
 
     /**
      * Width for [activity] within [maximum] (pixels from the view's left edge, which includes the
-     * waiting circle when [withSecondary]): the disc and camera always; the pill when at least a
-     * short label fits. Returns 0 when not even the disc fits.
+     * waiting circle when [withSecondary]): the disc and camera always, and the pill with as much
+     * of group B as fits. Text that does not fit ends with an ellipsis; only when not even one
+     * character and the ellipsis fit is the pill left out. Returns 0 when not even the disc fits.
      */
     fun layoutWidth(activity: IslandActivity, maximum: Int, withSecondary: Boolean): Int {
         secondary = withSecondary
@@ -237,16 +238,23 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
             pillGlyphShown = true
             width = kotlin.math.ceil(pillStart() + 32 * unit).toInt()
         }
-        if (text.isNotEmpty()) {
+        if (text.isNotEmpty() && room > 0) {
             // Timers reserve their widest digits so the pill does not jitter every second.
             val natural = max(textPaint.measureText(text), if (slot?.optString("type") in setOf("timer", "countdown")) textPaint.measureText(text.replace(Regex("[0-9]"), "0")) else 0f)
-            val fitted = minOf(natural, room)
-            if (fitted >= minOf(natural, 24 * unit)) {
-                shownText = text.take(textPaint.breakText(text, true, fitted + 1, null))
-                width = kotlin.math.ceil(pillStart() + 16 * unit + fitted).toInt()
+            val fitted = ellipsized(text, room)
+            if (fitted.isNotEmpty()) {
+                shownText = fitted
+                width = kotlin.math.ceil(pillStart() + 16 * unit + if (fitted == text) minOf(natural, room) else textPaint.measureText(fitted)).toInt()
             }
         }
         return width
+    }
+
+    /** [text] within [room] pixels: whole, or cut with a trailing ellipsis; empty when not even one character fits. */
+    private fun ellipsized(text: String, room: Float): String {
+        if (textPaint.measureText(text) <= room) return text
+        val cut = android.text.TextUtils.ellipsize(text, textPaint, room, android.text.TextUtils.TruncateAt.END).toString()
+        return if (cut.isEmpty() || cut == ELLIPSIS) "" else cut
     }
 
     fun bind(activity: IslandActivity, other: IslandActivity?) {
@@ -346,14 +354,15 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
             drawDisc(canvas, pillGlyph(activity), pill + r, cy, icons)
         } else if (hasPill) {
             val slot = pillSlot(activity)
-            val text = if (slot?.optString("type") in setOf("timer", "countdown")) pillText(slot) else shownText
+            val timed = slot?.optString("type") in setOf("timer", "countdown")
             textPaint.color = if (stale || slot?.optString("emphasis") == "muted") IslandStyle.TEXT_MUTED
                 else if (slot?.optString("emphasis") == "accent") accent(activity) else IslandStyle.TEXT_PRIMARY
             val start = pill + 8 * unit
-            val end = textPaint.breakText(text, true, width - 8 * unit - start, null)
-            canvas.drawText(text.take(end), start, cy - (textPaint.ascent() + textPaint.descent()) / 2, textPaint)
+            // A live clock is re-measured every tick; it ellipsizes like any text if it outgrows its room.
+            val text = if (timed) ellipsized(pillText(slot), width - 8 * unit - start) else shownText
+            canvas.drawText(text, start, cy - (textPaint.ascent() + textPaint.descent()) / 2, textPaint)
             // Live clocks: redraw on the next whole second while shown.
-            if (slot?.optString("type") in setOf("timer", "countdown")) postInvalidateDelayed(1000 - System.currentTimeMillis() % 1000)
+            if (timed) postInvalidateDelayed(1000 - System.currentTimeMillis() % 1000)
         }
         if (secondary) drawSecondary(canvas, 16 * unit, cy)
     }
@@ -459,6 +468,7 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
     companion object {
         /** An app's animated icon loops for at most this long per binding. */
         const val ICON_LOOP_MS = 60_000L
+        private const val ELLIPSIS = "\u2026"
         /** Camera centre and pill start from the main capsule's left edge for the 24 dp design camera (dp). */
         const val CAMERA_DP = 52
         const val PILL_START_DP = 72

@@ -34,7 +34,7 @@ cards.
 | `compact: auto/hidden/building` | *(removed)* | Taku Agent now supplies its own capsule content |
 | `category`, `relevance` | *(removed)* | Ordering is by recency (§5.5); system sources are identified by SystemUI itself |
 
-The old names stay readable only in the v1 adapter (§9).
+The old names are gone: `taku.island.v2` is the only protocol (owner decision 12).
 
 ## 3. What qualifies as an island activity
 
@@ -78,7 +78,7 @@ for both.
 | | Android Live Updates (baseline) | Taku custom format |
 |---|---|---|
 | App work | Standard promoted ongoing notification | The same notification plus `taku.island.v2` extras |
-| Taku approval | None. Android's promotion eligibility and the user's per-app Live Updates switch apply | Allowlist (`taku_island_allowed_packages`) or the `POST_ISLAND` signature permission |
+| Taku approval | None. Android's promotion eligibility and the user's per-app Live Updates switch apply | Platform certificate (automatic), else the allowlist (`taku_island_allowed_packages`) |
 | Capsule A | Large icon, else small icon | `compact.a` |
 | Capsule B | `shortCriticalText`, else chronometer, else `when` | `compact.b` |
 | Card | `basic` or `progress` template from title, text, progress and actions | Any public template (§6) |
@@ -107,8 +107,8 @@ Shape: the authored metaball capsule (Figma `1379:889`). Disc 32 dp, camera 24 d
 
 - Text must state key information as a short phrase or number. Hard limit: 16 code points.
   Recommended limit: 8 Latin or 4 CJK characters, pending the owner's design constraints.
-- On overflow, B is ellipsized. If not even a short label fits, only A remains. There is no
-  scrolling and no font shrinking.
+- On overflow, B shows as much as fits and ends with an ellipsis (…). Only when not even one
+  character and the ellipsis fit does A stand alone. There is no scrolling and no font shrinking.
 - Every app supplies its own A and B. The capsule is optional: an activity that supplies no
   `compact` data never shows a capsule.
 - The special cases currently in `IslandActivity` are deleted:
@@ -372,10 +372,9 @@ This must be fixed before any third-party publisher is allowed.
 Reuse the existing gate pattern (`TakuCallerAccess.kt`, `AudioOpenAccessProvider.kt`). Unauthorized
 calls return `permission_denied`.
 
-**Migration:** SystemUI accepts `taku.island.v1` through an adapter that maps it onto v2 until the
-Taku Agent APK that publishes v2 has shipped. The adapter is then deleted. The agent APK and the
-SystemUI image release separately (`docs/agent-app-releases.md`), so they must overlap for one
-release.
+**No migration:** the system has not been released, so SystemUI reads only `taku.island.v2` and
+Taku Agent publishes only it. Once this lands, every image and Agent build uses this protocol
+(owner decision 12).
 
 ## 10. Agent interface changes
 
@@ -388,7 +387,7 @@ release.
 | Keep | `dismiss KEY`, now also reached by swipe right; `hide` is added as an alias |
 | Remove | `choose` |
 | `state.presentation` | Adds `selectedReason`, `suppressedByForeground`, `tap`, `cardPosition`, `secondaryKey` |
-| `get` | Adds `triggeredAtElapsedMs`, `timeoutKind` (`explicit` / `default` / `cap`), `source` (`live-update` / `custom-v2` / `custom-v1` / `system`) |
+| `get` | Adds `triggeredAtElapsedMs`, `timeoutKind` (`explicit` / `default` / `cap`), `source` (`live-update` / `custom` / `system`) |
 | Settings | `taku_island_protocol` becomes `2`. `capabilities.protocols` = `[1, 2]` during migration |
 
 Update the preinstalled skill (`system/assistant/assets/skills/taku-island/SKILL.md`) in the same
@@ -407,7 +406,7 @@ in every phase that touches SystemUI sources.
 | **P3 Templates** | `basic` (adopting the `IslandProgressCard` chrome), `progress`, `highlight`; `accentColor` with contrast check; one horizontally scrolling chip row; `tapAction`; remove the `org.agentos.agent` progress-card special case | `IslandTemplateCard.kt`, `IslandProgressCard.kt`, `IslandStyle.kt` |
 | **P4 Taku Agent** | Publish v2 (§8); probe tests | `IslandPublisherService.kt`, `NativeIslandProbe.kt` |
 | **P5 Agent surface and docs** | §10 operations; skill; developer guide (§12); update the architecture doc and README; progress ledger | `IslandEngine.kt`, `SKILL.md`, `docs/dynamic-island-developer.md`, `docs/dynamic-island-architecture.md`, `system/island/README.md` |
-| **P6 First partner** | Seed `org.agentos.notebook` in the default allowlist. It is platform-signed, so it may also declare `POST_ISLAND`. The Notebook team owns its use cases, such as voice memos | Image settings defaults |
+| **P6 First partner** | Notebook is platform-signed, so it publishes without registration (owner decision 13). The Notebook team owns its use cases, such as voice memos | Image settings defaults |
 
 **Verification, per AGENTS.md, on an isolated emulator from the patched image:**
 - Parser and store unit tests: v2 validation, the v1 adapter, reserved categories, both timeout
@@ -471,3 +470,12 @@ contents:
     - Third-party custom extras require an ongoing notification.
     - Not changed: the 32-action parsing bound (owner: fine as is), platform-only remote content,
       and per-notification lifetimes (a new notification is a new activity; review covers abuse).
+12. **One protocol** (2026-11-23). The system is unreleased, so there is no backward compatibility:
+    SystemUI reads only `taku.island.v2`, the v1 parser, adapter and schema are deleted, and Taku
+    Agent publishes only v2. After this branch merges, all images and Agent builds use it.
+13. **Platform-signed apps are authorized automatically.** Any APK signed with the platform
+    certificate (the same as SystemUI) may publish custom extras with nothing to declare or
+    register. The `POST_ISLAND` permission is removed and the allowlist, now empty by default,
+    holds reviewed third-party packages only. `canShowIsland` reports `platformSigned`.
+14. **Text overflow.** Group B text that does not fit shows as much as fits and ends with an
+    ellipsis, instead of being dropped.

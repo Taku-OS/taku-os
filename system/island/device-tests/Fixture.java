@@ -94,24 +94,20 @@ public final class Fixture extends Activity {
             try {
                 PendingIntent stop = PendingIntent.getBroadcast(c, 1, new Intent(c, Receiver.class).putExtra("operation", "cancel"), PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
                 Notification.Action action = new Notification.Action.Builder(null, "Stop fixture", stop).build();
-                JSONObject progress = new JSONObject().put("type", "progress").put("value", 0.4);
                 JSONObject expanded = new JSONObject().put("template", "progress").put("title", "Island integration fixture")
-                    .put("body", "Native fallback: this test notification is still active.").put("progress", progress)
-                    .put("actions", new JSONArray().put("stop"));
+                    .put("body", "Native fallback: this test notification is still active.")
+                    .put("progress", new JSONObject().put("value", 0.4)).put("actions", new JSONArray().put("stop"));
                 if ("publish-surface".equals(op)) expanded.put("content", new JSONObject().put("service", PKG + "/" + Content.class.getName()).put("token", "fixture"));
-                JSONObject payload = new JSONObject().put("version", 1).put("category", "progress")
-                    .put("bigIsland", new JSONObject().put("leading", new JSONObject().put("type", "text").put("text", "Island test")).put("trailing", progress))
-                    .put("expanded", expanded).put("statusBar", "auto").put("alert", "publish-alert".equals(op));
-                if ("publish-building".equals(op) || "publish-listening".equals(op) || "publish-error".equals(op) || "publish-reply".equals(op)) {
-                    payload.put("category", "assistant");
-                    String text = "publish-building".equals(op) ? "Building..." : "publish-listening".equals(op) ? "Listening..." : "publish-error".equals(op) ? "Couldn't finish" : "Reply ready";
-                    payload.put("bigIsland", new JSONObject().put("trailing", new JSONObject().put("type", "text").put("text", text)));
-                    if ("publish-building".equals(op)) payload.put("compact", "building");
-                    // Other cases intentionally omit compact, simulating stale/legacy producers.
-                }
+                String label = "publish-building".equals(op) ? "Building..." : "publish-listening".equals(op) ? "Listening..."
+                    : "publish-error".equals(op) ? "Couldn't finish" : "publish-reply".equals(op) ? "Reply ready" : "Island test";
+                JSONObject payload = new JSONObject().put("version", 2)
+                    .put("compact", new JSONObject().put("a", new JSONObject().put("type", "progress").put("value", 0.4))
+                        .put("b", new JSONObject().put("type", "text").put("text", label)))
+                    .put("expanded", expanded).put("alert", "publish-alert".equals(op));
                 if (op.startsWith("publish-native-")) {
+                    // The assistant template belongs to Taku Agent: these cases demonstrate rejection.
                     boolean listening = "publish-native-listening".equals(op);
-                    payload.put("category", "assistant").put("compact", "hidden");
+                    payload.remove("compact");
                     expanded.put("template", "assistant").put("title", "Native assistant fixture")
                         .put("body", listening ? "Taku is listening..." : "Agent reply from the current turn.")
                         .put("actions", listening ? new JSONArray() : new JSONArray().put("reply_0"))
@@ -119,7 +115,7 @@ public final class Fixture extends Activity {
                             .put("heightDp", listening ? 96 : 152).put("suggestions", listening ? new JSONArray() : new JSONArray().put("reply_0")));
                     expanded.remove("progress");
                 }
-                Bundle extras = new Bundle(); extras.putString("taku.island.v1", payload.toString());
+                Bundle extras = new Bundle(); extras.putString("taku.island.v2", payload.toString());
                 Bundle actions = new Bundle(); actions.putParcelable("stop", action);
                 if ("publish-native-reply".equals(op)) {
                     PendingIntent tap = PendingIntent.getBroadcast(c, 3, new Intent(c, Receiver.class).putExtra("operation", "tap"), PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
