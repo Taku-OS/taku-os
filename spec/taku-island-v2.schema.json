@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://taku.ai/spec/taku-island/2",
   "title": "Taku island extras v2",
-  "description": "JSON carried in Notification extras[\"taku.island.v2\"] (UTF-8, at most 8192 bytes; duplicate keys and nesting deeper than eight levels are rejected). Images are keys into extras[\"taku.island.pics\"] (Bundle<String, Icon>; bitmap, adaptive bitmap or a resource of the posting package); actions are keys into extras[\"taku.island.actions\"] (Bundle<String, Notification.Action>, PendingIntents created by the posting app). SystemUI draws everything natively; there are no HTML, scripts, URLs or custom views. Publishing requires the POST_ISLAND signature permission or the taku_island_allowed_packages allow-list; otherwise SystemUI uses the notification's Android Live Update presentation, if any. Invalid extras are ignored the same way. Publisher identity checks (Taku Agent, platform signature) are made by SystemUI from the package manager. See docs/dynamic-island-v2-spec.md.",
+  "description": "JSON carried in Notification extras[\"taku.island.v2\"] (UTF-8, at most 8192 bytes; duplicate keys and nesting deeper than eight levels are rejected). Images are keys into extras[\"taku.island.pics\"] (Bundle<String, Icon>; bitmap, adaptive bitmap or a resource of the posting package); actions are keys into extras[\"taku.island.actions\"] (Bundle<String, Notification.Action>, PendingIntents created by the posting app). SystemUI draws native templates; platform-signed apps may embed their own content through expanded.content. Templates do not execute HTML/scripts or load remote asset URLs. Publishing requires a platform signature or the taku_island_allowed_packages allow-list; otherwise SystemUI uses the notification's Android Live Update presentation, if any. Invalid extras are ignored the same way. Publisher identity checks (Taku Agent, platform signature) are made by SystemUI from the package manager. See docs/dynamic-island-v2-spec.md.",
   "type": "object",
   "additionalProperties": false,
   "required": ["version", "expanded"],
@@ -24,7 +24,7 @@
     },
     "expanded": {"$ref": "#/$defs/expanded"},
     "tap": {"description": "Capsule tap: expand the card, or send the notification content intent. Long-press always expands.", "enum": ["expand", "open"], "default": "expand"},
-    "cardPosition": {"description": "Card over the camera cutout and status bar, or below them. A visible IME forces below.", "enum": ["cover", "below"], "default": "cover"},
+    "cardPosition": {"description": "Card over the camera cutout and status bar, or below them. The keyboard only limits available height; it does not change this position.", "enum": ["cover", "below"], "default": "cover"},
     "alert": {"description": "A false-to-true change expands the card for at most five seconds and moves the activity to the front. Repeated true updates neither extend nor re-trigger it.", "type": "boolean", "default": false},
     "timeoutS": {"description": "Island lifetime from the first post; updates cannot extend it. Without it the island leaves after 3600 s. The notification itself is untouched.", "type": "integer", "minimum": 1, "maximum": 43200},
     "staleAfterS": {"description": "Without an update for this long the capsule is drawn muted.", "type": "integer", "minimum": 1, "maximum": 43200}

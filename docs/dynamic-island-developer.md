@@ -2,298 +2,466 @@
 
 English · [简体中文](dynamic-island-developer.zh-CN.md)
 
-This guide explains how an Android app shows an ongoing activity in the Taku OS Dynamic Island.
-Contract: [`spec/taku-island-v2.schema.json`](../spec/taku-island-v2.schema.json). Design and
-decisions: [v2 spec](dynamic-island-v2-spec.md). Source and on-device acceptance status:
-[the ledger](dynamic-island-progress.md).
+Taku OS Dynamic Island keeps an ongoing, important activity within reach while the user does
+something else. Your app supplies the content and actions; SystemUI handles the camera cutout,
+rendering, gestures and switching between apps.
 
-There is no Taku SDK. Everything goes through an ordinary Android notification:
+This guide takes you from choosing a suitable activity to publishing it through **Taku's JSON
+notification protocol, `taku.island.v2`**. No Taku SDK is required. Android Live Updates are also
+supported; their compatibility path is described near the end.
 
-- **Path A, Android Live Updates (recommended first).** Post a promoted ongoing notification. It
-  works on stock Android and other OEMs, and needs no Taku approval.
-- **Path B, the Taku extension `taku.island.v2`.** Add JSON extras to the same notification when
-  you need what Live Updates cannot express:
-  - your own capsule icon or animation, numbers or percentages,
-  - the card templates, layout and accent colour,
-  - opening the app versus expanding on capsule tap,
-  - card position,
-  - automatic expansion.
+## 1. Choose an appropriate activity
 
-  Post a valid Live Update as well, so the notification degrades gracefully everywhere else.
+An island is for information the user is actively following, usually for **minutes to hours**.
+Define its start event, completion/cancellation event and maximum duration before integrating.
+**One business activity must end within 12 hours.**
 
-## 1. When to use the island
+![Examples of pickup, flight, delivery and recording capsules and expanded cards](assets/dynamic-island/scenario-examples.png)
 
-**Use it for** ongoing activities or services that usually last minutes to hours and show
-information the user is actively following. Examples: a pickup code, flight or train status, a
-delivery in progress, navigation, an active voice recording, a timer.
+*Design illustrations, not device screenshots. Each column pairs two alternative states. Camera
+outlines highlight reserved space; they are not additional UI. Actual proportions follow the device.*
 
-**Every activity needs** a clear start, a clear end (you cancel the notification), and a total
-duration of **12 hours or less**.
+| Scenario | Start → end | Capsule A + B | Expanded card |
+|---|---|---|---|
+| Pickup | Order ready → collected, cancelled or code expired | Parcel icon + `573921` | `highlight`: pickup code, location, open order |
+| Flight | User's upcoming journey enters its tracking window → journey completed/cancelled | Plane icon + gate `B12` | `highlight`: gate, boarding time, boarding pass |
+| Delivery | Delivery begins → delivered/cancelled | Courier icon + `12 min` | `progress`: current stage, tracking, contact |
+| Voice memo | User starts recording → stops/cancels | Microphone + running timer | `basic`: recording context, Stop action |
 
-**Do not use it for:**
-- Events that last seconds. Use a normal notification, a heads-up or an in-app toast instead.
-- Static results: "update finished", "signed in", "network connected", "saved", app errors.
-- Marketing or promotions.
-- Frequent interruptions such as likes and comments.
-- Services with no clear end, such as continuous stock tracking.
+Do not use the island for marketing, likes/comments, static results (signed in, network connected,
+update complete), errors, or indefinite stock/weather/status monitoring. A seconds-long result
+belongs in a normal notification or an in-app toast. A permanent “Do not disturb is on” indicator
+is not an ongoing activity with a meaningful end.
 
-Allow-listing for Path B is reviewed against these rules. SystemUI enforces the time limits.
+**Admission is not semantic moderation.** SystemUI checks authorization, payloads, ongoing flags
+and time bounds; it cannot decide whether an app's content is valuable or promotional. Your use
+case must follow these rules even if a payload passes validation. There is **no `category` field**
+to declare in the Taku payload.
 
-## 2. What users see
+## 2. Design the two states
 
-The island has two states, never both at once:
+### Compact capsule: A + camera space + B
 
-- **Compact capsule.** A black capsule around the front camera: a 32 dp disc, the camera and a
-  32 dp pill, joined by smooth necks that follow the device's real cutout size.
-  - **Group A**, left of the camera, is one glyph: an icon, an animated icon, or a progress ring.
-  - **Group B**, right of the camera, is key information as a short phrase or number, a running
-    timer, a percentage, or an icon.
-  - Text is a single line and is ellipsized to the room left of the status icons. There is no
-    scrolling and no font shrinking. Text that does not fit shows as much as fits and ends with an
-    ellipsis (…). Only when not even one character and the ellipsis fit does group A stand alone.
-- **Expanded card.** A card with 40 dp corners, 8 dp from the screen edges, drawn natively by
-  SystemUI from a template: black at 92 % over a 24 dp blur of the screen behind it, or your
-  `backgroundColor` (a white card, say). It sits over the camera cutout (`cardPosition: "cover"`,
-  default) or below it (`"below"`), exactly as you choose; the keyboard only limits its height.
-  Taku Agent's own cards always cover the cutout.
+![Capsule anatomy: icon group A, protected camera area, information group B, and example combinations](assets/dynamic-island/capsule-anatomy.png)
 
-Gestures:
+*Left: A identifies the activity. Centre: space reserved for the physical camera. Right: B conveys
+one key fact. The lower examples combine an icon with a code, an icon/progress ring with a gate,
+and a microphone with a timer.*
 
-| Where | Gesture | Result |
+- **A is one graphic component:** an icon, an animated icon resource or a progress indicator.
+  An icon can carry a progress ring. It is not a second text column.
+- **B is one information component:** short text, a number/unit, timer, countdown, percentage or
+  icon. Choose one; the current protocol does not compose separate prefix/body/suffix text runs.
+- **Keep the centre clear.** Supply A/B data, not camera coordinates or a pre-drawn full capsule.
+  SystemUI places the groups around the real cutout and draws the connecting curves. Do not bake
+  a camera hole, padding or the capsule background into your icon.
+- The normal graphic/pill height is 32 dp, reduced on shorter status bars. Available width depends
+  on the cutout, clock and status icons. B is single-line and **ellipsized**, never scrolled or
+  reduced to a smaller font; if even one character plus the ellipsis will not fit, only A remains.
+- Aim for about **4 CJK or 8 Latin characters** in B; the parser accepts up to 16 Unicode code
+  points for `text`, but that does not guarantee they will all fit. Put the critical value first.
+  Use `text` for a six-digit pickup code; `number` accepts only one to three digits.
+
+`compact` is optional; omitting it means no capsule. If present, provide at least A or B.
+When A is absent, the system can use the notification's small icon. All content comes from the
+publisher; applications must not depend on hard-coded Agent labels or graphics.
+
+### Expanded card: choose a template and actions
+
+| Template | Use | Required data in addition to `template` and `title` |
 |---|---|---|
-| Capsule | Tap | `tap: "expand"` (default) opens the card; `tap: "open"` sends your content intent |
-| Capsule | Long press | Opens the card, whatever `tap` says |
-| Capsule | Swipe left | Next activity, when several are active |
-| Capsule | Tap the circle on the left | Shows that waiting activity |
-| Capsule | Swipe right | Hides your activity until its notification ends |
-| Card | Tap the body | Your `tapAction`, else your content intent. The card folds once your screen opens |
-| Card | Swipe up / Back | Back to the capsule |
+| `basic` | A short explanation and action buttons, such as recording | None |
+| `progress` | Delivery, navigation or another measurable activity | `progress`; `{}` means indeterminate |
+| `highlight` | A pickup code, gate or queue number | `highlight.text`; optional `highlight.label` |
 
-System behaviour you can rely on:
+Cards use 40 dp corners and an 8 dp screen-edge margin. The default dark fill is 92% opaque over
+24 dp background blur; disabling system blur gives an opaque fallback. You may set
+`backgroundColor` (for example `#FFFFFF`) and `accentColor`. Light backgrounds automatically use
+dark text and controls. The accent must have at least 4.5:1 contrast against your background,
+or `#121212` when no background is supplied.
 
-- **Several activities.** SystemUI manages them; you publish only your own. Calls, alarms and
-  screen recording come first. After that, the most recently *triggered* activity is shown. A
-  trigger is the first post, or an update that raises `alert` from false to true; routine updates
-  never reorder. The next activity waits as a 32 dp circle on the left of the capsule, showing its
-  group A glyph; the capsule itself does not move.
-- **Your app in front.** Your capsule is not drawn while your app is the top task, your card folds
-  when your app comes to the front, and an `alert` does not expand. The capsule appears when the
-  user leaves the app, if you supplied capsule data.
-- **Heads-up.** For Path B activities, while the island can present them (unlocked, shade closed,
-  portrait), the notification does not also pop a stock heads-up. Use `alert: true` to expand the
-  card briefly instead. Plain Live Updates (Path A) keep Android's normal heads-up.
-- **Lifetime.** Your island ends at the first of:
-  - you cancel the notification,
-  - your declared timeout (`timeoutS` or `setTimeoutAfter`),
-  - **one hour after the first post** if you declared none,
-  - 12 hours.
+`cardPosition: "cover"` places the card over the cutout area; `"below"` leaves it clear. The
+keyboard limits available card height, **not the chosen position**. Content scrolls within the
+bounded card, whose height is capped at one third of the screen. Buttons use one horizontally
+scrolling row; the current parser accepts at most **32 action keys**. Keep actions useful and
+labels short even though they can scroll.
 
-  Updates never extend it. When island time ends, the notification itself stays in the shade.
-- **Not yet supported:** lock screen, AOD and secondary displays. On the lock screen and in the
-  shade, users see your ordinary notification row, so keep its title, text and actions complete.
+Template styling is not arbitrary HTML, CSS or a custom Android view. Platform-signed apps can
+supply their own rendered content through the advanced integration in §7. The `assistant`
+template and `ai-working` / `ai-listening` animations are reserved for Taku Agent; its cards
+always cover the cutout and its onboarding keeps its own layout.
 
-## 3. Path A: Android Live Updates
+## 3. Interaction and lifetime
 
-Requirements are Android's:
-- an ongoing notification with a content title,
-- a standard, BigText, Call or `ProgressStyle` style,
-- no custom views, not colorized, not a group summary,
-- `android.permission.POST_PROMOTED_NOTIFICATIONS` declared in your manifest,
-- a promotion request.
+![Four-stage interaction: in app, Home capsule, expanded card, app detail, with a direct-open alternative](assets/dynamic-island/interaction-flow.png)
 
-The user can turn promotion off per app; check
-`NotificationManager.canPostPromotedNotifications()`.
+*1 → 2: leave the app for Home. 2 → 3: tap to expand. 3 → 4: tap the card to open an app screen.
+Alternatively, configure the capsule to open the app directly. The example card uses `below`.*
 
-```kotlin
-val notification = Notification.Builder(context, channelId)
-    .setSmallIcon(R.drawable.ic_delivery)          // group A when there is no large icon (tinted white)
-    .setLargeIcon(courierIcon)                      // group A, untinted
-    .setContentTitle("Delivery on the way")         // card title
-    .setContentText("Courier is 12 minutes away")   // card body
-    .setShortCriticalText("12 min")                 // group B
-    .setStyle(Notification.ProgressStyle()
-        .setProgressSegments(listOf(Notification.ProgressStyle.Segment(100))).setProgress(40))
-    .setOngoing(true)
-    .setRequestPromotedOngoing(true)                // API 36.1; on API 36 put extra "android.requestPromotedOngoing"
-    .setTimeoutAfter(2 * 60 * 60 * 1000L)           // the island's declared end (≤ 12 h)
-    .setContentIntent(openOrderPendingIntent)
-    .addAction(cancelAction)                        // becomes a card chip
-    .build()
-notificationManager.notify(TAG, ID, notification)
-```
+**Capsule and expanded card never appear together.** There is no third app-defined “small
+island” state. The extra small disc and activity queue belong to the system.
 
-| Notification field | Island |
+| User/system event | Behaviour and app configuration |
 |---|---|
-| Large icon, else small icon (tinted) | Group A |
-| `setShortCriticalText`, else a chronometer (`setUsesChronometer` / count-down), else the `when` time | Group B |
-| `ProgressStyle` progress (or legacy `setProgress`) | `progress` card with a progress line |
-| Title / text | Card title / body |
-| Actions | Card chips, in order |
-| Content intent | Card tap and the capsule's expand glyph |
-| `setTimeoutAfter` | Island lifetime (otherwise 1 h) |
+| App comes to the foreground | Its capsule is suppressed and its open card folds. Home and SystemUI's own sources are exceptions |
+| User leaves the app | Its capsule becomes eligible to appear, subject to queue order and display conditions |
+| Tap capsule | `tap: "expand"` (default) opens the card; `"open"` sends the notification's content intent. Supply a valid content intent for direct opening |
+| Long-press capsule | Opens the card regardless of `tap` |
+| Swipe left on capsule | Switches to the next active activity |
+| Tap the small disc on the left | Selects that waiting activity; apps do not supply a separate disc layout |
+| Swipe right on capsule | Hides this activity until its notification ends; does not stop the service or cancel the notification |
+| Tap card body | Sends `expanded.tapAction`, or the content intent when omitted. Opening the app folds the card; without either intent, tapping does nothing |
+| Tap an action button | Sends that button's `Notification.Action`; the app implements its operation |
+| Swipe up on a native card | Returns to the capsule, if eligible; a scrollable text region scrolls to its end first. Do not rely on Android Back being captured by this non-focusable overlay |
+| Important milestone | `alert: true` on first post, or a later false → true transition, requests an automatic card for up to 5 seconds |
 
-Live Updates always use `tap: expand` and `cardPosition: cover`.
+Routine updates must not alert. Space alert requests at least **30 seconds apart per notification**;
+the system applies a cooldown which cancellation/reposting does not reset. Repeated `true`
+updates do not create new triggers. Automatic expansion is unavailable while the app is in front,
+on the lock screen, in landscape or while the notification shade is open.
 
-## 4. Path B: `taku.island.v2`
+SystemUI orders ordinary activities by **most recent trigger first**. A trigger is the initial
+post or an accepted false → true alert transition; content updates alone do not move an activity
+to the front. Recognized system calls, alarms and recording/casting take precedence. Publishers
+cannot select their own priority tier. The next activity uses a system-drawn 32 dp disc with a
+16 dp icon on the left; it does not move the main capsule.
 
-### Authorization
+### Start, update and finish
 
-Custom extras are read only from an authorized package:
-- **Apps signed with the platform certificate** (the same certificate as SystemUI, such as Taku
-  Agent and Notebook) are authorized automatically. There is nothing to declare and no package
-  name to register.
-- **Other apps** must be added to the user-visible allow-list (Settings → Display → Activity island,
-  or `taku_island_allowed_packages`) after review against §1. Contact the Taku OS team to request
-  it.
+1. **Start:** post an ongoing notification when the real activity begins. There is no separate
+   JSON trigger-expression field; posting is the start signal.
+2. **Update:** call `notify()` with the same tag/id. Keep the business start time and deadline.
+   SystemUI updates timer/countdown text itself; do not repost every second just to tick a clock.
+3. **Finish:** cancel that notification on completion, cancellation or expiry. A countdown reaching
+   zero is display data, not a cancellation instruction. Stopping a recording must stop the actual
+   recorder as well as its notification.
 
-`canShowIsland` reports `customAllowed` and `platformSigned` for your package (§5).
+| Boundary | What happens |
+|---|---|
+| `timeoutS` omitted | Island expires 1 hour after its first post |
+| `timeoutS` supplied | 1–43200 seconds from first post; updates cannot extend it |
+| Notification cancelled | Its island ends immediately |
+| `staleAfterS` elapsed without an update | Capsule becomes muted; this does not finish the activity |
+| Island timeout reached | Island disappears; the notification and app service are not stopped |
 
-Without authorization, or with invalid extras, SystemUI ignores the extras and shows your Live
-Update presentation, if any. The notification is never dropped.
+`Notification.Builder.setTimeoutAfter()` is Android's separate notification cancellation timer.
+For custom Taku payloads, set `timeoutS` explicitly if you need a non-default island lifetime;
+`setTimeoutAfter()` does not substitute for it. Whichever removes the activity first wins.
 
-### Example: a voice memo
+Cancelling and reposting starts a new system activity. **Do not use this to restart the same
+business activity's 12-hour budget.** Persist and enforce its actual deadline in your app. The
+system cannot infer business identity across unrelated notification IDs.
 
-```kotlin
-val stop = Notification.Action.Builder(null as Icon?, "Stop", stopPendingIntent).build()
-val payload = JSONObject()
-    .put("version", 2)
-    .put("tap", "open")                 // tapping the capsule opens the recorder
-    .put("timeoutS", 7200)              // declared end: at most 2 h of recording
-    .put("compact", JSONObject()
-        .put("a", JSONObject().put("type", "icon").put("pic", "mic").put("tint", true))
-        .put("b", JSONObject().put("type", "timer").put("startEpochMs", startedAt)))
-    .put("expanded", JSONObject()
-        .put("template", "basic")
-        .put("title", "Recording voice memo")
-        .put("body", "Inbox · 00:42 saved so far")
-        .put("actions", JSONArray(listOf("stop")))
-        .put("primaryAction", "stop"))
-val extras = Bundle().apply {
-    putString("taku.island.v2", payload.toString())
-    putBundle("taku.island.pics", Bundle().apply { putParcelable("mic", Icon.createWithResource(context, R.drawable.ic_mic)) })
-    putBundle("taku.island.actions", Bundle().apply { putParcelable("stop", stop) })
+## 4. Integrate through an Android notification
+
+### Eligibility and permissions
+
+- Apps signed with the platform certificate, including appropriately signed Notebook builds,
+  are automatically authorized. A package name alone does not grant access.
+- Other apps need review and inclusion in the user-visible allow-list under
+  **Settings → Display → Activity island**. Contact the Taku OS team with your package and use case.
+- Follow normal Android notification permission/channel rules. Custom Taku extras do not require
+  `POST_PROMOTED_NOTIFICATIONS` or a special `POST_ISLAND` declaration.
+- Use `setOngoing(true)`. Taku Agent's conversation cards have a system exception; other publishers
+  cannot use that exception for one-off messages.
+
+The only custom protocol is `taku.island.v2`, with `version: 2`. There is no legacy custom format
+to fall back to. The JSON travels **inside a locally posted Android notification**, not to a
+Taku HTTP push endpoint. If your backend sends an event, your app receives it and posts/updates
+the notification. Keep the ordinary notification useful on its own.
+
+### Example: delivery
+
+Save this payload as `res/raw/delivery_island.json`. It uses a short ETA, progress card, two
+buttons and a separate card-body action:
+
+```json
+{
+  "version": 2,
+  "compact": {
+    "a": {"type": "icon", "pic": "courier", "tint": true},
+    "b": {"type": "text", "text": "12 min"}
+  },
+  "expanded": {
+    "template": "progress",
+    "title": "Delivery on the way",
+    "body": "Courier is 12 minutes away",
+    "progress": {"value": 0.6},
+    "actions": ["track", "contact"],
+    "primaryAction": "track",
+    "tapAction": "open_order",
+    "accentColor": "#8BF0BA"
+  },
+  "tap": "expand",
+  "cardPosition": "below",
+  "alert": false,
+  "timeoutS": 7200,
+  "staleAfterS": 300
 }
-val notification = Notification.Builder(context, channelId)
-    .setSmallIcon(R.drawable.ic_mic).setContentTitle("Recording voice memo")
-    .setOngoing(true).setUsesChronometer(true).setWhen(startedAt)
-    .setContentIntent(openRecorderPendingIntent).addAction(stop).addExtras(extras).build()
-notificationManager.notify("memo:" + memoId, 1, notification)
 ```
 
-Re-post with the same tag and id to update. Cancel the notification to end the activity. Use a new
-tag or id for a genuinely new activity.
+Declare `android.permission.POST_NOTIFICATIONS` in your manifest and obtain the user's runtime
+grant where required. The code below assumes it is granted, `ic_delivery` exists, and the two
+PendingIntents were created by your app for the correct order/contact destinations. Use explicit
+intents and distinct identities for different orders.
 
-### Payload reference
+```kotlin
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.Context
+import android.graphics.drawable.Icon
+import android.os.Bundle
 
-| Field | Rules |
+fun publishDelivery(
+    context: Context, orderId: String,
+    openOrder: PendingIntent, contactCourier: PendingIntent
+) {
+    val manager = context.getSystemService(NotificationManager::class.java)
+    val channel = "deliveries"
+    manager.createNotificationChannel(NotificationChannel(
+        channel, "Active deliveries", NotificationManager.IMPORTANCE_DEFAULT
+    ))
+    val payload = context.resources.openRawResource(R.raw.delivery_island)
+        .bufferedReader().use { it.readText() }
+    val track = Notification.Action.Builder(null as Icon?, "Track", openOrder).build()
+    val contact = Notification.Action.Builder(null as Icon?, "Contact", contactCourier).build()
+    val extras = Bundle().apply {
+        putString("taku.island.v2", payload)
+        putBundle("taku.island.pics", Bundle().apply {
+            putParcelable("courier", Icon.createWithResource(context, R.drawable.ic_delivery))
+        })
+        putBundle("taku.island.actions", Bundle().apply {
+            putParcelable("track", track)
+            putParcelable("contact", contact)
+            putParcelable("open_order", track)
+        })
+    }
+    val notification = Notification.Builder(context, channel)
+        .setSmallIcon(R.drawable.ic_delivery)
+        .setContentTitle("Delivery on the way")
+        .setContentText("Courier is 12 minutes away")
+        .setContentIntent(openOrder)
+        .setOngoing(true)
+        .addAction(track).addAction(contact)
+        .addExtras(extras)
+        .build()
+    manager.notify("delivery:$orderId", 1, notification)
+}
+```
+
+Replace the example data with the current order state when updating; call `notify()` with the
+same `"delivery:$orderId"` and `1`. On delivery/cancellation, call
+`manager.cancel("delivery:$orderId", 1)`. Do not use a fresh ID for each progress update.
+
+## 5. Payload reference and limits
+
+### Top-level fields
+
+| Field | Type and rule |
 |---|---|
-| `version` | `2` |
-| `compact` | Optional. Without it, the activity never shows a capsule |
-| `compact.a` | `{"type":"icon","pic":KEY,"animate"?,"progress"?,"tint"?,"contentDescription"?}` or `{"type":"progress","value"?}`. `animate` runs an AnimatedVectorDrawable resource for up to 60 s per update, never when the user disabled animations. `progress` (0–1) draws a ring around the icon |
-| `compact.b` | `{"type":"text","text":≤16,"emphasis":"normal"\|"accent"\|"muted"}`, `{"type":"number","value":"1"-"999","unit"?:≤4}`, `{"type":"timer","startEpochMs"}`, `{"type":"countdown","endEpochMs"}`, `{"type":"progress","value"?}` (shown as a percentage) or an `icon` |
-| `animation` slots | `ai-working` and `ai-listening` belong to Taku Agent; others get `invalid_animation` |
-| `expanded.template` | `basic` (text and actions), `progress` (adds a progress line; needs `progress`), `highlight` (adds one large value; needs `highlight`). `assistant` is Taku Agent's |
-| `expanded.title` / `body` | ≤ 80 / ≤ 2000 characters |
-| `expanded.pic` | Header icon; defaults to your small icon |
-| `expanded.steps` | ≤ 8 rows of `{kind,text≤120,running?}` |
-| `expanded.progress` | `{"value"?: 0–1}`; omit `value` for indeterminate |
-| `expanded.highlight` | `{"text":≤12,"label"?:≤40}`: pickup code, gate, queue number |
-| `expanded.actions` | Keys into `taku.island.actions`, in display order, as one horizontally scrolling chip row. No design limit; 32 is a parsing bound |
-| `expanded.primaryAction` | One of `actions`, drawn filled |
-| `expanded.tapAction` | Action key sent when the card body is tapped. It need not be a chip. Default: your content intent |
-| `expanded.backgroundColor` | Template style: `#RRGGBB` card background, drawn at 92 % over the blur. On a light colour (such as `#FFFFFF`) text, chips, the progress track and the corner glyph turn black automatically. Not for `assistant` |
-| `expanded.accentColor` | `#RRGGBB` with contrast ≥ 4.5:1 against the card: `backgroundColor` if set, else `#121212` (else `low_contrast`). Used for the primary chip, the progress line, the highlight value and `accent` capsule text |
+| `version` | Required integer `2` |
+| `expanded` | Required card object |
+| `compact` | Optional object containing `a`, `b`, or both; cannot be empty |
 | `tap` | `expand` (default) or `open` |
 | `cardPosition` | `cover` (default) or `below` |
-| `alert` | A false-to-true change expands the card for ≤ 5 s and moves your activity to the front. At most once per 30 s per notification (cancelling and re-posting does not reset this); faster flips are ignored |
-| `timeoutS` | 1–43200. Island lifetime from the first post; default 3600 |
-| `staleAfterS` | 1–43200. Without updates for this long, the capsule is drawn muted |
+| `alert` | Boolean, default `false`; milestone request subject to §3 |
+| `timeoutS` | Integer 1–43200, default 3600; measured from first post |
+| `staleAfterS` | Optional integer 1–43200; time since last update before muting |
 
-Shared rules:
-- The notification must be ongoing (`setOngoing(true)`); otherwise `not_ongoing`. One-off
-  results and errors belong in the shade.
-- 8192 UTF-8 bytes; nesting ≤ 8.
-- Unknown or duplicate keys and wrong types are rejected.
-- Keys match `[a-z][a-z0-9_]{0,31}`.
-- Images are `Icon`s in `taku.island.pics`: bitmaps up to 512×512 px and 1 MiB, or resources of
-  your own package. URI and data icons are not loaded.
-- Actions are real `Notification.Action`s whose PendingIntents your app created.
-- No markup, scripts or URLs.
+### A/B components
 
-`taku.island.v2` is the only Taku Island protocol; there is no earlier format to support or
-fall back to.
+Each slot is one object with a `type`. Character limits count Unicode code points.
 
-### Design constraints
+| `type` | Allowed in | Data |
+|---|---|---|
+| `icon` | A, B | Required `pic` key; optional `tint` and `animate` booleans, `progress` 0–1 ring, `contentDescription` ≤80 characters |
+| `progress` | A, B | `value` 0–1. In A, omit it for an indeterminate indicator. B renders a percentage; supply a value, since omitting it currently displays `0%` |
+| `text` | B | Required `text` 1–16 characters; `emphasis`: `normal` (default), `accent` or `muted` |
+| `number` | B | Required `value`: string of 1–3 digits, including `"0"`; optional `unit` ≤4 characters |
+| `timer` | B | Required integer `startEpochMs`, Unix epoch milliseconds |
+| `countdown` | B | Required integer `endEpochMs`, Unix epoch milliseconds |
+| `animation` | A, B; Taku Agent only | `name`: `ai-working` or `ai-listening`; optional `contentDescription` ≤80 characters |
 
-Keep group B to a short phrase or number. As a rule of thumb, use about 8 Latin or 4 CJK
-characters. The capsule is shared with the clock and status icons, and long text is cut. Card
-content must fit its template: text scrolls inside the card, and the card is at most a third of
-the screen tall. Further visual constraints will be published here by the Taku design team.
+Epoch values accept 0–9007199254740991. For your own animated glyph, use
+`{"type":"icon","pic":"mic","animate":true}` with an `AnimatedVectorDrawable` resource.
+Animation runs for up to 60 seconds per update and respects disabled system animations. Do not
+continually repost to defeat this bound. Static and reduced-motion states must remain meaningful.
 
-## 5. Checking and debugging
+Useful combinations: pickup B = `{"type":"text","text":"573921"}`; flight B =
+`{"type":"text","text":"B12"}`; recording B =
+`{"type":"timer","startEpochMs":1793990400000}` (replace with the actual recording start).
 
-From your app, ask whether you can publish. You may only ask about your own package, and omitting
-the package answers for it:
+### Expanded fields
+
+| Field | Rule |
+|---|---|
+| `template` / `title` | Required; template from §2, title 1–80 characters |
+| `body` / `pic` | Optional body ≤2000 characters; optional header icon key, otherwise the notification icon |
+| `steps` | Up to 8 objects: `kind` = `search`, `browse`, `act` or `info`; `text` 1–120 characters; optional boolean `running` |
+| `progress` | Object with optional `value` 0–1; required for `progress` template |
+| `highlight` | Only for `highlight` template and required there: `text` 1–12 characters, optional `label` ≤40 |
+| `actions` | Up to 32 unique action keys, in display order; default empty |
+| `primaryAction` | Must name a key in `actions`; draws that button filled |
+| `tapAction` | Card-body action key; need not be in `actions`, but must exist in the actions Bundle |
+| `backgroundColor` / `accentColor` | Optional `#RRGGBB`; colour and contrast rules in §2 |
+| `content` | Optional platform-signed rich content; §7 |
+
+### Transport and validation
+
+- JSON: at most **8192 UTF-8 bytes**, nesting depth at most **8**. Unknown/duplicate keys and
+  incorrect types are rejected; do not add `category`, priority, camera coordinates or extra states.
+- Picture/action keys match `[a-z][a-z0-9_]{0,31}`. Every referenced key must exist in its Bundle.
+- `taku.island.pics`: key → Android `Icon`. Use your package's (or Android's) resource icons,
+  or bitmap/adaptive bitmap icons up to **512×512 px and 1 MiB**. URI/data icons are not loaded.
+- `taku.island.actions`: key → `Notification.Action` with a non-null PendingIntent created by
+  the posting UID. For card/capsule app navigation, supply an intent created by that UID too.
+- Templates render native controls and plain text. There is no HTML/script execution or remote
+  asset URL loader; text containing a URL does not become a navigation action.
+
+Invalid/unauthorized Taku extras are ignored. A qualifying promoted Live Update may still appear
+through the compatibility path; otherwise only the ordinary notification remains.
+
+## 6. Check authorization and debug
+
+Add this inside your manifest's root element to make the provider visible:
+
+```xml
+<queries>
+    <provider android:authorities="com.android.systemui.island" />
+</queries>
+```
+
+Query your own package (omitting the package resolves it when your UID has one package):
 
 ```kotlin
-// Add <queries><provider android:authorities="com.android.systemui.island" /></queries> to your manifest.
-context.contentResolver.query(Uri.parse("content://com.android.systemui.island/canShowIsland"),
-    null, null, null, null)?.use { if (it.moveToFirst()) JSONObject(it.getString(0)) }
-// → {"ok":true,"enabled":true,"package":"…","customAllowed":false,"platformSigned":false,"liveUpdates":true}
+context.contentResolver.query(
+    android.net.Uri.parse("content://com.android.systemui.island/canShowIsland"),
+    null, null, null, null
+)?.use { cursor ->
+    if (cursor.moveToFirst()) {
+        val result = org.json.JSONObject(cursor.getString(0))
+        val canPublish = result.optBoolean("enabled") && result.optBoolean("customAllowed")
+        // Use canPublish to explain availability; it does not guarantee immediate display.
+    }
+}
 ```
 
-Over ADB (a development shell has full access):
+The result includes `ok`, `enabled`, `package`, `customAllowed`, `platformSigned` and `liveUpdates`.
+`liveUpdates: true` describes system support, not your app's Android promotion grant.
+An ordinary app cannot use this endpoint to query another package's eligibility.
+
+Run these from a development computer with ADB; replace the example package/key:
 
 ```sh
-adb shell cmd statusbar island-validate org.example.app '{"version":2,…}'   # same parser and publisher checks
-adb shell cmd statusbar island state       # activities, what is on screen, diagnostics
-adb shell cmd statusbar island get 'KEY'   # canonical payload, source, tier, triggeredAtElapsedMs, timeoutKind
+adb shell cmd statusbar island canShowIsland org.example.delivery
+adb shell "cmd statusbar island-validate org.example.delivery '{\"version\":2,\"expanded\":{\"template\":\"basic\",\"title\":\"Delivery\"}}'"
+adb shell cmd statusbar island state
+adb shell cmd statusbar island list
+adb shell cmd statusbar island get 'KEY'
+adb shell dumpsys activity service com.android.systemui/.SystemUIService IslandStartable
 ```
 
-`diagnostics` lists `KEY:error` entries. Common codes:
+`island-validate` runs the payload parser with the package's signature identity. It **does not**
+grant publishing access, check the notification's ongoing flag, or resolve picture/action Bundles.
+Check `canShowIsland`, then post a real notification to validate the whole path.
+`state` reports settings, activities and presentation; `get` includes payload/source/tier/expiry.
+The `IslandStartable` dump includes the recent `diagnostics` entries (`KEY:error`).
 
-| Code | Meaning |
+| Error | Check |
 |---|---|
-| `publisher_not_allowed` | Not signed with the platform certificate and not on the allow-list |
-| `not_ongoing` | The notification is not ongoing |
-| `invalid_references_or_host` | A `pic` or action key is missing from its bundle, an icon is not allowed, or a PendingIntent is not yours |
-| `unknown_field`, `invalid_enum`, `text_length`, `number_range`, `invalid_key`, `expected_*` | Schema violations |
-| `missing_progress`, `missing_highlight`, `highlight_template_only` | A template without its data, or data on the wrong template |
-| `missing_primary_action`, `duplicate_action`, `too_many_actions` | Action list problems |
-| `invalid_color`, `low_contrast` | `backgroundColor` or `accentColor` problems |
-| `reserved_template`, `invalid_animation`, `reserved_content` | Taku Agent or platform-only features |
-| `payload_too_large`, `too_deep`, `unbalanced_json`, `invalid_payload` | Malformed JSON |
+| `publisher_not_allowed` | Platform signature or reviewed allow-list entry |
+| `not_ongoing` | `setOngoing(true)` on the posted notification |
+| `invalid_references_or_host` | Missing icon/action key, unsupported icon, wrong PendingIntent owner or invalid rich-content service |
+| `unknown_field`, `duplicate_field`, `invalid_enum`, `text_length`, `number_range`, `expected_*` | Field names, uniqueness, types and limits |
+| `missing_progress`, `missing_highlight`, `highlight_template_only` | Template/data pairing |
+| `missing_primary_action`, `duplicate_action`, `too_many_actions`, `invalid_action_key` | Action keys and list size |
+| `invalid_color`, `low_contrast` | Colour format and contrast |
+| `reserved_template`, `invalid_animation`, `reserved_content` | Agent-only or platform-only feature |
+| `payload_too_large`, `too_deep`, `invalid_json`, `invalid_payload` | JSON size, depth or syntax |
+| `permission_denied` | Provider operation needs a grant or is restricted to trusted callers |
 
-Third-party apps cannot read other apps' activities. Reading or operating the island from an app
-needs a `taku.control` grant in the App Permission Center, and settings writes are never available
-to apps (see the [Agent commands](../system/assistant/assets/skills/taku-island/SKILL.md)).
+Publishing permission is separate from reading/controlling islands. Ordinary apps need the App
+Permission Center's `taku.control` grant to read activity state or invoke operations; they cannot
+change island settings or the publisher allow-list even with that grant. ADB/Agent UID 0/1000/2000
+and platform-signed callers have direct access. There is no self-registration API for apps.
 
-## 6. Platform-signed apps: rich content process
+## 7. Advanced: platform-signed custom content
 
-`expanded.content` embeds a body rendered by your own process (`SurfaceControlViewHost`). It is
-limited to **platform-signed** publishers (else `reserved_content`).
+For layouts beyond the native templates, platform-signed publishers may set `expanded.content`.
+Being allow-listed alone is insufficient. Keep valid template data as the loading/failure fallback.
 
-- `service` is `package/full.ServiceClass` in the posting package: exported and protected by the
-  signature permission `org.agentos.permission.BIND_ISLAND_CONTENT`.
-- `token` is opaque, ≤ 256 characters. `layout` is `body` (default) or `card`. `heightDp` is 96–340
-  and is further capped to a third of the screen.
+| Field | Rule |
+|---|---|
+| `service` | Required `package/full.ServiceClass` (or `package/.ServiceClass`), in the posting package |
+| `token` | Optional opaque string ≤256 characters |
+| `layout` | `body` (default) or `card` |
+| `heightDp` | 96–340; further limited by available space and the one-third-screen cap |
 
-Protocol ([`IslandContentProtocol.java`](../system/island/src/org/agentos/island/IslandContentProtocol.java)):
-- Binding returns a Messenger.
-- ATTACH (`what=1`) carries the generation in `arg1`, a `replyTo` Messenger, and Bundle keys
-  `version=1`, `hostToken`, `width`, `height`, `display` and `token`.
-- Reply READY (`what=3`) with Bundle `surface` (a SurfacePackage) after the first frame, or FAILED
-  (`what=4`).
-- RELEASE (`what=2`) tears down that generation.
-- The host timeout is 2500 ms, and dimensions are ≤ 4096.
-- The native template stays visible while binding and after a failure. There is no automatic retry
-  in the same open card.
-- Never cancel work when the content service dies.
+The service must be exported, owned by the posting UID and protected by a **signature-level
+permission** (for example `org.agentos.permission.BIND_ISLAND_CONTENT`, declared with
+`protectionLevel="signature"`). Binding returns an Android `Messenger`; the content uses
+`SurfaceControlViewHost`, not a `RemoteViews` extra.
 
-## 7. Taku Agent
+| Message | Direction | Payload |
+|---|---|---|
+| ATTACH (`what=1`) | SystemUI → service | Generation in `arg1`, `replyTo` Messenger; Bundle `version=1`, `hostToken`, pixel `width`/`height`, `display`, `token` |
+| READY (`what=3`) | Service → SystemUI | Same generation in `arg1`; Bundle `surface` containing `SurfaceControlViewHost.SurfacePackage`, after the first frame |
+| FAILED (`what=4`) | Service → SystemUI | Same generation; signal attachment failure |
+| RELEASE (`what=2`) | SystemUI → service | Release the resources of that generation |
 
-Taku Agent posts `taku.island.v2` like any other publisher.
-- Its card uses the reserved `assistant` template, `expanded.assistant:{token,phase,heightDp,suggestions}`.
-  It is drawn by `IslandAssistantCard`, with `suggestions` naming real action IDs only.
-- It shows a capsule (`ai-working` plus "Building...") only while building an app.
-- Its onboarding sign-in island uses Taku's own progress card chrome.
+Use the supplied dimensions/display/host token, not assumed phone dimensions. Dimensions are
+bounded at 4096 px and attachment has a 2500 ms timeout. SystemUI shows the template while binding
+and on failure; it does not automatically retry within the same open card. Releasing the surface
+or losing this service must not stop the underlying recording/delivery activity.
+
+## 8. Android Live Updates compatibility
+
+Apps may also post Android promoted ongoing notifications without Taku JSON. This is an
+additional integration option, not a prerequisite for the custom protocol above. Follow Android's
+eligibility: ongoing notification with a title, supported standard/BigText/Call/ProgressStyle,
+no custom views, no colorization and not a group summary. Declare
+`android.permission.POST_PROMOTED_NOTIFICATIONS`, request promotion, and check
+`NotificationManager.canPostPromotedNotifications()`; the user can disable it.
+
+With an existing eligible builder, API 36.1 supports `.setRequestPromotedOngoing(true)`; on API 36,
+set boolean extra `android.requestPromotedOngoing`. Use an SDK/API guard appropriate to your app.
+
+| Android data | Island presentation |
+|---|---|
+| Large icon, otherwise small icon | A (small icon tinted) |
+| Short critical text, otherwise chronometer/countdown, otherwise `when` | B |
+| Title / text | Card title / body |
+| ProgressStyle or legacy progress | Progress card |
+| Actions / content intent | Buttons / app navigation |
+| `setTimeoutAfter` | Declared island lifetime; otherwise 1 hour, capped at 12 hours |
+
+Live Updates use `tap: expand` and `cardPosition: cover`. They **keep Android's normal heads-up
+notification** and do not expose Taku's automatic card alert. Custom Taku activities replace
+heads-up with their card alert only while the island can present them; outside those conditions,
+normal Android notification behaviour applies. System-recognized calls, alarms and stopwatches
+may remain until their source ends, with a 12-hour cap instead of the one-hour default.
+
+## 9. Before shipping
+
+- Test start → leave app → capsule → expand/direct open → correct app screen → finish.
+- Test two apps, swipe switching/hiding and the waiting disc; never publish a third state yourself.
+- Check real cutout geometry, a short status bar, long/localized labels, light/dark card colours,
+  keyboard visibility, disabled blur/animations and unavailable custom content.
+- Test denied notification/publishing permissions, malformed JSON and ordinary notification fallback.
+- Test important alerts versus routine updates, the 30-second interval, default/explicit expiry,
+  stale data and business deadlines across restart/repost.
+- Confirm the ordinary notification remains complete: **lock screen, AOD and secondary-display
+  islands are not supported**. Landscape does not expand cards.
+
+These are integration requirements and checks, not a claim that every device has passed them.
+
+### Reference material
+
+The fields and lifecycle above describe the current Taku implementation. For machine validation,
+see the [JSON Schema](../spec/taku-island-v2.schema.json); device acceptance is tracked separately
+in the [progress log](dynamic-island-progress.md). The organization and explanatory illustrations
+reference Xiaomi's [business guide](https://dev.mi.com/xiaomihyperos/documentation/detail?pId=2140)
+and [integration guide](https://dev.mi.com/xiaomihyperos/documentation/detail?pId=2131).
+Xiaomi-specific APIs, admission categories and gestures are not Taku capabilities.
