@@ -62,20 +62,31 @@ content call --uri content://com.android.systemui.island --method action --arg '
 
 `state` returns policy, active activities and actual presentation (selected key, compact visibility,
 card geometry, rich readiness, focusability and reason). `get` additionally returns revision,
-firstSeenElapsedMs, expiresElapsedMs, stale, dismissed and payload. The list contains active,
+firstSeenElapsedMs, triggeredAtElapsedMs, expiresElapsedMs, stale, dismissed, `source`
+(`custom-v2`, `custom-v1`, `live-update` or `system`), `tier` (0 call, 1 alarm, 2 recording/cast,
+3 every other activity), `timeoutKind` (`explicit`, `default` or `cap`) and payload. `payload` is
+always the canonical v2 shape (`compact.a`/`compact.b`, `expanded`, `tap`, `cardPosition`,
+`timeoutS`), whichever wire format or Live Update produced it. The list contains active,
 undismissed items even when the global switch hides them; presentation says what is on screen.
+
+Order: system tier first, then an activity inside its five-second alert, then the most recently
+triggered activity. A trigger is the first post or a false-to-true `alert`; routine updates never
+reorder. An island ends when its notification is cancelled, at its `timeoutS` (or the Live
+Update's `setTimeoutAfter`), one hour after the first post when neither is given, or at the 12 h
+cap. Updates cannot extend that deadline. The notification itself stays in the shade.
 `dismiss` hides only this island for that source lifetime. It does not stop a task, end a call,
 cancel a notification, or permit the producer to redisplay it by updating the same key.
 Use the explicit source action to stop work. A removed/reposted notification begins a new lifetime.
-`select` cycles the primary item; `choose` opens the same activity chooser as a long press.
-With no expanded card, a compact-hidden assistant yields the primary pill to an eligible
-visible activity (such as media or progress). Its notification remains available to
-`expand KEY`; expanding it keeps that card selected until collapse. Read `state.presentation`
-to inspect the actual selected key and compact visibility.
+`select` chooses the primary item; it holds until a newer activity is triggered or it ends.
+`choose` opens the same activity chooser as a long press. An activity without capsule data
+(no `compact`, such as Taku Agent outside app building) never takes the capsule; the next
+activity with one is shown. It remains available to `expand KEY`; expanding it keeps that card
+selected until collapse. Read `state.presentation` to inspect the actual selected key and
+compact visibility.
 
 Every island SystemUI shows is drawn natively in the Taku design; there is no stock-widget
 fallback. `state.presentation.compact` (null when hidden) reports what the capsule shows:
-`text` (the pill, empty when only the disc fits), `disc` (`loader`, `pic`, `progress`,
+`text` (the pill, empty when only the disc fits), `disc` (`dot` when there is no glyph, `pic`, `progress`,
 `working` or `listening`) and `secondary` (a second activity's disc). `state.presentation.card`
 reports `renderer` (`systemui-native`, or `remote-surface` once a rich body is ready) and, for
 non-assistant cards, `template:{title,body,actionCount,choices,progress}` read from the drawn
@@ -107,7 +118,7 @@ publication permission. The GUI and Agent operations use the same provider valid
 
 Enabled is strictly `0` or `1`; it hides islands without stopping sources. Global settings affect
 all users; only the current unlocked/profile-available user's activities are presented. Protocol
-is capability value `1`, not user configuration. `setProtocol` returns `read_only_protocol`. Global
+is capability value `2` (v1 extras are still accepted), not user configuration. `setProtocol` returns `read_only_protocol`. Global
 Settings has no per-key immutable primitive: invalid direct `settings put` values are restored by
 an observer; use the provider for immediate validation. Ordinary Agent provider access needs no
 POST_ISLAND permission. Publishing a custom notification requires the signature POST_ISLAND

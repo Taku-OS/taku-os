@@ -70,13 +70,14 @@ class IslandSystemSources @Inject constructor(
     }
     private fun publish(key: String, title: String, body: String, source: String, stop: () -> Unit) {
         val beginning = started.getOrPut(key) { System.currentTimeMillis() }
-        val payload = JSONObject().put("version", 1).put("category", "recording")
-            .put("islandTimeoutS", 28800).put("bigIsland", JSONObject().put("leading", JSONObject()
-                .put("type", "timer").put("startEpochMs", beginning)))
-            .put("expanded", JSONObject().put("template", "text").put("title", title).put("body", body.take(2000))
-                .put("actions", JSONArray(listOf("stop")))).put("source", source)
+        val payload = JSONObject().put("version", 2)
+            .put("compact", JSONObject().put("b", JSONObject().put("type", "timer").put("startEpochMs", beginning)))
+            .put("expanded", JSONObject().put("template", "basic").put("title", title).put("body", body.take(2000))
+                .put("actions", JSONArray(listOf("stop"))))
+            .put("systemSource", source)
         engine.putSystem(IslandActivity(key, context.packageName, Process.myUid(), users.userId, payload,
-            emptyMap(), emptyMap(), null, null, null, mapOf("stop" to IslandNativeAction("Stop", stop))),
+            emptyMap(), emptyMap(), null, null, null, mapOf("stop" to IslandNativeAction("Stop", stop)),
+            source = IslandActivity.SOURCE_SYSTEM, tier = IslandStore.TIER_RECORDING),
             SystemClock.elapsedRealtime())
     }
 }

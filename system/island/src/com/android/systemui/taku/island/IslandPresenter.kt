@@ -116,8 +116,9 @@ class IslandPresenter @Inject constructor(
         items = activities
         val old = items.find { it.key == selected }
         val first = items.firstOrNull()
-        if (old == null || (first?.key != arbiterPrimary && first != null &&
-                (first.priority < old.priority || first.alertUntil > SystemClock.elapsedRealtime()))) {
+        // A user's choice holds until something newer is triggered (a new activity, a rising alert
+        // or a system-tier source) and takes the head of the order, or the chosen one ends.
+        if (old == null || (first != null && first.key != arbiterPrimary)) {
             if (selected != first?.key && card != null) collapse("priority_changed")
             selected = first?.key
         }
@@ -175,7 +176,7 @@ class IslandPresenter @Inject constructor(
         selected = key
         if (cardKey == key && card != null && !choosing) { automatic = false; return true }
         collapse("switch")
-        val cover = item.data.payload.optString("statusBar", "auto") != "below"
+        val cover = item.data.cardPosition != "below"
         return open(item, cover, false)
     }
 
@@ -256,7 +257,7 @@ class IslandPresenter @Inject constructor(
         val cameraLeftWidth = dp(IslandCapsuleView.CAMERA_DP)
         val maximumWidth = IslandCapsuleGeometry.maximumWidth(contentLeft, contentRight,
             cameraX, cameraLeftWidth, clock, endWidth, icons, dp(12))
-        val wantsSecondary = !activity.building && items.count { it.data.compactVisible } > 1
+        val wantsSecondary = items.count { it.data.compactVisible } > 1
         val width = pill.layoutWidth(activity, maximumWidth, wantsSecondary)
         if (width == 0) {
             IslandPresentationOwnership.show(null)

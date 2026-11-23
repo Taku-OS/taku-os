@@ -135,6 +135,32 @@ public final class IslandParserTests extends Instrumentation {
         check(!IslandPayload.parse(value.toString(), "com.other.app", false).isValid(), "cross-package host rejected");
         value.getJSONObject("expanded").getJSONObject("content").put("token", "a".repeat(257));
         invalid(value.toString(), "token budget");
+        runV2Cases();
+    }
+
+    /** v2 and the v1 adapter on Android's JSON implementation; the full matrix runs on the host. */
+    private void runV2Cases() throws Exception {
+        IslandPayload.Publisher taku = new IslandPayload.Publisher(PKG, true);
+        IslandPayload.Publisher notebook = new IslandPayload.Publisher("org.agentos.notebook", true);
+        JSONObject v2 = new JSONObject().put("version", 2)
+                .put("compact", new JSONObject().put("a", new JSONObject().put("type", "icon").put("pic", "mic"))
+                        .put("b", new JSONObject().put("type", "timer").put("startEpochMs", 1)))
+                .put("expanded", new JSONObject().put("template", "basic").put("title", "Voice memo")
+                        .put("actions", new JSONArray().put("stop")).put("primaryAction", "stop"))
+                .put("tap", "open").put("timeoutS", 43200);
+        check(IslandPayload.parseV2(v2.toString(), notebook).isValid(), "v2 voice memo");
+        v2.put("timeoutS", 43201);
+        check("number_range".equals(IslandPayload.parseV2(v2.toString(), notebook).error), "v2 12 h cap");
+        v2.put("timeoutS", 60).getJSONObject("compact").put("a", new JSONObject().put("type", "animation").put("name", "ai-working"));
+        check("invalid_animation".equals(IslandPayload.parseV2(v2.toString(), notebook).error), "AI loader reserved");
+        check(IslandPayload.parseV2(v2.toString(), taku).isValid(), "Taku Agent AI loader");
+        String building = "{\"version\":1,\"category\":\"assistant\",\"compact\":\"building\","
+                + "\"bigIsland\":{\"leading\":{\"type\":\"pic\",\"pic\":\"taku\",\"animated\":\"working\"},"
+                + "\"trailing\":{\"type\":\"text\",\"text\":\"Building...\"}},"
+                + "\"expanded\":{\"template\":\"text\",\"title\":\"Taku\"}}";
+        IslandPayload.Result adapted = IslandPayload.parseV1(building, taku);
+        check(adapted.isValid() && adapted.payload.getJSONObject("compact").getJSONObject("a").getString("name").equals("ai-working"),
+                "v1 building adapts to the AI animation");
     }
 
     private void valid(String json, String name) { check(IslandPayload.parse(json, PKG, false).isValid(), name); }

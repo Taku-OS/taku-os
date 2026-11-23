@@ -2,76 +2,107 @@
 import com.android.systemui.taku.island.IslandStore;
 
 public final class IslandStoreTest {
+    private static final int ACTIVITY = IslandStore.TIER_ACTIVITY;
     private static int checks;
     private static void check(boolean condition, String message) {
         checks++;
         if (!condition) throw new AssertionError(message);
     }
-    private static void put(IslandStore<String> store, String key, long now, int priority, boolean alert) {
-        store.put(key, store.begin(key), now, now, 3600, 120, priority, .5, alert, key);
+    private static void put(IslandStore<String> store, String key, long now, int tier, boolean alert) {
+        store.put(key, store.begin(key), now, now, 3600, 120, tier, alert, key);
     }
+    private static String first(IslandStore<String> store, long now) { return store.active(now).get(0).key; }
     public static void main(String[] args) {
         IslandStore<String> store = new IslandStore<>();
-        long first = store.begin("a");
+        long firstRevision = store.begin("a");
         long second = store.begin("a");
-        check(!store.put("a", first, 0, 0, 10, 2, 5, .5, false, "old"), "late extraction rejected");
-        check(store.put("a", second, 0, 0, 10, 2, 5, .5, false, "new"), "current extraction accepted");
+        check(!store.put("a", firstRevision, 0, 0, 10, 2, ACTIVITY, false, "old"), "late extraction rejected");
+        check(store.put("a", second, 0, 0, 10, 2, ACTIVITY, false, "new"), "current extraction accepted");
         check(store.active(1000).size() == 1, "active before deadline");
         check(store.get("a").stale(2000), "stale boundary");
-        check(store.put("a", store.begin("a"), 5000, 5000, 28800, 2, 5, .5, false, "update"), "update accepted");
+        check(store.put("a", store.begin("a"), 5000, 5000, 43200, 2, ACTIVITY, false, "update"), "update accepted");
         check(store.get("a").expiresAt == 10000, "update cannot extend initial deadline");
         check(store.active(10000).isEmpty(), "expires at boundary");
         long pending = store.begin("a");
         store.remove("a");
-        check(!store.put("a", pending, 6000, 6000, 10, 2, 5, .5, false, "late"), "removed item not resurrected");
-        put(store, "a", 20000, 5, false);
+        check(!store.put("a", pending, 6000, 6000, 10, 2, ACTIVITY, false, "late"), "removed item not resurrected");
+        put(store, "a", 20000, ACTIVITY, false);
         check(store.active(20000).size() == 1, "reposted notification begins a new lifetime");
         check(store.dismiss("a"), "dismiss existing island");
-        put(store, "a", 21000, 5, false);
+        put(store, "a", 21000, ACTIVITY, false);
         check(store.active(21000).isEmpty(), "publisher updates respect island dismissal");
+
+        // Lifetime: default 1 h from first post, explicit up to 12 h, hard cap 12 h.
         store.clear();
-        put(store, "assistant", 100, 5, false);
-        put(store, "call", 100, 0, false);
-        put(store, "alarm", 100, 1, false);
-        check(store.active(100).get(0).key.equals("call"), "call priority");
-        put(store, "progress", 100, 7, true);
-        check(store.active(100).get(0).key.equals("call"), "alerts cannot preempt critical calls");
+        check(IslandStore.DEFAULT_LIFETIME_S == 3600 && IslandStore.MAX_LIFETIME_S == 43200, "lifetime constants");
+        store.put("long", store.begin("long"), 0, 0, 43200, 0, ACTIVITY, false, "long");
+        check(store.get("long").expiresAt == 43200_000L, "explicit 12 h lifetime accepted");
+        boolean rejected = false;
+        try { store.put("tooLong", store.begin("tooLong"), 0, 0, 43201, 0, ACTIVITY, false, "x"); }
+        catch (IllegalArgumentException expected) { rejected = true; }
+        check(rejected, "lifetime above 12 h rejected");
+        store.put("old", store.begin("old"), 50_000_000L, 0, 43200, 0, ACTIVITY, false, "old");
+        check(store.active(50_000_000L).stream().noneMatch(e -> e.key.equals("old")), "restored first post keeps its 12 h cap");
+
+        // Ordering: system tier, then a live alert, then the most recently triggered activity.
+        store.clear();
+        put(store, "older", 100, ACTIVITY, false);
+        put(store, "newer", 200, ACTIVITY, false);
+        check(first(store, 300).equals("newer"), "newest activity first");
+        put(store, "older", 400, ACTIVITY, false);
+        check(first(store, 500).equals("newer"), "routine update does not reorder");
+        put(store, "recording", 50, IslandStore.TIER_RECORDING, false);
+        put(store, "alarm", 60, IslandStore.TIER_ALARM, false);
+        put(store, "call", 70, IslandStore.TIER_CALL, false);
+        check(first(store, 500).equals("call"), "call outranks everything");
+        put(store, "older", 600, ACTIVITY, true);
+        check(first(store, 600).equals("call"), "alerts cannot preempt calls");
         store.remove("call");
-        check(store.active(100).get(0).key.equals("alarm"), "alerts cannot preempt alarms");
+        check(first(store, 600).equals("alarm"), "alerts cannot preempt alarms");
         store.remove("alarm");
-        check(store.active(100).get(0).key.equals("progress"), "temporary non-critical alert preemption");
-        put(store, "progress", 1000, 7, true);
-        check(store.get("progress").alertUntil == 5100, "repeated alert payload cannot extend alert forever");
-        check(store.active(5100).get(0).key.equals("assistant"), "alert returns to priority order");
-        long old = store.begin("assistant");
-        long latest = store.begin("assistant");
-        check(!store.reject("assistant", old), "late invalid update cannot remove valid item");
-        check(store.reject("assistant", latest), "current invalid update removes island only");
-        check(store.get("assistant") == null, "rejected data absent");
+        check(first(store, 600).equals("recording"), "alerts cannot hide recording");
+        store.remove("recording");
+        check(first(store, 600).equals("older"), "rising alert preempts");
+        put(store, "older", 1000, ACTIVITY, true);
+        check(store.get("older").alertUntil == 5600, "repeated alert payload cannot extend alert forever");
+        check(first(store, 5600).equals("older"), "rising alert re-triggers recency after the alert window");
+        check(store.get("older").triggeredAt == 600, "held alert does not re-trigger");
+        put(store, "older", 6000, ACTIVITY, false);
+        put(store, "older", 6100, ACTIVITY, true);
+        check(store.get("older").triggeredAt == 6100, "new false-to-true alert re-triggers");
+        put(store, "stale", 7000, ACTIVITY, false);
+        check(store.get("stale").stale(7000 + 120_000), "stale is tracked");
+        check(first(store, 7000 + 120_000).equals("stale"), "stale does not change rank");
+
+        long old = store.begin("newer");
+        long latest = store.begin("newer");
+        check(!store.reject("newer", old), "late invalid update cannot remove valid item");
+        check(store.reject("newer", latest), "current invalid update removes island only");
+        check(store.get("newer") == null, "rejected data absent");
         store.clear();
-        for (int i = 0; i < IslandStore.MAX_ITEMS; i++) put(store, "item" + i, 0, 8, false);
+        for (int i = 0; i < IslandStore.MAX_ITEMS; i++) put(store, "item" + i, 0, ACTIVITY, false);
         check(store.begin("overflow") == -1, "bounded store");
         store.remove("item0");
         check(store.begin("overflow") > 0, "removed item frees capacity");
+
+        // Capsule selection: activities without capsule data never mask others.
         store.clear();
-        put(store, "assistant", 100, 5, false);
-        put(store, "media", 100, 6, false);
-        put(store, "progress", 100, 7, false);
+        put(store, "assistant", 300, ACTIVITY, false);
+        put(store, "media", 200, ACTIVITY, false);
+        put(store, "progress", 100, ACTIVITY, false);
         java.util.function.Predicate<String> visible = key -> !key.equals("assistant");
-        check(IslandStore.compactSelection(store.active(100), "assistant", false, visible).equals("media"),
-                "hidden assistant yields compact presentation to media");
-        check(IslandStore.compactSelection(store.active(100), "assistant", true, visible).equals("assistant"),
-                "expanded assistant retains its card");
-        check(IslandStore.compactSelection(store.active(100), "progress", false, visible).equals("progress"),
+        check(IslandStore.compactSelection(store.active(300), "assistant", false, visible).equals("media"),
+                "capsule-less activity yields the capsule to the next");
+        check(IslandStore.compactSelection(store.active(300), "assistant", true, visible).equals("assistant"),
+                "expanded activity retains its card");
+        check(IslandStore.compactSelection(store.active(300), "progress", false, visible).equals("progress"),
                 "explicit visible selection is retained");
-        check(IslandStore.compactSelection(store.active(100), "assistant", false, key -> true).equals("assistant"),
-                "building assistant keeps visible capsule");
         store.remove("media");
-        check(IslandStore.compactSelection(store.active(100), "media", false, visible).equals("progress"),
+        check(IslandStore.compactSelection(store.active(300), "media", false, visible).equals("progress"),
                 "removed selection falls back to remaining visible activity");
         store.remove("progress");
-        check(IslandStore.compactSelection(store.active(100), "assistant", false, visible).equals("assistant"),
-                "hidden-only activity remains addressable");
+        check(IslandStore.compactSelection(store.active(300), "assistant", false, visible).equals("assistant"),
+                "capsule-less activity remains addressable");
         System.out.println("PASS: " + checks + " island store checks");
     }
 }

@@ -86,28 +86,29 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
         setOnLongClickListener { choose(); true }
     }
 
-    /** What the disc shows: a slot from the payload, or null for the resting dot loader. */
-    private fun discSlot(activity: IslandActivity): JSONObject? {
-        if (activity.building) return JSONObject().put("animated", "working")
-        val big = activity.payload.getJSONObject("bigIsland")
-        val leading = big.optJSONObject("leading")
-        val small = activity.payload.optJSONObject("smallIsland")
-        fun glyph(slot: JSONObject?) = slot?.takeIf { it.optString("type") in setOf("pic", "progress") || it.has("animated") }
-        return glyph(leading) ?: glyph(small)
-            ?: listOf(leading, big.optJSONObject("trailing")).firstNotNullOfOrNull { slot ->
-                slot?.optString("pic")?.takeIf { it.isNotEmpty() }?.let { JSONObject().put("type", "pic").put("pic", it) } }
-            ?: if (activity.pics.containsKey("app")) JSONObject().put("type", "pic").put("pic", "app").put("tint", true) else null
+    /**
+     * What the disc draws for group A: Taku's AI animation, a progress ring or an icon. Without
+     * group A it shows the notification's own icon (tinted white), else a plain dot.
+     */
+    private fun discSlot(activity: IslandActivity): JSONObject? = glyph(activity.compact?.optJSONObject("a"))
+        ?: if (activity.pics.containsKey(IslandExtractor.APP_PIC))
+            JSONObject().put("type", "pic").put("pic", IslandExtractor.APP_PIC).put("tint", true) else null
+
+    /** Group A slot in the disc's drawing vocabulary. */
+    private fun glyph(slot: JSONObject?): JSONObject? = when (slot?.optString("type")) {
+        "animation" -> when (slot.optString("name")) {
+            "ai-working" -> JSONObject().put("animated", "working")
+            "ai-listening" -> JSONObject().put("animated", "listening")
+            else -> null
+        }
+        "progress" -> JSONObject().put("type", "progress").apply { if (slot.has("value")) put("value", slot.get("value")) }
+        "icon" -> JSONObject().put("type", "pic").put("pic", slot.getString("pic")).put("tint", slot.optBoolean("tint"))
+        else -> null
     }
 
-    /** What the pill says: the trailing slot, else a textual leading slot. */
-    private fun pillSlot(activity: IslandActivity): JSONObject? {
-        if (activity.building) return JSONObject().put("type", "text").put("text", "Building...")
-        val big = activity.payload.getJSONObject("bigIsland")
-        val textual = setOf("text", "timer", "countdown", "number", "progress")
-        return big.optJSONObject("trailing")?.takeIf { it.optString("type") in textual }
-            ?: big.optJSONObject("leading")?.takeIf { it.optString("type") in textual && it !== discSlot(activity) }
-                ?.takeUnless { it.optString("type") == "progress" }
-    }
+    /** What the pill says: group B's text, number, clock or percentage. */
+    private fun pillSlot(activity: IslandActivity): JSONObject? =
+        activity.compact?.optJSONObject("b")?.takeIf { it.optString("type") in setOf("text", "timer", "countdown", "number", "progress") }
 
     private fun pillText(slot: JSONObject?): String = when (slot?.optString("type")) {
         "text" -> slot.optString("text")
@@ -272,9 +273,14 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
                 icon.setBounds((cx - dp(8)).toInt(), (cy - dp(8)).toInt(), (cx + dp(8)).toInt(), (cy + dp(8)).toInt())
                 icon.draw(canvas)
             }
+            motion.isEmpty() -> {
+                // No glyph: the nine-dot loader is reserved for AI loading, so draw a plain dot.
+                paint.color = IslandStyle.TEXT_PRIMARY
+                canvas.drawCircle(cx, cy, dp(3), paint)
+            }
             else -> {
                 // Figma's 16 dp dot loader: animated while working, its resting pose otherwise.
-                val pose = if (motion.isNotEmpty() && ValueAnimator.areAnimatorsEnabled()) DotMatrixLoader.thinking(phase * DotMatrixLoader.CYCLE_MS.toDouble(), loaderPose)
+                val pose = if (ValueAnimator.areAnimatorsEnabled()) DotMatrixLoader.thinking(phase * DotMatrixLoader.CYCLE_MS.toDouble(), loaderPose)
                     else DotMatrixLoader.rest(loaderPose)
                 for (row in 0..2) for (col in 0..2) {
                     val index = row * 3 + col
@@ -289,9 +295,10 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
     private fun drawSecondary(canvas: Canvas, cx: Float, cy: Float) {
         paint.color = Color.BLACK
         canvas.drawCircle(cx, cy, dp(12), paint)
-        val slot = second?.payload?.optJSONObject("smallIsland")
-            ?: second?.payload?.optJSONObject("bigIsland")?.optJSONObject("leading")?.takeIf { it.optString("type") == "pic" }
-        val icon = slot?.optString("pic")?.let(secondaryIcons::get) ?: secondaryIcons["app"] ?: secondaryIcons.values.firstOrNull()
+        // System-managed: the next activity's own group A glyph, else its notification icon.
+        val slot = glyph(second?.compact?.optJSONObject("a"))?.takeIf { it.optString("type") in setOf("pic", "progress") }
+        val icon = slot?.optString("pic")?.takeIf { it.isNotEmpty() }?.let(secondaryIcons::get)
+            ?: secondaryIcons[IslandExtractor.APP_PIC]
         if (slot?.optString("type") == "progress") {
             paint.style = Paint.Style.STROKE
             paint.strokeWidth = dp(2)
@@ -300,7 +307,7 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
                 (slot.optDouble("value", .25) * 360).toFloat(), false, paint)
             paint.style = Paint.Style.FILL
         } else if (icon != null) {
-            icon.colorFilter = if (slot == null) PorterDuffColorFilter(IslandStyle.TEXT_PRIMARY, PorterDuff.Mode.SRC_IN) else null
+            icon.colorFilter = if (slot == null || slot.optBoolean("tint")) PorterDuffColorFilter(IslandStyle.TEXT_PRIMARY, PorterDuff.Mode.SRC_IN) else null
             icon.setBounds((cx - dp(7)).toInt(), (cy - dp(7)).toInt(), (cx + dp(7)).toInt(), (cy + dp(7)).toInt())
             icon.draw(canvas)
         } else {
@@ -310,7 +317,7 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
     }
 
     fun state(): JSONObject = JSONObject().put("text", shownText).put("secondary", secondary)
-        .put("disc", item?.let { discSlot(it)?.let { slot -> slot.optString("animated").ifEmpty { slot.optString("type") } } ?: "loader" } ?: JSONObject.NULL)
+        .put("disc", item?.let { discSlot(it)?.let { slot -> slot.optString("animated").ifEmpty { slot.optString("type") } } ?: "dot" } ?: JSONObject.NULL)
 
     private fun dp(value: Float) = value * density
     private fun dp(value: Int) = value * density

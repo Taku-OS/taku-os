@@ -51,7 +51,7 @@ class IslandPolicy @Inject constructor(private val context: Context, @Main priva
         reload()
     }
 
-    fun snapshot(): JSONObject = JSONObject().put("enabled", enabled).put("protocol", 1)
+    fun snapshot(): JSONObject = JSONObject().put("enabled", enabled).put("protocol", PROTOCOL_VERSION)
         .put("allowedPackages", JSONArray(allowedPackages.sorted())).put("error", lastError ?: JSONObject.NULL)
 
     private fun reload() {
@@ -77,7 +77,8 @@ class IslandPolicy @Inject constructor(private val context: Context, @Main priva
         }
         // Global Settings has no per-key read-only primitive. Repair attempts to change this
         // capability marker; provider/cmd reject protocol writes synchronously.
-        if (Settings.Global.getString(resolver, PROTOCOL) != "1") Settings.Global.putString(resolver, PROTOCOL, "1")
+        if (Settings.Global.getString(resolver, PROTOCOL) != PROTOCOL_VERSION.toString())
+            Settings.Global.putString(resolver, PROTOCOL, PROTOCOL_VERSION.toString())
         if (enabled != oldEnabled || allowedPackages != oldAllowed) onChanged()
     }
 
@@ -96,5 +97,7 @@ class IslandPolicy @Inject constructor(private val context: Context, @Main priva
         const val ALLOWED = "taku_island_allowed_packages"
         const val PROTOCOL = "taku_island_protocol"
         const val POST_PERMISSION = "org.agentos.permission.POST_ISLAND"
+        /** Newest custom wire version; v1 is still accepted through the adapter. */
+        const val PROTOCOL_VERSION = 2
     }
 }

@@ -37,7 +37,7 @@ internal class IslandCardWindow(context: Context, initial: IslandActivity, cover
         WindowInsets.Type.statusBars() or WindowInsets.Type.displayCutout()).top
     private var cover = coverRequested && !metrics.windowInsets.isVisible(WindowInsets.Type.ime())
     private var activity = initial
-    private val nativeAssistant = choices == null && initial.category == "assistant"
+    private val nativeAssistant = choices == null && initial.nativeAssistant
     private val nativeView = if (nativeAssistant) IslandAssistantCard(windowContext, command, collapse) else null
     private val nativeProgress = choices == null && initial.nativeProgressCard
     private val progressView = if (nativeProgress) IslandProgressCard(windowContext, command, collapse) else null

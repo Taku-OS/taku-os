@@ -106,7 +106,9 @@ class IslandEngine @Inject constructor(
             changed()
             return
         }
-        val candidate = sbn.notification.isPromotedOngoing || sbn.notification.extras.containsKey("taku.island.v1") || IslandSystemNotifications.candidate(sbn.notification)
+        val extras = sbn.notification.extras
+        val candidate = sbn.notification.isPromotedOngoing || extras.containsKey(IslandExtractor.EXTRA_V2) ||
+            extras.containsKey(IslandExtractor.EXTRA_V1) || IslandSystemNotifications.candidate(sbn.notification)
         if (!candidate) {
             store.remove(entry.key)
             changed()
@@ -125,11 +127,12 @@ class IslandEngine @Inject constructor(
                 else {
                     val payload = activity.payload
                     val now = SystemClock.elapsedRealtime()
-                    val lifetime = minOf(payload.optInt("islandTimeoutS", 3600),
-                        prefs.getInt("lifetime|${sbn.key}", 28800))
+                    // Without a declared end the island leaves 1 h after the first post (owner decision).
+                    val lifetime = minOf(payload.optInt("timeoutS", IslandStore.DEFAULT_LIFETIME_S),
+                        prefs.getInt("lifetime|${sbn.key}", IslandStore.MAX_LIFETIME_S))
                     if (store.put(sbn.key, revision, now, firstSeen(sbn.key, now),
                             lifetime, payload.optInt("staleAfterS", 0),
-                            activity.priority, payload.optDouble("relevance", .5), payload.optBoolean("alert"), activity)) {
+                            activity.tier, payload.optBoolean("alert"), activity)) {
                         prefs.edit().putInt("lifetime|${sbn.key}", lifetime).apply()
                         if (prefs.getBoolean("dismissed|${sbn.key}", false)) store.dismiss(sbn.key)
                     }
@@ -141,7 +144,7 @@ class IslandEngine @Inject constructor(
 
     fun putSystem(activity: IslandActivity, now: Long) {
         store.put(activity.key, store.begin(activity.key), now, firstSeen(activity.key, now),
-            28800, 0, activity.priority, .5, false, activity)
+            IslandStore.MAX_LIFETIME_S, 0, activity.tier, false, activity)
         if (prefs.getBoolean("dismissed|${activity.key}", false)) store.dismiss(activity.key)
         changed()
     }
@@ -184,11 +187,7 @@ class IslandEngine @Inject constructor(
         val now = SystemClock.elapsedRealtime()
         val deadlines = active.flatMap { listOf(it.expiresAt, it.staleAt, it.alertUntil) }.filter { it > now }
         var next = deadlines.minOrNull()
-        val timed = active.any { entry ->
-            val slots = entry.data.payload.optJSONObject("bigIsland")
-            listOf("leading", "trailing").any { slots?.optJSONObject(it)?.optString("type") in listOf("timer", "countdown") }
-        }
-        if (timed) next = minOf(next ?: Long.MAX_VALUE, now + 1000)
+        if (active.any { it.data.timed }) next = minOf(next ?: Long.MAX_VALUE, now + 1000)
         next?.let { handler.postDelayed(tick, (it - now).coerceAtLeast(1)) }
     }
 
@@ -207,9 +206,21 @@ class IslandEngine @Inject constructor(
         .put("revision", entry.revision).put("firstSeenElapsedMs", entry.firstSeen)
         .put("expiresElapsedMs", entry.expiresAt).put("stale", entry.stale(SystemClock.elapsedRealtime()))
         .put("dismissed", entry.dismissed).put("active", entry.active(SystemClock.elapsedRealtime()))
+        .put("triggeredAtElapsedMs", entry.triggeredAt).put("source", entry.data.source).put("tier", entry.data.tier)
+        .put("timeoutKind", timeoutKind(entry))
         .put("availableActions", JSONArray((entry.data.actions.map { (id, action) -> JSONObject().put("id", id).put("title", action.title) } +
             entry.data.nativeActions.map { (id, action) -> JSONObject().put("id", id).put("title", action.title) })))
         .put("payload", entry.data.payload).put("fallback", entry.data.fallback ?: JSONObject.NULL)
+
+    /** Which rule ends this island: the publisher's own timeout, the 1 h default, or the 12 h cap. */
+    private fun timeoutKind(entry: IslandStore.Entry<IslandActivity>): String {
+        val requested = entry.data.payload.optInt("timeoutS", 0)
+        return when {
+            entry.key.startsWith("taku:system:") || requested >= IslandStore.MAX_LIFETIME_S -> "cap"
+            requested > 0 -> "explicit"
+            else -> "default"
+        }
+    }
 
     private fun list(): JSONArray = JSONArray().apply {
         store.active(SystemClock.elapsedRealtime()).forEach { put(item(it)) }
@@ -217,7 +228,8 @@ class IslandEngine @Inject constructor(
 
     fun command(method: String, arg: String?, extra: String?): JSONObject {
         return when (method) {
-            "capabilities" -> JSONObject().put("ok", true).put("protocol", 1)
+            "capabilities" -> JSONObject().put("ok", true).put("protocol", IslandPolicy.PROTOCOL_VERSION)
+                .put("protocols", JSONArray(listOf(1, 2)))
                 .put("enabled", policy.enabled).put("presentationAttached", presentation != null)
                 .put("takuProducer", IslandRuntime.producerStatus)
                 .put("compiledAndDeviceVerified", false)

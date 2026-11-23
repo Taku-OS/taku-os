@@ -12,7 +12,7 @@ object IslandPresentationOwnership {
     fun show(activity: IslandActivity?) {
         mutable.value = when {
             activity == null -> Owner()
-            activity.key.startsWith("taku:system:") -> Owner(source = activity.payload.optString("source"))
+            activity.key.startsWith("taku:system:") -> Owner(source = activity.payload.optString("systemSource"))
             else -> Owner(notificationKey = activity.key)
         }
     }
