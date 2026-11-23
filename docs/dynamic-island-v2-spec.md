@@ -1,9 +1,9 @@
 # Dynamic Island v2: third-party activities — implementation spec
 
-Status: **draft for owner review; nothing here is implemented yet.**
+Status: **owner decisions recorded (2026-11-23); implementation on `vela/dynamic-island`.**
 Origin: [issue #30](https://github.com/Taku-OS/taku-os/issues/30) (Notebook asked to publish to the
-island). Builds on [the current architecture](dynamic-island-architecture.md) and the native renderer
-(`dcd3d352`, currently only on `vela/taku-assistant-migration`).
+island). Builds on [the current architecture](dynamic-island-architecture.md), the native renderer
+and the onboarding island work already on `main`.
 Reference: Xiaomi Super Island [product rules](https://dev.mi.com/xiaomihyperos/documentation/detail?pId=2140)
 and [developer guide](https://dev.mi.com/xiaomihyperos/documentation/detail?pId=2131).
 
@@ -31,6 +31,7 @@ cards.
 | `statusBar: auto/cover/below` | `cardPosition: cover/below` | Where the card sits relative to the cutout |
 | `islandTimeoutS` | `timeoutS` | Requested lifetime |
 | `compact: auto/hidden/building` | *(removed)* | Taku Agent now supplies its own capsule content |
+| `category`, `relevance` | *(removed)* | Ordering is by recency (§5.5); system sources are identified by SystemUI itself |
 
 The old names stay readable only in the v1 adapter (§9).
 
@@ -55,6 +56,20 @@ and a total duration of **12 hours or less**.
 - Services with no clear end, such as continuous stock tracking.
 
 ## 4. Publishing paths
+
+**Decision: support both.**
+- **Android Live Updates is the default**, and the developer guide recommends it first.
+- **`taku.island.v2` is an optional extension** for what Live Updates cannot express:
+  - choosing what goes in capsule groups A and B, including animated icons, numbers and percent,
+  - the card templates, layout and accent colour,
+  - `tap: open` versus `expand`,
+  - `cardPosition`,
+  - alert expansion,
+  - Taku Agent's assistant card.
+- Supporting Live Updates alone would rule out several of this spec's own requirements. Xiaomi
+  HyperOS 3.1 uses the same layering.
+- Publishers using the extension should still post a valid Live Update, so the same notification
+  works on stock Android and on other OEMs.
 
 Both paths produce the same internal `IslandActivity`. Ordering, gestures and drawing are identical
 for both.
@@ -93,9 +108,14 @@ Shape: the authored metaball capsule (Figma `1379:889`). Disc 32 dp, camera 24 d
   Recommended limit: 8 Latin or 4 CJK characters, pending the owner's design constraints.
 - On overflow, B is ellipsized. If not even a short label fits, only A remains. There is no
   scrolling and no font shrinking.
-- Every app supplies its own A and B. The hard-coded `Building...` and the assistant-only
-  capsule rule are deleted (`IslandCapsuleView.kt:90,104`, `IslandActivity.kt:28-29`). Taku Agent
-  publishes them itself (§8).
+- Every app supplies its own A and B. The capsule is optional: an activity that supplies no
+  `compact` data never shows a capsule.
+- The special cases currently in `IslandActivity` are deleted:
+  - the hard-coded `Building...` (`building`),
+  - the `statusLabel` shortcut, which only covers `progress` + pic + text,
+  - the assistant-only capsule rule.
+
+  Taku Agent publishes its capsule content itself (§8).
 - **Taku Agent only:** the nine-dot loader (`animation: "ai-working"`) and the listening pulse
   (`"ai-listening"`). Other publishers get `invalid_animation`.
 
@@ -150,31 +170,45 @@ the secondary disc replace them.
 
 **Ordering**, highest first:
 1. **System tier:** calls, alarms, and screen or audio recording and casting. These are privacy and
-   safety signals and must never sit behind an app activity. This tier is unchanged.
+   safety signals and must never sit behind an app activity.
+   - SystemUI identifies them from its own sources: CallStyle plus the dialer role, the alarm
+     full-screen intent, and the recorder and cast controllers. It never takes them from a JSON field.
 2. An activity inside its alert window (at most 5 s).
 3. **Everything else by `triggeredAt`, newest first.** `triggeredAt` is the time of the first post,
    refreshed when an update raises `alert` from false to true. Routine updates such as progress
    ticks or countdown changes do **not** reorder.
 4. Ties are broken by key.
 
-`category` no longer ranks normal activities, and `relevance` is removed. `category` remains as a
-label and to reserve `call`, `alarm` and `recording` for system sources and `assistant` for Taku
-Agent (the publisher must be the Taku Agent package with platform signature, else
-`reserved_category`).
+**No `category` field.** v1 needed one for two jobs, and v2 needs neither:
+- **Ranking:** replaced by recency.
+- **Reserving privileged presentations:**
+  - The system tier comes from SystemUI's own sources (above).
+  - The `assistant` template and the `ai-*` animations are reserved by checking the publisher: the
+    package must be `org.agentos.agent` with platform signature, else `reserved_template` or
+    `invalid_animation`.
+
+For comparison, Xiaomi's `business` field is required but only used for statistics.
 
 **Lifetime:**
 - **Start:** the first accepted post.
 - **End**, whichever comes first:
   - the app cancels the notification,
-  - `timeoutS` or `setTimeoutAfter`, counted from start and not extendable,
+  - `timeoutS` or `setTimeoutAfter`, counted from start,
   - the default timeout,
   - the **12 h hard cap** from start (today it is 8 h),
   - the user hides the activity.
-- **Default when the app gives no timeout: 1 hour without an update.** Each update moves the
-  deadline. The 12 h cap still applies.
-  - This is the one place I adjusted the brief, which said "dismiss after one hour". With a fixed
-    hour from start, a delivery that is still updating at minute 61 would disappear. With a
-    rolling hour, an abandoned activity still goes away within an hour.
+- **Default when the app gives no timeout: 1 hour from the first post.** Updates do not extend it.
+  Apps whose activities can run longer declare it with `timeoutS` (≤ 43200) or `setTimeoutAfter`.
+- This mirrors Xiaomi's `islandTimeout` ("岛自动消失的时间", default 3600 s). Xiaomi keeps that
+  separate from the notification's own `timeout` (720 min).
+  - Xiaomi does not document whether updates restart either timer.
+  - A fixed deadline is the predictable reading. It also forces long-running apps to state their
+    end, which §3 requires.
+  - It matches today's store, so no change is needed there.
+- When an activity's island time is up, the activity leaves the island and its notification stays
+  in the shade.
+- Xiaomi's `islandOrder` defaults to false: an update does not reorder the island. That matches the
+  "routine updates don't reorder" rule above.
 - `staleAfterS` is kept: a stale activity is drawn muted. It no longer changes rank, because recency
   rules.
 
@@ -193,7 +227,8 @@ Agent (the publisher must be the Taku Agent package with platform signature, els
 
 An activity's capsule is not drawn while its **publishing app's task is the focused full-screen
 task**. The app already shows that information itself. When the user goes home or switches apps,
-the capsule appears. This is how "returning to the home screen collapses into the capsule" works.
+the capsule appears, provided the activity supplied `compact` data. This is how "returning to the
+home screen collapses into the capsule" works (owner-confirmed).
 
 - Exempt when the publisher is the default home app, so Taku Agent's `Building...` stays visible on
   the home screen.
@@ -218,13 +253,18 @@ expands the card instead. When the island cannot present it, Android's normal he
 
 Shared fields:
 - `title` (≤ 80), `pic`,
-- `actions`: **at most 3**, one optional `primaryAction` (drawn filled),
+- `actions`: **no design limit**, one optional `primaryAction` (drawn filled),
 - `tapAction`,
 - `accentColor`: `#RRGGBB`, contrast ≥ 4.5:1 against the card. Rejected with `low_contrast`
   otherwise. It is used for the primary chip, the progress line and highlight text.
 
-Chips are a single row and never wrap. They scroll horizontally only as an overflow safety
-(large font scales).
+Action chips are a **single row that scrolls horizontally** and never wraps. Developers decide how
+many to provide. The only bounds are technical: the 8 KB payload and 32 action keys, to bound
+parsing.
+
+The onboarding progress card on `main` (`IslandProgressCard`) is currently hard-wired to
+`org.agentos.agent`. Its chrome becomes the `basic` template's chrome, and the package special case
+is removed.
 
 | Template | Layout | Typical use |
 |---|---|---|
@@ -252,7 +292,6 @@ A new `spec/taku-island-v2.schema.json` replaces v1. The shape:
 ```json
 {
   "version": 2,
-  "category": "progress",
   "compact": {
     "a": {"type": "icon", "pic": "logo", "animate": false, "progress": 0.4},
     "b": {"type": "text", "text": "A123", "emphasis": "accent"}
@@ -279,8 +318,7 @@ A new `spec/taku-island-v2.schema.json` replaces v1. The shape:
 | Field | Rule |
 |---|---|
 | `version` | `2` |
-| `category` | `navigation`, `timer`, `media`, `progress`, `other`. Reserved: `call`, `alarm`, `recording` (system), `assistant` (Taku Agent) |
-| `compact` | Required, except for `assistant`, where omitting it means no capsule |
+| `compact` | Optional. Omitting it means the activity never shows a capsule |
 | `compact.a` | `icon {pic, animate?, progress?, tint?, contentDescription?}` or `animation {name}` |
 | `compact.b` | `text {text ≤16, emphasis normal/accent/muted}`, `number {value 1–3 digits, unit ≤4}`, `timer {startEpochMs}`, `countdown {endEpochMs}`, `progress {value?}`, `icon`, `animation`. At least one of A and B is required |
 | `animation.name` | `ai-working` and `ai-listening` are Taku Agent only. Any other system animations are added only together with a design |
@@ -291,8 +329,9 @@ A new `spec/taku-island-v2.schema.json` replaces v1. The shape:
 | `timeoutS` | 1–43200 |
 | `staleAfterS` | 1–43200 |
 
-Errors keep today's codes and add `reserved_category`, `invalid_animation`, `low_contrast`,
-`too_many_actions` and `missing_compact`. Rejected extras appear in `diagnostics` and fall back to
+Errors keep today's codes and add `reserved_template`, `invalid_animation`, `low_contrast` and
+`too_many_actions` (the technical bound of 32). The fields `category`, `relevance`, `bigIsland`,
+`smallIsland` and `statusBar` are `unknown_field` in v2. Rejected extras appear in `diagnostics` and fall back to
 the Live Update path.
 
 ## 8. Taku Agent
@@ -340,7 +379,7 @@ release.
 | Keep | `dismiss KEY`, now also reached by swipe right; `hide` is added as an alias |
 | Remove | `choose` |
 | `state.presentation` | Adds `selectedReason`, `suppressedByForeground`, `tap`, `cardPosition`, `secondaryKey` |
-| `get` | Adds `triggeredAtElapsedMs`, `timeoutKind` (`explicit` / `idle-default` / `cap`), `source` (`live-update` / `custom-v2` / `custom-v1` / `system`) |
+| `get` | Adds `triggeredAtElapsedMs`, `timeoutKind` (`explicit` / `default` / `cap`), `source` (`live-update` / `custom-v2` / `custom-v1` / `system`) |
 | Settings | `taku_island_protocol` becomes `2`. `capabilities.protocols` = `[1, 2]` during migration |
 
 Update the preinstalled skill (`system/assistant/assets/skills/taku-island/SKILL.md`) in the same
@@ -353,13 +392,13 @@ in every phase that touches SystemUI sources.
 
 | Phase | Work | Main files |
 |---|---|---|
-| **P0 Prerequisites** | Land the native renderer (`dcd3d352`) on main. Gate the provider (§9). Tests for each caller class | `IslandProvider.kt`, new `IslandCallerAccess.kt`, `systemui-probe.patch` |
-| **P1 Protocol v2** | v2 schema and validator; v1 adapter; rename internals (`bigIsland` → `compact.a/b`, remove `smallIsland`, `building`, `relevance`); reserved categories; 12 h cap; idle default; `triggeredAt` ordering; Live Updates mapping (ProgressStyle, large icon, `timeoutAfter`) | `spec/taku-island-v2.schema.json`, `IslandPayload.java`, `IslandActivity.kt`, `IslandStore.java`, `IslandEngine.kt`, `IslandExtractor.kt`, `IslandParserTests.java`, `IslandStoreTest.java` |
+| **P0 Prerequisites** | Gate the provider (§9); the native renderer is already on main. Tests for each caller class | `IslandProvider.kt`, new `IslandCallerAccess.kt`, `systemui-probe.patch` |
+| **P1 Protocol v2** | v2 schema and validator; v1 adapter; rename internals (`bigIsland` → `compact.a/b`, remove `smallIsland`, `building`, `statusLabel`, `category`, `relevance`); publisher-reserved template and animations; 12 h cap; 1 h default from first post; `triggeredAt` ordering; Live Updates mapping (ProgressStyle, large icon, `timeoutAfter`) | `spec/taku-island-v2.schema.json`, `IslandPayload.java`, `IslandActivity.kt`, `IslandStore.java`, `IslandEngine.kt`, `IslandExtractor.kt`, `IslandParserTests.java`, `IslandStoreTest.java` |
 | **P2 Presentation** | Capsule A/B renderer with app icons, animated drawables and ring; delete hard-coded Building; mutual exclusion; tap/long-press/swipe-left/swipe-right; secondary disc from the next activity's A icon; remove the chooser; foreground suppression; `cardPosition` honored for alerts; heads-up filter hook | `IslandCapsuleView.kt`, `IslandPresenter.kt`, `IslandCardWindow.kt`, new `IslandForeground.kt`, small upstream hook in the patch |
-| **P3 Templates** | `basic`, `progress`, `highlight`; `accentColor` with contrast check; at most 3 chips in one row; `tapAction` | `IslandTemplateCard.kt`, `IslandStyle.kt` |
+| **P3 Templates** | `basic` (adopting the `IslandProgressCard` chrome), `progress`, `highlight`; `accentColor` with contrast check; one horizontally scrolling chip row; `tapAction`; remove the `org.agentos.agent` progress-card special case | `IslandTemplateCard.kt`, `IslandProgressCard.kt`, `IslandStyle.kt` |
 | **P4 Taku Agent** | Publish v2 (§8); probe tests | `IslandPublisherService.kt`, `NativeIslandProbe.kt` |
 | **P5 Agent surface and docs** | §10 operations; skill; developer guide (§12); update the architecture doc and README; progress ledger | `IslandEngine.kt`, `SKILL.md`, `docs/dynamic-island-developer.md`, `docs/dynamic-island-architecture.md`, `system/island/README.md` |
-| **P6 First partner** | Seed Notebook in the default allowlist once its package name, signing certificate and a qualifying use case are confirmed (§13) | Image settings defaults |
+| **P6 First partner** | Seed `org.agentos.notebook` in the default allowlist. It is platform-signed, so it may also declare `POST_ISLAND`. The Notebook team owns its use cases, such as voice memos | Image settings defaults |
 
 **Verification, per AGENTS.md, on an isolated emulator from the patched image:**
 - Parser and store unit tests: v2 validation, the v1 adapter, reserved categories, both timeout
@@ -390,16 +429,17 @@ contents:
    lock screen not yet supported.
 6. Checking capability (`canShowIsland`) and debugging (`diagnostics` error codes).
 
-## 13. Open decisions for the owner
+## 13. Owner decisions (2026-11-23)
 
-1. **Notebook's use case.** By §3, the flow in issue #30 does not qualify. "Reading image" and
-   "Saving" last seconds, and "Saved to Notebook" is a static result. Those belong in a heads-up
-   notification with the three actions. Notebook needs a qualifying ongoing activity, such as a
-   batch import that takes minutes. Otherwise it should stay on normal notifications. Also needed:
-   its package name and whether it is platform-signed (if so, it can hold `POST_ISLAND` instead of
-   using the allowlist).
-2. **Hide gesture.** This spec proposes swipe left = next, swipe right = hide. Design to confirm.
-3. **Default lifetime.** This spec proposes 1 h without updates (rolling) rather than a fixed 1 h
-   from start (§5.5).
-4. **Foreground suppression** (§5.7) is my reading of "collapse into the capsule when returning
-   home". Confirm.
+1. **Publishing paths:** both. Live Updates is the default and `taku.island.v2` is the extension
+   (§4).
+2. **No `category`** field (§5.5).
+3. **Actions:** no design limit, one horizontally scrolling row (§6).
+4. **Gestures:** swipe left switches to the next activity, swipe right hides the current one (§5.3).
+5. **Default lifetime:** 1 hour from the first post, extendable only by an explicit timeout of up to
+   12 h (§5.5).
+6. **Foreground suppression:** confirmed. A capsule appears after leaving the app only if the
+   activity supplies `compact` data (§5.7).
+7. **First partner:** `org.agentos.notebook`, platform-signed (same certificate as SystemUI in
+   TakuOS 1.4.0). The Notebook team defines and implements its qualifying use cases, such as
+   recording a voice memo. This project only provides the general island capabilities.
