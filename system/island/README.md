@@ -123,6 +123,10 @@ adb shell cmd statusbar island setAllowed org.example.app,org.example.other
 ```
 
 Provider queries return one `json` column; provider calls return a Bundle containing `json`.
+Callers are authorized first (`IslandAccessPolicy`). UID 0/1000/2000, SystemUI and platform-signed
+packages have full access. Third-party apps get only `capabilities` and `canShowIsland` for their own
+package, or read/operate access with an App Permission Center `taku.control` grant. Settings writes
+are never available to them. Refusals return `permission_denied`.
 Every cmd operation is also a provider `call` of the same name: `arg` is the first argument and
 Bundle string `value` is the optional second argument (e.g. action JSON). `get` includes the payload,
 revision, monotonic first-seen/expiry, staleness, dismissal and fallback reason. `dismiss` hides the

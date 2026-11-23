@@ -27,6 +27,24 @@ cmd statusbar island action 'KEY' '{"id":"stop"}'
 cmd statusbar island action 'KEY' '{"id":"action_0","reply":"Continue"}'
 ```
 
+## Caller access
+
+Root, system and ADB shell (`UID 0/1000/2000`), SystemUI itself and platform-signed packages
+use every operation below directly. Ordinary third-party apps (`UID >= 10000` without the
+platform certificate) are governed by the App Permission Center
+(`content://org.agentos.assistant.permissions`, default `deny`):
+
+- Without a grant they may call only `capabilities` and `canShowIsland` for **their own**
+  package. Omitting the package answers for the caller's own single package. Asking about
+  another package returns `permission_denied`.
+- A `taku.control` grant allows reading and operating activities (`state`, `list`, `get`,
+  `settings`, `select`, `choose`, `expand`, `collapse`, `dismiss`, `open`, `action`).
+- `setEnabled`, `setAllowed` and `setProtocol` are never available to third-party apps, even
+  with a grant. Use the Settings GUI, ADB or a trusted Agent.
+
+An unavailable permission center counts as a refusal. `cmd statusbar island` is shell-only and
+unaffected.
+
 Always take KEY and action IDs from `list`/`get`; never construct notification keys or assume
 `action_0` means stop. `availableActions` supplies IDs and producer labels. `open` invokes the
 notification content intent (or its full-screen intent if no content intent exists). CallStyle
@@ -95,7 +113,7 @@ an observer; use the provider for immediate validation. Ordinary Agent provider 
 POST_ISLAND permission. Publishing a custom notification requires the signature POST_ISLAND
 permission or this allow-list, in addition to normal Android notification permissions.
 
-Errors: `not_found` (removed/dismissed/expired activity), `island_disabled`, `presentation_unavailable`
+Errors: `permission_denied` (caller not allowed; see Caller access), `not_found` (removed/dismissed/expired activity), `island_disabled`, `presentation_unavailable`
 (no attached bar, locked/shade/heads-up/landscape, or window failure), `action_unavailable`,
 `reply_unavailable`, `reply_too_long`, `missing_action`, `missing_key`, `invalid_enabled`,
 `invalid_allowed_packages`, `read_only_protocol`, `settings_write_failed`, `source_ended`,
