@@ -141,7 +141,7 @@ the native template from the extracted content model.
 
 | Key | Type | Content |
 |---|---|---|
-| `taku.island.v1` | String (JSON, ≤ 8 KB UTF-8) | Validated against [`spec/taku-island-v1.schema.json`](../spec/taku-island-v1.schema.json) on a SystemUI worker thread |
+| `taku.island.v1` (removed) | Historical JSON extra | The v1 schema and adapter were removed before release. Use [`taku.island.v2`](../spec/taku-island-v2.schema.json) for current integrations |
 | `taku.island.pics` | Bundle<String, Icon> | Image keys referenced by `pic` fields (`^[a-z][a-z0-9_]{0,31}$`) |
 | `taku.island.actions` | Bundle<String, Notification.Action> | Action keys referenced by `expanded.actions` |
 
