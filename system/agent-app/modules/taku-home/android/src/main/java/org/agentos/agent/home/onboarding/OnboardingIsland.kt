@@ -54,8 +54,17 @@ internal class OnboardingIsland(private val context: Context) {
         .put("expanded", JSONObject().put("template", "text").put("title", title).put("body", body)
           .put("actions", JSONArray().put("open")).put("primaryAction", "open"))
         .put("islandTimeoutS", timeoutS).put("statusBar", "auto")
+      // Same island in v2 (read by current SystemUI); v1 remains for older images.
+      val v2 = JSONObject().put("version", 2).put("timeoutS", timeoutS)
+        .put("compact", JSONObject()
+          .put("a", if (leading.optString("animated") == "working") JSONObject().put("type", "animation").put("name", "ai-working")
+            else JSONObject().put("type", "icon").put("pic", leading.getString("pic")))
+          .put("b", JSONObject().put("type", "text").put("text", trailing)))
+        .put("expanded", JSONObject().put("template", "basic").put("title", title).put("body", body)
+          .put("actions", JSONArray().put("open")).put("primaryAction", "open").put("tapAction", "open"))
       val icon = Icon.createWithResource(context, context.applicationInfo.icon.takeIf { it != 0 } ?: android.R.drawable.ic_dialog_info)
       val extras = Bundle().apply {
+        putString("taku.island.v2", v2.toString())
         putString("taku.island.v1", payload.toString())
         putBundle("taku.island.pics", Bundle().apply {
           putParcelable("taku", icon)

@@ -148,10 +148,23 @@ class IslandPublisherService : Service() {
       payload.getJSONObject("expanded").put("body", bounded(text, (text.codePointCount(0, text.length) / 2)))
     }
     if (payload.toString().toByteArray(Charsets.UTF_8).size > 8192) payload.getJSONObject("expanded").put("steps", JSONArray())
+    // taku.island.v2 carries the same card. Taku Agent supplies its own capsule (AI animation plus
+    // "Building...") only while building an app; otherwise it has none. v1 stays alongside until
+    // every image reads v2: an in-place APK update can run on an older SystemUI.
+    val v2 = JSONObject().put("version", 2).put("timeoutS", 28800)
+      .put("expanded", JSONObject(payload.getJSONObject("expanded").toString()).apply { put("tapAction", getString("primaryAction")) })
+    if (state.buildingApp) v2.put("compact", JSONObject()
+      .put("a", when {
+        state.working -> JSONObject().put("type", "animation").put("name", "ai-working")
+        voice.listening && !holdStarting -> JSONObject().put("type", "animation").put("name", "ai-listening")
+        else -> JSONObject().put("type", "icon").put("pic", "taku")
+      })
+      .put("b", JSONObject().put("type", "text").put("text", short)))
     val value = payload.toString() + state.working + state.island.name + tag + state.turn?.suggestions?.take(2).toString()
     if (fingerprint != value) {
       val icon = Icon.createWithResource(this, applicationInfo.icon.takeIf { it != 0 } ?: android.R.drawable.ic_dialog_info)
       val extras = Bundle().apply {
+        putString("taku.island.v2", v2.toString())
         putString("taku.island.v1", payload.toString())
         putBundle("taku.island.pics", Bundle().apply { putParcelable("taku", icon) })
         putBundle("taku.island.actions", actions)

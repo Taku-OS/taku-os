@@ -193,6 +193,25 @@ public final class IslandPayloadTest {
         v1(nativeCard, TAKU, "v1 assistant card from Taku Agent");
         v1Invalid(nativeCard.replace("\"animated\":\"working\"", "\"animated\":\"none\""), NOTEBOOK, "reserved_template", "v1 assistant card reserved");
         v1Invalid(building.replace("\"assistant\"", "\"call\"").replace("\"building\"", "\"auto\""), THIRD, "invalid_payload", "v1 reserved call category");
+        // The exact v2 shapes Taku Agent posts (IslandPublisherService, OnboardingIsland).
+        JSONObject takuCard = new JSONObject().put("version", 2).put("timeoutS", 28800)
+                .put("expanded", new JSONObject().put("template", "assistant").put("title", "Taku is working")
+                        .put("body", "Building your app").put("steps", new JSONArray())
+                        .put("actions", new JSONArray().put("stop").put("open")).put("primaryAction", "open").put("tapAction", "open")
+                        .put("assistant", new JSONObject().put("token", "thread:1").put("phase", "working")
+                                .put("suggestions", new JSONArray()).put("heightDp", 300)))
+                .put("compact", new JSONObject().put("a", working)
+                        .put("b", new JSONObject().put("type", "text").put("text", "Building...")));
+        valid(takuCard, TAKU, "Taku Agent building card");
+        takuCard.remove("compact");
+        valid(takuCard, TAKU, "Taku Agent card without a capsule");
+        JSONObject onboarding = new JSONObject().put("version", 2).put("timeoutS", 900)
+                .put("compact", new JSONObject().put("a", working).put("b", new JSONObject().put("type", "text").put("text", "Signing...")))
+                .put("expanded", new JSONObject().put("template", "basic").put("title", "Signing in to ChatGPT")
+                        .put("body", "Finish signing in on the ChatGPT page, then Taku continues setup.")
+                        .put("actions", new JSONArray().put("open")).put("primaryAction", "open").put("tapAction", "open"));
+        valid(onboarding, TAKU, "Taku onboarding signing island");
+
         // The published schema's examples must pass the production validator.
         JSONObject schema = new JSONObject(new String(java.nio.file.Files.readAllBytes(
                 java.nio.file.Paths.get("../../spec/taku-island-v2.schema.json")), java.nio.charset.StandardCharsets.UTF_8));
