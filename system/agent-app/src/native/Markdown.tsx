@@ -4,6 +4,7 @@ import {EnrichedMarkdownText, type MarkdownStyle} from 'react-native-enriched-ma
 import {colors as baseColors, containsChinese} from '../theme';
 import {chatColors, chatMetrics, getChatAppearance, themed, themedStyles} from '../chat/chatTheme';
 import {advanceMarkdown} from './MarkdownStream';
+import {isWebUrl} from './MarkdownLinks';
 
 /** Code, table and quote surfaces for the active chat background (Dark keeps its earlier values). */
 const colors = themed(() => ({...baseColors, ink: chatColors.textSecondary, muted: chatColors.textTertiary,
@@ -57,7 +58,7 @@ const streamingConfig = {tableMode: 'progressive', codeBlockMode: 'progressive'}
 const selectionMenuConfig = {copyAsMarkdown: {enabled: false}};
 const flags = {latexMath: false};
 const openLink = ({url}: {url: string}) => {
-  if (/^https?:\/\//i.test(url)) void Linking.openURL(url).catch(() => {});
+  if (isWebUrl(url)) void Linking.openURL(url.trim()).catch(() => {});
 };
 
 const MarkdownChunk = memo(function MarkdownChunk({text, active, trailing, chinese}: {text: string; active: boolean; trailing: boolean; chinese: boolean}) {
