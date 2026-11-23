@@ -191,7 +191,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandActivity.kt
-@@ -0,0 +1,60 @@
+@@ -0,0 +1,68 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -239,9 +239,17 @@
 +    /** Transitional: Taku onboarding's progress chrome until it becomes the public basic template. */
 +    val nativeProgressCard: Boolean get() = packageName == IslandPayload.TAKU_PACKAGE && template == "basic" &&
 +        !expanded.has("content") && !expanded.has("pic") && !expanded.has("steps") && !expanded.has("progress") &&
++        // A styled card is an ordinary template card: the onboarding chrome would drop its colours.
++        backgroundColor == null && accentColor == null &&
 +        (expanded.optJSONArray("actions")?.length() ?: 0) <= 1
 +    /** A host-rendered clock in the capsule needs a tick every second. */
 +    val timed: Boolean get() = listOf("a", "b").any { compact?.optJSONObject(it)?.optString("type") in setOf("timer", "countdown") }
++
++    /** The validated `#RRGGBB` template colours as opaque ARGB, parsed once per payload. */
++    val backgroundColor: Int? by lazy(LazyThreadSafetyMode.NONE) { color("backgroundColor") }
++    val accentColor: Int? by lazy(LazyThreadSafetyMode.NONE) { color("accentColor") }
++    private fun color(field: String): Int? = payload.optJSONObject("expanded")?.optString(field)
++        ?.takeIf { it.length == 7 && it[0] == '#' }?.substring(1)?.toIntOrNull(16)?.let { 0xff000000.toInt() or it }
 +
 +    companion object {
 +        const val SOURCE_CUSTOM = "custom"
@@ -469,7 +477,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandCapsuleView.kt
-@@ -0,0 +1,476 @@
+@@ -0,0 +1,485 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -548,6 +556,8 @@
 +    private var pillGlyphShown = false
 +    /** Running app-supplied animated icons and when their looping began (60 s budget). */
 +    private val iconLoops = mutableMapOf<Drawable, Long>()
++    /** Drawables whose 60 s budget is used up for the current payload. */
++    private val iconSpent = mutableSetOf<Drawable>()
 +    var secondary = false
 +        private set
 +    private val gestures = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
@@ -615,14 +625,17 @@
 +        .filter { it.optString("type") == "icon" && it.optBoolean("animate") }
 +        .map { it.getString("pic") }.toSet()
 +
-+    /** Runs animated drawables while shown and motion is enabled; each loops for at most 60 s. */
++    /**
++     * Runs animated drawables while shown and motion is enabled. Each loops for at most 60 s per
++     * payload: once its budget is spent it rests until the publisher posts an update.
++     */
 +    private fun startIconAnimations() {
 +        val activity = item ?: return
 +        if (!ValueAnimator.areAnimatorsEnabled() || visibility != VISIBLE || !isAttachedToWindow) return
 +        for (key in animatedKeys(activity)) {
 +            val drawable = icons[key] ?: continue
 +            val animated = drawable as? Animatable2 ?: continue
-+            if (drawable in iconLoops) continue
++            if (drawable in iconLoops || drawable in iconSpent) continue
 +            drawable.callback = this
 +            iconLoops[drawable] = SystemClock.uptimeMillis()
 +            animated.registerAnimationCallback(object : Animatable2.AnimationCallback() {
@@ -630,7 +643,11 @@
 +                    val began = iconLoops[finished] ?: return
 +                    if (SystemClock.uptimeMillis() - began < ICON_LOOP_MS && visibility == VISIBLE && isAttachedToWindow) {
 +                        (finished as Animatable2).start()
-+                    } else iconLoops.remove(finished)
++                    } else {
++                        if (SystemClock.uptimeMillis() - began >= ICON_LOOP_MS) iconSpent.add(finished)
++                        iconLoops.remove(finished)
++                        (finished as Animatable2).clearAnimationCallbacks()
++                    }
 +                }
 +            })
 +            animated.start()
@@ -668,8 +685,7 @@
 +        activity.compact?.optJSONObject("b")?.takeIf { it.optString("type") in setOf("icon", "animation") }?.let(::glyph)
 +
 +    /** The publisher's validated accent colour, else Taku's accent. */
-+    private fun accent(activity: IslandActivity): Int = activity.expanded.optString("accentColor")
-+        .takeIf { it.matches(Regex("#[0-9A-Fa-f]{6}")) }?.let { 0xff000000.toInt() or it.substring(1).toInt(16) } ?: IslandStyle.ACCENT
++    private fun accent(activity: IslandActivity): Int = activity.accentColor ?: IslandStyle.ACCENT
 +
 +    /** What the pill says: group B's text, number, clock or percentage. */
 +    private fun pillSlot(activity: IslandActivity): JSONObject? =
@@ -750,6 +766,7 @@
 +            identity = activity.payload
 +            val current = ++generation
 +            stopIconAnimations()
++            iconSpent.clear()
 +            icons.clear()
 +            activity.pics.forEach { (key, icon) ->
 +                IslandStyle.loadIcon(context, icon) { drawable ->
@@ -1035,7 +1052,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandCardWindow.kt
-@@ -0,0 +1,250 @@
+@@ -0,0 +1,244 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -1056,8 +1073,6 @@
 +import android.view.WindowInsets
 +import android.view.WindowManager
 +import android.widget.FrameLayout
-+import android.window.OnBackInvokedCallback
-+import android.window.OnBackInvokedDispatcher
 +import org.json.JSONObject
 +
 +/**
@@ -1112,8 +1127,6 @@
 +    private var templateGeneration = 0
 +    private var animation: ValueAnimator? = null
 +    private val region = Region()
-+    private var backDispatcher: OnBackInvokedDispatcher? = null
-+    private val back = OnBackInvokedCallback { collapse("back") }
 +    private var finalHeight = desiredHeight(initial)
 +    private var availableHeight = Int.MAX_VALUE
 +    private var heightCap = finalHeight
@@ -1270,8 +1283,6 @@
 +        animation = null
 +        host?.close()
 +        host = null
-+        backDispatcher?.unregisterOnBackInvokedCallback(back)
-+        backDispatcher = null
 +        root.viewTreeObserver.removeOnComputeInternalInsetsListener(insetsListener)
 +        if (attached) { attached = false; wm.removeViewImmediate(root) }
 +    }
@@ -1434,7 +1445,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandEngine.kt
-@@ -0,0 +1,351 @@
+@@ -0,0 +1,346 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -1555,7 +1566,7 @@
 +        }
 +        val revision = store.begin(entry.key)
 +        if (revision < 0) { diagnose("capacity_limit:${sbn.packageName}"); return }
-+        val allowed = policy.canPost(sbn.packageName)
++        val allowed = policy.canPost(sbn.packageName, sbn.userId)
 +        worker.execute {
 +            val result = extractor.extract(sbn, allowed)
 +            handler.post {
@@ -1623,22 +1634,15 @@
 +
 +    /**
 +     * Synchronous pre-check for a brand-new post: would it become an ordinary Taku-format island
-+     * activity, whose `alert` replaces the heads-up? Calls, alarms and plain Live Updates are
-+     * excluded; custom extras must come from an allowed publisher and validate. Invalid data keeps
-+     * Android's heads-up.
++     * activity, whose `alert` replaces the heads-up? It runs the real extraction (same user, publisher,
++     * payload, icon, action and content-service checks), so a notification the island will reject
++     * always keeps Android's heads-up. Calls, alarms and plain Live Updates are excluded.
 +     */
 +    fun headsUpCandidate(sbn: android.service.notification.StatusBarNotification): Boolean = try {
 +        val n = sbn.notification
-+        val raw = n.extras.getString(IslandExtractor.EXTRA_V2)
-+        when {
-+            IslandSystemNotifications.candidate(n) -> false
-+            raw != null && policy.canPost(sbn.packageName) -> {
-+                val publisher = extractor.publisher(sbn)
-+                (publisher.taku || n.flags and android.app.Notification.FLAG_ONGOING_EVENT != 0) &&
-+                    IslandPayload.parse(raw, publisher).isValid
-+            }
-+            else -> false
-+        }
++        lockscreenUsers.isCurrentProfile(sbn.userId) && lockscreenUsers.isProfileAvailable(sbn.userId) &&
++            !IslandSystemNotifications.candidate(n) && n.extras.containsKey(IslandExtractor.EXTRA_V2) &&
++            extractor.extract(sbn, policy.canPost(sbn.packageName, sbn.userId)).activity?.source == IslandActivity.SOURCE_CUSTOM
 +    } catch (unreadable: Exception) { false }
 +
 +    private fun changed() {
@@ -1719,19 +1723,21 @@
 +            "next" -> mutate { require(presentation?.next() == true) { "no_other_activity" } }
 +            // The capsule's own tap: open the app when the publisher chose `open`, else expand.
 +            "tap" -> mutate {
++                // A capsule tap exists only while the island is on, whichever way the tap resolves.
++                require(policy.enabled) { "island_disabled" }
 +                val activity = requireActivity(arg)
 +                val intent = activity.openIntent
 +                if (activity.tap == "open" && intent != null) opened(activity.key, intent)
-+                else {
-+                    require(policy.enabled) { "island_disabled" }
-+                    require(presentation?.expand(requireNotNull(arg)) == true) { "presentation_unavailable" }
-+                }
++                else require(presentation?.expand(activity.key) == true) { "presentation_unavailable" }
 +            }
 +            "dismiss", "hide" -> mutate {
 +                require(arg != null && store.dismiss(arg)) { "not_found" }
 +                prefs.edit().putBoolean("dismissed|$arg", true).apply()
 +            }
-+            "open" -> mutate { opened(requireNotNull(arg), requireActivity(arg).openIntent ?: throw IllegalArgumentException("action_unavailable")) }
++            "open" -> mutate {
++                val activity = requireActivity(arg)
++                opened(activity.key, activity.openIntent ?: throw IllegalArgumentException("action_unavailable"))
++            }
 +            "action" -> mutate {
 +                val activity = requireActivity(arg)
 +                val request = JSONObject(extra ?: throw IllegalArgumentException("missing_action"))
@@ -1788,7 +1794,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandExtractor.kt
-@@ -0,0 +1,217 @@
+@@ -0,0 +1,213 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -1806,7 +1812,8 @@
 +import org.json.JSONObject
 +
 +/** Runs off-main. Invalid Taku data never cancels or removes an Android notification. */
-+class IslandExtractor @Inject constructor(private val context: Context, private val systemNotifications: IslandSystemNotifications) {
++class IslandExtractor @Inject constructor(private val context: Context, private val systemNotifications: IslandSystemNotifications,
++    private val policy: IslandPolicy) {
 +    data class Extraction(val activity: IslandActivity?, val error: String?)
 +
 +    fun extract(sbn: StatusBarNotification, customAllowed: Boolean): Extraction {
@@ -1844,13 +1851,8 @@
 +        return Extraction(null, error)
 +    }
 +
-+    /** Identity comes from the package manager, never from the payload. */
-+    fun publisher(sbn: StatusBarNotification): IslandPayload.Publisher {
-+        val pm = context.createContextAsUser(UserHandle.of(sbn.userId), 0).packageManager
-+        val platform = runCatching { pm.checkSignatures("android", sbn.packageName) == PackageManager.SIGNATURE_MATCH }
-+            .getOrDefault(false)
-+        return IslandPayload.Publisher(sbn.packageName, platform)
-+    }
++    /** Identity comes from the package manager ([IslandPolicy.platformSigned]), never from the payload. */
++    fun publisher(sbn: StatusBarNotification): IslandPayload.Publisher = policy.publisher(sbn.packageName, sbn.userId)
 +
 +    private fun custom(sbn: StatusBarNotification, payload: JSONObject): IslandActivity {
 +        val extras = sbn.notification.extras
@@ -2245,7 +2247,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandPayload.java
-@@ -0,0 +1,385 @@
+@@ -0,0 +1,386 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island;
 +
@@ -2468,7 +2470,8 @@
 +        return (Math.max(a, b) + .05) / (Math.min(a, b) + .05);
 +    }
 +
-+    private static double luminance(int rgb) {
++    /** WCAG 2 relative luminance of 0xRRGGBB (any alpha bits are ignored). */
++    public static double luminance(int rgb) {
 +        double[] channels = {(rgb >> 16) & 255, (rgb >> 8) & 255, rgb & 255};
 +        for (int i = 0; i < 3; i++) {
 +            double c = channels[i] / 255;
@@ -2633,7 +2636,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandPolicy.kt
-@@ -0,0 +1,111 @@
+@@ -0,0 +1,133 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -2675,11 +2678,32 @@
 +     * SystemUI, such as Taku Agent and Notebook) are accepted without any registration. Ordinary
 +     * third-party apps need an entry in the reviewed allow-list.
 +     */
-+    fun canPost(packageName: String): Boolean = packageName in allowedPackages || platformSigned(packageName)
++    fun canPost(packageName: String, userId: Int? = null): Boolean =
++        packageName in allowedPackages || platformSigned(packageName, userId)
 +
-+    fun platformSigned(packageName: String): Boolean = runCatching {
-+        context.packageManager.checkSignatures("android", packageName) == PackageManager.SIGNATURE_MATCH
-+    }.getOrDefault(false)
++    /**
++     * The one platform-signature check for publishers, evaluated in the posting user's package
++     * manager ([userId] null means SystemUI's own user). Answers are cached for a few seconds so a
++     * burst of notifications, and the main-thread heads-up decision, do not each cross Binder.
++     */
++    fun platformSigned(packageName: String, userId: Int? = null): Boolean {
++        val key = "${userId ?: -1}|$packageName"
++        val now = android.os.SystemClock.elapsedRealtime()
++        signatures[key]?.let { (at, signed) -> if (now - at < SIGNATURE_CACHE_MS) return signed }
++        val signed = runCatching {
++            val pm = if (userId == null) context.packageManager
++                else context.createContextAsUser(android.os.UserHandle.of(userId), 0).packageManager
++            pm.checkSignatures("android", packageName) == PackageManager.SIGNATURE_MATCH
++        }.getOrDefault(false)
++        if (signatures.size > 256) signatures.clear()
++        signatures[key] = now to signed
++        return signed
++    }
++
++    fun publisher(packageName: String, userId: Int? = null) =
++        IslandPayload.Publisher(packageName, platformSigned(packageName, userId))
++
++    private val signatures = java.util.concurrent.ConcurrentHashMap<String, Pair<Long, Boolean>>()
 +
 +    fun setEnabled(value: String) {
 +        require(value == "0" || value == "1") { "invalid_enabled" }
@@ -2743,6 +2767,7 @@
 +        const val PROTOCOL = "taku_island_protocol"
 +        /** The Taku Island protocol (`taku.island.v2`); there is no other custom wire version. */
 +        const val PROTOCOL_VERSION = 2
++        private const val SIGNATURE_CACHE_MS = 10_000L
 +    }
 +}
 --- /dev/null
@@ -2769,7 +2794,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandPresenter.kt
-@@ -0,0 +1,375 @@
+@@ -0,0 +1,383 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -2818,6 +2843,7 @@
 +    private var items: List<IslandStore.Entry<IslandActivity>> = emptyList()
 +    private var selected: String? = null
 +    private var arbiterPrimary: String? = null
++    private var knownKeys: Set<String> = emptySet()
 +    private var card: IslandCardWindow? = null
 +    private var cardKey: String? = null
 +    private var cardRevision = -1L
@@ -2900,12 +2926,16 @@
 +        val old = items.find { it.key == selected }
 +        val first = items.firstOrNull()
 +        // A user's choice holds until something newer is triggered (a new activity, a rising alert
-+        // or a system-tier source) and takes the head of the order, or the chosen one ends.
-+        if (old == null || (first != null && first.key != arbiterPrimary)) {
++        // or a system-tier source) and takes the head of the order, or the chosen one ends. The
++        // old head merely ending promotes the next one without overriding that choice.
++        val overtaken = first != null && first.key != arbiterPrimary &&
++            (items.any { it.key == arbiterPrimary } || first.key !in knownKeys)
++        if (old == null || overtaken) {
 +            if (selected != first?.key && card != null) collapse("priority_changed")
 +            selected = first?.key
 +        }
 +        arbiterPrimary = first?.key
++        knownKeys = items.map { it.key }.toSet()
 +        alerted.keys.retainAll(items.map { it.key }.toSet())
 +        val expanded = items.find { it.key == cardKey }
 +        if (card != null && expanded == null) collapse("source_ended")
@@ -3017,7 +3047,9 @@
 +
 +    private fun layoutCapsule() {
 +        try { layoutCapsuleNow() } finally {
-+            val now = canExpand()
++            // An alert only expands for the head of the order. While a call, alarm, recording or
++            // cast holds it, ordinary activities keep their stock heads-up instead of losing both.
++            val now = canExpand() && items.none { it.data.tier < IslandStore.TIER_ACTIVITY }
 +            presentableNow = now
 +            // Only Taku-format activities can alert, so only they replace their stock heads-up.
 +            // Plain Live Updates keep Android's heads-up for their important moments.
@@ -3060,7 +3092,8 @@
 +        val cameraX = if (physical) cutout.centerX() - location[0] else view.width / 2
 +        // A wide notch is not a camera circle: the design's 24 dp camera is drawn over it instead.
 +        val cameraRadius = if (physical && cutout.width() <= dp(64)) cutout.width() / 2 else 0
-+        val cameraY = if (physical) cutout.bottom - cutout.width() / 2 - location[1] else view.height / 2
++        // Only a real camera circle sets the vertical centre; a notch keeps the bar's middle.
++        val cameraY = if (cameraRadius > 0) cutout.bottom - cameraRadius - location[1] else view.height / 2
 +        pill.configure(view.height.coerceAtLeast(dp(16)), cameraRadius)
 +        val cameraLeft = pill.cameraOffset()
 +        // Another live activity waits as a circle left of the disc, only where the bar has room;
@@ -3630,7 +3663,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandStartable.kt
-@@ -0,0 +1,70 @@
+@@ -0,0 +1,67 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -3681,10 +3714,7 @@
 +                    }
 +                    // This read-only validation path uses the same parser and the same package-manager
 +                    // identity check as extraction. It cannot execute an action or grant permission.
-+                    val platform = runCatching {
-+                        context.packageManager.checkSignatures("android", args[0]) == android.content.pm.PackageManager.SIGNATURE_MATCH
-+                    }.getOrDefault(false)
-+                    val publisher = IslandPayload.Publisher(args[0], platform)
++                    val publisher = engine.policy.publisher(args[0])
 +                    val result = IslandPayload.parse(args[1], publisher)
 +                    pw.println(JSONObject().put("valid", result.isValid)
 +                        .put("error", result.error ?: JSONObject.NULL))
@@ -3918,7 +3948,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandStyle.kt
-@@ -0,0 +1,146 @@
+@@ -0,0 +1,144 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -3970,8 +4000,7 @@
 +    val LIGHT = Palette(0xeb000000.toInt(), 0xcc000000.toInt(), 0xa3000000.toInt(), 0x7a000000, 0x14000000, 0x29000000)
 +
 +    /** The publisher's validated `#RRGGBB` card background, or null for the Taku card. */
-+    fun background(activity: IslandActivity): Int? = activity.payload.optJSONObject("expanded")?.optString("backgroundColor")
-+        ?.takeIf { it.matches(Regex("#[0-9A-Fa-f]{6}")) }?.let { 0xff000000.toInt() or it.substring(1).toInt(16) }
++    fun background(activity: IslandActivity): Int? = activity.backgroundColor
 +
 +    /** The card fill drawn over the backdrop blur: the background at 92 % (content/900's alpha). */
 +    fun cardFill(activity: IslandActivity): Int = background(activity)?.let { (it and 0xffffff) or 0xeb000000.toInt() } ?: CARD
@@ -4045,8 +4074,7 @@
 +
 +    /** Whether black text reads better than white on [color] (WCAG relative luminance). */
 +    fun prefersDarkText(color: Int): Boolean {
-+        fun channel(value: Int): Double = (value / 255.0).let { if (it <= .04045) it / 12.92 else Math.pow((it + .055) / 1.055, 2.4) }
-+        val luminance = .2126 * channel(Color.red(color)) + .7152 * channel(Color.green(color)) + .0722 * channel(Color.blue(color))
++        val luminance = IslandPayload.luminance(color and 0xffffff)
 +        return (luminance + .05) / .05 >= 1.05 / (luminance + .05)
 +    }
 +
@@ -4189,7 +4217,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandTemplateCard.kt
-@@ -0,0 +1,229 @@
+@@ -0,0 +1,225 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -4286,7 +4314,7 @@
 +    fun update(next: IslandActivity) {
 +        item = next
 +        val expanded = next.payload.getJSONObject("expanded")
-+        val accent = accentColor(expanded)
++        val accent = next.accentColor
 +        val palette = IslandStyle.palette(next)
 +        title.setTextColor(palette.body)
 +        body.setTextColor(palette.secondary)
@@ -4353,7 +4381,7 @@
 +        .put("template", item?.template ?: JSONObject.NULL)
 +        .put("highlight", if (highlight.visibility == VISIBLE) highlightValue.text.toString() else JSONObject.NULL)
 +        .put("backgroundColor", item?.let { IslandStyle.background(it) }?.let { "#%06X".format(it and 0xffffff) } ?: JSONObject.NULL)
-+        .put("accentColor", item?.let { accentColor(it.payload.getJSONObject("expanded")) }?.let { "#%06X".format(it and 0xffffff) } ?: JSONObject.NULL)
++        .put("accentColor", item?.accentColor?.let { "#%06X".format(it and 0xffffff) } ?: JSONObject.NULL)
 +        .put("tapAction", item?.let { cardTap(it) } ?: JSONObject.NULL)
 +        .put("body", body.text.toString()).put("actionCount", chips.childCount)
 +        .put("progress", if (progress.visibility == VISIBLE) progress.value ?: -1f else JSONObject.NULL)
@@ -4372,10 +4400,6 @@
 +            leading.setImageDrawable(drawable)
 +        }
 +    }
-+
-+    /** The validated `#RRGGBB` accent as an opaque colour, or null for the default white. */
-+    private fun accentColor(expanded: JSONObject): Int? = expanded.optString("accentColor")
-+        .takeIf { it.matches(Regex("#[0-9A-Fa-f]{6}")) }?.let { 0xff000000.toInt() or it.substring(1).toInt(16) }
 +
 +    private fun updateBottomEdge() {
 +        scroll.setRenderEffect(if (scroll.height > 0 && scroll.canScrollVertically(1))

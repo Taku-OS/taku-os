@@ -18,8 +18,6 @@ import android.view.ViewTreeObserver
 import android.view.WindowInsets
 import android.view.WindowManager
 import android.widget.FrameLayout
-import android.window.OnBackInvokedCallback
-import android.window.OnBackInvokedDispatcher
 import org.json.JSONObject
 
 /**
@@ -74,8 +72,6 @@ internal class IslandCardWindow(context: Context, initial: IslandActivity, cover
     private var templateGeneration = 0
     private var animation: ValueAnimator? = null
     private val region = Region()
-    private var backDispatcher: OnBackInvokedDispatcher? = null
-    private val back = OnBackInvokedCallback { collapse("back") }
     private var finalHeight = desiredHeight(initial)
     private var availableHeight = Int.MAX_VALUE
     private var heightCap = finalHeight
@@ -232,8 +228,6 @@ internal class IslandCardWindow(context: Context, initial: IslandActivity, cover
         animation = null
         host?.close()
         host = null
-        backDispatcher?.unregisterOnBackInvokedCallback(back)
-        backDispatcher = null
         root.viewTreeObserver.removeOnComputeInternalInsetsListener(insetsListener)
         if (attached) { attached = false; wm.removeViewImmediate(root) }
     }

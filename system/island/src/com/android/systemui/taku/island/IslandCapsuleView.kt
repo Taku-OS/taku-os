@@ -76,6 +76,8 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
     private var pillGlyphShown = false
     /** Running app-supplied animated icons and when their looping began (60 s budget). */
     private val iconLoops = mutableMapOf<Drawable, Long>()
+    /** Drawables whose 60 s budget is used up for the current payload. */
+    private val iconSpent = mutableSetOf<Drawable>()
     var secondary = false
         private set
     private val gestures = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
@@ -143,14 +145,17 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
         .filter { it.optString("type") == "icon" && it.optBoolean("animate") }
         .map { it.getString("pic") }.toSet()
 
-    /** Runs animated drawables while shown and motion is enabled; each loops for at most 60 s. */
+    /**
+     * Runs animated drawables while shown and motion is enabled. Each loops for at most 60 s per
+     * payload: once its budget is spent it rests until the publisher posts an update.
+     */
     private fun startIconAnimations() {
         val activity = item ?: return
         if (!ValueAnimator.areAnimatorsEnabled() || visibility != VISIBLE || !isAttachedToWindow) return
         for (key in animatedKeys(activity)) {
             val drawable = icons[key] ?: continue
             val animated = drawable as? Animatable2 ?: continue
-            if (drawable in iconLoops) continue
+            if (drawable in iconLoops || drawable in iconSpent) continue
             drawable.callback = this
             iconLoops[drawable] = SystemClock.uptimeMillis()
             animated.registerAnimationCallback(object : Animatable2.AnimationCallback() {
@@ -158,7 +163,11 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
                     val began = iconLoops[finished] ?: return
                     if (SystemClock.uptimeMillis() - began < ICON_LOOP_MS && visibility == VISIBLE && isAttachedToWindow) {
                         (finished as Animatable2).start()
-                    } else iconLoops.remove(finished)
+                    } else {
+                        if (SystemClock.uptimeMillis() - began >= ICON_LOOP_MS) iconSpent.add(finished)
+                        iconLoops.remove(finished)
+                        (finished as Animatable2).clearAnimationCallbacks()
+                    }
                 }
             })
             animated.start()
@@ -196,8 +205,7 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
         activity.compact?.optJSONObject("b")?.takeIf { it.optString("type") in setOf("icon", "animation") }?.let(::glyph)
 
     /** The publisher's validated accent colour, else Taku's accent. */
-    private fun accent(activity: IslandActivity): Int = activity.expanded.optString("accentColor")
-        .takeIf { it.matches(Regex("#[0-9A-Fa-f]{6}")) }?.let { 0xff000000.toInt() or it.substring(1).toInt(16) } ?: IslandStyle.ACCENT
+    private fun accent(activity: IslandActivity): Int = activity.accentColor ?: IslandStyle.ACCENT
 
     /** What the pill says: group B's text, number, clock or percentage. */
     private fun pillSlot(activity: IslandActivity): JSONObject? =
@@ -278,6 +286,7 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
             identity = activity.payload
             val current = ++generation
             stopIconAnimations()
+            iconSpent.clear()
             icons.clear()
             activity.pics.forEach { (key, icon) ->
                 IslandStyle.loadIcon(context, icon) { drawable ->

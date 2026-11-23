@@ -48,10 +48,7 @@ class IslandStartable @Inject constructor(
                     }
                     // This read-only validation path uses the same parser and the same package-manager
                     // identity check as extraction. It cannot execute an action or grant permission.
-                    val platform = runCatching {
-                        context.packageManager.checkSignatures("android", args[0]) == android.content.pm.PackageManager.SIGNATURE_MATCH
-                    }.getOrDefault(false)
-                    val publisher = IslandPayload.Publisher(args[0], platform)
+                    val publisher = engine.policy.publisher(args[0])
                     val result = IslandPayload.parse(args[1], publisher)
                     pw.println(JSONObject().put("valid", result.isValid)
                         .put("error", result.error ?: JSONObject.NULL))

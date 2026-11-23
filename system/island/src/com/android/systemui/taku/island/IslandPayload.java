@@ -220,7 +220,8 @@ public final class IslandPayload {
         return (Math.max(a, b) + .05) / (Math.min(a, b) + .05);
     }
 
-    private static double luminance(int rgb) {
+    /** WCAG 2 relative luminance of 0xRRGGBB (any alpha bits are ignored). */
+    public static double luminance(int rgb) {
         double[] channels = {(rgb >> 16) & 255, (rgb >> 8) & 255, rgb & 255};
         for (int i = 0; i < 3; i++) {
             double c = channels[i] / 255;

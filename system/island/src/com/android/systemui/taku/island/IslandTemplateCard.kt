@@ -94,7 +94,7 @@ internal class IslandTemplateCard(context: Context, command: (String, String?, S
     fun update(next: IslandActivity) {
         item = next
         val expanded = next.payload.getJSONObject("expanded")
-        val accent = accentColor(expanded)
+        val accent = next.accentColor
         val palette = IslandStyle.palette(next)
         title.setTextColor(palette.body)
         body.setTextColor(palette.secondary)
@@ -161,7 +161,7 @@ internal class IslandTemplateCard(context: Context, command: (String, String?, S
         .put("template", item?.template ?: JSONObject.NULL)
         .put("highlight", if (highlight.visibility == VISIBLE) highlightValue.text.toString() else JSONObject.NULL)
         .put("backgroundColor", item?.let { IslandStyle.background(it) }?.let { "#%06X".format(it and 0xffffff) } ?: JSONObject.NULL)
-        .put("accentColor", item?.let { accentColor(it.payload.getJSONObject("expanded")) }?.let { "#%06X".format(it and 0xffffff) } ?: JSONObject.NULL)
+        .put("accentColor", item?.accentColor?.let { "#%06X".format(it and 0xffffff) } ?: JSONObject.NULL)
         .put("tapAction", item?.let { cardTap(it) } ?: JSONObject.NULL)
         .put("body", body.text.toString()).put("actionCount", chips.childCount)
         .put("progress", if (progress.visibility == VISIBLE) progress.value ?: -1f else JSONObject.NULL)
@@ -180,10 +180,6 @@ internal class IslandTemplateCard(context: Context, command: (String, String?, S
             leading.setImageDrawable(drawable)
         }
     }
-
-    /** The validated `#RRGGBB` accent as an opaque colour, or null for the default white. */
-    private fun accentColor(expanded: JSONObject): Int? = expanded.optString("accentColor")
-        .takeIf { it.matches(Regex("#[0-9A-Fa-f]{6}")) }?.let { 0xff000000.toInt() or it.substring(1).toInt(16) }
 
     private fun updateBottomEdge() {
         scroll.setRenderEffect(if (scroll.height > 0 && scroll.canScrollVertically(1))

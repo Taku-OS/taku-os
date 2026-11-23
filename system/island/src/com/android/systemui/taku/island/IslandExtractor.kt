@@ -15,7 +15,8 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /** Runs off-main. Invalid Taku data never cancels or removes an Android notification. */
-class IslandExtractor @Inject constructor(private val context: Context, private val systemNotifications: IslandSystemNotifications) {
+class IslandExtractor @Inject constructor(private val context: Context, private val systemNotifications: IslandSystemNotifications,
+    private val policy: IslandPolicy) {
     data class Extraction(val activity: IslandActivity?, val error: String?)
 
     fun extract(sbn: StatusBarNotification, customAllowed: Boolean): Extraction {
@@ -53,13 +54,8 @@ class IslandExtractor @Inject constructor(private val context: Context, private 
         return Extraction(null, error)
     }
 
-    /** Identity comes from the package manager, never from the payload. */
-    fun publisher(sbn: StatusBarNotification): IslandPayload.Publisher {
-        val pm = context.createContextAsUser(UserHandle.of(sbn.userId), 0).packageManager
-        val platform = runCatching { pm.checkSignatures("android", sbn.packageName) == PackageManager.SIGNATURE_MATCH }
-            .getOrDefault(false)
-        return IslandPayload.Publisher(sbn.packageName, platform)
-    }
+    /** Identity comes from the package manager ([IslandPolicy.platformSigned]), never from the payload. */
+    fun publisher(sbn: StatusBarNotification): IslandPayload.Publisher = policy.publisher(sbn.packageName, sbn.userId)
 
     private fun custom(sbn: StatusBarNotification, payload: JSONObject): IslandActivity {
         val extras = sbn.notification.extras

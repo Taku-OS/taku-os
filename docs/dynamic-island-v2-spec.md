@@ -134,7 +134,7 @@ Shape: the authored metaball capsule (Figma `1379:889`). Disc 32 dp, camera 24 d
     cover (owner decision 8).
 - Tapping the card body runs `expanded.tapAction` (an action key), else the notification's
   content intent.
-- Collapse happens through: swipe up on the card, back while the card covers the status bar, the
+- Collapse happens through: swipe up on the card, opening the publisher's screen, the
   shade opening, the keyguard, a heads-up, the activity ending, or an alert timing out. Outside taps
   still do not collapse it (decision D5).
 
@@ -148,7 +148,7 @@ Shape: the authored metaball capsule (Figma `1379:889`). Disc 32 dp, camera 24 d
 | Capsule | Horizontal swipe **right** | Hides the current activity (§5.4) |
 | Capsule | Vertical drag | Goes to the shade (unchanged) |
 | Card | Tap body | `tapAction` or the content intent |
-| Card | Swipe up / back | Collapses to the capsule |
+| Card | Swipe up | Collapses to the capsule |
 | Publisher app goes to the background | — | Its capsule appears (§5.7) |
 
 **Mutual exclusion:** while any card is open, no capsule is drawn. This changes today's behavior,

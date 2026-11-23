@@ -46,6 +46,7 @@ class IslandPresenter @Inject constructor(
     private var items: List<IslandStore.Entry<IslandActivity>> = emptyList()
     private var selected: String? = null
     private var arbiterPrimary: String? = null
+    private var knownKeys: Set<String> = emptySet()
     private var card: IslandCardWindow? = null
     private var cardKey: String? = null
     private var cardRevision = -1L
@@ -128,12 +129,16 @@ class IslandPresenter @Inject constructor(
         val old = items.find { it.key == selected }
         val first = items.firstOrNull()
         // A user's choice holds until something newer is triggered (a new activity, a rising alert
-        // or a system-tier source) and takes the head of the order, or the chosen one ends.
-        if (old == null || (first != null && first.key != arbiterPrimary)) {
+        // or a system-tier source) and takes the head of the order, or the chosen one ends. The
+        // old head merely ending promotes the next one without overriding that choice.
+        val overtaken = first != null && first.key != arbiterPrimary &&
+            (items.any { it.key == arbiterPrimary } || first.key !in knownKeys)
+        if (old == null || overtaken) {
             if (selected != first?.key && card != null) collapse("priority_changed")
             selected = first?.key
         }
         arbiterPrimary = first?.key
+        knownKeys = items.map { it.key }.toSet()
         alerted.keys.retainAll(items.map { it.key }.toSet())
         val expanded = items.find { it.key == cardKey }
         if (card != null && expanded == null) collapse("source_ended")
@@ -245,7 +250,9 @@ class IslandPresenter @Inject constructor(
 
     private fun layoutCapsule() {
         try { layoutCapsuleNow() } finally {
-            val now = canExpand()
+            // An alert only expands for the head of the order. While a call, alarm, recording or
+            // cast holds it, ordinary activities keep their stock heads-up instead of losing both.
+            val now = canExpand() && items.none { it.data.tier < IslandStore.TIER_ACTIVITY }
             presentableNow = now
             // Only Taku-format activities can alert, so only they replace their stock heads-up.
             // Plain Live Updates keep Android's heads-up for their important moments.
@@ -288,7 +295,8 @@ class IslandPresenter @Inject constructor(
         val cameraX = if (physical) cutout.centerX() - location[0] else view.width / 2
         // A wide notch is not a camera circle: the design's 24 dp camera is drawn over it instead.
         val cameraRadius = if (physical && cutout.width() <= dp(64)) cutout.width() / 2 else 0
-        val cameraY = if (physical) cutout.bottom - cutout.width() / 2 - location[1] else view.height / 2
+        // Only a real camera circle sets the vertical centre; a notch keeps the bar's middle.
+        val cameraY = if (cameraRadius > 0) cutout.bottom - cameraRadius - location[1] else view.height / 2
         pill.configure(view.height.coerceAtLeast(dp(16)), cameraRadius)
         val cameraLeft = pill.cameraOffset()
         // Another live activity waits as a circle left of the disc, only where the bar has room;

@@ -45,9 +45,17 @@ data class IslandActivity(
     /** Transitional: Taku onboarding's progress chrome until it becomes the public basic template. */
     val nativeProgressCard: Boolean get() = packageName == IslandPayload.TAKU_PACKAGE && template == "basic" &&
         !expanded.has("content") && !expanded.has("pic") && !expanded.has("steps") && !expanded.has("progress") &&
+        // A styled card is an ordinary template card: the onboarding chrome would drop its colours.
+        backgroundColor == null && accentColor == null &&
         (expanded.optJSONArray("actions")?.length() ?: 0) <= 1
     /** A host-rendered clock in the capsule needs a tick every second. */
     val timed: Boolean get() = listOf("a", "b").any { compact?.optJSONObject(it)?.optString("type") in setOf("timer", "countdown") }
+
+    /** The validated `#RRGGBB` template colours as opaque ARGB, parsed once per payload. */
+    val backgroundColor: Int? by lazy(LazyThreadSafetyMode.NONE) { color("backgroundColor") }
+    val accentColor: Int? by lazy(LazyThreadSafetyMode.NONE) { color("accentColor") }
+    private fun color(field: String): Int? = payload.optJSONObject("expanded")?.optString(field)
+        ?.takeIf { it.length == 7 && it[0] == '#' }?.substring(1)?.toIntOrNull(16)?.let { 0xff000000.toInt() or it }
 
     companion object {
         const val SOURCE_CUSTOM = "custom"

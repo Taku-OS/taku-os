@@ -118,7 +118,7 @@ class IslandEngine @Inject constructor(
         }
         val revision = store.begin(entry.key)
         if (revision < 0) { diagnose("capacity_limit:${sbn.packageName}"); return }
-        val allowed = policy.canPost(sbn.packageName)
+        val allowed = policy.canPost(sbn.packageName, sbn.userId)
         worker.execute {
             val result = extractor.extract(sbn, allowed)
             handler.post {
@@ -186,22 +186,15 @@ class IslandEngine @Inject constructor(
 
     /**
      * Synchronous pre-check for a brand-new post: would it become an ordinary Taku-format island
-     * activity, whose `alert` replaces the heads-up? Calls, alarms and plain Live Updates are
-     * excluded; custom extras must come from an allowed publisher and validate. Invalid data keeps
-     * Android's heads-up.
+     * activity, whose `alert` replaces the heads-up? It runs the real extraction (same user, publisher,
+     * payload, icon, action and content-service checks), so a notification the island will reject
+     * always keeps Android's heads-up. Calls, alarms and plain Live Updates are excluded.
      */
     fun headsUpCandidate(sbn: android.service.notification.StatusBarNotification): Boolean = try {
         val n = sbn.notification
-        val raw = n.extras.getString(IslandExtractor.EXTRA_V2)
-        when {
-            IslandSystemNotifications.candidate(n) -> false
-            raw != null && policy.canPost(sbn.packageName) -> {
-                val publisher = extractor.publisher(sbn)
-                (publisher.taku || n.flags and android.app.Notification.FLAG_ONGOING_EVENT != 0) &&
-                    IslandPayload.parse(raw, publisher).isValid
-            }
-            else -> false
-        }
+        lockscreenUsers.isCurrentProfile(sbn.userId) && lockscreenUsers.isProfileAvailable(sbn.userId) &&
+            !IslandSystemNotifications.candidate(n) && n.extras.containsKey(IslandExtractor.EXTRA_V2) &&
+            extractor.extract(sbn, policy.canPost(sbn.packageName, sbn.userId)).activity?.source == IslandActivity.SOURCE_CUSTOM
     } catch (unreadable: Exception) { false }
 
     private fun changed() {
@@ -282,19 +275,21 @@ class IslandEngine @Inject constructor(
             "next" -> mutate { require(presentation?.next() == true) { "no_other_activity" } }
             // The capsule's own tap: open the app when the publisher chose `open`, else expand.
             "tap" -> mutate {
+                // A capsule tap exists only while the island is on, whichever way the tap resolves.
+                require(policy.enabled) { "island_disabled" }
                 val activity = requireActivity(arg)
                 val intent = activity.openIntent
                 if (activity.tap == "open" && intent != null) opened(activity.key, intent)
-                else {
-                    require(policy.enabled) { "island_disabled" }
-                    require(presentation?.expand(requireNotNull(arg)) == true) { "presentation_unavailable" }
-                }
+                else require(presentation?.expand(activity.key) == true) { "presentation_unavailable" }
             }
             "dismiss", "hide" -> mutate {
                 require(arg != null && store.dismiss(arg)) { "not_found" }
                 prefs.edit().putBoolean("dismissed|$arg", true).apply()
             }
-            "open" -> mutate { opened(requireNotNull(arg), requireActivity(arg).openIntent ?: throw IllegalArgumentException("action_unavailable")) }
+            "open" -> mutate {
+                val activity = requireActivity(arg)
+                opened(activity.key, activity.openIntent ?: throw IllegalArgumentException("action_unavailable"))
+            }
             "action" -> mutate {
                 val activity = requireActivity(arg)
                 val request = JSONObject(extra ?: throw IllegalArgumentException("missing_action"))

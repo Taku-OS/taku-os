@@ -39,11 +39,32 @@ class IslandPolicy @Inject constructor(private val context: Context, @Main priva
      * SystemUI, such as Taku Agent and Notebook) are accepted without any registration. Ordinary
      * third-party apps need an entry in the reviewed allow-list.
      */
-    fun canPost(packageName: String): Boolean = packageName in allowedPackages || platformSigned(packageName)
+    fun canPost(packageName: String, userId: Int? = null): Boolean =
+        packageName in allowedPackages || platformSigned(packageName, userId)
 
-    fun platformSigned(packageName: String): Boolean = runCatching {
-        context.packageManager.checkSignatures("android", packageName) == PackageManager.SIGNATURE_MATCH
-    }.getOrDefault(false)
+    /**
+     * The one platform-signature check for publishers, evaluated in the posting user's package
+     * manager ([userId] null means SystemUI's own user). Answers are cached for a few seconds so a
+     * burst of notifications, and the main-thread heads-up decision, do not each cross Binder.
+     */
+    fun platformSigned(packageName: String, userId: Int? = null): Boolean {
+        val key = "${userId ?: -1}|$packageName"
+        val now = android.os.SystemClock.elapsedRealtime()
+        signatures[key]?.let { (at, signed) -> if (now - at < SIGNATURE_CACHE_MS) return signed }
+        val signed = runCatching {
+            val pm = if (userId == null) context.packageManager
+                else context.createContextAsUser(android.os.UserHandle.of(userId), 0).packageManager
+            pm.checkSignatures("android", packageName) == PackageManager.SIGNATURE_MATCH
+        }.getOrDefault(false)
+        if (signatures.size > 256) signatures.clear()
+        signatures[key] = now to signed
+        return signed
+    }
+
+    fun publisher(packageName: String, userId: Int? = null) =
+        IslandPayload.Publisher(packageName, platformSigned(packageName, userId))
+
+    private val signatures = java.util.concurrent.ConcurrentHashMap<String, Pair<Long, Boolean>>()
 
     fun setEnabled(value: String) {
         require(value == "0" || value == "1") { "invalid_enabled" }
@@ -107,5 +128,6 @@ class IslandPolicy @Inject constructor(private val context: Context, @Main priva
         const val PROTOCOL = "taku_island_protocol"
         /** The Taku Island protocol (`taku.island.v2`); there is no other custom wire version. */
         const val PROTOCOL_VERSION = 2
+        private const val SIGNATURE_CACHE_MS = 10_000L
     }
 }

@@ -109,7 +109,8 @@ A Taku-format island activity (`taku.island.v2`) does not also raise a stock hea
 the island can present it (unlocked, shade closed, portrait, island enabled, activity not hidden);
 its `alert` expands the card instead, at its `cardPosition`. A false-to-true `alert` counts at
 most once per 30 s per notification key (cancel and repost included); faster flips neither expand
-nor reorder. Third-party custom extras on a notification that is not ongoing are ignored with
+nor reorder. While a call, alarm, recording or cast is live it holds the head of the order, so
+other activities keep their stock heads-up. Third-party custom extras on a notification that is not ongoing are ignored with
 diagnostic `not_ongoing` (Taku Agent is exempt). Calls, alarms, plain Android Live
 Updates (which have no alert field), hidden activities and invalid extras keep Android's heads-up.
 Calls, alarms and stopwatches that SystemUI recognises stay up to the 12 h cap.

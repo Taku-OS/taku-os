@@ -49,8 +49,7 @@ internal object IslandStyle {
     val LIGHT = Palette(0xeb000000.toInt(), 0xcc000000.toInt(), 0xa3000000.toInt(), 0x7a000000, 0x14000000, 0x29000000)
 
     /** The publisher's validated `#RRGGBB` card background, or null for the Taku card. */
-    fun background(activity: IslandActivity): Int? = activity.payload.optJSONObject("expanded")?.optString("backgroundColor")
-        ?.takeIf { it.matches(Regex("#[0-9A-Fa-f]{6}")) }?.let { 0xff000000.toInt() or it.substring(1).toInt(16) }
+    fun background(activity: IslandActivity): Int? = activity.backgroundColor
 
     /** The card fill drawn over the backdrop blur: the background at 92 % (content/900's alpha). */
     fun cardFill(activity: IslandActivity): Int = background(activity)?.let { (it and 0xffffff) or 0xeb000000.toInt() } ?: CARD
@@ -124,8 +123,7 @@ internal object IslandStyle {
 
     /** Whether black text reads better than white on [color] (WCAG relative luminance). */
     fun prefersDarkText(color: Int): Boolean {
-        fun channel(value: Int): Double = (value / 255.0).let { if (it <= .04045) it / 12.92 else Math.pow((it + .055) / 1.055, 2.4) }
-        val luminance = .2126 * channel(Color.red(color)) + .7152 * channel(Color.green(color)) + .0722 * channel(Color.blue(color))
+        val luminance = IslandPayload.luminance(color and 0xffffff)
         return (luminance + .05) / .05 >= 1.05 / (luminance + .05)
     }
 
