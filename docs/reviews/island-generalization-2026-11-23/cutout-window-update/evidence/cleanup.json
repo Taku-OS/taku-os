@@ -1,0 +1,8 @@
+{
+  "working": false,
+  "voiceListening": false,
+  "allowed": [
+    "org.agentos.notebook"
+  ],
+  "auditPackages": ""
+}

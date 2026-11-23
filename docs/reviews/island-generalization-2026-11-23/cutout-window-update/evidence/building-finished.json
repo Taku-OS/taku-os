@@ -1,0 +1,144 @@
+{
+  "entry": "none",
+  "island": "hidden",
+  "expansionRequest": 9,
+  "islandRequest": "collapsed",
+  "islandHost": "systemui",
+  "listeningHeaderHost": "systemui-native",
+  "sending": false,
+  "abandoned": false,
+  "hintExpanded": false,
+  "voiceContinuous": false,
+  "voicePaused": false,
+  "holdZone": "none",
+  "gesture": {
+    "id": "fe2ceda2-36e1-4d4a-9cc6-1fc616d7e417",
+    "source": "desktop",
+    "phase": "cancelled",
+    "sequence": 0,
+    "startedAt": 3211613,
+    "updatedAt": 3211613
+  },
+  "threadId": "01a20822-d4f7-7480-ad2f-9037045fe29e",
+  "activityId": "9d6fc79f-f2ff-4483-8c36-2916d2cc4a68",
+  "buildingApp": false,
+  "appBuildTurnId": null,
+  "working": false,
+  "needsUser": false,
+  "online": true,
+  "pending": null,
+  "task": "completed",
+  "error": null,
+  "draft": "",
+  "failedText": null,
+  "draftAttachmentNames": [],
+  "turn": {
+    "turnId": "01a20822-e9a0-7de3-a144-598fe9e790fe",
+    "active": false,
+    "failed": false,
+    "userText": "开孔截图复测：请给 /data/local/agentos/work/island-acceptance-20261123/index.html 测试计数器添加一个重置按钮。只修改这个测试页面，不联网、不安装 APK、不改系统设置。按已有 taku-app-development 规范标记真实开发期间的 Building 状态，完成后清除标记。",
+    "headline": "已添加重置按钮\n已修改测试页面 index.html：点击“重置”会将计数和显示值归零。已检查页面代码，但尚未在浏览器中实际点击验证。开发期间已标记 Building，完成后已清除。",
+    "reply": "已添加重置按钮\n已修改测试页面 index.html：点击“重置”会将计数和显示值归零。已检查页面代码，但尚未在浏览器中实际点击验证。开发期间已标记 Building，完成后已清除。",
+    "steps": [
+      {
+        "id": "exec-7c781935-ff03-4096-9198-a19451afe0cf",
+        "kind": "act",
+        "text": "Running /system_ext/bin/bash -lc 'cat /data/local/agentos/home/.codex/sk",
+        "running": false
+      },
+      {
+        "id": "exec-f393d9b4-f75a-449c-b52f-b84f08926795",
+        "kind": "act",
+        "text": "Running /system_ext/bin/bash -lc 'content call --uri content://org.agent",
+        "running": false
+      },
+      {
+        "id": "exec-c231ee97-8138-4563-b86e-244d11f28458",
+        "kind": "act",
+        "text": "Running /system_ext/bin/bash -lc \"content call --uri content://org.agent",
+        "running": false
+      },
+      {
+        "id": "exec-71abedc3-8afa-405b-8ba6-e5cfa98c6f12",
+        "kind": "act",
+        "text": "Running /system_ext/bin/bash -lc 'cat /data/local/agentos/work/island-ac",
+        "running": false
+      },
+      {
+        "id": "exec-0d5f345e-1dec-495e-857b-ceb6f8932620",
+        "kind": "act",
+        "text": "Running /system_ext/bin/bash -lc \"python3 - <<'PY'",
+        "running": false
+      },
+      {
+        "id": "exec-7db030ff-956f-4d1c-826a-275675de4fd5",
+        "kind": "act",
+        "text": "Running /system_ext/bin/bash -lc 'which node; which perl; which sed'",
+        "running": false
+      },
+      {
+        "id": "exec-fea84d26-ad39-4e2d-bb7e-208a28b7655d",
+        "kind": "act",
+        "text": "Running /system_ext/bin/bash -lc \"sed -i '/<button id=\\\"increment\\\"/a\\\\",
+        "running": false
+      },
+      {
+        "id": "exec-236f1c5c-0630-4bd8-8be9-976075cad509",
+        "kind": "act",
+        "text": "Running /system_ext/bin/bash -lc \"content call --uri content://org.agent",
+        "running": false
+      }
+    ],
+    "suggestions": []
+  },
+  "voice": {
+    "source": "engine",
+    "operationId": null,
+    "sessionId": null,
+    "target": null,
+    "phase": "Idle",
+    "ready": false,
+    "listening": false,
+    "final": false,
+    "transcript": "",
+    "preview": "",
+    "levels": [],
+    "levelSource": "pcm-rms",
+    "outcome": null,
+    "error": null,
+    "settingsScope": null,
+    "settingsRevision": null,
+    "requestedProfileId": null,
+    "profileId": null,
+    "language": null,
+    "processing": null,
+    "fallbackUsed": false,
+    "fallbackReason": null,
+    "maxCaptureMs": null,
+    "drainTimeoutMs": null,
+    "drainDeadlineMonotonicMs": null,
+    "delivery": null,
+    "retainedResult": null
+  },
+  "liveTalk": {
+    "sessionId": "4472894f-4264-4af0-a87b-da0fbed7ccba",
+    "threadId": "01a20814-b3f2-7660-a7d3-30252ad03ba7",
+    "sequence": 32,
+    "generation": 1,
+    "lifecycle": "closed",
+    "provider": "fal-grok",
+    "muted": false,
+    "capturing": false,
+    "speech": false,
+    "playback": {
+      "state": "stopped",
+      "responseId": null
+    },
+    "input": null,
+    "output": null,
+    "levels": [],
+    "task": null,
+    "error": null
+  },
+  "liveTalkDisclosure": "Live Talk sends microphone audio, conversation context, and task details for spoken replies to the provider selected in Taku Audio (Grok Voice via fal or Google Gemini Live)."
+}

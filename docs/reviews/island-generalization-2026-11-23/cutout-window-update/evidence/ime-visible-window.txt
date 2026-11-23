@@ -1,0 +1,6 @@
+  Window #0 Window{9515133 u0 ScreenDecorOverlayBottom}:
+    WindowStateAnimator{f086ccd ScreenDecorOverlayBottom}:
+      mSurface=Surface(name=VRI-ScreenDecorOverlayBottom#55)/@0x1d03f98
+  Window #1 Window{ac72297 u0 ScreenDecorOverlay}:
+    WindowStateAnimator{b4af982 ScreenDecorOverlay}:
+      mSurface=Surface(name=VRI-ScreenDecorOverlay#54)/@0xbfb387f

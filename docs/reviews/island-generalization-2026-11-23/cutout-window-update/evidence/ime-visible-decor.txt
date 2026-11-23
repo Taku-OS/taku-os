@@ -1,0 +1,45 @@
+SERVICE com.android.systemui/.SystemUIService 6f3b915 pid=901 user=0
+  Client:
+    Dump starting: 11-23 07:20:05.842
+
+    com.android.systemui.ScreenDecorations:
+    ----------------------------------------------------------------------------
+    ScreenDecorations state:
+      DEBUG_DISABLE_SCREEN_DECORATIONS:false
+      mDebug:false
+      mIsPrivacyDotEnabled:true
+      shouldOptimizeOverlayVisibility:false
+      supportsShowingFaceScanningAnim:false
+      mPendingConfigChange:false
+    mHwcScreenDecorationSupport: null
+      mScreenDecorHwcLayer: null
+      mOverlays(left,top,right,bottom)=(false,true,false,true)
+      ScreenDecorOverlay=
+        rootView=com.android.systemui.RegionInterceptingFrameLayout{dce2254 V.E...... ........ 0,0-1080,132}
+        child[0]=com.android.systemui.statusbar.events.ui.view.PrivacyDotView{3265fd I.E...... ......ID 0,0-148,74 #7f0a06b2 app:id/privacy_dot_top_left_container} PrivacyDotCornerDecorProviderImpl{alignedBounds=[1, 0]}
+        child[1]=com.android.systemui.statusbar.events.ui.view.PrivacyDotView{b3b6ef0 I.E...... .......D 1027,0-1080,132 #7f0a06b3 app:id/privacy_dot_top_right_container} PrivacyDotCornerDecorProviderImpl{alignedBounds=[1, 2]}
+        child[2]=android.widget.ImageView{f36b2f2 V.ED..... ........ 0,0-21,21 #7f0a071b app:id/rounded_corner_top_left} RoundedCornerDecorProviderImpl{alignedBounds=[1, 0]}
+        child[3]=android.widget.ImageView{dfc1d43 V.ED..... ........ 1059,0-1080,21 #7f0a071c app:id/rounded_corner_top_right} RoundedCornerDecorProviderImpl{alignedBounds=[1, 2]}
+        child[4]=com.android.systemui.ScreenDecorations$DisplayCutoutView{a150fc0 V.ED..... ........ 0,0-1080,132 #7f0a02ce app:id/display_cutout} CutoutDecorProviderImpl{alignedBounds=[1]}
+      ScreenDecorOverlayBottom=
+        rootView=com.android.systemui.RegionInterceptingFrameLayout{44464f9 V.E...... ........ 0,0-1080,74}
+        child[0]=com.android.systemui.statusbar.events.ui.view.PrivacyDotView{9790c3e I.E...... ......ID 0,0-53,74 #7f0a06b0 app:id/privacy_dot_bottom_left_container} PrivacyDotCornerDecorProviderImpl{alignedBounds=[3, 0]}
+        child[1]=com.android.systemui.statusbar.events.ui.view.PrivacyDotView{394a9f I.E...... ......ID 1027,0-1080,74 #7f0a06b1 app:id/privacy_dot_bottom_right_container} PrivacyDotCornerDecorProviderImpl{alignedBounds=[3, 2]}
+        child[2]=android.widget.ImageView{31b67ec V.ED..... ........ 0,53-21,74 #7f0a0719 app:id/rounded_corner_bottom_left} RoundedCornerDecorProviderImpl{alignedBounds=[3, 0]}
+        child[3]=android.widget.ImageView{8dd57b5 V.ED..... ........ 1059,53-1080,74 #7f0a071a app:id/rounded_corner_bottom_right} RoundedCornerDecorProviderImpl{alignedBounds=[3, 2]}
+    RoundedCornerResDelegate state:
+      hasTop=true
+      hasBottom=true
+      topRoundedSize(w,h)=(21,21)
+      bottomRoundedSize(w,h)=(21,21)
+      physicalPixelDisplaySizeRatio=1.0
+    DebugRoundedCornerDelegate state:
+      hasTop=false
+      hasBottom=false
+      topRoundedSize(w,h)=(0,0)
+      bottomRoundedSize(w,h)=(0,0)
+      physicalPixelDisplaySizeRatio=1.0
+
+    CRITICAL dump took 0ms -- com.android.systemui.ScreenDecorations
+
+    Dump took 1ms

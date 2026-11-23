@@ -1,0 +1,139 @@
+{
+  "ok": true,
+  "settings": {
+    "enabled": true,
+    "protocol": 2,
+    "allowedPackages": [
+      "org.agentos.island.audit.one",
+      "org.agentos.island.audit.two",
+      "org.agentos.notebook"
+    ],
+    "error": null
+  },
+  "activities": [
+    {
+      "key": "0|org.agentos.island.audit.two|1|null|10209",
+      "package": "org.agentos.island.audit.two",
+      "userId": 0,
+      "revision": 49,
+      "firstSeenElapsedMs": 3261957,
+      "expiresElapsedMs": 6861957,
+      "stale": false,
+      "dismissed": false,
+      "active": true,
+      "triggeredAtElapsedMs": 3261957,
+      "source": "custom-v2",
+      "tier": 3,
+      "timeoutKind": "default",
+      "availableActions": [
+        {
+          "id": "a0",
+          "title": "Action a0"
+        },
+        {
+          "id": "a1",
+          "title": "Action a1"
+        },
+        {
+          "id": "a2",
+          "title": "Action a2"
+        }
+      ],
+      "payload": {
+        "version": 2,
+        "compact": {
+          "a": {
+            "type": "icon",
+            "pic": "mic"
+          },
+          "b": {
+            "type": "text",
+            "text": "FL123"
+          }
+        },
+        "expanded": {
+          "template": "basic",
+          "title": "Audit service",
+          "body": "Ongoing user-requested activity.",
+          "actions": [
+            "a0",
+            "a1",
+            "a2"
+          ]
+        }
+      },
+      "fallback": null
+    },
+    {
+      "key": "0|org.agentos.island.audit.one|1|null|10208",
+      "package": "org.agentos.island.audit.one",
+      "userId": 0,
+      "revision": 48,
+      "firstSeenElapsedMs": 3260711,
+      "expiresElapsedMs": 6860711,
+      "stale": false,
+      "dismissed": false,
+      "active": true,
+      "triggeredAtElapsedMs": 3260711,
+      "source": "custom-v2",
+      "tier": 3,
+      "timeoutKind": "default",
+      "availableActions": [
+        {
+          "id": "a0",
+          "title": "Action a0"
+        },
+        {
+          "id": "a1",
+          "title": "Action a1"
+        },
+        {
+          "id": "a2",
+          "title": "Action a2"
+        }
+      ],
+      "payload": {
+        "version": 2,
+        "compact": {
+          "a": {
+            "type": "icon",
+            "pic": "mic"
+          },
+          "b": {
+            "type": "text",
+            "text": "A123"
+          }
+        },
+        "expanded": {
+          "template": "basic",
+          "title": "Audit service",
+          "body": "Ongoing user-requested activity.",
+          "actions": [
+            "a0",
+            "a1",
+            "a2"
+          ]
+        }
+      },
+      "fallback": null
+    }
+  ],
+  "presentation": {
+    "selected": "0|org.agentos.island.audit.two|1|null|10209",
+    "compactVisible": true,
+    "reason": "priority_changed",
+    "foregroundPackage": "org.agentos.agent",
+    "suppressedByForeground": [],
+    "secondaryKey": "0|org.agentos.island.audit.one|1|null|10208",
+    "tap": "expand",
+    "compact": {
+      "text": "FL123",
+      "secondary": true,
+      "pillGlyph": null,
+      "animatingIcons": 0,
+      "disc": "pic"
+    },
+    "expanded": false,
+    "card": null
+  }
+}

@@ -1,0 +1,1 @@
+Centered cutout bounds: Rect(479, 0 - 601, 132)
