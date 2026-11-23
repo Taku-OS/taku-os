@@ -71,6 +71,7 @@ remain pending.
 | 3: templates | `highlight`, `accentColor`, `tapAction`, scrolling chips | Same compile check; on-device template render cases added (40 actions) | Pending: render tests on device |
 | 4: Taku Agent | v2 alongside v1 from the publisher and onboarding | Exact shapes validated on the host; changed lines compile in isolation | Pending: Agent build and probes |
 | 5: docs and fixture | Developer guide, skill, fixture v2/Live Update cases | Fixture compiles against the API 36 SDK | Pending: fixture run |
+| 6: first partner | `taku_island_allowed_packages` seeded once with `org.agentos.notebook` when never written | Compile check | Pending: first-boot seeding, GUI list and `settings get global` agreement on device; Notebook's own use cases (Notebook team) |
 
 This host has no Android SDK build tools, emulator, Gradle cache or SystemUI build, so no stage has
 run on a device or in a real Soong/Dagger build. The baseline for the compile check is the set of 46

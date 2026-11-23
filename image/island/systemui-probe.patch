@@ -2770,7 +2770,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandPolicy.kt
-@@ -0,0 +1,103 @@
+@@ -0,0 +1,109 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -2842,7 +2842,11 @@
 +                Settings.Global.putString(resolver, ENABLED, if (enabled) "1" else "0")
 +            }
 +        }
-+        val rawAllowed = Settings.Global.getString(resolver, ALLOWED).orEmpty()
++        // First run only: seed the first-party partners. A user's later edit, including an empty
++        // list, is a non-null value and is never overwritten.
++        val stored = Settings.Global.getString(resolver, ALLOWED)
++        if (stored == null) Settings.Global.putString(resolver, ALLOWED, DEFAULT_ALLOWED)
++        val rawAllowed = stored ?: DEFAULT_ALLOWED
 +        try { allowedPackages = validatePackages(rawAllowed) }
 +        catch (invalid: IllegalArgumentException) {
 +            lastError = "invalid_allowed_packages"
@@ -2870,6 +2874,8 @@
 +        const val ALLOWED = "taku_island_allowed_packages"
 +        const val PROTOCOL = "taku_island_protocol"
 +        const val POST_PERMISSION = "org.agentos.permission.POST_ISLAND"
++        /** Seeded once when the allow-list was never written: Notebook is the first partner. */
++        const val DEFAULT_ALLOWED = "org.agentos.notebook"
 +        /** Newest custom wire version; v1 is still accepted through the adapter. */
 +        const val PROTOCOL_VERSION = 2
 +    }

@@ -137,6 +137,8 @@ Custom extras are read only from an authorized package:
 - **Other apps** must be added to the user-visible allow-list (Settings → Display → Activity island,
   or `taku_island_allowed_packages`) after review against §1. Contact the Taku OS team to request
   it.
+- `org.agentos.notebook` is pre-authorized. The allow-list is seeded with it on first boot, and as
+  a platform-signed app it may also declare `POST_ISLAND`.
 
 Without authorization, or with invalid extras, SystemUI ignores the extras and shows your Live
 Update presentation, if any. The notification is never dropped.

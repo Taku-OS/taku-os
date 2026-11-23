@@ -142,7 +142,9 @@ settings get global taku_island_protocol
 settings get global taku_island_allowed_packages
 ```
 
-`setAllowed` replaces the **whole** allow-list; read first, preserve unrelated entries, then write
+On first boot, when the allow-list was never written, SystemUI seeds it with
+`org.agentos.notebook` (the first authorized partner). Any later write, including an empty list,
+is kept as is. `setAllowed` replaces the **whole** allow-list; read first, preserve unrelated entries, then write
 and read back. Empty clears it. At most 128 comma-separated Android package names, each ≤255
 characters; total input ≤32768 characters. Leading/trailing whitespace is trimmed, duplicates
 removed, storage sorted. Noninstalled names are allowed for later installation. The list governs
