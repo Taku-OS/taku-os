@@ -14,6 +14,7 @@ import * as Haptics from 'expo-haptics';
 import {colors as baseColors, containsChinese, layout, typography, type TypeRole} from '../theme';
 import {languageFor, textFor, type Language, type TextKey} from '../i18n';
 import {list, record, string, type Activity, type Json, type MessagePart, type PendingQuestion, type SessionView, type ThreadSummary, type WorkspaceView} from '../model/session';
+import {humanizeToolNames} from '../model/phoneTools';
 import {Icon, IconButton} from './Icon';
 import {chatPresentation, type ChatMessageBlock} from '../model/chatPresentation';
 import {FIRST_RESPONSE_TIMEOUT_MS, type OptimisticSubmission} from '../model/optimisticChat';
@@ -158,7 +159,7 @@ function ActivityRow({item, language}: {item: Activity; language: Language}) {
       <Label role="caption" style={[styles.activityStatus, {color: item.status === 'failed' ? colors.error : colors.secondary}]}>{t(statusKey[item.status])}</Label>
       <View style={styles.activityChevron}>{!!item.text && <Icon name={open ? 'chevron_down' : 'chevron_right'} size={16} color={colors.secondary}/>}</View>
     </Pressable>
-    {open && !!item.text && <Label selectable role="caption" style={styles.details}>{item.text}</Label>}
+    {open && !!item.text && <Label selectable role="caption" style={styles.details}>{humanizeToolNames(item.text, key => t(key as TextKey))}</Label>}
   </View>;
 }
 
