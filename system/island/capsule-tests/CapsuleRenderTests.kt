@@ -18,7 +18,7 @@ class CapsuleRenderTests : Instrumentation() {
         val result = Bundle()
         try {
             var failure: Throwable? = null
-            runOnMainSync { try { cases(); progressCases() } catch (e: Throwable) { failure = e } }
+            runOnMainSync { try { cases(); progressCases(); templateCases() } catch (e: Throwable) { failure = e } }
             failure?.let { throw it }
             result.putString("stream", "PASS: $checks capsule render checks. Component Canvas only; real status-bar placement still needs SystemUI installation.\n")
             finish(Activity.RESULT_OK, result)
@@ -141,6 +141,39 @@ class CapsuleRenderTests : Instrumentation() {
         assertThat((card.getChildAt(1) as android.widget.ScrollView).canScrollVertically(1), "long status remains scrollable")
         card.update(item.copy(payload = JSONObject(item.payload.toString()).apply { getJSONObject("expanded").put("actions", org.json.JSONArray()) }, nativeActions = emptyMap()))
         assertThat(row.childCount == 1, "removed actions do not survive an update")
+    }
+
+    /** Public v2 templates: highlight value, accent colour, one unlimited chip row, tapAction off the row. */
+    private fun templateCases() {
+        val intent = android.app.PendingIntent.getActivity(targetContext, 0,
+            android.content.Intent(android.content.Intent.ACTION_MAIN).setPackage(targetContext.packageName),
+            android.app.PendingIntent.FLAG_IMMUTABLE)
+        val ids = (0 until 40).map { "a$it" }
+        val actions = (ids + "open_order").associateWith {
+            android.app.Notification.Action.Builder(null as android.graphics.drawable.Icon?, "Action $it", intent).build()
+        }
+        val payload = JSONObject().put("version", 2).put("expanded", JSONObject()
+            .put("template", "highlight").put("title", "Order ready")
+            .put("highlight", JSONObject().put("text", "A123").put("label", "Pickup code"))
+            .put("body", "Counter 3").put("actions", org.json.JSONArray(ids)).put("primaryAction", "a0")
+            .put("tapAction", "open_order").put("accentColor", "#FF8A3D"))
+        val item = IslandActivity("template-test", "org.example.delivery", 0, 0, payload, emptyMap(), actions, intent, null, null)
+        val card = IslandTemplateCard(targetContext, { _, _, _ -> }, { })
+        card.update(item)
+        val state = card.state()
+        assertThat(state.getString("template") == "highlight" && state.getString("highlight") == "A123", "highlight value drawn")
+        assertThat(state.getString("accentColor") == "#FF8A3D", "accent colour applied")
+        assertThat(state.getInt("actionCount") == 40, "every listed action is a chip; tapAction stays off the row")
+        assertThat(state.getString("tapAction") == "open_order", "card tap runs the tap action")
+        val width = (360 * targetContext.resources.displayMetrics.density).toInt()
+        val height = card.heightFor(width)
+        card.layout(0, 0, width, height)
+        val scroll = (0 until card.childCount).map { card.getChildAt(it) }.filterIsInstance<android.widget.HorizontalScrollView>().single()
+        val row = scroll.getChildAt(0) as android.widget.LinearLayout
+        val chipHeight = row.getChildAt(0).height
+        assertThat(row.height == chipHeight, "chips stay in one row and never wrap")
+        assertThat(scroll.canScrollHorizontally(1), "extra chips scroll horizontally")
+        assertThat(height < (340 * targetContext.resources.displayMetrics.density).toInt(), "forty actions do not grow the card")
     }
 
 }

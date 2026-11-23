@@ -52,21 +52,33 @@ internal object IslandStyle {
         textSize = size; setTextColor(color); typeface = face; includeFontPadding = false; letterSpacing = -.01f
     }
 
-    /** Body/Medium/lg chip, 40 dp high: white 8 % (or white 92 % with dark text when [primary]). */
-    fun chip(context: Context, title: CharSequence, primary: Boolean, click: () -> Unit): TextView {
+    /**
+     * Body/Medium/lg chip, 40 dp high: white 8 % (or white 92 % with dark text when [primary]).
+     * A primary chip with an [accent] fills with it and picks dark or white text for contrast.
+     */
+    fun chip(context: Context, title: CharSequence, primary: Boolean, accent: Int? = null, click: () -> Unit): TextView {
         val density = context.resources.displayMetrics.density
         val scaled = context.resources.displayMetrics.scaledDensity
-        return label(context, 16f, if (primary) CARD else TEXT_PRIMARY, medium(context)).apply {
+        val fill = if (primary) accent ?: TEXT_PRIMARY else CHIP
+        val ink = if (!primary) TEXT_PRIMARY else if (accent == null || prefersDarkText(accent)) CARD else TEXT_PRIMARY
+        return label(context, 16f, ink, medium(context)).apply {
             text = title
             isSingleLine = true
             gravity = Gravity.CENTER
             val horizontal = (12 * density).toInt(); val vertical = (8 * density).toInt()
             setPadding(horizontal, vertical, horizontal, vertical)
             minHeight = (24 * scaled).toInt() + 2 * vertical
-            background = GradientDrawable().apply { setColor(if (primary) TEXT_PRIMARY else CHIP); cornerRadius = 999 * density }
+            background = GradientDrawable().apply { setColor(fill); cornerRadius = 999 * density }
             isClickable = true; isFocusable = true
             setOnClickListener { click() }
         }
+    }
+
+    /** Whether black text reads better than white on [color] (WCAG relative luminance). */
+    fun prefersDarkText(color: Int): Boolean {
+        fun channel(value: Int): Double = (value / 255.0).let { if (it <= .04045) it / 12.92 else Math.pow((it + .055) / 1.055, 2.4) }
+        val luminance = .2126 * channel(Color.red(color)) + .7152 * channel(Color.green(color)) + .0722 * channel(Color.blue(color))
+        return (luminance + .05) / .05 >= 1.05 / (luminance + .05)
     }
 
     /** The 20 dp expand/collapse corner icon, exact paths from design/assistant-card/expand.svg. */

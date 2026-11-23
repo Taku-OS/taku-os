@@ -167,6 +167,10 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
     private fun pillGlyph(activity: IslandActivity): JSONObject? =
         activity.compact?.optJSONObject("b")?.takeIf { it.optString("type") in setOf("icon", "animation") }?.let(::glyph)
 
+    /** The publisher's validated accent colour, else Taku's accent. */
+    private fun accent(activity: IslandActivity): Int = activity.expanded.optString("accentColor")
+        .takeIf { it.matches(Regex("#[0-9A-Fa-f]{6}")) }?.let { 0xff000000.toInt() or it.substring(1).toInt(16) } ?: IslandStyle.ACCENT
+
     /** What the pill says: group B's text, number, clock or percentage. */
     private fun pillSlot(activity: IslandActivity): JSONObject? =
         activity.compact?.optJSONObject("b")?.takeIf { it.optString("type") in setOf("text", "timer", "countdown", "number", "progress") }
@@ -314,7 +318,7 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
             val slot = pillSlot(activity)
             val text = if (slot?.optString("type") in setOf("timer", "countdown")) pillText(slot) else shownText
             textPaint.color = if (stale || slot?.optString("emphasis") == "muted") IslandStyle.TEXT_MUTED
-                else if (slot?.optString("emphasis") == "accent") IslandStyle.ACCENT else IslandStyle.TEXT_PRIMARY
+                else if (slot?.optString("emphasis") == "accent") accent(activity) else IslandStyle.TEXT_PRIMARY
             val start = dp(PILL_START_DP) + dp(8)
             val end = textPaint.breakText(text, true, pillEnd - dp(8) - start, null)
             canvas.drawText(text.take(end), start, cy - (textPaint.ascent() + textPaint.descent()) / 2, textPaint)

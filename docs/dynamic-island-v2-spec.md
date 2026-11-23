@@ -262,9 +262,12 @@ Action chips are a **single row that scrolls horizontally** and never wraps. Dev
 many to provide. The only bounds are technical: the 8 KB payload and 32 action keys, to bound
 parsing.
 
-The onboarding progress card on `main` (`IslandProgressCard`) is currently hard-wired to
-`org.agentos.agent`. Its chrome becomes the `basic` template's chrome, and the package special case
-is removed.
+The onboarding progress card on `main` (`IslandProgressCard`) stays Taku Agent's own renderer.
+- **Deviation from the first draft (implementation, 2026-11-23):** it implements an accepted design
+  (Figma `1155:1965`) with equal-width buttons and a Close button. That conflicts with the public
+  rule of one scrolling action row.
+- It therefore remains selected only for Taku Agent's simple onboarding payload, and the public
+  `basic` template keeps the scrolling chips.
 
 | Template | Layout | Typical use |
 |---|---|---|

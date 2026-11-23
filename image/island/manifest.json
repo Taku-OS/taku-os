@@ -3,7 +3,7 @@
   "repository": "frameworks/base",
   "revision": "7f6de40b6429462d47ba9ba351b99943269c8067",
   "patch": "systemui-probe.patch",
-  "patchSha256": "4555548fd24216f266dbb46b6fc33299220198d219d733b023bb966c47ae2a27",
+  "patchSha256": "c41e7fbceca54d0b939d2fef6f1aeb1c1d3ce3acf118d64d594d4c865819e719",
   "files": [
     {
       "path": "packages/SystemUI/AndroidManifest.xml",
@@ -57,7 +57,7 @@
     {
       "path": "packages/SystemUI/src/com/android/systemui/taku/island/IslandCapsuleView.kt",
       "beforeSha256": null,
-      "afterSha256": "a38ea96d090bf9f35b246bdf177b4c3869b219a31a17cf874e320206a2ef739b",
+      "afterSha256": "c4b6ef61337f47e6d2b6501a7534ba43f8f54f05767a0d6022bc67d4e00eccd4",
       "source": "system/island/src/com/android/systemui/taku/island/IslandCapsuleView.kt"
     },
     {
@@ -111,7 +111,7 @@
     {
       "path": "packages/SystemUI/src/com/android/systemui/taku/island/IslandNativeCard.kt",
       "beforeSha256": null,
-      "afterSha256": "625315e3bda133379cfb8500d7d4fa6059363d398222267c3883f16d088903dd",
+      "afterSha256": "c709315d3048d43b8b747559a8211db6f4e73dec396ab269c6c6c345375228f6",
       "source": "system/island/src/com/android/systemui/taku/island/IslandNativeCard.kt"
     },
     {
@@ -195,7 +195,7 @@
     {
       "path": "packages/SystemUI/src/com/android/systemui/taku/island/IslandStyle.kt",
       "beforeSha256": null,
-      "afterSha256": "908af37a1f6a0e6e9fdf687b4e96a01a529b2fc70a00fd5ad7c224414187b10a",
+      "afterSha256": "a1100900229d1ae63a9a9d3a9cecff7a42b695f036a461217a321ffb06a2a439",
       "source": "system/island/src/com/android/systemui/taku/island/IslandStyle.kt"
     },
     {
@@ -213,7 +213,7 @@
     {
       "path": "packages/SystemUI/src/com/android/systemui/taku/island/IslandTemplateCard.kt",
       "beforeSha256": null,
-      "afterSha256": "2b7b125f01232f20aba8ebc25d0e617b65f5d1c196489ec13eabbae8408a4c3c",
+      "afterSha256": "29581c865119fdb428b4dd516d441d6bb8a7792bcbcf8e73a07675fbb9b45f80",
       "source": "system/island/src/com/android/systemui/taku/island/IslandTemplateCard.kt"
     },
     {

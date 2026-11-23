@@ -14,7 +14,9 @@ mkdir -p "$output/classes" "$output/dex"
 "$KOTLINC" -jvm-target 17 -classpath "$ANDROID_FRAMEWORK_JAR:$output/classes" -d "$output/classes"     src/com/android/systemui/taku/island/IslandActivity.kt     src/com/android/systemui/taku/island/IslandCapsuleView.kt \
     src/com/android/systemui/taku/island/IslandStyle.kt \
     src/com/android/systemui/taku/island/IslandStatusGlyph.kt \
-    src/com/android/systemui/taku/island/IslandProgressCard.kt capsule-tests/CapsuleRenderTests.kt
+    src/com/android/systemui/taku/island/IslandProgressCard.kt src/com/android/systemui/taku/island/IslandTemplateCard.kt \
+    src/com/android/systemui/taku/island/IslandNativeCard.kt src/com/android/systemui/taku/island/IslandCardEffects.kt \
+    capsule-tests/CapsuleRenderTests.kt
 "$JDK/bin/jar" --create --file "$output/classes.jar" -C "$output/classes" .
 "$TOOLS/d8" --min-api 36 --lib "$ANDROID_JAR" --output "$output/dex" "$output/classes.jar" "$KOTLIN_STDLIB"
 cp "$output/resources.apk" "$output/unsigned.apk"

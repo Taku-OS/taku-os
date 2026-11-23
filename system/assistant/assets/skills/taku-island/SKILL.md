@@ -117,7 +117,7 @@ fallback. `state.presentation.compact` (null when hidden) reports what the capsu
 null), `animatingIcons` (running app animated icons; each loops for at most 60 s and never
 with animations disabled) and `secondary` (a second activity's disc). `state.presentation.card`
 reports `renderer` (`systemui-native`, or `remote-surface` once a rich body is ready) and, for
-non-assistant cards, `template:{title,body,actionCount,choices,progress}` read from the drawn
+non-assistant cards, `template:{title,template,highlight,accentColor,tapAction,body,actionCount,progress}` read from the drawn
 views. A card whose content cannot be drawn closes with `reason` `render_failed:...` (or
 `window_failed:...` when it never opened) instead of staying on screen.
 
