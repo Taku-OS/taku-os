@@ -78,8 +78,11 @@ Same-thread preflight and publication are serialized through a session gate. Rec
 `steer` also requires a stable UUID `requestId`. Its receipt is persisted before calling `turn/steer`; an accepted reply returns `state:"accepted"` and the original result. If the preflight proves the expected turn changed, or the pinned native runtime explicitly returns JSON-RPC `-32600` / `no active turn to steer`, the gateway first confirms the thread is idle and the previous queued task is finished, then publishes the same message as the next task. Its durable receipt retains the original request ID and records the queued task ID. A repeated call reconciles a published task through its `ready` marker without publishing twice. A transport error or other native error remains `deliveryUnknown`; repeating that same ID returns the receipt without issuing the mutation again. Existing unknown receipts cannot be converted to a new task without evidence that the old mutation was not delivered. Reusing an ID with different text or turn fails.
 
 Use `{scope:"home"}` by itself to list all eligible Home screens in broker order. The
-broker publishes `homePreviewEligible` on its workspace rows. Home uses this list for
-both the count and the cards. Each row carries a Home preview URI at
+broker reads the Home list from its ledger using the same `homePreviewEligible` rule
+as the full workspace list. Home observes
+`content://org.agentos.assistant.agent-gateway/workspaces/home` while visible and
+reads on entry and on change for both the count and the cards. The notification
+carries no screen data. Each row carries a Home preview URI at
 `/preview/home/<threadId>/<screenKey>/<generation>` on the same gateway. Open it with
 `openInputStream` on a worker thread for a single JPEG when the card becomes visible.
 The Home UI keeps the frame for that expansion and reads again on the next expansion.
@@ -96,7 +99,7 @@ collapsed. Omitting `source` uses the session list and returns to the original
 conversation on Back. An unsupported source returns `INVALID_WORKSPACE_SOURCE`.
 A screen that no longer matches the list returns `SCREEN_LEASE_CHANGED`.
 
-Home and session `getWorkspaces` reads publish independent, immutable verified catalogs with a five-second monotonic lifetime. Each frame read uses the matching catalog and validates socket UID/PID, display identity, generation and JPEG dimensions. Before returning the JPEG over a pipe, it rechecks the original catalog lifetime and the current exact lease. Current read and frame failures invalidate the applicable catalog. Session selection invalidates the session catalog. Stale asynchronous failures leave newer results intact.
+Home and session `getWorkspaces` reads publish independent, immutable verified catalogs with a five-second monotonic lifetime. When a Home frame needs a missing or expired catalog, the gateway rereads the Home list before resolving its lease. Each frame read uses the matching catalog and validates socket UID/PID, display identity, generation and JPEG dimensions. Before returning the JPEG over a pipe, it rechecks the original catalog lifetime and the current exact lease. Current read and frame failures invalidate the applicable catalog. Session selection invalidates the session catalog. Stale asynchronous failures leave newer results intact.
 
 Validation: `bash system/assistant/test-agent-gateway-host.sh` checks capability/parameter rejection, request/session scoping, secret-field omission, and duplicate publication across a store restart. Building or passing host checks does not establish installed IPC, emulator UI, Pixel, or ROM acceptance.
 

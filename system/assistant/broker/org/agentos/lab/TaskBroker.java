@@ -147,6 +147,7 @@ public final class TaskBroker {
         retirePanelCapabilities();
         AccountBridge.start();
         NativeBridge.start();
+        DedicatedScreensOnDevice.startHomeNotifications();
         MagpieSettings.start();
         for (; ; ) {
             File[] dirs = TASKS.listFiles();

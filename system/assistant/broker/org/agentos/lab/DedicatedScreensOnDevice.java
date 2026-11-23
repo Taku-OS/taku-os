@@ -3,9 +3,11 @@ package org.agentos.lab;
 import android.util.Log;
 
 import java.util.Locale;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * The broker's dedicated screens, built from the device's parts: phone-display, am, a monotonic
@@ -14,6 +16,13 @@ import java.util.concurrent.TimeUnit;
  */
 final class DedicatedScreensOnDevice {
     private static final String LOG_TAG = "TakuDedicatedScreens";
+    private static final ExecutorService HOME_NOTIFICATIONS = Executors.newSingleThreadExecutor(work -> {
+        Thread worker = new Thread(work, "dedicated-screens-home");
+        worker.setDaemon(true);
+        return worker;
+    });
+    private static final AtomicBoolean homeNotificationQueued = new AtomicBoolean();
+    private static volatile boolean homeNotificationsStarted;
 
     private static DedicatedScreens shared;
 
@@ -26,8 +35,31 @@ final class DedicatedScreensOnDevice {
                             new DeviceClock(),
                             NativeBridge::askCodex,
                             DedicatedScreensOnDevice::systemLanguage,
-                            message -> Log.w(LOG_TAG, message));
+                            message -> Log.w(LOG_TAG, message),
+                            DedicatedScreensOnDevice::homeChanged);
         return shared;
+    }
+
+    static void startHomeNotifications() {
+        homeNotificationsStarted = true;
+        homeChanged();
+    }
+
+    private static void homeChanged() {
+        if (!homeNotificationsStarted || !homeNotificationQueued.compareAndSet(false, true)) return;
+        HOME_NOTIFICATIONS.execute(() -> {
+            try {
+                // Include writes made while waiting for the ledger, then send outside its lock.
+                try (CleanupWork.Held held = shared().lock()) {
+                    homeNotificationQueued.set(false);
+                }
+                TaskBroker.command("/system/bin/am", "broadcast", "--user", "current",
+                        "-a", "org.agentos.assistant.HOME_WORKSPACES_CHANGED",
+                        "-n", "org.agentos.assistant/.TaskNotificationReceiver");
+            } catch (Exception error) {
+                Log.w(LOG_TAG, "Home workspace notification failed", error);
+            }
+        });
     }
 
     /** Monotonic time; callbacks run one at a time on a daemon thread. */

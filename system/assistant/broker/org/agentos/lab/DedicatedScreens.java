@@ -67,6 +67,7 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
      * output goes nowhere), standard error in host tests.
      */
     private final Consumer<String> warn;
+    private final Runnable homeChanged;
 
     /** Cards the user has not answered yet, by session. */
     private final Map<String, Question> questions = new HashMap<>();
@@ -290,12 +291,25 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
             PhoneSubAgents.Rpc codex,
             Supplier<String> systemLanguage,
             Consumer<String> warn) {
+        this(host, tasks, clock, codex, systemLanguage, warn, () -> {});
+    }
+
+    /** homeChanged schedules a Home notification after the ledger lock is released. */
+    DedicatedScreens(
+            PhoneExecutionScreens.Host host,
+            PhoneTasks tasks,
+            Clock clock,
+            PhoneSubAgents.Rpc codex,
+            Supplier<String> systemLanguage,
+            Consumer<String> warn,
+            Runnable homeChanged) {
         this.host = host;
         this.tasks = tasks;
         this.clock = clock;
         this.codex = codex;
         this.systemLanguage = systemLanguage;
         this.warn = warn;
+        this.homeChanged = homeChanged;
         clock.after(CACHE_CHECK_MS, this::maintainCaches);
     }
 
@@ -503,6 +517,7 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
         questions.remove(session);
         Ticket ticket = pending(session);
         if (ticket != null) withdraw(ticket);
+        homeChanged.run();
     } }
 
     void beginReturn(String session, String key, String generation) throws Exception { try (CleanupWork.Held held7 = lock()) {
@@ -521,6 +536,7 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
         screen.closing = true;
         screen.closingOccupancy = screen.occupancy;
         screen.occupancy = null;
+        homeChanged.run();
     } }
 
     /**
@@ -547,6 +563,7 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
                 screen.stopping = false;
                 screen.resumeRequired = true;
                 screen.lastError = "";
+                homeChanged.run();
                 return item(screen);
             }
         } finally {
@@ -571,6 +588,7 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
         screen.closing = false;
         screen.resumeRequired = true;
         screen.lastError = error;
+        homeChanged.run();
     } }
 
     /** The user's own tap, swipe or back key while the screen is taken over. */
@@ -704,6 +722,7 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
         Question q = new Question(text, returnTo);
         try (CleanupWork.Held held25 = lock()) {
             questions.put(session, q);
+            homeChanged.run();
         }
         clock.after(
                 HOLD_MS,
@@ -724,6 +743,7 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
      */
     JSONObject questionEnded(String session) throws Exception { try (CleanupWork.Held held16 = lock()) {
         Question q = questions.remove(session);
+        if (q != null) homeChanged.run();
         if (q == null || q.handedOver == null) return null;
         return new JSONObject()
                 .put("packageNames", new JSONArray(q.handedOver))
@@ -1043,7 +1063,7 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
      */
     private void grantReady() {
         if (waiting.isEmpty()) {
-            changed.signalAll();
+            signalLedgerChange();
             return;
         }
         Set<String> blocked;
@@ -1055,7 +1075,7 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
                 ticket.withdrawn = true;
             }
             waiting.clear();
-            changed.signalAll();
+            signalLedgerChange();
             return;
         }
         for (Iterator<Ticket> it = waiting.iterator(); it.hasNext(); ) {
@@ -1075,7 +1095,12 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
             t.granted = true;
             it.remove();
         }
+        signalLedgerChange();
+    }
+
+    private void signalLedgerChange() {
         changed.signalAll();
+        homeChanged.run();
     }
 
     /** The first of the ticket's Apps it cannot have yet, or null. */
@@ -1171,8 +1196,11 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
 
     void removalCancelled(String session) {
         try (CleanupWork.Held held = lock()) {
-            questions.remove(session); refusals.remove(session);
-            Ticket ticket = pending(session); if (ticket != null) withdraw(ticket);
+            boolean hadQuestion = questions.remove(session) != null;
+            refusals.remove(session);
+            Ticket ticket = pending(session);
+            if (ticket != null) withdraw(ticket);
+            else if (hadQuestion) homeChanged.run();
         }
     }
 
@@ -1188,6 +1216,7 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
                 removalCancelled(screen.session);
                 screen.releasing = true;
                 screen.occupancy = null;
+                homeChanged.run();
                 found = screen;
                 break;
             }
@@ -1208,7 +1237,8 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
             sessionFamilies.entrySet().removeIf(entry -> !Collections.disjoint(entry.getValue(), sessions));
             mainSessions.keySet().removeAll(sessions);
             cacheTimes.keySet().removeIf(session -> !sessionFamilies.containsKey(session) && !mainSessions.containsKey(session));
-            closedSubAgents.keySet().removeAll(sessions); questions.keySet().removeAll(sessions);
+            closedSubAgents.keySet().removeAll(sessions);
+            if (questions.keySet().removeAll(sessions)) homeChanged.run();
             refusals.keySet().removeAll(sessions);
         }
     }
@@ -1290,6 +1320,7 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
             screen.occupancy = null;
             Ticket ticket = pending(screen.session);
             if (ticket != null) withdraw(ticket);
+            else homeChanged.run();
         }
         closeScreen(screen);
     }
@@ -1486,7 +1517,7 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
                     screen.occupancy = null;
                     closing.add(screen);
                 }
-            changed.signalAll();
+            signalLedgerChange();
         }
         Thread close =
                 new Thread(
@@ -1506,13 +1537,17 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
      */
     private DedicatedScreen leave(String session, boolean evenTakenOver) { try (CleanupWork.Held held18 = lock()) {
         refusals.remove(session);
-        questions.remove(session);
+        boolean hadQuestion = questions.remove(session) != null;
         Ticket ticket = pending(session);
         if (ticket != null) withdraw(ticket);
         DedicatedScreen screen = own(session);
-        if (screen == null || (screen.resumeRequired && !evenTakenOver)) return null;
+        if (screen == null || (screen.resumeRequired && !evenTakenOver)) {
+            if (hadQuestion) homeChanged.run();
+            return null;
+        }
         screen.releasing = true;
         screen.occupancy = null;
+        homeChanged.run();
         return screen;
     } }
 
@@ -1731,6 +1766,29 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
         return list(null);
     }
 
+    /** Home needs the ledger's screen identities and statuses in ledger order. */
+    JSONArray listHome() throws JSONException {
+        try (CleanupWork.Held held = lock()) {
+            JSONArray screens = new JSONArray();
+            for (DedicatedScreen screen : ledger) {
+                if (!homePreviewEligible(screen)) continue;
+                screens.put(new JSONObject()
+                        .put("threadId", screen.session)
+                        .put("screenKey", screen.key)
+                        .put("generation", screen.generation)
+                        .put("displayId", screen.display)
+                        .put("status", status(screen))
+                        .put("admitted", true)
+                        .put("homePreviewEligible", true));
+            }
+            return screens;
+        }
+    }
+
+    private static boolean homePreviewEligible(DedicatedScreen screen) {
+        return screen.session != null && !screen.closing && !screen.releasing;
+    }
+
     /** A single session's UI item; unrelated sessions need no Android or Codex inspection. */
     JSONArray list(String session) throws Exception {
         List<JSONObject> items = new ArrayList<>();
@@ -1786,7 +1844,7 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
                 .put("controlOwner", screen.controlOwner)
                 .put("controlRevision", screen.controlRevision)
                 .put("admitted", !screen.releasing)
-                .put("homePreviewEligible", screen.session != null && !screen.closing && !screen.releasing)
+                .put("homePreviewEligible", homePreviewEligible(screen))
                 .put("stopping", screen.stopping || screen.releasing)
                 .put("resumeRequired", screen.resumeRequired)
                 .put("canResume", !screen.releasing && !screen.controlOwner.equals("agent") && !screen.stopping)

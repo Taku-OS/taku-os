@@ -3,6 +3,7 @@ package org.agentos.assistant;
 import android.app.*;
 import android.content.*;
 import android.content.pm.PackageManager;
+import android.net.Uri;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -17,6 +18,10 @@ public final class TaskNotificationReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context c, Intent in) {
         try {
+            if ("org.agentos.assistant.HOME_WORKSPACES_CHANGED".equals(in.getAction())) {
+                c.getContentResolver().notifyChange(Uri.parse(AgentGatewayProtocol.HOME_WORKSPACES_URI), null, 0);
+                return;
+            }
             if ("org.agentos.assistant.WORKSPACE_REVOKED".equals(in.getAction())) {
                 showRevocation(c, new JSONObject(in.getStringExtra("revocation")));
                 return;

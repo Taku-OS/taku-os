@@ -349,6 +349,47 @@ public final class DedicatedScreensLifecycleTest {
         resetPolicy();
         if (args.length == 0 || args[0].equals("spec3")) spec3();
         if (args.length == 0 || args[0].equals("spec5")) spec5();
+        if (args.length == 0 || args[0].equals("home")) home();
         System.out.println("DedicatedScreensLifecycleTest: " + checks + " checks passed");
+    }
+
+    private static void home() throws Exception {
+        Rig rig = new Rig();
+        AtomicInteger changes = new AtomicInteger();
+        PhoneTasks unavailableTasks = new PhoneTasks() {
+            public List<Task> list() throws IOException { throw new IOException("Android tasks unavailable"); }
+            public void remove(int id) { throw new AssertionError("Home cannot remove tasks"); }
+        };
+        DedicatedScreens screens = new DedicatedScreens(rig.host, unavailableTasks, rig.clock,
+                rig.codex::call, () -> "en", System.err::println, changes::incrementAndGet);
+        DedicatedScreensOnDevice.registry = screens;
+        JSONObject request = new JSONObject().put("action", "list").put("scope", "home");
+        check(WorkspaceControl.control(request).getJSONArray("screens").isEmpty(), "Home starts empty");
+        JSONObject grant = screens.request(session(1), apps("com.clock"), "Home");
+        String key = grant.getString("screenKey"), generation = grant.getString("generation");
+        JSONObject started = WorkspaceControl.control(request).getJSONArray("screens").getJSONObject(0);
+        check(changes.getAndSet(0) > 0 && started.getString("threadId").equals(session(1))
+                        && started.getString("screenKey").equals(key) && started.getString("generation").equals(generation)
+                        && started.getString("status").equals("running"),
+                "Opening publishes a ledger-only Home row even when Android tasks are unavailable");
+
+        screens.asked(session(1), "Continue?", "");
+        check(changes.getAndSet(0) > 0 && screens.listHome().getJSONObject(0).getString("status").equals("waiting_for_user"),
+                "A new question refreshes the Home status");
+        screens.questionEnded(session(1));
+        check(changes.getAndSet(0) > 0 && screens.listHome().getJSONObject(0).getString("status").equals("running"),
+                "Answering refreshes the Home status");
+        screens.beginPause(session(1), key, generation);
+        check(changes.getAndSet(0) > 0 && screens.listHome().getJSONObject(0).getString("status").equals("stopping"),
+                "Takeover keeps the screen visible while it is stopping");
+        screens.finishControl(session(1), key, generation, "user");
+        check(changes.getAndSet(0) > 0 && screens.listHome().getJSONObject(0).getString("status").equals("user_control"),
+                "Finishing takeover refreshes the Home status");
+        screens.beginClose(session(1), key, generation);
+        check(changes.getAndSet(0) > 0 && WorkspaceControl.control(request).getJSONArray("screens").isEmpty(),
+                "Home drops the screen immediately when close begins");
+        screens.controlFailed(session(1), key, generation, "unconfirmed close");
+        check(changes.getAndSet(0) > 0 && screens.listHome().getJSONObject(0).getString("status").equals("paused"),
+                "Home restores the same screen after a failed close");
     }
 }

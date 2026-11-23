@@ -15,6 +15,7 @@ internal class AgentGatewayProtocol private constructor() {
     }
     companion object {
         const val AUTHORITY = "org.agentos.assistant.agent-gateway"
+        const val HOME_WORKSPACES_URI = "content://$AUTHORITY/workspaces/home"
         const val PERMISSION = "org.agentos.permission.AGENT_CLIENT"
         const val CLIENT_PACKAGE = "org.agentos.agent"
         const val MAX_REQUEST = 48_000

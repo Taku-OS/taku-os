@@ -66,6 +66,7 @@ class AgentGateway(private val resolver: ContentResolver) {
 
   companion object {
     const val AUTHORITY = "org.agentos.assistant.agent-gateway"
+    val HOME_WORKSPACES_URI: Uri = Uri.parse("content://$AUTHORITY/workspaces/home")
     private const val MAX_RESULT = 8 * 1024 * 1024
   }
 }

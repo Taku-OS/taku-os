@@ -37,7 +37,15 @@ final class WorkspaceControl {
 
     static JSONObject control(JSONObject request)throws Exception {
         String action=request.getString("action");
-        if(action.equals("list"))return request.has("threadId")?list(request.getString("threadId")):list();
+        if (action.equals("list")) {
+            if (request.has("scope")) {
+                if (!"home".equals(request.opt("scope"))) throw new IOException("INVALID_WORKSPACE_SCOPE");
+                if (request.has("threadId")) throw new IOException("UNSUPPORTED_PARAMETER");
+                return new JSONObject().put("schema", "taku.workspaces/1")
+                        .put("screens", DedicatedScreensOnDevice.shared().listHome());
+            }
+            return request.has("threadId") ? list(request.getString("threadId")) : list();
+        }
         if(action.equals("configure"))return configure(request.getJSONObject("patch"));
         if(action.equals("returnAndResume")||action.equals("addRequirement")||action.equals("executionStatus"))
             return WorkspaceExecutionRuntime.control(request);

@@ -405,9 +405,16 @@ content call --uri content://org.agentos.assistant.open-access --method workspac
 Use `{"patch":{"allowBackground":true}}` to accept new requests again. The
 examples change real settings; restore the previously read policy after a test.
 
-To match the Taku Home bookmark count, count the rows in `result.screens` with
-`homePreviewEligible: true`. Pausing and taking over a screen preserve its
-eligibility during `stopping`. Starting to close or release it clears eligibility.
+For the Taku Home bookmark list, use the same ledger read as Home.
+
+```sh
+content call --uri content://org.agentos.assistant.open-access --method workspaces/list --arg '{"scope":"home"}'
+```
+
+Count the rows in `result.screens`. Each row includes the screen identity, display
+and status. Pausing and taking over a screen preserve its eligibility during
+`stopping`. Starting to close or release it clears eligibility. Mixing `scope`
+with `threadId` returns `UNSUPPORTED_PARAMETER`.
 
 Typical rejected patches (pass them as `--arg` to `workspaces/configure`):
 

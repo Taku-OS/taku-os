@@ -67,6 +67,7 @@ class AgentGatewayProvider : ContentProvider() {
     private val completeHistory = ConcurrentHashMap<String, Set<String>>()
     private val sessionPreviewCatalog = ChatWorkspacePreviewProtocol.VerifiedCatalog()
     private val homePreviewCatalog = ChatWorkspacePreviewProtocol.VerifiedCatalog()
+    private val homeCatalogReads = Any()
     private lateinit var submissions: AgentGatewaySubmissions
     private lateinit var matters: MatterRuntime
     private lateinit var matterStreams: MatterStreams
@@ -435,12 +436,17 @@ class AgentGatewayProvider : ContentProvider() {
         return JSONObject().put("schema", "taku.agent-workspaces/1").put("screens", screens)
     }
 
-    private fun workspaces(thread: String?): JSONObject {
+    private fun workspaces(thread: String?): JSONObject =
+        if (thread == null) synchronized(homeCatalogReads) { readWorkspaces(null) }
+        else readWorkspaces(thread)
+
+    private fun readWorkspaces(thread: String?): JSONObject {
         val previewCatalog = if (thread == null) homePreviewCatalog else sessionPreviewCatalog
         val revision = previewCatalog.beginRead()
         try {
             val request = JSONObject().put("op", "workspaces").put("action", "list")
-            if (thread != null) request.put("threadId", thread)
+            if (thread == null) request.put("scope", "home")
+            else request.put("threadId", thread)
             val catalog = NativeClient.exchange(request)
             val checkedAt = SystemClock.elapsedRealtime()
             val verified = ChatWorkspacePreviewProtocol.CatalogSnapshot(catalog, thread, checkedAt, checkedAt)
@@ -468,7 +474,15 @@ class AgentGatewayProvider : ContentProvider() {
 
     private fun preview(previewCatalog: ChatWorkspacePreviewProtocol.VerifiedCatalog,
                         thread: String, key: String, generation: String): ByteArray {
-        val lease = previewCatalog.lease(thread, key, generation, SystemClock.elapsedRealtime())
+        val lease = if (previewCatalog === homePreviewCatalog) synchronized(homeCatalogReads) {
+            try {
+                previewCatalog.lease(thread, key, generation, SystemClock.elapsedRealtime())
+            } catch (failure: IOException) {
+                if (failure.message != "CATALOG_EXPIRED" && failure.message != "CATALOG_UNAVAILABLE") throw failure
+                readWorkspaces(null)
+                previewCatalog.lease(thread, key, generation, SystemClock.elapsedRealtime())
+            }
+        } else previewCatalog.lease(thread, key, generation, SystemClock.elapsedRealtime())
         val binding = lease.binding
         try {
             LocalSocket().use { socket ->

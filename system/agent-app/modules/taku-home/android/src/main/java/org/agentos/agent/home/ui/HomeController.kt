@@ -1,7 +1,10 @@
 package org.agentos.agent.home.ui
 
 import android.content.Context
+import android.database.ContentObserver
 import android.graphics.Bitmap
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
@@ -18,9 +21,10 @@ import androidx.compose.ui.graphics.layer.GraphicsLayer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import org.agentos.agent.home.R
 import org.agentos.agent.home.feed.FeedActions
 import org.agentos.agent.home.feed.FeedException
@@ -80,12 +84,25 @@ class HomeController(val context: Context, val repo: FeedRepository, val pool: R
     private set
 
   internal suspend fun watchWorkspaceScreens() {
+    val resolver = context.contentResolver
+    val changes = Channel<Unit>(Channel.CONFLATED)
+    val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
+      override fun onChange(selfChange: Boolean) { changes.trySend(Unit) }
+    }
     val params = JSONObject().put("scope", "home")
+    var observing = false
     var retryDelayMs = 0L
+    changes.trySend(Unit)
     try {
       while (true) {
-        val screens = withContext(Dispatchers.IO) {
-          try {
+        if (retryDelayMs == 0L) changes.receive()
+        else withTimeoutOrNull(retryDelayMs) { changes.receive() }
+        val screens = try {
+          if (!observing) {
+            resolver.registerContentObserver(AgentGateway.HOME_WORKSPACES_URI, false, observer)
+            observing = true
+          }
+          withContext(Dispatchers.IO) {
             val result = workspaceGateway.call("getWorkspaces", params)
             if (result.optString("schema") != "taku.agent-workspaces/1") return@withContext null
             val rows = result.getJSONArray("screens")
@@ -100,17 +117,22 @@ class HomeController(val context: Context, val repo: FeedRepository, val pool: R
                 previewUri = row.getString("previewUri"),
               )
             }
-          } catch (_: IOException) {
-            null
-          } catch (_: JSONException) {
-            null
           }
+        } catch (_: IOException) {
+          null
+        } catch (_: JSONException) {
+          null
+        } catch (_: SecurityException) {
+          null
+        } catch (_: IllegalArgumentException) {
+          null
         }
         workspaceScreens = screens.orEmpty()
         retryDelayMs = if (screens == null) (retryDelayMs + 2_500L).coerceAtMost(15_000L) else 0L
-        delay(if (retryDelayMs == 0L) 1_000L else retryDelayMs)
       }
     } finally {
+      changes.close()
+      if (observing) resolver.unregisterContentObserver(observer)
       workspaceScreens = emptyList()
     }
   }
