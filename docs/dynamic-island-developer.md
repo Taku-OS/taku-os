@@ -1,5 +1,7 @@
 # Dynamic Island developer guide
 
+English · [简体中文](dynamic-island-developer.zh-CN.md)
+
 This guide explains how an Android app shows an ongoing activity in the Taku OS Dynamic Island.
 Contract: [`spec/taku-island-v2.schema.json`](../spec/taku-island-v2.schema.json). Design and
 decisions: [v2 spec](dynamic-island-v2-spec.md). Source and on-device acceptance status:
