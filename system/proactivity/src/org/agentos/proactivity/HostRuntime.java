@@ -70,7 +70,9 @@ final class HostRuntime implements SurfaceClient.Listener {
                 case "capabilities":{
                     if(args.length()!=0)throw new IllegalArgumentException("Unexpected capability fields");
                     result=new JSONObject().put("version",1).put("observerKind","settled_event")
-                        .put("maxObserversPerPackage",4).put("maxRecords",16).put("imageDecision",false).put("agentExecution",false);break;
+                        .put("maxObserversPerPackage",4).put("maxRecords",16).put("imageDecision",false).put("agentExecution",false)
+                        .put("promptTypes",new JSONArray(List.of("hint","choice")))
+                        .put("promptActionIds",new JSONArray(List.of("accept","cancel")));break;
                 }
                 case "register": {
                     if(args.length()!=1)throw new IllegalArgumentException("Unexpected registration fields");
@@ -167,6 +169,7 @@ final class HostRuntime implements SurfaceClient.Listener {
                 .put("observerId",row.getString("id"))
                 .put("records",records).put("sourcePackage",row.getString("package"))
                 .put("producerCodeVersion",identity(context.getPackageManager().getApplicationInfo(row.getString("package"),0).uid).codeVersion())
+                .put("promptType",PromptPresentation.type(RegistryStore.activeSpec(row)))
                 .put("imageDecision",false).put("agentExecution",false);
             offers.put(candidate.id(),new Offer(key,row.getLong("activeRevision"),candidate,SystemClock.elapsedRealtime(),receipt));
             surfaces.connect();if(connected)publish(candidate.id());
@@ -185,8 +188,7 @@ final class HostRuntime implements SurfaceClient.Listener {
     private void publish(String id)throws Exception {
         Offer offer=offers.get(id);if(offer==null || !valid(offer)){if(offer!=null)withdraw(offer.key());return;}
         ObserverSpec spec=RegistryStore.activeSpec(registry.item(offer.key()));
-        surfaces.publish(SurfaceSpec.hint(id,offer.revision(),spec.title(),spec.summary(),
-            new SurfaceSpec.Action("accept","Viewed",true)).withTtlMs(120000));
+        surfaces.publish(PromptPresentation.surface(id,offer.revision(),spec));
     }
     @Override public void onConnected(){connected=true;for(String id:List.copyOf(offers.keySet()))try{publish(id);}catch(Exception e){failure=e.getMessage();}}
     @Override public void onEvent(String type,String id,long revision,String value) {
@@ -206,9 +208,14 @@ final class HostRuntime implements SurfaceClient.Listener {
     @Override public void onAction(SurfaceClient.ActionEvent event) {
         Offer offer=offers.get(event.id());if(offer==null)return;
         try {
-            if(!event.actionId().equals("accept") || event.revision()!=offer.revision() || !valid(offer)){withdraw(offer.key());return;}
-            registry.trace(offer.key(),"accepted",offer.receipt());withdraw(offer.key());
-            send(peers.get(offer.key()),new JSONObject().put("ok",true).put("type","accepted").put("result",offer.receipt()));
+            if(event.revision()!=offer.revision() || !valid(offer)){withdraw(offer.key());return;}
+            ObserverSpec spec=RegistryStore.activeSpec(registry.item(offer.key()));
+            if(!PromptPresentation.accepts(spec,event.actionId())){withdraw(offer.key());return;}
+            boolean declined=event.actionId().equals("cancel");String type=declined?"dismissed":"accepted";
+            JSONObject receipt=new JSONObject(offer.receipt().toString()).put("actionId",event.actionId());
+            if(declined)receipt.put("reason","declined");
+            registry.trace(offer.key(),type,receipt);withdraw(offer.key());
+            send(peers.get(offer.key()),new JSONObject().put("ok",true).put("type",type).put("result",receipt));
         }catch(Exception e){failure=e.getMessage();withdraw(offer.key());}
     }
     private static void send(Messenger reply,JSONObject payload) {

@@ -17,6 +17,7 @@ These are the engineering docs for this repository. To install Taku OS or learn 
 - [Versioning](versioning.md): version numbers and release rules
 - [Raw Android interfaces](raw-android-interfaces.en.md): standard Android commands on the device
 - [System AI data contract](system-ai-data-contract.md)
+- [TikTok character preview contract](../spec/tryon.md): native Try-On and Home handoff, setup, controls and verification boundaries
 - [Panel rebuild spec](panel-rebuild-spec.md): implemented Panel contract, cutover requirements and acceptance evidence
 
 ## Agents and extensions

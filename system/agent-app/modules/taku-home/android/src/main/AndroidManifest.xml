@@ -15,6 +15,9 @@
   <uses-permission android:name="org.agentos.permission.POST_ISLAND" />
   <permission android:name="org.agentos.permission.BIND_ISLAND_CONTENT" android:protectionLevel="signature" />
   <queries>
+    <!-- Fixed, signed native character-preview capability; never discover arbitrary providers. -->
+    <package android:name="org.taku.tryon" />
+    <provider android:authorities="org.taku.tryon.api" />
     <!-- Discover the native ROM island host; the app never draws an island card. -->
     <provider android:authorities="com.android.systemui.island" />
     <provider android:authorities="org.agentos.assistant.permissions" />

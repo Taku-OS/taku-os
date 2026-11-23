@@ -1,0 +1,30 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="org.agentos.shopping" android:versionCode="30" android:versionName="0.13.0-delivery-preview">
+ <uses-sdk android:minSdkVersion="36" android:targetSdkVersion="36"/>
+ <uses-permission android:name="org.agentos.assistant.permission.USE_AI"/>
+ <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+ <uses-permission android:name="org.agentos.permission.POST_ISLAND"/>
+ <queries>
+  <provider android:authorities="org.agentos.assistant.permissions"/>
+  <provider android:authorities="com.android.systemui.island"/>
+  <package android:name="org.agentos.proactivity"/>
+  <package android:name="org.agentos.surfaces"/>
+  <package android:name="org.agentos.assistant"/>
+  <package android:name="org.taku.tryon"/>
+  <package android:name="com.zhiliaoapp.musically"/>
+  <package android:name="com.ss.android.ugc.trill"/>
+  <provider android:authorities="org.agentos.ai"/>
+ </queries>
+ <application android:label="Live Try-On Suggestions" android:theme="@android:style/Theme.Material.Light.NoActionBar" android:allowBackup="false" android:supportsRtl="true" android:usesCleartextTraffic="false">
+  <activity android:name=".MainActivity" android:exported="true">
+   <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
+   <intent-filter><action android:name="org.agentos.proactivity.OBSERVER_PLUGIN"/><category android:name="android.intent.category.DEFAULT"/></intent-filter>
+  </activity>
+  <receiver android:name=".ObserverActions" android:exported="false"/>
+  <provider android:name=".ObserverProvider" android:authorities="org.agentos.shopping.api" android:exported="true"/>
+  <provider android:name=".ReferenceProvider" android:authorities="org.agentos.shopping.reference" android:exported="false" android:grantUriPermissions="true"/>
+  <service android:name=".ShoppingObserverService" android:label="Taku Live Try-On Observer" android:exported="true" android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+   <intent-filter><action android:name="android.accessibilityservice.AccessibilityService"/></intent-filter>
+   <meta-data android:name="android.accessibilityservice" android:resource="@xml/observation"/>
+  </service>
+ </application>
+</manifest>

@@ -1,0 +1,259 @@
+{
+  "schema": "taku.tryon.delivery.v1",
+  "name": "TikTok LIVE outfit try-on development preview",
+  "releaseReady": false,
+  "sourceBase": "65917a4a658d06a39ac9e76b46a84e3d548f8aee",
+  "deviceBaseline": {
+    "device": "Pixel 9 (tokay)",
+    "android": 17,
+    "api": 37,
+    "systemBuild": "20261118070714",
+    "scope": "recorded custom development component set; not a stock-ROM installer"
+  },
+  "credentials": {
+    "mode": "BYOK",
+    "lucyKey": "user supplies own fal key inside Taku Try-On; no key included",
+    "recognition": "separate Taku AI image model configuration"
+  },
+  "systemUi": {
+    "sourceFixPresent": true,
+    "includedArtifact": "compatibility DEX rewrite; not normal Soong source build",
+    "normalSourceBuildVerified": false,
+    "fullRomVerified": false,
+    "coldBootVerified": false
+  },
+  "runtimePrerequisites": {
+    "wrapperSha256": "18f311330d161d48d4fd947954ea307346d9f2c500f4f141285ee5347580e987",
+    "brokerSha256": "c6139e9e9cd833480888a7f42f123e8b3fadacbf130bf7a93d276e94d46e91e4",
+    "audioBridgeSha256": "ff7f07e816e42c3c77b30ba616553942c9f748f7cb0f0c132fb9d79bbd18a4f0",
+    "notes": "Baseline custom runtime had temporary mounts; package assembly neither alters device nor restores personal data."
+  },
+  "artifacts": [
+    {
+      "file": "verified-device/apk/com.android.systemui.apk",
+      "package": "com.android.systemui",
+      "versionCode": 37,
+      "versionName": "17",
+      "sha256": "8bebe7d9ecadaddfe55ed74c27ac45bc84a777586df0a7e8ebfe3eade92670de",
+      "bytes": 43791113,
+      "certificateSha256": "c8a2e9bccf597c2fb6dc66bee293fc13f2fc47ec77bc6b2b0d52c11f51192ab8",
+      "signatureVerified": true,
+      "kind": "recorded-pixel-development-artifact",
+      "presentInRecordedPixelSet": true
+    },
+    {
+      "file": "verified-device/apk/org.agentos.agent.apk",
+      "package": "org.agentos.agent",
+      "versionCode": 12,
+      "versionName": "0.5.1",
+      "sha256": "44c15259ade229b890ec3a508b23ac436035de00d5a304a250b6451b5b6863c5",
+      "bytes": 52745142,
+      "certificateSha256": "c8a2e9bccf597c2fb6dc66bee293fc13f2fc47ec77bc6b2b0d52c11f51192ab8",
+      "signatureVerified": true,
+      "kind": "recorded-pixel-development-artifact",
+      "presentInRecordedPixelSet": true
+    },
+    {
+      "file": "verified-device/apk/org.agentos.assistant.apk",
+      "package": "org.agentos.assistant",
+      "versionCode": 119,
+      "versionName": "20261120-assistant",
+      "sha256": "883ef82f7ef148ec0f05039479c8bef0a2e5bd73bdcd7760c065962421cc9764",
+      "bytes": 6265009,
+      "certificateSha256": "c8a2e9bccf597c2fb6dc66bee293fc13f2fc47ec77bc6b2b0d52c11f51192ab8",
+      "signatureVerified": true,
+      "kind": "recorded-pixel-development-artifact",
+      "presentInRecordedPixelSet": true
+    },
+    {
+      "file": "verified-device/apk/org.agentos.audio.apk",
+      "package": "org.agentos.audio",
+      "versionCode": 2,
+      "versionName": "0.2.0",
+      "sha256": "d45142510fa857310388d42c0554e68d2d3a69945706d9aaef4b0e0ac15ac639",
+      "bytes": 34711291,
+      "certificateSha256": "c8a2e9bccf597c2fb6dc66bee293fc13f2fc47ec77bc6b2b0d52c11f51192ab8",
+      "signatureVerified": true,
+      "kind": "recorded-pixel-development-artifact",
+      "presentInRecordedPixelSet": true
+    },
+    {
+      "file": "verified-device/apk/org.agentos.proactivity.apk",
+      "package": "org.agentos.proactivity",
+      "versionCode": 8,
+      "versionName": "0.5.0",
+      "sha256": "d12880a7ca39197b443478f7afa54b5c47c0b2935ee8c204a030a039283342d4",
+      "bytes": 98809,
+      "certificateSha256": "c8a2e9bccf597c2fb6dc66bee293fc13f2fc47ec77bc6b2b0d52c11f51192ab8",
+      "signatureVerified": true,
+      "kind": "recorded-pixel-development-artifact",
+      "presentInRecordedPixelSet": true
+    },
+    {
+      "file": "verified-device/apk/org.agentos.shopping.apk",
+      "package": "org.agentos.shopping",
+      "versionCode": 29,
+      "versionName": "0.12.5-pixel-live-container",
+      "sha256": "b3a3410df337d3bbf70f00b98f78474e5cdfcfcce3652e4576b3656342bd6269",
+      "bytes": 131568,
+      "certificateSha256": "14c68be13ee1442fc59a0669bcdc9a0603cc574dbf92a2ddaa6a988164ce99df",
+      "signatureVerified": true,
+      "kind": "recorded-pixel-development-artifact",
+      "presentInRecordedPixelSet": true,
+      "validationScope": "Recorded installed Observer29; automatic invitation stable24.81s in verified DetailActivity; no try-on started"
+    },
+    {
+      "file": "verified-device/apk/org.agentos.surfaces.apk",
+      "package": "org.agentos.surfaces",
+      "versionCode": 15,
+      "versionName": "0.8.3-compact-choice",
+      "sha256": "852baf4c60757115ad31739e2e2b0c1422dc8e605a94a321d2e466ba2bf08173",
+      "bytes": 156790,
+      "certificateSha256": "c8a2e9bccf597c2fb6dc66bee293fc13f2fc47ec77bc6b2b0d52c11f51192ab8",
+      "signatureVerified": true,
+      "kind": "recorded-pixel-development-artifact",
+      "presentInRecordedPixelSet": true
+    },
+    {
+      "file": "verified-device/apk/org.taku.tryon.apk",
+      "package": "org.taku.tryon",
+      "versionCode": 96,
+      "versionName": "1.0.0",
+      "sha256": "d69815eb6f8027ed4fb902391639b51c6bdee7e003ee52d2fcd1abed4b746502",
+      "bytes": 194195583,
+      "certificateSha256": "093755c8c6f8c0fd1fd9ceab905f53c139e257e1d019942faebcc6f30448c9f5",
+      "signatureVerified": true,
+      "kind": "recorded-pixel-development-artifact",
+      "presentInRecordedPixelSet": true,
+      "validationScope": "Recorded installed Native96; initialization failure cleanup confirmed, no new crash observed; natural timeout/real X/PID acceptance pending"
+    },
+    {
+      "file": "source-build/apk/TakuShoppingObserver-30-main-platform-development.apk",
+      "package": "org.agentos.shopping",
+      "versionCode": 30,
+      "versionName": "0.13.0-delivery-preview",
+      "sha256": "5cbe963e86c6d702a085aff5b20ec79832eb558e4a1ba15b5bb719e8a333258b",
+      "bytes": 131568,
+      "certificateSha256": "c8a2e9bccf597c2fb6dc66bee293fc13f2fc47ec77bc6b2b0d52c11f51192ab8",
+      "signatureVerified": true,
+      "kind": "fresh-source-candidate",
+      "presentInRecordedPixelSet": false,
+      "validationScope": "Current-platform source build; no physical-device acceptance",
+      "physicalDeviceAccepted": false
+    },
+    {
+      "file": "source-build/apk/TakuShoppingObserver-30-pixel-adapter-platform-development.apk",
+      "package": "org.agentos.shopping",
+      "versionCode": 30,
+      "versionName": "0.13.0-pixel-delivery-preview",
+      "sha256": "74c4fac487e9de3b1381bd0d5535c278569be07f0384b4b8918a3b0ac74d3c9d",
+      "bytes": 135664,
+      "certificateSha256": "c8a2e9bccf597c2fb6dc66bee293fc13f2fc47ec77bc6b2b0d52c11f51192ab8",
+      "signatureVerified": true,
+      "kind": "fresh-source-candidate",
+      "presentInRecordedPixelSet": false,
+      "validationScope": "Recorded-host-wire adapter source build; no physical-device acceptance",
+      "physicalDeviceAccepted": false,
+      "isolatedValidation": "Window/Chrome/system-host touch and passive preview guard passed; no camera/model/provider-API acceptance"
+    },
+    {
+      "file": "source-build/apk/TakuTryOn-97-platform-development.apk",
+      "package": "org.taku.tryon",
+      "versionCode": 97,
+      "versionName": "1.0.0-delivery-preview",
+      "sha256": "9d524b786f2f248e26e46ae9bd2b28fcdb8e897fa5e68de3034ad64bd140c42e",
+      "bytes": 194195583,
+      "certificateSha256": "c8a2e9bccf597c2fb6dc66bee293fc13f2fc47ec77bc6b2b0d52c11f51192ab8",
+      "signatureVerified": true,
+      "kind": "fresh-source-candidate",
+      "presentInRecordedPixelSet": false,
+      "validationScope": "Rebuilt from refreshed delivery source including host-failure routing; no physical-device acceptance",
+      "physicalDeviceAccepted": false,
+      "isolatedValidation": "Window/Chrome/system-host touch and passive preview guard passed; no camera/model/provider-API acceptance"
+    },
+    {
+      "file": "source-build/apk/TakuProactivity-9-platform-development.apk",
+      "package": "org.agentos.proactivity",
+      "versionCode": 9,
+      "versionName": "0.2.0-preview",
+      "sha256": "802e422fa2e7fef6bf69d45875683c432666977f0f6ea885ccbdc6a775d5ab32",
+      "bytes": 74233,
+      "certificateSha256": "c8a2e9bccf597c2fb6dc66bee293fc13f2fc47ec77bc6b2b0d52c11f51192ab8",
+      "signatureVerified": true,
+      "kind": "fresh-source-candidate",
+      "presentInRecordedPixelSet": false,
+      "physicalDeviceAccepted": false
+    }
+  ],
+  "runtimeArtifacts": [
+    {
+      "file": "verified-device/runtime/taku-runtime-start",
+      "type": "runtime",
+      "sha256": "18f311330d161d48d4fd947954ea307346d9f2c500f4f141285ee5347580e987",
+      "bytes": 2763,
+      "targetPath": "/system_ext/bin/taku-runtime-start",
+      "mode": "755",
+      "selinuxContext": "u:object_r:system_file:s0",
+      "kind": "recorded-development-runtime; integrator-only; not a production image install"
+    },
+    {
+      "file": "verified-device/runtime/agentos-task-broker.jar",
+      "type": "runtime",
+      "sha256": "c6139e9e9cd833480888a7f42f123e8b3fadacbf130bf7a93d276e94d46e91e4",
+      "bytes": 1060909,
+      "targetPath": "/system_ext/framework/agentos-task-broker.jar",
+      "mode": "644",
+      "selinuxContext": "u:object_r:shell_data_file:s0",
+      "kind": "recorded-development-runtime; integrator-only; not a production image install"
+    },
+    {
+      "file": "verified-device/runtime/taku-audio-bridge.jar",
+      "type": "runtime",
+      "sha256": "ff7f07e816e42c3c77b30ba616553942c9f748f7cb0f0c132fb9d79bbd18a4f0",
+      "bytes": 1806664,
+      "targetPath": "/system_ext/etc/taku-audio/taku-audio-bridge.jar",
+      "mode": "444",
+      "selinuxContext": "u:object_r:system_file:s0",
+      "kind": "recorded-development-runtime; integrator-only; not a production image install"
+    }
+  ],
+  "pendingAcceptance": [
+    "Natural 60-second timeout and real close-button PID continuity for recorded Native96",
+    "Fresh Native97 / Observer30 / Proactivity9 physical-device installation and end-to-end runtime acceptance",
+    "Lucy INTERNAL_ERROR root cause and stable cloud initialization",
+    "Normal SystemUI Soong/ROM build and clean boot"
+  ],
+  "repairSet": [
+    "remove_extra_running_control_card",
+    "restore_capsule_and_existing_system_view_host_input",
+    "suppress_invitation_over_attached_preview",
+    "verify_detail_activity_live_container",
+    "await_off_main_tls_websocket_and_late_socket_cleanup"
+  ],
+  "recordedEvidence": {
+    "native96": {
+      "localCleanupAfterInitializationFailure": true,
+      "cameraClientsEmpty": true,
+      "noNewCrashObserved": true,
+      "pidContinuityVerified": false,
+      "full60SecondTimeoutAndRealCloseAcceptance": false
+    },
+    "observer29": {
+      "automaticInvitationStableSeconds": 24.81,
+      "phase": "suggesting",
+      "generation": 4,
+      "published": 1,
+      "stale": 0,
+      "tryOnStartedByThisCheck": false
+    }
+  },
+  "knownIssues": [
+    {
+      "code": "lucy_platform_INTERNAL_ERROR",
+      "status": "unresolved",
+      "observedElapsedMs": 9428,
+      "generatedFrames": 0,
+      "exactRootCauseKnown": false
+    }
+  ]
+}

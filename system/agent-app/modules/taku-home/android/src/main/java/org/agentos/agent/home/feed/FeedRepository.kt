@@ -83,12 +83,9 @@ class FeedRepository private constructor(context: Context, private val sources: 
     try {
       preferences = store.restore(published)
       eventHead = store.head()
-      if (sources.isEmpty()) {
-        // Push-only live Feed: retire legacy sample preferences without touching published cards.
-        val next = preferences.copy(
-          pins = preferences.pins.filter { it in published },
-          removed = LinkedHashSet(preferences.removed.filter { it in published }), defaultsApplied = true,
-        )
+      if (sources.isEmpty() && !preferences.defaultsApplied) {
+        // Unresolved stored preferences still belong to the user; only mark defaults complete.
+        val next = preferences.copy(defaultsApplied = true)
         store.applyDefaults(next)
         preferences = next
       }
@@ -138,6 +135,7 @@ class FeedRepository private constructor(context: Context, private val sources: 
     .put("rank", card.rank).put("summary", card.summary).put("pinned", card.id in preferences.pins)
     .put("pin", card.json.optJSONObject("pin"))
     .put("actions", JSONArray(card.actions.values.map { JSONObject().put("id", it.id).put("label", it.label) }))
+    .put("actionAvailability", card.actionAvailability())
 
   // ---- Paging ------------------------------------------------------------------------
 
@@ -388,6 +386,7 @@ class FeedRepository private constructor(context: Context, private val sources: 
         values = FeedSelectionValues.EMPTY
       }
     }
+    action.requireAvailable()
     val cursor = commit(FeedEvent.accepted(origin, card.id, action, values, request is FeedActionRequest.AskAbout))
     AcceptedFeedAction(card, action, values, cursor)
   }

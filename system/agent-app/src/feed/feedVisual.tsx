@@ -126,12 +126,13 @@ export function FeedPressable({label, role = 'button', expanded, onPress, onLong
   return <Pressable accessibilityRole={role} accessibilityLabel={label} accessibilityState={{expanded, disabled, busy, selected}} disabled={disabled || busy}
     onPress={onPress} onLongPress={onLongPress} style={({pressed}) => [pressed && styles.pressed, disabled && styles.disabled]}>{children}</Pressable>;
 }
-export function FeedItem({leading, children, trailing, corner, onPress, label, layout = 'row'}: {
-  leading?: ReactNode; children: ReactNode; trailing?: ReactNode; corner?: ReactNode; onPress?: () => void; label?: string; layout?: 'row' | 'tile';
+export function FeedItem({leading, children, trailing, corner, onPress, label, layout = 'row', disabled}: {
+  leading?: ReactNode; children: ReactNode; trailing?: ReactNode; corner?: ReactNode; onPress?: () => void; label?: string; layout?: 'row' | 'tile'; disabled?: boolean;
 }) {
   const body = <><View style={[styles.itemLead, layout === 'tile' && styles.tile]}>{leading}{children}</View>{trailing}
     {corner ? <View style={styles.itemCorner}>{corner}</View> : null}</>;
-  return onPress ? <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={({pressed}) => [styles.item, layout === 'tile' && styles.tile, pressed && styles.pressed]}>{body}</Pressable>
+  return onPress ? <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{disabled}} disabled={disabled} onPress={onPress}
+    style={({pressed}) => [styles.item, layout === 'tile' && styles.tile, pressed && styles.pressed, disabled && styles.disabled]}>{body}</Pressable>
     : <View style={[styles.item, layout === 'tile' && styles.tile]}>{body}</View>;
 }
 export function FeedSelection({label, kind, checked, disabled, children, onPress, compact = false}: {

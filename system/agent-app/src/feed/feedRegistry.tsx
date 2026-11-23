@@ -4,14 +4,21 @@ import {ActivityIndicator, Animated, PanResponder, Platform, Pressable, ScrollVi
   type ScrollViewInstance, type StyleProp, type TextStyle, type ViewStyle} from 'react-native';
 import Svg, {Defs, LinearGradient, Path, Rect, Stop} from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
-import {defineRegistry, useBoundProp} from '@json-render/react-native';
+import {defineRegistry, useBoundProp, useRepeatScope, useStateStore, type ComponentRenderProps} from '@json-render/react-native';
 import {ICONS, feedCatalog, type IconName} from './feedCatalog';
 import {accent, containsCjk, content, fills, frosted, main, radii, surface, textStyle, tones, type Fill, type TextVariant, type Tone} from './feedTokens';
 import {levelAt} from './value';
 import {FeedButton, FeedCornerTag, FeedHeader, FeedImage, FeedInset, FeedItem, FeedProgress, FeedSelection, FeedTags, FeedText, FeedValue} from './feedVisual';
+import {hasUnavailableBinding, type ActionAvailability} from './actionAvailability';
 
 /** Reports a failed dispatch so the card can say so instead of pretending it worked. */
 export const FeedActionError = createContext<(message: string | null) => void>(() => {});
+export const FeedActionAvailability = createContext<ActionAvailability>({});
+const FeedControlDisabled = createContext(false);
+
+function ActionControl({children}: {children: (disabled: boolean) => ReactNode}) {
+  return children(useContext(FeedControlDisabled));
+}
 
 /** FeedText with a style override, for mention chips, quote meta and word-wrapped message runs. */
 function T({text, variant = 'body-md', tone = 'primary', style, lines}: {text: string; variant?: TextVariant; tone?: Tone; style?: StyleProp<TextStyle>; lines?: number}) {
@@ -41,22 +48,22 @@ const boxStyle = (p: BoxProps, row: boolean): ViewStyle => ({
 });
 
 /** Vertical level track (3-2 temperature): drag anywhere on it; the value is sent on release. */
-function LevelTrack({value, min, max, label, binding, emit}: {value: number; min: number; max: number; label: string; binding?: string; emit: (event: string) => void}) {
+function LevelTrack({value, min, max, label, binding, emit, disabled}: {value: number; min: number; max: number; label: string; binding?: string; emit: (event: string) => void; disabled: boolean}) {
   const [bound, setBound] = useBoundProp<number>(value, binding);
   const [drag, setDrag] = useState<number | null>(null);
   const [height, setHeight] = useState(0);
   const shown = drag ?? (binding ? bound : value) ?? min;
   const share = max > min ? Math.min(1, Math.max(0, (shown - min) / (max - min))) : 0;
-  const commit = (next: number) => { setDrag(null); if (binding) setBound(next); emit('change'); };
-  return <View accessible accessibilityRole="adjustable" accessibilityLabel={label} accessibilityValue={{min, max, now: shown}}
-    accessibilityActions={[{name: 'increment'}, {name: 'decrement'}]}
+  const commit = (next: number) => { if (disabled) return; setDrag(null); if (binding) setBound(next); emit('change'); };
+  return <View accessible accessibilityRole="adjustable" accessibilityLabel={label} accessibilityValue={{min, max, now: shown}} accessibilityState={{disabled}}
+    accessibilityActions={disabled ? undefined : [{name: 'increment'}, {name: 'decrement'}]}
     onAccessibilityAction={event => commit(Math.min(max, Math.max(min, shown + (event.nativeEvent.actionName === 'increment' ? 1 : -1))))}
-    onLayout={event => setHeight(event.nativeEvent.layout.height)} style={styles.level}
-    onStartShouldSetResponder={() => true} onMoveShouldSetResponder={() => true}
+    onLayout={event => setHeight(event.nativeEvent.layout.height)} style={[styles.level, disabled && styles.disabled]}
+    onStartShouldSetResponder={() => !disabled} onMoveShouldSetResponder={() => !disabled}
     // The drag belongs to the track: the page and the Home pager must not take it over.
     onResponderTerminationRequest={() => false}
-    onResponderGrant={event => setDrag(levelAt(event.nativeEvent.locationY, height, min, max))}
-    onResponderMove={event => setDrag(levelAt(event.nativeEvent.locationY, height, min, max))}
+    onResponderGrant={event => { if (!disabled) setDrag(levelAt(event.nativeEvent.locationY, height, min, max)); }}
+    onResponderMove={event => { if (!disabled) setDrag(levelAt(event.nativeEvent.locationY, height, min, max)); }}
     onResponderRelease={event => commit(levelAt(event.nativeEvent.locationY, height, min, max))}
     onResponderTerminate={() => setDrag(null)}>
     <View pointerEvents="none" style={[styles.levelFill, {height: `${Math.max(12, share * 100)}%`}]}><View style={styles.levelHandle}/></View>
@@ -96,40 +103,41 @@ function MentionText({text}: {text: string}) {
   </View>;
 }
 
-function DispatchButton({label, variant, size, icon, flex, emit}: {label: string; variant?: 'primary' | 'secondary'; size?: 'lg' | 'md'; icon?: 'sparkle'; flex?: number; emit: (event: string) => unknown}) {
+function DispatchButton({label, variant, size, icon, flex, emit, disabled}: {label: string; variant?: 'primary' | 'secondary'; size?: 'lg' | 'md'; icon?: 'sparkle'; flex?: number; emit: (event: string) => unknown; disabled: boolean}) {
   const [sending, setSending] = useState(false);
   const report = useContext(FeedActionError);
   const press = async () => {
-    if (sending) return;
+    if (sending || disabled) return;
     setSending(true); report(null);
     try {await emit('press');}
     catch (error) { report(error instanceof Error ? error.message : String(error)); }
     finally { setSending(false); }
   };
-  return <FeedButton label={label} variant={variant} size={size} icon={icon} flex={flex} busy={sending} onPress={() => { void press(); }}/>;
+  return <FeedButton label={label} variant={variant} size={size} icon={icon} flex={flex} busy={sending} disabled={disabled} onPress={() => { void press(); }}/>;
 }
 
-function Segmented({options, value, binding, emit}: {options: {id: string; label: string}[]; value?: string | null; binding?: string; emit: (event: string) => void}) {
+function Segmented({options, value, binding, emit, disabled}: {options: {id: string; label: string}[]; value?: string | null; binding?: string; emit: (event: string) => void; disabled: boolean}) {
   const [bound, setBound] = useBoundProp<string | null | undefined>(value, binding);
   const [local, setLocal] = useState(value ?? options[0]?.id);
   const selected = binding ? bound : local;
   return <View accessibilityRole="radiogroup" style={styles.segmented}>
     {options.map(option => {
       const active = option.id === selected;
-      return <Pressable key={option.id} accessibilityRole="radio" accessibilityState={{selected: active}} accessibilityLabel={option.label}
-        onPress={() => { if (binding) setBound(option.id); else setLocal(option.id); emit('change'); }}
-        style={[styles.segment, active && {backgroundColor: surface[800]}]}>
+      return <Pressable key={option.id} accessibilityRole="radio" accessibilityState={{selected: active, disabled}} accessibilityLabel={option.label} disabled={disabled}
+        onPress={() => { if (disabled) return; if (binding) setBound(option.id); else setLocal(option.id); emit('change'); }}
+        style={[styles.segment, active && {backgroundColor: surface[800]}, disabled && styles.disabled]}>
         <FeedText text={option.label} lines={1}/>
       </Pressable>;
     })}
   </View>;
 }
 
-function Checklist({items, checked, binding, fade, emit}: {items: {id: string; label: string}[]; checked?: string[] | null; binding?: string; fade?: boolean; emit: (event: string) => void}) {
+function Checklist({items, checked, binding, fade, emit, disabled}: {items: {id: string; label: string}[]; checked?: string[] | null; binding?: string; fade?: boolean; emit: (event: string) => void; disabled: boolean}) {
   const [bound, setBound] = useBoundProp<string[] | null | undefined>(checked, binding);
   const [local, setLocal] = useState<string[]>(checked ?? []);
   const done = (binding ? bound : local) ?? [];
   const toggle = (id: string) => {
+    if (disabled) return;
     const next = done.includes(id) ? done.filter(item => item !== id) : [...done, id];
     if (binding) setBound(next); else setLocal(next);
     emit('change');
@@ -137,7 +145,7 @@ function Checklist({items, checked, binding, fade, emit}: {items: {id: string; l
   return <View style={styles.checklist}>
     {items.map(item => {
       const on = done.includes(item.id);
-      return <FeedSelection key={item.id} label={item.label} kind="checkbox" checked={on} compact onPress={() => toggle(item.id)}>
+      return <FeedSelection key={item.id} label={item.label} kind="checkbox" checked={on} disabled={disabled} compact onPress={() => toggle(item.id)}>
         <FeedText text={item.label} tone={on ? 'tertiary' : 'primary'} lines={1} flex={1} strike={on}/>
       </FeedSelection>;
     })}
@@ -182,37 +190,39 @@ function PostTile({post, s, front}: {post: Post; s: number; front: boolean}) {
   </View>;
 }
 
-function MediaStack({posts, emit}: {posts: Post[]; emit: (event: string) => void}) {
+function MediaStack({posts, emit, disabled}: {posts: Post[]; emit: (event: string) => void; disabled: boolean}) {
   const [front, left, right] = posts;
   const back = (post: Post | undefined, side: -1 | 1) => post ? <View pointerEvents="none" style={[styles.stackSlot, {transform: [{translateX: side * 60.15}, {rotate: `${side * 8}deg`}]}]}>
     <PostTile post={post} s={0.9} front={false}/>
   </View> : null;
-  return <Pressable accessibilityRole="button" accessibilityLabel={`${posts.length} posts, ${front.author} first`} onPress={() => emit('press')} style={styles.stack}>
+  return <Pressable accessibilityRole="button" accessibilityLabel={`${posts.length} posts, ${front.author} first`} accessibilityState={{disabled}} disabled={disabled}
+    onPress={() => emit('press')} style={[styles.stack, disabled && styles.disabled]}>
     {back(left, -1)}{back(right, 1)}
     <View style={styles.stackSlot}><PostTile post={front} s={1} front/></View>
   </Pressable>;
 }
 
 /** Slide to confirm: thumb follows the finger; reaching the end fires `complete` once, then resets. */
-function SlideToAct({label, icon = 'unlock', emit}: {label: string; icon?: IconName; emit: (event: string) => unknown}) {
+function SlideToAct({label, icon = 'unlock', emit, disabled}: {label: string; icon?: IconName; emit: (event: string) => unknown; disabled: boolean}) {
   const [width, setWidth] = useState(0);
   const [busy, setBusy] = useState(false);
   const report = useContext(FeedActionError);
   const [x] = useState(() => new Animated.Value(0));
   const max = Math.max(0, width - 56);
   // Gesture callbacks outlive renders; they read the latest values from this box.
-  const state = useRef({max, busy, emit, report});
-  useEffect(() => { state.current = {max, busy, emit, report}; });
+  const state = useRef({max, busy, emit, report, disabled});
+  useEffect(() => { state.current = {max, busy, emit, report, disabled}; });
   const reset = () => Animated.spring(x, {toValue: 0, useNativeDriver: Platform.OS !== 'web', bounciness: 4}).start();
   // The responder's callbacks read state.current only while a gesture runs, never during render.
   // eslint-disable-next-line react-hooks/refs
   const responder = useMemo(() => PanResponder.create({
-    onStartShouldSetPanResponder: () => !state.current.busy,
-    onMoveShouldSetPanResponder: (_e, g) => !state.current.busy && Math.abs(g.dx) > Math.abs(g.dy),
+    onStartShouldSetPanResponder: () => !state.current.busy && !state.current.disabled,
+    onMoveShouldSetPanResponder: (_e, g) => !state.current.busy && !state.current.disabled && Math.abs(g.dx) > Math.abs(g.dy),
     onPanResponderTerminationRequest: () => false,
-    onPanResponderMove: (_e, g) => x.setValue(Math.max(0, Math.min(state.current.max, g.dx))),
+    onPanResponderMove: (_e, g) => { if (!state.current.disabled) x.setValue(Math.max(0, Math.min(state.current.max, g.dx))); },
     onPanResponderRelease: (_e, g) => {
       const {max: end} = state.current;
+      if (state.current.disabled) { reset(); return; }
       if (end > 0 && g.dx >= end * 0.9) {
         setBusy(true);
         Animated.timing(x, {toValue: end, duration: 120, useNativeDriver: Platform.OS !== 'web'}).start();
@@ -228,10 +238,11 @@ function SlideToAct({label, icon = 'unlock', emit}: {label: string; icon?: IconN
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), []);
   const labelOpacity = max ? x.interpolate({inputRange: [0, max * 0.6], outputRange: [1, 0], extrapolate: 'clamp'}) : 1;
-  return <View accessible accessibilityRole="adjustable" accessibilityLabel={label} accessibilityState={{busy}}
-    accessibilityActions={[{name: 'activate', label}]}
-    onAccessibilityAction={() => {if (!busy) {setBusy(true); void Promise.resolve(emit('complete')).finally(() => setBusy(false));}}}
-    onLayout={e => setWidth(e.nativeEvent.layout.width)} style={styles.slide}>
+  return <View accessible accessibilityRole="adjustable" accessibilityLabel={label} accessibilityState={{busy, disabled}}
+    accessibilityActions={disabled ? undefined : [{name: 'activate', label}]}
+    onAccessibilityAction={() => {if (!busy && !disabled) {setBusy(true); void Promise.resolve(emit('complete'))
+      .catch(error => report(error instanceof Error ? error.message : String(error))).finally(() => setBusy(false));}}}
+    onLayout={e => setWidth(e.nativeEvent.layout.width)} style={[styles.slide, disabled && styles.disabled]}>
     <Animated.View pointerEvents="none" style={[styles.slideLabel, {opacity: labelOpacity}]}>
       <FeedText text={label} variant="body-lg" tone="tertiary" lines={1}/>
     </Animated.View>
@@ -243,7 +254,7 @@ function SlideToAct({label, icon = 'unlock', emit}: {label: string; icon?: IconN
 }
 
 /** Horizontal pages; height follows the current page so the card resizes as you swipe. */
-function Pager({index, binding, emit, children}: {index?: number | null; binding?: string; emit: (event: string) => void; children?: ReactNode}) {
+function Pager({index, binding, emit, children, disabled}: {index?: number | null; binding?: string; emit: (event: string) => void; children?: ReactNode; disabled: boolean}) {
   const pages = React.Children.toArray(children);
   const [bound, setBound] = useBoundProp<number | null | undefined>(index, binding);
   const [local, setLocal] = useState(index ?? 0);
@@ -253,6 +264,7 @@ function Pager({index, binding, emit, children}: {index?: number | null; binding
   const scroll = useRef<ScrollViewInstance>(null);
   useEffect(() => { if (width) scroll.current?.scrollTo({x: current * width, animated: true}); }, [current, width]);
   const settle = (offset: number) => {
+    if (disabled) return;
     if (!width) return;
     const next = Math.round(offset / width);
     if (next === current) return;
@@ -260,7 +272,7 @@ function Pager({index, binding, emit, children}: {index?: number | null; binding
     emit('change');
   };
   return <View onLayout={e => setWidth(e.nativeEvent.layout.width)} style={{height: heights[current]}}>
-    {width ? <ScrollView ref={scroll} horizontal pagingEnabled showsHorizontalScrollIndicator={false} contentOffset={{x: current * width, y: 0}}
+    {width ? <ScrollView ref={scroll} horizontal pagingEnabled scrollEnabled={!disabled} accessibilityState={{disabled}} showsHorizontalScrollIndicator={false} contentOffset={{x: current * width, y: 0}}
       onMomentumScrollEnd={e => settle(e.nativeEvent.contentOffset.x)}
       onScrollEndDrag={Platform.OS === 'web' ? e => settle(e.nativeEvent.contentOffset.x) : undefined}
       scrollEventThrottle={16} contentContainerStyle={styles.pagerContent}>
@@ -278,7 +290,7 @@ function Dots({count, index, variant = 'dot'}: {count: number; index?: number | 
   </View>;
 }
 
-const {registry: feedRegistry} = defineRegistry(feedCatalog, {components: {
+const {registry: baseRegistry} = defineRegistry(feedCatalog, {components: {
   Column: ({props, children}) => <View style={boxStyle(props, false)}>{children}</View>,
   Row: ({props, children}) => <View style={boxStyle(props, true)}>{children}</View>,
   Spacer: ({props}) => <View style={props.flex != null ? {flex: props.flex} : {width: props.size ?? 8, height: props.size ?? 8}}/>,
@@ -307,17 +319,18 @@ const {registry: feedRegistry} = defineRegistry(feedCatalog, {components: {
       <MentionText text={props.text}/>
     </View>
   </View>,
-  Button: ({props, emit}) => <DispatchButton {...props} emit={emit}/>,
+  Button: ({props, emit}) => <ActionControl>{disabled => <DispatchButton {...props} emit={emit} disabled={disabled}/>}</ActionControl>,
   IconButton: ({props, emit}) => {
     const glass = props.variant === 'glass';
     const size = props.size ?? (glass ? 32 : 40);
-    return <Pressable accessibilityRole="button" accessibilityLabel={props.label} onPress={() => emit('press')} hitSlop={glass ? 8 : 0}
-      style={({pressed}) => [styles.iconButton, glass && styles.iconButtonGlass, {width: size, height: size, borderRadius: size / 2}, pressed && styles.pressed]}>
+    return <ActionControl>{disabled => <Pressable accessibilityRole="button" accessibilityLabel={props.label} accessibilityState={{disabled}} disabled={disabled}
+      onPress={() => emit('press')} hitSlop={glass ? 8 : 0}
+      style={({pressed}) => [styles.iconButton, glass && styles.iconButtonGlass, {width: size, height: size, borderRadius: size / 2}, pressed && styles.pressed, disabled && styles.disabled]}>
       <Glyph name={props.icon} size={glass ? 18 : 16}/>
-    </Pressable>;
+    </Pressable>}</ActionControl>;
   },
   Tags: ({props}) => <FeedTags items={props.items}/>,
-  Segmented: ({props, bindings, emit}) => <Segmented options={props.options} value={props.value} binding={bindings?.value} emit={emit}/>,
+  Segmented: ({props, bindings, emit}) => <ActionControl>{disabled => <Segmented options={props.options} value={props.value} binding={bindings?.value} emit={emit} disabled={disabled}/>}</ActionControl>,
   ProductImage: ({props}) => <View style={[styles.product, {flex: props.flex ?? 1}]}>
     {props.shadow !== false ? <Asset src="asset:feed/starbucks/shadow-ellipse.svg" width="47.13%" height="19.54%" style={styles.productShadow}/> : null}
     <Asset src={props.src} width="100%" height="100%" fit="contain" label={props.alt} style={StyleSheet.absoluteFill}/>
@@ -328,7 +341,7 @@ const {registry: feedRegistry} = defineRegistry(feedCatalog, {components: {
     const size = props.size ?? 32;
     return <Asset src={props.src} width={size} height={size} radius={props.shape === 'rounded' ? size * 0.1875 : size / 2}/>;
   },
-  Checklist: ({props, bindings, emit}) => <Checklist items={props.items} checked={props.checked} binding={bindings?.checked} fade={props.fade} emit={emit}/>,
+  Checklist: ({props, bindings, emit}) => <ActionControl>{disabled => <Checklist items={props.items} checked={props.checked} binding={bindings?.checked} fade={props.fade} emit={emit} disabled={disabled}/>}</ActionControl>,
   ProgressBar: ({props}) => <FeedProgress value={props.value} tone={props.tone}/>,
   ArcGauge: ({props, children}) => <ArcGauge value={props.value} tone={props.tone}>{children}</ArcGauge>,
   MapRoute: ({props, children}) => {
@@ -350,7 +363,7 @@ const {registry: feedRegistry} = defineRegistry(feedCatalog, {components: {
       {children ? <View style={styles.mapOverlay}>{children}</View> : null}
     </View>;
   },
-  OptionRow: ({props, emit}) => <FeedItem onPress={() => emit('press')} leading={<Asset src={props.image} width={48} height={48} fit="contain"/>}
+  OptionRow: ({props, emit}) => <ActionControl>{disabled => <FeedItem disabled={disabled} onPress={() => emit('press')} leading={<Asset src={props.image} width={48} height={48} fit="contain"/>}
     trailing={<View style={styles.optionPrice}>{props.price ? <FeedText text={props.price} variant="body-xl-medium"/> : null}{props.subprice ? <FeedText text={props.subprice} tone="tertiary"/> : null}</View>}
     corner={props.tag ? <FeedCornerTag tone="solid" {...props.tag}/> : undefined}>
       <View>
@@ -362,10 +375,10 @@ const {registry: feedRegistry} = defineRegistry(feedCatalog, {components: {
           {props.meta.map((item, i) => <React.Fragment key={i}>{i ? <View style={styles.metaDot}/> : null}<FeedText text={item} tone="tertiary" lines={1}/></React.Fragment>)}
         </View>
       </View>
-  </FeedItem>,
-  MediaStack: ({props, emit}) => <MediaStack posts={props.posts} emit={emit}/>,
-  SlideToAct: ({props, emit}) => <SlideToAct label={props.label} icon={props.icon} emit={emit}/>,
-  Pager: ({props, bindings, emit, children}) => <Pager index={props.index} binding={bindings?.index} emit={emit}>{children}</Pager>,
+  </FeedItem>}</ActionControl>,
+  MediaStack: ({props, emit}) => <ActionControl>{disabled => <MediaStack posts={props.posts} emit={emit} disabled={disabled}/>}</ActionControl>,
+  SlideToAct: ({props, emit}) => <ActionControl>{disabled => <SlideToAct label={props.label} icon={props.icon} emit={emit} disabled={disabled}/>}</ActionControl>,
+  Pager: ({props, bindings, emit, children}) => <ActionControl>{disabled => <Pager index={props.index} binding={bindings?.index} emit={emit} disabled={disabled}>{children}</Pager>}</ActionControl>,
   Dots: ({props}) => <Dots count={props.count} index={props.index} variant={props.variant}/>,
   Cover: ({props, children}) => {
     const {src, sheen, ...box} = props;
@@ -382,11 +395,11 @@ const {registry: feedRegistry} = defineRegistry(feedCatalog, {components: {
     {props.dot ? <View style={[styles.statusDot, {backgroundColor: props.dot === 'green' ? '#34C759' : accent.brand}]}/> : null}
     <T text={props.label} tone="secondary" lines={1}/>
   </View>,
-  Switch: ({props, emit}) => <Pressable accessibilityRole="switch" accessibilityLabel={props.label} accessibilityState={{checked: props.on}}
-    onPress={() => emit('press')} hitSlop={8} style={({pressed}) => [styles.switchBox, pressed && styles.pressed]}>
+  Switch: ({props, emit}) => <ActionControl>{disabled => <Pressable accessibilityRole="switch" accessibilityLabel={props.label} accessibilityState={{checked: props.on, disabled}} disabled={disabled}
+    onPress={() => emit('press')} hitSlop={8} style={({pressed}) => [styles.switchBox, pressed && styles.pressed, disabled && styles.disabled]}>
     <Toggle on={props.on}/>
-  </Pressable>,
-  LevelTrack: ({props, bindings, emit}) => <LevelTrack value={props.value} min={props.min} max={props.max} label={props.label} binding={bindings?.value} emit={emit}/>,
+  </Pressable>}</ActionControl>,
+  LevelTrack: ({props, bindings, emit}) => <ActionControl>{disabled => <LevelTrack value={props.value} min={props.min} max={props.max} label={props.label} binding={bindings?.value} emit={emit} disabled={disabled}/>}</ActionControl>,
   Timeline: ({props}) => <View>
     {props.items.map((item, i) => {
       const first = i === 0, last = i === props.items.length - 1;
@@ -426,14 +439,33 @@ const {registry: feedRegistry} = defineRegistry(feedCatalog, {components: {
     </View>
     <FlightEnd end={props.to}/>
   </View>,
-  Link: ({props, emit}) => <Pressable accessibilityRole="button" onPress={() => emit('press')} hitSlop={8} style={({pressed}) => [styles.link, pressed && styles.pressed]}>
+  Link: ({props, emit}) => <ActionControl>{disabled => <Pressable accessibilityRole="button" accessibilityState={{disabled}} disabled={disabled}
+    onPress={() => emit('press')} hitSlop={8} style={({pressed}) => [styles.link, pressed && styles.pressed, disabled && styles.disabled]}>
     <T text={props.label} tone="secondary"/>
-  </Pressable>,
+  </Pressable>}</ActionControl>,
 }});
+
+/** The catalog adapter passes only resolved props; inspect event bindings before that boundary. */
+function withActionAvailability(Control: React.ComponentType<ComponentRenderProps>) {
+  return function AvailableControl(props: ComponentRenderProps) {
+    const availability = useContext(FeedActionAvailability);
+    const {state} = useStateStore();
+    const repeat = useRepeatScope();
+    const disabled = hasUnavailableBinding(props.element.on, availability, {stateModel: state,
+      repeatItem: repeat?.item, repeatIndex: repeat?.index, repeatBasePath: repeat?.basePath});
+    return <FeedControlDisabled.Provider value={disabled}><Control {...props}/></FeedControlDisabled.Provider>;
+  };
+}
+
+const feedRegistry = {...baseRegistry};
+for (const name of ['Button', 'IconButton', 'Segmented', 'Checklist', 'OptionRow', 'MediaStack', 'SlideToAct', 'Pager', 'Switch', 'LevelTrack', 'Link']) {
+  feedRegistry[name] = withActionAvailability(baseRegistry[name]);
+}
 export {feedRegistry};
 
 const styles = StyleSheet.create({
   pressed: {opacity: 0.6},
+  disabled: {opacity: 0.4},
   iconButtonGlass: {backgroundColor: surface[800]},
   cover: {overflow: 'hidden'},
   statusChip: {flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: surface[800], borderRadius: 16, paddingHorizontal: 12, paddingVertical: 6},

@@ -3,7 +3,8 @@ import React, {Component, useCallback, useEffect, useMemo, useState, type ReactN
 import {StyleSheet, View} from 'react-native';
 import {JSONUIProvider, Renderer, createStateStore, type Spec} from '@json-render/react-native';
 import {validateFeedSpec} from './feedCatalog';
-import {FeedActionError, feedRegistry} from './feedRegistry';
+import {FeedActionAvailability, FeedActionError, feedRegistry} from './feedRegistry';
+import {hasUnavailableActions, isActionUnavailable, UNAVAILABLE_ACTION_MESSAGE, UNAVAILABLE_ACTION_NOTICE, type ActionAvailability} from './actionAvailability';
 import {FeedStatus, FeedText} from './feedVisual';
 import {dispatchAction, getCard, onCardChanged, reportCardHeight, type DispatchResult} from './native';
 
@@ -13,6 +14,7 @@ export type FeedCard = {
   layout?: {span?: 'full' | 'half'; surface?: 'card' | 'control'};
   ui: {catalog: string; spec: Spec; state?: Record<string, unknown>};
   actions?: Record<string, {label?: string; intent: {type: string}}>;
+  actionAvailability?: ActionAvailability;
   [key: string]: unknown;
 };
 
@@ -47,6 +49,7 @@ export function FeedCardView({card, onDispatch, onHeight}: {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const store = useMemo(() => createStateStore(JSON.parse(stateKey)), [card.id, stateKey]);
   const [actionError, setActionError] = useState<string | null>(null);
+  const availability = card.actionAvailability ?? EMPTY_AVAILABILITY;
   const issues = useMemo(() => card.ui.catalog === 'taku-feed-1'
     ? validateFeedSpec(card.ui.spec, card.ui.state ?? {}, new Set(Object.keys(card.actions ?? {})))
     : [{element: '(card)', message: `unsupported catalog ${card.ui.catalog}`}], [card]);
@@ -54,24 +57,33 @@ export function FeedCardView({card, onDispatch, onHeight}: {
   const handlers = useMemo(() => ({
     dispatch: async (params: Record<string, unknown>) => {
       const actionId = String(params.actionId ?? '');
+      if (isActionUnavailable(actionId, availability)) {
+        setActionError(UNAVAILABLE_ACTION_MESSAGE);
+        throw new Error(UNAVAILABLE_ACTION_MESSAGE);
+      }
       const select = Array.isArray(params.select) ? params.select.filter((p): p is string => typeof p === 'string') : [];
       const values = Object.fromEntries(select.map(path => [path, store.get(path) ?? null]));
       const result = await onDispatch(actionId, values);
       if (!result.ok) throw new Error(result.message);
     },
-  }), [onDispatch, store]);
+  }), [availability, onDispatch, store]);
   const half = card.layout?.span === 'half';
   return <View collapsable={false} style={[styles.root, half && styles.half]} onLayout={e => onHeight?.(e.nativeEvent.layout.height)}>
-    <FeedActionError.Provider value={setActionError}>
-      {issues.length ? <Summary text={card.summary}/> : <CardBoundary key={card.id} fallback={card.summary}>
-        <JSONUIProvider registry={feedRegistry} store={store} handlers={handlers}>
-          <Renderer spec={card.ui.spec} registry={feedRegistry} includeStandard={false}/>
-        </JSONUIProvider>
-      </CardBoundary>}
-    </FeedActionError.Provider>
+    {hasUnavailableActions(availability) ? <View style={styles.notice}><FeedStatus text={UNAVAILABLE_ACTION_NOTICE} state="info"/></View> : null}
+    <FeedActionAvailability.Provider value={availability}>
+      <FeedActionError.Provider value={setActionError}>
+        {issues.length ? <Summary text={card.summary}/> : <CardBoundary key={card.id} fallback={card.summary}>
+          <JSONUIProvider registry={feedRegistry} store={store} handlers={handlers}>
+            <Renderer spec={card.ui.spec} registry={feedRegistry} includeStandard={false}/>
+          </JSONUIProvider>
+        </CardBoundary>}
+      </FeedActionError.Provider>
+    </FeedActionAvailability.Provider>
     {actionError ? <View style={styles.error}><FeedStatus text={actionError} state="error"/></View> : null}
   </View>;
 }
+
+const EMPTY_AVAILABILITY: ActionAvailability = {};
 
 /** Registered with AppRegistry as `TakuFeedCard`; initial props `{cardId}`. */
 export default function FeedCardRoot({cardId}: {cardId: string}) {
@@ -92,5 +104,6 @@ export default function FeedCardRoot({cardId}: {cardId: string}) {
 const styles = StyleSheet.create({
   root: {backgroundColor: 'transparent', alignSelf: 'stretch'},
   half: {aspectRatio: 1},
+  notice: {marginBottom: 8},
   error: {marginTop: 8},
 });

@@ -81,9 +81,21 @@ pins/removals and preserves published cards and their management state.
 | `dismiss` | – | Removes the card (same path as long-press → Remove, including the dust animation). |
 | `none` | – | Accepted and recorded; used by sample cards whose real integration does not exist yet. |
 
-A card carrying a retired `panel` intent fails validation as `INVALID_CARD`; the old
-`PanelActions` bridge and its provider no longer exist. Content panels open through the
-Assistant's `panels` operation instead.
+New published or generated cards carrying a retired `panel` intent fail validation
+as `INVALID_CARD`; the old `PanelActions` bridge and its provider no longer exist.
+Content panels open through the Assistant's `panels` operation instead.
+
+Stored cards with these historical actions survive migration and subsequent
+database restores without rewriting their original JSON. The storage-only parser
+marks those actions unavailable. `feed/get` returns an `actionAvailability` map
+beside the unchanged `card`; each `feed/list` card/pin summary has the same map.
+Entries are `{ "available": true }` or `{ "available": false,
+"code": "ACTION_UNAVAILABLE", "message": "This action is no longer available." }`.
+The GUI shows a notice and disables the affected controls. GUI and Agent execution
+both reject the action as `ACTION_UNAVAILABLE` before recording an accepted event;
+restoring a card never restores the retired execution bridge. Migration retains
+published cards, pins, removals and available legacy history, and leaves its source
+JSON intact.
 
 Unavailable integrations must say so (`none` + a truthful prompt), never fake success.
 

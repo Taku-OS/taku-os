@@ -1,0 +1,209 @@
+# Native AI try-on
+
+`TakuTryOn` is a native Android app (`org.taku.tryon`, ordinary app UID). It owns the front-camera preview, bounded reference decoding, Lucy or XMax video transport, and a floating/full-screen result. The Home Assistant can hand off the current TikTok character frame after a real voice request and a final Try on confirmation. This module contains no automatic LIVE observation, Zoom/meeting integration, system-camera injection, browser relay, model account, bundled model credentials, or demo-success mode.
+
+Selecting a reference, editing a draft, saving a model, or reading the API never starts a model. Each explicit start/retry opens at most one cloud session, for at most 60 seconds. There is no automatic paid retry. Provider billing may apply. Screen-off, stop, service destruction, timeout, camera failure, and provider failure stop the camera and transport. A new attempt waits for camera `onClosed`, preparation cancellation and the transport cleanup callback. Unconfirmed cleanup blocks another attempt; `status.cleanupPending` and `diagnostics` expose that condition. Lucy's callback confirms local RTC/signaling closure, not a server-side session-release or billing receipt; a provider can still reject a new session while releasing its previous one.
+
+The result window preserves live preview, drag, pinch resize, hold-to-compare, minimize, expand, full screen, and close. Only a decoded cloud frame changes Preparing to Live or triggers the first result reveal. The original Preparing/Live capsule is visible and touchable; tapping it restores the same preview. Active and normally stopped sessions do not publish a separate `AI try-on` text card with Expand/Stop controls. The required low-priority camera foreground notification remains in the notification shade; its body restores the existing window and its stop action uses the same controller. The independently admitted terminal-failure top-island card is retained.
+
+`ShoppingPreviewHost` transports the existing camera/video tree. An integration can register an explicit `Factory` before creating a preview. Otherwise, devices retaining the platform-signed `org.agentos.assistant/org.agentos.surfaces.IslandViewHostService` and granting `org.agentos.surfaces.permission.HOST_ISLAND_VIEW` use the original system-owned SurfaceControlViewHost transport. This restores the capsule's input above the status bar. The module bundles only its permission-checked client; it does not add a privileged host service or a shared UID. Other devices retain the application-overlay fallback, whose input cannot reach above a higher system status-bar window. Host attachment is asynchronous, has a five-second deadline and gates camera start on the actual attached root. Capture/layout updates also reach pending attachment; a late callback cannot restart a closing camera.
+
+A host failure uses the existing failed-state/error-card path after camera closure, never the user-stop path. `status.code` and `diagnostics.failureCode` preserve the fixed codes `system_island_timeout`, `system_island_unavailable`, `system_island_disconnected`, `system_island_binding_died`, `system_island_bind_failed`, `system_island_layout_failed`, `system_island_error`, `system_island_invalid_display`, `system_island_missing_surface`, `system_island_attach_failed`, and `system_island_connection_lost`. An unrecognized integration response becomes `preview_host_failed`; raw host text is never published. The error does not start or retry a model, and late failure/ready callbacks after close are ignored.
+
+After the character confirmation's Try on, a movable small window shows the actual front camera while the connection starts. Camera/Connecting labels remain until a returned frame is decoded; only then can it show Character/Live. The character result stays small until the user or API explicitly chooses full screen. Its toolbar sits outside the video; the video and empty grip area both support dragging. Position is clamped to the display safe area and retained across compact/fullscreen transitions. Outfit preview retains its existing first-returned-frame automatic full-screen reveal.
+
+## Build and offline tests
+
+From repository root, with JDK 17+:
+
+```sh
+bash system/tryon/test-host.sh
+```
+
+`bash system/tryon/test-rtc-cleanup.sh` additionally compiles the actual Lucy adapter against an already prepared Android SDK/dependency cache. Deterministic actors exercise 48 cleanup, 319 queue/backpressure, 138 informational-burst and 110 signaling-close assertions. UI-thread stop immediately aborts the raw connection, DNS and deadline; TLS and WebSocket close execute on the existing cleanup actor before its receipt. Cleanup also waits for an in-flight socket creation and closes a late wrapper before confirming release. Failed local closure keeps cleanup unconfirmed. These fixtures use fake sockets, never JNI, a live network connection or a model; they are distinct from Android runtime acceptance.
+
+The host suite also runs the actual notification, capsule, deferred attach and system-host adapter methods against deterministic Android doubles. It retains the existing character/result-action suites. These checks verify the missing controls and shutdown paths; they do not establish cloud-service availability. The observed Lucy/fal `INTERNAL_ERROR` during initialization remains unresolved and is not marked fixed by these changes.
+
+These tests use generated byte planes, synthetic frames, fake decoded objects, fake monotonic clocks, and pure protocol/geometry classes. They do not exercise Android camera pixels, provider permission checks, a device, or a cloud model.
+
+For a standalone APK, install the repository's Android SDK/build tools from `scripts/android-env.sh`, then:
+
+```sh
+python3 system/tryon/app/prepare-native-deps.py --download
+bash system/tryon/app/build.sh
+```
+
+Native dependency preparation is the only dependency download step. SHA-256 and size are pinned in `app/dependencies.lock.json`; subsequent native dependency use is offline. The default signer helper may fetch missing, hash-pinned public AOSP development test material, exactly as Home's build does; cached signing material is verified before reuse. Default dependencies and outputs are in ignored repository `out/`. `TAKU_TRYON_NATIVE_DEPS` may select another verified cache. Standalone builds use `scripts/aosp-test-keys.py` and the shared public development `out/development-signing/platform.pk8`/`platform.x509.pem`, matching Home while retaining an ordinary app UID. `TAKU_TRYON_KEYSTORE`, `TAKU_TRYON_KEY_ALIAS` and `TAKU_TRYON_KEYSTORE_PASS_SPEC` can explicitly select an existing keystore, including the approved Pixel compatibility signer. Generated signers, archives, APKs and JARs are not source contributions. No build command installs to a phone or starts a model.
+
+For a Soong source build, prepare the same verified archives in ignored module downloads before building `TakuTryOn`:
+
+```sh
+python3 system/tryon/app/prepare-native-deps.py --download --soong
+```
+
+`Android.bp` statically links the pinned WebRTC, Java-WebSocket/SLF4J, and Agora AARs. The built-in app uses the platform certificate with an ordinary UID; there is no shared UID. The versioned character handoff contract is shared with Home; application permission and notification helpers remain app-owned. This opt-in module is not added to the default ROM product.
+
+Third-party provenance, original licenses and notices are in `app/third-party/`, and standalone APKs include them with the verified dependency receipt. Android's installed sans-serif is used; no unlicensed reference artwork or font binaries are included.
+
+## GUI and Agent API
+
+Open the same native controller UI before starting a camera:
+
+```sh
+adb shell am start -n org.taku.tryon/.realtime.TryOnActivity
+adb shell content call --uri content://org.taku.tryon.api --method describe
+adb shell content call --uri content://org.taku.tryon.api --method status
+```
+
+Root, system, shell, self, and platform-signed callers have direct access. Other app UIDs are checked against the central App Permission Center (`taku.control`), with failure closed. There is no separate API state or alternate validation. The UI's persisted draft, model choices, permission metadata, session state, and credential-configured metadata are readable through `status`; credentials and invocation tickets are never returned. `query` returns the same status JSON in one `json` column.
+
+`call` returns a Bundle with `ok:boolean` and a fixed `code:string`. `status` adds `json`, schema `taku.tryon.v1`, containing `referenceImport`, `draft`, `outfit`, `character`, `foreground`, `cameraPermission`, `overlayPermission`, `lucyKeyConfigured`, `xmaxKeyConfigured`, `state`, `detail`, `code`, `active`, `cleanupPending`, `remainingSeconds`, `sourceFrames`, `returnedFrames`, `presentation`, and `position`. `position` reads the current GUI window on its main thread: `x`, `y`, `width`, `height` are display pixels and `canMove` reports current move eligibility. With no available window, or an unavailable main-thread read, it contains only `canMove:false`; missing bounds are not guessed from a previous frame. GUI dragging is reflected on the next status read. `diagnostics` adds the bounded, sanitized last-attempt JSON (fixed stages, HTTP status, WebRTC/Agora media and cleanup evidence; no keys, tokens, reference pixels, URLs, prompts or raw exceptions). Invalid types, unknown fields, malformed JSON, mixed non-empty extras plus `arg`, or an `arg` on a no-argument method produce `invalid_arguments` before mutation. `configure`, `draft`, `start`, `clearCredential`, and `move` also accept their fields as a strict JSON object in `arg` (32 KiB UTF-8 maximum). Values are strings except integer `referenceExpires` (stored as Long) and `move` coordinates (signed 32-bit range); duplicates, nested values, booleans, nulls, floating point and numeric coercion are rejected. Both carriers use the same Controller validation.
+
+| Method | Extras and result |
+| --- | --- |
+| `configure` | Optional `mode:string` (`outfit` default or `character`), `provider:string` (`lucy`/`xmax`), `region:string` (`global`/`china`). Missing provider/region retains saved values. Returns status. Writes are blocked while an attempt/cleanup owns resources. |
+| `draft` | No extras reads the persisted draft. Optional string `mode`, `referenceUri` (`content://`, empty clears), `prompt` (max 2000), and long `referenceExpires` (elapsed-realtime deadline, 0 means a user-picked persistent URI). Returns the same draft fields plus a revision. The UI uses the same method. No image read/network request occurs. |
+| `start` | Same fields as draft, with missing values taken from the saved draft. Requires a non-empty readable `content://` reference. Uses the mode's current saved configuration. The camera permission, overlay permission, visible Activity, reference expiry, key-configured state and exclusive resource ownership are validated before launch. |
+| `retry` | No extras. Reuses this process's previous explicit reference/prompt, revalidates expiry/permissions, and uses current saved model settings. Requires the visible Activity. Never retries automatically. |
+| `stop` | No extras. Stops active attempt; idempotent when already stopped. |
+| `minimize`, `expand`, `fullscreen` | No extras. Same window handlers used by GUI controls and gestures. Returns `ok:false` when no active host exists. |
+| `move` | Required integer `x`, `y`: absolute top-left of the floating window in display pixels. JSON integers or integer/long extras within signed 32-bit range are accepted. Uses the GUI's same safe-area clamping; read `status.position` for actual bounds. Only an attached, movable preview accepts it; compact/fullscreen, capture-hidden, moving or closing windows return `presentation_unavailable`. Does not expand a window, start a camera/model, or alter the session. |
+| `clearCredential` | Required string `provider` (`lucy`/`xmax`). Same encrypted store/validation as UI. |
+| `describe`, `status`, `diagnostics` | No extras; read only. |
+
+Examples below run inside the device shell (`adb shell` first, or directly from the on-device Agent). Configuration and draft operations do not contact a model. Use JSON `--arg` for content URIs: Android 36's `content --extra` splits every colon in a binding, so shell quoting cannot make a `content://` value valid there.
+
+```sh
+content call --uri content://org.taku.tryon.api --method configure --arg '{"mode":"outfit","provider":"lucy","region":"global"}'
+content call --uri content://org.taku.tryon.api --method configure --arg '{"mode":"character","provider":"xmax","region":"china"}'
+content call --uri content://org.taku.tryon.api --method draft --arg '{"mode":"character","referenceUri":"content://SOURCE/AUTHORIZED_IMAGE","prompt":"robot","referenceExpires":0}'
+content call --uri content://org.taku.tryon.api --method move --arg '{"x":24,"y":360}'
+# Explicit billed operation, only after camera/overlay permission and visible UI:
+content call --uri content://org.taku.tryon.api --method start
+content call --uri content://org.taku.tryon.api --method stop
+```
+
+An Agent can import the current screen through a bounded content pipe (no global storage grant is needed):
+
+```sh
+adb shell 'screencap -p | content write --uri content://org.taku.tryon.api/reference/current'
+adb shell content call --uri content://org.taku.tryon.api --method status
+```
+
+`referenceImport.state` is `writing`, `ready`, or `failed`; wait for `ready` and a new `revision` before explicit `start`. This asynchronous pipe never implies a successful import merely because `content write` returned. Inputs are limited to 4 MiB, JPG/PNG/WebP and 32 million decoded pixels; decoding is sampled and the normalized JPEG replaces the private file atomically. Malformed/oversized uploads retain the previous file/draft and report `invalid_reference`. A 30-second pipe timeout bounds abandoned writers. Imports and starts cannot race an active attempt. The imported reference appears in the same visible draft as `content://org.taku.tryon.api/reference/current`; authorized Agents may read it. This is the actual source reference, not an automatic garment crop or scene classifier.
+
+A caller supplying a reference URI must grant `org.taku.tryon` read access. An Agent can use a standard on-device content URI from its screenshot/image source; this module does not add a global screenshot/HAL hook. Selecting a document uses Android's document picker and a persistable read grant. Unreadable, malformed, oversized or unsupported images fail before cloud authorization.
+
+Credentials are write-only UTF-8 content pipes, bounded to 1024 bytes; use `content write` with stdin to avoid putting a secret into command arguments or responses:
+
+```sh
+# Feed the real key through stdin from the caller's secure secret source.
+adb shell content write --uri content://org.taku.tryon.api/credentials/lucy < /secure/local-key-file
+adb shell content call --uri content://org.taku.tryon.api --method status
+```
+
+The `/credentials/xmax` endpoint is identical. One credential input may be active at a time; another open returns `credential_write_busy`. EOF and admission to the existing synchronous credential store must occur within 30 seconds, otherwise the pipe closes with `credential_write_timeout` and cannot change the key later. An already admitted store completes before another write is accepted. Validate success by configured metadata. Keys are AES-GCM encrypted with app-owned Android Keystore keys; `openFile` never permits reads. No credential is accepted in an Intent or status payload.
+
+Fixed preflight codes include `invalid_arguments`, `invalid_mode`, `invalid_provider`, `invalid_configuration`, `invalid_prompt`, `reference_required`, `reference_expired`, `foreground_required`, `camera_permission_required`, `overlay_permission_required`, `missing_key`, `busy`, `no_previous_request`, `foreground_service_denied`, and storage/credential errors. Asynchronous decoding/camera/cloud errors are in `status.code` and sanitized diagnostics. A provider `INTERNAL_ERROR` is reported as cloud failure, never as successful try-on. Input-frame counters, signaling readiness and model acknowledgement do not count as a displayed result.
+
+## TikTok character handoff
+
+Open Taku Try-On and use **TikTok character requests** to enable the entry and allow
+camera preview after Try on. Both switches call the same `configureCosplay` gateway
+used by the Agent API. Defaults remain disabled and voice-only. Voice-only means no
+camera/cloud preview; it never manufactures a successful result. Selecting Lucy or
+XMax still uses the Character model settings above.
+
+Home (`org.agentos.agent`, ordinary app UID) owns the real system gesture, the
+current screen frame and recognition. Its existing Audio Engine dictation uses
+`settingsScope: "assistant-entry"`; Try-On has no separate ASR or language preference.
+The **Assistant voice language** button opens the real Taku Audio
+`org.agentos.audio/.DictationSettingsActivity`. A legacy `speechLanguage` field to
+`configureCosplay` is explicitly rejected, rather than silently changing an unused
+Try-On preference. The same authoritative settings are available to Agents:
+
+```sh
+content call --uri content://org.agentos.audio.open-access --method settings --arg '{"action":"read"}'
+# Supply the desired profiles as well as language; retain the user's existing choices.
+content call --uri content://org.agentos.audio.open-access --method settings --arg '{"action":"configureDictation","scope":"assistant-entry","primaryProfileId":"zipformer","fallbackProfileId":null,"language":"en-US"}'
+```
+
+`org.taku.cosplay.api.CosplayContract` lives in this module's `contract/` directory
+and is compiled by both apps. The wire remains `taku.cosplay.voice.v1` at
+`content://org.taku.tryon.api`:
+
+| Method | Meaning |
+| --- | --- |
+| `cosplayStatus` | Exact eight-field status: `schema`, `ok`, `enabled`, `ready`, `keyConfigured`, `permissionsReady`, `voiceOnly`, `userMessage`. No capture, microphone, or model work. |
+| `cosplayModelStatus` | Adds the saved Character provider/region/model label, requested outfit/accessory scope, and the authoritative `speechSettingsScope`/settings Activity. It does not invent a recognition language. |
+| `configureCosplay` | Bundle `schema`, optional booleans `enabled`/`voiceOnly`, and optional strings `provider`/`environment`. Uses the same Character configuration and encrypted stores as the native UI. No model work. |
+| `prepareCosplay` | Authenticated Home-only seven-field Bundle: `schema`, bounded JPEG `jpeg`, original `capturedAtElapsedMs`/`invokedAtElapsedMs`, fixed `command`, TikTok `sourcePackage`, and 32-lower-hex `requestId`. Returns exactly `schema`, `ok`, `ticket`, `expiresAtElapsedMs`, `userMessage`. |
+| `cancelCosplay` | Authenticated Home-only `schema` and pending `ticket`; wipes an unclaimed frame. |
+| `reportCosplayVoice` | Returns an explicit unavailable response. This app does not store recognition metrics. |
+
+The frame is limited to 320 KiB and 1920 pixels per edge. Original invocation and
+reference timestamps expire after 120 seconds; request replay is rejected. The
+random one-use ticket lasts 15 seconds and keeps only an independent in-memory JPEG
+copy, erased on cancellation/expiry or after bounded import. Only an installed,
+verified Home package/UID may mint or cancel these invocation tickets; package
+names and caller-supplied identity fields never establish trust. Authorized Agents
+can use the ordinary import/draft/start API without fabricating an Assistant gesture.
+
+The explicit `org.taku.tryon.realtime.DirectCosplayActivity` accepts only that ticket.
+It retains a transparent, non-touchable 1×1 foreground bridge until the existing
+camera-window ACK, then finishes. Normal preparation shows no intermediate page.
+Its separate character task prevents NEW_TASK from bringing an existing settings back stack behind the transparent bridge.
+Only a failure displays an actionable English alert; pause/destroy cancel pending
+work and suppress late failures. Camera and paid work still run through the same
+Controller and Service as a native Start. The imported reference's original deadline
+is preserved. The current voice route requests the character's outfit and worn
+accessories while preserving the live person's face and hair; this is a requested
+model constraint, not a pixel-level identity-lock guarantee.
+
+Examples for setup (no model request):
+
+```sh
+content call --uri content://org.taku.tryon.api --method cosplayStatus
+content call --uri content://org.taku.tryon.api --method configureCosplay --extra schema:s:taku.cosplay.voice.v1 --extra enabled:b:true --extra voiceOnly:b:false
+```
+
+### Signing for the two-app development flow
+
+ROM builds sign Home and Try-On with the installed Android platform certificate.
+Each side verifies the exact installed package/UID/provider ownership and accepts
+that platform-signed path. The only additional approved development pins are fixed
+in `CosplayContract`: Home `c8a2e9bccf597c2fb6dc66bee293fc13f2fc47ec77bc6b2b0d52c11f51192ab8`
+and Try-On `093755c8c6f8c0fd1fd9ceab905f53c139e257e1d019942faebcc6f30448c9f5`.
+Unknown signers, a different package sharing a UID, or a self-asserted certificate
+are not accepted. No private signer is part of the source contribution.
+
+The default standalone builder uses the same public AOSP platform-development
+identity as Home's normal build, through `scripts/aosp-test-keys.py`; it does not
+generate a random app signer. This keeps a clean development checkout's two apps
+mutually trusted under the fixed contract. These are public development keys, not
+production signing material, and neither app gains a shared UID.
+
+For an existing Pixel installation signed with the approved Try-On development pin,
+explicitly select that existing keystore with `TAKU_TRYON_KEYSTORE`,
+`TAKU_TRYON_KEY_ALIAS` and `TAKU_TRYON_KEYSTORE_PASS_SPEC`. An arbitrary explicit
+keystore may build a standalone native app, but it is not automatically trusted by
+Home. Confirm public fingerprints using `apksigner verify --print-certs` before
+installation; keep the runtime trust list fixed.
+
+For a data-preserving development test over an older prototype with a higher
+version code, `TAKU_TRYON_VERSION_CODE` optionally overrides that metadata through
+`aapt2 link --replace-version`. Match the installed test version to allow both
+`install -r` and restoration of its backed-up APK. This does not edit a built APK
+or change the manifest's default release version. Verify package, version and
+signer before installation. The backend's equivalent build parameter is
+`TAKU_ASSISTANT_VERSION_CODE`; its existing manifest default is also retained.
+
+Runtime acceptance must be recorded separately for host tests, isolated Android,
+physical device, provider/account/region, and full ROM. Compiling the package or
+running the bounded handoff fixtures does not establish paid model availability or
+exact visual quality on a Pixel. Automatic LIVE suggestions are excluded from this
+module and this handoff.
+
+## LIVE preview delivery
+
+The optional `system/shopping-observer` owns LIVE observation and its source-bound reference. The native app only redeems the one-use LIVE admission, starts the existing preview and owns camera/model cleanup. The shared `contract/LiveTryOnContract.java` is compiled by both applications. See [delivery and user-owned Lucy key setup](../../docs/tryon-delivery/README.md). Native source candidate 97 is separate from the recorded Pixel 96 artifact. It includes the normal-card removal, capsule/system-host restoration and confirmed-cleanup fixes; fresh source candidates still need their own runtime acceptance.

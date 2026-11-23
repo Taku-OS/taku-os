@@ -1,15 +1,19 @@
 package org.agentos.agent.home.island
 
 import android.content.Context
+import android.app.NotificationManager
 import android.database.ContentObserver
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
+import android.provider.Settings
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 
@@ -21,7 +25,13 @@ object SystemIslandBridge {
   private var observing = false
   private val requestSequence = java.util.concurrent.atomic.AtomicLong()
   private val refreshRequests = Channel<Context>(Channel.CONFLATED)
-  init { scope.launch { for (context in refreshRequests) current = read(context)?.toString() } }
+  private val enabled = MutableStateFlow<Boolean?>(null)
+  val nativeEnabled = enabled.asStateFlow()
+  init { scope.launch { for (context in refreshRequests) {
+    val snapshot = read(context)
+    current = snapshot?.toString()
+    snapshot?.optJSONObject("settings")?.let { enabled.value = it.optBoolean("enabled", true) }
+  } } }
 
   @Synchronized fun observe(context: Context) {
     if (observing) return
@@ -40,6 +50,15 @@ object SystemIslandBridge {
   }.getOrNull()
 
   fun state(): JSONObject? = current?.let { runCatching { JSONObject(it) }.getOrNull() }
+
+  /** Official ROM v1 owns the native assistant template; other ROMs retain the input fallback. */
+  fun nativeAssistantAvailable(context: Context, enabled: Boolean? = nativeEnabled.value): Boolean {
+    if (context.packageManager.resolveContentProvider("com.android.systemui.island", 0)?.packageName != "com.android.systemui" ||
+      !(enabled ?: (Settings.Global.getInt(context.contentResolver, "taku_island_enabled", 1) != 0))) return false
+    val notifications = context.getSystemService(NotificationManager::class.java) ?: return false
+    return notifications.areNotificationsEnabled() &&
+      notifications.getNotificationChannel(IslandPublisherService.CHANNEL)?.importance != NotificationManager.IMPORTANCE_NONE
+  }
 
   fun ownKey(context: Context, snapshot: JSONObject,
     expectedToken: String? = context.getSharedPreferences("system_island_session", Context.MODE_PRIVATE).getString("token", null)): String? {
@@ -64,14 +83,14 @@ object SystemIslandBridge {
     }
   }
 
-  fun request(context: Context, method: String) {
+  fun request(context: Context, method: String, expectedToken: String? = null) {
     val sequence = requestSequence.incrementAndGet()
     val app = context.applicationContext
     scope.launch {
       repeat(if (method == "expand") 10 else 1) {
         if (sequence != requestSequence.get()) return@launch
         val snapshot = read(app)
-        val key = snapshot?.let { ownKey(app, it) }
+        val key = snapshot?.let { if (expectedToken == null) ownKey(app, it) else ownKey(app, it, expectedToken) }
         if (snapshot != null && key != null) {
           if (method == "collapse" && snapshot.optJSONObject("presentation")?.optJSONObject("card")?.optString("key") != key) return@launch
           val success = runCatching {

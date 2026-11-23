@@ -174,7 +174,7 @@ content call --uri $U --method feed/reset --arg '{}'
 | Method | Parameters | Result |
 |---|---|---|
 | `feed/list` | – | `revision`, `eventCursor`, `cards[]` (visible order), `pins[]`, `removed[]`, `loading`, `endReached`, `error`, `sources[]` |
-| `feed/get` | `id` | `card` (full FeedCard JSON), `pinned`, `removed` |
+| `feed/get` | `id` | `card` (unchanged full FeedCard JSON), `actionAvailability`, `pinned`, `removed` |
 | `feed/load-more` | – | loads the next page (what scrolling does), then `feed/list` |
 | `feed/remove` / `feed/restore` | `id` | `removed`, `changed`, `animated` (the dust animation played on screen) |
 | `feed/pin` | `id`, optional `index` into the `pins` shown by `feed/list` (default 0 = first); no pin limit | `pinned`, `changed`, `index` |
@@ -191,12 +191,43 @@ Errors (`ok:false`, `code`): `NOT_FOUND` (card not loaded – call `feed/list` o
 `feed/load-more`), `INVALID_ARGUMENT`, `INVALID_CARD` (message names the field),
 `CARD_TOO_LARGE` (256 KiB), `CARD_REMOVED` (restore before pinning),
 `INVALID_ORDER`, `ID_CONFLICT` (id belongs to another source), `NOT_AGENT_CARD`,
-`UNKNOWN_ACTION`, `APP_NOT_INSTALLED`, `NO_ACTIVITY`, `STATE_READ_FAILED`,
+`UNKNOWN_ACTION`, `ACTION_UNAVAILABLE`, `APP_NOT_INSTALLED`, `NO_ACTIVITY`, `STATE_READ_FAILED`,
 `STATE_WRITE_FAILED`, `EVENT_TOO_LARGE`, `TIMEOUT`, `UNKNOWN_METHOD`.
 
 `ask-taku` intents only pre-fill the conversation; nothing is sent until the user sends
 it. Sample cards whose real integration does not exist use `none` or an `ask-taku`
 prompt; they never report a fake success.
+
+`feed/get.actionAvailability` and every `feed/list` card/pin summary's
+`actionAvailability` map describe each action by its ID. An available action has
+`{"available":true}`. A historical action whose integration was removed has
+`{"available":false,"code":"ACTION_UNAVAILABLE","message":"This action is no longer available."}`.
+The GUI shows the same availability and disables affected controls. Calling
+`feed/action` for one still returns `ACTION_UNAVAILABLE`, with no action execution
+or accepted event. Original stored card JSON, pins, removals and legacy history
+survive upgrade; the storage-only compatibility parser does not permit new
+published/generated `panel` intents.
+
+The stored-card upgrade fixture uses only a fresh, dedicated API 36 AVD named
+`Taku_Character_Legacy_Feed_20261121` on `emulator-5592`. Supply a reviewed arm64
+source Debug APK, the matching native backend and this checkout's own Metro
+connection for real Feed rendering. The seed refuses to replace an existing Home
+installation or data; the driver refuses physical phones and other AVD names.
+After the normal Debug build, with `TAKU_KOTLINC` and `JAVA_HOME` set:
+
+```sh
+python3 system/agent-app/modules/taku-home/scripts/build-feed-stored-action-probe.py
+python3 system/agent-app/modules/taku-home/scripts/verify-feed-stored-migration.py \
+  --serial emulator-5592 --phase seed --apk /absolute/path/to/reviewed-debug.apk
+python3 system/agent-app/modules/taku-home/scripts/verify-feed-stored-migration.py \
+  --serial emulator-5592 --phase verify --label first --require-ui \
+  --action-probe out/legacy-feed-compat-20261121/action-probe/FeedStoredActionTests.apk
+```
+
+Fully stop and cold-start that same AVD without a snapshot, then repeat verification
+with `--label cold`. This checks unchanged database epoch, one-time history import,
+raw card/preference retention, visible control availability and rejection before
+either GUI or Agent execution. Generated fixtures and reports stay in ignored `out/`.
 
 ## Read and follow card actions
 
@@ -482,15 +513,26 @@ Figma 1-1 … 1-6. Native Kotlin/Compose (`assistant/`, `ui/assistant/`); state 
   `scripts/build-voice-effects.cjs`; see `voice-effects/README.md` for provenance and isolation.
   Multi-touch, focus loss and system cancellation never send. System gestures carry ordered
   ids/sequences, a UI-ready handshake and a heartbeat lease while the pointer is held.
-  Stock images without the SystemUI island provider show an in-page listening header;
-  ROMs with that provider use SystemUI only. `assistant/get.listeningHeaderHost` records it.
+  The listening header requires the matching SystemUI island provider and Home's
+  Android notification permission. There is no in-page header fallback.
+  `assistant/get.listeningHeaderHost` records provider availability; actual visibility
+  comes from `cmd statusbar island state`. ROM preinstallation includes a revocable
+  default notification grant; existing component-only upgrades need that permission
+  checked separately.
+  A framework hold first shows Getting ready… only in the real SystemUI native island,
+  without a central modal or preparation blur. The transparent Home Activity keeps
+  the same invocation/reference lifetime and Back cancellation; it does not close
+  just because SystemUI draws the card. `assistant/get.voicePreparation` reads that same state; microphone
+  capture and the listening cue begin only after the current capture handoff is ready.
+  Release, cancellation, lock or an expired gesture prevents any late microphone open.
   Agent methods and protocol are in the preinstalled `taku-open-access` skill. The
   `AssistantOverlayActivity` supplies cross-app presentation through the native assistant;
   it does not create a Home controller or a second recording/session.
 * **Text (1-2, 1-3)**: double tap. A glass capsule pops off the sphere with a metaball neck and
   flies up, widening into the 380 × 64 Surface/900 field 16 dp above the keyboard; the lower
   screen frosts (σ0→6, #E3E3E3 → 90 %). Empty field: microphone (dictation, 1-5); text: brand
-  send button. Closing the keyboard closes the field. Dictation keeps the field focused (hidden
+  send button. Dismiss input explicitly with Back or a background tap; keyboard attachment
+  and inset changes do not close it. Dictation keeps the field focused (hidden
   behind the transcript), so the keyboard stays up as in 1-5.
 * **Island**: covers the status bar (hidden while expanded or collapsed: the status bar window
   would otherwise swallow taps on the pill) at 8 dp, radius 40, Content/900 composited over
@@ -570,6 +612,40 @@ content call --uri $A --method assistant/voice-cancel
   `cancel(operationId)` affect only that recording. `onVoice` snapshots retain the operation
   identity through cancellation, so old cleanup cannot stop or deliver into a newer recording.
   Starting one recorder cancels the other because the Engine owns one microphone lease.
+
+* **TikTok character requests**: double-tap the system navigation handle while the
+  desired character is visible, enter a complete request such as
+  `Help me put on this outfit of his` or `帮我换成这个角色`, and send. This uses the
+  same compact English confirmation and Try on handoff as hold dictation, without
+  starting the microphone. `assistant/ask` invokes the same handler as GUI Send
+  within that system text entry. `assistant/voice-to-text` also retains the
+  current system hold's reference for an editable submission. Ordinary desktop
+  text and `assistant/open` do not create a reference; attachments and unrelated
+  requests retain normal chat behavior. The frame belongs to one system
+  invocation for at most 120 seconds, including text editing. Closing/cancelling,
+  locking, changing conversations or invoking again invalidates it; delayed
+  screenshots or Activity intents cannot restore it. A duplicate submission
+  during character checking/confirmation/start returns `BUSY`.
+  `assistant/get.characterReference` exposes the same unused, fresh reference as
+  `{input:"text"|"voice",sourcePackage,expiresAtElapsedMs}` or `null`, without
+  image bytes or invocation/ticket IDs. Expiry is device elapsed realtime.
+  The first Keep talking utterance with the same fresh system TikTok reference
+  also passes this native dispatch before full chat/Live Talk starts. Recognized
+  character requests never fall back to ordinary clarification chat when Core
+  is disabled or unavailable; the native card reports the failure. Unrelated
+  speech keeps the ordinary handoff, and cancellation/expiry discards the pending
+  character invocation. Old full-chat image messages cannot mint a reference.
+  On the official ROM, confirmation and failure use the existing v1 SystemUI black
+  assistant template, with its native logo, expand glyph and pill actions. Not now /
+  Try on and failure Close call the same request-ID-checked Session handlers as the
+  Agent API. Each immutable PendingIntent has a distinct request/action identity;
+  stale buttons cannot resume an old conversation. The body/expand action only
+  re-expands the current native card and cannot start TryOn. Existing v1 suggestion
+  pills share the renderer's gray style. After Try on, the confirmation disappears
+  while the ordinary reply stays suppressed: no central Opening preview card is
+  shown. Successful handoff preserves the conversation/draft/task while hiding
+  its old island reply. Non-native ROMs, disabled islands or blocked Home notifications retain the Home fallback
+  confirmation; the invisible source owner and expiry/lock/cancel rules are shared.
 
 * **Keyboard**: the frames show a neutral keyboard (Main/Canvas #E3E3E3, white keys r6,
   Surface/Secondary #F1F1F3 function keys, #1B1B1B accent keys). The preinstalled Taku IME's

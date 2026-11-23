@@ -47,7 +47,11 @@ internal class IslandCardWindow(context: Context, initial: IslandActivity, cover
     private val cardWidth = minOf(dp(420), metrics.bounds.width() - dp(16))
     private val fullCard = nativeContent || choices == null && initial.payload.getJSONObject("expanded").optJSONObject("content")?.optString("layout") == "card"
     private val root = FrameLayout(windowContext).apply {
-        background = GradientDrawable().apply { setColor(IslandStyle.CARD); cornerRadius = dp(IslandStyle.CORNER_DP).toFloat() }
+        // Assistant text and actions need an opaque backing over the current app.
+        background = GradientDrawable().apply {
+            setColor(if (nativeAssistant) Color.BLACK else IslandStyle.CARD)
+            cornerRadius = dp(IslandStyle.CORNER_DP).toFloat()
+        }
         clipToOutline = true
         outlineProvider = object : ViewOutlineProvider() {
             override fun getOutline(view: View, outline: Outline) {

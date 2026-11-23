@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ime
-import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -46,6 +45,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -66,6 +66,7 @@ import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextRange
@@ -139,15 +140,14 @@ fun BoxScope.TextComposer(scene: GraphicsLayer, open: Boolean, state: AssistantS
   val fieldAlpha = ((p - 0.82f) / 0.18f).coerceIn(0f, 1f)
   val focus = remember { FocusRequester() }
   val keyboard = LocalSoftwareKeyboardController.current
-  LaunchedEffect(open) { if (open) { runCatching { focus.requestFocus() }; keyboard?.show() } else keyboard?.hide() }
-  // Closing the keyboard (back / swipe) closes the input.
-  var imeSeen by remember { mutableStateOf(false) }
-  val imeVisible = WindowInsets.isImeVisible
-  LaunchedEffect(imeVisible, open) {
-    if (!open) { imeSeen = false; return@LaunchedEffect }
-    if (imeVisible) imeSeen = true
-    else if (imeSeen && !voice.listening) { imeSeen = false; session.closeEntry() }
+  var fieldFocused by remember { mutableStateOf(false) }
+  val windowFocused = LocalWindowInfo.current.isWindowFocused
+  LaunchedEffect(open) { if (!open) keyboard?.hide() }
+  LaunchedEffect(open, windowFocused) {
+    if (open && windowFocused) runCatching { focus.requestFocus() }
   }
+  // IME insets only position this field. Startup/attachment transitions also hide the
+  // keyboard; dismissal belongs to explicit Back, background taps and entry actions.
 
   var value by remember { mutableStateOf(TextFieldValue(state.draft, TextRange(state.draft.length))) }
   LaunchedEffect(state.draft) { if (state.draft != value.text) value = TextFieldValue(state.draft, TextRange(state.draft.length)) }
@@ -172,7 +172,10 @@ fun BoxScope.TextComposer(scene: GraphicsLayer, open: Boolean, state: AssistantS
     else -> "Recognising…"
   }
   // Keep (or bring back) the keyboard across dictation start/stop, e.g. after the stop button.
-  LaunchedEffect(dictating) { if (open) { runCatching { focus.requestFocus() }; keyboard?.show() } }
+  LaunchedEffect(dictating) { if (open) runCatching { focus.requestFocus() } }
+  LaunchedEffect(open, fieldFocused, windowFocused, dictating) {
+    if (open && fieldFocused && windowFocused) keyboard?.show()
+  }
   val canSend = value.text.isNotBlank() || state.draftAttachmentNames.isNotEmpty()
   val send: () -> Unit = { if (canSend) { runCatching { session.send(value.text) } } }
   val textScroll = rememberScrollState()
@@ -208,7 +211,8 @@ fun BoxScope.TextComposer(scene: GraphicsLayer, open: Boolean, state: AssistantS
               maxLines = 5,
               keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Send),
               keyboardActions = KeyboardActions(onSend = { if (!capturing) send() }),
-              modifier = Modifier.fillMaxWidth().focusRequester(focus).graphicsLayer { alpha = if (capturing) 0f else 1f }
+              modifier = Modifier.fillMaxWidth().focusRequester(focus).onFocusChanged { fieldFocused = it.isFocused }
+                .graphicsLayer { alpha = if (capturing) 0f else 1f }
                 .semantics { contentDescription = "Ask Taku" },
               decorationBox = { inner ->
                 if (value.text.isEmpty()) BasicText("Ask Taku to do anything...", style = TakuTheme.type.bodyLg.copy(color = colors.textPlaceholder), maxLines = 1)
@@ -302,7 +306,7 @@ private fun DictationLine(text: String) {
         drawContent()
         if (overflowing) {
           val fade = minOf(90.dp.toPx(), size.width)
-          drawRect(Brush.horizontalGradient(0f to Color.Black.copy(alpha = 0.24f), fade / size.width to Color.Black), blendMode = BlendMode.DstIn)
+          drawRect(Brush.horizontalGradient(0f to colors.textPrimary.copy(alpha = 0.24f), fade / size.width to colors.textPrimary.copy(alpha = 1f)), blendMode = BlendMode.DstIn)
         }
       }
       .horizontalScroll(scroll, enabled = false),

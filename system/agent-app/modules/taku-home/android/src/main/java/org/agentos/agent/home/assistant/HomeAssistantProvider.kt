@@ -114,6 +114,8 @@ class HomeAssistantProvider : ContentProvider() {
           "assistant/voice-finish" -> if (session.voice.state.value.target == VoiceTarget.Dictation) session.stopDictation() else session.finishVoice()
           "assistant/voice-cancel" -> session.cancelVoice()
           "assistant/voice-to-text" -> session.voiceToText()
+          "assistant/character-confirm" -> session.confirmCharacter(p.requiredString("requestId"))
+          "assistant/character-cancel" -> session.cancelCharacter(p.requiredString("requestId"))
           else -> throw AssistantException("UNKNOWN_METHOD", "unknown method $method")
         }
         session.toJson()

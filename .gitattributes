@@ -1,5 +1,8 @@
 evidence/** -whitespace
 system/assistant/licenses/Doto-OFL.txt -whitespace
+# Imported notices retain upstream bytes; hashes live in third-party/sources.json.
+system/tryon/app/third-party/slf4j-LICENSE.txt -whitespace
+system/tryon/app/third-party/webrtc-NOTICES.md -whitespace
 # Diff payloads retain exact upstream preimages; applied sources are hash-checked.
 image/branding/*.patch -whitespace
 adapters/codex-runtime/plugin-transaction/*.patch -whitespace

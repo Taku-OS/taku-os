@@ -3,7 +3,7 @@
   "repository": "frameworks/base",
   "revision": "7f6de40b6429462d47ba9ba351b99943269c8067",
   "patch": "systemui-probe.patch",
-  "patchSha256": "fcbe7697631ace7caf02c95b318c34fe357aa2f349a56113b292eb319a6b0f18",
+  "patchSha256": "39b7567c66c9327702b6976dd271b90c726487961d23f946b2c1127bfdff7f65",
   "files": [
     {
       "path": "packages/SystemUI/AndroidManifest.xml",
@@ -63,7 +63,7 @@
     {
       "path": "packages/SystemUI/src/com/android/systemui/taku/island/IslandCardWindow.kt",
       "beforeSha256": null,
-      "afterSha256": "fa80c9cd426d9de8e7d4daf72633a0394fbc878a9482ed5c517b574ee487e71d",
+      "afterSha256": "fe3549ea7b643641775af3e8e5045416e36560e598e2a9eedf9b434a67d5dacd",
       "source": "system/island/src/com/android/systemui/taku/island/IslandCardWindow.kt"
     },
     {

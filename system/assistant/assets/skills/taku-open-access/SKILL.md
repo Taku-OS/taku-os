@@ -48,6 +48,112 @@ secret-request restrictions still apply even to third-party root grants.
 UID 0/1000/2000 retain direct access; the first-party GUI uses the signature-protected
 `AgentGatewayProvider` for these operations. Workspace calls remain local-agent-only.
 
+## TikTok character preview
+
+This optional native feature uses Home's existing system-assistant capture with
+typed requests or Audio Engine dictation. It is not a LIVE observer. Read state before acting:
+
+```sh
+content call --uri content://org.taku.tryon.api --method cosplayStatus
+content call --uri content://org.agentos.agent.home-assistant --method assistant/get
+```
+
+Enable **TikTok character requests** and **Camera preview after Try on** in Taku
+Try-On, configure its Character model and camera/overlay permissions. The same
+switches are available without starting a model:
+
+```sh
+content call --uri content://org.taku.tryon.api --method configureCosplay --extra schema:s:taku.cosplay.voice.v1 --extra enabled:b:true --extra voiceOnly:b:false
+am start -n org.agentos.audio/.DictationSettingsActivity
+```
+
+Home uses the authoritative Audio Engine `assistant-entry` language preference,
+including `en-US`. Preserve the user's primary/fallback profiles when changing its
+dictation settings; Try-On does not keep another speech-language value.
+
+For text, double-tap the navigation handle while the desired TikTok character is
+visible, type a complete request such as `Help me put on this outfit of his` or
+`帮我换成这个角色`, and send. This opens the same English confirmation without
+starting a microphone. Within that currently open system text entry, an Agent can
+use the GUI's same send handler:
+
+```sh
+content call --uri content://org.agentos.agent.home-assistant --method assistant/ask --arg '{"text":"Help me put on this outfit of his"}'
+```
+
+`assistant/voice-to-text` can also transfer the current system hold to editable
+text. Text and voice use the same original authorized frame and its 120-second
+invocation limit; switching to text does not renew it. Closing/cancelling the
+entry, locking the screen, switching conversations or invoking a new entry
+invalidates that reference. Ordinary desktop text, `assistant/open` and caller
+parameters cannot create a TikTok reference. Non-character text and submissions
+with attachments keep the ordinary chat path. A second submission while the
+character confirmation is pending returns `BUSY`.
+
+The first Keep talking utterance from a fresh authorized TikTok invocation is
+classified before opening full chat or connecting Live Talk. A complete character
+request uses the same native confirmation; unrelated speech keeps the usual chat
+handoff. Recognition failure, cancellation or expiry does not submit that held
+character request. Once a character intent is recognized, a disabled/unavailable
+Try-On shows a native failure card instead of asking the ordinary model to clarify
+avatars, pets or chat personas. Historical image messages in full chat do not
+create a fresh reference; invoke again from the video.
+
+`assistant/get.characterReference` is `null` or
+`{input:"text"|"voice",sourcePackage,expiresAtElapsedMs}` for the current unused,
+fresh reference. The expiry uses device elapsed realtime, not wall-clock time.
+The projection never contains a frame, invocation ID or ticket. After sending,
+read `characterTryOn.phase` (`checking`, `confirming`, `starting`, `failed`) instead.
+
+For the current `characterTryOn.requestId` returned by `assistant/get`, these calls
+use the card's exact confirm/cancel handlers:
+
+```sh
+content call --uri content://org.agentos.agent.home-assistant --method assistant/character-cancel --arg '{"requestId":"CURRENT_REQUEST_ID"}'
+# Only after explicit user intent to open the camera/model preview:
+content call --uri content://org.agentos.agent.home-assistant --method assistant/character-confirm --arg '{"requestId":"CURRENT_REQUEST_ID"}'
+```
+
+A successful Try on handoff hides the ordinary assistant reply card so it does
+not cover the camera. Its conversation, task and draft remain available; hiding
+the card does not stop that task. Not now and launch failure keep the usual
+assistant presentation.
+
+The camera and returned character video share one movable small window. The
+grip and video drag the same frame; expand and close are above the video. Only
+an explicit expand enters full screen. Read its actual bounds before moving:
+
+```sh
+content call --uri content://org.taku.tryon.api --method status
+content call --uri content://org.taku.tryon.api --method move --arg '{"x":40,"y":650}'
+content call --uri content://org.taku.tryon.api --method fullscreen
+content call --uri content://org.taku.tryon.api --method expand
+```
+
+`status.position` reports integer display-pixel `x,y,width,height,canMove` from
+the current GUI window. `move` requires exactly integer `x,y` within signed
+32-bit range and uses the GUI's safe-area clamp; read status again for the
+accepted position. Invalid fields/types return `invalid_arguments`. Compact,
+fullscreen, hidden, moving or closing presentation returns
+`presentation_unavailable`; absent bounds contain only `canMove:false`.
+Moving does not start/retry a session. `expand` returns to the retained floating
+position; `minimize` uses the same compact handler as the GUI.
+
+Old actions return `STALE_REQUEST`. Closing the input cancels its own pending
+reference. Normal capture/recognition and unrelated requests retain Home's existing
+path. No frame, credential or invocation ticket is returned in Home state. There is
+no supported command to fabricate a gesture or mint a Home ticket as shell; use the
+ordinary native reference/draft API for a separate authorized Agent workflow.
+
+Each explicit camera/model attempt can incur provider charges for up to 60 seconds.
+Only decoded returned model frames establish a visible result. A transparent startup
+bridge is held until the camera window acknowledges; failure shows an English Close
+alert. Credential inputs are write-only, at most 1024 UTF-8 bytes, one at a time;
+EOF/commit admission must occur within 30 seconds (`credential_write_busy` or
+`credential_write_timeout`). Never put a real key in an Intent, command argument,
+conversation or log. [Native interface and signing](../../../../tryon/README.md) ·
+[Feature contract](../../../../../spec/tryon.md).
+
 ## Default desktop on Taku images
 
 ```sh
@@ -561,6 +667,8 @@ node system/agent-app/modules/taku-home/scripts/read-feed-events.mjs --serial "$
 
 `feed/list` returns `cards,pins,removed,eventCursor`. If loaded with no visible cards or pins, `emptyState` describes the Ask Taku invitation (`type,app,title,message,action`); null during load/error or with content. The invitation has no card ID and opens text without sending or recording. Retry load with `feed/load-more`. `feed/ask-taku` pre-fills the composer. Remove persists until restore, replacement or reset; reset preserves event history and UUID.
 
+`feed/get` keeps the original `card` JSON and returns a separate `actionAvailability` map keyed by action ID. Each `feed/list` card/pin summary has the same map. Entries are `{"available":true}` or `{"available":false,"code":"ACTION_UNAVAILABLE","message":"This action is no longer available."}`. The GUI shows a notice and disables unavailable actions. `feed/action` rejects them with `ACTION_UNAVAILABLE` before executing or recording an accepted event. Historical cards with retired `panel` actions, their pins/removals and legacy history survive upgrade; new published/generated `panel` actions remain invalid. Restoring old card data does not restore the removed integration.
+
 `feed/generate` takes exactly one `prompt` or full `card`. Prompts use the Magpie `agent-ui.text` route; imported cards make no model call. Generation stores a new card first, returns `id,replaced:false` and the model route when relevant, and executes no card actions. Repeating generates another card. Limits: 96,000 UTF-8 bytes per request, 16,000 UTF-16 units per prompt, 96 body elements. Errors include `INVALID_SPEC`, `INVALID_MODEL_OUTPUT`, `RUNTIME_UNAVAILABLE`, `RUNTIME_TIMEOUT`, `RUNTIME_LOST`, `BUSY`, `STATE_WRITE_FAILED`. Check `feed/list` after lost replies. The host can run `node system/agent-app/modules/taku-home/scripts/generate-feed-card.mjs --serial SERIAL --prompt TEXT` or `--json-file FILE`; optional `--adb PATH`.
 
 Read events after publication to receive choices. Finite replay ends with a checkpoint. `after` excludes a cursor (default `0`); `now` starts at the opening head; `follow=1` replays then waits. Use a quoted URI and URI-encode filter values. Up to 128 repeated `cardId` values or one literal `cardIdPrefix`, not both. Filters: `origin=gui|agent`, `op=action|publish|generate|remove|restore|pin|unpin|reorder-pins|retract|reset`. Invalid cursor, unknown/duplicate scalar fields, or URI over 16 KiB fails. Filters do not enforce ownership.
@@ -573,7 +681,7 @@ No history count/time cap. A one-time SQLite import retains available legacy act
 
 Cards use `taku.feed-card/1`; repository schema and parameters are in `system/agent-app/modules/taku-home/README.md` and `CONTRACT.md`. Image bodies allow HTTPS or known `asset:feed/<path>`. Remote SVG needs a `.svg` path, HTTPS final URL and `image/svg+xml`; static drawing only (no CSS/entities/scripts/external references/embedded images), max 256 Ki characters, 2,048 tags and 10 s. Invalid generated references return `INVALID_SPEC`; raw publication has render-time validation. Icon and open-url rules are separate.
 
-Feed errors: `NOT_FOUND`, `INVALID_ARGUMENT`, `INVALID_CARD`, `CARD_TOO_LARGE`, `CARD_REMOVED`, `INVALID_ORDER`, `ID_CONFLICT`, `NOT_AGENT_CARD`, `UNKNOWN_ACTION`, `APP_NOT_INSTALLED`, `NO_ACTIVITY`, `STATE_READ_FAILED`, `STATE_WRITE_FAILED`, `EVENT_TOO_LARGE`, `TIMEOUT`, `UNKNOWN_METHOD`. Streams also return `INVALID_CURSOR`, `CURSOR_EPOCH_MISMATCH`, `CURSOR_AHEAD`, `STREAM_BUSY`.
+Feed errors: `NOT_FOUND`, `INVALID_ARGUMENT`, `INVALID_CARD`, `CARD_TOO_LARGE`, `CARD_REMOVED`, `INVALID_ORDER`, `ID_CONFLICT`, `NOT_AGENT_CARD`, `UNKNOWN_ACTION`, `ACTION_UNAVAILABLE`, `APP_NOT_INSTALLED`, `NO_ACTIVITY`, `STATE_READ_FAILED`, `STATE_WRITE_FAILED`, `EVENT_TOO_LARGE`, `TIMEOUT`, `UNKNOWN_METHOD`. Streams also return `INVALID_CURSOR`, `CURSOR_EPOCH_MISMATCH`, `CURSOR_AHEAD`, `STREAM_BUSY`.
 
 ## Home apps, layout and widgets
 
@@ -847,6 +955,17 @@ Gesture producers use `gesture/event` with `action:"prepare"`, `id` (8–128 ASC
 
 Replace the example time with current device uptime in milliseconds.
 
+During a framework system hold, `assistant/get.voicePreparation` is
+`{phase:"preparing",message:"Getting ready…"}` while the same visible preparation
+surface waits for screen-context processing. It is null otherwise. This state
+does not mean the microphone is recording: `voice.phase` remains `Idle`, and no
+listening header or speak-now vibration is emitted. Only the current capture
+owner can release that hold to the recorder. Ending, cancelling, locking or
+losing the heartbeat before readiness prevents a late microphone open or UI
+reappearance. Use `assistant/voice-cancel` for the same cancellation as the
+preparation surface's Cancel action; collapse of the SystemUI card alone does not
+cancel it. Read `voice.ready` before asking the user to speak.
+
 ```sh
 taku_call "$A" gesture/event '{"action":"prepare","id":"my-gesture-001","source":"agent","time":1234567}'
 taku_call "$A" gesture/activate '{"id":"my-gesture-001"}'
@@ -937,3 +1056,17 @@ taku_call "$D" jev/status '{}'
 taku_call "$D" jev/enable '{}'
 taku_call "$D" jev/connect '{"key":"apikey_..."}'
 ```
+
+### Optional TikTok LIVE outfit preview
+
+Discover the installed observer through `content://org.agentos.shopping.api` method `status`; it reports connection, consent switches, supported commands and bounded preparation state. `configure` accepts actual boolean `enabled`, `classification`, `vision`; no read or setup call starts a model. After an explicit user request, `tryOn` captures the verified current LIVE and may bill recognition plus one bounded Lucy preview. `retry` requires a new explicit action. `select` opens the current frozen-image picker; optional integer `x`,`y` in 0..1000 use the same guarded GUI handler. `cancel` cancels observer preparation; after native handoff use `content://org.taku.tryon.api` method `stop`. Never invoke the native-only `redeem` protocol as an Agent or reuse a previous token/reference.
+
+Read failures such as `service_not_connected`, `disabled`, `screen_locked`, `recognition_busy`, `use_retry_or_cancel` and `source_<reason>` as actual failures. Do not turn on automatic classifiers or repeat a paid action without authorization. Lucy/fal credentials are user-owned and set in Taku Try-On; system image recognition uses the separate Taku AI configuration. Use only configured metadata to verify a key, never read or print it. Deployment and version dependencies are documented in `docs/tryon-delivery/README.md`.
+
+An attached Native preview makes Observer report `phase=preview_active`; automatic invitations are withdrawn until that window closes. A supported LIVE in the verified TikTok `com.ss.android.ugc.aweme.detail.ui.DetailActivity` still requires the complete native room anchors. Automatic product-title classification additionally needs a configured text model. After an Observer version upgrade, a pending Proactivity update must be confirmed through its existing observer screen before invitations resume.
+
+For an already authorized running session, `content://org.taku.tryon.api` methods `minimize` and `expand` use the same presentation handlers as the Preparing/Live capsule. They restore the existing window and do not start or retry a model. Read `status` after the command; bounds remain in `status.position`. Normal running/ended sessions do not publish a separate AI try-on text control card; terminal failures retain their existing failure card.
+
+Read native `status.code` and `diagnostics.failureCode` for a failed window start. Fixed host codes are `preview_host_failed`, `system_island_timeout`, `system_island_unavailable`, `system_island_disconnected`, `system_island_binding_died`, `system_island_bind_failed`, `system_island_layout_failed`, `system_island_error`, `system_island_invalid_display`, `system_island_missing_surface`, `system_island_attach_failed` and `system_island_connection_lost`. These are failures, not user stops. The optional system-owned input path requires the platform-signed `org.agentos.assistant/org.agentos.surfaces.IslandViewHostService` and an actual `org.agentos.surfaces.permission.HOST_ISLAND_VIEW` grant; ordinary overlay fallback cannot take input above the system status bar. Do not grant extra privilege or automatically retry to conceal a failure.
+
+Local cleanup confirmation is not a server-side release or billing receipt. The recorded Lucy `INTERNAL_ERROR` initialization failure remains unresolved; no generated frames arrived in that attempt. Do not describe an invitation-only test or older successful package as acceptance for the current complete cloud flow.

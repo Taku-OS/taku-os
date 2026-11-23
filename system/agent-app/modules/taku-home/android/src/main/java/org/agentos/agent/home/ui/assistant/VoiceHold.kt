@@ -64,6 +64,9 @@ import kotlin.math.roundToInt
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import org.agentos.agent.home.assistant.VoicePhase
 import org.agentos.agent.home.assistant.VoiceState
 import org.agentos.agent.home.design.TakuSpacing
@@ -78,6 +81,24 @@ import kotlin.math.sin
 
 /** Where a held finger is: over "Cancel" (1-1-2), over "Keep talking", or neither (release arms automatic utterance submission). */
 typealias HoldZone = org.agentos.agent.home.assistant.VoiceGesture.Zone
+
+/** Non-native ROM fallback only; official ROM preparation is drawn by SystemUI. */
+@Composable
+internal fun BoxScope.VoicePreparationOverlay(cancel: () -> Unit) {
+  val colors = TakuTheme.colors
+  Column(Modifier.align(Alignment.Center).padding(TakuSpacing.xl)
+    .clip(RoundedCornerShape(24.dp)).background(colors.surfaceInverse).padding(TakuSpacing.xl),
+    horizontalAlignment = Alignment.CenterHorizontally,
+    verticalArrangement = Arrangement.spacedBy(TakuSpacing.xl)) {
+    BasicText(org.agentos.agent.home.assistant.SystemVoicePreparation.MESSAGE,
+      style = TakuTheme.type.bodyXl.copy(color = colors.textOnInverse, textAlign = TextAlign.Center))
+    Box(Modifier.clip(RoundedCornerShape(24.dp)).background(colors.surfaceFrosted)
+      .clickable(onClick = cancel).heightIn(min = 48.dp).padding(horizontal = 24.dp, vertical = 12.dp),
+      contentAlignment = Alignment.Center) {
+      BasicText("Cancel", style = TakuTheme.type.bodyMdMedium.copy(color = colors.textOnInverse))
+    }
+  }
+}
 
 /**
  * Geometry of the 1-1 bottom, in px of a [width]×[height] screen. The two "64px / gap 16px"

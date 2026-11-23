@@ -23,6 +23,7 @@ Run these from the repository root, except for the React Native row.
 | Whole repository, offline | `npm run verify` | The tests and checks in the root package scripts, run in sequence |
 | Plugins | `node --test tests/godmode-manifest.test.mjs`. With a JDK, also `bash system/plugins/test.sh` and `bash system/plugins/test-host.sh` | The local behavior of the manifest and host. See the [plugin docs](plugins/README.md) |
 | Native Android source | `npm run build:android` or the module's `build.sh` | Compile and packaging only. Check runtime behavior on an isolated emulator |
+| TikTok character preview | `npm run check:tryon`, `npm run build:tryon`, plus native Home checks in [the feature contract](../spec/tryon.md) | Two-app handoff, bounded preparation and cancellation; host tests start no model |
 | React Native Agent UI | In `system/agent-app/`, run `npm ci`, then `npm run typecheck`, `npm run lint` and `npm test`. For an APK, run `npm run build:android` | The module's own checks and build |
 | ROM integration | The build, artifact check and device steps in the [image project](../image/README.md) | Results tied to an exact input snapshot and output |
 
@@ -39,6 +40,14 @@ Native components default to Android API 36, build-tools 36.0.0 and JDK 17+. `TA
 When you upgrade CommonMark, update `Android.bp` and keep its Java resources and license in the Memory APK. Rerun the Memory result-rendering tests. ROM preparation fetches the parser and includes it in the source snapshot check. [prepare-image-assets.py](../scripts/prepare-image-assets.py) prepares the runtime archives.
 
 The public AOSP test signing keys are for userdebug development only. They are cached in `out/development-signing/`, with the download revision and hash pinned.
+
+Native character preview builds separately with `npm run build:tryon`, or alongside
+the ordinary components with `npm run build:android -- --with-tryon`. Prepare the
+checksum-pinned dependencies as described in [Try-On](../system/tryon/README.md).
+For the Agent APK, `ANDROID_NDK_HOME` may select an already installed complete NDK;
+the build records that path only in ignored `android/local.properties`. No build
+command installs the feature or starts a model. ROM preinstallation is an explicit
+`TAKU_PREINSTALL_TRYON=true` development-image opt-in after Soong dependency staging.
 
 ## Test output and device notes
 

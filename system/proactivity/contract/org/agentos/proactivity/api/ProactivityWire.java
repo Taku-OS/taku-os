@@ -26,14 +26,23 @@ public final class ProactivityWire {
         return new JSONObject(payload);
     }
     public static JSONObject spec(ObserverSpec s) throws Exception {
-        return new JSONObject().put("id",s.id()).put("name",s.name()).put("eventType",s.eventType())
+        JSONObject result=new JSONObject().put("id",s.id()).put("name",s.name()).put("eventType",s.eventType())
             .put("quietMs",s.quietMs()).put("cooldownMs",s.cooldownMs()).put("maxRecords",s.maxRecords())
             .put("lookbackMs",s.lookbackMs()).put("title",s.title()).put("summary",s.summary());
+        if(s.prompt()!=null)result.put("prompt",new JSONObject().put("acceptLabel",s.prompt().acceptLabel())
+            .put("declineLabel",s.prompt().declineLabel()));
+        return result;
     }
     public static ObserverSpec spec(JSONObject p) throws Exception {
-        if(p.length()!=9)throw new IllegalArgumentException("Unknown or missing rule fields");
+        if(p.length()!=(p.has("prompt")?10:9))throw new IllegalArgumentException("Unknown or missing rule fields");
+        PromptSpec prompt=null;
+        if(p.has("prompt")) {
+            JSONObject choice=p.getJSONObject("prompt");
+            if(choice.length()!=2)throw new IllegalArgumentException("Unknown or missing prompt fields");
+            prompt=new PromptSpec(choice.getString("acceptLabel"),choice.getString("declineLabel"));
+        }
         return new ObserverSpec(p.getString("id"),p.getString("name"),p.getString("eventType"),
             integer(p,"quietMs"),integer(p,"cooldownMs"),Math.toIntExact(integer(p,"maxRecords")),integer(p,"lookbackMs"),
-            p.getString("title"),p.getString("summary"));
+            p.getString("title"),p.getString("summary"),prompt);
     }
 }

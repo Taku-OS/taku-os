@@ -1,0 +1,10 @@
+// SPDX-License-Identifier: Apache-2.0
+package org.taku.tryon.realtime;
+import android.os.Looper;import java.util.concurrent.atomic.AtomicBoolean;
+public final class CallTryOnService {
+ static final StartAdmission ADMISSION=new StartAdmission();static CallTryOnService current;
+ long admissionGeneration;boolean destroyed;AtomicBoolean terminating=new AtomicBoolean();Window window;int finishes;
+ static class Window {boolean attached;boolean isAttached(){return attached;}}
+ void finish(String state,String detail,String code){finishes++;}
+@@STARTUP_METHODS@@
+}

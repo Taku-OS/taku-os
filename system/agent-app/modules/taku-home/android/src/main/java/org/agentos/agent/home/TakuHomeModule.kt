@@ -56,7 +56,7 @@ class TakuHomeModule : Module() {
     }
 
     Function("getCard") { cardId: String ->
-      FeedRepository.get(context).card(cardId)?.json?.toString()
+      FeedRepository.get(context).card(cardId)?.presentationJson()?.toString()
     }
 
     Function("readAssetText") { path: String ->

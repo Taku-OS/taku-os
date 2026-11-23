@@ -1,6 +1,11 @@
 #!/bin/bash
 set -euo pipefail
 cd "$(python3 -c 'import os,sys;print(os.path.dirname(os.path.realpath(sys.argv[1])))' "$0")"
+MANIFEST_ARGS=(--manifest AndroidManifest.xml)
+if [ -n "${TAKU_ASSISTANT_VERSION_CODE:-}" ]; then
+  [[ "$TAKU_ASSISTANT_VERSION_CODE" =~ ^[1-9][0-9]*$ ]] || { echo 'TAKU_ASSISTANT_VERSION_CODE must be a positive integer.' >&2; exit 2; }
+  MANIFEST_ARGS+=(--replace-version --version-code "$TAKU_ASSISTANT_VERSION_CODE")
+fi
 source ../../scripts/android-env.sh
 source ../../scripts/compile-jvm.sh
 [ -f ../audio-engine/out/audio-client.jar ] || bash ../audio-engine/build.sh
@@ -11,7 +16,7 @@ mkdir -p out/classes out/dex out/broker-classes out/broker-dex out/generated
 SIGNING=../../out/development-signing
 python3 ../../scripts/aosp-test-keys.py "$SIGNING"
 "$TOOLS/aapt2" compile --dir res -o out/resources.zip
-"$TOOLS/aapt2" link -o out/resources.apk -I "$ANDROID_JAR" --manifest AndroidManifest.xml --java out/generated -A assets -A out/reply-assets out/resources.zip
+"$TOOLS/aapt2" link -o out/resources.apk -I "$ANDROID_JAR" "${MANIFEST_ARGS[@]}" --java out/generated -A assets -A out/reply-assets out/resources.zip
 compile_jvm out/classes "$ANDROID_JAR:$AUDIO_CP" out/generated/org/agentos/assistant/R.java \
  src/org/agentos/assistant/*.java src/org/agentos/assistant/*.kt broker/org/agentos/lab/UiCardRequest.kt \
  broker/org/agentos/lab/ComposerInput.java \

@@ -12,4 +12,13 @@ android_app_import {
         "androidx.window.sidecar",
     ],
     system_ext_specific: true,
+    required: ["taku-home-default-permissions"],
+}
+
+prebuilt_etc {
+    name: "taku-home-default-permissions",
+    src: "default-permissions.xml",
+    filename: "taku-home.xml",
+    sub_dir: "default-permissions",
+    system_ext_specific: true,
 }

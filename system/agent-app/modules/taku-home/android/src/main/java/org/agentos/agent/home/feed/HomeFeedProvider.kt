@@ -44,6 +44,7 @@ class HomeFeedProvider : ContentProvider() {
           awaitFirstPage(repo)
           val card = repo.card(id(p)) ?: throw FeedException("NOT_FOUND", "no loaded card ${id(p)}")
           JSONObject().put("card", card.json).put("pinned", repo.state.value.pins.any { it.id == card.id })
+            .put("actionAvailability", card.actionAvailability())
             .put("removed", repo.isRemoved(card.id))
         }
         "feed/load-more" -> { repo.loadMore(); awaitIdle(repo); repo.snapshot() }

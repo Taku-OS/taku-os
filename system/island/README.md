@@ -41,6 +41,8 @@ restores only an existing backend thread after process recreation. Each user tur
 presentation identity so a dismissed/expired prior activity cannot suppress a new task.
 Assistant listening, replies and real model options are drawn directly by SystemUI's native
 `IslandAssistantCard`; the Agent publishes data and actions, not a Compose island surface.
+Native assistant cards have an opaque black backing so text from the underlying app cannot
+show through; the rounded window corners retain their transparency.
 Other third-party payloads may request the documented rich-content service.
 A monotonically increasing expansion request distinguishes an explicit new interaction from
 routine state updates, including when both states are Expanded. Recovery and streamed reply

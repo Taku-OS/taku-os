@@ -1,0 +1,13 @@
+// SPDX-License-Identifier: Apache-2.0
+android_app {
+    name: "TakuShoppingObserver",
+    manifest: "AndroidManifest.xml",
+    srcs: ["src/**/*.java", "core/**/*.java", ":taku-tryon-common-sources", ":taku-tryon-contract-sources", ":taku-ai-client-sources"],
+    static_libs: ["taku-proactivity-client"],
+    resource_dirs: ["res"],
+    sdk_version: "current",
+    certificate: "platform",
+    // Central permission enforcement needs the platform signer, not a privileged/shared UID.
+    system_ext_specific: true,
+    optimize: { enabled: false },
+}

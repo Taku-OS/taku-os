@@ -21,10 +21,12 @@ PYTHON
 CLASSES="$ROOT/out/voice-interaction-tests"
 compile_jvm "$CLASSES" "$CP" \
   "$MODULE/android/src/main/java/org/agentos/agent/home/assistant/VoiceGesture.kt" \
+  "$MODULE/android/src/main/java/org/agentos/agent/home/assistant/SystemVoicePreparation.kt" \
   "$MODULE/android/src/main/java/org/agentos/agent/home/assistant/LiveTalkEndpoint.kt" \
   "$MODULE/android/src/main/java/org/agentos/agent/home/assistant/SessionThreadCreation.kt" \
   "$MODULE/android/src/test/java/org/agentos/agent/home/SessionThreadCreationTest.kt" \
   "$MODULE/android/src/test/java/org/agentos/agent/home/LiveTalkEndpointTest.kt" \
-  "$MODULE/android/src/test/java/org/agentos/agent/home/VoiceGestureTest.kt"
+  "$MODULE/android/src/test/java/org/agentos/agent/home/VoiceGestureTest.kt" \
+  "$MODULE/android/src/test/java/org/agentos/agent/home/SystemVoicePreparationTest.kt"
 "$JDK/bin/java" -cp "$CLASSES:$CP:$KOTLIN_LIB/kotlin-stdlib.jar" \
-  org.junit.runner.JUnitCore org.agentos.agent.home.VoiceGestureTest org.agentos.agent.home.LiveTalkEndpointTest org.agentos.agent.home.SessionThreadCreationTest
+  org.junit.runner.JUnitCore org.agentos.agent.home.VoiceGestureTest org.agentos.agent.home.SystemVoicePreparationTest org.agentos.agent.home.LiveTalkEndpointTest org.agentos.agent.home.SessionThreadCreationTest

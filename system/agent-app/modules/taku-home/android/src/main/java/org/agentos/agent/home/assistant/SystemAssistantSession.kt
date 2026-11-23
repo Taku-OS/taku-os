@@ -15,6 +15,7 @@ import android.service.voice.VoiceInteractionSession
 import android.util.Log
 import java.io.File
 import java.util.concurrent.Executors
+import java.util.UUID
 import org.json.JSONObject
 
 /** System invocation has no legacy drawer: hardware entries always present the new UI. */
@@ -30,11 +31,32 @@ class SystemAssistantSession(private val ctx: Context) : VoiceInteractionSession
   private var shown = false
   @Volatile private var generation = 0
   @Volatile private var invocationToken: String? = null
+  private var invokedAt = 0L
+  private var capturedAt = 0L
+  private var textInvocationId: String? = null
+  private var voicePreparationId: String? = null
 
   override fun onPrepareShow(args: Bundle?, flags: Int) {
     super.onPrepareShow(args, flags)
     val version = ++generation
+    invokedAt = SystemClock.elapsedRealtime()
+    logStage("onPrepareShow")
+    capturedAt = 0L
     request = args?.let(::Bundle) ?: Bundle()
+    val assistant = AssistantSession.get(ctx)
+    voicePreparationId?.let(assistant::cancelPendingSystemVoicePreparation)
+    voicePreparationId = null
+    assistant.invalidateCharacterReference()
+    textInvocationId = if (CharacterTryOnPolicy.acceptsTextEntry(
+        request?.getString(SystemAssistantEntry.TRIGGER), request!!.keySet(),
+        flags and (SHOW_SOURCE_ASSIST_GESTURE or SHOW_SOURCE_PUSH_TO_TALK) != 0,
+      )) UUID.randomUUID().toString().takeIf { assistant.reserveCharacterTextInvocation(it, invokedAt) }
+      else null
+    voicePreparationId = request!!.takeIf { CharacterTryOnPolicy.acceptsEntry(
+        it.getString(SystemAssistantEntry.TRIGGER), it.getString(SystemAssistantEntry.GESTURE_ID), it.keySet(),
+        flags and (SHOW_SOURCE_ASSIST_GESTURE or SHOW_SOURCE_PUSH_TO_TALK) != 0,
+      ) }?.getString(SystemAssistantEntry.GESTURE_ID)
+      ?.takeIf(assistant::reserveSystemVoicePreparation)
     showFlags = flags
     capture = null
     screenshotReceived = false
@@ -60,7 +82,17 @@ class SystemAssistantSession(private val ctx: Context) : VoiceInteractionSession
   override fun onShow(args: Bundle?, flags: Int) {
     super.onShow(args, flags)
     shown = true
+    logStage("onShow")
     if (ctx.getSystemService(KeyguardManager::class.java).isKeyguardLocked) { hide(); return }
+    voicePreparationId?.let {
+      if (!AssistantSession.get(ctx).allowSystemVoicePreparation(it)) return@let
+      try {
+        // The framework has already captured this invocation's pixels. Keep its session
+        // alive while assist/gateway work finishes; this Activity does not open a microphone.
+        startAssistantActivity(SystemAssistantEntry.launch(ctx, request, showFlags)
+          .putExtra(AssistantOverlayActivity.PREPARE_ONLY, true))
+      } catch (failure: RuntimeException) { Log.w("TakuSystemAssistant", "Preparing UI unavailable", failure) }
+    }
     if (captureReady()) deliverCapture()
     else {
       val version = generation
@@ -71,6 +103,7 @@ class SystemAssistantSession(private val ctx: Context) : VoiceInteractionSession
   override fun onHandleAssist(state: AssistState) {
     super.onHandleAssist(state)
     if (!state.isFocused || request == null) return
+    logStage("assistCallback")
     assistReceived = true
     val structure = state.assistStructure
     structure?.activityComponent?.flattenToShortString()?.let { foreground = it }
@@ -85,7 +118,9 @@ class SystemAssistantSession(private val ctx: Context) : VoiceInteractionSession
   override fun onHandleScreenshot(screenshot: Bitmap?) {
     super.onHandleScreenshot(screenshot)
     if (request == null) return
+    logStage("screenshotCallback")
     capture = screenshot
+    capturedAt = SystemClock.elapsedRealtime()
     screenshotReceived = true
     if (shown && captureReady()) deliverCapture()
   }
@@ -100,11 +135,21 @@ class SystemAssistantSession(private val ctx: Context) : VoiceInteractionSession
     val version = generation
     val page = foreground ?: "Current app"
     val flags = showFlags
+    val invoked = invokedAt
+    val captured = capturedAt
+    val source = CharacterTryOnPolicy.source(foreground)
+    val textId = textInvocationId
+    val preparingId = voicePreparationId
+    val characterEntry = source != null && (textId != null || CharacterTryOnPolicy.acceptsEntry(
+      args.getString(SystemAssistantEntry.TRIGGER), args.getString(SystemAssistantEntry.GESTURE_ID), args.keySet(),
+      flags and (SHOW_SOURCE_ASSIST_GESTURE or SHOW_SOURCE_PUSH_TO_TALK) != 0,
+    ))
     val suggestion = args.containsKey("jevTestToken")
     request = null
     shown = false
     IO.execute {
       var file: File? = null
+      var characterJpeg: ByteArray? = null
       var target: Intent? = if (suggestion) null else SystemAssistantEntry.launch(ctx, args, flags)
       try {
         if (version != generation) return@execute
@@ -131,6 +176,11 @@ class SystemAssistantSession(private val ctx: Context) : VoiceInteractionSession
               .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
           }
         }
+        // The existing PNG/gateway path above remains authoritative for generic requests.
+        // Encoding failure only disables this optional local route; it never loses that handoff.
+        if (characterEntry && image != null && version == generation) {
+          characterJpeg = runCatching { CharacterReferenceEncoder.encode(image) }.getOrNull()
+        }
       } catch (failure: Exception) {
         Log.w("TakuSystemAssistant", "Native capture handoff failed", failure)
         main.post {
@@ -141,15 +191,37 @@ class SystemAssistantSession(private val ctx: Context) : VoiceInteractionSession
           }
         }
       } finally {
+        logStage("gatewayDone", invoked, version)
         file?.delete()
         main.post {
           if (version == generation) {
-            try { target?.let(::startAssistantActivity) }
+            try {
+              val assistant = AssistantSession.get(ctx)
+              // Closing input while PNG/gateway work was pending also cancels the eventual UI launch.
+              if (textId != null && !assistant.readyCharacterTextInvocation(textId)) return@post
+              val voiceReady = preparingId == null || assistant.completeSystemVoicePreparation(preparingId)
+              // A voice-to-text transfer may retain this exact frame, but it never authorizes
+              // a delayed recorder or another Activity. All other terminal entries drop it.
+              if (!voiceReady && (preparingId == null || !assistant.ownsCharacterTextInvocation(preparingId))) return@post
+              characterJpeg?.let { jpeg ->
+                assistant.offerCharacterReference(textId ?: args.getString(SystemAssistantEntry.GESTURE_ID).orEmpty(), source!!, invoked, captured, jpeg)
+                characterJpeg = null
+              }
+              if (!voiceReady) return@post
+              if (textId != null) target?.putExtra(AssistantOverlayActivity.CHARACTER_TEXT_ID, textId)
+              target?.let(::startAssistantActivity)
+              // The accepted Activity handoff now owns cancellation. onHide must not revoke
+              // its Ready gate before onCreate/onNewIntent can activate the same hold.
+              if (voicePreparationId == preparingId) voicePreparationId = null
+            }
             catch (failure: RuntimeException) {
+              if (textId != null && AssistantSession.get(ctx).ownsCharacterTextInvocation(textId))
+                AssistantSession.get(ctx).invalidateCharacterReference()
+              preparingId?.let { AssistantSession.get(ctx).cancelPendingSystemVoicePreparation(it) }
               Log.w("TakuSystemAssistant", "Assistant UI unavailable", failure)
               android.widget.Toast.makeText(ctx, "Assistant could not open. Retry from Taku", android.widget.Toast.LENGTH_LONG).show()
-            } finally { hide() }
-          }
+            } finally { characterJpeg?.fill(0); hide() }
+          } else characterJpeg?.fill(0)
         }
       }
     }
@@ -162,11 +234,24 @@ class SystemAssistantSession(private val ctx: Context) : VoiceInteractionSession
     return result.getJSONObject("result")
   }
 
+  private fun logStage(stage: String, started: Long = invokedAt, version: Int = generation) {
+    Log.d("TakuSystemAssistant", "stage=$stage generation=$version elapsedMs=${SystemClock.elapsedRealtime() - started}")
+  }
+
   override fun onHide() {
+    voicePreparationId?.let { AssistantSession.get(ctx).cancelPendingSystemVoicePreparation(it) }
+    voicePreparationId = null
+    textInvocationId?.let { AssistantSession.get(ctx).cancelPendingCharacterTextInvocation(it) }
+    textInvocationId = null
     generation++; shown = false; request = null; capture = null; screenshotReceived = false; invocationToken = null
     super.onHide()
   }
-  override fun onDestroy() { main.removeCallbacksAndMessages(null); generation++; super.onDestroy() }
+  override fun onDestroy() {
+    voicePreparationId?.let { AssistantSession.get(ctx).cancelPendingSystemVoicePreparation(it) }
+    voicePreparationId = null
+    textInvocationId?.let { AssistantSession.get(ctx).cancelPendingCharacterTextInvocation(it) }
+    main.removeCallbacksAndMessages(null); generation++; super.onDestroy()
+  }
 
   companion object { private val IO = Executors.newSingleThreadExecutor() }
 }

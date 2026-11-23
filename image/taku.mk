@@ -17,6 +17,12 @@ ifeq ($(TAKU_PREINSTALL_PERSONAL_PROXY),true)
 PRODUCT_PACKAGES_DEBUG += TakuPersonalProxy
 endif
 
+# Optional native character preview. Prepare the checksum-pinned TryOn archives
+# with system/tryon/app/prepare-native-deps.py --download --soong before opting in.
+ifeq ($(TAKU_PREINSTALL_TRYON),true)
+PRODUCT_PACKAGES_DEBUG += TakuTryOn TakuShoppingObserver
+endif
+
 PRODUCT_PACKAGES_DEBUG += \
     TakuSurfaces \
     TakuArrival \
