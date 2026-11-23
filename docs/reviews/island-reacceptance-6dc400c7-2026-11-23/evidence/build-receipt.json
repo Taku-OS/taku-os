@@ -1,0 +1,30 @@
+{
+  "sourceCommit": "6dc400c7d0eb6c6ccee09fe22b99b8445fe63134",
+  "branch": "vela/dynamic-island",
+  "device": "emulator-5596",
+  "avd": "Taku_PR27_Fresh",
+  "target": "lineage_taku_emu_arm64-cp2a-userdebug / SystemUI",
+  "changedRuntime": "SystemUI; Assistant APK rebuilt for updated skill assets; Agent code unchanged from installed a48ca6f1",
+  "hostTests": "PASS: 40 island store checks\nPASS: 15 system source policy checks\nPASS: 105 island access policy checks\nPASS: 91 island payload v2/adapter checks\nIslandCapsuleGeometryTest: passed\nPASS: 33 designer animation frames + reduced-motion pose\n",
+  "parser": "PASS: 70 island parser checks\nBoundary: parser only; not SystemUI compilation or window/device acceptance.\n\n",
+  "render": "PASS: 70 capsule render checks. Component Canvas only; real status-bar placement still needs SystemUI installation.\n\n",
+  "cloudRun": "/mnt/taku-build/runs/island-6dc400c7-20261123-r2",
+  "cloudImageArchitecture": "linux/amd64",
+  "cloudThreads": 56,
+  "cloudMemoryLimit": "210 GiB",
+  "assistantApkSha256": "e71d166b0e8619cbc2edc978a6ed0622750f81d9e3894263049225e6b639b1b2",
+  "systemUiApkSha256": "3fd5b24c9cdc529dee4aa0c78c25c9f1c747e9f1d5f0c803250cfa0ece83733e",
+  "deviceSystemUiSha256": "3fd5b24c9cdc529dee4aa0c78c25c9f1c747e9f1d5f0c803250cfa0ece83733e",
+  "cloudBuildExit": 0,
+  "installed": true,
+  "installedApks": {
+    "com.android.systemui": "3fd5b24c9cdc529dee4aa0c78c25c9f1c747e9f1d5f0c803250cfa0ece83733e",
+    "org.agentos.agent": "2d19207bcabac9667e3b961620e6aa0a0c425b672ad8c3f0e01cb70c4e3549f8",
+    "org.agentos.assistant": "e71d166b0e8619cbc2edc978a6ed0622750f81d9e3894263049225e6b639b1b2"
+  },
+  "cloudStopStatus": "TERMINATED",
+  "localArtifacts": {
+    "SystemUI.apk": "out/island-reacceptance-6dc400c7/cloud-results/SystemUI.apk",
+    "Assistant.apk": "system/assistant/out/AgentOSAssistant.apk"
+  }
+}

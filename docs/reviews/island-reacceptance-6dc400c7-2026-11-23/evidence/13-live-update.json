@@ -1,0 +1,79 @@
+{
+  "ok": true,
+  "settings": {
+    "enabled": true,
+    "protocol": 2,
+    "allowedPackages": [
+      "org.agentos.island.audit.one",
+      "org.agentos.island.audit.three",
+      "org.agentos.island.audit.two",
+      "org.agentos.notebook"
+    ],
+    "error": null
+  },
+  "activities": [
+    {
+      "key": "0|org.agentos.island.audit.one|1|null|10204",
+      "package": "org.agentos.island.audit.one",
+      "userId": 0,
+      "revision": 10,
+      "firstSeenElapsedMs": 103831,
+      "expiresElapsedMs": 43303831,
+      "stale": false,
+      "dismissed": false,
+      "active": true,
+      "triggeredAtElapsedMs": 103831,
+      "source": "live-update",
+      "tier": 3,
+      "timeoutKind": "cap",
+      "availableActions": [],
+      "payload": {
+        "version": 2,
+        "expanded": {
+          "template": "progress",
+          "title": "Audit ongoing task",
+          "body": "Disposable audit notification",
+          "actions": [],
+          "progress": {
+            "value": 0.4
+          }
+        },
+        "alert": false,
+        "compact": {
+          "a": {
+            "type": "icon",
+            "pic": "_app",
+            "tint": true
+          },
+          "b": {
+            "type": "text",
+            "text": "12 min"
+          }
+        },
+        "timeoutS": 43200
+      },
+      "fallback": null
+    }
+  ],
+  "presentation": {
+    "selected": "0|org.agentos.island.audit.one|1|null|10204",
+    "compactVisible": true,
+    "reason": "agent",
+    "foregroundPackage": "org.agentos.agent",
+    "suppressedByForeground": [],
+    "secondaryKey": null,
+    "tap": "expand",
+    "compact": {
+      "text": "12 min",
+      "secondary": false,
+      "pillGlyph": null,
+      "animatingIcons": 0,
+      "secondaryPosition": null,
+      "cameraRadiusDp": 23.238094,
+      "scale": 1,
+      "disc": "pic"
+    },
+    "expanded": false,
+    "card": null
+  }
+}

@@ -1,0 +1,103 @@
+[
+  {
+    "test": "unapproved publisher rejected",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "test": "custom capsule",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "test": "mutual exclusion",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "test": "card closes on app open",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "test": "return home is capsule",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "test": "foreground closes card",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "test": "white card accepted",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "test": "animated resource running",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "test": "newest first and secondary left",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "test": "swipe left switches",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "test": "swipe right hides",
+    "pass": true,
+    "detail": "Corrected test assertion: list/state excludes dismissed entries; 12-swipe-hide shows A123 removed and FL123 selected. Initial raw log retained.",
+    "initialAssertion": false
+  },
+  {
+    "test": "Live Update accepted",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "test": "non-ongoing rejected",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "test": "short static still admitted",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "test": "first alert expands",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "test": "fast flip remains collapsed",
+    "pass": false,
+    "detail": null
+  },
+  {
+    "test": "cancel repost cooldown",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "test": "alert after 30s expands",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "test": "foreground alert suppressed",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "test": "repost still renews business lifetime",
+    "pass": true,
+    "detail": null
+  }
+]

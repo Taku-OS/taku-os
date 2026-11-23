@@ -1,0 +1,31 @@
+{
+  "ok": true,
+  "state": {
+    "settings": {
+      "enabled": true,
+      "protocol": 2,
+      "allowedPackages": [
+        "org.agentos.island.audit.one",
+        "org.agentos.notebook"
+      ],
+      "error": null
+    },
+    "activities": [],
+    "presentation": {
+      "selected": null,
+      "compactVisible": false,
+      "reason": "agent",
+      "foregroundPackage": "org.agentos.agent",
+      "suppressedByForeground": [],
+      "secondaryKey": null,
+      "tap": null,
+      "compact": null,
+      "expanded": false,
+      "card": null
+    },
+    "diagnostics": [
+      "0|org.agentos.island.audit.one|1|null|10205:not_ongoing",
+      "0|org.agentos.island.audit.one|1|null|10205:too_many_actions"
+    ]
+  }
+}

@@ -1,0 +1,43 @@
+[
+  {
+    "case": "60-not-ongoing",
+    "admitted": false,
+    "diagnostics": [
+      "0|org.agentos.island.audit.one|1|null|10205:not_ongoing"
+    ]
+  },
+  {
+    "case": "61-33-actions",
+    "admitted": false,
+    "diagnostics": [
+      "0|org.agentos.island.audit.one|1|null|10205:not_ongoing",
+      "0|org.agentos.island.audit.one|1|null|10205:too_many_actions"
+    ]
+  },
+  {
+    "case": "62-over-12h",
+    "admitted": false,
+    "diagnostics": [
+      "0|org.agentos.island.audit.one|1|null|10205:too_many_actions",
+      "0|org.agentos.island.audit.one|1|null|10205:number_range"
+    ]
+  },
+  {
+    "case": "63-custom-content",
+    "admitted": false,
+    "diagnostics": [
+      "0|org.agentos.island.audit.one|1|null|10205:number_range",
+      "0|org.agentos.island.audit.one|1|null|10205:reserved_content"
+    ]
+  },
+  {
+    "case": "capsule open app",
+    "pass": true
+  },
+  {
+    "case": "card tapAction",
+    "pass": true,
+    "initialAttemptPassed": false,
+    "detail": "Initial tap preceded expansion animation and reached the desktop. Waiting for the card and repeating passed; see 68/69 and 69-custom-tap-app.json."
+  }
+]

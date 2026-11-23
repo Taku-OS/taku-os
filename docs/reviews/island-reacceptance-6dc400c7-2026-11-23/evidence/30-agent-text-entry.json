@@ -1,0 +1,68 @@
+{
+  "ok": true,
+  "settings": {
+    "enabled": true,
+    "protocol": 2,
+    "allowedPackages": [
+      "org.agentos.notebook"
+    ],
+    "error": null
+  },
+  "activities": [
+    {
+      "key": "0|org.agentos.agent|2801|taku-island:7e8370ec-ce50-476f-a743-95f148db50cf|10170",
+      "package": "org.agentos.agent",
+      "userId": 0,
+      "revision": 5,
+      "firstSeenElapsedMs": 58883,
+      "expiresElapsedMs": 28858883,
+      "stale": false,
+      "dismissed": false,
+      "active": true,
+      "triggeredAtElapsedMs": 58883,
+      "source": "custom-v2",
+      "tier": 3,
+      "timeoutKind": "explicit",
+      "availableActions": [
+        {
+          "id": "open",
+          "title": "Open conversation"
+        }
+      ],
+      "payload": {
+        "version": 2,
+        "timeoutS": 28800,
+        "expanded": {
+          "template": "assistant",
+          "title": "Taku",
+          "body": "Taku is here, how can I help you?",
+          "steps": [],
+          "actions": [
+            "open"
+          ],
+          "primaryAction": "open",
+          "assistant": {
+            "token": "[redacted runtime capability]",
+            "phase": "message",
+            "suggestions": [],
+            "heightDp": 300
+          },
+          "tapAction": "open"
+        }
+      },
+      "fallback": null
+    }
+  ],
+  "presentation": {
+    "selected": "0|org.agentos.agent|2801|taku-island:7e8370ec-ce50-476f-a743-95f148db50cf|10170",
+    "compactVisible": false,
+    "reason": "priority_changed",
+    "foregroundPackage": "org.agentos.agent",
+    "suppressedByForeground": [],
+    "secondaryKey": null,
+    "tap": "expand",
+    "compact": null,
+    "expanded": false,
+    "card": null
+  }
+}

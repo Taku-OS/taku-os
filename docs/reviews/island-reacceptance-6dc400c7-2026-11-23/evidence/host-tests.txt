@@ -1,0 +1,6 @@
+PASS: 40 island store checks
+PASS: 15 system source policy checks
+PASS: 105 island access policy checks
+PASS: 91 island payload v2/adapter checks
+IslandCapsuleGeometryTest: passed
+PASS: 33 designer animation frames + reduced-motion pose

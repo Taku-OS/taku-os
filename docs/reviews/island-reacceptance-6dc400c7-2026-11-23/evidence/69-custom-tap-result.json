@@ -1,0 +1,86 @@
+{
+  "ok": true,
+  "settings": {
+    "enabled": true,
+    "protocol": 2,
+    "allowedPackages": [
+      "org.agentos.island.audit.one",
+      "org.agentos.notebook"
+    ],
+    "error": null
+  },
+  "activities": [
+    {
+      "key": "0|org.agentos.island.audit.one|1|null|10206",
+      "package": "org.agentos.island.audit.one",
+      "userId": 0,
+      "revision": 43,
+      "firstSeenElapsedMs": 310611,
+      "expiresElapsedMs": 3910611,
+      "stale": false,
+      "dismissed": false,
+      "active": true,
+      "triggeredAtElapsedMs": 310611,
+      "source": "custom-v2",
+      "tier": 3,
+      "timeoutKind": "default",
+      "availableActions": [
+        {
+          "id": "a0",
+          "title": "Action a0"
+        },
+        {
+          "id": "a1",
+          "title": "Action a1"
+        },
+        {
+          "id": "a2",
+          "title": "Action a2"
+        },
+        {
+          "id": "detail",
+          "title": "Open detail"
+        }
+      ],
+      "payload": {
+        "version": 2,
+        "compact": {
+          "a": {
+            "type": "icon",
+            "pic": "mic"
+          },
+          "b": {
+            "type": "text",
+            "text": "A123"
+          }
+        },
+        "expanded": {
+          "template": "basic",
+          "title": "Audit service",
+          "body": "Ongoing user-requested activity.",
+          "actions": [
+            "a0",
+            "a1",
+            "a2"
+          ],
+          "tapAction": "detail"
+        }
+      },
+      "fallback": null
+    }
+  ],
+  "presentation": {
+    "selected": "0|org.agentos.island.audit.one|1|null|10206",
+    "compactVisible": false,
+    "reason": "opened:0|org.agentos.island.audit.one|1|null|10206",
+    "foregroundPackage": "org.agentos.island.audit.one",
+    "suppressedByForeground": [
+      "0|org.agentos.island.audit.one|1|null|10206"
+    ],
+    "secondaryKey": null,
+    "tap": "expand",
+    "compact": null,
+    "expanded": false,
+    "card": null
+  }
+}

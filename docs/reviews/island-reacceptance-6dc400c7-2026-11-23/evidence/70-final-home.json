@@ -1,0 +1,24 @@
+{
+  "ok": true,
+  "settings": {
+    "enabled": true,
+    "protocol": 2,
+    "allowedPackages": [
+      "org.agentos.notebook"
+    ],
+    "error": null
+  },
+  "activities": [],
+  "presentation": {
+    "selected": null,
+    "compactVisible": false,
+    "reason": "opened:0|org.agentos.island.audit.one|1|null|10206",
+    "foregroundPackage": "org.agentos.agent",
+    "suppressedByForeground": [],
+    "secondaryKey": null,
+    "tap": null,
+    "compact": null,
+    "expanded": false,
+    "card": null
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "phoneReady": true,
+  "ai": "unknown",
+  "services": {
+    "chatgpt": "unknown",
+    "jev": "connected",
+    "fal": "connected"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "working": false,
+  "buildingApp": false,
+  "voice": {
+    "phase": "Idle",
+    "ready": false,
+    "listening": false
+  },
+  "accounts": {
+    "services": {
+      "chatgpt": "connected",
+      "jev": "connected",
+      "fal": "connected"
+    },
+    "ai": "available"
+  },
+  "allowed": [
+    "org.agentos.notebook"
+  ],
+  "testPackages": "",
+  "home": "priority=0 preferredOrder=0 match=0x108000 specificIndex=-1 isDefault=true\norg.agentos.agent/.home.HomeActivity",
+  "ime": "org.agentos.inputmethod/org.fcitx.fcitx5.android.input.FcitxInputMethodService",
+  "blurDisabled": "0",
+  "overlay": "[ ] com.android.internal.emulation.pixel_8_pro\n[ ] com.android.internal.emulation.pixel_8a\n[x] com.android.internal.emulation.pixel_8\n[ ] com.android.systemui.emulation.pixel_8\n[ ] com.android.systemui.emulation.pixel_8_pro\n[ ] com.android.systemui.emulation.pixel_8a"
+}

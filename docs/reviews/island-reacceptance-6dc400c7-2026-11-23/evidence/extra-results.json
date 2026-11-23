@@ -1,0 +1,19 @@
+[
+  {
+    "test": "opaque fallback when blur disabled",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "test": "secondary physical tap selects waiting app",
+    "pass": true,
+    "detail": {
+      "tapX": 322
+    }
+  },
+  {
+    "test": "short bar scales capsule",
+    "pass": true,
+    "detail": null
+  }
+]

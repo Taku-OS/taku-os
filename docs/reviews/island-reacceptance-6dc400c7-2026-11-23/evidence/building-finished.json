@@ -1,0 +1,119 @@
+{
+  "entry": "none",
+  "island": "hidden",
+  "expansionRequest": 6,
+  "islandRequest": "collapsed",
+  "islandHost": "systemui",
+  "listeningHeaderHost": "systemui-native",
+  "sending": false,
+  "abandoned": false,
+  "hintExpanded": false,
+  "voiceContinuous": false,
+  "voicePaused": false,
+  "holdZone": "none",
+  "gesture": {
+    "id": "3a36e204-f459-42ed-b31f-933bca990753",
+    "source": "desktop",
+    "phase": "cancelled",
+    "sequence": 0,
+    "startedAt": 84199,
+    "updatedAt": 84199
+  },
+  "threadId": "01a208a8-0c83-7861-9248-bd8cd7e95316",
+  "activityId": "c6b65660-4294-48d7-a195-28168d657330",
+  "buildingApp": false,
+  "appBuildTurnId": null,
+  "working": false,
+  "needsUser": false,
+  "online": true,
+  "pending": null,
+  "task": "completed",
+  "error": null,
+  "draft": "",
+  "failedText": null,
+  "draftAttachmentNames": [],
+  "turn": {
+    "turnId": "01a208a8-20f7-7400-8e8b-9da051b9810a",
+    "active": false,
+    "failed": false,
+    "userText": "灵动岛修复复测：请在 /data/local/agentos/work/island-acceptance-20261123/index.html 测试计数器中添加一个加十按钮。只修改这个测试页面，不联网、不安装 APK、不改系统设置。按已有 taku-app-development 规范标记真实开发期间的 Building 状态，完成后清除标记。",
+    "headline": "已添加加十按钮\n已在指定测试页面添加“加十”按钮，并接入计数器。开发期间已设置 Building 标记，完成后已确认清除。\n已检查页面代码；由于环境中没有 Node.js 或 Python，未能运行自动行为测试。",
+    "reply": "已添加加十按钮\n已在指定测试页面添加“加十”按钮，并接入计数器。开发期间已设置 Building 标记，完成后已确认清除。\n已检查页面代码；由于环境中没有 Node.js 或 Python，未能运行自动行为测试。",
+    "steps": [
+      {
+        "id": "exec-0a3ed060-6dac-4741-9ad2-07c2030c30ea",
+        "kind": "act",
+        "text": "Running /system_ext/bin/bash -lc 'cat /data/local/agentos/home/.codex/sk",
+        "running": false
+      },
+      {
+        "id": "exec-21338c39-9f96-4d93-9f79-7f688557a872",
+        "kind": "act",
+        "text": "Running /system_ext/bin/bash -lc 'content call --uri content://org.agent",
+        "running": false
+      },
+      {
+        "id": "exec-929779f5-e327-4468-9f38-204a08d605d9",
+        "kind": "act",
+        "text": "Running /system_ext/bin/bash -lc \"content call --uri content://org.agent",
+        "running": false
+      },
+      {
+        "id": "exec-aa167814-d7f1-45e3-ab4d-4aa99f2e8532",
+        "kind": "act",
+        "text": "Running /system_ext/bin/bash -lc 'cat /data/local/agentos/work/island-ac",
+        "running": false
+      },
+      {
+        "id": "exec-7a1d3249-db86-4979-bb3a-ae0a81db2f94",
+        "kind": "act",
+        "text": "Running /system_ext/bin/bash -lc \"python3 - <<'PY'",
+        "running": false
+      },
+      {
+        "id": "exec-cf32ad1a-4663-4e8f-9b1d-67ef9cc22f47",
+        "kind": "act",
+        "text": "Running /system_ext/bin/bash -lc \"sed -i '/<button id=\\\"decrement\\\"/i\\\\",
+        "running": false
+      },
+      {
+        "id": "exec-f8282461-f8ee-4a62-b40c-0b48d0f9e91e",
+        "kind": "act",
+        "text": "Running /system_ext/bin/bash -lc \"content call --uri content://org.agent",
+        "running": false
+      }
+    ],
+    "suggestions": []
+  },
+  "voice": {
+    "source": "engine",
+    "operationId": null,
+    "sessionId": null,
+    "target": null,
+    "phase": "Idle",
+    "ready": false,
+    "listening": false,
+    "final": false,
+    "transcript": "",
+    "preview": "",
+    "levels": [],
+    "levelSource": "pcm-rms",
+    "outcome": null,
+    "error": null,
+    "settingsScope": null,
+    "settingsRevision": null,
+    "requestedProfileId": null,
+    "profileId": null,
+    "language": null,
+    "processing": null,
+    "fallbackUsed": false,
+    "fallbackReason": null,
+    "maxCaptureMs": null,
+    "drainTimeoutMs": null,
+    "drainDeadlineMonotonicMs": null,
+    "delivery": null,
+    "retainedResult": null
+  },
+  "liveTalk": null,
+  "liveTalkDisclosure": "Live Talk sends microphone audio, conversation context, and task details for spoken replies to the provider selected in Taku Audio (Grok Voice via fal or Google Gemini Live)."
+}

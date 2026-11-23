@@ -1,0 +1,217 @@
+{
+  "assistant": {
+    "entry": "none",
+    "island": "collapsed",
+    "expansionRequest": 6,
+    "islandRequest": "collapsed",
+    "islandHost": "systemui",
+    "listeningHeaderHost": "systemui-native",
+    "sending": false,
+    "abandoned": false,
+    "hintExpanded": false,
+    "voiceContinuous": false,
+    "voicePaused": false,
+    "holdZone": "none",
+    "gesture": {
+      "id": "3a36e204-f459-42ed-b31f-933bca990753",
+      "source": "desktop",
+      "phase": "cancelled",
+      "sequence": 0,
+      "startedAt": 84199,
+      "updatedAt": 84199
+    },
+    "threadId": "01a208a8-0c83-7861-9248-bd8cd7e95316",
+    "activityId": "c6b65660-4294-48d7-a195-28168d657330",
+    "buildingApp": true,
+    "appBuildTurnId": "01a208a8-20f7-7400-8e8b-9da051b9810a",
+    "working": true,
+    "needsUser": false,
+    "online": true,
+    "pending": null,
+    "task": "running",
+    "error": null,
+    "draft": "",
+    "failedText": null,
+    "draftAttachmentNames": [],
+    "turn": {
+      "turnId": "01a208a8-20f7-7400-8e8b-9da051b9810a",
+      "active": true,
+      "failed": false,
+      "userText": "灵动岛修复复测：请在 /data/local/agentos/work/island-acceptance-20261123/index.html 测试计数器中添加一个加十按钮。只修改这个测试页面，不联网、不安装 APK、不改系统设置。按已有 taku-app-development 规范标记真实开发期间的 Building 状态，完成后清除标记。",
+      "headline": "我会按 taku-app-development 规范检查并标记开发状态，只修改指定测试页面，然后验证按钮行为并清除标记。",
+      "reply": null,
+      "steps": [
+        {
+          "id": "exec-0a3ed060-6dac-4741-9ad2-07c2030c30ea",
+          "kind": "act",
+          "text": "Running /system_ext/bin/bash -lc 'cat /data/local/agentos/home/.codex/sk",
+          "running": false
+        },
+        {
+          "id": "exec-21338c39-9f96-4d93-9f79-7f688557a872",
+          "kind": "act",
+          "text": "Running /system_ext/bin/bash -lc 'content call --uri content://org.agent",
+          "running": false
+        },
+        {
+          "id": "exec-929779f5-e327-4468-9f38-204a08d605d9",
+          "kind": "act",
+          "text": "Running /system_ext/bin/bash -lc \"content call --uri content://org.agent",
+          "running": false
+        },
+        {
+          "id": "exec-aa167814-d7f1-45e3-ab4d-4aa99f2e8532",
+          "kind": "act",
+          "text": "Running /system_ext/bin/bash -lc 'cat /data/local/agentos/work/island-ac",
+          "running": false
+        }
+      ],
+      "suggestions": []
+    },
+    "voice": {
+      "source": "engine",
+      "operationId": null,
+      "sessionId": null,
+      "target": null,
+      "phase": "Idle",
+      "ready": false,
+      "listening": false,
+      "final": false,
+      "transcript": "",
+      "preview": "",
+      "levels": [],
+      "levelSource": "pcm-rms",
+      "outcome": null,
+      "error": null,
+      "settingsScope": null,
+      "settingsRevision": null,
+      "requestedProfileId": null,
+      "profileId": null,
+      "language": null,
+      "processing": null,
+      "fallbackUsed": false,
+      "fallbackReason": null,
+      "maxCaptureMs": null,
+      "drainTimeoutMs": null,
+      "drainDeadlineMonotonicMs": null,
+      "delivery": null,
+      "retainedResult": null
+    },
+    "liveTalk": null,
+    "liveTalkDisclosure": "Live Talk sends microphone audio, conversation context, and task details for spoken replies to the provider selected in Taku Audio (Grok Voice via fal or Google Gemini Live)."
+  },
+  "island": {
+    "ok": true,
+    "settings": {
+      "enabled": true,
+      "protocol": 2,
+      "allowedPackages": [
+        "org.agentos.notebook"
+      ],
+      "error": null
+    },
+    "activities": [
+      {
+        "key": "0|org.agentos.agent|2801|taku-island:c6b65660-4294-48d7-a195-28168d657330|10170",
+        "package": "org.agentos.agent",
+        "userId": 0,
+        "revision": 30,
+        "firstSeenElapsedMs": 110499,
+        "expiresElapsedMs": 28910499,
+        "stale": false,
+        "dismissed": false,
+        "active": true,
+        "triggeredAtElapsedMs": 110499,
+        "source": "custom-v2",
+        "tier": 3,
+        "timeoutKind": "explicit",
+        "availableActions": [
+          {
+            "id": "stop",
+            "title": "Stop"
+          },
+          {
+            "id": "open",
+            "title": "Open conversation"
+          }
+        ],
+        "payload": {
+          "version": 2,
+          "timeoutS": 28800,
+          "expanded": {
+            "template": "assistant",
+            "title": "Taku is working",
+            "body": "我会按 taku-app-development 规范检查并标记开发状态，只修改指定测试页面，然后验证按钮行为并清除标记。",
+            "steps": [
+              {
+                "kind": "act",
+                "text": "Running /system_ext/bin/bash -lc 'cat /data/local/agentos/home/.codex/sk",
+                "running": false
+              },
+              {
+                "kind": "act",
+                "text": "Running /system_ext/bin/bash -lc 'content call --uri content://org.agent",
+                "running": false
+              },
+              {
+                "kind": "act",
+                "text": "Running /system_ext/bin/bash -lc \"content call --uri content://org.agent",
+                "running": false
+              },
+              {
+                "kind": "act",
+                "text": "Running /system_ext/bin/bash -lc 'cat /data/local/agentos/work/island-ac",
+                "running": false
+              }
+            ],
+            "actions": [
+              "stop",
+              "open"
+            ],
+            "primaryAction": "open",
+            "assistant": {
+              "token": "[redacted runtime capability]",
+              "phase": "working",
+              "suggestions": [],
+              "heightDp": 300
+            },
+            "tapAction": "open"
+          },
+          "compact": {
+            "a": {
+              "type": "animation",
+              "name": "ai-working"
+            },
+            "b": {
+              "type": "text",
+              "text": "Building..."
+            }
+          }
+        },
+        "fallback": null
+      }
+    ],
+    "presentation": {
+      "selected": "0|org.agentos.agent|2801|taku-island:c6b65660-4294-48d7-a195-28168d657330|10170",
+      "compactVisible": true,
+      "reason": "agent",
+      "foregroundPackage": "org.agentos.agent",
+      "suppressedByForeground": [],
+      "secondaryKey": null,
+      "tap": "expand",
+      "compact": {
+        "text": "Building...",
+        "secondary": false,
+        "pillGlyph": null,
+        "animatingIcons": 0,
+        "secondaryPosition": null,
+        "cameraRadiusDp": 23.238094,
+        "scale": 1,
+        "disc": "working"
+      },
+      "expanded": false,
+      "card": null
+    }
+  },
+  "home": "priority=0 preferredOrder=0 match=0x108000 specificIndex=-1 isDefault=true\norg.agentos.agent/.home.HomeActivity"
+}

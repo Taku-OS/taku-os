@@ -1,0 +1,27 @@
+{
+  "ok": true,
+  "settings": {
+    "enabled": true,
+    "protocol": 2,
+    "allowedPackages": [
+      "org.agentos.island.audit.one",
+      "org.agentos.island.audit.three",
+      "org.agentos.island.audit.two",
+      "org.agentos.notebook"
+    ],
+    "error": null
+  },
+  "activities": [],
+  "presentation": {
+    "selected": null,
+    "compactVisible": false,
+    "reason": "priority_changed",
+    "foregroundPackage": "org.agentos.agent",
+    "suppressedByForeground": [],
+    "secondaryKey": null,
+    "tap": null,
+    "compact": null,
+    "expanded": false,
+    "card": null
+  }
+}

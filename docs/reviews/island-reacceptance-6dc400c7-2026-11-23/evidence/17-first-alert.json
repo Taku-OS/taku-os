@@ -1,0 +1,112 @@
+{
+  "ok": true,
+  "settings": {
+    "enabled": true,
+    "protocol": 2,
+    "allowedPackages": [
+      "org.agentos.island.audit.one",
+      "org.agentos.island.audit.three",
+      "org.agentos.island.audit.two",
+      "org.agentos.notebook"
+    ],
+    "error": null
+  },
+  "activities": [
+    {
+      "key": "0|org.agentos.island.audit.one|77|null|10204",
+      "package": "org.agentos.island.audit.one",
+      "userId": 0,
+      "revision": 13,
+      "firstSeenElapsedMs": 119915,
+      "expiresElapsedMs": 3719915,
+      "stale": false,
+      "dismissed": false,
+      "active": true,
+      "triggeredAtElapsedMs": 119915,
+      "source": "custom-v2",
+      "tier": 3,
+      "timeoutKind": "default",
+      "availableActions": [
+        {
+          "id": "a0",
+          "title": "Action a0"
+        },
+        {
+          "id": "a1",
+          "title": "Action a1"
+        },
+        {
+          "id": "a2",
+          "title": "Action a2"
+        }
+      ],
+      "payload": {
+        "version": 2,
+        "compact": {
+          "a": {
+            "type": "icon",
+            "pic": "mic"
+          },
+          "b": {
+            "type": "text",
+            "text": "A123"
+          }
+        },
+        "expanded": {
+          "template": "basic",
+          "title": "Audit service",
+          "body": "Ongoing user-requested activity.",
+          "actions": [
+            "a0",
+            "a1",
+            "a2"
+          ]
+        },
+        "alert": true
+      },
+      "fallback": null
+    }
+  ],
+  "presentation": {
+    "selected": "0|org.agentos.island.audit.one|77|null|10204",
+    "compactVisible": false,
+    "reason": "alert",
+    "foregroundPackage": "org.agentos.agent",
+    "suppressedByForeground": [],
+    "secondaryKey": null,
+    "tap": "expand",
+    "compact": null,
+    "expanded": true,
+    "card": {
+      "key": "0|org.agentos.island.audit.one|77|null|10204",
+      "windowType": 2041,
+      "cover": true,
+      "backdropBlur": true,
+      "fill": "#EB000000",
+      "focusable": false,
+      "layout": "body",
+      "richReady": false,
+      "renderer": "systemui-native",
+      "nativeReady": true,
+      "assistant": null,
+      "template": {
+        "renderer": "systemui-native",
+        "title": "Audit service",
+        "template": "basic",
+        "highlight": null,
+        "backgroundColor": null,
+        "accentColor": null,
+        "tapAction": null,
+        "body": "Ongoing user-requested activity.",
+        "actionCount": 3,
+        "progress": null
+      },
+      "progress": null,
+      "width": 1038,
+      "height": 450,
+      "top": 21,
+      "touchRegion": "SkRegion((95,0,943,1)(88,1,950,2)(83,2,955,3)(79,3,959,4)(75,4,963,5)(72,5,966,6)(69,6,969,7)(66,7,972,8)(64,8,974,9)(62,9,976,10)(59,10,978,11)(57,11,981,12)(55,12,983,13)(54,13,984,14)(52,14,986,15)(50,15,988,16)(49,16,989,17)(47,17,991,18)(46,18,992,19)(44,19,994,20)(43,20,995,21)(42,21,996,22)(40,22,998,23)(39,23,999,24)(38,24,1000,25)(37,25,1001,26)(35,26,1003,27)(34,27,1004,28)(33,28,1005,29)(32,29,1006,30)(31,30,1007,31)(30,31,1008,32)(29,32,1009,33)(28,33,1010,34)(27,34,1011,35)(26,35,1012,37)(25,37,1013,38)(24,38,1014,39)(23,39,1015,40)(22,40,1016,42)(21,42,1017,43)(20,43,1018,44)(19,44,1019,46)(18,46,1020,47)(17,47,1021,49)(16,49,1022,50)(15,50,1023,52)(14,52,1024,54)(13,54,1025,55)(12,55,1026,57)(11,57,1027,59)(10,59,1027,60)(10,60,1028,62)(9,62,1029,64)(8,64,1030,66)(7,66,1031,69)(6,69,1032,72)(5,72,1033,75)(4,75,1034,79)(3,79,1035,83)(2,83,1036,88)(1,88,1037,95)(0,95,1038,355)(1,355,1037,362)(2,362,1036,367)(3,367,1035,371)(4,371,1034,375)(5,375,1033,378)(6,378,1032,381)(7,381,1031,384)(8,384,1030,386)(9,386,1029,388)(10,388,1028,390)(10,390,1027,391)(11,391,1027,393)(12,393,1026,395)(13,395,1025,396)(14,396,1024,398)(15,398,1023,400)(16,400,1022,401)(17,401,1021,403)(18,403,1020,404)(19,404,1019,406)(20,406,1018,407)(21,407,1017,408)(22,408,1016,410)(23,410,1015,411)(24,411,1014,412)(25,412,1013,413)(26,413,1012,415)(27,415,1011,416)(28,416,1010,417)(29,417,1009,418)(30,418,1008,419)(31,419,1007,420)(32,420,1006,421)(33,421,1005,422)(34,422,1004,423)(35,423,1003,424)(37,424,1001,425)(38,425,1000,426)(39,426,999,427)(40,427,998,428)(42,428,996,429)(43,429,995,430)(44,430,994,431)(46,431,992,432)(47,432,991,433)(49,433,989,434)(50,434,988,435)(52,435,986,436)(54,436,984,437)(55,437,983,438)(57,438,981,439)(60,439,978,440)(62,440,976,441)(64,441,974,442)(66,442,972,443)(69,443,969,444)(72,444,966,445)(75,445,963,446)(79,446,959,447)(83,447,955,448)(88,448,950,449)(95,449,943,450))",
+      "outsideTapCollapses": false
+    }
+  }
+}
