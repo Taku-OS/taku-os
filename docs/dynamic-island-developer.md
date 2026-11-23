@@ -71,9 +71,9 @@ System behaviour you can rely on:
   glyph.
 - **Your app in front.** Your capsule is not drawn while your app is the top task. It appears when
   the user leaves the app, if you supplied capsule data.
-- **Heads-up.** While the island can present your activity (unlocked, shade closed, portrait),
-  your notification does not also pop a stock heads-up. Use `alert: true` to expand the card
-  briefly instead.
+- **Heads-up.** For Path B activities, while the island can present them (unlocked, shade closed,
+  portrait), the notification does not also pop a stock heads-up. Use `alert: true` to expand the
+  card briefly instead. Plain Live Updates (Path A) keep Android's normal heads-up.
 - **Lifetime.** Your island ends at the first of:
   - you cancel the notification,
   - your declared timeout (`timeoutS` or `setTimeoutAfter`),

@@ -185,9 +185,10 @@ class IslandEngine @Inject constructor(
     fun isUnknown(key: String) = key !in trackedKeys
 
     /**
-     * Synchronous pre-check for a brand-new post: would it become an ordinary island activity?
-     * Calls and alarms are excluded outright; custom extras must come from an allowed publisher
-     * and validate. Invalid data keeps Android's heads-up.
+     * Synchronous pre-check for a brand-new post: would it become an ordinary Taku-format island
+     * activity, whose `alert` replaces the heads-up? Calls, alarms and plain Live Updates are
+     * excluded; custom extras must come from an allowed publisher and validate. Invalid data keeps
+     * Android's heads-up.
      */
     fun headsUpCandidate(sbn: android.service.notification.StatusBarNotification): Boolean = try {
         val n = sbn.notification
@@ -197,10 +198,9 @@ class IslandEngine @Inject constructor(
             IslandSystemNotifications.candidate(n) -> false
             (v2 != null || v1 != null) && policy.canPost(sbn.packageName) -> {
                 val publisher = extractor.publisher(sbn)
-                (if (v2 != null) IslandPayload.parseV2(v2, publisher) else IslandPayload.parseV1(v1, publisher)).isValid ||
-                    n.isPromotedOngoing
+                (if (v2 != null) IslandPayload.parseV2(v2, publisher) else IslandPayload.parseV1(v1, publisher)).isValid
             }
-            else -> n.isPromotedOngoing
+            else -> false
         }
     } catch (unreadable: Exception) { false }
 

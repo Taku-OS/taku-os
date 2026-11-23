@@ -1542,9 +1542,10 @@
 +    fun isUnknown(key: String) = key !in trackedKeys
 +
 +    /**
-+     * Synchronous pre-check for a brand-new post: would it become an ordinary island activity?
-+     * Calls and alarms are excluded outright; custom extras must come from an allowed publisher
-+     * and validate. Invalid data keeps Android's heads-up.
++     * Synchronous pre-check for a brand-new post: would it become an ordinary Taku-format island
++     * activity, whose `alert` replaces the heads-up? Calls, alarms and plain Live Updates are
++     * excluded; custom extras must come from an allowed publisher and validate. Invalid data keeps
++     * Android's heads-up.
 +     */
 +    fun headsUpCandidate(sbn: android.service.notification.StatusBarNotification): Boolean = try {
 +        val n = sbn.notification
@@ -1554,10 +1555,9 @@
 +            IslandSystemNotifications.candidate(n) -> false
 +            (v2 != null || v1 != null) && policy.canPost(sbn.packageName) -> {
 +                val publisher = extractor.publisher(sbn)
-+                (if (v2 != null) IslandPayload.parseV2(v2, publisher) else IslandPayload.parseV1(v1, publisher)).isValid ||
-+                    n.isPromotedOngoing
++                (if (v2 != null) IslandPayload.parseV2(v2, publisher) else IslandPayload.parseV1(v1, publisher)).isValid
 +            }
-+            else -> n.isPromotedOngoing
++            else -> false
 +        }
 +    } catch (unreadable: Exception) { false }
 +
@@ -1699,7 +1699,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandExtractor.kt
-@@ -0,0 +1,217 @@
+@@ -0,0 +1,220 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -1867,8 +1867,11 @@
 +            .put("alert", category == "alarm" || (category == "call" && extras.getInt(Notification.EXTRA_CALL_TYPE) == Notification.CallStyle.CALL_TYPE_INCOMING))
 +        if (compact.length() > 0) payload.put("compact", compact)
 +        // setTimeoutAfter is the Live Update's declared end; otherwise the island default applies.
-+        n.timeoutAfter.takeIf { it > 0 }?.let {
-+            payload.put("timeoutS", ((it + 999) / 1000).coerceIn(1, IslandStore.MAX_LIFETIME_S.toLong()))
++        // Calls, alarms and stopwatches recognised by SystemUI end with their source (12 h cap).
++        val declared = n.timeoutAfter.takeIf { it > 0 }?.let { ((it + 999) / 1000).coerceIn(1, IslandStore.MAX_LIFETIME_S.toLong()) }
++        when {
++            declared != null -> payload.put("timeoutS", declared)
++            category != null -> payload.put("timeoutS", IslandStore.MAX_LIFETIME_S)
 +        }
 +        val tier = when (category) {
 +            "call" -> IslandStore.TIER_CALL
@@ -2904,7 +2907,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandPresenter.kt
-@@ -0,0 +1,347 @@
+@@ -0,0 +1,352 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -2998,7 +3001,8 @@
 +        capsule = IslandCapsuleView(view.context,
 +            tap = { if (card != null) invoke("collapse", null) else selected?.let { invoke("tap", it) } },
 +            longPress = { selected?.let { invoke("expand", it) } },
-+            next = { invoke("next", null) },
++            // One activity: nothing to switch to, and no error toast for the gesture.
++            next = { engine.command("next", null, null) },
 +            hide = { selected?.let { invoke("dismiss", it) } },
 +        )
 +        view.addView(capsule, FrameLayout.LayoutParams(dp(180), dp(28), Gravity.CENTER))
@@ -3081,8 +3085,9 @@
 +
 +    /**
 +     * Whether the island takes over this notification's heads-up: it can present right now, the
-+     * activity is an ordinary one (calls and alarms keep Android's heads-up), and the user has not
-+     * hidden it. Brand-new posts are not extracted yet, so the engine pre-checks those.
++     * activity is an ordinary Taku-format one (calls, alarms and plain Live Updates keep Android's
++     * heads-up), and the user has not hidden it. Brand-new posts are not extracted yet, so the
++     * engine pre-checks those.
 +     */
 +    fun replacesHeadsUp(key: String, newIslandCandidate: () -> Boolean): Boolean =
 +        engine.policy.enabled && (key in presentable || (presentableNow && engine.isUnknown(key) && newIslandCandidate()))
@@ -3143,7 +3148,10 @@
 +        try { layoutCapsuleNow() } finally {
 +            val now = canExpand()
 +            presentableNow = now
-+            presentable = if (now) items.filter { it.data.tier == IslandStore.TIER_ACTIVITY }.map { it.key }.toSet() else emptySet()
++            // Only Taku-format activities can alert, so only they replace their stock heads-up.
++            // Plain Live Updates keep Android's heads-up for their important moments.
++            presentable = if (now) items.filter { it.data.tier == IslandStore.TIER_ACTIVITY && it.data.source != IslandActivity.SOURCE_LIVE_UPDATE }
++                .map { it.key }.toSet() else emptySet()
 +            engine.presentationChanged()
 +        }
 +    }

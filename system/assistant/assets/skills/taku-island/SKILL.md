@@ -99,10 +99,11 @@ app. The default home app and SystemUI's own recording/cast sources are exempt.
 `secondaryKey` the activity drawn as the small secondary disc, and `tap` the selected
 activity's tap behaviour.
 
-An ordinary island activity does not also raise a stock heads-up while the island can present
-it (unlocked, shade closed, portrait, island enabled, activity not hidden); its `alert` expands
-the card instead, at its `cardPosition`. Calls, alarms, hidden activities and invalid extras keep
-Android's heads-up.
+A Taku-format island activity (`taku.island.v2`/`v1`) does not also raise a stock heads-up while
+the island can present it (unlocked, shade closed, portrait, island enabled, activity not hidden);
+its `alert` expands the card instead, at its `cardPosition`. Calls, alarms, plain Android Live
+Updates (which have no alert field), hidden activities and invalid extras keep Android's heads-up.
+Calls, alarms and stopwatches that SystemUI recognises stay up to the 12 h cap.
 
 An activity without capsule data
 (no `compact`, such as Taku Agent outside app building) never takes the capsule; the next

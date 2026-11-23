@@ -3,7 +3,7 @@
   "repository": "frameworks/base",
   "revision": "7f6de40b6429462d47ba9ba351b99943269c8067",
   "patch": "systemui-probe.patch",
-  "patchSha256": "92774ce7da892d0920cc8b0046a9bc9bfd54aae8dacd3a4221a380265f729c75",
+  "patchSha256": "ff0ca263c99f490110d720e9a447eb8ef9df61db93df273efd213be94e2b0cb8",
   "files": [
     {
       "path": "packages/SystemUI/AndroidManifest.xml",
@@ -81,13 +81,13 @@
     {
       "path": "packages/SystemUI/src/com/android/systemui/taku/island/IslandEngine.kt",
       "beforeSha256": null,
-      "afterSha256": "e31f463c3c332c42a479aebb014b9f4b2f0a9f2f23038bcf680ceb557d4ca975",
+      "afterSha256": "a091780db48c6dc7a083c2290c7681a6a631968d50b8d0349570f48b51eede41",
       "source": "system/island/src/com/android/systemui/taku/island/IslandEngine.kt"
     },
     {
       "path": "packages/SystemUI/src/com/android/systemui/taku/island/IslandExtractor.kt",
       "beforeSha256": null,
-      "afterSha256": "c14f1eae5c417e2825c9a50b2924a2b6a6aa881b0500fc1903aeef24ab458299",
+      "afterSha256": "a93b31723229c8f22a325fe2443b52565a5e1e4d458dac99cfe862ddf9c492c1",
       "source": "system/island/src/com/android/systemui/taku/island/IslandExtractor.kt"
     },
     {
@@ -135,7 +135,7 @@
     {
       "path": "packages/SystemUI/src/com/android/systemui/taku/island/IslandPresenter.kt",
       "beforeSha256": null,
-      "afterSha256": "63bfec8eaabd41a6430c7b169400f7790e79f0ad5391260a7db1fdc7d9476cb1",
+      "afterSha256": "a0763eac27bc5453c9130613e1156e29ad6b586b08271fed5c7ad4d9b487a87f",
       "source": "system/island/src/com/android/systemui/taku/island/IslandPresenter.kt"
     },
     {

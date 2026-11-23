@@ -91,7 +91,8 @@ class IslandPresenter @Inject constructor(
         capsule = IslandCapsuleView(view.context,
             tap = { if (card != null) invoke("collapse", null) else selected?.let { invoke("tap", it) } },
             longPress = { selected?.let { invoke("expand", it) } },
-            next = { invoke("next", null) },
+            // One activity: nothing to switch to, and no error toast for the gesture.
+            next = { engine.command("next", null, null) },
             hide = { selected?.let { invoke("dismiss", it) } },
         )
         view.addView(capsule, FrameLayout.LayoutParams(dp(180), dp(28), Gravity.CENTER))
@@ -174,8 +175,9 @@ class IslandPresenter @Inject constructor(
 
     /**
      * Whether the island takes over this notification's heads-up: it can present right now, the
-     * activity is an ordinary one (calls and alarms keep Android's heads-up), and the user has not
-     * hidden it. Brand-new posts are not extracted yet, so the engine pre-checks those.
+     * activity is an ordinary Taku-format one (calls, alarms and plain Live Updates keep Android's
+     * heads-up), and the user has not hidden it. Brand-new posts are not extracted yet, so the
+     * engine pre-checks those.
      */
     fun replacesHeadsUp(key: String, newIslandCandidate: () -> Boolean): Boolean =
         engine.policy.enabled && (key in presentable || (presentableNow && engine.isUnknown(key) && newIslandCandidate()))
@@ -236,7 +238,10 @@ class IslandPresenter @Inject constructor(
         try { layoutCapsuleNow() } finally {
             val now = canExpand()
             presentableNow = now
-            presentable = if (now) items.filter { it.data.tier == IslandStore.TIER_ACTIVITY }.map { it.key }.toSet() else emptySet()
+            // Only Taku-format activities can alert, so only they replace their stock heads-up.
+            // Plain Live Updates keep Android's heads-up for their important moments.
+            presentable = if (now) items.filter { it.data.tier == IslandStore.TIER_ACTIVITY && it.data.source != IslandActivity.SOURCE_LIVE_UPDATE }
+                .map { it.key }.toSet() else emptySet()
             engine.presentationChanged()
         }
     }

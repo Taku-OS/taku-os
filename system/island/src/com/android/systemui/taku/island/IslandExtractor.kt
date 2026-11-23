@@ -165,8 +165,11 @@ class IslandExtractor @Inject constructor(private val context: Context, private 
             .put("alert", category == "alarm" || (category == "call" && extras.getInt(Notification.EXTRA_CALL_TYPE) == Notification.CallStyle.CALL_TYPE_INCOMING))
         if (compact.length() > 0) payload.put("compact", compact)
         // setTimeoutAfter is the Live Update's declared end; otherwise the island default applies.
-        n.timeoutAfter.takeIf { it > 0 }?.let {
-            payload.put("timeoutS", ((it + 999) / 1000).coerceIn(1, IslandStore.MAX_LIFETIME_S.toLong()))
+        // Calls, alarms and stopwatches recognised by SystemUI end with their source (12 h cap).
+        val declared = n.timeoutAfter.takeIf { it > 0 }?.let { ((it + 999) / 1000).coerceIn(1, IslandStore.MAX_LIFETIME_S.toLong()) }
+        when {
+            declared != null -> payload.put("timeoutS", declared)
+            category != null -> payload.put("timeoutS", IslandStore.MAX_LIFETIME_S)
         }
         val tier = when (category) {
             "call" -> IslandStore.TIER_CALL

@@ -243,8 +243,11 @@ Today an island activity can also raise a stock heads-up, which then hides the c
 `alert` is the island-native replacement.
 
 v2 rule: while SystemUI can present the island (unlocked, shade closed, island enabled, activity
-not hidden), a notification that is an accepted island activity **does not heads-up**. Its alert
-expands the card instead. When the island cannot present it, Android's normal heads-up applies.
+not hidden), a notification that is an accepted **Taku-format** island activity **does not
+heads-up**. Its alert expands the card instead. When the island cannot present it, Android's normal
+heads-up applies.
+- Plain Live Updates are excluded (implementation refinement). They have no alert field, so
+  suppressing their heads-up would silently drop important moments.
 
 - Implementation: one small upstream hook that registers a filter with
   `VisualInterruptionDecisionProvider`. Verify the API at the pinned commit.
