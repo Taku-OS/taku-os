@@ -1,0 +1,12 @@
+{
+  "allowed": [
+    "org.agentos.notebook"
+  ],
+  "testPackages": "",
+  "blur": "0",
+  "parserPackage": "",
+  "liveCapturing": false,
+  "working": false,
+  "buildingApp": false,
+  "ime": "org.agentos.inputmethod/org.fcitx.fcitx5.android.input.FcitxInputMethodService"
+}

@@ -1,0 +1,56 @@
+{
+  "agent-reply": {
+    "working": false,
+    "buildingApp": false,
+    "task": "completed",
+    "error": null,
+    "turn": {
+      "active": false,
+      "failed": false,
+      "userText": "灵动岛验收：仅执行只读命令 getprop ro.build.version.release，简短回复 Android 系统版本。不要修改设置或文件。",
+      "reply": "系统版本\nAndroid 17"
+    }
+  },
+  "real-building": {
+    "working": true,
+    "buildingApp": true,
+    "task": "running",
+    "error": null,
+    "turn": {
+      "active": true,
+      "failed": false,
+      "userText": "灵动岛实际流程验收：请在 /data/local/agentos/work/island-acceptance-493011d7/index.html 创建一个独立的单页计数器测试页面，标题 Island acceptance，带 +1 和 Reset 按钮。仅创建这个测试目录和页面，不联网、不安装 APK、不改系统设置。遵循已有 taku-app-development 技能，在实际开发期间标记 Building，完成后清除标记。",
+      "reply": null
+    }
+  },
+  "building-finished": {
+    "working": false,
+    "buildingApp": false,
+    "task": "completed",
+    "error": null,
+    "turn": {
+      "active": false,
+      "failed": false,
+      "userText": "灵动岛实际流程验收：请在 /data/local/agentos/work/island-acceptance-493011d7/index.html 创建一个独立的单页计数器测试页面，标题 Island acceptance，带 +1 和 Reset 按钮。仅创建这个测试目录和页面，不联网、不安装 APK、不改系统设置。遵循已有 taku-app-development 技能，在实际开发期间标记 Building，完成后清除标记。",
+      "reply": "页面已创建\n已创建 /data/local/agentos/work/island-acceptance-493011d7/index.html，包含计数显示、+1 和 Reset 按钮。Building 标记已设置并在完成后清除。页面尚未在浏览器中实际交互验证。"
+    }
+  },
+  "local-listening": {
+    "phase": "Capturing",
+    "ready": true,
+    "profileId": "zipformer",
+    "error": null
+  },
+  "live-talk-result": {
+    "lifecycle": "active",
+    "provider": "fal-grok",
+    "capturing": true,
+    "error": null
+  },
+  "live-talk-stopped": {
+    "lifecycle": "closed",
+    "provider": "fal-grok",
+    "capturing": false,
+    "error": null
+  }
+}

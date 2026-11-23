@@ -1,0 +1,407 @@
+[
+  {
+    "file": "01-pickup-capsule.png",
+    "width": 876,
+    "height": 1764,
+    "bytes": 701297,
+    "sha256": "7cf0bb6cfe97d65c8fdefc64cdd8758308f83e7b16c062a31553c595e65bc4c2",
+    "caption": "摘要：A 图标、B 取件码，中间避让开孔",
+    "visuallyReviewed": true
+  },
+  {
+    "file": "02-pickup-card-cover.png",
+    "width": 876,
+    "height": 1764,
+    "bytes": 682810,
+    "sha256": "e77a776d58693fec18d52d991c33a17e7d53b0387db4690bfed4097f983c5364",
+    "caption": "点击摘要展开；覆盖开孔",
+    "visuallyReviewed": true
+  },
+  {
+    "file": "03-card-opens-test-detail.png",
+    "width": 876,
+    "height": 1764,
+    "bytes": 312750,
+    "sha256": "2642451fc0276954e5512b463f4965b1e9b8b6ad062f50c859710563aa201d3c",
+    "caption": "点击卡片到 content-detail，卡片收起",
+    "visuallyReviewed": true
+  },
+  {
+    "file": "04-return-home-capsule.png",
+    "width": 876,
+    "height": 1764,
+    "bytes": 702282,
+    "sha256": "5177a3b00672df0e98289ad8f6af180de3d6f58364bc13363cdf7551800b2ac0",
+    "caption": "返回桌面恢复摘要",
+    "visuallyReviewed": true
+  },
+  {
+    "file": "05-card-below.png",
+    "width": 876,
+    "height": 1764,
+    "bytes": 700100,
+    "sha256": "0c871744b470aea58e531f67337954540aba90fe766cb5a63e38841758a8d640",
+    "caption": "选择 below：卡片在开孔下方",
+    "visuallyReviewed": true
+  },
+  {
+    "file": "06-custom-card-destination.png",
+    "width": 876,
+    "height": 1764,
+    "bytes": 311800,
+    "sha256": "45b7263f2a7ba172959b2d31c1cb4ae833925b54633099c308769d45295d4555",
+    "caption": "独立卡片动作到 card-detail",
+    "visuallyReviewed": true
+  },
+  {
+    "file": "07-capsule-direct-open.png",
+    "width": 876,
+    "height": 1764,
+    "bytes": 312750,
+    "sha256": "2642451fc0276954e5512b463f4965b1e9b8b6ad062f50c859710563aa201d3c",
+    "caption": "配置 tap=open：摘要直接进 App",
+    "visuallyReviewed": true
+  },
+  {
+    "file": "42-action-button-destination.png",
+    "width": 876,
+    "height": 1764,
+    "bytes": 310024,
+    "sha256": "00f131ac8380f95ff35917e99580cf120042307cc687837f9ed0b52a2c877df6",
+    "caption": "点击操作按钮到 track",
+    "visuallyReviewed": true
+  },
+  {
+    "file": "43-app-foreground-folds.png",
+    "width": 876,
+    "height": 1764,
+    "bytes": 309322,
+    "sha256": "741ec481d7e2c4eea2b47857dd79086ee78fa4737fc6690ce61c199b9b6c2db9",
+    "caption": "独立切到发布 App 前台，卡片收起",
+    "visuallyReviewed": true
+  },
+  {
+    "file": "44-foreground-alert-suppressed.png",
+    "width": 876,
+    "height": 1764,
+    "bytes": 309322,
+    "sha256": "741ec481d7e2c4eea2b47857dd79086ee78fa4737fc6690ce61c199b9b6c2db9",
+    "caption": "发布 App 前台时不主动弹卡",
+    "visuallyReviewed": true
+  },
+  {
+    "file": "08-white-card.png",
+    "width": 876,
+    "height": 1764,
+    "bytes": 682593,
+    "sha256": "43b9dc5dde328114ca3fd23f9c31bac95db52a85ba509e8c1594ff73b4c0b2fa",
+    "caption": "白色卡片、深色文字及按钮",
+    "visuallyReviewed": true
+  },
+  {
+    "file": "09-animated-icon-a.png",
+    "width": 876,
+    "height": 1764,
+    "bytes": 703434,
+    "sha256": "e1bf5cc7e9ecbb6ff2ff086fde713250bee9fb89b0198c14cf389635c8f890f2",
+    "caption": "App 自有动画图标及进度环：帧 A",
+    "visuallyReviewed": true
+  },
+  {
+    "file": "10-animated-icon-b.png",
+    "width": 876,
+    "height": 1764,
+    "bytes": 703413,
+    "sha256": "7325840009139888013f0beb38a85291eb13776706df6897578960c80e23e000",
+    "caption": "同一动画的另一帧",
+    "visuallyReviewed": true
+  },
+  {
+    "file": "11-group-b-icon.png",
+    "width": 876,
+    "height": 1764,
+    "bytes": 701740,
+    "sha256": "6b223fb093ee060dc107b1660e8cf2a1946f4a1a889e12a317b39bf3f8d26539",
+    "caption": "B 组也可以显示图标",
+    "visuallyReviewed": true
+  },
+  {
+    "file": "12-long-label-ellipsis.png",
+    "width": 876,
+    "height": 1764,
+    "bytes": 701573,
+    "sha256": "51543c79d6ca923e7b5932229da0a8e4236645d767a610b2fae471cf6a8afb24",
+    "caption": "长文字以省略号截断",
+    "visuallyReviewed": true
+  },
+  {
+    "file": "13-two-activities.png",
+    "width": 876,
+    "height": 1764,
+    "bytes": 703204,
+    "sha256": "ef73a55ba297a9c69750387dde81771e1773758ed8eab946edbdee40488a339f",
+    "caption": "新活动优先，等待圆点在左",
+    "visuallyReviewed": true
+  },
+  {
+    "file": "14-waiting-disc-tap.png",
+    "width": 876,
+    "height": 1764,
+    "bytes": 704397,
+    "sha256": "af339100a94ad59986740de8a385b8221762ccf088bb6d90d4e6595b61353ebf",
+    "caption": "点左侧圆点切换活动",
+    "visuallyReviewed": true
+  },
+  {
+    "file": "15-swipe-left-next.png",
+    "width": 876,
+    "height": 1764,
+    "bytes": 704203,
+    "sha256": "3573f57c448693fec4cd1398be2118a3b9f38d9735a0726d7937e64486ff8149",
+    "caption": "左滑切换下一活动",
+    "visuallyReviewed": true
+  },
+  {
+    "file": "16-swipe-right-hide.png",
+    "width": 876,
+    "height": 1764,
+    "bytes": 703430,
+    "sha256": "e4ae9e659fea92bfff8901e9d626231cb7bffab6852aa322efa55f118ae16a38",
+    "caption": "右滑隐藏当前活动",
+    "visuallyReviewed": true
+  },
+  {
+    "file": "16b-manual-selection.png",
+    "width": 876,
+    "height": 1764,
+    "bytes": 704397,
+    "sha256": "af339100a94ad59986740de8a385b8221762ccf088bb6d90d4e6595b61353ebf",
+    "caption": "三个活动中手动选中第一个",
+    "visuallyReviewed": true
+  },
+  {
+    "file": "16c-newest-ended.png",
+    "width": 876,
+    "height": 1764,
+    "bytes": 703400,
+    "sha256": "68fbad34bd855366fb63a27a117e122467a86d657552a88f052ab7346b3ea90b",
+    "caption": "最新活动结束后仍保持手动选择",
+    "visuallyReviewed": true
+  },
+  {
+    "file": "17-live-update-capsule.png",
+    "width": 876,
+    "height": 1764,
+    "bytes": 702148,
+    "sha256": "4b076e9b7fd9c85594923205e56ec214d7effed2b0a392d1328ad331ada0b8e8",
+    "caption": "Android Live Update 摘要",
+    "visuallyReviewed": true
+  },
+  {
+    "file": "18-live-update-card.png",
+    "width": 876,
+    "height": 1764,
+    "bytes": 689783,
+    "sha256": "40e7f991d9a00aa2649a6e225a2e6727fc385c6220ff7ab618fe02a2a1614287",
+    "caption": "点击进入 Live Update 卡片",
+    "visuallyReviewed": true
+  },
+  {
+    "file": "18b-live-update-headsup.png",
+    "width": 876,
+    "height": 1764,
+    "bytes": 706025,
+    "sha256": "9ea42604acabe048c2bbed949f8bd62bf32295a7558104f0f15af77db894e673",
+    "caption": "Live Update 重要更新保留系统横幅",
+    "visuallyReviewed": true
+  },
+  {
+    "file": "18c-invalid-payload-headsup.png",
+    "width": 876,
+    "height": 1764,
+    "bytes": 716979,
+    "sha256": "0b224f30945898839023004905b3e8fa7c4bc9d52020a955ae1ce6c3e93f1f40",
+    "caption": "无效图片引用回退系统横幅",
+    "visuallyReviewed": true
+  },
+  {
+    "file": "19-actions-before-scroll.png",
+    "width": 876,
+    "height": 1764,
+    "bytes": 686706,
+    "sha256": "0365b81e476b656df155f39be626f515ed6b375ecd6640f6bba885619c9017d4",
+    "caption": "32 个操作按钮：滚动前",
+    "visuallyReviewed": true
+  },
+  {
+    "file": "20-actions-after-scroll.png",
+    "width": 876,
+    "height": 1764,
+    "bytes": 687073,
+    "sha256": "f256af775bc1e49daa605189c864f5800d702bd05316065ee9a033b79c1cae36",
+    "caption": "操作按钮可横向滚动",
+    "visuallyReviewed": true
+  },
+  {
+    "file": "24-blur-enabled.png",
+    "width": 876,
+    "height": 1764,
+    "bytes": 682340,
+    "sha256": "71ab120019cfbd0087d1bb45d4e5254bde6766aafc8a9b3bd572ee0859fc677a",
+    "caption": "系统模糊开启",
+    "visuallyReviewed": true
+  },
+  {
+    "file": "25-blur-disabled.png",
+    "width": 876,
+    "height": 1764,
+    "bytes": 643184,
+    "sha256": "402e16da2932a7fe9a6252741d98e86e162186e146d1a1696c4513c7fb9d8e7d",
+    "caption": "关闭模糊后的不透明回退",
+    "visuallyReviewed": true
+  },
+  {
+    "file": "30-agent-text-keyboard.png",
+    "width": 876,
+    "height": 1764,
+    "bytes": 530674,
+    "sha256": "c0b52fab203c2ac3bcb93634fac598186d5669c1b63c779958210886dccee7cc",
+    "caption": "文字输入、Taku 输入法及开孔",
+    "visuallyReviewed": true
+  },
+  {
+    "file": "31-agent-working.png",
+    "width": 876,
+    "height": 1764,
+    "bytes": 700361,
+    "sha256": "d8d33951324974f03e9db20f6b0fc6e4c3c20774d24451fe887a3f551d99a9de",
+    "caption": "真实只读任务工作中；卡片覆盖开孔",
+    "visuallyReviewed": true
+  },
+  {
+    "file": "32-agent-reply.png",
+    "width": 876,
+    "height": 1764,
+    "bytes": 527827,
+    "sha256": "e28c48c731f4530eb7bbf4c1a20c49f2c734b763f250cb91eb30024c15da9297",
+    "caption": "实际回复 Android 17；键盘不改变卡片位置",
+    "visuallyReviewed": true
+  },
+  {
+    "file": "33-agent-full-conversation.png",
+    "width": 876,
+    "height": 1764,
+    "bytes": 396636,
+    "sha256": "365c0ca1142ba60df13a7d23d49668e0648badc265a7a075727fac4ebe0422c9",
+    "caption": "进入完整会话",
+    "visuallyReviewed": true
+  },
+  {
+    "file": "34-agent-return-home.png",
+    "width": 876,
+    "height": 1764,
+    "bytes": 702341,
+    "sha256": "18146fb1a8cb315ab46cd65e0820b2cc3f9867dc67c0dee81e71377c8d1aba10",
+    "caption": "完成会话后回桌面",
+    "visuallyReviewed": true
+  },
+  {
+    "file": "35-fal-connection.png",
+    "width": 876,
+    "height": 1764,
+    "bytes": 697379,
+    "sha256": "5e2bd8b50edee0870319ee2ba1b2f26d13453066421e645a35da8d053a5e8688",
+    "caption": "已有 fal 页面显示 Fal Connected",
+    "visuallyReviewed": true
+  },
+  {
+    "file": "36-local-listening.png",
+    "width": 876,
+    "height": 1764,
+    "bytes": 994495,
+    "sha256": "25d44c0c991ab2f4d9208b7331a945699969b09ed1c12a65a6578c98ad5f7679",
+    "caption": "本地 Zipformer 已开始监听",
+    "visuallyReviewed": true
+  },
+  {
+    "file": "37-real-building-capsule.png",
+    "width": 876,
+    "height": 1764,
+    "bytes": 668008,
+    "sha256": "c69bcaba0461e68290163ff13ad1ea3d403f24c41a802c274ab4fa54135c62a8",
+    "caption": "真实页面开发任务的 Building 胶囊",
+    "visuallyReviewed": true
+  },
+  {
+    "file": "38-building-finished.png",
+    "width": 876,
+    "height": 1764,
+    "bytes": 530129,
+    "sha256": "9f4ece58f635d06ef6cb9ab4efb093ff5f64d92fe5bdbe2f5183b078a963baec",
+    "caption": "任务完成、Building 标记清除",
+    "visuallyReviewed": true
+  },
+  {
+    "file": "39-live-talk-result.png",
+    "width": 876,
+    "height": 1764,
+    "bytes": 467210,
+    "sha256": "c1e150a56a79ff8429862c1609c8ecd957f2591fec8b93dc5526d5c992d8e34d",
+    "caption": "实际 fal/Grok 连接 active，无错误",
+    "visuallyReviewed": true
+  },
+  {
+    "file": "40-live-talk-stopped.png",
+    "width": 876,
+    "height": 1764,
+    "bytes": 351193,
+    "sha256": "2529ffab6259dcc39ccc9f481c2661b872d04b5b202b3b55a11ef38aaf818fbf",
+    "caption": "截图后停止 Live Talk，停止采音",
+    "visuallyReviewed": true
+  },
+  {
+    "file": "41-final-home.png",
+    "width": 876,
+    "height": 1764,
+    "bytes": 698196,
+    "sha256": "faaf22da91dac5547efa332281d4cde39fd01f810a1994a5d6e9f17687af4ab1",
+    "caption": "桌面、时钟、开孔及底部横条",
+    "visuallyReviewed": true
+  },
+  {
+    "file": "21-alert-initial.png",
+    "width": 876,
+    "height": 1764,
+    "bytes": 682340,
+    "sha256": "71ab120019cfbd0087d1bb45d4e5254bde6766aafc8a9b3bd572ee0859fc677a",
+    "caption": "首次 alert=true 自动弹卡",
+    "visuallyReviewed": true
+  },
+  {
+    "file": "22-alert-collapsed.png",
+    "width": 876,
+    "height": 1764,
+    "bytes": 701360,
+    "sha256": "deb934e362a2add047e959479ecf0f61b8eaf0a4f796686613c25f60f81682bb",
+    "caption": "主动收起后成为摘要",
+    "visuallyReviewed": true
+  },
+  {
+    "file": "23-alert-false-update.png",
+    "width": 876,
+    "height": 1764,
+    "bytes": 682340,
+    "sha256": "71ab120019cfbd0087d1bb45d4e5254bde6766aafc8a9b3bd572ee0859fc677a",
+    "caption": "失败：alert=false 更新再次弹卡",
+    "visuallyReviewed": true
+  },
+  {
+    "file": "26-short-static-admission.png",
+    "width": 876,
+    "height": 1764,
+    "bytes": 701360,
+    "sha256": "deb934e362a2add047e959479ecf0f61b8eaf0a4f796686613c25f60f81682bb",
+    "caption": "失败：3 秒静态结果仍被准入",
+    "visuallyReviewed": true
+  }
+]

@@ -1,0 +1,16 @@
+{
+  "first": {
+    "package": "org.agentos.island.audit.one",
+    "firstSeenElapsedMs": 524950,
+    "expiresElapsedMs": 43724950,
+    "triggeredAtElapsedMs": 524950,
+    "timeoutKind": "cap"
+  },
+  "second": {
+    "package": "org.agentos.island.audit.one",
+    "firstSeenElapsedMs": 527317,
+    "expiresElapsedMs": 43727317,
+    "triggeredAtElapsedMs": 527317,
+    "timeoutKind": "cap"
+  }
+}

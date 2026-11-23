@@ -1,0 +1,27 @@
+{
+  "sourceCommit": "493011d749a2113afaaeebc06a9d59d0537671d0",
+  "branch": "vela/dynamic-island",
+  "device": "emulator-5596",
+  "avd": "Taku_PR27_Fresh",
+  "target": "lineage_taku_emu_arm64-cp2a-userdebug / SystemUI",
+  "hostArchitecture": "x86_64",
+  "targetArchitecture": "arm64",
+  "jobs": 56,
+  "memoryLimitGiB": 210,
+  "cloudBuildExit": 0,
+  "builtHashes": {
+    "com.android.systemui": "cf6eee22e6ce7f46f3bac4f6747a58f1fa7302d6a1e07232a92a61d16c74add1",
+    "org.agentos.agent": "48f8cbc8a132b073130d47579a3cc8a0fc238e64c4f917edf06dc300e99e1b61",
+    "org.agentos.assistant": "1366e00a85ad91249d0c0f3c6a5cab71f16ed927f94c4c91d27f1cb74b633e74"
+  },
+  "signaturesMatchPrevious": true,
+  "installed": true,
+  "installedHashes": {
+    "com.android.systemui": "cf6eee22e6ce7f46f3bac4f6747a58f1fa7302d6a1e07232a92a61d16c74add1",
+    "org.agentos.agent": "48f8cbc8a132b073130d47579a3cc8a0fc238e64c4f917edf06dc300e99e1b61",
+    "org.agentos.assistant": "1366e00a85ad91249d0c0f3c6a5cab71f16ed927f94c4c91d27f1cb74b633e74"
+  },
+  "cloudStopped": true,
+  "cloudStatus": "TERMINATED",
+  "cloudObservedAt": "2026-11-23T14:56:40.181496+00:00"
+}

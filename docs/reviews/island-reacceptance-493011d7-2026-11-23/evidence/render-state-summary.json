@@ -1,0 +1,1172 @@
+{
+  "01-pickup-capsule": {
+    "presentation": {
+      "expanded": false,
+      "compactVisible": true,
+      "selected": "0|org.agentos.island.audit.one|1|null|10204",
+      "foregroundPackage": "org.agentos.agent",
+      "reason": "heads_up"
+    },
+    "card": {
+      "cover": null,
+      "top": null,
+      "height": null,
+      "layout": null,
+      "renderer": null,
+      "nativeReady": null,
+      "backdropBlur": null,
+      "fill": null
+    },
+    "compact": {
+      "cameraRadiusDp": 23.238094,
+      "scale": 1,
+      "animatingIcons": 0,
+      "pillGlyph": null,
+      "secondaryPosition": null
+    }
+  },
+  "02-pickup-card-cover": {
+    "presentation": {
+      "expanded": true,
+      "compactVisible": false,
+      "selected": "0|org.agentos.island.audit.one|1|null|10204",
+      "foregroundPackage": "org.agentos.agent",
+      "reason": "expanded"
+    },
+    "card": {
+      "cover": true,
+      "top": 21,
+      "height": 657,
+      "layout": "body",
+      "renderer": "systemui-native",
+      "nativeReady": true,
+      "backdropBlur": true,
+      "fill": "#EB000000"
+    },
+    "compact": {
+      "cameraRadiusDp": null,
+      "scale": null,
+      "animatingIcons": null,
+      "pillGlyph": null,
+      "secondaryPosition": null
+    }
+  },
+  "03-card-opens-test-detail": {
+    "presentation": {
+      "expanded": false,
+      "compactVisible": false,
+      "selected": "0|org.agentos.island.audit.one|1|null|10204",
+      "foregroundPackage": "org.agentos.island.audit.one",
+      "reason": "opened:0|org.agentos.island.audit.one|1|null|10204"
+    },
+    "card": {
+      "cover": null,
+      "top": null,
+      "height": null,
+      "layout": null,
+      "renderer": null,
+      "nativeReady": null,
+      "backdropBlur": null,
+      "fill": null
+    },
+    "compact": {
+      "cameraRadiusDp": null,
+      "scale": null,
+      "animatingIcons": null,
+      "pillGlyph": null,
+      "secondaryPosition": null
+    }
+  },
+  "04-return-home-capsule": {
+    "presentation": {
+      "expanded": false,
+      "compactVisible": true,
+      "selected": "0|org.agentos.island.audit.one|1|null|10204",
+      "foregroundPackage": "org.agentos.agent",
+      "reason": "opened:0|org.agentos.island.audit.one|1|null|10204"
+    },
+    "card": {
+      "cover": null,
+      "top": null,
+      "height": null,
+      "layout": null,
+      "renderer": null,
+      "nativeReady": null,
+      "backdropBlur": null,
+      "fill": null
+    },
+    "compact": {
+      "cameraRadiusDp": 23.238094,
+      "scale": 1,
+      "animatingIcons": 0,
+      "pillGlyph": null,
+      "secondaryPosition": null
+    }
+  },
+  "05-card-below": {
+    "presentation": {
+      "expanded": true,
+      "compactVisible": false,
+      "selected": "0|org.agentos.island.audit.one|1|null|10204",
+      "foregroundPackage": "org.agentos.agent",
+      "reason": "expanded"
+    },
+    "card": {
+      "cover": false,
+      "top": 153,
+      "height": 657,
+      "layout": "body",
+      "renderer": "systemui-native",
+      "nativeReady": true,
+      "backdropBlur": true,
+      "fill": "#EB000000"
+    },
+    "compact": {
+      "cameraRadiusDp": null,
+      "scale": null,
+      "animatingIcons": null,
+      "pillGlyph": null,
+      "secondaryPosition": null
+    }
+  },
+  "06-custom-card-destination": {
+    "presentation": {
+      "expanded": false,
+      "compactVisible": false,
+      "selected": "0|org.agentos.island.audit.one|1|null|10204",
+      "foregroundPackage": "org.agentos.island.audit.one",
+      "reason": "opened:0|org.agentos.island.audit.one|1|null|10204"
+    },
+    "card": {
+      "cover": null,
+      "top": null,
+      "height": null,
+      "layout": null,
+      "renderer": null,
+      "nativeReady": null,
+      "backdropBlur": null,
+      "fill": null
+    },
+    "compact": {
+      "cameraRadiusDp": null,
+      "scale": null,
+      "animatingIcons": null,
+      "pillGlyph": null,
+      "secondaryPosition": null
+    }
+  },
+  "07-capsule-direct-open": {
+    "presentation": {
+      "expanded": false,
+      "compactVisible": false,
+      "selected": "0|org.agentos.island.audit.one|1|null|10204",
+      "foregroundPackage": "org.agentos.island.audit.one",
+      "reason": "opened:0|org.agentos.island.audit.one|1|null|10204"
+    },
+    "card": {
+      "cover": null,
+      "top": null,
+      "height": null,
+      "layout": null,
+      "renderer": null,
+      "nativeReady": null,
+      "backdropBlur": null,
+      "fill": null
+    },
+    "compact": {
+      "cameraRadiusDp": null,
+      "scale": null,
+      "animatingIcons": null,
+      "pillGlyph": null,
+      "secondaryPosition": null
+    }
+  },
+  "42-action-button-destination": {
+    "presentation": {
+      "expanded": false,
+      "compactVisible": false,
+      "selected": "0|org.agentos.island.audit.one|1|null|10208",
+      "foregroundPackage": "org.agentos.island.audit.one",
+      "reason": "opened:0|org.agentos.island.audit.one|1|null|10208"
+    },
+    "card": {
+      "cover": null,
+      "top": null,
+      "height": null,
+      "layout": null,
+      "renderer": null,
+      "nativeReady": null,
+      "backdropBlur": null,
+      "fill": null
+    },
+    "compact": {
+      "cameraRadiusDp": null,
+      "scale": null,
+      "animatingIcons": null,
+      "pillGlyph": null,
+      "secondaryPosition": null
+    }
+  },
+  "43-app-foreground-folds": {
+    "presentation": {
+      "expanded": false,
+      "compactVisible": false,
+      "selected": "0|org.agentos.island.audit.one|1|null|10208",
+      "foregroundPackage": "org.agentos.island.audit.one",
+      "reason": "app_opened"
+    },
+    "card": {
+      "cover": null,
+      "top": null,
+      "height": null,
+      "layout": null,
+      "renderer": null,
+      "nativeReady": null,
+      "backdropBlur": null,
+      "fill": null
+    },
+    "compact": {
+      "cameraRadiusDp": null,
+      "scale": null,
+      "animatingIcons": null,
+      "pillGlyph": null,
+      "secondaryPosition": null
+    }
+  },
+  "44-foreground-alert-suppressed": {
+    "presentation": {
+      "expanded": false,
+      "compactVisible": false,
+      "selected": "0|org.agentos.island.audit.one|717|null|10208",
+      "foregroundPackage": "org.agentos.island.audit.one",
+      "reason": "app_opened"
+    },
+    "card": {
+      "cover": null,
+      "top": null,
+      "height": null,
+      "layout": null,
+      "renderer": null,
+      "nativeReady": null,
+      "backdropBlur": null,
+      "fill": null
+    },
+    "compact": {
+      "cameraRadiusDp": null,
+      "scale": null,
+      "animatingIcons": null,
+      "pillGlyph": null,
+      "secondaryPosition": null
+    }
+  },
+  "08-white-card": {
+    "presentation": {
+      "expanded": true,
+      "compactVisible": false,
+      "selected": "0|org.agentos.island.audit.one|1|null|10204",
+      "foregroundPackage": "org.agentos.agent",
+      "reason": "expanded"
+    },
+    "card": {
+      "cover": true,
+      "top": 21,
+      "height": 657,
+      "layout": "body",
+      "renderer": "systemui-native",
+      "nativeReady": true,
+      "backdropBlur": true,
+      "fill": "#EBFFFFFF"
+    },
+    "compact": {
+      "cameraRadiusDp": null,
+      "scale": null,
+      "animatingIcons": null,
+      "pillGlyph": null,
+      "secondaryPosition": null
+    }
+  },
+  "09-animated-icon-a": {
+    "presentation": {
+      "expanded": false,
+      "compactVisible": true,
+      "selected": "0|org.agentos.island.audit.three|1|null|10206",
+      "foregroundPackage": "org.agentos.agent",
+      "reason": "agent"
+    },
+    "card": {
+      "cover": null,
+      "top": null,
+      "height": null,
+      "layout": null,
+      "renderer": null,
+      "nativeReady": null,
+      "backdropBlur": null,
+      "fill": null
+    },
+    "compact": {
+      "cameraRadiusDp": 23.238094,
+      "scale": 1,
+      "animatingIcons": 1,
+      "pillGlyph": null,
+      "secondaryPosition": null
+    }
+  },
+  "10-animated-icon-b": {
+    "presentation": {
+      "expanded": false,
+      "compactVisible": true,
+      "selected": "0|org.agentos.island.audit.three|1|null|10206",
+      "foregroundPackage": "org.agentos.agent",
+      "reason": "agent"
+    },
+    "card": {
+      "cover": null,
+      "top": null,
+      "height": null,
+      "layout": null,
+      "renderer": null,
+      "nativeReady": null,
+      "backdropBlur": null,
+      "fill": null
+    },
+    "compact": {
+      "cameraRadiusDp": 23.238094,
+      "scale": 1,
+      "animatingIcons": 1,
+      "pillGlyph": null,
+      "secondaryPosition": null
+    }
+  },
+  "11-group-b-icon": {
+    "presentation": {
+      "expanded": false,
+      "compactVisible": true,
+      "selected": "0|org.agentos.island.audit.one|1|null|10204",
+      "foregroundPackage": "org.agentos.agent",
+      "reason": "agent"
+    },
+    "card": {
+      "cover": null,
+      "top": null,
+      "height": null,
+      "layout": null,
+      "renderer": null,
+      "nativeReady": null,
+      "backdropBlur": null,
+      "fill": null
+    },
+    "compact": {
+      "cameraRadiusDp": 23.238094,
+      "scale": 1,
+      "animatingIcons": 1,
+      "pillGlyph": "pic",
+      "secondaryPosition": null
+    }
+  },
+  "12-long-label-ellipsis": {
+    "presentation": {
+      "expanded": false,
+      "compactVisible": true,
+      "selected": "0|org.agentos.island.audit.one|1|null|10204",
+      "foregroundPackage": "org.agentos.agent",
+      "reason": "agent"
+    },
+    "card": {
+      "cover": null,
+      "top": null,
+      "height": null,
+      "layout": null,
+      "renderer": null,
+      "nativeReady": null,
+      "backdropBlur": null,
+      "fill": null
+    },
+    "compact": {
+      "cameraRadiusDp": 23.238094,
+      "scale": 1,
+      "animatingIcons": 0,
+      "pillGlyph": null,
+      "secondaryPosition": null
+    }
+  },
+  "13-two-activities": {
+    "presentation": {
+      "expanded": false,
+      "compactVisible": true,
+      "selected": "0|org.agentos.island.audit.two|1|null|10205",
+      "foregroundPackage": "org.agentos.agent",
+      "reason": "agent"
+    },
+    "card": {
+      "cover": null,
+      "top": null,
+      "height": null,
+      "layout": null,
+      "renderer": null,
+      "nativeReady": null,
+      "backdropBlur": null,
+      "fill": null
+    },
+    "compact": {
+      "cameraRadiusDp": 23.238094,
+      "scale": 1,
+      "animatingIcons": 0,
+      "pillGlyph": null,
+      "secondaryPosition": "left"
+    }
+  },
+  "14-waiting-disc-tap": {
+    "presentation": {
+      "expanded": false,
+      "compactVisible": true,
+      "selected": "0|org.agentos.island.audit.one|1|null|10204",
+      "foregroundPackage": "org.agentos.agent",
+      "reason": "agent"
+    },
+    "card": {
+      "cover": null,
+      "top": null,
+      "height": null,
+      "layout": null,
+      "renderer": null,
+      "nativeReady": null,
+      "backdropBlur": null,
+      "fill": null
+    },
+    "compact": {
+      "cameraRadiusDp": 23.238094,
+      "scale": 1,
+      "animatingIcons": 0,
+      "pillGlyph": null,
+      "secondaryPosition": "left"
+    }
+  },
+  "15-swipe-left-next": {
+    "presentation": {
+      "expanded": false,
+      "compactVisible": true,
+      "selected": "0|org.agentos.island.audit.two|1|null|10205",
+      "foregroundPackage": "org.agentos.agent",
+      "reason": "agent"
+    },
+    "card": {
+      "cover": null,
+      "top": null,
+      "height": null,
+      "layout": null,
+      "renderer": null,
+      "nativeReady": null,
+      "backdropBlur": null,
+      "fill": null
+    },
+    "compact": {
+      "cameraRadiusDp": 23.238094,
+      "scale": 1,
+      "animatingIcons": 0,
+      "pillGlyph": null,
+      "secondaryPosition": "left"
+    }
+  },
+  "16-swipe-right-hide": {
+    "presentation": {
+      "expanded": false,
+      "compactVisible": true,
+      "selected": "0|org.agentos.island.audit.one|1|null|10204",
+      "foregroundPackage": "org.agentos.agent",
+      "reason": "agent"
+    },
+    "card": {
+      "cover": null,
+      "top": null,
+      "height": null,
+      "layout": null,
+      "renderer": null,
+      "nativeReady": null,
+      "backdropBlur": null,
+      "fill": null
+    },
+    "compact": {
+      "cameraRadiusDp": 23.238094,
+      "scale": 1,
+      "animatingIcons": 0,
+      "pillGlyph": null,
+      "secondaryPosition": null
+    }
+  },
+  "16b-manual-selection": {
+    "presentation": {
+      "expanded": false,
+      "compactVisible": true,
+      "selected": "0|org.agentos.island.audit.one|1|null|10204",
+      "foregroundPackage": "org.agentos.agent",
+      "reason": "agent"
+    },
+    "card": {
+      "cover": null,
+      "top": null,
+      "height": null,
+      "layout": null,
+      "renderer": null,
+      "nativeReady": null,
+      "backdropBlur": null,
+      "fill": null
+    },
+    "compact": {
+      "cameraRadiusDp": 23.238094,
+      "scale": 1,
+      "animatingIcons": 0,
+      "pillGlyph": null,
+      "secondaryPosition": "left"
+    }
+  },
+  "16c-newest-ended": {
+    "presentation": {
+      "expanded": false,
+      "compactVisible": true,
+      "selected": "0|org.agentos.island.audit.one|1|null|10204",
+      "foregroundPackage": "org.agentos.agent",
+      "reason": "agent"
+    },
+    "card": {
+      "cover": null,
+      "top": null,
+      "height": null,
+      "layout": null,
+      "renderer": null,
+      "nativeReady": null,
+      "backdropBlur": null,
+      "fill": null
+    },
+    "compact": {
+      "cameraRadiusDp": 23.238094,
+      "scale": 1,
+      "animatingIcons": 0,
+      "pillGlyph": null,
+      "secondaryPosition": "left"
+    }
+  },
+  "17-live-update-capsule": {
+    "presentation": {
+      "expanded": false,
+      "compactVisible": true,
+      "selected": "0|org.agentos.island.audit.one|1|null|10204",
+      "foregroundPackage": "org.agentos.agent",
+      "reason": "agent"
+    },
+    "card": {
+      "cover": null,
+      "top": null,
+      "height": null,
+      "layout": null,
+      "renderer": null,
+      "nativeReady": null,
+      "backdropBlur": null,
+      "fill": null
+    },
+    "compact": {
+      "cameraRadiusDp": 23.238094,
+      "scale": 1,
+      "animatingIcons": 0,
+      "pillGlyph": null,
+      "secondaryPosition": null
+    }
+  },
+  "18-live-update-card": {
+    "presentation": {
+      "expanded": true,
+      "compactVisible": false,
+      "selected": "0|org.agentos.island.audit.one|1|null|10204",
+      "foregroundPackage": "org.agentos.agent",
+      "reason": "expanded"
+    },
+    "card": {
+      "cover": true,
+      "top": 21,
+      "height": 356,
+      "layout": "body",
+      "renderer": "systemui-native",
+      "nativeReady": true,
+      "backdropBlur": true,
+      "fill": "#EB000000"
+    },
+    "compact": {
+      "cameraRadiusDp": null,
+      "scale": null,
+      "animatingIcons": null,
+      "pillGlyph": null,
+      "secondaryPosition": null
+    }
+  },
+  "18b-live-update-headsup": {
+    "presentation": {
+      "expanded": false,
+      "compactVisible": false,
+      "selected": "0|org.agentos.island.audit.one|51|null|10204",
+      "foregroundPackage": "org.agentos.agent",
+      "reason": "heads_up"
+    },
+    "card": {
+      "cover": null,
+      "top": null,
+      "height": null,
+      "layout": null,
+      "renderer": null,
+      "nativeReady": null,
+      "backdropBlur": null,
+      "fill": null
+    },
+    "compact": {
+      "cameraRadiusDp": null,
+      "scale": null,
+      "animatingIcons": null,
+      "pillGlyph": null,
+      "secondaryPosition": null
+    }
+  },
+  "18c-invalid-payload-headsup": {
+    "presentation": {
+      "expanded": false,
+      "compactVisible": false,
+      "selected": null,
+      "foregroundPackage": "org.agentos.agent",
+      "reason": "heads_up"
+    },
+    "card": {
+      "cover": null,
+      "top": null,
+      "height": null,
+      "layout": null,
+      "renderer": null,
+      "nativeReady": null,
+      "backdropBlur": null,
+      "fill": null
+    },
+    "compact": {
+      "cameraRadiusDp": null,
+      "scale": null,
+      "animatingIcons": null,
+      "pillGlyph": null,
+      "secondaryPosition": null
+    }
+  },
+  "19-actions-before-scroll": {
+    "presentation": {
+      "expanded": true,
+      "compactVisible": false,
+      "selected": "0|org.agentos.island.audit.one|1|null|10204",
+      "foregroundPackage": "org.agentos.agent",
+      "reason": "expanded"
+    },
+    "card": {
+      "cover": true,
+      "top": 21,
+      "height": 657,
+      "layout": "body",
+      "renderer": "systemui-native",
+      "nativeReady": true,
+      "backdropBlur": true,
+      "fill": "#EB000000"
+    },
+    "compact": {
+      "cameraRadiusDp": null,
+      "scale": null,
+      "animatingIcons": null,
+      "pillGlyph": null,
+      "secondaryPosition": null
+    }
+  },
+  "20-actions-after-scroll": {
+    "presentation": {
+      "expanded": true,
+      "compactVisible": false,
+      "selected": "0|org.agentos.island.audit.one|1|null|10204",
+      "foregroundPackage": "org.agentos.agent",
+      "reason": "expanded"
+    },
+    "card": {
+      "cover": true,
+      "top": 21,
+      "height": 657,
+      "layout": "body",
+      "renderer": "systemui-native",
+      "nativeReady": true,
+      "backdropBlur": true,
+      "fill": "#EB000000"
+    },
+    "compact": {
+      "cameraRadiusDp": null,
+      "scale": null,
+      "animatingIcons": null,
+      "pillGlyph": null,
+      "secondaryPosition": null
+    }
+  },
+  "24-blur-enabled": {
+    "presentation": {
+      "expanded": true,
+      "compactVisible": false,
+      "selected": "0|org.agentos.island.audit.one|1|null|10204",
+      "foregroundPackage": "org.agentos.agent",
+      "reason": "expanded"
+    },
+    "card": {
+      "cover": true,
+      "top": 21,
+      "height": 657,
+      "layout": "body",
+      "renderer": "systemui-native",
+      "nativeReady": true,
+      "backdropBlur": true,
+      "fill": "#EB000000"
+    },
+    "compact": {
+      "cameraRadiusDp": null,
+      "scale": null,
+      "animatingIcons": null,
+      "pillGlyph": null,
+      "secondaryPosition": null
+    }
+  },
+  "25-blur-disabled": {
+    "presentation": {
+      "expanded": true,
+      "compactVisible": false,
+      "selected": "0|org.agentos.island.audit.one|1|null|10204",
+      "foregroundPackage": "org.agentos.agent",
+      "reason": "expanded"
+    },
+    "card": {
+      "cover": true,
+      "top": 21,
+      "height": 657,
+      "layout": "body",
+      "renderer": "systemui-native",
+      "nativeReady": true,
+      "backdropBlur": false,
+      "fill": "#EB000000"
+    },
+    "compact": {
+      "cameraRadiusDp": null,
+      "scale": null,
+      "animatingIcons": null,
+      "pillGlyph": null,
+      "secondaryPosition": null
+    }
+  },
+  "30-agent-text-keyboard": {
+    "presentation": {
+      "expanded": false,
+      "compactVisible": false,
+      "selected": "0|org.agentos.agent|2801|taku-island:d91586c9-34d7-4d4c-b1f5-2fd7e0f94091|10170",
+      "foregroundPackage": "org.agentos.agent",
+      "reason": "priority_changed"
+    },
+    "card": {
+      "cover": null,
+      "top": null,
+      "height": null,
+      "layout": null,
+      "renderer": null,
+      "nativeReady": null,
+      "backdropBlur": null,
+      "fill": null
+    },
+    "compact": {
+      "cameraRadiusDp": null,
+      "scale": null,
+      "animatingIcons": null,
+      "pillGlyph": null,
+      "secondaryPosition": null
+    }
+  },
+  "31-agent-working": {
+    "presentation": {
+      "expanded": true,
+      "compactVisible": false,
+      "selected": "0|org.agentos.agent|2801|taku-island:8b2ba777-972f-483d-b6f1-211772ece0af|10170",
+      "foregroundPackage": "org.agentos.agent",
+      "reason": "expanded"
+    },
+    "card": {
+      "cover": true,
+      "top": 21,
+      "height": 385,
+      "layout": "native-assistant",
+      "renderer": "systemui-native",
+      "nativeReady": true,
+      "backdropBlur": true,
+      "fill": "#EB000000"
+    },
+    "compact": {
+      "cameraRadiusDp": null,
+      "scale": null,
+      "animatingIcons": null,
+      "pillGlyph": null,
+      "secondaryPosition": null
+    }
+  },
+  "32-agent-reply": {
+    "presentation": {
+      "expanded": true,
+      "compactVisible": false,
+      "selected": "0|org.agentos.agent|2801|taku-island:8b2ba777-972f-483d-b6f1-211772ece0af|10170",
+      "foregroundPackage": "org.agentos.agent",
+      "reason": "expanded"
+    },
+    "card": {
+      "cover": true,
+      "top": 21,
+      "height": 432,
+      "layout": "native-assistant",
+      "renderer": "systemui-native",
+      "nativeReady": true,
+      "backdropBlur": true,
+      "fill": "#EB000000"
+    },
+    "compact": {
+      "cameraRadiusDp": null,
+      "scale": null,
+      "animatingIcons": null,
+      "pillGlyph": null,
+      "secondaryPosition": null
+    }
+  },
+  "33-agent-full-conversation": {
+    "presentation": {
+      "expanded": false,
+      "compactVisible": false,
+      "selected": null,
+      "foregroundPackage": "org.agentos.agent",
+      "reason": "priority_changed"
+    },
+    "card": {
+      "cover": null,
+      "top": null,
+      "height": null,
+      "layout": null,
+      "renderer": null,
+      "nativeReady": null,
+      "backdropBlur": null,
+      "fill": null
+    },
+    "compact": {
+      "cameraRadiusDp": null,
+      "scale": null,
+      "animatingIcons": null,
+      "pillGlyph": null,
+      "secondaryPosition": null
+    }
+  },
+  "34-agent-return-home": {
+    "presentation": {
+      "expanded": false,
+      "compactVisible": false,
+      "selected": null,
+      "foregroundPackage": "org.agentos.agent",
+      "reason": "priority_changed"
+    },
+    "card": {
+      "cover": null,
+      "top": null,
+      "height": null,
+      "layout": null,
+      "renderer": null,
+      "nativeReady": null,
+      "backdropBlur": null,
+      "fill": null
+    },
+    "compact": {
+      "cameraRadiusDp": null,
+      "scale": null,
+      "animatingIcons": null,
+      "pillGlyph": null,
+      "secondaryPosition": null
+    }
+  },
+  "35-fal-connection": {
+    "presentation": {
+      "expanded": false,
+      "compactVisible": false,
+      "selected": null,
+      "foregroundPackage": "org.agentos.agent",
+      "reason": "priority_changed"
+    },
+    "card": {
+      "cover": null,
+      "top": null,
+      "height": null,
+      "layout": null,
+      "renderer": null,
+      "nativeReady": null,
+      "backdropBlur": null,
+      "fill": null
+    },
+    "compact": {
+      "cameraRadiusDp": null,
+      "scale": null,
+      "animatingIcons": null,
+      "pillGlyph": null,
+      "secondaryPosition": null
+    }
+  },
+  "36-local-listening": {
+    "presentation": {
+      "expanded": true,
+      "compactVisible": false,
+      "selected": "0|org.agentos.agent|2801|taku-island:8b2ba777-972f-483d-b6f1-211772ece0af|10170",
+      "foregroundPackage": "org.agentos.agent",
+      "reason": "expanded"
+    },
+    "card": {
+      "cover": true,
+      "top": 21,
+      "height": 252,
+      "layout": "native-assistant",
+      "renderer": "systemui-native",
+      "nativeReady": true,
+      "backdropBlur": true,
+      "fill": "#EB000000"
+    },
+    "compact": {
+      "cameraRadiusDp": null,
+      "scale": null,
+      "animatingIcons": null,
+      "pillGlyph": null,
+      "secondaryPosition": null
+    }
+  },
+  "37-real-building-capsule": {
+    "presentation": {
+      "expanded": false,
+      "compactVisible": true,
+      "selected": "0|org.agentos.agent|2801|taku-island:3244d6ff-f29c-422d-87bc-80eddc41ef15|10170",
+      "foregroundPackage": "org.agentos.agent",
+      "reason": "agent"
+    },
+    "card": {
+      "cover": null,
+      "top": null,
+      "height": null,
+      "layout": null,
+      "renderer": null,
+      "nativeReady": null,
+      "backdropBlur": null,
+      "fill": null
+    },
+    "compact": {
+      "cameraRadiusDp": 23.238094,
+      "scale": 1,
+      "animatingIcons": 0,
+      "pillGlyph": null,
+      "secondaryPosition": null
+    }
+  },
+  "38-building-finished": {
+    "presentation": {
+      "expanded": false,
+      "compactVisible": false,
+      "selected": "0|org.agentos.agent|2801|taku-island:3244d6ff-f29c-422d-87bc-80eddc41ef15|10170",
+      "foregroundPackage": "org.agentos.agent",
+      "reason": "agent"
+    },
+    "card": {
+      "cover": null,
+      "top": null,
+      "height": null,
+      "layout": null,
+      "renderer": null,
+      "nativeReady": null,
+      "backdropBlur": null,
+      "fill": null
+    },
+    "compact": {
+      "cameraRadiusDp": null,
+      "scale": null,
+      "animatingIcons": null,
+      "pillGlyph": null,
+      "secondaryPosition": null
+    }
+  },
+  "39-live-talk-result": {
+    "presentation": {
+      "expanded": false,
+      "compactVisible": false,
+      "selected": null,
+      "foregroundPackage": "org.agentos.agent",
+      "reason": "priority_changed"
+    },
+    "card": {
+      "cover": null,
+      "top": null,
+      "height": null,
+      "layout": null,
+      "renderer": null,
+      "nativeReady": null,
+      "backdropBlur": null,
+      "fill": null
+    },
+    "compact": {
+      "cameraRadiusDp": null,
+      "scale": null,
+      "animatingIcons": null,
+      "pillGlyph": null,
+      "secondaryPosition": null
+    }
+  },
+  "40-live-talk-stopped": {
+    "presentation": {
+      "expanded": false,
+      "compactVisible": false,
+      "selected": null,
+      "foregroundPackage": "org.agentos.agent",
+      "reason": "priority_changed"
+    },
+    "card": {
+      "cover": null,
+      "top": null,
+      "height": null,
+      "layout": null,
+      "renderer": null,
+      "nativeReady": null,
+      "backdropBlur": null,
+      "fill": null
+    },
+    "compact": {
+      "cameraRadiusDp": null,
+      "scale": null,
+      "animatingIcons": null,
+      "pillGlyph": null,
+      "secondaryPosition": null
+    }
+  },
+  "41-final-home": {
+    "presentation": {
+      "expanded": false,
+      "compactVisible": false,
+      "selected": null,
+      "foregroundPackage": "org.agentos.agent",
+      "reason": "app_opened"
+    },
+    "card": {
+      "cover": null,
+      "top": null,
+      "height": null,
+      "layout": null,
+      "renderer": null,
+      "nativeReady": null,
+      "backdropBlur": null,
+      "fill": null
+    },
+    "compact": {
+      "cameraRadiusDp": null,
+      "scale": null,
+      "animatingIcons": null,
+      "pillGlyph": null,
+      "secondaryPosition": null
+    }
+  },
+  "21-alert-initial": {
+    "presentation": {
+      "expanded": true,
+      "compactVisible": false,
+      "selected": "0|org.agentos.island.audit.one|701|null|10204",
+      "foregroundPackage": "org.agentos.agent",
+      "reason": "alert"
+    },
+    "card": {
+      "cover": true,
+      "top": 21,
+      "height": 657,
+      "layout": "body",
+      "renderer": "systemui-native",
+      "nativeReady": true,
+      "backdropBlur": true,
+      "fill": "#EB000000"
+    },
+    "compact": {
+      "cameraRadiusDp": null,
+      "scale": null,
+      "animatingIcons": null,
+      "pillGlyph": null,
+      "secondaryPosition": null
+    }
+  },
+  "22-alert-collapsed": {
+    "presentation": {
+      "expanded": false,
+      "compactVisible": true,
+      "selected": "0|org.agentos.island.audit.one|701|null|10204",
+      "foregroundPackage": "org.agentos.agent",
+      "reason": "agent"
+    },
+    "card": {
+      "cover": null,
+      "top": null,
+      "height": null,
+      "layout": null,
+      "renderer": null,
+      "nativeReady": null,
+      "backdropBlur": null,
+      "fill": null
+    },
+    "compact": {
+      "cameraRadiusDp": 23.238094,
+      "scale": 1,
+      "animatingIcons": 0,
+      "pillGlyph": null,
+      "secondaryPosition": null
+    }
+  },
+  "23-alert-false-update": {
+    "presentation": {
+      "expanded": true,
+      "compactVisible": false,
+      "selected": "0|org.agentos.island.audit.one|701|null|10204",
+      "foregroundPackage": "org.agentos.agent",
+      "reason": "alert"
+    },
+    "card": {
+      "cover": true,
+      "top": 21,
+      "height": 657,
+      "layout": "body",
+      "renderer": "systemui-native",
+      "nativeReady": true,
+      "backdropBlur": true,
+      "fill": "#EB000000"
+    },
+    "compact": {
+      "cameraRadiusDp": null,
+      "scale": null,
+      "animatingIcons": null,
+      "pillGlyph": null,
+      "secondaryPosition": null
+    }
+  },
+  "26-short-static-admission": {
+    "presentation": {
+      "expanded": false,
+      "compactVisible": true,
+      "selected": "0|org.agentos.island.audit.one|1|null|10204",
+      "foregroundPackage": "org.agentos.agent",
+      "reason": "priority_changed"
+    },
+    "card": {
+      "cover": null,
+      "top": null,
+      "height": null,
+      "layout": null,
+      "renderer": null,
+      "nativeReady": null,
+      "backdropBlur": null,
+      "fill": null
+    },
+    "compact": {
+      "cameraRadiusDp": 23.238094,
+      "scale": 1,
+      "animatingIcons": 0,
+      "pillGlyph": null,
+      "secondaryPosition": null
+    }
+  }
+}
