@@ -104,7 +104,8 @@
         },
         "primaryAction": {"$ref": "#/$defs/key", "description": "Must name an entry in actions; drawn filled."},
         "tapAction": {"$ref": "#/$defs/key", "description": "Action sent when the card body is tapped; defaults to the notification content intent. Need not appear in actions."},
-        "accentColor": {"description": "#RRGGBB with WCAG contrast of at least 4.5:1 against the card (#121212).", "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$"},
+        "backgroundColor": {"description": "Template style: the card background as #RRGGBB, drawn at 92 % over a 24 dp blur. Light colours switch text and controls to black. Not allowed with the assistant template.", "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$"},
+        "accentColor": {"description": "#RRGGBB with WCAG contrast of at least 4.5:1 against the card: backgroundColor when set, else #121212.", "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$"},
         "assistant": {
           "description": "Taku Agent's native conversation card.",
           "type": "object", "additionalProperties": false, "required": ["token", "phase", "heightDp", "suggestions"],

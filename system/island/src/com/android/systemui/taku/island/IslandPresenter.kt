@@ -60,7 +60,12 @@ class IslandPresenter @Inject constructor(
 
     fun start() {
         engine.attachPresentation(this)
-        foreground.start { layoutCapsule() }
+        foreground.start {
+            // Opening the card's own app (from the card or anywhere else) hands its content over.
+            val open = items.find { it.key == cardKey }?.data
+            if (open != null && foreground.suppresses(open)) collapse("app_opened")
+            layoutCapsule()
+        }
         keyguard.addCallback(object : KeyguardStateController.Callback {
             override fun onKeyguardShowingChanged() {
                 if (keyguard.isShowing) collapse("keyguard")
@@ -144,9 +149,10 @@ class IslandPresenter @Inject constructor(
         layoutCapsule()
         if (first != null && first.alertUntil > SystemClock.elapsedRealtime() && alerted[first.key] != first.revision) {
             alerted[first.key] = first.revision
-            if (card == null && canExpand()) {
+            // The app in front already shows its own news; its alert neither expands nor waits.
+            if (card == null && canExpand() && !foreground.suppresses(first.data)) {
                 selected = first.key
-                open(first, cover = first.data.cardPosition != "below", isAlert = true)
+                open(first, cover = covers(first.data), isAlert = true)
                 handler.postDelayed({ if (automatic && cardKey == first.key &&
                     (items.find { it.key == first.key }?.alertUntil ?: 0) <= SystemClock.elapsedRealtime()) collapse("alert_timeout") },
                     (first.alertUntil - SystemClock.elapsedRealtime()).coerceAtLeast(0))
@@ -190,9 +196,12 @@ class IslandPresenter @Inject constructor(
         selected = key
         if (cardKey == key && card != null) { automatic = false; return true }
         collapse("switch")
-        val cover = item.data.cardPosition != "below"
-        return open(item, cover, false)
+        return open(item, covers(item.data), false)
     }
+
+    /** The publisher's `cardPosition`; Taku Agent's own cards always cover the camera (Figma 297:374). */
+    private fun covers(activity: IslandActivity) =
+        activity.packageName == IslandPayload.TAKU_PACKAGE || activity.cardPosition != "below"
 
     private fun open(item: IslandStore.Entry<IslandActivity>, cover: Boolean, isAlert: Boolean): Boolean {
         val view = bar ?: return false
@@ -262,7 +271,7 @@ class IslandPresenter @Inject constructor(
             return
         }
         val cutout = view.rootWindowInsets?.displayCutout?.boundingRectTop ?: Rect()
-        val physical = if (!cutout.isEmpty && cutout.centerX() in view.width / 3..view.width * 2 / 3) cutout.width() else 0
+        val physical = !cutout.isEmpty && cutout.centerX() in view.width / 3..view.width * 2 / 3
         val contents = view.findViewById<View>(R.id.status_bar_contents)
         val contentLeft = view.paddingLeft + (contents?.paddingLeft ?: 0)
         val contentRight = view.width - view.paddingRight - (contents?.paddingRight ?: 0)
@@ -270,17 +279,27 @@ class IslandPresenter @Inject constructor(
             view.findViewById<View>(R.id.clock_center)?.width ?: 0, dp(52))
         val endWidth = view.findViewById<View>(R.id.status_bar_end_side_content)?.width ?: dp(64)
         val icons = view.findViewById<View>(R.id.statusIcons)?.takeIf { it.visibility != View.GONE }?.width ?: 0
-        // Figma 1379:889 anchors the island to the camera: the disc extends CAMERA_DP to its
-        // left and the pill grows to its right. FrameLayout centering would include asymmetric
-        // status-bar padding, so position from the actual display cutout instead.
+        // Figma 1:4742 anchors the island to the camera: the disc extends to its left and the pill
+        // grows to its right. FrameLayout centering would include asymmetric status-bar padding,
+        // so position from the actual display cutout. A punch hole's circle is as wide as its
+        // bounding box and ends at its bottom edge (the box may extend up to the display edge).
         val location = IntArray(2)
         view.getLocationOnScreen(location)
-        val cameraX = if (physical > 0) cutout.centerX() - location[0] else view.width / 2
-        val cameraLeftWidth = dp(IslandCapsuleView.CAMERA_DP)
-        val maximumWidth = IslandCapsuleGeometry.maximumWidth(contentLeft, contentRight,
-            cameraX, cameraLeftWidth, clock, endWidth, icons, dp(12))
+        val cameraX = if (physical) cutout.centerX() - location[0] else view.width / 2
+        // A wide notch is not a camera circle: the design's 24 dp camera is drawn over it instead.
+        val cameraRadius = if (physical && cutout.width() <= dp(64)) cutout.width() / 2 else 0
+        val cameraY = if (physical) cutout.bottom - cutout.width() / 2 - location[1] else view.height / 2
+        pill.configure(view.height.coerceAtLeast(dp(16)), cameraRadius)
+        val cameraLeft = pill.cameraOffset()
+        // Another live activity waits as a circle left of the disc, only where the bar has room;
+        // the main capsule keeps its camera-anchored position either way.
         val wantsSecondary = items.count { showsCapsule(it.data) } > 1
-        val width = pill.layoutWidth(activity, maximumWidth, wantsSecondary)
+        val withSecondary = wantsSecondary && IslandCapsuleGeometry.maximumWidth(contentLeft, contentRight,
+            cameraX, cameraLeft + pill.leadWidth(), clock, endWidth, icons, dp(12)) > 0
+        val leftWidth = cameraLeft + if (withSecondary) pill.leadWidth() else 0
+        val maximumWidth = IslandCapsuleGeometry.maximumWidth(contentLeft, contentRight,
+            cameraX, leftWidth, clock, endWidth, icons, dp(12))
+        val width = pill.layoutWidth(activity, maximumWidth, withSecondary)
         if (width == 0) {
             IslandPresentationOwnership.show(null)
             pill.visibility = View.GONE
@@ -294,15 +313,19 @@ class IslandPresenter @Inject constructor(
         pill.translationX = 0f
         pill.visibility = View.VISIBLE
         IslandPresentationOwnership.show(if (view.isShown) activity else null)
-        val height = minOf(dp(32), view.height.coerceAtLeast(dp(24)))
+        // Tall enough for the 32 dp shapes (scaled on short bars) and the camera circle, centred
+        // on the camera so the necks meet the real hole.
+        val height = minOf(view.height, maxOf((32 * pill.unit).toInt(), 2 * cameraRadius + 2))
         val params = FrameLayout.LayoutParams(width, height, Gravity.TOP or Gravity.LEFT)
-        params.leftMargin = cameraX - dp(IslandCapsuleView.CAMERA_DP) - view.paddingLeft
-        params.topMargin = (view.height - height) / 2 - view.paddingTop
+        params.leftMargin = cameraX - leftWidth - view.paddingLeft
+        val top = (cameraY - height / 2).coerceIn(0, (view.height - height).coerceAtLeast(0))
+        params.topMargin = top - view.paddingTop
+        pill.centerShift = (cameraY - top - height / 2f)
         val previous = pill.layoutParams as FrameLayout.LayoutParams
         if (previous.width != width || previous.height != height || previous.gravity != params.gravity ||
             previous.leftMargin != params.leftMargin || previous.topMargin != params.topMargin) pill.layoutParams = params
         view.setTakuIslandProbeWidth(IslandCapsuleGeometry.reservationWidth(
-            contentLeft, contentRight, cameraX, cameraLeftWidth, width))
+            contentLeft, contentRight, cameraX, leftWidth, width))
     }
 
     private fun relocateCentered() {

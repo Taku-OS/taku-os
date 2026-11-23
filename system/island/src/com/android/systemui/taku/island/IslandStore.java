@@ -22,6 +22,10 @@ public final class IslandStore<T> {
     public static final int TIER_RECORDING = 2;
     public static final int TIER_ACTIVITY = 3;
     public static final int MAX_ITEMS = 128;
+    /** A rising alert re-presents an activity at most this often; faster false→true flips stay quiet. */
+    public static final long ALERT_COOLDOWN_MS = 30_000L;
+    /** Last presented alert per key; kept across removal so cancel-and-repost cannot skip the cooldown. */
+    private final Map<String, Long> lastAlerts = new HashMap<>();
     private final Map<String, Entry<T>> entries = new HashMap<>();
     private final Map<String, Long> revisions = new HashMap<>();
     private long sequence;
@@ -84,8 +88,13 @@ public final class IslandStore<T> {
         entry.staleAt = staleSeconds == 0 ? Long.MAX_VALUE : now + staleSeconds * 1000L;
         entry.tier = tier;
         if (alert && !entry.alerting) {
-            entry.alertUntil = Math.min(entry.expiresAt, now + 5000);
-            entry.triggeredAt = now;
+            Long last = lastAlerts.get(key);
+            if (last == null || now - last >= ALERT_COOLDOWN_MS) {
+                entry.alertUntil = Math.min(entry.expiresAt, now + 5000);
+                entry.triggeredAt = now;
+                if (lastAlerts.size() >= 2 * MAX_ITEMS) lastAlerts.values().removeIf(at -> now - at >= ALERT_COOLDOWN_MS);
+                lastAlerts.put(key, now);
+            }
         }
         entry.alerting = alert;
         entry.data = data;

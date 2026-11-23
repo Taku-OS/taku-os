@@ -38,25 +38,26 @@
 
 灵动岛有两种形态，同一时间只显示一种：
 
-- **紧凑态胶囊。** 位于前置摄像头周围的黑色胶囊。
+- **紧凑态胶囊。** 位于前置摄像头周围的黑色胶囊：32 dp 圆形、摄像头和 32 dp 胶囊条，由平滑的连接曲线相连，曲线会随设备实际开孔尺寸调整。
   - **A 组**在摄像头左侧，显示一个图形，可以是图标、动态图标或环形进度。
   - **B 组**在摄像头右侧，用短语、数字、运行中的计时器、百分比或图标展示关键信息。
   - 文字只显示一行，在状态栏图标前按可用空间截断并加省略号。文字不滚动，也不缩小字号。连短文案都放不下时，只保留 A 组。
-- **展开态卡片。** SystemUI 根据模板原生绘制，使用 92% 不透明度的黑色背景和 40 dp 圆角。卡片可以覆盖摄像头开孔（`cardPosition: "cover"`，默认值），也可以位于开孔下方（`"below"`）。键盘可见时强制使用 `below`。
+- **展开态卡片。** SystemUI 根据模板原生绘制，40 dp 圆角，距屏幕左右边缘 8 dp。背景为 92% 不透明度的黑色，叠加在 24 dp 背景模糊之上；也可以通过 `backgroundColor` 改为其他颜色（例如白色）。卡片覆盖摄像头开孔（`cardPosition: "cover"`，默认值）还是位于开孔下方（`"below"`），完全由应用决定；键盘只会限制卡片高度。Taku Agent 自己的卡片始终覆盖开孔。
 
 | 位置 | 手势 | 结果 |
 | --- | --- | --- |
 | 胶囊 | 点击 | `tap: "expand"`（默认）展开卡片，`tap: "open"` 触发内容 Intent |
 | 胶囊 | 长按 | 展开卡片，行为不受 `tap` 的设置影响 |
 | 胶囊 | 左滑 | 有多个活动时切换到下一个 |
+| 胶囊 | 点击左侧小圆 | 显示该等待中的活动 |
 | 胶囊 | 右滑 | 隐藏该活动，直到对应通知结束 |
-| 卡片 | 点击正文 | 触发 `tapAction`，未配置时触发内容 Intent |
+| 卡片 | 点击正文 | 触发 `tapAction`，未配置时触发内容 Intent。打开应用页面后卡片自动收起 |
 | 卡片 | 上滑或返回 | 收回为胶囊 |
 
 系统行为：
 
-- **多个活动。** SystemUI 管理活动，应用只能发布自己的活动。来电、闹钟和屏幕录制优先显示，其余活动按最近一次*触发*的时间排序。首次发布，或更新时将 `alert` 从 `false` 改为 `true`，都算一次触发。常规更新不会改变排序。下一个活动会在胶囊后显示为小圆盘，使用该活动的 A 组图形。
-- **应用在前台。** 当应用位于任务栈顶部时，其胶囊隐藏。用户离开应用后，如果通知提供了胶囊数据，胶囊可以显示。
+- **多个活动。** SystemUI 管理活动，应用只能发布自己的活动。来电、闹钟和屏幕录制优先显示，其余活动按最近一次*触发*的时间排序。首次发布，或更新时将 `alert` 从 `false` 改为 `true`，都算一次触发。常规更新不会改变排序。下一个活动以 32 dp 小圆显示在胶囊左侧，使用该活动的 A 组图形；主胶囊位置保持不变。
+- **应用在前台。** 当应用位于任务栈顶部时，其胶囊隐藏；应用切到前台时其卡片自动收起，`alert` 也不会展开卡片。用户离开应用后，如果通知提供了胶囊数据，胶囊可以显示。
 - **顶部横幅（Heads-up）。** 对路径 B 的活动，当系统可以展示灵动岛时（已解锁、通知面板已关闭、竖屏），不会同时弹出 Android 原生横幅。可以用 `alert: true` 让卡片短暂展开。纯 Live Updates（路径 A）保留 Android 原有的横幅行为。
 - **生命周期。** 以下条件以最先发生的为准：
   - 应用取消通知。
@@ -171,15 +172,17 @@ notificationManager.notify("memo:" + memoId, 1, notification)
 | `expanded.actions` | 引用 `taku.island.actions` 中的键，按显示顺序排列为一行可横向滚动的按钮。设计无数量上限，解析时最多接受 32 项 |
 | `expanded.primaryAction` | `actions` 中的一个操作，使用实心按钮样式 |
 | `expanded.tapAction` | 点击卡片正文时触发的操作键，无需同时显示为按钮。默认触发内容 Intent |
-| `expanded.accentColor` | `#RRGGBB`，与 `#121212` 的对比度须至少为 4.5:1，否则返回 `low_contrast`。用于主操作按钮、进度条、高亮数值和 `accent` 胶囊文字 |
+| `expanded.backgroundColor` | 模板样式：`#RRGGBB` 卡片背景色，以 92% 不透明度叠加在模糊背景上。浅色背景（如 `#FFFFFF`）下，文字、按钮、进度条底色和角标图标会自动改为黑色。`assistant` 模板不可用 |
+| `expanded.accentColor` | `#RRGGBB`，与卡片背景（设置了 `backgroundColor` 时为该颜色，否则为 `#121212`）的对比度须至少为 4.5:1，否则返回 `low_contrast`。用于主操作按钮、进度条、高亮数值和 `accent` 胶囊文字 |
 | `tap` | `expand`（默认）或 `open` |
 | `cardPosition` | `cover`（默认）或 `below` |
-| `alert` | 从 `false` 变为 `true` 时，将活动移到最前并展开卡片，最长 5 秒 |
+| `alert` | 从 `false` 变为 `true` 时，将活动移到最前并展开卡片，最长 5 秒。同一通知每 30 秒最多触发一次（取消后重发不会重置），更频繁的切换会被忽略 |
 | `timeoutS` | 1–43200 秒。自首次发布起计算，默认 3600 秒 |
 | `staleAfterS` | 1–43200 秒。这段时间内未更新时，胶囊以弱化样式显示 |
 
 通用规则：
 
+- 通知必须是持续通知（`setOngoing(true)`），否则返回 `not_ongoing`。一次性的结果或报错应留在通知栏。
 - JSON 最大 8192 字节（UTF-8），嵌套深度不超过 8。
 - 未知字段、重复键及字段类型错误都会被拒绝。
 - 键名必须匹配 `[a-z][a-z0-9_]{0,31}`。
@@ -217,11 +220,12 @@ adb shell cmd statusbar island get 'KEY'   # canonical payload, source, tier, tr
 | 错误码 | 含义 |
 | --- | --- |
 | `publisher_not_allowed` | 应用没有 `POST_ISLAND` 权限，也未加入允许名单 |
+| `not_ongoing` | 通知不是持续通知 |
 | `invalid_references_or_host` | Bundle 中缺少引用的 `pic` 或操作键，图标类型不受支持，或 PendingIntent 不属于发布应用 |
 | `unknown_field`、`invalid_enum`、`text_length`、`number_range`、`invalid_key`、`expected_*` | 不符合 Schema 约束 |
 | `missing_progress`、`missing_highlight`、`highlight_template_only` | 缺少模板所需数据，或将数据用于不匹配的模板 |
 | `missing_primary_action`、`duplicate_action`、`too_many_actions` | 操作列表无效 |
-| `invalid_color`、`low_contrast` | `accentColor` 无效 |
+| `invalid_color`、`low_contrast` | `backgroundColor` 或 `accentColor` 无效 |
 | `reserved_template`、`invalid_animation`、`reserved_content` | 该能力仅供 Taku Agent 或平台应用使用 |
 | `payload_too_large`、`too_deep`、`unbalanced_json`、`invalid_payload` | JSON 无效 |
 

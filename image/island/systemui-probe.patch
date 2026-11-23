@@ -410,7 +410,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandCapsuleGeometry.java
-@@ -0,0 +1,31 @@
+@@ -0,0 +1,59 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island;
 +
@@ -432,6 +432,34 @@
 +        return Math.max(0, center + radius - left);
 +    }
 +
++    /** Handle length of the authored MetaballShape1 curves as a fraction of the circle radius. */
++    static final float HANDLE = 0.5776f;
++
++    /**
++     * Upper half of the metaball neck joining a circle of radius {@code r1} at x=0 to a circle of
++     * radius {@code r2} centred {@code distance} to its right (both on y=0, y grows downward). The
++     * neck starts and ends {@code inset} inside each circle and leaves tangent to it, with handles
++     * of {@link #HANDLE}·r: for r1=16, r2=12, distance=36, inset=4 this reproduces Figma's
++     * MetaballShape1 (16.07 × 21.33). Any camera size keeps the same smooth tangency instead of
++     * the 24 dp camera's fixed outline. Returns {x0, y0, c1x, c1y, c2x, c2y, x1, y1}; mirror the
++     * y values for the lower half.
++     */
++    public static float[] neck(float r1, float r2, float distance, float inset) {
++        float cos1 = (r1 - inset) / r1, sin1 = (float) Math.sqrt(1 - cos1 * cos1);
++        float cos2 = (r2 - inset) / r2, sin2 = (float) Math.sqrt(1 - cos2 * cos2);
++        float x0 = r1 * cos1, y0 = -r1 * sin1;
++        float x1 = distance - r2 * cos2, y1 = -r2 * sin2;
++        float a = HANDLE * r1, b = HANDLE * r2;
++        // A very large camera would pull its handle past the centre line and pinch the neck shut.
++        float waist = -0.35f * Math.min(-y0, -y1);
++        return new float[] {
++            x0, y0,
++            x0 + a * sin1, Math.min(y0 + a * cos1, waist),
++            x1 - b * sin2, Math.min(y1 + b * cos2, waist),
++            x1, y1,
++        };
++    }
++
 +    public static int reservationWidth(int contentLeft, int contentRight, int cameraX,
 +            int cameraLeftWidth, int capsuleWidth) {
 +        if (capsuleWidth <= 0) return 0;
@@ -444,7 +472,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandCapsuleView.kt
-@@ -0,0 +1,431 @@
+@@ -0,0 +1,466 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -458,8 +486,6 @@
 +import android.graphics.PorterDuffColorFilter
 +import android.graphics.drawable.Animatable2
 +import android.graphics.drawable.Drawable
-+import android.os.Handler
-+import android.os.Looper
 +import android.os.SystemClock
 +import android.view.GestureDetector
 +import android.view.MotionEvent
@@ -473,35 +499,43 @@
 +import kotlin.math.max
 +
 +/**
-+ * Compact island, Figma 1379:889 for every activity: a 32 dp disc whose centre is 36 dp left of
-+ * the camera, the 24 dp camera disc, and a 32 dp text pill starting 20 dp right of it, joined by
-+ * the authored metaball necks. The disc shows the activity's glyph (loader, picture, progress
-+ * ring or app icon); the pill shows its text, timer or number in Hanken 12 sp. The view's left
-+ * edge sits [CAMERA_DP] left of the camera centre. Vertical drags are left to the shade.
++ * Compact island, Figma 1:4742 (52:815) for every activity: a 32 dp disc, the camera, and a 32 dp
++ * text pill, each 8 dp from the camera's edge and joined by metaball necks that leave every circle
++ * tangentially ([IslandCapsuleGeometry.neck]). The camera is the device's real cutout: its radius
++ * comes from the display, so a 46 dp emulator hole keeps the same smooth outline as the design's
++ * 24 dp one. The disc shows the activity's glyph (loader, picture, progress ring or app icon); the
++ * pill shows its text, timer or number in Hanken 12 sp. Another live activity waits as a 32 dp
++ * circle on the far left, where the bar has room; the main capsule never moves for it. On a status
++ * bar shorter than 32 dp everything scales down rather than clipping. Vertical drags are left to
++ * the shade.
 + */
 +internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
 +    private val longPress: () -> Unit, private val next: () -> Unit, private val hide: () -> Unit) : View(context) {
 +    private val density = resources.displayMetrics.density
++    /** Pixels per design dp: the density, scaled down when the status bar is shorter than 32 dp. */
++    var unit = density
++        private set
++    /** The camera cutout's radius in pixels (12 dp without a physical centre cutout). */
++    var cameraRadius = 12 * density
++        private set
++    /** Vertical offset of the camera centre from the view's middle when the bar clamps it. */
++    var centerShift = 0f
++        set(value) { if (field != value) { field = value; invalidate() } }
++    /** The waiting activity's circle sits left of the main capsule. */
++    private var lead = 0f
 +    private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
 +    private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
 +        typeface = IslandStyle.regular(context)
 +        textSize = 12f * resources.displayMetrics.scaledDensity
 +        letterSpacing = -.01f
 +    }
++    private val neck = Path()
 +    private val icons = mutableMapOf<String, Drawable>()
 +    private val secondaryIcons = mutableMapOf<String, Drawable>()
 +    private var second: IslandActivity? = null
 +    private var secondaryIdentity: JSONObject? = null
 +    private var secondaryGeneration = 0
 +    var stale = false
-+    /** Exact MetaballShape1 path (Figma 1379:904), 16.0743 × 21.3333. */
-+    private val neck = Path().apply {
-+        moveTo(16.0743f, 1.72239f)
-+        cubicTo(10.9102f, 6.34134f, 6.1586f, 6.88552f, 0f, 0f)
-+        lineTo(0f, 21.3333f)
-+        cubicTo(6.1586f, 14.4478f, 10.9102f, 14.992f, 16.0743f, 19.6109f)
-+        close()
-+    }
 +    private var item: IslandActivity? = null
 +    private var identity: JSONObject? = null
 +    private var generation = 0
@@ -521,7 +555,11 @@
 +        private set
 +    private val gestures = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
 +        override fun onDown(event: MotionEvent) = true
-+        override fun onSingleTapUp(event: MotionEvent): Boolean { performClick(); return true }
++        override fun onSingleTapUp(event: MotionEvent): Boolean {
++            // The waiting circle brings its activity forward; the rest of the capsule is the tap.
++            if (secondary && event.x < lead) next() else performClick()
++            return true
++        }
 +        override fun onLongPress(event: MotionEvent) { performLongClick() }
 +        override fun onFling(first: MotionEvent?, last: MotionEvent, vx: Float, vy: Float): Boolean {
 +            if (first != null && abs(last.x - first.x) > dp(24) && abs(vx) > abs(vy)) {
@@ -555,6 +593,24 @@
 +    }
 +
 +    override fun verifyDrawable(who: Drawable): Boolean = who in icons.values || super.verifyDrawable(who)
++
++    /**
++     * Fits the capsule to the bar: [barHeight] below 32 dp scales every dimension, and
++     * [cutoutRadius] (pixels, 0 without a centred physical cutout) sizes the camera circle.
++     */
++    fun configure(barHeight: Int, cutoutRadius: Int) {
++        unit = density * minOf(1f, barHeight / (32 * density)).coerceAtLeast(.5f)
++        cameraRadius = if (cutoutRadius > 0) cutoutRadius.toFloat() else 12 * unit
++        textPaint.textSize = 12f * resources.displayMetrics.scaledDensity * unit / density
++    }
++
++    /** Main disc centre, camera centre and pill start, from the view's left edge (pixels). */
++    private fun discX() = lead + 16 * unit
++    fun cameraOffset(): Int = (40 * unit + cameraRadius).toInt()
++    private fun cameraX() = lead + 40 * unit + cameraRadius
++    private fun pillStart() = cameraX() + cameraRadius + 8 * unit
++    /** Width the waiting circle and its gap add on the left. */
++    fun leadWidth(): Int = (36 * unit).toInt()
 +
 +    /** Picture keys the publisher asked to animate (`icon.animate`). */
 +    private fun animatedKeys(activity: IslandActivity): Set<String> = listOf("a", "b")
@@ -637,34 +693,35 @@
 +    }
 +
 +    /**
-+     * Width for [activity] within [maximum] (measured from the view's left edge): the disc and
-+     * camera always; the pill when at least a short label fits; one more 24 dp disc for a
-+     * [secondaryWanted] activity when room remains. Returns 0 when not even the disc fits.
++     * Width for [activity] within [maximum] (pixels from the view's left edge, which includes the
++     * waiting circle when [withSecondary]): the disc and camera always; the pill when at least a
++     * short label fits. Returns 0 when not even the disc fits.
 +     */
-+    fun layoutWidth(activity: IslandActivity, maximum: Int, secondaryWanted: Boolean): Int {
-+        val base = px(CAMERA_DP + 12)
++    fun layoutWidth(activity: IslandActivity, maximum: Int, withSecondary: Boolean): Int {
++        secondary = withSecondary
++        lead = if (withSecondary) leadWidth().toFloat() else 0f
++        val base = kotlin.math.ceil(cameraX() + cameraRadius).toInt()
++        shownText = ""
++        pillGlyphShown = false
 +        if (maximum < base) return 0
 +        val slot = pillSlot(activity)
 +        val text = pillText(slot)
 +        var width = base
-+        shownText = ""
-+        pillGlyphShown = false
-+        val room = maximum - px(PILL_START_DP) - px(16) - if (secondaryWanted) px(28) else 0
-+        if (text.isEmpty() && pillGlyph(activity) != null && room >= px(16)) {
++        val room = maximum - pillStart() - 16 * unit
++        if (text.isEmpty() && pillGlyph(activity) != null && room >= 16 * unit) {
 +            pillGlyphShown = true
-+            width = px(PILL_START_DP) + px(16) + px(16)
++            width = kotlin.math.ceil(pillStart() + 32 * unit).toInt()
 +        }
 +        if (text.isNotEmpty()) {
 +            // Timers reserve their widest digits so the pill does not jitter every second.
 +            val natural = max(textPaint.measureText(text), if (slot?.optString("type") in setOf("timer", "countdown")) textPaint.measureText(text.replace(Regex("[0-9]"), "0")) else 0f)
-+            val fitted = minOf(natural, room.toFloat())
-+            if (fitted >= minOf(natural, dp(24))) {
++            val fitted = minOf(natural, room)
++            if (fitted >= minOf(natural, 24 * unit)) {
 +                shownText = text.take(textPaint.breakText(text, true, fitted + 1, null))
-+                width = px(PILL_START_DP) + px(16) + kotlin.math.ceil(fitted).toInt()
++                width = kotlin.math.ceil(pillStart() + 16 * unit + fitted).toInt()
 +            }
 +        }
-+        secondary = secondaryWanted && width + px(28) <= maximum
-+        return width + if (secondary) px(28) else 0
++        return width
 +    }
 +
 +    fun bind(activity: IslandActivity, other: IslandActivity?) {
@@ -675,27 +732,28 @@
 +            val current = ++secondaryGeneration
 +            secondaryIcons.clear()
 +            second?.pics?.forEach { (key, icon) ->
-+                icon.loadDrawableAsync(context, { drawable ->
++                IslandStyle.loadIcon(context, icon) { drawable ->
 +                    if (current == secondaryGeneration && drawable != null) { secondaryIcons[key] = drawable; invalidate() }
-+                }, Handler(Looper.getMainLooper()))
++                }
 +            }
 +        }
 +        contentDescription = "${if (stale) "May be outdated. " else ""}${activity.title}. ${activity.body}. " +
 +            "Double tap to ${if (activity.tap == "open" && activity.openIntent != null) "open the app" else "expand"}; " +
-+            "long press to expand; swipe left for the next activity; swipe right to hide."
++            "long press to expand; swipe left for the next activity; swipe right to hide." +
++            if (second != null) " ${second?.title} is also live; tap the circle on the left to show it." else ""
 +        if (identity !== activity.payload) {
 +            identity = activity.payload
 +            val current = ++generation
 +            stopIconAnimations()
 +            icons.clear()
 +            activity.pics.forEach { (key, icon) ->
-+                icon.loadDrawableAsync(context, { drawable ->
++                IslandStyle.loadIcon(context, icon) { drawable ->
 +                    if (current == generation && drawable != null) {
 +                        icons[key] = drawable
 +                        startIconAnimations()
 +                        invalidate()
 +                    }
-+                }, Handler(Looper.getMainLooper()))
++                }
 +            }
 +        }
 +        startIconAnimations()
@@ -742,43 +800,62 @@
 +
 +    override fun onDraw(canvas: Canvas) {
 +        val activity = item ?: return
-+        val cy = height / 2f
-+        val camera = dp(CAMERA_DP)
-+        val pillEnd = width - if (secondary) dp(28) else 0f
++        val cy = height / 2f + centerShift
++        val disc = discX()
++        val camera = cameraX()
++        val pill = pillStart()
 +        val hasPill = shownText.isNotEmpty() || pillGlyphShown
 +        paint.color = Color.BLACK
 +        paint.style = Paint.Style.FILL
-+        canvas.drawCircle(dp(16), cy, dp(16), paint)
-+        canvas.drawCircle(camera, cy, dp(12), paint)
-+        if (hasPill) canvas.drawRoundRect(dp(PILL_START_DP), cy - dp(16), pillEnd.toFloat(), cy + dp(16), dp(16), dp(16), paint)
-+        for (direction in if (hasPill) listOf(1, -1) else listOf(1)) {
-+            canvas.save()
-+            canvas.translate(camera - direction * dp(24), cy - dp(21.3333f) / 2 + dp(.167f))
-+            canvas.scale(direction * density, density)
-+            canvas.drawPath(neck, paint)
-+            canvas.restore()
++        val r = 16 * unit
++        canvas.drawCircle(disc, cy, r, paint)
++        canvas.drawCircle(camera, cy, cameraRadius, paint)
++        drawNeck(canvas, disc, r, camera, cameraRadius, cy)
++        if (hasPill) {
++            canvas.drawRoundRect(pill, cy - r, width.toFloat(), cy + r, r, r, paint)
++            // The pill's rounded end is a 16 dp circle centred 16 dp inside its start.
++            drawNeck(canvas, pill + r, r, camera, cameraRadius, cy)
 +        }
-+        drawDisc(canvas, discSlot(activity), dp(16), cy)
++        drawDisc(canvas, discSlot(activity), disc, cy, icons)
 +        if (pillGlyphShown) {
-+            drawDisc(canvas, pillGlyph(activity), dp(PILL_START_DP) + dp(16), cy)
++            drawDisc(canvas, pillGlyph(activity), pill + r, cy, icons)
 +        } else if (hasPill) {
 +            val slot = pillSlot(activity)
 +            val text = if (slot?.optString("type") in setOf("timer", "countdown")) pillText(slot) else shownText
 +            textPaint.color = if (stale || slot?.optString("emphasis") == "muted") IslandStyle.TEXT_MUTED
 +                else if (slot?.optString("emphasis") == "accent") accent(activity) else IslandStyle.TEXT_PRIMARY
-+            val start = dp(PILL_START_DP) + dp(8)
-+            val end = textPaint.breakText(text, true, pillEnd - dp(8) - start, null)
++            val start = pill + 8 * unit
++            val end = textPaint.breakText(text, true, width - 8 * unit - start, null)
 +            canvas.drawText(text.take(end), start, cy - (textPaint.ascent() + textPaint.descent()) / 2, textPaint)
 +            // Live clocks: redraw on the next whole second while shown.
 +            if (slot?.optString("type") in setOf("timer", "countdown")) postInvalidateDelayed(1000 - System.currentTimeMillis() % 1000)
 +        }
-+        if (secondary) drawSecondary(canvas, width - dp(12), cy)
++        if (secondary) drawSecondary(canvas, 16 * unit, cy)
++    }
++
++    /**
++     * The metaball neck between a circle at [circleX] (radius [r]) and the camera, on either side;
++     * mirrored when the circle lies right of the camera.
++     */
++    private fun drawNeck(canvas: Canvas, circleX: Float, r: Float, camera: Float, cameraR: Float, cy: Float) {
++        val n = IslandCapsuleGeometry.neck(r, cameraR, kotlin.math.abs(camera - circleX), 4 * unit)
++        neck.rewind()
++        neck.moveTo(n[0], n[1])
++        neck.cubicTo(n[2], n[3], n[4], n[5], n[6], n[7])
++        neck.lineTo(n[6], -n[7])
++        neck.cubicTo(n[4], -n[5], n[2], -n[3], n[0], -n[1])
++        neck.close()
++        canvas.save()
++        canvas.translate(circleX, cy)
++        if (camera < circleX) canvas.scale(-1f, 1f)
++        canvas.drawPath(neck, paint)
++        canvas.restore()
 +    }
 +
 +    /** 16 dp glyph area centred on ([cx], [cy]): Figma's 3×3 loader, a picture or a progress ring. */
-+    private fun drawDisc(canvas: Canvas, slot: JSONObject?, cx: Float, cy: Float) {
++    private fun drawDisc(canvas: Canvas, slot: JSONObject?, cx: Float, cy: Float, loaded: Map<String, Drawable>) {
 +        val motion = slot?.optString("animated").orEmpty()
-+        val icon = slot?.optString("pic")?.let(icons::get)
++        val icon = slot?.optString("pic")?.let(loaded::get)
 +        when {
 +            motion == "listening" -> {
 +                paint.color = IslandStyle.TEXT_PRIMARY
@@ -833,45 +910,31 @@
 +        }
 +    }
 +
-+    /** Another live activity: a 24 dp disc with its small-island glyph. */
++    /**
++     * The waiting activity: a 32 dp circle, as tall as the main disc, with the same 16 dp glyph
++     * (its own group A, else its notification icon).
++     */
 +    private fun drawSecondary(canvas: Canvas, cx: Float, cy: Float) {
++        val other = second ?: return
 +        paint.color = Color.BLACK
-+        canvas.drawCircle(cx, cy, dp(12), paint)
-+        // System-managed: the next activity's own group A glyph, else its notification icon.
-+        val slot = glyph(second?.compact?.optJSONObject("a"))?.takeIf { it.optString("type") in setOf("pic", "progress") }
-+        val icon = slot?.optString("pic")?.takeIf { it.isNotEmpty() }?.let(secondaryIcons::get)
-+            ?: secondaryIcons[IslandActivity.APP_PIC]
-+        if (slot?.optString("type") == "progress") {
-+            paint.style = Paint.Style.STROKE
-+            paint.strokeWidth = dp(2)
-+            paint.color = IslandStyle.TEXT_PRIMARY
-+            canvas.drawArc(cx - dp(7), cy - dp(7), cx + dp(7), cy + dp(7), -90f,
-+                (slot.optDouble("value", .25) * 360).toFloat(), false, paint)
-+            paint.style = Paint.Style.FILL
-+        } else if (icon != null) {
-+            icon.colorFilter = if (slot == null || slot.optBoolean("tint")) PorterDuffColorFilter(IslandStyle.TEXT_PRIMARY, PorterDuff.Mode.SRC_IN) else null
-+            icon.setBounds((cx - dp(7)).toInt(), (cy - dp(7)).toInt(), (cx + dp(7)).toInt(), (cy + dp(7)).toInt())
-+            icon.draw(canvas)
-+        } else {
-+            paint.color = IslandStyle.TEXT_PRIMARY
-+            canvas.drawCircle(cx, cy, dp(2), paint)
-+        }
++        canvas.drawCircle(cx, cy, 16 * unit, paint)
++        drawDisc(canvas, discSlot(other), cx, cy, secondaryIcons)
 +    }
 +
 +    fun state(): JSONObject = JSONObject().put("text", shownText).put("secondary", secondary)
 +        .put("pillGlyph", if (pillGlyphShown) item?.let { pillGlyph(it) }?.let { it.optString("animated").ifEmpty { it.optString("type") } } ?: JSONObject.NULL else JSONObject.NULL)
 +        .put("animatingIcons", iconLoops.size)
++        .put("secondaryPosition", if (secondary) "left" else JSONObject.NULL)
++        .put("cameraRadiusDp", cameraRadius / density).put("scale", unit / density)
 +        .put("disc", item?.let { discSlot(it)?.let { slot -> slot.optString("animated").ifEmpty { slot.optString("type") } } ?: "dot" } ?: JSONObject.NULL)
 +
-+    private fun dp(value: Float) = value * density
-+    private fun dp(value: Int) = value * density
-+    /** Whole pixels for layout sizes. */
-+    private fun px(value: Int) = (value * density).toInt()
++    private fun dp(value: Float) = value * unit
++    private fun dp(value: Int) = value * unit
 +
 +    companion object {
 +        /** An app's animated icon loops for at most this long per binding. */
 +        const val ICON_LOOP_MS = 60_000L
-+        /** Camera centre and pill start, measured from the capsule's left edge (dp). */
++        /** Camera centre and pill start from the main capsule's left edge for the 24 dp design camera (dp). */
 +        const val CAMERA_DP = 52
 +        const val PILL_START_DP = 72
 +    }
@@ -965,7 +1028,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandCardWindow.kt
-@@ -0,0 +1,240 @@
+@@ -0,0 +1,250 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -990,7 +1053,14 @@
 +import android.window.OnBackInvokedDispatcher
 +import org.json.JSONObject
 +
-+/** SystemUI owns geometry and touch; bounded remote cards may supply their own chrome. */
++/**
++ * SystemUI owns geometry and touch; bounded remote cards may supply their own chrome. Figma 297:415:
++ * a 40 dp-radius card, 8 dp from the screen edges, filled with content/900 (black at 92 %) over a
++ * 24 dp backdrop blur (Backdrop Blur/md) so the screen behind reads as a soft tone rather than
++ * legible detail. A template's `backgroundColor` replaces the fill. The card covers the camera
++ * cutout or sits below it only as the presenter decided ([coverRequested]); the keyboard never
++ * changes that, it only bounds the card's height.
++ */
 +internal class IslandCardWindow(context: Context, initial: IslandActivity, coverRequested: Boolean,
 +    private val command: (String, String?, String?) -> Unit, private val collapse: (String) -> Unit,
 +    private val covering: (Boolean) -> Unit,
@@ -1002,7 +1072,7 @@
 +    private val metrics = wm.currentWindowMetrics
 +    private val topInset = metrics.windowInsets.getInsetsIgnoringVisibility(
 +        WindowInsets.Type.statusBars() or WindowInsets.Type.displayCutout()).top
-+    private var cover = coverRequested && !metrics.windowInsets.isVisible(WindowInsets.Type.ime())
++    private val cover = coverRequested
 +    private var activity = initial
 +    private val nativeAssistant = initial.nativeAssistant
 +    private val nativeView = if (nativeAssistant) IslandAssistantCard(windowContext, command, collapse) else null
@@ -1013,18 +1083,20 @@
 +    private val templateView = if (nativeContent) null else IslandTemplateCard(windowContext, command, collapse)
 +    private val cardWidth = minOf(dp(420), metrics.bounds.width() - dp(16))
 +    private val fullCard = nativeContent || initial.payload.getJSONObject("expanded").optJSONObject("content")?.optString("layout") == "card"
++    /** A ready full-card remote surface draws its own chrome; the shell then stays transparent. */
++    private var remoteChrome = false
 +    private val root = FrameLayout(windowContext).apply {
-+        background = GradientDrawable().apply { setColor(IslandStyle.CARD); cornerRadius = dp(IslandStyle.CORNER_DP).toFloat() }
++        background = GradientDrawable().apply { setColor(IslandStyle.opaqueFill(initial)); cornerRadius = dp(IslandStyle.CORNER_DP).toFloat() }
 +        clipToOutline = true
 +        outlineProvider = object : ViewOutlineProvider() {
 +            override fun getOutline(view: View, outline: Outline) {
-+                outline.setRoundRect(0, 0, view.width, view.height, dp(40).toFloat())
++                outline.setRoundRect(0, 0, view.width, view.height, dp(IslandStyle.CORNER_DP).toFloat())
 +            }
 +        }
 +        importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
 +    }
 +    private var blurListening = false
-+    private val blurListener = java.util.function.Consumer<Boolean> { if (attached) updateProgressBackdrop() }
++    private val blurListener = java.util.function.Consumer<Boolean> { if (attached) updateBackdrop() }
 +    private var host: IslandContentConnection? = null
 +    private var hostView: SurfaceView? = null
 +    private var hostIdentity: String? = null
@@ -1059,14 +1131,7 @@
 +    init {
 +        root.addView(nativeView ?: progressView ?: templateView, FrameLayout.LayoutParams(-1, -1))
 +        root.setOnApplyWindowInsetsListener { _, insets ->
-+            if (insets.isVisible(WindowInsets.Type.ime()) && cover) {
-+                cover = false
-+                covering(false)
-+                params.flags = flags()
-+                params.y = topInset + dp(8)
-+                backDispatcher?.unregisterOnBackInvokedCallback(back)
-+                backDispatcher = null
-+            }
++            // The keyboard bounds the card's height; it never moves the card off the cutout.
 +            if (attached) {
 +                val available = metrics.bounds.height() - insets.getInsets(WindowInsets.Type.ime()).bottom - params.y - dp(8)
 +                availableHeight = available
@@ -1086,19 +1151,17 @@
 +    private fun flags(): Int = WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
 +        WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
 +        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-+        (if (nativeProgress) WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED else 0)
++        WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
 +
 +    fun show() {
 +        root.viewTreeObserver.addOnComputeInternalInsetsListener(insetsListener)
 +        wm.addView(root, params)
 +        attached = true
 +        covering(cover)
++        updateBackdrop()
++        wm.addCrossWindowBlurEnabledListener(windowContext.mainExecutor, blurListener)
++        blurListening = true
 +        // Native content is complete before addView: no template/remote-surface transition.
-+        if (nativeProgress) {
-+            updateProgressBackdrop()
-+            wm.addCrossWindowBlurEnabledListener(windowContext.mainExecutor, blurListener)
-+            blurListening = true
-+        }
 +        if (nativeContent) return
 +        animation = ValueAnimator.ofInt(dp(48), finalHeight).apply {
 +            duration = 220
@@ -1115,7 +1178,9 @@
 +
 +    /** Content snapshots update views; they do not restart the shell's geometry animation. */
 +    fun update(next: IslandActivity) {
++        val fillChanged = IslandStyle.cardFill(next) != IslandStyle.cardFill(activity)
 +        activity = next
++        if (fillChanged && attached) updateBackdrop()
 +        val template = templateView
 +        when {
 +            nativeView != null -> nativeView.update(next)
@@ -1154,7 +1219,7 @@
 +                hostView = surface
 +                host = IslandContentConnection(windowContext, next, surface) { ready ->
 +                    richReady = ready
-+                    if (fullCard) (root.background as GradientDrawable).setColor(if (ready) Color.TRANSPARENT else IslandStyle.CARD)
++                    if (fullCard) { remoteChrome = ready; updateBackdrop() }
 +                    if (fullCard) template.visibility = if (ready) View.INVISIBLE else View.VISIBLE
 +                    else template.showTemplateText(!ready)
 +                    surface.alpha = if (ready) 1f else 0f
@@ -1163,18 +1228,26 @@
 +        }
 +    }
 +
-+    /** Blur browser text behind sign-in progress; opaque fallback when compositor blur is off. */
-+    private fun updateProgressBackdrop() {
++    /**
++     * The card's fill over a 24 dp backdrop blur of whatever is behind it; an opaque fill when
++     * compositor blur is off, so text and widgets behind never show through sharply.
++     */
++    private fun updateBackdrop() {
++        val corner = dp(IslandStyle.CORNER_DP).toFloat()
++        if (remoteChrome) { root.background = GradientDrawable().apply { setColor(Color.TRANSPARENT); cornerRadius = corner }; return }
 +        val blurred = if (wm.isCrossWindowBlurEnabled) runCatching {
 +            root.viewRootImpl.createBackgroundBlurDrawable().apply {
-+                setBlurRadius(dp(24)); setCornerRadius(dp(40).toFloat()); setColor(0xeb000000.toInt())
++                setBlurRadius(dp(IslandStyle.BLUR_DP)); setCornerRadius(corner); setColor(IslandStyle.cardFill(activity))
 +            }
 +        }.getOrNull() else null
-+        root.background = blurred ?: GradientDrawable().apply { setColor(0xff121212.toInt()); cornerRadius = dp(40).toFloat() }
++        root.background = blurred ?: GradientDrawable().apply { setColor(IslandStyle.opaqueFill(activity)); cornerRadius = corner }
++        backdropBlurred = blurred != null
 +    }
++    private var backdropBlurred = false
 +
 +    fun state(): JSONObject = JSONObject().put("key", activity.key).put("windowType", params.type)
-+        .put("cover", cover).put("focusable", params.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE == 0).put("layout", if (nativeAssistant) "native-assistant" else if (nativeProgress) "native-progress" else if (fullCard) "card" else "body").put("richReady", richReady)
++        .put("cover", cover).put("backdropBlur", backdropBlurred)
++        .put("fill", "#%08X".format(IslandStyle.cardFill(activity))).put("focusable", params.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE == 0).put("layout", if (nativeAssistant) "native-assistant" else if (nativeProgress) "native-progress" else if (fullCard) "card" else "body").put("richReady", richReady)
 +        .put("renderer", if (richReady) "remote-surface" else "systemui-native").put("nativeReady", attached && !richReady)
 +        .put("assistant", nativeView?.state() ?: JSONObject.NULL)
 +        .put("template", templateView?.state() ?: JSONObject.NULL)
@@ -1354,7 +1427,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandEngine.kt
-@@ -0,0 +1,342 @@
+@@ -0,0 +1,352 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -1555,7 +1628,8 @@
 +            IslandSystemNotifications.candidate(n) -> false
 +            (v2 != null || v1 != null) && policy.canPost(sbn.packageName) -> {
 +                val publisher = extractor.publisher(sbn)
-+                (if (v2 != null) IslandPayload.parseV2(v2, publisher) else IslandPayload.parseV1(v1, publisher)).isValid
++                (publisher.taku || n.flags and android.app.Notification.FLAG_ONGOING_EVENT != 0) &&
++                    (if (v2 != null) IslandPayload.parseV2(v2, publisher) else IslandPayload.parseV1(v1, publisher)).isValid
 +            }
 +            else -> false
 +        }
@@ -1641,7 +1715,7 @@
 +            "tap" -> mutate {
 +                val activity = requireActivity(arg)
 +                val intent = activity.openIntent
-+                if (activity.tap == "open" && intent != null) send(intent)
++                if (activity.tap == "open" && intent != null) opened(activity.key, intent)
 +                else {
 +                    require(policy.enabled) { "island_disabled" }
 +                    require(presentation?.expand(requireNotNull(arg)) == true) { "presentation_unavailable" }
@@ -1651,7 +1725,7 @@
 +                require(arg != null && store.dismiss(arg)) { "not_found" }
 +                prefs.edit().putBoolean("dismissed|$arg", true).apply()
 +            }
-+            "open" -> mutate { send(requireActivity(arg).openIntent ?: throw IllegalArgumentException("action_unavailable")) }
++            "open" -> mutate { opened(requireNotNull(arg), requireActivity(arg).openIntent ?: throw IllegalArgumentException("action_unavailable")) }
 +            "action" -> mutate {
 +                val activity = requireActivity(arg)
 +                val request = JSONObject(extra ?: throw IllegalArgumentException("missing_action"))
@@ -1673,7 +1747,7 @@
 +                    require(!values.isEmpty) { "reply_unavailable" }
 +                    RemoteInput.addResultsToIntent(inputs, fill, values)
 +                }
-+                send(action.actionIntent, fill)
++                if (action.actionIntent.isActivity) opened(activity.key, action.actionIntent, fill) else send(action.actionIntent, fill)
 +            }
 +            else -> IslandRuntime.error("unknown_operation")
 +        }
@@ -1683,6 +1757,15 @@
 +        val entry = store.get(key) ?: throw IllegalArgumentException("not_found")
 +        require(entry.active(SystemClock.elapsedRealtime())) { "not_found" }
 +        return entry.data
++    }
++
++    /**
++     * Launches the publisher's screen and folds the card: the app now shows that content, so the
++     * card neither covers it nor lingers when the user comes back to the home screen.
++     */
++    private fun opened(key: String, intent: android.app.PendingIntent, fill: Intent = Intent()) {
++        send(intent, fill)
++        presentation?.collapse("opened:$key")
 +    }
 +
 +    private fun send(intent: android.app.PendingIntent, fill: Intent = Intent()) {
@@ -1699,7 +1782,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandExtractor.kt
-@@ -0,0 +1,220 @@
+@@ -0,0 +1,225 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -1738,7 +1821,12 @@
 +                    val raw = extras.get(if (version == 2) EXTRA_V2 else EXTRA_V1) as? String
 +                    val publisher = publisher(sbn)
 +                    val result = if (version == 2) IslandPayload.parseV2(raw, publisher) else IslandPayload.parseV1(raw, publisher)
-+                    if (result.isValid) {
++                    // The island is for ongoing activities: a one-off or dismissible notification
++                    // (a static error, a finished event) stays in the shade. Taku Agent's own
++                    // reply cards are exempt; they are the assistant's conversation surface.
++                    if (result.isValid && !publisher.taku && notification.flags and Notification.FLAG_ONGOING_EVENT == 0) {
++                        error = "not_ongoing"
++                    } else if (result.isValid) {
 +                        try {
 +                            return Extraction(custom(sbn, result.payload,
 +                                if (version == 2) IslandActivity.SOURCE_V2 else IslandActivity.SOURCE_V1), null)
@@ -2159,7 +2247,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandPayload.java
-@@ -0,0 +1,611 @@
+@@ -0,0 +1,622 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island;
 +
@@ -2370,7 +2458,7 @@
 +    }
 +
 +    private static void expandedV2(JSONObject value, Publisher publisher) throws JSONException {
-+        keys(value, "template title body pic steps progress highlight actions primaryAction tapAction accentColor assistant content");
++        keys(value, "template title body pic steps progress highlight actions primaryAction tapAction accentColor backgroundColor assistant content");
 +        choice(value, "template", "basic progress highlight assistant", true);
 +        String template = value.getString("template");
 +        text(value, "title", 1, 80, true);
@@ -2406,11 +2494,14 @@
 +        key(value, "primaryAction", false);
 +        if (value.has("primaryAction")) require(actions.contains(value.getString("primaryAction")), "missing_primary_action");
 +        key(value, "tapAction", false);
++        // A template style: the card's background (white, say). Text and controls follow it.
++        int background = CARD_RGB;
++        if (value.has("backgroundColor")) {
++            background = color(value, "backgroundColor");
++            require(!template.equals("assistant"), "reserved_template");
++        }
 +        if (value.has("accentColor")) {
-+            text(value, "accentColor", 7, 7, true);
-+            String color = value.getString("accentColor");
-+            require(color.matches("#[0-9A-Fa-f]{6}"), "invalid_color");
-+            require(contrast(Integer.parseInt(color.substring(1), 16), CARD_RGB) >= 4.5, "low_contrast");
++            require(contrast(color(value, "accentColor"), background) >= 4.5, "low_contrast");
 +        }
 +        if (template.equals("assistant") || value.has("assistant")) {
 +            require(publisher.taku, "reserved_template");
@@ -2421,6 +2512,14 @@
 +            require(publisher.platform, "reserved_content");
 +            content(object(value, "content"), publisher.packageName);
 +        }
++    }
++
++    /** A `#RRGGBB` field as 0xRRGGBB. */
++    private static int color(JSONObject value, String name) throws JSONException {
++        text(value, name, 7, 7, true);
++        String color = value.getString(name);
++        require(color.matches("#[0-9A-Fa-f]{6}"), "invalid_color");
++        return Integer.parseInt(color.substring(1), 16);
 +    }
 +
 +    /** WCAG 2 contrast ratio between two sRGB colours. */
@@ -2907,7 +3006,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandPresenter.kt
-@@ -0,0 +1,352 @@
+@@ -0,0 +1,375 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -2970,7 +3069,12 @@
 +
 +    fun start() {
 +        engine.attachPresentation(this)
-+        foreground.start { layoutCapsule() }
++        foreground.start {
++            // Opening the card's own app (from the card or anywhere else) hands its content over.
++            val open = items.find { it.key == cardKey }?.data
++            if (open != null && foreground.suppresses(open)) collapse("app_opened")
++            layoutCapsule()
++        }
 +        keyguard.addCallback(object : KeyguardStateController.Callback {
 +            override fun onKeyguardShowingChanged() {
 +                if (keyguard.isShowing) collapse("keyguard")
@@ -3054,9 +3158,10 @@
 +        layoutCapsule()
 +        if (first != null && first.alertUntil > SystemClock.elapsedRealtime() && alerted[first.key] != first.revision) {
 +            alerted[first.key] = first.revision
-+            if (card == null && canExpand()) {
++            // The app in front already shows its own news; its alert neither expands nor waits.
++            if (card == null && canExpand() && !foreground.suppresses(first.data)) {
 +                selected = first.key
-+                open(first, cover = first.data.cardPosition != "below", isAlert = true)
++                open(first, cover = covers(first.data), isAlert = true)
 +                handler.postDelayed({ if (automatic && cardKey == first.key &&
 +                    (items.find { it.key == first.key }?.alertUntil ?: 0) <= SystemClock.elapsedRealtime()) collapse("alert_timeout") },
 +                    (first.alertUntil - SystemClock.elapsedRealtime()).coerceAtLeast(0))
@@ -3100,9 +3205,12 @@
 +        selected = key
 +        if (cardKey == key && card != null) { automatic = false; return true }
 +        collapse("switch")
-+        val cover = item.data.cardPosition != "below"
-+        return open(item, cover, false)
++        return open(item, covers(item.data), false)
 +    }
++
++    /** The publisher's `cardPosition`; Taku Agent's own cards always cover the camera (Figma 297:374). */
++    private fun covers(activity: IslandActivity) =
++        activity.packageName == IslandPayload.TAKU_PACKAGE || activity.cardPosition != "below"
 +
 +    private fun open(item: IslandStore.Entry<IslandActivity>, cover: Boolean, isAlert: Boolean): Boolean {
 +        val view = bar ?: return false
@@ -3172,7 +3280,7 @@
 +            return
 +        }
 +        val cutout = view.rootWindowInsets?.displayCutout?.boundingRectTop ?: Rect()
-+        val physical = if (!cutout.isEmpty && cutout.centerX() in view.width / 3..view.width * 2 / 3) cutout.width() else 0
++        val physical = !cutout.isEmpty && cutout.centerX() in view.width / 3..view.width * 2 / 3
 +        val contents = view.findViewById<View>(R.id.status_bar_contents)
 +        val contentLeft = view.paddingLeft + (contents?.paddingLeft ?: 0)
 +        val contentRight = view.width - view.paddingRight - (contents?.paddingRight ?: 0)
@@ -3180,17 +3288,27 @@
 +            view.findViewById<View>(R.id.clock_center)?.width ?: 0, dp(52))
 +        val endWidth = view.findViewById<View>(R.id.status_bar_end_side_content)?.width ?: dp(64)
 +        val icons = view.findViewById<View>(R.id.statusIcons)?.takeIf { it.visibility != View.GONE }?.width ?: 0
-+        // Figma 1379:889 anchors the island to the camera: the disc extends CAMERA_DP to its
-+        // left and the pill grows to its right. FrameLayout centering would include asymmetric
-+        // status-bar padding, so position from the actual display cutout instead.
++        // Figma 1:4742 anchors the island to the camera: the disc extends to its left and the pill
++        // grows to its right. FrameLayout centering would include asymmetric status-bar padding,
++        // so position from the actual display cutout. A punch hole's circle is as wide as its
++        // bounding box and ends at its bottom edge (the box may extend up to the display edge).
 +        val location = IntArray(2)
 +        view.getLocationOnScreen(location)
-+        val cameraX = if (physical > 0) cutout.centerX() - location[0] else view.width / 2
-+        val cameraLeftWidth = dp(IslandCapsuleView.CAMERA_DP)
-+        val maximumWidth = IslandCapsuleGeometry.maximumWidth(contentLeft, contentRight,
-+            cameraX, cameraLeftWidth, clock, endWidth, icons, dp(12))
++        val cameraX = if (physical) cutout.centerX() - location[0] else view.width / 2
++        // A wide notch is not a camera circle: the design's 24 dp camera is drawn over it instead.
++        val cameraRadius = if (physical && cutout.width() <= dp(64)) cutout.width() / 2 else 0
++        val cameraY = if (physical) cutout.bottom - cutout.width() / 2 - location[1] else view.height / 2
++        pill.configure(view.height.coerceAtLeast(dp(16)), cameraRadius)
++        val cameraLeft = pill.cameraOffset()
++        // Another live activity waits as a circle left of the disc, only where the bar has room;
++        // the main capsule keeps its camera-anchored position either way.
 +        val wantsSecondary = items.count { showsCapsule(it.data) } > 1
-+        val width = pill.layoutWidth(activity, maximumWidth, wantsSecondary)
++        val withSecondary = wantsSecondary && IslandCapsuleGeometry.maximumWidth(contentLeft, contentRight,
++            cameraX, cameraLeft + pill.leadWidth(), clock, endWidth, icons, dp(12)) > 0
++        val leftWidth = cameraLeft + if (withSecondary) pill.leadWidth() else 0
++        val maximumWidth = IslandCapsuleGeometry.maximumWidth(contentLeft, contentRight,
++            cameraX, leftWidth, clock, endWidth, icons, dp(12))
++        val width = pill.layoutWidth(activity, maximumWidth, withSecondary)
 +        if (width == 0) {
 +            IslandPresentationOwnership.show(null)
 +            pill.visibility = View.GONE
@@ -3204,15 +3322,19 @@
 +        pill.translationX = 0f
 +        pill.visibility = View.VISIBLE
 +        IslandPresentationOwnership.show(if (view.isShown) activity else null)
-+        val height = minOf(dp(32), view.height.coerceAtLeast(dp(24)))
++        // Tall enough for the 32 dp shapes (scaled on short bars) and the camera circle, centred
++        // on the camera so the necks meet the real hole.
++        val height = minOf(view.height, maxOf((32 * pill.unit).toInt(), 2 * cameraRadius + 2))
 +        val params = FrameLayout.LayoutParams(width, height, Gravity.TOP or Gravity.LEFT)
-+        params.leftMargin = cameraX - dp(IslandCapsuleView.CAMERA_DP) - view.paddingLeft
-+        params.topMargin = (view.height - height) / 2 - view.paddingTop
++        params.leftMargin = cameraX - leftWidth - view.paddingLeft
++        val top = (cameraY - height / 2).coerceIn(0, (view.height - height).coerceAtLeast(0))
++        params.topMargin = top - view.paddingTop
++        pill.centerShift = (cameraY - top - height / 2f)
 +        val previous = pill.layoutParams as FrameLayout.LayoutParams
 +        if (previous.width != width || previous.height != height || previous.gravity != params.gravity ||
 +            previous.leftMargin != params.leftMargin || previous.topMargin != params.topMargin) pill.layoutParams = params
 +        view.setTakuIslandProbeWidth(IslandCapsuleGeometry.reservationWidth(
-+            contentLeft, contentRight, cameraX, cameraLeftWidth, width))
++            contentLeft, contentRight, cameraX, leftWidth, width))
 +    }
 +
 +    private fun relocateCentered() {
@@ -3866,7 +3988,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandStore.java
-@@ -0,0 +1,156 @@
+@@ -0,0 +1,165 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island;
 +
@@ -3891,6 +4013,10 @@
 +    public static final int TIER_RECORDING = 2;
 +    public static final int TIER_ACTIVITY = 3;
 +    public static final int MAX_ITEMS = 128;
++    /** A rising alert re-presents an activity at most this often; faster false→true flips stay quiet. */
++    public static final long ALERT_COOLDOWN_MS = 30_000L;
++    /** Last presented alert per key; kept across removal so cancel-and-repost cannot skip the cooldown. */
++    private final Map<String, Long> lastAlerts = new HashMap<>();
 +    private final Map<String, Entry<T>> entries = new HashMap<>();
 +    private final Map<String, Long> revisions = new HashMap<>();
 +    private long sequence;
@@ -3953,8 +4079,13 @@
 +        entry.staleAt = staleSeconds == 0 ? Long.MAX_VALUE : now + staleSeconds * 1000L;
 +        entry.tier = tier;
 +        if (alert && !entry.alerting) {
-+            entry.alertUntil = Math.min(entry.expiresAt, now + 5000);
-+            entry.triggeredAt = now;
++            Long last = lastAlerts.get(key);
++            if (last == null || now - last >= ALERT_COOLDOWN_MS) {
++                entry.alertUntil = Math.min(entry.expiresAt, now + 5000);
++                entry.triggeredAt = now;
++                if (lastAlerts.size() >= 2 * MAX_ITEMS) lastAlerts.values().removeIf(at -> now - at >= ALERT_COOLDOWN_MS);
++                lastAlerts.put(key, now);
++            }
 +        }
 +        entry.alerting = alert;
 +        entry.data = data;
@@ -4025,7 +4156,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandStyle.kt
-@@ -0,0 +1,96 @@
+@@ -0,0 +1,146 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -4034,7 +4165,11 @@
 +import android.graphics.Color
 +import android.graphics.Paint
 +import android.graphics.Typeface
++import android.graphics.drawable.Drawable
 +import android.graphics.drawable.GradientDrawable
++import android.graphics.drawable.Icon
++import android.os.Handler
++import android.os.Looper
 +import android.util.PathParser
 +import android.view.Gravity
 +import android.view.View
@@ -4050,6 +4185,10 @@
 +    const val CARD = 0xeb000000.toInt()
 +    const val CORNER_DP = 40
 +    const val PADDING_DP = 16
++    /** Backdrop Blur/md behind every expanded card. */
++    const val BLUR_DP = 24
++    /** Card fill when compositor blur is off: opaque, so the screen behind never shows through. */
++    const val CARD_OPAQUE = 0xff121212.toInt()
 +    /** surface/900, /800, /600, /200 (white at 92, 80, 48 and 8 %). */
 +    const val TEXT_PRIMARY = 0xebffffff.toInt()
 +    const val TEXT_BODY = 0xccffffff.toInt()
@@ -4058,6 +4197,26 @@
 +    const val CHIP = 0x14ffffff
 +    const val TRACK = 0x29ffffff
 +    const val ACCENT = 0xffff6a28.toInt()
++
++    /**
++     * Text and control colours for one card background. [DARK] is the Taku card; a template's
++     * light `backgroundColor` (such as white) gets the matching content/ tokens in black.
++     */
++    data class Palette(val primary: Int, val body: Int, val secondary: Int, val muted: Int, val chip: Int, val track: Int)
++    val DARK = Palette(TEXT_PRIMARY, TEXT_BODY, TEXT_SECONDARY, TEXT_MUTED, CHIP, TRACK)
++    /** content/900, /800, /700, /600, /200 and /300 (black at 92, 80, 64, 48, 8 and 16 %). */
++    val LIGHT = Palette(0xeb000000.toInt(), 0xcc000000.toInt(), 0xa3000000.toInt(), 0x7a000000, 0x14000000, 0x29000000)
++
++    /** The publisher's validated `#RRGGBB` card background, or null for the Taku card. */
++    fun background(activity: IslandActivity): Int? = activity.payload.optJSONObject("expanded")?.optString("backgroundColor")
++        ?.takeIf { it.matches(Regex("#[0-9A-Fa-f]{6}")) }?.let { 0xff000000.toInt() or it.substring(1).toInt(16) }
++
++    /** The card fill drawn over the backdrop blur: the background at 92 % (content/900's alpha). */
++    fun cardFill(activity: IslandActivity): Int = background(activity)?.let { (it and 0xffffff) or 0xeb000000.toInt() } ?: CARD
++
++    fun opaqueFill(activity: IslandActivity): Int = background(activity) ?: CARD_OPAQUE
++
++    fun palette(activity: IslandActivity): Palette = background(activity)?.takeIf(::prefersDarkText)?.let { LIGHT } ?: DARK
 +
 +    @Volatile private var fonts: Pair<Typeface, Typeface>? = null
 +
@@ -4072,6 +4231,26 @@
 +        }.also { fonts = it }
 +    }
 +
++    private val iconLoader by lazy {
++        java.util.concurrent.Executors.newFixedThreadPool(2) { task -> Thread(task, "TakuIslandIcons").apply { isDaemon = true } }
++    }
++
++    /**
++     * Loads a publisher's icon off the main thread and delivers it there. A resource icon is
++     * inflated in the publisher's own package context: [Icon.loadDrawableAsync] inflates with
++     * SystemUI's theme, so an AnimatedVectorDrawable's animators resolve against SystemUI's
++     * resources and fail with Resources.NotFoundException (static vectors happen to work).
++     */
++    fun loadIcon(context: Context, icon: Icon, done: (Drawable?) -> Unit) {
++        val main = Handler(Looper.getMainLooper())
++        if (icon.type != Icon.TYPE_RESOURCE) { icon.loadDrawableAsync(context, { done(it) }, main); return }
++        iconLoader.execute {
++            val drawable = runCatching { context.createPackageContext(icon.resPackage, 0).getDrawable(icon.resId) }.getOrNull()
++                ?: runCatching { icon.loadDrawable(context) }.getOrNull()
++            main.post { done(drawable) }
++        }
++    }
++
 +    fun regular(context: Context): Typeface = fonts(context).first
 +    fun medium(context: Context): Typeface = fonts(context).second
 +
@@ -4081,14 +4260,14 @@
 +    }
 +
 +    /**
-+     * Body/Medium/lg chip, 40 dp high: white 8 % (or white 92 % with dark text when [primary]).
-+     * A primary chip with an [accent] fills with it and picks dark or white text for contrast.
++     * Body/Medium/lg chip, 40 dp high: the palette's 8 % chip fill (or its primary colour, with
++     * contrasting text, when [primary]). A primary chip with an [accent] fills with it instead.
 +     */
-+    fun chip(context: Context, title: CharSequence, primary: Boolean, accent: Int? = null, click: () -> Unit): TextView {
++    fun chip(context: Context, title: CharSequence, primary: Boolean, accent: Int? = null, palette: Palette = DARK, click: () -> Unit): TextView {
 +        val density = context.resources.displayMetrics.density
 +        val scaled = context.resources.displayMetrics.scaledDensity
-+        val fill = if (primary) accent ?: TEXT_PRIMARY else CHIP
-+        val ink = if (!primary) TEXT_PRIMARY else if (accent == null || prefersDarkText(accent)) CARD else TEXT_PRIMARY
++        val fill = if (primary) accent ?: palette.primary else palette.chip
++        val ink = if (!primary) palette.primary else if (prefersDarkText(fill or 0xff000000.toInt())) CARD else TEXT_PRIMARY
 +        return label(context, 16f, ink, medium(context)).apply {
 +            text = title
 +            isSingleLine = true
@@ -4111,6 +4290,8 @@
 +
 +    /** The 20 dp expand/collapse corner icon, exact paths from design/assistant-card/expand.svg. */
 +    class ExpandGlyph(context: Context) : View(context) {
++        var color: Int = Color.WHITE
++            set(value) { if (field != value) { field = value; paint.color = value; invalidate() } }
 +        private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
 +            color = Color.WHITE; style = Paint.Style.STROKE; strokeWidth = 1.66667f; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND
 +        }
@@ -4246,7 +4427,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandTemplateCard.kt
-@@ -0,0 +1,218 @@
+@@ -0,0 +1,229 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -4256,8 +4437,6 @@
 +import android.graphics.Paint
 +import android.graphics.drawable.Drawable
 +import android.graphics.drawable.Icon
-+import android.os.Handler
-+import android.os.Looper
 +import android.view.Gravity
 +import android.view.View
 +import android.view.animation.LinearInterpolator
@@ -4269,8 +4448,10 @@
 +import org.json.JSONObject
 +
 +/**
-+ * Figma 1:4031 for every publisher other than the Taku assistant: the same 92 % black card,
++ * Figma 297:415 for every publisher other than the Taku assistant: the same 92 % black card,
 + * Hanken type, corner glyph and option chips, filled from the notification's island payload.
++ * `backgroundColor` restyles the template (a white card, say): text, chips, the progress track
++ * and the corner glyph switch to the matching black content tokens on light backgrounds.
 + * Public templates: `basic` (text and actions), `progress` (adds the progress line) and
 + * `highlight` (adds one large value such as a pickup code). `accentColor` tints the primary
 + * chip, the progress line and the highlight value. Actions form one horizontally scrolling row
@@ -4309,6 +4490,7 @@
 +    }
 +    private var iconGeneration = 0
 +    private var iconIdentity: Any? = null
++    private var iconInk = 0
 +    override val reading: ScrollView get() = scroll
 +    override val primaryLabel = "Open"
 +    override fun ownTaps(): List<View> = listOf(chipScroll, expand)
@@ -4343,13 +4525,19 @@
 +        item = next
 +        val expanded = next.payload.getJSONObject("expanded")
 +        val accent = accentColor(expanded)
++        val palette = IslandStyle.palette(next)
++        title.setTextColor(palette.body)
++        body.setTextColor(palette.secondary)
++        highlightLabel.setTextColor(palette.secondary)
++        expand.color = if (palette == IslandStyle.DARK) android.graphics.Color.WHITE else palette.primary
++        progress.track = palette.track
 +        title.text = next.title
 +        body.text = next.body
 +        body.visibility = if (next.body.isBlank()) GONE else VISIBLE
 +        val value = expanded.optJSONObject("highlight")?.takeIf { next.template == "highlight" }
 +        highlight.visibility = if (value == null) GONE else VISIBLE
 +        highlightValue.text = value?.optString("text").orEmpty()
-+        highlightValue.setTextColor(accent ?: IslandStyle.TEXT_PRIMARY)
++        highlightValue.setTextColor(accent ?: palette.primary)
 +        highlightLabel.text = value?.optString("label").orEmpty()
 +        highlightLabel.visibility = if (highlightLabel.text.isEmpty()) GONE else VISIBLE
 +        highlight.contentDescription = listOf(highlightLabel.text, highlightValue.text).filter { it.isNotEmpty() }.joinToString(": ")
@@ -4357,7 +4545,7 @@
 +        expanded.optJSONArray("steps")?.let { steps ->
 +            for (i in 0 until steps.length()) {
 +                val step = steps.getJSONObject(i)
-+                content.addView(IslandStyle.label(context, 14f, IslandStyle.TEXT_SECONDARY).apply {
++                content.addView(IslandStyle.label(context, 14f, palette.secondary).apply {
 +                    text = (if (step.optBoolean("running")) "• " else "✓ ") + step.getString("text")
 +                }, LayoutParams(-1, -2).apply { topMargin = dp(if (i == 0) 16 else 8) })
 +            }
@@ -4365,11 +4553,11 @@
 +        val track = expanded.optJSONObject("progress")
 +        progress.visibility = if (track == null) GONE else VISIBLE
 +        progress.value = track?.takeIf { it.has("value") }?.optDouble("value")?.toFloat()
-+        progress.fill = accent ?: IslandStyle.TEXT_PRIMARY
++        progress.fill = accent ?: palette.primary
 +        progress.contentDescription = progress.value?.let { "${(it * 100).toInt()}%" } ?: "In progress"
 +        // The expanded picture when the publisher set one, else the posting app's small icon.
 +        val picKey = expanded.optString("pic").takeIf { next.pics.containsKey(it) }
-+        showIcon(picKey?.let(next.pics::get) ?: next.pics[IslandActivity.APP_PIC], tint = picKey == null)
++        showIcon(picKey?.let(next.pics::get) ?: next.pics[IslandActivity.APP_PIC], tint = picKey == null, palette.primary)
 +        val primary = expanded.optString("primaryAction")
 +        chips.removeAllViews()
 +        var index = 0
@@ -4377,11 +4565,11 @@
 +        val listed = expanded.optJSONArray("actions")?.let { list -> (0 until list.length()).map { list.getString(it) } }
 +            ?: emptyList()
 +        listed.mapNotNull { id -> next.actions[id]?.let { id to it } }.forEach { (id, action) ->
-+            chips.addView(IslandStyle.chip(context, action.title, id == primary, if (id == primary) accent else null) { item?.let { invoke(it, id) } },
++            chips.addView(IslandStyle.chip(context, action.title, id == primary, if (id == primary) accent else null, palette) { item?.let { invoke(it, id) } },
 +                LayoutParams(-2, -2).apply { if (index++ > 0) leftMargin = dp(8) })
 +        }
 +        next.nativeActions.forEach { (id, action) ->
-+            chips.addView(IslandStyle.chip(context, action.title, false) { item?.let { invoke(it, id) } },
++            chips.addView(IslandStyle.chip(context, action.title, false, palette = palette) { item?.let { invoke(it, id) } },
 +                LayoutParams(-2, -2).apply { if (index++ > 0) leftMargin = dp(8) })
 +        }
 +        chipScroll.visibility = if (chips.childCount == 0) GONE else VISIBLE
@@ -4402,23 +4590,25 @@
 +    fun state(): JSONObject = JSONObject().put("renderer", "systemui-native").put("title", title.text.toString())
 +        .put("template", item?.template ?: JSONObject.NULL)
 +        .put("highlight", if (highlight.visibility == VISIBLE) highlightValue.text.toString() else JSONObject.NULL)
++        .put("backgroundColor", item?.let { IslandStyle.background(it) }?.let { "#%06X".format(it and 0xffffff) } ?: JSONObject.NULL)
 +        .put("accentColor", item?.let { accentColor(it.payload.getJSONObject("expanded")) }?.let { "#%06X".format(it and 0xffffff) } ?: JSONObject.NULL)
 +        .put("tapAction", item?.let { cardTap(it) } ?: JSONObject.NULL)
 +        .put("body", body.text.toString()).put("actionCount", chips.childCount)
 +        .put("progress", if (progress.visibility == VISIBLE) progress.value ?: -1f else JSONObject.NULL)
 +
-+    private fun showIcon(icon: Icon?, tint: Boolean) {
-+        if (icon === iconIdentity) return
++    private fun showIcon(icon: Icon?, tint: Boolean, ink: Int) {
++        if (icon === iconIdentity && ink == iconInk) return
 +        iconIdentity = icon
++        iconInk = ink
 +        val generation = ++iconGeneration
 +        leading.setImageDrawable(null)
 +        leading.visibility = if (icon == null) INVISIBLE else VISIBLE
-+        icon?.loadDrawableAsync(context, { drawable: Drawable? ->
-+            if (generation != iconGeneration || drawable == null) return@loadDrawableAsync
++        if (icon != null) IslandStyle.loadIcon(context, icon) { drawable: Drawable? ->
++            if (generation != iconGeneration || drawable == null) return@loadIcon
 +            // Small icons are alpha masks: draw them white like the rest of the island's glyphs.
-+            if (tint) drawable.mutate().setTint(IslandStyle.TEXT_PRIMARY)
++            if (tint) drawable.mutate().setTint(ink)
 +            leading.setImageDrawable(drawable)
-+        }, Handler(Looper.getMainLooper()))
++        }
 +    }
 +
 +    /** The validated `#RRGGBB` accent as an opaque colour, or null for the default white. */
@@ -4437,6 +4627,8 @@
 +        private var phase = 0f
 +        var fill = IslandStyle.TEXT_PRIMARY
 +            set(next) { field = next; invalidate() }
++        var track = IslandStyle.TRACK
++            set(next) { field = next; invalidate() }
 +        var value: Float? = null
 +            set(next) { field = next?.coerceIn(0f, 1f); syncSweep(); invalidate() }
 +
@@ -4452,7 +4644,7 @@
 +        override fun onVisibilityChanged(changedView: View, visibility: Int) { super.onVisibilityChanged(changedView, visibility); syncSweep() }
 +        override fun onDraw(canvas: Canvas) {
 +            val h = height.toFloat(); val w = width.toFloat(); val r = h / 2
-+            paint.color = IslandStyle.TRACK
++            paint.color = track
 +            canvas.drawRoundRect(0f, 0f, w, h, r, r, paint)
 +            paint.color = fill
 +            val current = value

@@ -69,7 +69,17 @@ public final class IslandStoreTest {
         check(store.get("older").triggeredAt == 600, "held alert does not re-trigger");
         put(store, "older", 6000, ACTIVITY, false);
         put(store, "older", 6100, ACTIVITY, true);
-        check(store.get("older").triggeredAt == 6100, "new false-to-true alert re-triggers");
+        check(store.get("older").triggeredAt == 600 && store.get("older").alertUntil == 5600,
+                "a false-to-true flip inside the 30 s cooldown neither re-alerts nor reorders");
+        put(store, "older", 20_000, ACTIVITY, false);
+        put(store, "older", 600 + IslandStore.ALERT_COOLDOWN_MS, ACTIVITY, true);
+        check(store.get("older").triggeredAt == 600 + IslandStore.ALERT_COOLDOWN_MS,
+                "a false-to-true alert after the cooldown re-triggers");
+        store.remove("older");
+        put(store, "older", 600 + IslandStore.ALERT_COOLDOWN_MS + 1000, ACTIVITY, true);
+        check(store.get("older").alertUntil == 0, "cancel and repost cannot skip the alert cooldown");
+        store.remove("older");
+        put(store, "older", 600, ACTIVITY, false);
         put(store, "stale", 7000, ACTIVITY, false);
         check(store.get("stale").stale(7000 + 120_000), "stale is tracked");
         check(first(store, 7000 + 120_000).equals("stale"), "stale does not change rank");

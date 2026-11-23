@@ -90,18 +90,27 @@ any card is open no capsule is drawn. Each capsule gesture has a command reachin
 | Long press | `expand KEY` | Opens the card regardless of `tap` |
 | Swipe left | `next` | Selects the next activity that can show a capsule; `no_other_activity` when there is none |
 | Swipe right | `dismiss KEY` / `hide KEY` | Hides that activity for its notification lifetime |
+| Tap the waiting circle (left of the disc) | `next` | Brings the waiting activity forward |
+
+Card taps that open the publisher's screen (`open`, `tap` with `open`, or an `action` whose
+PendingIntent starts an activity) fold the card (`reason` `opened:KEY`), and the card also folds
+when its app comes to the front (`app_opened`). Taku Agent's own cards always cover the camera;
+other publishers' `cardPosition` decides, and the keyboard never changes it.
 
 `select KEY` chooses the primary item; it holds until a newer activity is triggered or it ends.
 The activity chooser card and `choose` no longer exist. A capsule is not drawn while its
 publishing app is the top task (the app already shows it); it appears when the user leaves the
 app. The default home app and SystemUI's own recording/cast sources are exempt.
 `state.presentation.suppressedByForeground` lists those keys, `foregroundPackage` the top app,
-`secondaryKey` the activity drawn as the small secondary disc, and `tap` the selected
-activity's tap behaviour.
+`secondaryKey` the activity drawn as the 32 dp waiting circle left of the capsule, and `tap` the
+selected activity's tap behaviour. An `alert` from the app in front does not expand.
 
 A Taku-format island activity (`taku.island.v2`/`v1`) does not also raise a stock heads-up while
 the island can present it (unlocked, shade closed, portrait, island enabled, activity not hidden);
-its `alert` expands the card instead, at its `cardPosition`. Calls, alarms, plain Android Live
+its `alert` expands the card instead, at its `cardPosition`. A false-to-true `alert` counts at
+most once per 30 s per notification key (cancel and repost included); faster flips neither expand
+nor reorder. Third-party custom extras on a notification that is not ongoing are ignored with
+diagnostic `not_ongoing` (Taku Agent is exempt). Calls, alarms, plain Android Live
 Updates (which have no alert field), hidden activities and invalid extras keep Android's heads-up.
 Calls, alarms and stopwatches that SystemUI recognises stay up to the 12 h cap.
 
@@ -121,10 +130,13 @@ fallback. `state.presentation.compact` (null when hidden) reports what the capsu
 `text` (the pill, empty when only the disc fits), `disc` (`dot` when there is no glyph, `pic`, `progress`,
 `working` or `listening`), `pillGlyph` (group B drawn as `pic`, `working` or `listening`, else
 null), `animatingIcons` (running app animated icons; each loops for at most 60 s and never
-with animations disabled) and `secondary` (a second activity's disc). `state.presentation.card`
+with animations disabled), `secondary` (a second activity's circle), `secondaryPosition` (`left`),
+`cameraRadiusDp` (the real cutout's radius the necks join; 12 without a centred cutout) and
+`scale` (below 1 on a status bar shorter than 32 dp). `state.presentation.card`
 reports `renderer` (`systemui-native`, or `remote-surface` once a rich body is ready) and, for
-non-assistant cards, `template:{title,template,highlight,accentColor,tapAction,body,actionCount,progress}` read from the drawn
-views. A card whose content cannot be drawn closes with `reason` `render_failed:...` (or
+non-assistant cards, `template:{title,template,highlight,backgroundColor,accentColor,tapAction,body,actionCount,progress}` read from the drawn
+views, plus `cover`, `fill` (ARGB of the card fill) and `backdropBlur` (false when compositor
+blur is off and the opaque fallback is drawn). A card whose content cannot be drawn closes with `reason` `render_failed:...` (or
 `window_failed:...` when it never opened) instead of staying on screen.
 
 ## Settings shared with the GUI

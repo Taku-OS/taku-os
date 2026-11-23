@@ -18,7 +18,7 @@ class CapsuleRenderTests : Instrumentation() {
         val result = Bundle()
         try {
             var failure: Throwable? = null
-            runOnMainSync { try { cases(); progressCases(); templateCases() } catch (e: Throwable) { failure = e } }
+            runOnMainSync { try { cases(); geometryCases(); progressCases(); templateCases() } catch (e: Throwable) { failure = e } }
             failure?.let { throw it }
             result.putString("stream", "PASS: $checks capsule render checks. Component Canvas only; real status-bar placement still needs SystemUI installation.\n")
             finish(Activity.RESULT_OK, result)
@@ -86,6 +86,51 @@ class CapsuleRenderTests : Instrumentation() {
             wrapped.recycle()
             view.visibility = View.GONE // Cancels the production animator; no leaked frame callbacks.
         }
+    }
+    /** Real cutout sizes, a short bar and the waiting circle on the left (Figma 1:4742). */
+    private fun geometryCases() {
+        val d = targetContext.resources.displayMetrics.density
+        fun px(value: Float) = (value * d).toInt()
+        fun render(view: IslandCapsuleView, width: Int, height: Int): Bitmap {
+            view.layout(0, 0, width, height)
+            return Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).also { view.draw(Canvas(it)) }
+        }
+        // A 46 dp emulator hole: the camera moves out to keep 8 dp gaps and the silhouette stays whole.
+        val big = IslandCapsuleView(targetContext, {}, {}, {}, {})
+        big.configure(px(52f), px(23f))
+        val bigWidth = big.layoutWidth(activity("A123"), px(260f), false)
+        big.bind(activity("A123"), null)
+        val bigBitmap = render(big, bigWidth, px(48f))
+        val camera = big.cameraOffset()
+        assertThat(kotlin.math.abs(camera - px(63f)) <= 1, "camera centre follows the real radius (40 + 23 dp)")
+        assertThat(bigBitmap.getPixel(camera, bigBitmap.height / 2) == Color.BLACK, "large camera stays solid")
+        assertThat((px(2f) until bigWidth - px(2f)).all { Color.alpha(bigBitmap.getPixel(it, bigBitmap.height / 2)) == 255 },
+            "necks join a large camera without gaps")
+        File(targetContext.getExternalFilesDir(null), "frames/large-cutout.png").outputStream().use { bigBitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        bigBitmap.recycle()
+        // A 24 dp status bar scales the whole capsule instead of clipping its top and bottom.
+        val short = IslandCapsuleView(targetContext, {}, {}, {}, {})
+        short.configure(px(24f), 0)
+        val shortWidth = short.layoutWidth(activity("A123"), px(260f), false)
+        short.bind(activity("A123"), null)
+        val shortBitmap = render(short, shortWidth, px(24f))
+        assertThat(Color.alpha(shortBitmap.getPixel(px(12f), 0)) == 255 && Color.alpha(shortBitmap.getPixel(px(12f), px(24f) - 1)) == 255,
+            "scaled disc reaches the bar's edges")
+        assertThat(Color.alpha(shortBitmap.getPixel(0, 0)) == 0, "scaled disc stays round")
+        shortBitmap.recycle()
+        // Two activities: the waiting circle is 32 dp on the left; the main capsule keeps its offset.
+        val pair = IslandCapsuleView(targetContext, {}, {}, {}, {})
+        pair.configure(px(48f), 0)
+        val pairWidth = pair.layoutWidth(activity("FL123"), px(300f), true)
+        pair.bind(activity("FL123"), activity("A123").copy(key = "other"))
+        val pairBitmap = render(pair, pairWidth, px(32f))
+        assertThat(pair.state().getString("secondaryPosition") == "left", "waiting activity sits on the left")
+        assertThat(pairBitmap.getPixel(px(16f), px(16f)) != 0 && Color.alpha(pairBitmap.getPixel(px(16f), px(1f))) == 255,
+            "waiting circle is as tall as the main disc")
+        assertThat(Color.alpha(pairBitmap.getPixel(px(34f), px(16f))) == 0, "a 4 dp gap separates it from the capsule")
+        assertThat(pairBitmap.getPixel(px(36f + 52f), px(16f)) == Color.BLACK, "main camera keeps its 52 dp offset")
+        File(targetContext.getExternalFilesDir(null), "frames/two-activities.png").outputStream().use { pairBitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        pairBitmap.recycle()
     }
     private fun progressCases() {
         val body = "Finish signing in on the ChatGPT page, then Taku continues setup."
@@ -174,6 +219,16 @@ class CapsuleRenderTests : Instrumentation() {
         assertThat(row.height == chipHeight, "chips stay in one row and never wrap")
         assertThat(scroll.canScrollHorizontally(1), "extra chips scroll horizontally")
         assertThat(height < (340 * targetContext.resources.displayMetrics.density).toInt(), "forty actions do not grow the card")
+        // Template style: a white card switches text, chips and the glyph to black content tokens.
+        val whitePayload = JSONObject(payload.toString())
+        whitePayload.getJSONObject("expanded").put("backgroundColor", "#FFFFFF").put("accentColor", "#0A5BD3")
+        val white = item.copy(payload = whitePayload)
+        card.update(white)
+        assertThat(card.state().getString("backgroundColor") == "#FFFFFF", "background colour applied")
+        assertThat(IslandStyle.palette(white) == IslandStyle.LIGHT && IslandStyle.cardFill(white) == 0xebffffff.toInt(), "white card at 92 % with dark text")
+        val firstChip = row.getChildAt(1) as android.widget.TextView
+        assertThat(firstChip.currentTextColor == IslandStyle.LIGHT.primary, "secondary chips use dark text on a white card")
+        assertThat(IslandStyle.palette(item) == IslandStyle.DARK && IslandStyle.cardFill(item) == IslandStyle.CARD, "default card stays Taku black")
     }
 
 }

@@ -36,7 +36,12 @@ class IslandExtractor @Inject constructor(private val context: Context, private 
                     val raw = extras.get(if (version == 2) EXTRA_V2 else EXTRA_V1) as? String
                     val publisher = publisher(sbn)
                     val result = if (version == 2) IslandPayload.parseV2(raw, publisher) else IslandPayload.parseV1(raw, publisher)
-                    if (result.isValid) {
+                    // The island is for ongoing activities: a one-off or dismissible notification
+                    // (a static error, a finished event) stays in the shade. Taku Agent's own
+                    // reply cards are exempt; they are the assistant's conversation surface.
+                    if (result.isValid && !publisher.taku && notification.flags and Notification.FLAG_ONGOING_EVENT == 0) {
+                        error = "not_ongoing"
+                    } else if (result.isValid) {
                         try {
                             return Extraction(custom(sbn, result.payload,
                                 if (version == 2) IslandActivity.SOURCE_V2 else IslandActivity.SOURCE_V1), null)

@@ -7,8 +7,6 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.Icon
-import android.os.Handler
-import android.os.Looper
 import android.view.Gravity
 import android.view.View
 import android.view.animation.LinearInterpolator
@@ -20,8 +18,10 @@ import android.widget.ScrollView
 import org.json.JSONObject
 
 /**
- * Figma 1:4031 for every publisher other than the Taku assistant: the same 92 % black card,
+ * Figma 297:415 for every publisher other than the Taku assistant: the same 92 % black card,
  * Hanken type, corner glyph and option chips, filled from the notification's island payload.
+ * `backgroundColor` restyles the template (a white card, say): text, chips, the progress track
+ * and the corner glyph switch to the matching black content tokens on light backgrounds.
  * Public templates: `basic` (text and actions), `progress` (adds the progress line) and
  * `highlight` (adds one large value such as a pickup code). `accentColor` tints the primary
  * chip, the progress line and the highlight value. Actions form one horizontally scrolling row
@@ -60,6 +60,7 @@ internal class IslandTemplateCard(context: Context, command: (String, String?, S
     }
     private var iconGeneration = 0
     private var iconIdentity: Any? = null
+    private var iconInk = 0
     override val reading: ScrollView get() = scroll
     override val primaryLabel = "Open"
     override fun ownTaps(): List<View> = listOf(chipScroll, expand)
@@ -94,13 +95,19 @@ internal class IslandTemplateCard(context: Context, command: (String, String?, S
         item = next
         val expanded = next.payload.getJSONObject("expanded")
         val accent = accentColor(expanded)
+        val palette = IslandStyle.palette(next)
+        title.setTextColor(palette.body)
+        body.setTextColor(palette.secondary)
+        highlightLabel.setTextColor(palette.secondary)
+        expand.color = if (palette == IslandStyle.DARK) android.graphics.Color.WHITE else palette.primary
+        progress.track = palette.track
         title.text = next.title
         body.text = next.body
         body.visibility = if (next.body.isBlank()) GONE else VISIBLE
         val value = expanded.optJSONObject("highlight")?.takeIf { next.template == "highlight" }
         highlight.visibility = if (value == null) GONE else VISIBLE
         highlightValue.text = value?.optString("text").orEmpty()
-        highlightValue.setTextColor(accent ?: IslandStyle.TEXT_PRIMARY)
+        highlightValue.setTextColor(accent ?: palette.primary)
         highlightLabel.text = value?.optString("label").orEmpty()
         highlightLabel.visibility = if (highlightLabel.text.isEmpty()) GONE else VISIBLE
         highlight.contentDescription = listOf(highlightLabel.text, highlightValue.text).filter { it.isNotEmpty() }.joinToString(": ")
@@ -108,7 +115,7 @@ internal class IslandTemplateCard(context: Context, command: (String, String?, S
         expanded.optJSONArray("steps")?.let { steps ->
             for (i in 0 until steps.length()) {
                 val step = steps.getJSONObject(i)
-                content.addView(IslandStyle.label(context, 14f, IslandStyle.TEXT_SECONDARY).apply {
+                content.addView(IslandStyle.label(context, 14f, palette.secondary).apply {
                     text = (if (step.optBoolean("running")) "• " else "✓ ") + step.getString("text")
                 }, LayoutParams(-1, -2).apply { topMargin = dp(if (i == 0) 16 else 8) })
             }
@@ -116,11 +123,11 @@ internal class IslandTemplateCard(context: Context, command: (String, String?, S
         val track = expanded.optJSONObject("progress")
         progress.visibility = if (track == null) GONE else VISIBLE
         progress.value = track?.takeIf { it.has("value") }?.optDouble("value")?.toFloat()
-        progress.fill = accent ?: IslandStyle.TEXT_PRIMARY
+        progress.fill = accent ?: palette.primary
         progress.contentDescription = progress.value?.let { "${(it * 100).toInt()}%" } ?: "In progress"
         // The expanded picture when the publisher set one, else the posting app's small icon.
         val picKey = expanded.optString("pic").takeIf { next.pics.containsKey(it) }
-        showIcon(picKey?.let(next.pics::get) ?: next.pics[IslandActivity.APP_PIC], tint = picKey == null)
+        showIcon(picKey?.let(next.pics::get) ?: next.pics[IslandActivity.APP_PIC], tint = picKey == null, palette.primary)
         val primary = expanded.optString("primaryAction")
         chips.removeAllViews()
         var index = 0
@@ -128,11 +135,11 @@ internal class IslandTemplateCard(context: Context, command: (String, String?, S
         val listed = expanded.optJSONArray("actions")?.let { list -> (0 until list.length()).map { list.getString(it) } }
             ?: emptyList()
         listed.mapNotNull { id -> next.actions[id]?.let { id to it } }.forEach { (id, action) ->
-            chips.addView(IslandStyle.chip(context, action.title, id == primary, if (id == primary) accent else null) { item?.let { invoke(it, id) } },
+            chips.addView(IslandStyle.chip(context, action.title, id == primary, if (id == primary) accent else null, palette) { item?.let { invoke(it, id) } },
                 LayoutParams(-2, -2).apply { if (index++ > 0) leftMargin = dp(8) })
         }
         next.nativeActions.forEach { (id, action) ->
-            chips.addView(IslandStyle.chip(context, action.title, false) { item?.let { invoke(it, id) } },
+            chips.addView(IslandStyle.chip(context, action.title, false, palette = palette) { item?.let { invoke(it, id) } },
                 LayoutParams(-2, -2).apply { if (index++ > 0) leftMargin = dp(8) })
         }
         chipScroll.visibility = if (chips.childCount == 0) GONE else VISIBLE
@@ -153,23 +160,25 @@ internal class IslandTemplateCard(context: Context, command: (String, String?, S
     fun state(): JSONObject = JSONObject().put("renderer", "systemui-native").put("title", title.text.toString())
         .put("template", item?.template ?: JSONObject.NULL)
         .put("highlight", if (highlight.visibility == VISIBLE) highlightValue.text.toString() else JSONObject.NULL)
+        .put("backgroundColor", item?.let { IslandStyle.background(it) }?.let { "#%06X".format(it and 0xffffff) } ?: JSONObject.NULL)
         .put("accentColor", item?.let { accentColor(it.payload.getJSONObject("expanded")) }?.let { "#%06X".format(it and 0xffffff) } ?: JSONObject.NULL)
         .put("tapAction", item?.let { cardTap(it) } ?: JSONObject.NULL)
         .put("body", body.text.toString()).put("actionCount", chips.childCount)
         .put("progress", if (progress.visibility == VISIBLE) progress.value ?: -1f else JSONObject.NULL)
 
-    private fun showIcon(icon: Icon?, tint: Boolean) {
-        if (icon === iconIdentity) return
+    private fun showIcon(icon: Icon?, tint: Boolean, ink: Int) {
+        if (icon === iconIdentity && ink == iconInk) return
         iconIdentity = icon
+        iconInk = ink
         val generation = ++iconGeneration
         leading.setImageDrawable(null)
         leading.visibility = if (icon == null) INVISIBLE else VISIBLE
-        icon?.loadDrawableAsync(context, { drawable: Drawable? ->
-            if (generation != iconGeneration || drawable == null) return@loadDrawableAsync
+        if (icon != null) IslandStyle.loadIcon(context, icon) { drawable: Drawable? ->
+            if (generation != iconGeneration || drawable == null) return@loadIcon
             // Small icons are alpha masks: draw them white like the rest of the island's glyphs.
-            if (tint) drawable.mutate().setTint(IslandStyle.TEXT_PRIMARY)
+            if (tint) drawable.mutate().setTint(ink)
             leading.setImageDrawable(drawable)
-        }, Handler(Looper.getMainLooper()))
+        }
     }
 
     /** The validated `#RRGGBB` accent as an opaque colour, or null for the default white. */
@@ -188,6 +197,8 @@ internal class IslandTemplateCard(context: Context, command: (String, String?, S
         private var phase = 0f
         var fill = IslandStyle.TEXT_PRIMARY
             set(next) { field = next; invalidate() }
+        var track = IslandStyle.TRACK
+            set(next) { field = next; invalidate() }
         var value: Float? = null
             set(next) { field = next?.coerceIn(0f, 1f); syncSweep(); invalidate() }
 
@@ -203,7 +214,7 @@ internal class IslandTemplateCard(context: Context, command: (String, String?, S
         override fun onVisibilityChanged(changedView: View, visibility: Int) { super.onVisibilityChanged(changedView, visibility); syncSweep() }
         override fun onDraw(canvas: Canvas) {
             val h = height.toFloat(); val w = width.toFloat(); val r = h / 2
-            paint.color = IslandStyle.TRACK
+            paint.color = track
             canvas.drawRoundRect(0f, 0f, w, h, r, r, paint)
             paint.color = fill
             val current = value

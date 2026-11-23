@@ -129,8 +129,9 @@ Shape: the authored metaball capsule (Figma `1379:889`). Disc 32 dp, camera 24 d
 - Position comes from `cardPosition`:
   - `cover`: the card sits over the cutout and status bar.
   - `below`: the card leaves both visible.
-  - Default is `cover`. A visible IME forces `below`. Automatic alert expansions use the app's
-    choice. Today they always open below.
+  - Default is `cover`. Only the app's choice decides; the keyboard bounds the card's height but
+    never moves it. Automatic alert expansions use the app's choice. Taku Agent's own cards always
+    cover (owner decision 8).
 - Tapping the card body runs `expanded.tapAction` (an action key), else the notification's
   content intent.
 - Collapse happens through: swipe up on the card, back while the card covers the status bar, the
@@ -159,8 +160,9 @@ the secondary disc replace them.
 ### 5.4 Multiple activities (replaces Small Island)
 
 - SystemUI keeps one ordered list (§5.5) and shows the **selected** activity as the capsule.
-- When room remains, a system-drawn 24 dp **secondary disc** after the pill shows the next
-  activity's group A icon. Apps no longer supply anything for it.
+- When room remains, a system-drawn 32 dp **waiting circle** left of the main disc shows the next
+  activity's group A glyph (owner decision 9). The main capsule keeps its camera-anchored place.
+  Tapping the circle brings that activity forward. Apps no longer supply anything for it.
 - Swipe left selects the next activity. An explicit selection persists until a newer activity is
   triggered (below) or the selected one ends.
 - **Hide** (swipe right, Agent `dismiss`) removes that activity from the island for the rest of its
@@ -450,3 +452,22 @@ contents:
 7. **First partner:** `org.agentos.notebook`, platform-signed (same certificate as SystemUI in
    TakuOS 1.4.0). The Notebook team defines and implements its qualifying use cases, such as
    recording a voice memo. This project only provides the general island capabilities.
+8. **Taku Agent cards cover the camera** (2026-11-23 acceptance review). The shared card supports
+   both placements, but Taku Agent's response cards always cover the cutout, as in Figma 297:374,
+   with the keyboard open or not. Cards use content/900 (black 92 %) over a 24 dp backdrop blur
+   and 40 dp corners.
+9. **Waiting activity on the left.** With several activities, the next one waits as a 32 dp circle
+   (as tall as the main disc, with a 16 dp glyph) left of the capsule, where the bar has room. The
+   gestures stay as in decision 4.
+10. **Template styles.** The expanded design is one template style; `expanded.backgroundColor`
+    lets a publisher restyle it (a white card, say), with text and controls following the
+    background. More styles can be added the same way.
+11. **Acceptance fixes (2026-11-23):**
+    - The capsule's necks follow the real cutout radius and centre.
+    - The capsule scales on status bars shorter than 32 dp.
+    - Animated icons inflate in the publisher's package.
+    - Cards fold when they open the publisher's screen or the app comes to the front.
+    - A rising `alert` counts at most once per 30 s per notification.
+    - Third-party custom extras require an ongoing notification.
+    - Not changed: the 32-action parsing bound (owner: fine as is), platform-only remote content,
+      and per-notification lifetimes (a new notification is a new activity; review covers abuse).

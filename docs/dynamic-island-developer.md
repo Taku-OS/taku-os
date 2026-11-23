@@ -43,15 +43,18 @@ Allow-listing for Path B is reviewed against these rules. SystemUI enforces the 
 
 The island has two states, never both at once:
 
-- **Compact capsule.** A black capsule around the front camera.
+- **Compact capsule.** A black capsule around the front camera: a 32 dp disc, the camera and a
+  32 dp pill, joined by smooth necks that follow the device's real cutout size.
   - **Group A**, left of the camera, is one glyph: an icon, an animated icon, or a progress ring.
   - **Group B**, right of the camera, is key information as a short phrase or number, a running
     timer, a percentage, or an icon.
   - Text is a single line and is ellipsized to the room left of the status icons. There is no
     scrolling and no font shrinking. If not even a short label fits, only group A remains.
-- **Expanded card.** A 92 % black card with 40 dp corners, drawn natively by SystemUI from a
-  template. It can sit over the camera cutout (`cardPosition: "cover"`, default) or below it
-  (`"below"`). A visible keyboard forces `below`.
+- **Expanded card.** A card with 40 dp corners, 8 dp from the screen edges, drawn natively by
+  SystemUI from a template: black at 92 % over a 24 dp blur of the screen behind it, or your
+  `backgroundColor` (a white card, say). It sits over the camera cutout (`cardPosition: "cover"`,
+  default) or below it (`"below"`), exactly as you choose; the keyboard only limits its height.
+  Taku Agent's own cards always cover the cutout.
 
 Gestures:
 
@@ -60,8 +63,9 @@ Gestures:
 | Capsule | Tap | `tap: "expand"` (default) opens the card; `tap: "open"` sends your content intent |
 | Capsule | Long press | Opens the card, whatever `tap` says |
 | Capsule | Swipe left | Next activity, when several are active |
+| Capsule | Tap the circle on the left | Shows that waiting activity |
 | Capsule | Swipe right | Hides your activity until its notification ends |
-| Card | Tap the body | Your `tapAction`, else your content intent |
+| Card | Tap the body | Your `tapAction`, else your content intent. The card folds once your screen opens |
 | Card | Swipe up / Back | Back to the capsule |
 
 System behaviour you can rely on:
@@ -69,10 +73,11 @@ System behaviour you can rely on:
 - **Several activities.** SystemUI manages them; you publish only your own. Calls, alarms and
   screen recording come first. After that, the most recently *triggered* activity is shown. A
   trigger is the first post, or an update that raises `alert` from false to true; routine updates
-  never reorder. The next activity appears as a small disc after the capsule, showing its group A
-  glyph.
-- **Your app in front.** Your capsule is not drawn while your app is the top task. It appears when
-  the user leaves the app, if you supplied capsule data.
+  never reorder. The next activity waits as a 32 dp circle on the left of the capsule, showing its
+  group A glyph; the capsule itself does not move.
+- **Your app in front.** Your capsule is not drawn while your app is the top task, your card folds
+  when your app comes to the front, and an `alert` does not expand. The capsule appears when the
+  user leaves the app, if you supplied capsule data.
 - **Heads-up.** For Path B activities, while the island can present them (unlocked, shade closed,
   portrait), the notification does not also pop a stock heads-up. Use `alert: true` to expand the
   card briefly instead. Plain Live Updates (Path A) keep Android's normal heads-up.
@@ -195,14 +200,17 @@ tag or id for a genuinely new activity.
 | `expanded.actions` | Keys into `taku.island.actions`, in display order, as one horizontally scrolling chip row. No design limit; 32 is a parsing bound |
 | `expanded.primaryAction` | One of `actions`, drawn filled |
 | `expanded.tapAction` | Action key sent when the card body is tapped. It need not be a chip. Default: your content intent |
-| `expanded.accentColor` | `#RRGGBB` with contrast ≥ 4.5:1 against `#121212` (else `low_contrast`). Used for the primary chip, the progress line, the highlight value and `accent` capsule text |
+| `expanded.backgroundColor` | Template style: `#RRGGBB` card background, drawn at 92 % over the blur. On a light colour (such as `#FFFFFF`) text, chips, the progress track and the corner glyph turn black automatically. Not for `assistant` |
+| `expanded.accentColor` | `#RRGGBB` with contrast ≥ 4.5:1 against the card: `backgroundColor` if set, else `#121212` (else `low_contrast`). Used for the primary chip, the progress line, the highlight value and `accent` capsule text |
 | `tap` | `expand` (default) or `open` |
 | `cardPosition` | `cover` (default) or `below` |
-| `alert` | A false-to-true change expands the card for ≤ 5 s and moves your activity to the front |
+| `alert` | A false-to-true change expands the card for ≤ 5 s and moves your activity to the front. At most once per 30 s per notification (cancelling and re-posting does not reset this); faster flips are ignored |
 | `timeoutS` | 1–43200. Island lifetime from the first post; default 3600 |
 | `staleAfterS` | 1–43200. Without updates for this long, the capsule is drawn muted |
 
 Shared rules:
+- The notification must be ongoing (`setOngoing(true)`); otherwise `not_ongoing`. One-off
+  results and errors belong in the shade.
 - 8192 UTF-8 bytes; nesting ≤ 8.
 - Unknown or duplicate keys and wrong types are rejected.
 - Keys match `[a-z][a-z0-9_]{0,31}`.
@@ -246,11 +254,12 @@ adb shell cmd statusbar island get 'KEY'   # canonical payload, source, tier, tr
 | Code | Meaning |
 |---|---|
 | `publisher_not_allowed` | No `POST_ISLAND` permission and not on the allow-list |
+| `not_ongoing` | The notification is not ongoing |
 | `invalid_references_or_host` | A `pic` or action key is missing from its bundle, an icon is not allowed, or a PendingIntent is not yours |
 | `unknown_field`, `invalid_enum`, `text_length`, `number_range`, `invalid_key`, `expected_*` | Schema violations |
 | `missing_progress`, `missing_highlight`, `highlight_template_only` | A template without its data, or data on the wrong template |
 | `missing_primary_action`, `duplicate_action`, `too_many_actions` | Action list problems |
-| `invalid_color`, `low_contrast` | `accentColor` problems |
+| `invalid_color`, `low_contrast` | `backgroundColor` or `accentColor` problems |
 | `reserved_template`, `invalid_animation`, `reserved_content` | Taku Agent or platform-only features |
 | `payload_too_large`, `too_deep`, `unbalanced_json`, `invalid_payload` | Malformed JSON |
 

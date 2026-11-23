@@ -198,7 +198,8 @@ class IslandEngine @Inject constructor(
             IslandSystemNotifications.candidate(n) -> false
             (v2 != null || v1 != null) && policy.canPost(sbn.packageName) -> {
                 val publisher = extractor.publisher(sbn)
-                (if (v2 != null) IslandPayload.parseV2(v2, publisher) else IslandPayload.parseV1(v1, publisher)).isValid
+                (publisher.taku || n.flags and android.app.Notification.FLAG_ONGOING_EVENT != 0) &&
+                    (if (v2 != null) IslandPayload.parseV2(v2, publisher) else IslandPayload.parseV1(v1, publisher)).isValid
             }
             else -> false
         }
@@ -284,7 +285,7 @@ class IslandEngine @Inject constructor(
             "tap" -> mutate {
                 val activity = requireActivity(arg)
                 val intent = activity.openIntent
-                if (activity.tap == "open" && intent != null) send(intent)
+                if (activity.tap == "open" && intent != null) opened(activity.key, intent)
                 else {
                     require(policy.enabled) { "island_disabled" }
                     require(presentation?.expand(requireNotNull(arg)) == true) { "presentation_unavailable" }
@@ -294,7 +295,7 @@ class IslandEngine @Inject constructor(
                 require(arg != null && store.dismiss(arg)) { "not_found" }
                 prefs.edit().putBoolean("dismissed|$arg", true).apply()
             }
-            "open" -> mutate { send(requireActivity(arg).openIntent ?: throw IllegalArgumentException("action_unavailable")) }
+            "open" -> mutate { opened(requireNotNull(arg), requireActivity(arg).openIntent ?: throw IllegalArgumentException("action_unavailable")) }
             "action" -> mutate {
                 val activity = requireActivity(arg)
                 val request = JSONObject(extra ?: throw IllegalArgumentException("missing_action"))
@@ -316,7 +317,7 @@ class IslandEngine @Inject constructor(
                     require(!values.isEmpty) { "reply_unavailable" }
                     RemoteInput.addResultsToIntent(inputs, fill, values)
                 }
-                send(action.actionIntent, fill)
+                if (action.actionIntent.isActivity) opened(activity.key, action.actionIntent, fill) else send(action.actionIntent, fill)
             }
             else -> IslandRuntime.error("unknown_operation")
         }
@@ -326,6 +327,15 @@ class IslandEngine @Inject constructor(
         val entry = store.get(key) ?: throw IllegalArgumentException("not_found")
         require(entry.active(SystemClock.elapsedRealtime())) { "not_found" }
         return entry.data
+    }
+
+    /**
+     * Launches the publisher's screen and folds the card: the app now shows that content, so the
+     * card neither covers it nor lingers when the user comes back to the home screen.
+     */
+    private fun opened(key: String, intent: android.app.PendingIntent, fill: Intent = Intent()) {
+        send(intent, fill)
+        presentation?.collapse("opened:$key")
     }
 
     private fun send(intent: android.app.PendingIntent, fill: Intent = Intent()) {

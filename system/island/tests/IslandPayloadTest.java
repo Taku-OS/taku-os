@@ -139,6 +139,16 @@ public final class IslandPayloadTest {
         invalid(with("expanded.accentColor", "orange"), THIRD, "text_length", "named colour");
         invalid(with("expanded.accentColor", "#GG0000"), THIRD, "invalid_color", "hex grammar");
 
+        // Template style: a background colour (a white card) with an accent that contrasts with it.
+        valid(with("expanded.backgroundColor", "#FFFFFF"), THIRD, "white card");
+        JSONObject white = with("expanded.backgroundColor", "#FFFFFF");
+        white.getJSONObject("expanded").put("accentColor", "#0A5BD3");
+        valid(white, THIRD, "dark accent on a white card");
+        white.getJSONObject("expanded").put("accentColor", "#FF8A3D");
+        invalid(white, THIRD, "low_contrast", "accent contrast follows the background");
+        invalid(with("expanded.backgroundColor", "white"), THIRD, "text_length", "named background");
+        invalid(with("expanded.backgroundColor", "#FFFFFZ"), THIRD, "invalid_color", "background hex grammar");
+
         // Remote content surfaces stay with platform-signed publishers.
         JSONObject content = with("expanded.content", new JSONObject().put("service", "org.example.delivery/.Card"));
         invalid(content, THIRD, "reserved_content", "third party cannot embed surfaces");

@@ -208,7 +208,7 @@ public final class IslandPayload {
     }
 
     private static void expandedV2(JSONObject value, Publisher publisher) throws JSONException {
-        keys(value, "template title body pic steps progress highlight actions primaryAction tapAction accentColor assistant content");
+        keys(value, "template title body pic steps progress highlight actions primaryAction tapAction accentColor backgroundColor assistant content");
         choice(value, "template", "basic progress highlight assistant", true);
         String template = value.getString("template");
         text(value, "title", 1, 80, true);
@@ -244,11 +244,14 @@ public final class IslandPayload {
         key(value, "primaryAction", false);
         if (value.has("primaryAction")) require(actions.contains(value.getString("primaryAction")), "missing_primary_action");
         key(value, "tapAction", false);
+        // A template style: the card's background (white, say). Text and controls follow it.
+        int background = CARD_RGB;
+        if (value.has("backgroundColor")) {
+            background = color(value, "backgroundColor");
+            require(!template.equals("assistant"), "reserved_template");
+        }
         if (value.has("accentColor")) {
-            text(value, "accentColor", 7, 7, true);
-            String color = value.getString("accentColor");
-            require(color.matches("#[0-9A-Fa-f]{6}"), "invalid_color");
-            require(contrast(Integer.parseInt(color.substring(1), 16), CARD_RGB) >= 4.5, "low_contrast");
+            require(contrast(color(value, "accentColor"), background) >= 4.5, "low_contrast");
         }
         if (template.equals("assistant") || value.has("assistant")) {
             require(publisher.taku, "reserved_template");
@@ -259,6 +262,14 @@ public final class IslandPayload {
             require(publisher.platform, "reserved_content");
             content(object(value, "content"), publisher.packageName);
         }
+    }
+
+    /** A `#RRGGBB` field as 0xRRGGBB. */
+    private static int color(JSONObject value, String name) throws JSONException {
+        text(value, name, 7, 7, true);
+        String color = value.getString(name);
+        require(color.matches("#[0-9A-Fa-f]{6}"), "invalid_color");
+        return Integer.parseInt(color.substring(1), 16);
     }
 
     /** WCAG 2 contrast ratio between two sRGB colours. */

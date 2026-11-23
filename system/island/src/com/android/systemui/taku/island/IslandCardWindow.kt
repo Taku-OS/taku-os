@@ -22,7 +22,14 @@ import android.window.OnBackInvokedCallback
 import android.window.OnBackInvokedDispatcher
 import org.json.JSONObject
 
-/** SystemUI owns geometry and touch; bounded remote cards may supply their own chrome. */
+/**
+ * SystemUI owns geometry and touch; bounded remote cards may supply their own chrome. Figma 297:415:
+ * a 40 dp-radius card, 8 dp from the screen edges, filled with content/900 (black at 92 %) over a
+ * 24 dp backdrop blur (Backdrop Blur/md) so the screen behind reads as a soft tone rather than
+ * legible detail. A template's `backgroundColor` replaces the fill. The card covers the camera
+ * cutout or sits below it only as the presenter decided ([coverRequested]); the keyboard never
+ * changes that, it only bounds the card's height.
+ */
 internal class IslandCardWindow(context: Context, initial: IslandActivity, coverRequested: Boolean,
     private val command: (String, String?, String?) -> Unit, private val collapse: (String) -> Unit,
     private val covering: (Boolean) -> Unit,
@@ -34,7 +41,7 @@ internal class IslandCardWindow(context: Context, initial: IslandActivity, cover
     private val metrics = wm.currentWindowMetrics
     private val topInset = metrics.windowInsets.getInsetsIgnoringVisibility(
         WindowInsets.Type.statusBars() or WindowInsets.Type.displayCutout()).top
-    private var cover = coverRequested && !metrics.windowInsets.isVisible(WindowInsets.Type.ime())
+    private val cover = coverRequested
     private var activity = initial
     private val nativeAssistant = initial.nativeAssistant
     private val nativeView = if (nativeAssistant) IslandAssistantCard(windowContext, command, collapse) else null
@@ -45,18 +52,20 @@ internal class IslandCardWindow(context: Context, initial: IslandActivity, cover
     private val templateView = if (nativeContent) null else IslandTemplateCard(windowContext, command, collapse)
     private val cardWidth = minOf(dp(420), metrics.bounds.width() - dp(16))
     private val fullCard = nativeContent || initial.payload.getJSONObject("expanded").optJSONObject("content")?.optString("layout") == "card"
+    /** A ready full-card remote surface draws its own chrome; the shell then stays transparent. */
+    private var remoteChrome = false
     private val root = FrameLayout(windowContext).apply {
-        background = GradientDrawable().apply { setColor(IslandStyle.CARD); cornerRadius = dp(IslandStyle.CORNER_DP).toFloat() }
+        background = GradientDrawable().apply { setColor(IslandStyle.opaqueFill(initial)); cornerRadius = dp(IslandStyle.CORNER_DP).toFloat() }
         clipToOutline = true
         outlineProvider = object : ViewOutlineProvider() {
             override fun getOutline(view: View, outline: Outline) {
-                outline.setRoundRect(0, 0, view.width, view.height, dp(40).toFloat())
+                outline.setRoundRect(0, 0, view.width, view.height, dp(IslandStyle.CORNER_DP).toFloat())
             }
         }
         importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
     }
     private var blurListening = false
-    private val blurListener = java.util.function.Consumer<Boolean> { if (attached) updateProgressBackdrop() }
+    private val blurListener = java.util.function.Consumer<Boolean> { if (attached) updateBackdrop() }
     private var host: IslandContentConnection? = null
     private var hostView: SurfaceView? = null
     private var hostIdentity: String? = null
@@ -91,14 +100,7 @@ internal class IslandCardWindow(context: Context, initial: IslandActivity, cover
     init {
         root.addView(nativeView ?: progressView ?: templateView, FrameLayout.LayoutParams(-1, -1))
         root.setOnApplyWindowInsetsListener { _, insets ->
-            if (insets.isVisible(WindowInsets.Type.ime()) && cover) {
-                cover = false
-                covering(false)
-                params.flags = flags()
-                params.y = topInset + dp(8)
-                backDispatcher?.unregisterOnBackInvokedCallback(back)
-                backDispatcher = null
-            }
+            // The keyboard bounds the card's height; it never moves the card off the cutout.
             if (attached) {
                 val available = metrics.bounds.height() - insets.getInsets(WindowInsets.Type.ime()).bottom - params.y - dp(8)
                 availableHeight = available
@@ -118,19 +120,17 @@ internal class IslandCardWindow(context: Context, initial: IslandActivity, cover
     private fun flags(): Int = WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
         WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
         WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-        (if (nativeProgress) WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED else 0)
+        WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
 
     fun show() {
         root.viewTreeObserver.addOnComputeInternalInsetsListener(insetsListener)
         wm.addView(root, params)
         attached = true
         covering(cover)
+        updateBackdrop()
+        wm.addCrossWindowBlurEnabledListener(windowContext.mainExecutor, blurListener)
+        blurListening = true
         // Native content is complete before addView: no template/remote-surface transition.
-        if (nativeProgress) {
-            updateProgressBackdrop()
-            wm.addCrossWindowBlurEnabledListener(windowContext.mainExecutor, blurListener)
-            blurListening = true
-        }
         if (nativeContent) return
         animation = ValueAnimator.ofInt(dp(48), finalHeight).apply {
             duration = 220
@@ -147,7 +147,9 @@ internal class IslandCardWindow(context: Context, initial: IslandActivity, cover
 
     /** Content snapshots update views; they do not restart the shell's geometry animation. */
     fun update(next: IslandActivity) {
+        val fillChanged = IslandStyle.cardFill(next) != IslandStyle.cardFill(activity)
         activity = next
+        if (fillChanged && attached) updateBackdrop()
         val template = templateView
         when {
             nativeView != null -> nativeView.update(next)
@@ -186,7 +188,7 @@ internal class IslandCardWindow(context: Context, initial: IslandActivity, cover
                 hostView = surface
                 host = IslandContentConnection(windowContext, next, surface) { ready ->
                     richReady = ready
-                    if (fullCard) (root.background as GradientDrawable).setColor(if (ready) Color.TRANSPARENT else IslandStyle.CARD)
+                    if (fullCard) { remoteChrome = ready; updateBackdrop() }
                     if (fullCard) template.visibility = if (ready) View.INVISIBLE else View.VISIBLE
                     else template.showTemplateText(!ready)
                     surface.alpha = if (ready) 1f else 0f
@@ -195,18 +197,26 @@ internal class IslandCardWindow(context: Context, initial: IslandActivity, cover
         }
     }
 
-    /** Blur browser text behind sign-in progress; opaque fallback when compositor blur is off. */
-    private fun updateProgressBackdrop() {
+    /**
+     * The card's fill over a 24 dp backdrop blur of whatever is behind it; an opaque fill when
+     * compositor blur is off, so text and widgets behind never show through sharply.
+     */
+    private fun updateBackdrop() {
+        val corner = dp(IslandStyle.CORNER_DP).toFloat()
+        if (remoteChrome) { root.background = GradientDrawable().apply { setColor(Color.TRANSPARENT); cornerRadius = corner }; return }
         val blurred = if (wm.isCrossWindowBlurEnabled) runCatching {
             root.viewRootImpl.createBackgroundBlurDrawable().apply {
-                setBlurRadius(dp(24)); setCornerRadius(dp(40).toFloat()); setColor(0xeb000000.toInt())
+                setBlurRadius(dp(IslandStyle.BLUR_DP)); setCornerRadius(corner); setColor(IslandStyle.cardFill(activity))
             }
         }.getOrNull() else null
-        root.background = blurred ?: GradientDrawable().apply { setColor(0xff121212.toInt()); cornerRadius = dp(40).toFloat() }
+        root.background = blurred ?: GradientDrawable().apply { setColor(IslandStyle.opaqueFill(activity)); cornerRadius = corner }
+        backdropBlurred = blurred != null
     }
+    private var backdropBlurred = false
 
     fun state(): JSONObject = JSONObject().put("key", activity.key).put("windowType", params.type)
-        .put("cover", cover).put("focusable", params.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE == 0).put("layout", if (nativeAssistant) "native-assistant" else if (nativeProgress) "native-progress" else if (fullCard) "card" else "body").put("richReady", richReady)
+        .put("cover", cover).put("backdropBlur", backdropBlurred)
+        .put("fill", "#%08X".format(IslandStyle.cardFill(activity))).put("focusable", params.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE == 0).put("layout", if (nativeAssistant) "native-assistant" else if (nativeProgress) "native-progress" else if (fullCard) "card" else "body").put("richReady", richReady)
         .put("renderer", if (richReady) "remote-surface" else "systemui-native").put("nativeReady", attached && !richReady)
         .put("assistant", nativeView?.state() ?: JSONObject.NULL)
         .put("template", templateView?.state() ?: JSONObject.NULL)

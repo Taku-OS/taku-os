@@ -11,8 +11,6 @@ import android.graphics.PorterDuff
 import android.graphics.PorterDuffColorFilter
 import android.graphics.drawable.Animatable2
 import android.graphics.drawable.Drawable
-import android.os.Handler
-import android.os.Looper
 import android.os.SystemClock
 import android.view.GestureDetector
 import android.view.MotionEvent
@@ -26,35 +24,43 @@ import kotlin.math.abs
 import kotlin.math.max
 
 /**
- * Compact island, Figma 1379:889 for every activity: a 32 dp disc whose centre is 36 dp left of
- * the camera, the 24 dp camera disc, and a 32 dp text pill starting 20 dp right of it, joined by
- * the authored metaball necks. The disc shows the activity's glyph (loader, picture, progress
- * ring or app icon); the pill shows its text, timer or number in Hanken 12 sp. The view's left
- * edge sits [CAMERA_DP] left of the camera centre. Vertical drags are left to the shade.
+ * Compact island, Figma 1:4742 (52:815) for every activity: a 32 dp disc, the camera, and a 32 dp
+ * text pill, each 8 dp from the camera's edge and joined by metaball necks that leave every circle
+ * tangentially ([IslandCapsuleGeometry.neck]). The camera is the device's real cutout: its radius
+ * comes from the display, so a 46 dp emulator hole keeps the same smooth outline as the design's
+ * 24 dp one. The disc shows the activity's glyph (loader, picture, progress ring or app icon); the
+ * pill shows its text, timer or number in Hanken 12 sp. Another live activity waits as a 32 dp
+ * circle on the far left, where the bar has room; the main capsule never moves for it. On a status
+ * bar shorter than 32 dp everything scales down rather than clipping. Vertical drags are left to
+ * the shade.
  */
 internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
     private val longPress: () -> Unit, private val next: () -> Unit, private val hide: () -> Unit) : View(context) {
     private val density = resources.displayMetrics.density
+    /** Pixels per design dp: the density, scaled down when the status bar is shorter than 32 dp. */
+    var unit = density
+        private set
+    /** The camera cutout's radius in pixels (12 dp without a physical centre cutout). */
+    var cameraRadius = 12 * density
+        private set
+    /** Vertical offset of the camera centre from the view's middle when the bar clamps it. */
+    var centerShift = 0f
+        set(value) { if (field != value) { field = value; invalidate() } }
+    /** The waiting activity's circle sits left of the main capsule. */
+    private var lead = 0f
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         typeface = IslandStyle.regular(context)
         textSize = 12f * resources.displayMetrics.scaledDensity
         letterSpacing = -.01f
     }
+    private val neck = Path()
     private val icons = mutableMapOf<String, Drawable>()
     private val secondaryIcons = mutableMapOf<String, Drawable>()
     private var second: IslandActivity? = null
     private var secondaryIdentity: JSONObject? = null
     private var secondaryGeneration = 0
     var stale = false
-    /** Exact MetaballShape1 path (Figma 1379:904), 16.0743 × 21.3333. */
-    private val neck = Path().apply {
-        moveTo(16.0743f, 1.72239f)
-        cubicTo(10.9102f, 6.34134f, 6.1586f, 6.88552f, 0f, 0f)
-        lineTo(0f, 21.3333f)
-        cubicTo(6.1586f, 14.4478f, 10.9102f, 14.992f, 16.0743f, 19.6109f)
-        close()
-    }
     private var item: IslandActivity? = null
     private var identity: JSONObject? = null
     private var generation = 0
@@ -74,7 +80,11 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
         private set
     private val gestures = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
         override fun onDown(event: MotionEvent) = true
-        override fun onSingleTapUp(event: MotionEvent): Boolean { performClick(); return true }
+        override fun onSingleTapUp(event: MotionEvent): Boolean {
+            // The waiting circle brings its activity forward; the rest of the capsule is the tap.
+            if (secondary && event.x < lead) next() else performClick()
+            return true
+        }
         override fun onLongPress(event: MotionEvent) { performLongClick() }
         override fun onFling(first: MotionEvent?, last: MotionEvent, vx: Float, vy: Float): Boolean {
             if (first != null && abs(last.x - first.x) > dp(24) && abs(vx) > abs(vy)) {
@@ -108,6 +118,24 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
     }
 
     override fun verifyDrawable(who: Drawable): Boolean = who in icons.values || super.verifyDrawable(who)
+
+    /**
+     * Fits the capsule to the bar: [barHeight] below 32 dp scales every dimension, and
+     * [cutoutRadius] (pixels, 0 without a centred physical cutout) sizes the camera circle.
+     */
+    fun configure(barHeight: Int, cutoutRadius: Int) {
+        unit = density * minOf(1f, barHeight / (32 * density)).coerceAtLeast(.5f)
+        cameraRadius = if (cutoutRadius > 0) cutoutRadius.toFloat() else 12 * unit
+        textPaint.textSize = 12f * resources.displayMetrics.scaledDensity * unit / density
+    }
+
+    /** Main disc centre, camera centre and pill start, from the view's left edge (pixels). */
+    private fun discX() = lead + 16 * unit
+    fun cameraOffset(): Int = (40 * unit + cameraRadius).toInt()
+    private fun cameraX() = lead + 40 * unit + cameraRadius
+    private fun pillStart() = cameraX() + cameraRadius + 8 * unit
+    /** Width the waiting circle and its gap add on the left. */
+    fun leadWidth(): Int = (36 * unit).toInt()
 
     /** Picture keys the publisher asked to animate (`icon.animate`). */
     private fun animatedKeys(activity: IslandActivity): Set<String> = listOf("a", "b")
@@ -190,34 +218,35 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
     }
 
     /**
-     * Width for [activity] within [maximum] (measured from the view's left edge): the disc and
-     * camera always; the pill when at least a short label fits; one more 24 dp disc for a
-     * [secondaryWanted] activity when room remains. Returns 0 when not even the disc fits.
+     * Width for [activity] within [maximum] (pixels from the view's left edge, which includes the
+     * waiting circle when [withSecondary]): the disc and camera always; the pill when at least a
+     * short label fits. Returns 0 when not even the disc fits.
      */
-    fun layoutWidth(activity: IslandActivity, maximum: Int, secondaryWanted: Boolean): Int {
-        val base = px(CAMERA_DP + 12)
+    fun layoutWidth(activity: IslandActivity, maximum: Int, withSecondary: Boolean): Int {
+        secondary = withSecondary
+        lead = if (withSecondary) leadWidth().toFloat() else 0f
+        val base = kotlin.math.ceil(cameraX() + cameraRadius).toInt()
+        shownText = ""
+        pillGlyphShown = false
         if (maximum < base) return 0
         val slot = pillSlot(activity)
         val text = pillText(slot)
         var width = base
-        shownText = ""
-        pillGlyphShown = false
-        val room = maximum - px(PILL_START_DP) - px(16) - if (secondaryWanted) px(28) else 0
-        if (text.isEmpty() && pillGlyph(activity) != null && room >= px(16)) {
+        val room = maximum - pillStart() - 16 * unit
+        if (text.isEmpty() && pillGlyph(activity) != null && room >= 16 * unit) {
             pillGlyphShown = true
-            width = px(PILL_START_DP) + px(16) + px(16)
+            width = kotlin.math.ceil(pillStart() + 32 * unit).toInt()
         }
         if (text.isNotEmpty()) {
             // Timers reserve their widest digits so the pill does not jitter every second.
             val natural = max(textPaint.measureText(text), if (slot?.optString("type") in setOf("timer", "countdown")) textPaint.measureText(text.replace(Regex("[0-9]"), "0")) else 0f)
-            val fitted = minOf(natural, room.toFloat())
-            if (fitted >= minOf(natural, dp(24))) {
+            val fitted = minOf(natural, room)
+            if (fitted >= minOf(natural, 24 * unit)) {
                 shownText = text.take(textPaint.breakText(text, true, fitted + 1, null))
-                width = px(PILL_START_DP) + px(16) + kotlin.math.ceil(fitted).toInt()
+                width = kotlin.math.ceil(pillStart() + 16 * unit + fitted).toInt()
             }
         }
-        secondary = secondaryWanted && width + px(28) <= maximum
-        return width + if (secondary) px(28) else 0
+        return width
     }
 
     fun bind(activity: IslandActivity, other: IslandActivity?) {
@@ -228,27 +257,28 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
             val current = ++secondaryGeneration
             secondaryIcons.clear()
             second?.pics?.forEach { (key, icon) ->
-                icon.loadDrawableAsync(context, { drawable ->
+                IslandStyle.loadIcon(context, icon) { drawable ->
                     if (current == secondaryGeneration && drawable != null) { secondaryIcons[key] = drawable; invalidate() }
-                }, Handler(Looper.getMainLooper()))
+                }
             }
         }
         contentDescription = "${if (stale) "May be outdated. " else ""}${activity.title}. ${activity.body}. " +
             "Double tap to ${if (activity.tap == "open" && activity.openIntent != null) "open the app" else "expand"}; " +
-            "long press to expand; swipe left for the next activity; swipe right to hide."
+            "long press to expand; swipe left for the next activity; swipe right to hide." +
+            if (second != null) " ${second?.title} is also live; tap the circle on the left to show it." else ""
         if (identity !== activity.payload) {
             identity = activity.payload
             val current = ++generation
             stopIconAnimations()
             icons.clear()
             activity.pics.forEach { (key, icon) ->
-                icon.loadDrawableAsync(context, { drawable ->
+                IslandStyle.loadIcon(context, icon) { drawable ->
                     if (current == generation && drawable != null) {
                         icons[key] = drawable
                         startIconAnimations()
                         invalidate()
                     }
-                }, Handler(Looper.getMainLooper()))
+                }
             }
         }
         startIconAnimations()
@@ -295,43 +325,62 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
 
     override fun onDraw(canvas: Canvas) {
         val activity = item ?: return
-        val cy = height / 2f
-        val camera = dp(CAMERA_DP)
-        val pillEnd = width - if (secondary) dp(28) else 0f
+        val cy = height / 2f + centerShift
+        val disc = discX()
+        val camera = cameraX()
+        val pill = pillStart()
         val hasPill = shownText.isNotEmpty() || pillGlyphShown
         paint.color = Color.BLACK
         paint.style = Paint.Style.FILL
-        canvas.drawCircle(dp(16), cy, dp(16), paint)
-        canvas.drawCircle(camera, cy, dp(12), paint)
-        if (hasPill) canvas.drawRoundRect(dp(PILL_START_DP), cy - dp(16), pillEnd.toFloat(), cy + dp(16), dp(16), dp(16), paint)
-        for (direction in if (hasPill) listOf(1, -1) else listOf(1)) {
-            canvas.save()
-            canvas.translate(camera - direction * dp(24), cy - dp(21.3333f) / 2 + dp(.167f))
-            canvas.scale(direction * density, density)
-            canvas.drawPath(neck, paint)
-            canvas.restore()
+        val r = 16 * unit
+        canvas.drawCircle(disc, cy, r, paint)
+        canvas.drawCircle(camera, cy, cameraRadius, paint)
+        drawNeck(canvas, disc, r, camera, cameraRadius, cy)
+        if (hasPill) {
+            canvas.drawRoundRect(pill, cy - r, width.toFloat(), cy + r, r, r, paint)
+            // The pill's rounded end is a 16 dp circle centred 16 dp inside its start.
+            drawNeck(canvas, pill + r, r, camera, cameraRadius, cy)
         }
-        drawDisc(canvas, discSlot(activity), dp(16), cy)
+        drawDisc(canvas, discSlot(activity), disc, cy, icons)
         if (pillGlyphShown) {
-            drawDisc(canvas, pillGlyph(activity), dp(PILL_START_DP) + dp(16), cy)
+            drawDisc(canvas, pillGlyph(activity), pill + r, cy, icons)
         } else if (hasPill) {
             val slot = pillSlot(activity)
             val text = if (slot?.optString("type") in setOf("timer", "countdown")) pillText(slot) else shownText
             textPaint.color = if (stale || slot?.optString("emphasis") == "muted") IslandStyle.TEXT_MUTED
                 else if (slot?.optString("emphasis") == "accent") accent(activity) else IslandStyle.TEXT_PRIMARY
-            val start = dp(PILL_START_DP) + dp(8)
-            val end = textPaint.breakText(text, true, pillEnd - dp(8) - start, null)
+            val start = pill + 8 * unit
+            val end = textPaint.breakText(text, true, width - 8 * unit - start, null)
             canvas.drawText(text.take(end), start, cy - (textPaint.ascent() + textPaint.descent()) / 2, textPaint)
             // Live clocks: redraw on the next whole second while shown.
             if (slot?.optString("type") in setOf("timer", "countdown")) postInvalidateDelayed(1000 - System.currentTimeMillis() % 1000)
         }
-        if (secondary) drawSecondary(canvas, width - dp(12), cy)
+        if (secondary) drawSecondary(canvas, 16 * unit, cy)
+    }
+
+    /**
+     * The metaball neck between a circle at [circleX] (radius [r]) and the camera, on either side;
+     * mirrored when the circle lies right of the camera.
+     */
+    private fun drawNeck(canvas: Canvas, circleX: Float, r: Float, camera: Float, cameraR: Float, cy: Float) {
+        val n = IslandCapsuleGeometry.neck(r, cameraR, kotlin.math.abs(camera - circleX), 4 * unit)
+        neck.rewind()
+        neck.moveTo(n[0], n[1])
+        neck.cubicTo(n[2], n[3], n[4], n[5], n[6], n[7])
+        neck.lineTo(n[6], -n[7])
+        neck.cubicTo(n[4], -n[5], n[2], -n[3], n[0], -n[1])
+        neck.close()
+        canvas.save()
+        canvas.translate(circleX, cy)
+        if (camera < circleX) canvas.scale(-1f, 1f)
+        canvas.drawPath(neck, paint)
+        canvas.restore()
     }
 
     /** 16 dp glyph area centred on ([cx], [cy]): Figma's 3×3 loader, a picture or a progress ring. */
-    private fun drawDisc(canvas: Canvas, slot: JSONObject?, cx: Float, cy: Float) {
+    private fun drawDisc(canvas: Canvas, slot: JSONObject?, cx: Float, cy: Float, loaded: Map<String, Drawable>) {
         val motion = slot?.optString("animated").orEmpty()
-        val icon = slot?.optString("pic")?.let(icons::get)
+        val icon = slot?.optString("pic")?.let(loaded::get)
         when {
             motion == "listening" -> {
                 paint.color = IslandStyle.TEXT_PRIMARY
@@ -386,45 +435,31 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
         }
     }
 
-    /** Another live activity: a 24 dp disc with its small-island glyph. */
+    /**
+     * The waiting activity: a 32 dp circle, as tall as the main disc, with the same 16 dp glyph
+     * (its own group A, else its notification icon).
+     */
     private fun drawSecondary(canvas: Canvas, cx: Float, cy: Float) {
+        val other = second ?: return
         paint.color = Color.BLACK
-        canvas.drawCircle(cx, cy, dp(12), paint)
-        // System-managed: the next activity's own group A glyph, else its notification icon.
-        val slot = glyph(second?.compact?.optJSONObject("a"))?.takeIf { it.optString("type") in setOf("pic", "progress") }
-        val icon = slot?.optString("pic")?.takeIf { it.isNotEmpty() }?.let(secondaryIcons::get)
-            ?: secondaryIcons[IslandActivity.APP_PIC]
-        if (slot?.optString("type") == "progress") {
-            paint.style = Paint.Style.STROKE
-            paint.strokeWidth = dp(2)
-            paint.color = IslandStyle.TEXT_PRIMARY
-            canvas.drawArc(cx - dp(7), cy - dp(7), cx + dp(7), cy + dp(7), -90f,
-                (slot.optDouble("value", .25) * 360).toFloat(), false, paint)
-            paint.style = Paint.Style.FILL
-        } else if (icon != null) {
-            icon.colorFilter = if (slot == null || slot.optBoolean("tint")) PorterDuffColorFilter(IslandStyle.TEXT_PRIMARY, PorterDuff.Mode.SRC_IN) else null
-            icon.setBounds((cx - dp(7)).toInt(), (cy - dp(7)).toInt(), (cx + dp(7)).toInt(), (cy + dp(7)).toInt())
-            icon.draw(canvas)
-        } else {
-            paint.color = IslandStyle.TEXT_PRIMARY
-            canvas.drawCircle(cx, cy, dp(2), paint)
-        }
+        canvas.drawCircle(cx, cy, 16 * unit, paint)
+        drawDisc(canvas, discSlot(other), cx, cy, secondaryIcons)
     }
 
     fun state(): JSONObject = JSONObject().put("text", shownText).put("secondary", secondary)
         .put("pillGlyph", if (pillGlyphShown) item?.let { pillGlyph(it) }?.let { it.optString("animated").ifEmpty { it.optString("type") } } ?: JSONObject.NULL else JSONObject.NULL)
         .put("animatingIcons", iconLoops.size)
+        .put("secondaryPosition", if (secondary) "left" else JSONObject.NULL)
+        .put("cameraRadiusDp", cameraRadius / density).put("scale", unit / density)
         .put("disc", item?.let { discSlot(it)?.let { slot -> slot.optString("animated").ifEmpty { slot.optString("type") } } ?: "dot" } ?: JSONObject.NULL)
 
-    private fun dp(value: Float) = value * density
-    private fun dp(value: Int) = value * density
-    /** Whole pixels for layout sizes. */
-    private fun px(value: Int) = (value * density).toInt()
+    private fun dp(value: Float) = value * unit
+    private fun dp(value: Int) = value * unit
 
     companion object {
         /** An app's animated icon loops for at most this long per binding. */
         const val ICON_LOOP_MS = 60_000L
-        /** Camera centre and pill start, measured from the capsule's left edge (dp). */
+        /** Camera centre and pill start from the main capsule's left edge for the 24 dp design camera (dp). */
         const val CAMERA_DP = 52
         const val PILL_START_DP = 72
     }

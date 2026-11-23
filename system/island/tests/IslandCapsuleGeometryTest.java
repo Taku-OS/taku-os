@@ -43,6 +43,20 @@ public final class IslandCapsuleGeometryTest {
             check(width == IslandCapsuleGeometry.maximumWidth(left, right, camera, disc, fixed, clock, 0, gap),
                     "reversing start/end in RTL must preserve the symmetric budget");
         }
+        // The generated neck reproduces Figma's MetaballShape1 for the design's 24 dp camera:
+        // disc r16 at x=0, camera r12 at x=36, 4 dp insets. Authored path (box 16.0743 × 21.3333,
+        // centred at y=10.6667, starting at x=12): M16.0743 1.72239 C10.9102 6.34134 6.1586 6.88552 0 0.
+        float[] n = IslandCapsuleGeometry.neck(16, 12, 36, 4);
+        float[] authored = {0, -10.6667f, 6.1586f, 6.88552f - 10.6667f, 10.9102f, 6.34134f - 10.6667f, 16.0743f, 1.72239f - 10.6667f};
+        for (int i = 0; i < 8; i++) {
+            float actual = n[i] - (i % 2 == 0 ? 12 : 0);
+            check(Math.abs(actual - authored[i]) < 0.25f, "neck point " + i + " is " + actual + ", design " + authored[i]);
+        }
+        // A large emulator hole (46 dp) keeps an open, smooth neck that meets both circles.
+        float[] big = IslandCapsuleGeometry.neck(16, 23, 47, 4);
+        check(big[0] < big[2] && big[2] < big[6] && big[4] < big[6], "handles stay between the circles");
+        check(big[3] < 0 && big[5] < 0, "the neck never pinches through the centre line");
+        check(Math.abs(big[7] + Math.sqrt(23 * 23 - 19 * 19)) < 0.01, "the neck ends on the camera circle");
         System.out.println("IslandCapsuleGeometryTest: passed");
     }
 }
