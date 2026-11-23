@@ -140,7 +140,7 @@ fun FeedPage(state: FeedState, controller: HomeController, backdrop: Backdrop?, 
         }
       }
       if (state.emptyState != null) item(key = "welcome", contentType = "welcome") {
-        FeedWelcomeCard(backdrop, Modifier.padding(horizontal = TakuSpacing.gutter), controller::openTextInput)
+        FeedWelcomeCard(backdrop, Modifier.padding(horizontal = TakuSpacing.gutter)) { controller.feedCardTapped(); controller.openTextInput() }
       }
       // Keep a failed request distinguishable from a successfully loaded, empty Feed.
       if (state.cards.isEmpty() && !state.loading && state.error != null) item(key = "empty", contentType = "empty") {
@@ -189,6 +189,7 @@ fun FeedCardItem(card: FeedCard, controller: HomeController, backdrop: Backdrop?
   }
   CardFrame(card, controller.pool, backdrop, cardSizing(card, reported, squareHalf = true), modifier, layer, leaving,
     onPlaced = { controller.place(card.id, it) },
+    onTap = controller::feedCardTapped,
     onLongPress = { haptics.performHapticFeedback(HapticFeedbackType.LongPress); controller.openMenu(card.id) })
 }
 
@@ -219,6 +220,8 @@ fun CardFrame(
   card: FeedCard, pool: ReactCardPool, backdrop: Backdrop?, sizing: Modifier, modifier: Modifier = Modifier,
   layer: GraphicsLayer = rememberGraphicsLayer(), leaving: Boolean = false,
   onPlaced: (Rect) -> Unit = {}, onLongPress: (() -> Unit)? = null,
+  /** Observes a tap without consuming it; the React body still handles the tap. */
+  onTap: (() -> Unit)? = null,
 ) {
   var origin by remember { mutableStateOf(Offset.Zero) }
   val control = card.surface == CardSurface.CONTROL
@@ -240,7 +243,7 @@ fun CardFrame(
         if (backdrop != null) with(backdrop) { drawBlurredAt(origin) }
         drawRect(fill)
       }
-      .then(if (onLongPress != null) Modifier.longPressOver(enabled = !leaving) { onLongPress() } else Modifier)
+      .then(if (onLongPress != null) Modifier.longPressOver(enabled = !leaving, onTap = onTap) { onLongPress() } else Modifier)
       .semantics { contentDescription = "${card.app}: ${card.summary}" }
       .padding(cardPadding(card.surface)),
   ) {

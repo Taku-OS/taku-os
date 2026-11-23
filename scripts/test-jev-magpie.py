@@ -5,7 +5,7 @@ Requires assistant/build.sh, assistant/build-jev-magpie-tests.sh,
 surfaces/build.sh outputs, out/device-qa/virtual-display.jar and pinned runtime archives.
 Never targets a personal device or the shared development AVD. No provider credentials.
 """
-import argparse,hashlib,json,os,pathlib,shlex,subprocess,threading,time,uuid,xml.etree.ElementTree as ET
+import argparse,hashlib,json,os,pathlib,shlex,subprocess,threading,time,uuid
 from http.server import BaseHTTPRequestHandler,ThreadingHTTPServer
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 parser=argparse.ArgumentParser(description=__doc__)
@@ -28,6 +28,11 @@ def exchange(data):
  out=shell('/system/bin/env','CLASSPATH=/data/local/tmp/taku-jev-qa.jar','app_process','/system/bin',
            'org.agentos.tests.NativeSocketProbe','exchange',json.dumps(data,ensure_ascii=False))
  return json.loads(out)
+def access(method,params):
+ raw=shell('content','call','--uri','content://org.agentos.assistant.open-access','--method',method,'--arg',json.dumps(params))
+ result=json.JSONDecoder().raw_decode(raw.split('result=',1)[1])[0]
+ if not result['ok']:raise RuntimeError(method+': '+result['code'])
+ return result['result']
 assert cmd('emu','avd','name').splitlines()[0]=='Taku_JevMagpie_20261021','Disposable Jev/Magpie AVD required'
 assert shell('getprop','ro.build.version.sdk').strip()=='36'
 assert shell('id','-u').strip()=='0','Root ADB required'
@@ -53,9 +58,6 @@ cmd('install','--no-incremental','-r',str(ROOT/'system/assistant/out/AgentOSAssi
 cmd('install','--no-incremental','-r',str(args.agent_apk))
 assert 'SystemAssistantService' in shell('cmd','package','query-services','--brief','-a','android.service.voice.VoiceInteractionService','-p','org.agentos.agent'), 'Agent APK is missing the new system assistant'
 cmd('install','--no-incremental','-r',str(ROOT/'out/jev-magpie-device-tests/fixture.apk'))
-# The accessibility assertions below use the Chinese resources. A fresh AVD
-# may default to English even when a previously used snapshot did not.
-shell('cmd','locale','set-app-locales','org.agentos.assistant','--user','0','--locales','zh-CN')
 shell('mkdir','-p','/system_ext/bin','/system_ext/etc/codex','/system_ext/etc/agentos','/system_ext/framework',
       '/data/local/agentos/home/.codex','/data/local/agentos/work','/data/local/agentos/magpie/config/magpie')
 for local,remote in [
@@ -139,7 +141,8 @@ try:
  provider={'id':'fixture','name':'Synthetic fixture','preset':'remote-magpie','chat':f'http://127.0.0.1:{port}/v1',
            'decide':f'http://127.0.0.1:{port}/v1','key':'fixture-only',
            'models':['fixture-chat','jev-text','jev-vision'],'modelsURL':f'http://127.0.0.1:{port}/v1/models'}
- write(magpie_root+'/config/magpie/providers.json',json.dumps({'providers':[provider]}))
+ groups=[{'id':'jev-fixture-vision','name':'Fixture Jev vision','members':['fixture/jev-vision'],'routing':'order'}]
+ write(magpie_root+'/config/magpie/providers.json',json.dumps({'providers':[provider],'groups':groups}))
  write(magpie_root+'/config/magpie/settings.json','{"gatewayMode":"on"}')
  write(magpie_root+'/web.key','a'*64)
  write(magpie_root+'/connection.json','{"mode":"magpie","model":"fixture/fixture-chat"}')
@@ -151,33 +154,21 @@ try:
  while True:
   try:
    config=exchange({'op':'decision','action':'models'})
-   assert len(config['models'])==2,config
-   caps={m['id']:m['imageInput'] for m in config['models']}
+   caps={m['id']:m['imageInput'] for m in config['models'] if m['id'].startswith('fixture/')}
    assert caps=={'fixture/jev-text':False,'fixture/jev-vision':True},config
+   assert any(m['id']=='group/jev-fixture-vision' and m['imageInput'] for m in config['models']),config
+   access('bindSystemAi',{'scene':'jev','group':'jev-fixture-vision'})
    break
   except Exception:
    if time.monotonic()>deadline:raise
    time.sleep(.5)
+ access('manageSystemAi',{'operation':'setAssistScreenshots','enabled':True})
  exchange({'op':'systemAi','action':'configure','patch':{'imageModel':'fixture/fixture-chat','apps':{'org.agentos.assistant':True}}})
- thread=exchange({'op':'rpc','method':'thread/start','params':{}})['thread']['id']
- prefs=ET.Element('map')
- def string(k,v):ET.SubElement(prefs,'string',name=k).text=v
- string('conversation',thread);string('theme','light');string('modelConnectionMode','magpie')
- string('draft-'+thread,'Jev 迁移回归草稿：这段不要发送。')
- attachment='/data/user/0/org.agentos.assistant/files/composer-attachments/jev-fixture/keep-jev-fixture.txt'
- shell('mkdir','-p',str(pathlib.PurePosixPath(attachment).parent));write(attachment,'Synthetic unsent attachment. Do not send.')
- string('composer.'+thread+'.attachments',json.dumps([{'path':attachment,'name':'keep-jev-fixture.txt','mime':'text/plain'}]))
- ET.SubElement(prefs,'boolean',name='includeScreenshot',value='true')
- ET.SubElement(prefs,'boolean',name='jevEnabled',value='false')
- shell('am','force-stop','org.agentos.assistant')
- shell('mkdir','-p','/data/user/0/org.agentos.assistant/shared_prefs')
- write('/data/user/0/org.agentos.assistant/shared_prefs/agent-settings.xml',ET.tostring(prefs,encoding='unicode'))
- shell('chown','-R','system:system','/data/user/0/org.agentos.assistant')
- shell('restorecon','-R','/data/user/0/org.agentos.assistant')
+ thread=access('composer/createThread',{})['thread']['id']
  device_output='/data/local/tmp/jev-magpie-ui-'+uuid.uuid4().hex+'/'
  result=cmd('shell','timeout','240','uiautomator','runtest','/system/framework/android.test.base.jar',
             '/data/local/tmp/taku-jev-qa.jar','-c','org.agentos.tests.JevMagpieUiTest#testJevMagpieChain',
-            '-e','output',device_output,timeout=270)
+            '-e','output',device_output,'-e','thread',thread,timeout=270)
  (OUT/'ui-test.log').write_text(result)
  cmd('pull',device_output,str(OUT/'device'))
  assert 'OK (1 test)' in result and 'FAILURES' not in result,result[-6000:]

@@ -34,6 +34,8 @@ export type VoiceSession = {
 /** One recognition snapshot. `operationId` identifies the recording; `transcript` is the
  * complete successful text or the unsettled preview. */
 export type VoiceSnapshot = {
+  owner: string;
+  threadId: string;
   active: boolean;
   operationId: number | null;
   sessionId: string | null;
@@ -54,12 +56,27 @@ export type VoiceSnapshot = {
 /** The definitive identity and current state of the operation created by `start`. */
 export type VoiceStartSnapshot = VoiceSnapshot & {operationId: number};
 
+export type ReplySpeech = {
+  threadId: string;
+  replyId: string;
+  phase: 'preparing' | 'speaking' | 'failed';
+  error: string | null;
+};
+
+type SpeechEvent = {speech: ReplySpeech | null};
+
 type TakuVoiceModule = {
   isAvailable(): boolean;
-  start(language: string): Promise<VoiceStartSnapshot>;
+  openSettings(): Promise<void>;
+  enterChat(owner: string, threadId: string): Promise<void>;
+  leaveChat(owner: string): Promise<void>;
+  start(owner: string, threadId: string): Promise<VoiceStartSnapshot>;
+  speak(threadId: string, replyId: string, text: string): Promise<void>;
+  stopSpeech(threadId: string, replyId: string): Promise<void>;
   finish(operationId: number): Promise<void>;
   cancel(operationId: number): Promise<void>;
   addListener(event: 'onVoice', listener: (snapshot: VoiceSnapshot) => void): Subscription;
+  addListener(event: 'onReplySpeech', listener: (event: SpeechEvent) => void): Subscription;
 };
 
 const nativeModule = requireOptionalNativeModule<TakuVoiceModule>('TakuVoice');
@@ -68,10 +85,30 @@ export function voiceAvailable(): boolean {
   try { return nativeModule?.isAvailable() ?? false; } catch { return false; }
 }
 
-/** `language` is the engine tag (zh-CN or en-US); the chat's requests stay unscoped. */
-export async function startVoice(language: 'zh-CN' | 'en-US'): Promise<VoiceStartSnapshot> {
+export async function openVoiceSettings(): Promise<void> {
+  if (!nativeModule) throw new Error('Voice settings are not available');
+  await nativeModule.openSettings();
+}
+
+export async function startVoice(owner: string, threadId: string): Promise<VoiceStartSnapshot> {
   if (!nativeModule) throw Object.assign(new Error('Voice input is not available'), {code: 'VOICE_UNAVAILABLE'});
-  return nativeModule.start(language);
+  return nativeModule.start(owner, threadId);
+}
+
+export async function enterVoiceChat(owner: string, threadId: string): Promise<void> { await nativeModule?.enterChat(owner, threadId); }
+export async function leaveVoiceChat(owner: string): Promise<void> { await nativeModule?.leaveChat(owner); }
+
+export async function speakReply(threadId: string, replyId: string, text: string): Promise<void> {
+  if (!nativeModule) throw new Error('Reply playback is not available');
+  await nativeModule.speak(threadId, replyId, text);
+}
+
+export async function stopReplySpeech(threadId: string, replyId: string): Promise<void> {
+  await nativeModule?.stopSpeech(threadId, replyId);
+}
+
+export function onReplySpeech(listener: (speech: ReplySpeech | null) => void): Subscription {
+  return nativeModule?.addListener('onReplySpeech', event => listener(event.speech)) ?? {remove() {}};
 }
 
 export async function finishVoice(operationId: number): Promise<void> { await nativeModule?.finish(operationId); }

@@ -9,6 +9,7 @@ if [ ! -f "$task_json" ]; then bash system/assistant/test-confirmation-host.sh; 
 mkdir -p "$task_out/classes"
 "$JDK/bin/javac" --release 17 -cp "$task_json" -d "$task_out/classes" \
  system/assistant/broker/org/agentos/lab/CodexAppServer.java \
+ system/assistant/broker/org/agentos/lab/ComposerInput.java \
  system/assistant/broker/org/agentos/lab/HarnessContext.java \
  system/assistant/broker/org/agentos/lab/HarnessStore.java \
  system/assistant/broker/org/agentos/lab/AgentSkills.java \

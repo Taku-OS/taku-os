@@ -51,6 +51,10 @@ class AudioClient(context: Context, private val listener: Listener) : AutoClosea
     }
     fun open(request: AudioRequest): String = open(JSONObject().put("purpose",request.purpose).put("language",request.language).put("profileId",request.profileId).put("voiceId",request.voiceId).put("speed",request.speed).apply {
         if(request.interruptible)put("interruptible",true)
+        if(request.purpose=="LIVE_TALK") {
+            put("muted",request.muted)
+            if(request.history.isNotEmpty())put("history",org.json.JSONArray().apply{request.history.forEach{put(JSONObject().put("role",it.role).put("text",it.text))}})
+        }
         if(request.purpose in listOf("MEDIA_TRANSLATE","CALL_TRANSLATE"))put("targetLanguage",request.targetLanguage).put("targetPackage",request.targetPackage).put("output",request.output).put("originalAudio",request.originalAudio)
         if(request.purpose=="CALL_TRANSLATE")put("outgoingProfileId",request.outgoingProfileId).put("outgoingVoiceId",request.outgoingVoiceId).put("outgoingSpeed",request.outgoingSpeed)
     })

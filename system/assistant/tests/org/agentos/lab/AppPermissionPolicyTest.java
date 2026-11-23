@@ -3,10 +3,41 @@ package org.agentos.lab;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import org.agentos.assistant.AgentOpenAccessPolicy;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 public final class AppPermissionPolicyTest {
+    private static void controlCannotEscalate(AppPermissionPolicy.Store store, JSONObject app) throws Exception {
+        check(store.check(app, "taku.control").getBoolean("allowed"), "fixture must actually have control");
+        for (String method : new String[]{"manageAssistant", "plugin/install", "plugin/uninstall",
+                "config/value/write", "config/mcpServer/reload", "skills/set-enabled",
+                "skills/community/install", "skills/community/add", "skills/community/uninstall",
+                "skills/community/upgrade", "skills/community/rollback", "skills/credentials/set",
+                "skills/credentials/remove", "requests/respond", "requests/submit", "requests/cancel",
+                "composer/submit", "composer/write", "composer/options/write", "composer/restoreTask",
+                "accounts/saveKey", "accounts/removeKey", "accounts/login", "accounts/openMagpie",
+                "accounts/cancel", "accounts/refresh", "manageSystemAi", "setSystemAi", "bindSystemAi",
+                "bindSystemAiModel", "reorderSystemAi", "restoreSystemAi", "deleteSystemAiGroup",
+                "jev/status", "jev/connect", "jev/enable", "jev/futureOperation",
+                "account/login/start", "account/login/cancel", "account/login/futureOperation",
+                "capture/read", "capture/request", "capture/accept", "capture/dismiss",
+                "capture/openConversation", "capture/futureOperation", "interrupt", "cancelQueued", "readTaskDetail",
+                "requests/futureMutation", "accounts/futureMutation", "composer/futureMutation"}) {
+            check("PERMISSION_DENIED".equals(AgentOpenAccessPolicy.denial(method, scope -> {
+                try { return store.check(app, scope).getBoolean("allowed"); }
+                catch (Exception failure) { throw new AssertionError(failure); }
+            })), "control-only caller must receive PERMISSION_DENIED: " + method);
+            check(AgentOpenAccessPolicy.denial(method, scope -> true) == null,
+                    "explicit root/local-agent access remains available: " + method);
+        }
+        for (String method : new String[]{"readSystemAi", "requests/list", "requests/read", "accounts/read",
+                "accounts/keys", "composer/read", "composer/receipt", "composer/options/read",
+                "skills/read", "reactions/options", "reactions/list", "reactions/set"}) {
+            check(AgentOpenAccessPolicy.denial(method, "taku.control"::equals) == null,
+                    "ordinary control access must remain available: " + method);
+        }
+    }
     private static void check(boolean cond, String msg) {
         if (!cond) throw new AssertionError(msg);
     }
@@ -65,6 +96,14 @@ public final class AppPermissionPolicyTest {
                 "manual UI grant allows memory.read");
         check(!store.check(catalog.getJSONObject(0), "taku.root").getBoolean("allowed"),
                 "ungranted root stays denied");
+        store.setScope("com.user.habit", "taku.control", true, "ui", catalog);
+        controlCannotEscalate(store, catalog.getJSONObject(0));
+        store.setScope("com.user.habit", "taku.root", true, "ui", catalog);
+        check(AgentOpenAccessPolicy.denial("composer/submit", scope -> {
+            try { return store.check(catalog.getJSONObject(0), scope).getBoolean("allowed"); }
+            catch (Exception failure) { throw new AssertionError(failure); }
+        }) == null, "explicit manual root grant permits sensitive operations");
+        store.setScope("com.user.habit", "taku.root", false, "ui", catalog);
 
         // 3. Certificate rotation invalidates manual grant (anti-package-hijack).
         JSONObject hijacked = app("com.user.habit", "Habit", "evil99", "evil99:11:2", true);
@@ -81,6 +120,7 @@ public final class AppPermissionPolicyTest {
                 "auto mode never auto-grants memory.write");
         check(!store.check(catalog.getJSONObject(0), "taku.root").getBoolean("allowed"),
                 "auto mode never auto-grants taku.root");
+        controlCannotEscalate(store, catalog.getJSONObject(0));
 
         // 5. YOLO mode opens non-root scopes, keeps root off until allowRootInYolo=true,
         //    and materializes effective scopes cleanly when toggling one scope off.
@@ -89,6 +129,7 @@ public final class AppPermissionPolicyTest {
                 "yolo mode opens memory.write");
         check(!store.check(catalog.getJSONObject(1), "taku.root").getBoolean("allowed"),
                 "yolo mode keeps root closed when allowRootInYolo is false");
+        controlCannotEscalate(store, catalog.getJSONObject(1));
         JSONObject afterToggle = store.setScope("com.example.shop", "memory.write", false, "ui", catalog);
         JSONArray apps = afterToggle.getJSONArray("apps");
         JSONObject shop = null;

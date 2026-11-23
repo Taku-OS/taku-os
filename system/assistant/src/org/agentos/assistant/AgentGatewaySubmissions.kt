@@ -140,7 +140,7 @@ internal class AgentGatewaySubmissions(private val root: File) {
                 finish(receipt, reservation)
             } catch (failed: Exception) {
                 val task = reservation.optString("taskId")
-                val published = Pattern.matches("[0-9]+", task) && File(File(AssistantSession.TASKS, task), "ready").isFile
+                val published = Pattern.matches("[0-9]+", task) && File(File(TaskRuntime.TASKS, task), "ready").isFile
                 reservation.put("state", if (published) "queued" else "deliveryUnknown")
                 try { finish(receipt, reservation) } catch (ignored: Exception) { }
             }
@@ -199,6 +199,54 @@ internal class AgentGatewaySubmissions(private val root: File) {
         }
     }
 
+    fun lookup(requestId: String, threadId: String, text: String, turnId: String? = null, panel: JSONObject? = null, composer: Boolean = false): JSONObject {
+        val name = if (turnId == null) "$requestId.json" else "steer-$requestId.json"
+        val file = File(root, name)
+        val missing = JSONObject().put("requestId", requestId).put("threadId", threadId).put("state", "missing")
+        if (!file.isFile) return missing
+        val saved = read(file)
+        val hash = digest(if (turnId == null) "$threadId\n$text" else "steer\n$threadId\n$turnId\n$text")
+        if (requestId != saved.optString("requestId") || threadId != saved.optString("threadId") || hash != saved.optString("hash"))
+            throw IOException("REQUEST_ID_REUSED")
+        val receipt = publicReceipt(saved)
+        val state = receipt.getString("state")
+        val fallback = turnId != null && (state == "fallbackPublishing" || receipt.optJSONObject("result")?.optBoolean("queuedAfterTurn") == true || state == "deliveryUnknown" && receipt.has("taskId"))
+        if (state == "notSent") return receipt
+        if (turnId != null && !fallback && state == "accepted") return receipt
+        val published = (turnId == null || fallback) && matchesPublishedTask(receipt.optString("taskId"), threadId, text, panel, requestId.takeIf { composer })
+        if (!published) {
+            receipt.put("state", "deliveryUnknown").remove("result")
+        } else if (fallback) {
+            receipt.put("state", "accepted").put("result", JSONObject().put("queuedAfterTurn", true))
+        } else {
+            receipt.put("state", "queued")
+        }
+        return receipt
+    }
+
+    @Throws(Exception::class)
+    fun requireLiveTask(requestId: String, threadId: String, text: String, taskId: String) {
+        val receipt = lookup(requestId, threadId, text)
+        if (receipt.optString("state") != "queued") throw IOException("LIVE_TASK_UNCONFIRMED")
+        if (receipt.optString("taskId") != taskId) throw IOException("LIVE_TASK_MISMATCH")
+        val request = read(File(File(TaskRuntime.TASKS, taskId), "request.json"))
+        if (request.has("composerRequestId") || request.has("kind")) throw IOException("LIVE_TASK_MISMATCH")
+    }
+
+    private fun matchesPublishedTask(task: String, thread: String, text: String, panel: JSONObject?, composerRequestId: String?): Boolean {
+        if (!task.matches(Regex("[0-9]{1,20}"))) return false
+        val directory = File(TaskRuntime.TASKS, task)
+        if (!File(directory, "ready").isFile) return false
+        val request = try { read(File(directory, "request.json")) } catch (_: Exception) { return false }
+        if (request.optString("id") != task || request.optString("conversationId") != thread || request.optString("prompt") != text) return false
+        if (composerRequestId != null && request.optString("composerRequestId") != composerRequestId) return false
+        if (panel == null) return !request.has("panelUpdate")
+        val binding = request.optJSONObject("panelUpdate") ?: return false
+        return arrayOf("requestId", "panelId", "originThreadId", "matterId", "sourceVersion").all { key ->
+            panel.has(key) && binding.has(key) && panel.get(key).toString() == binding.get(key).toString()
+        }
+    }
+
     companion object {
         private val instances = HashMap<String, AgentGatewaySubmissions>()
         @JvmStatic
@@ -214,7 +262,7 @@ internal class AgentGatewaySubmissions(private val root: File) {
             val receipt = publicReceipt(read(file))
             if (receipt.optString("state") in setOf("publishing", "deliveryUnknown")) {
                 val task = receipt.optString("taskId")
-                val published = task.matches(Regex("[0-9]{1,20}")) && File(File(AssistantSession.TASKS, task), "ready").isFile
+                val published = task.matches(Regex("[0-9]{1,20}")) && File(File(TaskRuntime.TASKS, task), "ready").isFile
                 receipt.put("state", if (published) "queued" else "deliveryUnknown")
             }
             return receipt

@@ -2,13 +2,13 @@ package org.agentos.tests;
 
 import android.system.Os;
 import android.system.OsConstants;
-import com.android.uiautomator.core.*;
-import com.android.uiautomator.testrunner.UiAutomatorTestCase;
+import android.view.accessibility.AccessibilityNodeInfo;
+import com.android.uiautomator.core.Configurator;
 import java.io.*;
 import org.json.*;
 
 /** Live model, real Stop button, nested processes, sibling turn and prior-session preservation. */
-public final class TurnCancellationTest extends UiAutomatorTestCase {
+public final class TurnCancellationTest extends AgentInterfaceTest {
     private static final String ROOT = "/data/local/tmp/taku-turn-cancellation/";
     private final String prefix = ROOT + System.currentTimeMillis() + "-";
     private JSONObject object(String key, Object value) throws Exception { return new JSONObject().put(key, value); }
@@ -62,7 +62,7 @@ public final class TurnCancellationTest extends UiAutomatorTestCase {
     }
     private String command(String name, boolean nested) {
         return "/system/bin/sh -c 'echo $$ > " + prefix + name + ".pid; "
-                + (nested ? "trap \"\" TERM; /system/bin/sleep 120 & wait" : "/system/bin/sleep 120") + "'";
+                + (nested ? "trap \"\" TERM; /system/bin/sleep 120 & echo $! > " + prefix + "child.pid; wait" : "/system/bin/sleep 120") + "'";
     }
     private void cleanupFixture(String name) {
         // Only the process group recorded by this test command, verified through its environment marker path.
@@ -76,6 +76,7 @@ public final class TurnCancellationTest extends UiAutomatorTestCase {
     }
     public void testStopOwnsOnlyCurrentTurn() throws Exception {
         Configurator.getInstance().setWaitForIdleTimeout(0).setWaitForSelectorTimeout(3000);
+        connect();
         new File(ROOT).mkdirs();
         String target = thread(), sibling = thread();
         String siblingTurn = "";
@@ -88,34 +89,43 @@ public final class TurnCancellationTest extends UiAutomatorTestCase {
             siblingTurn = start(sibling, "Use exec_command to run exactly: " + command("sibling", false) + ". Wait for completion; no other commands.");
             int siblingPid = pid("sibling");
             String turn = start(target, "Use exec_command to run exactly: " + command("target", true) + ". Wait for completion; no other commands.");
-            int targetPid = pid("target");
+            int targetPid = pid("target"), childPid = pid("child");
             assertTrue(live(targetPid));
-            assertEquals(0, new ProcessBuilder("/system/bin/am", "start", "-n", "org.agentos.assistant/.PanelActivity", "--es", "conversationId", target).start().waitFor());
-            UiObject stop = new UiObject(new UiSelector().packageName("org.agentos.assistant").description("停止当前执行"));
-            assertTrue("Actual Stop button required", stop.waitForExists(10000));
-            long stoppedAt = System.nanoTime(); assertTrue(stop.click());
+            assertTrue(live(childPid));
+            open(target);
+            AccessibilityNodeInfo stop = findExpo("Stop this turn", "停止本轮", 10000);
+            assertNotNull("Actual Expo Stop button required", stop);
+            long stoppedAt = System.nanoTime();
+            click(stop);
             assertEquals("interrupted", ended(target, turn).getString("status"));
-            JSONObject state = NativeSocketProbe.exchange(object("op", "state").put("threadId", target));
-            JSONObject cleanup = state.getJSONObject("cancellationCleanup");
-            assertTrue("Linux child cleanup must be independently confirmed", cleanup.getBoolean("complete"));
-            assertTrue(cleanup.getInt("trackedProcesses") >= 2);
-            assertFalse("Nested target shell must be gone", live(targetPid));
+            long deadline = System.nanoTime() + 5_000_000_000L;
+            while ((live(targetPid) || live(childPid)) && System.nanoTime() < deadline) sleep(100);
+            assertFalse("Target shell must exit", live(targetPid));
+            assertFalse("Nested target process must exit", live(childPid));
             assertTrue("Prior turn's persistent session must survive", live(priorPid));
             assertTrue("Different thread's command must survive", live(siblingPid));
             double seconds = (System.nanoTime() - stoppedAt) / 1_000_000_000.0;
             String followup = start(target, "Execute /system/bin/sleep 3, then reply exactly TAKU_CANCEL_RECOVERED. Do not execute other commands.");
             boolean staleRejected = false;
-            try { rpc("turn/interrupt", object("threadId", target).put("turnId", turn)); }
-            catch (IOException rejected) { staleRejected = rejected.getMessage().contains("目标回合已结束"); }
-            assertTrue("Late Stop for the old turn must not interrupt the next turn", staleRejected);
+            try { access("interrupt", object("threadId", target).put("turnId", turn)); }
+            catch (IOException rejected) { staleRejected = "TURN_CHANGED".equals(rejected.getMessage()); }
+            assertTrue("Open Access must reject Stop for the old turn", staleRejected);
             JSONObject reply = ended(target, followup);
             assertEquals("completed", reply.getString("status"));
-            assertTrue(reply.toString().contains("TAKU_CANCEL_RECOVERED"));
+            JSONArray items = reply.getJSONArray("items");
+            boolean recovered = false;
+            for (int i = 0; i < items.length(); i++) {
+                JSONObject item = items.getJSONObject(i);
+                if ("agentMessage".equals(item.optString("type")) && item.optString("text").contains("TAKU_CANCEL_RECOVERED")) {
+                    recovered = true;
+                    break;
+                }
+            }
+            assertTrue("An Agent reply confirms the next turn completed", recovered);
             JSONObject evidence = new JSONObject().put("realUpstream", true).put("realStopButton", true)
                     .put("nativeInterrupted", true).put("nestedProcessGone", true).put("previousSessionPreserved", true)
                     .put("siblingThreadPreserved", true).put("followupModelReply", true).put("stopSeconds", seconds)
-                    .put("staleStopRejected", staleRejected)
-                    .put("cleanup", cleanup).put("physicalDeviceVerified", false);
+                    .put("staleStopRejected", staleRejected).put("physicalDeviceVerified", false);
             try (FileOutputStream out = new FileOutputStream(ROOT + "acceptance.json")) { out.write(evidence.toString(2).getBytes("UTF-8")); }
         } finally {
             if (!siblingTurn.isEmpty()) try { rpc("turn/interrupt", object("threadId", sibling).put("turnId", siblingTurn)); } catch (Exception ignored) { }

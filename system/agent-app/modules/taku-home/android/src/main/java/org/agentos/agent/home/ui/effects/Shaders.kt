@@ -296,40 +296,6 @@ object Shaders {
   """
 
   /**
-   * One "Taku is working" layer (1-4/1-5 "working gradient"): a CSS/Figma inset shadow of the
-   * frame's rounded rect — blur 32 (σ16), its own 4 dp offset, one colour. The inset shadow is
-   * the blurred outside of the frame shifted by [offset]: ~½ at the edge, falling off as erfc,
-   * slightly thicker on the side the offset points away from. 1 − Φ(z) uses the logistic
-   * approximation Φ(z) ≈ 1 / (1 + e^(−1.702 z)). Output is premultiplied; the caller picks the
-   * Figma blend mode (plus-lighter or normal).
-   */
-  private const val EDGE_GLOW = """
-    uniform float2 size;
-    uniform float radius;
-    uniform float sigma;
-    uniform float2 offset;
-    uniform float strength;
-    uniform half3 color;
-
-    float sdFrame(float2 p) {
-      float2 c = size * 0.5;
-      float2 d = abs(p - c) - (c - radius);
-      return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0) - radius;
-    }
-
-    half4 main(float2 p) {
-      float frame = sdFrame(p);
-      if (frame > 1.5) return half4(0.0);
-      // Distance inside the shifted hole; the shadow is what the hole does not cover.
-      float inside = -sdFrame(p - offset);
-      float g = 1.0 / (1.0 + exp(1.702 * inside / sigma)) * smoothstep(0.0, 1.5, 1.5 - frame);
-      float alpha = clamp(g * strength, 0.0, 1.0);
-      if (alpha < 0.003) return half4(0.0);
-      return half4(color * alpha, alpha);
-    }
-  """
-
-  /**
    * Bottom edge of the island's text (1-4 "Live edge refraction · Bottom"): within [edge]
    * px of the bottom the content is magnified horizontally by up to (1 + flare), split
    * R/B by `dispersion · t²`, blurred progressively up to [maxSigma] and faded out, so
@@ -353,20 +319,6 @@ object Shaders {
       shader.setFloatUniform("glow", glow)
       shader.setFloatUniform("canvas", canvas.red, canvas.green, canvas.blue)
       return RenderEffect.createChainEffect(RenderEffect.createRuntimeShaderEffect(shader, "content"), gaussian(blurSigma * appear))
-    }
-  }
-
-  /** One [EDGE_GLOW] layer; update per frame and draw with a ShaderBrush and the layer's blend mode. */
-  class EdgeGlow {
-    val shader = RuntimeShader(EDGE_GLOW)
-    /** [offsetX]/[offsetY] are the Figma shadow offset in px (e.g. green 0, −4 dp). */
-    fun update(width: Float, height: Float, radius: Float, density: Float, offsetX: Float, offsetY: Float, strength: Float, color: androidx.compose.ui.graphics.Color) {
-      shader.setFloatUniform("size", width, height)
-      shader.setFloatUniform("radius", radius)
-      shader.setFloatUniform("sigma", 16f * density)
-      shader.setFloatUniform("offset", offsetX, offsetY)
-      shader.setFloatUniform("strength", strength)
-      shader.setFloatUniform("color", color.red, color.green, color.blue)
     }
   }
 

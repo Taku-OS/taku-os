@@ -431,6 +431,6 @@ or crashing spec (never a blank card).
 * **Glass**: React Native cannot blur what is behind it. Sub-surfaces that are blurred in the design
   (Uber option row, Instagram front post, slide thumb) use their flat translucent token (`surface/800`, `surface/900`).
 * **Pin glyphs** used by the sample: `sun`, `moon`, `car`, `lock`, `list` (`PixelGlyphs.kt` must define them).
-* **Ask-Taku hand-off**: `org.agentos.agent/.MainActivity` reads `org.agentos.agent.extra.DRAFT` via
-  `TakuAgent.launchDraft()` (returns once, then clears) and the `onDraft` event (new intent while running).
-  The conversation screen appends the text to the composer of the current conversation; it never sends it.
+* **Ask Taku handoff**. The Feed creates a conversation and saves the prompt as its editable draft.
+  The Feed opens `org.agentos.agent/.MainActivity` with the saved `threadId` after the commit.
+  A successful action returns the `threadId`, `draft`, and `eventCursor`. The handoff never submits a request.

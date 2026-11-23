@@ -16,6 +16,31 @@ class AppDragTest {
   private val grid = GridGeometry(origin = Offset.Zero, cellWidth = 83f, rowHeight = 103f, gapX = 16f, gapY = 16f, plate = 83f)
   private val apps = listOf("a", "b", "c", "d").map { Slot.App(it) }
 
+  @Test fun compactIconsKeepTheirVisibleBoundsWhenPickedUpAndTargeted() {
+    val compact = GridGeometry(Offset(16f, 100f), 83f, 80f, 16f, 16f, 60f)
+    val first = compact.plateRect(0)
+    assertEquals(Rect(27.5f, 100f, 87.5f, 160f), first)
+    val d = AppDragState().apply {
+      grids[0] = compact
+      base = { apps.drop(1) }
+      shown = { apps }
+      page = 0
+      start(DragItem(apps[0], "a", null), first.center, first, DropTarget(0, 0))
+    }
+    assertEquals(60f, d.iconSize, 0f)
+    assertEquals(Offset(30f, 30f), d.grab)
+    val target = compact.plateRect(1).center
+    d.move(target, now = 1_000)
+    d.move(target, now = 1_400)
+    assertEquals("b", d.target?.intoKey)
+  }
+
+  @Test fun compressedRowsUseTheRenderedIconSizeForTheirDropTargets() {
+    val compact = GridGeometry(Offset.Zero, 83f, 80f, 16f, 16f, 60f,
+      cells = listOf(Rect(0f, 0f, 83f, 64f)), plateSizes = listOf(44f))
+    assertEquals(Rect(19.5f, 0f, 63.5f, 44f), compact.plateRect(0))
+  }
+
   private fun drag(): AppDragState = AppDragState().apply {
     grids[0] = grid
     base = { apps.drop(1) }

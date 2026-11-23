@@ -14,6 +14,9 @@ $(call inherit-product, device/generic/goldfish/64bitonly/product/sdk_phone64_ar
 $(call inherit-product, vendor/lineage/config/common_full_phone.mk)
 $(call inherit-product, vendor/taku/image/taku.mk)
 
+# Live Talk attaches this effect to its VOICE_COMMUNICATION AudioRecord session.
+PRODUCT_PACKAGES += libaudiopreprocessing
+
 PRODUCT_NAME := lineage_taku_emu_arm64
 PRODUCT_DEVICE := taku_emu64a
 PRODUCT_BRAND := Taku

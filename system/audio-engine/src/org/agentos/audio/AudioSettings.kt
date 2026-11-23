@@ -17,6 +17,13 @@ internal data class AudioFalSettings(
     val models: List<AudioFalModel>,
     val error: AudioFalError?
 )
+internal enum class AudioLiveProvider(val profileId: String) {
+    GROK(AudioProfiles.LIVE_GROK),
+    GEMINI(AudioProfiles.LIVE_GEMINI)
+}
+internal enum class AudioGeminiError { KEY_UNREADABLE }
+internal data class AudioGeminiSettings(val configured: Boolean, val masked: String?, val error: AudioGeminiError?)
+internal data class AudioLiveSettings(val provider: AudioLiveProvider, val configured: Boolean, val gemini: AudioGeminiSettings)
 internal data class AudioSettingsSnapshot(
     val enabled: Boolean,
     val audioEnabled: Boolean,
@@ -24,6 +31,7 @@ internal data class AudioSettingsSnapshot(
     val audioRevision: Long,
     val reading: Map<String, AudioReadingSettings>,
     val fal: AudioFalSettings,
+    val live: AudioLiveSettings,
     val dictation: DictationSettingsView
 ) {
     fun toJson(): JSONObject {
@@ -38,6 +46,9 @@ internal data class AudioSettingsSnapshot(
             .put("fal", JSONObject().put("configured", fal.configured).put("masked", fal.masked ?: JSONObject.NULL)
                 .put("model", fal.model).put("models", models).put("realtimeAvailable", false)
                 .put("error", fal.error?.name ?: JSONObject.NULL))
+            .put("live", JSONObject().put("configured", live.configured).put("profileId", live.provider.profileId)
+                .put("gemini", JSONObject().put("configured", live.gemini.configured)
+                    .put("masked", live.gemini.masked ?: JSONObject.NULL).put("error", live.gemini.error?.name ?: JSONObject.NULL)))
     }
 }
 
@@ -49,6 +60,12 @@ internal sealed class AudioSettingsCommand {
     }
     object RemoveFalKey : AudioSettingsCommand()
     data class SelectFalModel(val model: String) : AudioSettingsCommand()
+    class SaveLiveKey(private val key: String) : AudioSettingsCommand() {
+        internal fun addKey(request: JSONObject) { request.put("key", key) }
+        override fun toString() = "SaveLiveKey([redacted])"
+    }
+    object RemoveLiveKey : AudioSettingsCommand()
+    data class SelectLiveProvider(val provider: AudioLiveProvider) : AudioSettingsCommand()
     data class SetAudioEnabled(val enabled: Boolean) : AudioSettingsCommand()
     data class ConfigureReading(val language: String, val voiceId: String, val speed: Double) : AudioSettingsCommand()
     data class ResetReading(val language: String) : AudioSettingsCommand()
@@ -72,9 +89,10 @@ internal object AudioSettings {
             if (tokens.nextClean() != '\u0000') invalid()
             val action = string(request, "action")
             val fields = when (action) {
-                "read", "removeFalKey" -> setOf("action")
-                "saveFalKey" -> setOf("action", "key")
+                "read", "removeFalKey", "removeLiveKey" -> setOf("action")
+                "saveFalKey", "saveLiveKey" -> setOf("action", "key")
                 "selectFalModel" -> setOf("action", "model")
+                "selectLiveProvider" -> setOf("action", "profileId")
                 "setAudioEnabled" -> setOf("action", "enabled")
                 "configureReading" -> setOf("action", "language", "voiceId", "speed")
                 "resetReading" -> setOf("action", "language")
@@ -88,6 +106,9 @@ internal object AudioSettings {
                 "saveFalKey" -> AudioSettingsCommand.SaveFalKey(string(request, "key"))
                 "removeFalKey" -> AudioSettingsCommand.RemoveFalKey
                 "selectFalModel" -> AudioSettingsCommand.SelectFalModel(string(request, "model"))
+                "saveLiveKey" -> AudioSettingsCommand.SaveLiveKey(string(request, "key"))
+                "removeLiveKey" -> AudioSettingsCommand.RemoveLiveKey
+                "selectLiveProvider" -> AudioSettingsCommand.SelectLiveProvider(liveProvider(string(request, "profileId")) ?: invalid())
                 "setAudioEnabled" -> AudioSettingsCommand.SetAudioEnabled(request.opt("enabled") as? Boolean ?: invalid())
                 "configureReading" -> {
                     val speed = (request.opt("speed") as? Number)?.toDouble() ?: invalid()
@@ -139,6 +160,9 @@ internal object AudioSettings {
             is AudioSettingsCommand.SaveFalKey -> { put("action", "saveFalKey"); command.addKey(this) }
             AudioSettingsCommand.RemoveFalKey -> put("action", "removeFalKey")
             is AudioSettingsCommand.SelectFalModel -> put("action", "selectFalModel").put("model", command.model)
+            is AudioSettingsCommand.SaveLiveKey -> { put("action", "saveLiveKey"); command.addKey(this) }
+            AudioSettingsCommand.RemoveLiveKey -> put("action", "removeLiveKey")
+            is AudioSettingsCommand.SelectLiveProvider -> put("action", "selectLiveProvider").put("profileId", command.provider.profileId)
             is AudioSettingsCommand.SetAudioEnabled -> put("action", "setAudioEnabled").put("enabled", command.enabled)
             is AudioSettingsCommand.ConfigureReading -> put("action", "configureReading").put("language", command.language)
                 .put("voiceId", command.voiceId).put("speed", command.speed)
@@ -176,11 +200,19 @@ internal object AudioSettings {
         check(!boolean(fal, "realtimeAvailable"))
         val masked = if (fal.isNull("masked")) null else text(fal, "masked")
         val falError = if (fal.isNull("error")) null else AudioFalError.valueOf(text(fal, "error"))
+        val live = value.getJSONObject("live")
+        val provider = liveProvider(text(live, "profileId")) ?: error("Invalid Live Talk provider")
+        val gemini = live.getJSONObject("gemini")
+        val geminiMasked = if (gemini.isNull("masked")) null else text(gemini, "masked")
+        val geminiError = if (gemini.isNull("error")) null else AudioGeminiError.valueOf(text(gemini, "error"))
         return AudioSettingsSnapshot(boolean(value, "enabled"), boolean(value, "audioEnabled"),
             revision("systemRevision"), revision("audioRevision"), Collections.unmodifiableMap(reading),
             AudioFalSettings(boolean(fal, "configured"), masked, text(fal, "model"), Collections.unmodifiableList(models), falError),
+            AudioLiveSettings(provider, boolean(live, "configured"), AudioGeminiSettings(boolean(gemini, "configured"), geminiMasked, geminiError)),
             DictationResolver(context).inspect(value))
     }
+
+    private fun liveProvider(profileId: String): AudioLiveProvider? = AudioLiveProvider.entries.firstOrNull { it.profileId == profileId }
 
     private fun string(request: JSONObject, key: String): String = request.opt(key) as? String ?: invalid()
     private fun invalid(): Nothing = throw failure("INVALID_ARGUMENT")

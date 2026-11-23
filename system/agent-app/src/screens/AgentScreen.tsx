@@ -4,7 +4,7 @@ import {AgentChatScreen} from '../components/AgentChatScreen';
 import {GenUiCard} from '../components/GenUiCard';
 import {useAgentController} from '../hooks/useAgentController';
 import {useTakuFonts} from '../theme/useTakuFonts';
-import {chatColors} from '../chat/chatTheme';
+import {chatColors, themedStyles, useChatAppearance} from '../chat/chatTheme';
 import {AgentMarkdown} from '../native/Markdown';
 import {collapseToIsland, launchDraft, onDraft} from '../native/agent';
 import type {Language} from '../i18n';
@@ -15,6 +15,7 @@ import type {MessagePart} from '../model/session';
 const renderMarkdown = (text: string, active: boolean, itemId: string) => <AgentMarkdown key={itemId} text={text} active={active}/>;
 
 export default function AgentScreen() {
+  const appearance = useChatAppearance();
   const controller = useAgentController();
   // The controller owns the one surface signal: the app is in front and the conversation Activity
   // is started, so a chat still mounted behind Taku Home reports hidden and its cards go quiet.
@@ -58,7 +59,9 @@ export default function AgentScreen() {
   const {onClose} = controller;
   const collapse = useCallback(() => { collapseToIsland(threadId).catch(onClose); }, [threadId, onClose]);
   if (!fonts && !fontError) return <View style={styles.loading}><ActivityIndicator color={chatColors.textPrimary}/></View>;
-  return <AgentChatScreen {...controller} renderMarkdown={renderMarkdown} renderCard={renderCard} onCollapse={collapse}/>;
+  // A background switch remounts the chat's views (not the controller, so the draft and thread stay),
+  // so every surface, the native window tint included, takes the new palette at once.
+  return <AgentChatScreen key={appearance} {...controller} renderMarkdown={renderMarkdown} renderCard={renderCard} onCollapse={collapse}/>;
 }
 
-const styles = StyleSheet.create({loading: {flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: chatColors.backdropFallback}});
+const styles = themedStyles(() => StyleSheet.create({loading: {flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: chatColors.backdropFallback}}));

@@ -1,0 +1,26 @@
+{
+  "file": "hanken_grotesk_semibold.ttf",
+  "sha256": "54d3768cd1098630ed714a95c3dcbed6c876cb03c85f34c013f6b357d14f5e5d",
+  "bytes": 67848,
+  "family": "Hanken Grotesk",
+  "weight": 600,
+  "fontVersion": "3.013",
+  "license": "SIL Open Font License 1.1 (../licenses/HankenGrotesk-OFL.txt; the same family as the bundled Regular and Medium)",
+  "usage": "Home onboarding one-time ChatGPT device code (Figma Sub Heading/lg, node 1379:2448), TakuTypography.subHeadingLg.",
+  "source": {
+    "url": "https://raw.githubusercontent.com/google/fonts/714891563e901b1a0d8ebcaaa003b01604793888/ofl/hankengrotesk/HankenGrotesk%5Bwght%5D.ttf",
+    "repository": "google/fonts",
+    "commit": "714891563e901b1a0d8ebcaaa003b01604793888",
+    "path": "ofl/hankengrotesk/HankenGrotesk[wght].ttf",
+    "sha256": "813b3f8fa0965405669a89b38e51bbefd95eef6b8e20d1cb2d8c10cce062662f"
+  },
+  "derivation": {
+    "tool": "fontTools 4.68.0, fontTools.varLib.instancer",
+    "steps": [
+      "font = TTFont(source, recalcTimestamp=False)",
+      "static = instancer.instantiateVariableFont(font, {\"wght\": 600}, updateFontNames=True)",
+      "static.recalcTimestamp = False; static.save(file)"
+    ],
+    "verification": "The same steps at wght 400 and 500 reproduce the bundled hanken_grotesk_regular.ttf (0a4cb26a…) and hanken_grotesk_medium.ttf (bb9e176e…) byte for byte, so this weight is cut exactly as they were. No glyphs were added, removed or edited."
+  }
+}

@@ -2,7 +2,6 @@ package org.agentos.assistant;
 
 import android.app.Activity;
 import android.content.Context;
-import android.content.Intent;
 import android.content.res.Configuration;
 import android.graphics.Typeface;
 import android.view.View;
@@ -53,15 +52,42 @@ final class WorkspaceUi {
         navigation(box, s(R.string.workspace_breadcrumb), back);
         ui.add(box, ui.text(title, 27, true), 8); root.addView(box);
     }
+    static NativeToolPresentation.Labels toolLabels(Context context) {
+        return (key, arguments) -> {
+            int resource;
+            switch (key) {
+                case "device_info": resource = R.string.chat_tool_device_info; break;
+                case "observe_background": resource = R.string.chat_tool_observe_background; break;
+                case "open_app": resource = R.string.chat_tool_open_app; break;
+                case "tap": resource = R.string.chat_tool_tap; break;
+                case "type_text": resource = R.string.chat_tool_type_text; break;
+                case "command": resource = R.string.chat_tool_command; break;
+                case "file_change": resource = R.string.chat_tool_file_change; break;
+                case "extension": resource = R.string.chat_tool_extension; break;
+                case "web_search": resource = R.string.chat_tool_web_search; break;
+                case "compaction": resource = R.string.chat_tool_compaction; break;
+                case "collaboration": resource = R.string.chat_tool_collaboration; break;
+                case "review_enter": resource = R.string.chat_tool_review_enter; break;
+                case "review_exit": resource = R.string.chat_tool_review_exit; break;
+                case "working": resource = R.string.chat_tool_working; break;
+                case "completed": resource = R.string.chat_tool_completed; break;
+                case "failed": resource = R.string.chat_tool_failed; break;
+                case "declined": resource = R.string.chat_tool_declined; break;
+                case "interrupted": resource = R.string.chat_tool_interrupted; break;
+                case "cancelled": resource = R.string.chat_tool_cancelled; break;
+                case "pending": resource = R.string.chat_tool_pending; break;
+                case "image_result": resource = R.string.chat_tool_image_result; break;
+                case "exit_code": resource = R.string.chat_tool_exit_code; break;
+                case "output_tail": resource = R.string.chat_tool_output_tail; break;
+                default: resource = R.string.chat_tool_call;
+            }
+            return context.getString(resource, arguments);
+        };
+    }
     String taskLabel(JSONObject screen) {
         String title = screen.optString("taskTitle").trim();
         if (title.isEmpty()) title = screen.optString("label").trim();
         return title.isEmpty() ? s(R.string.workspace_task_fallback) : title;
-    }
-    void detail(JSONObject screen) {
-        Intent intent = new Intent(activity, WorkspaceDetailActivity.class);
-        for (String key : new String[]{"threadId", "screenKey", "generation"}) intent.putExtra(key, screen.optString(key));
-        activity.startActivity(intent);
     }
     static JSONObject request(String action, JSONObject screen) throws Exception {
         JSONObject request = new JSONObject().put("op", "workspaces").put("action", action);
@@ -108,15 +134,5 @@ final class WorkspaceUi {
         if (value.contains("DENIED") || value.contains("DISABLED") || value.contains("NOT_ALLOWED")) return s(R.string.workspace_error_policy);
         if (value.contains("LIMIT")) return s(R.string.workspace_error_limit);
         return s(R.string.workspace_action_failed);
-    }
-    void openTask(JSONObject screen) {
-        String thread = screen.optString("threadId");
-        if (!AgentRepository.validId(thread)) return;
-        activity.startActivity(new Intent(activity, PanelActivity.class).putExtra("conversationId", thread));
-    }
-    void preview(JSONObject screen) {
-        Intent intent = new Intent(activity, MirrorActivity.class);
-        for (String key : new String[]{"threadId", "screenKey", "generation"}) intent.putExtra(key, screen.optString(key));
-        activity.startActivity(intent);
     }
 }

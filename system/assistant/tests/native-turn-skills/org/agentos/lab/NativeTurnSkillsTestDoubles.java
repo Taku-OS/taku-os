@@ -66,6 +66,8 @@ final class NativeBridge {
     static final WorkspaceAdmissions admissions = new WorkspaceAdmissions();
     static final Map<Integer, Call> calls = new HashMap<>();
     static final Map<String, JSONObject> state = new HashMap<>();
+    static final Map<String, JSONObject> requests = new HashMap<>();
+    static final Map<String, String> phonePermissions = new HashMap<>();
     static final Queue<Call> inbox = new ArrayDeque<>();
     static CleanupWork.Held lock() { return new CleanupWork.Held(); }
     static void tick() throws Exception {

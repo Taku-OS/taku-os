@@ -1,0 +1,6 @@
+s1000.db: 1000 memories, 200 nodes; ranked lists identical for 16/16 queries
+  evidence vector top-30: 1.15 -> 0.57 ms | node lists: 0.67 -> 0.17 ms | whole in-memory ranking: 1.88 -> 0.99 ms (median)
+s10000.db: 10000 memories, 2000 nodes; ranked lists identical for 16/16 queries
+  evidence vector top-30: 10.31 -> 7.43 ms | node lists: 6.44 -> 2.18 ms | whole in-memory ranking: 18.34 -> 11.01 ms (median)
+s50000.db: 50000 memories, 10000 nodes; ranked lists identical for 16/16 queries
+  evidence vector top-30: 55.88 -> 38.99 ms | node lists: 30.88 -> 12.61 ms | whole in-memory ranking: 111.00 -> 57.09 ms (median)

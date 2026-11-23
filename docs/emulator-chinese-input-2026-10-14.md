@@ -14,6 +14,11 @@ It refuses to start if the same AVD is already running or a device on the same p
 `--configure-only` prepares configuration only; an already-running device still needs a cold restart for it to take effect.
 The script does not install APKs or automatically deploy the current branch to the device.
 
+For live voice testing, add `--allow-host-audio` when you launch the AVD. The emulator
+otherwise supplies silent microphone samples even with `hw.audioInput=yes`. If macOS
+prompts for microphone access, allow it for the emulator. A WAV replay through Android
+can pass while host microphone forwarding is disabled.
+
 In the native Android Emulator, the Mac Command key simulates multitouch; green dots and connecting lines indicate that mode, not Taku cards or input controls.
 Release Command, then click the text field to type.
 To pass shortcuts to Android, select the virtual device in emulator `… → Settings → General → Send keyboard

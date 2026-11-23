@@ -38,6 +38,23 @@ SELinux, and never targets another application. Its main process/notification mu
 SystemUI must survive, and the native fallback must remain usable. Close/reopen to test rebind.
 This verifies the host wire/window integration, not the Agent's Compose body or AI backend.
 
+## Crowded status bar / Notebook reading state
+
+On a matching build containing the capsule geometry fix, keep the normal status-bar
+icon settings and test with enough right-side icons to require native overflow.
+Trigger Notebook through the system screenshot entry while an app is foreground,
+or publish a building notification with the fixture. Check `cmd statusbar island
+list` and `cmd statusbar island state` alongside the visible camera-side loader
+and reading label, then expand the same activity. Notification delivery alone is
+not a successful presentation. Verify Notebook's presentation receipt through its
+current integration before its timeout; do not treat a withdrawn notification as
+a layout pass. Check the clock and non-collapsible end content remain visible.
+
+Repeat with fewer icons, a right/center clock, unequal status-bar padding and RTL;
+restore any changed settings afterward. The geometry host test covers allocation
+and centered reservation only. It does not establish Pixel/ROM rendering, Notebook
+delivery receipts, or Save / Send to / Edit actions.
+
 `cancel` removes the fixture notification. `reset` also clears its tap counter. After acceptance,
 uninstall only `org.agentos.island.fixture` from the selected emulator and remove its allow-list
 entry if the test environment is being handed over without the fixture.

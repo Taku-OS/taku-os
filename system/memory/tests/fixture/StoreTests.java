@@ -273,6 +273,8 @@ public final class StoreTests extends Instrumentation {
   JSONArray accepted=FeedFeedback.merge(null,events,"memory.nudge.6",t);
   check(accepted.length()==1&&FeedFeedback.reactions(accepted).equals(List.of("selected"))&&!accepted.getJSONObject(0).has("effect"),"durable accepted actions do not claim that an external app opened");
   check(FeedFeedback.merge(accepted,events,"memory.nudge.6",t)==null,"durable events deduplicate by cursor on reconnect");
+  JSONArray pinnedOnly=new JSONArray().put(new JSONObject().put("at",t).put("op","pin").put("origin","gui"));
+  check(FeedFeedback.handled(hidden)&&FeedFeedback.handled(used)&&FeedFeedback.handled(accepted)&&!FeedFeedback.handled(back)&&!FeedFeedback.handled(pinnedOnly)&&!FeedFeedback.handled(null),"removed, asked or selected on Home settles the reminder; pinned or restored does not");
   selected=new JSONObject(selected.toString()).put("cursor","epoch:61");
   JSONArray twice=FeedFeedback.merge(accepted,new JSONObject().put("events",new JSONArray().put(selected)),"memory.nudge.6",t);
   check(twice.length()==2,"distinct cursors preserve two identical selections in the same millisecond");
@@ -360,6 +362,8 @@ public final class StoreTests extends Instrumentation {
   check(s.ingest(source,"p","Title","A useful synthetic memory for tomorrow",generation-1)==null,"stale generation rejected");
   JSONObject first=s.ingest(source,"p","Synthetic","Tomorrow at 19:00 in Hangzhou. Four people.",generation);String id=first.getString("id");
   check(s.ingest(source,"p","Synthetic","Tomorrow at 19:00 in Hangzhou. Four people.",generation)==null,"exact observation deduplicated");
+  check(Recall.caseless("婷婷")&&Recall.caseless("3200")&&Recall.caseless("%'")&&Recall.caseless("1=1")&&!Recall.caseless("hangzhou")&&!Recall.caseless("ｈ")&&!Recall.caseless("é")&&!Recall.caseless("ǅ"),"only terms without cased letters use instr() instead of LIKE");
+  check(s.search("hangzhou 19:00",10).length()==1&&s.search("HANGZHOU 19:00",10).length()==1&&s.search("19:00 Hangzhou.",10).length()==1,"mixed LIKE and instr() terms still match case-insensitively");
   check(s.search("Hangzhou Four",10).length()==1,"multi-keyword retrieval");check(s.search("%' OR 1=1 --",10).length()==0,"query escaping");
   check(s.search("",1000).length()==1,"bounded read");
   s.analyzed(id,1,generation,"real-catalog-model","生活",.9,"organize",.8,"");
@@ -397,6 +401,8 @@ public final class StoreTests extends Instrumentation {
   check(page.getInt("total")==25&&page.getJSONArray("items").length()==20&&next.getJSONArray("items").length()==5,"library reaches records beyond first twenty");
   Set<String> ids=new HashSet<>();for(JSONObject part:new JSONObject[]{page,next}){JSONArray a=part.getJSONArray("items");for(int i=0;i<a.length();i++)check(ids.add(a.getJSONObject(i).getString("id")),"stable pagination has no duplicate");}
   check(s.search("",1000).length()==20,"Agent search remains capped at twenty");
+  long[] times=new long[10];s.search("Hangzhou",5,times);check(times[7]>0&&times[0]>0&&times[7]>=times[0],"a search can report its stage times");
+  s.lastPrune=System.currentTimeMillis();s.configure(new JSONObject());check(s.lastPrune==0,"changing settings makes the next search prune first");
   check(s.browse("100%_value","工作",source,20,0).getInt("total")==13,"literal wildcard text and exact category/source combine");
   check(s.browse("Synthetic","工作",other,20,0).getInt("total")==0,"filters intersect rather than union");
   check(s.browse("' OR 1=1 --","","",20,0).getInt("total")==0,"library query does not interpolate SQL");

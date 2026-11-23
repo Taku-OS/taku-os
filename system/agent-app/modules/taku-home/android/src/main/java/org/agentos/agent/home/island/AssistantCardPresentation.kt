@@ -12,6 +12,8 @@ fun assistantCardHeadline(s: AssistantState, v: VoiceState): String = when {
   s.error != null -> errorText(s.error)
   s.needsUser -> "Taku needs your confirmation to continue."
   v.target == VoiceTarget.Hold && v.phase == VoicePhase.Finalizing -> "Taku is finishing that, one moment."
+  // The microphone is not recording yet: say nothing rather than invite words that cannot be heard.
+  s.entry == EntryMode.Voice && v.target == VoiceTarget.Hold && v.phase == VoicePhase.Preparing -> ""
   assistantCardListening(s, v) -> "Taku is listening..."
   s.turn?.reply?.isNotBlank() == true && !s.working -> s.turn.reply
   s.turn?.headline != null -> s.turn.headline
@@ -32,6 +34,7 @@ private fun errorText(code: String) = when (code) {
   "VOICE_TIMEOUT" -> "Voice recognition took too long. Please try again."
   "VOICE_AUTH_FAILED" -> "Check your voice service credentials in Taku Audio settings."
   "VOICE_PROVIDER_UNAVAILABLE" -> "The voice service is temporarily unavailable. Please try again."
+  AssistantSession.VOICE_FAL_KEY_MISSING -> "Voice input needs a fal API key, and none is set up yet. Tap here to add your key."
   "VOICE_UNAVAILABLE" -> "Voice input isn’t available right now."
   else -> "Taku couldn’t send that. Try again."
 }

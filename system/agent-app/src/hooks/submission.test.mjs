@@ -1,19 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {isAcceptedReceipt, isNotSentReceipt, preserveAndReleaseUnconfirmed, requestReceiptWithRetry, retireAcceptedSubmission} from './submission.ts';
+import {isAcceptedReceipt, isNotSentReceipt, preserveAndReleaseUnconfirmed, retireAcceptedSubmission} from './submission.ts';
 
 const pending = {threadId: 'session-A', requestId: 'send-A', action: 'sendMessage', text: 'Check the screen'};
-
-test('lost receipt is checked once more using the identical request', async () => {
-  const seen = [];
-  const receipt = await requestReceiptWithRetry(async () => {
-    seen.push(pending.requestId);
-    if (seen.length === 1) throw new Error('transport lost');
-    return {...pending, state: 'queued'};
-  });
-  assert.deepEqual(seen, ['send-A', 'send-A']);
-  assert.equal(isAcceptedReceipt(pending, receipt), true);
-});
 
 test('continuing preserves an ambiguous request before releasing it, without touching the draft', async () => {
   let current = JSON.stringify(pending), archive = null, draft = 'a newer draft';

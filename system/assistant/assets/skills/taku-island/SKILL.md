@@ -55,6 +55,15 @@ visible activity (such as media or progress). Its notification remains available
 `expand KEY`; expanding it keeps that card selected until collapse. Read `state.presentation`
 to inspect the actual selected key and compact visibility.
 
+Every island SystemUI shows is drawn natively in the Taku design; there is no stock-widget
+fallback. `state.presentation.compact` (null when hidden) reports what the capsule shows:
+`text` (the pill, empty when only the disc fits), `disc` (`loader`, `pic`, `progress`,
+`working` or `listening`) and `secondary` (a second activity's disc). `state.presentation.card`
+reports `renderer` (`systemui-native`, or `remote-surface` once a rich body is ready) and, for
+non-assistant cards, `template:{title,body,actionCount,choices,progress}` read from the drawn
+views. A card whose content cannot be drawn closes with `reason` `render_failed:...` (or
+`window_failed:...` when it never opened) instead of staying on screen.
+
 ## Settings shared with the GUI
 
 Open Android Settings → Display → Activity island, or use the explicit activity:
@@ -123,3 +132,13 @@ A dismissed card stays dismissed during passive updates. A new voice entry, text
 explicit expand creates a fresh presentation request, including after process recovery.
 All card windows preserve the underlying app's input focus; swipe/header and the `collapse`
 command close them. Landscape closes expanded cards and restores the status bar.
+
+### Expanded Taku setup progress
+
+Simple setup progress cards use native, content-sized SystemUI chrome. `Close`
+only folds the card (`cmd statusbar island collapse`); it does not cancel sign-in.
+`Back to setup` uses the notification action shown by `get` / `list` (normally
+`cmd statusbar island action KEY '{"id":"open"}'`). The body remains the current
+notification text; expanding a sign-in does not mean onboarding is complete.
+`state` exposes `presentation.card.layout=native-progress`, `renderer`,
+`nativeReady`, `focusable`, and `progress.text` / `progress.buttonCount`.

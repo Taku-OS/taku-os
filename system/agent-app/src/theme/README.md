@@ -29,3 +29,11 @@ JetBrains Mono Regular is the upstream static TTF from
 https://github.com/JetBrains/JetBrainsMono/blob/master/fonts/ttf/JetBrainsMono-Regular.ttf
 (SHA256 `e6fd0d7e91550b3ed2b735d4312474362c4716edc4fc0577a0f61ed782d5aed1`,
 270224 bytes); its OFL is preserved in `licenses/JetBrainsMono-OFL.txt`.
+
+Hanken Grotesk SemiBold (`fonts/hanken_grotesk_semibold.ttf`, family
+`TakuBodySemiBold`, Android only) is the weight-600 instance of Google Fonts'
+`HankenGrotesk[wght].ttf` v3.013, cut with the fontTools instancer exactly as the
+bundled Regular and Medium were (the same recipe reproduces those two byte for
+byte). Source commit, hashes and steps are in
+`fonts/hanken_grotesk_semibold.source.json`; it shares `licenses/HankenGrotesk-OFL.txt`.
+Home uses it only for the onboarding device code (Figma Sub Heading/lg).

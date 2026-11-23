@@ -42,6 +42,16 @@ class VoiceDeliveryTest {
     assertEquals(VoiceEffect.None, delivery.settle(done, ""))
   }
 
+  @Test fun handoffClaimsFinalizationBeforeTheLegacySubmitCanRun() {
+    val delivery = VoiceDeliveryMachine(200)
+    delivery.begin(8, VoiceDestination.Submit)
+    val final = closed(8, VoiceOutcome.Success("original words"), target = VoiceTarget.Hold)
+    assertEquals(8L, delivery.handoff())
+    assertEquals(VoiceEffect.Live(8, "original words"), delivery.settle(final, "existing draft"))
+    assertEquals(VoiceEffect.None, delivery.settle(final, "existing draft"))
+    assertEquals(null, delivery.handoff())
+  }
+
   @Test fun textReleaseCanStillChooseTheDraftForACompletedRecording() {
     val delivery = VoiceDeliveryMachine(200)
     delivery.begin(9, VoiceDestination.AwaitGesture)

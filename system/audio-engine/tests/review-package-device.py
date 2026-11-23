@@ -105,23 +105,31 @@ def control(name, resource):
     raise AssertionError(f'{name}: control {resource} unavailable')
 
 
-def native_entry(nodes, page):
-    if page == 'settings':
-        return next((node for node in nodes if node.get('content-desc') == 'Taku Audio'), None)
-    return next((node for node in nodes if node.get('class') == 'android.widget.Button' and 'Taku Audio' in node.get('content-desc', '')), None)
+def open_access(authority, method):
+    raw = adb('shell', 'content', 'call', '--uri', f'content://{authority}', '--method', method)
+    match = re.fullmatch(r'Result: Bundle\[\{result=(.*)\}\]', raw)
+    assert match, f'{method}: no response envelope'
+    envelope = json.loads(match[1])
+    assert envelope['ok'], (method, envelope.get('code'))
+    return envelope['result']
 
 
-def inspect_entry(name, page, available):
+def inspect_entry(name, available):
+    detail = 'Voice, models, translation, and local reading' if available else 'Install or enable Taku Audio first'
     for attempt in range(14):
         nodes = capture(name)
-        node = native_entry(nodes, page)
-        if page == 'home' and not available and node is None:
-            return
-        if node is not None and (node.get('enabled') == 'true') == available and (node.get('clickable') == 'true') == available:
-            return node
-        swipe(nodes, down=attempt < 9)
+        row = next((node for node in nodes if node.get('package') == 'org.agentos.agent'
+                    and node.get('content-desc', '').startswith('Taku Audio, ' + detail)
+                    and node.get('clickable') == 'true'), None)
+        if row is not None:
+            settings = open_access('org.agentos.assistant.open-access', 'readSystemAi')
+            home = open_access('org.agentos.agent.home-layout', 'apps/list')
+            if settings['audioAvailable'] == available and any(app['package'] == PACKAGE for app in home['apps']) == available:
+                return row
+        else:
+            swipe(nodes, down=attempt < 9)
         time.sleep(.3)
-    raise AssertionError(f'{name}: Audio navigation availability did not become {available}')
+    raise AssertionError(f'{name}: Expo, System AI and Home catalog did not report Audio availability {available}')
 
 
 reports = []
@@ -149,24 +157,24 @@ try:
         control('page-extra-' + page, 'audio_' + ('home' if page == 'falCredential' else page) + '_page')
         idle('page-extra-' + page)
     reports.append({'closedPageExtras': True, 'pageNavigationKeptAudioIdle': True, 'launcherReentryReachedHub': True})
-    for page, activity in [('settings', 'SystemAiActivity'), ('home', 'CodexHomeActivity')]:
-        component = 'org.agentos.assistant/.' + activity
-        adb('shell', 'am', 'start', '-W', '-n', component)
-        wait_component(component)
-        inspect_entry(page + '-installed', page, True)
-        pid = adb('shell', 'pidof', 'org.agentos.assistant')
-        assert 'Success' in adb('shell', 'pm', 'uninstall', '-k', '--user', '0', PACKAGE)
-        inspect_entry(page + '-removed', page, False)
-        assert resolved_launcher() is None, 'Removed Audio package still has a launcher entry'
-        assert adb('shell', 'pidof', 'org.agentos.assistant') == pid, 'Assistant process restarted'
-        adb('install', '--no-incremental', '-r', str(args.apk))
-        node = inspect_entry(page + '-restored', page, True)
-        assert adb('shell', 'pidof', 'org.agentos.assistant') == pid
-        assert resolved_launcher() == HOME
-        tap(node)
-        wait_component(HOME)
-        idle('native-' + page)
-        reports.append({'page': page, 'sameProcess': True, 'removedAndRestoredWithoutNavigation': True, 'navigationComponent': HOME})
+    adb('shell', 'am', 'start', '-W', '-a', 'org.agentos.action.AI_SETTINGS', '-p', 'org.agentos.agent')
+    wait_component('org.agentos.agent/.MainActivity')
+    inspect_entry('settings-installed', True)
+    packages = ('org.agentos.agent', 'org.agentos.assistant')
+    pids = [adb('shell', 'pidof', package) for package in packages]
+    assert 'Success' in adb('shell', 'pm', 'uninstall', '-k', '--user', '0', PACKAGE)
+    inspect_entry('settings-removed', False)
+    assert resolved_launcher() is None, 'Removed Audio package still has a launcher entry'
+    assert [adb('shell', 'pidof', package) for package in packages] == pids
+    adb('install', '--no-incremental', '-r', str(args.apk))
+    node = inspect_entry('settings-restored', True)
+    assert [adb('shell', 'pidof', package) for package in packages] == pids
+    assert resolved_launcher() == HOME
+    tap(node)
+    wait_component(HOME)
+    idle('expo-settings')
+    reports.append({'page': 'expo-settings', 'sameProcesses': True, 'removedAndRestoredWithoutNavigation': True,
+                    'homeCatalogParity': True, 'navigationComponent': HOME})
     report = {'passed': True, 'launcherDiscovered': True, 'cloudTranslationVerified': False, 'reports': reports}
     (args.output / 'packages.json').write_text(json.dumps(report, indent=2) + '\n')
     print(json.dumps(report))

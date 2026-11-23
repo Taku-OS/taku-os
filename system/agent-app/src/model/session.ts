@@ -30,6 +30,8 @@ export interface MessageBlock {
   activity: Activity[];
   status: ItemStatus;
   active: boolean;
+  /** Taku's emoji reaction on a user message (Jev's choice, Figma 297:433); absent when none. */
+  reaction?: string;
 }
 export interface PendingQuestion {
   key: string;
@@ -228,7 +230,9 @@ export function projectSession(value: unknown): SessionView {
         flush(false);
         anchor = label(item.id) || `user-${itemIndex}`;
         const content = userContent(item);
-        if (content.text || content.attachments.length) blocks.push({id: `${turnId}/${anchor}`, turnId, role: 'user', ...content, parts: [], activity: [], status, active: false});
+        const reaction = typeof item.reaction === 'string' && item.reaction.length > 0 && item.reaction.length <= 32 ? item.reaction : undefined;
+        if (content.text || content.attachments.length) blocks.push({id: `${turnId}/${anchor}`, turnId, role: 'user', ...content, parts: [], activity: [], status, active: false,
+          ...(reaction ? {reaction} : {})});
       } else if (type === 'agentMessage' || type === 'plan' || toolTypes.has(type)) segment.push(item);
       // Unknown, reasoning, and authentication records never become display text.
     });

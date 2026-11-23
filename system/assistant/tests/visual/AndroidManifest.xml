@@ -1,9 +1,6 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="org.agentos.drawer.visualtests">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="org.agentos.workspace.visualtests">
  <uses-sdk android:minSdkVersion="36" android:targetSdkVersion="36"/>
- <application android:label="Taku drawer visual fixture" android:theme="@android:style/Theme.Material.Light.NoActionBar" android:allowBackup="false">
-  <activity android:name="org.agentos.assistant.DrawerVisualActivity" android:exported="true" android:theme="@android:style/Theme.Translucent.NoTitleBar"/>
-  <activity android:name="org.agentos.assistant.ConversationRendererActivity" android:exported="true"/>
-  <activity android:name="org.agentos.assistant.MarkdownRendererActivity" android:exported="true"/>
+ <application android:label="Taku workspace fixture" android:theme="@android:style/Theme.Material.Light.NoActionBar" android:allowBackup="false" android:debuggable="true">
   <activity android:name="org.agentos.assistant.WorkspaceExecutionTestActivity" android:exported="true"/>
  </application>
 </manifest>

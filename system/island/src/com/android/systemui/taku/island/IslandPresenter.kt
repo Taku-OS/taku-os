@@ -127,8 +127,12 @@ class IslandPresenter @Inject constructor(
         if (card != null && expanded == null) collapse("source_ended")
         if (automatic && expanded != null && expanded.alertUntil <= SystemClock.elapsedRealtime()) collapse("alert_timeout")
         if (expanded != null && expanded.revision != cardRevision) {
-            card?.update(expanded.data)
             cardRevision = expanded.revision
+            // An update the card cannot draw closes it rather than leaving stale or partial chrome.
+            try { card?.update(expanded.data) } catch (failure: RuntimeException) {
+                collapse("render_failed")
+                reason = "render_failed:${failure.javaClass.simpleName}"
+            }
         }
         layoutCapsule()
         if (first != null && first.alertUntil > SystemClock.elapsedRealtime() && alerted[first.key] != first.revision) {
@@ -178,14 +182,16 @@ class IslandPresenter @Inject constructor(
     private fun open(item: IslandStore.Entry<IslandActivity>, cover: Boolean, isAlert: Boolean,
         choices: List<IslandActivity>? = null): Boolean {
         val view = bar ?: return false
-        val candidate = IslandCardWindow(view.context, item.data, cover, ::invoke, ::collapse,
-            covering = { covered ->
-                view.alpha = if (covered) 0f else 1f
-                // show/close update the card reference after this callback. Reconcile afterward,
-                // avoiding a recursive close during rotation to landscape.
-                handler.post { layoutCapsule() }
-            }, changed = engine::presentationChanged, choices = choices)
+        var candidate: IslandCardWindow? = null
         return try {
+            // Construction binds the first content; a payload the card cannot draw never shows.
+            candidate = IslandCardWindow(view.context, item.data, cover, ::invoke, ::collapse,
+                covering = { covered ->
+                    view.alpha = if (covered) 0f else 1f
+                    // show/close update the card reference after this callback. Reconcile afterward,
+                    // avoiding a recursive close during rotation to landscape.
+                    handler.post { layoutCapsule() }
+                }, changed = engine::presentationChanged, choices = choices)
             candidate.show()
             card = candidate
             cardKey = item.key
@@ -195,7 +201,7 @@ class IslandPresenter @Inject constructor(
             reason = if (isAlert) "alert" else "expanded"
             true
         } catch (failure: RuntimeException) {
-            candidate.close()
+            candidate?.close()
             reason = "window_failed:${failure.javaClass.simpleName}"
             false
         }
@@ -234,11 +240,25 @@ class IslandPresenter @Inject constructor(
         }
         val cutout = view.rootWindowInsets?.displayCutout?.boundingRectTop ?: Rect()
         val physical = if (!cutout.isEmpty && cutout.centerX() in view.width / 3..view.width * 2 / 3) cutout.width() else 0
-        val clock = maxOf(view.findViewById<View>(R.id.clock)?.width ?: 0, dp(52))
-        val icons = maxOf(view.findViewById<View>(R.id.status_bar_end_side_content)?.width ?: 0, dp(64))
-        val budget = (view.width - 2 * (maxOf(clock, icons) + dp(12))).coerceAtLeast(0)
-        val minimum = if (activity.building) pill.buildingWidth() else physical + dp(48)
-        if (budget < minimum) {
+        val contents = view.findViewById<View>(R.id.status_bar_contents)
+        val contentLeft = view.paddingLeft + (contents?.paddingLeft ?: 0)
+        val contentRight = view.width - view.paddingRight - (contents?.paddingRight ?: 0)
+        val clock = maxOf(view.findViewById<View>(R.id.clock)?.width ?: 0,
+            view.findViewById<View>(R.id.clock_center)?.width ?: 0, dp(52))
+        val endWidth = view.findViewById<View>(R.id.status_bar_end_side_content)?.width ?: dp(64)
+        val icons = view.findViewById<View>(R.id.statusIcons)?.takeIf { it.visibility != View.GONE }?.width ?: 0
+        // Figma 1379:889 anchors the island to the camera: the disc extends CAMERA_DP to its
+        // left and the pill grows to its right. FrameLayout centering would include asymmetric
+        // status-bar padding, so position from the actual display cutout instead.
+        val location = IntArray(2)
+        view.getLocationOnScreen(location)
+        val cameraX = if (physical > 0) cutout.centerX() - location[0] else view.width / 2
+        val cameraLeftWidth = dp(IslandCapsuleView.CAMERA_DP)
+        val maximumWidth = IslandCapsuleGeometry.maximumWidth(contentLeft, contentRight,
+            cameraX, cameraLeftWidth, clock, endWidth, icons, dp(12))
+        val wantsSecondary = !activity.building && items.count { it.data.compactVisible } > 1
+        val width = pill.layoutWidth(activity, maximumWidth, wantsSecondary)
+        if (width == 0) {
             IslandPresentationOwnership.show(null)
             pill.visibility = View.GONE
             view.setTakuIslandProbeWidth(0)
@@ -246,31 +266,20 @@ class IslandPresenter @Inject constructor(
             return
         }
         relocateCentered()
-        val width = if (activity.building) pill.buildingWidth() else minOf(dp(220), budget)
-        pill.widthMode = if (width >= physical + dp(120)) 0 else if (width >= physical + dp(80)) 1 else 2
-        pill.cutoutWidth = physical.toFloat()
-        val secondary = !activity.building && items.count { it.data.compactVisible } > 1 && width >= physical + dp(80)
         pill.stale = items.find { it.key == selected }?.stale(SystemClock.elapsedRealtime()) == true
-        pill.bind(activity, if (secondary) items.firstOrNull { it.key != selected && it.data.compactVisible }?.data else null)
-        pill.translationX = if (secondary) dp(14).toFloat() else 0f
+        pill.bind(activity, if (pill.secondary) items.firstOrNull { it.key != selected && it.data.compactVisible }?.data else null)
+        pill.translationX = 0f
         pill.visibility = View.VISIBLE
         IslandPresentationOwnership.show(if (view.isShown) activity else null)
         val height = minOf(dp(32), view.height.coerceAtLeast(dp(24)))
-        val params = FrameLayout.LayoutParams(width, height, Gravity.CENTER)
-        if (activity.building) {
-            // FrameLayout centering includes asymmetric status-bar padding. Anchor to the
-            // actual display cutout instead, keeping the centre disc exactly on the camera.
-            val location = IntArray(2)
-            view.getLocationOnScreen(location)
-            val cameraX = if (physical > 0) cutout.centerX() - location[0] else view.width / 2
-            params.gravity = Gravity.TOP or Gravity.LEFT
-            params.leftMargin = cameraX - dp(52) - view.paddingLeft
-            params.topMargin = (view.height - height) / 2 - view.paddingTop
-        }
+        val params = FrameLayout.LayoutParams(width, height, Gravity.TOP or Gravity.LEFT)
+        params.leftMargin = cameraX - dp(IslandCapsuleView.CAMERA_DP) - view.paddingLeft
+        params.topMargin = (view.height - height) / 2 - view.paddingTop
         val previous = pill.layoutParams as FrameLayout.LayoutParams
         if (previous.width != width || previous.height != height || previous.gravity != params.gravity ||
             previous.leftMargin != params.leftMargin || previous.topMargin != params.topMargin) pill.layoutParams = params
-        view.setTakuIslandProbeWidth(width)
+        view.setTakuIslandProbeWidth(IslandCapsuleGeometry.reservationWidth(
+            contentLeft, contentRight, cameraX, cameraLeftWidth, width))
     }
 
     private fun relocateCentered() {
@@ -296,6 +305,7 @@ class IslandPresenter @Inject constructor(
 
     override fun state(): JSONObject = JSONObject().put("selected", selected ?: JSONObject.NULL)
         .put("compactVisible", capsule?.visibility == View.VISIBLE && bar?.alpha != 0f).put("reason", reason)
+        .put("compact", capsule?.takeIf { it.visibility == View.VISIBLE }?.state() ?: JSONObject.NULL)
         .put("expanded", card != null).put("card", card?.state() ?: JSONObject.NULL)
 
     private fun invoke(method: String, arg: String?, extra: String? = null) {

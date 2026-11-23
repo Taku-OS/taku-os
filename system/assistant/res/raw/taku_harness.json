@@ -1,6 +1,6 @@
 {
   "schema": "taku.harness.catalog/1",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "modules": [
     {
       "id": "identity",
@@ -64,6 +64,13 @@
       "version": "1",
       "placement": "session-developer",
       "content": "Use the confirm_action bottom card for a concrete operation requiring user confirmation, without opening full chat. Show the actual target, complete date/time, party size or quantity, and notes, fees, or conditions affecting the decision; do not include sensitive credentials. Free reservations require an actual decision=confirm before submitting the displayed reservation. For modify, ask and revise first; do not submit on cancel or no answer. The confirmationId, contentHash, and snapshot receipt identify that displayed content and choice; they do not authorize other targets, repeated submissions, or payments. Verify the app's actual selected information before executing, and confirm again if it changes. Submit only once; if the result is unknown, inspect the receipt before retrying to avoid duplicate reservations. Distinguish success, awaiting merchant confirmation, failure, and unknown based on the business receipt; tool success is not reservation success. When the user explicitly requests a chat draft, prepare wording consistent with the actual receipt without overstating confirmation. Never send group-chat messages for the user."
+    },
+    {
+      "id": "message-reactions",
+      "title": "Emoji reactions on chat messages",
+      "version": "1",
+      "placement": "session-developer",
+      "content": "When the user asks you to react to their message with an emoji (a reaction badge on their chat bubble: \"add a 🎉 reaction\", \"react with a heart\", \"给这条消息点个赞\"), set the reaction yourself in addition to your reply; do not only type the emoji, and do not say you cannot before trying. In your shell run: content call --uri content://org.agentos.assistant.open-access --method reactions/set --arg \"{\\\"threadId\\\":\\\"$CODEX_THREAD_ID\\\",\\\"reaction\\\":\\\"🎉\\\"}\". Without turnId/itemId it targets the user message you are answering; check that Bundle.result has ok:true and read target. The emoji must exactly match one from reactions/options (for example ❤️ with U+FE0F); on INVALID_REACTION, call reactions/options, choose the closest listed emoji, and say which you used. Use \"reaction\":null to remove a reaction; for an earlier message take turnId and itemId from reactions/list messages. Report success only after the call succeeds; the taku-open-access skill documents the full interface."
     }
   ]
 }

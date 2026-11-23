@@ -1,7 +1,14 @@
 /**
  * Figma "Taku Mobile OS" roles: dark translucent Taku Home, chat and Live Talk.
  * The legacy light palette preserves native Tokens.kt / Theme.kt values for light controls.
+ *
+ * The chat has two backgrounds (Taku AI settings → Appearance, `Settings.Secure`
+ * `taku_chat_appearance`): Dark (Figma 300:661, the default) and Light (the earlier light chat).
+ * [chatColors] and [chatBlur] always read the active one, and [themedStyles] builds each sheet per
+ * appearance, so screens keep their usual `chatColors.x` / `styles.x` and follow a switch on their
+ * next render (the chat remounts on a switch; see AgentScreen).
  */
+import {useSyncExternalStore} from 'react';
 import type {TextStyle} from 'react-native';
 
 const content = (a: number) => `rgba(0,0,0,${a})`;
@@ -20,8 +27,13 @@ export const homeColors = {
   backdropTintArgb: '#3DFFFFFF',
 };
 
-/** Figma 300:661 / 297:433; retain a visible blurred backdrop per the product correction. */
-export const chatColors = {
+/**
+ * Figma 300:661 / 297:433. The backdrop is the design's "backdrop blur" layer: Content/900 (92 %
+ * black) over a moderate blur, measured against the frame's own render (scale 0.083 of the blurred
+ * background, best fit σ 12–16). A lighter tint over a far heavier blur averaged bright wallpapers
+ * into flat grey.
+ */
+const dark = {
   ...homeColors,
   textPrimary: surface(0.92), textSecondary: surface(0.8), textTertiary: surface(0.64), textPlaceholder: surface(0.48),
   textError: '#FFB4AB', icon: '#FFFFFF', iconDisabled: surface(0.16),
@@ -29,15 +41,94 @@ export const chatColors = {
   composer: surface(0.08), chip: surface(0.08), placeholder: surface(0.36),
   surfaceRaised: '#262626', surfaceGlass: surface(0.08), fillControl: surface(0.08), hairline: surface(0.16),
   // One native tint over the existing cross-window blur, never another opaque React layer.
-  backdropTint: content(0.8), backdropTintArgb: '#CC000000', backdropFallback: '#121212',
+  backdropTint: content(0.92), backdropTintArgb: '#EB000000', backdropFallback: '#121212',
+  errorSurface: '#402322',
+  /** Stop: a solid Main/Surface/Default disc with a Main/Foreground square, clear on the dark glass. */
+  stopFill: '#FFFFFF', stopGlyph: '#1B1B1B',
+  /** Reaction badge (300:682): Surface/50 glass inside a 2 dp Content/900 ring that cuts it from the bubble. */
+  reactionFill: surface(0.04), reactionRing: content(0.92),
 };
 
+export type ChatColors = typeof dark;
+
 /**
- * 2-1 blur σ (dp; Figma blur R = 2σ): the chat window's system backdrop blur (Backdrop Blur/3xl,
- * R128), the only blur over what lies behind the chat, the list's progressive edge blur and the
+ * The earlier light chat (taku-os-legacy vela/TAKU-new-UI b8a1368c92): Surface/400 over the window
+ * blur, Main/Canvas where the device cannot blur, dark text. Its user bubble is Content/100 with
+ * Content/800 text; replies, now in bubbles, sit on Surface/600 glass.
+ */
+const light: ChatColors = {
+  ...homeColors,
+  bubble: content(0.06), assistantBubble: surface(0.48), userText: content(0.8),
+  errorSurface: '#F9DEDC',
+  /** On the light background the stop disc inverts: Main/Foreground with a white square. */
+  stopFill: '#1B1B1B', stopGlyph: '#FFFFFF',
+  /** On the light background the ring is the light canvas and the badge a white glass. */
+  reactionFill: surface(0.8), reactionRing: '#E3E3E3',
+};
+
+export type ChatAppearance = 'dark' | 'light';
+const palettes: Record<ChatAppearance, ChatColors> = {dark, light};
+
+let active: ChatAppearance = 'dark';
+const listeners = new Set<() => void>();
+
+export const getChatAppearance = (): ChatAppearance => active;
+
+/** Applies [next] to every chat surface; the stored setting is changed through native/chatAppearance. */
+export function applyChatAppearance(next: ChatAppearance): void {
+  if (next === active) return;
+  active = next;
+  for (const listener of listeners) listener();
+}
+
+function subscribe(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => { listeners.delete(listener); };
+}
+
+/** The active appearance; re-renders the caller when it changes. */
+export const useChatAppearance = (): ChatAppearance => useSyncExternalStore(subscribe, getChatAppearance);
+
+/** A read-only view whose properties always come from the active appearance's value. */
+function live<T extends object>(pick: () => T): T {
+  return new Proxy({} as T, {
+    get: (_, key) => (pick() as Record<PropertyKey, unknown>)[key],
+    has: (_, key) => key in pick(),
+    ownKeys: () => Reflect.ownKeys(pick()),
+    getOwnPropertyDescriptor: (_, key) => {
+      const value = (pick() as Record<PropertyKey, unknown>)[key];
+      return value === undefined && !(key in pick()) ? undefined : {value, enumerable: true, configurable: true, writable: false};
+    },
+  });
+}
+
+/** The active appearance's palette. */
+export const chatColors: ChatColors = live(() => palettes[active]);
+
+/**
+ * A value derived from [chatColors] (a style sheet, a colour map), built once per appearance on
+ * first use and read through like the plain object.
+ */
+export function themed<T extends object>(build: () => T): T {
+  const built: Partial<Record<ChatAppearance, T>> = {};
+  return live(() => built[active] ??= build());
+}
+
+/** `StyleSheet.create` for chat surfaces: one sheet per appearance, the active one read through. */
+export const themedStyles = themed;
+
+/**
+ * 2-1 blur σ (dp; Figma blur R = 2σ) for the active background: the chat window's system backdrop
+ * blur, the only blur over what lies behind the chat, the list's progressive edge blur and the
  * list blur under the long-press menu (0-3 Overlay, backdrop-blur 4).
  */
-export const chatBlur = {backdropSigma: 64, edgeSigma: 12, menuSigma: 4};
+export const chatBlur = live(() => blurs[active]);
+const blurs: Record<ChatAppearance, {backdropSigma: number; edgeSigma: number; menuSigma: number}> = {
+  // Dark: the design's moderate blur keeps what lies behind faintly legible (Backdrop Blur/lg, R32).
+  dark: {backdropSigma: 16, edgeSigma: 12, menuSigma: 4},
+  // Light: the earlier light chat's Backdrop Blur/3xl (R128), a frosted white.
+  light: {backdropSigma: 64, edgeSigma: 12, menuSigma: 4},
+};
 
 /** The chat's fixed title (2-1 shows the conversation name there; product keeps "Taku"). */
 export const chatTitle = 'Taku';

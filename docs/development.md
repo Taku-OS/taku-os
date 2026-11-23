@@ -34,9 +34,9 @@ For a docs-only change, run the structure check and run the smallest set of comm
 
 Native components default to Android API 36, build-tools 36.0.0 and JDK 17+. `TAKU_ANDROID_API` and `TAKU_BUILD_TOOLS` are for explicit version experiments. React Native needs Node 22.18+, and its native build also needs Gradle, the NDK, CMake and other dependencies listed in the [module README](../system/agent-app/README.md). The plugin host scripts support macOS Bash 3.2 and Linux Bash; CI verifies both environments.
 
-[markdown-dependencies.json](../system/assistant/markdown-dependencies.json) pins the Markdown dependencies for the assistant and Memory. Scripts verify them after download and cache them in the git-ignored `system/assistant/downloads/`. Memory also needs a vector model and ONNX assets, as described in its [README](../system/memory/README.en.md).
+[markdown-dependencies.json](../system/assistant/markdown-dependencies.json) pins the CommonMark parser for Memory. The build verifies the download and caches it in the git-ignored `system/assistant/downloads/`. Memory also needs a vector model and ONNX assets. See the [Memory README](../system/memory/README.en.md).
 
-When you upgrade a Markdown dependency, update `Android.bp`, keep the Java resources and asset licenses inside the libraries, and rerun the Markdown device tests. The ROM preparation script fetches these dependencies and includes them in the source snapshot check. Runtime archives are prepared by [prepare-image-assets.py](../scripts/prepare-image-assets.py).
+When you upgrade CommonMark, update `Android.bp` and keep its Java resources and license in the Memory APK. Rerun the Memory result-rendering tests. ROM preparation fetches the parser and includes it in the source snapshot check. [prepare-image-assets.py](../scripts/prepare-image-assets.py) prepares the runtime archives.
 
 The public AOSP test signing keys are for userdebug development only. They are cached in `out/development-signing/`, with the download revision and hash pinned.
 

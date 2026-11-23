@@ -1,37 +1,21 @@
-# Taku system Agent drawer
+# Taku system assistant
 
-As of **2026-10-21**: Jev shares on-phone Magpie; see the v57 section below for validation scope. v54 conversation rendering and v55/v56 Magpie model connections/return navigation are committed, with the latter implementation at `a547672`; v55/v56 have development-emulator acceptance. Physical Pixel 9 passed v44 native-client, real-model, and selected system-capability acceptance on October 15, which does not cover the latest UI or Magpie. The complete latest ROM has not yet rebuilt successfully. See [current status](current-status.md), [Pixel 9 native client](native-codex-implementation-2026-10-15.md), [v54 Markdown](reviews/markdown-rendering-2026-10-19/README.md), and [v55/v56 Magpie](reviews/magpie-runtime-2026-10-19/README.md).
+`org.agentos.agent` owns HOME, ASSISTANT, and Android's Taku AI settings entry. Its Kotlin `SystemAssistantSession` dispatches Android invocation to the Taku Agent surfaces. Full-screen chat and management use Expo. Background work continues when the user leaves the UI.
 
-Android `VoiceInteractionSession` hosts the main UI, rising from the bottom while retaining the current app background. The top shows the native conversation title, with conversation switching on the left and settings on the right; there are no top tabs or underlying-runtime branding. Desktop, assistant, and notification entries use the same host. Pulling the handle down restores the previous foreground app; closing the drawer does not cancel background execution.
+Existing task notifications and Home or settings links may still address `org.agentos.assistant`. Their Kotlin forwarders verify the target package signature and open the corresponding Taku Agent page. A stale task ID opens details with an unavailable status. The backend retains its identity and provider authorities.
 
-## Entry routing (2026-11-07)
-
-The desktop “Taku system assistant” icon (`PanelActivity`), `android.intent.action.ASSIST`, assistant key/voice, and double-tap gesture bar (`SystemUiProxy.startAssistant`) share `AgentFrontendLauncher.openConversation`: ordinary invocation opens full-screen chat in `org.agentos.agent` on the last selected thread. `AssistantSession.onShow` first makes the same decision, so system assistant invocation no longer always opens the native drawer. `AgentFrontendRoute.ordinary` allows only `conversationId`, `invocation_type`, `invocation_phone_state`, `invocation_time_ms`, `org.agentos.assistant.extra.TRIGGER`, and `android.*` framework parameters. Unknown parameters such as `page`, `nativeControlsOnly`, `task_id`, or Jev triggers, enabled `includeScreenshot`, or native drafts/attachments/pending send acknowledgements/Home pending text on that thread retain the native conversation to preserve context. Missing chat app or signature mismatch also falls back to native. Code and host tests (`test-agent-gateway-host.sh`) are updated; device acceptance is pending.
-
-## Layers and maintenance entry points
-
-| Module | Single responsibility |
+| Module | Responsibility |
 | --- | --- |
-| `AssistantSession` | System window, prior foreground app and Android-provided screenshots, show/hide lifecycle |
-| `PanelActivity` | Transient UI-less system-assistant entry; independent task affinity without raising the desktop task stack |
-| `AgentDrawerView` / `DrawerTheme` / `DrawerDragBehavior` | Chat/conversation/settings views, dark/light themes and handle drag; no root commands |
-| `AgentSettingsView` / `AgentSettingsUi` / `AgentAccountView` | Agent-specific settings cards/account authorization sharing drawer theme; no Android system-settings page |
-| `AgentAccountController` | Account queries, login initiation/cancellation, and visible-lifetime refresh inside settings |
-| `AgentAccount` / `AccountBridge` | In-memory native account projection and UID-controlled read-only socket; login codes/URLs never enter task files |
-| `AgentDrawerController` | Native thread selection, creation, rename, and visible-lifetime projection subscription |
-| `AgentConversation` / `NativeTurnPresentation` | Preserve native turns/message IDs/phases; group body/worklog, without private reasoning/authentication or a fixed workflow |
-| `NativeConversationView` / `NativeTurnView` / `NativeActivityView` | Stable-ID view updates, collapsed worklog by default, continuous body, expandable tool details |
-| `ConversationExpansion` | Bounded per-conversation expansion preferences without message content |
-| `AgentRepository` / `TaskRequests` | Single-thread device IO, draft/appearance preferences, atomic submission/control RPC to the same queue |
-| `TaskBroker` | Sole task queue, independent-screen allocation, recovery, notifications; retain/isolate bad records without replaying unconfirmed operations |
-| `CodexAppServer` / `AgentViews` | One persistent App Server stdio connection, native event consumption, disposable UI projections |
-| `NativeBridge` / `PhoneNativeTools` | UID-controlled native-protocol entry, device information, background-screen observation/operation tools |
-| `ModelConnection` / `ModelConnectionView` | Codex ChatGPT/Magpie connection selection/catalog display; no Agent-runtime replacement |
-| `system/display/` | Real independent Android background displays/viewer |
+| `SystemAssistantSession` | System voice interaction and Android-authorized screen capture |
+| `system/agent-app/src` | Conversation, composer, settings, and management UI |
+| `AgentGatewayProvider` / `AgentOpenAccessProvider` | Paired UI and standard Android command interfaces |
+| `ComposerState` / `AgentGatewaySubmissions` | Durable drafts, revisions, attachments, and request receipts |
+| `TaskRequests` / `TaskBroker` | Task publication and the single execution queue |
+| `CodexAppServer` / `AgentViews` | Persistent App Server connection and native thread projections |
+| `WorkspaceCommands` / `MirrorActivity` | Exact-lease workspace management and live display controls |
+| `AssistantCaptureBackend` / `BackgroundScreenTasks` | Screen suggestion handling and accepted task recovery |
 
-Release ROMs compile only `src/` and `broker/`. `tests/visual/` is a separate test APK rendering example content through production views, without starting runtimes or executing example actions; it is not model acceptance.
-
-See [conversation-rendering acceptance](reviews/conversation-worklog-2026-10-19/README.md) for v53 continuous body, collapsed worklog, and Chinese streaming.
+See the [Agent UI gateway](../system/assistant/agent-gateway.md) for operation fields and the [installed commands](../system/assistant/assets/skills/taku-open-access/SKILL.md) for Agent access.
 
 ## Native runtime contract
 
@@ -39,7 +23,7 @@ The phone pins Codex **0.161.0**; fields follow schemas generated by that ARM64 
 
 Initialize the connection once: `initialize` → `initialized`. UI uses `thread/start`, `thread/list`, `thread/read`, `thread/name/set`; execution uses `account/read`, `thread/resume`, `turn/start`, native streaming events, and `turn/completed`; stop uses `turn/interrupt`. Conversation IDs come directly from App Server without an invented UUID mapping.
 
-Native thread/turn/item is the conversation authority; `runtime/agent-view/` is only a display projection. SharedPreferences stores selection, per-conversation drafts, expansion preferences, and settings. Local requests not yet in the model are labeled separately; after a native turn starts, native messages display them without duplicate bubbles. Tool completion means tool terminal state, not successful volume/app/other operations.
+Native thread, turn, and item records are the conversation authority. `runtime/agent-view/` is a display projection. `ComposerState` stores revisioned drafts, attachments, and receipts. SharedPreferences stores selection and UI preferences. Local requests are displayed separately until a native turn takes ownership. Tool completion describes the tool lifecycle. Read the operation result to establish whether it succeeded.
 
 Home one-shot tasks retain structured-result schemas. Ordinary chat has the main model emit `@taku.reply/1` component/data streams; native code validates each and generates readable body text from the same source. Cards, copy, history, and native chat read the same answer, without a second formatting/layout model. Existing conversations receive the new contract through Harness acknowledgement receipts; structured tasks, Memory organization, and realtime retain their formats. The queue executes serially while conversation controls remain available during active turns. Stop waits for actual native terminal state and does not undo completed operations. See [assistant documentation](../system/assistant/README.md) and [session streaming](../system/assistant/SESSION_STREAMING.md) for execution budgets/stream protocol.
 
@@ -92,16 +76,16 @@ On-phone account connection and native Harness/Skills panels provide context pro
 ```sh
 bash system/assistant/build.sh
 python3 system/assistant/scripts/sync-design-system.py --check
-# Preinstall these components; only dedicated AVD Taku_ImageIntegration_20261010 / emulator-5634 is accepted.
-bash system/assistant/test-system-drawer.sh
 # Independent synthetic event guards and actual IPC permissions, without OAuth completion/model tasks.
 bash system/assistant/test-account-state.sh
-# Run separately; do not share the emulator with interaction regression above.
-bash system/assistant/capture-drawer-visual.sh
+# Run the workspace fixture separately on its isolated emulator.
+TAKU_SERIAL=emulator-5634 bash system/assistant/test-workspace-execution-ui.sh
 npm run verify
 ```
 
-Interaction tests check real thread titles/list, themes/drafts, keyboard layout, logged-out path, collapse dragging, previous-app restoration, and pre-invocation screenshots. Screenshots/logs go to ignored `out/agent-drawer-ui/`; redacted artifact summaries go to `evidence/builds/`.
+The original drawer interaction tests covered real thread titles, themes, drafts, keyboard layout, the logged-out path, collapse dragging, previous-app restoration, and pre-invocation screenshots. Archived runs wrote logs and screenshots to `out/agent-drawer-ui/`. Redacted summaries are in `evidence/builds/`.
+
+Expo renders assistant conversation content. The Android workspace fixture runs the retained execution and draft views with deterministic inputs and writes its report to `out/workspace-execution-ui/workspace-execution-tests.json`.
 
 Historical preauthorization acceptance covered only real `account/read`, device-code/browser `account/login/start`, and this attempt's `account/login/cancel`: the emulator obtained a native authorization challenge, then cancellation cleared code/URL while it remained disconnected. That round neither authorized for the user nor accepted model generation/model-driven actions. After user authorization, real models/system calls/stopping have records below and linked separately; Pixel 9 also has later component-update device/cold-boot acceptance. Component builds, visual fixtures, and early logged-out interactions do not replace later execution evidence. The older October 11 candidate lacks latest components, and the latest complete ROM has not rebuilt successfully.
 
@@ -130,11 +114,11 @@ The user completed device-account authorization. The controlled memory endpoint 
 Real acceptance found turn/completed items may be partial: replacing the whole projection array lost tool history. Completion events now merge by native item ID, then terminal-state thread/read retrieves complete authoritative history before publishing task completion. History-refresh failure does not relabel completed device execution as failed. The first missing-tool-record failure log is retained; the real flow passed after repair.
 
 ```sh
-# Real model and read-only command acceptance on the logged-in dedicated AVD.
+# Real model and read-only command acceptance through Expo on an isolated emulator.
 bash system/assistant/test-live-agent.sh
 ```
 
-The logged-out case in `test-system-drawer.sh` applies only to disconnected dedicated devices; do not log out an existing account to satisfy it. Real-model screenshots/redacted evidence are in `out/agent-live-ui/` and `evidence/builds/2026-10-14-agent-live-model.json`. Original logged-out/canceled-authorization records remain historical evidence.
+Current runs save screenshots and results in `out/agent-live-ui/`. The October 14 real-model evidence is `evidence/builds/2026-10-14-agent-live-model.json`. The original logged-out and canceled-authorization records describe the retired drawer.
 
 This October 14 emulator acceptance covers ongoing conversation and Android read-only commands, not volume, wallpaper, app GUI, interruption, or physical hardware/cold boot. Later [system calls/native app acceptance](agent-system-app-acceptance-2026-10-15.md) adds emulator settings, app creation/update, and volume; [cancellation acceptance](agent-cancellation-2026-10-15.md) verifies real command-process cleanup; [v44 Pixel 9 acceptance](native-codex-implementation-2026-10-15.md) adds physical-device models, selected tools, and cold boot. Each keeps its own scope; these do not repackage the complete latest Pixel 9 ROM.
 

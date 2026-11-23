@@ -1,0 +1,89 @@
+{
+  "schema": "taku.assistant-migration-emulator-acceptance/1",
+  "date": "2026-11-20",
+  "build": {
+    "verifiedAt": "2026-11-20T14:09:32.204573+00:00",
+    "archiveSha256": "cf40153e18724122375d94b0d5da364a9ca9acb61eaaa35224fcbbf18c0e0235",
+    "archiveBytes": 1899365515,
+    "imagesVerified": 9,
+    "candidateCommit": "a78aee851b3c8ae207f3ec678d5b6eb8302fd512",
+    "branchBase": "53a68931",
+    "target": "lineage_taku_emu_arm64-cp2a-userdebug",
+    "deviceVerified": true,
+    "googleAppsIncluded": false,
+    "imeApkSha256": "4bf17f13fc60683162beb376e6e5e7eaa738b94873330f5f4b1a22b5d7b40150",
+    "deviceAcceptanceScope": "existing-data emulator smoke tests only"
+  },
+  "device": {
+    "serial": "emulator-5590",
+    "product": "taku_emu64a",
+    "android": 17,
+    "api": 37,
+    "incremental": "20261120140000",
+    "dataPreserved": true,
+    "factoryResetTested": false,
+    "selinux": "Enforcing",
+    "adbUid": 2000
+  },
+  "packages": {
+    "org.agentos.agent": {
+      "sha256": "67405fffe9c315f42ab2d9f75d3f2bfce982c2dd4cf90f5d8c27805d347406b8"
+    },
+    "org.agentos.assistant": {
+      "sha256": "5c495ceb0942208e428f53d9beac3bed251ad232fd355b27dc9f50b0101ced59"
+    },
+    "org.agentos.audio": {
+      "sha256": "62fac33f5d0419a5cb2c6f5abf60564c87896c3e9d40f686eff5c75100a17fc8"
+    },
+    "org.agentos.inputmethod": {
+      "sha256": "4bf17f13fc60683162beb376e6e5e7eaa738b94873330f5f4b1a22b5d7b40150"
+    },
+    "com.android.systemui": {
+      "sha256": "085723c2383a686914eb5103972b2613da6b43abfc98a137d7b4c504b3f09d95"
+    },
+    "com.android.launcher3": {
+      "sha256": "0efdd05a07f98ee4bec686639cd128b14fef86a607134bb2eeddf32be828392a"
+    }
+  },
+  "aec": {
+    "schema": "taku.emulator-audio/1",
+    "configurationSha256": "e9549bd4dbc26b1e2d86523dc1de2efce95c8ffba9c46f033d3781a55ca378a4",
+    "librarySha256": "d6da7feed7895bbe2ae573606fb43433be23151c9ff6edb00f6b9cd157f7d0ce",
+    "deviceVerified": true,
+    "enabledOnCapture": true,
+    "temporaryConfigMounts": 0
+  },
+  "checks": {
+    "coldBootExistingData": "pass",
+    "rebootExistingData": "pass",
+    "homeAndAssistantRoles": "pass",
+    "ime10072SignatureAndImageBytes": "pass",
+    "keyboardVisibleWithReply": "pass",
+    "keyboardTouchDuringIsland": "pass",
+    "islandBodyOpensChat": "pass",
+    "capsuleLeftSideTapExpands": "pass",
+    "outsideCardTouchPassesThrough": "pass",
+    "explicitReactionRequest": "pass: badge visible; source=agent",
+    "grokInjectedAudioTranscriptReplyPlayback": "pass",
+    "grokToolTask": "pass: completed",
+    "liveMuteAndCloseUi": "pass: capturing=false",
+    "recentsEntry": "pass",
+    "crashBufferFatalExceptions": 0
+  },
+  "observations": [
+    "First Grok attempt disconnected with NETWORK_FAILED after capture started; later fresh-session sample and tool-task runs passed. Root cause not established.",
+    "Chat opening briefly showed BUSY/history-incomplete, then recovered automatically.",
+    "Grok spoke Thursday for 2026-11-20 (Friday) in the time-task result; transport/task completion does not establish factual response accuracy.",
+    "A second injected clip in one session did not produce a new transcript; a fresh-session injection passed. Repeated-input/emulator-route behavior remains unverified."
+  ],
+  "notTested": [
+    "Pixel hardware",
+    "Gemini Live",
+    "long-running voice and reconnect stress",
+    "late transcript/local VAD overlap/goAway",
+    "full crowded-status-bar Notebook receipt flow and RTL matrix",
+    "factory-reset first boot",
+    "Google services/apps",
+    "physical host microphone and acoustic echo quality"
+  ]
+}

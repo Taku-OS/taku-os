@@ -1,0 +1,63 @@
+{
+  "fileKey": "MdImIDNqePpNZ62C0GLArW",
+  "referenceNodes": ["1379:2239", "1379:2331", "1379:2454", "1379:2556", "1379:2680", "1379:2782", "1379:2907"],
+  "name": "2-x connect AI service pages",
+  "assets": [
+    {
+      "asset": "chatgpt-openai.svg",
+      "node": "1379:2425",
+      "layer": "OpenAI",
+      "size": "16x16 file, shown 20x20",
+      "sha256": "6115b22607135b988f3566074cbdfbb9148375922fd4d6e5e2ea10a6e1aaff00",
+      "usage": "ChatGPT page title mark. Exported earlier from 1155:1086; the 1379:2425 export is the same geometry on a 20 grid (every coordinate x1.25), so the existing file is drawn at 20 dp. The file carries #1B1B1B; Figma renders it white, so Home tints it Main/Surface/Default without editing the file."
+    },
+    {
+      "asset": "chevron-back.svg",
+      "node": "1379:2417",
+      "layer": "Chevron",
+      "size": "32x32",
+      "sha256": "75735e1e0ad7e184f5753dbf6f6a8142c9239ae1e155c6686d8fefc5b511f3d5",
+      "usage": "Back on the ChatGPT, Jev and fal pages (identical in every 2-x frame)."
+    },
+    {
+      "asset": "copy.svg",
+      "node": "I1379:2436;1731:1453",
+      "layer": "Copy (Color=Light)",
+      "size": "18x18",
+      "sha256": "5580ba13a2625d335ef62698480d015f5651715452677086364b39bd5da18105",
+      "usage": "Copy button in the link and code wells."
+    },
+    {
+      "asset": "eye.svg",
+      "node": "I1382:3259;1686:709",
+      "layer": "Eye_Password (open)",
+      "size": "18.1495x18",
+      "sha256": "4ab6a4bedc7325f82213bce665203f14ee5410b8895f38c6f089ec7c74a13ba4",
+      "usage": "Key field while the key is shown (the default); tapping it masks the key."
+    },
+    {
+      "asset": "eye-off.svg",
+      "node": "I1382:3218;1686:709",
+      "layer": "Eye_Password (slashed)",
+      "size": "18x18",
+      "sha256": "b8ad1bf4638c58c150678d46654158a500198d1446e3c05aff827fbf15632842",
+      "usage": "Key field while the key is masked; tapping it shows the key again."
+    },
+    {
+      "asset": "fal-mark.svg",
+      "node": "1382:3235",
+      "layer": "fal 1",
+      "size": "20x20",
+      "sha256": "c2ea465f773163c55666e08e181ee3505f26e168f3a9a3eb7e98c366a5e166f7",
+      "usage": "fal page title mark."
+    },
+    {
+      "asset": "jev-mark.png",
+      "node": "1379:2650",
+      "layer": "image 7",
+      "size": "1672x941 source, shown 20x20 (object-cover, full-radius clip)",
+      "sha256": "42f28acb5dc6ae084260a4bfaf314cc8ffbeeafd20cf03216a162139600b82dd",
+      "usage": "Jev page title mark, centre-cropped into a 20 dp circle. Decoded with downsampling to the drawn size; the file itself is unedited."
+    }
+  ]
+}

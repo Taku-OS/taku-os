@@ -15,9 +15,10 @@ monetary totals cannot be returned from an authoritative GUI source. Token usage
 is whatever the native App Server and Memory actually return, and a missing cost
 is not zero. Unimplemented features and upstream errors are returned as they are.
 
-The implementation does not yet cover every GUI setting and state. The
-requirement applies to new features. Built-in skills do not overwrite an existing directory when
-installed, so updating preinstalled documentation still needs a migration path.
+New features must expose the same commands and state as the GUI. The installer
+refreshes an existing `taku-open-access` skill when its contents match the
+last verified official digest. It preserves local edits and files without a
+trusted baseline. The installed skill details report why it kept a file.
 See [current status](current-status.md) for what has been verified.
 
 ## Caller trust boundary and App Permission Center
@@ -49,10 +50,14 @@ When authorized under an active mode or grant, the following surfaces are expose
 
 | Interface | Read/write surface available to any device-local caller |
 | --- | --- |
-| `org.agentos.audio.open-access` / `settings` | Reads masked credential/configuration state; can replace/remove the fal key, choose available models and change audio/dictation policy using the same validation as the GUI. It cannot read the full saved key. A caller can disrupt voice or select cloud processing using a credential it supplies; future audio may then go to that configured cloud account. |
+| `org.agentos.audio.open-access` / `settings` | Reads masked credential and configuration state. Can select the Live Talk provider and replace or remove its Gemini key or the fal key shared with translation and cloud dictation. Can choose translation models and change audio and dictation policy with the same validation as the GUI. Only the Audio Engine can retrieve the full keys. A caller can disrupt these features or change which provider or account handles future audio. |
 | `org.agentos.agent.home-feed` | Reads cards and event history, including form `values`, and invokes the same card management/actions as the GUI. Event values are not anonymized. |
 | `org.agentos.agent.home-layout` | Reads rendered widget text and invokes enabled widget controls; the receiving widget's PendingIntent may have real effects. |
 | `org.agentos.agent.home-assistant` and `AssistantOverlayActivity` | Opens UI, starts/stops voice, reads transcripts and manages the same session as the GUI. Gesture IDs order pointer events; they are not credentials. Recording continues to depend on Audio Engine availability and Android microphone policy. |
+| `org.agentos.agent.home-onboarding` | Reads first-run progress (`Settings.Secure` `taku_onboarding_step`), AI availability and whether a name is set; performs the card's own steps (set up, save or skip the name, saving the name to Memory) and can reset onboarding to the intro. The per-user `taku_onboarding_test_mode=1` switch replays intro/name even with existing AI/name, preserving accounts, keys and layout; Continue still requires real AI. It cannot mark onboarding completed: only confirmed available AI (ChatGPT, or Magpie with a model) does. |
+| `org.agentos.assistant.open-access` / `account/login/start`, `account/login/cancel` | Starts or cancels ChatGPT sign-in and returns the official sign-in URL or device code the account page shows; `open:true` also opens the browser, as Home's ChatGPT chip does. May switch the assistant from Magpie to ChatGPT mode first. |
+| `org.agentos.assistant.open-access` / `jev/status`, `jev/enable`, `jev/connect` | Reads Jev's switch and decision model; `jev/enable` switches Jev on with a Jev model Magpie already serves; `jev/connect` adds a TypeSafe or OpenRouter key as a Magpie provider, binds its Jev model and switches Jev on — the same operations as the onboarding Jev chip. |
+| `org.agentos.assistant.open-access` / `account/status` | Reads whether ChatGPT is signed in, whether AI is available (ChatGPT or Magpie), the plan type and the account phase. The sign-in URL and one-time code are never included. |
 | `org.taku.widgets.data` and `WidgetActionActivity` | Reads media/alarm metadata, invokes media transport and launches the corresponding calendar/alarm/music UI. |
 | `org.taku.weather.data` | Reads cached city/weather, changes location and requests forecast/geocoding. The shared request limits bound ordinary repeated traffic, not malicious process restarts. |
 
@@ -104,3 +109,9 @@ ASSIST candidate. Frontend launchers validate the destination certificate. `taku
 is a public HOME-package selector, so its SELinux read access is deliberately shared;
 this does not grant property writes. `WITH_ADB_INSECURE` appears only in the emulator product
 makefile, never the physical-device product.
+
+Assistant `jev/*` and `account/login/*` methods (including reads and future methods)
+require `taku.root` from ordinary apps before argument parsing. `taku.control` alone
+returns `PERMISSION_DENIED`; local agent/root/system/shell and the signed gateway
+retain access. `account/login/start` and `jev/connect` also retain their trusted-caller
+credential restriction. `account/status` remains a redacted `taku.control` read.

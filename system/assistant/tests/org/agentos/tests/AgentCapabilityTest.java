@@ -3,40 +3,17 @@ package org.agentos.tests;
 import android.os.Bundle;
 import android.view.accessibility.AccessibilityNodeInfo;
 import com.android.uiautomator.core.*;
-import com.android.uiautomator.testrunner.UiAutomatorTestCase;
 import java.io.*;
 import javax.xml.parsers.DocumentBuilderFactory;
 import org.json.*;
 import org.w3c.dom.*;
 
 /** Sends only synthetic capability requests through the actual chat UI. No model mocks. */
-public final class AgentCapabilityTest extends UiAutomatorTestCase {
+public final class AgentCapabilityTest extends AgentInterfaceTest {
     private static final String PACKAGE = "org.agentos.assistant";
     private static final String ROOT = "/data/user/0/" + PACKAGE + "/files/runtime/";
     private static final String OUTPUT = "/data/local/tmp/taku-capability/";
 
-    private static final class Control extends UiObject {
-        Control(UiSelector selector) { super(selector.packageName(PACKAGE)); }
-        boolean action(int action) {
-            AccessibilityNodeInfo node = findAccessibilityNodeInfo(3000);
-            return node != null && node.performAction(action);
-        }
-        boolean replace(String text) {
-            AccessibilityNodeInfo node = findAccessibilityNodeInfo(3000);
-            Bundle value = new Bundle();
-            value.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text);
-            return node != null && node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, value);
-        }
-    }
-
-    private Control description(String text) { return new Control(new UiSelector().description(text)); }
-    private Control text(String text) { return new Control(new UiSelector().text(text)); }
-    private void click(Control control) throws Exception {
-        if (!control.exists()) new UiScrollable(new UiSelector().packageName(PACKAGE).scrollable(true))
-                .scrollIntoView(control.getSelector());
-        assertTrue("UI action unavailable", control.action(AccessibilityNodeInfo.ACTION_CLICK));
-        sleep(400);
-    }
     private String read(File file) throws Exception {
         try (InputStream input = new FileInputStream(file)) {
             ByteArrayOutputStream bytes = new ByteArrayOutputStream();
@@ -65,50 +42,36 @@ public final class AgentCapabilityTest extends UiAutomatorTestCase {
         }
         return "";
     }
-    private void command(String... args) throws Exception {
-        Process process = new ProcessBuilder(args).redirectErrorStream(true).start();
-        try (InputStream input = process.getInputStream()) {
-            byte[] buffer = new byte[4096]; while (input.read(buffer) != -1) { /* Do not log device data. */ }
-        }
-        assertEquals("Acceptance command failed", 0, process.waitFor());
-    }
-    private void open(String id) throws Exception {
-        if (id.isEmpty()) command("am", "start", "-n", PACKAGE + "/.PanelActivity");
-        else command("am", "start", "-n", PACKAGE + "/.PanelActivity", "--es", "conversationId", id);
-        assertTrue(description("向下拖动收起助手").waitForExists(10000));
-        sleep(800);
-        if (text("Back to settings").exists()) click(text("Back to settings"));
-        if (text("返回对话").exists()) click(text("返回对话"));
-    }
 
     public void testCapabilityRequest() throws Exception {
         Configurator.getInstance().setWaitForIdleTimeout(0).setWaitForSelectorTimeout(3000);
+        connect();
         JSONObject plan = new JSONObject(read(new File(OUTPUT, "plan.json")));
         String caseId = plan.getString("id");
         assertTrue(caseId.matches("[a-z0-9-]+"));
         String originalThread = preference("conversation");
-        boolean originalScreenshot = preference("includeScreenshot").equals("true");
-        String originalStyle = preference("responseStyle");
-        String testThread = plan.optString("threadId");
-        open(testThread);
+        String requestedThread = plan.optString("threadId");
+        String testThread = requestedThread.isEmpty()
+                ? NativeSocketProbe.rpc("thread/start", new JSONObject()).getJSONObject("thread").getString("id")
+                : requestedThread;
+        JSONObject key = new JSONObject().put("threadId", testThread);
+        JSONObject originalOptions = plan.has("responseStyle")
+                ? access("composer/options/read", key).optJSONObject("options") : null;
+        Object originalStyle = originalOptions == null ? JSONObject.NULL
+                : originalOptions.opt("responseStyle");
+        assertEquals("Use an empty draft on the test thread", "", composerState(testThread).getString("text"));
+        assertEquals("Use a test thread without pending attachments", 0,
+                composerState(testThread).getJSONArray("attachments").length());
         try {
-            click(description("助手设置"));
-            if (text("Include main-screen screenshot when sending").isChecked()) click(text("Include main-screen screenshot when sending"));
-            if (plan.has("responseStyle")) click(text(plan.getString("responseStyle").equals("concise")?"Concise":"Detailed"));
-            click(text("返回对话"));
-            if (testThread.isEmpty()) {
-                click(description("切换会话")); click(text("New conversation")); sleep(1200);
-                click(description("助手设置"));
-                Control title = description("Edit conversation title");
-                if (!title.exists()) new UiScrollable(new UiSelector().packageName(PACKAGE).scrollable(true))
-                        .scrollIntoView(title.getSelector());
-                assertTrue(title.replace("Agent 能力实测")); click(text("保存标题"));
-                sleep(600); click(text("返回对话"));
-            }
+            if (plan.has("responseStyle")) updateStyle(testThread, plan.getString("responseStyle"));
+            open(testThread);
+            expectDraft(testThread, "");
             File latest = new File(ROOT, "latest.id");
             String previous = latest.exists() ? read(latest).trim() : "";
-            assertTrue(description("Taku 对话输入框").replace(plan.getString("prompt")));
-            click(description("发送消息"));
+            Bundle value = new Bundle();
+            value.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, plan.getString("prompt"));
+            assertTrue(composer().performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, value));
+            click(control("send-message", 10000));
             long started = System.currentTimeMillis();
             String id = previous;
             while (id.equals(previous) && System.currentTimeMillis() - started < 10000) {
@@ -139,7 +102,7 @@ public final class AgentCapabilityTest extends UiAutomatorTestCase {
                                             .put("command", command.optString("command"))
                                             .put("status", command.optString("status")));
                                     write(new File(OUTPUT, caseId + ".running.json"), observation);
-                                    click(description("停止当前执行")); cancelled = true; break;
+                                    click(control("stop-turn", 10000)); cancelled = true; break;
                                 }
                         }
                     }
@@ -147,7 +110,8 @@ public final class AgentCapabilityTest extends UiAutomatorTestCase {
                 sleep(250);
             }
             if (!new File(task, "done").exists()) {
-                if (description("停止当前执行").exists()) click(description("停止当前执行"));
+                AccessibilityNodeInfo stop = control("stop-turn", 1000);
+                if (stop != null) click(stop);
                 throw new IOException("Real model turn timeout; stop requested");
             }
             JSONObject state = new JSONObject(read(new File(task, "state.json")));
@@ -185,15 +149,16 @@ public final class AgentCapabilityTest extends UiAutomatorTestCase {
             sleep(700);
             command("screencap", "-p", OUTPUT + caseId + ".png");
         } finally {
-            open(preference("conversation"));
-            click(description("助手设置"));
-            if (plan.has("responseStyle") && !originalStyle.isEmpty()) click(text(originalStyle.equals("concise")?"Concise":"Detailed"));
-            Control screenshot = text("Include main-screen screenshot when sending");
-            if (!screenshot.exists()) new UiScrollable(new UiSelector().packageName(PACKAGE).scrollable(true))
-                    .scrollIntoView(screenshot.getSelector());
-            if (screenshot.isChecked() != originalScreenshot) click(screenshot);
-            click(text("返回对话")); getUiDevice().pressBack();
-            if (!originalThread.isEmpty()) open(originalThread);
+            try {
+                if (plan.has("responseStyle")) updateStyle(testThread, originalStyle == null ? JSONObject.NULL : originalStyle);
+            } finally {
+                if (!originalThread.isEmpty()) open(originalThread);
+            }
         }
+    }
+
+    private void updateStyle(String thread, Object style) throws Exception {
+        access("composer/options/write", new JSONObject().put("threadId", thread)
+                .put("options", new JSONObject().put("responseStyle", style)));
     }
 }

@@ -96,6 +96,6 @@ Harness 在任务准备时加入 `environment.apps` 摘要。摘要最多 12 条
 
 这套授权和交接约束覆盖 **managed phone tools（受管手机工具）** 及其工作空间准入，不是 Android 全局安全沙箱，也不声称拦截任意 root shell、其他无障碍服务或外部 ADB 输入。独立屏共享应用进程、账号和数据，不能宣传为应用数据隔离。
 
-实现入口：应用目录在 [PhoneAppCatalog](../system/assistant/broker/org/agentos/lab/PhoneAppCatalog.java)，屏幕与控制权在 [PhoneExecutionScreens](../system/assistant/broker/org/agentos/lab/PhoneExecutionScreens.java) 和 [WorkspaceControl](../system/assistant/broker/org/agentos/lab/WorkspaceControl.java)，界面在 [BackgroundWorkspacesActivity](../system/assistant/src/org/agentos/assistant/BackgroundWorkspacesActivity.java) 、[WorkspaceDetailActivity](../system/assistant/src/org/agentos/assistant/WorkspaceDetailActivity.java) 和 [MirrorActivity](../system/assistant/src/org/agentos/assistant/MirrorActivity.java)。
+应用目录由 [PhoneAppCatalog](../system/assistant/broker/org/agentos/lab/PhoneAppCatalog.java) 提供，屏幕及控制权由 [PhoneExecutionScreens](../system/assistant/broker/org/agentos/lab/PhoneExecutionScreens.java) 和 [WorkspaceControl](../system/assistant/broker/org/agentos/lab/WorkspaceControl.java) 管理。管理入口在 [Expo 工作区页面](../system/agent-app/src/components/WorkspaceManagementScreen.tsx)，实时画面和触控由 [MirrorActivity](../system/assistant/src/org/agentos/assistant/MirrorActivity.kt) 承载。
 
 后台接口的验收范围与复验方法见 [v72 记录](background-workspaces-acceptance-2026-10-27.md)；新界面的验证单独记在 [v73 界面候选记录](background-workspaces-design-acceptance-2026-10-27.md)。

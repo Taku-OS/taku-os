@@ -89,6 +89,20 @@ Isolation guards can be checked without a device using `python3 tests/lineage-em
 
 ## Acceptance scope
 
+The emulator build registers the existing AOSP software AEC implementation in the
+Goldfish vendor audio effects configuration and includes `libaudiopreprocessing`.
+`prepare-audio.py` accepts only the pinned upstream XML or its exact registered
+form, preserves all other effects, and checks the installed XML and library before
+exporting `emulator-audio.json`. It runs only in the isolated emulator build; no
+runtime bind mount or automatic microphone preprocessing is required. Live Talk
+enables AEC on its own `VOICE_COMMUNICATION` recording session.
+
+On a freshly booted image, use `adb -s SERIAL shell dumpsys media.audio_flinger`
+to inspect the registered AEC effect, then start Live Talk in the GUI and inspect
+`adb -s SERIAL logcat -d -s AudioLive` for capture/session failures. These are
+the same platform effects and engine session used by the GUI; the build receipt
+alone does not establish microphone capture, echo suppression, or provider access.
+
 Check boot completion, actual HOME resolution, SystemUI stability, `cmd statusbar island state`,
 the provider/Settings GUI's shared state, notification publication, touch pass-through, surface
 hosting/death, IME/Back and system-event sources. Preserve screenshots and crash/frame evidence.

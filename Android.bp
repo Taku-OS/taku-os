@@ -44,11 +44,6 @@ java_import {
     name: "taku-markdown",
     jars: [
         "system/assistant/downloads/commonmark-0.30.1.jar",
-        "system/assistant/downloads/commonmark-ext-gfm-tables-0.30.1.jar",
-        "system/assistant/downloads/commonmark-ext-gfm-strikethrough-0.30.1.jar",
-        "system/assistant/downloads/commonmark-ext-task-list-items-0.30.1.jar",
-        "system/assistant/downloads/commonmark-ext-autolink-0.30.1.jar",
-        "system/assistant/downloads/autolink-0.12.0.jar",
     ],
     sdk_version: "current",
 }
@@ -60,7 +55,7 @@ android_app {
         "system/assistant/src/**/*.java",
         "system/assistant/src/**/*.kt",
     ],
-    static_libs: ["taku-markdown", "taku-surfaces-client", "agentos-task-broker", "taku-audio-client"],
+    static_libs: ["taku-surfaces-client", "agentos-task-broker", "taku-audio-client"],
     static_kotlin_stdlib: true,
     resource_dirs: ["system/assistant/res"],
     asset_dirs: [

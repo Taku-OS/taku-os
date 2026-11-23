@@ -15,7 +15,8 @@ import org.json.JSONObject;
 /**
  * CLI and authorized-app access to the same store and management operations as the Memory UI.
  *
- * System/Agent/Shell callers pass through directly (still respecting `queryEnabled` on reads);
+ * System, Agent shell and platform-signed callers pass through directly
+ * (still respecting `queryEnabled` on reads);
  * external third-party UIDs are authorized against the central Taku App Permission Center
  * (`content://org.agentos.assistant.permissions`) and may never modify global Memory settings.
  */
@@ -24,8 +25,10 @@ public final class MemoryOpenAccessProvider extends ContentProvider {
  private static final Uri PERMISSION_GATE=Uri.parse("content://org.agentos.assistant.permissions");
  public boolean onCreate(){return true;}
 
- private boolean isSystemOrOwnCaller(int uid){
-  return uid==0||uid==Process.SYSTEM_UID||uid==Process.SHELL_UID||uid==Process.myUid();
+ private boolean isTrustedCaller(int uid){
+  if(uid==0||uid==Process.SYSTEM_UID||uid==Process.SHELL_UID||uid==Process.myUid())return true;
+  Context ctx=getContext();
+  return ctx!=null&&ctx.getPackageManager().checkSignatures(uid,Process.SYSTEM_UID)==PackageManager.SIGNATURE_MATCH;
  }
 
  private boolean checkExternalPermission(int uid,String scope){
@@ -45,7 +48,7 @@ public final class MemoryOpenAccessProvider extends ContentProvider {
  @Override public Bundle call(String method,String arg,Bundle extras){
   int callerUid=Binder.getCallingUid();
   if(method==null||method.isEmpty())return denied("INVALID_ARGUMENT","Missing memory method");
-  if(!isSystemOrOwnCaller(callerUid)){
+  if(!isTrustedCaller(callerUid)){
    if("configure".equals(method)){
     return denied("PERMISSION_DENIED","Memory configuration is restricted to system settings and Agent CLI");
    }

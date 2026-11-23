@@ -17,13 +17,25 @@ SCANNER = shutil.which('gitleaks')
 @unittest.skipUnless(SCANNER, 'Install the CI-pinned gitleaks for detector tests')
 class SecretScanAllowlist(unittest.TestCase):
     def test_allowlist_requires_both_exact_value_and_reviewed_path(self):
+        self.assert_path_bound_allowlist(
+            'docs/reviews/half-marathon-panels-2026-10-20/artifacts.json',
+            '8d6eeb9f4d1056b583670e46e5dc21d27363f4ff5148ff9b9b0badb2c38c1566')
+
+    def test_runtime_asset_digest_exception_is_exact_and_path_bound(self):
+        for digest in (
+                '56d2d3c9a73137ca1d84d335e355f83b5acebe2db26e72517b66ce216255aad7',
+                '4a3cd2d45986a0b63081ad4c9eee63ca3e3cecfe9adcfa470cbfb9f83543ebb2',
+                '78882e1d0704ea3b41acabd85821b2bdb42bcc0040f7132a95e932484a540c81'):
+            with self.subTest(digest=digest):
+                self.assert_path_bound_allowlist('image/runtime-assets.lock.json', digest)
+
+    def assert_path_bound_allowlist(self, reviewed_path, known):
         config = SCRIPT.parents[1] / '.gitleaks.toml'
         with tempfile.TemporaryDirectory() as directory:
             base = Path(directory)
             root = base / 'source'
-            path = root / 'docs/reviews/half-marathon-panels-2026-10-20/artifacts.json'
+            path = root / reviewed_path
             path.parent.mkdir(parents=True)
-            known = '8d6eeb9f4d1056b583670e46e5dc21d27363f4ff5148ff9b9b0badb2c38c1566'
             fresh = hashlib.sha256(b'synthetic secret scanner regression fixture').hexdigest()
 
             def scan(value, expected):
@@ -43,7 +55,7 @@ class SecretScanAllowlist(unittest.TestCase):
             path = path.with_name('unreviewed.json')
             scan(known, 1)
             path.unlink()
-            path = root / 'nested/docs/reviews/half-marathon-panels-2026-10-20/artifacts.json'
+            path = root / 'nested' / reviewed_path
             path.parent.mkdir(parents=True)
             scan(known, 1)
 

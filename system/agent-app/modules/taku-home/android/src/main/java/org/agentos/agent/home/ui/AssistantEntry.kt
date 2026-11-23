@@ -145,7 +145,7 @@ internal fun BoxScope.AssistantEntry(scene: GraphicsLayer, controller: HomeContr
           }
           if (cancelled) return@awaitEachGesture
           if (up == null) {
-            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+            // No haptic here: the one vibration comes when the microphone records (VoiceHold).
             controller.startVoiceHold()
             // Only a real lift sends. When the system takes the gesture over (navigation swipe,
             // recents) Compose delivers ACTION_CANCEL as an up that is already consumed; that,

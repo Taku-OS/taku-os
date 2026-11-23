@@ -23,6 +23,7 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
@@ -52,6 +53,9 @@ import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.rememberScrollState
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.agentos.agent.home.ui.effects.Shaders
+import org.agentos.agent.home.onboarding.OnboardingRules
+import org.agentos.agent.home.onboarding.OnboardingStep
+import org.agentos.agent.home.ui.onboarding.OnboardingLayer
 
 /** The feed: the leftmost page. */
 const val PAGE_FEED = 0
@@ -68,6 +72,7 @@ internal fun HomeScreen(controller: HomeController, backdrop: Backdrop?, pager: 
   val density = LocalDensity.current
   val gestureBoundary = rememberHomeGestureBoundary(gestures, pager, controller)
   val state by controller.repo.state.collectAsStateWithLifecycle()
+  val onboarding by controller.onboarding.state.collectAsStateWithLifecycle()
   // Ignoring visibility: the expanded Dynamic Island hides the status bar without moving the page.
   val statusInset = with(density) { WindowInsets.statusBarsIgnoringVisibility.getTop(this).toDp() }
   val navInset = with(density) { WindowInsets.navigationBars.getBottom(this).toDp() }
@@ -145,86 +150,109 @@ internal fun HomeScreen(controller: HomeController, backdrop: Backdrop?, pager: 
     }
   }
 
+  // Onboarding (never a Feed item). Its first steps take over Home: nothing but the wallpaper, the
+  // empty Home and the card is composed. "You’re all set" (Figma 1341:782) puts the card over the
+  // real Feed, pinned to the Feed page; the AI entry shows its usual hint once to introduce it.
+  val takeover = OnboardingRules.takesOverHome(onboarding.step)
+  val allSet = onboarding.step == OnboardingStep.ALL_SET
+  // Continue composes the pager for the first time, still at its initial Home page. Ask for the
+  // Feed in the apply phase, before that first layout, so Home never flashes before the Feed.
+  SideEffect { if (allSet && pager.currentPage != PAGE_FEED) pager.requestScrollToPage(PAGE_FEED) }
+  LaunchedEffect(allSet) {
+    if (!allSet) return@LaunchedEffect
+    runCatching { controller.assistant.setHint(true) }
+    snapshotFlow { pager.currentPage }.collect { if (it != PAGE_FEED) pager.scrollToPage(PAGE_FEED) }
+  }
+
   run {
     Box(Modifier.fillMaxSize().onSizeChanged { controller.screenHeight = it.height.toFloat(); controller.screenWidth = it.width.toFloat() }) {
-      Box(
-        Modifier
-          .fillMaxSize()
-          .graphicsLayer {
-            if (scrim > 0f && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-              renderEffect = Shaders.gaussian(4.dp.toPx() * scrim).asComposeRenderEffect()
-            } else renderEffect = null
-          },
-      ) {
+      if (takeover) {
+        val canvas = TakuTheme.colors.canvas
+        Box(Modifier.fillMaxSize().drawBehind {
+          if (backdrop != null) drawImage(backdrop.sharp, dstSize = IntSize(size.width.toInt(), size.height.toInt())) else drawRect(canvas)
+        })
+      } else {
         Box(
           Modifier
             .fillMaxSize()
-            .drawWithContent {
-              scene.record { this@drawWithContent.drawContent() }
-              drawLayer(scene)
+            .graphicsLayer {
+              if (scrim > 0f && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                renderEffect = Shaders.gaussian(4.dp.toPx() * scrim).asComposeRenderEffect()
+              } else renderEffect = null
             },
         ) {
-          val canvas = TakuTheme.colors.canvas
-          // One screen-fixed wallpaper behind every page; only pager content moves horizontally.
-          Box(Modifier.fillMaxSize().drawBehind {
-            if (backdrop != null) drawImage(backdrop.sharp, dstSize = IntSize(size.width.toInt(), size.height.toInt())) else drawRect(canvas)
-          })
-          // While dragging, every page stays composed: the lifted icon's gesture lives on its source
-          // page, which would otherwise leave composition two pages away and cancel the drag.
-          HorizontalPager(
-            state = pager,
-            beyondViewportPageCount = if (dragging) pager.pageCount else 1,
-            userScrollEnabled = !dragging,
-            key = { controller.pageKey(it) },
-            modifier = Modifier.fillMaxSize().nestedScroll(gestureBoundary),
-          ) { page ->
-            // Each page is clipped to its own bounds: feed cards (React surfaces, glows) must not
-            // leave a sliver on the neighbouring page once the pager settles (#30 N4).
-            Box(Modifier.fillMaxSize().clipToBounds()) {
-              val panelId = controller.panelAt(page)
-              when {
-                page == PAGE_FEED -> FeedPage(state, controller, backdrop, feedList, topInset, bottomInset)
-                page == PAGE_HOME -> HomePage(controller, 0, state, backdrop, homeScroll, topInset - 1.dp + if (controller.editingHome) 48.dp else 0.dp, bottomInset)
-                panelId != null -> PanelPage(
-                  panelId = panelId,
-                  title = controller.panelTitle(panelId),
-                  pool = controller.pool,
-                  mounted = kotlin.math.abs(page - pager.currentPage) <= 1,
-                  top = topInset,
-                  bottom = bottomInset,
-                )
-                page == controller.updateRequiredPage -> PanelsUpdateRequiredPage(topInset, bottomInset)
-                else -> HomePage(controller, controller.homePageAt(page) ?: 0, state, backdrop, rememberScrollState(), topInset - 1.dp + if (controller.editingHome) 48.dp else 0.dp, bottomInset)
+          Box(
+            Modifier
+              .fillMaxSize()
+              .drawWithContent {
+                scene.record { this@drawWithContent.drawContent() }
+                drawLayer(scene)
+              },
+          ) {
+            val canvas = TakuTheme.colors.canvas
+            // One screen-fixed wallpaper behind every page; only pager content moves horizontally.
+            Box(Modifier.fillMaxSize().drawBehind {
+              if (backdrop != null) drawImage(backdrop.sharp, dstSize = IntSize(size.width.toInt(), size.height.toInt())) else drawRect(canvas)
+            })
+            // While dragging, every page stays composed: the lifted icon's gesture lives on its source
+            // page, which would otherwise leave composition two pages away and cancel the drag.
+            HorizontalPager(
+              state = pager,
+              beyondViewportPageCount = if (dragging) pager.pageCount else 1,
+              userScrollEnabled = !dragging && !allSet,
+              key = { controller.pageKey(it) },
+              modifier = Modifier.fillMaxSize().nestedScroll(gestureBoundary),
+            ) { page ->
+              // Each page is clipped to its own bounds: feed cards (React surfaces, glows) must not
+              // leave a sliver on the neighbouring page once the pager settles (#30 N4).
+              Box(Modifier.fillMaxSize().clipToBounds()) {
+                val panelId = controller.panelAt(page)
+                when {
+                  page == PAGE_FEED -> FeedPage(state, controller, backdrop, feedList, topInset, bottomInset)
+                  page == PAGE_HOME -> HomePage(controller, 0, state, backdrop, homeScroll, topInset - 1.dp + if (controller.editingHome) 48.dp else 0.dp, bottomInset)
+                  panelId != null -> PanelPage(
+                    panelId = panelId,
+                    title = controller.panelTitle(panelId),
+                    pool = controller.pool,
+                    mounted = kotlin.math.abs(page - pager.currentPage) <= 1,
+                    top = topInset,
+                    bottom = bottomInset,
+                  )
+                  page == controller.updateRequiredPage -> PanelsUpdateRequiredPage(topInset, bottomInset)
+                  else -> HomePage(controller, controller.homePageAt(page) ?: 0, state, backdrop, rememberScrollState(), topInset - 1.dp + if (controller.editingHome) 48.dp else 0.dp, bottomInset)
+                }
               }
             }
+            // The desktop's navigation state is a projection of what the pager shows right now.
+            val navigation = PanelNavigation.Snapshot(
+              available = controller.availablePanelIds,
+              visible = controller.mountedPanelIds(pager.currentPage),
+              selectedPanelId = controller.selectedPanelId,
+            )
+            LaunchedEffect(navigation) { PanelNavigation.publish(navigation) }
+            DustOverlay(controller)
           }
-          // The desktop's navigation state is a projection of what the pager shows right now.
-          val navigation = PanelNavigation.Snapshot(
-            available = controller.availablePanelIds,
-            visible = controller.mountedPanelIds(pager.currentPage),
-            selectedPanelId = controller.selectedPanelId,
-          )
-          LaunchedEffect(navigation) { PanelNavigation.publish(navigation) }
-          DustOverlay(controller)
+          TopEdgeBlur(scene, statusInset + 28.dp)
+          if (controller.editingHome) {
+            PageDots(pager.pageCount, pager.currentPage, Modifier.align(Alignment.BottomCenter).padding(bottom = navInset + TakuSpacing.sm))
+          } else AssistantEntry(scene, controller, pager.pageCount, pager.currentPage, navInset, gestures)
         }
-        TopEdgeBlur(scene, statusInset + 28.dp)
-        if (controller.editingHome) {
-          PageDots(pager.pageCount, pager.currentPage, Modifier.align(Alignment.BottomCenter).padding(bottom = navInset + TakuSpacing.sm))
-        } else AssistantEntry(scene, controller, pager.pageCount, pager.currentPage, navInset, gestures)
+        HomeWorkspacePreviews(controller, onOpenWorkspace = controller::openWorkspace)
+        FolderSheet(controller, backdrop)
+        if (controller.editingHome) HomeEditingToolbar(controller, scene, statusInset)
+        LauncherHomeMenu(controller, scene)
+        DragOverlay(controller, backdrop)
+        LauncherIconMenu(controller, scene)
+        WidgetDialogs(controller, backdrop)
+        LauncherHiddenApps(controller, backdrop)
+        LauncherRemoval(controller, backdrop)
+        controller.menu?.let { target ->
+          CardMenu(target, controller, scrim, controller.screenHeight, with(density) { topInset.toPx() })
+        }
+        AssistantLayer(scene, controller)
       }
-      HomeWorkspacePreviews(controller, onOpenWorkspace = controller::openWorkspace)
-      FolderSheet(controller, backdrop)
-      if (controller.editingHome) HomeEditingToolbar(controller, scene, statusInset)
-      LauncherHomeMenu(controller, scene)
-      DragOverlay(controller, backdrop)
-      LauncherIconMenu(controller, scene)
-      WidgetDialogs(controller, backdrop)
-      LauncherHiddenApps(controller, backdrop)
-      LauncherRemoval(controller, backdrop)
-      controller.menu?.let { target ->
-        CardMenu(target, controller, scrim, controller.screenHeight, with(density) { topInset.toPx() })
-      }
-      AssistantLayer(scene, controller)
+      // One place in the tree for every step, so the card morphs from step to step instead of re-mounting.
+      OnboardingLayer(onboarding, controller.onboarding)
     }
   }
 }

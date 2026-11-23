@@ -22,7 +22,7 @@ internal object TakuPalette {
   val content200 = content(0.08f); val content100 = content(0.06f); val content50 = content(0.04f)
   val surface900 = surface(0.92f); val surface800 = surface(0.80f); val surface700 = surface(0.64f)
   val surface600 = surface(0.48f); val surface500 = surface(0.36f); val surface400 = surface(0.24f)
-  val surface200 = surface(0.08f)
+  val surface200 = surface(0.08f); val surface50 = surface(0.04f)
   val foreground = Color(0xFF1B1B1B)       // Main/Foreground
   val surfaceDefault = Color(0xFFFFFFFF)   // Main/Surface/Default
   val surfaceSecondary = Color(0xFFF1F1F3) // Main/Surface/Secondary
@@ -72,7 +72,7 @@ data class TakuColors(
   val surfaceInverse: Color,
   /** Media placeholders, the vinyl label (Main/Surface/Secondary). */
   val surfaceMuted: Color,
-  /** Backplate of brand icons drawn inside circles. */
+  /** Backplate of folder miniatures (rounded, like the icons). */
   val surfaceIcon: Color,
   /** Subtle circular controls (Content/50). */
   val fillSubtle: Color,
@@ -115,6 +115,23 @@ data class TakuColors(
   val islandInk: Color,
   val islandChip: Color,
   val islandChipText: Color,
+  /** Emphasised words in island copy, e.g. the user's name (Surface/900). */
+  val islandTextStrong: Color,
+  /** Island text field track (Surface/200) and its placeholder (Surface/500). */
+  val islandField: Color,
+  val islandPlaceholder: Color,
+  /** Island primary action: Main/Surface/Default fill, Main/Foreground label (onboarding "Continue"). */
+  val islandAction: Color,
+  val islandActionText: Color,
+  /** Island brand action: Main/Brand fill, Main/Foreground label (onboarding "Set up Taku"). */
+  val islandBrand: Color,
+  /** Disabled island action: Surface/50 fill, Surface/400 label. */
+  val islandActionDisabled: Color,
+  val islandActionDisabledText: Color,
+  /** Island read-only well: the onboarding link, code and key rows (Surface/50). */
+  val islandWell: Color,
+  /** Onboarding progress segment for the service being set up (Main/Surface/Secondary). */
+  val islandProgress: Color,
   /** Voice aurora under the 1-1 glass: yellow, blue, red, green. */
   val voiceAurora: List<Color>,
   /** Screen-edge "Taku is working" glows: bottom, left, right, top. */
@@ -138,6 +155,10 @@ data class TakuColors(
         dataInk = Color.Black, accentPositive = green300, accentBrand = brand200, accentSend = brand,
         islandSurface = content900, islandSolid = black, islandText = surface800, islandTextMuted = surface700,
         islandInk = surfaceDefault, islandChip = surface200, islandChipText = surface900,
+        islandTextStrong = surface900, islandField = surface200, islandPlaceholder = surface500,
+        islandAction = surfaceDefault, islandActionText = foreground, islandBrand = brand,
+        islandActionDisabled = surface50, islandActionDisabledText = surface400,
+        islandWell = surface50, islandProgress = surfaceSecondary,
         voiceAurora = listOf(auroraYellow, auroraBlue, auroraRed, auroraGreen),
         workingGlow = listOf(glowGreen, glowSky, glowOrange, glowIndigo),
       )
@@ -158,6 +179,10 @@ data class TakuColors(
         dataInk = Color.White, accentPositive = green300, accentBrand = brand200, accentSend = brand,
         islandSurface = content900, islandSolid = black, islandText = surface800, islandTextMuted = surface700,
         islandInk = surfaceDefault, islandChip = surface200, islandChipText = surface900,
+        islandTextStrong = surface900, islandField = surface200, islandPlaceholder = surface500,
+        islandAction = surfaceDefault, islandActionText = foreground, islandBrand = brand,
+        islandActionDisabled = surface50, islandActionDisabledText = surface400,
+        islandWell = surface50, islandProgress = surfaceSecondary,
         voiceAurora = listOf(auroraYellow, auroraBlue, auroraRed, auroraGreen),
         workingGlow = listOf(glowGreen, glowSky, glowOrange, glowIndigo),
       )

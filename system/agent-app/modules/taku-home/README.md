@@ -37,11 +37,18 @@ while an icon is dragged past the last app page, and an app page other than 0 di
 
 * **Home page 0** (Figma 4-1): two widget rows (clock with 12 edge ticks and staggered digits,
   next alarm with switch, weather glyph, date; sleep pixel trend, now playing), then three rows
-  of four apps/folders on 83 dp Surface/600 glass plates. On first launch every launchable app
+  of four apps/folders in 83 dp columns with centred 60 dp rounded-rectangle icons
+  (18 dp corners, Figma 338:3610). The column gap remains 16 dp; icon edges are 39 dp apart.
+  App-only rows have a 60 dp plate, 4 dp label gap, 16 dp label and 16 dp row gap.
+  Glyph apps and folders sit on a Surface/600 glass plate with a 1 dp Surface/400 rim; folder
+  miniatures are rounded the same way. On first launch every launchable app
   (LauncherApps; phone, browser, messaging, camera first, shipped Taku apps in a folder) is laid
   out from page 0 on. The four core roles (phone, browser, messaging, camera) and unbranded AOSP
   utilities are drawn as #1B1B1B glyphs like the design; every other app (Google, third-party,
-  Taku) keeps its brand icon in a 48 dp circle.
+  Taku) fills the whole rounded rectangle with its adaptive icon (background layer edge to edge),
+  deliberately unlike the frame's 48 dp circles. Adaptive foreground/background layers keep
+  Android's normal viewport without a second zoom or circular mask. Non-adaptive icons fit
+  their original aspect ratio; transparent areas remain over the glass.
 * **Panel pages** follow all app pages and come from the Assistant's authoritative
   `PanelRegistry`. There are no default Kyoto, Home or Work panels. Compose hosts the
   page and its lifecycle; the `TakuPanel` React Native root accepts only `panelId`,
@@ -469,7 +476,7 @@ Figma 1-1 … 1-6. Native Kotlin/Compose (`assistant/`, `ui/assistant/`); state 
   transcript. Keep talking expands a black surface over 820 ms and transfers the same capture
   into the full chat's Live Talk mode. Text and voice share the 80% black translucent chat
   surface (300:661 / 297:433), thread and message history. Closing Live Talk returns to text.
-  Live Talk finalizes after measured speech plus 1.5 s silence and resumes after the reply;
+  Live Talk finalizes after measured speech plus 3 s silence and resumes after the reply;
   it uses the desktop's scoped backend preference. Unavailable video input is disabled.
   Designer waveform and light-field source/masks are bundled locally by
   `scripts/build-voice-effects.cjs`; see `voice-effects/README.md` for provenance and isolation.
@@ -496,12 +503,22 @@ Figma 1-1 … 1-6. Native Kotlin/Compose (`assistant/`, `ui/assistant/`); state 
   or tap outside to fold it into the camera pill while working (1-6: dots, metaball necks,
   status label around the cutout from `DisplayCutout`; tap anywhere on it to reopen), otherwise
   it closes.
-* **Working edge (1-4, 1-5)**: the four Figma "working gradient" layers, each a full-frame inset
-  shadow (blur 32 → σ16, erfc falloff, ~½ at the edge) with its own 4 dp offset, drawn in Figma
-  order and blend mode: green (0, −4) and indigo (0, 4) plus-lighter, sky (4, 0) and orange
-  (−4, 0) normal (plus-lighter is what washes them to the frame's pale edge on the light home),
-  along the display's rounded corner radius. While Taku works or dictates the offsets turn slowly
-  together and the strength breathes slightly (92–100 %).
+* **Working edge (1-4, 1-5)**: the designer handoff's `screen-edge-glow`, ported to Kotlin
+  and AGSL (`working-glow.source.json` records exact source hashes). Seven packets flow in
+  both directions around one continuous rounded perimeter, breathing between 20–150 dp
+  filaments/blooms with 90 dp colour drift. The original four-layer palette, Gaussian σ13.5,
+  normalised brightness and inward depth warp replace the old rotating shadow offsets.
+  A reversible smoothstep envelope fades in over 200 ms and out over 400 ms. The flow clock
+  survives toggling; Android's disabled animator setting uses static light and stops continuous
+  redraw once the fade completes. Hidden/detached views stop their frame callbacks.
+  The authoritative trigger remains `AssistantSession.working`, also readable through
+  `assistant/get.working`; the effect adds no separate runtime state or Agent-only switch.
+  It stays in a non-touchable full-display system overlay above the IME and status bar,
+  without masking the Dynamic Island. Window alpha remains 0.8 for touch pass-through;
+  the shader compensates its folded colour/coverage before window composition. Where the
+  system refuses the overlay, the same renderer runs inside Home (below other windows).
+  Run `bash system/agent-app/modules/taku-home/scripts/test-working-glow.sh` for envelope,
+  interrupted-fade and continuous-clock regression checks.
 * **Voice recognition** uses the shared Audio Engine (`system/audio-engine`) exclusively.
   The desktop hold gesture and text-field microphone open `DICTATION` with
   `settingsScope:"assistant-entry"`. Taku Audio saves the backend, language, and optional

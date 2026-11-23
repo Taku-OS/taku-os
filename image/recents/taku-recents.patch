@@ -619,7 +619,7 @@ index 2b06829..c9851c8 100644
      @IntDef(flag = true, value = {
              DISABLED_SCROLLING,
 diff --git a/quickstep/src/com/android/quickstep/views/RecentsView.java b/quickstep/src/com/android/quickstep/views/RecentsView.java
-index 4ca0a11..a16b895 100644
+index 4ca0a11..9ff79e0 100644
 --- a/quickstep/src/com/android/quickstep/views/RecentsView.java
 +++ b/quickstep/src/com/android/quickstep/views/RecentsView.java
 @@ -961,6 +961,7 @@ public abstract class RecentsView<
@@ -639,7 +639,20 @@ index 4ca0a11..a16b895 100644
              int screenStart = getPagedOrientationHandler().getPrimaryScroll(this);
              int screenEnd = screenStart + getPagedOrientationHandler().getMeasuredSize(this);
              return isTaskViewWithinBounds(tv, screenStart, screenEnd, /*taskViewTranslation=*/ 0);
-@@ -2216,6 +2217,11 @@ public abstract class RecentsView<
+@@ -1421,7 +1422,11 @@ public abstract class RecentsView<
+     }
+ 
+     protected int getLastTaskScroll(int clearAllScroll, int clearAllWidth) {
+-        int distance = clearAllWidth + getClearAllExtraPageSpacing();
++        // The deck's ClearAll gap only cancels its negative page spacing (the net gap stays the
++        // upstream page spacing), so keep upstream's carousel bound. Counting that gap here put
++        // the bound most of a card past the oldest task and clamped every task's page scroll to
++        // it: the deck shifted left, cards bunched up and paging always snapped back.
++        int distance = clearAllWidth + (isTakuDeck() ? 0 : getClearAllExtraPageSpacing());
+         return clearAllScroll + (mIsRtl ? distance : -distance);
+     }
+ 
+@@ -2216,6 +2221,11 @@ public abstract class RecentsView<
          getTaskSize(mLastComputedTaskSize);
          mTaskWidth = mLastComputedTaskSize.width();
          mTaskHeight = mLastComputedTaskSize.height();
@@ -651,7 +664,7 @@ index 4ca0a11..a16b895 100644
          setPadding(mLastComputedTaskSize.left - mInsets.left,
                  mLastComputedTaskSize.top - mInsets.top,
                  dp.getDeviceProperties().getWidthPx() - mInsets.right - mLastComputedTaskSize.right,
-@@ -2380,12 +2386,81 @@ public abstract class RecentsView<
+@@ -2380,12 +2390,81 @@ public abstract class RecentsView<
      /**
       * Scales and adjusts translation of adjacent pages as if on a curved carousel.
       */
@@ -733,7 +746,7 @@ index 4ca0a11..a16b895 100644
  
          // Clear all button alpha was set by the previous line.
          mActionsView.getIndexScrollAlpha().updateValue(1 - mClearAllButton.getScrollAlpha());
-@@ -5107,6 +5182,10 @@ public abstract class RecentsView<
+@@ -5107,6 +5186,10 @@ public abstract class RecentsView<
  
      protected int getClearAllExtraPageSpacing() {
          OverviewProfile overviewProfile = mContainer.getDeviceProfile().getOverviewProfile();

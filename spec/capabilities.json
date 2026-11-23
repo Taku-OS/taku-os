@@ -2714,15 +2714,15 @@
       "permissions": [
         {
           "name": "HOME Intent",
-          "authorization": "Ordinary apps declare HOME; the current Taku assistant uses system UID1000 and a platform test signature, with minSdk36"
+          "authorization": "Ordinary apps declare HOME; the current Taku Home is HomeActivity in the platform-signed Taku Agent app (org.agentos.agent, ordinary UID); the system-UID assistant backend no longer declares HOME"
         },
         {
           "name": "user selects the default launcher",
-          "authorization": "Ordinary apps declare HOME; the current Taku assistant uses system UID1000 and a platform test signature, with minSdk36"
+          "authorization": "Ordinary apps declare HOME; the current Taku Home is HomeActivity in the platform-signed Taku Agent app (org.agentos.agent, ordinary UID); the system-UID assistant backend no longer declares HOME"
         },
         {
           "name": "system preinstallation can set the default",
-          "authorization": "Ordinary apps declare HOME; the current Taku assistant uses system UID1000 and a platform test signature, with minSdk36"
+          "authorization": "Ordinary apps declare HOME; the current Taku Home is HomeActivity in the platform-signed Taku Agent app (org.agentos.agent, ordinary UID); the system-UID assistant backend no longer declares HOME"
         }
       ],
       "entrypoints": [
@@ -2735,7 +2735,7 @@
         {
           "kind": "device_shell",
           "environment": "Root shell on the phone",
-          "preconditions": "Ordinary apps declare HOME; the current Taku assistant uses system UID1000 and a platform test signature, with minSdk36",
+          "preconditions": "Ordinary apps declare HOME; the current Taku Home is HomeActivity in the platform-signed Taku Agent app (org.agentos.agent, ordinary UID); the system-UID assistant backend no longer declares HOME",
           "code": "am start -a android.intent.action.MAIN -c android.intent.category.HOME",
           "expected": "Opens the actual Taku HOME, not a simulated web interface",
           "executedThisRun": false
@@ -2849,7 +2849,7 @@
       ],
       "limitations": [
         "Not a SystemUI permission; system policy constrains overlays on sensitive windows and touch delivery.",
-        "This project has a NativeHOME pet only, with no verified cross-app pet overlay."
+        "The former native HOME pet was removed with the legacy assistant UI; this project has no verified cross-app pet overlay."
       ],
       "status": "research",
       "verificationScope": "Not tested; the example is a research entry point, not an installed Taku API",
@@ -2914,11 +2914,11 @@
       "permissions": [
         {
           "name": "BIND_VOICE_INTERACTION (service binding)",
-          "authorization": "Implement VoiceInteractionService/SessionService and select the default assistant; the current test-signed system app integrates these"
+          "authorization": "Implement VoiceInteractionService/VoiceInteractionSessionService and select the default assistant; the platform-signed Taku Agent app (org.agentos.agent, ordinary UID) provides SystemAssistantService/SystemAssistantSessionService"
         },
         {
           "name": "default assistant role",
-          "authorization": "Implement VoiceInteractionService/SessionService and select the default assistant; the current test-signed system app integrates these"
+          "authorization": "Implement VoiceInteractionService/VoiceInteractionSessionService and select the default assistant; the platform-signed Taku Agent app (org.agentos.agent, ordinary UID) provides SystemAssistantService/SystemAssistantSessionService"
         }
       ],
       "entrypoints": [
@@ -2931,14 +2931,14 @@
         {
           "kind": "device_shell",
           "environment": "Root shell on the phone",
-          "preconditions": "Implement VoiceInteractionService/SessionService and select the default assistant; the current test-signed system app integrates these",
-          "code": "am start -a android.intent.action.ASSIST",
-          "expected": "Opens the current default assistant entry point; not speech recognition or low-power wake-up",
+          "preconditions": "Implement VoiceInteractionService/VoiceInteractionSessionService and select the default assistant; the platform-signed Taku Agent app (org.agentos.agent, ordinary UID) provides SystemAssistantService/SystemAssistantSessionService",
+          "code": "settings get secure voice_interaction_service\nam start -a android.intent.action.ASSIST",
+          "expected": "Prints org.agentos.agent/org.agentos.agent.home.assistant.SystemAssistantService in the Taku image, then opens the entry point of that assistant; not speech recognition or low-power wake-up",
           "executedThisRun": false
         }
       ],
       "limitations": [
-        "RecognitionUnavailableService in the Manifest indicates that speech transcription is not implemented.",
+        "SystemRecognitionService in the Taku Agent Manifest only completes the assistant declaration and answers ERROR_LANGUAGE_NOT_SUPPORTED; speech transcription through RecognitionService is not implemented.",
         "The system may redact background/main-screen context; secure content is not promised."
       ],
       "status": "research",

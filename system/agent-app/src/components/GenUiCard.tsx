@@ -5,7 +5,7 @@ import {spacing} from '../feed/feedTokens';
 import {textFor, type Language} from '../i18n';
 import {chatText} from '../chat/chatText';
 import {presentationRequest, templateSpec, type CardPresentation} from '../model/genui';
-import {useGenUiCard} from '../hooks/useGenUi';
+import {noteJevSetupOpened, useGenUiCard} from '../hooks/useGenUi';
 import {registry, ChatReplySurface} from './genuiRegistry';
 import {isTextReplySpec} from '../model/chatReplySurface';
 import {CardLanguage, CardMatter, openSafeUrl} from './genuiWidgets';
@@ -14,6 +14,7 @@ import {assemblySpec} from '../model/genuiAssembly';
 import {FeedButton, FeedPressable, FeedStatus, FeedText} from '../feed/feedVisual';
 import {list, record, type Json} from '../model/session';
 import {formatUiValue} from './genuiFormat';
+import {openAiSetup} from '../native/aiSetup';
 
 interface CardProps {threadId: string; presentation: CardPresentation; language: Language; active?: boolean; preload?: boolean; surface?: 'chat' | 'panel'}
 
@@ -52,6 +53,7 @@ function LiveCard({threadId, presentation, language, active = true, preload = fa
   const {store, spec, dispatch, pin} = card;
   const [pinBusy, setPinBusy] = useState(false), [pinError, setPinError] = useState('');
   const [reviewOpen, setReviewOpen] = useState(false);
+  const {jevSetupNeeded} = card;
   const renderSpec = useMemo(() => assemblySpec(spec), [spec]);
   const handlers = useMemo(() => ({
     setState: createStandardActionHandlers().setState,
@@ -99,6 +101,10 @@ function LiveCard({threadId, presentation, language, active = true, preload = fa
         : card.syncError === 'VERSION_CONFLICT' ? 'panelStaleState' : 'cardSyncUnavailable')}/>}
       {card.hydrationError && <FeedStatus state="error" text={t('cardLoadingFailed')}/>}
       {card.layoutError && <FeedStatus state="error" text={t('cardLayoutFailed')}/>}
+      {jevSetupNeeded && <View style={styles.setup}>
+        <FeedStatus state="info" text={t('cardJevSetupNeeded')}/>
+        <FeedButton label={t('cardSetUpJev')} size="md" onPress={() => { if (openAiSetup('jev')) noteJevSetupOpened(); }}/>
+      </View>}
       {!!card.review.length && <View style={styles.review}>
         <FeedPressable label={`${reviewOpen ? t('hideDetails') : t('showDetails')} · ${t('cardReviewSavedInputs')} (${card.review.length})`}
           expanded={reviewOpen} onPress={() => setReviewOpen(!reviewOpen)}>
@@ -122,13 +128,8 @@ function LiveCard({threadId, presentation, language, active = true, preload = fa
       {card.submission && <FeedStatus state={failed ? 'error' : sending ? 'pending' : 'info'} text={t(phase === 'notSent' ? 'cardRequestNotSent' : failed ? 'cardRequestFailed' : sending ? 'cardSubmitting'
         : phase === 'deferred' ? 'cardRequestDeferred' : result.effect === 'source-refresh-requested' ? 'cardRefreshRequested'
         : result.effect === 'local-rule-change' ? 'cardRuleUpdated' : phase === 'taskCompleted' ? 'cardRequestHandled' : 'cardRequestAccepted')}/>}
-      {surface === 'chat' && !!pin?.panelId && <View style={styles.pinRow}>
-        <FeedText text={t('pinned')} variant="body-sm" tone="tertiary"/>
-        <FeedButton label={t('openPanel')} size="md" onPress={() => pinAction(card.openPinned)}/>
-        <FeedButton label={t('unpinPanel')} size="md" disabled={pinBusy} onPress={() => pinAction(card.unpin)}/>
-      </View>}
-      {surface === 'chat' && pin && !pin.panelId && pin.canPin && <FeedButton label={t('pinPanel')} size="md" disabled={!card.hydrated || pinBusy}
-        onPress={() => pinAction(card.pinToPanels)}/>}
+      {/* Pin to Panels, Open panel and Unpin live in the reply's long-press menu (ReplyMenu), and
+          only for panel replies; no pin control sits under a message (Figma 2-4, 300:1001). */}
       {!!pinMessage && <FeedStatus state="error" text={pinMessage}/>}
     </View>;
   return <CardLanguage.Provider value={language}><CardMatter.Provider value={`${threadId}/${request.key}`}>
@@ -143,7 +144,7 @@ export function GenUiCard(props: CardProps & {superseded?: boolean}) {
 
 const styles = StyleSheet.create({
   container: {gap: spacing[4]},
-  pinRow: {flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: spacing[4]},
+  setup: {gap: spacing[4], alignItems: 'flex-start'},
   review: {gap: spacing[8]},
   reviewToggle: {minHeight: 36, paddingHorizontal: spacing[4], flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing[12]},
   reviewDetails: {paddingHorizontal: spacing[4], gap: spacing[12]},

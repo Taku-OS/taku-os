@@ -1,4 +1,0 @@
-<voice-interaction-service xmlns:android="http://schemas.android.com/apk/res/android"
- android:sessionService="org.agentos.assistant.SessionService"
- android:recognitionService="org.agentos.assistant.RecognitionUnavailableService"
- android:supportsAssist="true" android:supportsLocalInteraction="false"/>

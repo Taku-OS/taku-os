@@ -21,9 +21,10 @@ import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.launch
 import org.agentos.agent.home.assistant.AssistantSession
 import org.agentos.agent.home.assistant.AssistantState
-import org.agentos.agent.home.assistant.EntryMode
 import org.agentos.agent.home.assistant.IslandMode
+import org.agentos.agent.home.assistant.VoicePhase
 import org.agentos.agent.home.assistant.VoiceState
+import org.agentos.agent.home.assistant.VoiceTarget
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -38,7 +39,6 @@ class IslandPublisherService : Service() {
   private var lastExpansionRequest = 0L
   private var lastRequest = IslandMode.Hidden
   private var postedTag: String? = null
-  private var inputActive = false
 
   override fun onCreate() {
     super.onCreate()
@@ -69,7 +69,6 @@ class IslandPublisherService : Service() {
       fingerprint = null
       postedTag = null
       lastRequest = IslandMode.Hidden
-      inputActive = false
       return
     }
     val thread = state.threadId ?: "entry"
@@ -83,10 +82,15 @@ class IslandPublisherService : Service() {
     if (prefs.getString("thread", null) != state.threadId) {
       prefs.edit().putString("thread", state.threadId).putLong("created", System.currentTimeMillis()).apply()
     }
+    // A hold whose microphone has not started recording yet shows no listening cue at all.
+    val holdStarting = voice.target == VoiceTarget.Hold && voice.phase == VoicePhase.Preparing
+    val falKeyMissing = state.error == AssistantSession.VOICE_FAL_KEY_MISSING
     val title = when {
+      falKeyMissing -> "fal API key missing"
       state.error != null -> "Taku couldn’t finish"
       state.needsUser -> "Taku needs your confirmation"
-      voice.listening -> "Taku is listening..."
+      // Only once the microphone records (Capturing), never while it is still starting.
+      voice.listening && !holdStarting -> "Taku is listening..."
       state.working -> "Taku is working"
       else -> "Taku"
     }
@@ -102,7 +106,12 @@ class IslandPublisherService : Service() {
       ids.put(id)
     }
     if (state.working || state.needsUser) add("stop", "Stop", action("stop", thread, state.activityId))
-    val open = PendingIntent.getActivity(this, ID, Intent().setClassName(packageName, "org.agentos.agent.MainActivity")
+    // Voice needs a fal key: tapping the prompt (or its action) opens the fal setup page directly.
+    val falSetup = if (!falKeyMissing) null else PendingIntent.getActivity(this, ID + 2,
+      org.agentos.agent.home.onboarding.ServiceSetup.intent(this, org.agentos.agent.home.onboarding.OnboardingService.FAL),
+      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+    if (falSetup != null) add("falKey", "Add fal key", falSetup)
+    val open = falSetup ?: PendingIntent.getActivity(this, ID, Intent().setClassName(packageName, "org.agentos.agent.MainActivity")
       .putExtra("threadId", state.threadId).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP),
       PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
     add("open", "Open conversation", action("open", thread, state.activityId))
@@ -124,11 +133,11 @@ class IslandPublisherService : Service() {
     })
     val payload = JSONObject().put("version", 1).put("category", "assistant").put("compact", if (state.buildingApp) "building" else "hidden").put("relevance", if (state.needsUser) 1 else .5)
       .put("bigIsland", JSONObject()
-        .put("leading", JSONObject().put("type", "pic").put("pic", "taku").put("animated", if (state.working) "working" else if (voice.listening) "listening" else "none"))
+        .put("leading", JSONObject().put("type", "pic").put("pic", "taku").put("animated", if (state.working) "working" else if (voice.listening && !holdStarting) "listening" else "none"))
         .put("trailing", JSONObject().put("type", "text").put("text", if (state.buildingApp) short else "Taku")))
       .put("expanded", JSONObject().put("template", "assistant")
         .put("title", title).put("body", bounded(body, 1200)).put("steps", if (listening) JSONArray() else steps)
-        .put("actions", ids).put("primaryAction", "open")
+        .put("actions", ids).put("primaryAction", if (falSetup != null) "falKey" else "open")
         .put("assistant", JSONObject().put("token", token).put("phase", if (listening) "listening" else if (state.working) "working" else "message")
           .put("suggestions", suggestions)
           .put("heightDp", if (listening) kotlin.math.ceil(68 + 27.9 * resources.configuration.fontScale).toInt().coerceIn(96, 340) else 300)))
@@ -156,13 +165,9 @@ class IslandPublisherService : Service() {
         .onSuccess { fingerprint = value }
         .onFailure { android.util.Log.w("TakuIsland", "Notification unavailable", it) }
     }
-    if (state.entry == EntryMode.Text) {
-      if (!inputActive) SystemIslandBridge.request(this, "collapse")
-      inputActive = true
-      lastRequest = IslandMode.Hidden // Reconsider the result after the input relinquishes focus.
-      return
-    }
-    inputActive = false
+    // The text input stays open under the expanded card (Figma 1-3): SystemUI's card never takes
+    // focus and moves below the status bar while the keyboard shows, so a reply appears at the top
+    // as soon as it arrives instead of after the keyboard closes.
     if (state.island != lastRequest || state.expansionRequest != lastExpansionRequest) {
       if (state.island == IslandMode.Expanded || state.island == IslandMode.Full) SystemIslandBridge.request(this, "expand")
       else if (state.island == IslandMode.Collapsed) SystemIslandBridge.request(this, "collapse")

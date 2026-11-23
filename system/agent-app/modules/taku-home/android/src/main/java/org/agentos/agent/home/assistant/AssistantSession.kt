@@ -23,6 +23,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runInterruptible
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.InputStream
@@ -59,6 +62,7 @@ data class AssistantState(
   val error: String? = null,
   /** Unsent text in the field (restored after a rejected send or a failed task). */
   val draft: String = "",
+  val draftAttachmentNames: List<String> = emptyList(),
   /** The request that last failed (rejected send, failed task or turn), kept for edit / retry. */
   val failedText: String? = null,
   /** The device has a default network with internet capability. */
@@ -130,9 +134,35 @@ class AssistantSession private constructor(private val context: Context, private
   private var pollJob: Job? = null
   private var voiceJob: Job? = null
   private var liveLaunchJob: Job? = null
+  private var handoffOperation: Long? = null
+  private var handoffActivityLaunched = false
+  private var handoffEditor: Editor? = null
+  private val startedChats = mutableSetOf<android.app.Activity>()
+  private val liveFlow = MutableStateFlow<LiveTalkSnapshot?>(null)
+  internal val liveState = liveFlow.asStateFlow()
+  private val liveDelivery = LiveTalkDelivery(context, gateway, worker)
+  private val live = LiveTalk(context, scope, liveDelivery, { snapshot ->
+    val paused = snapshot.open && snapshot.muted
+    if (flow.value.voiceContinuous != snapshot.open || flow.value.voicePaused != paused)
+      flow.update { it.copy(voiceContinuous = snapshot.open, voicePaused = paused) }
+    liveFlow.value = snapshot
+  }, { text -> handoffEditor?.let { recoverFailure(it, "VOICE_UNAVAILABLE", text) } })
+  private var voiceStartSequence = 0L
+  internal var voiceStartPending = false
+    private set
   private val liveEndpoint = LiveTalkEndpoint()
   private val threadCreation = SessionThreadCreation()
   private var expansionSequence = 0L
+  private val composer = HomeComposer(context, gateway, worker)
+  private val composerLock = Mutex()
+  private class Edit(val text: String, var baseText: String)
+  private class Editor(var threadId: String) {
+    var saved: HomeComposer.Draft? = null
+    var edit: Edit? = null
+    var writing = false
+  }
+  private var editor = Editor("")
+  private var openingConversation = false
 
   private val gesturePrefs = context.getSharedPreferences("voice-gesture", 0)
   private val boot = android.provider.Settings.Global.getInt(context.contentResolver, "boot_count", -1)
@@ -150,23 +180,28 @@ class AssistantSession private constructor(private val context: Context, private
     // Activity start precedes the previous activity's stop. This preserves capture during
     // Home → chat, while leaving the visible chat still releases the microphone. React's
     // shared host onPause/AppState signal is too early for this cross-activity handoff.
-    val chatActivities = mutableSetOf<android.app.Activity>()
     (context.applicationContext as? android.app.Application)?.registerActivityLifecycleCallbacks(object : android.app.Application.ActivityLifecycleCallbacks {
       override fun onActivityStarted(activity: android.app.Activity) {
-        if (activity.javaClass.name == "org.agentos.agent.MainActivity") chatActivities.add(activity)
+        if (activity.javaClass.name == CHAT_ACTIVITY) startedChats.add(activity)
       }
       override fun onActivityStopped(activity: android.app.Activity) {
-        if (activity.javaClass.name != "org.agentos.agent.MainActivity") return
-        chatActivities.remove(activity)
-        if (!activity.isChangingConfigurations && chatActivities.isEmpty() && flow.value.voiceContinuous) stopLiveTalk()
+        if (activity.javaClass.name != CHAT_ACTIVITY) return
+        startedChats.remove(activity)
+        if (!activity.isChangingConfigurations && startedChats.isEmpty()) endLiveTalk()
       }
       override fun onActivityCreated(activity: android.app.Activity, savedInstanceState: android.os.Bundle?) = Unit
       override fun onActivityResumed(activity: android.app.Activity) {
-        if (activity.javaClass.name == "org.agentos.agent.MainActivity") chatActivities.add(activity)
+        if (activity.javaClass.name == CHAT_ACTIVITY) {
+          startedChats.add(activity)
+          onChatVoiceFocus(ChatVoiceSession.get(context).visibleThread)
+        }
+        if (activity is AssistantOverlayActivity || activity.javaClass.name == "org.agentos.agent.home.HomeActivity") {
+          if (flow.value.entry == EntryMode.Text) refreshDraft()
+        }
       }
       override fun onActivityPaused(activity: android.app.Activity) = Unit
       override fun onActivitySaveInstanceState(activity: android.app.Activity, outState: android.os.Bundle) = Unit
-      override fun onActivityDestroyed(activity: android.app.Activity) { chatActivities.remove(activity) }
+      override fun onActivityDestroyed(activity: android.app.Activity) { startedChats.remove(activity) }
     })
     scope.launch {
       while (isActive) {
@@ -178,24 +213,14 @@ class AssistantSession private constructor(private val context: Context, private
             (gesture.held && android.os.SystemClock.uptimeMillis() - gesture.startedAt > 120_000)) cancelVoice()
         val s = flow.value
         val v = voice.state.value
-        // Releasing the opening pointer arms one automatic utterance on the hold page.
-        // Keep capture/navigation separate: sending must not dismiss that page.
-        if (s.entry == EntryMode.Voice && gesture.phase == VoiceGesture.Phase.Listening) {
-          if (v.ready && liveEndpoint.shouldFinish(android.os.SystemClock.uptimeMillis())) finishVoice()
-          else if (v.emptySuccess && delivery.current?.state == VoiceDeliveryState.Consumed && !s.working && s.error == null) {
-            // No words is not a completed conversation. Reopen capture on the same page/card.
-            restartVoice()
-          }
+        // Hold to talk records only while held: a pause never sends, and releasing finalizes and
+        // sends (releaseHold). A release that heard nothing leaves nothing to show, so the voice
+        // page closes instead of listening again.
+        if (s.entry == EntryMode.Voice && gesture.phase == VoiceGesture.Phase.Listening &&
+            v.emptySuccess && delivery.current?.state == VoiceDeliveryState.Consumed && !s.working && s.error == null) {
+          closeEntry()
         }
-        if (s.voiceContinuous && s.entry == EntryMode.None && !s.voicePaused) {
-          val now = android.os.SystemClock.uptimeMillis()
-          if (v.ready) {
-            if (liveEndpoint.shouldFinish(now)) finishVoice()
-          } else if (!s.working && s.error == null && (v.phase == VoicePhase.Idle ||
-              v.phase == VoicePhase.Closed && v.outcome is VoiceOutcome.Success)) {
-            restartVoice()
-          }
-        }
+        if (live.handingOff && v.ready && liveEndpoint.shouldFinish(android.os.SystemClock.uptimeMillis())) finishVoice()
       }
     }
   }
@@ -205,6 +230,8 @@ class AssistantSession private constructor(private val context: Context, private
       context.getSystemService(android.os.PowerManager::class.java)?.isInteractive == false
 
   private fun interruptVoiceForScreenOff() {
+    ChatVoiceSession.interrupt()
+    endLiveTalk()
     if (gesture.held || gesture.phase == VoiceGesture.Phase.Listening ||
         flow.value.voiceContinuous || voice.state.value.listening) cancelVoice()
   }
@@ -212,7 +239,8 @@ class AssistantSession private constructor(private val context: Context, private
   /** A hidden voice page releases capture; rotation and the Continuous handoff retain it. */
   fun onVoiceSurfaceStopped(gestureId: String, changingConfigurations: Boolean) {
     if (!changingConfigurations && gesture.id == gestureId &&
-        (gesture.held || gesture.phase == VoiceGesture.Phase.Listening)) cancelVoice()
+        (gesture.held || gesture.phase == VoiceGesture.Phase.Listening ||
+          gesture.phase == VoiceGesture.Phase.Continuous && !handoffActivityLaunched)) cancelVoice()
   }
 
   /** Automatic retries have no RPC caller to receive failures; never throw on the main loop. */
@@ -232,11 +260,11 @@ class AssistantSession private constructor(private val context: Context, private
     }
   }
 
-  private fun publishGesture() = flow.update { it.copy(holdZone = gesture.zone,
-    voiceContinuous = gesture.phase == VoiceGesture.Phase.Continuous) }
+  private fun publishGesture() = flow.update { it.copy(holdZone = gesture.zone) }
 
   fun prepareHold(id: String, source: String, startedAt: Long): Boolean {
     if (id == gesture.id) return false
+    if (live.snapshot?.open == true) throw AssistantException("VOICE_BUSY", "Live Talk is already active")
     if (voice.state.value.listening) throw AssistantException("VOICE_BUSY", "voice is already active")
     val changed = gesture.prepare(id, source, startedAt, android.os.SystemClock.uptimeMillis())
     if (changed) publishGesture()
@@ -274,76 +302,149 @@ class AssistantSession private constructor(private val context: Context, private
     when (gesture.zone) {
       VoiceGesture.Zone.Cancel -> cancelVoice()
       VoiceGesture.Zone.KeepTalking -> keepTalking()
-      VoiceGesture.Zone.None -> {
-        gesture.latch(); publishGesture()
-        delivery.aim(VoiceDestination.Submit)
-        // A backend may have finalized while the opening pointer was still held.
-        apply(delivery.settle(voice.state.value, flow.value.draft))
-      }
+      // Release to send: recognition stops here and its complete transcript is sent once. A
+      // backend that already finalized while the pointer was held sends that result.
+      VoiceGesture.Zone.None -> finishVoice()
     }
   }
 
   fun keepTalking() {
     if (!gesture.keepTalking()) return
     val gestureId = gesture.id
-    val generation = threadCreation.generation
+    val currentEditor = editor
+    handoffEditor = currentEditor
+    handoffActivityLaunched = false
+    live.begin(flow.value.threadId, handoff = true)
     publishGesture()
-    // Keep the same scoped Engine recording while the designer's 820 ms surface opens.
+    handoffOperation = delivery.handoff()
+    apply(delivery.settle(voice.state.value, flow.value.draft))
+    if (handoffOperation == null && !voiceStartPending) live.finishHandoff(null)
     liveLaunchJob = scope.launch {
       try {
         val started = android.os.SystemClock.uptimeMillis()
-        val id = ensureThread(generation)
+        val id = flow.value.threadId ?: liveDelivery.createThread()
         delay((820 - (android.os.SystemClock.uptimeMillis() - started)).coerceAtLeast(0))
-        if (!flow.value.voiceContinuous || gesture.id != gestureId ||
-            threadCreation.generation != generation || flow.value.threadId != id) return@launch
+        if (live.snapshot?.open != true || gesture.id != gestureId) return@launch
+        live.bindHandoff(id)
         flow.update { it.copy(entry = EntryMode.None, island = IslandMode.Hidden) }
-        context.startActivity(Intent().setClassName(context.packageName, "org.agentos.agent.MainActivity")
+        handoffActivityLaunched = true
+        context.startActivity(Intent().setClassName(context.packageName, CHAT_ACTIVITY)
           .putExtra("threadId", id).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP))
-        delivery.aim(VoiceDestination.Submit)
-        apply(delivery.settle(voice.state.value, flow.value.draft))
+        connectLiveTalk()
+        delay(10_000)
+        if (live.snapshot?.generation == 0L && !chatVisible(id)) {
+          live.failHandoff("HOST_REQUIRED")
+          revokeVoice()
+        }
       } catch (cancelled: kotlinx.coroutines.CancellationException) {
         throw cancelled
       } catch (_: Exception) {
-        if (flow.value.voiceContinuous && gesture.id == gestureId) {
-          gesture.returnToListening(); publishGesture()
+        if (live.snapshot?.open == true && gesture.id == gestureId) {
+          live.failHandoff("THREAD_UNAVAILABLE")
+          revokeVoice()
           flow.update { it.copy(error = "THREAD_UNAVAILABLE") }
         }
       }
     }
   }
 
-  /** Live Talk and text chat share the same thread and the desktop's scoped fal preference. */
   fun startLiveTalk(threadId: String) {
-    if (flow.value.voiceContinuous) return
-    resume(threadId)
-    beginDesktopHold()
-    if (flow.value.error != null || !voice.state.value.listening) {
-      val reason = flow.value.error ?: voice.state.value.error ?: "VOICE_UNAVAILABLE"
-      revokeVoice()
-      throw AssistantException(reason, "Voice input could not start")
+    val id = threadId.trim().ifEmpty { null }
+    requireLiveHost(id)
+    val snapshot = live.snapshot
+    if (snapshot?.open == true && snapshot.threadId == id && snapshot.lifecycle in setOf("connecting", "active")) return
+    if (snapshot?.open == true && snapshot.threadId != id)
+      throw AssistantException("SESSION_CHANGED", "Live Talk belongs to another conversation")
+    revokeVoice(cancelCapture = false)
+    if (voice !is EngineVoiceInput) voice.cancel()
+    flow.update { it.copy(entry = EntryMode.None, island = IslandMode.Hidden) }
+    live.begin(id)
+    connectLiveTalk()
+  }
+
+  fun stopLiveTalk(threadId: String? = null, sessionId: String? = null) {
+    requireLiveSession(threadId, sessionId)
+    endLiveTalk()
+  }
+
+  fun toggleLiveMic(threadId: String? = null) {
+    val current = requireLiveSession(threadId, null)?.takeIf { it.open } ?: return
+    setLiveMic(current.sessionId, !current.muted)
+  }
+
+  fun setLiveMic(sessionId: String, muted: Boolean) {
+    val current = requireLiveSession(null, sessionId) ?: return
+    if (!current.open || current.muted == muted) return
+    if (!muted) requireLiveHost(current.threadId)
+    live.setMuted(muted)
+    if (muted && live.handingOff) {
+      cancelPendingVoiceStart()
+      delivery.revoke()
+      voice.cancel()
+      handoffOperation = null
+      live.finishHandoff(null)
+      connectLiveTalk()
     }
-    gesture.keepTalking(); publishGesture()
-    flow.update { it.copy(entry = EntryMode.None, island = IslandMode.Hidden, voicePaused = false) }
-    delivery.aim(VoiceDestination.Submit)
   }
 
-  fun stopLiveTalk() {
-    liveLaunchJob?.cancel(); liveLaunchJob = null
-    revokeVoice()
-    flow.update { it.copy(entry = EntryMode.None, island = IslandMode.Hidden, voicePaused = false) }
+  private fun requireLiveSession(threadId: String?, sessionId: String?): LiveTalkSnapshot? {
+    val current = live.snapshot
+    if (sessionId != null && sessionId.isBlank()) throw AssistantException("INVALID_ARGUMENT", "sessionId must be nonempty")
+    if ((sessionId != null && current?.sessionId != sessionId) ||
+        (threadId != null && (current == null || current.threadId.orEmpty() != threadId)))
+      throw AssistantException("SESSION_CHANGED", "Live Talk has changed")
+    return current
   }
 
-  fun toggleLiveMic() {
-    if (!flow.value.voiceContinuous) return
-    if (!flow.value.voicePaused) {
-      flow.update { it.copy(voicePaused = true) }
-      finishVoice()
+  private fun chatVisible(threadId: String?) = startedChats.isNotEmpty() &&
+    ChatVoiceSession.get(context).visibleThread == threadId.orEmpty()
+
+  private fun requireLiveHost(threadId: String?) {
+    if (voiceDeviceUnavailable()) throw AssistantException("DEVICE_LOCKED", "Wake and unlock the device before opening Live Talk")
+    if (!chatVisible(threadId)) throw AssistantException("HOST_REQUIRED", "Open the target chat first")
+    if (!EngineVoiceInput.available(context)) throw AssistantException("VOICE_UNAVAILABLE", "The Taku Audio Engine is not installed")
+  }
+
+  internal fun onChatVoiceFocus(threadId: String?, previousThreadId: String? = null) {
+    val current = live.snapshot?.takeIf { it.open } ?: return
+    if (handoffEditor != null && current.generation == 0L && current.threadId.orEmpty() != threadId) return
+    if (threadId == null) {
+      if (previousThreadId == null) return
+      if (previousThreadId.isNotEmpty() || current.threadId == null) { endLiveTalk(); return }
+      // React releases the empty chat owner immediately before adopting the new thread.
+      scope.launch {
+        delay(150)
+        val latest = live.snapshot
+        if (latest?.sessionId == current.sessionId && !chatVisible(latest.threadId)) endLiveTalk()
+      }
+    } else if (threadId != current.threadId.orEmpty()) {
+      endLiveTalk()
     } else {
-      flow.update { it.copy(voicePaused = false, error = null, voiceFailure = null) }
-      // Finalizing already owns its result; the normal endpoint loop resumes after it settles.
-      if (!flow.value.working && voice.state.value.phase in setOf(VoicePhase.Idle, VoicePhase.Closed))
-        startVoice(VoiceTarget.Hold, VoiceDestination.Submit)
+      connectLiveTalk()
     }
+  }
+
+  private fun connectLiveTalk() {
+    val current = live.snapshot ?: return
+    if (handoffEditor != null && !handoffActivityLaunched) return
+    if (live.handingOff || current.lifecycle != "connecting" || !chatVisible(current.threadId)) return
+    val chat = ChatVoiceSession.get(context)
+    chat.releaseForLive { released ->
+      if (live.snapshot?.sessionId != current.sessionId || live.snapshot?.lifecycle != "connecting" ||
+          voiceDeviceUnavailable() || !chatVisible(current.threadId)) return@releaseForLive
+      if (released) live.connect(current.sessionId) else live.failHandoff("RESOURCE_BUSY")
+    }
+  }
+
+  private fun endLiveTalk() {
+    if (live.snapshot?.open != true) return
+    liveLaunchJob?.cancel(); liveLaunchJob = null
+    live.close()
+    handoffOperation = null
+    handoffActivityLaunched = false
+    handoffEditor = null
+    revokeVoice()
+    flow.update { it.copy(entry = EntryMode.None, island = IslandMode.Hidden) }
   }
 
   fun gestureEvent(p: JSONObject) {
@@ -380,10 +481,12 @@ class AssistantSession private constructor(private val context: Context, private
     if (mode == EntryMode.Text && !canOpenText) return
     if (mode == EntryMode.Text && flow.value.entry != EntryMode.Text) revokeVoice()
     flow.update { it.copy(entry = mode, activityId = it.activityId ?: UUID.randomUUID().toString(), hintExpanded = false, voiceFailure = null, island = if (it.island == IslandMode.Hidden || it.island == IslandMode.Collapsed) IslandMode.Expanded else it.island, error = null) }
+    refreshDraft()
   }
 
   /** Closes the input; an undelivered result loses eligibility. The island stays while there is something to show. */
   fun closeEntry() {
+    endLiveTalk()
     revokeVoice()
     flow.update { s ->
       val keep = s.working || s.turn != null || s.error != null
@@ -393,16 +496,138 @@ class AssistantSession private constructor(private val context: Context, private
 
   fun setAppBuild(thread: String, turnId: String, active: Boolean) { flow.update { it.withAppBuild(thread, turnId, active) } }
 
-  fun setDraft(text: String) = flow.update { it.copy(draft = text.take(MAX_TEXT)) }
+  fun setDraft(text: String) {
+    val current = editor
+    current.edit = Edit(text.take(MAX_TEXT), current.edit?.baseText ?: current.saved?.text ?: flow.value.draft)
+    showDraft(current)
+    saveDraft(current)
+  }
+
+  suspend fun commitDraft(text: String) {
+    if (text.length > MAX_TEXT) throw AssistantException("INVALID_TEXT", "text must be at most $MAX_TEXT characters")
+    val current = editor
+    composerLock.withLock {
+      if (editor !== current) throw AssistantException("THREAD_CHANGED", "The Home conversation changed")
+      current.edit?.let { writeDraft(current, it) }
+      val saved = composer.read(current.threadId)
+      if (editor !== current) throw AssistantException("THREAD_CHANGED", "The Home conversation changed")
+      val written = composer.write(saved, text)
+      if (current.edit?.baseText == saved.text) current.edit?.baseText = written.text
+      acceptDraft(current, written)
+    }
+  }
+
+  suspend fun readDraftProjection() {
+    val current = editor
+    composerLock.withLock {
+      if (editor === current) acceptDraft(current, composer.read(current.threadId))
+    }
+  }
+
+  private fun showDraft(current: Editor) {
+    if (editor === current) flow.update {
+      it.copy(draft = current.edit?.text ?: current.saved?.text.orEmpty(),
+        draftAttachmentNames = current.saved?.attachments?.map(HomeComposer.Attachment::name).orEmpty())
+    }
+  }
+
+  private fun acceptDraft(current: Editor, saved: HomeComposer.Draft, written: Edit? = null) {
+    current.saved = saved
+    if (written != null && current.edit === written) current.edit = null
+    else if (written != null) current.edit?.baseText = saved.text
+    showDraft(current)
+  }
+
+  private suspend fun writeDraft(current: Editor, edit: Edit): HomeComposer.Draft {
+    var saved = current.saved ?: composer.read(current.threadId).also { acceptDraft(current, it) }
+    if (edit.text != saved.text) {
+      if (edit.baseText != saved.text) throw draftConflict(current, edit, saved)
+      saved = try {
+        composer.write(saved, edit.text)
+      } catch (failure: GatewayException) {
+        if (failure.code != "DRAFT_REVISION_CONFLICT") throw failure
+        val fresh = composer.read(current.threadId).also { acceptDraft(current, it) }
+        when (fresh.text) {
+          edit.text -> fresh
+          edit.baseText -> composer.write(fresh, edit.text)
+          else -> throw draftConflict(current, edit, fresh)
+        }
+      }
+    }
+    acceptDraft(current, saved, edit)
+    return saved
+  }
+
+  /**
+   * The shared draft changed under an unsaved edit. The conflict is reported once and the edit
+   * is rebased onto the draft that is saved now: the user's text stays in the field, and if they
+   * keep it, their next keystroke or send replaces the other draft. Without the rebase every
+   * later save and send would fail on the same stale base.
+   */
+  private fun draftConflict(current: Editor, edit: Edit, saved: HomeComposer.Draft): GatewayException {
+    edit.baseText = saved.text
+    current.edit?.baseText = saved.text
+    return GatewayException("DRAFT_REVISION_CONFLICT", "The shared draft changed")
+  }
+
+  private fun saveDraft(current: Editor) {
+    if (current.writing) return
+    current.writing = true
+    scope.launch {
+      try {
+        while (current.edit != null) composerLock.withLock { current.edit?.let { writeDraft(current, it) } }
+      } catch (failure: Exception) {
+        if (failure is kotlinx.coroutines.CancellationException) throw failure
+        if (editor === current) flow.update { it.copy(error = composerError(failure)) }
+      } finally {
+        current.writing = false
+      }
+    }
+  }
+
+  private fun refreshDraft() = scope.launch {
+    val current = editor
+    try {
+      composerLock.withLock {
+        if (current !== editor) return@withLock
+        val saved = composer.read(current.threadId)
+        acceptDraft(current, saved)
+        if (!flow.value.sending) pendingRequest(saved)?.let { reconcile(current, it) }
+      }
+    } catch (failure: Exception) {
+      if (failure is kotlinx.coroutines.CancellationException) throw failure
+      if (current === editor) flow.update { it.copy(error = composerError(failure)) }
+    }
+  }
+
+  private fun pendingRequest(saved: HomeComposer.Draft) = composer.savedRequest(saved.threadId) ?: saved.pending
+
+  private fun composerError(failure: Exception) = (failure as? GatewayException)?.code ?: "DRAFT_SAVE_FAILED"
 
   /** Starter chips create an editable draft; they never submit a request. */
   fun choosePrompt(text: String) {
     if (text.isBlank() || text.length > MAX_TEXT) throw AssistantException("INVALID_ARGUMENT", "prompt must contain 1..$MAX_TEXT characters")
     cancelVoice()
-    setDraft(text)
-    open(EntryMode.Text)
-    context.startActivity(Intent(context, AssistantOverlayActivity::class.java)
-      .putExtra("mode", "text").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    val current = editor
+    val handoffId = UUID.randomUUID().toString()
+    scope.launch {
+      try {
+        composerLock.withLock {
+          if (editor !== current) return@withLock
+          current.edit?.let { writeDraft(current, it) }
+          val saved = composer.handoff(current.threadId, handoffId, text)
+          current.edit?.baseText = saved.text
+          acceptDraft(current, saved)
+          if (editor !== current) return@withLock
+          open(EntryMode.Text)
+          context.startActivity(Intent(context, AssistantOverlayActivity::class.java)
+            .putExtra("mode", "text").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        }
+      } catch (failure: Exception) {
+        if (failure is kotlinx.coroutines.CancellationException) throw failure
+        if (editor === current) flow.update { it.copy(error = composerError(failure)) }
+      }
+    }
   }
 
   fun expand(full: Boolean) {
@@ -414,8 +639,24 @@ class AssistantSession private constructor(private val context: Context, private
     org.agentos.agent.home.island.SystemIslandBridge.request(context, "collapse")
   }
 
+  /**
+   * The user followed the "fal API key missing" prompt to the fal setup page: the prompt has done
+   * its job, so it leaves the island. Anything else on show (a reply, work in progress) stays. Once
+   * a key is saved, the next voice input simply works.
+   */
+  fun clearVoiceSetupError() {
+    if (flow.value.error != VOICE_FAL_KEY_MISSING) return
+    revokeVoice()
+    flow.update { s ->
+      if (s.error != VOICE_FAL_KEY_MISSING) s
+      else s.copy(error = null, voiceFailure = null, entry = EntryMode.None,
+        island = if (s.working || s.turn != null) s.island else IslandMode.Hidden)
+    }
+  }
+
   /** Explicit assistant dismissal; outside card taps are owned by SystemUI and never call this. */
   fun dismiss() {
+    endLiveTalk()
     org.agentos.agent.home.island.SystemIslandBridge.request(context, "collapse")
     val s = flow.value
     if (s.working || s.needsUser) { revokeVoice(); flow.update { it.copy(island = IslandMode.Collapsed, entry = EntryMode.None) }; return }
@@ -424,7 +665,10 @@ class AssistantSession private constructor(private val context: Context, private
 
   /** Ends this home conversation; the thread stays in the full chat history. */
   fun reset() {
+    endLiveTalk()
     threadCreation.invalidate()
+    editor = Editor("")
+    openingConversation = false
     liveLaunchJob?.cancel(); liveLaunchJob = null
     revokeVoice()
     val jobs = listOfNotNull(streamJob, pollJob)
@@ -437,30 +681,30 @@ class AssistantSession private constructor(private val context: Context, private
   // ---- Voice ---------------------------------------------------------------------------
 
   /**
-   * Explicit Agent finish or a measured utterance boundary: finalize and send exactly once.
-   * Releasing the opening gesture only latches the listening page; it never calls this.
+   * Releasing the hold (or an Agent's `assistant/voice-finish`, its release) or, in Keep Talking,
+   * a measured utterance boundary: finalize and send exactly once. Released before capture
+   * started, nothing was heard and the operation is dropped.
    */
   fun finishVoice() {
+    // Released while the start still waits for a reply reader to stop: latch now, as a release
+    // after the start would, so the deferred start aims at Submit (finalize on silence, send once)
+    // instead of waiting for a release that already happened.
+    if (voiceStartPending && voice.state.value.phase == VoicePhase.Idle && flow.value.entry == EntryMode.Voice) {
+      if (!live.handingOff && gesture.latch()) publishGesture()
+      return
+    }
     val v = voice.state.value
     // No recording: a recycled or repeated finish must not close an unrelated open input.
     if (v.target != VoiceTarget.Hold || v.phase == VoicePhase.Idle || (flow.value.entry != EntryMode.Voice && !flow.value.voiceContinuous)) return
     // Released before capture: drop the operation instead of finishing nothing.
-    if (v.phase == VoicePhase.Preparing) {
-      if (flow.value.voiceContinuous) { delivery.revoke(); voice.cancel() } else cancelVoice()
-      return
-    }
-    if (!flow.value.voiceContinuous) { gesture.latch(); publishGesture() }
-    // Live Talk stays in chat; the same operation finishes before it can send.
-    if (flow.value.voiceContinuous) flow.update { it.copy(entry = EntryMode.None) }
-    delivery.aim(VoiceDestination.Submit)
+    if (v.phase == VoicePhase.Preparing) return cancelVoice()
+    if (!live.handingOff) { gesture.latch(); publishGesture(); delivery.aim(VoiceDestination.Submit) }
     voice.finish()
     apply(delivery.settle(voice.state.value, flow.value.draft))
   }
 
   /** Slide to "Cancel" and release (1-1-2): revoke first, so no late result can be delivered. */
   fun cancelVoice() {
-    liveLaunchJob?.cancel(); liveLaunchJob = null
-    revokeVoice()
     closeEntry()
   }
 
@@ -475,9 +719,11 @@ class AssistantSession private constructor(private val context: Context, private
       // Nothing was captured yet: do not let a delayed start open a recorder; keep the draft.
       revokeVoice()
       flow.update { it.copy(entry = EntryMode.Text, island = if (it.island == IslandMode.Hidden) IslandMode.Expanded else it.island, error = null) }
+      refreshDraft()
       return
     }
     flow.update { it.copy(entry = EntryMode.Text, island = if (it.island == IslandMode.Hidden) IslandMode.Expanded else it.island, error = null) }
+    refreshDraft()
     delivery.aim(VoiceDestination.Draft)
     voice.finish()
     apply(delivery.settle(voice.state.value, flow.value.draft))
@@ -486,6 +732,7 @@ class AssistantSession private constructor(private val context: Context, private
   /** Microphone in the text field (1-5); stopping joins the complete result to the draft once. */
   fun startDictation() = startVoice(VoiceTarget.Dictation, VoiceDestination.Draft)
   fun stopDictation() {
+    if (voiceStartPending) { cancelPendingVoiceStart(); return }
     delivery.aim(VoiceDestination.Draft)
     voice.finish()
     apply(delivery.settle(voice.state.value, flow.value.draft))
@@ -498,6 +745,7 @@ class AssistantSession private constructor(private val context: Context, private
   fun beginCancelledVoice(): Long? {
     gesture.end(true); publishGesture()
     val operation = delivery.revoke()
+    if (handoffEditor != null && live.snapshot?.generation == 0L) endLiveTalk()
     if (voice.state.value.phase != VoicePhase.Idle) voice.cancel()
     return operation
   }
@@ -511,31 +759,52 @@ class AssistantSession private constructor(private val context: Context, private
   }
 
   private fun startVoice(target: VoiceTarget, destination: VoiceDestination) {
+    if (live.snapshot?.open == true) throw AssistantException("VOICE_BUSY", "Live Talk is already active")
     if (voiceDeviceUnavailable())
       throw AssistantException("DEVICE_LOCKED", "Wake and unlock the device before starting voice input")
+    if (voiceStartPending) return
     if (voice.state.value.phase != VoicePhase.Idle) voice.cancel()
     flow.update {
       it.copy(
-        entry = if (it.voiceContinuous) EntryMode.None else if (target == VoiceTarget.Hold) EntryMode.Voice else EntryMode.Text,
+        entry = if (target == VoiceTarget.Hold) EntryMode.Voice else EntryMode.Text,
         activityId = it.activityId ?: UUID.randomUUID().toString(),
-        island = if (it.voiceContinuous) IslandMode.Hidden else if (it.island == IslandMode.Hidden || it.island == IslandMode.Collapsed) IslandMode.Expanded else it.island,
+        island = if (it.island == IslandMode.Hidden || it.island == IslandMode.Collapsed) IslandMode.Expanded else it.island,
         hintExpanded = false, voiceFailure = null, error = null, retainedVoice = null,
       )
     }
     liveEndpoint.reset()
-    voice.start(target)
-    val operation = voice.state.value.operationId ?: return
-    delivery.begin(operation, destination)
-    // A synchronous binding failure is already terminal before ownership existed: settle it now,
-    // or its outcome would be dropped and never replayed.
-    apply(delivery.settle(voice.state.value, flow.value.draft))
+    val sequence = ++voiceStartSequence
+    voiceStartPending = true
+    val chat = ChatVoiceSession.get(context)
+    chat.cancelDictation()
+    chat.afterSpeech {
+      if (sequence != voiceStartSequence) return@afterSpeech
+      voiceStartPending = false
+      if (voiceDeviceUnavailable()) { interruptVoiceForScreenOff(); return@afterSpeech }
+      voice.start(target)
+      val operation = voice.state.value.operationId ?: return@afterSpeech
+      val settledDestination = when {
+        live.handingOff -> VoiceDestination.Live
+        destination == VoiceDestination.AwaitGesture && !gesture.held -> VoiceDestination.Submit
+        else -> destination
+      }
+      if (settledDestination == VoiceDestination.Live) handoffOperation = operation
+      delivery.begin(operation, settledDestination)
+      apply(delivery.settle(voice.state.value, flow.value.draft))
+    }
+  }
+
+  private fun cancelPendingVoiceStart() {
+    voiceStartSequence++
+    voiceStartPending = false
   }
 
   /** Any conversation boundary: an undelivered result may no longer touch the session. */
-  private fun revokeVoice() {
+  private fun revokeVoice(cancelCapture: Boolean = true) {
+    cancelPendingVoiceStart()
     gesture.end(true); publishGesture()
     delivery.newGeneration()
-    if (voice.state.value.phase != VoicePhase.Idle) voice.cancel()
+    if (cancelCapture && voice.state.value.phase != VoicePhase.Idle) voice.cancel()
   }
 
   private fun watchVoice() {
@@ -547,15 +816,32 @@ class AssistantSession private constructor(private val context: Context, private
   }
 
   private fun apply(effect: VoiceEffect) {
+    if (live.handingOff && effect is VoiceEffect.Failed) {
+      live.finishHandoff(null)
+      handoffOperation = null
+      voice.cancel()
+      connectLiveTalk()
+      return
+    }
     when (effect) {
       VoiceEffect.None -> Unit
-      is VoiceEffect.Draft -> flow.update { it.copy(draft = effect.text, retainedVoice = null) }
+      is VoiceEffect.Live -> {
+        if (!live.handingOff || handoffOperation != effect.operationId) return
+        handoffOperation = null
+        live.finishHandoff(effect.text)
+        voice.cancel()
+        connectLiveTalk()
+      }
+      is VoiceEffect.Draft -> {
+        setDraft(effect.text)
+        flow.update { it.copy(retainedVoice = null) }
+      }
       is VoiceEffect.Retained -> flow.update {
         it.copy(retainedVoice = effect.result, island = if (it.island == IslandMode.Hidden) IslandMode.Expanded else it.island)
       }
       is VoiceEffect.Send -> {
         // A rejected send (e.g. one already in flight) keeps the complete words instead of losing them.
-        try { send(effect.text, keepVoiceEntry = true) } catch (e: AssistantException) { flow.update { it.failedWith(e.code, effect.text) } }
+        try { send(effect.text, keepVoiceEntry = true) } catch (e: AssistantException) { recoverFailure(editor, e.code, effect.text) }
       }
       is VoiceEffect.Failed -> {
         // Errors stop recognition, but never silently navigate away from the listening page.
@@ -568,58 +854,201 @@ class AssistantSession private constructor(private val context: Context, private
 
   // ---- Messages ------------------------------------------------------------------------
 
-  /** Sends [text] (validated like the gateway: 1–16000 non-blank characters). */
+  /** Sends the current shared draft or hands off a new text request. */
   fun send(text: String, keepVoiceEntry: Boolean = false) {
     val message = text.trim()
-    if (message.isEmpty() || message.length > MAX_TEXT) throw AssistantException("INVALID_TEXT", "text must be 1–$MAX_TEXT non-blank characters")
+    if (text.length > MAX_TEXT || (message.isEmpty() && flow.value.draftAttachmentNames.isEmpty()))
+      throw AssistantException("INVALID_TEXT", "Enter a message or select an attachment")
     val now = flow.value
     if (now.sending) throw AssistantException("BUSY", "a message is already being sent")
+    if (openingConversation) throw AssistantException("BUSY", "the conversation is opening")
+    val current = editor
+    val waiting = composer.savedRequest(current.threadId) ?: current.saved?.pending
+    if (waiting != null) return checkDelivery(current, waiting)
+    val edit = current.edit?.takeIf { it.text == text }
     val generation = threadCreation.generation
     // Never steer into a turn the home already gave up on (it may still read active until the interrupt lands).
     val steerTurn = now.turn?.takeIf { it.active && !now.abandoned }?.turnId
-    flow.update { it.copy(expansionRequest = if (keepVoiceEntry || it.voiceContinuous) it.expansionRequest else ++expansionSequence, sending = true, pending = message, error = null, failedText = null, abandoned = false, draft = "", entry = if (it.entry == EntryMode.Voice && !keepVoiceEntry) EntryMode.None else it.entry,
+    flow.update { it.copy(expansionRequest = if (keepVoiceEntry || it.voiceContinuous) it.expansionRequest else ++expansionSequence, sending = true, pending = message, error = null, failedText = null, abandoned = false, entry = if (it.entry == EntryMode.Voice && !keepVoiceEntry) EntryMode.None else it.entry,
       // The visible voice card keeps its notification identity through capture → reply.
       activityId = if (steerTurn == null && !(keepVoiceEntry && it.entry == EntryMode.Voice)) UUID.randomUUID().toString() else it.activityId,
       island = if (it.voiceContinuous) IslandMode.Hidden else if (it.island == IslandMode.Full) IslandMode.Full else IslandMode.Expanded,
       task = if (steerTurn == null) null else it.task, turn = if (steerTurn == null) null else it.turn) }
-    scope.launch(worker) {
+    scope.launch {
       try {
-        val threadId = ensureThread(generation)
-        if (steerTurn == null) synchronized(streamLock) { baseline = stream?.turns?.keys?.toSet() ?: emptySet() }
-        ensureStream(threadId)
-        val requestId = UUID.randomUUID().toString()
-        val params = JSONObject().put("threadId", threadId).put("text", message).put("requestId", requestId)
-        val receipt = if (steerTurn != null) gateway.call("steer", params.put("expectedTurnId", steerTurn)) else gateway.call("sendMessage", params)
-        if (receipt.optString("state") == "notSent" && receipt.optString("requestId") == requestId) {
-          flow.update { it.failedWith(receipt.optString("code", "NOT_SENT"), message) }
-          return@launch
-        }
-        if (flow.value.abandoned) {
-          // Gave up (offline) while this send was in flight: do not revive a task the user was told stopped.
-          receipt.optString("taskId").takeIf { it.isNotEmpty() && steerTurn == null }?.let { task ->
-            runCatching { gateway.call("cancelQueued", JSONObject().put("threadId", threadId).put("taskId", task)) }
+        composerLock.withLock {
+          if (editor !== current || flow.value.abandoned) return@withLock
+          val id = ensureComposerThread(generation, current)
+          var saved = current.saved ?: composer.read(id).also { acceptDraft(current, it) }
+          val previous = pendingRequest(saved)
+          if (previous != null) {
+            flow.update { it.copy(pending = null) }
+            reconcile(current, previous)
+            return@withLock
           }
-          return@launch
+          if (edit != null) saved = writeDraft(current, edit)
+          else if (saved.text != text) {
+            saved = composer.handoff(id, UUID.randomUUID().toString(), text)
+            current.edit?.baseText = saved.text
+            acceptDraft(current, saved)
+          }
+          if (editor !== current || flow.value.abandoned) return@withLock
+          val request = HomeComposer.Request.new(saved, steerTurn)
+          composer.remember(request)
+          if (editor !== current || flow.value.abandoned) {
+            composer.forget(request)
+            return@withLock
+          }
+          if (steerTurn == null) synchronized(streamLock) { baseline = stream?.turns?.keys?.toSet() ?: emptySet() }
+          ensureStream(id)
+          val receipt = try {
+            composer.submit(request)
+          } catch (failure: Exception) {
+            if (!HomeComposer.deliveryCouldBeUnknown(failure)) {
+              composer.forget(request)
+              throw failure
+            }
+            reconcile(current, request)
+            return@withLock
+          }
+          if (receipt.terminal) finishDelivery(current, request, receipt)
+          else reconcile(current, request)
         }
-        flow.update { it.copy(sending = false, taskId = receipt.optString("taskId").ifEmpty { it.taskId }, task = if (steerTurn == null) "queued" else it.task) }
-        ensurePolling(threadId)
-      } catch (e: kotlinx.coroutines.CancellationException) {
-        throw e
-      } catch (e: GatewayException) {
-        Log.w(TAG, "send failed: ${e.code}")
-        // Delivery is unknown after an IPC failure; keep the text so the user can retry deliberately.
-        flow.update { it.failedWith(e.code, message) }
-      } catch (e: Exception) {
-        Log.e(TAG, "send failed", e)
-        flow.update { it.failedWith("SEND_FAILED", message) }
+      } catch (failure: Exception) {
+        if (failure is kotlinx.coroutines.CancellationException) throw failure
+        Log.w(TAG, "composer submission failed: ${composerError(failure)}")
+        deliveryError(current, composerError(failure), message)
       }
     }
   }
 
-  /** "Try again" after a failure: sends the draft, or the failed request when the draft is empty. */
+  private suspend fun reconcile(current: Editor, request: HomeComposer.Request) {
+    var receipt = composer.receipt(request)
+    if (receipt.state == "missing") {
+      // The gateway never reserved this request. Its ID makes submitting it again idempotent,
+      // so settle it now instead of asking about the same unsent request on every later send.
+      receipt = try {
+        composer.submit(request)
+      } catch (failure: Exception) {
+        if (failure is kotlinx.coroutines.CancellationException) throw failure
+        val after = try { composer.receipt(request) } catch (lookup: Exception) {
+          if (lookup is kotlinx.coroutines.CancellationException) throw lookup
+          null
+        }
+        if (after?.state == "missing") {
+          // Refused again and still unreserved: it was not sent. The caller reports why and keeps the text.
+          composer.forget(request)
+          throw failure
+        }
+        after ?: return deliveryError(current, "UNKNOWN_DELIVERY", request.text)
+      }
+    }
+    if (receipt.terminal) {
+      val saved = composer.read(request.threadId)
+      if (saved.pending?.id == request.id) composer.settle(request)
+      finishDelivery(current, request, receipt, saved.takeUnless { it.pending?.id == request.id })
+    } else deliveryError(current, "UNKNOWN_DELIVERY", request.text)
+  }
+
+  private suspend fun finishDelivery(current: Editor, request: HomeComposer.Request, receipt: HomeComposer.Receipt,
+    snapshot: HomeComposer.Draft? = null) {
+    val saved = snapshot ?: composer.read(request.threadId)
+    if (receipt.state != "notSent" && saved.text.isEmpty() && current.saved?.revision == request.revision)
+      current.edit?.baseText = saved.text
+    acceptDraft(current, saved)
+    composer.forget(request)
+    if (editor !== current) return
+    if (receipt.state == "notSent") {
+      deliveryError(current, receipt.code, request.text)
+      return
+    }
+    if (flow.value.abandoned) {
+      receipt.taskId?.let { task ->
+        withContext(worker) { runCatching { gateway.call("cancelQueued", JSONObject().put("threadId", request.threadId).put("taskId", task)) } }
+      }
+      return
+    }
+    flow.update { s -> s.copy(sending = false, pending = if (s.sending) s.pending else null,
+      error = if (s.error == "UNKNOWN_DELIVERY") null else s.error,
+      taskId = receipt.taskId ?: s.taskId, task = if (receipt.taskId != null && s.turn == null) "queued" else s.task) }
+    ensureStream(request.threadId)
+    ensurePolling(request.threadId)
+  }
+
+  private fun deliveryError(current: Editor, code: String, text: String?) {
+    if (editor === current && !flow.value.abandoned) {
+      flow.update { it.copy(sending = false, pending = null, error = code, failedText = text ?: it.failedText) }
+    }
+  }
+
+  private fun recoverFailure(current: Editor, code: String, text: String?, taskId: String? = null) {
+    if (editor !== current) return
+    val lost = text?.trim()?.takeIf { it.isNotEmpty() && it.length <= MAX_TEXT }
+    flow.update { it.copy(error = code, failedText = lost ?: it.failedText) }
+    if ((lost == null && taskId == null) || current.edit != null) return
+    scope.launch {
+      try {
+        composerLock.withLock {
+          if (editor !== current || current.edit != null || flow.value.error != code) return@withLock
+          val saved = composer.read(current.threadId)
+          if (editor !== current || current.edit != null || flow.value.error != code) return@withLock
+          val recovered = when {
+            saved.text.isNotEmpty() || pendingRequest(saved) != null -> saved
+            taskId != null -> composer.restoreTask(saved, taskId)
+            lost != null -> composer.write(saved, lost)
+            else -> saved
+          }
+          if (current.edit?.baseText == saved.text) current.edit?.baseText = recovered.text
+          acceptDraft(current, recovered)
+          if (taskId != null && editor === current && flow.value.error == code && flow.value.failedText == null)
+            flow.update { it.copy(failedText = recovered.text.takeIf(String::isNotBlank)) }
+        }
+      } catch (failure: GatewayException) {
+        Log.w(TAG, "could not recover the shared draft: ${failure.code}")
+      }
+    }
+  }
+
   fun retry() {
+    val current = editor
+    val request = composer.savedRequest(current.threadId) ?: current.saved?.pending
+    if (request != null) return checkDelivery(current, request)
     val text = flow.value.retryText ?: throw AssistantException("NOTHING_TO_RETRY", "there is no failed request or draft to send")
     send(text)
+  }
+
+  private fun checkDelivery(current: Editor, request: HomeComposer.Request) {
+    if (flow.value.sending) throw AssistantException("BUSY", "a message is already being sent")
+    flow.update { it.copy(sending = true) }
+    scope.launch {
+      try {
+        composerLock.withLock { if (editor === current) reconcile(current, request) }
+      } catch (failure: Exception) {
+        if (failure is kotlinx.coroutines.CancellationException) throw failure
+        deliveryError(current, composerError(failure), request.text)
+      } finally {
+        if (editor === current) flow.update { it.copy(sending = false) }
+      }
+    }
+  }
+
+  suspend fun releaseSubmission() {
+    val current = editor
+    composerLock.withLock {
+      if (editor !== current) throw AssistantException("THREAD_CHANGED", "The Home conversation changed")
+      val saved = composer.read(current.threadId).also { acceptDraft(current, it) }
+      val request = pendingRequest(saved) ?: throw AssistantException("REQUEST_UNAVAILABLE", "No submission is awaiting release")
+      if (editor !== current) throw AssistantException("THREAD_CHANGED", "The Home conversation changed")
+      if (saved.pending?.id != request.id && composer.receipt(request).state == "missing") {
+        val retained = if (saved.text.isEmpty() && current.edit == null) composer.write(saved, request.text) else saved
+        acceptDraft(current, retained)
+        composer.archive(request)
+      } else {
+        acceptDraft(current, composer.release(request))
+        composer.forget(request)
+      }
+      if (editor === current && flow.value.error == "UNKNOWN_DELIVERY") flow.update { it.copy(error = null) }
+    }
   }
 
   /** Sends a reply the agent offered. */
@@ -637,12 +1066,15 @@ class AssistantSession private constructor(private val context: Context, private
     val turnId = s.turn?.takeIf { it.active }?.turnId
     val taskId = s.taskId
     if (turnId == null && taskId == null) throw AssistantException("NOT_WORKING", "Taku is not working on anything")
+    val current = editor
     scope.launch(worker) {
       try {
         if (turnId != null) gateway.call("interrupt", JSONObject().put("threadId", threadId).put("turnId", turnId))
         else gateway.call("cancelQueued", JSONObject().put("threadId", threadId).put("taskId", taskId))
       } catch (e: GatewayException) {
-        if (reportErrors) flow.update { it.copy(error = e.code) } else Log.w(TAG, "stop after giving up: ${e.code}")
+        if (reportErrors) withContext(Dispatchers.Main.immediate) {
+          if (editor === current) flow.update { it.copy(error = e.code) }
+        } else Log.w(TAG, "stop after giving up: ${e.code}")
       }
     }
   }
@@ -678,26 +1110,36 @@ class AssistantSession private constructor(private val context: Context, private
     if (s.online || !s.working) return
     Log.w(TAG, "offline for ${OFFLINE_GRACE_MS / 1000}s while working; stopping and restoring the request")
     runCatching { requestStop(s, reportErrors = false) } // nothing started yet is fine: the receipt path cancels it
-    flow.update { it.failedWith("NETWORK_UNAVAILABLE", it.pending ?: it.turn?.userText).copy(abandoned = true) }
+    flow.update { it.copy(sending = false, pending = null, abandoned = true) }
+    recoverFailure(editor, "NETWORK_UNAVAILABLE", s.pending ?: s.turn?.userText)
   }
 
   /** Continues this conversation in the full chat (the island's expand button). */
   fun openConversation() {
+    if (openingConversation) return
+    endLiveTalk()
     liveLaunchJob?.cancel(); liveLaunchJob = null
     revokeVoice()
     val generation = threadCreation.generation
-    val draft = flow.value.draft.takeIf { flow.value.threadId == null }
+    val current = editor
+    openingConversation = true
     scope.launch {
       try {
-        val id = ensureThread(generation)
-        if (threadCreation.generation != generation) return@launch
-        val intent = Intent().setClassName(context.packageName, "org.agentos.agent.MainActivity")
-          .putExtra("threadId", id).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-        draft?.takeIf { it.isNotBlank() }?.let { intent.putExtra(EXTRA_DRAFT, it) }
-        context.startActivity(intent)
-        flow.update { it.copy(island = IslandMode.Hidden, entry = EntryMode.None, voicePaused = false) }
-      } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
-      catch (_: Exception) { if (threadCreation.generation == generation) flow.update { it.copy(error = "THREAD_UNAVAILABLE") } }
+        composerLock.withLock {
+          if (editor !== current) return@withLock
+          val id = ensureComposerThread(generation, current)
+          while (current.edit != null && editor === current) current.edit?.let { writeDraft(current, it) }
+          if (editor !== current) return@withLock
+          context.startActivity(Intent().setClassName(context.packageName, "org.agentos.agent.MainActivity")
+            .putExtra("threadId", id).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP))
+          flow.update { it.copy(island = IslandMode.Hidden, entry = EntryMode.None, voicePaused = false) }
+        }
+      } catch (failure: Exception) {
+        if (failure is kotlinx.coroutines.CancellationException) throw failure
+        if (editor === current) flow.update { it.copy(error = composerError(failure)) }
+      } finally {
+        if (editor === current) openingConversation = false
+      }
     }
   }
 
@@ -709,17 +1151,20 @@ class AssistantSession private constructor(private val context: Context, private
    * sent yet) opens the island's greeting on a fresh session.
    */
   fun resume(threadId: String) {
+    endLiveTalk()
     val id = threadId.trim()
     liveLaunchJob?.cancel(); liveLaunchJob = null
     revokeVoice()
     if (id.isEmpty()) {
       reset()
       flow.update { it.copy(island = IslandMode.Expanded, expansionRequest = ++expansionSequence) }
+      refreshDraft()
       return
     }
     if (flow.value.threadId != id) {
       reset()
       synchronized(streamLock) { stream = SessionStreamState(id); baseline = emptySet() }
+      editor = Editor(id)
       flow.update { it.copy(threadId = id) }
     }
     flow.update { it.copy(island = IslandMode.Expanded, entry = EntryMode.None, error = null,
@@ -727,6 +1172,7 @@ class AssistantSession private constructor(private val context: Context, private
       activityId = it.activityId ?: UUID.randomUUID().toString()) }
     ensureStream(id)
     ensurePolling(id)
+    refreshDraft()
   }
 
   /** Restores presentation identity only; the thread/turn/task data still come from the gateway. */
@@ -734,25 +1180,27 @@ class AssistantSession private constructor(private val context: Context, private
     if (!id.isNullOrBlank()) flow.update { it.copy(activityId = id) }
   }
 
-  private fun requestThreadId(): String {
-    val id = gateway.call("createThread").optJSONObject("thread")?.optString("id").orEmpty()
-    if (id.isEmpty()) throw GatewayException("THREAD_UNAVAILABLE", "Missing session ID")
-    return id
-  }
 
-  private suspend fun ensureThread(generation: Long): String = kotlinx.coroutines.withContext(Dispatchers.Main.immediate) {
-    threadCreation.resolve(generation, current = { flow.value.threadId },
-      create = { kotlinx.coroutines.withContext(worker) { requestThreadId() } },
-      bind = { id ->
-        synchronized(streamLock) { stream = SessionStreamState(id); baseline = emptySet() }
-        flow.update { it.copy(threadId = id) }
-      })
+  private suspend fun ensureComposerThread(generation: Long, current: Editor): String {
+    return threadCreation.resolve(generation, current = { flow.value.threadId }, create = {
+      val source = composer.read("").also { acceptDraft(current, it) }
+      val id = withContext(worker) { HomeComposer.createThread(gateway) }
+      if (editor !== current) throw kotlinx.coroutines.CancellationException("Assistant session changed")
+      val moved = composer.move(source, id)
+      current.threadId = id
+      acceptDraft(current, moved)
+      id
+    }, bind = { id ->
+      synchronized(streamLock) { stream = SessionStreamState(id); baseline = emptySet() }
+      flow.update { it.copy(threadId = id) }
+    })
   }
 
   // ---- Session stream and task status --------------------------------------------------
 
   private fun ensureStream(threadId: String) {
     if (streamJob?.isActive == true) return
+    val current = editor
     synchronized(streamLock) { if (stream?.threadId != threadId) stream = SessionStreamState(threadId) }
     streamJob = scope.launch(Dispatchers.IO) {
       var backoff = 400L
@@ -771,12 +1219,16 @@ class AssistantSession private constructor(private val context: Context, private
               val line = runInterruptible { reader.readLine() } ?: break
               if (line.isEmpty()) continue
               val event = JSONObject(line)
+              var applied = false
+              var turn: TurnView? = null
               val changed = synchronized(streamLock) {
                 val st = stream ?: return@synchronized false
-                val applied = st.apply(event)
-                if (applied) publish(ThreadProjection.latest(st, baseline))
+                if (st.threadId != threadId) return@synchronized false
+                applied = st.apply(event)
+                if (applied) turn = ThreadProjection.latest(st, baseline)
                 st.needsResync
               }
+              if (applied) withContext(Dispatchers.Main.immediate) { if (editor === current) publish(turn) }
               if (changed) break
             }
           }
@@ -795,34 +1247,38 @@ class AssistantSession private constructor(private val context: Context, private
   }
 
   private fun publish(turn: TurnView?) {
+    val before = flow.value
     flow.update { s ->
       val settled = turn != null && !turn.active
-      val next = s.copy(
+      s.copy(
         turn = turn ?: s.turn,
         pending = if (turn?.userText != null || settled) null else s.pending,
         task = if (settled && (s.task == "queued" || s.task == "running")) "completed" else s.task,
       )
-      // First sight of a failed turn: give its request back like any other failure.
-      if (turn?.failed == true && s.error != "TURN_FAILED" && !s.abandoned) next.failedWith("TURN_FAILED", turn.userText ?: s.pending) else next
     }
+    if (turn?.failed == true && before.error != "TURN_FAILED" && !before.abandoned && !before.sending)
+      recoverFailure(editor, "TURN_FAILED", turn.userText ?: before.pending)
   }
 
   /** `readSession(statusOnly)` while working: queued/approval/failed states the stream does not carry. */
   private fun ensurePolling(threadId: String) {
     if (pollJob?.isActive == true) return
+    val current = editor
     pollJob = scope.launch(Dispatchers.IO) {
       while (isActive && flow.value.threadId == threadId) {
         try {
           val read = gateway.call("readSession", JSONObject().put("threadId", threadId).put("statusOnly", true))
           val task = read.optJSONObject("task")
           val taskState = task?.optString("state")?.ifEmpty { null }
-          flow.update { s ->
-            var next = s.copy(task = taskState ?: s.task, taskId = task?.optString("id")?.ifEmpty { null } ?: s.taskId)
-            // The task failed asynchronously (e.g. no network): give the request back for edit / retry.
-            if (taskState == "failed" && s.turn?.active != true && s.error != "TASK_FAILED" && !s.abandoned)
-              next = next.failedWith("TASK_FAILED", s.pending ?: s.turn?.userText)
-            if (taskState == "cancelled" && s.turn?.active != true) next = next.copy(pending = null)
-            next
+          val taskId = task?.optString("id")?.ifEmpty { null }
+          withContext(Dispatchers.Main.immediate) {
+            if (editor !== current) return@withContext
+            val before = flow.value
+            if (before.sending || before.abandoned) return@withContext
+            flow.update { s -> s.copy(task = taskState ?: s.task, taskId = taskId ?: s.taskId,
+              pending = if (taskState in setOf("failed", "cancelled") && s.turn?.active != true) null else s.pending) }
+            if (taskState == "failed" && before.turn?.active != true && before.error != "TASK_FAILED")
+              recoverFailure(current, "TASK_FAILED", before.pending ?: before.turn?.userText, taskId)
           }
         } catch (e: GatewayException) {
           Log.w(TAG, "status read: ${e.code}")
@@ -835,8 +1291,15 @@ class AssistantSession private constructor(private val context: Context, private
 
   // ---- Agent view ----------------------------------------------------------------------
 
+  internal fun liveSnapshotJson(): JSONObject {
+    val snapshot = live.snapshot
+    return JSONObject().put("liveTalk", snapshot?.json() ?: JSONObject.NULL)
+      .put("liveTalkDisclosure", snapshot?.disclosure ?: LiveTalk.DISCLOSURE)
+  }
+
   fun toJson(): JSONObject {
     val s = flow.value
+    val liveSnapshot = live.snapshot
     val v = voice.state.value
     val session = v.session
     val voiceJson = JSONObject()
@@ -880,6 +1343,7 @@ class AssistantSession private constructor(private val context: Context, private
       .put("working", s.working).put("needsUser", s.needsUser).put("online", s.online)
       .put("pending", s.pending ?: JSONObject.NULL).put("task", s.task ?: JSONObject.NULL).put("error", s.error ?: JSONObject.NULL)
       .put("draft", s.draft).put("failedText", s.failedText ?: JSONObject.NULL)
+      .put("draftAttachmentNames", JSONArray(s.draftAttachmentNames))
       .put("turn", s.turn?.let { t ->
         JSONObject().put("turnId", t.turnId).put("active", t.active).put("failed", t.failed)
           .put("userText", t.userText ?: JSONObject.NULL).put("headline", t.headline ?: JSONObject.NULL).put("reply", t.reply ?: JSONObject.NULL)
@@ -887,9 +1351,12 @@ class AssistantSession private constructor(private val context: Context, private
           .put("suggestions", JSONArray(t.suggestions.map { JSONObject().put("id", it.id).put("label", it.label).put("reply", it.reply) }))
       } ?: JSONObject.NULL)
       .put("voice", voiceJson)
+      .put("liveTalk", liveSnapshot?.json() ?: JSONObject.NULL)
+      .put("liveTalkDisclosure", liveSnapshot?.disclosure ?: LiveTalk.DISCLOSURE)
   }
 
   companion object {
+    private const val CHAT_ACTIVITY = "org.agentos.agent.MainActivity"
     const val MAX_TEXT = 16_000
     /** Saved dictation settings the desktop entry and its field microphone share. */
     const val DESKTOP_SCOPE = "assistant-entry"
@@ -902,8 +1369,12 @@ class AssistantSession private constructor(private val context: Context, private
       "PROVIDER_TIMEOUT", "PROCESSING_TIMEOUT" -> "VOICE_TIMEOUT"
       "PROVIDER_AUTH_FAILED" -> "VOICE_AUTH_FAILED"
       "PROVIDER_UNAVAILABLE", "PROVIDER_RATE_LIMITED" -> "VOICE_PROVIDER_UNAVAILABLE"
+      // The chosen dictation backend runs on fal and no fal key is saved (skipped in onboarding).
+      "PROVIDER_NOT_CONFIGURED" -> VOICE_FAL_KEY_MISSING
       else -> "VOICE_UNAVAILABLE"
     }
+    /** Voice input needs a fal API key; the island's tap opens the fal setup page (Figma 1379:2782). */
+    const val VOICE_FAL_KEY_MISSING = "VOICE_FAL_KEY_MISSING"
     const val EXTRA_DRAFT = "org.agentos.agent.extra.DRAFT"
     private const val POLL_MS = 1_500L
     /** How long Taku may keep "working" with no network before the home stops it (issue #25 F3). */

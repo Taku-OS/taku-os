@@ -5,14 +5,20 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent as AndroidIntent
 import android.net.Uri
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import org.agentos.agent.home.MainThread
+import org.agentos.agent.home.assistant.AgentGateway
+import org.agentos.agent.home.assistant.AssistantSession
+import org.agentos.agent.home.assistant.GatewayException
+import org.agentos.agent.home.assistant.HomeComposer
 import org.json.JSONObject
+import java.util.UUID
 
 object FeedActions {
-  /** Extra read by the conversation screen (`TakuAgentModule.launchDraft`). */
-  const val EXTRA_DRAFT = "org.agentos.agent.extra.DRAFT"
   private const val CONVERSATION = "org.agentos.agent.MainActivity"
 
-  fun dispatch(context: Context, cardId: String, actionId: String, values: JSONObject, origin: FeedOrigin): JSONObject {
+  suspend fun dispatch(context: Context, cardId: String, actionId: String, values: JSONObject, origin: FeedOrigin): JSONObject {
     val repo = FeedRepository.get(context)
     val captured = FeedSelectionValues.capture(values)
     val accepted = repo.acceptAction(FeedActionRequest.Declared(cardId, actionId, captured), origin)
@@ -20,7 +26,7 @@ object FeedActions {
     val action = accepted.action
     val selected = captured.json()
     val result = when (val intent = action.intent) {
-      is Intent.AskTaku -> askTaku(context, draft(intent.prompt, card, selected))
+      is Intent.AskTaku -> askTaku(context, draft(intent.prompt, card, selected), accepted.cursor)
       is Intent.OpenApp -> openApp(context, intent)
       is Intent.OpenUrl -> start(context, AndroidIntent(AndroidIntent.ACTION_VIEW, Uri.parse(intent.url)), "open-url")
       Intent.Dismiss -> repo.remove(cardId, origin).put("effect", "dismiss")
@@ -31,9 +37,9 @@ object FeedActions {
   }
 
   /** Long-press "Ask Taku": opens the conversation with the card as context. */
-  fun askAbout(context: Context, cardId: String, origin: FeedOrigin): JSONObject {
+  suspend fun askAbout(context: Context, cardId: String, origin: FeedOrigin): JSONObject {
     val accepted = FeedRepository.get(context).acceptAction(FeedActionRequest.AskAbout(cardId), origin)
-    val result = askTaku(context, (accepted.action.intent as Intent.AskTaku).prompt)
+    val result = askTaku(context, (accepted.action.intent as Intent.AskTaku).prompt, accepted.cursor)
     return result.put("cardId", cardId).put("eventCursor", accepted.cursor.toString())
   }
 
@@ -43,11 +49,23 @@ object FeedActions {
     return "$prompt\n\n(${card.app} card selections: $chosen)"
   }
 
-  private fun askTaku(context: Context, draft: String): JSONObject {
+  private suspend fun askTaku(context: Context, draft: String, cursor: FeedCursor): JSONObject {
+    if (draft.length > AssistantSession.MAX_TEXT) throw FeedException("INVALID_TEXT", "The Taku draft exceeds ${AssistantSession.MAX_TEXT} characters")
+    val threadId = try {
+      withContext(Dispatchers.IO) {
+        val gateway = AgentGateway(context.contentResolver)
+        val target = HomeComposer.createThread(gateway)
+        val handoffId = UUID.nameUUIDFromBytes("feed:$cursor".toByteArray()).toString()
+        HomeComposer(context, gateway, Dispatchers.IO).handoff(target, handoffId, draft)
+        target
+      }
+    } catch (failure: GatewayException) {
+      throw FeedException(failure.code, failure.message ?: "Taku could not save the draft")
+    }
     val intent = AndroidIntent().setComponent(ComponentName(context.packageName, CONVERSATION))
       .addFlags(AndroidIntent.FLAG_ACTIVITY_NEW_TASK or AndroidIntent.FLAG_ACTIVITY_SINGLE_TOP)
-      .putExtra(EXTRA_DRAFT, draft)
-    return start(context, intent, "ask-taku").put("draft", draft)
+      .putExtra("threadId", threadId)
+    return start(context, intent, "ask-taku").put("draft", draft).put("threadId", threadId)
   }
 
   private fun openApp(context: Context, target: Intent.OpenApp): JSONObject {
@@ -59,7 +77,9 @@ object FeedActions {
 
   private fun start(context: Context, intent: AndroidIntent, effect: String): JSONObject {
     try {
-      context.startActivity(intent.addFlags(AndroidIntent.FLAG_ACTIVITY_NEW_TASK))
+      MainThread.call(onTimeout = { FeedException("TIMEOUT", "main thread busy") }) {
+        context.startActivity(intent.addFlags(AndroidIntent.FLAG_ACTIVITY_NEW_TASK))
+      }
     } catch (e: ActivityNotFoundException) {
       throw FeedException("NO_ACTIVITY", "nothing can handle $effect: ${e.message}")
     }

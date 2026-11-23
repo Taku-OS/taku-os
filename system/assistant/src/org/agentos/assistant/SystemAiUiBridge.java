@@ -11,6 +11,7 @@ import org.json.JSONObject;
 /** Narrow UI adapter over the same Settings values used by the native settings screen and CLI. */
 final class SystemAiUiBridge {
   private static final String CONFIG = "taku_system_ai_config", GROUPS = "groups", SCENES = "scenes";
+  private static final String ASSIST_SCREENSHOTS = "assist_screenshot_enabled";
   private static final Set<String> SCENE_IDS = Set.of(
       "assistant", "org.agentos.assistant.text", "ime.vision", "screen", "memory.text", "jev");
   private SystemAiUiBridge() {}
@@ -53,16 +54,17 @@ final class SystemAiUiBridge {
         }
         String assistantMode = "unknown";
         try {
-          assistantMode =
-              NativeClient
-                  .exchange(new JSONObject().put("op", "modelConnection").put("action", "read"))
-                  .optString("mode", "unknown");
+          assistantMode = ComposerOptions.readConnection(c).optString("mode", "unknown");
         } catch (Exception ignored) {
         }
         if ("openai".equals(assistantMode)) refreshAssistantModel(c);
         return new JSONObject()
             .put("assistantModel", "openai".equals(assistantMode) ? assistantModel : "")
             .put("enabled", state.optBoolean("enabled"))
+            .put("assistScreenshotsEnabled", Settings.Secure.getInt(c.getContentResolver(), ASSIST_SCREENSHOTS, 1) != 0)
+            .put("apps", apps(c, state.getJSONObject("apps")))
+            .put("usage", usage(state.optJSONArray("usage")))
+            .put("audioAvailable", AudioEngine.available(c))
             .put("connected", state.optBoolean("connected"))
             .put("assistantMode", assistantMode)
             .put("jevEnabled",
@@ -72,6 +74,8 @@ final class SystemAiUiBridge {
             .put("bindings", new JSONObject(value(c, SCENES, "{}")))
             .put("providers", visible);
       }
+      case "manageSystemAi":
+        return manage(c, input);
       case "setSystemAi": {
         Object enabled = input.get("enabled");
         if (!(enabled instanceof Boolean))
@@ -239,18 +243,266 @@ final class SystemAiUiBridge {
         put(c, GROUPS, groups.toString());
         return new JSONObject();
       }
-      case "openMagpieManagement":
-        c.startActivity(new Intent(c, ModelManagementActivity.class)
-                            .putExtra("returnPage", "systemAi")
-                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
-        return new JSONObject();
-      case "openAssistantConnection":
-        c.startActivity(new Intent(c, PanelActivity.class)
-                            .putExtra("page", "modelConnection")
-                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
-        return new JSONObject();
       default:
         throw new IOException("UNSUPPORTED_ACTION");
+    }
+  }
+  private static JSONArray apps(Context c, JSONObject permissions) throws Exception {
+    java.util.List<String> ids = new java.util.ArrayList<>();
+    for (java.util.Iterator<String> it = permissions.keys(); it.hasNext();) ids.add(it.next());
+    java.util.Collections.sort(ids);
+    JSONArray result = new JSONArray();
+    for (String id : ids) {
+      String name;
+      switch (id) {
+        case "ime": name = "Input method"; break;
+        case "memory": name = "Memory"; break;
+        case "agent-ui": name = "Agent UI cards"; break;
+        default:
+          try {
+            name = c.getPackageManager().getApplicationLabel(
+                c.getPackageManager().getApplicationInfo(id, 0)).toString();
+          } catch (android.content.pm.PackageManager.NameNotFoundException missing) {
+            name = id;
+          }
+      }
+      result.put(new JSONObject().put("id", id).put("name", name)
+          .put("enabled", permissions.getBoolean(id)));
+    }
+    return result;
+  }
+  private static JSONArray usage(JSONArray records) throws Exception {
+    JSONArray result = new JSONArray();
+    if (records != null) for (int i = 0; i < records.length(); i++) {
+      JSONObject record = records.optJSONObject(i);
+      if (record == null) continue;
+      JSONObject visible = new JSONObject();
+      for (String key : new String[]{"consumer", "model", "at", "elapsedMs", "status", "code"})
+        if (record.has(key)) visible.put(key, record.get(key));
+      result.put(visible);
+    }
+    return result;
+  }
+  private static void fields(JSONObject input, String... expected) throws IOException {
+    if (input.length() != expected.length + 1) throw new IOException("INVALID_ARGUMENT");
+    for (String field : expected)
+      if (!input.has(field) || input.isNull(field)) throw new IOException("INVALID_ARGUMENT");
+  }
+  private static String string(JSONObject input, String key) throws Exception {
+    Object value = input.opt(key);
+    if (!(value instanceof String) || ((String) value).length() > 512)
+      throw new IOException("INVALID_ARGUMENT");
+    String text = (String) value;
+    for (int i = 0; i < text.length(); i++)
+      if (Character.isISOControl(text.charAt(i))) throw new IOException("INVALID_ARGUMENT");
+    return text;
+  }
+  private static boolean bool(JSONObject input, String key) throws Exception {
+    Object value = input.opt(key);
+    if (!(value instanceof Boolean)) throw new IOException("INVALID_ARGUMENT");
+    return (Boolean) value;
+  }
+  private static JSONObject manage(Context c, JSONObject input) throws Exception {
+    String operation = string(input, "operation");
+    switch (operation) {
+      case "saveGroup": {
+        // A model group typed by hand: its id, name and ordered member model ids.
+        fields(input, "id", "name", "members", "create");
+        String id = string(input, "id"), name = string(input, "name").trim();
+        boolean create = bool(input, "create");
+        JSONArray typed = input.optJSONArray("members"), members = new JSONArray();
+        if (!id.matches("[A-Za-z0-9_-]{1,64}") || name.isEmpty() || name.length() > 120 || typed == null || typed.length() > 32)
+          throw new IOException("INVALID_GROUP");
+        for (int i = 0; i < typed.length(); i++) {
+          Object member = typed.opt(i);
+          if (!(member instanceof String)) throw new IOException("INVALID_MEMBERS");
+          String model = ((String) member).trim();
+          if (model.length() > 512) throw new IOException("INVALID_MEMBERS");
+          for (int n = 0; n < model.length(); n++)
+            if (Character.isISOControl(model.charAt(n))) throw new IOException("INVALID_MEMBERS");
+          if (!model.isEmpty()) members.put(model);
+        }
+        if (members.length() == 0) throw new IOException("INVALID_MEMBERS");
+        JSONArray groups = new JSONArray(value(c, GROUPS, "[]"));
+        int found = -1;
+        for (int i = 0; i < groups.length(); i++)
+          if (id.equals(groups.getJSONObject(i).optString("id"))) { found = i; break; }
+        if (create && found >= 0) throw new IOException("GROUP_EXISTS");
+        if (!create && found < 0) throw new IOException("GROUP_NOT_FOUND");
+        JSONObject group = found < 0 ? new JSONObject().put("id", id).put("routing", "order") : groups.getJSONObject(found);
+        group.put("name", name).put("members", members);
+        if (found < 0) groups.put(group);
+        put(c, GROUPS, groups.toString());
+        return new JSONObject().put("group", group);
+      }
+      case "bindScene": {
+        // Any scene id, including ones this build has no feature row for. The built-in scenes
+        // keep the compatibility checks of bindSystemAi.
+        fields(input, "scene", "group");
+        String scene = string(input, "scene"), id = string(input, "group");
+        if (!scene.matches("[A-Za-z0-9_.-]{1,128}")) throw new IOException("INVALID_SCENE");
+        if (SCENE_IDS.contains(scene))
+          return execute(c, "bindSystemAi", new JSONObject().put("scene", scene).put("group", id));
+        group(new JSONArray(value(c, GROUPS, "[]")), id);
+        JSONObject bindings = new JSONObject(value(c, SCENES, "{}"));
+        bindings.put(scene, "group/" + id);
+        put(c, SCENES, bindings.toString());
+        return new JSONObject().put("scene", scene).put("binding", "group/" + id);
+      }
+      case "unbindScene": {
+        fields(input, "scene");
+        String scene = string(input, "scene");
+        // The built-in features always keep a binding; only added scenes can be removed.
+        if (SCENE_IDS.contains(scene) || !scene.matches("[A-Za-z0-9_.-]{1,128}")) throw new IOException("INVALID_SCENE");
+        JSONObject bindings = new JSONObject(value(c, SCENES, "{}"));
+        if (!bindings.has(scene)) throw new IOException("SCENE_NOT_FOUND");
+        bindings.remove(scene);
+        put(c, SCENES, bindings.toString());
+        return new JSONObject().put("scene", scene);
+      }
+      case "setApp": {
+        fields(input, "app", "enabled");
+        String app = string(input, "app");
+        boolean enabled = bool(input, "enabled");
+        JSONObject state = NativeClient.exchange(new JSONObject().put("op", "systemAi").put("action", "read"));
+        if (!state.getJSONObject("apps").has(app)) throw new IOException("APP_NOT_FOUND");
+        NativeClient.exchange(new JSONObject().put("op", "systemAi").put("action", "configure")
+            .put("patch", new JSONObject().put("apps", new JSONObject().put(app, enabled))));
+        return new JSONObject().put("app", app).put("enabled", enabled);
+      }
+      case "readConnection":
+        fields(input);
+        return ComposerOptions.readConnection(c);
+      case "selectConnection": {
+        fields(input, "mode", "model");
+        String mode = string(input, "mode"), model = string(input, "model");
+        if (!(mode.equals("openai") && model.isEmpty() || mode.equals("magpie") && !model.isEmpty()))
+          throw new IOException("INVALID_CONNECTION");
+        return ComposerOptions.switchConnection(c, mode, model);
+      }
+      case "readAccount": {
+        fields(input);
+        JSONObject source = NativeClient.rpcSync("account/read", new JSONObject().put("refreshToken", false));
+        JSONObject account = source.optJSONObject("account");
+        return new JSONObject().put("connected", account != null)
+            .put("type", account == null ? "" : account.optString("type"))
+            .put("planType", account == null ? "" : account.optString("planType"))
+            .put("requiresOpenaiAuth", source.optBoolean("requiresOpenaiAuth"));
+      }
+      case "readLimits": {
+        fields(input);
+        JSONObject result = new JSONObject();
+        for (String kind : new String[]{"limits", "usage"}) {
+          try {
+            JSONObject source = NativeClient.rpcSync(kind.equals("limits")
+                ? "account/rateLimits/read" : "account/usage/read", new JSONObject());
+            JSONArray values = new JSONArray();
+            metrics(source, "", values);
+            result.put(kind, values);
+          } catch (Exception unavailable) {
+            result.put(kind + "Error", "The account service did not provide " + kind + ". Refresh to retry.");
+          }
+        }
+        return result;
+      }
+      case "readComposerScreenshots":
+      case "setComposerScreenshots": {
+        boolean write = operation.equals("setComposerScreenshots");
+        if (write) fields(input, "enabled");
+        else fields(input);
+        synchronized (ComposerPreferences.class) {
+          android.content.SharedPreferences prefs = c.getSharedPreferences("agent-settings", 0);
+          if (write) {
+            boolean enabled = bool(input, "enabled");
+            boolean previous = prefs.getBoolean("includeScreenshot", false);
+            if (!prefs.edit().putBoolean("includeScreenshot", enabled).commit()) {
+              prefs.edit().putBoolean("includeScreenshot", previous).apply();
+              throw new IOException("SETTINGS_WRITE_FAILED");
+            }
+          }
+          return new JSONObject().put("enabled", prefs.getBoolean("includeScreenshot", false));
+        }
+      }
+      case "setAssistScreenshots": {
+        fields(input, "enabled");
+        boolean enabled = bool(input, "enabled");
+        if (!Settings.Secure.putInt(c.getContentResolver(), ASSIST_SCREENSHOTS, enabled ? 1 : 0))
+          throw new IOException("SETTINGS_WRITE_FAILED");
+        if (!enabled) AssistantInvocationCapture.clear();
+        return new JSONObject().put("enabled", enabled);
+      }
+      case "readJev":
+        fields(input);
+        return jev(c, operation, false);
+      case "setJev":
+        fields(input, "enabled");
+        return jev(c, operation, bool(input, "enabled"));
+      case "testJev":
+        fields(input);
+        return jev(c, operation, false);
+      case "openFeature": {
+        fields(input, "feature");
+        Intent intent;
+        switch (string(input, "feature")) {
+          case "audio": intent = AudioEngine.homeIntent(); break;
+          case "ime": intent = new Intent().setClassName("org.agentos.inputmethod",
+              "org.fcitx.fcitx5.android.input.ai.AiRepliesSettingsActivity"); break;
+          case "memory": intent = new Intent().setClassName("org.agentos.memory",
+              "org.agentos.memory.MemoryActivity").putExtra("page", "settings"); break;
+          default: throw new IOException("INVALID_FEATURE");
+        }
+        try { c.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); }
+        catch (android.content.ActivityNotFoundException unavailable) { throw new IOException("FEATURE_UNAVAILABLE"); }
+        return new JSONObject();
+      }
+      default: throw new IOException("UNSUPPORTED_OPERATION");
+    }
+  }
+  private static final Set<String> METRIC_FIELDS = Set.of("usedPercent", "windowDurationMins", "resetsAt",
+      "totalTokens", "inputTokens", "cachedInputTokens", "outputTokens", "reasoningOutputTokens",
+      "totalCost", "estimatedCostUsd", "costUsd", "balance", "hasCredits", "unlimited",
+      "planType", "limitName", "model", "currency", "status", "count", "requestCount");
+  private static final java.util.regex.Pattern PRIVATE_METRIC_FIELD =
+      java.util.regex.Pattern.compile("(?i).*(secret|password|credential|authorization|email|url).*");
+  private static void metrics(Object value, String path, JSONArray output) throws Exception {
+    if (value instanceof JSONArray) {
+      JSONArray list = (JSONArray) value;
+      for (int i = 0; i < list.length(); i++) metrics(list.get(i), path + " " + (i + 1), output);
+    } else if (value instanceof JSONObject) {
+      JSONObject object = (JSONObject) value;
+      for (java.util.Iterator<String> it = object.keys(); it.hasNext();) {
+        String key = it.next();
+        if (PRIVATE_METRIC_FIELD.matcher(key).matches()) continue;
+        Object child = object.get(key);
+        String label = path.isEmpty() ? key : path + "." + key;
+        if (child instanceof JSONObject || child instanceof JSONArray) metrics(child, label, output);
+        else if (METRIC_FIELDS.contains(key) && child != JSONObject.NULL)
+          output.put(new JSONObject().put("key", key).put("label", label).put("value", child));
+      }
+    }
+  }
+  private static JSONObject jev(Context c, String operation, boolean enabled) throws Exception {
+    java.util.concurrent.CompletableFuture<JSONObject> result = new java.util.concurrent.CompletableFuture<>();
+    try (AgentRepository repository = new AgentRepository(c)) {
+      AgentRepository.Callback<JSONObject> callback = new AgentRepository.Callback<JSONObject>() {
+        public void ready(JSONObject value) { result.complete(value); }
+        public void failed(String message) { result.completeExceptionally(new IOException(message)); }
+      };
+      if (operation.equals("readJev")) repository.jevConfig(callback);
+      else if (operation.equals("testJev")) repository.testJev(callback);
+      else repository.saveJevConfig(SceneRoutes.get(c, "jev"), enabled, new AgentRepository.Callback<Boolean>() {
+        public void ready(Boolean value) {
+          try { result.complete(new JSONObject().put("enabled", value)); }
+          catch (Exception error) { result.completeExceptionally(error); }
+        }
+        public void failed(String message) { result.completeExceptionally(new IOException(message)); }
+      });
+      try {
+        JSONObject value = result.get(90, java.util.concurrent.TimeUnit.SECONDS);
+        return operation.equals("testJev") ? new JSONObject().put("connected", true) : value;
+      } catch (java.util.concurrent.ExecutionException error) {
+        throw new IOException(error.getCause().getMessage());
+      }
     }
   }
   private static volatile String assistantModel = "";

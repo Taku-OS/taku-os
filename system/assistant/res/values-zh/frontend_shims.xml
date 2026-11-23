@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+ <string name="taku_owner_only">Taku 仅为这部手机的机主设置。请切换到机主后使用。</string>
+ <string name="taku_unlock_first">请先解锁手机，然后重试。</string>
+ <string name="taku_link_unavailable">Taku 无法打开此链接。</string>
+ <string name="taku_settings_unavailable">Taku AI 设置暂不可用。</string>
+ <string name="taku_home_unavailable">Taku 主屏幕暂不可用。</string>
+</resources>

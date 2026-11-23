@@ -1,13 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {appendDictation, barHeights, dictationResult, failureOf} from './dictationText.ts';
+import {insertDictation, barHeights, dictationResult, failureOf} from './dictationText.ts';
 
-test('dictation joins the draft with a space, Chinese without one', () => {
-  assert.equal(appendDictation('', ' check the flight '), 'check the flight');
-  assert.equal(appendDictation('Please', 'check the flight'), 'Please check the flight');
-  assert.equal(appendDictation('Please  ', 'check'), 'Please check');
-  assert.equal(appendDictation('帮我', '查一下航班'), '帮我查一下航班');
-  assert.equal(appendDictation('Hi', '   '), 'Hi');
+test('dictation replaces only the captured selection and places the caret after the insert', () => {
+  assert.deepEqual(insertDictation('say OLD now', {start: 4, end: 7}, ' new words '), {text: 'say new words now', caret: 13});
+  assert.deepEqual(insertDictation('saynow', {start: 3, end: 3}, 'this'), {text: 'say this now', caret: 9});
+  assert.deepEqual(insertDictation('帮我航班', {start: 2, end: 2}, '查一下'), {text: '帮我查一下航班', caret: 5});
+  assert.deepEqual(insertDictation('Hi  ', {start: 4, end: 4}, 'there'), {text: 'Hi  there', caret: 9});
+  assert.deepEqual(insertDictation('Hi', {start: 0, end: 2}, '   '), {text: 'Hi', caret: 2});
 });
 
 test('engine reasons map to the three toasts', () => {
@@ -17,6 +17,13 @@ test('engine reasons map to the three toasts', () => {
   assert.equal(failureOf('CAPTURE_SILENCED'), 'busy');
   assert.equal(failureOf('ENGINE_UNAVAILABLE'), 'unavailable');
   assert.equal(failureOf(undefined), 'unavailable');
+});
+
+test('a missing fal key is its own failure, from the engine or from Home', () => {
+  assert.equal(failureOf('PROVIDER_NOT_CONFIGURED'), 'falKeyMissing');
+  assert.equal(failureOf('VOICE_FAL_KEY_MISSING'), 'falKeyMissing');
+  assert.equal(dictationResult({kind: 'Failed', code: 'PROVIDER_NOT_CONFIGURED'}).reason, 'falKeyMissing');
+  assert.equal(failureOf('PROVIDER_AUTH_FAILED'), 'unavailable', 'a saved but rejected key is not a missing one');
 });
 
 test('only a successful outcome delivers, and it delivers its own complete text', () => {

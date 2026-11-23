@@ -2,6 +2,8 @@
 
 On TakuOS, an Agent running as the runtime identity can use `/system_ext/bin/taku-plugin`. It sends requests to the same broker and Codex app-server used by the plugin screen. Output is JSON; `list` returns the same workspace catalog and `localVersion`, `installed` and `enabled` fields as the screen. `status` returns MCP server and tool status.
 
+The current default catalog is limited to marketplace sources registered on the device, including the workspace. The upstream account-wide remote catalog can exceed the Broker message limit.
+
 ```sh
 taku-plugin list
 taku-plugin status

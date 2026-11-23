@@ -75,6 +75,21 @@ class HomeController(val context: Context, val repo: FeedRepository, val pool: R
     get() = assistant.state.value.hintExpanded
     set(value) { assistant.setHint(value) }
   var feedOnScreen by mutableStateOf(false)
+  /** First-run onboarding; while it shows, Home renders only the onboarding layer. */
+  val onboarding = org.agentos.agent.home.onboarding.OnboardingRepository.get(context)
+
+  /**
+   * A tap on a Feed card during "You’re all set" is the same as "I’ll explore": onboarding
+   * completes and the card leaves. The tap itself still reaches the card.
+   */
+  fun feedCardTapped() {
+    if (onboarding.state.value.step != org.agentos.agent.home.onboarding.OnboardingStep.ALL_SET) return
+    scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+      // WRONG_STEP: the card's own button or an Agent got there first. Never take Home down.
+      try { onboarding.perform(org.agentos.agent.home.onboarding.OnboardingAction.EXPLORE) }
+      catch (e: Exception) { Log.w(TAG, "explore from Feed failed", e) }
+    }
+  }
   var screenHeight = 0f
   var screenWidth = 0f
   private val workspaceGateway = AgentGateway(context.contentResolver)
@@ -254,6 +269,15 @@ class HomeController(val context: Context, val repo: FeedRepository, val pool: R
   /** Long-press on empty home space: the layout menu at this root position. */
   var homeMenu by mutableStateOf<Offset?>(null)
     private set
+
+  /**
+   * Something Back would close is open: a card, Home or icon menu, a folder, Home or pin editing,
+   * a removal, hidden-apps or widget dialog. Otherwise the desktop is being browsed, and Home
+   * takes the side edges from the back gesture (HomeActivity) so they swipe between pages.
+   */
+  val backTargetOpen: Boolean
+    get() = menu != null || homeMenu != null || drag.menu != null || openFolderId != null || editingHome || editingPins ||
+      removingApp != null || showingHiddenApps || showingWidgetPicker || resizingWidget != null
   private val catalog = org.agentos.agent.home.apps.AppCatalog.get(context)
   private val layout = org.agentos.agent.home.apps.HomeLayoutRepository.get(context)
 
@@ -338,11 +362,11 @@ class HomeController(val context: Context, val repo: FeedRepository, val pool: R
 
   fun askTaku(cardId: String) {
     closeMenu()
-    guard { FeedActions.askAbout(context, cardId, FeedOrigin.GUI) }
+    scope.launch { guard { FeedActions.askAbout(context, cardId, FeedOrigin.GUI) } }
   }
 
   fun pinAction(cardId: String, actionId: String) {
-    guard { FeedActions.dispatch(context, cardId, actionId, org.json.JSONObject(), FeedOrigin.GUI) }
+    scope.launch { guard { FeedActions.dispatch(context, cardId, actionId, org.json.JSONObject(), FeedOrigin.GUI) } }
   }
 
   // ---- AI entry ----------------------------------------------------------------------

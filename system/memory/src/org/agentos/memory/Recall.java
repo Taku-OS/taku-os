@@ -15,12 +15,25 @@ import java.util.*;
 final class Recall {
  static final int LIST=30,HOP_SEEDS=5;
  static Embedder embedder;static String embedderError="";
- // in-memory vector index of evidence
- static final List<String> vecIds=new ArrayList<>();static final List<Long> vecSeen=new ArrayList<>();static final List<float[]> vecs=new ArrayList<>();static boolean vecLoaded;
+ /** Guards the model's first load (copy from the APK, ONNX session): it can take seconds and must not hold Recall.class, which every search needs. */
+ static final Object EMBED=new Object();
+ /**
+  * In-memory vector index of evidence, in first-seen order (new and re-embedded records are appended): ids, first-seen
+  * times and one vector per row in plain arrays, so a search scores rows without boxing and keeps only its top LIST.
+  */
+ static String[] vecIds=new String[0];static long[] vecSeen=new long[0];static float[][] vecs=new float[0][];static int vecCount;static boolean vecLoaded;
+ static final Set<String> vecSet=new HashSet<>();
  // node cache: nid -> versions (oldest first)
  static Map<String,List<JSONObject>> nodes;static Map<String,List<float[]>> nodeVecs;
+ /** The same versions with what a search reads precomputed: lowercased search text and related ids. */
+ static Map<String,List<NodeVer>> nodeVers;
+ static final class NodeVer{
+  final String nid;final JSONObject v;final float[] vec;final long t;final String low;final Set<String> related;
+  NodeVer(String nid,JSONObject v,float[] vec){this.nid=nid;this.v=v;this.vec=vec;t=v.optLong("t");low=ntext(v).toLowerCase(Locale.ROOT);related=strings(v.optJSONArray("related"));}
+ }
 
- static synchronized Embedder embedder(Context c){
+ static Embedder embedder(Context c){
+  synchronized(EMBED){
   if(embedder!=null)return embedder;
   try{
    File model=new File(c.getFilesDir(),"bge-small-zh-v1.5.onnx");
@@ -34,23 +47,33 @@ final class Recall {
    embedder=new Embedder(c.getAssets().open("bge/vocab.txt"),model.getPath());embedderError="";
   }catch(Exception e){embedderError=String.valueOf(e.getMessage());android.util.Log.w("TakuMemory","Embedding model unavailable",e);}
   return embedder;
+  }
  }
 
  static String evidenceText(String title,String head,String show){return title+" "+head+"\n"+show;}
 
  static synchronized void loadVectors(SQLiteDatabase d){
-  if(vecLoaded)return;vecIds.clear();vecSeen.clear();vecs.clear();vecSet.clear();
-  try(Cursor c=d.rawQuery("SELECT v.id,m.first_seen,v.v FROM vectors v JOIN memories m ON m.id=v.id ORDER BY m.first_seen",null)){while(c.moveToNext()){vecIds.add(c.getString(0));vecSet.add(c.getString(0));vecSeen.add(c.getLong(1));vecs.add(Embedder.unpack(c.getBlob(2)));}}
+  if(vecLoaded)return;resetVectors();
+  try(Cursor c=d.rawQuery("SELECT v.id,m.first_seen,v.v FROM vectors v JOIN memories m ON m.id=v.id ORDER BY m.first_seen",null)){while(c.moveToNext())append(c.getString(0),c.getLong(1),Embedder.unpack(c.getBlob(2)));}
   vecLoaded=true;
  }
- static final Set<String> vecSet=new HashSet<>();
- static synchronized void addVector(String id,long seen,float[] v){if(!vecLoaded||!vecSet.add(id))return;vecIds.add(id);vecSeen.add(seen);vecs.add(v);}
- static synchronized void removeVector(String id){vecSet.remove(id);int i=vecIds.indexOf(id);if(i>=0){vecIds.remove(i);vecSeen.remove(i);vecs.remove(i);}}
- static synchronized void invalidateNodes(){nodes=null;nodeVecs=null;}
- static synchronized void resetVectors(){vecLoaded=false;vecIds.clear();vecSeen.clear();vecs.clear();vecSet.clear();}
+ static void append(String id,long seen,float[] v){
+  if(!vecSet.add(id))return;
+  if(vecCount==vecIds.length){int n=Math.max(256,vecCount*2);vecIds=Arrays.copyOf(vecIds,n);vecSeen=Arrays.copyOf(vecSeen,n);vecs=Arrays.copyOf(vecs,n);}
+  vecIds[vecCount]=id;vecSeen[vecCount]=seen;vecs[vecCount]=v;vecCount++;
+ }
+ static synchronized void addVector(String id,long seen,float[] v){if(vecLoaded)append(id,seen,v);}
+ static synchronized void removeVector(String id){
+  if(!vecSet.remove(id))return;
+  for(int i=0;i<vecCount;i++)if(vecIds[i].equals(id)){int tail=vecCount-i-1;System.arraycopy(vecIds,i+1,vecIds,i,tail);System.arraycopy(vecSeen,i+1,vecSeen,i,tail);System.arraycopy(vecs,i+1,vecs,i,tail);vecCount--;vecIds[vecCount]=null;vecs[vecCount]=null;return;}
+ }
+ static synchronized void invalidateNodes(){nodes=null;nodeVecs=null;nodeVers=null;}
+ static synchronized void resetVectors(){vecLoaded=false;vecIds=new String[0];vecSeen=new long[0];vecs=new float[0][];vecCount=0;vecSet.clear();}
  static synchronized void loadNodes(SQLiteDatabase d)throws Exception{
-  if(nodes!=null)return;nodes=new LinkedHashMap<>();nodeVecs=new HashMap<>();
-  try(Cursor c=d.rawQuery("SELECT nid,data,v FROM nodes ORDER BY CAST(SUBSTR(nid,2) AS INTEGER),ver",null)){while(c.moveToNext()){nodes.computeIfAbsent(c.getString(0),k->new ArrayList<>()).add(new JSONObject(c.getString(1)));nodeVecs.computeIfAbsent(c.getString(0),k->new ArrayList<>()).add(c.isNull(2)?null:Embedder.unpack(c.getBlob(2)));}}
+  if(nodes!=null)return;Map<String,List<JSONObject>> n=new LinkedHashMap<>();Map<String,List<float[]>> nv=new HashMap<>();Map<String,List<NodeVer>> vers=new LinkedHashMap<>();
+  try(Cursor c=d.rawQuery("SELECT nid,data,v FROM nodes ORDER BY CAST(SUBSTR(nid,2) AS INTEGER),ver",null)){while(c.moveToNext()){String nid=c.getString(0);JSONObject v=new JSONObject(c.getString(1));float[] vec=c.isNull(2)?null:Embedder.unpack(c.getBlob(2));
+   n.computeIfAbsent(nid,k->new ArrayList<>()).add(v);nv.computeIfAbsent(nid,k->new ArrayList<>()).add(vec);vers.computeIfAbsent(nid,k->new ArrayList<>()).add(new NodeVer(nid,v,vec));}}
+  nodes=n;nodeVecs=nv;nodeVers=vers;
  }
  /** Latest version of each node visible at time t (ms). */
  static synchronized List<Object[]> nodeView(long t){
@@ -66,61 +89,117 @@ final class Recall {
  static String join(JSONArray a,String sep){StringBuilder b=new StringBuilder();for(int i=0;a!=null&&i<a.length();i++){if(i>0)b.append(sep);b.append(a.optString(i));}return b.toString();}
  static Set<String> strings(JSONArray a){Set<String> s=new LinkedHashSet<>();for(int i=0;a!=null&&i<a.length();i++)s.add(a.optString(i));return s;}
 
- static JSONArray search(MemoryStore s,String query,int k)throws Exception{
+ /** Latest version of each node visible at time t, in the node cache's order, as {@link NodeVer}. */
+ static synchronized List<NodeVer> view(long t){
+  List<NodeVer> out=new ArrayList<>();if(nodeVers==null)return out;
+  for(List<NodeVer> vs:nodeVers.values()){NodeVer v=null;for(NodeVer x:vs)if(x.t<=t)v=x;if(v!=null)out.add(v);}
+  return out;
+ }
+ /** Query vectors of recent searches: an agent often asks the same thing again, and the model is the slowest step. */
+ static final Map<String,float[]> queryVecs=new LinkedHashMap<>(64,0.75f,true){protected boolean removeEldestEntry(Map.Entry<String,float[]> e){return size()>64;}};
+ static float[] queryVector(Context c,String query)throws Exception{
+  synchronized(queryVecs){float[] v=queryVecs.get(query);if(v!=null)return v;}
+  Embedder e=embedder(c);if(e==null)return null;float[] v=e.encode(query,true);
+  synchronized(queryVecs){queryVecs.put(query,v);}return v;
+ }
+ /** Runs the query vector and the evidence vector ranking while the caller scans the database for keywords. */
+ static final java.util.concurrent.ExecutorService QUERY=java.util.concurrent.Executors.newSingleThreadExecutor(r->{Thread t=new Thread(r,"memory-query");t.setDaemon(true);return t;});
+
+ static JSONArray search(MemoryStore s,String query,int k)throws Exception{return search(s,query,k,null);}
+ /**
+  * @param times when not null, filled with stage times in nanoseconds: keyword SQL, waiting for the vectors, nodes (load
+  * and view), node keyword, node vectors, fuse and hop, result items, total. The vector work (query vector and evidence
+  * ranking) runs alongside the first stages; its own time is in times[8] (query vector) and times[9] (evidence ranking).
+  */
+ static JSONArray search(MemoryStore s,String query,int k,long[] times)throws Exception{
+  long start=System.nanoTime(),mark=start;
   SQLiteDatabase d=s.getReadableDatabase();long now=s.now();
   List<String> ts=new ArrayList<>();for(String t:query.trim().split("\\s+"))if(!t.isEmpty())ts.add(t.toLowerCase(Locale.ROOT));
+  // 2. vectors over evidence, in the background: query vector (cached), then the top LIST rows
+  java.util.concurrent.Future<Object[]> vectors=QUERY.submit(()->{
+   long a=System.nanoTime();float[] qv=null;try{qv=queryVector(s.context,query);}catch(Exception ignored){}
+   long b=System.nanoTime();List<String> vl=null;
+   if(qv!=null)synchronized(Recall.class){loadVectors(d);vl=topK(qv,now);}
+   return new Object[]{qv,vl,b-a,System.nanoTime()-b};
+  });
   List<List<String>> lists=new ArrayList<>();
   // 1. keyword over evidence (title + first line + new lines), most recent first
   StringBuilder where=new StringBuilder("first_seen<=?");List<String> args=new ArrayList<>();args.add(""+now);
-  for(String t:ts){where.append(" AND (title||' '||head||char(10)||fresh) LIKE ? ESCAPE '\\'");args.add("%"+t.replace("\\","\\\\").replace("%","\\%").replace("_","\\_")+"%");}
+  for(String t:ts)keyword(where,args,t);
   List<String> kw=new ArrayList<>();try(Cursor c=d.rawQuery("SELECT id FROM memories WHERE "+where+" ORDER BY first_seen DESC,id DESC LIMIT "+LIST,args.toArray(new String[0]))){while(c.moveToNext())kw.add("e:"+c.getString(0));}
-  lists.add(kw);
-  // 2. vectors over evidence
-  Embedder e=embedder(s.context);float[] qv=null;
-  if(e!=null)try{qv=e.encode(query,true);}catch(Exception ignored){}
-  if(qv!=null){
-   List<String> vl=new ArrayList<>();synchronized(Recall.class){loadVectors(d);vl=topK(qv,now);}lists.add(vl);
-  }
-  // 3. graph nodes: keyword + vector entry points
+  lists.add(kw);mark=lap(times,0,mark);
+  // 3. graph nodes: keyword now, vectors once the query vector is there
   synchronized(Recall.class){loadNodes(d);}
-  List<Object[]> nv=nodeView(now);Map<String,Object[]> byId=new HashMap<>();for(Object[] n:nv)byId.put((String)n[0],n);
-  if(!nv.isEmpty()){
-   List<Object[]> kn=new ArrayList<>();
-   for(Object[] n:nv){String low=ntext((JSONObject)n[1]).toLowerCase(Locale.ROOT);boolean all=true;for(String t:ts)if(!low.contains(t)){all=false;break;}if(all)kn.add(n);}
-   kn.sort((a,b)->Long.compare(((JSONObject)b[1]).optLong("t"),((JSONObject)a[1]).optLong("t")));
-   List<String> kl=new ArrayList<>();for(int i=0;i<Math.min(LIST,kn.size());i++)kl.add("n:"+kn.get(i)[0]);lists.add(kl);
-   if(qv!=null){
-    List<Object[]> scored=new ArrayList<>();for(Object[] n:nv)if(n[2]!=null)scored.add(new Object[]{n[0],Embedder.dot((float[])n[2],qv)});
-    scored.sort((a,b)->Float.compare((float)b[1],(float)a[1]));
-    List<String> vl=new ArrayList<>();for(int i=0;i<Math.min(LIST,scored.size());i++)vl.add("n:"+scored.get(i)[0]);lists.add(vl);
-   }
-  }
+  List<NodeVer> nv=view(now);Map<String,NodeVer> byId=new HashMap<>();for(NodeVer n:nv)byId.put(n.nid,n);mark=lap(times,2,mark);
+  List<String> kl=nodeKeyword(nv,ts);mark=lap(times,3,mark);
+  Object[] vr;try{vr=vectors.get(20,java.util.concurrent.TimeUnit.SECONDS);}catch(Exception slow){vectors.cancel(true);vr=new Object[]{null,null,0L,0L};}
+  float[] qv=(float[])vr[0];if(vr[1]!=null)lists.add(castList(vr[1]));mark=lap(times,1,mark);
+  if(times!=null){times[8]=(long)vr[2];times[9]=(long)vr[3];}
+  if(!nv.isEmpty()){lists.add(kl);if(qv!=null)lists.add(nodeVector(nv,qv));}
+  mark=lap(times,4,mark);
   Map<String,Double> score=new LinkedHashMap<>();   // Insertion order breaks ties, matching offline behavior.
   for(List<String> l:lists)for(int r=0;r<l.size();r++)score.merge(l.get(r),1.0/(60+r),Double::sum);
   // 4. one hop along relations from the strongest nodes
-  if(!nv.isEmpty()){
-   List<String> seeds=new ArrayList<>();for(String x:score.keySet())if(x.startsWith("n:"))seeds.add(x);
-   seeds.sort((a,b)->Double.compare(score.get(b),score.get(a)));
-   for(String x:new ArrayList<>(seeds.subList(0,Math.min(HOP_SEEDS,seeds.size())))){
-    String nid=x.substring(2);JSONObject v=(JSONObject)byId.get(nid)[1];Set<String> nb=strings(v.optJSONArray("related"));
-    for(Object[] m:nv)if(strings(((JSONObject)m[1]).optJSONArray("related")).contains(nid))nb.add((String)m[0]);
-    for(String m:nb)if(byId.containsKey(m))score.merge("n:"+m,0.5*score.get(x),Double::sum);
-   }
-  }
-  List<String> ranked=new ArrayList<>(score.keySet());ranked.sort((a,b)->Double.compare(score.get(b),score.get(a)));
+  if(!nv.isEmpty())hop(score,nv,byId);
+  List<String> ranked=new ArrayList<>(score.keySet());ranked.sort((a,b)->Double.compare(score.get(b),score.get(a)));mark=lap(times,5,mark);
   JSONArray out=new JSONArray();
   for(String x:ranked.subList(0,Math.min(k,ranked.size()))){
    if(x.startsWith("e:"))out.put(s.evidenceItem(x.substring(2)));
-   else out.put(s.nodeItem(x.substring(2),(JSONObject)byId.get(x.substring(2))[1]));
+   else out.put(s.nodeItem(x.substring(2),byId.get(x.substring(2)).v));
   }
+  lap(times,6,mark);if(times!=null)times[7]=System.nanoTime()-start;
   return out;
  }
+ /**
+  * One term of the evidence keyword filter. Terms hold no whitespace, so they never span the separators. A term with no
+  * cased letters (Chinese, digits, symbols) matches the same rows with instr() as with LIKE, whose case folding has
+  * nothing to fold there, and instr() skips LIKE's per-character matching; terms with letters keep LIKE.
+  */
+ static void keyword(StringBuilder where,List<String> args,String t){
+  if(caseless(t)){where.append(" AND instr(title||' '||head||char(10)||fresh,?)>0");args.add(t);return;}
+  where.append(" AND (title||' '||head||char(10)||fresh) LIKE ? ESCAPE '\\'");args.add("%"+t.replace("\\","\\\\").replace("%","\\%").replace("_","\\_")+"%");
+ }
+ static boolean caseless(String t){
+  return t.codePoints().allMatch(c->!Character.isUpperCase(c)&&!Character.isLowerCase(c)&&!Character.isTitleCase(c)&&Character.toLowerCase(c)==c&&Character.toUpperCase(c)==c&&Character.toTitleCase(c)==c);
+ }
+ @SuppressWarnings("unchecked") static List<String> castList(Object o){return (List<String>)o;}
+ static long lap(long[] times,int i,long since){long now=System.nanoTime();if(times!=null)times[i]+=now-since;return now;}
+ /** Nodes whose text holds every term, newest first (stable: equal times keep the view's order). */
+ static List<String> nodeKeyword(List<NodeVer> nv,List<String> ts){
+  List<NodeVer> kn=new ArrayList<>();
+  for(NodeVer n:nv){boolean all=true;for(String t:ts)if(!n.low.contains(t)){all=false;break;}if(all)kn.add(n);}
+  kn.sort((a,b)->Long.compare(b.t,a.t));
+  List<String> kl=new ArrayList<>();for(int i=0;i<Math.min(LIST,kn.size());i++)kl.add("n:"+kn.get(i).nid);return kl;
+ }
+ /** The LIST nodes closest to the query vector; equal scores keep the view's order, as a stable sort would. */
+ static List<String> nodeVector(List<NodeVer> nv,float[] qv){
+  int[] best=new int[LIST];float[] bs=new float[LIST];int n=0;
+  for(int i=0;i<nv.size();i++){float[] v=nv.get(i).vec;if(v==null)continue;n=offer(best,bs,n,i,Embedder.dot(v,qv));}
+  List<String> vl=new ArrayList<>();for(int i=0;i<n;i++)vl.add("n:"+nv.get(best[i]).nid);return vl;
+ }
+ /** Adds the strongest neighbours of the HOP_SEEDS best nodes: their related ids and the nodes that list them. */
+ static void hop(Map<String,Double> score,List<NodeVer> nv,Map<String,NodeVer> byId){
+  List<String> seeds=new ArrayList<>();for(String x:score.keySet())if(x.startsWith("n:"))seeds.add(x);
+  if(seeds.isEmpty())return;
+  seeds.sort((a,b)->Double.compare(score.get(b),score.get(a)));
+  Map<String,List<String>> linkedFrom=new HashMap<>();   // Nodes that list this one in related, in view order.
+  for(NodeVer m:nv)for(String r:m.related)linkedFrom.computeIfAbsent(r,x->new ArrayList<>()).add(m.nid);
+  for(String x:new ArrayList<>(seeds.subList(0,Math.min(HOP_SEEDS,seeds.size())))){
+   String nid=x.substring(2);Set<String> nb=new LinkedHashSet<>(byId.get(nid).related);
+   List<String> from=linkedFrom.get(nid);if(from!=null)nb.addAll(from);
+   for(String m:nb)if(byId.containsKey(m))score.merge("n:"+m,0.5*score.get(x),Double::sum);
+  }
+ }
+ /** Keeps best[0..n) sorted by score, highest first; a later index only displaces a strictly lower score. */
+ static int offer(int[] best,float[] bs,int n,int i,float sc){
+  if(n==best.length&&!(sc>bs[n-1]))return n;
+  int p=n==best.length?n-1:n;while(p>0&&bs[p-1]<sc){if(p<best.length){best[p]=best[p-1];bs[p]=bs[p-1];}p--;}
+  best[p]=i;bs[p]=sc;return Math.min(n+1,best.length);
+ }
  static List<String> topK(float[] qv,long now){
-  int n=vecs.size();float[] sc=new float[n];Integer[] idx=new Integer[n];int m=0;
-  for(int i=0;i<n;i++)if(vecSeen.get(i)<=now){sc[m]=Embedder.dot(vecs.get(i),qv);idx[m]=i;m++;}
-  Integer[] live=Arrays.copyOf(idx,m);float[] s2=Arrays.copyOf(sc,m);Integer[] order=new Integer[m];for(int i=0;i<m;i++)order[i]=i;
-  Arrays.sort(order,(a,b)->Float.compare(s2[b],s2[a]));
-  List<String> out=new ArrayList<>();for(int i=0;i<Math.min(LIST,m);i++)out.add("e:"+vecIds.get(live[order[i]]));return out;
+  int[] best=new int[LIST];float[] bs=new float[LIST];int n=0;
+  for(int i=0;i<vecCount;i++)if(vecSeen[i]<=now)n=offer(best,bs,n,i,Embedder.dot(vecs[i],qv));
+  List<String> out=new ArrayList<>();for(int i=0;i<n;i++)out.add("e:"+vecIds[best[i]]);return out;
  }
 
  /** Upcoming items: active nodes due in the next days, plus related ones (links, or same person's wishes, tasks, items). */

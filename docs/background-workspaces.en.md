@@ -8,7 +8,52 @@ Before choosing apps for a task, the agent checks which apps are actually availa
 
 These features answer “Which app can I use?” and “Who controls this screen?” Discovery does not split tasks automatically. A workspace is not another account or a separate Android system. Parent-task orchestration and cross-app result aggregation remain separate work; see the [multi-screen case and its limits](multi-screen-parallel-case-2026-10-26.md).
 
-## Current status
+## Assistant management migration
+
+The Assistant migration opens workspace management at the Expo `/workspaces`
+route. Optional `threadId`, `screenKey`, and `generation` query parameters
+select one exact lease. All three are required together. A replaced or closed
+lease shows an error instead of selecting a new generation.
+
+The page reads the broker catalog and offers background-work policy, the
+broker-provided workspace limit, app access, pause, live preview, original
+conversation opening, and release. The app picker preserves saved blocked
+packages even if those apps are no longer installed. Revocation receipts and
+cleanup failures remain visible. The old management Activity names now
+forward to this route so existing explicit intents keep working.
+
+`WorkspaceCommands` supplies both the signed frontend gateway and the public
+`content://org.agentos.assistant.open-access` workspace methods. Ordinary apps
+in unlocked Android user 0 have the same operations and validation as the GUI.
+Other users receive `USER_UNAVAILABLE`; locked users receive `USER_LOCKED`.
+The broker's original policy file, lease registry, and execution receipts
+remain authoritative.
+
+```sh
+content call --uri content://org.agentos.assistant.open-access --method workspaces/list --arg '{}'
+content call --uri content://org.agentos.assistant.open-access --method workspaces/apps --arg '{}'
+content call --uri content://org.agentos.assistant.open-access --method workspaces/preview --arg '{"threadId":"THREAD_ID","screenKey":"SCREEN_KEY","generation":"GENERATION"}'
+```
+
+The live viewer retains takeover, touch and Back input, pause, return and
+continue, requirement editing, receipt reconciliation, minimize, and exit.
+Viewing does not take control. Public callers can use the matching `pause`,
+`takeControl`, `input`, `returnAndResume`, `addRequirement`, and
+`executionStatus` methods under `workspaces/`. Input still requires the exact
+lease, the latest control revision, confirmed user ownership, and stopped
+execution. No mirroring or input implementation is replaced.
+
+`workspaces/open` opens the lease's original conversation after checking the
+current lease and native thread. `workspaces/release` accepts optional
+`returnToThread:true`, which the Expo page uses to return after successful
+cleanup. A navigation failure after release returns `opened:false` with
+`returnError`; cleanup success is not misreported as a failed release.
+
+The [installed Agent command reference](../system/assistant/assets/skills/taku-open-access/SKILL.md#background-workspace-app-access)
+lists every method, argument, and error. The acceptance results below belong
+to the historical Java interface and do not verify this Expo migration.
+
+## Historical acceptance status
 
 This page describes v73 (`20261027-workspaces-design`) as of October 27, 2026. It is merged into main and installed on Pixel 9 for the UI checks below. It changes the management flow while keeping the v72 backend interfaces. This update has not yet been published in a full ROM or on the documentation website.
 
@@ -96,6 +141,6 @@ The result contains `schema: "taku.workspaces/1"`, `policy`, `limits`, and `scre
 
 Authorization and handoff cover **managed phone tools** and their workspace admission. They are not a device-wide Android sandbox and do not claim to intercept arbitrary root shells, other accessibility services, or external ADB input. Independent screens share app processes, accounts, and data; they do not provide app-data isolation.
 
-Implementation: [PhoneAppCatalog](../system/assistant/broker/org/agentos/lab/PhoneAppCatalog.java) provides discovery; [PhoneExecutionScreens](../system/assistant/broker/org/agentos/lab/PhoneExecutionScreens.java) and [WorkspaceControl](../system/assistant/broker/org/agentos/lab/WorkspaceControl.java) manage leases and control; [BackgroundWorkspacesActivity](../system/assistant/src/org/agentos/assistant/BackgroundWorkspacesActivity.java), [WorkspaceDetailActivity](../system/assistant/src/org/agentos/assistant/WorkspaceDetailActivity.java), and [MirrorActivity](../system/assistant/src/org/agentos/assistant/MirrorActivity.java) render the interface.
+Implementation follows [PhoneAppCatalog](../system/assistant/broker/org/agentos/lab/PhoneAppCatalog.java) for discovery and [WorkspaceControl](../system/assistant/broker/org/agentos/lab/WorkspaceControl.java) for leases and control. [WorkspaceCommands](../system/assistant/src/org/agentos/assistant/WorkspaceCommands.kt) connects those operations to [Expo workspace management](../system/agent-app/src/components/WorkspaceManagementScreen.tsx). [MirrorActivity](../system/assistant/src/org/agentos/assistant/MirrorActivity.kt) retains the live viewer and input controls.
 
 See the [v72 acceptance record](background-workspaces-acceptance-2026-10-27.md) for backend evidence and reproduction steps, and the [v73 UI candidate record](background-workspaces-design-acceptance-2026-10-27.md) for the new interface checks.

@@ -16,6 +16,9 @@ type AgentNativeModule = {
   requestId(): string;
   close(): Promise<void>;
   setWindowBackdrop(enabled: boolean, sigmaDp: number, tint: string, fallback: string): Promise<void>;
+  setSecureScreen(enabled: boolean): Promise<void>;
+  submitSecret(fieldId: string, action: string, params: string): Promise<string>;
+  submitSecretFields(fields: Record<string, string>, action: string, params: string): Promise<string>;
   collapseToIsland(threadId: string): Promise<void>;
   showKeyboard(): Promise<void>;
   addListener(event: 'onSessionEventBatch', listener: (event: NativeSessionBatch) => void): {remove(): void};
@@ -23,6 +26,7 @@ type AgentNativeModule = {
   addListener(event: 'onOpenConversation', listener: () => void): {remove(): void};
   addListener(event: 'onOpenThread', listener: (event: {threadId: string; generation: string; panelTarget?: PanelTarget | string; errorCode?: string}) => void): {remove(): void};
   addListener(event: 'onDraft', listener: () => void): {remove(): void};
+  addListener(event: 'onSecretSubmit', listener: (event: {fieldId?: string}) => void): {remove(): void};
   addListener(event: 'onImeInsets', listener: (event: ImeGeometry) => void): {remove(): void};
   addListener(event: 'onConversationVisibility', listener: (event: {visible?: boolean}) => void): {remove(): void};
   openPanelConversation(panelId: string): Promise<void>;
@@ -39,12 +43,23 @@ const nativeModule = requireOptionalNativeModule<AgentNativeModule>('TakuAgent')
 
 export type AgentAction =
   | 'listThreads' | 'readSession' | 'createThread' | 'resumeThread'
+  | 'composer/read' | 'composer/write' | 'composer/import' | 'composer/move' | 'composer/receipt'
+  | 'composer/removeAttachment' | 'composer/options/read' | 'composer/options/write'
+  | 'composer/submit' | 'composer/settle' | 'composer/release'
+  | 'composer/handoff' | 'composer/restore' | 'composer/restoreTask' | 'composer/preserveDraft'
   | 'sendMessage' | 'steer' | 'interrupt' | 'cancelQueued' | 'answer'
-  | 'getWorkspaces' | 'openWorkspace' | 'openSettings' | 'openNativeConversation'
+  | 'getWorkspaces' | 'openWorkspace' | 'openSettings'
+  | 'requests/list' | 'requests/read' | 'requests/submit' | 'requests/cancel'
+  | 'readTaskDetail' | 'workspaces/list' | 'workspaces/apps' | 'workspaces/configure'
+  | 'workspaces/release' | 'workspaces/preview' | 'workspaces/open' | 'manageSystemAi'
+  | 'workspaces/pause' | 'workspaces/takeControl' | 'workspaces/input' | 'workspaces/returnAndResume'
+  | 'workspaces/addRequirement' | 'workspaces/executionStatus'
+  | 'capture/read' | 'capture/accept' | 'capture/dismiss' | 'capture/request' | 'capture/openConversation' | 'manageAssistant'
+  | 'accounts/read' | 'accounts/refresh' | 'accounts/login' | 'accounts/cancel' | 'accounts/keys' | 'accounts/saveKey' | 'accounts/removeKey'
   | 'decide' | 'generateUi' | 'panels' | 'cardView'
   | 'mainReply' | 'readMatter' | 'subscribeMatter' | 'unsubscribeMatter' | 'dispatchMatter' | 'analyzeCameraFrame'
   | 'audioCapabilities' | 'audioCommand'
-  | 'readSystemAi' | 'setSystemAi' | 'bindSystemAi' | 'bindSystemAiModel' | 'reorderSystemAi' | 'restoreSystemAi' | 'deleteSystemAiGroup' | 'openAssistantConnection' | 'openMagpieManagement' | 'pluginManager'
+  | 'readSystemAi' | 'setSystemAi' | 'bindSystemAi' | 'bindSystemAiModel' | 'reorderSystemAi' | 'restoreSystemAi' | 'deleteSystemAiGroup' | 'openMagpieManagement' | 'pluginManager'
   | 'readAppPermissions' | 'setAppPermissionMode' | 'setAppPermissionScope' | 'resetAppPermission';
 
 /** App Permission Center request/response contract; each of the four actions resolves with `AppPermissionsSnapshot`. */
@@ -66,12 +81,47 @@ function requireAgentNative(): AgentNativeModule {
 export async function callAgent<T = Record<string, unknown>>(
   action: AgentAction, params: Record<string, unknown> = {},
 ): Promise<T> {
-  const response = JSON.parse(await requireAgentNative().call(action, JSON.stringify(params)));
+  return gatewayResult<T>(await requireAgentNative().call(action, JSON.stringify(params)));
+}
+
+function gatewayResult<T>(envelope: string): T {
+  const response = JSON.parse(envelope);
   if (response.ok !== true) {
     throw new AgentGatewayError(response.message || 'Taku Agent is unavailable', response.code);
   }
   return response.result as T;
 }
+
+/**
+ * A gateway call whose secret is the text of the mounted native credential field [fieldId]
+ * (see `SecretField`). The secret travels natively; [params] must not contain it.
+ */
+export function submitSecret<T>(fieldId: string, action: AgentAction, params: Record<string, unknown>): Promise<T> {
+  return secretResult<T>(() => requireAgentNative().submitSecret(fieldId, action, JSON.stringify(params)));
+}
+
+/**
+ * The same for a form with several secrets: [fields] maps each form field name to the id of
+ * its mounted native credential field. The gateway receives them together.
+ */
+export function submitSecretFields<T>(fields: Record<string, string>, action: AgentAction, params: Record<string, unknown>): Promise<T> {
+  return secretResult<T>(() => requireAgentNative().submitSecretFields(fields, action, JSON.stringify(params)));
+}
+
+async function secretResult<T>(send: () => Promise<string>): Promise<T> {
+  let envelope: string;
+  try {
+    envelope = await send();
+  } catch (error) {
+    if (error instanceof AgentGatewayError) throw error;
+    const code = typeof record(error).code === 'string' && record(error).code ? String(record(error).code) : 'GATEWAY_UNAVAILABLE';
+    throw new AgentGatewayError(code, code);
+  }
+  return gatewayResult<T>(envelope);
+}
+/** The keyboard's Done key in a native credential field. */
+export const onSecretSubmit = (listener: (fieldId: string) => void): {remove(): void} =>
+  nativeModule?.addListener('onSecretSubmit', event => { if (typeof event.fieldId === 'string') listener(event.fieldId); }) ?? {remove() {}};
 
 export const launchThreadId = () => requireAgentNative().launchThreadId();
 export const newRequestId = () => requireAgentNative().requestId();
@@ -84,6 +134,22 @@ export const closeAgent = () => requireAgentNative().close();
  */
 export const setWindowBackdrop = (backdrop: {sigmaDp: number; tint: string; fallback: string} | null) =>
   nativeModule?.setWindowBackdrop(!!backdrop, backdrop?.sigmaDp ?? 0, backdrop?.tint ?? '#00000000', backdrop?.fallback ?? '#00000000') ?? Promise.resolve();
+
+let secureScreens = 0;
+/**
+ * Keeps the window out of screenshots and the recents preview while a credential field or a
+ * one-time sign-in code is on screen. Returns the release; the window stays secure until every
+ * holder has released. A no-op off-device.
+ */
+export function holdSecureScreen(): () => void {
+  if (secureScreens++ === 0) void nativeModule?.setSecureScreen(true).catch(() => {});
+  let held = true;
+  return () => {
+    if (!held) return;
+    held = false;
+    if (--secureScreens === 0) void nativeModule?.setSecureScreen(false).catch(() => {});
+  };
+}
 
 /** Asks the system for the keyboard on the focused field (WindowInsetsController), off-device a no-op. */
 export const showKeyboard = () => nativeModule?.showKeyboard() ?? Promise.resolve();

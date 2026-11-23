@@ -50,7 +50,7 @@ def main():
     device(f'mkdir -p {DEVICE_OUTPUT} /sdcard/Pictures')
     compile_script = '''source scripts/android-env.sh
 mkdir -p out/agent-capabilities-2026-10-14/classes out/agent-capabilities-2026-10-14/dex
-"$JDK/bin/javac" --release 17 -cp "$ANDROID_JAR:$SDK/platforms/android-36/uiautomator.jar:$SDK/platforms/android-36/optional/android.test.base.jar" -d out/agent-capabilities-2026-10-14/classes system/assistant/tests/org/agentos/tests/AgentCapabilityTest.java system/assistant/tests/org/agentos/tests/WallpaperRestore.java
+"$JDK/bin/javac" --release 17 -cp "$ANDROID_JAR:$SDK/platforms/android-36/uiautomator.jar:$SDK/platforms/android-36/optional/android.test.base.jar" -d out/agent-capabilities-2026-10-14/classes system/assistant/tests/org/agentos/tests/{AgentCapabilityTest,AgentInterfaceTest,NativeSocketProbe,WallpaperRestore}.java
 "$JDK/bin/jar" --create --file out/agent-capabilities-2026-10-14/classes.jar -C out/agent-capabilities-2026-10-14/classes .
 JAVA_HOME="$JDK" "$TOOLS/d8" --min-api 36 --lib "$ANDROID_JAR" --output out/agent-capabilities-2026-10-14/dex out/agent-capabilities-2026-10-14/classes.jar
 "$JDK/bin/jar" --create --file out/agent-capabilities-2026-10-14/test.jar -C out/agent-capabilities-2026-10-14/dex classes.dex

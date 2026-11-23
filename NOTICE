@@ -49,12 +49,10 @@ https://github.com/openai/codex/blob/main/LICENSE
 Public AOSP test keys are fetched on demand for development only, never imported
 from the user's existing signing cache and never used as production identity.
 
-Assistant Markdown uses commonmark-java 0.30.1 (BSD-2-Clause) and autolink-java
-0.12.0 (MIT), downloaded from Maven Central with pinned SHA-256 checksums.
-Notices are packaged in system/assistant/assets/licenses/; dependency metadata
-is system/assistant/markdown-dependencies.json. The Android renderer is original
-Taku code. Craft Agents Markdown/CodeBlock/StreamingMarkdown were architecture
-references only; its React renderer, editor and desktop preview code were not copied.
+Taku Memory uses commonmark-java 0.30.1 (BSD-2-Clause). The build downloads
+the parser from Maven Central and checks the SHA-256 in
+system/assistant/markdown-dependencies.json. The parser's license ships in
+system/memory/assets/licenses/commonmark.txt.
 
 Native GenUI uses the Kotlin standard library (Apache-2.0), developed by the
 Kotlin Team at JetBrains. Its upstream license and notice are packaged in the

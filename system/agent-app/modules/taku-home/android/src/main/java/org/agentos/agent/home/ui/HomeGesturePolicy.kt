@@ -8,6 +8,8 @@ internal class HomeGesturePolicy {
   enum class Owner { Pending, System, Horizontal, Vertical }
   data class Region(val width: Int, val height: Int, val left: Int, val top: Int, val right: Int, val bottom: Int) {
     fun containsEdge(x: Float, y: Float) = x < left || y < top || x >= width - right || y >= height - bottom
+    /** The status-bar and home-gesture edges only, for when the side edges belong to Home. */
+    fun containsTopOrBottom(y: Float) = y < top || y >= height - bottom
   }
 
   var region = Region(0, 0, 0, 0, 0, 0)
@@ -15,6 +17,9 @@ internal class HomeGesturePolicy {
   var owner = Owner.Pending
     private set
   var systemStart = false
+    private set
+  /** Whether this stream's side edges were Home's (back gesture excluded while browsing). */
+  var sideBackExcluded = false
     private set
   var active = false
     private set
@@ -32,10 +37,15 @@ internal class HomeGesturePolicy {
     private set
   private var slop = 0f
 
-  fun down(x: Float, y: Float, region: Region, touchSlop: Float) {
+  /**
+   * [sideEdgesOwned]: while browsing the desktop, Home excludes the left/right back gesture, so a
+   * side-edge start is an ordinary content swipe (panels); the top and bottom stay Android's.
+   */
+  fun down(x: Float, y: Float, region: Region, touchSlop: Float, sideEdgesOwned: Boolean = false) {
     this.region = region
     startX = x; startY = y; dx = 0f; dy = 0f; slop = touchSlop
-    systemStart = region.containsEdge(x, y)
+    sideBackExcluded = sideEdgesOwned
+    systemStart = if (sideEdgesOwned) region.containsTopOrBottom(y) else region.containsEdge(x, y)
     owner = if (systemStart) Owner.System else Owner.Pending
     active = true; terminal = "none"; sequence++
   }

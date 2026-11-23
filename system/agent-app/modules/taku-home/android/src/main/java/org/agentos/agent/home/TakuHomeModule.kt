@@ -2,7 +2,7 @@ package org.agentos.agent.home
 
 import com.facebook.react.bridge.ReactContext
 import expo.modules.kotlin.exception.Exceptions
-import expo.modules.kotlin.functions.Queues
+import expo.modules.kotlin.functions.Coroutine
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import kotlinx.coroutines.CoroutineScope
@@ -72,17 +72,32 @@ class TakuHomeModule : Module() {
       if (heightDp > 0 && heightDp < 4000) FeedRepository.get(context).setHeight(cardId, heightDp.toFloat())
     }
 
+    /**
+     * Reopens the Jev or Fal setup page (Figma 2-3 / 2-5) from the chat: a GUI card Jev could not
+     * compose, or dictation that needs a fal key. Answers `{ok}` or `{ok:false, code}`.
+     */
+    Function("openAiSetup") { service: String ->
+      try {
+        val target = org.agentos.agent.home.onboarding.OnboardingService.parse(service)
+          ?: throw org.agentos.agent.home.onboarding.OnboardingException("INVALID_SERVICE", "service must be jev or fal")
+        org.agentos.agent.home.onboarding.ServiceSetup.open(context, target)
+        JSONObject().put("ok", true).toString()
+      } catch (e: org.agentos.agent.home.onboarding.OnboardingException) {
+        JSONObject().put("ok", false).put("code", e.code).put("message", e.message).toString()
+      }
+    }
+
     /** The desktop's actual navigation state; the same projection the native provider serves. */
     Function("panelNavigation") { PanelNavigation.state.value.toJson().toString() }
 
-    AsyncFunction("dispatchAction") { cardId: String, actionId: String, valuesJson: String ->
+    AsyncFunction("dispatchAction") Coroutine { cardId: String, actionId: String, valuesJson: String ->
       try {
         val values = if (valuesJson.isBlank()) JSONObject() else JSONObject(valuesJson)
         JSONObject().put("ok", true).put("result", FeedActions.dispatch(context, cardId, actionId, values, FeedOrigin.GUI)).toString()
       } catch (e: FeedException) {
         JSONObject().put("ok", false).put("code", e.code).put("message", e.message).toString()
       }
-    }.runOnQueue(Queues.MAIN)
+    }
 
     OnStartObserving {
       watcher?.cancel()
