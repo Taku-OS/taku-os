@@ -1,0 +1,422 @@
+{
+  "agent-listening": {
+    "source": "agent-regression/native-island-acceptance/listening.png",
+    "sha256": "a7e81516e5c9c72234a52a10c3735510ca7914f5f68bd32b8f889c6f92300061",
+    "originalSize": [
+      1080,
+      2424
+    ],
+    "previewSize": [
+      1080,
+      1050
+    ]
+  },
+  "agent-working": {
+    "source": "agent-regression/native-island-acceptance/working.png",
+    "sha256": "a6f54e051a0dad31f0de8e8e77e7bcbce7764f37b1e2925ebe168d83f6518909",
+    "originalSize": [
+      1080,
+      2424
+    ],
+    "previewSize": [
+      1080,
+      1050
+    ]
+  },
+  "agent-working-frame2": {
+    "source": "agent-regression/native-island-acceptance/working-frame2.png",
+    "sha256": "4dc670dde793a0f20a17a23c4548abc9aede8eeae98947828eacea9f965ca61a",
+    "originalSize": [
+      1080,
+      2424
+    ],
+    "previewSize": [
+      1080,
+      1050
+    ]
+  },
+  "agent-confirmation": {
+    "source": "agent-regression/native-island-acceptance/confirmation.png",
+    "sha256": "21c2285c2fae24da82142c97fd6728addfd7cad9d9cb650580754ea27ff4245c",
+    "originalSize": [
+      1080,
+      2424
+    ],
+    "previewSize": [
+      1080,
+      1050
+    ]
+  },
+  "agent-error": {
+    "source": "agent-regression/native-island-acceptance/error.png",
+    "sha256": "fe7ee0ed654787ae3bacdefb22ffa615d21a5c72f4b4f66673c8993210a5819a",
+    "originalSize": [
+      1080,
+      2424
+    ],
+    "previewSize": [
+      1080,
+      1050
+    ]
+  },
+  "agent-reply": {
+    "source": "agent-regression/native-island-acceptance/reply.png",
+    "sha256": "96ba8f99f7f864e82e5033567d11d18e73e71c9601f54e4b22de824c0cc8a4b2",
+    "originalSize": [
+      1080,
+      2424
+    ],
+    "previewSize": [
+      1080,
+      1050
+    ]
+  },
+  "agent-reply-options": {
+    "source": "agent-regression/native-island-acceptance/reply-options.png",
+    "sha256": "0addbc1ef32d77692b3f2adf15c67b142b93b023fa0b9e5440c8db3a868a5eeb",
+    "originalSize": [
+      1080,
+      2424
+    ],
+    "previewSize": [
+      1080,
+      1050
+    ]
+  },
+  "agent-reply-options-scrolled": {
+    "source": "agent-regression/native-island-acceptance/reply-options-scrolled.png",
+    "sha256": "9c66666c4b999dfd23aef30eb1de4395df45f8a96cb9921914ce8c86bd0031eb",
+    "originalSize": [
+      1080,
+      2424
+    ],
+    "previewSize": [
+      1080,
+      1050
+    ]
+  },
+  "agent-long-reply": {
+    "source": "agent-regression/native-island-acceptance/long-reply.png",
+    "sha256": "9de3b0de59292ee9afa71daf972d6bee486bf516b40f5add850103e6fc7a5b0f",
+    "originalSize": [
+      1080,
+      2424
+    ],
+    "previewSize": [
+      1080,
+      1050
+    ]
+  },
+  "agent-long-reply-scrolled": {
+    "source": "agent-regression/native-island-acceptance/long-reply-scrolled.png",
+    "sha256": "31fe5cadfa9301b65166f5b59b1284299eebd81d0df747aa2683c6b42b5e721c",
+    "originalSize": [
+      1080,
+      2424
+    ],
+    "previewSize": [
+      1080,
+      1050
+    ]
+  },
+  "agent-building-home": {
+    "source": "agent-regression/building-island-acceptance/home-building.png",
+    "sha256": "a57eb8d0a022ab96be04210ce4128f163e19f23badbde64bc66b1482f222907c",
+    "originalSize": [
+      1080,
+      2424
+    ],
+    "previewSize": [
+      1080,
+      1050
+    ]
+  },
+  "agent-building-other": {
+    "source": "agent-regression/building-island-acceptance/frame-4.png",
+    "sha256": "c1afb136af887967e37eedd4fd25266652261186f42ba8f09fb4f284f44c59d2",
+    "originalSize": [
+      1080,
+      2424
+    ],
+    "previewSize": [
+      1080,
+      1050
+    ]
+  },
+  "release-text-entry": {
+    "source": "agent-regression/release-live/text-entry.png",
+    "sha256": "bfec5057c69114e855e211fc815f6e68927ec741504db6c557d0bee8b859f5ff",
+    "originalSize": [
+      1080,
+      2424
+    ],
+    "previewSize": [
+      1080,
+      2424
+    ]
+  },
+  "release-working": {
+    "source": "agent-regression/release-live/working.png",
+    "sha256": "c51f3b1059c27d3259b9e32632fe9921fffe4453d518dc1d7d67c03335db010b",
+    "originalSize": [
+      1080,
+      2424
+    ],
+    "previewSize": [
+      1080,
+      2424
+    ]
+  },
+  "release-actual-confirmation": {
+    "source": "agent-regression/release-live/actual-confirmation.png",
+    "sha256": "9e222f1f75f3d12c582b87fc08241a1c4e4afc7546c2a65ba65c73091c41307a",
+    "originalSize": [
+      1080,
+      2424
+    ],
+    "previewSize": [
+      1080,
+      2424
+    ]
+  },
+  "release-actual-open-conversation": {
+    "source": "agent-regression/release-live/actual-open-conversation.png",
+    "sha256": "c3745988304df6a6ec2453708efeb2b8cfbffb5d976abc4e9ccd6d4e14558333",
+    "originalSize": [
+      1080,
+      2424
+    ],
+    "previewSize": [
+      1080,
+      2424
+    ]
+  },
+  "release-actual-return-home": {
+    "source": "agent-regression/release-live/actual-return-home.png",
+    "sha256": "b8e12d4209c1c78c70d7f495ab217344ea9e3868cde8a800f2e35c944122fe97",
+    "originalSize": [
+      1080,
+      2424
+    ],
+    "previewSize": [
+      1080,
+      2424
+    ]
+  },
+  "third-live-update-capsule": {
+    "source": "third-party-gallery/live-update-capsule.png",
+    "sha256": "e05eaca50bb0755794697559eecfb61b4914c071d2b0a3669fa03e11d8d666f4",
+    "originalSize": [
+      1080,
+      2424
+    ],
+    "previewSize": [
+      1080,
+      1050
+    ]
+  },
+  "third-live-update-card": {
+    "source": "third-party-gallery/live-update-card.png",
+    "sha256": "8ca5d14e3722c8a8de8064631c6180a56b3b5eb4a31fc958e997f5b6992ff631",
+    "originalSize": [
+      1080,
+      2424
+    ],
+    "previewSize": [
+      1080,
+      1050
+    ]
+  },
+  "third-custom-capsule": {
+    "source": "third-party-gallery/custom-capsule.png",
+    "sha256": "a03c634e61f4ed246ee4b04cdac6619cfeffd14607366e32b49f4cad75bbd0f8",
+    "originalSize": [
+      1080,
+      2424
+    ],
+    "previewSize": [
+      1080,
+      1050
+    ]
+  },
+  "third-custom-card": {
+    "source": "third-party-gallery/custom-card.png",
+    "sha256": "096db806dcd29487f9f01916da986ef8f23f7f3131d06948b616f7309a9d2d13",
+    "originalSize": [
+      1080,
+      2424
+    ],
+    "previewSize": [
+      1080,
+      1050
+    ]
+  },
+  "third-direct-app": {
+    "source": "third-party-gallery/direct-app.png",
+    "sha256": "57db1fb571691b6b4939a6b1933d4f791b4840b5240e3e95654ad4b00ae2cf3d",
+    "originalSize": [
+      1080,
+      2424
+    ],
+    "previewSize": [
+      1080,
+      1050
+    ]
+  },
+  "third-return-capsule": {
+    "source": "third-party-gallery/return-capsule.png",
+    "sha256": "a03c634e61f4ed246ee4b04cdac6619cfeffd14607366e32b49f4cad75bbd0f8",
+    "originalSize": [
+      1080,
+      2424
+    ],
+    "previewSize": [
+      1080,
+      1050
+    ]
+  },
+  "third-multi-newest": {
+    "source": "third-party-gallery/multi-newest.png",
+    "sha256": "bf287fd5f6d83c5a0807c7060013328d872e2c6449b996be1327b3bc450d8d42",
+    "originalSize": [
+      1080,
+      2424
+    ],
+    "previewSize": [
+      1080,
+      1050
+    ]
+  },
+  "third-multi-swipe-next": {
+    "source": "third-party-gallery/multi-swipe-next.png",
+    "sha256": "48bfd40fabf67872a5c2e7e99cbdce6f5e4a960e66b436e16929b6b428837b91",
+    "originalSize": [
+      1080,
+      2424
+    ],
+    "previewSize": [
+      1080,
+      1050
+    ]
+  },
+  "third-multi-hide-current": {
+    "source": "third-party-gallery/multi-hide-current.png",
+    "sha256": "a566f08a7594bec764b2b3181a7f53f16e51699d43f58bddec8fe12649c13abc",
+    "originalSize": [
+      1080,
+      2424
+    ],
+    "previewSize": [
+      1080,
+      1050
+    ]
+  },
+  "audit-12-actions-before": {
+    "source": "12-actions-before.png",
+    "sha256": "3209dda8abefdb9fa87830c22e05d635b7f8153d06714357c41bd90e187e603c",
+    "originalSize": [
+      1080,
+      2424
+    ],
+    "previewSize": [
+      1080,
+      1050
+    ]
+  },
+  "audit-12-actions-scrolled": {
+    "source": "12-actions-scrolled.png",
+    "sha256": "b40fc16275d89d6243bf9c56f57a390cf92ce2b154507f5b4134d9926deb3320",
+    "originalSize": [
+      1080,
+      2424
+    ],
+    "previewSize": [
+      1080,
+      1050
+    ]
+  },
+  "audit-card-cover": {
+    "source": "card-cover.png",
+    "sha256": "b4658a6232f3da521846252bcbe499d514bae5ace43562950bc925af0d4f59e8",
+    "originalSize": [
+      1080,
+      2424
+    ],
+    "previewSize": [
+      1080,
+      1050
+    ]
+  },
+  "audit-card-below": {
+    "source": "card-below.png",
+    "sha256": "7ecc210f5f70ca330d20b8783c48c45ae943609a847e3ce1da60592241ac917e",
+    "originalSize": [
+      1080,
+      2424
+    ],
+    "previewSize": [
+      1080,
+      1050
+    ]
+  },
+  "audit-animated-fresh-app": {
+    "source": "animated-fresh-app.png",
+    "sha256": "3a1cbc883b6e0568b082d5c7184ecb624bbde0954556ccbe9ce593777c9e5647",
+    "originalSize": [
+      1080,
+      2424
+    ],
+    "previewSize": [
+      1080,
+      1050
+    ]
+  },
+  "audit-static-error-accepted": {
+    "source": "static-error-accepted.png",
+    "sha256": "e06c1033c20400db5e027d8ad673dd8a15d4a74a2c29ec63e714d1c83f7081ae",
+    "originalSize": [
+      1080,
+      2424
+    ],
+    "previewSize": [
+      1080,
+      1050
+    ]
+  },
+  "audit-return-home": {
+    "source": "return-home.png",
+    "sha256": "73396739cb2d4d09d073bbe4676668dcabcc42254f0d3f656f13cfbd826b1345",
+    "originalSize": [
+      1080,
+      2424
+    ],
+    "previewSize": [
+      1080,
+      1050
+    ]
+  },
+  "audit-custom-basic": {
+    "source": "custom-basic.png",
+    "sha256": "7d1e70111a88f1fa58f5d0b1e63915025aefb4f2eb76bf8a5fae4d9896d06d31",
+    "originalSize": [
+      1080,
+      2424
+    ],
+    "previewSize": [
+      1080,
+      1050
+    ]
+  },
+  "audit-hole-capsule": {
+    "source": "hole-capsule.png",
+    "sha256": "00e534076ed12e22dc60261a40a86bec2d35f1a6a54e8ae8b20fbdb0282b24fc",
+    "originalSize": [
+      1080,
+      2424
+    ],
+    "previewSize": [
+      1080,
+      1050
+    ]
+  }
+}

@@ -1,0 +1,2 @@
+INSTRUMENTATION_RESULT: report={"passed":false,"error":"java.lang.IllegalStateException: compactVisible did not become true: {\"selected\":\"0|org.agentos.agent|2801|taku-island:building-ui-fixture|10170\",\"compactVisible\":false,\"reason\":\"swipe_up\",\"foregroundPackage\":\"org.agentos.agent\",\"suppressedByForeground\":[\"0|org.agentos.agent|2801|taku-island:building-ui-fixture|10170\"],\"secondaryKey\":null,\"tap\":\"expand\",\"compact\":null,\"expanded\":false,\"card\":null}"}
+INSTRUMENTATION_CODE: 0

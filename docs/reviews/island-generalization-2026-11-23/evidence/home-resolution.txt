@@ -1,0 +1,10 @@
+Observed on emulator-5596, 2026-11-23
+cmd role get-role-holders android.app.role.HOME
+org.agentos.agent
+
+cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.HOME
+priority=9 preferredOrder=0 match=0x108000 specificIndex=-1 isDefault=true
+org.lineageos.setupwizard/.SetupWizardActivity
+
+Restored Agent APK SHA-256, matches original backup:
+2d19207bcabac9667e3b961620e6aa0a0c425b672ad8c3f0e01cb70c4e3549f8

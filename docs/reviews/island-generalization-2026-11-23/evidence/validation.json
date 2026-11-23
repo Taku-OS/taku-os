@@ -1,0 +1,46 @@
+{
+  "base": {
+    "valid": true,
+    "error": null
+  },
+  "category": {
+    "valid": false,
+    "error": "unknown_field"
+  },
+  "timeout-1": {
+    "valid": true,
+    "error": null
+  },
+  "timeout-12h": {
+    "valid": true,
+    "error": null
+  },
+  "timeout-over12h": {
+    "valid": false,
+    "error": "number_range"
+  },
+  "actions-32": {
+    "valid": true,
+    "error": null
+  },
+  "actions-33": {
+    "valid": false,
+    "error": "too_many_actions"
+  },
+  "actions-40": {
+    "valid": false,
+    "error": "too_many_actions"
+  },
+  "custom-style": {
+    "valid": false,
+    "error": "unknown_field"
+  },
+  "custom-content": {
+    "valid": false,
+    "error": "reserved_content"
+  },
+  "assistant-template": {
+    "valid": false,
+    "error": "reserved_template"
+  }
+}
