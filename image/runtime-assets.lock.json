@@ -52,14 +52,14 @@
     },
     {
       "path": "system/agent-app/out/TakuAgent.apk",
-      "bytes": 52708278,
-      "sha256": "187c1ee787b2eb2a01b4294d7ca39b651efde715d1c681d737eb69e3b9c07b91",
+      "bytes": 51446710,
+      "sha256": "f69b617c05218181ea857caaf7805090fb981dc6e8bc4b4418c1f18fd886a815",
       "package": "org.agentos.agent",
       "versionCode": 12,
       "versionName": "0.5.1",
       "certificateSha256": "c8a2e9bccf597c2fb6dc66bee293fc13f2fc47ec77bc6b2b0d52c11f51192ab8",
       "homeActivity": "org.agentos.agent.home.HomeActivity",
-      "sourceCommit": "1bf1a36ffe7a676d041955a2005ea09b11b18544",
+      "sourceCommit": "bdbdd36e3d6eb7c2363abf36d457ba1e60218f46",
       "sourceInputs": {
         "system/agent-app/.gitignore": "dcabecbba3d00a4b785b977b894fdfb2ac1f59b6a6efa1750646473694de228b",
         "system/agent-app/.npmrc": "d1c42404143c006922404cbb43573a3e217b2fe9700d9cfb72cd6d8689e4ad26",
@@ -237,7 +237,7 @@
         "system/agent-app/modules/taku-home/android/src/main/java/org/agentos/agent/home/apps/HomePages.kt": "3d5bf199b94d11a8f7ef332606a7417d186eaf570ec81812ec8a42bade2c287b",
         "system/agent-app/modules/taku-home/android/src/main/java/org/agentos/agent/home/apps/HomePanelAnchor.kt": "5757904d6cae06bced285c4df26c6def5f44f569bbcf95bc379ce38844aaf2ae",
         "system/agent-app/modules/taku-home/android/src/main/java/org/agentos/agent/home/apps/LauncherPresentation.kt": "ad10124edfbc7f029f8e63c8518924ae3805ef2f3b708a49f3005596628e6ebf",
-        "system/agent-app/modules/taku-home/android/src/main/java/org/agentos/agent/home/assistant/AgentGateway.kt": "1f3482df98b6f44c48338c8fcc528b2b1285ba7fdf66bd96634e761579963188",
+        "system/agent-app/modules/taku-home/android/src/main/java/org/agentos/agent/home/assistant/AgentGateway.kt": "9bd8220f9ba411306239a47d969ea74ee4b0cb10e2b7de5674b226f58f87a605",
         "system/agent-app/modules/taku-home/android/src/main/java/org/agentos/agent/home/assistant/AssistantOverlayActivity.kt": "3c1b7e949b24cb685abbbc3391df5a1676e287b6aab3d73e90b05027111cc327",
         "system/agent-app/modules/taku-home/android/src/main/java/org/agentos/agent/home/assistant/AssistantSession.kt": "b3ad5f331007dd0f27beb9d8ac76acd6ef76991b79e1994cac0b176ca6118b01",
         "system/agent-app/modules/taku-home/android/src/main/java/org/agentos/agent/home/assistant/ChatVoiceSession.kt": "eaa92cc8d0e24209a9da32a2bef6ea0076e969615eb44fe055c01079b4320900",
@@ -296,7 +296,7 @@
         "system/agent-app/modules/taku-home/android/src/main/java/org/agentos/agent/home/ui/FeedPage.kt": "a103293a37acd60309a419db6c27fe8612ebd0744bebb91fdaad3700d518d8f7",
         "system/agent-app/modules/taku-home/android/src/main/java/org/agentos/agent/home/ui/FeedWelcomeCard.kt": "013a61487eb6fb12bbee3a8f67e9724aba973557775449fc3ba6613de4e526ae",
         "system/agent-app/modules/taku-home/android/src/main/java/org/agentos/agent/home/ui/Gestures.kt": "4fae46b8e06246c497852138bd0221bfff333988b4b687d41dca96e033a6b9bb",
-        "system/agent-app/modules/taku-home/android/src/main/java/org/agentos/agent/home/ui/HomeController.kt": "4b62310b76de1031e979e8d3a3b7ee68a74e591d1af23ee302e1c8b97a1b2359",
+        "system/agent-app/modules/taku-home/android/src/main/java/org/agentos/agent/home/ui/HomeController.kt": "395b1cef9cec5f2162def0c55f84b8f19a146f1c9e104fc6675e8808dbededbe",
         "system/agent-app/modules/taku-home/android/src/main/java/org/agentos/agent/home/ui/HomeGestureBoundary.kt": "2c32c7c92fb4e7160279dc47afbaf856a0ae54ded95618b0a198d9de842f0174",
         "system/agent-app/modules/taku-home/android/src/main/java/org/agentos/agent/home/ui/HomeGesturePolicy.kt": "2b8d0203abf88c1ad4639814b30854cc32ad9bbc3461d5d8e9be7188c3450e41",
         "system/agent-app/modules/taku-home/android/src/main/java/org/agentos/agent/home/ui/HomeGestureSession.kt": "c28288c8d11e4014071422758e152613cbd4a978cbb42ea8ff86d35aa90dce8c",
@@ -588,10 +588,10 @@
         "system/island/src/org/agentos/island/DotMatrixLoader.java": "e31ff795618eb0e51ae3a94ed4fbd100db1e8114d5a001f7a66cafa57e564169",
         "system/island/src/org/agentos/island/IslandContentProtocol.java": "ae06229ea52b65c0b155ae4e3140d5eb7457e321499356d3ca67e8e8bc32f0b7"
       },
-      "url": "https://github.com/Taku-OS/taku-os/releases/download/agent-ui-0.5.1-code12-1bf1a36f/TakuAgent-0.5.1-code12-arm64.apk",
+      "url": "https://github.com/Taku-OS/taku-os/releases/download/agent-ui-0.5.1-code12-bdbdd36e/TakuAgent-0.5.1-code12-arm64.apk",
       "githubRelease": {
         "repo": "Taku-OS/taku-os",
-        "tag": "agent-ui-0.5.1-code12-1bf1a36f",
+        "tag": "agent-ui-0.5.1-code12-bdbdd36e",
         "asset": "TakuAgent-0.5.1-code12-arm64.apk"
       }
     }
