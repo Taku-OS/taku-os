@@ -9,7 +9,8 @@ source ../../scripts/android-env.sh
 output=../../out/island-capsule-tests
 mkdir -p "$output/classes" "$output/dex"
 "$TOOLS/aapt2" link -o "$output/resources.apk" -I "$ANDROID_JAR" --manifest capsule-tests/AndroidManifest.xml
-"$JDK/bin/javac" --release 17 -d "$output/classes" src/org/agentos/island/DotMatrixLoader.java src/com/android/systemui/taku/island/IslandCapsuleGeometry.java
+"$JDK/bin/javac" --release 17 -cp "$ANDROID_FRAMEWORK_JAR" -d "$output/classes" src/org/agentos/island/DotMatrixLoader.java src/com/android/systemui/taku/island/IslandCapsuleGeometry.java \
+    src/com/android/systemui/taku/island/IslandPayload.java src/com/android/systemui/taku/island/IslandStore.java
 "$KOTLINC" -jvm-target 17 -classpath "$ANDROID_FRAMEWORK_JAR:$output/classes" -d "$output/classes"     src/com/android/systemui/taku/island/IslandActivity.kt     src/com/android/systemui/taku/island/IslandCapsuleView.kt \
     src/com/android/systemui/taku/island/IslandStyle.kt \
     src/com/android/systemui/taku/island/IslandStatusGlyph.kt \

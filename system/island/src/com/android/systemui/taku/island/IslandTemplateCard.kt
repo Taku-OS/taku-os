@@ -47,7 +47,6 @@ internal class IslandTemplateCard(context: Context, command: (String, String?, S
     }
     private var iconGeneration = 0
     private var iconIdentity: Any? = null
-    private var choiceKeys: List<String> = emptyList()
     override val reading: ScrollView get() = scroll
     override val primaryLabel = "Open"
     override fun ownTaps(): List<View> = listOf(chipScroll, expand)
@@ -81,7 +80,6 @@ internal class IslandTemplateCard(context: Context, command: (String, String?, S
 
     fun update(next: IslandActivity) {
         item = next
-        choiceKeys = emptyList()
         val expanded = next.payload.getJSONObject("expanded")
         title.text = next.title
         body.text = next.body
@@ -119,24 +117,6 @@ internal class IslandTemplateCard(context: Context, command: (String, String?, S
         scroll.post { updateBottomEdge() }
     }
 
-    /** Several activities compete for one long-press: list them as chips; a chip expands that one. */
-    fun showChoices(choices: List<IslandActivity>) {
-        item = null
-        title.text = "Activities"
-        body.visibility = GONE
-        progress.visibility = GONE
-        while (content.childCount > 2) content.removeViewAt(2)
-        showIcon(null, false)
-        expand.visibility = INVISIBLE
-        choiceKeys = choices.map { it.key }
-        chips.removeAllViews()
-        choices.forEachIndexed { index, choice ->
-            chips.addView(IslandStyle.chip(context, choice.title, false) { command("expand", choice.key, null) },
-                LayoutParams(-2, -2).apply { if (index > 0) leftMargin = dp(8) })
-        }
-        chipScroll.visibility = if (choices.isEmpty()) GONE else VISIBLE
-    }
-
     /** Hides the native text while a ready rich surface covers [bodyHost]. */
     fun showTemplateText(visible: Boolean) { scroll.visibility = if (visible) VISIBLE else INVISIBLE }
 
@@ -147,8 +127,8 @@ internal class IslandTemplateCard(context: Context, command: (String, String?, S
     }
 
     fun state(): JSONObject = JSONObject().put("renderer", "systemui-native").put("title", title.text.toString())
-        .put("body", body.text.toString()).put("actionCount", if (choiceKeys.isEmpty()) chips.childCount else 0)
-        .put("choices", choiceKeys.size).put("progress", if (progress.visibility == VISIBLE) progress.value ?: -1f else JSONObject.NULL)
+        .put("body", body.text.toString()).put("actionCount", chips.childCount)
+        .put("progress", if (progress.visibility == VISIBLE) progress.value ?: -1f else JSONObject.NULL)
 
     private fun showIcon(icon: Icon?, tint: Boolean) {
         if (icon === iconIdentity) return

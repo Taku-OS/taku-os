@@ -110,7 +110,8 @@ adb shell cmd statusbar island state
 adb shell cmd statusbar island list
 adb shell cmd statusbar island get 'NOTIFICATION_KEY'
 adb shell cmd statusbar island select 'NOTIFICATION_KEY'
-adb shell cmd statusbar island choose
+adb shell cmd statusbar island next
+adb shell cmd statusbar island tap 'NOTIFICATION_KEY'
 adb shell cmd statusbar island expand 'NOTIFICATION_KEY'
 adb shell cmd statusbar island collapse
 adb shell cmd statusbar island dismiss 'NOTIFICATION_KEY'

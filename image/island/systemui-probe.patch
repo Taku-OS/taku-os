@@ -193,7 +193,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandActivity.kt
-@@ -0,0 +1,58 @@
+@@ -0,0 +1,61 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -250,6 +250,9 @@
 +        const val SOURCE_V1 = "custom-v1"
 +        const val SOURCE_LIVE_UPDATE = "live-update"
 +        const val SOURCE_SYSTEM = "system"
++        /** Reserved picture keys for the notification's own icons (publisher keys cannot start with `_`). */
++        const val APP_PIC = "_app"
++        const val LARGE_PIC = "_large"
 +    }
 +}
 --- /dev/null
@@ -441,7 +444,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandCapsuleView.kt
-@@ -0,0 +1,332 @@
+@@ -0,0 +1,427 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -453,13 +456,16 @@
 +import android.graphics.Path
 +import android.graphics.PorterDuff
 +import android.graphics.PorterDuffColorFilter
++import android.graphics.drawable.Animatable2
 +import android.graphics.drawable.Drawable
 +import android.os.Handler
 +import android.os.Looper
++import android.os.SystemClock
 +import android.view.GestureDetector
 +import android.view.MotionEvent
 +import android.view.View
 +import android.view.ViewConfiguration
++import android.view.accessibility.AccessibilityNodeInfo
 +import android.view.animation.LinearInterpolator
 +import org.agentos.island.DotMatrixLoader
 +import org.json.JSONObject
@@ -474,7 +480,7 @@
 + * edge sits [CAMERA_DP] left of the camera centre. Vertical drags are left to the shade.
 + */
 +internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
-+    private val cycle: (Int) -> Unit, private val choose: () -> Unit) : View(context) {
++    private val longPress: () -> Unit, private val next: () -> Unit, private val hide: () -> Unit) : View(context) {
 +    private val density = resources.displayMetrics.density
 +    private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
 +    private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -507,6 +513,10 @@
 +    private var vertical = false
 +    /** The pill text for the current layout width; empty when only the disc fits. */
 +    private var shownText = ""
++    /** Group B is an icon or animation and the pill has room for it. */
++    private var pillGlyphShown = false
++    /** Running app-supplied animated icons and when their looping began (60 s budget). */
++    private val iconLoops = mutableMapOf<Drawable, Long>()
 +    var secondary = false
 +        private set
 +    private val gestures = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
@@ -515,7 +525,8 @@
 +        override fun onLongPress(event: MotionEvent) { performLongClick() }
 +        override fun onFling(first: MotionEvent?, last: MotionEvent, vx: Float, vy: Float): Boolean {
 +            if (first != null && abs(last.x - first.x) > dp(24) && abs(vx) > abs(vy)) {
-+                cycle(if (vx < 0) 1 else -1)
++                // Swipe left: next activity. Swipe right: hide this one (owner decision).
++                if (vx < 0) next() else hide()
 +                return true
 +            }
 +            return false
@@ -527,7 +538,55 @@
 +        isFocusable = true
 +        importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_YES
 +        setOnClickListener { tap() }
-+        setOnLongClickListener { choose(); true }
++        setOnLongClickListener { longPress(); true }
++    }
++
++    override fun onInitializeAccessibilityNodeInfo(info: AccessibilityNodeInfo) {
++        super.onInitializeAccessibilityNodeInfo(info)
++        info.addAction(AccessibilityNodeInfo.AccessibilityAction(AccessibilityNodeInfo.ACTION_LONG_CLICK, "Expand"))
++        info.addAction(AccessibilityNodeInfo.AccessibilityAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD, "Next activity"))
++        info.addAction(AccessibilityNodeInfo.AccessibilityAction(AccessibilityNodeInfo.ACTION_DISMISS, "Hide"))
++    }
++
++    override fun performAccessibilityAction(action: Int, arguments: android.os.Bundle?): Boolean = when (action) {
++        AccessibilityNodeInfo.ACTION_SCROLL_FORWARD -> { next(); true }
++        AccessibilityNodeInfo.ACTION_DISMISS -> { hide(); true }
++        else -> super.performAccessibilityAction(action, arguments)
++    }
++
++    override fun verifyDrawable(who: Drawable): Boolean = who in icons.values || super.verifyDrawable(who)
++
++    /** Picture keys the publisher asked to animate (`icon.animate`). */
++    private fun animatedKeys(activity: IslandActivity): Set<String> = listOf("a", "b")
++        .mapNotNull { activity.compact?.optJSONObject(it) }
++        .filter { it.optString("type") == "icon" && it.optBoolean("animate") }
++        .map { it.getString("pic") }.toSet()
++
++    /** Runs animated drawables while shown and motion is enabled; each loops for at most 60 s. */
++    private fun startIconAnimations() {
++        val activity = item ?: return
++        if (!ValueAnimator.areAnimatorsEnabled() || visibility != VISIBLE || !isAttachedToWindow) return
++        for (key in animatedKeys(activity)) {
++            val drawable = icons[key] ?: continue
++            val animated = drawable as? Animatable2 ?: continue
++            if (drawable in iconLoops) continue
++            drawable.callback = this
++            iconLoops[drawable] = SystemClock.uptimeMillis()
++            animated.registerAnimationCallback(object : Animatable2.AnimationCallback() {
++                override fun onAnimationEnd(finished: Drawable) {
++                    val began = iconLoops[finished] ?: return
++                    if (SystemClock.uptimeMillis() - began < ICON_LOOP_MS && visibility == VISIBLE && isAttachedToWindow) {
++                        (finished as Animatable2).start()
++                    } else iconLoops.remove(finished)
++                }
++            })
++            animated.start()
++        }
++    }
++
++    private fun stopIconAnimations() {
++        for (drawable in iconLoops.keys) (drawable as? Animatable2)?.apply { clearAnimationCallbacks(); stop() }
++        iconLoops.clear()
 +    }
 +
 +    /**
@@ -535,8 +594,8 @@
 +     * group A it shows the notification's own icon (tinted white), else a plain dot.
 +     */
 +    private fun discSlot(activity: IslandActivity): JSONObject? = glyph(activity.compact?.optJSONObject("a"))
-+        ?: if (activity.pics.containsKey(IslandExtractor.APP_PIC))
-+            JSONObject().put("type", "pic").put("pic", IslandExtractor.APP_PIC).put("tint", true) else null
++        ?: if (activity.pics.containsKey(IslandActivity.APP_PIC))
++            JSONObject().put("type", "pic").put("pic", IslandActivity.APP_PIC).put("tint", true) else null
 +
 +    /** Group A slot in the disc's drawing vocabulary. */
 +    private fun glyph(slot: JSONObject?): JSONObject? = when (slot?.optString("type")) {
@@ -547,8 +606,13 @@
 +        }
 +        "progress" -> JSONObject().put("type", "progress").apply { if (slot.has("value")) put("value", slot.get("value")) }
 +        "icon" -> JSONObject().put("type", "pic").put("pic", slot.getString("pic")).put("tint", slot.optBoolean("tint"))
++            .apply { if (slot.has("progress")) put("ring", slot.getDouble("progress")) }
 +        else -> null
 +    }
++
++    /** Group B drawn as a glyph inside the pill (an icon or Taku's AI animation). */
++    private fun pillGlyph(activity: IslandActivity): JSONObject? =
++        activity.compact?.optJSONObject("b")?.takeIf { it.optString("type") in setOf("icon", "animation") }?.let(::glyph)
 +
 +    /** What the pill says: group B's text, number, clock or percentage. */
 +    private fun pillSlot(activity: IslandActivity): JSONObject? =
@@ -580,10 +644,15 @@
 +        val text = pillText(slot)
 +        var width = base
 +        shownText = ""
++        pillGlyphShown = false
++        val room = maximum - px(PILL_START_DP) - px(16) - if (secondaryWanted) px(28) else 0
++        if (text.isEmpty() && pillGlyph(activity) != null && room >= px(16)) {
++            pillGlyphShown = true
++            width = px(PILL_START_DP) + px(16) + px(16)
++        }
 +        if (text.isNotEmpty()) {
 +            // Timers reserve their widest digits so the pill does not jitter every second.
 +            val natural = max(textPaint.measureText(text), if (slot?.optString("type") in setOf("timer", "countdown")) textPaint.measureText(text.replace(Regex("[0-9]"), "0")) else 0f)
-+            val room = maximum - px(PILL_START_DP) - px(16) - if (secondaryWanted) px(28) else 0
 +            val fitted = minOf(natural, room.toFloat())
 +            if (fitted >= minOf(natural, dp(24))) {
 +                shownText = text.take(textPaint.breakText(text, true, fitted + 1, null))
@@ -607,21 +676,29 @@
 +                }, Handler(Looper.getMainLooper()))
 +            }
 +        }
-+        contentDescription = "${if (stale) "May be outdated. " else ""}${activity.title}. ${activity.body}. Double tap to expand; long press to choose activity."
++        contentDescription = "${if (stale) "May be outdated. " else ""}${activity.title}. ${activity.body}. " +
++            "Double tap to ${if (activity.tap == "open" && activity.openIntent != null) "open the app" else "expand"}; " +
++            "long press to expand; swipe left for the next activity; swipe right to hide."
 +        if (identity !== activity.payload) {
 +            identity = activity.payload
 +            val current = ++generation
++            stopIconAnimations()
 +            icons.clear()
 +            activity.pics.forEach { (key, icon) ->
 +                icon.loadDrawableAsync(context, { drawable ->
-+                    if (current == generation && drawable != null) { icons[key] = drawable; invalidate() }
++                    if (current == generation && drawable != null) {
++                        icons[key] = drawable
++                        startIconAnimations()
++                        invalidate()
++                    }
 +                }, Handler(Looper.getMainLooper()))
 +            }
 +        }
-+        val disc = discSlot(activity)
-+        val moving = disc?.has("animated") == true
++        startIconAnimations()
++        val motion = listOfNotNull(discSlot(activity), pillGlyph(activity)).firstOrNull { it.has("animated") }
++        val moving = motion != null
 +        if (moving && animation == null && ValueAnimator.areAnimatorsEnabled() && visibility == VISIBLE) animation = ValueAnimator.ofFloat(0f, 1f).apply {
-+            duration = if (disc?.optString("animated") == "listening") 1400 else DotMatrixLoader.CYCLE_MS
++            duration = if (motion?.optString("animated") == "listening") 1400 else DotMatrixLoader.CYCLE_MS
 +            interpolator = LinearInterpolator()
 +            repeatCount = ValueAnimator.INFINITE
 +            addUpdateListener { phase = it.animatedValue as Float; invalidate() }
@@ -634,13 +711,14 @@
 +    override fun onDetachedFromWindow() {
 +        animation?.cancel()
 +        animation = null
++        stopIconAnimations()
 +        generation++
 +        super.onDetachedFromWindow()
 +    }
 +
 +    override fun onVisibilityChanged(changedView: View, visibility: Int) {
 +        super.onVisibilityChanged(changedView, visibility)
-+        if (visibility != VISIBLE) { animation?.cancel(); animation = null }
++        if (visibility != VISIBLE) { animation?.cancel(); animation = null; stopIconAnimations() }
 +        else item?.let { bind(it, second) }
 +    }
 +
@@ -663,7 +741,7 @@
 +        val cy = height / 2f
 +        val camera = dp(CAMERA_DP)
 +        val pillEnd = width - if (secondary) dp(28) else 0f
-+        val hasPill = shownText.isNotEmpty()
++        val hasPill = shownText.isNotEmpty() || pillGlyphShown
 +        paint.color = Color.BLACK
 +        paint.style = Paint.Style.FILL
 +        canvas.drawCircle(dp(16), cy, dp(16), paint)
@@ -677,7 +755,9 @@
 +            canvas.restore()
 +        }
 +        drawDisc(canvas, discSlot(activity), dp(16), cy)
-+        if (hasPill) {
++        if (pillGlyphShown) {
++            drawDisc(canvas, pillGlyph(activity), dp(PILL_START_DP) + dp(16), cy)
++        } else if (hasPill) {
 +            val slot = pillSlot(activity)
 +            val text = if (slot?.optString("type") in setOf("timer", "countdown")) pillText(slot) else shownText
 +            textPaint.color = if (stale || slot?.optString("emphasis") == "muted") IslandStyle.TEXT_MUTED
@@ -713,9 +793,23 @@
 +                paint.style = Paint.Style.FILL
 +            }
 +            icon != null && motion.isEmpty() -> {
++                val ring = slot?.optDouble("ring", Double.NaN) ?: Double.NaN
++                // With a progress ring the icon shrinks so the 2 dp ring fits inside the 32 dp disc.
++                val half = if (ring.isNaN()) dp(8) else dp(6)
 +                icon.colorFilter = if (slot?.optBoolean("tint") == true) PorterDuffColorFilter(IslandStyle.TEXT_PRIMARY, PorterDuff.Mode.SRC_IN) else null
-+                icon.setBounds((cx - dp(8)).toInt(), (cy - dp(8)).toInt(), (cx + dp(8)).toInt(), (cy + dp(8)).toInt())
++                icon.setBounds((cx - half).toInt(), (cy - half).toInt(), (cx + half).toInt(), (cy + half).toInt())
 +                icon.draw(canvas)
++                if (!ring.isNaN()) {
++                    paint.style = Paint.Style.STROKE
++                    paint.strokeWidth = dp(2)
++                    paint.strokeCap = Paint.Cap.ROUND
++                    paint.color = IslandStyle.TRACK
++                    canvas.drawCircle(cx, cy, dp(10), paint)
++                    paint.color = IslandStyle.TEXT_PRIMARY
++                    canvas.drawArc(cx - dp(10), cy - dp(10), cx + dp(10), cy + dp(10), -90f,
++                        (ring.coerceIn(0.0, 1.0) * 360).toFloat(), false, paint)
++                    paint.style = Paint.Style.FILL
++                }
 +            }
 +            motion.isEmpty() -> {
 +                // No glyph: the nine-dot loader is reserved for AI loading, so draw a plain dot.
@@ -742,7 +836,7 @@
 +        // System-managed: the next activity's own group A glyph, else its notification icon.
 +        val slot = glyph(second?.compact?.optJSONObject("a"))?.takeIf { it.optString("type") in setOf("pic", "progress") }
 +        val icon = slot?.optString("pic")?.takeIf { it.isNotEmpty() }?.let(secondaryIcons::get)
-+            ?: secondaryIcons[IslandExtractor.APP_PIC]
++            ?: secondaryIcons[IslandActivity.APP_PIC]
 +        if (slot?.optString("type") == "progress") {
 +            paint.style = Paint.Style.STROKE
 +            paint.strokeWidth = dp(2)
@@ -761,6 +855,8 @@
 +    }
 +
 +    fun state(): JSONObject = JSONObject().put("text", shownText).put("secondary", secondary)
++        .put("pillGlyph", if (pillGlyphShown) item?.let { pillGlyph(it) }?.let { it.optString("animated").ifEmpty { it.optString("type") } } ?: JSONObject.NULL else JSONObject.NULL)
++        .put("animatingIcons", iconLoops.size)
 +        .put("disc", item?.let { discSlot(it)?.let { slot -> slot.optString("animated").ifEmpty { slot.optString("type") } } ?: "dot" } ?: JSONObject.NULL)
 +
 +    private fun dp(value: Float) = value * density
@@ -769,6 +865,8 @@
 +    private fun px(value: Int) = (value * density).toInt()
 +
 +    companion object {
++        /** An app's animated icon loops for at most this long per binding. */
++        const val ICON_LOOP_MS = 60_000L
 +        /** Camera centre and pill start, measured from the capsule's left edge (dp). */
 +        const val CAMERA_DP = 52
 +        const val PILL_START_DP = 72
@@ -863,7 +961,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandCardWindow.kt
-@@ -0,0 +1,242 @@
+@@ -0,0 +1,240 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -892,8 +990,7 @@
 +internal class IslandCardWindow(context: Context, initial: IslandActivity, coverRequested: Boolean,
 +    private val command: (String, String?, String?) -> Unit, private val collapse: (String) -> Unit,
 +    private val covering: (Boolean) -> Unit,
-+    private val changed: () -> Unit,
-+    private val choices: List<IslandActivity>? = null) {
++    private val changed: () -> Unit) {
 +    private val windowContext = context.createWindowContext(context.display,
 +        WindowManager.LayoutParams.TYPE_STATUS_BAR_ADDITIONAL, null)
 +    private val wm = windowContext.getSystemService(WindowManager::class.java)
@@ -903,15 +1000,15 @@
 +        WindowInsets.Type.statusBars() or WindowInsets.Type.displayCutout()).top
 +    private var cover = coverRequested && !metrics.windowInsets.isVisible(WindowInsets.Type.ime())
 +    private var activity = initial
-+    private val nativeAssistant = choices == null && initial.nativeAssistant
++    private val nativeAssistant = initial.nativeAssistant
 +    private val nativeView = if (nativeAssistant) IslandAssistantCard(windowContext, command, collapse) else null
-+    private val nativeProgress = choices == null && initial.nativeProgressCard
++    private val nativeProgress = initial.nativeProgressCard
 +    private val progressView = if (nativeProgress) IslandProgressCard(windowContext, command, collapse) else null
 +    private val nativeContent = nativeAssistant || nativeProgress
-+    /** Every other activity (and the activity chooser) is drawn by the native template card. */
++    /** Every other activity is drawn by the native template card. */
 +    private val templateView = if (nativeContent) null else IslandTemplateCard(windowContext, command, collapse)
 +    private val cardWidth = minOf(dp(420), metrics.bounds.width() - dp(16))
-+    private val fullCard = nativeContent || choices == null && initial.payload.getJSONObject("expanded").optJSONObject("content")?.optString("layout") == "card"
++    private val fullCard = nativeContent || initial.payload.getJSONObject("expanded").optJSONObject("content")?.optString("layout") == "card"
 +    private val root = FrameLayout(windowContext).apply {
 +        background = GradientDrawable().apply { setColor(IslandStyle.CARD); cornerRadius = dp(IslandStyle.CORNER_DP).toFloat() }
 +        clipToOutline = true
@@ -1019,7 +1116,6 @@
 +        when {
 +            nativeView != null -> nativeView.update(next)
 +            progressView != null -> progressView.update(next)
-+            choices != null -> template!!.showChoices(choices)
 +            else -> template!!.update(next)
 +        }
 +        val wantedHeight = desiredHeight(next)
@@ -1033,7 +1129,7 @@
 +                changed()
 +            }
 +        }
-+        if (template == null || choices != null) return
++        if (template == null) return
 +        val expanded = next.payload.getJSONObject("expanded")
 +        val identity = next.contentService?.flattenToString()?.plus(":" + expanded.optJSONObject("content")?.optString("token"))
 +        if (identity != hostIdentity) {
@@ -1101,7 +1197,7 @@
 +        if (progressView != null) return minOf(progressView.desiredHeight(item, cardWidth), cap)
 +        if (nativeView != null) return minOf(nativeView.desiredHeight(item, cardWidth), cap)
 +        // A remote full card asks for its height; everything else follows its native content.
-+        val requested = if (fullCard && choices == null) item.payload.getJSONObject("expanded").optJSONObject("content")?.optInt("heightDp", 300) else null
++        val requested = if (fullCard) item.payload.getJSONObject("expanded").optJSONObject("content")?.optInt("heightDp", 300) else null
 +        return minOf(requested?.let { dp(it.coerceIn(96, 340)) } ?: templateView!!.heightFor(cardWidth), cap)
 +    }
 +    private fun dp(value: Int) = (value * density).toInt()
@@ -1254,7 +1350,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandEngine.kt
-@@ -0,0 +1,306 @@
+@@ -0,0 +1,342 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -1284,7 +1380,7 @@
 +    fun render(activities: List<IslandStore.Entry<IslandActivity>>)
 +    fun expand(key: String): Boolean
 +    fun select(key: String): Boolean
-+    fun choose(): Boolean
++    fun next(): Boolean
 +    fun collapse(reason: String)
 +    fun state(): JSONObject
 +}
@@ -1308,6 +1404,8 @@
 +    private var presentation: IslandPresentation? = null
 +    @Volatile var snapshot = "{}"
 +        private set
++    /** Every key the store has extracted (including hidden and rejected); safe to read off-main. */
++    @Volatile private var trackedKeys: Set<String> = emptySet()
 +
 +    private val tick = Runnable { changed() }
 +    private val publishPresentation = Runnable { publishSnapshot() }
@@ -1436,7 +1534,31 @@
 +
 +    private fun visible() = if (policy.enabled) store.active(SystemClock.elapsedRealtime()) else emptyList()
 +
++    /** Not extracted yet: a brand-new post whose heads-up decision precedes asynchronous extraction. */
++    fun isUnknown(key: String) = key !in trackedKeys
++
++    /**
++     * Synchronous pre-check for a brand-new post: would it become an ordinary island activity?
++     * Calls and alarms are excluded outright; custom extras must come from an allowed publisher
++     * and validate. Invalid data keeps Android's heads-up.
++     */
++    fun headsUpCandidate(sbn: android.service.notification.StatusBarNotification): Boolean = try {
++        val n = sbn.notification
++        val v2 = n.extras.getString(IslandExtractor.EXTRA_V2)
++        val v1 = n.extras.getString(IslandExtractor.EXTRA_V1)
++        when {
++            IslandSystemNotifications.candidate(n) -> false
++            (v2 != null || v1 != null) && policy.canPost(sbn.packageName) -> {
++                val publisher = extractor.publisher(sbn)
++                (if (v2 != null) IslandPayload.parseV2(v2, publisher) else IslandPayload.parseV1(v1, publisher)).isValid ||
++                    n.isPromotedOngoing
++            }
++            else -> n.isPromotedOngoing
++        }
++    } catch (unreadable: Exception) { false }
++
 +    private fun changed() {
++        trackedKeys = store.keys()
 +        val active = visible()
 +        presentation?.render(active)
 +        publishSnapshot()
@@ -1490,7 +1612,7 @@
 +                .put("enabled", policy.enabled).put("presentationAttached", presentation != null)
 +                .put("takuProducer", IslandRuntime.producerStatus)
 +                .put("compiledAndDeviceVerified", false)
-+                .put("operations", JSONArray(listOf("list", "get", "select", "choose", "expand", "collapse", "dismiss", "action", "open", "settings", "setEnabled", "setAllowed")))
++                .put("operations", JSONArray(listOf("list", "get", "select", "next", "tap", "expand", "collapse", "dismiss", "hide", "action", "open", "settings", "setEnabled", "setAllowed")))
 +            "canShowIsland" -> JSONObject().put("ok", true).put("enabled", policy.enabled)
 +                .put("package", arg ?: JSONObject.NULL).put("customAllowed", arg != null && policy.canPost(arg))
 +                .put("liveUpdates", true)
@@ -1510,8 +1632,18 @@
 +            }
 +            "collapse" -> mutate { presentation?.collapse("agent") }
 +            "select" -> mutate { require(presentation?.select(requireNotNull(arg) { "missing_key" }) == true) { "not_found" } }
-+            "choose" -> mutate { require(presentation?.choose() == true) { "presentation_unavailable" } }
-+            "dismiss" -> mutate {
++            "next" -> mutate { require(presentation?.next() == true) { "no_other_activity" } }
++            // The capsule's own tap: open the app when the publisher chose `open`, else expand.
++            "tap" -> mutate {
++                val activity = requireActivity(arg)
++                val intent = activity.openIntent
++                if (activity.tap == "open" && intent != null) send(intent)
++                else {
++                    require(policy.enabled) { "island_disabled" }
++                    require(presentation?.expand(requireNotNull(arg)) == true) { "presentation_unavailable" }
++                }
++            }
++            "dismiss", "hide" -> mutate {
 +                require(arg != null && store.dismiss(arg)) { "not_found" }
 +                prefs.edit().putBoolean("dismissed|$arg", true).apply()
 +            }
@@ -1563,7 +1695,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandExtractor.kt
-@@ -0,0 +1,218 @@
+@@ -0,0 +1,217 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -1622,7 +1754,7 @@
 +    }
 +
 +    /** Identity comes from the package manager, never from the payload. */
-+    private fun publisher(sbn: StatusBarNotification): IslandPayload.Publisher {
++    fun publisher(sbn: StatusBarNotification): IslandPayload.Publisher {
 +        val pm = context.createContextAsUser(UserHandle.of(sbn.userId), 0).packageManager
 +        val platform = runCatching { pm.checkSignatures("android", sbn.packageName) == PackageManager.SIGNATURE_MATCH }
 +            .getOrDefault(false)
@@ -1777,10 +1909,100 @@
 +    companion object {
 +        const val EXTRA_V2 = "taku.island.v2"
 +        const val EXTRA_V1 = "taku.island.v1"
-+        /** Reserved picture keys for the notification's own icons (publisher keys cannot start with `_`). */
-+        const val APP_PIC = "_app"
-+        const val LARGE_PIC = "_large"
++        const val APP_PIC = IslandActivity.APP_PIC
++        const val LARGE_PIC = IslandActivity.LARGE_PIC
 +    }
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandForeground.kt
+@@ -0,0 +1,68 @@
++/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
++package com.android.systemui.taku.island
++
++import android.app.ActivityManager
++import android.content.Context
++import android.content.Intent
++import android.content.pm.PackageManager
++import android.os.Handler
++import com.android.systemui.dagger.SysUISingleton
++import com.android.systemui.dagger.qualifiers.Background
++import com.android.systemui.dagger.qualifiers.Main
++import com.android.systemui.shared.system.ActivityManagerWrapper
++import com.android.systemui.shared.system.TaskStackChangeListener
++import com.android.systemui.shared.system.TaskStackChangeListeners
++import java.util.concurrent.Executor
++import javax.inject.Inject
++
++/**
++ * Tracks the app in front so an activity's capsule is hidden while its own app shows that
++ * information, and appears when the user leaves it. The default home app is exempt: Taku Agent
++ * publishes from Home, where its capsule must stay visible.
++ */
++@SysUISingleton
++class IslandForeground @Inject constructor(
++    private val context: Context,
++    @Main private val handler: Handler,
++    @Background private val worker: Executor,
++) {
++    /** Package of the top task's top activity; main-thread state. */
++    var foregroundPackage: String? = null
++        private set
++    private var homePackage: String? = null
++    private var changed: () -> Unit = {}
++
++    private val listener = object : TaskStackChangeListener {
++        override fun onTaskStackChanged() = refresh()
++        override fun onTaskMovedToFront(taskInfo: ActivityManager.RunningTaskInfo) {
++            handler.post { update(taskInfo.topActivity?.packageName, homePackage) }
++        }
++    }
++
++    fun start(onChanged: () -> Unit) {
++        changed = onChanged
++        TaskStackChangeListeners.getInstance().registerTaskStackListener(listener)
++        refresh()
++    }
++
++    /** Binder lookups stay off the main thread; the result is applied there. */
++    private fun refresh() = worker.execute {
++        val top = runCatching { ActivityManagerWrapper.getInstance().runningTask?.topActivity?.packageName }.getOrNull()
++        val home = runCatching {
++            context.packageManager.resolveActivity(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME),
++                PackageManager.MATCH_DEFAULT_ONLY)?.activityInfo?.packageName
++        }.getOrNull()
++        handler.post { update(top, home) }
++    }
++
++    private fun update(top: String?, home: String?) {
++        if (top == foregroundPackage && home == homePackage) return
++        foregroundPackage = top
++        homePackage = home
++        changed()
++    }
++
++    /** SystemUI's own sources (recording, casting) and the home app are never suppressed. */
++    fun suppresses(activity: IslandActivity): Boolean = activity.packageName != context.packageName &&
++        activity.packageName == foregroundPackage && activity.packageName != homePackage
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandHeadsUpFilter.kt
+@@ -0,0 +1,17 @@
++/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
++package com.android.systemui.taku.island
++
++import com.android.systemui.statusbar.notification.collection.NotificationEntry
++import com.android.systemui.statusbar.notification.interruption.VisualInterruptionFilter
++import com.android.systemui.statusbar.notification.interruption.VisualInterruptionType
++
++/**
++ * An ordinary island activity does not also raise a stock heads-up while the island can present
++ * it; its `alert` expands the island card instead. Locked, shade open, landscape, hidden
++ * activities, calls and alarms keep Android's normal heads-up.
++ */
++internal class IslandHeadsUpFilter(private val presenter: IslandPresenter, private val engine: IslandEngine) :
++    VisualInterruptionFilter(setOf(VisualInterruptionType.PEEK), "taku island presents this activity") {
++    override fun shouldSuppress(entry: NotificationEntry): Boolean =
++        presenter.replacesHeadsUp(entry.key) { engine.headsUpCandidate(entry.sbn) }
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandModule.kt
@@ -2664,7 +2886,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandPresenter.kt
-@@ -0,0 +1,318 @@
+@@ -0,0 +1,347 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -2693,6 +2915,7 @@
 +import kotlinx.coroutines.CoroutineScope
 +import kotlinx.coroutines.flow.collect
 +import kotlinx.coroutines.launch
++import org.json.JSONArray
 +import org.json.JSONObject
 +
 +/** One presentation state machine; input and Agent operations converge here through IslandEngine. */
@@ -2703,6 +2926,7 @@
 +    private val shade: ShadeInteractor,
 +    private val keyguard: KeyguardStateController,
 +    private val headsUp: HeadsUpManager,
++    private val foreground: IslandForeground,
 +    @Main private val handler: Handler,
 +    @Application private val scope: CoroutineScope,
 +) : IslandPresentation {
@@ -2716,7 +2940,8 @@
 +    private var cardRevision = -1L
 +    private var reason = "startup"
 +    private var automatic = false
-+    private var choosing = false
++    /** Keys whose heads-up the island replaces right now; read by the interruption filter. */
++    @Volatile private var presentable: Set<String> = emptySet()
 +    private val alerted = mutableMapOf<String, Long>()
 +    private data class Relocated(val view: View, val parent: ViewGroup, val index: Int, val params: ViewGroup.LayoutParams)
 +    private val relocated = mutableListOf<Relocated>()
@@ -2724,6 +2949,7 @@
 +
 +    fun start() {
 +        engine.attachPresentation(this)
++        foreground.start { layoutCapsule() }
 +        keyguard.addCallback(object : KeyguardStateController.Callback {
 +            override fun onKeyguardShowingChanged() {
 +                if (keyguard.isShowing) collapse("keyguard")
@@ -2752,9 +2978,10 @@
 +        detach()
 +        bar = view
 +        capsule = IslandCapsuleView(view.context,
-+            tap = { if (card != null) invoke("collapse", null) else selected?.let { invoke("expand", it) } },
-+            cycle = ::cycle,
-+            choose = { invoke("choose", null) },
++            tap = { if (card != null) invoke("collapse", null) else selected?.let { invoke("tap", it) } },
++            longPress = { selected?.let { invoke("expand", it) } },
++            next = { invoke("next", null) },
++            hide = { selected?.let { invoke("dismiss", it) } },
 +        )
 +        view.addView(capsule, FrameLayout.LayoutParams(dp(180), dp(28), Gravity.CENTER))
 +        view.addOnLayoutChangeListener(layout)
@@ -2807,7 +3034,7 @@
 +            alerted[first.key] = first.revision
 +            if (card == null && canExpand()) {
 +                selected = first.key
-+                open(first, cover = false, isAlert = true)
++                open(first, cover = first.data.cardPosition != "below", isAlert = true)
 +                handler.postDelayed({ if (automatic && cardKey == first.key &&
 +                    (items.find { it.key == first.key }?.alertUntil ?: 0) <= SystemClock.elapsedRealtime()) collapse("alert_timeout") },
 +                    (first.alertUntil - SystemClock.elapsedRealtime()).coerceAtLeast(0))
@@ -2823,32 +3050,38 @@
 +        return true
 +    }
 +
-+    private fun cycle(delta: Int) {
-+        val candidates = items.filter { it.data.compactVisible }
-+        if (candidates.isEmpty()) return
++    /** Capsule data exists and the publishing app is not the one in front. */
++    private fun showsCapsule(activity: IslandActivity) = activity.compactVisible && !foreground.suppresses(activity)
++
++    /** Swipe left: the next activity that can show a capsule, wrapping around. */
++    override fun next(): Boolean {
++        val candidates = items.filter { showsCapsule(it.data) }
++        if (candidates.size < 2) return false
 +        val index = candidates.indexOfFirst { it.key == selected }.coerceAtLeast(0)
-+        invoke("select", candidates[(index + delta + candidates.size) % candidates.size].key)
++        return select(candidates[(index + 1) % candidates.size].key)
 +    }
 +
-+    override fun choose(): Boolean {
-+        val item = items.firstOrNull { it.key == selected } ?: return false
-+        if (!canExpand()) return false
-+        collapse("choose")
-+        return open(item, cover = false, isAlert = false, choices = items.map { it.data })
-+    }
++    /**
++     * Whether the island takes over this notification's heads-up: it can present right now, the
++     * activity is an ordinary one (calls and alarms keep Android's heads-up), and the user has not
++     * hidden it. Brand-new posts are not extracted yet, so the engine pre-checks those.
++     */
++    fun replacesHeadsUp(key: String, newIslandCandidate: () -> Boolean): Boolean =
++        engine.policy.enabled && (key in presentable || (presentableNow && engine.isUnknown(key) && newIslandCandidate()))
++
++    @Volatile private var presentableNow = false
 +
 +    override fun expand(key: String): Boolean {
 +        val item = items.find { it.key == key } ?: return false
 +        if (!canExpand()) return false
 +        selected = key
-+        if (cardKey == key && card != null && !choosing) { automatic = false; return true }
++        if (cardKey == key && card != null) { automatic = false; return true }
 +        collapse("switch")
 +        val cover = item.data.cardPosition != "below"
 +        return open(item, cover, false)
 +    }
 +
-+    private fun open(item: IslandStore.Entry<IslandActivity>, cover: Boolean, isAlert: Boolean,
-+        choices: List<IslandActivity>? = null): Boolean {
++    private fun open(item: IslandStore.Entry<IslandActivity>, cover: Boolean, isAlert: Boolean): Boolean {
 +        val view = bar ?: return false
 +        var candidate: IslandCardWindow? = null
 +        return try {
@@ -2859,13 +3092,12 @@
 +                    // show/close update the card reference after this callback. Reconcile afterward,
 +                    // avoiding a recursive close during rotation to landscape.
 +                    handler.post { layoutCapsule() }
-+                }, changed = engine::presentationChanged, choices = choices)
++                }, changed = engine::presentationChanged)
 +            candidate.show()
 +            card = candidate
 +            cardKey = item.key
 +            cardRevision = item.revision
 +            automatic = isAlert
-+            choosing = choices != null
 +            reason = if (isAlert) "alert" else "expanded"
 +            true
 +        } catch (failure: RuntimeException) {
@@ -2880,8 +3112,8 @@
 +        card = null
 +        cardKey = null
 +        automatic = false
-+        choosing = false
 +        this.reason = reason
++        handler.post { layoutCapsule() }
 +        engine.presentationChanged()
 +    }
 +
@@ -2890,16 +3122,23 @@
 +        context.resources.configuration.orientation != Configuration.ORIENTATION_LANDSCAPE
 +
 +    private fun layoutCapsule() {
-+        try { layoutCapsuleNow() } finally { engine.presentationChanged() }
++        try { layoutCapsuleNow() } finally {
++            val now = canExpand()
++            presentableNow = now
++            presentable = if (now) items.filter { it.data.tier == IslandStore.TIER_ACTIVITY }.map { it.key }.toSet() else emptySet()
++            engine.presentationChanged()
++        }
 +    }
 +
 +    private fun layoutCapsuleNow() {
 +        val view = bar ?: run { IslandPresentationOwnership.show(null); return }
 +        val pill = capsule ?: run { IslandPresentationOwnership.show(null); return }
 +        if (context.resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE && card != null) collapse("landscape")
-+        selected = IslandStore.compactSelection(items, selected, card != null) { it.compactVisible }
++        selected = IslandStore.compactSelection(items, selected, card != null, ::showsCapsule)
 +        val activity = items.find { it.key == selected }?.data
-+        if (activity == null || !activity.compactVisible || view.alpha == 0f || keyguard.isShowing || shade.isAnyExpanded.value || headsUp.isHeadsUpEntry(activity.key)) {
++        // The capsule and the card are mutually exclusive: an open card hides every capsule.
++        if (activity == null || card != null || !showsCapsule(activity) || view.alpha == 0f || keyguard.isShowing ||
++                shade.isAnyExpanded.value || headsUp.isHeadsUpEntry(activity.key)) {
 +            IslandPresentationOwnership.show(if (card != null) activity else null)
 +            pill.visibility = View.GONE
 +            view.setTakuIslandProbeWidth(0)
@@ -2924,7 +3163,7 @@
 +        val cameraLeftWidth = dp(IslandCapsuleView.CAMERA_DP)
 +        val maximumWidth = IslandCapsuleGeometry.maximumWidth(contentLeft, contentRight,
 +            cameraX, cameraLeftWidth, clock, endWidth, icons, dp(12))
-+        val wantsSecondary = items.count { it.data.compactVisible } > 1
++        val wantsSecondary = items.count { showsCapsule(it.data) } > 1
 +        val width = pill.layoutWidth(activity, maximumWidth, wantsSecondary)
 +        if (width == 0) {
 +            IslandPresentationOwnership.show(null)
@@ -2935,7 +3174,7 @@
 +        }
 +        relocateCentered()
 +        pill.stale = items.find { it.key == selected }?.stale(SystemClock.elapsedRealtime()) == true
-+        pill.bind(activity, if (pill.secondary) items.firstOrNull { it.key != selected && it.data.compactVisible }?.data else null)
++        pill.bind(activity, secondary(activity))
 +        pill.translationX = 0f
 +        pill.visibility = View.VISIBLE
 +        IslandPresentationOwnership.show(if (view.isShown) activity else null)
@@ -2971,8 +3210,20 @@
 +        relocated.clear()
 +    }
 +
++    /** The activity after the selected one, drawn as the system-managed secondary disc. */
++    private fun secondary(activity: IslandActivity): IslandActivity? {
++        if (capsule?.secondary != true) return null
++        val candidates = items.filter { showsCapsule(it.data) }
++        val index = candidates.indexOfFirst { it.key == activity.key }
++        return candidates.getOrNull((index + 1) % candidates.size.coerceAtLeast(1))?.data?.takeIf { it.key != activity.key }
++    }
++
 +    override fun state(): JSONObject = JSONObject().put("selected", selected ?: JSONObject.NULL)
 +        .put("compactVisible", capsule?.visibility == View.VISIBLE && bar?.alpha != 0f).put("reason", reason)
++        .put("foregroundPackage", foreground.foregroundPackage ?: JSONObject.NULL)
++        .put("suppressedByForeground", JSONArray(items.filter { it.data.compactVisible && foreground.suppresses(it.data) }.map { it.key }))
++        .put("secondaryKey", items.find { it.key == selected }?.data?.let { secondary(it)?.key } ?: JSONObject.NULL)
++        .put("tap", items.find { it.key == selected }?.data?.tap ?: JSONObject.NULL)
 +        .put("compact", capsule?.takeIf { it.visibility == View.VISIBLE }?.state() ?: JSONObject.NULL)
 +        .put("expanded", card != null).put("card", card?.state() ?: JSONObject.NULL)
 +
@@ -3468,7 +3719,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandStartable.kt
-@@ -0,0 +1,62 @@
+@@ -0,0 +1,71 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -3476,6 +3727,7 @@
 +import com.android.systemui.dagger.qualifiers.Background
 +import com.android.systemui.statusbar.commandline.Command
 +import com.android.systemui.statusbar.commandline.CommandRegistry
++import com.android.systemui.statusbar.notification.interruption.VisualInterruptionDecisionProvider
 +import java.io.PrintWriter
 +import java.util.concurrent.Executor
 +import javax.inject.Inject
@@ -3488,6 +3740,8 @@
 +    private val engine: IslandEngine,
 +    private val producer: IslandProducerBinding,
 +    private val systemSources: IslandSystemSources,
++    private val interruptions: VisualInterruptionDecisionProvider,
++    private val context: android.content.Context,
 +    @Background private val worker: Executor,
 +) : CoreStartable {
 +    override fun start() {
@@ -3495,6 +3749,7 @@
 +        presenter.start()
 +        producer.start()
 +        systemSources.start()
++        interruptions.addFilter(IslandHeadsUpFilter(presenter, engine))
 +        registry.registerCommand("island") {
 +            object : Command {
 +                override fun execute(pw: PrintWriter, args: List<String>) {
@@ -3502,7 +3757,7 @@
 +                    else pw.println(IslandRuntime.call(args[0], args.getOrNull(1), args.getOrNull(2)))
 +                }
 +                override fun help(pw: PrintWriter) {
-+                    pw.println("island capabilities | canShowIsland PACKAGE | state | list | get KEY | select KEY | choose | expand KEY | collapse | dismiss KEY | open KEY | action KEY JSON | settings | setEnabled 0|1 | setAllowed CSV")
++                    pw.println("island capabilities | canShowIsland PACKAGE | state | list | get KEY | select KEY | next | tap KEY | expand KEY | collapse | dismiss KEY | hide KEY | open KEY | action KEY JSON | settings | setEnabled 0|1 | setAllowed CSV")
 +                }
 +            }
 +        }
@@ -3513,9 +3768,14 @@
 +                        help(pw)
 +                        return
 +                    }
-+                    // This read-only validation path uses the same parser intended for extraction.
-+                    // It cannot grant a producer system-source identity or execute an action.
-+                    val result = IslandPayload.parse(args[1], args[0], false)
++                    // This read-only validation path uses the same parser and the same package-manager
++                    // identity check as extraction. It cannot execute an action or grant permission.
++                    val platform = runCatching {
++                        context.packageManager.checkSignatures("android", args[0]) == android.content.pm.PackageManager.SIGNATURE_MATCH
++                    }.getOrDefault(false)
++                    val publisher = IslandPayload.Publisher(args[0], platform)
++                    val version = runCatching { JSONObject(args[1]).optInt("version") }.getOrDefault(0)
++                    val result = if (version == 1) IslandPayload.parseV1(args[1], publisher) else IslandPayload.parseV2(args[1], publisher)
 +                    pw.println(JSONObject().put("valid", result.isValid)
 +                        .put("error", result.error ?: JSONObject.NULL))
 +                }
@@ -3580,7 +3840,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandStore.java
-@@ -0,0 +1,153 @@
+@@ -0,0 +1,156 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island;
 +
@@ -3696,6 +3956,9 @@
 +        entries.clear();
 +        revisions.clear();
 +    }
++
++    /** Every key with extracted state, including dismissed and rejected entries. */
++    public java.util.Set<String> keys() { return new java.util.HashSet<>(entries.keySet()); }
 +
 +    public Entry<T> get(String key) {
 +        Entry<T> entry = entries.get(key);
@@ -3945,7 +4208,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandTemplateCard.kt
-@@ -0,0 +1,204 @@
+@@ -0,0 +1,184 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -3995,7 +4258,6 @@
 +    }
 +    private var iconGeneration = 0
 +    private var iconIdentity: Any? = null
-+    private var choiceKeys: List<String> = emptyList()
 +    override val reading: ScrollView get() = scroll
 +    override val primaryLabel = "Open"
 +    override fun ownTaps(): List<View> = listOf(chipScroll, expand)
@@ -4029,7 +4291,6 @@
 +
 +    fun update(next: IslandActivity) {
 +        item = next
-+        choiceKeys = emptyList()
 +        val expanded = next.payload.getJSONObject("expanded")
 +        title.text = next.title
 +        body.text = next.body
@@ -4067,24 +4328,6 @@
 +        scroll.post { updateBottomEdge() }
 +    }
 +
-+    /** Several activities compete for one long-press: list them as chips; a chip expands that one. */
-+    fun showChoices(choices: List<IslandActivity>) {
-+        item = null
-+        title.text = "Activities"
-+        body.visibility = GONE
-+        progress.visibility = GONE
-+        while (content.childCount > 2) content.removeViewAt(2)
-+        showIcon(null, false)
-+        expand.visibility = INVISIBLE
-+        choiceKeys = choices.map { it.key }
-+        chips.removeAllViews()
-+        choices.forEachIndexed { index, choice ->
-+            chips.addView(IslandStyle.chip(context, choice.title, false) { command("expand", choice.key, null) },
-+                LayoutParams(-2, -2).apply { if (index > 0) leftMargin = dp(8) })
-+        }
-+        chipScroll.visibility = if (choices.isEmpty()) GONE else VISIBLE
-+    }
-+
 +    /** Hides the native text while a ready rich surface covers [bodyHost]. */
 +    fun showTemplateText(visible: Boolean) { scroll.visibility = if (visible) VISIBLE else INVISIBLE }
 +
@@ -4095,8 +4338,8 @@
 +    }
 +
 +    fun state(): JSONObject = JSONObject().put("renderer", "systemui-native").put("title", title.text.toString())
-+        .put("body", body.text.toString()).put("actionCount", if (choiceKeys.isEmpty()) chips.childCount else 0)
-+        .put("choices", choiceKeys.size).put("progress", if (progress.visibility == VISIBLE) progress.value ?: -1f else JSONObject.NULL)
++        .put("body", body.text.toString()).put("actionCount", chips.childCount)
++        .put("progress", if (progress.visibility == VISIBLE) progress.value ?: -1f else JSONObject.NULL)
 +
 +    private fun showIcon(icon: Icon?, tint: Boolean) {
 +        if (icon === iconIdentity) return

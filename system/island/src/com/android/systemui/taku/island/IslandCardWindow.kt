@@ -26,8 +26,7 @@ import org.json.JSONObject
 internal class IslandCardWindow(context: Context, initial: IslandActivity, coverRequested: Boolean,
     private val command: (String, String?, String?) -> Unit, private val collapse: (String) -> Unit,
     private val covering: (Boolean) -> Unit,
-    private val changed: () -> Unit,
-    private val choices: List<IslandActivity>? = null) {
+    private val changed: () -> Unit) {
     private val windowContext = context.createWindowContext(context.display,
         WindowManager.LayoutParams.TYPE_STATUS_BAR_ADDITIONAL, null)
     private val wm = windowContext.getSystemService(WindowManager::class.java)
@@ -37,15 +36,15 @@ internal class IslandCardWindow(context: Context, initial: IslandActivity, cover
         WindowInsets.Type.statusBars() or WindowInsets.Type.displayCutout()).top
     private var cover = coverRequested && !metrics.windowInsets.isVisible(WindowInsets.Type.ime())
     private var activity = initial
-    private val nativeAssistant = choices == null && initial.nativeAssistant
+    private val nativeAssistant = initial.nativeAssistant
     private val nativeView = if (nativeAssistant) IslandAssistantCard(windowContext, command, collapse) else null
-    private val nativeProgress = choices == null && initial.nativeProgressCard
+    private val nativeProgress = initial.nativeProgressCard
     private val progressView = if (nativeProgress) IslandProgressCard(windowContext, command, collapse) else null
     private val nativeContent = nativeAssistant || nativeProgress
-    /** Every other activity (and the activity chooser) is drawn by the native template card. */
+    /** Every other activity is drawn by the native template card. */
     private val templateView = if (nativeContent) null else IslandTemplateCard(windowContext, command, collapse)
     private val cardWidth = minOf(dp(420), metrics.bounds.width() - dp(16))
-    private val fullCard = nativeContent || choices == null && initial.payload.getJSONObject("expanded").optJSONObject("content")?.optString("layout") == "card"
+    private val fullCard = nativeContent || initial.payload.getJSONObject("expanded").optJSONObject("content")?.optString("layout") == "card"
     private val root = FrameLayout(windowContext).apply {
         background = GradientDrawable().apply { setColor(IslandStyle.CARD); cornerRadius = dp(IslandStyle.CORNER_DP).toFloat() }
         clipToOutline = true
@@ -153,7 +152,6 @@ internal class IslandCardWindow(context: Context, initial: IslandActivity, cover
         when {
             nativeView != null -> nativeView.update(next)
             progressView != null -> progressView.update(next)
-            choices != null -> template!!.showChoices(choices)
             else -> template!!.update(next)
         }
         val wantedHeight = desiredHeight(next)
@@ -167,7 +165,7 @@ internal class IslandCardWindow(context: Context, initial: IslandActivity, cover
                 changed()
             }
         }
-        if (template == null || choices != null) return
+        if (template == null) return
         val expanded = next.payload.getJSONObject("expanded")
         val identity = next.contentService?.flattenToString()?.plus(":" + expanded.optJSONObject("content")?.optString("token"))
         if (identity != hostIdentity) {
@@ -235,7 +233,7 @@ internal class IslandCardWindow(context: Context, initial: IslandActivity, cover
         if (progressView != null) return minOf(progressView.desiredHeight(item, cardWidth), cap)
         if (nativeView != null) return minOf(nativeView.desiredHeight(item, cardWidth), cap)
         // A remote full card asks for its height; everything else follows its native content.
-        val requested = if (fullCard && choices == null) item.payload.getJSONObject("expanded").optJSONObject("content")?.optInt("heightDp", 300) else null
+        val requested = if (fullCard) item.payload.getJSONObject("expanded").optJSONObject("content")?.optInt("heightDp", 300) else null
         return minOf(requested?.let { dp(it.coerceIn(96, 340)) } ?: templateView!!.heightFor(cardWidth), cap)
     }
     private fun dp(value: Int) = (value * density).toInt()

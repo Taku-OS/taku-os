@@ -26,6 +26,7 @@ import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
+import org.json.JSONArray
 import org.json.JSONObject
 
 /** One presentation state machine; input and Agent operations converge here through IslandEngine. */
@@ -36,6 +37,7 @@ class IslandPresenter @Inject constructor(
     private val shade: ShadeInteractor,
     private val keyguard: KeyguardStateController,
     private val headsUp: HeadsUpManager,
+    private val foreground: IslandForeground,
     @Main private val handler: Handler,
     @Application private val scope: CoroutineScope,
 ) : IslandPresentation {
@@ -49,7 +51,8 @@ class IslandPresenter @Inject constructor(
     private var cardRevision = -1L
     private var reason = "startup"
     private var automatic = false
-    private var choosing = false
+    /** Keys whose heads-up the island replaces right now; read by the interruption filter. */
+    @Volatile private var presentable: Set<String> = emptySet()
     private val alerted = mutableMapOf<String, Long>()
     private data class Relocated(val view: View, val parent: ViewGroup, val index: Int, val params: ViewGroup.LayoutParams)
     private val relocated = mutableListOf<Relocated>()
@@ -57,6 +60,7 @@ class IslandPresenter @Inject constructor(
 
     fun start() {
         engine.attachPresentation(this)
+        foreground.start { layoutCapsule() }
         keyguard.addCallback(object : KeyguardStateController.Callback {
             override fun onKeyguardShowingChanged() {
                 if (keyguard.isShowing) collapse("keyguard")
@@ -85,9 +89,10 @@ class IslandPresenter @Inject constructor(
         detach()
         bar = view
         capsule = IslandCapsuleView(view.context,
-            tap = { if (card != null) invoke("collapse", null) else selected?.let { invoke("expand", it) } },
-            cycle = ::cycle,
-            choose = { invoke("choose", null) },
+            tap = { if (card != null) invoke("collapse", null) else selected?.let { invoke("tap", it) } },
+            longPress = { selected?.let { invoke("expand", it) } },
+            next = { invoke("next", null) },
+            hide = { selected?.let { invoke("dismiss", it) } },
         )
         view.addView(capsule, FrameLayout.LayoutParams(dp(180), dp(28), Gravity.CENTER))
         view.addOnLayoutChangeListener(layout)
@@ -140,7 +145,7 @@ class IslandPresenter @Inject constructor(
             alerted[first.key] = first.revision
             if (card == null && canExpand()) {
                 selected = first.key
-                open(first, cover = false, isAlert = true)
+                open(first, cover = first.data.cardPosition != "below", isAlert = true)
                 handler.postDelayed({ if (automatic && cardKey == first.key &&
                     (items.find { it.key == first.key }?.alertUntil ?: 0) <= SystemClock.elapsedRealtime()) collapse("alert_timeout") },
                     (first.alertUntil - SystemClock.elapsedRealtime()).coerceAtLeast(0))
@@ -156,32 +161,38 @@ class IslandPresenter @Inject constructor(
         return true
     }
 
-    private fun cycle(delta: Int) {
-        val candidates = items.filter { it.data.compactVisible }
-        if (candidates.isEmpty()) return
+    /** Capsule data exists and the publishing app is not the one in front. */
+    private fun showsCapsule(activity: IslandActivity) = activity.compactVisible && !foreground.suppresses(activity)
+
+    /** Swipe left: the next activity that can show a capsule, wrapping around. */
+    override fun next(): Boolean {
+        val candidates = items.filter { showsCapsule(it.data) }
+        if (candidates.size < 2) return false
         val index = candidates.indexOfFirst { it.key == selected }.coerceAtLeast(0)
-        invoke("select", candidates[(index + delta + candidates.size) % candidates.size].key)
+        return select(candidates[(index + 1) % candidates.size].key)
     }
 
-    override fun choose(): Boolean {
-        val item = items.firstOrNull { it.key == selected } ?: return false
-        if (!canExpand()) return false
-        collapse("choose")
-        return open(item, cover = false, isAlert = false, choices = items.map { it.data })
-    }
+    /**
+     * Whether the island takes over this notification's heads-up: it can present right now, the
+     * activity is an ordinary one (calls and alarms keep Android's heads-up), and the user has not
+     * hidden it. Brand-new posts are not extracted yet, so the engine pre-checks those.
+     */
+    fun replacesHeadsUp(key: String, newIslandCandidate: () -> Boolean): Boolean =
+        engine.policy.enabled && (key in presentable || (presentableNow && engine.isUnknown(key) && newIslandCandidate()))
+
+    @Volatile private var presentableNow = false
 
     override fun expand(key: String): Boolean {
         val item = items.find { it.key == key } ?: return false
         if (!canExpand()) return false
         selected = key
-        if (cardKey == key && card != null && !choosing) { automatic = false; return true }
+        if (cardKey == key && card != null) { automatic = false; return true }
         collapse("switch")
         val cover = item.data.cardPosition != "below"
         return open(item, cover, false)
     }
 
-    private fun open(item: IslandStore.Entry<IslandActivity>, cover: Boolean, isAlert: Boolean,
-        choices: List<IslandActivity>? = null): Boolean {
+    private fun open(item: IslandStore.Entry<IslandActivity>, cover: Boolean, isAlert: Boolean): Boolean {
         val view = bar ?: return false
         var candidate: IslandCardWindow? = null
         return try {
@@ -192,13 +203,12 @@ class IslandPresenter @Inject constructor(
                     // show/close update the card reference after this callback. Reconcile afterward,
                     // avoiding a recursive close during rotation to landscape.
                     handler.post { layoutCapsule() }
-                }, changed = engine::presentationChanged, choices = choices)
+                }, changed = engine::presentationChanged)
             candidate.show()
             card = candidate
             cardKey = item.key
             cardRevision = item.revision
             automatic = isAlert
-            choosing = choices != null
             reason = if (isAlert) "alert" else "expanded"
             true
         } catch (failure: RuntimeException) {
@@ -213,8 +223,8 @@ class IslandPresenter @Inject constructor(
         card = null
         cardKey = null
         automatic = false
-        choosing = false
         this.reason = reason
+        handler.post { layoutCapsule() }
         engine.presentationChanged()
     }
 
@@ -223,16 +233,23 @@ class IslandPresenter @Inject constructor(
         context.resources.configuration.orientation != Configuration.ORIENTATION_LANDSCAPE
 
     private fun layoutCapsule() {
-        try { layoutCapsuleNow() } finally { engine.presentationChanged() }
+        try { layoutCapsuleNow() } finally {
+            val now = canExpand()
+            presentableNow = now
+            presentable = if (now) items.filter { it.data.tier == IslandStore.TIER_ACTIVITY }.map { it.key }.toSet() else emptySet()
+            engine.presentationChanged()
+        }
     }
 
     private fun layoutCapsuleNow() {
         val view = bar ?: run { IslandPresentationOwnership.show(null); return }
         val pill = capsule ?: run { IslandPresentationOwnership.show(null); return }
         if (context.resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE && card != null) collapse("landscape")
-        selected = IslandStore.compactSelection(items, selected, card != null) { it.compactVisible }
+        selected = IslandStore.compactSelection(items, selected, card != null, ::showsCapsule)
         val activity = items.find { it.key == selected }?.data
-        if (activity == null || !activity.compactVisible || view.alpha == 0f || keyguard.isShowing || shade.isAnyExpanded.value || headsUp.isHeadsUpEntry(activity.key)) {
+        // The capsule and the card are mutually exclusive: an open card hides every capsule.
+        if (activity == null || card != null || !showsCapsule(activity) || view.alpha == 0f || keyguard.isShowing ||
+                shade.isAnyExpanded.value || headsUp.isHeadsUpEntry(activity.key)) {
             IslandPresentationOwnership.show(if (card != null) activity else null)
             pill.visibility = View.GONE
             view.setTakuIslandProbeWidth(0)
@@ -257,7 +274,7 @@ class IslandPresenter @Inject constructor(
         val cameraLeftWidth = dp(IslandCapsuleView.CAMERA_DP)
         val maximumWidth = IslandCapsuleGeometry.maximumWidth(contentLeft, contentRight,
             cameraX, cameraLeftWidth, clock, endWidth, icons, dp(12))
-        val wantsSecondary = items.count { it.data.compactVisible } > 1
+        val wantsSecondary = items.count { showsCapsule(it.data) } > 1
         val width = pill.layoutWidth(activity, maximumWidth, wantsSecondary)
         if (width == 0) {
             IslandPresentationOwnership.show(null)
@@ -268,7 +285,7 @@ class IslandPresenter @Inject constructor(
         }
         relocateCentered()
         pill.stale = items.find { it.key == selected }?.stale(SystemClock.elapsedRealtime()) == true
-        pill.bind(activity, if (pill.secondary) items.firstOrNull { it.key != selected && it.data.compactVisible }?.data else null)
+        pill.bind(activity, secondary(activity))
         pill.translationX = 0f
         pill.visibility = View.VISIBLE
         IslandPresentationOwnership.show(if (view.isShown) activity else null)
@@ -304,8 +321,20 @@ class IslandPresenter @Inject constructor(
         relocated.clear()
     }
 
+    /** The activity after the selected one, drawn as the system-managed secondary disc. */
+    private fun secondary(activity: IslandActivity): IslandActivity? {
+        if (capsule?.secondary != true) return null
+        val candidates = items.filter { showsCapsule(it.data) }
+        val index = candidates.indexOfFirst { it.key == activity.key }
+        return candidates.getOrNull((index + 1) % candidates.size.coerceAtLeast(1))?.data?.takeIf { it.key != activity.key }
+    }
+
     override fun state(): JSONObject = JSONObject().put("selected", selected ?: JSONObject.NULL)
         .put("compactVisible", capsule?.visibility == View.VISIBLE && bar?.alpha != 0f).put("reason", reason)
+        .put("foregroundPackage", foreground.foregroundPackage ?: JSONObject.NULL)
+        .put("suppressedByForeground", JSONArray(items.filter { it.data.compactVisible && foreground.suppresses(it.data) }.map { it.key }))
+        .put("secondaryKey", items.find { it.key == selected }?.data?.let { secondary(it)?.key } ?: JSONObject.NULL)
+        .put("tap", items.find { it.key == selected }?.data?.tap ?: JSONObject.NULL)
         .put("compact", capsule?.takeIf { it.visibility == View.VISIBLE }?.state() ?: JSONObject.NULL)
         .put("expanded", card != null).put("card", card?.state() ?: JSONObject.NULL)
 

@@ -28,19 +28,20 @@ class CapsuleRenderTests : Instrumentation() {
         }
     }
     private fun assertThat(ok: Boolean, message: String) { check(ok) { message }; checks++ }
-    private fun activity(label: String, category: String = "progress", compact: String = "auto"): IslandActivity {
-        val payload = JSONObject().put("category", category).put("compact", compact)
-            .put("bigIsland", JSONObject().put("leading", JSONObject().put("type", "pic").put("pic", "taku").put("animated", "working"))
-                .put("trailing", JSONObject().put("type", "text").put("text", label)))
-            .put("expanded", JSONObject().put("title", "Signing in to ChatGPT"))
+    /** Canonical v2 activity: Taku's AI loader in group A, a short status in group B. */
+    private fun activity(label: String, capsule: Boolean = true): IslandActivity {
+        val payload = JSONObject().put("version", 2)
+            .put("expanded", JSONObject().put("template", "basic").put("title", "Signing in to ChatGPT"))
+        if (capsule) payload.put("compact", JSONObject()
+            .put("a", JSONObject().put("type", "animation").put("name", "ai-working"))
+            .put("b", JSONObject().put("type", "text").put("text", label)))
         return IslandActivity("render-test", targetContext.packageName, 0, 0, payload, emptyMap(), emptyMap(), null, null, null)
     }
     private fun cases() {
-        assertThat(activity("Signing...").statusLabel == "Signing...", "login selects compact status geometry")
-        assertThat(activity("Connected").statusLabel == "Connected", "connected uses same geometry")
-        assertThat(activity("", "assistant", "building").statusLabel == "Building...", "existing Building preserved")
-        assertThat(activity("Track", "media").statusLabel == null, "media keeps its existing layout")
-        val view = IslandCapsuleView(targetContext, {}, {}, {})
+        assertThat(activity("Signing...").compactVisible, "publisher-supplied capsule is shown")
+        assertThat(!activity("", capsule = false).compactVisible, "no compact data means no capsule")
+        assertThat(activity("Building...").compact?.getJSONObject("b")?.getString("text") == "Building...", "Building is publisher text")
+        val view = IslandCapsuleView(targetContext, {}, {}, {}, {})
         val density = targetContext.resources.displayMetrics.density
         fun px(value: Float) = (value * density).toInt()
         val phase = IslandCapsuleView::class.java.getDeclaredField("phase").apply { isAccessible = true }
@@ -88,7 +89,7 @@ class CapsuleRenderTests : Instrumentation() {
     }
     private fun progressCases() {
         val body = "Finish signing in on the ChatGPT page, then Taku continues setup."
-        val expanded = JSONObject().put("template", "text").put("title", "Signing in to ChatGPT").put("body", body)
+        val expanded = JSONObject().put("template", "basic").put("title", "Signing in to ChatGPT").put("body", body)
             .put("actions", org.json.JSONArray().put("open")).put("primaryAction", "open")
         val item = activity("Signing...").copy(packageName = "org.agentos.agent",
             payload = JSONObject(activity("Signing...").payload.toString()).put("expanded", expanded),

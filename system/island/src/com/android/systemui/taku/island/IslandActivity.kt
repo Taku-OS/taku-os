@@ -54,5 +54,8 @@ data class IslandActivity(
         const val SOURCE_V1 = "custom-v1"
         const val SOURCE_LIVE_UPDATE = "live-update"
         const val SOURCE_SYSTEM = "system"
+        /** Reserved picture keys for the notification's own icons (publisher keys cannot start with `_`). */
+        const val APP_PIC = "_app"
+        const val LARGE_PIC = "_large"
     }
 }

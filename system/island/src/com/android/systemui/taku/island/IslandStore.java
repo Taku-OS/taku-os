@@ -114,6 +114,9 @@ public final class IslandStore<T> {
         revisions.clear();
     }
 
+    /** Every key with extracted state, including dismissed and rejected entries. */
+    public java.util.Set<String> keys() { return new java.util.HashSet<>(entries.keySet()); }
+
     public Entry<T> get(String key) {
         Entry<T> entry = entries.get(key);
         return entry == null || entry.rejected ? null : entry;

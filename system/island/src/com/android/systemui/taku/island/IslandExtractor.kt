@@ -56,7 +56,7 @@ class IslandExtractor @Inject constructor(private val context: Context, private 
     }
 
     /** Identity comes from the package manager, never from the payload. */
-    private fun publisher(sbn: StatusBarNotification): IslandPayload.Publisher {
+    fun publisher(sbn: StatusBarNotification): IslandPayload.Publisher {
         val pm = context.createContextAsUser(UserHandle.of(sbn.userId), 0).packageManager
         val platform = runCatching { pm.checkSignatures("android", sbn.packageName) == PackageManager.SIGNATURE_MATCH }
             .getOrDefault(false)
@@ -211,8 +211,7 @@ class IslandExtractor @Inject constructor(private val context: Context, private 
     companion object {
         const val EXTRA_V2 = "taku.island.v2"
         const val EXTRA_V1 = "taku.island.v1"
-        /** Reserved picture keys for the notification's own icons (publisher keys cannot start with `_`). */
-        const val APP_PIC = "_app"
-        const val LARGE_PIC = "_large"
+        const val APP_PIC = IslandActivity.APP_PIC
+        const val LARGE_PIC = IslandActivity.LARGE_PIC
     }
 }

@@ -18,10 +18,12 @@ content call --uri content://com.android.systemui.island --method get --arg 'KEY
 cmd statusbar island state
 cmd statusbar island get 'KEY'
 cmd statusbar island select 'KEY'
-cmd statusbar island choose
+cmd statusbar island next
+cmd statusbar island tap 'KEY'
 cmd statusbar island expand 'KEY'
 cmd statusbar island collapse
 cmd statusbar island dismiss 'KEY'
+cmd statusbar island hide 'KEY'
 cmd statusbar island open 'KEY'
 cmd statusbar island action 'KEY' '{"id":"stop"}'
 cmd statusbar island action 'KEY' '{"id":"action_0","reply":"Continue"}'
@@ -38,7 +40,7 @@ platform certificate) are governed by the App Permission Center
   package. Omitting the package answers for the caller's own single package. Asking about
   another package returns `permission_denied`.
 - A `taku.control` grant allows reading and operating activities (`state`, `list`, `get`,
-  `settings`, `select`, `choose`, `expand`, `collapse`, `dismiss`, `open`, `action`).
+  `settings`, `select`, `next`, `tap`, `expand`, `collapse`, `dismiss`, `hide`, `open`, `action`).
 - `setEnabled`, `setAllowed` and `setProtocol` are never available to third-party apps, even
   with a grant. Use the Settings GUI, ADB or a trusted Agent.
 
@@ -77,8 +79,32 @@ cap. Updates cannot extend that deadline. The notification itself stays in the s
 `dismiss` hides only this island for that source lifetime. It does not stop a task, end a call,
 cancel a notification, or permit the producer to redisplay it by updating the same key.
 Use the explicit source action to stop work. A removed/reposted notification begins a new lifetime.
-`select` chooses the primary item; it holds until a newer activity is triggered or it ends.
-`choose` opens the same activity chooser as a long press. An activity without capsule data
+## Gestures and their commands
+
+The island has two mutually exclusive states: the compact capsule and the expanded card. While
+any card is open no capsule is drawn. Each capsule gesture has a command reaching the same code:
+
+| Capsule gesture | Command | Effect |
+|---|---|---|
+| Tap | `tap KEY` | `payload.tap` `open` sends the content intent (falls back to expanding when there is none); `expand` (default) opens the card |
+| Long press | `expand KEY` | Opens the card regardless of `tap` |
+| Swipe left | `next` | Selects the next activity that can show a capsule; `no_other_activity` when there is none |
+| Swipe right | `dismiss KEY` / `hide KEY` | Hides that activity for its notification lifetime |
+
+`select KEY` chooses the primary item; it holds until a newer activity is triggered or it ends.
+The activity chooser card and `choose` no longer exist. A capsule is not drawn while its
+publishing app is the top task (the app already shows it); it appears when the user leaves the
+app. The default home app and SystemUI's own recording/cast sources are exempt.
+`state.presentation.suppressedByForeground` lists those keys, `foregroundPackage` the top app,
+`secondaryKey` the activity drawn as the small secondary disc, and `tap` the selected
+activity's tap behaviour.
+
+An ordinary island activity does not also raise a stock heads-up while the island can present
+it (unlocked, shade closed, portrait, island enabled, activity not hidden); its `alert` expands
+the card instead, at its `cardPosition`. Calls, alarms, hidden activities and invalid extras keep
+Android's heads-up.
+
+An activity without capsule data
 (no `compact`, such as Taku Agent outside app building) never takes the capsule; the next
 activity with one is shown. It remains available to `expand KEY`; expanding it keeps that card
 selected until collapse. Read `state.presentation` to inspect the actual selected key and
@@ -87,7 +113,9 @@ compact visibility.
 Every island SystemUI shows is drawn natively in the Taku design; there is no stock-widget
 fallback. `state.presentation.compact` (null when hidden) reports what the capsule shows:
 `text` (the pill, empty when only the disc fits), `disc` (`dot` when there is no glyph, `pic`, `progress`,
-`working` or `listening`) and `secondary` (a second activity's disc). `state.presentation.card`
+`working` or `listening`), `pillGlyph` (group B drawn as `pic`, `working` or `listening`, else
+null), `animatingIcons` (running app animated icons; each loops for at most 60 s and never
+with animations disabled) and `secondary` (a second activity's disc). `state.presentation.card`
 reports `renderer` (`systemui-native`, or `remote-surface` once a rich body is ready) and, for
 non-assistant cards, `template:{title,body,actionCount,choices,progress}` read from the drawn
 views. A card whose content cannot be drawn closes with `reason` `render_failed:...` (or
@@ -124,7 +152,7 @@ an observer; use the provider for immediate validation. Ordinary Agent provider 
 POST_ISLAND permission. Publishing a custom notification requires the signature POST_ISLAND
 permission or this allow-list, in addition to normal Android notification permissions.
 
-Errors: `permission_denied` (caller not allowed; see Caller access), `not_found` (removed/dismissed/expired activity), `island_disabled`, `presentation_unavailable`
+Errors: `permission_denied` (caller not allowed; see Caller access), `no_other_activity` (`next` with fewer than two capsules), `not_found` (removed/dismissed/expired activity), `island_disabled`, `presentation_unavailable`
 (no attached bar, locked/shade/heads-up/landscape, or window failure), `action_unavailable`,
 `reply_unavailable`, `reply_too_long`, `missing_action`, `missing_key`, `invalid_enabled`,
 `invalid_allowed_packages`, `read_only_protocol`, `settings_write_failed`, `source_ended`,

@@ -27,7 +27,7 @@ interface IslandPresentation {
     fun render(activities: List<IslandStore.Entry<IslandActivity>>)
     fun expand(key: String): Boolean
     fun select(key: String): Boolean
-    fun choose(): Boolean
+    fun next(): Boolean
     fun collapse(reason: String)
     fun state(): JSONObject
 }
@@ -51,6 +51,8 @@ class IslandEngine @Inject constructor(
     private var presentation: IslandPresentation? = null
     @Volatile var snapshot = "{}"
         private set
+    /** Every key the store has extracted (including hidden and rejected); safe to read off-main. */
+    @Volatile private var trackedKeys: Set<String> = emptySet()
 
     private val tick = Runnable { changed() }
     private val publishPresentation = Runnable { publishSnapshot() }
@@ -179,7 +181,31 @@ class IslandEngine @Inject constructor(
 
     private fun visible() = if (policy.enabled) store.active(SystemClock.elapsedRealtime()) else emptyList()
 
+    /** Not extracted yet: a brand-new post whose heads-up decision precedes asynchronous extraction. */
+    fun isUnknown(key: String) = key !in trackedKeys
+
+    /**
+     * Synchronous pre-check for a brand-new post: would it become an ordinary island activity?
+     * Calls and alarms are excluded outright; custom extras must come from an allowed publisher
+     * and validate. Invalid data keeps Android's heads-up.
+     */
+    fun headsUpCandidate(sbn: android.service.notification.StatusBarNotification): Boolean = try {
+        val n = sbn.notification
+        val v2 = n.extras.getString(IslandExtractor.EXTRA_V2)
+        val v1 = n.extras.getString(IslandExtractor.EXTRA_V1)
+        when {
+            IslandSystemNotifications.candidate(n) -> false
+            (v2 != null || v1 != null) && policy.canPost(sbn.packageName) -> {
+                val publisher = extractor.publisher(sbn)
+                (if (v2 != null) IslandPayload.parseV2(v2, publisher) else IslandPayload.parseV1(v1, publisher)).isValid ||
+                    n.isPromotedOngoing
+            }
+            else -> n.isPromotedOngoing
+        }
+    } catch (unreadable: Exception) { false }
+
     private fun changed() {
+        trackedKeys = store.keys()
         val active = visible()
         presentation?.render(active)
         publishSnapshot()
@@ -233,7 +259,7 @@ class IslandEngine @Inject constructor(
                 .put("enabled", policy.enabled).put("presentationAttached", presentation != null)
                 .put("takuProducer", IslandRuntime.producerStatus)
                 .put("compiledAndDeviceVerified", false)
-                .put("operations", JSONArray(listOf("list", "get", "select", "choose", "expand", "collapse", "dismiss", "action", "open", "settings", "setEnabled", "setAllowed")))
+                .put("operations", JSONArray(listOf("list", "get", "select", "next", "tap", "expand", "collapse", "dismiss", "hide", "action", "open", "settings", "setEnabled", "setAllowed")))
             "canShowIsland" -> JSONObject().put("ok", true).put("enabled", policy.enabled)
                 .put("package", arg ?: JSONObject.NULL).put("customAllowed", arg != null && policy.canPost(arg))
                 .put("liveUpdates", true)
@@ -253,8 +279,18 @@ class IslandEngine @Inject constructor(
             }
             "collapse" -> mutate { presentation?.collapse("agent") }
             "select" -> mutate { require(presentation?.select(requireNotNull(arg) { "missing_key" }) == true) { "not_found" } }
-            "choose" -> mutate { require(presentation?.choose() == true) { "presentation_unavailable" } }
-            "dismiss" -> mutate {
+            "next" -> mutate { require(presentation?.next() == true) { "no_other_activity" } }
+            // The capsule's own tap: open the app when the publisher chose `open`, else expand.
+            "tap" -> mutate {
+                val activity = requireActivity(arg)
+                val intent = activity.openIntent
+                if (activity.tap == "open" && intent != null) send(intent)
+                else {
+                    require(policy.enabled) { "island_disabled" }
+                    require(presentation?.expand(requireNotNull(arg)) == true) { "presentation_unavailable" }
+                }
+            }
+            "dismiss", "hide" -> mutate {
                 require(arg != null && store.dismiss(arg)) { "not_found" }
                 prefs.edit().putBoolean("dismissed|$arg", true).apply()
             }

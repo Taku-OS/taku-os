@@ -9,13 +9,16 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffColorFilter
+import android.graphics.drawable.Animatable2
 import android.graphics.drawable.Drawable
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
+import android.view.accessibility.AccessibilityNodeInfo
 import android.view.animation.LinearInterpolator
 import org.agentos.island.DotMatrixLoader
 import org.json.JSONObject
@@ -30,7 +33,7 @@ import kotlin.math.max
  * edge sits [CAMERA_DP] left of the camera centre. Vertical drags are left to the shade.
  */
 internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
-    private val cycle: (Int) -> Unit, private val choose: () -> Unit) : View(context) {
+    private val longPress: () -> Unit, private val next: () -> Unit, private val hide: () -> Unit) : View(context) {
     private val density = resources.displayMetrics.density
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -63,6 +66,10 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
     private var vertical = false
     /** The pill text for the current layout width; empty when only the disc fits. */
     private var shownText = ""
+    /** Group B is an icon or animation and the pill has room for it. */
+    private var pillGlyphShown = false
+    /** Running app-supplied animated icons and when their looping began (60 s budget). */
+    private val iconLoops = mutableMapOf<Drawable, Long>()
     var secondary = false
         private set
     private val gestures = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
@@ -71,7 +78,8 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
         override fun onLongPress(event: MotionEvent) { performLongClick() }
         override fun onFling(first: MotionEvent?, last: MotionEvent, vx: Float, vy: Float): Boolean {
             if (first != null && abs(last.x - first.x) > dp(24) && abs(vx) > abs(vy)) {
-                cycle(if (vx < 0) 1 else -1)
+                // Swipe left: next activity. Swipe right: hide this one (owner decision).
+                if (vx < 0) next() else hide()
                 return true
             }
             return false
@@ -83,7 +91,55 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
         isFocusable = true
         importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_YES
         setOnClickListener { tap() }
-        setOnLongClickListener { choose(); true }
+        setOnLongClickListener { longPress(); true }
+    }
+
+    override fun onInitializeAccessibilityNodeInfo(info: AccessibilityNodeInfo) {
+        super.onInitializeAccessibilityNodeInfo(info)
+        info.addAction(AccessibilityNodeInfo.AccessibilityAction(AccessibilityNodeInfo.ACTION_LONG_CLICK, "Expand"))
+        info.addAction(AccessibilityNodeInfo.AccessibilityAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD, "Next activity"))
+        info.addAction(AccessibilityNodeInfo.AccessibilityAction(AccessibilityNodeInfo.ACTION_DISMISS, "Hide"))
+    }
+
+    override fun performAccessibilityAction(action: Int, arguments: android.os.Bundle?): Boolean = when (action) {
+        AccessibilityNodeInfo.ACTION_SCROLL_FORWARD -> { next(); true }
+        AccessibilityNodeInfo.ACTION_DISMISS -> { hide(); true }
+        else -> super.performAccessibilityAction(action, arguments)
+    }
+
+    override fun verifyDrawable(who: Drawable): Boolean = who in icons.values || super.verifyDrawable(who)
+
+    /** Picture keys the publisher asked to animate (`icon.animate`). */
+    private fun animatedKeys(activity: IslandActivity): Set<String> = listOf("a", "b")
+        .mapNotNull { activity.compact?.optJSONObject(it) }
+        .filter { it.optString("type") == "icon" && it.optBoolean("animate") }
+        .map { it.getString("pic") }.toSet()
+
+    /** Runs animated drawables while shown and motion is enabled; each loops for at most 60 s. */
+    private fun startIconAnimations() {
+        val activity = item ?: return
+        if (!ValueAnimator.areAnimatorsEnabled() || visibility != VISIBLE || !isAttachedToWindow) return
+        for (key in animatedKeys(activity)) {
+            val drawable = icons[key] ?: continue
+            val animated = drawable as? Animatable2 ?: continue
+            if (drawable in iconLoops) continue
+            drawable.callback = this
+            iconLoops[drawable] = SystemClock.uptimeMillis()
+            animated.registerAnimationCallback(object : Animatable2.AnimationCallback() {
+                override fun onAnimationEnd(finished: Drawable) {
+                    val began = iconLoops[finished] ?: return
+                    if (SystemClock.uptimeMillis() - began < ICON_LOOP_MS && visibility == VISIBLE && isAttachedToWindow) {
+                        (finished as Animatable2).start()
+                    } else iconLoops.remove(finished)
+                }
+            })
+            animated.start()
+        }
+    }
+
+    private fun stopIconAnimations() {
+        for (drawable in iconLoops.keys) (drawable as? Animatable2)?.apply { clearAnimationCallbacks(); stop() }
+        iconLoops.clear()
     }
 
     /**
@@ -91,8 +147,8 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
      * group A it shows the notification's own icon (tinted white), else a plain dot.
      */
     private fun discSlot(activity: IslandActivity): JSONObject? = glyph(activity.compact?.optJSONObject("a"))
-        ?: if (activity.pics.containsKey(IslandExtractor.APP_PIC))
-            JSONObject().put("type", "pic").put("pic", IslandExtractor.APP_PIC).put("tint", true) else null
+        ?: if (activity.pics.containsKey(IslandActivity.APP_PIC))
+            JSONObject().put("type", "pic").put("pic", IslandActivity.APP_PIC).put("tint", true) else null
 
     /** Group A slot in the disc's drawing vocabulary. */
     private fun glyph(slot: JSONObject?): JSONObject? = when (slot?.optString("type")) {
@@ -103,8 +159,13 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
         }
         "progress" -> JSONObject().put("type", "progress").apply { if (slot.has("value")) put("value", slot.get("value")) }
         "icon" -> JSONObject().put("type", "pic").put("pic", slot.getString("pic")).put("tint", slot.optBoolean("tint"))
+            .apply { if (slot.has("progress")) put("ring", slot.getDouble("progress")) }
         else -> null
     }
+
+    /** Group B drawn as a glyph inside the pill (an icon or Taku's AI animation). */
+    private fun pillGlyph(activity: IslandActivity): JSONObject? =
+        activity.compact?.optJSONObject("b")?.takeIf { it.optString("type") in setOf("icon", "animation") }?.let(::glyph)
 
     /** What the pill says: group B's text, number, clock or percentage. */
     private fun pillSlot(activity: IslandActivity): JSONObject? =
@@ -136,10 +197,15 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
         val text = pillText(slot)
         var width = base
         shownText = ""
+        pillGlyphShown = false
+        val room = maximum - px(PILL_START_DP) - px(16) - if (secondaryWanted) px(28) else 0
+        if (text.isEmpty() && pillGlyph(activity) != null && room >= px(16)) {
+            pillGlyphShown = true
+            width = px(PILL_START_DP) + px(16) + px(16)
+        }
         if (text.isNotEmpty()) {
             // Timers reserve their widest digits so the pill does not jitter every second.
             val natural = max(textPaint.measureText(text), if (slot?.optString("type") in setOf("timer", "countdown")) textPaint.measureText(text.replace(Regex("[0-9]"), "0")) else 0f)
-            val room = maximum - px(PILL_START_DP) - px(16) - if (secondaryWanted) px(28) else 0
             val fitted = minOf(natural, room.toFloat())
             if (fitted >= minOf(natural, dp(24))) {
                 shownText = text.take(textPaint.breakText(text, true, fitted + 1, null))
@@ -163,21 +229,29 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
                 }, Handler(Looper.getMainLooper()))
             }
         }
-        contentDescription = "${if (stale) "May be outdated. " else ""}${activity.title}. ${activity.body}. Double tap to expand; long press to choose activity."
+        contentDescription = "${if (stale) "May be outdated. " else ""}${activity.title}. ${activity.body}. " +
+            "Double tap to ${if (activity.tap == "open" && activity.openIntent != null) "open the app" else "expand"}; " +
+            "long press to expand; swipe left for the next activity; swipe right to hide."
         if (identity !== activity.payload) {
             identity = activity.payload
             val current = ++generation
+            stopIconAnimations()
             icons.clear()
             activity.pics.forEach { (key, icon) ->
                 icon.loadDrawableAsync(context, { drawable ->
-                    if (current == generation && drawable != null) { icons[key] = drawable; invalidate() }
+                    if (current == generation && drawable != null) {
+                        icons[key] = drawable
+                        startIconAnimations()
+                        invalidate()
+                    }
                 }, Handler(Looper.getMainLooper()))
             }
         }
-        val disc = discSlot(activity)
-        val moving = disc?.has("animated") == true
+        startIconAnimations()
+        val motion = listOfNotNull(discSlot(activity), pillGlyph(activity)).firstOrNull { it.has("animated") }
+        val moving = motion != null
         if (moving && animation == null && ValueAnimator.areAnimatorsEnabled() && visibility == VISIBLE) animation = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = if (disc?.optString("animated") == "listening") 1400 else DotMatrixLoader.CYCLE_MS
+            duration = if (motion?.optString("animated") == "listening") 1400 else DotMatrixLoader.CYCLE_MS
             interpolator = LinearInterpolator()
             repeatCount = ValueAnimator.INFINITE
             addUpdateListener { phase = it.animatedValue as Float; invalidate() }
@@ -190,13 +264,14 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
     override fun onDetachedFromWindow() {
         animation?.cancel()
         animation = null
+        stopIconAnimations()
         generation++
         super.onDetachedFromWindow()
     }
 
     override fun onVisibilityChanged(changedView: View, visibility: Int) {
         super.onVisibilityChanged(changedView, visibility)
-        if (visibility != VISIBLE) { animation?.cancel(); animation = null }
+        if (visibility != VISIBLE) { animation?.cancel(); animation = null; stopIconAnimations() }
         else item?.let { bind(it, second) }
     }
 
@@ -219,7 +294,7 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
         val cy = height / 2f
         val camera = dp(CAMERA_DP)
         val pillEnd = width - if (secondary) dp(28) else 0f
-        val hasPill = shownText.isNotEmpty()
+        val hasPill = shownText.isNotEmpty() || pillGlyphShown
         paint.color = Color.BLACK
         paint.style = Paint.Style.FILL
         canvas.drawCircle(dp(16), cy, dp(16), paint)
@@ -233,7 +308,9 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
             canvas.restore()
         }
         drawDisc(canvas, discSlot(activity), dp(16), cy)
-        if (hasPill) {
+        if (pillGlyphShown) {
+            drawDisc(canvas, pillGlyph(activity), dp(PILL_START_DP) + dp(16), cy)
+        } else if (hasPill) {
             val slot = pillSlot(activity)
             val text = if (slot?.optString("type") in setOf("timer", "countdown")) pillText(slot) else shownText
             textPaint.color = if (stale || slot?.optString("emphasis") == "muted") IslandStyle.TEXT_MUTED
@@ -269,9 +346,23 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
                 paint.style = Paint.Style.FILL
             }
             icon != null && motion.isEmpty() -> {
+                val ring = slot?.optDouble("ring", Double.NaN) ?: Double.NaN
+                // With a progress ring the icon shrinks so the 2 dp ring fits inside the 32 dp disc.
+                val half = if (ring.isNaN()) dp(8) else dp(6)
                 icon.colorFilter = if (slot?.optBoolean("tint") == true) PorterDuffColorFilter(IslandStyle.TEXT_PRIMARY, PorterDuff.Mode.SRC_IN) else null
-                icon.setBounds((cx - dp(8)).toInt(), (cy - dp(8)).toInt(), (cx + dp(8)).toInt(), (cy + dp(8)).toInt())
+                icon.setBounds((cx - half).toInt(), (cy - half).toInt(), (cx + half).toInt(), (cy + half).toInt())
                 icon.draw(canvas)
+                if (!ring.isNaN()) {
+                    paint.style = Paint.Style.STROKE
+                    paint.strokeWidth = dp(2)
+                    paint.strokeCap = Paint.Cap.ROUND
+                    paint.color = IslandStyle.TRACK
+                    canvas.drawCircle(cx, cy, dp(10), paint)
+                    paint.color = IslandStyle.TEXT_PRIMARY
+                    canvas.drawArc(cx - dp(10), cy - dp(10), cx + dp(10), cy + dp(10), -90f,
+                        (ring.coerceIn(0.0, 1.0) * 360).toFloat(), false, paint)
+                    paint.style = Paint.Style.FILL
+                }
             }
             motion.isEmpty() -> {
                 // No glyph: the nine-dot loader is reserved for AI loading, so draw a plain dot.
@@ -298,7 +389,7 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
         // System-managed: the next activity's own group A glyph, else its notification icon.
         val slot = glyph(second?.compact?.optJSONObject("a"))?.takeIf { it.optString("type") in setOf("pic", "progress") }
         val icon = slot?.optString("pic")?.takeIf { it.isNotEmpty() }?.let(secondaryIcons::get)
-            ?: secondaryIcons[IslandExtractor.APP_PIC]
+            ?: secondaryIcons[IslandActivity.APP_PIC]
         if (slot?.optString("type") == "progress") {
             paint.style = Paint.Style.STROKE
             paint.strokeWidth = dp(2)
@@ -317,6 +408,8 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
     }
 
     fun state(): JSONObject = JSONObject().put("text", shownText).put("secondary", secondary)
+        .put("pillGlyph", if (pillGlyphShown) item?.let { pillGlyph(it) }?.let { it.optString("animated").ifEmpty { it.optString("type") } } ?: JSONObject.NULL else JSONObject.NULL)
+        .put("animatingIcons", iconLoops.size)
         .put("disc", item?.let { discSlot(it)?.let { slot -> slot.optString("animated").ifEmpty { slot.optString("type") } } ?: "dot" } ?: JSONObject.NULL)
 
     private fun dp(value: Float) = value * density
@@ -325,6 +418,8 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
     private fun px(value: Int) = (value * density).toInt()
 
     companion object {
+        /** An app's animated icon loops for at most this long per binding. */
+        const val ICON_LOOP_MS = 60_000L
         /** Camera centre and pill start, measured from the capsule's left edge (dp). */
         const val CAMERA_DP = 52
         const val PILL_START_DP = 72
