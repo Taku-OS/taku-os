@@ -1,0 +1,12 @@
+{
+  "services": {
+    "chatgpt": "connected",
+    "jev": "connected",
+    "fal": "connected"
+  },
+  "ai": "available",
+  "phoneReady": true,
+  "stored": "dismissed",
+  "visible": false,
+  "hiddenReason": "dismissed"
+}

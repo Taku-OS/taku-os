@@ -1,0 +1,14 @@
+{
+  "com.android.systemui": {
+    "sha256": "9fcc1c6ae32fabbe716ea6693df100ffee524097c91a05f77dd11c76f88e3f34",
+    "matches_installed_build": true
+  },
+  "org.agentos.agent": {
+    "sha256": "2d19207bcabac9667e3b961620e6aa0a0c425b672ad8c3f0e01cb70c4e3549f8",
+    "matches_installed_build": true
+  },
+  "org.agentos.assistant": {
+    "sha256": "4307691733ad0ea2ff7d1f530da8b8c0b374f44bfa6ff9cee29f093d8f56ec14",
+    "matches_installed_build": true
+  }
+}

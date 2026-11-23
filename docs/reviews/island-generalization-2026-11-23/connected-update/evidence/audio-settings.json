@@ -1,0 +1,42 @@
+{
+  "audioEnabled": true,
+  "falConfigured": true,
+  "liveConfigured": true,
+  "liveProfile": "fal-grok",
+  "dictation": {
+    "assistant-entry": {
+      "primaryProfileId": "zipformer",
+      "fallbackProfileId": null,
+      "language": "system",
+      "resolvedLanguage": "en-US",
+      "isDefault": true,
+      "error": null,
+      "backends": [
+        {
+          "profileId": "zipformer",
+          "languages": [
+            "zh-CN",
+            "en-US"
+          ],
+          "processing": "LOCAL",
+          "available": true,
+          "unavailableReasons": [],
+          "maxCaptureMs": null,
+          "drainTimeoutMs": 5000
+        },
+        {
+          "profileId": "fal-whisper",
+          "languages": [
+            "zh-CN",
+            "en-US"
+          ],
+          "processing": "CLOUD_AUDIO",
+          "available": true,
+          "unavailableReasons": [],
+          "maxCaptureMs": 60000,
+          "drainTimeoutMs": 100000
+        }
+      ]
+    }
+  }
+}

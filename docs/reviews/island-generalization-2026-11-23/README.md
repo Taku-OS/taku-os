@@ -1,141 +1,132 @@
-## 灵动岛通用化验收更新
+## 灵动岛通用化验收更新（账号连接后复测）
 
-**结论：尚未全部满足。已覆盖的 Taku Agent 卡片样式未见被通用化改造替换或破坏，但不能给出“全量无回归”的结论；Building 胶囊在当前模拟器桌面存在条件性显示问题。** 下面补齐可阅读的验收说明和流程截图，JSON 仅作为原始证据。
+**结论：账号和模拟器配置导致的阻塞已解除，真实模型回复、麦克风采集、fal/Grok Live Talk 连接、桌面 Building 胶囊已验证；通用化需求仍未全部满足。** 第三方卡片回桌面不收起仍复现，缺少 fal Key 时的 Live Talk 引导遗漏也仍未修复。
 
-验收版本：`vela/dynamic-island` 的 `ca2d36a9532c9491fa1f3de9e4d61c32fc254dce`。当前安装的运行代码为 `a48ca6f1`；两者差异只有开发文档。设备为 `emulator-5596`，ARM64 Android 17。日期为 2026-11-23。
+验收日期：2026-11-23。设备：`emulator-5596` / `Taku_PR27_Fresh`，ARM64 Android 17。
+本地分支 `vela/dynamic-island` 为 `ca2d36a9`，已安装 SystemUI、Agent、Assistant 的 SHA-256 均与 `a48ca6f1` 构建一致；两提交只差开发文档。底层仍复用此前 `main-65917a4` ROM，并非重新构建整包。
+本轮使用恢复后的原版 APK，没有安装显示探针 APK 或向 Agent 注入假状态。
 
-### 已有 Taku Agent 是否受到影响
+### 与上一轮相比发生了什么
 
-对比通用化前的 `65917a4a`，`IslandAssistantCard.kt` 和 `DotMatrixLoader.java` 没有变化。Agent 保留专用卡片、九点工作动画、回复图标和横向选项；发布端新增 v2 数据，同时保留 v1。
-
-| 流程 | 本次实际结果 |
+| 项目 | 当前实测结论 |
 | --- | --- |
-| 原版 Agent 打开文字输入 | 键盘与卡片可以同时显示，卡片避让状态栏；有原版截图。 |
-| 聆听、工作中、普通回复、确认和错误 | 显示回放覆盖，仍由 SystemUI 原生 Agent 卡片绘制，没有退回 issue 原图的旧灰色矩形按钮卡片。 |
-| 回复选项 | 两个动态选项出现；横向手势后截图确认内容实际位移。无选项时按钮行消失。 |
-| 长回复 | 纵向滚动前后截图确认内容移动；上滑头部可关闭卡片。 |
-| 关闭与再次展开 | 上滑关闭保留回合数据；新交互可重新展开；Agent 订阅者收到隐藏状态。 |
-| 横屏和竖屏 | 横屏关闭不支持的展开卡片；返回竖屏后可显式重新展开。 |
-| 原版确认卡片 → 完整会话 → 桌面 | 点击右上角打开会话，卡片消失；返回桌面没有遗留展开卡片。第三方卡片未收起的问题不能直接套用到 Agent。 |
-| Building 胶囊 | 在 Settings 前台可以显示九点动画和 `Building...`；当前 Taku Home 前台被抑制，详见问题 9。 |
+| 账号 | 权威接口返回 ChatGPT、Jev、fal 均为 `connected`，`ai=available`。ChatGPT 另经真实只读任务验证；Jev 本轮仅核对连接状态。 |
+| 模拟器显示和输入 | 已恢复时间、居中摄像头开孔、底部手势横条及 Taku 输入法；默认 HOME 正确解析到 Taku Home。 |
+| 真实 Agent 请求 | 输入读取 Android 版本的任务，出现工作中状态，实际执行 `getprop ro.build.version.release`，返回 Android 17。上一轮的“没有账号、停在 needs_user”不再代表当前状态。 |
+| 回复 → 完整会话 → 桌面 | 同一真实请求的回复可查看；进入完整聊天后展开岛消失，回到桌面没有遗留展开卡片。 |
+| 普通语音输入 | 同日配置修复阶段的实测：本地 Zipformer 实际进入 Capturing，`ready=true`、PCM RMS 峰值约 0.3025；测试录音已取消，没有提交转写。这验证真实采集，不是完整语音识别准确率。 |
+| fal 连接页面 | 手动打开现有连接卡片，显示 **Fal Connected**；这不是“缺少 Key 自动触发引导”的通过证据。 |
+| Live Talk | 经用户同意，短暂实测 `fal-grok`：`lifecycle=active`、`capturing=true`、`error=null`，PCM RMS 峰值约 0.0709；截图后立即停止，读回 `closed` / `capturing=false`。未测试长时间对话或语音指令执行。 |
+| Building 桌面胶囊（原问题 9） | 原版 Agent 执行最小 HTML 计数器生成任务期间，实际设置构建标记，Taku Home 前台显示 **Building...**，`compactVisible=true`、`suppressedByForeground=[]`；任务完成后 `buildingApp=false`。当前配置下通过，原失败由 HOME 被旧开机向导接管引起。 |
+| 原有 Agent 样式 | 这次真实聆听、工作、回复及 Building 画面仍走现有 Agent 展示；没有出现第三方模板替换 Agent 的现象。确认、错误、长文滚动等仍沿用上一轮显示回归证据，不能宣称所有路径无回归。 |
 
-**测试边界：**聆听、回复、选项、长文本和 Building 使用仓库现有测试探针，临时投射内存状态，未伪造模型完成结果。为运行探针，使用同一份源码关闭混淆的临时 APK；测试后恢复原 APK，SHA-256 与备份一致。原版上另发起了一次只读 Android 版本查询，未得到模型回复；完整会话页面明确提示 **This device has no connected account**，状态停在 `needs_user`。因此真实模型回答、真实录音识别、建议按钮提交到模型以及实际生成 App，均不在本次通过范围内。
+构建测试只生成最小本地 HTML，不安装 APK；任务记录报告产物为 `/data/local/agentos/work/island-acceptance-20261123/index.html`。本轮没有验证该应用的页面交互或原生打包，ADB shell 直接读取此目录被权限拒绝。这里验收的是**真实任务期间的 Building 展示及退出**。
 
-### 未满足和部分满足的需求
+### 当前未满足项与复测范围
 
-| # | 项目 | 观察结果与影响 |
+保留上一轮编号，避免把配置恢复误当作产品功能修复。
+
+| # | 项目 | 当前状态 |
 | --- | --- | --- |
-| 1 | 第三方图标动画 | 合法的 AnimatedVectorDrawable 在发布 App 内能加载，在 SystemUI 中报资源找不到；A/B 区退化成圆点。新安装 App 也复现。静态图标正常。 |
-| 2 | 第三方展开卡片的收起 | 胶囊展开后，点卡片进入 App 再回桌面，卡片仍保持展开。普通“摘要直接进 App → 桌面”能恢复摘要。 |
-| 3 | 普通第三方自由设计 | 当前只有固定摘要槽位和 basic/progress/highlight 模板。自定义背景字段被拒绝；自定义内容仅向平台签名应用开放，普通白名单 App 仍收到 `reserved_content`。 |
-| 4 | 不限制操作按钮数量 | 横向滚动可用，但 32 个通过，33/40 个返回 `too_many_actions`。现有 40 按钮测试示例也因此不可用。 |
-| 5 | 仅允许持续且重要的活动 | 白名单 App 的 `ongoing=false`、静态 `Saving failed` 报错可以上岛并获得默认一小时寿命；两秒活动也可以上岛。使用规范主要依靠准入审核，运行时没有持续性门槛。营销语义本身仍需要审核。 |
-| 6 | 高频打扰限制 | 约十秒内四次把同一条通知的 `alert` 从 false 切到 true，四次都重新弹出。重复 true 不重弹，但没有频率冷却。 |
-| 7 | 异形容器完整显示 | 居中开孔配置形状完整；当前无开孔、矮状态栏配置会裁平上下边缘。需要适配绘制尺寸与容器高度。 |
-| 8 | 整个业务活动最多十二小时 | 单条通知十二小时上限有效，普通更新不续期；取消后重发会获得新寿命。没有跨通知的业务活动身份，无法强制同一服务累计不超过十二小时。 |
-| 9 | 已有 Agent 的 Building 桌面展示 | 新的前台抑制规则依赖默认 HOME 解析。当前 HOME 角色为 `org.agentos.agent`，但 HOME Intent 解析到 `org.lineageos.setupwizard/.SetupWizardActivity`，Agent 在桌面被当作普通前台 App，Building 不显示。切到 Settings 后出现。属于当前配置下复现的兼容问题，不能推定所有设备必现。 |
+| 1 | 第三方图标动画资源加载失败 | 上轮未通过，本轮未重新测试；没有对应代码修复，保留问题。 |
+| 2 | 第三方展开卡片进入 App 再回桌面 | **本轮再次复现**：已进入 `content-detail`，回桌面后仍 `expanded=true`。 |
+| 3 | 普通第三方自由设计 | 上轮固定模板、`reserved_content` 限制仍列未满足；本轮未重新做字段矩阵。 |
+| 4 | 不限制操作按钮数量 | 上轮超过 32 个被拒绝；本轮未重跑数量边界。 |
+| 5 | 持续性及重要性准入 | 上轮短时、静态错误也可上岛；连接 AI 账号不等于修复这一准入问题。 |
+| 6 | 高频打扰冷却 | 上轮多次 false→true 可反复弹出；本轮未重新进行频率测试。 |
+| 7 | 异形容器裁切 | **当前居中开孔配置下完整显示**；无开孔、矮状态栏的旧失败仍保留，未宣称所有屏幕配置已修复。 |
+| 8 | 整个业务活动最多十二小时 | 上轮仅单通知寿命约束通过，取消重发可获得新寿命；本轮未重跑时限测试。 |
+| 9 | Agent Building 桌面被抑制 | **当前模拟器配置修正后复测通过**，旧失败留档。不是发布了新的产品代码补丁。 |
+| 10 | Live Talk 缺少 fal Key 的连接引导 | **仍待修复**：异步 `PROVIDER_NOT_CONFIGURED` 没有衔接到添加密钥提示，只有失败/重连。当前有 Key 时能连接，不代表无 Key 引导已修好。本轮保留账号，未删除 Key 重演故障。 |
 
-问题 1 的[资源加载日志](evidence/animation-error.log)、问题 3/4 的[字段与数量验证](evidence/validation.json)、问题 6 的[重复弹出记录](evidence/alert-burst.json)，以及 [Agent 原始失败记录](evidence/AppBuildIslandProbe.txt)和[切换到其他 App 后的对照记录](evidence/AppBuildIslandProbe-rerun.txt)均保留。没有将首次失败覆盖成通过。前台抑制实现见 [IslandForeground.kt](https://github.com/Taku-OS/taku-os/blob/a48ca6f1edb8ac28e2ae1276c754036599d60440/system/island/src/com/android/systemui/taku/island/IslandForeground.kt#L43)，动画加载见 [IslandCapsuleView.kt](https://github.com/Taku-OS/taku-os/blob/a48ca6f1edb8ac28e2ae1276c754036599d60440/system/island/src/com/android/systemui/taku/island/IslandCapsuleView.kt#L245)，自定义内容与按钮限制见 [IslandPayload.java](https://github.com/Taku-OS/taku-os/blob/a48ca6f1edb8ac28e2ae1276c754036599d60440/system/island/src/com/android/systemui/taku/island/IslandPayload.java#L210)。
+滑动复测保留首次未命中的 `18-third-hide` 原始记录：起点 x=370 在当前胶囊外，没有触发隐藏；改为从胶囊内 x=445 起滑后，A123 隐藏并显示剩余 FL123，见 `third-hide-confirmed`。
 
-### 其他需求的验收结果
+第三方普通签名测试 App 本轮重测：Taku JSON 摘要/展开、标准 Live Update 摘要/展开、两个 App 按新通知优先显示、左滑切换、右滑隐藏。白名单临时追加后恢复为 `org.agentos.notebook`，测试通知取消、两个测试 App 均卸载。
+Notebook 的真实业务流程、完整十二小时运行、小米真机流畅度对比均未因此得到新的通过结论。
 
-- **已验证：**两种展示状态及互斥；应用提供静态图标和短文案；摘要点击展开或直接进 App；卡片默认点击与自定义页面跳转；遮挡/避让开孔；滑动切换和隐藏多个 App；普通活动按触发时间排序；通知取消后退出；Live Updates 与 Taku JSON 两种接入。
-- **时间限制：**默认一小时、单通知十二小时上限及更新不续期，经过设备状态与测试时钟核对；设备上另验证了两秒到期退出。没有实际连续运行十二小时。
-- **Notebook：**默认白名单已有 `org.agentos.notebook`，但设备未安装 Notebook，真实“收藏、列表切换、备注”等流程尚未验收。测试 App 不能替代 Notebook 验收。
-- **范围与未完成项：**锁屏按下一版本处理；没有做小米真机对比、帧率或卡顿专项测试，不能声称流畅度已对齐小米。完整[宿主测试记录](evidence/host-tests.log)和[Agent 显示回归记录](evidence/NativeIslandProbe-scroll-verified.txt)供复核。
+### 当前可复现的验收流程
 
-### 截图说明
+1. 保留已有账号，读取 onboarding/account 与 Audio 设置；核对 HOME、麦克风权限、输入法和开孔。
+2. 用原版 Agent 发起只读版本查询，观察文字输入、工作中、真实回复，再打开完整会话并返回桌面。
+3. 普通语音输入观察真实 Capturing/PCM 后取消；独立打开 fal 设置确认已连接。
+4. 在测试聊天启动 Live Talk，确认实际 provider、active/capturing/error，再立即停止并核对麦克风已释放。
+5. 发起最小本地 HTML 生成任务，观察构建标记对应的桌面胶囊，完成后核对退出。
+6. 临时安装普通签名通知测试 App，记录 JSON 和 Live Update 交互，再恢复白名单并卸载。
 
-以下均来自模拟器实际画面。Agent 显示回放与原版真实请求分别标注；第三方测试使用普通签名 App，临时加入白名单，未使用平台签名冒充第三方。为便于看清灵动岛，部分预览只截取屏幕顶部；点击图片可看完整原图。截图证明显示结果，时限、权限和错误码以对应读回记录为准。
+这是已连接账号的使用流程。首次 onboarding 与缺 Key 补充配置是另外两条路径，不能用本轮截图代替验收。
+
+### 最新截图
+
+以下为当前原版实际流程或真实第三方通知。麦克风与模拟器外观两张取自同日完成配置修复时的实测；其他截图在本轮重新拍摄。黑色摄像头遮罩可能不出现在 Android `screencap` 中，外观图使用 Mac 模拟器窗口截图。图片可点击查看原图。
 
 <details>
-<summary>A 原版 Agent 的真实入口和会话流程</summary>
+<summary>A 真实模型、连接页面与语音</summary>
 
-| 文字输入与键盘 | 真实请求进入工作中 |
+| 当前模拟器外观 | 文字输入与 Taku 键盘 |
 | --- | --- |
-| <a href="images/release-text-entry-full.png"><img src="images/release-text-entry.png" width="280" alt="release-text-entry" /></a> | <a href="images/release-working-full.png"><img src="images/release-working.png" width="280" alt="release-working" /></a> |
+| <a href="connected-update/images/00-emulator-configured.png"><img src="connected-update/images/00-emulator-configured.png" width="280" alt="当前模拟器外观" /></a> | <a href="connected-update/images/01-text-entry.png"><img src="connected-update/images/01-text-entry.png" width="280" alt="文字输入与 Taku 键盘" /></a> |
 
-| 实际 needs_user 卡片 | 打开会话后提示未连接账号 | 回到桌面 卡片已消失 |
-| --- | --- | --- |
-| <a href="images/release-actual-confirmation-full.png"><img src="images/release-actual-confirmation.png" width="280" alt="release-actual-confirmation" /></a> | <a href="images/release-actual-open-conversation-full.png"><img src="images/release-actual-open-conversation.png" width="280" alt="release-actual-open-conversation" /></a> | <a href="images/release-actual-return-home-full.png"><img src="images/release-actual-return-home.png" width="280" alt="release-actual-return-home" /></a> |
+| 真实任务工作中 | 真实 Android 17 回复 |
+| --- | --- |
+| <a href="connected-update/images/02-real-working.png"><img src="connected-update/images/02-real-working.png" width="280" alt="真实任务工作中" /></a> | <a href="connected-update/images/03-real-reply.png"><img src="connected-update/images/03-real-reply.png" width="280" alt="真实 Android 17 回复" /></a> |
+
+| 完整聊天中的同一回复 | 回桌面后展开卡片消失 |
+| --- | --- |
+| <a href="connected-update/images/04-real-conversation.png"><img src="connected-update/images/04-real-conversation.png" width="280" alt="完整聊天中的同一回复" /></a> | <a href="connected-update/images/05-return-home.png"><img src="connected-update/images/05-return-home.png" width="280" alt="回桌面后展开卡片消失" /></a> |
+
+| 完整聊天按钮后续返回 API 37 | fal 已连接卡片 |
+| --- | --- |
+| <a href="connected-update/images/22-chat-choice-followup.png"><img src="connected-update/images/22-chat-choice-followup.png" width="280" alt="完整聊天按钮后续返回 API 37" /></a> | <a href="connected-update/images/06-fal-connected.png"><img src="connected-update/images/06-fal-connected.png" width="280" alt="fal 已连接卡片" /></a> |
+
+| fal/Grok Live Talk 实际连接 | 本地 Zipformer 真实采集 |
+| --- | --- |
+| <a href="connected-update/images/07-live-talk-result.png"><img src="connected-update/images/07-live-talk-result.png" width="280" alt="fal/Grok Live Talk 实际连接" /></a> | <a href="connected-update/images/08-local-listening.png"><img src="connected-update/images/08-local-listening.png" width="280" alt="本地 Zipformer 真实采集" /></a> |
 
 </details>
 
 <details>
-<summary>B Agent 原有卡片样式回归 显示层回放</summary>
+<summary>B 真实构建任务与 Building 胶囊</summary>
 
-| 聆听 | 工作中 九点与光效 | 普通回复 |
-| --- | --- | --- |
-| <a href="images/agent-listening-full.png"><img src="images/agent-listening.png" width="280" alt="agent-listening" /></a> | <a href="images/agent-working-full.png"><img src="images/agent-working.png" width="280" alt="agent-working" /></a> | <a href="images/agent-reply-full.png"><img src="images/agent-reply.png" width="280" alt="agent-reply" /></a> |
-
-| 确认 | 错误 |
+| 实际构建期间显示 Building | 构建完成后退出 |
 | --- | --- |
-| <a href="images/agent-confirmation-full.png"><img src="images/agent-confirmation.png" width="280" alt="agent-confirmation" /></a> | <a href="images/agent-error-full.png"><img src="images/agent-error.png" width="280" alt="agent-error" /></a> |
-
-| 选项滚动前 | 选项滚动后 |
-| --- | --- |
-| <a href="images/agent-reply-options-full.png"><img src="images/agent-reply-options.png" width="280" alt="agent-reply-options" /></a> | <a href="images/agent-reply-options-scrolled-full.png"><img src="images/agent-reply-options-scrolled.png" width="280" alt="agent-reply-options-scrolled" /></a> |
-
-| 长文本滚动前 | 长文本滚动后 |
-| --- | --- |
-| <a href="images/agent-long-reply-full.png"><img src="images/agent-long-reply.png" width="280" alt="agent-long-reply" /></a> | <a href="images/agent-long-reply-scrolled-full.png"><img src="images/agent-long-reply-scrolled.png" width="280" alt="agent-long-reply-scrolled" /></a> |
-
-| Building 在当前 Home 不显示 | 同一状态切到 Settings 后显示 |
-| --- | --- |
-| <a href="images/agent-building-home-full.png"><img src="images/agent-building-home.png" width="280" alt="agent-building-home" /></a> | <a href="images/agent-building-other-full.png"><img src="images/agent-building-other.png" width="280" alt="agent-building-other" /></a> |
+| <a href="connected-update/images/20-real-building-home.png"><img src="connected-update/images/20-real-building-home.png" width="280" alt="实际构建期间显示 Building" /></a> | <a href="connected-update/images/21-real-building-finished.png"><img src="connected-update/images/21-real-building-finished.png" width="280" alt="构建完成后退出" /></a> |
 
 </details>
 
 <details>
-<summary>C 第三方 App 接入与交互</summary>
+<summary>C 第三方普通签名 App 复测</summary>
+
+| JSON 摘要 | JSON 展开 |
+| --- | --- |
+| <a href="connected-update/images/10-third-custom-capsule.png"><img src="connected-update/images/10-third-custom-capsule.png" width="280" alt="JSON 摘要" /></a> | <a href="connected-update/images/11-third-custom-expanded.png"><img src="connected-update/images/11-third-custom-expanded.png" width="280" alt="JSON 展开" /></a> |
+
+| 进入 App 指定页，卡片仍展开 | 回桌面仍展开：未通过 |
+| --- | --- |
+| <a href="connected-update/images/12-third-enter-app.png"><img src="connected-update/images/12-third-enter-app.png" width="280" alt="进入 App 指定页，卡片仍展开" /></a> | <a href="connected-update/images/13-third-return-home.png"><img src="connected-update/images/13-third-return-home.png" width="280" alt="回桌面仍展开：未通过" /></a> |
 
 | 标准 Live Update 摘要 | 标准 Live Update 展开 |
 | --- | --- |
-| <a href="images/third-live-update-capsule-full.png"><img src="images/third-live-update-capsule.png" width="280" alt="third-live-update-capsule" /></a> | <a href="images/third-live-update-card-full.png"><img src="images/third-live-update-card.png" width="280" alt="third-live-update-card" /></a> |
+| <a href="connected-update/images/14-third-live-update-capsule.png"><img src="connected-update/images/14-third-live-update-capsule.png" width="280" alt="标准 Live Update 摘要" /></a> | <a href="connected-update/images/15-third-live-update-expanded.png"><img src="connected-update/images/15-third-live-update-expanded.png" width="280" alt="标准 Live Update 展开" /></a> |
 
-| Taku JSON 摘要 | Taku JSON 卡片 |
+| 新活动 FL123 优先 | 左滑切换 A123 |
 | --- | --- |
-| <a href="images/third-custom-capsule-full.png"><img src="images/third-custom-capsule.png" width="280" alt="third-custom-capsule" /></a> | <a href="images/third-custom-card-full.png"><img src="images/third-custom-card.png" width="280" alt="third-custom-card" /></a> |
+| <a href="connected-update/images/16-third-multiple.png"><img src="connected-update/images/16-third-multiple.png" width="280" alt="新活动 FL123 优先" /></a> | <a href="connected-update/images/17-third-swipe-next.png"><img src="connected-update/images/17-third-swipe-next.png" width="280" alt="左滑切换 A123" /></a> |
 
-| 摘要直接进入 App 指定页 | 回桌面恢复摘要 |
-| --- | --- |
-| <a href="images/third-direct-app-full.png"><img src="images/third-direct-app.png" width="280" alt="third-direct-app" /></a> | <a href="images/third-return-capsule-full.png"><img src="images/third-return-capsule.png" width="280" alt="third-return-capsule" /></a> |
-
-| 多 App 新活动 FL123 优先 | 左滑切到 A123 | 右滑隐藏 A123 后剩 FL123 |
-| --- | --- | --- |
-| <a href="images/third-multi-newest-full.png"><img src="images/third-multi-newest.png" width="280" alt="third-multi-newest" /></a> | <a href="images/third-multi-swipe-next-full.png"><img src="images/third-multi-swipe-next.png" width="280" alt="third-multi-swipe-next" /></a> | <a href="images/third-multi-hide-current-full.png"><img src="images/third-multi-hide-current.png" width="280" alt="third-multi-hide-current" /></a> |
-
-| 12 个操作滚动前 | 横向滚动后 |
-| --- | --- |
-| <a href="images/audit-12-actions-before-full.png"><img src="images/audit-12-actions-before.png" width="280" alt="audit-12-actions-before" /></a> | <a href="images/audit-12-actions-scrolled-full.png"><img src="images/audit-12-actions-scrolled.png" width="280" alt="audit-12-actions-scrolled" /></a> |
-
-| 卡片遮挡开孔位置 | 卡片避让开孔位置 |
-| --- | --- |
-| <a href="images/audit-card-cover-full.png"><img src="images/audit-card-cover.png" width="280" alt="audit-card-cover" /></a> | <a href="images/audit-card-below-full.png"><img src="images/audit-card-below.png" width="280" alt="audit-card-below" /></a> |
-
-</details>
-
-<details>
-<summary>D 未通过项目的画面证据</summary>
-
-| 动画资源失败 退化成圆点 | 静态错误仍被允许上岛 |
-| --- | --- |
-| <a href="images/audit-animated-fresh-app-full.png"><img src="images/audit-animated-fresh-app.png" width="280" alt="audit-animated-fresh-app" /></a> | <a href="images/audit-static-error-accepted-full.png"><img src="images/audit-static-error-accepted.png" width="280" alt="audit-static-error-accepted" /></a> |
-
-| 第三方进入 App 再回桌面 卡片仍展开 |
+| 正确命中胶囊后右滑隐藏 A123 |
 | --- |
-| <a href="images/audit-return-home-full.png"><img src="images/audit-return-home.png" width="280" alt="audit-return-home" /></a> |
-
-| 无开孔矮状态栏 边缘裁切 | 居中开孔配置 形状完整 |
-| --- | --- |
-| <a href="images/audit-custom-basic-full.png"><img src="images/audit-custom-basic.png" width="280" alt="audit-custom-basic" /></a> | <a href="images/audit-hole-capsule-full.png"><img src="images/audit-hole-capsule.png" width="280" alt="audit-hole-capsule" /></a> |
+| <a href="connected-update/images/19-third-hide-confirmed.png"><img src="connected-update/images/19-third-hide-confirmed.png" width="280" alt="正确命中胶囊后右滑隐藏 A123" /></a> |
 
 </details>
 
-### 接入方案与类别
+### 证据与边界
 
-建议保留 **标准 Live Updates + 可选 Taku Island JSON 扩展**，通过同一条 Android Notification 承载，共享身份、生命周期和权限。标准路径降低接入成本；扩展承载 A/B 区、模板、点击方式和卡片位置。第三方不负责多岛管理。仅靠标准 Live Updates 无法满足完整自由样式需求，官方标准限制自定义通知视图：[Android Live Updates](https://developer.android.com/develop/ui/views/notifications/live-update)。
+- [连接状态](connected-update/evidence/connections.json)、[Audio 配置](connected-update/evidence/audio-settings.json)、[真实模型回复和执行步骤](connected-update/evidence/real-reply.json)。
+- [Live Talk 连接](connected-update/evidence/live-result.json)、[停止后的读回](connected-update/evidence/live-stopped.json)、[本地麦克风](connected-update/evidence/local-microphone.json)。
+- [Building 与 HOME](connected-update/evidence/building-home.json)、[任务结束](connected-update/evidence/building-finished.json)、[安装包一致性](connected-update/evidence/packages-verified.json)。
+- [第三方回桌面仍展开](connected-update/evidence/13-third-return-home.json)、[滑动隐藏复核](connected-update/evidence/third-hide-confirmed.json)、[测试清理](connected-update/evidence/third-cleanup.json)。
 
-新 v2 已不要求 `category`，提供它反而会被视为未知字段；旧 v1 和内部系统来源仍有分类。`template` 是视觉选择，不应要求发布者先选业务类别才能上岛。小米文档有必填 `business`，用途是运营场景统计，并不等于通过类别选择 UI：[小米接入文档](https://dev.mi.com/xiaomihyperos/documentation/detail?pId=2131)。
+真实版本查询在完整聊天中生成了两个选项；实际点击“查看 API 级别”，批准仅执行 `getprop ro.build.version.sdk` 的只读请求后，收到 API 37 回复，按钮状态变为 Request handled（[记录](connected-update/evidence/chat-choice-followup.json)）。这是完整聊天的动态操作按钮闭环。但本次岛状态的 `suggestions=[]`，岛内显示的是回复文本，不能把它计为“灵动岛建议按钮提交到模型”已通过。原生岛按钮的显示与横向滚动仍以历史回放为证。
 
-本次仅验收，没有修复或修改产品代码。临时测试应用已卸载，发布白名单和开孔配置已恢复；Agent 恢复原 APK，测试会话的桌面状态已清理。真实请求留下的一条测试会话仍保留在聊天历史中，未清除原有数据。截图和说明单独存放在证据分支，不修改 main。
+本轮未修改产品代码，未注销账号或重置 onboarding；临时测试 App 已清理，Live Talk 已停止。测试聊天和最小 HTML 任务记录保留，未删除其他用户数据。此前本地模拟器启动器/说明的配置修正是独立改动，不混入这个证据分支。
+
+上一轮未连接账号的失败、显示层回放、字段/时限/权限测试和接入方案讨论，完整保留在[历史验收记录](https://github.com/Taku-OS/taku-os/blob/fbe93b34545d435e7ddd4d29285800720d9b3268/docs/reviews/island-generalization-2026-11-23/README.md)。该记录中的“无账号”“当前桌面 Building 不显示”描述已由本次实测更新，其他未复测项目仍按原证据标注。

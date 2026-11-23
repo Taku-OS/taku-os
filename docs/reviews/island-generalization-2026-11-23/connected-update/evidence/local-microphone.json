@@ -1,0 +1,12 @@
+{
+  "phase": "Capturing",
+  "ready": true,
+  "listening": true,
+  "profileId": "zipformer",
+  "processing": "LOCAL",
+  "levelSource": "pcm-rms",
+  "error": null,
+  "pcm_rms_max": 0.3025193512439728,
+  "pcm_rms_samples": 48,
+  "test": "Real host microphone capture; canceled without submitting transcription."
+}

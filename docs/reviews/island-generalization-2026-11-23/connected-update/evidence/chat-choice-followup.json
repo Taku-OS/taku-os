@@ -1,0 +1,9 @@
+{
+  "threadId": "01a20814-b3f2-7660-a7d3-30252ad03ba7",
+  "clicked": "查看 API 级别",
+  "approval": "Approved only the read-only command: getprop ro.build.version.sdk",
+  "resultText": "设备的 Android API 级别为 37。",
+  "resultObservedInUI": true,
+  "actionReceipt": "Request handled. See the actual result in the reply.",
+  "scope": "Full conversation generated action; not an island suggestion chip."
+}

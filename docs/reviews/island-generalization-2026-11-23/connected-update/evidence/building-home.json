@@ -1,0 +1,222 @@
+{
+  "assistant": {
+    "entry": "text",
+    "island": "collapsed",
+    "expansionRequest": 4,
+    "islandRequest": "collapsed",
+    "islandHost": "systemui",
+    "listeningHeaderHost": "systemui-native",
+    "sending": false,
+    "abandoned": false,
+    "hintExpanded": false,
+    "voiceContinuous": false,
+    "voicePaused": false,
+    "holdZone": "none",
+    "gesture": {
+      "id": "",
+      "source": "",
+      "phase": "idle",
+      "sequence": -1,
+      "startedAt": -1,
+      "updatedAt": 0
+    },
+    "threadId": "01a20817-ec00-7a70-a24b-31045066bd3e",
+    "activityId": "c4044a32-459b-4e26-b7db-64333271aeb6",
+    "buildingApp": true,
+    "appBuildTurnId": "01a20818-04ca-7313-9bf4-e135a29c5a1b",
+    "working": true,
+    "needsUser": false,
+    "online": true,
+    "pending": null,
+    "task": "running",
+    "error": null,
+    "draft": "",
+    "failedText": null,
+    "draftAttachmentNames": [],
+    "turn": {
+      "turnId": "01a20818-04ca-7313-9bf4-e135a29c5a1b",
+      "active": true,
+      "failed": false,
+      "userText": "灵动岛 Building 验收：请在 /data/local/agentos/work/island-acceptance-20261123 新建一个最小的独立 index.html 计数器应用，页面显示计数和加一按钮，使用内联 JS，不联网、不安装 APK、不修改系统设置。按已有 taku-app-development 规范标记真实构建期间的 Building 状态，完成后清除标记，并回复文件路径。仅生成这个测试应用，不修改其他文件。",
+      "headline": "我会使用 taku-app-development 规范，在构建期间标记 Building，完成后清除，并核对生成的文件。",
+      "reply": null,
+      "steps": [
+        {
+          "id": "exec-93e2c881-9bfb-4f60-bede-9bffa29013e9",
+          "kind": "act",
+          "text": "Running /system_ext/bin/bash -lc 'cat /data/local/agentos/home/.codex/sk",
+          "running": false
+        },
+        {
+          "id": "exec-f0ec321c-aa57-404c-a402-a10d79dfc3f2",
+          "kind": "act",
+          "text": "Running /system_ext/bin/bash -lc 'content call --uri content://org.agent",
+          "running": false
+        },
+        {
+          "id": "exec-cccb3773-ae69-4cd5-aa45-9450c22b14e0",
+          "kind": "act",
+          "text": "Running /system_ext/bin/bash -lc \"content call --uri content://org.agent",
+          "running": false
+        }
+      ],
+      "suggestions": []
+    },
+    "voice": {
+      "source": "engine",
+      "operationId": null,
+      "sessionId": null,
+      "target": null,
+      "phase": "Idle",
+      "ready": false,
+      "listening": false,
+      "final": false,
+      "transcript": "",
+      "preview": "",
+      "levels": [],
+      "levelSource": "pcm-rms",
+      "outcome": null,
+      "error": null,
+      "settingsScope": null,
+      "settingsRevision": null,
+      "requestedProfileId": null,
+      "profileId": null,
+      "language": null,
+      "processing": null,
+      "fallbackUsed": false,
+      "fallbackReason": null,
+      "maxCaptureMs": null,
+      "drainTimeoutMs": null,
+      "drainDeadlineMonotonicMs": null,
+      "delivery": null,
+      "retainedResult": null
+    },
+    "liveTalk": {
+      "sessionId": "4472894f-4264-4af0-a87b-da0fbed7ccba",
+      "threadId": "01a20814-b3f2-7660-a7d3-30252ad03ba7",
+      "sequence": 32,
+      "generation": 1,
+      "lifecycle": "closed",
+      "provider": "fal-grok",
+      "muted": false,
+      "capturing": false,
+      "speech": false,
+      "playback": {
+        "state": "stopped",
+        "responseId": null
+      },
+      "input": null,
+      "output": null,
+      "levels": [],
+      "task": null,
+      "error": null
+    },
+    "liveTalkDisclosure": "Live Talk sends microphone audio, conversation context, and task details for spoken replies to the provider selected in Taku Audio (Grok Voice via fal or Google Gemini Live)."
+  },
+  "island": {
+    "ok": true,
+    "settings": {
+      "enabled": true,
+      "protocol": 2,
+      "allowedPackages": [
+        "org.agentos.notebook"
+      ],
+      "error": null
+    },
+    "activities": [
+      {
+        "key": "0|org.agentos.agent|2801|taku-island:c4044a32-459b-4e26-b7db-64333271aeb6|10170",
+        "package": "org.agentos.agent",
+        "userId": 0,
+        "revision": 26,
+        "firstSeenElapsedMs": 2637941,
+        "expiresElapsedMs": 31437941,
+        "stale": false,
+        "dismissed": false,
+        "active": true,
+        "triggeredAtElapsedMs": 2637941,
+        "source": "custom-v2",
+        "tier": 3,
+        "timeoutKind": "explicit",
+        "availableActions": [
+          {
+            "id": "stop",
+            "title": "Stop"
+          },
+          {
+            "id": "open",
+            "title": "Open conversation"
+          }
+        ],
+        "payload": {
+          "version": 2,
+          "timeoutS": 28800,
+          "expanded": {
+            "template": "assistant",
+            "title": "Taku is working",
+            "body": "我会使用 taku-app-development 规范，在构建期间标记 Building，完成后清除，并核对生成的文件。",
+            "steps": [
+              {
+                "kind": "act",
+                "text": "Running /system_ext/bin/bash -lc 'cat /data/local/agentos/home/.codex/sk",
+                "running": false
+              },
+              {
+                "kind": "act",
+                "text": "Running /system_ext/bin/bash -lc 'content call --uri content://org.agent",
+                "running": false
+              },
+              {
+                "kind": "act",
+                "text": "Running /system_ext/bin/bash -lc \"content call --uri content://org.agent",
+                "running": false
+              }
+            ],
+            "actions": [
+              "stop",
+              "open"
+            ],
+            "primaryAction": "open",
+            "assistant": {
+              "token": "[redacted runtime capability]",
+              "phase": "working",
+              "suggestions": [],
+              "heightDp": 300
+            },
+            "tapAction": "open"
+          },
+          "compact": {
+            "a": {
+              "type": "animation",
+              "name": "ai-working"
+            },
+            "b": {
+              "type": "text",
+              "text": "Building..."
+            }
+          }
+        },
+        "fallback": null
+      }
+    ],
+    "presentation": {
+      "selected": "0|org.agentos.agent|2801|taku-island:c4044a32-459b-4e26-b7db-64333271aeb6|10170",
+      "compactVisible": true,
+      "reason": "agent",
+      "foregroundPackage": "org.agentos.agent",
+      "suppressedByForeground": [],
+      "secondaryKey": null,
+      "tap": "expand",
+      "compact": {
+        "text": "Building...",
+        "secondary": false,
+        "pillGlyph": null,
+        "animatingIcons": 0,
+        "disc": "working"
+      },
+      "expanded": false,
+      "card": null
+    }
+  },
+  "home": "priority=0 preferredOrder=0 match=0x108000 specificIndex=-1 isDefault=true\norg.agentos.agent/.home.HomeActivity"
+}

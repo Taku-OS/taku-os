@@ -1,0 +1,96 @@
+{
+  "ok": true,
+  "settings": {
+    "enabled": true,
+    "protocol": 2,
+    "allowedPackages": [
+      "org.agentos.island.audit.one",
+      "org.agentos.island.audit.two",
+      "org.agentos.notebook"
+    ],
+    "error": null
+  },
+  "activities": [
+    {
+      "key": "0|org.agentos.island.audit.one|1|null|10204",
+      "package": "org.agentos.island.audit.one",
+      "userId": 0,
+      "revision": 11,
+      "firstSeenElapsedMs": 2592733,
+      "expiresElapsedMs": 45792733,
+      "stale": false,
+      "dismissed": false,
+      "active": true,
+      "triggeredAtElapsedMs": 2592733,
+      "source": "live-update",
+      "tier": 3,
+      "timeoutKind": "cap",
+      "availableActions": [],
+      "payload": {
+        "version": 2,
+        "expanded": {
+          "template": "progress",
+          "title": "Audit ongoing task",
+          "body": "Disposable audit notification",
+          "actions": [],
+          "progress": {
+            "value": 0.4
+          }
+        },
+        "alert": false,
+        "compact": {
+          "a": {
+            "type": "icon",
+            "pic": "_app",
+            "tint": true
+          },
+          "b": {
+            "type": "text",
+            "text": "12 min"
+          }
+        },
+        "timeoutS": 43200
+      },
+      "fallback": null
+    }
+  ],
+  "presentation": {
+    "selected": "0|org.agentos.island.audit.one|1|null|10204",
+    "compactVisible": false,
+    "reason": "expanded",
+    "foregroundPackage": "org.agentos.agent",
+    "suppressedByForeground": [],
+    "secondaryKey": null,
+    "tap": "expand",
+    "compact": null,
+    "expanded": true,
+    "card": {
+      "key": "0|org.agentos.island.audit.one|1|null|10204",
+      "windowType": 2041,
+      "cover": true,
+      "focusable": false,
+      "layout": "body",
+      "richReady": false,
+      "renderer": "systemui-native",
+      "nativeReady": true,
+      "assistant": null,
+      "template": {
+        "renderer": "systemui-native",
+        "title": "Audit ongoing task",
+        "template": "progress",
+        "highlight": null,
+        "accentColor": null,
+        "tapAction": null,
+        "body": "Disposable audit notification",
+        "actionCount": 0,
+        "progress": 0.4
+      },
+      "progress": null,
+      "width": 1038,
+      "height": 356,
+      "top": 21,
+      "touchRegion": "SkRegion((95,0,943,1)(88,1,950,2)(83,2,955,3)(79,3,959,4)(75,4,963,5)(72,5,966,6)(69,6,969,7)(66,7,972,8)(64,8,974,9)(62,9,976,10)(59,10,978,11)(57,11,981,12)(55,12,983,13)(54,13,984,14)(52,14,986,15)(50,15,988,16)(49,16,989,17)(47,17,991,18)(46,18,992,19)(44,19,994,20)(43,20,995,21)(42,21,996,22)(40,22,998,23)(39,23,999,24)(38,24,1000,25)(37,25,1001,26)(35,26,1003,27)(34,27,1004,28)(33,28,1005,29)(32,29,1006,30)(31,30,1007,31)(30,31,1008,32)(29,32,1009,33)(28,33,1010,34)(27,34,1011,35)(26,35,1012,37)(25,37,1013,38)(24,38,1014,39)(23,39,1015,40)(22,40,1016,42)(21,42,1017,43)(20,43,1018,44)(19,44,1019,46)(18,46,1020,47)(17,47,1021,49)(16,49,1022,50)(15,50,1023,52)(14,52,1024,54)(13,54,1025,55)(12,55,1026,57)(11,57,1027,59)(10,59,1027,60)(10,60,1028,62)(9,62,1029,64)(8,64,1030,66)(7,66,1031,69)(6,69,1032,72)(5,72,1033,75)(4,75,1034,79)(3,79,1035,83)(2,83,1036,88)(1,88,1037,95)(0,95,1038,261)(1,261,1037,268)(2,268,1036,273)(3,273,1035,277)(4,277,1034,281)(5,281,1033,284)(6,284,1032,287)(7,287,1031,290)(8,290,1030,292)(9,292,1029,294)(10,294,1028,296)(10,296,1027,297)(11,297,1027,299)(12,299,1026,301)(13,301,1025,302)(14,302,1024,304)(15,304,1023,306)(16,306,1022,307)(17,307,1021,309)(18,309,1020,310)(19,310,1019,312)(20,312,1018,313)(21,313,1017,314)(22,314,1016,316)(23,316,1015,317)(24,317,1014,318)(25,318,1013,319)(26,319,1012,321)(27,321,1011,322)(28,322,1010,323)(29,323,1009,324)(30,324,1008,325)(31,325,1007,326)(32,326,1006,327)(33,327,1005,328)(34,328,1004,329)(35,329,1003,330)(37,330,1001,331)(38,331,1000,332)(39,332,999,333)(40,333,998,334)(42,334,996,335)(43,335,995,336)(44,336,994,337)(46,337,992,338)(47,338,991,339)(49,339,989,340)(50,340,988,341)(52,341,986,342)(54,342,984,343)(55,343,983,344)(57,344,981,345)(60,345,978,346)(62,346,976,347)(64,347,974,348)(66,348,972,349)(69,349,969,350)(72,350,966,351)(75,351,963,352)(79,352,959,353)(83,353,955,354)(88,354,950,355)(95,355,943,356))",
+      "outsideTapCollapses": false
+    }
+  }
+}

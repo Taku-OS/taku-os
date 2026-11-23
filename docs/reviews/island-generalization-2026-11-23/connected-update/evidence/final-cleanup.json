@@ -1,0 +1,30 @@
+{
+  "working": false,
+  "buildingApp": false,
+  "voiceListening": false,
+  "liveTalk": {
+    "sessionId": "4472894f-4264-4af0-a87b-da0fbed7ccba",
+    "threadId": "01a20814-b3f2-7660-a7d3-30252ad03ba7",
+    "sequence": 32,
+    "generation": 1,
+    "lifecycle": "closed",
+    "provider": "fal-grok",
+    "muted": false,
+    "capturing": false,
+    "speech": false,
+    "playback": {
+      "state": "stopped",
+      "responseId": null
+    },
+    "input": null,
+    "output": null,
+    "levels": [],
+    "task": null,
+    "error": null
+  },
+  "allowedPackages": [
+    "org.agentos.notebook"
+  ],
+  "remainingAuditPackages": "",
+  "onboardingStep": "dismissed"
+}

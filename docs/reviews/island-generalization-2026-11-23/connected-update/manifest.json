@@ -1,0 +1,242 @@
+[
+  {
+    "path": "evidence/10-third-custom-capsule.json",
+    "sha256": "f07ef92e1214df9be639f2bbc6bf93d27053cbca6f1b2b4ccd2d2145ac0c9d04",
+    "bytes": 1909
+  },
+  {
+    "path": "evidence/11-third-custom-expanded.json",
+    "sha256": "ddfae0b97ef9347b556b5ac56d988f24cda0f3d759c6d726762b3069aa5fbac9",
+    "bytes": 4437
+  },
+  {
+    "path": "evidence/13-third-return-home.json",
+    "sha256": "ddfae0b97ef9347b556b5ac56d988f24cda0f3d759c6d726762b3069aa5fbac9",
+    "bytes": 4437
+  },
+  {
+    "path": "evidence/14-third-live-update-capsule.json",
+    "sha256": "2094297b6046f17b611cd2e4d96feced4fd478c524c97a9fd2711f85f84b5e54",
+    "bytes": 1765
+  },
+  {
+    "path": "evidence/15-third-live-update-expanded.json",
+    "sha256": "0797b781594dc83b6a5925678cf4c040844b27bf8a0fe79b7845592800e205e9",
+    "bytes": 4295
+  },
+  {
+    "path": "evidence/16-third-multiple.json",
+    "sha256": "3f4d9caff395ba7734f4aa283fc3999733abaf00bbae3a5849125dfc7f7a55fe",
+    "bytes": 3144
+  },
+  {
+    "path": "evidence/17-third-swipe-next.json",
+    "sha256": "585cf82d28d02ca1c78aff2366c730e1f575047976512702973e9f458ead0dd0",
+    "bytes": 3143
+  },
+  {
+    "path": "evidence/18-third-hide.json",
+    "sha256": "585cf82d28d02ca1c78aff2366c730e1f575047976512702973e9f458ead0dd0",
+    "bytes": 3143
+  },
+  {
+    "path": "evidence/audio-settings.json",
+    "sha256": "0870f4ca3c64d8250101d70f7d8c75147374e6d2bd8f556dbf9dab443c36677e",
+    "bytes": 977
+  },
+  {
+    "path": "evidence/building-finished.json",
+    "sha256": "8184174a70a6a6ec0b05c3c7e5bc5ac1cfb905f783f59fd77c5638c8a70c5d85",
+    "bytes": 4198
+  },
+  {
+    "path": "evidence/building-home.json",
+    "sha256": "82a8d02afe08adf436077c7408a8249437d637b85107a84450e5769760d1c5bc",
+    "bytes": 6982
+  },
+  {
+    "path": "evidence/chat-choice-followup.json",
+    "sha256": "26141273d749d1408a74d27268d3c4ce751b305e64da0cc4e2ac3696cd6a7091",
+    "bytes": 417
+  },
+  {
+    "path": "evidence/connections.json",
+    "sha256": "9f380a50e3ae5d49199eeff1ed6d1710309ff7e828c6c937ccdd28c689229a91",
+    "bytes": 218
+  },
+  {
+    "path": "evidence/conversation-open.json",
+    "sha256": "c755146f2221dc5825c61c6d7c2c94a6de000409f16b280d1bfb8b2117ee463e",
+    "bytes": 2544
+  },
+  {
+    "path": "evidence/conversation-return-home.json",
+    "sha256": "c755146f2221dc5825c61c6d7c2c94a6de000409f16b280d1bfb8b2117ee463e",
+    "bytes": 2544
+  },
+  {
+    "path": "evidence/final-cleanup.json",
+    "sha256": "585302410ae263488817ddc5835f6d69b3aa15ade2bbda56402513b71694e33d",
+    "bytes": 658
+  },
+  {
+    "path": "evidence/live-result.json",
+    "sha256": "583afb7fc841b854e7b58c0c7fdfd459365a66db35be5b6be5c01561cb4cdf4b",
+    "bytes": 2303
+  },
+  {
+    "path": "evidence/live-start.json",
+    "sha256": "fca028cb49c8678b6a0f8e0917b1b0d789a0aa71c2400636842c0b7eccd2791e",
+    "bytes": 2071
+  },
+  {
+    "path": "evidence/live-stopped.json",
+    "sha256": "f93508ef1c584ca26c37e9e3d9735cc5f86b3cff4b209638dc5d7ca8b0e4aaec",
+    "bytes": 2075
+  },
+  {
+    "path": "evidence/local-microphone.json",
+    "sha256": "f586e70085037f962cc790ca819829d52813f55aff9aa7780cd4262b69cf8964",
+    "bytes": 311
+  },
+  {
+    "path": "evidence/packages-verified.json",
+    "sha256": "710a0e9f42616fdc716ae81165d7dac534b16ba46de3133ee16f00757b5e6ee9",
+    "bytes": 454
+  },
+  {
+    "path": "evidence/real-reply.json",
+    "sha256": "03a5f760a0ab8548f31bb7ff702ee1b0b04591f87f08ba435ed816d7d58384ff",
+    "bytes": 2548
+  },
+  {
+    "path": "evidence/real-working.json",
+    "sha256": "cd9b0e72db7ecc40c08aa2771fc920a37c1273bf3aeb4595203807f142348ab1",
+    "bytes": 1921
+  },
+  {
+    "path": "evidence/third-cleanup.json",
+    "sha256": "3705a3d5f2ecae82ecd37f8270a292200cea90cc55655a59ba2951f80319d4a3",
+    "bytes": 70
+  },
+  {
+    "path": "evidence/third-hide-confirmed.json",
+    "sha256": "ac432c20f2e305e03a59fc36cf5d2a2c2c1751f60d01767ac41e3308b7fd15eb",
+    "bytes": 5506
+  },
+  {
+    "path": "evidence/third-original-allowed.json",
+    "sha256": "271bc6cab61a37f100b40040221200012df9ff57ca6a09d7217ea309688ddcd0",
+    "bytes": 29
+  },
+  {
+    "path": "images/00-emulator-configured.png",
+    "sha256": "86a056e3cdaa13eb630d92df50e005014d69decddff45414d7a354d9652022fe",
+    "bytes": 801172
+  },
+  {
+    "path": "images/01-text-entry.png",
+    "sha256": "9d70c5c1ab743cd2ca3c317d403a1ced8f596046cd3eda53424001a619f29181",
+    "bytes": 468798
+  },
+  {
+    "path": "images/02-real-working.png",
+    "sha256": "7064c244f6375cfcd4506f79e4d83c1681b04e0d5f15e073d11e168f4bed9290",
+    "bytes": 748907
+  },
+  {
+    "path": "images/03-real-reply.png",
+    "sha256": "27345ec01e5b142b57bbb9b61c01f75cb616f05a0c9339ddbffbfb90be1c4b34",
+    "bytes": 460794
+  },
+  {
+    "path": "images/04-real-conversation.png",
+    "sha256": "5719a368cca6510e996185ed124d9e42210e8ffd01b9f4b912dd1a0ea92e1044",
+    "bytes": 312594
+  },
+  {
+    "path": "images/05-return-home.png",
+    "sha256": "0493e4bee4c963160d5e3cc59548d45f9e842f5c52bdd4f15b0b92660fc71b0e",
+    "bytes": 609031
+  },
+  {
+    "path": "images/06-fal-connected.png",
+    "sha256": "5d08ae954f78fd8b444afa5844d99d528f98f712d2eb55fa02ad64541214bfb6",
+    "bytes": 536044
+  },
+  {
+    "path": "images/07-live-talk-result.png",
+    "sha256": "f2b6c05dfa553ba763e1d66554ac379dcfcf33f96fb929fd1553544ca1f220a8",
+    "bytes": 422187
+  },
+  {
+    "path": "images/08-local-listening.png",
+    "sha256": "50a5ab5daf4cb2beb50c650632f074d7278aadd45c85a5a7dbd7e5bf02098c22",
+    "bytes": 963497
+  },
+  {
+    "path": "images/10-third-custom-capsule.png",
+    "sha256": "86c5c69c9df5d8c9e331f7f89db06a12c8209bdf6c2b02c51b47465443085691",
+    "bytes": 612598
+  },
+  {
+    "path": "images/11-third-custom-expanded.png",
+    "sha256": "cb4d40f1e52d40b686997bac3b7a4b14cdde3c784783e7f0ab0a916e21fd7389",
+    "bytes": 584134
+  },
+  {
+    "path": "images/12-third-enter-app.png",
+    "sha256": "6270e8bf3d962460abafdf56c125e758b89194cbdca8275c96272b4e167d55a3",
+    "bytes": 64284
+  },
+  {
+    "path": "images/13-third-return-home.png",
+    "sha256": "cb4d40f1e52d40b686997bac3b7a4b14cdde3c784783e7f0ab0a916e21fd7389",
+    "bytes": 584134
+  },
+  {
+    "path": "images/14-third-live-update-capsule.png",
+    "sha256": "8eca2a6da97801b994999e479b688f191aa1a0b7b16a7ba503b083d16a7bdf11",
+    "bytes": 610404
+  },
+  {
+    "path": "images/15-third-live-update-expanded.png",
+    "sha256": "8d2408807ab9f000468d60ea2ba288797ba20acb749b70565cf8a39db08bb6db",
+    "bytes": 583250
+  },
+  {
+    "path": "images/16-third-multiple.png",
+    "sha256": "e8bc677bb80ad9df6acea1b1ce62f2b92e9a20a1ac399538307c120063456df7",
+    "bytes": 611220
+  },
+  {
+    "path": "images/17-third-swipe-next.png",
+    "sha256": "8ceb7ebec6e4b00b6e99d6594f87efa77164b9948ba048afb1928b156bf71b79",
+    "bytes": 613622
+  },
+  {
+    "path": "images/18-third-hide.png",
+    "sha256": "2a0db22459e8ce402e881a89e8cae9ca47c303ec1ac5321b4d22ce2395226e26",
+    "bytes": 612308
+  },
+  {
+    "path": "images/19-third-hide-confirmed.png",
+    "sha256": "1d9feb1865a32828a37270aee3a2d1d2d5f74f7de5c73750c09e461df8c41c7d",
+    "bytes": 612568
+  },
+  {
+    "path": "images/20-real-building-home.png",
+    "sha256": "05969815acfc4e53d1ae7e8b359bf79d2e8ef57120770bd190ecbbb56444380d",
+    "bytes": 699884
+  },
+  {
+    "path": "images/21-real-building-finished.png",
+    "sha256": "78c2e37fafe059ac133858231fbbe337953846c61bb58da1b41ceb20a517d480",
+    "bytes": 458042
+  },
+  {
+    "path": "images/22-chat-choice-followup.png",
+    "sha256": "bb31088a5b517f57a7197a52aaee86f88290b1baed7e2a7e12ff4d1ec1d14065",
+    "bytes": 356752
+  }
+]
