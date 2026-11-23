@@ -31,7 +31,7 @@
     {
       "command": "python3 tests/tryon-delivery.test.py",
       "status": "passed",
-      "details": "8 packaging corruption/path/symlink/inventory/signature-metadata/dirty-source cases"
+      "details": "8 packaging corruption/path/symlink/inventory/signature-metadata/dirty-source cases; rerun with required CHARACTER.zh-CN.md included and hash-checked in future assemblies"
     },
     {
       "command": "native97 / observer30 main and Pixel adapter builds",
@@ -42,6 +42,21 @@
       "command": "apksigner verify --print-certs and aapt2 dump badging",
       "status": "passed",
       "details": "All five replaced APKs checked for exact package/version/certificate; final hashes pinned in artifacts.json"
+    },
+    {
+      "command": "bash system/agent-app/modules/taku-home/scripts/test-character-tryon.sh",
+      "status": "passed",
+      "details": "23 existing JVM policy/text/voice-handoff tests; documentation supplement rerun; existing JDK23/Kotlin2.3.20/JUnit cache, no downloads; no device, ASR, camera or cloud"
+    },
+    {
+      "command": "python3 system/agent-app/modules/taku-home/scripts/test-character-owner.py",
+      "status": "passed",
+      "details": "29 actual-owner host scenarios / 145 assertions; existing JDK23/Kotlin2.3.20/org.json20240303 cache; ownership, cancellation, expiry and explicit confirmation; Android/provider/Activity doubles, no device or cloud"
+    },
+    {
+      "command": "npm run check:structure",
+      "status": "passed",
+      "details": "Offline structure gate: local Markdown links and source paths valid; no device, model or ROM acceptance"
     }
   ],
   "carriedForwardChecks": [
@@ -86,7 +101,12 @@
       "fullPixelTouchAcceptanceClaimed": false
     },
     "userFeedback": "User reported the earlier LIVE flow basically worked; this is not acceptance for every fresh candidate.",
-    "scope": "Earlier versions; never transferred as current end-to-end acceptance"
+    "scope": "Earlier versions; never transferred as current end-to-end acceptance",
+    "characterVoice": {
+      "returnedFrames": 155,
+      "reference": "docs/reviews/tiktok-character-main-2026-11-21/README.md",
+      "scope": "Recorded real speech and video from the stated historical component versions; not new Native96/97 acceptance"
+    }
   },
   "recordedPixelEvidence": {
     "native96": {
@@ -115,7 +135,8 @@
     "generatedFrames": 0,
     "exactRootCauseKnown": false,
     "safeReasonAvailable": false,
-    "localCleanupConfirmed": true
+    "localCleanupConfirmed": true,
+    "scope": "Original recorded LIVE initialization in the frozen e059 delivery. Later provider reason is recorded separately below; frozen ZIP is not rewritten."
   },
   "freshCandidateIsolatedEmulator": {
     "status": "passed",
@@ -147,10 +168,41 @@
     "New source97/30/9 physical-device runtime acceptance",
     "Recorded Native96 natural60s timeout and real close-button PID continuity checks",
     "Normal SystemUI Soong source build",
-    "Clean full-ROM installation, cold boot and OTA"
+    "Clean full-ROM installation, cold boot and OTA",
+    "New physical character voice/text-to-video acceptance for Native96/97 and matching Home/Launcher/system setup"
   ],
   "physicalDeviceMutationsByRefresh": false,
   "deviceReads": "Refresh assembles existing code APKs/runtime files and curated prior evidence; no phone app data or credentials",
-  "remotePush": false,
-  "publicRelease": false
+  "remotePush": true,
+  "publicRelease": false,
+  "followUpCloudDiagnosis": {
+    "profile": "decart/lucy2-vton/realtime",
+    "transportError": "INTERNAL_ERROR",
+    "providerReason": "Decart: Concurrent session limit reached.",
+    "independentDesktopInitializationReproduced": true,
+    "mediaOrSdpSent": false,
+    "sessionHolderKnown": false,
+    "recoveryVerified": false,
+    "managementRequiresAdmin": true,
+    "characterLucy26InvokedBySupplement": false
+  },
+  "characterDocumentationSupplement": {
+    "frozenSourceCommit": "e059d1846ed5a458782e4f21ecaa3668b26a83b5",
+    "frozenZip": "live-tryon-delivery-20261123.zip",
+    "frozenZipSha256": "7a7462e236deca557ff3f04fd8f04b0a14c319151b9d16789b10249ea2b74d0f",
+    "frozenZipCrc": "passed: 26 files",
+    "artifactInventoryAndHashes": "passed: all 24 manifest-locked payload files",
+    "apkCharacterContent": "DirectCosplayActivity manifest/class and Lucy2.6/prepareCosplay in Native96/97; Home12 gesture/reference entry and Assistant119 legacy view host",
+    "matchingEnvironmentStillRequired": true,
+    "launcherOrFullRomIncluded": false,
+    "guide": "docs/tryon-delivery/CHARACTER.zh-CN.md",
+    "newGuideInFrozenZip": false,
+    "applicationInputsChanged": false,
+    "apkRebuilt": false,
+    "frozenZipModified": false,
+    "freshCharacterPhysicalEndToEnd": "not run",
+    "newDeviceAgentGuiParityClaimed": false,
+    "physicalDeviceOrModelStarted": false
+  },
+  "pullRequest": "https://github.com/Taku-OS/taku-os/pull/36"
 }

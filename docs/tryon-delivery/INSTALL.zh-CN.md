@@ -1,5 +1,9 @@
 # 安装和首次使用
 
+本页包含 LIVE 试穿和 TikTok 视频角色换装的共用安装要求。角色功能的完整入口、
+配置与独立验收步骤见[角色换装补充说明](CHARACTER.zh-CN.md)。该补充在线文档不改变
+已冻结测试 ZIP 的源码版本或 APK 哈希，也不表示原 ZIP 已含此新增文件。
+
 ## 先选择对应的包
 
 `verified-device/` 是记录中的 Pixel 9 开发组件组合；`source-build/` 是当前交付分支
@@ -61,6 +65,21 @@ Observer 升级后，若“主动性 → 观察者”显示“更新待确认”
 不需要把 key 发给开发者、写入源码或重新编译 APK。界面的 **Remove key** 可以移除
 本应用保存的对应密钥。只改模型或保存 key 不会开启相机或模型会话。
 每次明确开始或重试最多打开 60 秒会话，费用由用户自己的服务商账户承担。
+
+## 第一次配置与使用：TikTok 角色换装
+
+在 **Taku Try-On** 将 **Mode** 选为 **Character**、provider 选 **Lucy** 并保存，
+使用自己的 fal key。此模式使用 fal 的 Lucy 2.6，和 LIVE VTON 端点分开；
+不要把 Decart 直连 key 填入当前 fal key 栏。
+在 **TikTok character requests** 开启 **Enable voice character requests** 和
+**Allow camera preview after Try on**；默认关闭/voice-only 不会出现相机模型预览。
+
+打开 TikTok 普通角色视频，长按底部白条，等 **Taku is listening…** 后说完整请求，
+例如 **Help me put on this outfit of his**，说完松手并等待确认，点 **Try on** 开始。
+也可双击底部白条，输入 **帮我换成这个角色** 后发送，再确认 Try on。
+该流程需要匹配的 Home、Assistant、Audio、SystemUI、Try-On 与系统截图授权；
+文字入口不需要麦克风，角色入口不需要先开启 LIVE Observer 的自动识衣。
+逐项配置、取消/退出及待验收范围见[角色换装补充说明](CHARACTER.zh-CN.md)。
 
 ## 第一次配置：LIVE 观察和识衣
 

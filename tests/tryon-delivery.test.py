@@ -20,7 +20,7 @@ class DeliveryTest(unittest.TestCase):
         self.base = Path(self.temp.name)
         self.repo = self.base / 'repo'; self.repo.mkdir()
         docs = self.repo / 'docs/tryon-delivery'; docs.mkdir(parents=True)
-        for name in ['README.md', 'INSTALL.zh-CN.md', 'BUILD.md', 'PR.md', 'CHECKS.json']:
+        for name in ['README.md', 'INSTALL.zh-CN.md', 'CHARACTER.zh-CN.md', 'BUILD.md', 'PR.md', 'CHECKS.json']:
             (docs / name).write_text('fixture\n')
         self.inputs = self.base / 'inputs'
         self.artifact = self.inputs / 'verified-device/apk/org.example.app.apk'
@@ -43,6 +43,9 @@ class DeliveryTest(unittest.TestCase):
 
     def test_round_trip_and_no_extra_files(self):
         self.assertTrue(self.assemble()['ok'])
+        manifest = json.loads((self.base / 'output/manifest.json').read_text())
+        self.assertEqual(manifest['files']['CHARACTER.zh-CN.md'],
+                         delivery.digest(self.repo / 'docs/tryon-delivery/CHARACTER.zh-CN.md'))
         subprocess.run(['git', 'bundle', 'verify', str(self.base / 'output/source.bundle')],
                        cwd=self.repo, check=True, capture_output=True)
         output = self.base / 'output'; (output / 'unexpected.key').write_text('extra')

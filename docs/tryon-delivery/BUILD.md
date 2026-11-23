@@ -1,5 +1,17 @@
 # Build and assemble the preview
 
+The handoff covers two entries into the same native app: TikTok clothing LIVE
+and the Home/Taku character request. See `CHARACTER.zh-CN.md` for the character
+setup and acceptance checklist. Character uses Lucy 2.6; LIVE uses the VTON
+profile. A successful build or a historical result from one profile does not
+accept the other entry.
+
+The already backed-up `live-tryon-delivery-20261123.zip` remains the frozen
+`e059d1846ed5a458782e4f21ecaa3668b26a83b5` delivery. The character documentation
+supplement changes no application inputs and requires no APK rebuild. Keep that
+ZIP's original manifest and hashes; link or provide the supplement separately.
+Future assemblies include the new guide and record their own source commit.
+
 Use a clean checkout of the delivery commit. Requirements: Node.js 22+, Python 3.11+,
 JDK 17+, Android SDK platform/build-tools 36, zip and unzip. No device or model
 account is needed to build. Model keys are supplied on the installed device only.
@@ -41,6 +53,10 @@ The restored capsule uses the existing platform-signed Assistant legacy view
 host only when its exact component and HOST_ISLAND_VIEW grant are available.
 This module includes the client, not a privileged host service. See INSTALL.zh-CN.md
 for the dependency and the ordinary overlay fallback's status-bar input limit.
+The character entry also needs a matching Launcher/Quickstep gesture bridge and
+Home/Audio setup. The frozen component bundle contains no Launcher APK or full
+ROM; its Home/Assistant artifacts are the separately recorded development set,
+not newly rebuilt Home/Assistant candidates for this documentation change.
 
 ## System integration
 

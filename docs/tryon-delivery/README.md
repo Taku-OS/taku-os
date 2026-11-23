@@ -1,8 +1,14 @@
-# TikTok LIVE 换装开发预览交付
+# TikTok 直播试穿与角色换装开发预览交付
 
 本交付面向配套 Taku OS 的 Pixel 9 开发环境。用户在服装直播中确认 Try on，
 系统识别当前衣服，再由原生换装应用打开前摄并显示 Lucy 返回的视频。
 小窗可以移动、缩放、放大和关闭。关闭、失败或超时会进入原有资源清理流程。
+
+同一份原生应用也接收 Home/Taku 助手的角色参考：在 TikTok 普通视频中长按底部
+白条，说出完整角色换装请求并确认 Try on，或通过底部双击输入文字请求，再进入
+前摄小窗。角色模式以屏幕截图为参考，要求转移服饰和穿戴配饰、保留本人脸和头发；
+模型提示不构成人像一致性的保证。角色入口、配置和独立验收步骤见
+[角色换装说明](CHARACTER.zh-CN.md)。它不要求先启用服装 LIVE Observer。
 
 ## 交付内容
 
@@ -10,7 +16,22 @@
 - 独立的 LIVE 观察组件和原生换装应用；顶部展示仍由配套系统组件负责。
 - 本地交付包：`verified-device/` 保存既有真机组合，`source-build/` 保存本分支新构建候选。
 - `source.bundle`、`source.patch`、`manifest.json`、`SHA256SUMS`、源码版本与验证摘要。APK、运行时二进制和归档不提交 Git。
-- [安装使用](INSTALL.zh-CN.md)、[构建与打包](BUILD.md)和 [PR 说明](PR.md)。
+- [安装使用](INSTALL.zh-CN.md)、[角色换装](CHARACTER.zh-CN.md)、[构建与打包](BUILD.md)
+  和 [PR 说明](PR.md)。
+
+## 已备份测试包与本次补充说明
+
+`live-tryon-delivery-20261123.zip` 仍固定为源码提交
+`e059d1846ed5a458782e4f21ecaa3668b26a83b5`，SHA-256 为
+`7a7462e236deca557ff3f04fd8f04b0a14c319151b9d16789b10249ea2b74d0f`。
+本次补充核对了包内 Native 96 / 97 的角色 Activity、Lucy 2.6 传输，以及
+Home 12 / Assistant 119 的角色入口和系统宿主。它已经包含角色核心组件；
+本次只补文档和打包文档清单，不修改或重编 APK，也不覆盖原 ZIP、清单和哈希。
+新增角色说明是该冻结包的补充文件，不能据此把原包标成当前文档提交的新构建。
+
+包内没有 Quickstep/Launcher APK，也不是完整 ROM；长按和双击仍要求已有匹配的
+Launcher 手势桥、默认系统助手、屏幕上下文权限及开发运行时。安装仍须先确认系统
+基线和签名。角色二进制存在、历史成功、当前端到端通过分别记录，不能互相替代。
 
 两组安装包有各自的版本、签名和验证范围，不交叉替换。记录中的 Pixel 组合更新为
 Native 96 / Observer 29；本分支重新构建的候选为 Native 97 / Observer 30，配套
@@ -31,7 +52,7 @@ Native 93 的右上角按钮、Native 92 的队列修复和既有单次授权交
 | Taku AI / Assistant | 图片识别模型配置、逐应用许可和既有系统运行时 |
 | Proactivity / Surfaces | 已批准提示、用户动作与展示连接的生命周期 |
 | SystemUI | 顶部灵动岛和原生助手卡片 |
-| Home / Audio | 原有助手与语音入口；LIVE 手动 Try on 不要求用户重复说英语 |
+| Home / Audio | 角色换装的底部手势、明确请求、确认和语音识别；LIVE 手动 Try on 不要求语音 |
 
 ## 用户自带密钥
 
@@ -53,8 +74,10 @@ Native 96 在一次初始化失败后确认本地连接和相机清理完成，�
 相机或模型；模拟器克隆已删除，原 AVD 的 21 个文件哈希前后未变。该检查不代替新的
 真机、云端或 content provider 在机验收，后者共享处理逻辑由 host suite 覆盖。
 
-Lucy 仍存在未解决的 INTERNAL_ERROR：已记录的一次请求在约 9.4 秒后失败，未返回
-视频帧。现有记录不足以确定云端内部根因。Native 96 的真实关闭按钮、自然 60 秒
+后续独立的 LIVE VTON 初始化复现捕获了 `INTERNAL_ERROR` 背后的上游拒绝原因：
+`Decart: Concurrent session limit reached.`。占用者及恢复仍未查清；该诊断不修改
+原包的历史记录。本次没有请求角色模式的 Lucy 2.6，不能将 VTON 结果当作角色模式
+新的成功或失败验收。Native 96 的真实关闭按钮、自然 60 秒
 退出及进程持续性回归仍待完成；本分支新构建的 Native 97 / Observer 30 也尚未完成
 新的真机验收。逐项状态见 CHECKS.json。
 

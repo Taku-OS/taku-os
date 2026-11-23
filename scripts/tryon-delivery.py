@@ -132,7 +132,7 @@ def assemble(artifacts, output, declaration, repo=ROOT):
         if path.stat().st_size != item['bytes'] or digest(path) != item['sha256']:
             raise ValueError('Input checksum differs: ' + item['file'])
         inputs.append((item['file'], path))
-    docs = ['README.md', 'INSTALL.zh-CN.md', 'BUILD.md', 'PR.md', 'CHECKS.json']
+    docs = ['README.md', 'INSTALL.zh-CN.md', 'CHARACTER.zh-CN.md', 'BUILD.md', 'PR.md', 'CHECKS.json']
     for name in docs:
         inputs.append((name, regular_file(repo, (DOCS / name).as_posix())))
     inputs.append(('verify.py', Path(__file__).resolve()))

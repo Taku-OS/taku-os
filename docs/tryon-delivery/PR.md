@@ -1,13 +1,21 @@
-# feat(tryon): deliver TikTok LIVE outfit preview with user-owned Lucy credentials
+# feat(tryon): add TikTok LIVE outfit and character previews
 
 ## What changed
 
-An explicit Try on in a supported TikTok clothing LIVE prepares the actual outfit
-reference and hands one short-lived admission to the native front-camera preview.
-The result stays in a movable small window with separate expand/close targets.
-The existing Home character path, actual returned-frame reveal and camera/RTC
-cleanup remain authoritative. Lucy credentials are configured by each user in
-Taku Try-On and are never included in the source or delivery.
+Two explicit TikTok entries hand one short-lived admission to the same native
+front-camera preview. Each keeps the actual returned-frame reveal, movable small
+window, separate expand/close targets and existing camera/RTC cleanup.
+
+| Case | Entry and reference | Native profile |
+| --- | --- | --- |
+| Clothing LIVE | Accept Try on in a supported clothing LIVE; the Observer prepares the actual outfit reference | Lucy VTON |
+| On-screen character | Hold the system navigation handle and make a complete character/outfit request, or double-tap and submit text; confirm Try on using that invocation's TikTok screenshot | Lucy 2.6 |
+
+The character prompt requests clothing and wearable accessories while preserving
+the user's face and hair; it is not an identity-fidelity guarantee. Character
+does not require enabling the LIVE Observer or configuring its outfit-recognition
+model. Voice requests still need the existing Home/Audio setup. Each user sets
+their own fal API key for the selected mode in Taku Try-On. No key is bundled.
 
 Integrate the LIVE observer with the native source branch, share its handoff
 contract, retain the startup acknowledgement and informational RTC queue fix,
@@ -23,6 +31,16 @@ anchor checks. Keep the approved corner controls and terminal failure card.
 Abort the raw signaling connection immediately on stop, then close TLS/WebSocket
 on the existing cleanup actor and wait for late socket creation before confirming
 local cleanup. No automatic paid retry or new UI is introduced.
+
+Add a dedicated [character setup and acceptance guide](https://github.com/Taku-OS/taku-os/blob/codex/live-tryon-delivery-local/docs/tryon-delivery/CHARACTER.zh-CN.md)
+and separate the two cases' verification scope. The already backed-up November 23
+ZIP remains fixed to `e059d1846ed5a458782e4f21ecaa3668b26a83b5` and SHA-256
+`7a7462e236deca557ff3f04fd8f04b0a14c319151b9d16789b10249ea2b74d0f`.
+Content inspection confirms its Native 96/97 character entry/profile and the
+recorded Home 12 / Assistant 119 support. This supplement changes documentation
+and the future assembly's document inventory only: no application code or APK
+is changed or rebuilt. The new guide supplements the frozen archive; it is not
+retroactively present in that ZIP or proof of new physical-device acceptance.
 
 ## Type of change
 
@@ -50,6 +68,13 @@ must remain attached to the exact commit and package hashes.
 | Physical device | Recorded Native 96 local cleanup after failed initialization, with no new crash observed; Observer 29 automatic invitation stable for 24.81 seconds without starting try-on. Fresh 97/30 candidates are not newly installed by this delivery task |
 | Full ROM | Not run; normal SystemUI Soong build, clean-image install, reboot and OTA acceptance remain pending |
 
+Character-specific historical evidence includes real voice-to-video output
+(155 returned frames) and later typed-entry/camera results. Those recordings use
+their stated earlier component versions; they are not acceptance for Native
+96/97. The documentation supplement runs the existing host-only character policy
+and actual-owner suites and the packaging regression; results are in CHECKS.json.
+No Pixel, microphone, camera, ASR or model session is started by these checks.
+
 ## Agent parity
 
 Native UI and `content://org.taku.tryon.api` share the same controller and state.
@@ -68,13 +93,19 @@ retained; no new device/UI parity test is claimed for packaging-only commands.
 - The five follow-up repairs are included in source and rebuilt candidates. The
   recorded Pixel set is updated to Native 96 / Observer 29; historical success on
   older packages is not acceptance for this new source build.
-- Lucy still returned platform INTERNAL_ERROR during initialization in a recorded
-  attempt at about 9.4 seconds, with zero generated frames. The exact upstream
-  cause remains unknown. Natural 60-second timeout and real close-button process
-  persistence checks for Native 96, and fresh 97/30 device acceptance, are pending.
+- Follow-up independent LIVE VTON initialization captured upstream Decart
+  `Concurrent session limit reached` behind `INTERNAL_ERROR`, before media.
+  Session ownership and recovery remain unresolved; management requests need
+  ADMIN credentials. These local diagnostics do not modify the frozen artifact.
+  This supplement does not invoke character Lucy 2.6, so the VTON rejection is
+  not a new success or failure test of that profile. Natural 60-second timeout,
+  real close-button process persistence, and new candidate acceptance remain pending.
 - The restored input path needs the existing platform-signed Assistant legacy
   view-host service and HOST_ISLAND_VIEW grant. Ordinary overlay fallback cannot
   receive input above the system status bar; no privileged service is bundled.
+- The component bundle has no Quickstep/Launcher APK and is not a full ROM.
+  Character needs the matching gesture bridge, default system assistant,
+  enabled screen-context settings and existing Home/Audio configuration.
 - This is a development-preview handoff, not an arbitrary-Android installer or
   a publicly released ROM. TikTok UI changes and provider session limits remain
   real failure conditions. Each retry remains explicit and bounded.
@@ -88,5 +119,6 @@ retained; no new device/UI parity test is claimed for packaging-only commands.
 - [x] Third-party native dependencies retain their existing lock and license notices
 - [ ] Integrator completes normal SystemUI/ROM source build and cold-boot acceptance before public release
 
-Prepared locally with AI assistance. This handoff does not create a remote PR,
-push a branch, publish a release or certify a new full ROM.
+Prepared with AI assistance. This Draft PR publishes source and documentation
+for review. Binary test artifacts are shared separately; this does not publish
+a ROM, deploy to a device, or certify either case for production.
