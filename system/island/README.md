@@ -123,6 +123,11 @@ adb shell cmd statusbar island setEnabled 1
 adb shell cmd statusbar island setAllowed org.example.app,org.example.other
 ```
 
+Protocol: `taku.island.v2` ([schema](../../spec/taku-island-v2.schema.json), [developer guide](../../docs/dynamic-island-developer.md));
+v1 extras are adapted onto the same canonical payload. Host tests (`test.sh`) cover the store,
+access policy, v2 validator and v1 adapter (via a test-only `android.util.JsonReader` shim) and
+system-source classification.
+
 Provider queries return one `json` column; provider calls return a Bundle containing `json`.
 Callers are authorized first (`IslandAccessPolicy`). UID 0/1000/2000, SystemUI and platform-signed
 packages have full access. Third-party apps get only `capabilities` and `canShowIsland` for their own

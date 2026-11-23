@@ -1,6 +1,7 @@
 # Dynamic Island v2: third-party activities — implementation spec
 
-Status: **owner decisions recorded (2026-11-23); implementation on `vela/dynamic-island`.**
+Status: **implemented in source on `vela/dynamic-island` (stages P0–P6); device acceptance pending**
+([ledger](dynamic-island-progress.md)).
 Origin: [issue #30](https://github.com/Taku-OS/taku-os/issues/30) (Notebook asked to publish to the
 island). Builds on [the current architecture](dynamic-island-architecture.md), the native renderer
 and the onboarding island work already on `main`.

@@ -57,3 +57,22 @@ the issue's no-focus requirement. Remove that exception, integrate platform Back
 repeat both IME orderings/outside-input checks. Issue #28 remains open. Physical Pixel acceptance,
 production publication, AI/backend acceptance, event arbitration, accessibility and performance
 remain pending.
+
+## Dynamic Island v2 (issue #30, branch `vela/dynamic-island`, 2026-11-23)
+
+[Spec](dynamic-island-v2-spec.md) · [developer guide](dynamic-island-developer.md) ·
+[schema](../spec/taku-island-v2.schema.json)
+
+| Stage | Code | Local verification on this host | Cloud/device acceptance |
+|---|---|---|---|
+| 0: provider authorization | `IslandAccessPolicy` + caller checks in `IslandProvider` | 105 host policy checks | Pending: matrix of shell, platform, granted and ungranted third-party callers on the patched image |
+| 1: protocol v2 | v2 validator, v1 adapter, canonical payload, Live Updates mapping (large icon, ProgressStyle, `setTimeoutAfter`), recency order, 1 h/12 h lifetime | 86 payload/adapter checks (host shim) + schema examples; 38 store checks; device parser test extended and compiled | Pending: `IslandParserTests` on Android JSON; real Live Update extraction |
+| 2: presentation | Mutual exclusion, tap/long-press/swipe gestures, `next`/`tap`/`hide`, chooser removed, foreground suppression, secondary disc, A ring and animated icons, B glyphs, heads-up filter | Owned-source compile against the API 36 SDK with SystemUI API doubles: no errors beyond the hidden-API baseline. Capsule render test set compiles | Pending: gestures, `TaskStackChangeListeners`, `VisualInterruptionDecisionProvider` Dagger binding, AVD playback, all on device |
+| 3: templates | `highlight`, `accentColor`, `tapAction`, scrolling chips | Same compile check; on-device template render cases added (40 actions) | Pending: render tests on device |
+| 4: Taku Agent | v2 alongside v1 from the publisher and onboarding | Exact shapes validated on the host; changed lines compile in isolation | Pending: Agent build and probes |
+| 5: docs and fixture | Developer guide, skill, fixture v2/Live Update cases | Fixture compiles against the API 36 SDK | Pending: fixture run |
+
+This host has no Android SDK build tools, emulator, Gradle cache or SystemUI build, so no stage has
+run on a device or in a real Soong/Dagger build. The baseline for the compile check is the set of 46
+hidden-framework-API errors present on `main`; later stages only add further uses of the same
+hidden APIs (`createContextAsUser`, `UserHandle.of`, `isPromotedOngoing`).

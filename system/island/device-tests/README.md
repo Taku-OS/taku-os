@@ -20,8 +20,31 @@ adding its package to the **actual island Settings allow-list**; then repost and
 and `cmd statusbar island list/get`. Preserve any existing allowed entries rather than replacing
 another user's configuration. The fresh dedicated emulator has no user allow-list to preserve.
 
-Available provider `call` methods are `publish`, `publish-surface`, `publish-alert`, `publish-building`, `publish-listening`, `publish-error`, `publish-reply`, `crash-content`, `cancel`, `tap`
-and `reset`. The activity buttons use the same operations. `query` returns `outsideTaps`,
+Available provider `call` methods are `publish`, `publish-v2-memo`, `publish-v2-highlight`, `publish-live-update`, `publish-surface`, `publish-alert`, `publish-building`, `publish-listening`, `publish-error`, `publish-reply`, `publish-native-listening`, `publish-native-reply`, `crash-content`, `cancel`, `tap`
+and `reset`.
+
+### v2 acceptance cases (notification id 2)
+
+These coexist with the id-1 cases, so two activities can be compared side by side.
+
+| Case | Payload | What to verify |
+|---|---|---|
+| `publish-v2-memo` | Mic icon in A, timer in B, `tap: open`, 2 h `timeoutS`, `basic` card with Stop | Capsule tap opens the fixture; long press expands; `get` shows `source: custom-v2`, `timeoutKind: explicit` |
+| `publish-v2-highlight` | High-importance channel, `alert`, `cardPosition: below`, `highlight` card with "A123", `accentColor`, 40 actions, `tapAction` | No stock heads-up while unlocked; the card opens below the cutout for ≤ 5 s; one scrolling chip row; a body tap increments `outsideTaps` via `tapAction`; the A icon has a 60 % ring |
+| `publish-live-update` | Plain promoted `ProgressStyle` notification with `shortCriticalText` "12 min" and `setTimeoutAfter` 2 h, no Taku extras | Island without allow-listing; B shows "12 min"; `progress` card at 40 %; `source: live-update` |
+
+Then, with an id-1 case and an id-2 case active:
+- **Swipe left** selects the other activity (`state.presentation.selected`).
+- The secondary disc shows the next activity's A glyph (`secondaryKey`).
+- **Swipe right** hides the selected one (`dismissed`).
+- An open card hides every capsule.
+- Opening the fixture app hides its capsules (`suppressedByForeground`), and going home restores
+  them.
+- Compare each gesture with `cmd statusbar island next|tap KEY|hide KEY`.
+
+The `publish-native-*` cases now demonstrate rejection. The `assistant` template belongs to Taku
+Agent, so expect `reserved_template` in `diagnostics` and no island. Use the Agent's
+`NativeIslandProbe` for the native assistant card. The activity buttons use the same operations. `query` returns `outsideTaps`,
 `activeNotifications` (read from NotificationManager), and `lastOperation` in its `json` column.
 Unknown operations throw `IllegalArgumentException`; none touch another package's notifications.
 

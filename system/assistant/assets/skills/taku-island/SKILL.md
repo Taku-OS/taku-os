@@ -110,6 +110,11 @@ activity with one is shown. It remains available to `expand KEY`; expanding it k
 selected until collapse. Read `state.presentation` to inspect the actual selected key and
 compact visibility.
 
+To check a payload without posting it: `cmd statusbar island-validate PACKAGE 'JSON'`. It runs the
+production v2 parser (or v1 plus the v1→v2 adapter when `version` is 1) with the package's real
+platform-signature identity, and returns `{"valid":…,"error":…}`. It grants nothing and runs no
+action. The publisher contract is `docs/dynamic-island-developer.md` in the source tree.
+
 Every island SystemUI shows is drawn natively in the Taku design; there is no stock-widget
 fallback. `state.presentation.compact` (null when hidden) reports what the capsule shows:
 `text` (the pill, empty when only the disc fits), `disc` (`dot` when there is no glyph, `pic`, `progress`,

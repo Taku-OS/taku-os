@@ -36,7 +36,7 @@ public final class Fixture extends Activity {
         title.setTextSize(22);
         column.addView(title);
         boolean editorOnly = getIntent().getBooleanExtra("editorOnly", false);
-        for (String op : editorOnly ? new String[]{} : new String[]{"publish", "publish-native-listening", "publish-native-reply", "publish-surface", "publish-alert", "publish-building", "publish-listening", "publish-error", "publish-reply", "cancel", "crash-content"}) {
+        for (String op : editorOnly ? new String[]{} : new String[]{"publish", "publish-v2-memo", "publish-v2-highlight", "publish-live-update", "publish-native-listening", "publish-native-reply", "publish-surface", "publish-alert", "publish-building", "publish-listening", "publish-error", "publish-reply", "cancel", "crash-content"}) {
             Button button = new Button(this);
             button.setText(op);
             button.setOnClickListener(v -> { operation(this, op); refresh(); });
@@ -82,7 +82,10 @@ public final class Fixture extends Activity {
     static void operation(Context c, String op) {
         NotificationManager nm = c.getSystemService(NotificationManager.class);
         SharedPreferences prefs = c.getSharedPreferences("fixture", 0);
-        if ("cancel".equals(op)) nm.cancel(1);
+        if ("cancel".equals(op)) { nm.cancel(1); nm.cancel(2); }
+        else if ("publish-v2-memo".equals(op) || "publish-v2-highlight".equals(op) || "publish-live-update".equals(op)) {
+            publishV2(c, nm, op);
+        }
         else if ("crash-content".equals(op)) c.startService(new Intent(c, Content.class).setAction(PKG + ".CRASH_CONTENT"));
         else if ("tap".equals(op)) prefs.edit().putInt("taps", prefs.getInt("taps", 0) + 1).apply();
         else if ("reset".equals(op)) { nm.cancelAll(); prefs.edit().clear().apply(); }
@@ -131,6 +134,71 @@ public final class Fixture extends Activity {
         } else throw new IllegalArgumentException("Unknown fixture operation: " + op);
         prefs.edit().putString("operation", op).apply();
     }
+    /**
+     * v2 acceptance cases (notification id 2, so they coexist with id 1 for switching/secondary):
+     * a voice memo whose capsule tap opens the app, a high-importance highlight card that alerts
+     * below the cutout with forty scrolling actions and a card tap action, and a plain Android Live
+     * Update with no Taku extras.
+     */
+    static void publishV2(Context c, NotificationManager nm, String op) {
+        nm.createNotificationChannel(new NotificationChannel("island-test", "Island integration tests", NotificationManager.IMPORTANCE_LOW));
+        nm.createNotificationChannel(new NotificationChannel("island-alert", "Island heads-up tests", NotificationManager.IMPORTANCE_HIGH));
+        PendingIntent open = PendingIntent.getActivity(c, 2, new Intent(c, Fixture.class), PendingIntent.FLAG_IMMUTABLE);
+        PendingIntent cancel = PendingIntent.getBroadcast(c, 4, new Intent(c, Receiver.class).putExtra("operation", "cancel"), PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+        PendingIntent tap = PendingIntent.getBroadcast(c, 5, new Intent(c, Receiver.class).putExtra("operation", "tap"), PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+        try {
+            if ("publish-live-update".equals(op)) {
+                Bundle promoted = new Bundle();
+                promoted.putBoolean("android.requestPromotedOngoing", true);
+                nm.notify(2, new Notification.Builder(c, "island-test").setSmallIcon(android.R.drawable.stat_sys_download)
+                    .setContentTitle("Delivery on the way").setContentText("Courier is 12 minutes away")
+                    .setOngoing(true).setShortCriticalText("12 min").setContentIntent(open)
+                    .setStyle(new Notification.ProgressStyle().setProgressSegments(java.util.List.of(new Notification.ProgressStyle.Segment(100))).setProgress(40))
+                    .setTimeoutAfter(2 * 60 * 60 * 1000L).addExtras(promoted)
+                    .addAction(new Notification.Action.Builder(null, "Cancel delivery", cancel).build()).build());
+                return;
+            }
+            Bundle pics = new Bundle();
+            pics.putParcelable("mic", android.graphics.drawable.Icon.createWithResource("android", android.R.drawable.ic_btn_speak_now));
+            Bundle actions = new Bundle();
+            JSONObject payload;
+            String channel = "island-test";
+            if ("publish-v2-memo".equals(op)) {
+                actions.putParcelable("stop", new Notification.Action.Builder(null, "Stop", cancel).build());
+                payload = new JSONObject().put("version", 2).put("tap", "open").put("timeoutS", 7200)
+                    .put("compact", new JSONObject()
+                        .put("a", new JSONObject().put("type", "icon").put("pic", "mic").put("tint", true))
+                        .put("b", new JSONObject().put("type", "timer").put("startEpochMs", System.currentTimeMillis())))
+                    .put("expanded", new JSONObject().put("template", "basic").put("title", "Recording voice memo")
+                        .put("body", "Fixture recording; Stop cancels this notification.")
+                        .put("actions", new JSONArray().put("stop")).put("primaryAction", "stop"));
+            } else {
+                channel = "island-alert";
+                JSONArray ids = new JSONArray();
+                for (int i = 0; i < 40; i++) {
+                    ids.put("a" + i);
+                    actions.putParcelable("a" + i, new Notification.Action.Builder(null, "Option " + (i + 1), tap).build());
+                }
+                actions.putParcelable("open_order", new Notification.Action.Builder(null, "Open order", tap).build());
+                payload = new JSONObject().put("version", 2).put("cardPosition", "below").put("alert", true).put("timeoutS", 5400)
+                    .put("compact", new JSONObject()
+                        .put("a", new JSONObject().put("type", "icon").put("pic", "mic").put("progress", 0.6))
+                        .put("b", new JSONObject().put("type", "text").put("text", "A123").put("emphasis", "accent")))
+                    .put("expanded", new JSONObject().put("template", "highlight").put("title", "Order ready")
+                        .put("highlight", new JSONObject().put("text", "A123").put("label", "Pickup code"))
+                        .put("body", "Counter 3 - fixture data").put("actions", ids).put("primaryAction", "a0")
+                        .put("tapAction", "open_order").put("accentColor", "#FF8A3D"));
+            }
+            Bundle extras = new Bundle();
+            extras.putString("taku.island.v2", payload.toString());
+            extras.putBundle("taku.island.pics", pics);
+            extras.putBundle("taku.island.actions", actions);
+            nm.notify(2, new Notification.Builder(c, channel).setSmallIcon(android.R.drawable.stat_sys_upload)
+                .setContentTitle("publish-v2-memo".equals(op) ? "Recording voice memo" : "Order ready")
+                .setContentText("Island v2 fixture").setOngoing(true).setContentIntent(open).addExtras(extras).build());
+        } catch (JSONException impossible) { throw new AssertionError(impossible); }
+    }
+
     public static final class Receiver extends BroadcastReceiver {
         @Override public void onReceive(Context c, Intent i) { operation(c, i.getStringExtra("operation")); }
     }

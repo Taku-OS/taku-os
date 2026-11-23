@@ -1,8 +1,24 @@
 # Dynamic Island architecture (system-wide activity display)
 
 Status: **implementation in progress; integrated ROM/device acceptance pending**. See the
-[phase ledger](dynamic-island-progress.md). Extras schema
-draft: [`spec/taku-island-v1.schema.json`](../spec/taku-island-v1.schema.json).
+[phase ledger](dynamic-island-progress.md).
+
+> **v2 (2026-11-23)** supersedes the v1 parts of this document. The current behaviour is in
+> [the v2 spec](dynamic-island-v2-spec.md) and [the developer guide](dynamic-island-developer.md),
+> with the contract in [`spec/taku-island-v2.schema.json`](../spec/taku-island-v2.schema.json).
+> - Two states only: the compact capsule (groups A/B) and the expanded card. Small Island became a
+>   system-managed secondary disc.
+> - No `category`/`relevance`. Order is system tier (call, alarm, recording/cast), then a live
+>   alert, then the most recently triggered activity.
+> - Lifetime is 1 h from the first post by default, up to 12 h when declared.
+> - Gestures: tap follows `tap` (`expand`/`open`), long press expands, swipe left selects the next
+>   activity, swipe right hides. The chooser card is gone.
+> - Capsules are hidden while their app is in front.
+> - Island activities replace their stock heads-up while presentable.
+> - Provider callers are authorized: third-party apps need an App Permission Center grant.
+>
+> v1 extras are adapted onto v2. Statements below about big/small island, category arbitration,
+> the 8 h cap and the long-press chooser describe v1.
 
 ## Goal
 
