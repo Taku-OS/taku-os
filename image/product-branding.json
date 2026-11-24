@@ -1,6 +1,6 @@
 {
   "schema": "taku.product-branding/2",
   "productName": "TakuOS",
-  "productVersion": "1.4.0",
+  "productVersion": "1.4.1",
   "updaterVersionCode": 9
 }

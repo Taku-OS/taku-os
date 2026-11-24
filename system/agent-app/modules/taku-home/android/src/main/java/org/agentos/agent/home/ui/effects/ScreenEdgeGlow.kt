@@ -13,16 +13,19 @@ internal class ScreenEdgeGlow {
   private var geometry: List<Float>? = null
 
   init {
+    val off = LiveEdgeGlowSpec.OFFSET_DP
     shader.setFloatUniform("uCol", floatArrayOf(.2333f, 1f, 0f, .5098f, .8366f, 1f, 1f, .3991f, .2329f, .28f, .4f, 1f))
-    shader.setFloatUniform("uOff", floatArrayOf(0f, -4f, 4f, 0f, -4f, 0f, 0f, 4f))
+    shader.setFloatUniform("uOff", floatArrayOf(0f, -off, off, 0f, -off, 0f, 0f, off))
     shader.setFloatUniform("uDodge", floatArrayOf(1f, 0f, 0f, 1f))
-    shader.setFloatUniform("uSigma", 13.5f)
-    shader.setFloatUniform("uFloor", .34f)
-    shader.setFloatUniform("uWidth", 20f, 150f)
-    shader.setFloatUniform("uReach", .5f, 1.45f)
-    shader.setFloatUniform("uDrift", 90f)
-    shader.setFloatUniform("uPk", PACKETS.flatMap { it.take(4) }.map { it.toFloat() }.toFloatArray())
-    shader.setFloatUniform("uPkA", PACKETS.map { it[4].toFloat() }.toFloatArray())
+    shader.setFloatUniform("uSigma", LiveEdgeGlowSpec.SIGMA_DP)
+    shader.setFloatUniform("uFloor", LiveEdgeGlowSpec.FLOOR)
+    shader.setFloatUniform("uWidth", LiveEdgeGlowSpec.WIDTH_MIN_DP, LiveEdgeGlowSpec.WIDTH_MAX_DP)
+    shader.setFloatUniform("uReach", LiveEdgeGlowSpec.REACH_MIN, LiveEdgeGlowSpec.REACH_MAX)
+    shader.setFloatUniform("uDrift", LiveEdgeGlowSpec.DRIFT_DP)
+    shader.setFloatUniform("uIntensity", LiveEdgeGlowSpec.INTENSITY)
+    shader.setFloatUniform("uWarp", LiveEdgeGlowSpec.WARP_DP)
+    shader.setFloatUniform("uPk", LiveEdgeGlowSpec.PACKETS.flatMap { it.take(4) }.map { it.toFloat() }.toFloatArray())
+    shader.setFloatUniform("uPkA", LiveEdgeGlowSpec.PACKETS.map { it[4].toFloat() }.toFloatArray())
   }
 
   /** Geometry is physical pixels; the handoff's CSS px become Android dp. */
@@ -46,25 +49,22 @@ internal class ScreenEdgeGlow {
   }
 
   companion object {
-    private val PACKETS = arrayOf(
-      doubleArrayOf(.05, 118.0, .47, 0.0, 1.0), doubleArrayOf(.21, -86.0, .61, 1.7, .9),
-      doubleArrayOf(.37, 64.0, .39, 3.1, 1.1), doubleArrayOf(.52, 152.0, .83, .6, .8),
-      doubleArrayOf(.66, -131.0, .52, 2.4, .95), doubleArrayOf(.81, 92.0, .71, 4.2, 1.0),
-      doubleArrayOf(.93, -58.0, .33, 5.0, .85),
-    )
-
     private fun normaliser(w: Double, h: Double, r: Double): Float {
       val per = 2 * (w - 2 * r) + 2 * (h - 2 * r) + 2 * PI * r
+      val floor = LiveEdgeGlowSpec.FLOOR.toDouble()
+      val widthMin = LiveEdgeGlowSpec.WIDTH_MIN_DP.toDouble()
+      val widthSpan = (LiveEdgeGlowSpec.WIDTH_MAX_DP - LiveEdgeGlowSpec.WIDTH_MIN_DP).toDouble()
+      val packets = LiveEdgeGlowSpec.PACKETS
       var sum = 0.0
       for (i in 0 until 64) for (j in 0 until 200) {
         val s = i / 64.0 * per; val t = j * .37
-        var b = .34
-        for (k in PACKETS) {
+        var b = floor
+        for (k in packets) {
           val c = k[0] * per + k[1] * t + 46 * sin(.29 * t + k[3])
-          val width = 20 + 130 * (.5 + .5 * sin(k[2] * t + k[3]))
+          val width = widthMin + widthSpan * (.5 + .5 * sin(k[2] * t + k[3]))
           val delta = s - c
           val d = delta - per * floor(delta / per + .5)
-          b += k[4] * minOf(1.6, sqrt(44 / width)) * exp(-.5 * (d / width) * (d / width))
+          b += k[4] * minOf(1.6, sqrt(widthMin * 2.2 / width)) * exp(-.5 * (d / width) * (d / width))
         }
         sum += b
       }
@@ -89,6 +89,8 @@ uniform float uFloor;
 uniform float2 uWidth;     // packet width range, px
 uniform float2 uReach;     // depth scale filament / bloom
 uniform float uDrift;    // colour drift, px
+uniform float uIntensity; // overall Live-mode glow intensity scale (0–1)
+uniform float uWarp;      // inner contour warp amplitude, px
 uniform float4 uPk[7];   // s0, speed, breathe, phase
 uniform float uPkA[7]; // amplitude
 const float PI = 3.14159265;
@@ -176,7 +178,7 @@ half4 main(float2 position) {
   }
   float2 n = normalAt(s + drift);
   /* The inner contour flows a little (never at the very edge). */
-  float warp = uFlow * 2.6 * sin(-sd * 0.16 + s * 0.027 - 1.4 * t) * (1.0 - smoothstep(-18.0, -1.0, sd));
+  float warp = uFlow * uWarp * sin(-sd * 0.16 + s * 0.027 - 1.4 * t) * (1.0 - smoothstep(-18.0, -1.0, sd));
   float sigma = uSigma * reachK * (0.7 + 0.3 * uLevel);
 
   /* Figma's stack, folded into  out = background · A + K. */
@@ -184,7 +186,7 @@ half4 main(float2 position) {
   float A = 1.0;
   for (int i = 0; i < 4; i++) {
     float sdk = sd - dot(uOff[i], n) + warp;
-    float a = clamp(Phi(sdk / sigma) * B * uLevel, 0.0, 1.0) * inside;
+    float a = clamp(Phi(sdk / sigma) * B * uLevel * uIntensity, 0.0, 1.0) * inside;
     if (uDodge[i] > 0.5) {
       K += uCol[i] * a;
     } else {

@@ -1,0 +1,262 @@
+diff --git a/services/core/java/com/android/server/audio/AudioService.java b/services/core/java/com/android/server/audio/AudioService.java
+index 7f9555c7..d77f8ca4 100644
+--- a/services/core/java/com/android/server/audio/AudioService.java
++++ b/services/core/java/com/android/server/audio/AudioService.java
+@@ -12808,6 +12808,14 @@ public class AudioService extends IAudioService.Stub
+                 || isCallerTelecom(Binder.getCallingUid(), callingPackageName);
+
+         mmi.record();
++        // Let a silent media player advance without taking focus from audible apps.
++        if (focusEnvToken == null && !isForCall && pcb == null
++                && (flags & AudioManager.AUDIOFOCUS_FLAG_LOCK) == 0
++                && (aa.getUsage() == AudioAttributes.USAGE_MEDIA
++                        || aa.getUsage() == AudioAttributes.USAGE_GAME)
++                && DedicatedDisplayAudioPolicy.shouldMute(uid)) {
++            return AudioManager.AUDIOFOCUS_REQUEST_GRANTED;
++        }
+         return getMediaFocusControlForEnvironment(focusEnvToken).requestAudioFocus(uid, aa,
+                 focusReqType, cb, fd, clientId, callingPackageName, flags, sdk,
+                 forceFocusDuckingForAccessibility(aa, focusReqType, uid), -1 /*testUid, ignored*/,
+diff --git a/services/core/java/com/android/server/audio/DedicatedDisplayAudioPolicy.java b/services/core/java/com/android/server/audio/DedicatedDisplayAudioPolicy.java
+new file mode 100644
+index 00000000..0da67768
+--- /dev/null
++++ b/services/core/java/com/android/server/audio/DedicatedDisplayAudioPolicy.java
+@@ -0,0 +1,55 @@
++/*
++ * Copyright (C) 2026 Taku OS contributors
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.server.audio;
++
++import android.os.Process;
++
++import java.util.Set;
++
++/** Publishes window-manager ownership without making audio calls under the window lock. */
++public final class DedicatedDisplayAudioPolicy {
++    private static final String DISPLAY_NAME = "Taku-Independent-Screen";
++    private static volatile Set<Integer> sMutedUids = Set.of();
++    private static Runnable sOnChange;
++
++    private DedicatedDisplayAudioPolicy() {}
++
++    public static boolean isDedicatedHost(int ownerUid, String name) {
++        return (ownerUid == Process.ROOT_UID || ownerUid == Process.SYSTEM_UID
++                || ownerUid == Process.SHELL_UID)
++                && name != null
++                && (DISPLAY_NAME.equals(name) || name.startsWith(DISPLAY_NAME + "-"));
++    }
++
++    static boolean shouldMute(int uid) {
++        return sMutedUids.contains(uid);
++    }
++
++    static synchronized void setOnChange(Runnable onChange) {
++        sOnChange = onChange;
++    }
++
++    /** The listener only queues work on the playback monitor's handler. */
++    public static synchronized void publish(Set<Integer> mutedUids) {
++        if (!sMutedUids.equals(mutedUids)) {
++            sMutedUids = Set.copyOf(mutedUids);
++            if (sOnChange != null) {
++                sOnChange.run();
++            }
++        }
++    }
++}
+diff --git a/services/core/java/com/android/server/audio/PlaybackActivityMonitor.java b/services/core/java/com/android/server/audio/PlaybackActivityMonitor.java
+index ad62e981..33ff7638 100644
+--- a/services/core/java/com/android/server/audio/PlaybackActivityMonitor.java
++++ b/services/core/java/com/android/server/audio/PlaybackActivityMonitor.java
+@@ -66,6 +66,7 @@ import java.util.Arrays;
+ import java.util.Collections;
+ import java.util.Date;
+ import java.util.HashMap;
++import java.util.HashSet;
+ import java.util.Iterator;
+ import java.util.List;
+ import java.util.Set;
+@@ -136,6 +137,20 @@ public final class PlaybackActivityMonitor
+                     .setDuration(UNMUTE_DURATION_MS)
+                     .build();
+
++    private static final int VOLUME_SHAPER_DEDICATED_DISPLAY_ID = 5;
++
++    // Independent of app volume, focus ducking, and device-connection muting.
++    private static final VolumeShaper.Configuration DEDICATED_DISPLAY_MUTE =
++            new VolumeShaper.Configuration.Builder()
++                    .setId(VOLUME_SHAPER_DEDICATED_DISPLAY_ID)
++                    .setCurve(new float[] {0.f, 1.f}, new float[] {1.f, 0.f})
++                    .setOptionFlags(VolumeShaper.Configuration.OPTION_FLAG_CLOCK_TIME)
++                    .setDuration(UNMUTE_DURATION_MS)
++                    .build();
++
++    @GuardedBy("mPlayerLock")
++    private final Set<Integer> mDedicatedDisplayMutedPlayers = new HashSet<>();
++
+     // TODO support VolumeShaper on those players
+     private static final int[] UNDUCKABLE_PLAYER_TYPES = {
+             AudioPlaybackConfiguration.PLAYER_TYPE_AAUDIO,
+@@ -165,6 +180,14 @@ public final class PlaybackActivityMonitor
+     private final Consumer<AudioDeviceAttributes> mMuteAwaitConnectionTimeoutCb;
+     private final FadeOutManager mFadeOutManager = new FadeOutManager();
+
++    private final Runnable mRefreshDedicatedDisplayMute = () -> {
++        synchronized (mPlayerLock) {
++            for (AudioPlaybackConfiguration player : mPlayers.values()) {
++                updateDedicatedDisplayMute(player);
++            }
++        }
++    };
++
+     PlaybackActivityMonitor(Context context, int maxAlarmVolume,
+             Consumer<AudioDeviceAttributes> muteTimeoutCallback,
+             Function<Integer, Boolean> isStreamMutedCb) {
+@@ -175,6 +198,8 @@ public final class PlaybackActivityMonitor
+         mMuteAwaitConnectionTimeoutCb = muteTimeoutCallback;
+         mIsStreamMutedCb = isStreamMutedCb;
+         initEventHandler();
++        DedicatedDisplayAudioPolicy.setOnChange(
++                () -> mEventHandler.post(mRefreshDedicatedDisplayMute));
+     }
+
+     //=================================================================
+@@ -262,6 +287,7 @@ public final class PlaybackActivityMonitor
+                 ));
+         synchronized(mPlayerLock) {
+             mPlayers.put(newPiid, apc);
++            updateDedicatedDisplayMute(apc);
+             maybeMutePlayerAwaitingConnection(apc);
+         }
+         return newPiid;
+@@ -409,6 +435,7 @@ public final class PlaybackActivityMonitor
+             }
+             if (change) {
+                 if (event == AudioPlaybackConfiguration.PLAYER_STATE_STARTED) {
++                    updateDedicatedDisplayMute(apc);
+                     mDuckingManager.checkDuck(apc);
+                     mFadeOutManager.checkFade(apc);
+                 }
+@@ -528,6 +555,7 @@ public final class PlaybackActivityMonitor
+                 sEventLogger.enqueue(new EventLogger.StringEvent(
+                         "releasing player piid:" + piid + ", uid:" + binderUid));
+                 mPlayers.remove(new Integer(piid));
++                mDedicatedDisplayMutedPlayers.remove(piid);
+                 mDuckingManager.removeReleased(apc);
+                 mFadeOutManager.removeReleased(apc);
+                 mMutedPlayersAwaitingConnection.remove(Integer.valueOf(piid));
+@@ -1638,6 +1666,29 @@ public final class PlaybackActivityMonitor
+         }
+     }
+
++    @GuardedBy("mPlayerLock")
++    private void updateDedicatedDisplayMute(AudioPlaybackConfiguration player) {
++        final int piid = player.getPlayerInterfaceId();
++        final boolean mute = DedicatedDisplayAudioPolicy.shouldMute(player.getClientUid());
++        if (mute == mDedicatedDisplayMutedPlayers.contains(piid)) {
++            return;
++        }
++        try {
++            player.getPlayerProxy().applyVolumeShaper(DEDICATED_DISPLAY_MUTE,
++                    mute ? PLAY_SKIP_RAMP : VolumeShaper.Operation.REVERSE);
++            if (mute) {
++                mDedicatedDisplayMutedPlayers.add(piid);
++            } else {
++                mDedicatedDisplayMutedPlayers.remove(piid);
++            }
++        } catch (Exception e) {
++            if (!mute && !mEventHandler.hasCallbacks(mRefreshDedicatedDisplayMute)) {
++                mEventHandler.postDelayed(mRefreshDedicatedDisplayMute, 1000);
++            }
++            Log.w(TAG, "Could not update dedicated display mute for player " + piid, e);
++        }
++    }
++
+     @GuardedBy("mPlayerLock")
+     private void maybeMutePlayerAwaitingConnection(@NonNull AudioPlaybackConfiguration apc) {
+         if (mMutedUsagesAwaitingConnection == null) {
+diff --git a/services/core/java/com/android/server/wm/RootWindowContainer.java b/services/core/java/com/android/server/wm/RootWindowContainer.java
+index fe3df577..2eef55ca 100644
+--- a/services/core/java/com/android/server/wm/RootWindowContainer.java
++++ b/services/core/java/com/android/server/wm/RootWindowContainer.java
+@@ -145,6 +145,7 @@ import com.android.server.LocalServices;
+ import com.android.server.am.ActivityManagerService;
+ import com.android.server.am.AppTimeTracker;
+ import com.android.server.am.UserState;
++import com.android.server.audio.DedicatedDisplayAudioPolicy;
+ import com.android.server.pm.UserManagerInternal;
+ import com.android.server.policy.PermissionPolicyInternal;
+ import com.android.server.policy.WindowManagerPolicy;
+@@ -863,9 +864,50 @@ class RootWindowContainer extends WindowContainer<DisplayContent>
+
+         mWmService.scheduleAnimationLocked();
+
++        updateDedicatedDisplayAudioPolicy();
++
+         if (DEBUG_WINDOW_TRACE) Slog.e(TAG, "performSurfacePlacementInner exit");
+     }
+
++    private void updateDedicatedDisplayAudioPolicy() {
++        final ArraySet<Integer> dedicatedUids = new ArraySet<>();
++        forAllDisplays(display -> {
++            if (!isDedicatedAudioDisplay(display)) {
++                return;
++            }
++            display.forAllActivities(activity -> {
++                if (!activity.finishing && UserHandle.isApp(activity.getUid())) {
++                    dedicatedUids.add(activity.getUid());
++                }
++            });
++        });
++
++        if (!dedicatedUids.isEmpty()) {
++            // Playback registrations carry a UID, not a display. Preserve audio when
++            // that UID also has a visible activity on a regular display.
++            forAllDisplays(display -> {
++                if (!isDedicatedAudioDisplay(display) && !display.isRemovedOrInvalid()) {
++                    display.forAllActivities(activity -> {
++                        if (!activity.finishing && activity.isVisibleRequested()) {
++                            dedicatedUids.remove(activity.getUid());
++                        }
++                    });
++                }
++            });
++        }
++        DedicatedDisplayAudioPolicy.publish(dedicatedUids);
++    }
++
++    private static boolean isDedicatedAudioDisplay(DisplayContent display) {
++        if (display.isRemoving() || display.isRemovedOrInvalid()) {
++            return false;
++        }
++        final DisplayInfo info = display.getDisplayInfo();
++        final int requiredFlags = Display.FLAG_TRUSTED | Display.FLAG_OWN_DISPLAY_GROUP;
++        return info.type == Display.TYPE_VIRTUAL && (info.flags & requiredFlags) == requiredFlags
++                && DedicatedDisplayAudioPolicy.isDedicatedHost(info.ownerUid, info.name);
++    }
++
+     private void applySurfaceChangesTransaction() {
+         // TODO(multi-display): Support these features on secondary screens.
+         final DisplayContent defaultDc = mDefaultDisplay;
+@@ -2851,6 +2893,7 @@ class RootWindowContainer extends WindowContainer<DisplayContent>
+             if (displayContent == null) {
+                 return;
+             }
++            updateDedicatedDisplayAudioPolicy();
+             if (DesktopExperienceFlags.ENABLE_DISPLAY_DISCONNECT_INTERACTION.isTrue()
+                     && !displayContent.shouldDestroyContentOnRemove()) {
+                 final Transition transition = new Transition(TRANSIT_CLOSE,
