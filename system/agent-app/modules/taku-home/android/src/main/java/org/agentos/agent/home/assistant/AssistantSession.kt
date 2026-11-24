@@ -275,7 +275,7 @@ class AssistantSession private constructor(private val context: Context, private
    * The full chat left [threadId] running (Home, Back or Recents): follow it with nothing on screen,
    * and open the card once when it has a result. See docs/dynamic-island-chat-handoff-spec.md.
    */
-  fun handoff(threadId: String, turnId: String?, taskId: String?): JSONObject {
+  fun handoff(threadId: String, turnId: String?, taskId: String?, knownTurnIds: Set<String>? = null): JSONObject {
     val s = flow.value
     val shown = org.agentos.agent.home.island.SystemIslandBridge.presentation(context)
     val admission = IslandHandoff.admit(IslandHandoff.Home(
@@ -289,7 +289,7 @@ class AssistantSession private constructor(private val context: Context, private
     follow(threadId)
     flow.update { it.copy(island = IslandMode.Hidden, entry = EntryMode.None, revealPending = false,
       activityId = UUID.randomUUID().toString(),
-      handoff = Handoff(threadId, turnId?.ifBlank { null }, taskId?.ifBlank { null }, it.error)) }
+      handoff = Handoff(threadId, turnId?.ifBlank { null }, taskId?.ifBlank { null }, it.error, knownTurnIds)) }
     ensureStream(threadId)
     ensurePolling(threadId)
     refreshDraft()

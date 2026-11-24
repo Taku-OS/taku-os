@@ -190,11 +190,22 @@ class IslandPublisherService : Service() {
     }
   }
 
-  /** Expansion whose acceptance delivers a pending handed-off reveal. */
+  /**
+   * Expansion whose acceptance delivers a pending handed-off reveal. A reveal is only asked for, and
+   * only counts as delivered, while the screen is on and unlocked: SystemUI can accept a card on a
+   * dark screen, and the keyguard then folds it before anyone sees it.
+   */
   private fun requestExpand() {
     val session = AssistantSession.get(this)
-    SystemIslandBridge.request(this, "expand") { accepted -> if (accepted) scope.launch { session.revealShown() } }
+    if (session.state.value.revealPending && !deviceUsable()) return
+    SystemIslandBridge.request(this, "expand") { accepted ->
+      if (accepted) scope.launch { if (deviceUsable()) session.revealShown() }
+    }
   }
+
+  private fun deviceUsable(): Boolean =
+    getSystemService(android.os.PowerManager::class.java)?.isInteractive == true &&
+      getSystemService(android.app.KeyguardManager::class.java)?.isKeyguardLocked != true
 
   /**
    * SystemUI cannot draw a card on the lock screen, with the shade open or in landscape, and the
@@ -214,13 +225,12 @@ class IslandPublisherService : Service() {
       session.state.map { it.revealPending }.distinctUntilChanged().collectLatest { pending ->
         while (pending) {
           delay(REVEAL_RETRY_MS)
+          if (!deviceUsable()) continue
           // Drawn already (its answer was superseded), or no longer wanted: never expand again a
-          // card the user has since swiped away.
+          // card the user has since swiped away. Only judged on a usable screen.
           if (session.state.value.island != IslandMode.Expanded ||
               SystemIslandBridge.presentation(this@IslandPublisherService) == "expanded") { session.revealShown(); break }
-          val power = getSystemService(android.os.PowerManager::class.java)
-          val keyguard = getSystemService(android.app.KeyguardManager::class.java)
-          if (power?.isInteractive == true && keyguard?.isKeyguardLocked != true) requestExpand()
+          requestExpand()
         }
       }
     }
@@ -228,14 +238,19 @@ class IslandPublisherService : Service() {
 
   private fun saveHandoff(handoff: org.agentos.agent.home.assistant.Handoff, created: Long) {
     prefs.edit().putString("handoffThread", handoff.threadId).putString("handoffTurn", handoff.turnId)
-      .putString("handoffTask", handoff.taskId).putLong("handoffCreated", created).apply()
+      .putString("handoffTask", handoff.taskId).putLong("handoffCreated", created)
+      .putString("handoffKnown", handoff.knownTurnIds?.let { org.json.JSONArray(it.toList()).toString() }).apply()
   }
 
   /** Follows a handoff saved before this process died, within the same 8 h window as a thread. */
   private fun restoreHandoff(session: AssistantSession) {
     val thread = prefs.getString("handoffThread", null) ?: return
     if (System.currentTimeMillis() - prefs.getLong("handoffCreated", 0) !in 0..28_800_000) return
-    runCatching { session.handoff(thread, prefs.getString("handoffTurn", null), prefs.getString("handoffTask", null)) }
+    runCatching {
+      val known = prefs.getString("handoffKnown", null)?.let { org.json.JSONArray(it) }?.let { list -> List(list.length()) { list.opt(it) } }
+      session.handoff(thread, prefs.getString("handoffTurn", null), prefs.getString("handoffTask", null),
+        org.agentos.agent.home.assistant.IslandHandoff.knownTurns(known))
+    }
       .onFailure { android.util.Log.w("TakuIsland", "Handoff not restored: ${it.message}") }
   }
 

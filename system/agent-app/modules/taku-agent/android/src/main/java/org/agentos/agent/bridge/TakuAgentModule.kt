@@ -131,6 +131,10 @@ class TakuAgentModule : Module() {
   private var conversationApplication: Application? = null
   /** The running conversation JS last reported; read when the chat stops (BUG-0027). */
   @Volatile private var handoffCandidate: HandoffDecision.Candidate? = null
+  /** The user left the chat (not a rotation, screen-off or picker) and has not come back. */
+  @Volatile private var leavingChat = false
+  /** The conversation already handed to Home during this leave. */
+  @Volatile private var handedOffThread: String? = null
   /** Home calls in order, off the UI thread: a quick leave and return must not swap. */
   private val handoffCalls = java.util.concurrent.Executors.newSingleThreadExecutor { Thread(it, "taku-handoff").apply { isDaemon = true } }
 
@@ -143,20 +147,25 @@ class TakuAgentModule : Module() {
     val tracker = conversationVisibility ?: return
     val context = appContext.reactContext?.applicationContext ?: return
     if (visible) {
+      leavingChat = false; handedOffThread = null
       (latestThreadId?.takeIf { it.isNotBlank() } ?: handoffCandidate?.threadId)?.let { reclaimIsland(context, it) }
       return
     }
-    val candidate = handoffCandidate
-    val skip = HandoffDecision.decide(candidate, tracker.lastStopChangingConfigurations,
+    val skip = HandoffDecision.leave(tracker.lastStopChangingConfigurations,
       context.getSystemService(android.os.PowerManager::class.java)?.isInteractive != false,
       composerPicker.isOpen, tracker.lastResumed)
-    if (skip != null || candidate == null) {
-      if (candidate != null) Log.i(TAG, "island handoff skipped: $skip")
-      return
-    }
+    leavingChat = skip == null
+    if (skip != null) { Log.i(TAG, "island handoff skipped: $skip"); return }
+    // A send still on its way may not know its conversation yet; setHandoffCandidate finishes it.
+    handoffCandidate?.let { handOff(context, it) }
+  }
+
+  private fun handOff(context: Context, candidate: HandoffDecision.Candidate) {
+    handedOffThread = candidate.threadId
     val params = JSONObject().put("threadId", candidate.threadId)
     candidate.turnId?.let { params.put("turnId", it) }
     candidate.taskId?.let { params.put("taskId", it) }
+    candidate.knownTurnIds?.let { raw -> runCatching { org.json.JSONArray(raw) }.getOrNull()?.let { params.put("knownTurnIds", it) } }
     callHome(context, "assistant/handoff", params)
   }
 
@@ -580,8 +589,11 @@ class TakuAgentModule : Module() {
     }
 
     /** The conversation whose turn is running, or "" when none; see [conversationVisibilityChanged]. */
-    Function("setHandoffCandidate") { threadId: String, turnId: String, taskId: String ->
-      handoffCandidate = HandoffDecision.candidate(threadId, turnId, taskId)
+    Function("setHandoffCandidate") { threadId: String, turnId: String, taskId: String, knownTurnIds: String ->
+      val candidate = HandoffDecision.candidate(threadId, turnId, taskId, knownTurnIds)
+      handoffCandidate = candidate
+      if (HandoffDecision.handOffLater(candidate, leavingChat, conversationVisibility?.visible == true, handedOffThread))
+        appContext.reactContext?.applicationContext?.let { handOff(it, candidate!!) }
     }
 
     Function("selectConversation") { threadId: String? ->

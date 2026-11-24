@@ -307,11 +307,14 @@ export function useAgentController() {
   }, [composer]);
 
   // Native reads this when the chat stops: a running turn goes to the island (BUG-0027).
-  const candidate = handoffCandidate(selected, session, pendingSubmission?.threadId ?? null);
+  // The chat's own message row exists from the tap, so leaving right after Send still hands off.
+  const candidate = handoffCandidate(selected, session, pendingSubmission?.threadId ?? null, optimisticSubmissions);
   const handoffThread = candidate?.threadId ?? '', handoffTurn = candidate?.turnId ?? '', handoffTask = candidate?.taskId ?? '';
+  const handoffKnown = candidate?.knownTurnIds ? JSON.stringify(candidate.knownTurnIds) : '';
   useEffect(() => {
-    setHandoffCandidate(handoffThread ? {threadId: handoffThread, turnId: handoffTurn, taskId: handoffTask} : null);
-  }, [handoffThread, handoffTurn, handoffTask]);
+    setHandoffCandidate(handoffThread ? {threadId: handoffThread, turnId: handoffTurn, taskId: handoffTask,
+      knownTurnIds: handoffKnown ? JSON.parse(handoffKnown) as string[] : null} : null);
+  }, [handoffThread, handoffTurn, handoffTask, handoffKnown]);
   useEffect(() => () => setHandoffCandidate(null), []);
 
   useEffect(() => {

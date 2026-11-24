@@ -66,6 +66,28 @@ class IslandHandoffTest {
     assertEquals(IslandHandoff.Outcome.REVEAL, IslandHandoff.step(armed.handoff!!, "chat", turn("t2", false), "completed", "9", null).outcome)
   }
 
+  // Retest of f6a0913f: a send left before its turn was known must not miss a turn that finishes
+  // before Home first sees it running.
+  @Test fun theFirstTurnAfterTheKnownOnesIsAwaitedEvenIfAlreadyFinished() {
+    val left = Handoff("chat", knownTurnIds = setOf("t1"))
+    assertEquals(IslandHandoff.Outcome.WAIT, IslandHandoff.step(left, "chat", turn("t1", false), "completed", null, null).outcome)
+    assertEquals(IslandHandoff.Outcome.REVEAL, IslandHandoff.step(left, "chat", turn("t2", false), "completed", "9", null).outcome)
+    val running = IslandHandoff.step(left, "chat", turn("t2", true), "running", "9", null)
+    assertEquals("t2", running.handoff?.turnId)
+    // A new conversation had no earlier turns at all.
+    assertEquals(IslandHandoff.Outcome.REVEAL,
+      IslandHandoff.step(Handoff("chat", knownTurnIds = emptySet()), "chat", turn("t1", false), "completed", null, null).outcome)
+  }
+
+  @Test fun knownTurnsAreValidatedAndBounded() {
+    assertNull(IslandHandoff.knownTurns(null))
+    assertEquals(setOf("t1", "t2"), IslandHandoff.knownTurns(listOf("t1", "t2", "t1")))
+    for (bad in listOf(listOf<Any?>(1), listOf<Any?>("a b"), List(IslandHandoff.MAX_KNOWN_TURNS + 1) { "t$it" })) {
+      try { IslandHandoff.knownTurns(bad); fail("accepted $bad") }
+      catch (e: AssistantException) { assertEquals("INVALID_ARGUMENT", e.code) }
+    }
+  }
+
   @Test fun aQuestionOrANewFailureRevealsButAnOldErrorDoesNot() {
     val handoff = Handoff("chat", turnId = "t2", errorAtStart = "TURN_FAILED")
     assertEquals(IslandHandoff.Outcome.REVEAL, IslandHandoff.step(handoff, "chat", turn("t2", true), "needs_user", "9", "TURN_FAILED").outcome)

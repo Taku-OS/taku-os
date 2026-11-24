@@ -101,12 +101,20 @@ as today.
 The decision runs in `TakuAgentModule` when `ConversationVisibility` reports the last chat host
 stopped. It does not run in JS, because the React runtime may not get a frame after `onStop`.
 
-- JS keeps native informed with a new `setHandoffCandidate(threadId, turnId, taskId)` (empty
-  strings for none). `handoffCandidate()` in `src/model/islandHandoff.ts` names the selected
-  thread with its active turn, its queued task, or neither for a send not yet reported; it returns
-  null when the session is idle or waiting on a question.
-- Home waits for that turn. With only a task, the first turn seen running after the handoff becomes
-  the one to wait for, so an older finished turn the stream shows first is never revealed.
+- JS keeps native informed with a new `setHandoffCandidate(threadId, turnId, taskId, knownTurnIds)`
+  (empty strings for none; `knownTurnIds` a JSON array). `handoffCandidate()` in
+  `src/model/islandHandoff.ts` names the selected thread with its active turn; before that is
+  known, the chat's own in-flight message row (state `sending` or `accepted`, present from the tap)
+  supplies its task and the conversation's turns before the send. It returns null when the session
+  is idle or waiting on a question.
+- Home waits for that turn. Without it, Home waits for the first turn not among `knownTurnIds`,
+  even one that already finished before Home first saw it; with neither, the first turn seen
+  running. An older finished turn the stream shows first is never revealed.
+- **A leave stays pending until the chat shows again.** A message still being sent may not know its
+  conversation at `onStop` (a new conversation has no thread until it is created). Native records
+  an eligible leave and hands off when JS reports a candidate for a conversation not yet handed off
+  during that leave (`HandoffDecision.leave`, `handOffLater`). JS keeps running while the chat is
+  hidden, because the React host is shared with Home.
 - Back, Home and Recents all end in the same `onStop`, so one code path covers the three routes in
   the bug.
 - The decision is a pure function, `HandoffDecision.decide(...)`, so it can be unit-tested without
@@ -114,7 +122,7 @@ stopped. It does not run in JS, because the React runtime may not get a frame af
 
 | Skip when | Why |
 | --- | --- |
-| Candidate is `null` | Nothing is running; behaviour unchanged |
+| Candidate is `null` | Nothing to hand off yet; the leave stays pending (above) |
 | `activity.isChangingConfigurations` | Rotation or theme change recreates the chat |
 | `PowerManager.isInteractive == false` | Screen off; the user returns to the same chat |
 | A `ComposerPicker` request is in flight | The chat opened the system picker itself |
@@ -122,7 +130,7 @@ stopped. It does not run in JS, because the React runtime may not get a frame af
 
 ### 2. New Home operation: `assistant/handoff`
 
-Provider `content://org.agentos.agent.home-assistant`, params `{"threadId":"ID","turnId"?,"taskId"?}`. It is a sibling
+Provider `content://org.agentos.agent.home-assistant`, params `{"threadId":"ID","turnId"?,"taskId"?,"knownTurnIds"?}`. It is a sibling
 of `assistant/resume`, not a flag on it, because its rules differ: it never resets a busy session,
 never expands and never draws anything.
 
@@ -159,9 +167,12 @@ Once revealed, the card follows existing island rules:
   reply stays in the conversation), or returns to the chat.
 - Taku's card is never suppressed by the app in front, so it opens over any app.
 - **Deferred reveal.** `SystemIslandBridge.request("expand")` gives up after about 1.5 s. Home sets
-  `revealPending = true` at the reveal and clears it when SystemUI accepts the expansion. Until
-  then `IslandPublisherService` asks again on unlock (`ACTION_USER_PRESENT`) and every 3 s while the
-  screen is on and unlocked, which covers the shade and landscape. It stops as soon as SystemUI
+  `revealPending = true` at the reveal and clears it only when SystemUI accepts the expansion
+  **while the screen is on and unlocked**; it never asks while the screen is off or locked. SystemUI
+  can accept a card on a dark screen before the keyguard shows, and the keyguard then folds it
+  unseen (retest of `f6a0913f`). Until delivered, `IslandPublisherService` asks again on unlock
+  (`ACTION_USER_PRESENT`) and every 3 s while the screen is on and unlocked, which covers the shade
+  and landscape. It stops as soon as SystemUI
   reports the card expanded or the session no longer wants it, so a card the user swiped away is
   never expanded again. Any of the cancel events in §4 clears it.
 
@@ -259,11 +270,12 @@ the turn keeps running either way.
 | Case | Required behaviour |
 | --- | --- |
 | Provider call fails (Home process starting, `HOME_UNAVAILABLE`) | Log with the thread id; no retry loop; no user-visible error |
-| Turn finishes between `onStop` and the call | With its `turnId` known: hand off and reveal immediately. A queued task that already finished: no reveal; the reply stays in the conversation |
+| Turn finishes between `onStop` and the call | Hand off and reveal immediately: the turn is either the known `turnId` or the first one not in `knownTurnIds` |
+| User leaves while the message is still being sent | The leave waits; the handoff happens as soon as the chat knows the conversation (its thread is created for a new chat) |
 | Leave, return and leave again quickly | Each leave hands off again; at most one reveal per turn; never a duplicate notification (one tag per `activityId`) |
 | Chat process killed after handoff | Unaffected: `IslandPublisherService` is bound by SystemUI and restores the saved thread (`IslandPublisherService.kt:47`); `handoff` and `revealPending` are saved with it |
 | Island turned off (`taku_island_enabled=0`) | Session still updates; nothing is drawn; `assistant/get` still reports the fields |
-| Lock screen, shade open, landscape at completion | Deferred reveal (Design §3); the card opens after unlock, or within 3 s of the shade closing or returning to portrait |
+| Screen off, lock screen, shade open, landscape at completion | Deferred reveal (Design §3); the card opens after unlock, or within 3 s of the screen turning on unlocked, the shade closing or returning to portrait |
 | Turn runs longer than the saved-thread window (8 h) | No reveal; the reply stays in the conversation |
 | Work profile or second user | Handoff stays in the current user's Home session; no cross-user calls |
 
@@ -314,6 +326,10 @@ Both product decisions are made; the rest is follow-up work outside BUG-0027.
   (Decided 2026-11-24.)
 
 **Follow-ups**
+
+- SystemUI hardening: `IslandPresenter.canExpand()` also requires an interactive screen, so no
+  publisher can open a card on a dark screen. Needs `system/island/update-patch.py` against the
+  pinned `frameworks/base` checkout to regenerate `systemui-probe.patch`.
 
 - PRD Appendix B: drive the island from broker session state for every running session, so the
   island, Feed, chat and lock screen show one state. Needs a rule for which session the island
