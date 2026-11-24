@@ -3,12 +3,12 @@
   "repository": "frameworks/base",
   "revision": "7f6de40b6429462d47ba9ba351b99943269c8067",
   "patch": "systemui-probe.patch",
-  "patchSha256": "387f9c209da1ff7b702f9e515f7017bd3a31f5ab8f681870d3bbdbac4350a2a2",
+  "patchSha256": "5beffec8c4b6cb1afd1adb21d7d5c08d70e16ffff9a39a7fb34ffd8015d50b70",
   "files": [
     {
       "path": "packages/SystemUI/AndroidManifest.xml",
       "beforeSha256": "43e6586889f0f0ad96deaab722d5cdef3054d2a9e02c49719f61ddb90b1b9da1",
-      "afterSha256": "946914a0851929ddd18188bf4f3a52c87d1f3b1a4cc747c1f427ac234ad27ad3"
+      "afterSha256": "add6dfe356cd84762cb8f98ef443d2f841ac3d740b9283fa8944ad2163a220ee"
     },
     {
       "path": "packages/SystemUI/src/com/android/systemui/dagger/SystemUIModule.java",
@@ -159,7 +159,7 @@
     {
       "path": "packages/SystemUI/src/com/android/systemui/taku/island/IslandProvider.kt",
       "beforeSha256": null,
-      "afterSha256": "35f1fd0fc101fbe82000392150bb1627b2616560f9a06e473857b684879b8f64",
+      "afterSha256": "086378c99ce0f1258e9f3cb979858b8290620b2372c8b42ae783cb2db52afe9f",
       "source": "system/island/src/com/android/systemui/taku/island/IslandProvider.kt"
     },
     {

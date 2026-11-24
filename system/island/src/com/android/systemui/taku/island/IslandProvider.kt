@@ -56,10 +56,7 @@ class IslandProvider : ContentProvider() {
 
     private fun trusted(context: Context, uid: Int): Boolean {
         if (IslandAccessPolicy.trustedUid(uid, Process.myUid())) return true
-        val pm = context.packageManager
-        return pm.getPackagesForUid(uid).orEmpty().any {
-            pm.checkSignatures("android", it) == PackageManager.SIGNATURE_MATCH
-        }
+        return context.packageManager.checkSignatures(uid, Process.SYSTEM_UID) == PackageManager.SIGNATURE_MATCH
     }
 
     /** Default deny: an unavailable or malformed App Permission Center answer is a refusal. */

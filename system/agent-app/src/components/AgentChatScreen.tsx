@@ -10,10 +10,12 @@ import {VoiceEffect} from '../native/VoiceEffect';
 import {VoiceIcon} from '../chat/VoiceIcon';
 import {AssistantBubble, ComposerGlassRim} from '../chat/ChatSurfaces';
 import {useLiveTalk} from '../chat/useLiveTalk';
+import {liveLightStyle, shouldShowLiveLight} from '../chat/liveGlow';
 import * as Haptics from 'expo-haptics';
 import {colors as baseColors, containsChinese, layout, typography, type TypeRole} from '../theme';
 import {languageFor, textFor, type Language, type TextKey} from '../i18n';
 import {list, record, string, type Activity, type Json, type MessagePart, type PendingQuestion, type SessionView, type ThreadSummary, type WorkspaceView} from '../model/session';
+import {humanizeToolNames} from '../model/phoneTools';
 import {Icon, IconButton} from './Icon';
 import {chatPresentation, type ChatMessageBlock} from '../model/chatPresentation';
 import {FIRST_RESPONSE_TIMEOUT_MS, type OptimisticSubmission} from '../model/optimisticChat';
@@ -160,7 +162,7 @@ function ActivityRow({item, language}: {item: Activity; language: Language}) {
       <Label role="caption" style={[styles.activityStatus, {color: item.status === 'failed' ? colors.error : colors.secondary}]}>{t(statusKey[item.status])}</Label>
       <View style={styles.activityChevron}>{!!item.text && <Icon name={open ? 'chevron_down' : 'chevron_right'} size={16} color={colors.secondary}/>}</View>
     </Pressable>
-    {open && !!item.text && <Label selectable role="caption" style={styles.details}>{item.text}</Label>}
+    {open && !!item.text && <Label selectable role="caption" style={styles.details}>{humanizeToolNames(item.text, key => t(key as TextKey))}</Label>}
   </View>;
 }
 
@@ -559,8 +561,8 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
       onLayout={event => {if (!nativeIme) setMeasuredHostHeight(event.nativeEvent.layout.height);}}>
     <View style={StyleSheet.absoluteFill} pointerEvents={layer ? 'none' : 'box-none'} importantForAccessibility={layer ? 'no-hide-descendants' : 'auto'}>
     <View style={[StyleSheet.absoluteFill, layer && styles.hidden]} pointerEvents="box-none">
-    {live.active && <VoiceEffect kind="light" target="live" level={liveLevel}
-      style={{position: 'absolute', left: 0, right: 0, bottom: 0, height: dimensions.width * 357 / 412}}/>}
+    {shouldShowLiveLight(live.active) && <VoiceEffect kind="light" target="live" level={liveLevel}
+      style={liveLightStyle(dimensions.width)}/>}
     {/* The conversation runs under the title row and the composer; both edges blur and fade. */}
     <EdgeBlur style={StyleSheet.absoluteFill} topSharp={headerBottom + 8} topFull={0}
       bottomSharp={composerTop - 32} bottomFull={composerTop + 16} sigma={chatBlur.edgeSigma} fade uniformSigma={replyMenu ? chatBlur.menuSigma : 0}>

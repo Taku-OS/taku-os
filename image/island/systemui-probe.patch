@@ -9,7 +9,7 @@
  
      <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
  
-@@ -1337,5 +1339,21 @@
+@@ -1337,5 +1339,23 @@
              android:exported="true"
             />
  
@@ -28,7 +28,9 @@
 +    </activity>
 +    <provider android:name="com.android.systemui.taku.island.IslandProvider"
 +            android:authorities="com.android.systemui.island"
-+            android:exported="true" android:singleUser="true" android:directBootAware="true" />
++            android:exported="true" android:singleUser="true" android:directBootAware="true"
++            android:writePermission="android.permission.DUMP"
++            android:grantUriPermissions="false" />
      </application>
  </manifest>
 --- a/packages/SystemUI/src/com/android/systemui/dagger/SystemUIModule.java
@@ -3514,7 +3516,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandProvider.kt
-@@ -0,0 +1,82 @@
+@@ -0,0 +1,79 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -3573,10 +3575,7 @@
 +
 +    private fun trusted(context: Context, uid: Int): Boolean {
 +        if (IslandAccessPolicy.trustedUid(uid, Process.myUid())) return true
-+        val pm = context.packageManager
-+        return pm.getPackagesForUid(uid).orEmpty().any {
-+            pm.checkSignatures("android", it) == PackageManager.SIGNATURE_MATCH
-+        }
++        return context.packageManager.checkSignatures(uid, Process.SYSTEM_UID) == PackageManager.SIGNATURE_MATCH
 +    }
 +
 +    /** Default deny: an unavailable or malformed App Permission Center answer is a refusal. */
