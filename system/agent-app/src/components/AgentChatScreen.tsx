@@ -10,6 +10,7 @@ import {VoiceEffect} from '../native/VoiceEffect';
 import {VoiceIcon} from '../chat/VoiceIcon';
 import {AssistantBubble, ComposerGlassRim} from '../chat/ChatSurfaces';
 import {useLiveTalk} from '../chat/useLiveTalk';
+import {liveLightStyle, shouldShowLiveLight} from '../chat/liveGlow';
 import * as Haptics from 'expo-haptics';
 import {colors as baseColors, containsChinese, layout, typography, type TypeRole} from '../theme';
 import {languageFor, textFor, type Language, type TextKey} from '../i18n';
@@ -552,8 +553,8 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
       onLayout={event => {if (!nativeIme) setMeasuredHostHeight(event.nativeEvent.layout.height);}}>
     <View style={StyleSheet.absoluteFill} pointerEvents={layer ? 'none' : 'box-none'} importantForAccessibility={layer ? 'no-hide-descendants' : 'auto'}>
     <View style={[StyleSheet.absoluteFill, layer && styles.hidden]} pointerEvents="box-none">
-    {live.active && <VoiceEffect kind="light" target="live" level={liveLevel}
-      style={{position: 'absolute', left: 0, right: 0, bottom: 0, height: dimensions.width * 357 / 412}}/>}
+    {shouldShowLiveLight(live.active) && <VoiceEffect kind="light" target="live" level={liveLevel}
+      style={liveLightStyle(dimensions.width)}/>}
     {/* The conversation runs under the title row and the composer; both edges blur and fade. */}
     <EdgeBlur style={StyleSheet.absoluteFill} topSharp={headerBottom + 8} topFull={0}
       bottomSharp={composerTop - 32} bottomFull={composerTop + 16} sigma={chatBlur.edgeSigma} fade uniformSigma={replyMenu ? chatBlur.menuSigma : 0}>

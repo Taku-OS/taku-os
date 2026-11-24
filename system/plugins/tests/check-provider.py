@@ -9,6 +9,8 @@ for line in sys.stdin:
         continue
     method = request['method']
     if method == 'initialize':
+        assert 'TAKU_TEST_HOST_ONLY' not in os.environ
+        assert os.environ.get('TAKU_TEST_PLUGIN_ENV') == 'plugin-fixture' or os.environ.get('DUPLICATE')
         result = {'protocolVersion': '2024-11-05', 'capabilities': {'tools': {}}, 'serverInfo': {'name': 'fixture', 'version': '1'}}
     elif method == 'tools/list':
         result = {'tools': [{'name': name, 'toolset': toolset, 'inputSchema': {'type': 'object'}, 'extraFixture': 42} for name, toolset in [('pass', 'checks'), ('fail', 'checks'), ('slow', 'slow'), ('hello', 'general')]]}
