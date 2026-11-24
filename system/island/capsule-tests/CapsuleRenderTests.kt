@@ -5,26 +5,44 @@ import android.app.Instrumentation
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Path
+import android.graphics.Rect
 import android.os.Bundle
 import android.view.View
 import java.io.File
 import org.json.JSONObject
 
+/** Attaches only the component under test so Android dispatches real visibility/lifecycle events. */
+class CapsuleTestActivity : Activity() {
+    lateinit var content: android.widget.FrameLayout
+    override fun onCreate(state: Bundle?) {
+        super.onCreate(state)
+        content = android.widget.FrameLayout(this)
+        setContentView(content)
+    }
+}
+
 /** Renders the production View on Android. No SystemUI replacement, mock login or live notification. */
 class CapsuleRenderTests : Instrumentation() {
     private var checks = 0
+    private var host: CapsuleTestActivity? = null
     override fun onCreate(arguments: Bundle?) { super.onCreate(arguments); start() }
     override fun onStart() {
         val result = Bundle()
         try {
+            host = startActivitySync(android.content.Intent(targetContext, CapsuleTestActivity::class.java)
+                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) as CapsuleTestActivity
+            waitForIdleSync()
             var failure: Throwable? = null
-            runOnMainSync { try { cases(); geometryCases(); progressCases(); templateCases() } catch (e: Throwable) { failure = e } }
+            runOnMainSync { try { cases(); cutoutCases(); geometryCases(); summaryCases(); ownershipCases(); progressCases(); templateCases() } catch (e: Throwable) { failure = e } }
             failure?.let { throw it }
             result.putString("stream", "PASS: $checks capsule render checks. Component Canvas only; real status-bar placement still needs SystemUI installation.\n")
             finish(Activity.RESULT_OK, result)
         } catch (e: Throwable) {
             result.putString("stream", "FAIL: $e\n${e.stackTraceToString()}")
             finish(Activity.RESULT_CANCELED, result)
+        } finally {
+            runOnMainSync { host?.finish() }
         }
     }
     private fun assertThat(ok: Boolean, message: String) { check(ok) { message }; checks++ }
@@ -87,6 +105,47 @@ class CapsuleRenderTests : Instrumentation() {
             view.visibility = View.GONE // Cancels the production animator; no leaked frame callbacks.
         }
     }
+    private fun cutoutCases() {
+        // Pixel 8 overlay on the 1080 px AVD: the exclusion is NOT the visible 72.5 px hole.
+        val exclusion = Rect(479, 0, 601, 132)
+        val path = Path().apply { addCircle(539.75f, 65.75f, 36.25f, Path.Direction.CW) }
+        val original = Path(path)
+        fun bounds(p: Path?) = IslandCameraGeometry.bounds(p, exclusion, 168f)
+        val camera = bounds(path)!!
+        assertThat(camera.width() == 72.5f && camera.height() == 72.5f, "paint the hole, not the 122 px exclusion")
+        assertThat(camera.centerX() == 539.75f && camera.centerY() == 65.75f, "preserve the actual subpixel centre")
+        assertThat(IslandCameraGeometry.bounds(original, Rect(503, 29, 576, 102), 168f) == camera,
+            "a tight exclusion without top padding still contains a camera")
+        path.addCircle(540f, 2380f, 20f, Path.Direction.CW)
+        assertThat(bounds(path) == camera, "a bottom cutout cannot enlarge the top camera")
+        assertThat(bounds(original) == camera, "shared cutout path remains unchanged")
+        assertThat(bounds(null) == null && bounds(Path()) == null, "missing paths fall back to the design circle")
+        val notch = Path().apply { addRect(490f, 0f, 590f, 100f, Path.Direction.CW) }
+        assertThat(bounds(notch) == null, "an edge-connected notch is not a camera")
+        val oval = Path().apply { addOval(490f, 30f, 590f, 80f, Path.Direction.CW) }
+        assertThat(bounds(oval) == null, "a wide cutout is not a circular camera")
+        assertThat(IslandCameraGeometry.bounds(original, Rect(), 168f) == null, "no top exclusion means no camera")
+        val view = IslandCapsuleView(targetContext, {}, {}, {}, {})
+        val d = targetContext.resources.displayMetrics.density
+        view.configure((52 * d).toInt(), camera.width() / 2f)
+        val width = view.layoutWidth(activity("A123"), (260 * d).toInt(), false)
+        view.bind(activity("A123"), null)
+        val height = (32 * d).toInt()
+        view.layout(0, 0, width, height)
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        view.draw(Canvas(bitmap))
+        val x = view.cameraOffset()
+        assertThat(Color.alpha(bitmap.getPixel(x, 0)) == 0, "camera is smaller than the 32 dp side discs")
+        assertThat(bitmap.getPixel(x, height / 2) == Color.BLACK, "real camera centre stays black")
+        assertThat(kotlin.math.abs(view.state().getDouble("cameraRadiusDp") - 36.25 / d) < .001,
+            "Agent readback reports the drawn radius")
+        val preview = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        Canvas(preview).apply { drawColor(0xffb3c6dd.toInt()); drawBitmap(bitmap, 0f, 0f, null) }
+        File(targetContext.getExternalFilesDir(null), "frames/pixel8-cutout.png").outputStream().use {
+            preview.compress(Bitmap.CompressFormat.PNG, 100, it)
+        }
+        bitmap.recycle(); preview.recycle()
+    }
     /** Real cutout sizes, a short bar and the waiting circle on the left (Figma 1:4742). */
     private fun geometryCases() {
         val d = targetContext.resources.displayMetrics.density
@@ -95,9 +154,9 @@ class CapsuleRenderTests : Instrumentation() {
             view.layout(0, 0, width, height)
             return Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).also { view.draw(Canvas(it)) }
         }
-        // A 46 dp emulator hole: the camera moves out to keep 8 dp gaps and the silhouette stays whole.
+        // A synthetic 46 dp physical hole: keep supporting genuinely large cameras.
         val big = IslandCapsuleView(targetContext, {}, {}, {}, {})
-        big.configure(px(52f), px(23f))
+        big.configure(px(52f), px(23f).toFloat())
         val bigWidth = big.layoutWidth(activity("A123"), px(260f), false)
         big.bind(activity("A123"), null)
         val bigBitmap = render(big, bigWidth, px(48f))
@@ -110,7 +169,7 @@ class CapsuleRenderTests : Instrumentation() {
         bigBitmap.recycle()
         // A 24 dp status bar scales the whole capsule instead of clipping its top and bottom.
         val short = IslandCapsuleView(targetContext, {}, {}, {}, {})
-        short.configure(px(24f), 0)
+        short.configure(px(24f), 0f)
         val shortWidth = short.layoutWidth(activity("A123"), px(260f), false)
         short.bind(activity("A123"), null)
         val shortBitmap = render(short, shortWidth, px(24f))
@@ -120,7 +179,7 @@ class CapsuleRenderTests : Instrumentation() {
         shortBitmap.recycle()
         // Group B that does not fit shows as much as fits and ends with an ellipsis.
         val narrow = IslandCapsuleView(targetContext, {}, {}, {}, {})
-        narrow.configure(px(48f), 0)
+        narrow.configure(px(48f), 0f)
         val narrowWidth = narrow.layoutWidth(activity("Delivering to the north entrance"), px(140f), false)
         val shown = narrow.state().getString("text")
         assertThat(shown.endsWith("\u2026") && shown.length > 1 && narrowWidth <= px(140f), "long label is ellipsized, not dropped: $shown")
@@ -129,7 +188,7 @@ class CapsuleRenderTests : Instrumentation() {
         assertThat(narrow.state().getString("text").isEmpty(), "no pill when not even one character and the ellipsis fit")
         // Two activities: the waiting circle is 32 dp on the left; the main capsule keeps its offset.
         val pair = IslandCapsuleView(targetContext, {}, {}, {}, {})
-        pair.configure(px(48f), 0)
+        pair.configure(px(48f), 0f)
         val pairWidth = pair.layoutWidth(activity("FL123"), px(300f), true)
         pair.bind(activity("FL123"), activity("A123").copy(key = "other"))
         val pairBitmap = render(pair, pairWidth, px(32f))
@@ -141,6 +200,128 @@ class CapsuleRenderTests : Instrumentation() {
         File(targetContext.getExternalFilesDir(null), "frames/two-activities.png").outputStream().use { pairBitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
         pairBitmap.recycle()
     }
+    /** The same production view survives app/card hiding, source changes and waiting-disc changes. */
+    private fun summaryCases() {
+        val d = targetContext.resources.displayMetrics.density
+        fun px(value: Float) = (value * d).toInt()
+        val primary = activity("A123")
+        val live = primary.copy(key = "live", packageName = "delivery.app", source = IslandActivity.SOURCE_LIVE_UPDATE,
+            payload = JSONObject(primary.payload.toString()).apply {
+                getJSONObject("compact").remove("a") // The adapter may have no readable icon.
+                getJSONObject("compact").getJSONObject("b").put("text", "12 min")
+            })
+        val waiting = primary.copy(key = "waiting")
+        var taps = 0
+        var next = 0
+        val view = IslandCapsuleView(targetContext, { taps++ }, {}, { next++ }, {})
+        host!!.content.addView(view, android.widget.FrameLayout.LayoutParams(px(300f), px(32f)))
+        val phase = IslandCapsuleView::class.java.getDeclaredField("phase").apply { isAccessible = true }
+        val animator = IslandCapsuleView::class.java.getDeclaredField("animation").apply { isAccessible = true }
+        val frames = File(targetContext.getExternalFilesDir(null), "frames")
+        fun render(name: String, item: IslandActivity, other: IslandActivity? = null): Bitmap {
+            view.configure(px(52f), 36.25f)
+            val width = view.layoutWidth(item, px(300f), other != null)
+            view.bind(item, other)
+            view.layout(0, 0, width, px(32f))
+            view.visibility = View.VISIBLE
+            phase.setFloat(view, 0f)
+            return Bitmap.createBitmap(width, view.height, Bitmap.Config.ARGB_8888).also { bitmap ->
+                view.draw(Canvas(bitmap))
+                val preview = Bitmap.createBitmap(width, view.height, Bitmap.Config.ARGB_8888)
+                Canvas(preview).apply { drawColor(0xffb3c6dd.toInt()); drawBitmap(bitmap, 0f, 0f, null) }
+                File(frames, "$name.png").outputStream().use { preview.compress(Bitmap.CompressFormat.PNG, 100, it) }
+                preview.recycle()
+            }
+        }
+        fun pixels(bitmap: Bitmap): IntArray = IntArray(bitmap.width * bitmap.height).also {
+            bitmap.getPixels(it, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
+        }
+        val single = render("summary-single", primary)
+        val initial = pixels(single)
+        for (entry in listOf("app-return", "card-collapse")) {
+            view.visibility = View.GONE
+            assertThat(animator.get(view) == null, "$entry stops hidden motion")
+            val returned = render("summary-$entry", primary)
+            assertThat(initial.contentEquals(pixels(returned)), "$entry restores identical capsule pixels")
+            returned.recycle()
+        }
+        val pair = render("summary-two", primary, live)
+        val lead = view.leadWidth()
+        assertThat(pair.width == single.width + lead, "waiting circle adds only its own space")
+        val pairedMain = IntArray(single.width * single.height)
+        pair.getPixels(pairedMain, 0, single.width, lead, 0, single.width, single.height)
+        assertThat(initial.indices.all { Color.alpha(initial[it]) == Color.alpha(pairedMain[it]) },
+            "waiting Live Update cannot stretch or move the main outline")
+        // Skia can round a few subpixel glyph edges by one channel level after translation.
+        assertThat(initial.indices.all { index ->
+            listOf(0, 8, 16).all { shift -> kotlin.math.abs((initial[index] shr shift and 255) - (pairedMain[index] shr shift and 255)) <= 1 }
+        }, "adding a waiting activity preserves the main glyph and label")
+        assertThat(view.state().getJSONObject("geometry").getDouble("secondaryGapDp") in 3.8..4.1,
+            "waiting circle has the design's 4 dp gap")
+        fun tap(x: Float) {
+            val now = android.os.SystemClock.uptimeMillis()
+            for ((action, time) in listOf(android.view.MotionEvent.ACTION_DOWN to now, android.view.MotionEvent.ACTION_UP to now + 30)) {
+                val event = android.view.MotionEvent.obtain(now, time, action, x, view.height / 2f, 0)
+                view.onTouchEvent(event); event.recycle()
+            }
+        }
+        tap(16 * view.unit)
+        assertThat(next == 1 && taps == 0, "waiting-circle tap switches activity, not the main card")
+        val livePair = render("summary-live-update-waiting", live, waiting)
+        assertThat(animator.get(view) != null, "a waiting AI animation runs even while the primary Live Update is static")
+        val before = pixels(livePair)
+        phase.setFloat(view, .375f)
+        val changed = Bitmap.createBitmap(livePair.width, livePair.height, Bitmap.Config.ARGB_8888)
+        view.draw(Canvas(changed))
+        assertThat(!before.contentEquals(pixels(changed)), "waiting animation paints different frames")
+        val primaryBefore = IntArray((livePair.width - lead) * livePair.height)
+        val primaryAfter = IntArray(primaryBefore.size)
+        livePair.getPixels(primaryBefore, 0, livePair.width - lead, lead, 0, livePair.width - lead, livePair.height)
+        changed.getPixels(primaryAfter, 0, changed.width - lead, lead, 0, changed.width - lead, changed.height)
+        assertThat(primaryBefore.contentEquals(primaryAfter), "waiting animation leaves the primary Live Update untouched")
+        view.visibility = View.GONE
+        assertThat(animator.get(view) == null, "card expansion stops both discs' animation")
+        view.visibility = View.VISIBLE
+        assertThat(animator.get(view) != null, "card collapse resumes a waiting animation")
+        val liveSingle = render("summary-live-update", live)
+        assertThat(animator.get(view) == null && !view.state().getBoolean("secondary"),
+            "ending the waiting activity clears its motion and state")
+        val restored = render("summary-restored", primary)
+        assertThat(initial.contentEquals(pixels(restored)), "switching sources restores the original geometry")
+        val shortLabel = live.copy(payload = JSONObject(live.payload.toString()).apply {
+            getJSONObject("compact").getJSONObject("b").put("text", "1")
+        })
+        val short = render("summary-one-character", shortLabel)
+        assertThat(view.state().getJSONObject("geometry").getDouble("pillWidthDp") >= 32,
+            "one-character Live Updates retain a round 32 dp end cap")
+        assertThat(view.state().getJSONObject("geometry").getDouble("discDiameterDp") == 32.0,
+            "all summary paths keep 32 dp side discs")
+        listOf(single, pair, livePair, changed, liveSingle, restored, short).forEach(Bitmap::recycle)
+        view.visibility = View.GONE
+        host!!.content.removeView(view)
+    }
+
+    private fun ownershipCases() {
+        val primary = activity("A123")
+        val live = activity("12 min").copy(key = "live", source = IslandActivity.SOURCE_LIVE_UPDATE)
+        val ownership = IslandPresentationOwnership
+        ownership.show(primary, live)
+        assertThat(ownership.state.value.notificationKeys == setOf(primary.key, live.key),
+            "both drawn summaries replace their identical upstream chips")
+        assertThat("unrelated" !in ownership.state.value.notificationKeys, "unrepresented chips remain upstream")
+        ownership.show(live, primary)
+        assertThat(ownership.state.value.notificationKeys == setOf(primary.key, live.key), "swapping summaries does not duplicate chips")
+        ownership.show(primary)
+        assertThat(ownership.state.value.notificationKeys == setOf(primary.key), "an expanded card owns only its own notification")
+        val recording = primary.copy(key = "taku:system:recording", payload = JSONObject(primary.payload.toString()).put("systemSource", "recording"))
+        ownership.show(live, recording)
+        assertThat(ownership.state.value.sources == setOf("recording") && ownership.state.value.notificationKeys == setOf(live.key),
+            "a waiting system source owns its matching system chip")
+        ownership.show(null)
+        assertThat(ownership.state.value.notificationKeys.isEmpty() && ownership.state.value.sources.isEmpty(),
+            "hidden summaries release all upstream chips")
+    }
+
     private fun progressCases() {
         val body = "Finish signing in on the ChatGPT page, then Taku continues setup."
         val expanded = JSONObject().put("template", "basic").put("title", "Signing in to ChatGPT").put("body", body)

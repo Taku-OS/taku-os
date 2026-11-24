@@ -60,8 +60,8 @@ and use the same `action` command as card buttons.
 Calls and alarms outrank ordinary alerts. A rising alert is bounded to five seconds; repeated
 updates cannot extend it forever. Remaining categories follow recording/cast, navigation, timer,
 assistant, media, progress, other, then relevance/time. Explicit selection survives routine ticks.
-Only an actually displayed primary island suppresses its identical ongoing chip; unrelated chips
-remain. Heads-up takes precedence: it collapses the card and hides its matching compact island,
+Every actually displayed island (the primary capsule and waiting disc) suppresses its identical
+ongoing chip; unrepresented chips remain. Heads-up takes precedence: it collapses the card and hides its matching compact island,
 without cancelling the heads-up or full-screen intent. When hidden, disabled, locked, or out of
 space, the island releases chip ownership. Multi-display and visibility transitions need final ROM
 acceptance; primary-display ownership is the supported presentation scope.

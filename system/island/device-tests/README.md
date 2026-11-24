@@ -57,6 +57,26 @@ increase while the card remains open. Check capsule tap, Back, IME input, anothe
 underneath, shade and rotation separately. `publish-alert` tests the five-second automatic alert,
 so its natural timeout must not be mistaken for an outside-tap collapse.
 
+### Alert replay regression (issue #30)
+
+Keep the fixture app in the background. All of these operations update its same notification
+ID 1. After `publish-alert` visibly expands, complete the next two calls **within five seconds**:
+
+```sh
+adb -s SERIAL shell cmd statusbar island collapse
+adb -s SERIAL shell content call --uri content://org.agentos.island.fixture --method publish
+adb -s SERIAL shell cmd statusbar island state
+```
+
+The final `presentation.expanded` must remain `false` while the summary content updates. Repeat
+with a GUI upward swipe instead of `collapse`, and with `publish-alert` instead of `publish`
+(a held `true` update). A `publish` → `publish-alert` flip during the 30-second cooldown must
+also stay collapsed. After 30 seconds from the original alert, a fresh `publish` → `publish-alert`
+must expand again. Do not cancel between the first alert and its quiet update: that would miss
+the original same-window regression. Also verify that quiet updates to an already-open automatic
+card refresh its content without extending its five-second timeout, and that an explicitly
+expanded card stays open after that timeout.
+
 `publish-surface` shows **LIVE SURFACE** on a teal background only after a real frame is committed.
 To test death fallback, call `crash-content` or tap its activity button. The bound content service
 SIGKILLs its own `:content` process; this does not require enabling rooted debugging or weakening

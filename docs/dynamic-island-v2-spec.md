@@ -99,6 +99,9 @@ The extractor today reads only the legacy `EXTRA_PROGRESS*` fields.
 ### 5.1 Compact capsule
 
 Shape: the authored metaball capsule (Figma `1379:889`). Disc 32 dp, camera 24 dp, pill 32 dp high.
+The minimum text-pill width is also 32 dp so its end cap remains circular for short values.
+Application return, card collapse, selection changes and Android Live Updates reuse this geometry;
+only A/B content changes. The camera remains anchored when a waiting activity appears or ends.
 
 | Group | Content types | Notes |
 |---|---|---|
@@ -163,6 +166,9 @@ the secondary disc replace them.
 - When room remains, a system-drawn 32 dp **waiting circle** left of the main disc shows the next
   activity's group A glyph (owner decision 9). The main capsule keeps its camera-anchored place.
   Tapping the circle brings that activity forward. Apps no longer supply anything for it.
+  Its 4 dp gap, glyph and animation remain independent of the selected activity. Both displayed
+  activities replace their identical upstream chips; activities without a visible island retain
+  their upstream presentation. An expanded card hides both summaries and owns only its own chip.
 - Swipe left selects the next activity. An explicit selection persists until a newer activity is
   triggered (below) or the selected one ends.
 - **Hide** (swipe right, Agent `dismiss`) removes that activity from the island for the rest of its
@@ -462,11 +468,16 @@ contents:
     lets a publisher restyle it (a white card, say), with text and controls following the
     background. More styles can be added the same way.
 11. **Acceptance fixes (2026-11-23):**
-    - The capsule's necks follow the real cutout radius and centre.
+    - The capsule's necks follow the visible `DisplayCutout.getCutoutPath()` radius and centre,
+      not `boundingRectTop` (a padded layout exclusion). The Pixel 8 overlay at 420 dpi has a
+      72.5 px / 27.62 dp hole inside a 122 px / 46.48 dp exclusion. Without a centred circular
+      path, use Figma's 24 dp camera (scaled on short bars).
     - The capsule scales on status bars shorter than 32 dp.
     - Animated icons inflate in the publisher's package.
     - Cards fold when they open the publisher's screen or the app comes to the front.
     - A rising `alert` counts at most once per 30 s per notification.
+      Each accepted five-second window expands at most once, independent of notification revisions;
+      collapsing it prevents quiet updates and cooldown-rejected flips from reopening that window.
     - Third-party custom extras require an ongoing notification.
     - Not changed: the 32-action parsing bound (owner: fine as is), platform-only remote content,
       and per-notification lifetimes (a new notification is a new activity; review covers abuse).

@@ -59,6 +59,10 @@ information component for B at a time.*
 - The normal graphic/pill height is 32 dp, reduced on shorter status bars. Available width depends
   on the cutout, clock and status icons. B is single-line and **ellipsized**, never scrolled or
   reduced to a smaller font; if even one character plus the ellipsis will not fit, only A remains.
+  The right pill needs at least 32 dp of width for its round end cap, even for a one-character value.
+- Returning from the app, collapsing a card, and Android Live Updates all use this same capsule.
+  A second activity appears in a separate 32 dp circle, 4 dp to the left; it never shifts the
+  primary capsule off the camera. Both visible activities replace their matching Android chips.
 - Aim for about **4 CJK or 8 Latin characters** in B; the parser accepts up to 16 Unicode code
   points for `text`, but that does not guarantee they will all fit. Put the critical value first.
   Use `text` for a six-digit pickup code; `number` accepts only one to three digits.
@@ -120,6 +124,9 @@ Routine updates must not alert. Space alert requests at least **30 seconds apart
 the system applies a cooldown which cancellation/reposting does not reset. Repeated `true`
 updates do not create new triggers. Automatic expansion is unavailable while the app is in front,
 on the lock screen, in landscape or while the notification shade is open.
+Each accepted five-second alert window is presented at most once. After the card is collapsed,
+content updates (including `alert: false`, held `true`, or flips rejected by the cooldown) do not
+reopen it. A new accepted false → true transition after the cooldown can alert again.
 
 SystemUI orders ordinary activities by **most recent trigger first**. A trigger is the initial
 post or an accepted false → true alert transition; content updates alone do not move an activity

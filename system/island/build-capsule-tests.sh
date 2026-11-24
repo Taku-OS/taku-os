@@ -6,19 +6,23 @@ source ../../scripts/android-env.sh
 : "${KOTLINC:?Set KOTLINC to the installed Kotlin compiler}"
 : "${ANDROID_FRAMEWORK_JAR:?Set ANDROID_FRAMEWORK_JAR to an Android 17 framework test jar for hidden SystemUI APIs}"
 : "${KOTLIN_STDLIB:?Set KOTLIN_STDLIB to the matching cached Kotlin stdlib jar}"
+KOTLIN_COROUTINES="${KOTLIN_COROUTINES:-$(dirname "$KOTLIN_STDLIB")/kotlinx-coroutines-core-jvm.jar}"
+test -f "$KOTLIN_COROUTINES"
 output=../../out/island-capsule-tests
 mkdir -p "$output/classes" "$output/dex"
 "$TOOLS/aapt2" link -o "$output/resources.apk" -I "$ANDROID_JAR" --manifest capsule-tests/AndroidManifest.xml
 "$JDK/bin/javac" --release 17 -cp "$ANDROID_FRAMEWORK_JAR" -d "$output/classes" src/org/agentos/island/DotMatrixLoader.java src/com/android/systemui/taku/island/IslandCapsuleGeometry.java \
     src/com/android/systemui/taku/island/IslandPayload.java src/com/android/systemui/taku/island/IslandStore.java
-"$KOTLINC" -jvm-target 17 -classpath "$ANDROID_FRAMEWORK_JAR:$output/classes" -d "$output/classes"     src/com/android/systemui/taku/island/IslandActivity.kt     src/com/android/systemui/taku/island/IslandCapsuleView.kt \
+"$KOTLINC" -jvm-target 17 -classpath "$ANDROID_FRAMEWORK_JAR:$KOTLIN_COROUTINES:$output/classes" -d "$output/classes"     src/com/android/systemui/taku/island/IslandActivity.kt     src/com/android/systemui/taku/island/IslandCapsuleView.kt \
     src/com/android/systemui/taku/island/IslandStyle.kt \
+    src/com/android/systemui/taku/island/IslandCameraGeometry.kt \
+    src/com/android/systemui/taku/island/IslandPresentationOwnership.kt \
     src/com/android/systemui/taku/island/IslandStatusGlyph.kt \
     src/com/android/systemui/taku/island/IslandProgressCard.kt src/com/android/systemui/taku/island/IslandTemplateCard.kt \
     src/com/android/systemui/taku/island/IslandNativeCard.kt src/com/android/systemui/taku/island/IslandCardEffects.kt \
     capsule-tests/CapsuleRenderTests.kt
 "$JDK/bin/jar" --create --file "$output/classes.jar" -C "$output/classes" .
-"$TOOLS/d8" --min-api 36 --lib "$ANDROID_JAR" --output "$output/dex" "$output/classes.jar" "$KOTLIN_STDLIB"
+"$TOOLS/d8" --min-api 36 --lib "$ANDROID_JAR" --output "$output/dex" "$output/classes.jar" "$KOTLIN_STDLIB" "$KOTLIN_COROUTINES"
 cp "$output/resources.apk" "$output/unsigned.apk"
 (cd "$output/dex" && zip -q ../unsigned.apk classes.dex)
 "$TOOLS/zipalign" -f 4 "$output/unsigned.apk" "$output/aligned.apk"

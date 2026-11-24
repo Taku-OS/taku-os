@@ -79,3 +79,56 @@ This host has no Android SDK build tools, emulator, Gradle cache or SystemUI bui
 run on a device or in a real Soong/Dagger build. The baseline for the compile check is the set of 46
 hidden-framework-API errors present on `main`; later stages only add further uses of the same
 hidden APIs (`createContextAsUser`, `UserHandle.of`, `isPromotedOngoing`).
+
+## Summary geometry follow-up (2026-11-24)
+
+The summary regression came from treating the padded display-cutout exclusion rectangle as the
+visible camera circle. The renderer now reads the visible cutout path, retaining fractional pixel
+coordinates; a device without a usable punch-hole path uses Figma's 24 dp circle. Group A and B
+remain 32 dp high, including one-character Live Updates. The waiting disc keeps its own animation
+and shares native-chip ownership with the primary summary, preventing duplicate Live Update chips.
+Card expansion/collapse also updates the readable summary state synchronously.
+
+Validation on branch `vela/dynamic-island`, base `5ca4c930` plus the uncommitted fixes:
+
+- `npm run check:island` and owned-source Android 17 typecheck passed.
+- 109 component checks passed on `emulator-5596`, including exact outline restoration, attached
+  view animation lifecycle, cutout-path parsing and primary/secondary chip ownership.
+- The real pinned Android 17 / Lineage 24 SystemUI platform build passed. Its signed APK was
+  installed on the isolated `Taku_PR27_Fresh` AVD, preserving userdata; installed SHA-256 matches
+  `c8a3f8d5414c48a43bd056a436f338ea1e998ab8697f675e9d50714bd8840e9b`.
+- 51 actual-SystemUI checks passed: application return, GUI expansion and upward-swipe collapse,
+  command collapse, waiting-disc selection, animated waiting icons, ordinary Android Live Updates,
+  two Live Updates without duplicate native ETA chips, mixed sources, short text and three-activity
+  cycling. GUI screenshots and `cmd statusbar island state` agree on geometry and visibility.
+- This AVD's visible camera is 72.5 px (27.62 dp), while its exclusion is 122 px (46.48 dp).
+  The physical hole is preserved; it is no longer enlarged to the exclusion rectangle. The primary
+  camera anchor stays fixed when the waiting disc appears. No crash-buffer entries were recorded.
+
+Local receipts, screenshots and cleanup records are under `out/island-summary-20261124/`.
+Fixture apps/notifications were removed and the original allow-list restored. This checkpoint
+accepts the listed summary scenarios on this AVD; it is not a new full-ROM or physical-device
+acceptance and does not supersede unrelated outstanding items above.
+
+## Duplicate alert-card follow-up (2026-11-24)
+
+Fixed [issue #30's same-window replay](https://github.com/Taku-OS/taku-os/issues/30#issuecomment-7105043464).
+`IslandPresenter` now consumes the accepted alert-window deadline instead of the notification's
+content revision. Quiet updates, held `true` and cooldown-rejected flips therefore cannot reopen
+an already-collapsed card within that same window. Content refresh and the 30-second cooldown are
+unchanged; a newly accepted alert can still expand.
+
+The original sequence was reproduced on `emulator-5596`: initial alert at 1292 ms, collapse at
+1392 ms, then `alert=false` at 2778 ms incorrectly reopened it. After installing the fix, the
+same sequence was initial alert at 1379 ms, collapse at 1488 ms, then `alert=false` at 2982 ms
+remaining collapsed. All 17 device checks passed, including GUI swipe collapse, held alerts,
+cooldown flips, cancel/repost, independent notifications, foreground suppression, automatic
+timeout, manual-card updates and a new alert after the real cooldown elapsed.
+
+`npm run check:island` passed (44 store checks), Android 17 owned-source typecheck passed, and
+the real SystemUI platform build passed. The installed APK matches SHA-256
+`5b6f77e2b27e427be31967faf19e57c620539eb7d14c40e06ec2fbc6879c53b2`.
+Source includes the preceding summary fixes plus the uncommitted alert fix on `5ca4c930`.
+Evidence is in `out/island-alert-20261124/`; the temporary publisher and notifications were removed,
+the original allow-list restored, and userdata retained. This accepts the duplicate-alert item
+on the isolated AVD, not the other outstanding items in that report.

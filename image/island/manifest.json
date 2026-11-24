@@ -3,7 +3,7 @@
   "repository": "frameworks/base",
   "revision": "7f6de40b6429462d47ba9ba351b99943269c8067",
   "patch": "systemui-probe.patch",
-  "patchSha256": "e7387a1b6625eff76f93b5b65e2fd5b35c18759e7c3b080953fa4eb95ff0befa",
+  "patchSha256": "d38d1c2b3a101a5e5357058065d67cc04882f8ddd1e49c38cfcfb56897202557",
   "files": [
     {
       "path": "packages/SystemUI/AndroidManifest.xml",
@@ -18,7 +18,7 @@
     {
       "path": "packages/SystemUI/src/com/android/systemui/statusbar/chips/ui/viewmodel/OngoingActivityChipsViewModel.kt",
       "beforeSha256": "a8876ee6a225da2f988a78807f64e9aa78d5e7c13811c87c069f63eda14f7916",
-      "afterSha256": "13fbdefc5856bd97dc1bd5a87a367d60ebf74d074ed84c7b0fd80cdf75069ca1"
+      "afterSha256": "16ef5bb0227f99acb3724c5607d2c0494a2cd789ca87d8159956ddb371598def"
     },
     {
       "path": "packages/SystemUI/src/com/android/systemui/statusbar/phone/PhoneStatusBarView.java",
@@ -49,6 +49,12 @@
       "source": "system/island/src/com/android/systemui/taku/island/IslandAssistantCard.kt"
     },
     {
+      "path": "packages/SystemUI/src/com/android/systemui/taku/island/IslandCameraGeometry.kt",
+      "beforeSha256": null,
+      "afterSha256": "d52e68f311cb1681b85038077036598a94f45029fd2c97e99ef60e7d9329c018",
+      "source": "system/island/src/com/android/systemui/taku/island/IslandCameraGeometry.kt"
+    },
+    {
       "path": "packages/SystemUI/src/com/android/systemui/taku/island/IslandCapsuleGeometry.java",
       "beforeSha256": null,
       "afterSha256": "4ff6b414eca9cddbb8ab742488328cd614d88b32f1871b69e160328145be28cd",
@@ -57,7 +63,7 @@
     {
       "path": "packages/SystemUI/src/com/android/systemui/taku/island/IslandCapsuleView.kt",
       "beforeSha256": null,
-      "afterSha256": "28a48b0a92a3a8bf78bc3946b739160b831d77dbfcda3e472d10fd567d447c02",
+      "afterSha256": "3a4bf781dc6abb4ce6b073a118a6e6a89c7fe6c88e1301a8afe75bcbe39fbc7e",
       "source": "system/island/src/com/android/systemui/taku/island/IslandCapsuleView.kt"
     },
     {
@@ -129,13 +135,13 @@
     {
       "path": "packages/SystemUI/src/com/android/systemui/taku/island/IslandPresentationOwnership.kt",
       "beforeSha256": null,
-      "afterSha256": "1380f0a3bc83b4b57e8094cfb7ccd402b369ae7577c202deeb0b16edbc008207",
+      "afterSha256": "9fcb3a79a6649ab5308e1eae02b871bfcee56c0d70dc51f432a1634389981e64",
       "source": "system/island/src/com/android/systemui/taku/island/IslandPresentationOwnership.kt"
     },
     {
       "path": "packages/SystemUI/src/com/android/systemui/taku/island/IslandPresenter.kt",
       "beforeSha256": null,
-      "afterSha256": "ad7fe764913b4dacc1449eadfdffa2fc0c157475ea5f55b7e58977bd14d17042",
+      "afterSha256": "a63989d3ff099681caf5cf6201cc11d83dfc4bc1a962e81fbbe144aac4288ec6",
       "source": "system/island/src/com/android/systemui/taku/island/IslandPresenter.kt"
     },
     {

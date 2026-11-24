@@ -109,7 +109,11 @@ A Taku-format island activity (`taku.island.v2`) does not also raise a stock hea
 the island can present it (unlocked, shade closed, portrait, island enabled, activity not hidden);
 its `alert` expands the card instead, at its `cardPosition`. A false-to-true `alert` counts at
 most once per 30 s per notification key (cancel and repost included); faster flips neither expand
-nor reorder. While a call, alarm, recording or cast is live it holds the head of the order, so
+nor reorder. Each accepted five-second alert window expands at most once: after `collapse` or a
+GUI upward swipe, ordinary updates (`alert: false`, held `true`, or cooldown-rejected flips) do
+not reopen the card. A new accepted false-to-true alert after the cooldown may expand again.
+Read `cmd statusbar island state` → `presentation.expanded` to verify the same GUI state.
+While a call, alarm, recording or cast is live it holds the head of the order, so
 other activities keep their stock heads-up. Third-party custom extras on a notification that is not ongoing are ignored with
 diagnostic `not_ongoing` (Taku Agent is exempt). Calls, alarms, plain Android Live
 Updates (which have no alert field), hidden activities and invalid extras keep Android's heads-up.
@@ -131,13 +135,23 @@ fallback. `state.presentation.compact` (null when hidden) reports what the capsu
 `working` or `listening`), `pillGlyph` (group B drawn as `pic`, `working` or `listening`, else
 null), `animatingIcons` (running app animated icons; each loops for at most 60 s and never
 with animations disabled), `secondary` (a second activity's circle), `secondaryPosition` (`left`),
-`cameraRadiusDp` (the real cutout's radius the necks join; 12 without a centred cutout) and
+`cameraRadiusDp` (radius from the visible `DisplayCutout.getCutoutPath()`, not the padded
+`boundingRectTop` exclusion; defaults to `12 * scale` when no centred circular path is available) and
 `scale` (below 1 on a status bar shorter than 32 dp). `state.presentation.card`
 reports `renderer` (`systemui-native`, or `remote-surface` once a rich body is ready) and, for
 non-assistant cards, `template:{title,template,highlight,backgroundColor,accentColor,tapAction,body,actionCount,progress}` read from the drawn
 views, plus `cover`, `fill` (ARGB of the card fill) and `backdropBlur` (false when compositor
 blur is off and the opaque fallback is drawn). A card whose content cannot be drawn closes with `reason` `render_failed:...` (or
 `window_failed:...` when it never opened) instead of staying on screen.
+
+All summary entry paths (returning from the publishing app, collapsing a card, selecting another
+activity, and Android Live Updates) use the same renderer. `state.presentation.compact.geometry`
+reports the drawn `cameraCenterX`/`cameraCenterY` in screen pixels, `discDiameterDp`, `pillHeightDp`,
+`pillWidthDp`, and `secondaryGapDp` (null when there is no waiting circle). The normal disc/pill
+height and minimum pill width are 32 dp; the waiting-circle gap is 4 dp, scaled on short bars.
+Use `cmd statusbar island state` before and after `collapse` / `next` / `select KEY` to compare
+geometry. `compact` and `secondaryKey` are null while a card hides the summaries. Both actually
+drawn activities replace their identical upstream chips; unrepresented activities keep theirs.
 
 ## Settings shared with the GUI
 

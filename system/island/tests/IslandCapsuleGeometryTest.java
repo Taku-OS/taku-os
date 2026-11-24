@@ -52,7 +52,7 @@ public final class IslandCapsuleGeometryTest {
             float actual = n[i] - (i % 2 == 0 ? 12 : 0);
             check(Math.abs(actual - authored[i]) < 0.25f, "neck point " + i + " is " + actual + ", design " + authored[i]);
         }
-        // A large emulator hole (46 dp) keeps an open, smooth neck that meets both circles.
+        // A genuinely large physical hole (46 dp) keeps an open, smooth neck at both circles.
         float[] big = IslandCapsuleGeometry.neck(16, 23, 47, 4);
         check(big[0] < big[2] && big[2] < big[6] && big[4] < big[6], "handles stay between the circles");
         check(big[3] < 0 && big[5] < 0, "the neck never pinches through the centre line");

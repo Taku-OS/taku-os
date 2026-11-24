@@ -4,16 +4,17 @@ package com.android.systemui.taku.island
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-/** Only the actually displayed primary island owns its upstream chip. Hidden islands own nothing. */
+/** Every actually drawn island (primary or waiting disc) owns its upstream chip; hidden ones do not. */
 object IslandPresentationOwnership {
-    data class Owner(val notificationKey: String? = null, val source: String? = null)
+    data class Owner(val notificationKeys: Set<String> = emptySet(), val sources: Set<String> = emptySet())
     private val mutable = MutableStateFlow(Owner())
     val state = mutable.asStateFlow()
-    fun show(activity: IslandActivity?) {
-        mutable.value = when {
-            activity == null -> Owner()
-            activity.key.startsWith("taku:system:") -> Owner(source = activity.payload.optString("systemSource"))
-            else -> Owner(notificationKey = activity.key)
-        }
+    fun show(primary: IslandActivity?, secondary: IslandActivity? = null) {
+        val visible = listOfNotNull(primary, secondary)
+        mutable.value = Owner(
+            visible.filterNot { it.key.startsWith("taku:system:") }.map { it.key }.toSet(),
+            visible.filter { it.key.startsWith("taku:system:") }
+                .map { it.payload.optString("systemSource") }.filter { it.isNotEmpty() }.toSet(),
+        )
     }
 }

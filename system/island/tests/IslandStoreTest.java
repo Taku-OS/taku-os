@@ -67,6 +67,17 @@ public final class IslandStoreTest {
         check(store.get("older").alertUntil == 5600, "repeated alert payload cannot extend alert forever");
         check(first(store, 5600).equals("older"), "rising alert re-triggers recency after the alert window");
         check(store.get("older").triggeredAt == 600, "held alert does not re-trigger");
+        long alertWindow = store.get("older").alertUntil;
+        long contentRevision = store.get("older").revision;
+        put(store, "older", 2000, ACTIVITY, false);
+        check(store.get("older").revision != contentRevision && store.get("older").alertUntil == alertWindow,
+                "quiet update inside the 5 s window changes content but not the consumed alert identity");
+        put(store, "older", 2500, ACTIVITY, true);
+        check(store.get("older").alertUntil == alertWindow,
+                "cooldown-rejected flip inside the window cannot create a new alert identity");
+        put(store, "older", 3000, ACTIVITY, true);
+        check(store.get("older").alertUntil == alertWindow,
+                "held true update inside the window keeps the consumed alert identity");
         put(store, "older", 6000, ACTIVITY, false);
         put(store, "older", 6100, ACTIVITY, true);
         check(store.get("older").triggeredAt == 600 && store.get("older").alertUntil == 5600,
@@ -75,6 +86,8 @@ public final class IslandStoreTest {
         put(store, "older", 600 + IslandStore.ALERT_COOLDOWN_MS, ACTIVITY, true);
         check(store.get("older").triggeredAt == 600 + IslandStore.ALERT_COOLDOWN_MS,
                 "a false-to-true alert after the cooldown re-triggers");
+        check(store.get("older").alertUntil != alertWindow,
+                "accepted alert after cooldown has a new presentation identity");
         store.remove("older");
         put(store, "older", 600 + IslandStore.ALERT_COOLDOWN_MS + 1000, ACTIVITY, true);
         check(store.get("older").alertUntil == 0, "cancel and repost cannot skip the alert cooldown");

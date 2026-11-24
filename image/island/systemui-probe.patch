@@ -59,14 +59,14 @@
 -            incomingChipBundle.map { bundle -> rankChips(bundle) },
 +            combine(incomingChipBundle, com.android.systemui.taku.island.IslandPresentationOwnership.state) { bundle, owner ->
 +                if (islandDisplayId != android.view.Display.DEFAULT_DISPLAY) return@combine rankChips(bundle)
-+                // Retain unrelated chips and the upstream path whenever the island is hidden.
++                // Primary and waiting summaries each replace their own chip; retain unrepresented chips.
 +                val inactive = OngoingActivityChipModel.Inactive()
 +                rankChips(bundle.copy(
-+                    screenRecord = if (owner.source == "recording") inactive else bundle.screenRecord,
-+                    shareToApp = if (owner.source == "recording" || owner.source == "projection") inactive else bundle.shareToApp,
-+                    castToOtherDevice = if (owner.source == "cast") inactive else bundle.castToOtherDevice,
-+                    call = if (owner.notificationKey != null && (bundle.call as? OngoingActivityChipModel.Active)?.notificationKey == owner.notificationKey) inactive else bundle.call,
-+                    notifs = bundle.notifs.filter { owner.notificationKey == null || it.notificationKey != owner.notificationKey },
++                    screenRecord = if ("recording" in owner.sources) inactive else bundle.screenRecord,
++                    shareToApp = if ("recording" in owner.sources || "projection" in owner.sources) inactive else bundle.shareToApp,
++                    castToOtherDevice = if ("cast" in owner.sources) inactive else bundle.castToOtherDevice,
++                    call = if ((bundle.call as? OngoingActivityChipModel.Active)?.notificationKey in owner.notificationKeys) inactive else bundle.call,
++                    notifs = bundle.notifs.filter { it.notificationKey !in owner.notificationKeys },
 +                ))
 +            },
              displayStateInteractor.isWideScreen,
@@ -414,6 +414,33 @@
 +    }
 +}
 --- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandCameraGeometry.kt
+@@ -0,0 +1,24 @@
++/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
++package com.android.systemui.taku.island
++
++import android.graphics.Path
++import android.graphics.Rect
++import android.graphics.RectF
++
++/** Visible camera geometry, distinct from DisplayCutout's padded layout exclusion rectangle. */
++internal object IslandCameraGeometry {
++    fun bounds(cutoutPath: Path?, topExclusion: Rect, maxDiameter: Float): RectF? {
++        if (cutoutPath == null || cutoutPath.isEmpty || topExclusion.isEmpty) return null
++        // A display path can contain bottom/side cutouts as well. Only inspect the top one.
++        val top = Path().apply { addRect(RectF(topExclusion), Path.Direction.CW) }
++        val camera = Path(cutoutPath)
++        if (!camera.op(top, Path.Op.INTERSECT)) return null
++        val bounds = RectF()
++        camera.computeBounds(bounds, true)
++        if (bounds.isEmpty || bounds.width() > maxDiameter || bounds.height() > maxDiameter ||
++            kotlin.math.abs(bounds.width() - bounds.height()) > 1f) return null
++        // Edge-connected notches are not punch holes, even if their bounding box is square.
++        if (bounds.top <= 0f) return null
++        return bounds
++    }
++}
+--- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandCapsuleGeometry.java
 @@ -0,0 +1,59 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
@@ -477,7 +504,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandCapsuleView.kt
-@@ -0,0 +1,485 @@
+@@ -0,0 +1,538 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -507,8 +534,8 @@
 + * Compact island, Figma 1:4742 (52:815) for every activity: a 32 dp disc, the camera, and a 32 dp
 + * text pill, each 8 dp from the camera's edge and joined by metaball necks that leave every circle
 + * tangentially ([IslandCapsuleGeometry.neck]). The camera is the device's real cutout: its radius
-+ * comes from the display, so a 46 dp emulator hole keeps the same smooth outline as the design's
-+ * 24 dp one. The disc shows the activity's glyph (loader, picture, progress ring or app icon); the
++ * comes from the visible display cutout path, not its padded exclusion rectangle. The design's
++ * 24 dp circle is used without a physical hole. The disc shows the activity's glyph; the
 + * pill shows its text, timer or number in Hanken 12 sp. Another live activity waits as a 32 dp
 + * circle on the far left, where the bar has room; the main capsule never moves for it. On a status
 + * bar shorter than 32 dp everything scales down rather than clipping. Vertical drags are left to
@@ -546,6 +573,7 @@
 +    private var generation = 0
 +    private var animation: ValueAnimator? = null
 +    private var phase = 0f
++    private var listeningPhase = 0f
 +    private val loaderPose = DotMatrixLoader.Pose()
 +    private var downY = 0f
 +    private var downX = 0f
@@ -599,15 +627,16 @@
 +        else -> super.performAccessibilityAction(action, arguments)
 +    }
 +
-+    override fun verifyDrawable(who: Drawable): Boolean = who in icons.values || super.verifyDrawable(who)
++    override fun verifyDrawable(who: Drawable): Boolean =
++        who in icons.values || who in secondaryIcons.values || super.verifyDrawable(who)
 +
 +    /**
 +     * Fits the capsule to the bar: [barHeight] below 32 dp scales every dimension, and
 +     * [cutoutRadius] (pixels, 0 without a centred physical cutout) sizes the camera circle.
 +     */
-+    fun configure(barHeight: Int, cutoutRadius: Int) {
++    fun configure(barHeight: Int, cutoutRadius: Float) {
 +        unit = density * minOf(1f, barHeight / (32 * density)).coerceAtLeast(.5f)
-+        cameraRadius = if (cutoutRadius > 0) cutoutRadius.toFloat() else 12 * unit
++        cameraRadius = if (cutoutRadius > 0) cutoutRadius else 12 * unit
 +        textPaint.textSize = 12f * resources.displayMetrics.scaledDensity * unit / density
 +    }
 +
@@ -632,8 +661,12 @@
 +    private fun startIconAnimations() {
 +        val activity = item ?: return
 +        if (!ValueAnimator.areAnimatorsEnabled() || visibility != VISIBLE || !isAttachedToWindow) return
-+        for (key in animatedKeys(activity)) {
-+            val drawable = icons[key] ?: continue
++        val visibleIcons = animatedKeys(activity).mapNotNull(icons::get) +
++            listOfNotNull(second?.let { other ->
++                val slot = other.compact?.optJSONObject("a")
++                if (slot?.optBoolean("animate") == true) secondaryIcons[slot.optString("pic")] else null
++            })
++        for (drawable in visibleIcons) {
 +            val animated = drawable as? Animatable2 ?: continue
 +            if (drawable in iconLoops || drawable in iconSpent) continue
 +            drawable.callback = this
@@ -657,6 +690,16 @@
 +    private fun stopIconAnimations() {
 +        for (drawable in iconLoops.keys) (drawable as? Animatable2)?.apply { clearAnimationCallbacks(); stop() }
 +        iconLoops.clear()
++    }
++
++    private fun clearIcons(loaded: MutableMap<String, Drawable>) {
++        for (drawable in loaded.values) {
++            (drawable as? Animatable2)?.apply { clearAnimationCallbacks(); stop() }
++            drawable.callback = null
++            iconLoops.remove(drawable)
++            iconSpent.remove(drawable)
++        }
++        loaded.clear()
 +    }
 +
 +    /**
@@ -726,13 +769,15 @@
 +            pillGlyphShown = true
 +            width = kotlin.math.ceil(pillStart() + 32 * unit).toInt()
 +        }
-+        if (text.isNotEmpty() && room > 0) {
++        if (text.isNotEmpty() && room >= 16 * unit) {
 +            // Timers reserve their widest digits so the pill does not jitter every second.
 +            val natural = max(textPaint.measureText(text), if (slot?.optString("type") in setOf("timer", "countdown")) textPaint.measureText(text.replace(Regex("[0-9]"), "0")) else 0f)
 +            val fitted = ellipsized(text, room)
 +            if (fitted.isNotEmpty()) {
 +                shownText = fitted
-+                width = kotlin.math.ceil(pillStart() + 16 * unit + if (fitted == text) minOf(natural, room) else textPaint.measureText(fitted)).toInt()
++                val labelWidth = if (fitted == text) minOf(natural, room) else textPaint.measureText(fitted)
++                // The neck joins a 16 dp-radius end cap, including one-character Live Updates.
++                width = kotlin.math.ceil(pillStart() + max(32 * unit, 16 * unit + labelWidth)).toInt()
 +            }
 +        }
 +        return width
@@ -751,10 +796,14 @@
 +        if (secondaryIdentity !== second?.payload) {
 +            secondaryIdentity = second?.payload
 +            val current = ++secondaryGeneration
-+            secondaryIcons.clear()
++            clearIcons(secondaryIcons)
 +            second?.pics?.forEach { (key, icon) ->
 +                IslandStyle.loadIcon(context, icon) { drawable ->
-+                    if (current == secondaryGeneration && drawable != null) { secondaryIcons[key] = drawable; invalidate() }
++                    if (current == secondaryGeneration && drawable != null) {
++                        secondaryIcons[key] = drawable
++                        startIconAnimations()
++                        invalidate()
++                    }
 +                }
 +            }
 +        }
@@ -765,9 +814,7 @@
 +        if (identity !== activity.payload) {
 +            identity = activity.payload
 +            val current = ++generation
-+            stopIconAnimations()
-+            iconSpent.clear()
-+            icons.clear()
++            clearIcons(icons)
 +            activity.pics.forEach { (key, icon) ->
 +                IslandStyle.loadIcon(context, icon) { drawable ->
 +                    if (current == generation && drawable != null) {
@@ -779,17 +826,32 @@
 +            }
 +        }
 +        startIconAnimations()
-+        val motion = listOfNotNull(discSlot(activity), pillGlyph(activity)).firstOrNull { it.has("animated") }
-+        val moving = motion != null
-+        if (moving && animation == null && ValueAnimator.areAnimatorsEnabled() && visibility == VISIBLE) animation = ValueAnimator.ofFloat(0f, 1f).apply {
-+            duration = if (motion?.optString("animated") == "listening") 1400 else DotMatrixLoader.CYCLE_MS
++        val moving = listOfNotNull(discSlot(activity), pillGlyph(activity), second?.let(::discSlot))
++            .any { it.has("animated") }
++        if (moving && animation == null && ValueAnimator.areAnimatorsEnabled() && isShown && isAttachedToWindow) animation = ValueAnimator.ofFloat(0f, 1f).apply {
++            // One repaint clock for both discs. Keep each authored cycle when selection changes:
++            // working = 1000 ms; listening = 1400 ms; their common cycle is 7000 ms.
++            duration = 7000
 +            interpolator = LinearInterpolator()
 +            repeatCount = ValueAnimator.INFINITE
-+            addUpdateListener { phase = it.animatedValue as Float; invalidate() }
++            addUpdateListener {
++                val elapsed = (it.animatedValue as Float) * 7000
++                phase = (elapsed % DotMatrixLoader.CYCLE_MS) / DotMatrixLoader.CYCLE_MS
++                listeningPhase = (elapsed % 1400) / 1400
++                invalidate()
++            }
 +            start()
 +        }
-+        if (!moving) { animation?.cancel(); animation = null }
++        if (!moving || !ValueAnimator.areAnimatorsEnabled() || !isShown || !isAttachedToWindow) {
++            animation?.cancel(); animation = null
++        }
++        if (!ValueAnimator.areAnimatorsEnabled() || visibility != VISIBLE) stopIconAnimations()
 +        invalidate()
++    }
++
++    override fun onAttachedToWindow() {
++        super.onAttachedToWindow()
++        item?.let { bind(it, second) }
 +    }
 +
 +    override fun onDetachedFromWindow() {
@@ -797,6 +859,9 @@
 +        animation = null
 +        stopIconAnimations()
 +        generation++
++        secondaryGeneration++
++        identity = null
++        secondaryIdentity = null
 +        super.onDetachedFromWindow()
 +    }
 +
@@ -849,7 +914,9 @@
 +            val start = pill + 8 * unit
 +            // A live clock is re-measured every tick; it ellipsizes like any text if it outgrows its room.
 +            val text = if (timed) ellipsized(pillText(slot), width - 8 * unit - start) else shownText
-+            canvas.drawText(text, start, cy - (textPaint.ascent() + textPaint.descent()) / 2, textPaint)
++            val textStart = if (width - pill <= 32 * unit + 1)
++                max(start, pill + (width - pill - textPaint.measureText(text)) / 2) else start
++            canvas.drawText(text, textStart, cy - (textPaint.ascent() + textPaint.descent()) / 2, textPaint)
 +            // Live clocks: redraw on the next whole second while shown.
 +            if (timed) postInvalidateDelayed(1000 - System.currentTimeMillis() % 1000)
 +        }
@@ -882,7 +949,7 @@
 +        when {
 +            motion == "listening" -> {
 +                paint.color = IslandStyle.TEXT_PRIMARY
-+                val wave = (kotlin.math.sin(phase * 2 * Math.PI) + 1) / 2
++                val wave = (kotlin.math.sin(listeningPhase * 2 * Math.PI) + 1) / 2
 +                canvas.drawCircle(cx, cy, dp(3) + dp(2) * wave.toFloat(), paint)
 +            }
 +            slot?.optString("type") == "progress" -> {
@@ -949,7 +1016,20 @@
 +        .put("animatingIcons", iconLoops.size)
 +        .put("secondaryPosition", if (secondary) "left" else JSONObject.NULL)
 +        .put("cameraRadiusDp", cameraRadius / density).put("scale", unit / density)
++        .put("geometry", geometryState())
 +        .put("disc", item?.let { discSlot(it)?.let { slot -> slot.optString("animated").ifEmpty { slot.optString("type") } } ?: "dot" } ?: JSONObject.NULL)
++
++    /** Drawn coordinates in screen pixels, shared by every source and summary entry path. */
++    private fun geometryState(): JSONObject {
++        val origin = IntArray(2)
++        getLocationOnScreen(origin)
++        return JSONObject().put("cameraCenterX", origin[0] + cameraX())
++            .put("cameraCenterY", origin[1] + height / 2f + centerShift)
++            .put("discDiameterDp", 32 * unit / density)
++            .put("pillHeightDp", if (shownText.isNotEmpty() || pillGlyphShown) 32 * unit / density else 0f)
++            .put("pillWidthDp", if (shownText.isNotEmpty() || pillGlyphShown) (width - pillStart()) / density else 0f)
++            .put("secondaryGapDp", if (secondary) (lead - 32 * unit) / density else JSONObject.NULL)
++    }
 +
 +    private fun dp(value: Float) = value * unit
 +    private fun dp(value: Int) = value * unit
@@ -2772,29 +2852,30 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandPresentationOwnership.kt
-@@ -0,0 +1,19 @@
+@@ -0,0 +1,20 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
 +import kotlinx.coroutines.flow.MutableStateFlow
 +import kotlinx.coroutines.flow.asStateFlow
 +
-+/** Only the actually displayed primary island owns its upstream chip. Hidden islands own nothing. */
++/** Every actually drawn island (primary or waiting disc) owns its upstream chip; hidden ones do not. */
 +object IslandPresentationOwnership {
-+    data class Owner(val notificationKey: String? = null, val source: String? = null)
++    data class Owner(val notificationKeys: Set<String> = emptySet(), val sources: Set<String> = emptySet())
 +    private val mutable = MutableStateFlow(Owner())
 +    val state = mutable.asStateFlow()
-+    fun show(activity: IslandActivity?) {
-+        mutable.value = when {
-+            activity == null -> Owner()
-+            activity.key.startsWith("taku:system:") -> Owner(source = activity.payload.optString("systemSource"))
-+            else -> Owner(notificationKey = activity.key)
-+        }
++    fun show(primary: IslandActivity?, secondary: IslandActivity? = null) {
++        val visible = listOfNotNull(primary, secondary)
++        mutable.value = Owner(
++            visible.filterNot { it.key.startsWith("taku:system:") }.map { it.key }.toSet(),
++            visible.filter { it.key.startsWith("taku:system:") }
++                .map { it.payload.optString("systemSource") }.filter { it.isNotEmpty() }.toSet(),
++        )
 +    }
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandPresenter.kt
-@@ -0,0 +1,383 @@
+@@ -0,0 +1,392 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -2851,7 +2932,9 @@
 +    private var automatic = false
 +    /** Keys whose heads-up the island replaces right now; read by the interruption filter. */
 +    @Volatile private var presentable: Set<String> = emptySet()
-+    private val alerted = mutableMapOf<String, Long>()
++    // Consume an accepted alert window once, not once per notification revision. Quiet updates,
++    // held alerts and cooldown-rejected flips all retain the same deadline in IslandStore.
++    private val alertedUntil = mutableMapOf<String, Long>()
 +    private data class Relocated(val view: View, val parent: ViewGroup, val index: Int, val params: ViewGroup.LayoutParams)
 +    private val relocated = mutableListOf<Relocated>()
 +    private val layout = View.OnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> layoutCapsule() }
@@ -2919,6 +3002,7 @@
 +        bar?.setTakuIslandProbeWidth(0)
 +        capsule = null
 +        bar = null
++        IslandPresentationOwnership.show(null)
 +    }
 +
 +    override fun render(activities: List<IslandStore.Entry<IslandActivity>>) {
@@ -2936,7 +3020,7 @@
 +        }
 +        arbiterPrimary = first?.key
 +        knownKeys = items.map { it.key }.toSet()
-+        alerted.keys.retainAll(items.map { it.key }.toSet())
++        alertedUntil.keys.retainAll(items.map { it.key }.toSet())
 +        val expanded = items.find { it.key == cardKey }
 +        if (card != null && expanded == null) collapse("source_ended")
 +        if (automatic && expanded != null && expanded.alertUntil <= SystemClock.elapsedRealtime()) collapse("alert_timeout")
@@ -2949,8 +3033,8 @@
 +            }
 +        }
 +        layoutCapsule()
-+        if (first != null && first.alertUntil > SystemClock.elapsedRealtime() && alerted[first.key] != first.revision) {
-+            alerted[first.key] = first.revision
++        if (first != null && first.alertUntil > SystemClock.elapsedRealtime() && alertedUntil[first.key] != first.alertUntil) {
++            alertedUntil[first.key] = first.alertUntil
 +            // The app in front already shows its own news; its alert neither expands nor waits.
 +            if (card == null && canExpand() && !foreground.suppresses(first.data)) {
 +                selected = first.key
@@ -3023,6 +3107,7 @@
 +            cardRevision = item.revision
 +            automatic = isAlert
 +            reason = if (isAlert) "alert" else "expanded"
++            layoutCapsule()
 +            true
 +        } catch (failure: RuntimeException) {
 +            candidate?.close()
@@ -3037,8 +3122,7 @@
 +        cardKey = null
 +        automatic = false
 +        this.reason = reason
-+        handler.post { layoutCapsule() }
-+        engine.presentationChanged()
++        layoutCapsule()
 +    }
 +
 +    private fun canExpand(): Boolean = bar?.isAttachedToWindow == true && !keyguard.isShowing &&
@@ -3074,7 +3158,8 @@
 +            restoreCentered()
 +            return
 +        }
-+        val cutout = view.rootWindowInsets?.displayCutout?.boundingRectTop ?: Rect()
++        val displayCutout = view.rootWindowInsets?.displayCutout
++        val cutout = displayCutout?.boundingRectTop ?: Rect()
 +        val physical = !cutout.isEmpty && cutout.centerX() in view.width / 3..view.width * 2 / 3
 +        val contents = view.findViewById<View>(R.id.status_bar_contents)
 +        val contentLeft = view.paddingLeft + (contents?.paddingLeft ?: 0)
@@ -3085,15 +3170,16 @@
 +        val icons = view.findViewById<View>(R.id.statusIcons)?.takeIf { it.visibility != View.GONE }?.width ?: 0
 +        // Figma 1:4742 anchors the island to the camera: the disc extends to its left and the pill
 +        // grows to its right. FrameLayout centering would include asymmetric status-bar padding,
-+        // so position from the actual display cutout. A punch hole's circle is as wide as its
-+        // bounding box and ends at its bottom edge (the box may extend up to the display edge).
++        // so position from the actual display cutout path. boundingRectTop is a layout exclusion:
++        // Pixel 8's 122 px box surrounds a 72.5 px hole and must never become the painted circle.
 +        val location = IntArray(2)
 +        view.getLocationOnScreen(location)
-+        val cameraX = if (physical) cutout.centerX() - location[0] else view.width / 2
-+        // A wide notch is not a camera circle: the design's 24 dp camera is drawn over it instead.
-+        val cameraRadius = if (physical && cutout.width() <= dp(64)) cutout.width() / 2 else 0
-+        // Only a real camera circle sets the vertical centre; a notch keeps the bar's middle.
-+        val cameraY = if (cameraRadius > 0) cutout.bottom - cameraRadius - location[1] else view.height / 2
++        val camera = if (physical) IslandCameraGeometry.bounds(displayCutout?.cutoutPath, cutout, dp(64).toFloat()) else null
++        val cameraX = if (camera != null) Math.round(camera.centerX()) - location[0]
++            else if (physical) cutout.centerX() - location[0] else view.width / 2
++        // Missing paths and notches use the design camera, never a radius inferred from padding.
++        val cameraRadius = camera?.let { maxOf(it.width(), it.height()) / 2f } ?: 0f
++        val cameraY = camera?.let { it.centerY() - location[1] } ?: (view.height / 2f)
 +        pill.configure(view.height.coerceAtLeast(dp(16)), cameraRadius)
 +        val cameraLeft = pill.cameraOffset()
 +        // Another live activity waits as a circle left of the disc, only where the bar has room;
@@ -3114,16 +3200,17 @@
 +        }
 +        relocateCentered()
 +        pill.stale = items.find { it.key == selected }?.stale(SystemClock.elapsedRealtime()) == true
-+        pill.bind(activity, secondary(activity))
++        val waiting = secondary(activity)
++        pill.bind(activity, waiting)
 +        pill.translationX = 0f
 +        pill.visibility = View.VISIBLE
-+        IslandPresentationOwnership.show(if (view.isShown) activity else null)
++        IslandPresentationOwnership.show(if (view.isShown) activity else null, if (view.isShown) waiting else null)
 +        // Tall enough for the 32 dp shapes (scaled on short bars) and the camera circle, centred
 +        // on the camera so the necks meet the real hole.
-+        val height = minOf(view.height, maxOf((32 * pill.unit).toInt(), 2 * cameraRadius + 2))
++        val height = minOf(view.height, maxOf((32 * pill.unit).toInt(), kotlin.math.ceil(2 * cameraRadius + 2).toInt()))
 +        val params = FrameLayout.LayoutParams(width, height, Gravity.TOP or Gravity.LEFT)
 +        params.leftMargin = cameraX - leftWidth - view.paddingLeft
-+        val top = (cameraY - height / 2).coerceIn(0, (view.height - height).coerceAtLeast(0))
++        val top = Math.round(cameraY - height / 2f).coerceIn(0, (view.height - height).coerceAtLeast(0))
 +        params.topMargin = top - view.paddingTop
 +        pill.centerShift = (cameraY - top - height / 2f)
 +        val previous = pill.layoutParams as FrameLayout.LayoutParams
@@ -3162,14 +3249,17 @@
 +        return candidates.getOrNull((index + 1) % candidates.size.coerceAtLeast(1))?.data?.takeIf { it.key != activity.key }
 +    }
 +
-+    override fun state(): JSONObject = JSONObject().put("selected", selected ?: JSONObject.NULL)
-+        .put("compactVisible", capsule?.visibility == View.VISIBLE && bar?.alpha != 0f).put("reason", reason)
++    override fun state(): JSONObject {
++        val visible = capsule?.takeIf { it.visibility == View.VISIBLE && bar?.alpha != 0f && card == null }
++        return JSONObject().put("selected", selected ?: JSONObject.NULL)
++        .put("compactVisible", visible != null).put("reason", reason)
 +        .put("foregroundPackage", foreground.foregroundPackage ?: JSONObject.NULL)
 +        .put("suppressedByForeground", JSONArray(items.filter { it.data.compactVisible && foreground.suppresses(it.data) }.map { it.key }))
-+        .put("secondaryKey", items.find { it.key == selected }?.data?.let { secondary(it)?.key } ?: JSONObject.NULL)
++        .put("secondaryKey", visible?.let { items.find { it.key == selected }?.data?.let { secondary(it)?.key } } ?: JSONObject.NULL)
 +        .put("tap", items.find { it.key == selected }?.data?.tap ?: JSONObject.NULL)
-+        .put("compact", capsule?.takeIf { it.visibility == View.VISIBLE }?.state() ?: JSONObject.NULL)
++        .put("compact", visible?.state() ?: JSONObject.NULL)
 +        .put("expanded", card != null).put("card", card?.state() ?: JSONObject.NULL)
++    }
 +
 +    private fun invoke(method: String, arg: String?, extra: String? = null) {
 +        val result = engine.command(method, arg, extra)
