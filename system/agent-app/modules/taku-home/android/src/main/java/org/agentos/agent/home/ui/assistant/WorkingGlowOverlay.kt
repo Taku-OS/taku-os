@@ -12,11 +12,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 
 /**
- * "Taku is working" (Figma 1-4 / 1-5) above everything on screen: one full-display system
- * overlay window that stacks over the input method, the status bar and every app, so the whole
- * edge glow shows even with the keyboard up. It never takes focus or touches. Any visible AI
- * surface (Home, the cross-app assistant overlay) may request it; it fades in while one of them
- * reports a response in progress and fades out as soon as none does.
+ * Softened screen-edge glow above everything on screen: one full-display system overlay window
+ * that stacks over the input method, the status bar and every app. It never takes focus or
+ * touches. Any visible AI surface (Home, the cross-app assistant overlay) may request it; it
+ * fades in only while Live mode is active (never during ordinary Agent Chat / AI output) and
+ * fades out as soon as Live mode ends.
  *
  * The window needs `INTERNAL_SYSTEM_WINDOW` (signature; Home ships with the platform development
  * signature). Where it cannot be added, [available] turns false and callers draw the glow in their

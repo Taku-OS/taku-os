@@ -3,12 +3,15 @@ package org.taku.plugins.host;
 import android.net.LocalServerSocket;
 import android.net.LocalSocket;
 import java.io.*;
+import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 public final class AndroidServer {
+    private static final int REQUEST_TIMEOUT_MS = 5_000;
+
     private static boolean isCallerAuthorized(int uid) {
         if (uid == 0 || uid == 1000 || uid == 2000) return true;
         if (uid < 10000) return false;
@@ -49,6 +52,19 @@ public final class AndroidServer {
         }
     }
 
+    private static String readRequest(LocalSocket socket) throws IOException {
+        long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(REQUEST_TIMEOUT_MS);
+        InputStream timed = new FilterInputStream(socket.getInputStream()) {
+            @Override public int read(byte[] buffer, int offset, int length) throws IOException {
+                long remaining = deadline - System.nanoTime();
+                if (remaining <= 0) throw new SocketTimeoutException("God Mode request timed out");
+                socket.setSoTimeout((int)Math.max(1, TimeUnit.NANOSECONDS.toMillis(remaining)));
+                return in.read(buffer, offset, length);
+            }
+        };
+        return BoundedLine.read(new BufferedInputStream(timed), 1024 * 1024);
+    }
+
     public static void main(String[] args) throws Exception {
         String root = args.length > 0 ? args[0] : "/data/local/agentos/godmode";
         String socketName = args.length > 1 ? args[1] : "taku-godmode";
@@ -56,7 +72,8 @@ public final class AndroidServer {
             while (true) {
                 try (LocalSocket socket = server.accept()) {
                     int peerUid = socket.getPeerCredentials().getUid();
-                    BufferedReader input = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
+
+                    socket.setSoTimeout(REQUEST_TIMEOUT_MS);
                     BufferedWriter output = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8));
                     if (!isCallerAuthorized(peerUid)) {
                         Map<String, Object> denied = Map.of(
@@ -69,8 +86,8 @@ public final class AndroidServer {
                     }
                     Map<String,Object> response;
                     try {
-                        String line = input.readLine();
-                        if (line == null || line.length() > 1024 * 1024) throw new PluginException("USAGE", "invalid request");
+                        String line = readRequest(socket);
+                        if (line == null) throw new PluginException("USAGE", "invalid request");
                         Object request = Json.parse(line);
                         if (!(request instanceof Map)) throw new PluginException("USAGE", "request must be object");
                         if ("shutdown".equals(((Map<?,?>)request).get("operation"))) throw new PluginException("USAGE", "use init to stop service");

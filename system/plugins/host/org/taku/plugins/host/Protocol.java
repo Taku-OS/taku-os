@@ -29,8 +29,7 @@ final class Protocol {
                 Map<?,?> remoteArgs = (Map<?,?>)remote;
                 Object signature = remoteArgs.get("signature"), publicKey = remoteArgs.get("publicKey");
                 result = manager.installUrl(required(remoteArgs.get("url")), required(remoteArgs.get("sha256")),
-                        signature instanceof String ? (String)signature : null,
-                        publicKey instanceof String ? (String)publicKey : null); break;
+                        optionalString(signature), optionalString(publicKey)); break;
             case "remove": result = manager.remove(required(argument)); break;
             case "enable": result = manager.enable(required(argument)); break;
             case "disable": result = manager.disable(required(argument)); break;
@@ -46,6 +45,9 @@ final class Protocol {
             default: throw new PluginException("USAGE", "unknown operation");
         }
         return Map.of("ok", true, "result", result);
+    }
+    private static String optionalString(Object value) throws PluginException {
+        return value == null ? null : required(value);
     }
     private static String required(Object value) throws PluginException {
         if (!(value instanceof String) || ((String)value).isEmpty()) throw new PluginException("USAGE", "argument required");
