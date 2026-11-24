@@ -36,6 +36,9 @@ python3 /taku/image/emulator/prepare-audio.py --source-root /src
 python3 /taku/image/apply-home-policy.py --source-root /src --results-dir /results
 python3 /taku/image/apply-launcher-patches.py --source-root /src --results-dir /results
 python3 /taku/image/apply-recents-patches.py --source-root /src --results-dir /results
+if [ -f /taku/image/apply-display-audio-patch.py ]; then
+    python3 /taku/image/apply-display-audio-patch.py --source-root /src --results-dir /results
+fi
 python3 /taku/image/apply-island-patches.py --source-root /src --results-dir /results
 python3 /taku/image/apply-island-patches.py --source-root /src --results-dir /results --verify-only
 export SKIP_KERNEL_BUILD=true WITH_AVB=true
