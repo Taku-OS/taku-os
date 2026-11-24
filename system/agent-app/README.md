@@ -32,7 +32,9 @@ scrolls under the title row and the composer (`EdgeBlurView`, Android 13+). The 
 "Taku". Home (top left) opens Taku Home (2-5) over the chat on the same blurred window: tabs
 All / Panels / Chats ("See all" opens the section's tab), search, the real Panels directory, the
 real chat history and the settings and tools (new chat, chat/task view, settings, plugin market,
-advanced controls). The Panels section pages the whole native directory and offers open, rename,
+advanced controls). New chat (bottom right) opens an empty, unsaved conversation at once; its
+first message creates the thread (gateway `createThread`, as Agents do), and a tap during a send
+opens it once that send is delivered. The Panels section pages the whole native directory and offers open, rename,
 move and Unpin; an empty directory says to pin a panel from a chat. Opening a row brings the
 desktop forward and selects that panel through the same `panels/open` operation as Agents, so the
 list and the desktop show the same IDs and order. Panels render only on the desktop;

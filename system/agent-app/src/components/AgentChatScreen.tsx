@@ -423,7 +423,9 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
   }, [props.session?.blocks, props.optimisticSubmissions, taskView]);
   const error = props.error || props.session?.error;
   const taskFailure = props.session?.taskFailure;
-  const newConversation = props.session?.knownEmpty || (!props.session && !props.loading && !error && props.threads.length === 0);
+  // An unsaved conversation (New chat; no thread until its first send) is new however many others exist.
+  const newConversation = props.session?.knownEmpty ||
+    (!props.session && !props.loading && !error && (props.threads.length === 0 || !props.draftSessionId));
   // The 2-1 greeting opens the conversation, unless it is still loading or its history is unknown.
   // Issue #32 C2: the greeting is the empty state of a new conversation, not a line above messages.
   const greeting = !taskView && visibleBlocks.length === 0 && !!newConversation;

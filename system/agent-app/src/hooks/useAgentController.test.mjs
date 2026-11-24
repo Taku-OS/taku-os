@@ -97,6 +97,12 @@ function reset(t) {
       return runtime.receipts.get(params.requestId) || {threadId, requestId: params.requestId, state: 'missing'};
     }
     if (action === 'composer/settle') return runtime.receipts.get(params.requestId) || {threadId, requestId: params.requestId, state: 'missing'};
+    if (action === 'createThread') { runtime.events.push(['createThread']); return {thread: {id: 'thread-new'}}; }
+    if (action === 'composer/move') {
+      const moved = {...snapshot(), threadId: params.targetThreadId, revision: `draft-${++runtime.sequence}`};
+      runtime.drafts.delete(threadId); runtime.drafts.set(params.targetThreadId, moved);
+      return moved;
+    }
     if (action === 'listThreads') return {threads: [{id: 'thread-a'}, {id: 'thread-b'}]};
     if (action === 'readSession') return {native: {ready: true}, historyComplete: true,
       thread: {id: params.threadId, turns: runtime.completed.filter(item => item.threadId === params.threadId).map(item => ({
@@ -217,6 +223,39 @@ test('a send in flight names its conversation for the island handoff, and an idl
   assert.equal(runtime.handoffs.at(-1), null);
   host.unmount();
   assert.equal(runtime.handoffs.at(-1), null);
+});
+
+test('New chat opens an empty conversation at once, without waiting on the broker', async t => {
+  reset(t); runtime.target = null;
+  const host = mount(); await flush(host);
+  assert.equal(host.result.draftSessionId, 'thread-a');
+  host.result.onCreateThread(); await flush(host);
+  assert.equal(host.result.draftSessionId, '');
+  assert.equal(runtime.threadId, '', 'native selection follows');
+  assert.equal(host.result.session, null);
+  assert.equal(runtime.events.some(([name]) => name === 'createThread'), false);
+});
+
+test('New chat during a send opens once the send ends instead of being dropped', async t => {
+  reset(t); runtime.target = null;
+  const gate = deferred(); runtime.receipt = () => gate.promise;
+  const host = mount(); await flush(host);
+  assert.equal(host.result.onDraftChange('Plan the trip'), true); await flush(host);
+  host.result.onSend(); await flush(host);
+  host.result.onCreateThread(); await flush(host);
+  assert.equal(host.result.draftSessionId, 'thread-a', 'the send keeps its conversation until it is delivered');
+  gate.resolve(accepted(runtime.calls[0])); await flush(host);
+  assert.equal(host.result.draftSessionId, '');
+});
+
+test('the first message from a new chat creates its conversation', async t => {
+  reset(t); runtime.target = null;
+  const host = mount(); await flush(host);
+  host.result.onCreateThread(); await flush(host);
+  await send(host, 'Start something new');
+  assert.equal(runtime.events.filter(([name]) => name === 'createThread').length, 1);
+  assert.equal(host.result.draftSessionId, 'thread-new');
+  assert.equal(runtime.calls.at(-1).threadId, 'thread-new');
 });
 
 test('every outside open is counted, reopening the selected conversation included', async t => {

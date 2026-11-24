@@ -69,7 +69,8 @@ export function useAgentController() {
   const navigationWrites = useRef(Promise.resolve());
   const selectionWrites = useRef(Promise.resolve());
   const historyRevision = useRef(0);
-  const pendingOpen = useRef('');
+  /** A conversation to open once the running action ends: a thread id, '' for a new one, null for none. */
+  const pendingOpen = useRef<string | null>(null);
   const launchFailure = useRef<unknown>(null);
   /** Navigation context only: the panel whose original conversation this send continues. */
   const panelTarget = useRef<PanelTarget | null>(null);
@@ -502,8 +503,9 @@ export function useAgentController() {
       actionRunning.current = false;
       if (mounted.current) {
         setBusy(false);
-        const id = pendingOpen.current; pendingOpen.current = '';
-        if (id) void select(id).catch(e => { if (selectedRef.current === id) setError(messageRef.current(e)); });
+        const id = pendingOpen.current; pendingOpen.current = null;
+        if (id === '') selectConversation(null);
+        if (id !== null) void select(id).catch(e => { if (selectedRef.current === id) setError(messageRef.current(e)); });
       }
     }
   }, [message, select]);
@@ -767,7 +769,7 @@ export function useAgentController() {
         launchFailure.current = null;
         const id = target?.originThreadId || launchThreadId() || selectedRef.current;
         await select(id);
-        if (pendingOpen.current === id) pendingOpen.current = '';
+        if (pendingOpen.current === id) pendingOpen.current = null;
       } catch (problem) {
         launchFailure.current = problem;
         throw problem;
@@ -803,14 +805,17 @@ export function useAgentController() {
       launchFailure.current = null;
       void select(id).catch(e => { if (selectedRef.current === id) setError(message(e)); });
     },
-    onCreateThread: () => { void run(async () => {
+    // New chat opens an empty, unsaved conversation at once; its first send creates the thread
+    // (submit → create). Creating it here waited on the broker, up to 40 s, and was dropped while
+    // another action ran, leaving the user in the conversation they meant to leave.
+    onCreateThread: () => {
+      if (actionRunning.current) { pendingOpen.current = ''; return; }
+      pendingOpen.current = null;
       selectConversation(null);
       panelTarget.current = null;
       launchFailure.current = null;
-      pendingOpen.current = '';
-      const {id} = await create();
-      selectConversation(id);
-    }); },
+      void select('').catch(e => { if (selectedRef.current === '') setError(message(e)); });
+    },
     onRefresh: () => { void refresh(); },
     onOpenHistory: () => { void loadThreads().catch(() => {}); },
     onAnswer: (key: string, response: Json) => { void run(async () => { await callAgent('answer', {threadId: selectedRef.current, key, response}); setRefreshRevision(v => v + 1); }); },
