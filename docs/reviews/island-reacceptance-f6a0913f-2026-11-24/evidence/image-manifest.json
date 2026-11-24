@@ -1,0 +1,357 @@
+[
+  {
+    "file": "01-pickup-capsule.png",
+    "sha256": "944bb88ffffef9ae82183d74544d609850831f691f1faacaa2cb414853ed4149",
+    "caption": "摘要：A 图标、B 取件码，中间避让开孔"
+  },
+  {
+    "file": "02-pickup-card-cover.png",
+    "sha256": "15b8ff1a02bfe169bb971e5edc6ca73b1821e8e6dc5e320732b992e01a90dddb",
+    "caption": "点击摘要展开；覆盖开孔"
+  },
+  {
+    "file": "03-card-opens-test-detail.png",
+    "sha256": "903d86f89942cb696063fdabbefc68de45d62a798f120e0692b2a84d9752638e",
+    "caption": "点击卡片到 content-detail，卡片收起"
+  },
+  {
+    "file": "04-return-home-capsule.png",
+    "sha256": "de23b0de5b4203f7e5d81b565e153eb9f07fe0cdaac2e8bfb621e619f7c90094",
+    "caption": "返回桌面恢复摘要"
+  },
+  {
+    "file": "05-card-below.png",
+    "sha256": "c49d080f388ef1c76cf17cab338c30bbd404b5b57b7fafd7ee0ffbe54870e69b",
+    "caption": "选择 below：卡片在开孔下方"
+  },
+  {
+    "file": "06-custom-card-destination.png",
+    "sha256": "18e26fbfa6d469632db5baeea8f6840b9c63c5457ec084baa24681ff55a17141",
+    "caption": "独立卡片动作到 card-detail"
+  },
+  {
+    "file": "07-capsule-direct-open.png",
+    "sha256": "903d86f89942cb696063fdabbefc68de45d62a798f120e0692b2a84d9752638e",
+    "caption": "配置 tap=open：摘要直接进 App"
+  },
+  {
+    "file": "42-action-button-destination.png",
+    "sha256": "aaae9c7b2355a5f02d8023e88457e1571a0df7e1025f79bd6bd6da1498775c97",
+    "caption": "点击操作按钮到 track"
+  },
+  {
+    "file": "43-app-foreground-folds.png",
+    "sha256": "1cecfa5bbcd7bc378bd7077dd0a7433e395cefa9c96403a07323ccb9f94a6c08",
+    "caption": "独立切到发布 App 前台，卡片收起"
+  },
+  {
+    "file": "44-foreground-alert-suppressed.png",
+    "sha256": "6abac72958c40491a1d42b50b5d7c459252e62616e33648401dcfb3f670781d4",
+    "caption": "发布 App 前台时不主动弹卡"
+  },
+  {
+    "file": "08-white-card.png",
+    "sha256": "29a1bc60cb57aa9f1541f582b0cc16d4183b492be1b4171226e94c82a1d14bdc",
+    "caption": "白色卡片、深色文字及按钮"
+  },
+  {
+    "file": "09-animated-icon-a.png",
+    "sha256": "67e58374605e95020b7c055b641875f11fbf78499af0ab81c0800ae56753ef7c",
+    "caption": "App 自有动画图标及进度环：帧 A"
+  },
+  {
+    "file": "10-animated-icon-b.png",
+    "sha256": "7e675920bc9a57198e6a5d5b2c65550c638ca50f2aa7afe777f183e514e0ba3f",
+    "caption": "同一动画的另一帧"
+  },
+  {
+    "file": "11-group-b-icon.png",
+    "sha256": "bc03c1bb4e479ed746d9e1d48520eedc9ac7b306e86c529ca8290e4c9b3da91e",
+    "caption": "B 组也可以显示图标"
+  },
+  {
+    "file": "12-long-label-ellipsis.png",
+    "sha256": "5a2cc7b66da58de69c340d3e1cbffe7a2b754fc3b28354f0d883a890cf5d9c88",
+    "caption": "长文字以省略号截断"
+  },
+  {
+    "file": "13-two-activities.png",
+    "sha256": "121f1be2f8e729edc2b7770a1bb003eac088e12e4b2351f1a54f4ea794a1a406",
+    "caption": "新活动优先，等待圆点在左"
+  },
+  {
+    "file": "14-waiting-disc-tap.png",
+    "sha256": "6c7ce63a876f3b8b49e8ea83540c56c1cad6218635cc2e3a49e6295b154a3073",
+    "caption": "点左侧圆点切换活动"
+  },
+  {
+    "file": "15-swipe-left-next.png",
+    "sha256": "121f1be2f8e729edc2b7770a1bb003eac088e12e4b2351f1a54f4ea794a1a406",
+    "caption": "左滑切换下一活动"
+  },
+  {
+    "file": "16-swipe-right-hide.png",
+    "sha256": "944bb88ffffef9ae82183d74544d609850831f691f1faacaa2cb414853ed4149",
+    "caption": "右滑隐藏当前活动"
+  },
+  {
+    "file": "16b-manual-selection.png",
+    "sha256": "f28bf781e4345181a7986a1c173d021c2a27bb3bc82977a6a427c42e8c1526f7",
+    "caption": "三个活动中手动选中第一个"
+  },
+  {
+    "file": "16c-newest-ended.png",
+    "sha256": "5817c1ee034f1a59d8e08315d7a13842ad200b6f583495e27824764e86371c2c",
+    "caption": "最新活动结束后仍保持手动选择"
+  },
+  {
+    "file": "17-live-update-capsule.png",
+    "sha256": "7f1583324f75f63db19f76603361134600bc83f6bda8da08318e616af84c5b38",
+    "caption": "Android Live Update 摘要"
+  },
+  {
+    "file": "18-live-update-card.png",
+    "sha256": "ca32259b5382107acc01104a5e893f648fc51f0f56225a8c757cae40106d3a4f",
+    "caption": "点击进入 Live Update 卡片"
+  },
+  {
+    "file": "18b-live-update-headsup.png",
+    "sha256": "4294fa870e26d9994d3c15df3a56da8c1f010373139f7b0505cd8f982029fe95",
+    "caption": "Live Update 重要更新保留系统横幅"
+  },
+  {
+    "file": "18c-invalid-payload-headsup.png",
+    "sha256": "86990b8c84af862eace6ca0a2f66b7c4e781fe8d30f2ab1d23f7081c5f4c724c",
+    "caption": "无效图片引用回退系统横幅"
+  },
+  {
+    "file": "19-actions-before-scroll.png",
+    "sha256": "9fe4a764bda292762a6ade36ce7b75855af9dce3ef539722d9a10b614784db7f",
+    "caption": "32 个操作按钮：滚动前"
+  },
+  {
+    "file": "20-actions-after-scroll.png",
+    "sha256": "9c3b4f3f32acb6910b0d796cba5054a9c2aa29ac3542eff3171545a2bcf24991",
+    "caption": "操作按钮可横向滚动"
+  },
+  {
+    "file": "24-blur-enabled.png",
+    "sha256": "2b4bcb0457c4639611bc42746f012802259bc554d90458e0e77dca8e6e420795",
+    "caption": "系统模糊开启"
+  },
+  {
+    "file": "25-blur-disabled.png",
+    "sha256": "660c961368a2eb9911d02fa125e78beb6fb8d984f6860c9a5aedd856f4770f2a",
+    "caption": "关闭模糊后的不透明回退"
+  },
+  {
+    "file": "30-agent-text-keyboard.png",
+    "sha256": "2db7eb1dc6bb7b8580125f39208a1254171f860a72625ceb3c47b7d2a137f5fa",
+    "caption": "文字输入、Taku 输入法及开孔"
+  },
+  {
+    "file": "31-agent-working.png",
+    "sha256": "d099612ddf1ad384078a1057f3a849b34aa55b39e46bd5660fe300acbb32280a",
+    "caption": "真实只读任务工作中；卡片覆盖开孔"
+  },
+  {
+    "file": "32-agent-reply.png",
+    "sha256": "9298eb31c0174b782f555f1e843565a193f521bd2d62c17d5e0747154d115895",
+    "caption": "实际回复 Android 17；键盘不改变卡片位置"
+  },
+  {
+    "file": "33-agent-full-conversation.png",
+    "sha256": "89c5d3cfd100a2f3eb3d08d8bd0e6dc9fcc0cab39ac1cb4dc12a1eb0674ea1f3",
+    "caption": "进入完整会话"
+  },
+  {
+    "file": "34-agent-return-home.png",
+    "sha256": "1f4cb9adba5e7dab21a3b5429673c066cea9516eb2a23aed1287b279c369c7a8",
+    "caption": "完成会话后回桌面"
+  },
+  {
+    "file": "35-fal-connection.png",
+    "sha256": "7eba5b9f85ee27ec24d5233d412826ddec75197e2e46ca88cc7dcb82b455d90a",
+    "caption": "已有 fal 页面显示 Fal Connected"
+  },
+  {
+    "file": "36-local-listening.png",
+    "sha256": "496c319111f7ecc2ef5e43ae298c6f3ea68191275d8a8d5c38bf13f354a3160a",
+    "caption": "本地 Zipformer 已开始监听"
+  },
+  {
+    "file": "37-real-building-capsule.png",
+    "sha256": "a27c5e7933d691e317d1b67dc948225d6a2a90c299211375ff864b92439d2090",
+    "caption": "真实页面开发任务的 Building 胶囊"
+  },
+  {
+    "file": "38-building-finished.png",
+    "sha256": "619c4e0d891a9794382015ae3f307e5dfd01f28d8ba4ad33abea73a2766635f9",
+    "caption": "任务完成、Building 标记清除"
+  },
+  {
+    "file": "39-live-talk-result.png",
+    "sha256": "81a92e124ed593e4464ea6bc5ef746a0ed04b6457303c38bf0fc5efc06794867",
+    "caption": "实际 fal/Grok 连接 active，无错误"
+  },
+  {
+    "file": "40-live-talk-stopped.png",
+    "sha256": "bae4ef4d996692746e33d711b67292e17b25e06a9f19c7cba4e992332739b58f",
+    "caption": "截图后停止 Live Talk，停止采音"
+  },
+  {
+    "file": "41-final-home.png",
+    "sha256": "e0599d0b52c7fff3e0c42b496e723ba52e6aae55fec6c901d6ba7ae02c014ea4",
+    "caption": "桌面、时钟、开孔及底部横条"
+  },
+  {
+    "file": "21-alert-initial.png",
+    "sha256": "15b8ff1a02bfe169bb971e5edc6ca73b1821e8e6dc5e320732b992e01a90dddb",
+    "caption": "首次 alert=true 自动弹卡"
+  },
+  {
+    "file": "22-alert-collapsed.png",
+    "sha256": "bd1587e5af7c4c65d3495a13f12c18d2eae2129958eb3460891eb288fc104512",
+    "caption": "主动收起后成为摘要"
+  },
+  {
+    "file": "23-alert-false-update.png",
+    "sha256": "3ac41e34bb5430a75330a2756555fab92ab3e6d2ae4b790d9d44504561989857",
+    "caption": "更新 alert=false 后仍是摘要态，卡片未重开"
+  },
+  {
+    "file": "26-short-static-admission.png",
+    "sha256": "bd1587e5af7c4c65d3495a13f12c18d2eae2129958eb3460891eb288fc104512",
+    "caption": "失败：3 秒静态结果仍被准入"
+  },
+  {
+    "file": "71-home-running-chat.png",
+    "sha256": "8a1e359a5ac99b9bb2a1bb03b15a5fe5bec8acd3993a1a885cc3bc5145077c7a",
+    "caption": "完整对话已在执行测试任务"
+  },
+  {
+    "file": "72-home-hidden-during-work.png",
+    "sha256": "2d0b2b625347779b6ab2cadef7a1e0786b9f7e4400dedd496cf5140b398913fe",
+    "caption": "返回桌面后已移交，工作期间无卡片及胶囊"
+  },
+  {
+    "file": "73-home-expanded-reply.png",
+    "sha256": "a5c9f8c10fc75681123ca92686c57935008995dd960fb942eb5136a58d1e753d",
+    "caption": "回复完成后自动展开"
+  },
+  {
+    "file": "74-home-reopened-reply.png",
+    "sha256": "bd8312334f9b75ae7ff35af8cf769cd607d0a084ef88f62245668caa35b318c0",
+    "caption": "点击展开卡片返回原对话"
+  },
+  {
+    "file": "71-recents-running-chat.png",
+    "sha256": "d85fe148253948c85f69b60eeb9a9927d46077b8ca45b8e386360775af855be3",
+    "caption": "切换前，完整对话正在执行"
+  },
+  {
+    "file": "72-recents-hidden-during-work.png",
+    "sha256": "82298b3883e140cf63703cd53abac76b9b005eb97ed76c3cb479ffcb9c4ca8d6",
+    "caption": "切换到设置后，工作期间不显示灵动岛"
+  },
+  {
+    "file": "73-recents-expanded-reply.png",
+    "sha256": "578391a5e2d41d39b5155de12acfa9673f464c181a7d441c902494cae54fe432",
+    "caption": "设置前台收到已完成回复"
+  },
+  {
+    "file": "74-recents-reopened-reply.png",
+    "sha256": "41b3c360fbd3606d9b493abcf519f521a0bbd7408287527d3f3f1ffca4c2f03c",
+    "caption": "点击卡片，回到对应完整对话"
+  },
+  {
+    "file": "75-back-running-chat.png",
+    "sha256": "50610b816ce96614a965ba6aa9c694d9918d294b93c7ad187addf5b31095ae54",
+    "caption": "按返回键前，任务正在完整对话中执行"
+  },
+  {
+    "file": "76-back-hidden.png",
+    "sha256": "0ffc6bf3fc2a64952cb80a31507fd8ad1a8371866eadf7a81ee14deae99e6308",
+    "caption": "完整对话按返回键，任务继续且灵动岛隐藏"
+  },
+  {
+    "file": "77-back-reply-expanded.png",
+    "sha256": "dfbb403cc037797572bd9e5e1f4810745d663e63d144e9f73c7c499d0a2d7a2a",
+    "caption": "返回路径任务完成，自动展开回复"
+  },
+  {
+    "file": "78-back-tap-original-chat.png",
+    "sha256": "c7c068f411b767899d7af226e2532b7be8128ec16e2b0da6d0a9c3a91c149084",
+    "caption": "返回路径点卡片打开对应对话"
+  },
+  {
+    "file": "75-reclaim-running-chat.png",
+    "sha256": "911cc37dfd18b488208531b5eb13007a217e95804873262745433a91131c0735",
+    "caption": "提前回聊测试开始，任务仍在执行"
+  },
+  {
+    "file": "76-reclaim-hidden.png",
+    "sha256": "adfc18bb6c28d1f3bac49e78420684cf74edb8dc2f5a6e7277eff3a6fa9800da",
+    "caption": "返回桌面后已移交，准备返回聊天"
+  },
+  {
+    "file": "77-reclaim-completed.png",
+    "sha256": "aee4474a861766f17c4ef41360d120dc340e1aee4b8d88336c7212fb9ff56dad",
+    "caption": "提前返回后，回复留在完整对话"
+  },
+  {
+    "file": "79-direct-chat-submitted.png",
+    "sha256": "9e2a850c1ff88bcdcf6c85a75e86f4e7e99a6bd5e14d7e8d8c16d4ec99618cd0",
+    "caption": "从完整对话发送本轮测试任务"
+  },
+  {
+    "file": "80-direct-chat-handoff-hidden.png",
+    "sha256": "507057ea4b1d7fad7ad60936087392eccc2cd49db8edc673d85a690c195455f7",
+    "caption": "离开完整对话后，工作期间不显示灵动岛"
+  },
+  {
+    "file": "81-direct-chat-reply.png",
+    "sha256": "ff504e6aeb15da4220c0bbe668f6f46e3db76151abf3e5a727888d115924b012",
+    "caption": "任务完成后显示对应的回复卡片"
+  },
+  {
+    "file": "82-direct-chat-returned.png",
+    "sha256": "06a515fcdbebc93b99b2b92d1a09a286f11f8a43e3fbf53f32eb3b273ba23a75",
+    "caption": "点击卡片回到本次测试对话"
+  },
+  {
+    "file": "83-wake-handoff-hidden.png",
+    "sha256": "23854f438b64cf26bc31df3633ac966bd3aa796fbc2b9febee35cffbf25053a7",
+    "caption": "锁屏前已完成移交，工作期间保持隐藏"
+  },
+  {
+    "file": "62-collapse-card.png",
+    "sha256": "d9e6db04f33acf7949461d9006f5b7121122afbc5ff701afdbd17764ffec6f3e",
+    "caption": "从 Taku 主页收起后显示原会话卡片"
+  },
+  {
+    "file": "63-card-reopens-same-chat.png",
+    "sha256": "79d217d643429db73a3157ba71eff17124eb0e0023cd7137b538bbc01076e738",
+    "caption": "点击卡片打开同一对话，Taku 主页浮层关闭"
+  },
+  {
+    "file": "64-new-chat-immediate.png",
+    "sha256": "fc36872f4e76cf4b2d5c2c415f07c30c5098aa1db9997a41722bf788ee3ccbb3",
+    "caption": "点击 New chat 后立即显示新对话问候"
+  },
+  {
+    "file": "66-voice-previous-reply-folded.png",
+    "sha256": "43f759c21c1f75cdcd4a1de284c851e4f5c68a0ab45cab14feb068ea197e3889",
+    "caption": "上一条对话完成并收起卡片"
+  },
+  {
+    "file": "67-voice-hold-listens.png",
+    "sha256": "4538c6041dde7fca6b1e2c46fe2424a4697a63a6ddfa98c9db30bdd7ad8f8861",
+    "caption": "再次长按进入聆听，无上一条回复"
+  },
+  {
+    "file": "68-voice-cancel-hides.png",
+    "sha256": "43f759c21c1f75cdcd4a1de284c851e4f5c68a0ab45cab14feb068ea197e3889",
+    "caption": "取消采音后卡片关闭"
+  }
+]

@@ -1,0 +1,5 @@
+{
+  "operation": "assistant/handoff",
+  "otherConversationWorking": true,
+  "error": "HOME_BUSY"
+}

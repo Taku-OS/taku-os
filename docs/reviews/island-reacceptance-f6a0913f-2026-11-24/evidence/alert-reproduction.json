@@ -1,0 +1,17 @@
+[
+  {
+    "stage": "initial",
+    "ms": 1749,
+    "expanded": true
+  },
+  {
+    "stage": "collapse",
+    "ms": 2299,
+    "expanded": false
+  },
+  {
+    "stage": "false update",
+    "ms": 4066,
+    "expanded": false
+  }
+]

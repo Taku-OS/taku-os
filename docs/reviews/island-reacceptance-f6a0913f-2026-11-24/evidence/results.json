@@ -1,0 +1,153 @@
+[
+  {
+    "name": "unapproved custom publisher rejected",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "capsule visible",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "tap expands, mutually exclusive",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "card opens correct app and folds",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "return home capsule",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "below position respected",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "separate card action",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "capsule direct open",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "white card accepted",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "app animated icon loaded",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "B icon rendered",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "newest first, waiting disc left",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "tap waiting disc selects it",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "swipe left switches",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "swipe right hides selected",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "selection survives unrelated newest ending",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "Live Update adapted",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "invalid reference not admitted",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "non-ongoing rejected",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "over-12h rejected",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "33-actions rejected",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "ordinary-custom-content rejected",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "false update does not reopen",
+    "pass": true,
+    "detail": [
+      {
+        "stage": "initial",
+        "ms": 1749,
+        "expanded": true
+      },
+      {
+        "stage": "collapse",
+        "ms": 2299,
+        "expanded": false
+      },
+      {
+        "stage": "false update",
+        "ms": 4066,
+        "expanded": false
+      }
+    ]
+  },
+  {
+    "name": "opaque fallback",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "static 3s activity still admitted (known gap)",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "declared timeout expires",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "cancel/repost resets deadline (known gap)",
+    "pass": true,
+    "detail": null
+  }
+]

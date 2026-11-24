@@ -1,0 +1,30 @@
+{
+  "sourceCommit": "f6a0913f3f90f910ebc24825a159fdd0687b14cb",
+  "branch": "vela/dynamic-island",
+  "avd": "Taku_PR27_Fresh",
+  "device": "emulator-5596",
+  "cloudTarget": "lineage_taku_emu_arm64-cp2a-userdebug / SystemUI",
+  "cloudRunReused": "/mnt/taku-build/runs/island-alert-20261124",
+  "systemUiInputSha256": "4f28657e38f04452b14fa1834df96a634c2249c5aecb6c5ecf9a8db376efde5d",
+  "systemUiIdenticalInputs": 38,
+  "systemUiAlreadyInstalled": true,
+  "localTargetsBuilt": [
+    "TakuAgent arm64-v8a",
+    "AgentOSAssistant"
+  ],
+  "hostArchitecture": "x86_64",
+  "targetArchitecture": "arm64",
+  "cloudJobs": 56,
+  "buildArtifactPaths": {
+    "com.android.systemui": "SystemUI.apk",
+    "org.agentos.agent": "TakuAgent.apk",
+    "org.agentos.assistant": "AgentOSAssistant.apk"
+  },
+  "installedSha256": {
+    "com.android.systemui": "5b6f77e2b27e427be31967faf19e57c620539eb7d14c40e06ec2fbc6879c53b2",
+    "org.agentos.agent": "d205dbe3d8b2aaf9c9b72130d93231bb0d984d8605d87dceb560bc167eacd211",
+    "org.agentos.assistant": "7298b5bcf3d518c56b16ae85633df77c2e3e1c4394bbe1e035b889fb31abe118"
+  },
+  "certificatesMatchBefore": true,
+  "cloudStatus": "TERMINATED"
+}

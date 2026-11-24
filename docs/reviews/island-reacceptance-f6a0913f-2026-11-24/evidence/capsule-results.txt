@@ -1,0 +1,1 @@
+PASS: 109 capsule render checks. Component Canvas only; real status-bar placement still needs SystemUI installation.

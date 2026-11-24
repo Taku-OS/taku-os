@@ -1,0 +1,14 @@
+{
+  "active": {
+    "lifecycle": "active",
+    "provider": "fal-grok",
+    "capturing": true,
+    "error": null
+  },
+  "stopped": {
+    "lifecycle": "closed",
+    "provider": "fal-grok",
+    "capturing": false,
+    "error": null
+  }
+}

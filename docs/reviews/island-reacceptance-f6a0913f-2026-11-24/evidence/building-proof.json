@@ -1,0 +1,12 @@
+{
+  "building": {
+    "working": true,
+    "buildingApp": true,
+    "task": "running"
+  },
+  "finished": {
+    "working": false,
+    "buildingApp": false,
+    "task": "completed"
+  }
+}

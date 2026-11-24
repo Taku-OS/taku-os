@@ -1,0 +1,7 @@
+{
+  "checks": {
+    "handed_off": true,
+    "reclaimed": true
+  },
+  "passed": true
+}

@@ -1,0 +1,120 @@
+{
+  "early-home": {
+    "checks": {
+      "completed": false
+    },
+    "passed": false
+  },
+  "early-back": {
+    "checks": {
+      "completed": false
+    },
+    "passed": false
+  },
+  "early-recents": {
+    "checks": {
+      "completed": false
+    },
+    "passed": false
+  },
+  "early-reclaim": {
+    "checks": {
+      "completed": false
+    },
+    "passed": false
+  },
+  "first-unlock-attempt": {
+    "checks": {
+      "completed": false
+    },
+    "passed": false
+  },
+  "other-session-busy": {
+    "checks": {
+      "completed": false
+    },
+    "passed": false
+  },
+  "external-open": {
+    "checks": {
+      "started_with_home_overlay": true,
+      "same_thread": true,
+      "taku_home_overlay_closed": true,
+      "android17_reply_visible": true,
+      "island_hidden": true
+    },
+    "passed": true
+  },
+  "new-chat": {
+    "checks": {
+      "new_greeting": true,
+      "old_reply_cleared": true
+    },
+    "passed": true
+  },
+  "running-home": {
+    "checks": {
+      "handoff_for_same_thread": true,
+      "hidden_during_work": true,
+      "exact_reply": true,
+      "expanded_exclusively": true,
+      "still_visible_after_five_seconds": true,
+      "opens_chat": true
+    },
+    "passed": true,
+    "waitAfterHandoffSeconds": 3.14
+  },
+  "running-recents": {
+    "checks": {
+      "handoff_for_same_thread": true,
+      "hidden_during_work": true,
+      "exact_reply": true,
+      "expanded_exclusively": true,
+      "still_visible_after_five_seconds": true,
+      "over_settings": true,
+      "opens_chat": true
+    },
+    "passed": true,
+    "waitAfterHandoffSeconds": 17.42
+  },
+  "running-back": {
+    "checks": {
+      "hidden_during_work": true,
+      "correct_reply": true,
+      "expanded_once": true,
+      "card_opens_expected_reply": true
+    },
+    "passed": true
+  },
+  "running-reclaim": {
+    "checks": {
+      "hidden_during_work": true,
+      "reclaimed": true,
+      "no_island_on_reclaimed_reply": true
+    },
+    "passed": true
+  },
+  "running-unlock": {
+    "checks": {
+      "verified": false
+    },
+    "passed": false
+  },
+  "direct-chat": {
+    "checks": {
+      "hidden_before_reply": true,
+      "matching_reply": true,
+      "opens_correct_chat": true
+    },
+    "passed": true
+  },
+  "wake-retry": {
+    "passed": false,
+    "checks": {
+      "asleep": true,
+      "finished_before_wake": true,
+      "never_expanded_while_asleep": false,
+      "matching_reply_after_wake": false
+    }
+  }
+}

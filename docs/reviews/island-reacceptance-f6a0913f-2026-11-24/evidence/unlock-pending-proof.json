@@ -1,0 +1,145 @@
+{
+  "screenAsleep": true,
+  "duringSleep": [
+    {
+      "seconds": 1.12,
+      "handoff": true,
+      "pending": false,
+      "island": "hidden",
+      "working": true,
+      "expanded": false,
+      "reason": "priority_changed",
+      "replyReady": false
+    },
+    {
+      "seconds": 2.8,
+      "handoff": true,
+      "pending": false,
+      "island": "hidden",
+      "working": true,
+      "expanded": false,
+      "reason": "priority_changed",
+      "replyReady": false
+    },
+    {
+      "seconds": 4.49,
+      "handoff": true,
+      "pending": false,
+      "island": "hidden",
+      "working": true,
+      "expanded": false,
+      "reason": "priority_changed",
+      "replyReady": false
+    },
+    {
+      "seconds": 6.21,
+      "handoff": true,
+      "pending": false,
+      "island": "hidden",
+      "working": true,
+      "expanded": false,
+      "reason": "priority_changed",
+      "replyReady": false
+    },
+    {
+      "seconds": 7.9,
+      "handoff": true,
+      "pending": false,
+      "island": "hidden",
+      "working": true,
+      "expanded": false,
+      "reason": "priority_changed",
+      "replyReady": false
+    },
+    {
+      "seconds": 9.61,
+      "handoff": true,
+      "pending": false,
+      "island": "hidden",
+      "working": true,
+      "expanded": false,
+      "reason": "priority_changed",
+      "replyReady": false
+    },
+    {
+      "seconds": 11.29,
+      "handoff": true,
+      "pending": false,
+      "island": "hidden",
+      "working": true,
+      "expanded": false,
+      "reason": "priority_changed",
+      "replyReady": false
+    },
+    {
+      "seconds": 13.02,
+      "handoff": true,
+      "pending": false,
+      "island": "hidden",
+      "working": true,
+      "expanded": false,
+      "reason": "priority_changed",
+      "replyReady": false
+    },
+    {
+      "seconds": 14.72,
+      "handoff": true,
+      "pending": false,
+      "island": "hidden",
+      "working": true,
+      "expanded": false,
+      "reason": "priority_changed",
+      "replyReady": false
+    },
+    {
+      "seconds": 16.44,
+      "handoff": true,
+      "pending": false,
+      "island": "hidden",
+      "working": true,
+      "expanded": false,
+      "reason": "priority_changed",
+      "replyReady": false
+    },
+    {
+      "seconds": 18.29,
+      "handoff": true,
+      "pending": false,
+      "island": "hidden",
+      "working": true,
+      "expanded": false,
+      "reason": "priority_changed",
+      "replyReady": false
+    },
+    {
+      "seconds": 20.0,
+      "handoff": true,
+      "pending": false,
+      "island": "hidden",
+      "working": true,
+      "expanded": false,
+      "reason": "priority_changed",
+      "replyReady": false
+    },
+    {
+      "seconds": 21.7,
+      "handoff": true,
+      "pending": false,
+      "island": "hidden",
+      "working": true,
+      "expanded": false,
+      "reason": "priority_changed",
+      "replyReady": false
+    },
+    {
+      "seconds": 23.39,
+      "handoff": false,
+      "pending": false,
+      "island": "expanded",
+      "working": false,
+      "expanded": true,
+      "reason": "expanded",
+      "replyReady": true
+    }
+  ]
+}

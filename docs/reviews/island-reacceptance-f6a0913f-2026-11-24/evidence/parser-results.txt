@@ -1,0 +1,2 @@
+PASS: 53 island parser checks
+Boundary: parser only; not SystemUI compilation or window/device acceptance.
