@@ -10,34 +10,50 @@ import org.junit.Test
 class HandoffDecisionTest {
   private val running = HandoffDecision.Candidate("thread", "turn", null)
 
-  private fun decide(candidate: HandoffDecision.Candidate? = running, changing: Boolean = false, interactive: Boolean = true,
-                     picker: Boolean = false, lastResumed: String? = HandoffDecision.CONVERSATION) =
-    HandoffDecision.decide(candidate, changing, interactive, picker, lastResumed)
+  private fun leave(changing: Boolean = false, interactive: Boolean = true, picker: Boolean = false,
+                    lastResumed: String? = HandoffDecision.CONVERSATION) =
+    HandoffDecision.leave(changing, interactive, picker, lastResumed)
 
-  @Test fun homeBackAndAnotherAppHandOff() {
-    assertNull(decide(lastResumed = HandoffDecision.HOME)) // Home gesture, or Back onto Home
-    assertNull(decide(lastResumed = HandoffDecision.CONVERSATION)) // Recents into another app
-    assertNull(decide(lastResumed = null))
+  @Test fun homeBackAndAnotherAppAreALeave() {
+    assertNull(leave(lastResumed = HandoffDecision.HOME)) // Home gesture, or Back onto Home
+    assertNull(leave(lastResumed = HandoffDecision.CONVERSATION)) // Recents into another app
+    assertNull(leave(lastResumed = null))
   }
 
   @Test fun eachSkipRule() {
-    assertEquals(Skip.NO_CANDIDATE, decide(candidate = null))
-    assertEquals(Skip.CONFIGURATION_CHANGE, decide(changing = true))
-    assertEquals(Skip.SCREEN_OFF, decide(interactive = false))
-    assertEquals(Skip.PICKER_OPEN, decide(picker = true))
-    assertEquals(Skip.OWN_ACTIVITY, decide(lastResumed = "org.agentos.agent.home.onboarding.ServiceSetupActivity"))
+    assertEquals(Skip.CONFIGURATION_CHANGE, leave(changing = true))
+    assertEquals(Skip.SCREEN_OFF, leave(interactive = false))
+    assertEquals(Skip.PICKER_OPEN, leave(picker = true))
+    assertEquals(Skip.OWN_ACTIVITY, leave(lastResumed = "org.agentos.agent.home.onboarding.ServiceSetupActivity"))
   }
 
-  @Test fun aLeaveWithoutACandidateWaitsForTheConversation() {
+  @Test fun onlyTheChatsOwnSendInFlightKeepsALeavePending() {
     // Retest of f6a0913f: Home pressed while the message was still being sent.
-    assertNull(HandoffDecision.leave(false, true, false, HandoffDecision.HOME))
-    assertEquals(Skip.SCREEN_OFF, HandoffDecision.leave(false, false, false, HandoffDecision.HOME))
-    assertTrue(HandoffDecision.handOffLater(running, leaving = true, visible = false, handedOffThread = null))
-    assertFalse("only once per conversation", HandoffDecision.handOffLater(running, true, false, "thread"))
-    assertTrue(HandoffDecision.handOffLater(running, true, false, "other"))
-    assertFalse("the chat is back", HandoffDecision.handOffLater(running, true, true, null))
-    assertFalse("not a leave", HandoffDecision.handOffLater(running, false, false, null))
-    assertFalse(HandoffDecision.handOffLater(null, true, false, null))
+    assertEquals(1_000L + HandoffDecision.PENDING_LEAVE_MS, HandoffDecision.pendingUntil(null, null, sending = true, now = 1_000L))
+    // Review #3: nothing running when the user left, so nothing started later pops a card.
+    assertEquals(0L, HandoffDecision.pendingUntil(null, null, sending = false, now = 1_000L))
+    assertEquals("already handed off at the leave", 0L, HandoffDecision.pendingUntil(null, running, sending = true, now = 1_000L))
+    assertEquals(0L, HandoffDecision.pendingUntil(Skip.SCREEN_OFF, null, sending = true, now = 1_000L))
+  }
+
+  @Test fun aPendingLeaveHandsOffOnceWhileHiddenAndInTime() {
+    val until = 61_000L
+    assertTrue(HandoffDecision.handOffLater(running, until, now = 30_000L, visible = false, handedOffThread = null))
+    assertFalse("only once per conversation", HandoffDecision.handOffLater(running, until, 30_000L, false, "thread"))
+    assertTrue(HandoffDecision.handOffLater(running, until, 30_000L, false, "other"))
+    assertFalse("the chat is back", HandoffDecision.handOffLater(running, until, 30_000L, true, null))
+    assertFalse("too late", HandoffDecision.handOffLater(running, until, 61_001L, false, null))
+    assertFalse("no pending leave", HandoffDecision.handOffLater(running, 0L, 30_000L, false, null))
+    assertFalse(HandoffDecision.handOffLater(null, until, 30_000L, false, null))
+  }
+
+  @Test fun anUnavailableHomeIsRetriedButABusyOneIsFinal() {
+    // Review #4.
+    assertTrue(HandoffDecision.retry("HOME_UNAVAILABLE", 1))
+    assertTrue(HandoffDecision.retry("TIMEOUT", 2))
+    assertFalse(HandoffDecision.retry("HOME_UNAVAILABLE", HandoffDecision.MAX_ATTEMPTS))
+    assertFalse(HandoffDecision.retry("HOME_BUSY", 1))
+    assertFalse(HandoffDecision.retry("INVALID_ARGUMENT", 1))
   }
 
   @Test fun javascriptEmptyStringsMeanNone() {

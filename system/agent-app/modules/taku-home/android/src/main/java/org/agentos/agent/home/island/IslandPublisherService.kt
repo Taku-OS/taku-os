@@ -43,6 +43,9 @@ class IslandPublisherService : Service() {
   private var lastExpansionRequest = 0L
   private var lastRequest = IslandMode.Hidden
   private var postedTag: String? = null
+  /** The hidden state is already applied for [hiddenHandoff]; see [publish]. */
+  private var hiddenApplied = false
+  private var hiddenHandoff: org.agentos.agent.home.assistant.Handoff? = null
 
   override fun onCreate() {
     super.onCreate()
@@ -69,6 +72,10 @@ class IslandPublisherService : Service() {
 
   private fun publish(state: AssistantState, voice: VoiceState) {
     if (state.island == IslandMode.Hidden) {
+      // A long handed-off turn streams many updates while hidden; nothing to redo unless the
+      // handoff itself changed (its awaited turn, or it ended).
+      if (hiddenApplied && hiddenHandoff == state.handoff) return
+      hiddenApplied = true; hiddenHandoff = state.handoff
       manager.activeNotifications.filter { it.id == ID && it.tag?.startsWith(TAG) == true }.forEach { manager.cancel(it.tag, ID) }
       val created = prefs.getLong("handoffCreated", 0).takeIf { it > 0 && prefs.getString("handoffThread", null) == state.handoff?.threadId }
       prefs.edit().clear().apply()
@@ -79,6 +86,7 @@ class IslandPublisherService : Service() {
       lastRequest = IslandMode.Hidden
       return
     }
+    hiddenApplied = false
     val thread = state.threadId ?: "entry"
     val tag = "$TAG:${state.activityId ?: thread}"
     if (postedTag != null && postedTag != tag) manager.cancel(postedTag, ID)
@@ -203,9 +211,7 @@ class IslandPublisherService : Service() {
     }
   }
 
-  private fun deviceUsable(): Boolean =
-    getSystemService(android.os.PowerManager::class.java)?.isInteractive == true &&
-      getSystemService(android.app.KeyguardManager::class.java)?.isKeyguardLocked != true
+  private fun deviceUsable(): Boolean = org.agentos.agent.home.ScreenState.usable(this)
 
   /**
    * SystemUI cannot draw a card on the lock screen, with the shade open or in landscape, and the

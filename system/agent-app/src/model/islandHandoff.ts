@@ -11,8 +11,19 @@ export interface HandoffCandidate {threadId: string; turnId: string; taskId: str
 /** Home accepts at most this many earlier turns; the newest are the ones that matter. */
 export const MAX_KNOWN_TURNS = 200;
 
-const turnsOf = (session: SessionView | null) => session ? [...new Set(session.blocks.map(block => block.turnId))] : null;
+// All earlier turns, including ones that showed nothing: Home must never take one of them for the new turn.
+const turnsOf = (session: SessionView | null) => session
+  ? [...new Set([...(session.turnIds ?? []), ...session.blocks.map(block => block.turnId)])] : null;
 const newest = (ids: string[] | null) => ids && ids.slice(-MAX_KNOWN_TURNS);
+
+/**
+ * Whether the chat's own message for the selected conversation is still on its way (from the tap
+ * until the gateway accepts it and its turn is known). Leaving during it keeps the handoff pending
+ * until the conversation is known, which for a new chat is only after its thread is created.
+ */
+export function sendInFlight(selected: string, optimistic: readonly OptimisticSubmission[]): boolean {
+  return optimistic.some(request => request.threadId === selected && (request.state === 'sending' || request.state === 'accepted'));
+}
 
 /**
  * The conversation whose turn is still running in the chat, or null (BUG-0027). Home opens the

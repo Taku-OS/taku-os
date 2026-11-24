@@ -96,6 +96,13 @@ class IslandHandoffTest {
     assertEquals(IslandHandoff.Outcome.REVEAL, IslandHandoff.step(Handoff("chat", turnId = "t2"), "chat", turn("t2", false, failed = true), "running", "9", "TURN_FAILED").outcome)
   }
 
+  @Test fun anEarlierCancelledTaskDoesNotEndTheHandoff() {
+    // Review #1: the running turn was known, so no task id was handed over.
+    val handoff = Handoff("chat", turnId = "t2")
+    assertEquals(IslandHandoff.Outcome.WAIT, IslandHandoff.step(handoff, "chat", null, "cancelled", "4", null).outcome)
+    assertEquals(IslandHandoff.Outcome.REVEAL, IslandHandoff.step(handoff, "chat", turn("t2", false), "cancelled", "4", null).outcome)
+  }
+
   @Test fun aCancelledTaskOrAnotherThreadOpensNothing() {
     val handoff = Handoff("chat", taskId = "9")
     assertEquals(IslandHandoff.Outcome.DROP, IslandHandoff.step(handoff, "chat", null, "cancelled", "9", null).outcome)

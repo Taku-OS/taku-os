@@ -101,28 +101,34 @@ as today.
 The decision runs in `TakuAgentModule` when `ConversationVisibility` reports the last chat host
 stopped. It does not run in JS, because the React runtime may not get a frame after `onStop`.
 
-- JS keeps native informed with a new `setHandoffCandidate(threadId, turnId, taskId, knownTurnIds)`
-  (empty strings for none; `knownTurnIds` a JSON array). `handoffCandidate()` in
+- JS keeps native informed with a new `setHandoffCandidate(threadId, turnId, taskId, knownTurnIds,
+  sending)` (empty strings for none; `knownTurnIds` a JSON array; `sending` true while the chat's
+  own message is on its way). `handoffCandidate()` in
   `src/model/islandHandoff.ts` names the selected thread with its active turn; before that is
   known, the chat's own in-flight message row (state `sending` or `accepted`, present from the tap)
-  supplies its task and the conversation's turns before the send. It returns null when the session
-  is idle or waiting on a question.
+  supplies its task and the conversation's turns before the send (every native turn, including
+  turns that showed nothing, from `SessionView.turnIds`). It returns null when the session is idle
+  or waiting on a question.
 - Home waits for that turn. Without it, Home waits for the first turn not among `knownTurnIds`,
   even one that already finished before Home first saw it; with neither, the first turn seen
   running. An older finished turn the stream shows first is never revealed.
-- **A leave stays pending until the chat shows again.** A message still being sent may not know its
-  conversation at `onStop` (a new conversation has no thread until it is created). Native records
-  an eligible leave and hands off when JS reports a candidate for a conversation not yet handed off
-  during that leave (`HandoffDecision.leave`, `handOffLater`). JS keeps running while the chat is
-  hidden, because the React host is shared with Home.
+- **A leave during a send waits for its conversation.** A message still being sent may not know its
+  conversation at `onStop` (a new conversation has no thread until it is created). Only then, when
+  no candidate exists but `sending` is true, native keeps the leave pending for up to 60 s
+  (`HandoffDecision.pendingUntil`) and hands off when JS reports the conversation
+  (`handOffLater`). A leave with nothing running never waits, so a turn started later from
+  elsewhere (a Panel, automation) never pops a card. JS keeps running while the chat is hidden,
+  because the React host is shared with Home.
+- A handoff Home could not take (`HOME_UNAVAILABLE`, a timeout) is retried after 1 s, up to 3
+  attempts, while the user is still away. `HOME_BUSY` is final, as decided.
 - Back, Home and Recents all end in the same `onStop`, so one code path covers the three routes in
   the bug.
-- The decision is a pure function, `HandoffDecision.decide(...)`, so it can be unit-tested without
-  Android.
+- The rules are pure functions in `HandoffDecision` (`leave`, `pendingUntil`, `handOffLater`,
+  `retry`), so they are unit-tested without Android.
 
 | Skip when | Why |
 | --- | --- |
-| Candidate is `null` | Nothing to hand off yet; the leave stays pending (above) |
+| Candidate is `null` | Nothing to hand off; the leave waits only while the chat's own send is in flight (above) |
 | `activity.isChangingConfigurations` | Rotation or theme change recreates the chat |
 | `PowerManager.isInteractive == false` | Screen off; the user returns to the same chat |
 | A `ComposerPicker` request is in flight | The chat opened the system picker itself |
@@ -286,7 +292,8 @@ pass on an isolated emulator, as AGENTS.md requires.
 
 **Unit tests**
 
-- `HandoffDecision.decide`: one case per skip row in Design §1, plus the hand-off case.
+- `HandoffDecision`: one case per skip row in Design §1, the pending leave, its 60 s bound, and the
+  retry rule.
 - `AssistantSession.handoff`: each row of the Conflicts table, including `island = Hidden`, no
   `expansionRequest` and no `reset()` for the same thread.
 - Reveal: each row of the Design §3 table; one reveal per handoff; cancelled by `reclaim`, Home

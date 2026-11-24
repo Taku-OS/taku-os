@@ -82,7 +82,8 @@ object IslandHandoff {
     val armed = if (handoff.turnId == null && awaited != null) handoff.copy(turnId = awaited.turnId) else handoff
     if (task == "needs_user") return Step(Outcome.REVEAL, null)
     if (error != null && error != handoff.errorAtStart) return Step(Outcome.REVEAL, null)
-    if (task == "cancelled" && (handoff.taskId == null || taskId == handoff.taskId) && turn?.active != true)
+    // Only this send's own task: a thread can still report an earlier task that was cancelled.
+    if (task == "cancelled" && handoff.taskId != null && taskId == handoff.taskId && turn?.active != true)
       return Step(Outcome.DROP, null)
     if (armed.turnId != null && turn != null && turn.turnId == armed.turnId && !turn.active) return Step(Outcome.REVEAL, null)
     return Step(Outcome.WAIT, armed)

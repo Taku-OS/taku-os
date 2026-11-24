@@ -3,7 +3,7 @@ import {AppState, BackHandler} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {useLocales} from 'expo-localization';
 import {callAgent, closeAgent, consumePanelLaunch, isPanelLaunchConsumed, launchPanelTarget, launchThreadId, newRequestId, onOpenThread, selectConversation, setHandoffCandidate, subscribeSession, watchConversationVisible, AgentGatewayError, type PanelTarget} from '../native/agent';
-import {handoffCandidate} from '../model/islandHandoff';
+import {handoffCandidate, sendInFlight} from '../model/islandHandoff';
 import {onComposerAttachment, pickComposerAttachment, type ComposerPickerKind} from '../native/composerPicker';
 import {projectSession, projectThreads, projectWorkspaces, record, string, type Json, type SessionView, type ThreadSummary, type WorkspaceView} from '../model/session';
 import {isAcceptedReceipt, isNotSentReceipt, pendingKey, preserveAndReleaseUnconfirmed, unconfirmedArchivePrefix, type PendingSubmission} from './submission';
@@ -311,11 +311,11 @@ export function useAgentController() {
   const candidate = handoffCandidate(selected, session, pendingSubmission?.threadId ?? null, optimisticSubmissions);
   const handoffThread = candidate?.threadId ?? '', handoffTurn = candidate?.turnId ?? '', handoffTask = candidate?.taskId ?? '';
   const handoffKnown = candidate?.knownTurnIds ? JSON.stringify(candidate.knownTurnIds) : '';
+  const handoffSending = sendInFlight(selected, optimisticSubmissions);
   useEffect(() => {
-    setHandoffCandidate(handoffThread ? {threadId: handoffThread, turnId: handoffTurn, taskId: handoffTask,
-      knownTurnIds: handoffKnown ? JSON.parse(handoffKnown) as string[] : null} : null);
-  }, [handoffThread, handoffTurn, handoffTask, handoffKnown]);
-  useEffect(() => () => setHandoffCandidate(null), []);
+    setHandoffCandidate({threadId: handoffThread, turnId: handoffTurn, taskId: handoffTask, knownTurnIds: handoffKnown, sending: handoffSending});
+  }, [handoffThread, handoffTurn, handoffTask, handoffKnown, handoffSending]);
+  useEffect(() => () => setHandoffCandidate({threadId: '', turnId: '', taskId: '', knownTurnIds: '', sending: false}), []);
 
   useEffect(() => {
     const back = BackHandler.addEventListener('hardwareBackPress', () => { hide(); return true; });
@@ -560,6 +560,8 @@ export function useAgentController() {
     const draft = move ? await composer('').move(move.revision, id) : null;
     if (move) updateOptimistic(requests => requests.map(request => request.requestId === move.requestId ? {...request, threadId: id} : request));
     await select(id, Boolean(move));
+    // Native follows the created conversation (intent, launch route, island reclaim), as for any selection.
+    if (selectedRef.current === id) selectConversation(id);
     void loadThreads().catch(() => {});
     return {id, draft};
   }, [composer, loadThreads, select, updateOptimistic]);

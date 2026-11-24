@@ -13,8 +13,6 @@ internal object HandoffDecision {
   data class Candidate(val threadId: String, val turnId: String?, val taskId: String?, val knownTurnIds: String? = null)
 
   enum class Skip {
-    /** Nothing is running in the chat. */
-    NO_CANDIDATE,
     /** Rotation or a theme change recreates the chat. */
     CONFIGURATION_CHANGE,
     /** The screen turned off; the user comes back to the same chat. */
@@ -29,16 +27,17 @@ internal object HandoffDecision {
   const val HOME = "org.agentos.agent.home.HomeActivity"
 
   /**
-   * Null when the chat should hand [candidate] off. [lastResumed] is the class of the last of this
-   * app's activities to resume: another app leaves it at the chat itself, Home at [HOME].
+   * How long a leave waits for a send still on its way to name its conversation: creating a new
+   * chat's thread can take up to 40 s. After that, nothing started later pops a card.
    */
-  fun decide(candidate: Candidate?, changingConfigurations: Boolean, interactive: Boolean,
-             pickerOpen: Boolean, lastResumed: String?): Skip? =
-    if (candidate == null) Skip.NO_CANDIDATE else leave(changingConfigurations, interactive, pickerOpen, lastResumed)
+  const val PENDING_LEAVE_MS = 60_000L
+
+  /** Attempts for a handoff Home could not take yet (starting, unavailable); a busy Home is final. */
+  const val MAX_ATTEMPTS = 3
 
   /**
-   * Whether this stop is the user leaving the chat, whatever is running. A leave stays eligible
-   * until the chat shows again: a send still on its way reports its conversation afterwards.
+   * Null when this stop is the user leaving the chat. [lastResumed] is the class of the last of
+   * this app's activities to resume: another app leaves it at the chat itself, Home at [HOME].
    */
   fun leave(changingConfigurations: Boolean, interactive: Boolean, pickerOpen: Boolean, lastResumed: String?): Skip? = when {
     changingConfigurations -> Skip.CONFIGURATION_CHANGE
@@ -54,7 +53,19 @@ internal object HandoffDecision {
       Candidate(it, turnId.trim().ifEmpty { null }, taskId.trim().ifEmpty { null }, knownTurnIds.trim().ifEmpty { null })
     }
 
-  /** Hand off when a leave is pending and a conversation not yet handed off becomes known. */
-  fun handOffLater(candidate: Candidate?, leaving: Boolean, visible: Boolean, handedOffThread: String?): Boolean =
-    candidate != null && leaving && !visible && candidate.threadId != handedOffThread
+  /**
+   * Until when a leave keeps waiting for its conversation, or 0 for not at all. Only the chat's
+   * own send still on its way (no conversation to name yet) waits; a leave with nothing running
+   * never hands off a turn that starts later from somewhere else.
+   */
+  fun pendingUntil(skip: Skip?, candidate: Candidate?, sending: Boolean, now: Long): Long =
+    if (skip == null && candidate == null && sending) now + PENDING_LEAVE_MS else 0L
+
+  /** Hand off now: a pending leave, still hidden, learns a conversation not yet handed off. */
+  fun handOffLater(candidate: Candidate?, pendingUntil: Long, now: Long, visible: Boolean, handedOffThread: String?): Boolean =
+    candidate != null && now <= pendingUntil && !visible && candidate.threadId != handedOffThread
+
+  /** Whether a handoff Home refused with [code] (null: no answer) is worth another attempt. */
+  fun retry(code: String?, attempt: Int): Boolean =
+    attempt < MAX_ATTEMPTS && code != "HOME_BUSY" && code != "INVALID_ARGUMENT"
 }

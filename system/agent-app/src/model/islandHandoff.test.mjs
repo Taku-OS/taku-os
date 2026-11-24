@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {handoffCandidate, MAX_KNOWN_TURNS} from './islandHandoff.ts';
+import {handoffCandidate, MAX_KNOWN_TURNS, sendInFlight} from './islandHandoff.ts';
+import {beginOptimisticSubmission} from './optimisticChat.ts';
 
 const session = (fields = {}) => ({id: 'thread-a', title: '', blocks: [], questions: [], running: false, activeTurnId: '',
   ready: true, error: '', historyComplete: true, knownEmpty: false, historyStatus: 'complete', totalTurns: 1,
@@ -69,4 +70,18 @@ test('only the newest earlier turns are reported', () => {
   const result = handoffCandidate('thread-a', session(), null, [row({baselineTurnIds: many})]);
   assert.equal(result.knownTurnIds.length, MAX_KNOWN_TURNS);
   assert.equal(result.knownTurnIds.at(-1), many.at(-1));
+});
+
+test('turns that showed nothing still count as earlier turns (review #5)', () => {
+  const quiet = session({queued: true, running: true, taskId: '17', turnIds: ['t0', 't1'], blocks: [block('t1')]});
+  assert.deepEqual(handoffCandidate('thread-a', quiet, null).knownTurnIds, ['t0', 't1']);
+  const sent = beginOptimisticSubmission({threadId: 'thread-a', requestId: 'r', text: 'x', action: 'sendMessage'}, quiet);
+  assert.deepEqual(sent.baselineTurnIds, ['t0', 't1']);
+});
+
+test('only the chat\'s own unfinished message counts as a send in flight', () => {
+  assert.equal(sendInFlight('', [row({threadId: ''})]), true, 'a new chat before its thread exists');
+  assert.equal(sendInFlight('thread-a', [row({state: 'accepted'})]), true);
+  assert.equal(sendInFlight('thread-a', [row({state: 'settled'})]), false);
+  assert.equal(sendInFlight('thread-a', [row({threadId: 'thread-b'})]), false);
 });

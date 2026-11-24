@@ -313,9 +313,7 @@ class AssistantSession private constructor(private val context: Context, private
     if (flow.value.revealPending) flow.update { it.copy(revealPending = false) }
   }
 
-  private fun voiceDeviceUnavailable(): Boolean =
-    context.getSystemService(android.app.KeyguardManager::class.java)?.isKeyguardLocked == true ||
-      context.getSystemService(android.os.PowerManager::class.java)?.isInteractive == false
+  private fun voiceDeviceUnavailable(): Boolean = !org.agentos.agent.home.ScreenState.usable(context)
 
   private fun interruptVoiceForScreenOff() {
     ChatVoiceSession.interrupt()

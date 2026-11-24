@@ -36,7 +36,7 @@ const mocks = new Map([
     };
     export const onOpenThread = listener => {runtime.openListeners.add(listener); return {remove() {runtime.openListeners.delete(listener);}};};
     export const selectConversation = id => {runtime.target = null; runtime.threadId = id || '';};
-    export const setHandoffCandidate = candidate => {runtime.handoffs.push(candidate ? candidate.threadId : null);};
+    export const setHandoffCandidate = report => {runtime.handoffs.push(report.threadId || null); runtime.sending = report.sending;};
     export const subscribeSession = () => ({remove() {}});
     export const watchConversationVisible = listener => {listener(true); return {remove() {}};};
     export const closeAgent = async () => {};
@@ -217,10 +217,12 @@ test('a send in flight names its conversation for the island handoff, and an idl
   assert.equal(host.result.onDraftChange('Plan the trip'), true); await flush(host);
   host.result.onSend(); await flush(host);
   assert.equal(runtime.handoffs.at(-1), 'thread-a');
+  assert.equal(runtime.sending, true, 'native knows a send is in flight');
   gate.resolve(accepted(runtime.calls[0])); await flush(host);
   runtime.completed.push({threadId: 'thread-a', requestId: runtime.calls[0].requestId, text: 'Plan the trip'});
   host.result.onRefresh(); await flush(host);
   assert.equal(runtime.handoffs.at(-1), null);
+  assert.equal(runtime.sending, false);
   host.unmount();
   assert.equal(runtime.handoffs.at(-1), null);
 });
@@ -256,6 +258,7 @@ test('the first message from a new chat creates its conversation', async t => {
   assert.equal(runtime.events.filter(([name]) => name === 'createThread').length, 1);
   assert.equal(host.result.draftSessionId, 'thread-new');
   assert.equal(runtime.calls.at(-1).threadId, 'thread-new');
+  assert.equal(runtime.threadId, 'thread-new', 'native follows the created conversation (review #2)');
 });
 
 test('every outside open is counted, reopening the selected conversation included', async t => {
