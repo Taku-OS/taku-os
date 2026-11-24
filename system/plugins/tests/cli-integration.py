@@ -15,6 +15,8 @@ java = pathlib.Path(os.environ['JAVA_HOME']) / 'bin/java'
 with tempfile.TemporaryDirectory(prefix='taku-cli-') as temporary:
     temporary = pathlib.Path(temporary)
     env = dict(os.environ, TAKU_GODMODE_HOST_JAR=str(build / 'taku-godmode-host.jar'), TAKU_GODMODE_SOCKET=str(temporary / 'service.sock'))
+    env.pop('TAKU_PLUGIN_TRUSTED_PUBLISHER_KEY', None)
+    env['TAKU_TEST_HOST_ONLY'] = 'host-only-fixture'
     service = subprocess.Popen([str(java), '-cp', env['TAKU_GODMODE_HOST_JAR'], 'org.taku.plugins.host.Server', str(temporary / 'state'), env['TAKU_GODMODE_SOCKET']], env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     try:
         wait_for_service(service, env['TAKU_GODMODE_SOCKET'])
@@ -34,6 +36,9 @@ with tempfile.TemporaryDirectory(prefix='taku-cli-') as temporary:
         assert cli('install-url', invalid_url, status=1)['error']['code'] == 'INVALID_URL'
         invalid_checksum = json.dumps({'url': 'https://example.com/plugin.zip', 'sha256': 'bad'})
         assert cli('install-url', invalid_checksum, status=1)['error']['code'] == 'INVALID_CHECKSUM'
+        untrusted_url = json.dumps({'url': 'https://example.invalid/plugin.zip', 'sha256': '0' * 64,
+                                    'signature': 'fixture', 'publicKey': 'self-reported'})
+        assert cli('install-url', untrusted_url, status=1)['error']['code'] == 'UNTRUSTED_PUBLISHER'
         identifier = 'org.example.settings'
         assert cli('install', str(build / 'examples/settings-page'))['result']['state'] == 'started'
         assert len(cli('list')['result']) == 1
@@ -111,10 +116,11 @@ with tempfile.TemporaryDirectory(prefix='taku-cli-') as temporary:
         del check_manifest['type']
         check_manifest['roles'] = ['tool-provider', 'check-provider']
         check_manifest['checks'] = [{'id': name, 'title': name, 'description': 'fixture', 'kinds': ['test'], 'targets': ['local']} for name in ('pass', 'fail', 'slow')]
-        check_manifest['mcp'] = {'command': sys.executable, 'args': ['check-provider.py'], 'env': {}}
+        check_manifest['mcp'] = {'command': sys.executable, 'args': ['check-provider.py'], 'env': {'TAKU_TEST_PLUGIN_ENV': 'plugin-fixture'}}
         check_manifest['healthcheck']['timeoutMs'] = 300
         check_manifest_path.write_text(json.dumps(check_manifest))
         assert cli('install', str(checks_dir))['result']['state'] == 'started'
+        assert 'env' not in cli('show', 'org.example.checks')['result']['manifest']['mcp']
         assert 'checks' not in cli('list')['result'][0]['manifest']
         filtered = cli('tools', 'checks')['result']
         assert [tool['id'] for tool in filtered[0]['tools']] == ['pass', 'fail']

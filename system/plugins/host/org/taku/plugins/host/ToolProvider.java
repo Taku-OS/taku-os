@@ -12,7 +12,7 @@ final class ToolProvider implements TakuPlugin {
     private final RuntimeContext context;
     private final Path directory;
     private Process process;
-    private BufferedReader input;
+    private InputStream input;
     private BufferedWriter output;
     private ExecutorService reader;
     private List<ToolSpec> tools = new ArrayList<>();
@@ -25,9 +25,12 @@ final class ToolProvider implements TakuPlugin {
         List<String> command = new ArrayList<>(); command.add((String)config.get("command"));
         for (Object arg : (List<?>)config.get("args")) command.add((String)arg);
         ProcessBuilder builder = new ProcessBuilder(command).directory(directory.toFile());
-        for (Map.Entry<String,Object> entry : ((Map<String,Object>)config.get("env")).entrySet()) builder.environment().put(entry.getKey(), (String)entry.getValue());
+        Map<String,String> environment = builder.environment();
+        environment.keySet().retainAll(Set.of("PATH", "HOME", "TMPDIR"));
+        // The validated manifest explicitly declares the additional child variables.
+        for (Map.Entry<String,Object> entry : ((Map<String,Object>)config.get("env")).entrySet()) environment.put(entry.getKey(), (String)entry.getValue());
         process = builder.start();
-        input = new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8));
+        input = new BufferedInputStream(process.getInputStream());
         output = new BufferedWriter(new OutputStreamWriter(process.getOutputStream(), StandardCharsets.UTF_8));
         reader = Executors.newSingleThreadExecutor(task -> { Thread thread = new Thread(task, "taku-mcp-reader"); thread.setDaemon(true); return thread; });
         Thread stderr = new Thread(() -> { try (InputStream stream = process.getErrorStream()) { byte[] buffer = new byte[1024]; while (stream.read(buffer) != -1) { } } catch (IOException ignored) { } }, "taku-mcp-stderr");
@@ -57,10 +60,20 @@ final class ToolProvider implements TakuPlugin {
         long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeout);
         while (true) {
             long remaining = deadline - System.nanoTime();
-            if (remaining <= 0) throw new TimeoutException("MCP timeout: " + method);
-            String line = reader.submit(() -> input.readLine()).get(remaining, TimeUnit.NANOSECONDS);
+            if (remaining <= 0) {
+                onStop();
+                throw new TimeoutException("MCP timeout: " + method);
+            }
+            Future<String> response = reader.submit(() -> BoundedLine.read(input, 16_000_000));
+            String line;
+            try {
+                line = response.get(remaining, TimeUnit.NANOSECONDS);
+            } catch (Exception error) {
+                response.cancel(true);
+                onStop();
+                throw error;
+            }
             if (line == null) throw new IOException("MCP provider closed stdout");
-            if (line.length() > 16_000_000) throw new IOException("MCP response too large");
             Object parsed = Json.parse(line);
             if (!(parsed instanceof Map)) throw new IOException("invalid MCP response");
             Map<?,?> reply = (Map<?,?>)parsed;
@@ -96,7 +109,7 @@ final class ToolProvider implements TakuPlugin {
         if (!found) throw new PluginException("NOT_FOUND", "check " + name);
         Object result;
         try { result = call(name, context); }
-        catch (TimeoutException error) { onStop(); throw new PluginException("CHECK_TIMEOUT", "check timed out: " + name, error); }
+        catch (TimeoutException error) { throw new PluginException("CHECK_TIMEOUT", "check timed out: " + name, error); }
         catch (PluginException error) { throw error; }
         catch (Exception error) { throw new PluginException("CHECK_FAILED", "check failed: " + error.getMessage(), error); }
         if (result instanceof Map && Boolean.TRUE.equals(((Map<?,?>)result).get("isError"))) throw new PluginException("CHECK_FAILED", "provider reported check error");
