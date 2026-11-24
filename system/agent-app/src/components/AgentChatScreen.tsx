@@ -70,6 +70,8 @@ export interface AgentChatScreenProps {
   onPickAttachment: (kind: ComposerPickerKind) => void;
   onRemoveAttachment: (id: string) => void;
   conversationKey?: string;
+  /** Increments whenever a conversation is opened from outside the chat (e.g. the island card). */
+  externalOpens?: number;
   optimisticSubmissions?: readonly OptimisticSubmission[];
   pendingSubmission?: {threadId: string; text: string; requestId: string; action: 'sendMessage' | 'steer' | 'continue'} | null;
   onRetrySubmission: () => void;
@@ -331,7 +333,8 @@ function PendingCard({question, language, busy, onAnswer, onOpenRequest}: {quest
   </View>;
 }
 
-type Layer = {kind: 'home'};
+/** [opens] is the outside-open count when the layer was shown; a later outside open hides it. */
+type Layer = {kind: 'home'; opens: number};
 
 export function AgentChatScreen(props: AgentChatScreenProps) {
   const router = useRouter();
@@ -354,7 +357,10 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
     });
     return () => {show.remove(); hide.remove(); lifecycle.remove();};
   }, [nativeIme]);
-  const [layer, setLayer] = useState<Layer | null>(null);
+  const [openedLayer, setLayer] = useState<Layer | null>(null);
+  // An outside open (island card, Feed, Panel) shows that conversation, not a Taku Home left open.
+  const externalOpens = props.externalOpens ?? 0;
+  const layer = openedLayer?.opens === externalOpens ? openedLayer : null;
   // The window blurs whatever lies under it (Feed, Home or another app) while the chat shows.
   useEffect(() => {
     backdropUsers += 1;
@@ -446,7 +452,7 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
     props.onOpenHistory?.();
     Keyboard.dismiss();
     setReplyMenu(null);
-    setLayer({kind: 'home'});
+    setLayer({kind: 'home', opens: externalOpens});
   };
   const running = props.session?.running;
   const hasDraft = !!props.draft.trim() || props.attachments.length > 0;

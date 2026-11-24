@@ -55,6 +55,9 @@ export function useAgentController() {
   const [workspaceError, setWorkspaceError] = useState('');
   const [refreshRevision, setRefreshRevision] = useState(0);
   const [visible, setVisible] = useState(false);
+  // Counts conversations opened from outside the chat (island, Feed, Panels), the current one
+  // included, so the screen can leave Taku Home for the conversation it was asked to show.
+  const [externalOpens, setExternalOpens] = useState(0);
   const locale = useLocales()[0]?.languageCode;
   const zh = locale === 'zh';
   const mounted = useRef(true), generation = useRef(0), actionRunning = useRef(false);
@@ -313,6 +316,7 @@ export function useAgentController() {
     const listener = AppState.addEventListener('change', state => { appActive = state === 'active'; updateVisibility(); });
     const visibility = watchConversationVisible(started => { conversationStarted = started; updateVisibility(); });
     const openListener = onOpenThread((id, target, problem) => {
+      setExternalOpens(count => count + 1);
       if (problem) {
         launchFailure.current = problem;
         setError(messageRef.current(problem));
@@ -769,7 +773,7 @@ export function useAgentController() {
   return {
     session, threads, workspaces, loading: loading || restoring, busy, error: draftError || error || selectionError || readError, draft,
     historyError, workspaceError, visible,
-    draftSessionId: selected, pendingSubmission, conversationKey,
+    draftSessionId: selected, pendingSubmission, conversationKey, externalOpens,
     optimisticSubmissions: visibleOptimisticSubmissions,
     onRetrySubmission: () => { void retrySubmission(); },
     onContinueWithoutResending: () => { void continueWithoutResending(); },

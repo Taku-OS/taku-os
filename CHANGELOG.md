@@ -4,6 +4,8 @@ Versioned, user-facing records. Source-project versions are distinct from ROM re
 
 ## Unreleased
 
+- Fix tapping the expanded Taku Dynamic Island card opening Taku 主页 (Taku Home) instead of the conversation. Taku Home is an overlay inside the full chat, and an outside open (island card, Feed, Panel) left it covering the conversation it had just selected, including when it reopened the conversation already selected. Any outside open now hides Taku Home. A controller test covers the same-conversation reopen. Not yet verified on an emulator.
+
 - Fix TypeSafe Jev onboarding saving a key without a usable Magpie provider: write the official decision endpoint and repair older preset-only configurations during Broker startup/config sync. Preserve credentials, explicit endpoints and model routes; GUI and Agent use the same repaired Settings data.
 
 - Restyle the expanded Taku sign-in island with content-sized native chrome: shared Taku eyes, Hanken typography, pill actions and a bounded blurred background with opaque fallback. Closing folds the card without cancelling sign-in; Back to setup retains the real action.

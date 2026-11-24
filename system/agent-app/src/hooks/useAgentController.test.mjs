@@ -202,6 +202,23 @@ test('a reconciled accepted pending continuation consumes its original launch af
   assert.equal(runtime.calls.at(-1).action, 'sendMessage');
 });
 
+test('every outside open is counted, reopening the selected conversation included', async t => {
+  reset(t); runtime.target = null;
+  const host = mount(); await flush(host);
+  assert.equal(host.result.draftSessionId, 'thread-a');
+  assert.equal(host.result.externalOpens, 0);
+  // The island card reopens the conversation that is already selected: no thread change to watch.
+  runtime.threadId = 'thread-a';
+  for (const listener of runtime.openListeners) listener('thread-a', null);
+  await flush(host);
+  assert.equal(host.result.draftSessionId, 'thread-a');
+  assert.equal(host.result.externalOpens, 1);
+  // A refused Panel route still asks the chat to come forward and show its error.
+  for (const listener of runtime.openListeners) listener('thread-a', null, new Error('Panel target unavailable'));
+  await flush(host);
+  assert.equal(host.result.externalOpens, 2);
+});
+
 test('a deliberate same-panel reopen remains a fresh continuation after acceptance', async t => {
   reset(t);
   const host = mount(); await flush(host);
