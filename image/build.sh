@@ -72,6 +72,9 @@ PY
     # Double tap on the gesture handle opens the assistant (pinned Launcher3/Quickstep patch).
     python3 /taku/image/apply-launcher-patches.py --source-root /src --results-dir /results
     python3 /taku/image/apply-recents-patches.py --source-root /src --results-dir /results
+    if [ -f /taku/image/apply-display-audio-patch.py ]; then
+        python3 /taku/image/apply-display-audio-patch.py --source-root /src --results-dir /results
+    fi
     integrate_home_policy
     # Complete snapshots contain the pinned island implementation; historical narrow snapshots do not.
     if [ -f /taku/image/island/manifest.json ]; then
@@ -89,6 +92,9 @@ elif [[ "${1:-}" = "--resume" || "${1:-}" = "--verify-only" ]]; then
     # Resume must not silently build an older framework/PermissionController policy.
     integrate_home_policy --verify-only
     python3 /taku/image/apply-recents-patches.py --source-root /src --results-dir /results --verify-only
+    if [ -f /taku/image/apply-display-audio-patch.py ]; then
+        python3 /taku/image/apply-display-audio-patch.py --source-root /src --results-dir /results --verify-only
+    fi
     python3 /taku/image/apply-launcher-patches.py --source-root /src --results-dir /results --verify-only
     if [ -f /taku/image/island/manifest.json ]; then
         python3 /taku/image/apply-island-patches.py --source-root /src --results-dir /results --verify-only
