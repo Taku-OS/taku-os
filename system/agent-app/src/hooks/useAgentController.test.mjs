@@ -28,17 +28,19 @@ const mocks = new Map([
   ['../native/agent', mock(`export const callAgent = (...args) => runtime.callAgent(...args);
     export const newRequestId = () => 'request-' + ++runtime.sequence;
     export const launchThreadId = () => runtime.threadId;
-    export const launchPanelTarget = async () => runtime.target && !runtime.consumed.has(runtime.target.launchId) ? {...runtime.target} : null;
-    export const isPanelLaunchConsumed = id => runtime.consumed.has(id);
-    export const consumePanelLaunch = async id => {
-      if (runtime.failConsumption) throw new Error('disk full');
-      runtime.consumed.add(id); runtime.events.push(['consume', id]);
-    };
+    export const launchPanelTarget = async () => runtime.target && {...runtime.target};
+    export const isLaunchCurrent = generation => generation === runtime.routeGeneration;
+    export const isPanelRouteCurrent = target => target.panelId === runtime.target?.panelId && target.launchId === runtime.target?.launchId;
     export const onOpenThread = listener => {runtime.openListeners.add(listener); return {remove() {runtime.openListeners.delete(listener);}};};
-    export const selectConversation = id => {runtime.target = null; runtime.threadId = id || '';};
+    export const selectConversation = (id, expectedGeneration) => {
+      if (expectedGeneration != null && expectedGeneration !== String(runtime.routeGeneration)) return null;
+      runtime.target = null;
+      runtime.threadId = id || '';
+      return String(++runtime.routeGeneration);
+    };
     export const subscribeSession = () => ({remove() {}});
     export const watchConversationVisible = listener => {listener(true); return {remove() {}};};
-    export const closeAgent = async () => {};
+    export const closeAgent = async () => {runtime.events.push(['close']);};
     export class AgentGatewayError extends Error {constructor(message, code = 'GATEWAY_UNAVAILABLE') {super(message); this.code = code;}};`)],
 ]);
 const hookUrl = new URL('./useAgentController.ts', import.meta.url).href;
@@ -50,20 +52,32 @@ registerHooks({resolve(specifier, context, nextResolve) {
 }});
 const {useAgentController} = await import('./useAgentController.ts');
 
-const target = {panelId: 'panel-a', sourceVersion: 3, originThreadId: 'thread-a', launchId: 'launch-a'};
+const target = {panelId: 'panel-a', originThreadId: 'thread-a', launchId: 'launch-a', title: 'Trip plan'};
 const pendingKey = id => `taku.agent.pending.v1.${id}`;
 const draftKey = id => `taku.agent.draft.v1.${id}`;
-const accepted = (args, panelId) => ({threadId: panelId === 'panel-b' ? 'thread-b' : 'thread-a',
+const accepted = (args, panelId) => ({threadId: args.threadId,
   requestId: args.requestId, state: 'queued', ...(panelId ? {panelId} : {})});
 const deferred = () => {let resolve; const promise = new Promise(yes => {resolve = yes;}); return {promise, resolve};};
 
 function reset(t) {
-  Object.assign(runtime, {sequence: 0, storage: new Map(), drafts: new Map(), receipts: new Map(), consumed: new Set(),
-    events: [], calls: [], lookups: [], completed: [], openListeners: new Set(), attachmentListeners: new Set(), target: {...target}, threadId: 'thread-a',
-    failConsumption: false, mounts: [], receipt: async (args, panelId) => accepted(args, panelId)});
+  Object.assign(runtime, {sequence: 0, storage: new Map(), drafts: new Map(), receipts: new Map(),
+    events: [], calls: [], lookups: [], panelReads: [], completed: [], openListeners: new Set(), attachmentListeners: new Set(),
+    target: {...target}, threadId: 'thread-a', routeGeneration: 0, sourceVersion: 3,
+    mounts: [], receipt: async (args, panelId) => accepted(args, panelId)});
   runtime.callAgent = async (action, params = {}) => {
     const threadId = params.threadId;
     const snapshot = () => runtime.drafts.get(threadId) || {threadId, revision: '', text: '', attachments: []};
+    if (action === 'panels' && params.operation === 'get') {
+      runtime.panelReads.push(params.args.panelId);
+      const panel = runtime.target;
+      assert.equal(params.args.panelId, panel.panelId);
+      return {panel: {...panel, matterId: `${panel.originThreadId}/card`, position: 0, metadataRevision: 0,
+        sourceVersion: runtime.sourceVersion}, sourceState: {state: 'current'}, capabilities: {canOpen: true, canContinue: true}};
+    }
+    if (action === 'panels' && params.operation === 'open') {
+      runtime.events.push(['open-panel', params.args.panelId]);
+      return {accepted: true, panelId: params.args.panelId};
+    }
     if (action === 'composer/read') return snapshot();
     if (action === 'composer/write' || action === 'composer/import') {
       const next = {...snapshot(), text: params.text, revision: `draft-${++runtime.sequence}`};
@@ -166,153 +180,174 @@ async function send(host, text) {
   host.result.onSend();
   await flush(host);
 }
-function open(next) {
-  runtime.target = {...next}; runtime.threadId = next.originThreadId;
-  for (const listener of runtime.openListeners) listener(next.originThreadId, {...next});
+function open(next, threadId = next?.originThreadId, announce = true) {
+  runtime.target = next; runtime.threadId = threadId;
+  const generation = ++runtime.routeGeneration;
+  const deliver = () => {
+    if (generation === runtime.routeGeneration) {
+      for (const listener of runtime.openListeners) listener(threadId, next, undefined, generation);
+    }
+  };
+  if (announce) deliver();
+  return deliver;
 }
 
-test('an accepted continuation consumes the restored launch before retiring its pending receipt', async t => {
+test('each follow-up uses the current Panel source across accepted sends and remounts', async t => {
   reset(t);
   const first = mount(); await flush(first);
+  assert.equal(first.result.panel.title, 'Trip plan');
   await send(first, 'Update the panel');
-  assert.equal(runtime.calls[0].action, 'continue');
-  assert.equal(runtime.consumed.has('launch-a'), true);
-  assert.ok(runtime.events.findIndex(event => event[0] === 'consume') < runtime.events.findIndex(event => event[0] === 'remove'));
   assert.equal(runtime.storage.has(pendingKey('thread-a')), false);
+  await flush(first);
+  runtime.sourceVersion = 4;
+  runtime.target.title = 'Renamed trip plan';
+  await send(first, 'Update it again');
+  assert.equal(first.result.panel.title, 'Renamed trip plan');
   first.unmount();
   const restored = mount(); await flush(restored);
-  await send(restored, 'An ordinary follow-up');
-  assert.equal(runtime.calls.at(-1).action, 'sendMessage');
+  runtime.sourceVersion = 5;
+  await send(restored, 'A third edit');
+  assert.deepEqual(runtime.calls.map(({action, panelId, expectedSourceVersion}) => [action, panelId, expectedSourceVersion]),
+    [['continue', 'panel-a', 3], ['continue', 'panel-a', 4], ['continue', 'panel-a', 5]]);
+  assert.deepEqual(runtime.panelReads, ['panel-a', 'panel-a', 'panel-a']);
 });
 
-test('a reconciled accepted pending continuation consumes its original launch after restart', async t => {
+test('reconciling an accepted request uses its stored version and keeps the Panel scope', async t => {
   reset(t);
-  runtime.target.sourceVersion = 4;
+  runtime.sourceVersion = 4;
   const pending = {threadId: 'thread-a', requestId: 'interrupted-request', text: 'Update before restart', action: 'continue',
-    panel: {panelId: 'panel-a', expectedSourceVersion: 3, launchId: 'launch-a'}, baselineBlockIds: [], baselineTurnIds: []};
+    panel: {panelId: 'panel-a', expectedSourceVersion: 3}, baselineBlockIds: [], baselineTurnIds: []};
   runtime.storage.set(pendingKey('thread-a'), JSON.stringify(pending));
   runtime.storage.set(draftKey('thread-a'), pending.text);
   const restored = mount(); await flush(restored);
-  assert.equal(runtime.calls.length, 0);
+  assert.deepEqual(runtime.calls, []);
+  assert.deepEqual(runtime.panelReads, []);
   assert.equal(runtime.lookups[0].requestId, pending.requestId);
   assert.equal(runtime.lookups[0].expectedSourceVersion, 3);
-  assert.equal(runtime.consumed.has('launch-a'), true);
-  assert.equal(runtime.storage.has(pendingKey('thread-a')), false);
-  await send(restored, 'A later ordinary turn');
-  assert.equal(runtime.calls.at(-1).action, 'sendMessage');
-});
-
-test('a deliberate same-panel reopen remains a fresh continuation after acceptance', async t => {
-  reset(t);
-  const host = mount(); await flush(host);
-  await send(host, 'First panel edit');
-  open({...target, launchId: 'launch-reopened'}); await flush(host);
-  await send(host, 'Second panel edit');
-  assert.deepEqual(runtime.calls.map(call => call.action), ['continue', 'continue']);
-  assert.deepEqual([...runtime.consumed], ['launch-a', 'launch-reopened']);
-});
-
-for (const next of [{...target, launchId: 'launch-same-panel'},
-  {panelId: 'panel-b', sourceVersion: 0, originThreadId: 'thread-b', launchId: 'launch-other-panel'}]) {
-  test(`an old acceptance preserves newer navigation ${next.launchId}`, async t => {
-    reset(t);
-    const gate = deferred(); runtime.receipt = () => gate.promise;
-    const host = mount(); await flush(host);
-    await send(host, 'The older panel edit');
-    const sent = runtime.calls[0];
-    assert.equal(JSON.parse(runtime.storage.get(pendingKey('thread-a'))).panel.launchId, 'launch-a');
-    open(next); await flush(host);
-    gate.resolve(accepted(sent, 'panel-a')); await flush(host);
-    assert.deepEqual([...runtime.consumed], ['launch-a']);
-    runtime.receipt = async (args, panelId) => accepted(args, panelId);
-    await send(host, 'Edit the newly selected panel');
-    assert.equal(runtime.calls.at(-1).action, 'continue');
-    assert.equal(runtime.calls.at(-1).panelId, next.panelId);
-    assert.equal(runtime.consumed.has(next.launchId), true);
-  });
-}
-
-for (const state of ['notSent', 'deliveryUnknown']) {
-  test(`${state} retains the continuation target through controller restoration`, async t => {
-    reset(t);
-    runtime.receipt = async (args, panelId) => ({...accepted(args, panelId), state, code: 'SOURCE_CHANGED'});
-    const first = mount(); await flush(first);
-    await send(first, 'Keep this panel edit');
-    assert.equal(runtime.consumed.size, 0);
-    assert.equal(first.result.draft, 'Keep this panel edit');
-    assert.equal(runtime.storage.has(pendingKey('thread-a')), state !== 'notSent');
-    first.unmount();
-    if (state === 'deliveryUnknown') {
-      const request = runtime.calls[0];
-      runtime.receipts.set(request.requestId, accepted(request, request.panelId));
-    }
-    runtime.receipt = async (args, panelId) => accepted(args, panelId);
-    const restored = mount(); await flush(restored);
-    if (state === 'notSent') await send(restored, 'Retry the panel edit');
-    assert.equal(runtime.calls.at(-1).action, 'continue');
-    assert.equal(runtime.consumed.has('launch-a'), true);
-  });
-}
-
-test('a thrown continuation request preserves the target and original pending identity', async t => {
-  reset(t);
-  runtime.receipt = async () => {throw new Error('gateway unavailable');};
-  const host = mount(); await flush(host);
-  await send(host, 'Keep after failure');
-  assert.equal(runtime.consumed.size, 0);
-  assert.equal(host.result.draft, 'Keep after failure');
-  const stored = JSON.parse(runtime.storage.get(pendingKey('thread-a')));
-  assert.equal(stored.panel.launchId, 'launch-a');
-  assert.equal(runtime.calls.every(call => call.requestId === stored.requestId), true);
-});
-
-test('failed durable consumption keeps pending evidence for the accepted receipt', async t => {
-  reset(t); runtime.failConsumption = true;
-  const host = mount(); await flush(host);
-  await send(host, 'Keep until consumption commits');
-  assert.equal(runtime.consumed.size, 0);
-  assert.equal(runtime.storage.has(pendingKey('thread-a')), true);
-  runtime.failConsumption = false;
-  host.result.onRetrySubmission(); await flush(host);
-  assert.equal(runtime.consumed.has('launch-a'), true);
-  assert.equal(runtime.storage.has(pendingKey('thread-a')), false);
-});
-
-test('a controller that read its target before an older controller consumed it sends an ordinary turn', async t => {
-  reset(t);
-  const remounted = mount(); await flush(remounted);
-  runtime.consumed.add('launch-a');
-  await send(remounted, 'Send after the older controller retired its receipt');
-  assert.equal(runtime.calls.at(-1).action, 'sendMessage');
-});
-
-test('reconciling an old saved receipt preserves a newer same-panel launch after restart', async t => {
-  reset(t);
-  runtime.target = {...target, launchId: 'launch-new'};
-  const pending = {threadId: 'thread-a', requestId: 'old-request', text: 'An earlier edit', action: 'continue',
-    panel: {panelId: 'panel-a', expectedSourceVersion: 3, launchId: 'launch-a'}, baselineBlockIds: [], baselineTurnIds: []};
-  runtime.storage.set(pendingKey('thread-a'), JSON.stringify(pending));
-  const restored = mount(); await flush(restored);
-  assert.deepEqual([...runtime.consumed], ['launch-a']);
-  await send(restored, 'The explicitly reopened panel edit');
-  assert.equal(runtime.calls.at(-1).action, 'continue');
-  assert.equal(runtime.consumed.has('launch-new'), true);
-});
-
-test('a crash after consumption but before pending cleanup reconciles the same receipt', async t => {
-  reset(t);
-  runtime.consumed.add('launch-a');
-  const pending = {threadId: 'thread-a', requestId: 'accepted-before-crash', text: 'Already accepted', action: 'continue',
-    panel: {panelId: 'panel-a', expectedSourceVersion: 3, launchId: 'launch-a'}, baselineBlockIds: [], baselineTurnIds: []};
-  runtime.storage.set(pendingKey('thread-a'), JSON.stringify(pending));
-  runtime.storage.set(draftKey('thread-a'), pending.text);
-  const restored = mount(); await flush(restored);
-  assert.equal(runtime.calls.length, 0);
-  assert.equal(runtime.lookups[0].requestId, pending.requestId);
   assert.equal(restored.result.draft, '');
   assert.equal(runtime.storage.has(pendingKey('thread-a')), false);
-  await send(restored, 'An ordinary message after cleanup');
-  assert.equal(runtime.calls.at(-1).action, 'sendMessage');
+  await send(restored, 'Another edit');
+  assert.equal(runtime.calls[0].action, 'continue');
+  assert.equal(runtime.calls[0].expectedSourceVersion, 4);
+});
+
+test('the Panel title opens only the scoped Panel and preserves the draft and scope', async t => {
+  reset(t);
+  const host = mount(); await flush(host);
+  assert.equal(host.result.onDraftChange('Still editing'), true);
+  host.result.onOpenPanel(); await flush(host);
+  assert.deepEqual(runtime.events, [['open-panel', 'panel-a']]);
+  assert.equal(host.result.draft, 'Still editing');
+  assert.equal(host.result.panel.title, 'Trip plan');
+});
+
+for (const [entry, navigate] of [
+  ['history selection', host => host.result.onSelectThread('thread-a')],
+  ['a native thread intent', () => open(null, 'thread-a')],
+]) {
+  test(`${entry} clears the Panel scope for the same thread across remount`, async t => {
+    reset(t);
+    const first = mount(); await flush(first);
+    navigate(first); await flush(first);
+    assert.equal(first.result.onOpenPanel, undefined);
+    first.unmount();
+    const restored = mount(); await flush(restored);
+    assert.equal(restored.result.panel, null);
+    await send(restored, 'Ordinary follow-up');
+    assert.equal(runtime.calls[0].action, 'sendMessage');
+    assert.deepEqual(runtime.panelReads, []);
+  });
+}
+
+const otherPanel = {panelId: 'panel-b', originThreadId: 'thread-a', launchId: 'launch-b', title: 'Packing list'};
+
+for (const announce of [true, false]) {
+  test(`a new chat cannot overwrite a newer native Panel route ${announce ? 'with a queued event' : 'before its event'}`, async t => {
+    reset(t);
+    const creation = deferred();
+    const gateway = runtime.callAgent;
+    runtime.callAgent = (action, params) => action === 'createThread' ? creation.promise : gateway(action, params);
+    const host = mount(); await flush(host);
+
+    host.result.onCreateThread();
+    const deliver = open(otherPanel, otherPanel.originThreadId, announce);
+    creation.resolve({thread: {id: 'created-thread'}});
+    await flush(host);
+    assert.equal(host.result.draftSessionId, otherPanel.originThreadId);
+    if (!announce) deliver();
+    await flush(host);
+
+    assert.equal(host.result.panel?.title, otherPanel.title);
+    host.unmount();
+    const restored = mount(); await flush(restored);
+    assert.equal(restored.result.panel?.title, otherPanel.title);
+  });
+}
+
+test('a new chat selects the created thread if the native route has not changed', async t => {
+  reset(t);
+  const gateway = runtime.callAgent;
+  runtime.callAgent = (action, params) => action === 'createThread' ? Promise.resolve({thread: {id: 'created-thread'}}) : gateway(action, params);
+  const host = mount(); await flush(host);
+  host.result.onCreateThread(); await flush(host);
+  assert.equal(host.result.draftSessionId, 'created-thread');
+  assert.equal(host.result.panel, null);
+  assert.equal(runtime.threadId, 'created-thread');
+});
+
+test('an accepted old request cannot clear the newer scope for another Panel in the same thread', async t => {
+  reset(t);
+  const gate = deferred(); runtime.receipt = () => gate.promise;
+  const host = mount(); await flush(host);
+  await send(host, 'The older panel edit');
+  const sent = runtime.calls[0];
+  open(otherPanel); await flush(host);
+  gate.resolve(accepted(sent, 'panel-a')); await flush(host);
+  assert.equal(host.result.panel.title, 'Packing list');
+  runtime.receipt = async (args, panelId) => accepted(args, panelId);
+  await send(host, 'Edit the newly selected panel');
+  assert.deepEqual(runtime.calls.map(call => call.panelId), ['panel-a', 'panel-b']);
+});
+
+test('a Panel detail returned after navigation cannot submit or update the newer header', async t => {
+  reset(t);
+  const host = mount(); await flush(host);
+  const gate = deferred();
+  const gateway = runtime.callAgent;
+  runtime.callAgent = async (action, params) => {
+    const result = await gateway(action, params);
+    if (action === 'panels' && params.operation === 'get' && params.args.panelId === 'panel-a') await gate.promise;
+    return result;
+  };
+  await send(host, 'Draft for the previous Panel');
+  assert.deepEqual(runtime.panelReads, ['panel-a']);
+  open(otherPanel);
+  gate.resolve(); await flush(host);
+  assert.deepEqual(runtime.calls, []);
+  assert.equal(runtime.storage.has(pendingKey('thread-a')), false);
+  assert.equal(host.result.panel.title, 'Packing list');
+  assert.equal(host.result.draft, 'Draft for the previous Panel');
+  await send(host, 'Draft for the new Panel');
+  assert.deepEqual(runtime.calls.map(call => call.panelId), ['panel-b']);
+});
+
+test('retry replays the persisted Panel request even after its source and the scope change', async t => {
+  reset(t);
+  const {AgentGatewayError} = await import('../native/agent');
+  runtime.receipt = async () => {throw new AgentGatewayError('Timed out', 'GATEWAY_UNAVAILABLE');};
+  const host = mount(); await flush(host);
+  await send(host, 'Preserve the Panel edit');
+  const first = runtime.calls[0];
+  assert.equal(first.expectedSourceVersion, 3);
+  assert.deepEqual(JSON.parse(runtime.storage.get(pendingKey('thread-a'))).panel, {panelId: 'panel-a', expectedSourceVersion: 3});
+  runtime.sourceVersion = 4;
+  open(otherPanel); await flush(host);
+  runtime.receipt = async (args, panelId) => accepted(args, panelId);
+  host.result.onRetrySubmission(); await flush(host);
+  assert.deepEqual(runtime.calls, [first, first]);
+  assert.deepEqual(runtime.panelReads, ['panel-a']);
+  assert.equal(host.result.panel.title, 'Packing list');
+  assert.equal(runtime.storage.has(pendingKey('thread-a')), false);
 });
 
 test('an unresolved legacy draft stays out of the composer until its receipt confirms failure', async t => {

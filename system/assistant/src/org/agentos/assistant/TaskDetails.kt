@@ -17,7 +17,7 @@ internal object TaskDetails {
     @JvmStatic
     fun notificationThread(filesDir: File, taskId: String): String? = try {
         val directory = taskDirectory(filesDir, taskId)
-        val request = readRecord(File(directory, "request.json"), taskId)
+        val request = readRecord(File(directory, "request.json"), taskId, AgentGatewayProtocol.MAX_NATIVE_TASK_REQUEST_BYTES)
         readState(directory, taskId)
         val conversation = request.opt("conversationId") as? String
         conversation?.takeIf(AgentGatewayProtocol::isUuid)
@@ -35,7 +35,7 @@ internal object TaskDetails {
     @Throws(IOException::class)
     fun read(filesDir: File, taskId: String): JSONObject {
         val directory = taskDirectory(filesDir, taskId)
-        readRecord(File(directory, "request.json"), taskId)
+        readRecord(File(directory, "request.json"), taskId, AgentGatewayProtocol.MAX_NATIVE_TASK_REQUEST_BYTES)
         val state = readState(directory, taskId)
         return JSONObject().put("taskId", taskId)
             .put("state", state.optString("state"))
@@ -54,9 +54,9 @@ internal object TaskDetails {
         return state
     }
 
-    private fun readRecord(path: File, taskId: String): JSONObject = try {
-        val bytes = Files.newInputStream(path.toPath()).use { it.readNBytes(maxRecordBytes + 1) }
-        if (bytes.size > maxRecordBytes) throw IOException("TASK_UNAVAILABLE")
+    private fun readRecord(path: File, taskId: String, maximum: Int = maxRecordBytes): JSONObject = try {
+        val bytes = Files.newInputStream(path.toPath()).use { it.readNBytes(maximum + 1) }
+        if (bytes.size > maximum) throw IOException("TASK_UNAVAILABLE")
         val value = JSONObject(bytes.toString(Charsets.UTF_8))
         if (value.opt("id") != taskId) throw IOException("TASK_UNAVAILABLE")
         value

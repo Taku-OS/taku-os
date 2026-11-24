@@ -126,8 +126,12 @@ public final class CodexTaskOwnershipTest {
             check(association.getString("taskId").equals("101")&&association.getString("threadId").equals(THREAD)&&association.getString("turnId").equals("owned-turn"),"A reply became visible before the owning RPC persisted its exact task/thread/turn");
             replies.add(turn);
         };
+        AgentViews.panelReplies=(thread,turn)->{
+            check(thread.equals(THREAD)&&turn.equals("owned-turn"),"Panel selection requested replies from a foreign turn");
+            return new JSONArray().put(candidate("ordinary-before","card")).put(candidate("replacement","panel")).put(candidate("ordinary-after","card"));
+        };
         JSONObject request=new JSONObject().put("id","101").put("conversationId",THREAD).put("prompt","owned:"+mode)
-                .put("panelUpdate",new JSONObject().put("originThreadId",THREAD));
+                .put("panelUpdate",new JSONObject().put("originThreadId",THREAD).put("snapshot",new JSONObject()));
         try {
             try {CodexAppServer.run(directory,request);check(mode.equals("success"),"A conflicting or rejected start unexpectedly completed");}
             catch(IOException failure) {
@@ -141,6 +145,7 @@ public final class CodexTaskOwnershipTest {
                 check(association.getString("taskId").equals("101")&&association.getString("threadId").equals(THREAD)&&association.getString("turnId").equals("owned-turn"),"A later native response or same-thread notification replaced immutable task ownership");
                 JSONObject manifest=new JSONObject(Files.readString(new File(directory,"panel-completion.json").toPath()));
                 check(manifest.getString("taskId").equals("101")&&manifest.getString("threadId").equals(THREAD)&&manifest.getString("turnId").equals("owned-turn"),"Panel completion used a foreign turn");
+                check(manifest.getJSONArray("candidates").length()==1&&manifest.getJSONObject("reply").getString("id").equals("replacement"),"Ordinary cards interfered with the owned replacement");
                 check(Files.readString(new File(directory,"done").toPath()).equals("completed"),"A foreign terminal turn completed the task");
             } else {
                 check(replies.isEmpty(),"Rejected binding exposed buffered replies");
@@ -148,6 +153,7 @@ public final class CodexTaskOwnershipTest {
             }
         } finally {
             HarnessContext.prepareHook=null;AgentViews.eventHook=null;
+            AgentViews.panelReplies=null;
             if(CodexAppServer.shared!=null)CodexAppServer.shared.close();CodexAppServer.shared=null;
             NativeBridge.inbox.clear();
         }
@@ -332,9 +338,39 @@ public final class CodexTaskOwnershipTest {
             NativeBridge.inbox.clear(); NativeBridge.requests.clear(); NativeBridge.state.clear(); NativeBridge.phonePermissions.clear();
         }
     }
+
+    private static JSONObject candidate(String id, String mode) {
+        return new JSONObject().put("id",id).put("key",id).put("revision",1)
+                .put("provenance",new JSONObject().put("contractHash","hash").put("anchorOrdinal",0))
+                .put("card",new JSONObject().put("request",new JSONObject().put("mode",mode)));
+    }
+
+    private static void panelCompletionCases() throws Exception {
+        File directory=Files.createTempDirectory("panel-completion-").toFile();
+        TaskBroker.write(new File(directory,"runtime-info.json"),new JSONObject().put("threadId",THREAD).put("turnId","owned-turn").toString());
+        JSONObject binding=new JSONObject().put("originThreadId",THREAD).put("snapshot",new JSONObject());
+        JSONObject request=new JSONObject().put("id","101").put("panelUpdate",binding);
+        File manifest=new File(directory,"panel-completion.json");
+        try {
+            AgentViews.panelReplies=(thread,turn)->new JSONArray().put(candidate("only-ordinary","card"));
+            CodexAppServer.writePanelCompletion(directory,request,"completed");
+            JSONObject result=new JSONObject(TaskBroker.read(manifest));
+            check(result.getString("code").equals("REPLY_INCOMPLETE")&&result.getJSONArray("candidates").isEmpty()&&result.isNull("reply"),"An unmarked reply became a replacement");
+            AgentViews.panelReplies=(thread,turn)->new JSONArray().put(candidate("first","panel")).put(candidate("ordinary","card")).put(candidate("second","panel"));
+            CodexAppServer.writePanelCompletion(directory,request,"completed");
+            result=new JSONObject(TaskBroker.read(manifest));
+            check(result.getString("code").equals("PANEL_UPDATE_AMBIGUOUS")&&result.getJSONArray("candidates").length()==2&&result.isNull("reply"),"Two marked replacements were guessed or counted together with ordinary cards");
+            binding.remove("snapshot");
+            AgentViews.panelReplies=(thread,turn)->new JSONArray().put(candidate("legacy-reply","card"));
+            CodexAppServer.writePanelCompletion(directory,request,"completed");
+            result=new JSONObject(TaskBroker.read(manifest));
+            check(result.getJSONObject("reply").getString("id").equals("legacy-reply")&&!result.has("code"),"A legacy queued request lost its existing publication rule");
+        } finally { AgentViews.panelReplies=null; }
+    }
     public static void main(String[] args) throws Exception {
         if(args.length>0&&args[0].equals("runtime")){runtime();return;}
         ownership("success");ownership("conflict");ownership("reject");
+        panelCompletionCases();
         liveTaskControl("replace");
         liveTaskControl("cancel");
         System.out.println("CodexTaskOwnershipTest: "+checks+" ownership assertions passed");

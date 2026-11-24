@@ -2,10 +2,9 @@
 
 Run `:taku-agent-bridge:testDebugUnitTest` for lifecycle selection unit tests.
 The instrumentation probe also invokes the **actual registered Expo module** with
-MainActivity behind HomeActivity, verifying route reads, selection, Panel launch
-consumption, unchanged Home Intent, and IME observer ownership. It sends no model
-requests. Use only an isolated signed-out AVD: it temporarily selects synthetic
-conversation IDs and ends with a blank selected conversation.
+MainActivity behind HomeActivity. It checks route reads, ordinary selection after a Panel launch,
+stale selection refusal, and IME observer ownership without sending model requests. Use only an
+isolated signed-out AVD. The probe selects synthetic conversation IDs and ends with no selection.
 
 Build a same-source release target with
 `./gradlew :app:assembleRelease -Pandroid.enableMinifyInReleaseBuilds=false -PreactNativeArchitectures=arm64-v8a`

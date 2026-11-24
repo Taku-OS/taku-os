@@ -12,6 +12,23 @@ internal class CardViewStateStore(private val store: MatterStore) {
         return project(id, matter.getJSONObject("baseRequest"), saved)
     }
 
+    fun effectiveInputs(matter: JSONObject): JSONObject {
+        val ui = read(matter).getJSONObject("ui")
+        val fields = JSONObject()
+        val selections = JSONObject()
+        val fieldStates = ui.getJSONObject("fields")
+        for (id in fieldStates.keys().asSequence()) {
+            val field = fieldStates.getJSONObject(id)
+            fields.put(id, if (field.getBoolean("needsReview")) field.getJSONObject("source").get("value") else field.get("draft"))
+        }
+        val collectionStates = ui.getJSONObject("collections")
+        for (id in collectionStates.keys().asSequence()) {
+            val collection = collectionStates.getJSONObject(id)
+            if (!collection.getBoolean("needsReview")) selections.put(id, collection.getJSONArray("selectedItemIds"))
+        }
+        return JSONObject().put("fields", fields).put("selections", selections)
+    }
+
     fun sourceChanged(matter: JSONObject) {
         val id = matter.getString("matterId")
         val previous = store.get("card_view_states", id) ?: return
@@ -66,13 +83,13 @@ internal class CardViewStateStore(private val store: MatterStore) {
         return result
     }
 
-    fun migrate(old: JSONObject, next: JSONObject) {
+    fun migrate(old: JSONObject, next: JSONObject, inputsAtSubmit: JSONObject?) {
         val prior = store.get("card_view_states", old.getString("matterId")) ?: return
         val targetId = next.getString("matterId")
         if (targetId == old.getString("matterId")) return
         val current = store.get("card_view_states", targetId)
         val target = project(targetId, next.getJSONObject("baseRequest"), current)
-        merge(target, prior, next.getJSONObject("baseRequest"), old.getString("matterId"), current)
+        merge(target, prior, next.getJSONObject("baseRequest"), old.getString("matterId"), current, inputsAtSubmit?.optJSONObject("fields"))
         target.put("uiRevision", target.getLong("uiRevision") + 1)
         store.put("card_view_states", targetId, target)
         store.put("card_view_states", old.getString("matterId"), prior.put("transferredTo", targetId))
@@ -118,7 +135,7 @@ internal class CardViewStateStore(private val store: MatterStore) {
         return state
     }
 
-    private fun merge(target: JSONObject, source: JSONObject, request: JSONObject, sourceId: String, existing: JSONObject?) {
+    private fun merge(target: JSONObject, source: JSONObject, request: JSONObject, sourceId: String, existing: JSONObject?, fieldsAtSubmit: JSONObject? = null) {
         val nextBlocks = blocks(request)
         val review = target.optJSONArray("review") ?: JSONArray().also { target.put("review", it) }
         val previousReview = source.optJSONArray("review")
@@ -142,6 +159,12 @@ internal class CardViewStateStore(private val store: MatterStore) {
                 val valid = block != null && if (isField) block.optString("kind") == "input" &&
                     compatible(value.optJSONObject("source"), block.getJSONObject("value")) && validField(block, value.get("draft")) && !value.optBoolean("needsReview")
                     else validSelection(block, value.optJSONArray("selectedItemIds")) && selectionCompatible(value, block) && !value.optBoolean("needsReview")
+                if (isField && valid && !conflict && fieldsAtSubmit?.has(id) == true) {
+                    val baseline = PanelProtocol.canonical(fieldsAtSubmit.get(id))
+                    val draft = PanelProtocol.canonical(value.get("draft"))
+                    val nextValue = PanelProtocol.canonical(block!!.getJSONObject("value").get("value"))
+                    if (draft == baseline && nextValue != baseline) continue
+                }
                 if (valid && !conflict) {
                     val converted = if (isField) JSONObject().put("draft", value.get("draft")).put("source", block!!.getJSONObject("value"))
                         .put("needsReview", false).put("edited", true)

@@ -146,6 +146,8 @@ matters. Continue calls `TakuAgent.openPanelConversation(panelId)` and sends not
 `content://org.agentos.agent.panel-navigation` (method `navigation`) projects the same pager
 state for shell callers; unknown methods answer `{ok:false,code:"UNKNOWN_METHOD",message}`.
 
+The settled Panel page supplies the explicit `panelId` for the bottom assistant entry. Text and hold-to-send use the Panel's original conversation and the same version-checked composer as chat. Shell and app callers can pass `panelId` to `assistant/open` and `assistant/resume` at `content://org.agentos.agent.home-assistant`. `assistant/get` exposes `panelId` and `panelTitle`. See the [preinstalled Agent guide](../../../assistant/assets/skills/taku-open-access/SKILL.md#home-ai-entry-and-dynamic-island) for arguments and errors.
+
 Long-pressing the desktop card opens the Unpin menu. Normal input, selection and action taps keep their existing behavior. The menu uses the shared card's native Unpin operation and displays its errors. A root runs one read at a time and coalesces invalidations received during that read into the latest pending read. Starting directory observation is idempotent. The initial directory replay is retained: it can include a commit that arrived while the root was starting, and the root coalesces it with its initial read.
 
 ## Agent access

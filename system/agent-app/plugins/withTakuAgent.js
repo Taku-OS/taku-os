@@ -35,6 +35,7 @@ function configureConversationRoutes(contents) {
     throw new Error('Taku routes: expected Expo activity lifecycle hooks; review the generated template.');
   }
   if (contents.includes('PanelLaunchIntents.restore(')) {
+    contents = contents.replace('      PanelLaunchIntents.discardConsumed(this, intent)\n', '');
     return contents.includes(initializeVoice) ? contents : contents.replace(create, `${create}\n${initializeVoice}`);
   }
   if (contents.includes('ConversationDrafts.offer(')) {
@@ -54,7 +55,6 @@ function configureConversationRoutes(contents) {
   contents = contents.replace(activity, `${activity}\n  override fun onNewIntent(intent: Intent) {\n${capture}\n` +
     '    if (!intent.getStringExtra(TakuAgentModule.EXTRA_THREAD_ID).isNullOrBlank()) {\n' +
     '      PanelLaunchIntents.prepare(intent)\n' +
-    '      PanelLaunchIntents.discardConsumed(this, intent)\n' +
     '      setIntent(intent)\n' +
     '    } else if (intent.data != null || getIntent()?.data != null) {\n' +
     '      setIntent(intent)\n    }\n    super.onNewIntent(intent)\n  }\n\n' +

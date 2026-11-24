@@ -13,6 +13,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import org.agentos.agent.home.snapshot
+import org.agentos.agent.home.panels.PanelNavigation
 
 /**
  * Agent access to the home AI entry and Dynamic Island:
@@ -35,15 +36,25 @@ class HomeAssistantProvider : ContentProvider() {
       val ctx = context ?: throw AssistantException("UNAVAILABLE", "provider not attached")
       val p = if (arg.isNullOrBlank()) JSONObject() else JSONObject(arg)
       val onUiThread = Looper.myLooper() == Looper.getMainLooper()
+      val panelId = if (method == "assistant/open" || method == "assistant/resume") p.optionalString("panelId") else null
+      if (panelId != null && panelId.isBlank()) throw AssistantException("INVALID_ARGUMENT", "panelId must be nonempty")
       val writesDraft = method == "assistant/draft" || method == "assistant/release"
-      val result = if (writesDraft || (method == "assistant/get" && !onUiThread)) {
-        if (onUiThread) throw AssistantException("BUSY", "Draft commands must be called off the UI thread")
+      val result = if (writesDraft || panelId != null || (method == "assistant/get" && !onUiThread)) {
+        if (onUiThread) throw AssistantException("BUSY", "Draft and Panel commands must be called off the UI thread")
         runBlocking {
           withContext(Dispatchers.Main.immediate) {
             val session = AssistantSession.get(ctx)
             when (method) {
               "assistant/draft" -> session.commitDraft(p.requiredString("text"))
               "assistant/release" -> session.releaseSubmission()
+              "assistant/open" -> session.openPanel(p.entryMode(), checkNotNull(panelId))
+              "assistant/resume" -> {
+                val panel = checkNotNull(panelId)
+                if (session.resumePanel(p.requiredString("threadId"), panel) && p.optBoolean("home", true))
+                  ctx.startActivity(Intent(PanelNavigation.ACTION_OPEN_PANEL).setClassName(ctx.packageName, HOME_ACTIVITY)
+                    .putExtra(PanelNavigation.EXTRA_PANEL_ID, panel)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP))
+              }
               else -> try { session.readDraftProjection() } catch (_: GatewayException) { }
             }
             session.toJson()
@@ -79,16 +90,7 @@ class HomeAssistantProvider : ContentProvider() {
           "assistant/live-toggle-mic" -> session.toggleLiveMic(p.optionalString("threadId"))
           "assistant/live-set-mic" -> session.setLiveMic(p.requiredString("sessionId"), p.opt("muted") as? Boolean
             ?: throw AssistantException("INVALID_ARGUMENT", "muted must be a boolean"))
-          "assistant/open" -> {
-            val mode = when (p.optString("mode", "text")) {
-              "text" -> EntryMode.Text
-              "voice" -> EntryMode.Voice
-              else -> throw AssistantException("INVALID_ARGUMENT", "mode must be text or voice")
-            }
-            // Voice opens held, as a press does: it records until assistant/voice-finish (the
-            // release, which sends) or assistant/voice-cancel. A pause never sends.
-            session.open(mode)
-          }
+          "assistant/open" -> session.open(p.entryMode())
           "assistant/close-input" -> session.closeEntry()
           "assistant/choose-prompt" -> session.choosePrompt(p.optString("text"))
           "assistant/app-build" -> session.setAppBuild(p.getString("threadId"), p.getString("turnId"), p.getBoolean("active"))
@@ -129,6 +131,12 @@ class HomeAssistantProvider : ContentProvider() {
       Binder.restoreCallingIdentity(identity)
     }
     return out
+  }
+
+  private fun JSONObject.entryMode() = when (optString("mode", "text")) {
+    "text" -> EntryMode.Text
+    "voice" -> EntryMode.Voice
+    else -> throw AssistantException("INVALID_ARGUMENT", "mode must be text or voice")
   }
 
   private fun JSONObject.requiredString(key: String): String = opt(key) as? String

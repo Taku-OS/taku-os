@@ -8,6 +8,8 @@ import org.json.JSONObject
 internal object PanelProtocol {
     const val VERSION = "taku.panels/1"
     const val MAX_INTEGER = 9_007_199_254_740_991L
+    private val bindingKeys = listOf("panelId", "originThreadId", "matterId", "sourceVersion", "requestId")
+    private val bindingFields = bindingKeys.toSet() + "snapshot"
     private val methods = linkedMapOf(
         "panels/describe" to "", "panels/list" to "limit?,cursor?", "panels/get" to "panelId",
         "panels/pin" to "source,requestId", "panels/unpin" to "panelId,expectedListRevision,requestId",
@@ -75,6 +77,26 @@ internal object PanelProtocol {
             }
             else -> invalid()
         }
+    }
+
+    fun taskBinding(update: JSONObject): JSONObject = JSONObject().also { binding ->
+        for (key in bindingKeys) binding.put(key, update.get(key))
+        if (update.has("snapshot")) binding.put("snapshot", update.getJSONObject("snapshot"))
+    }
+
+    fun matchesTaskBinding(binding: JSONObject, update: JSONObject): Boolean =
+        canonical(binding) == canonical(taskBinding(update))
+
+    fun validateTaskBinding(binding: JSONObject, conversation: String) {
+        exact(binding, bindingFields)
+        uuid(binding, "panelId")
+        val origin = uuid(binding, "originThreadId")
+        uuid(binding, "requestId")
+        val matter = binding.getString("matterId")
+        AgentGatewayProtocol.matterIdentity(matter)
+        number(binding, "sourceVersion")
+        if (conversation != origin || !matter.startsWith("$conversation/")) invalid()
+        if (binding.has("snapshot")) binding.getJSONObject("snapshot")
     }
 
     @JvmStatic fun exact(value: JSONObject, allowed: Set<String>) {

@@ -16,15 +16,24 @@ class IslandActionReceiver : BroadcastReceiver() {
     val session = AssistantSession.get(context)
     val thread = intent.getStringExtra("thread") ?: return
     val activity = intent.getStringExtra("activity") ?: return
-    if (session.state.value.threadId == null && thread != "entry" &&
-        context.getSharedPreferences("system_island_session", Context.MODE_PRIVATE).getString("thread", null) == thread) {
-      session.resume(thread)
-      session.restoreIslandIdentity(context.getSharedPreferences("system_island_session", Context.MODE_PRIVATE).getString("activity", null))
-    }
-    if ((session.state.value.threadId ?: "entry") != thread || (session.state.value.activityId ?: "entry") != activity) return
+    val preferences = context.getSharedPreferences(ISLAND_SESSION_PREFERENCES, Context.MODE_PRIVATE)
+    val restore = session.state.value.threadId == null && thread != "entry" && preferences.getString("thread", null) == thread
+    val panelId = preferences.getString("panelId", null).takeIf { restore }
+    val savedActivity = preferences.getString("activity", null).takeIf { restore }
     val pending = goAsync()
     scope.launch {
       try {
+        if (restore && session.state.value.threadId == null) {
+          if (panelId == null) {
+            session.resume(thread)
+            session.restoreIslandIdentity(savedActivity)
+          } else {
+            val route = PersistedPanelIsland.read(context)?.takeIf { it.threadId == thread && it.activityId == activity }
+              ?: return@launch
+            session.restorePanelIsland(route)
+          }
+        }
+        if ((session.state.value.threadId ?: "entry") != thread || (session.state.value.activityId ?: "entry") != activity) return@launch
         withTimeout(5000) {
           session.state.first { state -> (state.threadId ?: "entry") != thread || (state.activityId ?: "entry") != activity || when (intent.action) {
             "stop" -> state.taskId != null || state.turn?.active == true

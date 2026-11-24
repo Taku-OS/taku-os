@@ -198,7 +198,7 @@ internal class PanelRegistry(private val context: Context, private val runtime: 
         return JSONObject().put("canPin", code == null).put("panelId", existing?.getString("panelId") ?: JSONObject.NULL)
             .put("source", if (code == null) source else JSONObject.NULL).put("listRevision", revision()).also { if (code != null) it.put("code", code) }
     }
-    fun pinCode(matter: JSONObject): String? {
+    fun pinCode(matter: JSONObject, mode: String? = matter.optJSONObject("baseRequest")?.optString("mode")): String? {
         if (store.get("display_supersessions", matter.getString("matterId")) != null) return "STALE_SOURCE"
         val provenance = matter.getJSONObject("meta").getJSONObject("provenance")
         if (provenance.optString("kind") != "primary-assistant-reply") return null
@@ -209,6 +209,7 @@ internal class PanelRegistry(private val context: Context, private val runtime: 
             val update = rows.getJSONObject(i)
             if (update.getString("originThreadId") != matter.getString("threadId")) continue
             if (update.optString("taskId").isEmpty()) continue
+            if (update.has("snapshot") && mode != "panel") continue
             if (update.optString("turnId").isNotEmpty()) {
                 if (update.getString("turnId") == provenance.optString("turnId")) return "PANEL_UPDATE_PENDING"
             } else if (!(update.optJSONArray("knownReplies") ?: JSONArray()).let { known -> (0 until known.length()).any { known.optString(it) == provenance.optString("replyId") } }) return "PANEL_UPDATE_PENDING"
@@ -221,15 +222,21 @@ internal class PanelRegistry(private val context: Context, private val runtime: 
         val thread = input.getString("threadId")
         val action = input.getString("action")
         if (action != "continue") {
-            if (action == "sendMessage" && runtime.state { store.get("panel_updates", requestId) != null })
-                throw IOException("REQUEST_ID_REUSED")
+            if (action == "sendMessage" && runtime.state {
+                    store.get("panel_updates", requestId) != null || store.get("panel_receipts", requestId)?.optString("operation") == "continue"
+                }) throw IOException("REQUEST_ID_REUSED")
             return services.submissions.lookup(requestId, thread, input.getString("text"), input.optString("expectedTurnId").takeIf { it.isNotEmpty() }, composer = input.has("options"))
         }
         val args = JSONObject().put("requestId", requestId).put("panelId", input.getString("panelId"))
             .put("expectedSourceVersion", input.getLong("expectedSourceVersion")).put("text", input.getString("text"))
+        val hash = continueHash(args)
         val target = runtime.state { store.get("panel_updates", requestId) }
-            ?: return JSONObject().put("requestId", requestId).put("threadId", thread).put("state", "missing")
-        if (target.getString("originThreadId") != thread || target.getString("hash") != continueHash(args))
+        if (target == null) return runtime.state {
+            val denial = store.get("panel_receipts", requestId)?.takeIf { it.optString("operation") == "continue" }
+                ?: return@state JSONObject().put("requestId", requestId).put("threadId", thread).put("state", "missing")
+            denialReceipt(denial, hash, thread, "REQUEST_ID_REUSED")
+        }
+        if (target.getString("originThreadId") != thread || target.getString("hash") != hash)
             throw IOException("REQUEST_ID_REUSED")
         val receipt = services.submissions.lookup(requestId, thread, input.getString("text"), panel = target, composer = input.has("options"))
         return (if (receipt.getString("state") == "missing") target.getJSONObject("submission") else receipt)
@@ -237,6 +244,17 @@ internal class PanelRegistry(private val context: Context, private val runtime: 
     }
 
     private fun continueHash(input: JSONObject): String = PanelProtocol.hash("continue\n" + PanelProtocol.canonical(input))
+
+    private fun denialReceipt(stored: JSONObject, hash: String, thread: String?, conflict: String): JSONObject {
+        if (stored.optString("operation") != "continue" || thread == null || stored.optString("threadId") != thread || stored.optString("hash") != hash)
+            throw IOException(conflict)
+        return stored.getJSONObject("result")
+    }
+
+    private sealed interface Admission {
+        data class Update(val target: JSONObject, val created: Boolean) : Admission
+        data class Denied(val receipt: JSONObject) : Admission
+    }
 
     fun continueComposer(request: JSONObject): JSONObject {
         val args = JSONObject().put("requestId", request.getString("requestId")).put("panelId", request.getString("panelId"))
@@ -248,30 +266,58 @@ internal class PanelRegistry(private val context: Context, private val runtime: 
         val requestId = input.getString("requestId")
         val hash = continueHash(input)
         val existingSubmission = AgentGatewaySubmissions.existing(context.filesDir, requestId)
-        var created = false
-        val target = runtime.state(true) {
+        val thread = composerRequest?.getString("threadId")
+        val admission = runtime.state(true) {
             val old = store.get("panel_updates", requestId)
             if (old != null) {
-                if (old.getString("hash") != hash) throw IOException("IDEMPOTENCY_CONFLICT")
-                old
+                if (old.getString("hash") != hash || thread != null && old.getString("originThreadId") != thread) throw IOException("IDEMPOTENCY_CONFLICT")
+                Admission.Update(old, false)
             } else {
-                if (existingSubmission != null || store.get("panel_receipts", requestId) != null || store.hasCardViewReceipt(requestId)) throw IOException("IDEMPOTENCY_CONFLICT")
-                val record = panel(input.getString("panelId"))
-                if (composerRequest != null && composerRequest.getString("threadId") != record.getString("originThreadId"))
-                    throw IOException("SOURCE_CHANGED")
-                expect(record.getLong("sourceVersion"), input.getLong("expectedSourceVersion"))
+                val prior = store.get("panel_receipts", requestId)
+                if (prior != null) return@state Admission.Denied(denialReceipt(prior, hash, thread, "IDEMPOTENCY_CONFLICT").put("replayed", true))
+                if (existingSubmission != null || store.hasCardViewReceipt(requestId)) throw IOException("IDEMPOTENCY_CONFLICT")
+                val panelId = input.getString("panelId")
+                val record = store.get("panel_records", panelId)
+                val matter = record?.let { store.get("matters", it.getString("matterId")) }
+                val denial = when {
+                    record == null -> "PANEL_NOT_FOUND"
+                    thread != null && thread != record.getString("originThreadId") -> "SOURCE_CHANGED"
+                    record.getLong("sourceVersion") != input.getLong("expectedSourceVersion") -> "VERSION_CONFLICT"
+                    matter == null -> "SOURCE_UNAVAILABLE"
+                    else -> null
+                }
+                if (denial != null) {
+                    if (thread == null) throw IOException(denial)
+                    val receipt = JSONObject().put("requestId", requestId).put("threadId", thread).put("panelId", panelId)
+                        .put("state", "notSent").put("code", denial)
+                    store.put("panel_receipts", requestId, JSONObject().put("operation", "continue").put("hash", hash)
+                        .put("threadId", thread).put("result", receipt))
+                    return@state Admission.Denied(receipt.put("replayed", false))
+                }
+                checkNotNull(record)
+                checkNotNull(matter)
+                val snapshot = JSONObject().put("title", record.getString("title"))
+                    .put("card", matter.getJSONObject("baseRequest")).put("inputs", runtime.cardViews.effectiveInputs(matter))
                 val known = runtime.knownReplyIds(record.getString("originThreadId"))
                 JSONObject().put("requestId", requestId).put("panelId", record.getString("panelId")).put("originThreadId", record.getString("originThreadId"))
                     .put("matterId", record.getString("matterId")).put("sourceVersion", record.getLong("sourceVersion")).put("hash", hash)
-                    .put("text", input.getString("text"))
+                    .put("text", input.getString("text")).put("snapshot", snapshot)
                     .put("knownReplies", known).put("settled", false).put("outcome", "pending").put("createdAt", System.currentTimeMillis())
                     .put("submission", JSONObject().put("requestId", requestId).put("threadId", record.getString("originThreadId")).put("state", "deliveryUnknown"))
-                    .also { store.put("panel_updates", requestId, it); created = true }
+                    .let { update ->
+                        store.put("panel_updates", requestId, update)
+                        Admission.Update(update, true)
+                    }
             }
         }
-        if (created) submitUpdate(target, composerRequest)
-        runtime.recoverPanelUpdates()
-        return runtime.state { submissionResult(store.get("panel_updates", requestId)!!, !created) }
+        return when (admission) {
+            is Admission.Denied -> admission.receipt
+            is Admission.Update -> {
+                if (admission.created) submitUpdate(admission.target, composerRequest)
+                runtime.recoverPanelUpdates()
+                runtime.state { submissionResult(store.get("panel_updates", requestId)!!, !admission.created) }
+            }
+        }
     }
 
     /** Submits a stored update again after an interruption, with the composer options it was sent with. */
@@ -282,19 +328,17 @@ internal class PanelRegistry(private val context: Context, private val runtime: 
 
     private fun submitUpdate(target: JSONObject, composerRequest: JSONObject?): JSONObject {
         val requestId = target.getString("requestId")
-        val trusted = JSONObject()
-        for (key in arrayOf("panelId", "originThreadId", "matterId", "sourceVersion", "requestId")) trusted.put(key, target.get(key))
         val publication = JSONObject().put("threadId", target.getString("originThreadId")).put("text", target.getString("text"))
-            .put("requestId", requestId).put("panelUpdate", trusted)
+            .put("requestId", requestId).put("panelUpdate", PanelProtocol.taskBinding(target))
         if (composerRequest != null) publication.put("options", composerRequest.getJSONObject("options"))
         val receipt = services.submissions.submit(requestId, target.getString("originThreadId"), target.getString("text"), {
             services.checkSubmit(target.getString("originThreadId"))
             services.checkScreenshot(publication)
-            runtime.state(background = true) { checkTarget(target) }
+            runtime.state(background = true) { targetFailure(target)?.let { throw IOException(it) } }
         }, { before -> services.publish(publication) { task ->
             before.persist(task)
             runtime.state(true, true) {
-                checkTarget(target)
+                targetFailure(target)?.let { throw AgentGatewaySubmissions.RejectedBeforeReady(it) }
                 val update = store.get("panel_updates", requestId)!!
                 update.put("taskId", task)
                 runtime.reservePanelTask(update)
@@ -311,10 +355,10 @@ internal class PanelRegistry(private val context: Context, private val runtime: 
         services.notifyDirectory()
         return receipt
     }
-    private fun checkTarget(target: JSONObject) {
-        val current = store.get("panel_records", target.getString("panelId")) ?: throw IOException("PANEL_NOT_FOUND")
-        if (current.getString("originThreadId") != target.getString("originThreadId") || current.getString("matterId") != target.getString("matterId") ||
-            current.getLong("sourceVersion") != target.getLong("sourceVersion")) throw IOException("STALE_SOURCE")
+    private fun targetFailure(target: JSONObject): String? {
+        val current = store.get("panel_records", target.getString("panelId")) ?: return "PANEL_NOT_FOUND"
+        return if (current.getString("originThreadId") != target.getString("originThreadId") || current.getString("matterId") != target.getString("matterId") ||
+            current.getLong("sourceVersion") != target.getLong("sourceVersion")) "STALE_SOURCE" else null
     }
     private fun submissionResult(update: JSONObject, replayed: Boolean): JSONObject = PanelProtocol.copy(update.getJSONObject("submission"))
         .put("panelId", update.getString("panelId")).put("update", updateReceipt(update)).put("replayed", replayed)
@@ -337,7 +381,7 @@ internal class PanelRegistry(private val context: Context, private val runtime: 
         if (other != null && other.getString("panelId") != old.getString("panelId")) { settle(update, "rejected", "SOURCE_ALREADY_PINNED"); return }
         val previous = runtime.requireMatter(old.getString("matterId"))
         if (previous.getString("matterId") != id) runtime.supersede(previous, update.getString("requestId"))
-        runtime.cardViews.migrate(previous, next)
+        runtime.cardViews.migrate(previous, next, update.optJSONObject("snapshot")?.optJSONObject("inputs"))
         old.put("matterId", id).put("sourceVersion", old.getLong("sourceVersion") + 1).put("updatedAt", System.currentTimeMillis())
         store.put("panel_records", old.getString("panelId"), old)
         update.put("publishedMatterId", id).put("publishedSourceVersion", old.getLong("sourceVersion"))

@@ -27,6 +27,8 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
+import org.agentos.agent.home.island.PersistedPanelIsland
+import org.agentos.agent.home.panels.PanelDirectory
 import org.json.JSONObject
 import java.io.InputStream
 import java.nio.charset.StandardCharsets
@@ -49,6 +51,8 @@ data class AssistantState(
   /** Explicit user presentation request; survives sampled Expanded -> Expanded updates. */
   val expansionRequest: Long = 0,
   val threadId: String? = null,
+  val panelId: String? = null,
+  val panelTitle: String? = null,
   val activityId: String? = null,
   /** Text accepted for sending whose turn has not appeared yet. */
   val pending: String? = null,
@@ -156,13 +160,16 @@ class AssistantSession private constructor(private val context: Context, private
   private val composer = HomeComposer(context, gateway, worker)
   private val composerLock = Mutex()
   private class Edit(val text: String, var baseText: String)
-  private class Editor(var threadId: String) {
+  private class Editor(var threadId: String, val panelId: String? = null) {
     var saved: HomeComposer.Draft? = null
     var edit: Edit? = null
     var writing = false
   }
   private var editor = Editor("")
   private var openingConversation = false
+  private val panelDirectory = PanelDirectory.get(context)
+  private var entryRequest = 0L
+  private val panelIslandRecovery = Mutex()
 
   private val gesturePrefs = context.getSharedPreferences("voice-gesture", 0)
   private val boot = android.provider.Settings.Global.getInt(context.contentResolver, "boot_count", -1)
@@ -267,7 +274,13 @@ class AssistantSession private constructor(private val context: Context, private
     if (live.snapshot?.open == true) throw AssistantException("VOICE_BUSY", "Live Talk is already active")
     if (voice.state.value.listening) throw AssistantException("VOICE_BUSY", "voice is already active")
     val changed = gesture.prepare(id, source, startedAt, android.os.SystemClock.uptimeMillis())
-    if (changed) publishGesture()
+    if (changed) {
+      if (source == "system") {
+        ++entryRequest
+        if (editor.panelId != null) reset(keepPreparedHold = true)
+      }
+      publishGesture()
+    }
     return changed
   }
 
@@ -281,6 +294,10 @@ class AssistantSession private constructor(private val context: Context, private
   }
 
   fun beginDesktopHold() {
+    open(EntryMode.Voice)
+  }
+
+  private fun beginHold() {
     if (gesture.held || gesture.phase == VoiceGesture.Phase.Listening || gesture.phase == VoiceGesture.Phase.Continuous) return
     val now = android.os.SystemClock.uptimeMillis()
     if (prepareHold(UUID.randomUUID().toString(), "desktop", now)) activateHold(gesture.id)
@@ -291,6 +308,7 @@ class AssistantSession private constructor(private val context: Context, private
       throw AssistantException("INVALID_ARGUMENT", "coordinates must be finite and dimensions positive")
     val zone = org.agentos.agent.home.ui.assistant.VoiceArcs(width, height, context.resources.displayMetrics.density)
       .zone(androidx.compose.ui.geometry.Offset(x, y), width * 16f / 412f)
+      .let { if (editor.panelId != null && it == VoiceGesture.Zone.KeepTalking) VoiceGesture.Zone.None else it }
     val changed = zone != gesture.zone
     gesture.move(zone); publishGesture()
     return changed
@@ -309,6 +327,7 @@ class AssistantSession private constructor(private val context: Context, private
   }
 
   fun keepTalking() {
+    if (editor.panelId != null) throw AssistantException("PANEL_LIVE_UNSUPPORTED", "Live Talk is unavailable for Panel updates")
     if (!gesture.keepTalking()) return
     val gestureId = gesture.id
     val currentEditor = editor
@@ -474,11 +493,55 @@ class AssistantSession private constructor(private val context: Context, private
   /** Opening another text entry must not discard a recording or its pending final result. */
   val canOpenText: Boolean get() = !voice.state.value.listening && !gesture.held
 
+  internal fun reopenPanelText(panelId: String, activityId: String): Boolean {
+    val current = flow.value
+    if (current.panelId != panelId || current.activityId != activityId || current.island == IslandMode.Hidden || !canOpenText) return false
+    ++entryRequest
+    openBoundEntry(EntryMode.Text)
+    return true
+  }
+
   /** Opens an input (double tap: text, hold: voice); the island shows the greeting or the current turn. */
   fun open(mode: EntryMode) {
+    ++entryRequest
     if (mode == EntryMode.None) return closeEntry()
-    if (mode == EntryMode.Voice) { beginDesktopHold(); return }
-    if (mode == EntryMode.Text && !canOpenText) return
+    if (mode == EntryMode.Text && !canOpenText || mode == EntryMode.Voice && !canStartHold()) return
+    useOrdinaryRoute()
+    openBoundEntry(mode)
+  }
+
+  internal suspend fun openPanel(mode: EntryMode, panelId: String) {
+    val request = ++entryRequest
+    if (mode == EntryMode.Text && !canOpenText || mode == EntryMode.Voice && !canStartHold()) return
+    val source = panelDirectory.readSource(panelId)
+    if (request != entryRequest) return
+    if (mode == EntryMode.Text && !canOpenText || mode == EntryMode.Voice && !canStartHold()) return
+    bindPanel(source)
+    openBoundEntry(mode)
+  }
+
+  private fun canStartHold() = !gesture.held && gesture.phase != VoiceGesture.Phase.Listening &&
+    gesture.phase != VoiceGesture.Phase.Continuous && !voice.state.value.listening
+
+  private fun useOrdinaryRoute() {
+    if (editor.panelId != null) reset()
+  }
+
+  private fun bindPanel(source: PanelDirectory.Source) {
+    if (editor.panelId != source.panelId || editor.threadId != source.threadId) {
+      reset()
+      editor = Editor(source.threadId, source.panelId)
+      flow.update { it.copy(threadId = source.threadId, panelId = source.panelId, panelTitle = source.title) }
+    } else flow.update { it.copy(panelTitle = source.title) }
+  }
+
+  internal fun updatePanelTitle(panelId: String, title: String) {
+    flow.update { if (it.panelId == panelId) it.copy(panelTitle = title) else it }
+  }
+
+  private fun openBoundEntry(mode: EntryMode) {
+    if (mode == EntryMode.None) return closeEntry()
+    if (mode == EntryMode.Voice) { beginHold(); return }
     if (mode == EntryMode.Text && flow.value.entry != EntryMode.Text) revokeVoice()
     flow.update { it.copy(entry = mode, activityId = it.activityId ?: UUID.randomUUID().toString(), hintExpanded = false, voiceFailure = null, island = if (it.island == IslandMode.Hidden || it.island == IslandMode.Collapsed) IslandMode.Expanded else it.island, error = null) }
     refreshDraft()
@@ -486,12 +549,14 @@ class AssistantSession private constructor(private val context: Context, private
 
   /** Closes the input; an undelivered result loses eligibility. The island stays while there is something to show. */
   fun closeEntry() {
+    ++entryRequest
     endLiveTalk()
     revokeVoice()
     flow.update { s ->
       val keep = s.working || s.turn != null || s.error != null
       s.copy(entry = EntryMode.None, island = if (keep) s.island else IslandMode.Hidden)
     }
+    if (flow.value.panelId != null && flow.value.island == IslandMode.Hidden) PersistedPanelIsland.forget(context)
   }
 
   fun setAppBuild(thread: String, turnId: String, active: Boolean) { flow.update { it.withAppBuild(thread, turnId, active) } }
@@ -592,7 +657,7 @@ class AssistantSession private constructor(private val context: Context, private
         if (current !== editor) return@withLock
         val saved = composer.read(current.threadId)
         acceptDraft(current, saved)
-        if (!flow.value.sending) pendingRequest(saved)?.let { reconcile(current, it) }
+        if (!flow.value.sending && current === editor) pendingRequest(saved)?.let { reconcile(current, it) }
       }
     } catch (failure: Exception) {
       if (failure is kotlinx.coroutines.CancellationException) throw failure
@@ -619,9 +684,10 @@ class AssistantSession private constructor(private val context: Context, private
           current.edit?.baseText = saved.text
           acceptDraft(current, saved)
           if (editor !== current) return@withLock
-          open(EntryMode.Text)
+          openBoundEntry(EntryMode.Text)
           context.startActivity(Intent(context, AssistantOverlayActivity::class.java)
-            .putExtra("mode", "text").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            .putExtra("mode", "text").putExtra("panelId", current.panelId).putExtra("activityId", flow.value.activityId)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         }
       } catch (failure: Exception) {
         if (failure is kotlinx.coroutines.CancellationException) throw failure
@@ -664,13 +730,17 @@ class AssistantSession private constructor(private val context: Context, private
   }
 
   /** Ends this home conversation; the thread stays in the full chat history. */
-  fun reset() {
+  fun reset() = reset(keepPreparedHold = false)
+
+  private fun reset(keepPreparedHold: Boolean, forgetPanelIsland: Boolean = true) {
+    ++entryRequest
+    if (forgetPanelIsland) PersistedPanelIsland.forget(context)
     endLiveTalk()
     threadCreation.invalidate()
     editor = Editor("")
     openingConversation = false
     liveLaunchJob?.cancel(); liveLaunchJob = null
-    revokeVoice()
+    revokeVoice(keepPreparedHold = keepPreparedHold)
     val jobs = listOfNotNull(streamJob, pollJob)
     streamJob = null; pollJob = null
     scope.launch { jobs.forEach { it.cancelAndJoin() } }
@@ -800,9 +870,9 @@ class AssistantSession private constructor(private val context: Context, private
   }
 
   /** Any conversation boundary: an undelivered result may no longer touch the session. */
-  private fun revokeVoice(cancelCapture: Boolean = true) {
+  private fun revokeVoice(cancelCapture: Boolean = true, keepPreparedHold: Boolean = false) {
     cancelPendingVoiceStart()
-    gesture.end(true); publishGesture()
+    if (!keepPreparedHold) { gesture.end(true); publishGesture() }
     delivery.newGeneration()
     if (cancelCapture && voice.state.value.phase != VoicePhase.Idle) voice.cancel()
   }
@@ -868,7 +938,7 @@ class AssistantSession private constructor(private val context: Context, private
     val edit = current.edit?.takeIf { it.text == text }
     val generation = threadCreation.generation
     // Never steer into a turn the home already gave up on (it may still read active until the interrupt lands).
-    val steerTurn = now.turn?.takeIf { it.active && !now.abandoned }?.turnId
+    val steerTurn = now.turn?.takeIf { current.panelId == null && it.active && !now.abandoned }?.turnId
     flow.update { it.copy(expansionRequest = if (keepVoiceEntry || it.voiceContinuous) it.expansionRequest else ++expansionSequence, sending = true, pending = message, error = null, failedText = null, abandoned = false, entry = if (it.entry == EntryMode.Voice && !keepVoiceEntry) EntryMode.None else it.entry,
       // The visible voice card keeps its notification identity through capture → reply.
       activityId = if (steerTurn == null && !(keepVoiceEntry && it.entry == EntryMode.Voice)) UUID.randomUUID().toString() else it.activityId,
@@ -893,7 +963,14 @@ class AssistantSession private constructor(private val context: Context, private
             acceptDraft(current, saved)
           }
           if (editor !== current || flow.value.abandoned) return@withLock
-          val request = HomeComposer.Request.new(saved, steerTurn)
+          val panel = current.panelId?.let { panelId ->
+            val source = panelDirectory.readSource(panelId)
+            if (source.threadId != id) throw GatewayException("SOURCE_CHANGED", "The Panel's original conversation changed")
+            if (editor !== current || flow.value.abandoned) return@withLock
+            updatePanelTitle(panelId, source.title)
+            HomeComposer.PanelContinuation(panelId, source.version)
+          }
+          val request = HomeComposer.Request.new(saved, steerTurn, panel)
           composer.remember(request)
           if (editor !== current || flow.value.abandoned) {
             composer.forget(request)
@@ -923,6 +1000,10 @@ class AssistantSession private constructor(private val context: Context, private
   }
 
   private suspend fun reconcile(current: Editor, request: HomeComposer.Request) {
+    if (request.panel?.panelId != current.panelId) {
+      deliveryError(current, "PENDING_DIFFERENT", null)
+      return
+    }
     var receipt = composer.receipt(request)
     if (receipt.state == "missing") {
       // The gateway never reserved this request. Its ID makes submitting it again idempotent,
@@ -1039,6 +1120,8 @@ class AssistantSession private constructor(private val context: Context, private
       val saved = composer.read(current.threadId).also { acceptDraft(current, it) }
       val request = pendingRequest(saved) ?: throw AssistantException("REQUEST_UNAVAILABLE", "No submission is awaiting release")
       if (editor !== current) throw AssistantException("THREAD_CHANGED", "The Home conversation changed")
+      if (request.panel?.panelId != current.panelId)
+        throw AssistantException("PENDING_DIFFERENT", "The pending submission belongs to another conversation entry")
       if (saved.pending?.id != request.id && composer.receipt(request).state == "missing") {
         val retained = if (saved.text.isEmpty() && current.edit == null) composer.write(saved, request.text) else saved
         acceptDraft(current, retained)
@@ -1129,9 +1212,20 @@ class AssistantSession private constructor(private val context: Context, private
           if (editor !== current) return@withLock
           val id = ensureComposerThread(generation, current)
           while (current.edit != null && editor === current) current.edit?.let { writeDraft(current, it) }
+          current.panelId?.let { panelId ->
+            val source = panelDirectory.readSource(panelId)
+            if (source.threadId != id) throw GatewayException("SOURCE_CHANGED", "The Panel's original conversation changed")
+          }
           if (editor !== current) return@withLock
-          context.startActivity(Intent().setClassName(context.packageName, "org.agentos.agent.MainActivity")
-            .putExtra("threadId", id).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP))
+          context.startActivity(Intent().setClassName(context.packageName, CHAT_ACTIVITY)
+            .putExtra("threadId", id).apply {
+              current.panelId?.let { panelId ->
+                putExtra("panelId", panelId)
+                putExtra("originThreadId", id)
+                putExtra("panelLaunchId", UUID.randomUUID().toString())
+              }
+            }.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP))
+          if (current.panelId != null) PersistedPanelIsland.forget(context)
           flow.update { it.copy(island = IslandMode.Hidden, entry = EntryMode.None, voicePaused = false) }
         }
       } catch (failure: Exception) {
@@ -1151,6 +1245,38 @@ class AssistantSession private constructor(private val context: Context, private
    * sent yet) opens the island's greeting on a fresh session.
    */
   fun resume(threadId: String) {
+    resumeBound(threadId, null)
+  }
+
+  suspend fun resumePanel(threadId: String, panelId: String, commit: ((() -> Unit) -> Boolean)? = null): Boolean {
+    val request = if (commit == null) ++entryRequest else entryRequest
+    val source = readPanelSource(threadId, panelId)
+    if (request != entryRequest) return false
+    if (commit != null) return commit { resumeBound(threadId, source) }
+    resumeBound(threadId, source)
+    return true
+  }
+
+  internal suspend fun restorePanelIsland(route: PersistedPanelIsland): Boolean = panelIslandRecovery.withLock {
+    if (!canRestorePanelIsland(route)) return@withLock false
+    val source = readPanelSource(route.threadId, route.panelId)
+    if (!canRestorePanelIsland(route)) return@withLock false
+    resumeBound(route.threadId, source, route.activityId)
+    true
+  }
+
+  private fun canRestorePanelIsland(route: PersistedPanelIsland): Boolean =
+    entryRequest == 0L && flow.value.threadId == null && flow.value.island == IslandMode.Hidden &&
+      PersistedPanelIsland.read(context) == route
+
+  private suspend fun readPanelSource(threadId: String, panelId: String): PanelDirectory.Source {
+    val source = panelDirectory.readSource(panelId)
+    if (source.threadId != threadId) throw GatewayException("SOURCE_CHANGED", "The Panel's original conversation changed")
+    return source
+  }
+
+  private fun resumeBound(threadId: String, panel: PanelDirectory.Source?, restoredActivity: String? = null) {
+    ++entryRequest
     endLiveTalk()
     val id = threadId.trim()
     liveLaunchJob?.cancel(); liveLaunchJob = null
@@ -1161,15 +1287,16 @@ class AssistantSession private constructor(private val context: Context, private
       refreshDraft()
       return
     }
-    if (flow.value.threadId != id) {
-      reset()
+    if (flow.value.threadId != id || editor.panelId != panel?.panelId) {
+      reset(keepPreparedHold = false, forgetPanelIsland = restoredActivity == null)
       synchronized(streamLock) { stream = SessionStreamState(id); baseline = emptySet() }
-      editor = Editor(id)
-      flow.update { it.copy(threadId = id) }
+      editor = Editor(id, panel?.panelId)
+      flow.update { it.copy(threadId = id, panelId = panel?.panelId, panelTitle = panel?.title) }
     }
+    if (panel != null) updatePanelTitle(panel.panelId, panel.title)
     flow.update { it.copy(island = IslandMode.Expanded, entry = EntryMode.None, error = null,
       voicePaused = false, expansionRequest = ++expansionSequence,
-      activityId = it.activityId ?: UUID.randomUUID().toString()) }
+      activityId = restoredActivity ?: it.activityId ?: UUID.randomUUID().toString()) }
     ensureStream(id)
     ensurePolling(id)
     refreshDraft()
@@ -1339,6 +1466,7 @@ class AssistantSession private constructor(private val context: Context, private
         .put("phase", gesture.phase.name.lowercase()).put("sequence", gesture.sequence)
         .put("startedAt", gesture.startedAt).put("updatedAt", gesture.updatedAt))
       .put("threadId", s.threadId ?: JSONObject.NULL).put("activityId", s.activityId ?: JSONObject.NULL)
+      .put("panelId", s.panelId ?: JSONObject.NULL).put("panelTitle", s.panelTitle ?: JSONObject.NULL)
       .put("buildingApp", s.buildingApp).put("appBuildTurnId", s.appBuildTurnId ?: JSONObject.NULL)
       .put("working", s.working).put("needsUser", s.needsUser).put("online", s.online)
       .put("pending", s.pending ?: JSONObject.NULL).put("task", s.task ?: JSONObject.NULL).put("error", s.error ?: JSONObject.NULL)

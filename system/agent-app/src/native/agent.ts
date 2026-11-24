@@ -10,8 +10,9 @@ type AgentNativeModule = {
   subscribeMatter(subscriptionId: string, params: string): void;
   unsubscribeMatter(subscriptionId: string): void;
   launchThreadId(): string;
-  selectConversation(threadId: string | null): void;
+  selectConversation(threadId: string | null, expectedGeneration: string | null): string | null;
   isLaunchCurrent(generation: string): boolean;
+  isPanelRouteCurrent(panelId: string, launchId: string): boolean;
   launchDraft(): string;
   requestId(): string;
   close(): Promise<void>;
@@ -19,7 +20,7 @@ type AgentNativeModule = {
   setSecureScreen(enabled: boolean): Promise<void>;
   submitSecret(fieldId: string, action: string, params: string): Promise<string>;
   submitSecretFields(fields: Record<string, string>, action: string, params: string): Promise<string>;
-  collapseToIsland(threadId: string): Promise<void>;
+  collapseToIsland(threadId: string, panelId: string | null, launchId: string | null): Promise<void>;
   showKeyboard(): Promise<void>;
   addListener(event: 'onSessionEventBatch', listener: (event: NativeSessionBatch) => void): {remove(): void};
   addListener(event: 'onMatterEventBatch', listener: (event: NativeMatterBatch) => void): {remove(): void};
@@ -31,13 +32,11 @@ type AgentNativeModule = {
   addListener(event: 'onConversationVisibility', listener: (event: {visible?: boolean}) => void): {remove(): void};
   openPanelConversation(panelId: string): Promise<void>;
   launchPanelTarget(refresh: boolean): Promise<string>;
-  consumePanelLaunch(launchId: string): Promise<void>;
-  isPanelLaunchConsumed(launchId: string): boolean;
   conversationVisible(): boolean;
 };
 
 /** Where a desktop Continue came from. Only navigation context: the send still asks the gateway. */
-export interface PanelTarget {panelId: string; sourceVersion: number; originThreadId: string; launchId: string}
+export interface PanelTarget {panelId: string; originThreadId: string; launchId: string; title: string}
 
 const nativeModule = requireOptionalNativeModule<AgentNativeModule>('TakuAgent');
 
@@ -155,27 +154,29 @@ export function holdSecureScreen(): () => void {
 export const showKeyboard = () => nativeModule?.showKeyboard() ?? Promise.resolve();
 
 /** Collapse (2-1 → 1-1): the home Dynamic Island takes over [threadId] and Home comes forward. */
-export const collapseToIsland = (threadId: string) => requireAgentNative().collapseToIsland(threadId);
+export const collapseToIsland = (threadId: string, target?: PanelTarget | null) =>
+  requireAgentNative().collapseToIsland(threadId, target?.panelId ?? null, target?.launchId ?? null);
 export const onOpenConversation = (listener: () => void): {remove(): void} =>
   nativeModule?.addListener('onOpenConversation', listener) ?? {remove() {}};
-export const onOpenThread = (listener: (threadId: string, target: PanelTarget | null, problem?: AgentGatewayError) => void) =>
+export const onOpenThread = (listener: (threadId: string, target: PanelTarget | null, problem: AgentGatewayError | undefined, generation: string) => void) =>
   requireAgentNative().addListener('onOpenThread', event => {
-    if (typeof event.threadId !== 'string' || !event.threadId) return;
-    if (!requireAgentNative().isLaunchCurrent(event.generation)) return;
-    const problem = event.errorCode ? new AgentGatewayError(`Panel target unavailable (${event.errorCode})`, event.errorCode) : undefined;
-    listener(event.threadId, parsePanelTarget(event.panelTarget), problem);
+    if (typeof event.threadId !== 'string' || !event.threadId || !isLaunchCurrent(event.generation)) return;
+    const target = parsePanelTarget(event.panelTarget);
+    const code = event.errorCode || (event.panelTarget && !target ? 'PANEL_TARGET_INVALID' : '');
+    const problem = code ? new AgentGatewayError(`Panel target unavailable (${code})`, code) : undefined;
+    listener(event.threadId, target, problem, event.generation);
   });
 
-export const selectConversation = (threadId: string | null) => requireAgentNative().selectConversation(threadId);
+export const selectConversation = (threadId: string | null, expectedGeneration: string | null = null) =>
+  requireAgentNative().selectConversation(threadId, expectedGeneration);
 
 /** Opens the panel's original conversation with its native target extras. It never sends a task. */
 export async function openPanelConversation(panelId: string): Promise<void> {
   await requireAgentNative().openPanelConversation(panelId);
 }
 
-/** Commits consumption before a continuation's pending receipt can be removed. */
-export const consumePanelLaunch = (launchId: string): Promise<void> => requireAgentNative().consumePanelLaunch(launchId);
-export const isPanelLaunchConsumed = (launchId: string): boolean => requireAgentNative().isPanelLaunchConsumed(launchId);
+export const isLaunchCurrent = (generation: string) => requireAgentNative().isLaunchCurrent(generation);
+export const isPanelRouteCurrent = (target: PanelTarget) => requireAgentNative().isPanelRouteCurrent(target.panelId, target.launchId);
 
 /**
  * The Panel this conversation was opened for, or null when the route names no Panel. Navigation
@@ -199,7 +200,7 @@ export async function launchPanelTarget(refresh = false): Promise<PanelTarget | 
   if (!raw) return null;
   const target = parsePanelTarget(raw);
   if (!target) throw new AgentGatewayError('Panel target is malformed', 'PANEL_TARGET_INVALID');
-  return isPanelLaunchConsumed(target.launchId) ? null : target;
+  return target;
 }
 
 /**
@@ -228,9 +229,8 @@ function parsePanelTarget(raw: unknown): PanelTarget | null {
     const value = record(typeof raw === 'string' ? JSON.parse(raw) : raw);
     return typeof value.panelId === 'string' && value.panelId
       && typeof value.originThreadId === 'string' && value.originThreadId
-      && Number.isSafeInteger(value.sourceVersion) && Number(value.sourceVersion) >= 0
-      && typeof value.launchId === 'string' && value.launchId
-      ? {panelId: value.panelId, originThreadId: value.originThreadId, sourceVersion: Number(value.sourceVersion), launchId: value.launchId} : null;
+      && typeof value.launchId === 'string' && value.launchId && typeof value.title === 'string' && value.title.trim()
+      ? {panelId: value.panelId, originThreadId: value.originThreadId, launchId: value.launchId, title: value.title} : null;
   } catch { return null; }
 }
 

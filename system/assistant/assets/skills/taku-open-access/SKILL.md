@@ -716,9 +716,21 @@ Use `panels/describe` for the installed `taku.panels/1` fields, limits and error
 
 Pin source is a native `matterId` (`threadId/key`) or an exact primary reply (thread, turn, reply, revision, 64-hex contract hash). Only completed usable cards qualify (`REPLY_INCOMPLETE`); missing matter returns `MATTER_UNAVAILABLE`. Repeat pin of the same matter returns `created:false`. Reuse `requestId` for identical requests after unknown outcomes; changed input gives `IDEMPOTENCY_CONFLICT`. A replay returns the original result without a new write.
 
-Open returns `{accepted:true,panelId}`; verify navigation readback `{available,visible,selectedPanelId}` (also `content://org.agentos.agent.panel-navigation`, method `navigation`). Equivalent launch: `am start -a org.agentos.agent.action.OPEN_PANEL --es panelId PANEL_UUID`. Unknown IDs fail `PANEL_NOT_FOUND`. Directory change notifications at `content://org.agentos.assistant.open-access/panels` carry no event data; re-read revision. Matter has its own subscription.
+Open returns `{accepted:true,panelId}`. Read `{available,visible,selectedPanelId}` through `panels/navigation` or `content://org.agentos.agent.panel-navigation`, method `navigation`. Unknown IDs return `PANEL_NOT_FOUND`. Directory change notifications at `content://org.agentos.assistant.open-access/panels` carry no event data. Re-read the revision after notification. Matter has its own subscription.
 
-`panels/continue` sends a task bound to this panel and its expected source version; use the ordinary submission receipt for busy/queued/unknown outcomes. Opening the original thread through `am start -n org.agentos.agent/.MainActivity --es threadId THREAD_UUID` keeps subsequent messages ordinary. For external Continue navigation use a fresh UUID `panelLaunchId` per intentional navigation; app-owned launches are consumed on the first accepted send and retained on rejected/unknown delivery. A deleted origin leaves the last snapshot viewable, but returns `SOURCE_THREAD_NOT_FOUND` on continue.
+For each new `panels/continue` request, read `panels/get` and pass `panel.sourceVersion` as `expectedSourceVersion`. Preserve the request ID and arguments if delivery is uncertain. The model receives the current Panel context before the turn. One completed reply marked `mode:"panel"` replaces the snapshot under the same `panelId`. Ordinary cards can accompany the replacement. No marked reply returns `REPLY_INCOMPLETE`. More than one returns `PANEL_UPDATE_AMBIGUOUS`. Read the outcome in `panels/get.updateReceipt`.
+
+The model receives the saved card and effective inputs. A replacement can change a field value saved when the request was sent. A newer manual edit takes precedence. Read the displayed value with `card-view/read` for `panels/get.panel.matterId`.
+
+Open the same named Panel conversation as **Continue editing** with standard launch extras:
+
+```sh
+am start -n org.agentos.agent/.MainActivity \
+  --es threadId "$THREAD_ID" --es panelId "$PANEL_ID" \
+  --es originThreadId "$THREAD_ID" --es panelLaunchId "$FRESH_UUID"
+```
+
+`THREAD_ID` equals `panel.originThreadId`. Use a fresh lowercase UUID for each intentional launch. The header opens the same Panel via `panels/open`. Opening the Activity with only `threadId` starts an ordinary chat. A deleted origin returns `SOURCE_THREAD_NOT_FOUND` on continue. Its last snapshot stays available through the Panel page.
 
 `matter/read` returns `{snapshot,cursor}` with native action capabilities, derived `pin,cardView,presentation`; presentation is trusted primary reply or a matter request/source. `matter/dispatch` uses declared `actionRef`, matter revision and `values`, and returns the GUI execution receipt. `card-view/read` returns `matterId,uiRevision,ui,review?` (draft/source/review flags and selected IDs). Apply names declared fields or selections and rejects unknown IDs/types; false, zero and empties are values. UI changes notify Matter even without a business revision change. Replacement makes old-source writes `STALE_SOURCE`; re-read and review the new schema. An already committed old-source edit can still replay its receipt. Storage exhaustion returns an error and retains pinned entries.
 
@@ -732,6 +744,7 @@ Common codes: `INVALID_ARGUMENT`, `UNKNOWN_METHOD`, `PANEL_NOT_FOUND`, `MATTER_U
 taku_call "$A" assistant/get                         # state (below)
 taku_call "$A" assistant/hint '{"expanded":true}' # bottom hint; auto-collapses after 4 s; false closes it
 taku_call "$A" assistant/open '{"mode":"text"}'  # or "voice"; shows the island
+taku_call "$A" assistant/open '{"mode":"text","panelId":"PANEL_UUID"}'
 taku_call "$A" assistant/draft '{"text":"Can you check"}'
 taku_call "$A" assistant/ask '{"text":"Find a flight to Kyoto"}'  # steers an active turn
 taku_call "$A" assistant/reply '{"suggestionId":"ID"}'  # a reply chip the agent offered
@@ -743,6 +756,7 @@ taku_call "$A" assistant/collapse                    # camera pill while working
 taku_call "$A" assistant/dismiss                     # pill if working, otherwise ends the session
 taku_call "$A" assistant/open-conversation           # continue in the full chat
 taku_call "$A" assistant/resume '{"threadId":"ID"}'  # full chat's collapse: island shows ID, Home comes forward
+taku_call "$A" assistant/resume '{"threadId":"THREAD_UUID","panelId":"PANEL_UUID","home":false}'
 taku_call "$A" assistant/close-input
 taku_call "$A" assistant/reset
 # Voice (hold to talk, or dictation when the text field is open):
@@ -753,6 +767,10 @@ taku_call "$A" assistant/voice-to-text               # finish the same capture a
 ```
 
 Home, system gesture and full chat share the native conversation. `assistant/get` projects `entry,island,threadId,working,needsUser,pending,task,error,draft,failedText,online,voice,turn`; `turn` has active/failed state, user text, reply, steps and offered suggestions. Draft attachments appear in `draftAttachmentNames`; `ask` preserves them when sending matching text (empty text allowed with attachments). Different text uses handoff to retain displaced content. `resume` expands the current thread (empty/omitted starts fresh) and brings Home forward unless `home:false`. `open` accepts text or voice. Text open leaves active capture/finalization unchanged; use voice-to-text or cancel first.
+
+With `panelId`, `assistant/open` uses the same original conversation as the Panel page for text or voice. `assistant/get` reports `panelId` and `panelTitle` when the session is scoped to a Panel. Use `assistant/ask` to send text, or `assistant/voice-finish` to finish a hold and submit recognized speech. Both check the current Panel version on each new send. `assistant/open-conversation` opens the named Panel chat. Without `panelId`, `assistant/open` and `assistant/resume` select ordinary chat.
+
+An unknown Panel returns `PANEL_NOT_FOUND`. An unavailable origin returns `SOURCE_THREAD_NOT_FOUND`. A scoped `assistant/resume` with a mismatched thread returns `SOURCE_CHANGED`. Continuous voice from a Panel hold returns `PANEL_LIVE_UNSUPPORTED`. Hold-to-send and dictation are available in the Panel session.
 
 On failed send or turn (`THREAD_BUSY`, `THREAD_QUEUED`, `GATEWAY_UNAVAILABLE`, `TASK_FAILED`, `TURN_FAILED`), text is retained/restored without overwriting a newer draft. After 30 s offline the UI reports `NETWORK_UNAVAILABLE` and keeps the request even if the broker still works. Retry checks pending ID before resending; edit with open/draft. `failedText` clears on next send/reset. Other errors: `INVALID_TEXT` (max 16,000 characters), `BUSY`, `NOT_WORKING`, `NOTHING_TO_RETRY`, `SUGGESTION_NOT_FOUND`, `INVALID_ARGUMENT`, `TIMEOUT`, `UNKNOWN_METHOD`. There is no external transcript injection.
 

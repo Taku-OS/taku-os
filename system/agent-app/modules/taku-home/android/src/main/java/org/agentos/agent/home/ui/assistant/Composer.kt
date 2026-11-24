@@ -149,7 +149,7 @@ fun BoxScope.TextComposer(scene: GraphicsLayer, open: Boolean, state: AssistantS
     else if (imeSeen && !voice.listening) { imeSeen = false; session.closeEntry() }
   }
 
-  var value by remember { mutableStateOf(TextFieldValue(state.draft, TextRange(state.draft.length))) }
+  var value by remember(state.threadId, state.panelId) { mutableStateOf(TextFieldValue(state.draft, TextRange(state.draft.length))) }
   LaunchedEffect(state.draft) { if (state.draft != value.text) value = TextFieldValue(state.draft, TextRange(state.draft.length)) }
   val dictation = voice.target == VoiceTarget.Dictation
   val dictating = dictation && voice.phase in VoiceState.ACTIVE
@@ -193,6 +193,10 @@ fun BoxScope.TextComposer(scene: GraphicsLayer, open: Boolean, state: AssistantS
       .padding(TakuSpacing.md),
   ) {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(TakuSpacing.sm)) {
+      state.panelTitle?.let { title ->
+        BasicText(title, style = TakuTheme.type.bodyMd.copy(color = colors.textPrimary),
+          maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 4.dp))
+      }
       Row(Modifier.fillMaxWidth().weight(1f, fill = false), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(TakuSpacing.sm)) {
         // 1-5 (node 1:4164) while capturing: one 40 dp line beside the meter and the stop button.
         Column(Modifier.weight(1f).padding(start = 4.dp).then(if (capturing) Modifier.height(TakuSize.control) else Modifier.verticalScroll(textScroll))) {
@@ -209,9 +213,10 @@ fun BoxScope.TextComposer(scene: GraphicsLayer, open: Boolean, state: AssistantS
               keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Send),
               keyboardActions = KeyboardActions(onSend = { if (!capturing) send() }),
               modifier = Modifier.fillMaxWidth().focusRequester(focus).graphicsLayer { alpha = if (capturing) 0f else 1f }
-                .semantics { contentDescription = "Ask Taku" },
+                .semantics { contentDescription = "Ask ${state.panelTitle ?: "Taku"}" },
               decorationBox = { inner ->
-                if (value.text.isEmpty()) BasicText("Ask Taku to do anything...", style = TakuTheme.type.bodyLg.copy(color = colors.textPlaceholder), maxLines = 1)
+                if (value.text.isEmpty()) BasicText(if (state.panelTitle == null) "Ask Taku to do anything..." else "Ask for a Panel update…",
+                  style = TakuTheme.type.bodyLg.copy(color = colors.textPlaceholder), maxLines = 1)
                 inner()
               },
             )

@@ -60,6 +60,8 @@ export interface AgentChatScreenProps {
   workspaces: WorkspaceView[];
   loading: boolean;
   busy: boolean;
+  panel?: {title: string} | null;
+  onOpenPanel?: () => void;
   error?: string;
   historyError?: string;
   workspaceError?: string;
@@ -450,6 +452,13 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
     setReplyMenu(null);
     setLayer({kind: 'home'});
   };
+  const returnToPanel = () => {
+    live.stop();
+    cancelDictation();
+    stopReading();
+    Keyboard.dismiss();
+    props.onOpenPanel?.();
+  };
   const running = props.session?.running;
   const hasDraft = !!props.draft.trim() || props.attachments.length > 0;
   const [composerTools, setComposerTools] = useState<string | null>(null);
@@ -612,9 +621,15 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
       {pendingSubmission && !props.busy && <PendingSubmissionCard key={`${pendingSubmission.threadId}/${pendingSubmission.requestId}`} text={pendingSubmission.text} language={language} onRetry={props.onRetrySubmission} onContinue={props.onContinueWithoutResending}/>}
       </View>}/>
     </EdgeBlur>
-    {/* Figma 2-1 title row: Taku Home (history for now), the fixed title, collapse to the island. */}
     <View style={[styles.header, {top: insets.top}]} pointerEvents="box-none">
-      <Text accessibilityRole="header" numberOfLines={1} style={[chatType.bodyXlMedium(), styles.title]}>{live.active ? ct('liveTalk') : props.session?.title || chatTitle}</Text>
+      {props.panel && props.onOpenPanel
+        ? <Pressable testID="open-current-panel" accessibilityRole="button" accessibilityLabel={`${ct('openPanel')}: ${props.panel.title}`}
+            accessibilityState={{disabled: props.busy}} disabled={props.busy} onPress={returnToPanel}
+            style={({pressed}) => [styles.panelTitleButton, pressed && styles.pressed]}>
+            <Icon name="panel" color={chatColors.icon} size={18}/>
+            <Text numberOfLines={1} style={[chatType.bodyXlMedium(), styles.panelTitle]}>{props.panel.title}</Text>
+          </Pressable>
+        : <Text accessibilityRole="header" numberOfLines={1} style={[chatType.bodyXlMedium(), styles.title]}>{live.active ? ct('liveTalk') : props.session?.title || chatTitle}</Text>}
       <Pressable testID="open-history" accessibilityRole="button" accessibilityLabel={t('history')} onPress={openHome} hitSlop={8}
         style={({pressed}) => [styles.headerButton, pressed && styles.pressed]}><VoiceIcon name="home" size={24}/></Pressable>
       <Pressable testID="collapse-chat" accessibilityRole="button" accessibilityLabel={ct('collapseToIsland')} onPress={collapseChat} hitSlop={8}
@@ -738,6 +753,8 @@ const styles = themedStyles(() => StyleSheet.create({
   header: {position: 'absolute', left: 0, right: 0, height: chatMetrics.header, paddingHorizontal: chatMetrics.side, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
   headerButton: {width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center'}, pressed: {backgroundColor: chatColors.fillControl},
   title: {position: 'absolute', left: 64, right: 64, textAlign: 'center'},
+  panelTitleButton: {position: 'absolute', left: 64, right: 64, minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 12},
+  panelTitle: {flexShrink: 1},
   modalHeader: {minHeight: 56, paddingLeft: layout.gutter, paddingRight: 4, flexDirection: 'row', alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border},
   headerTitle: {flex: 1, minWidth: 0, marginRight: 8}, messages: {paddingHorizontal: chatMetrics.side, gap: chatMetrics.itemGap}, taskMessages: {gap: layout.gap}, stack: {gap: layout.gap},
   userText: {color: chatColors.userText},

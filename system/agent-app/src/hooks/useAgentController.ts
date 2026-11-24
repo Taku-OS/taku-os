@@ -2,7 +2,7 @@ import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {AppState, BackHandler} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {useLocales} from 'expo-localization';
-import {callAgent, closeAgent, consumePanelLaunch, isPanelLaunchConsumed, launchPanelTarget, launchThreadId, newRequestId, onOpenThread, selectConversation, subscribeSession, watchConversationVisible, AgentGatewayError, type PanelTarget} from '../native/agent';
+import {callAgent, closeAgent, isLaunchCurrent, isPanelRouteCurrent, launchPanelTarget, launchThreadId, newRequestId, onOpenThread, selectConversation, subscribeSession, watchConversationVisible, AgentGatewayError, type PanelTarget} from '../native/agent';
 import {onComposerAttachment, pickComposerAttachment, type ComposerPickerKind} from '../native/composerPicker';
 import {projectSession, projectThreads, projectWorkspaces, record, string, type Json, type SessionView, type ThreadSummary, type WorkspaceView} from '../model/session';
 import {isAcceptedReceipt, isNotSentReceipt, pendingKey, preserveAndReleaseUnconfirmed, unconfirmedArchivePrefix, type PendingSubmission} from './submission';
@@ -11,6 +11,7 @@ import {readCurrent, restoreConversation} from './readLifecycle';
 import {sessionReadOptions} from './sessionRead';
 import {emptySessionStream, reduceSessionBatch, retainSessionBlocks, streamCursor, streamSessionRoot, sessionRootForDisplay, reconcileStreamHistory} from '../model/sessionStream';
 import {acceptOptimisticReceipt, beginOptimisticSubmission, reconcileOptimisticSubmission, recoverQueuedSubmission, FIRST_RESPONSE_TIMEOUT_MS, type OptimisticSubmission} from '../model/optimisticChat';
+import {getPanel, openPanel} from '../panels/client';
 
 const SELECTED = 'taku.agent.selected.v1';
 /** A continue publishes one new task: optimistic correlation treats it as a fresh message. */
@@ -33,6 +34,13 @@ const lookupPending = (pending: ComposerSubmission) => callAgent('composer/recei
   ...(pending.attachmentIds ? {} : {text: pending.text, ...submissionTarget(pending)}),
 });
 
+async function createThread() {
+  const result = await callAgent('createThread');
+  const id = string(record(result.thread).id);
+  if (!id) throw new AgentGatewayError('Missing session ID');
+  return id;
+}
+
 export function useAgentController() {
   const [session, setSession] = useState<SessionView | null>(null);
   const [threads, setThreads] = useState<ThreadSummary[]>([]);
@@ -40,6 +48,7 @@ export function useAgentController() {
   const [selected, setSelected] = useState('');
   const [conversationKey, setConversationKey] = useState('new');
   const [optimisticSubmissions, setOptimisticSubmissions] = useState<OptimisticSubmission[]>([]);
+  const [panel, setPanel] = useState<PanelTarget | null>(null);
   const visibleOptimisticSubmissions = useMemo(() => optimisticSubmissions.filter(request => request.threadId === selected), [optimisticSubmissions, selected]);
   const [draft, setDraft] = useState('');
   const [draftSnapshot, setDraftSnapshot] = useState<ComposerSnapshot>();
@@ -65,9 +74,8 @@ export function useAgentController() {
   const navigationWrites = useRef(Promise.resolve());
   const selectionWrites = useRef(Promise.resolve());
   const historyRevision = useRef(0);
-  const pendingOpen = useRef('');
+  const pendingOpen = useRef<{id: string; target: PanelTarget | null; problem?: AgentGatewayError; generation: string} | null>(null);
   const launchFailure = useRef<unknown>(null);
-  /** Navigation context only: the panel whose original conversation this send continues. */
   const panelTarget = useRef<PanelTarget | null>(null);
   const draftReady = useRef(false);
   const optimisticRef = useRef<OptimisticSubmission[]>([]);
@@ -121,7 +129,7 @@ export function useAgentController() {
       DRAFT_NOT_EMPTY: ['Your newer draft has been kept. Save or clear it before restoring this request.', '已保留你正在编辑的新草稿，请先保存或清空，再恢复原请求。'],
       NO_FAILED_PROMPT: ['The original request is unavailable. Its failure record is still shown.', '原请求内容暂不可用，失败记录仍会保留显示。'],
       SOURCE_THREAD_NOT_FOUND: ['The panel\u2019s original conversation is unavailable. Open the panel from its list to check its source.', '该面板的原对话已不可用，请从面板列表检查其来源。'],
-      SOURCE_CHANGED: ['The panel source changed before this request was sent. Open the panel again for its current source.', '发送前面板来源已变化，请重新打开面板以使用当前来源。'],
+      SOURCE_CHANGED: ['The panel source changed before this request was sent. Review the panel before sending again.', '发送前面板来源已变化，请核对面板后再发送。'],
       SOURCE_UNAVAILABLE: ['The panel source is unavailable right now. Your text is kept.', '面板来源暂时不可用，内容已保留。'],
       PANEL_NOT_FOUND: ['This panel no longer exists. Reopen it from the Panels list.', '该面板已不存在，请从面板列表重新打开。'],
       PANEL_CONTRACT_MISMATCH: ['Update the Assistant to continue editing this panel.', '请更新 Assistant 后继续修改此面板。'],
@@ -199,9 +207,11 @@ export function useAgentController() {
     return resume;
   }, []);
 
-  const select = useCallback(async (id: string, preserveConversationKey = false) => {
+  const select = useCallback(async (id: string, target: PanelTarget | null, preserveConversationKey = false, problem?: AgentGatewayError) => {
     if (!mounted.current) return;
-    if (panelTarget.current && panelTarget.current.originThreadId !== id) panelTarget.current = null;
+    panelTarget.current = target;
+    setPanel(target);
+    launchFailure.current = problem ?? null;
     const ticket = ++generation.current;
     const slot = composer(id);
     draftReady.current = false; setRestoring(true); setPendingSubmission(null);
@@ -212,7 +222,7 @@ export function useAgentController() {
     setSelected(id); setSession(null); sessionRef.current = null; taskRef.current = {};
     // Reopening the already-selected thread also invalidates the previous polling ticket.
     setRefreshRevision(value => value + 1);
-    setWorkspaces([]); setWorkspaceError(''); setError(''); setReadError(''); setSelectionError(''); setLoading(Boolean(id));
+    setWorkspaces([]); setWorkspaceError(''); setError(problem ? messageRef.current(problem) : ''); setReadError(''); setSelectionError(''); setLoading(Boolean(id));
     setDraftError('');
     showDraft(slot.text);
     setDraftSnapshot(undefined);
@@ -242,7 +252,6 @@ export function useAgentController() {
           if (pending.attachmentIds && (isAcceptedReceipt(pending, receipt) || isNotSentReceipt(pending, receipt)))
             await callAgent('composer/settle', {threadId: id, requestId: pending.requestId});
           if (isAcceptedReceipt(pending, receipt)) {
-            if (pending.panel?.launchId) await consumePanelLaunch(pending.panel.launchId);
             if (pending.attachmentIds) { await slot.restore(); await remove(); }
             else await slot.retireAccepted(pending, remove);
             return [restored, null] as const;
@@ -312,30 +321,22 @@ export function useAgentController() {
     const updateVisibility = () => setVisible(appActive && conversationStarted);
     const listener = AppState.addEventListener('change', state => { appActive = state === 'active'; updateVisibility(); });
     const visibility = watchConversationVisible(started => { conversationStarted = started; updateVisibility(); });
-    const openListener = onOpenThread((id, target, problem) => {
-      if (problem) {
-        launchFailure.current = problem;
-        setError(messageRef.current(problem));
-        return;
-      }
-      launchFailure.current = null;
-      panelTarget.current = target;
-      if (actionRunning.current) pendingOpen.current = id;
-      else void select(id).catch(e => { if (mounted.current && selectedRef.current === id) setError(messageRef.current(e)); });
+    const openListener = onOpenThread((id, target, problem, routeGeneration) => {
+      if (actionRunning.current) pendingOpen.current = {id, target, problem, generation: routeGeneration};
+      else void select(id, target, false, problem).catch(e => { if (mounted.current && selectedRef.current === id) setError(messageRef.current(e)); });
     });
     const initialGeneration = generation.current;
     void (async () => {
       try {
         const target = await launchPanelTarget();
-        if (!mounted.current || generation.current !== initialGeneration) return;
-        panelTarget.current = target;
-        const previous = panelTarget.current?.originThreadId || launchThreadId() || await AsyncStorage.getItem(SELECTED);
+        if (!mounted.current || generation.current !== initialGeneration || (target && !isPanelRouteCurrent(target))) return;
+        const previous = target?.originThreadId || launchThreadId() || await AsyncStorage.getItem(SELECTED);
         if (previous === '' && mounted.current && generation.current === initialGeneration) {
           void loadThreads().catch(() => {});
-          await select('');
+          await select('', null);
           return;
         }
-        await restoreConversation({preferred: previous || '', list: loadThreads, select,
+        await restoreConversation({preferred: previous || '', list: loadThreads, select: id => select(id, target),
           isCurrent: () => mounted.current && generation.current === initialGeneration,
           onListError: () => { /* The history index owns its separate error state. */ },
         });
@@ -489,8 +490,10 @@ export function useAgentController() {
       actionRunning.current = false;
       if (mounted.current) {
         setBusy(false);
-        const id = pendingOpen.current; pendingOpen.current = '';
-        if (id) void select(id).catch(e => { if (selectedRef.current === id) setError(messageRef.current(e)); });
+        const route = pendingOpen.current; pendingOpen.current = null;
+        if (route && isLaunchCurrent(route.generation)) void select(route.id, route.target, false, route.problem).catch(e => {
+          if (selectedRef.current === route.id) setError(messageRef.current(e));
+        });
       }
     }
   }, [message, select]);
@@ -535,13 +538,11 @@ export function useAgentController() {
   const removeAttachment = useCallback((attachmentId: string) => changeAttachments(async ({threadId, revision}) =>
     parseComposerSnapshot(await callAgent('composer/removeAttachment', {threadId, expectedRevision: revision, attachmentId}), threadId)), [changeAttachments]);
 
-  const create = useCallback(async (move?: {revision: string; requestId: string}) => {
-    const result = await callAgent('createThread');
-    const id = string(record(result.thread).id);
-    if (!id) throw new AgentGatewayError('Missing session ID');
-    const draft = move ? await composer('').move(move.revision, id) : null;
-    if (move) updateOptimistic(requests => requests.map(request => request.requestId === move.requestId ? {...request, threadId: id} : request));
-    await select(id, Boolean(move));
+  const createForSubmission = useCallback(async (move: {revision: string; requestId: string}) => {
+    const id = await createThread();
+    const draft = await composer('').move(move.revision, id);
+    updateOptimistic(requests => requests.map(request => request.requestId === move.requestId ? {...request, threadId: id} : request));
+    await select(id, null, true);
     void loadThreads().catch(() => {});
     return {id, draft};
   }, [composer, loadThreads, select, updateOptimistic]);
@@ -587,11 +588,6 @@ export function useAgentController() {
       throw new AgentGatewayError('Request was not submitted', string(receipt.code));
     }
     if (!isAcceptedReceipt(pending, receipt)) throw new AgentGatewayError('Unknown delivery', 'UNKNOWN_DELIVERY');
-    if (pending.action === 'continue') {
-      const launchId = pending.panel!.launchId;
-      await consumePanelLaunch(launchId);
-      if (panelTarget.current?.launchId === launchId) panelTarget.current = null;
-    }
     updateOptimistic(requests => requests.map(request => request.requestId === pending.requestId
       ? reconcileOptimisticSubmission(acceptOptimisticReceipt(request, receipt), sessionRef.current) : request));
     const slot = composer(id);
@@ -625,13 +621,14 @@ export function useAgentController() {
     if (!existingPending && optimisticRef.current.some(request => request.threadId === id && !request.userBlockId
       && !request.nonDeliverable && !['failed', 'stopped'].includes(request.state)))
       throw new AgentGatewayError('Previous message is awaiting its native record', 'QUEUED');
-    if (panelTarget.current && isPanelLaunchConsumed(panelTarget.current.launchId)) panelTarget.current = null;
-    const target = panelTarget.current;
-    const continuing = !!target && !!id && target.originThreadId === id && !existingPending;
+    const target = existingPending ? null : panelTarget.current;
+    const ticket = generation.current;
+    const isCurrent = () => mounted.current && generation.current === ticket && !pendingOpen.current
+      && !!target && panelTarget.current?.launchId === target.launchId && isPanelRouteCurrent(target);
+    if (target && (target.originThreadId !== id || !isCurrent())) return;
     let pending: ComposerSubmission = existingPending || {threadId: id, text, requestId: newRequestId(),
-      action: continuing ? 'continue' : current?.activeTurnId ? 'steer' : 'sendMessage',
-      ...(continuing && target ? {panel: {panelId: target.panelId, expectedSourceVersion: target.sourceVersion, launchId: target.launchId}} : {}),
-      ...(!continuing && current?.activeTurnId ? {expectedTurnId: current.activeTurnId} : {})};
+      action: target ? 'continue' : current?.activeTurnId ? 'steer' : 'sendMessage',
+      ...(!target && current?.activeTurnId ? {expectedTurnId: current.activeTurnId} : {})};
     const requestId = pending.requestId;
     if (!existingPending) {
       const optimistic = beginOptimisticSubmission(asChatSubmission(pending), current);
@@ -647,8 +644,9 @@ export function useAgentController() {
     let deliveryAttempted = false;
     try {
       let sentDraft: ComposerSnapshot | null = await composer(id).flush();
+      if (target && !isCurrent()) return;
       setDraftError('');
-      if (!id) ({id, draft: sentDraft} = await create({revision: sentDraft.revision, requestId}));
+      if (!id) ({id, draft: sentDraft} = await createForSubmission({revision: sentDraft.revision, requestId}));
       pending = {...pending, threadId: id};
       if (!existingPending) {
         if (!sentDraft || sentDraft.text.trim() !== text) throw new AgentGatewayError('Draft changed before submission', 'DRAFT_REVISION_CONFLICT');
@@ -656,25 +654,46 @@ export function useAgentController() {
         pending.attachmentIds = sentDraft.attachments.map(item => item.id);
       }
       const existing = await AsyncStorage.getItem(pendingKey(id));
+      if (target && !isCurrent()) return;
       if (existing) {
         const stored = JSON.parse(existing) as ComposerSubmission;
         if (stored.threadId !== id || stored.text !== text || stored.requestId !== pending.requestId)
           throw new AgentGatewayError('Pending message differs', 'PENDING_DIFFERENT');
         pending = stored;
       } else {
+        if (target) {
+          const detail = await getPanel(target.panelId);
+          if (!isCurrent()) return;
+          if (detail.panel.panelId !== target.panelId || detail.panel.originThreadId !== id)
+            throw new AgentGatewayError('Panel route changed', 'SOURCE_THREAD_NOT_FOUND');
+          panelTarget.current = {...target, title: detail.panel.title};
+          setPanel(panelTarget.current);
+          if (!detail.capabilities.canContinue)
+            throw new AgentGatewayError('Panel target unavailable', detail.sourceState.code ?? 'SOURCE_THREAD_NOT_FOUND');
+          pending.panel = {panelId: target.panelId, expectedSourceVersion: detail.panel.sourceVersion};
+        }
         // Persist BEFORE crossing IPC; an interrupted UI can only retry the same request ID.
-        await AsyncStorage.setItem(pendingKey(id), JSON.stringify(pending));
+        const encoded = JSON.stringify(pending);
+        await AsyncStorage.setItem(pendingKey(id), encoded);
+        if (target && !isCurrent()) {
+          if (await AsyncStorage.getItem(pendingKey(id)) === encoded) await AsyncStorage.removeItem(pendingKey(id));
+          return;
+        }
       }
       setPendingSubmission(pending);
       deliveryAttempted = true;
       await deliver(pending, Boolean(existingPending || existing));
     } catch (problem) {
+      if (target && !deliveryAttempted && !isCurrent()) return;
       updateOptimistic(requests => requests.map(request => request.requestId === requestId
         ? reconcileOptimisticSubmission({...request, state: 'failed', nonDeliverable: request.nonDeliverable || !deliveryAttempted,
           error: message(problem), errorKey: 'replyFailed'}, sessionRef.current) : request));
       throw problem;
+    } finally {
+      if (target && !deliveryAttempted && !isCurrent())
+        updateOptimistic(requests => requests.filter(request => request.requestId !== requestId));
     }
-  }, [composer, create, deliver, message, pendingSubmission, updateOptimistic]);
+  }, [composer, createForSubmission, deliver, message, pendingSubmission, updateOptimistic]);
 
   const send = useCallback(() => run(() => submit(draftRef.current.trim())), [run, submit]);
 
@@ -746,16 +765,14 @@ export function useAgentController() {
 
   const refresh = useCallback(() => run(async () => {
     const ticket = generation.current;
-    if (launchFailure.current) {
+    if (launchFailure.current || panelTarget.current) {
       try {
         const target = await launchPanelTarget(true);
-        if (!mounted.current || generation.current !== ticket) return;
-        panelTarget.current = target;
-        launchFailure.current = null;
+        if (!mounted.current || generation.current !== ticket || pendingOpen.current || (target && !isPanelRouteCurrent(target))) return;
         const id = target?.originThreadId || launchThreadId() || selectedRef.current;
-        await select(id);
-        if (pendingOpen.current === id) pendingOpen.current = '';
+        await select(id, target);
       } catch (problem) {
+        if (!mounted.current || generation.current !== ticket || pendingOpen.current) return;
         launchFailure.current = problem;
         throw problem;
       }
@@ -763,13 +780,25 @@ export function useAgentController() {
     }
     if (!mounted.current || generation.current !== ticket) return;
     void loadThreads().catch(() => {});
-    await select(selectedRef.current);
+    await select(selectedRef.current, null);
   }), [loadThreads, run, select]);
+
+  const returnToPanel = useCallback((target: PanelTarget) => run(async () => {
+    const ticket = generation.current;
+    const isCurrent = () => mounted.current && generation.current === ticket && !pendingOpen.current
+      && panelTarget.current?.launchId === target.launchId && isPanelRouteCurrent(target);
+    if (!isCurrent()) return;
+    await composer(target.originThreadId).flush();
+    if (!isCurrent()) return;
+    await openPanel(target.panelId);
+  }), [composer, run]);
 
   return {
     session, threads, workspaces, loading: loading || restoring, busy, error: draftError || error || selectionError || readError, draft,
     historyError, workspaceError, visible,
     draftSessionId: selected, pendingSubmission, conversationKey,
+    panel,
+    onOpenPanel: panel ? () => { void returnToPanel(panel); } : undefined,
     optimisticSubmissions: visibleOptimisticSubmissions,
     onRetrySubmission: () => { void retrySubmission(); },
     onContinueWithoutResending: () => { void continueWithoutResending(); },
@@ -786,17 +815,17 @@ export function useAgentController() {
     onSelectThread: (id: string) => {
       if (actionRunning.current) return;
       selectConversation(id);
-      panelTarget.current = null;
-      launchFailure.current = null;
-      void select(id).catch(e => { if (selectedRef.current === id) setError(message(e)); });
+      void select(id, null).catch(e => { if (selectedRef.current === id) setError(message(e)); });
     },
     onCreateThread: () => { void run(async () => {
-      selectConversation(null);
+      const routeGeneration = selectConversation(null);
+      if (routeGeneration === null) return;
       panelTarget.current = null;
+      setPanel(null);
       launchFailure.current = null;
-      pendingOpen.current = '';
-      const {id} = await create();
-      selectConversation(id);
+      const id = await createThread();
+      void loadThreads().catch(() => {});
+      if (mounted.current && selectConversation(id, routeGeneration) !== null) await select(id, null);
     }); },
     onRefresh: () => { void refresh(); },
     onOpenHistory: () => { void loadThreads().catch(() => {}); },

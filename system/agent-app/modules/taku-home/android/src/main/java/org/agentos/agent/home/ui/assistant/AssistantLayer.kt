@@ -55,7 +55,7 @@ fun BoxScope.AssistantLayer(
   WorkingGlow(active = shouldShowEdgeGlow(working = state.working, voiceContinuous = state.voiceContinuous))
 
   VoiceHoldOverlay(scene, visible = state.entry == EntryMode.Voice, voice = voice,
-    zone = state.holdZone, continuous = state.voiceContinuous, session = session)
+    zone = state.holdZone, continuous = state.voiceContinuous, keepTalking = state.panelId == null, session = session)
 
   if (state.entry == EntryMode.Text) Box(Modifier.fillMaxSize().pointerInput(session) {
     detectTapGestures { session.closeEntry() }

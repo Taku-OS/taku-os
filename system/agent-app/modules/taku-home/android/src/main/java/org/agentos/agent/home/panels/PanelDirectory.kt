@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.json.JSONObject
+import org.agentos.agent.home.assistant.GatewayException
 
 /** A directory read that produced no usable page list; [code] is the native error code. */
 internal class PanelReadException(val code: String, message: String?) : Exception(message ?: code)
@@ -36,6 +37,8 @@ class PanelDirectory private constructor(context: Context) {
 
   /** One directory row, as published by the native registry. */
   data class Entry(val panelId: String, val title: String, val position: Long)
+
+  internal data class Source(val panelId: String, val threadId: String, val title: String, val version: Long)
 
   data class State(
     val entries: List<Entry> = emptyList(),
@@ -110,6 +113,23 @@ class PanelDirectory private constructor(context: Context) {
       status = if (e.code == PanelDirectoryPages.UPDATE_REQUIRED) Status.UpdateRequired else previous.status,
       code = e.code,
     )
+  }
+
+  internal suspend fun readSource(panelId: String): Source = kotlinx.coroutines.withContext(Dispatchers.IO) {
+    val result = try {
+      exchange("panels/get", JSONObject().put("panelId", panelId))
+    } catch (failure: PanelReadException) {
+      throw GatewayException(failure.code, failure.message ?: failure.code)
+    }
+    val panel = result.optJSONObject("panel")
+    val threadId = panel?.opt("originThreadId") as? String
+    val title = panel?.opt("title") as? String
+    val version = panel?.optLong("sourceVersion", -1L) ?: -1L
+    if (panel?.opt("panelId") != panelId || threadId.isNullOrBlank() || title.isNullOrBlank() || version < 0L)
+      throw GatewayException("INVALID_RESPONSE", "Invalid Panel source")
+    if (result.optJSONObject("capabilities")?.optBoolean("canContinue") != true)
+      throw GatewayException("SOURCE_THREAD_NOT_FOUND", "The Panel's original conversation is unavailable")
+    Source(panelId, threadId, title, version)
   }
 
   /** Calls the public Assistant Interface and returns the unwrapped result of a successful reply. */

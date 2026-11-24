@@ -454,9 +454,10 @@ Figma 1-1 … 1-6. Native Kotlin/Compose (`assistant/`, `ui/assistant/`); state 
 `AssistantSession`, shared with Agents through `content://org.agentos.agent.home-assistant`
 (commands in the preinstalled `taku-open-access` skill).
 
-* **Full chat (2-1)**: the island's expand button opens the RN chat on the same thread; the
-  chat's collapse button calls `assistant/resume` (`AssistantSession.resume`), which expands
-  the island with that thread's latest turn and brings Home forward.
+* **Full chat (2-1)**. The island's expand button opens the chat on the same thread.
+  Collapsing the chat expands the island with that thread's latest turn and brings Home
+  forward. For a Panel chat, the handoff rechecks the Panel's source and resumes the island
+  only if the same chat route is still current.
 
 * **Conversation**: the session calls the system Agent gateway from this package
   (`createThread`, `sendMessage`, or `steer` while a turn runs) and follows the thread over

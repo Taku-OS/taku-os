@@ -30,8 +30,6 @@ internal sealed interface LaunchAnswer {
  */
 internal class PanelLaunch(
   private val scope: CoroutineScope,
-  private val consumed: (String) -> Boolean,
-  private val persistConsumption: (String) -> Unit,
   private val resolve: suspend (LaunchRoute.Path) -> LaunchAnswer,
 ) {
   class Resolution internal constructor(val path: LaunchRoute.Path, val generation: Long) {
@@ -50,17 +48,12 @@ internal class PanelLaunch(
 
   fun current(generation: Long): Boolean = route.current(generation)
 
+  fun generation(): Long = route.generation()
+
   fun clear() = synchronized(lock) {
     route.clear()
     resolution?.answer?.complete(LaunchAnswer.Superseded)
     resolution = null
-  }
-
-  /** Persist before releasing the pending receipt, including when a newer route is already open. */
-  fun consume(launchId: String) = synchronized(lock) {
-    persistConsumption(launchId)
-    val path = route.path()
-    if (path?.launchId == launchId && path.panelId != null) install(path.withoutPanel(), LaunchAnswer.NoPanel)
   }
 
   /** Records [path] and resolves it once; a repeated path keeps the answer it already has. */
@@ -71,9 +64,8 @@ internal class PanelLaunch(
   /** Records [path] with an answer already read, for a conversation opened from inside the app. */
   fun seed(path: LaunchRoute.Path, answer: LaunchAnswer): Resolution = install(path, answer, refresh = true)
 
-  private fun install(requested: LaunchRoute.Path, answer: LaunchAnswer?, refresh: Boolean = false): Resolution {
+  private fun install(path: LaunchRoute.Path, answer: LaunchAnswer?, refresh: Boolean = false): Resolution {
     val pending = synchronized(lock) {
-      val path = if (requested.launchId?.let(consumed) == true) requested.withoutPanel() else requested
       val observation = route.observe(path, refresh)
       val known = resolution
       if (known != null && known.generation >= observation.generation) return@synchronized known
@@ -81,7 +73,7 @@ internal class PanelLaunch(
       known?.let { if (!it.answer.isCompleted) it.answer.complete(LaunchAnswer.Superseded) }
       Resolution(path, observation.generation).also { resolution = it }
     }
-    if (answer != null && pending.path == requested) pending.answer.complete(answer) else start(pending)
+    if (answer != null) pending.answer.complete(answer) else start(pending)
     return pending
   }
 

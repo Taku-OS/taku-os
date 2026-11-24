@@ -263,7 +263,7 @@ internal class MatterRuntime(
         val provenance = copy(reply.getJSONObject("provenance")).put("replyId", reply.getString("id"))
             .put("replyRevision", reply.getLong("revision")).put("replyPhase", reply.getJSONObject("lifecycle").getString("phase"))
         val candidate = JSONObject().put("matterId", id).put("threadId", provenance.getString("threadId")).put("meta", JSONObject().put("provenance", provenance))
-        panels.pinCode(candidate)?.let { throw IOException(it) }
+        panels.pinCode(candidate, reply.getJSONObject("card").getJSONObject("request").getString("mode"))?.let { throw IOException(it) }
         val prior = store.get("matters", id)?.getJSONObject("meta")?.getJSONObject("provenance")
         if (prior != null && (prior.optLong("replyRevision") > reply.getLong("revision") || prior.optLong("replyRevision") == reply.getLong("revision") && prior.optString("replyPhase", "completed") != "completed")) throw IOException("SOURCE_CHANGED")
         observeReply(provenance.getString("threadId"), provenance.getString("turnId"), reply)
@@ -315,14 +315,14 @@ internal class MatterRuntime(
                 }
             }
             val binding = if (receipt?.optString("taskId")?.isNotEmpty() == true) try {
-                SourceAdapters.readObject(File(File(TaskRuntime.TASKS, receipt.getString("taskId")), "request.json")).optJSONObject("panelUpdate")
+                SourceAdapters.readObject(File(File(TaskRuntime.TASKS, receipt.getString("taskId")), "request.json"), AgentGatewayProtocol.MAX_NATIVE_TASK_REQUEST_BYTES).optJSONObject("panelUpdate")
             } catch (_: Exception) { null } else null
             if (receipt != null) state(true, true) {
                 val current = store.get("panel_updates", update.getString("requestId"))!!
                 if (!current.optBoolean("settled")) {
                     if (current.optString("taskId").isEmpty() && receipt.optString("taskId").isNotEmpty()) {
                         val task = receipt.getString("taskId")
-                        if (binding != null && arrayOf("requestId", "panelId", "originThreadId", "matterId", "sourceVersion").all { canonical(binding.opt(it)) == canonical(current.opt(it)) }) {
+                        if (binding != null && PanelProtocol.matchesTaskBinding(binding, current)) {
                             current.put("taskId", task); reservePanelTask(current)
                         }
                     }
@@ -345,7 +345,7 @@ internal class MatterRuntime(
         var evidenceFailure: String? = null
         fun evidence(file: File, maximum: Int = 128_000): JSONObject? = try { SourceAdapters.readObject(file, maximum) }
             catch (invalid: Exception) { evidenceFailure = if (invalid is org.json.JSONException) "SOURCE_CHANGED" else "SOURCE_UNAVAILABLE"; null }
-        val request = evidence(File(directory, "request.json")) ?: JSONObject()
+        val request = evidence(File(directory, "request.json"), AgentGatewayProtocol.MAX_NATIVE_TASK_REQUEST_BYTES) ?: JSONObject()
         val info = File(directory, "runtime-info.json").let { if (it.isFile) evidence(it) ?: JSONObject() else JSONObject() }
         val terminal = File(directory, "done").isFile
         val manifestFile = File(directory, "panel-completion.json")
@@ -359,9 +359,7 @@ internal class MatterRuntime(
             if (!File(directory, "ready").isFile) throw IOException("SOURCE_CHANGED")
             if (bound.optString("turnId").isNotEmpty() && bound.getString("turnId") != info.optString("turnId")) throw IOException("SOURCE_CHANGED")
             val target = request.getJSONObject("panelUpdate")
-            PanelProtocol.exact(target, setOf("panelId", "originThreadId", "matterId", "sourceVersion", "requestId"))
-            for (key in arrayOf("panelId", "originThreadId", "matterId", "sourceVersion", "requestId"))
-                if (canonical(target.get(key)) != canonical(bound.get(key))) throw IOException("SOURCE_CHANGED")
+            if (!PanelProtocol.matchesTaskBinding(target, bound)) throw IOException("SOURCE_CHANGED")
             if (request.optString("id") != taskId || request.optString("conversationId") != bound.getString("originThreadId") || taskState!!.optString("id") != taskId || taskState.optString("state") != done) throw IOException("SOURCE_CHANGED")
             val completion = manifest ?: throw IOException("SOURCE_UNAVAILABLE")
             PanelProtocol.exact(completion, setOf("schema", "taskId", "threadId", "turnId", "status", "candidates", "reply", "code"))
@@ -386,6 +384,7 @@ internal class MatterRuntime(
                 if (completion.has("code")) throw IOException("SOURCE_CHANGED")
                 val reply = completion.getJSONObject("reply")
                 validatePrimary(reply, completion.getString("threadId"), completion.getString("turnId"))
+                if (bound.has("snapshot") && reply.getJSONObject("card").getJSONObject("request").getString("mode") != "panel") throw IOException("SOURCE_CHANGED")
                 val candidate = candidates.getJSONObject(0)
                 if (candidate.getString("replyId") != reply.getString("id") || candidate.getString("key") != reply.getString("key") || candidate.getLong("revision") != reply.getLong("revision") ||
                     candidate.getString("contractHash") != reply.getJSONObject("provenance").getString("contractHash") || candidate.getLong("anchorOrdinal") != reply.getJSONObject("provenance").getLong("anchorOrdinal")) throw IOException("SOURCE_CHANGED")
@@ -625,7 +624,7 @@ internal class MatterRuntime(
         }
         if (!publishingPanelReply) {
             val candidate = JSONObject().put("matterId", identity).put("threadId", thread).put("meta", JSONObject().put("provenance", provenance))
-            if (panels.pinCode(candidate) == "PANEL_UPDATE_PENDING") return
+            if (panels.pinCode(candidate, reply.getJSONObject("card").getJSONObject("request").getString("mode")) == "PANEL_UPDATE_PENDING") return
         }
         store.put("primary_snapshots", identity, JSONObject().put("reply", copy(reply)).put("observedAt", System.currentTimeMillis()))
         observe(thread, key, reply.getJSONObject("card").getJSONObject("request"), sourceId, provenance)

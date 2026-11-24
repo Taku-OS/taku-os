@@ -16,6 +16,8 @@ internal class HomeComposer(
   data class Attachment(val id: String, val name: String)
   data class Draft(val threadId: String, val revision: String, val text: String, val attachments: List<Attachment>, val pending: Request?)
 
+  data class PanelContinuation(val panelId: String, val sourceVersion: Long)
+
   data class Request(
     val threadId: String,
     val revision: String,
@@ -24,22 +26,30 @@ internal class HomeComposer(
     val action: String,
     val turnId: String?,
     val attachmentIds: List<String>,
+    val panel: PanelContinuation?,
   ) {
     fun key() = JSONObject().put("threadId", threadId).put("requestId", id)
 
     fun submission(): JSONObject = key().put("revision", revision).put("action", action)
-      .put("attachmentIds", JSONArray(attachmentIds)).apply { turnId?.let { put("expectedTurnId", it) } }
+      .put("attachmentIds", JSONArray(attachmentIds)).apply {
+        turnId?.let { put("expectedTurnId", it) }
+        panel?.let { put("panelId", it.panelId).put("expectedSourceVersion", it.sourceVersion) }
+      }
 
     companion object {
-      fun new(draft: Draft, turnId: String?) = Request(draft.threadId, draft.revision,
-        UUID.randomUUID().toString(), draft.text.trim(), if (turnId == null) "sendMessage" else "steer", turnId,
-        draft.attachments.map(Attachment::id))
+      fun new(draft: Draft, turnId: String?, panel: PanelContinuation?) = Request(draft.threadId, draft.revision,
+        UUID.randomUUID().toString(), draft.text.trim(), when {
+          panel != null -> "continue"
+          turnId != null -> "steer"
+          else -> "sendMessage"
+        }, turnId.takeIf { panel == null }, draft.attachments.map(Attachment::id), panel)
 
       fun parse(value: JSONObject) = Request(value.getString("threadId"), value.getString("revision"),
         value.getString("requestId"), value.getString("text"), value.getString("action"),
         value.optString("expectedTurnId").ifEmpty { null }, value.getJSONArray("attachmentIds").let { ids ->
           List(ids.length(), ids::getString)
-        })
+        }, if (value.getString("action") == "continue")
+          PanelContinuation(value.getString("panelId"), value.getLong("expectedSourceVersion")) else null)
     }
   }
 

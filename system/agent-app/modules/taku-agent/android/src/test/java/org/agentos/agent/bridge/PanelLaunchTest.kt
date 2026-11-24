@@ -16,14 +16,11 @@ import org.junit.Test
 class PanelLaunchTest {
   private val threadA = LaunchRoute.Path("thread-a", "panel-a", "thread-a", "launch-a")
   private val threadB = LaunchRoute.Path("thread-b", "panel-b", "thread-b", "launch-b")
-  private val targetA = PanelTarget("panel-a", 3, "thread-a", "launch-a")
-  private val targetB = PanelTarget("panel-b", 0, "thread-b", "launch-b")
+  private val targetA = PanelTarget("panel-a", "thread-a", "launch-a", "Trip plan")
+  private val targetB = PanelTarget("panel-b", "thread-b", "launch-b", "Packing list")
   private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
-  private fun launch(resolve: suspend (LaunchRoute.Path) -> LaunchAnswer): PanelLaunch {
-    val consumed = mutableSetOf<String>()
-    return PanelLaunch(scope, consumed::contains, { consumed.add(it) }, resolve)
-  }
+  private fun launch(resolve: suspend (LaunchRoute.Path) -> LaunchAnswer): PanelLaunch = PanelLaunch(scope, resolve)
 
   private fun launch(answers: Map<String, CompletableDeferred<LaunchAnswer>>) =
     launch { path -> answers.getValue(path.panelId!!).await() }
@@ -88,23 +85,24 @@ class PanelLaunchTest {
     scope.cancel()
   }
 
-  @Test fun reopeningTheSamePanelUsesItsCurrentSourceVersion() = runBlocking {
-    var version = 0L
-    val panelLaunch = launch { LaunchAnswer.Accepted(PanelTarget("panel-a", version, "thread-a", "launch-a")) }
+  @Test fun reopeningTheSamePanelUsesItsCurrentTitle() = runBlocking {
+    var title = "Trip plan"
+    val panelLaunch = launch { LaunchAnswer.Accepted(targetA.copy(title = title)) }
     panelLaunch.observe(threadA)
-    assertEquals(0L, (panelLaunch.answer(1_000) as LaunchAnswer.Accepted).target.sourceVersion)
-    version = 1L
+    assertEquals("Trip plan", (panelLaunch.answer(1_000) as LaunchAnswer.Accepted).target.title)
+    title = "Renamed trip plan"
     panelLaunch.reopen(threadA)
-    assertEquals(1L, (panelLaunch.answer(1_000) as LaunchAnswer.Accepted).target.sourceVersion)
+    assertEquals("Renamed trip plan", (panelLaunch.answer(1_000) as LaunchAnswer.Accepted).target.title)
     scope.cancel()
   }
 
-  @Test fun aNewValidatedTargetSupersedesTheCachedVersionForTheSamePath() = runBlocking {
+  @Test fun aNewValidatedTargetSupersedesTheCachedTitleForTheSamePath() = runBlocking {
     val panelLaunch = launch { LaunchAnswer.Rejected("UNEXPECTED_READ") }
-    val previous = panelLaunch.seed(threadA, LaunchAnswer.Accepted(PanelTarget("panel-a", 0, "thread-a", "launch-a")))
-    panelLaunch.seed(threadA, LaunchAnswer.Accepted(PanelTarget("panel-a", 1, "thread-a", "launch-a")))
+    val previous = panelLaunch.seed(threadA, LaunchAnswer.Accepted(targetA))
+    val renamed = targetA.copy(title = "Renamed trip plan")
+    panelLaunch.seed(threadA, LaunchAnswer.Accepted(renamed))
     assertFalse(panelLaunch.current(previous))
-    assertEquals(1L, (panelLaunch.answer(1_000) as LaunchAnswer.Accepted).target.sourceVersion)
+    assertEquals(LaunchAnswer.Accepted(renamed), panelLaunch.answer(1_000))
     scope.cancel()
   }
 
@@ -134,73 +132,25 @@ class PanelLaunchTest {
     scope.cancel()
   }
 
-  @Test fun acceptedConsumptionSurvivesANewControllerAndAnOldRestoredIntent() = runBlocking {
-    val consumed = mutableSetOf<String>()
-    fun restored() = PanelLaunch(scope, consumed::contains, { consumed.add(it) }) {
-      LaunchAnswer.Accepted(targetA)
-    }
-    val first = restored()
-    val original = first.observe(threadA)
+  @Test fun theSameRestoredIntentStillResolvesThePanelInANewModule() = runBlocking {
+    val first = launch { LaunchAnswer.Accepted(targetA) }
+    first.observe(threadA)
     assertEquals(LaunchAnswer.Accepted(targetA), first.answer(1_000))
-    first.consume("launch-a")
-    assertFalse(first.current(original))
-    assertEquals(LaunchAnswer.NoPanel, first.answer(1_000))
-    val afterProcessDeath = restored()
-    afterProcessDeath.observe(threadA)
-    assertEquals(LaunchAnswer.NoPanel, afterProcessDeath.answer(1_000))
-    afterProcessDeath.reopen(threadA)
-    assertEquals(LaunchAnswer.NoPanel, afterProcessDeath.answer(1_000))
-    assertEquals("thread-a", afterProcessDeath.path()?.threadId)
+    val restored = launch { LaunchAnswer.Accepted(targetA) }
+    restored.observe(threadA)
+    assertEquals(LaunchAnswer.Accepted(targetA), restored.answer(1_000))
     scope.cancel()
   }
 
-  @Test fun anExplicitSamePanelReopenGetsAFreshContinuationAfterConsumption() = runBlocking {
-    val consumed = mutableSetOf<String>()
-    val panelLaunch = PanelLaunch(scope, consumed::contains, { consumed.add(it) }) { path ->
-      LaunchAnswer.Accepted(targetA.copy(launchId = path.launchId!!))
-    }
-    panelLaunch.observe(threadA)
-    panelLaunch.consume("launch-a")
-    panelLaunch.reopen(threadA.copy(launchId = "launch-a-again"))
-    assertEquals(LaunchAnswer.Accepted(targetA.copy(launchId = "launch-a-again")), panelLaunch.answer(1_000))
-    scope.cancel()
-  }
-
-  @Test fun anOldReceiptCannotConsumeANewerLaunchEvenForTheSamePanelAndVersion() = runBlocking {
-    val consumed = mutableSetOf<String>()
-    val panelLaunch = PanelLaunch(scope, consumed::contains, { consumed.add(it) }) { path ->
-      LaunchAnswer.Accepted(targetA.copy(launchId = path.launchId!!))
-    }
-    panelLaunch.observe(threadA)
-    panelLaunch.reopen(threadA.copy(launchId = "launch-new"))
-    panelLaunch.consume("launch-a")
-    assertEquals(LaunchAnswer.Accepted(targetA.copy(launchId = "launch-new")), panelLaunch.answer(1_000))
-    assertEquals(setOf("launch-a"), consumed)
-    scope.cancel()
-  }
-
-  @Test fun consumptionStorageFailureKeepsTheContinuationAvailableForReceiptReconciliation() = runBlocking {
-    val panelLaunch = PanelLaunch(scope, consumed = { false }, persistConsumption = { throw IllegalStateException("disk full") }) {
-      LaunchAnswer.Accepted(targetA)
-    }
-    panelLaunch.observe(threadA)
-    try {
-      panelLaunch.consume("launch-a")
-      org.junit.Assert.fail("Consumption must not succeed without its durable marker")
-    } catch (_: IllegalStateException) {
-      assertEquals(LaunchAnswer.Accepted(targetA), panelLaunch.answer(1_000))
-    }
-    scope.cancel()
-  }
-
-  @Test fun anAnswerAlreadyInFlightCannotRestoreAConsumedLaunch() = runBlocking {
+  @Test fun ordinaryNavigationToTheSameThreadSupersedesAnInFlightPanelRead() = runBlocking {
     val response = CompletableDeferred<LaunchAnswer>()
-    val consumed = mutableSetOf<String>()
-    val panelLaunch = PanelLaunch(scope, consumed::contains, { consumed.add(it) }) { response.await() }
-    val original = panelLaunch.observe(threadA)
-    panelLaunch.consume("launch-a")
+    val panelLaunch = launch { response.await() }
+    val previous = panelLaunch.observe(threadA)
+    val ordinary = LaunchRoute.Path(threadA.threadId, null, null)
+    panelLaunch.reopen(ordinary)
     response.complete(LaunchAnswer.Accepted(targetA))
-    assertFalse(panelLaunch.current(original))
+    assertFalse(panelLaunch.current(previous))
+    assertEquals(ordinary, panelLaunch.path())
     assertEquals(LaunchAnswer.NoPanel, panelLaunch.answer(1_000))
     scope.cancel()
   }

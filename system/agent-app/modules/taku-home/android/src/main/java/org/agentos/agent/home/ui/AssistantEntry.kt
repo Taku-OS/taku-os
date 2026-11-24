@@ -51,6 +51,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.onLongClick
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -69,10 +70,14 @@ import androidx.compose.foundation.background
  * ry 78.5, rx 240 → 206 (scaled by width / 412).
  */
 @Composable
-internal fun BoxScope.AssistantEntry(scene: GraphicsLayer, controller: HomeController, pageCount: Int, page: Int, navInset: Dp, gestures: HomeGesturePolicy) {
+internal fun BoxScope.AssistantEntry(scene: GraphicsLayer, controller: HomeController, pageCount: Int, page: Int, navInset: Dp, gestures: HomeGesturePolicy, settled: Boolean) {
   val density = LocalDensity.current
   val haptics = LocalHapticFeedback.current
   val type = TakuTheme.type
+  val panelId = controller.selectedPanelId
+  val panelTitle = panelId?.let(controller::panelTitle)?.takeIf(String::isNotBlank)
+  val assistantName = panelTitle ?: "Taku"
+  val hint = "Double tap to type or hold to talk"
   val entryState by controller.assistant.state.collectAsStateWithLifecycle()
   val expanded = entryState.hintExpanded
   val e by animateFloatAsState(if (expanded) 1f else 0f, spring(dampingRatio = 0.72f, stiffness = Spring.StiffnessMediumLow), label = "entry")
@@ -123,12 +128,12 @@ internal fun BoxScope.AssistantEntry(scene: GraphicsLayer, controller: HomeContr
       .fillMaxWidth()
       .height(lerp(70.dp, 110.dp, e))
       .onGloballyPositioned { origin = it.positionInRoot() }
-      .pointerInput(gestures) {
+      .pointerInput(gestures, panelId, settled) {
         awaitEachGesture {
           val down = awaitFirstDown()
           // This is the desktop entry, not the system nav handle. Keep mandatory/system
           // edge starts available to Android, including a stationary hold on the handle.
-          if (gestures.systemStart) return@awaitEachGesture
+          if (gestures.systemStart || !settled) return@awaitEachGesture
           var cancelled = false
           val up = withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) {
             var result: androidx.compose.ui.input.pointer.PointerInputChange? = null
@@ -146,7 +151,7 @@ internal fun BoxScope.AssistantEntry(scene: GraphicsLayer, controller: HomeContr
           if (cancelled) return@awaitEachGesture
           if (up == null) {
             // No haptic here: the one vibration comes when the microphone records (VoiceHold).
-            controller.startVoiceHold()
+            controller.startVoiceHold(panelId)
             // Only a real lift sends. When the system takes the gesture over (navigation swipe,
             // recents) Compose delivers ACTION_CANCEL as an up that is already consumed; that,
             // a vanished pointer, or this coroutine being cancelled all abort the hold instead.
@@ -178,29 +183,45 @@ internal fun BoxScope.AssistantEntry(scene: GraphicsLayer, controller: HomeContr
               val secondUp = waitForUpOrCancellation() ?: return@awaitEachGesture
               secondUp.consume()
               haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-              controller.openTextInput()
+              controller.openTextInput(panelId)
             }
           }
         }
       }
       .semantics {
-        contentDescription = "Taku. Double tap to type or hold to talk"
-        onClick("Type to Taku") { controller.openTextInput(); true }
+        contentDescription = "$assistantName. $hint"
+        onClick("Type to $assistantName") {
+          if (settled) controller.openTextInput(panelId)
+          settled
+        }
         // Accessibility: long click starts listening, the next one sends what was heard.
-        onLongClick("Talk to Taku") {
-          if (controller.assistant.state.value.entry == org.agentos.agent.home.assistant.EntryMode.Voice) controller.releaseVoiceHold() else controller.startVoiceHold()
-          true
+        onLongClick("Talk to $assistantName") {
+          if (!settled) false else {
+            if (controller.assistant.state.value.entry == org.agentos.agent.home.assistant.EntryMode.Voice) controller.releaseVoiceHold()
+            else controller.startVoiceHold(panelId)
+            true
+          }
         }
       },
   )
 
   BasicText(
-    "Double tap to type or hold to talk",
+    if (panelTitle == null || expanded) hint else panelTitle,
     style = type.bodyMd.copy(color = TakuTheme.colors.textPlaceholder, shadow = Shadow(TakuTheme.colors.textGlow, Offset(0f, with(density) { 2.dp.toPx() }), with(density) { 4.dp.toPx() })),
+    maxLines = 1,
+    overflow = TextOverflow.Ellipsis,
     modifier = Modifier
       .align(Alignment.BottomCenter)
       .offset(y = -(158.dp - 80.dp - 20.dp))
-      .graphicsLayer { alpha = e; translationY = (1f - e) * 12.dp.toPx() },
+      .graphicsLayer { alpha = if (panelTitle == null) e else 1f; translationY = (1f - e) * 12.dp.toPx() }
+      .padding(horizontal = TakuSpacing.gutter)
+  )
+  if (panelTitle != null && expanded) BasicText(
+    panelTitle,
+    style = type.bodyMd.copy(color = TakuTheme.colors.textPrimary),
+    maxLines = 1,
+    overflow = TextOverflow.Ellipsis,
+    modifier = Modifier.align(Alignment.BottomCenter).offset(y = (-80).dp).padding(horizontal = TakuSpacing.gutter),
   )
 
   PageDots(pageCount, page, Modifier.align(Alignment.BottomCenter).padding(bottom = navInset + TakuSpacing.sm))

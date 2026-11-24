@@ -28,6 +28,7 @@ internal class AgentGatewaySubmissions(private val root: File) {
     }
     /** Only an explicit native rejection proving steer was not submitted may use this. */
     class SteerNotSubmitted : IOException("TURN_CHANGED")
+    class RejectedBeforeReady(code: String) : IOException(code)
     interface Fallback {
         @Throws(Exception::class)
         fun check()
@@ -138,6 +139,10 @@ internal class AgentGatewaySubmissions(private val root: File) {
                 }
                 reservation.put("taskId", task).put("state", "queued")
                 finish(receipt, reservation)
+            } catch (rejected: RejectedBeforeReady) {
+                reservation.remove("taskId")
+                reservation.put("state", "notSent").put("code", rejected.message)
+                try { finish(receipt, reservation) } catch (_: Exception) { }
             } catch (failed: Exception) {
                 val task = reservation.optString("taskId")
                 val published = Pattern.matches("[0-9]+", task) && File(File(TaskRuntime.TASKS, task), "ready").isFile
@@ -242,9 +247,7 @@ internal class AgentGatewaySubmissions(private val root: File) {
         if (composerRequestId != null && request.optString("composerRequestId") != composerRequestId) return false
         if (panel == null) return !request.has("panelUpdate")
         val binding = request.optJSONObject("panelUpdate") ?: return false
-        return arrayOf("requestId", "panelId", "originThreadId", "matterId", "sourceVersion").all { key ->
-            panel.has(key) && binding.has(key) && panel.get(key).toString() == binding.get(key).toString()
-        }
+        return PanelProtocol.matchesTaskBinding(binding, panel)
     }
 
     companion object {

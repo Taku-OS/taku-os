@@ -88,7 +88,7 @@ internal class SourceAdapters(private val context: Context) {
             val id = resource.getString("resourceId")
             if (!java.util.regex.Pattern.matches("[0-9]{1,20}", id)) throw IOException("INVALID_TASK_ID")
             val directory = File(TaskRuntime.TASKS, id)
-            val request = readObject(File(directory, "request.json"))
+            val request = readObject(File(directory, "request.json"), AgentGatewayProtocol.MAX_NATIVE_TASK_REQUEST_BYTES)
             if (resource.getString("threadId") != request.optString("conversationId")) throw IOException("TASK_THREAD_MISMATCH")
             return directory
         }

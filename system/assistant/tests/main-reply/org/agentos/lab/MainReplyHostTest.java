@@ -350,11 +350,19 @@ public final class MainReplyHostTest {
         check(phase(groupedView(false,true,true)).equals("failed"),"Expansion writes require the same first group member accepted by the client");
     }
 
+    private static void panelReplacementMode() {
+        MainReplyStream marked=stream();
+        marked.push(prefix().replace("\"mode\":\"card\"","\"mode\":\"panel\"")+done(6));
+        marked.finish("completed");
+        check(phase(marked).equals("completed")&&request(marked).getString("mode").equals("panel"),"Completed MainReply preserves the begin mode used for Panel replacement");
+    }
+
     public static void main(String[] args) throws Exception {
         contract=json(Files.readString(new File(args[0]).toPath()));
         JSONObject hashed=new JSONObject(contract.toString());hashed.remove("contractHash");hashed.remove("prompt");
         check(MainReplyStream.manifestHash(hashed).equals(contract.getString("contractHash")),"Native canonical encoding matches the real exporter manifest hash");
         incremental();segmentation();rejectedRecords();typedAndSchema();actionsAndBounds();lifecycle();liveHistory();canonicalCatchup();reviewedSources();groupMembership();
+        panelReplacementMode();
         System.out.println("MainReplyHostTest: "+assertions+" assertions passed");
     }
 }

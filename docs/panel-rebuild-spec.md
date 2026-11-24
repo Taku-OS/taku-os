@@ -106,7 +106,7 @@ Subscriptions group at most 32 Matters per batch, respecting the native limit of
 | Agent App `src/panels/PanelRoot.tsx`, `client.ts`, `host.ts`, `usePanelCatalog.ts`, `matterDemand.ts`, `cardViewSync.ts` | Resolve native sources by Panel ID, reuse GenUI/shared inputs without copying business state; JS catalog, navigation, subscription coordination |
 | `src/chat/TakuHomePage.tsx`, `src/panels/PanelCatalogView.tsx`, `src/components/GenUiCard.tsx`, `src/hooks/useGenUi.ts` | Real list, Pin state, Open/Unpin, rename/reorder, replacement of old save path |
 | `index.ts` and Home `panels/PanelDirectory.kt`, `PanelDirectoryPages.kt`, `PanelNavigation.kt`, `PanelNavigationProvider.kt`, `PanelPageUi.kt`, `ui/HomeController.kt`, `ui/HomeScreen.kt`, `HomeActivity.kt`, `apps/HomePanelAnchor.kt` | New RN root registration, dynamic pages in catalog order, reanchoring/exact navigation by `panelId`, `panels/navigation` projection |
-| `TakuAgentModule.kt`, `PanelLaunch.kt`, `PanelLaunchIntents.kt`, `LaunchRoute.kt` | Independent leases per visible entry, Continue route, one-time `launchId` consumption, actual sending through `panels/continue` |
+| `TakuAgentModule.kt`, `PanelLaunch.kt`, `PanelLaunchIntents.kt`, `LaunchRoute.kt` | Independent leases per visible entry, persistent Panel conversation route, version-checked composer sends |
 | Assistant skills, harness, build/image validation | New contract discovery (bundled `taku-open-access`), existing-install upgrade, old-asset retirement, real APK binding |
 
 ## 5. Panel identity and source
@@ -160,7 +160,7 @@ A primary reply must actually be `completed` and have a usable card presentation
 
 Matter identity includes `threadId/key`. A new card in a later turn may have a different key and must not be assumed to update the previous Matter automatically.
 
-On continued editing, native code adds `panelId`, current `sourceVersion`, and source binding to the real task's trusted context (`panelUpdate`, persisted in task `request.json`). Once the task completes with a native-validated `panel-completion.json` (`taku.panel-completion/1`), `PanelRegistry.publish` switches the existing Panel's `matterId` to the new source and increases `sourceVersion`, retaining `panelId`, title, and order.
+Each continuation binds the request to the Panel ID, original conversation, current source version, and saved source. The model receives the current Panel context before the turn. After native completion, the Panel keeps its ID, title, and order while its `matterId` and `sourceVersion` advance to the validated replacement.
 
 Native publication enforces all of these constraints.
 
@@ -169,8 +169,8 @@ Native publication enforces all of these constraints.
 - If the Panel was Unpinned, do not recreate it. Record `unpinned` in the receipt; task results remain in the original conversation.
 - Failed, interrupted, or plain-text-only tasks retain the old source and record the real outcome (`failed`, `interrupted`, `REPLY_INCOMPLETE`) instead of replacing it with an empty panel.
 - Old display actions for the replaced source become invalid natively (`display_supersessions` plus removal of `actionRef` during reconstruction). Old chat history remains readable; expired buttons cannot execute, and direct dispatch returns `STALE_SOURCE`.
-- Inputs and selections with compatible semantic IDs and types across schemas may carry forward. Incompatible drafts remain marked `needsReview`, without silent clearing or execution.
-- Task receipts durably reference the exact completed-reply source. Multiple candidates without a unique resolution return `PANEL_UPDATE_AMBIGUOUS`, retaining the old panel and conversation result rather than guessing the last reply.
+- A replacement can change an input value saved when the request was sent. A newer manual edit takes precedence. If the schema becomes incompatible, the prior draft remains available for review.
+- A replacement must be a completed primary reply declared with `mode:"panel"`. The broker considers only marked replies when a turn also has other cards. Multiple marked replies return `PANEL_UPDATE_AMBIGUOUS`. Zero marked replies return `REPLY_INCOMPLETE`. Both outcomes retain the previous Panel and the conversation results.
 - Source switch, old/new retention, old-action invalidation, and publication receipt commit in one native transaction. Invalidating old presentation does not cancel real tasks or rules already running.
 - A new source belonging to an existing Panel update task returns `PANEL_UPDATE_PENDING` at `pinCode`, preventing Pin of the new reply from creating a second Panel. A source already owned by another panel returns `SOURCE_ALREADY_PINNED`; no automatic merge occurs.
 
@@ -212,7 +212,9 @@ Offline or unavailable sources may display the last native-retained trusted snap
 
 ### 6.4 Continued editing and source deletion
 
-**Continue editing** opens the bound original conversation. The first actual send uses the unified Panel continue command (`panels/continue`) to publish trusted target context, reusing existing submission receipts and session busy/idle validation instead of old `home-pending-*` handoff. Subsequent messages in that conversation are ordinary turns and do not update the panel again.
+**Continue editing** opens the original conversation with the Panel's title and a link back to its page. Each new send uses the current Panel source version and the usual composer and submission receipts. Agent callers can use `panels/continue` with the current source version from `panels/get`. Opening another chat or explicitly opening the original conversation from history exits Panel editing.
+
+The bottom assistant entry on a Panel page displays the Panel's name. Double-tap to type or hold to speak. Both submit to the original conversation as Panel updates.
 
 Archiving the original conversation does not invalidate a pinned panel. Pin ownership protects required native sources and trusted snapshots. After permanent conversation deletion, retained panels show the last trusted content and an unavailable-conversation state; continued editing returns `SOURCE_THREAD_NOT_FOUND`. Never silently create another conversation or switch panels.
 
@@ -393,6 +395,12 @@ Expanding/collapsing **Review saved inputs** leaves native `ui`, `review`, and `
 `after-chinese-review.png` and `locale-result.json` cover draft details in Chinese at 150% font scale. Original font scale and empty app-language override were restored afterward. Android Gradle `assembleRelease`, typecheck, and lint passed. The default build wrapper timed out after Expo prebuild output; the actual APK used the generated Android project with Android Studio JDK 25.0.3 for Gradle build, alignment, platform signing, and signature verification.
 
 The emulator host later reported hung QEMU main-loop/CPU threads and exited for an undetermined reason. The same AVD was cold-started with software graphics and preserved data; installed APK hash was unchanged, all 15 `recovered-result.json` checks passed again, and visible chat-button navigation was repeated. The user's `emulator-5680` was untouched.
+
+### 10.2 Panel continuation
+
+The component upgrade on `emulator-5682` verified the named chat entry and return to the same Panel. Two consecutive chat edits published counts 41 and 42. The Home text and hold-to-send paths published 43 and 44 through the original conversation. Agent readback matched the Panel values. A subsequent turn published count 45 and created a separate ordinary Matter card.
+
+The stale composer check returned `VERSION_CONFLICT`, kept the draft, and released the pending slot. Chat collapse selected the same Panel on Home. After Agent process death, invoking the retained Edit Activity with its original arguments restored the saved draft. Reset rejected a replay of that intent. Evidence is in the local `out/panel-continuation/` directory. The test upgraded the Agent APK, Assistant APK, and broker JAR. It used synthetic microphone input and a connected model.
 
 
 ## 11. Alternatives and tradeoffs

@@ -945,13 +945,12 @@ public final class CodexAppServer implements AutoCloseable {
         }
     }
 
-    /**
-     * Panel updates publish only from exactly one completed card reply of this task's turn, so the
-     * manifest records every candidate and the failure code instead of guessing the newest reply.
-     */
+    /** Writes only owned replacement candidates for snapshot-bound requests; older requests predate the marker. */
     static void writePanelCompletion(File directory, JSONObject request, String status) throws Exception {
-        if (request.optJSONObject("panelUpdate") == null) return;
-        String thread = request.getJSONObject("panelUpdate").getString("originThreadId"), turn = "";
+        JSONObject binding = request.optJSONObject("panelUpdate");
+        if (binding == null) return;
+        boolean scoped = binding.has("snapshot");
+        String thread = binding.getString("originThreadId"), turn = "";
         File info = new File(directory, "runtime-info.json");
         if (info.isFile()) {
             JSONObject value = new JSONObject(TaskBroker.read(info));
@@ -964,16 +963,20 @@ public final class CodexAppServer implements AutoCloseable {
         if ("completed".equals(status) && !thread.isEmpty() && !turn.isEmpty()) {
             JSONArray replies = AgentViews.panelCompletion(thread, turn).optJSONArray("replies");
             JSONArray candidates = new JSONArray();
+            JSONObject selected = null;
             if (replies != null) for (int i = 0; i < replies.length(); i++) {
-                JSONObject reply = replies.getJSONObject(i), provenance = reply.optJSONObject("provenance");
+                JSONObject reply = replies.getJSONObject(i);
+                if (scoped && !"panel".equals(reply.getJSONObject("card").getJSONObject("request").optString("mode"))) continue;
+                selected = reply;
+                JSONObject provenance = reply.optJSONObject("provenance");
                 candidates.put(new JSONObject().put("replyId", reply.optString("id"))
                         .put("key", reply.optString("key")).put("revision", reply.getLong("revision"))
                         .put("contractHash", provenance == null ? "" : provenance.optString("contractHash"))
                         .put("anchorOrdinal", provenance == null ? -1 : provenance.optInt("anchorOrdinal", -1)));
             }
             manifest.put("candidates", candidates);
-            if (replies != null && replies.length() == 1)
-                manifest.put("reply", new JSONObject(replies.getJSONObject(0).toString()));
+            if (candidates.length() == 1)
+                manifest.put("reply", selected);
             else manifest.put("code", candidates.length() == 0 ? "REPLY_INCOMPLETE" : "PANEL_UPDATE_AMBIGUOUS");
         }
         TaskBroker.write(new File(directory, "panel-completion.json"), manifest.toString());

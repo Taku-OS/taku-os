@@ -362,17 +362,20 @@ the same way:
 
 ```sh
 am start -n org.agentos.agent/.MainActivity \
-  --es threadId <originThreadId> --es panelId <uuid> \
-  --es sourceVersion <n> --es originThreadId <originThreadId>
+  --es threadId "$THREAD_ID" --es panelId "$PANEL_ID" \
+  --es originThreadId "$THREAD_ID" --es panelLaunchId "$(uuidgen | tr '[:upper:]' '[:lower:]')"
 ```
 
-The module validates the id through `panels/get` and accepts the target only when
-`originThreadId == threadId` and `capabilities.canContinue`, then emits
-`onOpenThread {threadId, panelTarget?}`. Navigation sends no task. The chat keeps the target as
-navigation context only: its next send goes through `panels/continue` with the expected
-`sourceVersion`, the same request identity and receipt UI as an ordinary message, and the target is
-cleared on a thread change or after the accepted send. Failures such as `SOURCE_THREAD_NOT_FOUND`
-or `PANEL_NOT_FOUND` are shown as real errors; nothing falls back to a sample or a second composer. Media surfaces use actual native playback/camera/capture resources; meeting summaries cite finalized recognition evidence and can seek near its recorded observation time, explicitly not word alignment. Playback translation does not claim video timeline alignment. Per-scenario verification and prerequisites are recorded in [the acceptance ledger](../../docs/reviews/generative-ui-v2-2026-11-02/README.md).
+The module checks `panels/get` before it opens the Panel conversation. The original thread must
+match `threadId`, and `capabilities.canContinue` must be true. Opening the conversation sends no
+task. The chat header shows the Panel title and opens that Panel via `panels/open`.
+
+Each new message in the Panel conversation uses `composer/submit` with `action:"continue"` and the
+current `expectedSourceVersion`. Retry checks the original request ID and source version. Opening a
+conversation from history or creating a new conversation exits Panel editing. A missing Panel or
+deleted original conversation returns `PANEL_NOT_FOUND` or `SOURCE_THREAD_NOT_FOUND`.
+
+Media surfaces use actual native playback, camera, and capture resources. Meeting summaries cite finalized recognition evidence and can seek near its recorded observation time. Playback translation does not claim video timeline alignment. See the [scenario acceptance ledger](../../docs/reviews/generative-ui-v2-2026-11-02/README.md).
 
 Native retention protects pinned panels, edited drafts, selections, pending review, active view/read leases, rules, live audio and unresolved commands. Unowned temporary projections and orphaned sources are reclaimed on demand. Terminal command receipts are archived before their bounded projection is removed, preserving duplicate-request lookup. When protected state fills storage, admission fails before replacing existing pinned state.
 

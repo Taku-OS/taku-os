@@ -22,7 +22,13 @@ import expo.modules.kotlin.functions.Queues
 import expo.modules.kotlin.functions.Coroutine
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.agentos.agent.home.MainThread
+import org.agentos.agent.home.assistant.AssistantSession
+import org.agentos.agent.home.panels.PanelNavigation
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.io.IOException
@@ -32,16 +38,16 @@ import java.util.UUID
 private class PanelTargetException(code: String) : CodedException(code, code, null)
 
 /** The Panel a conversation was opened for; navigation context only, never content or authority. */
-internal data class PanelTarget(val panelId: String, val sourceVersion: Long, val originThreadId: String, val launchId: String) {
+internal data class PanelTarget(val panelId: String, val originThreadId: String, val launchId: String, val title: String) {
   fun toJson(): String = JSONObject()
     .put("panelId", panelId)
-    .put("sourceVersion", sourceVersion)
+    .put("title", title)
     .put("originThreadId", originThreadId)
     .put("launchId", launchId)
     .toString()
 
   fun toEvent(): Map<String, Any> =
-    mapOf("panelId" to panelId, "sourceVersion" to sourceVersion.toDouble(), "originThreadId" to originThreadId, "launchId" to launchId)
+    mapOf("panelId" to panelId, "originThreadId" to originThreadId, "launchId" to launchId, "title" to title)
 }
 
 /** No execution or credentials live in this client; the system gateway owns all decisions. */
@@ -54,7 +60,6 @@ class TakuAgentModule : Module() {
      */
     const val EXTRA_THREAD_ID = "threadId"
     const val EXTRA_PANEL_ID = "panelId"
-    const val EXTRA_SOURCE_VERSION = "sourceVersion"
     const val EXTRA_ORIGIN_THREAD_ID = "originThreadId"
 
     /** How long an awaited launch route may wait for `panels/get` before JS uses its default. */
@@ -118,13 +123,7 @@ class TakuAgentModule : Module() {
   private val matterReaders = HashMap<String, MatterEventReader>()
 
   /** The Panel half of the conversation route: one fenced `panels/get` per route. */
-  private val panelLaunch by lazy {
-    val context = appContext.reactContext?.applicationContext ?: throw IOException("Agent UI is not ready")
-    PanelLaunch(appContext.backgroundCoroutineScope,
-      consumed = { PanelLaunchIntents.consumed(context, it) },
-      persistConsumption = { PanelLaunchIntents.consume(context, it) },
-    ) { path -> panelAnswer(path) }
-  }
+  private val panelLaunch by lazy { PanelLaunch(appContext.backgroundCoroutineScope, ::panelAnswer) }
   /** Where the conversation activity is started, so hidden chat cards can drop their demand. */
   private var conversationVisibility: ConversationVisibility? = null
   private var conversationApplication: Application? = null
@@ -249,9 +248,9 @@ class TakuAgentModule : Module() {
     }
     val originThreadId = panel.optString("originThreadId")
     if (originThreadId.isBlank()) throw PanelTargetException("SOURCE_THREAD_NOT_FOUND")
-    val sourceVersion = panel.optLong("sourceVersion", -1L)
-    if (sourceVersion < 0) throw PanelTargetException("PANEL_NOT_FOUND")
-    return PanelTarget(panel.optString("panelId", panelId), sourceVersion, originThreadId, launchId)
+    val title = panel.optString("title")
+    if (panel.optString("panelId") != panelId || title.isBlank()) throw PanelTargetException("PANEL_TARGET_INVALID")
+    return PanelTarget(panelId, originThreadId, launchId, title)
   }
 
   /** The route a conversation intent names, or null when it names no thread. */
@@ -504,35 +503,28 @@ class TakuAgentModule : Module() {
       generation.toLongOrNull()?.let { panelLaunch.current(it) } ?: false
     }
 
-    Function("isPanelLaunchConsumed") { launchId: String ->
-      val context = appContext.reactContext ?: throw IOException("Agent UI is not ready")
-      PanelLaunchIntents.consumed(context, launchId)
+    Function("isPanelRouteCurrent") { panelId: String, launchId: String ->
+      val path = panelLaunch.path()
+      path != null && path.panelId == panelId && path.launchId == launchId
     }
 
-    AsyncFunction("consumePanelLaunch") { launchId: String ->
-      require(launchId.isNotBlank()) { "Missing Panel launch identity" }
-      panelLaunch.consume(launchId)
-      mainHandler.post {
-        conversationActivity()?.let { activity ->
-          if (activity.intent?.getStringExtra(PanelLaunchIntents.EXTRA_LAUNCH_ID) == launchId) {
-            activity.intent = Intent(activity.intent).also(PanelLaunchIntents::clearPanel)
-          }
+    Function("selectConversation") { threadId: String?, expectedGeneration: String? ->
+      MainThread.call(onTimeout = { IOException("Conversation UI did not respond") }) {
+        val activity = conversationActivity()
+        if (expectedGeneration != null) {
+          if (expectedGeneration.toLongOrNull() != panelLaunch.generation()) return@call null
+          val intentRoute = routePath(activity?.intent)
+          if (intentRoute != null && intentRoute != panelLaunch.path()) return@call null
         }
-      }
-      Unit
-    }
-
-    Function("selectConversation") { threadId: String? ->
-      panelLaunch.path()?.takeIf { it.panelId != null }?.launchId?.let(panelLaunch::consume)
-      panelLaunch.clear()
-      latestThreadId = threadId ?: ""
-      if (threadId != null) panelLaunch.observe(LaunchRoute.Path(threadId, null, null))
-      conversationActivity()?.let { activity ->
-        val intent = Intent(activity.intent).apply {
-          PanelLaunchIntents.clearPanel(this)
+        panelLaunch.clear()
+        latestThreadId = threadId ?: ""
+        if (threadId != null) panelLaunch.observe(LaunchRoute.Path(threadId, null, null))
+        activity?.let {
+          val intent = Intent(it.intent).apply { PanelLaunchIntents.clearPanel(this) }
+          if (threadId == null) intent.removeExtra(EXTRA_THREAD_ID) else intent.putExtra(EXTRA_THREAD_ID, threadId)
+          it.intent = intent
         }
-        if (threadId == null) intent.removeExtra(EXTRA_THREAD_ID) else intent.putExtra(EXTRA_THREAD_ID, threadId)
-        activity.intent = intent
+        panelLaunch.generation().toString()
       }
     }
 
@@ -543,13 +535,13 @@ class TakuAgentModule : Module() {
      * send itself goes through `panels/continue`.
      */
     AsyncFunction("launchPanelTarget") Coroutine { refresh: Boolean ->
-      val path = openRoute() ?: return@Coroutine ""
-      latestThreadId = path.threadId
-      if (refresh) panelLaunch.reopen(path) else panelLaunch.observe(path)
+      withContext(Dispatchers.Main.immediate) {
+        openRoute()?.also {
+          latestThreadId = it.threadId
+          if (refresh) panelLaunch.reopen(it) else panelLaunch.observe(it)
+        }
+      } ?: return@Coroutine ""
       val answer = panelLaunch.answer(ROUTE_TIMEOUT_MS)
-      // The answered route may be newer than the intent this call started with; the thread the
-      // chat must restore is that one, not the superseded one.
-      panelLaunch.path()?.let { latestThreadId = it.threadId }
       when (answer) {
         LaunchAnswer.NoPanel -> ""
         is LaunchAnswer.Accepted -> answer.target.toJson()
@@ -566,21 +558,22 @@ class TakuAgentModule : Module() {
      * Opens the Panel's original conversation with the standard Android extras, so the same route
      * works from the GUI and from `am start`. No task is sent and no content is transferred.
      */
-    AsyncFunction("openPanelConversation") { panelId: String ->
+    AsyncFunction("openPanelConversation") Coroutine { panelId: String ->
       val context = appContext.reactContext ?: throw IOException("Agent UI is not ready")
-      val target = resolveTarget(panelId, UUID.randomUUID().toString())
-      val path = LaunchRoute.Path(target.originThreadId, target.panelId, target.originThreadId, target.launchId)
-      panelLaunch.seed(path, LaunchAnswer.Accepted(target))
-      latestThreadId = target.originThreadId
-      context.startActivity(
-        Intent().setClassName(context.packageName, CONVERSATION)
-          .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-          .putExtra(EXTRA_THREAD_ID, target.originThreadId)
-          .putExtra(EXTRA_PANEL_ID, target.panelId)
-          .putExtra(EXTRA_SOURCE_VERSION, target.sourceVersion.toString())
-          .putExtra(EXTRA_ORIGIN_THREAD_ID, target.originThreadId)
-          .putExtra(PanelLaunchIntents.EXTRA_LAUNCH_ID, target.launchId),
-      )
+      val target = withContext(Dispatchers.IO) { resolveTarget(panelId, UUID.randomUUID().toString()) }
+      withContext(Dispatchers.Main.immediate) {
+        val path = LaunchRoute.Path(target.originThreadId, target.panelId, target.originThreadId, target.launchId)
+        panelLaunch.seed(path, LaunchAnswer.Accepted(target))
+        latestThreadId = target.originThreadId
+        context.startActivity(
+          Intent().setClassName(context.packageName, CONVERSATION)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            .putExtra(EXTRA_THREAD_ID, target.originThreadId)
+            .putExtra(EXTRA_PANEL_ID, target.panelId)
+            .putExtra(EXTRA_ORIGIN_THREAD_ID, target.originThreadId)
+            .putExtra(PanelLaunchIntents.EXTRA_LAUNCH_ID, target.launchId),
+        )
+      }
     }
 
     // Editable composer text from Home; never sent without the user pressing Send.
@@ -665,17 +658,38 @@ class TakuAgentModule : Module() {
     }.runOnQueue(Queues.MAIN)
 
     // Collapse (2-1 → 1-1): the home island takes over this thread, then Home comes forward.
-    AsyncFunction("collapseToIsland") { threadId: String ->
-      val activity = conversationActivity() ?: throw IOException("Agent UI is not ready")
-      val response = activity.contentResolver.call(
-        Uri.parse("content://org.agentos.agent.home-assistant"), "assistant/resume",
-        JSONObject().put("threadId", threadId).put("home", false).toString(), null,
-      ) ?: throw IOException("Taku Home is unavailable")
-      val result = JSONObject(response.getString("result") ?: "{}")
-      if (!result.optBoolean("ok")) throw IOException(result.optString("code", "HOME_UNAVAILABLE"))
-      activity.startActivity(Intent().setClassName(activity.packageName, "org.agentos.agent.home.HomeActivity"))
+    AsyncFunction("collapseToIsland") Coroutine { threadId: String, panelId: String?, launchId: String? ->
+      withContext(Dispatchers.Main.immediate) {
+        val activity = conversationActivity() ?: throw IOException("Agent UI is not ready")
+        val route = panelLaunch.path()
+        if (route?.panelId != panelId) return@withContext
+        val chatIntent = activity.intent
+        if (panelId != null && (route == null || route.launchId != launchId || route.threadId != threadId || routePath(chatIntent) != route)) return@withContext
+        val generation = panelLaunch.generation()
+        val session = AssistantSession.get(activity)
+        val home = Intent().setClassName(activity.packageName, "org.agentos.agent.home.HomeActivity")
+        if (panelId == null) {
+          session.resume(threadId)
+          activity.startActivity(home)
+        } else {
+          home.action = PanelNavigation.ACTION_OPEN_PANEL
+          home.putExtra(PanelNavigation.EXTRA_PANEL_ID, panelId)
+          home.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+          fun isCurrent() = panelLaunch.generation() == generation && conversationActivity() === activity && activity.intent === chatIntent
+          try {
+            session.resumePanel(threadId, panelId) { resume ->
+              if (!isCurrent()) return@resumePanel false
+              resume()
+              activity.startActivity(home)
+              true
+            }
+          } catch (error: Exception) {
+            if (error is CancellationException || isCurrent()) throw error
+          }
+        }
+      }
       Unit
-    }.runOnQueue(Queues.MAIN)
+    }
 
     AsyncFunction("close") {
       conversationActivity()?.let { activity ->

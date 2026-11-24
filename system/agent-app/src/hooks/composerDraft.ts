@@ -55,7 +55,7 @@ function parsePending(value: unknown, threadId: string): ComposerSubmission {
       !attachmentIds.every(id => typeof id === 'string')) throw new AgentGatewayError('Invalid composer request');
   const pending: ComposerSubmission = {threadId, requestId, text, action, draftRevision: revision, attachmentIds};
   if (typeof expectedTurnId === 'string') pending.expectedTurnId = expectedTurnId;
-  if (typeof panelId === 'string' && typeof expectedSourceVersion === 'number') pending.panel = {panelId, expectedSourceVersion, launchId: ''};
+  if (typeof panelId === 'string' && typeof expectedSourceVersion === 'number') pending.panel = {panelId, expectedSourceVersion};
   return pending;
 }
 

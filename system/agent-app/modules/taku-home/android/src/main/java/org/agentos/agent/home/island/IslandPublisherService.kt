@@ -34,7 +34,7 @@ class IslandPublisherService : Service() {
   private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
   private val binder = Binder()
   private val manager by lazy { getSystemService(NotificationManager::class.java) }
-  private val prefs by lazy { getSharedPreferences("system_island_session", MODE_PRIVATE) }
+  private val prefs by lazy { getSharedPreferences(ISLAND_SESSION_PREFERENCES, MODE_PRIVATE) }
   private var fingerprint: String? = null
   private var lastExpansionRequest = 0L
   private var lastRequest = IslandMode.Hidden
@@ -45,19 +45,32 @@ class IslandPublisherService : Service() {
     manager.createNotificationChannel(NotificationChannel(CHANNEL, "Taku activities", NotificationManager.IMPORTANCE_LOW))
     val session = AssistantSession.get(this)
     val saved = prefs.getString("thread", null)
-    if (session.state.value.threadId == null && !saved.isNullOrBlank() &&
-        System.currentTimeMillis() - prefs.getLong("created", 0) in 0..28_800_000) {
-      session.resume(saved)
-      session.restoreIslandIdentity(prefs.getString("activity", null))
-      lastExpansionRequest = session.state.value.expansionRequest
-      lastRequest = session.state.value.island // Recovery must not unexpectedly expand over an app.
-    }
+    val savedPanel = prefs.getString("panelId", null)
+    val savedActivity = prefs.getString("activity", null)
     SystemIslandBridge.observe(this)
     scope.launch {
-      combine(session.state, session.voice.state) { state, voice -> state to voice }.sample(250).collect { (state, voice) ->
+      if (session.state.value.threadId == null) {
+        try {
+          val restored = if (savedPanel != null) {
+            PersistedPanelIsland.read(this@IslandPublisherService)?.let { session.restorePanelIsland(it) } == true
+          } else if (!saved.isNullOrBlank() &&
+            System.currentTimeMillis() - prefs.getLong("created", 0) in 0L..ISLAND_TIMEOUT_SECONDS * 1_000L) {
+            session.resume(saved)
+            session.restoreIslandIdentity(savedActivity)
+            true
+          } else false
+          if (restored) {
+            lastExpansionRequest = session.state.value.expansionRequest
+            lastRequest = session.state.value.island
+          }
+        } catch (failure: org.agentos.agent.home.assistant.GatewayException) {
+          android.util.Log.w("TakuIsland", "Panel conversation recovery failed", failure)
+        }
+      }
+      combine(session.state, session.voice.state) { _, _ -> Unit }.sample(250).collect {
         // Agent readers observe the same state published to the native SystemUI card.
         contentResolver.notifyChange(Uri.parse("content://org.agentos.agent.home-assistant"), null)
-        publish(state, voice)
+        publish(session.state.value, session.voice.state.value)
       }
     }
   }
@@ -77,11 +90,11 @@ class IslandPublisherService : Service() {
     if (postedTag == null) manager.activeNotifications.filter { it.id == ID && it.tag?.startsWith(TAG) == true && it.tag != tag }.forEach { manager.cancel(it.tag, ID) }
     postedTag = tag
     val token = IslandIdentity.token(state.threadId, state.activityId)
-    if (prefs.getString("activity", null) != state.activityId) prefs.edit().putLong("created", System.currentTimeMillis()).apply()
-    prefs.edit().putString("activity", state.activityId).putString("token", token).apply()
-    if (prefs.getString("thread", null) != state.threadId) {
-      prefs.edit().putString("thread", state.threadId).putLong("created", System.currentTimeMillis()).apply()
-    }
+    prefs.edit().putString("activity", state.activityId).putString("token", token)
+      .putString("thread", state.threadId).putString("panelId", state.panelId).apply {
+        if (prefs.getString("activity", null) != state.activityId || prefs.getString("thread", null) != state.threadId)
+          putLong("created", System.currentTimeMillis())
+      }.apply()
     // A hold whose microphone has not started recording yet shows no listening cue at all.
     val holdStarting = voice.target == VoiceTarget.Hold && voice.phase == VoicePhase.Preparing
     val falKeyMissing = state.error == AssistantSession.VOICE_FAL_KEY_MISSING
@@ -111,15 +124,23 @@ class IslandPublisherService : Service() {
       org.agentos.agent.home.onboarding.ServiceSetup.intent(this, org.agentos.agent.home.onboarding.OnboardingService.FAL),
       PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
     if (falSetup != null) add("falKey", "Add fal key", falSetup)
-    val open = falSetup ?: PendingIntent.getActivity(this, ID, Intent().setClassName(packageName, "org.agentos.agent.MainActivity")
+    val openAction = action("open", thread, state.activityId)
+    val open = falSetup ?: if (state.panelId != null) openAction else PendingIntent.getActivity(this, ID, Intent().setClassName(packageName, "org.agentos.agent.MainActivity")
       .putExtra("threadId", state.threadId).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP),
       PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-    add("open", "Open conversation", action("open", thread, state.activityId))
+    add("open", "Open conversation", openAction)
     if (state.error != null && state.retryText != null) add("retry", "Try again", action("retry", thread, state.activityId))
     if ((state.error != null && state.retryText != null) || state.retainedVoice != null) {
       val input = PendingIntent.getActivity(this, ID + 1,
         Intent(this, org.agentos.agent.home.assistant.AssistantOverlayActivity::class.java)
-          .putExtra("mode", "text").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+          .putExtra("mode", "text").putExtra("panelId", state.panelId).putExtra("activityId", state.activityId)
+          .apply {
+            state.panelId?.let { panelId ->
+              data = Uri.Builder().scheme("taku-island").authority("input")
+                .appendPath(panelId).appendPath(state.activityId.orEmpty()).build()
+            }
+          }
+          .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
       add("input", if (state.retainedVoice != null) "Show dictation" else "Edit", input)
     }
@@ -141,7 +162,7 @@ class IslandPublisherService : Service() {
         .put("assistant", JSONObject().put("token", token).put("phase", if (listening) "listening" else if (state.working) "working" else "message")
           .put("suggestions", suggestions)
           .put("heightDp", if (listening) kotlin.math.ceil(68 + 27.9 * resources.configuration.fontScale).toInt().coerceIn(96, 340) else 300)))
-      .put("islandTimeoutS", 28800).put("statusBar", "auto")
+      .put("islandTimeoutS", ISLAND_TIMEOUT_SECONDS).put("statusBar", "auto")
     // UTF-8, not String.length: leave ample headroom for CJK/emoji and structural overhead.
     while (payload.toString().toByteArray(Charsets.UTF_8).size > 8192 && payload.getJSONObject("expanded").getString("body").isNotEmpty()) {
       val text = payload.getJSONObject("expanded").getString("body")

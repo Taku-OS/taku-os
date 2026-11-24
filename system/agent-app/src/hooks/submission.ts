@@ -4,7 +4,7 @@ export type PendingSubmission = {
   text: string;
   action: 'sendMessage' | 'steer' | 'continue';
   /** The panel this send updates. Native revalidates the source at the actual send. */
-  panel?: {panelId: string; expectedSourceVersion: number; launchId: string};
+  panel?: {panelId: string; expectedSourceVersion: number};
   expectedTurnId?: string;
   startedAt?: number;
   baselineBlockIds?: string[];

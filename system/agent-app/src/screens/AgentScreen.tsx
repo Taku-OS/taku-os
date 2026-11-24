@@ -56,8 +56,8 @@ export default function AgentScreen() {
       active={conversationVisible && demand !== null} preload={demand === 'preload'}/>
     : null, [conversationVisible, threadId]);
   // Collapse (2-1 → 1-1): the home island continues this thread; without Taku Home, just hide.
-  const {onClose} = controller;
-  const collapse = useCallback(() => { collapseToIsland(threadId).catch(onClose); }, [threadId, onClose]);
+  const {onClose, panel} = controller;
+  const collapse = useCallback(() => { collapseToIsland(threadId, panel).catch(onClose); }, [threadId, panel, onClose]);
   if (!fonts && !fontError) return <View style={styles.loading}><ActivityIndicator color={chatColors.textPrimary}/></View>;
   // A background switch remounts the chat's views (not the controller, so the draft and thread stay),
   // so every surface, the native window tint included, takes the new palette at once.

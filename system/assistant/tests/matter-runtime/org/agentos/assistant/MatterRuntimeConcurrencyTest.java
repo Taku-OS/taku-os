@@ -627,7 +627,7 @@ public final class MatterRuntimeConcurrencyTest {
     }
     private static JSONObject completionReply(String key,String turn) throws Exception {
         JSONObject reply=primary(key,1,"completed","Updated content");reply.getJSONObject("provenance").put("turnId",turn);
-        reply.getJSONObject("card").put("request",inputRequest(key,"Updated content"));return reply;
+        reply.getJSONObject("card").put("request",inputRequest(key,"Updated content").put("mode","panel"));return reply;
     }
     private static JSONObject candidate(JSONObject reply) throws Exception {return new JSONObject().put("replyId",reply.getString("id")).put("key",reply.getString("key")).put("revision",reply.getLong("revision")).put("contractHash",reply.getJSONObject("provenance").getString("contractHash")).put("anchorOrdinal",reply.getJSONObject("provenance").getLong("anchorOrdinal"));}
     private static void terminal(String task,String turn,String status,JSONArray candidates,JSONObject reply,String code) throws Exception {
@@ -639,6 +639,7 @@ public final class MatterRuntimeConcurrencyTest {
     }
     private static void sharedStateAndPublication() throws Exception {
         Fixture f=new Fixture();f.runtime.observe(THREAD,"editable",inputRequest("editable","Original"),"native-inputs",new JSONObject().put("kind","host-evidence"));
+        f.present("second-panel","Unrelated card in this thread");f.pin("second-panel");
         JSONObject panel=f.pin("editable").getJSONObject("panel");String panelId=panel.getString("panelId");
         List<JSONObject> events=new ArrayList<>();boolean[] applying={false};
         MatterRuntime.Listener listener=event->{if(applying[0])check(!Thread.holdsLock(f.runtime),"Card state callback ran inside the runtime monitor");events.add(event);};
@@ -659,10 +660,32 @@ public final class MatterRuntimeConcurrencyTest {
         String task=submission.getString("taskId");
         JSONObject request=SourceAdapters.readObject(new File(new File(TaskRuntime.TASKS,task),"request.json"));
         check(request.getJSONObject("panelUpdate").getString("panelId").equals(panelId)&&request.getJSONObject("panelUpdate").getLong("sourceVersion")==0,"Continue omitted the trusted exact target");
+        JSONObject captured=request.getJSONObject("panelUpdate").getJSONObject("snapshot");
+        check(captured.getString("title").equals("Original")&&captured.getJSONObject("card").getString("key").equals("editable")&&
+                !captured.getJSONObject("card").getJSONArray("actions").getJSONObject(0).has("actionRef"),"Snapshot did not contain the pinned semantic card");
+        JSONObject effective=captured.getJSONObject("inputs"), values=effective.getJSONObject("fields");
+        check(values.getString("notes").isEmpty()&&values.getInt("quantity")==0&&!values.getBoolean("enabled")&&
+                effective.getJSONObject("selections").getJSONArray("topics").isEmpty(),"Snapshot lost effective drafts and selections");
+        check(request.getString("prompt").equals("Update the existing card")&&!submission.getJSONObject("update").has("snapshot"),"Private card data escaped into prompt or receipt");
+        rejects("INVALID_ARGUMENT",()->f.panels.call("continue",new JSONObject().put("panelId",panelId).put("expectedSourceVersion",0)
+                .put("text","Update this").put("requestId",id("client-override")).put("snapshot",captured)));
         JSONObject reply=completionReply("replacement","turn-main");
         JSONArray updatedBlocks=reply.getJSONObject("card").getJSONObject("request").getJSONArray("blocks");
-        for(int i=0;i<updatedBlocks.length();i++){JSONObject block=updatedBlocks.getJSONObject(i);if(block.getString("id").equals("quantity")){block.put("value",new JSONObject().put("type","text").put("value","new source"));block.put("config",new JSONObject().put("editor","text"));}}
+        for (int i = 0; i < updatedBlocks.length(); i++) {
+            JSONObject block = updatedBlocks.getJSONObject(i);
+            switch (block.getString("id")) {
+                case "quantity" -> block.put("value", new JSONObject().put("type", "text").put("value", "new source"))
+                        .put("config", new JSONObject().put("editor", "text"));
+                case "notes" -> block.getJSONObject("value").put("value", "Updated by chat");
+                case "enabled" -> block.getJSONObject("value").put("value", false);
+            }
+        }
+        f.panels.cardView("apply", edits(THREAD+"/editable", "during-turn", 1, new JSONArray().put(field("enabled", true))));
         TaskRequests.write(new File(new File(TaskRuntime.TASKS,task),"runtime-info.json"),new JSONObject().put("threadId",THREAD).put("turnId","turn-main").toString());f.runtime.taskChanged(task);
+        JSONObject sideReply=primary("independent-card",1,"completed","Separate side card");
+        sideReply.getJSONObject("provenance").put("turnId","turn-main");
+        f.runtime.observeReply(THREAD,"turn-main",sideReply);
+        check(f.snapshot("independent-card").getJSONObject("request").getString("title").equals("Separate side card"),"A scoped turn hid an ordinary card");
         f.runtime.observeReply(THREAD,"turn-main",reply);
         check(f.store.get("matters",THREAD+"/replacement")==null,"Pending continuation independently admitted its candidate");
         f.runtime.setReplyReader(input->new JSONObject().put("ok",true).put("reply",reply));
@@ -675,23 +698,32 @@ public final class MatterRuntimeConcurrencyTest {
         check(published.getString("matterId").equals(THREAD+"/replacement")&&published.getLong("sourceVersion")==1&&published.getString("title").equals(panel.getString("title"))&&published.getLong("position")==panel.getLong("position"),"Publication changed identity or metadata instead of replacing the source");
         check(detail.getJSONObject("updateReceipt").getString("outcome").equals("published")&&detail.getJSONObject("updateReceipt").getJSONArray("candidates").getJSONObject(0).getString("replyId").equals(reply.getString("id")),"Publication lost its exact completion receipt");
         JSONObject migrated=f.panels.cardView("read",new JSONObject().put("matterId",THREAD+"/replacement")).getJSONObject("ui").getJSONObject("fields");
-        check(migrated.getJSONObject("quantity").getInt("draft")==0&&!migrated.getJSONObject("enabled").getBoolean("draft")&&migrated.getJSONObject("notes").getString("draft").isEmpty(),"Publication lost shared explicit empty values");
+        check(migrated.getJSONObject("quantity").getInt("draft")==0,"Publication lost an incompatible draft pending review");
+        check(migrated.getJSONObject("enabled").getBoolean("draft"),"Publication overwrote a draft edited during the turn");
+        check(migrated.getJSONObject("notes").getString("draft").equals("Updated by chat"),"The saved draft hid the requested Panel update");
         check(migrated.getJSONObject("quantity").getBoolean("needsReview"),"Incompatible type change silently accepted an old numeric draft");
         rejects("DRAFT_REVIEW_REQUIRED",()->f.runtime.dispatch(f.command("replacement","reviewed-action").put("values",new JSONObject().put("quantity",0))));
         rejects("STALE_SOURCE",()->f.runtime.dispatch(oldAction));
         String savedBeforeLate=f.store.get("card_view_states",THREAD+"/editable").toString();
-        rejects("STALE_SOURCE",()->f.panels.cardView("apply",edits(THREAD+"/editable","late-ui",1,new JSONArray().put(field("notes","Last typed")))));
+        rejects("STALE_SOURCE",()->f.panels.cardView("apply",edits(THREAD+"/editable","late-ui",2,new JSONArray().put(field("notes","Last typed")))));
         check(f.store.get("card_view_states",THREAD+"/editable").toString().equals(savedBeforeLate),"Rejected late write changed migrated state or cleared its transfer marker");
         check(f.store.cardViewReceipt(id("late-ui"))==null,"Rejected late write left a success receipt");
         check(f.panels.cardView("apply",changes).getBoolean("replayed"),"Publication invalidated an already committed edit receipt");
-        check(f.panels.cardView("read",new JSONObject().put("matterId",THREAD+"/replacement")).getJSONObject("ui").getJSONObject("fields").getJSONObject("notes").getString("draft").isEmpty(),"Rejected late write modified the replacement card");
+        check(f.panels.cardView("read",new JSONObject().put("matterId",THREAD+"/replacement")).getJSONObject("ui").getJSONObject("fields").getJSONObject("notes").getString("draft").equals("Updated by chat"),"Rejected late write modified the replacement card");
         f.present("editable","Reopened old presentation");check(!f.snapshot("editable").getJSONObject("request").getJSONArray("actions").getJSONObject(0).has("actionRef"),"Superseded actions reminted on reread");
         Fixture restarted=new Fixture(f.context);rejects("STALE_SOURCE",()->restarted.runtime.dispatch(oldAction));
-        rejects("STALE_SOURCE",()->restarted.panels.cardView("apply",edits(THREAD+"/editable","late-ui-restarted",1,new JSONArray().put(field("notes","Last typed after restart")))));
+        rejects("STALE_SOURCE",()->restarted.panels.cardView("apply",edits(THREAD+"/editable","late-ui-restarted",2,new JSONArray().put(field("notes","Last typed after restart")))));
         long listRevision=detail.getLong("listRevision");restarted.runtime.taskChanged(task);
         check(restarted.panels.call("get",new JSONObject().put("panelId",panelId)).getLong("listRevision")==listRevision,"Completion retry republished a settled source");
         JSONObject repeated=continuePanel(restarted,panel,"continue-main");check(repeated.getBoolean("replayed")&&repeated.getString("taskId").equals(task),"Continue replay executed another task after restart");
         check(!restarted.pin("replacement").getBoolean("created"),"A published reply gained an independent second Panel");
+        JSONObject second=continuePanel(restarted,published,"continue-second");
+        JSONObject secondSnapshot=SourceAdapters.readObject(new File(new File(TaskRuntime.TASKS,second.getString("taskId")),"request.json"))
+                .getJSONObject("panelUpdate").getJSONObject("snapshot");
+        check(secondSnapshot.getString("title").equals("Original")&&secondSnapshot.getJSONObject("card").getString("key").equals("replacement")&&
+                secondSnapshot.getJSONObject("inputs").getJSONObject("fields").getString("quantity").equals("new source"),"Repeated Continue omitted the current card or reused a draft pending review");
+        check(SourceAdapters.readObject(new File(new File(TaskRuntime.TASKS,task),"request.json")).getJSONObject("panelUpdate").getJSONObject("snapshot").similar(captured),
+                "Retry recaptured the current Panel instead of keeping the original request");
     }
     private static void rejectedAndLateCompletions() throws Exception {
         Fixture f=new Fixture();f.runtime.observe(THREAD,"origin",inputRequest("origin","Origin"),"native-inputs",new JSONObject().put("kind","host-evidence"));
@@ -721,6 +753,87 @@ public final class MatterRuntimeConcurrencyTest {
         terminal(removed.getString("taskId"),"turn-removed","completed",new JSONArray().put(candidate(afterRemoval)),afterRemoval,null);f.runtime.taskChanged(removed.getString("taskId"));
         check(f.panels.call("list",new JSONObject()).getJSONArray("items").length()==0&&f.store.get("matters",THREAD+"/after-unpin")==null,"Completion resurrected an unpinned lifecycle");
         check(continuePanel(f,current,"removed-update").getJSONObject("update").getString("outcome").equals("unpinned"),"Unpin during update lost the durable completion outcome");
+    }
+
+    private static void markedAndLegacyCompletions() throws Exception {
+        Fixture f=new Fixture();f.present("saved","Saved card");JSONObject panel=f.pin("saved").getJSONObject("panel");
+        String panelId=panel.getString("panelId");
+        JSONObject unmarked=completionReply("unmarked","unmarked-turn");
+        unmarked.getJSONObject("card").getJSONObject("request").put("mode","card");
+        String task=continuePanel(f,panel,"unmarked-request").getString("taskId");
+        terminal(task,"unmarked-turn","completed",new JSONArray().put(candidate(unmarked)),unmarked,null);f.runtime.taskChanged(task);
+        JSONObject detail=f.panels.call("get",new JSONObject().put("panelId",panelId));
+        check(detail.getJSONObject("panel").getLong("sourceVersion")==0&&detail.getJSONObject("updateReceipt").getString("code").equals("SOURCE_CHANGED"),
+                "An unmarked manifest reply passed snapshot-bound validation");
+
+        String tampered=continuePanel(f,panel,"tampered-snapshot").getString("taskId");
+        File requestFile=new File(new File(TaskRuntime.TASKS,tampered),"request.json");
+        JSONObject request=SourceAdapters.readObject(requestFile);
+        request.getJSONObject("panelUpdate").getJSONObject("snapshot").put("title","Different source evidence");
+        TaskRequests.write(requestFile,request.toString());
+        JSONObject marked=completionReply("marked-result","marked-turn");
+        terminal(tampered,"marked-turn","completed",new JSONArray().put(candidate(marked)),marked,null);f.runtime.taskChanged(tampered);
+        detail=f.panels.call("get",new JSONObject().put("panelId",panelId));
+        check(detail.getJSONObject("panel").getLong("sourceVersion")==0&&detail.getJSONObject("updateReceipt").getString("code").equals("SOURCE_CHANGED"),
+                "Altered durable snapshot evidence passed validation");
+
+        String legacy=continuePanel(f,panel,"legacy-durable-request").getString("taskId");
+        String legacyId=id("legacy-durable-request");
+        JSONObject old=f.store.get("panel_updates",legacyId);old.remove("snapshot");f.store.put("panel_updates",legacyId,old);
+        requestFile=new File(new File(TaskRuntime.TASKS,legacy),"request.json");request=SourceAdapters.readObject(requestFile);
+        request.getJSONObject("panelUpdate").remove("snapshot");TaskRequests.write(requestFile,request.toString());
+        terminal(legacy,"unmarked-turn","completed",new JSONArray().put(candidate(unmarked)),unmarked,null);
+        Fixture restarted=new Fixture(f.context);restarted.runtime.taskChanged(legacy);
+        detail=restarted.panels.call("get",new JSONObject().put("panelId",panelId));
+        check(detail.getJSONObject("panel").getString("matterId").equals(THREAD+"/unmarked")&&detail.getJSONObject("updateReceipt").getString("outcome").equals("published"),
+                "An existing completion from before snapshot binding failed to settle after upgrade");
+    }
+
+    private static JSONObject composerContinue(String thread,String panelId,long sourceVersion,String revision,String requestId) {
+        return new JSONObject().put("threadId",thread).put("action","continue").put("panelId",panelId)
+                .put("expectedSourceVersion",sourceVersion).put("revision",revision).put("requestId",requestId).put("attachmentIds",new JSONArray());
+    }
+
+    private static void composerAdmissionDenials() throws Exception {
+        Fixture f=new Fixture();f.present("retained","Retained");JSONObject panel=f.pin("retained").getJSONObject("panel");
+        String panelId=panel.getString("panelId"), prompt="Keep this rejected draft";
+        var prefs=f.context.getSharedPreferences("agent-settings",0);
+        String revision=ComposerState.write(prefs,THREAD,"",prompt).getString("revision");
+        JSONObject intent=composerContinue(THREAD,panelId,1,revision,id("stale-composer"));
+        JSONObject request=ComposerState.INSTANCE.reserveSubmission(prefs,intent,(thread,options)->kotlin.Unit.INSTANCE).getFirst();
+        JSONObject denied=f.panels.continueComposer(request);
+        check(denied.getString("state").equals("notSent")&&denied.getString("code").equals("VERSION_CONFLICT")&&
+                denied.getString("panelId").equals(panelId)&&!denied.has("taskId"),"Stale composer did not receive a definitive unsent receipt");
+        Fixture restarted=new Fixture(f.context);
+        JSONObject receipt=restarted.panels.composerReceipt(request);
+        check(receipt.getString("state").equals("notSent")&&receipt.getString("code").equals("VERSION_CONFLICT"),"A stale denial disappeared across restart");
+        check(restarted.panels.continueComposer(request).getBoolean("replayed"),"Stale denial did not replay under the original request ID");
+        rejects("REQUEST_ID_REUSED",()->restarted.panels.composerReceipt(new JSONObject(request.toString()).put("text","different")));
+        ComposerState.INSTANCE.finishSubmission(prefs,request,false);
+        JSONObject draft=ComposerState.read(prefs,THREAD);
+        check(draft.getString("text").equals(prompt)&&draft.getJSONArray("pendingReceipts").isEmpty(),"Definitive denial lost the draft or left its reservation blocking another send");
+
+        JSONObject missing=composerContinue(THREAD,id("absent-panel"),0,revision,id("missing-composer")).put("text",prompt);
+        check(restarted.panels.continueComposer(missing).getString("code").equals("PANEL_NOT_FOUND"),"Unpinned Panel did not fail the composer request definitively");
+        JSONObject wrongThread=composerContinue(id("foreign-thread"),panelId,0,revision,id("wrong-thread-composer")).put("text",prompt);
+        check(restarted.panels.continueComposer(wrongThread).getString("code").equals("SOURCE_CHANGED"),"Foreign target did not fail the composer request definitively");
+        rejects("VERSION_CONFLICT",()->restarted.panels.call("continue",new JSONObject().put("panelId",panelId).put("text",prompt).put("expectedSourceVersion",1).put("requestId",id("stale-direct"))));
+
+        JSONObject next=ComposerState.INSTANCE.reserveSubmission(prefs,composerContinue(THREAD,panelId,0,revision,id("valid-after-stale")),
+                (thread,options)->kotlin.Unit.INSTANCE).getFirst();
+        check(restarted.panels.continueComposer(next).getString("state").equals("queued"),"A current composer request could not publish after the stale denial");
+
+        Fixture race=new Fixture();race.present("unpin-race","Unpin before ready");JSONObject departing=race.pin("unpin-race").getJSONObject("panel");
+        TaskRequests.beforeWrite=(file,text)->{
+            if(file.getName().equals("state.json")&&file.getParentFile().getParentFile().equals(TaskRuntime.TASKS)) {
+                try {race.unpin("unpin-race");} catch(Exception failure) {throw new IllegalStateException(failure);}
+            }
+        };
+        try {
+            JSONObject raced=continuePanel(race,departing,"unpin-before-ready");
+            check(raced.getString("state").equals("notSent")&&raced.getString("code").equals("PANEL_NOT_FOUND")&&!raced.has("taskId"),
+                    "An unpin before the ready marker was mistaken for uncertain delivery");
+        } finally {TaskRequests.beforeWrite=null;}
     }
     private static void migrationAndUnknownDelivery() throws Exception {
         Fixture f=new Fixture();JSONObject request=inputRequest("legacy","Original native facts");f.runtime.observe(THREAD,"legacy",request,"native-legacy",new JSONObject().put("kind","host-evidence"));
@@ -830,6 +943,8 @@ public final class MatterRuntimeConcurrencyTest {
         primaryAdmissionAndPreferences();oldPrimarySnapshotBackfill();
         reservedPrimaryNamespace();primaryCapabilityRevocation();
         panelDirectoryAndRetries();sharedStateAndPublication();rejectedAndLateCompletions();migrationAndUnknownDelivery();
+        markedAndLegacyCompletions();
+        composerAdmissionDenials();
         preSubmissionRecovery();multibyteLegacyMigration();
         boundedCardViewHistory();existingCardViewHistory();cardViewCommitFailureOrdering();cardViewArchiveFailureOrdering();
         System.out.println("MatterRuntimeConcurrencyTest: "+assertions+" concurrency/retention/receipt assertions passed");

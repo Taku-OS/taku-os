@@ -88,6 +88,10 @@ class HomeController(val context: Context, val repo: FeedRepository, val pool: R
   }
   var screenHeight = 0f
   var screenWidth = 0f
+  /** Conversation with Taku; the same session Agents drive through `home-assistant`. */
+  val assistant = AssistantSession.get(context)
+  private var textOpen: Job? = null
+  private var holdOpen: Job? = null
   private val workspaceGateway = AgentGateway(context.contentResolver)
   private var workspaceOpen: Job? = null
   /** The visible workspace list shared by every home page. */
@@ -220,7 +224,14 @@ class HomeController(val context: Context, val repo: FeedRepository, val pool: R
     listOfNotNull(pagerOrder.panelAt(page - 1), pagerOrder.panelAt(page), pagerOrder.panelAt(page + 1))
       .mapNotNull(availablePanelIds::getOrNull).distinct()
 
-  fun selectPanel(panelId: String?) { selectedPanelId = panelId }
+  fun selectPanel(panelId: String?) {
+    if (selectedPanelId == panelId) return
+    selectedPanelId = panelId
+    textOpen?.cancel()
+    abortVoiceHold()
+    val input = assistant.state.value
+    if (input.panelId != null && input.panelId != panelId && input.entry != EntryMode.None) assistant.closeEntry()
+  }
   fun refreshPanels() { directory.refresh() }
   var editingHome by mutableStateOf(HomeEditSession.state.value)
     private set
@@ -287,6 +298,10 @@ class HomeController(val context: Context, val repo: FeedRepository, val pool: R
         val ids = next.ids
         val required = next.updateRequired
         val moved = ids != panelIds || required != panelsUpdateRequired
+        assistant.state.value.panelId?.let { panelId ->
+          next.entries.firstOrNull { it.panelId == panelId }?.title
+            ?.takeIf { it != panelTitle(panelId) }?.let { assistant.updatePanelTitle(panelId, it) }
+        }
         panelEntries = next.entries
         panelsUpdateRequired = required
         panelsLoaded = true
@@ -349,21 +364,33 @@ class HomeController(val context: Context, val repo: FeedRepository, val pool: R
 
   // ---- AI entry ----------------------------------------------------------------------
 
-  /** Conversation with Taku; the same session Agents drive through `home-assistant`. */
-  val assistant = AssistantSession.get(context)
   /** Arc under a held finger (1-1 / 1-1-2). */
   val holdZone get() = assistant.state.value.holdZone
 
   /** Double tap on the entry: the text field (1-2 → 1-3). */
-  fun openTextInput() {
+  fun openTextInput(panelId: String? = null) {
     assistantExpanded = false
-    assistant.open(EntryMode.Text)
+    textOpen?.cancel()
+    if (panelId == null) assistant.open(EntryMode.Text)
+    else textOpen = scope.launch { openPanelInput(EntryMode.Text, panelId) }
   }
 
   /** Long press on the entry: start listening (1-1). */
-  fun startVoiceHold() {
+  fun startVoiceHold(panelId: String?) {
     assistantExpanded = false
-    assistant.beginDesktopHold()
+    if (holdOpen?.isActive == true) return
+    if (panelId == null) assistant.beginDesktopHold()
+    else holdOpen = scope.launch { openPanelInput(EntryMode.Voice, panelId) }
+  }
+
+  private suspend fun openPanelInput(mode: EntryMode, panelId: String) {
+    try {
+      assistant.openPanel(mode, panelId)
+    } catch (failure: org.agentos.agent.home.assistant.GatewayException) {
+      notice(failure.message ?: failure.code)
+    } catch (failure: org.agentos.agent.home.assistant.AssistantException) {
+      notice(failure.message ?: failure.code)
+    }
   }
 
   /** Finger moved while holding ([position] in root px); returns true when the zone changed. */
@@ -372,13 +399,17 @@ class HomeController(val context: Context, val repo: FeedRepository, val pool: R
   }
 
   /** Release: Cancel dissolves the transcript (1-1-2), Keep talking continues recording, elsewhere sends. */
-  fun releaseVoiceHold() { assistant.releaseHold() }
+  fun releaseVoiceHold() {
+    holdOpen?.cancel()
+    assistant.releaseHold()
+  }
 
   /**
    * The hold ended without the user lifting the finger (system gesture, pointer cancel, focus
    * loss): drop it like Cancel. Nothing is sent, and a late recogniser final is ignored too.
    */
   fun abortVoiceHold() {
+    holdOpen?.cancel()
     // A system-owned stream survives Home losing focus to the assistant overlay.
     if (assistant.gesture.source == "desktop" && assistant.gesture.held) assistant.cancelVoice()
   }

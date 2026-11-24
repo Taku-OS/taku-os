@@ -18,6 +18,7 @@ internal class AgentGatewayProtocol private constructor() {
         const val PERMISSION = "org.agentos.permission.AGENT_CLIENT"
         const val CLIENT_PACKAGE = "org.agentos.agent"
         const val MAX_REQUEST = 48_000
+        const val MAX_NATIVE_TASK_REQUEST_BYTES = 512 * 1024
         const val COMPOSER_READ = "composer/read"
         const val COMPOSER_WRITE = "composer/write"
         const val COMPOSER_IMPORT = "composer/import"

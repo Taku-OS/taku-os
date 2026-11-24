@@ -12,7 +12,6 @@ import java.util.concurrent.TimeUnit
 internal object TaskRequests {
     private val conversationId = Regex("[a-f0-9-]{36}")
     private val optionalFields = arrayOf("model", "effort", "multiAgentMode", "permissionMode", "serviceTier")
-    private val panelUpdateFields = setOf("panelId", "originThreadId", "matterId", "sourceVersion", "requestId")
 
     fun interface BeforePublish {
         @Throws(Exception::class)
@@ -34,7 +33,7 @@ internal object TaskRequests {
     @Throws(Exception::class)
     fun cancelQueued(thread: String, taskId: String): JSONObject {
         val task = File(TaskRuntime.TASKS, taskId)
-        val original = SourceAdapters.readObject(File(task, "request.json"))
+        val original = SourceAdapters.readObject(File(task, "request.json"), AgentGatewayProtocol.MAX_NATIVE_TASK_REQUEST_BYTES)
         if (thread != original.optString("conversationId")) throw IOException("TASK_THREAD_MISMATCH")
         if (File(task, "done").isFile) throw IOException("TASK_FINISHED")
         if (NativeClient.state(thread).optString("activeTurnId").isNotEmpty()) throw IOException("TURN_STARTED")
@@ -147,15 +146,8 @@ internal object TaskRequests {
         }
         if (options.has("panelUpdate")) {
             val target = options.getJSONObject("panelUpdate")
-            PanelProtocol.exact(target, panelUpdateFields)
-            PanelProtocol.uuid(target, "panelId")
-            val origin = PanelProtocol.uuid(target, "originThreadId")
-            PanelProtocol.uuid(target, "requestId")
-            val matterId = target.getString("matterId")
-            AgentGatewayProtocol.matterIdentity(matterId)
-            PanelProtocol.number(target, "sourceVersion")
-            if (conversation != origin || !matterId.startsWith("$conversation/")) throw IOException("INVALID_ARGUMENT")
-            request.put("panelUpdate", JSONObject(target.toString()))
+            PanelProtocol.validateTaskBinding(target, conversation)
+            request.put("panelUpdate", target)
         }
     }
 

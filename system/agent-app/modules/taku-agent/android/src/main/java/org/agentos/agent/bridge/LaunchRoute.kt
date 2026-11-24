@@ -10,9 +10,7 @@ package org.agentos.agent.bridge
  * resolution can never reopen the conversation the user left.
  */
 internal class LaunchRoute {
-  data class Path(val threadId: String, val panelId: String?, val originThreadId: String?, val launchId: String? = null) {
-    fun withoutPanel(): Path = copy(panelId = null, originThreadId = null)
-  }
+  data class Path(val threadId: String, val panelId: String?, val originThreadId: String?, val launchId: String? = null)
 
   /** The generation [path] was observed with, and whether its one resolution still has to run. */
   data class Observation(val generation: Long, val fresh: Boolean)
@@ -37,4 +35,6 @@ internal class LaunchRoute {
   }
 
   @Synchronized fun path(): Path? = path
+
+  @Synchronized fun generation(): Long = generation
 }

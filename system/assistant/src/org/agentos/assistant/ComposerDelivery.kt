@@ -28,7 +28,7 @@ internal object ComposerDelivery {
     fun restoreTask(context: Context, input: JSONObject): JSONObject {
         val thread = input.getString("threadId")
         val directory = File(TaskRuntime.TASKS, input.getString("taskId"))
-        val request = try { SourceAdapters.readObject(File(directory, "request.json")) }
+        val request = try { SourceAdapters.readObject(File(directory, "request.json"), AgentGatewayProtocol.MAX_NATIVE_TASK_REQUEST_BYTES) }
             catch (_: Exception) { throw IOException("TASK_FAILURE_CHANGED") }
         if (request.optString("conversationId") != thread || thread.isEmpty()) throw IOException("TASK_FAILURE_CHANGED")
         val state = try { SourceAdapters.readObject(File(directory, "state.json")) }
@@ -58,7 +58,11 @@ internal object ComposerDelivery {
                 }
                 throw failure
             }
-            if (!created) return runtime.panels.composerReceipt(request)
+            if (!created) {
+                val receipt = runtime.panels.composerReceipt(request)
+                if (receipt.optString("state") == "notSent") finish(context, prefs, request, receipt)
+                return receipt
+            }
             val services = runtime.services
             val receipt = when (request.getString("action")) {
                 "continue" -> runtime.panels.continueComposer(request)

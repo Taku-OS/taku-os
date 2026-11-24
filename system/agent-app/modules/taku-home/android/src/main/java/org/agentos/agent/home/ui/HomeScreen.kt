@@ -235,7 +235,10 @@ internal fun HomeScreen(controller: HomeController, backdrop: Backdrop?, pager: 
           TopEdgeBlur(scene, statusInset + 28.dp)
           if (controller.editingHome) {
             PageDots(pager.pageCount, pager.currentPage, Modifier.align(Alignment.BottomCenter).padding(bottom = navInset + TakuSpacing.sm))
-          } else AssistantEntry(scene, controller, pager.pageCount, pager.currentPage, navInset, gestures)
+          } else {
+            val settled = !pager.isScrollInProgress && controller.panelAt(pager.settledPage) == controller.selectedPanelId
+            AssistantEntry(scene, controller, pager.pageCount, pager.currentPage, navInset, gestures, settled)
+          }
         }
         HomeWorkspacePreviews(controller, onOpenWorkspace = controller::openWorkspace)
         FolderSheet(controller, backdrop)

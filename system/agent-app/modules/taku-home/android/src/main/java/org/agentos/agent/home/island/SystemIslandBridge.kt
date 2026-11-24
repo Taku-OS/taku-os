@@ -42,7 +42,7 @@ object SystemIslandBridge {
   fun state(): JSONObject? = current?.let { runCatching { JSONObject(it) }.getOrNull() }
 
   fun ownKey(context: Context, snapshot: JSONObject,
-    expectedToken: String? = context.getSharedPreferences("system_island_session", Context.MODE_PRIVATE).getString("token", null)): String? {
+    expectedToken: String? = context.getSharedPreferences(ISLAND_SESSION_PREFERENCES, Context.MODE_PRIVATE).getString("token", null)): String? {
     val list = snapshot.optJSONArray("activities") ?: return null
     for (index in 0 until list.length()) {
       val item = list.getJSONObject(index)

@@ -13,7 +13,10 @@ final class AgentViews {
     static final java.io.File ROOT=new java.io.File(System.getProperty("java.io.tmpdir"),"unused-agent-view");
     static void event(JSONObject event) throws Exception {if(eventHook!=null)eventHook.accept(event);}
     static String readableTurn(String thread,String turn) {return "Completed reply";}
-    static JSONObject panelCompletion(String thread,String turn) {return new JSONObject().put("replies",new JSONArray());}
+    static java.util.function.BiFunction<String,String,JSONArray> panelReplies;
+    static JSONObject panelCompletion(String thread,String turn) {
+        return new JSONObject().put("replies",panelReplies==null?new JSONArray():panelReplies.apply(thread,turn));
+    }
     static final Map<String,JSONObject> threads=new HashMap<>();
     static final SessionEvents events=new SessionEvents();
     static void save(JSONObject value) {}

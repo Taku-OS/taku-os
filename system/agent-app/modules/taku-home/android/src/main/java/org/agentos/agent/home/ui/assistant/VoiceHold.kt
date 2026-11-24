@@ -130,6 +130,7 @@ fun BoxScope.VoiceHoldOverlay(
   voice: VoiceState,
   zone: HoldZone,
   continuous: Boolean,
+  keepTalking: Boolean,
   session: org.agentos.agent.home.assistant.AssistantSession,
 ) {
   val appear by animateFloatAsState(if (visible) 1f else 0f, if (visible) tween(320) else tween(260), label = "voiceAppear")
@@ -194,20 +195,23 @@ fun BoxScope.VoiceHoldOverlay(
     art("voice-glass", -95f, 193f, 602f, 323f)
     run {
       art(if (shownZone == HoldZone.Cancel) "cancel-active" else "cancel", -98.72f, 239.68f, 296.72f, 146.564f)
-      art(if (shownZone == HoldZone.KeepTalking) "keep-talking-active" else "keep-talking", 214f, 239.68f, 296.72f, 146.564f)
+      if (keepTalking) art(if (shownZone == HoldZone.KeepTalking) "keep-talking-active" else "keep-talking", 214f, 239.68f, 296.72f, 146.564f)
     }
   }
 
   // Arc labels, rotated along the circle.
   val labelStyle = type.bodyXl
   ArcLabel("Cancel", true, shownZone == HoldZone.Cancel, appear, labelStyle)
-  ArcLabel("Keep talking", false, shownZone == HoldZone.KeepTalking || continuous, appear, labelStyle)
+  if (keepTalking) ArcLabel("Keep talking", false, shownZone == HoldZone.KeepTalking || continuous, appear, labelStyle)
   if (visible) Box(Modifier.fillMaxSize().semantics {
-    customActions = listOf(CustomAccessibilityAction("Cancel") { cancel(); true },
-      CustomAccessibilityAction("Keep talking") { session.keepTalking(); true })
-  }.pointerInput(visible, continuous) {
+    customActions = buildList {
+      add(CustomAccessibilityAction("Cancel") { cancel(); true })
+      if (keepTalking) add(CustomAccessibilityAction("Keep talking") { session.keepTalking(); true })
+    }
+  }.pointerInput(visible, continuous, keepTalking) {
     detectTapGestures(onPress = { position ->
       val hit = VoiceArcs(size.width.toFloat(), size.height.toFloat(), density).zone(position, 16f * density)
+        .let { if (!keepTalking && it == HoldZone.KeepTalking) HoldZone.None else it }
       pressedZone = hit
       val released = tryAwaitRelease()
       if (released) when (hit) {

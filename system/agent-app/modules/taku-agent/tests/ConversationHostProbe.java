@@ -8,11 +8,7 @@ import android.os.SystemClock;
 import android.view.View;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.lang.reflect.Proxy;
 import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 import org.json.JSONObject;
 
 /** Same-process native bridge regression; run only on an isolated, signed-out test AVD. */
@@ -20,7 +16,6 @@ public final class ConversationHostProbe extends Instrumentation {
   private static final String CHAT = "org.agentos.agent.MainActivity";
   private static final String HOME = "org.agentos.agent.home.HomeActivity";
   private Object module, appContext;
-  private String consumedId;
 
   @Override public void onCreate(Bundle args) { super.onCreate(args); start(); }
 
@@ -97,29 +92,6 @@ public final class ConversationHostProbe extends Instrumentation {
     return call(functions.get(name), "callUserImplementation", args, appContext);
   }
 
-  private void consume(String id) throws Exception {
-    Map<?, ?> functions = (Map<?, ?>) call(call(module, "definition"), "getAsyncFunctions");
-    Object function = functions.get("consumePanelLaunch");
-    Class<?> promiseType = Class.forName("expo.modules.kotlin.Promise");
-    CountDownLatch done = new CountDownLatch(1);
-    String[] error = {null};
-    Object promise = Proxy.newProxyInstance(promiseType.getClassLoader(), new Class<?>[] {promiseType}, (p, m, args) -> {
-      if (m.getName().equals("reject")) { error[0] = java.util.Arrays.toString(args); done.countDown(); }
-      if (m.getName().equals("resolve")) done.countDown();
-      return null;
-    });
-    for (Method method : function.getClass().getMethods()) {
-      if (method.getName().startsWith("callUserImplementation") && method.getParameterCount() == 3) {
-        method.invoke(function, new Object[] {new Object[] {id}, promise, appContext});
-        require(done.await(5, TimeUnit.SECONDS), "consume promise timed out");
-        require(error[0] == null, "consume failed: " + error[0]);
-        waitForIdleSync();
-        return;
-      }
-    }
-    throw new NoSuchMethodException("consume implementation");
-  }
-
   @Override public void onStart() {
     JSONObject report = new JSONObject();
     int result = Activity.RESULT_CANCELED;
@@ -134,27 +106,30 @@ public final class ConversationHostProbe extends Instrumentation {
       String homeIntent = home.getIntent().toUri(0);
       onUi(() -> {
         chat.setIntent(new Intent(chat.getIntent()).putExtra("threadId", "cr-probe-before")
-            .putExtra("panelId", "cr-probe-panel").putExtra("panelLaunchId", "cr-probe-old"));
+            .putExtra("panelId", "cr-probe-panel").putExtra("originThreadId", "cr-probe-before")
+            .putExtra("panelLaunchId", "cr-probe-panel-launch"));
         Method open = module.getClass().getDeclaredMethod("openRoute");
         open.setAccessible(true);
         require("cr-probe-before".equals(call(open.invoke(module), "getThreadId")), "read must use chat route");
-        sync("selectConversation", "cr-probe-after");
+        sync("selectConversation", "cr-probe-after", null);
         require("cr-probe-after".equals(chat.getIntent().getStringExtra("threadId")), "chat route not updated");
-        require(!chat.getIntent().hasExtra("panelId"), "stale chat panel not cleared");
+        require(!chat.getIntent().hasExtra("panelId") && !chat.getIntent().hasExtra("originThreadId")
+            && !chat.getIntent().hasExtra("panelLaunchId"), "stale chat Panel scope not cleared");
         require(homeIntent.equals(home.getIntent().toUri(0)), "Home intent was polluted");
+
+        Object creating = sync("selectConversation", null, null);
+        require(creating instanceof String, "clearing the route must return its generation");
+        chat.setIntent(new Intent(chat.getIntent()).putExtra("threadId", "cr-probe-native"));
+        require(sync("selectConversation", "cr-probe-created", creating) == null,
+            "stale creation must not commit over a newer intent");
+        require("cr-probe-native".equals(chat.getIntent().getStringExtra("threadId")),
+            "stale creation overwrote the live chat intent");
+        sync("selectConversation", "cr-probe-after", null);
+        require(sync("selectConversation", "cr-probe-created", creating) == null,
+            "stale creation must not commit over a newer route generation");
       });
       report.put("backgroundSelectAndRouteRead", true);
-      consumedId = UUID.randomUUID().toString();
-      onUi(() -> chat.setIntent(new Intent(chat.getIntent()).putExtra("panelId", "cr-probe-panel")
-          .putExtra("originThreadId", "cr-probe-after").putExtra("sourceVersion", "0")
-          .putExtra("panelLaunchId", consumedId)));
-      consume(consumedId);
       onUi(() -> {
-        require(!chat.getIntent().hasExtra("panelId") && !chat.getIntent().hasExtra("originThreadId")
-            && !chat.getIntent().hasExtra("sourceVersion"), "consume left stale Panel extras on chat");
-        require(homeIntent.equals(home.getIntent().toUri(0)), "consume altered Home intent");
-        require(getTargetContext().getSharedPreferences("panel-launch-consumed", 0).getBoolean(consumedId, false),
-            "consumption must remain durable");
         Field observing = module.getClass().getDeclaredField("observingIme");
         observing.setAccessible(true); observing.setBoolean(module, true);
         Method attach = module.getClass().getDeclaredMethod("attachImeObserver");
@@ -164,15 +139,14 @@ public final class ConversationHostProbe extends Instrumentation {
         observing.setBoolean(module, false);
         Method detach = module.getClass().getDeclaredMethod("detachImeObserver");
         detach.setAccessible(true); detach.invoke(module);
-        sync("selectConversation", (Object) null);
+        sync("selectConversation", null, null);
       });
-      report.put("backgroundConsumption", true).put("imeBelongsToChat", true).put("passed", true);
+      report.put("imeBelongsToChat", true).put("passed", true);
       result = Activity.RESULT_OK;
     } catch (Throwable error) {
       try { report.put("passed", false).put("error", android.util.Log.getStackTraceString(error)); }
       catch (Exception ignored) { }
     } finally {
-      if (consumedId != null) getTargetContext().getSharedPreferences("panel-launch-consumed", 0).edit().remove(consumedId).commit();
       Bundle data = new Bundle(); data.putString("report", report.toString()); finish(result, data);
     }
   }
