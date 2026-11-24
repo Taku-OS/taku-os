@@ -16,10 +16,11 @@ An island is for information the user is actively following, usually for **minut
 Define its start event, completion/cancellation event and maximum duration before integrating.
 **One business activity must end within 12 hours.**
 
-![Examples of pickup, flight, delivery and recording capsules and expanded cards](assets/dynamic-island/scenario-examples.png)
+![Compact examples: recording timer and flight gate](assets/dynamic-island/compact-examples.en.png)
 
-*Design illustrations, not device screenshots. Each column pairs two alternative states. Camera
-outlines highlight reserved space; they are not additional UI. Actual proportions follow the device.*
+*Two independent capsule designs: microphone + recording timer, and plane + gate. Each wraps
+one camera, with graphics in A and key information in B. These are illustrations, not device
+screenshots; actual proportions follow the device.*
 
 | Scenario | Start → end | Capsule A + B | Expanded card |
 |---|---|---|---|
@@ -42,11 +43,11 @@ to declare in the Taku payload.
 
 ### Compact capsule: A + camera space + B
 
-![Capsule anatomy: icon group A, protected camera area, information group B, and example combinations](assets/dynamic-island/capsule-anatomy.png)
+![Capsule anatomy: icon group A, protected camera area, information group B, and A/B component combinations](assets/dynamic-island/capsule-anatomy.en.png)
 
 *Left: A identifies the activity. Centre: space reserved for the physical camera. Right: B conveys
-one key fact. The lower examples combine an icon with a code, an icon/progress ring with a gate,
-and a microphone with a timer.*
+one key fact. Below, an A graphic combines with a B information component; choose one
+information component for B at a time.*
 
 - **A is one graphic component:** an icon, an animated icon resource or a progress indicator.
   An icon can carry a progress ring. It is not a second text column.
@@ -93,7 +94,7 @@ always cover the cutout and its onboarding keeps its own layout.
 
 ## 3. Interaction and lifetime
 
-![Four-stage interaction: in app, Home capsule, expanded card, app detail, with a direct-open alternative](assets/dynamic-island/interaction-flow.png)
+![Four-stage interaction: in app, Home capsule, expanded card, app detail](assets/dynamic-island/interaction-flow.en.png)
 
 *1 → 2: leave the app for Home. 2 → 3: tap to expand. 3 → 4: tap the card to open an app screen.
 Alternatively, configure the capsule to open the app directly. The example card uses `below`.*
@@ -125,6 +126,18 @@ post or an accepted false → true alert transition; content updates alone do no
 to the front. Recognized system calls, alarms and recording/casting take precedence. Publishers
 cannot select their own priority tier. The next activity uses a system-drawn 32 dp disc with a
 16 dp icon on the left; it does not move the main capsule.
+
+### Switch and hide activities
+
+![Expand an activity, collapse and tap the left disc to switch, then expand the other activity](assets/dynamic-island/activity-switch.en.png)
+
+*Tap the capsule to expand. Swipe up to collapse, tap the left disc to switch activities, then tap
+the capsule to expand the selected activity. No capsule is shown alongside an expanded card.*
+
+![Swipe left to switch activities, then swipe right to hide each current activity](assets/dynamic-island/swipe-and-hide.en.png)
+
+*Swipe left for the next activity; swipe right to hide the current one. Hiding does not stop the
+service or cancel the notification. Swiping back does not restore the same hidden notification.*
 
 ### Start, update and finish
 
