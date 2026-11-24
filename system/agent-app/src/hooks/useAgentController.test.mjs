@@ -36,6 +36,7 @@ const mocks = new Map([
     };
     export const onOpenThread = listener => {runtime.openListeners.add(listener); return {remove() {runtime.openListeners.delete(listener);}};};
     export const selectConversation = id => {runtime.target = null; runtime.threadId = id || '';};
+    export const setHandoffCandidate = candidate => {runtime.handoffs.push(candidate ? candidate.threadId : null);};
     export const subscribeSession = () => ({remove() {}});
     export const watchConversationVisible = listener => {listener(true); return {remove() {}};};
     export const closeAgent = async () => {};
@@ -59,7 +60,7 @@ const deferred = () => {let resolve; const promise = new Promise(yes => {resolve
 
 function reset(t) {
   Object.assign(runtime, {sequence: 0, storage: new Map(), drafts: new Map(), receipts: new Map(), consumed: new Set(),
-    events: [], calls: [], lookups: [], completed: [], openListeners: new Set(), attachmentListeners: new Set(), target: {...target}, threadId: 'thread-a',
+    events: [], calls: [], lookups: [], completed: [], handoffs: [], openListeners: new Set(), attachmentListeners: new Set(), target: {...target}, threadId: 'thread-a',
     failConsumption: false, mounts: [], receipt: async (args, panelId) => accepted(args, panelId)});
   runtime.callAgent = async (action, params = {}) => {
     const threadId = params.threadId;
@@ -200,6 +201,22 @@ test('a reconciled accepted pending continuation consumes its original launch af
   assert.equal(runtime.storage.has(pendingKey('thread-a')), false);
   await send(restored, 'A later ordinary turn');
   assert.equal(runtime.calls.at(-1).action, 'sendMessage');
+});
+
+test('a send in flight names its conversation for the island handoff, and an idle one clears it', async t => {
+  reset(t); runtime.target = null;
+  const gate = deferred(); runtime.receipt = () => gate.promise;
+  const host = mount(); await flush(host);
+  assert.equal(runtime.handoffs.at(-1), null);
+  assert.equal(host.result.onDraftChange('Plan the trip'), true); await flush(host);
+  host.result.onSend(); await flush(host);
+  assert.equal(runtime.handoffs.at(-1), 'thread-a');
+  gate.resolve(accepted(runtime.calls[0])); await flush(host);
+  runtime.completed.push({threadId: 'thread-a', requestId: runtime.calls[0].requestId, text: 'Plan the trip'});
+  host.result.onRefresh(); await flush(host);
+  assert.equal(runtime.handoffs.at(-1), null);
+  host.unmount();
+  assert.equal(runtime.handoffs.at(-1), null);
 });
 
 test('every outside open is counted, reopening the selected conversation included', async t => {

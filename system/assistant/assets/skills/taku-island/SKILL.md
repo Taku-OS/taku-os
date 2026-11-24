@@ -95,7 +95,10 @@ any card is open no capsule is drawn. Each capsule gesture has a command reachin
 Card taps that open the publisher's screen (`open`, `tap` with `open`, or an `action` whose
 PendingIntent starts an activity) fold the card (`reason` `opened:KEY`), and the card also folds
 when its app comes to the front (`app_opened`). Taku Agent's own cards always cover the camera;
-other publishers' `cardPosition` decides, and the keyboard never changes it.
+other publishers' `cardPosition` decides, and the keyboard never changes it. Taku Agent's card also
+expands without a tap once when a turn the user left running in the full chat completes, needs the
+user or fails; nothing is drawn while that turn runs. Home owns that handoff
+(`assistant/handoff`, `assistant/reclaim` in the open-access skill).
 
 `select KEY` chooses the primary item; it holds until a newer activity is triggered or it ends.
 The activity chooser card and `choose` no longer exist. A capsule is not drawn while its

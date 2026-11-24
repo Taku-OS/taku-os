@@ -16,7 +16,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.launch
 import org.agentos.agent.home.assistant.AssistantSession
@@ -51,8 +55,9 @@ class IslandPublisherService : Service() {
       session.restoreIslandIdentity(prefs.getString("activity", null))
       lastExpansionRequest = session.state.value.expansionRequest
       lastRequest = session.state.value.island // Recovery must not unexpectedly expand over an app.
-    }
+    } else if (session.state.value.threadId == null) restoreHandoff(session)
     SystemIslandBridge.observe(this)
+    watchReveal(session)
     scope.launch {
       combine(session.state, session.voice.state) { state, voice -> state to voice }.sample(250).collect { (state, voice) ->
         // Agent readers observe the same state published to the native SystemUI card.
@@ -65,7 +70,10 @@ class IslandPublisherService : Service() {
   private fun publish(state: AssistantState, voice: VoiceState) {
     if (state.island == IslandMode.Hidden) {
       manager.activeNotifications.filter { it.id == ID && it.tag?.startsWith(TAG) == true }.forEach { manager.cancel(it.tag, ID) }
+      val created = prefs.getLong("handoffCreated", 0).takeIf { it > 0 && prefs.getString("handoffThread", null) == state.handoff?.threadId }
       prefs.edit().clear().apply()
+      // A handed-off turn draws nothing yet, but must still open its card if this process restarts.
+      state.handoff?.let { saveHandoff(it, created ?: System.currentTimeMillis()) }
       fingerprint = null
       postedTag = null
       lastRequest = IslandMode.Hidden
@@ -175,11 +183,60 @@ class IslandPublisherService : Service() {
     // focus and moves below the status bar while the keyboard shows, so a reply appears at the top
     // as soon as it arrives instead of after the keyboard closes.
     if (state.island != lastRequest || state.expansionRequest != lastExpansionRequest) {
-      if (state.island == IslandMode.Expanded || state.island == IslandMode.Full) SystemIslandBridge.request(this, "expand")
+      if (state.island == IslandMode.Expanded || state.island == IslandMode.Full) requestExpand()
       else if (state.island == IslandMode.Collapsed) SystemIslandBridge.request(this, "collapse")
       lastRequest = state.island
       lastExpansionRequest = state.expansionRequest
     }
+  }
+
+  /** Expansion whose acceptance delivers a pending handed-off reveal. */
+  private fun requestExpand() {
+    val session = AssistantSession.get(this)
+    SystemIslandBridge.request(this, "expand") { accepted -> if (accepted) scope.launch { session.revealShown() } }
+  }
+
+  /**
+   * SystemUI cannot draw a card on the lock screen, with the shade open or in landscape, and the
+   * bridge gives up after about 1.5 s. A handed-off result keeps asking until it is drawn or the
+   * user moves on: on unlock at once, otherwise every few seconds while the screen is usable.
+   */
+  private fun watchReveal(session: AssistantSession) {
+    val unlocked = object : android.content.BroadcastReceiver() {
+      override fun onReceive(context: android.content.Context, intent: Intent) {
+        if (session.state.value.revealPending) requestExpand()
+      }
+    }
+    androidx.core.content.ContextCompat.registerReceiver(this, unlocked, android.content.IntentFilter(Intent.ACTION_USER_PRESENT),
+      androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED)
+    receivers += unlocked
+    scope.launch {
+      session.state.map { it.revealPending }.distinctUntilChanged().collectLatest { pending ->
+        while (pending) {
+          delay(REVEAL_RETRY_MS)
+          // Drawn already (its answer was superseded), or no longer wanted: never expand again a
+          // card the user has since swiped away.
+          if (session.state.value.island != IslandMode.Expanded ||
+              SystemIslandBridge.presentation(this@IslandPublisherService) == "expanded") { session.revealShown(); break }
+          val power = getSystemService(android.os.PowerManager::class.java)
+          val keyguard = getSystemService(android.app.KeyguardManager::class.java)
+          if (power?.isInteractive == true && keyguard?.isKeyguardLocked != true) requestExpand()
+        }
+      }
+    }
+  }
+
+  private fun saveHandoff(handoff: org.agentos.agent.home.assistant.Handoff, created: Long) {
+    prefs.edit().putString("handoffThread", handoff.threadId).putString("handoffTurn", handoff.turnId)
+      .putString("handoffTask", handoff.taskId).putLong("handoffCreated", created).apply()
+  }
+
+  /** Follows a handoff saved before this process died, within the same 8 h window as a thread. */
+  private fun restoreHandoff(session: AssistantSession) {
+    val thread = prefs.getString("handoffThread", null) ?: return
+    if (System.currentTimeMillis() - prefs.getLong("handoffCreated", 0) !in 0..28_800_000) return
+    runCatching { session.handoff(thread, prefs.getString("handoffTurn", null), prefs.getString("handoffTask", null)) }
+      .onFailure { android.util.Log.w("TakuIsland", "Handoff not restored: ${it.message}") }
   }
 
   private fun action(kind: String, thread: String, activity: String?, suggestion: String = ""): PendingIntent {
@@ -190,6 +247,13 @@ class IslandPublisherService : Service() {
   }
   private fun bounded(value: String, count: Int) = value.substring(0, value.offsetByCodePoints(0, minOf(count, value.codePointCount(0, value.length))))
   override fun onBind(intent: Intent?): IBinder = binder
-  override fun onDestroy() { scope.cancel(); super.onDestroy() } // Do not cancel backend work or its last notification.
-  companion object { const val CHANNEL = "taku_island"; const val TAG = "taku-island"; const val ID = 2801 }
+  private val receivers = mutableListOf<android.content.BroadcastReceiver>()
+  override fun onDestroy() {
+    receivers.forEach { runCatching { unregisterReceiver(it) } }
+    scope.cancel(); super.onDestroy()
+  } // Do not cancel backend work or its last notification.
+  companion object {
+    const val CHANNEL = "taku_island"; const val TAG = "taku-island"; const val ID = 2801
+    private const val REVEAL_RETRY_MS = 3_000L
+  }
 }

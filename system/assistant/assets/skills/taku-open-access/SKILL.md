@@ -743,6 +743,8 @@ taku_call "$A" assistant/collapse                    # camera pill while working
 taku_call "$A" assistant/dismiss                     # pill if working, otherwise ends the session
 taku_call "$A" assistant/open-conversation           # continue in the full chat
 taku_call "$A" assistant/resume '{"threadId":"ID"}'  # full chat's collapse: island shows ID, Home comes forward
+taku_call "$A" assistant/handoff '{"threadId":"ID","turnId":"TURN"}'  # leaving the chat: follow ID hidden, open its result once
+taku_call "$A" assistant/reclaim '{"threadId":"ID"}' # the chat shows ID again: cancel the reveal, hide its card
 taku_call "$A" assistant/close-input
 taku_call "$A" assistant/reset
 # Voice (hold to talk, or dictation when the text field is open):
@@ -753,6 +755,8 @@ taku_call "$A" assistant/voice-to-text               # finish the same capture a
 ```
 
 Home, system gesture and full chat share the native conversation. `assistant/get` projects `entry,island,threadId,working,needsUser,pending,task,error,draft,failedText,online,voice,turn`; `turn` has active/failed state, user text, reply, steps and offered suggestions. Draft attachments appear in `draftAttachmentNames`; `ask` preserves them when sending matching text (empty text allowed with attachments). Different text uses handoff to retain displaced content. `resume` expands the current thread (empty/omitted starts fresh) and brings Home forward unless `home:false`. `open` accepts text or voice. Text open leaves active capture/finalization unchanged; use voice-to-text or cancel first.
+
+Leaving the full chat (Home, Back, Recents) while its turn runs, is queued or is still being sent calls `assistant/handoff`; Agents call it the same way. Home follows the thread with nothing drawn (no capsule, no card), then expands the card once when that turn completes, needs the user or fails; a cancelled task opens nothing. Params: `threadId` (required, `[A-Za-z0-9._:-]{1,128}`), optional `turnId` (the turn to wait for) and `taskId` (a queued task; the first turn seen running becomes the one awaited). Result `{handedOff, reason}`: `HANDED_OFF`, or `ALREADY_SHOWN` when Home already shows that thread (after Collapse). `HOME_BUSY` when Home holds another conversation that is working, needs the user or has its card expanded, or Home input, a microphone or Live Talk is active; nothing changes and no reveal happens. The revealed card stays until tapped, swiped up or the chat returns. If SystemUI cannot draw it (lock screen, shade, landscape), Home asks again on unlock and every 3 s while unlocked. `assistant/reclaim` (the chat shows the thread again) returns `{reclaimed}`, cancels a pending reveal and hides that thread's card. Read `handoff`, `handoffTurnId`, `revealPending` and `islandRequest` from `assistant/get`, and the drawn card from `cmd statusbar island state`. Opening Home input or Live Talk, `open-conversation`, `dismiss`, `reset` and `resume` also cancel a handoff.
 
 On failed send or turn (`THREAD_BUSY`, `THREAD_QUEUED`, `GATEWAY_UNAVAILABLE`, `TASK_FAILED`, `TURN_FAILED`), text is retained/restored without overwriting a newer draft. After 30 s offline the UI reports `NETWORK_UNAVAILABLE` and keeps the request even if the broker still works. Retry checks pending ID before resending; edit with open/draft. `failedText` clears on next send/reset. Other errors: `INVALID_TEXT` (max 16,000 characters), `BUSY`, `NOT_WORKING`, `NOTHING_TO_RETRY`, `SUGGESTION_NOT_FOUND`, `INVALID_ARGUMENT`, `TIMEOUT`, `UNKNOWN_METHOD`. There is no external transcript injection.
 
@@ -781,7 +785,7 @@ Recording uses Taku Audio's `assistant-entry` settings. Local Zipformer stays on
 
 Check recording permission with `cmd appops get org.agentos.audio RECORD_AUDIO` and `dumpsys package org.agentos.audio`. Use Taku Audio's Allow microphone access or `pm grant org.agentos.audio android.permission.RECORD_AUDIO` as shell; `pm revoke` revokes. Missing permission yields `PERMISSION_DENIED` / `VOICE_PERMISSION_REQUIRED`. On Mac, `adb -s SERIAL emu avd hostmicon` enables host mic forwarding and `hostmicoff` disables it; Android cannot inspect or change macOS consent. Nonzero PCM levels verify input reception.
 
-`assistant/app-build` takes the current `threadId,turnId` and boolean `active`. Set false on completion. It toggles presentation only; only actual app builds may show a compact pill. Errors: `INVALID_ARGUMENT`, `STALE_TURN`, `NOT_WORKING`. Read `buildingApp,appBuildTurnId` and `cmd statusbar island state` (`compactVisible`).
+`assistant/app-build` takes the current `threadId,turnId` and boolean `active`. Set false on completion. It toggles presentation only; only actual app builds may show a compact pill (also while handed off from the chat). Errors: `INVALID_ARGUMENT`, `STALE_TURN`, `NOT_WORKING`. Read `buildingApp,appBuildTurnId` and `cmd statusbar island state` (`compactVisible`).
 
 The chat waveform button starts Live Talk with one tap. The Live Talk panel
 displays the provider disclosure during the session.

@@ -4,6 +4,8 @@ Versioned, user-facing records. Source-project versions are distinct from ROM re
 
 ## Unreleased
 
+- Fix BUG-0027: a turn left running in the full chat (Home, Back or Recents, without Collapse) now reaches the Dynamic Island. Nothing is drawn while it works; when it completes, needs the user's answer or fails, the expanded island card opens once with the result over whatever app is in front, and stays until tapped, swiped up or the chat returns. Returning to the chat first cancels it. If Home is already busy with another conversation, no card is shown. Cards blocked by the lock screen, shade or landscape open after unlock or within 3 s. Agents get the same operations through new `assistant/handoff` and `assistant/reclaim`, and read `handoff`, `handoffTurnId` and `revealPending` from `assistant/get`. JS tests, typecheck and lint passed; the Kotlin code and its new JVM tests were not compiled, and nothing was run on an emulator. Spec: `docs/dynamic-island-chat-handoff-spec.md`.
+
 - Fix tapping the expanded Taku Dynamic Island card opening Taku 主页 (Taku Home) instead of the conversation. Taku Home is an overlay inside the full chat, and an outside open (island card, Feed, Panel) left it covering the conversation it had just selected, including when it reopened the conversation already selected. Any outside open now hides Taku Home. A controller test covers the same-conversation reopen. Not yet verified on an emulator.
 
 - Fix TypeSafe Jev onboarding saving a key without a usable Magpie provider: write the official decision endpoint and repair older preset-only configurations during Broker startup/config sync. Preserve credentials, explicit endpoints and model routes; GUI and Agent use the same repaired Settings data.

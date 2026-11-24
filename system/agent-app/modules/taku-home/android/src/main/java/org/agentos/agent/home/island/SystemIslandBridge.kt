@@ -64,11 +64,17 @@ object SystemIslandBridge {
     }
   }
 
-  fun request(context: Context, method: String) {
+  /**
+   * Asks SystemUI to [method] Taku's card, retrying an expansion briefly while the notification
+   * lands. [onResult] reports whether SystemUI accepted it; a newer request supersedes this one
+   * without a result.
+   */
+  fun request(context: Context, method: String, onResult: ((Boolean) -> Unit)? = null) {
     val sequence = requestSequence.incrementAndGet()
     val app = context.applicationContext
     scope.launch {
-      repeat(if (method == "expand") 10 else 1) {
+      var accepted = false
+      try { repeat(if (method == "expand") 10 else 1) {
         if (sequence != requestSequence.get()) return@launch
         val snapshot = read(app)
         val key = snapshot?.let { ownKey(app, it) }
@@ -78,9 +84,11 @@ object SystemIslandBridge {
             app.contentResolver.call(URI, method, if (method == "collapse") null else key, null)
               ?.getString("json")?.let { JSONObject(it).optBoolean("ok") } == true
           }.getOrDefault(false)
-          if (success) { refresh(app); return@launch }
+          if (success) { refresh(app); accepted = true; return@launch }
         }
         delay(150)
+      } } finally {
+        if (sequence == requestSequence.get() || accepted) onResult?.invoke(accepted)
       }
     }
   }

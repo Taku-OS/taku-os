@@ -2,7 +2,8 @@ import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {AppState, BackHandler} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {useLocales} from 'expo-localization';
-import {callAgent, closeAgent, consumePanelLaunch, isPanelLaunchConsumed, launchPanelTarget, launchThreadId, newRequestId, onOpenThread, selectConversation, subscribeSession, watchConversationVisible, AgentGatewayError, type PanelTarget} from '../native/agent';
+import {callAgent, closeAgent, consumePanelLaunch, isPanelLaunchConsumed, launchPanelTarget, launchThreadId, newRequestId, onOpenThread, selectConversation, setHandoffCandidate, subscribeSession, watchConversationVisible, AgentGatewayError, type PanelTarget} from '../native/agent';
+import {handoffCandidate} from '../model/islandHandoff';
 import {onComposerAttachment, pickComposerAttachment, type ComposerPickerKind} from '../native/composerPicker';
 import {projectSession, projectThreads, projectWorkspaces, record, string, type Json, type SessionView, type ThreadSummary, type WorkspaceView} from '../model/session';
 import {isAcceptedReceipt, isNotSentReceipt, pendingKey, preserveAndReleaseUnconfirmed, unconfirmedArchivePrefix, type PendingSubmission} from './submission';
@@ -303,6 +304,14 @@ export function useAgentController() {
       if (mounted.current) setError(messageRef.current(e));
     });
   }, [composer]);
+
+  // Native reads this when the chat stops: a running turn goes to the island (BUG-0027).
+  const candidate = handoffCandidate(selected, session, pendingSubmission?.threadId ?? null);
+  const handoffThread = candidate?.threadId ?? '', handoffTurn = candidate?.turnId ?? '', handoffTask = candidate?.taskId ?? '';
+  useEffect(() => {
+    setHandoffCandidate(handoffThread ? {threadId: handoffThread, turnId: handoffTurn, taskId: handoffTask} : null);
+  }, [handoffThread, handoffTurn, handoffTask]);
+  useEffect(() => () => setHandoffCandidate(null), []);
 
   useEffect(() => {
     const back = BackHandler.addEventListener('hardwareBackPress', () => { hide(); return true; });

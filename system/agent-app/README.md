@@ -38,7 +38,9 @@ desktop forward and selects that panel through the same `panels/open` operation 
 list and the desktop show the same IDs and order. Panels render only on the desktop;
 Back from Taku Home returns to the chat. The chat and Taku Home lists blur and
 fade under the status bar and title row and along the bottom edge. Collapse (top right) hands the thread to the
-home Dynamic Island (`assistant/resume`). It opens from the island's expand button, a double tap
+home Dynamic Island (`assistant/resume`). Leaving the chat by Home, Back or Recents while a turn
+runs hands it over silently instead (`assistant/handoff`): nothing shows while it works, and the
+island card opens with the reply, question or error once the turn has one. It opens from the island's expand button, a double tap
 on the gesture handle or the Taku icon, and swiping up on the handle leaves it like any app.
 Long-pressing a finished reply opens the 0-3 style menu (dimmed, lightly blurred list, the
 reply lifted on a card, Copy and Select pills); replies carry no copy button. The composer shows

@@ -61,6 +61,7 @@ class TakuAgentModule : Module() {
     private const val ROUTE_TIMEOUT_MS = 3_000L
     private const val OPEN_ACCESS = "content://org.agentos.assistant.open-access"
     private const val CONVERSATION = "org.agentos.agent.MainActivity"
+    private const val HOME_ASSISTANT = "content://org.agentos.agent.home-assistant"
     private const val TAG = "TakuAgentPanels"
   }
 
@@ -128,6 +129,55 @@ class TakuAgentModule : Module() {
   /** Where the conversation activity is started, so hidden chat cards can drop their demand. */
   private var conversationVisibility: ConversationVisibility? = null
   private var conversationApplication: Application? = null
+  /** The running conversation JS last reported; read when the chat stops (BUG-0027). */
+  @Volatile private var handoffCandidate: HandoffDecision.Candidate? = null
+  /** Home calls in order, off the UI thread: a quick leave and return must not swap. */
+  private val handoffCalls = java.util.concurrent.Executors.newSingleThreadExecutor { Thread(it, "taku-handoff").apply { isDaemon = true } }
+
+  /**
+   * Leaving the chat hands its running turn to Home, which opens the island card once the turn
+   * has a result; showing a conversation again takes it back. See
+   * docs/dynamic-island-chat-handoff-spec.md.
+   */
+  private fun conversationVisibilityChanged(visible: Boolean) {
+    val tracker = conversationVisibility ?: return
+    val context = appContext.reactContext?.applicationContext ?: return
+    if (visible) {
+      (latestThreadId?.takeIf { it.isNotBlank() } ?: handoffCandidate?.threadId)?.let { reclaimIsland(context, it) }
+      return
+    }
+    val candidate = handoffCandidate
+    val skip = HandoffDecision.decide(candidate, tracker.lastStopChangingConfigurations,
+      context.getSystemService(android.os.PowerManager::class.java)?.isInteractive != false,
+      composerPicker.isOpen, tracker.lastResumed)
+    if (skip != null || candidate == null) {
+      if (candidate != null) Log.i(TAG, "island handoff skipped: $skip")
+      return
+    }
+    val params = JSONObject().put("threadId", candidate.threadId)
+    candidate.turnId?.let { params.put("turnId", it) }
+    candidate.taskId?.let { params.put("taskId", it) }
+    callHome(context, "assistant/handoff", params)
+  }
+
+  private fun reclaimIsland(context: Context, threadId: String) =
+    callHome(context, "assistant/reclaim", JSONObject().put("threadId", threadId))
+
+  /** The user already left or is back in the chat, so a refusal is only logged. */
+  private fun callHome(context: Context, method: String, params: JSONObject) {
+    if (handoffCalls.isShutdown) return
+    try { handoffCalls.execute {
+      try {
+        val reply = context.contentResolver.call(Uri.parse(HOME_ASSISTANT), method, params.toString(), null)
+          ?.getString("result")?.let(::JSONObject)
+        if (reply?.optBoolean("ok") != true) Log.i(TAG, "$method refused: ${reply?.optString("code") ?: "HOME_UNAVAILABLE"}")
+      } catch (e: Exception) {
+        Log.w(TAG, "$method failed", e)
+      }
+    } } catch (_: java.util.concurrent.RejectedExecutionException) {
+      // The module is being destroyed; the chat is gone with it.
+    }
+  }
 
   private fun stopMatter(subscriptionId: String) {
     synchronized(matterLock) { matterReaders.remove(subscriptionId) }?.stop()
@@ -311,6 +361,9 @@ class TakuAgentModule : Module() {
   private fun rememberLaunchIntent(intent: Intent?, announce: Boolean) {
     val path = routePath(intent) ?: return
     latestThreadId = path.threadId
+    // Opened from outside (Feed, Panel): Android starts the chat before it delivers this intent.
+    if (announce && conversationVisibility?.visible == true)
+      appContext.reactContext?.applicationContext?.let { reclaimIsland(it, path.threadId) }
     val pending = if (announce) panelLaunch.reopen(path) else panelLaunch.observe(path)
     if (!announce) return
     // Every request announces once: a repeat intent still moves the chat to that conversation,
@@ -386,7 +439,10 @@ class TakuAgentModule : Module() {
       conversationVisibility = application?.let { host ->
         ConversationVisibility(
           hostsConversation = { it.javaClass.name == CONVERSATION },
-          onChange = { visible -> mainHandler.post { sendEvent("onConversationVisibility", mapOf("visible" to visible)) } },
+          onChange = { visible ->
+            conversationVisibilityChanged(visible)
+            mainHandler.post { sendEvent("onConversationVisibility", mapOf("visible" to visible)) }
+          },
         ).also { it.attach(host, appContext.currentActivity) }
       }
     }
@@ -434,6 +490,7 @@ class TakuAgentModule : Module() {
       if (backdrop?.activity?.isDestroyed == true) releaseBackdrop(backdrop)
     } }
     OnDestroy {
+      handoffCalls.shutdown()
       SecretFields.onSubmit = null
       composerPicker.close()
       conversationVisibility?.let { tracker -> conversationApplication?.let(tracker::detach) }
@@ -522,10 +579,18 @@ class TakuAgentModule : Module() {
       Unit
     }
 
+    /** The conversation whose turn is running, or "" when none; see [conversationVisibilityChanged]. */
+    Function("setHandoffCandidate") { threadId: String, turnId: String, taskId: String ->
+      handoffCandidate = HandoffDecision.candidate(threadId, turnId, taskId)
+    }
+
     Function("selectConversation") { threadId: String? ->
       panelLaunch.path()?.takeIf { it.panelId != null }?.launchId?.let(panelLaunch::consume)
       panelLaunch.clear()
       latestThreadId = threadId ?: ""
+      // A card for this conversation must not stay over the chat that now shows it.
+      if (threadId != null && conversationVisibility?.visible == true)
+        appContext.reactContext?.applicationContext?.let { reclaimIsland(it, threadId) }
       if (threadId != null) panelLaunch.observe(LaunchRoute.Path(threadId, null, null))
       conversationActivity()?.let { activity ->
         val intent = Intent(activity.intent).apply {

@@ -1,6 +1,7 @@
 # BUG-0027 fix spec: a reply finished after leaving the chat opens in the Dynamic Island
 
-Status: draft, revised 2026-11-24. Decisions needed before implementation are listed in
+Status: implemented on `vela/dynamic-island`, not yet compiled or verified on an emulator; see
+[Implementation status](#implementation-status). Product decisions are recorded in
 [Follow-ups and open questions](#follow-ups-and-open-questions).
 
 ## Summary
@@ -52,8 +53,9 @@ within 1 s of finishing, and the island shows nothing for that turn before then.
 
 **Goals**
 
-1. Leaving the full chat by Home, Recents or Back while its turn is running, queued or waiting for
-   the user hands the thread to Home's session without drawing anything.
+1. Leaving the full chat by Home, Recents or Back while its turn is running, queued or still being
+   sent hands the thread to Home's session without drawing anything. A conversation already
+   waiting on the user's answer is not handed off; the user just left that question.
 2. When that turn completes, fails or needs the user, the expanded card opens once with the reply,
    error or question.
 3. The card stays until the user acts on it; tapping it opens that conversation (existing
@@ -75,7 +77,8 @@ within 1 s of finishing, and the island shows nothing for that turn before then.
 The native chat module decides at the moment the chat stops being visible and calls a new Home
 operation, `assistant/handoff`. Home keeps following the thread with the island hidden, and
 reveals the card once when the turn reaches a state the user needs to see. A second operation,
-`assistant/release`, cancels the handoff when the chat returns.
+`assistant/reclaim`, cancels the handoff when the chat returns. (`assistant/release` was already
+taken: it releases a draft submission.)
 
 ```mermaid
 flowchart LR
@@ -86,7 +89,7 @@ flowchart LR
   busy -- yes --> refused["Refused<br/>HOME_BUSY"]
   busy -- no --> hidden["Following thread,<br/>island hidden"]
   hidden -- "reply, question<br/>or error" --> card["Card expanded<br/>with the result"]
-  hidden -- "chat visible again<br/>assistant/release" --> back["Chat shows the thread,<br/>nothing revealed"]
+  hidden -- "chat visible again<br/>assistant/reclaim" --> back["Chat shows the thread,<br/>nothing revealed"]
   card -- "tap card" --> back
 ```
 
@@ -98,9 +101,12 @@ as today.
 The decision runs in `TakuAgentModule` when `ConversationVisibility` reports the last chat host
 stopped. It does not run in JS, because the React runtime may not get a frame after `onStop`.
 
-- JS keeps native informed with a new `setHandoffCandidate(threadId | null)`.
-  `useAgentController` sets the selected thread when its session is running, queued or has a
-  pending question, and `null` otherwise.
+- JS keeps native informed with a new `setHandoffCandidate(threadId, turnId, taskId)` (empty
+  strings for none). `handoffCandidate()` in `src/model/islandHandoff.ts` names the selected
+  thread with its active turn, its queued task, or neither for a send not yet reported; it returns
+  null when the session is idle or waiting on a question.
+- Home waits for that turn. With only a task, the first turn seen running after the handoff becomes
+  the one to wait for, so an older finished turn the stream shows first is never revealed.
 - Back, Home and Recents all end in the same `onStop`, so one code path covers the three routes in
   the bug.
 - The decision is a pure function, `HandoffDecision.decide(...)`, so it can be unit-tested without
@@ -116,7 +122,7 @@ stopped. It does not run in JS, because the React runtime may not get a frame af
 
 ### 2. New Home operation: `assistant/handoff`
 
-Provider `content://org.agentos.agent.home-assistant`, params `{"threadId":"ID"}`. It is a sibling
+Provider `content://org.agentos.agent.home-assistant`, params `{"threadId":"ID","turnId"?,"taskId"?}`. It is a sibling
 of `assistant/resume`, not a flag on it, because its rules differ: it never resets a busy session,
 never expands and never draws anything.
 
@@ -152,18 +158,20 @@ Once revealed, the card follows existing island rules:
 - It stays until the user taps it (opens the conversation), swipes it up (island hidden; the
   reply stays in the conversation), or returns to the chat.
 - Taku's card is never suppressed by the app in front, so it opens over any app.
-- **Deferred reveal.** `SystemIslandBridge.request("expand")` gives up after about 1.5 s. If
-  SystemUI cannot present the card when the turn ends (lock screen, shade open, landscape), Home
-  keeps `revealPending = true` and requests the expansion again when the device is unlocked
-  (`ACTION_USER_PRESENT`) or returns to portrait, once. Any of the cancel events in §4 clears it.
+- **Deferred reveal.** `SystemIslandBridge.request("expand")` gives up after about 1.5 s. Home sets
+  `revealPending = true` at the reveal and clears it when SystemUI accepts the expansion. Until
+  then `IslandPublisherService` asks again on unlock (`ACTION_USER_PRESENT`) and every 3 s while the
+  screen is on and unlocked, which covers the shade and landscape. It stops as soon as SystemUI
+  reports the card expanded or the session no longer wants it, so a card the user swiped away is
+  never expanded again. Any of the cancel events in §4 clears it.
 
 An app-build turn keeps its existing "Building..." capsule while it runs. The reveal on completion
 applies to it the same way.
 
-### 4. Cancelling: `assistant/release`
+### 4. Cancelling: `assistant/reclaim`
 
-Params `{"threadId":"ID"}`. When the chat becomes visible showing `ID`, or selects `ID` while
-visible, native calls it.
+Params `{"threadId":"ID"}`. Native calls it when the chat becomes visible, selects `ID` while
+visible, or receives an intent for `ID` (Feed, Panel) while visible.
 
 - If Home holds `ID` with `handoff` or `revealPending` set, both clear and nothing is revealed.
 - If Home holds `ID` with the card showing, the island goes `Hidden`, the same end state as
@@ -171,8 +179,9 @@ visible, native calls it.
   by Recents back to the chat.
 - The thread stays in the session, so the Home entry still continues it. Otherwise no change.
 
-`handoff` and `revealPending` also clear on `openConversation`, `dismiss`, `reset`, and any
-explicit Home entry (double tap, hold), because each of those means the user has moved on.
+`handoff` and `revealPending` also clear on `openConversation`, `dismiss`, `reset`, `resume`,
+and any explicit Home entry (double tap, hold) or Live Talk, because each of those means the user
+has moved on.
 
 ## Conflicts with Home's session
 
@@ -209,7 +218,7 @@ conversation rather than Taku Home.
 | Route back | Before the turn ends | After the card was revealed |
 | --- | --- | --- |
 | Tap the revealed card | n/a | `openConversation` hides the island and opens the thread; the external-open fix (`4140783f`) closes any Taku Home overlay left open |
-| Launcher icon or Recents | `assistant/release` cancels the reveal | `assistant/release` hides the card |
+| Launcher icon or Recents | `assistant/reclaim` cancels the reveal | `assistant/reclaim` hides the card |
 | Feed card or Panel opening a different thread | No effect on the handed-off thread; its reveal still happens | No effect |
 | Swipe up on the revealed card | n/a | Island hidden; the reply stays in the conversation |
 
@@ -222,9 +231,9 @@ Center (default `deny`).
 
 | Operation | Params | Result | Errors |
 | --- | --- | --- | --- |
-| `assistant/handoff` | `threadId` (required) | `{handedOff, reason}`; `reason` = `HANDED_OFF` or `ALREADY_SHOWN` | `INVALID_ARGUMENT` (blank or malformed id), `HOME_BUSY` |
-| `assistant/release` | `threadId` (required) | `{released}` | `INVALID_ARGUMENT` |
-| `assistant/get` | none | Adds booleans `handoff` and `revealPending` beside `island`, `threadId`, `working`, `needsUser` | unchanged |
+| `assistant/handoff` | `threadId` (required), `turnId`, `taskId` | `{handedOff, reason}`; `reason` = `HANDED_OFF` or `ALREADY_SHOWN` | `INVALID_ARGUMENT` (not a string, or not `[A-Za-z0-9._:-]{1,128}`), `HOME_BUSY` |
+| `assistant/reclaim` | `threadId` (required) | `{reclaimed}` | `INVALID_ARGUMENT` |
+| `assistant/get` | none | Adds `handoff` (boolean), `handoffTurnId` and `revealPending` beside `islandRequest`, `threadId`, `working`, `needsUser` | unchanged |
 
 Read-back for acceptance: `assistant/get` for the session, and `cmd statusbar island state` for
 the card and `presentation.reason`. The automatic trigger itself is GUI lifecycle; an Agent
@@ -232,15 +241,15 @@ performs the same operation by calling `assistant/handoff`.
 
 Documentation to update in the same change:
 
-- [ ] `system/assistant/assets/skills/taku-open-access/SKILL.md`, "Home AI entry and Dynamic
+- [x] `system/assistant/assets/skills/taku-open-access/SKILL.md`, "Home AI entry and Dynamic
   Island": both operations, errors, the new fields, and that a handed-off turn's result expands
   the card once.
-- [ ] `system/assistant/assets/skills/taku-island/SKILL.md`: when Taku's card expands without an
+- [x] `system/assistant/assets/skills/taku-island/SKILL.md`: when Taku's card expands without an
   explicit request.
-- [ ] `system/agent-app/modules/taku-home/README.md` "Full chat (2-1)" and
+- [x] `system/agent-app/modules/taku-home/README.md` "Full chat (2-1)" and
   `system/agent-app/README.md`: leaving the chat with a running turn opens its result in the
   island when it finishes.
-- [ ] `CHANGELOG.md` Unreleased entry naming BUG-0027.
+- [x] `CHANGELOG.md` Unreleased entry naming BUG-0027.
 
 ## Edge cases and failures
 
@@ -250,11 +259,11 @@ the turn keeps running either way.
 | Case | Required behaviour |
 | --- | --- |
 | Provider call fails (Home process starting, `HOME_UNAVAILABLE`) | Log with the thread id; no retry loop; no user-visible error |
-| Turn finishes between `onStop` and the call | Hand off and reveal immediately |
+| Turn finishes between `onStop` and the call | With its `turnId` known: hand off and reveal immediately. A queued task that already finished: no reveal; the reply stays in the conversation |
 | Leave, return and leave again quickly | Each leave hands off again; at most one reveal per turn; never a duplicate notification (one tag per `activityId`) |
 | Chat process killed after handoff | Unaffected: `IslandPublisherService` is bound by SystemUI and restores the saved thread (`IslandPublisherService.kt:47`); `handoff` and `revealPending` are saved with it |
 | Island turned off (`taku_island_enabled=0`) | Session still updates; nothing is drawn; `assistant/get` still reports the fields |
-| Lock screen, shade open, landscape at completion | Deferred reveal (Design §3); the card opens once the device is unlocked or back in portrait |
+| Lock screen, shade open, landscape at completion | Deferred reveal (Design §3); the card opens after unlock, or within 3 s of the shade closing or returning to portrait |
 | Turn runs longer than the saved-thread window (8 h) | No reveal; the reply stays in the conversation |
 | Work profile or second user | Handoff stays in the current user's Home session; no cross-user calls |
 
@@ -268,7 +277,7 @@ pass on an isolated emulator, as AGENTS.md requires.
 - `HandoffDecision.decide`: one case per skip row in Design §1, plus the hand-off case.
 - `AssistantSession.handoff`: each row of the Conflicts table, including `island = Hidden`, no
   `expansionRequest` and no `reset()` for the same thread.
-- Reveal: each row of the Design §3 table; one reveal per handoff; cancelled by `release`, Home
+- Reveal: each row of the Design §3 table; one reveal per handoff; cancelled by `reclaim`, Home
   entry, `dismiss` and `reset`; deferred reveal fires once on unlock and once on portrait.
 - `IslandPublisherService`: no notification while `handoff` and `island = Hidden`; no `compact`
   except the existing app-build capsule.
@@ -283,26 +292,26 @@ pass on an isolated emulator, as AGENTS.md requires.
    expanded with the reply, `handoff:false`. This also closes the bug's open question.
 3. Same with Back, and with Recents into another app; the card opens over that app.
 4. Tap the card: the chat shows that conversation, island hidden.
-5. Leave mid-turn, return through Recents before it ends: `release` ran, no card after completion.
+5. Leave mid-turn, return through Recents before it ends: `reclaim` ran, no card after completion.
 6. A turn that asks for approval, and one that fails: the card opens with the question or error.
 7. Lock the device before completion, unlock after: the card opens once after unlock.
 8. Collapse button: unchanged, card expanded over Home, `ALREADY_SHOWN` on the following stop.
 9. Home busy: start a Home-entry turn, then leave a running chat on another thread: `HOME_BUSY`,
    Home's card untouched.
 10. Screen off mid-turn, rotation, attachment picker: no handoff.
-11. Agent path: `assistant/handoff` and `assistant/release` by `content call` produce the same
+11. Agent path: `assistant/handoff` and `assistant/reclaim` by `content call` produce the same
     states as the GUI.
 
 ## Follow-ups and open questions
 
-Two decisions are needed before implementation; the rest is follow-up work outside BUG-0027.
+Both product decisions are made; the rest is follow-up work outside BUG-0027.
 
-**Decisions needed**
+**Decisions**
 
-- [ ] Product: should a revealed card ever close by itself (for example after some minutes with no
-  interaction), or stay until the user acts on it? This spec keeps it open until the user acts.
-- [ ] Product: whether `HOME_BUSY` should leave the chat's turn with no reveal at all, or the
-  island should first be able to hold more than one Taku session.
+- [x] A revealed card does not close by itself; it stays until the user taps it, swipes it up or
+  returns to the chat. (Decided 2026-11-24.)
+- [x] When Home is busy with another conversation, the chat's turn is not revealed (`HOME_BUSY`).
+  (Decided 2026-11-24.)
 
 **Follow-ups**
 
@@ -313,3 +322,20 @@ Two decisions are needed before implementation; the rest is follow-up work outsi
   (`IslandPresenter.kt:145`). Not used by this spec, but other publishers hit it.
 - `TaskNotificationReceiver`: its "Taku completed" notification opens the task page, not the
   conversation. Check whether chat turns post it, and point it at the conversation if so.
+
+## Implementation status
+
+Implemented on 2026-11-24; the device and compile checks below are still open.
+
+| Area | Files |
+| --- | --- |
+| Pure rules | `taku-home/.../assistant/IslandHandoff.kt`, `taku-agent/.../bridge/HandoffDecision.kt`, `src/model/islandHandoff.ts` |
+| Home session | `AssistantSession.kt` (`handoff`, `reclaim`, `revealShown`, reveal watcher), `HomeAssistantProvider.kt` |
+| Island publisher | `IslandPublisherService.kt` (deferred reveal, saved handoff), `SystemIslandBridge.kt` (expand result) |
+| Chat | `TakuAgentModule.kt`, `ConversationVisibility.kt`, `ComposerPicker.kt`, `src/native/agent.ts`, `src/hooks/useAgentController.ts` |
+| Tests | `IslandHandoffTest.kt`, `HandoffDecisionTest.kt`, `src/model/islandHandoff.test.mjs`, `src/hooks/useAgentController.test.mjs` |
+
+- [x] JS tests, typecheck and lint pass.
+- [ ] Kotlin compile and JVM tests (`IslandHandoffTest`, `HandoffDecisionTest`): not run; no
+  Android or Kotlin toolchain was available where this was written.
+- [ ] Emulator acceptance (Tests and acceptance, steps 1–11).
