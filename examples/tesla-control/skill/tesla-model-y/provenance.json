@@ -1,0 +1,176 @@
+{
+  "schema": "taku.tesla-control.provenance/1",
+  "source": {
+    "repository": "https://github.com/Taku-OS/taku-os-legacy",
+    "branch": "codex/melo-iot-tesla-pixel9",
+    "commit": "5e86f9ec46c1daf38bcaa1de373456a5637a5acc",
+    "path": "tooling/iot-lab/skills/tesla-model-y",
+    "license": "Apache-2.0; Tesla APK and its generated runtime classes are not redistributed"
+  },
+  "teamBaseline": {
+    "repository": "https://github.com/Taku-OS/taku-os",
+    "commit": "499e15e2cad81b4e48a23eb113fd2181ccf82ba0"
+  },
+  "historicalEnvironment": {
+    "device": "Pixel 9 (tokay)",
+    "androidVersion": "17",
+    "androidApi": 37,
+    "stockBuild": "CP3A.261005.005",
+    "magiskVersion": "30.7",
+    "takuComponentVersion": "58",
+    "selinux": "Enforcing",
+    "completeTakuRomInstalled": false
+  },
+  "historicalResults": {
+    "originalDeviceValidation": {
+      "date": "2026-10-21",
+      "source": "Owner physical observations after requests from ordinary Taku phone conversations with USB disconnected",
+      "horn": true,
+      "flashLights": true,
+      "targetTemperatureFromCelsius": 22,
+      "targetTemperatureToCelsius": 21,
+      "temperatureEncodedBytes": 108,
+      "temperatureRoundtripPassed": true,
+      "flashAndTemperatureRawPhoneReceiptsRetrieved": false,
+      "otherDevicesValidated": false,
+      "completeTakuRomValidated": false,
+      "remoteTemperatureValidated": false
+    },
+    "ownerReportedActions": {
+      "reportedDate": "2026-10-22",
+      "source": "Owner reported completed physical vehicle tests in this case conversation",
+      "applicationProfile": "4.61.6-4647, last deployed profile; no fresh device/version inspection in this reporting step",
+      "verifiedActionScopesSource": "https://github.com/Taku-OS/taku-os-legacy/blob/5e86f9ec46c1daf38bcaa1de373456a5637a5acc/tooling/iot-lab/skills/tesla-model-y/capabilities.json actions.*.vehicleVerification",
+      "verifiedActionCount": 12,
+      "reportedSuccessfulFeatures": [
+        "lock and unlock",
+        "rear trunk opening and closing",
+        "window ventilation (opening windows)",
+        "previous and next media track",
+        "flash lights and horn",
+        "air conditioning functions (owner group-level report)",
+        "seat heating",
+        "steering wheel heating",
+        "enable Sentry Mode"
+      ],
+      "unsupportedOnThisVehicle": [
+        "seat ventilation: owner confirms the vehicle does not have this feature"
+      ],
+      "scopeLimits": [
+        "Rear trunk closing outcome does not identify whether MOVE or explicit CLOSE was used; explicit CLOSE remains prepared and further testing is not required",
+        "Air-conditioning group report is retained without claiming individual climate/defrost/recirculation/bioweapon/keeper/overheat action and parameter coverage",
+        "Seat and steering-wheel heating report does not cover all seats, levels, automatic modes, or off direction",
+        "Sentry report confirms enabling only",
+        "No new USB-disconnected, exact temperature, raw phone receipt, or current installed-version evidence was supplied"
+      ],
+      "rawPhoneReceiptsRetrieved": false,
+      "desktopVehicleCommandsSentWhileRecording": 0,
+      "phoneInstallationChangedWhileRecording": false,
+      "otherDevicesValidated": false,
+      "completeTakuRomValidated": false,
+      "untestedScope": "Owner explicitly does not require further testing of untested items; keep them untested and do not schedule follow-up trials",
+      "verifiedActionCountScope": "Twelve actions in the original archive, not this eight-action development subset"
+    },
+    "navigationDeviceValidation": {
+      "date": "2026-10-24",
+      "applicationProfile": "4.61.6-4647",
+      "source": "Actual ordinary phone Agent rollout, both one-shot receipts, exact App UUID/sourceContext telemetry, and owner confirmation in that rollout",
+      "transport": "TRANSPORT_BLUETOOTH",
+      "appResults": [
+        {
+          "result": "SUCCESS",
+          "durationMs": 588
+        },
+        {
+          "result": "SUCCESS",
+          "durationMs": 465
+        }
+      ],
+      "firstInputTransformation": "Agent replaced supplied store name with a web-searched street/shop address; owner saw residential complex as first result",
+      "secondInputTransformation": "Agent prepended store name to that address; owner confirmed the destination was now correct",
+      "ownerConfirmedCorrectDestination": true,
+      "keywordOnlyVehicleVerified": false,
+      "nearbyDistanceRankingVerified": false,
+      "usbDisconnectedDuringTrialConfirmed": false,
+      "problemsFound": [
+        "Skill imposed full address and parked/nearby vehicle confirmation",
+        "Agent expanded the supplied place and removed its name on the first request",
+        "Generic Bluetooth disconnected status was misread despite Tesla-associated LE connection in the same dump",
+        "A manually generated UUID was not substituted into a quoted JSON example, causing a harmless check failure"
+      ],
+      "correction": [
+        "Pass through supplied destination keywords, store names or addresses; ask only when destination is absent",
+        "Ordinary navigation instruction authorizes one send without parking, P-gear or proximity confirmation",
+        "Use the matching App outcome, not generic Bluetooth profiles, to report delivery",
+        "Allow the JSON entrypoint to allocate the request UUID and return it before invoking the unchanged one-shot pipeline"
+      ],
+      "validationScope": "BLE delivery and one corrected store destination confirmed; keyword-only matching and nearby ordering are not physically confirmed",
+      "diagnosticVehicleRequestsSent": 0,
+      "existingControlsAndBindingUnchanged": true,
+      "accountOrRegionChanged": false,
+      "appDowngradedOrReinstalled": false
+    },
+    "qualification": "Owner observations and App receipts have distinct scope. The original 22-to-21 temperature report is not strictly correlated to one saved request timestamp; source action metadata is retained without creating a new request-to-vehicle claim.",
+    "packagedScopesSource": "capabilities.json actions.*.historicalVehicleVerification"
+  },
+  "target": {
+    "version": "1.4.1",
+    "build": "20261123123146",
+    "androidApi": 37,
+    "releaseTag": "v1.4.1-20261123123146",
+    "sourceCommit": "e2fcbc2c7684e367d55a7a23b17fc2ad7f403f2b",
+    "runtimeNode": "/data/local/agentos/rea-pack/bin/node",
+    "execution": "Existing root Agent command tool, no Magisk/su dependency",
+    "skillDirectory": "/data/local/agentos/home/.codex/skills/tesla-model-y",
+    "deviceInspectedThisRound": false,
+    "vehicleVerified": false,
+    "installed": false
+  },
+  "selectedActions": [
+    "flash_lights",
+    "honk_horn",
+    "set_temperature",
+    "lock",
+    "unlock",
+    "next_media_track",
+    "previous_media_track",
+    "navigate_to_address"
+  ],
+  "migration": {
+    "reused": "Original command recipes, encode/decode verification, JSON argument-array entrypoint, atomic one-shot namespace and UUID/sourceContext App-result reader",
+    "changed": [
+      "Use team shared REA Node pack instead of private Device Lab runtime",
+      "Read widget ID and host package from private binding instead of fixed widget 5 / Pixel Launcher",
+      "Use standalone host build and on-device installer instead of legacy IoT lab deployment",
+      "Restrict runtime catalog to eight historically used actions; all target statuses remain prepared",
+      "Use CommonJS .cjs under the team repository ESM package",
+      "Use Android-compatible Files.readAllBytes / Paths.get",
+      "Bluetooth-only command adapter; no Owner API fallback"
+    ],
+    "notAdded": [
+      "Firmware integration or automatic preinstall",
+      "Tesla account login or phone-key provisioning",
+      "Public-network remote control",
+      "FSD/driving",
+      "New real-car results"
+    ],
+    "versionAndMaterialChecks": "The executor checks installed package versionName/versionCode, and hashes the separately prepared public APK used for encoding. It does not hash the currently installed APK; the future operator must compare that base APK to the locked material before replay."
+  },
+  "excluded": [
+    "VIN and vehicle nickname",
+    "phone serial and Bluetooth addresses",
+    "account credentials and phone keys",
+    "actual navigation destinations or coordinates",
+    "raw phone/App/model logs or sessions",
+    "request marker/receipt files",
+    "Tesla APK and native/Node runtime binaries",
+    "private local host paths"
+  ],
+  "round": {
+    "date": "2026-11-25",
+    "mode": "host-only build and local checks",
+    "phoneAccessed": false,
+    "vehicleCommandsSent": 0,
+    "targetSystemVehicleReplayPending": true
+  }
+}

@@ -15,3 +15,10 @@ path = ["adapters/codex-runtime/*.patch", "system/assistant/tests/**/*.sh", "sys
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 Taku AI Inc."
 SPDX-License-Identifier = "Apache-2.0"
+
+# Original Tesla Control example; the external Tesla APK is not packaged.
+[[annotations]]
+path = ["examples/tesla-control/**"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Taku AI Inc."
+SPDX-License-Identifier = "Apache-2.0"

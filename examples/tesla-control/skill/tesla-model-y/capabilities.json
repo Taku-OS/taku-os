@@ -1,0 +1,515 @@
+{
+  "schema": "taku.tesla-capabilities/1",
+  "researchSliceSha256": "4a6ade667a03701df4ce1b8f7b0ba4e258ea0d676f0ad16d646aa05a9b483077",
+  "actions": {
+    "flash_lights": {
+      "label": "闪灯",
+      "status": "prepared",
+      "prefix": "flash",
+      "route": "widget",
+      "widgetCommand": "FLASH_LIGHTS",
+      "parameters": [],
+      "checkExample": [],
+      "evidence": [
+        {
+          "class": "com.tesla.widget.WidgetCommandReceiver",
+          "method": "onReceive"
+        },
+        {
+          "class": "of0.d",
+          "method": "b"
+        }
+      ],
+      "limitations": "目标TakuOS尚未实车复验，历史结果仅适用于原归档环境。车主确认实车闪灯成功；未新增底层蓝牙/网络归因证据。",
+      "historicalVerification": {
+        "versionName": "4.59.1-4483",
+        "versionCode": 4483,
+        "scope": "已在本车通过用户拔USB实车确认；底层蓝牙或网络由Tesla App选择，本case未抓包归因。"
+      },
+      "historicalVehicleVerification": {
+        "reportedDate": "2026-10-22",
+        "source": "owner-physical-test-report",
+        "scope": "车主确认实车闪灯成功；未新增底层蓝牙/网络归因证据。",
+        "rawPhoneReceiptRetrieved": false
+      },
+      "validationRequirement": "target_system_vehicle_trial_pending"
+    },
+    "honk_horn": {
+      "label": "鸣笛",
+      "status": "prepared",
+      "prefix": "horn",
+      "route": "widget",
+      "widgetCommand": "HONK_HORN",
+      "parameters": [],
+      "checkExample": [],
+      "evidence": [
+        {
+          "class": "com.tesla.widget.WidgetCommandReceiver",
+          "method": "onReceive"
+        },
+        {
+          "class": "of0.d",
+          "method": "b"
+        }
+      ],
+      "limitations": "目标TakuOS尚未实车复验，历史结果仅适用于原归档环境。车主确认实车鸣笛成功；未新增底层蓝牙/网络归因证据。",
+      "historicalVerification": {
+        "versionName": "4.59.1-4483",
+        "versionCode": 4483,
+        "scope": "已在本车通过用户拔USB实车确认；底层蓝牙或网络由Tesla App选择，本case未抓包归因。"
+      },
+      "historicalVehicleVerification": {
+        "reportedDate": "2026-10-22",
+        "source": "owner-physical-test-report",
+        "scope": "车主确认实车鸣笛成功；未新增底层蓝牙/网络归因证据。",
+        "rawPhoneReceiptRetrieved": false
+      },
+      "validationRequirement": "target_system_vehicle_trial_pending"
+    },
+    "set_temperature": {
+      "label": "设置双区目标温度",
+      "status": "prepared",
+      "prefix": "temp",
+      "route": "command",
+      "parameters": [
+        {
+          "name": "temperature_c",
+          "type": "number",
+          "label": "摄氏度",
+          "minimum": 16,
+          "maximum": 28,
+          "step": 0.5
+        }
+      ],
+      "sourceContext": "taku_set_temperature",
+      "wrappers": [
+        {
+          "class": "id0.c",
+          "field": "a",
+          "index": 0,
+          "count": 24
+        },
+        {
+          "class": "fd0.w5",
+          "field": "n",
+          "index": 13,
+          "count": 139,
+          "defaults": [
+            {
+              "field": "a",
+              "index": 0,
+              "value": false
+            }
+          ]
+        }
+      ],
+      "value": {
+        "class": "fd0.e2",
+        "fields": [
+          [
+            "a",
+            0
+          ],
+          [
+            "b",
+            0
+          ],
+          [
+            "c",
+            0
+          ],
+          [
+            "d",
+            {
+              "class": "fd0.e2$d",
+              "fields": [
+                [
+                  "a",
+                  null
+                ],
+                [
+                  "b",
+                  null
+                ],
+                [
+                  "c",
+                  {
+                    "class": "ed0.h0",
+                    "fields": []
+                  }
+                ]
+              ]
+            }
+          ],
+          [
+            "g",
+            []
+          ],
+          [
+            "e",
+            {
+              "param": "temperature_c"
+            }
+          ],
+          [
+            "f",
+            {
+              "param": "temperature_c"
+            }
+          ]
+        ]
+      },
+      "checkExample": [
+        "21"
+      ],
+      "evidence": [
+        {
+          "class": "fd0.e2",
+          "method": "<init>",
+          "scope": "4.61.6 classes7/8 static source; no vehicle execution"
+        }
+      ],
+      "limitations": "目标TakuOS尚未实车复验，历史结果仅适用于原归档环境。车主确认空调各项功能成功，包含既有调温能力；本次未逐项提供温度数值，不扩展16–28℃、0.5℃、双区同值限制。",
+      "historicalVerification": {
+        "versionName": "4.59.1-4483",
+        "versionCode": 4483,
+        "scope": "已在本车近场手机钥匙蓝牙通过22℃到21℃；只调整设定值，驾驶位和副驾位相同，不自动开空调或除霜。"
+      },
+      "historicalVehicleVerification": {
+        "reportedDate": "2026-10-22",
+        "source": "owner-physical-test-report",
+        "scope": "车主确认空调各项功能成功，包含既有调温能力；本次未逐项提供温度数值，不扩展16–28℃、0.5℃、双区同值限制。",
+        "rawPhoneReceiptRetrieved": false
+      },
+      "validationRequirement": "target_system_vehicle_trial_pending"
+    },
+    "lock": {
+      "label": "上锁",
+      "status": "prepared",
+      "prefix": "lock",
+      "route": "command",
+      "parameters": [],
+      "sourceContext": "taku_lock",
+      "wrappers": [
+        {
+          "class": "id0.c",
+          "field": "b",
+          "index": 1,
+          "count": 24
+        }
+      ],
+      "value": {
+        "class": "vd0.o2",
+        "enum": "RKE_ACTION_LOCK"
+      },
+      "checkExample": [],
+      "evidence": [
+        {
+          "class": "vd0.o2",
+          "method": "enum constants",
+          "scope": "4.61.6 classes7/8 static source; no vehicle execution"
+        }
+      ],
+      "limitations": "目标TakuOS尚未实车复验，历史结果仅适用于原归档环境。车主确认实车锁车成功。",
+      "historicalVehicleVerification": {
+        "reportedDate": "2026-10-22",
+        "source": "owner-physical-test-report",
+        "scope": "车主确认实车锁车成功。",
+        "rawPhoneReceiptRetrieved": false
+      },
+      "validationRequirement": "target_system_vehicle_trial_pending"
+    },
+    "unlock": {
+      "label": "解锁",
+      "status": "prepared",
+      "prefix": "unlock",
+      "route": "command",
+      "parameters": [],
+      "sourceContext": "taku_unlock",
+      "wrappers": [
+        {
+          "class": "id0.c",
+          "field": "b",
+          "index": 1,
+          "count": 24
+        }
+      ],
+      "value": {
+        "class": "vd0.o2",
+        "enum": "RKE_ACTION_UNLOCK"
+      },
+      "checkExample": [],
+      "evidence": [
+        {
+          "class": "vd0.o2",
+          "method": "enum constants",
+          "scope": "4.61.6 classes7/8 static source; no vehicle execution"
+        }
+      ],
+      "limitations": "目标TakuOS尚未实车复验，历史结果仅适用于原归档环境。车主确认实车解锁成功。",
+      "historicalVehicleVerification": {
+        "reportedDate": "2026-10-22",
+        "source": "owner-physical-test-report",
+        "scope": "车主确认实车解锁成功。",
+        "rawPhoneReceiptRetrieved": false
+      },
+      "validationRequirement": "target_system_vehicle_trial_pending"
+    },
+    "next_media_track": {
+      "label": "媒体下一曲",
+      "status": "prepared",
+      "prefix": "next-media-track",
+      "route": "command",
+      "parameters": [],
+      "sourceContext": "taku_next_media_track",
+      "wrappers": [
+        {
+          "class": "id0.c",
+          "field": "a",
+          "index": 0,
+          "count": 24
+        },
+        {
+          "class": "fd0.w5",
+          "field": "s",
+          "index": 18,
+          "count": 139,
+          "defaults": [
+            {
+              "field": "a",
+              "index": 0,
+              "value": false
+            }
+          ]
+        }
+      ],
+      "value": {
+        "class": "fd0.l2",
+        "fields": []
+      },
+      "checkExample": [],
+      "evidence": [
+        {
+          "class": "fd0.l2",
+          "method": "<init>",
+          "scope": "4.61.6 classes7/8 static source; no vehicle execution"
+        }
+      ],
+      "limitations": "目标TakuOS尚未实车复验，历史结果仅适用于原归档环境。车主确认媒体下一首切换成功；未指定媒体源，不扩展至所有媒体源或收藏切换。",
+      "historicalVehicleVerification": {
+        "reportedDate": "2026-10-22",
+        "source": "owner-physical-test-report",
+        "scope": "车主确认媒体下一首切换成功；未指定媒体源，不扩展至所有媒体源或收藏切换。",
+        "rawPhoneReceiptRetrieved": false
+      },
+      "validationRequirement": "target_system_vehicle_trial_pending"
+    },
+    "previous_media_track": {
+      "label": "媒体上一曲",
+      "status": "prepared",
+      "prefix": "previous-media-track",
+      "route": "command",
+      "parameters": [],
+      "sourceContext": "taku_previous_media_track",
+      "wrappers": [
+        {
+          "class": "id0.c",
+          "field": "a",
+          "index": 0,
+          "count": 24
+        },
+        {
+          "class": "fd0.w5",
+          "field": "t",
+          "index": 19,
+          "count": 139,
+          "defaults": [
+            {
+              "field": "a",
+              "index": 0,
+              "value": false
+            }
+          ]
+        }
+      ],
+      "value": {
+        "class": "fd0.o2",
+        "fields": []
+      },
+      "checkExample": [],
+      "evidence": [
+        {
+          "class": "fd0.o2",
+          "method": "<init>",
+          "scope": "4.61.6 classes7/8 static source; no vehicle execution"
+        }
+      ],
+      "limitations": "目标TakuOS尚未实车复验，历史结果仅适用于原归档环境。车主确认媒体上一首切换成功；未指定媒体源，不扩展至所有媒体源或收藏切换。",
+      "historicalVehicleVerification": {
+        "reportedDate": "2026-10-22",
+        "source": "owner-physical-test-report",
+        "scope": "车主确认媒体上一首切换成功；未指定媒体源，不扩展至所有媒体源或收藏切换。",
+        "rawPhoneReceiptRetrieved": false
+      },
+      "validationRequirement": "target_system_vehicle_trial_pending"
+    },
+    "navigate_to_address": {
+      "label": "发送地点关键词或地址到车机导航",
+      "status": "prepared",
+      "prefix": "nav",
+      "route": "command",
+      "transport": "TRANSPORT_BLUETOOTH",
+      "parameters": [
+        {
+          "name": "destination",
+          "type": "string",
+          "label": "用户给出的地点关键词、门店名或地址原文",
+          "format": "address",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      ],
+      "sourceContext": "taku_navigation_address",
+      "wrappers": [
+        {
+          "class": "id0.c",
+          "field": "a",
+          "index": 0,
+          "count": 24
+        },
+        {
+          "class": "fd0.w5",
+          "field": "u",
+          "index": 20,
+          "count": 139,
+          "defaults": [
+            {
+              "field": "a",
+              "index": 0,
+              "value": false
+            }
+          ]
+        }
+      ],
+      "value": {
+        "class": "fd0.v2",
+        "fields": [
+          [
+            "a",
+            {
+              "param": "destination"
+            }
+          ],
+          [
+            "b",
+            {
+              "class": "fd0.s3",
+              "enum": "RemoteNavTripOrderReplace"
+            }
+          ]
+        ]
+      },
+      "checkExample": [
+        "麦当劳"
+      ],
+      "evidence": [
+        {
+          "class": "fd0.v2",
+          "method": "constructor(String, fd0.s3, okio.k)"
+        },
+        {
+          "class": "com.tesla.oapi.Proto2OAPI",
+          "method": "map navigationRequest to OwnerApiRequest.SendToVehicle"
+        },
+        {
+          "class": "pc0.b",
+          "method": "c preserves OWNER_API-only transport override"
+        },
+        {
+          "class": "ec0.j",
+          "method": "t uses bound VIN and existing App-authenticated request"
+        },
+        {
+          "class": "com.tesla.oapi.CommandActionsKt",
+          "method": "getDomain assigns CarServer to INFOTAINMENT"
+        },
+        {
+          "class": "com.tesla.oapi.CommandActionExtensionsKt",
+          "method": "bluetoothSupported accepts modern CarServer actions"
+        },
+        {
+          "class": "oc0.d",
+          "method": "Model Y modern Bluetooth when cached apiVersion >= 80"
+        }
+      ],
+      "limitations": "目标系统待复跑，仅在约定的单次现场测试使用test，send保持拒绝。使用现有Tesla手机钥匙蓝牙，地点关键词/门店名/地址原文传递，不索完整街道、停车/P挡或重复发送确认；只有缺少目的地才问。不自行查地图扩写、不猜城市/分店/经纬度、不接受URL。历史两次BLUETOOTH SUCCESS和门店名加地址的车主正确反馈不证明纯关键词匹配、距离排序、自动选中首项或开始算路。1–512字符是本地输入限制，可能替换现有路线，不追加途经点、不驾驶或FSD。查询同一ID的App结果，不从通用蓝牙状态推断手机钥匙断连；App成功与实际落点分开记录，不回退OWNER_API，不自动重发。",
+      "historicalVehicleVerification": {
+        "reportedDate": "2026-10-24",
+        "source": "phone-rollout-and-matching-app-telemetry-and-owner-observation",
+        "scope": "同一门店的两次文本导航都收到BLUETOOTH SUCCESS（588ms、465ms）；仅含街道的第一次优先显示小区，门店名加地址的第二次由车主确认“现在对了”。只证明该门店文本请求可通过现有手机钥匙下发并得到正确结果，不承诺所有关键词、附近排序或自动开始算路。",
+        "rawPhoneReceiptRetrieved": true,
+        "keywordOnlyVehicleVerified": false,
+        "distanceRankingVehicleVerified": false
+      },
+      "validationRequirement": "target_system_vehicle_trial_pending",
+      "historicalPreviousVehicleTrial": {
+        "date": "2026-10-23",
+        "transport": "TRANSPORT_OWNER_API",
+        "outcome": "failed",
+        "appBuild": "prodGlobalPlay",
+        "matchedResults": [
+          "HTTP451 user not allowed in region",
+          "HTTP451 user not allowed in region",
+          "TIMEOUT"
+        ],
+        "newTransportVehicleVerified": true
+      }
+    }
+  },
+  "application": {
+    "package": "com.teslamotors.tesla",
+    "versionName": "4.61.6-4647",
+    "versionCode": 4647,
+    "apkPath": "/data/local/agentos/materials/tesla/4.61.6-4647/base.apk",
+    "apkSha256": "63adb6bb0556a44ea83996c719e2dfdcdbda4b33b8250bf46f6e5ee853c3d083"
+  },
+  "codec": {
+    "request": "id0.e",
+    "commandAction": "id0.c",
+    "source": "id0.f",
+    "transport": "id0.q",
+    "byteString": "okio.k",
+    "message": "com.squareup.wire.f",
+    "protoAdapter": "com.squareup.wire.ProtoAdapter",
+    "requestFields": {
+      "id": "a",
+      "vehicleId": "b",
+      "source": "c",
+      "letSleep": "d",
+      "bypassCounter": "e",
+      "action": "f",
+      "vin": "g",
+      "receivedRequestBytesTimestamp": "h",
+      "useIncorrectHandleInitially": "i",
+      "useIncorrectCounterInitially": "j",
+      "useIncorrectEpochInitially": "k",
+      "useIncorrectExpiryTimeTooLongInitially": "l",
+      "useIncorrectTimeExpiredInitially": "m",
+      "useAnotherKeysHandleInitially": "n",
+      "jsStartTimestamp": "o",
+      "jsBridgeStartTimestamp": "p",
+      "nativeStartTimestamp": "q",
+      "bridgeJsToNativeDurationMilliseconds": "r",
+      "sourceContext": "s",
+      "transports": "t",
+      "oapiHeaders": "u"
+    }
+  },
+  "verificationScope": {
+    "historicalSourceCommit": "5e86f9ec46c1daf38bcaa1de373456a5637a5acc",
+    "historicalEnvironment": "Pixel 9 stock Android 17 + Magisk Root + Taku v58 components",
+    "currentTarget": "TakuOS 1.4.1 / Android 17 / API 37",
+    "targetSystemVehicleVerified": false,
+    "meaningOfPrepared": "Protocol recipe and historical physical results retained; target-system command execution and vehicle outcome not yet tested."
+  }
+}
