@@ -239,12 +239,16 @@ class IslandPresenter @Inject constructor(
     }
 
     override fun collapse(reason: String) {
+        closeCard(reason)
+        layoutCapsule()
+    }
+
+    private fun closeCard(reason: String) {
         card?.close()
         card = null
         cardKey = null
         automatic = false
         this.reason = reason
-        layoutCapsule()
     }
 
     private fun canExpand(): Boolean = bar?.isAttachedToWindow == true && !keyguard.isShowing &&
@@ -268,7 +272,9 @@ class IslandPresenter @Inject constructor(
     private fun layoutCapsuleNow() {
         val view = bar ?: run { IslandPresentationOwnership.show(null); return }
         val pill = capsule ?: run { IslandPresentationOwnership.show(null); return }
-        if (context.resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE && card != null) collapse("landscape")
+        if (context.resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE && card != null) {
+            closeCard("landscape")
+        }
         selected = IslandStore.compactSelection(items, selected, card != null, ::showsCapsule)
         val activity = items.find { it.key == selected }?.data
         // The capsule and the card are mutually exclusive: an open card hides every capsule.
