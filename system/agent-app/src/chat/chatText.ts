@@ -2,6 +2,10 @@
 const en = {
   home: 'Taku Home', collapse: 'Collapse', search: 'Search', searchChats: 'Search chats', back: 'Back', retry: 'Try again', loading: 'Loading…',
   all: 'All', panels: 'Panels', chats: 'Chats', seeAll: 'See all', newChat: 'New chat',
+  mainChat: 'Main chat', mainChatSubtitle: 'Continuous personal conversation', mainBadge: 'Main',
+  taskSessions: 'Tasks', taskSession: 'Task', newTask: 'New task', backToMain: 'Main',
+  switchContext: 'Switch conversation', noTasks: 'No independent tasks yet', returnToMain: 'Return to main chat',
+  recentTasks: 'Independent tasks', allHistory: 'All history & panels',
   noChats: 'No conversations yet', noResults: 'No matching conversations', settingsAndTools: 'Settings & tools',
   settings: 'Settings', pluginMarket: 'Plugin market', advancedControls: 'Advanced controls', save: 'Save', cancel: 'Cancel',
   greeting: 'Taku is here, how can I help you?', ask: 'Ask Taku to do anything...', collapseToIsland: 'Collapse to the Dynamic Island',
@@ -46,6 +50,10 @@ type Key = keyof typeof en;
 const zh: Record<Key, string> = {
   home: 'Taku 主页', collapse: '收起', search: '搜索', searchChats: '搜索对话', back: '返回', retry: '重试', loading: '加载中…',
   all: '全部', panels: '面板', chats: '对话', seeAll: '查看全部', newChat: '新对话',
+  mainChat: '主对话', mainChatSubtitle: '与 Taku 的持续个人对话流', mainBadge: '主对话',
+  taskSessions: '独立任务', taskSession: '独立任务', newTask: '新建任务', backToMain: '主对话',
+  switchContext: '切换对话与任务', noTasks: '暂无独立任务', returnToMain: '回到主对话',
+  recentTasks: '独立任务', allHistory: '全部历史与面板',
   noChats: '还没有对话', noResults: '没有匹配的对话', settingsAndTools: '设置与工具',
   settings: '设置', pluginMarket: '插件市场', advancedControls: '高级控制', save: '保存', cancel: '取消',
   greeting: 'Taku 在这里，有什么可以帮你？', ask: '让 Taku 帮你做任何事…', collapseToIsland: '收起到灵动岛',

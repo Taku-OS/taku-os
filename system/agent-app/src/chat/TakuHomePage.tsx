@@ -14,6 +14,7 @@ import homeAssets from './assets/home/assets.json';
 import {chatBlur, chatColors, chatMetrics, chatType, themedStyles} from './chatTheme';
 import {chatText} from './chatText';
 import {matchingChats, shortDate, type TakuHomeThread} from './homeModel';
+import {partitionThreads} from '../model/singleChat';
 import {containsChinese} from '../theme';
 import {PanelCatalogView} from '../panels/PanelCatalogView';
 
@@ -24,6 +25,7 @@ type Item = {key: string; render: () => React.ReactElement};
 /** What Taku Home needs from the chat that hosts it. Actions left out disable their control. */
 export type TakuHomeActions = {
   openThread: (threadId: string) => void;
+  openMainChat?: () => void;
   newChat: () => void;
   openSettings?: () => void;
   openRoute?: (route: 'plugin-market') => void;
@@ -37,22 +39,31 @@ export type TakuHomeProps = {
   threads: readonly TakuHomeThread[];
   /** The open conversation; advanced controls need one. */
   threadId: string;
+  /** The persistent personal main chat thread ID (Single Chat). */
+  primaryThreadId?: string;
   historyError?: string;
   insets: {top: number; bottom: number};
   actions: TakuHomeActions;
 };
 
-export function TakuHomePage({language, threads, threadId, historyError = '', insets, actions}: TakuHomeProps) {
+export function TakuHomePage({language, threads, threadId, primaryThreadId = '', historyError = '', insets, actions}: TakuHomeProps) {
   const t = chatText(language);
   const [height, setHeight] = useState(0);
   const [tab, setTab] = useState<Tab>('all');
   const [searching, setSearching] = useState(false);
   const [query, setQuery] = useState('');
   const chats = useMemo(() => matchingChats(threads, query), [threads, query]);
+  const partitioned = useMemo(() => partitionThreads(chats, primaryThreadId), [chats, primaryThreadId]);
   const showPanels = !searching && tab !== 'chats';
   const showChats = searching || tab !== 'panels';
-  const shownChats = tab === 'all' && !searching ? chats.slice(0, 6) : chats;
-  const {openThread, openRoute, openSettings, openNativeControls} = actions;
+  const shownChats = useMemo(() => {
+    if (searching) return chats;
+    const ordered = partitioned.mainThread ? [partitioned.mainThread, ...partitioned.taskThreads] : partitioned.taskThreads;
+    return tab === 'all' ? ordered.slice(0, 6) : ordered;
+  }, [chats, partitioned, searching, tab]);
+  const resolvedPrimaryId = primaryThreadId || partitioned.mainThread?.id || '';
+  const viewingTask = Boolean(threadId && resolvedPrimaryId && threadId !== resolvedPrimaryId);
+  const {openThread, openMainChat, openRoute, openSettings, openNativeControls} = actions;
 
   const items: Item[] = [];
   items.push({key: 'controls', render: () => <View style={styles.controls}>
@@ -69,12 +80,16 @@ export function TakuHomePage({language, threads, threadId, historyError = '', in
       onNew={tab === 'chats' || searching ? actions.newChat : undefined}/></View>});
     if (shownChats.length === 0) items.push({key: 'chats-empty', render: () =>
       <Text style={[chatType.bodyMd(), styles.tertiary, styles.empty]}>{historyError || (query.trim() ? t('noResults') : t('noChats'))}</Text>});
-    shownChats.forEach(thread => items.push({key: `chat/${thread.id}`, render: () => <ChatRowItem thread={thread} language={language} onOpen={() => openThread(thread.id)}/>}));
+    shownChats.forEach(thread => {
+      const isMain = Boolean(resolvedPrimaryId && thread.id === resolvedPrimaryId);
+      items.push({key: `chat/${thread.id}`, render: () => <ChatRowItem thread={thread} isMain={isMain} language={language} onOpen={() => openThread(thread.id)}/>});
+    });
   }
   if (!searching && tab === 'all') items.push({key: 'tools', render: () => <View style={[styles.section, styles.tools]}>
     <SectionHeader title={t('settingsAndTools')} language={language}/>
     <View style={styles.toolCard}>
-      <ToolRow label={t('newChat')} onPress={actions.newChat}/>
+      {viewingTask && openMainChat && <ToolRow label={t('returnToMain')} onPress={openMainChat}/>}
+      <ToolRow label={t('newTask')} onPress={actions.newChat}/>
       {actions.taskView && <ToolRow label={t(actions.taskView.on ? 'showChat' : 'showTasks')} onPress={actions.taskView.toggle}/>}
       <ToolRow label={t('settings')} onPress={openSettings}/>
       <ToolRow label={t('pluginMarket')} onPress={openRoute && (() => openRoute('plugin-market'))}/>
@@ -96,7 +111,7 @@ export function TakuHomePage({language, threads, threadId, historyError = '', in
       <Text accessibilityRole="header" style={[chatType.bodyXlMedium(language === 'zh'), styles.title]}>{t('home')}</Text>
       <HeaderButton icon="collapse" label={t('collapse')} onPress={actions.collapse}/>
     </View>
-    {!searching && <Pressable testID="home-new-chat" accessibilityRole="button" accessibilityLabel={t('newChat')}
+    {!searching && <Pressable testID="home-new-chat" accessibilityRole="button" accessibilityLabel={t('newTask')}
       onPress={actions.newChat} style={({pressed}) => [styles.newChat, {bottom: insets.bottom + 56}, pressed && styles.pressed]}>
       <SvgXml xml={homeAssets.newChat} accessibilityElementsHidden/>
     </Pressable>}
@@ -149,12 +164,13 @@ function SectionHeader({title, seeAll, onNew, language}: {title: string; seeAll?
 }
 
 /** Figma 2-5 chat rows: title Body/Medium/xl + date, one-line preview, Content/200 dividers. */
-function ChatRowItem({thread, language, onOpen}: {thread: TakuHomeThread; language: 'en' | 'zh'; onOpen: () => void}) {
+function ChatRowItem({thread, isMain, language, onOpen}: {thread: TakuHomeThread; isMain?: boolean; language: 'en' | 'zh'; onOpen: () => void}) {
   const t = chatText(language);
-  const title = thread.title || t('newChat');
+  const title = thread.title || (isMain ? t('mainChat') : t('taskSession'));
   return <Pressable accessibilityRole="button" onPress={onOpen} style={({pressed}) => [styles.chat, pressed && styles.pressed]}>
     <View style={styles.chatHead}>
       <Text numberOfLines={1} style={[chatType.bodyXlMedium(containsChinese(title)), styles.primary, styles.grow]}>{title}</Text>
+      {isMain && <View style={styles.mainBadge}><Text style={[chatType.bodySmMedium(language === 'zh'), styles.secondary]}>{t('mainBadge')}</Text></View>}
       {thread.updatedAt > 0 && <Text style={[chatType.bodyMd(language === 'zh'), styles.tertiary]}>{shortDate(thread.updatedAt, language)}</Text>}
     </View>
     {!!thread.preview && thread.preview !== thread.title && <Text numberOfLines={1} style={[chatType.bodyMd(containsChinese(thread.preview)), styles.tertiary]}>{thread.preview}</Text>}
@@ -192,6 +208,7 @@ const styles = themedStyles(() => StyleSheet.create({
   empty: {paddingVertical: 8},
   chat: {paddingTop: 8, paddingBottom: 15, gap: 4, borderBottomWidth: 1, borderBottomColor: chatColors.fillControl, marginBottom: 8},
   chatHead: {flexDirection: 'row', alignItems: 'center', gap: 12},
+  mainBadge: {paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, backgroundColor: chatColors.fillControl},
   toolCard: {borderRadius: 24, backgroundColor: chatColors.fillControl, overflow: 'hidden'},
   newChat: {position: 'absolute', right: 8, width: 56, height: 56, borderRadius: 28,
     backgroundColor: 'rgba(255,255,255,0.92)', alignItems: 'center', justifyContent: 'center'},

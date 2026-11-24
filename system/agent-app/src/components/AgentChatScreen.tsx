@@ -37,6 +37,9 @@ import {markdownSpeechText} from '../native/MarkdownStream';
 import {openAiSetup} from '../native/aiSetup';
 import {DictationBar} from './DictationBar';
 import {TakuHomePage} from '../chat/TakuHomePage';
+import {TaskSwitcherSheet} from '../chat/TaskSwitcherSheet';
+import {shortDate} from '../chat/homeModel';
+import {isMainConversation, partitionThreads, recentTaskThreads} from '../model/singleChat';
 import {sheetSpace, type ImeGeometry} from '../model/sheetGeometry';
 import {emptyPreview, PREVIEW_FRESH_MS, PREVIEW_LOAD_TIMEOUT_MS, PREVIEW_REFRESH_MS, previewReducer} from '../model/preview';
 import {rowDemand, sameBand, visibleBand, type CardDemand, type RowBand} from '../chat/cardDemand';
@@ -84,6 +87,10 @@ export interface AgentChatScreenProps {
   onStop: () => void;
   onSelectThread: (id: string) => void;
   onCreateThread: () => void;
+  primaryThreadId?: string;
+  isMainChat?: boolean;
+  onSelectMainChat?: () => void;
+  onCreateTaskThread?: () => void;
   onRefresh: () => void;
   onAnswer: (key: string, response: Json) => void;
   onOpenWorkspace: (workspace: WorkspaceView) => void;
@@ -366,6 +373,7 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
     return () => {show.remove(); hide.remove(); lifecycle.remove();};
   }, [nativeIme]);
   const [layer, setLayer] = useState<Layer | null>(null);
+  const [switcherOpen, setSwitcherOpen] = useState(false);
   // The window blurs whatever lies under it (Feed, Home or another app) while the chat shows.
   useEffect(() => {
     backdropUsers += 1;
@@ -442,6 +450,10 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
     applyScrollEffect(effect);
   }, [applyScrollEffect]);
   const sessionId = props.session?.id || '';
+  const resolvedPrimaryId = props.primaryThreadId ?? '';
+  const isMainChat = props.isMainChat ?? isMainConversation(sessionId, resolvedPrimaryId);
+  const {mainThread, taskThreads} = useMemo(() => partitionThreads(props.threads, resolvedPrimaryId), [props.threads, resolvedPrimaryId]);
+  const recentTasks = useMemo(() => recentTaskThreads(props.threads, resolvedPrimaryId, 2), [props.threads, resolvedPrimaryId]);
   // Requests the cards cannot answer in place are handled on the pending-requests page.
   const openRequests = (requestKey?: string) => router.push({pathname: '/assistant-management',
     params: {section: 'requests', ...(sessionId ? {threadId: sessionId} : {}), ...(requestKey ? {requestKey} : {})}});
@@ -530,15 +542,39 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
     positions.current[viewKey] = {y: 0, follow: true};
     dispatchScroll({type: 'tappedToBottom'});
   };
-  const collapseChat = () => { cancelDictation(); stopReading(); live.stop(); (props.onCollapse ?? props.onClose)(); };
+  const collapseChat = () => { setSwitcherOpen(false); cancelDictation(); stopReading(); live.stop(); (props.onCollapse ?? props.onClose)(); };
   const openHome = () => {
     live.stop();
     cancelDictation();
     stopReading();
+    setSwitcherOpen(false);
     props.onOpenHistory?.();
     Keyboard.dismiss();
     setReplyMenu(null);
     setLayer({kind: 'home'});
+  };
+  const toggleSwitcher = () => {
+    if (live.active) return;
+    Keyboard.dismiss();
+    setReplyMenu(null);
+    if (!switcherOpen) props.onOpenHistory?.();
+    setSwitcherOpen(open => !open);
+  };
+  const selectMainChat = () => {
+    live.stop();
+    setSwitcherOpen(false);
+    if (props.onSelectMainChat) props.onSelectMainChat();
+    else if (mainThread) props.onSelectThread(mainThread.id);
+  };
+  const selectTaskThread = (id: string) => {
+    live.stop();
+    setSwitcherOpen(false);
+    props.onSelectThread(id);
+  };
+  const createIndependentTask = () => {
+    live.stop();
+    setSwitcherOpen(false);
+    (props.onCreateTaskThread ?? props.onCreateThread)();
   };
   const running = props.session?.running;
   const hasDraft = !!props.draft.trim() || props.attachments.length > 0;
@@ -615,7 +651,12 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
     const back = BackHandler.addEventListener('hardwareBackPress', () => { live.stop(); return true; });
     return () => back.remove();
   }, [live]);
-  // Back: Taku Home returns to the conversation. Panels live on the desktop.
+  // Back: Task switcher closes first, then Taku Home returns to the conversation.
+  useEffect(() => {
+    if (!switcherOpen) return;
+    const back = BackHandler.addEventListener('hardwareBackPress', () => { setSwitcherOpen(false); return true; });
+    return () => back.remove();
+  }, [switcherOpen]);
   useEffect(() => {
     if (!layer) return;
     const back = BackHandler.addEventListener('hardwareBackPress', () => { setLayer(null); return true; });
@@ -687,6 +728,44 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
         <Pressable accessibilityRole="button" onPress={props.onRefresh} style={styles.emptyRefresh}><Label role="meta">{t('refresh')}</Label></Pressable>
       </View>}
       ListHeaderComponent={<View style={styles.stack}>
+      {isMainChat && !taskView && !live.active && recentTasks.length > 0 && (
+        <View testID="main-chat-tasks-strip" style={styles.taskStrip}>
+          <Pressable accessibilityRole="button" onPress={toggleSwitcher} style={styles.taskStripHead}>
+            <Text style={[chatType.bodySmMedium(language === 'zh'), styles.taskStripEyebrow]}>
+              {`${ct('recentTasks')} · ${taskThreads.length}`}
+            </Text>
+            <ChatIcon name="chevronRight" size={14} color={chatColors.textPlaceholder}/>
+          </Pressable>
+          {recentTasks.map((task, idx) => {
+            const title = task.title || ct('taskSession');
+            const preview = task.preview && task.preview !== task.title ? task.preview : '';
+            return (
+              <Pressable key={task.id} testID={`main-task-card-${task.id}`} accessibilityRole="button"
+                onPress={() => selectTaskThread(task.id)}
+                style={({pressed}) => [styles.taskStripRow, idx > 0 && styles.taskStripRowBorder, pressed && styles.pressed]}>
+                <View style={styles.taskStripRowText}>
+                  <View style={styles.taskStripTitleLine}>
+                    <Text numberOfLines={1} style={[chatType.bodyMdMedium(containsChinese(title)), styles.taskStripTitle]}>
+                      {title}
+                    </Text>
+                    {task.updatedAt > 0 && (
+                      <Text style={[chatType.bodySm(language === 'zh'), styles.taskStripDate]}>
+                        {shortDate(task.updatedAt, language)}
+                      </Text>
+                    )}
+                  </View>
+                  {!!preview && (
+                    <Text numberOfLines={1} style={[chatType.bodySm(containsChinese(preview)), styles.taskStripPreview]}>
+                      {preview}
+                    </Text>
+                  )}
+                </View>
+                <ChatIcon name="chevronRight" size={14} color={chatColors.textPlaceholder}/>
+              </Pressable>
+            );
+          })}
+        </View>
+      )}
       {greeting && <AssistantBubble><Text style={[chatType.bodyLg(language === 'zh'), styles.replyText]}>{ct('greeting')}</Text></AssistantBubble>}
       {!props.session?.historyComplete && blocks.length > 0 && <Label role="caption" style={[styles.secondary, styles.historyHint]}>{t('historyIncomplete')}</Label>}
       {taskView && blocks.length > 0 && <Label role="caption" style={styles.historyHint}>{t('taskViewHint')}</Label>}
@@ -743,11 +822,34 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
       {pinnedSpacer > 0 && <View testID="pinned-turn-spacer" style={{height: pinnedSpacer}}/>}
       </View>}/>
     </EdgeBlur>
-    {/* Figma 2-1 title row: Taku Home (history for now), the fixed title, collapse to the island. */}
+    {/* Single Chat header: Home (or one-tap Back to Main in task mode), interactive context pill, collapse to island. */}
     <View style={[styles.header, {top: insets.top}]} pointerEvents="box-none">
-      <Text accessibilityRole="header" numberOfLines={1} style={[chatType.bodyXlMedium(), styles.title]}>{live.active ? ct('liveTalk') : props.session?.title || chatTitle}</Text>
-      <Pressable testID="open-history" accessibilityRole="button" accessibilityLabel={t('history')} onPress={openHome} hitSlop={8}
-        style={({pressed}) => [styles.headerButton, pressed && styles.pressed]}><VoiceIcon name="home" size={24}/></Pressable>
+      {!isMainChat && !live.active ? (
+        <Pressable testID="return-main-chat" accessibilityRole="button" accessibilityLabel={ct('returnToMain')} onPress={selectMainChat} hitSlop={8}
+          style={({pressed}) => [styles.backToMainPill, pressed && styles.pressed]}>
+          <Icon name="arrow_left" size={16} color={chatColors.icon}/>
+          <Text numberOfLines={1} style={[chatType.bodySmMedium(language === 'zh'), styles.backToMainText]}>{ct('backToMain')}</Text>
+        </Pressable>
+      ) : (
+        <Pressable testID="open-history" accessibilityRole="button" accessibilityLabel={t('history')} onPress={openHome} hitSlop={8}
+          style={({pressed}) => [styles.headerButton, pressed && styles.pressed]}><VoiceIcon name="home" size={24}/></Pressable>
+      )}
+      {live.active ? (
+        <Text accessibilityRole="header" numberOfLines={1} style={[chatType.bodyXlMedium(language === 'zh'), styles.title]}>{ct('liveTalk')}</Text>
+      ) : (
+        <Pressable testID="context-switcher" accessibilityRole="button" accessibilityState={{expanded: switcherOpen}}
+          accessibilityLabel={ct('switchContext')} onPress={toggleSwitcher} hitSlop={6}
+          style={({pressed}) => [styles.contextPill, pressed && styles.pressed]}>
+          <View style={[styles.contextDot, isMainChat ? styles.contextDotMain : styles.contextDotTask]}/>
+          <Text numberOfLines={1} style={[chatType.bodyMdMedium(containsChinese(isMainChat ? chatTitle : (props.session?.title || ct('taskSession')))), styles.contextPillTitle]}>
+            {isMainChat ? chatTitle : (props.session?.title || ct('taskSession'))}
+          </Text>
+          {isMainChat && taskThreads.length > 0 && (
+            <Text style={[chatType.bodySm(language === 'zh'), styles.contextPillCount]}>{`· ${taskThreads.length}`}</Text>
+          )}
+          <ChatIcon name="chevronDown" size={14} color={chatColors.textTertiary} rotate={switcherOpen ? 180 : 0}/>
+        </Pressable>
+      )}
       <Pressable testID="collapse-chat" accessibilityRole="button" accessibilityLabel={ct('collapseToIsland')} onPress={collapseChat} hitSlop={8}
         style={({pressed}) => [styles.headerButton, pressed && styles.pressed]}><VoiceIcon name="collapse" size={24}/></Pressable>
     </View>
@@ -852,11 +954,27 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
         }} : undefined}/>}
     </View>
     </View>
+    {switcherOpen && !layer && !live.active && (
+      <TaskSwitcherSheet
+        language={language}
+        top={headerBottom}
+        currentThreadId={sessionId}
+        isMainChat={isMainChat}
+        mainThread={mainThread}
+        taskThreads={taskThreads}
+        onSelectMain={selectMainChat}
+        onSelectTask={selectTaskThread}
+        onCreateTask={createIndependentTask}
+        onOpenHome={openHome}
+        onClose={() => setSwitcherOpen(false)}
+      />
+    )}
     {layer?.kind === 'home' && <View style={StyleSheet.absoluteFill}>
-      <TakuHomePage language={language} threads={props.threads} threadId={sessionId} historyError={props.historyError} insets={insets}
+      <TakuHomePage language={language} threads={props.threads} threadId={sessionId} primaryThreadId={resolvedPrimaryId} historyError={props.historyError} insets={insets}
         actions={{
           openThread: id => { live.stop(); setLayer(null); props.onSelectThread(id); },
-          newChat: () => { live.stop(); setLayer(null); props.onCreateThread(); },
+          openMainChat: () => { live.stop(); setLayer(null); selectMainChat(); },
+          newChat: () => { live.stop(); setLayer(null); createIndependentTask(); },
           openSettings: () => { setLayer(null); router.push('/system-ai'); },
           openRoute: () => { setLayer(null); router.push('/plugin-market'); },
           openNativeControls: () => { setLayer(null); router.push({pathname: '/assistant-management', params: sessionId ? {threadId: sessionId} : {}}); },
@@ -876,10 +994,28 @@ const styles = themedStyles(() => StyleSheet.create({
   liveControlGroup: {flexDirection: 'row', gap: 16},
   liveControl: {width: 50, height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.08)'},
   root: {flex: 1, backgroundColor: colors.page}, flex: {flex: 1}, center: {textAlign: 'center'}, secondary: {color: colors.secondary},
-  // Figma 2-1: 64 dp title row (16 dp padding around 32 dp buttons), title centred.
-  header: {position: 'absolute', left: 0, right: 0, height: chatMetrics.header, paddingHorizontal: chatMetrics.side, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
+  // Figma 2-1: 64 dp title row (16 dp padding around 32 dp buttons), interactive Single Chat capsule centred.
+  header: {position: 'absolute', left: 0, right: 0, height: chatMetrics.header, paddingHorizontal: chatMetrics.side, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8},
   headerButton: {width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center'}, pressed: {backgroundColor: chatColors.fillControl},
   title: {position: 'absolute', left: 64, right: 64, textAlign: 'center'},
+  contextPill: {flexDirection: 'row', alignItems: 'center', gap: 6, maxWidth: '58%', height: 34, paddingHorizontal: 12, borderRadius: 17, backgroundColor: chatColors.fillControl},
+  contextDot: {width: 6, height: 6, borderRadius: 3, flexShrink: 0},
+  contextDotMain: {backgroundColor: '#34C759'},
+  contextDotTask: {backgroundColor: chatColors.send},
+  contextPillTitle: {color: chatColors.textPrimary, flexShrink: 1},
+  contextPillCount: {color: chatColors.textTertiary, flexShrink: 0},
+  backToMainPill: {flexDirection: 'row', alignItems: 'center', gap: 4, height: 32, paddingHorizontal: 10, borderRadius: 16, backgroundColor: chatColors.fillControl},
+  backToMainText: {color: chatColors.textPrimary},
+  taskStrip: {borderRadius: 18, backgroundColor: chatColors.assistantBubble, paddingHorizontal: 14, paddingVertical: 10, gap: 4},
+  taskStripHead: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 2},
+  taskStripEyebrow: {color: chatColors.textTertiary},
+  taskStripRow: {flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8},
+  taskStripRowBorder: {borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: chatColors.hairline},
+  taskStripRowText: {flex: 1, minWidth: 0, gap: 2},
+  taskStripTitleLine: {flexDirection: 'row', alignItems: 'center', gap: 8},
+  taskStripTitle: {color: chatColors.textPrimary, flex: 1},
+  taskStripDate: {color: chatColors.textTertiary, flexShrink: 0},
+  taskStripPreview: {color: chatColors.textTertiary},
   modalHeader: {minHeight: 56, paddingLeft: layout.gutter, paddingRight: 4, flexDirection: 'row', alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border},
   headerTitle: {flex: 1, minWidth: 0, marginRight: 8}, messages: {paddingHorizontal: chatMetrics.side, gap: chatMetrics.itemGap}, taskMessages: {gap: layout.gap}, stack: {gap: layout.gap},
   userText: {color: chatColors.userText},

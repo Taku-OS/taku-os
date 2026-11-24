@@ -11,8 +11,10 @@ import {readCurrent, restoreConversation} from './readLifecycle';
 import {sessionReadOptions} from './sessionRead';
 import {emptySessionStream, reduceSessionBatch, retainSessionBlocks, streamCursor, streamSessionRoot, sessionRootForDisplay, reconcileStreamHistory} from '../model/sessionStream';
 import {acceptOptimisticReceipt, beginOptimisticSubmission, reconcileOptimisticSubmission, recoverQueuedSubmission, FIRST_RESPONSE_TIMEOUT_MS, type OptimisticSubmission} from '../model/optimisticChat';
+import {isMainConversation, resolveSingleChatStartup, shouldClaimPrimaryThread} from '../model/singleChat';
 
 const SELECTED = 'taku.agent.selected.v1';
+const PRIMARY_THREAD = 'taku.agent.primaryThread.v1';
 /** A continue publishes one new task: optimistic correlation treats it as a fresh message. */
 type ChatSubmission = {threadId: string; requestId: string; text: string; action: 'sendMessage' | 'steer'; expectedTurnId?: string};
 const asChatSubmission = (pending: PendingSubmission): ChatSubmission => ({
@@ -38,6 +40,7 @@ export function useAgentController() {
   const [threads, setThreads] = useState<ThreadSummary[]>([]);
   const [workspaces, setWorkspaces] = useState<WorkspaceView[]>([]);
   const [selected, setSelected] = useState('');
+  const [primaryThreadId, setPrimaryThreadId] = useState('');
   const [conversationKey, setConversationKey] = useState('new');
   const [optimisticSubmissions, setOptimisticSubmissions] = useState<OptimisticSubmission[]>([]);
   const visibleOptimisticSubmissions = useMemo(() => optimisticSubmissions.filter(request => request.threadId === selected), [optimisticSubmissions, selected]);
@@ -58,7 +61,7 @@ export function useAgentController() {
   const locale = useLocales()[0]?.languageCode;
   const zh = locale === 'zh';
   const mounted = useRef(true), generation = useRef(0), actionRunning = useRef(false);
-  const selectedRef = useRef(''), draftRef = useRef(''), sessionRef = useRef<SessionView | null>(null), taskRef = useRef<Json>({});
+  const selectedRef = useRef(''), primaryThreadRef = useRef(''), draftRef = useRef(''), sessionRef = useRef<SessionView | null>(null), taskRef = useRef<Json>({});
   const streamRef = useRef({state: emptySessionStream(''), healthy: false, failed: false});
   const sidebandRef = useRef<Json>({});
   const [drafts] = useState(() => new Map<string, ComposerDraft>());
@@ -281,6 +284,12 @@ export function useAgentController() {
     });
   }, [composer, showDraft, syncNativeSelection, updateOptimistic]);
 
+  const persistPrimaryThread = useCallback((id: string) => {
+    primaryThreadRef.current = id;
+    if (mounted.current) setPrimaryThreadId(id);
+    if (id) void AsyncStorage.setItem(PRIMARY_THREAD, id).catch(() => {});
+  }, []);
+
   const loadThreads = useCallback(async () => {
     const ticket = ++historyRevision.current;
     try {
@@ -329,16 +338,50 @@ export function useAgentController() {
         const target = await launchPanelTarget();
         if (!mounted.current || generation.current !== initialGeneration) return;
         panelTarget.current = target;
-        const previous = panelTarget.current?.originThreadId || launchThreadId() || await AsyncStorage.getItem(SELECTED);
-        if (previous === '' && mounted.current && generation.current === initialGeneration) {
-          void loadThreads().catch(() => {});
-          await select('');
+        const explicitRoute = panelTarget.current?.originThreadId || launchThreadId();
+        const [storedPrimary, legacySelected] = await Promise.all([
+          AsyncStorage.getItem(PRIMARY_THREAD),
+          AsyncStorage.getItem(SELECTED),
+        ]);
+        if (!mounted.current || generation.current !== initialGeneration) return;
+        if (storedPrimary) {
+          primaryThreadRef.current = storedPrimary;
+          setPrimaryThreadId(storedPrimary);
+        }
+        const preferred = explicitRoute || storedPrimary || '';
+        if (preferred) {
+          await restoreConversation({
+            preferred,
+            list: async () => {
+              const items = await loadThreads();
+              if (mounted.current && !primaryThreadRef.current && items.length) {
+                const decision = resolveSingleChatStartup({
+                  explicitRouteId: explicitRoute,
+                  storedPrimaryId: storedPrimary,
+                  legacySelectedId: legacySelected,
+                  threads: items,
+                });
+                if (decision.primaryThreadId) persistPrimaryThread(decision.primaryThreadId);
+              }
+              return items;
+            },
+            select,
+            isCurrent: () => mounted.current && generation.current === initialGeneration,
+            onListError: () => { /* The history index owns its separate error state. */ },
+          });
           return;
         }
-        await restoreConversation({preferred: previous || '', list: loadThreads, select,
-          isCurrent: () => mounted.current && generation.current === initialGeneration,
-          onListError: () => { /* The history index owns its separate error state. */ },
+        let items: ThreadSummary[] = [];
+        try { items = await loadThreads(); } catch { /* The history index owns its separate error state. */ }
+        if (!mounted.current || generation.current !== initialGeneration) return;
+        const decision = resolveSingleChatStartup({
+          explicitRouteId: explicitRoute,
+          storedPrimaryId: storedPrimary,
+          legacySelectedId: legacySelected,
+          threads: items,
         });
+        if (decision.primaryThreadId) persistPrimaryThread(decision.primaryThreadId);
+        await select(decision.targetThreadId);
       } catch (problem) {
         if (mounted.current && generation.current === initialGeneration) {
           setError(messageRef.current(problem));
@@ -355,7 +398,7 @@ export function useAgentController() {
       listener.remove(); visibility.remove(); openListener.remove();
     };
     // Locale changes do not recreate the session or discard a draft.
-  }, [loadThreads, select]);
+  }, [loadThreads, persistPrimaryThread, select]);
 
   useEffect(() => {
     if (!selected || !visible) return;
@@ -535,16 +578,19 @@ export function useAgentController() {
   const removeAttachment = useCallback((attachmentId: string) => changeAttachments(async ({threadId, revision}) =>
     parseComposerSnapshot(await callAgent('composer/removeAttachment', {threadId, expectedRevision: revision, attachmentId}), threadId)), [changeAttachments]);
 
-  const create = useCallback(async (move?: {revision: string; requestId: string}) => {
+  const create = useCallback(async (move?: {revision: string; requestId: string}, asIndependentTask = false) => {
     const result = await callAgent('createThread');
     const id = string(record(result.thread).id);
     if (!id) throw new AgentGatewayError('Missing session ID');
+    if (shouldClaimPrimaryThread(primaryThreadRef.current, asIndependentTask)) {
+      persistPrimaryThread(id);
+    }
     const draft = move ? await composer('').move(move.revision, id) : null;
     if (move) updateOptimistic(requests => requests.map(request => request.requestId === move.requestId ? {...request, threadId: id} : request));
     await select(id, Boolean(move));
     void loadThreads().catch(() => {});
     return {id, draft};
-  }, [composer, loadThreads, select, updateOptimistic]);
+  }, [composer, loadThreads, persistPrimaryThread, select, updateOptimistic]);
 
   const deliver = useCallback(async (pending: ComposerSubmission, lookupOnly = false) => {
     const id = pending.threadId, ticket = generation.current;
@@ -774,9 +820,35 @@ export function useAgentController() {
     await select(selectedRef.current);
   }), [loadThreads, run, select]);
 
+  const createTaskThread = useCallback(() => {
+    void run(async () => {
+      // Preserve the current thread as the personal main chat before spawning an independent task.
+      if (!primaryThreadRef.current && selectedRef.current) {
+        persistPrimaryThread(selectedRef.current);
+      }
+      selectConversation(null);
+      panelTarget.current = null;
+      launchFailure.current = null;
+      pendingOpen.current = '';
+      const {id} = await create(undefined, true);
+      selectConversation(id);
+    });
+  }, [create, persistPrimaryThread, run]);
+
+  const selectMainChat = useCallback(() => {
+    if (actionRunning.current) return;
+    const target = primaryThreadRef.current || threads[0]?.id || '';
+    if (target && !primaryThreadRef.current) persistPrimaryThread(target);
+    selectConversation(target || null);
+    panelTarget.current = null;
+    launchFailure.current = null;
+    void select(target).catch(e => { if (selectedRef.current === target) setError(message(e)); });
+  }, [message, persistPrimaryThread, select, threads]);
+
   return {
     session, threads, workspaces, loading: loading || restoring, busy, error: draftError || error || selectionError || readError, draft,
     historyError, workspaceError, visible,
+    primaryThreadId, isMainChat: isMainConversation(selected, primaryThreadId),
     draftSessionId: selected, pendingSubmission, conversationKey,
     optimisticSubmissions: visibleOptimisticSubmissions,
     onRetrySubmission: () => { void retrySubmission(); },
@@ -798,14 +870,9 @@ export function useAgentController() {
       launchFailure.current = null;
       void select(id).catch(e => { if (selectedRef.current === id) setError(message(e)); });
     },
-    onCreateThread: () => { void run(async () => {
-      selectConversation(null);
-      panelTarget.current = null;
-      launchFailure.current = null;
-      pendingOpen.current = '';
-      const {id} = await create();
-      selectConversation(id);
-    }); },
+    onSelectMainChat: selectMainChat,
+    onCreateTaskThread: createTaskThread,
+    onCreateThread: createTaskThread,
     onRefresh: () => { void refresh(); },
     onOpenHistory: () => { void loadThreads().catch(() => {}); },
     onAnswer: (key: string, response: Json) => { void run(async () => { await callAgent('answer', {threadId: selectedRef.current, key, response}); setRefreshRevision(v => v + 1); }); },
