@@ -99,13 +99,12 @@ class SystemAssistantSession(private val ctx: Context) : VoiceInteractionSession
     capture = null
     val version = generation
     val page = foreground ?: "Current app"
-    val flags = showFlags
     val suggestion = args.containsKey("jevTestToken")
     request = null
     shown = false
     IO.execute {
       var file: File? = null
-      var target: Intent? = if (suggestion) null else SystemAssistantEntry.launch(ctx, args, flags)
+      var target: Intent? = if (suggestion) null else SystemAssistantEntry.launch(ctx, args)
       try {
         if (version != generation) return@execute
         val payload = if (suggestion) JSONObject().put("jevTestToken", args.getString("jevTestToken"))

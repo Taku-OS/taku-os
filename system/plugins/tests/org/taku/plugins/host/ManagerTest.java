@@ -27,6 +27,21 @@ public final class ManagerTest {
     }
     @SuppressWarnings("unchecked")
     public static void main(String[] args) throws Exception {
+        check(BoundedLine.read(new ByteArrayInputStream("é\r\n".getBytes(java.nio.charset.StandardCharsets.UTF_8)), 3).equals("é"), "UTF-8 and CRLF");
+        ByteArrayInputStream oversized = new ByteArrayInputStream("éééé".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        try {
+            BoundedLine.read(oversized, 3);
+            throw new AssertionError("expected byte limit");
+        } catch (IOException expected) {
+            check(oversized.available() == 4, "reject before consuming the rest of an unterminated line");
+        }
+        Json.parse("{\"items\":" + "[".repeat(63) + "0" + "]".repeat(63) + "}");
+        try {
+            Json.parse("{\"items\":" + "[".repeat(64) + "0" + "]".repeat(64) + "}");
+            throw new AssertionError("expected JSON depth limit");
+        } catch (IllegalArgumentException expected) {
+            check(expected.getMessage().contains("nesting"), "reject nested containers at the depth boundary");
+        }
         Path base = Files.createTempDirectory("taku-manager-test-");
         Path root = base.resolve("state"), examples = Path.of(args[0]);
         String id = "org.example.settings";
@@ -45,6 +60,11 @@ public final class ManagerTest {
         signer.update(Files.readAllBytes(signed));
         String signature = Base64.getEncoder().encodeToString(signer.sign());
         String publicKey = Base64.getEncoder().encodeToString(keys.getPublic().getEncoded());
+        fails("UNTRUSTED_PUBLISHER", () -> PluginManager.requireTrustedPublisher(null, signature, publicKey));
+        fails("UNTRUSTED_PUBLISHER", () -> PluginManager.requireTrustedPublisher("other-configured-key", signature, publicKey));
+        fails("INVALID_SIGNATURE", () -> PluginManager.requireTrustedPublisher(publicKey, null, null));
+        PluginManager.requireTrustedPublisher(publicKey, signature, null);
+        PluginManager.requireTrustedPublisher(publicKey, signature, publicKey);
         PluginManager.verifyArchiveSignature(signed, signature, publicKey);
         Signature wrong = Signature.getInstance("Ed25519");
         wrong.initSign(keys.getPrivate());

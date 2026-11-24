@@ -3,19 +3,22 @@ package com.android.systemui.taku.island
 
 import android.content.ContentProvider
 import android.content.ContentValues
+import android.content.pm.PackageManager
 import android.database.Cursor
 import android.database.MatrixCursor
 import android.net.Uri
 import android.os.Binder
 import android.os.Bundle
+import android.os.Process
 
-/** Public Agent interface. Publication policy is separate from reading/operating visible state. */
+/** Privileged Agent interface. Publication policy is separate from reading/operating visible state. */
 class IslandProvider : ContentProvider() {
     override fun onCreate() = true
     override fun getType(uri: Uri) = "application/vnd.taku.island+json"
 
     override fun query(uri: Uri, projection: Array<out String>?, selection: String?,
         selectionArgs: Array<out String>?, sortOrder: String?): Cursor {
+        enforceTrustedCaller(Binder.getCallingUid())
         val method = uri.pathSegments.firstOrNull() ?: "capabilities"
         val key = uri.getQueryParameter("key") ?: uri.getQueryParameter("package") ?: uri.pathSegments.getOrNull(1)
         val result = if (method in setOf("capabilities", "canShowIsland", "state", "list", "get", "settings")) {
@@ -27,8 +30,18 @@ class IslandProvider : ContentProvider() {
         }
     }
 
-    override fun call(method: String, arg: String?, extras: Bundle?): Bundle = Bundle().apply {
-        putString("json", operate(method, arg, extras?.getString("value")).toString())
+    override fun call(method: String, arg: String?, extras: Bundle?): Bundle {
+        enforceTrustedCaller(Binder.getCallingUid())
+        return Bundle().apply {
+            putString("json", operate(method, arg, extras?.getString("value")).toString())
+        }
+    }
+
+    private fun enforceTrustedCaller(uid: Int) {
+        if (uid == Process.ROOT_UID || uid == Process.SYSTEM_UID || uid == Process.SHELL_UID) return
+        if (context?.packageManager?.checkSignatures(uid, Process.SYSTEM_UID) ==
+            PackageManager.SIGNATURE_MATCH) return
+        throw SecurityException("Island access requires a trusted system caller")
     }
 
     private fun operate(method: String, arg: String?, extra: String?): org.json.JSONObject {
