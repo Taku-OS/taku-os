@@ -247,7 +247,7 @@ Pagination cursors are HMAC-SHA256 signed with the catalog key, binding catalog 
 
 `panels/get.sourceState.state` is `current`, `offline`, `thread-unavailable`, or `unavailable`, with `observedAt` and optional `code`. `capabilities` contains `canOpen`, `canContinue`, and `canUnpin`. `updateReceipt` is the latest durable update receipt with `outcome`, `code`, `publishedSourceVersion`, `publishedMatterId`, `settled`, and timestamps.
 
-CLI and `am start` navigation carry `launchId`. Only new external navigation gets a new identity; redelivery of the same Intent retains it. Continue consumption is persisted by intent identity before releasing the pending receipt. On saved-state restoration or return from Recents, consumed identities discard the `panelId`, `sourceVersion`, and `originThreadId` extras, making entry an ordinary turn without carrying panel context into another send. This handles old-Intent restoration after process death and cannot rely on an in-memory flag.
+To open a Panel conversation with `am start`, pass `threadId`, `panelId`, `originThreadId`, and a fresh UUID in `panelLaunchId`. The Activity also generates a launch ID for a new Panel intent that omits one. Redelivery and saved-state restoration retain the route identity. Android validates the Panel against the original conversation through `panels/get`. Every send reads the current `sourceVersion` and passes it as `expectedSourceVersion`. Opening another conversation replaces the route.
 
 ### 7.2 Public Matter and card-state access
 
@@ -398,9 +398,11 @@ The emulator host later reported hung QEMU main-loop/CPU threads and exited for 
 
 ### 10.2 Panel continuation
 
-The component upgrade on `emulator-5682` verified the named chat entry and return to the same Panel. Two consecutive chat edits published counts 41 and 42. The Home text and hold-to-send paths published 43 and 44 through the original conversation. Agent readback matched the Panel values. A subsequent turn published count 45 and created a separate ordinary Matter card.
+The component upgrade on `emulator-5682` verified the named chat entry and return to the same Panel. The documented `am start` command opened the same named entry. The Panel displayed counts 41 and 42 after consecutive chat edits. Agent reads matched both values and confirmed counts 43 and 44 after Home text and hold-to-send in the original conversation. A subsequent turn created a separate ordinary Matter card and published count 45, confirmed on the Panel page and through `card-view/read`.
 
 The stale composer check returned `VERSION_CONFLICT`, kept the draft, and released the pending slot. Chat collapse selected the same Panel on Home. After Agent process death, invoking the retained Edit Activity with its original arguments restored the saved draft. Reset rejected a replay of that intent. Evidence is in the local `out/panel-continuation/` directory. The test upgraded the Agent APK, Assistant APK, and broker JAR. It used synthetic microphone input and a connected model.
+
+The ordinary-app probe also checked that an app without a `taku.control` grant received `PERMISSION_DENIED` from `panels/get`.
 
 
 ## 11. Alternatives and tradeoffs
