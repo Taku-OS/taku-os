@@ -208,6 +208,8 @@ public final class PluginManager implements AutoCloseable {
         if (!"https".equalsIgnoreCase(uri.getScheme()) || uri.getHost() == null || uri.getUserInfo() != null) throw new PluginException("INVALID_URL", "https URL without user info required");
         String expected = expectedSha256 == null ? "" : expectedSha256.toLowerCase(Locale.ROOT);
         if (!expected.matches("[0-9a-f]{64}")) throw new PluginException("INVALID_CHECKSUM", "sha256 must be 64 hexadecimal characters");
+        String trustedKey = System.getenv("TAKU_PLUGIN_TRUSTED_PUBLISHER_KEY");
+        requireTrustedPublisher(trustedKey, signature, publicKey);
         Path download = Files.createTempFile(staging, ".remote-", ".zip");
         try {
             java.net.HttpURLConnection connection = (java.net.HttpURLConnection) uri.toURL().openConnection();
@@ -232,15 +234,26 @@ public final class PluginManager implements AutoCloseable {
                 for (byte value : digest.digest()) actual.append(String.format("%02x", value & 255));
                 if (!actual.toString().equals(expected)) throw new PluginException("CHECKSUM_MISMATCH", "remote package checksum mismatch");
             } finally { connection.disconnect(); }
-            verifyArchiveSignature(download, signature, publicKey);
+            verifyArchiveSignature(download, signature, trustedKey);
             return installInternal(download);
         } finally { Files.deleteIfExists(download); }
+    }
+
+    static void requireTrustedPublisher(String trustedKey, String signature, String requestedKey) throws PluginException {
+        if (trustedKey == null || trustedKey.isBlank()) {
+            throw new PluginException("UNTRUSTED_PUBLISHER", "remote installs require a host-configured Ed25519 publisher key");
+        }
+        if (requestedKey != null && !trustedKey.equals(requestedKey)) {
+            throw new PluginException("UNTRUSTED_PUBLISHER", "request key does not match the configured publisher");
+        }
+        if (signature == null || signature.isBlank() || signature.length() > 4096) {
+            throw new PluginException("INVALID_SIGNATURE", "an Ed25519 package signature is required");
+        }
     }
 
     static void verifyArchiveSignature(Path archive, String signature, String publicKey) throws Exception {
         boolean hasSignature = signature != null && !signature.isBlank();
         boolean hasKey = publicKey != null && !publicKey.isBlank();
-        if (!hasSignature && !hasKey) return;
         if (!hasSignature || !hasKey || signature.length() > 4096 || publicKey.length() > 4096) throw new PluginException("INVALID_SIGNATURE", "signature and X.509 publicKey must be supplied together");
         try {
             java.security.PublicKey key = java.security.KeyFactory.getInstance("Ed25519")
@@ -388,7 +401,13 @@ public final class PluginManager implements AutoCloseable {
     public synchronized Map<String,Object> show(String id) throws Exception {
         PluginRecord record = require(id);
         Map<String,Object> result = new LinkedHashMap<>(record.json());
-        result.put("manifest", Manifest.read(installed.resolve(record.generation)).data);
+        Manifest manifest = Manifest.read(installed.resolve(record.generation));
+        Map<String,Object> projection = new LinkedHashMap<>(manifest.data);
+        if (manifest.provider) {
+            Map<?,?> mcp = (Map<?,?>)manifest.data.get("mcp");
+            projection.put("mcp", Map.of("command", mcp.get("command"), "args", mcp.get("args")));
+        }
+        result.put("manifest", projection);
         Running active = running.get(id);
         result.put("state", active != null ? "started" : record.error != null ? "error" : "stopped");
         result.put("registrations", active == null ? Map.of("ui", Map.of(), "settings", Map.of(), "capabilities", List.of()) : active.context.snapshot());

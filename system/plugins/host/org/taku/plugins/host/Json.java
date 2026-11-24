@@ -3,23 +3,27 @@ package org.taku.plugins.host;
 import java.util.*;
 
 final class Json {
+    private static final int MAX_DEPTH = 64;
     private final String text;
     private int position;
     private Json(String text) { this.text = text; }
     static Object parse(String text) {
         Json parser = new Json(text);
-        Object value = parser.value();
+        Object value = parser.value(0);
         parser.space();
         if (parser.position != text.length()) throw new IllegalArgumentException("trailing JSON");
         return value;
     }
     private void space() { while (position < text.length() && " \n\r\t".indexOf(text.charAt(position)) >= 0) position++; }
     private char take() { if (position >= text.length()) throw new IllegalArgumentException("unexpected end of JSON"); return text.charAt(position++); }
-    private Object value() {
+    private Object value(int depth) {
         space();
         if (position >= text.length()) throw new IllegalArgumentException("missing JSON value");
         char next = text.charAt(position);
         if (next == '"') return string();
+        if ((next == '{' || next == '[') && depth >= MAX_DEPTH) {
+            throw new IllegalArgumentException("JSON nesting exceeds " + MAX_DEPTH);
+        }
         if (next == '{') {
             position++;
             Map<String,Object> result = new LinkedHashMap<>();
@@ -32,7 +36,7 @@ final class Json {
                 space();
                 if (take() != ':') throw new IllegalArgumentException("missing colon");
                 if (result.containsKey(key)) throw new IllegalArgumentException("duplicate key " + key);
-                result.put(key, value());
+                result.put(key, value(depth + 1));
                 space();
                 char separator = take();
                 if (separator == '}') return result;
@@ -45,7 +49,7 @@ final class Json {
             space();
             if (position < text.length() && text.charAt(position) == ']') { position++; return result; }
             while (true) {
-                result.add(value()); space(); char separator = take();
+                result.add(value(depth + 1)); space(); char separator = take();
                 if (separator == ']') return result;
                 if (separator != ',') throw new IllegalArgumentException("missing comma");
             }
