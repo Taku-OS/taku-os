@@ -93,6 +93,12 @@ data class AssistantState(
     return copy(appBuildTurnId = if (active) turnId else null)
   }
   val needsUser: Boolean get() = task == "needs_user"
+  /**
+   * A new voice hold asks something new, so a finished turn on the card is not its answer and must
+   * not show again while it listens, nor after a cancelled or empty hold (BUG-0028). A running
+   * turn, a question or an error still needs the user and stays.
+   */
+  val holdSupersedesTurn: Boolean get() = turn != null && !turn.active && !working && !needsUser
   /** Closing temporary input must not dismiss its pending result, reply or error. */
   val overlayVisible: Boolean get() = entry != EntryMode.None
 
@@ -846,6 +852,7 @@ class AssistantSession private constructor(private val context: Context, private
       throw AssistantException("DEVICE_LOCKED", "Wake and unlock the device before starting voice input")
     if (voiceStartPending) return
     if (voice.state.value.phase != VoicePhase.Idle) voice.cancel()
+    if (target == VoiceTarget.Hold) supersedeSettledTurn()
     flow.update {
       it.copy(
         entry = if (target == VoiceTarget.Hold) EntryMode.Voice else EntryMode.Text,
@@ -874,6 +881,19 @@ class AssistantSession private constructor(private val context: Context, private
       delivery.begin(operation, settledDestination)
       apply(delivery.settle(voice.state.value, flow.value.draft))
     }
+  }
+
+  /**
+   * Hides the finished turn from this session's card: it joins [baseline], so the stream never
+   * projects it again, and only a newer turn appears. The thread continues, so the next message
+   * keeps its context; the reply stays in the conversation.
+   */
+  private fun supersedeSettledTurn() {
+    val s = flow.value
+    if (!s.holdSupersedesTurn) return
+    val old = s.turn?.turnId ?: return
+    synchronized(streamLock) { baseline = baseline + old }
+    flow.update { if (it.turn?.turnId == old) it.copy(turn = null) else it }
   }
 
   private fun cancelPendingVoiceStart() {
