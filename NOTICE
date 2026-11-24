@@ -77,3 +77,11 @@ Taku Audio Engine (system/audio-engine) uses Apache-2.0 for original Taku code.
 When built or distributed with local TTS/ASR resources (sherpa-onnx, Zipformer,
 Kokoro, and espeak-ng phoneme data/libraries), sherpa-onnx retains Apache-2.0
 and espeak-ng retains GPL-3.0-or-later; see system/audio-engine/models/notices.lock.json.
+
+GenUI Panel icons in system/agent-app/src/feed/lucideIcons.json are 151 SVG
+icons copied unchanged from lucide-static 1.78.0 (ISC, Copyright (c) 2026 Lucide
+Icons and Contributors; Feather-derived icons MIT, Copyright (c) 2013-present
+Cole Bemis). The upstream license is kept at
+system/agent-app/src/feed/licenses/Lucide-LICENSE.txt; package hash and
+extraction steps are in system/agent-app/src/feed/lucideIcons.source.json.
+https://github.com/lucide-icons/lucide
