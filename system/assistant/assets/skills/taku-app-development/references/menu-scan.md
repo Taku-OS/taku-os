@@ -39,19 +39,38 @@ Preserve the user's request. While processing the request use the existing
    its official exact-address listing can corroborate a post that names the restaurant.
    Use a verified stable place identifier or the branch's official URL as `placeId`. Use
    the canonical original post URL, displayed creator, title and any local thumbnail.
-   Require positive evidence before setting `verified: true`. Leave `recommendations: []`
-   for uncertainty, unavailable originals, generic redirects or wrong dishes or branches.
+   Require positive evidence before setting `verified: true`.
+
+   When the live original is unavailable but the search tool indexed the original YouTube
+   page itself, leave that candidate out of `recommendations`. Write
+   `post-candidates.json` beside the menu using the format below. Include the exact indexed
+   title without search-result decorations and a short excerpt from that same result. Keep
+   the excerpt on one line. The indexed title must name the dish, and the title and excerpt
+   together must identify the restaurant and its exact street address and locality. Use the
+   original watch or Shorts URL. Omit candidates based on search pages, third-party results,
+   generic redirects, uncertainty about the address, or a different dish or branch.
+
+   The builder tries each candidate against the original YouTube page and can use YouTube
+   oEmbed when that page is unavailable. It requires a matching video ID and title, and
+   checks the original description for the branch when available. When using oEmbed, the
+   live title must name both the dish and restaurant and the indexed text must identify the
+   branch. Supply at most eight candidates. The checks share a six-second deadline. A failed
+   check leaves the dish and any existing verified recommendations intact. The builder uses
+   the system HTTP proxy or an HTTP proxy URL supplied in `HTTPS_PROXY` or `HTTP_PROXY`
+   (lowercase variants also work).
 4. Build with the existing device toolchain and fixed menu renderer:
 
    ```sh
    sh /data/local/agentos/light-app-lab/menu-app/build.sh /absolute/path/to/menu.json
    ```
 
-   This command installs an independent package and returns a line beginning
-   `taku-menu-app:`. Let Chat open the installed app via that receipt. In the final plain-text
-   reply put the receipt on its own last line. Keep the marker out of commentary, code
-   blocks and Markdown links. If the template or toolchain is unavailable, surface the
-   actual error. A different generated interface cannot satisfy this workflow.
+   This command installs an independent package, verifies it can be opened from Chat,
+   and returns a line beginning `taku-menu-app:`. On success, immediately return the
+   result and let the user open the app from Chat. The receipt already confirms
+   installation and launchability. In the final plain-text reply put the receipt on
+   its own last line. Keep the marker out of commentary, code blocks and Markdown links.
+   If the template or toolchain is unavailable, surface the actual error. A different
+   generated interface cannot satisfy this workflow.
 
 The input has this structure:
 
@@ -74,3 +93,14 @@ The input has this structure:
 
 Each dish ID is unique. Nutrition is per serving. Use local `images/FILE` values or empty
 strings for image fields. Only include references for files present beside the input.
+
+Optional `post-candidates.json` structure:
+
+```
+[{
+  "dishId": string,
+  "platform": "youtube",
+  "url": original-post-url,
+  "indexed": {"url": original-post-url, "title": string, "excerpt": string}
+}]
+```

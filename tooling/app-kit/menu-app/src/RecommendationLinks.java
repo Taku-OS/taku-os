@@ -61,5 +61,11 @@ final class RecommendationLinks {
         return null;
     }
 
+    static String youtubeId(String url) {
+        if (nativePackage("YouTube", url) == null) return null;
+        URI uri = URI.create(url);
+        return uri.getRawQuery() == null ? uri.getRawPath().split("/")[2] : uri.getRawQuery().substring(2);
+    }
+
     private RecommendationLinks() {}
 }

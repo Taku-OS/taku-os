@@ -4,21 +4,40 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.util.JsonReader;
 import android.util.JsonToken;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.StringReader;
 import java.math.BigDecimal;
+import java.net.HttpURLConnection;
+import java.net.InetSocketAddress;
+import java.net.Proxy;
+import java.net.SocketTimeoutException;
+import java.net.URI;
+import java.net.URLEncoder;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.Currency;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -54,6 +73,7 @@ public final class MenuData {
         Images images = new Images(source.getParent(), project);
         validateMenu(menu, images);
         JSONArray dishes = menu.getJSONArray("dishes");
+        PostCandidates.enrich(source.resolveSibling("post-candidates.json"), menu.getJSONObject("venue"), dishes);
         List<JSONObject> missingArtwork = new ArrayList<>();
         for (int index = 0; index < dishes.length(); index++) {
             JSONObject dish = dishes.getJSONObject(index);
@@ -254,6 +274,278 @@ public final class MenuData {
 
     private static void require(boolean condition, String message) {
         if (!condition) throw new IllegalArgumentException(message);
+    }
+
+    private static final class PostCandidates {
+        private static final int MAX_FILE_BYTES = 32 * 1024;
+        private static final int MAX_CANDIDATES = 8;
+        private static final int MAX_PARALLEL = 4;
+        private static final int BATCH_SECONDS = 6;
+        private static final int PAGE_BYTES = 2 * 1024 * 1024;
+        private static final int OEMBED_BYTES = 16 * 1024;
+        private static final String YOUTUBE = "https://www.youtube.com";
+        private static final Pattern PLAYER = Pattern.compile("\\bytInitialPlayerResponse\\s*=\\s*(?=\\{)");
+        private static final Pattern EMBED = Pattern.compile("^<iframe\\b[^>]*?\\s+src=\"https://www\\.youtube\\.com/embed/"
+                + "([A-Za-z0-9_-]{11})(?:\\?feature=oembed)?\"");
+        private static final Pattern POSSESSIVE = Pattern.compile("^[\\p{L}\\p{N}]+['’ʼ]s\\s+", Pattern.CASE_INSENSITIVE);
+        private static final Pattern STREET_NUMBER = Pattern.compile("\\b[0-9]+[a-z]?\\b");
+        private static final Map<String, String> ADDRESS_WORDS = Map.ofEntries(
+                Map.entry("e", "east"), Map.entry("w", "west"), Map.entry("n", "north"), Map.entry("s", "south"),
+                Map.entry("st", "street"), Map.entry("ave", "avenue"), Map.entry("rd", "road"),
+                Map.entry("blvd", "boulevard"), Map.entry("dr", "drive"), Map.entry("ln", "lane"));
+
+        private record Branch(String name, String street, String locality) {
+            boolean matches(String evidence) {
+                String text = words(evidence);
+                return containsPhrase(text, name) && containsPhrase(addressWords(evidence), street)
+                        && (locality.isEmpty() || containsPhrase(text, locality));
+            }
+        }
+
+        private record Candidate(JSONObject dish, String url, String videoId, String indexedTitle, String dishName) {}
+
+        private record Video(String id, String title, String author, String description) {}
+
+        private record Verified(Candidate candidate, Video video) {}
+
+        static void enrich(Path sidecar, JSONObject venue, JSONArray dishes) throws JSONException {
+            String place = venue.getString("placeId");
+            String[] address = venue.getString("address").split(",", 3);
+            Branch branch = new Branch(words(venue.getString("name")), addressWords(address[0]),
+                    address.length > 1 ? words(address[1]) : "");
+            if (place.isEmpty() || branch.name().isEmpty() || !STREET_NUMBER.matcher(branch.street()).find()
+                    || !branch.street().matches(".*\\p{L}.*") || !Files.isRegularFile(sidecar)) return;
+
+            List<Candidate> candidates;
+            try {
+                candidates = read(sidecar, dishes, branch);
+            } catch (IOException | JSONException | IllegalArgumentException | IllegalStateException failure) {
+                System.err.println("Menu post candidates: invalid optional input");
+                return;
+            }
+            if (candidates.isEmpty()) return;
+
+            ExecutorService workers = Executors.newFixedThreadPool(Math.min(MAX_PARALLEL, candidates.size()), task -> {
+                Thread thread = new Thread(task, "menu-post-verification");
+                thread.setDaemon(true);
+                return thread;
+            });
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(BATCH_SECONDS);
+            List<Callable<Verified>> checks = new ArrayList<>();
+            for (Candidate candidate : candidates) {
+                checks.add(() -> verify(candidate, branch, deadline));
+            }
+            int added = 0;
+            try {
+                for (Future<Verified> check : workers.invokeAll(checks, BATCH_SECONDS, TimeUnit.SECONDS)) {
+                    if (check.isCancelled()) continue;
+                    try {
+                        Verified result = check.get();
+                        if (result != null && add(result, place)) added++;
+                    } catch (ExecutionException ignored) {
+                        // Verification is optional and a failed request cannot invalidate the menu.
+                    }
+                }
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+            } finally {
+                workers.shutdownNow();
+            }
+            System.err.println("Menu post candidates: added " + added + " of " + candidates.size());
+        }
+
+        private static List<Candidate> read(Path sidecar, JSONArray dishes, Branch branch)
+                throws IOException, JSONException {
+            require(!Files.isSymbolicLink(sidecar), "Post candidates cannot use a symbolic link");
+            byte[] bytes = readBounded(sidecar, MAX_FILE_BYTES);
+            String document = StandardCharsets.UTF_8.newDecoder().decode(ByteBuffer.wrap(bytes)).toString();
+            Map<String, JSONObject> byId = new HashMap<>();
+            for (int index = 0; index < dishes.length(); index++) {
+                JSONObject dish = dishes.getJSONObject(index);
+                byId.put(dish.getString("id"), dish);
+            }
+            List<Candidate> candidates = new ArrayList<>();
+            Set<String> seen = new HashSet<>();
+            try (JsonReader parser = new JsonReader(new StringReader(document))) {
+                JSONArray entries = readArray(parser, 0);
+                require(parser.peek() == JsonToken.END_DOCUMENT, "Unexpected content after post candidates");
+                require(entries.length() <= MAX_CANDIDATES, "Too many post candidates");
+                for (int index = 0; index < entries.length(); index++) {
+                    try {
+                        JSONObject entry = entries.getJSONObject(index);
+                        fields(entry, "dishId", "platform", "url", "indexed");
+                        String dishId = fieldText(entry, "dishId", 80, false);
+                        JSONObject dish = byId.get(dishId);
+                        if (dish == null || !"youtube".equalsIgnoreCase(fieldText(entry, "platform", 24, false))) continue;
+                        String url = fieldText(entry, "url", 1024, false);
+                        String videoId = RecommendationLinks.youtubeId(url);
+                        JSONObject indexed = entry.getJSONObject("indexed");
+                        fields(indexed, "url", "title", "excerpt");
+                        String indexedUrl = fieldText(indexed, "url", 1024, false);
+                        if (videoId == null || !videoId.equals(RecommendationLinks.youtubeId(indexedUrl))) continue;
+                        String title = fieldText(indexed, "title", 200, false);
+                        String excerpt = fieldText(indexed, "excerpt", 500, false);
+                        String dishName = dishPhrase(dish.getString("name"), branch.name());
+                        String evidence = title + " " + excerpt;
+                        if (containsPhrase(words(title), dishName) && branch.matches(evidence)
+                                && !hasVideo(dish.getJSONArray("recommendations"), videoId)
+                                && seen.add(dishId + ":" + videoId)) {
+                            candidates.add(new Candidate(dish, url, videoId, title, dishName));
+                        }
+                    } catch (JSONException | IllegalArgumentException ignored) {
+                        // A bad candidate does not discard other entries.
+                    }
+                }
+            }
+            return candidates;
+        }
+
+        private static Verified verify(Candidate candidate, Branch branch, long deadline)
+                throws JSONException {
+            String watch = YOUTUBE + "/watch?v=" + candidate.videoId();
+            Video original = null;
+            try {
+                long pageDeadline = Math.min(deadline, System.nanoTime() + TimeUnit.SECONDS.toNanos(2));
+                original = pageVideo(fetch(watch, PAGE_BYTES, pageDeadline));
+            } catch (IOException | JSONException ignored) {
+                // The platform's oEmbed response can identify a post when the page is inaccessible.
+            }
+            if (original != null) {
+                if (!branch.matches(original.title() + " " + original.description())) return null;
+            } else {
+                try {
+                    original = embedVideo(fetch(YOUTUBE + "/oembed?format=json&url="
+                            + URLEncoder.encode(watch, "UTF-8"), OEMBED_BYTES, deadline));
+                } catch (IOException | JSONException | IllegalArgumentException failure) {
+                    return null;
+                }
+                // oEmbed contains no description, so require the venue name in the live title as well.
+                if (!containsPhrase(words(original.title()), branch.name())) return null;
+            }
+            if (!candidate.videoId().equals(original.id())
+                    || !words(candidate.indexedTitle()).equals(words(original.title()))
+                    || !containsPhrase(words(original.title()), candidate.dishName())) return null;
+            checkText(original.title(), "title", 200, false);
+            checkText(original.author(), "author", 100, false);
+            return new Verified(candidate, original);
+        }
+
+        private static Video pageVideo(String html) throws JSONException {
+            Matcher player = PLAYER.matcher(html);
+            if (!player.find()) return null;
+            JSONObject details = new JSONObject(html.substring(player.end())).optJSONObject("videoDetails");
+            if (details == null || details.optBoolean("isPrivate")) return null;
+            String description = details.getString("shortDescription");
+            if (description.isBlank()) return null;
+            return new Video(details.getString("videoId"), details.getString("title"), details.getString("author"),
+                    description);
+        }
+
+        private static Video embedVideo(String json) throws JSONException {
+            JSONObject embed = new JSONObject(json);
+            Matcher frame = EMBED.matcher(embed.getString("html"));
+            require("YouTube".equals(embed.getString("provider_name"))
+                    && (YOUTUBE + "/").equals(embed.getString("provider_url"))
+                    && "video".equals(embed.getString("type")) && frame.find(), "Invalid YouTube oEmbed response");
+            return new Video(frame.group(1), embed.getString("title"), embed.getString("author_name"), "");
+        }
+
+        private static String fetch(String address, int maximum, long deadline) throws IOException {
+            var url = URI.create(address).toURL();
+            Proxy proxy = configuredProxy();
+            HttpURLConnection connection = (HttpURLConnection) (proxy == null
+                    ? url.openConnection() : url.openConnection(proxy));
+            try {
+                connection.setInstanceFollowRedirects(false);
+                connection.setConnectTimeout(remainingMillis(deadline));
+                connection.setReadTimeout(remainingMillis(deadline));
+                if (connection.getResponseCode() != HttpURLConnection.HTTP_OK
+                        || connection.getContentLengthLong() > maximum) throw new IOException("Post metadata unavailable");
+                try (InputStream input = connection.getInputStream(); ByteArrayOutputStream response = new ByteArrayOutputStream()) {
+                    byte[] buffer = new byte[8192];
+                    while (true) {
+                        remainingMillis(deadline);
+                        int count = input.read(buffer);
+                        if (count < 0) return response.toString(StandardCharsets.UTF_8.name());
+                        if (response.size() + count > maximum) throw new IOException("Post metadata exceeds size limit");
+                        response.write(buffer, 0, count);
+                    }
+                }
+            } finally {
+                connection.disconnect();
+            }
+        }
+
+        private static int remainingMillis(long deadline) throws SocketTimeoutException {
+            long remaining = deadline - System.nanoTime();
+            if (remaining <= 0 || Thread.currentThread().isInterrupted()) throw new SocketTimeoutException();
+            return (int) Math.max(1, TimeUnit.NANOSECONDS.toMillis(remaining));
+        }
+
+        private static Proxy configuredProxy() {
+            for (String key : List.of("HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy")) {
+                String value = System.getenv(key);
+                if (value == null || value.isBlank()) continue;
+                try {
+                    URI uri = URI.create(value);
+                    if ("http".equals(uri.getScheme()) && uri.getHost() != null && uri.getRawUserInfo() == null
+                            && (uri.getPort() == -1 || uri.getPort() >= 1 && uri.getPort() <= 65535)) {
+                        int port = uri.getPort() == -1 ? 80 : uri.getPort();
+                        return new Proxy(Proxy.Type.HTTP, InetSocketAddress.createUnresolved(uri.getHost(), port));
+                    }
+                } catch (IllegalArgumentException ignored) {
+                    // Continue with the next configured proxy or the system route.
+                }
+            }
+            return null;
+        }
+
+        private static boolean add(Verified result, String place) throws JSONException {
+            Candidate candidate = result.candidate();
+            JSONArray recommendations = candidate.dish().getJSONArray("recommendations");
+            if (recommendations.length() >= 10 || hasVideo(recommendations, candidate.videoId())) return false;
+            Video video = result.video();
+            recommendations.put(new JSONObject().put("url", candidate.url()).put("platform", "YouTube")
+                    .put("author", video.author()).put("title", video.title()).put("thumbnail", "")
+                    .put("restaurantPlaceId", place).put("dishId", candidate.dish().getString("id"))
+                    .put("type", "video").put("verified", true));
+            return true;
+        }
+
+        private static boolean hasVideo(JSONArray recommendations, String id) throws JSONException {
+            for (int index = 0; index < recommendations.length(); index++) {
+                JSONObject post = recommendations.getJSONObject(index);
+                if (id.equals(RecommendationLinks.youtubeId(post.getString("url")))) return true;
+            }
+            return false;
+        }
+
+        private static String dishPhrase(String dish, String venueName) {
+            String name = words(dish);
+            if (name.startsWith(venueName + " ")) return name.substring(venueName.length() + 1);
+            Matcher possessive = POSSESSIVE.matcher(dish);
+            if (possessive.find() && venueName.startsWith(words(possessive.group()) + " ")) {
+                return words(dish.substring(possessive.end()));
+            }
+            return name;
+        }
+
+        private static boolean containsPhrase(String words, String phrase) {
+            return !phrase.isEmpty() && (" " + words + " ").contains(" " + phrase + " ");
+        }
+
+        private static String words(String text) {
+            return Normalizer.normalize(text, Normalizer.Form.NFKC).toLowerCase(Locale.ROOT)
+                    .replaceAll("['’ʼ]", "").replaceAll("[^\\p{L}\\p{N}]+", " ").trim();
+        }
+
+        private static String addressWords(String text) {
+            String[] tokens = words(text).split(" ");
+            for (int index = 0; index < tokens.length; index++) {
+                tokens[index] = ADDRESS_WORDS.getOrDefault(tokens[index], tokens[index]);
+            }
+            return String.join(" ", tokens);
+        }
     }
 
     private static final class Images {
