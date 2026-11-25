@@ -41,7 +41,7 @@ export function chatPresentation(blocks: readonly MessageBlock[], requests: read
   const result: ChatMessageBlock[] = [];
   for (const block of optimisticBlocks(blocks, requests)) {
     const request = result[result.length - 1];
-    const emptyStoppedReply = block.role === 'assistant' && block.status === 'stopped' && !block.active
+    const emptyStoppedReply = block.role === 'assistant' && block.status === 'stopped' && !block.active && !block.thinking
       && !block.text.trim() && !block.activity.length && !block.attachments.length && !block.parts?.some(part => part.card || part.replyState);
     if (emptyStoppedReply && request?.role === 'user' && request.turnId === block.turnId
       && request.status === 'stopped' && !request.active && !request.requestStopped) {

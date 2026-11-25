@@ -32,6 +32,7 @@ internal class AgentViews {
                     val saved = File(ROOT, "$id.json")
                     if (saved.isFile) try { previous = MainReplySession.restored(JSONObject(TaskBroker.read(saved))) } catch (_: Exception) { }
                 }
+                AgentSessionReducer.retainReasoningTiming(raw, previous)
                 rawThreads[id] = raw
                 val session = replies.getOrPut(id) { MainReplySession(id, null) }
                 val view = session.project(raw, previous, true)
@@ -375,7 +376,8 @@ internal class AgentViews {
                 val raw = rawThreads[id] ?: return
                 val view = threads[id] ?: return
                 val session = replies[id] ?: return
-                if (method == "turn/started" || method == "item/agentMessage/delta") liveThreads.add(id)
+                val streamed = method == "item/agentMessage/delta" || method == AgentSessionReducer.REASONING_SUMMARY_DELTA
+                if (method == "turn/started" || streamed) liveThreads.add(id)
                 if (method == "turn/completed") liveThreads.remove(id)
                 val update = session.update(raw, view, event) ?: return
                 for (change in update.replies) events.publish(id, "session/reply", change)
@@ -400,7 +402,7 @@ internal class AgentViews {
                     events.publish(id, publicMethod, publicParams)
                 }
                 val elapsed = System.nanoTime() - checkpoints.getOrDefault(id, 0L)
-                if (method != "item/agentMessage/delta" || terminalReply || elapsed >= 250_000_000L) checkpoint(view)
+                if (!streamed || terminalReply || elapsed >= 250_000_000L) checkpoint(view)
             }
         }
     }

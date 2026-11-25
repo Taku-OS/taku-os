@@ -242,3 +242,24 @@ test('an unanswered earlier segment never steals the assistant reply belonging t
   assert.equal(freshFirst.assistantBlockId, undefined);
   assert.equal(second.assistantBlockId, 'turn/after/u1');
 });
+
+test('a model that is thinking has answered: a long thought never reads as an unanswered request', () => {
+  const thought = {id: 'r', type: 'reasoning', summary: [], content: [], _streamCompleted: false, startedAtMs: 5000};
+  const thinkingView = session([turn([user(), thought])], {native: {activeTurnId: 'turn'}});
+  const keys = visible(session(), begin()).map(block => block.id);
+  // Before the first reasoning record, a silent minute is still a timeout.
+  const silent = session([turn([user()])], {native: {activeTurnId: 'turn'}});
+  assert.equal(reconcileOptimisticSubmission(begin(), silent, 100 + FIRST_RESPONSE_TIMEOUT_MS).state, 'timedOut');
+  let request = reconcileOptimisticSubmission(begin(), thinkingView, 200);
+  assert.equal(request.state, 'settled');
+  request = reconcileOptimisticSubmission(request, thinkingView, 100 + FIRST_RESPONSE_TIMEOUT_MS * 3);
+  assert.equal(request.state, 'settled');
+  const rows = visible(thinkingView, request);
+  assert.deepEqual(rows.map(block => block.id), keys, 'the rows keep their keys while the model thinks');
+  assert.equal(rows[1].responsePending, false);
+  assert.equal(rows[1].responseErrorKey, undefined);
+  assert.equal(rows[1].thinking.active, true);
+  assert.equal(rows[1].status, 'running');
+  // A reply that already thinks is not a queued request waiting to be recovered.
+  assert.equal(recoverQueuedSubmission(thinkingView, [], 300), null);
+});
