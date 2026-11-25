@@ -6,8 +6,8 @@ ln -s /bin/sh "$tmp/sh"
 ln -s /bin/cp "$tmp/cp"
 export TAKU_ADB_BIN_DIR="$tmp"
 shim=system/plugins/taku-adb
-bash "$shim" version | grep -q 'Version 1.0.0'
-bash "$shim" devices | grep -q local
+bash "$shim" version | grep -F 'Version 1.0.0' >/dev/null
+bash "$shim" devices | grep -F local >/dev/null
 [ "$(bash "$shim" -s local shell printf local)" = local ]
 printf example > "$tmp/source"
 bash "$shim" pull "$tmp/source" "$tmp/result"
