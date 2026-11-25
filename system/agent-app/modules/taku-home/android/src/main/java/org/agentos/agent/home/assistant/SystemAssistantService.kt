@@ -104,7 +104,8 @@ object SystemAssistantEntry {
    * flags are deliberately not mapped to a hold: nothing would ever release that hold.
    */
   enum class Route(val mode: String, val navGesture: Boolean) {
-    NavHold("voice", true), NavDoubleTap("text", true), Hardware("text", false)
+    NavHold("voice", true), NavDoubleTap("text", true), Hardware("text", false);
+    val autoScreenshot: Boolean get() = this == Hardware
   }
 
   fun routeFor(trigger: String?): Route = when (trigger) {
