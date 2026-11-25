@@ -18,8 +18,8 @@ If the current UI session is unavailable, continue the actual work without inven
 
 When the user asks for an ordering app and this turn includes Menu Scan context, follow
 [the Menu Scan workflow](references/menu-scan.md). It uses the same installed template for
-every menu. Use the attached photo and OCR rows for content, estimate serving nutrition,
-and check verified sources for matching posts at the identified branch.
+every menu. Use the attached photo and OCR rows for content and estimate serving nutrition.
+If a branch is identified, run the source lookup in that workflow before building the app.
 
 For requests outside the Menu Scan workflow, choose based on the task:
 - Lightweight utility or interactive page: when the React app-kit host, esbuild and API service are actually installed, write real JSX and business code. Read the kit's generation-contract.txt and relevant seed interfaces before using them. UI and Agent calls share the business API.
