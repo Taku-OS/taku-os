@@ -89,6 +89,42 @@ test('streaming retains one CJK character and only drops incomplete surrogate pa
   assert.equal(projectSession(input('好😀')).blocks[0].text, '好😀');
 });
 
+test('an installed menu app receipt stays out of reply text and appears only after the answer completes', () => {
+  const packageName = `org.agentos.generated.menu.m${'0123456789abcdef'.repeat(2)}`;
+  const receipt = `taku-menu-app:${packageName}`;
+  const input = (text, status) => ({thread: {id: 't', turns: [{id: '1', status, items: [
+    {id: 'a', type: 'agentMessage', phase: 'final_answer', text},
+  ]}]}});
+  for (let length = 0; length <= receipt.length; length++) {
+    const [block] = projectSession(input(`Your menu is ready.\n\n${receipt.slice(0, length)}`, 'inProgress')).blocks;
+    assert.equal(block.text, 'Your menu is ready.\n\n');
+    assert.equal(block.parts[0].menuAppPackage, undefined);
+  }
+  const [final] = projectSession(input(`Your menu is ready.\r\n\r\n${receipt}\n`, 'completed')).blocks;
+  assert.equal(final.text, 'Your menu is ready.');
+  assert.deepEqual(final.parts[0], {id: '1/a', text: 'Your menu is ready.', active: false, menuAppPackage: packageName});
+  for (const unfinished of [receipt, receipt.slice(0, -4)]) {
+    const [interrupted] = projectSession(input(`Your menu is ready.\n${unfinished}`, 'interrupted')).blocks;
+    assert.equal(interrupted.parts[0].menuAppPackage, undefined);
+    assert.equal(interrupted.text, 'Your menu is ready.');
+  }
+});
+
+test('ordinary replies, plans, and user text do not create menu app cards', () => {
+  const receipt = `taku-menu-app:org.agentos.generated.menu.m${'ab'.repeat(16)}`;
+  const examples = [`See ${receipt}`, `${receipt}\nMore text`, `\`\`\`text\n${receipt}\n\`\`\``, `\`\`\`text\n${receipt}`, `[${receipt}](https://example.com)`,
+    `${receipt}/MainActivity`, receipt.toUpperCase(), 'taku-menu-app:https://example.com', 'The menu is ready.'];
+  const messages = examples.map((text, index) => ({id: `a${index}`, type: 'agentMessage', phase: 'final_answer', text}));
+  const result = projectSession({thread: {id: 't', turns: [{id: '1', status: 'completed', items: [
+    {id: 'u', type: 'userMessage', content: [{type: 'text', text: receipt}]},
+    {id: 'c', type: 'agentMessage', phase: 'commentary', text: receipt},
+    {id: 'p', type: 'plan', text: receipt}, ...messages,
+  ]}]}});
+  assert.equal(result.blocks[0].text, receipt);
+  assert.deepEqual(result.blocks[1].parts.map(part => part.text), [receipt, ...examples]);
+  assert.ok(result.blocks[1].parts.every(part => !part.menuAppPackage));
+});
+
 test('steering messages keep distinct segments within the same native turn', () => {
   const result = projectSession({thread: {id: 't', turns: [{id: '1', status: 'inProgress', items: [
     {id: 'u1', type: 'userMessage', content: [{type: 'text', text: 'Find a restaurant'}]},

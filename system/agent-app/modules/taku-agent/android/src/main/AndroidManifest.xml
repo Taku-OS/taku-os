@@ -1,4 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <queries>
+    <intent>
+      <action android:name="org.agentos.generated.menu.OPEN" />
+      <category android:name="android.intent.category.DEFAULT" />
+    </intent>
+  </queries>
   <application>
     <activity android:name="org.agentos.agent.bridge.SystemAiEntryActivity" android:exported="true"
       android:label="@string/taku_ai_title" android:icon="@drawable/taku_ai_settings"

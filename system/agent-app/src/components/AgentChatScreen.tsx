@@ -29,6 +29,7 @@ import {EdgeBlur} from '../native/EdgeBlur';
 import {ChatIcon} from '../chat/ChatIcon';
 import {chatBlur, chatColors, getChatAppearance, homeColors, chatMetrics, chatTitle, chatType, themed, themedStyles} from '../chat/chatTheme';
 import {chatText} from '../chat/chatText';
+import {MenuAppCard} from '../chat/MenuAppCard';
 import {useDictation, type DictationFailure} from '../chat/useDictation';
 import {failureOf, insertDictation, type DraftSelection} from '../chat/dictationText';
 import {useReplySpeechState, useVoiceChatFocus} from '../chat/useVoiceChatFocus';
@@ -166,17 +167,21 @@ function ActivityRow({item, language}: {item: Activity; language: Language}) {
 
 type ViewHandle = React.ComponentRef<typeof View>;
 
-const hasBody = (block: ChatMessageBlock) => !!block.text || !!block.parts?.some(part => part.card || part.replyState);
+const hasBody = (block: ChatMessageBlock) => !!block.text || !!block.parts?.some(part => part.card || part.menuAppPackage || part.replyState);
 
 
 function MessageBody({block, language, renderMarkdown, renderCard, demand}: {block: ChatMessageBlock; language: Language; renderMarkdown?: AgentChatScreenProps['renderMarkdown']; renderCard?: AgentChatScreenProps['renderCard']; demand: CardDemand}) {
-  if (!renderMarkdown) return <AssistantBubble><Label style={styles.replyText}>{block.text}</Label></AssistantBubble>;
-  return <View style={styles.messageParts}>{block.parts.map(part =>
-    <React.Fragment key={part.id}>{part.card && renderCard ? renderCard(part, language, demand) : <>
-      {!!part.text && <AssistantBubble>{renderMarkdown(part.text, part.active, part.id)}</AssistantBubble>}
-      {part.replyState && <Label role="meta" style={styles.secondary}>{textFor(language)(part.replyState.phase === 'interrupted' ? 'cardReplyInterrupted'
-        : part.replyState.phase === 'failed' ? 'cardPresentationFailed' : 'cardUpdating')}</Label>}
-    </>}</React.Fragment>)}</View>;
+  return <View style={styles.messageParts}>
+    {!renderMarkdown && !!block.text && <AssistantBubble><Label style={styles.replyText}>{block.text}</Label></AssistantBubble>}
+    {block.parts.map(part => <React.Fragment key={part.id}>
+      {renderMarkdown && (part.card && renderCard ? renderCard(part, language, demand) : <>
+        {!!part.text && <AssistantBubble>{renderMarkdown(part.text, part.active, part.id)}</AssistantBubble>}
+        {part.replyState && <Label role="meta" style={styles.secondary}>{textFor(language)(part.replyState.phase === 'interrupted' ? 'cardReplyInterrupted'
+          : part.replyState.phase === 'failed' ? 'cardPresentationFailed' : 'cardUpdating')}</Label>}
+      </>)}
+      {part.menuAppPackage && <MenuAppCard key={part.menuAppPackage} packageName={part.menuAppPackage} language={language}/>}
+    </React.Fragment>)}
+  </View>;
 }
 
 function Message({block, language, renderMarkdown, renderCard, expanded, demand, onToggleActivity, onLongPressReply}: {block: ChatMessageBlock; language: Language; renderMarkdown?: AgentChatScreenProps['renderMarkdown']; renderCard?: AgentChatScreenProps['renderCard']; expanded: boolean; demand: CardDemand; onToggleActivity: () => void; onLongPressReply?: (block: ChatMessageBlock, body: ViewHandle) => void}) {

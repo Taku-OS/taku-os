@@ -496,6 +496,15 @@ class TakuAgentModule : Module() {
       callGateway(context.contentResolver, action, params, null)
     }.runOnQueue(appContext.backgroundCoroutineScope)
 
+    AsyncFunction("readMenuApp") { packageName: String ->
+      appContext.reactContext?.let { MenuAppLaunch.read(it.packageManager, packageName) }
+    }.runOnQueue(appContext.backgroundCoroutineScope)
+
+    AsyncFunction("openMenuApp") { packageName: String ->
+      val activity = conversationActivity()?.takeIf { it === appContext.currentActivity }
+      activity != null && MenuAppLaunch.open(activity, packageName)
+    }.runOnQueue(Queues.MAIN)
+
     Function("launchThreadId") {
       latestThreadId ?: conversationActivity()?.intent?.getStringExtra(EXTRA_THREAD_ID) ?: ""
     }

@@ -2,6 +2,7 @@
 import {phoneToolKeys, phoneToolResultText} from './phoneTools.ts';
 import {isStateCardItem, parseUiRequest, type CardPresentation, type MainReply, type UiRequest} from './genui.ts';
 import {parseMainReply} from './genuiCompose.ts';
+import {menuAppReply} from './menuAppReply.ts';
 
 export type Json = Record<string, unknown>;
 export type ItemStatus = 'running' | 'completed' | 'failed' | 'stopped' | 'waiting' | 'unknown';
@@ -18,6 +19,7 @@ export interface MessagePart {
   text: string;
   active: boolean;
   card?: CardPresentation;
+  menuAppPackage?: string;
   replyState?: MainReply['lifecycle'];
   superseded?: boolean;
 }
@@ -219,10 +221,14 @@ export function projectSession(value: unknown): SessionView {
           card: {kind: 'matter', request: card, sourceId: `${turnId}/${label(item.id) || `part-${i}`}`}});
         else if (toolTypes.has(type) || commentary) activities.push(activity(item, turnId, outputs, i));
         else if (type === 'agentMessage' || type === 'plan') {
+          const statusOfItem = itemStatus(item);
           const itemActive = tail && active && item._streamCompleted !== true
-            && !['completed', 'failed', 'stopped'].includes(itemStatus(item));
-          const text = trimPartialSurrogate(string(item.text), itemActive);
-          if (text) parts.push({id: `${turnId}/${label(item.id) || `part-${i}`}`, text, active: itemActive});
+            && !['completed', 'failed', 'stopped'].includes(statusOfItem);
+          const rawText = trimPartialSurrogate(string(item.text), itemActive);
+          const reply = type === 'agentMessage'
+            ? menuAppReply(rawText, itemActive, [status, statusOfItem].some(value => value === 'failed' || value === 'stopped'))
+            : {text: rawText};
+          if (reply.text || reply.menuAppPackage) parts.push({id: `${turnId}/${label(item.id) || `part-${i}`}`, active: itemActive, ...reply});
         }
       });
       const primary = parts.find(part => part.card?.kind === 'primary')?.card;
