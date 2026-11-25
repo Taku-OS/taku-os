@@ -1,0 +1,27 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="org.agentos.generated.menu"
+    android:versionCode="1"
+    android:versionName="1.0">
+    <uses-sdk android:minSdkVersion="36" android:targetSdkVersion="36"/>
+    <queries>
+        <package android:name="com.zhiliaoapp.musically"/>
+        <package android:name="com.xingin.xhs"/>
+        <package android:name="com.instagram.android"/>
+        <package android:name="com.twitter.android"/>
+        <package android:name="com.google.android.youtube"/>
+    </queries>
+    <application android:label="@string/menu_app_name" android:allowBackup="false"
+        android:usesCleartextTraffic="false" android:theme="@android:style/Theme.Material.Light.NoActionBar">
+        <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop">
+            <meta-data android:name="org.agentos.generated.menu.TEMPLATE_VERSION" android:value="1"/>
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+            <intent-filter>
+                <action android:name="org.agentos.generated.menu.OPEN"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

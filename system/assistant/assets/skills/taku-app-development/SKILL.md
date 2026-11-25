@@ -16,6 +16,10 @@ interruption, approval waiting and changing turns also suppress the capsule auto
 The marker affects presentation only; it never starts a build or changes task execution.
 If the current UI session is unavailable, continue the actual work without inventing a status.
 
+When the user asks for an ordering app and this turn includes Menu Scan context, follow
+[the Menu Scan workflow](references/menu-scan.md). It uses the same installed template for
+every menu. Use the attached photo and OCR rows for content.
+
 Choose based on the task:
 - Lightweight utility or interactive page: when the React app-kit host, esbuild and API service are actually installed, write real JSX and business code. Read the kit's generation-contract.txt and relevant seed interfaces before using them. UI and Agent calls share the business API.
 - Native Android components or standalone native APK: use the prepared on-device Java toolchain. Read [native.md](references/native.md) for its invocation and acceptance boundary.
