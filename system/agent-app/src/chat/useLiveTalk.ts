@@ -18,6 +18,8 @@ export type LiveTalkState = {
   levels: number[];
   task: {requestId: string | null; taskId: string | null; turnId: string | null; state: string; version: number; error: string | null} | null;
   error: string | null;
+  /** The setup page that fixes `error`: `fal` when Live Talk needs a fal key. */
+  setup?: 'fal' | null;
 };
 type Snapshot = {liveTalk: LiveTalkState | null};
 type Bridge = {

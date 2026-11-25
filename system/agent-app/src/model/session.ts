@@ -3,12 +3,15 @@ import {phoneToolKeys, phoneToolResultText} from './phoneTools.ts';
 import {isStateCardItem, parseUiRequest, type CardPresentation, type MainReply, type UiRequest} from './genui.ts';
 import {parseMainReply} from './genuiCompose.ts';
 
+import {mcpPresentation, mcpTool} from './mcpTools.ts';
+
 export type Json = Record<string, unknown>;
 export type ItemStatus = 'running' | 'completed' | 'failed' | 'stopped' | 'waiting' | 'unknown';
 export interface Activity {
   id: string;
   type: string;
   titleKey: string;
+  node?: string;
   name: string;
   text: string;
   status: ItemStatus;
@@ -90,6 +93,16 @@ export const list = (v: unknown): unknown[] => Array.isArray(v) ? v : [];
 export const string = (v: unknown): string => typeof v === 'string' ? v : '';
 const label = (v: unknown): string => { const s = string(v).trim(); return s === 'null' ? '' : s; };
 
+/**
+ * The session root right after Continue was accepted: the continuation (a new, published, queued
+ * task) replaces the failed task, so the next projection shows the conversation running and no
+ * failure card, before the next readSession confirms it.
+ */
+export function continuedSessionRoot(root: Json, continuationTaskId: string): Json {
+  return {...root, task: {id: continuationTaskId, state: 'queued', published: true, turnStarted: false},
+    request: {prompt: ''}, runtime: {}};
+}
+
 /** Restore is a local draft operation. A newer draft must never be overwritten. */
 export function failedTaskDraft(failure: TaskFailure, currentDraft: string): string | null {
   if (!failure.prompt.trim()) return null;
@@ -123,9 +136,12 @@ function activity(item: Json, turnId: string, outputs: Json, index: number): Act
   const short = tool.replace(/^.*(?:__|\/|\.)/, '');
   // A bare phone tool name without a namespace (an older Codex record, an agy update without its MCP
   // prefix) is still a phone tool: only taku_phone registers these names, and its raw name never shows.
-  const phone = tool.startsWith('taku_phone') || item.namespace === 'taku_phone'
+  const phone = item.server === 'taku_phone' || tool.startsWith('taku_phone') || item.namespace === 'taku_phone'
     || ((type === 'dynamicToolCall' || item.server === 'agy') && !label(item.namespace) && phoneToolKeys[tool] !== undefined);
-  const titleKey = toolKeys[type] || (phone && (toolKeys[short] || 'phoneTool')) || (type === 'agentMessage' ? 'update' : 'tool');
+  const mcp = !phone && (type === 'mcpToolCall' || type === 'dynamicToolCall')
+    ? mcpTool(string(item.server), tool || string(item.toolName), string(item.namespace)) : null;
+  const named = mcp ? mcpPresentation(mcp) : null;
+  const titleKey = toolKeys[type] || (phone && (toolKeys[short] || 'phoneTool')) || named?.titleKey || (type === 'agentMessage' ? 'update' : 'tool');
   const details: string[] = [];
   // A phone tool's JSON answer is for the agent; the activity list keeps only its human message (BUG-0033).
   const output = (text: string) => phone ? phoneToolResultText(text) : text;
@@ -136,7 +152,14 @@ function activity(item: Json, turnId: string, outputs: Json, index: number): Act
   for (const change of list(item.changes)) { const c = record(change); if (typeof c.path === 'string') details.push(c.path); }
   const error = typeof item.error === 'string' ? item.error : string(record(item.error).message);
   if (error) details.push(error);
-  return {id: `${turnId}/${label(item.id) || `activity-${index}`}`, type, titleKey, name: titleKey === 'tool' ? tool : '', text: details.filter(Boolean).join('\n'), status: itemStatus(item)};
+  return {id: `${turnId}/${label(item.id) || `activity-${index}`}`, type, titleKey, name: titleKey === 'tool' ? named?.name || tool : '',
+    ...(named?.node !== undefined ? {node: named.node} : {}), text: details.filter(Boolean).join('\n'), status: itemStatus(item)};
+}
+
+export function activityName(item: Activity, translate: (key: string) => string): string {
+  if (item.name) return item.name;
+  const title = translate(item.titleKey);
+  return item.node === undefined ? title : title.replace('{node}', () => item.node || translate('remoteNode'));
 }
 
 function userContent(item: Json): {text: string; attachments: string[]} {
@@ -250,7 +273,14 @@ export function projectSession(value: unknown): SessionView {
   const queued = task.published === true && ['queued', 'running'].includes(string(task.state)) && !activeTurnId;
   // The gateway only exposes task/request after matching request.conversationId to this thread.
   // Keep a failed TaskBroker submission separate from native turn/message history.
-  const taskFailure: TaskFailure | null = id && label(task.id) && ['failed', 'needs_user'].includes(string(task.state)) ? {
+  const running = Boolean(activeTurnId) || blocks.some(b => b.active) || queued;
+  // The failure card is for a conversation that is idle on that failure. A running turn (e.g. after
+  // Continue) or a newer native turn that completed after the failed one supersedes it.
+  const failedTurnId = label(record(root.runtime).turnId), lastTurn = record(turns[turns.length - 1]);
+  const failedTurnIndex = turns.findIndex(turn => label(record(turn).id) === failedTurnId);
+  const superseded = failedTurnIndex >= 0 && failedTurnIndex < turns.length - 1
+    && itemStatus(lastTurn) === 'completed';
+  const taskFailure: TaskFailure | null = !running && !superseded && id && label(task.id) && ['failed', 'needs_user'].includes(string(task.state)) ? {
     taskId: string(task.id), message: string(task.message), prompt: string(record(root.request).prompt),
     turnStarted: task.turnStarted === true || record(root.runtime).turnStarted === true,
   } : null;
@@ -258,7 +288,7 @@ export function projectSession(value: unknown): SessionView {
     id, title: label(thread.name) || label(thread.preview), blocks,
     questions: list(native.requests).map(record).filter(q => label(q.key) && id && record(q.params).threadId === id)
       .map(q => ({key: string(q.key), method: string(q.method), params: record(q.params)})),
-    running: Boolean(activeTurnId) || blocks.some(b => b.active) || queued, activeTurnId, ready: native.ready === true,
+    running, activeTurnId, ready: native.ready === true,
     error: string(native.error), historyComplete: complete, knownEmpty,
     historyStatus: complete ? 'complete' : root.historyStatus === 'partial' || blocks.length ? 'partial' : 'unknown',
     totalTurns: typeof root.totalTurns === 'number' ? root.totalTurns : turns.length,

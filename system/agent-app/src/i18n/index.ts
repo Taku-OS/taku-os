@@ -1,5 +1,9 @@
 export type Language = 'en' | 'zh';
 const english = {
+  memorySearch: 'Search memory', memoryRead: 'Read memory note', memoryCapture: 'Capture to memory',
+  memoryProfileSummary: 'Read profile summary', memoryProposeProfile: 'Propose a profile update',
+  runtimeCapabilities: 'Check {node} capabilities', runtimeExec: 'Run a command on {node}', runtimeRunPrompt: 'Hand a task to {node}',
+  runtimeCallTool: 'Use a tool on {node}', remoteNode: 'the remote node',
   newChat: 'New conversation', history: 'Conversations', close: 'Close', back: 'Back', settings: 'Settings', pluginMarket: 'Plugin market',
   chat: 'Chat', taskView: 'Task view', showChat: 'Show conversation', showTasks: 'Show this conversation’s activity',
   message: 'Message Tako', addRequirement: 'Add a requirement', send: 'Send message', stop: 'Stop this turn',
@@ -57,6 +61,10 @@ const english = {
 } as const;
 export type TextKey = keyof typeof english;
 const chinese: Record<TextKey, string> = {
+  memorySearch: '搜索知识库', memoryRead: '读取知识库笔记', memoryCapture: '写入知识库',
+  memoryProfileSummary: '读取个人画像摘要', memoryProposeProfile: '提议更新个人画像',
+  runtimeCapabilities: '查询 {node} 能力', runtimeExec: '在 {node} 执行命令', runtimeRunPrompt: '派 {node} 运行任务',
+  runtimeCallTool: '在 {node} 调用工具', remoteNode: '远端节点',
   newChat: '新会话', history: '会话记录', close: '关闭', back: '返回', settings: '设置', pluginMarket: '插件商城',
   chat: '聊天', taskView: '任务视图', showChat: '显示聊天', showTasks: '显示当前会话的执行过程',
   message: '给 Tako 发消息', addRequirement: '补充要求', send: '发送消息', stop: '停止本轮',

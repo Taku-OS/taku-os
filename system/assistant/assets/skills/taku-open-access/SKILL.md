@@ -170,6 +170,27 @@ Taku AI account UI is `/system-ai?section=account`. `accounts/login` also accept
 
 `accounts/keys` and save/remove use masked summaries. For new keys omit `id,ref`; for replacement/removal use both from the list. Instead of `key` in JSON, a `ContentResolver.call` client can pass a regular read-only UTF-8 FD in `extras["credential"]`. Errors: `KEY_SOURCE_AMBIGUOUS` (both), `KEY_SOURCE_REQUIRED` (neither), `INVALID_CREDENTIAL`, `INVALID_KEY_REFERENCE`, `KEY_OPERATION_FAILED`. Plaintext keys are never read back. `accounts/openMagpie` opens the browser without revealing the console URL; `MAGPIE_MANAGEMENT_UNAVAILABLE` or `BROWSER_UNAVAILABLE` on failure.
 
+### Gemini through Magpie (agy)
+
+The main assistant can use Gemini without leaving Codex: Codex calls the local Magpie gateway, and Magpie answers the `taku-agy` provider by running Google's Antigravity CLI (`agy acp`) with its own Google sign-in in `/data/local/agentos/magpie/agy-profile`. Taku never reads agy's sign-in. The page is Taku AI → Accounts and model services → **Gemini (Antigravity)**.
+
+```sh
+taku_call "$D" accounts/agyRead
+taku_call "$D" accounts/agyRefresh
+taku_call "$D" accounts/agySignIn
+taku_call "$D" accounts/agyCode '{"code":"CODE_FROM_GOOGLE_PAGE"}'
+taku_call "$D" accounts/agyCancel
+taku_call "$D" accounts/agyUse '{"model":"gemini-3.8-flash"}'
+```
+
+All return `{state,checking,installed,configured,models,efforts,plan,restingUntil,assistantModel,active,defaultModel,provider,signIn:{phase,url,error}}`. `state` is `agy_missing` (no executable at `/system_ext/bin/agy` or `/data/local/agentos/acp/bin/agy`), `unsupported` (this Magpie has no agy-acp bridge), `not_configured`, `checking`, `needs_login`, `ready` or `unavailable`. agy's status probe starts the agent, so it is cached for 10 minutes and runs in the background; `accounts/agyRefresh` starts a new one; poll `accounts/agyRead` while `checking` is true.
+
+`accounts/agySignIn` adds the `taku-agy` provider when missing and runs `magpie agy-acp login`. `signIn.phase` goes `starting` → `pending` → `verifying` → `done` (or `failed`, `cancelled`). While `pending`, root/system/shell callers get Google's page in `signIn.url` (accounts.google.com only); third-party callers never do. Open it, finish Google's sign-in, then send the code Google's page shows (or the URL the browser landed on) with `accounts/agyCode`; a `ContentResolver.call` client can pass it as a read-only UTF-8 FD in `extras["credential"]` instead of `code`. Sign-in has a 10-minute budget. Avoid logging the page or the code.
+
+`accounts/agyUse` (default model `gemini-3.8-flash`, or one of `models`) requires `state:"ready"`, adds the model to the provider's picks, waits for Magpie's Codex catalog to list `taku-agy/<model>`, then performs the same switch as `selectConnection mode:"magpie"` (refused while tasks run; the assistant scene binds to `group/route-assistant`). `active` is true when the assistant's route starts with `taku-agy/`. Switch back with `selectConnection`. Errors: `AGY_NOT_INSTALLED`, `AGY_SIGN_IN_REQUIRED`, `AGY_STATUS_CHECKING`, `AGY_MODEL_UNAVAILABLE`, `MAGPIE_AGY_UNSUPPORTED`, `AGY_UNAVAILABLE`, `SIGN_IN_NOT_PENDING`, `SECRET_EMPTY`, `INVALID_CREDENTIAL`, `TASKS_RUNNING`, `AGY_OPERATION_FAILED`. `accounts/agyRead` needs `taku.control`; the rest need `taku.root`.
+
+An `acp` provider object in `taku_system_ai_config` is projected to Magpie only when it is safe for root to run: keys limited to `binary,home,appDataDir,cwd,search`; `binary` empty or under `/system/bin/`, `/system_ext/bin/`, `/product/bin/`, `/vendor/bin/` or `/data/local/agentos/acp/bin/`; `home`/`cwd` under `/data/local/agentos/magpie/` or `/data/local/agentos/acp/`; `appDataDir` one plain name; no `env`. An unsafe provider stays in Settings but is left out of `providers.json` (the broker logs `provider <id> left out`).
+
 Pending requests use `/assistant-management?section=requests`. List returns `{threadId,key,method,secure,inline}`; `threadId:""` lists runtime-wide requests. Pass the exact listed thread and key. Inline questions are handled in chat. Read adds `kind,url,details,fields`. Kinds: attestation, accountAuthorization, mcp, questions, toolResult, permissionApproval, commandApproval, fileChangeApproval, action. Each field is `{id,label,secret,required,type,multiline,options}`; type is string, boolean, integer or number. `url` is an HTTPS MCP link or empty.
 
 `requests/submit.values` maps IDs to strings (including booleans and numbers in text form); approvals without fields use `{}`. Secret fields can instead be `{fieldId:value}` JSON in a file descriptor under `extras["credential"]`. Duplicate sources return `KEY_SOURCE_AMBIGUOUS`; missing/unknown/wrongly typed values return `INVALID_ARGUMENT`. Cancel declines. `requests/respond` takes `{threadId,key,response}` for native payloads: normal question answer, `{text}` for tool result, or `{decision:"accept"}` for native approvals. Third-party apps cannot read or answer secret requests (`SECURE_INPUT_REQUIRED`). Attestation needs an upstream token; Taku cannot issue one. Wrong thread, stale key or replay returns `REQUEST_EXPIRED`; unconfirmed delivery returns `REQUEST_RESPONSE_FAILED`.
@@ -807,12 +828,22 @@ when Taku Audio is absent. Audio Engine errors appear in `result.liveTalk.error`
 unreadable. `PROVIDER_AUTH_FAILED` means the provider rejected the key. For
 either error, update that provider's key in Taku Audio before reconnecting.
 `PROVIDER_REMOVED` means the session's key was removed.
+`result.liveTalk.setup` is `fal` when the failure is a missing fal key for Grok
+Voice (`PROVIDER_NOT_CONFIGURED` or `PROVIDER_REMOVED`). It is null for every
+other failure, including a missing Gemini Live key. With `setup:"fal"` the chat
+prompts for the key and shows Add fal key next to Reconnect. Add fal key, in the
+prompt or the panel, opens the fal connection card, the same page as
+`ai-setup/open {"service":"fal"}`. Save
+the key there, then repeat `live-start`. If the engine refuses the open request
+before naming a provider, Live Talk asks Taku Audio's settings read which key is
+missing. In that case `setup` arrives in a later snapshot with a higher
+`sequence`. A reconnect or stop discards the answer.
 Other errors include `NETWORK_FAILED`, `RESOURCE_BUSY`, and `AEC_UNAVAILABLE`.
 
 `assistant/get` and Live Talk actions return the same `result.liveTalk` shown by the GUI.
 It is null before the first session. Read `sessionId`, `threadId`, `sequence`, `generation`,
 `lifecycle`, `provider`, `muted`, `capturing`, `speech`, `playback`, `input`, `output`,
-`levels`, `task`, and `error`. `provider` is the effective `fal-grok` or
+`levels`, `task`, `error`, and `setup`. `provider` is the effective `fal-grok` or
 `gemini-live` returned by the Audio Engine. It is null until the engine
 accepts the open request for that connection. `liveTalkDisclosure` names the
 provider while that connection is in use and explains the selection otherwise.
