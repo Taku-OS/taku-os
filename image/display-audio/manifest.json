@@ -1,0 +1,27 @@
+{
+  "schema": "taku.display-audio-patch/1",
+  "upstreamCommit": "7f6de40b6429462d47ba9ba351b99943269c8067",
+  "patchSha256": "bc5b42f247010c43eb79273c2e1886473fc08976646e6602df9361b49115a449",
+  "files": [
+    {
+      "path": "services/core/java/com/android/server/audio/AudioService.java",
+      "beforeSha256": "4e61b4b577044fd13b45725be92a738f12ae64ba6495f96545aded3e0958f2a9",
+      "afterSha256": "22ff0a5e1613f7187f0d59523f0e764634b82125df44d04693ee54c2a4090589"
+    },
+    {
+      "path": "services/core/java/com/android/server/audio/DedicatedDisplayAudioPolicy.java",
+      "beforeSha256": null,
+      "afterSha256": "fc95c610fa1cf799821d5b5b22e484fd09a3e6db9bbcb8639d231da62ea965e5"
+    },
+    {
+      "path": "services/core/java/com/android/server/audio/PlaybackActivityMonitor.java",
+      "beforeSha256": "d3b5d9b6e981c98a95f818e5492c993a8bd7f52a4dec249be51b761e431a7316",
+      "afterSha256": "b4838bc240cde145b79dde3d52db9dd23a13e5c2d8114ead19558b46ed6c9eed"
+    },
+    {
+      "path": "services/core/java/com/android/server/wm/RootWindowContainer.java",
+      "beforeSha256": "6f1c591a9405701901bb1f6b31761447a9338392630eb8df254f4c9025d202c1",
+      "afterSha256": "cb7cc7797cdf5b7b7da12c938b06d6ee6baad0f6a63ec4033345495132224c5a"
+    }
+  ]
+}

@@ -5,6 +5,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import android.os.Build
 import androidx.compose.ui.viewinterop.AndroidView
 import org.agentos.agent.home.ui.effects.WorkingGlowView
+import org.agentos.agent.home.ui.effects.shouldShowEdgeGlow
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -49,8 +50,9 @@ fun BoxScope.AssistantLayer(
   Box(Modifier.fillMaxSize().onSizeChanged { width = it.width.toFloat(); height = it.height.toFloat() })
   if (width <= 0f) return
 
-  // While the AI responds, and only then: from the send until the turn and its task complete.
-  WorkingGlow(active = state.working)
+  // Shown only while Live mode is active (e.g. side-key long-press invocation), never during
+  // ordinary Agent Chat or AI output.
+  WorkingGlow(active = shouldShowEdgeGlow(working = state.working, voiceContinuous = state.voiceContinuous))
 
   VoiceHoldOverlay(scene, visible = state.entry == EntryMode.Voice, voice = voice,
     zone = state.holdZone, continuous = state.voiceContinuous, session = session)
