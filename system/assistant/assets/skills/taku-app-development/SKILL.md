@@ -20,12 +20,15 @@ When the user asks for an ordering app and this turn includes Menu Scan context,
 [the Menu Scan workflow](references/menu-scan.md). It uses the same installed template for
 every menu. Use the attached photo and OCR rows for content.
 
-Choose based on the task:
+For requests outside the Menu Scan workflow, choose based on the task:
 - Lightweight utility or interactive page: when the React app-kit host, esbuild and API service are actually installed, write real JSX and business code. Read the kit's generation-contract.txt and relevant seed interfaces before using them. UI and Agent calls share the business API.
 - Native Android components or standalone native APK: use the prepared on-device Java toolchain. Read [native.md](references/native.md) for its invocation and acceptance boundary.
 - Doric and HapJS are historical alternatives. Use them only when the required host/toolchain is present and they suit the user request; do not imply that they ship with every Taku image.
 
-Keep source, app data and build artifacts in the selected application's directory. Generate project-specific business logic rather than filling a fixed configuration. Preserve existing application data on requested updates. Distinguish build success, installation, UI interaction and actual system/API results. A generated ordinary APK does not inherit Agent root permissions.
+Keep source, app data and build artifacts in the selected application's directory. Generate
+project-specific business logic for general app development. Preserve existing application data
+on requested updates. Distinguish build success, installation, UI interaction and actual
+system/API results. A generated ordinary APK does not inherit Agent root permissions.
 
 When tools or dependencies are absent, identify the missing component explicitly and use an available route that still meets the request, or explain the required setup. Do not copy account state or personal signing material. Do not claim every Android API or arbitrary Gradle project is supported.
 
