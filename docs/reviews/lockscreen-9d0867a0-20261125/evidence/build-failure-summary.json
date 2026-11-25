@@ -1,0 +1,12 @@
+{
+  "commit": "9d0867a0b25bfbb7ff1fa45380f4afdfc9effdec",
+  "orderedSteps": [
+    "apply-island-patches.py",
+    "apply-lockscreen-patches.py"
+  ],
+  "sharedRepositoryFile": "frameworks/base/packages/SystemUI/AndroidManifest.xml",
+  "exceptionType": "ValueError",
+  "message": "Unknown lock screen source bytes; preserving AndroidManifest.xml",
+  "failurePoint": "lockscreen input SHA-256 validation before compilation",
+  "verification": "Read the complete failed-build log and both patch contracts; raw environment logs are not published."
+}

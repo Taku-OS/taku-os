@@ -1,0 +1,10 @@
+{
+  "environment": "isolated Android emulator; synthetic fingerprint only",
+  "fingerprintAccept": 1,
+  "fingerprintReject": 1,
+  "fingerprintsAfterCleanup": 0,
+  "pinLockoutObservedSeconds": 60,
+  "correctPinAfterLockout": "keyguardShowing=false, authenticated=true",
+  "temporaryCredentialsRemoved": true,
+  "rawAuthenticationLogsPublished": false
+}

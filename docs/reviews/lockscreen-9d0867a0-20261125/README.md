@@ -24,7 +24,7 @@
 
 **预期／建议**：锁屏补丁以 Island 处理后的确定输入为基线，或采用共同的组合合同；同步更新生成器、hash 和文档，增加按实际构建顺序应用并重复校验的集成测试。不要简单移除 hash 校验。
 
-入口：[构建顺序](https://github.com/Taku-OS/taku-os/blob/9d0867a0/image/emulator/build.sh#L42)、[失败的输入检查](https://github.com/Taku-OS/taku-os/blob/9d0867a0/image/apply-lockscreen-patches.py#L68)。[原始失败日志](evidence/original-build-failure.log)、[本次临时组合说明](evidence/integration-workaround.json)。
+入口：[构建顺序](https://github.com/Taku-OS/taku-os/blob/9d0867a0/image/emulator/build.sh#L42)、[失败的输入检查](https://github.com/Taku-OS/taku-os/blob/9d0867a0/image/apply-lockscreen-patches.py#L68)。[已核对的构建错误摘要](evidence/build-failure-summary.json)、[本次临时组合说明](evidence/integration-workaround.json)。
 
 ### LS-02 · P2：日期重复，未认证时还与状态栏文字重叠
 
