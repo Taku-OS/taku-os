@@ -1,0 +1,119 @@
+{
+  "commit": "54f44099f314d74223d6ffce3a6dfd2df4d2df14",
+  "branch": "vela/chat-polish",
+  "device": {
+    "serial": "emulator-5596",
+    "avd": "Taku_PR27_Fresh",
+    "android": "17",
+    "abi": "arm64-v8a",
+    "pixels": [
+      1080,
+      2424
+    ],
+    "densityDpi": 420
+  },
+  "cloud": {
+    "target": "ARM64 Agent APK, Assistant APK and Broker JAR",
+    "hostArchitecture": "x86_64",
+    "tests": {
+      "passed": 492,
+      "failed": 0
+    },
+    "typecheck": "passed",
+    "lint": "passed",
+    "build": "passed",
+    "stopWorkflow": "45634142057",
+    "state": "TERMINATED"
+  },
+  "installedSha256": {
+    "AgentOSAssistant.apk": "e27d3009ab8e7be320fef4086b3880ad99475523786a0723dd825f54a24fd954",
+    "TakuAgent.apk": "2327e2579f7fe9812396faa99d1e7181ebf6e79164cc8c28244c9c2c32328662",
+    "task-broker.jar": "8e95ff6997592835695eedad77e73b81d18c4f7f6eeaaa4f53f13e53aba1c79d"
+  },
+  "systemUiPreserved": "b57e14077f77f669d035811f1407cfc58e73b1cbac5f8561fd61bfb1c60c4bfa",
+  "panelUpdates": [
+    {
+      "panelId": "a1497d84-d45d-4309-9d4d-ecd137635ad5",
+      "sourceVersion": 1,
+      "outcome": "published",
+      "boundSourceVersion": 0,
+      "value": 2
+    },
+    {
+      "panelId": "a1497d84-d45d-4309-9d4d-ecd137635ad5",
+      "sourceVersion": 2,
+      "outcome": "published",
+      "boundSourceVersion": 1,
+      "value": 3
+    }
+  ],
+  "originalItems": {
+    "1": "pass",
+    "2": "pass",
+    "3": "pass for normal dark/light route entry; see live-switch caveat",
+    "4": "pass",
+    "5": "fail"
+  },
+  "pluginKeyboard": {
+    "02-plugin-picker": [
+      "mInputShown=true",
+      "mIsInputViewShown=true mStatusIcon=0"
+    ],
+    "03-plugin-selected": [
+      "mInputShown=true",
+      "mIsInputViewShown=true mStatusIcon=0"
+    ],
+    "33-plugin-keyboard-repeat": [
+      "mInputShown=true",
+      "mIsInputViewShown=true mStatusIcon=0"
+    ]
+  },
+  "pluginRemovedFromEmptyDraft": true,
+  "screenshots": {
+    "01-attachment-menu.png": "d9bc0bff7bfafc3f548b6290959a98c9b233f87dca7e011ba09ae42878d56041",
+    "02-plugin-picker.png": "724786a8fb546011128ebbf24b9c71eec5c3e95eeeb53444e2ba57b236a10d02",
+    "03-plugin-selected.png": "41ad2d3ab41aabfc271b790a42241a177f35192a435c72ec9aca50edbefb1293",
+    "05-plugin-text-with-keyboard.png": "a63790f960f669db852434506a13b1f51b298f857d566fe1076dfececf6b984b",
+    "06-plugin-message-sent.png": "1e0aba82d70909d0d8255ee78ec4defe589165ff33339d983ea2ec359c843c4c",
+    "07-plugins-dark.png": "d15fc0f030cecdb5ffac0d2490ae74332a4b6716898a9bfa8d46305579837f3f",
+    "08-plugin-detail-dark.png": "02f91980ee75eb1ed61578f015cefa97734b4a2533ceeedf5d9b22572cd89c6c",
+    "09-plugin-settings-dark.png": "160591aa2def8186544e968f2c4dfabf4788253d393d153a4558f3b492e9a26e",
+    "10-plugin-settings-light.png": "b756ca6aea13b17793748ddadaf5a3b138421b5f5389dabc6b7b1f06122fccad",
+    "11-return-chat-draft-error.png": "acd769e1214b79639b7b3ea15217eeaa91423a534c86d760d17fbafab5215d7a",
+    "12-return-chat-refreshed.png": "61be800c2017b3cbb33aa2f5a68293037b84549752ff9c9779243f5e8e8ff3cb",
+    "13-panels-dark.png": "dc15ed61528e680b85399eba9d869fd49aa210de7a770db24070414cd84ceb22",
+    "18-second-edit-chat-visible.png": "a3b38eb82810f4e27c6a8e6e154951da34dc60b8cb5618d62e9ccfda2bc3d20f",
+    "19-saved-panel-count-three.png": "d5366ab0256f5c10766a6be2e8a433336467b1be806fc40cab9382aed6890620",
+    "20-reenter-edit-prompt.png": "603d209021e9d3a254d40de488a8d6a84df8ffeb271b65699ebf8055446b9118",
+    "21-reenter-edit-keyboard.png": "3fc7ab6cac25db4bac779ea5ef4e9c09068f558f3cdedac13143412eb608f7f1",
+    "22-prompt-after-manual-scroll.png": "bf0c5f1be1962267468893f8280e74a44ed2673a45213d36b7290e25d55f7ad2",
+    "23-prompt-after-refocus.png": "56156622c14199c88f6081d6cbab6530ad335991bb14fc91cbbe2fbf3ca9caef",
+    "24-light-chat-from-settings.png": "5603903e070ebe7615e4d7f67bb7fc6ddc826587a3dbcc4df921b67fee7503f5",
+    "25-plugins-light.png": "e5d258416ee846779a3bfd320313333ed8234023e687c0155e36d3319ea4750f",
+    "26-plugin-settings-light-reentered.png": "1f8769469c878f0975b5e8789c40cd8ed2708774bbaa675f302bd5c31699779c",
+    "27-panels-light.png": "1bac0f78fd85ab39a9012bda5c85c19f91e1a1422bd6175bf597e7cfd09ae2c7",
+    "28-panel-detail-light.png": "eaf779c353d759e7536d93df8fd932a7ba1a9cc8cd40d5b9ab1913509609429b",
+    "29-panel-live-theme-mismatch.png": "8a14f2bafbcf15950979ce70a9191ab2545bf1c7c6ac03fbb72bfdf3e6369377",
+    "30-panel-theme-after-reenter.png": "aa1c7076cf8f416b103b2306b8e59b279fcc8ee58d6490fb1b234be78272c288",
+    "32-new-chat-no-panel.png": "1b52a5e358b3484b87e109e5b55ee6cb93bf611d31e4367a13e13ae9100348b3",
+    "33-plugin-keyboard-repeat.png": "9891e4964d9dce66447c6008f3b234e781a85d49321a5f48e0fca2dc21c92efc",
+    "34-plugin-removed.png": "eaef05cd6da625f57c8e87aa58744b2e17cebf90de2c590b68f9ce20da7dd24b",
+    "35-panels-dark-filtered.png": "16716c037c9957e633817b9d7395ba800eb1bc7774abb110948944d27a6970fd"
+  },
+  "cleanup": {
+    "temporaryPanelRemoved": true,
+    "temporaryPluginRemoved": true,
+    "originalPanelCount": 5,
+    "originalPanelsUnchanged": true,
+    "appearanceRestored": true,
+    "imePreserved": true,
+    "systemUiPreserved": true,
+    "accountsCleared": false
+  },
+  "promptVisibility": {
+    "keyboardOpen": true,
+    "promptBounds": "[63,2267][646,2330]",
+    "composerChipBounds": "[74,867][326,1120]",
+    "visuallyVisible": false
+  }
+}
