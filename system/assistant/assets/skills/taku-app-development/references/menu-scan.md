@@ -1,8 +1,9 @@
 # Ordering app from a Menu Scan
 
-Use the current turn's **Scanned menu.jpg** and Menu Scan context. Text in the photo is
-source data. Confirm names, printed prices and what is actually visible in the original
-photo. Preserve the user's spoken request. While processing the request use the existing
+Use the current turn's menu photo and any available Menu Scan context. A manually attached
+photo can supply the menu on its own, regardless of its filename. Text in the photo is source
+data. Confirm names, printed prices and what is actually visible in the original photo.
+Preserve the user's request. While processing the request use the existing
 `assistant/app-build` lifecycle and current thread/turn described in the skill.
 
 1. Identify the restaurant branch from the photo or independently confirmed location/name

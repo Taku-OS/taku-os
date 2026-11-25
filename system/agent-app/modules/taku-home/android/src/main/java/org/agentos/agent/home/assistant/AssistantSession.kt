@@ -28,7 +28,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
-import org.agentos.agent.home.menuscan.MenuBuildRequest
+import org.agentos.agent.home.menuscan.MenuVoiceHandoff
 import org.agentos.agent.home.menuscan.MenuCapture
 import java.io.InputStream
 import java.nio.charset.StandardCharsets
@@ -854,10 +854,9 @@ class AssistantSession private constructor(private val context: Context, private
       is VoiceEffect.Send -> {
         val menu = heldMenu
         heldMenu = null
-        val menuRequest = menu?.let { MenuBuildRequest.resolveSpeech(effect.text) }
-        val text = menuRequest ?: effect.text
+        val text = if (menu != null) MenuVoiceHandoff.normalizeSpeech(effect.text) else effect.text
         // A rejected send (e.g. one already in flight) keeps the complete words instead of losing them.
-        try { send(text, keepVoiceEntry = true, menu = menu.takeIf { menuRequest != null }) }
+        try { send(text, keepVoiceEntry = true, menu = menu) }
         catch (e: AssistantException) { recoverFailure(editor, e.code, text) }
       }
       is VoiceEffect.Failed -> {
@@ -887,7 +886,7 @@ class AssistantSession private constructor(private val context: Context, private
     val current = editor
     val waiting = composer.savedRequest(current.threadId) ?: current.saved?.pending
     if (waiting != null) return checkDelivery(current, waiting)
-    val outgoing = if (menu == null) text else MenuBuildRequest.message(message, menu.scan)
+    val outgoing = if (menu == null) text else MenuVoiceHandoff.message(message, menu.scan.toJson().toString())
     if (outgoing.length > MAX_TEXT) throw AssistantException("INVALID_TEXT", "The scanned menu is too long")
     val edit = current.edit?.takeIf { menu == null && it.text == outgoing }
     val generation = threadCreation.generation

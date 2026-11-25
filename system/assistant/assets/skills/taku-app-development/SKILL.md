@@ -1,6 +1,6 @@
 ---
 name: taku-app-development
-description: Develop or modify applications on Taku Android, including an ordering app from a scanned menu. Choose a route from the actual device tools and the requested app experience.
+description: Develop or modify applications on Taku Android, including an ordering app from a scanned or attached menu photo. Choose a route from the actual device tools and the requested app experience.
 ---
 
 Use the current Taku conversation and existing execution tools. Inspect the Harness environment and actual paths before choosing a route. Do not start another model process.
@@ -16,9 +16,11 @@ interruption, approval waiting and changing turns also suppress the capsule auto
 The marker affects presentation only; it never starts a build or changes task execution.
 If the current UI session is unavailable, continue the actual work without inventing a status.
 
-When the user asks for an ordering app and this turn includes Menu Scan context, follow
-[the Menu Scan workflow](references/menu-scan.md). It uses the same installed template for
-every menu. Use the attached photo and OCR rows for content and estimate serving nutrition.
+When the user asks to build an ordering app from a menu, follow
+[the Menu Scan workflow](references/menu-scan.md). A request such as "Build an app for me"
+also qualifies when the current turn supplies a readable menu as its source and the user gives
+no other purpose. Use the same installed template for both Menu Scan and manually attached
+menu photos. Use the photo and any available OCR rows for content and estimate serving nutrition.
 If a branch is identified, run the source lookup in that workflow before building the app.
 
 For requests outside the Menu Scan workflow, choose based on the task:
