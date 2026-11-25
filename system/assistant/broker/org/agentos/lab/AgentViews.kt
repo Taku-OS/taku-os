@@ -357,7 +357,7 @@ internal class AgentViews {
                     }
                     rows.put(row)
                 }
-                TaskBroker.write(File(ROOT, "threads.json"), JSONObject().put("data", rows).put("source", "app-server").toString())
+                TaskBroker.write(File(ROOT, "threads.json"), JSONObject().put("data", ThreadListOrder.sorted(rows)).put("source", "app-server").toString())
             }
         }
 

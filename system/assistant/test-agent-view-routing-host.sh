@@ -12,6 +12,7 @@ trap 'rm -rf "$task_out"' EXIT
 # NativeBridge, all three field filters, and PhoneSubAgents are production sources.
 compile_jvm "$task_out/classes" "$task_json:$ANDROID_JAR" \
  system/assistant/broker/org/agentos/lab/NativeBridge.java \
+ system/assistant/broker/org/agentos/lab/WorkspaceTextFiles.kt \
  system/assistant/broker/org/agentos/lab/SessionRemovalRuntime.java \
  system/assistant/broker/org/agentos/lab/SessionRemovals.java \
  system/assistant/broker/org/agentos/lab/CleanupWork.java \
@@ -25,14 +26,18 @@ compile_jvm "$task_out/classes" "$task_json:$ANDROID_JAR" \
  system/assistant/broker/org/agentos/lab/UiCardRequest.kt \
  system/assistant/broker/org/agentos/lab/MainReplyStream.kt \
  system/assistant/broker/org/agentos/lab/MainReplySession.kt \
+ system/assistant/broker/org/agentos/lab/ThreadListOrder.java \
  system/assistant/broker/org/agentos/lab/AgentViews.kt \
  system/assistant/tests/native-routing/org/agentos/lab/NativeBridgeTestDoubles.java \
  system/assistant/tests/native-routing/org/agentos/lab/NativeBridgeHostServer.java \
  system/assistant/tests/main-reply/org/agentos/lab/MainReplyHostAdapters.java \
  system/assistant/tests/main-reply/android/system/Os.java \
+ system/assistant/tests/org/agentos/lab/ThreadListOrderTest.java \
  system/assistant/tests/org/agentos/lab/AgentViewProjectionTest.java \
  system/assistant/tests/agent-view-routing/org/agentos/lab/AgentViewRoutingHostTest.java
 task_classpath="$task_out/classes:$task_json:$KOTLIN_LIB/kotlin-stdlib.jar:$ANDROID_JAR"
 "$JDK/bin/java" -Dmain.reply.test.root="$task_out/state" -cp "$task_classpath" \
  org.agentos.lab.AgentViewRoutingHostTest "$@"
 "$JDK/bin/java" -cp "$task_classpath" org.agentos.lab.AgentViewProjectionTest
+
+"$JDK/bin/java" -cp "$task_classpath" org.agentos.lab.ThreadListOrderTest
