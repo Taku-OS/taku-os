@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Figma 979:455 / 979:463: 56 dp shortcut buttons, 16 dp from the sides, 40 dp from the bottom. -->
+    <dimen name="keyguard_affordance_fixed_width">56dp</dimen>
+    <dimen name="keyguard_affordance_fixed_height">56dp</dimen>
+    <dimen name="keyguard_affordance_horizontal_offset">16dp</dimen>
+    <dimen name="keyguard_affordance_vertical_offset">40dp</dimen>
+</resources>

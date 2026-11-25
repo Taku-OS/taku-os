@@ -1,0 +1,82 @@
+{
+  "schema": "taku.lockscreen/1",
+  "repository": "frameworks/base",
+  "revision": "7f6de40b6429462d47ba9ba351b99943269c8067",
+  "patch": "systemui-lockscreen.patch",
+  "patchSha256": "318ff44d7e31a6badb6856c991db81db4da7d4e0b3f20a249387adc059a6641a",
+  "files": [
+    {
+      "path": "packages/SystemUI/src/com/android/keyguard/dagger/ClockRegistryModule.java",
+      "beforeSha256": "871ec3d1399a647ebd24b645dbb99ec2cbd0dc21f98b33080d40306d8aed2c93",
+      "afterSha256": "234c5707bc9070eacbe991a5fca288c863fd3f6d06688c5f448a7a6abd38ad88"
+    },
+    {
+      "path": "packages/SystemUI/src/com/android/systemui/keyguard/data/repository/KeyguardBlueprintRepository.kt",
+      "beforeSha256": "58b1a0b43071c6f6159253b75f6159dc3c16c362c4c9c3f83890e951b333a516",
+      "afterSha256": "66ecb16fb57aefdb8786b4dd87f7cf0592f8e93e0555895469cd0385954bb032"
+    },
+    {
+      "path": "packages/SystemUI/src/com/android/systemui/keyguard/domain/interactor/KeyguardBlueprintInteractor.kt",
+      "beforeSha256": "729905fdb03aaa68618afa1adeb7350f8e45e04164a629781f22e31ef632101b",
+      "afterSha256": "6cef3ba1ad145858149be51b05015484c2946a5dc438f029c0f79086be26385e"
+    },
+    {
+      "path": "packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/blueprints/KeyguardBlueprintModule.kt",
+      "beforeSha256": "e321f1e96551ad69c295d5a719c2bb8ead8320d449c8feb11fb5e7cf20470531",
+      "afterSha256": "9a96ccc6bae38fccada3c20e5bfebd5eaf3adc1bfd06c5fd8a5deac6befb8c71"
+    },
+    {
+      "path": "packages/SystemUI/src/com/android/systemui/statusbar/notification/interruption/KeyguardNotificationVisibilityProvider.kt",
+      "beforeSha256": "3898be6c43ca4a6b728b55df5fcedfc1e0b3bcee017761a02d0524bbf0b292e6",
+      "afterSha256": "43ac579cac48894a748ec563650ca6361c4497d891548c9fa86db762d117eef8"
+    },
+    {
+      "path": "packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuClockFaceController.kt",
+      "beforeSha256": null,
+      "afterSha256": "2e9ec7f1a87966d0a698d1cb7cc47751d2669e58d71e1ca2cd933c44b076caaf",
+      "source": "system/lockscreen/src/com/android/systemui/taku/lockscreen/TakuClockFaceController.kt"
+    },
+    {
+      "path": "packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuClockFaceView.kt",
+      "beforeSha256": null,
+      "afterSha256": "03e183d32265a9f1274be9b8260bb9c256286315805d3242fa4ed04f5250f282",
+      "source": "system/lockscreen/src/com/android/systemui/taku/lockscreen/TakuClockFaceView.kt"
+    },
+    {
+      "path": "packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuClockGlyphs.kt",
+      "beforeSha256": null,
+      "afterSha256": "86e6e5a90fd372e26167359768ee6c4b95487713b5fe985676b734fd822add12",
+      "source": "system/lockscreen/src/com/android/systemui/taku/lockscreen/TakuClockGlyphs.kt"
+    },
+    {
+      "path": "packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuClockProvider.kt",
+      "beforeSha256": null,
+      "afterSha256": "793eba29d6eb6cc55f3763e911a5637f976f2bb10caa3758961db7bb859e0af6",
+      "source": "system/lockscreen/src/com/android/systemui/taku/lockscreen/TakuClockProvider.kt"
+    },
+    {
+      "path": "packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuKeyguardBlueprint.kt",
+      "beforeSha256": null,
+      "afterSha256": "093c514ffaa9d7a869f8098974e75944c3635a7b32a76a49dcc2367152498f2f",
+      "source": "system/lockscreen/src/com/android/systemui/taku/lockscreen/TakuKeyguardBlueprint.kt"
+    },
+    {
+      "path": "packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuLockscreenBackgroundView.kt",
+      "beforeSha256": null,
+      "afterSha256": "d9f565d1030e8afafd4dccd13c3291cbcd91b9047daba699422caa478714f685",
+      "source": "system/lockscreen/src/com/android/systemui/taku/lockscreen/TakuLockscreenBackgroundView.kt"
+    },
+    {
+      "path": "packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuLockscreenFonts.kt",
+      "beforeSha256": null,
+      "afterSha256": "98f57efc758dfc7f745619cdbc1cb647cea9d3c81da4e7ecc32abcbee2f7621c",
+      "source": "system/lockscreen/src/com/android/systemui/taku/lockscreen/TakuLockscreenFonts.kt"
+    },
+    {
+      "path": "packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuTallClockView.kt",
+      "beforeSha256": null,
+      "afterSha256": "08b8668fe945e81c2029cbd322fa428a3c21fa00465ea7b98379bf239295ee00",
+      "source": "system/lockscreen/src/com/android/systemui/taku/lockscreen/TakuTallClockView.kt"
+    }
+  ]
+}

@@ -1,0 +1,897 @@
+--- a/packages/SystemUI/src/com/android/keyguard/dagger/ClockRegistryModule.java
++++ b/packages/SystemUI/src/com/android/keyguard/dagger/ClockRegistryModule.java
+@@ -24,6 +24,7 @@
+ import androidx.annotation.Nullable;
+ 
+ import com.android.systemui.dagger.SysUISingleton;
++import com.android.systemui.taku.lockscreen.TakuClockProvider;
+ import com.android.systemui.dagger.qualifiers.Application;
+ import com.android.systemui.dagger.qualifiers.Background;
+ import com.android.systemui.dagger.qualifiers.Main;
+@@ -64,12 +65,13 @@
+                 mainDispatcher,
+                 bgDispatcher,
+                 /* handleAllUsers= */ true,
+-                new DefaultClockProvider(
++                // Taku: the stock clocks plus the Taku clock, which is the default.
++                new TakuClockProvider(context, new DefaultClockProvider(
+                         layoutInflater,
+                         resources,
+                         vibrator
+-                ),
+-                context.getString(R.string.lockscreen_clock_id_fallback),
++                )),
++                TakuClockProvider.TAKU_CLOCK_ID,
+                 clockBuffers,
+                 /* keepAllLoaded = */ false,
+                 /* subTag = */ "System",
+--- a/packages/SystemUI/src/com/android/systemui/keyguard/data/repository/KeyguardBlueprintRepository.kt
++++ b/packages/SystemUI/src/com/android/systemui/keyguard/data/repository/KeyguardBlueprintRepository.kt
+@@ -23,6 +23,7 @@
+ import com.android.systemui.dagger.qualifiers.Main
+ import com.android.systemui.keyguard.shared.model.KeyguardBlueprint
+ import com.android.systemui.keyguard.ui.view.layout.blueprints.DefaultKeyguardBlueprint.Companion.DEFAULT
++import com.android.systemui.taku.lockscreen.TakuKeyguardBlueprint
+ import com.android.systemui.keyguard.ui.view.layout.blueprints.KeyguardBlueprintModule
+ import com.android.systemui.keyguard.ui.view.layout.blueprints.transitions.IntraBlueprintTransition.Config
+ import com.android.systemui.log.LogBuffer
+@@ -61,7 +62,7 @@
+     // blueprints in the adb tool.
+     private val blueprintIdMap: TreeMap<String, KeyguardBlueprint> =
+         TreeMap<String, KeyguardBlueprint>().apply { putAll(blueprints.associateBy { it.id }) }
+-    val blueprint: MutableStateFlow<KeyguardBlueprint> = MutableStateFlow(blueprintIdMap[DEFAULT]!!)
++    val blueprint: MutableStateFlow<KeyguardBlueprint> = MutableStateFlow(blueprintIdMap[TakuKeyguardBlueprint.ID] ?: blueprintIdMap[DEFAULT]!!)
+     val refreshTransition = MutableSharedFlow<Config>(extraBufferCapacity = 1)
+     @VisibleForTesting var targetTransitionConfig: Config? = null
+ 
+--- a/packages/SystemUI/src/com/android/systemui/keyguard/domain/interactor/KeyguardBlueprintInteractor.kt
++++ b/packages/SystemUI/src/com/android/systemui/keyguard/domain/interactor/KeyguardBlueprintInteractor.kt
+@@ -22,6 +22,7 @@
+ import com.android.systemui.biometrics.domain.interactor.FingerprintPropertyInteractor
+ import com.android.systemui.common.ui.domain.interactor.ConfigurationInteractor
+ import com.android.systemui.dagger.SysUISingleton
++import com.android.systemui.taku.lockscreen.TakuKeyguardBlueprint
+ import com.android.systemui.dagger.qualifiers.Application
+ import com.android.systemui.keyguard.data.repository.KeyguardBlueprintRepository
+ import com.android.systemui.keyguard.shared.model.KeyguardBlueprint
+@@ -66,7 +67,8 @@
+             when {
+                 shadeMode is ShadeMode.Split && !SceneContainerFlag.isEnabled ->
+                     SplitShadeKeyguardBlueprint.ID
+-                else -> DefaultKeyguardBlueprint.DEFAULT
++                // Taku: single-shade lock screens use the Taku layout.
++                else -> TakuKeyguardBlueprint.ID
+             }
+         }
+ 
+--- a/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/blueprints/KeyguardBlueprintModule.kt
++++ b/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/blueprints/KeyguardBlueprintModule.kt
+@@ -20,6 +20,7 @@
+ import com.android.systemui.CoreStartable
+ import com.android.systemui.keyguard.domain.interactor.KeyguardBlueprintInteractor
+ import com.android.systemui.keyguard.shared.model.KeyguardBlueprint
++import com.android.systemui.taku.lockscreen.TakuKeyguardBlueprint
+ import com.android.systemui.keyguard.ui.view.layout.KeyguardBlueprintCommandListener
+ import dagger.Binds
+ import dagger.Module
+@@ -41,6 +42,11 @@
+         splitShadeBlueprint: SplitShadeKeyguardBlueprint
+     ): KeyguardBlueprint
+ 
++    // Taku: the lock screen layout (system/lockscreen, docs/lock-screen.md).
++    @Binds
++    @IntoSet
++    abstract fun bindTakuBlueprint(takuBlueprint: TakuKeyguardBlueprint): KeyguardBlueprint
++
+     @Binds
+     @IntoMap
+     @ClassKey(KeyguardBlueprintInteractor::class)
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/notification/interruption/KeyguardNotificationVisibilityProvider.kt
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/notification/interruption/KeyguardNotificationVisibilityProvider.kt
+@@ -12,6 +12,7 @@
+ import com.android.keyguard.KeyguardUpdateMonitor
+ import com.android.keyguard.KeyguardUpdateMonitorCallback
+ import com.android.systemui.CoreStartable
++import com.android.systemui.taku.lockscreen.TakuLockscreenPolicy
+ import com.android.systemui.ambient.statusbar.shared.flag.OngoingActivityChipsOnDream
+ import com.android.systemui.dagger.SysUISingleton
+ import com.android.systemui.dagger.qualifiers.Main
+@@ -208,6 +209,9 @@
+                 SHOW
+             // Keyguard state doesn't matter if the keyguard is not showing.
+             !isLockedOrLocking -> SHOW
++            // Taku: nothing shows on the lock screen until the user authenticates.
++            TakuLockscreenPolicy.HIDE_NOTIFICATIONS_UNTIL_AUTHENTICATED &&
++                !keyguardStateController.isUnlocked -> HIDE
+             // Notifications not allowed on the lockscreen, always hide.
+             !lockscreenUserManager.shouldShowLockscreenNotifications() -> HIDE
+             // secure lock device mode is enabled always disallow
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuClockFaceController.kt
+@@ -0,0 +1,87 @@
++package com.android.systemui.taku.lockscreen
++
++import android.content.Context
++import android.util.TypedValue
++import androidx.constraintlayout.widget.ConstraintSet
++import com.android.systemui.customization.clocks.view.DefaultClockFaceLayout
++import com.android.systemui.plugins.keyguard.VRect
++import com.android.systemui.plugins.keyguard.ui.clocks.ClockAnimations
++import com.android.systemui.plugins.keyguard.ui.clocks.ClockAxisStyle
++import com.android.systemui.plugins.keyguard.ui.clocks.ClockFaceConfig
++import com.android.systemui.plugins.keyguard.ui.clocks.ClockFaceController
++import com.android.systemui.plugins.keyguard.ui.clocks.ClockFaceEvents
++import com.android.systemui.plugins.keyguard.ui.clocks.ClockPositionAnimationArgs
++import com.android.systemui.plugins.keyguard.ui.clocks.ClockSettings
++import com.android.systemui.plugins.keyguard.ui.clocks.ClockViewIds
++import com.android.systemui.plugins.keyguard.ui.clocks.ThemeConfig
++
++/**
++ * One face of the Taku clock. The keyguard shows the large face while no notification is visible and
++ * the small one otherwise; Taku hides notifications until the user authenticates, so the large face is
++ * the locked lock screen (Figma 979:429) and the small face the authenticated one (979:574).
++ */
++class TakuClockFaceController(context: Context, settings: ClockSettings, isLarge: Boolean) : ClockFaceController {
++    override val view = TakuClockFaceView(context, isLarge).apply {
++        // DefaultClockFaceLayout and the keyguard address the faces by these ids.
++        id = if (isLarge) ClockViewIds.LOCKSCREEN_CLOCK_VIEW_LARGE else ClockViewIds.LOCKSCREEN_CLOCK_VIEW_SMALL
++    }
++
++    override val layout = TakuClockFaceLayout(view, context)
++    override val config = ClockFaceConfig()
++    override var theme = ThemeConfig(isDarkTheme = true, settings.seedColor)
++
++    override val events = object : ClockFaceEvents {
++        override fun onTimeTick() = view.refresh()
++
++        override fun onThemeChanged(theme: ThemeConfig) {
++            this@TakuClockFaceController.theme = theme
++            // The face always sits on the darkened lock-screen background.
++            view.setTheme(isDark = true)
++        }
++
++        override fun onFontSettingChanged(fontSizePx: Float) = view.setTextSizePx(fontSizePx)
++        override fun onTargetRegionChanged(targetRegion: VRect) {}
++        override fun onSecondaryDisplayChanged(onSecondaryDisplay: Boolean) {}
++    }
++
++    override val animations = object : ClockAnimations {
++        override fun enter() {}
++        override fun doze(fraction: Float) {}
++        override fun fold(fraction: Float) {}
++        override fun charge() {}
++        override fun onPickerCarouselSwiping(swipingFraction: Float) {}
++        override fun onPositionAnimated(args: ClockPositionAnimationArgs) {}
++        override fun onFidgetTap(x: Float, y: Float) {}
++        override fun onFontAxesChanged(style: ClockAxisStyle) {}
++    }
++}
++
++/**
++ * Both faces are centred and start 24 dp below the status bar (76 dp from the top of a 412 × 917 frame).
++ * The stock defaults put the small clock at the start edge with a fixed height; this layout replaces
++ * that after the clock section's defaults are applied.
++ */
++class TakuClockFaceLayout(view: TakuClockFaceView, private val context: Context) : DefaultClockFaceLayout(view) {
++    override fun applyConstraints(constraints: ConstraintSet): ConstraintSet {
++        val id = view.id
++        val top = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, TOP_DP, context.resources.displayMetrics).toInt()
++        constraints.apply {
++            clear(id, ConstraintSet.START)
++            clear(id, ConstraintSet.END)
++            clear(id, ConstraintSet.TOP)
++            clear(id, ConstraintSet.BOTTOM)
++            constrainWidth(id, ConstraintSet.WRAP_CONTENT)
++            constrainHeight(id, ConstraintSet.WRAP_CONTENT)
++            constrainMaxHeight(id, 0)
++            connect(id, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START)
++            connect(id, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END)
++            connect(id, ConstraintSet.TOP, ConstraintSet.PARENT_ID, ConstraintSet.TOP, top)
++        }
++        return constraints
++    }
++
++    companion object {
++        /** Figma 979:466: the date's top edge, from the top of the screen. */
++        const val TOP_DP = 76f
++    }
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuClockFaceView.kt
+@@ -0,0 +1,87 @@
++package com.android.systemui.taku.lockscreen
++
++import android.content.Context
++import android.graphics.Color
++import android.icu.text.DateFormat
++import android.icu.text.SimpleDateFormat
++import android.icu.util.TimeZone
++import android.util.TypedValue
++import android.view.Gravity
++import android.widget.LinearLayout
++import android.widget.TextView
++import java.util.Date
++import java.util.Locale
++
++/**
++ * One Taku clock face: the date (Figma 979:468) above the time, centred, 24 dp apart.
++ *
++ * - Large (locked, Figma 979:470): [TakuTallClockView], 320 dp tall.
++ * - Small (authenticated, Figma 979:599): Space Grotesk 120 sp, tracking −3 %, white at 64 %.
++ */
++class TakuClockFaceView(context: Context, val isLarge: Boolean) : LinearLayout(context) {
++    private val density = resources.displayMetrics.density
++    private val date = TextView(context).apply {
++        typeface = TakuLockscreenFonts.spaceGrotesk
++        setTextSize(TypedValue.COMPLEX_UNIT_SP, 24f)
++        letterSpacing = -0.01f
++        setLineHeight((24f * 1.05f * resources.displayMetrics.scaledDensity).toInt())
++        includeFontPadding = false
++        gravity = Gravity.CENTER_HORIZONTAL
++        setSingleLine(true)
++    }
++    private val tall: TakuTallClockView? = if (isLarge) TakuTallClockView(context) else null
++    private val compact: TextView? = if (isLarge) null else TextView(context).apply {
++        typeface = TakuLockscreenFonts.spaceGrotesk
++        setTextSize(TypedValue.COMPLEX_UNIT_SP, 120f)
++        letterSpacing = -0.03f
++        includeFontPadding = false
++        gravity = Gravity.CENTER_HORIZONTAL
++        setSingleLine(true)
++    }
++
++    private var timeZone: TimeZone = TimeZone.getDefault()
++    private var locale: Locale = Locale.getDefault()
++    private var is24Hour = false
++
++    init {
++        orientation = VERTICAL
++        gravity = Gravity.CENTER_HORIZONTAL
++        clipChildren = false
++        clipToPadding = false
++        addView(date, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
++        val time = tall ?: compact!!
++        addView(time, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
++            topMargin = (24 * density).toInt()
++        })
++        setTheme(isDark = true)
++    }
++
++    fun setTimeZone(zone: TimeZone) { timeZone = zone; refresh() }
++    fun setLocale(value: Locale) { locale = value; refresh() }
++    fun setIs24Hour(value: Boolean) { is24Hour = value; refresh() }
++
++    /** The lock screen sits on a darkened wallpaper: white text, at the design's opacities. */
++    fun setTheme(isDark: Boolean) {
++        val base = if (isDark) Color.WHITE else Color.BLACK
++        date.setTextColor(withAlpha(base, 0.8f))
++        compact?.setTextColor(withAlpha(base, 0.64f))
++        tall?.setColor(withAlpha(base, 0.92f))
++    }
++
++    fun setTextSizePx(fontSizePx: Float) {
++        // The keyguard reports a preferred clock text size; the design fixes the compact clock at 120 sp.
++        if (fontSizePx > 0f) compact?.setTextSize(TypedValue.COMPLEX_UNIT_PX, maxOf(fontSizePx, 120f * resources.displayMetrics.scaledDensity))
++    }
++
++    fun refresh(now: Date = Date()) {
++        val datePattern = DateFormat.getInstanceForSkeleton("EEEEMMMd", locale).let { (it as? SimpleDateFormat)?.toPattern() } ?: "EEEE, MMM d"
++        date.text = SimpleDateFormat(datePattern, locale).apply { timeZone = this@TakuClockFaceView.timeZone }.format(now)
++        val timeText = SimpleDateFormat(if (is24Hour) "HH:mm" else "h:mm", Locale.ROOT)
++            .apply { timeZone = this@TakuClockFaceView.timeZone }.format(now)
++        tall?.time = timeText
++        compact?.text = timeText
++        contentDescription = "${date.text}, $timeText"
++    }
++
++    private fun withAlpha(color: Int, alpha: Float) = Color.argb((alpha * 255).toInt(), Color.red(color), Color.green(color), Color.blue(color))
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuClockGlyphs.kt
+@@ -0,0 +1,66 @@
++package com.android.systemui.taku.lockscreen
++
++import android.graphics.Path
++import androidx.core.graphics.PathParser
++
++/**
++ * The tall lock-screen clock's glyphs (Figma 979:470, "09:30 · uniform 14px strokes").
++ *
++ * Every digit sits in a 68 × 320 cell drawn with uniform 14 px strokes; digits of a pair are 6 px
++ * apart and the colon fills a 30 px gap with two 16 px dots. The design draws 0, 3 and 9 only: their
++ * outlines below are the Figma paths, moved to the cell origin. The other digits are placeholders in
++ * the same construction (a centreline stroked 14 px wide) until design supplies them.
++ */
++internal object TakuClockGlyphs {
++    const val CELL_WIDTH = 68f
++    const val CELL_HEIGHT = 320f
++    const val DIGIT_GAP = 6f
++    const val COLON_GAP = 30f
++    const val STROKE = 14f
++    /** Colon dots: 16 px, centred 18 px into the gap, at y 111 and 219 (Figma 979:470). */
++    const val COLON_CENTER_X = 18f
++    const val COLON_RADIUS = 8f
++    val COLON_CENTERS_Y = floatArrayOf(111f, 219f)
++
++    /** Filled outlines from the design. */
++    private val outlines = mapOf(
++        '0' to "M34 0C44.87 0 53.806 4.033 59.808 11.868C65.588 19.414 68 29.644 68 41V279C68 290.356 65.588 300.586 59.808 308.132C53.806 315.967 44.87 320 34 320C23.13 320 14.194 315.967 8.192 308.132C2.412 300.586 0 290.356 0 279V41C0 29.644 2.412 19.414 8.192 11.868C14.194 4.033 23.13 0 34 0ZM34 14C26.87 14 22.306 16.467 19.308 20.382C16.088 24.586 14 31.356 14 41V279C14 288.644 16.088 295.414 19.308 299.618C22.306 303.533 26.87 306 34 306C41.13 306 45.694 303.533 48.692 299.618C51.912 295.414 54 288.644 54 279V41C54 31.356 51.912 24.586 48.692 20.382C45.694 16.467 41.13 14 34 14Z",
++        '3' to "M61 0C63.228 0 65.324 1.061 66.643 2.857C67.961 4.654 68.346 6.971 67.679 9.097L27.318 137.685C38.351 139.359 47.7 144.073 54.696 151.425C63.542 160.72 68 173.572 68 188V279C68 290.356 65.588 300.586 59.808 308.132C53.806 315.967 44.87 320 34 320C23.13 320 14.194 315.967 8.192 308.132C2.412 300.586 0 290.356 0 279V262H14V279C14 288.644 16.088 295.414 19.308 299.618C22.306 303.533 26.87 306 34 306C41.13 306 45.694 303.533 48.692 299.618C51.912 295.414 54 288.644 54 279V188C54 176.429 50.458 167.28 44.554 161.075C38.694 154.918 29.884 151 18 151C15.772 151 13.676 149.939 12.357 148.143C11.039 146.346 10.654 144.029 11.321 141.903L51.466 14H7V0H61Z",
++        '9' to "M34 0C44.87 0 53.806 4.033 59.808 11.868C65.588 19.414 68 29.644 68 41V279C68 290.356 65.588 300.586 59.808 308.132C53.806 315.967 44.87 320 34 320C23.13 320 14.194 315.967 8.192 308.132C2.412 300.586 0 290.356 0 279V262H14V279C14 288.644 16.088 295.414 19.308 299.618C22.306 303.533 26.87 306 34 306C41.13 306 45.694 303.533 48.692 299.618C51.912 295.414 54 288.644 54 279V154.885C48.568 158.932 41.78 161 34 161C23.13 161 14.194 156.967 8.192 149.132C2.412 141.586 0 131.356 0 120V41C0 29.644 2.412 19.414 8.192 11.868C14.194 4.033 23.13 0 34 0ZM34 14C26.87 14 22.306 16.467 19.308 20.382C16.088 24.586 14 31.356 14 41V120C14 129.644 16.088 136.414 19.308 140.618C22.306 144.533 26.87 147 34 147C41.13 147 45.694 144.533 48.692 140.618C51.912 136.414 54 129.644 54 120V41C54 31.356 51.912 24.586 48.692 20.382C45.694 16.467 41.13 14 34 14Z",
++    )
++
++    /** Placeholder centrelines (stroked [STROKE] px, round caps) for digits the design has not drawn. */
++    private val centerlines = mapOf(
++        '1' to "M20 34L34 7V313",
++        '2' to "M7 41C7 20 18 7 34 7C50 7 61 20 61 41V118C61 152 7 214 7 262V313H61",
++        '4' to "M48 7L7 222H61M48 118V313",
++        '5' to "M61 7H7V150C18 142 28 140 34 140C50 140 61 153 61 174V279C61 300 50 313 34 313C18 313 7 300 7 279",
++        '6' to "M61 41C61 20 50 7 34 7C18 7 7 20 7 41V279C7 300 18 313 34 313C50 313 61 300 61 279V190C61 169 50 156 34 156C18 156 7 169 7 190",
++        '7' to "M7 7H61L26 313",
++        '8' to "M34 7C18 7 7 20 7 41V121C7 140 18 153 34 153C50 153 61 140 61 121V41C61 20 50 7 34 7ZM34 153C18 153 7 168 7 188V279C7 300 18 313 34 313C50 313 61 300 61 279V188C61 168 50 153 34 153Z",
++    )
++
++    private val cache = HashMap<Char, Glyph>()
++
++    /** A digit's path and whether it is filled (design outline) or stroked (placeholder centreline). */
++    class Glyph(val path: Path, val filled: Boolean)
++
++    fun glyph(digit: Char): Glyph? = cache.getOrPut(digit) {
++        outlines[digit]?.let { return@getOrPut Glyph(PathParser.createPathFromPathData(it), filled = true) }
++        val line = centerlines[digit] ?: return null
++        Glyph(PathParser.createPathFromPathData(line), filled = false)
++    }
++
++    /** Unscaled width of [text] (digits and ':'), in design pixels. */
++    fun width(text: String): Float {
++        var width = 0f
++        var previousDigit = false
++        for (character in text) {
++            if (character == ':') { width += COLON_GAP; previousDigit = false; continue }
++            if (previousDigit) width += DIGIT_GAP
++            width += CELL_WIDTH
++            previousDigit = true
++        }
++        return width
++    }
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuClockProvider.kt
+@@ -0,0 +1,113 @@
++package com.android.systemui.taku.lockscreen
++
++import android.content.Context
++import android.graphics.Canvas
++import android.graphics.ColorFilter
++import android.graphics.PixelFormat
++import android.graphics.drawable.Drawable
++import android.icu.util.TimeZone
++import android.text.format.DateFormat
++import com.android.systemui.plugins.keyguard.data.model.AlarmData
++import com.android.systemui.plugins.keyguard.data.model.WeatherData
++import com.android.systemui.plugins.keyguard.data.model.ZenData
++import com.android.systemui.plugins.keyguard.ui.clocks.ClockConfig
++import com.android.systemui.plugins.keyguard.ui.clocks.ClockController
++import com.android.systemui.plugins.keyguard.ui.clocks.ClockEventListeners
++import com.android.systemui.plugins.keyguard.ui.clocks.ClockEvents
++import com.android.systemui.plugins.keyguard.ui.clocks.ClockMessageBuffers
++import com.android.systemui.plugins.keyguard.ui.clocks.ClockMetadata
++import com.android.systemui.plugins.keyguard.ui.clocks.ClockPickerConfig
++import com.android.systemui.plugins.keyguard.ui.clocks.ClockProvider
++import com.android.systemui.plugins.keyguard.ui.clocks.ClockSettings
++import com.android.systemui.plugins.keyguard.ui.clocks.TimeFormatKind
++import java.io.PrintWriter
++import java.util.Locale
++
++/**
++ * SystemUI's built-in clock provider plus the Taku clock. `ClockRegistry` takes a single default
++ * provider that must keep supplying the stock `DEFAULT` clock, so this wraps the stock provider and adds
++ * [TAKU_CLOCK_ID], which `ClockRegistryModule` makes the fallback. The choice is the standard
++ * `Settings.Secure.LOCK_SCREEN_CUSTOM_CLOCK_FACE` JSON, so agents read and change it with `settings`.
++ */
++class TakuClockProvider(private val context: Context, private val stock: ClockProvider) : ClockProvider {
++    override fun initialize(buffers: ClockMessageBuffers?) = stock.initialize(buffers)
++
++    override fun getClocks(): List<ClockMetadata> = stock.getClocks() + ClockMetadata(TAKU_CLOCK_ID)
++
++    override fun createClock(ctx: Context, settings: ClockSettings): ClockController? =
++        if (settings.clockId == TAKU_CLOCK_ID) TakuClockController(ctx, settings) else stock.createClock(ctx, settings)
++
++    override fun getClockPickerConfig(settings: ClockSettings): ClockPickerConfig =
++        if (settings.clockId == TAKU_CLOCK_ID) {
++            ClockPickerConfig(TAKU_CLOCK_ID, NAME, DESCRIPTION, TakuClockThumbnail(context), isReactiveToTone = false)
++        } else {
++            stock.getClockPickerConfig(settings)
++        }
++
++    companion object {
++        const val TAKU_CLOCK_ID = "TAKU"
++        const val NAME = "Taku"
++        const val DESCRIPTION = "Taku lock screen clock"
++    }
++}
++
++/** The Taku clock's two faces and the time, format and locale events they share. */
++class TakuClockController(context: Context, settings: ClockSettings) : ClockController {
++    override val smallClock = TakuClockFaceController(context, settings, isLarge = false)
++    override val largeClock = TakuClockFaceController(context, settings, isLarge = true)
++    override val config = ClockConfig(TakuClockProvider.TAKU_CLOCK_ID, TakuClockProvider.NAME, TakuClockProvider.DESCRIPTION)
++    override val eventListeners = ClockEventListeners()
++
++    private val faces get() = listOf(smallClock.view, largeClock.view)
++
++    init {
++        val is24 = DateFormat.is24HourFormat(context)
++        faces.forEach { it.setIs24Hour(is24) }
++    }
++
++    override val events = object : ClockEvents {
++        override fun onTimeZoneChanged(timeZone: TimeZone) = faces.forEach { it.setTimeZone(timeZone) }
++        override fun onTimeFormatChanged(formatKind: TimeFormatKind) =
++            faces.forEach { it.setIs24Hour(formatKind == TimeFormatKind.FULL_DAY) }
++        override fun onLocaleChanged(locale: Locale) = faces.forEach { it.setLocale(locale) }
++        override fun onWeatherDataChanged(data: WeatherData) {}
++        override fun onAlarmDataChanged(data: AlarmData) {}
++        override fun onZenDataChanged(data: ZenData) {}
++    }
++
++    override fun initialize(isDarkTheme: Boolean, dozeFraction: Float, foldFraction: Float) {
++        for (face in listOf(smallClock, largeClock)) {
++            face.events.onThemeChanged(face.theme.copy(isDarkTheme = isDarkTheme))
++            face.animations.doze(dozeFraction)
++            face.animations.fold(foldFraction)
++            face.events.onTimeTick()
++        }
++    }
++
++    override fun dump(pw: PrintWriter) {
++        pw.println("TakuClockController small=${smallClock.view.contentDescription} large=${largeClock.view.contentDescription}")
++    }
++}
++
++/** Picker thumbnail: the tall clock reading 09:30, as in the design. */
++private class TakuClockThumbnail(context: Context) : Drawable() {
++    private val clock = TakuTallClockView(context).apply { time = "09:30" }
++
++    override fun draw(canvas: Canvas) {
++        val bounds = bounds
++        if (bounds.isEmpty) return
++        clock.measure(0, 0)
++        val scale = minOf(bounds.width() / clock.measuredWidth.toFloat(), bounds.height() / clock.measuredHeight.toFloat())
++        canvas.save()
++        canvas.translate(bounds.exactCenterX() - clock.measuredWidth * scale / 2f, bounds.exactCenterY() - clock.measuredHeight * scale / 2f)
++        canvas.scale(scale, scale)
++        clock.layout(0, 0, clock.measuredWidth, clock.measuredHeight)
++        clock.draw(canvas)
++        canvas.restore()
++    }
++
++    override fun setAlpha(alpha: Int) {}
++    override fun setColorFilter(colorFilter: ColorFilter?) {}
++    @Deprecated("Deprecated in Java")
++    override fun getOpacity() = PixelFormat.TRANSLUCENT
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuKeyguardBlueprint.kt
+@@ -0,0 +1,96 @@
++package com.android.systemui.taku.lockscreen
++
++import android.view.View
++import androidx.constraintlayout.widget.ConstraintLayout
++import androidx.constraintlayout.widget.ConstraintSet
++import androidx.lifecycle.Lifecycle
++import androidx.lifecycle.repeatOnLifecycle
++import com.android.systemui.dagger.SysUISingleton
++import com.android.systemui.dagger.qualifiers.Background
++import com.android.systemui.keyguard.domain.interactor.KeyguardInteractor
++import com.android.systemui.keyguard.shared.model.KeyguardBlueprint
++import com.android.systemui.keyguard.shared.model.KeyguardSection
++import com.android.systemui.keyguard.ui.view.layout.blueprints.DefaultKeyguardBlueprint
++import com.android.systemui.lifecycle.repeatWhenAttached
++import com.android.systemui.settings.UserTracker
++import java.util.concurrent.Executor
++import javax.inject.Inject
++import kotlinx.coroutines.DisposableHandle
++
++/**
++ * Taku's lock screen layout: the stock sections (clock, shortcuts, device entry, indication area,
++ * notifications, accessibility, AOD) on top of the Taku background. Keeping the stock sections keeps
++ * authentication, biometric messages and accessibility exactly as upstream; the Taku look comes from
++ * the background, the Taku clock face and the shortcut resources.
++ */
++@SysUISingleton
++class TakuKeyguardBlueprint
++@Inject
++constructor(defaultBlueprint: DefaultKeyguardBlueprint, backgroundSection: TakuBackgroundSection) : KeyguardBlueprint {
++    override val id: String = ID
++
++    // The background is added first, so it is the bottom of the keyguard's z-order.
++    override val sections: List<KeyguardSection> = listOf(backgroundSection) + defaultBlueprint.sections
++
++    companion object {
++        const val ID = "taku"
++    }
++}
++
++/** Adds [TakuLockscreenBackgroundView] under every other keyguard view and fades it out while dozing. */
++@SysUISingleton
++class TakuBackgroundSection
++@Inject
++constructor(
++    private val keyguardInteractor: KeyguardInteractor,
++    private val userTracker: UserTracker,
++    @Background private val backgroundExecutor: Executor,
++) : KeyguardSection() {
++    private val viewId = View.generateViewId()
++    private var binding: DisposableHandle? = null
++
++    override fun addViews(constraintLayout: ConstraintLayout) {
++        if (constraintLayout.findViewById<View>(viewId) != null) return
++        val view = TakuLockscreenBackgroundView(constraintLayout.context, { userTracker.userId }, backgroundExecutor)
++        view.id = viewId
++        constraintLayout.addView(view, 0)
++    }
++
++    override fun bindData(constraintLayout: ConstraintLayout) {
++        val view = constraintLayout.findViewById<TakuLockscreenBackgroundView>(viewId) ?: return
++        binding?.dispose()
++        binding = view.repeatWhenAttached {
++            repeatOnLifecycle(Lifecycle.State.STARTED) {
++                // The always-on display stays black: the background follows 1 − doze amount.
++                keyguardInteractor.dozeAmount.collect { amount -> view.alpha = 1f - amount }
++            }
++        }
++    }
++
++    override fun applyConstraints(constraintSet: ConstraintSet) {
++        constraintSet.apply {
++            constrainWidth(viewId, ConstraintSet.MATCH_CONSTRAINT)
++            constrainHeight(viewId, ConstraintSet.MATCH_CONSTRAINT)
++            connect(viewId, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START)
++            connect(viewId, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END)
++            connect(viewId, ConstraintSet.TOP, ConstraintSet.PARENT_ID, ConstraintSet.TOP)
++            connect(viewId, ConstraintSet.BOTTOM, ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM)
++        }
++    }
++
++    override fun removeViews(constraintLayout: ConstraintLayout) {
++        binding?.dispose()
++        binding = null
++        constraintLayout.findViewById<View>(viewId)?.let(constraintLayout::removeView)
++    }
++}
++
++/** Taku lock-screen policy shared with the upstream hooks in `image/lockscreen`. */
++object TakuLockscreenPolicy {
++    /**
++     * Notifications stay hidden on the lock screen until the user authenticates (face unlock keeps the
++     * user on the lock screen; see docs/lock-screen.md). Applied in KeyguardNotificationVisibilityProvider,
++     * which already re-filters when the keyguard's unlocked state changes.
++     */
++    const val HIDE_NOTIFICATIONS_UNTIL_AUTHENTICATED = true
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuLockscreenBackgroundView.kt
+@@ -0,0 +1,203 @@
++package com.android.systemui.taku.lockscreen
++
++import android.app.WallpaperColors
++import android.app.WallpaperManager
++import android.content.Context
++import android.graphics.Bitmap
++import android.graphics.Canvas
++import android.graphics.Color
++import android.graphics.LinearGradient
++import android.graphics.Matrix
++import android.graphics.Paint
++import android.graphics.RenderEffect
++import android.graphics.RenderNode
++import android.graphics.RuntimeShader
++import android.graphics.Shader
++import android.os.Handler
++import android.os.Looper
++import android.util.Log
++import android.util.TypedValue
++import android.view.View
++import java.util.concurrent.Executor
++
++/**
++ * The lock screen's background layer (Figma 979:430 and 979:451), drawn above the wallpaper window:
++ *
++ * - the lock wallpaper again, blurred 24 dp, under a `rgba(0,0,0,0.48)` → `rgba(0,0,0,0.08)` gradient;
++ * - a 176 dp bottom bar blurred a further 12 dp with the "Taku · Edge Refraction" shader
++ *   (dispersion 0.4, flare 0.4), ported line for line from the Figma WGSL to AGSL.
++ *
++ * The wallpaper is static, so its blurred copy is a set of render nodes rebuilt only when the wallpaper
++ * or the view size changes. A live wallpaper has no bitmap: then only the gradient is drawn over it.
++ */
++class TakuLockscreenBackgroundView(
++    context: Context,
++    private val userId: () -> Int,
++    private val background: Executor,
++) : View(context) {
++    private val wallpaperManager: WallpaperManager? = context.getSystemService(WallpaperManager::class.java)
++    private val main = Handler(Looper.getMainLooper())
++    private val bitmapPaint = Paint(Paint.FILTER_BITMAP_FLAG)
++    private val gradientPaint = Paint()
++
++    /** Blurred wallpaper. */
++    private val blurred = RenderNode("TakuLockscreenBlur")
++    /** Blurred wallpaper plus the gradient: the whole page. */
++    private val page = RenderNode("TakuLockscreenPage")
++    /** The bottom slice of [page], blurred again and refracted. */
++    private val bar = RenderNode("TakuLockscreenBar")
++
++    private var wallpaper: Bitmap? = null
++    private var dirty = true
++    private var generation = 0
++
++    private val colorsListener = WallpaperManager.OnColorsChangedListener { _: WallpaperColors?, which: Int ->
++        if (which and (WallpaperManager.FLAG_LOCK or WallpaperManager.FLAG_SYSTEM) != 0) reload()
++    }
++
++    init {
++        importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
++        setWillNotDraw(false)
++    }
++
++    override fun onAttachedToWindow() {
++        super.onAttachedToWindow()
++        wallpaperManager?.addOnColorsChangedListener(colorsListener, main)
++        reload()
++    }
++
++    override fun onDetachedFromWindow() {
++        wallpaperManager?.removeOnColorsChangedListener(colorsListener)
++        generation++
++        super.onDetachedFromWindow()
++    }
++
++    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
++        gradientPaint.shader = LinearGradient(0f, 0f, 0f, h.toFloat(), OVERLAY_TOP, OVERLAY_BOTTOM, Shader.TileMode.CLAMP)
++        dirty = true
++    }
++
++    /** Reads the lock wallpaper (falling back to the home wallpaper) off the main thread. */
++    fun reload() {
++        val manager = wallpaperManager ?: return
++        val ticket = ++generation
++        val user = userId()
++        background.execute {
++            val bitmap = try {
++                manager.getBitmapAsUser(user, false, WallpaperManager.FLAG_LOCK)
++                    ?: manager.getBitmapAsUser(user, false, WallpaperManager.FLAG_SYSTEM)
++            } catch (error: RuntimeException) {
++                Log.w(TAG, "Lock wallpaper unavailable", error)
++                null
++            }
++            main.post {
++                if (ticket != generation) return@post
++                wallpaper = bitmap
++                dirty = true
++                invalidate()
++            }
++        }
++    }
++
++    override fun onDraw(canvas: Canvas) {
++        if (width == 0 || height == 0) return
++        if (!canvas.isHardwareAccelerated) {
++            canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), gradientPaint)
++            return
++        }
++        if (dirty) rebuild()
++        canvas.drawRenderNode(page)
++        canvas.save()
++        canvas.translate(0f, (height - barHeight()).toFloat())
++        canvas.drawRenderNode(bar)
++        canvas.restore()
++    }
++
++    private fun rebuild() {
++        dirty = false
++        val w = width
++        val h = height
++
++        blurred.setPosition(0, 0, w, h)
++        blurred.setRenderEffect(RenderEffect.createBlurEffect(dp(PAGE_BLUR_DP), dp(PAGE_BLUR_DP), Shader.TileMode.CLAMP))
++        blurred.beginRecording().also { recording ->
++            wallpaper?.let { recording.drawBitmap(it, centerCrop(it), bitmapPaint) }
++        }
++        blurred.endRecording()
++
++        page.setPosition(0, 0, w, h)
++        page.beginRecording().also { recording ->
++            recording.drawRenderNode(blurred)
++            recording.drawRect(0f, 0f, w.toFloat(), h.toFloat(), gradientPaint)
++        }
++        page.endRecording()
++
++        val barHeight = barHeight()
++        val refraction = RuntimeShader(EDGE_REFRACTION).apply {
++            setFloatUniform("size", w.toFloat(), barHeight.toFloat())
++            setFloatUniform("dispersion", DISPERSION)
++            setFloatUniform("flare", FLARE)
++        }
++        bar.setPosition(0, 0, w, barHeight)
++        // Blur first, then refract the blurred slice (createChainEffect applies the inner effect first).
++        bar.setRenderEffect(RenderEffect.createChainEffect(
++            RenderEffect.createRuntimeShaderEffect(refraction, "content"),
++            RenderEffect.createBlurEffect(dp(BAR_BLUR_DP), dp(BAR_BLUR_DP), Shader.TileMode.CLAMP),
++        ))
++        bar.beginRecording().also { recording ->
++            recording.translate(0f, -(h - barHeight).toFloat())
++            recording.drawRenderNode(page)
++        }
++        bar.endRecording()
++    }
++
++    private fun centerCrop(bitmap: Bitmap): Matrix {
++        val scale = maxOf(width / bitmap.width.toFloat(), height / bitmap.height.toFloat())
++        return Matrix().apply {
++            setScale(scale, scale)
++            postTranslate((width - bitmap.width * scale) / 2f, (height - bitmap.height * scale) / 2f)
++        }
++    }
++
++    private fun barHeight() = dp(BAR_HEIGHT_DP).toInt().coerceAtMost(height)
++
++    private fun dp(value: Float) = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, value, resources.displayMetrics)
++
++    companion object {
++        private const val TAG = "TakuLockscreenBg"
++        private val OVERLAY_TOP = Color.argb(0.48f, 0f, 0f, 0f)
++        private val OVERLAY_BOTTOM = Color.argb(0.08f, 0f, 0f, 0f)
++        const val PAGE_BLUR_DP = 24f
++        const val BAR_BLUR_DP = 12f
++        const val BAR_HEIGHT_DP = 176f
++        const val DISPERSION = 0.4f
++        const val FLARE = 0.4f
++
++        /**
++         * Figma "Taku · Edge Refraction" (WGSL on a 90°-rotated node) in AGSL. In the rotated node uv.x
++         * runs down the bar and uv.y across it; the WGSL's `tint.z` is the node's output height, which
++         * is the bar's on-screen width.
++         */
++        const val EDGE_REFRACTION = """
++            uniform shader content;
++            uniform float2 size;
++            uniform float dispersion;
++            uniform float flare;
++
++            float2 toPixels(float2 uv) { return float2((1.0 - uv.y) * size.x, uv.x * size.y); }
++
++            half4 main(float2 p) {
++                float2 uv = float2(p.y / size.y, 1.0 - p.x / size.x);
++                float t = smoothstep(0.0, 1.0, uv.x);
++                float stretch = 1.0 + flare * t * t;
++                float2 q = float2(uv.x, 0.5 + (uv.y - 0.5) / stretch);
++                float shift = dispersion * t * t / max(size.x, 1.0);
++                half4 cr = content.eval(toPixels(clamp(q + float2(0.0, shift), float2(0.0), float2(1.0))));
++                half4 cg = content.eval(toPixels(q));
++                half4 cb = content.eval(toPixels(clamp(q - float2(0.0, shift), float2(0.0), float2(1.0))));
++                half a = max(cr.a, max(cg.a, cb.a));
++                return half4(cr.r, cg.g, cb.b, a);
++            }
++        """
++    }
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuLockscreenFonts.kt
+@@ -0,0 +1,31 @@
++package com.android.systemui.taku.lockscreen
++
++import android.graphics.Typeface
++import android.util.Log
++import java.io.File
++
++/**
++ * The design's typefaces, installed as product files by `image/taku.mk` (see `system/lockscreen/README.md`).
++ * A missing file falls back to the system sans-serif rather than failing the lock screen.
++ */
++object TakuLockscreenFonts {
++    private const val TAG = "TakuLockscreenFonts"
++    const val DIRECTORY = "/product/fonts/taku"
++
++    /** Space Grotesk Regular: date (Heading/xl) and the compact clock. */
++    val spaceGrotesk: Typeface by lazy { load("SpaceGrotesk-Regular.ttf") }
++
++    /** Hanken Grotesk Regular / Medium: notification cards. */
++    val hankenGrotesk: Typeface by lazy { load("HankenGrotesk-Regular.ttf") }
++    val hankenGroteskMedium: Typeface by lazy { load("HankenGrotesk-Medium.ttf") }
++
++    private fun load(name: String): Typeface {
++        val file = File(DIRECTORY, name)
++        return try {
++            if (file.canRead()) Typeface.createFromFile(file) else Typeface.SANS_SERIF.also { Log.w(TAG, "Missing $file") }
++        } catch (error: RuntimeException) {
++            Log.w(TAG, "Unreadable $file", error)
++            Typeface.SANS_SERIF
++        }
++    }
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuTallClockView.kt
+@@ -0,0 +1,82 @@
++package com.android.systemui.taku.lockscreen
++
++import android.content.Context
++import android.graphics.Canvas
++import android.graphics.Color
++import android.graphics.Paint
++import android.util.TypedValue
++import android.view.View
++
++/**
++ * The locked-state clock (Figma 979:470): "HH:MM" in [TakuClockGlyphs], 320 dp tall, white at 92 %.
++ * The glyphs scale with the view's height; the width follows the time shown, centred.
++ */
++class TakuTallClockView(context: Context) : View(context) {
++    private val glyphHeightPx = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, TakuClockGlyphs.CELL_HEIGHT,
++        resources.displayMetrics)
++    private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
++    private val stroke = Paint(Paint.ANTI_ALIAS_FLAG).apply {
++        style = Paint.Style.STROKE
++        strokeWidth = TakuClockGlyphs.STROKE
++        strokeCap = Paint.Cap.ROUND
++        strokeJoin = Paint.Join.ROUND
++    }
++
++    /** The time to draw, digits and ':' only (e.g. "09:30" or "9:30"). */
++    var time: String = ""
++        set(value) {
++            if (field == value) return
++            val resize = TakuClockGlyphs.width(field) != TakuClockGlyphs.width(value)
++            field = value
++            contentDescription = value
++            if (resize) requestLayout()
++            invalidate()
++        }
++
++    init { setColor(Color.argb(0.92f, 1f, 1f, 1f)) }
++
++    fun setColor(color: Int) {
++        fill.color = color
++        stroke.color = color
++        invalidate()
++    }
++
++    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
++        val scale = glyphHeightPx / TakuClockGlyphs.CELL_HEIGHT
++        val width = (TakuClockGlyphs.width(time) * scale).toInt() + paddingLeft + paddingRight
++        val height = glyphHeightPx.toInt() + paddingTop + paddingBottom
++        setMeasuredDimension(resolveSize(width, widthMeasureSpec), resolveSize(height, heightMeasureSpec))
++    }
++
++    override fun onDraw(canvas: Canvas) {
++        val available = (height - paddingTop - paddingBottom).toFloat()
++        if (available <= 0f || time.isEmpty()) return
++        val scale = available / TakuClockGlyphs.CELL_HEIGHT
++        val contentWidth = TakuClockGlyphs.width(time) * scale
++        canvas.save()
++        canvas.translate(paddingLeft + (width - paddingLeft - paddingRight - contentWidth) / 2f, paddingTop.toFloat())
++        canvas.scale(scale, scale)
++        var x = 0f
++        var previousDigit = false
++        for (character in time) {
++            if (character == ':') {
++                for (y in TakuClockGlyphs.COLON_CENTERS_Y) {
++                    canvas.drawCircle(x + TakuClockGlyphs.COLON_CENTER_X, y, TakuClockGlyphs.COLON_RADIUS, fill)
++                }
++                x += TakuClockGlyphs.COLON_GAP
++                previousDigit = false
++                continue
++            }
++            if (previousDigit) x += TakuClockGlyphs.DIGIT_GAP
++            TakuClockGlyphs.glyph(character)?.let { glyph ->
++                canvas.save()
++                canvas.translate(x, 0f)
++                canvas.drawPath(glyph.path, if (glyph.filled) fill else stroke)
++                canvas.restore()
++            }
++            x += TakuClockGlyphs.CELL_WIDTH
++            previousDigit = true
++        }
++        canvas.restore()
++    }
++}

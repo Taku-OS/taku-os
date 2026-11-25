@@ -856,6 +856,37 @@ taku_call "$A" gesture/activate '{"id":"my-gesture-001"}'
 
 Audio, Feed events, widget actions, alarms/media and voice can expose personal data or act on the device. Check the per-provider permission policy and Android runtime restrictions. Gesture IDs only sequence operations. SystemUI supplies the native island; `listeningHeaderHost:"unavailable"` means its ROM provider is absent. Use `cmd statusbar island state` for renderer/native readiness, visible text and suggestion count, and `cmd statusbar island action 'KEY' '{"id":"ID"}'` for the same action as a card tap.
 
+## Lock screen
+
+The lock screen is SystemUI's keyguard with Taku's layout. It reads the same stock Android settings
+as Settings and the wallpaper picker. There is no separate Taku store for it. Values are per user, so add
+`--user N` for another user.
+
+```sh
+# Clock face. Unset or unknown means the Taku clock ("TAKU"). "DEFAULT" is the stock Android clock.
+settings get secure lock_screen_custom_clock_face
+settings put secure lock_screen_custom_clock_face '{"clockId":"TAKU"}'
+settings put secure lock_screen_custom_clock_face '{"clockId":"DEFAULT"}'
+# Face unlock: 0 or unset (the Taku default) keeps the user on the lock screen after a face match,
+# showing the unlocked layout. 1 goes straight to the app or Home.
+settings get secure face_unlock_dismisses_keyguard
+settings put secure face_unlock_dismisses_keyguard 0
+# Stock notification policy. It applies only after authentication, because Taku hides every
+# notification until the user authenticates. That rule is fixed and has no setting.
+settings get secure lock_screen_show_notifications
+settings get secure lock_screen_allow_private_notifications
+settings get secure lock_screen_show_silent_notifications
+# The default lock wallpaper shipped in the image. It is read-only. A wallpaper the user sets replaces it.
+getprop ro.config.lock_wallpaper
+```
+
+The bottom shortcuts default to Flashlight (left) and Camera (right). They are SystemUI quick
+affordances. The only on-device API for them is `content://com.android.systemui.customization`,
+which needs `android.permission.CUSTOMIZE_SYSTEM_UI`. The ADB shell does not hold that permission, so
+an Agent cannot yet read or change the shortcuts. A shell command for this is planned. Unlocking
+always goes through the user's own PIN, pattern, password, face or fingerprint. An Agent cannot
+bypass or perform authentication.
+
 ## Location arrival events
 
 The Agent shell can register a time-limited arrival watch. Choose the destination with
