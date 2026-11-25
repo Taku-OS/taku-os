@@ -28,6 +28,8 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
+import org.agentos.agent.home.menuscan.MenuBuildRequest
+import org.agentos.agent.home.menuscan.MenuCapture
 import java.io.InputStream
 import java.nio.charset.StandardCharsets
 import java.util.UUID
@@ -126,6 +128,7 @@ class AssistantSession private constructor(private val context: Context, private
 
   /** One recording's result may be delivered once; this machine keeps that ownership. */
   private val delivery = VoiceDeliveryMachine(MAX_TEXT)
+  private var heldMenu: MenuCapture.Review? = null
 
   private val streamLock = Any()
   private var stream: SessionStreamState? = null
@@ -267,7 +270,10 @@ class AssistantSession private constructor(private val context: Context, private
     if (live.snapshot?.open == true) throw AssistantException("VOICE_BUSY", "Live Talk is already active")
     if (voice.state.value.listening) throw AssistantException("VOICE_BUSY", "voice is already active")
     val changed = gesture.prepare(id, source, startedAt, android.os.SystemClock.uptimeMillis())
-    if (changed) publishGesture()
+    if (changed) {
+      heldMenu = if (source == "system") MenuCapture.currentReview() else null
+      publishGesture()
+    }
     return changed
   }
 
@@ -713,6 +719,7 @@ class AssistantSession private constructor(private val context: Context, private
    * and its complete result is joined once to the draft as it is then. Never sends.
    */
   fun voiceToText() {
+    heldMenu = null
     gesture.end(false); publishGesture()
     val v = voice.state.value
     if (v.phase == VoicePhase.Idle || v.phase == VoicePhase.Preparing) {
@@ -743,6 +750,7 @@ class AssistantSession private constructor(private val context: Context, private
    * is presentation only, so it can never cancel a newer recording. Returns the revoked operation.
    */
   fun beginCancelledVoice(): Long? {
+    heldMenu = null
     gesture.end(true); publishGesture()
     val operation = delivery.revoke()
     if (handoffEditor != null && live.snapshot?.generation == 0L) endLiveTalk()
@@ -801,6 +809,7 @@ class AssistantSession private constructor(private val context: Context, private
 
   /** Any conversation boundary: an undelivered result may no longer touch the session. */
   private fun revokeVoice(cancelCapture: Boolean = true) {
+    heldMenu = null
     cancelPendingVoiceStart()
     gesture.end(true); publishGesture()
     delivery.newGeneration()
@@ -840,10 +849,14 @@ class AssistantSession private constructor(private val context: Context, private
         it.copy(retainedVoice = effect.result, island = if (it.island == IslandMode.Hidden) IslandMode.Expanded else it.island)
       }
       is VoiceEffect.Send -> {
+        val menu = heldMenu?.takeIf { MenuBuildRequest.matches(effect.text) }
+        heldMenu = null
         // A rejected send (e.g. one already in flight) keeps the complete words instead of losing them.
-        try { send(effect.text, keepVoiceEntry = true) } catch (e: AssistantException) { recoverFailure(editor, e.code, effect.text) }
+        try { send(effect.text, keepVoiceEntry = true, menu = menu) }
+        catch (e: AssistantException) { recoverFailure(editor, e.code, effect.text) }
       }
       is VoiceEffect.Failed -> {
+        heldMenu = null
         // Errors stop recognition, but never silently navigate away from the listening page.
         flow.update { it.copy(error = voiceError(effect.code), voiceFailure = effect.code,
           island = if (it.voiceContinuous) IslandMode.Hidden else if (it.island == IslandMode.Hidden) IslandMode.Expanded else it.island) }
@@ -855,17 +868,23 @@ class AssistantSession private constructor(private val context: Context, private
   // ---- Messages ------------------------------------------------------------------------
 
   /** Sends the current shared draft or hands off a new text request. */
-  fun send(text: String, keepVoiceEntry: Boolean = false) {
+  fun send(text: String, keepVoiceEntry: Boolean = false) = send(text, keepVoiceEntry, null)
+
+  private fun send(text: String, keepVoiceEntry: Boolean, menu: MenuCapture.Review?) {
     val message = text.trim()
     if (text.length > MAX_TEXT || (message.isEmpty() && flow.value.draftAttachmentNames.isEmpty()))
       throw AssistantException("INVALID_TEXT", "Enter a message or select an attachment")
     val now = flow.value
     if (now.sending) throw AssistantException("BUSY", "a message is already being sent")
+    if (menu != null && (now.working || now.needsUser))
+      throw AssistantException("BUSY", "Finish the current turn before submitting a menu")
     if (openingConversation) throw AssistantException("BUSY", "the conversation is opening")
     val current = editor
     val waiting = composer.savedRequest(current.threadId) ?: current.saved?.pending
     if (waiting != null) return checkDelivery(current, waiting)
-    val edit = current.edit?.takeIf { it.text == text }
+    val outgoing = if (menu == null) text else MenuBuildRequest.message(message, menu.scan)
+    if (outgoing.length > MAX_TEXT) throw AssistantException("INVALID_TEXT", "The scanned menu is too long")
+    val edit = current.edit?.takeIf { menu == null && it.text == outgoing }
     val generation = threadCreation.generation
     // Never steer into a turn the home already gave up on (it may still read active until the interrupt lands).
     val steerTurn = now.turn?.takeIf { it.active && !now.abandoned }?.turnId
@@ -887,9 +906,13 @@ class AssistantSession private constructor(private val context: Context, private
             return@withLock
           }
           if (edit != null) saved = writeDraft(current, edit)
-          else if (saved.text != text) {
-            saved = composer.handoff(id, UUID.randomUUID().toString(), text)
+          else if (menu != null || saved.text != outgoing) {
+            saved = composer.handoff(id, UUID.randomUUID().toString(), outgoing)
             current.edit?.baseText = saved.text
+            acceptDraft(current, saved)
+          }
+          if (menu != null) {
+            saved = composer.attachMenuPhoto(saved, menu.photo)
             acceptDraft(current, saved)
           }
           if (editor !== current || flow.value.abandoned) return@withLock
@@ -908,11 +931,11 @@ class AssistantSession private constructor(private val context: Context, private
               composer.forget(request)
               throw failure
             }
-            reconcile(current, request)
+            reconcile(current, request, openInChat = menu != null)
             return@withLock
           }
-          if (receipt.terminal) finishDelivery(current, request, receipt)
-          else reconcile(current, request)
+          if (receipt.terminal) finishDelivery(current, request, receipt, openInChat = menu != null)
+          else reconcile(current, request, openInChat = menu != null)
         }
       } catch (failure: Exception) {
         if (failure is kotlinx.coroutines.CancellationException) throw failure
@@ -922,7 +945,7 @@ class AssistantSession private constructor(private val context: Context, private
     }
   }
 
-  private suspend fun reconcile(current: Editor, request: HomeComposer.Request) {
+  private suspend fun reconcile(current: Editor, request: HomeComposer.Request, openInChat: Boolean = false) {
     var receipt = composer.receipt(request)
     if (receipt.state == "missing") {
       // The gateway never reserved this request. Its ID makes submitting it again idempotent,
@@ -946,12 +969,12 @@ class AssistantSession private constructor(private val context: Context, private
     if (receipt.terminal) {
       val saved = composer.read(request.threadId)
       if (saved.pending?.id == request.id) composer.settle(request)
-      finishDelivery(current, request, receipt, saved.takeUnless { it.pending?.id == request.id })
+      finishDelivery(current, request, receipt, saved.takeUnless { it.pending?.id == request.id }, openInChat)
     } else deliveryError(current, "UNKNOWN_DELIVERY", request.text)
   }
 
   private suspend fun finishDelivery(current: Editor, request: HomeComposer.Request, receipt: HomeComposer.Receipt,
-    snapshot: HomeComposer.Draft? = null) {
+    snapshot: HomeComposer.Draft? = null, openInChat: Boolean = false) {
     val saved = snapshot ?: composer.read(request.threadId)
     if (receipt.state != "notSent" && saved.text.isEmpty() && current.saved?.revision == request.revision)
       current.edit?.baseText = saved.text
@@ -973,6 +996,7 @@ class AssistantSession private constructor(private val context: Context, private
       taskId = receipt.taskId ?: s.taskId, task = if (receipt.taskId != null && s.turn == null) "queued" else s.task) }
     ensureStream(request.threadId)
     ensurePolling(request.threadId)
+    if (openInChat) openConversation()
   }
 
   private fun deliveryError(current: Editor, code: String, text: String?) {

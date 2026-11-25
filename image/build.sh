@@ -72,6 +72,9 @@ PY
     # Double tap on the gesture handle opens the assistant (pinned Launcher3/Quickstep patch).
     python3 /taku/image/apply-launcher-patches.py --source-root /src --results-dir /results
     python3 /taku/image/apply-recents-patches.py --source-root /src --results-dir /results
+    if [ -f /taku/image/aperture/menu-capture.patch ]; then
+        python3 /taku/image/apply-aperture-menu-capture.py --source-root /src
+    fi
     if [ -f /taku/image/apply-display-audio-patch.py ]; then
         python3 /taku/image/apply-display-audio-patch.py --source-root /src --results-dir /results
     fi
@@ -92,6 +95,9 @@ elif [[ "${1:-}" = "--resume" || "${1:-}" = "--verify-only" ]]; then
     # Resume must not silently build an older framework/PermissionController policy.
     integrate_home_policy --verify-only
     python3 /taku/image/apply-recents-patches.py --source-root /src --results-dir /results --verify-only
+    if [ -f /taku/image/aperture/menu-capture.patch ]; then
+        python3 /taku/image/apply-aperture-menu-capture.py --source-root /src --verify-only
+    fi
     if [ -f /taku/image/apply-display-audio-patch.py ]; then
         python3 /taku/image/apply-display-audio-patch.py --source-root /src --results-dir /results --verify-only
     fi

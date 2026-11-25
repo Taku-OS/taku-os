@@ -1,12 +1,15 @@
 package org.agentos.agent.home.assistant
 
 import android.content.Context
+import android.os.Bundle
+import android.os.ParcelFileDescriptor
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
+import java.io.File
 
 internal class HomeComposer(
   context: Context,
@@ -62,6 +65,15 @@ internal class HomeComposer(
       call("composer/handoff", params).draft(threadId)
     }
     return result
+  }
+
+  suspend fun attachMenuPhoto(draft: Draft, file: File): Draft = withContext(worker) {
+    val params = thread(draft.threadId).put("expectedRevision", draft.revision)
+      .put("name", "Scanned menu.jpg").put("mime", "image/jpeg")
+    ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY).use { photo ->
+      val extras = Bundle().apply { putParcelable("attachment", photo) }
+      gateway.call("composer/attach", params, extras).draft(draft.threadId)
+    }
   }
 
   suspend fun restoreTask(draft: Draft, taskId: String): Draft = call("composer/restoreTask",
