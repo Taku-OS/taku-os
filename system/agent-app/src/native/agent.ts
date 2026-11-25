@@ -2,6 +2,10 @@ import {requireOptionalNativeModule} from 'expo';
 import type {SessionCursor} from '../model/sessionStream';
 import type {ImeGeometry} from '../model/sheetGeometry';
 import {record} from '../model/session';
+import {createGatewayLoad, isGatewayRead, retryWhileBusy} from './gatewayLoad';
+
+/** The app's gateway calls in flight; background reads wait on it (see gatewayLoad). */
+export const gatewayLoad = createGatewayLoad();
 
 type AgentNativeModule = {
   call(action: string, params: string): Promise<string>;
@@ -82,7 +86,10 @@ function requireAgentNative(): AgentNativeModule {
 export async function callAgent<T = Record<string, unknown>>(
   action: AgentAction, params: Record<string, unknown> = {},
 ): Promise<T> {
-  return gatewayResult<T>(await requireAgentNative().call(action, JSON.stringify(params)));
+  const native = requireAgentNative();
+  const send = async () => gatewayResult<T>(await gatewayLoad.track(() => native.call(action, JSON.stringify(params))));
+  // A read the gateway had no room for is asked again; anything else reports BUSY to its caller.
+  return isGatewayRead(action) ? retryWhileBusy(send, 4) : send();
 }
 
 function gatewayResult<T>(envelope: string): T {

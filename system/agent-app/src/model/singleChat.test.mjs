@@ -4,7 +4,6 @@ import {
   conversationMode,
   isMainConversation,
   partitionThreads,
-  recentTaskThreads,
   resolveSingleChatStartup,
   shouldClaimPrimaryThread,
 } from './singleChat.ts';
@@ -59,6 +58,14 @@ test('offline startup keeps stored primary thread when thread list is empty', ()
   assert.deepEqual(decision, {targetThreadId: 'main-1', primaryThreadId: 'main-1'});
 });
 
+test('TAKU started afresh stays on its empty conversation after a restart; no Task is promoted', () => {
+  assert.deepEqual(resolveSingleChatStartup({storedPrimaryId: '', legacySelectedId: 'task-1', threads}),
+    {targetThreadId: '', primaryThreadId: ''});
+  // A deep link still opens its Task; TAKU remains without a thread.
+  assert.deepEqual(resolveSingleChatStartup({explicitRouteId: 'task-2', storedPrimaryId: '', threads}),
+    {targetThreadId: 'task-2', primaryThreadId: ''});
+});
+
 test('brand-new user with no threads lands in empty main chat', () => {
   const decision = resolveSingleChatStartup({
     storedPrimaryId: null,
@@ -71,6 +78,15 @@ test('partitionThreads separates main chat from independent task sessions', () =
   const {mainThread, taskThreads} = partitionThreads(threads, 'task-1');
   assert.equal(mainThread?.id, 'task-1');
   assert.deepEqual(taskThreads.map(t => t.id), ['main-1', 'task-2', 'task-3', 'task-4']);
+});
+
+test('while TAKU has no thread of its own, every thread is a Task and none is promoted', () => {
+  assert.deepEqual(partitionThreads(threads, ''), {mainThread: null, taskThreads: threads});
+  assert.deepEqual(partitionThreads(threads, 'gone'), {mainThread: null, taskThreads: threads});
+  assert.deepEqual(partitionThreads([], 'main-1'), {mainThread: null, taskThreads: []});
+  // A Task opened then is still a Task; only the empty conversation is TAKU.
+  assert.equal(isMainConversation('task-1', ''), false);
+  assert.equal(isMainConversation('', ''), true);
 });
 
 test('conversationMode and isMainConversation distinguish main chat and task sessions', () => {
@@ -86,9 +102,4 @@ test('shouldClaimPrimaryThread only claims when no primary exists and not an ind
   assert.equal(shouldClaimPrimaryThread('', true), false);
   assert.equal(shouldClaimPrimaryThread('main-1', false), false);
   assert.equal(shouldClaimPrimaryThread('main-1', true), false);
-});
-
-test('recentTaskThreads caps independent task previews cleanly', () => {
-  assert.deepEqual(recentTaskThreads(threads, 'main-1', 2).map(t => t.id), ['task-1', 'task-2']);
-  assert.deepEqual(recentTaskThreads(threads, 'main-1', 0), []);
 });
