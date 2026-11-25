@@ -1,0 +1,7 @@
+--------- beginning of main
+11-24 16:57:38.709  1472  1531 W TakuAssistant: design skill not selected (attempt 1): PERMISSION_DENIED
+11-24 16:57:39.122  1472  1531 W TakuAssistant: design skill not selected (attempt 2): PERMISSION_DENIED
+11-24 16:57:39.531  1472  1531 W TakuAssistant: design skill not selected (attempt 3): PERMISSION_DENIED
+11-24 16:57:39.940  1472  1531 W TakuAssistant: design skill not selected (attempt 4): PERMISSION_DENIED
+11-24 16:57:40.352  1472  1531 W TakuAssistant: design skill not selected (attempt 5): PERMISSION_DENIED
+11-24 16:57:40.760  1472  1531 W TakuAssistant: design skill not selected (attempt 6): PERMISSION_DENIED

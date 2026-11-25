@@ -1,0 +1,38 @@
+{
+  "testedCommit": "05dc09e7d8ff6fa4e93ab5d757707ded6a8d7df1",
+  "device": "Taku_PR27_Fresh / emulator-5596 / Android 17 ARM64",
+  "apkVersion": "0.5.1 (13)",
+  "apkSha256": "d08408329ba99d8cdf516cfe38d96b383f0c2b89eb9585cdffbdbf6263c72779",
+  "installedApkHashMatched": true,
+  "hostTests": {
+    "passed": 481,
+    "failed": 0,
+    "typecheck": "pass",
+    "lint": "pass"
+  },
+  "deploymentScope": "Agent APK replaced; existing Assistant, Broker and SystemUI retained; no full ROM rebuild",
+  "interactionChecks": {
+    "ceiling light toggle persisted": true,
+    "temperature increment persisted": true,
+    "curtain open persisted": true,
+    "music play toggle persisted": true,
+    "brightness drag increases value": true,
+    "control state survives reopen": true,
+    "two menu selections persisted": true,
+    "menu deselection persisted": true,
+    "number-plus-unit menu shows count only (money required for total)": true,
+    "checklist counter 2/3 persisted": true,
+    "valid money values show correct total": false
+  },
+  "moneyTotal": {
+    "pass": false,
+    "relevantText": [
+      "Chosen 2"
+    ]
+  },
+  "navigation": [
+    "topResumedActivity=ActivityRecord{142930546 u0 org.lineageos.jelly/.MainActivity t120}",
+    "Intent { act=android.intent.action.VIEW dat=https://www.openstreetmap.org/#map=16/40.7812/-73.9665 flg=0x18080000 xflg=0x4 cmp=org.lineageos.jelly/.MainActivity }"
+  ],
+  "cloudBuilderFinalState": "TERMINATED"
+}

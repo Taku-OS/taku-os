@@ -1,0 +1,127 @@
+{
+  "request": {
+    "version": 2,
+    "key": "reply-6ef4bf2eedba6dabd1a30bc8463b92fa",
+    "mode": "panel",
+    "title": "PR49 Menu",
+    "summary": "",
+    "blocks": [
+      {
+        "id": "menu-note",
+        "kind": "text",
+        "title": "",
+        "text": "Fictional menu, no real order.",
+        "value": {
+          "type": "text",
+          "value": null
+        },
+        "image": "",
+        "url": "",
+        "items": [],
+        "config": {}
+      },
+      {
+        "id": "menu-choices",
+        "kind": "choices",
+        "title": "",
+        "text": "",
+        "value": {
+          "type": "text",
+          "value": null
+        },
+        "image": "",
+        "url": "",
+        "items": [
+          {
+            "id": "garden-bowl",
+            "label": "Garden Bowl",
+            "detail": "",
+            "value": {
+              "type": "money",
+              "value": "1200",
+              "currency": "USD",
+              "scale": 2
+            },
+            "image": "",
+            "url": "",
+            "icon": "salad"
+          },
+          {
+            "id": "tomato-soup",
+            "label": "Tomato Soup",
+            "detail": "",
+            "value": {
+              "type": "money",
+              "value": "700",
+              "currency": "USD",
+              "scale": 2
+            },
+            "image": "",
+            "url": "",
+            "icon": "soup"
+          },
+          {
+            "id": "coffee",
+            "label": "Coffee",
+            "detail": "",
+            "value": {
+              "type": "money",
+              "value": "400",
+              "currency": "USD",
+              "scale": 2
+            },
+            "image": "",
+            "url": "",
+            "icon": "coffee"
+          }
+        ],
+        "config": {
+          "multi": true,
+          "emphasis": "hero"
+        }
+      }
+    ],
+    "actions": []
+  },
+  "observedResult": {
+    "pass": false,
+    "relevantText": [
+      "Chosen 2"
+    ]
+  },
+  "ui": {
+    "fields": {},
+    "collections": {
+      "menu-choices": {
+        "selectedItemIds": [
+          "garden-bowl",
+          "coffee"
+        ],
+        "edited": true,
+        "source": {
+          "kind": "choices",
+          "multi": true,
+          "itemTypes": {
+            "garden-bowl": {
+              "type": "money",
+              "currency": "USD",
+              "scale": 2
+            },
+            "tomato-soup": {
+              "type": "money",
+              "currency": "USD",
+              "scale": 2
+            },
+            "coffee": {
+              "type": "money",
+              "currency": "USD",
+              "scale": 2
+            }
+          }
+        },
+        "needsReview": false
+      }
+    },
+    "views": {}
+  }
+}

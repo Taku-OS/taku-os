@@ -1,0 +1,50 @@
+[
+  {
+    "case": "01-new-york",
+    "prompt": "A day in New York"
+  },
+  {
+    "case": "02-living-room",
+    "prompt": "Living room tonight. This is a UI acceptance test with simulated devices only; do not control any real device or perform external actions."
+  },
+  {
+    "case": "03-food",
+    "prompt": "Ordering food. UI acceptance test only: use a fictional menu, do not place or pay for any order."
+  },
+  {
+    "case": "04-flight",
+    "prompt": "UA837"
+  },
+  {
+    "case": "05-agent",
+    "prompt": "Agent overview"
+  },
+  {
+    "case": "06-mom",
+    "prompt": "Reply to Mom. Draft only for a UI acceptance test; do not send a message or contact anyone. Use a fictional example."
+  },
+  {
+    "case": "07-spending",
+    "prompt": "Today's spending. Use fictional expenses only for this UI test; do not access any bank account or make a payment."
+  },
+  {
+    "case": "08-control-explicit",
+    "prompt": "Render a native structured Taku UI primary reply card in mode panel, using the built-in version 2 request blocks. This is a disposable renderer acceptance test with entirely fictional data. Do not build a separate app, call tools, access real devices or services, or ask follow-up questions. Title: PR49 Living Room. Include five kind=input blocks: ceiling light boolean true, config editor toggle and icon lamp-ceiling; brightness number 50 unit %, config editor range, min 0 max 100 step 1 icon lamp-floor; temperature number 24 unit °C, config editor range min 16 max 30 step 1 icon thermometer; curtains boolean true, text Close|Open, config editor toggle icon blinds; music boolean false, config editor toggle icon music. These controls edit only local draft state; omit external apply actions. Show the actual interactive Field components bound to these blocks, not explanatory prose."
+  },
+  {
+    "case": "09-pick-explicit",
+    "prompt": "Render a native structured Taku UI primary reply card in mode panel, using the built-in version 2 request blocks. This is a disposable renderer acceptance test with entirely fictional data. Do not build a separate app, call tools, access real devices or services, or ask follow-up questions. Title: PR49 Lunch Menu. Include a kind=choices block with config multi=true, emphasis=hero. Three fictional items: Garden Bowl $12 with icon salad, Tomato Soup $7 with icon soup, Coffee $4 with icon coffee. Each item value has type number, numeric value, and unit USD. Show selectable native ChoiceGroup items and no checkout or external action. Include a brief read-only line saying fictional menu, no order will be placed."
+  },
+  {
+    "case": "10-plan-explicit",
+    "prompt": "Render a native structured Taku UI primary reply card in mode panel, using the built-in version 2 request blocks. This is a disposable renderer acceptance test with entirely fictional data. Do not build a separate app, call tools, access real devices or services, or ask follow-up questions. Title: PR49 Park Day. Include one kind=timeline block with four items: 09:00 park walk icon trees, 11:00 garden icon flower-2, 13:00 picnic icon leaf, 16:00 riverside icon footprints. Use item label for the stop and detail for time and one short description. Include a separate kind=choices block config multi=true, with Water icon droplets, Hat icon sun, and Camera icon camera so I can check packing items. No real booking or navigation. Render native timeline and selectable packing items rather than a paragraph."
+  },
+  {
+    "case": "14-menu-money",
+    "prompt": "Render a native structured Taku UI primary reply in mode panel using the built-in version 2 request blocks. This is a disposable UI acceptance test with fictional data. Do not build an app, call tools, send messages, place orders, or ask questions. Title: PR49 Menu. One kind=choices block config multi=true and emphasis=hero. Three items: Garden Bowl icon salad with value {type:money,value:1200,currency:USD,scale:2}; Tomato Soup icon soup with value {type:money,value:700,currency:USD,scale:2}; Coffee icon coffee with value {type:money,value:400,currency:USD,scale:2}. Use actual typed money values, not number-plus-unit or text. Show the native interactive ChoiceGroup. Do not add a checkout action. Include a short text: Fictional menu, no real order."
+  },
+  {
+    "case": "15-plan-links",
+    "prompt": "Render a native structured Taku UI primary reply in mode panel using the built-in version 2 request blocks. This is a disposable UI acceptance test with fictional data. Do not build an app, call tools, send messages, place orders, or ask questions. Title: PR49 Day Plan. Include one kind=timeline block with four items. Each item must have a value of type text containing its time, separately from detail: Park walk at 09:00 icon trees; Garden at 11:00 icon flower-2; Picnic at 13:00 icon leaf; Riverside at 16:00 icon footprints. Detail is one short description without repeating the time. Set only the first item url to https://www.openstreetmap.org/#map=16/40.7812/-73.9665 so the renderer can show its link button; do not open the link yourself. The other three have no URL. Show the native Collection timeline, not a prose paragraph."
+  }
+]
