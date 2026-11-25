@@ -114,6 +114,9 @@ data class VoiceState(
   val emptySuccess: Boolean get() = (outcome as? VoiceOutcome.Success)?.text?.isBlank() == true
 
   val ready: Boolean get() = phase == VoicePhase.Capturing
+  val receivingAudio: Boolean get() = ready && levels.isNotEmpty()
+  val startingHold: Boolean get() =
+    phase == VoicePhase.Idle || target == VoiceTarget.Hold && (phase == VoicePhase.Preparing || ready && !receivingAudio)
   val listening: Boolean get() = target != null && phase in ACTIVE
   val final: Boolean get() = phase == VoicePhase.Closed
   val transcript: String get() = (outcome as? VoiceOutcome.Success)?.text ?: preview

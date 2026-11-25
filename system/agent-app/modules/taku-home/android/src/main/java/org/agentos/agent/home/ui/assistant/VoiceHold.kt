@@ -64,7 +64,6 @@ import kotlin.math.roundToInt
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.background
-import org.agentos.agent.home.assistant.VoicePhase
 import org.agentos.agent.home.assistant.VoiceState
 import org.agentos.agent.home.design.TakuSpacing
 import org.agentos.agent.home.design.TakuTheme
@@ -139,11 +138,10 @@ fun BoxScope.VoiceHoldOverlay(
   var pressedZone by remember { mutableStateOf(HoldZone.None) }
   var cancelledVoice by remember { mutableStateOf<VoiceState?>(null) }
   val shownVoice = cancelledVoice ?: voice
-  // "Speak now": the hold's only vibration, the moment the microphone is actually recording,
-  // together with the island's "Taku is listening...".
+  // Match the prompt and vibration to the first measured microphone samples.
   val holdView = androidx.compose.ui.platform.LocalView.current
-  LaunchedEffect(voice.operationId, voice.ready) {
-    if (voice.ready && voice.target == org.agentos.agent.home.assistant.VoiceTarget.Hold)
+  LaunchedEffect(voice.operationId, voice.receivingAudio) {
+    if (voice.receivingAudio && voice.target == org.agentos.agent.home.assistant.VoiceTarget.Hold)
       holdView.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM)
   }
   val shownZone = if (pressedZone != HoldZone.None) pressedZone else zone
@@ -247,7 +245,19 @@ fun BoxScope.VoiceHoldOverlay(
     horizontalAlignment = Alignment.CenterHorizontally,
     verticalArrangement = Arrangement.spacedBy(TakuSpacing.xl),
   ) {
-    VoiceBars(if (shownVoice.ready) shownVoice.levels else emptyList(), flat = shownZone == HoldZone.Cancel)
+    if (!shownVoice.startingHold) {
+      VoiceBars(if (shownVoice.ready) shownVoice.levels else emptyList(), flat = shownZone == HoldZone.Cancel)
+    }
+    if (shownZone == HoldZone.None && !continuous && shownVoice.transcript.isBlank()) {
+      val prompt = when {
+        shownVoice.startingHold -> "Starting microphone…"
+        shownVoice.receivingAudio -> "Speak now"
+        else -> null
+      }
+      if (prompt != null) {
+        BasicText(prompt, style = type.bodyXl.copy(color = colors.textSecondary, textAlign = TextAlign.Center))
+      }
+    }
     if (shownZone == HoldZone.KeepTalking || continuous) {
       BasicText(org.agentos.agent.home.assistant.LiveTalk.DISCLOSURE,
         style = voiceTranscriptStyle("").copy(color = colors.textSecondary, textAlign = TextAlign.Center))

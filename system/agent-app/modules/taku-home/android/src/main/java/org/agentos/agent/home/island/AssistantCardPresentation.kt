@@ -12,8 +12,7 @@ fun assistantCardHeadline(s: AssistantState, v: VoiceState): String = when {
   s.error != null -> errorText(s.error)
   s.needsUser -> "Taku needs your confirmation to continue."
   v.target == VoiceTarget.Hold && v.phase == VoicePhase.Finalizing -> "Taku is finishing that, one moment."
-  // The microphone is not recording yet: say nothing rather than invite words that cannot be heard.
-  s.entry == EntryMode.Voice && v.target == VoiceTarget.Hold && v.phase == VoicePhase.Preparing -> ""
+  s.entry == EntryMode.Voice && v.startingHold -> "Starting microphone…"
   assistantCardListening(s, v) -> "Taku is listening..."
   s.turn?.reply?.isNotBlank() == true && !s.working -> s.turn.reply
   s.turn?.headline != null -> s.turn.headline
