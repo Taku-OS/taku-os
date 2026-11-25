@@ -6,7 +6,20 @@ internal object MenuBuildRequest {
     RegexOption.IGNORE_CASE,
   )
 
-  fun matches(utterance: String) = intent.matches(utterance.trim())
+  // Keep phonetic alternatives inside the complete menu command grammar.
+  private val orderingSpeech = Regex(
+    """help\s+me\s+(?:build|beard)\s+(?:an|in)\s+ordering\s+(?:app|nap)[.!?]*""",
+    RegexOption.IGNORE_CASE,
+  )
+
+  fun resolveSpeech(utterance: String): String? {
+    val text = utterance.trim()
+    return when {
+      intent.matches(text) -> text
+      orderingSpeech.matches(text) -> "Help me build an ordering app"
+      else -> null
+    }
+  }
 
   fun message(utterance: String, scan: MenuScan): String = """
     $utterance

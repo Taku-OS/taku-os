@@ -852,11 +852,13 @@ class AssistantSession private constructor(private val context: Context, private
         it.copy(retainedVoice = effect.result, island = if (it.island == IslandMode.Hidden) IslandMode.Expanded else it.island)
       }
       is VoiceEffect.Send -> {
-        val menu = heldMenu?.takeIf { MenuBuildRequest.matches(effect.text) }
+        val menu = heldMenu
         heldMenu = null
+        val menuRequest = menu?.let { MenuBuildRequest.resolveSpeech(effect.text) }
+        val text = menuRequest ?: effect.text
         // A rejected send (e.g. one already in flight) keeps the complete words instead of losing them.
-        try { send(effect.text, keepVoiceEntry = true, menu = menu) }
-        catch (e: AssistantException) { recoverFailure(editor, e.code, effect.text) }
+        try { send(text, keepVoiceEntry = true, menu = menu.takeIf { menuRequest != null }) }
+        catch (e: AssistantException) { recoverFailure(editor, e.code, text) }
       }
       is VoiceEffect.Failed -> {
         heldMenu = null
