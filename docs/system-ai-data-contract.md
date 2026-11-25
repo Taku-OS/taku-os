@@ -30,6 +30,19 @@ be unavailable; show that state instead of silently selecting a replacement.
 The task service retains the existing Memory binding when migration encounters a
 conflicting `taku-memory-jev` group.
 
+## Agent (acp) providers
+
+A provider with an `acp` object is answered by Magpie running an Agent Client
+Protocol agent, today Google's Antigravity CLI (`agy acp`) for Gemini. Magpie
+runs as root and Settings is shell-writable, so the projection to
+`providers.json` includes such a provider only when `acp` has no keys beyond
+`binary`, `home`, `appDataDir`, `cwd` and `search`, its `binary` is empty or
+inside a system `bin` directory or `/data/local/agentos/acp/bin/`, its
+`home`/`cwd` stay under `/data/local/agentos/magpie/` or `/data/local/agentos/acp/`,
+and it carries no `env`. Taku manages one such provider, `taku-agy`
+(`AgyGemini`, `AgyAcpPolicy`); agy keeps its own Google sign-in in its profile
+and no credential is stored in Settings or `taku-credentials.json`.
+
 ## Known gaps
 
 * The pinned upstream Magpie runtime still writes its private file directly.

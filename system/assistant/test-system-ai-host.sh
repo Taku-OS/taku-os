@@ -28,6 +28,8 @@ compile_jvm "$out/classes" "$cp" \
  system/assistant/tests/magpie-host/android/system/*.java \
  system/assistant/tests/magpie-host/org/agentos/lab/*.java \
  system/assistant/broker/org/agentos/lab/MagpieSettings.java \
+ system/assistant/broker/org/agentos/lab/AgyAcpPolicy.java \
+ system/assistant/tests/org/agentos/lab/AgyAcpPolicyTest.java \
  system/assistant/tests/org/agentos/lab/MagpieMigrationTest.java \
  system/assistant/tests/org/agentos/lab/MagpieProjectionRaceTest.java \
  system/assistant/tests/org/agentos/lab/MagpieSyncTest.java
@@ -35,6 +37,7 @@ compile_jvm "$out/classes" "$cp" \
 "$JDK/bin/java" -cp "$out/classes:$cp:$KOTLIN_LIB/kotlin-stdlib.jar" org.agentos.lab.MagpieProjectionRaceTest
 
 "$JDK/bin/java" -cp "$out/classes:$cp:$KOTLIN_LIB/kotlin-stdlib.jar" org.agentos.lab.MagpieSyncTest
+"$JDK/bin/java" -cp "$out/classes:$cp:$KOTLIN_LIB/kotlin-stdlib.jar" org.agentos.lab.AgyAcpPolicyTest
 
 perm_out="$PWD/out/app-perm-host"
 rm -rf "$perm_out"

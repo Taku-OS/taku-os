@@ -39,7 +39,7 @@ import {
   type AppPermissionsSnapshot,
 } from "../model/appPermissions";
 import { createNativeAppPermissionsRepository } from "../model/appPermissionsRepository";
-import { ChatGptAccount, OpenRouterKeys } from "../settings/AccountSettings";
+import { AgyGeminiAccount, ChatGptAccount, OpenRouterKeys } from "../settings/AccountSettings";
 import { ModelRouting } from "../settings/ModelRouting";
 import { useChatAppearance } from "../chat/chatTheme";
 import { saveChatAppearance } from "../native/chatAppearance";
@@ -395,6 +395,8 @@ function ManagementDetails({ section, palette, accountText, onUpdated, onManagem
     {section === "account" ? <>
       <ChatGptAccount palette={palette} t={accountText} onChanged={onUpdated} />
       {details?.section === "account" && details.value.type ? <Label color={palette.sub} size={14}>Account type · {details.value.type}</Label> : null}
+      <View style={[styles.divider, { backgroundColor: palette.line }]} />
+      <AgyGeminiAccount palette={palette} t={accountText} onChanged={onUpdated} />
       <View style={[styles.divider, { backgroundColor: palette.line }]} />
       <OpenRouterKeys palette={palette} t={accountText} onChanged={onUpdated} />
       <View style={[styles.divider, { backgroundColor: palette.line }]} />

@@ -619,7 +619,7 @@ class TakuAgentModule : Module() {
      * The field is emptied once the gateway accepts it.
      */
     AsyncFunction("submitSecret") { fieldId: String, action: String, params: String, promise: Promise ->
-      if (action != "accounts/saveKey" && action != "manageAssistant") {
+      if (action != "accounts/saveKey" && action != "accounts/agyCode" && action != "manageAssistant") {
         promise.reject("INVALID_ARGUMENT", "Unsupported secret action", null); return@AsyncFunction
       }
       submitCredential(action, params, listOf(fieldId), promise) { SecretFields.bytes(fieldId) }

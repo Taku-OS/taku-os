@@ -52,7 +52,52 @@ internal object AssistantAccounts {
             val ref = if (input.has("ref")) input.getString("ref") else ""
             saveKey(secret(input, "key", extras), id, ref)
         }
+        // Gemini through Magpie's agy provider; see AgyGemini in the broker.
+        "accounts/agyRead" -> { PanelProtocol.exact(input, emptySet()); agy(JSONObject().put("action", "read"), challenge) }
+        "accounts/agyRefresh" -> { PanelProtocol.exact(input, emptySet()); agy(JSONObject().put("action", "refresh"), challenge) }
+        "accounts/agySignIn" -> { PanelProtocol.exact(input, emptySet()); agy(JSONObject().put("action", "signIn"), challenge) }
+        "accounts/agyCancel" -> { PanelProtocol.exact(input, emptySet()); agy(JSONObject().put("action", "signInCancel"), challenge) }
+        "accounts/agyCode" -> {
+            PanelProtocol.exact(input, setOf("code"))
+            val request = JSONObject().put("action", "signInCode").put("code", secret(input, "code", extras))
+            try { agy(request, challenge) } finally { request.remove("code") }
+        }
+        "accounts/agyUse" -> {
+            PanelProtocol.exact(input, setOf("model"))
+            val model = if (input.has("model")) input.getString("model") else ""
+            if (model.isNotEmpty() && !model.matches(Regex("[A-Za-z0-9][A-Za-z0-9._-]{0,127}"))) throw IOException("INVALID_ARGUMENT")
+            agy(JSONObject().put("action", "use").put("model", model), challenge)
+        }
         else -> throw IOException("UNKNOWN_METHOD")
+    }
+
+    /** Known failure codes of the broker's agyGemini op; anything else is reported generically. */
+    private val agyErrors = setOf("AGY_NOT_INSTALLED", "AGY_SIGN_IN_REQUIRED", "AGY_STATUS_CHECKING", "AGY_UNAVAILABLE",
+        "AGY_MODEL_UNAVAILABLE", "MAGPIE_AGY_UNSUPPORTED", "SIGN_IN_NOT_PENDING", "SECRET_EMPTY", "INVALID_CREDENTIAL",
+        "INVALID_ARGUMENT", "SETTINGS_CHANGED")
+
+    /**
+     * The Gemini (agy) view. While a sign-in waits for its code, a caller allowed the [challenge]
+     * also gets Google's sign-in page (accounts.google.com only); others see the phase alone.
+     */
+    private fun agy(request: JSONObject, challenge: Boolean): JSONObject {
+        val view = try { NativeClient.exchange(request.put("op", "agyGemini")) }
+        catch (problem: Exception) {
+            val code = problem.message.orEmpty()
+            throw IOException(agyErrors.firstOrNull { code.contains(it) } ?: when {
+                code.contains("Tasks are still running") -> "TASKS_RUNNING"
+                else -> "AGY_OPERATION_FAILED"
+            })
+        }
+        val signIn = view.optJSONObject("signIn") ?: JSONObject()
+        val url = signIn.optString("url")
+        signIn.put("url", if (challenge && signIn.optString("phase") == "pending" && googleSignIn(url)) url else "")
+        return view.put("signIn", signIn)
+    }
+
+    private fun googleSignIn(url: String): Boolean {
+        val uri = runCatching { Uri.parse(url) }.getOrNull() ?: return false
+        return uri.scheme == "https" && uri.encodedAuthority == "accounts.google.com" && uri.encodedUserInfo == null
     }
 
     /**

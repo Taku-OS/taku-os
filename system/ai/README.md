@@ -15,6 +15,12 @@ See the [System AI data contract](../../docs/system-ai-data-contract.md) for the
 
 At most 32 recent call records retain only source, model, time, duration, status, and fixed error types, without request text, images, or replies. Tap a record for its failure category. Subscription limits reuse the native account usage page. Credentials stay in existing private Magpie / Codex storage.
 
+## Gemini through Magpie (agy)
+
+The main assistant can use Gemini while Codex keeps running every turn: Codex → local Magpie → `agy acp` (Google Antigravity CLI) → Gemini. Taku AI → Accounts and model services → **Gemini (Antigravity)** signs agy in with Google (agy prints Google's page; the code Google shows is entered in a native secure field and written to agy's stdin) and switches the assistant to `taku-agy/<model>`. The broker op is `agyGemini` (`AgyGemini.java`); the projection safety rules for any `acp` provider are in `AgyAcpPolicy.java` and the [data contract](../../docs/system-ai-data-contract.md#agent-acp-providers). Commands are in the `taku-open-access` skill (*Gemini through Magpie (agy)*).
+
+Requirements outside this repository: a Magpie runtime with the agy-acp bridge (the pinned 0.1.2204 answers `unsupported`) and an agy executable at `/system_ext/bin/agy` or `/data/local/agentos/acp/bin/agy`.
+
 ## Reuse from other apps
 
 Include [AiClient.java](client/org/agentos/ai/AiClient.java) as a source dependency in an Android project and declare:
