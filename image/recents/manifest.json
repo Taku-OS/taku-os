@@ -1,7 +1,7 @@
 {
   "schema": "taku.recents-patch/1",
   "upstreamCommit": "818f72b74e6f914cbca2b465776d6d20f960ee87",
-  "patchSha256": "2beaf950ba407edd0ba73a020a371323579e4c03e1aeb88314590dc2cd32c8f0",
+  "patchSha256": "b71365be95d556d7a6aad0039a9bd479704507e7822885fbf645cd5e8180ae0d",
   "files": [
     {
       "path": "quickstep/AndroidManifest.xml",
@@ -31,7 +31,7 @@
     {
       "path": "quickstep/src/com/android/quickstep/TakuRecentsProvider.java",
       "beforeSha256": null,
-      "afterSha256": "14558e3f2ab46c0663e94e9eb2c6eac200a0e7b3aecef891ecd128db9d1ace24"
+      "afterSha256": "3f7235965dcdd83262c5ac4fdc786bb94c6972a9b337de3b508d54d6106d8e83"
     },
     {
       "path": "quickstep/src/com/android/quickstep/fallback/FallbackRecentsStateController.java",
