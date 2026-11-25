@@ -81,12 +81,12 @@ for installed APKs or other build variants.
 ## SystemUI, recent tasks, and assistant capture
 
 `content://com.android.systemui.island` and
-`content://com.android.launcher3.taku.recents` are intentionally exported Agent interfaces.
-They clear Binder identity to use their owning system service, then apply the same validation
-and authoritative state as the GUI. This includes `setEnabled`, `setAllowed`, notification
-summaries/actions and recent-task switching/removal. The package allow-list governs custom
-notification rendering, not authorization to change phone settings. An installed local app
-can change it; `POST_ISLAND` is not a security boundary against that operation.
+`content://com.android.launcher3.taku.recents` are exported for root, system, shell and platform-signed callers.
+Both providers enforce that policy on the original Binder UID before clearing
+identity to use the owning system service. Ordinary apps receive a
+`SecurityException`. This protects Island settings and notification actions as
+well as recent-task enumeration, switching and removal. The Island package
+allow-list and `POST_ISLAND` govern publication and rendering separately.
 
 Use `content call --uri content://com.android.systemui.island --method state` (Bundle `json`),
 `--method setEnabled --arg 0`, `--method setAllowed --arg PACKAGE_A,PACKAGE_B`,
