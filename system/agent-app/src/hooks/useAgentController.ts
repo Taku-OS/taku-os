@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {useLocales} from 'expo-localization';
 import {callAgent, closeAgent, consumePanelLaunch, isPanelLaunchConsumed, launchPanelTarget, launchThreadId, newRequestId, onOpenThread, selectConversation, subscribeSession, watchConversationVisible, AgentGatewayError, type PanelTarget} from '../native/agent';
 import {onComposerAttachment, pickComposerAttachment, type ComposerPickerKind} from '../native/composerPicker';
-import {projectSession, projectThreads, projectWorkspaces, record, string, type Json, type SessionView, type ThreadSummary, type WorkspaceView} from '../model/session';
+import {continuedSessionRoot, projectSession, projectThreads, projectWorkspaces, record, string, type Json, type SessionView, type ThreadSummary, type WorkspaceView} from '../model/session';
 import {isAcceptedReceipt, isNotSentReceipt, pendingKey, preserveAndReleaseUnconfirmed, unconfirmedArchivePrefix, type PendingSubmission} from './submission';
 import {ComposerDraft, isDraftRevisionConflict, parseComposerSnapshot, type ComposerSnapshot, type ComposerSubmission} from './composerDraft';
 import {readCurrent, restoreConversation} from './readLifecycle';
@@ -588,6 +588,14 @@ export function useAgentController() {
     }
     if (!isAcceptedReceipt(pending, receipt)) throw new AgentGatewayError('Unknown delivery', 'UNKNOWN_DELIVERY');
     if (pending.action === 'continue') {
+      const continuation = string(receipt.taskId);
+      if (isCurrent() && continuation && sessionRef.current?.taskFailure && sessionRef.current.taskId !== continuation) {
+        sidebandRef.current = continuedSessionRoot(sidebandRef.current, continuation);
+        taskRef.current = record(sidebandRef.current.task);
+        const next = retainSessionBlocks(projectSession(sessionRootForDisplay(streamRef.current.state, sidebandRef.current)), sessionRef.current);
+        sessionRef.current = next;
+        setSession(next);
+      }
       const launchId = pending.panel!.launchId;
       await consumePanelLaunch(launchId);
       if (panelTarget.current?.launchId === launchId) panelTarget.current = null;
