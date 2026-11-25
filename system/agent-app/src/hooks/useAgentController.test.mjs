@@ -78,6 +78,11 @@ function reset(t) {
       runtime.drafts.set(threadId, next);
       return next;
     }
+    if (action === 'panels' && params.operation === 'get') {
+      const panel = {panelId: params.args.panelId, originThreadId: 'thread-a', matterId: 'thread-a/card', sourceVersion: runtime.panelVersion ?? 3,
+        metadataRevision: 1, title: 'Plan', position: 0};
+      return {panel, sourceState: {state: 'current'}, updateReceipt: runtime.panelUpdate ?? null, capabilities: {canOpen: true, canContinue: true, canUnpin: true}, listRevision: 1};
+    }
     if (action === 'composer/plugin/add' || action === 'composer/plugin/remove') {
       const current = snapshot();
       assert.equal(params.expectedRevision, current.revision);
@@ -453,4 +458,35 @@ test('a message without plugins sends no plugin ids', async t => {
   assert.equal(runtime.calls.length, 1);
   assert.equal('pluginIds' in runtime.calls[0], false);
   assert.deepEqual(host.result.plugins, []);
+});
+
+test('a further edit after an accepted continuation keeps updating the same Panel at its new version', async t => {
+  reset(t);
+  const host = mount(); await flush(host);
+  await send(host, 'Set Count to 2');
+  assert.equal(runtime.calls[0].action, 'continue');
+  assert.equal(runtime.calls[0].expectedSourceVersion, 3);
+  assert.equal(host.result.panelTarget?.panelId, 'panel-a');
+  runtime.panelVersion = 4;
+  await send(host, 'Now set Count to 3');
+  assert.equal(runtime.calls[1].action, 'continue');
+  assert.equal(runtime.calls[1].panelId, 'panel-a');
+  assert.equal(runtime.calls[1].expectedSourceVersion, 4);
+  host.result.onDetachPanel(); await flush(host);
+  await send(host, 'An ordinary message');
+  assert.equal(runtime.calls[2].action, 'sendMessage');
+  assert.equal(host.result.panelTarget, null);
+});
+
+test('a further Panel edit waits for the previous update and refuses while it is still applying', async t => {
+  reset(t);
+  const host = mount(); await flush(host);
+  await send(host, 'Set Count to 2');
+  runtime.panelUpdate = {outcome: 'pending'};
+  const realTimeout = globalThis.setTimeout;
+  globalThis.setTimeout = (fn, _ms, ...rest) => realTimeout(fn, 0, ...rest);
+  t.after(() => { globalThis.setTimeout = realTimeout; });
+  await send(host, 'Now set Count to 3');
+  assert.equal(runtime.calls.length, 1);
+  assert.equal(host.result.draft, 'Now set Count to 3');
 });

@@ -11,6 +11,7 @@ import {useLocales} from 'expo-localization';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import {EdgeBlur} from '../native/EdgeBlur';
+import {GlassRim} from '../chat/ChatSurfaces';
 import {ChromeIcon} from '../chat/ChromeIcon';
 import {GlassMenu, PageHeader, RoundButton} from '../chat/ChatOverlays';
 import {chatBlur, chatColors, chatType, themedStyles, useChatAppearance} from '../chat/chatTheme';
@@ -69,7 +70,8 @@ export function PanelsScreen() {
   const listError = catalog.error ? panelErrorText(catalog.error, language) : '';
   return <View style={styles.root} onLayout={event => setHeight(event.nativeEvent.layout.height)}>
     <EdgeBlur style={StyleSheet.absoluteFill} topSharp={headerBottom + 8} topFull={0}
-      bottomSharp={height > 0 ? height - insets.bottom - 64 : -1} bottomFull={height} sigma={chatBlur.edgeSigma} fade>
+      bottomSharp={height > 0 ? height - insets.bottom - 64 : -1} bottomFull={height} sigma={chatBlur.edgeSigma} fade
+      uniformSigma={lifted ? chatBlur.menuSigma : 0}>
       <FlatList testID="panels-grid" data={items} numColumns={2} keyExtractor={panel => panel.panelId} removeClippedSubviews={false}
         keyboardShouldPersistTaps="handled" columnWrapperStyle={styles.columns}
         contentContainerStyle={[styles.grid, {paddingTop: headerBottom, paddingBottom: insets.bottom + (searching ? 96 : 64)}]}
@@ -96,6 +98,7 @@ export function PanelsScreen() {
       right={searching ? undefined : {icon: 'search', label: t('searchPanels'), onPress: () => setSearching(true), testID: 'panels-search'}}/>
     {searching && <View style={[styles.searchBar, {bottom: Math.max(insets.bottom, imeBottom) + 16}]}>
       <View style={styles.searchField}>
+        <GlassRim radius={24}/>
         <View style={styles.searchGlyph}><ChromeIcon name="searchField" size={18}/></View>
         <TextInput testID="panels-search-input" value={query} onChangeText={setQuery} autoFocus placeholder={t('searchPlaceholder')}
           placeholderTextColor={chatColors.placeholder} accessibilityLabel={t('searchPanels')}

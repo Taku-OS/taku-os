@@ -5,7 +5,9 @@
 import React, {useState, type ReactNode} from 'react';
 import {ActivityIndicator, KeyboardAvoidingView, Modal, Pressable, StyleSheet, Text, TextInput, View, type StyleProp, type ViewStyle} from 'react-native';
 import {ChromeIcon, type ChromeIconName} from './ChromeIcon';
-import {chatColors, chatType, themedStyles} from './chatTheme';
+import {GlassRim} from './ChatSurfaces';
+import {StatusBar} from 'expo-status-bar';
+import {chatColors, chatType, getChatAppearance, themedStyles} from './chatTheme';
 import {chatText} from './chatText';
 import {containsChinese} from '../theme';
 
@@ -16,6 +18,7 @@ export type MenuItem = {key: string; label: string; icon?: ChromeIconName; destr
 /** 182 dp glass card, 8 dp padding, 24 dp corners; 20 dp icon + Body/lg rows, a Surface/200 rule before Delete. */
 export function GlassMenu({items, style, testID}: {items: readonly MenuItem[]; style?: StyleProp<ViewStyle>; testID?: string}) {
   return <View testID={testID} accessibilityRole="menu" style={[styles.menu, style]}>
+    <GlassRim radius={24}/>
     {items.map(item => <React.Fragment key={item.key}>
       {item.dividerBefore && <View style={styles.divider}/>}
       <Pressable testID={`menu-${item.key}`} accessibilityRole="menuitem" accessibilityState={{disabled: !!item.disabled}} disabled={item.disabled}
@@ -31,6 +34,7 @@ export function GlassMenu({items, style, testID}: {items: readonly MenuItem[]; s
 export function RoundButton({icon, label, onPress, size = 40, testID, disabled}: {icon: ChromeIconName; label: string; onPress: () => void; size?: number; testID?: string; disabled?: boolean}) {
   return <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{disabled: !!disabled}} disabled={disabled}
     onPress={onPress} hitSlop={4} style={({pressed}) => [styles.round, {width: size, height: size, borderRadius: size / 2}, pressed && styles.pillPressed, disabled && styles.disabled]}>
+    <GlassRim radius={size / 2}/>
     <ChromeIcon name={icon}/>
   </Pressable>;
 }
@@ -41,6 +45,8 @@ export function PageHeader({top, title, left, right, children}: {
   right?: {icon: ChromeIconName; label: string; onPress: () => void; testID?: string}; children?: ReactNode;
 }) {
   return <View style={[styles.header, {paddingTop: top, height: top + 64}]} pointerEvents="box-none">
+    {/* Every chat-styled page sets its own status bar; the app layout's default is dark (issue #52 item 3). */}
+    <StatusBar style={getChatAppearance() === 'dark' ? 'light' : 'dark'}/>
     <Text accessibilityRole="header" numberOfLines={1} style={[chatType.bodyLg(containsChinese(title)), styles.primary, styles.headerTitle, {top: top + 20}]}>{title}</Text>
     <RoundButton {...left}/>
     {right ? <RoundButton {...right}/> : <View style={styles.headerSpacer}/>}
@@ -59,6 +65,7 @@ export function PillButton({label, variant = 'secondary', icon, busy, disabled, 
   return <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{disabled: !!disabled || !!busy, busy: !!busy}}
     disabled={disabled || busy} onPress={onPress}
     style={({pressed}) => [styles.pill, primary && styles.pillPrimary, pressed && styles.pillPressed, (disabled || busy) && styles.disabled, style]}>
+    {!primary && <GlassRim radius={20}/>}
     {busy ? <ActivityIndicator size="small" color={color}/> : <>
       {icon && <ChromeIcon name={icon} size={20} color={color}/>}
       <Text numberOfLines={1} style={[chatType.bodyLg(containsChinese(label)), {color}]}>{label}</Text>
@@ -73,6 +80,7 @@ export function ChatDialog({title, children, onClose, testID}: {title: string; c
       <Pressable style={StyleSheet.absoluteFill} accessibilityLabel={title} onPress={onClose}/>
       <View testID={testID} accessibilityViewIsModal style={styles.dialog}>
         <View pointerEvents="none" style={styles.dialogGlass}/>
+        <GlassRim radius={40}/>
         <Text accessibilityRole="header" style={[chatType.bodyLgMedium(containsChinese(title)), styles.primary, styles.dialogTitle]}>{title}</Text>
         <View style={styles.dialogBody}>{children}</View>
       </View>
@@ -125,7 +133,7 @@ const styles = themedStyles(() => StyleSheet.create({
   header: {position: 'absolute', left: 0, right: 0, top: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16},
   headerTitle: {position: 'absolute', left: 72, right: 72, textAlign: 'center'},
   headerSpacer: {width: 40, height: 40},
-  menu: {width: 182, padding: 8, gap: 4, borderRadius: 24, backgroundColor: chatColors.menu, overflow: 'hidden'},
+  menu: {width: 182, padding: 8, gap: 4, borderRadius: 24, backgroundColor: chatColors.glass, overflow: 'hidden'},
   menuRow: {flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 8, paddingVertical: 8, borderRadius: 9999},
   divider: {height: 1, backgroundColor: chatColors.fillControl},
   iconSpace: {width: 20, height: 20},

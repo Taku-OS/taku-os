@@ -38,3 +38,12 @@ export function installedStrip<T>(installed: readonly T[], slots = 7): {shown: T
 
 /** A section shows four rows until "See all" opens the rest. */
 export const SECTION_PREVIEW = 4;
+
+/**
+ * A skill as people read it: a registered `skills/<name>/SKILL.md` path shows as its folder name
+ * (issue #52), any other registration as given.
+ */
+export function skillLabel(skill: string): string {
+  const match = /(?:^|\/)([^/]+)\/SKILL\.md$/i.exec(skill.trim());
+  return match ? match[1] : skill.trim();
+}

@@ -5,6 +5,7 @@
 import React, {useEffect, useState} from 'react';
 import {ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
 import {ChromeIcon, type ChromeIconName} from './ChromeIcon';
+import {GlassRim} from './ChatSurfaces';
 import {chatColors, chatMetrics, chatType, themedStyles} from './chatTheme';
 import {chatText} from './chatText';
 import {matchingPlugins} from './pluginMention';
@@ -33,6 +34,7 @@ export function AttachMenu({language, bottom, attachmentLimit, onChoose, onClose
   return <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
     <Pressable testID="attach-menu-scrim" style={StyleSheet.absoluteFill} accessibilityLabel={t('done')} onPress={onClose}/>
     <View testID="attach-menu" accessibilityRole="menu" accessibilityLabel={t('attachMenu')} style={[styles.attachCard, {bottom}]}>
+      <GlassRim radius={24}/>
       {attachRows.map(row => {
         const disabled = row.choice !== 'plugins' && attachmentLimit;
         return <Pressable key={row.choice} testID={`attach-${row.choice}`} accessibilityRole="menuitem" accessibilityState={{disabled}} disabled={disabled}
@@ -72,6 +74,7 @@ export function PluginSuggestions({language, query, bottom, exclude, repository,
   const status = plugins.status === 'loading' ? t('pluginsLoading') : plugins.status === 'error' ? t('pluginsUnavailable')
     : shown.length ? '' : plugins.items.length ? t('noMatchingPlugins') : t('noEnabledPlugins');
   return <View testID="plugin-suggestions" accessibilityLabel={t('pluginSuggestions')} style={[styles.suggestions, {bottom}]}>
+    <GlassRim radius={24}/>
     <View style={styles.menuRow}>
       <Text numberOfLines={1} style={[chatType.bodyMd(language === 'zh'), styles.tertiary, styles.grow]}>{t('pluginSearchHint')}</Text>
     </View>

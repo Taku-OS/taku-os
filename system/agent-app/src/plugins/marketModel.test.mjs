@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {installedStrip, marketSections} from './marketModel.ts';
+import {installedStrip, marketSections, skillLabel} from './marketModel.ts';
 
 const plugin = (id, name, extra = {}) => ({id, name, author: 'A', version: '1', sourceId: 'local', trust: 'local', description: `${name} tools`,
   category: 'Local', tags: [], capabilities: [], permissions: [], installed: false, ...extra});
@@ -32,4 +32,11 @@ test('the installed strip shows seven marks, or six and +N', () => {
   assert.deepEqual(installedStrip([1, 2, 3]), {shown: [1, 2, 3], more: 0});
   assert.deepEqual(installedStrip([1, 2, 3, 4, 5, 6, 7]), {shown: [1, 2, 3, 4, 5, 6, 7], more: 0});
   assert.deepEqual(installedStrip([1, 2, 3, 4, 5, 6, 7, 8, 9]), {shown: [1, 2, 3, 4, 5, 6], more: 3});
+});
+
+test('a registered SKILL.md path reads as its skill folder', () => {
+  assert.equal(skillLabel('skills/example/SKILL.md'), 'example');
+  assert.equal(skillLabel('/data/plugins/x/skills/figma-use/SKILL.md'), 'figma-use');
+  assert.equal(skillLabel('Figma-code-connect'), 'Figma-code-connect');
+  assert.equal(skillLabel('SKILL.md'), 'SKILL.md');
 });

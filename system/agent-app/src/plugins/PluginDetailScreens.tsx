@@ -18,6 +18,7 @@ import {containsChinese} from '../theme';
 import {useTakuFonts} from '../theme/useTakuFonts';
 import {PluginTile, SectionTitle, usePluginActions} from './PluginUi';
 import {usePluginDetails} from './repository';
+import {skillLabel} from './marketModel';
 import type {PluginDetails} from './contracts';
 
 const SKILL_PREVIEW = 10;
@@ -67,7 +68,7 @@ export function PluginDetailScreen() {
         <View style={styles.section}>
           <SectionTitle title={t('skills')} language={language}/>
           {skills.length ? <View style={styles.chips}>
-            {skills.map(skill => <View key={skill} style={styles.chip}><Text style={[chatType.bodyLg(containsChinese(skill)), styles.secondary]}>{skill}</Text></View>)}
+            {skills.map(skill => <View key={skill} style={styles.chip}><Text style={[chatType.bodyLg(containsChinese(skill)), styles.secondary]}>{skillLabel(skill)}</Text></View>)}
             {!allSkills && details.skills.length > SKILL_PREVIEW && <Pressable accessibilityRole="button" accessibilityLabel={t('seeAll')} onPress={() => setAllSkills(true)}
               style={({pressed}) => [styles.chip, pressed && styles.pressed]}>
               <Text style={[chatType.bodyLg(), styles.secondary]}>+{details.skills.length - SKILL_PREVIEW}</Text>
@@ -110,7 +111,7 @@ export function PluginSettingsScreen() {
         </View>
         {!!actions.notice && <Text accessibilityLiveRegion="polite" style={[chatType.bodyMd(language === 'zh'), styles.error]}>{actions.notice}</Text>}
         <ListCard title={t('permissions')} items={details.permissions} empty={t('noPermissions')} language={language}/>
-        <ListCard title={t('skills')} items={details.skills} empty={t('noSkills')} language={language}/>
+        <ListCard title={t('skills')} items={details.skills.map(skillLabel)} empty={t('noSkills')} language={language}/>
       </> : <PageState plugin={plugin} language={language}/>}
     </ScrollView>
     <PageHeader top={insets.top} title={details?.name ?? ''} left={{icon: 'chevron', label: t('back'), onPress: back, testID: 'plugin-settings-back'}}

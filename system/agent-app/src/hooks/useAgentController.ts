@@ -2,6 +2,7 @@ import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {AppState, BackHandler} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {useLocales} from 'expo-localization';
+import {getPanel} from '../panels/client';
 import {callAgent, closeAgent, consumePanelLaunch, isPanelLaunchConsumed, launchPanelTarget, launchThreadId, newRequestId, onOpenThread, selectConversation, subscribeSession, watchConversationVisible, AgentGatewayError, type PanelTarget} from '../native/agent';
 import {onComposerAttachment, pickComposerAttachment, type ComposerPickerKind} from '../native/composerPicker';
 import {projectSession, projectThreads, projectWorkspaces, record, string, type Json, type SessionView, type ThreadSummary, type WorkspaceView} from '../model/session';
@@ -32,6 +33,19 @@ const lookupPending = (pending: ComposerSubmission) => callAgent('composer/recei
   threadId: pending.threadId, requestId: pending.requestId,
   ...(pending.attachmentIds ? {} : {text: pending.text, ...submissionTarget(pending)}),
 });
+
+/**
+ * The Panel's current source version once its last update has settled; an edit bound to an older
+ * version would be refused as stale. Waits up to ~10 s for an update still being applied.
+ */
+async function settledSourceVersion(panelId: string): Promise<number> {
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const detail = await getPanel(panelId);
+    if (detail.updateReceipt?.outcome !== 'pending') return detail.panel.sourceVersion;
+    await new Promise(resolve => setTimeout(resolve, 500));
+  }
+  throw new AgentGatewayError('The last Panel change is still being applied', 'PANEL_UPDATE_PENDING');
+}
 
 export function useAgentController() {
   const [session, setSession] = useState<SessionView | null>(null);
@@ -72,6 +86,10 @@ export function useAgentController() {
   // The chat shows the attached panel (Figma 4-1); the ref stays the source the send path reads.
   const [attachedPanel, setAttachedPanel] = useState<PanelTarget | null>(null);
   const assignPanelTarget = useCallback((target: PanelTarget | null) => { panelTarget.current = target; setAttachedPanel(target); }, []);
+  // Launches this screen has already continued: editing stays on that Panel, each further edit bound
+  // to its current source version, until the user removes the chip or leaves the conversation.
+  const continuedLaunches = useRef(new Set<string>());
+  const [continuedLaunch, setContinuedLaunch] = useState('');
   const draftReady = useRef(false);
   const optimisticRef = useRef<OptimisticSubmission[]>([]);
   sessionRef.current = session;
@@ -137,6 +155,7 @@ export function useAgentController() {
       ATTACHMENT_UNAVAILABLE: ['That attachment is no longer available. Add it again.', '该附件已不可用，请重新添加。'],
       PLUGIN_UNAVAILABLE: ['That plugin is not installed and enabled. Check it in Plugin Market.', '该插件未安装或未启用，请在插件市场中检查。'],
       PLUGIN_LIMIT: ['A message can use up to 4 plugins.', '每条消息最多使用 4 个插件。'],
+      PANEL_UPDATE_PENDING: ['The last Panel change is still being applied. Send again in a moment.', '上一次面板修改仍在应用中，请稍后再发送。'],
       ATTACHMENT_ACCESS_DENIED: ['Taku could not get access to that file. Choose it again.', 'Taku 无法访问该文件，请重新选择。'],
       PICKER_UNAVAILABLE: ['The attachment picker could not open. Please try again.', '无法打开附件选择器，请重试。'],
       PICKER_BUSY: ['An attachment picker is already open.', '附件选择器已经打开。'],
@@ -541,10 +560,23 @@ export function useAgentController() {
     parseComposerSnapshot(await callAgent('composer/removeAttachment', {threadId, expectedRevision: revision, attachmentId}), threadId)), [changeAttachments]);
   // Plugins picked with `@` live in the native draft beside its attachments, so an agent reads
   // and changes the same selection the chip shows.
-  const addPlugin = useCallback((pluginId: string) => changeAttachments(async ({threadId, revision}) =>
-    parseComposerSnapshot(await callAgent('composer/plugin/add', {threadId, expectedRevision: revision, pluginId}), threadId)), [changeAttachments]);
-  const removePlugin = useCallback((pluginId: string) => changeAttachments(async ({threadId, revision}) =>
-    parseComposerSnapshot(await callAgent('composer/plugin/remove', {threadId, expectedRevision: revision, pluginId}), threadId)), [changeAttachments]);
+  // A plugin chip changes while the user types: it goes through the draft's own queue, never the
+  // busy action lock, so the input stays editable and keeps the keyboard (issue #52 item 2).
+  const changePlugins = useCallback(async (operation: (draft: ComposerSnapshot) => Promise<ComposerSnapshot | null>) => {
+    if (!draftReady.current || actionRunning.current) return;
+    const id = selectedRef.current, ticket = generation.current, slot = composer(id);
+    try { await slot.mutate(operation); }
+    catch (problem) {
+      if (isDraftRevisionConflict(problem)) await slot.restore().catch(() => {});
+      if (mounted.current) setError(messageRef.current(problem));
+    } finally {
+      if (mounted.current && generation.current === ticket) { setDraftSnapshot(slot.snapshot); showDraft(slot.text); }
+    }
+  }, [composer, showDraft]);
+  const addPlugin = useCallback((pluginId: string) => changePlugins(async ({threadId, revision}) =>
+    parseComposerSnapshot(await callAgent('composer/plugin/add', {threadId, expectedRevision: revision, pluginId}), threadId)), [changePlugins]);
+  const removePlugin = useCallback((pluginId: string) => changePlugins(async ({threadId, revision}) =>
+    parseComposerSnapshot(await callAgent('composer/plugin/remove', {threadId, expectedRevision: revision, pluginId}), threadId)), [changePlugins]);
 
   const create = useCallback(async (move?: {revision: string; requestId: string}) => {
     const result = await callAgent('createThread');
@@ -602,7 +634,8 @@ export function useAgentController() {
     if (pending.action === 'continue') {
       const launchId = pending.panel!.launchId;
       await consumePanelLaunch(launchId);
-      if (panelTarget.current?.launchId === launchId) assignPanelTarget(null);
+      continuedLaunches.current.add(launchId);
+      setContinuedLaunch(launchId);
     }
     updateOptimistic(requests => requests.map(request => request.requestId === pending.requestId
       ? reconcileOptimisticSubmission(acceptOptimisticReceipt(request, receipt), sessionRef.current) : request));
@@ -619,7 +652,7 @@ export function useAgentController() {
     }
     setRefreshRevision(v => v + 1);
     void loadThreads().catch(() => {});
-  }, [assignPanelTarget, composer, loadThreads, showDraft, updateOptimistic]);
+  }, [composer, loadThreads, showDraft, updateOptimistic]);
 
   const submit = useCallback(async (text: string) => {
     if (launchFailure.current) throw launchFailure.current;
@@ -637,7 +670,8 @@ export function useAgentController() {
     if (!existingPending && optimisticRef.current.some(request => request.threadId === id && !request.userBlockId
       && !request.nonDeliverable && !['failed', 'stopped'].includes(request.state)))
       throw new AgentGatewayError('Previous message is awaiting its native record', 'QUEUED');
-    if (panelTarget.current && isPanelLaunchConsumed(panelTarget.current.launchId)) assignPanelTarget(null);
+    if (panelTarget.current && isPanelLaunchConsumed(panelTarget.current.launchId) && !continuedLaunches.current.has(panelTarget.current.launchId))
+      assignPanelTarget(null);
     const target = panelTarget.current;
     const continuing = !!target && !!id && target.originThreadId === id && !existingPending;
     let pending: ComposerSubmission = existingPending || {threadId: id, text, requestId: newRequestId(),
@@ -667,6 +701,9 @@ export function useAgentController() {
         pending.draftRevision = sentDraft.revision;
         pending.attachmentIds = sentDraft.attachments.map(item => item.id);
         pending.pluginIds = sentDraft.plugins.map(item => item.id);
+        // A further edit of a Panel this screen already updated binds to the Panel's current version.
+        if (pending.panel && continuedLaunches.current.has(pending.panel.launchId))
+          pending.panel = {...pending.panel, expectedSourceVersion: await settledSourceVersion(pending.panel.panelId)};
       }
       const existing = await AsyncStorage.getItem(pendingKey(id));
       if (existing) {
@@ -796,7 +833,8 @@ export function useAgentController() {
     onPickAttachment: pickAttachment,
     onRemoveAttachment: removeAttachment,
     /** The panel the next send edits (Edit with Taku), when it belongs to the open conversation. */
-    panelTarget: attachedPanel && attachedPanel.originThreadId === selected && !isPanelLaunchConsumed(attachedPanel.launchId) ? attachedPanel : null,
+    panelTarget: attachedPanel && attachedPanel.originThreadId === selected
+      && (continuedLaunch === attachedPanel.launchId || !isPanelLaunchConsumed(attachedPanel.launchId)) ? attachedPanel : null,
     /** Removing the panel chip: the launch is spent, so later sends are ordinary messages. */
     onDetachPanel: () => {
       const target = panelTarget.current;

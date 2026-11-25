@@ -6,6 +6,7 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {Animated, BackHandler, Easing, FlatList, Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View} from 'react-native';
 import {EdgeBlur} from '../native/EdgeBlur';
+import {GlassRim} from './ChatSurfaces';
 import {ChromeIcon, type ChromeIconName} from './ChromeIcon';
 import {RoundButton} from './ChatOverlays';
 import {chatBlur, chatColors, chatMetrics, chatType, themedStyles} from './chatTheme';
@@ -82,6 +83,7 @@ export function ChatSidebar({language, threads, threadId, historyError = '', ins
     </View>}
     {searching ? <View style={[styles.searchBar, {bottom: imeBottom + 16}]}>
       <View style={styles.searchField}>
+        <GlassRim radius={24}/>
         <View style={styles.searchGlyph}><ChromeIcon name="searchField" size={18}/></View>
         <TextInput testID="sidebar-search-input" value={query} onChangeText={setQuery} autoFocus placeholder={t('searchPlaceholder')}
           placeholderTextColor={chatColors.placeholder} accessibilityLabel={t('searchChats')} returnKeyType="search"

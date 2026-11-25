@@ -9,6 +9,7 @@ import {useRouter} from 'expo-router';
 import {useLocales} from 'expo-localization';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {EdgeBlur} from '../native/EdgeBlur';
+import {GlassRim} from '../chat/ChatSurfaces';
 import {ChromeIcon} from '../chat/ChromeIcon';
 import {GlassMenu, PageHeader, RoundButton} from '../chat/ChatOverlays';
 import {chatBlur, chatColors, chatType, themedStyles, useChatAppearance} from '../chat/chatTheme';
@@ -65,7 +66,8 @@ export function PluginsScreen() {
   const menuBelow = menu ? menu.y - 6 + MENU_HEIGHT <= screenHeight - insets.bottom - 16 : true;
   return <View style={styles.root} onLayout={event => setHeight(event.nativeEvent.layout.height)}>
     <EdgeBlur style={StyleSheet.absoluteFill} topSharp={headerBottom + 8} topFull={0}
-      bottomSharp={height > 0 ? height - insets.bottom - 48 : -1} bottomFull={height} sigma={chatBlur.edgeSigma} fade>
+      bottomSharp={height > 0 ? height - insets.bottom - 48 : -1} bottomFull={height} sigma={chatBlur.edgeSigma} fade
+      uniformSigma={menu ? chatBlur.menuSigma : 0}>
       <ScrollView testID="plugins-overview" keyboardShouldPersistTaps="handled"
         contentContainerStyle={[styles.content, {paddingTop: headerBottom + 8, paddingBottom: insets.bottom + (searching ? 96 : 48)}]}>
         {!searching && list.installed.length > 0 && <View style={styles.section}>
@@ -103,6 +105,7 @@ export function PluginsScreen() {
       right={searching ? undefined : {icon: 'search', label: t('searchPlugins'), onPress: () => setSearching(true), testID: 'plugins-search'}}/>
     {searching && <View style={[styles.searchBar, {bottom: Math.max(insets.bottom, imeBottom) + 16}]}>
       <View style={styles.searchField}>
+        <GlassRim radius={24}/>
         <View style={styles.searchGlyph}><ChromeIcon name="searchField" size={18}/></View>
         <TextInput testID="plugins-search-input" value={query} onChangeText={setQuery} autoFocus placeholder={t('searchPlaceholder')}
           placeholderTextColor={chatColors.placeholder} accessibilityLabel={t('searchPlugins')}

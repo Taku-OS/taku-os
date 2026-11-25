@@ -8,7 +8,7 @@ import {StatusBar} from 'expo-status-bar';
 import Svg, {Defs, LinearGradient, Rect, Stop} from 'react-native-svg';
 import {VoiceEffect} from '../native/VoiceEffect';
 import {VoiceIcon} from '../chat/VoiceIcon';
-import {AssistantBubble, ComposerGlassRim} from '../chat/ChatSurfaces';
+import {AssistantBubble, ComposerGlassRim, GlassRim} from '../chat/ChatSurfaces';
 import {useLiveTalk} from '../chat/useLiveTalk';
 import {liveLightStyle, shouldShowLiveLight} from '../chat/liveGlow';
 import * as Haptics from 'expo-haptics';
@@ -407,14 +407,19 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
   const live = useLiveTalk(props.draftSessionId, props.loading, props.onSelectThread);
   const pendingSubmission = props.pendingSubmission?.threadId === props.draftSessionId ? props.pendingSubmission : null;
   const viewKey = `${props.conversationKey ?? sessionId}/chat`;
+  // Entering Panel editing follows the latest turn, so Taku's question and its suggestions show above
+  // the composer even in a conversation whose reading position was restored (issue #52 item 5).
+  const panelLaunch = props.panelTarget?.launchId ?? '';
   useEffect(() => {
+    if (panelLaunch) positions.current[viewKey] = {y: 0, follow: true};
     const position = positions.current[viewKey];
     reading.current = position ? !position.follow : false;
     restoreY.current = position && !position.follow ? position.y : null;
     if (position && !position.follow) requestAnimationFrame(() => {
       if (restoreY.current === position.y && reading.current) scroll.current?.scrollToOffset({offset: position.y, animated: false});
     });
-  }, [viewKey]);
+    if (panelLaunch) requestAnimationFrame(() => { if (!reading.current) scroll.current?.scrollToEnd({animated: false}); });
+  }, [viewKey, panelLaunch]);
   const workspaces = useMemo(() => props.workspaces.filter(w => w.threadId === sessionId), [props.workspaces, sessionId]);
   const blocks = props.session?.blocks || [];
   const visibleBlocks = useMemo(() => {
@@ -539,6 +544,8 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
       placeCaret(next.text, next.caret);
     }
     props.onAddPlugin(pluginId);
+    // Picking keeps the user writing: the composer stays focused with its keyboard (issue #52 item 2).
+    input.current?.focus();
   };
   const chooseAttachment = (choice: AttachChoice) => {
     setAttachMenu(null);
@@ -716,9 +723,9 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
     <View style={[styles.header, {top: insets.top}]} pointerEvents="box-none">
       <Text accessibilityRole="header" numberOfLines={1} style={[chatType.bodyLg(), styles.title]}>{chatTitle}</Text>
       <Pressable testID="open-history" accessibilityRole="button" accessibilityLabel={ct('openMenu')} onPress={openSidebar} hitSlop={4}
-        style={({pressed}) => [styles.headerButton, pressed && styles.headerButtonPressed]}><ChromeIcon name="burger"/></Pressable>
+        style={({pressed}) => [styles.headerButton, pressed && styles.headerButtonPressed]}><GlassRim radius={20}/><ChromeIcon name="burger"/></Pressable>
       <Pressable testID="collapse-chat" accessibilityRole="button" accessibilityLabel={ct('collapseToIsland')} onPress={collapseChat} hitSlop={4}
-        style={({pressed}) => [styles.headerButton, pressed && styles.headerButtonPressed]}><ChromeIcon name="collapse"/></Pressable>
+        style={({pressed}) => [styles.headerButton, pressed && styles.headerButtonPressed]}><GlassRim radius={20}/><ChromeIcon name="collapse"/></Pressable>
     </View>
     {!!error && <View style={[styles.error, styles.errorBar, {top: headerBottom}]}><Label role="meta" style={styles.errorText}>{error}</Label><IconButton name="refresh" label={t('retry')} color={chatColors.icon} onPress={props.onRefresh}/></View>}
     {voice ? <View style={[styles.livePanel, {bottom: composerBottom}]} onLayout={event => setComposerBox(event.nativeEvent.layout.height)}>
@@ -761,8 +768,11 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
         onRemove={props.onDetachPanel}/>}
       <View style={composerExpanded ? styles.composerEntry : [styles.composerRow, {alignItems: multilineComposer && !dictating ? 'flex-end' : 'center'}]}>
         {!composerExpanded && !dictating && plusButton}
-        {composerExpanded && props.plugins.map(plugin => <PluginChip key={plugin.id} plugin={plugin} language={language} disabled={props.busy || props.loading}
-          onRemove={() => props.onRemovePlugin(plugin.id)}/>)}
+        {/* Chips get their own row; the text then uses the composer's full width below them (issue #52 item 4). */}
+        {composerExpanded && props.plugins.length > 0 && <View style={styles.chipRow}>
+          {props.plugins.map(plugin => <PluginChip key={plugin.id} plugin={plugin} language={language} disabled={props.busy || props.loading}
+            onRemove={() => props.onRemovePlugin(plugin.id)}/>)}
+        </View>}
         {dictating ? <DictationBar transcript={dictation.transcript} placeholder={ct('listening')} levels={dictation.levels}
           finishing={dictation.phase === 'finishing'} stopLabel={ct('stopVoice')} onStop={dictation.stop}/> : messageInput}
         {!composerExpanded && !dictating && trailingActions}
@@ -873,9 +883,10 @@ const styles = themedStyles(() => StyleSheet.create({
   composerMultiline: {borderRadius: 24},
   // Figma 1-2 / 1-3 (1482:1184, 1482:1241): 32 dp corners, 12 dp padding, entry row over a 40 dp action row.
   composerExpanded: {flexDirection: 'column', alignItems: 'stretch', borderRadius: 32, gap: 12},
-  composerEntry: {flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 8, minHeight: 40},
+  composerEntry: {flexDirection: 'column', alignItems: 'stretch', gap: 8, minHeight: 40},
+  chipRow: {flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8},
   composerRow: {flex: 1, flexDirection: 'row', alignSelf: 'stretch', minWidth: 0},
-  inputExpanded: {flexGrow: 1, flexBasis: 96},
+  inputExpanded: {flex: 0, alignSelf: 'stretch'},
   composerActions: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 40},
   composerTrailing: {flexDirection: 'row', alignItems: 'center'},
   // Figma 1-3 send: Main/Brand circle with the white arrow.
