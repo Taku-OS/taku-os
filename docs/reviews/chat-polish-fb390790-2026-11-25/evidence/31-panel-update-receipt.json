@@ -1,0 +1,47 @@
+{
+  "panel": {
+    "panelId": "5efb4157-864a-44d8-bf13-d04ad3a5fbc5",
+    "originThreadId": "01a20fc3-4e2f-7733-8096-ec9743383f33",
+    "matterId": "01a20fc3-4e2f-7733-8096-ec9743383f33/reply-74323335574c91e4837ebb0091e729be",
+    "sourceVersion": 1,
+    "metadataRevision": 1,
+    "title": "Chat Polish QA Renamed",
+    "position": 6,
+    "createdAt": 1795560808348,
+    "updatedAt": 1795561164391
+  },
+  "sourceState": {
+    "state": "current",
+    "observedAt": 1795561164387
+  },
+  "updateReceipt": {
+    "requestId": "bc5fdd28-7509-4483-9e40-8209fca52d67",
+    "panelId": "5efb4157-864a-44d8-bf13-d04ad3a5fbc5",
+    "taskId": "1795561155559",
+    "originThreadId": "01a20fc3-4e2f-7733-8096-ec9743383f33",
+    "matterId": "01a20fc3-4e2f-7733-8096-ec9743383f33/reply-100f644f77c1882952b172cf3cb71c75",
+    "sourceVersion": 0,
+    "turnId": "01a20fc8-f97c-7743-a18c-9e73f3d022f4",
+    "outcome": "published",
+    "candidates": [
+      {
+        "replyId": "reply-74323335574c91e4837ebb0091e729be",
+        "key": "reply-74323335574c91e4837ebb0091e729be",
+        "revision": 5,
+        "contractHash": "87457458d219f4f992e9b8e872f513985da08bfcceaaf243286f4b09d8c034b5",
+        "anchorOrdinal": 0
+      }
+    ],
+    "publishedMatterId": "01a20fc3-4e2f-7733-8096-ec9743383f33/reply-74323335574c91e4837ebb0091e729be",
+    "publishedSourceVersion": 1,
+    "settled": true,
+    "createdAt": 1795561155252,
+    "updatedAt": 1795561164391
+  },
+  "capabilities": {
+    "canOpen": true,
+    "canContinue": true,
+    "canUnpin": true
+  },
+  "listRevision": 27
+}

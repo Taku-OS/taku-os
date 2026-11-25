@@ -1,0 +1,14 @@
+{
+  "threadId": "01a20fc3-4e2f-7733-8096-ec9743383f33",
+  "revision": "34230c2c-496a-41e9-a947-92b9874193a4",
+  "text": "",
+  "attachments": [],
+  "plugins": [
+    {
+      "id": "org.example.provider",
+      "name": "Local provider example"
+    }
+  ],
+  "recovery": [],
+  "pendingReceipts": []
+}

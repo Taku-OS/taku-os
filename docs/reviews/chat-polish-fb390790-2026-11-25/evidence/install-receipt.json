@@ -1,0 +1,19 @@
+{
+  "commit": "fb39079009d5c68d041c2043ae5cbf328b462f66",
+  "serial": "emulator-5596",
+  "avd": "Taku_PR27_Fresh",
+  "backupSha256": {
+    "AgentOSAssistant.apk": "7c494ec3751ded785247c8c35ba2e6ba762c4f7b2b3073fe8e25e5406d982974",
+    "TakuAgent.apk": "d08408329ba99d8cdf516cfe38d96b383f0c2b89eb9585cdffbdbf6263c72779",
+    "task-broker.jar": "db89951ffd38b12cbfbd6fe8bd35af7850f532adcf42ccf1c1fb03cf9171dce1"
+  },
+  "installedSha256": {
+    "AgentOSAssistant.apk": "f30e050807217f96c235921da7adb2da4b3db69bbd031e1b5e76ce83c6c1966d",
+    "TakuAgent.apk": "e10b8e935b91087ab65cddfbdc0350db61f698721edd1c1558cb40dbe42b5f99",
+    "task-broker.jar": "608c9729df6b21f180ea8e3aef664c7b991d90a3e8d333babd5c7bce082bf4ea"
+  },
+  "passed": true,
+  "brokerPid": "9689",
+  "brokerDeployment": "bind mount in init and broker mount namespace; valid until reboot",
+  "adbModeRestored": true
+}

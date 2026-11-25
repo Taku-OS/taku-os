@@ -1,0 +1,146 @@
+{
+  "commit": "fb39079009d5c68d041c2043ae5cbf328b462f66",
+  "branch": "vela/chat-polish",
+  "date": "2026-11-25",
+  "device": {
+    "avd": "Taku_PR27_Fresh",
+    "serial": "emulator-5596",
+    "android": "17",
+    "abi": "arm64-v8a",
+    "resolution": "1080x2424",
+    "density": 420,
+    "ime": "Taku"
+  },
+  "build": {
+    "host": "cloud x86_64",
+    "target": "ARM64",
+    "modules": [
+      "TakuAgent.apk",
+      "AgentOSAssistant.apk",
+      "task-broker.jar"
+    ],
+    "builderStopped": true,
+    "systemUiRebuilt": false
+  },
+  "tests": {
+    "javascript": {
+      "passed": 489,
+      "failed": 0
+    },
+    "typecheck": "passed",
+    "lint": "passed"
+  },
+  "cleanup": {
+    "originalFivePanelsUnchanged": true,
+    "temporaryPanelDeletedViaUI": true,
+    "temporaryPluginRemoved": true,
+    "themeRestored": "dark"
+  },
+  "images": {
+    "header-new-chat.png": {
+      "sha256": "408407803c3564e966543579e45f79a1e499823afc57323f74d7e23d3308e8c0",
+      "source": "adb exec-out screencap -p",
+      "edited": false
+    },
+    "attachment-menu.png": {
+      "sha256": "df76b4dfcfd311398c4fb52de128136ded6454234627a65e1c63e60f18e85f04",
+      "source": "adb exec-out screencap -p",
+      "edited": false
+    },
+    "plugin-picker-keyboard-visible.png": {
+      "sha256": "7d2356abef3ece3e1ee72dc0e132e0c58042ada84e9b77bf84fbebd968373b0b",
+      "source": "adb exec-out screencap -p",
+      "edited": false
+    },
+    "plugin-selected-keyboard-hidden.png": {
+      "sha256": "78a310f03595eadb05324cb6186aeda46570e10200053be3c549fb5d609c25ff",
+      "source": "adb exec-out screencap -p",
+      "edited": false
+    },
+    "plugins-dark-statusbar.png": {
+      "sha256": "c0b108eb02276a7275a98b162061e1c87de0e6f041ed10a01f5bbd8a1f804532",
+      "source": "adb exec-out screencap -p",
+      "edited": false
+    },
+    "plugin-detail.png": {
+      "sha256": "ba4f0de13356dcfba4fa3ca8a045d59f05e85ea5be7cb4006ac5ae4425f65274",
+      "source": "adb exec-out screencap -p",
+      "edited": false
+    },
+    "plugin-settings.png": {
+      "sha256": "87953509d14351818730d240b346a303be1f07bb224cc714333ca59c51e6765e",
+      "source": "adb exec-out screencap -p",
+      "edited": false
+    },
+    "plugin-narrow-message-column.png": {
+      "sha256": "fb93eadc58df482eb43855132495e4499007b1eb0e82f21d1aed9e5b78ce8433",
+      "source": "adb exec-out screencap -p",
+      "edited": false
+    },
+    "plugin-message-submitted.png": {
+      "sha256": "ee4dea8c0bb6d510099d45e972228eb45eaf8c4afd02f47a98b712663c1eb1aa",
+      "source": "adb exec-out screencap -p",
+      "edited": false
+    },
+    "sidebar-search.png": {
+      "sha256": "7893487a28ec336b03f561aea9b1b2a5b589fd023ca2a8d65d2d3a98aa14f1c2",
+      "source": "adb exec-out screencap -p",
+      "edited": false
+    },
+    "panels-grid.png": {
+      "sha256": "74833da422c4b53f27fdaa7df29446d017009b6626a0389f663b1b0d52818622",
+      "source": "adb exec-out screencap -p",
+      "edited": false
+    },
+    "panel-edit-prompt-offscreen.png": {
+      "sha256": "0f9780cbfa98b60ab76973be5dcb1d0f7fcc99b0ea486fb2adb97ec085ae0cd7",
+      "source": "adb exec-out screencap -p",
+      "edited": false
+    },
+    "panel-edit-prompt-scrolled.png": {
+      "sha256": "36cf4f9b685e80560ab5db5d995d648997738ae7cdab9dbd04940e125a795a0c",
+      "source": "adb exec-out screencap -p",
+      "edited": false
+    },
+    "panel-edit-prompt-keyboard.png": {
+      "sha256": "16b00ecabf4b739f75bb67009363512271cd8df288106b52fc459fa0aa00f6b2",
+      "source": "adb exec-out screencap -p",
+      "edited": false
+    },
+    "panel-renamed.png": {
+      "sha256": "d47c6c4f1d4155f9333d59d1e51bd54419d969988e6734a9322cb9e2179c62fb",
+      "source": "adb exec-out screencap -p",
+      "edited": false
+    },
+    "fresh-panel-edit.png": {
+      "sha256": "39cf892ae572de9a6f8587bc45f9bfb4b7e551bb90cf913b3b40d599c4aa88ab",
+      "source": "adb exec-out screencap -p",
+      "edited": false
+    },
+    "second-edit-chat-count-three.png": {
+      "sha256": "4aa9e1f32e532e4a78cfd9bd218da9798f824737db60a6f210117e2457443ded",
+      "source": "adb exec-out screencap -p",
+      "edited": false
+    },
+    "saved-panel-count-two.png": {
+      "sha256": "f62a0a3341761e34d324ce5c6236d36b5e4c9d3c3b6a410aa77d1852474b4530",
+      "source": "adb exec-out screencap -p",
+      "edited": false
+    },
+    "panel-delete-confirm.png": {
+      "sha256": "a20932f357a8e9a3087b366f0cca040e748f2927e3376616afd7857a9f537b6c",
+      "source": "adb exec-out screencap -p",
+      "edited": false
+    },
+    "external-open-draft-restore-warning.png": {
+      "sha256": "4345f41ad47a591a8cc348ba97214237e6e5f12db8d49eee7a56ecda05f1c2ca",
+      "source": "adb exec-out screencap -p",
+      "edited": false
+    },
+    "chat-light-theme.png": {
+      "sha256": "7b7c1b680f51cb5b2f1824a80a0d83b3efe950f9b5b361534388e03daa95ff4a",
+      "source": "adb exec-out screencap -p",
+      "edited": false
+    }
+  }
+}

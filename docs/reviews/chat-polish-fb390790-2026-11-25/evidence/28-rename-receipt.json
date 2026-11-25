@@ -1,0 +1,24 @@
+{
+  "panel": {
+    "panelId": "5efb4157-864a-44d8-bf13-d04ad3a5fbc5",
+    "originThreadId": "01a20fc3-4e2f-7733-8096-ec9743383f33",
+    "matterId": "01a20fc3-4e2f-7733-8096-ec9743383f33/reply-100f644f77c1882952b172cf3cb71c75",
+    "sourceVersion": 0,
+    "metadataRevision": 1,
+    "title": "Chat Polish QA Renamed",
+    "position": 6,
+    "createdAt": 1795560808348,
+    "updatedAt": 1795561103104
+  },
+  "sourceState": {
+    "state": "current",
+    "observedAt": 1795560801180
+  },
+  "updateReceipt": null,
+  "capabilities": {
+    "canOpen": true,
+    "canContinue": true,
+    "canUnpin": true
+  },
+  "listRevision": 26
+}
