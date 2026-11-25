@@ -214,7 +214,7 @@ Offline or unavailable sources may display the last native-retained trusted snap
 
 **Continue editing** opens the original conversation with the Panel's title and a link back to its page. Each new send uses the current Panel source version and the usual composer and submission receipts. Agent callers can use `panels/continue` with the current source version from `panels/get`. Opening another chat or explicitly opening the original conversation from history exits Panel editing.
 
-The bottom assistant entry on a Panel page displays the Panel's name. Double-tap to type or hold to speak. Both submit to the original conversation as Panel updates.
+On a Panel page, double-tap the bottom assistant entry to type or hold it to speak. Both submit to the original conversation as Panel updates.
 
 Archiving the original conversation does not invalidate a pinned panel. Pin ownership protects required native sources and trusted snapshots. After permanent conversation deletion, retained panels show the last trusted content and an unavailable-conversation state; continued editing returns `SOURCE_THREAD_NOT_FOUND`. Never silently create another conversation or switch panels.
 

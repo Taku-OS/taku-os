@@ -62,8 +62,8 @@ import androidx.compose.foundation.background
 
 /**
  * The bottom edge and assistant entry (0-0 / 0-1): progressive blur + #E3E3E3 fade over
- * the scene, the refractive glass sphere rising 40 dp when touched with the prismatic glow
- * and "Double tap to type or hold to talk", plus the page dots.
+ * the scene, a refractive glass sphere and the page dots. The sphere rises 40 dp when touched.
+ * Home and Feed can show the gesture hint on tap.
  *
  * Geometry (dp, from the 412×917 frames): the 158 dp fade frame starts 118 dp above the
  * bottom (158 when expanded); the sphere ellipse is centred 126.5 dp below the frame top,
@@ -73,10 +73,8 @@ import androidx.compose.foundation.background
 internal fun BoxScope.AssistantEntry(scene: GraphicsLayer, controller: HomeController, pageCount: Int, page: Int, navInset: Dp, gestures: HomeGesturePolicy, settled: Boolean) {
   val density = LocalDensity.current
   val haptics = LocalHapticFeedback.current
-  val type = TakuTheme.type
   val panelId = controller.selectedPanelId
-  val panelTitle = panelId?.let(controller::panelTitle)?.takeIf(String::isNotBlank)
-  val assistantName = panelTitle ?: "Taku"
+  val assistantName = panelId?.let(controller::panelTitle)?.takeIf(String::isNotBlank) ?: "Taku"
   val hint = "Double tap to type or hold to talk"
   val entryState by controller.assistant.state.collectAsStateWithLifecycle()
   val expanded = entryState.hintExpanded
@@ -119,7 +117,7 @@ internal fun BoxScope.AssistantEntry(scene: GraphicsLayer, controller: HomeContr
     drawLayer(region)
   }
 
-  // Touch target: the visible part of the sphere. Tap shows the hint, double tap types (1-2),
+  // Touch target: the visible part of the sphere. Tap raises it, double tap types (1-2),
   // press and hold talks (1-1); while held, the finger is tracked over the Cancel / Keep talking arcs.
   var origin by remember { mutableStateOf(Offset.Zero) }
   Box(
@@ -205,24 +203,19 @@ internal fun BoxScope.AssistantEntry(scene: GraphicsLayer, controller: HomeContr
       },
   )
 
-  BasicText(
-    if (panelTitle == null || expanded) hint else panelTitle,
-    style = type.bodyMd.copy(color = TakuTheme.colors.textPlaceholder, shadow = Shadow(TakuTheme.colors.textGlow, Offset(0f, with(density) { 2.dp.toPx() }), with(density) { 4.dp.toPx() })),
-    maxLines = 1,
-    overflow = TextOverflow.Ellipsis,
-    modifier = Modifier
-      .align(Alignment.BottomCenter)
-      .offset(y = -(158.dp - 80.dp - 20.dp))
-      .graphicsLayer { alpha = if (panelTitle == null) e else 1f; translationY = (1f - e) * 12.dp.toPx() }
-      .padding(horizontal = TakuSpacing.gutter)
-  )
-  if (panelTitle != null && expanded) BasicText(
-    panelTitle,
-    style = type.bodyMd.copy(color = TakuTheme.colors.textPrimary),
-    maxLines = 1,
-    overflow = TextOverflow.Ellipsis,
-    modifier = Modifier.align(Alignment.BottomCenter).offset(y = (-80).dp).padding(horizontal = TakuSpacing.gutter),
-  )
+  if (panelId == null) {
+    BasicText(
+      hint,
+      style = TakuTheme.type.bodyMd.copy(color = TakuTheme.colors.textPlaceholder, shadow = Shadow(TakuTheme.colors.textGlow, Offset(0f, with(density) { 2.dp.toPx() }), with(density) { 4.dp.toPx() })),
+      maxLines = 1,
+      overflow = TextOverflow.Ellipsis,
+      modifier = Modifier
+        .align(Alignment.BottomCenter)
+        .offset(y = -(158.dp - 80.dp - 20.dp))
+        .graphicsLayer { alpha = e; translationY = (1f - e) * 12.dp.toPx() }
+        .padding(horizontal = TakuSpacing.gutter)
+    )
+  }
 
   PageDots(pageCount, page, Modifier.align(Alignment.BottomCenter).padding(bottom = navInset + TakuSpacing.sm))
 }

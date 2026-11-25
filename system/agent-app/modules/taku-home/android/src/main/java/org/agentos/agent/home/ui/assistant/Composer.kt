@@ -72,7 +72,6 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.graphics.asAndroidPath
@@ -193,10 +192,6 @@ fun BoxScope.TextComposer(scene: GraphicsLayer, open: Boolean, state: AssistantS
       .padding(TakuSpacing.md),
   ) {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(TakuSpacing.sm)) {
-      state.panelTitle?.let { title ->
-        BasicText(title, style = TakuTheme.type.bodyMd.copy(color = colors.textPrimary),
-          maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 4.dp))
-      }
       Row(Modifier.fillMaxWidth().weight(1f, fill = false), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(TakuSpacing.sm)) {
         // 1-5 (node 1:4164) while capturing: one 40 dp line beside the meter and the stop button.
         Column(Modifier.weight(1f).padding(start = 4.dp).then(if (capturing) Modifier.height(TakuSize.control) else Modifier.verticalScroll(textScroll))) {
