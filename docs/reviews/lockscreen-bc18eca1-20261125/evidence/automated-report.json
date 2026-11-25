@@ -1,0 +1,323 @@
+{
+  "serial": "emulator-5596",
+  "results": [
+    {
+      "check": "cmd statusbar lockscreen present",
+      "pass": true,
+      "detail": {
+        "ok": true,
+        "state": {
+          "keyguardShowing": false,
+          "authenticated": true,
+          "dozing": false,
+          "available": false,
+          "notificationCount": 0,
+          "clockSize": "large"
+        }
+      }
+    },
+    {
+      "check": "shortcuts list ok",
+      "pass": true,
+      "detail": {
+        "ok": true,
+        "enabled": true,
+        "slots": [
+          {
+            "id": "bottom_start",
+            "maxSelected": 1,
+            "selected": [
+              "home"
+            ]
+          },
+          {
+            "id": "bottom_end",
+            "maxSelected": 1,
+            "selected": []
+          }
+        ],
+        "shortcuts": [
+          {
+            "id": "camera",
+            "name": "Camera",
+            "enabled": true,
+            "explanation": null
+          },
+          {
+            "id": "home",
+            "name": "Device controls",
+            "enabled": false,
+            "explanation": "To add the Home app as a shortcut, make sure the app is installed"
+          },
+          {
+            "id": "do_not_disturb",
+            "name": "Do Not Disturb",
+            "enabled": true,
+            "explanation": null
+          },
+          {
+            "id": "mute",
+            "name": "Mute",
+            "enabled": true,
+            "explanation": null
+          },
+          {
+            "id": "taku_open_app",
+            "name": "Open app",
+            "enabled": true,
+            "explanation": null
+          },
+          {
+            "id": "qr_code_scanner",
+            "name": "QR code scanner",
+            "enabled": true,
+            "explanation": null
+          },
+          {
+            "id": "video_camera",
+            "name": "Video camera",
+            "enabled": true,
+            "explanation": null
+          }
+        ],
+        "openApp": {
+          "component": "org.agentos.agent/org.agentos.agent.MainActivity",
+          "label": "Taku Agent",
+          "isDefault": true
+        }
+      }
+    },
+    {
+      "check": "Open app shortcut offered",
+      "pass": true,
+      "detail": [
+        "camera",
+        "do_not_disturb",
+        "home",
+        "mute",
+        "qr_code_scanner",
+        "taku_open_app",
+        "video_camera"
+      ]
+    },
+    {
+      "check": "overlay default: start flashlight, end camera",
+      "pass": true,
+      "detail": "bottom_start:flashlight\nbottom_end:camera"
+    },
+    {
+      "check": "select Open app on start slot",
+      "pass": null,
+      "detail": "current selection ['home'] is unavailable on this device and could not be restored"
+    },
+    {
+      "check": "invalid slot rejected",
+      "pass": null,
+      "detail": "current selection ['home'] is unavailable on this device and could not be restored"
+    },
+    {
+      "check": "unknown shortcut rejected",
+      "pass": null,
+      "detail": "current selection ['home'] is unavailable on this device and could not be restored"
+    },
+    {
+      "check": "shortcut selection restored",
+      "pass": null,
+      "detail": "current selection ['home'] is unavailable on this device and could not be restored"
+    },
+    {
+      "check": "Open app target set to Settings",
+      "pass": true,
+      "detail": {
+        "ok": true,
+        "openApp": {
+          "component": "com.android.settings/com.android.settings.Settings",
+          "label": "Settings",
+          "isDefault": false
+        }
+      }
+    },
+    {
+      "check": "setting holds the target",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "check": "non-launchable target rejected",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "check": "Open app target back to Taku",
+      "pass": true,
+      "detail": {
+        "ok": true,
+        "openApp": {
+          "component": "org.agentos.agent/org.agentos.agent.MainActivity",
+          "label": "Taku Agent",
+          "isDefault": true
+        }
+      }
+    },
+    {
+      "check": "Open app target restored",
+      "pass": true,
+      "detail": {
+        "expected": "null",
+        "actual": "null"
+      }
+    },
+    {
+      "check": "keyguard showing and authenticated (swipe lock)",
+      "pass": true,
+      "detail": {
+        "keyguardShowing": true,
+        "authenticated": true,
+        "dozing": false,
+        "available": true,
+        "notificationCount": 2,
+        "clockSize": "small"
+      }
+    },
+    {
+      "check": "compact clock when authenticated",
+      "pass": true,
+      "detail": {
+        "keyguardShowing": true,
+        "authenticated": true,
+        "dozing": false,
+        "available": true,
+        "notificationCount": 2,
+        "clockSize": "small"
+      }
+    },
+    {
+      "check": "posted notification is a card",
+      "pass": true,
+      "detail": {
+        "ok": true,
+        "state": {
+          "keyguardShowing": true,
+          "authenticated": true,
+          "dozing": false,
+          "available": true,
+          "notificationCount": 2,
+          "clockSize": "small"
+        },
+        "notifications": [
+          {
+            "key": "0|com.android.shell|2020|taku_lockscreen_acceptance|2000",
+            "package": "com.android.shell",
+            "app": "Shell",
+            "title": "Taku acceptance",
+            "text": "Card body from the shell",
+            "context": null,
+            "when": 1795606330123,
+            "conversation": false,
+            "sensitive": false,
+            "dismissable": true,
+            "clickable": false,
+            "layout": "compact",
+            "actions": []
+          },
+          {
+            "key": "0|android|89|null|1000",
+            "package": "android",
+            "app": "Android System",
+            "title": "Discover Trust",
+            "text": "Get to know how to assure your device is safe",
+            "context": null,
+            "when": 1795606301686,
+            "conversation": false,
+            "sensitive": false,
+            "dismissable": true,
+            "clickable": true,
+            "layout": "compact",
+            "actions": []
+          }
+        ]
+      }
+    },
+    {
+      "check": "shell notification without intent is not clickable",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "check": "invalid action rejected",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "check": "dismiss removes the card",
+      "pass": true,
+      "detail": [
+        {
+          "ok": true
+        },
+        [
+          "0|android|89|null|1000"
+        ]
+      ]
+    },
+    {
+      "check": "unknown key rejected",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "check": "Taku button opens Taku Home",
+      "pass": true,
+      "detail": [
+        {
+          "ok": true
+        },
+        "topResumedActivity=ActivityRecord{71824651 u0 org.agentos.agent/.home.HomeActivity t177}"
+      ]
+    },
+    {
+      "check": "after reboot: locked",
+      "pass": true,
+      "detail": {
+        "keyguardShowing": true,
+        "authenticated": false,
+        "dozing": false,
+        "available": false,
+        "notificationCount": 0,
+        "clockSize": "large"
+      }
+    },
+    {
+      "check": "after reboot: tall clock",
+      "pass": true,
+      "detail": {
+        "keyguardShowing": true,
+        "authenticated": false,
+        "dozing": false,
+        "available": false,
+        "notificationCount": 0,
+        "clockSize": "large"
+      }
+    },
+    {
+      "check": "locked: no cards",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "check": "locked: Taku refused",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "check": "first unlock lands on Taku Home",
+      "pass": false,
+      "detail": {
+        "top": "",
+        "seconds": 20.27
+      }
+    }
+  ],
+  "failed": 1,
+  "skipped": 4
+}

@@ -1,0 +1,202 @@
+{
+  "results": [
+    {
+      "check": "shortcuts list ok",
+      "pass": true,
+      "detail": {
+        "ok": true,
+        "enabled": true,
+        "slots": [
+          {
+            "id": "bottom_start",
+            "maxSelected": 1,
+            "selected": [
+              "taku_open_app"
+            ]
+          },
+          {
+            "id": "bottom_end",
+            "maxSelected": 1,
+            "selected": [
+              "camera"
+            ]
+          }
+        ],
+        "shortcuts": [
+          {
+            "id": "camera",
+            "name": "Camera",
+            "enabled": true,
+            "explanation": null
+          },
+          {
+            "id": "home",
+            "name": "Device controls",
+            "enabled": false,
+            "explanation": "To add the Home app as a shortcut, make sure the app is installed"
+          },
+          {
+            "id": "do_not_disturb",
+            "name": "Do Not Disturb",
+            "enabled": true,
+            "explanation": null
+          },
+          {
+            "id": "mute",
+            "name": "Mute",
+            "enabled": true,
+            "explanation": null
+          },
+          {
+            "id": "taku_open_app",
+            "name": "Open app",
+            "enabled": true,
+            "explanation": null
+          },
+          {
+            "id": "qr_code_scanner",
+            "name": "QR code scanner",
+            "enabled": true,
+            "explanation": null
+          },
+          {
+            "id": "video_camera",
+            "name": "Video camera",
+            "enabled": true,
+            "explanation": null
+          }
+        ],
+        "openApp": {
+          "component": "org.agentos.agent/org.agentos.agent.MainActivity",
+          "label": "Taku Agent",
+          "isDefault": true
+        }
+      }
+    },
+    {
+      "check": "Open app shortcut offered",
+      "pass": true,
+      "detail": [
+        "camera",
+        "do_not_disturb",
+        "home",
+        "mute",
+        "qr_code_scanner",
+        "taku_open_app",
+        "video_camera"
+      ]
+    },
+    {
+      "check": "overlay default: start flashlight, end camera",
+      "pass": true,
+      "detail": "bottom_start:flashlight\nbottom_end:camera"
+    },
+    {
+      "check": "select Open app on start slot",
+      "pass": true,
+      "detail": [
+        {
+          "ok": true
+        },
+        {
+          "bottom_start": [
+            "taku_open_app"
+          ],
+          "bottom_end": [
+            "camera"
+          ]
+        }
+      ]
+    },
+    {
+      "check": "invalid slot rejected",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "check": "unknown shortcut rejected",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "check": "shortcut selection restored",
+      "pass": true,
+      "detail": {
+        "expected": {
+          "bottom_start": [
+            "taku_open_app"
+          ],
+          "bottom_end": [
+            "camera"
+          ]
+        },
+        "actual": {
+          "bottom_start": [
+            "taku_open_app"
+          ],
+          "bottom_end": [
+            "camera"
+          ]
+        }
+      }
+    },
+    {
+      "check": "Open app target set to Settings",
+      "pass": true,
+      "detail": {
+        "ok": true,
+        "openApp": {
+          "component": "com.android.settings/com.android.settings.Settings",
+          "label": "Settings",
+          "isDefault": false
+        }
+      }
+    },
+    {
+      "check": "setting holds the target",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "check": "non-launchable target rejected",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "check": "Open app target back to Taku",
+      "pass": true,
+      "detail": {
+        "ok": true,
+        "openApp": {
+          "component": "org.agentos.agent/org.agentos.agent.MainActivity",
+          "label": "Taku Agent",
+          "isDefault": true
+        }
+      }
+    },
+    {
+      "check": "Open app target restored",
+      "pass": true,
+      "detail": {
+        "expected": "null",
+        "actual": "null"
+      }
+    }
+  ],
+  "before": {
+    "bottom_start": [
+      "taku_open_app"
+    ],
+    "bottom_end": [
+      "camera"
+    ]
+  },
+  "after": {
+    "bottom_start": [
+      "taku_open_app"
+    ],
+    "bottom_end": [
+      "camera"
+    ]
+  }
+}

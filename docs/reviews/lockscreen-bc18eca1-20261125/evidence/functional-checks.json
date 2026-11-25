@@ -1,0 +1,33 @@
+{
+  "notificationActionDestination": "Open chat action",
+  "notificationCardDestination": "Leave in 20 mins",
+  "notificationCountBeforeDismiss": 9,
+  "notificationCountAfterDismiss": 8,
+  "removedTitles": [
+    "QA update 5"
+  ],
+  "takuButton": {
+    "screenshot": "20-taku-input-retry.png",
+    "result": "Taku Home composer and Taku IME; no request sent"
+  },
+  "chooserFirstSelected": {
+    "label": "AudioFX",
+    "component": "org.lineageos.audiofx/org.lineageos.audiofx.activity.ActivityMusic"
+  },
+  "chooserLastSelected": {
+    "ok": true,
+    "openApp": {
+      "component": "org.agentos.inputmethod/org.fcitx.fcitx5.android.ui.main.MainActivity",
+      "label": "Taku 输入法",
+      "isDefault": false
+    }
+  },
+  "chooserSettingsSelected": {
+    "ok": true,
+    "openApp": {
+      "component": "com.android.settings/com.android.settings.Settings",
+      "label": "Settings",
+      "isDefault": false
+    }
+  }
+}

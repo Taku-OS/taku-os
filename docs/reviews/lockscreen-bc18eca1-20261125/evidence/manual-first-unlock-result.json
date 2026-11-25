@@ -1,0 +1,49 @@
+{
+  "deployment": {
+    "fontMountRestored": true,
+    "brokerSha256": "de55e9e223112677c7cfbb008a5aa6718f9379eadd4baaf58ca49b86b64da5d3"
+  },
+  "lockedState": {
+    "ok": true,
+    "state": {
+      "keyguardShowing": true,
+      "authenticated": false,
+      "dozing": false,
+      "available": false,
+      "notificationCount": 0,
+      "clockSize": "large"
+    }
+  },
+  "lockedNotifications": {
+    "ok": true,
+    "state": {
+      "keyguardShowing": true,
+      "authenticated": false,
+      "dozing": false,
+      "available": false,
+      "notificationCount": 0,
+      "clockSize": "large"
+    },
+    "notifications": []
+  },
+  "lockedTaku": {
+    "ok": false,
+    "error": "LOCKED"
+  },
+  "afterPin": {
+    "ok": true,
+    "state": {
+      "keyguardShowing": false,
+      "authenticated": true,
+      "dozing": false,
+      "available": false,
+      "notificationCount": 0,
+      "clockSize": "large"
+    }
+  },
+  "topActivity": [
+    "topResumedActivity=ActivityRecord{7737358 u0 org.agentos.agent/.home.HomeActivity t11}"
+  ],
+  "manualPinUnlockPassed": true,
+  "method": "On-screen PIN button taps after explicitly waking display; original automated input case timed out and remains recorded as failure."
+}

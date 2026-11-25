@@ -1,0 +1,19 @@
+{
+  "settingsMatchBaseline": true,
+  "lockscreenDisabled": "true",
+  "shortcutSelections": {
+    "bottom_start": [
+      "home"
+    ],
+    "bottom_end": []
+  },
+  "openAppDefaultRestored": true,
+  "noCredential": true,
+  "noEnrolledFingerprints": true,
+  "homeRole": "org.agentos.agent",
+  "imeUnchanged": true,
+  "lockWallpaperInheritsSystem": true,
+  "installedApkHashMatches": true,
+  "adbUid": "2000",
+  "retained": "New SystemUI/RROs, fonts and prior broker runtime mount; existing account and app data preserved"
+}

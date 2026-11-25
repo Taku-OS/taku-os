@@ -1,0 +1,27 @@
+{
+  "symptom": "Taku centered date plus visible legacy KeyguardSliceView date; overlap with carrier when locked",
+  "visibleView": "com.android.keyguard.KeyguardSliceView / keyguard_slice_view",
+  "fixOnlyTargets": [
+    "date_smartspace_view",
+    "date_smartspace_view_large",
+    "weather_smartspace_view",
+    "weather_smartspace_view_large"
+  ],
+  "observedHierarchy": {
+    "systemui-current": [
+      "com.android.keyguard.KeyguardSliceView{<view> V.E...... ........ 84,571-1080,651 #7f0a045a app:id/keyguard_slice_view}",
+      "com.android.keyguard.KeyguardSliceView$Row{<view> V.E...... ........ 0,0-996,80 #7f0a071d app:id/row}",
+      "com.android.keyguard.KeyguardSliceView$KeyguardSliceTextView{<view> V.ED..... ........ 0,0-253,80}",
+      "com.android.systemui.taku.lockscreen.TakuClockFaceView{<view> V.E...... ........ 126,199-955,571 #4}",
+      "com.android.systemui.taku.lockscreen.TakuClockFaceView{<view> G.E...... ......I. 0,0-0,0 #3}"
+    ],
+    "systemui-locked": [
+      "com.android.keyguard.KeyguardSliceView{<view> V.E...... ........ 84,0-1080,80 #7f0a045a app:id/keyguard_slice_view}",
+      "com.android.keyguard.KeyguardSliceView$Row{<view> V.E...... ........ 0,0-996,80 #7f0a071d app:id/row}",
+      "com.android.keyguard.KeyguardSliceView$KeyguardSliceTextView{<view> V.ED..... ........ 0,0-253,80}",
+      "com.android.systemui.taku.lockscreen.TakuClockFaceView{<view> G.E...... ......I. 0,0-0,0 #4}",
+      "com.android.systemui.taku.lockscreen.TakuClockFaceView{<view> V.E...... ........ 126,199-955,1182 #3}"
+    ]
+  },
+  "codeChangeDuringAcceptance": false
+}

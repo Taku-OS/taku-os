@@ -1,0 +1,205 @@
+{
+  "sha256": {
+    "02-compact-shortcuts.png": "16aa85719f123e37c4d7db996d49f0f4877964bdaae5f431aa7e8b463395505a",
+    "04-shortcuts-entry.png": "6e5499a6f5a7d61e1dd889c509b9baca09b8da63319e94605c24064fc9589c61",
+    "05-app-chooser-top.png": "00625293f120ceb141723047955353e58135aae87a6cbaf1571da5b632fea3b3",
+    "06-app-chooser-bottom.png": "282ac358991758563ace722384c8c8073673c03c3ce298d529d1cc3445194a37",
+    "08-settings-shortcut-destination.png": "3b8a87820dbb77f3c3a34b6d03d91501bb86e5a7d20dc0e9d1472824e4ba3f83",
+    "10-first-unlock-pin.png": "89783927bae1089132c2f956bf89fe0cd358b9658dee6ef42c9a799838c0d55e",
+    "11-tall-clock-awake.png": "afa7a273c021b0c8874821af73cec0ba4ffc149e009d5b7aeea0603a4e64babc",
+    "12-first-unlock-home.png": "0775c3a4dc569335dffd340cbbf701d9f31359a9fc89794877b4ec95d6381600",
+    "13-stock-clock.png": "7fe080745dfafda63ff7e70ad61d3a22695d39f957caccd291a805bdfc5f98fc",
+    "14-taku-clock-restored.png": "ddeb626747c0f69de1ad5660c90a55229aa143650fe1e02cacbeddb8ead62308",
+    "15-notification-action.png": "5df654cd0aa44010e90fa14e76e1cc1f99a2013ddc4fca3e1dbb45a2743aaf2b",
+    "16-notification-card.png": "fc48010be1c30aee0c1c299f3b7146e447780f9a495092eaac7f4e4c8609c3a4",
+    "17-notification-scroll.png": "13f901bc679d00da7ef5711c51250cbd3c9f537ad2b55bc621faf881a69f8ff9",
+    "18-notification-dismiss.png": "4a601115b787e513ae175d1aa1bc17ad48555a8f3cab7fbc196b4f3f0e02bc80",
+    "20-taku-input-retry.png": "853daf3be373eef9df7cdd075c1a364a2b90f9fdda81a48ae621358c9b8d6e5e",
+    "figma-979-429.png": "30cda450c3d4e284ac337df058182ad3bacae7c3f779adafee678dcc3f970067",
+    "figma-979-574.png": "e98b48d81fa6389933cdcd6333f7913f1876e177037a13f78c3f47849a40b76e"
+  },
+  "states": {
+    "02-compact-shortcuts.png": {
+      "state": {
+        "keyguardShowing": true,
+        "authenticated": true,
+        "dozing": false,
+        "available": true,
+        "notificationCount": 9,
+        "clockSize": "small"
+      },
+      "topActivity": []
+    },
+    "04-shortcuts-entry.png": {
+      "state": {
+        "keyguardShowing": false,
+        "authenticated": true,
+        "dozing": false,
+        "available": false,
+        "notificationCount": 0,
+        "clockSize": "small"
+      },
+      "topActivity": [
+        "topResumedActivity=ActivityRecord{67428663 u0 com.android.wallpaper/.picker.customization.ui.CustomizationPickerActivity t185}"
+      ]
+    },
+    "05-app-chooser-top.png": {
+      "state": {
+        "keyguardShowing": false,
+        "authenticated": true,
+        "dozing": false,
+        "available": false,
+        "notificationCount": 0,
+        "clockSize": "small"
+      },
+      "topActivity": [
+        "topResumedActivity=ActivityRecord{217237847 u0 com.android.systemui/.taku.lockscreen.TakuShortcutAppActivity t186}"
+      ]
+    },
+    "06-app-chooser-bottom.png": {
+      "state": {
+        "keyguardShowing": false,
+        "authenticated": true,
+        "dozing": false,
+        "available": false,
+        "notificationCount": 0,
+        "clockSize": "small"
+      },
+      "topActivity": [
+        "topResumedActivity=ActivityRecord{45905691 u0 com.android.systemui/.taku.lockscreen.TakuShortcutAppActivity t187}"
+      ]
+    },
+    "08-settings-shortcut-destination.png": {
+      "state": {
+        "keyguardShowing": false,
+        "authenticated": true,
+        "dozing": false,
+        "available": false,
+        "notificationCount": 0,
+        "clockSize": "small"
+      },
+      "topActivity": [
+        "topResumedActivity=ActivityRecord{245458073 u0 com.android.settings/.Settings t189}"
+      ]
+    },
+    "10-first-unlock-pin.png": {
+      "state": {
+        "keyguardShowing": true,
+        "authenticated": false,
+        "dozing": false,
+        "available": false,
+        "notificationCount": 0,
+        "clockSize": "large"
+      },
+      "topActivity": []
+    },
+    "11-tall-clock-awake.png": {
+      "state": {
+        "keyguardShowing": true,
+        "authenticated": false,
+        "dozing": false,
+        "available": false,
+        "notificationCount": 0,
+        "clockSize": "large"
+      },
+      "topActivity": []
+    },
+    "12-first-unlock-home.png": {
+      "state": {
+        "keyguardShowing": false,
+        "authenticated": true,
+        "dozing": false,
+        "available": false,
+        "notificationCount": 0,
+        "clockSize": "large"
+      },
+      "topActivity": [
+        "topResumedActivity=ActivityRecord{7737358 u0 org.agentos.agent/.home.HomeActivity t11}"
+      ]
+    },
+    "13-stock-clock.png": {
+      "state": {
+        "keyguardShowing": true,
+        "authenticated": true,
+        "dozing": false,
+        "available": true,
+        "notificationCount": 1,
+        "clockSize": "small"
+      },
+      "topActivity": []
+    },
+    "14-taku-clock-restored.png": {
+      "state": {
+        "keyguardShowing": true,
+        "authenticated": true,
+        "dozing": false,
+        "available": true,
+        "notificationCount": 1,
+        "clockSize": "small"
+      },
+      "topActivity": []
+    },
+    "15-notification-action.png": {
+      "state": {
+        "keyguardShowing": false,
+        "authenticated": true,
+        "dozing": false,
+        "available": false,
+        "notificationCount": 0,
+        "clockSize": "small"
+      },
+      "topActivity": [
+        "topResumedActivity=ActivityRecord{18008872 u0 org.taku.qa.lockscreen/.Fixture t191}"
+      ]
+    },
+    "16-notification-card.png": {
+      "state": {
+        "keyguardShowing": false,
+        "authenticated": true,
+        "dozing": false,
+        "available": false,
+        "notificationCount": 0,
+        "clockSize": "small"
+      },
+      "topActivity": [
+        "topResumedActivity=ActivityRecord{166989952 u0 org.taku.qa.lockscreen/.Fixture t193}"
+      ]
+    },
+    "17-notification-scroll.png": {
+      "state": {
+        "keyguardShowing": true,
+        "authenticated": true,
+        "dozing": false,
+        "available": true,
+        "notificationCount": 9,
+        "clockSize": "small"
+      },
+      "topActivity": []
+    },
+    "18-notification-dismiss.png": {
+      "state": {
+        "keyguardShowing": true,
+        "authenticated": true,
+        "dozing": false,
+        "available": true,
+        "notificationCount": 8,
+        "clockSize": "small"
+      },
+      "topActivity": []
+    },
+    "20-taku-input-retry.png": {
+      "state": {
+        "keyguardShowing": false,
+        "authenticated": true,
+        "dozing": false,
+        "available": false,
+        "notificationCount": 0,
+        "clockSize": "small"
+      },
+      "topActivity": [
+        "topResumedActivity=ActivityRecord{7737358 u0 org.agentos.agent/.home.HomeActivity t11}"
+      ]
+    }
+  },
+  "capture": "Android Emulator console screenrecord screenshot; original device PNGs; blank transitional captures excluded"
+}
