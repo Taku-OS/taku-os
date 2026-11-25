@@ -1,0 +1,34 @@
+{
+  "commit": "9d0867a0b25bfbb7ff1fa45380f4afdfc9effdec",
+  "device": "emulator-5596",
+  "artifacts": {
+    "SystemUI.apk": "8b533b4b01930842c1f63322ca4dbce60622594278839dea8ca46c6f2fc37bb6",
+    "TakuLockscreenFrameworkOverlay.apk": "2c5ac99907d299f3a74118e23460bbe3b1111d74b434be61e4b9dc18589d4390",
+    "TakuLockscreenSystemUIOverlay.apk": "b14243045602635ad595520239b4b70a5e091a390747af5e120cded837cc23f1"
+  },
+  "platformSignatureMatches": true,
+  "manifestWorkaround": {
+    "baseCommit": "9d0867a0b25bfbb7ff1fa45380f4afdfc9effdec",
+    "workaround": "compose SystemUI Manifest with existing island entries; no native source changes",
+    "nativeSourceHashesVerified": true,
+    "extraManifestChange": "TakuShortcutAppActivity only"
+  },
+  "deployment": "incremental SystemUI and RROs; product fonts via bind mount; image default-wallpaper property not changed",
+  "installedSystemUiSha256": "8b533b4b01930842c1f63322ca4dbce60622594278839dea8ca46c6f2fc37bb6",
+  "clockState": "{\"ok\":true,\"state\":{\"keyguardShowing\":false,\"authenticated\":true,\"dozing\":false,\"available\":false,\"notificationCount\":0,\"clockSize\":\"large\"}}",
+  "buildTarget": "lineage_taku_emu_arm64-cp2a-userdebug",
+  "modules": [
+    "SystemUI",
+    "TakuLockscreenSystemUIOverlay",
+    "TakuLockscreenFrameworkOverlay"
+  ],
+  "cloudHost": "x86_64, 64 CPUs, 256 GB; -j56; cached incremental module build",
+  "verifiedOverlays": [
+    "org.agentos.lockscreen.framework.overlay",
+    "org.agentos.lockscreen.systemui.overlay"
+  ],
+  "cloudStopped": {
+    "status": "TERMINATED",
+    "workflowRun": "https://github.com/Taku-OS/taku-os/actions/runs/45583730009"
+  }
+}

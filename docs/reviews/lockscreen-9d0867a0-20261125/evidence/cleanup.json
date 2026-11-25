@@ -1,0 +1,106 @@
+{
+  "noCredentialBeforeCleanup": "Lock credential verified successfully",
+  "providerBefore": "Row: 0 slot_id=bottom_start, affordance_id=taku_open_app, affordance_name=Open app\nRow: 1 slot_id=bottom_end, affordance_id=camera, affordance_name=Camera",
+  "providerRestore": "",
+  "providerAfter": "Row: 0 slot_id=bottom_start, affordance_id=home, affordance_name=Device controls\nRow: 1 slot_id=bottom_end, affordance_id=camera, affordance_name=Camera",
+  "clearRight": "{\"ok\":true}",
+  "appDefault": "{\"ok\":true,\"openApp\":{\"component\":\"org.agentos.agent\\/org.agentos.agent.MainActivity\",\"label\":\"Taku Agent\",\"isDefault\":true}}",
+  "shortcuts": {
+    "ok": true,
+    "enabled": true,
+    "slots": [
+      {
+        "id": "bottom_start",
+        "maxSelected": 1,
+        "selected": [
+          "home"
+        ]
+      },
+      {
+        "id": "bottom_end",
+        "maxSelected": 1,
+        "selected": []
+      }
+    ],
+    "shortcuts": [
+      {
+        "id": "camera",
+        "name": "Camera",
+        "enabled": true,
+        "explanation": null
+      },
+      {
+        "id": "home",
+        "name": "Device controls",
+        "enabled": false,
+        "explanation": "To add the Home app as a shortcut, make sure the app is installed"
+      },
+      {
+        "id": "do_not_disturb",
+        "name": "Do Not Disturb",
+        "enabled": true,
+        "explanation": null
+      },
+      {
+        "id": "mute",
+        "name": "Mute",
+        "enabled": true,
+        "explanation": null
+      },
+      {
+        "id": "taku_open_app",
+        "name": "Open app",
+        "enabled": true,
+        "explanation": null
+      },
+      {
+        "id": "qr_code_scanner",
+        "name": "QR code scanner",
+        "enabled": true,
+        "explanation": null
+      },
+      {
+        "id": "video_camera",
+        "name": "Video camera",
+        "enabled": true,
+        "explanation": null
+      }
+    ],
+    "openApp": {
+      "component": "org.agentos.agent/org.agentos.agent.MainActivity",
+      "label": "Taku Agent",
+      "isDefault": true
+    }
+  },
+  "settings": {
+    "secure/lock_screen_custom_clock_face": "null",
+    "secure/taku_lockscreen_open_app": "null",
+    "secure/face_unlock_dismisses_keyguard": "null",
+    "secure/lock_screen_show_notifications": "1",
+    "secure/lock_screen_allow_private_notifications": "1",
+    "system/screen_off_timeout": "2147483647",
+    "global/animator_duration_scale": "null",
+    "secure/lockscreen.disabled": "0",
+    "system/time_12_24": "null"
+  },
+  "locksettingsDisabled": "true",
+  "credentialVerified": "Lock credential verified successfully",
+  "fingerprint": "Dumping for sensorId: 0, provider: FingerprintProvider\nFps state: 0\n{\"service\":\"FingerprintProvider\\/default\",\"prints\":[{\"id\":0,\"count\":0,\"accept\":1,\"reject\":1,\"acquire\":2,\"lockout\":0,\"permanentLockout\":0,\"acceptCrypto\":0,\"rejectCrypto\":0,\"acquireCrypto\":0}]}\nHAL deaths since last reboot: 0\n---AuthSessionCoordinator logs begin---\n#0     resetLockoutFor(userId=0 ,biometricStrength=15, requestId=-1)\n#1     resetLockoutFor(userId=0 ,biometricStrength=15, requestId=-1)\n#2     resetLockoutFor(userId=0 ,biometricStrength=15, requestId=-1)\n#3     resetLockoutFor(userId=0 ,biometricStrength=15, requestId=-1)\n#4     resetLockoutFor(userId=0 ,biometricStrength=15, requestId=-1)\n#5     resetLockoutFor(userId=0 ,biometricStrength=15, requestId=-1)\n#6     resetLockoutFor(userId=0 ,biometricStrength=15, requestId=-1)\n#7     resetLockoutFor(userId=0 ,biometricStrength=15, requestId=-1)\n#8     resetLockoutFor(userId=0 ,biometricStrength=15, requestId=-1)\n#9     resetLockoutFor(userId=0 ,biometricStrength=15, requestId=-1)\n#10    resetLockoutFor(userId=0 ,biometricStrength=15, requestId=-1)\n#11    resetLockoutFor(userId=0 ,biometricStrength=15, requestId=-1)\n#12    resetLockoutFor(userId=0 ,biometricStrength=15, requestId=-1)\n#13    resetLockoutFor(userId=0 ,biometricStrength=15, requestId=-1)\n#14    resetLockoutFor(userId=0 ,biometricStrength=15, requestId=-1)\n#15    resetLockoutFor(userId=0 ,biometricStrength=15, requestId=-1)\n#16    resetLockoutFor(userId=0 ,biometricStrength=15, requestId=-1)\n#17    authStartedFor(userId=0, sensorId=0, requestId=3)\n#18    internal : onAuthSessionStarted(0)\n#19    authEndedFor(userId=0 ,biometricStrength=15, sensorId=0, requestId=3, wasSuccessful=true)\n#20    internal : onAuthSessionEnded(0)\n#21    authStartedFor(userId=0, sensorId=0, requestId=4)\n#22    internal : onAuthSessionStarted(0)\n#23    authEndedFor(userId=0 ,biometricStrength=15, sensorId=0, requestId=4, wasSuccessful=false)\n#24    internal : onAuthSessionEnded(0)\n#25    authStartedFor(userId=0, sensorId=0, requestId=5)\n#26    internal : onAuthSessionStarted(0)\n#27    authEndedFor(userId=0 ,biometricStrength=15, sensorId=0, requestId=5, wasSuccessful=false)\n#28    internal : onAuthSessionEnded(0)\n#29    authStartedFor(userId=0, sensorId=0, requestId=6)\n#30    internal : onAuthSessionStarted(0)\n#31    resetLockoutFor(userId=0 ,biometricStrength=15, requestId=-1)\n#32    authEndedFor(userId=0 ,biometricStrength=15, sensorId=0, requestId=6, wasSuccessful=false)\n#33    authStartedFor(userId=0, sensorId=0, requestId=7)\n#34    internal : onAuthSessionStarted(0)\n#35    authEndedFor(userId=0 ,biometricStrength=15, sensorId=0, requestId=7, wasSuccessful=false)\n#36    internal : onAuthSessionEnded(0)\n#37    resetLockoutFor(userId=0 ,biometricStrength=15, requestId=-1)\n#38    resetLockoutFor(userId=0 ,biometricStrength=15, requestId=-1)\n#39    resetLockoutFor(userId=0 ,biometricStrength=15, requestId=-1)\n\nPermanent Lockouts\nUserId=0, {(BIOMETRIC_STRONG, permanentLockout=false, timedLockout=false), (BIOMETRIC_WEAK, permanentLockout=false, timedLockout=false), (BIOMETRIC_CONVENIENCE, permanentLockout=false, timedLockout=false)}\n\n---AuthSessionCoordinator logs end  ---\nDump of BiometricScheduler BiometricScheduler\nType: 3\nCurrent operation: null\nPending operations: 0",
+  "state": {
+    "ok": true,
+    "state": {
+      "keyguardShowing": false,
+      "authenticated": true,
+      "dozing": false,
+      "available": false,
+      "notificationCount": 0,
+      "clockSize": "small"
+    }
+  },
+  "home": "org.agentos.agent",
+  "testWallpaper": "cleared FLAG_LOCK only; restored inherited lock wallpaper",
+  "testNotifications": "fixture cancelAll only; shell test was dismissed by acceptance suite",
+  "cloudBuilder": "TERMINATED; control workflow run 45583730009",
+  "deploymentRetained": "new SystemUI/RRO APKs and runtime fonts retained; prior broker mount preserved",
+  "adbUid": "2000"
+}

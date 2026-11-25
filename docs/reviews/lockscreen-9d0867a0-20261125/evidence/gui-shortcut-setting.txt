@@ -1,0 +1,2 @@
+com.android.settings/com.android.settings.Settings
+{"ok":true,"openApp":{"component":"com.android.settings\/com.android.settings.Settings","label":"Settings","isDefault":false}}

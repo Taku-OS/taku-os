@@ -1,0 +1,6 @@
+{
+  "baseCommit": "9d0867a0b25bfbb7ff1fa45380f4afdfc9effdec",
+  "workaround": "compose SystemUI Manifest with existing island entries; no native source changes",
+  "nativeSourceHashesVerified": true,
+  "extraManifestChange": "TakuShortcutAppActivity only"
+}

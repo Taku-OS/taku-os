@@ -1,0 +1,2792 @@
+{
+  "01-authenticated-cards.png": {
+    "state": {
+      "ok": true,
+      "state": {
+        "keyguardShowing": true,
+        "authenticated": true,
+        "dozing": false,
+        "available": true,
+        "notificationCount": 9,
+        "clockSize": "small"
+      }
+    },
+    "notifications": {
+      "ok": true,
+      "state": {
+        "keyguardShowing": true,
+        "authenticated": true,
+        "dozing": false,
+        "available": true,
+        "notificationCount": 9,
+        "clockSize": "small"
+      },
+      "notifications": [
+        {
+          "key": "0|org.taku.qa.lockscreen|1|null|10206",
+          "package": "org.taku.qa.lockscreen",
+          "app": "Lockscreen QA",
+          "title": "Mary",
+          "text": "The Feed scope is still open for today's review. We need to decide which parts belong in this prototype.",
+          "context": "#Product",
+          "when": 1795599771168,
+          "conversation": true,
+          "sensitive": false,
+          "dismissable": true,
+          "clickable": true,
+          "layout": "expanded",
+          "actions": [
+            {
+              "index": 0,
+              "title": "Add to tasks"
+            },
+            {
+              "index": 1,
+              "title": "Open chat"
+            }
+          ]
+        },
+        {
+          "key": "0|org.taku.qa.lockscreen|2|null|10206",
+          "package": "org.taku.qa.lockscreen",
+          "app": "Lockscreen QA",
+          "title": "Leave in 20 mins",
+          "text": "Meeting at 9:45",
+          "context": null,
+          "when": 1795599771157,
+          "conversation": false,
+          "sensitive": false,
+          "dismissable": true,
+          "clickable": true,
+          "layout": "compact",
+          "actions": []
+        },
+        {
+          "key": "0|org.taku.qa.lockscreen|3|null|10206",
+          "package": "org.taku.qa.lockscreen",
+          "app": "Lockscreen QA",
+          "title": "QA update 3",
+          "text": "Test notification \u2014 swipe to dismiss",
+          "context": null,
+          "when": 1795599771146,
+          "conversation": false,
+          "sensitive": false,
+          "dismissable": true,
+          "clickable": true,
+          "layout": "compact",
+          "actions": []
+        },
+        {
+          "key": "0|org.taku.qa.lockscreen|4|null|10206",
+          "package": "org.taku.qa.lockscreen",
+          "app": "Lockscreen QA",
+          "title": "QA update 4",
+          "text": "Test notification \u2014 swipe to dismiss",
+          "context": null,
+          "when": 1795599771140,
+          "conversation": false,
+          "sensitive": false,
+          "dismissable": true,
+          "clickable": true,
+          "layout": "compact",
+          "actions": []
+        },
+        {
+          "key": "0|org.taku.qa.lockscreen|5|null|10206",
+          "package": "org.taku.qa.lockscreen",
+          "app": "Lockscreen QA",
+          "title": "QA update 5",
+          "text": "Test notification \u2014 swipe to dismiss",
+          "context": null,
+          "when": 1795599771134,
+          "conversation": false,
+          "sensitive": false,
+          "dismissable": true,
+          "clickable": true,
+          "layout": "compact",
+          "actions": []
+        },
+        {
+          "key": "0|org.taku.qa.lockscreen|6|null|10206",
+          "package": "org.taku.qa.lockscreen",
+          "app": "Lockscreen QA",
+          "title": "QA update 6",
+          "text": "Test notification \u2014 swipe to dismiss",
+          "context": null,
+          "when": 1795599771124,
+          "conversation": false,
+          "sensitive": false,
+          "dismissable": true,
+          "clickable": true,
+          "layout": "compact",
+          "actions": []
+        },
+        {
+          "key": "0|org.taku.qa.lockscreen|7|null|10206",
+          "package": "org.taku.qa.lockscreen",
+          "app": "Lockscreen QA",
+          "title": "QA update 7",
+          "text": "Test notification \u2014 swipe to dismiss",
+          "context": null,
+          "when": 1795599771112,
+          "conversation": false,
+          "sensitive": false,
+          "dismissable": true,
+          "clickable": true,
+          "layout": "compact",
+          "actions": []
+        },
+        {
+          "key": "0|org.taku.qa.lockscreen|8|null|10206",
+          "package": "org.taku.qa.lockscreen",
+          "app": "Lockscreen QA",
+          "title": "QA update 8",
+          "text": "Test notification \u2014 swipe to dismiss",
+          "context": null,
+          "when": 1795599771095,
+          "conversation": false,
+          "sensitive": false,
+          "dismissable": true,
+          "clickable": true,
+          "layout": "compact",
+          "actions": []
+        },
+        {
+          "key": "0|android|89|null|1000",
+          "package": "android",
+          "app": "Android System",
+          "title": "Discover Trust",
+          "text": "Get to know how to assure your device is safe",
+          "context": null,
+          "when": 1795598441322,
+          "conversation": false,
+          "sensitive": false,
+          "dismissable": true,
+          "clickable": true,
+          "layout": "compact",
+          "actions": []
+        }
+      ]
+    },
+    "shortcuts": {
+      "ok": true,
+      "enabled": true,
+      "slots": [
+        {
+          "id": "bottom_start",
+          "maxSelected": 1,
+          "selected": [
+            "taku_open_app"
+          ]
+        },
+        {
+          "id": "bottom_end",
+          "maxSelected": 1,
+          "selected": [
+            "camera"
+          ]
+        }
+      ],
+      "shortcuts": [
+        {
+          "id": "camera",
+          "name": "Camera",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "home",
+          "name": "Device controls",
+          "enabled": false,
+          "explanation": "To add the Home app as a shortcut, make sure the app is installed"
+        },
+        {
+          "id": "do_not_disturb",
+          "name": "Do Not Disturb",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "mute",
+          "name": "Mute",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "taku_open_app",
+          "name": "Open app",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "qr_code_scanner",
+          "name": "QR code scanner",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "video_camera",
+          "name": "Video camera",
+          "enabled": true,
+          "explanation": null
+        }
+      ],
+      "openApp": {
+        "component": "com.android.settings/com.android.settings.Settings",
+        "label": "Settings",
+        "isDefault": false
+      }
+    },
+    "topActivity": []
+  },
+  "04-list-scroll.png": {
+    "state": {
+      "ok": true,
+      "state": {
+        "keyguardShowing": true,
+        "authenticated": true,
+        "dozing": false,
+        "available": true,
+        "notificationCount": 9,
+        "clockSize": "small"
+      }
+    },
+    "notifications": {
+      "ok": true,
+      "state": {
+        "keyguardShowing": true,
+        "authenticated": true,
+        "dozing": false,
+        "available": true,
+        "notificationCount": 9,
+        "clockSize": "small"
+      },
+      "notifications": [
+        {
+          "key": "0|org.taku.qa.lockscreen|1|null|10206",
+          "package": "org.taku.qa.lockscreen",
+          "app": "Lockscreen QA",
+          "title": "Mary",
+          "text": "The Feed scope is still open for today's review. We need to decide which parts belong in this prototype.",
+          "context": "#Product",
+          "when": 1795599788609,
+          "conversation": true,
+          "sensitive": false,
+          "dismissable": true,
+          "clickable": true,
+          "layout": "expanded",
+          "actions": [
+            {
+              "index": 0,
+              "title": "Add to tasks"
+            },
+            {
+              "index": 1,
+              "title": "Open chat"
+            }
+          ]
+        },
+        {
+          "key": "0|org.taku.qa.lockscreen|2|null|10206",
+          "package": "org.taku.qa.lockscreen",
+          "app": "Lockscreen QA",
+          "title": "Leave in 20 mins",
+          "text": "Meeting at 9:45",
+          "context": null,
+          "when": 1795599788606,
+          "conversation": false,
+          "sensitive": false,
+          "dismissable": true,
+          "clickable": true,
+          "layout": "compact",
+          "actions": []
+        },
+        {
+          "key": "0|org.taku.qa.lockscreen|3|null|10206",
+          "package": "org.taku.qa.lockscreen",
+          "app": "Lockscreen QA",
+          "title": "QA update 3",
+          "text": "Test notification \u2014 swipe to dismiss",
+          "context": null,
+          "when": 1795599788604,
+          "conversation": false,
+          "sensitive": false,
+          "dismissable": true,
+          "clickable": true,
+          "layout": "compact",
+          "actions": []
+        },
+        {
+          "key": "0|org.taku.qa.lockscreen|4|null|10206",
+          "package": "org.taku.qa.lockscreen",
+          "app": "Lockscreen QA",
+          "title": "QA update 4",
+          "text": "Test notification \u2014 swipe to dismiss",
+          "context": null,
+          "when": 1795599788603,
+          "conversation": false,
+          "sensitive": false,
+          "dismissable": true,
+          "clickable": true,
+          "layout": "compact",
+          "actions": []
+        },
+        {
+          "key": "0|org.taku.qa.lockscreen|5|null|10206",
+          "package": "org.taku.qa.lockscreen",
+          "app": "Lockscreen QA",
+          "title": "QA update 5",
+          "text": "Test notification \u2014 swipe to dismiss",
+          "context": null,
+          "when": 1795599788601,
+          "conversation": false,
+          "sensitive": false,
+          "dismissable": true,
+          "clickable": true,
+          "layout": "compact",
+          "actions": []
+        },
+        {
+          "key": "0|org.taku.qa.lockscreen|6|null|10206",
+          "package": "org.taku.qa.lockscreen",
+          "app": "Lockscreen QA",
+          "title": "QA update 6",
+          "text": "Test notification \u2014 swipe to dismiss",
+          "context": null,
+          "when": 1795599788597,
+          "conversation": false,
+          "sensitive": false,
+          "dismissable": true,
+          "clickable": true,
+          "layout": "compact",
+          "actions": []
+        },
+        {
+          "key": "0|org.taku.qa.lockscreen|7|null|10206",
+          "package": "org.taku.qa.lockscreen",
+          "app": "Lockscreen QA",
+          "title": "QA update 7",
+          "text": "Test notification \u2014 swipe to dismiss",
+          "context": null,
+          "when": 1795599788594,
+          "conversation": false,
+          "sensitive": false,
+          "dismissable": true,
+          "clickable": true,
+          "layout": "compact",
+          "actions": []
+        },
+        {
+          "key": "0|org.taku.qa.lockscreen|8|null|10206",
+          "package": "org.taku.qa.lockscreen",
+          "app": "Lockscreen QA",
+          "title": "QA update 8",
+          "text": "Test notification \u2014 swipe to dismiss",
+          "context": null,
+          "when": 1795599788588,
+          "conversation": false,
+          "sensitive": false,
+          "dismissable": true,
+          "clickable": true,
+          "layout": "compact",
+          "actions": []
+        },
+        {
+          "key": "0|android|89|null|1000",
+          "package": "android",
+          "app": "Android System",
+          "title": "Discover Trust",
+          "text": "Get to know how to assure your device is safe",
+          "context": null,
+          "when": 1795598441322,
+          "conversation": false,
+          "sensitive": false,
+          "dismissable": true,
+          "clickable": true,
+          "layout": "compact",
+          "actions": []
+        }
+      ]
+    },
+    "shortcuts": {
+      "ok": true,
+      "enabled": true,
+      "slots": [
+        {
+          "id": "bottom_start",
+          "maxSelected": 1,
+          "selected": [
+            "taku_open_app"
+          ]
+        },
+        {
+          "id": "bottom_end",
+          "maxSelected": 1,
+          "selected": [
+            "camera"
+          ]
+        }
+      ],
+      "shortcuts": [
+        {
+          "id": "camera",
+          "name": "Camera",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "home",
+          "name": "Device controls",
+          "enabled": false,
+          "explanation": "To add the Home app as a shortcut, make sure the app is installed"
+        },
+        {
+          "id": "do_not_disturb",
+          "name": "Do Not Disturb",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "mute",
+          "name": "Mute",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "taku_open_app",
+          "name": "Open app",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "qr_code_scanner",
+          "name": "QR code scanner",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "video_camera",
+          "name": "Video camera",
+          "enabled": true,
+          "explanation": null
+        }
+      ],
+      "openApp": {
+        "component": "com.android.settings/com.android.settings.Settings",
+        "label": "Settings",
+        "isDefault": false
+      }
+    },
+    "topActivity": []
+  },
+  "05-card-dismiss.png": {
+    "state": {
+      "ok": true,
+      "state": {
+        "keyguardShowing": true,
+        "authenticated": true,
+        "dozing": false,
+        "available": true,
+        "notificationCount": 8,
+        "clockSize": "small"
+      }
+    },
+    "notifications": {
+      "ok": true,
+      "state": {
+        "keyguardShowing": true,
+        "authenticated": true,
+        "dozing": false,
+        "available": true,
+        "notificationCount": 8,
+        "clockSize": "small"
+      },
+      "notifications": [
+        {
+          "key": "0|org.taku.qa.lockscreen|1|null|10206",
+          "package": "org.taku.qa.lockscreen",
+          "app": "Lockscreen QA",
+          "title": "Mary",
+          "text": "The Feed scope is still open for today's review. We need to decide which parts belong in this prototype.",
+          "context": "#Product",
+          "when": 1795599788609,
+          "conversation": true,
+          "sensitive": false,
+          "dismissable": true,
+          "clickable": true,
+          "layout": "expanded",
+          "actions": [
+            {
+              "index": 0,
+              "title": "Add to tasks"
+            },
+            {
+              "index": 1,
+              "title": "Open chat"
+            }
+          ]
+        },
+        {
+          "key": "0|org.taku.qa.lockscreen|2|null|10206",
+          "package": "org.taku.qa.lockscreen",
+          "app": "Lockscreen QA",
+          "title": "Leave in 20 mins",
+          "text": "Meeting at 9:45",
+          "context": null,
+          "when": 1795599788606,
+          "conversation": false,
+          "sensitive": false,
+          "dismissable": true,
+          "clickable": true,
+          "layout": "compact",
+          "actions": []
+        },
+        {
+          "key": "0|org.taku.qa.lockscreen|3|null|10206",
+          "package": "org.taku.qa.lockscreen",
+          "app": "Lockscreen QA",
+          "title": "QA update 3",
+          "text": "Test notification \u2014 swipe to dismiss",
+          "context": null,
+          "when": 1795599788604,
+          "conversation": false,
+          "sensitive": false,
+          "dismissable": true,
+          "clickable": true,
+          "layout": "compact",
+          "actions": []
+        },
+        {
+          "key": "0|org.taku.qa.lockscreen|4|null|10206",
+          "package": "org.taku.qa.lockscreen",
+          "app": "Lockscreen QA",
+          "title": "QA update 4",
+          "text": "Test notification \u2014 swipe to dismiss",
+          "context": null,
+          "when": 1795599788603,
+          "conversation": false,
+          "sensitive": false,
+          "dismissable": true,
+          "clickable": true,
+          "layout": "compact",
+          "actions": []
+        },
+        {
+          "key": "0|org.taku.qa.lockscreen|6|null|10206",
+          "package": "org.taku.qa.lockscreen",
+          "app": "Lockscreen QA",
+          "title": "QA update 6",
+          "text": "Test notification \u2014 swipe to dismiss",
+          "context": null,
+          "when": 1795599788597,
+          "conversation": false,
+          "sensitive": false,
+          "dismissable": true,
+          "clickable": true,
+          "layout": "compact",
+          "actions": []
+        },
+        {
+          "key": "0|org.taku.qa.lockscreen|7|null|10206",
+          "package": "org.taku.qa.lockscreen",
+          "app": "Lockscreen QA",
+          "title": "QA update 7",
+          "text": "Test notification \u2014 swipe to dismiss",
+          "context": null,
+          "when": 1795599788594,
+          "conversation": false,
+          "sensitive": false,
+          "dismissable": true,
+          "clickable": true,
+          "layout": "compact",
+          "actions": []
+        },
+        {
+          "key": "0|org.taku.qa.lockscreen|8|null|10206",
+          "package": "org.taku.qa.lockscreen",
+          "app": "Lockscreen QA",
+          "title": "QA update 8",
+          "text": "Test notification \u2014 swipe to dismiss",
+          "context": null,
+          "when": 1795599788588,
+          "conversation": false,
+          "sensitive": false,
+          "dismissable": true,
+          "clickable": true,
+          "layout": "compact",
+          "actions": []
+        },
+        {
+          "key": "0|android|89|null|1000",
+          "package": "android",
+          "app": "Android System",
+          "title": "Discover Trust",
+          "text": "Get to know how to assure your device is safe",
+          "context": null,
+          "when": 1795598441322,
+          "conversation": false,
+          "sensitive": false,
+          "dismissable": true,
+          "clickable": true,
+          "layout": "compact",
+          "actions": []
+        }
+      ]
+    },
+    "shortcuts": {
+      "ok": true,
+      "enabled": true,
+      "slots": [
+        {
+          "id": "bottom_start",
+          "maxSelected": 1,
+          "selected": [
+            "taku_open_app"
+          ]
+        },
+        {
+          "id": "bottom_end",
+          "maxSelected": 1,
+          "selected": [
+            "camera"
+          ]
+        }
+      ],
+      "shortcuts": [
+        {
+          "id": "camera",
+          "name": "Camera",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "home",
+          "name": "Device controls",
+          "enabled": false,
+          "explanation": "To add the Home app as a shortcut, make sure the app is installed"
+        },
+        {
+          "id": "do_not_disturb",
+          "name": "Do Not Disturb",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "mute",
+          "name": "Mute",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "taku_open_app",
+          "name": "Open app",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "qr_code_scanner",
+          "name": "QR code scanner",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "video_camera",
+          "name": "Video camera",
+          "enabled": true,
+          "explanation": null
+        }
+      ],
+      "openApp": {
+        "component": "com.android.settings/com.android.settings.Settings",
+        "label": "Settings",
+        "isDefault": false
+      }
+    },
+    "topActivity": []
+  },
+  "08-action-open-chat.png": {
+    "state": {
+      "ok": true,
+      "state": {
+        "keyguardShowing": false,
+        "authenticated": true,
+        "dozing": false,
+        "available": false,
+        "notificationCount": 0,
+        "clockSize": "small"
+      }
+    },
+    "notifications": {
+      "ok": true,
+      "state": {
+        "keyguardShowing": false,
+        "authenticated": true,
+        "dozing": false,
+        "available": false,
+        "notificationCount": 0,
+        "clockSize": "small"
+      },
+      "notifications": []
+    },
+    "shortcuts": {
+      "ok": true,
+      "enabled": true,
+      "slots": [
+        {
+          "id": "bottom_start",
+          "maxSelected": 1,
+          "selected": [
+            "taku_open_app"
+          ]
+        },
+        {
+          "id": "bottom_end",
+          "maxSelected": 1,
+          "selected": [
+            "camera"
+          ]
+        }
+      ],
+      "shortcuts": [
+        {
+          "id": "camera",
+          "name": "Camera",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "home",
+          "name": "Device controls",
+          "enabled": false,
+          "explanation": "To add the Home app as a shortcut, make sure the app is installed"
+        },
+        {
+          "id": "do_not_disturb",
+          "name": "Do Not Disturb",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "mute",
+          "name": "Mute",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "taku_open_app",
+          "name": "Open app",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "qr_code_scanner",
+          "name": "QR code scanner",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "video_camera",
+          "name": "Video camera",
+          "enabled": true,
+          "explanation": null
+        }
+      ],
+      "openApp": {
+        "component": "com.android.settings/com.android.settings.Settings",
+        "label": "Settings",
+        "isDefault": false
+      }
+    },
+    "topActivity": [
+      "topResumedActivity=ActivityRecord{79545952 u0 org.taku.qa.lockscreen/.Fixture t169}"
+    ]
+  },
+  "09-card-open-meeting.png": {
+    "state": {
+      "ok": true,
+      "state": {
+        "keyguardShowing": false,
+        "authenticated": true,
+        "dozing": false,
+        "available": false,
+        "notificationCount": 0,
+        "clockSize": "small"
+      }
+    },
+    "notifications": {
+      "ok": true,
+      "state": {
+        "keyguardShowing": false,
+        "authenticated": true,
+        "dozing": false,
+        "available": false,
+        "notificationCount": 0,
+        "clockSize": "small"
+      },
+      "notifications": []
+    },
+    "shortcuts": {
+      "ok": true,
+      "enabled": true,
+      "slots": [
+        {
+          "id": "bottom_start",
+          "maxSelected": 1,
+          "selected": [
+            "taku_open_app"
+          ]
+        },
+        {
+          "id": "bottom_end",
+          "maxSelected": 1,
+          "selected": [
+            "camera"
+          ]
+        }
+      ],
+      "shortcuts": [
+        {
+          "id": "camera",
+          "name": "Camera",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "home",
+          "name": "Device controls",
+          "enabled": false,
+          "explanation": "To add the Home app as a shortcut, make sure the app is installed"
+        },
+        {
+          "id": "do_not_disturb",
+          "name": "Do Not Disturb",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "mute",
+          "name": "Mute",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "taku_open_app",
+          "name": "Open app",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "qr_code_scanner",
+          "name": "QR code scanner",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "video_camera",
+          "name": "Video camera",
+          "enabled": true,
+          "explanation": null
+        }
+      ],
+      "openApp": {
+        "component": "com.android.settings/com.android.settings.Settings",
+        "label": "Settings",
+        "isDefault": false
+      }
+    },
+    "topActivity": [
+      "topResumedActivity=ActivityRecord{87578060 u0 org.taku.qa.lockscreen/.Fixture t171}"
+    ]
+  },
+  "11-app-native-shade.png": {
+    "state": {
+      "ok": true,
+      "state": {
+        "keyguardShowing": false,
+        "authenticated": true,
+        "dozing": false,
+        "available": false,
+        "notificationCount": 0,
+        "clockSize": "small"
+      }
+    },
+    "notifications": {
+      "ok": true,
+      "state": {
+        "keyguardShowing": false,
+        "authenticated": true,
+        "dozing": false,
+        "available": false,
+        "notificationCount": 0,
+        "clockSize": "small"
+      },
+      "notifications": []
+    },
+    "shortcuts": {
+      "ok": true,
+      "enabled": true,
+      "slots": [
+        {
+          "id": "bottom_start",
+          "maxSelected": 1,
+          "selected": [
+            "taku_open_app"
+          ]
+        },
+        {
+          "id": "bottom_end",
+          "maxSelected": 1,
+          "selected": [
+            "camera"
+          ]
+        }
+      ],
+      "shortcuts": [
+        {
+          "id": "camera",
+          "name": "Camera",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "home",
+          "name": "Device controls",
+          "enabled": false,
+          "explanation": "To add the Home app as a shortcut, make sure the app is installed"
+        },
+        {
+          "id": "do_not_disturb",
+          "name": "Do Not Disturb",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "mute",
+          "name": "Mute",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "taku_open_app",
+          "name": "Open app",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "qr_code_scanner",
+          "name": "QR code scanner",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "video_camera",
+          "name": "Video camera",
+          "enabled": true,
+          "explanation": null
+        }
+      ],
+      "openApp": {
+        "component": "com.android.settings/com.android.settings.Settings",
+        "label": "Settings",
+        "isDefault": false
+      }
+    },
+    "topActivity": [
+      "topResumedActivity=ActivityRecord{103863312 u0 com.android.settings/.Settings t154}"
+    ]
+  },
+  "18-shortcuts-picker.png": {
+    "state": {
+      "ok": true,
+      "state": {
+        "keyguardShowing": false,
+        "authenticated": true,
+        "dozing": false,
+        "available": false,
+        "notificationCount": 0,
+        "clockSize": "small"
+      }
+    },
+    "notifications": {
+      "ok": true,
+      "state": {
+        "keyguardShowing": false,
+        "authenticated": true,
+        "dozing": false,
+        "available": false,
+        "notificationCount": 0,
+        "clockSize": "small"
+      },
+      "notifications": []
+    },
+    "shortcuts": {
+      "ok": true,
+      "enabled": true,
+      "slots": [
+        {
+          "id": "bottom_start",
+          "maxSelected": 1,
+          "selected": [
+            "taku_open_app"
+          ]
+        },
+        {
+          "id": "bottom_end",
+          "maxSelected": 1,
+          "selected": [
+            "camera"
+          ]
+        }
+      ],
+      "shortcuts": [
+        {
+          "id": "camera",
+          "name": "Camera",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "home",
+          "name": "Device controls",
+          "enabled": false,
+          "explanation": "To add the Home app as a shortcut, make sure the app is installed"
+        },
+        {
+          "id": "do_not_disturb",
+          "name": "Do Not Disturb",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "mute",
+          "name": "Mute",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "taku_open_app",
+          "name": "Open app",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "qr_code_scanner",
+          "name": "QR code scanner",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "video_camera",
+          "name": "Video camera",
+          "enabled": true,
+          "explanation": null
+        }
+      ],
+      "openApp": {
+        "component": "com.android.settings/com.android.settings.Settings",
+        "label": "Settings",
+        "isDefault": false
+      }
+    },
+    "topActivity": [
+      "topResumedActivity=ActivityRecord{12938678 u0 com.android.wallpaper/.picker.customization.ui.CustomizationPickerActivity t173}"
+    ]
+  },
+  "20-open-app-long-press.png": {
+    "state": {
+      "ok": true,
+      "state": {
+        "keyguardShowing": false,
+        "authenticated": true,
+        "dozing": false,
+        "available": false,
+        "notificationCount": 0,
+        "clockSize": "small"
+      }
+    },
+    "notifications": {
+      "ok": true,
+      "state": {
+        "keyguardShowing": false,
+        "authenticated": true,
+        "dozing": false,
+        "available": false,
+        "notificationCount": 0,
+        "clockSize": "small"
+      },
+      "notifications": []
+    },
+    "shortcuts": {
+      "ok": true,
+      "enabled": true,
+      "slots": [
+        {
+          "id": "bottom_start",
+          "maxSelected": 1,
+          "selected": [
+            "taku_open_app"
+          ]
+        },
+        {
+          "id": "bottom_end",
+          "maxSelected": 1,
+          "selected": [
+            "camera"
+          ]
+        }
+      ],
+      "shortcuts": [
+        {
+          "id": "camera",
+          "name": "Camera",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "home",
+          "name": "Device controls",
+          "enabled": false,
+          "explanation": "To add the Home app as a shortcut, make sure the app is installed"
+        },
+        {
+          "id": "do_not_disturb",
+          "name": "Do Not Disturb",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "mute",
+          "name": "Mute",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "taku_open_app",
+          "name": "Open app",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "qr_code_scanner",
+          "name": "QR code scanner",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "video_camera",
+          "name": "Video camera",
+          "enabled": true,
+          "explanation": null
+        }
+      ],
+      "openApp": {
+        "component": "com.android.settings/com.android.settings.Settings",
+        "label": "Settings",
+        "isDefault": false
+      }
+    },
+    "topActivity": [
+      "topResumedActivity=ActivityRecord{15797617 u0 com.android.systemui/.taku.lockscreen.TakuShortcutAppActivity t174}"
+    ]
+  },
+  "25-pin-locked-24h.png": {
+    "state": {
+      "ok": true,
+      "state": {
+        "keyguardShowing": true,
+        "authenticated": false,
+        "dozing": false,
+        "available": false,
+        "notificationCount": 0,
+        "clockSize": "large"
+      }
+    },
+    "notifications": {
+      "ok": true,
+      "state": {
+        "keyguardShowing": true,
+        "authenticated": false,
+        "dozing": false,
+        "available": false,
+        "notificationCount": 0,
+        "clockSize": "large"
+      },
+      "notifications": []
+    },
+    "shortcuts": {
+      "ok": true,
+      "enabled": true,
+      "slots": [
+        {
+          "id": "bottom_start",
+          "maxSelected": 1,
+          "selected": [
+            "taku_open_app"
+          ]
+        },
+        {
+          "id": "bottom_end",
+          "maxSelected": 1,
+          "selected": [
+            "camera"
+          ]
+        }
+      ],
+      "shortcuts": [
+        {
+          "id": "camera",
+          "name": "Camera",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "home",
+          "name": "Device controls",
+          "enabled": false,
+          "explanation": "To add the Home app as a shortcut, make sure the app is installed"
+        },
+        {
+          "id": "do_not_disturb",
+          "name": "Do Not Disturb",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "mute",
+          "name": "Mute",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "taku_open_app",
+          "name": "Open app",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "qr_code_scanner",
+          "name": "QR code scanner",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "video_camera",
+          "name": "Video camera",
+          "enabled": true,
+          "explanation": null
+        }
+      ],
+      "openApp": {
+        "component": "com.android.settings/com.android.settings.Settings",
+        "label": "Settings",
+        "isDefault": false
+      }
+    },
+    "topActivity": []
+  },
+  "26-wrong-pin.png": {
+    "state": {
+      "ok": true,
+      "state": {
+        "keyguardShowing": true,
+        "authenticated": false,
+        "dozing": false,
+        "available": false,
+        "notificationCount": 0,
+        "clockSize": "large"
+      }
+    },
+    "notifications": {
+      "ok": true,
+      "state": {
+        "keyguardShowing": true,
+        "authenticated": false,
+        "dozing": false,
+        "available": false,
+        "notificationCount": 0,
+        "clockSize": "large"
+      },
+      "notifications": []
+    },
+    "shortcuts": {
+      "ok": true,
+      "enabled": true,
+      "slots": [
+        {
+          "id": "bottom_start",
+          "maxSelected": 1,
+          "selected": [
+            "taku_open_app"
+          ]
+        },
+        {
+          "id": "bottom_end",
+          "maxSelected": 1,
+          "selected": [
+            "camera"
+          ]
+        }
+      ],
+      "shortcuts": [
+        {
+          "id": "camera",
+          "name": "Camera",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "home",
+          "name": "Device controls",
+          "enabled": false,
+          "explanation": "To add the Home app as a shortcut, make sure the app is installed"
+        },
+        {
+          "id": "do_not_disturb",
+          "name": "Do Not Disturb",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "mute",
+          "name": "Mute",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "taku_open_app",
+          "name": "Open app",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "qr_code_scanner",
+          "name": "QR code scanner",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "video_camera",
+          "name": "Video camera",
+          "enabled": true,
+          "explanation": null
+        }
+      ],
+      "openApp": {
+        "component": "com.android.settings/com.android.settings.Settings",
+        "label": "Settings",
+        "isDefault": false
+      }
+    },
+    "topActivity": []
+  },
+  "28-shortcut-requires-pin.png": {
+    "state": {
+      "ok": true,
+      "state": {
+        "keyguardShowing": true,
+        "authenticated": false,
+        "dozing": false,
+        "available": false,
+        "notificationCount": 0,
+        "clockSize": "large"
+      }
+    },
+    "notifications": {
+      "ok": true,
+      "state": {
+        "keyguardShowing": true,
+        "authenticated": false,
+        "dozing": false,
+        "available": false,
+        "notificationCount": 0,
+        "clockSize": "large"
+      },
+      "notifications": []
+    },
+    "shortcuts": {
+      "ok": true,
+      "enabled": true,
+      "slots": [
+        {
+          "id": "bottom_start",
+          "maxSelected": 1,
+          "selected": [
+            "taku_open_app"
+          ]
+        },
+        {
+          "id": "bottom_end",
+          "maxSelected": 1,
+          "selected": [
+            "camera"
+          ]
+        }
+      ],
+      "shortcuts": [
+        {
+          "id": "camera",
+          "name": "Camera",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "home",
+          "name": "Device controls",
+          "enabled": false,
+          "explanation": "To add the Home app as a shortcut, make sure the app is installed"
+        },
+        {
+          "id": "do_not_disturb",
+          "name": "Do Not Disturb",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "mute",
+          "name": "Mute",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "taku_open_app",
+          "name": "Open app",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "qr_code_scanner",
+          "name": "QR code scanner",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "video_camera",
+          "name": "Video camera",
+          "enabled": true,
+          "explanation": null
+        }
+      ],
+      "openApp": {
+        "component": "com.android.settings/com.android.settings.Settings",
+        "label": "Settings",
+        "isDefault": false
+      }
+    },
+    "topActivity": []
+  },
+  "29-secure-shortcut-settings.png": {
+    "state": {
+      "ok": true,
+      "state": {
+        "keyguardShowing": false,
+        "authenticated": true,
+        "dozing": false,
+        "available": false,
+        "notificationCount": 0,
+        "clockSize": "large"
+      }
+    },
+    "notifications": {
+      "ok": true,
+      "state": {
+        "keyguardShowing": false,
+        "authenticated": true,
+        "dozing": false,
+        "available": false,
+        "notificationCount": 0,
+        "clockSize": "large"
+      },
+      "notifications": []
+    },
+    "shortcuts": {
+      "ok": true,
+      "enabled": true,
+      "slots": [
+        {
+          "id": "bottom_start",
+          "maxSelected": 1,
+          "selected": [
+            "taku_open_app"
+          ]
+        },
+        {
+          "id": "bottom_end",
+          "maxSelected": 1,
+          "selected": [
+            "camera"
+          ]
+        }
+      ],
+      "shortcuts": [
+        {
+          "id": "camera",
+          "name": "Camera",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "home",
+          "name": "Device controls",
+          "enabled": false,
+          "explanation": "To add the Home app as a shortcut, make sure the app is installed"
+        },
+        {
+          "id": "do_not_disturb",
+          "name": "Do Not Disturb",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "mute",
+          "name": "Mute",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "taku_open_app",
+          "name": "Open app",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "qr_code_scanner",
+          "name": "QR code scanner",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "video_camera",
+          "name": "Video camera",
+          "enabled": true,
+          "explanation": null
+        }
+      ],
+      "openApp": {
+        "component": "com.android.settings/com.android.settings.Settings",
+        "label": "Settings",
+        "isDefault": false
+      }
+    },
+    "topActivity": [
+      "topResumedActivity=ActivityRecord{103863312 u0 com.android.settings/.Settings t154}"
+    ]
+  },
+  "30-wrong-password.png": {
+    "state": {
+      "ok": true,
+      "state": {
+        "keyguardShowing": true,
+        "authenticated": false,
+        "dozing": false,
+        "available": false,
+        "notificationCount": 0,
+        "clockSize": "large"
+      }
+    },
+    "notifications": {
+      "ok": true,
+      "state": {
+        "keyguardShowing": true,
+        "authenticated": false,
+        "dozing": false,
+        "available": false,
+        "notificationCount": 0,
+        "clockSize": "large"
+      },
+      "notifications": []
+    },
+    "shortcuts": {
+      "ok": true,
+      "enabled": true,
+      "slots": [
+        {
+          "id": "bottom_start",
+          "maxSelected": 1,
+          "selected": [
+            "taku_open_app"
+          ]
+        },
+        {
+          "id": "bottom_end",
+          "maxSelected": 1,
+          "selected": [
+            "camera"
+          ]
+        }
+      ],
+      "shortcuts": [
+        {
+          "id": "camera",
+          "name": "Camera",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "home",
+          "name": "Device controls",
+          "enabled": false,
+          "explanation": "To add the Home app as a shortcut, make sure the app is installed"
+        },
+        {
+          "id": "do_not_disturb",
+          "name": "Do Not Disturb",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "mute",
+          "name": "Mute",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "taku_open_app",
+          "name": "Open app",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "qr_code_scanner",
+          "name": "QR code scanner",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "video_camera",
+          "name": "Video camera",
+          "enabled": true,
+          "explanation": null
+        }
+      ],
+      "openApp": {
+        "component": "com.android.settings/com.android.settings.Settings",
+        "label": "Settings",
+        "isDefault": false
+      }
+    },
+    "topActivity": []
+  },
+  "32-wrong-pattern.png": {
+    "state": {
+      "ok": true,
+      "state": {
+        "keyguardShowing": true,
+        "authenticated": false,
+        "dozing": false,
+        "available": false,
+        "notificationCount": 0,
+        "clockSize": "large"
+      }
+    },
+    "notifications": {
+      "ok": true,
+      "state": {
+        "keyguardShowing": true,
+        "authenticated": false,
+        "dozing": false,
+        "available": false,
+        "notificationCount": 0,
+        "clockSize": "large"
+      },
+      "notifications": []
+    },
+    "shortcuts": {
+      "ok": true,
+      "enabled": true,
+      "slots": [
+        {
+          "id": "bottom_start",
+          "maxSelected": 1,
+          "selected": [
+            "taku_open_app"
+          ]
+        },
+        {
+          "id": "bottom_end",
+          "maxSelected": 1,
+          "selected": [
+            "camera"
+          ]
+        }
+      ],
+      "shortcuts": [
+        {
+          "id": "camera",
+          "name": "Camera",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "home",
+          "name": "Device controls",
+          "enabled": false,
+          "explanation": "To add the Home app as a shortcut, make sure the app is installed"
+        },
+        {
+          "id": "do_not_disturb",
+          "name": "Do Not Disturb",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "mute",
+          "name": "Mute",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "taku_open_app",
+          "name": "Open app",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "qr_code_scanner",
+          "name": "QR code scanner",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "video_camera",
+          "name": "Video camera",
+          "enabled": true,
+          "explanation": null
+        }
+      ],
+      "openApp": {
+        "component": "com.android.settings/com.android.settings.Settings",
+        "label": "Settings",
+        "isDefault": false
+      }
+    },
+    "topActivity": []
+  },
+  "38-fingerprint-rejected.png": {
+    "state": {
+      "ok": true,
+      "state": {
+        "keyguardShowing": true,
+        "authenticated": false,
+        "dozing": false,
+        "available": false,
+        "notificationCount": 0,
+        "clockSize": "large"
+      }
+    },
+    "notifications": {
+      "ok": true,
+      "state": {
+        "keyguardShowing": true,
+        "authenticated": false,
+        "dozing": false,
+        "available": false,
+        "notificationCount": 0,
+        "clockSize": "large"
+      },
+      "notifications": []
+    },
+    "shortcuts": {
+      "ok": true,
+      "enabled": true,
+      "slots": [
+        {
+          "id": "bottom_start",
+          "maxSelected": 1,
+          "selected": [
+            "taku_open_app"
+          ]
+        },
+        {
+          "id": "bottom_end",
+          "maxSelected": 1,
+          "selected": [
+            "camera"
+          ]
+        }
+      ],
+      "shortcuts": [
+        {
+          "id": "camera",
+          "name": "Camera",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "home",
+          "name": "Device controls",
+          "enabled": false,
+          "explanation": "To add the Home app as a shortcut, make sure the app is installed"
+        },
+        {
+          "id": "do_not_disturb",
+          "name": "Do Not Disturb",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "mute",
+          "name": "Mute",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "taku_open_app",
+          "name": "Open app",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "qr_code_scanner",
+          "name": "QR code scanner",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "video_camera",
+          "name": "Video camera",
+          "enabled": true,
+          "explanation": null
+        }
+      ],
+      "openApp": {
+        "component": "com.android.settings/com.android.settings.Settings",
+        "label": "Settings",
+        "isDefault": false
+      }
+    },
+    "topActivity": []
+  },
+  "39-fingerprint-unlocked.png": {
+    "state": {
+      "ok": true,
+      "state": {
+        "keyguardShowing": false,
+        "authenticated": true,
+        "dozing": false,
+        "available": false,
+        "notificationCount": 0,
+        "clockSize": "small"
+      }
+    },
+    "notifications": {
+      "ok": true,
+      "state": {
+        "keyguardShowing": false,
+        "authenticated": true,
+        "dozing": false,
+        "available": false,
+        "notificationCount": 0,
+        "clockSize": "small"
+      },
+      "notifications": []
+    },
+    "shortcuts": {
+      "ok": true,
+      "enabled": true,
+      "slots": [
+        {
+          "id": "bottom_start",
+          "maxSelected": 1,
+          "selected": [
+            "taku_open_app"
+          ]
+        },
+        {
+          "id": "bottom_end",
+          "maxSelected": 1,
+          "selected": [
+            "camera"
+          ]
+        }
+      ],
+      "shortcuts": [
+        {
+          "id": "camera",
+          "name": "Camera",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "home",
+          "name": "Device controls",
+          "enabled": false,
+          "explanation": "To add the Home app as a shortcut, make sure the app is installed"
+        },
+        {
+          "id": "do_not_disturb",
+          "name": "Do Not Disturb",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "mute",
+          "name": "Mute",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "taku_open_app",
+          "name": "Open app",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "qr_code_scanner",
+          "name": "QR code scanner",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "video_camera",
+          "name": "Video camera",
+          "enabled": true,
+          "explanation": null
+        }
+      ],
+      "openApp": {
+        "component": "com.android.settings/com.android.settings.Settings",
+        "label": "Settings",
+        "isDefault": false
+      }
+    },
+    "topActivity": [
+      "topResumedActivity=ActivityRecord{140315426 u0 org.agentos.agent/.home.HomeActivity t150}"
+    ]
+  },
+  "40-secure-camera.png": {
+    "state": {
+      "ok": true,
+      "state": {
+        "keyguardShowing": true,
+        "authenticated": false,
+        "dozing": false,
+        "available": false,
+        "notificationCount": 0,
+        "clockSize": "large"
+      }
+    },
+    "notifications": {
+      "ok": true,
+      "state": {
+        "keyguardShowing": true,
+        "authenticated": false,
+        "dozing": false,
+        "available": false,
+        "notificationCount": 0,
+        "clockSize": "large"
+      },
+      "notifications": []
+    },
+    "shortcuts": {
+      "ok": true,
+      "enabled": true,
+      "slots": [
+        {
+          "id": "bottom_start",
+          "maxSelected": 1,
+          "selected": [
+            "taku_open_app"
+          ]
+        },
+        {
+          "id": "bottom_end",
+          "maxSelected": 1,
+          "selected": [
+            "camera"
+          ]
+        }
+      ],
+      "shortcuts": [
+        {
+          "id": "camera",
+          "name": "Camera",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "home",
+          "name": "Device controls",
+          "enabled": false,
+          "explanation": "To add the Home app as a shortcut, make sure the app is installed"
+        },
+        {
+          "id": "do_not_disturb",
+          "name": "Do Not Disturb",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "mute",
+          "name": "Mute",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "taku_open_app",
+          "name": "Open app",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "qr_code_scanner",
+          "name": "QR code scanner",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "video_camera",
+          "name": "Video camera",
+          "enabled": true,
+          "explanation": null
+        }
+      ],
+      "openApp": {
+        "component": "com.android.settings/com.android.settings.Settings",
+        "label": "Settings",
+        "isDefault": false
+      }
+    },
+    "topActivity": [
+      "topResumedActivity=ActivityRecord{2052330 u0 org.lineageos.aperture/.SecureCameraActivity t166}"
+    ]
+  },
+  "42-pin-lockout.png": {
+    "state": {
+      "ok": true,
+      "state": {
+        "keyguardShowing": true,
+        "authenticated": false,
+        "dozing": false,
+        "available": false,
+        "notificationCount": 0,
+        "clockSize": "large"
+      }
+    },
+    "notifications": {
+      "ok": true,
+      "state": {
+        "keyguardShowing": true,
+        "authenticated": false,
+        "dozing": false,
+        "available": false,
+        "notificationCount": 0,
+        "clockSize": "large"
+      },
+      "notifications": []
+    },
+    "shortcuts": {
+      "ok": true,
+      "enabled": true,
+      "slots": [
+        {
+          "id": "bottom_start",
+          "maxSelected": 1,
+          "selected": [
+            "taku_open_app"
+          ]
+        },
+        {
+          "id": "bottom_end",
+          "maxSelected": 1,
+          "selected": [
+            "camera"
+          ]
+        }
+      ],
+      "shortcuts": [
+        {
+          "id": "camera",
+          "name": "Camera",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "home",
+          "name": "Device controls",
+          "enabled": false,
+          "explanation": "To add the Home app as a shortcut, make sure the app is installed"
+        },
+        {
+          "id": "do_not_disturb",
+          "name": "Do Not Disturb",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "mute",
+          "name": "Mute",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "taku_open_app",
+          "name": "Open app",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "qr_code_scanner",
+          "name": "QR code scanner",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "video_camera",
+          "name": "Video camera",
+          "enabled": true,
+          "explanation": null
+        }
+      ],
+      "openApp": {
+        "component": "com.android.settings/com.android.settings.Settings",
+        "label": "Settings",
+        "isDefault": false
+      }
+    },
+    "topActivity": []
+  },
+  "43-after-lockout-unlocked.png": {
+    "state": {
+      "ok": true,
+      "state": {
+        "keyguardShowing": false,
+        "authenticated": true,
+        "dozing": false,
+        "available": false,
+        "notificationCount": 0,
+        "clockSize": "large"
+      }
+    },
+    "notifications": {
+      "ok": true,
+      "state": {
+        "keyguardShowing": false,
+        "authenticated": true,
+        "dozing": false,
+        "available": false,
+        "notificationCount": 0,
+        "clockSize": "large"
+      },
+      "notifications": []
+    },
+    "shortcuts": {
+      "ok": true,
+      "enabled": true,
+      "slots": [
+        {
+          "id": "bottom_start",
+          "maxSelected": 1,
+          "selected": [
+            "taku_open_app"
+          ]
+        },
+        {
+          "id": "bottom_end",
+          "maxSelected": 1,
+          "selected": [
+            "camera"
+          ]
+        }
+      ],
+      "shortcuts": [
+        {
+          "id": "camera",
+          "name": "Camera",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "home",
+          "name": "Device controls",
+          "enabled": false,
+          "explanation": "To add the Home app as a shortcut, make sure the app is installed"
+        },
+        {
+          "id": "do_not_disturb",
+          "name": "Do Not Disturb",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "mute",
+          "name": "Mute",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "taku_open_app",
+          "name": "Open app",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "qr_code_scanner",
+          "name": "QR code scanner",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "video_camera",
+          "name": "Video camera",
+          "enabled": true,
+          "explanation": null
+        }
+      ],
+      "openApp": {
+        "component": "com.android.settings/com.android.settings.Settings",
+        "label": "Settings",
+        "isDefault": false
+      }
+    },
+    "topActivity": [
+      "topResumedActivity=ActivityRecord{140315426 u0 org.agentos.agent/.home.HomeActivity t150}"
+    ]
+  },
+  "45-taku-button-destination.png": {
+    "state": {
+      "ok": true,
+      "state": {
+        "keyguardShowing": false,
+        "authenticated": true,
+        "dozing": false,
+        "available": false,
+        "notificationCount": 0,
+        "clockSize": "small"
+      }
+    },
+    "notifications": {
+      "ok": true,
+      "state": {
+        "keyguardShowing": false,
+        "authenticated": true,
+        "dozing": false,
+        "available": false,
+        "notificationCount": 0,
+        "clockSize": "small"
+      },
+      "notifications": []
+    },
+    "shortcuts": {
+      "ok": true,
+      "enabled": true,
+      "slots": [
+        {
+          "id": "bottom_start",
+          "maxSelected": 1,
+          "selected": [
+            "taku_open_app"
+          ]
+        },
+        {
+          "id": "bottom_end",
+          "maxSelected": 1,
+          "selected": [
+            "camera"
+          ]
+        }
+      ],
+      "shortcuts": [
+        {
+          "id": "camera",
+          "name": "Camera",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "home",
+          "name": "Device controls",
+          "enabled": false,
+          "explanation": "To add the Home app as a shortcut, make sure the app is installed"
+        },
+        {
+          "id": "do_not_disturb",
+          "name": "Do Not Disturb",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "mute",
+          "name": "Mute",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "taku_open_app",
+          "name": "Open app",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "qr_code_scanner",
+          "name": "QR code scanner",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "video_camera",
+          "name": "Video camera",
+          "enabled": true,
+          "explanation": null
+        }
+      ],
+      "openApp": {
+        "component": "com.android.settings/com.android.settings.Settings",
+        "label": "Settings",
+        "isDefault": false
+      }
+    },
+    "topActivity": [
+      "topResumedActivity=ActivityRecord{140315426 u0 org.agentos.agent/.home.HomeActivity t150}"
+    ]
+  },
+  "46-lockscreen-shade-expanded.png": {
+    "state": {
+      "ok": true,
+      "state": {
+        "keyguardShowing": true,
+        "authenticated": true,
+        "dozing": false,
+        "available": true,
+        "notificationCount": 8,
+        "clockSize": "small"
+      }
+    },
+    "notifications": {
+      "ok": true,
+      "state": {
+        "keyguardShowing": true,
+        "authenticated": true,
+        "dozing": false,
+        "available": true,
+        "notificationCount": 8,
+        "clockSize": "small"
+      },
+      "notifications": [
+        {
+          "key": "0|org.taku.qa.lockscreen|1|null|10206",
+          "package": "org.taku.qa.lockscreen",
+          "app": "Lockscreen QA",
+          "title": "Mary",
+          "text": "The Feed scope is still open for today's review. We need to decide which parts belong in this prototype.",
+          "context": "#Product",
+          "when": 1795599788609,
+          "conversation": true,
+          "sensitive": false,
+          "dismissable": true,
+          "clickable": true,
+          "layout": "expanded",
+          "actions": [
+            {
+              "index": 0,
+              "title": "Add to tasks"
+            },
+            {
+              "index": 1,
+              "title": "Open chat"
+            }
+          ]
+        },
+        {
+          "key": "0|org.taku.qa.lockscreen|2|null|10206",
+          "package": "org.taku.qa.lockscreen",
+          "app": "Lockscreen QA",
+          "title": "Leave in 20 mins",
+          "text": "Meeting at 9:45",
+          "context": null,
+          "when": 1795599788606,
+          "conversation": false,
+          "sensitive": false,
+          "dismissable": true,
+          "clickable": true,
+          "layout": "compact",
+          "actions": []
+        },
+        {
+          "key": "0|org.taku.qa.lockscreen|3|null|10206",
+          "package": "org.taku.qa.lockscreen",
+          "app": "Lockscreen QA",
+          "title": "QA update 3",
+          "text": "Test notification \u2014 swipe to dismiss",
+          "context": null,
+          "when": 1795599788604,
+          "conversation": false,
+          "sensitive": false,
+          "dismissable": true,
+          "clickable": true,
+          "layout": "compact",
+          "actions": []
+        },
+        {
+          "key": "0|org.taku.qa.lockscreen|4|null|10206",
+          "package": "org.taku.qa.lockscreen",
+          "app": "Lockscreen QA",
+          "title": "QA update 4",
+          "text": "Test notification \u2014 swipe to dismiss",
+          "context": null,
+          "when": 1795599788603,
+          "conversation": false,
+          "sensitive": false,
+          "dismissable": true,
+          "clickable": true,
+          "layout": "compact",
+          "actions": []
+        },
+        {
+          "key": "0|org.taku.qa.lockscreen|6|null|10206",
+          "package": "org.taku.qa.lockscreen",
+          "app": "Lockscreen QA",
+          "title": "QA update 6",
+          "text": "Test notification \u2014 swipe to dismiss",
+          "context": null,
+          "when": 1795599788597,
+          "conversation": false,
+          "sensitive": false,
+          "dismissable": true,
+          "clickable": true,
+          "layout": "compact",
+          "actions": []
+        },
+        {
+          "key": "0|org.taku.qa.lockscreen|7|null|10206",
+          "package": "org.taku.qa.lockscreen",
+          "app": "Lockscreen QA",
+          "title": "QA update 7",
+          "text": "Test notification \u2014 swipe to dismiss",
+          "context": null,
+          "when": 1795599788594,
+          "conversation": false,
+          "sensitive": false,
+          "dismissable": true,
+          "clickable": true,
+          "layout": "compact",
+          "actions": []
+        },
+        {
+          "key": "0|org.taku.qa.lockscreen|8|null|10206",
+          "package": "org.taku.qa.lockscreen",
+          "app": "Lockscreen QA",
+          "title": "QA update 8",
+          "text": "Test notification \u2014 swipe to dismiss",
+          "context": null,
+          "when": 1795599788588,
+          "conversation": false,
+          "sensitive": false,
+          "dismissable": true,
+          "clickable": true,
+          "layout": "compact",
+          "actions": []
+        },
+        {
+          "key": "0|android|89|null|1000",
+          "package": "android",
+          "app": "Android System",
+          "title": "Discover Trust",
+          "text": "Get to know how to assure your device is safe",
+          "context": null,
+          "when": 1795598441322,
+          "conversation": false,
+          "sensitive": false,
+          "dismissable": true,
+          "clickable": true,
+          "layout": "compact",
+          "actions": []
+        }
+      ]
+    },
+    "shortcuts": {
+      "ok": true,
+      "enabled": true,
+      "slots": [
+        {
+          "id": "bottom_start",
+          "maxSelected": 1,
+          "selected": [
+            "taku_open_app"
+          ]
+        },
+        {
+          "id": "bottom_end",
+          "maxSelected": 1,
+          "selected": [
+            "camera"
+          ]
+        }
+      ],
+      "shortcuts": [
+        {
+          "id": "camera",
+          "name": "Camera",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "home",
+          "name": "Device controls",
+          "enabled": false,
+          "explanation": "To add the Home app as a shortcut, make sure the app is installed"
+        },
+        {
+          "id": "do_not_disturb",
+          "name": "Do Not Disturb",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "mute",
+          "name": "Mute",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "taku_open_app",
+          "name": "Open app",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "qr_code_scanner",
+          "name": "QR code scanner",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "video_camera",
+          "name": "Video camera",
+          "enabled": true,
+          "explanation": null
+        }
+      ],
+      "openApp": {
+        "component": "com.android.settings/com.android.settings.Settings",
+        "label": "Settings",
+        "isDefault": false
+      }
+    },
+    "topActivity": []
+  },
+  "51-stock-clock-settled.png": {
+    "state": {
+      "ok": true,
+      "state": {
+        "keyguardShowing": true,
+        "authenticated": true,
+        "dozing": false,
+        "available": true,
+        "notificationCount": 8,
+        "clockSize": "small"
+      }
+    },
+    "notifications": {
+      "ok": true,
+      "state": {
+        "keyguardShowing": true,
+        "authenticated": true,
+        "dozing": false,
+        "available": true,
+        "notificationCount": 8,
+        "clockSize": "small"
+      },
+      "notifications": [
+        {
+          "key": "0|org.taku.qa.lockscreen|1|null|10206",
+          "package": "org.taku.qa.lockscreen",
+          "app": "Lockscreen QA",
+          "title": "Mary",
+          "text": "The Feed scope is still open for today's review. We need to decide which parts belong in this prototype.",
+          "context": "#Product",
+          "when": 1795599788609,
+          "conversation": true,
+          "sensitive": false,
+          "dismissable": true,
+          "clickable": true,
+          "layout": "expanded",
+          "actions": [
+            {
+              "index": 0,
+              "title": "Add to tasks"
+            },
+            {
+              "index": 1,
+              "title": "Open chat"
+            }
+          ]
+        },
+        {
+          "key": "0|org.taku.qa.lockscreen|2|null|10206",
+          "package": "org.taku.qa.lockscreen",
+          "app": "Lockscreen QA",
+          "title": "Leave in 20 mins",
+          "text": "Meeting at 9:45",
+          "context": null,
+          "when": 1795599788606,
+          "conversation": false,
+          "sensitive": false,
+          "dismissable": true,
+          "clickable": true,
+          "layout": "compact",
+          "actions": []
+        },
+        {
+          "key": "0|org.taku.qa.lockscreen|3|null|10206",
+          "package": "org.taku.qa.lockscreen",
+          "app": "Lockscreen QA",
+          "title": "QA update 3",
+          "text": "Test notification \u2014 swipe to dismiss",
+          "context": null,
+          "when": 1795599788604,
+          "conversation": false,
+          "sensitive": false,
+          "dismissable": true,
+          "clickable": true,
+          "layout": "compact",
+          "actions": []
+        },
+        {
+          "key": "0|org.taku.qa.lockscreen|4|null|10206",
+          "package": "org.taku.qa.lockscreen",
+          "app": "Lockscreen QA",
+          "title": "QA update 4",
+          "text": "Test notification \u2014 swipe to dismiss",
+          "context": null,
+          "when": 1795599788603,
+          "conversation": false,
+          "sensitive": false,
+          "dismissable": true,
+          "clickable": true,
+          "layout": "compact",
+          "actions": []
+        },
+        {
+          "key": "0|org.taku.qa.lockscreen|6|null|10206",
+          "package": "org.taku.qa.lockscreen",
+          "app": "Lockscreen QA",
+          "title": "QA update 6",
+          "text": "Test notification \u2014 swipe to dismiss",
+          "context": null,
+          "when": 1795599788597,
+          "conversation": false,
+          "sensitive": false,
+          "dismissable": true,
+          "clickable": true,
+          "layout": "compact",
+          "actions": []
+        },
+        {
+          "key": "0|org.taku.qa.lockscreen|7|null|10206",
+          "package": "org.taku.qa.lockscreen",
+          "app": "Lockscreen QA",
+          "title": "QA update 7",
+          "text": "Test notification \u2014 swipe to dismiss",
+          "context": null,
+          "when": 1795599788594,
+          "conversation": false,
+          "sensitive": false,
+          "dismissable": true,
+          "clickable": true,
+          "layout": "compact",
+          "actions": []
+        },
+        {
+          "key": "0|org.taku.qa.lockscreen|8|null|10206",
+          "package": "org.taku.qa.lockscreen",
+          "app": "Lockscreen QA",
+          "title": "QA update 8",
+          "text": "Test notification \u2014 swipe to dismiss",
+          "context": null,
+          "when": 1795599788588,
+          "conversation": false,
+          "sensitive": false,
+          "dismissable": true,
+          "clickable": true,
+          "layout": "compact",
+          "actions": []
+        },
+        {
+          "key": "0|android|89|null|1000",
+          "package": "android",
+          "app": "Android System",
+          "title": "Discover Trust",
+          "text": "Get to know how to assure your device is safe",
+          "context": null,
+          "when": 1795598441322,
+          "conversation": false,
+          "sensitive": false,
+          "dismissable": true,
+          "clickable": true,
+          "layout": "compact",
+          "actions": []
+        }
+      ]
+    },
+    "shortcuts": {
+      "ok": true,
+      "enabled": true,
+      "slots": [
+        {
+          "id": "bottom_start",
+          "maxSelected": 1,
+          "selected": [
+            "taku_open_app"
+          ]
+        },
+        {
+          "id": "bottom_end",
+          "maxSelected": 1,
+          "selected": [
+            "camera"
+          ]
+        }
+      ],
+      "shortcuts": [
+        {
+          "id": "camera",
+          "name": "Camera",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "home",
+          "name": "Device controls",
+          "enabled": false,
+          "explanation": "To add the Home app as a shortcut, make sure the app is installed"
+        },
+        {
+          "id": "do_not_disturb",
+          "name": "Do Not Disturb",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "mute",
+          "name": "Mute",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "taku_open_app",
+          "name": "Open app",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "qr_code_scanner",
+          "name": "QR code scanner",
+          "enabled": true,
+          "explanation": null
+        },
+        {
+          "id": "video_camera",
+          "name": "Video camera",
+          "enabled": true,
+          "explanation": null
+        }
+      ],
+      "openApp": {
+        "component": "com.android.settings/com.android.settings.Settings",
+        "label": "Settings",
+        "isDefault": false
+      }
+    },
+    "topActivity": []
+  }
+}

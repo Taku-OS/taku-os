@@ -1,0 +1,18 @@
+
+Exception occurred while executing 'lockscreen':
+java.lang.SecurityException: StatusBarManagerService: Neither user 10206 nor current process has android.permission.STATUS_BAR.
+	at android.app.ContextImpl.enforce(ContextImpl.java:2581)
+	at android.app.ContextImpl.enforceCallingOrSelfPermission(ContextImpl.java:2612)
+	at com.android.server.statusbar.StatusBarManagerService.enforceStatusBar(StatusBarManagerService.java:1453)
+	at com.android.server.statusbar.StatusBarManagerService.enforceStatusBarOrShell(StatusBarManagerService.java:1449)
+	at com.android.server.statusbar.StatusBarManagerService.passThroughShellCommand(StatusBarManagerService.java:2572)
+	at com.android.server.statusbar.StatusBarShellCommand.runPassArgsToStatusBar(StatusBarShellCommand.java:212)
+	at com.android.server.statusbar.StatusBarShellCommand.onCommand(StatusBarShellCommand.java:91)
+	at com.android.modules.utils.BasicShellCommandHandler.exec(BasicShellCommandHandler.java:97)
+	at android.os.ShellCommand.exec(ShellCommand.java:39)
+	at com.android.server.statusbar.StatusBarManagerService.onShellCommand(StatusBarManagerService.java:2089)
+	at android.os.Binder.shellCommand(Binder.java:1088)
+	at android.os.Binder.onTransact(Binder.java:946)
+	at com.android.internal.statusbar.IStatusBarService$Stub.onTransact(IStatusBarService.java:1551)
+	at android.os.Binder.execTransactInternal(Binder.java:1369)
+	at android.os.Binder.execTransact(Binder.java:1323)

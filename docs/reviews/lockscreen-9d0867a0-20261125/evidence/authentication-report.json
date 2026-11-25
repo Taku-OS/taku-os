@@ -1,0 +1,110 @@
+[
+  {
+    "check": "PIN locked hides cards and Taku",
+    "pass": true,
+    "detail": {
+      "keyguardShowing": true,
+      "authenticated": false,
+      "dozing": false,
+      "available": false,
+      "notificationCount": 0,
+      "clockSize": "large"
+    }
+  },
+  {
+    "check": "Wrong PIN remains locked",
+    "pass": true,
+    "detail": {
+      "keyguardShowing": true,
+      "authenticated": false,
+      "dozing": false,
+      "available": false,
+      "notificationCount": 0,
+      "clockSize": "large"
+    }
+  },
+  {
+    "check": "Correct PIN dismisses keyguard",
+    "pass": true,
+    "detail": {
+      "keyguardShowing": false,
+      "authenticated": true,
+      "dozing": false,
+      "available": false,
+      "notificationCount": 0,
+      "clockSize": "large"
+    }
+  },
+  {
+    "check": "App shortcut cannot bypass PIN",
+    "pass": true,
+    "detail": {
+      "keyguardShowing": true,
+      "authenticated": false,
+      "dozing": false,
+      "available": false,
+      "notificationCount": 0,
+      "clockSize": "large"
+    }
+  },
+  {
+    "check": "After PIN opens Settings",
+    "pass": true,
+    "detail": {
+      "keyguardShowing": false,
+      "authenticated": true,
+      "dozing": false,
+      "available": false,
+      "notificationCount": 0,
+      "clockSize": "large"
+    }
+  },
+  {
+    "check": "Wrong password stays locked",
+    "pass": true,
+    "detail": {
+      "keyguardShowing": true,
+      "authenticated": false,
+      "dozing": false,
+      "available": false,
+      "notificationCount": 0,
+      "clockSize": "large"
+    }
+  },
+  {
+    "check": "Password unlocks",
+    "pass": true,
+    "detail": {
+      "keyguardShowing": false,
+      "authenticated": true,
+      "dozing": false,
+      "available": false,
+      "notificationCount": 0,
+      "clockSize": "large"
+    }
+  },
+  {
+    "check": "Wrong pattern stays locked",
+    "pass": true,
+    "detail": {
+      "keyguardShowing": true,
+      "authenticated": false,
+      "dozing": false,
+      "available": false,
+      "notificationCount": 0,
+      "clockSize": "large"
+    }
+  },
+  {
+    "check": "Pattern unlocks",
+    "pass": true,
+    "detail": {
+      "keyguardShowing": false,
+      "authenticated": true,
+      "dozing": false,
+      "available": false,
+      "notificationCount": 0,
+      "clockSize": "large"
+    }
+  }
+]
