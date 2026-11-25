@@ -56,7 +56,7 @@ test('BUG-0033: release_apps and its sibling phone tools never show a raw name o
     {id: 'y', type: 'dynamicToolCall', namespace: 'other', tool: 'open_app', status: 'completed'},
   ]}]}});
   assert.equal(other.blocks[0].activity[0].text, '{"total":3}');
-  assert.equal(other.blocks[0].activity[1].name, 'open_app');
+  assert.equal(other.blocks[0].activity[1].name, 'other · open app');
 });
 
 test('private reasoning and credential records are never conversation text', () => {
