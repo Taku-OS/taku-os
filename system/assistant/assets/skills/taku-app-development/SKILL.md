@@ -1,6 +1,6 @@
 ---
 name: taku-app-development
-description: Develop or modify applications on Taku Android. Use when the user wants a lightweight app, native APK, preview, upgrade or callable application API; choose a route from actual device tools and the requested app experience.
+description: Develop or modify applications on Taku Android, including an ordering app from a scanned menu. Choose a route from the actual device tools and the requested app experience.
 ---
 
 Use the current Taku conversation and existing execution tools. Inspect the Harness environment and actual paths before choosing a route. Do not start another model process.
@@ -18,7 +18,8 @@ If the current UI session is unavailable, continue the actual work without inven
 
 When the user asks for an ordering app and this turn includes Menu Scan context, follow
 [the Menu Scan workflow](references/menu-scan.md). It uses the same installed template for
-every menu. Use the attached photo and OCR rows for content.
+every menu. Use the attached photo and OCR rows for content, estimate serving nutrition,
+and check verified sources for matching posts at the identified branch.
 
 For requests outside the Menu Scan workflow, choose based on the task:
 - Lightweight utility or interactive page: when the React app-kit host, esbuild and API service are actually installed, write real JSX and business code. Read the kit's generation-contract.txt and relevant seed interfaces before using them. UI and Agent calls share the business API.
