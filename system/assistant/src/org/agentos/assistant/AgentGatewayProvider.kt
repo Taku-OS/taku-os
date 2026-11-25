@@ -266,7 +266,7 @@ class AgentGatewayProvider : ContentProvider() {
             AgentGatewayProtocol.COMPOSER_IMPORT -> return ComposerState.importLegacy(preferences(), thread, input.getString("text"))
             AgentGatewayProtocol.COMPOSER_MOVE -> return ComposerDelivery.move(context!!, input)
             AgentGatewayProtocol.COMPOSER_RECEIPT, AgentGatewayProtocol.COMPOSER_SUBMIT,
-            AgentGatewayProtocol.COMPOSER_SETTLE, AgentGatewayProtocol.COMPOSER_RELEASE -> return ComposerDelivery.call(context!!, action, input)
+            AgentGatewayProtocol.COMPOSER_SETTLE, AgentGatewayProtocol.COMPOSER_RELEASE -> return ComposerDelivery.call(context!!, action, input, allowAutoScreenshot = true)
             AgentGatewayProtocol.COMPOSER_REMOVE -> return ComposerState.removeAttachment(preferences(), thread, input.getString("expectedRevision"), input.getString("attachmentId"))
             AgentGatewayProtocol.COMPOSER_OPTIONS_READ, AgentGatewayProtocol.COMPOSER_OPTIONS_WRITE -> return ComposerOptions.call(context!!, action, input)
             AgentGatewayProtocol.COMPOSER_CREATE_THREAD -> return AgentGatewayProtocol.clean(ComposerDelivery.createThread(), 0) as JSONObject

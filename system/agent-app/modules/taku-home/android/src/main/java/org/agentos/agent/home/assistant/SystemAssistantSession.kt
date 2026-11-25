@@ -47,10 +47,13 @@ class SystemAssistantSession(private val ctx: Context) : VoiceInteractionSession
     setUiEnabled(false)
     if (request?.containsKey("jevTestToken") != true) {
       val capturedAt = SystemClock.elapsedRealtime()
+      val autoScreenshot = SystemAssistantEntry.routeFor(args?.getString(SystemAssistantEntry.TRIGGER)).autoScreenshot
       IO.execute {
         if (version != generation) return@execute
         try {
-          val result = gateway("assistInvocation", JSONObject().put("operation", "begin").put("capturedAt", capturedAt))
+          val begin = JSONObject().put("operation", "begin").put("capturedAt", capturedAt)
+          if (autoScreenshot) begin.put("autoScreenshot", true)
+          val result = gateway("assistInvocation", begin)
           if (version == generation) invocationToken = result.getString("token")
         } catch (failure: Exception) { Log.w("TakuSystemAssistant", "Invocation capture authorization unavailable", failure) }
       }
