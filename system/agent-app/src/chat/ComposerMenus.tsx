@@ -9,8 +9,7 @@ import {chatColors, chatMetrics, chatType, themedStyles} from './chatTheme';
 import {chatText} from './chatText';
 import {matchingPlugins} from './pluginMention';
 import type {ComposerPickerKind} from '../native/composerPicker';
-import {callAgent} from '../native/agent';
-import {createNativePluginRepository} from '../plugins/nativeRepository';
+import {pluginRepository} from '../plugins/repository';
 import {PluginMark} from '../plugins/PluginMark';
 import type {PluginRepository, PluginSummary} from '../plugins/contracts';
 import {containsChinese} from '../theme';
@@ -48,15 +47,13 @@ export function AttachMenu({language, bottom, attachmentLimit, onChoose, onClose
 
 type PluginState = {status: 'loading' | 'ready' | 'error'; items: PluginSummary[]};
 
-const nativePlugins = () => createNativePluginRepository((action, params) => callAgent(action, params));
-
 /** The installed, enabled plugins from the same plugin repository the Plugin Market reads. */
 function useEnabledPlugins(repository?: PluginRepository): [PluginState, () => void] {
   const [state, setState] = useState<PluginState>({status: 'loading', items: []});
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let current = true;
-    void (repository ?? nativePlugins()).listInstalled().then(result => {
+    void (repository ?? pluginRepository()).listInstalled().then(result => {
       if (!current) return;
       setState(result.ok ? {status: 'ready', items: result.value.filter(item => item.enabled === true)} : {status: 'error', items: []});
     }, () => { if (current) setState({status: 'error', items: []}); });

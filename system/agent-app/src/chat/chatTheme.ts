@@ -24,6 +24,8 @@ export const homeColors = {
   /** Floating chrome (title-row buttons, composer menus); the light chat keeps its white glass. */
   glass: surface(0.8),
   /** Chat Polish 2-x / 3-x: current row, dialog scrim, field inset, primary pill and destructive text. */
+  /** Action menus over content: the glass made near-opaque, since the design's backdrop blur is not drawn. */
+  menu: surface(0.96),
   selection: content(0.06), scrim: content(0.48), fieldInset: content(0.06),
   pill: '#1B1B1B', pillText: '#FFFFFF', destructive: '#D7263D',
   /** Under the window blur (Surface/400) and the opaque fallback (Main/Canvas). */
@@ -46,7 +48,7 @@ const dark = {
   // Chat Polish 1-0: title-row buttons, the composer and its menus share one #202020 / 64 % glass.
   composer: 'rgba(32,32,32,0.64)', glass: 'rgba(32,32,32,0.64)', chip: surface(0.08), placeholder: surface(0.36),
   // 2-1 current row Surface/100; 3-1-2 / 3-3 overlay Content/800; 1-2 field Content/500; white pill; #FF4856.
-  selection: surface(0.06), scrim: content(0.8), fieldInset: content(0.36), pill: '#FFFFFF', pillText: '#1B1B1B', destructive: '#FF4856',
+  menu: 'rgba(32,32,32,0.96)', selection: surface(0.06), scrim: content(0.8), fieldInset: content(0.36), pill: '#FFFFFF', pillText: '#1B1B1B', destructive: '#FF4856',
   surfaceRaised: '#262626', surfaceGlass: surface(0.08), fillControl: surface(0.08), hairline: surface(0.16),
   // One native tint over the existing cross-window blur, never another opaque React layer.
   backdropTint: content(0.92), backdropTintArgb: '#EB000000', backdropFallback: '#121212',

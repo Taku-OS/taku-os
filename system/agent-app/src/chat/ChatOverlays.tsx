@@ -11,7 +11,7 @@ import {containsChinese} from '../theme';
 
 type Language = 'en' | 'zh';
 
-export type MenuItem = {key: string; label: string; icon: ChromeIconName; destructive?: boolean; dividerBefore?: boolean; disabled?: boolean; onPress: () => void};
+export type MenuItem = {key: string; label: string; icon?: ChromeIconName; destructive?: boolean; dividerBefore?: boolean; disabled?: boolean; onPress: () => void};
 
 /** 182 dp glass card, 8 dp padding, 24 dp corners; 20 dp icon + Body/lg rows, a Surface/200 rule before Delete. */
 export function GlassMenu({items, style, testID}: {items: readonly MenuItem[]; style?: StyleProp<ViewStyle>; testID?: string}) {
@@ -20,7 +20,7 @@ export function GlassMenu({items, style, testID}: {items: readonly MenuItem[]; s
       {item.dividerBefore && <View style={styles.divider}/>}
       <Pressable testID={`menu-${item.key}`} accessibilityRole="menuitem" accessibilityState={{disabled: !!item.disabled}} disabled={item.disabled}
         onPress={item.onPress} style={({pressed}) => [styles.menuRow, pressed && styles.pressed, item.disabled && styles.disabled]}>
-        <ChromeIcon name={item.icon} size={20}/>
+        {item.icon ? <ChromeIcon name={item.icon} size={20}/> : <View style={styles.iconSpace}/>}
         <Text numberOfLines={1} style={[chatType.bodyLg(containsChinese(item.label)), item.destructive ? styles.destructive : styles.primary]}>{item.label}</Text>
       </Pressable>
     </React.Fragment>)}
@@ -104,8 +104,8 @@ export function RenameDialog({title, label, initial, language, busy, error, onCa
 }
 
 /** Figma 3-3: "<name> panel" in Surface/900, then the warning in Surface/700; Cancel and a red Delete. */
-export function DeleteDialog({title, name, body, language, busy, error, onCancel, onConfirm}: {
-  title: string; name: string; body: string; language: Language; busy: boolean; error: string; onCancel: () => void; onConfirm: () => void;
+export function DeleteDialog({title, name, body, language, busy, error, confirmLabel, onCancel, onConfirm}: {
+  title: string; name: string; body: string; language: Language; busy: boolean; error: string; confirmLabel?: string; onCancel: () => void; onConfirm: () => void;
 }) {
   const t = chatText(language);
   return <ChatDialog title={title} onClose={onCancel} testID="delete-dialog">
@@ -115,7 +115,7 @@ export function DeleteDialog({title, name, body, language, busy, error, onCancel
     {!!error && <Text accessibilityLiveRegion="polite" style={[chatType.bodyMd(language === 'zh'), styles.error]}>{error}</Text>}
     <DialogActions>
       <PillButton label={t('cancel')} onPress={onCancel} style={styles.grow}/>
-      <PillButton testID="delete-confirm" label={t('panelDelete')} variant="destructive" busy={busy} onPress={onConfirm} style={styles.grow}/>
+      <PillButton testID="delete-confirm" label={confirmLabel ?? t('panelDelete')} variant="destructive" busy={busy} onPress={onConfirm} style={styles.grow}/>
     </DialogActions>
   </ChatDialog>;
 }
@@ -125,9 +125,10 @@ const styles = themedStyles(() => StyleSheet.create({
   header: {position: 'absolute', left: 0, right: 0, top: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16},
   headerTitle: {position: 'absolute', left: 72, right: 72, textAlign: 'center'},
   headerSpacer: {width: 40, height: 40},
-  menu: {width: 182, padding: 8, gap: 4, borderRadius: 24, backgroundColor: chatColors.glass, overflow: 'hidden'},
+  menu: {width: 182, padding: 8, gap: 4, borderRadius: 24, backgroundColor: chatColors.menu, overflow: 'hidden'},
   menuRow: {flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 8, paddingVertical: 8, borderRadius: 9999},
   divider: {height: 1, backgroundColor: chatColors.fillControl},
+  iconSpace: {width: 20, height: 20},
   pill: {height: 40, flexDirection: 'row', gap: 4, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16, borderRadius: 9999,
     backgroundColor: chatColors.fillControl},
   pillPrimary: {backgroundColor: chatColors.pill},
