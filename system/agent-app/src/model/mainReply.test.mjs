@@ -112,3 +112,41 @@ test('failed, interrupted and unavailable views remain honest and never expose f
   assert.equal(raw.blocks.at(-1).text, '');
   assert.equal(raw.blocks.at(-1).parts[0].replyState.code, 'INVALID_REPLY_FRAME');
 });
+
+test('completed Menu App rich replies promote the proven readable receipt to one native entry', () => {
+  const packageName = 'org.agentos.generated.menu.m1d44d2d9f63d3ee110a32e4c5cc2caf4';
+  const body = 'Menu app installed\nThe fixed Menu App is installed with the three dishes and prices from the photo. Nutrition and recommendations are left unspecified where they could not be verified.';
+  const readableText = `${body}\n\ntaku-menu-app:${packageName}`;
+  const project = (reply, status = 'completed', items = replyItems(reply)) => projectSession({thread: {id: 'thread', turns: [
+    {id: 'turn', status, mainReplies: {[reply.id]: reply}, items},
+  ]}}).blocks[0];
+  for (const phase of ['completed', 'failed']) {
+    const reply = mainReply('thread', `menu-${phase}`, 1, phase, {readableText});
+    const block = project(reply);
+    assert.equal(block.parts.length, 1);
+    assert.equal(block.text, body);
+    assert.equal(block.parts[0].menuAppPackage, packageName);
+    assert.equal(block.parts[0].card, undefined);
+    assert.equal(block.parts[0].replyState, undefined);
+  }
+  const invalid = mainReply('thread', 'menu-invalid', 1, 'completed', {readableText});
+  invalid.card.view.catalogVersion = 'old';
+  assert.equal(project(invalid).parts[0].menuAppPackage, packageName);
+  const untrusted = project(invalid, 'completed', [{id: 'answer', type: 'agentMessage', replyId: invalid.id, text: 'different'}]);
+  assert.equal(untrusted.parts[0].menuAppPackage, undefined);
+  assert.equal(untrusted.text, '');
+  for (const status of ['failed', 'interrupted']) {
+    const reply = mainReply('thread', `menu-turn-${status}`, 1, 'failed', {readableText});
+    const block = project(reply, status);
+    assert.equal(block.text, body);
+    assert.equal(block.parts[0].menuAppPackage, undefined);
+    assert.equal(block.parts[0].card, undefined);
+  }
+  const streaming = mainReply('thread', 'menu-stream', 1, 'streaming', {readableText});
+  const block = project(streaming, 'inProgress');
+  assert.equal(block.parts[0].menuAppPackage, undefined);
+  assert.equal(block.parts[0].card, undefined);
+  assert.equal(block.text.trimEnd(), body);
+  const ordinary = mainReply('thread', 'ordinary-stream', 1, 'streaming');
+  assert.ok(project(ordinary, 'inProgress').parts[0].card);
+});

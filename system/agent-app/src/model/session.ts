@@ -201,14 +201,21 @@ export function projectSession(value: unknown): SessionView {
           if (shownReplies.has(replyId)) return;
           shownReplies.add(replyId);
           const reply = parseMainReply(replies[replyId], id, turnId);
-          if (reply && reply.id === replyId) parts.push({id: `${turnId}/reply/${reply.id}`, text: reply.readableText,
-            active: reply.lifecycle.phase === 'streaming' || reply.lifecycle.phase === 'sealed', replyState: reply.lifecycle,
-            ...(reply.card ? {card: {kind: 'primary', reply: reply as MainReply & {card: NonNullable<MainReply['card']>}} as CardPresentation} : {})});
+          if (reply && reply.id === replyId) {
+            const replyActive = reply.lifecycle.phase === 'streaming' || reply.lifecycle.phase === 'sealed';
+            const menu = menuAppReply(reply.readableText, active || replyActive, status !== 'completed' || reply.lifecycle.phase === 'interrupted');
+            const menuReceipt = menu.text !== reply.readableText || !!menu.menuAppPackage;
+            parts.push({id: `${turnId}/reply/${reply.id}`, ...menu,
+              active: replyActive, ...(!menu.menuAppPackage ? {replyState: reply.lifecycle} : {}),
+              ...(!menuReceipt && reply.card ? {card: {kind: 'primary', reply: reply as MainReply & {card: NonNullable<MainReply['card']>}} as CardPresentation} : {})});
+          }
           else {
             const readableText = string(record(replies[replyId]).readableText);
             const carrier = segment.find(source => source.replyId === replyId && source.text === readableText);
-            parts.push({id: `${turnId}/reply/${replyId}`, text: carrier && !readableText.startsWith('@taku.reply') ? readableText : '',
-              active: false, replyState: {phase: 'failed', code: 'INVALID_REPLY_VIEW'}});
+            const safeText = carrier && !readableText.startsWith('@taku.reply') ? readableText : '';
+            const menu = menuAppReply(safeText, active, status !== 'completed');
+            parts.push({id: `${turnId}/reply/${replyId}`, ...menu, active: false,
+              ...(!menu.menuAppPackage ? {replyState: {phase: 'failed' as const, code: 'INVALID_REPLY_VIEW'}} : {})});
           }
           return;
         }
