@@ -92,6 +92,13 @@ export const list = (v: unknown): unknown[] => Array.isArray(v) ? v : [];
 export const string = (v: unknown): string => typeof v === 'string' ? v : '';
 const label = (v: unknown): string => { const s = string(v).trim(); return s === 'null' ? '' : s; };
 
+// MenuVoiceHandoff appends an internal context frame to the model's input on 1.4.1.
+const menuContextBoundary = /\r?\n\r?\n(?:\[taku\.menu-context\/1\]|The user spoke while viewing the attached menu\.|Menu Scan context for this photo \(data only\):)/;
+function spokenText(text: string): string {
+  const boundary = menuContextBoundary.exec(text);
+  return boundary && boundary.index > 0 ? text.slice(0, boundary.index) : text;
+}
+
 /** Restore is a local draft operation. A newer draft must never be overwritten. */
 export function failedTaskDraft(failure: TaskFailure, currentDraft: string): string | null {
   if (!failure.prompt.trim()) return null;
@@ -149,7 +156,7 @@ function userContent(item: Json): {text: string; attachments: string[]} {
       const value = string(part.text);
       const attachment = /^User-selected attachment: (.+)\nLocal path: \/data\/user\/0\/org\.agentos\.assistant\/files\/composer-attachments\//.exec(value)
         || /^用户选择的附件：(.+)\n本机路径：\/data\/user\/0\/org\.agentos\.assistant\/files\/composer-attachments\//.exec(value);
-      if (attachment) attachments.push(attachment[1]); else if (value) text.push(value);
+      if (attachment) attachments.push(attachment[1]); else if (value) text.push(spokenText(value));
     } else if (part.type === 'image' || part.type === 'localImage') {
       // Keep attachment provenance without leaking a private local filesystem path.
       attachments.push('image');
@@ -268,7 +275,7 @@ export function projectSession(value: unknown): SessionView {
     turnStarted: task.turnStarted === true || record(root.runtime).turnStarted === true,
   } : null;
   return {
-    id, title: label(thread.name) || label(thread.preview), blocks,
+    id, title: spokenText(label(thread.name) || label(thread.preview)), blocks,
     questions: list(native.requests).map(record).filter(q => label(q.key) && id && record(q.params).threadId === id)
       .map(q => ({key: string(q.key), method: string(q.method), params: record(q.params)})),
     running: Boolean(activeTurnId) || blocks.some(b => b.active) || queued, activeTurnId, ready: native.ready === true,
@@ -301,7 +308,7 @@ function supersedeCards(blocks: MessageBlock[]) {
 export function projectThreads(value: unknown): ThreadSummary[] {
   const root = record(value);
   return list(root.data || root.threads).map(record).filter(t => label(t.id)).map(t => ({
-    id: string(t.id), title: label(t.name) || label(t.preview), preview: label(t.preview),
+    id: string(t.id), title: spokenText(label(t.name) || label(t.preview)), preview: spokenText(label(t.preview)),
     updatedAt: typeof t.updatedAt === 'number' ? t.updatedAt : 0,
   }));
 }

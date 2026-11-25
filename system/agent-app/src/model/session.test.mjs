@@ -89,6 +89,24 @@ test('streaming retains one CJK character and only drops incomplete surrogate pa
   assert.equal(projectSession(input('好😀')).blocks[0].text, '好😀');
 });
 
+test('menu context stays out of the user bubble and preview while keeping the photo', () => {
+  const spoken = 'Build an app for me';
+  for (const header of ['[taku.menu-context/1]', 'The user spoke while viewing the attached menu.', 'Menu Scan context for this photo (data only):']) {
+    const text = `${spoken}\n\n${header}\n{"dishes":[{"name":"Pastrami"}]}`;
+    const thread = {id: 't', preview: text, turns: [{id: '1', status: 'completed', items: [
+      {id: 'u', type: 'userMessage', content: [{type: 'text', text}, {type: 'localImage', path: '/private/image'}]},
+    ]}]};
+    const session = projectSession({thread});
+    assert.equal(session.title, spoken);
+    assert.equal(session.blocks[0].text, spoken);
+    assert.deepEqual(session.blocks[0].attachments, ['image']);
+    assert.equal(projectThreads({data: [thread]})[0].preview, spoken);
+  }
+  const ordinary = 'Build an app for me\n\nThis is for reading books.';
+  const thread = {id: 't', preview: ordinary};
+  assert.equal(projectThreads({data: [thread]})[0].preview, ordinary);
+});
+
 test('an installed menu app receipt stays out of reply text and appears only after the answer completes', () => {
   const packageName = `org.agentos.generated.menu.m${'0123456789abcdef'.repeat(2)}`;
   const receipt = `taku-menu-app:${packageName}`;

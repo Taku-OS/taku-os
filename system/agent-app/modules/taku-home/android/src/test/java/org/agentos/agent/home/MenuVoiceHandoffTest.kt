@@ -33,6 +33,8 @@ class MenuVoiceHandoffTest {
     val scan = """{"dishes":[{"name":"Pastrami"}]}"""
     val message = MenuVoiceHandoff.message(MenuVoiceHandoff.normalizeSpeech(spoken), scan)
     assertEquals(spoken, message.lineSequence().first())
+    assertEquals(spoken, MenuVoiceHandoff.spokenText(message))
+    assertEquals(spoken, MenuVoiceHandoff.spokenText(message.replace("[taku.menu-context/1]\n", "")))
     assertTrue(message.endsWith(scan))
     assertTrue(message.contains("If the speech is incomplete, clarify before starting a build."))
   }
