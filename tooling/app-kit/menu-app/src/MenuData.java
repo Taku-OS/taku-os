@@ -14,8 +14,10 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Currency;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -25,6 +27,7 @@ public final class MenuData {
     private static final int MAX_JSON_BYTES = 512 * 1024;
     private static final int MAX_IMAGE_BYTES = 6 * 1024 * 1024;
     private static final int MAX_TOTAL_IMAGE_BYTES = 36 * 1024 * 1024;
+    private static final long MAX_TOTAL_IMAGE_PIXELS = 90_000_000;
     private static final String IMAGE_PATH = "images/[A-Za-z0-9][A-Za-z0-9_-]{0,79}\\.(?:jpg|jpeg|png|webp)";
 
     public static void main(String[] args) {
@@ -48,7 +51,16 @@ public final class MenuData {
         } catch (IllegalStateException ex) {
             throw new IllegalArgumentException("Malformed JSON", ex);
         }
-        validateMenu(menu, new Images(source.getParent(), project));
+        Images images = new Images(source.getParent(), project);
+        validateMenu(menu, images);
+        JSONArray dishes = menu.getJSONArray("dishes");
+        List<JSONObject> missingArtwork = new ArrayList<>();
+        for (int index = 0; index < dishes.length(); index++) {
+            JSONObject dish = dishes.getJSONObject(index);
+            if (dish.getString("image").isEmpty()) missingArtwork.add(dish);
+        }
+        MenuDishArtwork.generate(missingArtwork, images::saveArtwork);
+        images.writeGeneratedCover(dishes);
         Files.write(project.resolve("assets/menu-data.json"),
                 menu.toString().getBytes(StandardCharsets.UTF_8));
         writeLabel(project, menu.getJSONObject("venue").getString("name"));
@@ -287,6 +299,38 @@ public final class MenuData {
             }
         }
 
+        boolean saveArtwork(JSONObject dish, byte[] artwork) throws IOException, JSONException {
+            long pixels = (long) MenuDishArtwork.SIZE * MenuDishArtwork.SIZE;
+            if (totalEncodedBytes + artwork.length > MAX_TOTAL_IMAGE_BYTES
+                    || totalPixels + pixels > MAX_TOTAL_IMAGE_PIXELS) {
+                return false;
+            }
+            Path directory = project.resolve("assets/images");
+            Files.createDirectories(directory);
+            Path destination = Files.createTempFile(directory, "dish-", ".png");
+            Files.write(destination, artwork);
+            dish.put("image", "images/" + destination.getFileName());
+            totalEncodedBytes += artwork.length;
+            totalPixels += pixels;
+            return true;
+        }
+
+        void writeGeneratedCover(JSONArray dishes) throws IOException, JSONException {
+            if (hasCover) return;
+            for (int index = 0; index < dishes.length(); index++) {
+                String reference = dishes.getJSONObject(index).getString("image");
+                if (reference.isEmpty()) continue;
+                Bitmap bitmap = BitmapFactory.decodeFile(project.resolve("assets").resolve(reference).toString());
+                require(bitmap != null, "Generated cover could not be decoded");
+                try {
+                    writeCover(bitmap);
+                } finally {
+                    bitmap.recycle();
+                }
+                return;
+            }
+        }
+
         private Bitmap decodeImage(String reference, byte[] data) {
             BitmapFactory.Options bounds = new BitmapFactory.Options();
             bounds.inJustDecodeBounds = true;
@@ -298,7 +342,7 @@ public final class MenuData {
                     && (long) bounds.outWidth * bounds.outHeight <= 12_000_000,
                     "Image format or dimensions exceed the allowed range");
             totalPixels += (long) bounds.outWidth * bounds.outHeight;
-            require(totalPixels <= 90_000_000, "Total image dimensions exceed the allowed range");
+            require(totalPixels <= MAX_TOTAL_IMAGE_PIXELS, "Total image dimensions exceed the allowed range");
             BitmapFactory.Options decode = new BitmapFactory.Options();
             decode.inSampleSize = Math.max(bounds.outWidth, bounds.outHeight) > 1600 ? 2 : 1;
             Bitmap bitmap = BitmapFactory.decodeByteArray(data, 0, data.length, decode);

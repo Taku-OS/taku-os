@@ -29,8 +29,13 @@ The top-level JSON object contains `venue`, `currency` and `dishes`.
 - A dish may include an `image` and any recommendations. For images, pass
   `images/<filename>.jpg`, `.jpeg`, `.png`, or `.webp` relative to the JSON
   file. Filenames accept letters, numbers, underscores and hyphens. The builder
-  decodes and re-encodes those images before packaging and uses the first dish
-  image available as the Chat cover.
+  decodes and re-encodes supplied images before packaging. When `image` is
+  omitted or empty, the builder uses the phone's local image gateway to generate
+  a transparent illustration from the dish name and ingredients. It generates
+  up to four illustrations concurrently and waits up to 120 seconds for the
+  batch. Failed or timed-out illustrations leave the dish using its placeholder
+  and log a diagnostic to stderr. The Chat cover uses the first supplied dish
+  image, or the first successfully illustrated dish in menu order.
 - Each recommendation provides `url`, `platform`, `author`, `title`,
   `restaurantPlaceId`, `dishId` and `verified: true`, with optional `thumbnail`,
   `type` and `excerpt`. Verify the post, venue and dish before adding a

@@ -16,7 +16,8 @@ esac
 export PATH="$LAB/native:/apex/com.android.art/bin:/system/bin:/system_ext/bin"
 
 for prerequisite in "$KIT/AndroidManifest.xml" "$KIT/template/index.html" \
-  "$KIT/src/MenuData.java" "$KIT/src/MainActivity.java" "$KIT/src/RecommendationLinks.java" \
+  "$KIT/src/MenuData.java" "$KIT/src/MenuDishArtwork.java" \
+  "$KIT/src/MainActivity.java" "$KIT/src/RecommendationLinks.java" \
   "$LAB/build-native.sh" "$TOOLS/ecj.jar" "$TOOLS/d8.dex" "$TOOLS/android.jar" \
   "$TOOLS/android.classes.jar" "$TOOLS/apksigner.dex" "$TOOLS/debug.pk8" "$TOOLS/debug.x509.pem"; do
   if [ ! -r "$prerequisite" ]; then
@@ -54,7 +55,7 @@ cp -R "$KIT/template/." "$PROJECT/assets/"
 dalvikvm -Xmx512m -Djava.io.tmpdir="$PROJECT/validation" \
   -cp "$TOOLS/ecj.jar" org.eclipse.jdt.internal.compiler.batch.Main -proc:none -16 \
   -cp "$TOOLS/android.classes.jar" -d "$PROJECT/validation/classes" \
-  "$KIT/src/MenuData.java" "$KIT/src/RecommendationLinks.java" >&2
+  "$KIT/src/MenuData.java" "$KIT/src/MenuDishArtwork.java" "$KIT/src/RecommendationLinks.java" >&2
 dalvikvm -Xmx512m -cp "$TOOLS/d8.dex" com.android.tools.r8.D8 --lib "$TOOLS/android.jar" \
   --min-api 36 --output "$PROJECT/validation/dex" \
   $(find "$PROJECT/validation/classes" -name '*.class') >&2
