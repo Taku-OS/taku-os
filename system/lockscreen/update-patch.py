@@ -10,6 +10,7 @@ import difflib
 import hashlib
 import json
 from pathlib import Path
+import subprocess
 import tempfile
 import urllib.request
 
@@ -22,6 +23,11 @@ REPOSITORY = 'frameworks/base'
 FETCH_URL = 'https://raw.githubusercontent.com/LineageOS/android_frameworks_base/{revision}/{path}'
 
 PKG = 'com.android.systemui.taku.lockscreen'
+ISLAND = ROOT / 'image/island'
+# Files another Taku patch also edits. The image builds apply the island patch first, so the lock
+# screen's edit starts from the island's final bytes (`layeredOn` in the manifest), and both apply
+# scripts accept the layered result.
+LAYERED = {'packages/SystemUI/AndroidManifest.xml': 'island'}
 HOOKS = {
     SYSTEMUI + 'com/android/systemui/keyguard/ui/view/layout/sections/transitions/ClockSizeTransition.kt': [
         ('import android.animation.Animator\n',
@@ -73,6 +79,59 @@ HOOKS = {
          '            android:label="@string/controls_open_app"\n'
          '            android:excludeFromRecents="true"\n'
          '            android:theme="@android:style/Theme.DeviceDefault.DayNight" />\n'),
+    ],
+    SYSTEMUI + 'com/android/systemui/keyguard/ui/binder/KeyguardQuickAffordanceViewBinder.kt': [
+        ('import com.android.systemui.res.R\n',
+         'import com.android.systemui.res.R\n'
+         f'import {PKG}.TakuLockscreenPolicy\n'),
+        ('        view.drawable.setTint(\n'
+         '            view.context.getColor(\n'
+         '                if (viewModel.isActivated) {\n'
+         '                    com.android.internal.R.color.materialColorOnPrimaryFixed\n'
+         '                } else {\n'
+         '                    com.android.internal.R.color.materialColorOnSurface\n'
+         '                }\n'
+         '            )\n'
+         '        )\n',
+         '        // Taku: dark icon on the white shortcut button (Figma 979:455); activated keeps stock.\n'
+         '        view.drawable.setTint(\n'
+         '            TakuLockscreenPolicy.shortcutIconColor(\n'
+         '                viewModel.isActivated,\n'
+         '                view.context.getColor(\n'
+         '                    if (viewModel.isActivated) {\n'
+         '                        com.android.internal.R.color.materialColorOnPrimaryFixed\n'
+         '                    } else {\n'
+         '                        com.android.internal.R.color.materialColorOnSurface\n'
+         '                    }\n'
+         '                ),\n'
+         '            )\n'
+         '        )\n'),
+        ('            ColorStateList.valueOf(\n'
+         '                view.context.getColor(\n'
+         '                    if (viewModel.isActivated) {\n'
+         '                        com.android.internal.R.color.materialColorPrimaryFixed\n'
+         '                    } else if (enableLockscreenBlur() && isBlurSupported) {\n'
+         '                        com.android.internal.R.color.customColorSurfaceEffect1\n'
+         '                    } else {\n'
+         '                        com.android.internal.R.color.materialColorSurfaceContainerHigh\n'
+         '                    }\n'
+         '                )\n'
+         '            )\n',
+         '            // Taku: white at 92 % at rest (Figma 979:455); activated keeps stock.\n'
+         '            ColorStateList.valueOf(\n'
+         '                TakuLockscreenPolicy.shortcutBackgroundColor(\n'
+         '                    viewModel.isActivated,\n'
+         '                    view.context.getColor(\n'
+         '                        if (viewModel.isActivated) {\n'
+         '                            com.android.internal.R.color.materialColorPrimaryFixed\n'
+         '                        } else if (enableLockscreenBlur() && isBlurSupported) {\n'
+         '                            com.android.internal.R.color.customColorSurfaceEffect1\n'
+         '                        } else {\n'
+         '                            com.android.internal.R.color.materialColorSurfaceContainerHigh\n'
+         '                        }\n'
+         '                    ),\n'
+         '                )\n'
+         '            )\n'),
     ],
     SYSTEMUI + 'com/android/systemui/keyguard/ui/view/layout/blueprints/KeyguardBlueprintModule.kt': [
         ('import com.android.systemui.keyguard.shared.model.KeyguardBlueprint\n',
@@ -167,6 +226,25 @@ def upstream_bytes(path, upstream, revision):
         return response.read()
 
 
+def island_layer(path, original):
+    """The island's final bytes for [path]: its own patch applied to the pinned upstream bytes."""
+    contract = json.loads((ISLAND / 'manifest.json').read_text())
+    entry = next(item for item in contract['files'] if item['path'] == path)
+    if digest(original.encode()) != entry['beforeSha256']:
+        raise ValueError(f'{path}: upstream bytes differ from the island contract')
+    with tempfile.TemporaryDirectory(prefix='taku-lockscreen-layer-') as temp:
+        target = Path(temp) / path
+        target.parent.mkdir(parents=True)
+        target.write_bytes(original.encode())
+        subprocess.run(['git', 'init', '-q', temp], check=True)
+        subprocess.run(['git', '-C', temp, 'apply', '--whitespace=error', f'--include={path}',
+                        str(ISLAND / contract['patch'])], check=True)
+        layered = target.read_bytes()
+    if digest(layered) != entry['afterSha256']:
+        raise ValueError(f'{path}: island patch did not reproduce its final bytes')
+    return layered.decode()
+
+
 def apply_hooks(path, text):
     for anchor, replacement in HOOKS[path]:
         count = text.count(anchor)
@@ -181,6 +259,8 @@ def generate(upstream=None):
     before, after, sources = {}, {}, {}
     for path in HOOKS:
         original = upstream_bytes(path, upstream, revision).decode()
+        if LAYERED.get(path) == 'island':
+            original = island_layer(path, original)
         before[path] = original
         after[path] = apply_hooks(path, original)
     for source in sorted(SOURCES.rglob('*')):
@@ -198,6 +278,8 @@ def generate(upstream=None):
                  'afterSha256': digest(after[name].encode())}
         if name in sources:
             entry['source'] = sources[name]
+        if name in LAYERED:
+            entry['layeredOn'] = LAYERED[name]
         files.append(entry)
     content = ''.join(output).encode()
     OUTPUT.mkdir(parents=True, exist_ok=True)

@@ -5,4 +5,7 @@
     <dimen name="keyguard_affordance_fixed_height">56dp</dimen>
     <dimen name="keyguard_affordance_horizontal_offset">16dp</dimen>
     <dimen name="keyguard_affordance_vertical_offset">40dp</dimen>
+    <!-- Full circle, and a 24 dp icon inside the 56 dp button. Colours: KeyguardQuickAffordanceViewBinder hook. -->
+    <dimen name="keyguard_affordance_fixed_radius">28dp</dimen>
+    <dimen name="keyguard_affordance_fixed_padding">16dp</dimen>
 </resources>

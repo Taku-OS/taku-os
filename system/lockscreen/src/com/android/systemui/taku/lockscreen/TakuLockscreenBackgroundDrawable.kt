@@ -6,18 +6,21 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.ColorFilter
 import android.graphics.LinearGradient
 import android.graphics.Matrix
 import android.graphics.Paint
+import android.graphics.PixelFormat
+import android.graphics.Rect
 import android.graphics.RenderEffect
 import android.graphics.RenderNode
 import android.graphics.RuntimeShader
 import android.graphics.Shader
+import android.graphics.drawable.Drawable
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.util.TypedValue
-import android.view.View
 import java.util.concurrent.Executor
 
 /**
@@ -27,14 +30,20 @@ import java.util.concurrent.Executor
  * - a 176 dp bottom bar blurred a further 12 dp with the "Taku · Edge Refraction" shader
  *   (dispersion 0.4, flare 0.4), ported line for line from the Figma WGSL to AGSL.
  *
+ * It is the keyguard root's background drawable, not a child view: the keyguard's burn-in logic moves
+ * the large clock down by however far the highest visible child starts above the status-bar inset
+ * (`AodBurnInViewModel`: `max(topInset - minViewY, burnIn)`), and a full-screen child at y = 0 would
+ * always trigger that.
+ *
  * The wallpaper is static, so its blurred copy is a set of render nodes rebuilt only when the wallpaper
- * or the view size changes. A live wallpaper has no bitmap: then only the gradient is drawn over it.
+ * or the bounds change. A live wallpaper has no bitmap: then only the gradient is drawn over it.
  */
-class TakuLockscreenBackgroundView(
+class TakuLockscreenBackgroundDrawable(
     context: Context,
     private val userId: () -> Int,
     private val background: Executor,
-) : View(context) {
+) : Drawable() {
+    private val metrics = context.resources.displayMetrics
     private val wallpaperManager: WallpaperManager? = context.getSystemService(WallpaperManager::class.java)
     private val main = Handler(Looper.getMainLooper())
     private val bitmapPaint = Paint(Paint.FILTER_BITMAP_FLAG)
@@ -50,30 +59,31 @@ class TakuLockscreenBackgroundView(
     private var wallpaper: Bitmap? = null
     private var dirty = true
     private var generation = 0
+    private var attached = false
+    private var opacity = 255
 
     private val colorsListener = WallpaperManager.OnColorsChangedListener { _: WallpaperColors?, which: Int ->
         if (which and (WallpaperManager.FLAG_LOCK or WallpaperManager.FLAG_SYSTEM) != 0) reload()
     }
 
-    init {
-        importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
-        setWillNotDraw(false)
-    }
-
-    override fun onAttachedToWindow() {
-        super.onAttachedToWindow()
+    /** Starts following the wallpaper; call when the keyguard root is bound. */
+    fun attach() {
+        if (attached) return
+        attached = true
         wallpaperManager?.addOnColorsChangedListener(colorsListener, main)
         reload()
     }
 
-    override fun onDetachedFromWindow() {
+    fun detach() {
+        if (!attached) return
+        attached = false
         wallpaperManager?.removeOnColorsChangedListener(colorsListener)
         generation++
-        super.onDetachedFromWindow()
     }
 
-    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
-        gradientPaint.shader = LinearGradient(0f, 0f, 0f, h.toFloat(), OVERLAY_TOP, OVERLAY_BOTTOM, Shader.TileMode.CLAMP)
+    override fun onBoundsChange(bounds: Rect) {
+        gradientPaint.shader = LinearGradient(0f, 0f, 0f, bounds.height().toFloat(), OVERLAY_TOP, OVERLAY_BOTTOM,
+            Shader.TileMode.CLAMP)
         dirty = true
     }
 
@@ -94,40 +104,61 @@ class TakuLockscreenBackgroundView(
                 if (ticket != generation) return@post
                 wallpaper = bitmap
                 dirty = true
-                invalidate()
+                invalidateSelf()
             }
         }
     }
 
-    override fun onDraw(canvas: Canvas) {
-        if (width == 0 || height == 0) return
-        if (!canvas.isHardwareAccelerated) {
-            canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), gradientPaint)
-            return
-        }
-        if (dirty) rebuild()
-        canvas.drawRenderNode(page)
+    override fun draw(canvas: Canvas) {
+        val bounds = bounds
+        if (bounds.isEmpty || opacity == 0) return
         canvas.save()
-        canvas.translate(0f, (height - barHeight()).toFloat())
-        canvas.drawRenderNode(bar)
+        canvas.translate(bounds.left.toFloat(), bounds.top.toFloat())
+        if (!canvas.isHardwareAccelerated) {
+            gradientPaint.alpha = opacity
+            canvas.drawRect(0f, 0f, bounds.width().toFloat(), bounds.height().toFloat(), gradientPaint)
+        } else {
+            if (dirty) rebuild()
+            val alpha = opacity / 255f
+            page.setAlpha(alpha)
+            bar.setAlpha(alpha)
+            canvas.drawRenderNode(page)
+            canvas.translate(0f, (bounds.height() - barHeight()).toFloat())
+            canvas.drawRenderNode(bar)
+        }
         canvas.restore()
     }
 
+    /** The always-on display stays black: the section sets 1 − doze amount. */
+    override fun setAlpha(alpha: Int) {
+        if (opacity == alpha) return
+        opacity = alpha
+        invalidateSelf()
+    }
+
+    override fun getAlpha(): Int = opacity
+
+    override fun setColorFilter(colorFilter: ColorFilter?) {}
+
+    @Deprecated("Deprecated in Java")
+    override fun getOpacity(): Int = PixelFormat.TRANSLUCENT
+
     private fun rebuild() {
         dirty = false
-        val w = width
-        val h = height
+        val w = bounds.width()
+        val h = bounds.height()
 
         blurred.setPosition(0, 0, w, h)
         blurred.setRenderEffect(RenderEffect.createBlurEffect(dp(PAGE_BLUR_DP), dp(PAGE_BLUR_DP), Shader.TileMode.CLAMP))
         blurred.beginRecording().also { recording ->
-            wallpaper?.let { recording.drawBitmap(it, centerCrop(it), bitmapPaint) }
+            wallpaper?.let { recording.drawBitmap(it, centerCrop(it, w, h), bitmapPaint) }
         }
         blurred.endRecording()
 
         page.setPosition(0, 0, w, h)
         page.beginRecording().also { recording ->
             recording.drawRenderNode(blurred)
+            gradientPaint.alpha = 255
             recording.drawRect(0f, 0f, w.toFloat(), h.toFloat(), gradientPaint)
         }
         page.endRecording()
@@ -142,7 +173,7 @@ class TakuLockscreenBackgroundView(
         bar.endRecording()
     }
 
-    private fun centerCrop(bitmap: Bitmap): Matrix {
+    private fun centerCrop(bitmap: Bitmap, width: Int, height: Int): Matrix {
         val scale = maxOf(width / bitmap.width.toFloat(), height / bitmap.height.toFloat())
         return Matrix().apply {
             setScale(scale, scale)
@@ -150,9 +181,9 @@ class TakuLockscreenBackgroundView(
         }
     }
 
-    private fun barHeight() = dp(BAR_HEIGHT_DP).toInt().coerceAtMost(height)
+    private fun barHeight() = dp(BAR_HEIGHT_DP).toInt().coerceAtMost(bounds.height())
 
-    private fun dp(value: Float) = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, value, resources.displayMetrics)
+    private fun dp(value: Float) = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, value, metrics)
 
     companion object {
         private const val TAG = "TakuLockscreenBg"

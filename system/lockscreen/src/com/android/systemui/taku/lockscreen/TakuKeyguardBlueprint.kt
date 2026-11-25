@@ -1,12 +1,16 @@
 package com.android.systemui.taku.lockscreen
 
+import android.graphics.Color
+import android.graphics.drawable.Drawable
 import android.view.View
+import android.view.ViewTreeObserver
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintSet
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import com.android.systemui.dagger.SysUISingleton
 import com.android.systemui.dagger.qualifiers.Background
+import com.android.systemui.keyguard.domain.interactor.KeyguardClockInteractor
 import com.android.systemui.keyguard.domain.interactor.KeyguardInteractor
 import com.android.systemui.keyguard.shared.model.ClockSize
 import com.android.systemui.keyguard.shared.model.KeyguardBlueprint
@@ -14,6 +18,7 @@ import com.android.systemui.keyguard.shared.model.KeyguardSection
 import com.android.systemui.keyguard.ui.view.layout.blueprints.DefaultKeyguardBlueprint
 import com.android.systemui.lifecycle.repeatWhenAttached
 import com.android.systemui.settings.UserTracker
+import com.android.systemui.shared.R as sharedR
 import java.util.concurrent.Executor
 import javax.inject.Inject
 import kotlinx.coroutines.DisposableHandle
@@ -32,22 +37,29 @@ constructor(
     backgroundSection: TakuBackgroundSection,
     notificationSection: TakuNotificationSection,
     assistantSection: TakuAssistantSection,
+    stockDateSection: TakuStockDateSection,
     // Not used here: injecting it registers `cmd statusbar lockscreen` with the Taku lock screen.
     @Suppress("UNUSED_PARAMETER") command: TakuLockscreenCommand,
 ) : KeyguardBlueprint {
     override val id: String = ID
 
-    // Z-order follows this list. The background is the bottom; the cards sit under every stock view
-    // (shortcuts, lock icon, indication text keep their touches); the Taku button is on top.
+    // Z-order follows this list. The background is the root's background drawable; the cards sit
+    // under every stock view (shortcuts, lock icon, indication text keep their touches); the Taku button
+    // is on top. The stock-date section adds no view and must apply after the smartspace section.
     override val sections: List<KeyguardSection> =
-        listOf(backgroundSection, notificationSection) + defaultBlueprint.sections + assistantSection
+        listOf(backgroundSection, notificationSection) + defaultBlueprint.sections +
+            listOf(assistantSection, stockDateSection)
 
     companion object {
         const val ID = "taku"
     }
 }
 
-/** Adds [TakuLockscreenBackgroundView] under every other keyguard view and fades it out while dozing. */
+/**
+ * Installs [TakuLockscreenBackgroundDrawable] as the keyguard root's background (under every keyguard
+ * view) and fades it out while dozing. A background drawable instead of a child view, so it does not
+ * count as a visible view at y = 0 for the burn-in correction that would push the large clock down.
+ */
 @SysUISingleton
 class TakuBackgroundSection
 @Inject
@@ -56,42 +68,94 @@ constructor(
     private val userTracker: UserTracker,
     @Background private val backgroundExecutor: Executor,
 ) : KeyguardSection() {
-    private val viewId = View.generateViewId()
+    private var drawable: TakuLockscreenBackgroundDrawable? = null
+    private var previous: Drawable? = null
     private var binding: DisposableHandle? = null
 
     override fun addViews(constraintLayout: ConstraintLayout) {
-        if (constraintLayout.findViewById<View>(viewId) != null) return
-        val view = TakuLockscreenBackgroundView(constraintLayout.context, { userTracker.userId }, backgroundExecutor)
-        view.id = viewId
-        constraintLayout.addView(view, 0)
+        if (drawable != null && constraintLayout.background === drawable) return
+        previous = constraintLayout.background
+        drawable = TakuLockscreenBackgroundDrawable(constraintLayout.context, { userTracker.userId }, backgroundExecutor)
+        constraintLayout.background = drawable
     }
 
     override fun bindData(constraintLayout: ConstraintLayout) {
-        val view = constraintLayout.findViewById<TakuLockscreenBackgroundView>(viewId) ?: return
+        val background = drawable ?: return
+        background.attach()
         binding?.dispose()
-        binding = view.repeatWhenAttached {
+        binding = constraintLayout.repeatWhenAttached {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 // The always-on display stays black: the background follows 1 − doze amount.
-                keyguardInteractor.dozeAmount.collect { amount -> view.alpha = 1f - amount }
+                keyguardInteractor.dozeAmount.collect { amount ->
+                    background.alpha = ((1f - amount) * 255).toInt().coerceIn(0, 255)
+                }
             }
         }
     }
 
-    override fun applyConstraints(constraintSet: ConstraintSet) {
-        constraintSet.apply {
-            constrainWidth(viewId, ConstraintSet.MATCH_CONSTRAINT)
-            constrainHeight(viewId, ConstraintSet.MATCH_CONSTRAINT)
-            connect(viewId, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START)
-            connect(viewId, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END)
-            connect(viewId, ConstraintSet.TOP, ConstraintSet.PARENT_ID, ConstraintSet.TOP)
-            connect(viewId, ConstraintSet.BOTTOM, ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM)
-        }
-    }
+    override fun applyConstraints(constraintSet: ConstraintSet) {}
 
     override fun removeViews(constraintLayout: ConstraintLayout) {
         binding?.dispose()
         binding = null
-        constraintLayout.findViewById<View>(viewId)?.let(constraintLayout::removeView)
+        drawable?.detach()
+        if (constraintLayout.background === drawable) constraintLayout.background = previous
+        drawable = null
+        previous = null
+    }
+}
+
+/**
+ * The Taku clock draws its own date (Figma 979:468), so the stock smartspace date and weather views
+ * stay hidden while it is the current clock; other clock faces keep them. Placed after the stock
+ * sections so its constraints win, and re-checked after every layout because the stock binder and
+ * smartspace controller also change those views' visibility.
+ */
+@SysUISingleton
+class TakuStockDateSection
+@Inject
+constructor(private val keyguardClockInteractor: KeyguardClockInteractor) : KeyguardSection() {
+    private var root: ConstraintLayout? = null
+    private val enforce = ViewTreeObserver.OnGlobalLayoutListener { root?.let(::hideStockDate) }
+
+    private val takuClock: Boolean get() = keyguardClockInteractor.currentClock.value is TakuClockController
+
+    private fun hideStockDate(constraintLayout: ConstraintLayout) {
+        if (!takuClock) return
+        for (id in STOCK_DATE_IDS) {
+            constraintLayout.findViewById<View>(id)?.takeIf { it.visibility != View.GONE }?.visibility = View.GONE
+        }
+    }
+
+    override fun addViews(constraintLayout: ConstraintLayout) {}
+
+    override fun bindData(constraintLayout: ConstraintLayout) {
+        if (root === constraintLayout) return
+        root?.viewTreeObserver?.removeOnGlobalLayoutListener(enforce)
+        root = constraintLayout
+        constraintLayout.viewTreeObserver.addOnGlobalLayoutListener(enforce)
+    }
+
+    override fun applyConstraints(constraintSet: ConstraintSet) {
+        if (!takuClock) return
+        for (id in STOCK_DATE_IDS) {
+            constraintSet.setVisibility(id, View.GONE)
+            constraintSet.setAlpha(id, 0f)
+        }
+    }
+
+    override fun removeViews(constraintLayout: ConstraintLayout) {
+        constraintLayout.viewTreeObserver.removeOnGlobalLayoutListener(enforce)
+        if (root === constraintLayout) root = null
+    }
+
+    private companion object {
+        val STOCK_DATE_IDS = intArrayOf(
+            sharedR.id.date_smartspace_view,
+            sharedR.id.date_smartspace_view_large,
+            sharedR.id.weather_smartspace_view,
+            sharedR.id.weather_smartspace_view_large,
+        )
     }
 }
 
@@ -114,4 +178,18 @@ object TakuLockscreenPolicy {
 
     /** Cards and the Taku button fade in and out over this time. */
     const val FADE_MS = 200L
+
+    /** Figma 979:455 / 979:463: white at 92 % behind a `#1B1B1B` 24 dp icon. */
+    private val SHORTCUT_FILL = Color.argb(0.92f, 1f, 1f, 1f)
+    private val SHORTCUT_ICON = Color.rgb(0x1B, 0x1B, 0x1B)
+
+    /**
+     * Shortcut button colours (hook in KeyguardQuickAffordanceViewBinder). The design only defines the
+     * resting state; an activated shortcut (torch on) keeps the stock colours so it stays distinct.
+     */
+    @JvmStatic
+    fun shortcutBackgroundColor(activated: Boolean, stockColor: Int): Int = if (activated) stockColor else SHORTCUT_FILL
+
+    @JvmStatic
+    fun shortcutIconColor(activated: Boolean, stockColor: Int): Int = if (activated) stockColor else SHORTCUT_ICON
 }

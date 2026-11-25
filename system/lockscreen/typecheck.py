@@ -52,7 +52,7 @@ abstract class KeyguardInteractor {
  abstract val isKeyguardDismissible: kotlinx.coroutines.flow.StateFlow<Boolean>
  abstract val statusBarState: kotlinx.coroutines.flow.StateFlow<com.android.systemui.keyguard.shared.model.StatusBarState>
 }
-abstract class KeyguardClockInteractor { abstract fun setClockSize(size: com.android.systemui.keyguard.shared.model.ClockSize); abstract val clockSize: kotlinx.coroutines.flow.StateFlow<com.android.systemui.keyguard.shared.model.ClockSize> }
+abstract class KeyguardClockInteractor { abstract fun setClockSize(size: com.android.systemui.keyguard.shared.model.ClockSize); abstract val clockSize: kotlinx.coroutines.flow.StateFlow<com.android.systemui.keyguard.shared.model.ClockSize>; abstract val currentClock: kotlinx.coroutines.flow.StateFlow<com.android.systemui.plugins.keyguard.ui.clocks.ClockController?> }
 ''',
     'KeyguardModelsShared.kt': '''package com.android.systemui.keyguard.shared.model
 enum class ClockSize { LARGE, SMALL }
@@ -60,6 +60,10 @@ enum class StatusBarState { SHADE, KEYGUARD, SHADE_LOCKED }
 ''',
     'Dagger2.kt': '''package dagger
 interface Lazy<T> { fun get(): T }
+''',
+    'SharedR.kt': '''package com.android.systemui.shared
+object R { object id { const val date_smartspace_view = 201; const val date_smartspace_view_large = 202
+ const val weather_smartspace_view = 203; const val weather_smartspace_view_large = 204 } }
 ''',
     'SysuiR.kt': '''package com.android.systemui.res
 object R { object id { const val start_button = 101 }; object string { const val controls_open_app = 102 }; object drawable { const val ic_apps_expressive = 103 } }
@@ -198,6 +202,8 @@ open class ConstraintSet {
  fun constrainHeight(viewId: Int, height: Int) {}
  fun constrainMaxHeight(viewId: Int, height: Int) {}
  fun setVisibilityMode(viewId: Int, visibilityMode: Int) {}
+ fun setVisibility(viewId: Int, visibility: Int) {}
+ fun setAlpha(viewId: Int, alpha: Float) {}
  fun connect(startID: Int, startSide: Int, endID: Int, endSide: Int) {}
  fun connect(startID: Int, startSide: Int, endID: Int, endSide: Int, margin: Int) {}
 }

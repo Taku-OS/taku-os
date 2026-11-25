@@ -1,6 +1,6 @@
 --- a/packages/SystemUI/AndroidManifest.xml
 +++ b/packages/SystemUI/AndroidManifest.xml
-@@ -1248,6 +1248,16 @@
+@@ -1252,6 +1252,16 @@
              android:permission="android.permission.CUSTOMIZE_SYSTEM_UI"
              />
  
@@ -110,6 +110,68 @@
              }
          }
  
+--- a/packages/SystemUI/src/com/android/systemui/keyguard/ui/binder/KeyguardQuickAffordanceViewBinder.kt
++++ b/packages/SystemUI/src/com/android/systemui/keyguard/ui/binder/KeyguardQuickAffordanceViewBinder.kt
+@@ -47,6 +47,7 @@
+ import com.android.systemui.lifecycle.repeatWhenAttached
+ import com.android.systemui.plugins.FalsingManager
+ import com.android.systemui.res.R
++import com.android.systemui.taku.lockscreen.TakuLockscreenPolicy
+ import com.android.systemui.statusbar.VibratorHelper
+ import com.android.systemui.util.doOnEnd
+ import com.android.systemui.window.domain.interactor.WindowRootViewBlurInteractor
+@@ -224,13 +225,17 @@
+         }
+ 
+         view.isActivated = viewModel.isActivated
++        // Taku: dark icon on the white shortcut button (Figma 979:455); activated keeps stock.
+         view.drawable.setTint(
+-            view.context.getColor(
+-                if (viewModel.isActivated) {
+-                    com.android.internal.R.color.materialColorOnPrimaryFixed
+-                } else {
+-                    com.android.internal.R.color.materialColorOnSurface
+-                }
++            TakuLockscreenPolicy.shortcutIconColor(
++                viewModel.isActivated,
++                view.context.getColor(
++                    if (viewModel.isActivated) {
++                        com.android.internal.R.color.materialColorOnPrimaryFixed
++                    } else {
++                        com.android.internal.R.color.materialColorOnSurface
++                    }
++                ),
+             )
+         )
+         updateBackground(
+@@ -317,15 +322,19 @@
+         isBlurSupported: Boolean,
+     ): ColorStateList? {
+         return if (!viewModel.isSelected) {
++            // Taku: white at 92 % at rest (Figma 979:455); activated keeps stock.
+             ColorStateList.valueOf(
+-                view.context.getColor(
+-                    if (viewModel.isActivated) {
+-                        com.android.internal.R.color.materialColorPrimaryFixed
+-                    } else if (enableLockscreenBlur() && isBlurSupported) {
+-                        com.android.internal.R.color.customColorSurfaceEffect1
+-                    } else {
+-                        com.android.internal.R.color.materialColorSurfaceContainerHigh
+-                    }
++                TakuLockscreenPolicy.shortcutBackgroundColor(
++                    viewModel.isActivated,
++                    view.context.getColor(
++                        if (viewModel.isActivated) {
++                            com.android.internal.R.color.materialColorPrimaryFixed
++                        } else if (enableLockscreenBlur() && isBlurSupported) {
++                            com.android.internal.R.color.customColorSurfaceEffect1
++                        } else {
++                            com.android.internal.R.color.materialColorSurfaceContainerHigh
++                        }
++                    ),
+                 )
+             )
+         } else {
 --- a/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/blueprints/KeyguardBlueprintModule.kt
 +++ b/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/blueprints/KeyguardBlueprintModule.kt
 @@ -20,6 +20,7 @@
@@ -966,16 +1028,20 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuKeyguardBlueprint.kt
-@@ -0,0 +1,117 @@
+@@ -0,0 +1,195 @@
 +package com.android.systemui.taku.lockscreen
 +
++import android.graphics.Color
++import android.graphics.drawable.Drawable
 +import android.view.View
++import android.view.ViewTreeObserver
 +import androidx.constraintlayout.widget.ConstraintLayout
 +import androidx.constraintlayout.widget.ConstraintSet
 +import androidx.lifecycle.Lifecycle
 +import androidx.lifecycle.repeatOnLifecycle
 +import com.android.systemui.dagger.SysUISingleton
 +import com.android.systemui.dagger.qualifiers.Background
++import com.android.systemui.keyguard.domain.interactor.KeyguardClockInteractor
 +import com.android.systemui.keyguard.domain.interactor.KeyguardInteractor
 +import com.android.systemui.keyguard.shared.model.ClockSize
 +import com.android.systemui.keyguard.shared.model.KeyguardBlueprint
@@ -983,6 +1049,7 @@
 +import com.android.systemui.keyguard.ui.view.layout.blueprints.DefaultKeyguardBlueprint
 +import com.android.systemui.lifecycle.repeatWhenAttached
 +import com.android.systemui.settings.UserTracker
++import com.android.systemui.shared.R as sharedR
 +import java.util.concurrent.Executor
 +import javax.inject.Inject
 +import kotlinx.coroutines.DisposableHandle
@@ -1001,22 +1068,29 @@
 +    backgroundSection: TakuBackgroundSection,
 +    notificationSection: TakuNotificationSection,
 +    assistantSection: TakuAssistantSection,
++    stockDateSection: TakuStockDateSection,
 +    // Not used here: injecting it registers `cmd statusbar lockscreen` with the Taku lock screen.
 +    @Suppress("UNUSED_PARAMETER") command: TakuLockscreenCommand,
 +) : KeyguardBlueprint {
 +    override val id: String = ID
 +
-+    // Z-order follows this list. The background is the bottom; the cards sit under every stock view
-+    // (shortcuts, lock icon, indication text keep their touches); the Taku button is on top.
++    // Z-order follows this list. The background is the root's background drawable; the cards sit
++    // under every stock view (shortcuts, lock icon, indication text keep their touches); the Taku button
++    // is on top. The stock-date section adds no view and must apply after the smartspace section.
 +    override val sections: List<KeyguardSection> =
-+        listOf(backgroundSection, notificationSection) + defaultBlueprint.sections + assistantSection
++        listOf(backgroundSection, notificationSection) + defaultBlueprint.sections +
++            listOf(assistantSection, stockDateSection)
 +
 +    companion object {
 +        const val ID = "taku"
 +    }
 +}
 +
-+/** Adds [TakuLockscreenBackgroundView] under every other keyguard view and fades it out while dozing. */
++/**
++ * Installs [TakuLockscreenBackgroundDrawable] as the keyguard root's background (under every keyguard
++ * view) and fades it out while dozing. A background drawable instead of a child view, so it does not
++ * count as a visible view at y = 0 for the burn-in correction that would push the large clock down.
++ */
 +@SysUISingleton
 +class TakuBackgroundSection
 +@Inject
@@ -1025,42 +1099,94 @@
 +    private val userTracker: UserTracker,
 +    @Background private val backgroundExecutor: Executor,
 +) : KeyguardSection() {
-+    private val viewId = View.generateViewId()
++    private var drawable: TakuLockscreenBackgroundDrawable? = null
++    private var previous: Drawable? = null
 +    private var binding: DisposableHandle? = null
 +
 +    override fun addViews(constraintLayout: ConstraintLayout) {
-+        if (constraintLayout.findViewById<View>(viewId) != null) return
-+        val view = TakuLockscreenBackgroundView(constraintLayout.context, { userTracker.userId }, backgroundExecutor)
-+        view.id = viewId
-+        constraintLayout.addView(view, 0)
++        if (drawable != null && constraintLayout.background === drawable) return
++        previous = constraintLayout.background
++        drawable = TakuLockscreenBackgroundDrawable(constraintLayout.context, { userTracker.userId }, backgroundExecutor)
++        constraintLayout.background = drawable
 +    }
 +
 +    override fun bindData(constraintLayout: ConstraintLayout) {
-+        val view = constraintLayout.findViewById<TakuLockscreenBackgroundView>(viewId) ?: return
++        val background = drawable ?: return
++        background.attach()
 +        binding?.dispose()
-+        binding = view.repeatWhenAttached {
++        binding = constraintLayout.repeatWhenAttached {
 +            repeatOnLifecycle(Lifecycle.State.STARTED) {
 +                // The always-on display stays black: the background follows 1 − doze amount.
-+                keyguardInteractor.dozeAmount.collect { amount -> view.alpha = 1f - amount }
++                keyguardInteractor.dozeAmount.collect { amount ->
++                    background.alpha = ((1f - amount) * 255).toInt().coerceIn(0, 255)
++                }
 +            }
 +        }
 +    }
 +
-+    override fun applyConstraints(constraintSet: ConstraintSet) {
-+        constraintSet.apply {
-+            constrainWidth(viewId, ConstraintSet.MATCH_CONSTRAINT)
-+            constrainHeight(viewId, ConstraintSet.MATCH_CONSTRAINT)
-+            connect(viewId, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START)
-+            connect(viewId, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END)
-+            connect(viewId, ConstraintSet.TOP, ConstraintSet.PARENT_ID, ConstraintSet.TOP)
-+            connect(viewId, ConstraintSet.BOTTOM, ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM)
-+        }
-+    }
++    override fun applyConstraints(constraintSet: ConstraintSet) {}
 +
 +    override fun removeViews(constraintLayout: ConstraintLayout) {
 +        binding?.dispose()
 +        binding = null
-+        constraintLayout.findViewById<View>(viewId)?.let(constraintLayout::removeView)
++        drawable?.detach()
++        if (constraintLayout.background === drawable) constraintLayout.background = previous
++        drawable = null
++        previous = null
++    }
++}
++
++/**
++ * The Taku clock draws its own date (Figma 979:468), so the stock smartspace date and weather views
++ * stay hidden while it is the current clock; other clock faces keep them. Placed after the stock
++ * sections so its constraints win, and re-checked after every layout because the stock binder and
++ * smartspace controller also change those views' visibility.
++ */
++@SysUISingleton
++class TakuStockDateSection
++@Inject
++constructor(private val keyguardClockInteractor: KeyguardClockInteractor) : KeyguardSection() {
++    private var root: ConstraintLayout? = null
++    private val enforce = ViewTreeObserver.OnGlobalLayoutListener { root?.let(::hideStockDate) }
++
++    private val takuClock: Boolean get() = keyguardClockInteractor.currentClock.value is TakuClockController
++
++    private fun hideStockDate(constraintLayout: ConstraintLayout) {
++        if (!takuClock) return
++        for (id in STOCK_DATE_IDS) {
++            constraintLayout.findViewById<View>(id)?.takeIf { it.visibility != View.GONE }?.visibility = View.GONE
++        }
++    }
++
++    override fun addViews(constraintLayout: ConstraintLayout) {}
++
++    override fun bindData(constraintLayout: ConstraintLayout) {
++        if (root === constraintLayout) return
++        root?.viewTreeObserver?.removeOnGlobalLayoutListener(enforce)
++        root = constraintLayout
++        constraintLayout.viewTreeObserver.addOnGlobalLayoutListener(enforce)
++    }
++
++    override fun applyConstraints(constraintSet: ConstraintSet) {
++        if (!takuClock) return
++        for (id in STOCK_DATE_IDS) {
++            constraintSet.setVisibility(id, View.GONE)
++            constraintSet.setAlpha(id, 0f)
++        }
++    }
++
++    override fun removeViews(constraintLayout: ConstraintLayout) {
++        constraintLayout.viewTreeObserver.removeOnGlobalLayoutListener(enforce)
++        if (root === constraintLayout) root = null
++    }
++
++    private companion object {
++        val STOCK_DATE_IDS = intArrayOf(
++            sharedR.id.date_smartspace_view,
++            sharedR.id.date_smartspace_view_large,
++            sharedR.id.weather_smartspace_view,
++            sharedR.id.weather_smartspace_view_large,
++        )
 +    }
 +}
 +
@@ -1083,10 +1209,24 @@
 +
 +    /** Cards and the Taku button fade in and out over this time. */
 +    const val FADE_MS = 200L
++
++    /** Figma 979:455 / 979:463: white at 92 % behind a `#1B1B1B` 24 dp icon. */
++    private val SHORTCUT_FILL = Color.argb(0.92f, 1f, 1f, 1f)
++    private val SHORTCUT_ICON = Color.rgb(0x1B, 0x1B, 0x1B)
++
++    /**
++     * Shortcut button colours (hook in KeyguardQuickAffordanceViewBinder). The design only defines the
++     * resting state; an activated shortcut (torch on) keeps the stock colours so it stays distinct.
++     */
++    @JvmStatic
++    fun shortcutBackgroundColor(activated: Boolean, stockColor: Int): Int = if (activated) stockColor else SHORTCUT_FILL
++
++    @JvmStatic
++    fun shortcutIconColor(activated: Boolean, stockColor: Int): Int = if (activated) stockColor else SHORTCUT_ICON
 +}
 --- /dev/null
-+++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuLockscreenBackgroundView.kt
-@@ -0,0 +1,211 @@
++++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuLockscreenBackgroundDrawable.kt
+@@ -0,0 +1,242 @@
 +package com.android.systemui.taku.lockscreen
 +
 +import android.app.WallpaperColors
@@ -1095,18 +1235,21 @@
 +import android.graphics.Bitmap
 +import android.graphics.Canvas
 +import android.graphics.Color
++import android.graphics.ColorFilter
 +import android.graphics.LinearGradient
 +import android.graphics.Matrix
 +import android.graphics.Paint
++import android.graphics.PixelFormat
++import android.graphics.Rect
 +import android.graphics.RenderEffect
 +import android.graphics.RenderNode
 +import android.graphics.RuntimeShader
 +import android.graphics.Shader
++import android.graphics.drawable.Drawable
 +import android.os.Handler
 +import android.os.Looper
 +import android.util.Log
 +import android.util.TypedValue
-+import android.view.View
 +import java.util.concurrent.Executor
 +
 +/**
@@ -1116,14 +1259,20 @@
 + * - a 176 dp bottom bar blurred a further 12 dp with the "Taku · Edge Refraction" shader
 + *   (dispersion 0.4, flare 0.4), ported line for line from the Figma WGSL to AGSL.
 + *
++ * It is the keyguard root's background drawable, not a child view: the keyguard's burn-in logic moves
++ * the large clock down by however far the highest visible child starts above the status-bar inset
++ * (`AodBurnInViewModel`: `max(topInset - minViewY, burnIn)`), and a full-screen child at y = 0 would
++ * always trigger that.
++ *
 + * The wallpaper is static, so its blurred copy is a set of render nodes rebuilt only when the wallpaper
-+ * or the view size changes. A live wallpaper has no bitmap: then only the gradient is drawn over it.
++ * or the bounds change. A live wallpaper has no bitmap: then only the gradient is drawn over it.
 + */
-+class TakuLockscreenBackgroundView(
++class TakuLockscreenBackgroundDrawable(
 +    context: Context,
 +    private val userId: () -> Int,
 +    private val background: Executor,
-+) : View(context) {
++) : Drawable() {
++    private val metrics = context.resources.displayMetrics
 +    private val wallpaperManager: WallpaperManager? = context.getSystemService(WallpaperManager::class.java)
 +    private val main = Handler(Looper.getMainLooper())
 +    private val bitmapPaint = Paint(Paint.FILTER_BITMAP_FLAG)
@@ -1139,30 +1288,31 @@
 +    private var wallpaper: Bitmap? = null
 +    private var dirty = true
 +    private var generation = 0
++    private var attached = false
++    private var opacity = 255
 +
 +    private val colorsListener = WallpaperManager.OnColorsChangedListener { _: WallpaperColors?, which: Int ->
 +        if (which and (WallpaperManager.FLAG_LOCK or WallpaperManager.FLAG_SYSTEM) != 0) reload()
 +    }
 +
-+    init {
-+        importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
-+        setWillNotDraw(false)
-+    }
-+
-+    override fun onAttachedToWindow() {
-+        super.onAttachedToWindow()
++    /** Starts following the wallpaper; call when the keyguard root is bound. */
++    fun attach() {
++        if (attached) return
++        attached = true
 +        wallpaperManager?.addOnColorsChangedListener(colorsListener, main)
 +        reload()
 +    }
 +
-+    override fun onDetachedFromWindow() {
++    fun detach() {
++        if (!attached) return
++        attached = false
 +        wallpaperManager?.removeOnColorsChangedListener(colorsListener)
 +        generation++
-+        super.onDetachedFromWindow()
 +    }
 +
-+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
-+        gradientPaint.shader = LinearGradient(0f, 0f, 0f, h.toFloat(), OVERLAY_TOP, OVERLAY_BOTTOM, Shader.TileMode.CLAMP)
++    override fun onBoundsChange(bounds: Rect) {
++        gradientPaint.shader = LinearGradient(0f, 0f, 0f, bounds.height().toFloat(), OVERLAY_TOP, OVERLAY_BOTTOM,
++            Shader.TileMode.CLAMP)
 +        dirty = true
 +    }
 +
@@ -1183,40 +1333,61 @@
 +                if (ticket != generation) return@post
 +                wallpaper = bitmap
 +                dirty = true
-+                invalidate()
++                invalidateSelf()
 +            }
 +        }
 +    }
 +
-+    override fun onDraw(canvas: Canvas) {
-+        if (width == 0 || height == 0) return
-+        if (!canvas.isHardwareAccelerated) {
-+            canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), gradientPaint)
-+            return
-+        }
-+        if (dirty) rebuild()
-+        canvas.drawRenderNode(page)
++    override fun draw(canvas: Canvas) {
++        val bounds = bounds
++        if (bounds.isEmpty || opacity == 0) return
 +        canvas.save()
-+        canvas.translate(0f, (height - barHeight()).toFloat())
-+        canvas.drawRenderNode(bar)
++        canvas.translate(bounds.left.toFloat(), bounds.top.toFloat())
++        if (!canvas.isHardwareAccelerated) {
++            gradientPaint.alpha = opacity
++            canvas.drawRect(0f, 0f, bounds.width().toFloat(), bounds.height().toFloat(), gradientPaint)
++        } else {
++            if (dirty) rebuild()
++            val alpha = opacity / 255f
++            page.setAlpha(alpha)
++            bar.setAlpha(alpha)
++            canvas.drawRenderNode(page)
++            canvas.translate(0f, (bounds.height() - barHeight()).toFloat())
++            canvas.drawRenderNode(bar)
++        }
 +        canvas.restore()
 +    }
 +
++    /** The always-on display stays black: the section sets 1 − doze amount. */
++    override fun setAlpha(alpha: Int) {
++        if (opacity == alpha) return
++        opacity = alpha
++        invalidateSelf()
++    }
++
++    override fun getAlpha(): Int = opacity
++
++    override fun setColorFilter(colorFilter: ColorFilter?) {}
++
++    @Deprecated("Deprecated in Java")
++    override fun getOpacity(): Int = PixelFormat.TRANSLUCENT
++
 +    private fun rebuild() {
 +        dirty = false
-+        val w = width
-+        val h = height
++        val w = bounds.width()
++        val h = bounds.height()
 +
 +        blurred.setPosition(0, 0, w, h)
 +        blurred.setRenderEffect(RenderEffect.createBlurEffect(dp(PAGE_BLUR_DP), dp(PAGE_BLUR_DP), Shader.TileMode.CLAMP))
 +        blurred.beginRecording().also { recording ->
-+            wallpaper?.let { recording.drawBitmap(it, centerCrop(it), bitmapPaint) }
++            wallpaper?.let { recording.drawBitmap(it, centerCrop(it, w, h), bitmapPaint) }
 +        }
 +        blurred.endRecording()
 +
 +        page.setPosition(0, 0, w, h)
 +        page.beginRecording().also { recording ->
 +            recording.drawRenderNode(blurred)
++            gradientPaint.alpha = 255
 +            recording.drawRect(0f, 0f, w.toFloat(), h.toFloat(), gradientPaint)
 +        }
 +        page.endRecording()
@@ -1231,7 +1402,7 @@
 +        bar.endRecording()
 +    }
 +
-+    private fun centerCrop(bitmap: Bitmap): Matrix {
++    private fun centerCrop(bitmap: Bitmap, width: Int, height: Int): Matrix {
 +        val scale = maxOf(width / bitmap.width.toFloat(), height / bitmap.height.toFloat())
 +        return Matrix().apply {
 +            setScale(scale, scale)
@@ -1239,9 +1410,9 @@
 +        }
 +    }
 +
-+    private fun barHeight() = dp(BAR_HEIGHT_DP).toInt().coerceAtMost(height)
++    private fun barHeight() = dp(BAR_HEIGHT_DP).toInt().coerceAtMost(bounds.height())
 +
-+    private fun dp(value: Float) = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, value, resources.displayMetrics)
++    private fun dp(value: Float) = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, value, metrics)
 +
 +    companion object {
 +        private const val TAG = "TakuLockscreenBg"
@@ -1935,7 +2106,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuNotificationCardView.kt
-@@ -0,0 +1,356 @@
+@@ -0,0 +1,358 @@
 +package com.android.systemui.taku.lockscreen
 +
 +import android.animation.Animator
@@ -2024,7 +2195,7 @@
 +            gravity = Gravity.CENTER_VERTICAL
 +            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dp(48f).toInt())
 +        }
-+        row.addView(picture(card, 48f, 8f), LinearLayout.LayoutParams(dp(48f).toInt(), dp(48f).toInt())
++        row.addView(picture(card, 48f, 12f), LinearLayout.LayoutParams(dp(48f).toInt(), dp(48f).toInt())
 +            .apply { marginEnd = dp(8f).toInt() })
 +        val column = LinearLayout(context).apply {
 +            orientation = LinearLayout.VERTICAL
@@ -2035,10 +2206,12 @@
 +            orientation = LinearLayout.HORIZONTAL
 +            gravity = Gravity.CENTER_VERTICAL
 +        }
-+        // A notification picture leaves the app unnamed, so the app icon marks the second line.
-+        if (hasPicture) line.addView(appIcon(card), LinearLayout.LayoutParams(dp(16f).toInt(), dp(16f).toInt())
++        // Figma 979:680 / 979:687: the second line is the notification text; without text it names the
++        // app, marked with the app icon (shown here only when the picture is not already the app icon).
++        val body = card.text
++        if (body == null && hasPicture) line.addView(appIcon(card), LinearLayout.LayoutParams(dp(16f).toInt(), dp(16f).toInt())
 +            .apply { marginEnd = dp(4f).toInt() })
-+        line.addView(text(card.text ?: card.appLabel, TakuLockscreenFonts.hankenGrotesk, 14f, 1.42f, INK_700))
++        line.addView(text(body ?: card.appLabel, TakuLockscreenFonts.hankenGrotesk, 14f, 1.42f, INK_700))
 +        column.addView(line)
 +        row.addView(column, LinearLayout.LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
 +        return row
@@ -2311,7 +2484,7 @@
 +/**
 + * The authenticated lock screen's notification list (Figma 979:641): one flat column of cards, 16 dp
 + * apart, scrolling under the bottom bar. The part under the bar is drawn through the same blur and
-+ * edge refraction as [TakuLockscreenBackgroundView]'s bar, so cards pass beneath it as in the design.
++ * edge refraction as [TakuLockscreenBackgroundDrawable]'s bar, so cards pass beneath it as in the design.
 + *
 + * Touch: the window root turns vertical drags on the lock screen into the shade (down) or unlock
 + * (up). The list keeps a gesture only when it starts on a card and the list can scroll that way;
@@ -2323,7 +2496,7 @@
 +    private val column = LinearLayout(context).apply {
 +        orientation = LinearLayout.VERTICAL
 +        val side = dp(16f)
-+        setPadding(side, 0, side, dp(TakuLockscreenBackgroundView.BAR_HEIGHT_DP))
++        setPadding(side, 0, side, dp(TakuLockscreenBackgroundDrawable.BAR_HEIGHT_DP))
 +        clipChildren = false
 +    }
 +    private val views = LinkedHashMap<String, TakuNotificationCardView>()
@@ -2385,7 +2558,7 @@
 +        val w = width
 +        val h = height
 +        if (!canvas.isHardwareAccelerated || w == 0 || h == 0) return super.dispatchDraw(canvas)
-+        val barHeight = dp(TakuLockscreenBackgroundView.BAR_HEIGHT_DP).coerceAtMost(h)
++        val barHeight = dp(TakuLockscreenBackgroundDrawable.BAR_HEIGHT_DP).coerceAtMost(h)
 +        // The canvas is already translated by -scrollY: these are content coordinates.
 +        val barTop = scrollY + h - barHeight
 +        val contentHeight = maxOf(column.bottom, scrollY + h)
@@ -2417,7 +2590,7 @@
 +    }
 +
 +    private fun barEffect(w: Int, barHeight: Int): RenderEffect =
-+        TakuLockscreenBackgroundView.barEffect(w, barHeight, dp(TakuLockscreenBackgroundView.BAR_BLUR_DP).toFloat())
++        TakuLockscreenBackgroundDrawable.barEffect(w, barHeight, dp(TakuLockscreenBackgroundDrawable.BAR_BLUR_DP).toFloat())
 +
 +    // endregion
 +
@@ -2431,7 +2604,7 @@
 +    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
 +        when (event.actionMasked) {
 +            MotionEvent.ACTION_DOWN -> {
-+                val barTop = height - dp(TakuLockscreenBackgroundView.BAR_HEIGHT_DP)
++                val barTop = height - dp(TakuLockscreenBackgroundDrawable.BAR_HEIGHT_DP)
 +                claimed = event.y < barTop && cardAt(event.x, event.y) != null
 +                if (!claimed) return false
 +                decided = false
@@ -2632,7 +2805,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuShortcutAppActivity.kt
-@@ -0,0 +1,79 @@
+@@ -0,0 +1,105 @@
 +package com.android.systemui.taku.lockscreen
 +
 +import android.app.Activity
@@ -2642,6 +2815,8 @@
 +import android.view.Gravity
 +import android.view.View
 +import android.view.ViewGroup
++import android.view.Window
++import android.view.WindowInsets
 +import android.widget.BaseAdapter
 +import android.widget.ImageView
 +import android.widget.LinearLayout
@@ -2662,15 +2837,39 @@
 +
 +    override fun onCreate(savedInstanceState: Bundle?) {
 +        super.onCreate(savedInstanceState)
++        // The window is edge-to-edge: no decor title bar; the header and list take the system-bar and
++        // cutout insets themselves, so the first and last apps are fully visible and tappable.
++        requestWindowFeature(Window.FEATURE_NO_TITLE)
 +        title = getString(R.string.controls_open_app)
 +        apps = TakuOpenAppTarget.candidates(packageManager)
 +        current = TakuOpenAppTarget.resolve(packageManager,
 +            Settings.Secure.getString(contentResolver, TakuOpenAppTarget.SETTING))?.component?.flattenToString()
++        val density = resources.displayMetrics.density
++        val header = TextView(this).apply {
++            text = title
++            setTextSize(TypedValue.COMPLEX_UNIT_SP, 22f)
++            val pad = (16 * density).toInt()
++            setPadding(pad, pad, pad, pad)
++            isFocusable = true
++            isAccessibilityHeading = true
++        }
 +        val list = ListView(this).apply {
 +            adapter = Adapter()
++            clipToPadding = false
 +            setOnItemClickListener { _, _, position, _ -> choose(apps[position]) }
 +        }
-+        setContentView(list)
++        val root = LinearLayout(this).apply {
++            orientation = LinearLayout.VERTICAL
++            addView(header, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
++            addView(list, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
++            setOnApplyWindowInsetsListener { view, insets ->
++                val bars = insets.getInsets(WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout())
++                view.setPadding(bars.left, bars.top, bars.right, 0)
++                list.setPadding(0, 0, 0, bars.bottom)
++                WindowInsets.CONSUMED
++            }
++        }
++        setContentView(root)
 +    }
 +
 +    private fun choose(app: TakuOpenAppTarget.Target) {

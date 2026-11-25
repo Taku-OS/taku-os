@@ -14,7 +14,7 @@ import kotlin.math.abs
 /**
  * The authenticated lock screen's notification list (Figma 979:641): one flat column of cards, 16 dp
  * apart, scrolling under the bottom bar. The part under the bar is drawn through the same blur and
- * edge refraction as [TakuLockscreenBackgroundView]'s bar, so cards pass beneath it as in the design.
+ * edge refraction as [TakuLockscreenBackgroundDrawable]'s bar, so cards pass beneath it as in the design.
  *
  * Touch: the window root turns vertical drags on the lock screen into the shade (down) or unlock
  * (up). The list keeps a gesture only when it starts on a card and the list can scroll that way;
@@ -26,7 +26,7 @@ class TakuNotificationListView(context: Context) : ScrollView(context) {
     private val column = LinearLayout(context).apply {
         orientation = LinearLayout.VERTICAL
         val side = dp(16f)
-        setPadding(side, 0, side, dp(TakuLockscreenBackgroundView.BAR_HEIGHT_DP))
+        setPadding(side, 0, side, dp(TakuLockscreenBackgroundDrawable.BAR_HEIGHT_DP))
         clipChildren = false
     }
     private val views = LinkedHashMap<String, TakuNotificationCardView>()
@@ -88,7 +88,7 @@ class TakuNotificationListView(context: Context) : ScrollView(context) {
         val w = width
         val h = height
         if (!canvas.isHardwareAccelerated || w == 0 || h == 0) return super.dispatchDraw(canvas)
-        val barHeight = dp(TakuLockscreenBackgroundView.BAR_HEIGHT_DP).coerceAtMost(h)
+        val barHeight = dp(TakuLockscreenBackgroundDrawable.BAR_HEIGHT_DP).coerceAtMost(h)
         // The canvas is already translated by -scrollY: these are content coordinates.
         val barTop = scrollY + h - barHeight
         val contentHeight = maxOf(column.bottom, scrollY + h)
@@ -120,7 +120,7 @@ class TakuNotificationListView(context: Context) : ScrollView(context) {
     }
 
     private fun barEffect(w: Int, barHeight: Int): RenderEffect =
-        TakuLockscreenBackgroundView.barEffect(w, barHeight, dp(TakuLockscreenBackgroundView.BAR_BLUR_DP).toFloat())
+        TakuLockscreenBackgroundDrawable.barEffect(w, barHeight, dp(TakuLockscreenBackgroundDrawable.BAR_BLUR_DP).toFloat())
 
     // endregion
 
@@ -134,7 +134,7 @@ class TakuNotificationListView(context: Context) : ScrollView(context) {
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
-                val barTop = height - dp(TakuLockscreenBackgroundView.BAR_HEIGHT_DP)
+                val barTop = height - dp(TakuLockscreenBackgroundDrawable.BAR_HEIGHT_DP)
                 claimed = event.y < barTop && cardAt(event.x, event.y) != null
                 if (!claimed) return false
                 decided = false

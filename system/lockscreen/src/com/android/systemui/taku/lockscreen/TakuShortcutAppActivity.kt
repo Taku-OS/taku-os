@@ -7,6 +7,8 @@ import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.view.Window
+import android.view.WindowInsets
 import android.widget.BaseAdapter
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -27,15 +29,39 @@ class TakuShortcutAppActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // The window is edge-to-edge: no decor title bar; the header and list take the system-bar and
+        // cutout insets themselves, so the first and last apps are fully visible and tappable.
+        requestWindowFeature(Window.FEATURE_NO_TITLE)
         title = getString(R.string.controls_open_app)
         apps = TakuOpenAppTarget.candidates(packageManager)
         current = TakuOpenAppTarget.resolve(packageManager,
             Settings.Secure.getString(contentResolver, TakuOpenAppTarget.SETTING))?.component?.flattenToString()
+        val density = resources.displayMetrics.density
+        val header = TextView(this).apply {
+            text = title
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 22f)
+            val pad = (16 * density).toInt()
+            setPadding(pad, pad, pad, pad)
+            isFocusable = true
+            isAccessibilityHeading = true
+        }
         val list = ListView(this).apply {
             adapter = Adapter()
+            clipToPadding = false
             setOnItemClickListener { _, _, position, _ -> choose(apps[position]) }
         }
-        setContentView(list)
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(header, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+            addView(list, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+            setOnApplyWindowInsetsListener { view, insets ->
+                val bars = insets.getInsets(WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout())
+                view.setPadding(bars.left, bars.top, bars.right, 0)
+                list.setPadding(0, 0, 0, bars.bottom)
+                WindowInsets.CONSUMED
+            }
+        }
+        setContentView(root)
     }
 
     private fun choose(app: TakuOpenAppTarget.Target) {

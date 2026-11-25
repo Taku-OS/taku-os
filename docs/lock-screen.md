@@ -72,7 +72,11 @@ Same pattern as the Dynamic Island (`system/island`, `image/island`):
 - Owned source in `system/lockscreen/src/com/android/systemui/taku/lockscreen/`.
 - `image/lockscreen/systemui-lockscreen.patch` + `manifest.json` (before/after SHA-256 of every touched
   upstream file), applied by `image/apply-lockscreen-patches.py` from `image/build.sh` and
-  `image/emulator/build.sh` after the island patch. The two patches touch disjoint upstream files.
+  `image/emulator/build.sh` after the island patch. Both patches edit the SystemUI manifest. The lock
+  screen's manifest entry is layered on the island's final bytes (`layeredOn: island`, before-hash = the
+  island's after-hash). The island script accepts the layered result as applied, so incremental
+  re-integration and resume verification work in either script. `tests/lockscreen-island-integration.test.py`
+  applies both patches in build order to the pinned upstream files, then repeats every re-run.
 - `system/lockscreen/update-patch.py` regenerates the patch from owned source and pinned upstream bytes.
 - `system/lockscreen/typecheck.py` compiles owned sources against API doubles on the host (as
   `system/island/typecheck.py` does); real verification needs the platform build and an emulator/device.
@@ -89,6 +93,10 @@ Same pattern as the Dynamic Island (`system/island`, `image/island`):
   (not a live blur).
 - Bottom bar (`979:451`): 176 dp tall, blur 12, with the "Taku · Edge Refraction" shader (dispersion 0.4,
   flare 0.4). The Figma WGSL is ported line for line to AGSL and applied as a `RenderEffect` runtime shader.
+- Drawn as the keyguard root's background drawable, not as a child view. SystemUI's burn-in model
+  (`AodBurnInViewModel`) moves the large clock down by `topInset - minViewY` whenever a visible
+  keyguard child starts above the status-bar inset. A full-screen child at y = 0, or the stock date at
+  the top, would push the tall clock below its 76 dp position.
 
 ### 4.2 Date
 
@@ -96,6 +104,9 @@ Same pattern as the Dynamic Island (`system/island`, `image/island`):
   76 dp from the top (below the status bar); 24 dp above the clock.
 - Localised long date ("Tuesday, Oct 29" / "10月29日 周二"), updated on time, date, time-zone and locale
   changes.
+- While the Taku clock is current, `TakuStockDateSection` keeps the stock smartspace date and weather
+  views GONE, so there is only the design's centred date. It does this in the constraint set (after the
+  smartspace section) and after every layout. Other clock faces keep the stock date.
 
 ### 4.3 Clock
 
@@ -124,6 +135,10 @@ Same pattern as the Dynamic Island (`system/island`, `image/island`):
 
 - Buttons (`979:455`, `979:463`): 56 dp circles, `rgba(255,255,255,0.92)` with blur 16, dark 24 dp icon,
   16 dp from the sides and 40 dp from the bottom.
+- Resting colours come from `TakuLockscreenPolicy` through a hook in `KeyguardQuickAffordanceViewBinder`.
+  The stock binder uses framework-wide Material colours, which a SystemUI overlay cannot change. The
+  overlay sets a 28 dp radius (circle) and 16 dp padding (24 dp icon). The activated state (torch on) keeps
+  the stock colours, because the design does not define it.
 - Defaults: `bottom_start:flashlight`, `bottom_end:camera` (`config_keyguardQuickAffordanceDefaults`,
   upstream `home` / `wallet`). LineageOS already enables custom shortcuts
   (`custom_lockscreen_shortcuts_enabled`).

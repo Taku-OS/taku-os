@@ -9,9 +9,11 @@ import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parent.parent
 INPUTS = ROOT / 'image/lockscreen'
+ISLAND = ROOT / 'image/island/manifest.json'
 SOURCES = ROOT / 'system/lockscreen/src'
 SYSTEMUI = 'packages/SystemUI/src/'
 HOOKS = {
+    SYSTEMUI + 'com/android/systemui/keyguard/ui/binder/KeyguardQuickAffordanceViewBinder.kt',
     'packages/SystemUI/AndroidManifest.xml',
     SYSTEMUI + 'com/android/systemui/keyguard/data/quickaffordance/KeyguardDataQuickAffordanceModule.kt',
     SYSTEMUI + 'com/android/systemui/keyguard/ui/view/layout/sections/transitions/ClockSizeTransition.kt',
@@ -47,7 +49,13 @@ def load_contract():
     expected = HOOKS | {SYSTEMUI + name.removeprefix('system/lockscreen/src/') for name in sources}
     paths = [entry['path'] for entry in value['files']]
     require(set(paths) == expected and len(paths) == len(expected), 'Lock screen target coverage differs')
+    island = {item['path']: item for item in json.loads(ISLAND.read_text())['files']} if ISLAND.is_file() else {}
     for entry in value['files']:
+        if entry.get('layeredOn') is not None:
+            # A file the island patch also edits: the lock screen starts from the island's final bytes.
+            require(entry['layeredOn'] == 'island' and entry['path'] in HOOKS, 'Unknown lock screen patch layer')
+            require(entry['path'] in island and island[entry['path']]['afterSha256'] == entry['beforeSha256'],
+                    'Lock screen layer does not start from the island patch; run system/lockscreen/update-patch.py')
         if entry['path'] in HOOKS:
             require(entry['beforeSha256'] is not None, 'Missing upstream hook hash')
         else:
@@ -76,6 +84,9 @@ def inspect(repository, contract):
         require(all(not parent.is_symlink() for parent in [path, *path.parents] if parent != repository.parent),
                 f'Symlink lock screen target: {path}')
         current = digest(path) if path.exists() else None
+        if entry.get('layeredOn') == 'island' and current not in (entry['beforeSha256'], entry['afterSha256']):
+            require(False, f'{path} is not in the island-patched state; apply the island patch before the '
+                           'lock screen patch (image/build.sh order)')
         require(current in (entry['beforeSha256'], entry['afterSha256']),
                 f'Unknown lock screen source bytes; preserving {path}')
         states.append(current == entry['afterSha256'])

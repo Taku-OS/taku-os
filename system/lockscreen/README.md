@@ -7,10 +7,13 @@ emergency call and accessibility all stay upstream code.
 
 ## Phase 1: frame
 
-- `TakuKeyguardBlueprint` is the stock section list with `TakuBackgroundSection` at the bottom.
+- `TakuKeyguardBlueprint` is the stock section list with `TakuBackgroundSection` first and
+  `TakuStockDateSection` last. The stock-date section hides the smartspace date and weather while the
+  Taku clock, which draws its own date, is current.
   The interactor selects it for every single-shade lock screen, and the repository starts on it.
   Split shade keeps the stock blueprint.
-- `TakuLockscreenBackgroundView` draws the lock wallpaper again, blurred 24 dp under the Figma gradient,
+- `TakuLockscreenBackgroundDrawable`, the keyguard root's background drawable (a child view at y = 0
+  would trigger the burn-in shift of the large clock), draws the lock wallpaper again, blurred 24 dp under the Figma gradient,
   plus the 176 dp bottom bar with a further 12 dp blur and the "Edge Refraction" shader ported to AGSL.
   It fades with the doze amount, so AOD stays black.
 - `TakuClockProvider` wraps the stock `DefaultClockProvider` and adds the `TAKU` clock as the
@@ -69,12 +72,16 @@ shortcut) to compare with Figma.
 ## Patch
 
 `src/` goes into `frameworks/base/packages/SystemUI/src/` through `image/lockscreen/`, an exact-revision
-patch with SHA-256 hashes for every file. Nine upstream hooks are anchored edits (eight sources and the SystemUI manifest). Each must match exactly once.
+patch with SHA-256 hashes for every file. Ten upstream hooks are anchored edits (nine sources and the SystemUI manifest). Each must match exactly once.
+The manifest edit is layered on the island patch's final bytes (`layeredOn: island`). Both apply scripts
+accept the combined result, and `tests/lockscreen-island-integration.test.py` checks the build order and
+every re-run against the pinned upstream files.
 
 ```sh
 python3 system/lockscreen/update-patch.py --fetch          # or --upstream-root <frameworks/base>
 python3 image/apply-lockscreen-patches.py --check-inputs
 python3 tests/lockscreen-patches.test.py
+python3 tests/lockscreen-island-integration.test.py   # needs network or TAKU_FRAMEWORKS_BASE
 python3 system/lockscreen/typecheck.py --kotlinc KOTLINC --android-jar ANDROID_JAR \
     --coroutines-jar KOTLINX_COROUTINES_CORE_JVM_JAR
 ```

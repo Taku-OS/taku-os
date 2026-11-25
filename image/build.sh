@@ -80,7 +80,8 @@ PY
     if [ -f /taku/image/island/manifest.json ]; then
         python3 /taku/image/apply-island-patches.py --source-root /src --results-dir /results
     fi
-    # The Taku lock screen (docs/lock-screen.md); its hooks are disjoint from the island's.
+    # The Taku lock screen (docs/lock-screen.md), after the island: its SystemUI manifest edit is
+    # layered on the island's (image/lockscreen/manifest.json `layeredOn`).
     if [ -f /taku/image/lockscreen/manifest.json ]; then
         python3 /taku/image/apply-lockscreen-patches.py --source-root /src --results-dir /results
     fi

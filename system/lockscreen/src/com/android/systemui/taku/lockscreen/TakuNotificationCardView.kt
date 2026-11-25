@@ -86,7 +86,7 @@ class TakuNotificationCardView(context: Context) : FrameLayout(context) {
             gravity = Gravity.CENTER_VERTICAL
             layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dp(48f).toInt())
         }
-        row.addView(picture(card, 48f, 8f), LinearLayout.LayoutParams(dp(48f).toInt(), dp(48f).toInt())
+        row.addView(picture(card, 48f, 12f), LinearLayout.LayoutParams(dp(48f).toInt(), dp(48f).toInt())
             .apply { marginEnd = dp(8f).toInt() })
         val column = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
@@ -97,10 +97,12 @@ class TakuNotificationCardView(context: Context) : FrameLayout(context) {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
-        // A notification picture leaves the app unnamed, so the app icon marks the second line.
-        if (hasPicture) line.addView(appIcon(card), LinearLayout.LayoutParams(dp(16f).toInt(), dp(16f).toInt())
+        // Figma 979:680 / 979:687: the second line is the notification text; without text it names the
+        // app, marked with the app icon (shown here only when the picture is not already the app icon).
+        val body = card.text
+        if (body == null && hasPicture) line.addView(appIcon(card), LinearLayout.LayoutParams(dp(16f).toInt(), dp(16f).toInt())
             .apply { marginEnd = dp(4f).toInt() })
-        line.addView(text(card.text ?: card.appLabel, TakuLockscreenFonts.hankenGrotesk, 14f, 1.42f, INK_700))
+        line.addView(text(body ?: card.appLabel, TakuLockscreenFonts.hankenGrotesk, 14f, 1.42f, INK_700))
         column.addView(line)
         row.addView(column, LinearLayout.LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
         return row

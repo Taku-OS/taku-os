@@ -9,8 +9,10 @@ lock screen, and with --first-unlock the locked state and first unlock after reb
 temporary PIN, reboots, enters it, measures time to Taku Home, then removes the PIN).
 
 It changes device state and restores it afterwards: lock-screen disabled flag, shortcut
-selections, the Open app target and, with --first-unlock, the PIN. Never point it at a personal
-phone. It does not replace looking at the screen: compare the screenshots it saves with Figma.
+selections, the Open app target and, with --first-unlock, the PIN. Restores are read back and
+reported; if the current shortcut selection cannot be restored (an unavailable shortcut), the
+selection checks are skipped rather than run. Never point it at a personal phone. Screenshots and
+timings are printed as INFO, not counted as passes: compare the screenshots with Figma yourself.
 """
 import argparse
 import json
@@ -84,37 +86,62 @@ class Checks:
         print(f"{'PASS' if condition else 'FAIL'} {name}" + (f' :: {detail}' if detail is not None and not condition else ''))
         return bool(condition)
 
+    def skip(self, name, reason):
+        """Not run: recorded as skipped, never as passed."""
+        self.results.append({'check': name, 'pass': None, 'detail': reason})
+        print(f'SKIP {name} :: {reason}')
+
+
+def selections(device):
+    return {slot['id']: slot['selected'] for slot in device.lockscreen('shortcuts').get('slots', [])}
+
+
+def restore_selections(device, original):
+    for slot, selected in original.items():
+        device.lockscreen('shortcuts', 'clear', slot)
+        for shortcut in selected:
+            device.lockscreen('shortcuts', 'set', slot, shortcut)
+
 
 def shortcuts_suite(device, checks):
     listing = device.lockscreen('shortcuts')
     checks.check('shortcuts list ok', listing.get('ok'), listing)
-    slots = {slot['id']: slot['selected'] for slot in listing.get('slots', [])}
-    ids = {item['id'] for item in listing.get('shortcuts', [])}
-    checks.check('default start shortcut is flashlight', slots.get('bottom_start') == ['flashlight'], slots)
-    checks.check('default end shortcut is camera', slots.get('bottom_end') == ['camera'], slots)
-    checks.check('Open app shortcut offered', 'taku_open_app' in ids, sorted(ids))
-    original = dict(slots)
-    try:
-        result = device.lockscreen('shortcuts', 'set', 'bottom_start', 'taku_open_app')
-        after = {s['id']: s['selected'] for s in device.lockscreen('shortcuts')['slots']}
-        checks.check('select Open app on start slot', result.get('ok') and after.get('bottom_start') == ['taku_open_app'],
-                     [result, after])
-        checks.check('invalid slot rejected', device.lockscreen('shortcuts', 'set', 'nowhere', 'camera').get('error') == 'INVALID_SLOT')
-        checks.check('unknown shortcut rejected',
-                     device.lockscreen('shortcuts', 'set', 'bottom_start', 'no_such').get('error') == 'INVALID_SHORTCUT')
-        device.shell('input keyevent KEYCODE_SLEEP; sleep 1; input keyevent KEYCODE_WAKEUP')
-        time.sleep(2)
-        checks.check('screenshot: Open app on start slot', True, device.screenshot('shortcut-open-app'))
-    finally:
-        for slot, selected in original.items():
-            if selected:
-                device.lockscreen('shortcuts', 'set', slot, selected[0])
-            else:
-                device.lockscreen('shortcuts', 'clear', slot)
+    original = {slot['id']: slot['selected'] for slot in listing.get('slots', [])}
+    enabled = {item['id']: item['enabled'] for item in listing.get('shortcuts', [])}
+    checks.check('Open app shortcut offered', 'taku_open_app' in enabled, sorted(enabled))
+    # The image default is the overlay resource; the user's current selection may differ from it.
+    defaults = device.shell('cmd overlay lookup com.android.systemui '
+                            'com.android.systemui:array/config_keyguardQuickAffordanceDefaults', check=False)
+    checks.check('overlay default: start flashlight, end camera',
+                 'bottom_start:flashlight' in defaults and 'bottom_end:camera' in defaults, defaults)
+    print(f'INFO current shortcut selection: {original}')
+
+    unrestorable = sorted({s for selected in original.values() for s in selected if not enabled.get(s, False)})
+    if unrestorable:
+        reason = f'current selection {unrestorable} is unavailable on this device and could not be restored'
+        for name in ('select Open app on start slot', 'invalid slot rejected', 'unknown shortcut rejected',
+                     'shortcut selection restored'):
+            checks.skip(name, reason)
+    else:
+        try:
+            result = device.lockscreen('shortcuts', 'set', 'bottom_start', 'taku_open_app')
+            after = selections(device)
+            checks.check('select Open app on start slot',
+                         result.get('ok') and after.get('bottom_start') == ['taku_open_app'], [result, after])
+            checks.check('invalid slot rejected',
+                         device.lockscreen('shortcuts', 'set', 'nowhere', 'camera').get('error') == 'INVALID_SLOT')
+            checks.check('unknown shortcut rejected',
+                         device.lockscreen('shortcuts', 'set', 'bottom_start', 'no_such').get('error') == 'INVALID_SHORTCUT')
+            device.shell('input keyevent KEYCODE_SLEEP; sleep 1; input keyevent KEYCODE_WAKEUP')
+            time.sleep(2)
+            print(f"INFO screenshot {device.screenshot('shortcut-open-app')}")
+        finally:
+            restore_selections(device, original)
+            restored = selections(device)
+            checks.check('shortcut selection restored', restored == original, {'expected': original, 'actual': restored})
 
     app = device.lockscreen('shortcuts', 'app')
-    checks.check('Open app defaults to Taku', app.get('openApp', {}).get('isDefault') and
-                 str(app['openApp'].get('component', '')).startswith('org.agentos.agent/'), app)
+    print(f"INFO Open app target: {app.get('openApp')}")
     stored = device.shell('settings get secure taku_lockscreen_open_app', check=False)
     try:
         result = device.lockscreen('shortcuts', 'app', 'com.android.settings/.Settings')
@@ -124,12 +151,15 @@ def shortcuts_suite(device, checks):
         checks.check('non-launchable target rejected',
                      device.lockscreen('shortcuts', 'app', 'com.android.settings/.NoSuchActivity').get('error') == 'NOT_LAUNCHABLE')
         reset = device.lockscreen('shortcuts', 'app', 'default')
-        checks.check('Open app target back to Taku', reset.get('ok') and reset['openApp']['isDefault'], reset)
+        checks.check('Open app target back to Taku', reset.get('ok') and reset['openApp']['isDefault'] and
+                     str(reset['openApp'].get('component', '')).startswith('org.agentos.agent/'), reset)
     finally:
         if stored and stored != 'null':
             device.shell(f"settings put secure taku_lockscreen_open_app '{stored}'")
         else:
             device.shell('settings delete secure taku_lockscreen_open_app', check=False)
+        now = device.shell('settings get secure taku_lockscreen_open_app', check=False)
+        checks.check('Open app target restored', now == (stored or 'null'), {'expected': stored, 'actual': now})
 
 
 def authenticated_suite(device, checks):
@@ -149,7 +179,7 @@ def authenticated_suite(device, checks):
         listing = device.lockscreen('notifications')
         card = next((n for n in listing.get('notifications', []) if n.get('title') == 'Taku acceptance'), None)
         checks.check('posted notification is a card', card is not None, listing)
-        checks.check('screenshot: authenticated lock screen', True, device.screenshot('authenticated'))
+        print(f"INFO screenshot {device.screenshot('authenticated')}")
         if card:
             checks.check('shell notification without intent is not clickable',
                          device.lockscreen('open', card['key']).get('error') == 'NOT_CLICKABLE')
@@ -182,7 +212,7 @@ def first_unlock_suite(device, checks):
         checks.check('after reboot: tall clock', state.get('clockSize') == 'large', state)
         checks.check('locked: no cards', device.lockscreen('notifications').get('notifications') == [])
         checks.check('locked: Taku refused', device.lockscreen('taku').get('error') == 'LOCKED')
-        checks.check('screenshot: locked lock screen', True, device.screenshot('locked'))
+        print(f"INFO screenshot {device.screenshot('locked')}")
         device.shell('wm dismiss-keyguard', check=False)
         time.sleep(1.5)
         device.shell(f'input text {PIN}')
@@ -196,7 +226,7 @@ def first_unlock_suite(device, checks):
             time.sleep(0.25)
         elapsed = round(time.time() - start, 2)
         checks.check('first unlock lands on Taku Home', TAKU_HOME.split('/')[0] in top, {'top': top, 'seconds': elapsed})
-        checks.check('first unlock time recorded (seconds)', True, elapsed)
+        print(f'INFO PIN entry to Taku Home: {elapsed} s (not boot time)')
     finally:
         device.shell(f'locksettings clear --old {PIN}', check=False)
 
@@ -217,10 +247,12 @@ def main():
     authenticated_suite(device, checks)
     if args.first_unlock:
         first_unlock_suite(device, checks)
-    failed = [r for r in checks.results if not r['pass']]
+    failed = [r for r in checks.results if r['pass'] is False]
+    skipped = [r for r in checks.results if r['pass'] is None]
     args.report.write_text(json.dumps({'serial': args.serial, 'results': checks.results,
-                                       'failed': len(failed)}, indent=2) + '\n')
-    print(f'{len(checks.results) - len(failed)}/{len(checks.results)} passed; report {args.report}')
+                                       'failed': len(failed), 'skipped': len(skipped)}, indent=2) + '\n')
+    ran = len(checks.results) - len(skipped)
+    print(f'{ran - len(failed)}/{ran} passed, {len(skipped)} skipped; report {args.report}')
     sys.exit(1 if failed else 0)
 
 

@@ -3,12 +3,13 @@
   "repository": "frameworks/base",
   "revision": "7f6de40b6429462d47ba9ba351b99943269c8067",
   "patch": "systemui-lockscreen.patch",
-  "patchSha256": "193b8efdb054e38b1f4520fd38bcc41c3ff58d260b9eade6eab33249e3f8cdd4",
+  "patchSha256": "5a0b0f3f7a558b8d2b65335fa09f3f7e5e5503a583c3aa4ff874521c5dfbfe77",
   "files": [
     {
       "path": "packages/SystemUI/AndroidManifest.xml",
-      "beforeSha256": "43e6586889f0f0ad96deaab722d5cdef3054d2a9e02c49719f61ddb90b1b9da1",
-      "afterSha256": "59624229585628ab3630868683d992b6afbbce4fafc36f01c7be5d1c8fd42898"
+      "beforeSha256": "02a0c64753c9ce43022b8214083801ff74dbc44697d412bd3ff364b5666f4888",
+      "afterSha256": "b2634aaa248aa56b321833f3e85faf23e202cd4ed6e4c14a868929509f20766e",
+      "layeredOn": "island"
     },
     {
       "path": "packages/SystemUI/src/com/android/keyguard/dagger/ClockRegistryModule.java",
@@ -29,6 +30,11 @@
       "path": "packages/SystemUI/src/com/android/systemui/keyguard/domain/interactor/KeyguardBlueprintInteractor.kt",
       "beforeSha256": "729905fdb03aaa68618afa1adeb7350f8e45e04164a629781f22e31ef632101b",
       "afterSha256": "6cef3ba1ad145858149be51b05015484c2946a5dc438f029c0f79086be26385e"
+    },
+    {
+      "path": "packages/SystemUI/src/com/android/systemui/keyguard/ui/binder/KeyguardQuickAffordanceViewBinder.kt",
+      "beforeSha256": "d20058bfbc4021a0fa6862c89eb20de8c6574ebd917b29784f4f252db17e3885",
+      "afterSha256": "e0aeb7e002e7b66280dc4e936b089b1e953c84a29478e9115bbb81d260fbda0e"
     },
     {
       "path": "packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/blueprints/KeyguardBlueprintModule.kt",
@@ -101,14 +107,14 @@
     {
       "path": "packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuKeyguardBlueprint.kt",
       "beforeSha256": null,
-      "afterSha256": "0ecbb8994319c31a788d23df14c0546d9d095035852bae0549bc795cf4eaa142",
+      "afterSha256": "e003f79e35f5f07e19e88832dfd71b3cf441cf607c61a2b8742e770b8607b062",
       "source": "system/lockscreen/src/com/android/systemui/taku/lockscreen/TakuKeyguardBlueprint.kt"
     },
     {
-      "path": "packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuLockscreenBackgroundView.kt",
+      "path": "packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuLockscreenBackgroundDrawable.kt",
       "beforeSha256": null,
-      "afterSha256": "ecf71116839e6750e741becdb33fb93086977d192e8f576240a463c0b438adb1",
-      "source": "system/lockscreen/src/com/android/systemui/taku/lockscreen/TakuLockscreenBackgroundView.kt"
+      "afterSha256": "1007d8b9aa00da399971e6b48cc945f4a8420f8fcf7f544ec28e4faa7374c8d7",
+      "source": "system/lockscreen/src/com/android/systemui/taku/lockscreen/TakuLockscreenBackgroundDrawable.kt"
     },
     {
       "path": "packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuLockscreenCommand.kt",
@@ -143,13 +149,13 @@
     {
       "path": "packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuNotificationCardView.kt",
       "beforeSha256": null,
-      "afterSha256": "58ec7d5a6d565ea9fcf69b252d9b2330727f5162d2070f9f91ee075650b5792d",
+      "afterSha256": "5b984e7c42a34f1e77112cc3c14709997a5152be4a1ed7807f6b8dd84079373f",
       "source": "system/lockscreen/src/com/android/systemui/taku/lockscreen/TakuNotificationCardView.kt"
     },
     {
       "path": "packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuNotificationListView.kt",
       "beforeSha256": null,
-      "afterSha256": "934a0009d2f03a96d8df398f27d910321ba30d46ab008bce7d2747af4861c7dc",
+      "afterSha256": "3da1143a86934a102919a9cabff0c1b0e2da4bf2e18a1095db0374b185714442",
       "source": "system/lockscreen/src/com/android/systemui/taku/lockscreen/TakuNotificationListView.kt"
     },
     {
@@ -161,7 +167,7 @@
     {
       "path": "packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuShortcutAppActivity.kt",
       "beforeSha256": null,
-      "afterSha256": "a12daff34053fa79fbfe3901e18423c7123c1087dfb1d6d488ea46d0c5152779",
+      "afterSha256": "0361fbea5e40550bbdbc6141da279cdde8da2db786a7a8839613daccc1992abd",
       "source": "system/lockscreen/src/com/android/systemui/taku/lockscreen/TakuShortcutAppActivity.kt"
     },
     {
