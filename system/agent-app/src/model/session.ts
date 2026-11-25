@@ -3,12 +3,15 @@ import {phoneToolKeys, phoneToolResultText} from './phoneTools.ts';
 import {isStateCardItem, parseUiRequest, type CardPresentation, type MainReply, type UiRequest} from './genui.ts';
 import {parseMainReply} from './genuiCompose.ts';
 
+import {mcpPresentation, mcpTool} from './mcpTools.ts';
+
 export type Json = Record<string, unknown>;
 export type ItemStatus = 'running' | 'completed' | 'failed' | 'stopped' | 'waiting' | 'unknown';
 export interface Activity {
   id: string;
   type: string;
   titleKey: string;
+  node?: string;
   name: string;
   text: string;
   status: ItemStatus;
@@ -123,9 +126,12 @@ function activity(item: Json, turnId: string, outputs: Json, index: number): Act
   const short = tool.replace(/^.*(?:__|\/|\.)/, '');
   // A bare phone tool name without a namespace (an older Codex record, an agy update without its MCP
   // prefix) is still a phone tool: only taku_phone registers these names, and its raw name never shows.
-  const phone = tool.startsWith('taku_phone') || item.namespace === 'taku_phone'
+  const phone = item.server === 'taku_phone' || tool.startsWith('taku_phone') || item.namespace === 'taku_phone'
     || ((type === 'dynamicToolCall' || item.server === 'agy') && !label(item.namespace) && phoneToolKeys[tool] !== undefined);
-  const titleKey = toolKeys[type] || (phone && (toolKeys[short] || 'phoneTool')) || (type === 'agentMessage' ? 'update' : 'tool');
+  const mcp = !phone && (type === 'mcpToolCall' || type === 'dynamicToolCall')
+    ? mcpTool(string(item.server), tool || string(item.toolName), string(item.namespace)) : null;
+  const named = mcp ? mcpPresentation(mcp) : null;
+  const titleKey = toolKeys[type] || (phone && (toolKeys[short] || 'phoneTool')) || named?.titleKey || (type === 'agentMessage' ? 'update' : 'tool');
   const details: string[] = [];
   // A phone tool's JSON answer is for the agent; the activity list keeps only its human message (BUG-0033).
   const output = (text: string) => phone ? phoneToolResultText(text) : text;
@@ -136,7 +142,14 @@ function activity(item: Json, turnId: string, outputs: Json, index: number): Act
   for (const change of list(item.changes)) { const c = record(change); if (typeof c.path === 'string') details.push(c.path); }
   const error = typeof item.error === 'string' ? item.error : string(record(item.error).message);
   if (error) details.push(error);
-  return {id: `${turnId}/${label(item.id) || `activity-${index}`}`, type, titleKey, name: titleKey === 'tool' ? tool : '', text: details.filter(Boolean).join('\n'), status: itemStatus(item)};
+  return {id: `${turnId}/${label(item.id) || `activity-${index}`}`, type, titleKey, name: titleKey === 'tool' ? named?.name || tool : '',
+    ...(named?.node !== undefined ? {node: named.node} : {}), text: details.filter(Boolean).join('\n'), status: itemStatus(item)};
+}
+
+export function activityName(item: Activity, translate: (key: string) => string): string {
+  if (item.name) return item.name;
+  const title = translate(item.titleKey);
+  return item.node === undefined ? title : title.replace('{node}', () => item.node || translate('remoteNode'));
 }
 
 function userContent(item: Json): {text: string; attachments: string[]} {
