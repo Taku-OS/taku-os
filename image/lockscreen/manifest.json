@@ -3,7 +3,7 @@
   "repository": "frameworks/base",
   "revision": "7f6de40b6429462d47ba9ba351b99943269c8067",
   "patch": "systemui-lockscreen.patch",
-  "patchSha256": "e6c18168c416aec8cbd3c618179e94331b0ec81d3b6b8092403c8809ec8103f8",
+  "patchSha256": "193b8efdb054e38b1f4520fd38bcc41c3ff58d260b9eade6eab33249e3f8cdd4",
   "files": [
     {
       "path": "packages/SystemUI/AndroidManifest.xml",
@@ -125,7 +125,7 @@
     {
       "path": "packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuLockscreenNotifications.kt",
       "beforeSha256": null,
-      "afterSha256": "5e8dc9e81f113dbfb9a0244e0a23ba4abec207a6ca7f7eb64fac74082b93f01c",
+      "afterSha256": "0c7098dd9a9d8f170ade704b753e1bae3ce6c92d1b9134fb5a992667e90c073a",
       "source": "system/lockscreen/src/com/android/systemui/taku/lockscreen/TakuLockscreenNotifications.kt"
     },
     {

@@ -217,17 +217,33 @@ emulator.
 
 ## 6. First unlock after reboot
 
-Today: before the first unlock only direct-boot-aware HOME activities resolve, so Settings' `FallbackHome`
-runs (transparent window, "finishing boot" after 2 s). After unlock it polls every 500 ms until Taku Home
-resolves, then Taku Home starts cold. SystemUI's launcher unlock animation only applies to Launcher3.
+What the pinned sources do (phase 4 review):
 
-Plan:
+- After a reboot, biometrics stay unavailable until the first credential entry. So the first unlock is
+  always the PIN, password or pattern bouncer. Bouncer success dismisses the keyguard directly; there is
+  no intermediate authenticated lock screen.
+- Before CE unlock, the HOME activity is Settings' `FallbackHome`, a translucent window over the
+  wallpaper. It already registers for `ACTION_USER_UNLOCKED` and finishes as soon as a real HOME
+  resolves. It only polls (every 500 ms) while no other HOME exists (`FallbackHome.java`,
+  `maybeFinish`). Taku's home policy (`image/home`) resolves MAIN/HOME to Taku Home immediately for an
+  unlocked user, so FallbackHome finishes on the unlock broadcast. Its "finishing boot" text only
+  appears when it stays resumed for `config_progressTimeoutFallbackHome`, which does not happen when
+  HOME resolves.
+- Taku Home's `HomeRoleReceiver` already handles `USER_UNLOCKED`, so the Taku process starts at the
+  same moment, and the HOME launch that follows FallbackHome's finish starts it at the latest.
+- Unlock animation: `KeyguardUnlockAnimationController` plays Launcher3's in-window icon animation only
+  when the activity underneath is Launcher3's registered class (`isSupportedLauncherUnderneath`).
+  Otherwise it plays the standard canned or swipe-driven animation of the surface behind. Taku Home
+  gets that animation like any app, on the first and every later unlock.
 
-1. Theme `FallbackHome` with the Taku wallpaper and finish on `ACTION_USER_UNLOCKED` instead of polling.
-2. Warm the Taku Agent process as soon as the user is unlocked.
-3. Give Taku Home the launcher unlock-animation hook (via the Quickstep bridge used by
-   `TakuNavHandleBridge`), which also smooths every later unlock.
-4. Only if still needed: a direct-boot-aware Taku Home shell.
+Result: the first unlock already lands on Taku Home, with no Taku-specific patch to Settings or
+Quickstep. The earlier plan items (FallbackHome theming, finish-on-unlock, process warm-up, launcher
+unlock hook) are either upstream behaviour already or unnecessary. A direct-boot-aware Taku Home shell
+stays out of scope. Phase 4 therefore ships the measurement instead:
+`system/lockscreen/device-tests/acceptance.py SERIAL --first-unlock` sets a temporary PIN, reboots,
+checks the locked state (tall clock, no cards, Taku refused), enters the PIN, records the time until
+Taku Home is the resumed activity, and removes the PIN. If that time or the hop looks wrong on the
+emulator, revisit FallbackHome with that evidence.
 
 ## 7. Phases
 
@@ -238,7 +254,8 @@ Plan:
    `cmd statusbar lockscreen` for state, cards and the Taku entry.
 3. **Shortcut customisation**: Taku "Open app" shortcut with its chooser; `cmd statusbar lockscreen
    shortcuts`.
-4. **First unlock and unlock animation** (section 6).
+4. **First unlock and unlock animation** (section 6): reviewed against the pinned sources; already
+   lands on Taku Home with the standard unlock animation. Delivered as the emulator acceptance suite.
 5. Later: status chips / widgets, media, wallpaper choice, Dynamic Island on the lock screen.
 
 ## 8. Verification

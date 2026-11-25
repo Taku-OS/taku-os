@@ -929,7 +929,8 @@ checks and stock SystemUI paths as a tap, a swipe or a button press. Every reply
 
 ```sh
 cmd statusbar lockscreen state
-# {ok, state:{keyguardShowing, authenticated, dozing, available, notificationCount}}
+# {ok, state:{keyguardShowing, authenticated, dozing, available, notificationCount,
+#  clockSize:"large"|"small"}}   large = tall clock (locked), small = compact (authenticated)
 # available = keyguardShowing && authenticated: only then are cards and Taku shown or operable.
 cmd statusbar lockscreen notifications
 # {ok, state, notifications:[{key, package, app, title, text, context, when, conversation,

@@ -52,7 +52,7 @@ abstract class KeyguardInteractor {
  abstract val isKeyguardDismissible: kotlinx.coroutines.flow.StateFlow<Boolean>
  abstract val statusBarState: kotlinx.coroutines.flow.StateFlow<com.android.systemui.keyguard.shared.model.StatusBarState>
 }
-abstract class KeyguardClockInteractor { abstract fun setClockSize(size: com.android.systemui.keyguard.shared.model.ClockSize) }
+abstract class KeyguardClockInteractor { abstract fun setClockSize(size: com.android.systemui.keyguard.shared.model.ClockSize); abstract val clockSize: kotlinx.coroutines.flow.StateFlow<com.android.systemui.keyguard.shared.model.ClockSize> }
 ''',
     'KeyguardModelsShared.kt': '''package com.android.systemui.keyguard.shared.model
 enum class ClockSize { LARGE, SMALL }

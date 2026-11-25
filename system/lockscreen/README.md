@@ -52,6 +52,20 @@ emergency call and accessibility all stay upstream code.
   and Taku operations to the main thread, and runs shortcut operations (`TakuLockscreenShortcuts`)
   through the picker's `KeyguardQuickAffordanceInteractor`.
 
+## Phase 4: first unlock
+
+No code change was needed; see section 6 of the spec. `device-tests/acceptance.py` is the emulator
+acceptance suite for all phases. It needs an explicit serial on an isolated emulator, and restores
+everything it changes:
+
+```sh
+python3 system/lockscreen/device-tests/acceptance.py SERIAL                  # shortcuts, cards, Taku
+python3 system/lockscreen/device-tests/acceptance.py SERIAL --first-unlock   # + PIN, reboot, first unlock
+```
+
+It writes `out/lockscreen-acceptance/report.json` and screenshots (locked, authenticated, Open app
+shortcut) to compare with Figma.
+
 ## Patch
 
 `src/` goes into `frameworks/base/packages/SystemUI/src/` through `image/lockscreen/`, an exact-revision
@@ -81,14 +95,16 @@ python3 system/lockscreen/typecheck.py --kotlinc KOTLINC --android-jar ANDROID_J
 ## Open items
 
 - Design sign-off for the seven font-derived elongated digits; the handoff only supplies 0, 3, 9.
-- Full Keyguard verification of the native morph, including authentication with no notifications
-  (the compact clock is now driven by authentication).
-- Emulator checks for phase 2:
-  - cards appear only after authentication, and tap, swipe, buttons and Taku work;
-  - the shade pulled over the lock screen shows the stock stack;
-  - scrolling the list and the stock shade/unlock drags do not conflict;
-  - the stock stack is visible again over apps after unlocking;
-  - where the launch animation starts from on a card tap.
-  See [motion/README.md](motion/README.md) for source, timing and the standalone native test harness.
+- Run `device-tests/acceptance.py` (with `--first-unlock`) on the emulator. It covers shortcut
+  defaults and selection, the Open app target, cards, dismissal, the Taku button, the locked state and
+  first unlock.
+- Check by hand on the emulator, because a script cannot judge these:
+  - the native clock morph on authentication (see [motion/README.md](motion/README.md));
+  - the shade pulled over the lock screen shows the stock stack, and the stock stack is back over apps
+    after unlocking;
+  - scrolling the list does not fight the stock shade and unlock drags;
+  - where the launch animation starts from on a card tap;
+  - the picker's "Open app" configure button opens the chooser;
+  - the authentication matrix in the spec, including face (stays on the lock screen) and fingerprint.
 - UDFPS placement of the Taku button is deferred. On devices without UDFPS, the stock unlocked padlock
   sits directly above it.

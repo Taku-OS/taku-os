@@ -6,6 +6,7 @@ import android.content.Intent
 import android.util.Log
 import com.android.internal.statusbar.NotificationVisibility
 import com.android.systemui.dagger.SysUISingleton
+import com.android.systemui.keyguard.domain.interactor.KeyguardClockInteractor
 import com.android.systemui.keyguard.domain.interactor.KeyguardInteractor
 import com.android.systemui.plugins.ActivityStarter
 import com.android.systemui.settings.UserTracker
@@ -39,6 +40,7 @@ constructor(
     private val context: Context,
     pipeline: NotifPipeline,
     private val keyguardInteractor: KeyguardInteractor,
+    private val keyguardClockInteractor: KeyguardClockInteractor,
     private val userTracker: UserTracker,
     private val activityStarter: Lazy<ActivityStarter>,
     private val notificationActivityStarter: Lazy<NotificationActivityStarter>,
@@ -166,6 +168,7 @@ constructor(
         .put("dozing", keyguardInteractor.isDozing.value)
         .put("available", isAvailable)
         .put("notificationCount", if (isAvailable) _cards.value.size else 0)
+        .put("clockSize", keyguardClockInteractor.clockSize.value.name.lowercase())
 
     /** The cards exactly as shown; empty while locked, when the lock screen shows no notifications. */
     fun notificationsJson(): JSONArray {
