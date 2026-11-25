@@ -277,6 +277,9 @@ class AssistantSession private constructor(private val context: Context, private
     return changed
   }
 
+  internal fun hasMenuForHold(id: String?): Boolean =
+    id != null && gesture.id == id && gesture.held && heldMenu != null
+
   /** UI handshake: a terminal event received during cold start prevents any later microphone open. */
   fun activateHold(id: String) {
     if (gesture.source == "system" && gesture.expired(android.os.SystemClock.uptimeMillis())) { cancelVoice(); return }

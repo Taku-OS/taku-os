@@ -28,6 +28,7 @@ class SystemAssistantSession(private val ctx: Context) : VoiceInteractionSession
   private var assistBlocked = false
   private var foreground: String? = null
   private var shown = false
+  private var menuVoiceHold = false
   @Volatile private var generation = 0
   @Volatile private var invocationToken: String? = null
 
@@ -45,6 +46,11 @@ class SystemAssistantSession(private val ctx: Context) : VoiceInteractionSession
     shown = false
     invocationToken = null
     setUiEnabled(false)
+    val route = SystemAssistantEntry.routeFor(args?.getString(SystemAssistantEntry.TRIGGER))
+    menuVoiceHold = route == SystemAssistantEntry.Route.NavHold &&
+      AssistantSession.get(ctx).hasMenuForHold(args?.getString(SystemAssistantEntry.GESTURE_ID))
+    // The hold already owns the original photo; waiting for a second capture can outlast it.
+    if (menuVoiceHold) return
     if (request?.containsKey("jevTestToken") != true) {
       val capturedAt = SystemClock.elapsedRealtime()
       IO.execute {
@@ -61,16 +67,21 @@ class SystemAssistantSession(private val ctx: Context) : VoiceInteractionSession
     super.onShow(args, flags)
     shown = true
     if (ctx.getSystemService(KeyguardManager::class.java).isKeyguardLocked) { hide(); return }
+    val version = generation
+    if (menuVoiceHold) {
+      val target = SystemAssistantEntry.launch(ctx, request)
+      main.post { if (version == generation) openAssistant(target) }
+      return
+    }
     if (captureReady()) deliverCapture()
     else {
-      val version = generation
       main.postDelayed({ if (shown && version == generation) deliverCapture() }, 5_000)
     }
   }
 
   override fun onHandleAssist(state: AssistState) {
     super.onHandleAssist(state)
-    if (!state.isFocused || request == null) return
+    if (menuVoiceHold || !state.isFocused || request == null) return
     assistReceived = true
     val structure = state.assistStructure
     structure?.activityComponent?.flattenToShortString()?.let { foreground = it }
@@ -84,7 +95,7 @@ class SystemAssistantSession(private val ctx: Context) : VoiceInteractionSession
 
   override fun onHandleScreenshot(screenshot: Bitmap?) {
     super.onHandleScreenshot(screenshot)
-    if (request == null) return
+    if (menuVoiceHold || request == null) return
     capture = screenshot
     screenshotReceived = true
     if (shown && captureReady()) deliverCapture()
@@ -142,16 +153,18 @@ class SystemAssistantSession(private val ctx: Context) : VoiceInteractionSession
       } finally {
         file?.delete()
         main.post {
-          if (version == generation) {
-            try { target?.let(::startAssistantActivity) }
-            catch (failure: RuntimeException) {
-              Log.w("TakuSystemAssistant", "Assistant UI unavailable", failure)
-              android.widget.Toast.makeText(ctx, "Assistant could not open. Retry from Taku", android.widget.Toast.LENGTH_LONG).show()
-            } finally { hide() }
-          }
+          if (version == generation) openAssistant(target)
         }
       }
     }
+  }
+
+  private fun openAssistant(target: Intent?) {
+    try { target?.let(::startAssistantActivity) }
+    catch (failure: RuntimeException) {
+      Log.w("TakuSystemAssistant", "Assistant UI unavailable", failure)
+      android.widget.Toast.makeText(ctx, "Assistant could not open. Retry from Taku", android.widget.Toast.LENGTH_LONG).show()
+    } finally { hide() }
   }
 
   private fun gateway(method: String, payload: JSONObject, extras: Bundle? = null): JSONObject {
@@ -163,6 +176,7 @@ class SystemAssistantSession(private val ctx: Context) : VoiceInteractionSession
 
   override fun onHide() {
     generation++; shown = false; request = null; capture = null; screenshotReceived = false; invocationToken = null
+    menuVoiceHold = false
     super.onHide()
   }
   override fun onDestroy() { main.removeCallbacksAndMessages(null); generation++; super.onDestroy() }
