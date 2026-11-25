@@ -1,5 +1,6 @@
 /** Generated from modules/taku-home …/home/design/TakuIcons.kt (the Figma vectors native also draws); the panel icons
- * (bulletedList … expand) are the 3-1 / 3-2 vectors from the same file's history. */
+ * (bulletedList … expand) are the 3-1 / 3-2 vectors from the same file's history. The Single Chat vectors
+ * (menu … plug) are drawn after Zile's wireframe on a 20 dp grid, 1.5 dp round strokes like the chevrons. */
 export const chatIconPaths = {
   "sparkle": {
     "viewport": 16.0,
@@ -140,5 +141,30 @@ export const chatIconPaths = {
     "viewport": 20.0,
     "d": "M1.77626 8.33333L1.71196 4.4221C1.69616 3.46072 1.68826 2.98003 1.87147 2.61455C2.03255 2.2932 2.2932 2.03255 2.61455 1.87146C2.98003 1.68826 3.46072 1.69616 4.4221 1.71196L8.33333 1.77626M18.2237 11.6667L18.288 15.5779C18.3038 16.5393 18.3117 17.02 18.1285 17.3854C17.9675 17.7068 17.7068 17.9675 17.3854 18.1285C17.02 18.3117 16.5393 18.3038 15.5779 18.288L11.6667 18.2237",
     "stroke": 1.66667
+  },
+  "menu": {
+    "viewport": 20.0,
+    "d": "M2.75 5.5H17.25M2.75 10H12.75M2.75 14.5H17.25",
+    "stroke": 1.5
+  },
+  "close": {
+    "viewport": 20.0,
+    "d": "M5 5L15 15M15 5L5 15",
+    "stroke": 1.5
+  },
+  "chevronLeft": {
+    "viewport": 20.0,
+    "d": "M12.5 4.5L7 10L12.5 15.5",
+    "stroke": 1.5
+  },
+  "panels": {
+    "viewport": 20.0,
+    "d": "M3.7 2.5H7.8Q9 2.5 9 3.7V7.8Q9 9 7.8 9H3.7Q2.5 9 2.5 7.8V3.7Q2.5 2.5 3.7 2.5ZM12.2 2.5H16.3Q17.5 2.5 17.5 3.7V7.8Q17.5 9 16.3 9H12.2Q11 9 11 7.8V3.7Q11 2.5 12.2 2.5ZM3.7 11H7.8Q9 11 9 12.2V16.3Q9 17.5 7.8 17.5H3.7Q2.5 17.5 2.5 16.3V12.2Q2.5 11 3.7 11ZM12.2 11H16.3Q17.5 11 17.5 12.2V16.3Q17.5 17.5 16.3 17.5H12.2Q11 17.5 11 16.3V12.2Q11 11 12.2 11Z",
+    "stroke": 1.5
+  },
+  "plug": {
+    "viewport": 20.0,
+    "d": "M7.5 2.5V6.5M12.5 2.5V6.5M5 6.5H15V9.5C15 12.26 12.76 14.5 10 14.5C7.24 14.5 5 12.26 5 9.5V6.5ZM10 14.5V17.5",
+    "stroke": 1.5
   }
 } as const;

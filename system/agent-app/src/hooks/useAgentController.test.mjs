@@ -20,7 +20,7 @@ const mocks = new Map([
       return {remove() {runtime.attachmentListeners.delete(listener);}};
     };`)],
   ['@react-native-async-storage/async-storage', mock(`export default {
-    getItem: async key => runtime.storage.get(key) ?? null,
+    getItem: async key => runtime.storage.get(key) || null, // as the library: an empty string reads back as null
     getAllKeys: async () => [...runtime.storage.keys()],
     setItem: async (key, value) => {runtime.storage.set(key, value);},
     removeItem: async key => {runtime.events.push(['remove', key]); runtime.storage.delete(key);},
@@ -420,4 +420,70 @@ test('a transport failure before reservation stays unconfirmed and retry resubmi
   assert.deepEqual(runtime.calls.map(call => call.requestId), [stored.requestId, stored.requestId]);
   assert.equal(runtime.completed.length, 1);
   assert.equal(runtime.storage.has(pendingKey('thread-a')), false);
+});
+
+const primaryKey = 'taku.agent.primaryThread.v1';
+/** The chat opened by itself (no Panel, no island route), with a gateway that can create a thread. */
+function plainChat(t) {
+  reset(t);
+  runtime.target = null; runtime.threadId = '';
+  const gateway = runtime.callAgent;
+  runtime.callAgent = async (action, params = {}) => {
+    if (action === 'createThread') return {thread: {id: 'thread-new'}};
+    if (action === 'composer/move') {
+      const source = runtime.drafts.get(params.threadId) || {threadId: params.threadId, revision: '', text: '', attachments: []};
+      const moved = {...source, threadId: params.targetThreadId, revision: `draft-${++runtime.sequence}`};
+      runtime.drafts.delete(params.threadId);
+      runtime.drafts.set(params.targetThreadId, moved);
+      return moved;
+    }
+    return gateway(action, params);
+  };
+}
+
+test('TAKU carries on in a new conversation: the old one becomes a Task and the first message claims the new thread', async t => {
+  plainChat(t);
+  runtime.storage.set(primaryKey, 'thread-a');
+  const host = mount(); await flush(host);
+  assert.deepEqual([host.result.primaryThreadId, host.result.draftSessionId, host.result.isMainChat], ['thread-a', 'thread-a', true]);
+  host.result.onStartMainAfresh('Plan my week');
+  await flush(host);
+  assert.deepEqual([host.result.primaryThreadId, host.result.draftSessionId, host.result.isMainChat], ['', '', true]);
+  assert.equal(host.result.draft, 'Plan my week', 'the request that failed comes along as a draft');
+  assert.equal(runtime.storage.get(primaryKey), 'none', 'recorded, so a restart does not promote a Task');
+  assert.equal(runtime.calls.length, 0, 'nothing is sent for the user');
+  host.result.onSend();
+  await flush(host);
+  assert.deepEqual([runtime.calls.at(-1).threadId, runtime.calls.at(-1).text], ['thread-new', 'Plan my week']);
+  assert.deepEqual([host.result.primaryThreadId, host.result.draftSessionId, host.result.isMainChat], ['thread-new', 'thread-new', true]);
+  assert.equal(runtime.storage.get(primaryKey), 'thread-new');
+});
+
+test('a draft already waiting in the new conversation is kept', async t => {
+  plainChat(t);
+  runtime.storage.set(primaryKey, 'thread-a');
+  runtime.drafts.set('', {threadId: '', revision: 'draft-kept', text: 'Already here', attachments: []});
+  const host = mount(); await flush(host);
+  host.result.onStartMainAfresh('Plan my week');
+  await flush(host);
+  assert.equal(host.result.draft, 'Already here');
+  assert.equal(runtime.drafts.get('').text, 'Already here');
+});
+
+test('while TAKU has no thread, a Task stays a Task and going back opens the empty conversation', async t => {
+  plainChat(t);
+  runtime.storage.set(primaryKey, 'thread-a');
+  const host = mount(); await flush(host);
+  host.result.onStartMainAfresh();
+  await flush(host);
+  host.result.onSelectThread('thread-b');
+  await flush(host);
+  assert.deepEqual([host.result.draftSessionId, host.result.isMainChat], ['thread-b', false]);
+  host.result.onSelectMainChat();
+  await flush(host);
+  assert.deepEqual([host.result.primaryThreadId, host.result.draftSessionId, host.result.isMainChat], ['', '', true]);
+  host.unmount();
+  // After a restart TAKU is still on its empty conversation.
+  const restarted = mount(); await flush(restarted);
+  assert.deepEqual([restarted.result.primaryThreadId, restarted.result.draftSessionId, restarted.result.isMainChat], ['', '', true]);
 });

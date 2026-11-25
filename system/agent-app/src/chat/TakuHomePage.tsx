@@ -1,9 +1,9 @@
 /**
- * Dark Taku Home (Figma 300:1149): the real Panels directory from the native Assistant, the chat history
- * (newest first) and the chat's other entry points (task view, settings, plugin market, advanced
- * controls). The tabs filter the list; "See all" opens the section's tab. It holds no chat state:
- * the host passes the threads and the actions. The list blurs and fades progressively under the
- * title row and toward the bottom edge.
+ * Dark Taku Home (Figma 300:1149): the real Panels directory from the native Assistant, the Tasks
+ * (every conversation but TAKU's own, newest first) and the chat's other entry points (task view,
+ * settings, plugin market, advanced controls). The tabs filter the list; "See all" opens the
+ * section's tab. It holds no chat state: the host passes the threads and the actions. The list
+ * blurs and fades progressively under the title row and toward the bottom edge.
  */
 import React, {useMemo, useState} from 'react';
 import {EdgeBlur} from '../native/EdgeBlur';
@@ -14,16 +14,20 @@ import homeAssets from './assets/home/assets.json';
 import {chatBlur, chatColors, chatMetrics, chatType, themedStyles} from './chatTheme';
 import {chatText} from './chatText';
 import {matchingChats, shortDate, type TakuHomeThread} from './homeModel';
+import {partitionThreads} from '../model/singleChat';
 import {containsChinese} from '../theme';
 import {PanelCatalogView} from '../panels/PanelCatalogView';
 
-type Tab = 'all' | 'panels' | 'chats';
+type Tab = 'all' | 'panels' | 'tasks';
 
 type Item = {key: string; render: () => React.ReactElement};
 
 /** What Taku Home needs from the chat that hosts it. Actions left out disable their control. */
 export type TakuHomeActions = {
   openThread: (threadId: string) => void;
+  openMainChat?: () => void;
+  /** TAKU continues in a new conversation; the host asks the user first. */
+  newMainChat?: () => void;
   newChat: () => void;
   openSettings?: () => void;
   openRoute?: (route: 'plugin-market') => void;
@@ -37,22 +41,29 @@ export type TakuHomeProps = {
   threads: readonly TakuHomeThread[];
   /** The open conversation; advanced controls need one. */
   threadId: string;
+  /** TAKU's own thread (Single Chat); it is the page behind this one, not a Task in the list. */
+  primaryThreadId?: string;
+  /** The tab to open on; the drawer's Panels row opens the Panels tab. */
+  initialTab?: 'all' | 'panels';
   historyError?: string;
   insets: {top: number; bottom: number};
   actions: TakuHomeActions;
 };
 
-export function TakuHomePage({language, threads, threadId, historyError = '', insets, actions}: TakuHomeProps) {
+export function TakuHomePage({language, threads, threadId, primaryThreadId = '', initialTab = 'all', historyError = '', insets, actions}: TakuHomeProps) {
   const t = chatText(language);
   const [height, setHeight] = useState(0);
-  const [tab, setTab] = useState<Tab>('all');
+  const [tab, setTab] = useState<Tab>(initialTab);
   const [searching, setSearching] = useState(false);
   const [query, setQuery] = useState('');
-  const chats = useMemo(() => matchingChats(threads, query), [threads, query]);
-  const showPanels = !searching && tab !== 'chats';
-  const showChats = searching || tab !== 'panels';
-  const shownChats = tab === 'all' && !searching ? chats.slice(0, 6) : chats;
-  const {openThread, openRoute, openSettings, openNativeControls} = actions;
+  const partitioned = useMemo(() => partitionThreads(threads, primaryThreadId), [threads, primaryThreadId]);
+  const tasks = useMemo(() => matchingChats(partitioned.taskThreads, query), [partitioned, query]);
+  const showPanels = !searching && tab !== 'tasks';
+  const showTasks = searching || tab !== 'panels';
+  const shownTasks = searching || tab !== 'all' ? tasks : tasks.slice(0, 6);
+  const resolvedPrimaryId = primaryThreadId || partitioned.mainThread?.id || '';
+  const viewingTask = Boolean(threadId && resolvedPrimaryId && threadId !== resolvedPrimaryId);
+  const {openThread, openMainChat, openRoute, openSettings, openNativeControls} = actions;
 
   const items: Item[] = [];
   items.push({key: 'controls', render: () => <View style={styles.controls}>
@@ -63,18 +74,22 @@ export function TakuHomePage({language, threads, threadId, historyError = '', in
     <SectionHeader title={t('panels')} seeAll={tab === 'all' ? () => setTab('panels') : undefined} language={language}/>
     <PanelCatalogView language={language} active={showPanels} limit={tab === 'panels' ? undefined : 3}/>
   </View>});
-  if (showChats) {
-    items.push({key: 'chats-header', render: () => <View style={styles.chatSectionHeader}><SectionHeader title={t('chats')} language={language}
-      seeAll={tab === 'all' && !searching ? () => setTab('chats') : undefined}
-      onNew={tab === 'chats' || searching ? actions.newChat : undefined}/></View>});
-    if (shownChats.length === 0) items.push({key: 'chats-empty', render: () =>
-      <Text style={[chatType.bodyMd(), styles.tertiary, styles.empty]}>{historyError || (query.trim() ? t('noResults') : t('noChats'))}</Text>});
-    shownChats.forEach(thread => items.push({key: `chat/${thread.id}`, render: () => <ChatRowItem thread={thread} language={language} onOpen={() => openThread(thread.id)}/>}));
+  if (showTasks) {
+    items.push({key: 'tasks-header', render: () => <View style={styles.chatSectionHeader}><SectionHeader title={t('tasks')} language={language}
+      seeAll={tab === 'all' && !searching ? () => setTab('tasks') : undefined}
+      onNew={tab === 'tasks' || searching ? actions.newChat : undefined}/></View>});
+    if (shownTasks.length === 0) items.push({key: 'tasks-empty', render: () =>
+      <Text style={[chatType.bodyMd(language === 'zh'), styles.tertiary, styles.empty]}>{historyError || t(query.trim() ? 'noMatchingTasks' : 'noTasks')}</Text>});
+    shownTasks.forEach(thread => {
+      items.push({key: `task/${thread.id}`, render: () => <TaskRowItem thread={thread} language={language} onOpen={() => openThread(thread.id)}/>});
+    });
   }
   if (!searching && tab === 'all') items.push({key: 'tools', render: () => <View style={[styles.section, styles.tools]}>
     <SectionHeader title={t('settingsAndTools')} language={language}/>
     <View style={styles.toolCard}>
-      <ToolRow label={t('newChat')} onPress={actions.newChat}/>
+      {viewingTask && openMainChat && <ToolRow label={t('backToTaku')} onPress={openMainChat}/>}
+      <ToolRow label={t('newTask')} onPress={actions.newChat}/>
+      {actions.newMainChat && <ToolRow label={t('newMainChat')} onPress={actions.newMainChat}/>}
       {actions.taskView && <ToolRow label={t(actions.taskView.on ? 'showChat' : 'showTasks')} onPress={actions.taskView.toggle}/>}
       <ToolRow label={t('settings')} onPress={openSettings}/>
       <ToolRow label={t('pluginMarket')} onPress={openRoute && (() => openRoute('plugin-market'))}/>
@@ -96,7 +111,7 @@ export function TakuHomePage({language, threads, threadId, historyError = '', in
       <Text accessibilityRole="header" style={[chatType.bodyXlMedium(language === 'zh'), styles.title]}>{t('home')}</Text>
       <HeaderButton icon="collapse" label={t('collapse')} onPress={actions.collapse}/>
     </View>
-    {!searching && <Pressable testID="home-new-chat" accessibilityRole="button" accessibilityLabel={t('newChat')}
+    {!searching && <Pressable testID="home-new-chat" accessibilityRole="button" accessibilityLabel={t('newTask')}
       onPress={actions.newChat} style={({pressed}) => [styles.newChat, {bottom: insets.bottom + 56}, pressed && styles.pressed]}>
       <SvgXml xml={homeAssets.newChat} accessibilityElementsHidden/>
     </Pressable>}
@@ -113,7 +128,7 @@ function HeaderButton({icon, label, onPress}: {icon: 'search' | 'collapse'; labe
 /** Figma 300:1182: Surface/50 track, Surface/800 selected pill, 48 high, 4 inset. */
 function Segmented({tab, language, onTab}: {tab: Tab; language: 'en' | 'zh'; onTab: (tab: Tab) => void}) {
   const t = chatText(language);
-  const tabs: [Tab, string][] = [['all', t('all')], ['panels', t('panels')], ['chats', t('chats')]];
+  const tabs: [Tab, string][] = [['all', t('all')], ['panels', t('panels')], ['tasks', t('tasks')]];
   return <View style={styles.segmented} accessibilityRole="tablist">
     {tabs.map(([id, label]) => <Pressable key={id} accessibilityRole="tab" accessibilityState={{selected: tab === id}} onPress={() => onTab(id)}
       style={[styles.segment, tab === id && styles.segmentSelected]}>
@@ -126,20 +141,20 @@ function SearchField({query, language, onQuery, onClose}: {query: string; langua
   const t = chatText(language);
   return <View style={styles.search}>
     <ChatIcon name="search" size={16} color={chatColors.textTertiary}/>
-    <TextInput value={query} onChangeText={onQuery} autoFocus placeholder={t('searchChats')} placeholderTextColor={chatColors.placeholder}
-      accessibilityLabel={t('searchChats')} style={[chatType.bodyLg(containsChinese(query)), styles.primary, styles.searchInput]}/>
+    <TextInput value={query} onChangeText={onQuery} autoFocus placeholder={t('searchTasks')} placeholderTextColor={chatColors.placeholder}
+      accessibilityLabel={t('searchTasks')} style={[chatType.bodyLg(containsChinese(query)), styles.primary, styles.searchInput]}/>
     <Pressable accessibilityRole="button" accessibilityLabel={t('back')} onPress={onClose} style={styles.searchClose}>
       <ChatIcon name="plus" size={18} color={chatColors.textTertiary} rotate={45}/>
     </Pressable>
   </View>;
 }
 
-/** Space Grotesk section title with "See all" and, for chats, a new-chat "+". */
+/** Space Grotesk section title with "See all" and, for Tasks, a new-task "+". */
 function SectionHeader({title, seeAll, onNew, language}: {title: string; seeAll?: () => void; onNew?: () => void; language: 'en' | 'zh'}) {
   const t = chatText(language);
   return <View style={styles.sectionHeader}>
     <Text accessibilityRole="header" style={[chatType.headingMd(language === 'zh'), styles.sectionTitle, styles.grow]}>{title}</Text>
-    {onNew && <Pressable accessibilityRole="button" accessibilityLabel={t('newChat')} onPress={onNew} style={styles.headerButton}>
+    {onNew && <Pressable accessibilityRole="button" accessibilityLabel={t('newTask')} onPress={onNew} style={styles.headerButton}>
       <ChatIcon name="plus" size={18} color={chatColors.icon}/>
     </Pressable>}
     {seeAll && <Pressable accessibilityRole="button" onPress={seeAll} hitSlop={8} style={styles.seeAll}>
@@ -148,10 +163,9 @@ function SectionHeader({title, seeAll, onNew, language}: {title: string; seeAll?
   </View>;
 }
 
-/** Figma 2-5 chat rows: title Body/Medium/xl + date, one-line preview, Content/200 dividers. */
-function ChatRowItem({thread, language, onOpen}: {thread: TakuHomeThread; language: 'en' | 'zh'; onOpen: () => void}) {
-  const t = chatText(language);
-  const title = thread.title || t('newChat');
+/** Figma 2-5 rows: title Body/Medium/xl + date, one-line preview, Content/200 dividers. */
+function TaskRowItem({thread, language, onOpen}: {thread: TakuHomeThread; language: 'en' | 'zh'; onOpen: () => void}) {
+  const title = thread.title || chatText(language)('task');
   return <Pressable accessibilityRole="button" onPress={onOpen} style={({pressed}) => [styles.chat, pressed && styles.pressed]}>
     <View style={styles.chatHead}>
       <Text numberOfLines={1} style={[chatType.bodyXlMedium(containsChinese(title)), styles.primary, styles.grow]}>{title}</Text>

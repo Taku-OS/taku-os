@@ -28,10 +28,36 @@ The chat is full screen (Figma 2-1). Only its window blurs what lies underneath,
 Home and other apps look alike behind it: the system cross-window blur at σ 64 dp (Backdrop
 Blur/3xl) under Surface/400, or an opaque #E3E3E3 where the device has blur off. Android 17
 renders this radius smoothly; Android 16's Kawase blur shows a grid at it. The conversation blurs and fades progressively where it
-scrolls under the title row and the composer (`EdgeBlurView`, Android 13+). The title is always
-"Taku". Home (top left) opens Taku Home (2-5) over the chat on the same blurred window: tabs
-All / Panels / Chats ("See all" opens the section's tab), search, the real Panels directory, the
-real chat history and the settings and tools (new chat, chat/task view, settings, plugin market,
+scrolls under the title row and the composer (`EdgeBlurView`, Android 13+).
+
+The chat opens on **TAKU**, the one persistent personal main conversation; every other
+conversation is a **Task** (Single Chat). On TAKU the title row reads "TAKU" between the menu (top
+left) and Collapse (top right). Under it, a row of capsules scrolls sideways, one for each Task at
+work with its status: amber "Needs you" while the Task waits on a pending request, blue-grey "In
+progress" while it has an active turn or a queued task. A capsule opens its Task; with no Task at
+work there is no row. A Task that needs the user also has a card in TAKU's stream with what it
+asked; a plain choice (`ask_user`, a single-choice runtime question) or a one-tap approval is
+answered there with the gateway's `answer` for that Task's own request, after which the card and
+the capsule both read "In progress" and only "View task" remains. A confirmation with details to
+review, free text or secrets are answered on the Task's page. On a Task's page the menu becomes
+Back to TAKU, the title is the Task's, the capsule row is hidden and the composer reads "Reply in
+this task...". The statuses come from `readSession {statusOnly:true}` of each followed thread,
+one read at a time and only while TAKU is on screen; nothing is inferred from message text. An
+empty TAKU conversation greets the user with quick starts that put an opening line in the composer
+and send nothing. When a request fails in TAKU's own conversation (or that conversation can no
+longer be read), the failure card offers "Continue in a new TAKU conversation": the conversation it
+leaves stays in Tasks, the unsent request comes along as a draft, and TAKU's next first message
+creates and claims its new thread. Nothing is removed, so TAKU is never stuck on a thread the
+runtime can no longer run. The same step is available on purpose, after a confirmation, as "New
+TAKU conversation" under Taku Home's settings and tools.
+
+The menu opens a drawer over four fifths of the screen (scrim, Close, Back or a swipe closes it):
+TAKU, Panels with their count, Plugins with the number connected, then every Task with its status
+and search. "New task" is pinned under that list at the foot of the drawer, above the personal space
+row, which opens Settings.
+Panels opens Taku Home (2-5) over the chat on the same blurred window: tabs
+All / Panels / Tasks ("See all" opens the section's tab), search, the real Panels directory, the
+Tasks and the settings and tools (new task, chat/task view, settings, plugin market,
 advanced controls). The Panels section pages the whole native directory and offers open, rename,
 move and Unpin; an empty directory says to pin a panel from a chat. Opening a row brings the
 desktop forward and selects that panel through the same `panels/open` operation as Agents, so the
