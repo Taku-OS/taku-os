@@ -12,6 +12,7 @@ INPUTS = ROOT / 'image/lockscreen'
 SOURCES = ROOT / 'system/lockscreen/src'
 SYSTEMUI = 'packages/SystemUI/src/'
 HOOKS = {
+    SYSTEMUI + 'com/android/systemui/keyguard/ui/view/layout/sections/transitions/ClockSizeTransition.kt',
     SYSTEMUI + 'com/android/systemui/keyguard/ui/view/layout/blueprints/KeyguardBlueprintModule.kt',
     SYSTEMUI + 'com/android/systemui/keyguard/domain/interactor/KeyguardBlueprintInteractor.kt',
     SYSTEMUI + 'com/android/systemui/keyguard/data/repository/KeyguardBlueprintRepository.kt',

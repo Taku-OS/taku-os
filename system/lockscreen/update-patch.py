@@ -23,6 +23,21 @@ FETCH_URL = 'https://raw.githubusercontent.com/LineageOS/android_frameworks_base
 
 PKG = 'com.android.systemui.taku.lockscreen'
 HOOKS = {
+    SYSTEMUI + 'com/android/systemui/keyguard/ui/view/layout/sections/transitions/ClockSizeTransition.kt': [
+        ('import android.animation.Animator\n',
+         'import android.animation.Animator\n'
+         f'import {PKG}.TakuClockController\n'
+         f'import {PKG}.TakuClockSizeTransition\n'),
+        ('            addTransition(ClockFaceOutTransition(config, clockViewModel, logBuffer))\n'
+         '            addTransition(ClockFaceInTransition(config, clockViewModel, logBuffer))\n',
+         '            // Taku interpolates native glyph outlines instead of crossfading two clocks.\n'
+         '            if (clockViewModel.currentClock.value is TakuClockController) {\n'
+         '                addTransition(TakuClockSizeTransition())\n'
+         '            } else {\n'
+         '                addTransition(ClockFaceOutTransition(config, clockViewModel, logBuffer))\n'
+         '                addTransition(ClockFaceInTransition(config, clockViewModel, logBuffer))\n'
+         '            }\n'),
+    ],
     SYSTEMUI + 'com/android/systemui/keyguard/ui/view/layout/blueprints/KeyguardBlueprintModule.kt': [
         ('import com.android.systemui.keyguard.shared.model.KeyguardBlueprint\n',
          'import com.android.systemui.keyguard.shared.model.KeyguardBlueprint\n'

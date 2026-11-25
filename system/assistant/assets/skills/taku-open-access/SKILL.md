@@ -867,6 +867,10 @@ as Settings and the wallpaper picker. There is no separate Taku store for it. Va
 settings get secure lock_screen_custom_clock_face
 settings put secure lock_screen_custom_clock_face '{"clockId":"TAKU"}'
 settings put secure lock_screen_custom_clock_face '{"clockId":"DEFAULT"}'
+# Clock height morph follows the standard animation scale (0 disables motion).
+# Read before changing, and restore the previous value after testing.
+settings get global animator_duration_scale
+settings put global animator_duration_scale 0
 # Face unlock: 0 or unset (the Taku default) keeps the user on the lock screen after a face match,
 # showing the unlocked layout. 1 goes straight to the app or Home.
 settings get secure face_unlock_dismisses_keyguard

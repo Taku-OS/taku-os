@@ -16,7 +16,7 @@ import java.util.Locale
  * One Taku clock face: the date (Figma 979:468) above the time, centred, 24 dp apart.
  *
  * - Large (locked, Figma 979:470): [TakuTallClockView], 320 dp tall.
- * - Small (authenticated, Figma 979:599): Space Grotesk 120 sp, tracking −3 %, white at 64 %.
+ * - Small: the same outlines at their compact Space Grotesk endpoint, white at 64 %.
  */
 class TakuClockFaceView(context: Context, val isLarge: Boolean) : LinearLayout(context) {
     private val density = resources.displayMetrics.density
@@ -29,14 +29,16 @@ class TakuClockFaceView(context: Context, val isLarge: Boolean) : LinearLayout(c
         gravity = Gravity.CENTER_HORIZONTAL
         setSingleLine(true)
     }
-    private val tall: TakuTallClockView? = if (isLarge) TakuTallClockView(context) else null
-    private val compact: TextView? = if (isLarge) null else TextView(context).apply {
-        typeface = TakuLockscreenFonts.spaceGrotesk
-        setTextSize(TypedValue.COMPLEX_UNIT_SP, 120f)
-        letterSpacing = -0.03f
-        includeFontPadding = false
-        gravity = Gravity.CENTER_HORIZONTAL
-        setSingleLine(true)
+    private val clock = TakuTallClockView(context, compact = !isLarge)
+    internal var morphOverlay: TakuClockFaceView? = null
+    var morphProgress: Float
+        get() = clock.progress
+        set(value) { clock.progress = value }
+
+    internal fun copyDisplayFrom(other: TakuClockFaceView) {
+        date.text = other.date.text
+        clock.time = other.clock.time
+        contentDescription = other.contentDescription
     }
 
     private var timeZone: TimeZone = TimeZone.getDefault()
@@ -49,7 +51,7 @@ class TakuClockFaceView(context: Context, val isLarge: Boolean) : LinearLayout(c
         clipChildren = false
         clipToPadding = false
         addView(date, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
-        val time = tall ?: compact!!
+        val time = clock
         addView(time, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
             topMargin = (24 * density).toInt()
         })
@@ -64,13 +66,12 @@ class TakuClockFaceView(context: Context, val isLarge: Boolean) : LinearLayout(c
     fun setTheme(isDark: Boolean) {
         val base = if (isDark) Color.WHITE else Color.BLACK
         date.setTextColor(withAlpha(base, 0.8f))
-        compact?.setTextColor(withAlpha(base, 0.64f))
-        tall?.setColor(withAlpha(base, 0.92f))
+        clock.setColor(base)
     }
 
     fun setTextSizePx(fontSizePx: Float) {
-        // The keyguard reports a preferred clock text size; the design fixes the compact clock at 120 sp.
-        if (fontSizePx > 0f) compact?.setTextSize(TypedValue.COMPLEX_UNIT_PX, maxOf(fontSizePx, 120f * resources.displayMetrics.scaledDensity))
+        // Outline geometry is calibrated to 120 px Space Grotesk in a 412 dp frame.
+        // The view uniformly fits constrained widths; system font size does not distort the paths.
     }
 
     fun refresh(now: Date = Date()) {
@@ -78,8 +79,7 @@ class TakuClockFaceView(context: Context, val isLarge: Boolean) : LinearLayout(c
         date.text = SimpleDateFormat(datePattern, locale).apply { timeZone = this@TakuClockFaceView.timeZone }.format(now)
         val timeText = SimpleDateFormat(if (is24Hour) "HH:mm" else "h:mm", Locale.ROOT)
             .apply { timeZone = this@TakuClockFaceView.timeZone }.format(now)
-        tall?.time = timeText
-        compact?.text = timeText
+        clock.time = timeText
         contentDescription = "${date.text}, $timeText"
     }
 

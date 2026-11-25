@@ -15,7 +15,8 @@ emergency call and accessibility all stay upstream code.
   It fades with the doze amount, so AOD stays black.
 - `TakuClockProvider` wraps the stock `DefaultClockProvider` and adds the `TAKU` clock as the
   registry default. The large face (locked) is the tall glyph clock, `TakuTallClockView`. The small face
-  (authenticated, when notifications appear) is 120sp Space Grotesk. The date is above both faces.
+  (authenticated, when notifications appear) uses the compact Space Grotesk contours. Both faces share the native path renderer;
+  `TakuClockSizeTransition` morphs between them. The date is above both faces.
 - Notifications stay hidden until the user authenticates (`TakuLockscreenPolicy`, applied in
   `KeyguardNotificationVisibilityProvider`).
 - Resource overlays set the Flashlight / Camera shortcut defaults and their 56 dp size and offsets,
@@ -26,7 +27,7 @@ emergency call and accessibility all stay upstream code.
 ## Patch
 
 `src/` goes into `frameworks/base/packages/SystemUI/src/` through `image/lockscreen/`, an exact-revision
-patch with SHA-256 hashes for every file. Five upstream hooks are anchored edits. Each must match exactly once.
+patch with SHA-256 hashes for every file. Six upstream hooks are anchored edits. Each must match exactly once.
 
 ```sh
 python3 system/lockscreen/update-patch.py --fetch          # or --upstream-root <frameworks/base>
@@ -50,5 +51,7 @@ python3 system/lockscreen/typecheck.py --kotlinc KOTLINC --android-jar ANDROID_J
 
 ## Open items
 
-- Clock digits 1, 2, 4, 5, 6, 7 and 8 are stroked placeholders. Only 0, 3 and 9 are the Figma outlines.
+- Design sign-off for the seven font-derived elongated digits; the handoff only supplies 0, 3, 9.
+- Full Keyguard verification of the new native morph, including authentication with no notifications.
+  See [motion/README.md](motion/README.md) for source, timing and the standalone native test harness.
 - The Pixel 9 UDFPS position needs checking on a device before the phase 2 Taku AI button goes in.

@@ -99,16 +99,23 @@ Same pattern as the Dynamic Island (`system/island`, `image/island`):
 
 ### 4.3 Clock
 
-- Locked (`979:470`): the tall outline clock, 316 × 320 dp, digits drawn with uniform 14 px strokes at 92 %
-  opacity, centred.
-- Authenticated (frames 1–6): the compact clock shown above the cards.
-- Registered as an in-tree clock (`TAKU`) with SystemUI's `ClockRegistry` and made the default through
-  `lockscreen_clock_id_fallback`; the selection lives in `Settings.Secure.LOCK_SCREEN_CUSTOM_CLOCK_FACE`
-  (JSON `{"clockId": ...}`), so agents can read and change it with `settings`.
-- Follows 12/24-hour, locale digits and time-zone changes. The stock large/small switch
-  (`NotificationPanelViewController.java:1186-1220`) is replaced by the locked/authenticated state.
-- **Open:** Figma contains glyphs for 0, 3, 9 and ":" only. The remaining digits (1, 2, 4, 5, 6, 7, 8) are
-  needed from design; until then the clock renders a placeholder outline face.
+- Both sizes use native Kotlin `Path`/`Canvas` outlines from Space Grotesk at the compact endpoint.
+  The tall endpoint is 320 dp; the supplied `09:30` layout is 316 dp wide. Other times follow their
+  glyph advances and fit constrained widths uniformly.
+- The designer's `clock-height-morph` contours for 0, 3, 9 and the colon are preserved. Digits
+  1, 2, 4, 5, 6, 7 and 8 now derive from the existing font with explicit vertical landmarks instead
+  of placeholder centrelines. These additional elongated shapes need design sign-off.
+- Native `TakuClockSizeTransition` morphs corresponding cubic control points, not a `scaleY` of text.
+  It uses the handoff's spring (0.78, 9), 720 ms to compact, 1050 ms to tall, and opacity 0.5888 → 0.64.
+  Android's animator duration scale is respected, including 0 (no motion). No JS/WebView runs on device.
+- The clock is registered as `TAKU` with SystemUI's `ClockRegistry`. Selection is the stock
+  `Settings.Secure.LOCK_SCREEN_CUSTOM_CLOCK_FACE` JSON, readable/writable through `settings`.
+- Time and date follow device time, 12/24-hour preference and time zone. The date is localized;
+  clock digits deliberately remain Latin 0–9, as in the phase-1 implementation.
+- The morph hooks the existing blueprint large/small-clock transition, only for TAKU; stock clock
+  transitions remain unchanged. Phase 1 still relies on notification-driven size selection, so
+  authentication with no notifications is not yet proof of the compact-state requirement.
+- Source preparation and native test harness: `system/lockscreen/motion/README.md`.
 
 ### 4.4 Shortcuts
 
@@ -205,6 +212,6 @@ revision; emulator (`image/emulator`) and Pixel 9 runs recorded separately. Auth
 
 ## 9. Open items
 
-- Clock digit glyphs 1, 2, 4, 5, 6, 7, 8 from design.
+- Visual sign-off of the font-derived elongated digits 1, 2, 4, 5, 6, 7, 8.
 - Compact clock and card specs from frames 1–6 (to be taken from `979:574` / `979:835` in phase 2).
 - Pixel 9 UDFPS sensor position (runtime value; check with `dumpsys fingerprint`).
