@@ -413,9 +413,7 @@
           excerpt: text(item.excerpt),
           thumbnail: localImage(item.thumbnail),
         }))
-        .filter(item => item.url && item.author && item.platform && (
-          item.type === 'video' ? item.thumbnail : item.title || item.excerpt || item.thumbnail
-        ));
+        .filter(item => item.url && item.author && item.platform && (item.title || item.excerpt || item.thumbnail));
       if (!items.length) return '';
       return `<section class="m08app-community">
         <h2>They tried it too</h2>
