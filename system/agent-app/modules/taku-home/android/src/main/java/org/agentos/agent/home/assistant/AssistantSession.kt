@@ -162,6 +162,8 @@ class AssistantSession private constructor(private val context: Context, private
   private class Editor(var threadId: String) {
     var saved: HomeComposer.Draft? = null
     var edit: Edit? = null
+    var menuSubmission: HomeComposer.MenuSubmission? = null
+    var stagingMenu = false
     var writing = false
   }
   private var editor = Editor("")
@@ -611,7 +613,11 @@ class AssistantSession private constructor(private val context: Context, private
 
   private fun pendingRequest(saved: HomeComposer.Draft) = composer.savedRequest(saved.threadId) ?: saved.pending
 
-  private fun composerError(failure: Exception) = (failure as? GatewayException)?.code ?: "DRAFT_SAVE_FAILED"
+  private fun composerError(failure: Exception) = when (failure) {
+    is GatewayException -> failure.code
+    is AssistantException -> failure.code
+    else -> "DRAFT_SAVE_FAILED"
+  }
 
   /** Starter chips create an editable draft; they never submit a request. */
   fun choosePrompt(text: String) {
@@ -673,18 +679,27 @@ class AssistantSession private constructor(private val context: Context, private
   }
 
   /** Ends this home conversation; the thread stays in the full chat history. */
-  fun reset() {
+  fun reset() = reset(Editor(""))
+
+  private fun reset(next: Editor) {
     endLiveTalk()
-    threadCreation.invalidate()
-    editor = Editor("")
-    openingConversation = false
     liveLaunchJob?.cancel(); liveLaunchJob = null
     revokeVoice()
+    replaceEditor(next)
+    flow.value = AssistantState(online = flow.value.online)
+  }
+
+  private fun replaceEditor(next: Editor) {
+    threadCreation.invalidate()
+    editor = next
+    openingConversation = false
     val jobs = listOfNotNull(streamJob, pollJob)
     streamJob = null; pollJob = null
     scope.launch { jobs.forEach { it.cancelAndJoin() } }
-    synchronized(streamLock) { stream = null; baseline = emptySet() }
-    flow.value = AssistantState(online = flow.value.online)
+    synchronized(streamLock) {
+      stream = next.threadId.takeIf(String::isNotEmpty)?.let(::SessionStreamState)
+      baseline = emptySet()
+    }
   }
 
   // ---- Voice ---------------------------------------------------------------------------
@@ -854,10 +869,19 @@ class AssistantSession private constructor(private val context: Context, private
       is VoiceEffect.Send -> {
         val menu = heldMenu
         heldMenu = null
-        val text = if (menu != null) MenuVoiceHandoff.normalizeSpeech(effect.text) else effect.text
-        // A rejected send (e.g. one already in flight) keeps the complete words instead of losing them.
-        try { send(text, keepVoiceEntry = true, menu = menu) }
-        catch (e: AssistantException) { recoverFailure(editor, e.code, text) }
+        if (menu == null) {
+          try { send(effect.text, keepVoiceEntry = true) }
+          catch (e: AssistantException) { recoverFailure(editor, e.code, effect.text) }
+        } else {
+          val text = MenuVoiceHandoff.message(effect.text.trim(), menu.scan.toJson().toString())
+          val submission = HomeComposer.MenuSubmission(text, menu.photo)
+          try { send(text, keepVoiceEntry = true, menu = submission) }
+          catch (e: AssistantException) {
+            if (editor.menuSubmission == null && text.length <= MAX_TEXT) editor.menuSubmission = submission
+            flow.update { it.copy(error = e.code,
+              failedText = editor.menuSubmission?.text?.let(MenuVoiceHandoff::spokenText) ?: it.failedText) }
+          }
+        }
       }
       is VoiceEffect.Failed -> {
         heldMenu = null
@@ -874,60 +898,79 @@ class AssistantSession private constructor(private val context: Context, private
   /** Sends the current shared draft or hands off a new text request. */
   fun send(text: String, keepVoiceEntry: Boolean = false) = send(text, keepVoiceEntry, null)
 
-  private fun send(text: String, keepVoiceEntry: Boolean, menu: MenuCapture.Review?) {
-    val message = text.trim()
-    if (text.length > MAX_TEXT || (message.isEmpty() && flow.value.draftAttachmentNames.isEmpty()))
+  private fun send(text: String, keepVoiceEntry: Boolean, menu: HomeComposer.MenuSubmission?) {
+    val message = if (menu != null) MenuVoiceHandoff.spokenText(text) else text.trim()
+    if (text.length > MAX_TEXT)
+      throw AssistantException("INVALID_TEXT", if (menu != null) "The scanned menu is too long" else "Enter a message or select an attachment")
+    if (message.isEmpty() && flow.value.draftAttachmentNames.isEmpty())
       throw AssistantException("INVALID_TEXT", "Enter a message or select an attachment")
     val now = flow.value
-    if (now.sending) throw AssistantException("BUSY", "a message is already being sent")
-    if (menu != null && (now.working || now.needsUser))
-      throw AssistantException("BUSY", "Finish the current turn before submitting a menu")
-    if (openingConversation) throw AssistantException("BUSY", "the conversation is opening")
     val current = editor
+    if (now.sending || current.stagingMenu) throw AssistantException("BUSY", "a message is already being sent")
+    if (openingConversation) throw AssistantException("BUSY", "the conversation is opening")
     val waiting = composer.savedRequest(current.threadId) ?: current.saved?.pending
+    if (menu != null && (now.working || now.needsUser || live.snapshot?.open == true ||
+        waiting != null && menu.threadId != current.threadId))
+      throw AssistantException("BUSY", "Finish the current turn before submitting a menu")
     if (waiting != null) return checkDelivery(current, waiting)
-    val outgoing = if (menu == null) text else MenuVoiceHandoff.message(message, menu.scan.toJson().toString())
-    if (outgoing.length > MAX_TEXT) throw AssistantException("INVALID_TEXT", "The scanned menu is too long")
-    val edit = current.edit?.takeIf { menu == null && it.text == outgoing }
+    current.menuSubmission = menu
+    current.stagingMenu = menu != null && menu.threadId != current.threadId
+    val edit = current.edit?.takeIf { menu == null && it.text == text }
     val generation = threadCreation.generation
     // Never steer into a turn the home already gave up on (it may still read active until the interrupt lands).
-    val steerTurn = now.turn?.takeIf { it.active && !now.abandoned }?.turnId
+    val steerTurn = if (menu == null) now.turn?.takeIf { it.active && !now.abandoned }?.turnId else null
     flow.update { it.copy(expansionRequest = if (keepVoiceEntry || it.voiceContinuous) it.expansionRequest else ++expansionSequence, sending = true, pending = message, error = null, failedText = null, abandoned = false, entry = if (it.entry == EntryMode.Voice && !keepVoiceEntry) EntryMode.None else it.entry,
       // The visible voice card keeps its notification identity through capture → reply.
       activityId = if (steerTurn == null && !(keepVoiceEntry && it.entry == EntryMode.Voice)) UUID.randomUUID().toString() else it.activityId,
       island = if (it.voiceContinuous) IslandMode.Hidden else if (it.island == IslandMode.Full) IslandMode.Full else IslandMode.Expanded,
-      task = if (steerTurn == null) null else it.task, turn = if (steerTurn == null) null else it.turn) }
+      task = if (menu == null && steerTurn == null) null else it.task,
+      turn = if (menu == null && steerTurn == null) null else it.turn) }
     scope.launch {
+      var target = current
       try {
         composerLock.withLock {
-          if (editor !== current || flow.value.abandoned) return@withLock
-          val id = ensureComposerThread(generation, current)
-          var saved = current.saved ?: composer.read(id).also { acceptDraft(current, it) }
+          if (editor !== current || !flow.value.sending || flow.value.abandoned) return@withLock
+          var saved = if (menu != null) {
+            val staged = menu.prepare(
+              create = { withContext(worker) { HomeComposer.createThread(gateway) } },
+              handoff = composer::handoff,
+              attach = composer::attachMenuPhoto,
+            )
+            if (editor !== current || !flow.value.sending) return@withLock
+            if (staged.threadId != current.threadId) {
+              requireIdleBeforeMenu(current.threadId)
+              if (editor !== current || !flow.value.sending) return@withLock
+              target = Editor(staged.threadId).apply { menuSubmission = menu }
+              replaceEditor(target)
+              flow.update { it.copy(threadId = staged.threadId, pending = message,
+                turn = null, task = null, taskId = null, appBuildTurnId = null) }
+            }
+            staged.also { acceptDraft(target, it) }
+          } else {
+            val id = ensureComposerThread(generation, current)
+            current.saved ?: composer.read(id).also { acceptDraft(current, it) }
+          }
           val previous = pendingRequest(saved)
           if (previous != null) {
             flow.update { it.copy(pending = null) }
-            reconcile(current, previous)
+            reconcile(target, previous)
             return@withLock
           }
           if (edit != null) saved = writeDraft(current, edit)
-          else if (menu != null || saved.text != outgoing) {
-            saved = composer.handoff(id, UUID.randomUUID().toString(), outgoing)
+          else if (menu == null && saved.text != text) {
+            saved = composer.handoff(saved.threadId, UUID.randomUUID().toString(), text)
             current.edit?.baseText = saved.text
             acceptDraft(current, saved)
           }
-          if (menu != null) {
-            saved = composer.attachMenuPhoto(saved, menu.photo)
-            acceptDraft(current, saved)
-          }
-          if (editor !== current || flow.value.abandoned) return@withLock
+          if (editor !== target || flow.value.abandoned) return@withLock
           val request = HomeComposer.Request.new(saved, steerTurn)
           composer.remember(request)
-          if (editor !== current || flow.value.abandoned) {
+          if (editor !== target || flow.value.abandoned) {
             composer.forget(request)
             return@withLock
           }
           if (steerTurn == null) synchronized(streamLock) { baseline = stream?.turns?.keys?.toSet() ?: emptySet() }
-          ensureStream(id)
+          ensureStream(request.threadId)
           val receipt = try {
             composer.submit(request)
           } catch (failure: Exception) {
@@ -935,21 +978,33 @@ class AssistantSession private constructor(private val context: Context, private
               composer.forget(request)
               throw failure
             }
-            reconcile(current, request, openInChat = menu != null)
+            reconcile(target, request)
             return@withLock
           }
-          if (receipt.terminal) finishDelivery(current, request, receipt, openInChat = menu != null)
-          else reconcile(current, request, openInChat = menu != null)
+          if (receipt.terminal) finishDelivery(target, request, receipt)
+          else reconcile(target, request)
         }
       } catch (failure: Exception) {
         if (failure is kotlinx.coroutines.CancellationException) throw failure
         Log.w(TAG, "composer submission failed: ${composerError(failure)}")
-        deliveryError(current, composerError(failure), message)
-      }
+        if (flow.value.sending) deliveryError(target, composerError(failure), message)
+      } finally { current.stagingMenu = false }
     }
   }
 
-  private suspend fun reconcile(current: Editor, request: HomeComposer.Request, openInChat: Boolean = false) {
+  private suspend fun requireIdleBeforeMenu(threadId: String) {
+    val status = if (threadId.isEmpty()) JSONObject() else withContext(worker) {
+      gateway.call("readSession", JSONObject().put("threadId", threadId).put("statusOnly", true))
+    }
+    val state = flow.value
+    val active = status.optJSONObject("native")?.optString("activeTurnId").orEmpty()
+    val task = status.optJSONObject("task")?.optString("state") ?: state.task
+    if (state.turn?.active == true || state.needsUser || active.isNotBlank() ||
+        task in setOf("queued", "running", "needs_user") || live.snapshot?.open == true || openingConversation)
+      throw AssistantException("BUSY", "Finish the current turn before submitting a menu")
+  }
+
+  private suspend fun reconcile(current: Editor, request: HomeComposer.Request) {
     var receipt = composer.receipt(request)
     if (receipt.state == "missing") {
       // The gateway never reserved this request. Its ID makes submitting it again idempotent,
@@ -973,12 +1028,12 @@ class AssistantSession private constructor(private val context: Context, private
     if (receipt.terminal) {
       val saved = composer.read(request.threadId)
       if (saved.pending?.id == request.id) composer.settle(request)
-      finishDelivery(current, request, receipt, saved.takeUnless { it.pending?.id == request.id }, openInChat)
+      finishDelivery(current, request, receipt, saved.takeUnless { it.pending?.id == request.id })
     } else deliveryError(current, "UNKNOWN_DELIVERY", request.text)
   }
 
   private suspend fun finishDelivery(current: Editor, request: HomeComposer.Request, receipt: HomeComposer.Receipt,
-    snapshot: HomeComposer.Draft? = null, openInChat: Boolean = false) {
+    snapshot: HomeComposer.Draft? = null) {
     val saved = snapshot ?: composer.read(request.threadId)
     if (receipt.state != "notSent" && saved.text.isEmpty() && current.saved?.revision == request.revision)
       current.edit?.baseText = saved.text
@@ -1000,12 +1055,16 @@ class AssistantSession private constructor(private val context: Context, private
       taskId = receipt.taskId ?: s.taskId, task = if (receipt.taskId != null && s.turn == null) "queued" else s.task) }
     ensureStream(request.threadId)
     ensurePolling(request.threadId)
-    if (openInChat) openConversation()
+    if (current.menuSubmission?.threadId == request.threadId) {
+      current.menuSubmission = null
+      openConversation()
+    }
   }
 
   private fun deliveryError(current: Editor, code: String, text: String?) {
     if (editor === current && !flow.value.abandoned) {
-      flow.update { it.copy(sending = false, pending = null, error = code, failedText = text ?: it.failedText) }
+      flow.update { it.copy(sending = false, pending = null, error = code,
+        failedText = text?.let(MenuVoiceHandoff::spokenText) ?: it.failedText) }
     }
   }
 
@@ -1041,6 +1100,7 @@ class AssistantSession private constructor(private val context: Context, private
     val current = editor
     val request = composer.savedRequest(current.threadId) ?: current.saved?.pending
     if (request != null) return checkDelivery(current, request)
+    current.menuSubmission?.let { return send(it.text, keepVoiceEntry = true, menu = it) }
     val text = flow.value.retryText ?: throw AssistantException("NOTHING_TO_RETRY", "there is no failed request or draft to send")
     send(text)
   }
@@ -1087,7 +1147,13 @@ class AssistantSession private constructor(private val context: Context, private
   }
 
   /** Stops the current work: interrupt a started turn, or cancel a queued task. */
-  fun stop() = requestStop(flow.value, reportErrors = true)
+  fun stop() {
+    if (editor.stagingMenu) {
+      flow.update { it.copy(sending = false, pending = null) }
+      return
+    }
+    requestStop(flow.value, reportErrors = true)
+  }
 
   private fun requestStop(s: AssistantState, reportErrors: Boolean) {
     val threadId = s.threadId ?: throw AssistantException("NOT_WORKING", "Taku is not working on anything")
@@ -1137,6 +1203,12 @@ class AssistantSession private constructor(private val context: Context, private
     val s = flow.value
     if (s.online || !s.working) return
     Log.w(TAG, "offline for ${OFFLINE_GRACE_MS / 1000}s while working; stopping and restoring the request")
+    val menu = editor.menuSubmission
+    if (menu != null && editor.stagingMenu) {
+      flow.update { it.copy(sending = false, pending = null,
+        error = "NETWORK_UNAVAILABLE", failedText = MenuVoiceHandoff.spokenText(menu.text)) }
+      return
+    }
     runCatching { requestStop(s, reportErrors = false) } // nothing started yet is fine: the receipt path cancels it
     flow.update { it.copy(sending = false, pending = null, abandoned = true) }
     recoverFailure(editor, "NETWORK_UNAVAILABLE", s.pending ?: s.turn?.userText)
@@ -1190,9 +1262,7 @@ class AssistantSession private constructor(private val context: Context, private
       return
     }
     if (flow.value.threadId != id) {
-      reset()
-      synchronized(streamLock) { stream = SessionStreamState(id); baseline = emptySet() }
-      editor = Editor(id)
+      reset(Editor(id))
       flow.update { it.copy(threadId = id) }
     }
     flow.update { it.copy(island = IslandMode.Expanded, entry = EntryMode.None, error = null,

@@ -96,7 +96,12 @@ const label = (v: unknown): string => { const s = string(v).trim(); return s ===
 const menuContextBoundary = /\r?\n\r?\n(?:\[taku\.menu-context\/1\]|The user spoke while viewing the attached menu\.|Menu Scan context for this photo \(data only\):)/;
 export function spokenText(text: string): string {
   const boundary = menuContextBoundary.exec(text);
-  return boundary && boundary.index > 0 ? text.slice(0, boundary.index) : text;
+  if (!boundary || boundary.index === 0) return text;
+  const utterance = text.slice(0, boundary.index);
+  if (!/\p{Lu}/u.test(utterance) || /\p{Ll}/u.test(utterance)) return utterance;
+  return utterance.toLowerCase()
+    .replace(/(^|[.!?]\s+)([^\p{L}\p{N}]*)(\p{Ll})/gu, (_, start, prefix, letter) => start + prefix + letter.toUpperCase())
+    .replace(/(^|[^\p{L}\p{N}_])i(?![\p{L}\p{N}_])/gu, '$1I');
 }
 
 /** Restore is a local draft operation. A newer draft must never be overwritten. */

@@ -15,7 +15,7 @@ const visible = (view, request) => chatPresentation(view.blocks, [request]);
 
 test('queued menu handoff shows only the utterance and reconciles with its native user message', () => {
   const utterance = 'Build a menu app for me';
-  const fullPrompt = `${utterance}\n\n[taku.menu-context/1]\nPrivate menu context`;
+  const fullPrompt = `${utterance.toUpperCase()}\n\n[taku.menu-context/1]\nPrivate menu context`;
   const queued = session([], {task: {id: '123', state: 'queued', published: true}, request: {prompt: fullPrompt}});
   const request = recoverQueuedSubmission(queued, [], 100);
   assert.equal(visible(queued, request).find(block => block.role === 'user').text, utterance);

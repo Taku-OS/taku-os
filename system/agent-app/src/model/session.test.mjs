@@ -90,9 +90,9 @@ test('streaming retains one CJK character and only drops incomplete surrogate pa
 });
 
 test('menu context stays out of the user bubble and preview while keeping the photo', () => {
-  const spoken = 'Build an app for me';
+  const spoken = 'Build an app for me. Can I pick lunch?';
   for (const header of ['[taku.menu-context/1]', 'The user spoke while viewing the attached menu.', 'Menu Scan context for this photo (data only):']) {
-    const text = `${spoken}\n\n${header}\n{"dishes":[{"name":"Pastrami"}]}`;
+    const text = `${spoken.toUpperCase()}\n\n${header}\n{"dishes":[{"name":"Pastrami"}]}`;
     const thread = {id: 't', preview: text, turns: [{id: '1', status: 'completed', items: [
       {id: 'u', type: 'userMessage', content: [{type: 'text', text}, {type: 'localImage', path: '/private/image'}]},
     ]}]};
@@ -102,7 +102,7 @@ test('menu context stays out of the user bubble and preview while keeping the ph
     assert.deepEqual(session.blocks[0].attachments, ['image']);
     assert.equal(projectThreads({data: [thread]})[0].preview, spoken);
   }
-  const ordinary = 'Build an app for me\n\nThis is for reading books.';
+  const ordinary = 'BUILD AN APP FOR ME\n\nTHIS IS FOR READING BOOKS.';
   const thread = {id: 't', preview: ordinary};
   assert.equal(projectThreads({data: [thread]})[0].preview, ordinary);
 });
