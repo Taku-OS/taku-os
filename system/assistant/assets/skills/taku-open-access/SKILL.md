@@ -811,12 +811,22 @@ when Taku Audio is absent. Audio Engine errors appear in `result.liveTalk.error`
 unreadable. `PROVIDER_AUTH_FAILED` means the provider rejected the key. For
 either error, update that provider's key in Taku Audio before reconnecting.
 `PROVIDER_REMOVED` means the session's key was removed.
+`result.liveTalk.setup` is `fal` when the failure is a missing fal key for Grok
+Voice (`PROVIDER_NOT_CONFIGURED` or `PROVIDER_REMOVED`). It is null for every
+other failure, including a missing Gemini Live key. With `setup:"fal"` the chat
+prompts for the key and shows Add fal key next to Reconnect. Add fal key, in the
+prompt or the panel, opens the fal connection card, the same page as
+`ai-setup/open {"service":"fal"}`. Save
+the key there, then repeat `live-start`. If the engine refuses the open request
+before naming a provider, Live Talk asks Taku Audio's settings read which key is
+missing. In that case `setup` arrives in a later snapshot with a higher
+`sequence`. A reconnect or stop discards the answer.
 Other errors include `NETWORK_FAILED`, `RESOURCE_BUSY`, and `AEC_UNAVAILABLE`.
 
 `assistant/get` and Live Talk actions return the same `result.liveTalk` shown by the GUI.
 It is null before the first session. Read `sessionId`, `threadId`, `sequence`, `generation`,
 `lifecycle`, `provider`, `muted`, `capturing`, `speech`, `playback`, `input`, `output`,
-`levels`, `task`, and `error`. `provider` is the effective `fal-grok` or
+`levels`, `task`, `error`, and `setup`. `provider` is the effective `fal-grok` or
 `gemini-live` returned by the Audio Engine. It is null until the engine
 accepts the open request for that connection. `liveTalkDisclosure` names the
 provider while that connection is in use and explains the selection otherwise.

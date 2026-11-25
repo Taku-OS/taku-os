@@ -194,7 +194,7 @@ export function retainSessionBlocks(next: SessionView, prior: SessionView | null
     const sameActivity = previous.activity.length === block.activity.length && block.activity.every((item, i) => {
       const old = previous.activity[i];
       return old.id === item.id && old.type === item.type && old.titleKey === item.titleKey
-        && old.name === item.name && old.text === item.text && old.status === item.status;
+        && old.name === item.name && old.node === item.node && old.text === item.text && old.status === item.status;
     });
     return previous.text === block.text && previous.active === block.active && previous.status === block.status
       && previous.parts.length === block.parts.length && block.parts.every((part, i) => part === previous.parts[i])
