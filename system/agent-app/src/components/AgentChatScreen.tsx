@@ -99,6 +99,14 @@ export interface AgentChatScreenProps {
   onCollapse?: () => void;
 }
 
+/** A missing fal key is fixable from the chat: the prompt opens the fal connection card (Figma 2-5). */
+function promptFalKey(ct: ReturnType<typeof chatText>, message: 'voiceFalKeyMissing' | 'liveFalKeyMissing') {
+  Alert.alert(ct('voiceFalKeyTitle'), ct(message), [
+    {text: ct('cancel'), style: 'cancel'},
+    {text: ct('addFalKey'), onPress: () => { openAiSetup('fal'); }},
+  ]);
+}
+
 function Label({children, role = 'body', style, ...props}: Omit<TextProps, 'role'> & {role?: TypeRole}) {
   const value = typeof children === 'string' ? children : '';
   return <Text {...props} style={[typography(role, containsChinese(value)), {color: colors.ink}, style]}>{children}</Text>;
@@ -464,14 +472,7 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
   const draftNow = useRef({threadId: draftSessionId, revision: draftRevision, text: draft});
   useEffect(() => { draftNow.current = {threadId: draftSessionId, revision: draftRevision, text: draft}; }, [draftSessionId, draftRevision, draft]);
   const onVoiceFailure = (reason: DictationFailure) => {
-    // A missing fal key is fixable here: the prompt opens the fal setup page (Figma 2-5).
-    if (reason === 'falKeyMissing') {
-      Alert.alert(ct('voiceFalKeyTitle'), ct('voiceFalKeyMissing'), [
-        {text: ct('cancel'), style: 'cancel'},
-        {text: ct('addFalKey'), onPress: () => { openAiSetup('fal'); }},
-      ]);
-      return;
-    }
+    if (reason === 'falKeyMissing') { promptFalKey(ct, 'voiceFalKeyMissing'); return; }
     const key = {disabled: 'voiceDisabled', busy: 'voiceBusy', unavailable: 'voiceUnavailable', draftChanged: 'dictationDraftChanged', draftFull: 'dictationDraftFull'} as const;
     if (Platform.OS === 'android') ToastAndroid.show(ct(key[reason]), ToastAndroid.SHORT);
   };
@@ -504,13 +505,23 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
   const stopReading = () => { if (speaking) void stopReplySpeech(speaking.threadId, speaking.replyId).catch(() => {}); };
   const voice = live.active ? live.state : null;
   const liveLevel = voice?.capturing ? voice.levels.at(-1) ?? 0 : 0;
-  const liveStatus = voice?.lifecycle === 'connecting' ? 'liveConnecting'
+  const liveFalKeyMissing = voice?.setup === 'fal';
+  const liveStatus = liveFalKeyMissing ? 'liveFalKeyMissing'
+    : voice?.lifecycle === 'connecting' ? 'liveConnecting'
     : voice?.lifecycle === 'disconnected' ? 'liveDisconnected'
     : voice?.lifecycle === 'failed' ? 'liveFailed'
     : voice?.muted ? 'liveMicPaused' : voice?.playback.state === 'speaking' ? 'liveSpeaking'
     : voice?.capturing ? 'listening' : 'liveReady';
   const liveDisconnected = voice?.lifecycle === 'disconnected' || voice?.lifecycle === 'failed';
   const beginLiveTalk = () => { void live.start().catch(error => onVoiceFailure(failureOf(error?.code))); };
+  // Live Talk learns of a missing fal key only after it tried to connect: prompt once per failed attempt.
+  const falPrompted = useRef<string | null>(null);
+  const falAttempt = liveFalKeyMissing && voice ? `${voice.sessionId}:${voice.generation}` : null;
+  useEffect(() => {
+    if (!falAttempt || falPrompted.current === falAttempt) return;
+    falPrompted.current = falAttempt;
+    promptFalKey(chatText(language), 'liveFalKeyMissing');
+  }, [falAttempt, language]);
   const caret = insertedCaret?.threadId === props.draftSessionId && insertedCaret.text === props.draft ? insertedCaret.caret : null;
   useEffect(() => {
     if (!dictating) return;
@@ -629,6 +640,9 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
         </View>
         {!!voice.input?.text && <Text numberOfLines={2} style={[chatType.bodyMd(language === 'zh'), styles.center]}>{voice.input.text}</Text>}
         {!!voice.output?.text && <Text numberOfLines={3} style={[chatType.bodyMd(language === 'zh'), styles.center, styles.secondary]}>{voice.output.text}</Text>}
+        {liveFalKeyMissing && <Label role="meta" style={[styles.center, styles.secondary]}>{ct('liveFalKeyMissing')}</Label>}
+        {liveFalKeyMissing &&
+          <Pressable testID="live-talk-add-fal-key" accessibilityRole="button" onPress={() => { openAiSetup('fal'); }}><Label role="label">{ct('addFalKey')}</Label></Pressable>}
         {liveDisconnected &&
           <Pressable testID="live-talk-reconnect" accessibilityRole="button" onPress={beginLiveTalk}><Label role="label">{ct('liveReconnect')}</Label></Pressable>}
       </View>
