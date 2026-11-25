@@ -87,6 +87,19 @@ HOOKS = {
          '                )),\n'
          '                TakuClockProvider.TAKU_CLOCK_ID,\n'),
     ],
+    SYSTEMUI + 'com/android/systemui/shade/NotificationPanelViewController.java': [
+        ('import com.android.systemui.statusbar.policy.KeyguardStateController;\n',
+         'import com.android.systemui.statusbar.policy.KeyguardStateController;\n'
+         f'import {PKG}.TakuLockscreenPolicy;\n'),
+        ('    private ClockSize computeDesiredClockSizeForSingleShade() {\n'
+         '        if (hasVisibleNotifications()) {\n',
+         '    private ClockSize computeDesiredClockSizeForSingleShade() {\n'
+         '        // Taku: compact once authenticated, tall while locked, independent of notifications.\n'
+         '        if (isKeyguardShowing()) {\n'
+         '            return TakuLockscreenPolicy.clockSize(mKeyguardStateController.isUnlocked());\n'
+         '        }\n'
+         '        if (hasVisibleNotifications()) {\n'),
+    ],
     SYSTEMUI + 'com/android/systemui/statusbar/notification/interruption/KeyguardNotificationVisibilityProvider.kt': [
         ('import com.android.systemui.CoreStartable\n',
          'import com.android.systemui.CoreStartable\n'

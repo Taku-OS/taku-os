@@ -8,6 +8,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.android.systemui.dagger.SysUISingleton
 import com.android.systemui.dagger.qualifiers.Background
 import com.android.systemui.keyguard.domain.interactor.KeyguardInteractor
+import com.android.systemui.keyguard.shared.model.ClockSize
 import com.android.systemui.keyguard.shared.model.KeyguardBlueprint
 import com.android.systemui.keyguard.shared.model.KeyguardSection
 import com.android.systemui.keyguard.ui.view.layout.blueprints.DefaultKeyguardBlueprint
@@ -19,18 +20,25 @@ import kotlinx.coroutines.DisposableHandle
 
 /**
  * Taku's lock screen layout: the stock sections (clock, shortcuts, device entry, indication area,
- * notifications, accessibility, AOD) on top of the Taku background. Keeping the stock sections keeps
- * authentication, biometric messages and accessibility exactly as upstream; the Taku look comes from
- * the background, the Taku clock face and the shortcut resources.
+ * notifications, accessibility, AOD) on top of the Taku background, plus the authenticated surface
+ * (notification cards and the Taku button). Keeping the stock sections keeps authentication,
+ * biometric messages and accessibility exactly as upstream.
  */
 @SysUISingleton
 class TakuKeyguardBlueprint
 @Inject
-constructor(defaultBlueprint: DefaultKeyguardBlueprint, backgroundSection: TakuBackgroundSection) : KeyguardBlueprint {
+constructor(
+    defaultBlueprint: DefaultKeyguardBlueprint,
+    backgroundSection: TakuBackgroundSection,
+    notificationSection: TakuNotificationSection,
+    assistantSection: TakuAssistantSection,
+) : KeyguardBlueprint {
     override val id: String = ID
 
-    // The background is added first, so it is the bottom of the keyguard's z-order.
-    override val sections: List<KeyguardSection> = listOf(backgroundSection) + defaultBlueprint.sections
+    // Z-order follows this list. The background is the bottom; the cards sit under every stock view
+    // (shortcuts, lock icon, indication text keep their touches); the Taku button is on top.
+    override val sections: List<KeyguardSection> =
+        listOf(backgroundSection, notificationSection) + defaultBlueprint.sections + assistantSection
 
     companion object {
         const val ID = "taku"
@@ -93,4 +101,15 @@ object TakuLockscreenPolicy {
      * which already re-filters when the keyguard's unlocked state changes.
      */
     const val HIDE_NOTIFICATIONS_UNTIL_AUTHENTICATED = true
+
+    /**
+     * The tall clock while locked, the compact one once authenticated, whether or not notifications
+     * exist (the stock rule keys off visible notifications). Used by the panel hook in
+     * NotificationPanelViewController and by [TakuNotificationSection] when authentication changes.
+     */
+    @JvmStatic
+    fun clockSize(authenticated: Boolean): ClockSize = if (authenticated) ClockSize.SMALL else ClockSize.LARGE
+
+    /** Cards and the Taku button fade in and out over this time. */
+    const val FADE_MS = 200L
 }

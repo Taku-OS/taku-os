@@ -113,6 +113,27 @@
          }
  
          addTransition(SmartspaceMoveTransition(config, clockViewModel, logBuffer))
+--- a/packages/SystemUI/src/com/android/systemui/shade/NotificationPanelViewController.java
++++ b/packages/SystemUI/src/com/android/systemui/shade/NotificationPanelViewController.java
+@@ -199,6 +199,7 @@
+ import com.android.systemui.statusbar.phone.UnlockedScreenOffAnimationController;
+ import com.android.systemui.statusbar.policy.ConfigurationController;
+ import com.android.systemui.statusbar.policy.KeyguardStateController;
++import com.android.systemui.taku.lockscreen.TakuLockscreenPolicy;
+ import com.android.systemui.statusbar.policy.SplitShadeStateController;
+ import com.android.systemui.unfold.SysUIUnfoldComponent;
+ import com.android.systemui.util.Utils;
+@@ -1213,6 +1214,10 @@
+     }
+ 
+     private ClockSize computeDesiredClockSizeForSingleShade() {
++        // Taku: compact once authenticated, tall while locked, independent of notifications.
++        if (isKeyguardShowing()) {
++            return TakuLockscreenPolicy.clockSize(mKeyguardStateController.isUnlocked());
++        }
+         if (hasVisibleNotifications()) {
+             return ClockSize.SMALL;
+         }
 --- a/packages/SystemUI/src/com/android/systemui/statusbar/notification/interruption/KeyguardNotificationVisibilityProvider.kt
 +++ b/packages/SystemUI/src/com/android/systemui/statusbar/notification/interruption/KeyguardNotificationVisibilityProvider.kt
 @@ -12,6 +12,7 @@
@@ -133,6 +154,266 @@
              // Notifications not allowed on the lockscreen, always hide.
              !lockscreenUserManager.shouldShowLockscreenNotifications() -> HIDE
              // secure lock device mode is enabled always disallow
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuAuthenticatedSections.kt
+@@ -0,0 +1,257 @@
++package com.android.systemui.taku.lockscreen
++
++import android.content.Context
++import android.content.res.ColorStateList
++import android.graphics.Canvas
++import android.graphics.Color
++import android.graphics.Paint
++import android.graphics.drawable.GradientDrawable
++import android.graphics.drawable.RippleDrawable
++import android.view.View
++import androidx.constraintlayout.widget.ConstraintLayout
++import androidx.constraintlayout.widget.ConstraintSet
++import androidx.lifecycle.Lifecycle
++import androidx.lifecycle.repeatOnLifecycle
++import com.android.systemui.dagger.SysUISingleton
++import com.android.systemui.keyguard.domain.interactor.KeyguardClockInteractor
++import com.android.systemui.keyguard.domain.interactor.KeyguardInteractor
++import com.android.systemui.keyguard.shared.model.KeyguardSection
++import com.android.systemui.keyguard.shared.model.StatusBarState
++import com.android.systemui.lifecycle.repeatWhenAttached
++import com.android.systemui.plugins.FalsingManager
++import com.android.systemui.plugins.keyguard.ui.clocks.ClockViewIds
++import com.android.systemui.res.R
++import com.android.systemui.statusbar.notification.stack.ui.view.SharedNotificationContainer
++import com.android.systemui.statusbar.notification.stack.ui.viewmodel.SharedNotificationContainerViewModel
++import javax.inject.Inject
++import kotlinx.coroutines.DisposableHandle
++import kotlinx.coroutines.flow.Flow
++import kotlinx.coroutines.flow.combine
++import kotlinx.coroutines.flow.distinctUntilChanged
++import kotlinx.coroutines.launch
++
++/**
++ * Where the authenticated surface shows: the lock screen itself (no shade or QS pulled over it, not
++ * dozing) after the user has authenticated. Shared by the cards and the Taku button.
++ */
++private fun authenticatedSurfaceShown(
++    container: SharedNotificationContainerViewModel,
++    keyguard: KeyguardInteractor,
++): Flow<Boolean> =
++    combine(container.isOnLockscreenWithoutShade, keyguard.isKeyguardDismissible, keyguard.isDozing) {
++        onLockscreen, authenticated, dozing -> onLockscreen && authenticated && !dozing
++    }.distinctUntilChanged()
++
++/** Fades a surface in or out; a hidden surface is INVISIBLE so touches reach the lock screen below. */
++private fun View.fadeShown(shown: Boolean) {
++    animate().cancel()
++    if (shown) {
++        if (visibility != View.VISIBLE) {
++            alpha = 0f
++            visibility = View.VISIBLE
++        }
++        animate().alpha(1f).setDuration(TakuLockscreenPolicy.FADE_MS).setListener(null).start()
++    } else if (visibility == View.VISIBLE) {
++        animate().alpha(0f).setDuration(TakuLockscreenPolicy.FADE_MS)
++            .withEndAction { visibility = View.INVISIBLE }.start()
++    }
++}
++
++private fun Context.dp(value: Float): Int = (value * resources.displayMetrics.density).toInt()
++
++/**
++ * The notification cards (Figma 979:641) below the compact clock, for the authenticated lock screen.
++ *
++ * While the lock screen shows without the shade, the stock notification stack is made INVISIBLE: the
++ * cards present the same pipeline entries instead, and the stack would otherwise draw (and take
++ * touches) over them. Pulling the shade down shows the stock stack again, unchanged. The section also
++ * owns the clock size: compact once the user has authenticated, tall while locked
++ * ([TakuLockscreenPolicy.clockSize], the same rule the panel's hook applies).
++ */
++@SysUISingleton
++class TakuNotificationSection
++@Inject
++constructor(
++    private val notifications: TakuLockscreenNotifications,
++    private val keyguardInteractor: KeyguardInteractor,
++    private val keyguardClockInteractor: KeyguardClockInteractor,
++    private val sharedNotificationContainer: SharedNotificationContainer,
++    private val containerViewModel: SharedNotificationContainerViewModel,
++    private val falsingManager: FalsingManager,
++) : KeyguardSection() {
++    private val viewId = View.generateViewId()
++    private var binding: DisposableHandle? = null
++
++    override fun addViews(constraintLayout: ConstraintLayout) {
++        if (constraintLayout.findViewById<View>(viewId) != null) return
++        val list = TakuNotificationListView(constraintLayout.context).apply {
++            id = viewId
++            visibility = View.INVISIBLE
++        }
++        constraintLayout.addView(list)
++    }
++
++    override fun bindData(constraintLayout: ConstraintLayout) {
++        val list = constraintLayout.findViewById<TakuNotificationListView>(viewId) ?: return
++        list.callbacks = object : TakuNotificationCardView.Callbacks {
++            override fun onOpen(key: String) {
++                if (falsingManager.isFalseTap(FalsingManager.LOW_PENALTY)) return
++                notifications.open(key)
++            }
++
++            override fun onDismiss(key: String) {
++                if (!notifications.dismiss(key).ok) list.restore(key)
++            }
++
++            override fun onAction(key: String, index: Int) {
++                if (falsingManager.isFalseTap(FalsingManager.LOW_PENALTY)) return
++                notifications.action(key, index)
++            }
++        }
++        binding?.dispose()
++        // CREATED, not STARTED: the stock stack must become visible again even when the keyguard
++        // root is hidden (unlocking), or the shade over apps would lose its notifications.
++        binding = list.repeatWhenAttached {
++            repeatOnLifecycle(Lifecycle.State.CREATED) {
++                launch { notifications.cards.collect(list::submit) }
++                launch { authenticatedSurfaceShown(containerViewModel, keyguardInteractor).collect(list::fadeShown) }
++                launch {
++                    combine(containerViewModel.isOnLockscreenWithoutShade, keyguardInteractor.statusBarState) {
++                        onLockscreen, state -> onLockscreen && state == StatusBarState.KEYGUARD
++                    }.distinctUntilChanged().collect { cardsOwnLockscreen ->
++                        sharedNotificationContainer.visibility = if (cardsOwnLockscreen) View.INVISIBLE else View.VISIBLE
++                    }
++                }
++                launch {
++                    keyguardInteractor.isKeyguardDismissible.collect { authenticated ->
++                        if (keyguardInteractor.isKeyguardShowing.value) {
++                            keyguardClockInteractor.setClockSize(TakuLockscreenPolicy.clockSize(authenticated))
++                        }
++                    }
++                }
++            }
++        }
++    }
++
++    override fun applyConstraints(constraintSet: ConstraintSet) {
++        val context = sharedNotificationContainer.context
++        constraintSet.apply {
++            constrainWidth(viewId, ConstraintSet.MATCH_CONSTRAINT)
++            constrainHeight(viewId, ConstraintSet.MATCH_CONSTRAINT)
++            connect(viewId, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START)
++            connect(viewId, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END)
++            // Figma: 32 dp between the compact clock group and the first card.
++            connect(viewId, ConstraintSet.TOP, ClockViewIds.LOCKSCREEN_CLOCK_VIEW_SMALL, ConstraintSet.BOTTOM,
++                context.dp(CARDS_TOP_GAP_DP))
++            connect(viewId, ConstraintSet.BOTTOM, ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM)
++            // Visibility follows authentication, not blueprint transitions.
++            setVisibilityMode(viewId, ConstraintSet.VISIBILITY_MODE_IGNORE)
++        }
++    }
++
++    override fun removeViews(constraintLayout: ConstraintLayout) {
++        binding?.dispose()
++        binding = null
++        sharedNotificationContainer.visibility = View.VISIBLE
++        constraintLayout.findViewById<View>(viewId)?.let(constraintLayout::removeView)
++    }
++
++    private companion object {
++        const val CARDS_TOP_GAP_DP = 32f
++    }
++}
++
++/** The Taku button (Figma 979:739), centred in the shortcut row, for the authenticated lock screen. */
++@SysUISingleton
++class TakuAssistantSection
++@Inject
++constructor(
++    private val notifications: TakuLockscreenNotifications,
++    private val keyguardInteractor: KeyguardInteractor,
++    private val containerViewModel: SharedNotificationContainerViewModel,
++    private val falsingManager: FalsingManager,
++) : KeyguardSection() {
++    private val viewId = View.generateViewId()
++    private var binding: DisposableHandle? = null
++
++    override fun addViews(constraintLayout: ConstraintLayout) {
++        if (constraintLayout.findViewById<View>(viewId) != null) return
++        constraintLayout.addView(TakuAssistantButton(constraintLayout.context).apply {
++            id = viewId
++            visibility = View.INVISIBLE
++        })
++    }
++
++    override fun bindData(constraintLayout: ConstraintLayout) {
++        val button = constraintLayout.findViewById<TakuAssistantButton>(viewId) ?: return
++        button.setOnClickListener {
++            if (!falsingManager.isFalseTap(FalsingManager.LOW_PENALTY)) notifications.openTaku()
++        }
++        binding?.dispose()
++        binding = button.repeatWhenAttached {
++            repeatOnLifecycle(Lifecycle.State.CREATED) {
++                authenticatedSurfaceShown(containerViewModel, keyguardInteractor).collect(button::fadeShown)
++            }
++        }
++    }
++
++    override fun applyConstraints(constraintSet: ConstraintSet) {
++        constraintSet.apply {
++            constrainWidth(viewId, ConstraintSet.WRAP_CONTENT)
++            constrainHeight(viewId, ConstraintSet.WRAP_CONTENT)
++            connect(viewId, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START)
++            connect(viewId, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END)
++            // Same baseline as the shortcuts, including their display-cutout inset.
++            connect(viewId, ConstraintSet.BOTTOM, R.id.start_button, ConstraintSet.BOTTOM)
++            setVisibilityMode(viewId, ConstraintSet.VISIBILITY_MODE_IGNORE)
++        }
++    }
++
++    override fun removeViews(constraintLayout: ConstraintLayout) {
++        binding?.dispose()
++        binding = null
++        constraintLayout.findViewById<View>(viewId)?.let(constraintLayout::removeView)
++    }
++}
++
++/** 56 dp `#1B1B1B` circle with Taku's eyes: two 6 × 16 dp white bars, 6 dp apart (Figma 979:740). */
++class TakuAssistantButton(context: Context) : View(context) {
++    private val density = resources.displayMetrics.density
++    private val eyes = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
++
++    init {
++        val circle = GradientDrawable().apply {
++            shape = GradientDrawable.OVAL
++            setColor(FILL)
++        }
++        background = RippleDrawable(ColorStateList.valueOf(PRESSED), circle, null)
++        isClickable = true
++        isFocusable = true
++        contentDescription = "Taku"
++    }
++
++    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
++        val size = (SIZE_DP * density).toInt()
++        setMeasuredDimension(size, size)
++    }
++
++    override fun onDraw(canvas: Canvas) {
++        val bar = 6f * density
++        val eyeHeight = 16f * density
++        val gap = 6f * density
++        // Figma centres the eyes 7 dp left of and 4 dp above the button's centre.
++        val centerX = width / 2f - 7f * density
++        val centerY = height / 2f - 4f * density
++        val left = centerX - (bar * 2 + gap) / 2f
++        val top = centerY - eyeHeight / 2f
++        val radius = bar / 2f
++        canvas.drawRoundRect(left, top, left + bar, top + eyeHeight, radius, radius, eyes)
++        canvas.drawRoundRect(left + bar + gap, top, left + bar * 2 + gap, top + eyeHeight, radius, radius, eyes)
++    }
++
++    companion object {
++        const val SIZE_DP = 56f
++        private val FILL = Color.rgb(0x1B, 0x1B, 0x1B)
++        private val PRESSED = Color.argb(0.24f, 1f, 1f, 1f)
++    }
++}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuClockContours.kt
 @@ -0,0 +1,48 @@
@@ -639,7 +920,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuKeyguardBlueprint.kt
-@@ -0,0 +1,96 @@
+@@ -0,0 +1,115 @@
 +package com.android.systemui.taku.lockscreen
 +
 +import android.view.View
@@ -650,6 +931,7 @@
 +import com.android.systemui.dagger.SysUISingleton
 +import com.android.systemui.dagger.qualifiers.Background
 +import com.android.systemui.keyguard.domain.interactor.KeyguardInteractor
++import com.android.systemui.keyguard.shared.model.ClockSize
 +import com.android.systemui.keyguard.shared.model.KeyguardBlueprint
 +import com.android.systemui.keyguard.shared.model.KeyguardSection
 +import com.android.systemui.keyguard.ui.view.layout.blueprints.DefaultKeyguardBlueprint
@@ -661,18 +943,25 @@
 +
 +/**
 + * Taku's lock screen layout: the stock sections (clock, shortcuts, device entry, indication area,
-+ * notifications, accessibility, AOD) on top of the Taku background. Keeping the stock sections keeps
-+ * authentication, biometric messages and accessibility exactly as upstream; the Taku look comes from
-+ * the background, the Taku clock face and the shortcut resources.
++ * notifications, accessibility, AOD) on top of the Taku background, plus the authenticated surface
++ * (notification cards and the Taku button). Keeping the stock sections keeps authentication,
++ * biometric messages and accessibility exactly as upstream.
 + */
 +@SysUISingleton
 +class TakuKeyguardBlueprint
 +@Inject
-+constructor(defaultBlueprint: DefaultKeyguardBlueprint, backgroundSection: TakuBackgroundSection) : KeyguardBlueprint {
++constructor(
++    defaultBlueprint: DefaultKeyguardBlueprint,
++    backgroundSection: TakuBackgroundSection,
++    notificationSection: TakuNotificationSection,
++    assistantSection: TakuAssistantSection,
++) : KeyguardBlueprint {
 +    override val id: String = ID
 +
-+    // The background is added first, so it is the bottom of the keyguard's z-order.
-+    override val sections: List<KeyguardSection> = listOf(backgroundSection) + defaultBlueprint.sections
++    // Z-order follows this list. The background is the bottom; the cards sit under every stock view
++    // (shortcuts, lock icon, indication text keep their touches); the Taku button is on top.
++    override val sections: List<KeyguardSection> =
++        listOf(backgroundSection, notificationSection) + defaultBlueprint.sections + assistantSection
 +
 +    companion object {
 +        const val ID = "taku"
@@ -735,10 +1024,21 @@
 +     * which already re-filters when the keyguard's unlocked state changes.
 +     */
 +    const val HIDE_NOTIFICATIONS_UNTIL_AUTHENTICATED = true
++
++    /**
++     * The tall clock while locked, the compact one once authenticated, whether or not notifications
++     * exist (the stock rule keys off visible notifications). Used by the panel hook in
++     * NotificationPanelViewController and by [TakuNotificationSection] when authentication changes.
++     */
++    @JvmStatic
++    fun clockSize(authenticated: Boolean): ClockSize = if (authenticated) ClockSize.SMALL else ClockSize.LARGE
++
++    /** Cards and the Taku button fade in and out over this time. */
++    const val FADE_MS = 200L
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuLockscreenBackgroundView.kt
-@@ -0,0 +1,203 @@
+@@ -0,0 +1,211 @@
 +package com.android.systemui.taku.lockscreen
 +
 +import android.app.WallpaperColors
@@ -874,17 +1174,8 @@
 +        page.endRecording()
 +
 +        val barHeight = barHeight()
-+        val refraction = RuntimeShader(EDGE_REFRACTION).apply {
-+            setFloatUniform("size", w.toFloat(), barHeight.toFloat())
-+            setFloatUniform("dispersion", DISPERSION)
-+            setFloatUniform("flare", FLARE)
-+        }
 +        bar.setPosition(0, 0, w, barHeight)
-+        // Blur first, then refract the blurred slice (createChainEffect applies the inner effect first).
-+        bar.setRenderEffect(RenderEffect.createChainEffect(
-+            RenderEffect.createRuntimeShaderEffect(refraction, "content"),
-+            RenderEffect.createBlurEffect(dp(BAR_BLUR_DP), dp(BAR_BLUR_DP), Shader.TileMode.CLAMP),
-+        ))
++        bar.setRenderEffect(barEffect(w, barHeight, dp(BAR_BLUR_DP)))
 +        bar.beginRecording().also { recording ->
 +            recording.translate(0f, -(h - barHeight).toFloat())
 +            recording.drawRenderNode(page)
@@ -913,6 +1204,23 @@
 +        const val BAR_HEIGHT_DP = 176f
 +        const val DISPERSION = 0.4f
 +        const val FLARE = 0.4f
++
++        /**
++         * The bottom bar's effect for a [width] × [height] slice: blur first, then refract the blurred
++         * slice (createChainEffect applies the inner effect first). Shared with the notification list,
++         * so cards scrolling under the bar get the same treatment as the wallpaper.
++         */
++        fun barEffect(width: Int, height: Int, blurRadius: Float): RenderEffect {
++            val refraction = RuntimeShader(EDGE_REFRACTION).apply {
++                setFloatUniform("size", width.toFloat(), height.toFloat())
++                setFloatUniform("dispersion", DISPERSION)
++                setFloatUniform("flare", FLARE)
++            }
++            return RenderEffect.createChainEffect(
++                RenderEffect.createRuntimeShaderEffect(refraction, "content"),
++                RenderEffect.createBlurEffect(blurRadius, blurRadius, Shader.TileMode.CLAMP),
++            )
++        }
 +
 +        /**
 +         * Figma "Taku · Edge Refraction" (WGSL on a 90°-rotated node) in AGSL. In the rotated node uv.x
@@ -975,6 +1283,961 @@
 +            Typeface.SANS_SERIF
 +        }
 +    }
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuLockscreenNotifications.kt
+@@ -0,0 +1,237 @@
++package com.android.systemui.taku.lockscreen
++
++import android.app.PendingIntent
++import android.content.Context
++import android.content.Intent
++import android.util.Log
++import com.android.internal.statusbar.NotificationVisibility
++import com.android.systemui.dagger.SysUISingleton
++import com.android.systemui.keyguard.domain.interactor.KeyguardInteractor
++import com.android.systemui.plugins.ActivityStarter
++import com.android.systemui.settings.UserTracker
++import com.android.systemui.statusbar.NotificationClickNotifier
++import com.android.systemui.statusbar.commandline.Command
++import com.android.systemui.statusbar.commandline.CommandRegistry
++import com.android.systemui.statusbar.notification.NotificationActivityStarter
++import com.android.systemui.statusbar.notification.collection.NotifPipeline
++import com.android.systemui.statusbar.notification.collection.NotificationEntry
++import dagger.Lazy
++import java.io.PrintWriter
++import javax.inject.Inject
++import kotlinx.coroutines.flow.MutableStateFlow
++import kotlinx.coroutines.flow.StateFlow
++import kotlinx.coroutines.flow.asStateFlow
++import org.json.JSONArray
++import org.json.JSONObject
++
++/**
++ * The authenticated lock screen's notifications and Taku entry: one model and one set of operations
++ * shared by the cards (GUI) and `cmd statusbar lockscreen` (Agent), so both read the same data and
++ * pass the same checks.
++ *
++ * The source is the keyguard-filtered shade list from the notification pipeline: the same entries
++ * the stock stack would show, after lock-screen settings, VISIBILITY_SECRET and Taku's
++ * hide-until-authenticated rule. Clicks, dismissals and action buttons use the stock SystemUI paths
++ * (activity starter, row dismissal, click notifier), so statistics, auto-cancel, work challenge and
++ * bubbles behave as in the shade.
++ */
++@SysUISingleton
++class TakuLockscreenNotifications
++@Inject
++constructor(
++    private val context: Context,
++    pipeline: NotifPipeline,
++    private val keyguardInteractor: KeyguardInteractor,
++    private val userTracker: UserTracker,
++    private val activityStarter: Lazy<ActivityStarter>,
++    private val notificationActivityStarter: Lazy<NotificationActivityStarter>,
++    private val clickNotifier: NotificationClickNotifier,
++    commandRegistry: CommandRegistry,
++) {
++    private val apps = AppInfoCache()
++    private val entries = LinkedHashMap<String, NotificationEntry>()
++    private val _cards = MutableStateFlow<List<TakuNotificationCard>>(emptyList())
++
++    /** Newest first, one card per notification, no grouping or pagination. */
++    val cards: StateFlow<List<TakuNotificationCard>> = _cards.asStateFlow()
++
++    init {
++        pipeline.addOnAfterRenderListListener { list -> rebuild(TakuNotificationCard.flatten(list)) }
++        // A duplicate name throws; SystemUI must still start, so fall back to the prefixed name.
++        try {
++            commandRegistry.registerCommand(COMMAND) { LockscreenCommand() }
++        } catch (taken: IllegalStateException) {
++            Log.e(TAG, "cmd statusbar $COMMAND is taken; using $FALLBACK_COMMAND", taken)
++            commandRegistry.registerCommand(FALLBACK_COMMAND) { LockscreenCommand() }
++        }
++    }
++
++    private fun rebuild(list: List<NotificationEntry>) {
++        val previous = _cards.value.associateBy { it.key }
++        val sorted = list.filter { !it.isRowDismissed }.sortedByDescending { it.sbn.postTime }
++        entries.clear()
++        val cards = sorted.map { entry ->
++            entries[entry.key] = entry
++            val sensitive = entry.isSensitive().value
++            val old = previous[entry.key]
++            if (old != null && old.sbn === entry.sbn && old.sensitive == sensitive) old
++            else TakuNotificationCard.from(context, entry, sensitive, apps)
++        }
++        apps.retain(cards.mapTo(HashSet()) { it.packageName })
++        _cards.value = cards
++    }
++
++    /** Operation result: `{ok:true,...}` or `{ok:false,error:CODE}`, identical for GUI and Agent. */
++    class Result private constructor(val ok: Boolean, val error: String?) {
++        fun json(): JSONObject = JSONObject().put("ok", ok).apply { if (error != null) put("error", error) }
++
++        companion object {
++            val OK = Result(true, null)
++            fun error(code: String) = Result(false, code)
++        }
++    }
++
++    /** The keyguard is showing and the user has authenticated: cards and Taku are available. */
++    val isAvailable: Boolean
++        get() = keyguardInteractor.isKeyguardShowing.value && keyguardInteractor.isKeyguardDismissible.value
++
++    private fun checkAvailable(): Result? = when {
++        !keyguardInteractor.isKeyguardShowing.value -> Result.error("KEYGUARD_NOT_SHOWING")
++        !keyguardInteractor.isKeyguardDismissible.value -> Result.error("LOCKED")
++        else -> null
++    }
++
++    /** Tap on a card: the stock notification click (bouncer is not needed; the user has authenticated). */
++    fun open(key: String): Result {
++        checkAvailable()?.let { return it }
++        val entry = entries[key] ?: return Result.error("NOT_FOUND")
++        val card = _cards.value.firstOrNull { it.key == key } ?: return Result.error("NOT_FOUND")
++        if (!card.clickable && !entry.isBubble) return Result.error("NOT_CLICKABLE")
++        val row = entry.row ?: return Result.error("NOT_READY")
++        notificationActivityStarter.get().onNotificationClicked(entry, row)
++        return Result.OK
++    }
++
++    /** Swipe on a card: the stock row dismissal, honouring the same dismissibility as the shade. */
++    fun dismiss(key: String): Result {
++        checkAvailable()?.let { return it }
++        val entry = entries[key] ?: return Result.error("NOT_FOUND")
++        val row = entry.row ?: return Result.error("NOT_READY")
++        if (!row.canViewBeDismissed()) return Result.error("NOT_DISMISSABLE")
++        row.performDismiss(false)
++        return Result.OK
++    }
++
++    /** A card button. Only the buttons the card shows are accepted (no reply or contextual actions). */
++    fun action(key: String, index: Int): Result {
++        checkAvailable()?.let { return it }
++        val entry = entries[key] ?: return Result.error("NOT_FOUND")
++        val cards = _cards.value
++        val position = cards.indexOfFirst { it.key == key }
++        if (position < 0) return Result.error("NOT_FOUND")
++        if (cards[position].actions.none { it.index == index }) return Result.error("INVALID_ACTION")
++        val action = entry.sbn.notification.actions?.getOrNull(index) ?: return Result.error("INVALID_ACTION")
++        val intent = action.actionIntent ?: return Result.error("INVALID_ACTION")
++        val visibility = NotificationVisibility.obtain(key, position, cards.size, true,
++            NotificationVisibility.NotificationLocation.LOCATION_MAIN_AREA)
++        if (intent.isActivity) {
++            activityStarter.get().startPendingIntentDismissingKeyguard(intent)
++        } else {
++            try {
++                intent.send()
++            } catch (canceled: PendingIntent.CanceledException) {
++                Log.w(TAG, "Action $index of $key was canceled", canceled)
++                return Result.error("CANCELED")
++            }
++        }
++        clickNotifier.onNotificationActionClick(key, index, action, visibility, false)
++        return Result.OK
++    }
++
++    /**
++     * The Taku button: leave the lock screen (already authenticated, so no bouncer), then open Taku's
++     * assistant through Taku Home's existing ACTION_ASSIST entry, which only opens once the keyguard
++     * is gone.
++     */
++    fun openTaku(): Result {
++        checkAvailable()?.let { return it }
++        val intent = Intent(Intent.ACTION_ASSIST).setPackage(TAKU_PACKAGE).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
++        val user = userTracker.userHandle
++        if (context.packageManager.queryIntentActivities(intent, 0).isEmpty()) return Result.error("TAKU_UNAVAILABLE")
++        activityStarter.get().dismissKeyguardThenExecute(
++            object : ActivityStarter.OnDismissAction {
++                override fun onDismiss(): Boolean {
++                    context.startActivityAsUser(intent, user)
++                    return false
++                }
++            },
++            null,
++            true,
++        )
++        return Result.OK
++    }
++
++    fun stateJson(): JSONObject = JSONObject()
++        .put("keyguardShowing", keyguardInteractor.isKeyguardShowing.value)
++        .put("authenticated", keyguardInteractor.isKeyguardDismissible.value)
++        .put("dozing", keyguardInteractor.isDozing.value)
++        .put("available", isAvailable)
++        .put("notificationCount", if (isAvailable) _cards.value.size else 0)
++
++    /** The cards exactly as shown; empty while locked, when the lock screen shows no notifications. */
++    fun notificationsJson(): JSONArray {
++        val array = JSONArray()
++        if (!isAvailable) return array
++        for (card in _cards.value) {
++            array.put(JSONObject()
++                .put("key", card.key)
++                .put("package", card.packageName)
++                .put("app", card.appLabel.toString())
++                .put("title", card.title.toString())
++                .put("text", card.text?.toString() ?: JSONObject.NULL)
++                .put("context", card.context?.toString() ?: JSONObject.NULL)
++                .put("when", card.whenMillis)
++                .put("conversation", card.conversation)
++                .put("sensitive", card.sensitive)
++                .put("dismissable", card.dismissable)
++                .put("clickable", card.clickable)
++                .put("layout", if (card.expanded) "expanded" else "compact")
++                .put("actions", JSONArray().apply {
++                    card.actions.forEach { put(JSONObject().put("index", it.index).put("title", it.title.toString())) }
++                }))
++        }
++        return array
++    }
++
++    private inner class LockscreenCommand : Command {
++        override fun execute(pw: PrintWriter, args: List<String>) {
++            val result: JSONObject = when (args.getOrNull(0)) {
++                "state" -> if (args.size == 1) Result.OK.json().put("state", stateJson()) else usage()
++                "notifications" -> if (args.size == 1) {
++                    Result.OK.json().put("state", stateJson()).put("notifications", notificationsJson())
++                } else usage()
++                "open" -> if (args.size == 2) open(args[1]).json() else usage()
++                "dismiss" -> if (args.size == 2) dismiss(args[1]).json() else usage()
++                "action" -> {
++                    val index = args.getOrNull(2)?.toIntOrNull()
++                    if (args.size == 3 && index != null) action(args[1], index).json() else usage()
++                }
++                "taku" -> if (args.size == 1) openTaku().json() else usage()
++                else -> usage()
++            }
++            pw.println(result)
++        }
++
++        private fun usage() = Result.error("USAGE").json().put("usage", USAGE)
++
++        override fun help(pw: PrintWriter) = pw.println(USAGE)
++    }
++
++    companion object {
++        private const val TAG = "TakuLockscreen"
++        const val COMMAND = "lockscreen"
++        const val FALLBACK_COMMAND = "taku-lockscreen"
++        const val TAKU_PACKAGE = "org.agentos.agent"
++        const val USAGE = "lockscreen state | notifications | open KEY | dismiss KEY | action KEY INDEX | taku"
++    }
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuNotificationCard.kt
+@@ -0,0 +1,172 @@
++package com.android.systemui.taku.lockscreen
++
++import android.app.Notification
++import android.app.Person
++import android.content.Context
++import android.content.pm.ApplicationInfo
++import android.content.pm.PackageManager
++import android.graphics.drawable.Drawable
++import android.graphics.drawable.Icon
++import android.os.Bundle
++import android.os.Parcelable
++import android.service.notification.StatusBarNotification
++import com.android.systemui.statusbar.notification.collection.BundleEntry
++import com.android.systemui.statusbar.notification.collection.GroupEntry
++import com.android.systemui.statusbar.notification.collection.NotificationEntry
++import com.android.systemui.statusbar.notification.collection.PipelineEntry
++
++/** One notification action as a card button. Reply (RemoteInput) and contextual actions are not shown. */
++data class TakuCardAction(val index: Int, val title: CharSequence)
++
++/**
++ * What one lock-screen card shows for one real notification (Figma 979:574). The content comes from
++ * the notification itself; nothing is invented. [sbn] identifies the posted revision, so a card is
++ * rebound only when the app posts an update or its sensitivity changes.
++ */
++class TakuNotificationCard(
++    val key: String,
++    val sbn: StatusBarNotification,
++    val packageName: String,
++    val appLabel: CharSequence,
++    val appIcon: Drawable?,
++    /** Large icon or the latest message's sender picture; null falls back to [appIcon]. */
++    val image: Icon?,
++    val title: CharSequence,
++    val text: CharSequence?,
++    /** Conversation or channel name ("#Product"), or the notification's sub text. */
++    val context: CharSequence?,
++    val whenMillis: Long,
++    val showWhen: Boolean,
++    val conversation: Boolean,
++    val actions: List<TakuCardAction>,
++    val sensitive: Boolean,
++    val dismissable: Boolean,
++    val clickable: Boolean,
++) {
++    /** Conversations and notifications with buttons use the large card (979:642); the rest are compact (979:680). */
++    val expanded: Boolean get() = !sensitive && (conversation || actions.isNotEmpty())
++
++    fun sameContent(other: TakuNotificationCard): Boolean =
++        other.sbn === sbn && other.sensitive == sensitive && other.dismissable == dismissable
++
++    companion object {
++        /** Top-level pipeline entries as one flat list: groups and bundles contribute their children. */
++        fun flatten(entries: List<PipelineEntry>): List<NotificationEntry> {
++            val out = ArrayList<NotificationEntry>()
++            fun add(entry: PipelineEntry) {
++                when (entry) {
++                    is NotificationEntry -> out += entry
++                    is GroupEntry -> {
++                        val children = entry.children
++                        if (children.isEmpty()) entry.summary?.let { out += it } else out += children
++                    }
++                    is BundleEntry -> entry.children.forEach(::add)
++                    else -> {}
++                }
++            }
++            entries.forEach(::add)
++            return out
++        }
++
++        fun from(context: Context, entry: NotificationEntry, sensitive: Boolean, apps: AppInfoCache): TakuNotificationCard {
++            val sbn = entry.sbn
++            // A sensitive notification shows its public version when the app provides one, else only the app.
++            val notification = if (sensitive) sbn.notification.publicVersion else sbn.notification
++            val app = apps.get(context, sbn)
++            val extras = notification?.extras ?: Bundle.EMPTY
++            val messaging = extras.getString(Notification.EXTRA_TEMPLATE) == MESSAGING_STYLE
++            val latest = if (messaging) latestMessage(extras) else null
++            val conversationTitle = extras.getCharSequence(Notification.EXTRA_CONVERSATION_TITLE)
++            val title = latest?.sender?.takeIf { it.isNotBlank() }
++                ?: extras.getCharSequence(Notification.EXTRA_TITLE_BIG)?.takeIf { it.isNotBlank() }
++                ?: extras.getCharSequence(Notification.EXTRA_TITLE)?.takeIf { it.isNotBlank() }
++                ?: app.label
++            val text = latest?.text
++                ?: extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.takeIf { it.isNotBlank() }
++                ?: extras.getCharSequence(Notification.EXTRA_TEXT)?.takeIf { it.isNotBlank() }
++            val actions = if (sensitive || notification == null) emptyList() else
++                notification.actions.orEmpty().withIndex()
++                    .filter { (_, action) ->
++                        action.actionIntent != null && !action.isContextual && action.remoteInputs.isNullOrEmpty() &&
++                            !action.title.isNullOrBlank()
++                    }
++                    .map { (index, action) -> TakuCardAction(index, action.title) }
++                    .takeLast(MAX_ACTIONS)
++            val original = sbn.notification
++            return TakuNotificationCard(
++                key = entry.key,
++                sbn = sbn,
++                packageName = sbn.packageName,
++                appLabel = app.label,
++                appIcon = app.icon,
++                image = if (notification == null) null else latest?.icon ?: notification.getLargeIcon(),
++                title = title,
++                text = text,
++                context = if (notification == null) null else
++                    conversationTitle?.takeIf { messaging && it.isNotBlank() }
++                        ?: extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.takeIf { it.isNotBlank() },
++                whenMillis = original.`when`.takeIf { it > 0 } ?: sbn.postTime,
++                showWhen = extras.getBoolean(Notification.EXTRA_SHOW_WHEN, true),
++                conversation = messaging,
++                actions = actions,
++                sensitive = sensitive,
++                dismissable = entry.row?.canViewBeDismissed() ?: entry.isClearable,
++                clickable = original.contentIntent != null || original.fullScreenIntent != null,
++            )
++        }
++
++        private class Message(val sender: CharSequence?, val text: CharSequence?, val icon: Icon?)
++
++        /** The newest message of a MessagingStyle notification (the bundles `Notification` writes). */
++        private fun latestMessage(extras: Bundle): Message? {
++            val messages: Array<Parcelable> =
++                extras.getParcelableArray(Notification.EXTRA_MESSAGES, Parcelable::class.java) ?: return null
++            val last = messages.lastOrNull() as? Bundle ?: return null
++            val person = last.getParcelable(KEY_SENDER_PERSON, Person::class.java)
++            return Message(
++                sender = person?.name ?: last.getCharSequence(KEY_SENDER),
++                text = last.getCharSequence(KEY_TEXT),
++                icon = person?.icon,
++            )
++        }
++
++        private val MESSAGING_STYLE = Notification.MessagingStyle::class.java.name
++        private const val KEY_TEXT = "text"
++        private const val KEY_SENDER = "sender"
++        private const val KEY_SENDER_PERSON = "sender_person"
++        /** Figma shows at most two buttons per card. */
++        const val MAX_ACTIONS = 2
++    }
++}
++
++/** App label and icon per package, read from the ApplicationInfo the notification carries. */
++class AppInfoCache {
++    class App(val label: CharSequence, val icon: Drawable?)
++
++    private val cache = HashMap<String, Pair<Long, App>>()
++
++    fun get(context: Context, sbn: StatusBarNotification): App {
++        val info = sbn.notification.extras.getParcelable(EXTRA_APPLICATION_INFO, ApplicationInfo::class.java)
++            ?: try {
++                context.packageManager.getApplicationInfo(sbn.packageName, PackageManager.ApplicationInfoFlags.of(0))
++            } catch (missing: PackageManager.NameNotFoundException) {
++                null
++            }
++        val cacheKey = "${sbn.user}:${sbn.packageName}"
++        val version = info?.let { it.sourceDir.hashCode().toLong() } ?: 0L
++        cache[cacheKey]?.let { (cachedVersion, app) -> if (cachedVersion == version) return app }
++        val pm = context.packageManager
++        val app = App(info?.let(pm::getApplicationLabel) ?: sbn.packageName, info?.let(pm::getApplicationIcon))
++        cache[cacheKey] = version to app
++        return app
++    }
++
++    fun retain(packages: Set<String>) {
++        cache.keys.retainAll { key -> key.substringAfter(':') in packages }
++    }
++
++    private companion object {
++        /** `Notification.EXTRA_BUILDER_APPLICATION_INFO`: every Builder-made notification carries it. */
++        const val EXTRA_APPLICATION_INFO = "android.appInfo"
++    }
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuNotificationCardView.kt
+@@ -0,0 +1,356 @@
++package com.android.systemui.taku.lockscreen
++
++import android.animation.Animator
++import android.animation.AnimatorListenerAdapter
++import android.content.Context
++import android.content.res.ColorStateList
++import android.graphics.Color
++import android.graphics.Outline
++import android.graphics.Typeface
++import android.graphics.drawable.Drawable
++import android.graphics.drawable.GradientDrawable
++import android.graphics.drawable.RippleDrawable
++import android.text.TextUtils
++import android.text.format.DateFormat
++import android.util.Log
++import android.util.TypedValue
++import android.view.Gravity
++import android.view.MotionEvent
++import android.view.VelocityTracker
++import android.view.View
++import android.view.ViewConfiguration
++import android.view.ViewGroup
++import android.view.ViewOutlineProvider
++import android.widget.FrameLayout
++import android.widget.ImageView
++import android.widget.LinearLayout
++import android.widget.TextView
++import java.util.Date
++import kotlin.math.abs
++
++/**
++ * One notification card in the Figma style (979:574):
++ *
++ * - compact (979:680): 72 dp, 48 dp picture, title (Body/Medium/xl) and one line below it;
++ * - expanded (979:642): app header, a message panel (picture, sender, time, conversation, text) and up
++ *   to two buttons, the last one primary.
++ *
++ * Tapping opens the notification, swiping sideways dismisses it (when the notification allows it) and
++ * buttons run their actions; all three go through [Callbacks] to [TakuLockscreenNotifications].
++ */
++class TakuNotificationCardView(context: Context) : FrameLayout(context) {
++    interface Callbacks {
++        fun onOpen(key: String)
++        fun onDismiss(key: String)
++        fun onAction(key: String, index: Int)
++    }
++
++    var callbacks: Callbacks? = null
++    var card: TakuNotificationCard? = null
++        private set
++
++    private val density = resources.displayMetrics.density
++    private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
++    private val minFling = ViewConfiguration.get(context).scaledMinimumFlingVelocity * 4
++
++    init {
++        background = GradientDrawable().apply {
++            setColor(CARD_FILL)
++            cornerRadius = dp(24f)
++        }
++        foreground = RippleDrawable(ColorStateList.valueOf(PRESSED), null,
++            GradientDrawable().apply { setColor(Color.WHITE); cornerRadius = dp(24f) })
++        val pad = dp(12f).toInt()
++        setPadding(pad, pad, pad, pad)
++        isClickable = true
++        setOnClickListener { card?.let { callbacks?.onOpen(it.key) } }
++    }
++
++    fun bind(card: TakuNotificationCard) {
++        val previous = this.card
++        this.card = card
++        if (previous != null && previous.sameContent(card)) return
++        removeAllViews()
++        addView(if (card.expanded) expandedContent(card) else compactContent(card))
++        contentDescription = listOfNotNull(card.appLabel, card.title, card.text).joinToString(", ")
++        isClickable = card.clickable
++    }
++
++    // region Layouts
++
++    private fun compactContent(card: TakuNotificationCard): View {
++        minimumHeight = dp(72f - 24f).toInt()
++        val hasPicture = card.image != null
++        val row = LinearLayout(context).apply {
++            orientation = LinearLayout.HORIZONTAL
++            gravity = Gravity.CENTER_VERTICAL
++            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dp(48f).toInt())
++        }
++        row.addView(picture(card, 48f, 8f), LinearLayout.LayoutParams(dp(48f).toInt(), dp(48f).toInt())
++            .apply { marginEnd = dp(8f).toInt() })
++        val column = LinearLayout(context).apply {
++            orientation = LinearLayout.VERTICAL
++            gravity = Gravity.CENTER_VERTICAL
++        }
++        column.addView(text(card.title, TakuLockscreenFonts.hankenGroteskMedium, 18f, 1.55f, INK_900))
++        val line = LinearLayout(context).apply {
++            orientation = LinearLayout.HORIZONTAL
++            gravity = Gravity.CENTER_VERTICAL
++        }
++        // A notification picture leaves the app unnamed, so the app icon marks the second line.
++        if (hasPicture) line.addView(appIcon(card), LinearLayout.LayoutParams(dp(16f).toInt(), dp(16f).toInt())
++            .apply { marginEnd = dp(4f).toInt() })
++        line.addView(text(card.text ?: card.appLabel, TakuLockscreenFonts.hankenGrotesk, 14f, 1.42f, INK_700))
++        column.addView(line)
++        row.addView(column, LinearLayout.LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
++        return row
++    }
++
++    private fun expandedContent(card: TakuNotificationCard): View {
++        minimumHeight = 0
++        val gap = dp(12f).toInt()
++        val column = LinearLayout(context).apply {
++            orientation = LinearLayout.VERTICAL
++            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
++        }
++
++        val header = LinearLayout(context).apply {
++            orientation = LinearLayout.HORIZONTAL
++            gravity = Gravity.CENTER_VERTICAL
++        }
++        header.addView(appIcon(card), LinearLayout.LayoutParams(dp(16f).toInt(), dp(16f).toInt())
++            .apply { marginEnd = dp(4f).toInt() })
++        header.addView(text(card.appLabel, TakuLockscreenFonts.hankenGrotesk, 14f, 1.42f, INK_800),
++            LinearLayout.LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
++        column.addView(header)
++
++        val panel = LinearLayout(context).apply {
++            orientation = LinearLayout.HORIZONTAL
++            background = GradientDrawable().apply { setColor(PANEL_FILL); cornerRadius = dp(12f) }
++            setPadding(dp(8f).toInt(), dp(8f).toInt(), dp(8f).toInt(), dp(12f).toInt())
++        }
++        panel.addView(picture(card, 32f, 6f), LinearLayout.LayoutParams(dp(32f).toInt(), dp(32f).toInt())
++            .apply { marginEnd = dp(11f).toInt() })
++        val message = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
++        val top = LinearLayout(context).apply {
++            orientation = LinearLayout.HORIZONTAL
++            gravity = Gravity.CENTER_VERTICAL
++        }
++        top.addView(text(card.title, TakuLockscreenFonts.hankenGroteskMedium, 16f, 1.5f, INK_900),
++            LinearLayout.LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT, 0f)
++                .apply { marginEnd = dp(8f).toInt() })
++        if (card.showWhen) {
++            top.addView(text(DateFormat.getTimeFormat(context).format(Date(card.whenMillis)),
++                TakuLockscreenFonts.hankenGrotesk, 14f, 1.42f, INK_700))
++        }
++        top.addView(View(context), LinearLayout.LayoutParams(0, 1, 1f))
++        card.context?.let {
++            top.addView(text(it, TakuLockscreenFonts.hankenGrotesk, 14f, 1.42f, INK_700).apply {
++                maxWidth = dp(120f).toInt()
++            })
++        }
++        message.addView(top)
++        card.text?.let {
++            message.addView(text(it, TakuLockscreenFonts.hankenGrotesk, 14f, 1.42f, INK_800, maxLines = 4),
++                LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
++                    .apply { topMargin = dp(8f).toInt() })
++        }
++        panel.addView(message, LinearLayout.LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
++        column.addView(panel, LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
++            .apply { topMargin = dp(4f).toInt() })
++
++        if (card.actions.isNotEmpty()) {
++            val buttons = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
++            card.actions.forEachIndexed { position, action ->
++                val primary = position == card.actions.lastIndex
++                buttons.addView(button(card.key, action, primary),
++                    LinearLayout.LayoutParams(0, dp(40f).toInt(), 1f).apply {
++                        if (position > 0) marginStart = dp(8f).toInt()
++                    })
++            }
++            column.addView(buttons, LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
++                .apply { topMargin = gap })
++        }
++        return column
++    }
++
++    private fun button(key: String, action: TakuCardAction, primary: Boolean): TextView =
++        text(action.title, TakuLockscreenFonts.hankenGrotesk, 16f, 1.5f, if (primary) Color.WHITE else FOREGROUND).apply {
++            gravity = Gravity.CENTER
++            val shape = GradientDrawable().apply {
++                setColor(if (primary) FOREGROUND else BUTTON_FILL)
++                cornerRadius = dp(20f)
++            }
++            background = RippleDrawable(ColorStateList.valueOf(if (primary) PRESSED_ON_DARK else PRESSED), shape, null)
++            setPadding(dp(12f).toInt(), 0, dp(12f).toInt(), 0)
++            isClickable = true
++            setOnClickListener { callbacks?.onAction(key, action.index) }
++        }
++
++    private fun picture(card: TakuNotificationCard, sizeDp: Float, radiusDp: Float): ImageView =
++        ImageView(context).apply {
++            scaleType = ImageView.ScaleType.CENTER_CROP
++            val image: Drawable? = card.image?.let { icon ->
++                try {
++                    icon.loadDrawable(context)
++                } catch (error: RuntimeException) {
++                    Log.w(TAG, "Notification picture unavailable for ${card.key}", error)
++                    null
++                }
++            }
++            setImageDrawable(image ?: card.appIcon)
++            if (image != null) {
++                clipToOutline = true
++                outlineProvider = object : ViewOutlineProvider() {
++                    override fun getOutline(view: View, outline: Outline) =
++                        outline.setRoundRect(0, 0, view.width, view.height, dp(radiusDp))
++                }
++            }
++            importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
++            minimumWidth = dp(sizeDp).toInt()
++        }
++
++    private fun appIcon(card: TakuNotificationCard): ImageView = ImageView(context).apply {
++        setImageDrawable(card.appIcon)
++        scaleType = ImageView.ScaleType.FIT_CENTER
++        importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
++    }
++
++    private fun text(
++        value: CharSequence,
++        face: Typeface,
++        sizeSp: Float,
++        lineHeight: Float,
++        color: Int,
++        maxLines: Int = 1,
++    ): TextView = TextView(context).apply {
++        text = value
++        typeface = face
++        setTextSize(TypedValue.COMPLEX_UNIT_SP, sizeSp)
++        letterSpacing = -0.01f
++        setLineHeight(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, sizeSp * lineHeight,
++            resources.displayMetrics).toInt())
++        includeFontPadding = false
++        setTextColor(color)
++        this.maxLines = maxLines
++        if (maxLines == 1) setSingleLine(true)
++        ellipsize = TextUtils.TruncateAt.END
++    }
++
++    // endregion
++
++    // region Swipe to dismiss
++
++    private var downX = 0f
++    private var downY = 0f
++    private var dragging = false
++    private var velocity: VelocityTracker? = null
++
++    /** Tracks the gesture; returns true once it is a sideways drag owned by this card. */
++    private fun track(event: MotionEvent): Boolean {
++        when (event.actionMasked) {
++            MotionEvent.ACTION_DOWN -> {
++                downX = event.rawX
++                downY = event.rawY
++                dragging = false
++                animate().cancel()
++                velocity?.recycle()
++                velocity = VelocityTracker.obtain()
++            }
++            MotionEvent.ACTION_MOVE -> {
++                val dx = event.rawX - downX
++                val dy = event.rawY - downY
++                if (!dragging && abs(dx) > touchSlop && abs(dx) > abs(dy) * 1.5f) {
++                    dragging = true
++                    downX = event.rawX
++                    parent?.requestDisallowInterceptTouchEvent(true)
++                }
++            }
++        }
++        velocity?.addMovement(event)
++        return dragging
++    }
++
++    override fun onInterceptTouchEvent(event: MotionEvent): Boolean = track(event)
++
++    override fun onTouchEvent(event: MotionEvent): Boolean {
++        val wasDragging = dragging
++        val start = event.actionMasked == MotionEvent.ACTION_DOWN
++        if (!start || !wasDragging) track(event)
++        if (!dragging) return super.onTouchEvent(event) || start
++        if (!wasDragging) {
++            // The press turned into a drag: drop the pressed state without clicking.
++            val cancel = MotionEvent.obtain(event).apply { action = MotionEvent.ACTION_CANCEL }
++            super.onTouchEvent(cancel)
++            cancel.recycle()
++        }
++        val dx = event.rawX - downX
++        val dismissable = card?.dismissable == true
++        when (event.actionMasked) {
++            MotionEvent.ACTION_MOVE -> {
++                translationX = if (dismissable) dx else dx * RESISTANCE
++                alpha = 1f - (abs(translationX) / width.coerceAtLeast(1)).coerceAtMost(1f) * 0.6f
++            }
++            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
++                velocity?.computeCurrentVelocity(1000)
++                val vx = velocity?.xVelocity ?: 0f
++                val flung = abs(vx) > minFling && (vx > 0) == (dx > 0)
++                val far = abs(dx) > width * DISMISS_FRACTION
++                if (event.actionMasked == MotionEvent.ACTION_UP && dismissable && (far || flung)) settleOut(dx)
++                else settleBack()
++                dragging = false
++                velocity?.recycle()
++                velocity = null
++            }
++        }
++        return true
++    }
++
++    private fun settleOut(dx: Float) {
++        val key = card?.key ?: return settleBack()
++        animate().translationX(if (dx >= 0) width.toFloat() else -width.toFloat()).alpha(0f)
++            .setDuration(SETTLE_MS)
++            .setListener(object : AnimatorListenerAdapter() {
++                override fun onAnimationEnd(animation: Animator) {
++                    animate().setListener(null)
++                    callbacks?.onDismiss(key)
++                }
++            })
++            .start()
++    }
++
++    private fun settleBack() {
++        animate().translationX(0f).alpha(1f).setDuration(SETTLE_MS).setListener(null).start()
++    }
++
++    /** A recycled card (or one whose dismissal failed) returns to rest. */
++    fun resetSwipe() {
++        animate().cancel()
++        translationX = 0f
++        alpha = 1f
++    }
++
++    // endregion
++
++    private fun dp(value: Float) = value * density
++
++    companion object {
++        private const val TAG = "TakuNotificationCard"
++        /** surface/700: white at 64 %. */
++        private val CARD_FILL = Color.argb(0.64f, 1f, 1f, 1f)
++        /** content/100: black at 6 %. */
++        private val PANEL_FILL = Color.argb(0.06f, 0f, 0f, 0f)
++        /** content/200: black at 8 %. */
++        private val BUTTON_FILL = Color.argb(0.08f, 0f, 0f, 0f)
++        private val PRESSED = Color.argb(0.08f, 0f, 0f, 0f)
++        private val PRESSED_ON_DARK = Color.argb(0.16f, 1f, 1f, 1f)
++        /** main/foreground. */
++        private val FOREGROUND = Color.rgb(0x1B, 0x1B, 0x1B)
++        private val INK_900 = Color.argb(0.92f, 0f, 0f, 0f)
++        private val INK_800 = Color.argb(0.8f, 0f, 0f, 0f)
++        private val INK_700 = Color.argb(0.64f, 0f, 0f, 0f)
++        private const val RESISTANCE = 0.15f
++        private const val DISMISS_FRACTION = 0.4f
++        private const val SETTLE_MS = 200L
++    }
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuNotificationListView.kt
+@@ -0,0 +1,178 @@
++package com.android.systemui.taku.lockscreen
++
++import android.content.Context
++import android.graphics.Canvas
++import android.graphics.RenderEffect
++import android.graphics.RenderNode
++import android.view.MotionEvent
++import android.view.View
++import android.view.ViewConfiguration
++import android.widget.LinearLayout
++import android.widget.ScrollView
++import kotlin.math.abs
++
++/**
++ * The authenticated lock screen's notification list (Figma 979:641): one flat column of cards, 16 dp
++ * apart, scrolling under the bottom bar. The part under the bar is drawn through the same blur and
++ * edge refraction as [TakuLockscreenBackgroundView]'s bar, so cards pass beneath it as in the design.
++ *
++ * Touch: the window root turns vertical drags on the lock screen into the shade (down) or unlock
++ * (up). The list keeps a gesture only when it starts on a card and the list can scroll that way;
++ * everything else (empty space, the bar, a drag past either end) stays with the stock gestures.
++ */
++class TakuNotificationListView(context: Context) : ScrollView(context) {
++    private val density = resources.displayMetrics.density
++    private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
++    private val column = LinearLayout(context).apply {
++        orientation = LinearLayout.VERTICAL
++        val side = dp(16f)
++        setPadding(side, 0, side, dp(TakuLockscreenBackgroundView.BAR_HEIGHT_DP))
++        clipChildren = false
++    }
++    private val views = LinkedHashMap<String, TakuNotificationCardView>()
++
++    /** Recorded children, drawn once clipped above the bar and once through the bar effect. */
++    private val content = RenderNode("TakuNotificationList")
++    private val bar = RenderNode("TakuNotificationListBar")
++    private var barEffectSize = 0L
++
++    var callbacks: TakuNotificationCardView.Callbacks? = null
++        set(value) {
++            field = value
++            views.values.forEach { it.callbacks = value }
++        }
++
++    init {
++        isVerticalScrollBarEnabled = false
++        overScrollMode = OVER_SCROLL_NEVER
++        isFillViewport = false
++        importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_YES
++        addView(column, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
++    }
++
++    /** Shows [cards] in order, reusing each card's view by notification key. */
++    fun submit(cards: List<TakuNotificationCard>) {
++        val keys = cards.mapTo(HashSet()) { it.key }
++        views.keys.filter { it !in keys }.forEach { key -> views.remove(key)?.let(column::removeView) }
++        cards.forEachIndexed { position, card ->
++            val view = views.getOrPut(card.key) {
++                TakuNotificationCardView(context).also { it.callbacks = callbacks }
++            }
++            view.bind(card)
++            if (column.getChildAt(position) !== view) {
++                (view.parent as? LinearLayout)?.removeView(view)
++                column.addView(view, position, LinearLayout.LayoutParams(
++                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT,
++                ).apply { if (position > 0) topMargin = dp(16f) })
++            }
++            (view.layoutParams as LinearLayout.LayoutParams).let { params ->
++                val margin = if (position > 0) dp(16f) else 0
++                if (params.topMargin != margin) {
++                    params.topMargin = margin
++                    view.layoutParams = params
++                }
++            }
++        }
++    }
++
++    /** A dismissal the notification refused: put its card back. */
++    fun restore(key: String) {
++        views[key]?.resetSwipe()
++    }
++
++    val cardCount: Int get() = views.size
++
++    // region Drawing
++
++    override fun dispatchDraw(canvas: Canvas) {
++        val w = width
++        val h = height
++        if (!canvas.isHardwareAccelerated || w == 0 || h == 0) return super.dispatchDraw(canvas)
++        val barHeight = dp(TakuLockscreenBackgroundView.BAR_HEIGHT_DP).coerceAtMost(h)
++        // The canvas is already translated by -scrollY: these are content coordinates.
++        val barTop = scrollY + h - barHeight
++        val contentHeight = maxOf(column.bottom, scrollY + h)
++
++        content.setPosition(0, 0, w, contentHeight)
++        val recording = content.beginRecording(w, contentHeight)
++        super.dispatchDraw(recording)
++        content.endRecording()
++
++        canvas.save()
++        canvas.clipRect(0, scrollY, w, barTop)
++        canvas.drawRenderNode(content)
++        canvas.restore()
++
++        val size = (w.toLong() shl 32) or barHeight.toLong()
++        if (size != barEffectSize) {
++            barEffectSize = size
++            bar.setRenderEffect(barEffect(w, barHeight))
++        }
++        bar.setPosition(0, 0, w, barHeight)
++        val barRecording = bar.beginRecording(w, barHeight)
++        barRecording.translate(0f, -barTop.toFloat())
++        barRecording.drawRenderNode(content)
++        bar.endRecording()
++        canvas.save()
++        canvas.translate(0f, barTop.toFloat())
++        canvas.drawRenderNode(bar)
++        canvas.restore()
++    }
++
++    private fun barEffect(w: Int, barHeight: Int): RenderEffect =
++        TakuLockscreenBackgroundView.barEffect(w, barHeight, dp(TakuLockscreenBackgroundView.BAR_BLUR_DP).toFloat())
++
++    // endregion
++
++    // region Touch
++
++    private var claimed = false
++    private var decided = false
++    private var downY = 0f
++    private var downX = 0f
++
++    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
++        when (event.actionMasked) {
++            MotionEvent.ACTION_DOWN -> {
++                val barTop = height - dp(TakuLockscreenBackgroundView.BAR_HEIGHT_DP)
++                claimed = event.y < barTop && cardAt(event.x, event.y) != null
++                if (!claimed) return false
++                decided = false
++                downX = event.x
++                downY = event.y
++                // Keep the window root from taking the drag before the list knows its direction.
++                if (canScrollVertically(1) || canScrollVertically(-1)) parent?.requestDisallowInterceptTouchEvent(true)
++            }
++        }
++        if (!claimed) return false
++        val handled = super.dispatchTouchEvent(event)
++        if (event.actionMasked == MotionEvent.ACTION_MOVE && !decided) {
++            val dx = event.x - downX
++            val dy = event.y - downY
++            if (abs(dy) > touchSlop && abs(dy) > abs(dx)) {
++                decided = true
++                // Finger up scrolls content down (direction 1). Past either end, hand the gesture
++                // back so the stock shade (down) or unlock (up) can take it on the next move.
++                if (!canScrollVertically(if (dy < 0) 1 else -1)) parent?.requestDisallowInterceptTouchEvent(false)
++            } else if (abs(dx) > touchSlop) {
++                decided = true
++            }
++        }
++        if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) claimed = false
++        return handled
++    }
++
++    private fun cardAt(x: Float, y: Float): View? {
++        val cy = y + scrollY - column.top
++        val cx = x - column.left
++        for (index in 0 until column.childCount) {
++            val child = column.getChildAt(index)
++            if (cx >= child.left && cx < child.right && cy >= child.top && cy < child.bottom) return child
++        }
++        return null
++    }
++
++    // endregion
++
++    private fun dp(value: Float) = (value * density).toInt()
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuTallClockView.kt

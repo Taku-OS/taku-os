@@ -27,7 +27,7 @@ annotation class Background
 @Target(AnnotationTarget.CONSTRUCTOR, AnnotationTarget.FIELD, AnnotationTarget.FUNCTION) annotation class Inject
 ''',
     'Users.kt': '''package com.android.systemui.settings
-interface UserTracker { val userId: Int }
+interface UserTracker { val userId: Int; val userHandle: android.os.UserHandle }
 ''',
     'Keyguard.kt': '''package com.android.systemui.keyguard.shared.model
 abstract class KeyguardSection {
@@ -44,7 +44,83 @@ class DefaultKeyguardBlueprint : com.android.systemui.keyguard.shared.model.Keyg
 }
 ''',
     'KeyguardInteractor.kt': '''package com.android.systemui.keyguard.domain.interactor
-abstract class KeyguardInteractor { abstract val dozeAmount: kotlinx.coroutines.flow.Flow<Float> }
+abstract class KeyguardInteractor {
+ abstract val dozeAmount: kotlinx.coroutines.flow.Flow<Float>
+ abstract val isDozing: kotlinx.coroutines.flow.StateFlow<Boolean>
+ abstract val isKeyguardShowing: kotlinx.coroutines.flow.StateFlow<Boolean>
+ abstract val isKeyguardDismissible: kotlinx.coroutines.flow.StateFlow<Boolean>
+ abstract val statusBarState: kotlinx.coroutines.flow.StateFlow<com.android.systemui.keyguard.shared.model.StatusBarState>
+}
+abstract class KeyguardClockInteractor { abstract fun setClockSize(size: com.android.systemui.keyguard.shared.model.ClockSize) }
+''',
+    'KeyguardModelsShared.kt': '''package com.android.systemui.keyguard.shared.model
+enum class ClockSize { LARGE, SMALL }
+enum class StatusBarState { SHADE, KEYGUARD, SHADE_LOCKED }
+''',
+    'Dagger2.kt': '''package dagger
+interface Lazy<T> { fun get(): T }
+''',
+    'SysuiR.kt': '''package com.android.systemui.res
+object R { object id { const val start_button = 101 } }
+''',
+    'Falsing.kt': '''package com.android.systemui.plugins
+interface FalsingManager { fun isFalseTap(penalty: Int): Boolean; companion object { const val LOW_PENALTY = 1 } }
+interface ActivityStarter {
+ fun startPendingIntentDismissingKeyguard(intent: android.app.PendingIntent)
+ fun dismissKeyguardThenExecute(action: OnDismissAction, cancel: Runnable?, afterKeyguardGone: Boolean)
+ interface OnDismissAction { fun onDismiss(): Boolean; fun willRunAnimationOnKeyguard(): Boolean = false }
+}
+''',
+    'Commands.kt': '''package com.android.systemui.statusbar.commandline
+interface Command { fun execute(pw: java.io.PrintWriter, args: List<String>); fun help(pw: java.io.PrintWriter) }
+abstract class CommandRegistry { abstract fun registerCommand(name: String, commandFactory: () -> Command) }
+''',
+    'ClickNotifier.kt': '''package com.android.systemui.statusbar
+abstract class NotificationClickNotifier {
+ abstract fun onNotificationActionClick(key: String, actionIndex: Int, action: android.app.Notification.Action,
+  visibility: com.android.internal.statusbar.NotificationVisibility, generatedByAssistant: Boolean)
+}
+''',
+    'NotificationVisibility.java': '''package com.android.internal.statusbar;
+public class NotificationVisibility {
+ public enum NotificationLocation { LOCATION_MAIN_AREA }
+ public static NotificationVisibility obtain(String key, int rank, int count, boolean visible, NotificationLocation location) { return null; }
+}
+''',
+    'NotificationEntries.java': '''package com.android.systemui.statusbar.notification.collection;
+public abstract class NotificationEntry extends PipelineEntry {
+ public abstract String getKey();
+ public abstract android.service.notification.StatusBarNotification getSbn();
+ public abstract com.android.systemui.statusbar.notification.row.ExpandableNotificationRow getRow();
+ public abstract boolean isClearable();
+ public abstract boolean isBubble();
+ public abstract boolean isRowDismissed();
+ public abstract kotlinx.coroutines.flow.StateFlow<Boolean> isSensitive();
+}
+''',
+    'PipelineEntries.kt': '''package com.android.systemui.statusbar.notification.collection
+abstract class PipelineEntry
+abstract class GroupEntry : PipelineEntry() { abstract val summary: NotificationEntry?; abstract val children: List<NotificationEntry> }
+abstract class BundleEntry : PipelineEntry() { abstract val children: List<PipelineEntry> }
+abstract class NotifPipeline { abstract fun addOnAfterRenderListListener(listener: com.android.systemui.statusbar.notification.collection.listbuilder.OnAfterRenderListListener) }
+''',
+    'OnAfterRender.java': '''package com.android.systemui.statusbar.notification.collection.listbuilder;
+public interface OnAfterRenderListListener { void onAfterRenderList(java.util.List<com.android.systemui.statusbar.notification.collection.PipelineEntry> entries); }
+''',
+    'Row.java': '''package com.android.systemui.statusbar.notification.row;
+public abstract class ExpandableNotificationRow { public abstract boolean canViewBeDismissed(); public abstract void performDismiss(boolean fromAccessibility); }
+''',
+    'ActivityStarterN.kt': '''package com.android.systemui.statusbar.notification
+interface NotificationActivityStarter {
+ fun onNotificationClicked(entry: com.android.systemui.statusbar.notification.collection.NotificationEntry,
+  row: com.android.systemui.statusbar.notification.row.ExpandableNotificationRow)
+}
+''',
+    'SharedContainer.kt': '''package com.android.systemui.statusbar.notification.stack.ui.view
+class SharedNotificationContainer(context: android.content.Context) : androidx.constraintlayout.widget.ConstraintLayout(context)
+''',
+    'SharedContainerVm.kt': '''package com.android.systemui.statusbar.notification.stack.ui.viewmodel
+abstract class SharedNotificationContainerViewModel { abstract val isOnLockscreenWithoutShade: kotlinx.coroutines.flow.Flow<Boolean> }
 ''',
     'Lifecycle.kt': '''package com.android.systemui.lifecycle
 fun android.view.View.repeatWhenAttached(coroutineContext: kotlin.coroutines.CoroutineContext = kotlin.coroutines.EmptyCoroutineContext,
@@ -61,11 +137,13 @@ open class ConstraintLayout(context: android.content.Context) : android.view.Vie
 }
 open class ConstraintSet {
  companion object { const val PARENT_ID = 0; const val MATCH_CONSTRAINT = 0; const val WRAP_CONTENT = -2
-  const val START = 6; const val END = 7; const val TOP = 3; const val BOTTOM = 4 }
+  const val START = 6; const val END = 7; const val TOP = 3; const val BOTTOM = 4
+  const val VISIBILITY_MODE_IGNORE = 1 }
  fun clear(viewId: Int, anchor: Int) {}
  fun constrainWidth(viewId: Int, width: Int) {}
  fun constrainHeight(viewId: Int, height: Int) {}
  fun constrainMaxHeight(viewId: Int, height: Int) {}
+ fun setVisibilityMode(viewId: Int, visibilityMode: Int) {}
  fun connect(startID: Int, startSide: Int, endID: Int, endSide: Int) {}
  fun connect(startID: Int, startSide: Int, endID: Int, endSide: Int, margin: Int) {}
 }
@@ -76,6 +154,7 @@ object PathParser { @JvmStatic fun createPathFromPathData(pathData: String): and
     'HiddenApi.kt': '''package com.android.systemui.taku.lockscreen
 // Hidden in android.jar, public to platform SystemUI; a member in the real build shadows this extension.
 fun android.app.WallpaperManager.getBitmapAsUser(userId: Int, hardware: Boolean, which: Int): android.graphics.Bitmap? = TODO()
+fun android.content.Context.startActivityAsUser(intent: android.content.Intent, user: android.os.UserHandle): Unit = TODO()
 ''',
     'KeyguardModels.kt': '''package com.android.systemui.plugins.keyguard
 class VRect
@@ -153,7 +232,7 @@ def main():
         sources = [str(path) for path in sorted(SOURCES.rglob('*.kt'))]
         command = [str(args.kotlinc), '-nowarn', '-jvm-target', '17', '-d', str(Path(temp) / 'out'),
                    '-classpath', f'{args.android_jar}:{args.coroutines_jar}', *sources,
-                   *[str(path) for path in sorted(doubles.glob('*.kt'))]]
+                   *[str(path) for path in sorted(doubles.iterdir()) if path.suffix in ('.kt', '.java')]]
         subprocess.run(command, check=True)
     print(f'typecheck ok: {len(sources)} owned sources')
 

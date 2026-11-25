@@ -3,7 +3,7 @@
   "repository": "frameworks/base",
   "revision": "7f6de40b6429462d47ba9ba351b99943269c8067",
   "patch": "systemui-lockscreen.patch",
-  "patchSha256": "6c64d7ddf118ec8be733c8afeccac2a7906158e3a5eaeaa87318581d82add48a",
+  "patchSha256": "9c2490e679f1ba354f2cfc47db6cfad73fa15c4da2cb47ab1c655e79c756c86f",
   "files": [
     {
       "path": "packages/SystemUI/src/com/android/keyguard/dagger/ClockRegistryModule.java",
@@ -31,9 +31,20 @@
       "afterSha256": "73570ea9499bdd3d88ea53b0a46e1404569a8d8c2bc25bd2809d8d72194909ff"
     },
     {
+      "path": "packages/SystemUI/src/com/android/systemui/shade/NotificationPanelViewController.java",
+      "beforeSha256": "772ee07f333ec5109bb53f28f8121390c59c509d33846a4bd76e96d689554dc1",
+      "afterSha256": "e8f05be368ef7fbd6a951e7d9c5482531c7eb9276e5cadeb14092de42d7a4377"
+    },
+    {
       "path": "packages/SystemUI/src/com/android/systemui/statusbar/notification/interruption/KeyguardNotificationVisibilityProvider.kt",
       "beforeSha256": "3898be6c43ca4a6b728b55df5fcedfc1e0b3bcee017761a02d0524bbf0b292e6",
       "afterSha256": "43ac579cac48894a748ec563650ca6361c4497d891548c9fa86db762d117eef8"
+    },
+    {
+      "path": "packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuAuthenticatedSections.kt",
+      "beforeSha256": null,
+      "afterSha256": "2c9036fe07e28def0ec72c20f44d28d495a7c3e0705fbfbb5b80bb68a2775c09",
+      "source": "system/lockscreen/src/com/android/systemui/taku/lockscreen/TakuAuthenticatedSections.kt"
     },
     {
       "path": "packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuClockContours.kt",
@@ -80,13 +91,13 @@
     {
       "path": "packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuKeyguardBlueprint.kt",
       "beforeSha256": null,
-      "afterSha256": "093c514ffaa9d7a869f8098974e75944c3635a7b32a76a49dcc2367152498f2f",
+      "afterSha256": "21e8aa58b558b6db23a72a77690380ac2d79704e981940be1737381eb16b9ba0",
       "source": "system/lockscreen/src/com/android/systemui/taku/lockscreen/TakuKeyguardBlueprint.kt"
     },
     {
       "path": "packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuLockscreenBackgroundView.kt",
       "beforeSha256": null,
-      "afterSha256": "d9f565d1030e8afafd4dccd13c3291cbcd91b9047daba699422caa478714f685",
+      "afterSha256": "ecf71116839e6750e741becdb33fb93086977d192e8f576240a463c0b438adb1",
       "source": "system/lockscreen/src/com/android/systemui/taku/lockscreen/TakuLockscreenBackgroundView.kt"
     },
     {
@@ -94,6 +105,30 @@
       "beforeSha256": null,
       "afterSha256": "98f57efc758dfc7f745619cdbc1cb647cea9d3c81da4e7ecc32abcbee2f7621c",
       "source": "system/lockscreen/src/com/android/systemui/taku/lockscreen/TakuLockscreenFonts.kt"
+    },
+    {
+      "path": "packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuLockscreenNotifications.kt",
+      "beforeSha256": null,
+      "afterSha256": "795d790a2927906533db8acb26b220c2127f8b33f7e02482e83e9c368f5a3464",
+      "source": "system/lockscreen/src/com/android/systemui/taku/lockscreen/TakuLockscreenNotifications.kt"
+    },
+    {
+      "path": "packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuNotificationCard.kt",
+      "beforeSha256": null,
+      "afterSha256": "f505797f5f711803a6b874dd71a1d43c4285be767fa623e71140732efa08f4af",
+      "source": "system/lockscreen/src/com/android/systemui/taku/lockscreen/TakuNotificationCard.kt"
+    },
+    {
+      "path": "packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuNotificationCardView.kt",
+      "beforeSha256": null,
+      "afterSha256": "58ec7d5a6d565ea9fcf69b252d9b2330727f5162d2070f9f91ee075650b5792d",
+      "source": "system/lockscreen/src/com/android/systemui/taku/lockscreen/TakuNotificationCardView.kt"
+    },
+    {
+      "path": "packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuNotificationListView.kt",
+      "beforeSha256": null,
+      "afterSha256": "934a0009d2f03a96d8df398f27d910321ba30d46ab008bce7d2747af4861c7dc",
+      "source": "system/lockscreen/src/com/android/systemui/taku/lockscreen/TakuNotificationListView.kt"
     },
     {
       "path": "packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuTallClockView.kt",

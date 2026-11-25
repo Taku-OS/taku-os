@@ -133,17 +133,8 @@ class TakuLockscreenBackgroundView(
         page.endRecording()
 
         val barHeight = barHeight()
-        val refraction = RuntimeShader(EDGE_REFRACTION).apply {
-            setFloatUniform("size", w.toFloat(), barHeight.toFloat())
-            setFloatUniform("dispersion", DISPERSION)
-            setFloatUniform("flare", FLARE)
-        }
         bar.setPosition(0, 0, w, barHeight)
-        // Blur first, then refract the blurred slice (createChainEffect applies the inner effect first).
-        bar.setRenderEffect(RenderEffect.createChainEffect(
-            RenderEffect.createRuntimeShaderEffect(refraction, "content"),
-            RenderEffect.createBlurEffect(dp(BAR_BLUR_DP), dp(BAR_BLUR_DP), Shader.TileMode.CLAMP),
-        ))
+        bar.setRenderEffect(barEffect(w, barHeight, dp(BAR_BLUR_DP)))
         bar.beginRecording().also { recording ->
             recording.translate(0f, -(h - barHeight).toFloat())
             recording.drawRenderNode(page)
@@ -172,6 +163,23 @@ class TakuLockscreenBackgroundView(
         const val BAR_HEIGHT_DP = 176f
         const val DISPERSION = 0.4f
         const val FLARE = 0.4f
+
+        /**
+         * The bottom bar's effect for a [width] × [height] slice: blur first, then refract the blurred
+         * slice (createChainEffect applies the inner effect first). Shared with the notification list,
+         * so cards scrolling under the bar get the same treatment as the wallpaper.
+         */
+        fun barEffect(width: Int, height: Int, blurRadius: Float): RenderEffect {
+            val refraction = RuntimeShader(EDGE_REFRACTION).apply {
+                setFloatUniform("size", width.toFloat(), height.toFloat())
+                setFloatUniform("dispersion", DISPERSION)
+                setFloatUniform("flare", FLARE)
+            }
+            return RenderEffect.createChainEffect(
+                RenderEffect.createRuntimeShaderEffect(refraction, "content"),
+                RenderEffect.createBlurEffect(blurRadius, blurRadius, Shader.TileMode.CLAMP),
+            )
+        }
 
         /**
          * Figma "Taku · Edge Refraction" (WGSL on a 90°-rotated node) in AGSL. In the rotated node uv.x

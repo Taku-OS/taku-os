@@ -113,8 +113,11 @@ Same pattern as the Dynamic Island (`system/island`, `image/island`):
 - Time and date follow device time, 12/24-hour preference and time zone. The date is localized;
   clock digits deliberately remain Latin 0–9, as in the phase-1 implementation.
 - The morph hooks the existing blueprint large/small-clock transition, only for TAKU; stock clock
-  transitions remain unchanged. Phase 1 still relies on notification-driven size selection, so
-  authentication with no notifications is not yet proof of the compact-state requirement.
+  transitions remain unchanged.
+- Size follows authentication, not notifications (phase 2). The clock is tall while locked and compact
+  once authenticated, even with no notifications. `TakuLockscreenPolicy.clockSize` is applied by the
+  panel hook (`NotificationPanelViewController.computeDesiredClockSizeForSingleShade`) and by the
+  notification section when authentication changes.
 - Source preparation and native test harness: `system/lockscreen/motion/README.md`.
 
 ### 4.4 Shortcuts
@@ -135,25 +138,46 @@ Same pattern as the Dynamic Island (`system/island`, `image/island`):
 
 ### 4.5 Notification cards (authenticated state)
 
-- Source: the keyguard-filtered notification list (the finalize filter in `KeyguardCoordinator` /
-  `KeyguardNotificationVisibilityProvider` already applies lock-screen settings and `VISIBILITY_SECRET`).
-- Locked state: hidden entirely. Authenticated state: shown with full content.
-- Rendering: native SystemUI cards in the Figma style, one card per notification, flat list, newest first,
-  scrolling under the bottom bar. No pagination dots.
-- Actions use the stock paths so system behaviour is unchanged:
-  - tap → `StatusBarNotificationActivityStarter` (opens the app; bouncer first when needed; click
-    statistics and auto-cancel as usual);
-  - swipe to dismiss → `NotifCollection` dismissal with user statistics;
-  - inline reply → `NotificationRemoteInputManager` (always requires authentication on a secure keyguard).
-- Pulling down the shade keeps the stock notification shade.
+- Source: the keyguard-filtered shade list from the notification pipeline (`NotifPipeline`
+  after-render list). The stock finalize filters have already applied lock-screen settings and
+  `VISIBILITY_SECRET`. Groups and bundles contribute their children, so there is one card per
+  notification, newest first by post time. There is no grouping and no pagination.
+- Locked state: hidden entirely. Authenticated state: full content. A notification that is still
+  sensitive (for example a locked work profile) shows its public version, or only the app.
+- Layout (`979:574`):
+  - Compact card (`979:680`): 72 dp tall, a 48 dp picture, the title and one line below it. The
+    picture is the large icon, or the app icon when there is none. A large icon adds a 16 dp app
+    icon to the second line.
+  - Expanded card (`979:642`): used for conversations (MessagingStyle) and notifications with buttons.
+    It has an app header, then a message panel with the sender picture, sender, time, conversation
+    name and up to 4 lines of text, then up to two buttons. The last button is primary.
+- Cards start 32 dp below the compact clock and scroll under the bottom bar. The slice under the bar
+  gets the same blur and edge refraction as the wallpaper.
+- Actions use the stock paths:
+  - Tap goes through `NotificationActivityStarter.onNotificationClicked`. That handles the content
+    intent, auto-cancel, bubbles, work challenge and click statistics.
+  - Swiping sideways calls `ExpandableNotificationRow.performDismiss`, with the stock dismissibility check.
+  - Buttons: activity intents go through `ActivityStarter.startPendingIntentDismissingKeyguard`; other
+    intents are sent directly. Either way the click is reported with `NotificationClickNotifier`.
+    Reply (RemoteInput) and contextual actions are not shown yet; the reply composer (`979:1033`)
+    comes later. Pulling down the shade still offers stock inline reply.
+- While the lock screen shows without the shade, the stock notification stack is made INVISIBLE,
+  because it sits above the keyguard views and would draw and take touches over the cards. Pulling the
+  shade down shows the stock stack, unchanged.
+- Touch: on the lock screen the window root turns vertical drags into the shade (down) or unlock (up).
+  The list keeps a gesture only when it starts on a card and the list can scroll that way. Empty
+  space, the bar zone and drags past either end of the list stay with the stock gestures. Taps and
+  buttons pass the stock falsing check.
 
 ### 4.6 Taku AI button (authenticated state)
 
-- `979:459`: 56 dp circle, `#1B1B1B`, white "eyes" (two 6 × 16 dp bars, 6 dp apart).
-- Opens Taku through the existing assistant session. Android allows the assistant window
-  (`TYPE_VOICE_INTERACTION`) above the lock screen; Taku's current "refuse while locked" checks are policy
-  and are relaxed only for the authenticated state.
-- Its position is resolved against the runtime UDFPS location so it never overlaps the fingerprint icon.
+- `979:739`: 56 dp circle, `#1B1B1B`, white "eyes": two 6 × 16 dp bars, 6 dp apart, centred 7 dp left
+  of and 4 dp above the button's centre. It is centred in the shortcut row, on the shortcuts' baseline.
+- Shown only in the authenticated state. A tap leaves the lock screen (no bouncer, because the user has
+  already authenticated). Then it opens Taku through Taku Home's existing `ACTION_ASSIST` entry, which
+  only opens once the keyguard is gone. No assistant policy is relaxed.
+- Deferred: placement against the runtime UDFPS location. On devices without UDFPS, the stock unlocked
+  padlock sits directly above the button.
 
 ### 4.7 Authentication and messages
 
@@ -168,10 +192,14 @@ Same pattern as the Dynamic Island (`system/island`, `image/island`):
 | Clock face | `settings get/put secure lock_screen_custom_clock_face` |
 | Face unlock stays on lock screen | `settings get/put secure face_unlock_dismisses_keyguard` |
 | Lock-screen notification policy (stock) | `settings ... secure lock_screen_show_notifications`, `lock_screen_allow_private_notifications`, `lock_screen_show_silent_notifications` |
-| Shortcuts | `cmd statusbar lockscreen shortcuts list|get|set|clear` (new) |
-| Lock-screen state (locked / authenticated / bouncer) | `cmd statusbar lockscreen state` (new) |
+| Lock-screen state | `cmd statusbar lockscreen state` |
+| Cards, open, dismiss, buttons, Taku | `cmd statusbar lockscreen notifications`, `open KEY`, `dismiss KEY`, `action KEY INDEX`, `taku` |
+| Shortcuts | `cmd statusbar lockscreen shortcuts list|get|set|clear` (phase 3) |
 
-All new commands are documented in the preinstalled agent documentation and verified on an isolated
+The command and the cards share `TakuLockscreenNotifications`: the same list, the same checks and the
+same stock paths. Errors are `KEYGUARD_NOT_SHOWING`, `LOCKED`, `NOT_FOUND`, `NOT_READY`,
+`NOT_CLICKABLE`, `NOT_DISMISSABLE`, `INVALID_ACTION`, `CANCELED`, `TAKU_UNAVAILABLE` and `USAGE`.
+All commands are documented in the preinstalled agent documentation and are verified on an isolated
 emulator.
 
 ## 6. First unlock after reboot
@@ -193,7 +221,8 @@ Plan:
 1. **Frame**: Taku blueprint; background and bottom bar; date; clock; Flashlight / Camera defaults and
    styling; kept authentication sections; locked vs authenticated state plumbing; default lock wallpaper;
    patch tooling and host type checks.
-2. **Notification cards and Taku button** in the authenticated state.
+2. **Notification cards and Taku button** in the authenticated state; compact clock on authentication;
+   `cmd statusbar lockscreen` for state, cards and the Taku entry.
 3. **Shortcut customisation**: Taku "Open app" shortcut, agent shell command.
 4. **First unlock and unlock animation** (section 6).
 5. Later: status chips / widgets, media, wallpaper choice, Dynamic Island on the lock screen.
@@ -213,5 +242,9 @@ revision; emulator (`image/emulator`) and Pixel 9 runs recorded separately. Auth
 ## 9. Open items
 
 - Visual sign-off of the font-derived elongated digits 1, 2, 4, 5, 6, 7, 8.
-- Compact clock and card specs from frames 1–6 (to be taken from `979:574` / `979:835` in phase 2).
-- Pixel 9 UDFPS sensor position (runtime value; check with `dumpsys fingerprint`).
+- Pixel 9 UDFPS sensor position (runtime value; check with `dumpsys fingerprint`); deferred. The Taku
+  button and the stock lock icon are placed independently until then.
+- Launch animation on a card tap starts from the hidden stock row, not the card. Check it on the
+  emulator.
+- Later card features from the design: "Relevant" badge, Taku reply and "Add to tasks" buttons, rich
+  cards (`979:835` map), status chips, the reply composer and the Taku suggestion sheet (`979:746`).

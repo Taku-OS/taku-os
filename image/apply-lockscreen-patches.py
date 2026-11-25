@@ -17,6 +17,7 @@ HOOKS = {
     SYSTEMUI + 'com/android/systemui/keyguard/domain/interactor/KeyguardBlueprintInteractor.kt',
     SYSTEMUI + 'com/android/systemui/keyguard/data/repository/KeyguardBlueprintRepository.kt',
     SYSTEMUI + 'com/android/keyguard/dagger/ClockRegistryModule.java',
+    SYSTEMUI + 'com/android/systemui/shade/NotificationPanelViewController.java',
     SYSTEMUI + 'com/android/systemui/statusbar/notification/interruption/KeyguardNotificationVisibilityProvider.kt',
 }
 

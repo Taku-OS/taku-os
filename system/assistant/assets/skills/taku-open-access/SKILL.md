@@ -891,6 +891,40 @@ an Agent cannot yet read or change the shortcuts. A shell command for this is pl
 always goes through the user's own PIN, pattern, password, face or fingerprint. An Agent cannot
 bypass or perform authentication.
 
+After the user authenticates, the lock screen shows the compact clock, one card per notification
+(newest first) and the Taku button. While it is locked, it shows only the date, the tall clock and
+the shortcuts. `cmd statusbar lockscreen` reads and operates the same cards. It uses the same list,
+checks and stock SystemUI paths as a tap, a swipe or a button press. Every reply is one JSON line.
+`ok:false,error:CODE` is a failure.
+
+```sh
+cmd statusbar lockscreen state
+# {ok, state:{keyguardShowing, authenticated, dozing, available, notificationCount}}
+# available = keyguardShowing && authenticated: only then are cards and Taku shown or operable.
+cmd statusbar lockscreen notifications
+# {ok, state, notifications:[{key, package, app, title, text, context, when, conversation,
+#  sensitive, dismissable, clickable, layout:"compact"|"expanded", actions:[{index, title}]}]}
+# Empty while locked. A sensitive card carries the app's public version or only the app name.
+cmd statusbar lockscreen open 'KEY'            # tap: opens the notification and leaves the lock screen
+cmd statusbar lockscreen dismiss 'KEY'         # swipe: only when dismissable is true
+cmd statusbar lockscreen action 'KEY' INDEX    # a card button; INDEX from actions[].index
+cmd statusbar lockscreen taku                  # Taku button: leaves the lock screen, opens Taku
+```
+
+Take KEY and INDEX from `notifications`. Never build keys yourself. Only the listed buttons are
+accepted. Reply (RemoteInput) and contextual actions are not exposed here. Errors:
+- `KEYGUARD_NOT_SHOWING`: the phone is already unlocked. Use the normal notification and app paths.
+- `LOCKED`: the user has not authenticated.
+- `NOT_FOUND`: the key or index is no longer listed; re-read `notifications`.
+- `NOT_READY`: the notification is still loading; retry.
+- `NOT_CLICKABLE`: the notification has no intent to open.
+- `NOT_DISMISSABLE`, `INVALID_ACTION`, `CANCELED`: the app refused, or the intent is gone.
+- `TAKU_UNAVAILABLE`, `USAGE`: Taku is not installed, or the arguments are wrong.
+
+`open`, `taku` and buttons that start an activity leave the lock screen like the matching tap, so
+only run them when the user asked. If SystemUI could not register the `lockscreen` name, the same commands are under
+`cmd statusbar taku-lockscreen`.
+
 ## Location arrival events
 
 The Agent shell can register a time-limited arrival watch. Choose the destination with
