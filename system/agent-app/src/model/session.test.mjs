@@ -82,6 +82,25 @@ test('English and historical attachment envelopes preserve labels without exposi
   }
 });
 
+test('a plugin attached with @ shows as a label, not as words the user typed', () => {
+  const notes = ['The user attached the plugin "Figma" (id: org.example.figma) to this message. Prefer this plugin\'s tools for this request: draw, export.',
+    'The user attached the plugin "Notion" (id: notion) to this message.'];
+  const result = projectSession({thread: {id: 't', turns: [{id: '1', status: 'completed', items: [
+    {id: 'u', type: 'userMessage', content: [{type: 'text', text: 'Design a card'}, ...notes.map(text => ({type: 'text', text}))]},
+  ]}]}});
+  assert.equal(result.blocks[0].text, 'Design a card');
+  assert.deepEqual(result.blocks[0].attachments, ['@Figma', '@Notion']);
+});
+
+test('text that only resembles the plugin note stays visible', () => {
+  const text = 'The user attached the plugin "Figma" to this message.';
+  const result = projectSession({thread: {id: 't', turns: [{id: '1', status: 'completed', items: [
+    {id: 'u', type: 'userMessage', content: [{type: 'text', text}]},
+  ]}]}});
+  assert.equal(result.blocks[0].text, text);
+  assert.deepEqual(result.blocks[0].attachments, []);
+});
+
 test('streaming retains one CJK character and only drops incomplete surrogate pairs', () => {
   const input = text => ({thread: {id: 't', turns: [{id: '1', status: 'inProgress', items: [{id: 'a', type: 'agentMessage', text}]}]}, native: {activeTurnId: '1'}});
   assert.equal(projectSession(input('好')).blocks[0].text, '好');

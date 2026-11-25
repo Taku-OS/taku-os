@@ -147,7 +147,11 @@ function userContent(item: Json): {text: string; attachments: string[]} {
       const value = string(part.text);
       const attachment = /^User-selected attachment: (.+)\nLocal path: \/data\/user\/0\/org\.agentos\.assistant\/files\/composer-attachments\//.exec(value)
         || /^用户选择的附件：(.+)\n本机路径：\/data\/user\/0\/org\.agentos\.assistant\/files\/composer-attachments\//.exec(value);
-      if (attachment) attachments.push(attachment[1]); else if (value) text.push(value);
+      // The runtime's note for a plugin picked with `@` (ComposerInput.appendPlugins) shows as `@Name`, not typed text.
+      const plugin = /^The user attached the plugin "(.*)" \(id: [A-Za-z0-9_.@:-]{1,128}\) to this message\.( Prefer this plugin's tools for this request: .*\.)?$/s.exec(value);
+      if (attachment) attachments.push(attachment[1]);
+      else if (plugin) attachments.push(`@${plugin[1]}`);
+      else if (value) text.push(value);
     } else if (part.type === 'image' || part.type === 'localImage') {
       // Keep attachment provenance without leaking a private local filesystem path.
       attachments.push('image');

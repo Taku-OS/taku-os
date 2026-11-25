@@ -40,8 +40,11 @@ import {TakuHomePage} from '../chat/TakuHomePage';
 import {sheetSpace, type ImeGeometry} from '../model/sheetGeometry';
 import {emptyPreview, PREVIEW_FRESH_MS, PREVIEW_LOAD_TIMEOUT_MS, PREVIEW_REFRESH_MS, previewReducer} from '../model/preview';
 import {rowDemand, sameBand, visibleBand, type CardDemand, type RowBand} from '../chat/cardDemand';
-import {ComposerTools} from '../chat/ComposerTools';
-import type {ComposerAttachment, ComposerRecovery} from '../hooks/composerDraft';
+import {AttachMenu, PluginChip, PluginSuggestions, type AttachChoice} from '../chat/ComposerMenus';
+import {ChromeIcon} from '../chat/ChromeIcon';
+import {insertMentionTrigger, mentionAt, removeMention} from '../chat/pluginMention';
+import type {ComposerAttachment, ComposerPlugin, ComposerRecovery} from '../hooks/composerDraft';
+import type {PluginRepository} from '../plugins/contracts';
 import {attachmentPreviewUri} from '../native/composerPicker';
 import type {ComposerPickerKind} from '../native/composerPicker';
 
@@ -71,6 +74,12 @@ export interface AgentChatScreenProps {
   onRestoreSavedDraft: (id: string) => void;
   onPickAttachment: (kind: ComposerPickerKind) => void;
   onRemoveAttachment: (id: string) => void;
+  /** Plugins attached to the next message with `@` (Figma 1-3); the native draft owns them. */
+  plugins: readonly ComposerPlugin[];
+  onAddPlugin: (pluginId: string) => void;
+  onRemovePlugin: (pluginId: string) => void;
+  /** Where `@` suggestions come from; the native plugin manager (as Plugin Market) by default. */
+  pluginRepository?: PluginRepository;
   conversationKey?: string;
   optimisticSubmissions?: readonly OptimisticSubmission[];
   pendingSubmission?: {threadId: string; text: string; requestId: string; action: 'sendMessage' | 'steer' | 'continue'} | null;
@@ -452,7 +461,13 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
   };
   const running = props.session?.running;
   const hasDraft = !!props.draft.trim() || props.attachments.length > 0;
-  const [composerTools, setComposerTools] = useState<string | null>(null);
+  // The "+" menu (1-1) belongs to the conversation it was opened in.
+  const [attachMenu, setAttachMenu] = useState<string | null>(null);
+  const input = useRef<React.ComponentRef<typeof TextInput>>(null);
+  const [inputFocused, setInputFocused] = useState(false);
+  const [caretAt, setCaretAt] = useState<{threadId: string; caret: number} | null>(null);
+  // A mention the user dismissed with Back stays closed until its `@` changes.
+  const [dismissedMention, setDismissedMention] = useState<string | null>(null);
   // Only a send in flight or a queued task holds the send button back.
   const sendHeld = props.busy || props.loading || !!props.session?.queued;
   const [insertedCaret, setInsertedCaret] = useState<{threadId: string; text: string; caret: number} | null>(null);
@@ -512,6 +527,34 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
   const liveDisconnected = voice?.lifecycle === 'disconnected' || voice?.lifecycle === 'failed';
   const beginLiveTalk = () => { void live.start().catch(error => onVoiceFailure(failureOf(error?.code))); };
   const caret = insertedCaret?.threadId === props.draftSessionId && insertedCaret.text === props.draft ? insertedCaret.caret : null;
+  // Figma 1-2: an `@` at a word start in the focused composer opens the plugin suggestions.
+  const caretNow = caretAt?.threadId === props.draftSessionId ? Math.min(caretAt.caret, props.draft.length) : props.draft.length;
+  const typedMention = inputFocused && !dictating && !voice && !props.loading && !props.busy ? mentionAt(props.draft, caretNow) : null;
+  const mentionKey = typedMention ? `${props.draftSessionId}/${typedMention.start}` : null;
+  const mention = typedMention && mentionKey !== dismissedMention ? typedMention : null;
+  const placeCaret = (text: string, at: number) => {
+    setInsertedCaret({threadId: props.draftSessionId, text, caret: at});
+    setCaretAt({threadId: props.draftSessionId, caret: at});
+  };
+  // Picking a plugin replaces the typed `@query` with the plugin's chip (Figma 1-3).
+  const pickPlugin = (pluginId: string) => {
+    if (mention) {
+      const next = removeMention(props.draft, mention);
+      props.onDraftChange(next.text);
+      placeCaret(next.text, next.caret);
+    }
+    props.onAddPlugin(pluginId);
+  };
+  const chooseAttachment = (choice: AttachChoice) => {
+    setAttachMenu(null);
+    if (choice !== 'plugins') { props.onPickAttachment(choice); return; }
+    // Plugins types the `@` itself, so the suggestions open where the user was writing.
+    const next = insertMentionTrigger(props.draft, caretNow);
+    props.onDraftChange(next.text);
+    placeCaret(next.text, next.caret);
+    setDismissedMention(null);
+    input.current?.focus();
+  };
   useEffect(() => {
     if (!dictating) return;
     const back = BackHandler.addEventListener('hardwareBackPress', () => { cancelDictation(); return true; });
@@ -528,6 +571,16 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
     const back = BackHandler.addEventListener('hardwareBackPress', () => { setLayer(null); return true; });
     return () => back.remove();
   }, [layer]);
+  useEffect(() => {
+    if (!attachMenu && !mentionKey) return;
+    const back = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (attachMenu) setAttachMenu(null);
+      else if (mentionKey && mentionKey !== dismissedMention) setDismissedMention(mentionKey);
+      else return false;
+      return true;
+    });
+    return () => back.remove();
+  }, [attachMenu, mentionKey, dismissedMention]);
   const [replyMenu, setReplyMenu] = useState<ReplyMenuTarget | null>(null);
   // The long-pressed reply's card, when it may offer Panels actions (a panel reply, or pinned).
   const [menuCard, setMenuCard] = useState<{id: string; pinned: boolean} | null>(null);
@@ -546,6 +599,56 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
       () => { if (Platform.OS === 'android') ToastAndroid.show(ct('panelActionFailed'), ToastAndroid.SHORT); });
   };
   const closeReplyMenu = useCallback(() => setReplyMenu(null), []);
+  // Figma 1-2 / 1-3: with an `@` open or a plugin attached, the composer stacks its entry row over its actions.
+  const composerExpanded = !dictating && (!!mention || props.plugins.length > 0);
+  const plusButton = <Pressable testID="composer-tools" accessibilityRole="button" accessibilityLabel={ct('attachMenu')}
+    accessibilityState={{expanded: attachMenu === props.draftSessionId, disabled: props.busy || props.loading}}
+    disabled={props.busy || props.loading} onPress={() => setAttachMenu(attachMenu === props.draftSessionId ? null : props.draftSessionId)}
+    style={({pressed}) => [styles.composerAction, pressed && styles.pressed]}>
+    <ChromeIcon name="plus" size={18}/>
+  </Pressable>;
+  const messageInput = <TextInput key={props.draftSessionId} ref={input} testID="message-input" accessibilityLabel={running ? t('addRequirement') : ct('ask')}
+    placeholder={props.plugins.length ? '' : running ? t('addRequirement') : ct('ask')}
+    placeholderTextColor={chatColors.placeholder} value={props.draft} onChangeText={props.onDraftChange} multiline textAlignVertical={multilineComposer || composerExpanded ? 'top' : 'center'}
+    selection={caret === null ? undefined : {start: caret, end: caret}}
+    onSelectionChange={event => {
+      const range = event.nativeEvent.selection;
+      selection.current = {threadId: props.draftSessionId, range};
+      setCaretAt({threadId: props.draftSessionId, caret: range.end});
+      if (caret !== null && range.start === caret && range.end === caret) setInsertedCaret(null);
+    }}
+    // Backspace at the very start of the entry removes the last attached plugin, as with a chip.
+    onKeyPress={event => {
+      const range = selection.current?.threadId === props.draftSessionId ? selection.current.range : null;
+      const last = props.plugins.at(-1);
+      if (event.nativeEvent.key === 'Backspace' && last && range?.start === 0 && range.end === 0) props.onRemovePlugin(last.id);
+    }}
+    editable={!props.loading && !props.busy} onFocus={() => { setInputFocused(true); void showKeyboard().catch(() => {}); }}
+    onBlur={() => setInputFocused(false)}
+    onContentSizeChange={event => setComposerHeight(Math.max(40, Math.min(144, Math.ceil(event.nativeEvent.contentSize.height))))}
+    style={[chatType.bodyLg(language === 'zh' || containsChinese(props.draft)), styles.input, composerExpanded && styles.inputExpanded,
+      {height: Math.min(composerHeight, composerMaximum)}]} maxLength={16000}/>;
+  const trailingActions = <>
+    {(running || props.session?.queued) && <Pressable testID="stop-turn" accessibilityRole="button" accessibilityLabel={t(props.session?.queued ? 'cancelQueued' : 'stop')}
+      accessibilityState={{disabled: props.busy}} disabled={props.busy} onPress={props.onStop}
+      style={({pressed}) => [styles.composerAction, styles.stop, props.busy && styles.sendDisabled, pressed && styles.stopPressed]}><View style={styles.stopGlyph}/></Pressable>}
+    {speaking && <Pressable testID="stop-reply-speech" accessibilityRole="button" accessibilityLabel={ct('replySpeechStop')}
+      onPress={stopReading} style={({pressed}) => [styles.composerAction, styles.stop, pressed && styles.stopPressed]}><View style={styles.stopGlyph}/></Pressable>}
+    <Pressable testID="voice-input" accessibilityRole="button" accessibilityLabel={ct('voice')} accessibilityHint={ct('voiceSettingsHint')}
+      accessibilityState={{disabled: sendHeld || props.draftRevision === null || !voiceEnabled}} disabled={sendHeld || props.draftRevision === null || !voiceEnabled}
+      onLongPress={() => { void openVoiceSettings().catch(() => onVoiceFailure('unavailable')); }}
+      onPress={dictation.start} style={({pressed}) => [styles.composerAction, pressed && styles.pressed]}><ChromeIcon name="mic" size={18}/></Pressable>
+    {hasDraft && <Pressable testID="send-message" accessibilityRole="button" accessibilityLabel={t('send')} accessibilityState={{busy: props.busy}}
+      onPress={() => { if (!sendHeld) sendAndFollow(); }} style={({pressed}) => [styles.composerAction, styles.send, pressed && {opacity: 0.8}]}>
+      {/* Figma 1-3 send (node 1:3663): #1B1B1B arrow on Main/Brand (issue #32 C3). */}
+      {props.busy ? <ActivityIndicator size="small" color={homeColors.icon}/> : <ChatIcon name="arrowUp" color={homeColors.icon} size={18}/>}
+    </Pressable>}
+    {!hasDraft && <Pressable testID="live-talk-start" accessibilityRole="button" accessibilityLabel={ct('liveTalk')}
+      disabled={!voiceEnabled} onPress={() => {
+        Keyboard.dismiss();
+        beginLiveTalk();
+      }} style={styles.composerAction}><ChromeIcon name="voice" size={18}/></Pressable>}
+  </>;
   return <KeyboardAvoidingView style={styles.flex} behavior="padding" enabled={!nativeIme && keyboardVisible}
     onLayout={event => {if (nativeIme) setMeasuredHostHeight(event.nativeEvent.layout.height);}}>
     <StatusBar style={getChatAppearance() === 'dark' ? 'light' : 'dark'}/>
@@ -612,13 +715,13 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
       {pendingSubmission && !props.busy && <PendingSubmissionCard key={`${pendingSubmission.threadId}/${pendingSubmission.requestId}`} text={pendingSubmission.text} language={language} onRetry={props.onRetrySubmission} onContinue={props.onContinueWithoutResending}/>}
       </View>}/>
     </EdgeBlur>
-    {/* Figma 2-1 title row: Taku Home (history for now), the fixed title, collapse to the island. */}
+    {/* Chat Polish 1-0 (1628:1774) title row: menu (Taku Home), the fixed "Taku" title, collapse to the island. */}
     <View style={[styles.header, {top: insets.top}]} pointerEvents="box-none">
-      <Text accessibilityRole="header" numberOfLines={1} style={[chatType.bodyXlMedium(), styles.title]}>{live.active ? ct('liveTalk') : props.session?.title || chatTitle}</Text>
-      <Pressable testID="open-history" accessibilityRole="button" accessibilityLabel={t('history')} onPress={openHome} hitSlop={8}
-        style={({pressed}) => [styles.headerButton, pressed && styles.pressed]}><VoiceIcon name="home" size={24}/></Pressable>
-      <Pressable testID="collapse-chat" accessibilityRole="button" accessibilityLabel={ct('collapseToIsland')} onPress={collapseChat} hitSlop={8}
-        style={({pressed}) => [styles.headerButton, pressed && styles.pressed]}><VoiceIcon name="collapse" size={24}/></Pressable>
+      <Text accessibilityRole="header" numberOfLines={1} style={[chatType.bodyLg(), styles.title]}>{chatTitle}</Text>
+      <Pressable testID="open-history" accessibilityRole="button" accessibilityLabel={ct('openMenu')} onPress={openHome} hitSlop={4}
+        style={({pressed}) => [styles.headerButton, pressed && styles.headerButtonPressed]}><ChromeIcon name="burger"/></Pressable>
+      <Pressable testID="collapse-chat" accessibilityRole="button" accessibilityLabel={ct('collapseToIsland')} onPress={collapseChat} hitSlop={4}
+        style={({pressed}) => [styles.headerButton, pressed && styles.headerButtonPressed]}><ChromeIcon name="collapse"/></Pressable>
     </View>
     {!!error && <View style={[styles.error, styles.errorBar, {top: headerBottom}]}><Label role="meta" style={styles.errorText}>{error}</Label><IconButton name="refresh" label={t('retry')} color={chatColors.icon} onPress={props.onRefresh}/></View>}
     {voice ? <View style={[styles.livePanel, {bottom: composerBottom}]} onLayout={event => setComposerBox(event.nativeEvent.layout.height)}>
@@ -654,49 +757,25 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
         <Label role="meta" numberOfLines={1} style={styles.attachmentLabel}>{item.name}</Label><Icon name="close" size={16} color={chatColors.icon}/>
       </Pressable>)}
     </ScrollView>}
-    <View style={[styles.composer, multilineComposer && !dictating && styles.composerMultiline, {alignItems: multilineComposer && !dictating ? 'flex-end' : 'center'}]}>
-      <ComposerGlassRim multiline={multilineComposer && !dictating}/>
-      {!dictating && <Pressable testID="composer-tools" accessibilityRole="button" accessibilityLabel={language === 'zh' ? '输入工具' : 'Composer tools'}
-        disabled={props.busy || props.loading} onPress={() => { Keyboard.dismiss(); setComposerTools(props.draftSessionId); }} style={styles.composerAction}>
-        <VoiceIcon name="plus" size={18}/>
-      </Pressable>}
-      {dictating ? <DictationBar transcript={dictation.transcript} placeholder={ct('listening')} levels={dictation.levels}
-        finishing={dictation.phase === 'finishing'} stopLabel={ct('stopVoice')} onStop={dictation.stop}/> : <>
-      <TextInput key={props.draftSessionId} testID="message-input" accessibilityLabel={running ? t('addRequirement') : ct('ask')} placeholder={running ? t('addRequirement') : ct('ask')}
-        placeholderTextColor={chatColors.placeholder} value={props.draft} onChangeText={props.onDraftChange} multiline textAlignVertical={multilineComposer ? 'top' : 'center'}
-        selection={caret === null ? undefined : {start: caret, end: caret}}
-        onSelectionChange={event => {
-          const range = event.nativeEvent.selection;
-          selection.current = {threadId: props.draftSessionId, range};
-          if (caret !== null && range.start === caret && range.end === caret) setInsertedCaret(null);
-        }}
-        editable={!props.loading && !props.busy} onFocus={() => { void showKeyboard().catch(() => {}); }}
-        onContentSizeChange={event => setComposerHeight(Math.max(40, Math.min(144, Math.ceil(event.nativeEvent.contentSize.height))))}
-        style={[chatType.bodyLg(language === 'zh' || containsChinese(props.draft)), styles.input, {height: Math.min(composerHeight, composerMaximum)}]} maxLength={16000}/>
-      {(running || props.session?.queued) && <Pressable testID="stop-turn" accessibilityRole="button" accessibilityLabel={t(props.session?.queued ? 'cancelQueued' : 'stop')}
-        accessibilityState={{disabled: props.busy}} disabled={props.busy} onPress={props.onStop}
-        style={({pressed}) => [styles.composerAction, styles.stop, props.busy && styles.sendDisabled, pressed && styles.stopPressed]}><View style={styles.stopGlyph}/></Pressable>}
-      {speaking && <Pressable testID="stop-reply-speech" accessibilityRole="button" accessibilityLabel={ct('replySpeechStop')}
-        onPress={stopReading} style={({pressed}) => [styles.composerAction, styles.stop, pressed && styles.stopPressed]}><View style={styles.stopGlyph}/></Pressable>}
-      <Pressable testID="voice-input" accessibilityRole="button" accessibilityLabel={ct('voice')} accessibilityHint={ct('voiceSettingsHint')}
-        accessibilityState={{disabled: sendHeld || props.draftRevision === null || !voiceEnabled}} disabled={sendHeld || props.draftRevision === null || !voiceEnabled}
-        onLongPress={() => { void openVoiceSettings().catch(() => onVoiceFailure('unavailable')); }}
-        onPress={dictation.start} style={({pressed}) => [styles.composerAction, pressed && styles.pressed]}><VoiceIcon name="mic" size={18}/></Pressable>
-      {hasDraft && <Pressable testID="send-message" accessibilityRole="button" accessibilityLabel={t('send')} accessibilityState={{busy: props.busy}}
-            onPress={() => { if (!sendHeld) sendAndFollow(); }} style={({pressed}) => [styles.composerAction, styles.send, pressed && {opacity: 0.8}]}>
-            {/* Figma 1-3 send (node 1:3663): #1B1B1B arrow on Main/Brand (issue #32 C3). */}
-            {props.busy ? <ActivityIndicator size="small" color={homeColors.icon}/> : <ChatIcon name="arrowUp" color={homeColors.icon} size={18}/>}
-          </Pressable>}
-      {!hasDraft && <Pressable testID="live-talk-start" accessibilityRole="button" accessibilityLabel={ct('liveTalk')}
-        disabled={!voiceEnabled} onPress={() => {
-          Keyboard.dismiss();
-          beginLiveTalk();
-        }} style={styles.composerAction}><VoiceIcon name="voice" size={18}/></Pressable>}
-      </>}
+    {/* One tree for both layouts: the input keeps its place, so an `@` never remounts it or drops the keyboard. */}
+    <View style={[styles.composer, composerExpanded ? styles.composerExpanded : multilineComposer && !dictating && styles.composerMultiline]}>
+      <ComposerGlassRim multiline={!composerExpanded && multilineComposer && !dictating}/>
+      <View style={composerExpanded ? styles.composerEntry : [styles.composerRow, {alignItems: multilineComposer && !dictating ? 'flex-end' : 'center'}]}>
+        {!composerExpanded && !dictating && plusButton}
+        {composerExpanded && props.plugins.map(plugin => <PluginChip key={plugin.id} plugin={plugin} language={language} disabled={props.busy || props.loading}
+          onRemove={() => props.onRemovePlugin(plugin.id)}/>)}
+        {dictating ? <DictationBar transcript={dictation.transcript} placeholder={ct('listening')} levels={dictation.levels}
+          finishing={dictation.phase === 'finishing'} stopLabel={ct('stopVoice')} onStop={dictation.stop}/> : messageInput}
+        {!composerExpanded && !dictating && trailingActions}
+      </View>
+      {composerExpanded && <View style={styles.composerActions}>{plusButton}<View style={styles.composerTrailing}>{trailingActions}</View></View>}
     </View>
     </View>
-    {composerTools === props.draftSessionId && <ComposerTools key={composerTools} threadId={composerTools} language={language}
-      attachmentLimit={props.attachments.length >= 8} onPick={props.onPickAttachment} onClose={() => setComposerTools(null)}/>}
+    {mention && attachMenu !== props.draftSessionId && <PluginSuggestions language={language} query={mention.query}
+      bottom={composerBottom + composerBox + 8} exclude={props.plugins.map(plugin => plugin.id)} repository={props.pluginRepository}
+      onPick={plugin => pickPlugin(plugin.id)}/>}
+    {attachMenu === props.draftSessionId && <AttachMenu language={language} bottom={composerBottom + composerBox + 8}
+      attachmentLimit={props.attachments.length >= 8} onChoose={chooseAttachment} onClose={() => setAttachMenu(null)}/>}
     </>}
     {replyMenu?.threadId === props.draftSessionId && <ReplyMenu target={replyMenu} language={language} top={headerBottom} bottom={composerTop} screenWidth={dimensions.width}
       panel={menuCard ? {pinned: menuCard.pinned, pin: () => panelAction(pinCardToPanels, 'pinned'),
@@ -736,8 +815,10 @@ const styles = themedStyles(() => StyleSheet.create({
   root: {flex: 1, backgroundColor: colors.page}, flex: {flex: 1}, center: {textAlign: 'center'}, secondary: {color: colors.secondary},
   // Figma 2-1: 64 dp title row (16 dp padding around 32 dp buttons), title centred.
   header: {position: 'absolute', left: 0, right: 0, height: chatMetrics.header, paddingHorizontal: chatMetrics.side, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
-  headerButton: {width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center'}, pressed: {backgroundColor: chatColors.fillControl},
-  title: {position: 'absolute', left: 64, right: 64, textAlign: 'center'},
+  // Chat Polish 1-0: 40 dp glass circles around 24 dp icons; Body/lg "Taku" centred in Surface/900.
+  headerButton: {width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: chatColors.glass},
+  headerButtonPressed: {opacity: 0.7}, pressed: {backgroundColor: chatColors.fillControl},
+  title: {position: 'absolute', left: 64, right: 64, textAlign: 'center', color: chatColors.textPrimary},
   modalHeader: {minHeight: 56, paddingLeft: layout.gutter, paddingRight: 4, flexDirection: 'row', alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border},
   headerTitle: {flex: 1, minWidth: 0, marginRight: 8}, messages: {paddingHorizontal: chatMetrics.side, gap: chatMetrics.itemGap}, taskMessages: {gap: layout.gap}, stack: {gap: layout.gap},
   userText: {color: chatColors.userText},
@@ -791,6 +872,13 @@ const styles = themedStyles(() => StyleSheet.create({
   composerAction: {width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', flexShrink: 0},
   // Several lines: a rounded rectangle (Rounded/3xl) instead of the one-line pill.
   composerMultiline: {borderRadius: 24},
+  // Figma 1-2 / 1-3 (1482:1184, 1482:1241): 32 dp corners, 12 dp padding, entry row over a 40 dp action row.
+  composerExpanded: {flexDirection: 'column', alignItems: 'stretch', borderRadius: 32, gap: 12},
+  composerEntry: {flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 8, minHeight: 40},
+  composerRow: {flex: 1, flexDirection: 'row', alignSelf: 'stretch', minWidth: 0},
+  inputExpanded: {flexGrow: 1, flexBasis: 96},
+  composerActions: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 40},
+  composerTrailing: {flexDirection: 'row', alignItems: 'center'},
   // Figma 1-3 send: Main/Brand circle with the white arrow.
   send: {backgroundColor: chatColors.send},
   sendDisabled: {opacity: 0.35},

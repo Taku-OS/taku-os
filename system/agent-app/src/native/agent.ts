@@ -44,7 +44,7 @@ const nativeModule = requireOptionalNativeModule<AgentNativeModule>('TakuAgent')
 export type AgentAction =
   | 'listThreads' | 'readSession' | 'createThread' | 'resumeThread'
   | 'composer/read' | 'composer/write' | 'composer/import' | 'composer/move' | 'composer/receipt'
-  | 'composer/removeAttachment' | 'composer/options/read' | 'composer/options/write'
+  | 'composer/removeAttachment' | 'composer/plugin/add' | 'composer/plugin/remove' | 'composer/options/read' | 'composer/options/write'
   | 'composer/submit' | 'composer/settle' | 'composer/release'
   | 'composer/handoff' | 'composer/restore' | 'composer/restoreTask' | 'composer/preserveDraft'
   | 'sendMessage' | 'steer' | 'interrupt' | 'cancelQueued' | 'answer'

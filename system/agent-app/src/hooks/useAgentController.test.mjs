@@ -78,6 +78,15 @@ function reset(t) {
       runtime.drafts.set(threadId, next);
       return next;
     }
+    if (action === 'composer/plugin/add' || action === 'composer/plugin/remove') {
+      const current = snapshot();
+      assert.equal(params.expectedRevision, current.revision);
+      const others = (current.plugins ?? []).filter(plugin => plugin.id !== params.pluginId);
+      const plugins = action === 'composer/plugin/add' ? [...others, {id: params.pluginId, name: params.pluginId.toUpperCase()}] : others;
+      const next = {...current, plugins, revision: `draft-${++runtime.sequence}`};
+      runtime.drafts.set(threadId, next);
+      return next;
+    }
     if (action === 'composer/submit') {
       const args = {...params, text: snapshot().text};
       assert.equal(params.revision, snapshot().revision);
@@ -420,4 +429,28 @@ test('a transport failure before reservation stays unconfirmed and retry resubmi
   assert.deepEqual(runtime.calls.map(call => call.requestId), [stored.requestId, stored.requestId]);
   assert.equal(runtime.completed.length, 1);
   assert.equal(runtime.storage.has(pendingKey('thread-a')), false);
+});
+
+test('plugins attached with @ live in the native draft and ride with the submission', async t => {
+  reset(t); runtime.target = null;
+  const host = mount(); await flush(host);
+  assert.equal(host.result.onDraftChange('Design a launch card'), true); await flush(host);
+  host.result.onAddPlugin('figma'); await flush(host);
+  host.result.onAddPlugin('notion'); await flush(host);
+  host.result.onRemovePlugin('notion'); await flush(host);
+  assert.deepEqual(host.result.plugins, [{id: 'figma', name: 'FIGMA'}]);
+  assert.equal(host.result.draft, 'Design a launch card');
+  host.result.onSend(); await flush(host);
+  assert.equal(runtime.calls.length, 1);
+  assert.deepEqual(runtime.calls[0].pluginIds, ['figma']);
+  assert.equal(runtime.calls[0].text, 'Design a launch card');
+});
+
+test('a message without plugins sends no plugin ids', async t => {
+  reset(t); runtime.target = null;
+  const host = mount(); await flush(host);
+  await send(host, 'Plain request');
+  assert.equal(runtime.calls.length, 1);
+  assert.equal('pluginIds' in runtime.calls[0], false);
+  assert.deepEqual(host.result.plugins, []);
 });

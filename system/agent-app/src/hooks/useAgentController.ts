@@ -132,6 +132,8 @@ export function useAgentController() {
       CAMERA_PERMISSION_DENIED: ['Camera access is off. Allow it for Taku Agent in system settings to take a photo.', '相机权限已关闭。请在系统设置中允许 Taku Agent 使用相机后再拍照。'],
       ATTACHMENT_UNREADABLE: ['That file could not be read. Choose another file.', '无法读取该文件，请选择其他文件。'],
       ATTACHMENT_UNAVAILABLE: ['That attachment is no longer available. Add it again.', '该附件已不可用，请重新添加。'],
+      PLUGIN_UNAVAILABLE: ['That plugin is not installed and enabled. Check it in Plugin Market.', '该插件未安装或未启用，请在插件市场中检查。'],
+      PLUGIN_LIMIT: ['A message can use up to 4 plugins.', '每条消息最多使用 4 个插件。'],
       ATTACHMENT_ACCESS_DENIED: ['Taku could not get access to that file. Choose it again.', 'Taku 无法访问该文件，请重新选择。'],
       PICKER_UNAVAILABLE: ['The attachment picker could not open. Please try again.', '无法打开附件选择器，请重试。'],
       PICKER_BUSY: ['An attachment picker is already open.', '附件选择器已经打开。'],
@@ -534,6 +536,12 @@ export function useAgentController() {
 
   const removeAttachment = useCallback((attachmentId: string) => changeAttachments(async ({threadId, revision}) =>
     parseComposerSnapshot(await callAgent('composer/removeAttachment', {threadId, expectedRevision: revision, attachmentId}), threadId)), [changeAttachments]);
+  // Plugins picked with `@` live in the native draft beside its attachments, so an agent reads
+  // and changes the same selection the chip shows.
+  const addPlugin = useCallback((pluginId: string) => changeAttachments(async ({threadId, revision}) =>
+    parseComposerSnapshot(await callAgent('composer/plugin/add', {threadId, expectedRevision: revision, pluginId}), threadId)), [changeAttachments]);
+  const removePlugin = useCallback((pluginId: string) => changeAttachments(async ({threadId, revision}) =>
+    parseComposerSnapshot(await callAgent('composer/plugin/remove', {threadId, expectedRevision: revision, pluginId}), threadId)), [changeAttachments]);
 
   const create = useCallback(async (move?: {revision: string; requestId: string}) => {
     const result = await callAgent('createThread');
@@ -552,7 +560,8 @@ export function useAgentController() {
     const params = {threadId: id, requestId: pending.requestId};
     const submitOnce = async (): Promise<Json> => {
       try {
-        return await callAgent('composer/submit', {...params, ...submissionTarget(pending), revision: pending.draftRevision, attachmentIds: pending.attachmentIds});
+        return await callAgent('composer/submit', {...params, ...submissionTarget(pending), revision: pending.draftRevision, attachmentIds: pending.attachmentIds,
+          ...(pending.pluginIds?.length ? {pluginIds: pending.pluginIds} : {})});
       } catch (failure) {
         const receipt = await lookupPending(pending);
         // The gateway answered with a refusal and holds no reservation: whatever the reason
@@ -654,6 +663,7 @@ export function useAgentController() {
         if (!sentDraft || sentDraft.text.trim() !== text) throw new AgentGatewayError('Draft changed before submission', 'DRAFT_REVISION_CONFLICT');
         pending.draftRevision = sentDraft.revision;
         pending.attachmentIds = sentDraft.attachments.map(item => item.id);
+        pending.pluginIds = sentDraft.plugins.map(item => item.id);
       }
       const existing = await AsyncStorage.getItem(pendingKey(id));
       if (existing) {
@@ -777,10 +787,13 @@ export function useAgentController() {
     onDraftChange: updateDraft,
     draftRevision: draftSnapshot?.revision ?? null,
     attachments: draftSnapshot?.attachments ?? [],
+    plugins: draftSnapshot?.plugins ?? [],
     recovery: draftSnapshot?.recovery ?? [],
     onRestoreSavedDraft: restoreSavedDraft,
     onPickAttachment: pickAttachment,
     onRemoveAttachment: removeAttachment,
+    onAddPlugin: (pluginId: string) => { void addPlugin(pluginId); },
+    onRemovePlugin: (pluginId: string) => { void removePlugin(pluginId); },
     onDictationDraftChange: applyDictation,
     onSend: () => { void send(); }, onStop: () => { void stop(); },
     onSelectThread: (id: string) => {

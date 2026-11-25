@@ -21,6 +21,8 @@ export const homeColors = {
   bubble: content(0.06), composer: surface(0.92), chip: '#FFFFFF', placeholder: content(0.36),
   surfaceRaised: surface(0.8), surfaceGlass: surface(0.48), fillControl: content(0.08), hairline: content(0.08),
   inverse: '#1B1B1B', send: '#FF5A1F', shadow: content(0.16),
+  /** Floating chrome (title-row buttons, composer menus); the light chat keeps its white glass. */
+  glass: surface(0.8),
   /** Under the window blur (Surface/400) and the opaque fallback (Main/Canvas). */
   backdropTint: surface(0.24), backdropFallback: '#E3E3E3',
   /** Surface/400 as the window's #AARRGGBB tint under the system blur. */
@@ -38,7 +40,8 @@ const dark = {
   textPrimary: surface(0.92), textSecondary: surface(0.8), textTertiary: surface(0.64), textPlaceholder: surface(0.48),
   textError: '#FFB4AB', icon: '#FFFFFF', iconDisabled: surface(0.16),
   bubble: surface(0.8), assistantBubble: surface(0.06), userText: content(0.8),
-  composer: surface(0.08), chip: surface(0.08), placeholder: surface(0.36),
+  // Chat Polish 1-0: title-row buttons, the composer and its menus share one #202020 / 64 % glass.
+  composer: 'rgba(32,32,32,0.64)', glass: 'rgba(32,32,32,0.64)', chip: surface(0.08), placeholder: surface(0.36),
   surfaceRaised: '#262626', surfaceGlass: surface(0.08), fillControl: surface(0.08), hairline: surface(0.16),
   // One native tint over the existing cross-window blur, never another opaque React layer.
   backdropTint: content(0.92), backdropTintArgb: '#EB000000', backdropFallback: '#121212',
@@ -157,6 +160,7 @@ export const chatType = {
   headingXl: (chinese = false) => heading(24, 0.01, chinese),
   heading2xl: (chinese = false) => heading(32, 0.02, chinese),
   headingLg: (chinese = false): TextStyle => ({...style(20, 1.05, 'regular', chinese), fontFamily: chinese ? han.regular : 'TakuDisplay'}),
+  bodyXl: (chinese = false) => style(18, 1.55, 'regular', chinese),
   bodyXlMedium: (chinese = false) => style(18, 1.55, 'medium', chinese),
   bodyLg: (chinese = false) => style(16, 1.5, 'regular', chinese),
   bodyLgMedium: (chinese = false) => style(16, 1.5, 'medium', chinese),

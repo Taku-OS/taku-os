@@ -5,6 +5,7 @@ import {useRouter} from 'expo-router';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import Svg, {Circle, Path} from 'react-native-svg';
 import {Icon} from './Icon';
+import {PluginMark} from '../plugins/PluginMark';
 import {languageFor} from '../i18n';
 import {pluginTextFor} from '../i18n/plugins';
 import {colors, layout, typography} from '../theme';
@@ -16,14 +17,6 @@ type Data = {catalog: Catalog; installed: PluginSummary[]; updates: PluginUpdate
 type ActionOptions = {primary?: boolean; selected?: boolean; disabled?: boolean; compact?: boolean};
 
 const blank: Data = {catalog: {items: [], offline: false}, installed: [], updates: [], sources: []};
-const pluginTints = [colors.sage, colors.peach, colors.lavender, colors.mist, colors.rose, colors.sand];
-
-function tintFor(value: string): string {
-  let hash = 0;
-  for (const character of value) hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
-  return pluginTints[hash % pluginTints.length];
-}
-
 function SearchIcon({color = colors.secondary}: {color?: string}) {
   return <Svg width={19} height={19} viewBox="0 0 24 24" accessibilityElementsHidden>
     <Circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke={color} strokeWidth="1.8"/>
@@ -95,11 +88,7 @@ export function PluginMarketScreen({repository}: {repository: PluginRepository})
     </View>;
   const detailRow = (label: string, value?: string) =>
     <View style={styles.detailRow}><Text style={[type.caption, styles.detailLabel]}>{label}</Text><Text selectable={label === t('fingerprint')} style={[type.meta, styles.detailValue]}>{value || t('unknown')}</Text></View>;
-  const pluginMark = (item: Pick<PluginSummary, 'id' | 'name'>, large = false) =>
-    <View style={[styles.pluginMark, large && styles.pluginMarkLarge, {backgroundColor: tintFor(item.id)}]}>
-      <View style={styles.markCutout}/>
-      <Text style={[type.context, styles.markLetter, large && styles.markLetterLarge]}>{item.name.trim().slice(0, 1).toUpperCase()}</Text>
-    </View>;
+  const pluginMark = (item: Pick<PluginSummary, 'id' | 'name'>, large = false) => <PluginMark plugin={item} size={large ? 72 : 54}/>;
   const statusPill = (item: PluginSummary) => pill(
     item.installed ? t(item.enabled === undefined ? 'unknown' : item.enabled ? 'enabled' : 'disabled') : t('notInstalled'),
     item.installed && item.enabled ? 'success' : 'neutral',
@@ -290,11 +279,6 @@ const styles = StyleSheet.create({
   pluginMeta: {color: colors.secondary},
   pluginDescription: {color: colors.secondary},
   chevron: {width: 28, height: 28, borderRadius: 14, backgroundColor: colors.control, alignItems: 'center', justifyContent: 'center'},
-  pluginMark: {width: 54, height: 54, borderRadius: 16, alignItems: 'center', justifyContent: 'center', overflow: 'hidden'},
-  pluginMarkLarge: {width: 72, height: 72, borderRadius: 22},
-  markCutout: {position: 'absolute', width: 44, height: 44, borderRadius: 22, right: -17, bottom: -17, backgroundColor: 'rgba(255,255,255,0.38)'},
-  markLetter: {fontFamily: 'TakuDisplay', fontSize: 23, lineHeight: 27, color: colors.ink},
-  markLetterLarge: {fontSize: 31, lineHeight: 36},
   statusPill: {flexDirection: 'row', alignItems: 'center'},
   pill: {minHeight: 27, borderRadius: 14, paddingHorizontal: 9, backgroundColor: colors.control, flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start'},
   pillSuccess: {backgroundColor: colors.sage},
