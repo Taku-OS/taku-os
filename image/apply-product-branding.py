@@ -23,6 +23,7 @@ PREVIOUS_V5_MANIFEST_SHA256 = "3a8d952e9cc772a2e8103d3e48d4ec78d3440f68e51818ab5
 PREVIOUS_V6_MANIFEST_SHA256 = "ef99e40ea93a8447dea3be30f452b145b50710b558eb45ecd37d2765efb739de"
 PREVIOUS_V7_MANIFEST_SHA256 = "3a7e54055e746b9aa73344c63bc51e70926e99a5a246546bde3326b3a84950a1"
 PREVIOUS_V8_MANIFEST_SHA256 = "8683488928f554adca15c0f23b08928158948a543da11c9aa44844a29b11be77"
+PREVIOUS_V9_MANIFEST_SHA256 = "1afa7939afb7bd819906b9933f946c79f7696cc08aa78c9ee44f50e62a218b40"
 TARGETS = {
     "packages/apps/Updater": (BASE["UPSTREAM"], {
         "app/src/main/AndroidManifest.xml", "app/src/main/java/org/lineageos/updater/TakuBrand.kt",
@@ -204,8 +205,20 @@ def previous_v8_contract():
     return manifest, updater, patch
 
 
+def previous_v9_contract():
+    path = ROOT / "branding/previous-v9-manifest.json"
+    require(path.is_file() and not path.is_symlink() and digest(path) == PREVIOUS_V9_MANIFEST_SHA256,
+            "Previous v9 branding manifest differs")
+    manifest = json.loads(path.read_text())
+    updater = next(r for r in manifest["repositories"] if r["repository"] == BASE["REPOSITORY"])
+    patch = ROOT / "branding" / updater["patch"]
+    require(patch.is_file() and not patch.is_symlink() and digest(patch) == updater["patchSha256"],
+            "Previous v9 branding patch differs")
+    return manifest, updater, patch
+
+
 def migrate_legacy_source(source, results, manifest):
-    for prior in (previous_v8_contract(), previous_v7_contract(), previous_v6_contract(), previous_v5_contract(), previous_contract(), legacy_contract()):
+    for prior in (previous_v9_contract(), previous_v8_contract(), previous_v7_contract(), previous_v6_contract(), previous_v5_contract(), previous_contract(), legacy_contract()):
         if migrate_source(source, results, manifest, prior):
             return
 
@@ -247,7 +260,8 @@ def migrate_source(source, results, manifest, prior):
     require(inspect_repository(source, current)[1], "Legacy source migration did not verify")
     evidence = {"schema": "taku.product-branding-source-migration/1",
                 "previousManifestSha256": {3: LEGACY_MANIFEST_SHA256, 4: PREVIOUS_MANIFEST_SHA256,
-                                           5: PREVIOUS_V5_MANIFEST_SHA256, 6: PREVIOUS_V6_MANIFEST_SHA256, 7: PREVIOUS_V7_MANIFEST_SHA256, 8: PREVIOUS_V8_MANIFEST_SHA256}[legacy["updaterVersionCode"]],
+                                           5: PREVIOUS_V5_MANIFEST_SHA256, 6: PREVIOUS_V6_MANIFEST_SHA256, 7: PREVIOUS_V7_MANIFEST_SHA256, 8: PREVIOUS_V8_MANIFEST_SHA256,
+                                           9: PREVIOUS_V9_MANIFEST_SHA256}[legacy["updaterVersionCode"]],
                 "previousPatchSha256": old["patchSha256"], "targetPatchSha256": current["patchSha256"],
                 "sourceOnly": True, "physicalDeviceVerified": False}
     results.mkdir(parents=True, exist_ok=True)

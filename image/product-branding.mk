@@ -1,5 +1,5 @@
 # Generated from image/product-branding.json; validated before integration.
 PRODUCT_SYSTEM_EXT_PROPERTIES += ro.taku.product.name=TakuOS
-PRODUCT_SYSTEM_EXT_PROPERTIES += ro.taku.product.version=1.4.1
-PRODUCT_SYSTEM_EXT_PROPERTIES += ro.taku.display.version=TakuOS1.4.1
-PRODUCT_PRODUCT_PROPERTIES += ro.build.display.id=TakuOS1.4.1-$(BUILD_NUMBER)
+PRODUCT_SYSTEM_EXT_PROPERTIES += ro.taku.product.version=1.4.2
+PRODUCT_SYSTEM_EXT_PROPERTIES += ro.taku.display.version=TakuOS1.4.2
+PRODUCT_PRODUCT_PROPERTIES += ro.build.display.id=TakuOS1.4.2-$(BUILD_NUMBER)

@@ -137,6 +137,7 @@ UPDATER_OVERLAYS = (
 )
 UPDATER_ADDITIONS = frozenset(UPDATER_OVERLAYS[3:])
 BRANDING_OVERLAYS = (
+    'image/branding/updater-v10.patch', 'image/branding/previous-v9-manifest.json',
     'image/build.sh', 'image/taku.mk', 'image/verify-artifacts.py', 'image/apply-updater-patches.py',
     'image/apply-product-branding.py', 'image/product_branding.py', 'image/product-branding.json',
     'image/product-branding.mk', 'image/branding/manifest.json',
@@ -150,6 +151,7 @@ BRANDING_OVERLAYS = (
 )
 BRANDING_ADDITIONS = frozenset(BRANDING_OVERLAYS[4:])
 BRANDING_VERSION_OVERLAYS = (
+    'image/branding/updater-v10.patch', 'image/branding/previous-v9-manifest.json',
     'image/apply-product-branding.py', 'image/apply-updater-patches.py', 'image/product_branding.py',
     'image/product-branding.json', 'image/product-branding.mk',
     'image/branding/manifest.json', 'image/branding/updater-v9.patch', 'image/branding/previous-v8-manifest.json',
