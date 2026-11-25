@@ -1,0 +1,22 @@
+{
+  "commit": "08117ff849091c597b7c9da3a448d12cf92ed661",
+  "device": "emulator-5596",
+  "signatureMatchesPrevious": true,
+  "expectedSha256": {
+    "TakuAgent.apk": "3c46523c576742a24844752383e9495bcc77930e4b834bf18c26f6ae3724c420",
+    "AgentOSAssistant.apk": "785a8816873322c553b63507aadbe47a5d30b2805a017c6900943cff36ef5847",
+    "task-broker.jar": "de55e9e223112677c7cfbb008a5aa6718f9379eadd4baaf58ca49b86b64da5d3",
+    "SystemUI.apk": "2892bc35b6c9eae4e267fc9d4ad361f9aba66c3e81816d8cf62571bbaf088780"
+  },
+  "systemuiInstalled": true,
+  "passed": true,
+  "installedSha256": {
+    "SystemUI.apk": "2892bc35b6c9eae4e267fc9d4ad361f9aba66c3e81816d8cf62571bbaf088780",
+    "AgentOSAssistant.apk": "785a8816873322c553b63507aadbe47a5d30b2805a017c6900943cff36ef5847",
+    "TakuAgent.apk": "3c46523c576742a24844752383e9495bcc77930e4b834bf18c26f6ae3724c420",
+    "task-broker.jar": "de55e9e223112677c7cfbb008a5aa6718f9379eadd4baaf58ca49b86b64da5d3"
+  },
+  "brokerPid": "2874",
+  "brokerDeployment": "bind mount in init and broker namespace; valid until reboot",
+  "adbModeRestored": true
+}

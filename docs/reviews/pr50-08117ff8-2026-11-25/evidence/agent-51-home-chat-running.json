@@ -1,0 +1,33 @@
+{
+  "session": {
+    "threadId": null,
+    "island": "hidden",
+    "handoff": false,
+    "handoffTurnId": null,
+    "revealPending": false,
+    "expansionRequest": 0,
+    "working": false,
+    "needsUser": false,
+    "buildingApp": false,
+    "entry": "none",
+    "error": null,
+    "turn": {
+      "turnId": null,
+      "active": null,
+      "failed": null,
+      "reply": null
+    }
+  },
+  "presentation": {
+    "selected": null,
+    "compactVisible": false,
+    "reason": "swipe_up",
+    "foregroundPackage": "org.agentos.agent",
+    "suppressedByForeground": [],
+    "secondaryKey": null,
+    "tap": null,
+    "compact": null,
+    "expanded": false,
+    "card": null
+  }
+}

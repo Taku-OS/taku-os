@@ -1,0 +1,209 @@
+[
+  {
+    "name": "cover waiting disc visible",
+    "passed": true,
+    "detail": null
+  },
+  {
+    "name": "cover position 0",
+    "passed": true,
+    "detail": null
+  },
+  {
+    "name": "cover closes on landscape 0",
+    "passed": true,
+    "detail": null
+  },
+  {
+    "name": "cover SystemUI stable 0",
+    "passed": true,
+    "detail": null
+  },
+  {
+    "name": "cover no expansion in landscape 0",
+    "passed": true,
+    "detail": null
+  },
+  {
+    "name": "cover camera anchor stable 0",
+    "passed": true,
+    "detail": null
+  },
+  {
+    "name": "cover physical tap reopens 0",
+    "passed": true,
+    "detail": null
+  },
+  {
+    "name": "cover position 1",
+    "passed": true,
+    "detail": null
+  },
+  {
+    "name": "cover closes on landscape 1",
+    "passed": true,
+    "detail": null
+  },
+  {
+    "name": "cover SystemUI stable 1",
+    "passed": true,
+    "detail": null
+  },
+  {
+    "name": "cover no expansion in landscape 1",
+    "passed": true,
+    "detail": null
+  },
+  {
+    "name": "cover camera anchor stable 1",
+    "passed": true,
+    "detail": null
+  },
+  {
+    "name": "cover physical tap reopens 1",
+    "passed": true,
+    "detail": null
+  },
+  {
+    "name": "cover position 2",
+    "passed": true,
+    "detail": null
+  },
+  {
+    "name": "cover closes on landscape 2",
+    "passed": true,
+    "detail": null
+  },
+  {
+    "name": "cover SystemUI stable 2",
+    "passed": true,
+    "detail": null
+  },
+  {
+    "name": "cover no expansion in landscape 2",
+    "passed": true,
+    "detail": null
+  },
+  {
+    "name": "cover camera anchor stable 2",
+    "passed": true,
+    "detail": null
+  },
+  {
+    "name": "cover physical tap reopens 2",
+    "passed": true,
+    "detail": null
+  },
+  {
+    "name": "cover swipe collapse stays stable",
+    "passed": true,
+    "detail": null
+  },
+  {
+    "name": "below waiting disc visible",
+    "passed": true,
+    "detail": null
+  },
+  {
+    "name": "below position 0",
+    "passed": true,
+    "detail": null
+  },
+  {
+    "name": "below closes on landscape 0",
+    "passed": true,
+    "detail": null
+  },
+  {
+    "name": "below SystemUI stable 0",
+    "passed": true,
+    "detail": null
+  },
+  {
+    "name": "below no expansion in landscape 0",
+    "passed": true,
+    "detail": null
+  },
+  {
+    "name": "below camera anchor stable 0",
+    "passed": true,
+    "detail": null
+  },
+  {
+    "name": "below physical tap reopens 0",
+    "passed": true,
+    "detail": null
+  },
+  {
+    "name": "below position 1",
+    "passed": true,
+    "detail": null
+  },
+  {
+    "name": "below closes on landscape 1",
+    "passed": true,
+    "detail": null
+  },
+  {
+    "name": "below SystemUI stable 1",
+    "passed": true,
+    "detail": null
+  },
+  {
+    "name": "below no expansion in landscape 1",
+    "passed": true,
+    "detail": null
+  },
+  {
+    "name": "below camera anchor stable 1",
+    "passed": true,
+    "detail": null
+  },
+  {
+    "name": "below physical tap reopens 1",
+    "passed": true,
+    "detail": null
+  },
+  {
+    "name": "below position 2",
+    "passed": true,
+    "detail": null
+  },
+  {
+    "name": "below closes on landscape 2",
+    "passed": true,
+    "detail": null
+  },
+  {
+    "name": "below SystemUI stable 2",
+    "passed": true,
+    "detail": null
+  },
+  {
+    "name": "below no expansion in landscape 2",
+    "passed": true,
+    "detail": null
+  },
+  {
+    "name": "below camera anchor stable 2",
+    "passed": true,
+    "detail": null
+  },
+  {
+    "name": "below physical tap reopens 2",
+    "passed": true,
+    "detail": null
+  },
+  {
+    "name": "below swipe collapse stays stable",
+    "passed": true,
+    "detail": null
+  },
+  {
+    "name": "same SystemUI process throughout",
+    "passed": true,
+    "detail": {
+      "pid": "1033"
+    }
+  }
+]

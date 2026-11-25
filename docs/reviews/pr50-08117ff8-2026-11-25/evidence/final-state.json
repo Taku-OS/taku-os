@@ -1,0 +1,31 @@
+{
+  "assistantIdle": true,
+  "islandSettings": {
+    "enabled": true,
+    "protocol": 2,
+    "allowedPackages": [
+      "org.agentos.notebook"
+    ],
+    "error": null
+  },
+  "presentation": {
+    "selected": null,
+    "compactVisible": false,
+    "reason": "priority_changed",
+    "foregroundPackage": "org.agentos.agent",
+    "suppressedByForeground": [],
+    "secondaryKey": null,
+    "tap": null,
+    "compact": null,
+    "expanded": false,
+    "card": null
+  },
+  "fixturesRemaining": "",
+  "rotation": {
+    "user_rotation": "0",
+    "accelerometer_rotation": "1"
+  },
+  "ime": "org.agentos.inputmethod/org.fcitx.fcitx5.android.input.FcitxInputMethodService",
+  "adbUid": "2000",
+  "crashBuffer": ""
+}

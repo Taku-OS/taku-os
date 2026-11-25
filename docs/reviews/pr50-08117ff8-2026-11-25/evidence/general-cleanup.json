@@ -1,0 +1,7 @@
+{
+  "allowed": [
+    "org.agentos.notebook"
+  ],
+  "testPackages": "",
+  "blur": "0"
+}

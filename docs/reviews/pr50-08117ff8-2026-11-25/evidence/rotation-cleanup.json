@@ -1,0 +1,18 @@
+{
+  "settings": {
+    "user_rotation": "0",
+    "accelerometer_rotation": "1"
+  },
+  "allowed": {
+    "ok": true,
+    "settings": {
+      "enabled": true,
+      "protocol": 2,
+      "allowedPackages": [
+        "org.agentos.notebook"
+      ],
+      "error": null
+    }
+  },
+  "fixtures": ""
+}

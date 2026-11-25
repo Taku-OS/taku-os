@@ -1,0 +1,20 @@
+{
+  "commit": "08117ff849091c597b7c9da3a448d12cf92ed661",
+  "main": "499e15e2cad81b4e48a23eb113fd2181ccf82ba0",
+  "buildTarget": "lineage_taku_emu_arm64-cp2a-userdebug / SystemUI; TakuAgent ARM64; AgentOSAssistant; task-broker",
+  "cloudHost": "x86_64, 64 CPUs, 251 GiB RAM; SystemUI -j56, existing source/build caches reused",
+  "systemuiBuildExit": 0,
+  "systemuiBuildDuration": "10m08s",
+  "agentGradleDuration": "3m27s",
+  "hostTests": {
+    "agentJsTests": 489,
+    "agentTypecheck": "passed",
+    "agentLint": "passed",
+    "islandChecks": "passed",
+    "structure": "passed",
+    "diffCheck": "passed"
+  },
+  "cloudFinalStatus": "TERMINATED",
+  "device": "emulator-5596 / Taku_PR27_Fresh / Android 17 / ARM64",
+  "scope": "Signed component APK updates and a runtime broker bind mount; not a full ROM or physical-device test"
+}

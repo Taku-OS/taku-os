@@ -1,0 +1,36 @@
+{
+  "home": {
+    "checks": {
+      "handoff": true,
+      "hidden_while_running": true,
+      "correct_reply": true,
+      "expanded_without_capsule": true,
+      "stays_past_five_seconds": true,
+      "tap_opens_correct_chat": true
+    },
+    "passed": true,
+    "waitAfterHandoffSeconds": 27.97
+  },
+  "content-operations": {
+    "checks": {
+      "handed_off": true,
+      "reclaimed": true
+    },
+    "passed": true
+  },
+  "external-open": {
+    "checks": {
+      "same_thread": true,
+      "reply_visible_after_tap": true,
+      "island_hidden": true
+    },
+    "passed": true
+  },
+  "new-chat": {
+    "checks": {
+      "new_greeting": true,
+      "old_reply_cleared": true
+    },
+    "passed": true
+  }
+}

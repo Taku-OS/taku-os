@@ -1,0 +1,70 @@
+[
+  {
+    "name": "explicit collapse",
+    "pass": true
+  },
+  {
+    "name": "original reproduction within five seconds",
+    "pass": true
+  },
+  {
+    "name": "quiet update does not reopen",
+    "pass": true
+  },
+  {
+    "name": "quiet update remains collapsed",
+    "pass": true
+  },
+  {
+    "name": "held true does not reopen",
+    "pass": true
+  },
+  {
+    "name": "false-to-true within cooldown stays collapsed",
+    "pass": true
+  },
+  {
+    "name": "cancel and repost preserves cooldown",
+    "pass": true
+  },
+  {
+    "name": "different notification can still alert",
+    "pass": true
+  },
+  {
+    "name": "manual card receives quiet content",
+    "pass": true
+  },
+  {
+    "name": "manual card survives alert timeout",
+    "pass": true
+  },
+  {
+    "name": "foreground alert does not expand",
+    "pass": true
+  },
+  {
+    "name": "foreground alert is not replayed on return",
+    "pass": true
+  },
+  {
+    "name": "quiet update keeps existing automatic card",
+    "pass": true
+  },
+  {
+    "name": "automatic card still expires in five seconds",
+    "pass": true
+  },
+  {
+    "name": "expired alert stays collapsed",
+    "pass": true
+  },
+  {
+    "name": "new rising alert after cooldown expands",
+    "pass": true
+  },
+  {
+    "name": "GUI swipe collapse also prevents quiet replay",
+    "pass": true
+  }
+]

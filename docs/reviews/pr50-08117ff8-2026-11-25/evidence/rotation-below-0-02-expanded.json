@@ -1,0 +1,166 @@
+{
+  "ok": true,
+  "settings": {
+    "enabled": true,
+    "protocol": 2,
+    "allowedPackages": [
+      "org.agentos.island.audit.one",
+      "org.agentos.island.audit.two",
+      "org.agentos.notebook"
+    ],
+    "error": null
+  },
+  "activities": [
+    {
+      "key": "0|org.agentos.island.audit.two|1|null|10210",
+      "package": "org.agentos.island.audit.two",
+      "userId": 0,
+      "revision": 16,
+      "firstSeenElapsedMs": 251020,
+      "expiresElapsedMs": 7451020,
+      "stale": false,
+      "dismissed": false,
+      "active": true,
+      "triggeredAtElapsedMs": 251020,
+      "source": "custom",
+      "tier": 3,
+      "timeoutKind": "explicit",
+      "availableActions": [
+        {
+          "id": "track",
+          "title": "Action track"
+        },
+        {
+          "id": "contact",
+          "title": "Action contact"
+        }
+      ],
+      "payload": {
+        "version": 2,
+        "compact": {
+          "a": {
+            "type": "icon",
+            "pic": "other"
+          },
+          "b": {
+            "type": "text",
+            "text": "B12"
+          }
+        },
+        "expanded": {
+          "template": "highlight",
+          "title": "Ready for pickup",
+          "body": "Test order A123 · Pickup counter 3",
+          "highlight": {
+            "text": "A123",
+            "label": "Pickup code"
+          },
+          "actions": [
+            "track",
+            "contact"
+          ],
+          "accentColor": "#8BF0BA"
+        },
+        "timeoutS": 7200
+      },
+      "fallback": null
+    },
+    {
+      "key": "0|org.agentos.island.audit.one|1|null|10209",
+      "package": "org.agentos.island.audit.one",
+      "userId": 0,
+      "revision": 15,
+      "firstSeenElapsedMs": 249988,
+      "expiresElapsedMs": 7449988,
+      "stale": false,
+      "dismissed": false,
+      "active": true,
+      "triggeredAtElapsedMs": 249988,
+      "source": "custom",
+      "tier": 3,
+      "timeoutKind": "explicit",
+      "availableActions": [
+        {
+          "id": "track",
+          "title": "Action track"
+        },
+        {
+          "id": "contact",
+          "title": "Action contact"
+        }
+      ],
+      "payload": {
+        "version": 2,
+        "compact": {
+          "a": {
+            "type": "icon",
+            "pic": "other"
+          },
+          "b": {
+            "type": "text",
+            "text": "A123"
+          }
+        },
+        "expanded": {
+          "template": "highlight",
+          "title": "Ready for pickup",
+          "body": "Test order A123 · Pickup counter 3",
+          "highlight": {
+            "text": "A123",
+            "label": "Pickup code"
+          },
+          "actions": [
+            "track",
+            "contact"
+          ],
+          "accentColor": "#8BF0BA"
+        },
+        "timeoutS": 7200,
+        "cardPosition": "below"
+      },
+      "fallback": null
+    }
+  ],
+  "presentation": {
+    "selected": "0|org.agentos.island.audit.one|1|null|10209",
+    "compactVisible": false,
+    "reason": "expanded",
+    "foregroundPackage": "com.android.settings",
+    "suppressedByForeground": [],
+    "secondaryKey": null,
+    "tap": "expand",
+    "compact": null,
+    "expanded": true,
+    "card": {
+      "key": "0|org.agentos.island.audit.one|1|null|10209",
+      "windowType": 2041,
+      "cover": false,
+      "backdropBlur": true,
+      "fill": "#EB000000",
+      "focusable": false,
+      "layout": "body",
+      "richReady": false,
+      "renderer": "systemui-native",
+      "nativeReady": true,
+      "assistant": null,
+      "template": {
+        "renderer": "systemui-native",
+        "title": "Ready for pickup",
+        "template": "highlight",
+        "highlight": "A123",
+        "backgroundColor": null,
+        "accentColor": "#8BF0BA",
+        "tapAction": null,
+        "body": "Test order A123 · Pickup counter 3",
+        "actionCount": 2,
+        "progress": null
+      },
+      "progress": null,
+      "width": 1038,
+      "height": 657,
+      "top": 153,
+      "touchRegion": "SkRegion((95,0,943,1)(88,1,950,2)(83,2,955,3)(79,3,959,4)(75,4,963,5)(72,5,966,6)(69,6,969,7)(66,7,972,8)(64,8,974,9)(62,9,976,10)(59,10,978,11)(57,11,981,12)(55,12,983,13)(54,13,984,14)(52,14,986,15)(50,15,988,16)(49,16,989,17)(47,17,991,18)(46,18,992,19)(44,19,994,20)(43,20,995,21)(42,21,996,22)(40,22,998,23)(39,23,999,24)(38,24,1000,25)(37,25,1001,26)(35,26,1003,27)(34,27,1004,28)(33,28,1005,29)(32,29,1006,30)(31,30,1007,31)(30,31,1008,32)(29,32,1009,33)(28,33,1010,34)(27,34,1011,35)(26,35,1012,37)(25,37,1013,38)(24,38,1014,39)(23,39,1015,40)(22,40,1016,42)(21,42,1017,43)(20,43,1018,44)(19,44,1019,46)(18,46,1020,47)(17,47,1021,49)(16,49,1022,50)(15,50,1023,52)(14,52,1024,54)(13,54,1025,55)(12,55,1026,57)(11,57,1027,59)(10,59,1027,60)(10,60,1028,62)(9,62,1029,64)(8,64,1030,66)(7,66,1031,69)(6,69,1032,72)(5,72,1033,75)(4,75,1034,79)(3,79,1035,83)(2,83,1036,88)(1,88,1037,95)(0,95,1038,562)(1,562,1037,569)(2,569,1036,574)(3,574,1035,578)(4,578,1034,582)(5,582,1033,585)(6,585,1032,588)(7,588,1031,591)(8,591,1030,593)(9,593,1029,595)(10,595,1028,597)(10,597,1027,598)(11,598,1027,600)(12,600,1026,602)(13,602,1025,603)(14,603,1024,605)(15,605,1023,607)(16,607,1022,608)(17,608,1021,610)(18,610,1020,611)(19,611,1019,613)(20,613,1018,614)(21,614,1017,615)(22,615,1016,617)(23,617,1015,618)(24,618,1014,619)(25,619,1013,620)(26,620,1012,622)(27,622,1011,623)(28,623,1010,624)(29,624,1009,625)(30,625,1008,626)(31,626,1007,627)(32,627,1006,628)(33,628,1005,629)(34,629,1004,630)(35,630,1003,631)(37,631,1001,632)(38,632,1000,633)(39,633,999,634)(40,634,998,635)(42,635,996,636)(43,636,995,637)(44,637,994,638)(46,638,992,639)(47,639,991,640)(49,640,989,641)(50,641,988,642)(52,642,986,643)(54,643,984,644)(55,644,983,645)(57,645,981,646)(60,646,978,647)(62,647,976,648)(64,648,974,649)(66,649,972,650)(69,650,969,651)(72,651,966,652)(75,652,963,653)(79,653,959,654)(83,654,955,655)(88,655,950,656)(95,656,943,657))",
+      "outsideTapCollapses": false
+    }
+  }
+}

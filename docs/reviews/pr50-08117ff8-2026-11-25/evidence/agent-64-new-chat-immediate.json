@@ -1,0 +1,33 @@
+{
+  "session": {
+    "threadId": "01a21188-c579-77b1-a4a7-c2ec3ceb6f4c",
+    "island": "hidden",
+    "handoff": false,
+    "handoffTurnId": null,
+    "revealPending": false,
+    "expansionRequest": 3,
+    "working": false,
+    "needsUser": false,
+    "buildingApp": false,
+    "entry": "none",
+    "error": null,
+    "turn": {
+      "turnId": "01a21189-06f4-7a30-8cc2-b6cc3d5506d3",
+      "active": false,
+      "failed": false,
+      "reply": "ISLAND0027HOME"
+    }
+  },
+  "presentation": {
+    "selected": null,
+    "compactVisible": false,
+    "reason": "priority_changed",
+    "foregroundPackage": "org.agentos.agent",
+    "suppressedByForeground": [],
+    "secondaryKey": null,
+    "tap": null,
+    "compact": null,
+    "expanded": false,
+    "card": null
+  }
+}
