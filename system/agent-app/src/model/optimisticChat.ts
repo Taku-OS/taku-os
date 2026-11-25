@@ -1,4 +1,4 @@
-import type {MessageBlock, SessionView} from './session';
+import {spokenText, type MessageBlock, type SessionView} from './session.ts';
 
 export const FIRST_RESPONSE_TIMEOUT_MS = 60_000;
 export type ResponseErrorKey = 'replyTimeout' | 'replyFailed';
@@ -26,7 +26,7 @@ export function beginOptimisticSubmission(
   request: Pick<OptimisticSubmission, 'threadId' | 'requestId' | 'text' | 'action' | 'expectedTurnId'>,
   session: SessionView | null, now = Date.now(),
 ): OptimisticSubmission {
-  return {...request, startedAt: now, baselineBlockIds: session?.blocks.map(block => block.id) || [],
+  return {...request, text: spokenText(request.text), startedAt: now, baselineBlockIds: session?.blocks.map(block => block.id) || [],
     baselineTurnIds: [...new Set(session?.blocks.map(block => block.turnId) || [])], state: 'sending'};
 }
 

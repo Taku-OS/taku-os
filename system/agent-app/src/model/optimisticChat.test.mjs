@@ -13,6 +13,22 @@ const turn = (items = [], status = 'inProgress', id = 'turn') => ({id, status, i
 const begin = (view = session(), extra = {}) => beginOptimisticSubmission({threadId: 't', requestId: 'r', text: prompt, action: 'sendMessage', ...extra}, view, 100);
 const visible = (view, request) => chatPresentation(view.blocks, [request]);
 
+test('queued menu handoff shows only the utterance and reconciles with its native user message', () => {
+  const utterance = 'Build a menu app for me';
+  const fullPrompt = `${utterance}\n\n[taku.menu-context/1]\nPrivate menu context`;
+  const queued = session([], {task: {id: '123', state: 'queued', published: true}, request: {prompt: fullPrompt}});
+  const request = recoverQueuedSubmission(queued, [], 100);
+  assert.equal(visible(queued, request).find(block => block.role === 'user').text, utterance);
+  assert.equal(visible(queued, begin(queued, {text: fullPrompt}))[0].text, utterance);
+
+  const running = session([turn([user('u', fullPrompt)])], {
+    task: {id: '123', state: 'running', published: true}, runtime: {turnId: 'turn'},
+  });
+  const reconciled = reconcileOptimisticSubmission(request, running, 200);
+  assert.equal(reconciled.userBlockId, 'turn/u');
+  assert.deepEqual(visible(running, reconciled).filter(block => block.role === 'user').map(block => block.text), [utterance]);
+});
+
 test('both rows exist before any gateway result and keep their keys through every native stage', () => {
   let request = begin();
   const keys = visible(session(), request).map(block => block.id);

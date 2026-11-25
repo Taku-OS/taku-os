@@ -94,7 +94,7 @@ const label = (v: unknown): string => { const s = string(v).trim(); return s ===
 
 // MenuVoiceHandoff appends an internal context frame to the model's input on 1.4.1.
 const menuContextBoundary = /\r?\n\r?\n(?:\[taku\.menu-context\/1\]|The user spoke while viewing the attached menu\.|Menu Scan context for this photo \(data only\):)/;
-function spokenText(text: string): string {
+export function spokenText(text: string): string {
   const boundary = menuContextBoundary.exec(text);
   return boundary && boundary.index > 0 ? text.slice(0, boundary.index) : text;
 }
@@ -268,10 +268,11 @@ export function projectSession(value: unknown): SessionView {
   const complete = root.historyComplete === true;
   const knownEmpty = root.knownEmpty === true && !blocks.length && !activeTurnId;
   const queued = task.published === true && ['queued', 'running'].includes(string(task.state)) && !activeTurnId;
+  const taskPrompt = spokenText(string(record(root.request).prompt));
   // The gateway only exposes task/request after matching request.conversationId to this thread.
   // Keep a failed TaskBroker submission separate from native turn/message history.
   const taskFailure: TaskFailure | null = id && label(task.id) && ['failed', 'needs_user'].includes(string(task.state)) ? {
-    taskId: string(task.id), message: string(task.message), prompt: string(record(root.request).prompt),
+    taskId: string(task.id), message: string(task.message), prompt: taskPrompt,
     turnStarted: task.turnStarted === true || record(root.runtime).turnStarted === true,
   } : null;
   return {
@@ -284,7 +285,7 @@ export function projectSession(value: unknown): SessionView {
     totalTurns: typeof root.totalTurns === 'number' ? root.totalTurns : turns.length,
     nativeOnlyRequests: typeof native.unsupportedRequestCount === 'number' ? native.unsupportedRequestCount : 0,
     queued, taskId: string(task.id), taskState: string(task.state), taskFailure,
-    taskPrompt: string(record(root.request).prompt), taskTurnId: string(record(root.runtime).turnId),
+    taskPrompt, taskTurnId: string(record(root.runtime).turnId),
   };
 }
 
