@@ -87,6 +87,33 @@ The launch behavior follows the Android Emulator's documented
 [custom system directory and image options](https://developer.android.com/studio/run/emulator-commandline).
 Isolation guards can be checked without a device using `python3 tests/lineage-emulator.test.py`.
 
+### Microphone and everyday input
+
+For voice testing, launch with `--allow-host-audio` and without `-no-audio`. After boot:
+
+```sh
+adb -s SERIAL emu avd hostmicon
+adb -s SERIAL shell pm grant org.agentos.audio android.permission.RECORD_AUDIO
+adb -s SERIAL shell cmd appops get org.agentos.audio RECORD_AUDIO
+adb -s SERIAL shell ime enable org.agentos.inputmethod/org.fcitx.fcitx5.android.input.FcitxInputMethodService
+adb -s SERIAL shell ime set org.agentos.inputmethod/org.fcitx.fcitx5.android.input.FcitxInputMethodService
+adb -s SERIAL shell settings put secure show_ime_with_hard_keyboard 1
+```
+
+`hw.audioInput=yes` alone does not forward the Mac microphone. macOS must also allow microphone
+access. A permission grant and `hostmicon: OK` are configuration checks; confirm actual capture
+using `assistant/get` (`voice.ready`, `voice.levels`, `voice.error`) and the listening GUI.
+Cancel a diagnostic capture with `assistant/voice-cancel` to avoid sending a message.
+See the [on-device Audio commands](../../system/assistant/assets/skills/taku-open-access/SKILL.md).
+
+If the clock or navigation handle is missing, inspect `dumpsys statusbar` for an active
+`org.lineageos.setupwizard` disable record and resolve the actual HOME activity. Complete Android
+setup before diagnosing Taku UI. On an already provisioned development AVD, a stale wizard can
+be disabled for user 0 with `pm disable-user --user 0 org.lineageos.setupwizard` (undo with
+`pm enable --user 0 org.lineageos.setupwizard`). Set the intended HOME explicitly, enable the
+gestural navigation overlay, and use `settings --lineage put system force_show_navbar 1`
+when the device's default navigation bar is disabled. These are per-device settings, not APK updates.
+
 ## Acceptance scope
 
 The emulator build registers the existing AOSP software AEC implementation in the
@@ -135,6 +162,11 @@ The verified display reports `Rect(479, 0 - 601, 132)`, centered at x=540 on a w
 the circular path center is x=539.75 (subpixel rounding). These commands and SystemUI read the
 same framework resources. A guest `screencap` may omit the display-decoration mask, so verify
 geometry with `dumpsys display` rather than judging absence of a hole in that capture alone.
+After first enabling the overlay, cold-restart the same AVD if SystemUI has not created its
+`DisplayCutoutView`. Inspect `dumpsys activity service com.android.systemui/.SystemUIService
+ScreenDecorations` and the host emulator window: the black mask can be visible there while omitted
+from Android's `screencap`. Keep `com.android.systemui.emulation.pixel_8` disabled to retain this
+image's existing SystemUI spacing.
 
 ## Existing Google-free image
 

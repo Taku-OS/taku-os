@@ -91,6 +91,8 @@ def main():
     parser.add_argument('--name', required=True)
     parser.add_argument('--port', type=int, required=True)
     parser.add_argument('--sdk', type=Path, default=default_sdk())
+    parser.add_argument('--allow-host-audio', action='store_true',
+                        help='Allow host microphone input; enable routing with adb emu avd hostmicon after boot')
     args = parser.parse_args()
     if not re.fullmatch(r'[A-Za-z0-9_][A-Za-z0-9_.-]*', args.name):
         parser.error('Invalid AVD name')
@@ -114,6 +116,8 @@ def main():
                '-kernel', str(image / 'kernel-ranchu'), '-initdata', str(image / 'userdata.img'),
                '-gpu', 'host', '-accel', 'on', '-no-snapshot', '-no-boot-anim',
                '-no-metrics', '-crash-report-mode', 'disabled']
+    if args.allow_host_audio:
+        command.append('-allow-host-audio')
     env = {**os.environ, 'ANDROID_AVD_HOME': str(home), 'ANDROID_SDK_ROOT': str(args.sdk)}
     with (avd / 'emulator.log').open('ab') as log:
         process = subprocess.Popen(command, env=env, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
