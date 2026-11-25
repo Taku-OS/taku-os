@@ -12,11 +12,11 @@ export type ChromeIconName = keyof typeof sources;
 const artwork: Partial<Record<ChromeIconName, {width: number; height: number}>> = {burger: {width: 16, height: 8}};
 
 /**
- * A Figma Color=Light (white) icon painted in the chat palette's icon colour. Each component's
- * Color=Dark variant is the same geometry in Main/Foreground, which is the light chat's icon colour.
+ * A Figma icon painted in the chat palette's icon colour. Color=Light (white) and Color=Dark
+ * (Main/Foreground #1B1B1B) are the same geometry; other paints (the red Trash) are kept.
  */
 export function ChromeIcon({name, size = 24, color = chatColors.icon}: {name: ChromeIconName; size?: number; color?: string}) {
-  const xml = useMemo(() => sources[name].replace(/"white"/g, '"currentColor"'), [name]);
+  const xml = useMemo(() => sources[name].replace(/"(white|#1B1B1B)"/g, '"currentColor"'), [name]);
   const own = artwork[name];
   const scale = size / 24;
   return <View style={{width: size, height: size, alignItems: 'center', justifyContent: 'center'}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">

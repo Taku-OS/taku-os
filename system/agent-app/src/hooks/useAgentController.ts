@@ -69,6 +69,9 @@ export function useAgentController() {
   const launchFailure = useRef<unknown>(null);
   /** Navigation context only: the panel whose original conversation this send continues. */
   const panelTarget = useRef<PanelTarget | null>(null);
+  // The chat shows the attached panel (Figma 4-1); the ref stays the source the send path reads.
+  const [attachedPanel, setAttachedPanel] = useState<PanelTarget | null>(null);
+  const assignPanelTarget = useCallback((target: PanelTarget | null) => { panelTarget.current = target; setAttachedPanel(target); }, []);
   const draftReady = useRef(false);
   const optimisticRef = useRef<OptimisticSubmission[]>([]);
   sessionRef.current = session;
@@ -203,7 +206,7 @@ export function useAgentController() {
 
   const select = useCallback(async (id: string, preserveConversationKey = false) => {
     if (!mounted.current) return;
-    if (panelTarget.current && panelTarget.current.originThreadId !== id) panelTarget.current = null;
+    if (panelTarget.current && panelTarget.current.originThreadId !== id) assignPanelTarget(null);
     const ticket = ++generation.current;
     const slot = composer(id);
     draftReady.current = false; setRestoring(true); setPendingSubmission(null);
@@ -281,7 +284,7 @@ export function useAgentController() {
       reject: () => setError(messageRef.current(new AgentGatewayError('Draft restore failed', 'DRAFT_RESTORE_UNAVAILABLE'))),
       settled: () => setRestoring(false),
     });
-  }, [composer, showDraft, syncNativeSelection, updateOptimistic]);
+  }, [assignPanelTarget, composer, showDraft, syncNativeSelection, updateOptimistic]);
 
   const loadThreads = useCallback(async () => {
     const ticket = ++historyRevision.current;
@@ -321,7 +324,7 @@ export function useAgentController() {
         return;
       }
       launchFailure.current = null;
-      panelTarget.current = target;
+      assignPanelTarget(target);
       if (actionRunning.current) pendingOpen.current = id;
       else void select(id).catch(e => { if (mounted.current && selectedRef.current === id) setError(messageRef.current(e)); });
     });
@@ -330,7 +333,7 @@ export function useAgentController() {
       try {
         const target = await launchPanelTarget();
         if (!mounted.current || generation.current !== initialGeneration) return;
-        panelTarget.current = target;
+        assignPanelTarget(target);
         const previous = panelTarget.current?.originThreadId || launchThreadId() || await AsyncStorage.getItem(SELECTED);
         if (previous === '' && mounted.current && generation.current === initialGeneration) {
           void loadThreads().catch(() => {});
@@ -357,7 +360,7 @@ export function useAgentController() {
       listener.remove(); visibility.remove(); openListener.remove();
     };
     // Locale changes do not recreate the session or discard a draft.
-  }, [loadThreads, select]);
+  }, [assignPanelTarget, loadThreads, select]);
 
   useEffect(() => {
     if (!selected || !visible) return;
@@ -599,7 +602,7 @@ export function useAgentController() {
     if (pending.action === 'continue') {
       const launchId = pending.panel!.launchId;
       await consumePanelLaunch(launchId);
-      if (panelTarget.current?.launchId === launchId) panelTarget.current = null;
+      if (panelTarget.current?.launchId === launchId) assignPanelTarget(null);
     }
     updateOptimistic(requests => requests.map(request => request.requestId === pending.requestId
       ? reconcileOptimisticSubmission(acceptOptimisticReceipt(request, receipt), sessionRef.current) : request));
@@ -616,7 +619,7 @@ export function useAgentController() {
     }
     setRefreshRevision(v => v + 1);
     void loadThreads().catch(() => {});
-  }, [composer, loadThreads, showDraft, updateOptimistic]);
+  }, [assignPanelTarget, composer, loadThreads, showDraft, updateOptimistic]);
 
   const submit = useCallback(async (text: string) => {
     if (launchFailure.current) throw launchFailure.current;
@@ -634,7 +637,7 @@ export function useAgentController() {
     if (!existingPending && optimisticRef.current.some(request => request.threadId === id && !request.userBlockId
       && !request.nonDeliverable && !['failed', 'stopped'].includes(request.state)))
       throw new AgentGatewayError('Previous message is awaiting its native record', 'QUEUED');
-    if (panelTarget.current && isPanelLaunchConsumed(panelTarget.current.launchId)) panelTarget.current = null;
+    if (panelTarget.current && isPanelLaunchConsumed(panelTarget.current.launchId)) assignPanelTarget(null);
     const target = panelTarget.current;
     const continuing = !!target && !!id && target.originThreadId === id && !existingPending;
     let pending: ComposerSubmission = existingPending || {threadId: id, text, requestId: newRequestId(),
@@ -684,7 +687,7 @@ export function useAgentController() {
           error: message(problem), errorKey: 'replyFailed'}, sessionRef.current) : request));
       throw problem;
     }
-  }, [composer, create, deliver, message, pendingSubmission, updateOptimistic]);
+  }, [assignPanelTarget, composer, create, deliver, message, pendingSubmission, updateOptimistic]);
 
   const send = useCallback(() => run(() => submit(draftRef.current.trim())), [run, submit]);
 
@@ -760,7 +763,7 @@ export function useAgentController() {
       try {
         const target = await launchPanelTarget(true);
         if (!mounted.current || generation.current !== ticket) return;
-        panelTarget.current = target;
+        assignPanelTarget(target);
         launchFailure.current = null;
         const id = target?.originThreadId || launchThreadId() || selectedRef.current;
         await select(id);
@@ -774,7 +777,7 @@ export function useAgentController() {
     if (!mounted.current || generation.current !== ticket) return;
     void loadThreads().catch(() => {});
     await select(selectedRef.current);
-  }), [loadThreads, run, select]);
+  }), [assignPanelTarget, loadThreads, run, select]);
 
   return {
     session, threads, workspaces, loading: loading || restoring, busy, error: draftError || error || selectionError || readError, draft,
@@ -792,6 +795,15 @@ export function useAgentController() {
     onRestoreSavedDraft: restoreSavedDraft,
     onPickAttachment: pickAttachment,
     onRemoveAttachment: removeAttachment,
+    /** The panel the next send edits (Edit with Taku), when it belongs to the open conversation. */
+    panelTarget: attachedPanel && attachedPanel.originThreadId === selected && !isPanelLaunchConsumed(attachedPanel.launchId) ? attachedPanel : null,
+    /** Removing the panel chip: the launch is spent, so later sends are ordinary messages. */
+    onDetachPanel: () => {
+      const target = panelTarget.current;
+      if (!target) return;
+      assignPanelTarget(null);
+      void consumePanelLaunch(target.launchId).catch(() => {});
+    },
     onAddPlugin: (pluginId: string) => { void addPlugin(pluginId); },
     onRemovePlugin: (pluginId: string) => { void removePlugin(pluginId); },
     onDictationDraftChange: applyDictation,
@@ -799,13 +811,13 @@ export function useAgentController() {
     onSelectThread: (id: string) => {
       if (actionRunning.current) return;
       selectConversation(id);
-      panelTarget.current = null;
+      assignPanelTarget(null);
       launchFailure.current = null;
       void select(id).catch(e => { if (selectedRef.current === id) setError(message(e)); });
     },
     onCreateThread: () => { void run(async () => {
       selectConversation(null);
-      panelTarget.current = null;
+      assignPanelTarget(null);
       launchFailure.current = null;
       pendingOpen.current = '';
       const {id} = await create();
