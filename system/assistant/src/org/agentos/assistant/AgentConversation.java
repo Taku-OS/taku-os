@@ -125,6 +125,8 @@ final class AgentConversation {
                                     user.attachments.add(file[0].substring(prefix.length()));
                                 } else if (PLUGIN_NOTE.matcher(value).matches()) {
                                     // ComposerInput.appendPlugins: the composer's plugin chip, not words the user typed.
+                                } else if (org.agentos.lab.ComposerInput.isPanelContext(value)) {
+                                    // ComposerInput.appendPanelContext: the edited panel's card, not words the user typed.
                                 } else {
                                     if (text.length() > 0) text.append('\n');
                                     text.append(value);

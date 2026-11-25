@@ -11,6 +11,7 @@ mkdir -p "$task_out/classes"
   system/assistant/src/org/agentos/assistant/ChatWorkspacePreviewProtocol.java \
   system/assistant/tests/chat-preview/org/agentos/assistant/ChatWorkspacePreviewProtocolTest.java \
   system/assistant/src/org/agentos/assistant/AgentConversation.java \
+  system/assistant/broker/org/agentos/lab/ComposerInput.java \
   system/assistant/src/org/agentos/assistant/NativeToolPresentation.java \
   system/assistant/tests/org/agentos/assistant/NativeConversationTest.java
 "$JDK/bin/java" -cp "$task_out/classes:$task_json" org.agentos.assistant.ChatWorkspacePreviewProtocolTest

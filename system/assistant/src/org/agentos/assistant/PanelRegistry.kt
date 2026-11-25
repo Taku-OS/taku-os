@@ -8,6 +8,7 @@ import java.util.Base64
 import java.util.UUID
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
+import org.agentos.lab.ComposerInput
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -290,7 +291,9 @@ internal class PanelRegistry(private val context: Context, private val runtime: 
         val receipt = services.submissions.submit(requestId, target.getString("originThreadId"), target.getString("text"), {
             services.checkSubmit(target.getString("originThreadId"))
             services.checkScreenshot(publication)
-            runtime.state(background = true) { checkTarget(target) }
+            // The model gets the panel's current card next to the user's words, read after the target
+            // check on every (re)submission so it describes the version this update is bound to.
+            publication.put("panelContext", runtime.state(background = true) { checkTarget(target); panelContext(target) })
         }, { before -> services.publish(publication) { task ->
             before.persist(task)
             runtime.state(true, true) {
@@ -311,6 +314,26 @@ internal class PanelRegistry(private val context: Context, private val runtime: 
         services.notifyDirectory()
         return receipt
     }
+    /** The card as the panel shows it plus the user's card-view state; ComposerInput drops capability refs. */
+    private fun panelContext(target: JSONObject): String {
+        val record = panel(target.getString("panelId"))
+        val matterId = target.getString("matterId")
+        val matter = store.get("matters", matterId)
+        val content = JSONObject()
+        if (matter == null) content.put("card", JSONObject.NULL).put("unavailable", true)
+        else {
+            content.put("card", PanelProtocol.copy(matter.optJSONObject("request") ?: matter.getJSONObject("baseRequest")))
+        }
+        val view = (if (matter == null) store.get("card_view_states", matterId) else cardViewsOrNull(matter))
+        if (view != null) {
+            val state = JSONObject()
+            view.optJSONObject("ui")?.let { state.put("ui", it) }
+            view.optJSONArray("review")?.takeIf { it.length() > 0 }?.let { state.put("review", it) }
+            if (state.length() > 0) content.put("cardView", state)
+        }
+        return ComposerInput.panelContext(record.getString("title"), target.getString("panelId"), matterId, target.getLong("sourceVersion"), content)
+    }
+    private fun cardViewsOrNull(matter: JSONObject): JSONObject? = try { runtime.cardViews.read(matter) } catch (_: Exception) { null }
     private fun checkTarget(target: JSONObject) {
         val current = store.get("panel_records", target.getString("panelId")) ?: throw IOException("PANEL_NOT_FOUND")
         if (current.getString("originThreadId") != target.getString("originThreadId") || current.getString("matterId") != target.getString("matterId") ||

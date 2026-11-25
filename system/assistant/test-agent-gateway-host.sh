@@ -23,3 +23,4 @@ compile_jvm "$task_out/classes" "$task_json:$ANDROID_JAR" \
 "$JDK/bin/java" -cp "$task_out/classes:$task_json:$ANDROID_JAR:$KOTLIN_LIB/kotlin-stdlib.jar" org.agentos.assistant.ComposerStateTest
 "$JDK/bin/java" -cp "$task_out/classes:$task_json:$KOTLIN_LIB/kotlin-stdlib.jar" org.agentos.assistant.AgentGatewaySubmissionTest
 "$JDK/bin/java" -cp "$task_out/classes:$task_json:$KOTLIN_LIB/kotlin-stdlib.jar" org.agentos.assistant.TaskDetailsTest
+"$JDK/bin/java" -cp "$task_out/classes:$task_json:$KOTLIN_LIB/kotlin-stdlib.jar" org.agentos.assistant.ComposerPanelContextTest

@@ -1,6 +1,7 @@
 package org.agentos.assistant
 
 import android.graphics.Bitmap
+import org.agentos.lab.ComposerInput
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -158,6 +159,7 @@ internal object TaskRequests {
             if (conversation != origin || !matterId.startsWith("$conversation/")) throw IOException("INVALID_ARGUMENT")
             request.put("panelUpdate", JSONObject(target.toString()))
         }
+        ComposerInput.copyPanelContext(options, request)
     }
 
     @JvmStatic

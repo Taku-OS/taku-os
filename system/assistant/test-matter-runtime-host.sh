@@ -13,6 +13,7 @@ rm -rf "$task_out/classes"
 mkdir -p "$task_out/classes"
 compile_jvm "$task_out/classes" "$task_json:$ANDROID_JAR" \
  system/assistant/broker/org/agentos/lab/UiCardRequest.kt \
+ system/assistant/broker/org/agentos/lab/ComposerInput.java \
  system/assistant/src/org/agentos/assistant/AgentGatewayProtocol.kt \
  system/assistant/src/org/agentos/assistant/AgentGatewaySubmissions.kt \
  system/assistant/src/org/agentos/assistant/ComposerState.kt \
