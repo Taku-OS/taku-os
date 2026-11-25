@@ -12,7 +12,7 @@ public final class AgentOpenAccessPolicy {
             "bindSystemAiModel", "reorderSystemAi", "restoreSystemAi", "deleteSystemAiGroup",
             "interrupt", "cancelQueued", "readTaskDetail");
     private static final Set<String> CONTROL_READS = Set.of(
-            "requests/list", "requests/read", "accounts/read", "accounts/keys",
+            "requests/list", "requests/read", "accounts/read", "accounts/keys", "accounts/agyRead",
             "composer/read", "composer/receipt", "composer/options/read",
             "skills/read", "skills/community/catalog", "skills/community/detail",
             "skills/community/check-update", "skills/credentials/status");

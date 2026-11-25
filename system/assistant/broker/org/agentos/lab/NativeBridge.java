@@ -150,6 +150,15 @@ final class NativeBridge {
    case "mainReply":answer=AgentViews.mainReplyRead(input);break;
    case "liveTask":Call live=new Call("taku/liveTask",input);if(!enqueue(live))throw new IOException("BUSY");answer=live.result.get(40,TimeUnit.SECONDS);break;
    case "magpieSettingsChanged":MagpieSettings.schedule();answer=new JSONObject();break;
+   case "agyGemini":
+    if("use".equals(input.optString("action"))){
+     // The switch itself is the existing connection select: refused while tasks run, Codex restarted.
+     String model=AgyGemini.prepareUse(input.optString("model"));
+     Call use=new Call("taku/modelConnection",new JSONObject().put("action","select").put("mode","magpie").put("model",model));
+     if(!enqueue(use))throw new IOException("Runtime is busy. Please retry later");
+     use.result.get(30,TimeUnit.SECONDS);answer=AgyGemini.read(false);
+    }else answer=AgyGemini.control(input);
+    break;
    case "rpc": {
     String method=input.getString("method");
     if(!allowed(method))throw new IOException("This interface is not part of the locked native protocol");

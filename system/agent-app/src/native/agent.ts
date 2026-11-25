@@ -56,6 +56,7 @@ export type AgentAction =
   | 'workspaces/addRequirement' | 'workspaces/executionStatus'
   | 'capture/read' | 'capture/accept' | 'capture/dismiss' | 'capture/request' | 'capture/openConversation' | 'manageAssistant'
   | 'accounts/read' | 'accounts/refresh' | 'accounts/login' | 'accounts/cancel' | 'accounts/keys' | 'accounts/saveKey' | 'accounts/removeKey'
+  | 'accounts/agyRead' | 'accounts/agyRefresh' | 'accounts/agySignIn' | 'accounts/agyCancel' | 'accounts/agyCode' | 'accounts/agyUse'
   | 'decide' | 'generateUi' | 'panels' | 'cardView'
   | 'mainReply' | 'readMatter' | 'subscribeMatter' | 'unsubscribeMatter' | 'dispatchMatter' | 'analyzeCameraFrame'
   | 'audioCapabilities' | 'audioCommand'

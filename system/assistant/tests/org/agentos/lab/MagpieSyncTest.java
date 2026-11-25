@@ -41,6 +41,21 @@ public final class MagpieSyncTest {
   MagpieSettings.importFile(store,source,secrets);MagpieSettings.sync(store,source,secrets);
   check(config(store).getJSONArray("providers").getJSONObject(1).getString("decide").equals("https://api.typesafe.ai/v1"),"runtime import bypassed repair");
  }
+ /** Settings is shell-writable and Magpie runs as root: an unsafe acp agent never reaches providers.json. */
+ static void unsafeAgentLeftOut()throws Exception{
+  File dir=Files.createTempDirectory("magpie-acp").toFile(),source=new File(dir,"providers.json"),secrets=new File(dir,"secrets.json");
+  Store store=new Store();JSONObject c=base(System.currentTimeMillis());
+  AgyAcpPolicy.ensure(c,AgyAcpPolicy.DATA_BINARY);
+  c.getJSONArray("providers").put(new JSONObject().put("id","evil").put("acp",new JSONObject().put("binary","/data/local/tmp/agy")));
+  c.getJSONArray("providers").put(new JSONObject().put("id","evil-env").put("acp",new JSONObject().put("env",new JSONArray().put("LD_PRELOAD=/data/local/tmp/x.so"))));
+  set(store,c);MagpieSettings.sync(store,source,secrets);
+  JSONArray projected=new JSONObject(Files.readString(source.toPath())).getJSONArray("providers");
+  Set<String> ids=new HashSet<>();for(int i=0;i<projected.length();i++)ids.add(projected.getJSONObject(i).getString("id"));
+  check(ids.equals(Set.of("alpha","taku-agy")),"only safe providers projected: "+ids);
+  JSONObject agy=projected.getJSONObject(1);
+  check(agy.getJSONObject("acp").getString("binary").equals(AgyAcpPolicy.DATA_BINARY)&&agy.getJSONArray("models").getString(0).equals(AgyAcpPolicy.DEFAULT_MODEL),"agy provider projected with its model");
+  check(config(store).getJSONArray("providers").length()==4,"Settings keeps what its owner wrote");
+ }
  public static void main(String[]args)throws Exception{
   File dir=Files.createTempDirectory("magpie-sync").toFile(),source=new File(dir,"providers.json"),secrets=new File(dir,"secrets.json");Store s=new Store();long now=System.currentTimeMillis();set(s,base(now));
   MagpieSettings.sync(s,source,secrets);JSONObject projected=new JSONObject(Files.readString(source.toPath()));check(projected.getJSONArray("providers").getJSONObject(0).getJSONArray("models").getString(0).equals("one"),"settings -> model");
@@ -52,6 +67,7 @@ public final class MagpieSyncTest {
   JSONObject newer=base(now+10000);newer.getJSONArray("providers").getJSONObject(0).put("name","setting wins");set(s,newer);file(source,"stale file","old-token","old");source.setLastModified(now);MagpieSettings.reconcile(s,source,secrets);check(new JSONObject(Files.readString(source.toPath())).getJSONArray("providers").getJSONObject(0).getString("name").equals("setting wins"),"offline setting wins");
   String before=s.get(SystemAiSettings.CONFIG);writes=s.writes;MagpieSettings.reconcile(s,source,secrets);check(before.equals(s.get(SystemAiSettings.CONFIG))&&writes==s.writes,"restart imported own file");
   typeSafeEndpointRepair();
-  System.out.println("Magpie bidirectional, loop suppression, offline LWW, restart and TypeSafe endpoint repair tests passed");
+  unsafeAgentLeftOut();
+  System.out.println("Magpie bidirectional, loop suppression, offline LWW, restart, TypeSafe endpoint repair and acp agent safety tests passed");
  }
 }

@@ -4,6 +4,7 @@ import * as Clipboard from 'expo-clipboard';
 import {callAgent, holdSecureScreen} from '../native/agent';
 import {SecretField, type SecretFieldHandle} from '../native/SecretField';
 import type {AccountText, AccountTextKey} from '../i18n/accounts';
+import {agyView, type AgyStatus} from '../model/agyGemini';
 import {colors} from '../theme';
 
 export type AccountPalette = {ink: string; sub: string; line: string; soft: string; card: string};
@@ -26,6 +27,15 @@ const errorKeys: Record<string, AccountTextKey> = {
   ACCOUNT_CANCEL_FAILED: 'errorCancel',
   KEY_OPERATION_FAILED: 'errorKeyOperation',
   USER_UNAVAILABLE: 'errorUser',
+  AGY_SIGN_IN_REQUIRED: 'errorAgySignIn',
+  AGY_STATUS_CHECKING: 'errorAgyChecking',
+  AGY_MODEL_UNAVAILABLE: 'errorAgyModel',
+  MAGPIE_AGY_UNSUPPORTED: 'errorAgyUnsupported',
+  AGY_NOT_INSTALLED: 'agyMissing',
+  AGY_UNAVAILABLE: 'errorAgy',
+  AGY_OPERATION_FAILED: 'errorAgy',
+  SIGN_IN_NOT_PENDING: 'errorAgy',
+  TASKS_RUNNING: 'errorTasksRunning',
 };
 
 function failure(problem: unknown, t: AccountText): string {
@@ -286,6 +296,105 @@ export function OpenRouterKeys({palette, t, onChanged}: Shared) {
     </View> : <Action palette={palette} primary label={t('addKey')} disabled={busy || keys === null} onPress={() => edit(null)}/>}
     <Status busy={busy} error={error} notice={notice} palette={palette} t={t}/>
     <Action palette={palette} label={t('refresh')} disabled={busy} onPress={() => void work(read)}/>
+  </View>;
+}
+
+/**
+ * Gemini through Magpie's agy provider: Google sign-in (agy prints the page; the code Google shows
+ * goes back through a native field and never reaches JavaScript) and the switch of the main
+ * assistant to Gemini. Codex keeps running the assistant; only its model service changes.
+ */
+export function AgyGeminiAccount({palette, t, onChanged}: Shared) {
+  const [status, setStatus] = useState<AgyStatus | null>(null);
+  const [unavailable, setUnavailable] = useState(false);
+  const [notice, setNotice] = useState('');
+  const field = useRef<SecretFieldHandle>(null);
+  const {busy, error, setError, work, running, mounted, isMounted} = useWork(t);
+  const reading = useRef(false);
+  const following = useRef(false);
+  const lastRead = useRef(0);
+
+  const show = useCallback((next: AgyStatus) => {
+    if (!isMounted()) return;
+    setStatus(next);
+    setUnavailable(false);
+    const view = agyView(next);
+    following.current = view.signingIn || next.checking;
+  }, [isMounted]);
+
+  useEffect(() => {
+    let foreground = AppState.currentState === 'active';
+    const read = (now = false) => {
+      if (!foreground || reading.current || running.current) return;
+      // Follow a sign-in or a status check closely; otherwise only look occasionally.
+      if (!now && !following.current && Date.now() - lastRead.current < idlePollMs) return;
+      lastRead.current = Date.now();
+      reading.current = true;
+      void callAgent<AgyStatus>('accounts/agyRead')
+        .then(show, () => { if (mounted.current) setUnavailable(true); })
+        .finally(() => { reading.current = false; });
+    };
+    read(true);
+    const timer = setInterval(() => read(), 1000);
+    const subscription = AppState.addEventListener('change', state => {
+      foreground = state === 'active';
+      if (foreground) read(true);
+    });
+    return () => { clearInterval(timer); subscription.remove(); };
+  }, [mounted, running, show]);
+
+  const view = status ? agyView(status) : null;
+  // Google's page and the code it shows must not reach screenshots or the recents preview.
+  useSecureScreen(!!view?.signingIn);
+
+  const command = (action: 'accounts/agyRefresh' | 'accounts/agySignIn' | 'accounts/agyCancel') =>
+    void work(async () => {
+      setNotice('');
+      show(await callAgent<AgyStatus>(action));
+    });
+  const open = () => {
+    if (!view?.page) { setError(t('pageUnavailable')); return; }
+    void Linking.openURL(view.page).catch(() => { if (mounted.current) setError(t('browserRequired')); });
+  };
+  const submit = () => {
+    const entry = field.current;
+    if (!entry) return;
+    void work(async () => {
+      setNotice('');
+      show(await entry.submit<AgyStatus>('accounts/agyCode'));
+    });
+  };
+  const use = () => {
+    if (!view) return;
+    void work(async () => {
+      setNotice('');
+      show(await callAgent<AgyStatus>('accounts/agyUse', {model: view.model}));
+      if (mounted.current) setNotice(t('agyUsed'));
+      onChanged?.();
+    });
+  };
+
+  return <View style={styles.block}>
+    <Copy color={palette.ink} size={16} medium>{t('agyTitle')}</Copy>
+    <Copy color={palette.sub} size={13}>{t('agyIntro')}</Copy>
+    {!status && !unavailable ? <ActivityIndicator color={colors.brand}/> : null}
+    {unavailable ? <Copy color={danger}>{t('statusUnavailable')}</Copy> : null}
+    {view ? <Copy color={palette.sub}>{t(view.summary, {plan: view.plan})}</Copy> : null}
+    {view?.restingUntil ? <Copy color={danger}>{t('agyResting', {until: new Date(view.restingUntil).toLocaleString()})}</Copy> : null}
+    {view?.awaitingCode ? <>
+      <Action palette={palette} primary label={t('agyOpenPage')} disabled={busy} onPress={open}/>
+      <View style={[styles.field, {borderColor: palette.line}]}>
+        <SecretField ref={field} placeholder={t('agyCodeField')} textColor={palette.ink} placeholderColor={palette.sub}
+          revealed onSubmitEditing={submit} style={styles.input}/>
+      </View>
+      <Action palette={palette} label={t('agySubmitCode')} disabled={busy} onPress={submit}/>
+    </> : null}
+    {view?.signingIn ? <Action palette={palette} destructive label={t('cancelSignIn')} disabled={busy} onPress={() => command('accounts/agyCancel')}/> : null}
+    {view?.canSignIn ? <Action palette={palette} primary label={t('agySignIn')} disabled={busy} onPress={() => command('accounts/agySignIn')}/> : null}
+    {view?.canUse ? <Action palette={palette} primary label={t('agyUse')} disabled={busy} onPress={use}/> : null}
+    {view?.active ? <Copy color={palette.sub} size={13}>{t('agySwitchBack')}</Copy> : null}
+    <Status busy={busy} error={error} notice={notice} palette={palette} t={t}/>
+    <Action palette={palette} label={t('refreshStatus')} disabled={busy} onPress={() => command('accounts/agyRefresh')}/>
   </View>;
 }
 
