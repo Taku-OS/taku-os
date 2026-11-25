@@ -129,12 +129,22 @@ Same pattern as the Dynamic Island (`system/island`, `image/island`):
   (`custom_lockscreen_shortcuts_enabled`).
 - The stock shortcut configs keep their flows: Flashlight toggles `FlashlightController`; Camera calls
   `CameraGestureHelper.launchCamera`, which uses the secure camera intent over a secure keyguard.
-- User choice uses the stock selection store (long-press → Customize, wallpaper picker) and adds a Taku
-  "Open app" shortcut config (stock shortcuts cannot launch an arbitrary app); an app that cannot show over
-  the lock screen goes through the bouncer first.
+- User choice uses the stock selection store: long-press the lock screen, then Customize and Shortcuts in
+  the wallpaper picker. Taku adds an "Open app" shortcut (`taku_open_app`, `TakuOpenAppQuickAffordanceConfig`)
+  to the stock config set, because stock shortcuts cannot launch an arbitrary app. It opens one chosen
+  launcher activity, Taku by default.
+  - The target is stored in `Settings.Secure taku_lockscreen_open_app`, per user. A missing or
+    unlaunchable target falls back to Taku.
+  - The icon is the app's themed (monochrome) icon, because the keyguard tints shortcut icons, or a
+    generic apps glyph when there is none.
+  - Triggering returns `StartActivity(canShowWhileLocked = false)`, so an app that cannot show over the
+    lock screen goes through the bouncer first.
+  - The picker's configure action opens `TakuShortcutAppActivity`, an app chooser in SystemUI added by
+    a manifest hook and protected by `CUSTOMIZE_SYSTEM_UI`.
 - Agent access: the stock `CustomizationProvider` requires `CUSTOMIZE_SYSTEM_UI` (signature|privileged),
-  which the shell UID lacks, so a SystemUI shell command (`cmd statusbar lockscreen shortcuts ...`) exposes
-  the same selections to agents and ADB.
+  which the shell UID lacks. `cmd statusbar lockscreen shortcuts [list] | set SLOT SHORTCUT | clear SLOT
+  | app [COMPONENT|default]` therefore calls the same `KeyguardQuickAffordanceInteractor` with the
+  picker's rules: only listed, enabled shortcuts, and device policy respected.
 
 ### 4.5 Notification cards (authenticated state)
 
@@ -194,11 +204,14 @@ Same pattern as the Dynamic Island (`system/island`, `image/island`):
 | Lock-screen notification policy (stock) | `settings ... secure lock_screen_show_notifications`, `lock_screen_allow_private_notifications`, `lock_screen_show_silent_notifications` |
 | Lock-screen state | `cmd statusbar lockscreen state` |
 | Cards, open, dismiss, buttons, Taku | `cmd statusbar lockscreen notifications`, `open KEY`, `dismiss KEY`, `action KEY INDEX`, `taku` |
-| Shortcuts | `cmd statusbar lockscreen shortcuts list|get|set|clear` (phase 3) |
+| Shortcuts | `cmd statusbar lockscreen shortcuts [list]`, `set SLOT SHORTCUT`, `clear SLOT` |
+| "Open app" target | `cmd statusbar lockscreen shortcuts app [COMPONENT|default]`; stored in `settings get secure taku_lockscreen_open_app` |
 
 The command and the cards share `TakuLockscreenNotifications`: the same list, the same checks and the
 same stock paths. Errors are `KEYGUARD_NOT_SHOWING`, `LOCKED`, `NOT_FOUND`, `NOT_READY`,
-`NOT_CLICKABLE`, `NOT_DISMISSABLE`, `INVALID_ACTION`, `CANCELED`, `TAKU_UNAVAILABLE` and `USAGE`.
+`NOT_CLICKABLE`, `NOT_DISMISSABLE`, `INVALID_ACTION`, `CANCELED`, `TAKU_UNAVAILABLE`, `TIMEOUT` and
+`USAGE`. Shortcut commands add `DISABLED_BY_POLICY`, `INVALID_SLOT`, `INVALID_SHORTCUT`,
+`SHORTCUT_UNAVAILABLE`, `INVALID_COMPONENT`, `NOT_LAUNCHABLE` and `WRITE_FAILED`.
 All commands are documented in the preinstalled agent documentation and are verified on an isolated
 emulator.
 
@@ -223,7 +236,8 @@ Plan:
    patch tooling and host type checks.
 2. **Notification cards and Taku button** in the authenticated state; compact clock on authentication;
    `cmd statusbar lockscreen` for state, cards and the Taku entry.
-3. **Shortcut customisation**: Taku "Open app" shortcut, agent shell command.
+3. **Shortcut customisation**: Taku "Open app" shortcut with its chooser; `cmd statusbar lockscreen
+   shortcuts`.
 4. **First unlock and unlock animation** (section 6).
 5. Later: status chips / widgets, media, wallpaper choice, Dynamic Island on the lock screen.
 

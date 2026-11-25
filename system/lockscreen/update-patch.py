@@ -38,6 +38,42 @@ HOOKS = {
          '                addTransition(ClockFaceInTransition(config, clockViewModel, logBuffer))\n'
          '            }\n'),
     ],
+    SYSTEMUI + 'com/android/systemui/keyguard/data/quickaffordance/KeyguardDataQuickAffordanceModule.kt': [
+        ('import dagger.multibindings.ElementsIntoSet\n',
+         'import dagger.multibindings.ElementsIntoSet\n'
+         f'import {PKG}.TakuOpenAppQuickAffordanceConfig\n'),
+        ('            videoCamera: VideoCameraQuickAffordanceConfig,\n'
+         '        ): Set<KeyguardQuickAffordanceConfig> {\n',
+         '            videoCamera: VideoCameraQuickAffordanceConfig,\n'
+         '            // Taku: "Open app" shortcut (system/lockscreen, docs/lock-screen.md).\n'
+         '            takuOpenApp: TakuOpenAppQuickAffordanceConfig,\n'
+         '        ): Set<KeyguardQuickAffordanceConfig> {\n'),
+        ('                videoCamera,\n'
+         '            )\n',
+         '                videoCamera,\n'
+         '                takuOpenApp, // Taku\n'
+         '            )\n'),
+    ],
+    'packages/SystemUI/AndroidManifest.xml': [
+        ('            android:name="com.android.systemui.keyguard.CustomizationProvider"\n'
+         '            android:exported="true"\n'
+         '            android:permission="android.permission.CUSTOMIZE_SYSTEM_UI"\n'
+         '            />\n',
+         '            android:name="com.android.systemui.keyguard.CustomizationProvider"\n'
+         '            android:exported="true"\n'
+         '            android:permission="android.permission.CUSTOMIZE_SYSTEM_UI"\n'
+         '            />\n'
+         '\n'
+         '        <!-- Taku: app chooser for the "Open app" lock-screen shortcut, opened by the\n'
+         '             wallpaper picker as the shortcut\'s configure action. -->\n'
+         '        <activity\n'
+         '            android:name="com.android.systemui.taku.lockscreen.TakuShortcutAppActivity"\n'
+         '            android:exported="true"\n'
+         '            android:permission="android.permission.CUSTOMIZE_SYSTEM_UI"\n'
+         '            android:label="@string/controls_open_app"\n'
+         '            android:excludeFromRecents="true"\n'
+         '            android:theme="@android:style/Theme.DeviceDefault.DayNight" />\n'),
+    ],
     SYSTEMUI + 'com/android/systemui/keyguard/ui/view/layout/blueprints/KeyguardBlueprintModule.kt': [
         ('import com.android.systemui.keyguard.shared.model.KeyguardBlueprint\n',
          'import com.android.systemui.keyguard.shared.model.KeyguardBlueprint\n'

@@ -32,6 +32,8 @@ constructor(
     backgroundSection: TakuBackgroundSection,
     notificationSection: TakuNotificationSection,
     assistantSection: TakuAssistantSection,
+    // Not used here: injecting it registers `cmd statusbar lockscreen` with the Taku lock screen.
+    @Suppress("UNUSED_PARAMETER") command: TakuLockscreenCommand,
 ) : KeyguardBlueprint {
     override val id: String = ID
 

@@ -22,12 +22,13 @@ annotation class SysUISingleton
 ''',
     'Qualifiers.kt': '''package com.android.systemui.dagger.qualifiers
 annotation class Background
+annotation class Main
 ''',
     'Inject.kt': '''package javax.inject
 @Target(AnnotationTarget.CONSTRUCTOR, AnnotationTarget.FIELD, AnnotationTarget.FUNCTION) annotation class Inject
 ''',
     'Users.kt': '''package com.android.systemui.settings
-interface UserTracker { val userId: Int; val userHandle: android.os.UserHandle }
+interface UserTracker { val userId: Int; val userHandle: android.os.UserHandle; val userContext: android.content.Context }
 ''',
     'Keyguard.kt': '''package com.android.systemui.keyguard.shared.model
 abstract class KeyguardSection {
@@ -61,7 +62,7 @@ enum class StatusBarState { SHADE, KEYGUARD, SHADE_LOCKED }
 interface Lazy<T> { fun get(): T }
 ''',
     'SysuiR.kt': '''package com.android.systemui.res
-object R { object id { const val start_button = 101 } }
+object R { object id { const val start_button = 101 }; object string { const val controls_open_app = 102 }; object drawable { const val ic_apps_expressive = 103 } }
 ''',
     'Falsing.kt': '''package com.android.systemui.plugins
 interface FalsingManager { fun isFalseTap(penalty: Int): Boolean; companion object { const val LOW_PENALTY = 1 } }
@@ -73,7 +74,7 @@ interface ActivityStarter {
 ''',
     'Commands.kt': '''package com.android.systemui.statusbar.commandline
 interface Command { fun execute(pw: java.io.PrintWriter, args: List<String>); fun help(pw: java.io.PrintWriter) }
-abstract class CommandRegistry { abstract fun registerCommand(name: String, commandFactory: () -> Command) }
+abstract class CommandRegistry { abstract fun registerCommand(name: String, commandFactory: () -> Command); abstract fun registerCommand(name: String, commandFactory: () -> Command, executor: java.util.concurrent.Executor) }
 ''',
     'ClickNotifier.kt': '''package com.android.systemui.statusbar
 abstract class NotificationClickNotifier {
@@ -118,6 +119,59 @@ interface NotificationActivityStarter {
 ''',
     'SharedContainer.kt': '''package com.android.systemui.statusbar.notification.stack.ui.view
 class SharedNotificationContainer(context: android.content.Context) : androidx.constraintlayout.widget.ConstraintLayout(context)
+''',
+    'QuickAffordances.kt': '''package com.android.systemui.keyguard.data.quickaffordance
+interface KeyguardQuickAffordanceConfig {
+ val key: String
+ val pickerIconResourceId: Int
+ val lockScreenState: kotlinx.coroutines.flow.Flow<LockScreenState>
+ fun pickerName(): String
+ suspend fun getPickerScreenState(): PickerScreenState = PickerScreenState.Default()
+ fun onTriggered(expandable: com.android.systemui.animation.Expandable?): OnTriggeredResult
+ sealed class PickerScreenState { data class Default(val configureIntent: android.content.Intent? = null) : PickerScreenState() }
+ sealed class LockScreenState {
+  object Hidden : LockScreenState()
+  data class Visible(val icon: com.android.systemui.common.shared.model.Icon) : LockScreenState()
+ }
+ sealed class OnTriggeredResult {
+  data class Handled(val actionLaunched: Boolean) : OnTriggeredResult()
+  data class StartActivity(val intent: android.content.Intent, val canShowWhileLocked: Boolean) : OnTriggeredResult()
+ }
+}
+''',
+    'QuickAffordanceInteractor.kt': '''package com.android.systemui.keyguard.domain.interactor
+abstract class KeyguardQuickAffordanceInteractor {
+ abstract suspend fun select(slotId: String, affordanceId: String): Boolean
+ abstract suspend fun unselect(slotId: String, affordanceId: String?): Boolean
+ abstract suspend fun getSelections(): Map<String, List<com.android.systemui.keyguard.shared.model.KeyguardQuickAffordancePickerRepresentation>>
+ abstract suspend fun getAffordancePickerRepresentations(): List<com.android.systemui.keyguard.shared.model.KeyguardQuickAffordancePickerRepresentation>
+ abstract suspend fun getSlotPickerRepresentations(): List<com.android.systemui.keyguard.shared.model.KeyguardSlotPickerRepresentation>
+}
+''',
+    'PickerModels.kt': '''package com.android.systemui.keyguard.shared.model
+data class KeyguardQuickAffordancePickerRepresentation(val id: String, val name: String, val iconResourceId: Int,
+ val isEnabled: Boolean = true, val explanation: String? = null)
+data class KeyguardSlotPickerRepresentation(val id: String, val maxSelectedAffordances: Int = 1)
+''',
+    'CommonModels.kt': '''package com.android.systemui.common.shared.model
+sealed class ContentDescription { data class Loaded(val description: String?) : ContentDescription() }
+sealed class Icon {
+ data class Loaded(val drawable: android.graphics.drawable.Drawable, val contentDescription: ContentDescription?) : Icon()
+ data class Resource(val resId: Int, val contentDescription: ContentDescription?) : Icon()
+}
+''',
+    'Expandable.kt': '''package com.android.systemui.animation
+interface Expandable
+''',
+    'Settings.kt': '''package com.android.systemui.util.settings
+interface UserSettingsProxy {
+ fun getStringForUser(name: String, userHandle: Int): String?
+ fun putStringForUser(name: String, value: String?, userHandle: Int): Boolean
+}
+interface SecureSettings : UserSettingsProxy
+object SettingsProxyExt {
+ fun UserSettingsProxy.observerFlow(userId: Int, vararg names: String): kotlinx.coroutines.flow.Flow<Unit> = TODO()
+}
 ''',
     'SharedContainerVm.kt': '''package com.android.systemui.statusbar.notification.stack.ui.viewmodel
 abstract class SharedNotificationContainerViewModel { abstract val isOnLockscreenWithoutShade: kotlinx.coroutines.flow.Flow<Boolean> }

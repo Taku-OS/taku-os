@@ -42,10 +42,20 @@ emergency call and accessibility all stay upstream code.
 - The `NotificationPanelViewController` hook makes the stock clock-size rule follow authentication
   (`TakuLockscreenPolicy.clockSize`).
 
+## Phase 3: shortcuts
+
+- `TakuOpenAppQuickAffordanceConfig` joins the stock shortcut set (hook in
+  `KeyguardDataQuickAffordanceModule`) as "Open app". Its target is `TakuOpenAppTarget`, stored in
+  `Settings.Secure taku_lockscreen_open_app` and defaulting to Taku. `TakuShortcutAppActivity`
+  (manifest hook) is the picker's configure action.
+- `TakuLockscreenCommand` owns `cmd statusbar lockscreen`. It runs on a background thread, sends card
+  and Taku operations to the main thread, and runs shortcut operations (`TakuLockscreenShortcuts`)
+  through the picker's `KeyguardQuickAffordanceInteractor`.
+
 ## Patch
 
 `src/` goes into `frameworks/base/packages/SystemUI/src/` through `image/lockscreen/`, an exact-revision
-patch with SHA-256 hashes for every file. Seven upstream hooks are anchored edits. Each must match exactly once.
+patch with SHA-256 hashes for every file. Nine upstream hooks are anchored edits (eight sources and the SystemUI manifest). Each must match exactly once.
 
 ```sh
 python3 system/lockscreen/update-patch.py --fetch          # or --upstream-root <frameworks/base>
@@ -66,7 +76,7 @@ python3 system/lockscreen/typecheck.py --kotlinc KOTLINC --android-jar ANDROID_J
   matrix in the spec is the acceptance list.
 - Agent interfaces: the `taku-open-access` skill documents the clock face, face bypass, the stock
   notification settings and `cmd statusbar lockscreen` (state, notifications, open, dismiss, action,
-  taku). Shortcut commands come in phase 3.
+  taku, shortcuts).
 
 ## Open items
 

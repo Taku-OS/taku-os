@@ -884,12 +884,42 @@ settings get secure lock_screen_show_silent_notifications
 getprop ro.config.lock_wallpaper
 ```
 
-The bottom shortcuts default to Flashlight (left) and Camera (right). They are SystemUI quick
-affordances. The only on-device API for them is `content://com.android.systemui.customization`,
-which needs `android.permission.CUSTOMIZE_SYSTEM_UI`. The ADB shell does not hold that permission, so
-an Agent cannot yet read or change the shortcuts. A shell command for this is planned. Unlocking
-always goes through the user's own PIN, pattern, password, face or fingerprint. An Agent cannot
-bypass or perform authentication.
+The bottom shortcuts default to Flashlight (`bottom_start`) and Camera (`bottom_end`). They are
+SystemUI quick affordances. The user changes them by long-pressing the lock screen, then choosing
+Customize and Shortcuts. Agents use `cmd statusbar lockscreen shortcuts`, which reaches the same
+selection store with the picker's rules. The picker's own provider
+(`content://com.android.systemui.customization`) needs `CUSTOMIZE_SYSTEM_UI`, which the shell does
+not hold.
+
+```sh
+cmd statusbar lockscreen shortcuts
+# {ok, enabled, slots:[{id, maxSelected, selected:[SHORTCUT]}],
+#  shortcuts:[{id, name, enabled, explanation}], openApp:{component, label, isDefault}}
+# enabled:false means device policy disabled lock-screen shortcuts.
+cmd statusbar lockscreen shortcuts set bottom_start taku_open_app   # SHORTCUT from shortcuts[].id
+cmd statusbar lockscreen shortcuts clear bottom_end                 # empty slot (clearing twice is ok)
+cmd statusbar lockscreen shortcuts app                              # current "Open app" target
+cmd statusbar lockscreen shortcuts app com.example/.MainActivity    # a launcher activity of this user
+cmd statusbar lockscreen shortcuts app default                      # back to Taku
+```
+
+Built-in IDs include `flashlight`, `camera`, `video_camera`, `do_not_disturb`, `mute`, `qr_code_scanner`,
+`wallet` and `home`. Always take the IDs from `shortcuts`, because availability depends on the device.
+`taku_open_app` ("Open app") opens one chosen app, Taku by default. The target is stored in
+`settings get secure taku_lockscreen_open_app`. Change it with the command, which validates it; a
+target that is missing or no longer launchable falls back to Taku. An app that cannot show over the
+lock screen asks for authentication first. The picker's configure button for "Open app" opens the same
+chooser.
+
+Shortcut errors:
+- `DISABLED_BY_POLICY`: device policy disabled lock-screen shortcuts.
+- `INVALID_SLOT`, `INVALID_SHORTCUT`, `INVALID_COMPONENT`: the ID or component is wrong.
+- `SHORTCUT_UNAVAILABLE`: the shortcut's `enabled` is false; its `explanation` says why.
+- `NOT_LAUNCHABLE`: the component is not an enabled launcher activity of this user.
+- `WRITE_FAILED`: the change could not be stored.
+
+Unlocking always goes through the user's own PIN, pattern, password, face or fingerprint. An Agent
+cannot bypass or perform authentication.
 
 After the user authenticates, the lock screen shows the compact clock, one card per notification
 (newest first) and the Taku button. While it is locked, it shows only the date, the tall clock and
@@ -920,6 +950,7 @@ accepted. Reply (RemoteInput) and contextual actions are not exposed here. Error
 - `NOT_CLICKABLE`: the notification has no intent to open.
 - `NOT_DISMISSABLE`, `INVALID_ACTION`, `CANCELED`: the app refused, or the intent is gone.
 - `TAKU_UNAVAILABLE`, `USAGE`: Taku is not installed, or the arguments are wrong.
+- `TIMEOUT`: SystemUI's main thread did not answer within 5 s; read `state` again before retrying.
 
 `open`, `taku` and buttons that start an activity leave the lock screen like the matching tap, so
 only run them when the user asked. If SystemUI could not register the `lockscreen` name, the same commands are under

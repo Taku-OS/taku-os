@@ -1,3 +1,22 @@
+--- a/packages/SystemUI/AndroidManifest.xml
++++ b/packages/SystemUI/AndroidManifest.xml
+@@ -1248,6 +1248,16 @@
+             android:permission="android.permission.CUSTOMIZE_SYSTEM_UI"
+             />
+ 
++        <!-- Taku: app chooser for the "Open app" lock-screen shortcut, opened by the
++             wallpaper picker as the shortcut's configure action. -->
++        <activity
++            android:name="com.android.systemui.taku.lockscreen.TakuShortcutAppActivity"
++            android:exported="true"
++            android:permission="android.permission.CUSTOMIZE_SYSTEM_UI"
++            android:label="@string/controls_open_app"
++            android:excludeFromRecents="true"
++            android:theme="@android:style/Theme.DeviceDefault.DayNight" />
++
+         <!-- TODO(b/278897602): Disable EmojiCompatInitializer until threading issues are fixed.
+              https://developer.android.com/reference/androidx/emoji2/text/EmojiCompatInitializer -->
+         <provider
 --- a/packages/SystemUI/src/com/android/keyguard/dagger/ClockRegistryModule.java
 +++ b/packages/SystemUI/src/com/android/keyguard/dagger/ClockRegistryModule.java
 @@ -24,6 +24,7 @@
@@ -25,6 +44,33 @@
                  clockBuffers,
                  /* keepAllLoaded = */ false,
                  /* subTag = */ "System",
+--- a/packages/SystemUI/src/com/android/systemui/keyguard/data/quickaffordance/KeyguardDataQuickAffordanceModule.kt
++++ b/packages/SystemUI/src/com/android/systemui/keyguard/data/quickaffordance/KeyguardDataQuickAffordanceModule.kt
+@@ -21,6 +21,7 @@
+ import dagger.Module
+ import dagger.Provides
+ import dagger.multibindings.ElementsIntoSet
++import com.android.systemui.taku.lockscreen.TakuOpenAppQuickAffordanceConfig
+ 
+ @Module
+ interface KeyguardDataQuickAffordanceModule {
+@@ -41,6 +42,8 @@
+             quickAccessWallet: QuickAccessWalletKeyguardQuickAffordanceConfig,
+             qrCodeScanner: QrCodeScannerKeyguardQuickAffordanceConfig,
+             videoCamera: VideoCameraQuickAffordanceConfig,
++            // Taku: "Open app" shortcut (system/lockscreen, docs/lock-screen.md).
++            takuOpenApp: TakuOpenAppQuickAffordanceConfig,
+         ): Set<KeyguardQuickAffordanceConfig> {
+             return setOf(
+                 camera,
+@@ -51,6 +54,7 @@
+                 quickAccessWallet,
+                 qrCodeScanner,
+                 videoCamera,
++                takuOpenApp, // Taku
+             )
+         }
+     }
 --- a/packages/SystemUI/src/com/android/systemui/keyguard/data/repository/KeyguardBlueprintRepository.kt
 +++ b/packages/SystemUI/src/com/android/systemui/keyguard/data/repository/KeyguardBlueprintRepository.kt
 @@ -23,6 +23,7 @@
@@ -920,7 +966,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuKeyguardBlueprint.kt
-@@ -0,0 +1,115 @@
+@@ -0,0 +1,117 @@
 +package com.android.systemui.taku.lockscreen
 +
 +import android.view.View
@@ -955,6 +1001,8 @@
 +    backgroundSection: TakuBackgroundSection,
 +    notificationSection: TakuNotificationSection,
 +    assistantSection: TakuAssistantSection,
++    // Not used here: injecting it registers `cmd statusbar lockscreen` with the Taku lock screen.
++    @Suppress("UNUSED_PARAMETER") command: TakuLockscreenCommand,
 +) : KeyguardBlueprint {
 +    override val id: String = ID
 +
@@ -1251,6 +1299,116 @@
 +    }
 +}
 --- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuLockscreenCommand.kt
+@@ -0,0 +1,107 @@
++package com.android.systemui.taku.lockscreen
++
++import android.util.Log
++import com.android.systemui.dagger.SysUISingleton
++import com.android.systemui.dagger.qualifiers.Background
++import com.android.systemui.dagger.qualifiers.Main
++import com.android.systemui.statusbar.commandline.Command
++import com.android.systemui.statusbar.commandline.CommandRegistry
++import java.io.PrintWriter
++import java.util.concurrent.Executor
++import java.util.concurrent.FutureTask
++import java.util.concurrent.TimeUnit
++import java.util.concurrent.TimeoutException
++import javax.inject.Inject
++import kotlinx.coroutines.runBlocking
++import org.json.JSONObject
++
++/**
++ * `cmd statusbar lockscreen ...`: the Agent's view of the lock screen. It runs on a background thread.
++ * Card and Taku operations hop to the main thread, where the cards run, and call
++ * [TakuLockscreenNotifications]. Shortcut operations call [TakuLockscreenShortcuts], the picker's
++ * interactor, which blocks. Every reply is one JSON line.
++ *
++ * Constructed with [TakuKeyguardBlueprint], so the command exists whenever the Taku lock screen does.
++ */
++@SysUISingleton
++class TakuLockscreenCommand
++@Inject
++constructor(
++    registry: CommandRegistry,
++    private val notifications: TakuLockscreenNotifications,
++    private val shortcuts: TakuLockscreenShortcuts,
++    @Main private val mainExecutor: Executor,
++    @Background backgroundExecutor: Executor,
++) {
++    init {
++        // A duplicate name throws; SystemUI must still start, so fall back to the prefixed name.
++        try {
++            registry.registerCommand(COMMAND, { Handler() }, backgroundExecutor)
++        } catch (taken: IllegalStateException) {
++            Log.e(TAG, "cmd statusbar $COMMAND is taken; using $FALLBACK_COMMAND", taken)
++            registry.registerCommand(FALLBACK_COMMAND, { Handler() }, backgroundExecutor)
++        }
++    }
++
++    private fun onMain(block: () -> JSONObject): JSONObject {
++        val task = FutureTask(block)
++        mainExecutor.execute(task)
++        return try {
++            task.get(MAIN_TIMEOUT_SECONDS, TimeUnit.SECONDS)
++        } catch (timeout: TimeoutException) {
++            task.cancel(false)
++            TakuLockscreenNotifications.Result.error("TIMEOUT").json()
++        }
++    }
++
++    fun run(args: List<String>): JSONObject = when (args.getOrNull(0)) {
++        "state" -> if (args.size == 1) onMain {
++            TakuLockscreenNotifications.Result.OK.json().put("state", notifications.stateJson())
++        } else usage()
++        "notifications" -> if (args.size == 1) onMain {
++            TakuLockscreenNotifications.Result.OK.json()
++                .put("state", notifications.stateJson())
++                .put("notifications", notifications.notificationsJson())
++        } else usage()
++        "open" -> if (args.size == 2) onMain { notifications.open(args[1]).json() } else usage()
++        "dismiss" -> if (args.size == 2) onMain { notifications.dismiss(args[1]).json() } else usage()
++        "action" -> {
++            val index = args.getOrNull(2)?.toIntOrNull()
++            if (args.size == 3 && index != null) onMain { notifications.action(args[1], index).json() } else usage()
++        }
++        "taku" -> if (args.size == 1) onMain { notifications.openTaku().json() } else usage()
++        "shortcuts" -> shortcutsCommand(args.drop(1))
++        else -> usage()
++    }
++
++    private fun shortcutsCommand(args: List<String>): JSONObject = runBlocking {
++        when (args.getOrNull(0)) {
++            null, "list" -> if (args.size <= 1) shortcuts.list() else usage()
++            "set" -> if (args.size == 3) shortcuts.set(args[1], args[2]).json() else usage()
++            "clear" -> if (args.size == 2) shortcuts.clear(args[1]).json() else usage()
++            "app" -> when (args.size) {
++                1 -> TakuLockscreenNotifications.Result.OK.json().put("openApp", shortcuts.openAppJson())
++                2 -> shortcuts.setOpenApp(args[1]).json().put("openApp", shortcuts.openAppJson())
++                else -> usage()
++            }
++            else -> usage()
++        }
++    }
++
++    private fun usage() = TakuLockscreenNotifications.Result.error("USAGE").json().put("usage", USAGE)
++
++    private inner class Handler : Command {
++        override fun execute(pw: PrintWriter, args: List<String>) = pw.println(run(args))
++        override fun help(pw: PrintWriter) = pw.println(USAGE)
++    }
++
++    companion object {
++        private const val TAG = "TakuLockscreenCommand"
++        const val COMMAND = "lockscreen"
++        const val FALLBACK_COMMAND = "taku-lockscreen"
++        private const val MAIN_TIMEOUT_SECONDS = 5L
++        const val USAGE = "lockscreen state | notifications | open KEY | dismiss KEY | action KEY INDEX | taku" +
++            " | shortcuts [list] | shortcuts set SLOT SHORTCUT | shortcuts clear SLOT" +
++            " | shortcuts app [COMPONENT|default]"
++    }
++}
+--- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuLockscreenFonts.kt
 @@ -0,0 +1,31 @@
 +package com.android.systemui.taku.lockscreen
@@ -1286,7 +1444,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuLockscreenNotifications.kt
-@@ -0,0 +1,237 @@
+@@ -0,0 +1,199 @@
 +package com.android.systemui.taku.lockscreen
 +
 +import android.app.PendingIntent
@@ -1299,13 +1457,10 @@
 +import com.android.systemui.plugins.ActivityStarter
 +import com.android.systemui.settings.UserTracker
 +import com.android.systemui.statusbar.NotificationClickNotifier
-+import com.android.systemui.statusbar.commandline.Command
-+import com.android.systemui.statusbar.commandline.CommandRegistry
 +import com.android.systemui.statusbar.notification.NotificationActivityStarter
 +import com.android.systemui.statusbar.notification.collection.NotifPipeline
 +import com.android.systemui.statusbar.notification.collection.NotificationEntry
 +import dagger.Lazy
-+import java.io.PrintWriter
 +import javax.inject.Inject
 +import kotlinx.coroutines.flow.MutableStateFlow
 +import kotlinx.coroutines.flow.StateFlow
@@ -1315,8 +1470,8 @@
 +
 +/**
 + * The authenticated lock screen's notifications and Taku entry: one model and one set of operations
-+ * shared by the cards (GUI) and `cmd statusbar lockscreen` (Agent), so both read the same data and
-+ * pass the same checks.
++ * shared by the cards (GUI) and `cmd statusbar lockscreen` ([TakuLockscreenCommand], Agent), so both
++ * read the same data and pass the same checks. Main thread only.
 + *
 + * The source is the keyguard-filtered shade list from the notification pipeline: the same entries
 + * the stock stack would show, after lock-screen settings, VISIBILITY_SECRET and Taku's
@@ -1335,7 +1490,6 @@
 +    private val activityStarter: Lazy<ActivityStarter>,
 +    private val notificationActivityStarter: Lazy<NotificationActivityStarter>,
 +    private val clickNotifier: NotificationClickNotifier,
-+    commandRegistry: CommandRegistry,
 +) {
 +    private val apps = AppInfoCache()
 +    private val entries = LinkedHashMap<String, NotificationEntry>()
@@ -1346,13 +1500,6 @@
 +
 +    init {
 +        pipeline.addOnAfterRenderListListener { list -> rebuild(TakuNotificationCard.flatten(list)) }
-+        // A duplicate name throws; SystemUI must still start, so fall back to the prefixed name.
-+        try {
-+            commandRegistry.registerCommand(COMMAND) { LockscreenCommand() }
-+        } catch (taken: IllegalStateException) {
-+            Log.e(TAG, "cmd statusbar $COMMAND is taken; using $FALLBACK_COMMAND", taken)
-+            commandRegistry.registerCommand(FALLBACK_COMMAND) { LockscreenCommand() }
-+        }
 +    }
 +
 +    private fun rebuild(list: List<NotificationEntry>) {
@@ -1492,36 +1639,120 @@
 +        return array
 +    }
 +
-+    private inner class LockscreenCommand : Command {
-+        override fun execute(pw: PrintWriter, args: List<String>) {
-+            val result: JSONObject = when (args.getOrNull(0)) {
-+                "state" -> if (args.size == 1) Result.OK.json().put("state", stateJson()) else usage()
-+                "notifications" -> if (args.size == 1) {
-+                    Result.OK.json().put("state", stateJson()).put("notifications", notificationsJson())
-+                } else usage()
-+                "open" -> if (args.size == 2) open(args[1]).json() else usage()
-+                "dismiss" -> if (args.size == 2) dismiss(args[1]).json() else usage()
-+                "action" -> {
-+                    val index = args.getOrNull(2)?.toIntOrNull()
-+                    if (args.size == 3 && index != null) action(args[1], index).json() else usage()
++    companion object {
++        private const val TAG = "TakuLockscreen"
++        const val TAKU_PACKAGE = "org.agentos.agent"
++    }
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuLockscreenShortcuts.kt
+@@ -0,0 +1,108 @@
++package com.android.systemui.taku.lockscreen
++
++import android.content.ComponentName
++import com.android.systemui.dagger.SysUISingleton
++import com.android.systemui.keyguard.domain.interactor.KeyguardQuickAffordanceInteractor
++import com.android.systemui.settings.UserTracker
++import com.android.systemui.util.settings.SecureSettings
++import dagger.Lazy
++import javax.inject.Inject
++import org.json.JSONArray
++import org.json.JSONObject
++
++/**
++ * Lock-screen shortcut selections for Agents. The wallpaper picker reaches the same
++ * [KeyguardQuickAffordanceInteractor] through SystemUI's CustomizationProvider, which needs
++ * `CUSTOMIZE_SYSTEM_UI` (the shell lacks it). These operations call the interactor directly with the
++ * picker's rules: only listed, enabled shortcuts can be selected, and device policy can disable them.
++ * The "Open app" target uses [TakuOpenAppTarget], like the chooser activity.
++ *
++ * Every function blocks on the interactor's suspend calls; run them off the main thread.
++ */
++@SysUISingleton
++class TakuLockscreenShortcuts
++@Inject
++constructor(
++    private val interactor: Lazy<KeyguardQuickAffordanceInteractor>,
++    private val secureSettings: SecureSettings,
++    private val userTracker: UserTracker,
++) {
++    suspend fun list(): JSONObject {
++        val quickAffordances = interactor.get()
++        val slots = quickAffordances.getSlotPickerRepresentations()
++        val selections = quickAffordances.getSelections()
++        val affordances = quickAffordances.getAffordancePickerRepresentations()
++        return TakuLockscreenNotifications.Result.OK.json()
++            .put("enabled", slots.isNotEmpty())
++            .put("slots", JSONArray().apply {
++                slots.forEach { slot ->
++                    put(JSONObject()
++                        .put("id", slot.id)
++                        .put("maxSelected", slot.maxSelectedAffordances)
++                        .put("selected", JSONArray().apply { selections[slot.id].orEmpty().forEach { put(it.id) } }))
 +                }
-+                "taku" -> if (args.size == 1) openTaku().json() else usage()
-+                else -> usage()
-+            }
-+            pw.println(result)
++            })
++            .put("shortcuts", JSONArray().apply {
++                affordances.forEach { affordance ->
++                    put(JSONObject()
++                        .put("id", affordance.id)
++                        .put("name", affordance.name)
++                        .put("enabled", affordance.isEnabled)
++                        .put("explanation", affordance.explanation ?: JSONObject.NULL))
++                }
++            })
++            .put("openApp", openAppJson())
++    }
++
++    suspend fun set(slotId: String, shortcutId: String): TakuLockscreenNotifications.Result {
++        val quickAffordances = interactor.get()
++        val slots = quickAffordances.getSlotPickerRepresentations()
++        if (slots.isEmpty()) return TakuLockscreenNotifications.Result.error("DISABLED_BY_POLICY")
++        if (slots.none { it.id == slotId }) return TakuLockscreenNotifications.Result.error("INVALID_SLOT")
++        val affordance = quickAffordances.getAffordancePickerRepresentations().firstOrNull { it.id == shortcutId }
++            ?: return TakuLockscreenNotifications.Result.error("INVALID_SHORTCUT")
++        if (!affordance.isEnabled) return TakuLockscreenNotifications.Result.error("SHORTCUT_UNAVAILABLE")
++        return if (quickAffordances.select(slotId, shortcutId)) TakuLockscreenNotifications.Result.OK
++        else TakuLockscreenNotifications.Result.error("WRITE_FAILED")
++    }
++
++    /** Empties a slot. Clearing an empty slot succeeds. */
++    suspend fun clear(slotId: String): TakuLockscreenNotifications.Result {
++        val quickAffordances = interactor.get()
++        val slots = quickAffordances.getSlotPickerRepresentations()
++        if (slots.isEmpty()) return TakuLockscreenNotifications.Result.error("DISABLED_BY_POLICY")
++        if (slots.none { it.id == slotId }) return TakuLockscreenNotifications.Result.error("INVALID_SLOT")
++        quickAffordances.unselect(slotId, null)
++        return TakuLockscreenNotifications.Result.OK
++    }
++
++    fun openAppJson(): JSONObject {
++        val stored = secureSettings.getStringForUser(TakuOpenAppTarget.SETTING, userTracker.userId)
++        val target = TakuOpenAppTarget.resolve(userTracker.userContext.packageManager, stored)
++        return JSONObject()
++            .put("component", target?.component?.flattenToString() ?: JSONObject.NULL)
++            .put("label", target?.label?.toString() ?: JSONObject.NULL)
++            .put("isDefault", target?.isDefault ?: true)
++    }
++
++    /** Sets the "Open app" target to a launcher activity, or back to Taku with `default`. */
++    fun setOpenApp(value: String): TakuLockscreenNotifications.Result {
++        val stored = if (value == DEFAULT) {
++            null
++        } else {
++            val component = ComponentName.unflattenFromString(value)
++                ?: return TakuLockscreenNotifications.Result.error("INVALID_COMPONENT")
++            TakuOpenAppTarget.validate(userTracker.userContext.packageManager, component)?.flattenToString()
++                ?: return TakuLockscreenNotifications.Result.error("NOT_LAUNCHABLE")
 +        }
-+
-+        private fun usage() = Result.error("USAGE").json().put("usage", USAGE)
-+
-+        override fun help(pw: PrintWriter) = pw.println(USAGE)
++        return if (secureSettings.putStringForUser(TakuOpenAppTarget.SETTING, stored, userTracker.userId)) {
++            TakuLockscreenNotifications.Result.OK
++        } else {
++            TakuLockscreenNotifications.Result.error("WRITE_FAILED")
++        }
 +    }
 +
 +    companion object {
-+        private const val TAG = "TakuLockscreen"
-+        const val COMMAND = "lockscreen"
-+        const val FALLBACK_COMMAND = "taku-lockscreen"
-+        const val TAKU_PACKAGE = "org.agentos.agent"
-+        const val USAGE = "lockscreen state | notifications | open KEY | dismiss KEY | action KEY INDEX | taku"
++        const val DEFAULT = "default"
 +    }
 +}
 --- /dev/null
@@ -2238,6 +2469,245 @@
 +    // endregion
 +
 +    private fun dp(value: Float) = (value * density).toInt()
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuOpenAppShortcut.kt
+@@ -0,0 +1,154 @@
++package com.android.systemui.taku.lockscreen
++
++import android.content.ComponentName
++import android.content.Context
++import android.content.Intent
++import android.content.pm.PackageManager
++import android.graphics.drawable.AdaptiveIconDrawable
++import android.graphics.drawable.Drawable
++import android.graphics.drawable.InsetDrawable
++import android.util.Log
++import com.android.systemui.animation.Expandable
++import com.android.systemui.common.shared.model.ContentDescription
++import com.android.systemui.common.shared.model.Icon
++import com.android.systemui.dagger.SysUISingleton
++import com.android.systemui.dagger.qualifiers.Background
++import com.android.systemui.keyguard.data.quickaffordance.KeyguardQuickAffordanceConfig
++import com.android.systemui.res.R
++import com.android.systemui.settings.UserTracker
++import com.android.systemui.util.settings.SecureSettings
++import com.android.systemui.util.settings.SettingsProxyExt.observerFlow
++import javax.inject.Inject
++import kotlinx.coroutines.CoroutineDispatcher
++import kotlinx.coroutines.flow.Flow
++import kotlinx.coroutines.flow.flowOn
++import kotlinx.coroutines.flow.map
++import kotlinx.coroutines.flow.onStart
++
++/**
++ * The "Open app" lock-screen shortcut's target: one launchable activity per user, stored as a
++ * flattened component in `Settings.Secure` [SETTING]. Unset or no longer launchable means Taku.
++ * Every writer (picker activity, `cmd statusbar lockscreen shortcuts app`) goes through [validate],
++ * and the shortcut resolves the target again when it is pressed.
++ */
++object TakuOpenAppTarget {
++    const val SETTING = "taku_lockscreen_open_app"
++
++    class Target(val component: ComponentName, val label: CharSequence, val isDefault: Boolean)
++
++    private fun launcherIntent(component: ComponentName?): Intent =
++        Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER).setComponent(component)
++
++    /** The component when it is an enabled, exported launcher activity of this user; else null. */
++    fun validate(pm: PackageManager, component: ComponentName): ComponentName? =
++        pm.resolveActivity(launcherIntent(component), 0)
++            ?.activityInfo
++            ?.takeIf { it.exported && it.enabled }
++            ?.let { ComponentName(it.packageName, it.name) }
++
++    /** Taku's launcher activity, the default target. */
++    fun defaultComponent(pm: PackageManager): ComponentName? =
++        pm.getLaunchIntentForPackage(TakuLockscreenNotifications.TAKU_PACKAGE)?.component
++
++    fun resolve(pm: PackageManager, stored: String?): Target? {
++        val chosen = stored?.let(ComponentName::unflattenFromString)?.let { validate(pm, it) }
++        val component = chosen ?: defaultComponent(pm) ?: return null
++        val label = try {
++            pm.getActivityInfo(component, 0).loadLabel(pm)
++        } catch (missing: PackageManager.NameNotFoundException) {
++            component.packageName
++        }
++        return Target(component, label, chosen == null)
++    }
++
++    fun launchIntent(component: ComponentName): Intent =
++        launcherIntent(component).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
++
++    /** All launcher activities of this user, by label, for the chooser. */
++    fun candidates(pm: PackageManager): List<Target> =
++        pm.queryIntentActivities(launcherIntent(null), 0)
++            .map { info ->
++                Target(ComponentName(info.activityInfo.packageName, info.activityInfo.name), info.loadLabel(pm), false)
++            }
++            .distinctBy { it.component }
++            .sortedBy { it.label.toString().lowercase() }
++
++    /**
++     * The shortcut glyph: the app's themed (monochrome) icon, enlarged out of the adaptive-icon safe
++     * zone. The keyguard tints shortcut icons, so a full-colour icon would become a solid shape;
++     * without a monochrome layer the caller uses a generic apps glyph.
++     */
++    fun monochromeIcon(pm: PackageManager, component: ComponentName): Drawable? {
++        val icon = try {
++            pm.getActivityIcon(component)
++        } catch (missing: PackageManager.NameNotFoundException) {
++            return null
++        }
++        val mono = (icon as? AdaptiveIconDrawable)?.monochrome ?: return null
++        return InsetDrawable(mono, -AdaptiveIconDrawable.getExtraInsetFraction())
++    }
++}
++
++/**
++ * Lock-screen shortcut that opens one chosen app (Taku by default). Stock shortcuts cannot launch an
++ * arbitrary app; this one plugs into the stock shortcut system, so selection, the picker, long-press
++ * and launching behave like every other shortcut. An app that cannot show over the lock screen goes
++ * through the bouncer first, because the result is [OnTriggeredResult.StartActivity] with
++ * `canShowWhileLocked = false`.
++ */
++@SysUISingleton
++class TakuOpenAppQuickAffordanceConfig
++@Inject
++constructor(
++    private val context: Context,
++    private val secureSettings: SecureSettings,
++    private val userTracker: UserTracker,
++    @Background private val backgroundDispatcher: CoroutineDispatcher,
++) : KeyguardQuickAffordanceConfig {
++    override val key: String = KEY
++
++    override fun pickerName(): String = context.getString(R.string.controls_open_app)
++
++    override val pickerIconResourceId: Int = R.drawable.ic_apps_expressive
++
++    private fun current(): TakuOpenAppTarget.Target? =
++        TakuOpenAppTarget.resolve(userTracker.userContext.packageManager,
++            secureSettings.getStringForUser(TakuOpenAppTarget.SETTING, userTracker.userId))
++
++    override val lockScreenState: Flow<KeyguardQuickAffordanceConfig.LockScreenState> =
++        secureSettings.observerFlow(USER_ALL, TakuOpenAppTarget.SETTING)
++            .onStart { emit(Unit) }
++            .map {
++                val target = current() ?: return@map KeyguardQuickAffordanceConfig.LockScreenState.Hidden
++                val description = ContentDescription.Loaded(target.label.toString())
++                val glyph = TakuOpenAppTarget.monochromeIcon(userTracker.userContext.packageManager, target.component)
++                KeyguardQuickAffordanceConfig.LockScreenState.Visible(
++                    if (glyph != null) Icon.Loaded(glyph, description)
++                    else Icon.Resource(R.drawable.ic_apps_expressive, description)
++                )
++            }
++            .flowOn(backgroundDispatcher)
++
++    /** The picker offers "configure" for the selected shortcut: the app chooser. */
++    override suspend fun getPickerScreenState(): KeyguardQuickAffordanceConfig.PickerScreenState =
++        KeyguardQuickAffordanceConfig.PickerScreenState.Default(
++            configureIntent = Intent().setClassName(context.packageName, TakuShortcutAppActivity::class.java.name)
++        )
++
++    override fun onTriggered(expandable: Expandable?): KeyguardQuickAffordanceConfig.OnTriggeredResult {
++        val target = current()
++        if (target == null) {
++            Log.w(TAG, "No launchable target for the Open app shortcut")
++            return KeyguardQuickAffordanceConfig.OnTriggeredResult.Handled(false)
++        }
++        return KeyguardQuickAffordanceConfig.OnTriggeredResult.StartActivity(
++            TakuOpenAppTarget.launchIntent(target.component), canShowWhileLocked = false)
++    }
++
++    companion object {
++        private const val TAG = "TakuOpenAppShortcut"
++        const val KEY = "taku_open_app"
++        /** `UserHandle.USER_ALL` (hidden API): observe the setting for every user, read the current one. */
++        private const val USER_ALL = -1
++    }
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuShortcutAppActivity.kt
+@@ -0,0 +1,79 @@
++package com.android.systemui.taku.lockscreen
++
++import android.app.Activity
++import android.os.Bundle
++import android.provider.Settings
++import android.util.TypedValue
++import android.view.Gravity
++import android.view.View
++import android.view.ViewGroup
++import android.widget.BaseAdapter
++import android.widget.ImageView
++import android.widget.LinearLayout
++import android.widget.ListView
++import android.widget.RadioButton
++import android.widget.TextView
++import com.android.systemui.res.R
++
++/**
++ * Chooses the app for the "Open app" lock-screen shortcut. The wallpaper picker opens it as the
++ * shortcut's configure action (`android.permission.CUSTOMIZE_SYSTEM_UI` protects it in the manifest).
++ * It lists this user's launcher apps, marks the current target and writes the choice to the same
++ * setting the shortcut and `cmd statusbar lockscreen shortcuts app` use.
++ */
++class TakuShortcutAppActivity : Activity() {
++    private lateinit var apps: List<TakuOpenAppTarget.Target>
++    private var current: String? = null
++
++    override fun onCreate(savedInstanceState: Bundle?) {
++        super.onCreate(savedInstanceState)
++        title = getString(R.string.controls_open_app)
++        apps = TakuOpenAppTarget.candidates(packageManager)
++        current = TakuOpenAppTarget.resolve(packageManager,
++            Settings.Secure.getString(contentResolver, TakuOpenAppTarget.SETTING))?.component?.flattenToString()
++        val list = ListView(this).apply {
++            adapter = Adapter()
++            setOnItemClickListener { _, _, position, _ -> choose(apps[position]) }
++        }
++        setContentView(list)
++    }
++
++    private fun choose(app: TakuOpenAppTarget.Target) {
++        val component = TakuOpenAppTarget.validate(packageManager, app.component) ?: return
++        Settings.Secure.putString(contentResolver, TakuOpenAppTarget.SETTING, component.flattenToString())
++        setResult(RESULT_OK)
++        finish()
++    }
++
++    private inner class Adapter : BaseAdapter() {
++        override fun getCount() = apps.size
++        override fun getItem(position: Int) = apps[position]
++        override fun getItemId(position: Int) = position.toLong()
++
++        override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
++            val row = convertView as? LinearLayout ?: newRow()
++            val app = apps[position]
++            (row.getChildAt(0) as ImageView).setImageDrawable(
++                try { packageManager.getActivityIcon(app.component) } catch (e: Exception) { null })
++            (row.getChildAt(1) as TextView).text = app.label
++            (row.getChildAt(2) as RadioButton).isChecked = app.component.flattenToString() == current
++            return row
++        }
++
++        private fun newRow(): LinearLayout {
++            val density = resources.displayMetrics.density
++            val pad = (16 * density).toInt()
++            return LinearLayout(this@TakuShortcutAppActivity).apply {
++                orientation = LinearLayout.HORIZONTAL
++                gravity = Gravity.CENTER_VERTICAL
++                minimumHeight = (64 * density).toInt()
++                setPadding(pad, 0, pad, 0)
++                addView(ImageView(context).apply { importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO },
++                    LinearLayout.LayoutParams((40 * density).toInt(), (40 * density).toInt()).apply { marginEnd = pad })
++                addView(TextView(context).apply { setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f) },
++                    LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
++                addView(RadioButton(context).apply { isClickable = false; isFocusable = false })
++            }
++        }
++    }
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuTallClockView.kt
