@@ -12,6 +12,8 @@ compile_jvm "$task_out/classes" "$task_json:$ANDROID_JAR" \
  system/assistant/src/org/agentos/assistant/AgentGatewayProtocol.kt \
  system/assistant/src/org/agentos/assistant/ComposerState.kt \
  system/assistant/src/org/agentos/assistant/ComposerPreferences.kt \
+ system/assistant/src/org/agentos/assistant/ComposerPlugins.kt \
+ system/assistant/broker/org/agentos/lab/ComposerInput.java \
  system/assistant/src/org/agentos/assistant/AgentGatewaySubmissions.kt \
  system/assistant/src/org/agentos/assistant/PanelProtocol.kt \
  system/assistant/src/org/agentos/assistant/TaskDetails.kt \

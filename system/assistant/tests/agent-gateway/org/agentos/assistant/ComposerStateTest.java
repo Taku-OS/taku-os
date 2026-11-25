@@ -18,6 +18,11 @@ public final class ComposerStateTest {
         screenshotPreferenceIsFrozen();
         handoffPreservesDisplacedDraft();
         legacyHomeAndPendingDelivery();
+        pluginProtocol();
+        pluginLookup();
+        pluginDraft();
+        pluginSubmission();
+        pluginLifecycle();
         System.out.println("PASS ComposerStateTest");
     }
 
@@ -197,6 +202,174 @@ public final class ComposerStateTest {
                 recovered.getJSONObject(0).getJSONArray("attachments").getJSONObject(1).getString("id").equals("second"),
                 "an uncertain legacy send retains status and ordered attachments");
         check(state.getJSONArray("pendingReceipts").length() == 0, "legacy recovery never restores a submission to the send queue");
+    }
+
+    private static JSONObject plugin(String id, String name, String... tools) throws Exception {
+        JSONArray names = new JSONArray();
+        for (String tool : tools) names.put(tool);
+        return new JSONObject().put("id", id).put("name", name).put("tools", names);
+    }
+
+    private static void pluginProtocol() throws Exception {
+        String add = new JSONObject().put("threadId", THREAD).put("expectedRevision", "").put("pluginId", "org.example.figma").toString();
+        check(AgentGatewayProtocol.request("composer/plugin/add", add).getString("pluginId").equals("org.example.figma"), "plugin add accepts a God Mode id");
+        check(AgentGatewayProtocol.request("composer/plugin/remove", add).length() == 3, "plugin remove takes the same fields");
+        for (String bad : new String[]{"", "has space", "../x", "a/b", "x".repeat(129)})
+            rejects("INVALID_ARGUMENT", () -> AgentGatewayProtocol.request("composer/plugin/add", new JSONObject(add).put("pluginId", bad).toString()));
+        rejects("INVALID_ARGUMENT", () -> AgentGatewayProtocol.request("composer/plugin/add", new JSONObject(add).put("pluginId", 7).toString()));
+        rejects("INVALID_ARGUMENT", () -> AgentGatewayProtocol.request("composer/plugin/add", new JSONObject(add).put("extra", 1).toString()));
+        JSONObject noRevision = new JSONObject(add);
+        noRevision.remove("expectedRevision");
+        rejects("INVALID_ARGUMENT", () -> AgentGatewayProtocol.request("composer/plugin/remove", noRevision.toString()));
+        JSONObject submit = new JSONObject().put("threadId", THREAD).put("requestId", "00000000-0000-4000-8000-000000000010")
+                .put("revision", "r").put("action", "sendMessage").put("attachmentIds", new JSONArray());
+        check(!AgentGatewayProtocol.request("composer/submit", submit.toString()).has("pluginIds"), "pluginIds stays optional");
+        check(AgentGatewayProtocol.request("composer/submit", new JSONObject(submit.toString())
+                .put("pluginIds", new JSONArray().put("a.b").put("c:d")).toString()).getJSONArray("pluginIds").length() == 2, "submit accepts plugin ids");
+        rejects("PLUGIN_LIMIT", () -> AgentGatewayProtocol.request("composer/submit", new JSONObject(submit.toString())
+                .put("pluginIds", new JSONArray().put("a").put("b").put("c").put("d").put("e")).toString()));
+        rejects("INVALID_ARGUMENT", () -> AgentGatewayProtocol.request("composer/submit", new JSONObject(submit.toString())
+                .put("pluginIds", new JSONArray().put("a").put("a")).toString()));
+        rejects("INVALID_ARGUMENT", () -> AgentGatewayProtocol.request("composer/submit", new JSONObject(submit.toString())
+                .put("pluginIds", "a").toString()));
+        rejects("INVALID_ARGUMENT", () -> AgentGatewayProtocol.request("composer/submit", new JSONObject(submit.toString())
+                .put("pluginIds", new JSONArray().put("bad id")).toString()));
+    }
+
+    private static void pluginLookup() throws Exception {
+        JSONObject record = new JSONObject().put("id", "org.example.figma").put("enabled", true).put("state", "started")
+                .put("manifest", new JSONObject().put("name", "Fig\nma"))
+                .put("registrations", new JSONObject().put("tools", new JSONArray().put(new JSONObject().put("name", "draw"))
+                        .put(new JSONObject().put("id", "export")).put(new JSONObject().put("name", "draw")).put(new JSONObject())));
+        JSONObject item = ComposerPlugins.resolve(new JSONObject().put("ok", true).put("result", record), "org.example.figma");
+        check(item.getString("name").equals("Fig ma") && item.getJSONArray("tools").toString().equals("[\"draw\",\"export\"]"),
+                "lookup keeps the manifest name and registered tool names");
+        record.remove("registrations");
+        record.getJSONObject("manifest").remove("name");
+        item = ComposerPlugins.resolve(new JSONObject().put("ok", true).put("result", record), "org.example.figma");
+        check(item.getString("name").equals("org.example.figma") && item.getJSONArray("tools").length() == 0, "a stopped plugin falls back to its id and no tools");
+        rejects("PLUGIN_UNAVAILABLE", () -> ComposerPlugins.resolve(new JSONObject().put("ok", true)
+                .put("result", new JSONObject(record.toString()).put("enabled", false)), "org.example.figma"));
+        rejects("PLUGIN_UNAVAILABLE", () -> ComposerPlugins.resolve(new JSONObject().put("ok", true).put("result", record), "org.example.other"));
+        rejects("PLUGIN_UNAVAILABLE", () -> ComposerPlugins.resolve(new JSONObject().put("ok", false)
+                .put("error", new JSONObject().put("code", "UNAVAILABLE")), "org.example.figma"));
+        rejects("PLUGIN_UNAVAILABLE", () -> ComposerPlugins.resolve(new JSONObject().put("ok", false)
+                .put("error", new JSONObject().put("code", "NOT_FOUND")), "org.example.figma"));
+    }
+
+    private static void pluginDraft() throws Exception {
+        MemoryPreferences prefs = new MemoryPreferences();
+        check(ComposerState.read(prefs, THREAD).getJSONArray("plugins").length() == 0, "a stored draft without plugins reports none");
+        String revision = ComposerState.write(prefs, THREAD, "", "hello").getString("revision");
+        conflict(revision, () -> ComposerState.addPlugin(prefs, THREAD, "stale", plugin("a.one", "One")));
+        JSONObject added = ComposerState.addPlugin(prefs, THREAD, revision, plugin("a.one", "One", "t1"));
+        check(!added.getString("revision").equals(revision) && added.getString("text").equals("hello"), "adding a plugin bumps the revision and keeps text");
+        check(added.getJSONArray("plugins").toString().equals(new JSONArray().put(new JSONObject().put("id", "a.one").put("name", "One")).toString()),
+                "the snapshot lists the plugin's id and name only");
+        JSONObject again = ComposerState.addPlugin(prefs, THREAD, added.getString("revision"), plugin("a.one", "One", "t1"));
+        check(again.getString("revision").equals(added.getString("revision")) && again.getJSONArray("plugins").length() == 1, "adding it again is idempotent");
+        String current = again.getString("revision");
+        for (String id : new String[]{"a.two", "a.three", "a.four"})
+            current = ComposerState.addPlugin(prefs, THREAD, current, plugin(id, id)).getString("revision");
+        String full = current;
+        rejects("PLUGIN_LIMIT", () -> ComposerState.addPlugin(prefs, THREAD, full, plugin("a.five", "Five")));
+        JSONArray order = ComposerState.read(prefs, THREAD).getJSONArray("plugins");
+        check(order.length() == 4 && order.getJSONObject(0).getString("id").equals("a.one") && order.getJSONObject(3).getString("id").equals("a.four"),
+                "plugins keep draft order");
+        rejects("PLUGIN_UNAVAILABLE", () -> ComposerState.removePlugin(prefs, THREAD, full, "a.five"));
+        conflict(full, () -> ComposerState.removePlugin(prefs, THREAD, "stale", "a.two"));
+        JSONObject removed = ComposerState.removePlugin(prefs, THREAD, full, "a.two");
+        check(!removed.getString("revision").equals(full) && removed.getJSONArray("plugins").length() == 3
+                && !removed.getJSONArray("plugins").toString().contains("a.two"), "removing a plugin bumps the revision");
+        prefs.failNextCommit = true;
+        rejects("DRAFT_SAVE_FAILED", () -> ComposerState.removePlugin(prefs, THREAD, removed.getString("revision"), "a.one"));
+        check(ComposerState.read(prefs, THREAD).getJSONArray("plugins").length() == 3, "a failed save keeps the plugins");
+    }
+
+    private static void pluginSubmission() throws Exception {
+        MemoryPreferences prefs = new MemoryPreferences();
+        String revision = ComposerState.addPlugin(prefs, THREAD, "", plugin("a.one", "One", "t1", "t2")).getString("revision");
+        revision = ComposerState.addPlugin(prefs, THREAD, revision, plugin("a.two", "Two")).getString("revision");
+        JSONObject input = new JSONObject().put("threadId", THREAD).put("action", "sendMessage").put("revision", revision)
+                .put("requestId", "00000000-0000-4000-8000-000000000011").put("attachmentIds", new JSONArray())
+                .put("pluginIds", new JSONArray().put("a.one"));
+        rejects("INVALID_TEXT", () -> STORE.reserveSubmission(prefs, input, (thread, options) -> kotlin.Unit.INSTANCE));
+        revision = ComposerState.write(prefs, THREAD, revision, "Draw a logo").getString("revision");
+        input.put("revision", revision);
+        JSONObject unknown = new JSONObject(input.toString()).put("pluginIds", new JSONArray().put("a.nine"));
+        rejects("PLUGIN_UNAVAILABLE", () -> STORE.reserveSubmission(prefs, unknown, (thread, options) -> kotlin.Unit.INSTANCE));
+        JSONObject stale = new JSONObject(input.toString()).put("revision", "stale");
+        conflict(revision, () -> STORE.reserveSubmission(prefs, stale, (thread, options) -> kotlin.Unit.INSTANCE));
+        JSONObject request = STORE.reserveSubmission(prefs, input, (thread, options) -> kotlin.Unit.INSTANCE).getFirst();
+        check(request.getJSONObject("options").getJSONArray("plugins").toString().equals(new JSONArray().put(plugin("a.one", "One", "t1", "t2")).toString()),
+                "the reserved request carries the selected plugin with its tools");
+        JSONObject pending = ComposerState.read(prefs, THREAD).getJSONArray("pendingReceipts").getJSONObject(0);
+        check(pending.getJSONArray("pluginIds").toString().equals("[\"a.one\"]"), "the pending receipt reports its plugin ids");
+        JSONObject changed = new JSONObject(input.toString()).put("pluginIds", new JSONArray().put("a.two"));
+        rejects("REQUEST_ID_REUSED", () -> STORE.reserveSubmission(prefs, changed, (thread, options) -> kotlin.Unit.INSTANCE));
+        JSONArray content = org.agentos.lab.ComposerInput.text(request.getString("text"));
+        org.agentos.lab.ComposerInput.appendPlugins(content, request.getJSONObject("options").getJSONArray("plugins"));
+        org.agentos.lab.ComposerInput.appendPlugins(content, new JSONArray().put(plugin("a.two", "Two")));
+        check(content.length() == 3 && content.getJSONObject(0).getString("text").equals("Draw a logo")
+                && content.getJSONObject(1).getString("text").equals("The user attached the plugin \"One\" (id: a.one) to this message. Prefer this plugin's tools for this request: t1, t2.")
+                && content.getJSONObject(2).getString("text").equals("The user attached the plugin \"Two\" (id: a.two) to this message."),
+                "the turn input states each plugin after the user's text");
+        STORE.finishSubmission(prefs, request, true);
+        JSONObject after = ComposerState.read(prefs, THREAD);
+        check(after.getString("text").isEmpty() && after.getJSONArray("plugins").length() == 1
+                && after.getJSONArray("plugins").getJSONObject(0).getString("id").equals("a.two"), "an accepted send removes only the sent plugins");
+
+        String legacy = ComposerState.write(prefs, TARGET, "", "no plugins field").getString("revision");
+        JSONObject old = new JSONObject().put("threadId", TARGET).put("action", "sendMessage").put("revision", legacy)
+                .put("requestId", "00000000-0000-4000-8000-000000000012").put("attachmentIds", new JSONArray());
+        JSONObject oldRequest = STORE.reserveSubmission(prefs, old, (thread, options) -> kotlin.Unit.INSTANCE).getFirst();
+        check(oldRequest.getJSONObject("options").getJSONArray("plugins").length() == 0, "a submit without pluginIds sends no plugins");
+        STORE.finishSubmission(prefs, oldRequest, true);
+        check(ComposerState.read(prefs, TARGET).getString("text").isEmpty(), "a submit without pluginIds still settles");
+    }
+
+    private static void pluginLifecycle() throws Exception {
+        MemoryPreferences prefs = new MemoryPreferences();
+        String revision = ComposerState.write(prefs, THREAD, "", "Use the plugin").getString("revision");
+        revision = ComposerState.addPlugin(prefs, THREAD, revision, plugin("a.one", "One", "t1")).getString("revision");
+        JSONObject input = new JSONObject().put("threadId", THREAD).put("action", "sendMessage").put("revision", revision)
+                .put("requestId", "00000000-0000-4000-8000-000000000013").put("attachmentIds", new JSONArray())
+                .put("pluginIds", new JSONArray().put("a.one"));
+        STORE.reserveSubmission(prefs, input, (thread, options) -> kotlin.Unit.INSTANCE);
+        JSONObject released = STORE.releaseSubmission(prefs, THREAD, input.getString("requestId"));
+        check(released.getJSONArray("recovery").length() == 0 && released.getJSONArray("plugins").length() == 1,
+                "releasing an unchanged draft keeps its plugin chip without a recovery copy");
+        revision = ComposerState.write(prefs, THREAD, released.getString("revision"), "edited").getString("revision");
+        JSONObject second = new JSONObject(input.toString()).put("revision", revision).put("requestId", "00000000-0000-4000-8000-000000000014");
+        STORE.reserveSubmission(prefs, second, (thread, options) -> kotlin.Unit.INSTANCE);
+        revision = ComposerState.removePlugin(prefs, THREAD, revision, "a.one").getString("revision");
+        revision = ComposerState.write(prefs, THREAD, revision, "").getString("revision");
+        JSONObject stashed = STORE.releaseSubmission(prefs, THREAD, second.getString("requestId"));
+        JSONObject entry = stashed.getJSONArray("recovery").getJSONObject(0);
+        check(entry.getJSONArray("plugins").getJSONObject(0).getString("name").equals("One"), "a released send keeps its plugin for recovery");
+        JSONObject restored = ComposerState.restore(prefs, THREAD, revision, entry.getString("id"));
+        check(restored.getString("text").equals("edited") && restored.getJSONArray("plugins").getJSONObject(0).getString("id").equals("a.one"),
+                "restoring the saved draft brings its plugin chip back");
+
+        JSONObject handed = ComposerState.handoff(prefs, THREAD, "00000000-0000-4000-8000-000000000015", "from Home");
+        check(handed.getJSONArray("plugins").length() == 0 && handed.getJSONArray("recovery").getJSONObject(0).getJSONArray("plugins").length() == 1,
+                "a handoff clears plugins and keeps the displaced draft's plugin recoverable");
+        String empty = ComposerState.write(prefs, THREAD, handed.getString("revision"), "").getString("revision");
+        String saved = handed.getJSONArray("recovery").getJSONObject(0).getString("id");
+        JSONObject back = ComposerState.restore(prefs, THREAD, empty, saved);
+        String chipOnly = ComposerState.write(prefs, THREAD, back.getString("revision"), "").getString("revision");
+        rejects("DRAFT_NOT_EMPTY", () -> STORE.restoreTask(prefs, THREAD, chipOnly, new JSONObject().put("prompt", "x")));
+        JSONObject task = STORE.restoreTask(new MemoryPreferences(), TARGET, "",
+                new JSONObject().put("prompt", "from task").put("plugins", new JSONArray().put(plugin("a.one", "One"))));
+        check(task.getJSONArray("plugins").length() == 1, "restoring a failed task restores its plugins");
+
+        MemoryPreferences slot = new MemoryPreferences();
+        String source = ComposerState.addPlugin(slot, "", "", plugin("a.one", "One")).getString("revision");
+        JSONObject moved = STORE.move(slot, source, TARGET);
+        check(moved.getJSONArray("plugins").length() == 1 && ComposerState.read(slot, "").getJSONArray("plugins").length() == 0,
+                "moving the new-conversation draft carries its plugins");
+        String occupied = ComposerState.addPlugin(slot, "", ComposerState.read(slot, "").getString("revision"), plugin("a.two", "Two")).getString("revision");
+        rejects("DRAFT_TARGET_OCCUPIED", () -> STORE.move(slot, occupied, TARGET));
     }
 
     private interface Checked { void run() throws Exception; }

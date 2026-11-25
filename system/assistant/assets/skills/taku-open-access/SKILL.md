@@ -200,9 +200,11 @@ taku_call "$D" composer/write '{"threadId":"","revision":"CURRENT_REVISION","tex
 taku_call "$D" composer/createThread '{}'
 taku_call "$D" composer/move '{"threadId":"","revision":"REVISION","targetThreadId":"FRESH_THREAD_UUID"}'
 taku_call "$D" composer/removeAttachment '{"threadId":"THREAD_UUID","expectedRevision":"REVISION","attachmentId":"ATTACHMENT_UUID"}'
+taku_call "$D" composer/plugin/add '{"threadId":"THREAD_UUID","expectedRevision":"REVISION","pluginId":"org.example.plugin"}'
+taku_call "$D" composer/plugin/remove '{"threadId":"THREAD_UUID","expectedRevision":"REVISION","pluginId":"org.example.plugin"}'
 taku_call "$D" composer/options/read '{"threadId":"THREAD_UUID"}'
 taku_call "$D" composer/options/write '{"threadId":"THREAD_UUID","options":{"responseStyle":"detailed"}}'
-taku_call "$D" composer/submit '{"threadId":"THREAD_UUID","revision":"REVISION","requestId":"REQUEST_UUID","action":"sendMessage","attachmentIds":[]}'
+taku_call "$D" composer/submit '{"threadId":"THREAD_UUID","revision":"REVISION","requestId":"REQUEST_UUID","action":"sendMessage","attachmentIds":[],"pluginIds":[]}'
 taku_call "$D" composer/receipt '{"threadId":"THREAD_UUID","requestId":"REQUEST_UUID"}'
 taku_call "$D" composer/settle '{"threadId":"THREAD_UUID","requestId":"REQUEST_UUID"}'
 taku_call "$D" composer/release '{"threadId":"THREAD_UUID","requestId":"REQUEST_UUID"}'
@@ -219,9 +221,11 @@ taku_call "$D" manageSystemAi '{"operation":"readComposerScreenshots"}'
 taku_call "$D" manageSystemAi '{"operation":"setComposerScreenshots","enabled":true}'
 ```
 
-Use a lowercase conversation UUID or `threadId:""` for the new-chat slot. Locked user 0 returns `USER_LOCKED` and other users return `USER_UNAVAILABLE`. Drafts return `{threadId,revision,text,attachments,recovery,pendingReceipts}`; attachments carry `{id,name,mime,size}`. Write uses the current revision (initial `""`), preserves up to 16,000 characters, clears on empty input, and leaves the revision unchanged for identical text. `DRAFT_REVISION_CONFLICT` returns the current revision; re-read then reconcile. Other errors: `INVALID_ARGUMENT`, `REQUEST_TOO_LARGE` (>48,000 characters), `DRAFT_SAVE_FAILED`.
+Use a lowercase conversation UUID or `threadId:""` for the new-chat slot. Locked user 0 returns `USER_LOCKED` and other users return `USER_UNAVAILABLE`. Drafts return `{threadId,revision,text,attachments,plugins,recovery,pendingReceipts}`; attachments carry `{id,name,mime,size}` and plugins `{id,name}`. Write uses the current revision (initial `""`), preserves up to 16,000 characters, clears on empty input, and leaves the revision unchanged for identical text. `DRAFT_REVISION_CONFLICT` returns the current revision; re-read then reconcile. Other errors: `INVALID_ARGUMENT`, `REQUEST_TOO_LARGE` (>48,000 characters), `DRAFT_SAVE_FAILED`.
 
 `composer/attach` takes `{threadId,expectedRevision,name,mime}` and a read-only FD in `extras["attachment"]`; shell clients can add `uri` after granting the assistant read access to the `content:` URI. The shell command cannot carry an FD. Limit is eight files and 20,000,000 bytes each. Errors: `ATTACHMENT_LIMIT`, `ATTACHMENT_TOO_LARGE`, `ATTACHMENT_UNAVAILABLE`, `ATTACHMENT_ACCESS_DENIED`.
+
+`composer/plugin/add` attaches an installed, enabled God Mode plugin (the composer's `@` picker; list candidates with `pluginManager` `list`) to the next message; `composer/plugin/remove` detaches it. `pluginId` matches `[A-Za-z0-9_.@:-]{1,128}` (`INVALID_ARGUMENT`). Unknown, disabled or unreachable plugins, and removing one not in the draft, return `PLUGIN_UNAVAILABLE`; more than four returns `PLUGIN_LIMIT`. Re-adding a present plugin keeps the revision. Submit the draft's plugin IDs as optional `pluginIds` (same codes); the turn then gets `The user attached the plugin "NAME" (id: ID) to this message. Prefer this plugin's tools for this request: TOOLS.` after the text, and acceptance removes them from the draft. Plugins alone are `INVALID_TEXT`.
 
 Submit attachment IDs in order; attachment-only messages are valid. For follow-ups use `action:"steer",expectedTurnId`; for Panel updates use `action:"continue",panelId,expectedSourceVersion`. Request IDs are replayable only for identical input (`REQUEST_ID_REUSED`). Check `composer/receipt` after IPC loss: queued/accepted means published, notSent means rejected, missing/deliveryUnknown require review. Settle applies a confirmed receipt to its original revision; release preserves content and unlocks editing. Handoff saves a displaced draft and deduplicates identical handoff IDs. Restore into empty drafts using a recovery entry or a same-thread failed/needs_user task. Re-read after `DRAFT_NOT_EMPTY`, `RECOVERY_UNAVAILABLE` or `TASK_FAILURE_CHANGED`.
 

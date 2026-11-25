@@ -16,6 +16,10 @@ internal object ComposerPreferences {
     fun attachments(prefs: SharedPreferences, thread: String): JSONArray =
         readList(prefs, key(thread, "attachments"))
 
+    /** Plugins attached to the next message, as `{id, name, tools}`; a missing key is none. */
+    fun plugins(prefs: SharedPreferences, thread: String): JSONArray =
+        readList(prefs, key(thread, "plugins"))
+
     fun draftTextKey(thread: String) = "draft-$thread"
     fun draftRevisionKey(thread: String) = key(thread, "draftRevision")
     fun draftText(prefs: SharedPreferences, thread: String) = prefs.getString(draftTextKey(thread), "").orEmpty()
@@ -26,13 +30,15 @@ internal object ComposerPreferences {
     }
 
     fun draft(prefs: SharedPreferences, thread: String) = ComposerDraft(
-        thread, draftRevision(prefs, thread), draftText(prefs, thread), attachments(prefs, thread).toString()
+        thread, draftRevision(prefs, thread), draftText(prefs, thread), attachments(prefs, thread).toString(),
+        plugins(prefs, thread).toString()
     )
 
     fun stashDraft(prefs: SharedPreferences, editor: SharedPreferences.Editor, draft: ComposerDraft) {
         val recovery = key(draft.thread, "failedDeliveries")
         val record = JSONObject().put("token", UUID.randomUUID().toString()).put("revision", draft.revision)
             .put("text", draft.text).put("attachments", JSONArray(draft.attachments)).put("status", "saved-draft")
+        if (draft.plugins != "[]") record.put("plugins", JSONArray(draft.plugins))
         editor.putString(recovery, readList(prefs, recovery).put(record).toString())
     }
 
@@ -43,6 +49,6 @@ internal object ComposerPreferences {
     }
 }
 
-internal data class ComposerDraft(val thread: String, val revision: String, val text: String, val attachments: String) {
-    val isEmpty: Boolean get() = text.isBlank() && attachments == "[]"
+internal data class ComposerDraft(val thread: String, val revision: String, val text: String, val attachments: String, val plugins: String = "[]") {
+    val isEmpty: Boolean get() = text.isBlank() && attachments == "[]" && plugins == "[]"
 }

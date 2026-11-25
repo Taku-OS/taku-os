@@ -51,7 +51,7 @@ internal object ComposerState {
             val editor = prefs.edit().putString(marker, "1")
             when {
                 current.text == text -> persist(prefs, editor, marker)
-                current.text.isEmpty() && current.attachments == "[]" -> {
+                current.text.isEmpty() && current.attachments == "[]" && current.plugins == "[]" -> {
                     ComposerPreferences.putDraftText(editor, thread, text)
                     persist(prefs, editor, marker, ComposerPreferences.draftTextKey(thread), ComposerPreferences.draftRevisionKey(thread))
                 }
@@ -82,12 +82,36 @@ internal object ComposerState {
         replaceAttachments(prefs, thread, items)
     }
 
-    private fun replaceAttachments(prefs: SharedPreferences, thread: String, items: JSONArray): JSONObject {
-        val key = ComposerPreferences.key(thread, "attachments")
+    private fun replaceAttachments(prefs: SharedPreferences, thread: String, items: JSONArray): JSONObject =
+        replaceList(prefs, thread, "attachments", items)
+
+    private fun replaceList(prefs: SharedPreferences, thread: String, name: String, items: JSONArray): JSONObject {
+        val key = ComposerPreferences.key(thread, name)
         val editor = prefs.edit().putString(key, items.toString())
         ComposerPreferences.putDraftText(editor, thread, ComposerPreferences.draftText(prefs, thread))
         persist(prefs, editor, key, ComposerPreferences.draftRevisionKey(thread))
         return snapshot(prefs, thread)
+    }
+
+    /** Attaches a plugin [item] (`{id, name, tools}`) that God Mode reported enabled; repeating it changes nothing. */
+    @JvmStatic
+    fun addPlugin(prefs: SharedPreferences, thread: String, expected: String, item: JSONObject): JSONObject = synchronized(monitor) {
+        checkRevision(prefs, thread, expected)
+        val items = ComposerPreferences.plugins(prefs, thread)
+        val id = item.getString("id")
+        if ((0 until items.length()).any { items.optJSONObject(it)?.optString("id") == id }) return@synchronized snapshot(prefs, thread)
+        if (items.length() >= ComposerPlugins.LIMIT) throw IOException("PLUGIN_LIMIT")
+        replaceList(prefs, thread, "plugins", items.put(item))
+    }
+
+    @JvmStatic
+    fun removePlugin(prefs: SharedPreferences, thread: String, expected: String, id: String): JSONObject = synchronized(monitor) {
+        checkRevision(prefs, thread, expected)
+        val items = ComposerPreferences.plugins(prefs, thread)
+        val index = (0 until items.length()).firstOrNull { items.optJSONObject(it)?.optString("id") == id }
+            ?: throw IOException("PLUGIN_UNAVAILABLE")
+        items.remove(index)
+        replaceList(prefs, thread, "plugins", items)
     }
 
     @JvmStatic
@@ -104,6 +128,17 @@ internal object ComposerState {
             selected.put(item)
         }
         selected
+    }
+
+    private fun selectedPlugins(prefs: SharedPreferences, thread: String, ids: JSONArray): JSONArray {
+        val available = ComposerPreferences.plugins(prefs, thread)
+        val selected = JSONArray()
+        for (index in 0 until ids.length()) {
+            val id = ids.getString(index)
+            selected.put((0 until available.length()).asSequence().mapNotNull(available::optJSONObject).firstOrNull { it.optString("id") == id }
+                ?: throw IOException("PLUGIN_UNAVAILABLE"))
+        }
+        return selected
     }
 
     private val optionNames = arrayOf("model", "effort", "serviceTier", "multiAgentMode", "permissionMode", "responseStyle")
@@ -166,11 +201,13 @@ internal object ComposerState {
         if (prefs.contains(pending)) throw IOException("PENDING_DIFFERENT")
         val revision = input.getString("revision")
         val attachments = selectedAttachments(prefs, thread, revision, input.getJSONArray("attachmentIds"))
+        val plugins = selectedPlugins(prefs, thread, input.optJSONArray("pluginIds") ?: JSONArray())
         val text = ComposerPreferences.draftText(prefs, thread).trim()
         if (text.isEmpty() && attachments.length() == 0) throw IOException("INVALID_TEXT")
         val options = JSONObject().put("includeScreenshot", prefs.getBoolean("includeScreenshot", false))
         optionsFor(thread, options)
         options.put("attachments", attachments)
+        options.put("plugins", plugins)
         val request = JSONObject(input.toString()).put("hash", hash).put("text", text).put("options", options)
         persist(prefs, prefs.edit().putString(key, request.toString()).putString(pending, id), key, pending)
         retire(prefs, REQUEST_LEDGER, key, arrayOf(REQUEST_PREFIX))
@@ -194,7 +231,17 @@ internal object ComposerState {
             val key = ComposerPreferences.key(thread, "attachments")
             ComposerPreferences.putDraftText(editor, thread, "")
             editor.putString(key, kept.toString())
-            persist(prefs, editor, pending, ComposerPreferences.draftRevisionKey(thread), ComposerPreferences.draftTextKey(thread), key)
+            val sentPlugins = request.optJSONArray("pluginIds") ?: JSONArray()
+            val pluginIds = (0 until sentPlugins.length()).map(sentPlugins::getString).toSet()
+            val plugins = ComposerPreferences.plugins(prefs, thread)
+            val keptPlugins = JSONArray()
+            for (index in 0 until plugins.length()) {
+                val item = plugins.optJSONObject(index) ?: continue
+                if (item.optString("id") !in pluginIds) keptPlugins.put(item)
+            }
+            val pluginKey = ComposerPreferences.key(thread, "plugins")
+            if (prefs.contains(pluginKey)) editor.putString(pluginKey, keptPlugins.toString())
+            persist(prefs, editor, pending, ComposerPreferences.draftRevisionKey(thread), ComposerPreferences.draftTextKey(thread), key, pluginKey)
         } else persist(prefs, editor, pending)
     }
 
@@ -204,7 +251,9 @@ internal object ComposerState {
         val pending = pendingKey(thread)
         if (id == prefs.getString(pending, null)) {
             val editor = prefs.edit().remove(pending)
-            val sent = ComposerDraft(thread, request.getString("revision"), request.getString("text"), request.getJSONObject("options").getJSONArray("attachments").toString())
+            val options = request.getJSONObject("options")
+            val sent = ComposerDraft(thread, request.getString("revision"), request.getString("text"), options.getJSONArray("attachments").toString(),
+                (options.optJSONArray("plugins") ?: JSONArray()).toString())
             // The request holds the trimmed text; surrounding whitespace alone is not a different draft.
             val current = ComposerPreferences.draft(prefs, thread)
             if (sent != current.copy(text = current.text.trim())) ComposerPreferences.stashDraft(prefs, editor, sent)
@@ -224,12 +273,13 @@ internal object ComposerState {
         }
         val draft = ComposerPreferences.draft(prefs, thread)
         val editor = prefs.edit().putString(key, hash)
-        if (draft.text != text || draft.attachments != "[]") {
+        if (draft.text != text || draft.attachments != "[]" || draft.plugins != "[]") {
             if (!draft.isEmpty) ComposerPreferences.stashDraft(prefs, editor, draft)
             ComposerPreferences.putDraftText(editor, thread, text)
             val attachments = ComposerPreferences.key(thread, "attachments")
-            editor.remove(attachments)
-            persist(prefs, editor, key, recoveryKey(thread), ComposerPreferences.draftTextKey(thread), ComposerPreferences.draftRevisionKey(thread), attachments)
+            val plugins = ComposerPreferences.key(thread, "plugins")
+            editor.remove(attachments).remove(plugins)
+            persist(prefs, editor, key, recoveryKey(thread), ComposerPreferences.draftTextKey(thread), ComposerPreferences.draftRevisionKey(thread), attachments, plugins)
         } else persist(prefs, editor, key)
         retire(prefs, MARKER_LEDGER, key, markerPrefixes)
         snapshot(prefs, thread)
@@ -261,22 +311,27 @@ internal object ComposerState {
         val entry = entries.getJSONObject(index)
         entries.remove(index)
         val editor = prefs.edit().putString(key, entries.toString())
-        restoreDraft(prefs, editor, thread, entry.getString("text"), entry.optJSONArray("attachments") ?: JSONArray(), key)
+        restoreDraft(prefs, editor, thread, entry.getString("text"), entry.optJSONArray("attachments") ?: JSONArray(),
+            entry.optJSONArray("plugins") ?: JSONArray(), key)
         snapshot(prefs, thread)
     }
 
     fun restoreTask(prefs: SharedPreferences, thread: String, expected: String, request: JSONObject): JSONObject = synchronized(monitor) {
         checkRevision(prefs, thread, expected)
-        restoreDraft(prefs, prefs.edit(), thread, request.getString("prompt"), request.optJSONArray("attachments") ?: JSONArray())
+        restoreDraft(prefs, prefs.edit(), thread, request.getString("prompt"), request.optJSONArray("attachments") ?: JSONArray(),
+            request.optJSONArray("plugins") ?: JSONArray())
         snapshot(prefs, thread)
     }
 
-    private fun restoreDraft(prefs: SharedPreferences, editor: SharedPreferences.Editor, thread: String, text: String, items: JSONArray, vararg extra: String) {
+    private fun restoreDraft(prefs: SharedPreferences, editor: SharedPreferences.Editor, thread: String, text: String, items: JSONArray,
+                             plugins: JSONArray, vararg extra: String) {
         if (!ComposerPreferences.draft(prefs, thread).isEmpty) throw IOException("DRAFT_NOT_EMPTY")
         ComposerPreferences.putDraftText(editor, thread, text)
         val attachmentKey = ComposerPreferences.key(thread, "attachments")
+        val pluginKey = ComposerPreferences.key(thread, "plugins")
         editor.putString(attachmentKey, items.toString())
-        persist(prefs, editor, ComposerPreferences.draftTextKey(thread), ComposerPreferences.draftRevisionKey(thread), attachmentKey, *extra)
+        if (plugins.length() > 0) editor.putString(pluginKey, plugins.toString()) else editor.remove(pluginKey)
+        persist(prefs, editor, ComposerPreferences.draftTextKey(thread), ComposerPreferences.draftRevisionKey(thread), attachmentKey, pluginKey, *extra)
     }
 
     private fun recoveryMetadata(prefs: SharedPreferences, thread: String): JSONArray {
@@ -285,7 +340,8 @@ internal object ComposerState {
         for (index in 0 until entries.length()) {
             val entry = entries.optJSONObject(index) ?: continue
             result.put(JSONObject().put("id", entry.optString("token")).put("text", entry.optString("text"))
-                .put("status", entry.optString("status")).put("attachments", attachmentMetadata(entry.optJSONArray("attachments") ?: JSONArray())))
+                .put("status", entry.optString("status")).put("attachments", attachmentMetadata(entry.optJSONArray("attachments") ?: JSONArray()))
+                .put("plugins", pluginMetadata(entry.optJSONArray("plugins") ?: JSONArray())))
         }
         return result
     }
@@ -294,7 +350,7 @@ internal object ComposerState {
         val id = prefs.getString(pendingKey(thread), null) ?: return JSONArray()
         val request = submission(prefs, id) ?: return JSONArray()
         val entry = JSONObject()
-        for (key in arrayOf("requestId", "threadId", "text", "action", "revision", "attachmentIds", "expectedTurnId", "panelId", "expectedSourceVersion"))
+        for (key in arrayOf("requestId", "threadId", "text", "action", "revision", "attachmentIds", "pluginIds", "expectedTurnId", "panelId", "expectedSourceVersion"))
             if (request.has(key)) entry.put(key, request.get(key))
         return JSONArray().put(entry)
     }
@@ -303,20 +359,20 @@ internal object ComposerState {
         val source = ""
         checkRevision(prefs, source, expected)
         val current = ComposerPreferences.draft(prefs, target)
-        if (current.revision.isNotEmpty() || current.text.isNotEmpty() || current.attachments != "[]" ||
+        if (current.revision.isNotEmpty() || current.text.isNotEmpty() || current.attachments != "[]" || current.plugins != "[]" ||
             prefs.getString(recoveryKey(target), "[]") != "[]") throw IOException("DRAFT_TARGET_OCCUPIED")
 
         val draft = ComposerPreferences.draft(prefs, source)
         val saved = prefs.getString(recoveryKey(source), "[]")
         val editor = prefs.edit()
         val changed = ArrayList<String>()
-        if (draft.text.isNotEmpty() || draft.attachments != "[]" || saved != "[]") {
+        if (draft.text.isNotEmpty() || draft.attachments != "[]" || draft.plugins != "[]" || saved != "[]") {
             ComposerPreferences.putDraftText(editor, target, draft.text)
             ComposerPreferences.putDraftText(editor, source, "")
             changed.addAll(listOf(ComposerPreferences.draftTextKey(source), ComposerPreferences.draftRevisionKey(source),
                 ComposerPreferences.draftTextKey(target), ComposerPreferences.draftRevisionKey(target)))
         }
-        for (name in arrayOf("attachments", "failedDeliveries", *optionNames)) {
+        for (name in arrayOf("attachments", "plugins", "failedDeliveries", *optionNames)) {
             val from = ComposerPreferences.key(source, name)
             val to = ComposerPreferences.key(target, name)
             val value = prefs.getString(from, null) ?: continue
@@ -370,12 +426,13 @@ internal object ComposerState {
         val already = (0 until receipts.length()).any { receipts.optString(it) == id }
         val editor = prefs.edit()
         val attachments = ComposerPreferences.key(thread, "attachments")
+        val plugins = ComposerPreferences.key(thread, "plugins")
         if (!already && prefs.getString(ComposerPreferences.key(thread, "homeApplied"), null) != id) {
             val current = ComposerPreferences.draft(prefs, thread)
-            if (current.text != text || current.attachments != "[]") {
+            if (current.text != text || current.attachments != "[]" || current.plugins != "[]") {
                 if (!current.isEmpty) ComposerPreferences.stashDraft(prefs, editor, current)
                 ComposerPreferences.putDraftText(editor, thread, text)
-                editor.remove(attachments)
+                editor.remove(attachments).remove(plugins)
             }
         }
         if (!already) {
@@ -386,13 +443,14 @@ internal object ComposerState {
         editor.remove("home-pending-id").remove("home-pending-text").remove("home-pending-thread")
         editor.putString(receiptsKey, receipts.toString())
         persist(prefs, editor, "home-pending-id", "home-pending-text", "home-pending-thread", receiptsKey,
-            ComposerPreferences.draftTextKey(thread), ComposerPreferences.draftRevisionKey(thread), attachments, recoveryKey(thread))
+            ComposerPreferences.draftTextKey(thread), ComposerPreferences.draftRevisionKey(thread), attachments, plugins, recoveryKey(thread))
     }
 
     private fun snapshot(prefs: SharedPreferences, thread: String): JSONObject = JSONObject()
         .put("threadId", thread).put("revision", ComposerPreferences.draftRevision(prefs, thread))
         .put("text", ComposerPreferences.draftText(prefs, thread))
         .put("attachments", attachmentMetadata(ComposerPreferences.attachments(prefs, thread)))
+        .put("plugins", pluginMetadata(ComposerPreferences.plugins(prefs, thread)))
         .put("recovery", recoveryMetadata(prefs, thread))
         .put("pendingReceipts", pendingMetadata(prefs, thread))
 
@@ -405,6 +463,16 @@ internal object ComposerState {
             result.put(JSONObject().put("id", file.name).put("name", item.optString("name"))
                 .put("mime", item.optString("mime", "application/octet-stream"))
                 .put("size", if (item.has("size")) item.getLong("size") else file.length()))
+        }
+        return result
+    }
+
+    private fun pluginMetadata(items: JSONArray): JSONArray {
+        val result = JSONArray()
+        for (index in 0 until items.length()) {
+            val item = items.optJSONObject(index) ?: continue
+            val id = item.optString("id").takeIf { it.isNotEmpty() } ?: continue
+            result.put(JSONObject().put("id", id).put("name", item.optString("name", id)))
         }
         return result
     }

@@ -15,13 +15,15 @@ Responses over 256 KiB return `{ok:true,resultUri:"content://org.agentos.assista
 | `mainReply` | `{action:"read",threadId,turnId,replyId?}` | Logical native read envelope: bounded summaries or exact canonical primary reply; no inference |
 | `subscribeSession` | `{threadId,brokerEpoch?:string,afterSeq?:number}` | `{subscriptionId,streamUri}`; read-only UID-bound JSONL pipe |
 | `unsubscribeSession` | `{subscriptionId}` | `{closed:true}`; closes only this view subscription |
-| `composer/read` | `{threadId}` | `{threadId,revision,text,attachments,recovery,pendingReceipts}` |
+| `composer/read` | `{threadId}` | `{threadId,revision,text,attachments,plugins,recovery,pendingReceipts}`; `plugins` is `[{id,name}]` in draft order, `[]` when none |
 | `composer/write` | `{threadId,revision,text}` | Draft snapshot after a revision-checked text replacement |
 | `composer/import` | `{threadId,text}` | Current draft snapshot after importing legacy text, with retries deduplicated by conversation and exact text |
 | `composer/move` | `{threadId:"",revision,targetThreadId}` | Target draft snapshot after moving the new-conversation draft |
 | `composer/attach` | `{threadId,expectedRevision,name,mime,uri?}` plus optional `extras.attachment` read-only FD | Draft snapshot with one imported attachment. Send either the FD or a granted `content:` URI. |
 | `composer/removeAttachment` | `{threadId,expectedRevision,attachmentId}` | Draft snapshot after removing that attachment |
-| `composer/submit` | `{threadId,revision,requestId,action,attachmentIds}` plus `expectedTurnId` for `steer` or `panelId,expectedSourceVersion` for `continue` | Receipt for a frozen draft and target. The `sendMessage` action starts a new turn. |
+| `composer/plugin/add` | `{threadId,expectedRevision,pluginId}` | Draft snapshot with that installed, enabled God Mode plugin attached to the next message (`@` in the GUI composer) |
+| `composer/plugin/remove` | `{threadId,expectedRevision,pluginId}` | Draft snapshot after removing that plugin from the draft |
+| `composer/submit` | `{threadId,revision,requestId,action,attachmentIds,pluginIds?}` plus `expectedTurnId` for `steer` or `panelId,expectedSourceVersion` for `continue` | Receipt for a frozen draft and target. The `sendMessage` action starts a new turn. |
 | `composer/receipt` | `{threadId,requestId}` | Read-only receipt lookup |
 | `composer/settle` | `{threadId,requestId}` | Receipt and revision-checked retirement when delivery is confirmed |
 | `composer/release` | `{threadId,requestId}` | Draft snapshot after releasing a pending request and preserving recoverable content |
@@ -152,7 +154,11 @@ Write and move compare the supplied revision with the source slot. A mismatch le
 
 Import ignores empty text. It loads legacy text into an empty editor. If the editor already contains different content, import adds the legacy text to the recovery list. If the current text matches, import leaves the editor as it is. Repeating the same import for the same conversation returns the current snapshot without adding a duplicate.
 
-To move a new-conversation draft, use a fresh UUID from `createThread` and the current new-conversation revision. Move clears the source and transfers its text, attachments, saved drafts, and options. `THREAD_UNAVAILABLE` means the target or its history could not be verified. `DRAFT_TARGET_OCCUPIED` means the target has saved draft or conversation content. Both failures preserve the source.
+`composer/plugin/add` and `composer/plugin/remove` take `{threadId,expectedRevision,pluginId}`. `pluginId` must match `[A-Za-z0-9_.@:-]{1,128}`, otherwise `INVALID_ARGUMENT`. Add asks God Mode for the plugin (`pluginManager` `show`, the same records the Plugin Market lists) and accepts it only when it is installed and enabled; an unknown, disabled or unreachable plugin returns `PLUGIN_UNAVAILABLE`. The draft stores the plugin's `id`, its manifest `name` (or the id) and its registered tool names, and snapshots show `{id,name}`. A draft holds at most four plugins (`PLUGIN_LIMIT`). Adding a plugin already in the draft returns the snapshot without a new revision. Removing a plugin that is not in the draft returns `PLUGIN_UNAVAILABLE`. Both check `expectedRevision` (`DRAFT_REVISION_CONFLICT`) and return a new revision on change.
+
+`composer/submit` takes optional `pluginIds` (missing means none): unique plugin IDs from the reviewed revision's draft, at most four (`PLUGIN_LIMIT`), each present in that draft (`PLUGIN_UNAVAILABLE`). Plugins alone are not a message (`INVALID_TEXT`). The new turn (for `sendMessage`, `steer` and `continue`) receives one text item per plugin after the user's text: `The user attached the plugin "NAME" (id: ID) to this message. Prefer this plugin's tools for this request: TOOL, TOOL.` (the tools sentence is omitted when the plugin registers none). Acceptance removes the sent plugins from the draft. A handoff clears the draft's plugins, a move carries them, and saved drafts and restored tasks keep theirs; recovery entries list them as `plugins:[{id,name}]`.
+
+To move a new-conversation draft, use a fresh UUID from `createThread` and the current new-conversation revision. Move clears the source and transfers its text, attachments, plugins, saved drafts, and options. `THREAD_UNAVAILABLE` means the target or its history could not be verified. `DRAFT_TARGET_OCCUPIED` means the target has saved draft or conversation content. Both failures preserve the source.
 
 The GUI and Open Access share `interrupt` with `{threadId,turnId}` and `cancelQueued` with `{threadId,taskId}`. An old turn ID returns `TURN_CHANGED`. Cancelling a queued task returns `cancellationRequested:true`; read the task state for its terminal result.
 

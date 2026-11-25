@@ -142,6 +142,7 @@ internal object TaskRequests {
             if (options.has(key)) request.put(key, options.opt(key))
         }
         if (options.has("attachments")) request.put("attachments", options.getJSONArray("attachments"))
+        options.optJSONArray("plugins")?.takeIf { it.length() > 0 }?.let { request.put("plugins", it) }
         if (options.has("composerRequestId")) {
             request.put("composerRequestId", PanelProtocol.uuid(options, "composerRequestId"))
         }

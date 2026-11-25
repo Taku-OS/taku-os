@@ -62,6 +62,12 @@ public final class NativeConversationTest {
                 .put("content", new JSONArray().put(new JSONObject().put("type", "text").put("text", englishAttachment)));
         user = AgentConversation.read(thread).entries.get(0);
         check(user.text.isEmpty() && user.attachments.get(0).equals("notes.txt"), "English broker file envelope also becomes an attachment label");
+        thread.getJSONArray("turns").getJSONObject(0).getJSONArray("items").getJSONObject(0)
+                .put("content", new JSONArray().put(new JSONObject().put("type", "text").put("text", "Draw a logo"))
+                        .put(new JSONObject().put("type", "text").put("text",
+                                "The user attached the plugin \"Figma\" (id: org.example.figma) to this message. Prefer this plugin's tools for this request: draw, export.")));
+        user = AgentConversation.read(thread).entries.get(0);
+        check(user.text.equals("Draw a logo") && user.attachments.isEmpty(), "the composer plugin note is not shown as typed text");
         primaryProjection();
         staleTaskDoesNotBecomeLiveTurn();
         phoneToolsNeverShowRawNamesOrJson();
