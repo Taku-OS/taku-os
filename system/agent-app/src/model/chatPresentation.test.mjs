@@ -52,3 +52,15 @@ test('presentation does not persist a stopped caption when later native history 
   assert.equal(chat[0].requestStopped, undefined);
   assert.deepEqual(input, [request, reply]);
 });
+
+test('a reply stopped while thinking keeps what it thought instead of folding into its request', () => {
+  const session = projectSession({thread: {id: 'clock', turns: [{id: 'turn', status: 'interrupted', items: [
+    {id: 'u', type: 'userMessage', content: [{type: 'text', text: 'Check Clock'}]},
+    {id: 'r', type: 'reasoning', summary: ['Looking for the Clock app'], content: []},
+  ]}]}, native: {}, historyComplete: true});
+  const chat = chatPresentation(session.blocks);
+  assert.equal(chat.length, 2);
+  assert.equal(chat[0].requestStopped, undefined);
+  assert.equal(chat[1].status, 'stopped');
+  assert.equal(chat[1].thinking.text, 'Looking for the Clock app');
+});
