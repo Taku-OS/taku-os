@@ -27,9 +27,11 @@ compile_jvm "$task_out/classes" "$task_json:$ANDROID_JAR" \
  system/assistant/tests/native-routing/org/agentos/lab/NativeBridgeHostServer.java \
  system/assistant/tests/native-routing/org/agentos/lab/AgentViewsTestDouble.java \
  system/assistant/tests/native-routing/org/agentos/lab/NativeBridgeRoutingTest.java \
+ system/assistant/tests/native-routing/org/agentos/lab/NativeBridgeSocketTest.java \
  system/assistant/tests/native-routing/org/agentos/lab/NativeBridgeFamilyRoutingTest.java
 "$JDK/bin/java" -cp "$task_out/classes:$task_json:$ANDROID_JAR:$KOTLIN_LIB/kotlin-stdlib.jar" org.agentos.lab.NativeBridgeRoutingTest | tee "$task_out/result.txt"
 "$JDK/bin/java" -cp "$task_out/classes:$task_json:$ANDROID_JAR:$KOTLIN_LIB/kotlin-stdlib.jar" org.agentos.lab.NativeBridgeFamilyRoutingTest | tee -a "$task_out/result.txt"
+"$JDK/bin/java" -cp "$task_out/classes:$task_json:$ANDROID_JAR:$KOTLIN_LIB/kotlin-stdlib.jar" org.agentos.lab.NativeBridgeSocketTest | tee -a "$task_out/result.txt"
 mkdir -p "$task_out/task-ownership"
 compile_jvm "$task_out/task-ownership" "$task_json:$ANDROID_JAR" \
  system/assistant/broker/org/agentos/lab/CodexAppServer.java \
