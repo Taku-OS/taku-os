@@ -161,6 +161,15 @@ public final class NativeBridgeRoutingTest {
             "Memory forwarding preserves native terminal-state cleanup");
         check(DedicatedScreensOnDevice.shared().turnsEnded.equals(java.util.List.of(thread)),
             "turn/completed hands the thread's dedicated screen back exactly once");
+        check(Boolean.TRUE.equals(DedicatedScreensOnDevice.shared().presentationCompletions.get(thread)),
+            "only successful native completion permits an opt-in presentation hold");
+        for (String terminal : new String[]{"failed", "interrupted"}) {
+            start(thread, turn + terminal);
+            NativeBridge.event(new JSONObject().put("method", "turn/completed").put("params", new JSONObject()
+                .put("threadId", thread).put("turn", new JSONObject().put("id", turn + terminal).put("status", terminal))));
+            check(Boolean.FALSE.equals(DedicatedScreensOnDevice.shared().presentationCompletions.get(thread)),
+                terminal + " completion must release rather than retain presentation");
+        }
         NativeBridge.closed();MemoryGen.events.clear();
     }
     private static void policyChangeNotices(CodexAppServer server) throws Exception {
