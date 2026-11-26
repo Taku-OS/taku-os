@@ -35,7 +35,8 @@ final class DiningBookingRidePolicy {
     private static final Pattern END_CLOCK =
             Pattern.compile("^\\s*(?:[–—−~\\-]|to|至|到)\\s*" + CLOCK);
     private static final Pattern DATE_TIME_SEPARATOR =
-            Pattern.compile("[\\s,·⋅:|–—\\-]*(?:(?:at|星期[一二三四五六日天]|周[一二三四五六日天])[\\s,·⋅:|–—\\-]*)?");
+            Pattern.compile(
+                    "[\\s,，·⋅•‧・:|–—\\-]*(?:(?:at|星期[一二三四五六日天]|周[一二三四五六日天])[\\s,，·⋅•‧・:|–—\\-]*)?");
     private static final Pattern DISPLAYED_YEAR =
             Pattern.compile("(?<![0-9])(?:19|20)[0-9]{2}(?![0-9])");
 

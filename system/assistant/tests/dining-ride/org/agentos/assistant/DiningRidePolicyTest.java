@@ -591,6 +591,21 @@ public final class DiningRidePolicyTest {
                 "The exact event URI and provider record can supply an omitted year");
         for (String row :
                 java.util.List.of(
+                        "11月2日星期一  •  下午7:15至8:45",
+                        "Monday, Nov 2  •  7:15 – 8:45 PM")) {
+            check(
+                    "matching-event-details"
+                            .equals(
+                                    DiningBookingRidePolicy.matchDetails(
+                                            detailMeal,
+                                            java.util.List.of("Allora", address, row),
+                                            true,
+                                            true,
+                                            false)),
+                    "Google Calendar bullet separator matches exact event details: " + row);
+        }
+        for (String row :
+                java.util.List.of(
                         "Nov 2 · 7:15 PM",
                         "Nov 20, 2026 · 7:15 PM",
                         "Nov 2, 2025 · 7:15 PM",
