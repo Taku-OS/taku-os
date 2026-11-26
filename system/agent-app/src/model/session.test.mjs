@@ -307,3 +307,84 @@ test('restoring a failure prepares only a draft and preserves a newer draft', ()
   assert.equal(failedTaskDraft({...failure, prompt: ''}, ''), null);
   assert.deepEqual(failure, {taskId: '123', message: 'Failed', prompt: 'Original request', turnStarted: true});
 });
+
+const asked = {id: 'u', type: 'userMessage', content: [{type: 'text', text: 'Plan my week'}]};
+const thoughtRecord = (id, summary, extra = {}) => ({id, type: 'reasoning', summary, content: ['raw private reasoning'], ...extra});
+const thinkingSession = (status, items, native = {}) => projectSession({thread: {id: 'thread-1', turns: [{id: 'turn-1', status, items}]}, native, historyComplete: true});
+
+test('a reply shows its reasoning summary above it, never as reply text and never the raw reasoning', () => {
+  const result = thinkingSession('completed', [asked,
+    thoughtRecord('r', ['**Weighing the week**', '  ', 'Mornings are free.'], {_streamCompleted: true, startedAtMs: 1000, durationMs: 21500}),
+    {id: 'answer', type: 'agentMessage', phase: 'final_answer', text: 'Here is your week.'}]);
+  assert.equal(result.blocks.length, 2);
+  assert.equal(result.blocks[1].id, 'turn-1/after/u', 'reasoning never changes a reply row identity');
+  assert.equal(result.blocks[1].text, 'Here is your week.');
+  assert.deepEqual(result.blocks[1].parts, [{id: 'turn-1/answer', text: 'Here is your week.', active: false}]);
+  assert.deepEqual(result.blocks[1].activity, []);
+  assert.deepEqual(result.blocks[1].thinking, {id: 'turn-1/thinking/u', text: '**Weighing the week**\n\nMornings are free.', active: false, durationMs: 21500});
+  assert.equal(JSON.stringify(result).includes('raw private reasoning'), false);
+});
+
+test('a reasoning record with nothing to show leaves the reply exactly as it was', () => {
+  const items = [asked, {id: 'answer', type: 'agentMessage', text: 'Done.'}];
+  const plain = thinkingSession('completed', items);
+  for (const record of [{id: 'r', type: 'reasoning'}, thoughtRecord('r', []), thoughtRecord('r', ['', '   ']), {id: 'r', type: 'reasoning', encrypted_content: 'sealed'}])
+    assert.deepEqual(thinkingSession('completed', [asked, record, items[1]]), plain);
+  assert.equal('thinking' in plain.blocks[1], false);
+});
+
+test('reasoning is live only while it is the last thing the running turn has done', () => {
+  const running = {activeTurnId: 'turn-1'};
+  const writing = thinkingSession('inProgress', [asked, thoughtRecord('r', ['Comparing two rou\ud83d'], {_streamCompleted: false, startedAtMs: 5000})], running);
+  assert.equal(writing.blocks.length, 2);
+  assert.deepEqual(writing.blocks[1].thinking, {id: 'turn-1/thinking/u', text: 'Comparing two rou', active: true, startedAtMs: 5000});
+  assert.equal(writing.blocks[1].active, true);
+  assert.equal(writing.running, true);
+  // No text yet is still thinking; the runtime may not say when it began.
+  assert.deepEqual(thinkingSession('inProgress', [asked, thoughtRecord('r', [])], running).blocks[1].thinking, {id: 'turn-1/thinking/u', text: '', active: true});
+  // The record finished, or anything at all followed it: no longer live.
+  const finished = thinkingSession('inProgress', [asked, thoughtRecord('r', ['Comparing two routes'], {_streamCompleted: true, durationMs: 4000})], running);
+  assert.deepEqual(finished.blocks[1].thinking, {id: 'turn-1/thinking/u', text: 'Comparing two routes', active: false, durationMs: 4000});
+  const answering = thinkingSession('inProgress', [asked, thoughtRecord('r', ['Comparing two routes'], {startedAtMs: 5000}), {id: 'answer', type: 'agentMessage', text: ''}], running);
+  assert.equal(answering.blocks[1].thinking.active, false);
+  const usingTool = thinkingSession('inProgress', [asked, thoughtRecord('r', ['Comparing two routes']), {id: 'tool', type: 'webSearch', status: 'inProgress'}], running);
+  assert.equal(usingTool.blocks[1].thinking.active, false);
+  // A turn that is over is never live, whatever its records say.
+  assert.equal(thinkingSession('interrupted', [asked, thoughtRecord('r', ['Cut short'], {_streamCompleted: false})]).blocks[1].thinking.active, false);
+});
+
+test('reasoning between tools joins into one thinking; its time is the sum only when every part is known', () => {
+  const running = {activeTurnId: 'turn-1'};
+  const steps = [asked, thoughtRecord('r1', ['First thought'], {_streamCompleted: true, durationMs: 3000}),
+    {id: 'tool', type: 'webSearch', status: 'completed'}, thoughtRecord('r2', ['Second thought'], {_streamCompleted: true, durationMs: 1500}),
+    {id: 'empty', type: 'reasoning', summary: [], _streamCompleted: true},
+    {id: 'answer', type: 'agentMessage', phase: 'final_answer', text: 'Found it.'}];
+  const done = thinkingSession('completed', steps);
+  assert.deepEqual(done.blocks[1].thinking, {id: 'turn-1/thinking/u', text: 'First thought\n\nSecond thought', active: false, durationMs: 4500});
+  assert.deepEqual(done.blocks[1].activity.map(a => a.id), ['turn-1/tool']);
+  // Thinking again after a tool: live once more, counting on from the time already spent.
+  const again = thinkingSession('inProgress', [...steps.slice(0, 3), thoughtRecord('r2', ['Second'], {_streamCompleted: false, startedAtMs: 9000})], running);
+  assert.deepEqual(again.blocks[1].thinking, {id: 'turn-1/thinking/u', text: 'First thought\n\nSecond', active: true, startedAtMs: 9000, durationMs: 3000});
+  // One finished record with text but no time: the total is not known, so none is claimed.
+  const partly = thinkingSession('completed', [asked, thoughtRecord('r1', ['First thought'], {durationMs: 3000}), thoughtRecord('r2', ['Second thought']), steps[5]]);
+  assert.deepEqual(partly.blocks[1].thinking, {id: 'turn-1/thinking/u', text: 'First thought\n\nSecond thought', active: false});
+  const liveAfterUnknown = thinkingSession('inProgress', [asked, thoughtRecord('r1', ['First thought']), steps[2], thoughtRecord('r2', ['Second'], {startedAtMs: 9000})], running);
+  assert.deepEqual(liveAfterUnknown.blocks[1].thinking, {id: 'turn-1/thinking/u', text: 'First thought\n\nSecond', active: true});
+  // Time alone, with the text not projected, still says how long it took.
+  assert.deepEqual(thinkingSession('completed', [asked, {id: 'r', type: 'reasoning', durationMs: 2000}, steps[5]]).blocks[1].thinking,
+    {id: 'turn-1/thinking/u', text: '', active: false, durationMs: 2000});
+});
+
+test('reasoning belongs to the request it follows, and a reply that only thought is still a reply', () => {
+  const steered = thinkingSession('completed', [asked, thoughtRecord('r1', ['About the week'], {durationMs: 1000}),
+    {id: 'a1', type: 'agentMessage', text: 'First answer.'},
+    {id: 'u2', type: 'userMessage', content: [{type: 'text', text: 'And the weekend'}]},
+    thoughtRecord('r2', ['About the weekend'], {durationMs: 2000}), {id: 'a2', type: 'agentMessage', text: 'Second answer.'}]);
+  assert.deepEqual(steered.blocks.map(block => [block.role, block.thinking?.id, block.thinking?.text]), [
+    ['user', undefined, undefined], ['assistant', 'turn-1/thinking/u', 'About the week'],
+    ['user', undefined, undefined], ['assistant', 'turn-1/thinking/u2', 'About the weekend']]);
+  const onlyThought = thinkingSession('interrupted', [asked, thoughtRecord('r', ['Cut short'])]);
+  assert.equal(onlyThought.blocks.length, 2);
+  assert.equal(onlyThought.blocks[1].status, 'stopped');
+  assert.deepEqual(onlyThought.blocks[1].thinking, {id: 'turn-1/thinking/u', text: 'Cut short', active: false});
+});

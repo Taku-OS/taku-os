@@ -39,6 +39,29 @@ function normalizeTurn(value: unknown, fallback: string): StreamTurn {
   return {data: {...data, id: string(data.id) || fallback}, itemIds, items};
 }
 
+/** The model's public reasoning summary, as it is written (SESSION_STREAMING.md). */
+const REASONING_SUMMARY_DELTA = 'item/reasoning/summaryTextDelta';
+const MAX_SUMMARY_PARTS = 64;
+
+/**
+ * A snapshot is the whole thread, yet a relay may leave a reasoning summary out of it: one that
+ * predates this event, or one that keeps only the newest summaries. A record without a `summary`
+ * field keeps the summary this client was already given for the same record; an empty `summary`
+ * is the relay saying there is none.
+ */
+function keepShownReasoning(turn: StreamTurn, before: SessionStream): StreamTurn {
+  const shown = before.turns[string(turn.data.id)];
+  if (!shown) return turn;
+  let items = turn.items;
+  for (const id of turn.itemIds) {
+    const item = turn.items[id], prior = shown.items[id];
+    if (item.type !== 'reasoning' || item.summary !== undefined || prior?.type !== 'reasoning' || !list(prior.summary).length) continue;
+    if (items === turn.items) items = {...turn.items};
+    items[id] = {...item, summary: prior.summary};
+  }
+  return items === turn.items ? turn : {...turn, items};
+}
+
 function upsertItem(turn: StreamTurn, item: Json): StreamTurn {
   const id = string(item.id);
   if (!id) return turn;
@@ -70,7 +93,7 @@ export function reduceSessionEvent(state: SessionStream, value: unknown): Sessio
     if (brokerEpoch === state.brokerEpoch && seq < state.seq && !state.needsResync) return state;
     const turnIds: string[] = [], turns: Record<string, StreamTurn> = {};
     list(thread.turns).forEach((raw, index) => {
-      const turn = normalizeTurn(raw, `turn-${index}`), id = string(turn.data.id);
+      const turn = keepShownReasoning(normalizeTurn(raw, `turn-${index}`), state), id = string(turn.data.id);
       if (!turns[id]) turnIds.push(id);
       turns[id] = turn;
     });
@@ -112,6 +135,16 @@ export function reduceSessionEvent(state: SessionStream, value: unknown): Sessio
       || Object.values(record(turn.data.mainReplies)).some(reply => list(record(record(reply).provenance).sourceItemIds).includes(itemId))) return next;
     turn = upsertItem(turn, {...prior, id: itemId, type: 'agentMessage',
       text: string(prior?.text) + string(params.delta), _streamCompleted: false});
+  } else if (method === REASONING_SUMMARY_DELTA && itemId) {
+    const prior = turn.items[itemId], delta = string(params.delta);
+    // A completed summary is authoritative, and a summary only ever belongs to a reasoning record.
+    if (!delta || prior?._streamCompleted === true || prior && prior.type !== 'reasoning') return next;
+    const index = typeof params.summaryIndex === 'number' && Number.isSafeInteger(params.summaryIndex)
+      && params.summaryIndex >= 0 && params.summaryIndex < MAX_SUMMARY_PARTS ? params.summaryIndex : 0;
+    const summary = list(prior?.summary).map(string);
+    while (summary.length <= index) summary.push('');
+    summary[index] += delta;
+    turn = upsertItem(turn, {...prior, id: itemId, type: 'reasoning', summary, _streamCompleted: false});
   } else if ((method === 'item/started' || method === 'item/completed') && itemId) {
     const prior = turn.items[itemId], completed = method === 'item/completed';
     if (!completed && prior?._streamCompleted === true) return next;
@@ -119,6 +152,7 @@ export function reduceSessionEvent(state: SessionStream, value: unknown): Sessio
       ...(prior?.replyId ? {text: prior.text, replyId: prior.replyId} : {}),
       // Started can follow a delta during recovery; metadata must not erase the prefix.
       ...(!completed && typeof prior?.text === 'string' ? {text: prior.text} : {}),
+      ...(!completed && list(prior?.summary).length ? {summary: prior?.summary} : {}),
       _streamCompleted: completed});
   } else if (method === 'turn/started' || method === 'turn/completed') {
     const completed = method === 'turn/completed';
@@ -196,7 +230,12 @@ export function retainSessionBlocks(next: SessionView, prior: SessionView | null
       return old.id === item.id && old.type === item.type && old.titleKey === item.titleKey
         && old.name === item.name && old.node === item.node && old.text === item.text && old.status === item.status;
     });
-    return previous.text === block.text && previous.active === block.active && previous.status === block.status
+    const was = previous.thinking, now = block.thinking;
+    const sameThinking = was === now || !!was && !!now && was.id === now.id && was.text === now.text && was.active === now.active
+      && was.startedAtMs === now.startedAtMs && was.durationMs === now.durationMs;
+    // The same thinking keeps its object, so a reply whose only change is its text never re-renders it.
+    if (sameThinking && was) block.thinking = was;
+    return sameThinking && previous.text === block.text && previous.active === block.active && previous.status === block.status
       && previous.parts.length === block.parts.length && block.parts.every((part, i) => part === previous.parts[i])
       && sameActivity && previous.attachments.length === block.attachments.length
       && block.attachments.every((attachment, i) => attachment === previous.attachments[i]) ? previous : block;

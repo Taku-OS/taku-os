@@ -20,6 +20,7 @@ import {Icon, IconButton} from './Icon';
 import {chatPresentation, type ChatMessageBlock} from '../model/chatPresentation';
 import {FIRST_RESPONSE_TIMEOUT_MS, type OptimisticSubmission} from '../model/optimisticChat';
 import {ReplyLoading} from './ReplyLoading';
+import {ThinkingBlock} from '../chat/ThinkingBlock';
 import {gatewayLoad, onImeInsets, showKeyboard, type PanelTarget} from '../native/agent';
 import {useChatBackdrop} from '../chat/useChatBackdrop';
 import {ReplyMenu, type ReplyMenuTarget} from './ReplyMenu';
@@ -90,6 +91,8 @@ export interface AgentChatScreenProps {
   /** Where `@` suggestions come from; the native plugin manager (as Plugin Market) by default. */
   pluginRepository?: PluginRepository;
   conversationKey?: string;
+  /** Increments whenever a conversation is opened from outside the chat (e.g. the island card). */
+  externalOpens?: number;
   optimisticSubmissions?: readonly OptimisticSubmission[];
   pendingSubmission?: {threadId: string; text: string; requestId: string; action: 'sendMessage' | 'steer' | 'continue'} | null;
   onRetrySubmission: () => void;
@@ -226,15 +229,18 @@ function MessageBody({block, language, renderMarkdown, renderCard, demand}: {blo
     </>}</React.Fragment>)}</View>;
 }
 
-function Message({block, language, renderMarkdown, renderCard, expanded, demand, onToggleActivity, onLongPressReply}: {block: ChatMessageBlock; language: Language; renderMarkdown?: AgentChatScreenProps['renderMarkdown']; renderCard?: AgentChatScreenProps['renderCard']; expanded: boolean; demand: CardDemand; onToggleActivity: () => void; onLongPressReply?: (block: ChatMessageBlock, body: ViewHandle) => void}) {
+function Message({block, language, renderMarkdown, renderCard, expanded, thinkingExpanded, demand, onToggleActivity, onToggleThinking, onLongPressReply}: {block: ChatMessageBlock; language: Language; renderMarkdown?: AgentChatScreenProps['renderMarkdown']; renderCard?: AgentChatScreenProps['renderCard']; expanded: boolean; thinkingExpanded: boolean; demand: CardDemand; onToggleActivity: () => void; onToggleThinking: () => void; onLongPressReply?: (block: ChatMessageBlock, body: ViewHandle) => void}) {
   const t = textFor(language);
   const body = useRef<ViewHandle>(null);
   const {fontScale} = useWindowDimensions();
   const hasText = Boolean(block.text.trim());
+  // Live reasoning is its own sign of work. Between its end and the first word of the reply the
+  // dots return, whether or not a request is tracked for this reply.
+  const waiting = block.role === 'assistant' && block.active && !['failed', 'stopped'].includes(block.status)
+    && !hasBody(block) && !block.activity.length && !block.thinking?.active;
   // A restored turn/started snapshot can precede both its user item and task metadata.
   // Bound even that native-only placeholder; never fabricate a request to track it.
-  const untrackedPending = block.role === 'assistant' && block.responsePending === undefined
-    && block.active && !['failed', 'stopped'].includes(block.status) && !hasBody(block) && !block.activity.length;
+  const untrackedPending = waiting && block.responsePending === undefined;
   // The timeout belongs to the block it was started for; a different block starts unexpired.
   const [timedOutBlock, setTimedOutBlock] = useState<string | null>(null);
   const untrackedTimeout = timedOutBlock === block.id;
@@ -268,9 +274,10 @@ function Message({block, language, renderMarkdown, renderCard, expanded, demand,
   // Long press opens Copy / Select once the reply text is final (or a primary card while streaming).
   const canCopy = !!block.text && (!block.active || block.parts.some(part => part.card?.kind === 'primary'));
   const responseError = block.responseError || (block.responseErrorKey ? t(block.responseErrorKey) : untrackedPending && untrackedTimeout ? t('replyTimeout') : '');
-  const pending = !responseError && (block.responsePending ?? untrackedPending);
+  const pending = !responseError && ((block.responsePending ?? untrackedPending) || waiting && !!block.thinking);
   const showState = !responseError && (block.status === 'failed' || block.status === 'stopped');
   return <View style={styles.assistant}>
+    {block.thinking && <ThinkingBlock thinking={block.thinking} language={language} expanded={thinkingExpanded} onToggle={onToggleThinking}/>}
     {(hasBody(block) || pending || !!responseError) && <Pressable ref={body} testID={`reply-body-${block.id}`} style={{minHeight: 26 * fontScale}}
       disabled={!canCopy || !onLongPressReply} onLongPress={() => { if (body.current) onLongPressReply?.(block, body.current); }}
       accessibilityActions={canCopy ? [{name: 'longpress', label: t('copy')}] : undefined}
@@ -380,7 +387,8 @@ function PendingCard({question, language, busy, onAnswer, onOpenRequest}: {quest
   </View>;
 }
 
-type Layer = {kind: 'sidebar'};
+/** [opens] is the outside-open count when the layer was shown; a later outside open hides it. */
+type Layer = {kind: 'sidebar'; opens: number};
 
 export function AgentChatScreen(props: AgentChatScreenProps) {
   const router = useRouter();
@@ -403,12 +411,16 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
     });
     return () => {show.remove(); hide.remove(); lifecycle.remove();};
   }, [nativeIme]);
-  const [layer, setLayer] = useState<Layer | null>(() => props.initialSidebar ? {kind: 'sidebar'} : null);
+  // An outside open (island card, Feed, Panel) shows that conversation, and dismisses any open navigation overlay.
+  const externalOpens = props.externalOpens ?? 0;
+  const [openedLayer, setLayer] = useState<Layer | null>(() => props.initialSidebar ? {kind: 'sidebar', opens: externalOpens} : null);
+  const layer = openedLayer?.opens === externalOpens ? openedLayer : null;
   useChatBackdrop();
   // Taku Home lists panels; opening one hands off to the desktop.
   const [composerHeight, setComposerHeight] = useState(40);
   const [composerBox, setComposerBox] = useState(64);
   const [expandedActivities, setExpandedActivities] = useState<Set<string>>(() => new Set());
+  const [expandedThinking, setExpandedThinking] = useState<Set<string>>(() => new Set());
   // Android uses one complete native geometry snapshot, never KAV's asynchronously resized child.
   const space = sheetSpace(nativeIme ? imeGeometry : null, measuredHostHeight ?? dimensions.height, 0);
   // Full host height; the keyboard covers its bottom `space.bottom` dp. Absolutely placed children
@@ -631,7 +643,7 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
     props.onOpenHistory?.();
     Keyboard.dismiss();
     setReplyMenu(null);
-    setLayer({kind: 'sidebar'});
+    setLayer({kind: 'sidebar', opens: externalOpens});
   };
   const selectMainChat = () => {
     live.stop();
@@ -905,8 +917,15 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
       {!props.session?.historyComplete && blocks.length > 0 && <Label role="caption" style={[styles.secondary, styles.historyHint]}>{t('historyIncomplete')}</Label>}
       </View>}
       renderItem={({item: block, index}) => {
+        // Keyed by the reasoning itself: a reply keeps its opened thinking when its row id changes hands.
+        const thinkingKey = `${sessionId}/${block.thinking?.id ?? ''}`;
         const messageNode = <Message block={block} language={language} renderMarkdown={props.renderMarkdown} renderCard={props.renderCard} expanded={expandedActivities.has(`${sessionId}/${block.id}`)}
-        demand={rowDemand(demandBand, index)}
+        thinkingExpanded={expandedThinking.has(thinkingKey)} demand={rowDemand(demandBand, index)}
+        onToggleThinking={() => {
+          // Opening it is reading, as with activity: the list stays where the reader is.
+          if (!expandedThinking.has(thinkingKey)) dispatchScroll({type: 'scrolled', distance: Number.POSITIVE_INFINITY, byUser: true, spacerActive: pinnedSpacer > 0});
+          setExpandedThinking(previous => {const next = new Set(previous); if (next.has(thinkingKey)) next.delete(thinkingKey); else next.add(thinkingKey); return next;});
+        }}
         onLongPressReply={openReplyMenu} onToggleActivity={() => {
           const key = `${sessionId}/${block.id}`;
           // Expanding is a reading action: keep the tapped reply in view instead of following the footer.

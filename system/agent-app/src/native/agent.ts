@@ -15,6 +15,7 @@ type AgentNativeModule = {
   unsubscribeMatter(subscriptionId: string): void;
   launchThreadId(): string;
   selectConversation(threadId: string | null): void;
+  setHandoffCandidate(threadId: string, turnId: string, taskId: string, knownTurnIds: string, sending: boolean): void;
   isLaunchCurrent(generation: string): boolean;
   launchDraft(): string;
   requestId(): string;
@@ -175,6 +176,21 @@ export const onOpenThread = (listener: (threadId: string, target: PanelTarget | 
   });
 
 export const selectConversation = (threadId: string | null) => requireAgentNative().selectConversation(threadId);
+
+/**
+ * The conversation whose turn is still running ("" for none). Leaving the chat hands it to the
+ * Home island, which opens its card once the turn has a result (BUG-0027). Off-device a no-op.
+ */
+export interface HandoffReport {
+  /** "" when no conversation is running (or it has no thread yet). */
+  threadId: string; turnId: string; taskId: string;
+  /** JSON array of the conversation's turns before the send, or "" when not reported. */
+  knownTurnIds: string;
+  /** The chat's own message is still on its way; a leave during it waits for the conversation. */
+  sending: boolean;
+}
+export const setHandoffCandidate = (report: HandoffReport) =>
+  nativeModule?.setHandoffCandidate(report.threadId, report.turnId, report.taskId, report.knownTurnIds, report.sending);
 
 /** Opens the panel's original conversation with its native target extras. It never sends a task. */
 export async function openPanelConversation(panelId: string): Promise<void> {

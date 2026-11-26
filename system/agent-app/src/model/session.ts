@@ -24,6 +24,20 @@ export interface MessagePart {
   replyState?: MainReply['lifecycle'];
   superseded?: boolean;
 }
+/**
+ * The model's public reasoning summary for one reply: every reasoning record of the reply, in order.
+ * Raw reasoning content is never part of it.
+ */
+export interface Thinking {
+  id: string;
+  text: string;
+  /** A reasoning record is being written now and nothing has followed it yet. */
+  active: boolean;
+  /** When the record being written began (device clock, ms), as the runtime reported it. */
+  startedAtMs?: number;
+  /** Time spent on the finished records; absent unless the runtime reported every one of them. */
+  durationMs?: number;
+}
 export interface MessageBlock {
   id: string;
   turnId: string;
@@ -32,6 +46,8 @@ export interface MessageBlock {
   parts: MessagePart[];
   attachments: string[];
   activity: Activity[];
+  /** Present only when the reply has reasoning to show: its text, its live state or its duration. */
+  thinking?: Thinking;
   status: ItemStatus;
   active: boolean;
   /** Taku's emoji reaction on a user message (Jev's choice, Figma 297:433); absent when none. */
@@ -56,6 +72,8 @@ export interface SessionView {
   questions: PendingQuestion[];
   running: boolean;
   activeTurnId: string;
+  /** Every native turn in order, including turns that produced no visible block. */
+  turnIds: string[];
   ready: boolean;
   error: string;
   historyComplete: boolean;
@@ -190,6 +208,36 @@ function trimPartialSurrogate(text: string, running: boolean): string {
   const code = text.charCodeAt(text.length - 1);
   return running && code >= 0xd800 && code <= 0xdbff ? text.slice(0, -1) : text;
 }
+const milliseconds = (value: unknown): number | undefined => typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : undefined;
+
+/** One reasoning record's public summary: its parts, apart from each other as paragraphs. */
+export function reasoningText(item: Json): string {
+  return list(item.summary).map(part => string(part).trim()).filter(Boolean).join('\n\n');
+}
+
+/**
+ * [records] are a reply's reasoning records in order; [writing] says the last one is still being
+ * written. Undefined when there is nothing to show: no text, nothing under way and no known time.
+ */
+function thinkingOf(id: string, records: Json[], writing: boolean): Thinking | undefined {
+  const current = writing ? records[records.length - 1] : undefined;
+  const text: string[] = [];
+  let durationMs = 0, timed = false, untimed = false;
+  for (const record of records) {
+    const summary = reasoningText(record), duration = milliseconds(record.durationMs);
+    if (summary) text.push(record === current ? trimPartialSurrogate(summary, true) : summary);
+    if (record === current) continue;
+    if (duration !== undefined) { durationMs += duration; timed = true; }
+    // A record with text but no time makes the total unknown; an empty, untimed one is nothing at all.
+    else if (summary) untimed = true;
+  }
+  const known = timed && !untimed;
+  if (!text.length && !current && !known) return undefined;
+  const startedAtMs = current && !untimed ? milliseconds(current.startedAtMs) : undefined;
+  return {id, text: text.join('\n\n'), active: Boolean(current),
+    ...(startedAtMs !== undefined ? {startedAtMs} : {}), ...(known ? {durationMs} : {})};
+}
+
 function presentationRequest(item: Json, threadId: string): UiRequest | null {
   const args = record(item.arguments);
   if (args.action !== 'present') return parseUiRequest(args);
@@ -214,10 +262,13 @@ export function projectSession(value: unknown): SessionView {
     const turn = record(raw), turnId = label(turn.id) || `turn-${turnIndex}`, status = itemStatus(turn);
     const active = status === 'running' || turnId === activeTurnId;
     const replies = record(turn.mainReplies), shownReplies = new Set<string>();
-    let segment: Json[] = [], anchor = 'start';
+    let segment: Json[] = [], thoughts: Json[] = [], thoughtLast = false, anchor = 'start';
     const flush = (tail: boolean) => {
       const finalState = tail && (active || status === 'failed' || status === 'stopped');
-      if (!segment.length && !finalState) return;
+      // Reasoning is being written while the turn runs and nothing has followed its last record.
+      const writing = tail && active && thoughtLast && thoughts[thoughts.length - 1]?._streamCompleted !== true;
+      const thinking = thoughts.length ? thinkingOf(`${turnId}/thinking/${anchor}`, thoughts, writing) : undefined;
+      if (!segment.length && !thinking && !finalState) return;
       // A card is part of the answer, so text before it is not demoted to commentary.
       const lastTool = segment.reduce((last, item, i) => toolTypes.has(string(item.type)) && !isStateCardItem(item) ? i : last, -1);
       const parts: MessagePart[] = [], activities: Activity[] = [];
@@ -256,9 +307,10 @@ export function projectSession(value: unknown): SessionView {
         }
       });
       const primary = parts.find(part => part.card?.kind === 'primary')?.card;
-      if (parts.length || activities.length || finalState) blocks.push({id: primary?.kind === 'primary' ? `${turnId}/reply-anchor/${primary.reply.provenance.anchorOrdinal}` : `${turnId}/after/${anchor}`,
-        turnId, role: 'assistant', text: parts.map(part => part.text).filter(Boolean).join('\n\n'), parts, attachments: [], activity: activities, status, active: tail && active});
-      segment = [];
+      if (parts.length || activities.length || thinking || finalState) blocks.push({id: primary?.kind === 'primary' ? `${turnId}/reply-anchor/${primary.reply.provenance.anchorOrdinal}` : `${turnId}/after/${anchor}`,
+        turnId, role: 'assistant', text: parts.map(part => part.text).filter(Boolean).join('\n\n'), parts, attachments: [], activity: activities,
+        ...(thinking ? {thinking} : {}), status, active: tail && active});
+      segment = []; thoughts = []; thoughtLast = false;
     };
     list(turn.items).forEach((rawItem, itemIndex) => {
       const item = record(rawItem), type = string(item.type);
@@ -269,8 +321,9 @@ export function projectSession(value: unknown): SessionView {
         const reaction = typeof item.reaction === 'string' && item.reaction.length > 0 && item.reaction.length <= 32 ? item.reaction : undefined;
         if (content.text || content.attachments.length) blocks.push({id: `${turnId}/${anchor}`, turnId, role: 'user', ...content, parts: [], activity: [], status, active: false,
           ...(reaction ? {reaction} : {})});
-      } else if (type === 'agentMessage' || type === 'plan' || toolTypes.has(type)) segment.push(item);
-      // Unknown, reasoning, and authentication records never become display text.
+      } else if (type === 'agentMessage' || type === 'plan' || toolTypes.has(type)) { segment.push(item); thoughtLast = false; }
+      else if (type === 'reasoning') { thoughts.push(item); thoughtLast = true; }
+      // Unknown and authentication records never become display text; reasoning shows its public summary only.
     });
     flush(true);
   }
@@ -296,6 +349,7 @@ export function projectSession(value: unknown): SessionView {
     questions: list(native.requests).map(record).filter(q => label(q.key) && id && record(q.params).threadId === id)
       .map(q => ({key: string(q.key), method: string(q.method), params: record(q.params)})),
     running, activeTurnId, ready: native.ready === true,
+    turnIds: turns.map((raw, turnIndex) => label(record(raw).id) || `turn-${turnIndex}`),
     error: string(native.error), historyComplete: complete, knownEmpty,
     historyStatus: complete ? 'complete' : root.historyStatus === 'partial' || blocks.length ? 'partial' : 'unknown',
     totalTurns: typeof root.totalTurns === 'number' ? root.totalTurns : turns.length,

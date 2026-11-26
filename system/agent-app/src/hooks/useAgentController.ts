@@ -3,7 +3,8 @@ import {AppState, BackHandler} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {useLocales} from 'expo-localization';
 import {getPanel} from '../panels/client';
-import {callAgent, closeAgent, consumePanelLaunch, isPanelLaunchConsumed, launchPanelTarget, launchThreadId, newRequestId, onOpenThread, selectConversation, subscribeSession, watchConversationVisible, AgentGatewayError, type PanelTarget} from '../native/agent';
+import {callAgent, closeAgent, consumePanelLaunch, isPanelLaunchConsumed, launchPanelTarget, launchThreadId, newRequestId, onOpenThread, selectConversation, setHandoffCandidate, subscribeSession, watchConversationVisible, AgentGatewayError, type PanelTarget} from '../native/agent';
+import {handoffCandidate, sendInFlight} from '../model/islandHandoff';
 import {onComposerAttachment, pickComposerAttachment, type ComposerPickerKind} from '../native/composerPicker';
 import {continuedSessionRoot, projectSession, projectThreads, projectWorkspaces, record, string, type Json, type SessionView, type ThreadSummary, type WorkspaceView} from '../model/session';
 import {isAcceptedReceipt, isNotSentReceipt, pendingKey, preserveAndReleaseUnconfirmed, unconfirmedArchivePrefix, type PendingSubmission} from './submission';
@@ -77,6 +78,9 @@ export function useAgentController() {
   const [workspaceError, setWorkspaceError] = useState('');
   const [refreshRevision, setRefreshRevision] = useState(0);
   const [visible, setVisible] = useState(false);
+  // Counts conversations opened from outside the chat (island, Feed, Panels), the current one
+  // included, so the screen can leave Taku Home for the conversation it was asked to show.
+  const [externalOpens, setExternalOpens] = useState(0);
   const locale = useLocales()[0]?.languageCode;
   const zh = locale === 'zh';
   const mounted = useRef(true), generation = useRef(0), actionRunning = useRef(false);
@@ -87,7 +91,9 @@ export function useAgentController() {
   const navigationWrites = useRef(Promise.resolve());
   const selectionWrites = useRef(Promise.resolve());
   const historyRevision = useRef(0);
-  const pendingOpen = useRef('');
+  /** A conversation to open once the running action ends: a thread id, '' for a new one, null for none. */
+  const pendingOpen = useRef<string | null>(null);
+  const pendingTaskCreation = useRef<(() => void) | null>(null);
   const launchFailure = useRef<unknown>(null);
   /** Navigation context only: the panel whose original conversation this send continues. */
   const panelTarget = useRef<PanelTarget | null>(null);
@@ -347,6 +353,17 @@ export function useAgentController() {
     });
   }, [composer]);
 
+  // Native reads this when the chat stops: a running turn goes to the island (BUG-0027).
+  // The chat's own message row exists from the tap, so leaving right after Send still hands off.
+  const candidate = handoffCandidate(selected, session, pendingSubmission?.threadId ?? null, optimisticSubmissions);
+  const handoffThread = candidate?.threadId ?? '', handoffTurn = candidate?.turnId ?? '', handoffTask = candidate?.taskId ?? '';
+  const handoffKnown = candidate?.knownTurnIds ? JSON.stringify(candidate.knownTurnIds) : '';
+  const handoffSending = sendInFlight(selected, optimisticSubmissions);
+  useEffect(() => {
+    setHandoffCandidate({threadId: handoffThread, turnId: handoffTurn, taskId: handoffTask, knownTurnIds: handoffKnown, sending: handoffSending});
+  }, [handoffThread, handoffTurn, handoffTask, handoffKnown, handoffSending]);
+  useEffect(() => () => setHandoffCandidate({threadId: '', turnId: '', taskId: '', knownTurnIds: '', sending: false}), []);
+
   useEffect(() => {
     const back = BackHandler.addEventListener('hardwareBackPress', () => { hide(); return true; });
     return () => back.remove();
@@ -359,6 +376,7 @@ export function useAgentController() {
     const listener = AppState.addEventListener('change', state => { appActive = state === 'active'; updateVisibility(); });
     const visibility = watchConversationVisible(started => { conversationStarted = started; updateVisibility(); });
     const openListener = onOpenThread((id, target, problem) => {
+      setExternalOpens(count => count + 1);
       if (problem) {
         launchFailure.current = problem;
         setError(messageRef.current(problem));
@@ -571,8 +589,11 @@ export function useAgentController() {
       actionRunning.current = false;
       if (mounted.current) {
         setBusy(false);
-        const id = pendingOpen.current; pendingOpen.current = '';
-        if (id) void select(id).catch(e => { if (selectedRef.current === id) setError(messageRef.current(e)); });
+        const id = pendingOpen.current; pendingOpen.current = null;
+        const createTask = pendingTaskCreation.current; pendingTaskCreation.current = null;
+        if (id === '') selectConversation(null);
+        if (id !== null) void select(id).catch(e => { if (selectedRef.current === id) setError(messageRef.current(e)); });
+        else createTask?.();
       }
     }
   }, [message, select]);
@@ -646,6 +667,8 @@ export function useAgentController() {
     const draft = move ? await composer('').move(move.revision, id) : null;
     if (move) updateOptimistic(requests => requests.map(request => request.requestId === move.requestId ? {...request, threadId: id} : request));
     await select(id, Boolean(move));
+    // Native follows the created conversation (intent, launch route, island reclaim), as for any selection.
+    if (selectedRef.current === id) selectConversation(id);
     void loadThreads().catch(() => {});
     return {id, draft};
   }, [composer, loadThreads, persistPrimaryThread, select, updateOptimistic]);
@@ -873,7 +896,7 @@ export function useAgentController() {
         launchFailure.current = null;
         const id = target?.originThreadId || launchThreadId() || selectedRef.current;
         await select(id);
-        if (pendingOpen.current === id) pendingOpen.current = '';
+        if (pendingOpen.current === id) pendingOpen.current = null;
       } catch (problem) {
         launchFailure.current = problem;
         throw problem;
@@ -886,15 +909,15 @@ export function useAgentController() {
   }), [assignPanelTarget, loadThreads, run, select]);
 
   const createTaskThread = useCallback(() => {
-    void run(async () => {
-      // A Task is created beside TAKU's own conversation; whatever is open keeps its place.
-      selectConversation(null);
-      assignPanelTarget(null);
-      launchFailure.current = null;
-      pendingOpen.current = '';
-      const {id} = await create(undefined, true);
-      selectConversation(id);
-    });
+    const openTask = () => {
+      void run(async () => {
+        assignPanelTarget(null);
+        launchFailure.current = null;
+        await create(undefined, true);
+      });
+    };
+    if (actionRunning.current) pendingTaskCreation.current = openTask;
+    else openTask();
   }, [assignPanelTarget, create, run]);
 
   const selectMainChat = useCallback(() => {
@@ -930,7 +953,7 @@ export function useAgentController() {
     session, threads, workspaces, loading: loading || restoring, busy, error: draftError || error || selectionError || readError, draft,
     historyError, workspaceError, visible,
     primaryThreadId, isMainChat: isMainConversation(selected, primaryThreadId),
-    draftSessionId: selected, pendingSubmission, conversationKey,
+    draftSessionId: selected, pendingSubmission, conversationKey, externalOpens,
     optimisticSubmissions: visibleOptimisticSubmissions,
     onRetrySubmission: () => { void retrySubmission(); },
     onContinueWithoutResending: () => { void continueWithoutResending(); },

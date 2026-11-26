@@ -39,6 +39,9 @@ const en = {
   version: 'Version', license: 'License', pluginEnabled: 'Enabled', permissions: 'Permissions', noPermissions: 'No permissions declared', noSkills: 'No skills',
   reload: 'Reload', enable: 'Enable', disable: 'Disable', uninstallTitle: 'Uninstall plugin?', uninstallBody: 'will be removed from this device.', pluginSettings: 'Plugin settings',
   voice: 'Voice input', copy: 'Copy', copied: 'Copied', select: 'Select', done: 'Done',
+  // The model's reasoning above a reply: live, then one row that opens to show it again.
+  thinking: 'Thinking', thoughtFor: 'Thought for {duration}', thoughtProcess: 'Thought process',
+  showThinking: 'Show thinking', hideThinking: 'Hide thinking',
   voiceSettingsHint: 'Touch and hold for dictation language settings',
   showChat: 'Show conversation', showTasks: 'Show this conversation’s activity', openPanel: 'Open panel',
   pinToPanels: 'Pin to Panels', unpinPanel: 'Unpin', pinned: 'Pinned to Panels', unpinned: 'Removed from Panels',
@@ -114,6 +117,8 @@ const zh: Record<Key, string> = {
   version: '版本', license: '许可证', pluginEnabled: '已启用', permissions: '权限', noPermissions: '未声明权限', noSkills: '没有技能',
   reload: '重新加载', enable: '启用', disable: '停用', uninstallTitle: '卸载插件？', uninstallBody: '将从此设备移除。', pluginSettings: '插件设置',
   voice: '语音输入', copy: '复制', copied: '已复制', select: '选择', done: '完成',
+  thinking: '思考中', thoughtFor: '已思考 {duration}', thoughtProcess: '思考过程',
+  showThinking: '展开思考过程', hideThinking: '收起思考过程',
   voiceSettingsHint: '长按打开听写语言设置',
   showChat: '显示聊天', showTasks: '显示当前会话的执行过程', openPanel: '打开面板',
   pinToPanels: '固定到面板', unpinPanel: '取消固定', pinned: '已固定到面板', unpinned: '已从面板移除',

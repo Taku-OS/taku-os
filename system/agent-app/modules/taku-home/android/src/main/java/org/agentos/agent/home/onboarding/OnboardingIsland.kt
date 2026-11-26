@@ -19,17 +19,18 @@ import org.json.JSONObject
 /**
  * The compact island while a ChatGPT sign-in has taken the user to the browser (Figma
  * 1155:1323 "4-connecting" / 1155:1453 "5-connected"): working dots and "Signing...", then a
- * brief check and "Connected". Published as an ordinary island notification (Home holds
- * POST_ISLAND); it never expands over the browser page by itself. Tapping returns to Home.
+ * brief check and "Connected". Published as an ordinary island notification (Taku Agent is
+ * platform-signed, so SystemUI accepts it without registration); it never expands over the browser
+ * page by itself. Tapping returns to Home.
  */
 internal class OnboardingIsland(private val context: Context) {
   private val manager = context.getSystemService(NotificationManager::class.java)
   private var shown: String? = null
 
-  fun signingIn() = post("signing", JSONObject().put("type", "pic").put("pic", "taku").put("animated", "working"), "Signing...",
+  fun signingIn() = post("signing", JSONObject().put("type", "animation").put("name", "ai-working"), "Signing...",
     "Signing in to ChatGPT", "Finish signing in on the ChatGPT page, then Taku continues setup.", timeoutS = 900)
 
-  fun connected() = post("connected", JSONObject().put("type", "pic").put("pic", "check"), "Connected",
+  fun connected() = post("connected", JSONObject().put("type", "icon").put("pic", "check"), "Connected",
     "ChatGPT connected", "Taku is ready. Continue setup on the home screen.", timeoutS = 5)
 
   @Synchronized
@@ -49,14 +50,13 @@ internal class OnboardingIsland(private val context: Context) {
         Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME).setPackage(context.packageName)
           .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-      val payload = JSONObject().put("version", 1).put("category", "progress").put("relevance", 0.8)
-        .put("bigIsland", JSONObject().put("leading", leading).put("trailing", JSONObject().put("type", "text").put("text", trailing)))
-        .put("expanded", JSONObject().put("template", "text").put("title", title).put("body", body)
-          .put("actions", JSONArray().put("open")).put("primaryAction", "open"))
-        .put("islandTimeoutS", timeoutS).put("statusBar", "auto")
+      val payload = JSONObject().put("version", 2).put("timeoutS", timeoutS)
+        .put("compact", JSONObject().put("a", leading).put("b", JSONObject().put("type", "text").put("text", trailing)))
+        .put("expanded", JSONObject().put("template", "basic").put("title", title).put("body", body)
+          .put("actions", JSONArray().put("open")).put("primaryAction", "open").put("tapAction", "open"))
       val icon = Icon.createWithResource(context, context.applicationInfo.icon.takeIf { it != 0 } ?: android.R.drawable.ic_dialog_info)
       val extras = Bundle().apply {
-        putString("taku.island.v1", payload.toString())
+        putString("taku.island.v2", payload.toString())
         putBundle("taku.island.pics", Bundle().apply {
           putParcelable("taku", icon)
           putParcelable("check", Icon.createWithBitmap(check()))

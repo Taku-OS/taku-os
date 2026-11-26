@@ -9,7 +9,10 @@ import org.json.JSONObject
 
 data class IslandNativeAction(val title: String, val run: () -> Unit)
 
-/** Extracted immutable envelope. JSON and Android objects are never exposed for caller mutation. */
+/**
+ * Extracted immutable envelope around the canonical (v2-shaped) payload, whichever wire format or
+ * Live Update it came from. JSON and Android objects are never exposed for caller mutation.
+ */
 data class IslandActivity(
     val key: String,
     val packageName: String,
@@ -22,31 +25,44 @@ data class IslandActivity(
     val contentService: ComponentName?,
     val fallback: String?,
     val nativeActions: Map<String, IslandNativeAction> = emptyMap(),
+    /** `custom` (Taku Island extras), `live-update` or `system`. */
+    val source: String = SOURCE_CUSTOM,
+    /** [IslandStore] tier, derived from Android roles and SystemUI controllers, never from JSON. */
+    val tier: Int = IslandStore.TIER_ACTIVITY,
 ) {
-    val category: String get() = payload.getString("category")
-    // Assistant notifications from older publishers must not resurrect listening/error pills.
-    val building: Boolean get() = category == "assistant" && payload.optString("compact") == "building"
-    /** Pic + short progress label uses the same camera-anchored silhouette as Building. */
-    val statusLabel: String? get() {
-        if (building) return "Building..."
-        val slots = payload.optJSONObject("bigIsland") ?: return null
-        if (category != "progress" || slots.optJSONObject("leading")?.optString("type") != "pic") return null
-        val trailing = slots.optJSONObject("trailing") ?: return null
-        return trailing.optString("text").takeIf { trailing.optString("type") == "text" && it.isNotEmpty() }
-    }
-    val nativeProgressCard: Boolean get() {
-        val expanded = payload.getJSONObject("expanded")
-        return packageName == "org.agentos.agent" && category == "progress" &&
-            expanded.optString("template") == "text" && !expanded.has("content") &&
-            !expanded.has("pic") && !expanded.has("steps") && !expanded.has("progress") &&
-            (expanded.optJSONArray("actions")?.length() ?: 0) <= 1
-    }
-    val compactVisible: Boolean get() = if (category == "assistant") building else payload.optString("compact") != "hidden"
-    val priority: Int get() = CATEGORIES.indexOf(category).let { if (it < 0) 8 else it }
-    val title: String get() = payload.getJSONObject("expanded").getString("title")
-    val body: String get() = payload.getJSONObject("expanded").optString("body")
+    /** Capsule content (groups A and B); null means this activity never shows a capsule. */
+    val compact: JSONObject? get() = payload.optJSONObject("compact")
+    val compactVisible: Boolean get() = compact != null
+    val expanded: JSONObject get() = payload.getJSONObject("expanded")
+    val template: String get() = expanded.getString("template")
+    val title: String get() = expanded.getString("title")
+    val body: String get() = expanded.optString("body")
+    /** Capsule tap: `expand` opens the card, `open` sends the content intent. */
+    val tap: String get() = payload.optString("tap", "expand")
+    val cardPosition: String get() = payload.optString("cardPosition", "cover")
+    /** Taku Agent's native conversation card (the parser reserves the template to Taku Agent). */
+    val nativeAssistant: Boolean get() = template == "assistant"
+    /** Transitional: Taku onboarding's progress chrome until it becomes the public basic template. */
+    val nativeProgressCard: Boolean get() = packageName == IslandPayload.TAKU_PACKAGE && template == "basic" &&
+        !expanded.has("content") && !expanded.has("pic") && !expanded.has("steps") && !expanded.has("progress") &&
+        // A styled card is an ordinary template card: the onboarding chrome would drop its colours.
+        backgroundColor == null && accentColor == null &&
+        (expanded.optJSONArray("actions")?.length() ?: 0) <= 1
+    /** A host-rendered clock in the capsule needs a tick every second. */
+    val timed: Boolean get() = listOf("a", "b").any { compact?.optJSONObject(it)?.optString("type") in setOf("timer", "countdown") }
+
+    /** The validated `#RRGGBB` template colours as opaque ARGB, parsed once per payload. */
+    val backgroundColor: Int? by lazy(LazyThreadSafetyMode.NONE) { color("backgroundColor") }
+    val accentColor: Int? by lazy(LazyThreadSafetyMode.NONE) { color("accentColor") }
+    private fun color(field: String): Int? = payload.optJSONObject("expanded")?.optString(field)
+        ?.takeIf { it.length == 7 && it[0] == '#' }?.substring(1)?.toIntOrNull(16)?.let { 0xff000000.toInt() or it }
 
     companion object {
-        val CATEGORIES = listOf("call", "alarm", "recording", "navigation", "timer", "assistant", "media", "progress", "other")
+        const val SOURCE_CUSTOM = "custom"
+        const val SOURCE_LIVE_UPDATE = "live-update"
+        const val SOURCE_SYSTEM = "system"
+        /** Reserved picture keys for the notification's own icons (publisher keys cannot start with `_`). */
+        const val APP_PIC = "_app"
+        const val LARGE_PIC = "_large"
     }
 }

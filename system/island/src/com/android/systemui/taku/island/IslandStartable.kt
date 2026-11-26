@@ -5,6 +5,7 @@ import com.android.systemui.CoreStartable
 import com.android.systemui.dagger.qualifiers.Background
 import com.android.systemui.statusbar.commandline.Command
 import com.android.systemui.statusbar.commandline.CommandRegistry
+import com.android.systemui.statusbar.notification.interruption.VisualInterruptionDecisionProvider
 import java.io.PrintWriter
 import java.util.concurrent.Executor
 import javax.inject.Inject
@@ -17,6 +18,8 @@ class IslandStartable @Inject constructor(
     private val engine: IslandEngine,
     private val producer: IslandProducerBinding,
     private val systemSources: IslandSystemSources,
+    private val interruptions: VisualInterruptionDecisionProvider,
+    private val context: android.content.Context,
     @Background private val worker: Executor,
 ) : CoreStartable {
     override fun start() {
@@ -24,6 +27,7 @@ class IslandStartable @Inject constructor(
         presenter.start()
         producer.start()
         systemSources.start()
+        interruptions.addFilter(IslandHeadsUpFilter(presenter, engine))
         registry.registerCommand("island") {
             object : Command {
                 override fun execute(pw: PrintWriter, args: List<String>) {
@@ -31,7 +35,7 @@ class IslandStartable @Inject constructor(
                     else pw.println(IslandRuntime.call(args[0], args.getOrNull(1), args.getOrNull(2)))
                 }
                 override fun help(pw: PrintWriter) {
-                    pw.println("island capabilities | canShowIsland PACKAGE | state | list | get KEY | select KEY | choose | expand KEY | collapse | dismiss KEY | open KEY | action KEY JSON | settings | setEnabled 0|1 | setAllowed CSV")
+                    pw.println("island capabilities | canShowIsland PACKAGE | state | list | get KEY | select KEY | next | tap KEY | expand KEY | collapse | dismiss KEY | hide KEY | open KEY | action KEY JSON | settings | setEnabled 0|1 | setAllowed CSV")
                 }
             }
         }
@@ -42,9 +46,10 @@ class IslandStartable @Inject constructor(
                         help(pw)
                         return
                     }
-                    // This read-only validation path uses the same parser intended for extraction.
-                    // It cannot grant a producer system-source identity or execute an action.
-                    val result = IslandPayload.parse(args[1], args[0], false)
+                    // This read-only validation path uses the same parser and the same package-manager
+                    // identity check as extraction. It cannot execute an action or grant permission.
+                    val publisher = engine.policy.publisher(args[0])
+                    val result = IslandPayload.parse(args[1], publisher)
                     pw.println(JSONObject().put("valid", result.isValid)
                         .put("error", result.error ?: JSONObject.NULL))
                 }
