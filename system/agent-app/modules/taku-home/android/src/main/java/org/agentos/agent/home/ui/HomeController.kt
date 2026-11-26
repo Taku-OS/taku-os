@@ -90,6 +90,8 @@ class HomeController(val context: Context, val repo: FeedRepository, val pool: R
   var screenWidth = 0f
   private val workspaceGateway = AgentGateway(context.contentResolver)
   private var workspaceOpen: Job? = null
+  private var workspaceLaunch: Job? = null
+  internal var workspaceLaunchFailure by mutableStateOf<String?>(null)
   /** The visible workspace list shared by every home page. */
   internal var workspaceScreens by mutableStateOf<List<HomeWorkspaceScreen>>(emptyList())
     private set
@@ -155,6 +157,36 @@ class HomeController(val context: Context, val repo: FeedRepository, val pool: R
         notice(context.getString(R.string.home_workspace_open_failed))
       } catch (_: JSONException) {
         notice(context.getString(R.string.home_workspace_open_failed))
+      }
+    }
+  }
+
+  internal fun launchWorkspace(key: String, label: String) {
+    drag.menu = null
+    if (workspaceLaunch?.isActive == true) return
+    workspaceLaunchFailure = null
+    notice(context.getString(R.string.home_workspace_launching, label))
+    workspaceLaunch = scope.launch {
+      try {
+        withContext(Dispatchers.IO) {
+          workspaceGateway.call("workspaces/launch", JSONObject().put("appId", key))
+        }
+        notice(context.getString(R.string.home_workspace_launched, label))
+      } catch (cancelled: kotlinx.coroutines.CancellationException) {
+        throw cancelled
+      } catch (failure: Exception) {
+        val code = (failure as? org.agentos.agent.home.assistant.GatewayException)?.code ?: "WORKSPACE_LAUNCH_FAILED"
+        val reason = when (code) {
+          "BACKGROUND_WORK_DISABLED" -> R.string.home_workspace_launch_disabled
+          "APP_NOT_ALLOWED" -> R.string.home_workspace_launch_blocked
+          "SCREEN_LIMIT_REACHED" -> R.string.home_workspace_launch_limit
+          "APP_IN_USE", "QUEUE_FULL", "WORKSPACE_EXECUTION_BUSY", "WORKSPACE_EXECUTION_RESERVED" -> R.string.home_workspace_launch_busy
+          "APP_NOT_INSTALLED", "APP_NOT_LAUNCHABLE", "APP_DISABLED", "APP_SUSPENDED", "INVALID_APP_ID" -> R.string.home_workspace_launch_app_unavailable
+          "APP_NOT_OPENED_ON_SCREEN", "OPEN_LANDED_ON_MAIN" -> R.string.home_workspace_launch_incompatible
+          "WORKSPACE_RUNTIME_UNAVAILABLE", "WORKSPACE_RUNTIME_BUSY", "GATEWAY_UNAVAILABLE", "RUNTIME_UNAVAILABLE" -> R.string.home_workspace_launch_runtime_unavailable
+          else -> R.string.home_workspace_launch_failed
+        }
+        workspaceLaunchFailure = context.getString(R.string.home_workspace_launch_error, label, context.getString(reason))
       }
     }
   }
@@ -249,13 +281,11 @@ class HomeController(val context: Context, val repo: FeedRepository, val pool: R
     private set
 
   /**
-   * Something Back would close is open: a card, Home or icon menu, a folder, Home or pin editing,
-   * a removal, hidden-apps or widget dialog. Otherwise the desktop is being browsed, and Home
-   * takes the side edges from the back gesture (HomeActivity) so they swipe between pages.
+   * Home takes the side edges from the back gesture for paging when Back has nothing to close.
    */
   val backTargetOpen: Boolean
     get() = menu != null || homeMenu != null || drag.menu != null || openFolderId != null || editingHome || editingPins ||
-      removingApp != null || showingHiddenApps || showingWidgetPicker || resizingWidget != null
+      removingApp != null || showingHiddenApps || showingWidgetPicker || resizingWidget != null || workspaceLaunchFailure != null
   private val catalog = org.agentos.agent.home.apps.AppCatalog.get(context)
   private val layout = org.agentos.agent.home.apps.HomeLayoutRepository.get(context)
 

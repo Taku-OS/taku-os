@@ -145,6 +145,7 @@ final class NativeBridge {
    case "state":answer=state(input.optString("threadId"));break;
    case "pendingPhoneQuestions":answer=pendingPhoneQuestions();break;
    case "workspaces":answer=WorkspaceControl.control(input);break;
+   case "workspaceLaunch":answer=WorkspaceLaunch.launch(input);break;
    case "appPermissions":answer=AppPermissionPolicy.control(input,uid);break;
    case "sessionRemovals":answer=SessionRemovalRuntime.control(input);break;
    case "dedicatedScreensDebug":answer=dedicatedScreensDebug(uid,input);break;
@@ -250,6 +251,15 @@ final class NativeBridge {
   if(current!=null)for(String key:new String[]{"completedTurn","cancellationCleanup"})if(current.has(key))result.put(key,new JSONObject(current.getJSONObject(key).toString()));
   return result;
  } }
+ static void applyWorkspaceClose(String thread, String turn, Runnable close) throws Exception {
+  try (CleanupWork.Held held = lock()) {
+   synchronized (admissions) {
+    JSONObject runtime = workspaceRuntime(thread);
+    JSONObject completed = runtime.optJSONObject("completedTurn");
+    if (completed != null && turn.equals(completed.optString("id")) && WorkspaceControl.isQuiescent(runtime)) close.run();
+   }
+  }
+ }
  static String publicError(Throwable e){Throwable value=e;while(value.getCause()!=null)value=value.getCause();String text=value.getMessage();if(text==null||text.isEmpty())text="The native interface cannot complete this operation right now";return redact(text).substring(0,Math.min(500,redact(text).length()));}
  static String redact(String s){return s.replaceAll("eyJ[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+","[Authorization information hidden]").replaceAll("(?i)(Bearer\\s+|(?:token|secret|password|api_key)=)[^\\s&\"']+","$1[hidden]").replaceAll("sk-[A-Za-z0-9_-]{20,}","[Key hidden]").replaceAll("apikey_[A-Za-z0-9_-]{8,}","[Key hidden]");}
  static JSONArray toolDefinitions()throws Exception {return PhoneNativeTools.definitions();}
@@ -324,7 +334,11 @@ final class NativeBridge {
    boolean current=turn.equals(s.optString("activeTurnId"));
    requests.values().removeIf(q->{JSONObject params=q.optJSONObject("params");return params!=null&&thread.equals(params.optString("threadId"))&&(turn.equals(params.optString("turnId"))||(current&&params.optString("turnId").isEmpty()));});
    if(!current)return;
-   DedicatedScreensOnDevice.shared().turnEnded(thread,turn,completed.getString("status").equals("completed")&&!turn.equals(s.optString("phoneStoppedTurnId")));
+   boolean successful=completed.getString("status").equals("completed")&&!turn.equals(s.optString("phoneStoppedTurnId"));
+   boolean internalSteer = turn.equals(s.optString("workspaceCloseSuppressedTurn"));
+   if (internalSteer) s.remove("workspaceCloseSuppressedTurn");
+   DedicatedScreensOnDevice.shared().turnEnded(thread,turn,successful,
+           internalSteer ? null : WorkspaceJevClose.forTurn(thread,completed));
    s.put("completedTurn",new JSONObject().put("id",turn).put("status",completed.getString("status")));s.remove("activeTurnId");JSONObject error=completed.optJSONObject("error");if(error!=null)s.put("error",redact(error.optString("message")));}
   if(method.equals("turn/plan/updated"))s.put("plan",p);
   if(method.equals("turn/diff/updated"))s.put("diff",redact(p.optString("diff")));
@@ -352,13 +366,18 @@ final class NativeBridge {
   */
  static void tellRunningTurn(String thread, String text) {
   String why;
-  try {
-   String turn = workspaceRuntime(thread).optString("activeTurnId");
+  try (CleanupWork.Held held = lock()) {
+   JSONObject runtime = state.get(thread);
+   if (runtime == null) return;
+   String turn = runtime.optString("activeTurnId");
    if (turn.isEmpty()) return;
    JSONObject words = new JSONObject().put("type", "text").put("text", text);
    JSONObject params = new JSONObject().put("threadId", thread).put("expectedTurnId", turn);
    params.put("input", new JSONArray().put(words));
-   if (enqueue(new Call("turn/steer", params))) return;
+   if (enqueue(new Call("turn/steer", params))) {
+    runtime.put("workspaceCloseSuppressedTurn", turn);
+    return;
+   }
    why = "Codex queue full";
   } catch (Exception error) {
    why = error.getMessage();

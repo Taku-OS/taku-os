@@ -112,7 +112,8 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
     final java.util.Map<String,String> nativeTurns = new java.util.HashMap<>();
     final java.util.List<String> nativeCompletions = new java.util.ArrayList<>();
     void nativeTurnStarted(String thread,String turn) { nativeTurns.put(thread,turn); }
-    Thread turnEnded(String thread,String turn,boolean successful) {
+    interface CloseDecision { void request(Runnable close); }
+    Thread turnEnded(String thread,String turn,boolean successful,CloseDecision decision) {
         nativeCompletions.add(thread+" "+turn+" "+successful);
         nativeTurns.remove(thread,turn);
         return turnEnded(thread);
@@ -158,7 +159,16 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
         return note;
     }
 }
-final class WorkspaceControl {static JSONObject control(JSONObject input){return new JSONObject();}}
+final class WorkspaceControl {
+    static JSONObject control(JSONObject input){return new JSONObject();}
+    static boolean isQuiescent(JSONObject runtime){throw new AssertionError("Workspace cleanup is outside this routing test");}
+}
+final class WorkspaceLaunch {
+    static JSONObject launch(JSONObject input){throw new AssertionError("Workspace launch is outside this routing test");}
+}
+final class WorkspaceJevClose {
+    static DedicatedScreens.CloseDecision forTurn(String thread,JSONObject completed){return close -> {};}
+}
 final class PhoneAppCatalog {static JSONObject requireLaunchable(String pkg){return new JSONObject();}}
 final class PluginCreator {static JSONObject catalogAdd(java.nio.file.Path path){return new JSONObject();}}
 final class SkillCredentials {static JSONObject control(JSONObject input){return new JSONObject();}}

@@ -34,10 +34,11 @@ final class PhoneNativeTools {
     "Get the Apps a step needs before touching the phone: every App the step keeps open at once (e.g. X and the Y"
       + " you share into). You get all or none; if another thread holds one, the call queues until you hold them all."
       + " Between steps, release_apps what you are done with, then request the next. Your turn's end normally"
-      + " releases your screen and Apps. A successful Return & continue turn, or opening an App without later"
-      + " screen actions, keeps the live workspace available for preview and takeover. Observation is read-only."
-      + " Failed or interrupted turns still clean up. User takeover and pause retain the session's workspace;"
-      + " explicit release, workspace close, and policy changes still apply."
+      + " releases your screen and Apps. Opening an App without later screen actions or successfully"
+      + " returning control to the Agent keeps the workspace ready. A successful read-only follow-up keeps"
+      + " that same screen. If several Apps share it, tell the user the preview shows only the top App."
+      + " When the user enables Jev for closing, eligible automatic cleanup requires its close decision."
+      + " User takeover and pause retain the workspace. Explicit release, workspace close, and policy changes still apply."
       + " taskTitle: one short sentence in the user's language on what this screen is doing; shown to"
       + " the user.",
     new JSONObject().put("packages", packages).put("taskTitle", string(80))));
@@ -109,9 +110,10 @@ final class PhoneNativeTools {
   return out;
  }
  static JSONObject executeScreen(JSONObject call,JSONObject args,String name,PhoneExecutionScreens.Screen screen)throws Exception {
+  if(name.equals("open_app"))return PhoneAppLaunch.open(screen,args.getString("packageName"),null);
   PhoneGestures.prepare(screen);
   String display=Integer.toString(screen.displayId);
-  if(name.equals("tap") || name.equals("open_app") || name.equals("type_text"))PhoneGestures.requireIdle(screen.displayId);
+  if(name.equals("tap") || name.equals("type_text"))PhoneGestures.requireIdle(screen.displayId);
   switch(name){
    case "swipe":return text(PhoneGestures.swipe(call,screen.displayId,args).toString());
    case "touch":return text(PhoneGestures.touch(call,screen.displayId,args).toString());
@@ -122,22 +124,6 @@ final class PhoneNativeTools {
      return text(screen.json().put("frame",frame).toString()).put("contentItems",new JSONArray()
        .put(new JSONObject().put("type","inputText").put("text",screen.json().put("frame",frame).toString()))
        .put(new JSONObject().put("type","inputImage").put("imageUrl","data:image/png;base64,"+Base64.encodeToString(out.toByteArray(),Base64.NO_WRAP))));}
-   case "open_app":String pkg=args.getString("packageName");
-    PhoneExecutionScreens.Action start = s -> {
-    JSONObject app=PhoneAppCatalog.requireLaunchable(pkg);String component=app.getString("launchComponent");
-    if(app.getInt("userId")!=screen.userId)throw new IOException("ANDROID_USER_CHANGED");
-    if(Thread.currentThread().isInterrupted())throw new InterruptedException();WorkspacePolicy.requireAppAllowed(pkg);
-    if(PhoneAppCatalog.currentUser()!=app.getInt("userId"))throw new IOException("ANDROID_USER_CHANGED");
-    // A task of its own on this screen even when the user has the App open on the main screen or in Recents;
-    // a single-instance App that reuses the user's task instead is moved over by DedicatedScreens.settleOpen.
-    // Already on this screen: brought to front as before, no second task piling up.
-    boolean here=false;for(PhoneTasks.Task t:PhoneTasks.DEVICE.list())if(t.displayId()==screen.displayId&&t.packageName().equals(pkg))here=true;
-    java.util.List<String> am=new java.util.ArrayList<>(java.util.List.of("/system/bin/am","start","--user",Integer.toString(app.getInt("userId")),"--display",display));
-    if(!here)am.add("--activity-multiple-task");am.add("-n");am.add(component);
-    String launched=TaskBroker.command(am.toArray(new String[0]));
-    if(launched.contains("Error:")||launched.contains("Error type "))throw new IOException(launched);
-    return text(launched);};
-    return start.run(screen);
    case "tap":
     // On a dead screen Android drops the tap and input still reports success: ask the screen process first.
     PhoneGestures.requireLive(screen);

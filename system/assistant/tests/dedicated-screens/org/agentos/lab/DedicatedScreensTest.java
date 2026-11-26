@@ -2045,8 +2045,9 @@ public final class DedicatedScreensTest {
                 rig.screens.turnStarted(session(1), null),
                 "a later turn needs no grant: the takeover is over");
         rig.screens.nativeTurnStarted(session(1), "ordinary");
+        use(rig, 1, DedicatedScreens.Use.ACT, null);
         rig.screens.turnEnded(session(1), "ordinary", true).join(5_000);
-        check(b.granted().contains("com.x"), "E3: a later ordinary turn releases as usual");
+        check(b.granted().contains("com.x"), "E3: a later turn that acts on the screen releases as usual");
     }
 
     /**

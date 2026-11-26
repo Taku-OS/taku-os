@@ -202,7 +202,7 @@ class AgentGatewayProvider : ContentProvider() {
             "readTaskDetail" -> return TaskDetails.read(context!!.filesDir, input.getString("taskId"))
             "capture/read", "capture/accept", "capture/dismiss", "capture/request", "capture/openConversation" ->
                 return AssistantCaptureBackend.execute(context!!, action, input)
-            "workspaces/list", "workspaces/apps", "workspaces/configure", "workspaces/release", "workspaces/preview", "workspaces/open",
+            "workspaces/list", "workspaces/apps", "workspaces/launch", "workspaces/configure", "workspaces/release", "workspaces/preview", "workspaces/open",
             "workspaces/pause", "workspaces/takeControl", "workspaces/input", "workspaces/returnAndResume", "workspaces/addRequirement", "workspaces/executionStatus" ->
                 return WorkspaceCommands.call(context!!, action, input, callerUid)
             "analyzeCameraFrame" -> return CameraGuide.analyze(input)

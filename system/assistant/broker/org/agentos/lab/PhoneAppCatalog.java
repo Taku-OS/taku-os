@@ -76,6 +76,13 @@ final class PhoneAppCatalog {
     static JSONObject requireLaunchable(String pkg)throws Exception {
         return requireLaunchable(DEVICE,POLICY,pkg);
     }
+    static JSONObject requireLaunchableComponent(String pkg, String component)throws Exception {
+        JSONObject app=requireLaunchable(pkg);
+        JSONArray components=app.optJSONArray("launchComponents");
+        if(components!=null)for(int i=0;i<components.length();i++)
+            if(component.equals(components.getString(i)))return app.put("launchComponent",component);
+        throw new IOException("APP_NOT_LAUNCHABLE");
+    }
     static JSONObject requireLaunchable(Source source,Policy policy,String pkg)throws Exception {
         packageName(pkg);
         if(!policy.allowed(pkg))throw new IOException("APP_NOT_ALLOWED");

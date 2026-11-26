@@ -246,6 +246,7 @@ internal fun HomeScreen(controller: HomeController, backdrop: Backdrop?, pager: 
         WidgetDialogs(controller, backdrop)
         LauncherHiddenApps(controller, backdrop)
         LauncherRemoval(controller, backdrop)
+        LauncherWorkspaceFailure(controller, backdrop)
         controller.menu?.let { target ->
           CardMenu(target, controller, scrim, controller.screenHeight, with(density) { topInset.toPx() })
         }

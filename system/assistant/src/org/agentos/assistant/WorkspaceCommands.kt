@@ -11,6 +11,7 @@ internal object WorkspaceCommands {
     private val fields = mapOf(
         "workspaces/list" to setOf("threadId"),
         "workspaces/apps" to emptySet(),
+        "workspaces/launch" to setOf("appId"),
         "workspaces/configure" to setOf("patch"),
         "workspaces/release" to leaseFields + "returnToThread",
         "workspaces/preview" to leaseFields,
@@ -37,6 +38,11 @@ internal object WorkspaceCommands {
             requireString(input, "generation", uuid, "INVALID_SCREEN_LEASE")
         } else if (input.has("threadId")) requireString(input, "threadId", uuid, "INVALID_SCREEN_THREAD")
         if (method == "workspaces/configure" && input.opt("patch") !is JSONObject) throw IOException("MISSING_WORKSPACE_PATCH")
+        if (method == "workspaces/launch") {
+            val appId = input.opt("appId")
+            if (appId !is String || appId.length > 400 || !Regex("[A-Za-z0-9_.$]+/[A-Za-z0-9_.$]+").matches(appId))
+                throw IOException("INVALID_APP_ID")
+        }
         if (input.has("returnToThread") && input.opt("returnToThread") !is Boolean) throw IOException("INVALID_ARGUMENT")
         if ("requestId" in allowed) requireString(input, "requestId", uuid, "INVALID_WORKSPACE_REQUEST")
         if ("controlRevision" in allowed) {
@@ -60,6 +66,7 @@ internal object WorkspaceCommands {
         return when (method) {
             "workspaces/list" -> catalog(context, input.optString("threadId"))
             "workspaces/apps" -> apps(context)
+            "workspaces/launch" -> NativeClient.exchange(JSONObject().put("op", "workspaceLaunch").put("appId", input.getString("appId")))
             "workspaces/preview" -> {
                 val lease = exactLease(context, input)
                 if (!lease.optBoolean("admitted") || lease.optInt("displayId", -1) <= 0 ||
@@ -147,14 +154,17 @@ internal object WorkspaceCommands {
         for (i in 0 until blocked.length()) denied.add(blocked.getString(i))
         val manager = context.packageManager
         val installed = LinkedHashMap<String, String>()
+        val appIds = HashMap<String, MutableList<String>>()
         for (entry in manager.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER), 0)) {
             val info = entry.activityInfo ?: continue
             installed.putIfAbsent(info.packageName, entry.loadLabel(manager).toString())
+            appIds.getOrPut(info.packageName) { ArrayList() }.add(android.content.ComponentName(info.packageName, info.name).flattenToShortString())
         }
         val packages = (installed.keys + denied).sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { pkg: String -> installed[pkg] ?: pkg }.thenBy { it })
         val rows = JSONArray()
         for (pkg in packages) rows.put(JSONObject().put("packageName", pkg).put("label", installed[pkg] ?: pkg)
-            .put("installed", installed.containsKey(pkg)).put("allowed", pkg !in denied))
+            .put("installed", installed.containsKey(pkg)).put("allowed", pkg !in denied)
+            .put("appIds", JSONArray(appIds[pkg]?.distinct()?.sorted() ?: emptyList<String>())))
         return JSONObject().put("apps", rows).put("policy", state.getJSONObject("policy"))
     }
 }

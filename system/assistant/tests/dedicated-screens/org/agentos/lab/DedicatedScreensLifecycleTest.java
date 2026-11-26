@@ -372,8 +372,9 @@ public final class DedicatedScreensLifecycleTest {
     static void completionRetention() throws Exception {
         Rig opened = new Rig();
         nativeStart(opened, "open-only");
-        JSONObject allocation = opened.request(1, "reopen game", "com.game");
+        JSONObject allocation = opened.request(1, "reopen game and weather", "com.game", "com.weather");
         openApp(opened, "open-only", "com.game");
+        openApp(opened, "open-only", "com.weather");
         opened.screens.withScreen(session(1), DedicatedScreens.Use.LOOK, null, screen -> new JSONObject());
         check(opened.screens.turnEnded(session(1), "open-only", true) == null,
                 "open plus observe retains the workspace on successful completion");
@@ -385,9 +386,11 @@ public final class DedicatedScreensLifecycleTest {
         check(opened.screens.list(session(1)).getJSONObject(0).getString("status").equals("running"),
                 "the next native turn leaves ready status");
         opened.screens.withScreen(session(1), DedicatedScreens.Use.LOOK, null, screen -> new JSONObject());
-        join(opened.screens.turnEnded(session(1), "ordinary-next", true));
-        check(opened.screens.list().isEmpty() && opened.tasks.list().isEmpty(),
-                "open-only retention does not leak to the next ordinary turn");
+        check(opened.screens.turnEnded(session(1), "ordinary-next", true) == null,
+                "a read-only follow-up does not release a ready screen");
+        ready(opened, allocation);
+        check(opened.tasks.list().size() == 2 && opened.screens.list().length() == 1,
+                "the two Android tasks still share one preview after the follow-up");
 
         for (String ending : List.of("mutation", "failed-mutation", "release", "failure")) {
             Rig rig = new Rig();
@@ -529,11 +532,54 @@ public final class DedicatedScreensLifecycleTest {
                 "explicit close removes a retained workspace and its task");
     }
 
+    static void jevClose() throws Exception {
+        Rig rig = new Rig();
+        nativeStart(rig, "open");
+        JSONObject allocation = rig.request(1, "shared screen", "com.game");
+        openApp(rig, "open", "com.game");
+        rig.screens.turnEnded(session(1), "open", true);
+
+        nativeStart(rig, "off");
+        rig.screens.turnEnded(session(1), "off", true, close -> {
+            throw new AssertionError("Disabled Jev must receive no request");
+        });
+        ready(rig, allocation);
+
+        try {
+            WorkspacePolicy.configure(new JSONObject().put("jevCloseEnabled", true));
+            for (String invalidation : List.of("new-admission", "policy-change", "takeover", "none")) {
+                nativeStart(rig, "decision-" + invalidation);
+                CompletableFuture<Runnable> close = new CompletableFuture<>();
+                rig.screens.turnEnded(session(1), "decision-" + invalidation, true, close::complete);
+                ready(rig, allocation);
+                if (invalidation.equals("new-admission")) rig.screens.admission(session(1));
+                if (invalidation.equals("policy-change")) {
+                    WorkspacePolicy.configure(new JSONObject().put("jevCloseEnabled", false));
+                    WorkspacePolicy.configure(new JSONObject().put("jevCloseEnabled", true));
+                }
+                if (invalidation.equals("takeover")) control(rig, 1, "user");
+                close.get(2, TimeUnit.SECONDS).run();
+                if (invalidation.equals("takeover")) {
+                    check(rig.screens.list().getJSONObject(0).getString("controlOwner").equals("user")
+                            && rig.tasks.list().size() == 1, "late close preserves the user's control and task");
+                    returnTurn(rig, "handback", false);
+                    rig.screens.turnEnded(session(1), "handback", true);
+                }
+                if (!invalidation.equals("none")) ready(rig, allocation);
+            }
+            DedicatedScreensFamilyTest.until(() -> rig.screens.list().isEmpty() && rig.tasks.list().isEmpty(),
+                    "a current close decision releases the workspace and Android task");
+        } finally {
+            resetPolicy();
+        }
+    }
+
     public static void main(String[] args) throws Exception {
         resetPolicy();
         if (args.length == 0 || args[0].equals("spec3")) spec3();
         if (args.length == 0 || args[0].equals("spec5")) spec5();
         if (args.length == 0 || args[0].equals("completion")) completionRetention();
+        if (args.length == 0 || args[0].equals("jev")) jevClose();
         System.out.println("DedicatedScreensLifecycleTest: " + checks + " checks passed");
     }
 }

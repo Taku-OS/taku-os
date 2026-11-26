@@ -11,6 +11,8 @@
  <string name="workspace_refresh">Refresh</string>
  <string name="workspace_allow">Allow background work</string>
  <string name="workspace_allow_copy">New tasks may use independent workspaces</string>
+ <string name="workspace_jev_close">Use Jev to decide when to close background screens</string>
+ <string name="workspace_jev_close_copy">Jev checks your latest message before the system closes a background screen automatically.</string>
  <string name="workspace_limit">Maximum active workspaces</string>
  <string name="workspace_limit_copy">Existing workspaces stay open</string>
  <string name="workspace_limit_value">Up to %1$d</string>

@@ -18,7 +18,7 @@ Design dated 2026-11-05, **partially implemented** (see updates below). Branch `
 
 Implemented fields include `mainThreadId`, `taskTitle`, `packageName`, `status`, `waitReason`, `controlOwner`, `controlRevision`, `canResume`, and `limits`. The status table below lists all current values. If the broker cannot query Codex, `mainThreadId` initially falls back to the screen's `threadId`.
 
-Each conversation that needs the phone gets its own background screen. Ordinary turn completion returns that screen for reuse. A successful **Return & continue** turn or a turn that successfully opens an app and leaves it available can retain its workspace in `ready`. A read-only observation does not change this outcome. The Feed shows occupied screens, with one card per main conversation or subagent. Idle screens are hidden.
+Each conversation that uses the phone gets one background screen. A successful **Return & continue** turn or an app-open turn without later screen actions leaves the workspace `ready`. Successful read-only follow-ups keep that workspace and the Home preview. The preview shows the top app on the display. Other turn completions normally return the screen for reuse. If `jevCloseEnabled` is on, eligible automatic releases require a current Jev close decision. Manual closure and app policy still apply.
 
 ## Interface
 

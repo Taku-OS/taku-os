@@ -343,9 +343,22 @@ taku_call "$D" workspaces/apps '{}'
 taku_call "$D" workspaces/configure '{"patch":{"allowBackground":false}}'
 taku_call "$D" workspaces/configure '{"patch":{"maxActiveScreens":2}}'
 taku_call "$D" workspaces/configure '{"patch":{"blockedPackages":["com.android.deskclock"]}}'
+taku_call "$D" workspaces/configure '{"patch":{"jevCloseEnabled":true}}'
 ```
 
 `workspaces/list` optionally takes `threadId`; `apps` returns `{apps,policy}` with `packageName,label,installed,allowed` (including saved blocks for uninstalled apps). `configure.patch` updates only included settings: boolean `allowBackground` (default true; false blocks new ordinary/additional requests), integer `maxActiveScreens` (currently 1–10, default 10; reducing retires excess idle screens at acquisition), and `blockedPackages` (replaces full array, default empty). Errors: `UNKNOWN_WORKSPACE_SETTING`, `INVALID_BACKGROUND_SETTING`, `INVALID_WORKSPACE_LIMIT`, `INVALID_APP_PACKAGE`, `INVALID_SCREEN_PACKAGE`, `DUPLICATE_APP_PACKAGE`.
+
+Read `policy.jevCloseEnabled` from `workspaces/list`. This boolean defaults to `false`. `workspaces/configure` rejects any other type with `INVALID_JEV_CLOSE_SETTING`. Pass `false` to turn it off. When enabled, the configured `jev` route receives the latest text from the current turn for eligible automatic closing. A keep decision, insufficient evidence, missing text, or unavailable Jev leaves the workspace open. An admitted newer turn or workspace policy change invalidates a pending close. Manual `workspaces/release` works in either setting. A successful read-only follow-up preserves a ready workspace when the switch is off.
+
+To launch an app on a new BScreen, use a launcher component from `workspaces/apps` (`apps[].appIds[]`) or the selected row’s `key` from the Home apps provider (`$L`):
+
+```sh
+taku_call "$D" workspaces/launch '{"appId":"com.android.deskclock/.DeskClock"}'
+```
+
+The command accepts only `appId`. It uses the same operation as **with Bscreen Open** in Taku Home. It returns `{launched,appId,threadId,screen}` after Android places the app on the background display. Use `screen.threadId`, `screen.screenKey`, and `screen.generation` for preview and release. The broker creates an empty thread without starting a turn.
+
+`INVALID_ARGUMENT`, `INVALID_APP_ID`, and `INVALID_APP_PACKAGE` reject invalid input. `APP_NOT_INSTALLED`, `APP_DISABLED`, `APP_SUSPENDED`, and `APP_NOT_LAUNCHABLE` report unavailable targets. `BACKGROUND_WORK_DISABLED`, `APP_NOT_ALLOWED`, `APP_IN_USE`, and `SCREEN_LIMIT_REACHED` report policy or capacity refusals. `APP_LAUNCH_FAILED`, `APP_NOT_OPENED_ON_SCREEN`, `OPEN_LANDED_ON_MAIN`, and `ANDROID_USER_CHANGED` report placement failures. `WORKSPACE_RUNTIME_UNAVAILABLE`, `WORKSPACE_RUNTIME_BUSY`, `WORKSPACE_EXECUTION_BUSY`, `WORKSPACE_EXECUTION_RESERVED`, `WORKSPACE_LAUNCH_INTERRUPTED`, and `WORKSPACE_LAUNCH_FAILED` report runtime failures. `WORKSPACE_LAUNCH_CLEANUP_FAILED` means launch cleanup could not be confirmed.
 
 Each workspace row includes `allocationId`. Compare it across reads to detect when the broker reassigns the same display. Calls still take the lease fields shown below.
 
@@ -401,7 +414,7 @@ Discovery/turn preparation updates `taku-open-access/SKILL.md` when it matches t
 
 ### Turn-end cleanup
 
-Successful `returnAndResume` turns and successful `open_app` turns with no later screen actions can retain the live workspace. `observe_background` is read-only. A retained row is `ready` and `homePreviewEligible:true`. App reservations still apply. Ordinary turn completion, failed agent-controlled turns, explicit release, and app policy changes can still remove apps or the workspace. User takeover and pause retain the workspace.
+Successful `returnAndResume` turns and successful `open_app` turns with no later screen actions can retain the live workspace. A successful follow-up that uses only `screen_status` or `observe_background` keeps the retained allocation. The row is `ready` and `homePreviewEligible:true`. If apps share one display, the preview shows the top app. App reservations still apply. Explicit release and app policy changes can still remove apps or the workspace. User takeover and pause retain the workspace.
 
 `workspaces/list` shows `cleanup_failed` with `lastError:"SCREEN_CLEANUP_FAILED"`, `heldApps` and `cleanupRetryDelayMs`. The screen remains reserved. The worker retries after 30 seconds until close is confirmed. Wait and query while `stopping:true,admitted:false,canResume:false`. Empty `packageName` means current page unknown.
 

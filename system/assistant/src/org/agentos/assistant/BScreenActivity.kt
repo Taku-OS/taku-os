@@ -235,6 +235,15 @@ class BScreenActivity : Activity() {
             setOnCheckedChangeListener { _, allowed -> configure(PolicyChange.Background(allowed)) }
         }, 0)
         copy(preferences, getString(if (policy.allowBackground) R.string.workspace_allow_copy else R.string.workspace_background_off_copy))
+        widgets.add(preferences, Switch(this).apply {
+            setText(R.string.workspace_jev_close)
+            setTextColor(workspace.theme.ink)
+            minHeight = widgets.dp(48)
+            isChecked = policy.jevCloseEnabled
+            isEnabled = !changing
+            setOnCheckedChangeListener { _, enabled -> configure(PolicyChange.JevClose(enabled)) }
+        }, 12)
+        copy(preferences, getString(R.string.workspace_jev_close_copy))
         copy(preferences, getString(R.string.workspace_limit), strong = true, margin = 18)
         copy(preferences, getString(R.string.workspace_limit_copy))
         val range = snapshot.limitRange
@@ -418,6 +427,7 @@ class BScreenActivity : Activity() {
         policy.getBoolean("allowBackground"),
         policy.getInt("maxActiveScreens"),
         policy.getJSONArray("blockedPackages").read(JSONArray::getString).toSet(),
+        policy.optBoolean("jevCloseEnabled"),
     )
 
     private fun <T> attempt(operation: () -> T): Result<T> = try {
@@ -429,7 +439,8 @@ class BScreenActivity : Activity() {
     private inline fun <T> JSONArray.read(item: (JSONArray, Int) -> T): List<T> = List(length()) { item(this, it) }
 
     private data class Catalog(val policy: Policy, val limitRange: IntRange, val screens: List<ManagedWorkspace>, val revocations: List<Revocation>)
-    private data class Policy(val allowBackground: Boolean, val maxActiveScreens: Int, val blockedPackages: Set<String>)
+    private data class Policy(val allowBackground: Boolean, val maxActiveScreens: Int,
+        val blockedPackages: Set<String>, val jevCloseEnabled: Boolean)
     private data class AppAccess(val pkg: String, val label: String, val installed: Boolean, val allowed: Boolean)
     private data class Revocation(val task: String, val packages: List<String>, val status: Int, val error: String)
     private data class ManagedWorkspace(
@@ -457,11 +468,13 @@ class BScreenActivity : Activity() {
 
     private sealed interface PolicyChange {
         data class Background(val allowed: Boolean) : PolicyChange
+        data class JevClose(val enabled: Boolean) : PolicyChange
         data class Limit(val value: Int) : PolicyChange
         data class BlockedApps(val packages: Set<String>) : PolicyChange
 
         fun json(): JSONObject = when (this) {
             is Background -> JSONObject().put("allowBackground", allowed)
+            is JevClose -> JSONObject().put("jevCloseEnabled", enabled)
             is Limit -> JSONObject().put("maxActiveScreens", value)
             is BlockedApps -> JSONObject().put("blockedPackages", JSONArray(packages))
         }

@@ -11,6 +11,8 @@
  <string name="workspace_refresh">刷新</string>
  <string name="workspace_allow">允许后台工作</string>
  <string name="workspace_allow_copy">允许新任务使用独立工作空间</string>
+ <string name="workspace_jev_close">由 Jev 判断何时关闭后台屏</string>
+ <string name="workspace_jev_close_copy">系统自动关闭后台屏前，Jev 会根据你的最近一条消息判断。</string>
  <string name="workspace_limit">同时运行的工作空间上限</string>
  <string name="workspace_limit_copy">调整后，已有工作空间保持打开</string>
  <string name="workspace_limit_value">最多 %1$d 个</string>
