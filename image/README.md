@@ -162,3 +162,31 @@ TakuMemory uses the native Soong `privapp_allowlist` property. Its reviewed poli
 The `taku-memory-privapp-v1` integration derives only the four explicit policy/module/validator files from the immutable H snapshot; it preserves application source, pinned IME inputs, branding, runtime input contracts and platform/kernel locks. H failed real startup because the previous artifact gate omitted this policy; its logs and signed archive remain preserved. The new image still requires actual boot, stable system_server, granted DUMP, existing data/configuration checks and UI/AI acceptance. No enforcement switch, data wipe or temporary runtime policy is used.
 
 The standard Codex ARM64 archive includes the Taku plugin transaction patch, with source, size, and SHA-256 pinned in `runtime-assets.lock.json`. Taku release assets are in a private repository. Asset preparation requires GitHub CLI login or `GH_TOKEN` with repository read access; credentials are not included in the image. See [Codex runtime notes](../adapters/codex-runtime/README.md).
+
+### Kernel prebuilt cache and build timings
+
+The Pixel 9 image controller accepts an optional persistent host cache:
+
+```sh
+python3 scripts/pixel9-image.py start --kernel-cache-dir /path/to/kernel-cache
+```
+
+`TAKU_KERNEL_CACHE_DIR` supplies a default. For direct invocations of
+`image/build.sh` or `image/build-kernel.sh`, use the same option or environment
+variable with a directory writable inside the builder. An unset cache directory
+preserves the normal Bazel build. Use a cache writable only by trusted builders.
+
+The key binds the product and target, locked and resolved kernel sources
+(including the pinned prebuilt toolchains and GKI), wrapper and build
+configuration, builder/toolchain identity, and device boot/module inputs.
+The kernel source sync still runs. A verified hit installs the boot image and
+matched modules with the normal installer. A miss or damaged entry builds a
+fresh distribution and publishes it under a per-key lock.
+
+The results directory contains `timing-baseline.json` with stage durations in
+seconds. Unreached phases are null. The host controller adds signature
+verification and export as they run. Total is the sum of measured stages,
+excluding idle time between build and export. Repeated runs of signature verification or successful export
+accumulate measured time. The kernel section and `kernel-timing.json` report
+Bazel wall time, cache verification and installation wall time on a hit, and
+cache publication time on a miss.
