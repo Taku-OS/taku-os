@@ -850,18 +850,10 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
             boolean interrupted = Thread.interrupted() || failure instanceof InterruptedException;
             try {
                 DedicatedScreen screen = leave(session, true);
-                if (screen != null) {
-                    screen.input.lock();
-                    try {
-                        try { closeTasks(screen, null); }
-                        catch (Exception cleanup) { failure.addSuppressed(cleanup); }
-                        try (CleanupWork.Held held = lock()) {
-                            screen.cleanupError = "WORKSPACE_LAUNCH_FAILED";
-                        }
-                        if (!finishTurn(screen)) failure.addSuppressed(new IOException("SCREEN_CLEANUP_FAILED"));
-                    } finally {
-                        screen.input.unlock();
-                    }
+                if (screen != null && !finishTurn(screen)) {
+                    IOException cleanup = new IOException("WORKSPACE_LAUNCH_CLEANUP_FAILED");
+                    cleanup.addSuppressed(failure);
+                    throw cleanup;
                 }
             } finally {
                 if (interrupted) Thread.currentThread().interrupt();
@@ -1588,16 +1580,14 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
                 return turnEnded(session);
 
             screen.turnId = "";
-            if (successful && (screen.completion == CompletionDisposition.RETURNED
-                    || screen.completion == CompletionDisposition.OPEN_ONLY)) {
-                retainAfterTurn(screen);
-                return null;
-            }
 
             long policyRevision = screen.apps.isEmpty() ? -1 : jevCloseRevision();
-            if (policyRevision >= 0 || (successful && screen.completion == CompletionDisposition.READ_ONLY)) {
+            boolean handback = screen.completion == CompletionDisposition.RETURNED;
+            boolean retain = successful && (handback || screen.completion == CompletionDisposition.OPEN_ONLY
+                    || screen.completion == CompletionDisposition.READ_ONLY);
+            if (retain || policyRevision >= 0) {
                 retainAfterTurn(screen);
-                if (successful && decision != null && policyRevision >= 0 && policyRevision != Long.MAX_VALUE) {
+                if (successful && !handback && decision != null && policyRevision >= 0 && policyRevision != Long.MAX_VALUE) {
                     Object token = new Object();
                     screen.closeDecision = token;
                     long controlRevision = screen.controlRevision;

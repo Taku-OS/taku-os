@@ -16,30 +16,40 @@ internal object WorkspaceJevClose {
         DedicatedScreens.CloseDecision { close ->
             val utterance = AgentViews.workspaceUtterance(thread, completed) ?: return@CloseDecision
             worker.execute {
-                if (allowsClose(utterance)) NativeBridge.applyWorkspaceClose(thread, completed.getString("id"), close)
+                try {
+                    if (allowsClose(utterance)) NativeBridge.applyWorkspaceClose(thread, completed.getString("id"), close)
+                } catch (_: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                } catch (_: Exception) {
+                    return@execute
+                }
             }
         }
 
     private fun allowsClose(utterance: String): Boolean {
-        try {
-            val before = SystemAi.config()
-            if (!before.getBoolean("enabled")) return false
-            val model = MagpieSettings.scene("jev")
-            if (model.isBlank()) return false
-            val request = JSONObject().put("action", "decide").put("authorized", true)
-                .put("model", model).put("state", NativeBridge.redact(utterance))
-                .put("questions", JSONObject().put(question, closeQuestion()))
-            val answer = NativeBridge.decisions.control(request).getJSONObject("answers").getJSONObject(question)
-            if (answer.getString("choice") != "close") return false
-            val current = SystemAi.config()
-            return current.getBoolean("enabled") && current.getLong("revision") == before.getLong("revision") &&
-                MagpieSettings.scene("jev") == model
-        } catch (interrupted: InterruptedException) {
-            Thread.currentThread().interrupt()
-            return false
-        } catch (_: Exception) {
-            return false
-        }
+        val before = SystemAi.config()
+        if (!before.getBoolean("enabled")) return false
+        val model = enabledJevModel() ?: return false
+        val request = JSONObject().put("action", "decide").put("authorized", true)
+            .put("model", model).put("state", NativeBridge.redact(utterance))
+            .put("questions", JSONObject().put(question, closeQuestion()))
+        val answer = NativeBridge.decisions.control(request).getJSONObject("answers").getJSONObject(question)
+        if (answer.getString("choice") != "close") return false
+        val current = SystemAi.config()
+        return current.getBoolean("enabled") && current.getLong("revision") == before.getLong("revision") &&
+            enabledJevModel() == model
+    }
+
+    private fun enabledJevModel(): String? {
+        val output = MemoryBridge.command("/system/bin/content", "call", "--user", "0", "--uri",
+            "content://org.agentos.assistant.open-access", "--method", "jev/status")
+        val start = output.indexOf("result=")
+        val end = output.lastIndexOf("}]")
+        if (start < 0 || end <= start) return null
+        val envelope = JSONObject(output.substring(start + 7, end).trim())
+        if (!envelope.optBoolean("ok")) return null
+        val status = envelope.getJSONObject("result")
+        return status.getString("model").takeIf { status.getBoolean("ready") && it.isNotBlank() }
     }
 
     private fun closeQuestion(): JSONObject = JSONObject().put("type", "choice")

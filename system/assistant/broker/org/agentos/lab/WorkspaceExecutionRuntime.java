@@ -165,6 +165,7 @@ final class WorkspaceExecutionRuntime implements WorkspaceExecution.Backend {
         JSONObject guard=prepared.runtimeGuard;
         NativeBridge.Call call=new NativeBridge.Call(prepared.method,prepared.params);
         String target = prepared.params.getString("threadId");
+        call.workspaceHandback = request.action.equals("returnAndResume");
         // The reservation is the sub-agent's; a relay to its parent would be refused by it.
         if (target.equals(request.thread)) call.workspaceRequestId=request.id;
         call.workspaceGuard=()->{
@@ -186,6 +187,8 @@ final class WorkspaceExecutionRuntime implements WorkspaceExecution.Backend {
                 if(!WorkspaceExecution.hash(Files.readAllBytes(new File(path).toPath())).equals(prepared.observation.getString("sha256")))
                     throw new IOException("WORKSPACE_OBSERVATION_CHANGED");
             }
+            if (call.workspaceHandback && prepared.method.equals("turn/steer"))
+                NativeBridge.suppressWorkspaceClose(target, prepared.params.getString("expectedTurnId"));
         };
         // The native event-loop repeats this guard immediately before the write.
         requireRevision(request,prepared.controlRevision);

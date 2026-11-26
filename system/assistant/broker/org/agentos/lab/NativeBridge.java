@@ -23,7 +23,7 @@ final class NativeBridge {
   String workspaceRequestId="";
   volatile boolean nativeSent,responseReceived;
   Guard workspaceGuard;
-  boolean cleanup;
+  boolean cleanup, workspaceHandback;
   Call(String m,JSONObject p){method=m;params=p;}
  }
  static final ScheduledExecutorService streamExpiry=Executors.newSingleThreadScheduledExecutor(r->{Thread t=new Thread(r,"session-stream-expiry");t.setDaemon(true);return t;});
@@ -41,6 +41,7 @@ final class NativeBridge {
  }
  private static boolean enqueuePrepared(Call call)throws Exception {
   call.admission=admissions.queue(call.method,call.params==null?"":call.params.optString("threadId"),call.workspaceRequestId);
+  if (call.workspaceHandback && call.admission != null) call.admission.handback = true;
   if(inbox.offer(call))return true;admissions.failedBeforeSend(call.admission);return false;
  }
  /** Cancellation is per member; joining happens outside the shared state lock. */
@@ -328,7 +329,22 @@ final class NativeBridge {
    return;
   }
   String thread=p.optString("threadId");if(thread.isEmpty()){if(method.startsWith("fs/")||method.startsWith("hook/")||method.startsWith("remoteControl/")||method.equals("warning")||method.equals("configWarning")||method.equals("model/rerouted")||method.startsWith("project/")){globalEvents.put(new JSONObject().put("method",method).put("detail",redact(p.toString())));while(globalEvents.length()>16)globalEvents.remove(0);}return;}JSONObject s=state.computeIfAbsent(thread,k->new JSONObject());
-  if(method.equals("turn/started")){String turn=p.getJSONObject("turn").getString("id");PhoneGestures.startTurn(thread,turn);s.put("activeTurnId",turn);phonePolicyChanges.keySet().removeIf(owner->owner.startsWith(thread+"\n")&&!owner.equals(thread+"\n"+turn));s.remove("error");s.remove("plan");s.remove("cancellationCleanup");if(admissions.turnStarted(thread)){DedicatedScreensOnDevice.shared().nativeTurnStarted(thread,turn);}else{s.put("phoneStoppedTurnId",turn);enqueue(new Call("turn/interrupt",new JSONObject().put("threadId",thread).put("turnId",turn)));tellParentIfClosed(thread);}}
+  if (method.equals("turn/started")) {
+   String turn = p.getJSONObject("turn").getString("id");
+   PhoneGestures.startTurn(thread, turn);
+   s.put("activeTurnId", turn);
+   phonePolicyChanges.keySet().removeIf(owner -> owner.startsWith(thread + "\n") && !owner.equals(thread + "\n" + turn));
+   s.remove("error"); s.remove("plan"); s.remove("cancellationCleanup");
+   WorkspaceAdmissions.TurnStart start = admissions.turnStarted(thread);
+   if (start == WorkspaceAdmissions.TurnStart.REJECTED) {
+    s.put("phoneStoppedTurnId", turn);
+    enqueue(new Call("turn/interrupt", new JSONObject().put("threadId", thread).put("turnId", turn)));
+    tellParentIfClosed(thread);
+   } else {
+    if (start == WorkspaceAdmissions.TurnStart.HANDBACK) s.put("workspaceCloseSuppressedTurn", turn);
+    DedicatedScreensOnDevice.shared().nativeTurnStarted(thread, turn);
+   }
+  }
   if(method.equals("turn/completed")){JSONObject completed=p.getJSONObject("turn");String turn=completed.getString("id");PhoneGestures.endTurn(thread,turn);cancelPhoneWorkers(thread,turn);
    phonePolicyChanges.remove(thread+"\n"+turn);
    boolean current=turn.equals(s.optString("activeTurnId"));
@@ -355,6 +371,13 @@ final class NativeBridge {
    else {s.put("realtime",new JSONObject().put("event",method).put("detail",redact(p.toString())));if(method.endsWith("closed")){audio.remove(thread);admissions.realtimeStopped(thread);}}
   }
  } }
+ static void suppressWorkspaceClose(String thread, String turn) throws JSONException {
+  try (CleanupWork.Held held = lock()) {
+   JSONObject runtime = state.get(thread);
+   if (runtime != null && turn.equals(runtime.optString("activeTurnId")))
+    runtime.put("workspaceCloseSuppressedTurn", turn);
+  }
+ }
  /** A sub-agent whose screen the user closed was woken again: its parent is told why it never answers. */
  static void tellParentIfClosed(String thread) {
   DedicatedScreens.ParentNote note = DedicatedScreensOnDevice.shared().closedNote(thread);

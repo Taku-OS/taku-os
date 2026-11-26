@@ -547,6 +547,15 @@ public final class DedicatedScreensLifecycleTest {
 
         try {
             WorkspacePolicy.configure(new JSONObject().put("jevCloseEnabled", true));
+            Rig opened = new Rig();
+            nativeStart(opened, "open-and-finish");
+            opened.request(1, "open then finish", "com.game");
+            openApp(opened, "open-and-finish", "com.game");
+            CompletableFuture<Runnable> openDecision = new CompletableFuture<>();
+            opened.screens.turnEnded(session(1), "open-and-finish", true, openDecision::complete);
+            openDecision.get(2, TimeUnit.SECONDS).run();
+            DedicatedScreensFamilyTest.until(() -> opened.screens.list().isEmpty() && opened.tasks.list().isEmpty(),
+                    "a current close decision also releases a screen opened in this turn");
             for (String invalidation : List.of("new-admission", "policy-change", "takeover", "none")) {
                 nativeStart(rig, "decision-" + invalidation);
                 CompletableFuture<Runnable> close = new CompletableFuture<>();
@@ -563,7 +572,9 @@ public final class DedicatedScreensLifecycleTest {
                     check(rig.screens.list().getJSONObject(0).getString("controlOwner").equals("user")
                             && rig.tasks.list().size() == 1, "late close preserves the user's control and task");
                     returnTurn(rig, "handback", false);
-                    rig.screens.turnEnded(session(1), "handback", true);
+                    rig.screens.turnEnded(session(1), "handback", true, ignored -> {
+                        throw new AssertionError("Broker-generated handback text must not reach Jev");
+                    });
                 }
                 if (!invalidation.equals("none")) ready(rig, allocation);
             }

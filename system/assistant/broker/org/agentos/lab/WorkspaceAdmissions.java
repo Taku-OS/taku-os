@@ -8,9 +8,10 @@ import java.util.*;
  */
 final class WorkspaceAdmissions {
     interface Source { PhoneExecutionScreens.Ledger ledger()throws Exception; }
+    enum TurnStart { REJECTED, ADMITTED, HANDBACK }
     static final class Ticket {
         final String method,thread,workspaceRequestId;final PhoneExecutionScreens.Admission grant;
-        boolean sent,replied,started;int requestId;
+        boolean sent,replied,started,handback;int requestId;
         Ticket(String method,String thread,PhoneExecutionScreens.Admission grant,String workspaceRequestId){this.method=method;this.thread=thread;this.grant=grant;this.workspaceRequestId=workspaceRequestId;}
     }
     private final Source source;
@@ -59,7 +60,7 @@ final class WorkspaceAdmissions {
         if(success&&ticket.method.equals("thread/realtime/start"))realtime.put(ticket.thread,ticket.grant);
         if(!success||!ticket.method.equals("turn/start")||ticket.started)pending.remove(ticket);
     }
-    synchronized boolean turnStarted(String thread)throws Exception {
+    synchronized TurnStart turnStarted(String thread)throws Exception {
         Ticket ticket=null;
         for(Ticket candidate:pending)if(candidate.sent&&!candidate.started&&candidate.thread.equals(thread)&&candidate.method.equals("turn/start")){ticket=candidate;break;}
         PhoneExecutionScreens.Admission grant;
@@ -69,7 +70,8 @@ final class WorkspaceAdmissions {
             // Realtime may emit its first turn before acknowledging session start.
             if(grant==null)for(Ticket candidate:pending)if(candidate.sent&&candidate.thread.equals(thread)&&candidate.method.equals("thread/realtime/start")){grant=candidate.grant;break;}
         }
-        return source.ledger().turnStarted(thread,grant);
+        if (!source.ledger().turnStarted(thread, grant)) return TurnStart.REJECTED;
+        return ticket != null && ticket.handback ? TurnStart.HANDBACK : TurnStart.ADMITTED;
     }
     synchronized void beginSkillMaintenance()throws IOException {
         if(skillMaintenance || !pending.isEmpty() || !realtime.isEmpty())throw new IOException("A task is running. Manage skills after it finishes.");
