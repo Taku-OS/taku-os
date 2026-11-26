@@ -51,7 +51,12 @@ git config --global http.lowSpeedTime 60
 integrate_home_policy() {
     # Narrow derived snapshots can retain an older product without this policy.
     # If the product opts in, missing patch inputs must fail instead of silently skipping.
-    if grep -Fq 'PRODUCT_SYSTEM_EXT_PROPERTIES += ro.taku.home.package=org.agentos.agent' /taku/image/taku.mk; then
+    local product=/taku/image/taku.mk
+    if grep -Fxq 'include vendor/taku/image/taku-core.mk' "$product"; then
+        product=/taku/image/taku-core.mk
+        test -f "$product"
+    fi
+    if grep -Fq 'PRODUCT_SYSTEM_EXT_PROPERTIES += ro.taku.home.package=org.agentos.agent' "$product"; then
         python3 /taku/image/apply-home-policy.py --source-root /src --results-dir /results "$@"
     fi
 }

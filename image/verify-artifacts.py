@@ -109,7 +109,7 @@ with zipfile.ZipFile(packages[0]) as archive:
     for suffix in ['/TakuAssistant.apk','/agentos-task-broker.jar','/agentos-virtual-display.jar','/agentos-resolver-bridge.jar','/phone-display','/taku-device','/device-probe.sh','/taku-runtime-start','/codex/codex.tar.gz','/bin/magpie','/bin/magpie-runtime','/etc/init/taku-magpie.rc','/etc/magpie-LICENSE']:
         if not any(n.endswith(suffix) for n in names):raise SystemExit('Missing Taku integration: '+suffix)
     # Gesture navigation (one bottom handle) is the default mode; TakuGestureOverlay moves the
-    # assistant from the corner swipe to the handle's double tap (image/taku.mk).
+    # assistant from the corner swipe to the handle's double tap (image/taku-core.mk).
     if 'com.android.internal.systemui.navbar.gestural' not in product_props.get('ro.boot.vendor.overlay.theme','').split(';'):
         raise SystemExit('Gesture navigation is not the default navigation mode')
     for suffix in ['/NavigationBarModeGesturalOverlay.apk','/TakuGestureOverlay.apk']:

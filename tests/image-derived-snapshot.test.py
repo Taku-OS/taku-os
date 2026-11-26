@@ -31,6 +31,7 @@ class Derived(unittest.TestCase):
             path = self.work / name
             path.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(ROOT / name, path)
+        shutil.copy2(ROOT / 'image/taku-core.mk', self.work / 'image/taku-core.mk')
         # A frozen E-style build has no newer IME/AI release inputs. Later WIP
         # in the developer's entrypoint must never replace this runtime.
         (self.work/'image/build.sh').write_text(
