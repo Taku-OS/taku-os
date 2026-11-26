@@ -19,6 +19,7 @@ import java.util.Set;
 /** Read-only evidence for the exact saved event opened from its current Feed card. */
 final class DiningBookingRideUi {
     private static final String CALENDAR = "com.google.android.calendar";
+    static final String OBSERVE_ACTION = "ride-calendar-observe";
 
     private static final Set<String> TRANSIENT_PACKAGES =
             Set.of(
@@ -47,6 +48,47 @@ final class DiningBookingRideUi {
                 .format(DateTimeFormatter.ofPattern("MMM d, yyyy · HH:mm", Locale.ENGLISH));
     }
 
+    static boolean action(JSONObject args) {
+        return OBSERVE_ACTION.equals(args.optString("action"));
+    }
+
+    static JSONObject nativeRead(JSONObject args) throws Exception {
+        if (args.getInt("displayId") != 0 || !CALENDAR.equals(args.optString("packageName")))
+            throw new java.io.IOException("DINING_RIDE_CALENDAR_NOT_VISIBLE");
+        JSONObject meal = args.getJSONObject("meal");
+        boolean exactEvent = args.getBoolean("exactEvent");
+        boolean clock24 = args.getBoolean("clock24");
+        CalendarRead read =
+                DiningPollUi.read(
+                        ui -> {
+                            AccessibilityNodeInfo root = DiningPollUi.root(ui, 0, CALENDAR);
+                            List<String> texts = new ArrayList<>(), actions = new ArrayList<>();
+                            collect(root, texts, actions, 0);
+                            boolean edit =
+                                    root
+                                            .findAccessibilityNodeInfosByViewId(
+                                                    CALENDAR + ":id/info_action_edit")
+                                            .stream()
+                                            .anyMatch(AccessibilityNodeInfo::isVisibleToUser);
+                            boolean detail =
+                                    "matching-event-details"
+                                            .equals(
+                                                    DiningBookingRidePolicy.matchDetails(
+                                                            meal,
+                                                            texts,
+                                                            edit,
+                                                            exactEvent,
+                                                            clock24));
+                            boolean overview =
+                                    !edit
+                                            && actions.stream().anyMatch(NAVIGATION::contains)
+                                            && actions.stream()
+                                                    .anyMatch(OVERVIEW_ACTIONS::contains);
+                            return new CalendarRead(detail, overview);
+                        });
+        return new JSONObject().put("detail", read.detail()).put("overview", read.overview());
+    }
+
     static DiningBookingRidePolicy.Observation details(
             Context context, JSONObject meal, long eventId) {
         Surface before = foreground(context);
@@ -61,40 +103,20 @@ final class DiningBookingRideUi {
             boolean exactEvent = expectedPath.equals(before.eventPath());
             boolean matchingEvent = exactEvent || before.eventPath().isBlank();
             boolean clock24 = DateFormat.is24HourFormat(context);
-            CalendarRead read =
-                    DiningPollUi.read(
-                            ui -> {
-                                AccessibilityNodeInfo root = DiningPollUi.root(ui, 0, CALENDAR);
-                                List<String> texts = new ArrayList<>(), actions = new ArrayList<>();
-                                collect(root, texts, actions, 0);
-                                boolean edit =
-                                        root
-                                                .findAccessibilityNodeInfosByViewId(
-                                                        CALENDAR + ":id/info_action_edit")
-                                                .stream()
-                                                .anyMatch(AccessibilityNodeInfo::isVisibleToUser);
-                                boolean detail =
-                                        matchingEvent
-                                                && "matching-event-details"
-                                                        .equals(
-                                                                DiningBookingRidePolicy
-                                                                        .matchDetails(
-                                                                                meal,
-                                                                                texts,
-                                                                                edit,
-                                                                                exactEvent,
-                                                                                clock24));
-                                boolean overview =
-                                        !edit
-                                                && actions.stream().anyMatch(NAVIGATION::contains)
-                                                && actions.stream()
-                                                        .anyMatch(OVERVIEW_ACTIONS::contains);
-                                return new CalendarRead(detail, overview);
-                            });
+            JSONObject result =
+                    NativeClient.exchange(
+                            new JSONObject()
+                                    .put("op", "diningPollInput")
+                                    .put("action", OBSERVE_ACTION)
+                                    .put("taskId", before.taskId())
+                                    .put("eventId", eventId)
+                                    .put("exactEvent", exactEvent)
+                                    .put("clock24", clock24)
+                                    .put("meal", new JSONObject(meal.toString())));
             if (!before.equals(foreground(context))) return unavailable();
-            if (read.detail())
+            if (matchingEvent && result.optBoolean("detail"))
                 return observation(DiningBookingRidePolicy.Screen.DETAILS, before, "details:");
-            if (read.overview())
+            if (result.optBoolean("overview"))
                 return observation(DiningBookingRidePolicy.Screen.EXIT, before, "overview:");
         } catch (Exception unavailable) {
             return unavailable();

@@ -32,6 +32,7 @@ final class DiningPollSendAutomation {
         HandlerThread thread = new HandlerThread("dining-poll-send-accessibility");
         UiAutomation ui = null;
         CLEAN.set(false);
+        boolean connected = false;
         boolean disconnected = false;
         try {
             thread.start();
@@ -45,6 +46,7 @@ final class DiningPollSendAutomation {
             constructor.setAccessible(true);
             ui = constructor.newInstance(thread.getLooper(), connection);
             UiAutomation.class.getMethod("connect", int.class).invoke(ui, 1);
+            connected = true;
             AccessibilityServiceInfo info = ui.getServiceInfo();
             info.flags |=
                     AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
@@ -52,7 +54,7 @@ final class DiningPollSendAutomation {
             ui.setServiceInfo(info);
             return work.run(ui);
         } finally {
-            if (ui == null) disconnected = true;
+            if (!connected) disconnected = true;
             else
                 try {
                     UiAutomation.class.getMethod("disconnect").invoke(ui);
@@ -63,13 +65,17 @@ final class DiningPollSendAutomation {
             thread.quitSafely();
             try {
                 thread.join(1500);
+                if (thread.isAlive()) {
+                    thread.quit();
+                    thread.join(500);
+                }
             } catch (InterruptedException interrupted) {
                 Thread.currentThread().interrupt();
             }
             boolean cleaned = disconnected && !thread.isAlive();
             CLEAN.set(cleaned);
-            // Keep the common AX lock closed after an unconfirmed disconnect. The broker's
-            // operation token also remains blocked, so no foreground move can race this worker.
+            // Keep the common AX lock closed only when a live UiAutomation connection failed to
+            // disconnect cleanly; a pre-connect failure never registered a service and releases.
             if (cleaned) ACCESSIBILITY.unlock();
             else throw new IOException("POLL_AUTOMATION_CLEANUP_UNCONFIRMED");
         }

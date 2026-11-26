@@ -253,6 +253,52 @@ public final class DiningBrokerTest {
                 .put("composerRequestId", "invalid")), "a malformed dispatch key grants no ride access");
     }
 
+    private static void rideCalendarObservationUsesBrokerForegroundScope() throws Exception {
+        JSONObject meal = new JSONObject().put("restaurant", "Allora Fifth Ave").put("start", 1795450000000L);
+        JSONObject input = new JSONObject()
+                .put("op", "diningPollInput")
+                .put("action", DiningRideCalendarObservation.ACTION)
+                .put("taskId", 77)
+                .put("eventId", 42L)
+                .put("exactEvent", true)
+                .put("clock24", true)
+                .put("meal", meal);
+        check(DiningRideCalendarObservation.handles(DiningRideCalendarObservation.ACTION),
+                "broker routes ride calendar observation");
+        DiningRideCalendarObservation.Request parsed = DiningRideCalendarObservation.decode(input);
+        check(parsed.taskId() == 77 && parsed.eventId() == 42L && parsed.exactEvent() && parsed.clock24(),
+                "valid calendar observation decodes exact fields");
+        JSONObject callback = DiningRideCalendarObservation.callback(parsed, 0);
+        check(callback.getBoolean("readOnlyForeground")
+                        && callback.getInt("displayId") == 0
+                        && DiningRideCalendarObservation.PACKAGE.equals(callback.getString("packageName"))
+                        && callback.getInt("taskId") == 77,
+                "calendar callback stays strictly read-only on display 0");
+        rejects("DINING_RIDE_CALENDAR_OBSERVATION_INVALID", () -> DiningRideCalendarObservation.decode(
+                new JSONObject(input.toString()).put("extra", true)));
+        rejects("DINING_RIDE_CALENDAR_OBSERVATION_INVALID", () -> DiningRideCalendarObservation.decode(
+                new JSONObject(input.toString()).put("taskId", 0)));
+        rejects("DINING_RIDE_CALENDAR_OBSERVATION_INVALID", () -> DiningRideCalendarObservation.decode(
+                new JSONObject(input.toString()).put("meal", new JSONObject())));
+        JSONArray calendarVisible = new JSONArray().put(appTask(77, 0, 0, DiningRideCalendarObservation.PACKAGE));
+        check(DiningRideCalendarObservation.foregroundTask(calendarVisible, 0, 77) == 77,
+                "exact visible foreground Calendar task qualifies");
+        rejects("DINING_RIDE_CALENDAR_NOT_VISIBLE",
+                () -> DiningRideCalendarObservation.foregroundTask(calendarVisible, 0, 78));
+        rejects("DINING_RIDE_CALENDAR_NOT_VISIBLE",
+                () -> DiningRideCalendarObservation.foregroundTask(calendarVisible, 10, 77));
+        rejects("DINING_RIDE_CALENDAR_NOT_VISIBLE",
+                () -> DiningRideCalendarObservation.foregroundTask(
+                        new JSONArray()
+                                .put(appTask(80, 0, 0, WHATSAPP))
+                                .put(appTask(77, 0, 0, DiningRideCalendarObservation.PACKAGE)),
+                        0, 77));
+        rejects("DINING_RIDE_CALENDAR_NOT_VISIBLE",
+                () -> DiningRideCalendarObservation.foregroundTask(
+                        new JSONArray().put(appTask(77, 0, 0, DiningRideCalendarObservation.PACKAGE).put("visible", false)),
+                        0, 77));
+    }
+
     public static void main(String[] args) throws Exception {
         pollRequestUsesConfirmedTaskOnly();
         acceptsOnlyExactVisibleWhatsAppTask();
@@ -264,6 +310,7 @@ public final class DiningBrokerTest {
         bookingInputStaysScopedAfterDispatch();
         bookingRecoveryIsReadOnlyAndBoundToVisibleScope();
         uberEvidenceRequiresNativeRideDispatch();
-        System.out.println("DiningBrokerTest: Yelp routing, poll ownership and observation, OpenTable binding, Uber dispatch, and cleanup passed");
+        rideCalendarObservationUsesBrokerForegroundScope();
+        System.out.println("DiningBrokerTest: Yelp routing, poll ownership and observation, OpenTable binding, Uber dispatch, calendar probe, and cleanup passed");
     }
 }

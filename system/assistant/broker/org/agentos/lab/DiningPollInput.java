@@ -71,6 +71,7 @@ final class DiningPollInput {
         String action = input.optString("action");
         if ("observe".equals(action)) return DiningPollObservationInput.control(input);
         if (DiningBookingInput.handles(action)) return DiningBookingInput.control(input);
+        if (DiningRideCalendarObservation.handles(action)) return DiningRideCalendarObservation.control(input);
         Request request = request(input);
         Owner owner = register(request);
         try {

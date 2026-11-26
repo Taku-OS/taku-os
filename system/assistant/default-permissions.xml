@@ -1,0 +1,6 @@
+<exceptions>
+    <exception package="org.agentos.assistant">
+        <permission name="android.permission.READ_CALENDAR" fixed="false"/>
+        <permission name="android.permission.WRITE_CALENDAR" fixed="false"/>
+    </exception>
+</exceptions>

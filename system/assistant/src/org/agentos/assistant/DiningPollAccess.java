@@ -60,11 +60,15 @@ final class DiningPollAccess {
                 JSONObject result =
                         DiningBookingRead.action(args)
                                 ? DiningBookingRead.nativeCall(context, args)
-                                : DiningPollSend.nativeCall(context, args);
+                                : DiningBookingRideUi.action(args)
+                                        ? DiningBookingRideUi.nativeRead(args)
+                                        : DiningPollSend.nativeCall(context, args);
                 envelope.put("ok", true).put("result", result);
             } catch (Exception failure) {
                 String code = failureCode(failure);
-                if (!DiningBookingRead.action(args) && !"observe".equals(args.opt("action")))
+                if (!DiningBookingRead.action(args)
+                        && !DiningBookingRideUi.action(args)
+                        && !"observe".equals(args.opt("action")))
                     DiningPollSend.recordFailure(context, args, code);
                 envelope.put("ok", false).put("code", code);
             }
