@@ -79,6 +79,20 @@ function reset(t) {
       runtime.drafts.set(threadId, next);
       return next;
     }
+    if (action === 'panels' && params.operation === 'get') {
+      const panel = {panelId: params.args.panelId, originThreadId: 'thread-a', matterId: 'thread-a/card', sourceVersion: runtime.panelVersion ?? 3,
+        metadataRevision: 1, title: 'Plan', position: 0};
+      return {panel, sourceState: {state: 'current'}, updateReceipt: runtime.panelUpdate ?? null, capabilities: {canOpen: true, canContinue: true, canUnpin: true}, listRevision: 1};
+    }
+    if (action === 'composer/plugin/add' || action === 'composer/plugin/remove') {
+      const current = snapshot();
+      assert.equal(params.expectedRevision, current.revision);
+      const others = (current.plugins ?? []).filter(plugin => plugin.id !== params.pluginId);
+      const plugins = action === 'composer/plugin/add' ? [...others, {id: params.pluginId, name: params.pluginId.toUpperCase()}] : others;
+      const next = {...current, plugins, revision: `draft-${++runtime.sequence}`};
+      runtime.drafts.set(threadId, next);
+      return next;
+    }
     if (action === 'composer/submit') {
       const args = {...params, text: snapshot().text};
       assert.equal(params.revision, snapshot().revision);
@@ -553,4 +567,59 @@ test('while TAKU has no thread, a Task stays a Task and going back opens the emp
   // After a restart TAKU is still on its empty conversation.
   const restarted = mount(); await flush(restarted);
   assert.deepEqual([restarted.result.primaryThreadId, restarted.result.draftSessionId, restarted.result.isMainChat], ['', '', true]);
+});
+
+test('plugins attached with @ live in the native draft and ride with the submission', async t => {
+  reset(t); runtime.target = null;
+  const host = mount(); await flush(host);
+  assert.equal(host.result.onDraftChange('Design a launch card'), true); await flush(host);
+  host.result.onAddPlugin('figma'); await flush(host);
+  host.result.onAddPlugin('notion'); await flush(host);
+  host.result.onRemovePlugin('notion'); await flush(host);
+  assert.deepEqual(host.result.plugins, [{id: 'figma', name: 'FIGMA'}]);
+  assert.equal(host.result.draft, 'Design a launch card');
+  host.result.onSend(); await flush(host);
+  assert.equal(runtime.calls.length, 1);
+  assert.deepEqual(runtime.calls[0].pluginIds, ['figma']);
+  assert.equal(runtime.calls[0].text, 'Design a launch card');
+});
+
+test('a message without plugins sends no plugin ids', async t => {
+  reset(t); runtime.target = null;
+  const host = mount(); await flush(host);
+  await send(host, 'Plain request');
+  assert.equal(runtime.calls.length, 1);
+  assert.equal('pluginIds' in runtime.calls[0], false);
+  assert.deepEqual(host.result.plugins, []);
+});
+
+test('a further edit after an accepted continuation keeps updating the same Panel at its new version', async t => {
+  reset(t);
+  const host = mount(); await flush(host);
+  await send(host, 'Set Count to 2');
+  assert.equal(runtime.calls[0].action, 'continue');
+  assert.equal(runtime.calls[0].expectedSourceVersion, 3);
+  assert.equal(host.result.panelTarget?.panelId, 'panel-a');
+  runtime.panelVersion = 4;
+  await send(host, 'Now set Count to 3');
+  assert.equal(runtime.calls[1].action, 'continue');
+  assert.equal(runtime.calls[1].panelId, 'panel-a');
+  assert.equal(runtime.calls[1].expectedSourceVersion, 4);
+  host.result.onDetachPanel(); await flush(host);
+  await send(host, 'An ordinary message');
+  assert.equal(runtime.calls[2].action, 'sendMessage');
+  assert.equal(host.result.panelTarget, null);
+});
+
+test('a further Panel edit waits for the previous update and refuses while it is still applying', async t => {
+  reset(t);
+  const host = mount(); await flush(host);
+  await send(host, 'Set Count to 2');
+  runtime.panelUpdate = {outcome: 'pending'};
+  const realTimeout = globalThis.setTimeout;
+  globalThis.setTimeout = (fn, _ms, ...rest) => realTimeout(fn, 0, ...rest);
+  t.after(() => { globalThis.setTimeout = realTimeout; });
+  await send(host, 'Now set Count to 3');
+  assert.equal(runtime.calls.length, 1);
+  assert.equal(host.result.draft, 'Now set Count to 3');
 });

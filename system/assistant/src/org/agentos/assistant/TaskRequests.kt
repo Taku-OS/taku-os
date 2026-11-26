@@ -1,6 +1,7 @@
 package org.agentos.assistant
 
 import android.graphics.Bitmap
+import org.agentos.lab.ComposerInput
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -142,6 +143,7 @@ internal object TaskRequests {
             if (options.has(key)) request.put(key, options.opt(key))
         }
         if (options.has("attachments")) request.put("attachments", options.getJSONArray("attachments"))
+        options.optJSONArray("plugins")?.takeIf { it.length() > 0 }?.let { request.put("plugins", it) }
         if (options.has("composerRequestId")) {
             request.put("composerRequestId", PanelProtocol.uuid(options, "composerRequestId"))
         }
@@ -157,6 +159,7 @@ internal object TaskRequests {
             if (conversation != origin || !matterId.startsWith("$conversation/")) throw IOException("INVALID_ARGUMENT")
             request.put("panelUpdate", JSONObject(target.toString()))
         }
+        ComposerInput.copyPanelContext(options, request)
     }
 
     @JvmStatic

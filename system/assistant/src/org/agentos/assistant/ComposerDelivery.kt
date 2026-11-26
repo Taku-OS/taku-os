@@ -38,6 +38,18 @@ internal object ComposerDelivery {
         return ComposerState.restoreTask(context.getSharedPreferences("agent-settings", Context.MODE_PRIVATE), thread, input.getString("expectedRevision"), request)
     }
 
+    /**
+     * Adds a plugin to the draft after God Mode, the Plugin Market's own source, confirms it is
+     * installed and enabled. `show` reads the same records `list` does, with their registered tools.
+     */
+    @JvmStatic
+    fun addPlugin(context: Context, input: JSONObject): JSONObject {
+        val id = input.getString("pluginId")
+        val record = PluginManagerBridge.execute(JSONObject().put("operation", "show").put("argument", id))
+        return ComposerState.addPlugin(context.getSharedPreferences("agent-settings", Context.MODE_PRIVATE),
+            input.getString("threadId"), input.getString("expectedRevision"), ComposerPlugins.resolve(record, id))
+    }
+
     @JvmStatic
     @JvmOverloads
     fun call(context: Context, method: String, input: JSONObject, allowAutoScreenshot: Boolean = false): JSONObject {
@@ -99,7 +111,9 @@ internal object ComposerDelivery {
         val turn = request.getString("expectedTurnId")
         val text = request.getString("text")
         val input = ComposerInput.text(text)
-        ComposerInput.appendAttachments(input, request.getJSONObject("options").getJSONArray("attachments"))
+        val options = request.getJSONObject("options")
+        ComposerInput.appendPlugins(input, options.optJSONArray("plugins"))
+        ComposerInput.appendAttachments(input, options.getJSONArray("attachments"))
         return services.submissions.steer(request.getString("requestId"), thread, turn, text, {
             if (turn != NativeClient.state(thread).optString("activeTurnId")) throw IOException("TURN_CHANGED")
             services.appendScreenshot(request, input)

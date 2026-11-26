@@ -116,6 +116,8 @@ public final class AgentOpenAccessProvider extends ContentProvider {
                     case AgentGatewayProtocol.COMPOSER_RELEASE: result = ComposerDelivery.call(context, method, input); break;
                     case AgentGatewayProtocol.COMPOSER_ATTACH: result = ComposerAttachments.attach(context, input, extras, caller, callerPid); break;
                     case AgentGatewayProtocol.COMPOSER_REMOVE: result = ComposerState.removeAttachment(prefs, thread, input.getString("expectedRevision"), input.getString("attachmentId")); break;
+                    case AgentGatewayProtocol.COMPOSER_PLUGIN_ADD: result = ComposerDelivery.addPlugin(context, input); break;
+                    case AgentGatewayProtocol.COMPOSER_PLUGIN_REMOVE: result = ComposerState.removePlugin(prefs, thread, input.getString("expectedRevision"), input.getString("pluginId")); break;
                     case AgentGatewayProtocol.COMPOSER_HANDOFF: result = ComposerState.handoff(prefs, thread, input.getString("handoffId"), input.getString("text")); break;
                     case AgentGatewayProtocol.COMPOSER_RESTORE: result = ComposerState.restore(prefs, thread, input.getString("expectedRevision"), input.getString("recoveryId")); break;
                     case AgentGatewayProtocol.COMPOSER_RESTORE_TASK: result = ComposerDelivery.restoreTask(context, input); break;

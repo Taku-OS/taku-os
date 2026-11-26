@@ -62,6 +62,26 @@ public final class NativeConversationTest {
                 .put("content", new JSONArray().put(new JSONObject().put("type", "text").put("text", englishAttachment)));
         user = AgentConversation.read(thread).entries.get(0);
         check(user.text.isEmpty() && user.attachments.get(0).equals("notes.txt"), "English broker file envelope also becomes an attachment label");
+        thread.getJSONArray("turns").getJSONObject(0).getJSONArray("items").getJSONObject(0)
+                .put("content", new JSONArray().put(new JSONObject().put("type", "text").put("text", "Draw a logo"))
+                        .put(new JSONObject().put("type", "text").put("text",
+                                "The user attached the plugin \"Figma\" (id: org.example.figma) to this message. Prefer this plugin's tools for this request: draw, export.")));
+        user = AgentConversation.read(thread).entries.get(0);
+        check(user.text.equals("Draw a logo") && user.attachments.isEmpty(), "the composer plugin note is not shown as typed text");
+        String panelNote = org.agentos.lab.ComposerInput.panelContext("Kyoto \"trip\" plan", "11111111-2222-4333-8444-555555555555",
+                "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee/trip-plan", 2, new JSONObject().put("card", new JSONObject().put("title", "Kyoto")));
+        thread.getJSONArray("turns").getJSONObject(0).getJSONArray("items").getJSONObject(0)
+                .put("content", new JSONArray().put(new JSONObject().put("type", "text").put("text", "Add the return flight"))
+                        .put(new JSONObject().put("type", "text").put("text", panelNote))
+                        .put(new JSONObject().put("type", "text").put("text",
+                                "The user attached the plugin \"Figma\" (id: org.example.figma) to this message.")));
+        user = AgentConversation.read(thread).entries.get(0);
+        check(user.text.equals("Add the return flight") && user.attachments.isEmpty(), "the Panel update note is not shown as typed text");
+        thread.getJSONArray("turns").getJSONObject(0).getJSONArray("items").getJSONObject(0)
+                .put("content", new JSONArray().put(new JSONObject().put("type", "text").put("text",
+                        "The user is editing the pinned panel \"mine\" — I typed this myself")));
+        user = AgentConversation.read(thread).entries.get(0);
+        check(user.text.equals("The user is editing the pinned panel \"mine\" — I typed this myself"), "typed text that only resembles the note stays visible");
         primaryProjection();
         staleTaskDoesNotBecomeLiveTurn();
         phoneToolsNeverShowRawNamesOrJson();

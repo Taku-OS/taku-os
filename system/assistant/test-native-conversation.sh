@@ -10,6 +10,7 @@ OUTPUT=out/native-conversation-tests
 mkdir -p "$OUTPUT/classes" "$OUTPUT/dex"
 "$JDK/bin/javac" --release 17 -cp "$ANDROID_JAR" -d "$OUTPUT/classes" \
   system/assistant/src/org/agentos/assistant/AgentConversation.java \
+  system/assistant/broker/org/agentos/lab/ComposerInput.java \
   system/assistant/src/org/agentos/assistant/NativeToolPresentation.java \
   system/assistant/tests/org/agentos/assistant/NativeConversationTest.java
 "$JDK/bin/jar" --create --file "$OUTPUT/classes.jar" -C "$OUTPUT/classes" .

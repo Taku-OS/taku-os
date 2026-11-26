@@ -10,6 +10,9 @@ import java.util.Map;
 
 /** A presentation of native records. Identity, ordering and status come from Codex. */
 final class AgentConversation {
+    private static final java.util.regex.Pattern PLUGIN_NOTE = java.util.regex.Pattern.compile(
+            "The user attached the plugin \".*\" \\(id: [A-Za-z0-9_.@:-]{1,128}\\) to this message\\."
+                    + "( Prefer this plugin's tools for this request: .*\\.)?");
     enum Kind { USER, ASSISTANT, TOOL, PLAN }
 
     static final class Entry {
@@ -120,6 +123,10 @@ final class AgentConversation {
                                 if (value.startsWith(prefix) && file.length == 2
                                         && file[1].startsWith("/data/user/0/org.agentos.assistant/files/composer-attachments/")) {
                                     user.attachments.add(file[0].substring(prefix.length()));
+                                } else if (PLUGIN_NOTE.matcher(value).matches()) {
+                                    // ComposerInput.appendPlugins: the composer's plugin chip, not words the user typed.
+                                } else if (org.agentos.lab.ComposerInput.isPanelContext(value)) {
+                                    // ComposerInput.appendPanelContext: the edited panel's card, not words the user typed.
                                 } else {
                                     if (text.length() > 0) text.append('\n');
                                     text.append(value);
