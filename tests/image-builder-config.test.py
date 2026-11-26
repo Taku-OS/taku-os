@@ -83,6 +83,27 @@ class BuilderIsolation(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     config.validate_go_runtime({**config.CONFIG, key: value})
 
+    def test_start_mounts_opt_in_cache_with_inspected_toolchain_identity(self):
+        snapshot = self.out / 'snapshot'
+        (snapshot / 'image').mkdir(parents=True)
+        (snapshot / 'image/kernel_cache.py').touch()
+        (snapshot / 'input-manifest.json').write_text(json.dumps({'files': []}))
+        cache = self.root / 'kernel prebuilts'
+        image_id = 'sha256:' + 'c' * 64
+        with mock.patch.multiple(builder, ROOT=self.root, OUT=self.out), \
+                mock.patch.object(builder.subprocess, 'run', return_value=mock.Mock(returncode=1)), \
+                mock.patch.object(builder.subprocess, 'check_output', side_effect=['b' * 40, b'', image_id]), \
+                mock.patch.object(builder.subprocess, 'Popen'), \
+                mock.patch.object(builder, 'run') as commands, \
+                mock.patch.object(builder, 'ensure_report_server'), \
+                mock.patch.object(builder, 'state'):
+            builder.start(snapshot_input=(snapshot, 'a' * 64), kernel_cache_dir=cache)
+        launch, = [call.args for call in commands.call_args_list if call.args[:2] == ('docker', 'run')]
+        self.assertIn(f'type=bind,source={cache.resolve()},target=/kernel-cache', launch)
+        self.assertIn('TAKU_KERNEL_CACHE_DIR=/kernel-cache', launch)
+        self.assertIn(f'TAKU_KERNEL_BUILDER_IMAGE_ID={image_id}', launch)
+        self.assertEqual(launch[-4], image_id)
+
     def test_start_mounts_reference_read_only_and_preserves_old_evidence(self):
         snapshot = self.out / 'snapshots' / ('a' * 64)
         snapshot.mkdir(parents=True)
