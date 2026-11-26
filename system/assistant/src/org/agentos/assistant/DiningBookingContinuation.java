@@ -40,6 +40,22 @@ final class DiningBookingContinuation {
                 dispatch(context, watch, effect, state);
             } else if (kind == Kind.PUBLISH_RECEIPT) {
                 receipt(state);
+                var existing =
+                        DiningBookingClaim.publishedReceipt(
+                                DiningPollBooking.ledger(context),
+                                watch,
+                                android.os.Process.myUid() / 100_000);
+                if (existing != null) {
+                    // Linking the proven equivalent never publishes again, including if the user
+                    // removed its card.
+                    watch.put("feedCardId", existing.cardId())
+                            .put("feedReceiptOwnerWatchId", existing.ownerWatchId())
+                            .put("feedTemplateVersion", existing.templateVersion())
+                            .put("feedPublishedAt", existing.publishedAt());
+                    effect.put("done", true);
+                    save(context, watch);
+                    continue;
+                }
                 // Current Feed accepts these real intents; retired panel actions stay retired.
                 JSONObject card =
                         new JSONObject(
@@ -48,14 +64,34 @@ final class DiningBookingContinuation {
                                         Map.of("type", "open-app", "package", "com.opentable"),
                                         DiningReservationFeedCard.whatsappShareIntent(state)));
                 if (watch.has("existingCardId")) card.put("id", watch.getString("existingCardId"));
-                provider(
-                        context,
-                        "content://org.agentos.agent.home-feed",
-                        "feed/publish",
-                        new JSONObject().put("card", card));
+                String feedId = card.getString("id");
+                JSONObject stored;
+                try {
+                    stored =
+                            provider(
+                                    context,
+                                    "content://org.agentos.agent.home-feed",
+                                    "feed/get",
+                                    new JSONObject().put("id", feedId));
+                } catch (IOException unavailable) {
+                    if (!"NOT_FOUND".equals(unavailable.getMessage())) throw unavailable;
+                    stored = null;
+                }
+                if (stored != null) DiningBookingClaim.verifyPublishedCard(card, stored);
+                else {
+                    JSONObject published =
+                            provider(
+                                    context,
+                                    "content://org.agentos.agent.home-feed",
+                                    "feed/publish",
+                                    new JSONObject().put("card", card));
+                    if (!feedId.equals(published.optString("id")))
+                        throw new IOException("DINING_RECEIPT_FEED_CARD_CHANGED");
+                }
                 watch.put("feedCardId", card.getString("id"))
+                        .put("feedReceiptOwnerWatchId", watch.getString("id"))
                         .put("feedTemplateVersion", 2)
-                        .put("feedPublishedAt", System.currentTimeMillis());
+                        .put("feedPublishedAt", card.getLong("createdAt"));
                 effect.put("done", true);
                 save(context, watch);
             } else {
@@ -225,6 +261,8 @@ final class DiningBookingContinuation {
                 + " RECEIPT_FULL_DATE_REQUIRED，进入同一预约 Manage booking → Modify booking"
                 + " 展开原始日期日历，不选择或更改任何值，在原日期选中、Continue 禁用及 No changes 可见时调用"
                 + " dining/poll/verify-date（同一 id），再返回原回执 inspect。不得猜日期或提交编辑。\n"
+                + "如果同一分店、时间和人数已有已确认或结果不明的申请，不重新预订。需要核对时，只查看原生已确认预约。"
+                + "原任务结束后可在真预约回执已可见时使用 dining/poll/reconcile（同一 id），不打开或操作其他任务。\n"
                 + "保持后台执行；不打开 Agent 对话或执行屏预览，不发送 WhatsApp，最终仅报告真实结果。\n"
                 + "已确认条件："
                 + facts;

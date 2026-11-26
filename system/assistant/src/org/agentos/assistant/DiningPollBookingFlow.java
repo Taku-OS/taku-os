@@ -595,6 +595,10 @@ final class DiningPollBookingFlow {
         return new Change(state, present);
     }
 
+    static String watchId(String intentId) {
+        return key("watch", intentId);
+    }
+
     static String key(String kind, String... fields) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");

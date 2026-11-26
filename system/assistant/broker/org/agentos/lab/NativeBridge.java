@@ -319,7 +319,7 @@ final class NativeBridge {
    return;
   }
   String thread=p.optString("threadId");if(thread.isEmpty()){if(method.startsWith("fs/")||method.startsWith("hook/")||method.startsWith("remoteControl/")||method.equals("warning")||method.equals("configWarning")||method.equals("model/rerouted")||method.startsWith("project/")){globalEvents.put(new JSONObject().put("method",method).put("detail",redact(p.toString())));while(globalEvents.length()>16)globalEvents.remove(0);}return;}JSONObject s=state.computeIfAbsent(thread,k->new JSONObject());
-  if(method.equals("turn/started")){PhoneGestures.startTurn(thread,p.getJSONObject("turn").getString("id"));s.put("activeTurnId",p.getJSONObject("turn").getString("id"));phonePolicyChanges.keySet().removeIf(owner->owner.startsWith(thread+"\n")&&!owner.equals(thread+"\n"+s.optString("activeTurnId")));s.remove("error");s.remove("plan");s.remove("cancellationCleanup");if(!admissions.turnStarted(thread)){s.put("phoneStoppedTurnId",p.getJSONObject("turn").getString("id"));enqueue(new Call("turn/interrupt",new JSONObject().put("threadId",thread).put("turnId",p.getJSONObject("turn").getString("id"))));tellParentIfClosed(thread);}}
+  if(method.equals("turn/started")){PhoneGestures.startTurn(thread,p.getJSONObject("turn").getString("id"));PhoneNativeTools.bookingTurnStarted(thread,p.getJSONObject("turn").getString("id"));s.put("activeTurnId",p.getJSONObject("turn").getString("id"));phonePolicyChanges.keySet().removeIf(owner->owner.startsWith(thread+"\n")&&!owner.equals(thread+"\n"+s.optString("activeTurnId")));s.remove("error");s.remove("plan");s.remove("cancellationCleanup");if(!admissions.turnStarted(thread)){s.put("phoneStoppedTurnId",p.getJSONObject("turn").getString("id"));enqueue(new Call("turn/interrupt",new JSONObject().put("threadId",thread).put("turnId",p.getJSONObject("turn").getString("id"))));tellParentIfClosed(thread);}}
   if(method.equals("turn/completed")){JSONObject completed=p.getJSONObject("turn");PhoneGestures.endTurn(thread,completed.getString("id"));cancelPhoneWorkers(thread,completed.getString("id"));
    phonePolicyChanges.remove(thread+"\n"+completed.getString("id"));
    DedicatedScreensOnDevice.shared().turnEnded(thread);
@@ -412,11 +412,12 @@ final class NativeBridge {
   if(!phoneTurnActive(params)){try{server.nativeReply(id,PhoneNativeTools.failure("This execution turn has stopped; the phone operation was not performed"));}catch(Exception ignored){}return;}
   String owner=params.optString("threadId")+"\n"+params.optString("turnId");
   List<CompletableFuture<String>> changes=phonePolicyChanges.containsKey(owner)?new ArrayList<>(phonePolicyChanges.get(owner)):List.of();
+  PhoneNativeTools.Dispatch dispatch=PhoneNativeTools.bindForDispatch(params);
   Thread worker=new Thread(()->{
    try{
     if(Thread.currentThread().isInterrupted())return;
     JSONObject result;
-    if(changes.isEmpty())result=PhoneNativeTools.execute(params);
+    if(changes.isEmpty())result=dispatch.run();
     else {StringJoiner text=new StringJoiner("\n");for(CompletableFuture<String> change:changes)text.add(change.get());result=PhoneNativeTools.failure(text.toString());}
     if(!Thread.currentThread().isInterrupted()){
      server.nativeReply(id,result);
@@ -479,6 +480,6 @@ final class NativeBridge {
   AgentViews.runtimeClosed();admissions.clear();PhoneGestures.cancelAll();
   // No turn running now ever ends, so nothing else would free the dedicated screens.
   DedicatedScreensOnDevice.shared().codexGone();
-  for(Set<Thread> group:phoneWorkers.values())for(Thread worker:group)worker.interrupt();phoneWorkers.clear();phonePolicyChanges.clear();requests.clear();state.clear();audio.clear();phonePermissions.clear();while(globalEvents.length()>0)globalEvents.remove(0);for(Call c:calls.values())c.result.completeExceptionally(new IOException("The runtime restarted"));calls.clear();
+  for(Set<Thread> group:phoneWorkers.values())for(Thread worker:group)worker.interrupt();phoneWorkers.clear();phonePolicyChanges.clear();requests.clear();PhoneNativeTools.clearBookingTurns();state.clear();audio.clear();phonePermissions.clear();while(globalEvents.length()>0)globalEvents.remove(0);for(Call c:calls.values())c.result.completeExceptionally(new IOException("The runtime restarted"));calls.clear();
  } }
 }

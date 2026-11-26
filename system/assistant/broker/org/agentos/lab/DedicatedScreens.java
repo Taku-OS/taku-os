@@ -121,6 +121,7 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
     /** What a screen tool does: look (screenshot), act (tap, swipe, type), or open a held App. */
     enum Use {
         LOOK,
+        LOOK_HELD,
         ACT,
         ACT_HELD,
         OPEN
@@ -1241,7 +1242,8 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
 
     /**
      * A screen tool for the session: only on its own screen, never the default one. LOOK needs the
-     * screen; ACT needs an App held; ACT_HELD and OPEN need the specified App held. Actions also
+     * screen; LOOK_HELD requires the specified App but never grants Agent input. ACT needs an App
+     * held; ACT_HELD and OPEN need the specified App held. Actions also
      * need the App on top of the screen to be held (an in-App jump may have opened another one).
      *
      * <p>The same App open on the main screen or in Recents never blocks the session (the user's
@@ -1254,13 +1256,13 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
         try (CleanupWork.Held held33 = lock()) {
             screen = allowed(session, use, pkg);
         }
-        if (use == Use.ACT_HELD) {
+        if (use == Use.ACT_HELD || use == Use.LOOK_HELD) {
             if (!screen.input.tryLock(3, TimeUnit.SECONDS)) throw new IOException("SCREEN_INPUT_BUSY");
         } else {
             screen.input.lockInterruptibly();
         }
         try {
-            List<PhoneTasks.Task> now = use == Use.LOOK ? List.of() : tasks.list();
+            List<PhoneTasks.Task> now = use == Use.LOOK || use == Use.LOOK_HELD ? List.of() : tasks.list();
             try (CleanupWork.Held held34 = lock()) {
                 if (allowed(session, use, pkg) != screen)
                     throw new IOException(
@@ -1289,7 +1291,8 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
                 throw stopped;
             } catch (Exception failed) {
                 // Asked only now: asking costs a phone-display run (about half a second)
-                if (alive(screen)) throw failed;
+                // A held-app read cannot retire a workspace as a side effect of a failed read.
+                if (use == Use.LOOK_HELD || alive(screen)) throw failed;
                 lost(screen);
                 throw new IOException(
                         "SCREEN_LOST: Your screen crashed; its pages are gone and your Apps are"
@@ -2048,10 +2051,11 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
     private DedicatedScreen allowed(String session, Use use, String pkg) throws Exception {
         DedicatedScreen screen = own(session);
         if (screen == null) throw new IOException("APPS_NOT_REQUESTED: call request_apps first");
-        if (use != Use.LOOK && !agentControls(screen)) throw agentPaused(screen);
-        if (use != Use.LOOK && screen.apps.isEmpty())
+        boolean readOnly = use == Use.LOOK || use == Use.LOOK_HELD;
+        if (!readOnly && !agentControls(screen)) throw agentPaused(screen);
+        if (!readOnly && screen.apps.isEmpty())
             throw new IOException("APPS_NOT_REQUESTED: call request_apps first");
-        if ((use == Use.OPEN || use == Use.ACT_HELD) && !screen.apps.contains(pkg))
+        if ((use == Use.OPEN || use == Use.ACT_HELD || use == Use.LOOK_HELD) && !screen.apps.contains(pkg))
             throw new IOException("APP_NOT_HELD");
         if (use != Use.LOOK) requireAppsAllowed(screen);
         return screen;

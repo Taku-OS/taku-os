@@ -4,6 +4,7 @@ import static org.agentos.assistant.DiningPollBookingFlow.*;
 
 import android.app.ActivityManager;
 import android.content.Context;
+import android.os.UserManager;
 
 import org.json.JSONObject;
 
@@ -30,7 +31,13 @@ final class DiningBookingRead {
     private DiningBookingRead() {}
 
     static boolean action(JSONObject args) {
-        return Set.of("booking-inspect", "booking-verify-date", "booking-begin-submit")
+        return Set.of(
+                        "booking-inspect",
+                        "booking-verify-date",
+                        "booking-begin-submit",
+                        "booking-reconcile",
+                        "booking-reconcile-date",
+                        "booking-safe-input")
                 .contains(args.optString("action"));
     }
 
@@ -39,7 +46,7 @@ final class DiningBookingRead {
         if (state.booking() == null || state.booking().taskId() == null) {
             throw new IOException("BOOKING_NOT_STARTED");
         }
-        return NativeClient.exchange(
+        JSONObject request =
                 new JSONObject()
                         .put("op", "diningPollInput")
                         .put("action", action)
@@ -47,7 +54,29 @@ final class DiningBookingRead {
                         .put("intentId", watch.getString("sendIntentId"))
                         .put("executionThreadId", state.meal().sourceThreadId())
                         .put("bookingTaskId", state.booking().taskId())
-                        .put("bookingKey", state.booking().key()));
+                        .put("bookingKey", state.booking().key());
+        if (reconciling(action)) {
+            JSONObject binding = retainedBinding(watch);
+            if (binding != null) request.put("binding", binding);
+        }
+        return NativeClient.exchange(request);
+    }
+
+    private static JSONObject retainedBinding(JSONObject watch) throws Exception {
+        JSONObject original = watch.optJSONObject("openTableSubmission");
+        if (original == null) original = watch.optJSONObject("dateProof");
+        if (original == null || original.optInt("displayId", -1) <= 0) return null;
+        JSONObject result = new JSONObject();
+        for (String field :
+                Set.of("screenKey", "generation", "turnId", "taskId", "displayId", "userId")) {
+            if (!original.has(field)) return null;
+            result.put(field, original.get(field));
+        }
+        return result;
+    }
+
+    private static boolean reconciling(String action) {
+        return "booking-reconcile".equals(action) || "booking-reconcile-date".equals(action);
     }
 
     static JSONObject inspect(Context context, JSONObject watch) throws Exception {
@@ -58,21 +87,87 @@ final class DiningBookingRead {
         return forward(watch, "booking-inspect").getJSONObject("watch");
     }
 
+    static JSONObject reconcile(Context context, JSONObject watch, boolean dateOnly)
+            throws Exception {
+        if (DiningPollBooking.state(watch).phase() == Phase.CONFIRMED) {
+            DiningBookingContinuation.drain(context, watch);
+            return watch;
+        }
+        JSONObject result =
+                forward(watch, dateOnly ? "booking-reconcile-date" : "booking-reconcile");
+        return dateOnly ? result : result.getJSONObject("watch");
+    }
+
     static JSONObject nativeCall(Context context, JSONObject target) throws Exception {
         DiningPollSendState.cleanupTarget(target);
-        JSONObject watch = DiningPollBooking.require(context, target.getString("watchId"));
+        String action = target.getString("action");
+        boolean navigation = "booking-safe-input".equals(action), recovery = reconciling(action);
+        if (recovery != Boolean.TRUE.equals(target.opt("readOnlyBooking"))
+                || !recovery && target.has("readOnlyForeground")) throw changed();
+        JSONObject watch =
+                navigation
+                        ? navigationWatch(context, target)
+                        : DiningPollBooking.require(context, target.getString("watchId"));
         State state = DiningPollBooking.state(watch);
-        if (!watch.getString("sendIntentId").equals(target.getString("intentId"))
-                || !watch.optBoolean("active", true)) {
-            throw new IOException("BOOKING_RECEIPT_TARGET_CHANGED");
-        }
+        if (!watch.optBoolean("active", true)
+                || !navigation
+                        && !watch.getString("sendIntentId").equals(target.getString("intentId")))
+            throw changed();
         check(context, target, state);
-        return switch (target.getString("action")) {
-            case "booking-verify-date" -> verifyDate(context, target, watch, state);
+        if (recovery
+                && DiningBookingClaim.androidUser(watch, android.os.Process.myUid() / 100_000)
+                        != target.getInt("userId")) throw changed();
+        if (recovery && !Boolean.TRUE.equals(target.opt("readOnlyForeground"))) {
+            JSONObject retained = retainedBinding(watch);
+            if (retained == null) throw changed();
+            for (var it = retained.keys(); it.hasNext(); ) {
+                String field = it.next();
+                if (!retained.get(field).equals(target.opt(field))) throw changed();
+            }
+        }
+        return switch (action) {
+            case "booking-verify-date", "booking-reconcile-date" ->
+                    verifyDate(context, target, watch, state);
             case "booking-begin-submit" -> beginSubmit(context, target, watch, state);
-            case "booking-inspect" -> inspectReceipt(context, target, watch, state);
+            case "booking-inspect", "booking-reconcile" ->
+                    inspectReceipt(context, target, watch, state);
+            case "booking-safe-input" -> navigation(context, target, state);
             default -> throw new IOException("UNKNOWN_POLL_METHOD");
         };
+    }
+
+    private static JSONObject navigationWatch(Context context, JSONObject target) throws Exception {
+        if (!target.getString("bookingTaskId").equals(target.opt("requestId"))) throw changed();
+        JSONObject ledger = DiningPollBooking.ledger(context), found = null;
+        for (var it = ledger.keys(); it.hasNext(); ) {
+            JSONObject candidate = ledger.getJSONObject(it.next());
+            if (!target.getString("bookingTaskId").equals(candidate.optString("taskId"))) continue;
+            Booking booking = DiningPollBooking.state(candidate).booking();
+            if (booking == null
+                    || !booking.key().equals(target.optString("bookingKey"))
+                    || !booking.meal()
+                            .sourceThreadId()
+                            .equals(target.optString("executionThreadId"))) continue;
+            if (found != null) throw changed();
+            found = candidate;
+        }
+        if (found == null) throw changed();
+        return found;
+    }
+
+    private static JSONObject navigation(Context context, JSONObject target, State state)
+            throws Exception {
+        if (state.phase() != Phase.WORKING && state.phase() != Phase.UNKNOWN) throw changed();
+        int display = target.getInt("displayId");
+        DiningPollUi.read(
+                ui -> {
+                    DiningBookingNavigation.apply(
+                            () -> DiningPollUi.root(ui, display, "com.opentable"),
+                            () -> check(context, target, state),
+                            target.getJSONObject("input"));
+                    return null;
+                });
+        return new JSONObject().put("inputApplied", true);
     }
 
     private static JSONObject beginSubmit(
@@ -111,16 +206,15 @@ final class DiningBookingRead {
                     if (!first.equals(stable))
                         throw new IOException("OPENTABLE_CHECKOUT_CONTROL_CHANGED");
                     check(context, target, state);
-                    JSONObject latest = DiningPollBooking.require(context, watch.getString("id"));
-                    if (latest.has("openTableSubmission")
-                            || !state.booking().equals(DiningPollBooking.state(latest).booking()))
-                        throw new IOException("BOOKING_SUBMISSION_UNAVAILABLE");
+                    String watchId = watch.getString("id"),
+                            nonce = target.getString("operationToken");
                     JSONObject attempt =
                             binding(target)
                                     .put("attemptedAt", System.currentTimeMillis())
+                                    .put("operationToken", nonce)
                                     .put("outcome", "unknown");
-                    latest.put("openTableSubmission", attempt);
-                    DiningPollBooking.save(context, latest);
+                    DiningPollBooking.claimCheckout(
+                            context, watchId, state.booking(), attempt, target.getInt("userId"));
                     try {
                         var current =
                                 DiningBookingCheckout.verify(
@@ -132,8 +226,7 @@ final class DiningBookingRead {
                         check(context, target, state);
                         if (!DiningBookingCheckout.click(current))
                             throw new IOException("BOOKING_SUBMISSION_UNKNOWN");
-                        attempt.put("outcome", "dispatched");
-                        DiningPollBooking.save(context, latest);
+                        DiningPollBooking.confirmCheckoutDispatch(context, watchId, nonce);
                         return new JSONObject()
                                 .put("submissionRecorded", true)
                                 .put("clickDispatched", true)
@@ -147,7 +240,8 @@ final class DiningBookingRead {
     private static JSONObject binding(JSONObject target) throws Exception {
         JSONObject value = new JSONObject();
         for (String field : BINDING) value.put(field, target.get(field));
-        return value;
+        return value.put("readOnlyBooking", target.optBoolean("readOnlyBooking"))
+                .put("readOnlyForeground", target.optBoolean("readOnlyForeground"));
     }
 
     private static JSONObject verifyDate(
@@ -205,13 +299,18 @@ final class DiningBookingRead {
         DiningPollReceiptTarget.verifyAddress(watch.optString("bookingAddress"), read.address());
         check(context, target, state);
         Change confirmation = confirmed(state, read.receipt(), Instant.now());
-        watch.put("restaurantAddress", read.address()).put("existingCardId", read.existingCardId());
+        watch.put("restaurantAddress", read.address())
+                .put("existingCardId", read.existingCardId())
+                .put("openTableReceiptBinding", binding(target));
         DiningPollBooking.apply(context, watch, confirmation);
         return new JSONObject().put("watch", watch);
     }
 
     private static boolean recentProof(JSONObject proof, JSONObject target, State state, long now) {
-        if (proof == null) return false;
+        if (proof == null
+                || proof.optBoolean("readOnlyBooking") != target.optBoolean("readOnlyBooking")
+                || proof.optBoolean("readOnlyForeground")
+                        != target.optBoolean("readOnlyForeground")) return false;
         for (String field : BINDING) {
             if (proof.opt(field) == null || !proof.opt(field).equals(target.opt(field)))
                 return false;
@@ -231,26 +330,49 @@ final class DiningBookingRead {
                 || context.getSystemService(android.app.KeyguardManager.class).isKeyguardLocked()) {
             throw new IOException("BOOKING_RECEIPT_CANCELLED");
         }
+        boolean foreground = Boolean.TRUE.equals(target.opt("readOnlyForeground"));
+        int display = target.optInt("displayId", -1), user = target.optInt("userId", -1);
         if (state.booking() == null
                 || !state.booking().key().equals(target.optString("bookingKey"))
                 || !java.util.Objects.equals(
                         state.booking().taskId(), target.optString("bookingTaskId"))
                 || !state.meal().sourceThreadId().equals(target.optString("executionThreadId"))
-                || target.optInt("displayId", -1) <= 0
-                || !"com.opentable".equals(target.optString("packageName"))
-                || !Set.of(Phase.WORKING, Phase.UNKNOWN).contains(state.phase())) {
-            throw new IOException("BOOKING_RECEIPT_TARGET_CHANGED");
-        }
+                || !"com.opentable".equals(target.opt("packageName"))
+                || target.optBoolean("legacy", true)
+                || !Set.of(Phase.WORKING, Phase.UNKNOWN).contains(state.phase())
+                || display < 0
+                || foreground != (display == 0)
+                || user != android.os.Process.myUid() / 100_000
+                || foreground
+                        && (!target.optBoolean("readOnlyBooking")
+                                || !context.getSystemService(UserManager.class).isUserForeground()))
+            throw changed();
+        ActivityManager.RunningTaskInfo first = null;
+        int visibleOpenTable = 0;
         for (ActivityManager.RunningTaskInfo task :
                 context.getSystemService(ActivityManager.class).getRunningTasks(100)) {
-            if (DiningPollUi.display(task) != target.getInt("displayId")
-                    || task.topActivity == null) continue;
-            if ("com.opentable".equals(task.topActivity.getPackageName())
-                    && task.taskId == target.getInt("taskId")
-                    && task.getClass().getField("userId").getInt(task) == target.getInt("userId"))
-                return;
-            throw new IOException("BOOKING_RECEIPT_TARGET_CHANGED");
+            if (DiningPollUi.display(task) != display
+                    || task.topActivity == null
+                    || foreground && !task.isVisible()) continue;
+            if (first == null) first = task;
+            if (!foreground) break;
+            String topApp = task.topActivity.getPackageName(),
+                    baseApp = task.baseActivity == null ? "" : task.baseActivity.getPackageName();
+            if ("com.opentable".equals(topApp) || "com.opentable".equals(baseApp))
+                visibleOpenTable++;
         }
-        throw new IOException("BOOKING_RECEIPT_NOT_VISIBLE");
+        if (first == null) throw new IOException("BOOKING_RECEIPT_NOT_VISIBLE");
+        if (first.taskId != target.getInt("taskId")
+                || first.getClass().getField("userId").getInt(first) != user
+                || !"com.opentable".equals(first.topActivity.getPackageName())
+                || foreground
+                        && (visibleOpenTable != 1
+                                || first.baseActivity == null
+                                || !"com.opentable".equals(first.baseActivity.getPackageName())))
+            throw changed();
+    }
+
+    private static IOException changed() {
+        return new IOException("BOOKING_RECEIPT_TARGET_CHANGED");
     }
 }

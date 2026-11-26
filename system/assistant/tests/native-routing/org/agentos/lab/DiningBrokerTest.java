@@ -6,6 +6,7 @@ import java.nio.channels.FileLock;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import org.agentos.assistant.DiningWatchFixture;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -150,7 +151,7 @@ public final class DiningBrokerTest {
     private static void bookingEvidenceRequiresTheMatchingConfirmedTask() throws Exception {
         String key = "booking:" + "a".repeat(40), taskId = "1795450000001";
         JSONObject input = new JSONObject().put("op", "diningPollInput").put("action", "booking-begin-submit")
-                .put("watchId", "meal:" + "b".repeat(40)).put("intentId", INTENT).put("bookingKey", key)
+                .put("watchId", DiningWatchFixture.watchId(INTENT)).put("intentId", INTENT).put("bookingKey", key)
                 .put("bookingTaskId", taskId).put("executionThreadId", THREAD);
         DiningBookingInput.Request request = DiningBookingInput.request(input);
         JSONObject confirmed = new JSONObject().put("id", taskId).put("diningBookingKey", key);
@@ -169,6 +170,76 @@ public final class DiningBrokerTest {
                 "receipt reads use the real visible OpenTable task");
         rejects("DINING_POLL_SCREEN_UNAVAILABLE",
                 () -> DiningPollInput.visibleTask(screen, 6, 1, WHATSAPP));
+    }
+
+    private static void bookingInputStaysScopedAfterDispatch() throws Exception {
+        String key = "booking:" + "a".repeat(40), taskId = "1795450000001";
+        JSONObject call = new JSONObject().put("threadId", THREAD).put("turnId", "booking-turn");
+        JSONObject active = new JSONObject().put("id", taskId).put("diningBookingKey", key);
+        DiningBookingInput.Request captured = DiningBookingInput.scope(call, active, THREAD);
+        check(captured != null && key.equals(captured.bookingKey()), "the marked task is captured when dispatch starts");
+        check(DiningBookingInput.scope(call, active, INTENT) == null, "different active threads keep their normal tool behavior");
+        check(DiningBookingInput.scope(call, new JSONObject().put("id", taskId), THREAD) == null,
+                "ordinary tasks keep their normal tool behavior");
+        DiningBookingInput.Turns turns = new DiningBookingInput.Turns();
+        turns.started(THREAD, "booking-turn", active, THREAD);
+        check(captured.equals(turns.scope(call, null, "")),
+                "a late tool stays guarded if the locally active record was cleared before native completion");
+        check(turns.scope(new JSONObject(call.toString()).put("turnId", "subsequent-turn"), null, "") == null,
+                "unrelated later turns do not inherit the booking guard");
+        active.remove("diningBookingKey");
+        rejects("BOOKING_EXECUTION_CHANGED", () -> DiningBookingInput.requireBooking(captured, active, THREAD));
+        for (String tool : new String[]{"tap", "touch", "swipe", "type_text"}) {
+            check(DiningBookingInput.guards(tool, new JSONObject()), "every generic mutation is guarded: " + tool);
+        }
+        check(!DiningBookingInput.guards("touch", new JSONObject().put("phase", "CANCEL")),
+                "cancel can safely release an existing pointer without applying input");
+        rejects("BOOKING_UNSAFE_INPUT", () -> DiningBookingInput.safeInput("touch",
+                new JSONObject().put("phase", "UP").put("x", 2).put("y", 7)));
+        JSONObject tap = new JSONObject().put("x", 12).put("y", 724);
+        check("tap".equals(DiningBookingInput.safeInput("tap", tap).getString("tool")),
+                "proved navigation receives a bounded typed tap, not a caller-supplied scope");
+        rejects("BOOKING_SAFE_INPUT_INVALID", () -> DiningBookingInput.safeInput("tap",
+                new JSONObject().put("x", 720).put("y", 12)));
+        rejects("BOOKING_SAFE_INPUT_INVALID", () -> DiningBookingInput.safeInput("tap",
+                new JSONObject(tap.toString()).put("packageName", "com.opentable")));
+    }
+
+    private static void bookingRecoveryIsReadOnlyAndBoundToVisibleScope() throws Exception {
+        String key = "booking:" + "a".repeat(40), taskId = "1795450000001";
+        JSONObject base = new JSONObject().put("op", "diningPollInput").put("action", "booking-reconcile")
+                .put("watchId", DiningWatchFixture.watchId(INTENT)).put("intentId", INTENT).put("bookingKey", key)
+                .put("bookingTaskId", taskId).put("executionThreadId", THREAD);
+        JSONObject original = new JSONObject().put("screenKey", "task-" + "a".repeat(20))
+                .put("generation", INTENT).put("turnId", "booking-turn")
+                .put("taskId", 51).put("displayId", 6).put("userId", 1);
+        DiningBookingInput.request(base);
+        DiningBookingInput.request(new JSONObject(base.toString()).put("binding", original));
+        rejects("BOOKING_RECEIPT_INVALID_ARGUMENT", () -> DiningBookingInput.request(
+                new JSONObject(base.toString()).put("action", "booking-begin-submit").put("binding", original)));
+        rejects("BOOKING_RECEIPT_INVALID_ARGUMENT", () -> DiningBookingInput.request(
+                new JSONObject(base.toString()).put("watchId", "meal:" + "a".repeat(40))));
+        rejects("BOOKING_RECEIPT_INVALID_ARGUMENT", () -> DiningBookingInput.request(
+                new JSONObject(base.toString()).put("readOnlyBooking", true)));
+        DiningBookingReconciliation.Target retained = DiningBookingReconciliation.original(original);
+        JSONObject identity = new JSONObject(original.toString()).put("admitted", true);
+        check(retained.matchesLease(identity), "retained display matches the original generation and Android user");
+        check(!retained.matchesLease(identity.put("generation", THREAD)), "a replacement lease cannot recover the old screen");
+        JSONObject callback = retained.callback(new JSONObject(base.toString()).put("binding", original), taskId);
+        check(callback.getBoolean("readOnlyBooking") && !callback.getBoolean("readOnlyForeground")
+                        && !callback.has("binding") && callback.getInt("taskId") == 51,
+                "retained validation grants only a read-only callback to the exact original task");
+        JSONArray visible = new JSONArray().put(appTask(91, 1, 0, "com.opentable"));
+        DiningBookingReconciliation.Target foreground = DiningBookingReconciliation.foreground(visible, 1);
+        callback = foreground.callback(base, taskId);
+        check(callback.getBoolean("readOnlyBooking") && callback.getBoolean("readOnlyForeground")
+                        && callback.getInt("displayId") == 0 && callback.getString("screenKey").isEmpty(),
+                "user-opened receipt read cannot inherit the booking display's input lease");
+        rejects("BOOKING_RECEIPT_NOT_VISIBLE", () -> DiningBookingReconciliation.foreground(visible, 7));
+        rejects("BOOKING_RECEIPT_NOT_VISIBLE", () -> DiningBookingReconciliation.foreground(
+                new JSONArray().put(appTask(92, 1, 0, WHATSAPP)).put(appTask(91, 1, 0, "com.opentable")), 1));
+        rejects("BOOKING_RECEIPT_NOT_VISIBLE", () -> DiningBookingReconciliation.foreground(
+                new JSONArray().put(appTask(91, 1, 0, "com.opentable").put("visible", false)), 1));
     }
 
     private static void uberEvidenceRequiresNativeRideDispatch() throws Exception {
@@ -190,6 +261,8 @@ public final class DiningBrokerTest {
         operationFenceNeedsAReleasedLock();
         passiveObservationNeverAdoptsAnotherVisibleTaskForInput();
         bookingEvidenceRequiresTheMatchingConfirmedTask();
+        bookingInputStaysScopedAfterDispatch();
+        bookingRecoveryIsReadOnlyAndBoundToVisibleScope();
         uberEvidenceRequiresNativeRideDispatch();
         System.out.println("DiningBrokerTest: Yelp routing, poll ownership and observation, OpenTable binding, Uber dispatch, and cleanup passed");
     }

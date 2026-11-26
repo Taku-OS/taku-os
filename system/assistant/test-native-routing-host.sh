@@ -60,6 +60,9 @@ compile_jvm "$task_out/dining" "$task_json:$ANDROID_JAR" \
  system/assistant/broker/org/agentos/lab/*.java \
  system/assistant/broker/org/agentos/lab/*.kt \
  tooling/app-kit/apk-shell/src/org/agentos/runtime/AppApiClient.java \
+ system/assistant/src/org/agentos/assistant/DiningPollBookingFlow.java \
+ system/assistant/src/org/agentos/assistant/DiningRestaurantIdentity.java \
+ system/assistant/tests/native-routing/org/agentos/assistant/DiningWatchFixture.java \
  system/assistant/tests/native-routing/org/agentos/lab/DiningBrokerTest.java
 "$JDK/bin/java" -cp "$task_out/dining:$task_json:$ANDROID_JAR:$KOTLIN_LIB/kotlin-stdlib.jar" \
  org.agentos.lab.DiningBrokerTest | tee "$task_out/dining-result.txt"

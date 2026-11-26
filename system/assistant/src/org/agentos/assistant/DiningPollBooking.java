@@ -41,6 +41,28 @@ final class DiningPollBooking {
     static synchronized void save(Context context, JSONObject watch) throws Exception {
         JSONObject all = ledger(context);
         all.put(watch.getString("id"), watch);
+        saveLedger(context, all);
+    }
+
+    static synchronized void claimCheckout(
+            Context context, String id, Booking expected, JSONObject attempt, int user)
+            throws Exception {
+        JSONObject all = ledger(context);
+        DiningBookingClaim.reserve(all, id, expected, attempt, user);
+        saveLedger(context, all);
+    }
+
+    static synchronized void confirmCheckoutDispatch(
+            Context context, String id, String operationToken) throws Exception {
+        JSONObject all = ledger(context), watch = all.getJSONObject(id);
+        JSONObject attempt = watch.getJSONObject("openTableSubmission");
+        if (!operationToken.equals(attempt.optString("operationToken")))
+            throw new IOException("BOOKING_SUBMISSION_UNKNOWN");
+        attempt.put("outcome", "dispatched");
+        saveLedger(context, all);
+    }
+
+    private static void saveLedger(Context context, JSONObject all) throws IOException {
         if (!prefs(context).edit().putString("watches", all.toString()).commit()) {
             throw new IOException("POLL_STATE_SAVE_FAILED");
         }
@@ -180,7 +202,9 @@ final class DiningPollBooking {
                             Set.of("id", "key", "revision", "values");
                     case "dining/poll/inspect",
                                     "dining/poll/verify-date",
-                                    "dining/poll/begin-submit" ->
+                                    "dining/poll/begin-submit",
+                                    "dining/poll/reconcile",
+                                    "dining/poll/reconcile-date" ->
                             Set.of("id");
                     default -> throw new IOException("UNKNOWN_POLL_METHOD");
                 };
@@ -197,6 +221,8 @@ final class DiningPollBooking {
             case "dining/poll/dismiss-confirmation" ->
                     DiningPollBookingConfirmation.dismiss(context, watch, args.getString("key"));
             case "dining/poll/inspect" -> DiningBookingRead.inspect(context, watch);
+            case "dining/poll/reconcile" -> DiningBookingRead.reconcile(context, watch, false);
+            case "dining/poll/reconcile-date" -> DiningBookingRead.reconcile(context, watch, true);
             case "dining/poll/verify-date" ->
                     DiningBookingRead.forward(watch, "booking-verify-date");
             case "dining/poll/begin-submit" ->
@@ -267,7 +293,7 @@ final class DiningPollBooking {
             return existing;
         }
         String thread = intent.getString("sourceThreadId"), group = intent.getString("groupName");
-        String id = key("watch", intentId);
+        String id = watchId(intentId);
         List<Restaurant> options = new ArrayList<>();
         for (String name : DiningPollBookingCodec.strings(intent.getJSONArray("options")))
             options.add(new Restaurant(key("restaurant", name), name));

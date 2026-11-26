@@ -29,10 +29,12 @@ tests=system/assistant/tests/dining-island/org/agentos/assistant
   "$main"/DiningPollReceiptTarget.java "$main"/DiningRestaurantIdentity.java "$main"/DiningPollBookingFlow.java \
   "$main"/DiningPollReceipt.java "$main"/DiningPollDateProof.java "$main"/DiningPollSchedule.java "$main"/DiningPollBookingForm.java \
   "$main"/DiningReservationFeedCard.java "$main"/DiningBookingCheckout.java "$main"/DiningPollUi.java \
-  "$main"/DiningPollSendAutomation.java \
+  "$main"/DiningPollSendAutomation.java "$main"/DiningPollBookingCodec.java \
+  "$main"/DiningBookingClaim.java "$main"/DiningBookingNavigation.java \
   "$tests"/DiningPollIslandTest.java "$tests"/DiningPollReceiptTargetTest.java "$tests"/DiningPollBookingFlowTest.java \
-  "$tests"/DiningPollReceiptDateTest.java
+  "$tests"/DiningPollReceiptDateTest.java "$tests"/DiningBookingClaimTest.java
 "$JDK/bin/java" -cp "$task_out/classes:$task_json" org.agentos.assistant.DiningPollIslandTest
 "$JDK/bin/java" -cp "$task_out/classes:$task_json" org.agentos.assistant.DiningPollReceiptTargetTest
 "$JDK/bin/java" -cp "$task_out/classes:$task_json" org.agentos.assistant.DiningPollBookingFlowTest
 "$JDK/bin/java" -cp "$task_out/classes:$task_json:$ANDROID_JAR" org.agentos.assistant.DiningPollReceiptDateTest
+"$JDK/bin/java" -cp "$task_out/classes:$task_json:$ANDROID_JAR" org.agentos.assistant.DiningBookingClaimTest

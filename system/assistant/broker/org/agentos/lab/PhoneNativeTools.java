@@ -84,7 +84,18 @@ final class PhoneNativeTools {
  static JSONObject tool(String name,String description,JSONObject properties)throws Exception {JSONArray required=new JSONArray();for(java.util.Iterator<String> it=properties.keys();it.hasNext();)required.put(it.next());return new JSONObject().put("type","function").put("name",name).put("description",description).put("inputSchema",new JSONObject().put("type","object").put("properties",properties).put("required",required).put("additionalProperties",false));}
  static JSONObject text(String value)throws Exception{return new JSONObject().put("success",true).put("contentItems",new JSONArray().put(new JSONObject().put("type","inputText").put("text",value)));}
  static JSONObject failure(String value)throws Exception{return text(value).put("success",false);}
- static JSONObject execute(JSONObject p)throws Exception {
+ private static final DiningBookingInput.Turns bookingTurns = new DiningBookingInput.Turns();
+ static void bookingTurnStarted(String thread, String turn) {
+  bookingTurns.started(thread, turn, CodexAppServer.currentRequest, CodexAppServer.activeThread);
+ }
+ static void clearBookingTurns() { bookingTurns.clear(); }
+ @FunctionalInterface interface Dispatch { JSONObject run() throws Exception; }
+ static Dispatch bindForDispatch(JSONObject call) {
+  DiningBookingInput.Request booking = bookingTurns.scope(call, CodexAppServer.currentRequest, CodexAppServer.activeThread);
+  return () -> execute(call, booking);
+ }
+ static JSONObject execute(JSONObject p)throws Exception { return bindForDispatch(p).run(); }
+ private static JSONObject execute(JSONObject p,DiningBookingInput.Request booking)throws Exception {
   String name=p.getString("tool");name=name.substring(Math.max(name.lastIndexOf('.'),name.lastIndexOf('/'))+1);if(name.startsWith("taku_phone__"))name=name.substring(12);
   JSONObject args=p.optJSONObject("arguments");if(args==null)args=new JSONObject();
   if(name.equals("apps"))return text(PhoneAppCatalog.query(args).toString());
@@ -93,6 +104,7 @@ final class PhoneNativeTools {
   if(name.equals("matter"))return text(MatterBridge.control(new JSONObject(args.toString()).put("threadId",p.getString("threadId"))).toString());
   if(name.equals("audio"))return text(AudioBridge.control(new JSONObject(args.toString()).put("threadId",p.getString("threadId"))).toString());
   if(name.equals("prepare_foreground_draft")){
+   if (booking != null) throw new IOException("BOOKING_UNSAFE_INPUT");
    PhoneTextInput.AUTOMATION_LOCK.lockInterruptibly();
    try {DiningPollInput.requireAutomationAvailable();if(Thread.currentThread().isInterrupted())throw new InterruptedException();PhoneGestures.requireIdle();return text(PhoneDraftHandoff.prepare(args.getString("packageName"),args.getString("conversationTitle"),args.getString("text")).toString());}
    finally {PhoneTextInput.AUTOMATION_LOCK.unlock();}
@@ -110,16 +122,24 @@ final class PhoneNativeTools {
   final JSONObject arguments=args;final String toolName=name;
   boolean yelpSearch = name.equals("open_yelp_search");
   boolean uberReview = name.equals("inspect_uber_upcoming") || name.equals("handoff_for_review");
+  boolean bookingInput = booking != null && DiningBookingInput.guards(name, args);
   if (name.equals("inspect_uber_upcoming") && args.length() != 0) throw new IOException("INVALID_ARGUMENT");
   DedicatedScreens.Use use =
     name.equals("open_app") || yelpSearch ? DedicatedScreens.Use.OPEN
-    : uberReview ? DedicatedScreens.Use.ACT_HELD
+    : uberReview || bookingInput ? DedicatedScreens.Use.ACT_HELD
     : name.equals("observe_background") || name.equals("device_info") ? DedicatedScreens.Use.LOOK
     : DedicatedScreens.Use.ACT;
   String pkg = yelpSearch ? PhoneYelpSearchRoute.PACKAGE
-    : uberReview ? PhoneRideReview.PACKAGE : args.optString("packageName");
+    : uberReview ? PhoneRideReview.PACKAGE
+    : bookingInput ? DiningBookingInput.PACKAGE : args.optString("packageName");
   return DedicatedScreensOnDevice.shared().withScreen(thread, use, pkg,
-    screen -> executeScreen(p, arguments, toolName, screen));
+    screen -> {
+     if (bookingInput) {
+      PhoneGestures.prepare(screen);
+      return text(DiningBookingInput.applyInput(booking, p, arguments, toolName, screen).toString());
+     }
+     return executeScreen(p, arguments, toolName, screen);
+    });
  }
  static java.util.List<String> packages(JSONObject args) throws Exception {
   JSONArray list = args.optJSONArray("packages");

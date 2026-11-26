@@ -12,6 +12,10 @@ import org.json.JSONObject;
 
 /** Host-only endpoints. NativeBridge and its confirmation validation are production sources. */
 final class PhoneNativeTools {
+    @FunctionalInterface interface Dispatch { JSONObject run() throws Exception; }
+    static Dispatch bindForDispatch(JSONObject call) { return () -> execute(call); }
+    static void bookingTurnStarted(String thread, String turn) {}
+    static void clearBookingTurns() {}
     static final AtomicInteger executions=new AtomicInteger();
     static volatile CountDownLatch entered=new CountDownLatch(1),interrupted=new CountDownLatch(1);
     static JSONArray definitions() { return new JSONArray(); }

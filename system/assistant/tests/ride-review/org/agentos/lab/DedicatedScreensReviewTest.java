@@ -28,6 +28,11 @@ public final class DedicatedScreensReviewTest {
         verify("awaiting_review".equals(rig.screens.describe(session(1)).getString("status")), "Generic return cannot bypass the real-user review step");
         rejects("SCREEN_AGENT_PAUSED", () -> rig.screens.withScreen(session(1), DedicatedScreens.Use.ACT, "", screen -> new JSONObject()));
         rejects("SCREEN_AGENT_PAUSED", () -> rig.screens.withScreen(session(1), DedicatedScreens.Use.OPEN, "com.ubercab", screen -> new JSONObject()));
+        verify(rig.screens.withScreen(session(1), DedicatedScreens.Use.LOOK_HELD, "com.ubercab",
+                        screen -> screen.json()).getInt("displayId") == display,
+                "Read-only held-app validation works after control has been paused");
+        rejects("APP_NOT_HELD", () -> rig.screens.withScreen(session(1), DedicatedScreens.Use.LOOK_HELD,
+                "com.opentable", screen -> new JSONObject()));
         rejects("SCREEN_AGENT_PAUSED", () -> rig.screens.release(session(1), java.util.List.of("com.ubercab")));
         rejects("SCREEN_AGENT_PAUSED", () -> rig.request(1, "Reopen a ride", "com.ubercab"));
         verify(rig.screens.turnEnded(session(1)) == null, "Normal task completion skips destructive turn cleanup");
@@ -69,6 +74,16 @@ public final class DedicatedScreensReviewTest {
         replaced.host.slots.get(old.getString("screenKey")).put("generation", java.util.UUID.randomUUID().toString());
         rejects("SCREEN_GENERATION_CHANGED", () -> replaced.screens.handoffForReview(session(4), old.getString("screenKey"), old.getString("generation"), "Review", "Check current page."));
         verify(!replaced.screens.describe(session(4)).has("review"), "A replaced host cannot acquire a false review receipt");
+        Rig missing = new Rig();
+        JSONObject retained = missing.request(5, "Retained receipt", "com.opentable");
+        int retainedTask = missing.tasks.open("com.opentable", retained.getInt("displayId"));
+        missing.host.slots.remove(retained.getString("screenKey"));
+        rejects("BOOKING_RECEIPT_NOT_VISIBLE", () -> missing.screens.withScreen(session(5),
+                DedicatedScreens.Use.LOOK_HELD, "com.opentable", screen -> {
+                    throw new java.io.IOException("BOOKING_RECEIPT_NOT_VISIBLE");
+                }));
+        verify(missing.tasks.tasks.stream().anyMatch(t -> t.id() == retainedTask),
+                "A failed receipt read cannot close the retained App task");
         System.out.println("DedicatedScreensReviewTest: " + checks + " checks passed");
     }
 }
