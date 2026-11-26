@@ -48,6 +48,14 @@ final class PhoneNativeTools {
       + " request takes such a screen when none is idle and the limit is reached.",
     new JSONObject()));
   tools.put(tool("observe_background","Observe this thread's assigned Android execution screen. Returns its real screenshot and screen/frame identity.",new JSONObject()));
+  JSONObject presentation = tool("show_background",
+    "When the user asks to watch, first observe_background to verify this thread's existing App screen, then open that exact screen in Taku's live viewer."
+      + " This does not acquire Apps or grant input control. A successfully completed turn keeps the preview for the remaining requested duration"
+      + " (10–1800 seconds; default 600). Stop, release and existing ownership rules still apply. Verify the visible viewer; dispatch alone is not proof.",
+    new JSONObject().put("durationSeconds",new JSONObject().put("type","integer")
+      .put("minimum",10).put("maximum",1800)));
+  presentation.getJSONObject("inputSchema").put("required",new JSONArray());
+  tools.put(presentation);
   tools.put(tool("open_app","Open an App you hold from request_apps.",new JSONObject().put("packageName",new JSONObject().put("type","string"))));
   tools.put(tool("tap","Tap coordinates on the independent execution screen.",new JSONObject().put("x",new JSONObject().put("type","integer")).put("y",new JSONObject().put("type","integer"))));
   tools.put(tool("swipe","Perform one continuous drag or scroll on the independent screen, then release. Observe the actual result before another action.",new JSONObject()
@@ -111,6 +119,7 @@ final class PhoneNativeTools {
   String display=Integer.toString(screen.displayId);
   if(name.equals("tap") || name.equals("open_app") || name.equals("type_text"))PhoneGestures.requireIdle(screen.displayId);
   switch(name){
+   case "show_background":return text(BackgroundPresentation.show(DedicatedScreensOnDevice.shared(),call.getString("threadId"),screen,BackgroundPresentation.duration(args)).toString());
    case "swipe":return text(PhoneGestures.swipe(call,screen.displayId,args).toString());
    case "touch":return text(PhoneGestures.touch(call,screen.displayId,args).toString());
    case "device_info":return text(screen.json().put("android",TaskBroker.command("/system/bin/getprop","ro.build.version.release").trim()).put("model",TaskBroker.command("/system/bin/getprop","ro.product.model").trim()).toString());

@@ -321,7 +321,7 @@ final class NativeBridge {
   if(method.equals("turn/started")){PhoneGestures.startTurn(thread,p.getJSONObject("turn").getString("id"));s.put("activeTurnId",p.getJSONObject("turn").getString("id"));phonePolicyChanges.keySet().removeIf(owner->owner.startsWith(thread+"\n")&&!owner.equals(thread+"\n"+s.optString("activeTurnId")));s.remove("error");s.remove("plan");s.remove("cancellationCleanup");if(!admissions.turnStarted(thread)){s.put("phoneStoppedTurnId",p.getJSONObject("turn").getString("id"));enqueue(new Call("turn/interrupt",new JSONObject().put("threadId",thread).put("turnId",p.getJSONObject("turn").getString("id"))));tellParentIfClosed(thread);}}
   if(method.equals("turn/completed")){JSONObject completed=p.getJSONObject("turn");PhoneGestures.endTurn(thread,completed.getString("id"));cancelPhoneWorkers(thread,completed.getString("id"));
    phonePolicyChanges.remove(thread+"\n"+completed.getString("id"));
-   DedicatedScreensOnDevice.shared().turnEnded(thread);
+   DedicatedScreensOnDevice.shared().turnEnded(thread,"completed".equals(completed.getString("status")));
    s.put("completedTurn",new JSONObject().put("id",completed.getString("id")).put("status",completed.getString("status")));s.remove("activeTurnId");JSONObject error=completed.optJSONObject("error");if(error!=null)s.put("error",redact(error.optString("message")));requests.values().removeIf(q->q.optJSONObject("params").optString("threadId").equals(thread));}
   if(method.equals("turn/plan/updated"))s.put("plan",p);
   if(method.equals("turn/diff/updated"))s.put("diff",redact(p.optString("diff")));

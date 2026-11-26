@@ -397,6 +397,24 @@ Discovery/turn preparation updates `taku-open-access/SKILL.md` when it matches t
 
 ### Turn-end cleanup
 
+An agent that already holds a background screen can call
+`taku_phone.show_background` with optional integer `durationSeconds` (10–1800,
+default 600) when the user asks to watch. It opens the same public
+`workspaces/preview` viewer for the exact current lease. It neither acquires an
+App nor transfers input control. Observe the App before showing it and verify
+the viewer afterward; `viewerLaunched:true,requiresObservation:true` confirms
+only an accepted launch, not displayed pixels or task success.
+
+This explicitly opts the current lease into a bounded presentation hold. On
+successful turn completion, `workspaces/list` reports `presentationReady:true`,
+`status:"ready"` and `presentationRemainingMs`; Apps remain reserved until the
+original deadline. A new turn clears the ready marker. Expiry never stops an
+active turn or user-owned screen. Failed/interrupted completion, releasing all
+Apps, workspace release, session deletion/archive and service loss retain their
+ordinary cleanup behavior. A viewer launch failure cancels the hold. Public
+`workspaces/preview` alone does not extend a lease. Errors include
+`INVALID_PRESENTATION_DURATION` and `BACKGROUND_VIEWER_LAUNCH_FAILED`.
+
 `workspaces/list` shows `cleanup_failed` with `lastError:"SCREEN_CLEANUP_FAILED"`, `heldApps` and `cleanupRetryDelayMs`. The screen remains reserved. The worker retries after 30 seconds until close is confirmed. Wait and query while `stopping:true,admitted:false,canResume:false`. Empty `packageName` means current page unknown.
 
 ## First-run onboarding
