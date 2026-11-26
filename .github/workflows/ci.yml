@@ -60,8 +60,14 @@ jobs:
       - run: npm run patch:markdown
       - run: npm run prepare:feed-assets
       - run: node scripts/patch-enriched-markdown.cjs --check
+      # Validate against the installed SDK's bundled version map so Expo
+      # releases cannot change the expected versions for a locked install.
       - run: node node_modules/expo/bin/cli install --check
+        env:
+          EXPO_OFFLINE: '1'
       - run: npm run doctor
+        env:
+          EXPO_OFFLINE: '1'
       - run: npm run typecheck
       - run: npm run lint
       - run: npm test
