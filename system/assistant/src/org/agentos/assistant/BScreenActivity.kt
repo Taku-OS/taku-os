@@ -3,10 +3,14 @@ package org.agentos.assistant
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.Intent
+import android.content.res.ColorStateList
+import android.graphics.drawable.RippleDrawable
 import android.os.Bundle
 import android.os.Process
 import android.view.Display
+import android.view.Gravity
 import android.view.View
+import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.Switch
@@ -24,13 +28,17 @@ class BScreenActivity : Activity() {
     private lateinit var scroll: ScrollView
     private lateinit var content: LinearLayout
     private var catalog: Catalog? = null
+    private var catalogPage: CatalogPage? = null
     private var selected: Lease? = null
     private var listOffset = 0
     private var readError: String? = null
-    private var feedback: String? = null
+    private var limitNeedsRefresh = false
+    private var feedback: Feedback? = null
+    private var pending: FeedbackArea? = null
     private var resumed = false
     private var reading = false
-    private var changing = false
+    private val changing get() = pending != null
+    private val canEditLimit get() = !changing && readError == null && !limitNeedsRefresh
     private var readVersion = 0
     private val poll = Runnable { refresh() }
 
@@ -41,12 +49,19 @@ class BScreenActivity : Activity() {
         selected = savedInstanceState?.getBundle("lease")?.let { Lease.restore(it) }
         listOffset = savedInstanceState?.getInt("listOffset") ?: 0
         val root = workspace.root()
-        val header = widgets.column().apply { setPadding(widgets.dp(20), 0, widgets.dp(20), widgets.dp(12)) }
-        workspace.navigation(header, getString(R.string.bscreen_title), ::back)
-        title = widgets.text("", 27, true).apply { isAccessibilityHeading = true }
+        val header = widgets.column().apply { setPadding(widgets.dp(20), 0, widgets.dp(20), widgets.dp(8)) }
+        val toolbar = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+        val navigation = widgets.column()
+        workspace.navigation(navigation, getString(R.string.bscreen_title), ::back)
+        toolbar.addView(navigation, LinearLayout.LayoutParams(0, -2, 1f))
+        refreshButton = widgets.button(getString(R.string.workspace_refresh), false) { refresh() }.apply {
+            minimumHeight = widgets.dp(48)
+            minimumWidth = widgets.dp(48)
+        }
+        toolbar.addView(refreshButton, LinearLayout.LayoutParams(-2, -2).apply { marginStart = widgets.dp(8) })
+        header.addView(toolbar)
+        title = widgets.text("", 24, true).apply { isAccessibilityHeading = true }
         widgets.add(header, title, 4)
-        refreshButton = widgets.button(getString(R.string.workspace_refresh), false) { refresh() }
-        widgets.add(header, refreshButton, 12)
         root.addView(header)
         content = widgets.column().apply { setPadding(widgets.dp(20), 0, widgets.dp(20), widgets.dp(24)) }
         scroll = ScrollView(this).apply { addView(content) }
@@ -119,9 +134,12 @@ class BScreenActivity : Activity() {
                 val error = result.exceptionOrNull()?.let { failure ->
                     ownerError(failure) ?: getString(R.string.workspace_unavailable_copy)
                 }
-                if (updated != catalog || error != readError) {
+                if ((updated != null && (updated != catalog || limitNeedsRefresh)) || error != readError) {
                     val offset = if (catalog == null && selected == null) listOffset else scroll.scrollY
-                    catalog = updated
+                    if (updated != null) {
+                        catalog = updated
+                        limitNeedsRefresh = false
+                    }
                     readError = error
                     render(offset)
                 }
@@ -130,9 +148,13 @@ class BScreenActivity : Activity() {
         }
     }
 
-    private fun <T> perform(operation: () -> T, onSuccess: (T) -> Unit = {}) {
+    private fun <T> perform(
+        operation: () -> T,
+        area: FeedbackArea = FeedbackArea.Page,
+        onSuccess: (T) -> Unit = {},
+    ) {
         if (!active() || changing) return
-        changing = true
+        pending = area
         readVersion++
         NativeClient.main.removeCallbacks(poll)
         feedback = null
@@ -141,9 +163,15 @@ class BScreenActivity : Activity() {
             val result = attempt(operation)
             NativeClient.main.post {
                 if (isFinishing || isDestroyed) return@post
-                changing = false
+                pending = null
                 val previousSelection = selected
-                result.onSuccess(onSuccess).onFailure { feedback = errorText(it) }
+                result.onSuccess(onSuccess).onFailure { failure ->
+                    val message = if (area == FeedbackArea.Limit) {
+                        limitNeedsRefresh = true
+                        limitError(failure)
+                    } else errorText(failure)
+                    feedback = Feedback(area, message)
+                }
                 render(if (previousSelection != null && selected == null) listOffset else scroll.scrollY)
                 refresh()
             }
@@ -154,63 +182,221 @@ class BScreenActivity : Activity() {
         WorkspaceCommands.call(applicationContext, "workspaces/$action", input, Process.myUid())
 
     private fun configure(change: PolicyChange) {
-        perform({ writePolicy(change) }, ::policySaved)
+        val area = if (change is PolicyChange.Limit) FeedbackArea.Limit else FeedbackArea.Page
+        perform({ writePolicy(change) }, area) { policySaved(it, area) }
     }
 
     private fun writePolicy(change: PolicyChange): Policy =
         readPolicy(call("configure", JSONObject().put("patch", change.json())).getJSONObject("policy"))
 
-    private fun policySaved(policy: Policy) {
+    private fun policySaved(policy: Policy, area: FeedbackArea) {
         catalog = catalog?.copy(policy = policy)
-        feedback = getString(R.string.workspace_saved)
+        val message = if (area == FeedbackArea.Limit) R.string.workspace_limit_saved else R.string.workspace_saved
+        feedback = Feedback(area, getString(message))
     }
 
     private fun render(offset: Int = scroll.scrollY) {
         refreshButton.isEnabled = !changing && !reading
         val lease = selected
         title.setText(if (lease == null) R.string.workspace_title else R.string.workspace_detail_back)
-        content.removeAllViews()
-        feedback?.let { note(it) }
-        if (changing) note(getString(R.string.workspace_action_pending))
         val snapshot = catalog
-        if (snapshot == null) {
-            note(readError ?: getString(R.string.workspace_loading))
-        } else if (lease == null) {
-            renderCatalog(snapshot)
+        if (snapshot != null && lease == null) {
+            val page = catalogPage ?: CatalogPage().also { catalogPage = it }
+            page.render(snapshot)
         } else {
-            val screen = snapshot.screens.firstOrNull { it.lease == lease }
-            if (screen == null) note(getString(R.string.workspace_error_changed)) else renderDetails(screen)
+            catalogPage = null
+            content.removeAllViews()
+            feedbackText(FeedbackArea.Page)?.let { note(it) }
+            when {
+                readError != null -> note(checkNotNull(readError))
+                snapshot == null -> note(getString(R.string.workspace_loading))
+                else -> {
+                    val screen = snapshot.screens.firstOrNull { it.lease == lease }
+                    if (screen == null) note(getString(R.string.workspace_error_changed)) else renderDetails(screen)
+                }
+            }
         }
         scroll.post { scroll.scrollTo(0, offset) }
     }
 
-    private fun note(message: String) {
-        val view = widgets.text(message, 14, false).apply { accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE }
-        widgets.add(content, view, 8)
+    private fun liveNote() = widgets.text("", 14, false).apply {
+        accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
     }
 
-    private fun renderCatalog(snapshot: Catalog) {
-        note(getString(R.string.workspace_summary))
-        val list = widgets.listGroup()
-        val screenCount = snapshot.screens.size
-        val taskCount = snapshot.screens.mapTo(HashSet()) { it.lease.threadId }.size
-        val counts = getString(R.string.workspace_task_counts,
-            resources.getQuantityString(R.plurals.workspace_spaces, screenCount, screenCount),
-            resources.getQuantityString(R.plurals.workspace_tasks, taskCount, taskCount))
-        widgets.section(content, getString(R.string.workspace_active), list)
-        val summary = widgets.card()
-        copy(summary, counts)
-        if (screenCount == 0) {
-            copy(summary, getString(R.string.workspace_empty_title), strong = true)
+    private fun note(message: String) {
+        widgets.add(content, liveNote().apply { text = message }, 8)
+    }
+
+    private fun feedbackText(area: FeedbackArea): String? = when {
+        pending == area -> getString(if (area == FeedbackArea.Limit) R.string.workspace_limit_saving else R.string.workspace_action_pending)
+        feedback?.area == area -> feedback?.message
+        else -> null
+    }
+
+    private fun showNote(view: TextView, message: String?) {
+        view.visibility = if (message == null) View.GONE else View.VISIBLE
+        if (view.text != message.orEmpty()) view.text = message.orEmpty()
+    }
+
+    private inner class CatalogPage {
+        private val readNotice = liveNote()
+        private val pageFeedback = liveNote()
+        private val active = widgets.listGroup()
+        private val settings = widgets.card()
+        private val background = policySwitch(R.string.workspace_allow)
+        private val backgroundCopy = widgets.text("", 14, false)
+        private val jev = policySwitch(R.string.workspace_jev_close)
+        private val decrease = limitButton("−", R.string.workspace_limit_decrease, -1)
+        private val increase = limitButton("+", R.string.workspace_limit_increase, 1)
+        private val value = widgets.text("", 18, true).apply {
+            gravity = Gravity.CENTER
+            minimumWidth = widgets.dp(40)
+            setPadding(widgets.dp(4), 0, widgets.dp(4), 0)
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
+        }
+        private val bounds = widgets.text("", 14, false)
+        private val limitFeedback = liveNote()
+        private val permissions = widgets.card()
+        private val apps = widgets.button(getString(R.string.workspace_allowed_apps), false, ::chooseApps).apply {
+            minimumHeight = widgets.dp(48)
+        }
+        private val revocations = widgets.column()
+        private var displayedScreens: List<ManagedWorkspace>? = null
+        private var displayedRevocations: List<Revocation>? = null
+
+        init {
+            content.removeAllViews()
+            widgets.add(content, readNotice, 8)
+            widgets.add(content, pageFeedback, 8)
+            widgets.section(content, getString(R.string.workspace_active), active)
+            widgets.section(content, getString(R.string.workspace_settings), settings)
+            widgets.section(content, getString(R.string.workspace_permissions), permissions)
+
+            widgets.add(settings, background, 0)
+            widgets.add(settings, backgroundCopy, 6)
+            widgets.add(settings, jev, 12)
+            copy(settings, getString(R.string.workspace_jev_close_copy))
+            widgets.divider(settings, 0)
+            widgets.add(settings, limitRow(), 12)
+            widgets.add(settings, limitFeedback, 6)
+            widgets.add(settings, bounds, 6)
+            copy(settings, getString(R.string.workspace_limit_copy))
+            background.setOnCheckedChangeListener { _, allowed ->
+                if (allowed != catalog?.policy?.allowBackground) configure(PolicyChange.Background(allowed))
+            }
+            jev.setOnCheckedChangeListener { _, enabled ->
+                if (enabled != catalog?.policy?.jevCloseEnabled) configure(PolicyChange.JevClose(enabled))
+            }
+
+            widgets.add(permissions, apps, 0)
+            copy(permissions, getString(R.string.workspace_apps_note))
+            widgets.add(permissions, revocations, 0)
+        }
+
+        private fun limitRow(): LinearLayout {
+            val stepper = LinearLayout(this@BScreenActivity).apply {
+                gravity = Gravity.CENTER_VERTICAL
+                addView(decrease, LinearLayout.LayoutParams(-2, -2))
+                addView(value, LinearLayout.LayoutParams(-2, -2))
+                addView(increase, LinearLayout.LayoutParams(-2, -2))
+            }
+            val label = widgets.text(getString(R.string.workspace_limit), 16, true)
+            val stacked = resources.configuration.let { it.screenWidthDp < 360 || it.fontScale >= 1.3f }
+            return if (stacked) widgets.column().apply {
+                widgets.add(this, label, 0)
+                addView(stepper, LinearLayout.LayoutParams(-2, -2).apply { topMargin = widgets.dp(8) })
+            } else LinearLayout(this@BScreenActivity).apply {
+                gravity = Gravity.CENTER_VERTICAL
+                addView(label, LinearLayout.LayoutParams(0, -2, 1f))
+                addView(stepper, LinearLayout.LayoutParams(-2, -2).apply { marginStart = widgets.dp(12) })
+            }
+        }
+
+        private fun policySwitch(label: Int) = Switch(this@BScreenActivity).apply {
+            setText(label)
+            setTextColor(workspace.theme.ink)
+            minimumHeight = widgets.dp(48)
+            switchPadding = widgets.dp(12)
+        }
+
+        fun render(snapshot: Catalog) {
+            val canEdit = !changing && readError == null
+            showNote(readNotice, readError)
+            showNote(pageFeedback, feedbackText(FeedbackArea.Page))
+            showNote(limitFeedback, feedbackText(FeedbackArea.Limit))
+            active.visibility = if (readError == null) View.VISIBLE else View.GONE
+            if (displayedScreens != snapshot.screens) {
+                renderScreens(active, snapshot.screens)
+                displayedScreens = snapshot.screens
+            }
+            if (displayedRevocations != snapshot.revocations) {
+                renderRevocations(revocations, snapshot.revocations)
+                displayedRevocations = snapshot.revocations
+            }
+
+            val policy = snapshot.policy
+            if (background.isChecked != policy.allowBackground) background.isChecked = policy.allowBackground
+            if (jev.isChecked != policy.jevCloseEnabled) jev.isChecked = policy.jevCloseEnabled
+            background.isEnabled = canEdit
+            jev.isEnabled = canEdit
+            val copy = getString(if (policy.allowBackground) R.string.workspace_allow_copy else R.string.workspace_background_off_copy)
+            if (backgroundCopy.text != copy) backgroundCopy.text = copy
+            val current = policy.maxActiveScreens
+            val range = snapshot.limitRange
+            val number = current.toString()
+            if (value.text != number) {
+                value.text = number
+                value.contentDescription = getString(R.string.workspace_limit_current, current)
+            }
+            val allowed = getString(R.string.workspace_limit_range, range.first, range.last)
+            if (bounds.text != allowed) bounds.text = allowed
+            setButtonEnabled(decrease, canEditLimit && current - 1 in range)
+            setButtonEnabled(increase, canEditLimit && current + 1 in range)
+            setButtonEnabled(apps, canEdit)
+        }
+    }
+
+    private fun limitButton(symbol: String, label: Int, delta: Int): Button = widgets.button(symbol, false) {
+        val snapshot = catalog ?: return@button
+        val next = snapshot.policy.maxActiveScreens + delta
+        if (canEditLimit && next in snapshot.limitRange) configure(PolicyChange.Limit(next))
+    }.apply {
+        contentDescription = getString(label)
+        minimumHeight = widgets.dp(48)
+        minimumWidth = widgets.dp(48)
+        setPadding(widgets.dp(8), widgets.dp(4), widgets.dp(8), widgets.dp(4))
+        textSize = 22f
+    }
+
+    private fun setButtonEnabled(button: View, enabled: Boolean) {
+        button.isEnabled = enabled
+        button.alpha = if (enabled) 1f else 0.5f
+    }
+
+    private fun renderScreens(list: LinearLayout, screens: List<ManagedWorkspace>) {
+        list.removeAllViews()
+        val summary = widgets.column().apply {
+            setPadding(widgets.dp(16), widgets.dp(12), widgets.dp(16), widgets.dp(12))
+        }
+        if (screens.isEmpty()) {
+            copy(summary, getString(R.string.workspace_empty_title), strong = true, margin = 0)
             copy(summary, getString(R.string.workspace_empty_copy))
+        } else {
+            val screenCount = screens.size
+            val taskCount = screens.mapTo(HashSet()) { it.lease.threadId }.size
+            val counts = getString(R.string.workspace_task_counts,
+                resources.getQuantityString(R.plurals.workspace_spaces, screenCount, screenCount),
+                resources.getQuantityString(R.plurals.workspace_tasks, taskCount, taskCount))
+            copy(summary, counts, margin = 0)
         }
         list.addView(summary)
-        for (screen in snapshot.screens) {
-            widgets.divider(list, 18)
-            val row = widgets.card().apply {
-                foreground = android.graphics.drawable.RippleDrawable(
-                    android.content.res.ColorStateList.valueOf(workspace.theme.border), null, null)
+        for (screen in screens) {
+            widgets.divider(list, 16)
+            val row = widgets.column().apply {
+                setPadding(widgets.dp(16), widgets.dp(10), widgets.dp(16), widgets.dp(10))
+                foreground = RippleDrawable(ColorStateList.valueOf(workspace.theme.border), null, null)
                 isFocusable = true
+                isScreenReaderFocusable = true
                 setOnClickListener {
                     listOffset = scroll.scrollY
                     selected = screen.lease
@@ -218,50 +404,22 @@ class BScreenActivity : Activity() {
                     render(offset = 0)
                 }
             }
-            copy(row, screen.app, strong = true)
-            copy(row, screen.task)
-            copy(row, screen.status)
+            copy(row, screen.app, strong = true, margin = 0)
+            if (screen.task != screen.app) copy(row, screen.task, margin = 2)
+            widgets.add(row, widgets.text(screen.status, 14, true).apply { setTextColor(workspace.theme.accent) }, 3)
             list.addView(row)
         }
-        val preferences = widgets.card()
-        widgets.section(content, getString(R.string.workspace_preferences), preferences)
-        val policy = snapshot.policy
-        widgets.add(preferences, Switch(this).apply {
-            setText(R.string.workspace_allow)
-            setTextColor(workspace.theme.ink)
-            minHeight = widgets.dp(48)
-            isChecked = policy.allowBackground
-            isEnabled = !changing
-            setOnCheckedChangeListener { _, allowed -> configure(PolicyChange.Background(allowed)) }
-        }, 0)
-        copy(preferences, getString(if (policy.allowBackground) R.string.workspace_allow_copy else R.string.workspace_background_off_copy))
-        widgets.add(preferences, Switch(this).apply {
-            setText(R.string.workspace_jev_close)
-            setTextColor(workspace.theme.ink)
-            minHeight = widgets.dp(48)
-            isChecked = policy.jevCloseEnabled
-            isEnabled = !changing
-            setOnCheckedChangeListener { _, enabled -> configure(PolicyChange.JevClose(enabled)) }
-        }, 12)
-        copy(preferences, getString(R.string.workspace_jev_close_copy))
-        copy(preferences, getString(R.string.workspace_limit), strong = true, margin = 18)
-        copy(preferences, getString(R.string.workspace_limit_copy))
-        val range = snapshot.limitRange
-        button(preferences, getString(R.string.workspace_limit_value, policy.maxActiveScreens)) {
-            chooseLimit(range, policy.maxActiveScreens)
-        }
-        button(preferences, getString(R.string.workspace_allowed_apps), onClick = ::chooseApps)
-        copy(preferences, getString(R.string.workspace_apps_note))
-        if (snapshot.revocations.isNotEmpty()) {
-            val revocations = widgets.card()
-            widgets.section(content, getString(R.string.bscreen_access_changes), revocations)
-            for (receipt in snapshot.revocations) {
-                widgets.divider(revocations, 0)
-                copy(revocations, receipt.task, strong = true)
-                if (receipt.packages.isNotEmpty()) copy(revocations, receipt.packages.joinToString(", "))
-                copy(revocations, getString(receipt.status))
-                if (receipt.error.isNotEmpty()) copy(revocations, receipt.error)
-            }
+    }
+
+    private fun renderRevocations(group: LinearLayout, revocations: List<Revocation>) {
+        group.removeAllViews()
+        if (revocations.isEmpty()) return
+        widgets.add(group, widgets.text(getString(R.string.bscreen_access_changes), 14, true), 16)
+        for (receipt in revocations) {
+            copy(group, receipt.task, strong = true)
+            if (receipt.packages.isNotEmpty()) copy(group, receipt.packages.joinToString(", "))
+            copy(group, getString(receipt.status))
+            if (receipt.error.isNotEmpty()) copy(group, receipt.error)
         }
     }
 
@@ -297,21 +455,9 @@ class BScreenActivity : Activity() {
             .setPositiveButton(R.string.workspace_close) { _, _ ->
                 perform({ call("release", lease.json().put("returnToThread", true)).has("returnError") }) { returnFailed ->
                     if (selected == lease) selected = null
-                    feedback = getString(if (returnFailed) R.string.bscreen_return_failed else R.string.bscreen_closed)
+                    feedback = Feedback(FeedbackArea.Page, getString(if (returnFailed) R.string.bscreen_return_failed else R.string.bscreen_closed))
                 }
             }.show()
-    }
-
-    private fun chooseLimit(range: IntRange, current: Int) {
-        val choices = range.map { it.toString() }.toTypedArray()
-        AlertDialog.Builder(this)
-            .setTitle(R.string.workspace_limit)
-            .setSingleChoiceItems(choices, current - range.first) { dialog, which ->
-                dialog.dismiss()
-                configure(PolicyChange.Limit(range.first + which))
-            }
-            .setNegativeButton(R.string.workspace_cancel, null)
-            .show()
     }
 
     private fun chooseApps() {
@@ -346,7 +492,7 @@ class BScreenActivity : Activity() {
                             if (allowedNow) blocked.remove(pkg) else blocked.add(pkg)
                         }
                         writePolicy(PolicyChange.BlockedApps(blocked))
-                    }, ::policySaved)
+                    }) { policySaved(it, FeedbackArea.Page) }
                 }
             }.show()
     }
@@ -371,6 +517,10 @@ class BScreenActivity : Activity() {
         "AGENT_FRONTEND_UNAVAILABLE" -> getString(R.string.bscreen_frontend_unavailable)
         else -> if (failure is IOException) workspace.error(failure.message) else getString(R.string.workspace_unavailable_copy)
     }
+
+    private fun limitError(failure: Throwable): String = ownerError(failure) ?: getString(
+        if (failure.message == "INVALID_WORKSPACE_LIMIT") R.string.workspace_limit_invalid else R.string.workspace_limit_failed,
+    )
 
     private fun readCatalog(result: JSONObject): Catalog {
         val limits = result.getJSONObject("limits").getJSONObject("maxActiveScreens")
@@ -437,6 +587,9 @@ class BScreenActivity : Activity() {
     }
 
     private inline fun <T> JSONArray.read(item: (JSONArray, Int) -> T): List<T> = List(length()) { item(this, it) }
+
+    private enum class FeedbackArea { Page, Limit }
+    private data class Feedback(val area: FeedbackArea, val message: String)
 
     private data class Catalog(val policy: Policy, val limitRange: IntRange, val screens: List<ManagedWorkspace>, val revocations: List<Revocation>)
     private data class Policy(val allowBackground: Boolean, val maxActiveScreens: Int,
