@@ -1,0 +1,2972 @@
+--- a/packages/SystemUI/AndroidManifest.xml
++++ b/packages/SystemUI/AndroidManifest.xml
+@@ -1250,6 +1250,16 @@
+             android:permission="android.permission.CUSTOMIZE_SYSTEM_UI"
+             />
+ 
++        <!-- Taku: app chooser for the "Open app" lock-screen shortcut, opened by the
++             wallpaper picker as the shortcut's configure action. -->
++        <activity
++            android:name="com.android.systemui.taku.lockscreen.TakuShortcutAppActivity"
++            android:exported="true"
++            android:permission="android.permission.CUSTOMIZE_SYSTEM_UI"
++            android:label="@string/controls_open_app"
++            android:excludeFromRecents="true"
++            android:theme="@android:style/Theme.DeviceDefault.DayNight" />
++
+         <!-- TODO(b/278897602): Disable EmojiCompatInitializer until threading issues are fixed.
+              https://developer.android.com/reference/androidx/emoji2/text/EmojiCompatInitializer -->
+         <provider
+--- a/packages/SystemUI/src/com/android/keyguard/dagger/ClockRegistryModule.java
++++ b/packages/SystemUI/src/com/android/keyguard/dagger/ClockRegistryModule.java
+@@ -24,6 +24,7 @@
+ import androidx.annotation.Nullable;
+ 
+ import com.android.systemui.dagger.SysUISingleton;
++import com.android.systemui.taku.lockscreen.TakuClockProvider;
+ import com.android.systemui.dagger.qualifiers.Application;
+ import com.android.systemui.dagger.qualifiers.Background;
+ import com.android.systemui.dagger.qualifiers.Main;
+@@ -64,12 +65,13 @@
+                 mainDispatcher,
+                 bgDispatcher,
+                 /* handleAllUsers= */ true,
+-                new DefaultClockProvider(
++                // Taku: the stock clocks plus the Taku clock, which is the default.
++                new TakuClockProvider(context, new DefaultClockProvider(
+                         layoutInflater,
+                         resources,
+                         vibrator
+-                ),
+-                context.getString(R.string.lockscreen_clock_id_fallback),
++                )),
++                TakuClockProvider.TAKU_CLOCK_ID,
+                 clockBuffers,
+                 /* keepAllLoaded = */ false,
+                 /* subTag = */ "System",
+--- a/packages/SystemUI/src/com/android/systemui/keyguard/data/quickaffordance/KeyguardDataQuickAffordanceModule.kt
++++ b/packages/SystemUI/src/com/android/systemui/keyguard/data/quickaffordance/KeyguardDataQuickAffordanceModule.kt
+@@ -21,6 +21,7 @@
+ import dagger.Module
+ import dagger.Provides
+ import dagger.multibindings.ElementsIntoSet
++import com.android.systemui.taku.lockscreen.TakuOpenAppQuickAffordanceConfig
+ 
+ @Module
+ interface KeyguardDataQuickAffordanceModule {
+@@ -41,6 +42,8 @@
+             quickAccessWallet: QuickAccessWalletKeyguardQuickAffordanceConfig,
+             qrCodeScanner: QrCodeScannerKeyguardQuickAffordanceConfig,
+             videoCamera: VideoCameraQuickAffordanceConfig,
++            // Taku: "Open app" shortcut (system/lockscreen, docs/lock-screen.md).
++            takuOpenApp: TakuOpenAppQuickAffordanceConfig,
+         ): Set<KeyguardQuickAffordanceConfig> {
+             return setOf(
+                 camera,
+@@ -51,6 +54,7 @@
+                 quickAccessWallet,
+                 qrCodeScanner,
+                 videoCamera,
++                takuOpenApp, // Taku
+             )
+         }
+     }
+--- a/packages/SystemUI/src/com/android/systemui/keyguard/data/repository/KeyguardBlueprintRepository.kt
++++ b/packages/SystemUI/src/com/android/systemui/keyguard/data/repository/KeyguardBlueprintRepository.kt
+@@ -23,6 +23,7 @@
+ import com.android.systemui.dagger.qualifiers.Main
+ import com.android.systemui.keyguard.shared.model.KeyguardBlueprint
+ import com.android.systemui.keyguard.ui.view.layout.blueprints.DefaultKeyguardBlueprint.Companion.DEFAULT
++import com.android.systemui.taku.lockscreen.TakuKeyguardBlueprint
+ import com.android.systemui.keyguard.ui.view.layout.blueprints.KeyguardBlueprintModule
+ import com.android.systemui.keyguard.ui.view.layout.blueprints.transitions.IntraBlueprintTransition.Config
+ import com.android.systemui.log.LogBuffer
+@@ -61,7 +62,7 @@
+     // blueprints in the adb tool.
+     private val blueprintIdMap: TreeMap<String, KeyguardBlueprint> =
+         TreeMap<String, KeyguardBlueprint>().apply { putAll(blueprints.associateBy { it.id }) }
+-    val blueprint: MutableStateFlow<KeyguardBlueprint> = MutableStateFlow(blueprintIdMap[DEFAULT]!!)
++    val blueprint: MutableStateFlow<KeyguardBlueprint> = MutableStateFlow(blueprintIdMap[TakuKeyguardBlueprint.ID] ?: blueprintIdMap[DEFAULT]!!)
+     val refreshTransition = MutableSharedFlow<Config>(extraBufferCapacity = 1)
+     @VisibleForTesting var targetTransitionConfig: Config? = null
+ 
+--- a/packages/SystemUI/src/com/android/systemui/keyguard/domain/interactor/KeyguardBlueprintInteractor.kt
++++ b/packages/SystemUI/src/com/android/systemui/keyguard/domain/interactor/KeyguardBlueprintInteractor.kt
+@@ -22,6 +22,7 @@
+ import com.android.systemui.biometrics.domain.interactor.FingerprintPropertyInteractor
+ import com.android.systemui.common.ui.domain.interactor.ConfigurationInteractor
+ import com.android.systemui.dagger.SysUISingleton
++import com.android.systemui.taku.lockscreen.TakuKeyguardBlueprint
+ import com.android.systemui.dagger.qualifiers.Application
+ import com.android.systemui.keyguard.data.repository.KeyguardBlueprintRepository
+ import com.android.systemui.keyguard.shared.model.KeyguardBlueprint
+@@ -66,7 +67,8 @@
+             when {
+                 shadeMode is ShadeMode.Split && !SceneContainerFlag.isEnabled ->
+                     SplitShadeKeyguardBlueprint.ID
+-                else -> DefaultKeyguardBlueprint.DEFAULT
++                // Taku: single-shade lock screens use the Taku layout.
++                else -> TakuKeyguardBlueprint.ID
+             }
+         }
+ 
+--- a/packages/SystemUI/src/com/android/systemui/keyguard/ui/binder/KeyguardQuickAffordanceViewBinder.kt
++++ b/packages/SystemUI/src/com/android/systemui/keyguard/ui/binder/KeyguardQuickAffordanceViewBinder.kt
+@@ -47,6 +47,7 @@
+ import com.android.systemui.lifecycle.repeatWhenAttached
+ import com.android.systemui.plugins.FalsingManager
+ import com.android.systemui.res.R
++import com.android.systemui.taku.lockscreen.TakuLockscreenPolicy
+ import com.android.systemui.statusbar.VibratorHelper
+ import com.android.systemui.util.doOnEnd
+ import com.android.systemui.window.domain.interactor.WindowRootViewBlurInteractor
+@@ -224,13 +225,17 @@
+         }
+ 
+         view.isActivated = viewModel.isActivated
++        // Taku: dark icon on the white shortcut button (Figma 979:455); activated keeps stock.
+         view.drawable.setTint(
+-            view.context.getColor(
+-                if (viewModel.isActivated) {
+-                    com.android.internal.R.color.materialColorOnPrimaryFixed
+-                } else {
+-                    com.android.internal.R.color.materialColorOnSurface
+-                }
++            TakuLockscreenPolicy.shortcutIconColor(
++                viewModel.isActivated,
++                view.context.getColor(
++                    if (viewModel.isActivated) {
++                        com.android.internal.R.color.materialColorOnPrimaryFixed
++                    } else {
++                        com.android.internal.R.color.materialColorOnSurface
++                    }
++                ),
+             )
+         )
+         updateBackground(
+@@ -317,15 +322,19 @@
+         isBlurSupported: Boolean,
+     ): ColorStateList? {
+         return if (!viewModel.isSelected) {
++            // Taku: white at 92 % at rest (Figma 979:455); activated keeps stock.
+             ColorStateList.valueOf(
+-                view.context.getColor(
+-                    if (viewModel.isActivated) {
+-                        com.android.internal.R.color.materialColorPrimaryFixed
+-                    } else if (enableLockscreenBlur() && isBlurSupported) {
+-                        com.android.internal.R.color.customColorSurfaceEffect1
+-                    } else {
+-                        com.android.internal.R.color.materialColorSurfaceContainerHigh
+-                    }
++                TakuLockscreenPolicy.shortcutBackgroundColor(
++                    viewModel.isActivated,
++                    view.context.getColor(
++                        if (viewModel.isActivated) {
++                            com.android.internal.R.color.materialColorPrimaryFixed
++                        } else if (enableLockscreenBlur() && isBlurSupported) {
++                            com.android.internal.R.color.customColorSurfaceEffect1
++                        } else {
++                            com.android.internal.R.color.materialColorSurfaceContainerHigh
++                        }
++                    ),
+                 )
+             )
+         } else {
+--- a/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/blueprints/KeyguardBlueprintModule.kt
++++ b/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/blueprints/KeyguardBlueprintModule.kt
+@@ -20,6 +20,7 @@
+ import com.android.systemui.CoreStartable
+ import com.android.systemui.keyguard.domain.interactor.KeyguardBlueprintInteractor
+ import com.android.systemui.keyguard.shared.model.KeyguardBlueprint
++import com.android.systemui.taku.lockscreen.TakuKeyguardBlueprint
+ import com.android.systemui.keyguard.ui.view.layout.KeyguardBlueprintCommandListener
+ import dagger.Binds
+ import dagger.Module
+@@ -41,6 +42,11 @@
+         splitShadeBlueprint: SplitShadeKeyguardBlueprint
+     ): KeyguardBlueprint
+ 
++    // Taku: the lock screen layout (system/lockscreen, docs/lock-screen.md).
++    @Binds
++    @IntoSet
++    abstract fun bindTakuBlueprint(takuBlueprint: TakuKeyguardBlueprint): KeyguardBlueprint
++
+     @Binds
+     @IntoMap
+     @ClassKey(KeyguardBlueprintInteractor::class)
+--- a/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/sections/transitions/ClockSizeTransition.kt
++++ b/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/sections/transitions/ClockSizeTransition.kt
+@@ -17,6 +17,8 @@
+ package com.android.systemui.keyguard.ui.view.layout.sections.transitions
+ 
+ import android.animation.Animator
++import com.android.systemui.taku.lockscreen.TakuClockController
++import com.android.systemui.taku.lockscreen.TakuClockSizeTransition
+ import android.animation.AnimatorListenerAdapter
+ import android.animation.ValueAnimator
+ import android.graphics.Rect
+@@ -57,8 +59,13 @@
+     init {
+         ordering = ORDERING_TOGETHER
+         if (config.type != Type.SmartspaceVisibility) {
+-            addTransition(ClockFaceOutTransition(config, clockViewModel, logBuffer))
+-            addTransition(ClockFaceInTransition(config, clockViewModel, logBuffer))
++            // Taku interpolates native glyph outlines instead of crossfading two clocks.
++            if (clockViewModel.currentClock.value is TakuClockController) {
++                addTransition(TakuClockSizeTransition())
++            } else {
++                addTransition(ClockFaceOutTransition(config, clockViewModel, logBuffer))
++                addTransition(ClockFaceInTransition(config, clockViewModel, logBuffer))
++            }
+         }
+ 
+         addTransition(SmartspaceMoveTransition(config, clockViewModel, logBuffer))
+--- a/packages/SystemUI/src/com/android/systemui/shade/NotificationPanelViewController.java
++++ b/packages/SystemUI/src/com/android/systemui/shade/NotificationPanelViewController.java
+@@ -199,6 +199,7 @@
+ import com.android.systemui.statusbar.phone.UnlockedScreenOffAnimationController;
+ import com.android.systemui.statusbar.policy.ConfigurationController;
+ import com.android.systemui.statusbar.policy.KeyguardStateController;
++import com.android.systemui.taku.lockscreen.TakuLockscreenPolicy;
+ import com.android.systemui.statusbar.policy.SplitShadeStateController;
+ import com.android.systemui.unfold.SysUIUnfoldComponent;
+ import com.android.systemui.util.Utils;
+@@ -1213,6 +1214,10 @@
+     }
+ 
+     private ClockSize computeDesiredClockSizeForSingleShade() {
++        // Taku: compact once authenticated, tall while locked, independent of notifications.
++        if (isKeyguardShowing()) {
++            return TakuLockscreenPolicy.clockSize(mKeyguardStateController.isUnlocked());
++        }
+         if (hasVisibleNotifications()) {
+             return ClockSize.SMALL;
+         }
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/notification/interruption/KeyguardNotificationVisibilityProvider.kt
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/notification/interruption/KeyguardNotificationVisibilityProvider.kt
+@@ -12,6 +12,7 @@
+ import com.android.keyguard.KeyguardUpdateMonitor
+ import com.android.keyguard.KeyguardUpdateMonitorCallback
+ import com.android.systemui.CoreStartable
++import com.android.systemui.taku.lockscreen.TakuLockscreenPolicy
+ import com.android.systemui.ambient.statusbar.shared.flag.OngoingActivityChipsOnDream
+ import com.android.systemui.dagger.SysUISingleton
+ import com.android.systemui.dagger.qualifiers.Main
+@@ -208,6 +209,9 @@
+                 SHOW
+             // Keyguard state doesn't matter if the keyguard is not showing.
+             !isLockedOrLocking -> SHOW
++            // Taku: nothing shows on the lock screen until the user authenticates.
++            TakuLockscreenPolicy.HIDE_NOTIFICATIONS_UNTIL_AUTHENTICATED &&
++                !keyguardStateController.isUnlocked -> HIDE
+             // Notifications not allowed on the lockscreen, always hide.
+             !lockscreenUserManager.shouldShowLockscreenNotifications() -> HIDE
+             // secure lock device mode is enabled always disallow
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuAuthenticatedSections.kt
+@@ -0,0 +1,257 @@
++package com.android.systemui.taku.lockscreen
++
++import android.content.Context
++import android.content.res.ColorStateList
++import android.graphics.Canvas
++import android.graphics.Color
++import android.graphics.Paint
++import android.graphics.drawable.GradientDrawable
++import android.graphics.drawable.RippleDrawable
++import android.view.View
++import androidx.constraintlayout.widget.ConstraintLayout
++import androidx.constraintlayout.widget.ConstraintSet
++import androidx.lifecycle.Lifecycle
++import androidx.lifecycle.repeatOnLifecycle
++import com.android.systemui.dagger.SysUISingleton
++import com.android.systemui.keyguard.domain.interactor.KeyguardClockInteractor
++import com.android.systemui.keyguard.domain.interactor.KeyguardInteractor
++import com.android.systemui.keyguard.shared.model.KeyguardSection
++import com.android.systemui.keyguard.shared.model.StatusBarState
++import com.android.systemui.lifecycle.repeatWhenAttached
++import com.android.systemui.plugins.FalsingManager
++import com.android.systemui.plugins.keyguard.ui.clocks.ClockViewIds
++import com.android.systemui.res.R
++import com.android.systemui.statusbar.notification.stack.ui.view.SharedNotificationContainer
++import com.android.systemui.statusbar.notification.stack.ui.viewmodel.SharedNotificationContainerViewModel
++import javax.inject.Inject
++import kotlinx.coroutines.DisposableHandle
++import kotlinx.coroutines.flow.Flow
++import kotlinx.coroutines.flow.combine
++import kotlinx.coroutines.flow.distinctUntilChanged
++import kotlinx.coroutines.launch
++
++/**
++ * Where the authenticated surface shows: the lock screen itself (no shade or QS pulled over it, not
++ * dozing) after the user has authenticated. Shared by the cards and the Taku button.
++ */
++private fun authenticatedSurfaceShown(
++    container: SharedNotificationContainerViewModel,
++    keyguard: KeyguardInteractor,
++): Flow<Boolean> =
++    combine(container.isOnLockscreenWithoutShade, keyguard.isKeyguardDismissible, keyguard.isDozing) {
++        onLockscreen, authenticated, dozing -> onLockscreen && authenticated && !dozing
++    }.distinctUntilChanged()
++
++/** Fades a surface in or out; a hidden surface is INVISIBLE so touches reach the lock screen below. */
++private fun View.fadeShown(shown: Boolean) {
++    animate().cancel()
++    if (shown) {
++        if (visibility != View.VISIBLE) {
++            alpha = 0f
++            visibility = View.VISIBLE
++        }
++        animate().alpha(1f).setDuration(TakuLockscreenPolicy.FADE_MS).setListener(null).start()
++    } else if (visibility == View.VISIBLE) {
++        animate().alpha(0f).setDuration(TakuLockscreenPolicy.FADE_MS)
++            .withEndAction { visibility = View.INVISIBLE }.start()
++    }
++}
++
++private fun Context.dp(value: Float): Int = (value * resources.displayMetrics.density).toInt()
++
++/**
++ * The notification cards (Figma 979:641) below the compact clock, for the authenticated lock screen.
++ *
++ * While the lock screen shows without the shade, the stock notification stack is made INVISIBLE: the
++ * cards present the same pipeline entries instead, and the stack would otherwise draw (and take
++ * touches) over them. Pulling the shade down shows the stock stack again, unchanged. The section also
++ * owns the clock size: compact once the user has authenticated, tall while locked
++ * ([TakuLockscreenPolicy.clockSize], the same rule the panel's hook applies).
++ */
++@SysUISingleton
++class TakuNotificationSection
++@Inject
++constructor(
++    private val notifications: TakuLockscreenNotifications,
++    private val keyguardInteractor: KeyguardInteractor,
++    private val keyguardClockInteractor: KeyguardClockInteractor,
++    private val sharedNotificationContainer: SharedNotificationContainer,
++    private val containerViewModel: SharedNotificationContainerViewModel,
++    private val falsingManager: FalsingManager,
++) : KeyguardSection() {
++    private val viewId = View.generateViewId()
++    private var binding: DisposableHandle? = null
++
++    override fun addViews(constraintLayout: ConstraintLayout) {
++        if (constraintLayout.findViewById<View>(viewId) != null) return
++        val list = TakuNotificationListView(constraintLayout.context).apply {
++            id = viewId
++            visibility = View.INVISIBLE
++        }
++        constraintLayout.addView(list)
++    }
++
++    override fun bindData(constraintLayout: ConstraintLayout) {
++        val list = constraintLayout.findViewById<TakuNotificationListView>(viewId) ?: return
++        list.callbacks = object : TakuNotificationCardView.Callbacks {
++            override fun onOpen(key: String) {
++                if (falsingManager.isFalseTap(FalsingManager.LOW_PENALTY)) return
++                notifications.open(key)
++            }
++
++            override fun onDismiss(key: String) {
++                if (!notifications.dismiss(key).ok) list.restore(key)
++            }
++
++            override fun onAction(key: String, index: Int) {
++                if (falsingManager.isFalseTap(FalsingManager.LOW_PENALTY)) return
++                notifications.action(key, index)
++            }
++        }
++        binding?.dispose()
++        // CREATED, not STARTED: the stock stack must become visible again even when the keyguard
++        // root is hidden (unlocking), or the shade over apps would lose its notifications.
++        binding = list.repeatWhenAttached {
++            repeatOnLifecycle(Lifecycle.State.CREATED) {
++                launch { notifications.cards.collect(list::submit) }
++                launch { authenticatedSurfaceShown(containerViewModel, keyguardInteractor).collect(list::fadeShown) }
++                launch {
++                    combine(containerViewModel.isOnLockscreenWithoutShade, keyguardInteractor.statusBarState) {
++                        onLockscreen, state -> onLockscreen && state == StatusBarState.KEYGUARD
++                    }.distinctUntilChanged().collect { cardsOwnLockscreen ->
++                        sharedNotificationContainer.visibility = if (cardsOwnLockscreen) View.INVISIBLE else View.VISIBLE
++                    }
++                }
++                launch {
++                    keyguardInteractor.isKeyguardDismissible.collect { authenticated ->
++                        if (keyguardInteractor.isKeyguardShowing.value) {
++                            keyguardClockInteractor.setClockSize(TakuLockscreenPolicy.clockSize(authenticated))
++                        }
++                    }
++                }
++            }
++        }
++    }
++
++    override fun applyConstraints(constraintSet: ConstraintSet) {
++        val context = sharedNotificationContainer.context
++        constraintSet.apply {
++            constrainWidth(viewId, ConstraintSet.MATCH_CONSTRAINT)
++            constrainHeight(viewId, ConstraintSet.MATCH_CONSTRAINT)
++            connect(viewId, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START)
++            connect(viewId, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END)
++            // Figma: 32 dp between the compact clock group and the first card.
++            connect(viewId, ConstraintSet.TOP, ClockViewIds.LOCKSCREEN_CLOCK_VIEW_SMALL, ConstraintSet.BOTTOM,
++                context.dp(CARDS_TOP_GAP_DP))
++            connect(viewId, ConstraintSet.BOTTOM, ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM)
++            // Visibility follows authentication, not blueprint transitions.
++            setVisibilityMode(viewId, ConstraintSet.VISIBILITY_MODE_IGNORE)
++        }
++    }
++
++    override fun removeViews(constraintLayout: ConstraintLayout) {
++        binding?.dispose()
++        binding = null
++        sharedNotificationContainer.visibility = View.VISIBLE
++        constraintLayout.findViewById<View>(viewId)?.let(constraintLayout::removeView)
++    }
++
++    private companion object {
++        const val CARDS_TOP_GAP_DP = 32f
++    }
++}
++
++/** The Taku button (Figma 979:739), centred in the shortcut row, for the authenticated lock screen. */
++@SysUISingleton
++class TakuAssistantSection
++@Inject
++constructor(
++    private val notifications: TakuLockscreenNotifications,
++    private val keyguardInteractor: KeyguardInteractor,
++    private val containerViewModel: SharedNotificationContainerViewModel,
++    private val falsingManager: FalsingManager,
++) : KeyguardSection() {
++    private val viewId = View.generateViewId()
++    private var binding: DisposableHandle? = null
++
++    override fun addViews(constraintLayout: ConstraintLayout) {
++        if (constraintLayout.findViewById<View>(viewId) != null) return
++        constraintLayout.addView(TakuAssistantButton(constraintLayout.context).apply {
++            id = viewId
++            visibility = View.INVISIBLE
++        })
++    }
++
++    override fun bindData(constraintLayout: ConstraintLayout) {
++        val button = constraintLayout.findViewById<TakuAssistantButton>(viewId) ?: return
++        button.setOnClickListener {
++            if (!falsingManager.isFalseTap(FalsingManager.LOW_PENALTY)) notifications.openTaku()
++        }
++        binding?.dispose()
++        binding = button.repeatWhenAttached {
++            repeatOnLifecycle(Lifecycle.State.CREATED) {
++                authenticatedSurfaceShown(containerViewModel, keyguardInteractor).collect(button::fadeShown)
++            }
++        }
++    }
++
++    override fun applyConstraints(constraintSet: ConstraintSet) {
++        constraintSet.apply {
++            constrainWidth(viewId, ConstraintSet.WRAP_CONTENT)
++            constrainHeight(viewId, ConstraintSet.WRAP_CONTENT)
++            connect(viewId, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START)
++            connect(viewId, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END)
++            // Same baseline as the shortcuts, including their display-cutout inset.
++            connect(viewId, ConstraintSet.BOTTOM, R.id.start_button, ConstraintSet.BOTTOM)
++            setVisibilityMode(viewId, ConstraintSet.VISIBILITY_MODE_IGNORE)
++        }
++    }
++
++    override fun removeViews(constraintLayout: ConstraintLayout) {
++        binding?.dispose()
++        binding = null
++        constraintLayout.findViewById<View>(viewId)?.let(constraintLayout::removeView)
++    }
++}
++
++/** 56 dp `#1B1B1B` circle with Taku's eyes: two 6 × 16 dp white bars, 6 dp apart (Figma 979:740). */
++class TakuAssistantButton(context: Context) : View(context) {
++    private val density = resources.displayMetrics.density
++    private val eyes = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
++
++    init {
++        val circle = GradientDrawable().apply {
++            shape = GradientDrawable.OVAL
++            setColor(FILL)
++        }
++        background = RippleDrawable(ColorStateList.valueOf(PRESSED), circle, null)
++        isClickable = true
++        isFocusable = true
++        contentDescription = "Taku"
++    }
++
++    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
++        val size = (SIZE_DP * density).toInt()
++        setMeasuredDimension(size, size)
++    }
++
++    override fun onDraw(canvas: Canvas) {
++        val bar = 6f * density
++        val eyeHeight = 16f * density
++        val gap = 6f * density
++        // Figma centres the eyes 7 dp left of and 4 dp above the button's centre.
++        val centerX = width / 2f - 7f * density
++        val centerY = height / 2f - 4f * density
++        val left = centerX - (bar * 2 + gap) / 2f
++        val top = centerY - eyeHeight / 2f
++        val radius = bar / 2f
++        canvas.drawRoundRect(left, top, left + bar, top + eyeHeight, radius, radius, eyes)
++        canvas.drawRoundRect(left + bar + gap, top, left + bar * 2 + gap, top + eyeHeight, radius, radius, eyes)
++    }
++
++    companion object {
++        const val SIZE_DP = 56f
++        private val FILL = Color.rgb(0x1B, 0x1B, 0x1B)
++        private val PRESSED = Color.argb(0.24f, 1f, 1f, 1f)
++    }
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuClockContours.kt
+@@ -0,0 +1,48 @@
++// Generated by motion/generate.py. Do not hand-edit.
++// Space Grotesk outlines: OFL, system/assistant/design-system/licenses/SpaceGrotesk-OFL.txt.
++package com.android.systemui.taku.lockscreen
++
++internal object TakuClockContours {
++    val glyphs = mapOf(
++        '0' to TakuClockGlyphs.Glyph(73.3200f, listOf(
++            TakuClockGlyphs.Contour(floatArrayOf(38.4000f,85.6800f,28.8800f,85.6800f,21.3000f,82.8600f,15.6600f,77.2200f,10.0200f,71.5800f,7.2000f,63.1200f,7.2000f,51.8400f,7.2000f,45.2800f,7.2000f,38.7200f,7.2000f,32.1600f,7.2000f,20.9600f,10.0200f,12.5200f,15.6600f,6.8400f,21.3000f,1.1600f,28.8800f,-1.6800f,38.4000f,-1.6800f,48.0000f,-1.6800f,55.6200f,1.1600f,61.2600f,6.8400f,66.9000f,12.5200f,69.7200f,20.9600f,69.7200f,32.1600f,69.7200f,38.7200f,69.7200f,45.2800f,69.7200f,51.8400f,69.7200f,63.1200f,66.9000f,71.5800f,61.2600f,77.2200f,55.6200f,82.8600f,48.0000f,85.6800f), floatArrayOf(34.0000f,320.0000f,23.1300f,320.0000f,14.1900f,315.9700f,8.1900f,308.1300f,2.4100f,300.5900f,0.0000f,290.3600f,0.0000f,279.0000f,0.0000f,199.6700f,0.0000f,120.3300f,0.0000f,41.0000f,0.0000f,29.6400f,2.4100f,19.4100f,8.1900f,11.8700f,14.1900f,4.0300f,23.1300f,0.0000f,34.0000f,0.0000f,44.8700f,0.0000f,53.8100f,4.0300f,59.8100f,11.8700f,65.5900f,19.4100f,68.0000f,29.6400f,68.0000f,41.0000f,68.0000f,120.3300f,68.0000f,199.6700f,68.0000f,279.0000f,68.0000f,290.3600f,65.5900f,300.5900f,59.8100f,308.1300f,53.8100f,315.9700f,44.8700f,320.0000f)),
++            TakuClockGlyphs.Contour(floatArrayOf(38.4000f,76.9200f,45.6000f,76.9200f,51.0000f,74.7600f,54.6000f,70.4400f,58.2000f,66.1200f,60.0000f,60.0800f,60.0000f,52.3200f,60.0000f,45.4000f,60.0000f,38.4800f,60.0000f,31.5600f,60.0000f,23.8000f,58.1600f,17.7800f,54.4800f,13.5000f,50.8000f,9.2200f,45.4400f,7.0800f,38.4000f,7.0800f,31.3600f,7.0800f,26.0200f,9.2400f,22.3800f,13.5600f,18.7400f,17.8800f,16.9200f,23.8800f,16.9200f,31.5600f,16.9200f,38.4800f,16.9200f,45.4000f,16.9200f,52.3200f,16.9200f,60.1600f,18.7200f,66.2200f,22.3200f,70.5000f,25.9200f,74.7800f,31.2800f,76.9200f), floatArrayOf(34.0000f,306.0000f,41.1300f,306.0000f,45.6900f,303.5300f,48.6900f,299.6200f,51.9100f,295.4100f,54.0000f,288.6400f,54.0000f,279.0000f,54.0000f,199.6700f,54.0000f,120.3300f,54.0000f,41.0000f,54.0000f,31.3600f,51.9100f,24.5900f,48.6900f,20.3800f,45.6900f,16.4700f,41.1300f,14.0000f,34.0000f,14.0000f,26.8700f,14.0000f,22.3100f,16.4700f,19.3100f,20.3800f,16.0900f,24.5900f,14.0000f,31.3600f,14.0000f,41.0000f,14.0000f,120.3300f,14.0000f,199.6700f,14.0000f,279.0000f,14.0000f,288.6400f,16.0900f,295.4100f,19.3100f,299.6200f,22.3100f,303.5300f,26.8700f,306.0000f)),
++        )),
++        '1' to TakuClockGlyphs.Glyph(46.5600f, listOf(
++            TakuClockGlyphs.Contour(floatArrayOf(30.8400f,84.0000f,30.8400f,58.1600f,30.8400f,32.3200f,30.8400f,6.4800f,30.2400f,6.4800f,29.6400f,6.4800f,29.0400f,6.4800f,23.6000f,16.4400f,18.1600f,26.4000f,12.7200f,36.3600f,9.2000f,36.3600f,5.6800f,36.3600f,2.1600f,36.3600f,8.8400f,24.2400f,15.5200f,12.1200f,22.2000f,0.0000f,28.3200f,0.0000f,34.4400f,0.0000f,40.5600f,0.0000f,40.5600f,28.0000f,40.5600f,56.0000f,40.5600f,84.0000f,37.3200f,84.0000f,34.0800f,84.0000f), floatArrayOf(44.8625f,320.0000f,44.8625f,187.1117f,44.8625f,66.7523f,44.8625f,14.0000f,44.1750f,14.0000f,43.4875f,14.0000f,42.8000f,14.0000f,36.5667f,34.3333f,30.3333f,54.6667f,24.1000f,75.0000f,20.0667f,75.0000f,16.0333f,75.0000f,12.0000f,75.0000f,19.6542f,50.2570f,27.3083f,25.5141f,34.9625f,0.0000f,41.9750f,0.0000f,48.9875f,0.0000f,56.0000f,0.0000f,56.0000f,57.9331f,56.0000f,176.0034f,56.0000f,320.0000f,52.2875f,320.0000f,48.5750f,320.0000f)),
++        )),
++        '2' to TakuClockGlyphs.Glyph(68.7600f, listOf(
++            TakuClockGlyphs.Contour(floatArrayOf(6.3600f,84.0000f,6.3600f,81.0800f,6.3600f,78.1600f,6.3600f,75.2400f,6.3600f,69.2400f,7.4200f,64.4400f,9.5400f,60.8400f,11.6600f,57.2400f,14.6200f,54.3400f,18.4200f,52.1400f,22.2200f,49.9400f,26.7600f,48.0400f,32.0400f,46.4400f,34.2400f,45.7600f,36.4400f,45.0800f,38.6400f,44.4000f,42.2400f,43.2800f,45.4000f,41.9000f,48.1200f,40.2600f,50.8400f,38.6200f,52.9600f,36.5400f,54.4800f,34.0200f,56.0000f,31.5000f,56.7600f,28.4000f,56.7600f,24.7200f,56.7600f,24.5600f,56.7600f,24.4000f,56.7600f,24.2400f,56.7600f,18.9600f,54.9200f,14.7800f,51.2400f,11.7000f,47.5600f,8.6200f,42.8400f,7.0800f,37.0800f,7.0800f,31.0000f,7.0800f,26.0400f,8.7000f,22.2000f,11.9400f,18.3600f,15.1800f,16.4400f,20.0800f,16.4400f,26.6400f,16.4400f,27.2000f,16.4400f,27.7600f,16.4400f,28.3200f,13.2400f,28.3200f,10.0400f,28.3200f,6.8400f,28.3200f,6.8400f,27.8000f,6.8400f,27.2800f,6.8400f,26.7600f,6.8400f,20.6800f,8.1600f,15.5200f,10.8000f,11.2800f,13.4400f,7.0400f,17.0400f,3.8200f,21.6000f,1.6200f,26.1600f,-0.5800f,31.3200f,-1.6800f,37.0800f,-1.6800f,42.8400f,-1.6800f,47.9400f,-0.6000f,52.3800f,1.5600f,56.8200f,3.7200f,60.2800f,6.7200f,62.7600f,10.5600f,65.2400f,14.4000f,66.4800f,18.8800f,66.4800f,24.0000f,66.4800f,24.3600f,66.4800f,24.7200f,66.4800f,25.0800f,66.4800f,30.5200f,65.4000f,35.0200f,63.2400f,38.5800f,61.0800f,42.1400f,58.1000f,45.0400f,54.3000f,47.2800f,50.5000f,49.5200f,46.0400f,51.4400f,40.9200f,53.0400f,38.7600f,53.7200f,36.6000f,54.4000f,34.4400f,55.0800f,30.3600f,56.3600f,26.9800f,57.7000f,24.3000f,59.1000f,21.6200f,60.5000f,19.6000f,62.2800f,18.2400f,64.4400f,16.8800f,66.6000f,16.2000f,69.5200f,16.2000f,73.2000f,16.2000f,73.8800f,16.2000f,74.5600f,16.2000f,75.2400f,32.7200f,75.2400f,49.2400f,75.2400f,65.7600f,75.2400f,65.7600f,78.1600f,65.7600f,81.0800f,65.7600f,84.0000f,45.9600f,84.0000f,26.1600f,84.0000f), floatArrayOf(0.0000f,320.0000f,0.0000f,315.3333f,0.0000f,310.6667f,0.0000f,306.0000f,0.0000f,283.1930f,1.1989f,257.2414f,3.5968f,236.5517f,5.9947f,215.8621f,9.3426f,199.1954f,13.6407f,186.5517f,17.9388f,173.9080f,23.0739f,162.9885f,29.0459f,153.7931f,31.5343f,149.8851f,34.0226f,145.9770f,36.5110f,142.0690f,40.5828f,135.6322f,44.1570f,127.7011f,47.2335f,118.2759f,50.3100f,108.8506f,52.7079f,96.8966f,54.4271f,82.4138f,56.1464f,70.7770f,57.0060f,57.1622f,57.0060f,41.0000f,57.0060f,40.7551f,57.0060f,40.5102f,57.0060f,40.2653f,57.0060f,32.1837f,54.9248f,25.7857f,50.7625f,21.0714f,46.6001f,16.3571f,41.2615f,14.0000f,34.7465f,14.0000f,27.8696f,14.0000f,22.2595f,16.4796f,17.9162f,21.4388f,13.5729f,26.3980f,11.4012f,33.8980f,11.4012f,49.4324f,11.4012f,51.8919f,11.4012f,54.3514f,11.4012f,56.8108f,7.7818f,56.8108f,4.1623f,56.8108f,0.5429f,56.8108f,0.5429f,54.5270f,0.5429f,52.2432f,0.5429f,49.9595f,0.5429f,34.8163f,2.0359f,26.9184f,5.0220f,20.4286f,8.0080f,13.9361f,12.0798f,8.7900f,17.2375f,5.2740f,22.3952f,1.7580f,28.2315f,0.0000f,34.7465f,0.0000f,41.2615f,0.0000f,47.0299f,1.7260f,52.0519f,5.1781f,57.0739f,8.6301f,60.9874f,13.4247f,63.7924f,19.3265f,66.5975f,25.2041f,68.0000f,32.0612f,68.0000f,39.8980f,68.0000f,40.4490f,68.0000f,41.0000f,68.0000f,42.5811f,68.0000f,66.4730f,66.7784f,88.1609f,64.3353f,108.6207f,61.8922f,129.0805f,58.5216f,145.7471f,54.2236f,158.6207f,49.9255f,171.4943f,44.8809f,182.5287f,39.0898f,191.7241f,36.6467f,195.6322f,34.2036f,199.5402f,31.7605f,203.4483f,27.1457f,210.8046f,23.3227f,218.5057f,20.2914f,226.5517f,17.2601f,234.5977f,14.9754f,244.8276f,13.4371f,257.2414f,11.8989f,269.6552f,11.1297f,284.2573f,11.1297f,298.2456f,11.1297f,300.8304f,11.1297f,303.4152f,11.1297f,306.0000f,29.8150f,306.0000f,48.5003f,306.0000f,67.1856f,306.0000f,67.1856f,310.6667f,67.1856f,315.3333f,67.1856f,320.0000f,44.7904f,320.0000f,22.3952f,320.0000f)),
++        )),
++        '3' to TakuClockGlyphs.Glyph(68.8800f, listOf(
++            TakuClockGlyphs.Contour(floatArrayOf(36.3600f,85.6800f,30.4400f,85.6800f,25.1400f,84.5600f,20.4600f,82.3200f,18.3500f,81.3100f,16.4500f,80.1000f,14.7500f,78.6900f,12.6700f,76.9600f,10.8900f,74.9300f,9.4200f,72.6000f,6.7400f,68.3600f,5.4000f,63.2400f,5.4000f,57.2400f,5.4000f,56.4800f,5.4000f,55.7200f,5.4000f,54.9600f,8.6400f,54.9600f,11.8800f,54.9600f,15.1200f,54.9600f,15.1200f,55.6800f,15.1200f,56.4000f,15.1200f,57.1200f,15.1200f,63.2800f,17.0800f,68.1200f,21.0000f,71.6400f,21.5900f,72.1700f,22.2100f,72.6600f,22.8600f,73.1200f,26.4900f,75.6500f,30.9900f,76.9200f,36.3600f,76.9200f,41.4400f,76.9200f,45.6300f,75.8700f,48.9200f,73.7800f,49.7700f,73.2400f,50.5700f,72.6200f,51.3000f,71.9400f,54.8600f,68.6200f,56.6400f,64.4400f,56.6400f,59.4000f,56.6400f,59.0800f,56.6400f,58.7600f,56.6400f,58.4400f,56.6400f,54.7600f,55.7600f,51.7800f,54.0000f,49.5000f,53.0400f,48.2500f,51.8900f,47.1800f,50.5500f,46.2900f,49.4500f,45.5600f,48.2200f,44.9500f,46.8600f,44.4600f,43.8600f,43.3800f,40.5600f,42.8400f,36.9600f,42.8400f,32.4000f,42.8400f,27.8400f,42.8400f,23.2800f,42.8400f,23.2800f,38.8000f,23.2800f,34.7600f,23.2800f,30.7200f,33.9600f,23.8800f,44.6400f,17.0400f,55.3200f,10.2000f,55.3200f,9.7200f,55.3200f,9.2400f,55.3200f,8.7600f,39.3600f,8.7600f,23.4000f,8.7600f,7.4400f,8.7600f,7.4400f,5.8400f,7.4400f,2.9200f,7.4400f,0.0000f,26.8400f,0.0000f,46.2400f,0.0000f,65.6400f,0.0000f,65.6400f,2.2600f,65.6400f,4.5200f,65.6400f,6.7800f,65.6400f,9.0400f,65.6400f,11.3000f,65.6400f,13.5600f,55.2000f,20.2800f,44.7600f,27.0000f,34.3200f,33.7200f,34.3200f,34.2000f,34.3200f,34.6800f,34.3200f,35.1600f,36.3200f,35.1600f,38.3200f,35.1600f,40.3200f,35.1600f,45.0400f,35.1600f,49.3800f,36.0200f,53.3400f,37.7400f,54.5400f,38.2600f,55.6700f,38.8600f,56.7300f,39.5400f,59.1500f,41.0900f,61.1800f,43.0500f,62.8200f,45.4200f,65.1800f,48.8200f,66.3600f,53.0800f,66.3600f,58.2000f,66.3600f,58.6400f,66.3600f,59.0800f,66.3600f,59.5200f,66.3600f,64.8000f,65.1200f,69.4000f,62.6400f,73.3200f,61.1300f,75.7100f,59.2400f,77.7700f,56.9900f,79.5100f,55.5500f,80.6200f,53.9500f,81.6000f,52.2000f,82.4400f,47.7200f,84.6000f,42.4400f,85.6800f), floatArrayOf(34.0000f,320.0000f,26.3900f,320.0000f,19.7200f,318.0200f,14.3500f,314.1400f,12.0500f,312.4900f,9.9900f,310.4800f,8.1900f,308.1300f,6.1300f,305.4400f,4.5000f,302.4100f,3.2500f,299.1000f,1.0000f,293.1400f,0.0000f,286.3100f,0.0000f,279.0000f,0.0000f,273.3300f,0.0000f,267.6700f,0.0000f,262.0000f,4.6700f,262.0000f,9.3300f,262.0000f,14.0000f,262.0000f,14.0000f,267.6700f,14.0000f,273.3300f,14.0000f,279.0000f,14.0000f,287.0300f,15.4500f,293.0700f,17.7900f,297.3000f,18.2600f,298.1400f,18.7700f,298.9200f,19.3100f,299.6200f,22.3100f,303.5300f,26.8700f,306.0000f,34.0000f,306.0000f,41.1300f,306.0000f,45.6900f,303.5300f,48.6900f,299.6200f,49.4200f,298.6700f,50.0900f,297.5800f,50.6900f,296.3600f,52.7500f,292.2000f,54.0000f,286.4600f,54.0000f,279.0000f,54.0000f,248.6700f,54.0000f,218.3300f,54.0000f,188.0000f,54.0000f,180.6700f,52.5800f,174.3100f,50.0400f,169.0600f,48.5600f,166.0200f,46.7200f,163.3500f,44.5500f,161.0700f,42.6500f,159.0700f,40.4300f,157.3100f,37.9000f,155.8400f,32.6400f,152.7900f,26.0200f,151.0000f,18.0000f,151.0000f,15.7700f,151.0000f,13.6800f,149.9400f,12.3600f,148.1400f,11.0400f,146.3500f,10.6500f,144.0300f,11.3200f,141.9000f,24.7000f,99.2700f,38.0800f,56.6300f,51.4700f,14.0000f,51.4700f,14.0000f,51.4700f,14.0000f,51.4700f,14.0000f,36.6400f,14.0000f,21.8200f,14.0000f,7.0000f,14.0000f,7.0000f,9.3300f,7.0000f,4.6700f,7.0000f,0.0000f,25.0000f,0.0000f,43.0000f,0.0000f,61.0000f,0.0000f,63.2300f,0.0000f,65.3200f,1.0600f,66.6400f,2.8600f,67.9600f,4.6500f,68.3500f,6.9700f,67.6800f,9.1000f,54.2300f,51.9600f,40.7700f,94.8200f,27.3200f,137.6900f,27.3200f,137.6900f,27.3200f,137.6900f,27.3200f,137.6900f,27.3200f,137.6900f,27.3200f,137.6900f,27.3200f,137.6900f,35.8200f,138.9700f,43.3200f,142.0700f,49.5100f,146.7800f,51.3600f,148.1900f,53.0900f,149.7400f,54.7000f,151.4300f,58.2500f,155.1600f,61.1000f,159.4700f,63.2300f,164.2200f,66.4000f,171.3000f,68.0000f,179.3700f,68.0000f,188.0000f,68.0000f,218.3300f,68.0000f,248.6700f,68.0000f,279.0000f,68.0000f,285.9300f,67.1000f,292.4300f,65.0900f,298.1700f,63.8000f,301.8400f,62.0600f,305.1900f,59.8100f,308.1300f,58.2400f,310.1800f,56.4600f,311.9700f,54.5100f,313.5000f,48.9900f,317.8000f,42.0200f,320.0000f)),
++        )),
++        '4' to TakuClockGlyphs.Glyph(71.4000f, listOf(
++            TakuClockGlyphs.Contour(floatArrayOf(47.6400f,84.0000f,47.6400f,78.2800f,47.6400f,72.5600f,47.6400f,66.8400f,33.0400f,66.8400f,18.4400f,66.8400f,3.8400f,66.8400f,3.8400f,63.0000f,3.8400f,59.1600f,3.8400f,55.3200f,15.6000f,36.8800f,27.3600f,18.4400f,39.1200f,0.0000f,45.2000f,0.0000f,51.2800f,0.0000f,57.3600f,0.0000f,57.3600f,19.3600f,57.3600f,38.7200f,57.3600f,58.0800f,62.1600f,58.0800f,66.9600f,58.0800f,71.7600f,58.0800f,71.7600f,61.0000f,71.7600f,63.9200f,71.7600f,66.8400f,66.9600f,66.8400f,62.1600f,66.8400f,57.3600f,66.8400f,57.3600f,72.5600f,57.3600f,78.2800f,57.3600f,84.0000f,54.1200f,84.0000f,50.8800f,84.0000f), floatArrayOf(43.8516f,320.0000f,43.8516f,292.0000f,43.8516f,264.0000f,43.8516f,236.0000f,29.2344f,236.0000f,14.6172f,236.0000f,0.0000f,236.0000f,0.0000f,229.8630f,0.0000f,223.7260f,0.0000f,208.0000f,11.7739f,135.6424f,23.5477f,63.2848f,35.3216f,0.0000f,41.4087f,0.0000f,47.4959f,0.0000f,53.5830f,0.0000f,53.5830f,66.8948f,53.5830f,142.8625f,53.5830f,222.0000f,58.3887f,222.0000f,63.1943f,222.0000f,68.0000f,222.0000f,68.0000f,226.6667f,68.0000f,231.3333f,68.0000f,236.0000f,63.1943f,236.0000f,58.3887f,236.0000f,53.5830f,236.0000f,53.5830f,264.0000f,53.5830f,292.0000f,53.5830f,320.0000f,50.3392f,320.0000f,47.0954f,320.0000f)),
++            TakuClockGlyphs.Contour(floatArrayOf(13.5600f,58.0800f,24.9200f,58.0800f,36.2800f,58.0800f,47.6400f,58.0800f,47.6400f,40.6800f,47.6400f,23.2800f,47.6400f,5.8800f,47.0800f,5.8800f,46.5200f,5.8800f,45.9600f,5.8800f,35.1600f,22.8000f,24.3600f,39.7200f,13.5600f,56.6400f,13.5600f,57.1200f,13.5600f,57.6000f), floatArrayOf(9.7314f,222.0000f,21.1048f,222.0000f,32.4782f,222.0000f,43.8516f,222.0000f,43.8516f,150.5534f,43.8516f,82.2767f,43.8516f,14.0000f,43.2909f,14.0000f,42.7303f,14.0000f,42.1696f,14.0000f,31.3569f,80.3932f,20.5442f,146.7864f,9.7314f,214.6957f,9.7314f,217.1304f,9.7314f,219.5652f)),
++        )),
++        '5' to TakuClockGlyphs.Glyph(68.2800f, listOf(
++            TakuClockGlyphs.Contour(floatArrayOf(36.2400f,85.6800f,30.0800f,85.6800f,24.7600f,84.5000f,20.2800f,82.1400f,15.8000f,79.7800f,12.3200f,76.5000f,9.8400f,72.3000f,7.3600f,68.1000f,6.1200f,63.2400f,6.1200f,57.7200f,6.1200f,57.2400f,6.1200f,56.7600f,6.1200f,56.2800f,9.3600f,56.2800f,12.6000f,56.2800f,15.8400f,56.2800f,15.8400f,56.6400f,15.8400f,57.0000f,15.8400f,57.3600f,15.8400f,63.6800f,17.6800f,68.5200f,21.3600f,71.8800f,25.0400f,75.2400f,29.9200f,76.9200f,36.0000f,76.9200f,42.4000f,76.9200f,47.4000f,75.1200f,51.0000f,71.5200f,54.6000f,67.9200f,56.4000f,63.0000f,56.4000f,56.7600f,56.4000f,56.4000f,56.4000f,56.0400f,56.4000f,55.6800f,56.4000f,49.6800f,54.6600f,44.9000f,51.1800f,41.3400f,47.7000f,37.7800f,43.2000f,36.0000f,37.6800f,36.0000f,34.4800f,36.0000f,31.8400f,36.5000f,29.7600f,37.5000f,27.6800f,38.5000f,26.0400f,39.7400f,24.8400f,41.2200f,23.6400f,42.7000f,22.6400f,44.1200f,21.8400f,45.4800f,17.4400f,45.4800f,13.0400f,45.4800f,8.6400f,45.4800f,8.6400f,30.3200f,8.6400f,15.1600f,8.6400f,0.0000f,27.0400f,0.0000f,45.4400f,0.0000f,63.8400f,0.0000f,63.8400f,2.9200f,63.8400f,5.8400f,63.8400f,8.7600f,48.6800f,8.7600f,33.5200f,8.7600f,18.3600f,8.7600f,18.3600f,18.4400f,18.3600f,28.1200f,18.3600f,37.8000f,18.9200f,37.8000f,19.4800f,37.8000f,20.0400f,37.8000f,20.9200f,36.2000f,22.1400f,34.6400f,23.7000f,33.1200f,25.2600f,31.6000f,27.3600f,30.3200f,30.0000f,29.2800f,32.6400f,28.2400f,35.9200f,27.7200f,39.8400f,27.7200f,44.7200f,27.7200f,49.1400f,28.8400f,53.1000f,31.0800f,57.0600f,33.3200f,60.2200f,36.5200f,62.5800f,40.6800f,64.9400f,44.8400f,66.1200f,49.8000f,66.1200f,55.5600f,66.1200f,56.0000f,66.1200f,56.4400f,66.1200f,56.8800f,66.1200f,62.5600f,64.9200f,67.5600f,62.5200f,71.8800f,60.1200f,76.2000f,56.6800f,79.5800f,52.2000f,82.0200f,47.7200f,84.4600f,42.4000f,85.6800f), floatArrayOf(34.1360f,320.0000f,27.1547f,320.0000f,21.1253f,318.1142f,16.0480f,314.3425f,10.9707f,310.5708f,7.0267f,305.5000f,4.2160f,300.5000f,1.4053f,295.5000f,0.0000f,288.0789f,0.0000f,279.0000f,0.0000f,277.1111f,0.0000f,269.5556f,0.0000f,262.0000f,3.6720f,262.0000f,7.3440f,262.0000f,11.0160f,262.0000f,11.0160f,267.6667f,11.0160f,273.3333f,11.0160f,279.0000f,11.0160f,288.8026f,13.1013f,296.0000f,17.2720f,300.0000f,21.4427f,304.0000f,26.9733f,306.0000f,33.8640f,306.0000f,41.1173f,306.0000f,46.7840f,304.0000f,50.8640f,300.0000f,54.9440f,296.0000f,56.9840f,289.0000f,56.9840f,279.0000f,56.9840f,248.6667f,56.9840f,218.3333f,56.9840f,188.0000f,56.9840f,176.7195f,55.0120f,167.7327f,51.0680f,161.0396f,47.1240f,154.3465f,42.0240f,151.0000f,35.7680f,151.0000f,32.1413f,151.0000f,29.1493f,151.9400f,26.7920f,153.8201f,24.4347f,155.7002f,22.5760f,158.0315f,21.2160f,160.8140f,19.8560f,163.5965f,18.7227f,166.2663f,17.8160f,174.0000f,12.8293f,174.0000f,7.8427f,174.0000f,2.8560f,174.0000f,2.8560f,141.3961f,2.8560f,55.5190f,2.8560f,0.0000f,23.7093f,0.0000f,44.5627f,0.0000f,65.4160f,0.0000f,65.4160f,4.6667f,65.4160f,9.3333f,65.4160f,14.0000f,48.2347f,14.0000f,31.0533f,14.0000f,13.8720f,14.0000f,13.8720f,76.7975f,13.8720f,137.6763f,13.8720f,154.3841f,14.5067f,154.3841f,15.1413f,154.3841f,15.7760f,154.3841f,16.7733f,151.3760f,18.1560f,148.7005f,19.9240f,146.1304f,21.6920f,143.5604f,24.0720f,141.3961f,27.0640f,139.6377f,30.0560f,137.8792f,33.7733f,137.0000f,38.2160f,137.0000f,43.7467f,137.0000f,48.7560f,138.8937f,53.2440f,142.6812f,57.7320f,146.4686f,61.3133f,151.9776f,63.9880f,159.7988f,66.6627f,167.6199f,68.0000f,176.9451f,68.0000f,187.7744f,68.0000f,214.9630f,68.0000f,252.0370f,68.0000f,279.1923f,68.0000f,288.2949f,66.6400f,295.6000f,63.9200f,300.4000f,61.2000f,305.2000f,57.3013f,310.2511f,52.2240f,314.1507f,47.1467f,318.0502f,41.1173f,320.0000f)),
++        )),
++        '6' to TakuClockGlyphs.Glyph(69.8400f, listOf(
++            TakuClockGlyphs.Contour(floatArrayOf(37.2000f,85.6800f,31.4400f,85.6800f,26.3000f,84.5400f,21.7800f,82.2600f,17.2600f,79.9800f,13.7000f,76.7200f,11.1000f,72.4800f,8.5000f,68.2400f,7.2000f,63.2000f,7.2000f,57.3600f,7.2000f,47.6000f,7.2000f,37.8400f,7.2000f,28.0800f,7.2000f,21.7600f,8.4400f,16.4000f,10.9200f,12.0000f,13.4000f,7.6000f,16.9000f,4.2200f,21.4200f,1.8600f,25.9400f,-0.5000f,31.3200f,-1.6800f,37.5600f,-1.6800f,43.7200f,-1.6800f,48.9800f,-0.5800f,53.3400f,1.6200f,57.7000f,3.8200f,61.0200f,6.8200f,63.3000f,10.6200f,65.5800f,14.4200f,66.7200f,18.8000f,66.7200f,23.7600f,63.4400f,23.7600f,60.1600f,23.7600f,56.8800f,23.7600f,56.8800f,18.8000f,55.2800f,14.7800f,52.0800f,11.7000f,48.8800f,8.6200f,44.0400f,7.0800f,37.5600f,7.0800f,31.0000f,7.0800f,25.9200f,8.8600f,22.3200f,12.4200f,18.7200f,15.9800f,16.9200f,20.8800f,16.9200f,27.1200f,16.9200f,31.0000f,16.9200f,34.8800f,16.9200f,38.7600f,17.4800f,38.7600f,18.0400f,38.7600f,18.6000f,38.7600f,20.0400f,36.3600f,22.4400f,34.1400f,25.8000f,32.1000f,29.1600f,30.0600f,33.8400f,29.0400f,39.8400f,29.0400f,44.8800f,29.0400f,49.4800f,30.1600f,53.6400f,32.4000f,57.8000f,34.6400f,61.1200f,37.8000f,63.6000f,41.8800f,66.0800f,45.9600f,67.3200f,50.8000f,67.3200f,56.4000f,67.3200f,56.8800f,67.3200f,57.3600f,67.3200f,57.8400f,67.3200f,63.5200f,66.0200f,68.4400f,63.4200f,72.6000f,60.8200f,76.7600f,57.2400f,79.9800f,52.6800f,82.2600f,48.1200f,84.5400f,42.9600f,85.6800f), floatArrayOf(33.9321f,320.0000f,27.4172f,320.0000f,21.6035f,318.1781f,16.4910f,314.5342f,11.3786f,310.8904f,7.3520f,305.7868f,4.4112f,301.2674f,1.4704f,296.7481f,0.0000f,288.8739f,0.0000f,279.0000f,0.0000f,189.0249f,0.0000f,175.0513f,0.0000f,41.0000f,0.0000f,37.7626f,1.4025f,29.0863f,4.2076f,21.9640f,7.0126f,14.8417f,10.9714f,9.4292f,16.0838f,5.6575f,21.1963f,1.8858f,27.2814f,0.0000f,34.3393f,0.0000f,41.3067f,0.0000f,47.2562f,1.7580f,52.1876f,5.2740f,57.1191f,8.7900f,60.8743f,13.5845f,63.4531f,19.7302f,66.0319f,25.8813f,67.3214f,32.9712f,67.3214f,41.0000f,63.6114f,41.0000f,59.9015f,41.0000f,56.1916f,41.0000f,56.1916f,32.9712f,54.3819f,26.4640f,50.7625f,21.4784f,47.1430f,16.4928f,41.6687f,14.0000f,34.3393f,14.0000f,26.9195f,14.0000f,21.1737f,16.8813f,17.1018f,22.6439f,13.0299f,28.4065f,10.9940f,36.3381f,10.9940f,41.0000f,10.9940f,162.3627f,10.9940f,169.0196f,10.9940f,178.0000f,11.6274f,178.0000f,12.2608f,178.0000f,12.8942f,178.0000f,14.5230f,171.5588f,17.2375f,167.7500f,21.0379f,164.2500f,24.8383f,160.7500f,30.1317f,159.0000f,36.9182f,159.0000f,42.6188f,159.0000f,47.8217f,160.9216f,52.5269f,164.7647f,57.2322f,168.6078f,60.9874f,174.9231f,63.7924f,181.8912f,66.5975f,186.9796f,68.0000f,193.0159f,68.0000f,200.0000f,68.0000f,215.8000f,68.0000f,279.0000f,68.0000f,279.2162f,68.0000f,289.4505f,66.5296f,296.9612f,63.5888f,301.3953f,60.6480f,305.8295f,56.5988f,310.8904f,51.4411f,314.5342f,46.2834f,318.1781f,40.4471f,320.0000f)),
++            TakuClockGlyphs.Contour(floatArrayOf(37.2000f,76.9200f,43.2800f,76.9200f,48.2000f,75.2000f,51.9600f,71.7600f,55.7200f,68.3200f,57.6000f,63.6400f,57.6000f,57.7200f,57.6000f,57.4000f,57.6000f,57.0800f,57.6000f,56.7600f,57.6000f,52.7600f,56.7400f,49.3200f,55.0200f,46.4400f,53.3000f,43.5600f,50.9200f,41.3000f,47.8800f,39.6600f,44.8400f,38.0200f,41.2800f,37.2000f,37.2000f,37.2000f,33.2000f,37.2000f,29.6800f,38.0200f,26.6400f,39.6600f,23.6000f,41.3000f,21.2200f,43.5600f,19.5000f,46.4400f,17.7800f,49.3200f,16.9200f,52.7600f,16.9200f,56.7600f,16.9200f,57.0800f,16.9200f,57.4000f,16.9200f,57.7200f,16.9200f,63.6400f,18.8000f,68.3200f,22.5600f,71.7600f,26.3200f,75.2000f,31.2000f,76.9200f), floatArrayOf(33.9321f,306.0000f,40.8090f,306.0000f,46.3739f,304.1667f,50.6267f,300.5000f,54.8796f,296.8333f,57.0060f,289.6667f,57.0060f,279.0000f,57.0060f,279.0000f,57.0060f,242.1333f,57.0060f,200.0000f,57.0060f,195.4603f,56.0333f,191.1701f,54.0878f,187.5782f,52.1424f,183.9864f,49.4504f,181.1678f,46.0120f,179.1224f,42.5735f,175.6282f,38.5469f,173.0000f,33.9321f,173.0000f,29.4079f,173.0000f,25.4265f,175.6282f,21.9880f,179.1224f,18.5496f,181.1678f,15.8576f,183.9864f,13.9122f,187.5782f,11.9667f,191.1701f,10.9940f,195.4603f,10.9940f,200.0000f,10.9940f,242.1333f,10.9940f,279.0000f,10.9940f,279.0000f,10.9940f,289.6667f,13.1204f,296.8333f,17.3733f,300.5000f,21.6261f,304.1667f,27.1457f,306.0000f)),
++        )),
++        '7' to TakuClockGlyphs.Glyph(64.0800f, listOf(
++            TakuClockGlyphs.Contour(floatArrayOf(18.2400f,84.0000f,18.2400f,83.0000f,18.2400f,82.0000f,18.2400f,81.0000f,18.2400f,78.2000f,18.4800f,75.8400f,18.9600f,73.9200f,19.4400f,72.0000f,20.3600f,69.7200f,21.7200f,67.0800f,32.4000f,48.0800f,43.0800f,29.0800f,53.7600f,10.0800f,53.7600f,9.6400f,53.7600f,9.2000f,53.7600f,8.7600f,37.1200f,8.7600f,20.4800f,8.7600f,3.8400f,8.7600f,3.8400f,5.8400f,3.8400f,2.9200f,3.8400f,0.0000f,23.8800f,0.0000f,43.9200f,0.0000f,63.9600f,0.0000f,63.9600f,3.8400f,63.9600f,7.6800f,63.9600f,11.5200f,52.8000f,31.5200f,41.6400f,51.5200f,30.4800f,71.5200f,29.5200f,73.2000f,28.8600f,74.7200f,28.5000f,76.0800f,28.1400f,77.4400f,27.9600f,79.1600f,27.9600f,81.2400f,27.9600f,82.1600f,27.9600f,83.0800f,27.9600f,84.0000f,24.7200f,84.0000f,21.4800f,84.0000f), floatArrayOf(16.2874f,320.0000f,16.2874f,317.6667f,16.2874f,315.3333f,16.2874f,313.0000f,16.2874f,304.7300f,16.5589f,297.7595f,17.1018f,292.0886f,17.6447f,286.4177f,18.6853f,276.9900f,20.2236f,265.2420f,32.3034f,180.6920f,44.3832f,96.1420f,56.4631f,14.0000f,56.4631f,14.0000f,56.4631f,14.0000f,56.4631f,14.0000f,37.6420f,14.0000f,18.8210f,14.0000f,0.0000f,14.0000f,0.0000f,9.3333f,0.0000f,4.6667f,0.0000f,0.0000f,22.6667f,0.0000f,45.3333f,0.0000f,68.0000f,0.0000f,68.0000f,6.1370f,68.0000f,12.2740f,68.0000f,18.0000f,55.3772f,107.0000f,42.7545f,196.0000f,30.1317f,285.0000f,29.0459f,289.9620f,28.2994f,294.4515f,27.8922f,298.4684f,27.4850f,302.4852f,27.2814f,307.5654f,27.2814f,313.5600f,27.2814f,315.7067f,27.2814f,317.8533f,27.2814f,320.0000f,23.6168f,320.0000f,19.9521f,320.0000f)),
++        )),
++        '8' to TakuClockGlyphs.Glyph(71.1600f, listOf(
++            TakuClockGlyphs.Contour(floatArrayOf(37.3200f,85.6800f,30.8400f,85.6800f,25.2200f,84.7000f,20.4600f,82.7400f,15.7000f,80.7800f,12.0200f,78.0200f,9.4200f,74.4600f,6.8200f,70.9000f,5.5200f,66.7200f,5.5200f,61.9200f,5.5200f,61.4800f,5.5200f,61.0400f,5.5200f,60.6000f,5.5200f,56.4400f,6.4000f,53.0000f,8.1600f,50.2800f,9.9200f,47.5600f,12.0600f,45.4600f,14.5800f,43.9800f,17.1000f,42.5000f,19.4400f,41.5600f,21.6000f,41.1600f,21.6000f,40.6400f,21.6000f,40.1200f,21.6000f,39.6000f,19.4400f,38.9600f,17.2200f,37.9200f,14.9400f,36.4800f,12.6600f,35.0400f,10.7800f,33.0800f,9.3000f,30.6000f,7.8200f,28.1200f,7.0800f,25.0800f,7.0800f,21.4800f,7.0800f,21.0400f,7.0800f,20.6000f,7.0800f,20.1600f,7.0800f,15.6000f,8.3800f,11.7000f,10.9800f,8.4600f,13.5800f,5.2200f,17.1600f,2.7200f,21.7200f,0.9600f,26.2800f,-0.8000f,31.4800f,-1.6800f,37.3200f,-1.6800f,43.2400f,-1.6800f,48.4600f,-0.8000f,52.9800f,0.9600f,57.5000f,2.7200f,61.0600f,5.2200f,63.6600f,8.4600f,66.2600f,11.7000f,67.5600f,15.6000f,67.5600f,20.1600f,67.5600f,20.6000f,67.5600f,21.0400f,67.5600f,21.4800f,67.5600f,25.0800f,66.8400f,28.1200f,65.4000f,30.6000f,63.9600f,33.0800f,62.1200f,35.0400f,59.8800f,36.4800f,57.6400f,37.9200f,55.4000f,38.9600f,53.1600f,39.6000f,53.1600f,40.1200f,53.1600f,40.6400f,53.1600f,41.1600f,55.4000f,41.5600f,57.7600f,42.5000f,60.2400f,43.9800f,62.7200f,45.4600f,64.8200f,47.5600f,66.5400f,50.2800f,68.2600f,53.0000f,69.1200f,56.4400f,69.1200f,60.6000f,69.1200f,61.0400f,69.1200f,61.4800f,69.1200f,61.9200f,69.1200f,66.7200f,67.8400f,70.9000f,65.2800f,74.4600f,62.7200f,78.0200f,59.0600f,80.7800f,54.3000f,82.7400f,49.5400f,84.7000f,43.8800f,85.6800f), floatArrayOf(34.0000f,320.0000f,27.0717f,320.0000f,21.0629f,318.4338f,15.9736f,315.3014f,10.8843f,312.1689f,6.9497f,307.7580f,4.1698f,301.5720f,1.3899f,295.1640f,0.0000f,287.6400f,0.0000f,279.0000f,0.0000f,279.0000f,0.0000f,241.3810f,0.0000f,200.0000f,0.0000f,192.9535f,0.9409f,186.9535f,2.8226f,182.2093f,4.7044f,177.4651f,6.9925f,173.8023f,9.6868f,171.1406f,12.3811f,168.4427f,14.8830f,166.7292f,17.1925f,166.0000f,17.1925f,162.0000f,17.1925f,158.0000f,17.1925f,154.0000f,14.8830f,152.6667f,12.5094f,150.5000f,10.0717f,147.5000f,7.6340f,144.6923f,5.6239f,140.9231f,4.0415f,136.1538f,2.4591f,131.3846f,1.6679f,125.5385f,1.6679f,120.0000f,1.6679f,41.0000f,1.6679f,41.0000f,1.6679f,41.0000f,1.6679f,31.5872f,3.0579f,23.5367f,5.8377f,16.8486f,8.6176f,11.0274f,12.4453f,7.0320f,17.3208f,4.2192f,22.1962f,1.4064f,27.7560f,0.0000f,34.0000f,0.0000f,40.3296f,0.0000f,45.9107f,1.4064f,50.7434f,4.2192f,55.5761f,7.0320f,59.3824f,11.0274f,62.1623f,16.8486f,64.9421f,23.5367f,66.3321f,31.5872f,66.3321f,41.0000f,66.3321f,41.0000f,66.3321f,41.0000f,66.3321f,120.0000f,66.3321f,125.5385f,65.5623f,131.3846f,64.0226f,136.1538f,62.4830f,140.9231f,60.5157f,144.6923f,58.1208f,147.5000f,55.7258f,150.5000f,53.3308f,152.6667f,50.9358f,154.0000f,50.9358f,158.0000f,50.9358f,162.0000f,50.9358f,166.0000f,53.3308f,166.7292f,55.8541f,168.4427f,58.5057f,171.1406f,61.1572f,173.8023f,63.4025f,177.4651f,65.2415f,182.2093f,67.0805f,186.9535f,68.0000f,192.9535f,68.0000f,200.0000f,68.0000f,241.3810f,68.0000f,279.0000f,68.0000f,279.0000f,68.0000f,287.6400f,66.6314f,295.1640f,63.8943f,301.5720f,61.1572f,307.7580f,57.2440f,312.1689f,52.1547f,315.3014f,47.0654f,318.4338f,41.0138f,320.0000f)),
++            TakuClockGlyphs.Contour(floatArrayOf(37.3200f,76.9200f,44.1200f,76.9200f,49.5000f,75.6000f,53.4600f,72.9600f,57.4200f,70.3200f,59.4000f,66.4800f,59.4000f,61.4400f,59.4000f,61.1200f,59.4000f,60.8000f,59.4000f,60.4800f,59.4000f,55.4400f,57.4400f,51.6000f,53.5200f,48.9600f,49.6000f,46.3200f,44.2000f,45.0000f,37.3200f,45.0000f,30.5200f,45.0000f,25.1600f,46.3200f,21.2400f,48.9600f,17.3200f,51.6000f,15.3600f,55.4400f,15.3600f,60.4800f,15.3600f,60.8000f,15.3600f,61.1200f,15.3600f,61.4400f,15.3600f,66.4800f,17.3400f,70.3200f,21.3000f,72.9600f,25.2600f,75.6000f,30.6000f,76.9200f), floatArrayOf(34.0000f,306.0000f,41.2704f,306.0000f,47.0226f,303.6240f,51.2566f,298.8720f,55.4906f,294.1200f,57.6075f,287.2080f,57.6075f,279.0000f,57.6075f,248.9048f,57.6075f,218.8095f,57.6075f,200.0000f,57.6075f,191.2093f,55.5119f,184.5116f,51.3208f,179.9070f,47.1296f,175.3023f,41.3560f,173.0000f,34.0000f,173.0000f,26.7296f,173.0000f,20.9987f,175.3023f,16.8075f,179.9070f,12.6164f,184.5116f,10.5208f,191.2093f,10.5208f,200.0000f,10.5208f,218.8095f,10.5208f,248.9048f,10.5208f,279.0000f,10.5208f,287.2080f,12.6377f,294.1200f,16.8717f,298.8720f,21.1057f,303.6240f,26.8151f,306.0000f)),
++            TakuClockGlyphs.Contour(floatArrayOf(37.3200f,36.2400f,43.7200f,36.2400f,48.7400f,35.0200f,52.3800f,32.5800f,56.0200f,30.1400f,57.8400f,26.6800f,57.8400f,22.2000f,57.8400f,21.8800f,57.8400f,21.5600f,57.8400f,21.2400f,57.8400f,16.6800f,56.0000f,13.1800f,52.3200f,10.7400f,48.6400f,8.3000f,43.6400f,7.0800f,37.3200f,7.0800f,31.0000f,7.0800f,26.0000f,8.3000f,22.3200f,10.7400f,18.6400f,13.1800f,16.8000f,16.6800f,16.8000f,21.2400f,16.8000f,21.5600f,16.8000f,21.8800f,16.8000f,22.2000f,16.8000f,26.6800f,18.6400f,30.1400f,22.3200f,32.5800f,26.0000f,35.0200f,31.0000f,36.2400f), floatArrayOf(34.0000f,147.0000f,40.8428f,147.0000f,46.2101f,144.6538f,50.1019f,139.9615f,53.9937f,135.2692f,55.9396f,128.6154f,55.9396f,120.0000f,55.9396f,120.0000f,55.9396f,120.0000f,55.9396f,41.0000f,55.9396f,33.8165f,53.9723f,26.5917f,50.0377f,21.5550f,46.1031f,16.5183f,40.7572f,14.0000f,34.0000f,14.0000f,27.2428f,14.0000f,21.8969f,16.5183f,17.9623f,21.5550f,14.0277f,26.5917f,12.0604f,33.8165f,12.0604f,41.0000f,12.0604f,120.0000f,12.0604f,120.0000f,12.0604f,120.0000f,12.0604f,128.6154f,14.0277f,135.2692f,17.9623f,139.9615f,21.8969f,144.6538f,27.2428f,147.0000f)),
++        )),
++        '9' to TakuClockGlyphs.Glyph(69.8400f, listOf(
++            TakuClockGlyphs.Contour(floatArrayOf(36.2400f,-1.6800f,42.0800f,-1.6800f,47.2600f,-0.5400f,51.7800f,1.7400f,53.8300f,2.7700f,55.6800f,4.0100f,57.3300f,5.4400f,59.3100f,7.1600f,61.0000f,9.1700f,62.4000f,11.4600f,64.9600f,15.6600f,66.2400f,20.7200f,66.2400f,26.6400f,66.2400f,36.4000f,66.2400f,46.1600f,66.2400f,55.9200f,66.2400f,62.1600f,65.0200f,67.5000f,62.5800f,71.9400f,61.2600f,74.3500f,59.6200f,76.4500f,57.6700f,78.2500f,56.0300f,79.7600f,54.1700f,81.0600f,52.0800f,82.1400f,47.5200f,84.5000f,42.1200f,85.6800f,35.8800f,85.6800f,29.7200f,85.6800f,24.4600f,84.5800f,20.1000f,82.3800f,20.0000f,82.3300f,19.9000f,82.2800f,19.7900f,82.2200f,15.5900f,80.0400f,12.3900f,77.0700f,10.2000f,73.3200f,9.5100f,72.1400f,8.9300f,70.9100f,8.4500f,69.6300f,7.3800f,66.7500f,6.8400f,63.6200f,6.8400f,60.2400f,10.0800f,60.2400f,13.3200f,60.2400f,16.5600f,60.2400f,16.5600f,63.4900f,17.2600f,66.3300f,18.6700f,68.7700f,19.4100f,70.0600f,20.3500f,71.2400f,21.4800f,72.3000f,23.0700f,73.7900f,25.0100f,74.9200f,27.3000f,75.6900f,29.7600f,76.5100f,32.6200f,76.9200f,35.8800f,76.9200f,41.4500f,76.9200f,45.9400f,75.6700f,49.3400f,73.1600f,49.9900f,72.6800f,50.6100f,72.1500f,51.1800f,71.5800f,54.7400f,68.0200f,56.5200f,63.1200f,56.5200f,56.8800f,56.5200f,53.0000f,56.5200f,49.1200f,56.5200f,45.2400f,56.0000f,45.2400f,55.4800f,45.2400f,54.9600f,45.2400f,53.4400f,47.6400f,51.0200f,49.8600f,47.7000f,51.9000f,44.3800f,53.9400f,39.7200f,54.9600f,33.7200f,54.9600f,28.6800f,54.9600f,24.0600f,53.8400f,19.8600f,51.6000f,17.7900f,50.4900f,15.9200f,49.1600f,14.2700f,47.6100f,12.5700f,46.0100f,11.1000f,44.1900f,9.8400f,42.1200f,7.3600f,38.0400f,6.1200f,33.2000f,6.1200f,27.6000f,6.1200f,27.1200f,6.1200f,26.6400f,6.1200f,26.1600f,6.1200f,20.4000f,7.4400f,15.4600f,10.0800f,11.3400f,11.5400f,9.0600f,13.2900f,7.0700f,15.3200f,5.3500f,16.9700f,3.9600f,18.8000f,2.7600f,20.8200f,1.7400f,25.3400f,-0.5400f,30.4800f,-1.6800f), floatArrayOf(34.0000f,0.0000f,41.6000f,0.0000f,48.2600f,1.9700f,53.6300f,5.8400f,55.9300f,7.5000f,58.0000f,9.5100f,59.8100f,11.8700f,61.8500f,14.5400f,63.4800f,17.5400f,64.7200f,20.8200f,66.9900f,26.8000f,68.0000f,33.6600f,68.0000f,41.0000f,68.0000f,120.3300f,68.0000f,199.6700f,68.0000f,279.0000f,68.0000f,286.4200f,66.9700f,293.3600f,64.6500f,299.3800f,63.4100f,302.5800f,61.8100f,305.5200f,59.8100f,308.1300f,58.0300f,310.4600f,55.9900f,312.4400f,53.7200f,314.0900f,48.3400f,318.0000f,41.6500f,320.0000f,34.0000f,320.0000f,23.3500f,320.0000f,14.5600f,316.1300f,8.5700f,308.6100f,8.4400f,308.4500f,8.3200f,308.2900f,8.1900f,308.1300f,3.6700f,302.2300f,1.2100f,294.6800f,0.3500f,286.2400f,0.1100f,283.8900f,0.0000f,281.4700f,0.0000f,279.0000f,0.0000f,273.3300f,0.0000f,267.6700f,0.0000f,262.0000f,4.6700f,262.0000f,9.3300f,262.0000f,14.0000f,262.0000f,14.0000f,267.6700f,14.0000f,273.3300f,14.0000f,279.0000f,14.0000f,282.1900f,14.2300f,285.0600f,14.6500f,287.6300f,15.5000f,292.8400f,17.1500f,296.8000f,19.3100f,299.6200f,22.3100f,303.5300f,26.8700f,306.0000f,34.0000f,306.0000f,41.1300f,306.0000f,45.6900f,303.5300f,48.6900f,299.6200f,49.2400f,298.9000f,49.7600f,298.1100f,50.2400f,297.2400f,52.5600f,293.0200f,54.0000f,287.0000f,54.0000f,279.0000f,54.0000f,237.6300f,54.0000f,196.2600f,54.0000f,154.8800f,54.0000f,154.8800f,54.0000f,154.8800f,54.0000f,154.8800f,51.7000f,156.6000f,49.1500f,157.9600f,46.3900f,158.9600f,42.6400f,160.3100f,38.4800f,161.0000f,34.0000f,161.0000f,26.7300f,161.0000f,20.3300f,159.2000f,15.0900f,155.6600f,12.4900f,153.9100f,10.1800f,151.7300f,8.1900f,149.1300f,6.2400f,146.5800f,4.6700f,143.7200f,3.4400f,140.6100f,1.0600f,134.5300f,0.0000f,127.5100f,0.0000f,120.0000f,0.0000f,93.6700f,0.0000f,67.3300f,0.0000f,41.0000f,0.0000f,33.7400f,0.9900f,26.9400f,3.2100f,21.0100f,4.4600f,17.6600f,6.1100f,14.5900f,8.1900f,11.8700f,9.9900f,9.5200f,12.0500f,7.5200f,14.3400f,5.8600f,19.7200f,1.9800f,26.3800f,0.0000f)),
++            TakuClockGlyphs.Contour(floatArrayOf(36.2400f,7.0800f,31.0600f,7.0800f,26.7200f,8.3200f,23.2200f,10.7900f,22.6200f,11.2100f,22.0300f,11.6800f,21.4800f,12.1800f,17.7200f,15.5800f,15.8400f,20.2800f,15.8400f,26.2800f,15.8400f,26.6000f,15.8400f,26.9200f,15.8400f,27.2400f,15.8400f,31.1600f,16.7000f,34.5800f,18.4200f,37.5000f,19.6700f,39.6200f,21.2800f,41.4100f,23.2500f,42.8500f,23.9900f,43.4000f,24.7800f,43.8900f,25.6200f,44.3400f,28.7000f,45.9800f,32.2400f,46.8000f,36.2400f,46.8000f,40.2400f,46.8000f,43.7600f,45.9800f,46.8000f,44.3400f,47.6400f,43.8900f,48.4300f,43.3800f,49.1700f,42.8300f,51.1100f,41.3900f,52.7000f,39.6100f,53.9400f,37.5000f,55.6600f,34.5800f,56.5200f,31.1600f,56.5200f,27.2400f,56.5200f,26.9200f,56.5200f,26.6000f,56.5200f,26.2800f,56.5200f,20.2800f,54.6600f,15.5800f,50.9400f,12.1800f,50.3900f,11.6800f,49.8200f,11.2100f,49.2200f,10.7900f,45.7500f,8.3200f,41.4200f,7.0800f), floatArrayOf(34.0000f,14.0000f,26.8700f,14.0000f,22.3100f,16.4700f,19.3100f,20.3800f,18.7800f,21.0700f,18.2900f,21.8200f,17.8300f,22.6400f,15.4600f,26.8600f,14.0000f,32.9200f,14.0000f,41.0000f,14.0000f,67.3300f,14.0000f,93.6700f,14.0000f,120.0000f,14.0000f,125.0200f,14.5700f,129.2600f,15.5600f,132.7700f,16.4800f,136.0000f,17.7600f,138.6000f,19.3100f,140.6200f,19.9900f,141.5100f,20.7600f,142.3300f,21.6200f,143.0600f,24.5300f,145.5300f,28.5000f,147.0000f,34.0000f,147.0000f,39.4900f,147.0000f,43.4600f,145.5400f,46.3600f,143.0800f,47.2300f,142.3400f,48.0000f,141.5200f,48.6900f,140.6200f,50.2300f,138.6100f,51.5100f,136.0200f,52.4300f,132.8100f,53.4300f,129.2900f,54.0000f,125.0400f,54.0000f,120.0000f,54.0000f,93.6700f,54.0000f,67.3300f,54.0000f,41.0000f,54.0000f,32.9200f,52.5300f,26.8500f,50.1600f,22.6300f,49.7100f,21.8100f,49.2100f,21.0600f,48.6900f,20.3800f,45.6900f,16.4700f,41.1300f,14.0000f)),
++        )),
++        ':' to TakuClockGlyphs.Glyph(26.7600f, listOf(
++            TakuClockGlyphs.Contour(floatArrayOf(15.1200f,85.6800f,12.8000f,85.6800f,10.8600f,84.9200f,9.3000f,83.4000f,7.7400f,81.8800f,6.9600f,79.9200f,6.9600f,77.5200f,6.9600f,75.1200f,7.7400f,73.1600f,9.3000f,71.6400f,10.8600f,70.1200f,12.8000f,69.3600f,15.1200f,69.3600f,17.5200f,69.3600f,19.4800f,70.1200f,21.0000f,71.6400f,22.5200f,73.1600f,23.2800f,75.1200f,23.2800f,77.5200f,23.2800f,79.9200f,22.5200f,81.8800f,21.0000f,83.4000f,19.4800f,84.9200f,17.5200f,85.6800f), floatArrayOf(12.0000f,227.0000f,9.7900f,227.0000f,7.7900f,226.1000f,6.3400f,224.6600f,4.9000f,223.2100f,4.0000f,221.2100f,4.0000f,219.0000f,4.0000f,216.7900f,4.9000f,214.7900f,6.3400f,213.3400f,7.7900f,211.9000f,9.7900f,211.0000f,12.0000f,211.0000f,14.2100f,211.0000f,16.2100f,211.9000f,17.6600f,213.3400f,19.1000f,214.7900f,20.0000f,216.7900f,20.0000f,219.0000f,20.0000f,221.2100f,19.1000f,223.2100f,17.6600f,224.6600f,16.2100f,226.1000f,14.2100f,227.0000f)),
++            TakuClockGlyphs.Contour(floatArrayOf(15.1200f,39.9600f,12.8000f,39.9600f,10.8600f,39.2000f,9.3000f,37.6800f,7.7400f,36.1600f,6.9600f,34.2000f,6.9600f,31.8000f,6.9600f,29.4000f,7.7400f,27.4400f,9.3000f,25.9200f,10.8600f,24.4000f,12.8000f,23.6400f,15.1200f,23.6400f,17.5200f,23.6400f,19.4800f,24.4000f,21.0000f,25.9200f,22.5200f,27.4400f,23.2800f,29.4000f,23.2800f,31.8000f,23.2800f,34.2000f,22.5200f,36.1600f,21.0000f,37.6800f,19.4800f,39.2000f,17.5200f,39.9600f), floatArrayOf(12.0000f,119.0000f,9.7900f,119.0000f,7.7900f,118.1000f,6.3400f,116.6600f,4.9000f,115.2100f,4.0000f,113.2100f,4.0000f,111.0000f,4.0000f,108.7900f,4.9000f,106.7900f,6.3400f,105.3400f,7.7900f,103.9000f,9.7900f,103.0000f,12.0000f,103.0000f,14.2100f,103.0000f,16.2100f,103.9000f,17.6600f,105.3400f,19.1000f,106.7900f,20.0000f,108.7900f,20.0000f,111.0000f,20.0000f,113.2100f,19.1000f,115.2100f,17.6600f,116.6600f,16.2100f,118.1000f,14.2100f,119.0000f)),
++        )),
++    )
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuClockFaceController.kt
+@@ -0,0 +1,87 @@
++package com.android.systemui.taku.lockscreen
++
++import android.content.Context
++import android.util.TypedValue
++import androidx.constraintlayout.widget.ConstraintSet
++import com.android.systemui.customization.clocks.view.DefaultClockFaceLayout
++import com.android.systemui.plugins.keyguard.VRect
++import com.android.systemui.plugins.keyguard.ui.clocks.ClockAnimations
++import com.android.systemui.plugins.keyguard.ui.clocks.ClockAxisStyle
++import com.android.systemui.plugins.keyguard.ui.clocks.ClockFaceConfig
++import com.android.systemui.plugins.keyguard.ui.clocks.ClockFaceController
++import com.android.systemui.plugins.keyguard.ui.clocks.ClockFaceEvents
++import com.android.systemui.plugins.keyguard.ui.clocks.ClockPositionAnimationArgs
++import com.android.systemui.plugins.keyguard.ui.clocks.ClockSettings
++import com.android.systemui.plugins.keyguard.ui.clocks.ClockViewIds
++import com.android.systemui.plugins.keyguard.ui.clocks.ThemeConfig
++
++/**
++ * One face of the Taku clock. The keyguard shows the large face while no notification is visible and
++ * the small one otherwise; Taku hides notifications until the user authenticates, so the large face is
++ * the locked lock screen (Figma 979:429) and the small face the authenticated one (979:574).
++ */
++class TakuClockFaceController(context: Context, settings: ClockSettings, isLarge: Boolean) : ClockFaceController {
++    override val view = TakuClockFaceView(context, isLarge).apply {
++        // DefaultClockFaceLayout and the keyguard address the faces by these ids.
++        id = if (isLarge) ClockViewIds.LOCKSCREEN_CLOCK_VIEW_LARGE else ClockViewIds.LOCKSCREEN_CLOCK_VIEW_SMALL
++    }
++
++    override val layout = TakuClockFaceLayout(view, context)
++    override val config = ClockFaceConfig()
++    override var theme = ThemeConfig(isDarkTheme = true, settings.seedColor)
++
++    override val events = object : ClockFaceEvents {
++        override fun onTimeTick() = view.refresh()
++
++        override fun onThemeChanged(theme: ThemeConfig) {
++            this@TakuClockFaceController.theme = theme
++            // The face always sits on the darkened lock-screen background.
++            view.setTheme(isDark = true)
++        }
++
++        override fun onFontSettingChanged(fontSizePx: Float) = view.setTextSizePx(fontSizePx)
++        override fun onTargetRegionChanged(targetRegion: VRect) {}
++        override fun onSecondaryDisplayChanged(onSecondaryDisplay: Boolean) {}
++    }
++
++    override val animations = object : ClockAnimations {
++        override fun enter() {}
++        override fun doze(fraction: Float) {}
++        override fun fold(fraction: Float) {}
++        override fun charge() {}
++        override fun onPickerCarouselSwiping(swipingFraction: Float) {}
++        override fun onPositionAnimated(args: ClockPositionAnimationArgs) {}
++        override fun onFidgetTap(x: Float, y: Float) {}
++        override fun onFontAxesChanged(style: ClockAxisStyle) {}
++    }
++}
++
++/**
++ * Both faces are centred and start 24 dp below the status bar (76 dp from the top of a 412 × 917 frame).
++ * The stock defaults put the small clock at the start edge with a fixed height; this layout replaces
++ * that after the clock section's defaults are applied.
++ */
++class TakuClockFaceLayout(view: TakuClockFaceView, private val context: Context) : DefaultClockFaceLayout(view) {
++    override fun applyConstraints(constraints: ConstraintSet): ConstraintSet {
++        val id = view.id
++        val top = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, TOP_DP, context.resources.displayMetrics).toInt()
++        constraints.apply {
++            clear(id, ConstraintSet.START)
++            clear(id, ConstraintSet.END)
++            clear(id, ConstraintSet.TOP)
++            clear(id, ConstraintSet.BOTTOM)
++            constrainWidth(id, ConstraintSet.WRAP_CONTENT)
++            constrainHeight(id, ConstraintSet.WRAP_CONTENT)
++            constrainMaxHeight(id, 0)
++            connect(id, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START)
++            connect(id, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END)
++            connect(id, ConstraintSet.TOP, ConstraintSet.PARENT_ID, ConstraintSet.TOP, top)
++        }
++        return constraints
++    }
++
++    companion object {
++        /** Figma 979:466: the date's top edge, from the top of the screen. */
++        const val TOP_DP = 76f
++    }
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuClockFaceView.kt
+@@ -0,0 +1,87 @@
++package com.android.systemui.taku.lockscreen
++
++import android.content.Context
++import android.graphics.Color
++import android.icu.text.DateFormat
++import android.icu.text.SimpleDateFormat
++import android.icu.util.TimeZone
++import android.util.TypedValue
++import android.view.Gravity
++import android.widget.LinearLayout
++import android.widget.TextView
++import java.util.Date
++import java.util.Locale
++
++/**
++ * One Taku clock face: the date (Figma 979:468) above the time, centred, 24 dp apart.
++ *
++ * - Large (locked, Figma 979:470): [TakuTallClockView], 320 dp tall.
++ * - Small: the same outlines at their compact Space Grotesk endpoint, white at 64 %.
++ */
++class TakuClockFaceView(context: Context, val isLarge: Boolean) : LinearLayout(context) {
++    private val density = resources.displayMetrics.density
++    private val date = TextView(context).apply {
++        typeface = TakuLockscreenFonts.spaceGrotesk
++        setTextSize(TypedValue.COMPLEX_UNIT_SP, 24f)
++        letterSpacing = -0.01f
++        setLineHeight((24f * 1.05f * resources.displayMetrics.scaledDensity).toInt())
++        includeFontPadding = false
++        gravity = Gravity.CENTER_HORIZONTAL
++        setSingleLine(true)
++    }
++    private val clock = TakuTallClockView(context, compact = !isLarge)
++    internal var morphOverlay: TakuClockFaceView? = null
++    var morphProgress: Float
++        get() = clock.progress
++        set(value) { clock.progress = value }
++
++    internal fun copyDisplayFrom(other: TakuClockFaceView) {
++        date.text = other.date.text
++        clock.time = other.clock.time
++        contentDescription = other.contentDescription
++    }
++
++    private var timeZone: TimeZone = TimeZone.getDefault()
++    private var locale: Locale = Locale.getDefault()
++    private var is24Hour = false
++
++    init {
++        orientation = VERTICAL
++        gravity = Gravity.CENTER_HORIZONTAL
++        clipChildren = false
++        clipToPadding = false
++        addView(date, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
++        val time = clock
++        addView(time, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
++            topMargin = (24 * density).toInt()
++        })
++        setTheme(isDark = true)
++    }
++
++    fun setTimeZone(zone: TimeZone) { timeZone = zone; refresh() }
++    fun setLocale(value: Locale) { locale = value; refresh() }
++    fun setIs24Hour(value: Boolean) { is24Hour = value; refresh() }
++
++    /** The lock screen sits on a darkened wallpaper: white text, at the design's opacities. */
++    fun setTheme(isDark: Boolean) {
++        val base = if (isDark) Color.WHITE else Color.BLACK
++        date.setTextColor(withAlpha(base, 0.8f))
++        clock.setColor(base)
++    }
++
++    fun setTextSizePx(fontSizePx: Float) {
++        // Outline geometry is calibrated to 120 px Space Grotesk in a 412 dp frame.
++        // The view uniformly fits constrained widths; system font size does not distort the paths.
++    }
++
++    fun refresh(now: Date = Date()) {
++        val datePattern = DateFormat.getInstanceForSkeleton("EEEEMMMd", locale).let { (it as? SimpleDateFormat)?.toPattern() } ?: "EEEE, MMM d"
++        date.text = SimpleDateFormat(datePattern, locale).apply { timeZone = this@TakuClockFaceView.timeZone }.format(now)
++        val timeText = SimpleDateFormat(if (is24Hour) "HH:mm" else "h:mm", Locale.ROOT)
++            .apply { timeZone = this@TakuClockFaceView.timeZone }.format(now)
++        clock.time = timeText
++        contentDescription = "${date.text}, $timeText"
++    }
++
++    private fun withAlpha(color: Int, alpha: Float) = Color.argb((alpha * 255).toInt(), Color.red(color), Color.green(color), Color.blue(color))
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuClockGlyphs.kt
+@@ -0,0 +1,41 @@
++package com.android.systemui.taku.lockscreen
++
++import android.graphics.Path
++
++/** Native counterpart of the designer's clockPath(k): 0 tall, 1 compact. */
++internal object TakuClockGlyphs {
++    const val CELL_HEIGHT = 320f
++    const val COMPACT_HEIGHT = 87.36f
++    data class Contour(val compact: FloatArray, val tall: FloatArray)
++    data class Glyph(val compactAdvance: Float, val contours: List<Contour>)
++
++    fun advance(char: Char, progress: Float): Float {
++        val glyph = TakuClockContours.glyphs[char] ?: return 0f
++        val tall = when (char) { ':' -> 24f; '3' -> 76f; else -> 74f }
++        return tall + (glyph.compactAdvance - tall) * progress
++    }
++
++    fun width(text: String, progress: Float = 0f): Float =
++        if (text.isEmpty()) 0f else text.sumOf { advance(it, progress).toDouble() }.toFloat() +
++            (-6f + 9.6f * progress)
++
++    /** Reuses one Path; no SVG parser or font lookup on animation frames. */
++    fun path(char: Char, progress: Float, out: Path) {
++        out.rewind()
++        out.fillType = Path.FillType.EVEN_ODD
++        val glyph = TakuClockContours.glyphs[char] ?: return
++        for (contour in glyph.contours) {
++            val a = contour.compact
++            val b = contour.tall
++            fun at(i: Int) = b[i] + (a[i] - b[i]) * progress
++            out.moveTo(at(0), at(1))
++            val count = a.size / 6
++            for (segment in 0 until count) {
++                val offset = 2 + segment * 6
++                val end = if (segment == count - 1) 0 else offset + 4
++                out.cubicTo(at(offset), at(offset+1), at(offset+2), at(offset+3), at(end), at(end+1))
++            }
++            out.close()
++        }
++    }
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuClockMotion.kt
+@@ -0,0 +1,21 @@
++package com.android.systemui.taku.lockscreen
++
++import kotlin.math.cos
++import kotlin.math.exp
++import kotlin.math.sin
++import kotlin.math.sqrt
++
++/** Port of LockScreenHero's layoutSpring(0.78, 9), independent of frame rate. */
++internal object TakuClockMotion {
++    const val TO_COMPACT_MS = 720L
++    const val TO_TALL_MS = 1050L
++    fun spring(fraction: Float): Float {
++        if (fraction <= 0f) return 0f
++        if (fraction >= 1f) return 1f
++        val zeta = 0.78
++        val w = 9.0
++        val wd = w*sqrt(1-zeta*zeta)
++        fun raw(x: Double) = 1-exp(-zeta*w*x)*(cos(wd*x)+zeta*w/wd*sin(wd*x))
++        return (raw(fraction.toDouble())/raw(1.0)).toFloat()
++    }
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuClockProvider.kt
+@@ -0,0 +1,113 @@
++package com.android.systemui.taku.lockscreen
++
++import android.content.Context
++import android.graphics.Canvas
++import android.graphics.ColorFilter
++import android.graphics.PixelFormat
++import android.graphics.drawable.Drawable
++import android.icu.util.TimeZone
++import android.text.format.DateFormat
++import com.android.systemui.plugins.keyguard.data.model.AlarmData
++import com.android.systemui.plugins.keyguard.data.model.WeatherData
++import com.android.systemui.plugins.keyguard.data.model.ZenData
++import com.android.systemui.plugins.keyguard.ui.clocks.ClockConfig
++import com.android.systemui.plugins.keyguard.ui.clocks.ClockController
++import com.android.systemui.plugins.keyguard.ui.clocks.ClockEventListeners
++import com.android.systemui.plugins.keyguard.ui.clocks.ClockEvents
++import com.android.systemui.plugins.keyguard.ui.clocks.ClockMessageBuffers
++import com.android.systemui.plugins.keyguard.ui.clocks.ClockMetadata
++import com.android.systemui.plugins.keyguard.ui.clocks.ClockPickerConfig
++import com.android.systemui.plugins.keyguard.ui.clocks.ClockProvider
++import com.android.systemui.plugins.keyguard.ui.clocks.ClockSettings
++import com.android.systemui.plugins.keyguard.ui.clocks.TimeFormatKind
++import java.io.PrintWriter
++import java.util.Locale
++
++/**
++ * SystemUI's built-in clock provider plus the Taku clock. `ClockRegistry` takes a single default
++ * provider that must keep supplying the stock `DEFAULT` clock, so this wraps the stock provider and adds
++ * [TAKU_CLOCK_ID], which `ClockRegistryModule` makes the fallback. The choice is the standard
++ * `Settings.Secure.LOCK_SCREEN_CUSTOM_CLOCK_FACE` JSON, so agents read and change it with `settings`.
++ */
++class TakuClockProvider(private val context: Context, private val stock: ClockProvider) : ClockProvider {
++    override fun initialize(buffers: ClockMessageBuffers?) = stock.initialize(buffers)
++
++    override fun getClocks(): List<ClockMetadata> = stock.getClocks() + ClockMetadata(TAKU_CLOCK_ID)
++
++    override fun createClock(ctx: Context, settings: ClockSettings): ClockController? =
++        if (settings.clockId == TAKU_CLOCK_ID) TakuClockController(ctx, settings) else stock.createClock(ctx, settings)
++
++    override fun getClockPickerConfig(settings: ClockSettings): ClockPickerConfig =
++        if (settings.clockId == TAKU_CLOCK_ID) {
++            ClockPickerConfig(TAKU_CLOCK_ID, NAME, DESCRIPTION, TakuClockThumbnail(context), isReactiveToTone = false)
++        } else {
++            stock.getClockPickerConfig(settings)
++        }
++
++    companion object {
++        const val TAKU_CLOCK_ID = "TAKU"
++        const val NAME = "Taku"
++        const val DESCRIPTION = "Taku lock screen clock"
++    }
++}
++
++/** The Taku clock's two faces and the time, format and locale events they share. */
++class TakuClockController(context: Context, settings: ClockSettings) : ClockController {
++    override val smallClock = TakuClockFaceController(context, settings, isLarge = false)
++    override val largeClock = TakuClockFaceController(context, settings, isLarge = true)
++    override val config = ClockConfig(TakuClockProvider.TAKU_CLOCK_ID, TakuClockProvider.NAME, TakuClockProvider.DESCRIPTION)
++    override val eventListeners = ClockEventListeners()
++
++    private val faces get() = listOf(smallClock.view, largeClock.view)
++
++    init {
++        val is24 = DateFormat.is24HourFormat(context)
++        faces.forEach { it.setIs24Hour(is24) }
++    }
++
++    override val events = object : ClockEvents {
++        override fun onTimeZoneChanged(timeZone: TimeZone) = faces.forEach { it.setTimeZone(timeZone) }
++        override fun onTimeFormatChanged(formatKind: TimeFormatKind) =
++            faces.forEach { it.setIs24Hour(formatKind == TimeFormatKind.FULL_DAY) }
++        override fun onLocaleChanged(locale: Locale) = faces.forEach { it.setLocale(locale) }
++        override fun onWeatherDataChanged(data: WeatherData) {}
++        override fun onAlarmDataChanged(data: AlarmData) {}
++        override fun onZenDataChanged(data: ZenData) {}
++    }
++
++    override fun initialize(isDarkTheme: Boolean, dozeFraction: Float, foldFraction: Float) {
++        for (face in listOf(smallClock, largeClock)) {
++            face.events.onThemeChanged(face.theme.copy(isDarkTheme = isDarkTheme))
++            face.animations.doze(dozeFraction)
++            face.animations.fold(foldFraction)
++            face.events.onTimeTick()
++        }
++    }
++
++    override fun dump(pw: PrintWriter) {
++        pw.println("TakuClockController small=${smallClock.view.contentDescription} large=${largeClock.view.contentDescription}")
++    }
++}
++
++/** Picker thumbnail: the tall clock reading 09:30, as in the design. */
++private class TakuClockThumbnail(context: Context) : Drawable() {
++    private val clock = TakuTallClockView(context).apply { time = "09:30" }
++
++    override fun draw(canvas: Canvas) {
++        val bounds = bounds
++        if (bounds.isEmpty) return
++        clock.measure(0, 0)
++        val scale = minOf(bounds.width() / clock.measuredWidth.toFloat(), bounds.height() / clock.measuredHeight.toFloat())
++        canvas.save()
++        canvas.translate(bounds.exactCenterX() - clock.measuredWidth * scale / 2f, bounds.exactCenterY() - clock.measuredHeight * scale / 2f)
++        canvas.scale(scale, scale)
++        clock.layout(0, 0, clock.measuredWidth, clock.measuredHeight)
++        clock.draw(canvas)
++        canvas.restore()
++    }
++
++    override fun setAlpha(alpha: Int) {}
++    override fun setColorFilter(colorFilter: ColorFilter?) {}
++    @Deprecated("Deprecated in Java")
++    override fun getOpacity() = PixelFormat.TRANSLUCENT
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuClockSizeTransition.kt
+@@ -0,0 +1,86 @@
++package com.android.systemui.taku.lockscreen
++
++import android.animation.Animator
++import android.animation.AnimatorListenerAdapter
++import android.animation.ValueAnimator
++import android.graphics.Rect
++import android.transition.Transition
++import android.transition.TransitionValues
++import android.view.View
++import android.view.ViewGroup
++import android.view.animation.LinearInterpolator
++import com.android.systemui.plugins.keyguard.ui.clocks.ClockViewIds
++
++/** Replaces the stock two-face crossfade for Taku only. Authentication stays owned by Keyguard. */
++class TakuClockSizeTransition : Transition() {
++    init { addTarget(ClockViewIds.LOCKSCREEN_CLOCK_VIEW_LARGE) }
++
++    override fun getTransitionProperties() = arrayOf(VISIBLE)
++
++    private fun capture(values: TransitionValues, start: Boolean) {
++        val face = values.view as? TakuClockFaceView ?: return
++        values.values[VISIBLE] = face.visibility == View.VISIBLE
++        values.values[BOUNDS] = Rect(face.left, face.top, face.right, face.bottom)
++        if (start) values.values[PROGRESS] = face.morphOverlay?.morphProgress
++    }
++
++    override fun captureStartValues(values: TransitionValues) = capture(values, true)
++    override fun captureEndValues(values: TransitionValues) = capture(values, false)
++
++    override fun createAnimator(root: ViewGroup, start: TransitionValues?, end: TransitionValues?): Animator? {
++        if (start == null || end == null || start.values[VISIBLE] == end.values[VISIBLE]) return null
++        val large = end.view as? TakuClockFaceView ?: return null
++        val small = root.findViewById<TakuClockFaceView>(ClockViewIds.LOCKSCREEN_CLOCK_VIEW_SMALL) ?: return null
++        val toTall = end.values[VISIBLE] == true
++        val from = start.values[PROGRESS] as? Float ?: if (toTall) 1f else 0f
++        val target = if (toTall) 0f else 1f
++        val bounds = (if (toTall) end else start).values[BOUNDS] as Rect
++        val overlay = TakuClockFaceView(root.context, isLarge = true).apply {
++            copyDisplayFrom(if (toTall) large else small)
++            morphProgress = from
++            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
++            measure(View.MeasureSpec.makeMeasureSpec(root.width, View.MeasureSpec.AT_MOST),
++                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED))
++            val x = bounds.centerX() - measuredWidth / 2
++            layout(x, bounds.top, x + measuredWidth, bounds.top + measuredHeight)
++        }
++        // ValueAnimator obeys animator_duration_scale, including zero. No animation loop, JS or WebView.
++        return ValueAnimator.ofFloat(0f, 1f).apply {
++            duration = if (toTall) TakuClockMotion.TO_TALL_MS else TakuClockMotion.TO_COMPACT_MS
++            interpolator = LinearInterpolator()
++            val largeAlpha = large.alpha
++            val smallAlpha = small.alpha
++            val detach = object : View.OnAttachStateChangeListener {
++                override fun onViewAttachedToWindow(v: View) {}
++                override fun onViewDetachedFromWindow(v: View) { cancel() }
++            }
++            addUpdateListener {
++                overlay.morphProgress = from + (target-from)*TakuClockMotion.spring(it.animatedFraction)
++            }
++            addListener(object : AnimatorListenerAdapter() {
++                override fun onAnimationStart(animation: Animator) {
++                    large.morphOverlay = overlay
++                    large.alpha = 0f
++                    small.alpha = 0f
++                    root.overlay.add(overlay)
++                    root.addOnAttachStateChangeListener(detach)
++                }
++                override fun onAnimationEnd(animation: Animator) {
++                    root.overlay.remove(overlay)
++                    root.removeOnAttachStateChangeListener(detach)
++                    if (large.morphOverlay === overlay) {
++                        large.morphOverlay = null
++                        large.alpha = largeAlpha
++                        small.alpha = smallAlpha
++                    }
++                }
++            })
++        }
++    }
++
++    companion object {
++        private const val VISIBLE = "taku:clock:visible"
++        private const val BOUNDS = "taku:clock:bounds"
++        private const val PROGRESS = "taku:clock:progress"
++    }
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuKeyguardBlueprint.kt
+@@ -0,0 +1,195 @@
++package com.android.systemui.taku.lockscreen
++
++import android.graphics.Color
++import android.graphics.drawable.Drawable
++import android.view.View
++import android.view.ViewTreeObserver
++import androidx.constraintlayout.widget.ConstraintLayout
++import androidx.constraintlayout.widget.ConstraintSet
++import androidx.lifecycle.Lifecycle
++import androidx.lifecycle.repeatOnLifecycle
++import com.android.systemui.dagger.SysUISingleton
++import com.android.systemui.dagger.qualifiers.Background
++import com.android.systemui.keyguard.domain.interactor.KeyguardClockInteractor
++import com.android.systemui.keyguard.domain.interactor.KeyguardInteractor
++import com.android.systemui.keyguard.shared.model.ClockSize
++import com.android.systemui.keyguard.shared.model.KeyguardBlueprint
++import com.android.systemui.keyguard.shared.model.KeyguardSection
++import com.android.systemui.keyguard.ui.view.layout.blueprints.DefaultKeyguardBlueprint
++import com.android.systemui.lifecycle.repeatWhenAttached
++import com.android.systemui.settings.UserTracker
++import com.android.systemui.shared.R as sharedR
++import java.util.concurrent.Executor
++import javax.inject.Inject
++import kotlinx.coroutines.DisposableHandle
++
++/**
++ * Taku's lock screen layout: the stock sections (clock, shortcuts, device entry, indication area,
++ * notifications, accessibility, AOD) on top of the Taku background, plus the authenticated surface
++ * (notification cards and the Taku button). Keeping the stock sections keeps authentication,
++ * biometric messages and accessibility exactly as upstream.
++ */
++@SysUISingleton
++class TakuKeyguardBlueprint
++@Inject
++constructor(
++    defaultBlueprint: DefaultKeyguardBlueprint,
++    backgroundSection: TakuBackgroundSection,
++    notificationSection: TakuNotificationSection,
++    assistantSection: TakuAssistantSection,
++    stockDateSection: TakuStockDateSection,
++    // Not used here: injecting it registers `cmd statusbar lockscreen` with the Taku lock screen.
++    @Suppress("UNUSED_PARAMETER") command: TakuLockscreenCommand,
++) : KeyguardBlueprint {
++    override val id: String = ID
++
++    // Z-order follows this list. The background is the root's background drawable; the cards sit
++    // under every stock view (shortcuts, lock icon, indication text keep their touches); the Taku button
++    // is on top. The stock-date section adds no view and must apply after the smartspace section.
++    override val sections: List<KeyguardSection> =
++        listOf(backgroundSection, notificationSection) + defaultBlueprint.sections +
++            listOf(assistantSection, stockDateSection)
++
++    companion object {
++        const val ID = "taku"
++    }
++}
++
++/**
++ * Installs [TakuLockscreenBackgroundDrawable] as the keyguard root's background (under every keyguard
++ * view) and fades it out while dozing. A background drawable instead of a child view, so it does not
++ * count as a visible view at y = 0 for the burn-in correction that would push the large clock down.
++ */
++@SysUISingleton
++class TakuBackgroundSection
++@Inject
++constructor(
++    private val keyguardInteractor: KeyguardInteractor,
++    private val userTracker: UserTracker,
++    @Background private val backgroundExecutor: Executor,
++) : KeyguardSection() {
++    private var drawable: TakuLockscreenBackgroundDrawable? = null
++    private var previous: Drawable? = null
++    private var binding: DisposableHandle? = null
++
++    override fun addViews(constraintLayout: ConstraintLayout) {
++        if (drawable != null && constraintLayout.background === drawable) return
++        previous = constraintLayout.background
++        drawable = TakuLockscreenBackgroundDrawable(constraintLayout.context, { userTracker.userId }, backgroundExecutor)
++        constraintLayout.background = drawable
++    }
++
++    override fun bindData(constraintLayout: ConstraintLayout) {
++        val background = drawable ?: return
++        background.attach()
++        binding?.dispose()
++        binding = constraintLayout.repeatWhenAttached {
++            repeatOnLifecycle(Lifecycle.State.STARTED) {
++                // The always-on display stays black: the background follows 1 − doze amount.
++                keyguardInteractor.dozeAmount.collect { amount ->
++                    background.alpha = ((1f - amount) * 255).toInt().coerceIn(0, 255)
++                }
++            }
++        }
++    }
++
++    override fun applyConstraints(constraintSet: ConstraintSet) {}
++
++    override fun removeViews(constraintLayout: ConstraintLayout) {
++        binding?.dispose()
++        binding = null
++        drawable?.detach()
++        if (constraintLayout.background === drawable) constraintLayout.background = previous
++        drawable = null
++        previous = null
++    }
++}
++
++/**
++ * The Taku clock draws its own date (Figma 979:468), so the stock smartspace date and weather views
++ * stay hidden while it is the current clock; other clock faces keep them. Placed after the stock
++ * sections so its constraints win, and re-checked after every layout because the stock binder and
++ * smartspace controller also change those views' visibility.
++ */
++@SysUISingleton
++class TakuStockDateSection
++@Inject
++constructor(private val keyguardClockInteractor: KeyguardClockInteractor) : KeyguardSection() {
++    private var root: ConstraintLayout? = null
++    private val enforce = ViewTreeObserver.OnGlobalLayoutListener { root?.let(::hideStockDate) }
++
++    private val takuClock: Boolean get() = keyguardClockInteractor.currentClock.value is TakuClockController
++
++    private fun hideStockDate(constraintLayout: ConstraintLayout) {
++        if (!takuClock) return
++        for (id in STOCK_DATE_IDS) {
++            constraintLayout.findViewById<View>(id)?.takeIf { it.visibility != View.GONE }?.visibility = View.GONE
++        }
++    }
++
++    override fun addViews(constraintLayout: ConstraintLayout) {}
++
++    override fun bindData(constraintLayout: ConstraintLayout) {
++        if (root === constraintLayout) return
++        root?.viewTreeObserver?.removeOnGlobalLayoutListener(enforce)
++        root = constraintLayout
++        constraintLayout.viewTreeObserver.addOnGlobalLayoutListener(enforce)
++    }
++
++    override fun applyConstraints(constraintSet: ConstraintSet) {
++        if (!takuClock) return
++        for (id in STOCK_DATE_IDS) {
++            constraintSet.setVisibility(id, View.GONE)
++            constraintSet.setAlpha(id, 0f)
++        }
++    }
++
++    override fun removeViews(constraintLayout: ConstraintLayout) {
++        constraintLayout.viewTreeObserver.removeOnGlobalLayoutListener(enforce)
++        if (root === constraintLayout) root = null
++    }
++
++    private companion object {
++        val STOCK_DATE_IDS = intArrayOf(
++            sharedR.id.date_smartspace_view,
++            sharedR.id.date_smartspace_view_large,
++            sharedR.id.weather_smartspace_view,
++            sharedR.id.weather_smartspace_view_large,
++        )
++    }
++}
++
++/** Taku lock-screen policy shared with the upstream hooks in `image/lockscreen`. */
++object TakuLockscreenPolicy {
++    /**
++     * Notifications stay hidden on the lock screen until the user authenticates (face unlock keeps the
++     * user on the lock screen; see docs/lock-screen.md). Applied in KeyguardNotificationVisibilityProvider,
++     * which already re-filters when the keyguard's unlocked state changes.
++     */
++    const val HIDE_NOTIFICATIONS_UNTIL_AUTHENTICATED = true
++
++    /**
++     * The tall clock while locked, the compact one once authenticated, whether or not notifications
++     * exist (the stock rule keys off visible notifications). Used by the panel hook in
++     * NotificationPanelViewController and by [TakuNotificationSection] when authentication changes.
++     */
++    @JvmStatic
++    fun clockSize(authenticated: Boolean): ClockSize = if (authenticated) ClockSize.SMALL else ClockSize.LARGE
++
++    /** Cards and the Taku button fade in and out over this time. */
++    const val FADE_MS = 200L
++
++    /** Figma 979:455 / 979:463: white at 92 % behind a `#1B1B1B` 24 dp icon. */
++    private val SHORTCUT_FILL = Color.argb(0.92f, 1f, 1f, 1f)
++    private val SHORTCUT_ICON = Color.rgb(0x1B, 0x1B, 0x1B)
++
++    /**
++     * Shortcut button colours (hook in KeyguardQuickAffordanceViewBinder). The design only defines the
++     * resting state; an activated shortcut (torch on) keeps the stock colours so it stays distinct.
++     */
++    @JvmStatic
++    fun shortcutBackgroundColor(activated: Boolean, stockColor: Int): Int = if (activated) stockColor else SHORTCUT_FILL
++
++    @JvmStatic
++    fun shortcutIconColor(activated: Boolean, stockColor: Int): Int = if (activated) stockColor else SHORTCUT_ICON
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuLockscreenBackgroundDrawable.kt
+@@ -0,0 +1,242 @@
++package com.android.systemui.taku.lockscreen
++
++import android.app.WallpaperColors
++import android.app.WallpaperManager
++import android.content.Context
++import android.graphics.Bitmap
++import android.graphics.Canvas
++import android.graphics.Color
++import android.graphics.ColorFilter
++import android.graphics.LinearGradient
++import android.graphics.Matrix
++import android.graphics.Paint
++import android.graphics.PixelFormat
++import android.graphics.Rect
++import android.graphics.RenderEffect
++import android.graphics.RenderNode
++import android.graphics.RuntimeShader
++import android.graphics.Shader
++import android.graphics.drawable.Drawable
++import android.os.Handler
++import android.os.Looper
++import android.util.Log
++import android.util.TypedValue
++import java.util.concurrent.Executor
++
++/**
++ * The lock screen's background layer (Figma 979:430 and 979:451), drawn above the wallpaper window:
++ *
++ * - the lock wallpaper again, blurred 24 dp, under a `rgba(0,0,0,0.48)` → `rgba(0,0,0,0.08)` gradient;
++ * - a 176 dp bottom bar blurred a further 12 dp with the "Taku · Edge Refraction" shader
++ *   (dispersion 0.4, flare 0.4), ported line for line from the Figma WGSL to AGSL.
++ *
++ * It is the keyguard root's background drawable, not a child view: the keyguard's burn-in logic moves
++ * the large clock down by however far the highest visible child starts above the status-bar inset
++ * (`AodBurnInViewModel`: `max(topInset - minViewY, burnIn)`), and a full-screen child at y = 0 would
++ * always trigger that.
++ *
++ * The wallpaper is static, so its blurred copy is a set of render nodes rebuilt only when the wallpaper
++ * or the bounds change. A live wallpaper has no bitmap: then only the gradient is drawn over it.
++ */
++class TakuLockscreenBackgroundDrawable(
++    context: Context,
++    private val userId: () -> Int,
++    private val background: Executor,
++) : Drawable() {
++    private val metrics = context.resources.displayMetrics
++    private val wallpaperManager: WallpaperManager? = context.getSystemService(WallpaperManager::class.java)
++    private val main = Handler(Looper.getMainLooper())
++    private val bitmapPaint = Paint(Paint.FILTER_BITMAP_FLAG)
++    private val gradientPaint = Paint()
++
++    /** Blurred wallpaper. */
++    private val blurred = RenderNode("TakuLockscreenBlur")
++    /** Blurred wallpaper plus the gradient: the whole page. */
++    private val page = RenderNode("TakuLockscreenPage")
++    /** The bottom slice of [page], blurred again and refracted. */
++    private val bar = RenderNode("TakuLockscreenBar")
++
++    private var wallpaper: Bitmap? = null
++    private var dirty = true
++    private var generation = 0
++    private var attached = false
++    private var opacity = 255
++
++    private val colorsListener = WallpaperManager.OnColorsChangedListener { _: WallpaperColors?, which: Int ->
++        if (which and (WallpaperManager.FLAG_LOCK or WallpaperManager.FLAG_SYSTEM) != 0) reload()
++    }
++
++    /** Starts following the wallpaper; call when the keyguard root is bound. */
++    fun attach() {
++        if (attached) return
++        attached = true
++        wallpaperManager?.addOnColorsChangedListener(colorsListener, main)
++        reload()
++    }
++
++    fun detach() {
++        if (!attached) return
++        attached = false
++        wallpaperManager?.removeOnColorsChangedListener(colorsListener)
++        generation++
++    }
++
++    override fun onBoundsChange(bounds: Rect) {
++        gradientPaint.shader = LinearGradient(0f, 0f, 0f, bounds.height().toFloat(), OVERLAY_TOP, OVERLAY_BOTTOM,
++            Shader.TileMode.CLAMP)
++        dirty = true
++    }
++
++    /** Reads the lock wallpaper (falling back to the home wallpaper) off the main thread. */
++    fun reload() {
++        val manager = wallpaperManager ?: return
++        val ticket = ++generation
++        val user = userId()
++        background.execute {
++            val bitmap = try {
++                manager.getBitmapAsUser(user, false, WallpaperManager.FLAG_LOCK)
++                    ?: manager.getBitmapAsUser(user, false, WallpaperManager.FLAG_SYSTEM)
++            } catch (error: RuntimeException) {
++                Log.w(TAG, "Lock wallpaper unavailable", error)
++                null
++            }
++            main.post {
++                if (ticket != generation) return@post
++                wallpaper = bitmap
++                dirty = true
++                invalidateSelf()
++            }
++        }
++    }
++
++    override fun draw(canvas: Canvas) {
++        val bounds = bounds
++        if (bounds.isEmpty || opacity == 0) return
++        canvas.save()
++        canvas.translate(bounds.left.toFloat(), bounds.top.toFloat())
++        if (!canvas.isHardwareAccelerated) {
++            gradientPaint.alpha = opacity
++            canvas.drawRect(0f, 0f, bounds.width().toFloat(), bounds.height().toFloat(), gradientPaint)
++        } else {
++            if (dirty) rebuild()
++            val alpha = opacity / 255f
++            page.setAlpha(alpha)
++            bar.setAlpha(alpha)
++            canvas.drawRenderNode(page)
++            canvas.translate(0f, (bounds.height() - barHeight()).toFloat())
++            canvas.drawRenderNode(bar)
++        }
++        canvas.restore()
++    }
++
++    /** The always-on display stays black: the section sets 1 − doze amount. */
++    override fun setAlpha(alpha: Int) {
++        if (opacity == alpha) return
++        opacity = alpha
++        invalidateSelf()
++    }
++
++    override fun getAlpha(): Int = opacity
++
++    override fun setColorFilter(colorFilter: ColorFilter?) {}
++
++    @Deprecated("Deprecated in Java")
++    override fun getOpacity(): Int = PixelFormat.TRANSLUCENT
++
++    private fun rebuild() {
++        dirty = false
++        val w = bounds.width()
++        val h = bounds.height()
++
++        blurred.setPosition(0, 0, w, h)
++        blurred.setRenderEffect(RenderEffect.createBlurEffect(dp(PAGE_BLUR_DP), dp(PAGE_BLUR_DP), Shader.TileMode.CLAMP))
++        blurred.beginRecording().also { recording ->
++            wallpaper?.let { recording.drawBitmap(it, centerCrop(it, w, h), bitmapPaint) }
++        }
++        blurred.endRecording()
++
++        page.setPosition(0, 0, w, h)
++        page.beginRecording().also { recording ->
++            recording.drawRenderNode(blurred)
++            gradientPaint.alpha = 255
++            recording.drawRect(0f, 0f, w.toFloat(), h.toFloat(), gradientPaint)
++        }
++        page.endRecording()
++
++        val barHeight = barHeight()
++        bar.setPosition(0, 0, w, barHeight)
++        bar.setRenderEffect(barEffect(w, barHeight, dp(BAR_BLUR_DP)))
++        bar.beginRecording().also { recording ->
++            recording.translate(0f, -(h - barHeight).toFloat())
++            recording.drawRenderNode(page)
++        }
++        bar.endRecording()
++    }
++
++    private fun centerCrop(bitmap: Bitmap, width: Int, height: Int): Matrix {
++        val scale = maxOf(width / bitmap.width.toFloat(), height / bitmap.height.toFloat())
++        return Matrix().apply {
++            setScale(scale, scale)
++            postTranslate((width - bitmap.width * scale) / 2f, (height - bitmap.height * scale) / 2f)
++        }
++    }
++
++    private fun barHeight() = dp(BAR_HEIGHT_DP).toInt().coerceAtMost(bounds.height())
++
++    private fun dp(value: Float) = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, value, metrics)
++
++    companion object {
++        private const val TAG = "TakuLockscreenBg"
++        private val OVERLAY_TOP = Color.argb(0.48f, 0f, 0f, 0f)
++        private val OVERLAY_BOTTOM = Color.argb(0.08f, 0f, 0f, 0f)
++        const val PAGE_BLUR_DP = 24f
++        const val BAR_BLUR_DP = 12f
++        const val BAR_HEIGHT_DP = 176f
++        const val DISPERSION = 0.4f
++        const val FLARE = 0.4f
++
++        /**
++         * The bottom bar's effect for a [width] × [height] slice: blur first, then refract the blurred
++         * slice (createChainEffect applies the inner effect first). Shared with the notification list,
++         * so cards scrolling under the bar get the same treatment as the wallpaper.
++         */
++        fun barEffect(width: Int, height: Int, blurRadius: Float): RenderEffect {
++            val refraction = RuntimeShader(EDGE_REFRACTION).apply {
++                setFloatUniform("size", width.toFloat(), height.toFloat())
++                setFloatUniform("dispersion", DISPERSION)
++                setFloatUniform("flare", FLARE)
++            }
++            return RenderEffect.createChainEffect(
++                RenderEffect.createRuntimeShaderEffect(refraction, "content"),
++                RenderEffect.createBlurEffect(blurRadius, blurRadius, Shader.TileMode.CLAMP),
++            )
++        }
++
++        /**
++         * Figma "Taku · Edge Refraction" (WGSL on a 90°-rotated node) in AGSL. In the rotated node uv.x
++         * runs down the bar and uv.y across it; the WGSL's `tint.z` is the node's output height, which
++         * is the bar's on-screen width.
++         */
++        const val EDGE_REFRACTION = """
++            uniform shader content;
++            uniform float2 size;
++            uniform float dispersion;
++            uniform float flare;
++
++            float2 toPixels(float2 uv) { return float2((1.0 - uv.y) * size.x, uv.x * size.y); }
++
++            half4 main(float2 p) {
++                float2 uv = float2(p.y / size.y, 1.0 - p.x / size.x);
++                float t = smoothstep(0.0, 1.0, uv.x);
++                float stretch = 1.0 + flare * t * t;
++                float2 q = float2(uv.x, 0.5 + (uv.y - 0.5) / stretch);
++                float shift = dispersion * t * t / max(size.x, 1.0);
++                half4 cr = content.eval(toPixels(clamp(q + float2(0.0, shift), float2(0.0), float2(1.0))));
++                half4 cg = content.eval(toPixels(q));
++                half4 cb = content.eval(toPixels(clamp(q - float2(0.0, shift), float2(0.0), float2(1.0))));
++                half a = max(cr.a, max(cg.a, cb.a));
++                return half4(cr.r, cg.g, cb.b, a);
++            }
++        """
++    }
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuLockscreenCommand.kt
+@@ -0,0 +1,107 @@
++package com.android.systemui.taku.lockscreen
++
++import android.util.Log
++import com.android.systemui.dagger.SysUISingleton
++import com.android.systemui.dagger.qualifiers.Background
++import com.android.systemui.dagger.qualifiers.Main
++import com.android.systemui.statusbar.commandline.Command
++import com.android.systemui.statusbar.commandline.CommandRegistry
++import java.io.PrintWriter
++import java.util.concurrent.Executor
++import java.util.concurrent.FutureTask
++import java.util.concurrent.TimeUnit
++import java.util.concurrent.TimeoutException
++import javax.inject.Inject
++import kotlinx.coroutines.runBlocking
++import org.json.JSONObject
++
++/**
++ * `cmd statusbar lockscreen ...`: the Agent's view of the lock screen. It runs on a background thread.
++ * Card and Taku operations hop to the main thread, where the cards run, and call
++ * [TakuLockscreenNotifications]. Shortcut operations call [TakuLockscreenShortcuts], the picker's
++ * interactor, which blocks. Every reply is one JSON line.
++ *
++ * Constructed with [TakuKeyguardBlueprint], so the command exists whenever the Taku lock screen does.
++ */
++@SysUISingleton
++class TakuLockscreenCommand
++@Inject
++constructor(
++    registry: CommandRegistry,
++    private val notifications: TakuLockscreenNotifications,
++    private val shortcuts: TakuLockscreenShortcuts,
++    @Main private val mainExecutor: Executor,
++    @Background backgroundExecutor: Executor,
++) {
++    init {
++        // A duplicate name throws; SystemUI must still start, so fall back to the prefixed name.
++        try {
++            registry.registerCommand(COMMAND, { Handler() }, backgroundExecutor)
++        } catch (taken: IllegalStateException) {
++            Log.e(TAG, "cmd statusbar $COMMAND is taken; using $FALLBACK_COMMAND", taken)
++            registry.registerCommand(FALLBACK_COMMAND, { Handler() }, backgroundExecutor)
++        }
++    }
++
++    private fun onMain(block: () -> JSONObject): JSONObject {
++        val task = FutureTask(block)
++        mainExecutor.execute(task)
++        return try {
++            task.get(MAIN_TIMEOUT_SECONDS, TimeUnit.SECONDS)
++        } catch (timeout: TimeoutException) {
++            task.cancel(false)
++            TakuLockscreenNotifications.Result.error("TIMEOUT").json()
++        }
++    }
++
++    fun run(args: List<String>): JSONObject = when (args.getOrNull(0)) {
++        "state" -> if (args.size == 1) onMain {
++            TakuLockscreenNotifications.Result.OK.json().put("state", notifications.stateJson())
++        } else usage()
++        "notifications" -> if (args.size == 1) onMain {
++            TakuLockscreenNotifications.Result.OK.json()
++                .put("state", notifications.stateJson())
++                .put("notifications", notifications.notificationsJson())
++        } else usage()
++        "open" -> if (args.size == 2) onMain { notifications.open(args[1]).json() } else usage()
++        "dismiss" -> if (args.size == 2) onMain { notifications.dismiss(args[1]).json() } else usage()
++        "action" -> {
++            val index = args.getOrNull(2)?.toIntOrNull()
++            if (args.size == 3 && index != null) onMain { notifications.action(args[1], index).json() } else usage()
++        }
++        "taku" -> if (args.size == 1) onMain { notifications.openTaku().json() } else usage()
++        "shortcuts" -> shortcutsCommand(args.drop(1))
++        else -> usage()
++    }
++
++    private fun shortcutsCommand(args: List<String>): JSONObject = runBlocking {
++        when (args.getOrNull(0)) {
++            null, "list" -> if (args.size <= 1) shortcuts.list() else usage()
++            "set" -> if (args.size == 3) shortcuts.set(args[1], args[2]).json() else usage()
++            "clear" -> if (args.size == 2) shortcuts.clear(args[1]).json() else usage()
++            "app" -> when (args.size) {
++                1 -> TakuLockscreenNotifications.Result.OK.json().put("openApp", shortcuts.openAppJson())
++                2 -> shortcuts.setOpenApp(args[1]).json().put("openApp", shortcuts.openAppJson())
++                else -> usage()
++            }
++            else -> usage()
++        }
++    }
++
++    private fun usage() = TakuLockscreenNotifications.Result.error("USAGE").json().put("usage", USAGE)
++
++    private inner class Handler : Command {
++        override fun execute(pw: PrintWriter, args: List<String>) = pw.println(run(args))
++        override fun help(pw: PrintWriter) = pw.println(USAGE)
++    }
++
++    companion object {
++        private const val TAG = "TakuLockscreenCommand"
++        const val COMMAND = "lockscreen"
++        const val FALLBACK_COMMAND = "taku-lockscreen"
++        private const val MAIN_TIMEOUT_SECONDS = 5L
++        const val USAGE = "lockscreen state | notifications | open KEY | dismiss KEY | action KEY INDEX | taku" +
++            " | shortcuts [list] | shortcuts set SLOT SHORTCUT | shortcuts clear SLOT" +
++            " | shortcuts app [COMPONENT|default]"
++    }
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuLockscreenFonts.kt
+@@ -0,0 +1,31 @@
++package com.android.systemui.taku.lockscreen
++
++import android.graphics.Typeface
++import android.util.Log
++import java.io.File
++
++/**
++ * The design's typefaces, installed as product files by `image/taku.mk` (see `system/lockscreen/README.md`).
++ * A missing file falls back to the system sans-serif rather than failing the lock screen.
++ */
++object TakuLockscreenFonts {
++    private const val TAG = "TakuLockscreenFonts"
++    const val DIRECTORY = "/product/fonts/taku"
++
++    /** Space Grotesk Regular: date (Heading/xl) and the compact clock. */
++    val spaceGrotesk: Typeface by lazy { load("SpaceGrotesk-Regular.ttf") }
++
++    /** Hanken Grotesk Regular / Medium: notification cards. */
++    val hankenGrotesk: Typeface by lazy { load("HankenGrotesk-Regular.ttf") }
++    val hankenGroteskMedium: Typeface by lazy { load("HankenGrotesk-Medium.ttf") }
++
++    private fun load(name: String): Typeface {
++        val file = File(DIRECTORY, name)
++        return try {
++            if (file.canRead()) Typeface.createFromFile(file) else Typeface.SANS_SERIF.also { Log.w(TAG, "Missing $file") }
++        } catch (error: RuntimeException) {
++            Log.w(TAG, "Unreadable $file", error)
++            Typeface.SANS_SERIF
++        }
++    }
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuLockscreenNotifications.kt
+@@ -0,0 +1,202 @@
++package com.android.systemui.taku.lockscreen
++
++import android.app.PendingIntent
++import android.content.Context
++import android.content.Intent
++import android.util.Log
++import com.android.internal.statusbar.NotificationVisibility
++import com.android.systemui.dagger.SysUISingleton
++import com.android.systemui.keyguard.domain.interactor.KeyguardClockInteractor
++import com.android.systemui.keyguard.domain.interactor.KeyguardInteractor
++import com.android.systemui.plugins.ActivityStarter
++import com.android.systemui.settings.UserTracker
++import com.android.systemui.statusbar.NotificationClickNotifier
++import com.android.systemui.statusbar.notification.NotificationActivityStarter
++import com.android.systemui.statusbar.notification.collection.NotifPipeline
++import com.android.systemui.statusbar.notification.collection.NotificationEntry
++import dagger.Lazy
++import javax.inject.Inject
++import kotlinx.coroutines.flow.MutableStateFlow
++import kotlinx.coroutines.flow.StateFlow
++import kotlinx.coroutines.flow.asStateFlow
++import org.json.JSONArray
++import org.json.JSONObject
++
++/**
++ * The authenticated lock screen's notifications and Taku entry: one model and one set of operations
++ * shared by the cards (GUI) and `cmd statusbar lockscreen` ([TakuLockscreenCommand], Agent), so both
++ * read the same data and pass the same checks. Main thread only.
++ *
++ * The source is the keyguard-filtered shade list from the notification pipeline: the same entries
++ * the stock stack would show, after lock-screen settings, VISIBILITY_SECRET and Taku's
++ * hide-until-authenticated rule. Clicks, dismissals and action buttons use the stock SystemUI paths
++ * (activity starter, row dismissal, click notifier), so statistics, auto-cancel, work challenge and
++ * bubbles behave as in the shade.
++ */
++@SysUISingleton
++class TakuLockscreenNotifications
++@Inject
++constructor(
++    private val context: Context,
++    pipeline: NotifPipeline,
++    private val keyguardInteractor: KeyguardInteractor,
++    private val keyguardClockInteractor: KeyguardClockInteractor,
++    private val userTracker: UserTracker,
++    private val activityStarter: Lazy<ActivityStarter>,
++    private val notificationActivityStarter: Lazy<NotificationActivityStarter>,
++    private val clickNotifier: NotificationClickNotifier,
++) {
++    private val apps = AppInfoCache()
++    private val entries = LinkedHashMap<String, NotificationEntry>()
++    private val _cards = MutableStateFlow<List<TakuNotificationCard>>(emptyList())
++
++    /** Newest first, one card per notification, no grouping or pagination. */
++    val cards: StateFlow<List<TakuNotificationCard>> = _cards.asStateFlow()
++
++    init {
++        pipeline.addOnAfterRenderListListener { list -> rebuild(TakuNotificationCard.flatten(list)) }
++    }
++
++    private fun rebuild(list: List<NotificationEntry>) {
++        val previous = _cards.value.associateBy { it.key }
++        val sorted = list.filter { !it.isRowDismissed }.sortedByDescending { it.sbn.postTime }
++        entries.clear()
++        val cards = sorted.map { entry ->
++            entries[entry.key] = entry
++            val sensitive = entry.isSensitive().value
++            val old = previous[entry.key]
++            if (old != null && old.sbn === entry.sbn && old.sensitive == sensitive) old
++            else TakuNotificationCard.from(context, entry, sensitive, apps)
++        }
++        apps.retain(cards.mapTo(HashSet()) { it.packageName })
++        _cards.value = cards
++    }
++
++    /** Operation result: `{ok:true,...}` or `{ok:false,error:CODE}`, identical for GUI and Agent. */
++    class Result private constructor(val ok: Boolean, val error: String?) {
++        fun json(): JSONObject = JSONObject().put("ok", ok).apply { if (error != null) put("error", error) }
++
++        companion object {
++            val OK = Result(true, null)
++            fun error(code: String) = Result(false, code)
++        }
++    }
++
++    /** The keyguard is showing and the user has authenticated: cards and Taku are available. */
++    val isAvailable: Boolean
++        get() = keyguardInteractor.isKeyguardShowing.value && keyguardInteractor.isKeyguardDismissible.value
++
++    private fun checkAvailable(): Result? = when {
++        !keyguardInteractor.isKeyguardShowing.value -> Result.error("KEYGUARD_NOT_SHOWING")
++        !keyguardInteractor.isKeyguardDismissible.value -> Result.error("LOCKED")
++        else -> null
++    }
++
++    /** Tap on a card: the stock notification click (bouncer is not needed; the user has authenticated). */
++    fun open(key: String): Result {
++        checkAvailable()?.let { return it }
++        val entry = entries[key] ?: return Result.error("NOT_FOUND")
++        val card = _cards.value.firstOrNull { it.key == key } ?: return Result.error("NOT_FOUND")
++        if (!card.clickable && !entry.isBubble) return Result.error("NOT_CLICKABLE")
++        val row = entry.row ?: return Result.error("NOT_READY")
++        notificationActivityStarter.get().onNotificationClicked(entry, row)
++        return Result.OK
++    }
++
++    /** Swipe on a card: the stock row dismissal, honouring the same dismissibility as the shade. */
++    fun dismiss(key: String): Result {
++        checkAvailable()?.let { return it }
++        val entry = entries[key] ?: return Result.error("NOT_FOUND")
++        val row = entry.row ?: return Result.error("NOT_READY")
++        if (!row.canViewBeDismissed()) return Result.error("NOT_DISMISSABLE")
++        row.performDismiss(false)
++        return Result.OK
++    }
++
++    /** A card button. Only the buttons the card shows are accepted (no reply or contextual actions). */
++    fun action(key: String, index: Int): Result {
++        checkAvailable()?.let { return it }
++        val entry = entries[key] ?: return Result.error("NOT_FOUND")
++        val cards = _cards.value
++        val position = cards.indexOfFirst { it.key == key }
++        if (position < 0) return Result.error("NOT_FOUND")
++        if (cards[position].actions.none { it.index == index }) return Result.error("INVALID_ACTION")
++        val action = entry.sbn.notification.actions?.getOrNull(index) ?: return Result.error("INVALID_ACTION")
++        val intent = action.actionIntent ?: return Result.error("INVALID_ACTION")
++        val visibility = NotificationVisibility.obtain(key, position, cards.size, true,
++            NotificationVisibility.NotificationLocation.LOCATION_MAIN_AREA)
++        if (intent.isActivity) {
++            activityStarter.get().startPendingIntentDismissingKeyguard(intent)
++        } else {
++            try {
++                intent.send()
++            } catch (canceled: PendingIntent.CanceledException) {
++                Log.w(TAG, "Action $index of $key was canceled", canceled)
++                return Result.error("CANCELED")
++            }
++        }
++        clickNotifier.onNotificationActionClick(key, index, action, visibility, false)
++        return Result.OK
++    }
++
++    /**
++     * The Taku button: leave the lock screen (already authenticated, so no bouncer), then open Taku's
++     * assistant through Taku Home's existing ACTION_ASSIST entry, which only opens once the keyguard
++     * is gone.
++     */
++    fun openTaku(): Result {
++        checkAvailable()?.let { return it }
++        val intent = Intent(Intent.ACTION_ASSIST).setPackage(TAKU_PACKAGE).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
++        val user = userTracker.userHandle
++        if (context.packageManager.queryIntentActivities(intent, 0).isEmpty()) return Result.error("TAKU_UNAVAILABLE")
++        activityStarter.get().dismissKeyguardThenExecute(
++            object : ActivityStarter.OnDismissAction {
++                override fun onDismiss(): Boolean {
++                    context.startActivityAsUser(intent, user)
++                    return false
++                }
++            },
++            null,
++            true,
++        )
++        return Result.OK
++    }
++
++    fun stateJson(): JSONObject = JSONObject()
++        .put("keyguardShowing", keyguardInteractor.isKeyguardShowing.value)
++        .put("authenticated", keyguardInteractor.isKeyguardDismissible.value)
++        .put("dozing", keyguardInteractor.isDozing.value)
++        .put("available", isAvailable)
++        .put("notificationCount", if (isAvailable) _cards.value.size else 0)
++        .put("clockSize", keyguardClockInteractor.clockSize.value.name.lowercase())
++
++    /** The cards exactly as shown; empty while locked, when the lock screen shows no notifications. */
++    fun notificationsJson(): JSONArray {
++        val array = JSONArray()
++        if (!isAvailable) return array
++        for (card in _cards.value) {
++            array.put(JSONObject()
++                .put("key", card.key)
++                .put("package", card.packageName)
++                .put("app", card.appLabel.toString())
++                .put("title", card.title.toString())
++                .put("text", card.text?.toString() ?: JSONObject.NULL)
++                .put("context", card.context?.toString() ?: JSONObject.NULL)
++                .put("when", card.whenMillis)
++                .put("conversation", card.conversation)
++                .put("sensitive", card.sensitive)
++                .put("dismissable", card.dismissable)
++                .put("clickable", card.clickable)
++                .put("layout", if (card.expanded) "expanded" else "compact")
++                .put("actions", JSONArray().apply {
++                    card.actions.forEach { put(JSONObject().put("index", it.index).put("title", it.title.toString())) }
++                }))
++        }
++        return array
++    }
++
++    companion object {
++        private const val TAG = "TakuLockscreen"
++        const val TAKU_PACKAGE = "org.agentos.agent"
++    }
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuLockscreenShortcuts.kt
+@@ -0,0 +1,108 @@
++package com.android.systemui.taku.lockscreen
++
++import android.content.ComponentName
++import com.android.systemui.dagger.SysUISingleton
++import com.android.systemui.keyguard.domain.interactor.KeyguardQuickAffordanceInteractor
++import com.android.systemui.settings.UserTracker
++import com.android.systemui.util.settings.SecureSettings
++import dagger.Lazy
++import javax.inject.Inject
++import org.json.JSONArray
++import org.json.JSONObject
++
++/**
++ * Lock-screen shortcut selections for Agents. The wallpaper picker reaches the same
++ * [KeyguardQuickAffordanceInteractor] through SystemUI's CustomizationProvider, which needs
++ * `CUSTOMIZE_SYSTEM_UI` (the shell lacks it). These operations call the interactor directly with the
++ * picker's rules: only listed, enabled shortcuts can be selected, and device policy can disable them.
++ * The "Open app" target uses [TakuOpenAppTarget], like the chooser activity.
++ *
++ * Every function blocks on the interactor's suspend calls; run them off the main thread.
++ */
++@SysUISingleton
++class TakuLockscreenShortcuts
++@Inject
++constructor(
++    private val interactor: Lazy<KeyguardQuickAffordanceInteractor>,
++    private val secureSettings: SecureSettings,
++    private val userTracker: UserTracker,
++) {
++    suspend fun list(): JSONObject {
++        val quickAffordances = interactor.get()
++        val slots = quickAffordances.getSlotPickerRepresentations()
++        val selections = quickAffordances.getSelections()
++        val affordances = quickAffordances.getAffordancePickerRepresentations()
++        return TakuLockscreenNotifications.Result.OK.json()
++            .put("enabled", slots.isNotEmpty())
++            .put("slots", JSONArray().apply {
++                slots.forEach { slot ->
++                    put(JSONObject()
++                        .put("id", slot.id)
++                        .put("maxSelected", slot.maxSelectedAffordances)
++                        .put("selected", JSONArray().apply { selections[slot.id].orEmpty().forEach { put(it.id) } }))
++                }
++            })
++            .put("shortcuts", JSONArray().apply {
++                affordances.forEach { affordance ->
++                    put(JSONObject()
++                        .put("id", affordance.id)
++                        .put("name", affordance.name)
++                        .put("enabled", affordance.isEnabled)
++                        .put("explanation", affordance.explanation ?: JSONObject.NULL))
++                }
++            })
++            .put("openApp", openAppJson())
++    }
++
++    suspend fun set(slotId: String, shortcutId: String): TakuLockscreenNotifications.Result {
++        val quickAffordances = interactor.get()
++        val slots = quickAffordances.getSlotPickerRepresentations()
++        if (slots.isEmpty()) return TakuLockscreenNotifications.Result.error("DISABLED_BY_POLICY")
++        if (slots.none { it.id == slotId }) return TakuLockscreenNotifications.Result.error("INVALID_SLOT")
++        val affordance = quickAffordances.getAffordancePickerRepresentations().firstOrNull { it.id == shortcutId }
++            ?: return TakuLockscreenNotifications.Result.error("INVALID_SHORTCUT")
++        if (!affordance.isEnabled) return TakuLockscreenNotifications.Result.error("SHORTCUT_UNAVAILABLE")
++        return if (quickAffordances.select(slotId, shortcutId)) TakuLockscreenNotifications.Result.OK
++        else TakuLockscreenNotifications.Result.error("WRITE_FAILED")
++    }
++
++    /** Empties a slot. Clearing an empty slot succeeds. */
++    suspend fun clear(slotId: String): TakuLockscreenNotifications.Result {
++        val quickAffordances = interactor.get()
++        val slots = quickAffordances.getSlotPickerRepresentations()
++        if (slots.isEmpty()) return TakuLockscreenNotifications.Result.error("DISABLED_BY_POLICY")
++        if (slots.none { it.id == slotId }) return TakuLockscreenNotifications.Result.error("INVALID_SLOT")
++        quickAffordances.unselect(slotId, null)
++        return TakuLockscreenNotifications.Result.OK
++    }
++
++    fun openAppJson(): JSONObject {
++        val stored = secureSettings.getStringForUser(TakuOpenAppTarget.SETTING, userTracker.userId)
++        val target = TakuOpenAppTarget.resolve(userTracker.userContext.packageManager, stored)
++        return JSONObject()
++            .put("component", target?.component?.flattenToString() ?: JSONObject.NULL)
++            .put("label", target?.label?.toString() ?: JSONObject.NULL)
++            .put("isDefault", target?.isDefault ?: true)
++    }
++
++    /** Sets the "Open app" target to a launcher activity, or back to Taku with `default`. */
++    fun setOpenApp(value: String): TakuLockscreenNotifications.Result {
++        val stored = if (value == DEFAULT) {
++            null
++        } else {
++            val component = ComponentName.unflattenFromString(value)
++                ?: return TakuLockscreenNotifications.Result.error("INVALID_COMPONENT")
++            TakuOpenAppTarget.validate(userTracker.userContext.packageManager, component)?.flattenToString()
++                ?: return TakuLockscreenNotifications.Result.error("NOT_LAUNCHABLE")
++        }
++        return if (secureSettings.putStringForUser(TakuOpenAppTarget.SETTING, stored, userTracker.userId)) {
++            TakuLockscreenNotifications.Result.OK
++        } else {
++            TakuLockscreenNotifications.Result.error("WRITE_FAILED")
++        }
++    }
++
++    companion object {
++        const val DEFAULT = "default"
++    }
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuNotificationCard.kt
+@@ -0,0 +1,172 @@
++package com.android.systemui.taku.lockscreen
++
++import android.app.Notification
++import android.app.Person
++import android.content.Context
++import android.content.pm.ApplicationInfo
++import android.content.pm.PackageManager
++import android.graphics.drawable.Drawable
++import android.graphics.drawable.Icon
++import android.os.Bundle
++import android.os.Parcelable
++import android.service.notification.StatusBarNotification
++import com.android.systemui.statusbar.notification.collection.BundleEntry
++import com.android.systemui.statusbar.notification.collection.GroupEntry
++import com.android.systemui.statusbar.notification.collection.NotificationEntry
++import com.android.systemui.statusbar.notification.collection.PipelineEntry
++
++/** One notification action as a card button. Reply (RemoteInput) and contextual actions are not shown. */
++data class TakuCardAction(val index: Int, val title: CharSequence)
++
++/**
++ * What one lock-screen card shows for one real notification (Figma 979:574). The content comes from
++ * the notification itself; nothing is invented. [sbn] identifies the posted revision, so a card is
++ * rebound only when the app posts an update or its sensitivity changes.
++ */
++class TakuNotificationCard(
++    val key: String,
++    val sbn: StatusBarNotification,
++    val packageName: String,
++    val appLabel: CharSequence,
++    val appIcon: Drawable?,
++    /** Large icon or the latest message's sender picture; null falls back to [appIcon]. */
++    val image: Icon?,
++    val title: CharSequence,
++    val text: CharSequence?,
++    /** Conversation or channel name ("#Product"), or the notification's sub text. */
++    val context: CharSequence?,
++    val whenMillis: Long,
++    val showWhen: Boolean,
++    val conversation: Boolean,
++    val actions: List<TakuCardAction>,
++    val sensitive: Boolean,
++    val dismissable: Boolean,
++    val clickable: Boolean,
++) {
++    /** Conversations and notifications with buttons use the large card (979:642); the rest are compact (979:680). */
++    val expanded: Boolean get() = !sensitive && (conversation || actions.isNotEmpty())
++
++    fun sameContent(other: TakuNotificationCard): Boolean =
++        other.sbn === sbn && other.sensitive == sensitive && other.dismissable == dismissable
++
++    companion object {
++        /** Top-level pipeline entries as one flat list: groups and bundles contribute their children. */
++        fun flatten(entries: List<PipelineEntry>): List<NotificationEntry> {
++            val out = ArrayList<NotificationEntry>()
++            fun add(entry: PipelineEntry) {
++                when (entry) {
++                    is NotificationEntry -> out += entry
++                    is GroupEntry -> {
++                        val children = entry.children
++                        if (children.isEmpty()) entry.summary?.let { out += it } else out += children
++                    }
++                    is BundleEntry -> entry.children.forEach(::add)
++                    else -> {}
++                }
++            }
++            entries.forEach(::add)
++            return out
++        }
++
++        fun from(context: Context, entry: NotificationEntry, sensitive: Boolean, apps: AppInfoCache): TakuNotificationCard {
++            val sbn = entry.sbn
++            // A sensitive notification shows its public version when the app provides one, else only the app.
++            val notification = if (sensitive) sbn.notification.publicVersion else sbn.notification
++            val app = apps.get(context, sbn)
++            val extras = notification?.extras ?: Bundle.EMPTY
++            val messaging = extras.getString(Notification.EXTRA_TEMPLATE) == MESSAGING_STYLE
++            val latest = if (messaging) latestMessage(extras) else null
++            val conversationTitle = extras.getCharSequence(Notification.EXTRA_CONVERSATION_TITLE)
++            val title = latest?.sender?.takeIf { it.isNotBlank() }
++                ?: extras.getCharSequence(Notification.EXTRA_TITLE_BIG)?.takeIf { it.isNotBlank() }
++                ?: extras.getCharSequence(Notification.EXTRA_TITLE)?.takeIf { it.isNotBlank() }
++                ?: app.label
++            val text = latest?.text
++                ?: extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.takeIf { it.isNotBlank() }
++                ?: extras.getCharSequence(Notification.EXTRA_TEXT)?.takeIf { it.isNotBlank() }
++            val actions = if (sensitive || notification == null) emptyList() else
++                notification.actions.orEmpty().withIndex()
++                    .filter { (_, action) ->
++                        action.actionIntent != null && !action.isContextual && action.remoteInputs.isNullOrEmpty() &&
++                            !action.title.isNullOrBlank()
++                    }
++                    .map { (index, action) -> TakuCardAction(index, action.title) }
++                    .takeLast(MAX_ACTIONS)
++            val original = sbn.notification
++            return TakuNotificationCard(
++                key = entry.key,
++                sbn = sbn,
++                packageName = sbn.packageName,
++                appLabel = app.label,
++                appIcon = app.icon,
++                image = if (notification == null) null else latest?.icon ?: notification.getLargeIcon(),
++                title = title,
++                text = text,
++                context = if (notification == null) null else
++                    conversationTitle?.takeIf { messaging && it.isNotBlank() }
++                        ?: extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.takeIf { it.isNotBlank() },
++                whenMillis = original.`when`.takeIf { it > 0 } ?: sbn.postTime,
++                showWhen = extras.getBoolean(Notification.EXTRA_SHOW_WHEN, true),
++                conversation = messaging,
++                actions = actions,
++                sensitive = sensitive,
++                dismissable = entry.row?.canViewBeDismissed() ?: entry.isClearable,
++                clickable = original.contentIntent != null || original.fullScreenIntent != null,
++            )
++        }
++
++        private class Message(val sender: CharSequence?, val text: CharSequence?, val icon: Icon?)
++
++        /** The newest message of a MessagingStyle notification (the bundles `Notification` writes). */
++        private fun latestMessage(extras: Bundle): Message? {
++            val messages: Array<Parcelable> =
++                extras.getParcelableArray(Notification.EXTRA_MESSAGES, Parcelable::class.java) ?: return null
++            val last = messages.lastOrNull() as? Bundle ?: return null
++            val person = last.getParcelable(KEY_SENDER_PERSON, Person::class.java)
++            return Message(
++                sender = person?.name ?: last.getCharSequence(KEY_SENDER),
++                text = last.getCharSequence(KEY_TEXT),
++                icon = person?.icon,
++            )
++        }
++
++        private val MESSAGING_STYLE = Notification.MessagingStyle::class.java.name
++        private const val KEY_TEXT = "text"
++        private const val KEY_SENDER = "sender"
++        private const val KEY_SENDER_PERSON = "sender_person"
++        /** Figma shows at most two buttons per card. */
++        const val MAX_ACTIONS = 2
++    }
++}
++
++/** App label and icon per package, read from the ApplicationInfo the notification carries. */
++class AppInfoCache {
++    class App(val label: CharSequence, val icon: Drawable?)
++
++    private val cache = HashMap<String, Pair<Long, App>>()
++
++    fun get(context: Context, sbn: StatusBarNotification): App {
++        val info = sbn.notification.extras.getParcelable(EXTRA_APPLICATION_INFO, ApplicationInfo::class.java)
++            ?: try {
++                context.packageManager.getApplicationInfo(sbn.packageName, PackageManager.ApplicationInfoFlags.of(0))
++            } catch (missing: PackageManager.NameNotFoundException) {
++                null
++            }
++        val cacheKey = "${sbn.user}:${sbn.packageName}"
++        val version = info?.let { it.sourceDir.hashCode().toLong() } ?: 0L
++        cache[cacheKey]?.let { (cachedVersion, app) -> if (cachedVersion == version) return app }
++        val pm = context.packageManager
++        val app = App(info?.let(pm::getApplicationLabel) ?: sbn.packageName, info?.let(pm::getApplicationIcon))
++        cache[cacheKey] = version to app
++        return app
++    }
++
++    fun retain(packages: Set<String>) {
++        cache.keys.retainAll { key -> key.substringAfter(':') in packages }
++    }
++
++    private companion object {
++        /** `Notification.EXTRA_BUILDER_APPLICATION_INFO`: every Builder-made notification carries it. */
++        const val EXTRA_APPLICATION_INFO = "android.appInfo"
++    }
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuNotificationCardView.kt
+@@ -0,0 +1,358 @@
++package com.android.systemui.taku.lockscreen
++
++import android.animation.Animator
++import android.animation.AnimatorListenerAdapter
++import android.content.Context
++import android.content.res.ColorStateList
++import android.graphics.Color
++import android.graphics.Outline
++import android.graphics.Typeface
++import android.graphics.drawable.Drawable
++import android.graphics.drawable.GradientDrawable
++import android.graphics.drawable.RippleDrawable
++import android.text.TextUtils
++import android.text.format.DateFormat
++import android.util.Log
++import android.util.TypedValue
++import android.view.Gravity
++import android.view.MotionEvent
++import android.view.VelocityTracker
++import android.view.View
++import android.view.ViewConfiguration
++import android.view.ViewGroup
++import android.view.ViewOutlineProvider
++import android.widget.FrameLayout
++import android.widget.ImageView
++import android.widget.LinearLayout
++import android.widget.TextView
++import java.util.Date
++import kotlin.math.abs
++
++/**
++ * One notification card in the Figma style (979:574):
++ *
++ * - compact (979:680): 72 dp, 48 dp picture, title (Body/Medium/xl) and one line below it;
++ * - expanded (979:642): app header, a message panel (picture, sender, time, conversation, text) and up
++ *   to two buttons, the last one primary.
++ *
++ * Tapping opens the notification, swiping sideways dismisses it (when the notification allows it) and
++ * buttons run their actions; all three go through [Callbacks] to [TakuLockscreenNotifications].
++ */
++class TakuNotificationCardView(context: Context) : FrameLayout(context) {
++    interface Callbacks {
++        fun onOpen(key: String)
++        fun onDismiss(key: String)
++        fun onAction(key: String, index: Int)
++    }
++
++    var callbacks: Callbacks? = null
++    var card: TakuNotificationCard? = null
++        private set
++
++    private val density = resources.displayMetrics.density
++    private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
++    private val minFling = ViewConfiguration.get(context).scaledMinimumFlingVelocity * 4
++
++    init {
++        background = GradientDrawable().apply {
++            setColor(CARD_FILL)
++            cornerRadius = dp(24f)
++        }
++        foreground = RippleDrawable(ColorStateList.valueOf(PRESSED), null,
++            GradientDrawable().apply { setColor(Color.WHITE); cornerRadius = dp(24f) })
++        val pad = dp(12f).toInt()
++        setPadding(pad, pad, pad, pad)
++        isClickable = true
++        setOnClickListener { card?.let { callbacks?.onOpen(it.key) } }
++    }
++
++    fun bind(card: TakuNotificationCard) {
++        val previous = this.card
++        this.card = card
++        if (previous != null && previous.sameContent(card)) return
++        removeAllViews()
++        addView(if (card.expanded) expandedContent(card) else compactContent(card))
++        contentDescription = listOfNotNull(card.appLabel, card.title, card.text).joinToString(", ")
++        isClickable = card.clickable
++    }
++
++    // region Layouts
++
++    private fun compactContent(card: TakuNotificationCard): View {
++        minimumHeight = dp(72f - 24f).toInt()
++        val hasPicture = card.image != null
++        val row = LinearLayout(context).apply {
++            orientation = LinearLayout.HORIZONTAL
++            gravity = Gravity.CENTER_VERTICAL
++            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dp(48f).toInt())
++        }
++        row.addView(picture(card, 48f, 12f), LinearLayout.LayoutParams(dp(48f).toInt(), dp(48f).toInt())
++            .apply { marginEnd = dp(8f).toInt() })
++        val column = LinearLayout(context).apply {
++            orientation = LinearLayout.VERTICAL
++            gravity = Gravity.CENTER_VERTICAL
++        }
++        column.addView(text(card.title, TakuLockscreenFonts.hankenGroteskMedium, 18f, 1.55f, INK_900))
++        val line = LinearLayout(context).apply {
++            orientation = LinearLayout.HORIZONTAL
++            gravity = Gravity.CENTER_VERTICAL
++        }
++        // Figma 979:680 / 979:687: the second line is the notification text; without text it names the
++        // app, marked with the app icon (shown here only when the picture is not already the app icon).
++        val body = card.text
++        if (body == null && hasPicture) line.addView(appIcon(card), LinearLayout.LayoutParams(dp(16f).toInt(), dp(16f).toInt())
++            .apply { marginEnd = dp(4f).toInt() })
++        line.addView(text(body ?: card.appLabel, TakuLockscreenFonts.hankenGrotesk, 14f, 1.42f, INK_700))
++        column.addView(line)
++        row.addView(column, LinearLayout.LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
++        return row
++    }
++
++    private fun expandedContent(card: TakuNotificationCard): View {
++        minimumHeight = 0
++        val gap = dp(12f).toInt()
++        val column = LinearLayout(context).apply {
++            orientation = LinearLayout.VERTICAL
++            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
++        }
++
++        val header = LinearLayout(context).apply {
++            orientation = LinearLayout.HORIZONTAL
++            gravity = Gravity.CENTER_VERTICAL
++        }
++        header.addView(appIcon(card), LinearLayout.LayoutParams(dp(16f).toInt(), dp(16f).toInt())
++            .apply { marginEnd = dp(4f).toInt() })
++        header.addView(text(card.appLabel, TakuLockscreenFonts.hankenGrotesk, 14f, 1.42f, INK_800),
++            LinearLayout.LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
++        column.addView(header)
++
++        val panel = LinearLayout(context).apply {
++            orientation = LinearLayout.HORIZONTAL
++            background = GradientDrawable().apply { setColor(PANEL_FILL); cornerRadius = dp(12f) }
++            setPadding(dp(8f).toInt(), dp(8f).toInt(), dp(8f).toInt(), dp(12f).toInt())
++        }
++        panel.addView(picture(card, 32f, 6f), LinearLayout.LayoutParams(dp(32f).toInt(), dp(32f).toInt())
++            .apply { marginEnd = dp(11f).toInt() })
++        val message = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
++        val top = LinearLayout(context).apply {
++            orientation = LinearLayout.HORIZONTAL
++            gravity = Gravity.CENTER_VERTICAL
++        }
++        top.addView(text(card.title, TakuLockscreenFonts.hankenGroteskMedium, 16f, 1.5f, INK_900),
++            LinearLayout.LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT, 0f)
++                .apply { marginEnd = dp(8f).toInt() })
++        if (card.showWhen) {
++            top.addView(text(DateFormat.getTimeFormat(context).format(Date(card.whenMillis)),
++                TakuLockscreenFonts.hankenGrotesk, 14f, 1.42f, INK_700))
++        }
++        top.addView(View(context), LinearLayout.LayoutParams(0, 1, 1f))
++        card.context?.let {
++            top.addView(text(it, TakuLockscreenFonts.hankenGrotesk, 14f, 1.42f, INK_700).apply {
++                maxWidth = dp(120f).toInt()
++            })
++        }
++        message.addView(top)
++        card.text?.let {
++            message.addView(text(it, TakuLockscreenFonts.hankenGrotesk, 14f, 1.42f, INK_800, maxLines = 4),
++                LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
++                    .apply { topMargin = dp(8f).toInt() })
++        }
++        panel.addView(message, LinearLayout.LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
++        column.addView(panel, LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
++            .apply { topMargin = dp(4f).toInt() })
++
++        if (card.actions.isNotEmpty()) {
++            val buttons = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
++            card.actions.forEachIndexed { position, action ->
++                val primary = position == card.actions.lastIndex
++                buttons.addView(button(card.key, action, primary),
++                    LinearLayout.LayoutParams(0, dp(40f).toInt(), 1f).apply {
++                        if (position > 0) marginStart = dp(8f).toInt()
++                    })
++            }
++            column.addView(buttons, LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
++                .apply { topMargin = gap })
++        }
++        return column
++    }
++
++    private fun button(key: String, action: TakuCardAction, primary: Boolean): TextView =
++        text(action.title, TakuLockscreenFonts.hankenGrotesk, 16f, 1.5f, if (primary) Color.WHITE else FOREGROUND).apply {
++            gravity = Gravity.CENTER
++            val shape = GradientDrawable().apply {
++                setColor(if (primary) FOREGROUND else BUTTON_FILL)
++                cornerRadius = dp(20f)
++            }
++            background = RippleDrawable(ColorStateList.valueOf(if (primary) PRESSED_ON_DARK else PRESSED), shape, null)
++            setPadding(dp(12f).toInt(), 0, dp(12f).toInt(), 0)
++            isClickable = true
++            setOnClickListener { callbacks?.onAction(key, action.index) }
++        }
++
++    private fun picture(card: TakuNotificationCard, sizeDp: Float, radiusDp: Float): ImageView =
++        ImageView(context).apply {
++            scaleType = ImageView.ScaleType.CENTER_CROP
++            val image: Drawable? = card.image?.let { icon ->
++                try {
++                    icon.loadDrawable(context)
++                } catch (error: RuntimeException) {
++                    Log.w(TAG, "Notification picture unavailable for ${card.key}", error)
++                    null
++                }
++            }
++            setImageDrawable(image ?: card.appIcon)
++            if (image != null) {
++                clipToOutline = true
++                outlineProvider = object : ViewOutlineProvider() {
++                    override fun getOutline(view: View, outline: Outline) =
++                        outline.setRoundRect(0, 0, view.width, view.height, dp(radiusDp))
++                }
++            }
++            importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
++            minimumWidth = dp(sizeDp).toInt()
++        }
++
++    private fun appIcon(card: TakuNotificationCard): ImageView = ImageView(context).apply {
++        setImageDrawable(card.appIcon)
++        scaleType = ImageView.ScaleType.FIT_CENTER
++        importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
++    }
++
++    private fun text(
++        value: CharSequence,
++        face: Typeface,
++        sizeSp: Float,
++        lineHeight: Float,
++        color: Int,
++        maxLines: Int = 1,
++    ): TextView = TextView(context).apply {
++        text = value
++        typeface = face
++        setTextSize(TypedValue.COMPLEX_UNIT_SP, sizeSp)
++        letterSpacing = -0.01f
++        setLineHeight(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, sizeSp * lineHeight,
++            resources.displayMetrics).toInt())
++        includeFontPadding = false
++        setTextColor(color)
++        this.maxLines = maxLines
++        if (maxLines == 1) setSingleLine(true)
++        ellipsize = TextUtils.TruncateAt.END
++    }
++
++    // endregion
++
++    // region Swipe to dismiss
++
++    private var downX = 0f
++    private var downY = 0f
++    private var dragging = false
++    private var velocity: VelocityTracker? = null
++
++    /** Tracks the gesture; returns true once it is a sideways drag owned by this card. */
++    private fun track(event: MotionEvent): Boolean {
++        when (event.actionMasked) {
++            MotionEvent.ACTION_DOWN -> {
++                downX = event.rawX
++                downY = event.rawY
++                dragging = false
++                animate().cancel()
++                velocity?.recycle()
++                velocity = VelocityTracker.obtain()
++            }
++            MotionEvent.ACTION_MOVE -> {
++                val dx = event.rawX - downX
++                val dy = event.rawY - downY
++                if (!dragging && abs(dx) > touchSlop && abs(dx) > abs(dy) * 1.5f) {
++                    dragging = true
++                    downX = event.rawX
++                    parent?.requestDisallowInterceptTouchEvent(true)
++                }
++            }
++        }
++        velocity?.addMovement(event)
++        return dragging
++    }
++
++    override fun onInterceptTouchEvent(event: MotionEvent): Boolean = track(event)
++
++    override fun onTouchEvent(event: MotionEvent): Boolean {
++        val wasDragging = dragging
++        val start = event.actionMasked == MotionEvent.ACTION_DOWN
++        if (!start || !wasDragging) track(event)
++        if (!dragging) return super.onTouchEvent(event) || start
++        if (!wasDragging) {
++            // The press turned into a drag: drop the pressed state without clicking.
++            val cancel = MotionEvent.obtain(event).apply { action = MotionEvent.ACTION_CANCEL }
++            super.onTouchEvent(cancel)
++            cancel.recycle()
++        }
++        val dx = event.rawX - downX
++        val dismissable = card?.dismissable == true
++        when (event.actionMasked) {
++            MotionEvent.ACTION_MOVE -> {
++                translationX = if (dismissable) dx else dx * RESISTANCE
++                alpha = 1f - (abs(translationX) / width.coerceAtLeast(1)).coerceAtMost(1f) * 0.6f
++            }
++            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
++                velocity?.computeCurrentVelocity(1000)
++                val vx = velocity?.xVelocity ?: 0f
++                val flung = abs(vx) > minFling && (vx > 0) == (dx > 0)
++                val far = abs(dx) > width * DISMISS_FRACTION
++                if (event.actionMasked == MotionEvent.ACTION_UP && dismissable && (far || flung)) settleOut(dx)
++                else settleBack()
++                dragging = false
++                velocity?.recycle()
++                velocity = null
++            }
++        }
++        return true
++    }
++
++    private fun settleOut(dx: Float) {
++        val key = card?.key ?: return settleBack()
++        animate().translationX(if (dx >= 0) width.toFloat() else -width.toFloat()).alpha(0f)
++            .setDuration(SETTLE_MS)
++            .setListener(object : AnimatorListenerAdapter() {
++                override fun onAnimationEnd(animation: Animator) {
++                    animate().setListener(null)
++                    callbacks?.onDismiss(key)
++                }
++            })
++            .start()
++    }
++
++    private fun settleBack() {
++        animate().translationX(0f).alpha(1f).setDuration(SETTLE_MS).setListener(null).start()
++    }
++
++    /** A recycled card (or one whose dismissal failed) returns to rest. */
++    fun resetSwipe() {
++        animate().cancel()
++        translationX = 0f
++        alpha = 1f
++    }
++
++    // endregion
++
++    private fun dp(value: Float) = value * density
++
++    companion object {
++        private const val TAG = "TakuNotificationCard"
++        /** surface/700: white at 64 %. */
++        private val CARD_FILL = Color.argb(0.64f, 1f, 1f, 1f)
++        /** content/100: black at 6 %. */
++        private val PANEL_FILL = Color.argb(0.06f, 0f, 0f, 0f)
++        /** content/200: black at 8 %. */
++        private val BUTTON_FILL = Color.argb(0.08f, 0f, 0f, 0f)
++        private val PRESSED = Color.argb(0.08f, 0f, 0f, 0f)
++        private val PRESSED_ON_DARK = Color.argb(0.16f, 1f, 1f, 1f)
++        /** main/foreground. */
++        private val FOREGROUND = Color.rgb(0x1B, 0x1B, 0x1B)
++        private val INK_900 = Color.argb(0.92f, 0f, 0f, 0f)
++        private val INK_800 = Color.argb(0.8f, 0f, 0f, 0f)
++        private val INK_700 = Color.argb(0.64f, 0f, 0f, 0f)
++        private const val RESISTANCE = 0.15f
++        private const val DISMISS_FRACTION = 0.4f
++        private const val SETTLE_MS = 200L
++    }
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuNotificationListView.kt
+@@ -0,0 +1,178 @@
++package com.android.systemui.taku.lockscreen
++
++import android.content.Context
++import android.graphics.Canvas
++import android.graphics.RenderEffect
++import android.graphics.RenderNode
++import android.view.MotionEvent
++import android.view.View
++import android.view.ViewConfiguration
++import android.widget.LinearLayout
++import android.widget.ScrollView
++import kotlin.math.abs
++
++/**
++ * The authenticated lock screen's notification list (Figma 979:641): one flat column of cards, 16 dp
++ * apart, scrolling under the bottom bar. The part under the bar is drawn through the same blur and
++ * edge refraction as [TakuLockscreenBackgroundDrawable]'s bar, so cards pass beneath it as in the design.
++ *
++ * Touch: the window root turns vertical drags on the lock screen into the shade (down) or unlock
++ * (up). The list keeps a gesture only when it starts on a card and the list can scroll that way;
++ * everything else (empty space, the bar, a drag past either end) stays with the stock gestures.
++ */
++class TakuNotificationListView(context: Context) : ScrollView(context) {
++    private val density = resources.displayMetrics.density
++    private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
++    private val column = LinearLayout(context).apply {
++        orientation = LinearLayout.VERTICAL
++        val side = dp(16f)
++        setPadding(side, 0, side, dp(TakuLockscreenBackgroundDrawable.BAR_HEIGHT_DP))
++        clipChildren = false
++    }
++    private val views = LinkedHashMap<String, TakuNotificationCardView>()
++
++    /** Recorded children, drawn once clipped above the bar and once through the bar effect. */
++    private val content = RenderNode("TakuNotificationList")
++    private val bar = RenderNode("TakuNotificationListBar")
++    private var barEffectSize = 0L
++
++    var callbacks: TakuNotificationCardView.Callbacks? = null
++        set(value) {
++            field = value
++            views.values.forEach { it.callbacks = value }
++        }
++
++    init {
++        isVerticalScrollBarEnabled = false
++        overScrollMode = OVER_SCROLL_NEVER
++        isFillViewport = false
++        importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_YES
++        addView(column, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
++    }
++
++    /** Shows [cards] in order, reusing each card's view by notification key. */
++    fun submit(cards: List<TakuNotificationCard>) {
++        val keys = cards.mapTo(HashSet()) { it.key }
++        views.keys.filter { it !in keys }.forEach { key -> views.remove(key)?.let(column::removeView) }
++        cards.forEachIndexed { position, card ->
++            val view = views.getOrPut(card.key) {
++                TakuNotificationCardView(context).also { it.callbacks = callbacks }
++            }
++            view.bind(card)
++            if (column.getChildAt(position) !== view) {
++                (view.parent as? LinearLayout)?.removeView(view)
++                column.addView(view, position, LinearLayout.LayoutParams(
++                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT,
++                ).apply { if (position > 0) topMargin = dp(16f) })
++            }
++            (view.layoutParams as LinearLayout.LayoutParams).let { params ->
++                val margin = if (position > 0) dp(16f) else 0
++                if (params.topMargin != margin) {
++                    params.topMargin = margin
++                    view.layoutParams = params
++                }
++            }
++        }
++    }
++
++    /** A dismissal the notification refused: put its card back. */
++    fun restore(key: String) {
++        views[key]?.resetSwipe()
++    }
++
++    val cardCount: Int get() = views.size
++
++    // region Drawing
++
++    override fun dispatchDraw(canvas: Canvas) {
++        val w = width
++        val h = height
++        if (!canvas.isHardwareAccelerated || w == 0 || h == 0) return super.dispatchDraw(canvas)
++        val barHeight = dp(TakuLockscreenBackgroundDrawable.BAR_HEIGHT_DP).coerceAtMost(h)
++        // The canvas is already translated by -scrollY: these are content coordinates.
++        val barTop = scrollY + h - barHeight
++        val contentHeight = maxOf(column.bottom, scrollY + h)
++
++        content.setPosition(0, 0, w, contentHeight)
++        val recording = content.beginRecording(w, contentHeight)
++        super.dispatchDraw(recording)
++        content.endRecording()
++
++        canvas.save()
++        canvas.clipRect(0, scrollY, w, barTop)
++        canvas.drawRenderNode(content)
++        canvas.restore()
++
++        val size = (w.toLong() shl 32) or barHeight.toLong()
++        if (size != barEffectSize) {
++            barEffectSize = size
++            bar.setRenderEffect(barEffect(w, barHeight))
++        }
++        bar.setPosition(0, 0, w, barHeight)
++        val barRecording = bar.beginRecording(w, barHeight)
++        barRecording.translate(0f, -barTop.toFloat())
++        barRecording.drawRenderNode(content)
++        bar.endRecording()
++        canvas.save()
++        canvas.translate(0f, barTop.toFloat())
++        canvas.drawRenderNode(bar)
++        canvas.restore()
++    }
++
++    private fun barEffect(w: Int, barHeight: Int): RenderEffect =
++        TakuLockscreenBackgroundDrawable.barEffect(w, barHeight, dp(TakuLockscreenBackgroundDrawable.BAR_BLUR_DP).toFloat())
++
++    // endregion
++
++    // region Touch
++
++    private var claimed = false
++    private var decided = false
++    private var downY = 0f
++    private var downX = 0f
++
++    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
++        when (event.actionMasked) {
++            MotionEvent.ACTION_DOWN -> {
++                val barTop = height - dp(TakuLockscreenBackgroundDrawable.BAR_HEIGHT_DP)
++                claimed = event.y < barTop && cardAt(event.x, event.y) != null
++                if (!claimed) return false
++                decided = false
++                downX = event.x
++                downY = event.y
++                // Keep the window root from taking the drag before the list knows its direction.
++                if (canScrollVertically(1) || canScrollVertically(-1)) parent?.requestDisallowInterceptTouchEvent(true)
++            }
++        }
++        if (!claimed) return false
++        val handled = super.dispatchTouchEvent(event)
++        if (event.actionMasked == MotionEvent.ACTION_MOVE && !decided) {
++            val dx = event.x - downX
++            val dy = event.y - downY
++            if (abs(dy) > touchSlop && abs(dy) > abs(dx)) {
++                decided = true
++                // Finger up scrolls content down (direction 1). Past either end, hand the gesture
++                // back so the stock shade (down) or unlock (up) can take it on the next move.
++                if (!canScrollVertically(if (dy < 0) 1 else -1)) parent?.requestDisallowInterceptTouchEvent(false)
++            } else if (abs(dx) > touchSlop) {
++                decided = true
++            }
++        }
++        if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) claimed = false
++        return handled
++    }
++
++    private fun cardAt(x: Float, y: Float): View? {
++        val cy = y + scrollY - column.top
++        val cx = x - column.left
++        for (index in 0 until column.childCount) {
++            val child = column.getChildAt(index)
++            if (cx >= child.left && cx < child.right && cy >= child.top && cy < child.bottom) return child
++        }
++        return null
++    }
++
++    // endregion
++
++    private fun dp(value: Float) = (value * density).toInt()
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuOpenAppShortcut.kt
+@@ -0,0 +1,154 @@
++package com.android.systemui.taku.lockscreen
++
++import android.content.ComponentName
++import android.content.Context
++import android.content.Intent
++import android.content.pm.PackageManager
++import android.graphics.drawable.AdaptiveIconDrawable
++import android.graphics.drawable.Drawable
++import android.graphics.drawable.InsetDrawable
++import android.util.Log
++import com.android.systemui.animation.Expandable
++import com.android.systemui.common.shared.model.ContentDescription
++import com.android.systemui.common.shared.model.Icon
++import com.android.systemui.dagger.SysUISingleton
++import com.android.systemui.dagger.qualifiers.Background
++import com.android.systemui.keyguard.data.quickaffordance.KeyguardQuickAffordanceConfig
++import com.android.systemui.res.R
++import com.android.systemui.settings.UserTracker
++import com.android.systemui.util.settings.SecureSettings
++import com.android.systemui.util.settings.SettingsProxyExt.observerFlow
++import javax.inject.Inject
++import kotlinx.coroutines.CoroutineDispatcher
++import kotlinx.coroutines.flow.Flow
++import kotlinx.coroutines.flow.flowOn
++import kotlinx.coroutines.flow.map
++import kotlinx.coroutines.flow.onStart
++
++/**
++ * The "Open app" lock-screen shortcut's target: one launchable activity per user, stored as a
++ * flattened component in `Settings.Secure` [SETTING]. Unset or no longer launchable means Taku.
++ * Every writer (picker activity, `cmd statusbar lockscreen shortcuts app`) goes through [validate],
++ * and the shortcut resolves the target again when it is pressed.
++ */
++object TakuOpenAppTarget {
++    const val SETTING = "taku_lockscreen_open_app"
++
++    class Target(val component: ComponentName, val label: CharSequence, val isDefault: Boolean)
++
++    private fun launcherIntent(component: ComponentName?): Intent =
++        Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER).setComponent(component)
++
++    /** The component when it is an enabled, exported launcher activity of this user; else null. */
++    fun validate(pm: PackageManager, component: ComponentName): ComponentName? =
++        pm.resolveActivity(launcherIntent(component), 0)
++            ?.activityInfo
++            ?.takeIf { it.exported && it.enabled }
++            ?.let { ComponentName(it.packageName, it.name) }
++
++    /** Taku's launcher activity, the default target. */
++    fun defaultComponent(pm: PackageManager): ComponentName? =
++        pm.getLaunchIntentForPackage(TakuLockscreenNotifications.TAKU_PACKAGE)?.component
++
++    fun resolve(pm: PackageManager, stored: String?): Target? {
++        val chosen = stored?.let(ComponentName::unflattenFromString)?.let { validate(pm, it) }
++        val component = chosen ?: defaultComponent(pm) ?: return null
++        val label = try {
++            pm.getActivityInfo(component, 0).loadLabel(pm)
++        } catch (missing: PackageManager.NameNotFoundException) {
++            component.packageName
++        }
++        return Target(component, label, chosen == null)
++    }
++
++    fun launchIntent(component: ComponentName): Intent =
++        launcherIntent(component).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
++
++    /** All launcher activities of this user, by label, for the chooser. */
++    fun candidates(pm: PackageManager): List<Target> =
++        pm.queryIntentActivities(launcherIntent(null), 0)
++            .map { info ->
++                Target(ComponentName(info.activityInfo.packageName, info.activityInfo.name), info.loadLabel(pm), false)
++            }
++            .distinctBy { it.component }
++            .sortedBy { it.label.toString().lowercase() }
++
++    /**
++     * The shortcut glyph: the app's themed (monochrome) icon, enlarged out of the adaptive-icon safe
++     * zone. The keyguard tints shortcut icons, so a full-colour icon would become a solid shape;
++     * without a monochrome layer the caller uses a generic apps glyph.
++     */
++    fun monochromeIcon(pm: PackageManager, component: ComponentName): Drawable? {
++        val icon = try {
++            pm.getActivityIcon(component)
++        } catch (missing: PackageManager.NameNotFoundException) {
++            return null
++        }
++        val mono = (icon as? AdaptiveIconDrawable)?.monochrome ?: return null
++        return InsetDrawable(mono, -AdaptiveIconDrawable.getExtraInsetFraction())
++    }
++}
++
++/**
++ * Lock-screen shortcut that opens one chosen app (Taku by default). Stock shortcuts cannot launch an
++ * arbitrary app; this one plugs into the stock shortcut system, so selection, the picker, long-press
++ * and launching behave like every other shortcut. An app that cannot show over the lock screen goes
++ * through the bouncer first, because the result is [OnTriggeredResult.StartActivity] with
++ * `canShowWhileLocked = false`.
++ */
++@SysUISingleton
++class TakuOpenAppQuickAffordanceConfig
++@Inject
++constructor(
++    private val context: Context,
++    private val secureSettings: SecureSettings,
++    private val userTracker: UserTracker,
++    @Background private val backgroundDispatcher: CoroutineDispatcher,
++) : KeyguardQuickAffordanceConfig {
++    override val key: String = KEY
++
++    override fun pickerName(): String = context.getString(R.string.controls_open_app)
++
++    override val pickerIconResourceId: Int = R.drawable.ic_apps_expressive
++
++    private fun current(): TakuOpenAppTarget.Target? =
++        TakuOpenAppTarget.resolve(userTracker.userContext.packageManager,
++            secureSettings.getStringForUser(TakuOpenAppTarget.SETTING, userTracker.userId))
++
++    override val lockScreenState: Flow<KeyguardQuickAffordanceConfig.LockScreenState> =
++        secureSettings.observerFlow(USER_ALL, TakuOpenAppTarget.SETTING)
++            .onStart { emit(Unit) }
++            .map {
++                val target = current() ?: return@map KeyguardQuickAffordanceConfig.LockScreenState.Hidden
++                val description = ContentDescription.Loaded(target.label.toString())
++                val glyph = TakuOpenAppTarget.monochromeIcon(userTracker.userContext.packageManager, target.component)
++                KeyguardQuickAffordanceConfig.LockScreenState.Visible(
++                    if (glyph != null) Icon.Loaded(glyph, description)
++                    else Icon.Resource(R.drawable.ic_apps_expressive, description)
++                )
++            }
++            .flowOn(backgroundDispatcher)
++
++    /** The picker offers "configure" for the selected shortcut: the app chooser. */
++    override suspend fun getPickerScreenState(): KeyguardQuickAffordanceConfig.PickerScreenState =
++        KeyguardQuickAffordanceConfig.PickerScreenState.Default(
++            configureIntent = Intent().setClassName(context.packageName, TakuShortcutAppActivity::class.java.name)
++        )
++
++    override fun onTriggered(expandable: Expandable?): KeyguardQuickAffordanceConfig.OnTriggeredResult {
++        val target = current()
++        if (target == null) {
++            Log.w(TAG, "No launchable target for the Open app shortcut")
++            return KeyguardQuickAffordanceConfig.OnTriggeredResult.Handled(false)
++        }
++        return KeyguardQuickAffordanceConfig.OnTriggeredResult.StartActivity(
++            TakuOpenAppTarget.launchIntent(target.component), canShowWhileLocked = false)
++    }
++
++    companion object {
++        private const val TAG = "TakuOpenAppShortcut"
++        const val KEY = "taku_open_app"
++        /** `UserHandle.USER_ALL` (hidden API): observe the setting for every user, read the current one. */
++        private const val USER_ALL = -1
++    }
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuShortcutAppActivity.kt
+@@ -0,0 +1,105 @@
++package com.android.systemui.taku.lockscreen
++
++import android.app.Activity
++import android.os.Bundle
++import android.provider.Settings
++import android.util.TypedValue
++import android.view.Gravity
++import android.view.View
++import android.view.ViewGroup
++import android.view.Window
++import android.view.WindowInsets
++import android.widget.BaseAdapter
++import android.widget.ImageView
++import android.widget.LinearLayout
++import android.widget.ListView
++import android.widget.RadioButton
++import android.widget.TextView
++import com.android.systemui.res.R
++
++/**
++ * Chooses the app for the "Open app" lock-screen shortcut. The wallpaper picker opens it as the
++ * shortcut's configure action (`android.permission.CUSTOMIZE_SYSTEM_UI` protects it in the manifest).
++ * It lists this user's launcher apps, marks the current target and writes the choice to the same
++ * setting the shortcut and `cmd statusbar lockscreen shortcuts app` use.
++ */
++class TakuShortcutAppActivity : Activity() {
++    private lateinit var apps: List<TakuOpenAppTarget.Target>
++    private var current: String? = null
++
++    override fun onCreate(savedInstanceState: Bundle?) {
++        super.onCreate(savedInstanceState)
++        // The window is edge-to-edge: no decor title bar; the header and list take the system-bar and
++        // cutout insets themselves, so the first and last apps are fully visible and tappable.
++        requestWindowFeature(Window.FEATURE_NO_TITLE)
++        title = getString(R.string.controls_open_app)
++        apps = TakuOpenAppTarget.candidates(packageManager)
++        current = TakuOpenAppTarget.resolve(packageManager,
++            Settings.Secure.getString(contentResolver, TakuOpenAppTarget.SETTING))?.component?.flattenToString()
++        val density = resources.displayMetrics.density
++        val header = TextView(this).apply {
++            text = title
++            setTextSize(TypedValue.COMPLEX_UNIT_SP, 22f)
++            val pad = (16 * density).toInt()
++            setPadding(pad, pad, pad, pad)
++            isFocusable = true
++            isAccessibilityHeading = true
++        }
++        val list = ListView(this).apply {
++            adapter = Adapter()
++            clipToPadding = false
++            setOnItemClickListener { _, _, position, _ -> choose(apps[position]) }
++        }
++        val root = LinearLayout(this).apply {
++            orientation = LinearLayout.VERTICAL
++            addView(header, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
++            addView(list, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
++            setOnApplyWindowInsetsListener { view, insets ->
++                val bars = insets.getInsets(WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout())
++                view.setPadding(bars.left, bars.top, bars.right, 0)
++                list.setPadding(0, 0, 0, bars.bottom)
++                WindowInsets.CONSUMED
++            }
++        }
++        setContentView(root)
++    }
++
++    private fun choose(app: TakuOpenAppTarget.Target) {
++        val component = TakuOpenAppTarget.validate(packageManager, app.component) ?: return
++        Settings.Secure.putString(contentResolver, TakuOpenAppTarget.SETTING, component.flattenToString())
++        setResult(RESULT_OK)
++        finish()
++    }
++
++    private inner class Adapter : BaseAdapter() {
++        override fun getCount() = apps.size
++        override fun getItem(position: Int) = apps[position]
++        override fun getItemId(position: Int) = position.toLong()
++
++        override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
++            val row = convertView as? LinearLayout ?: newRow()
++            val app = apps[position]
++            (row.getChildAt(0) as ImageView).setImageDrawable(
++                try { packageManager.getActivityIcon(app.component) } catch (e: Exception) { null })
++            (row.getChildAt(1) as TextView).text = app.label
++            (row.getChildAt(2) as RadioButton).isChecked = app.component.flattenToString() == current
++            return row
++        }
++
++        private fun newRow(): LinearLayout {
++            val density = resources.displayMetrics.density
++            val pad = (16 * density).toInt()
++            return LinearLayout(this@TakuShortcutAppActivity).apply {
++                orientation = LinearLayout.HORIZONTAL
++                gravity = Gravity.CENTER_VERTICAL
++                minimumHeight = (64 * density).toInt()
++                setPadding(pad, 0, pad, 0)
++                addView(ImageView(context).apply { importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO },
++                    LinearLayout.LayoutParams((40 * density).toInt(), (40 * density).toInt()).apply { marginEnd = pad })
++                addView(TextView(context).apply { setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f) },
++                    LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
++                addView(RadioButton(context).apply { isClickable = false; isFocusable = false })
++            }
++        }
++    }
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuTallClockView.kt
+@@ -0,0 +1,56 @@
++package com.android.systemui.taku.lockscreen
++
++import android.content.Context
++import android.graphics.Canvas
++import android.graphics.Color
++import android.graphics.Paint
++import android.graphics.Path
++import android.view.View
++
++/** Both clock endpoints and every in-between frame use the same native Canvas view. */
++class TakuTallClockView(context: Context, private val compact: Boolean = false) : View(context) {
++    private val density = resources.displayMetrics.density
++    private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL; color = Color.WHITE }
++    private val path = Path()
++    var progress: Float = if (compact) 1f else 0f
++        set(value) { field = value; invalidate() }
++
++    var time: String = ""
++        set(value) {
++            if (field == value) return
++            field = value
++            contentDescription = value
++            requestLayout()
++            invalidate()
++        }
++
++    fun setColor(color: Int) { fill.color = color; invalidate() }
++
++    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
++        // Reserve both endpoints' width so narrow 12-hour times don't clip mid-morph.
++        val width = maxOf(TakuClockGlyphs.width(time, 0f), TakuClockGlyphs.width(time, 1f))
++        val height = if (compact) TakuClockGlyphs.COMPACT_HEIGHT else TakuClockGlyphs.CELL_HEIGHT
++        setMeasuredDimension(resolveSize((width*density).toInt()+paddingLeft+paddingRight, widthMeasureSpec),
++            resolveSize((height*density).toInt()+paddingTop+paddingBottom, heightMeasureSpec))
++    }
++
++    override fun onDraw(canvas: Canvas) {
++        if (time.isEmpty() || width <= 0) return
++        val reservedWidth = maxOf(TakuClockGlyphs.width(time, 0f), TakuClockGlyphs.width(time, 1f))
++        // Uniform fit for narrow screens. Never use scaleY to create the elongated numbers.
++        val scale = minOf(density, (width-paddingLeft-paddingRight)/reservedWidth)
++        if (scale <= 0f) return
++        val contentWidth = TakuClockGlyphs.width(time, progress)
++        fill.alpha = ((0.5888f + (0.64f-0.5888f)*progress.coerceIn(0f,1f))*255).toInt()
++        canvas.save()
++        canvas.translate(paddingLeft+(width-paddingLeft-paddingRight-contentWidth*scale)/2f,
++            paddingTop.toFloat() + 1.68f*progress*scale)
++        canvas.scale(scale, scale)
++        for (character in time) {
++            TakuClockGlyphs.path(character, progress, path)
++            canvas.drawPath(path, fill)
++            canvas.translate(TakuClockGlyphs.advance(character, progress), 0f)
++        }
++        canvas.restore()
++    }
++}

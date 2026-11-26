@@ -41,6 +41,8 @@ if [ -f /taku/image/apply-display-audio-patch.py ]; then
 fi
 python3 /taku/image/apply-island-patches.py --source-root /src --results-dir /results
 python3 /taku/image/apply-island-patches.py --source-root /src --results-dir /results --verify-only
+python3 /taku/image/apply-lockscreen-patches.py --source-root /src --results-dir /results
+python3 /taku/image/apply-lockscreen-patches.py --source-root /src --results-dir /results --verify-only
 export SKIP_KERNEL_BUILD=true WITH_AVB=true
 export BUILD_USERNAME=taku BUILD_HOSTNAME=taku-emulator-builder
 export BUILD_NUMBER="${TAKU_EMULATOR_BUILD_NUMBER:?Set a unique emulator build number}"

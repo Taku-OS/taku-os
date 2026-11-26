@@ -895,6 +895,107 @@ taku_call "$A" gesture/activate '{"id":"my-gesture-001"}'
 
 Audio, Feed events, widget actions, alarms/media and voice can expose personal data or act on the device. Check the per-provider permission policy and Android runtime restrictions. Gesture IDs only sequence operations. SystemUI supplies the native island; `listeningHeaderHost:"unavailable"` means its ROM provider is absent. Use `cmd statusbar island state` for renderer/native readiness, visible text and suggestion count, and `cmd statusbar island action 'KEY' '{"id":"ID"}'` for the same action as a card tap.
 
+## Lock screen
+
+The lock screen is SystemUI's keyguard with Taku's layout. It reads the same stock Android settings
+as Settings and the wallpaper picker. There is no separate Taku store for it. Values are per user, so add
+`--user N` for another user.
+
+```sh
+# Clock face. Unset or unknown means the Taku clock ("TAKU"). "DEFAULT" is the stock Android clock.
+settings get secure lock_screen_custom_clock_face
+settings put secure lock_screen_custom_clock_face '{"clockId":"TAKU"}'
+settings put secure lock_screen_custom_clock_face '{"clockId":"DEFAULT"}'
+# Clock height morph follows the standard animation scale (0 disables motion).
+# Read before changing, and restore the previous value after testing.
+settings get global animator_duration_scale
+settings put global animator_duration_scale 0
+# Face unlock: 0 or unset (the Taku default) keeps the user on the lock screen after a face match,
+# showing the unlocked layout. 1 goes straight to the app or Home.
+settings get secure face_unlock_dismisses_keyguard
+settings put secure face_unlock_dismisses_keyguard 0
+# Stock notification policy. It applies only after authentication, because Taku hides every
+# notification until the user authenticates. That rule is fixed and has no setting.
+settings get secure lock_screen_show_notifications
+settings get secure lock_screen_allow_private_notifications
+settings get secure lock_screen_show_silent_notifications
+# The default lock wallpaper shipped in the image. It is read-only. A wallpaper the user sets replaces it.
+getprop ro.config.lock_wallpaper
+```
+
+The bottom shortcuts default to Flashlight (`bottom_start`) and Camera (`bottom_end`). They are
+SystemUI quick affordances. The user changes them by long-pressing the lock screen, then choosing
+Customize and Shortcuts. Agents use `cmd statusbar lockscreen shortcuts`, which reaches the same
+selection store with the picker's rules. The picker's own provider
+(`content://com.android.systemui.customization`) needs `CUSTOMIZE_SYSTEM_UI`, which the shell does
+not hold.
+
+```sh
+cmd statusbar lockscreen shortcuts
+# {ok, enabled, slots:[{id, maxSelected, selected:[SHORTCUT]}],
+#  shortcuts:[{id, name, enabled, explanation}], openApp:{component, label, isDefault}}
+# enabled:false means device policy disabled lock-screen shortcuts.
+cmd statusbar lockscreen shortcuts set bottom_start taku_open_app   # SHORTCUT from shortcuts[].id
+cmd statusbar lockscreen shortcuts clear bottom_end                 # empty slot (clearing twice is ok)
+cmd statusbar lockscreen shortcuts app                              # current "Open app" target
+cmd statusbar lockscreen shortcuts app com.example/.MainActivity    # a launcher activity of this user
+cmd statusbar lockscreen shortcuts app default                      # back to Taku
+```
+
+Built-in IDs include `flashlight`, `camera`, `video_camera`, `do_not_disturb`, `mute`, `qr_code_scanner`,
+`wallet` and `home`. Always take the IDs from `shortcuts`, because availability depends on the device.
+`taku_open_app` ("Open app") opens one chosen app, Taku by default. The target is stored in
+`settings get secure taku_lockscreen_open_app`. Change it with the command, which validates it; a
+target that is missing or no longer launchable falls back to Taku. An app that cannot show over the
+lock screen asks for authentication first. The picker's configure button for "Open app" opens the same
+chooser.
+
+Shortcut errors:
+- `DISABLED_BY_POLICY`: device policy disabled lock-screen shortcuts.
+- `INVALID_SLOT`, `INVALID_SHORTCUT`, `INVALID_COMPONENT`: the ID or component is wrong.
+- `SHORTCUT_UNAVAILABLE`: the shortcut's `enabled` is false; its `explanation` says why.
+- `NOT_LAUNCHABLE`: the component is not an enabled launcher activity of this user.
+- `WRITE_FAILED`: the change could not be stored.
+
+Unlocking always goes through the user's own PIN, pattern, password, face or fingerprint. An Agent
+cannot bypass or perform authentication.
+
+After the user authenticates, the lock screen shows the compact clock, one card per notification
+(newest first) and the Taku button. While it is locked, it shows only the date, the tall clock and
+the shortcuts. `cmd statusbar lockscreen` reads and operates the same cards. It uses the same list,
+checks and stock SystemUI paths as a tap, a swipe or a button press. Every reply is one JSON line.
+`ok:false,error:CODE` is a failure.
+
+```sh
+cmd statusbar lockscreen state
+# {ok, state:{keyguardShowing, authenticated, dozing, available, notificationCount,
+#  clockSize:"large"|"small"}}   large = tall clock (locked), small = compact (authenticated)
+# available = keyguardShowing && authenticated: only then are cards and Taku shown or operable.
+cmd statusbar lockscreen notifications
+# {ok, state, notifications:[{key, package, app, title, text, context, when, conversation,
+#  sensitive, dismissable, clickable, layout:"compact"|"expanded", actions:[{index, title}]}]}
+# Empty while locked. A sensitive card carries the app's public version or only the app name.
+cmd statusbar lockscreen open 'KEY'            # tap: opens the notification and leaves the lock screen
+cmd statusbar lockscreen dismiss 'KEY'         # swipe: only when dismissable is true
+cmd statusbar lockscreen action 'KEY' INDEX    # a card button; INDEX from actions[].index
+cmd statusbar lockscreen taku                  # Taku button: leaves the lock screen, opens Taku
+```
+
+Take KEY and INDEX from `notifications`. Never build keys yourself. Only the listed buttons are
+accepted. Reply (RemoteInput) and contextual actions are not exposed here. Errors:
+- `KEYGUARD_NOT_SHOWING`: the phone is already unlocked. Use the normal notification and app paths.
+- `LOCKED`: the user has not authenticated.
+- `NOT_FOUND`: the key or index is no longer listed; re-read `notifications`.
+- `NOT_READY`: the notification is still loading; retry.
+- `NOT_CLICKABLE`: the notification has no intent to open.
+- `NOT_DISMISSABLE`, `INVALID_ACTION`, `CANCELED`: the app refused, or the intent is gone.
+- `TAKU_UNAVAILABLE`, `USAGE`: Taku is not installed, or the arguments are wrong.
+- `TIMEOUT`: SystemUI's main thread did not answer within 5 s; read `state` again before retrying.
+
+`open`, `taku` and buttons that start an activity leave the lock screen like the matching tap, so
+only run them when the user asked. If SystemUI could not register the `lockscreen` name, the same commands are under
+`cmd statusbar taku-lockscreen`.
+
 ## Location arrival events
 
 The Agent shell can register a time-limited arrival watch. Choose the destination with
