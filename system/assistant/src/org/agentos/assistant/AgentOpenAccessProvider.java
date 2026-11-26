@@ -48,7 +48,11 @@ public final class AgentOpenAccessProvider extends ContentProvider {
     }
     /** Methods that hand out or replace a credential; trusted callers only. */
     private static final Set<String> CREDENTIAL_METHODS = new HashSet<>(Arrays.asList("account/login/start", "jev/connect"));
-    @Override public boolean onCreate() { return true; }
+    @Override public boolean onCreate() {
+        Context context = getContext();
+        if (context != null) DiningPollBooking.restore(context);
+        return true;
+    }
     @Override public Bundle call(String method, String arg, Bundle extras) {
         Bundle out = new Bundle();
         int caller = Binder.getCallingUid();

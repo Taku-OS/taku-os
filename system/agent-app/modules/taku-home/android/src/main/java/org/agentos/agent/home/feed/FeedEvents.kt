@@ -3,6 +3,8 @@ package org.agentos.agent.home.feed
 import org.json.JSONObject
 import java.net.URI
 import java.net.URLDecoder
+import java.security.MessageDigest
+import java.util.HexFormat
 import java.util.UUID
 
 enum class FeedOrigin(val wire: String) { GUI("gui"), AGENT("agent") }
@@ -164,12 +166,25 @@ internal class FeedEvent private constructor(private val fields: JSONObject, val
         is Intent.AskTaku -> "ask-taku"
         is Intent.OpenApp -> "open-app"
         is Intent.OpenUrl -> "open-url"
+        is Intent.ShareText -> "share-text"
         Intent.Dismiss -> "dismiss"
         Intent.None -> "none"
       }
       return FeedEvent(current(origin, FeedOperation.ACTION, cardId)
         .put("actionId", action.id).put("actionSource", if (askAbout) "ask-about" else "declared")
         .put("phase", "accepted").put("intentType", intentType).put("values", values.json()))
+    }
+
+    fun dispatched(origin: FeedOrigin, accepted: AcceptedFeedAction): FeedEvent {
+      val intent = accepted.action.intent as? Intent.ShareText
+        ?: throw FeedException("UNSUPPORTED_DISPATCH_RECEIPT", "this action does not record a dispatch receipt")
+      val digest = MessageDigest.getInstance("SHA-256").digest(intent.text.toByteArray(Charsets.UTF_8))
+      return FeedEvent(current(origin, FeedOperation.ACTION, accepted.card.id)
+        .put("actionId", accepted.action.id).put("actionSource", "declared")
+        .put("phase", "dispatched").put("intentType", "share-text")
+        .put("acceptedCursor", accepted.cursor.toString())
+        .put("intent", JSONObject().put("package", intent.packageName)
+          .put("textSha256", HexFormat.of().formatHex(digest))))
     }
 
     fun legacy(entry: JSONObject): FeedEvent {

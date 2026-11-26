@@ -392,6 +392,10 @@ class FeedRepository private constructor(context: Context, private val sources: 
     AcceptedFeedAction(card, action, values, cursor)
   }
 
+  internal fun recordDispatch(accepted: AcceptedFeedAction, origin: FeedOrigin): FeedCursor = synchronized(lock) {
+    commit(FeedEvent.dispatched(origin, accepted))
+  }
+
   private fun commit(event: FeedEvent, preferences: FeedPreferences? = null, cards: FeedCardWrite? = null): FeedCursor {
     val requested = preferences ?: this.preferences
     val now = System.currentTimeMillis()

@@ -1,8 +1,14 @@
 package org.agentos.agent.home
 
 import org.agentos.agent.home.feed.CardSpan
+import org.agentos.agent.home.feed.AcceptedFeedAction
 import org.agentos.agent.home.feed.FeedCard
+import org.agentos.agent.home.feed.FeedCursor
+import org.agentos.agent.home.feed.FeedEvent
 import org.agentos.agent.home.feed.FeedException
+import org.agentos.agent.home.feed.FeedOrigin
+import org.agentos.agent.home.feed.FeedSelectionValues
+import org.agentos.agent.home.feed.Intent
 import org.agentos.agent.home.feed.PinIcon
 import org.agentos.agent.home.feed.SampleFeedSource
 import org.agentos.agent.home.design.PixelGlyphs
@@ -13,6 +19,9 @@ import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
 import java.io.File
+import java.security.MessageDigest
+import java.util.HexFormat
+import java.util.UUID
 
 class FeedContractTest {
   private val sampleFile = File("src/main/assets/feed/sample-feed.json")
@@ -46,6 +55,54 @@ class FeedContractTest {
     rejects("INVALID_CARD") { getJSONObject("pin").put("trailing", JSONObject().put("actionId", "missing")) }
     rejects("INVALID_CARD") { getJSONObject("ui").getJSONObject("spec").put("root", "nope") }
     rejects("INVALID_CARD") { getJSONObject("actions").getJSONObject("open").getJSONObject("intent").put("type", "open-url").put("url", "http://x") }
+  }
+
+  private fun whatsappShare(text: Any = "Reservation confirmed\n3 guests", packageName: Any = "com.whatsapp") =
+    JSONObject().put("type", "share-text").put("package", packageName).put("text", text)
+
+  private fun withShareIntent(intent: JSONObject) = minimal().apply {
+    getJSONObject("actions").getJSONObject("open").put("intent", intent)
+  }
+
+  @Test fun feedShareActionPreservesWhatsAppTextAndRecordsItsIntentType() {
+    val input = withShareIntent(whatsappShare())
+    for (card in listOf(FeedCard.parse(input, forcedSource = "agent"), FeedCard.parseGenerated(input))) {
+      val expected = input.getJSONObject("actions").getJSONObject("open").getJSONObject("intent")
+      val saved = card.json.getJSONObject("actions").getJSONObject("open").getJSONObject("intent")
+      assertEquals(expected.toString(), saved.toString())
+      val action = card.actions.getValue("open")
+      assertEquals(Intent.ShareText("com.whatsapp", expected.getString("text")), action.intent)
+      val event = FeedEvent.accepted(FeedOrigin.GUI, card.id, action, FeedSelectionValues.EMPTY, askAbout = false)
+      assertEquals("share-text", event.indexString("intentType"))
+      val epoch = UUID.randomUUID()
+      val accepted = AcceptedFeedAction(card, action, FeedSelectionValues.EMPTY, FeedCursor(epoch, 1))
+      val dispatched = JSONObject(String(FeedEvent.dispatched(FeedOrigin.GUI, accepted).encode(FeedCursor(epoch, 2)), Charsets.UTF_8))
+      assertEquals("dispatched", dispatched.getString("phase"))
+      assertEquals("share-text", dispatched.getString("intentType"))
+      assertEquals(accepted.cursor.toString(), dispatched.getString("acceptedCursor"))
+      val proof = dispatched.getJSONObject("intent")
+      assertEquals("com.whatsapp", proof.getString("package"))
+      assertEquals(HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+        .digest(expected.getString("text").toByteArray(Charsets.UTF_8))), proof.getString("textSha256"))
+      assertTrue(!proof.has("text"))
+    }
+  }
+
+  @Test fun feedShareActionRejectsOtherAppsAndInvalidText() {
+    for (intent in listOf(
+      whatsappShare(packageName = "com.whatsapp.w4b"),
+      whatsappShare(packageName = 12),
+      whatsappShare(text = 12),
+      whatsappShare(text = " "),
+      whatsappShare(text = "a".repeat(Intent.ShareText.MAX_TEXT + 1)),
+      whatsappShare().apply { remove("text") },
+    )) {
+      val input = withShareIntent(intent)
+      for (parse in listOf<(JSONObject) -> FeedCard>({ FeedCard.parse(it) }, { FeedCard.parseGenerated(it) })) {
+        try { parse(input); fail("accepted an invalid share-text action") }
+        catch (e: FeedException) { assertEquals("INVALID_CARD", e.code) }
+      }
+    }
   }
 
   @Test fun generatedCardsRejectCoercedEnvelopeFields() {

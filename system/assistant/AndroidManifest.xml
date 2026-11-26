@@ -5,6 +5,7 @@
  <permission android:name="org.agentos.permission.AGENT_CLIENT" android:protectionLevel="signature"/>
  <uses-permission android:name="android.permission.INTERNET"/>
  <uses-permission android:name="org.agentos.permission.PUBLISH_SURFACES"/>
+ <uses-permission android:name="org.agentos.permission.POST_ISLAND"/>
  <uses-permission android:name="org.agentos.memory.ACCESS_MEMORY"/>
  <uses-permission android:name="android.permission.RECORD_AUDIO"/>
  <uses-permission android:name="org.agentos.audio.USE_AUDIO"/>
@@ -44,6 +45,8 @@
   </activity>
   <!-- Old explicit links remain compatible; this package no longer advertises a desktop. -->
   <activity android:name=".CodexHomeActivity" android:exported="true" android:launchMode="singleTask"/>
+  <activity android:name=".DiningPollBookingDetailsActivity" android:exported="false"
+      android:theme="@style/Theme.Taku.DiningIslandForm" android:windowSoftInputMode="adjustResize|stateAlwaysHidden"/>
   <activity android:name=".MirrorActivity" android:exported="false"/>
   <activity android:name=".BackgroundWorkspacesActivity" android:label="@string/workspace_title" android:exported="false"/>
   <activity android:name=".PanelActivity" android:exported="true" android:theme="@android:style/Theme.NoDisplay" android:taskAffinity="" android:excludeFromRecents="true" android:noHistory="true"/>

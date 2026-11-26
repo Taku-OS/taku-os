@@ -111,12 +111,74 @@ public final class DiningBrokerTest {
         check(!DiningPollInput.operationUnlocked(lockPath.toFile()), "missing lock file does not prove cleanup");
     }
 
+    private static void passiveObservationNeverAdoptsAnotherVisibleTaskForInput() throws Exception {
+        JSONObject binding = new JSONObject().put("screenKey", "task-" + "a".repeat(20))
+                .put("generation", INTENT).put("turnId", "original-turn")
+                .put("taskId", 51).put("displayId", 6).put("userId", 1);
+        JSONObject input = new JSONObject().put("op", "diningPollInput").put("action", "observe")
+                .put("intentId", INTENT).put("executionThreadId", THREAD).put("binding", binding);
+        DiningPollObservationInput.Binding original = DiningPollObservationInput.decode(input);
+        check(DiningPollObservationInput.foregroundTask(original,
+                        new JSONArray().put(appTask(51, 1, 0, WHATSAPP))) == 51,
+                "original task can be recognized on the foreground display");
+        JSONObject foreground = original.callback(51, true);
+        check(foreground.getBoolean("readOnlyForeground") && !foreground.has("readOnlyRebound")
+                        && foreground.getInt("originalDisplayId") == 6,
+                "original task still receives foreground read-only scope");
+
+        JSONArray replacement = new JSONArray().put(appTask(92, 1, 0, WHATSAPP));
+        check(DiningPollObservationInput.foregroundTask(original, replacement) == 92,
+                "replacement may be proposed only when the old task disappeared");
+        JSONObject rebound = original.callback(92, true);
+        check(rebound.getBoolean("readOnlyForeground") && rebound.getBoolean("readOnlyRebound")
+                        && rebound.getInt("originalTaskId") == 51
+                        && "observe".equals(rebound.getString("action")),
+                "replacement is strictly passively reidentified by the native poll receipt");
+        replacement.put(appTask(51, 1, 6, WHATSAPP).put("visible", false));
+        check(DiningPollObservationInput.foregroundTask(original, replacement) == null,
+                "even a hidden original dedicated task prevents rebound");
+        rejects("DINING_POLL_SCREEN_UNAVAILABLE", () -> DiningPollObservationInput.foregroundTask(original,
+                new JSONArray().put(appTask(92, 1, 0, WHATSAPP)).put(appTask(93, 1, 0, WHATSAPP))));
+        rejects("DINING_POLL_TARGET_CHANGED", () -> DiningPollObservationInput.foregroundTask(original,
+                new JSONArray().put(appTask(51, 5, 0, WHATSAPP)).put(appTask(92, 1, 0, WHATSAPP))));
+        rejects("DINING_POLL_OBSERVATION_INVALID", () -> DiningPollObservationInput.decode(
+                new JSONObject(input.toString()).put("readOnlyRebound", true)));
+        rejects("DINING_POLL_OBSERVATION_INVALID", () -> DiningPollObservationInput.decode(
+                new JSONObject(input.toString()).put("binding", new JSONObject(binding.toString()).put("displayId", "6"))));
+    }
+
+    private static void bookingEvidenceRequiresTheMatchingConfirmedTask() throws Exception {
+        String key = "booking:" + "a".repeat(40), taskId = "1795450000001";
+        JSONObject input = new JSONObject().put("op", "diningPollInput").put("action", "booking-begin-submit")
+                .put("watchId", "meal:" + "b".repeat(40)).put("intentId", INTENT).put("bookingKey", key)
+                .put("bookingTaskId", taskId).put("executionThreadId", THREAD);
+        DiningBookingInput.Request request = DiningBookingInput.request(input);
+        JSONObject confirmed = new JSONObject().put("id", taskId).put("diningBookingKey", key);
+        DiningBookingInput.requireBooking(request, confirmed, THREAD);
+        rejects("BOOKING_EXECUTION_CHANGED", () -> DiningBookingInput.requireBooking(request, confirmed, INTENT));
+        rejects("BOOKING_EXECUTION_CHANGED", () -> DiningBookingInput.requireBooking(request,
+                new JSONObject().put("id", taskId), THREAD));
+        rejects("BOOKING_EXECUTION_CHANGED", () -> DiningBookingInput.requireBooking(request,
+                new JSONObject(confirmed.toString()).put("id", "1795450000002"), THREAD));
+        rejects("BOOKING_RECEIPT_INVALID_ARGUMENT", () -> DiningBookingInput.request(
+                new JSONObject(input.toString()).put("operationToken", INTENT)));
+        rejects("BOOKING_RECEIPT_INVALID_ARGUMENT", () -> DiningBookingInput.request(
+                new JSONObject(input.toString()).put("bookingTaskId", 1795450000001L)));
+        JSONArray screen = new JSONArray().put(appTask(81, 1, 6, "com.opentable"));
+        check(DiningPollInput.visibleTask(screen, 6, 1, "com.opentable").getInt("taskId") == 81,
+                "receipt reads use the real visible OpenTable task");
+        rejects("DINING_POLL_SCREEN_UNAVAILABLE",
+                () -> DiningPollInput.visibleTask(screen, 6, 1, WHATSAPP));
+    }
+
     public static void main(String[] args) throws Exception {
         pollRequestUsesConfirmedTaskOnly();
         acceptsOnlyExactVisibleWhatsAppTask();
         yelpUriEncodesExactUntrustedFields();
         cleanupEvidenceBelongsToTheCurrentOperation();
         operationFenceNeedsAReleasedLock();
-        System.out.println("DiningBrokerTest: poll authorization, exact visible task, and Yelp route passed");
+        passiveObservationNeverAdoptsAnotherVisibleTaskForInput();
+        bookingEvidenceRequiresTheMatchingConfirmedTask();
+        System.out.println("DiningBrokerTest: Yelp routing, poll ownership and observation, OpenTable binding, and cleanup passed");
     }
 }

@@ -123,6 +123,7 @@ final class DiningPollSend {
         String id = DiningPollSendState.uuid(args, "intentId"),
                 thread = DiningPollSendState.uuid(args, "executionThreadId"),
                 action = args.getString("action");
+        if ("observe".equals(action)) return observe(c, args, require(c, id));
         if (!List.of("bind", "send", "inspect").contains(action))
             throw failure("UNKNOWN_POLL_SEND_ACTION");
         JSONObject intent = require(c, id);
@@ -269,7 +270,132 @@ final class DiningPollSend {
                         intent, receipt.getString("anchor"), System.currentTimeMillis());
         sent.put("messageTimestamp", receipt.getString("timestamp")).put("receipt", receipt);
         save(c, sent);
+        DiningPollBooking.submittedPoll(c, sent.getString("intentId"));
         return publicState(sent);
+    }
+
+    private static JSONObject observe(Context context, JSONObject target, JSONObject intent)
+            throws Exception {
+        if (!DiningPollSendState.codedReceiptConfirmed(intent))
+            throw failure("POLL_SEND_UNCONFIRMED");
+        JSONObject binding = intent.getJSONObject("binding");
+        for (String field :
+                List.of("executionThreadId", "turnId", "screenKey", "generation", "userId")) {
+            if (!binding.get(field).equals(target.get(field)))
+                throw failure("POLL_EXECUTION_SCREEN_CHANGED");
+        }
+        boolean foreground = Boolean.TRUE.equals(target.opt("readOnlyForeground"));
+        boolean rebound = Boolean.TRUE.equals(target.opt("readOnlyRebound"));
+        int display = target.getInt("displayId");
+        if (!PACKAGE.equals(target.opt("packageName"))
+                || target.optBoolean("legacy", true)
+                || target.getInt("taskId") < 0
+                || target.getInt("userId") < 0
+                || display < 0
+                || foreground != (display == 0)
+                || foreground
+                        && target.optInt("originalDisplayId", -1) != binding.getInt("displayId")
+                || rebound
+                        && (!foreground
+                                || target.optInt("originalTaskId", -1) != binding.getInt("taskId"))
+                || !rebound && target.getInt("taskId") != binding.getInt("taskId")
+                || !foreground && display != binding.getInt("displayId"))
+            throw failure("POLL_EXECUTION_SCREEN_CHANGED");
+        return DiningPollSendAutomation.read(
+                ui -> {
+                    checkObservationTask(context, target, foreground, rebound);
+                    JSONObject first = readSent(ui, target, intent, true);
+                    if (foreground) {
+                        JSONObject second = readSent(ui, target, intent, true);
+                        if (!first.getString("anchor").equals(second.getString("anchor"))
+                                || !first.getJSONArray("counts")
+                                        .toString()
+                                        .equals(second.getJSONArray("counts").toString()))
+                            throw failure("POLL_TALLY_CHANGED");
+                        first = second;
+                    }
+                    checkObservationTask(context, target, foreground, rebound);
+                    if (!intent.getString("anchor").equals(first.getString("anchor")))
+                        throw failure("POLL_MESSAGE_CHANGED");
+                    return first.put("intentId", intent.getString("intentId"))
+                            .put("observationTaskId", target.getInt("taskId"))
+                            .put("observationDisplayId", display)
+                            .put("observationUserId", target.getInt("userId"));
+                });
+    }
+
+    private static void checkObservationTask(
+            Context context, JSONObject target, boolean foreground, boolean rebound)
+            throws Exception {
+        checkCancelled(target);
+        if (!foreground) {
+            checkTask(context, target);
+            return;
+        }
+        if (context.getSystemService(KeyguardManager.class).isKeyguardLocked())
+            throw failure("POLL_PHONE_LOCKED");
+        int userId = android.os.Process.myUid() / 100_000;
+        boolean userForeground = context.getSystemService(UserManager.class).isUserForeground();
+        if (!userForeground || userId != target.getInt("userId"))
+            throw failure("POLL_EXECUTION_USER_CHANGED");
+        List<ActivityManager.RunningTaskInfo> tasks =
+                context.getSystemService(ActivityManager.class).getRunningTasks(100);
+        if (rebound) {
+            JSONArray inventory = new JSONArray();
+            for (ActivityManager.RunningTaskInfo task : tasks) {
+                inventory.put(
+                        new JSONObject()
+                                .put("taskId", task.taskId)
+                                .put("userId", taskUser(task))
+                                .put("displayId", DiningPollUi.display(task))
+                                .put("visible", task.isVisible())
+                                .put(
+                                        "basePackage",
+                                        task.baseActivity == null
+                                                ? ""
+                                                : task.baseActivity.getPackageName())
+                                .put(
+                                        "topPackage",
+                                        task.topActivity == null
+                                                ? ""
+                                                : task.topActivity.getPackageName()));
+            }
+            DiningPollSendState.reboundTask(target, inventory, userId, userForeground);
+            return;
+        }
+        for (ActivityManager.RunningTaskInfo task : tasks) {
+            if (DiningPollUi.display(task) != 0 || task.topActivity == null || !task.isVisible())
+                continue;
+            if (task.taskId == target.getInt("taskId")
+                    && taskUser(task) == userId
+                    && PACKAGE.equals(task.topActivity.getPackageName())) return;
+            break;
+        }
+        throw failure("POLL_EXECUTION_TASK_CHANGED");
+    }
+
+    private static int taskUser(ActivityManager.RunningTaskInfo task) throws Exception {
+        return task.getClass().getField("userId").getInt(task);
+    }
+
+    static synchronized JSONObject sentIntent(Context context, String id) throws Exception {
+        JSONObject intent = require(context, id);
+        if (!DiningPollSendState.codedReceiptConfirmed(intent)
+                || intent.optJSONObject("binding") == null) throw failure("POLL_SEND_UNCONFIRMED");
+        return intent;
+    }
+
+    static synchronized List<JSONObject> recentSentIntents(Context context, long since)
+            throws Exception {
+        JSONObject ledger = ledger(context);
+        List<JSONObject> intents = new ArrayList<>();
+        for (var keys = ledger.keys(); keys.hasNext(); ) {
+            JSONObject intent = ledger.getJSONObject(keys.next());
+            if (intent.optLong("sentAt") >= since
+                    && intent.optJSONObject("binding") != null
+                    && DiningPollSendState.codedReceiptConfirmed(intent)) intents.add(intent);
+        }
+        return intents;
     }
 
     private static JSONObject screen(JSONObject args) throws Exception {
@@ -1283,6 +1409,12 @@ final class DiningPollSend {
      */
     private static JSONObject readSent(UiAutomation ui, JSONObject screen, JSONObject intent)
             throws Exception {
+        return readSent(ui, screen, intent, false);
+    }
+
+    private static JSONObject readSent(
+            UiAutomation ui, JSONObject screen, JSONObject intent, boolean includeCounts)
+            throws Exception {
         AccessibilityNodeInfo root = DiningPollUi.root(ui, screen.getInt("displayId"), PACKAGE);
         group(root, intent);
         String expectedQuestion = DiningPollSendState.wireQuestion(intent);
@@ -1326,13 +1458,32 @@ final class DiningPollSend {
             if (!timestamp.isEmpty()) break;
         }
         if (timestamp.isEmpty()) throw failure("POLL_TIMESTAMP_UNAVAILABLE");
-        return new JSONObject()
-                .put("anchor", DiningPollSendEvidence.codedAnchor(intent, identity))
-                .put("timestamp", timestamp)
-                .put("delivery", delivery)
-                .put("groupName", intent.getString("groupName"))
-                .put("capturedAt", System.currentTimeMillis())
-                .put("messageIdentity", identity);
+        JSONObject receipt =
+                new JSONObject()
+                        .put("anchor", DiningPollSendEvidence.codedAnchor(intent, identity))
+                        .put("timestamp", timestamp)
+                        .put("delivery", delivery)
+                        .put("groupName", intent.getString("groupName"))
+                        .put("capturedAt", System.currentTimeMillis())
+                        .put("messageIdentity", identity);
+        if (includeCounts) {
+            JSONArray counts = new JSONArray();
+            for (AccessibilityNodeInfo option : nodes(poll, "poll_option_main_layout", true)) {
+                String count =
+                        DiningPollUi.value(one(option, "poll_option_vote_count", true).getText());
+                if (!count.matches("[0-9]{1,5}")) throw failure("POLL_TALLY_INCOMPLETE");
+                counts.put(Integer.parseInt(count));
+            }
+            AccessibilityNodeInfo subtitle = one(root, "conversation_contact_status", true);
+            receipt.put(
+                    "groupFingerprint",
+                    DiningPollBookingFlow.key(
+                            "group-ui",
+                            intent.getString("groupName"),
+                            DiningPollUi.value(subtitle.getText())));
+            receipt.put("counts", counts);
+        }
+        return receipt;
     }
 
     static synchronized void recordFailure(Context context, JSONObject args, String code) {

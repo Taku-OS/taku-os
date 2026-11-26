@@ -182,6 +182,125 @@ final class DiningPollSendState {
                 throw failure("POLL_EXECUTION_SCREEN_CHANGED");
     }
 
+    /** A new foreground task may only reidentify an already confirmed, coded message. */
+    static boolean codedReceiptConfirmed(JSONObject intent) {
+        try {
+            if (!"sent".equals(intent.optString("status"))
+                    || !Boolean.TRUE.equals(intent.opt("sent"))
+                    || !usesQuestionCode(intent)) return false;
+            JSONObject receipt = intent.getJSONObject("receipt"),
+                    identity = receipt.getJSONObject("messageIdentity");
+            String expected = DiningPollSendEvidence.codedAnchor(intent, identity);
+            return expected.equals(intent.optString("anchor"))
+                    && expected.equals(receipt.optString("anchor"));
+        } catch (Exception unavailable) {
+            return false;
+        }
+    }
+
+    static void sameExecutionScreen(JSONObject binding, JSONObject screen, JSONObject intent)
+            throws Exception {
+        if (!screen.has("readOnlyRebound")) {
+            sameExecutionScreen(binding, screen);
+            return;
+        }
+        if (!Boolean.TRUE.equals(screen.opt("readOnlyRebound"))
+                || !codedReceiptConfirmed(intent)
+                || !"observe".equals(screen.optString("action"))
+                || !Boolean.TRUE.equals(screen.opt("readOnlyForeground"))
+                || screen.getInt("displayId") != 0
+                || binding.getInt("displayId") <= 0
+                || screen.optInt("originalDisplayId", -1) != binding.getInt("displayId")
+                || screen.optInt("originalTaskId", -1) != binding.getInt("taskId")
+                || screen.getInt("taskId") < 0
+                || screen.getInt("taskId") == binding.getInt("taskId"))
+            throw failure("POLL_REBOUND_OBSERVE_SCOPE_INVALID");
+        for (String field :
+                List.of("executionThreadId", "turnId", "screenKey", "generation", "userId"))
+            if (!binding.get(field).equals(screen.get(field)))
+                throw failure("POLL_EXECUTION_SCREEN_CHANGED");
+    }
+
+    /** Inventory is captured from Android immediately before/after the passive UI read. */
+    static void reboundTask(
+            JSONObject screen, JSONArray tasks, int currentUser, boolean userForeground)
+            throws Exception {
+        if (!Boolean.TRUE.equals(screen.opt("readOnlyRebound"))
+                || !Boolean.TRUE.equals(screen.opt("readOnlyForeground"))
+                || !"observe".equals(screen.optString("action"))
+                || screen.optInt("displayId", -1) != 0
+                || screen.optInt("userId", -1) != currentUser
+                || !userForeground) throw failure("POLL_REBOUND_OBSERVE_SCOPE_INVALID");
+        JSONObject top = null, selected = null;
+        int visibleWhatsApp = 0;
+        for (int i = 0; i < tasks.length(); i++) {
+            JSONObject task = tasks.getJSONObject(i);
+            if (task.getInt("taskId") == screen.getInt("originalTaskId"))
+                throw failure("POLL_ORIGINAL_TASK_STILL_PRESENT");
+            if (task.getInt("userId") != currentUser
+                    || task.getInt("displayId") != 0
+                    || !task.optBoolean("visible")) continue;
+            if (top == null) top = task;
+            if ("com.whatsapp".equals(task.optString("basePackage"))
+                    || "com.whatsapp".equals(task.optString("topPackage"))) visibleWhatsApp++;
+            if (task.getInt("taskId") == screen.getInt("taskId")) {
+                if (selected != null) throw failure("POLL_EXECUTION_TASK_CHANGED");
+                selected = task;
+            }
+        }
+        if (selected == null
+                || selected != top
+                || visibleWhatsApp != 1
+                || !"com.whatsapp".equals(selected.optString("basePackage"))
+                || !"com.whatsapp".equals(selected.optString("topPackage")))
+            throw failure("POLL_EXECUTION_TASK_CHANGED");
+    }
+
+    /** This context can retain a prompt briefly; it never grants input or sending. */
+    static JSONObject observationScreen(JSONObject intent, JSONObject proof) throws Exception {
+        if (!codedReceiptConfirmed(intent)
+                || !intent.getString("intentId").equals(proof.optString("intentId"))
+                || !intent.getString("anchor").equals(proof.optString("anchor"))
+                || !DiningPollSendEvidence.sameMessage(
+                        intent.getJSONObject("receipt").getJSONObject("messageIdentity"),
+                        proof.optJSONObject("messageIdentity")))
+            throw failure("POLL_MESSAGE_CHANGED");
+        int task = proof.getInt("observationTaskId"),
+                display = proof.getInt("observationDisplayId"),
+                user = proof.getInt("observationUserId");
+        if (task < 0 || display < 0 || user < 0) throw failure("POLL_EXECUTION_SCREEN_INVALID");
+        return new JSONObject()
+                .put("taskId", task)
+                .put("displayId", display)
+                .put("userId", user)
+                .put("anchor", intent.getString("anchor"));
+    }
+
+    static JSONObject recentObservationScreen(JSONObject watch, JSONObject intent, long now)
+            throws Exception {
+        long at = watch.optLong("lastObservedAt");
+        JSONObject observed = watch.optJSONObject("lastObservationScreen");
+        if (!codedReceiptConfirmed(intent)
+                || at <= 0
+                || now < at
+                || now - at > 5000
+                || observed == null
+                || !intent.getString("intentId").equals(watch.optString("sendIntentId"))
+                || !intent.getString("anchor").equals(watch.optString("anchor"))
+                || !intent.getString("anchor").equals(observed.optString("anchor"))) return null;
+        return new JSONObject(observed.toString());
+    }
+
+    static boolean keepBusyOffer(
+            String code, long lastObservedAt, long now, boolean sameTaskVisible) {
+        return List.of("POLL_EDITOR_BUSY", "DINING_POLL_OBSERVER_BUSY", "DINING_POLL_INPUT_BUSY")
+                        .contains(code)
+                && sameTaskVisible
+                && lastObservedAt > 0
+                && now >= lastObservedAt
+                && now - lastObservedAt <= 5_000;
+    }
+
     private static String canonical(Object value) throws Exception {
         if (value instanceof JSONObject object) {
             List<String> keys = new ArrayList<>();

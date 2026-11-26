@@ -29,6 +29,20 @@ sealed interface Intent {
   data class AskTaku(val prompt: String) : Intent
   data class OpenApp(val packageName: String, val uri: String?) : Intent
   data class OpenUrl(val url: String) : Intent
+  /** Opens WhatsApp's share UI for the user to choose a recipient and confirm. */
+  data class ShareText(val packageName: String, val text: String) : Intent {
+    init {
+      if (packageName != PACKAGE) FeedCard.fail("INVALID_CARD", "share-text package must be $PACKAGE")
+      if (text.isBlank() || text.length > MAX_TEXT) {
+        FeedCard.fail("INVALID_CARD", "share-text text must contain 1 to $MAX_TEXT characters and cannot be blank")
+      }
+    }
+
+    companion object {
+      const val PACKAGE = "com.whatsapp"
+      const val MAX_TEXT = 16_000
+    }
+  }
   data object Dismiss : Intent
   data object None : Intent
 }
@@ -179,6 +193,10 @@ data class FeedCard(
           "ask-taku" -> Intent.AskTaku(i.optString("prompt").ifBlank { fail("INVALID_CARD", "actions.$key.intent.prompt is required") })
           "open-app" -> Intent.OpenApp(i.optString("package").ifBlank { fail("INVALID_CARD", "actions.$key.intent.package is required") }, i.optString("uri").ifBlank { null })
           "open-url" -> Intent.OpenUrl(i.optString("url").also { if (!it.startsWith("https://")) fail("INVALID_CARD", "actions.$key.intent.url must be https") })
+          "share-text" -> Intent.ShareText(
+            i.opt("package") as? String ?: fail("INVALID_CARD", "actions.$key.intent.package must be a string"),
+            i.opt("text") as? String ?: fail("INVALID_CARD", "actions.$key.intent.text must be a string"),
+          )
           "dismiss" -> Intent.Dismiss
           "none" -> Intent.None
           else -> fail("INVALID_CARD", "actions.$key.intent.type is not supported")

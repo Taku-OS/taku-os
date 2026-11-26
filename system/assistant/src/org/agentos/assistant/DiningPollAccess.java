@@ -34,7 +34,7 @@ final class DiningPollAccess {
             case "dining/poll/send-bind" -> forward(context, "bind", args);
             case "dining/poll/send" -> forward(context, "send", args);
             case "dining/poll/send-inspect" -> forward(context, "inspect", args);
-            default -> throw new IOException("UNSUPPORTED_DINING_ACTION");
+            default -> DiningPollBooking.call(context, method, args);
         };
     }
 
@@ -55,11 +55,15 @@ final class DiningPollAccess {
             try {
                 if (Files.exists(directory.resolve("cancel")))
                     throw new IOException("POLL_INPUT_CANCELLED");
-                JSONObject result = DiningPollSend.nativeCall(context, args);
+                JSONObject result =
+                        DiningBookingRead.action(args)
+                                ? DiningBookingRead.nativeCall(context, args)
+                                : DiningPollSend.nativeCall(context, args);
                 envelope.put("ok", true).put("result", result);
             } catch (Exception failure) {
                 String code = failureCode(failure);
-                DiningPollSend.recordFailure(context, args, code);
+                if (!DiningBookingRead.action(args) && !"observe".equals(args.opt("action")))
+                    DiningPollSend.recordFailure(context, args, code);
                 envelope.put("ok", false).put("code", code);
             }
             try {

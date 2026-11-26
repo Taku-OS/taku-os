@@ -20,8 +20,12 @@ final class HarnessContext {
             row with id "address", label "Yelp" and a tagged text value containing the observed
             full branch address. Use the observed business URL when available. Additional facts
             may use ids "cuisine", "rating", "price", "description", "hours", or "category-*".
-            Leave unverified facts out. The candidate preview and WhatsApp sharing are user
-            choices. Finding candidates does not authorize sending a poll.
+            Leave unverified facts out. If the original request explicitly gives the complete
+            reservation date, restaurant-local time, IANA zone and party size, add one standalone
+            line to the card summary in this format:
+            Booking details: YYYY-MM-DD · HH:mm · Area/City · 4 guests
+            Use the actual values and omit the line when any field is missing or ambiguous.
+            Finding candidates does not authorize sending a poll. A booking requires later confirmation.
             """;
     private static HarnessStore store;
     static boolean auditIncomplete;

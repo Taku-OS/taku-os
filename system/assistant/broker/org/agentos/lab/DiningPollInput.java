@@ -68,6 +68,9 @@ final class DiningPollInput {
     }
 
     static JSONObject control(JSONObject input) throws Exception {
+        String action = input.optString("action");
+        if ("observe".equals(action)) return DiningPollObservationInput.control(input);
+        if (DiningBookingInput.handles(action)) return DiningBookingInput.control(input);
         Request request = request(input);
         Owner owner = register(request);
         try {
@@ -163,7 +166,7 @@ final class DiningPollInput {
         }
     }
 
-    private static JSONArray taskInventory() throws Exception {
+    static JSONArray taskInventory() throws Exception {
         // The SDK's public task API cannot list tasks across displays and Android users.
         Object service = invoke(Class.forName("android.app.ActivityTaskManager").getMethod("getService"), null);
         Method tasks = Class.forName("android.app.IActivityTaskManager")
@@ -185,6 +188,10 @@ final class DiningPollInput {
     }
 
     static JSONObject visibleTask(JSONArray tasks, int display, int user) throws Exception {
+        return visibleTask(tasks, display, user, PACKAGE);
+    }
+
+    static JSONObject visibleTask(JSONArray tasks, int display, int user, String packageName) throws Exception {
         if (display <= 0) throw error("DINING_POLL_SCREEN_UNAVAILABLE");
         JSONObject top = null;
         int matchingTasks = 0;
@@ -192,10 +199,10 @@ final class DiningPollInput {
             JSONObject task = tasks.getJSONObject(i);
             if (task.getInt("userId") != user || task.getInt("displayId") != display) continue;
             if (top == null) top = task;
-            if (PACKAGE.equals(task.optString("packageName"))) matchingTasks++;
+            if (packageName.equals(task.optString("packageName"))) matchingTasks++;
         }
-        if (matchingTasks != 1 || top == null || !PACKAGE.equals(top.optString("packageName"))
-                || !PACKAGE.equals(top.optString("topPackage")) || !Boolean.TRUE.equals(top.opt("visible")))
+        if (matchingTasks != 1 || top == null || !packageName.equals(top.optString("packageName"))
+                || !packageName.equals(top.optString("topPackage")) || !Boolean.TRUE.equals(top.opt("visible")))
             throw error("DINING_POLL_SCREEN_UNAVAILABLE");
         return top;
     }
@@ -275,7 +282,7 @@ final class DiningPollInput {
     }
 
     /** A cancellation never detaches the remote Binder worker from its input/cleanup fence. */
-    private static JSONObject nativeCall(JSONObject argument) throws Exception {
+    static JSONObject nativeCall(JSONObject argument) throws Exception {
         String token = UUID.randomUUID().toString();
         File directory = new File(operationDirectory(), token);
         if (!directory.mkdirs()) throw error("DINING_POLL_OPERATION_UNAVAILABLE");

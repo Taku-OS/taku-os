@@ -154,6 +154,7 @@ process.exit(issues.length ? 1 : 0);
 | --- | --- |
 | `open-app` | `package`，可选 `uri`，打开目标 App 或其页面 |
 | `open-url` | `url`，打开 HTTPS 网页 |
+| `share-text` | `package:"com.whatsapp"`、`text`（1–16,000 字符）。打开 WhatsApp 分享选择器，由用户选群并发送。 |
 | `ask-taku` | `prompt`，创建对话并保存为可编辑草稿，等待用户发送 |
 | `dismiss` | 隐藏卡片，与用户删除相同 |
 | `none` | 记录操作，返回 `effect:"none"` |

@@ -16,6 +16,7 @@ class MatterReceiver : BroadcastReceiver() {
                 runtime.migrateCards()
                 runtime.recoverPanelUpdates()
                 runtime.recover()
+                DiningPollBooking.restore(context)
             } catch (_: Exception) {
             } finally {
                 if (!Handler(Looper.getMainLooper()).post {

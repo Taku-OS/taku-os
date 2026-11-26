@@ -154,6 +154,7 @@ process.exit(issues.length ? 1 : 0);
 | --- | --- |
 | `open-app` | `package`, optional `uri`; opens the app or its page |
 | `open-url` | `url`; opens an HTTPS page |
+| `share-text` | `package:"com.whatsapp"`, `text` (1–16,000 characters). Opens the WhatsApp share picker. The user chooses the chat and sends there. |
 | `ask-taku` | `prompt`; creates a conversation and saves an editable draft for the user to send |
 | `dismiss` | Hides the card, matching user removal |
 | `none` | Records the action and returns `effect:"none"` |

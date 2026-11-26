@@ -594,6 +594,14 @@ The host reader accepts repeated `--card-id`, `--card-prefix`, `--adb` and `--he
 
 Persist each opaque cursor with the business result or use it for idempotency. Advance to `checkpoint.through` only after all earlier matching events complete. `ready.through` and pipe output are not acknowledgments. Store progress per device, database UUID and filter. Reconnect from processed progress, discard incomplete lines and dedupe replay. To follow a snapshot, use its `eventCursor`. Idle checkpoints arrive every 10 s; leases expire at 300 s (`STREAM_LEASE_EXPIRED`); backpressure may cause `STREAM_SLOW_CONSUMER`. Follow EOF is a disconnect even with a zero Android exit code. Feed cannot wake a stopped Agent.
 
+The OpenTable reservation card's `share` action uses `share-text` with
+`package:"com.whatsapp"` and `text`. `feed/action` launches WhatsApp's picker
+and returns `dispatchCursor` and `requiresUserConfirmation:true` when the
+launch succeeds. The matching `phase:"dispatched"` event includes the
+original `acceptedCursor`, package and SHA-256 of the UTF-8 share text.
+Recipient choice and message delivery happen in WhatsApp and need separate
+verification.
+
 No history count/time cap. A one-time SQLite import retains available legacy actions as `legacy`, with `phase:"legacy-recorded"`; `ready.legacyImportedCount/legacyHistoryMayBeIncomplete` describe the import. Legacy events may exceed new limits. Clearing app data invalidates cursors. Storage errors do not fabricate an empty Feed.
 
 Cards use `taku.feed-card/1`; repository schema and parameters are in `system/agent-app/modules/taku-home/README.md` and `CONTRACT.md`. Image bodies allow HTTPS or known `asset:feed/<path>`. Remote SVG needs a `.svg` path, HTTPS final URL and `image/svg+xml`; static drawing only (no CSS/entities/scripts/external references/embedded images), max 256 Ki characters, 2,048 tags and 10 s. Invalid generated references return `INVALID_SPEC`; raw publication has render-time validation. Icon and open-url rules are separate.
@@ -1132,3 +1140,25 @@ Check `send-status` before resuming a prior intent. Report success only when
 the send result is `unknown`, inspect that intent without retrying the send.
 An unavailable or ambiguous group, unmatched reply or different task returns
 an error and leaves the action unverified.
+
+### Book from the poll result
+
+The native watcher reads votes for the original sent poll. It offers a
+booking only when the observed votes have one leader. OpenTable submission
+requires the user's decision for the current leader and the confirmed branch,
+date, restaurant-local time, IANA zone and party size.
+
+| Method on `content://org.agentos.assistant.open-access` | Arguments and result |
+| --- | --- |
+| `dining/poll/state` | `{}` reads the watches, current offer keys and booking state. |
+| `dining/poll/watch` | `{intentId}` opens or reuses the watcher for an already confirmed send. The native poll receipt supplies its group and options. |
+| `dining/poll/respond` | `{id,key,accepted}` records the user's decision after rechecking the current poll. |
+| `dining/poll/booking-form`, `dining/poll/submit-booking-form` | `{id,key,revision}` reads the active form. Add `values` to submit the exact missing fields shown by the form. Dates use `YYYY-MM-DD`, times use `HH:mm`, zones use IANA names and party size is an integer. |
+| `dining/poll/retry-confirmation`, `dining/poll/dismiss-confirmation` | `{id,key}` retries a known pre-submission failure after a user decision, or dismisses the current offer. |
+| `dining/poll/verify-date`, `dining/poll/begin-submit`, `dining/poll/inspect` | `{id}`. On the bound OpenTable task, verify the full date, validate and perform the one native checkout attempt, and inspect the app's actual receipt. |
+
+Keep the verified restaurant and exact request on that task's OpenTable
+screen. Stop for changed terms, a deposit, a payment prompt or an ambiguous
+target. `REQUEST_EXPIRED` means the offer or form revision has changed.
+When a submission is uncertain, inspect the existing attempt to reconcile
+it. A confirmed native receipt publishes one card to the existing Home Feed.

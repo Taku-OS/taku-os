@@ -4,6 +4,7 @@ import android.content.ActivityNotFoundException
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent as AndroidIntent
+import android.content.pm.PackageManager
 import android.net.Uri
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -25,12 +26,17 @@ object FeedActions {
     val card = accepted.card
     val action = accepted.action
     val selected = captured.json()
-    val result = when (val intent = action.intent) {
+    val intent = action.intent
+    val result = when (intent) {
       is Intent.AskTaku -> askTaku(context, draft(intent.prompt, card, selected), accepted.cursor)
       is Intent.OpenApp -> openApp(context, intent)
       is Intent.OpenUrl -> start(context, AndroidIntent(AndroidIntent.ACTION_VIEW, Uri.parse(intent.url)), "open-url")
+      is Intent.ShareText -> shareText(context, intent)
       Intent.Dismiss -> repo.remove(cardId, origin).put("effect", "dismiss")
       Intent.None -> JSONObject().put("effect", "none").put("note", "This card has no connected integration; nothing was executed.")
+    }
+    if (intent is Intent.ShareText) {
+      result.put("dispatchCursor", repo.recordDispatch(accepted, origin).toString())
     }
     result.put("eventCursor", accepted.cursor.toString())
     return result.put("cardId", cardId).put("actionId", actionId)
@@ -73,6 +79,29 @@ object FeedActions {
     else context.packageManager.getLaunchIntentForPackage(target.packageName)
       ?: throw FeedException("APP_NOT_INSTALLED", "${target.packageName} is not installed")
     return start(context, intent, "open-app").put("package", target.packageName)
+  }
+
+  private fun shareText(context: Context, target: Intent.ShareText): JSONObject {
+    val manager = context.packageManager
+    try {
+      manager.getApplicationInfo(target.packageName, 0)
+    } catch (_: PackageManager.NameNotFoundException) {
+      throw FeedException("APP_NOT_INSTALLED", "${target.packageName} is not installed")
+    }
+    val intent = AndroidIntent(AndroidIntent.ACTION_SEND)
+      .setType("text/plain")
+      .setPackage(target.packageName)
+      .putExtra(AndroidIntent.EXTRA_TEXT, target.text)
+    if (manager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY) == null) {
+      throw FeedException("NO_ACTIVITY", "${target.packageName} cannot handle text sharing")
+    }
+    val result = try {
+      start(context, intent, "share-text")
+    } catch (_: SecurityException) {
+      throw FeedException("PERMISSION_DENIED", "${target.packageName} does not allow text sharing")
+    }
+    return result.put("package", target.packageName).put("mimeType", "text/plain")
+      .put("requiresUserConfirmation", true)
   }
 
   private fun start(context: Context, intent: AndroidIntent, effect: String): JSONObject {
