@@ -23,6 +23,7 @@ These are the engineering docs for this repository. To install Taku OS or learn 
 
 - [Agent harness](agent-harness.md)
 - [Agent open access](agent-open-access.md)
+- [Notebook reference interface](notebook-reference.md): optional screenshot catalogue, exact-source recall and public X video samples; runtime acceptance pending.
 - [Extensibility](extensibility.md)
 - [Plugins](plugins/README.md)
 - [Background workspaces](background-workspaces.en.md)

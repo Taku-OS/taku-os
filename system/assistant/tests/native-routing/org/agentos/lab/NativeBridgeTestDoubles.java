@@ -204,3 +204,13 @@ final class AgentSkills {
     static JSONArray selected(String thread) {return new JSONArray();}
 }
 final class SkillUninstall {static void recover(CodexAppServer server) {}}
+
+// Notebook discovery is a separate ephemeral pipeline; routing fixtures never run it.
+final class NotebookXSource {
+    static JSONObject resolve(JSONObject request) { throw new AssertionError("Unexpected Notebook discovery"); }
+    static boolean onEvent(JSONObject event) { return false; }
+    static final class Lookup { void bind(String method, JSONObject response) {} }
+}
+final class NotebookBridge {
+    static void refreshReferenceGrants(JSONObject thread) {}
+}

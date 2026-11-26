@@ -27,7 +27,7 @@ internal object NativeClient {
     fun exchange(request: JSONObject): JSONObject = LocalSocket().use { socket ->
         socket.connect(LocalSocketAddress(SOCKET_NAME))
         if (socket.peerCredentials.uid != 0) throw IOException("Invalid native service identity")
-        socket.soTimeout = 45_000
+        socket.soTimeout = if (request.optString("op") == "notebookResolveXSource") 180_000 else 45_000
         socket.send(request)
 
         val input = socket.inputStream
