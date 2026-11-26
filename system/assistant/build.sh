@@ -50,6 +50,7 @@ cp out/resources.apk out/unsigned.apk
 JAVA_HOME="$JDK" "$TOOLS/apksigner" sign --key "$SIGNING/platform.pk8" --cert "$SIGNING/platform.x509.pem" --out out/AgentOSAssistant.apk out/aligned.apk
 if [ "${1:-}" = "--apk-only" ]; then exit 0; fi
 compile_jvm out/broker-classes "$ANDROID_JAR" broker/org/agentos/lab/*.java broker/org/agentos/lab/*.kt \
+ ../ai/client/org/agentos/ai/NotebookSocialSource.java \
  ../../tooling/app-kit/apk-shell/src/org/agentos/runtime/AppApiClient.java
 "$JDK/bin/jar" --create --file out/broker-classes.jar -C out/broker-classes .
 # javac resolves java.* from JDK 17: fail on platform members ART lacks (e.g. Redirect.DISCARD).
