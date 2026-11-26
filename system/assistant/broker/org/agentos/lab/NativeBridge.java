@@ -24,6 +24,7 @@ final class NativeBridge {
   volatile boolean nativeSent,responseReceived;
   Guard workspaceGuard;
   boolean cleanup;
+  NotebookXSource.Lookup notebookLookup;
   Call(String m,JSONObject p){method=m;params=p;}
  }
  static final ScheduledExecutorService streamExpiry=Executors.newSingleThreadScheduledExecutor(r->{Thread t=new Thread(r,"session-stream-expiry");t.setDaemon(true);return t;});
@@ -160,6 +161,9 @@ final class NativeBridge {
    case "memory":answer=MemoryBridge.control(input);break;
    case "imeReplies":answer=ImeReplies.control(input,uid);break;
    case "systemAi":answer=SystemAi.control(input);break;
+   case "notebookResolveXSource":
+    if(uid!=1000&&uid!=0)throw new SecurityException("NOTEBOOK_X_CALLER_DENIED");
+    answer=NotebookXSource.resolve(input);break;
    case "byok":answer=byok.control(input);break;
    case "ui":answer=SystemAi.ui(input);break;
    case "matter":answer=MatterBridge.control(input);break;
@@ -257,8 +261,8 @@ final class NativeBridge {
   * workspace preflight) still pumps provider events but never starts another inbox call. */
  static void tick()throws Exception {if(initializing||CodexAppServer.booting||draining)return;draining=true;try{drainInbox();}finally{draining=false;}}
  private static boolean draining;
- private static void drainInbox()throws Exception {for(int n=0;n<4;n++){Call call=inbox.poll();if(call==null)break;if(call.result.isDone())continue;try{if(call.method.equals("taku/modelConnection")){call.result.complete(ModelConnection.control(call.params));continue;}if(call.method.equals("taku/liveTask")){call.result.complete(CodexAppServer.liveTask(call.params));continue;}if(Set.of("turn/start","turn/steer","thread/realtime/start").contains(call.method)&&call.params!=null&&!DedicatedScreensOnDevice.shared().agentAdmitted(call.params.optString("threadId")))throw new IOException("SCREEN_AGENT_PAUSED");initializing=true;CodexAppServer server;try{server=CodexAppServer.shared();}finally{initializing=false;}if(call.method.equals("thread/start")){JSONObject p=call.params;if(p==null)p=new JSONObject();if(!p.has("cwd"))p.put("cwd","/data/local/agentos/work");if(!p.has("approvalPolicy"))p.put("approvalPolicy","never");if(!p.has("sandbox"))p.put("sandbox","danger-full-access");if(!p.has("dynamicTools"))p.put("dynamicTools",toolDefinitions());call.params=p;}server.nativeRequest(call);}catch(Exception e){admissions.failedBeforeSend(call.admission);call.result.completeExceptionally(e);}}}
- static boolean complete(JSONObject response)throws Exception {int id=response.optInt("id",-1);Call c=calls.remove(id);if(c==null)return false;c.responseReceived=true;if(response.has("error")){JSONObject error=response.getJSONObject("error");if(c.method.equals("turn/steer")&&error.optInt("code")==-32600&&error.optString("message").equals("no active turn to steer"))c.result.completeExceptionally(new SteerNotSubmitted());else c.result.completeExceptionally(new IOException(error.optString("message","The native interface returned an error")));return true;}JSONObject result=response.optJSONObject("result");if(result==null)result=new JSONObject().put("value",response.opt("result"));if(!c.cleanup){if(c.method.equals("thread/list"))SessionRemovalRuntime.filter(result);observe(c.method,c.params,result);}c.result.complete(result);return true;}
+ private static void drainInbox()throws Exception {for(int n=0;n<4;n++){Call call=inbox.poll();if(call==null)break;if(call.result.isDone())continue;try{if(call.method.equals("taku/modelConnection")){call.result.complete(ModelConnection.control(call.params));continue;}if(call.method.equals("taku/liveTask")){call.result.complete(CodexAppServer.liveTask(call.params));continue;}if(call.notebookLookup==null&&Set.of("turn/start","turn/steer","thread/realtime/start").contains(call.method)&&call.params!=null&&!DedicatedScreensOnDevice.shared().agentAdmitted(call.params.optString("threadId")))throw new IOException("SCREEN_AGENT_PAUSED");initializing=true;CodexAppServer server;try{server=CodexAppServer.shared();}finally{initializing=false;}if(call.method.equals("thread/start")){JSONObject p=call.params;if(p==null)p=new JSONObject();if(!p.has("cwd"))p.put("cwd","/data/local/agentos/work");if(!p.has("approvalPolicy"))p.put("approvalPolicy","never");if(!p.has("sandbox"))p.put("sandbox","danger-full-access");if(!p.has("dynamicTools"))p.put("dynamicTools",toolDefinitions());call.params=p;}server.nativeRequest(call);}catch(Exception e){admissions.failedBeforeSend(call.admission);call.result.completeExceptionally(e);}}}
+ static boolean complete(JSONObject response)throws Exception {int id=response.optInt("id",-1);Call c=calls.remove(id);if(c==null)return false;c.responseReceived=true;if(response.has("error")){JSONObject error=response.getJSONObject("error");if(c.method.equals("turn/steer")&&error.optInt("code")==-32600&&error.optString("message").equals("no active turn to steer"))c.result.completeExceptionally(new SteerNotSubmitted());else c.result.completeExceptionally(new IOException(error.optString("message","The native interface returned an error")));return true;}JSONObject result=response.optJSONObject("result");if(result==null)result=new JSONObject().put("value",response.opt("result"));if(!c.cleanup){if(c.method.equals("thread/list"))SessionRemovalRuntime.filter(result);observe(c.method,c.params,result);}if(c.notebookLookup!=null)c.notebookLookup.bind(c.method,result);c.result.complete(result);return true;}
  static void observe(String method,JSONObject params,JSONObject result)throws Exception { try(CleanupWork.Held observeHeld=lock()){
   CodexAppServer.shared.rememberModel(method,params,result);
   if(method.equals("turn/start")&&params!=null)CodexAppServer.shared.nativeTurnStarted(params.optString("threadId"));
@@ -268,6 +272,7 @@ final class NativeBridge {
   if(result.has("thread")){
    JSONObject thread=result.getJSONObject("thread");String id=thread.getString("id");
    DedicatedScreensOnDevice.shared().observeRemovalThread(thread);
+   NotebookBridge.refreshReferenceGrants(thread);
    if(method.equals("thread/start")||method.equals("thread/read")||method.equals("thread/resume"))threadAvailability(id,"current");
    if((method.equals("thread/read")||method.equals("thread/resume"))&&!MemoryGen.owns(id))AgentViews.prepareReply(id,HarnessCatalog.replyContract(),true);
    boolean metadata=method.equals("thread/resume")&&params!=null&&params.optBoolean("excludeTurns")||method.equals("thread/read")&&(params==null||!params.optBoolean("includeTurns"));
@@ -275,7 +280,7 @@ final class NativeBridge {
    if(method.equals("thread/start"))CodexAppServer.shared.rememberNativeThread(result);
    JSONObject view=AgentViews.snapshot(id);if(view!=null)result.put("thread",view);
   }
-  if(method.equals("thread/turns/list")&&params!=null){String id=params.getString("threadId");if(!MemoryGen.owns(id))AgentViews.prepareReply(id,HarnessCatalog.replyContract(),true);boolean descending=!params.optString("sortDirection","desc").equals("asc"),hasCursor=!params.optString("cursor").isEmpty();AgentViews.mergeTurnPage(id,result.getJSONArray("data"),descending,descending?hasCursor:!hasCursor,params.optString("itemsView").equals("full"));JSONObject view=AgentViews.snapshot(id);if(view!=null)result.put("data",view.getJSONArray("turns"));}
+  if(method.equals("thread/turns/list")&&params!=null){String id=params.getString("threadId");if(!MemoryGen.owns(id))AgentViews.prepareReply(id,HarnessCatalog.replyContract(),true);boolean descending=!params.optString("sortDirection","desc").equals("asc"),hasCursor=!params.optString("cursor").isEmpty();AgentViews.mergeTurnPage(id,result.getJSONArray("data"),descending,descending?hasCursor:!hasCursor,params.optString("itemsView").equals("full"));JSONObject view=AgentViews.snapshot(id);if(view!=null){NotebookBridge.refreshReferenceGrants(view);result.put("data",view.getJSONArray("turns"));}}
  } }
 
  static JSONObject state(String thread)throws Exception { try (CleanupWork.Held held9 = lock()) {
@@ -383,7 +388,7 @@ final class NativeBridge {
     DedicatedScreensOnDevice.shared().asked(params.optString("threadId"),shown.optString(confirmation?"title":"question"),shown.optString("returnTo"));
     String key=UUID.randomUUID().toString();requests.put(key,new JSONObject().put("key",key).put("id",event.get("id")).put("method",confirmation?"phone/confirmAction":"phone/askUser").put("params",snapshot));return;
    }
-   boolean observation=tool.endsWith("device_info")||matchesTool(tool,"screen_status")||tool.endsWith("observe_background")||tool.endsWith("memory_search")||tool.endsWith("memory_get")||matchesTool(tool,"apps")||(matchesTool(tool,"matter")&&params.optJSONObject("arguments")!=null&&params.getJSONObject("arguments").optString("action").equals("read"))||(matchesTool(tool,"audio")&&params.optJSONObject("arguments")!=null&&(params.getJSONObject("arguments").optString("action").equals("capabilities")||params.getJSONObject("arguments").optString("operation").equals("status")));
+   boolean observation=matchesTool(tool,"notebook_recall")||matchesTool(tool,"notebook_read_video")||tool.endsWith("device_info")||matchesTool(tool,"screen_status")||tool.endsWith("observe_background")||tool.endsWith("memory_search")||tool.endsWith("memory_get")||matchesTool(tool,"apps")||(matchesTool(tool,"matter")&&params.optJSONObject("arguments")!=null&&params.getJSONObject("arguments").optString("action").equals("read"))||(matchesTool(tool,"audio")&&params.optJSONObject("arguments")!=null&&(params.getJSONObject("arguments").optString("action").equals("capabilities")||params.getJSONObject("arguments").optString("operation").equals("status")));
    if(!observation&&mode.equals("readOnly")){server.nativeReply(event.get("id"),PhoneNativeTools.failure("This conversation is read-only; the phone operation was blocked"));return;}
    if(!observation&&hasPhoneQuestion(params.optString("threadId"))){server.nativeReply(event.get("id"),PhoneNativeTools.failure("Wait for the user to handle the current confirmation before continuing phone operations"));return;}
    if(!observation&&mode.equals("ask")){

@@ -526,6 +526,7 @@ public final class CodexAppServer implements AutoCloseable {
     }
 
     private void dispatch(JSONObject event) throws Exception {
+        if (NotebookXSource.onEvent(event)) return;
         if (event.has("id")) {
             NativeBridge.request(this, event);
             return;

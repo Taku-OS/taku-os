@@ -15,6 +15,7 @@
 | `system/agent-app/` | React Native and Expo session UI, component gallery and plugin marketplace pages. Sessions come from the native runtime |
 | `system/ai/` | Taku AI public client, scenario interfaces and documentation. The service is implemented in the native Assistant |
 | `system/memory/` | Standalone Memory APK with authoritative storage, capture, organizing and retrieval, an open provider and experimental reminders |
+| `system/notebook/` | Optional screenshot catalogue, exact-source recall and public X video reference integration; source preview, runtime acceptance pending |
 | `system/plugins/` | Plugin manager, JVM and Android hosts, root service, management page, MCP and provider, REA pack tools. Separate from the Codex marketplace |
 | `system/inputmethod/` | Taku input method source locks, product patches, build and keyboard tests |
 | `system/proactivity/` | Proactivity app, public contract and SDK, policies and native management UI |

@@ -59,6 +59,7 @@ npm run build:android -- --with-diagnostics
 | Display and overlay | `system/display/out/virtual-display.jar`, `system/overlay/out/AgentOSLabSettingsOverlay.apk` |
 | Surfaces | `system/surfaces/out/TakuSurfaces.apk`, `system/surfaces/out/taku-surfaces-client.jar` |
 | Proactivity and Memory | `system/proactivity/out/TakuProactivity.apk`, `system/memory/out/TakuMemory.apk` |
+| Notebook (source preview) | `system/notebook/out/TakuNotebook.apk`; not added to default ROM packages |
 | App-kit shell | `tooling/app-kit/apk-shell/out/dex/classes.dex` |
 | Optional diagnostics | `tooling/diagnostics/out/diagnostics.jar` |
 

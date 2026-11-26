@@ -14,7 +14,7 @@ public final class SystemAiProvider extends ContentProvider {
   try{
    if(!"ai".equals(method)||arg==null||arg.length()>400000)throw new IllegalArgumentException("Invalid AI request");
    JSONObject source=new JSONObject(arg);String action=source.optString("action");
-   if(!Set.of("read","resolve","generate","configure").contains(action))throw new IllegalArgumentException("Unknown system AI operation");
+   if(!Set.of("read","resolve","generate","configure","notebookResolveXSource").contains(action))throw new IllegalArgumentException("Unknown system AI operation");
    if(action.equals("configure")){
     if(!AppPermissionCatalog.isSystemOrShellUid(uid)&&!AppPermissionCatalog.isTrustedEnforcementHost(getContext(),uid))
      throw new SecurityException("System AI configuration denied");
@@ -30,7 +30,13 @@ public final class SystemAiProvider extends ContentProvider {
     if(!consumer.equals("memory")&&!consumer.equals("ime")&&!AppPermissionProvider.isAllowedLocal(getContext(),uid,AppPermissionCatalog.SCOPE_TAKU_CONTROL))
      throw new SecurityException("PERMISSION_DENIED");
    }
-   JSONObject request=new JSONObject().put("op","systemAi").put("action",action).put("consumer",consumer);
+   boolean notebookSource = action.equals("notebookResolveXSource");
+   if(notebookSource && (!consumer.equals("org.agentos.notebook")
+     || !AppPermissionCatalog.isPlatformSigned(getContext().getPackageManager(), consumer)))
+    throw new SecurityException("Notebook source lookup requires the platform Notebook app");
+   JSONObject request=new JSONObject().put("op",notebookSource ? "notebookResolveXSource" : "systemAi")
+     .put("action",action).put("consumer",consumer);
+   if(notebookSource)for(String key:new String[]{"evidence","capturedAt","sourceZone","screenshot"})request.put(key,source.get(key));
    for(String key:new String[]{"role","model","prompt","image"})if(source.has(key))request.put(key,source.get(key));
    if(action.equals("configure"))request.put("patch",source.getJSONObject("patch"));
    if(!consumer.equals("ime")&&!consumer.equals("memory"))request.remove("model");
