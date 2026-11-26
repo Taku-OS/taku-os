@@ -181,6 +181,13 @@ Once revealed, the card follows existing island rules:
   and landscape. It stops as soon as SystemUI
   reports the card expanded or the session no longer wants it, so a card the user swiped away is
   never expanded again. Any of the cancel events in §4 clears it.
+- **Home's own reset is not a cancel event.** Home returns to its default state on a Home press
+  and when it resumes after the screen was off, and that reset dismisses the island card. It
+  leaves a result alone while `revealPending` is set, and the resume-after-screen-off reset only
+  dismisses the card that was already requested when the screen went dark (same
+  `expansionRequest`). Otherwise unlocking straight to Home reset the session before, or just
+  after, the reply card opened, while unlocking into any other app showed it
+  (`IslandHandoff.homeResetDismisses`).
 
 An app-build turn keeps its existing "Building..." capsule while it runs. The reveal on completion
 applies to it the same way.

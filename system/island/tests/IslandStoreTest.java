@@ -108,6 +108,33 @@ public final class IslandStoreTest {
         store.remove("item0");
         check(store.begin("overflow") > 0, "removed item frees capacity");
 
+        // Heads-up admission at full capacity: a post the island turns away keeps its heads-up.
+        store.clear();
+        for (int i = 0; i < IslandStore.MAX_ITEMS; i++) put(store, "item" + i, 0, ACTIVITY, false);
+        check(!store.admit("new"), "full store does not admit a new notification");
+        check(store.begin("new") == -1 && store.get("new") == null, "a refused notification is not tracked");
+        check(!store.admit("new"), "an update of the refused notification is still not admitted");
+        // A tracked notification updates in place, however full the store is.
+        check(store.admit("item5"), "tracked notification stays admitted when full");
+        long tracked = store.begin("item5");
+        check(tracked > 0 && store.put("item5", tracked, 10, 0, 3600, 0, ACTIVITY, true, "update"),
+                "tracked notification updates at full capacity");
+        check("update".equals(store.get("item5").data), "tracked update shown");
+        check(store.keys().size() == IslandStore.MAX_ITEMS, "admission checks track nothing new");
+        // Admission reserves the freed slot: whatever is posted in between cannot take it.
+        store.remove("item0");
+        check(store.admit("new"), "freed capacity admits the notification");
+        check(!store.admit("rival") && store.begin("rival") == -1, "the admitted slot is held");
+        long admitted = store.begin("new");
+        check(admitted > 0 && store.put("new", admitted, 20, 20, 3600, 0, ACTIVITY, true, "new"),
+                "admitted notification becomes an activity");
+        // An admitted post that never becomes an activity gives its slot back on removal.
+        store.remove("item1");
+        check(store.admit("ghost") && !store.admit("rival"), "reservation without an activity holds a slot");
+        check(store.get("ghost") == null && !store.keys().contains("ghost"), "a reservation is not an activity");
+        store.remove("ghost");
+        check(store.admit("rival"), "removing a reservation frees its slot");
+
         // Capsule selection: activities without capsule data never mask others.
         store.clear();
         put(store, "assistant", 300, ACTIVITY, false);

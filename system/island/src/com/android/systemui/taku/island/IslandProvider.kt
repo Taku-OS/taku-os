@@ -15,7 +15,8 @@ import org.json.JSONObject
 
 /**
  * Public Agent interface. Publication policy is separate from reading/operating visible state.
- * Every call is authorized against the caller before it reaches the engine ([IslandAccessPolicy]).
+ * Every call is authorized against the caller before it reaches the engine ([IslandAccessPolicy]),
+ * and an untrusted caller's UID travels with it so the engine confines it to its own activities.
  */
 class IslandProvider : ContentProvider() {
     override fun onCreate() = true
@@ -50,7 +51,7 @@ class IslandProvider : ContentProvider() {
             val own = effectiveArg != null && effectiveArg in packages
             val granted = IslandAccessPolicy.needsGrant(method, trusted) && controlGranted(context, uid)
             IslandAccessPolicy.decide(method, trusted, granted, own)?.let { return IslandRuntime.error(it) }
-            IslandRuntime.call(method, effectiveArg, extra)
+            IslandRuntime.call(method, effectiveArg, extra, IslandAccessPolicy.scope(trusted, uid))
         } finally { Binder.restoreCallingIdentity(identity) }
     }
 

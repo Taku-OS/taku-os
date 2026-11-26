@@ -39,10 +39,17 @@ platform certificate) are governed by the App Permission Center
 - Without a grant they may call only `capabilities` and `canShowIsland` for **their own**
   package. Omitting the package answers for the caller's own single package. Asking about
   another package returns `permission_denied`.
-- A `taku.control` grant allows reading and operating activities (`state`, `list`, `get`,
-  `settings`, `select`, `next`, `tap`, `expand`, `collapse`, `dismiss`, `hide`, `open`, `action`).
-- `setEnabled`, `setAllowed` and `setProtocol` are never available to third-party apps, even
-  with a grant. Use the Settings GUI, ADB or a trusted Agent.
+- A `taku.control` grant allows reading and operating **only the activities the caller's own
+  UID published**. `state` and `list` return those activities plus `settings.enabled` and
+  `settings.protocol` (no allow-list, `presentation` or `diagnostics`); `settings` returns the
+  same two fields. `get`, `select`, `tap`, `expand`, `dismiss`, `hide`, `open` and `action`
+  (including `reply`, which fills a `RemoteInput`) accept the caller's own keys; another app's
+  key returns `not_found`, exactly like a missing one.
+- `collapse` and `next` act on whichever activity is presented, and `setEnabled`, `setAllowed`
+  and `setProtocol` change settings: all return `permission_denied` for third-party apps, even
+  with a grant. Use the GUI, ADB or a trusted Agent.
+- Trusted callers are unaffected: an Agent still reads every activity and may operate or reply
+  on any of them.
 
 An unavailable permission center counts as a refusal. `cmd statusbar island` is shell-only and
 unaffected.

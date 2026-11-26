@@ -570,12 +570,15 @@ class AssistantSession private constructor(private val context: Context, private
     refreshDraft()
   }
 
-  /** Closes the input; an undelivered result loses eligibility. The island stays while there is something to show. */
+  /**
+   * Closes the input; an undelivered result loses eligibility. The island stays while there is
+   * something to show, including a handed-off result still waiting to be drawn.
+   */
   fun closeEntry() {
     endLiveTalk()
     revokeVoice()
     flow.update { s ->
-      val keep = s.working || s.turn != null || s.error != null
+      val keep = s.working || s.turn != null || s.error != null || s.revealPending
       s.copy(entry = EntryMode.None, island = if (keep) s.island else IslandMode.Hidden)
     }
   }

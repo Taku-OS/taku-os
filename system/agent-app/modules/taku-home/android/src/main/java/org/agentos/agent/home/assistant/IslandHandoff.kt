@@ -65,6 +65,18 @@ object IslandHandoff {
     return Admission.HANDED_OFF
   }
 
+  /**
+   * Whether Home returning to its default state (a Home press, or Home resuming after the screen
+   * went dark) also dismisses the island card. A handed-off result SystemUI has not drawn yet
+   * ([revealPending]) is never dismissed that way: nobody has seen it, so it is not the user's
+   * dismissal. Resuming after screen-off ([afterScreenOff]) only puts away the card that was up
+   * when the screen went dark; one requested since ([expansionRequest] moved on from
+   * [expansionAtScreenOff]) is news, including a reveal delivered a moment before Home resumed.
+   */
+  fun homeResetDismisses(islandRequested: Boolean, revealPending: Boolean, afterScreenOff: Boolean,
+    expansionAtScreenOff: Long, expansionRequest: Long): Boolean =
+    islandRequested && !revealPending && !(afterScreenOff && expansionRequest != expansionAtScreenOff)
+
   enum class Outcome { WAIT, REVEAL, DROP }
 
   /** One evaluation of a pending handoff; [handoff] carries the turn it now waits for. */

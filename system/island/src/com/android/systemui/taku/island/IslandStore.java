@@ -63,6 +63,19 @@ public final class IslandStore<T> {
         return revision;
     }
 
+    /**
+     * Claims a slot for {@code key} without starting a revision: true when the key is already
+     * tracked or capacity remained. The heads-up decision for a brand-new post precedes its
+     * {@link #begin}, so it reserves here; a post the full store turns away keeps Android's
+     * heads-up. The slot is released by {@link #remove} like any other.
+     */
+    public boolean admit(String key) {
+        if (revisions.containsKey(key)) return true;
+        if (revisions.size() >= MAX_ITEMS) return false;
+        revisions.put(key, ++sequence);
+        return true;
+    }
+
     public boolean isCurrent(String key, long revision) {
         return revision >= 0 && Long.valueOf(revision).equals(revisions.get(key));
     }

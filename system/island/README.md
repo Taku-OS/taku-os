@@ -97,7 +97,10 @@ adb -s SERIAL shell am instrument -w org.agentos.island.tests/org.agentos.island
 The SystemUI startable subscribes to `NotifPipeline`. Worker extraction validates custom payloads
 and Icon/Action references; rejected custom data falls back to a promoted ongoing notification or
 leaves the ordinary notification untouched. Only resource icons from the posting package/Android
-and bitmaps up to 512×512 / 1 MiB are accepted; URI/data icons are not fetched. Custom publishing
+and bitmaps up to 512×512 / 1 MiB are accepted; URI/data icons are not fetched. The store tracks
+at most 128 notifications. A new one beyond that is turned away (`capacity_limit`) and keeps its
+native heads-up: the heads-up filter suppresses a brand-new post only after `IslandStore.admit`
+reserved its slot. Custom publishing
 is automatic for apps signed with the platform certificate; other apps need an allow-list entry.
 Agent access to already-visible state and operations has no publication-permission gate.
 
@@ -131,8 +134,12 @@ geometry and system-source classification.
 Provider queries return one `json` column; provider calls return a Bundle containing `json`.
 Callers are authorized first (`IslandAccessPolicy`). UID 0/1000/2000, SystemUI and platform-signed
 packages have full access. Third-party apps get only `capabilities` and `canShowIsland` for their own
-package, or read/operate access with an App Permission Center `taku.control` grant. Settings writes
-are never available to them. Refusals return `permission_denied`.
+package, or, with an App Permission Center `taku.control` grant, read/operate access to the
+activities their own UID published. The provider passes that UID to the engine as the call's scope:
+reads are filtered to it, a targeted operation (`get`, `select`, `expand`, `tap`, `dismiss`, `hide`,
+`open`, `action` including a `RemoteInput` reply) on another app's key returns `not_found`, and the
+returned state is cut the same way. `collapse`, `next` and settings writes are never available to
+them. Refusals return `permission_denied`.
 Every cmd operation is also a provider `call` of the same name: `arg` is the first argument and
 Bundle string `value` is the optional second argument (e.g. action JSON). `get` includes the payload,
 revision, monotonic first-seen/expiry, staleness, dismissal and fallback reason. `dismiss` hides the

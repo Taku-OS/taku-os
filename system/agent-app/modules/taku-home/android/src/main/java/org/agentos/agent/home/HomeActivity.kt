@@ -65,6 +65,10 @@ class HomeActivity : AppCompatActivity(), DefaultHardwareBackBtnHandler {
   private var panelRequest by mutableStateOf<Pair<String, Int>?>(null)
   private var openAttempt = 0
   private var resetOnResume = false
+  /** The pending home reset comes from resuming after screen-off, not from a Home press. */
+  private var resetAfterScreenOff = false
+  /** The session's card request when the screen went dark; a later one is not that reset's to dismiss. */
+  private var expansionAtScreenOff = 0L
   private val gestures = HomeGesturePolicy()
   private var gesturePointer = -1
   /**
@@ -93,7 +97,10 @@ class HomeActivity : AppCompatActivity(), DefaultHardwareBackBtnHandler {
   }
 
   private val screenOff = object : BroadcastReceiver() {
-    override fun onReceive(context: Context, intent: Intent) { resetOnResume = true }
+    override fun onReceive(context: Context, intent: Intent) {
+      resetOnResume = true
+      expansionAtScreenOff = org.agentos.agent.home.assistant.AssistantSession.get(context).state.value.expansionRequest
+    }
   }
 
   override fun onCreate(savedInstanceState: Bundle?) {
@@ -134,7 +141,12 @@ class HomeActivity : AppCompatActivity(), DefaultHardwareBackBtnHandler {
         controller.closeMenu(); controller.editingPins = false; controller.assistantExpanded = false
         // Home: close the AI input; a running task stays in the camera pill.
         controller.assistant.closeEntry()
-        if (controller.assistant.state.value.island != org.agentos.agent.home.assistant.IslandMode.Hidden) controller.assistant.dismiss()
+        // A handed-off reply waiting for unlock, or opened since the screen went dark, stays.
+        val assistant = controller.assistant.state.value
+        if (org.agentos.agent.home.assistant.IslandHandoff.homeResetDismisses(
+            islandRequested = assistant.island != org.agentos.agent.home.assistant.IslandMode.Hidden,
+            revealPending = assistant.revealPending, afterScreenOff = resetAfterScreenOff,
+            expansionAtScreenOff = expansionAtScreenOff, expansionRequest = assistant.expansionRequest)) controller.assistant.dismiss()
         controller.drag.menu = null; controller.openFolderId = null
         controller.setHomeEditing(false)
         // "You’re all set" keeps Home on the Feed until onboarding is done.
@@ -248,7 +260,7 @@ class HomeActivity : AppCompatActivity(), DefaultHardwareBackBtnHandler {
       return
     }
     val assistantEntry = requestAssistant(intent)
-    if (!requestPanel(intent) && !assistantEntry && intent.hasCategory(Intent.CATEGORY_HOME)) homeSignal++
+    if (!requestPanel(intent) && !assistantEntry && intent.hasCategory(Intent.CATEGORY_HOME)) { resetAfterScreenOff = false; homeSignal++ }
   }
 
   private fun requestAssistant(intent: Intent?): Boolean {
@@ -307,7 +319,7 @@ class HomeActivity : AppCompatActivity(), DefaultHardwareBackBtnHandler {
     org.agentos.agent.home.onboarding.OnboardingRepository.get(this).setForeground(true)
     // Invalidation is only a hint; a resume reads the revision again.
     PanelDirectory.get(this).refresh()
-    if (resetOnResume) { resetOnResume = false; homeSignal++ }
+    if (resetOnResume) { resetOnResume = false; resetAfterScreenOff = true; homeSignal++ }
   }
 
   override fun onPause() {

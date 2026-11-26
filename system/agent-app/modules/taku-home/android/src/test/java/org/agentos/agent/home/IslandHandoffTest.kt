@@ -109,4 +109,33 @@ class IslandHandoffTest {
     assertEquals(IslandHandoff.Outcome.WAIT, IslandHandoff.step(handoff, "chat", null, "cancelled", "8", null).outcome)
     assertEquals(IslandHandoff.Outcome.DROP, IslandHandoff.step(handoff, "other", null, "running", "9", null).outcome)
   }
+
+  private fun dismisses(islandRequested: Boolean = true, revealPending: Boolean = false, afterScreenOff: Boolean = false,
+                        expansionAtScreenOff: Long = 4, expansionRequest: Long = 4) =
+    IslandHandoff.homeResetDismisses(islandRequested, revealPending, afterScreenOff, expansionAtScreenOff, expansionRequest)
+
+  @Test fun unlockToHomeKeepsAReplyThatIsStillWaitingToBeDrawn() {
+    // The turn finished on a dark or locked screen: the reveal is pending when Home resumes.
+    assertFalse(dismisses(revealPending = true, afterScreenOff = true, expansionRequest = 5))
+    // It was already pending (shade open) when the screen went dark.
+    assertFalse(dismisses(revealPending = true, afterScreenOff = true))
+    // A Home press before SystemUI could draw it is not a dismissal of a card nobody saw.
+    assertFalse(dismisses(revealPending = true))
+  }
+
+  @Test fun unlockToHomeKeepsAReplyDeliveredJustBeforeHomeResumed() {
+    // ACTION_USER_PRESENT won the race: the card is drawn, revealPending already cleared.
+    assertFalse(dismisses(afterScreenOff = true, expansionRequest = 5))
+  }
+
+  @Test fun homeStillPutsAwayACardTheUserHasSeen() {
+    // The card that was up when the screen went dark.
+    assertTrue(dismisses(afterScreenOff = true))
+    // A Home press with the card showing, however recently it opened.
+    assertTrue(dismisses())
+    assertTrue(dismisses(expansionRequest = 5))
+    // Nothing requested: nothing to dismiss.
+    assertFalse(dismisses(islandRequested = false))
+    assertFalse(dismisses(islandRequested = false, afterScreenOff = true, expansionRequest = 5))
+  }
 }

@@ -364,8 +364,18 @@ adb shell dumpsys activity service com.android.systemui/.SystemUIService IslandS
 | `permission_denied` | Provider 操作需要授权，或只向受信任调用者开放 |
 
 发布资格与读取／操作灵动岛是两套权限。普通应用读取活动状态或执行操作，需要应用权限中心授予
-`taku.control`；即使获准，也不能修改灵动岛设置或发布白名单。
-ADB／Agent UID 0/1000/2000 和平台签名调用者可直接访问。没有供普通应用自行注册白名单的接口。
+`taku.control`，且授权**仅覆盖本应用（UID）自己发布的活动**：
+
+- `state` 和 `list` 只返回自己的活动，以及 `settings.enabled`、`settings.protocol`；
+  其他应用的活动、发布白名单、`presentation` 和 `diagnostics` 均不返回。
+- `get`、`select`、`expand`、`tap`、`dismiss`、`hide`、`open`、`action` 只能用于自己的活动 key；
+  其他 key（包括其他应用正在展示的活动）一律返回 `not_found`。
+- 带 `reply` 的 `action` 只会填入自己操作的自由文本 `RemoteInput`。不存在跨应用访问或代为回复：
+  应用无法读取其他应用的活动、触发其操作，或以其名义发送通知回复。
+- `collapse` 和 `next` 作用于灵动岛当前展示的任意活动，因此返回 `permission_denied`；
+  `setEnabled`、`setAllowed`、`setProtocol` 同样如此。
+
+ADB／Agent UID 0/1000/2000 和平台签名调用者可直接访问全部活动和操作。没有供普通应用自行注册白名单的接口。
 
 ## 7. 高级接入：平台签名应用自定义内容
 
@@ -416,6 +426,8 @@ ADB／Agent UID 0/1000/2000 和平台签名调用者可直接访问。没有供�
 
 Live Updates 固定使用 `tap: expand`、`cardPosition: cover`，**保留 Android 原有的横幅通知**，
 不提供 Taku 的主动弹卡提醒。自定义 Taku 活动仅在灵动岛可展示时使用弹卡替代横幅；其他条件下仍遵循 Android 通知行为。
+容量也在此列：灵动岛最多跟踪 128 条通知，因名额已满而未被接纳的通知（`diagnostics` 中的
+`capacity_limit`）保留横幅；已被跟踪的活动仍可原地更新。
 系统识别的通话、闹钟和秒表可随其来源持续至结束，上限 12 小时，不使用一小时默认值。
 
 ## 9. 发布前检查

@@ -8,6 +8,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
+import android.os.Looper
 import android.os.SystemClock
 import android.provider.Settings
 import com.android.systemui.dagger.SysUISingleton
@@ -189,13 +190,21 @@ class IslandEngine @Inject constructor(
      * activity, whose `alert` replaces the heads-up? It runs the real extraction (same user, publisher,
      * payload, icon, action and content-service checks), so a notification the island will reject
      * always keeps Android's heads-up. Calls, alarms and plain Live Updates are excluded.
+     *
+     * The store must also admit it: with every slot taken the island turns the post away
+     * (`capacity_limit`), so its heads-up stays. The slot is reserved here, last, so nothing posted
+     * between this decision and the post's own [update] can take it.
      */
     fun headsUpCandidate(sbn: android.service.notification.StatusBarNotification): Boolean = try {
         val n = sbn.notification
         lockscreenUsers.isCurrentProfile(sbn.userId) && lockscreenUsers.isProfileAvailable(sbn.userId) &&
             !IslandSystemNotifications.candidate(n) && n.extras.containsKey(IslandExtractor.EXTRA_V2) &&
-            extractor.extract(sbn, policy.canPost(sbn.packageName, sbn.userId)).activity?.source == IslandActivity.SOURCE_CUSTOM
+            extractor.extract(sbn, policy.canPost(sbn.packageName, sbn.userId)).activity?.source == IslandActivity.SOURCE_CUSTOM &&
+            admitted(sbn.key)
     } catch (unreadable: Exception) { false }
+
+    /** The store is main-thread state; any other thread gets no reservation and keeps the heads-up. */
+    private fun admitted(key: String) = Looper.myLooper() == handler.looper && store.admit(key)
 
     private fun changed() {
         trackedKeys = store.keys()
@@ -241,11 +250,39 @@ class IslandEngine @Inject constructor(
         }
     }
 
-    private fun list(): JSONArray = JSONArray().apply {
-        store.active(SystemClock.elapsedRealtime()).forEach { put(item(it)) }
+    /** Active activities within [scope]: all of them, or only those the calling UID published. */
+    private fun list(scope: Int = IslandAccessPolicy.ALL_ACTIVITIES): JSONArray = JSONArray().apply {
+        store.active(SystemClock.elapsedRealtime())
+            .filter { IslandAccessPolicy.owns(scope, it.data.uid) }.forEach { put(item(it)) }
     }
 
-    fun command(method: String, arg: String?, extra: String?): JSONObject {
+    /**
+     * What a scoped (third-party) caller may read: whether the island is on, the protocol, and its
+     * own activities. The publisher allow-list, other apps' activities, the presentation (which
+     * names whichever activity is selected or in front) and diagnostics are left out.
+     */
+    private fun scopedSettings() = JSONObject().put("enabled", policy.enabled).put("protocol", IslandPolicy.PROTOCOL_VERSION)
+
+    private fun state(scope: Int): JSONObject =
+        if (scope == IslandAccessPolicy.ALL_ACTIVITIES) JSONObject().put("settings", policy.snapshot())
+            .put("activities", list()).put("presentation", presentation?.state() ?: JSONObject.NULL)
+        else JSONObject().put("settings", scopedSettings()).put("activities", list(scope))
+
+    /** The entry [key] names when it is within [scope]; another app's activity is absent, like a missing one. */
+    private fun owned(key: String?, scope: Int): IslandStore.Entry<IslandActivity>? =
+        store.get(key)?.takeIf { IslandAccessPolicy.target(scope, it.data.uid) == null }
+
+    /**
+     * [scope] is [IslandAccessPolicy.ALL_ACTIVITIES] for SystemUI's own gestures, `cmd` and trusted
+     * provider callers, else the calling UID: such a caller reads and operates only the activities
+     * that UID published, and never the operations that act on whatever the island presents.
+     */
+    fun command(method: String, arg: String?, extra: String?, scope: Int = IslandAccessPolicy.ALL_ACTIVITIES): JSONObject {
+        val scoped = scope != IslandAccessPolicy.ALL_ACTIVITIES
+        if (scoped && IslandAccessPolicy.tier(method).let { it == IslandAccessPolicy.Tier.GLOBAL || it == IslandAccessPolicy.Tier.ADMIN })
+            return IslandRuntime.error(IslandAccessPolicy.DENIED)
+        if (scoped && IslandAccessPolicy.targeted(method) && owned(arg, scope) == null)
+            return IslandRuntime.error(IslandAccessPolicy.NOT_FOUND)
         return when (method) {
             "capabilities" -> JSONObject().put("ok", true).put("protocol", IslandPolicy.PROTOCOL_VERSION)
                 .put("enabled", policy.enabled).put("presentationAttached", presentation != null)
@@ -256,25 +293,24 @@ class IslandEngine @Inject constructor(
                 .put("package", arg ?: JSONObject.NULL).put("customAllowed", arg != null && policy.canPost(arg))
                 .put("platformSigned", arg != null && policy.platformSigned(arg))
                 .put("liveUpdates", true)
-            "list" -> JSONObject().put("ok", true).put("activities", list())
-            "state" -> JSONObject().put("ok", true).put("settings", policy.snapshot())
-                .put("activities", list()).put("presentation", presentation?.state() ?: JSONObject.NULL)
-            "get" -> store.get(arg)?.let { JSONObject().put("ok", true).put("activity", item(it)) }
+            "list" -> JSONObject().put("ok", true).put("activities", list(scope))
+            "state" -> state(scope).put("ok", true)
+            "get" -> owned(arg, scope)?.let { JSONObject().put("ok", true).put("activity", item(it)) }
                 ?: IslandRuntime.error("not_found")
-            "settings" -> JSONObject().put("ok", true).put("settings", policy.snapshot())
+            "settings" -> JSONObject().put("ok", true).put("settings", if (scoped) scopedSettings() else policy.snapshot())
             "setEnabled" -> mutate { policy.setEnabled(requireNotNull(arg) { "missing_value" }) }
             "setAllowed" -> mutate { policy.setAllowed(arg.orEmpty()) }
             "setProtocol" -> IslandRuntime.error("read_only_protocol")
-            "expand" -> mutate {
+            "expand" -> mutate(scope) {
                 require(policy.enabled) { "island_disabled" }
                 require(store.get(arg)?.active(SystemClock.elapsedRealtime()) == true) { "not_found" }
                 require(presentation?.expand(requireNotNull(arg)) == true) { "presentation_unavailable" }
             }
             "collapse" -> mutate { presentation?.collapse("agent") }
-            "select" -> mutate { require(presentation?.select(requireNotNull(arg) { "missing_key" }) == true) { "not_found" } }
+            "select" -> mutate(scope) { require(presentation?.select(requireNotNull(arg) { "missing_key" }) == true) { "not_found" } }
             "next" -> mutate { require(presentation?.next() == true) { "no_other_activity" } }
             // The capsule's own tap: open the app when the publisher chose `open`, else expand.
-            "tap" -> mutate {
+            "tap" -> mutate(scope) {
                 // A capsule tap exists only while the island is on, whichever way the tap resolves.
                 require(policy.enabled) { "island_disabled" }
                 val activity = requireActivity(arg)
@@ -282,15 +318,15 @@ class IslandEngine @Inject constructor(
                 if (activity.tap == "open" && intent != null) opened(activity.key, intent)
                 else require(presentation?.expand(activity.key) == true) { "presentation_unavailable" }
             }
-            "dismiss", "hide" -> mutate {
+            "dismiss", "hide" -> mutate(scope) {
                 require(arg != null && store.dismiss(arg)) { "not_found" }
                 prefs.edit().putBoolean("dismissed|$arg", true).apply()
             }
-            "open" -> mutate {
+            "open" -> mutate(scope) {
                 val activity = requireActivity(arg)
                 opened(activity.key, activity.openIntent ?: throw IllegalArgumentException("action_unavailable"))
             }
-            "action" -> mutate {
+            "action" -> mutate(scope) {
                 val activity = requireActivity(arg)
                 val request = JSONObject(extra ?: throw IllegalArgumentException("missing_action"))
                 val id = request.getString("id")
@@ -338,9 +374,11 @@ class IslandEngine @Inject constructor(
         intent.send(context, 0, fill, null, handler, null, options.toBundle())
     }
 
-    private fun mutate(action: () -> Unit): JSONObject = try {
+    /** The returned state is cut to [scope] like every read. */
+    private fun mutate(scope: Int = IslandAccessPolicy.ALL_ACTIVITIES, action: () -> Unit): JSONObject = try {
         action()
         changed()
-        JSONObject().put("ok", true).put("state", JSONObject(snapshot))
+        JSONObject().put("ok", true).put("state",
+            if (scope == IslandAccessPolicy.ALL_ACTIVITIES) JSONObject(snapshot) else state(scope))
     } catch (failure: Exception) { IslandRuntime.error(failure.message ?: "operation_failed") }
 }

@@ -403,9 +403,21 @@ The `IslandStartable` dump includes the recent `diagnostics` entries (`KEY:error
 | `permission_denied` | Provider operation needs a grant or is restricted to trusted callers |
 
 Publishing permission is separate from reading/controlling islands. Ordinary apps need the App
-Permission Center's `taku.control` grant to read activity state or invoke operations; they cannot
-change island settings or the publisher allow-list even with that grant. ADB/Agent UID 0/1000/2000
-and platform-signed callers have direct access. There is no self-registration API for apps.
+Permission Center's `taku.control` grant to read activity state or invoke operations, and the
+grant covers **only the activities your own app (UID) published**:
+
+- `state` and `list` return your own activities, plus `settings.enabled` and `settings.protocol`.
+  Other apps' activities, the publisher allow-list, `presentation` and `diagnostics` are omitted.
+- `get`, `select`, `expand`, `tap`, `dismiss`, `hide`, `open` and `action` work on your own
+  activity keys. Any other key, including a live activity of another app, returns `not_found`.
+- `action` with `reply` fills the free-form `RemoteInput` of your own action only. There is no
+  cross-app access and no reply delegation: an app can never read another app's activity, fire its
+  actions or send a notification reply on its behalf.
+- `collapse` and `next` act on whichever activity the island presents, so they return
+  `permission_denied`, as do `setEnabled`, `setAllowed` and `setProtocol`.
+
+ADB/Agent UID 0/1000/2000 and platform-signed callers have direct access to every activity and
+operation. There is no self-registration API for apps.
 
 ## 7. Advanced: platform-signed custom content
 
@@ -460,7 +472,9 @@ set boolean extra `android.requestPromotedOngoing`. Use an SDK/API guard appropr
 Live Updates use `tap: expand` and `cardPosition: cover`. They **keep Android's normal heads-up
 notification** and do not expose Taku's automatic card alert. Custom Taku activities replace
 heads-up with their card alert only while the island can present them; outside those conditions,
-normal Android notification behaviour applies. System-recognized calls, alarms and stopwatches
+normal Android notification behaviour applies. That includes capacity: the island tracks at most
+128 notifications, and one it turns away because every slot is taken (`capacity_limit` in
+`diagnostics`) keeps its heads-up. An activity the island already tracks keeps updating in place. System-recognized calls, alarms and stopwatches
 may remain until their source ends, with a 12-hour cap instead of the one-hour default.
 
 ## 9. Before shipping
