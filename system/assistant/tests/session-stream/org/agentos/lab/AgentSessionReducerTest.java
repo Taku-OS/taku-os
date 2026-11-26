@@ -45,6 +45,60 @@ public final class AgentSessionReducerTest {
         AgentSessionReducer.retainActiveTurns(history, thread);
         check(itemAt(history, 0).getString("id").equals("item-0"));
         check(!AgentSessionReducer.apply(thread, event("item/reasoning/textDelta", new JSONObject().put("itemId", "a").put("delta", "hidden"))));
+        reasoning();
         System.out.println("AgentSessionReducerTest: " + checks + " assertions passed");
+    }
+
+    private static JSONObject reasoningItem(String id, String... summary) throws Exception {
+        return new JSONObject().put("id", id).put("type", "reasoning").put("summary", new JSONArray(summary)).put("content", new JSONArray());
+    }
+    private static JSONObject summaryDelta(String itemId, int index, String delta) throws Exception {
+        return event("item/reasoning/summaryTextDelta", new JSONObject().put("itemId", itemId).put("summaryIndex", index).put("delta", delta));
+    }
+
+    /** The public reasoning summary streams and is timed; raw reasoning content never enters the thread. */
+    private static void reasoning() throws Exception {
+        JSONObject thread = new JSONObject().put("id", "thread").put("turns", new JSONArray());
+        check(AgentSessionReducer.apply(thread, event("item/started", new JSONObject().put("item", reasoningItem("r")).put("startedAtMs", 1_000L))));
+        check(itemAt(thread, 0).getLong("startedAtMs") == 1_000L && itemAt(thread, 0).getJSONArray("summary").length() == 0);
+        check(AgentSessionReducer.apply(thread, summaryDelta("r", 0, "**Weighing** 中")));
+        check(AgentSessionReducer.apply(thread, summaryDelta("r", 0, "文🙂")));
+        check(AgentSessionReducer.apply(thread, summaryDelta("r", 1, "Next part")));
+        check(itemAt(thread, 0).getJSONArray("summary").getString(0).equals("**Weighing** 中文🙂")
+                && itemAt(thread, 0).getJSONArray("summary").getString(1).equals("Next part"));
+        // Nothing to show is no event; neither is a part marker, raw content, or text for another kind of item.
+        check(!AgentSessionReducer.apply(thread, summaryDelta("r", 0, "")));
+        check(!AgentSessionReducer.apply(thread, summaryDelta("r", 64, "out of range")));
+        check(!AgentSessionReducer.apply(thread, event("item/reasoning/summaryPartAdded", new JSONObject().put("itemId", "r").put("summaryIndex", 2))));
+        check(!AgentSessionReducer.apply(thread, event("item/reasoning/textDelta", new JSONObject().put("itemId", "r").put("contentIndex", 0).put("delta", "raw"))));
+        check(itemAt(thread, 0).getJSONArray("content").length() == 0 && itemAt(thread, 0).getJSONArray("summary").length() == 2);
+        AgentSessionReducer.apply(thread, event("item/started", new JSONObject().put("item", item("answer", "agentMessage", ""))));
+        check(!AgentSessionReducer.apply(thread, summaryDelta("answer", 0, "not an answer")));
+        check(itemAt(thread, 1).getString("text").isEmpty() && !itemAt(thread, 1).has("summary"));
+        // Completion is authoritative for the text and gives the duration; a later copy of the item keeps it.
+        check(AgentSessionReducer.apply(thread, event("item/completed", new JSONObject().put("item", reasoningItem("r", "Final thought")).put("completedAtMs", 22_500L))));
+        check(itemAt(thread, 0).getJSONArray("summary").length() == 1 && itemAt(thread, 0).getJSONArray("summary").getString(0).equals("Final thought"));
+        check(itemAt(thread, 0).getLong("durationMs") == 21_500L && itemAt(thread, 0).getBoolean("_streamCompleted"));
+        check(!AgentSessionReducer.apply(thread, summaryDelta("r", 0, "late")));
+        AgentSessionReducer.apply(thread, event("turn/completed", new JSONObject().put("turn", new JSONObject().put("id", "turn")
+                .put("status", "completed").put("items", new JSONArray().put(reasoningItem("r", "Final thought"))))));
+        check(itemAt(thread, 0).getLong("durationMs") == 21_500L && itemAt(thread, 0).getJSONArray("summary").getString(0).equals("Final thought"));
+        // History has the text but not when it was thought: the observed duration stays with the same item only.
+        JSONObject history = new JSONObject().put("id", "thread").put("turns", new JSONArray().put(new JSONObject().put("id", "turn")
+                .put("status", "completed").put("items", new JSONArray().put(reasoningItem("r", "Final thought")).put(reasoningItem("other", "Unseen")))));
+        AgentSessionReducer.retainReasoningTiming(history, thread);
+        check(itemAt(history, 0).getLong("durationMs") == 21_500L && !itemAt(history, 1).has("durationMs"));
+        AgentSessionReducer.retainReasoningTiming(history, null);
+        // A delta can arrive before its item during recovery; the late start keeps what was already shown.
+        JSONObject recovered = new JSONObject().put("id", "thread").put("turns", new JSONArray());
+        check(AgentSessionReducer.apply(recovered, summaryDelta("late", 0, "Already thinking")));
+        check(itemAt(recovered, 0).getString("type").equals("reasoning") && !itemAt(recovered, 0).getBoolean("_streamCompleted"));
+        AgentSessionReducer.apply(recovered, event("item/started", new JSONObject().put("item", reasoningItem("late")).put("startedAtMs", 5L)));
+        check(itemAt(recovered, 0).getJSONArray("summary").getString(0).equals("Already thinking") && itemAt(recovered, 0).getLong("startedAtMs") == 5L);
+        // Without a start time there is no duration to claim.
+        JSONObject untimed = new JSONObject().put("id", "thread").put("turns", new JSONArray());
+        AgentSessionReducer.apply(untimed, event("item/started", new JSONObject().put("item", reasoningItem("u"))));
+        AgentSessionReducer.apply(untimed, event("item/completed", new JSONObject().put("item", reasoningItem("u", "Done")).put("completedAtMs", 9L)));
+        check(!itemAt(untimed, 0).has("durationMs") && !itemAt(untimed, 0).has("startedAtMs"));
     }
 }

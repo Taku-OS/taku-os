@@ -22,11 +22,16 @@ final class AgentViewProjection {
     private static final int MAX_DEPTH = 8;
     private static final int MAX_ARRAY_ITEMS = 40;
     private static final int MAX_OBJECT_FIELDS = 48;
+    // Reasoning summaries have a budget of their own, so a long train of thought never folds an answer.
+    private static final int MAX_REASONING_UNITS = 24_000;
+    private static final int MAX_REASONING_FIELD_UNITS = 8_000;
+    private static final int MAX_REASONING_PARTS = 64;
     private static final String TRUNCATED = "…(Middle content collapsed; the native conversation retains the complete content)…";
     private static final String OMITTED_IMAGE = "[Image data omitted; the native conversation retains the complete content]";
 
     private static final class Budget {
         int text = MAX_TEXT_UNITS;
+        int reasoning = MAX_REASONING_UNITS;
         int nodes = MAX_NODES;
         int omittedText;
         int omittedPayloads;
@@ -248,7 +253,36 @@ final class AgentViewProjection {
             Object bounded = boundedValue(value, key, budget, 0);
             if (bounded != null) item.put(key, bounded);
         }
+        if ("reasoning".equals(source.optString("type"))) {
+            JSONArray summary = reasoningSummary(source.optJSONArray("summary"), budget);
+            if (summary != null) item.put("summary", summary);
+            for (String key : new String[] {"startedAtMs", "durationMs"})
+                if (source.opt(key) instanceof Number) item.put(key, source.get(key));
+        }
         return item;
+    }
+
+    /**
+     * The model's public reasoning summary, newest turns first within its own budget. Null once that
+     * budget is spent: the item stays, without the text. Raw reasoning content is not a display field.
+     */
+    private static JSONArray reasoningSummary(JSONArray source, Budget budget) throws JSONException {
+        if (source == null) return null;
+        JSONArray summary = new JSONArray();
+        for (int i = 0; i < source.length() && i < MAX_REASONING_PARTS && budget.nodes > 0; i++) {
+            if (!(source.opt(i) instanceof String)) continue;
+            budget.nodes--;
+            String part = (String) source.opt(i);
+            int allowance = Math.min(MAX_REASONING_FIELD_UNITS, budget.reasoning);
+            if (part.length() > allowance) {
+                if (allowance <= TRUNCATED.length()) return summary.length() > 0 ? summary : null;
+                int keep = allowance - TRUNCATED.length(), head = keep / 2;
+                part = part.substring(0, head) + TRUNCATED + part.substring(part.length() - (keep - head));
+            }
+            budget.reasoning -= part.length();
+            summary.put(part);
+        }
+        return summary;
     }
 
     private static Object boundedScalar(Object value, String key, Budget budget, int depth)

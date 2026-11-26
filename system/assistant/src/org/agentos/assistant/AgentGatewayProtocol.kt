@@ -369,6 +369,8 @@ internal class AgentGatewayProtocol private constructor() {
                 "session/snapshot" -> java.util.Set.of("thread")
                 "session/reply" -> java.util.Set.of("turnId", "reply", "items")
                 "item/agentMessage/delta" -> java.util.Set.of("turnId", "itemId", "delta")
+                // The public reasoning summary only; raw reasoning content has no stream event.
+                "item/reasoning/summaryTextDelta" -> java.util.Set.of("turnId", "itemId", "summaryIndex", "delta")
                 "item/started", "item/completed" -> java.util.Set.of("turnId", "item")
                 "turn/started", "turn/completed" -> java.util.Set.of("turn")
                 "thread/name/updated" -> java.util.Set.of("threadName", "name")
