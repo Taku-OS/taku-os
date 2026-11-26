@@ -1,7 +1,7 @@
 <resources>
     <string name="workspace_float_title">Taku</string>
     <string name="workspace_float_app">Taku · %1$s</string>
-    <string name="workspace_float_expand">展开</string>
+    <string name="workspace_float_expand">展开预览</string>
     <string name="workspace_float_close">关闭预览</string>
     <string name="workspace_float_chat">返回对话</string>
     <string name="workspace_float_drag">移动预览</string>

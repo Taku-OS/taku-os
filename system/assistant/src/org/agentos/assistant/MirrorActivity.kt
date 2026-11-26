@@ -856,10 +856,14 @@ class MirrorActivity : Activity() {
     private fun screenStatusColor(screen: JSONObject): Int {
         val status = screen.optString("status")
         val owner = screen.optString("controlOwner")
-        return if (status == "unavailable" || status == "failed" || status == "disconnected") R.color.taku_status_error
-            else if (owner != "paused" && owner != "user" && !screen.optBoolean("resumeRequired") &&
-                (screen.optString("activeTurnId").isNotEmpty() || status == "running" || status == "working" || screen.optBoolean("waitingForUser"))) R.color.taku_status_attention
-            else R.color.workspace_viewer_secondary
+        if (status == "unavailable" || status == "failed" || status == "disconnected") return R.color.taku_status_error
+        if (owner == "paused" || owner == "user" || screen.optBoolean("resumeRequired")) return R.color.workspace_viewer_secondary
+        return when {
+            screen.optString("activeTurnId").isNotEmpty() || status == "running" || status == "working" ||
+                screen.optBoolean("waitingForUser") -> R.color.taku_status_attention
+            status == "ready" && owner != "stopping" -> R.color.taku_status_success
+            else -> R.color.workspace_viewer_secondary
+        }
     }
 
     private fun controls() {
