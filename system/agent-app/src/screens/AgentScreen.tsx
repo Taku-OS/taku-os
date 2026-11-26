@@ -1,5 +1,6 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {ActivityIndicator, StyleSheet, View} from 'react-native';
+import {useLocalSearchParams} from 'expo-router';
 import {AgentChatScreen} from '../components/AgentChatScreen';
 import {GenUiCard} from '../components/GenUiCard';
 import {useAgentController} from '../hooks/useAgentController';
@@ -16,13 +17,22 @@ const renderMarkdown = (text: string, active: boolean, itemId: string) => <Agent
 
 export default function AgentScreen() {
   const appearance = useChatAppearance();
+  // The Panels page's menu button comes back here with the sidebar open.
+  const {sidebar, plugin} = useLocalSearchParams<{sidebar?: string; plugin?: string}>();
   const controller = useAgentController();
   // The controller owns the one surface signal: the app is in front and the conversation Activity
   // is started, so a chat still mounted behind Taku Home reports hidden and its cards go quiet.
   const {visible: conversationVisible} = controller;
   const [fonts, fontError] = useTakuFonts();
   const threadId = controller.session?.id || '';
-  const {loading, busy, draft, onDraftChange} = controller;
+  const {loading, busy, draft, onDraftChange, draftRevision, onAddPlugin} = controller;
+  // Chat with Taku from the Plugin Market: attach that plugin to the next message once, when the draft is ready.
+  const attachedPlugin = useRef('');
+  useEffect(() => {
+    if (!plugin || attachedPlugin.current === plugin || loading || busy || draftRevision === null) return;
+    attachedPlugin.current = plugin;
+    onAddPlugin(plugin);
+  }, [plugin, loading, busy, draftRevision, onAddPlugin]);
   // Ask-Taku from Home arrives as editable composer text; it is never sent automatically.
   // Each request is queued once, applied once after the session has loaded, then dropped, so
   // the user may edit or delete it freely and later requests never repeat it (issue #35).
@@ -61,7 +71,8 @@ export default function AgentScreen() {
   if (!fonts && !fontError) return <View style={styles.loading}><ActivityIndicator color={chatColors.textPrimary}/></View>;
   // A background switch remounts the chat's views (not the controller, so the draft and thread stay),
   // so every surface, the native window tint included, takes the new palette at once.
-  return <AgentChatScreen key={appearance} {...controller} renderMarkdown={renderMarkdown} renderCard={renderCard} onCollapse={collapse}/>;
+  return <AgentChatScreen key={appearance} {...controller} renderMarkdown={renderMarkdown} renderCard={renderCard} onCollapse={collapse}
+    initialSidebar={sidebar === '1'}/>;
 }
 
 const styles = themedStyles(() => StyleSheet.create({loading: {flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: chatColors.backdropFallback}}));

@@ -22,6 +22,8 @@ def verify(old_root, new_root, source_root, results):
     pinned = ['image/source-lock.json', 'image/kernel-source-lock.json', 'image/manifests/platform.xml',
               'image/manifests/devices.xml', 'image/manifests/kernel.xml',
               'image/build-kernel.sh', 'image/install-kernel.py']
+    if 'image/kernel_cache.py' in previous or 'image/kernel_cache.py' in current:
+        pinned.append('image/kernel_cache.py')
     for name in pinned:
         if not previous.get(name) or previous[name] != current.get(name):
             raise ValueError('Incremental build requires the same platform/kernel lock: ' + name)

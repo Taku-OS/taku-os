@@ -30,3 +30,23 @@ test('every chat surface follows a switch to Light and back', () => {
   void styles.page;
   assert.equal(builds, 2, 'each appearance builds its sheet once');
 });
+
+/** WCAG contrast of two opaque #RRGGBB colours. */
+function contrast(a, b) {
+  const luminance = hex => [1, 3, 5].map(at => parseInt(hex.slice(at, at + 2), 16) / 255)
+    .map(channel => channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4)
+    .reduce((sum, channel, index) => sum + channel * [0.2126, 0.7152, 0.0722][index], 0);
+  const [light, dark] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (light + 0.05) / (dark + 0.05);
+}
+
+test('the two Task status hues are the wireframe’s on Dark and stay readable on both canvases', () => {
+  assert.equal(chatColors.statusAttention, '#F4C275', 'amber: the Task waits for the user');
+  assert.equal(chatColors.statusProgress, '#B5D0EE', 'blue-grey: the Task is at work');
+  const read = () => [chatColors.statusAttention, chatColors.statusProgress].map(hue => contrast(hue, chatColors.backdropFallback));
+  for (const ratio of read()) assert.ok(ratio >= 4.5, `Dark: ${ratio.toFixed(2)}:1`);
+  applyChatAppearance('light');
+  try {
+    for (const ratio of read()) assert.ok(ratio >= 4.5, `Light: ${ratio.toFixed(2)}:1`);
+  } finally { applyChatAppearance('dark'); }
+});

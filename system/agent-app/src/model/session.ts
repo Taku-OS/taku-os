@@ -3,12 +3,15 @@ import {phoneToolKeys, phoneToolResultText} from './phoneTools.ts';
 import {isStateCardItem, parseUiRequest, type CardPresentation, type MainReply, type UiRequest} from './genui.ts';
 import {parseMainReply} from './genuiCompose.ts';
 
+import {mcpPresentation, mcpTool} from './mcpTools.ts';
+
 export type Json = Record<string, unknown>;
 export type ItemStatus = 'running' | 'completed' | 'failed' | 'stopped' | 'waiting' | 'unknown';
 export interface Activity {
   id: string;
   type: string;
   titleKey: string;
+  node?: string;
   name: string;
   text: string;
   status: ItemStatus;
@@ -21,6 +24,20 @@ export interface MessagePart {
   replyState?: MainReply['lifecycle'];
   superseded?: boolean;
 }
+/**
+ * The model's public reasoning summary for one reply: every reasoning record of the reply, in order.
+ * Raw reasoning content is never part of it.
+ */
+export interface Thinking {
+  id: string;
+  text: string;
+  /** A reasoning record is being written now and nothing has followed it yet. */
+  active: boolean;
+  /** When the record being written began (device clock, ms), as the runtime reported it. */
+  startedAtMs?: number;
+  /** Time spent on the finished records; absent unless the runtime reported every one of them. */
+  durationMs?: number;
+}
 export interface MessageBlock {
   id: string;
   turnId: string;
@@ -29,6 +46,8 @@ export interface MessageBlock {
   parts: MessagePart[];
   attachments: string[];
   activity: Activity[];
+  /** Present only when the reply has reasoning to show: its text, its live state or its duration. */
+  thinking?: Thinking;
   status: ItemStatus;
   active: boolean;
   /** Taku's emoji reaction on a user message (Jev's choice, Figma 297:433); absent when none. */
@@ -53,6 +72,8 @@ export interface SessionView {
   questions: PendingQuestion[];
   running: boolean;
   activeTurnId: string;
+  /** Every native turn in order, including turns that produced no visible block. */
+  turnIds: string[];
   ready: boolean;
   error: string;
   historyComplete: boolean;
@@ -90,6 +111,16 @@ export const list = (v: unknown): unknown[] => Array.isArray(v) ? v : [];
 export const string = (v: unknown): string => typeof v === 'string' ? v : '';
 const label = (v: unknown): string => { const s = string(v).trim(); return s === 'null' ? '' : s; };
 
+/**
+ * The session root right after Continue was accepted: the continuation (a new, published, queued
+ * task) replaces the failed task, so the next projection shows the conversation running and no
+ * failure card, before the next readSession confirms it.
+ */
+export function continuedSessionRoot(root: Json, continuationTaskId: string): Json {
+  return {...root, task: {id: continuationTaskId, state: 'queued', published: true, turnStarted: false},
+    request: {prompt: ''}, runtime: {}};
+}
+
 /** Restore is a local draft operation. A newer draft must never be overwritten. */
 export function failedTaskDraft(failure: TaskFailure, currentDraft: string): string | null {
   if (!failure.prompt.trim()) return null;
@@ -123,9 +154,12 @@ function activity(item: Json, turnId: string, outputs: Json, index: number): Act
   const short = tool.replace(/^.*(?:__|\/|\.)/, '');
   // A bare phone tool name without a namespace (an older Codex record, an agy update without its MCP
   // prefix) is still a phone tool: only taku_phone registers these names, and its raw name never shows.
-  const phone = tool.startsWith('taku_phone') || item.namespace === 'taku_phone'
+  const phone = item.server === 'taku_phone' || tool.startsWith('taku_phone') || item.namespace === 'taku_phone'
     || ((type === 'dynamicToolCall' || item.server === 'agy') && !label(item.namespace) && phoneToolKeys[tool] !== undefined);
-  const titleKey = toolKeys[type] || (phone && (toolKeys[short] || 'phoneTool')) || (type === 'agentMessage' ? 'update' : 'tool');
+  const mcp = !phone && (type === 'mcpToolCall' || type === 'dynamicToolCall')
+    ? mcpTool(string(item.server), tool || string(item.toolName), string(item.namespace)) : null;
+  const named = mcp ? mcpPresentation(mcp) : null;
+  const titleKey = toolKeys[type] || (phone && (toolKeys[short] || 'phoneTool')) || named?.titleKey || (type === 'agentMessage' ? 'update' : 'tool');
   const details: string[] = [];
   // A phone tool's JSON answer is for the agent; the activity list keeps only its human message (BUG-0033).
   const output = (text: string) => phone ? phoneToolResultText(text) : text;
@@ -136,7 +170,14 @@ function activity(item: Json, turnId: string, outputs: Json, index: number): Act
   for (const change of list(item.changes)) { const c = record(change); if (typeof c.path === 'string') details.push(c.path); }
   const error = typeof item.error === 'string' ? item.error : string(record(item.error).message);
   if (error) details.push(error);
-  return {id: `${turnId}/${label(item.id) || `activity-${index}`}`, type, titleKey, name: titleKey === 'tool' ? tool : '', text: details.filter(Boolean).join('\n'), status: itemStatus(item)};
+  return {id: `${turnId}/${label(item.id) || `activity-${index}`}`, type, titleKey, name: titleKey === 'tool' ? named?.name || tool : '',
+    ...(named?.node !== undefined ? {node: named.node} : {}), text: details.filter(Boolean).join('\n'), status: itemStatus(item)};
+}
+
+export function activityName(item: Activity, translate: (key: string) => string): string {
+  if (item.name) return item.name;
+  const title = translate(item.titleKey);
+  return item.node === undefined ? title : title.replace('{node}', () => item.node || translate('remoteNode'));
 }
 
 function userContent(item: Json): {text: string; attachments: string[]} {
@@ -147,7 +188,14 @@ function userContent(item: Json): {text: string; attachments: string[]} {
       const value = string(part.text);
       const attachment = /^User-selected attachment: (.+)\nLocal path: \/data\/user\/0\/org\.agentos\.assistant\/files\/composer-attachments\//.exec(value)
         || /^用户选择的附件：(.+)\n本机路径：\/data\/user\/0\/org\.agentos\.assistant\/files\/composer-attachments\//.exec(value);
-      if (attachment) attachments.push(attachment[1]); else if (value) text.push(value);
+      // The runtime's note for a plugin picked with `@` (ComposerInput.appendPlugins) shows as `@Name`, not typed text.
+      const plugin = /^The user attached the plugin "(.*)" \(id: [A-Za-z0-9_.@:-]{1,128}\) to this message\.( Prefer this plugin's tools for this request: .*\.)?$/s.exec(value);
+      // The runtime's note for a Panel update (ComposerInput.panelContext) carries the panel's card for the model only.
+      const panelNote = /^The user is editing the pinned panel ".*" \(panelId: [0-9a-f-]{36}, matterId: [0-9a-f-]{36}\/[a-z0-9-]{1,64}, sourceVersion: \d{1,16}\)\. Update this panel in your reply\. Its current content:\n/.test(value);
+      if (attachment) attachments.push(attachment[1]);
+      else if (plugin) attachments.push(`@${plugin[1]}`);
+      else if (panelNote) continue;
+      else if (value) text.push(value);
     } else if (part.type === 'image' || part.type === 'localImage') {
       // Keep attachment provenance without leaking a private local filesystem path.
       attachments.push('image');
@@ -160,6 +208,36 @@ function trimPartialSurrogate(text: string, running: boolean): string {
   const code = text.charCodeAt(text.length - 1);
   return running && code >= 0xd800 && code <= 0xdbff ? text.slice(0, -1) : text;
 }
+const milliseconds = (value: unknown): number | undefined => typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : undefined;
+
+/** One reasoning record's public summary: its parts, apart from each other as paragraphs. */
+export function reasoningText(item: Json): string {
+  return list(item.summary).map(part => string(part).trim()).filter(Boolean).join('\n\n');
+}
+
+/**
+ * [records] are a reply's reasoning records in order; [writing] says the last one is still being
+ * written. Undefined when there is nothing to show: no text, nothing under way and no known time.
+ */
+function thinkingOf(id: string, records: Json[], writing: boolean): Thinking | undefined {
+  const current = writing ? records[records.length - 1] : undefined;
+  const text: string[] = [];
+  let durationMs = 0, timed = false, untimed = false;
+  for (const record of records) {
+    const summary = reasoningText(record), duration = milliseconds(record.durationMs);
+    if (summary) text.push(record === current ? trimPartialSurrogate(summary, true) : summary);
+    if (record === current) continue;
+    if (duration !== undefined) { durationMs += duration; timed = true; }
+    // A record with text but no time makes the total unknown; an empty, untimed one is nothing at all.
+    else if (summary) untimed = true;
+  }
+  const known = timed && !untimed;
+  if (!text.length && !current && !known) return undefined;
+  const startedAtMs = current && !untimed ? milliseconds(current.startedAtMs) : undefined;
+  return {id, text: text.join('\n\n'), active: Boolean(current),
+    ...(startedAtMs !== undefined ? {startedAtMs} : {}), ...(known ? {durationMs} : {})};
+}
+
 function presentationRequest(item: Json, threadId: string): UiRequest | null {
   const args = record(item.arguments);
   if (args.action !== 'present') return parseUiRequest(args);
@@ -184,10 +262,13 @@ export function projectSession(value: unknown): SessionView {
     const turn = record(raw), turnId = label(turn.id) || `turn-${turnIndex}`, status = itemStatus(turn);
     const active = status === 'running' || turnId === activeTurnId;
     const replies = record(turn.mainReplies), shownReplies = new Set<string>();
-    let segment: Json[] = [], anchor = 'start';
+    let segment: Json[] = [], thoughts: Json[] = [], thoughtLast = false, anchor = 'start';
     const flush = (tail: boolean) => {
       const finalState = tail && (active || status === 'failed' || status === 'stopped');
-      if (!segment.length && !finalState) return;
+      // Reasoning is being written while the turn runs and nothing has followed its last record.
+      const writing = tail && active && thoughtLast && thoughts[thoughts.length - 1]?._streamCompleted !== true;
+      const thinking = thoughts.length ? thinkingOf(`${turnId}/thinking/${anchor}`, thoughts, writing) : undefined;
+      if (!segment.length && !thinking && !finalState) return;
       // A card is part of the answer, so text before it is not demoted to commentary.
       const lastTool = segment.reduce((last, item, i) => toolTypes.has(string(item.type)) && !isStateCardItem(item) ? i : last, -1);
       const parts: MessagePart[] = [], activities: Activity[] = [];
@@ -226,9 +307,10 @@ export function projectSession(value: unknown): SessionView {
         }
       });
       const primary = parts.find(part => part.card?.kind === 'primary')?.card;
-      if (parts.length || activities.length || finalState) blocks.push({id: primary?.kind === 'primary' ? `${turnId}/reply-anchor/${primary.reply.provenance.anchorOrdinal}` : `${turnId}/after/${anchor}`,
-        turnId, role: 'assistant', text: parts.map(part => part.text).filter(Boolean).join('\n\n'), parts, attachments: [], activity: activities, status, active: tail && active});
-      segment = [];
+      if (parts.length || activities.length || thinking || finalState) blocks.push({id: primary?.kind === 'primary' ? `${turnId}/reply-anchor/${primary.reply.provenance.anchorOrdinal}` : `${turnId}/after/${anchor}`,
+        turnId, role: 'assistant', text: parts.map(part => part.text).filter(Boolean).join('\n\n'), parts, attachments: [], activity: activities,
+        ...(thinking ? {thinking} : {}), status, active: tail && active});
+      segment = []; thoughts = []; thoughtLast = false;
     };
     list(turn.items).forEach((rawItem, itemIndex) => {
       const item = record(rawItem), type = string(item.type);
@@ -239,8 +321,9 @@ export function projectSession(value: unknown): SessionView {
         const reaction = typeof item.reaction === 'string' && item.reaction.length > 0 && item.reaction.length <= 32 ? item.reaction : undefined;
         if (content.text || content.attachments.length) blocks.push({id: `${turnId}/${anchor}`, turnId, role: 'user', ...content, parts: [], activity: [], status, active: false,
           ...(reaction ? {reaction} : {})});
-      } else if (type === 'agentMessage' || type === 'plan' || toolTypes.has(type)) segment.push(item);
-      // Unknown, reasoning, and authentication records never become display text.
+      } else if (type === 'agentMessage' || type === 'plan' || toolTypes.has(type)) { segment.push(item); thoughtLast = false; }
+      else if (type === 'reasoning') { thoughts.push(item); thoughtLast = true; }
+      // Unknown and authentication records never become display text; reasoning shows its public summary only.
     });
     flush(true);
   }
@@ -250,7 +333,14 @@ export function projectSession(value: unknown): SessionView {
   const queued = task.published === true && ['queued', 'running'].includes(string(task.state)) && !activeTurnId;
   // The gateway only exposes task/request after matching request.conversationId to this thread.
   // Keep a failed TaskBroker submission separate from native turn/message history.
-  const taskFailure: TaskFailure | null = id && label(task.id) && ['failed', 'needs_user'].includes(string(task.state)) ? {
+  const running = Boolean(activeTurnId) || blocks.some(b => b.active) || queued;
+  // The failure card is for a conversation that is idle on that failure. A running turn (e.g. after
+  // Continue) or a newer native turn that completed after the failed one supersedes it.
+  const failedTurnId = label(record(root.runtime).turnId), lastTurn = record(turns[turns.length - 1]);
+  const failedTurnIndex = turns.findIndex(turn => label(record(turn).id) === failedTurnId);
+  const superseded = failedTurnIndex >= 0 && failedTurnIndex < turns.length - 1
+    && itemStatus(lastTurn) === 'completed';
+  const taskFailure: TaskFailure | null = !running && !superseded && id && label(task.id) && ['failed', 'needs_user'].includes(string(task.state)) ? {
     taskId: string(task.id), message: string(task.message), prompt: string(record(root.request).prompt),
     turnStarted: task.turnStarted === true || record(root.runtime).turnStarted === true,
   } : null;
@@ -258,7 +348,8 @@ export function projectSession(value: unknown): SessionView {
     id, title: label(thread.name) || label(thread.preview), blocks,
     questions: list(native.requests).map(record).filter(q => label(q.key) && id && record(q.params).threadId === id)
       .map(q => ({key: string(q.key), method: string(q.method), params: record(q.params)})),
-    running: Boolean(activeTurnId) || blocks.some(b => b.active) || queued, activeTurnId, ready: native.ready === true,
+    running, activeTurnId, ready: native.ready === true,
+    turnIds: turns.map((raw, turnIndex) => label(record(raw).id) || `turn-${turnIndex}`),
     error: string(native.error), historyComplete: complete, knownEmpty,
     historyStatus: complete ? 'complete' : root.historyStatus === 'partial' || blocks.length ? 'partial' : 'unknown',
     totalTurns: typeof root.totalTurns === 'number' ? root.totalTurns : turns.length,

@@ -72,6 +72,9 @@ internal class ComposerPicker(
   private var pending: Pending? = null
   @Volatile private var closed = false
 
+  /** A picker the chat opened is still waiting for its result (main thread). */
+  val isOpen: Boolean get() = pending != null
+
   fun pick(
     activity: Activity?, kind: String, threadId: String, expectedRevision: String,
     permissions: Permissions?, promise: Promise,

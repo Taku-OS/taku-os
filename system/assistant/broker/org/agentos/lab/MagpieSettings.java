@@ -79,13 +79,18 @@ final class MagpieSettings {
   migrate(store,source,secretFile);sanitizeConfig(store,secretFile);String snapshot=store.get(SystemAiSettings.CONFIG);JSONObject config=new JSONObject(snapshot);String fileHash=source.isFile()?hash(source):"";
   JSONArray providers=config.getJSONArray("providers"),groups=config.getJSONArray("groups");JSONObject models=config.getJSONObject("models"),bindings=config.getJSONObject("scenes"),secrets=file(secretFile),out=file(source);String before=out.toString();
   for(String scene:AiPolicy.keys(bindings)){String target=bindings.getString(scene);if(!target.startsWith("group/")||target.length()<=6)throw new IOException("invalid scene group");}
+  JSONArray projected=new JSONArray();
   for(int i=0;i<providers.length();i++){
    JSONObject p=providers.getJSONObject(i);String id=p.getString("id"),ref=p.optString("credentialRef","");
    requirePublicProvider(p);
+   // Magpie runs as root and starts an acp provider's agent; Settings is shell-writable. Leave an
+   // unsafe agent out of the projection instead of stopping every other provider's update.
+   try{AgyAcpPolicy.requireSafe(p);}catch(IOException unsafe){System.err.println("Magpie Settings: provider "+id+" left out: "+unsafe.getMessage());continue;}
    p.remove("credentialRef");p.remove("models");if(models.has(id))p.put("models",models.getJSONArray(id));
    if(!ref.isEmpty()){JSONObject s=secrets.optJSONObject(ref);if(s==null)throw new IOException("credential reference missing");MagpieProviderSecrets.restore(p,s);}
+   projected.put(p);
   }
-  out.put("providers",providers).put("groups",groups);if(!snapshot.equals(store.get(SystemAiSettings.CONFIG))||!fileHash.equals(source.isFile()?hash(source):""))throw new IOException("configuration changed during projection");
+  out.put("providers",projected).put("groups",groups);if(!snapshot.equals(store.get(SystemAiSettings.CONFIG))||!fileHash.equals(source.isFile()?hash(source):""))throw new IOException("configuration changed during projection");
   boolean changed=!before.equals(out.toString())||!source.exists();String expected=changed?hashBytes(out.toString().getBytes(StandardCharsets.UTF_8)):fileHash;
   if(changed)save(source,out);writeHash(source,expected);audit("settings -> magpie",before,out.toString());SystemAi.catalogUntil=0;
  }

@@ -21,6 +21,18 @@ Each line has this shape (the epoch/sequence are Taku relay fields):
 - Apply deltas to the exact turn/item. `item/completed` replaces the item's full
   text. `_streamCompleted` on snapshot items records per-item completion;
   `turn/completed` merges its items by ID, preserving earlier tools/messages.
+- A `reasoning` item is the model's public reasoning summary; its `summary` array holds
+  the parts. `item/reasoning/summaryTextDelta` with
+  `params:{turnId,itemId,summaryIndex,delta}` appends to `summary[summaryIndex]` of that
+  item, making the item if its start has not arrived; `item/completed` replaces the
+  summary. The relay adds `startedAtMs` when the item starts and `durationMs` when it
+  completes, both from the runtime's own item timestamps, and keeps `durationMs` for a
+  known item across history reads, which carry no timing. Raw reasoning content has no
+  stream event. Reasoning text has its own display budget: a snapshot can omit `summary`
+  from older items, and a client then keeps the summary it was already given;
+  `summary: []` means there is none. A client that does not know the event skips it.
+  The gateway does not: it ends a stream on an event outside its list, so the broker
+  and the Assistant that carry this event are installed together.
 - Primary answers publish `session/reply` with `params:{turnId,reply,items}`.
   Apply the canonical reply under `turn.mainReplies[reply.id]` and its sanitized
   source items atomically. `reply.revision` is scoped to that native reply; an

@@ -80,13 +80,20 @@ for installed APKs or other build variants.
 
 ## SystemUI, recent tasks, and assistant capture
 
-`content://com.android.systemui.island` and
-`content://com.android.launcher3.taku.recents` are exported for root, system, shell and platform-signed callers.
-Both providers enforce that policy on the original Binder UID before clearing
-identity to use the owning system service. Ordinary apps receive a
-`SecurityException`. This protects Island settings and notification actions as
-well as recent-task enumeration, switching and removal. The Island package
-allow-list and `POST_ISLAND` govern publication and rendering separately.
+`content://com.android.systemui.island` and `content://com.android.launcher3.taku.recents`
+are exported Agent interfaces. Both authorize the original Binder caller before passing its
+request to the owning system service, which applies the same validation as the GUI.
+
+- Recent tasks are restricted to root, system, ADB shell and platform-signed callers.
+  Other callers receive a `SecurityException`.
+- Trusted callers have direct Island access. Ordinary apps can query publication eligibility for
+  their own package and need an App Permission Center `taku.control` grant to read or operate
+  activities, and then only those their own UID published (another app's activity returns
+  `not_found`; no cross-app actions or `RemoteInput` replies; `collapse` only folds their own
+  expanded card). Only trusted callers can use `next` or change settings or the publisher
+  allow-list. Denied
+  Island operations return `permission_denied`. The publisher allow-list governs notification
+  rendering separately.
 
 Use `content call --uri content://com.android.systemui.island --method state` (Bundle `json`),
 `--method setEnabled --arg 0`, `--method setAllowed --arg PACKAGE_A,PACKAGE_B`,

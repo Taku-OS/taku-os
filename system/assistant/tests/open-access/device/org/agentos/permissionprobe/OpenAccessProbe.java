@@ -70,6 +70,7 @@ public final class OpenAccessProbe extends Instrumentation {
                     checks++;
                 }
                 for (String method : new String[]{"composer/submit", "composer/write", "composer/options/write",
+                        "composer/plugin/add", "composer/plugin/remove",
                         "requests/respond", "requests/submit", "requests/cancel", "accounts/saveKey",
                         "accounts/removeKey", "accounts/login", "accounts/openMagpie", "accounts/cancel",
                         "accounts/refresh", "manageSystemAi", "setSystemAi", "bindSystemAi", "bindSystemAiModel",

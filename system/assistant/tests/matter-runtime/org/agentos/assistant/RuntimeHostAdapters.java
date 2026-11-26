@@ -182,6 +182,7 @@ final class PanelNativeServices {
         String id=Long.toString(System.nanoTime());File dir=new File(TaskRuntime.TASKS,id);dir.mkdirs();
         JSONObject request=new JSONObject().put("id",id).put("conversationId",input.getString("threadId")).put("prompt",input.getString("text"));
         if(input.has("panelUpdate"))request.put("panelUpdate",input.getJSONObject("panelUpdate"));
+        if(input.has("panelUpdate"))org.agentos.lab.ComposerInput.copyPanelContext(input,request);
         TaskRequests.write(new File(dir,"request.json"),request.toString());
         TaskRequests.write(new File(dir,"state.json"),new JSONObject().put("id",id).put("state","queued").toString());
         before.persist(id);TaskRequests.write(new File(dir,"ready"),"1");publications++;return id;

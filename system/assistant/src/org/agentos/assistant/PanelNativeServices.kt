@@ -52,6 +52,7 @@ internal class PanelNativeServices(private val context: Context) {
         if (input.has("options")) options.put("composerRequestId", input.getString("requestId"))
         if (input.optBoolean("requireConfirmation")) options.put("permissionMode", "ask")
         if (input.has("panelUpdate")) options.put("panelUpdate", input.getJSONObject("panelUpdate"))
+        if (input.has("panelContext")) options.put("panelContext", input.getString("panelContext"))
         val image = AssistantInvocationCapture.image(context, input)
         try {
             return TaskRequests.submit(input.getString("text"), options.optString("invocationForeground", "Taku Agent"), image, thread, options) { task ->

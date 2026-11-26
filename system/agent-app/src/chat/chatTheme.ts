@@ -21,6 +21,11 @@ export const homeColors = {
   bubble: content(0.06), composer: surface(0.92), chip: '#FFFFFF', placeholder: content(0.36),
   surfaceRaised: surface(0.8), surfaceGlass: surface(0.48), fillControl: content(0.08), hairline: content(0.08),
   inverse: '#1B1B1B', send: '#FF5A1F', shadow: content(0.16),
+  /** Floating chrome (title-row buttons, composer menus); the light chat keeps its white glass. */
+  glass: surface(0.8),
+  /** Chat Polish 2-x / 3-x: current row, dialog scrim, field inset, primary pill and destructive text. */
+  selection: content(0.06), scrim: content(0.48), fieldInset: content(0.06),
+  pill: '#1B1B1B', pillText: '#FFFFFF', destructive: '#D7263D',
   /** Under the window blur (Surface/400) and the opaque fallback (Main/Canvas). */
   backdropTint: surface(0.24), backdropFallback: '#E3E3E3',
   /** Surface/400 as the window's #AARRGGBB tint under the system blur. */
@@ -38,7 +43,10 @@ const dark = {
   textPrimary: surface(0.92), textSecondary: surface(0.8), textTertiary: surface(0.64), textPlaceholder: surface(0.48),
   textError: '#FFB4AB', icon: '#FFFFFF', iconDisabled: surface(0.16),
   bubble: surface(0.8), assistantBubble: surface(0.06), userText: content(0.8),
-  composer: surface(0.08), chip: surface(0.08), placeholder: surface(0.36),
+  // Chat Polish 1-0: title-row buttons, the composer and its menus share one #202020 / 64 % glass.
+  composer: 'rgba(32,32,32,0.64)', glass: 'rgba(32,32,32,0.64)', chip: surface(0.08), placeholder: surface(0.36),
+  // 2-1 current row Surface/100; 3-1-2 / 3-3 overlay Content/800; 1-2 field Content/500; white pill; #FF4856.
+  selection: surface(0.06), scrim: content(0.8), fieldInset: content(0.36), pill: '#FFFFFF', pillText: '#1B1B1B', destructive: '#FF4856',
   surfaceRaised: '#262626', surfaceGlass: surface(0.08), fillControl: surface(0.08), hairline: surface(0.16),
   // One native tint over the existing cross-window blur, never another opaque React layer.
   backdropTint: content(0.92), backdropTintArgb: '#EB000000', backdropFallback: '#121212',
@@ -47,6 +55,16 @@ const dark = {
   stopFill: '#FFFFFF', stopGlyph: '#1B1B1B',
   /** Reaction badge (300:682): Surface/50 glass inside a 2 dp Content/900 ring that cuts it from the bubble. */
   reactionFill: surface(0.04), reactionRing: content(0.92),
+  /**
+   * Task status (Zile's Single Chat wireframe, sampled from its frames): amber where a Task waits
+   * for the user, blue-grey while it works. The only two hues the chat adds; a finished Task is
+   * plain tertiary text.
+   */
+  statusAttention: '#F4C275', statusProgress: '#B5D0EE',
+  /** The Task card's outline. */
+  cardOutline: surface(0.1),
+  /** The choice being sent from a Task card: the user bubble's own pair. */
+  chosen: surface(0.8), onChosen: content(0.8),
 };
 
 export type ChatColors = typeof dark;
@@ -64,6 +82,10 @@ const light: ChatColors = {
   stopFill: '#1B1B1B', stopGlyph: '#FFFFFF',
   /** On the light background the ring is the light canvas and the badge a white glass. */
   reactionFill: surface(0.8), reactionRing: '#E3E3E3',
+  /** The same two statuses, deepened to read on the light canvas. */
+  statusAttention: '#8A5008', statusProgress: '#3F6189',
+  cardOutline: content(0.08), scrim: content(0.32),
+  chosen: '#1B1B1B', onChosen: '#FFFFFF',
 };
 
 export type ChatAppearance = 'dark' | 'light';
@@ -130,11 +152,17 @@ const blurs: Record<ChatAppearance, {backdropSigma: number; edgeSigma: number; m
   light: {backdropSigma: 64, edgeSigma: 12, menuSigma: 4},
 };
 
-/** The chat's fixed title (2-1 shows the conversation name there; product keeps "Taku"). */
-export const chatTitle = 'Taku';
+/**
+ * The main conversation's name, wherever it is a title or a destination: the chat's title row, the
+ * drawer and the composer. A Task shows its own title instead. Running text still says "Taku".
+ */
+export const chatTitle = 'TAKU';
 
-/** Figma 2-1 geometry (dp). */
-export const chatMetrics = {side: 16, header: 64, itemGap: 24, replyGap: 12, composerBottom: 40, bubbleMinInset: 48, composerMax: 380};
+/** Figma 2-1 geometry (dp); `strip` is the row of Task capsules under the title (38 dp capsules, 8 dp below). */
+export const chatMetrics = {side: 16, header: 64, itemGap: 24, replyGap: 12, composerBottom: 40, bubbleMinInset: 48, composerMax: 380, strip: 46};
+
+/** Motion (design-system tokens.json): the drawer's own curve and duration, and the shared press fade. */
+export const chatMotion = {drawerMs: 320, drawerEase: [0.22, 1, 0.36, 1] as const, colorMs: 200};
 
 type Weight = 'regular' | 'medium';
 const latin = {regular: 'TakuBody', medium: 'TakuBodyMedium'};
@@ -157,6 +185,7 @@ export const chatType = {
   headingXl: (chinese = false) => heading(24, 0.01, chinese),
   heading2xl: (chinese = false) => heading(32, 0.02, chinese),
   headingLg: (chinese = false): TextStyle => ({...style(20, 1.05, 'regular', chinese), fontFamily: chinese ? han.regular : 'TakuDisplay'}),
+  bodyXl: (chinese = false) => style(18, 1.55, 'regular', chinese),
   bodyXlMedium: (chinese = false) => style(18, 1.55, 'medium', chinese),
   bodyLg: (chinese = false) => style(16, 1.5, 'regular', chinese),
   bodyLgMedium: (chinese = false) => style(16, 1.5, 'medium', chinese),

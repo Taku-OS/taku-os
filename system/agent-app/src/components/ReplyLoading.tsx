@@ -1,28 +1,21 @@
 import React, {useEffect, useState} from 'react';
-import {AccessibilityInfo, Animated, AppState, Easing, StyleSheet, View} from 'react-native';
+import {Animated, Easing, StyleSheet, View} from 'react-native';
 import {chatColors, themedStyles} from '../chat/chatTheme';
+import {useMotionAllowed} from '../chat/useMotionAllowed';
 
 /** A native-driven pulse changes only opacity/transform, never the reply's layout. */
 export function ReplyLoading({label}: {label: string}) {
   const [phase] = useState(() => new Animated.Value(0));
-  const [reduceMotion, setReduceMotion] = useState(false);
-  const [foreground, setForeground] = useState(AppState.currentState === 'active');
-  useEffect(() => {
-    let mounted = true;
-    void AccessibilityInfo.isReduceMotionEnabled().then(value => {if (mounted) setReduceMotion(value);}).catch(() => {});
-    const motion = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
-    const lifecycle = AppState.addEventListener('change', state => setForeground(state === 'active'));
-    return () => {mounted = false; motion.remove(); lifecycle.remove();};
-  }, []);
+  const moving = useMotionAllowed();
   useEffect(() => {
     phase.setValue(0);
-    if (reduceMotion || !foreground) return;
+    if (!moving) return;
     const animation = Animated.loop(Animated.timing(phase, {
       toValue: 1, duration: 1200, easing: Easing.linear, useNativeDriver: true, isInteraction: false,
     }));
     animation.start();
     return () => animation.stop();
-  }, [phase, reduceMotion, foreground]);
+  }, [phase, moving]);
   return <View testID="reply-loading" accessible accessibilityRole="progressbar" accessibilityLabel={label}
     accessibilityState={{busy: true}} style={styles.row}>
     {[0, 1, 2].map(index => {

@@ -25,6 +25,8 @@ internal class AgentGatewayProtocol private constructor() {
         const val COMPOSER_RECEIPT = "composer/receipt"
         const val COMPOSER_ATTACH = "composer/attach"
         const val COMPOSER_REMOVE = "composer/removeAttachment"
+        const val COMPOSER_PLUGIN_ADD = "composer/plugin/add"
+        const val COMPOSER_PLUGIN_REMOVE = "composer/plugin/remove"
         const val COMPOSER_OPTIONS_READ = "composer/options/read"
         const val COMPOSER_OPTIONS_WRITE = "composer/options/write"
         const val COMPOSER_SUBMIT = "composer/submit"
@@ -47,12 +49,13 @@ internal class AgentGatewayProtocol private constructor() {
             "workspaces/pause", "workspaces/takeControl", "workspaces/input", "workspaces/returnAndResume", "workspaces/addRequirement", "workspaces/executionStatus",
             "capture/read", "capture/accept", "capture/dismiss", "capture/request", "capture/openConversation", "manageAssistant",
             "accounts/read", "accounts/refresh", "accounts/login", "accounts/cancel", "accounts/openMagpie", "accounts/keys", "accounts/removeKey", "accounts/saveKey",
+            "accounts/agyRead", "accounts/agyRefresh", "accounts/agySignIn", "accounts/agyCancel", "accounts/agyCode", "accounts/agyUse",
             "requests/list", "requests/read", "requests/respond", "requests/submit", "requests/cancel",
             "decide", "generateUi", "mainReply", "panels", "cardView", "readMatter", "subscribeMatter", "unsubscribeMatter", "dispatchMatter", "analyzeCameraFrame", "audioCapabilities", "audioCommand",
             "readSystemAi", "setSystemAi", "bindSystemAi", "bindSystemAiModel", "reorderSystemAi", "restoreSystemAi", "deleteSystemAiGroup", "openMagpieManagement", "pluginManager", "readAccount", "openAssistantConnection",
             "readAppPermissions", "setAppPermissionMode", "setAppPermissionScope", "resetAppPermission",
             COMPOSER_READ, COMPOSER_WRITE, COMPOSER_IMPORT, COMPOSER_MOVE, COMPOSER_RECEIPT, COMPOSER_ATTACH,
-            COMPOSER_REMOVE, COMPOSER_OPTIONS_READ, COMPOSER_OPTIONS_WRITE, COMPOSER_SUBMIT, COMPOSER_SETTLE, COMPOSER_RELEASE,
+            COMPOSER_REMOVE, COMPOSER_PLUGIN_ADD, COMPOSER_PLUGIN_REMOVE, COMPOSER_OPTIONS_READ, COMPOSER_OPTIONS_WRITE, COMPOSER_SUBMIT, COMPOSER_SETTLE, COMPOSER_RELEASE,
             COMPOSER_HANDOFF, COMPOSER_RESTORE, COMPOSER_RESTORE_TASK, COMPOSER_CREATE_THREAD, COMPOSER_PRESERVE_DRAFT,
             LIVE_TASK_READ, LIVE_TASK_REPLACE, LIVE_TASK_CANCEL,
             "connectChatGpt", "cancelChatGpt", "readJev", "connectJev", "enableJev")
@@ -111,7 +114,7 @@ internal class AgentGatewayProtocol private constructor() {
                 requireId(input, "requestId")
                 val fields = mutableSetOf("threadId", "requestId")
                 if (action == COMPOSER_SUBMIT) {
-                    fields.addAll(setOf("revision", "attachmentIds", "action"))
+                    fields.addAll(setOf("revision", "attachmentIds", "pluginIds", "action"))
                     val revision = input.opt("revision") as? String ?: throw IOException("INVALID_ARGUMENT")
                     if (revision.length > 128) throw IOException("INVALID_ARGUMENT")
                     val ids = input.getJSONArray("attachmentIds")
@@ -120,6 +123,15 @@ internal class AgentGatewayProtocol private constructor() {
                     for (index in 0 until ids.length()) {
                         val id = ids.get(index) as? String ?: throw IOException("INVALID_ARGUMENT")
                         if (!UUID_PATTERN.matcher(id).matches() || !unique.add(id)) throw IOException("INVALID_ARGUMENT")
+                    }
+                    if (input.has("pluginIds")) {
+                        val plugins = input.get("pluginIds") as? JSONArray ?: throw IOException("INVALID_ARGUMENT")
+                        if (plugins.length() > ComposerPlugins.LIMIT) throw IOException("PLUGIN_LIMIT")
+                        val seen = HashSet<String>()
+                        for (index in 0 until plugins.length()) {
+                            val id = plugins.get(index) as? String ?: throw IOException("INVALID_ARGUMENT")
+                            if (!ComposerPlugins.isId(id) || !seen.add(id)) throw IOException("INVALID_ARGUMENT")
+                        }
                     }
                     when (text(input, "action", 16)) {
                         "steer" -> { fields.add("expectedTurnId"); text(input, "expectedTurnId", 160) }
@@ -136,11 +148,12 @@ internal class AgentGatewayProtocol private constructor() {
                 return input
             }
             when (action) {
-                COMPOSER_ATTACH, COMPOSER_REMOVE, COMPOSER_OPTIONS_READ, COMPOSER_OPTIONS_WRITE, COMPOSER_PRESERVE_DRAFT,
-                COMPOSER_HANDOFF, COMPOSER_RESTORE, COMPOSER_RESTORE_TASK -> {
+                COMPOSER_ATTACH, COMPOSER_REMOVE, COMPOSER_PLUGIN_ADD, COMPOSER_PLUGIN_REMOVE, COMPOSER_OPTIONS_READ, COMPOSER_OPTIONS_WRITE,
+                COMPOSER_PRESERVE_DRAFT, COMPOSER_HANDOFF, COMPOSER_RESTORE, COMPOSER_RESTORE_TASK -> {
                     val fields = when (action) {
                         COMPOSER_ATTACH -> setOf("threadId", "expectedRevision", "name", "mime", "uri")
                         COMPOSER_REMOVE -> setOf("threadId", "expectedRevision", "attachmentId")
+                        COMPOSER_PLUGIN_ADD, COMPOSER_PLUGIN_REMOVE -> setOf("threadId", "expectedRevision", "pluginId")
                         COMPOSER_OPTIONS_WRITE -> setOf("threadId", "options")
                         COMPOSER_HANDOFF -> setOf("threadId", "handoffId", "text")
                         COMPOSER_PRESERVE_DRAFT -> setOf("threadId", "recoveryId", "text")
@@ -151,7 +164,7 @@ internal class AgentGatewayProtocol private constructor() {
                     PanelProtocol.exact(input, fields)
                     val thread = input.opt("threadId") as? String ?: throw IOException("INVALID_ARGUMENT")
                     if (thread.isNotEmpty() && !UUID_PATTERN.matcher(thread).matches()) throw IOException("INVALID_ARGUMENT")
-                    if (action in setOf(COMPOSER_ATTACH, COMPOSER_REMOVE, COMPOSER_RESTORE, COMPOSER_RESTORE_TASK)) {
+                    if (action in setOf(COMPOSER_ATTACH, COMPOSER_REMOVE, COMPOSER_PLUGIN_ADD, COMPOSER_PLUGIN_REMOVE, COMPOSER_RESTORE, COMPOSER_RESTORE_TASK)) {
                         val revision = input.opt("expectedRevision") as? String ?: throw IOException("INVALID_ARGUMENT")
                         if (revision.length > 128) throw IOException("INVALID_ARGUMENT")
                     }
@@ -161,6 +174,8 @@ internal class AgentGatewayProtocol private constructor() {
                         if (input.has("uri")) text(input, "uri", 4096)
                     }
                     if (action == COMPOSER_REMOVE) requireId(input, "attachmentId")
+                    if ((action == COMPOSER_PLUGIN_ADD || action == COMPOSER_PLUGIN_REMOVE) &&
+                        !ComposerPlugins.isId(input.opt("pluginId") as? String ?: "")) throw IOException("INVALID_ARGUMENT")
                     if (action == COMPOSER_OPTIONS_WRITE) input.getJSONObject("options")
                     if (action == COMPOSER_HANDOFF) { requireId(input, "handoffId"); text(input, "text", 16_000) }
                     if (action == COMPOSER_PRESERVE_DRAFT) {
@@ -224,7 +239,8 @@ internal class AgentGatewayProtocol private constructor() {
                 "workspaces/list", "workspaces/apps", "workspaces/configure", "workspaces/release", "workspaces/preview", "workspaces/open", "manageSystemAi" -> return input
                 "workspaces/pause", "workspaces/takeControl", "workspaces/input", "workspaces/returnAndResume", "workspaces/addRequirement", "workspaces/executionStatus" -> return input
                 "capture/read", "capture/accept", "capture/dismiss", "capture/request", "capture/openConversation",
-                "accounts/read", "accounts/refresh", "accounts/login", "accounts/cancel", "accounts/openMagpie", "accounts/keys", "accounts/removeKey", "accounts/saveKey" -> return input
+                "accounts/read", "accounts/refresh", "accounts/login", "accounts/cancel", "accounts/openMagpie", "accounts/keys", "accounts/removeKey", "accounts/saveKey",
+                "accounts/agyRead", "accounts/agyRefresh", "accounts/agySignIn", "accounts/agyCancel", "accounts/agyCode", "accounts/agyUse" -> return input
                 "manageAssistant", "requests/list", "requests/read", "requests/respond", "requests/submit", "requests/cancel" -> return input
                 "pluginManager" -> java.util.Set.of("operation", "argument", "name", "arguments")
                 "decide" -> java.util.Set.of("state", "questions")
@@ -367,6 +383,8 @@ internal class AgentGatewayProtocol private constructor() {
                 "session/snapshot" -> java.util.Set.of("thread")
                 "session/reply" -> java.util.Set.of("turnId", "reply", "items")
                 "item/agentMessage/delta" -> java.util.Set.of("turnId", "itemId", "delta")
+                // The public reasoning summary only; raw reasoning content has no stream event.
+                "item/reasoning/summaryTextDelta" -> java.util.Set.of("turnId", "itemId", "summaryIndex", "delta")
                 "item/started", "item/completed" -> java.util.Set.of("turnId", "item")
                 "turn/started", "turn/completed" -> java.util.Set.of("turn")
                 "thread/name/updated" -> java.util.Set.of("threadName", "name")

@@ -27,10 +27,12 @@ export function beginOptimisticSubmission(
   session: SessionView | null, now = Date.now(),
 ): OptimisticSubmission {
   return {...request, startedAt: now, baselineBlockIds: session?.blocks.map(block => block.id) || [],
-    baselineTurnIds: [...new Set(session?.blocks.map(block => block.turnId) || [])], state: 'sending'};
+    // Every earlier turn, blockless ones included: none of them can be this request's turn.
+    baselineTurnIds: [...new Set([...(session?.turnIds || []), ...(session?.blocks.map(block => block.turnId) || [])])], state: 'sending'};
 }
 
-export const hasResponse = (block: MessageBlock | undefined) => Boolean(block && (block.text.trim() || block.parts?.some(part => part.card || part.replyState) || block.activity.length || block.attachments.length));
+/** Reasoning counts: a model that is thinking has answered the request, so it never times out as unanswered. */
+export const hasResponse = (block: MessageBlock | undefined) => Boolean(block && (block.text.trim() || block.parts?.some(part => part.card || part.replyState) || block.activity.length || block.attachments.length || block.thinking));
 
 /** A rejected steer may have been published as a new, independently identified task. */
 export function acceptOptimisticReceipt(request: OptimisticSubmission, receipt: Record<string, unknown>): OptimisticSubmission {

@@ -201,3 +201,87 @@ test('a snapshot carries a stored reaction onto the user message; none shows no 
   const users = view(state).blocks.filter(block => block.role === 'user');
   assert.deepEqual(users.map(block => block.reaction), ['👋', undefined]);
 });
+
+const thought = (seq, text, index = 0, id = 'thought') => event(seq, 'item/reasoning/summaryTextDelta', {turnId: 'turn', itemId: id, summaryIndex: index, delta: text});
+const reasoning = (summary = [], extra = {}, id = 'thought') => ({id, type: 'reasoning', summary, content: [], ...extra});
+
+test('a reasoning summary streams by part into its own record and never into the answer', () => {
+  let state = reduceSessionBatch(initial(), [
+    event(1, 'item/started', {turnId: 'turn', item: reasoning([], {startedAtMs: 1000})}),
+    thought(2, '**Weighing** 中'), thought(3, '文🙂'), thought(4, 'Second part', 1)]);
+  assert.deepEqual(item(state, 'thought').summary, ['**Weighing** 中文🙂', 'Second part']);
+  assert.equal(item(state, 'thought').startedAtMs, 1000);
+  assert.deepEqual(view(state).blocks[0].thinking, {id: 'turn/thinking/start', text: '**Weighing** 中文🙂\n\nSecond part', active: true, startedAtMs: 1000});
+  assert.equal(view(state).blocks[0].text, '', 'reasoning is never reply text');
+  assert.deepEqual(view(state).blocks[0].parts, []);
+  // Nothing to show, a malformed part and text addressed to an answer change nothing but the cursor.
+  const before = item(state, 'thought');
+  state = reduceSessionBatch(state, [thought(5, ''), delta(6, 'Answer'), thought(7, 'not an answer', 0, 'answer'), thought(8, ' more', -3)]);
+  assert.equal(item(state, 'answer').text, 'Answer');
+  assert.equal(item(state, 'answer').summary, undefined);
+  assert.deepEqual(item(state, 'thought').summary, ['**Weighing** 中文🙂 more', 'Second part'], 'an unusable part index falls back to the first part');
+  assert.notEqual(item(state, 'thought'), before);
+  assert.equal(state.seq, 8);
+  assert.equal(state.needsResync, false);
+});
+
+test('completion corrects a reasoning summary and carries its duration; later deltas are stale', () => {
+  let state = reduceSessionBatch(initial(), [event(1, 'item/started', {turnId: 'turn', item: reasoning([], {startedAtMs: 1000})}), thought(2, 'Draft thought')]);
+  state = reduceSessionEvent(state, event(3, 'item/completed', {turnId: 'turn', item: reasoning(['Final thought'], {startedAtMs: 1000, durationMs: 21500})}));
+  assert.deepEqual(item(state, 'thought').summary, ['Final thought']);
+  assert.equal(item(state, 'thought')._streamCompleted, true);
+  state = reduceSessionEvent(state, thought(4, ' late'));
+  assert.deepEqual(item(state, 'thought').summary, ['Final thought']);
+  state = reduceSessionEvent(state, delta(5, 'The answer.'));
+  assert.deepEqual(view(state).blocks[0].thinking, {id: 'turn/thinking/start', text: 'Final thought', active: false, durationMs: 21500});
+  assert.equal(view(state).blocks[0].text, 'The answer.');
+});
+
+test('a summary delta before its record makes the record; a late start keeps the text', () => {
+  let state = reduceSessionEvent(initial(), thought(1, 'Already thinking'));
+  assert.equal(item(state, 'thought').type, 'reasoning');
+  assert.equal(item(state, 'thought')._streamCompleted, false);
+  state = reduceSessionEvent(state, event(2, 'item/started', {turnId: 'turn', item: reasoning([], {startedAtMs: 7})}));
+  assert.deepEqual(item(state, 'thought').summary, ['Already thinking']);
+  assert.equal(item(state, 'thought').startedAtMs, 7);
+  assert.equal(view(state).blocks[0].thinking.active, true);
+});
+
+test('a snapshot that leaves a summary out keeps the one already shown; an empty summary is the relay saying there is none', () => {
+  let state = reduceSessionBatch(initial(), [
+    event(1, 'item/completed', {turnId: 'turn', item: reasoning(['Shown thought'])}),
+    event(2, 'item/completed', {turnId: 'turn', item: reasoning(['Another thought'], {}, 'cleared')}),
+    completed(3, 'The answer.')]);
+  // An older relay projects reasoning records without their summary; a newer one keeps only the newest summaries.
+  state = reduceSessionEvent(state, snapshot(4, [{id: 'turn', status: 'completed', items: [
+    {id: 'thought', type: 'reasoning', content: []}, {id: 'cleared', type: 'reasoning', summary: [], content: []},
+    {id: 'renamed', type: 'reasoning', content: []}, {id: 'answer', type: 'agentMessage', text: 'The answer.'}]},
+    {id: 'other-turn', status: 'completed', items: [{id: 'thought', type: 'reasoning', content: []}]}]));
+  assert.deepEqual(item(state, 'thought').summary, ['Shown thought']);
+  assert.deepEqual(item(state, 'cleared').summary, []);
+  assert.equal(item(state, 'renamed').summary, undefined);
+  assert.equal(item(state, 'thought', 'other-turn').summary, undefined, 'only the same record of the same turn');
+  assert.equal(view(state).blocks[0].thinking.text, 'Shown thought');
+  // A first snapshot has nothing to keep.
+  const fresh = reduceSessionEvent(emptySessionStream('thread'), snapshot(0, [{id: 'turn', status: 'completed', items: [{id: 'thought', type: 'reasoning', content: []}]}]));
+  assert.equal(item(fresh, 'thought').summary, undefined);
+  assert.equal(view(fresh).blocks.length, 0, 'a record with nothing to show makes no row');
+});
+
+test('retained blocks notice a changed thinking and keep an unchanged one', () => {
+  let state = reduceSessionBatch(initial(), [event(1, 'item/started', {turnId: 'turn', item: reasoning([], {startedAtMs: 1000})}), thought(2, 'One')]);
+  const first = retainSessionBlocks(view(state), null);
+  const same = retainSessionBlocks(view(state), first);
+  assert.equal(same.blocks[0], first.blocks[0]);
+  state = reduceSessionEvent(state, thought(3, ' two'));
+  const grown = retainSessionBlocks(view(state), same);
+  assert.notEqual(grown.blocks[0], first.blocks[0]);
+  assert.equal(grown.blocks[0].thinking.text, 'One two');
+  // Once the answer streams, the finished thinking keeps its object while the block changes.
+  state = reduceSessionBatch(state, [event(4, 'item/completed', {turnId: 'turn', item: reasoning(['One two'], {startedAtMs: 1000, durationMs: 4000})}), delta(5, 'A')]);
+  const answering = retainSessionBlocks(view(state), grown);
+  state = reduceSessionEvent(state, delta(6, 'B'));
+  const more = retainSessionBlocks(view(state), answering);
+  assert.notEqual(more.blocks[0], answering.blocks[0]);
+  assert.equal(more.blocks[0].thinking, answering.blocks[0].thinking);
+});

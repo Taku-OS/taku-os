@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Snapshot source inputs and run the isolated, pinned Pixel 9 builder."""
 import argparse,datetime,fcntl,hashlib,json,os,pathlib,shutil,subprocess,sys,runpy
+import time
 import urllib.error,urllib.request
 from image_build_config import ROOT,CONFIG,SOURCE_LOCK,OUT,NAME,VOLUME,REFERENCE,PREVIOUS,IMAGE
 def run(*args,**kw):return subprocess.run(args,check=True,**kw)
@@ -13,6 +14,7 @@ def digest(p):
 # These describe one candidate, unlike the source/kernel checkpoints reused by
 # an incremental build. Never let a new candidate inherit a previous proof.
 PER_RUN_OUTPUTS = (
+    'timing-baseline.json', 'kernel-timing.json',
     'baseline-receipt.json', 'updater-integration.json', 'updater-apk-verification.json',
     'product-branding-integration.json', 'product-branding-migration.json', 'resume-check.json', 'incremental-check.json',
     'ninja-fifo-guard.log', 'resource-adjustments.json', 'system-ai-rom.json', 'google-services-artifacts.json',
@@ -138,6 +140,7 @@ UPDATER_OVERLAYS = (
 UPDATER_ADDITIONS = frozenset(UPDATER_OVERLAYS[3:])
 BRANDING_OVERLAYS = (
     'image/build.sh', 'image/taku.mk', 'image/verify-artifacts.py', 'image/apply-updater-patches.py',
+    'image/branding/updater-v10.patch', 'image/branding/previous-v9-manifest.json',
     'image/apply-product-branding.py', 'image/product_branding.py', 'image/product-branding.json',
     'image/product-branding.mk', 'image/branding/manifest.json',
     'image/branding/updater-v9.patch', 'image/branding/previous-v8-manifest.json',
@@ -150,6 +153,7 @@ BRANDING_OVERLAYS = (
 )
 BRANDING_ADDITIONS = frozenset(BRANDING_OVERLAYS[4:])
 BRANDING_VERSION_OVERLAYS = (
+    'image/branding/updater-v10.patch', 'image/branding/previous-v9-manifest.json',
     'image/apply-product-branding.py', 'image/apply-updater-patches.py', 'image/product_branding.py',
     'image/product-branding.json', 'image/product-branding.mk',
     'image/branding/manifest.json', 'image/branding/updater-v9.patch', 'image/branding/previous-v8-manifest.json',
@@ -553,7 +557,8 @@ def validate_carrier_candidate(snap):
     return runpy.run_path(str(snap/'image/carrier_defaults.py'))['declaration']()
 
 
-def start(resume=False,verify=False,incremental=False,snapshot_input=None,resources=None):
+def start(resume=False,verify=False,incremental=False,snapshot_input=None,resources=None,kernel_cache_dir=None):
+    prepare_started=time.monotonic()
     if subprocess.run(['docker','container','inspect',NAME],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL).returncode==0:
         raise SystemExit('Builder already exists. Inspect status/logs; do not overwrite its inputs.')
     if not resume and not verify and any((OUT/name).exists() or (OUT/name).is_symlink() for name in PER_RUN_OUTPUTS):
@@ -604,15 +609,33 @@ def start(resume=False,verify=False,incremental=False,snapshot_input=None,resour
         inputs['googleApps']={k:v for k,v in apps.items() if k!='path'}
         inputs['distribution']='internal-test-only'
     inputs['previousSourceVolume']=PREVIOUS
+    cache_mount=[]
+    launch_image=IMAGE
+    if not (resume or verify or incremental):
+        cache_path=kernel_cache_dir or os.environ.get('TAKU_KERNEL_CACHE_DIR')
+        if cache_path:
+            if not (snap/'image/kernel_cache.py').is_file():
+                raise SystemExit('Kernel caching requires a cache-aware build snapshot')
+            cache_path=pathlib.Path(cache_path).expanduser().resolve()
+            if ',' in str(cache_path):
+                raise SystemExit('Kernel cache directory cannot contain a comma')
+            cache_path.mkdir(parents=True,exist_ok=True)
+            image_id=subprocess.check_output(
+                ['docker','image','inspect','--format={{.Id}}',IMAGE],text=True).strip()
+            launch_image=image_id
+            cache_mount=['--mount',f'type=bind,source={cache_path},target=/kernel-cache',
+                         '--env','TAKU_KERNEL_CACHE_DIR=/kernel-cache',
+                         '--env',f'TAKU_KERNEL_BUILDER_IMAGE_ID={image_id}']
     (OUT/'run-input.json').write_text(json.dumps(inputs,indent=2)+'\n')
     (OUT/'status.json').write_text(json.dumps({'phase':'initialize','updatedAt':datetime.datetime.now(datetime.timezone.utc).isoformat(),'romBuilt':False,'physicalDeviceVerified':False},indent=2)+'\n')
+    host_timing=['--env',f'TAKU_HOST_PREPARE_SECONDS={time.monotonic()-prepare_started}']
     run('docker','run','-d','--name',NAME,'--platform','linux/amd64','--cpus='+str(cpus),'--memory='+str(memory),'--memory-swap='+str(swap),
         '--mount',f'type=volume,source={VOLUME},target=/src',
         '--mount',f'type=volume,source={REFERENCE},target=/reference,readonly',
         '--mount',f'type=volume,source={PREVIOUS},target=/previous,readonly',
         '--mount',f'type=bind,source={snap},target=/taku,readonly',
         '--mount',f'type=bind,source={OUT},target=/results',
-        *google_mount,*apps_mount,IMAGE,'bash','-c',('bash /taku/image/build.sh'+(' --incremental' if incremental else ' --verify-only' if verify else ' --resume' if resume else '')+' > /results/build.log 2>&1'))
+        *google_mount,*apps_mount,*cache_mount,*host_timing,launch_image,'bash','-c',('bash /taku/image/build.sh'+(' --incremental' if incremental else ' --verify-only' if verify else ' --resume' if resume else '')+' > /results/build.log 2>&1'))
     with (OUT/'publication.log').open('a') as publication:
         publisher=subprocess.Popen([sys.executable,str(ROOT/'scripts/publish-image-status.py'),'--watch'],stdout=publication,stderr=publication,start_new_session=True)
     ensure_report_server()
@@ -637,7 +660,13 @@ def _export():
     receipt_data=json.loads((OUT/'baseline-receipt.json').read_text())
     if receipt_data['runInputSha256']!=digest(OUT/'run-input.json'):
         raise SystemExit('Build inputs changed after baseline verification')
-    crypto,validator=verify_signatures(inputs)
+    timing=runpy.run_path(str(ROOT/'image/build_timing.py'))['add_host_stage']
+    export_started=time.monotonic()
+    try:
+        crypto,validator=verify_signatures(inputs)
+    finally:
+        timing(OUT,'verify_signatures',time.monotonic()-export_started)
+    export_started=time.monotonic()
     status['artifactSignaturesVerified']=True
     status['signatureVerification']={'path':str(crypto/'signature-verification.json'),
                                     'sha256':digest(crypto/'signature-verification.json')}
@@ -713,6 +742,7 @@ def _export():
         copy_verified(target,digest(source),lambda partial:shutil.copy2(source,partial),'signature evidence')
     if digest(OUT/'run-input.json')!=receipt_data['runInputSha256']:
         raise SystemExit('Build candidate changed during export')
+    timing(OUT,'export',time.monotonic()-export_started)
     status['artifactsExported']=True
     status['exportDirectory']=str(dest)
     temporary=OUT/'status.tmp';temporary.write_text(json.dumps(status,indent=2)+'\n');temporary.replace(OUT/'status.json')
@@ -920,7 +950,10 @@ def main():
     parser.add_argument('--runtime-contract',type=pathlib.Path,help='Explicit reviewed binding for a new runtime handoff')
     parser.add_argument('--runtime-contract-sha256',help='Independently reviewed exact runtime contract hash')
     parser.add_argument('--minimum-runtime-versions',type=json.loads,help='Reviewed JSON version floors for explicit source repair only')
+    parser.add_argument('--kernel-cache-dir',type=pathlib.Path,help='Opt-in persistent host kernel prebuilt cache for start')
     args=parser.parse_args()
+    if args.kernel_cache_dir is not None and args.action!='start':
+        parser.error('--kernel-cache-dir requires start')
     runtime=(args.runtime_handoff,args.runtime_manifest_sha256,args.runtime_packet,args.runtime_packet_sha256)
     repair_actions=('derive-runtime-repair','rebuild-runtime-repair')
     runtime_actions=('prepare-runtime','derive-runtime','rebuild-runtime',*repair_actions)
@@ -942,7 +975,7 @@ def main():
     else:dispatch(args)
 
 def dispatch(args):
-    if args.action=='start':start()
+    if args.action=='start':start(kernel_cache_dir=args.kernel_cache_dir)
     elif args.action=='prepare-runtime':
         from image_runtime_snapshot import prepare
         path,key=prepare(OUT,args.from_snapshot,args.runtime_handoff,args.runtime_manifest_sha256,

@@ -11,6 +11,7 @@ class SystemAssistantRouteTest {
   @Test fun powerKeyOpensTextOverlayInPlace() {
     // Long-press power / invocation_type 6 carries no navigation-handle trigger.
     val route = SystemAssistantEntry.routeFor(null)
+    assertTrue(route.autoScreenshot)
     assertEquals(Route.Hardware, route)
     assertEquals("text", route.mode)
     assertFalse("hardware entry is not a held gesture", route.navGesture)
@@ -23,9 +24,11 @@ class SystemAssistantRouteTest {
     assertEquals(Route.NavHold, hold)
     assertEquals("voice", hold.mode)
     assertTrue(hold.navGesture)
+    assertFalse(hold.autoScreenshot)
     val tap = SystemAssistantEntry.routeFor("nav_handle_double_tap")
     assertEquals(Route.NavDoubleTap, tap)
     assertEquals("text", tap.mode)
     assertTrue(tap.navGesture)
+    assertFalse(tap.autoScreenshot)
   }
 }

@@ -1,0 +1,170 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://taku.ai/spec/taku-island/2",
+  "title": "Taku island extras v2",
+  "description": "JSON carried in Notification extras[\"taku.island.v2\"] (UTF-8, at most 8192 bytes; duplicate keys and nesting deeper than eight levels are rejected). Images are keys into extras[\"taku.island.pics\"] (Bundle<String, Icon>; bitmap, adaptive bitmap or a resource of the posting package); actions are keys into extras[\"taku.island.actions\"] (Bundle<String, Notification.Action>, PendingIntents created by the posting app). SystemUI draws native templates; platform-signed apps may embed their own content through expanded.content. Templates do not execute HTML/scripts or load remote asset URLs. Publishing requires a platform signature or the taku_island_allowed_packages allow-list; otherwise SystemUI uses the notification's Android Live Update presentation, if any. Invalid extras are ignored the same way. Publisher identity checks (Taku Agent, platform signature) are made by SystemUI from the package manager. See docs/dynamic-island-v2-spec.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "expanded"],
+  "properties": {
+    "version": {"const": 2},
+    "compact": {
+      "description": "Compact capsule. Group A sits left of the camera cutout, group B right of it. Omit to never show a capsule (card only). SystemUI hides it while the publishing app is in the foreground.",
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "a": {"oneOf": [{"$ref": "#/$defs/iconSlot"}, {"$ref": "#/$defs/animationSlot"}, {"$ref": "#/$defs/progressSlot"}]},
+        "b": {"oneOf": [
+          {"$ref": "#/$defs/textSlot"}, {"$ref": "#/$defs/numberSlot"}, {"$ref": "#/$defs/timerSlot"},
+          {"$ref": "#/$defs/countdownSlot"}, {"$ref": "#/$defs/progressSlot"}, {"$ref": "#/$defs/iconSlot"},
+          {"$ref": "#/$defs/animationSlot"}
+        ]}
+      }
+    },
+    "expanded": {"$ref": "#/$defs/expanded"},
+    "tap": {"description": "Capsule tap: expand the card, or send the notification content intent. Long-press always expands.", "enum": ["expand", "open"], "default": "expand"},
+    "cardPosition": {"description": "Card over the camera cutout and status bar, or below them. The keyboard only limits available height; it does not change this position.", "enum": ["cover", "below"], "default": "cover"},
+    "alert": {"description": "A false-to-true change expands the card for at most five seconds and moves the activity to the front. Repeated true updates neither extend nor re-trigger it.", "type": "boolean", "default": false},
+    "timeoutS": {"description": "Island lifetime from the first post; updates cannot extend it. Without it the island leaves after 3600 s. The notification itself is untouched.", "type": "integer", "minimum": 1, "maximum": 43200},
+    "staleAfterS": {"description": "Without an update for this long the capsule is drawn muted.", "type": "integer", "minimum": 1, "maximum": 43200}
+  },
+  "$defs": {
+    "key": {"type": "string", "pattern": "^[a-z][a-z0-9_]{0,31}$"},
+    "iconSlot": {
+      "type": "object", "additionalProperties": false, "required": ["type", "pic"],
+      "properties": {
+        "type": {"const": "icon"},
+        "pic": {"$ref": "#/$defs/key"},
+        "animate": {"description": "Run the icon if it is an animated drawable resource (AnimatedVectorDrawable).", "type": "boolean", "default": false},
+        "progress": {"description": "0-1 ring around the icon.", "type": "number", "minimum": 0, "maximum": 1},
+        "tint": {"description": "Tint a monochrome icon white.", "type": "boolean", "default": false},
+        "contentDescription": {"type": "string", "maxLength": 80}
+      }
+    },
+    "animationSlot": {
+      "description": "System animation. ai-working and ai-listening are reserved for Taku Agent.",
+      "type": "object", "additionalProperties": false, "required": ["type", "name"],
+      "properties": {
+        "type": {"const": "animation"},
+        "name": {"enum": ["ai-working", "ai-listening"]},
+        "contentDescription": {"type": "string", "maxLength": 80}
+      }
+    },
+    "progressSlot": {
+      "type": "object", "additionalProperties": false, "required": ["type"],
+      "properties": {"type": {"const": "progress"}, "value": {"description": "0-1; omit for indeterminate.", "type": "number", "minimum": 0, "maximum": 1}}
+    },
+    "textSlot": {
+      "description": "Key information as a short phrase or number. Ellipsized to the available width.",
+      "type": "object", "additionalProperties": false, "required": ["type", "text"],
+      "properties": {
+        "type": {"const": "text"},
+        "text": {"type": "string", "minLength": 1, "maxLength": 16},
+        "emphasis": {"enum": ["normal", "accent", "muted"], "default": "normal"}
+      }
+    },
+    "numberSlot": {
+      "type": "object", "additionalProperties": false, "required": ["type", "value"],
+      "properties": {"type": {"const": "number"}, "value": {"type": "string", "pattern": "^[0-9]{1,3}$"}, "unit": {"type": "string", "maxLength": 4}}
+    },
+    "timerSlot": {
+      "description": "Count-up from startEpochMs, rendered by SystemUI every second.",
+      "type": "object", "additionalProperties": false, "required": ["type", "startEpochMs"],
+      "properties": {"type": {"const": "timer"}, "startEpochMs": {"type": "integer", "minimum": 0, "maximum": 9007199254740991}}
+    },
+    "countdownSlot": {
+      "description": "Count-down to endEpochMs, rendered by SystemUI every second.",
+      "type": "object", "additionalProperties": false, "required": ["type", "endEpochMs"],
+      "properties": {"type": {"const": "countdown"}, "endEpochMs": {"type": "integer", "minimum": 0, "maximum": 9007199254740991}}
+    },
+    "step": {
+      "type": "object", "additionalProperties": false, "required": ["kind", "text"],
+      "properties": {"kind": {"enum": ["search", "browse", "act", "info"]}, "text": {"type": "string", "minLength": 1, "maxLength": 120}, "running": {"type": "boolean", "default": false}}
+    },
+    "expanded": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["template", "title"],
+      "properties": {
+        "template": {"description": "assistant is reserved for Taku Agent.", "enum": ["basic", "progress", "highlight", "assistant"]},
+        "title": {"type": "string", "minLength": 1, "maxLength": 80},
+        "body": {"type": "string", "maxLength": 2000},
+        "pic": {"$ref": "#/$defs/key"},
+        "steps": {"type": "array", "maxItems": 8, "items": {"$ref": "#/$defs/step"}},
+        "progress": {"type": "object", "additionalProperties": false, "properties": {"value": {"type": "number", "minimum": 0, "maximum": 1}}},
+        "highlight": {
+          "description": "The large emphasized value of the highlight template (pickup code, gate, queue number).",
+          "type": "object", "additionalProperties": false, "required": ["text"],
+          "properties": {"text": {"type": "string", "minLength": 1, "maxLength": 12}, "label": {"type": "string", "maxLength": 40}}
+        },
+        "actions": {
+          "description": "Action keys in display order: one horizontally scrolling row. No design limit; 32 is a parsing bound.",
+          "type": "array", "maxItems": 32, "uniqueItems": true, "items": {"$ref": "#/$defs/key"}
+        },
+        "primaryAction": {"$ref": "#/$defs/key", "description": "Must name an entry in actions; drawn filled."},
+        "tapAction": {"$ref": "#/$defs/key", "description": "Action sent when the card body is tapped; defaults to the notification content intent. Need not appear in actions."},
+        "backgroundColor": {"description": "Template style: the card background as #RRGGBB, drawn at 92 % over a 24 dp blur. Light colours switch text and controls to black. Not allowed with the assistant template.", "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$"},
+        "accentColor": {"description": "#RRGGBB with WCAG contrast of at least 4.5:1 against the card: backgroundColor when set, else #121212.", "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$"},
+        "assistant": {
+          "description": "Taku Agent's native conversation card.",
+          "type": "object", "additionalProperties": false, "required": ["token", "phase", "heightDp", "suggestions"],
+          "properties": {
+            "token": {"type": "string", "minLength": 1, "maxLength": 256},
+            "phase": {"enum": ["listening", "working", "message"]},
+            "heightDp": {"type": "integer", "minimum": 96, "maximum": 340},
+            "suggestions": {"type": "array", "maxItems": 4, "uniqueItems": true, "items": {"$ref": "#/$defs/key"}}
+          }
+        },
+        "content": {
+          "description": "Rich body from the publisher's own exported, signature-protected service (SurfaceControlViewHost). Platform-signed publishers only.",
+          "type": "object", "additionalProperties": false, "required": ["service"],
+          "properties": {
+            "service": {"type": "string", "maxLength": 512, "pattern": "^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+/[A-Za-z0-9_.$]+$"},
+            "token": {"type": "string", "maxLength": 256},
+            "layout": {"enum": ["body", "card"], "default": "body"},
+            "heightDp": {"type": "integer", "minimum": 96, "maximum": 340}
+          }
+        }
+      },
+      "allOf": [
+        {"if": {"properties": {"template": {"const": "progress"}}}, "then": {"required": ["progress"]}},
+        {"if": {"properties": {"template": {"const": "highlight"}}}, "then": {"required": ["highlight"]}, "else": {"not": {"required": ["highlight"]}}},
+        {"if": {"properties": {"template": {"const": "assistant"}}}, "then": {"required": ["assistant"], "not": {"required": ["content"]}}, "else": {"not": {"required": ["assistant"]}}}
+      ]
+    }
+  },
+  "examples": [
+    {
+      "version": 2,
+      "compact": {
+        "a": {"type": "icon", "pic": "logo"},
+        "b": {"type": "text", "text": "A123", "emphasis": "accent"}
+      },
+      "expanded": {
+        "template": "highlight",
+        "title": "Order ready",
+        "highlight": {"text": "A123", "label": "Pickup code"},
+        "body": "Counter 3 - ready until 14:30",
+        "actions": ["directions", "done"],
+        "primaryAction": "done",
+        "tapAction": "open_order",
+        "accentColor": "#FF8A3D"
+      },
+      "tap": "expand",
+      "cardPosition": "below",
+      "alert": true,
+      "timeoutS": 5400
+    },
+    {
+      "version": 2,
+      "compact": {
+        "a": {"type": "icon", "pic": "mic", "tint": true},
+        "b": {"type": "timer", "startEpochMs": 1793990400000}
+      },
+      "expanded": {"template": "basic", "title": "Recording voice memo", "actions": ["stop"], "primaryAction": "stop"},
+      "tap": "open",
+      "timeoutS": 7200
+    }
+  ]
+}

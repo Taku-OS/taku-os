@@ -4,9 +4,11 @@ import {record} from '../model/session';
 import {pendingKey, retireAcceptedSubmission, unconfirmedArchivePrefix, type PendingSubmission} from './submission';
 
 export type ComposerAttachment = {id: string; name: string; mime: string; size: number};
+/** A plugin the user attached to the next message (`@` in the composer); the native draft owns it. */
+export type ComposerPlugin = {id: string; name: string};
 export type ComposerRecovery = {id: string; text: string; status: string; attachments: ComposerAttachment[]};
-export type ComposerSnapshot = {threadId: string; revision: string; text: string; attachments: ComposerAttachment[]; recovery: ComposerRecovery[]; pending?: ComposerSubmission};
-export type ComposerSubmission = PendingSubmission & {draftRevision?: string; attachmentIds?: string[]};
+export type ComposerSnapshot = {threadId: string; revision: string; text: string; attachments: ComposerAttachment[]; plugins: ComposerPlugin[]; recovery: ComposerRecovery[]; pending?: ComposerSubmission};
+export type ComposerSubmission = PendingSubmission & {draftRevision?: string; attachmentIds?: string[]; pluginIds?: string[]};
 type Edit = {text: string; baseText: string; recoveryId?: string};
 
 type ComposerParams = {
@@ -44,16 +46,19 @@ export function parseComposerSnapshot(value: unknown, threadId: string): Compose
   }) : [];
   const pending = Array.isArray(result.pendingReceipts) && result.pendingReceipts.length
     ? parsePending(result.pendingReceipts[0], threadId) : undefined;
-  return {threadId, revision: result.revision, text: result.text, attachments: parseAttachments(result.attachments), recovery, pending};
+  // A runtime from before plugin attachments reports none.
+  const plugins = Array.isArray(result.plugins) ? parsePlugins(result.plugins) : [];
+  return {threadId, revision: result.revision, text: result.text, attachments: parseAttachments(result.attachments), plugins, recovery, pending};
 }
 
 function parsePending(value: unknown, threadId: string): ComposerSubmission {
   const item = record(value);
-  const {requestId, text, revision, action, attachmentIds, expectedTurnId, panelId, expectedSourceVersion} = item;
+  const {requestId, text, revision, action, attachmentIds, pluginIds, expectedTurnId, panelId, expectedSourceVersion} = item;
   if (item.threadId !== threadId || typeof requestId !== 'string' || typeof text !== 'string' || typeof revision !== 'string' ||
       (action !== 'sendMessage' && action !== 'steer' && action !== 'continue') || !Array.isArray(attachmentIds) ||
       !attachmentIds.every(id => typeof id === 'string')) throw new AgentGatewayError('Invalid composer request');
   const pending: ComposerSubmission = {threadId, requestId, text, action, draftRevision: revision, attachmentIds};
+  if (Array.isArray(pluginIds) && pluginIds.every(id => typeof id === 'string')) pending.pluginIds = pluginIds;
   if (typeof expectedTurnId === 'string') pending.expectedTurnId = expectedTurnId;
   if (typeof panelId === 'string' && typeof expectedSourceVersion === 'number') pending.panel = {panelId, expectedSourceVersion, launchId: ''};
   return pending;
@@ -65,6 +70,14 @@ function parseAttachments(items: unknown[]): ComposerAttachment[] {
     if (typeof item.id !== 'string' || typeof item.name !== 'string' || typeof item.mime !== 'string' || typeof item.size !== 'number')
       throw new AgentGatewayError('Invalid composer attachment');
     return {id: item.id, name: item.name, mime: item.mime, size: item.size};
+  });
+}
+
+function parsePlugins(items: unknown[]): ComposerPlugin[] {
+  return items.map(value => {
+    const item = record(value);
+    if (typeof item.id !== 'string' || typeof item.name !== 'string') throw new AgentGatewayError('Invalid composer plugin');
+    return {id: item.id, name: item.name};
   });
 }
 

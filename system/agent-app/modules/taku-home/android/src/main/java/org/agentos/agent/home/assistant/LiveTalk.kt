@@ -3,10 +3,12 @@ package org.agentos.agent.home.assistant
 import android.content.Context
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.agentos.audio.AudioClient
 import org.json.JSONArray
 import org.json.JSONObject
@@ -38,6 +40,8 @@ internal data class LiveTalkSnapshot(
   val levels: List<Float> = emptyList(),
   val task: LiveTaskView? = null,
   val error: String? = null,
+  /** The `ai-setup` service whose setup page fixes [error] (`fal` for a missing fal key), else null. */
+  val setup: String? = null,
 ) {
   val open get() = lifecycle != "closed"
   val disclosure get() = when (provider.takeIf { lifecycle == "connecting" || lifecycle == "active" }) {
@@ -53,6 +57,7 @@ internal data class LiveTalkSnapshot(
     .put("input", input?.json("itemId") ?: JSONObject.NULL)
     .put("output", output?.json("responseId")?.put("source", "generated") ?: JSONObject.NULL)
     .put("levels", JSONArray(levels)).put("task", task?.json() ?: JSONObject.NULL).put("error", error ?: JSONObject.NULL)
+    .put("setup", setup ?: JSONObject.NULL)
 }
 
 internal class LiveTalk(
@@ -118,7 +123,7 @@ internal class LiveTalk(
     if (!handoff && prior != null && prior.view.open && prior.view.threadId == threadId) {
       if (prior.view.lifecycle !in setOf("disconnected", "failed")) return
       if (prior.handoff) return
-      update(prior) { it.copy(lifecycle = "connecting", provider = null, error = null) }
+      update(prior) { it.copy(lifecycle = "connecting", provider = null, error = null, setup = null) }
       return
     }
     close()
@@ -142,7 +147,7 @@ internal class LiveTalk(
   fun connect(sessionId: String) {
     val s = session?.takeIf { it.view.sessionId == sessionId && it.view.lifecycle == "connecting" && !it.handoff && it.client == null } ?: return
     val generation = s.view.generation + 1
-    update(s) { it.copy(generation = generation, error = null) }
+    update(s) { it.copy(generation = generation, error = null, setup = null) }
     s.engineSequence = 0
     lateinit var client: AudioClient
     client = AudioClient(context, object : AudioClient.Listener {
@@ -195,7 +200,7 @@ internal class LiveTalk(
     s.handoff = false
     s.handoffText = null
     update(s) { it.copy(lifecycle = "closed", capturing = false, speech = false, playback = "stopped", input = null,
-      output = null, responseId = null, levels = emptyList(), error = null) }
+      output = null, responseId = null, levels = emptyList(), error = null, setup = null) }
   }
 
   fun failHandoff(code: String) {
@@ -259,9 +264,27 @@ internal class LiveTalk(
     s.handoffText = null
     s.handoffTextId = null
     if (text != null) recoverHandoff(text)
+    val provider = s.view.provider
     update(s) { it.copy(lifecycle = if (code in CONNECTION_ERRORS) "disconnected" else "failed", error = code,
+      setup = provider?.let { accepted -> LiveTalkSetup.service(code, accepted, null) },
       capturing = false, speech = false, playback = if (it.playback == "speaking") "interrupted" else it.playback,
       input = it.input?.takeIf(LiveCaption::final), levels = emptyList()) }
+    if (provider == null && LiveTalkSetup.missingKey(code)) resolveSetup(s, code)
+  }
+
+  /**
+   * The engine refused the open request before naming a provider, so a missing key may be fal's or
+   * Gemini's: ask Taku Audio which one, and offer the fal connection card only for fal. The answer
+   * applies to this exact failure; a reconnect or close in the meantime discards it.
+   */
+  private fun resolveSetup(s: Session, code: String) {
+    val generation = s.view.generation
+    scope.launch {
+      val settings = withContext(Dispatchers.IO) { LiveTalkSetup.readAudioSettings(context) }
+      val service = LiveTalkSetup.service(code, null, settings) ?: return@launch
+      val same = session === s && s.view.open && s.view.generation == generation && s.view.error == code
+      if (same) update(s) { it.copy(setup = service) }
+    }
   }
 
   private fun send(s: Session, method: String, args: JSONObject): String? = try {

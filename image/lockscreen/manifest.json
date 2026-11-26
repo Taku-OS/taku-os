@@ -3,12 +3,12 @@
   "repository": "frameworks/base",
   "revision": "7f6de40b6429462d47ba9ba351b99943269c8067",
   "patch": "systemui-lockscreen.patch",
-  "patchSha256": "5a0b0f3f7a558b8d2b65335fa09f3f7e5e5503a583c3aa4ff874521c5dfbfe77",
+  "patchSha256": "247d0b54aba666968e6c0e334dd8305f57afea4f6f5dc3c709d0e282e86c49fa",
   "files": [
     {
       "path": "packages/SystemUI/AndroidManifest.xml",
-      "beforeSha256": "02a0c64753c9ce43022b8214083801ff74dbc44697d412bd3ff364b5666f4888",
-      "afterSha256": "b2634aaa248aa56b321833f3e85faf23e202cd4ed6e4c14a868929509f20766e",
+      "beforeSha256": "add6dfe356cd84762cb8f98ef443d2f841ac3d740b9283fa8944ad2163a220ee",
+      "afterSha256": "a04ce3b4182754e44406463f2f4fa1acbc5d0fb6e119181b55b5baf638eefce6",
       "layeredOn": "island"
     },
     {

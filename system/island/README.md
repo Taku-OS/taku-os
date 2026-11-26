@@ -60,8 +60,8 @@ and use the same `action` command as card buttons.
 Calls and alarms outrank ordinary alerts. A rising alert is bounded to five seconds; repeated
 updates cannot extend it forever. Remaining categories follow recording/cast, navigation, timer,
 assistant, media, progress, other, then relevance/time. Explicit selection survives routine ticks.
-Only an actually displayed primary island suppresses its identical ongoing chip; unrelated chips
-remain. Heads-up takes precedence: it collapses the card and hides its matching compact island,
+Every actually displayed island (the primary capsule and waiting disc) suppresses its identical
+ongoing chip; unrepresented chips remain. Heads-up takes precedence: it collapses the card and hides its matching compact island,
 without cancelling the heads-up or full-screen intent. When hidden, disabled, locked, or out of
 space, the island releases chip ownership. Multi-display and visibility transitions need final ROM
 acceptance; primary-display ownership is the supported presentation scope.
@@ -97,8 +97,11 @@ adb -s SERIAL shell am instrument -w org.agentos.island.tests/org.agentos.island
 The SystemUI startable subscribes to `NotifPipeline`. Worker extraction validates custom payloads
 and Icon/Action references; rejected custom data falls back to a promoted ongoing notification or
 leaves the ordinary notification untouched. Only resource icons from the posting package/Android
-and bitmaps up to 512×512 / 1 MiB are accepted; URI/data icons are not fetched. Custom publishing
-requires the signature `org.agentos.permission.POST_ISLAND` permission or explicit allow-list entry.
+and bitmaps up to 512×512 / 1 MiB are accepted; URI/data icons are not fetched. The store tracks
+at most 128 notifications. A new one beyond that is turned away (`capacity_limit`) and keeps its
+native heads-up: the heads-up filter suppresses a brand-new post only after `IslandStore.admit`
+reserved its slot. Custom publishing
+is automatic for apps signed with the platform certificate; other apps need an allow-list entry.
 Agent access to already-visible state and operations has no publication-permission gate.
 
 ```sh
@@ -110,7 +113,8 @@ adb shell cmd statusbar island state
 adb shell cmd statusbar island list
 adb shell cmd statusbar island get 'NOTIFICATION_KEY'
 adb shell cmd statusbar island select 'NOTIFICATION_KEY'
-adb shell cmd statusbar island choose
+adb shell cmd statusbar island next
+adb shell cmd statusbar island tap 'NOTIFICATION_KEY'
 adb shell cmd statusbar island expand 'NOTIFICATION_KEY'
 adb shell cmd statusbar island collapse
 adb shell cmd statusbar island dismiss 'NOTIFICATION_KEY'
@@ -122,7 +126,21 @@ adb shell cmd statusbar island setEnabled 1
 adb shell cmd statusbar island setAllowed org.example.app,org.example.other
 ```
 
+Protocol: `taku.island.v2`, the only custom protocol ([schema](../../spec/taku-island-v2.schema.json),
+[developer guide](../../docs/dynamic-island-developer.md)). Host tests (`test.sh`) cover the store,
+access policy, payload validator (via a test-only `android.util.JsonReader` shim), capsule
+geometry and system-source classification.
+
 Provider queries return one `json` column; provider calls return a Bundle containing `json`.
+Callers are authorized first (`IslandAccessPolicy`). UID 0/1000/2000, SystemUI and platform-signed
+packages have full access. Third-party apps get only `capabilities` and `canShowIsland` for their own
+package, or, with an App Permission Center `taku.control` grant, read/operate access to the
+activities their own UID published. The provider passes that UID to the engine as the call's scope:
+reads are filtered to it, a targeted operation (`get`, `select`, `expand`, `tap`, `dismiss`, `hide`,
+`open`, `action` including a `RemoteInput` reply) on another app's key returns `not_found`, and the
+returned state is cut the same way. `collapse` folds the expanded card only when that UID published
+it (`IslandPresentation.expandedKey`), and is refused otherwise, including when no card is open.
+`next` and settings writes are never available to them. Refusals return `permission_denied`.
 Every cmd operation is also a provider `call` of the same name: `arg` is the first argument and
 Bundle string `value` is the optional second argument (e.g. action JSON). `get` includes the payload,
 revision, monotonic first-seen/expiry, staleness, dismissal and fallback reason. `dismiss` hides the
