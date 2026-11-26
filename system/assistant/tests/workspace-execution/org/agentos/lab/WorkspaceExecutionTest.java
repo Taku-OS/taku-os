@@ -197,9 +197,50 @@ public final class WorkspaceExecutionTest {
         check(required.length()==2&&schema.getJSONObject("properties").has("packages")&&schema.getJSONObject("properties").has("taskTitle")
                 &&!schema.getBoolean("additionalProperties"),"description change preserves the existing request input contract");
     }
+    static void openFigmaLinkContract() throws Exception {
+        JSONArray tools = PhoneNativeTools.definitions().getJSONObject(0).getJSONArray("tools");
+        JSONObject openApp = null;
+        for (int i = 0; i < tools.length(); i++) {
+            JSONObject tool = tools.getJSONObject(i);
+            if ("open_app".equals(tool.getString("name"))) openApp = tool;
+        }
+        check(openApp != null, "open_app is registered");
+        JSONObject schema = openApp.getJSONObject("inputSchema");
+        JSONArray required = schema.getJSONArray("required");
+        check(required.length() == 1 && "packageName".equals(required.getString(0))
+                && schema.getJSONObject("properties").getJSONObject("url").getString("type").equals("string")
+                && !schema.getBoolean("additionalProperties"), "the URL is optional and callers cannot supply a display");
+
+        String chrome = "com.android.chrome";
+        String url = "https://www.figma.com/design/example/First-visit?node-id=1%3A2&test=fresh#selection";
+        check(java.util.Arrays.equals(PhoneNativeTools.figmaLaunchCommand(chrome, 10, 32, url),
+                new String[]{"/system/bin/am", "start", "--user", "10", "--display", "32", "-f", "0x18000000",
+                        "-a", "android.intent.action.VIEW", "-d", url, "-p", chrome}),
+                "Chrome receives the exact link in one argument on the leased user and display");
+        check(PhoneNativeTools.figmaLaunchCommand(chrome, 0, 2, "https://figma.com/design/example")[11]
+                .equals("https://figma.com/design/example"), "Figma links without www also work");
+        rejectFigmaLink(chrome, 0, url, "FIGMA_URL_REQUIRES_BACKGROUND_CHROME");
+        rejectFigmaLink("com.example.browser", 32, url, "FIGMA_URL_REQUIRES_BACKGROUND_CHROME");
+        for (Object invalid : new Object[]{JSONObject.NULL, "", "https://www.figma.com/bad path",
+                "http://www.figma.com/design/example", "https://www.figma.com.example.org/design/example",
+                "https://anything@www.figma.com/design/example", "https://www.figma.com:444/design/example",
+                "https://www.figma.com/" + "x".repeat(4096)}) {
+            rejectFigmaLink(chrome, 32, invalid, "INVALID_FIGMA_URL");
+        }
+    }
+
+    static void rejectFigmaLink(String pkg, int displayId, Object url, String code) throws Exception {
+        try {
+            PhoneNativeTools.figmaLaunchCommand(pkg, 10, displayId, url);
+            throw new AssertionError("invalid Figma launch was accepted");
+        } catch (java.io.IOException rejected) {
+            check(code.equals(rejected.getMessage()), "correct Figma launch rejection: " + rejected.getMessage());
+        }
+    }
+
     public static void main(String[] args)throws Exception {
         duplicatesAndConcurrency();textIdentityAndSteer();utf8ReceiptRecovery();definiteFailures();uncertaintyAndRestart();lateAcknowledgement();imageEvidence();invalidRequests();
-        deliveryTargetIdentity();requestAppsContract();
+        deliveryTargetIdentity();requestAppsContract();openFigmaLinkContract();
         System.out.println("WorkspaceExecutionTest: "+checks+" checks passed (host only; no device/model/business acceptance)");
     }
 }

@@ -335,6 +335,32 @@ taku_call "$D" reply/read '{"threadId":"THREAD_UUID","turnId":"TURN_ID","replyId
 
 Expo `/workspaces` and the retained native viewer use the same broker. Access follows the app permission policy and requires the unlocked owner. Other users get `USER_UNAVAILABLE`; locked owner gets `USER_LOCKED`. Discover leases and accepted policy ranges before making changes.
 
+### Edit a Figma Design file on the phone
+
+When the user asks to edit a linked Figma Design file on the phone or follow the
+changes in Figma Mirror, use the phone's background Chrome first. For the Figma
+editing step, reserve only `com.android.chrome` with `taku_phone.request_apps`.
+Open the exact link with
+`taku_phone.open_app({"packageName":"com.android.chrome","url":"https://www.figma.com/design/FILE_KEY"})`.
+Use this entry for newly shared links and links already opened before. Use
+`taku_phone.observe_background({})` to verify that the exact file and its desktop
+editor loaded. A `dispatched:true` receipt has `pageVerified:false`.
+
+Chrome needs the desktop site and a Figma account that can edit the file. Use
+the same Figma account in Chrome and the official app for Mirror. If sign-in is
+required, let the user sign in through Chrome. Use the visible editor controls
+and check the document after edits. Leave the official Figma App
+available in the foreground for the user. To start its live preview, select the
+frame in Chrome and have the user tap **Begin mirroring** in the official app
+when it appears. Keep the target frame selected while making changes for the
+user to watch. Use the editor to verify any prototype link before delivering it.
+
+`url` is optional. Its maximum length is 4,096 characters and it accepts HTTPS
+links on `figma.com` and `www.figma.com`. `INVALID_FIGMA_URL` means the link
+failed validation. `FIGMA_URL_REQUIRES_BACKGROUND_CHROME` requires a Chrome
+background screen. `FIGMA_URL_DISPATCH_FAILED` means Android could not dispatch
+the link. Chrome still goes through the task's existing App and screen permissions.
+
 ### Read and configure
 
 ```sh
