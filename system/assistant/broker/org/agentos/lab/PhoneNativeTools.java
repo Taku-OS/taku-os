@@ -34,8 +34,10 @@ final class PhoneNativeTools {
     "Get the Apps a step needs before touching the phone: every App the step keeps open at once (e.g. X and the Y"
       + " you share into). You get all or none; if another thread holds one, the call queues until you hold them all."
       + " Between steps, release_apps what you are done with, then request the next. Your turn's end normally"
-      + " releases your screen and Apps. If the user has taken over or paused your screen, both remain reserved"
-      + " for your session even after the turn ends; resumed work or explicit screen/session cleanup releases them."
+      + " releases your screen and Apps. A successful Return & continue turn, or opening an App without later"
+      + " screen actions, keeps the live workspace available for preview and takeover. Observation is read-only."
+      + " Failed or interrupted turns still clean up. User takeover and pause retain the session's workspace;"
+      + " explicit release, workspace close, and policy changes still apply."
       + " taskTitle: one short sentence in the user's language on what this screen is doing; shown to"
       + " the user.",
     new JSONObject().put("packages", packages).put("taskTitle", string(80))));
@@ -48,7 +50,7 @@ final class PhoneNativeTools {
       + " request takes such a screen when none is idle and the limit is reached.",
     new JSONObject()));
   tools.put(tool("observe_background","Observe this thread's assigned Android execution screen. Returns its real screenshot and screen/frame identity.",new JSONObject()));
-  tools.put(tool("open_app","Open an App you hold from request_apps.",new JSONObject().put("packageName",new JSONObject().put("type","string"))));
+  tools.put(tool("open_app","Open an App you hold from request_apps on this exact background screen. A successful turn that leaves the App open without later screen actions keeps it available for preview or takeover; observe_background does not change this. release_apps closes Apps you no longer need.",new JSONObject().put("packageName",new JSONObject().put("type","string"))));
   tools.put(tool("tap","Tap coordinates on the independent execution screen.",new JSONObject().put("x",new JSONObject().put("type","integer")).put("y",new JSONObject().put("type","integer"))));
   tools.put(tool("swipe","Perform one continuous drag or scroll on the independent screen, then release. Observe the actual result before another action.",new JSONObject()
     .put("fromX",coordinate(720)).put("fromY",coordinate(1280)).put("toX",coordinate(720)).put("toY",coordinate(1280))
@@ -96,7 +98,7 @@ final class PhoneNativeTools {
     name.equals("open_app") ? DedicatedScreens.Use.OPEN
     : name.equals("observe_background") || name.equals("device_info") ? DedicatedScreens.Use.LOOK
     : DedicatedScreens.Use.ACT;
-  return DedicatedScreensOnDevice.shared().withScreen(thread, use, args.optString("packageName"),
+  return DedicatedScreensOnDevice.shared().withScreen(thread, p.optString("turnId"), use, args.optString("packageName"),
     screen -> executeScreen(p, arguments, toolName, screen));
  }
  static java.util.List<String> packages(JSONObject args) throws Exception {
@@ -132,7 +134,9 @@ final class PhoneNativeTools {
     boolean here=false;for(PhoneTasks.Task t:PhoneTasks.DEVICE.list())if(t.displayId()==screen.displayId&&t.packageName().equals(pkg))here=true;
     java.util.List<String> am=new java.util.ArrayList<>(java.util.List.of("/system/bin/am","start","--user",Integer.toString(app.getInt("userId")),"--display",display));
     if(!here)am.add("--activity-multiple-task");am.add("-n");am.add(component);
-    return text(TaskBroker.command(am.toArray(new String[0])));};
+    String launched=TaskBroker.command(am.toArray(new String[0]));
+    if(launched.contains("Error:")||launched.contains("Error type "))throw new IOException(launched);
+    return text(launched);};
     return start.run(screen);
    case "tap":
     // On a dead screen Android drops the tap and input still reports success: ask the screen process first.

@@ -307,6 +307,7 @@ class AgentGatewayProvider : ContentProvider() {
                 val intent = Intent(context!!, MirrorActivity::class.java).addFlags(
                     Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
                 for (key in arrayOf("threadId", "screenKey", "generation")) intent.putExtra(key, lease.getString(key))
+                intent.putExtra("allocationId", lease.optString("allocationId").ifEmpty { null })
                 if (fromHome) {
                     intent.putExtra(AgentFrontendLauncher.RETURN_WORKSPACE_HOME, true)
                 }

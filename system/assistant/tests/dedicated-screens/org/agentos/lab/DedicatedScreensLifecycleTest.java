@@ -335,10 +335,205 @@ public final class DedicatedScreensLifecycleTest {
         check(failed.screens.list(session(1)).isEmpty() && failed.holder("com.clock").isEmpty(), "retry confirmation removes fault and releases resources");
     }
 
+    static void nativeStart(Rig rig, String turn) throws Exception {
+        check(rig.screens.turnStarted(session(1), null), "ordinary native turn is admitted");
+        rig.screens.nativeTurnStarted(session(1), turn);
+    }
+
+    static void openApp(Rig rig, String turn, String pkg) throws Exception {
+        rig.screens.withScreen(session(1), turn, DedicatedScreens.Use.OPEN, pkg, screen -> {
+            rig.tasks.open(pkg, screen.displayId);
+            return new JSONObject();
+        });
+    }
+
+    static void returnTurn(Rig rig, String turn, boolean subAgent) throws Exception {
+        String[] key = lease(rig, 1);
+        rig.screens.beginReturn(session(1), key[0], key[1]);
+        rig.screens.finishControl(session(1), key[0], key[1], "agent");
+        if (subAgent) rig.screens.resumeGranted(session(1), key[0], key[1]);
+        check(rig.screens.turnStarted(session(1), subAgent ? null : rig.screens.admission(session(1))),
+                "the handback's native admission is accepted");
+        rig.screens.nativeTurnStarted(session(1), turn);
+    }
+
+    static void ready(Rig rig, JSONObject allocation) throws Exception {
+        JSONObject row = rig.screens.list(session(1)).getJSONObject(0);
+        check(row.getString("screenKey").equals(allocation.getString("screenKey"))
+                        && row.getString("generation").equals(allocation.getString("generation"))
+                        && row.getInt("displayId") == allocation.getInt("displayId")
+                        && row.getBoolean("admitted") && row.getBoolean("homePreviewEligible")
+                        && row.getString("status").equals("ready") && !row.getBoolean("stopping"),
+                "completed workspace stays on Home with its exact live binding and ready status");
+        check(!rig.tasks.list().isEmpty() && holder(rig, "com.game").equals("001"),
+                "retention keeps the Android task and its App reservation");
+    }
+
+    static void completionRetention() throws Exception {
+        Rig opened = new Rig();
+        nativeStart(opened, "open-only");
+        JSONObject allocation = opened.request(1, "reopen game", "com.game");
+        openApp(opened, "open-only", "com.game");
+        opened.screens.withScreen(session(1), DedicatedScreens.Use.LOOK, null, screen -> new JSONObject());
+        check(opened.screens.turnEnded(session(1), "open-only", true) == null,
+                "open plus observe retains the workspace on successful completion");
+        ready(opened, allocation);
+        check(opened.screens.turnEnded(session(1), "open-only", true) == null,
+                "duplicate native completion does not start cleanup");
+        ready(opened, allocation);
+        nativeStart(opened, "ordinary-next");
+        check(opened.screens.list(session(1)).getJSONObject(0).getString("status").equals("running"),
+                "the next native turn leaves ready status");
+        opened.screens.withScreen(session(1), DedicatedScreens.Use.LOOK, null, screen -> new JSONObject());
+        join(opened.screens.turnEnded(session(1), "ordinary-next", true));
+        check(opened.screens.list().isEmpty() && opened.tasks.list().isEmpty(),
+                "open-only retention does not leak to the next ordinary turn");
+
+        for (String ending : List.of("mutation", "failed-mutation", "release", "failure")) {
+            Rig rig = new Rig();
+            nativeStart(rig, ending);
+            rig.request(1, "open then " + ending, "com.game", "com.other");
+            openApp(rig, ending, "com.game");
+            if (ending.equals("mutation") || ending.equals("failed-mutation")) {
+                try {
+                    rig.screens.withScreen(session(1), DedicatedScreens.Use.ACT, null, screen -> {
+                        if (ending.equals("failed-mutation")) throw new IOException("uncertain input");
+                        return new JSONObject();
+                    });
+                } catch (IOException error) {
+                    check(error.getMessage().equals("uncertain input"), "failed mutation reaches its caller");
+                }
+            } else if (ending.equals("release")) {
+                rig.screens.release(session(1), List.of("com.other"));
+            }
+            join(rig.screens.turnEnded(session(1), ending, !ending.equals("failure")));
+            check(rig.screens.list().isEmpty() && rig.tasks.list().isEmpty(),
+                    ending + " preserves ordinary turn cleanup");
+        }
+
+        Rig misdirected = new Rig();
+        nativeStart(misdirected, "misdirected");
+        misdirected.request(1, "open fails", "com.game");
+        rejects("APP_NOT_OPENED_ON_SCREEN", () -> misdirected.screens.withScreen(session(1), "misdirected",
+                DedicatedScreens.Use.OPEN, "com.game", screen -> {
+                    misdirected.tasks.open("com.game", 99);
+                    return new JSONObject();
+                }));
+        join(misdirected.screens.turnEnded(session(1), "misdirected", true));
+        check(misdirected.screens.list().isEmpty() && misdirected.tasks.list().get(0).displayId() == 99,
+                "an App on another display neither arms retention nor gets removed");
+
+        Rig stale = new Rig();
+        nativeStart(stale, "old");
+        stale.request(1, "old task", "com.game");
+        openApp(stale, "old", "com.game");
+        nativeStart(stale, "new");
+        check(stale.screens.turnEnded(session(1), "old", true) == null,
+                "old completion cannot release the new turn's allocation");
+        stale.screens.withScreen(session(1), "old", DedicatedScreens.Use.OPEN, "com.game", screen -> {
+            return new JSONObject();
+        });
+        join(stale.screens.turnEnded(session(1), "new", true));
+        check(stale.screens.list().isEmpty(), "a late open result cannot arm the new native turn");
+
+        Rig policy = new Rig();
+        nativeStart(policy, "policy-turn");
+        policy.request(1, "open before revocation", "com.game", "com.other");
+        openApp(policy, "policy-turn", "com.game");
+        try {
+            List<DedicatedScreens.RevokedScreen> revoked = policy.screens.configurePolicy(
+                    new JSONObject().put("blockedPackages", new JSONArray().put("com.other")));
+            policy.screens.releaseRevoked(revoked.get(0), screen -> new JSONObject());
+            join(policy.screens.turnEnded(session(1), "policy-turn", true));
+            check(policy.screens.list().isEmpty() && policy.tasks.list().isEmpty(),
+                    "policy revocation disarms open-only retention before successful completion");
+        } finally {
+            resetPolicy();
+        }
+
+        Rig reused = new Rig();
+        nativeStart(reused, "retained");
+        JSONObject original = reused.request(1, "first allocation", "com.game");
+        openApp(reused, "retained", "com.game");
+        reused.screens.turnEnded(session(1), "retained", true);
+        JSONObject oldRow = reused.screens.list(session(1)).getJSONObject(0);
+        reused.screens.release(session(1), List.of("com.game"));
+        check(reused.screens.list(session(1)).getJSONObject(0).getString("status").equals("ready"),
+                "release after completion does not claim the native turn is still running");
+        nativeStart(reused, "cleanup-empty");
+        join(reused.screens.turnEnded(session(1), "cleanup-empty", true));
+        nativeStart(reused, "reallocated");
+        JSONObject next = reused.request(1, "new allocation", "com.game");
+        JSONObject nextRow = reused.screens.list(session(1)).getJSONObject(0);
+        check(next.getString("screenKey").equals(original.getString("screenKey"))
+                        && nextRow.getString("generation").equals(oldRow.getString("generation")),
+                "fixture reuses the physical display for a new allocation");
+        check(!nextRow.getString("allocationId").equals(oldRow.getString("allocationId")),
+                "a viewer can distinguish the replacement from the released allocation");
+        reused.tasks.open("com.game", next.getInt("displayId"));
+        check(reused.screens.turnEnded(session(1), "retained", true) == null,
+                "old completion cannot affect a reused display");
+        join(reused.screens.turnEnded(session(1), "reallocated", true));
+        check(reused.screens.list().isEmpty() && reused.tasks.list().isEmpty(),
+                "retention disposition never carries into a replacement allocation");
+
+        Rig stopping = new Rig();
+        nativeStart(stopping, "original");
+        JSONObject beforeReturn = stopping.request(1, "return while stopping", "com.game");
+        stopping.tasks.open("com.game", beforeReturn.getInt("displayId"));
+        control(stopping, 1, "user");
+        String[] returning = lease(stopping, 1);
+        stopping.screens.beginReturn(session(1), returning[0], returning[1]);
+        check(stopping.screens.turnEnded(session(1), "original", false) == null,
+                "the interrupted original turn cannot consume a pending handback");
+        stopping.screens.finishControl(session(1), returning[0], returning[1], "agent");
+        check(stopping.screens.turnStarted(session(1), stopping.screens.admission(session(1))),
+                "handback remains admitted after the original turn stops");
+        stopping.screens.nativeTurnStarted(session(1), "after-stop");
+        check(stopping.screens.turnEnded(session(1), "after-stop", true) == null,
+                "the successful handback retains the allocation after that interruption");
+        ready(stopping, beforeReturn);
+
+        for (boolean subAgent : new boolean[]{false, true}) {
+            Rig rig = new Rig();
+            allocation = rig.request(1, "completed original task", "com.game");
+            rig.tasks.open("com.game", allocation.getInt("displayId"));
+            control(rig, 1, "user");
+            returnTurn(rig, "return-one", subAgent);
+            control(rig, 1, "user");
+            check(rig.screens.turnEnded(session(1), "return-one", false) == null,
+                    "taking over an interrupted handback keeps the user's screen");
+            returnTurn(rig, "return-two", subAgent);
+            check(rig.screens.turnEnded(session(1), "return-one", true) == null,
+                    "a late first handback completion cannot end the second");
+            rig.screens.withScreen(session(1), DedicatedScreens.Use.LOOK, null, screen -> new JSONObject());
+            rig.screens.withScreen(session(1), DedicatedScreens.Use.ACT, null, screen -> new JSONObject());
+            check(rig.screens.turnEnded(session(1), "return-two", true) == null,
+                    "a successful explicit handback retains its live allocation");
+            ready(rig, allocation);
+            control(rig, 1, "user");
+            returnTurn(rig, "return-failed", subAgent);
+            join(rig.screens.turnEnded(session(1), "return-failed", false));
+            check(rig.screens.list().isEmpty() && rig.tasks.list().isEmpty(),
+                    "failed handback still releases an agent-owned workspace");
+        }
+
+        Rig explicit = new Rig();
+        nativeStart(explicit, "open-close");
+        allocation = explicit.request(1, "open and close", "com.game");
+        openApp(explicit, "open-close", "com.game");
+        explicit.screens.turnEnded(session(1), "open-close", true);
+        explicit.screens.beginClose(session(1), allocation.getString("screenKey"), allocation.getString("generation"));
+        explicit.screens.close(session(1), allocation.getString("screenKey"), allocation.getString("generation"), null);
+        check(explicit.screens.list().isEmpty() && explicit.tasks.list().isEmpty(),
+                "explicit close removes a retained workspace and its task");
+    }
+
     public static void main(String[] args) throws Exception {
         resetPolicy();
         if (args.length == 0 || args[0].equals("spec3")) spec3();
         if (args.length == 0 || args[0].equals("spec5")) spec5();
+        if (args.length == 0 || args[0].equals("completion")) completionRetention();
         System.out.println("DedicatedScreensLifecycleTest: " + checks + " checks passed");
     }
 }

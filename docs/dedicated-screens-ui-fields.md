@@ -16,9 +16,9 @@ Design dated 2026-11-05, **partially implemented** (see updates below). Branch `
 | 11-10 | Ticket 11 removes the old ledger/explicit binding: `executionScreen` operations (`bind`, old `list`, `release`, `releaseStale`) are deleted; `workspaces` and `state.executionScreen` share the dedicated-screen ledger |
 | 11-12 | Spec 5: turn cleanup attempts task removal at most twice, then waits for confirmed screen closure; if closure also fails, retain `cleanup_failed` in the list and automatically retry closure every 30 seconds |
 
-Implemented fields/states: `mainThreadId`, `taskTitle`, `packageName`; `status` values `running`, `waiting_for_app`, `waiting_for_user`, `user_control`, `paused`, `stopping`; `waitReason` values `WAITING_FOR_APP`, `WAITING_FOR_USER`; `controlOwner`, `controlRevision`, `canResume`, `limits`. If broker cannot query Codex, `mainThreadId` initially falls back to this screen's `threadId`.
+Implemented fields include `mainThreadId`, `taskTitle`, `packageName`, `status`, `waitReason`, `controlOwner`, `controlRevision`, `canResume`, and `limits`. The status table below lists all current values. If the broker cannot query Codex, `mainThreadId` initially falls back to the screen's `threadId`.
 
-Each conversation needing the phone—main, subagent, Jev background, or gateway—gets its own background screen. A completed turn returns it for reuse. The Feed presents tasks, one screen/card per main conversation or subagent, showing task name, current app, state, waiting/error reason, and entry to its screen. Idle screens are hidden.
+Each conversation that needs the phone gets its own background screen. Ordinary turn completion returns that screen for reuse. A successful **Return & continue** turn or a turn that successfully opens an app and leaves it available can retain its workspace in `ready`. A read-only observation does not change this outcome. The Feed shows occupied screens, with one card per main conversation or subagent. Idle screens are hidden.
 
 ## Interface
 
@@ -52,6 +52,7 @@ Ticket 11 device regression: `python3 system/assistant/tests/dedicated-screens/e
 | `status` | Existing, changed values | Conversation state on this screen, below | Task state |
 | `waitReason` | New | Waiting reason or `null`; `code` is machine-readable, `text` is a displayable localized short sentence (Chinese system → Chinese, otherwise English) | Waiting/error reason |
 | `threadId`, `screenKey`, `generation` | Existing | Occupying conversation plus screen identity/generation; all three required to open/take over/return the screen (`WorkspaceUi.preview`, `WorkspaceUi.detail`) | Background-screen entry |
+| `allocationId` | New | Identifies one allocation of the display. The ID changes when the broker assigns the same display again | Detect replacement of an open preview |
 | `controlOwner`, `controlRevision` | Existing | Owner (`agent` / `user` / `paused`) and control version, used by takeover/tap as before | Takeover |
 | `canResume` | Existing | Whether Return is available: user-owned or paused and not transitioning into takeover/pause | Return button |
 
@@ -61,6 +62,7 @@ Other existing fields remain returned but new UI need not depend on them. `label
 
 | Value | Meaning |
 | --- | --- |
+| `ready` | The turn completed and the live workspace is available to preview or take over |
 | `running` | Working |
 | `waiting_for_app` | Queued for an app (new) |
 | `waiting_for_user` | Waiting for card interaction: answer, confirmation, or dismissing an app occupied by the user |

@@ -199,6 +199,7 @@ private fun WorkspacePreviewCard(status: String, frame: Bitmap?, enabled: Boolea
   val shape = RoundedCornerShape(TakuRadius.md)
   val label = when (status) {
     "running" -> R.string.home_workspace_running
+    "ready", "idle" -> R.string.home_workspace_ready
     "waiting_for_app", "waiting_for_user" -> R.string.home_workspace_waiting
     "paused" -> R.string.home_workspace_paused
     "user_control" -> R.string.home_workspace_user_control

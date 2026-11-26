@@ -109,6 +109,14 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
     public PhoneExecutionScreens.Admission admission(String thread)throws Exception {if(!allowed)throw new IOException("SCREEN_AGENT_PAUSED");return new PhoneExecutionScreens.Admission(revision);}
     public boolean admissionCurrent(PhoneExecutionScreens.Admission grant){return allowed&&grant!=null&&grant.revision==revision;}
     public boolean turnStarted(String thread,PhoneExecutionScreens.Admission grant){if(grant!=null?!admissionCurrent(grant):!allowed||resumeRequired)return false;resumeRequired=false;return true;}
+    final java.util.Map<String,String> nativeTurns = new java.util.HashMap<>();
+    final java.util.List<String> nativeCompletions = new java.util.ArrayList<>();
+    void nativeTurnStarted(String thread,String turn) { nativeTurns.put(thread,turn); }
+    Thread turnEnded(String thread,String turn,boolean successful) {
+        nativeCompletions.add(thread+" "+turn+" "+successful);
+        nativeTurns.remove(thread,turn);
+        return turnEnded(thread);
+    }
     public JSONObject describe(String thread) {return new JSONObject().put("bound",false);}
 
     final java.util.List<String> turnsEnded = new java.util.concurrent.CopyOnWriteArrayList<>();

@@ -104,4 +104,16 @@
  <string name="workspace_background_off_copy">New background tasks are off. Existing workspaces stay open.</string>
  <string name="workspace_cleanup_failed">Cleanup incomplete</string>
  <string name="workspace_cleanup_retry">This workspace could not be cleaned up or confirmed closed. Its screen and Apps stay reserved. The system retries closing it every 30 seconds; it disappears once closure is confirmed.</string>
+ <string name="bscreen_title" translatable="false">Taku BScreen</string>
+ <string name="bscreen_not_installed">Not currently installed</string>
+ <string name="bscreen_user_unavailable">Workspaces are available only in the unlocked primary Android user.</string>
+ <string name="bscreen_thread_unavailable">The original conversation is no longer available.</string>
+ <string name="bscreen_frontend_unavailable">The Assistant app could not be opened.</string>
+ <string name="bscreen_closed">Workspace closed.</string>
+ <string name="bscreen_return_failed">The workspace closed, but its original conversation could not be opened.</string>
+ <string name="bscreen_access_changes">APP ACCESS CHANGES</string>
+ <string name="bscreen_access_pending">Cleanup in progress</string>
+ <string name="bscreen_access_released">App access released</string>
+ <string name="bscreen_access_retained">You still control this screen</string>
+ <string name="bscreen_access_superseded">Workspace changed</string>
 </resources>

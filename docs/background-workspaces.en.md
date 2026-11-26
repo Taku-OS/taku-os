@@ -4,11 +4,13 @@
 
 > This page preserves the historical v73 behavior. The dedicated-screen branch has removed `executionScreen.bind` and `returnControl`; use `request_apps` / `release_apps`, `workspaces`, and `returnAndResume`. See the [current dedicated-screen contract](dedicated-screens-ui-fields.md).
 
-Before choosing apps for a task, the agent checks which apps are actually available on this phone. Users can open **Settings → Taku AI → Background workspaces** to view screens, pause the agent, take control, and return control. Assistant settings provides the same entry.
+Before choosing apps for a task, the agent checks which apps are available on the phone. Open **Taku BScreen** from the Android launcher or open **Settings → Taku AI → Background workspaces** to manage workspaces.
 
 These features answer “Which app can I use?” and “Who controls this screen?” Discovery does not split tasks automatically. A workspace is not another account or a separate Android system. Parent-task orchestration and cross-app result aggregation remain separate work; see the [multi-screen case and its limits](multi-screen-parallel-case-2026-10-26.md).
 
 ## Assistant management migration
+
+**Taku BScreen** opens the native Kotlin list and preferences. Both entry points read and update the same broker policy. They offer the same background-work switch, limit, and app access settings.
 
 The Assistant migration opens workspace management at the Expo `/workspaces`
 route. Optional `threadId`, `screenKey`, and `generation` query parameters
@@ -42,6 +44,7 @@ Viewing does not take control. Public callers can use the matching `pause`,
 `executionStatus` methods under `workspaces/`. Input still requires the exact
 lease, the latest control revision, confirmed user ownership, and stopped
 execution. No mirroring or input implementation is replaced.
+When a workspace is released, the viewer shows a red disconnected status and a visible exit. You can still open its activity history. If a successful turn leaves an opened app available or completes after **Return & continue**, the app stays available in its workspace. Tap the Home bookmark to open the preview cards.
 
 `workspaces/open` opens the lease's original conversation after checking the
 current lease and native thread. `workspaces/release` accepts optional
@@ -79,7 +82,7 @@ The actual rednote live view showed an account logout notice after another devic
 
 The **Task** field currently uses the label saved when the screen was bound. It identifies the associated task; **it is not a live business-step description or proof of completion**. The UI does not infer claims such as “Checking the route” from an app name alone.
 
-Preferences control new background allocations, set a limit of 1–3 workspaces, and select apps the agent may use. Disabling background work or lowering the limit preserves existing screens. Revoking app access blocks subsequent managed operations and attempts to stop the app’s existing branch; check the state and operation receipt to confirm the stop. Reaching the limit does not imply an automatic queue has been implemented.
+Preferences control new background allocations, set a limit of 1–10 workspaces, and select apps the agent may use. Disabling background work or lowering the limit preserves existing screens. Revoking access blocks subsequent managed operations. Check the revocation receipt for the result of app cleanup.
 
 The scrollable interface follows the system language, supporting English and Chinese, and the system light/dark theme. Workspaces share existing app accounts and data. The same app package cannot be allocated to two background branches at once.
 

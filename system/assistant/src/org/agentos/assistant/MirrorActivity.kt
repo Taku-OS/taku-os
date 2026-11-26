@@ -40,6 +40,13 @@ import org.json.JSONObject
 
 /** Read-only by default. Managed input is mediated by the broker's exact screen lease. */
 class MirrorActivity : Activity() {
+    private enum class Connection { CONNECTING, WAITING_FOR_FRAME, CONNECTED, INTERRUPTED, LEASE_GONE }
+    private class LeaseGone : IOException()
+
+    private companion object {
+        const val OWNER_FRESHNESS_MS = 3000L
+    }
+
     private lateinit var workspace: WorkspaceUi
     private val main = Handler(Looper.getMainLooper())
     private val commands = Executors.newSingleThreadExecutor()
@@ -52,6 +59,7 @@ class MirrorActivity : Activity() {
     private lateinit var appIcon: ImageView
     private lateinit var edit: ImageButton
     private lateinit var minimize: ImageButton
+    private lateinit var exitPreview: Button
     private lateinit var backInApp: ImageButton
     private lateinit var activityToggle: ImageButton
     private lateinit var statusDot: View
@@ -65,18 +73,20 @@ class MirrorActivity : Activity() {
     private var activityOpen = false
     private var activityLoading = false
     private var editingRequirement = false
+    private var minimizePending = false
     private var resumeUnknown = false
     private var resumeFailed = false
     private var currentScreen: JSONObject? = null
     private var currentPackage = ""
     private val activityPoll = Runnable { loadActivity() }
     private val expireResumeNotice = Runnable { showNote("") }
+    private val expireStopLease = Runnable { controls() }
     private var activitySignature = ""
     private var expansion: ConversationExpansion? = null
     @Volatile private var resumed = false
     @Volatile private var userControl = false
-    @Volatile private var connected = false
-    @Volatile private var inputPending = false
+    @Volatile private var connection = Connection.CONNECTING
+    private var inputPending = false
     @Volatile private var frames: LocalSocket? = null
     @Volatile private var watchGeneration = 0
     @Volatile private var ownerCheckedAt = 0L
@@ -84,6 +94,7 @@ class MirrorActivity : Activity() {
     @Volatile private var controlRevision = -1L
     private var lastObservedControlRevision = -1L
     private var lease: JSONObject? = null
+    @Volatile private var allocationId: String? = null
     private var admittedThread: String? = null
     private var returnedToConversation = false
     private var suppressWorkspaceReturn = false
@@ -114,18 +125,31 @@ class MirrorActivity : Activity() {
             finish()
             return
         }
+        allocationId = savedInstanceState?.getString("allocationId") ?: intent.getStringExtra("allocationId")
+        if (savedInstanceState?.getBoolean("admittedPreview") == true) admittedThread = lease?.getString("threadId")
+        if (savedInstanceState?.getBoolean("releasedPreview") == true) transitionConnection(Connection.LEASE_GONE)
         buildLayout()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putBoolean("admittedPreview", admittedThread != null)
+        outState.putBoolean("releasedPreview", connection == Connection.LEASE_GONE)
+        outState.putString("allocationId", allocationId)
+        super.onSaveInstanceState(outState)
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         try {
             val next = readLease(intent)
+            minimizePending = false
             WorkspaceFloatService.hide(this)
-            if (WorkspaceUi.same(lease, next)) {
+            val nextAllocation = intent.getStringExtra("allocationId")
+            if (WorkspaceUi.same(lease, next) && allocationId == nextAllocation && connection != Connection.LEASE_GONE) {
                 setIntent(intent)
                 minimize.contentDescription = getString(exitLabel())
-                requirement?.start()
+                if (connection == Connection.CONNECTED) requirement?.start()
+                controls()
             } else {
                 // Readers and input gates stay bound to one lease for the Activity's lifetime.
                 val fresh = Intent(this, MirrorActivity::class.java)
@@ -165,23 +189,17 @@ class MirrorActivity : Activity() {
 
     private fun returnToConversation() {
         if (isFinishing || isDestroyed || returnedToConversation) return
-        if (returnsHome()) {
-            if (!AgentFrontendLauncher.returnToWorkspaceHome(this)) {
-                Toast.makeText(this, R.string.workspace_unavailable_copy, Toast.LENGTH_LONG).show()
-                return
-            }
-            returnedToConversation = true
-            finish()
-            return
-        }
         val thread = admittedThread
-        if (thread != null && thread == lease?.optString("threadId")) {
-            if (!AgentFrontendLauncher.openThread(this, thread)) {
-                Toast.makeText(this, R.string.workspace_unavailable_copy, Toast.LENGTH_LONG).show()
-                return
-            }
-            returnedToConversation = true
+        val opened = when {
+            returnsHome() -> AgentFrontendLauncher.returnToWorkspaceHome(this)
+            thread != null -> AgentFrontendLauncher.openThread(this, thread)
+            else -> true
         }
+        if (!opened) {
+            Toast.makeText(this, R.string.workspace_unavailable_copy, Toast.LENGTH_LONG).show()
+            if (connection == Connection.CONNECTED) return
+        }
+        returnedToConversation = true
         finish()
     }
 
@@ -240,21 +258,30 @@ class MirrorActivity : Activity() {
         header.addView(labels, LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = dp(8) })
         edit = icon(R.drawable.ic_taku_edit, R.string.workspace_interaction_edit) {
             setEditingRequirement(!editingRequirement)
-        }.apply { isEnabled = lease != null }
+        }
         header.addView(edit)
         minimize = icon(R.drawable.ic_taku_fullscreen_exit, exitLabel()) {
             if (returnsHome()) {
                 returnToConversation()
                 return@icon
             }
-            val origin = lease
-            val requested = origin != null && WorkspaceFloatService.show(this, origin) {
-                if (!isFinishing && !isDestroyed) finish()
+            if (connection != Connection.CONNECTED) return@icon
+            minimizePending = WorkspaceFloatService.show(this, currentScreen) {
+                if (minimizePending && connection == Connection.CONNECTED && !isFinishing && !isDestroyed) {
+                    minimizePending = false
+                    finish()
+                }
             }
-            if (!requested) showNote(getString(R.string.workspace_interaction_float_unavailable))
-        }.apply { isEnabled = lease != null }
+            if (!minimizePending) showNote(getString(R.string.workspace_interaction_float_unavailable))
+        }
         header.addView(minimize)
         root.addView(header, LinearLayout.LayoutParams(-1, -2))
+        exitPreview = button(getString(R.string.workspace_interaction_close), R.drawable.ic_taku_arrow_left, ::returnToConversation)
+        root.addView(exitPreview, LinearLayout.LayoutParams(-1, -2).apply {
+            marginStart = dp(16)
+            marginEnd = dp(16)
+            bottomMargin = dp(8)
+        })
         val frame = FrameLayout(this).apply {
             background = surface(R.color.workspace_viewer_control, 16)
             clipToOutline = true
@@ -298,14 +325,29 @@ class MirrorActivity : Activity() {
             visibility = View.GONE
         }
         footer.addView(note)
-        val origin = lease ?: return
+        val origin = lease
+        if (origin == null) {
+            renderConnection()
+            return
+        }
         activityRepository = AgentRepository(this)
         expansion = ConversationExpansion(getSharedPreferences("agent-settings", 0), origin.optString("threadId"))
         activityOpen = expansion!!.contains("workspace/details")
         activityToggle.rotation = if (activityOpen) 0f else -90f
         activityToggle.contentDescription = getString(if (activityOpen) R.string.chat_collapse_activity else R.string.chat_expand_activity)
-        resumeRequest = WorkspaceExecutionRequest(this, origin, "returnAndResume", ::resumeReceipt)
-        val requirementView = WorkspaceRequirementView(this, origin)
+        if (connection == Connection.LEASE_GONE) {
+            renderConnection()
+            return
+        }
+        val transport = WorkspaceExecutionRequest.Transport { request, callback ->
+            if (request.optString("action") == "executionStatus" || connection == Connection.CONNECTED) {
+                NativeClient.async(request, callback)
+            } else {
+                callback.failed("SCREEN_GENERATION_CHANGED")
+            }
+        }
+        resumeRequest = WorkspaceExecutionRequest(this, origin, "returnAndResume", ::resumeReceipt, transport)
+        val requirementView = WorkspaceRequirementView(this, origin, transport)
         requirement = requirementView
         requirementView.visibility = View.GONE
         requirementView.setOnAttentionRequired { setEditingRequirement(true, false) }
@@ -316,9 +358,12 @@ class MirrorActivity : Activity() {
             orientation = if (stack) LinearLayout.VERTICAL else LinearLayout.HORIZONTAL
         }
         control = button(getString(R.string.workspace_interaction_take_over), R.drawable.ic_taku_hand) {
-            if (resumeUnknown) resumeRequest?.refresh()
-            else if (returnNeeded()) resumeRequest?.submit("")
-            else change("takeControl")
+            when {
+                canCheckResume() -> resumeRequest?.refresh()
+                connection != Connection.CONNECTED -> Unit
+                returnNeeded() -> resumeRequest?.submit("")
+                else -> change("takeControl")
+            }
         }
         stop = button(getString(R.string.workspace_interaction_stop), R.drawable.ic_taku_stop) { change("pause") }
         actions.addView(control, LinearLayout.LayoutParams(if (stack) -1 else 0, if (stack) -2 else -1, if (stack) 0f else 1f))
@@ -326,10 +371,11 @@ class MirrorActivity : Activity() {
             if (stack) topMargin = dp(8) else marginStart = dp(8)
         })
         footer.addView(actions, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(12) })
-        controls(false)
+        renderConnection()
     }
 
     private fun setEditingRequirement(value: Boolean, focusInput: Boolean = value) {
+        if (value && connection != Connection.CONNECTED) return
         val view = requirement ?: return
         editingRequirement = value
         view.visibility = if (value) View.VISIBLE else View.GONE
@@ -423,29 +469,9 @@ class MirrorActivity : Activity() {
                 val remaining = WorkspaceRequirementView.acceptedNoticeRemaining(record, System.currentTimeMillis())
                 showNote(if (remaining > 0) getString(R.string.workspace_interaction_resume_accepted) else "")
                 if (remaining > 0) main.postDelayed(expireResumeNotice, remaining)
-                // A receipt is historical. Only a fresh catalog can establish the current owner.
-                refreshOwnerCatalog()
             }
         }
-        controls(connected)
-    }
-
-    private fun refreshOwnerCatalog() {
-        val origin = lease ?: return
-        if (!resumed) return
-        val token = watchGeneration
-        NativeClient.io.execute {
-            try {
-                val screens = WorkspaceCommands.call(this, "workspaces/list", JSONObject().put("threadId", origin.getString("threadId")), Process.myUid()).optJSONArray("screens")
-                    ?: return@execute
-                for (index in 0 until screens.length()) {
-                    val screen = screens.optJSONObject(index)
-                    if (WorkspaceUi.same(origin, screen)) { owner(screen, token); break }
-                }
-            } catch (_: Exception) {
-                // The frame watcher keeps input unavailable until a fresh catalog succeeds.
-            }
-        }
+        controls()
     }
 
     private fun loadActivity() {
@@ -553,10 +579,12 @@ class MirrorActivity : Activity() {
         if (!::preview.isInitialized || isFinishing) return
         resumed = true
         val token = ++watchGeneration
-        resumeRequest?.start()
-        requirement?.start()
+        if (connection != Connection.LEASE_GONE) {
+            resumeRequest?.start()
+            requirement?.start()
+        }
         loadActivity()
-        Thread({ watch(token) }, "workspace-preview").start()
+        if (connection != Connection.LEASE_GONE) Thread({ watch(token) }, "workspace-preview").start()
     }
 
     override fun onPause() {
@@ -567,17 +595,27 @@ class MirrorActivity : Activity() {
     private fun stopWatching() {
         resumed = false
         userControl = false
-        connected = false
+        transitionConnection(Connection.CONNECTING)
+        ownerCheckedAt = 0
+        changing = false
+        inputPending = false
         controlRevision = -1
         cancelGesture()
         ++watchGeneration
         ++controlGeneration
         try { frames?.close() } catch (_: Exception) {}
+        cancelMinimize()
         main.removeCallbacks(activityPoll)
         main.removeCallbacks(expireResumeNotice)
+        main.removeCallbacks(expireStopLease)
         activityLoading = false
         resumeRequest?.stop()
         requirement?.stop()
+        if (editingRequirement) setEditingRequirement(false)
+        if (::preview.isInitialized && !isFinishing && !isDestroyed) {
+            preview.setImageDrawable(null)
+            renderConnection()
+        }
     }
 
     override fun onDestroy() {
@@ -585,6 +623,12 @@ class MirrorActivity : Activity() {
         commands.shutdownNow()
         activityRepository?.close()
         super.onDestroy()
+    }
+
+    private fun cancelMinimize() {
+        if (!minimizePending) return
+        minimizePending = false
+        WorkspaceFloatService.hide(this)
     }
 
     private class Channel(name: String) : Closeable {
@@ -621,12 +665,17 @@ class MirrorActivity : Activity() {
             val current = entries.getJSONObject(index)
             if (WorkspaceUi.same(origin, current)) {
                 val status = current.optString("status")
-                if (!current.optBoolean("admitted") || status == "unavailable" || status == "rebind_required" ||
-                    status == "stale" || status == "disconnected") throw IOException("SCREEN_REBIND_REQUIRED")
+                if (!current.getBoolean("admitted")) throw LeaseGone()
+                val observed = current.optString("allocationId").ifEmpty { null }
+                val expected = allocationId
+                if (expected != null && observed != expected) throw LeaseGone()
+                if (expected == null) allocationId = observed
+                if (status == "unavailable" || status == "rebind_required" || status == "stale" || status == "disconnected")
+                    throw IOException("SCREEN_REBIND_REQUIRED")
                 return current
             }
         }
-        throw IOException("SCREEN_GENERATION_CHANGED")
+        throw LeaseGone()
     }
 
     private fun validateHost(channel: Channel, meta: JSONObject, binding: JSONObject?) {
@@ -648,52 +697,51 @@ class MirrorActivity : Activity() {
         height = y
     }
 
+    private fun watching(token: Int): Boolean = resumed && token == watchGeneration && connection != Connection.LEASE_GONE
+
     private fun watch(token: Int) {
-        while (resumed && token == watchGeneration) {
+        val socketName = lease?.let { "taku-mirror-${it.getString("screenKey")}" } ?: "taku-mirror"
+        while (watching(token)) {
             try {
                 var binding = verifyLease()
-                if (!resumed || token != watchGeneration) return
-                val socketName = lease?.let { "taku-mirror-${it.getString("screenKey")}" } ?: "taku-mirror"
+                var checked = SystemClock.elapsedRealtime()
+                if (!watching(token)) return
                 Channel(socketName).use { channel ->
-                    if (!resumed || token != watchGeneration) return
+                    if (!watching(token)) return
                     frames = channel.socket
                     validateHost(channel, JSONObject(String(channel.call("status"), StandardCharsets.UTF_8)), binding)
-                    owner(binding, token)
-                    var checked = SystemClock.elapsedRealtime()
-                    while (resumed && token == watchGeneration) {
+                    main.post {
+                        if (watching(token) && !isFinishing && !isDestroyed) updateConnection(Connection.WAITING_FOR_FRAME)
+                    }
+                    owner(binding, token, checked)
+                    while (watching(token)) {
                         if (SystemClock.elapsedRealtime() - checked > 1500) {
                             binding = verifyLease()
-                            validateHost(channel, JSONObject(String(channel.call("status"), StandardCharsets.UTF_8)), binding)
-                            owner(binding, token)
                             checked = SystemClock.elapsedRealtime()
+                            validateHost(channel, JSONObject(String(channel.call("status"), StandardCharsets.UTF_8)), binding)
+                            owner(binding, token, checked)
                         }
                         val jpeg = channel.call("frame")
                         if (jpeg.isNotEmpty()) {
                             val bitmap = BitmapFactory.decodeByteArray(jpeg, 0, jpeg.size)
                             if (bitmap != null) main.post {
-                                if (resumed && token == watchGeneration && !isFinishing && !isDestroyed) {
-                                    connected = true
+                                if (watching(token) && !isFinishing && !isDestroyed) {
                                     preview.setImageBitmap(bitmap)
-                                    val current = currentScreen
-                                    if (current != null) bindHeaderStatus(current) else state.setText(R.string.workspace_view_only)
-                                    controls(true)
+                                    if (connection != Connection.CONNECTED) updateConnection(Connection.CONNECTED)
                                 } else bitmap.recycle()
                             }
-                        } else main.post {
-                            if (resumed && token == watchGeneration && !isFinishing && !isDestroyed) state.setText(R.string.workspace_waiting_frame)
                         }
                         Thread.sleep(200)
                     }
                 }
+            } catch (_: LeaseGone) {
+                if (transitionConnection(Connection.LEASE_GONE)) main.post {
+                    if (!isDestroyed && !isFinishing) applyConnection()
+                }
+                return
             } catch (_: Exception) {
-                if (token == watchGeneration) { connected = false; userControl = false; controlRevision = -1 }
                 main.post {
-                    if (resumed && token == watchGeneration && !isFinishing && !isDestroyed) {
-                        cancelGesture()
-                        preview.setImageDrawable(null)
-                        state.setText(R.string.workspace_connection_lost)
-                        controls(false)
-                    }
+                    if (watching(token) && !isFinishing && !isDestroyed) updateConnection(Connection.INTERRUPTED)
                 }
                 try { Thread.sleep(1200) }
                 catch (_: InterruptedException) { Thread.currentThread().interrupt(); break }
@@ -703,9 +751,50 @@ class MirrorActivity : Activity() {
         }
     }
 
-    private fun owner(current: JSONObject?, token: Int) {
+    @Synchronized
+    private fun transitionConnection(next: Connection): Boolean {
+        if (connection == next || connection == Connection.LEASE_GONE) return false
+        connection = next
+        return true
+    }
+
+    private fun updateConnection(next: Connection) {
+        if (transitionConnection(next)) applyConnection()
+    }
+
+    private fun applyConnection() {
+        val next = connection
+        if (next == Connection.INTERRUPTED || next == Connection.LEASE_GONE) {
+            ++controlGeneration
+            userControl = false
+            controlRevision = -1
+            cancelGesture()
+            preview.setImageDrawable(null)
+            cancelMinimize()
+            if (editingRequirement) setEditingRequirement(false)
+            requirement?.stop()
+            resumeRequest?.stop()
+            if (next == Connection.INTERRUPTED && resumed) {
+                resumeRequest?.start()
+                requirement?.start()
+            }
+            if (next == Connection.LEASE_GONE) {
+                changing = false
+                inputPending = false
+                showNote("")
+                main.removeCallbacks(expireStopLease)
+                try { frames?.close() } catch (_: Exception) {}
+            }
+        } else if (next == Connection.CONNECTED) {
+            requirement?.start()
+            if (requirement?.needsAttention() == true) setEditingRequirement(true, false)
+        }
+        renderConnection()
+    }
+
+    private fun owner(current: JSONObject?, token: Int, checkedAt: Long = SystemClock.elapsedRealtime()) {
         val apply = Runnable {
-            if (!resumed || token != watchGeneration || isFinishing || isDestroyed) return@Runnable
+            if (!watching(token) || isFinishing || isDestroyed) return@Runnable
             val revision = current?.optLong("controlRevision", -1) ?: -1
             if (changing || revision < lastObservedControlRevision) return@Runnable
             val owned = current != null && current.optString("controlOwner") == "user" && revision >= 0 && resumeRequest?.busy() != true
@@ -713,7 +802,9 @@ class MirrorActivity : Activity() {
             lastObservedControlRevision = revision
             controlRevision = revision
             userControl = owned
-            ownerCheckedAt = SystemClock.elapsedRealtime()
+            ownerCheckedAt = checkedAt
+            main.removeCallbacks(expireStopLease)
+            main.postDelayed(expireStopLease, (checkedAt + OWNER_FRESHNESS_MS + 1 - SystemClock.elapsedRealtime()).coerceAtLeast(0L))
             currentScreen = current
             if (current != null && current.optBoolean("admitted") && WorkspaceUi.same(lease, current)) admittedThread = current.getString("threadId")
             details.text = if (current == null) getString(R.string.workspace_interaction_title)
@@ -724,8 +815,7 @@ class MirrorActivity : Activity() {
                 try { appIcon.setImageDrawable(packageManager.getApplicationIcon(currentPackage)) }
                 catch (_: Exception) { appIcon.setImageResource(R.drawable.ic_tako_mark) }
             }
-            if (current != null) bindHeaderStatus(current)
-            controls(connected)
+            renderConnection()
         }
         if (Looper.myLooper() == Looper.getMainLooper()) apply.run() else main.post(apply)
     }
@@ -736,35 +826,86 @@ class MirrorActivity : Activity() {
         return workspace.status(screen)
     }
 
-    private fun bindHeaderStatus(screen: JSONObject) {
-        state.text = fullStatus(screen)
-        ChatDesign.text(state, ChatDesign.Role.META_MEDIUM)
+    private fun renderConnection() {
+        val screen = currentScreen
+        val label = when (connection) {
+            Connection.CONNECTING -> getString(R.string.workspace_connecting)
+            Connection.WAITING_FOR_FRAME -> getString(R.string.workspace_waiting_frame)
+            Connection.CONNECTED -> when {
+                changing -> getString(R.string.workspace_action_pending)
+                inputPending -> getString(R.string.workspace_input_pending)
+                screen != null -> fullStatus(screen)
+                else -> getString(R.string.workspace_view_only)
+            }
+            Connection.INTERRUPTED -> getString(R.string.workspace_interaction_reconnecting)
+            Connection.LEASE_GONE -> getString(R.string.workspace_connection_lost)
+        }
+        if (state.text != label) {
+            state.text = label
+            ChatDesign.text(state, ChatDesign.Role.META_MEDIUM)
+        }
+        val dotColor = when (connection) {
+            Connection.INTERRUPTED, Connection.LEASE_GONE -> R.color.taku_status_error
+            Connection.CONNECTED -> screen?.let(::screenStatusColor) ?: R.color.workspace_viewer_secondary
+            else -> R.color.workspace_viewer_secondary
+        }
+        (statusDot.background as GradientDrawable).setColor(color(dotColor))
+        controls()
+    }
+
+    private fun screenStatusColor(screen: JSONObject): Int {
         val status = screen.optString("status")
         val owner = screen.optString("controlOwner")
-        val resource = if (status == "unavailable" || status == "failed" || status == "disconnected") R.color.taku_status_error
+        return if (status == "unavailable" || status == "failed" || status == "disconnected") R.color.taku_status_error
             else if (owner != "paused" && owner != "user" && !screen.optBoolean("resumeRequired") &&
                 (screen.optString("activeTurnId").isNotEmpty() || status == "running" || status == "working" || screen.optBoolean("waitingForUser"))) R.color.taku_status_attention
             else R.color.workspace_viewer_secondary
-        statusDot.background = surface(resource, 999)
     }
 
-    private fun controls(available: Boolean) {
-        val button = control ?: return
+    private fun controls() {
+        val connected = connection == Connection.CONNECTED
+        val released = connection == Connection.LEASE_GONE
         val pending = resumeRequest?.busy() == true
-        button.setText(controlLabel())
-        ChatDesign.text(button, ChatDesign.Role.BODY)
-        buttonIcon(button, if (resumeUnknown) R.drawable.ic_taku_refresh else if (returnNeeded()) R.drawable.ic_taku_play else R.drawable.ic_taku_hand)
-        button.isEnabled = available && !changing && (!pending || resumeUnknown)
-        // An uncertain resume receipt cannot take away the user's exact-lease interrupt.
-        stop?.isEnabled = !changing && freshStopLease()
-        backInApp.visibility = if (userControl) View.VISIBLE else View.GONE
-        backInApp.isEnabled = available && userControl && !changing && !pending
+        edit.visibility = if (connected && lease != null) View.VISIBLE else View.GONE
+        minimize.visibility = if (connected && lease != null) View.VISIBLE else View.GONE
+        exitPreview.visibility = if (!connected || lease == null) View.VISIBLE else View.GONE
+        exitPreview.setText(when {
+            returnsHome() -> R.string.workspace_back
+            admittedThread != null -> R.string.workspace_interaction_back_to_conversation
+            else -> R.string.workspace_interaction_close
+        })
+        backInApp.visibility = if (connected && userControl) View.VISIBLE else View.GONE
+        backInApp.setActionEnabled(connected && userControl && !changing && !pending && freshOwner())
+        control?.apply {
+            visibility = if (released) View.GONE else View.VISIBLE
+            setText(controlLabel())
+            ChatDesign.text(this, ChatDesign.Role.BODY)
+            buttonIcon(this, if (resumeUnknown) R.drawable.ic_taku_refresh else if (returnNeeded()) R.drawable.ic_taku_play else R.drawable.ic_taku_hand)
+            setActionEnabled(!changing && (canCheckResume() || connected && !pending))
+        }
+        stop?.apply {
+            visibility = if (released) View.GONE else View.VISIBLE
+            // An uncertain resume receipt cannot take away the user's exact-lease interrupt.
+            setActionEnabled(!changing && freshStopLease())
+        }
+    }
+
+    private fun View.setActionEnabled(enabled: Boolean) {
+        isEnabled = enabled
+        alpha = if (enabled) 1f else 0.45f
+    }
+
+    private fun canCheckResume() = resumeUnknown && connection != Connection.LEASE_GONE
+
+    private fun freshOwner(): Boolean {
+        val checkedAt = ownerCheckedAt
+        return checkedAt > 0 && SystemClock.elapsedRealtime() - checkedAt <= OWNER_FRESHNESS_MS
     }
 
     private fun freshStopLease(): Boolean {
-        val current = currentScreen ?: return false
-        return WorkspaceUi.same(lease, current) && current.optLong("controlRevision", -1) >= 0 &&
-            ownerCheckedAt > 0 && SystemClock.elapsedRealtime() - ownerCheckedAt <= 3000
+        val screen = currentScreen ?: return false
+        return connection != Connection.LEASE_GONE && freshOwner() && screen.optBoolean("admitted") &&
+            screen.optLong("controlRevision", -1) >= 0
     }
 
     private fun controlLabel() = when {
@@ -775,49 +916,54 @@ class MirrorActivity : Activity() {
 
     private fun change(action: String) {
         val origin = lease ?: return
+        val pausing = action == "pause"
         if (changing) return
-        if (action == "pause" && !freshStopLease()) { controls(connected); return }
+        if (if (pausing) !freshStopLease() else connection != Connection.CONNECTED) {
+            controls()
+            return
+        }
         changing = true
         ++controlGeneration
         controlRevision = -1
         cancelGesture()
         userControl = false
-        controls(false)
-        state.setText(R.string.workspace_action_pending)
+        renderConnection()
         val token = watchGeneration
+        val controlToken = controlGeneration
         NativeClient.io.execute {
             try {
-                val result = WorkspaceCommands.call(this, "workspaces/$action", origin, Process.myUid())
+                if (!watching(token)) return@execute
+                val canDispatch = if (pausing) freshOwner()
+                    else connection == Connection.CONNECTED && controlToken == controlGeneration
+                val result = if (canDispatch) WorkspaceCommands.call(this, "workspaces/$action", origin, Process.myUid()) else null
                 main.post {
+                    if (!watching(token) || isFinishing || isDestroyed) return@post
                     changing = false
-                    if (!resumed || token != watchGeneration || isFinishing || isDestroyed) return@post
-                    val screen = result.optJSONObject("screen")
-                    if (screen != null && WorkspaceUi.same(origin, screen)) owner(screen, token)
-                    if (action == "pause") {
-                        if (screen != null && WorkspaceUi.same(origin, screen) && screen.optString("controlOwner") == "paused" &&
-                            screen.optString("activeTurnId").isEmpty() && !screen.optBoolean("stopping")) returnToConversation()
-                        else { showNote(getString(R.string.workspace_interaction_stop_unconfirmed)); controls(false) }
-                    } else {
-                        showNote("")
-                        controls(connected)
+                    val screen = result?.optJSONObject("screen")?.takeIf { WorkspaceUi.same(origin, it) && it.optBoolean("admitted") }
+                    if (screen != null) owner(screen, token)
+                    if (pausing && screen != null && screen.optString("controlOwner") == "paused" &&
+                        screen.optString("activeTurnId").isEmpty() && !screen.optBoolean("stopping")) {
+                        returnToConversation()
+                    } else if (result != null) {
+                        showNote(if (pausing) getString(R.string.workspace_interaction_stop_unconfirmed) else "")
                     }
+                    renderConnection()
                 }
             } catch (error: Exception) {
                 main.post {
+                    if (!watching(token) || isFinishing || isDestroyed) return@post
                     changing = false
-                    if (resumed && token == watchGeneration && !isFinishing && !isDestroyed) {
-                        userControl = false
-                        cancelGesture()
-                        showNote(workspace.error(error.message))
-                        controls(false)
-                    }
+                    userControl = false
+                    cancelGesture()
+                    showNote(workspace.error(error.message))
+                    renderConnection()
                 }
             }
         }
     }
 
     private fun gesture(event: MotionEvent): Boolean {
-        if (lease == null || !connected || !userControl || changing || SystemClock.elapsedRealtime() - ownerCheckedAt > 3000) {
+        if (connection != Connection.CONNECTED || !userControl || changing || !freshOwner()) {
             cancelGesture()
             return false
         }
@@ -853,7 +999,7 @@ class MirrorActivity : Activity() {
                     .put("toX", Math.round(x)).put("toY", Math.round(y)).put("durationMs", maxOf(150L, minOf(1200L, duration)))
                 input(command, downControlRevision, downControlGeneration)
                 preview.performClick()
-            } catch (_: Exception) { state.setText(R.string.workspace_input_failed) }
+            } catch (_: Exception) { showNote(getString(R.string.workspace_input_failed)) }
         }
         return true
     }
@@ -866,26 +1012,32 @@ class MirrorActivity : Activity() {
     private fun input(input: JSONObject, revision: Long = controlRevision, controlToken: Long = controlGeneration) {
         val origin = lease ?: return
         if (!resumed || !userControl || revision < 0 || revision != controlRevision || controlToken != controlGeneration ||
-            !connected || changing || inputPending) return
+            connection != Connection.CONNECTED || changing || inputPending || !freshOwner()) return
         val request = JSONObject().put("threadId", origin.getString("threadId")).put("screenKey", origin.getString("screenKey"))
             .put("generation", origin.getString("generation")).put("controlRevision", revision).put("input", input)
         val token = watchGeneration
         inputPending = true
-        state.setText(R.string.workspace_input_pending)
+        renderConnection()
         commands.execute {
+            var failed = false
             try {
-                if (!resumed || token != watchGeneration || controlToken != controlGeneration || revision != controlRevision || !userControl) return@execute
+                if (!watching(token) || connection != Connection.CONNECTED || !userControl || revision != controlRevision ||
+                    controlToken != controlGeneration || !freshOwner()) return@execute
                 WorkspaceCommands.call(this, "workspaces/input", request, Process.myUid())
             } catch (_: Exception) {
+                failed = true
+            } finally {
                 main.post {
-                    if (resumed && token == watchGeneration && controlToken == controlGeneration && revision == controlRevision && !isFinishing && !isDestroyed) {
+                    if (!watching(token) || isFinishing || isDestroyed) return@post
+                    inputPending = false
+                    if (failed && controlToken == controlGeneration && revision == controlRevision) {
                         userControl = false
                         cancelGesture()
-                        state.setText(R.string.workspace_input_failed)
-                        controls(false)
+                        showNote(getString(R.string.workspace_input_failed))
                     }
+                    renderConnection()
                 }
-            } finally { inputPending = false }
+            }
         }
     }
 }

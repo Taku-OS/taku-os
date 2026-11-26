@@ -1,0 +1,473 @@
+package org.agentos.assistant
+
+import android.app.Activity
+import android.app.AlertDialog
+import android.content.Intent
+import android.os.Bundle
+import android.os.Process
+import android.view.Display
+import android.view.View
+import android.widget.LinearLayout
+import android.widget.ScrollView
+import android.widget.Switch
+import android.widget.TextView
+import android.window.OnBackInvokedDispatcher
+import java.io.IOException
+import org.json.JSONArray
+import org.json.JSONObject
+
+class BScreenActivity : Activity() {
+    private lateinit var workspace: WorkspaceUi
+    private val widgets get() = workspace.ui
+    private lateinit var title: TextView
+    private lateinit var refreshButton: View
+    private lateinit var scroll: ScrollView
+    private lateinit var content: LinearLayout
+    private var catalog: Catalog? = null
+    private var selected: Lease? = null
+    private var listOffset = 0
+    private var readError: String? = null
+    private var feedback: String? = null
+    private var resumed = false
+    private var reading = false
+    private var changing = false
+    private var readVersion = 0
+    private val poll = Runnable { refresh() }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        WorkspaceUi.applySystemTheme(this)
+        super.onCreate(savedInstanceState)
+        workspace = WorkspaceUi(this)
+        selected = savedInstanceState?.getBundle("lease")?.let { Lease.restore(it) }
+        listOffset = savedInstanceState?.getInt("listOffset") ?: 0
+        val root = workspace.root()
+        val header = widgets.column().apply { setPadding(widgets.dp(20), 0, widgets.dp(20), widgets.dp(12)) }
+        workspace.navigation(header, getString(R.string.bscreen_title), ::back)
+        title = widgets.text("", 27, true).apply { isAccessibilityHeading = true }
+        widgets.add(header, title, 4)
+        refreshButton = widgets.button(getString(R.string.workspace_refresh), false) { refresh() }
+        widgets.add(header, refreshButton, 12)
+        root.addView(header)
+        content = widgets.column().apply { setPadding(widgets.dp(20), 0, widgets.dp(20), widgets.dp(24)) }
+        scroll = ScrollView(this).apply { addView(content) }
+        root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
+        onBackInvokedDispatcher.registerOnBackInvokedCallback(OnBackInvokedDispatcher.PRIORITY_DEFAULT, ::back)
+        render(offset = if (selected == null) listOffset else 0)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        selected = null
+        listOffset = 0
+        feedback = null
+        render(offset = 0)
+        refresh()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (display?.displayId != Display.DEFAULT_DISPLAY) {
+            finish()
+            return
+        }
+        resumed = true
+        refresh()
+    }
+
+    override fun onPause() {
+        resumed = false
+        readVersion++
+        NativeClient.main.removeCallbacks(poll)
+        super.onPause()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        selected?.let { outState.putBundle("lease", it.save()) }
+        outState.putInt("listOffset", if (selected == null) scroll.scrollY else listOffset)
+    }
+
+    private fun back() {
+        if (selected == null) {
+            finish()
+        } else {
+            selected = null
+            feedback = null
+            render(offset = listOffset)
+        }
+    }
+
+    private fun active() = resumed && !isFinishing && !isDestroyed && display?.displayId == Display.DEFAULT_DISPLAY
+
+    private fun refresh() {
+        if (!active() || reading || changing) return
+        NativeClient.main.removeCallbacks(poll)
+        reading = true
+        refreshButton.isEnabled = false
+        val version = readVersion
+        NativeClient.io.execute {
+            val result = attempt { readCatalog(call("list")) }
+            NativeClient.main.post {
+                reading = false
+                if (!active()) return@post
+                if (version != readVersion) {
+                    refresh()
+                    return@post
+                }
+                refreshButton.isEnabled = !changing
+                val updated = result.getOrNull()
+                val error = result.exceptionOrNull()?.let { failure ->
+                    ownerError(failure) ?: getString(R.string.workspace_unavailable_copy)
+                }
+                if (updated != catalog || error != readError) {
+                    val offset = if (catalog == null && selected == null) listOffset else scroll.scrollY
+                    catalog = updated
+                    readError = error
+                    render(offset)
+                }
+                NativeClient.main.postDelayed(poll, 4_000)
+            }
+        }
+    }
+
+    private fun <T> perform(operation: () -> T, onSuccess: (T) -> Unit = {}) {
+        if (!active() || changing) return
+        changing = true
+        readVersion++
+        NativeClient.main.removeCallbacks(poll)
+        feedback = null
+        render()
+        NativeClient.io.execute {
+            val result = attempt(operation)
+            NativeClient.main.post {
+                if (isFinishing || isDestroyed) return@post
+                changing = false
+                val previousSelection = selected
+                result.onSuccess(onSuccess).onFailure { feedback = errorText(it) }
+                render(if (previousSelection != null && selected == null) listOffset else scroll.scrollY)
+                refresh()
+            }
+        }
+    }
+
+    private fun call(action: String, input: JSONObject = JSONObject()): JSONObject =
+        WorkspaceCommands.call(applicationContext, "workspaces/$action", input, Process.myUid())
+
+    private fun configure(change: PolicyChange) {
+        perform({ writePolicy(change) }, ::policySaved)
+    }
+
+    private fun writePolicy(change: PolicyChange): Policy =
+        readPolicy(call("configure", JSONObject().put("patch", change.json())).getJSONObject("policy"))
+
+    private fun policySaved(policy: Policy) {
+        catalog = catalog?.copy(policy = policy)
+        feedback = getString(R.string.workspace_saved)
+    }
+
+    private fun render(offset: Int = scroll.scrollY) {
+        refreshButton.isEnabled = !changing && !reading
+        val lease = selected
+        title.setText(if (lease == null) R.string.workspace_title else R.string.workspace_detail_back)
+        content.removeAllViews()
+        feedback?.let { note(it) }
+        if (changing) note(getString(R.string.workspace_action_pending))
+        val snapshot = catalog
+        if (snapshot == null) {
+            note(readError ?: getString(R.string.workspace_loading))
+        } else if (lease == null) {
+            renderCatalog(snapshot)
+        } else {
+            val screen = snapshot.screens.firstOrNull { it.lease == lease }
+            if (screen == null) note(getString(R.string.workspace_error_changed)) else renderDetails(screen)
+        }
+        scroll.post { scroll.scrollTo(0, offset) }
+    }
+
+    private fun note(message: String) {
+        val view = widgets.text(message, 14, false).apply { accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE }
+        widgets.add(content, view, 8)
+    }
+
+    private fun renderCatalog(snapshot: Catalog) {
+        note(getString(R.string.workspace_summary))
+        val list = widgets.listGroup()
+        val screenCount = snapshot.screens.size
+        val taskCount = snapshot.screens.mapTo(HashSet()) { it.lease.threadId }.size
+        val counts = getString(R.string.workspace_task_counts,
+            resources.getQuantityString(R.plurals.workspace_spaces, screenCount, screenCount),
+            resources.getQuantityString(R.plurals.workspace_tasks, taskCount, taskCount))
+        widgets.section(content, getString(R.string.workspace_active), list)
+        val summary = widgets.card()
+        copy(summary, counts)
+        if (screenCount == 0) {
+            copy(summary, getString(R.string.workspace_empty_title), strong = true)
+            copy(summary, getString(R.string.workspace_empty_copy))
+        }
+        list.addView(summary)
+        for (screen in snapshot.screens) {
+            widgets.divider(list, 18)
+            val row = widgets.card().apply {
+                foreground = android.graphics.drawable.RippleDrawable(
+                    android.content.res.ColorStateList.valueOf(workspace.theme.border), null, null)
+                isFocusable = true
+                setOnClickListener {
+                    listOffset = scroll.scrollY
+                    selected = screen.lease
+                    feedback = null
+                    render(offset = 0)
+                }
+            }
+            copy(row, screen.app, strong = true)
+            copy(row, screen.task)
+            copy(row, screen.status)
+            list.addView(row)
+        }
+        val preferences = widgets.card()
+        widgets.section(content, getString(R.string.workspace_preferences), preferences)
+        val policy = snapshot.policy
+        widgets.add(preferences, Switch(this).apply {
+            setText(R.string.workspace_allow)
+            setTextColor(workspace.theme.ink)
+            minHeight = widgets.dp(48)
+            isChecked = policy.allowBackground
+            isEnabled = !changing
+            setOnCheckedChangeListener { _, allowed -> configure(PolicyChange.Background(allowed)) }
+        }, 0)
+        copy(preferences, getString(if (policy.allowBackground) R.string.workspace_allow_copy else R.string.workspace_background_off_copy))
+        copy(preferences, getString(R.string.workspace_limit), strong = true, margin = 18)
+        copy(preferences, getString(R.string.workspace_limit_copy))
+        val range = snapshot.limitRange
+        button(preferences, getString(R.string.workspace_limit_value, policy.maxActiveScreens)) {
+            chooseLimit(range, policy.maxActiveScreens)
+        }
+        button(preferences, getString(R.string.workspace_allowed_apps), onClick = ::chooseApps)
+        copy(preferences, getString(R.string.workspace_apps_note))
+        if (snapshot.revocations.isNotEmpty()) {
+            val revocations = widgets.card()
+            widgets.section(content, getString(R.string.bscreen_access_changes), revocations)
+            for (receipt in snapshot.revocations) {
+                widgets.divider(revocations, 0)
+                copy(revocations, receipt.task, strong = true)
+                if (receipt.packages.isNotEmpty()) copy(revocations, receipt.packages.joinToString(", "))
+                copy(revocations, getString(receipt.status))
+                if (receipt.error.isNotEmpty()) copy(revocations, receipt.error)
+            }
+        }
+    }
+
+    private fun renderDetails(screen: ManagedWorkspace) {
+        val card = widgets.card()
+        copy(card, screen.app, strong = true)
+        copy(card, screen.task)
+        copy(card, getString(R.string.workspace_task_counts, getString(R.string.workspace_detail_state), screen.status))
+        copy(card, getString(R.string.workspace_task_counts, getString(R.string.workspace_detail_input), getString(screen.inputOwner)))
+        copy(card, getString(R.string.workspace_shared_note))
+        if (screen.cleanupFailed) copy(card, getString(R.string.workspace_cleanup_retry))
+        if (!screen.agentAllowed) copy(card, getString(R.string.workspace_agent_blocked_copy))
+        if (screen.lastError.isNotEmpty()) copy(card, screen.lastError)
+        widgets.add(content, card, 8)
+        button(card, getString(R.string.workspace_view_live), screen.canPreview) { screenAction("preview", screen) }
+        copy(card, getString(R.string.workspace_detail_hint))
+        button(card, getString(R.string.workspace_pause), screen.canPreview && screen.inputOwner != R.string.workspace_input_paused) {
+            screenAction("pause", screen)
+        }
+        button(card, getString(R.string.workspace_open_task)) { screenAction("open", screen) }
+        button(card, getString(R.string.workspace_close), !screen.cleanupFailed) { confirmClose(screen.lease) }
+    }
+
+    private fun screenAction(action: String, screen: ManagedWorkspace) {
+        perform({ call(action, screen.lease.json()) })
+    }
+
+    private fun confirmClose(lease: Lease) {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.workspace_close_title)
+            .setMessage(R.string.workspace_close_copy)
+            .setNegativeButton(R.string.workspace_cancel, null)
+            .setPositiveButton(R.string.workspace_close) { _, _ ->
+                perform({ call("release", lease.json().put("returnToThread", true)).has("returnError") }) { returnFailed ->
+                    if (selected == lease) selected = null
+                    feedback = getString(if (returnFailed) R.string.bscreen_return_failed else R.string.bscreen_closed)
+                }
+            }.show()
+    }
+
+    private fun chooseLimit(range: IntRange, current: Int) {
+        val choices = range.map { it.toString() }.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle(R.string.workspace_limit)
+            .setSingleChoiceItems(choices, current - range.first) { dialog, which ->
+                dialog.dismiss()
+                configure(PolicyChange.Limit(range.first + which))
+            }
+            .setNegativeButton(R.string.workspace_cancel, null)
+            .show()
+    }
+
+    private fun chooseApps() {
+        perform({ readApps(call("apps")) }) { apps -> if (active()) showApps(apps) }
+    }
+
+    private fun showApps(apps: List<AppAccess>) {
+        val changes = mutableMapOf<String, Boolean>()
+        val labels = apps.map { app ->
+            buildString {
+                append(app.label).append('\n').append(app.pkg)
+                if (!app.installed) append('\n').append(getString(R.string.bscreen_not_installed))
+            }
+        }.toTypedArray()
+        val allowed = BooleanArray(apps.size) { apps[it].allowed }
+        val builder = AlertDialog.Builder(this)
+            .setTitle(R.string.workspace_allowed_apps)
+            .setNegativeButton(R.string.workspace_cancel, null)
+        if (apps.isEmpty()) {
+            builder.setMessage(R.string.workspace_apps_empty).show()
+            return
+        }
+        builder.setMultiChoiceItems(labels, allowed) { _, index, checked ->
+                val app = apps[index]
+                if (checked == app.allowed) changes.remove(app.pkg) else changes[app.pkg] = checked
+            }
+            .setPositiveButton(R.string.workspace_save) { _, _ ->
+                if (changes.isNotEmpty()) {
+                    perform({
+                        val blocked = readPolicy(call("list").getJSONObject("policy")).blockedPackages.toMutableSet()
+                        for ((pkg, allowedNow) in changes) {
+                            if (allowedNow) blocked.remove(pkg) else blocked.add(pkg)
+                        }
+                        writePolicy(PolicyChange.BlockedApps(blocked))
+                    }, ::policySaved)
+                }
+            }.show()
+    }
+
+    private fun copy(parent: LinearLayout, text: String, strong: Boolean = false, margin: Int = 6) =
+        widgets.add(parent, widgets.text(text, if (strong) 16 else 14, strong), margin)
+
+    private fun button(parent: LinearLayout, text: String, enabled: Boolean = true, onClick: () -> Unit) {
+        val control = widgets.button(text, false) { onClick() }
+        control.isEnabled = enabled && !changing
+        control.alpha = if (control.isEnabled) 1f else 0.5f
+        widgets.add(parent, control, 10)
+    }
+
+    private fun ownerError(failure: Throwable): String? = when (failure.message) {
+        "USER_UNAVAILABLE", "USER_LOCKED" -> getString(R.string.bscreen_user_unavailable)
+        else -> null
+    }
+
+    private fun errorText(failure: Throwable): String = ownerError(failure) ?: when (failure.message) {
+        "THREAD_UNAVAILABLE" -> getString(R.string.bscreen_thread_unavailable)
+        "AGENT_FRONTEND_UNAVAILABLE" -> getString(R.string.bscreen_frontend_unavailable)
+        else -> if (failure is IOException) workspace.error(failure.message) else getString(R.string.workspace_unavailable_copy)
+    }
+
+    private fun readCatalog(result: JSONObject): Catalog {
+        val limits = result.getJSONObject("limits").getJSONObject("maxActiveScreens")
+        return Catalog(
+            policy = readPolicy(result.getJSONObject("policy")),
+            limitRange = limits.getInt("min")..limits.getInt("max"),
+            screens = result.getJSONArray("screens").read(::readScreen),
+            revocations = result.getJSONArray("revocations").read { receipts, index ->
+                val receipt = receipts.getJSONObject(index)
+                Revocation(
+                    workspace.taskLabel(receipt),
+                    receipt.getJSONArray("packageNames").read(JSONArray::getString),
+                    when (receipt.getString("status")) {
+                        "pending" -> R.string.bscreen_access_pending
+                        "released" -> R.string.bscreen_access_released
+                        "retained" -> R.string.bscreen_access_retained
+                        "superseded" -> R.string.bscreen_access_superseded
+                        else -> R.string.workspace_cleanup_failed
+                    },
+                    receipt.optString("error", ""),
+                )
+            },
+        )
+    }
+
+    private fun readScreen(screens: JSONArray, index: Int): ManagedWorkspace {
+        val screen = screens.getJSONObject(index)
+        val status = screen.getString("status")
+        val owner = screen.getString("controlOwner")
+        val stopping = screen.optBoolean("stopping")
+        return ManagedWorkspace(
+            Lease(screen.getString("threadId"), screen.getString("screenKey"), screen.getString("generation")),
+            screen.optString("appLabel").ifBlank { screen.optString("packageName").ifBlank { getString(R.string.workspace_task_fallback) } },
+            workspace.taskLabel(screen),
+            if (stopping && status !in unavailable) getString(R.string.workspace_status_stopping) else workspace.status(screen),
+            when {
+                status == "cleanup_failed" || owner == "paused" -> R.string.workspace_input_paused
+                owner == "user" -> R.string.workspace_input_you
+                else -> R.string.workspace_input_agent
+            },
+            screen.getBoolean("admitted") && screen.optInt("displayId", -1) > 0 && !stopping && status !in unavailable,
+            status == "cleanup_failed",
+            screen.optBoolean("agentAllowed", true),
+            screen.optString("lastError", ""),
+        )
+    }
+
+    private fun readApps(result: JSONObject): List<AppAccess> = result.getJSONArray("apps").read { apps, index ->
+        val app = apps.getJSONObject(index)
+        AppAccess(app.getString("packageName"), app.getString("label"), app.getBoolean("installed"), app.getBoolean("allowed"))
+    }
+
+    private fun readPolicy(policy: JSONObject) = Policy(
+        policy.getBoolean("allowBackground"),
+        policy.getInt("maxActiveScreens"),
+        policy.getJSONArray("blockedPackages").read(JSONArray::getString).toSet(),
+    )
+
+    private fun <T> attempt(operation: () -> T): Result<T> = try {
+        Result.success(operation())
+    } catch (failure: Exception) {
+        Result.failure(failure)
+    }
+
+    private inline fun <T> JSONArray.read(item: (JSONArray, Int) -> T): List<T> = List(length()) { item(this, it) }
+
+    private data class Catalog(val policy: Policy, val limitRange: IntRange, val screens: List<ManagedWorkspace>, val revocations: List<Revocation>)
+    private data class Policy(val allowBackground: Boolean, val maxActiveScreens: Int, val blockedPackages: Set<String>)
+    private data class AppAccess(val pkg: String, val label: String, val installed: Boolean, val allowed: Boolean)
+    private data class Revocation(val task: String, val packages: List<String>, val status: Int, val error: String)
+    private data class ManagedWorkspace(
+        val lease: Lease, val app: String, val task: String, val status: String, val inputOwner: Int,
+        val canPreview: Boolean, val cleanupFailed: Boolean, val agentAllowed: Boolean, val lastError: String,
+    )
+
+    private data class Lease(val threadId: String, val screenKey: String, val generation: String) {
+        fun json(): JSONObject = JSONObject().put("threadId", threadId).put("screenKey", screenKey).put("generation", generation)
+        fun save() = Bundle().apply {
+            putString("threadId", threadId)
+            putString("screenKey", screenKey)
+            putString("generation", generation)
+        }
+
+        companion object {
+            fun restore(bundle: Bundle): Lease? {
+                val threadId = bundle.getString("threadId") ?: return null
+                val screenKey = bundle.getString("screenKey") ?: return null
+                val generation = bundle.getString("generation") ?: return null
+                return Lease(threadId, screenKey, generation)
+            }
+        }
+    }
+
+    private sealed interface PolicyChange {
+        data class Background(val allowed: Boolean) : PolicyChange
+        data class Limit(val value: Int) : PolicyChange
+        data class BlockedApps(val packages: Set<String>) : PolicyChange
+
+        fun json(): JSONObject = when (this) {
+            is Background -> JSONObject().put("allowBackground", allowed)
+            is Limit -> JSONObject().put("maxActiveScreens", value)
+            is BlockedApps -> JSONObject().put("blockedPackages", JSONArray(packages))
+        }
+    }
+
+    private companion object {
+        val unavailable = setOf("stale", "disconnected", "unavailable", "rebind_required", "cleanup_failed", "stopping")
+    }
+}

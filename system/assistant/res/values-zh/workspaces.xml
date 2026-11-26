@@ -104,4 +104,15 @@
  <string name="workspace_background_off_copy">已关闭新建后台任务，现有工作空间仍保持打开。</string>
  <string name="workspace_cleanup_failed">清理未完成</string>
  <string name="workspace_cleanup_retry">此工作区未能清理完成，也未确认关闭。屏幕和 App 使用权仍被保留，系统每隔 30 秒重试关闭；确认关闭后会从名单移除。</string>
+ <string name="bscreen_not_installed">当前未安装</string>
+ <string name="bscreen_user_unavailable">工作区仅供已解锁的 Android 主用户使用。</string>
+ <string name="bscreen_thread_unavailable">原会话已不可用。</string>
+ <string name="bscreen_frontend_unavailable">无法打开助手应用。</string>
+ <string name="bscreen_closed">工作区已关闭。</string>
+ <string name="bscreen_return_failed">工作区已关闭，但无法打开原会话。</string>
+ <string name="bscreen_access_changes">应用访问变更</string>
+ <string name="bscreen_access_pending">正在清理</string>
+ <string name="bscreen_access_released">已释放应用访问</string>
+ <string name="bscreen_access_retained">你仍在接管此画面</string>
+ <string name="bscreen_access_superseded">工作区已更改</string>
 </resources>

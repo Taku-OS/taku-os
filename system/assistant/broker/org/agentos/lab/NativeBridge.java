@@ -318,11 +318,14 @@ final class NativeBridge {
    return;
   }
   String thread=p.optString("threadId");if(thread.isEmpty()){if(method.startsWith("fs/")||method.startsWith("hook/")||method.startsWith("remoteControl/")||method.equals("warning")||method.equals("configWarning")||method.equals("model/rerouted")||method.startsWith("project/")){globalEvents.put(new JSONObject().put("method",method).put("detail",redact(p.toString())));while(globalEvents.length()>16)globalEvents.remove(0);}return;}JSONObject s=state.computeIfAbsent(thread,k->new JSONObject());
-  if(method.equals("turn/started")){PhoneGestures.startTurn(thread,p.getJSONObject("turn").getString("id"));s.put("activeTurnId",p.getJSONObject("turn").getString("id"));phonePolicyChanges.keySet().removeIf(owner->owner.startsWith(thread+"\n")&&!owner.equals(thread+"\n"+s.optString("activeTurnId")));s.remove("error");s.remove("plan");s.remove("cancellationCleanup");if(!admissions.turnStarted(thread)){s.put("phoneStoppedTurnId",p.getJSONObject("turn").getString("id"));enqueue(new Call("turn/interrupt",new JSONObject().put("threadId",thread).put("turnId",p.getJSONObject("turn").getString("id"))));tellParentIfClosed(thread);}}
-  if(method.equals("turn/completed")){JSONObject completed=p.getJSONObject("turn");PhoneGestures.endTurn(thread,completed.getString("id"));cancelPhoneWorkers(thread,completed.getString("id"));
-   phonePolicyChanges.remove(thread+"\n"+completed.getString("id"));
-   DedicatedScreensOnDevice.shared().turnEnded(thread);
-   s.put("completedTurn",new JSONObject().put("id",completed.getString("id")).put("status",completed.getString("status")));s.remove("activeTurnId");JSONObject error=completed.optJSONObject("error");if(error!=null)s.put("error",redact(error.optString("message")));requests.values().removeIf(q->q.optJSONObject("params").optString("threadId").equals(thread));}
+  if(method.equals("turn/started")){String turn=p.getJSONObject("turn").getString("id");PhoneGestures.startTurn(thread,turn);s.put("activeTurnId",turn);phonePolicyChanges.keySet().removeIf(owner->owner.startsWith(thread+"\n")&&!owner.equals(thread+"\n"+turn));s.remove("error");s.remove("plan");s.remove("cancellationCleanup");if(admissions.turnStarted(thread)){DedicatedScreensOnDevice.shared().nativeTurnStarted(thread,turn);}else{s.put("phoneStoppedTurnId",turn);enqueue(new Call("turn/interrupt",new JSONObject().put("threadId",thread).put("turnId",turn)));tellParentIfClosed(thread);}}
+  if(method.equals("turn/completed")){JSONObject completed=p.getJSONObject("turn");String turn=completed.getString("id");PhoneGestures.endTurn(thread,turn);cancelPhoneWorkers(thread,turn);
+   phonePolicyChanges.remove(thread+"\n"+turn);
+   boolean current=turn.equals(s.optString("activeTurnId"));
+   requests.values().removeIf(q->{JSONObject params=q.optJSONObject("params");return params!=null&&thread.equals(params.optString("threadId"))&&(turn.equals(params.optString("turnId"))||(current&&params.optString("turnId").isEmpty()));});
+   if(!current)return;
+   DedicatedScreensOnDevice.shared().turnEnded(thread,turn,completed.getString("status").equals("completed")&&!turn.equals(s.optString("phoneStoppedTurnId")));
+   s.put("completedTurn",new JSONObject().put("id",turn).put("status",completed.getString("status")));s.remove("activeTurnId");JSONObject error=completed.optJSONObject("error");if(error!=null)s.put("error",redact(error.optString("message")));}
   if(method.equals("turn/plan/updated"))s.put("plan",p);
   if(method.equals("turn/diff/updated"))s.put("diff",redact(p.optString("diff")));
   if(method.equals("thread/tokenUsage/updated"))s.put("usage",p.optJSONObject("tokenUsage"));

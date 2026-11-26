@@ -109,6 +109,7 @@ class WorkspaceFloatService : Service() {
                     .putExtra("threadId", lease.getString("threadId"))
                     .putExtra("screenKey", lease.getString("screenKey"))
                     .putExtra("generation", lease.getString("generation"))
+                    .putExtra("allocationId", lease.optString("allocationId").ifEmpty { null })
                 if (context.startService(intent) == null) {
                     pendingId = null
                     pendingAttached = null
@@ -153,7 +154,8 @@ class WorkspaceFloatService : Service() {
                 .put("threadId", intent.getStringExtra("threadId"))
                 .put("screenKey", intent.getStringExtra("screenKey"))
                 .put("generation", intent.getStringExtra("generation")))
-            if (!WorkspaceUi.same(next, lease) || root == null) {
+            next.put("allocationId", intent.getStringExtra("allocationId"))
+            if (!WorkspaceUi.same(next, lease) || next.optString("allocationId") != lease?.optString("allocationId") || root == null) {
                 removeWindow()
                 lease = next
                 admittedThread = null
@@ -529,7 +531,9 @@ class WorkspaceFloatService : Service() {
                 checkedAt = SystemClock.elapsedRealtime()
                 val entries = ChatWorkspacePreviewProtocol.select(catalog, origin.getString("threadId"))
                 for (index in 0 until entries.length()) {
-                    if (WorkspaceUi.same(origin, entries.optJSONObject(index))) current = entries.getJSONObject(index)
+                    val entry = entries.getJSONObject(index)
+                    if (WorkspaceUi.same(origin, entry) &&
+                        (origin.optString("allocationId").isEmpty() || origin.optString("allocationId") == entry.optString("allocationId"))) current = entry
                 }
                 val state = NativeClient.state(origin.getString("threadId"))
                 val requests = state.optJSONArray("requests")
@@ -586,6 +590,7 @@ class WorkspaceFloatService : Service() {
             .putExtra("threadId", origin.optString("threadId"))
             .putExtra("screenKey", origin.optString("screenKey"))
             .putExtra("generation", origin.optString("generation"))
+            .putExtra("allocationId", origin.optString("allocationId").ifEmpty { null })
         startActivity(intent)
         stopSelf()
     }

@@ -2012,7 +2012,9 @@ public final class DedicatedScreensTest {
         control(rig, 1, "user");
         Call b = new Call(rig, 2, "t", "com.x");
         awaitWaiting(rig, "com.x", 1);
-        control(rig, 1, "agent");
+        String[] handback = lease(rig, 1);
+        rig.screens.beginReturn(session(1), handback[0], handback[1]);
+        rig.screens.finishControl(session(1), handback[0], handback[1], "agent");
         JSONObject row = rows(rig).get(session(1));
         check(
                 row.getString("controlOwner").equals("agent")
@@ -2028,17 +2030,23 @@ public final class DedicatedScreensTest {
         check(rig.screens.turnEnded(session(1)) == null, "E3: whose end releases nothing");
         PhoneExecutionScreens.Admission grant = rig.screens.admission(session(1));
         check(rig.screens.turnStarted(session(1), grant), "E3: the give-back's own turn runs");
+        rig.screens.nativeTurnStarted(session(1), "handback");
         check(
                 use(rig, 1, DedicatedScreens.Use.ACT, null) == d
                         && tasksOn(rig, d).size() == 1
                         && holder(rig, "com.x").equals("001")
                         && !b.done(),
                 "E3: on its own screen, X and its page still its own");
+        check(rig.screens.turnEnded(session(1), "handback", true) == null
+                        && rows(rig).get(session(1)).getString("status").equals("ready")
+                        && tasksOn(rig, d).size() == 1 && !b.done(),
+                "E3: successful handback keeps the App and ready preview available");
         check(
                 rig.screens.turnStarted(session(1), null),
                 "a later turn needs no grant: the takeover is over");
-        rig.screens.turnEnded(session(1)).join(5_000);
-        check(b.granted().contains("com.x"), "E3: that turn's end releases as usual");
+        rig.screens.nativeTurnStarted(session(1), "ordinary");
+        rig.screens.turnEnded(session(1), "ordinary", true).join(5_000);
+        check(b.granted().contains("com.x"), "E3: a later ordinary turn releases as usual");
     }
 
     /**

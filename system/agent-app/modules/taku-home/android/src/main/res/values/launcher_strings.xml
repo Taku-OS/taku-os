@@ -23,6 +23,7 @@
   <string name="home_workspace_open_screen">Open background screen</string>
   <string name="home_workspace_open_failed">Could not open the background screen</string>
   <string name="home_workspace_running">Working</string>
+  <string name="home_workspace_ready">Ready</string>
   <string name="home_workspace_waiting">Waiting</string>
   <string name="home_workspace_paused">Paused</string>
   <string name="home_workspace_user_control">Your control</string>

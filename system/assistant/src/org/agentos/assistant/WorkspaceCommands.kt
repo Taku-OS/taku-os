@@ -67,6 +67,7 @@ internal object WorkspaceCommands {
                     throw IOException("SCREEN_REBIND_REQUIRED")
                 val intent = Intent(context, MirrorActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 for (key in leaseFields) intent.putExtra(key, lease.getString(key))
+                intent.putExtra("allocationId", lease.optString("allocationId").ifEmpty { null })
                 context.startActivity(intent)
                 JSONObject().put("opened", true).put("threadId", lease.getString("threadId"))
             }
