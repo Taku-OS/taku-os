@@ -20,6 +20,7 @@ endif
 PRODUCT_PACKAGES_DEBUG += \
     TakuSurfaces \
     TakuArrival \
+    TakuNotebook \
     TakuMemory \
     TakuInputMethod \
     TakuAssistant \
