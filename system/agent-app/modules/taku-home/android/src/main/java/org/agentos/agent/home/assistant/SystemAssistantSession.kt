@@ -28,12 +28,19 @@ class SystemAssistantSession(private val ctx: Context) : VoiceInteractionSession
   private var assistBlocked = false
   private var foreground: String? = null
   private var shown = false
+  private var earlyOverlay = false
+  private var captureInFlight = false
+  private var holdCapture: SystemAssistCapture.Ticket? = null
   @Volatile private var generation = 0
   @Volatile private var invocationToken: String? = null
 
   override fun onPrepareShow(args: Bundle?, flags: Int) {
     super.onPrepareShow(args, flags)
     val version = ++generation
+    holdCapture?.reject()
+    holdCapture = null
+    earlyOverlay = false
+    captureInFlight = false
     request = args?.let(::Bundle) ?: Bundle()
     showFlags = flags
     capture = null
@@ -64,10 +71,28 @@ class SystemAssistantSession(private val ctx: Context) : VoiceInteractionSession
     super.onShow(args, flags)
     shown = true
     if (ctx.getSystemService(KeyguardManager::class.java).isKeyguardLocked) { hide(); return }
+    captureInFlight = true
+    val invocation = request
+    if (invocation?.getString(SystemAssistantEntry.TRIGGER) == "nav_handle_long_press" &&
+        !invocation.containsKey("jevTestToken")) {
+      val id = invocation.getString(SystemAssistantEntry.GESTURE_ID).orEmpty()
+      val gesture = AssistantSession.get(ctx).gesture
+      if (id.isNotEmpty() && gesture.id == id && gesture.held && !gesture.expired(SystemClock.uptimeMillis())) {
+        holdCapture = SystemAssistCapture.begin(id)
+        // The original screenshot is delivered independently. Keep the existing Overlay's
+        // held/gesture-id check, so a release during startup can never open the microphone.
+        earlyOverlay = true
+        try { startAssistantActivity(SystemAssistantEntry.launch(ctx, invocation)) }
+        catch (failure: RuntimeException) {
+          holdCapture?.reject("UNAVAILABLE")
+          Log.w("TakuSystemAssistant", "Assistant UI unavailable", failure)
+        }
+      }
+    }
     if (captureReady()) deliverCapture()
     else {
       val version = generation
-      main.postDelayed({ if (shown && version == generation) deliverCapture() }, 5_000)
+      main.postDelayed({ if (captureInFlight && version == generation) deliverCapture() }, 5_000)
     }
   }
 
@@ -82,7 +107,7 @@ class SystemAssistantSession(private val ctx: Context) : VoiceInteractionSession
         structure.getWindowNodeAt(index).rootViewNode.isAssistBlocked
       }
     }
-    if (shown && captureReady()) deliverCapture()
+    if (captureInFlight && captureReady()) deliverCapture()
   }
 
   override fun onHandleScreenshot(screenshot: Bitmap?) {
@@ -90,7 +115,7 @@ class SystemAssistantSession(private val ctx: Context) : VoiceInteractionSession
     if (request == null) return
     capture = screenshot
     screenshotReceived = true
-    if (shown && captureReady()) deliverCapture()
+    if (captureInFlight && captureReady()) deliverCapture()
   }
 
   private fun captureReady(): Boolean = showFlags and SHOW_WITH_SCREENSHOT == 0 ||
@@ -103,13 +128,15 @@ class SystemAssistantSession(private val ctx: Context) : VoiceInteractionSession
     val version = generation
     val page = foreground ?: "Current app"
     val suggestion = args.containsKey("jevTestToken")
+    val ticket = holdCapture
+    val presentedEarly = earlyOverlay
     request = null
     shown = false
     IO.execute {
       var file: File? = null
-      var target: Intent? = if (suggestion) null else SystemAssistantEntry.launch(ctx, args)
+      var target: Intent? = if (suggestion || presentedEarly) null else SystemAssistantEntry.launch(ctx, args)
       try {
-        if (version != generation) return@execute
+        if (version != generation || ticket?.rejected == true) return@execute
         val payload = if (suggestion) JSONObject().put("jevTestToken", args.getString("jevTestToken"))
           .put("manualScreen", args.getBoolean("manualScreen")).put("captureForeground", page)
         else JSONObject().put("operation", "receive").put("token", invocationToken ?: error("CAPTURE_UNAVAILABLE"))
@@ -121,9 +148,10 @@ class SystemAssistantSession(private val ctx: Context) : VoiceInteractionSession
         }
         val descriptor = file?.let { ParcelFileDescriptor.open(it, ParcelFileDescriptor.MODE_READ_ONLY) }
         descriptor.use {
-          if (version != generation) return@use
+          if (version != generation || ticket?.rejected == true) return@use
           if (it != null) extras.putParcelable("capture", it)
           val result = gateway(if (suggestion) "assistCapture" else "assistInvocation", payload, extras)
+          ticket?.received()
           if (suggestion) {
             val captureId = result.getString("captureId")
             target = Intent(Intent.ACTION_VIEW,
@@ -134,6 +162,7 @@ class SystemAssistantSession(private val ctx: Context) : VoiceInteractionSession
           }
         }
       } catch (failure: Exception) {
+        ticket?.reject(if (failure.message == "CAPTURE_EXPIRED") "CAPTURE_EXPIRED" else "SCREENSHOT_UNAVAILABLE")
         Log.w("TakuSystemAssistant", "Native capture handoff failed", failure)
         main.post {
           if (version == generation) {
@@ -146,6 +175,7 @@ class SystemAssistantSession(private val ctx: Context) : VoiceInteractionSession
         file?.delete()
         main.post {
           if (version == generation) {
+            captureInFlight = false
             try { target?.let(::startAssistantActivity) }
             catch (failure: RuntimeException) {
               Log.w("TakuSystemAssistant", "Assistant UI unavailable", failure)
@@ -165,10 +195,19 @@ class SystemAssistantSession(private val ctx: Context) : VoiceInteractionSession
   }
 
   override fun onHide() {
+    // Starting the early activity hands UI ownership to it. Its capture still belongs to
+    // this invocation until delivery (or explicit gesture cancellation), even after release.
+    if (holdCapture?.retainOnHide(earlyOverlay, captureInFlight) == true) {
+      shown = false
+      super.onHide()
+      return
+    }
+    holdCapture?.reject()
+    captureInFlight = false
     generation++; shown = false; request = null; capture = null; screenshotReceived = false; invocationToken = null
     super.onHide()
   }
-  override fun onDestroy() { main.removeCallbacksAndMessages(null); generation++; super.onDestroy() }
+  override fun onDestroy() { holdCapture?.reject(); main.removeCallbacksAndMessages(null); generation++; super.onDestroy() }
 
   companion object { private val IO = Executors.newSingleThreadExecutor() }
 }
