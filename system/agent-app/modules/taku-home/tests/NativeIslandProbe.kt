@@ -135,12 +135,12 @@ class NativeIslandProbe : Instrumentation() {
             report.put("longReplyRemainsScrollable", true).put("headerSwipeDismiss", true)
             // A completed assistant remains in the store. It must not hide unrelated ongoing work.
             notifications.createNotificationChannel(NotificationChannel("island-coexistence-test", "Island coexistence test", NotificationManager.IMPORTANCE_LOW))
-            val payload = JSONObject().put("version", 1).put("category", "progress")
-                .put("bigIsland", JSONObject().put("trailing", JSONObject().put("type", "text").put("text", "Test progress")))
-                .put("expanded", JSONObject().put("template", "text").put("title", "Test progress").put("body", "Temporary regression fixture"))
+            val payload = JSONObject().put("version", 2)
+                .put("compact", JSONObject().put("b", JSONObject().put("type", "text").put("text", "Test progress")))
+                .put("expanded", JSONObject().put("template", "basic").put("title", "Test progress").put("body", "Temporary regression fixture"))
             notifications.notify(progressId, Notification.Builder(targetContext, "island-coexistence-test")
                 .setSmallIcon(android.R.drawable.stat_sys_upload).setContentTitle("Test progress").setOngoing(true)
-                .addExtras(Bundle().apply { putString("taku.island.v1", payload.toString()) }).build())
+                .addExtras(Bundle().apply { putString("taku.island.v2", payload.toString()) }).build())
             fun awaitProgress() {
                 val end = SystemClock.uptimeMillis() + 5000
                 while (!presentation().optBoolean("compactVisible") && SystemClock.uptimeMillis() < end) SystemClock.sleep(40)

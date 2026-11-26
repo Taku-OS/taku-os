@@ -27,7 +27,8 @@ export function beginOptimisticSubmission(
   session: SessionView | null, now = Date.now(),
 ): OptimisticSubmission {
   return {...request, startedAt: now, baselineBlockIds: session?.blocks.map(block => block.id) || [],
-    baselineTurnIds: [...new Set(session?.blocks.map(block => block.turnId) || [])], state: 'sending'};
+    // Every earlier turn, blockless ones included: none of them can be this request's turn.
+    baselineTurnIds: [...new Set([...(session?.turnIds || []), ...(session?.blocks.map(block => block.turnId) || [])])], state: 'sending'};
 }
 
 /** Reasoning counts: a model that is thinking has answered the request, so it never times out as unanswered. */

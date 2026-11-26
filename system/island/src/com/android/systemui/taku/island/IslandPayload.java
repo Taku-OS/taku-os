@@ -14,9 +14,34 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-/** Bounded draft-v1 validation. No class loading, URI fetching, action execution or view inflation. */
+/**
+ * Bounded validation of the Taku Island extras ({@code taku.island.v2}, the only protocol). No
+ * class loading, URI fetching, action execution or view inflation. {@link #parse} returns the
+ * validated payload SystemUI renders.
+ */
 public final class IslandPayload {
     public static final int MAX_BYTES = 8192;
+    public static final int MAX_LIFETIME_S = 43200;
+    public static final int MAX_ACTIONS = 32;
+    public static final String TAKU_PACKAGE = "org.agentos.agent";
+    /** Card background the accent colour must contrast with (IslandStyle card, opaque fallback). */
+    private static final int CARD_RGB = 0x121212;
+    private static final Set<String> AI_ANIMATIONS = new HashSet<>(Arrays.asList("ai-working", "ai-listening"));
+
+    /** What the extractor verified about the posting package; never taken from the payload. */
+    public static final class Publisher {
+        public final String packageName;
+        /** Signed with the platform certificate. */
+        public final boolean platform;
+        /** Taku Agent: {@link #TAKU_PACKAGE} with the platform certificate. */
+        public final boolean taku;
+
+        public Publisher(String packageName, boolean platform) {
+            this.packageName = packageName;
+            this.platform = platform;
+            this.taku = platform && TAKU_PACKAGE.equals(packageName);
+        }
+    }
 
     public static final class Result {
         public final JSONObject payload;
@@ -30,77 +55,128 @@ public final class IslandPayload {
         public boolean isValid() { return payload != null; }
     }
 
-    /** Producer ownership/permission and referenced Icon/Action checks belong to the extractor. */
-    public static Result parse(String json, String postingPackage, boolean systemSource) {
-        if (json == null) return new Result(null, "missing_payload");
-        // Reject before allocating an arbitrarily large UTF-8 copy or entering the JSON parser.
-        if (json.length() > MAX_BYTES || json.getBytes(StandardCharsets.UTF_8).length > MAX_BYTES) {
-            return new Result(null, "payload_too_large");
-        }
+    /** Validates {@code taku.island.v2}. The result is the payload SystemUI renders. */
+    public static Result parse(String json, Publisher publisher) {
         try {
-            checkDepth(json);
-            JSONObject value;
-            try (JsonReader reader = new JsonReader(new StringReader(json))) {
-                reader.setLenient(false);
-                Object parsed = readJson(reader);
-                require(parsed instanceof JSONObject && reader.peek() == JsonToken.END_DOCUMENT, "invalid_json");
-                value = (JSONObject) parsed;
-            }
-            keys(value, "version category bigIsland smallIsland expanded relevance statusBar alert islandTimeoutS staleAfterS compact");
-            integer(value, "version", 1, 1, true);
-            choice(value, "category", "call alarm recording navigation timer assistant media progress other", true);
-            String category = value.getString("category");
-            choice(value, "compact", "auto hidden building", false);
-            require(!"building".equals(value.optString("compact")) || category.equals("assistant"), "invalid_building_category");
-            require(systemSource || !(category.equals("call") || category.equals("alarm")), "reserved_category");
-            number(value, "relevance", 0, 1);
-            JSONObject big = object(value, "bigIsland");
-            keys(big, "leading trailing");
-            require(big.length() > 0, "empty_big_island");
-            for (String side : new String[]{"leading", "trailing"}) {
-                if (big.has(side)) slot(object(big, side), false);
-            }
-            if (value.has("smallIsland")) slot(object(value, "smallIsland"), true);
-            expanded(object(value, "expanded"), postingPackage);
-            if (object(value, "expanded").has("assistant")) require(category.equals("assistant"), "assistant_category");
-            choice(value, "statusBar", "auto cover below", false);
-            bool(value, "alert");
-            integer(value, "islandTimeoutS", 1, 28800, false);
-            integer(value, "staleAfterS", 1, 28800, false);
-            return new Result(value, null);
-        } catch (JSONException | IOException | IllegalArgumentException | IllegalStateException error) {
-            // Never return untrusted text or a parser exception to the status bar renderer.
+            return validate(read(json), publisher);
+        } catch (IllegalArgumentException error) {
+            return new Result(null, code(error));
+        } catch (JSONException | IOException | IllegalStateException error) {
             return new Result(null, "invalid_payload");
         }
     }
 
-    private static void expanded(JSONObject value, String postingPackage) throws JSONException {
-        keys(value, "template title body pic steps progress actions primaryAction content assistant");
-        choice(value, "template", "text steps progress media assistant", true);
+    /** Only our own identifier-style codes reach diagnostics; never parser or platform text. */
+    private static String code(IllegalArgumentException error) {
+        String message = error.getMessage();
+        return message != null && message.matches("[a-z][a-z_]{0,47}") ? message : "invalid_payload";
+    }
+
+    /** Strict reader: size, depth, duplicate keys and number grammar. */
+    private static JSONObject read(String json) throws IOException, JSONException {
+        require(json != null, "missing_payload");
+        // Reject before allocating an arbitrarily large UTF-8 copy or entering the JSON parser.
+        require(json.length() <= MAX_BYTES && json.getBytes(StandardCharsets.UTF_8).length <= MAX_BYTES,
+                "payload_too_large");
+        checkDepth(json);
+        try (JsonReader reader = new JsonReader(new StringReader(json))) {
+            reader.setLenient(false);
+            Object parsed = readJson(reader);
+            require(parsed instanceof JSONObject && reader.peek() == JsonToken.END_DOCUMENT, "invalid_json");
+            return (JSONObject) parsed;
+        }
+    }
+
+    private static Result validate(JSONObject value, Publisher publisher) throws JSONException {
+        keys(value, "version compact expanded tap cardPosition alert timeoutS staleAfterS");
+        integer(value, "version", 2, 2, true);
+        if (value.has("compact")) {
+            JSONObject compact = object(value, "compact");
+            keys(compact, "a b");
+            require(compact.length() > 0, "empty_compact");
+            if (compact.has("a")) slot(object(compact, "a"), true, publisher);
+            if (compact.has("b")) slot(object(compact, "b"), false, publisher);
+        }
+        expanded(object(value, "expanded"), publisher);
+        choice(value, "tap", "expand open", false);
+        choice(value, "cardPosition", "cover below", false);
+        bool(value, "alert");
+        integer(value, "timeoutS", 1, MAX_LIFETIME_S, false);
+        integer(value, "staleAfterS", 1, MAX_LIFETIME_S, false);
+        return new Result(value, null);
+    }
+
+    private static void slot(JSONObject slot, boolean groupA, Publisher publisher) throws JSONException {
+        choice(slot, "type", groupA ? "icon animation progress" : "text number timer countdown progress icon animation", true);
+        switch (slot.getString("type")) {
+            case "icon":
+                keys(slot, "type pic animate progress tint contentDescription");
+                key(slot, "pic", true);
+                bool(slot, "animate");
+                bool(slot, "tint");
+                number(slot, "progress", 0, 1);
+                text(slot, "contentDescription", 0, 80, false);
+                break;
+            case "animation":
+                keys(slot, "type name contentDescription");
+                text(slot, "name", 1, 32, true);
+                // Every current system animation belongs to Taku Agent's AI loading/listening.
+                require(AI_ANIMATIONS.contains(slot.getString("name")) && publisher.taku, "invalid_animation");
+                text(slot, "contentDescription", 0, 80, false);
+                break;
+            case "progress":
+                keys(slot, "type value");
+                number(slot, "value", 0, 1);
+                break;
+            case "text":
+                keys(slot, "type text emphasis");
+                text(slot, "text", 1, 16, true);
+                choice(slot, "emphasis", "normal accent muted", false);
+                break;
+            case "number":
+                keys(slot, "type value unit");
+                text(slot, "value", 1, 3, true);
+                require(slot.getString("value").matches("[0-9]{1,3}"), "invalid_digits");
+                text(slot, "unit", 0, 4, false);
+                break;
+            case "timer":
+            case "countdown":
+                String field = slot.getString("type").equals("timer") ? "startEpochMs" : "endEpochMs";
+                keys(slot, "type " + field);
+                integer(slot, field, 0, 9007199254740991L, true);
+                break;
+            default: throw new IllegalArgumentException("unsupported_slot");
+        }
+    }
+
+    private static void expanded(JSONObject value, Publisher publisher) throws JSONException {
+        keys(value, "template title body pic steps progress highlight actions primaryAction tapAction accentColor backgroundColor assistant content");
+        choice(value, "template", "basic progress highlight assistant", true);
+        String template = value.getString("template");
         text(value, "title", 1, 80, true);
         text(value, "body", 0, 2000, false);
         key(value, "pic", false);
-        String template = value.getString("template");
-        require(!template.equals("steps") || value.has("steps"), "missing_steps");
-        require(!template.equals("progress") || value.has("progress"), "missing_progress");
-        if (value.has("steps")) {
-            JSONArray steps = array(value, "steps", 8);
-            for (int index = 0; index < steps.length(); index++) {
-                JSONObject step = steps.getJSONObject(index);
-                keys(step, "kind text running");
-                choice(step, "kind", "search browse act info", true);
-                text(step, "text", 1, 120, true);
-                bool(step, "running");
-            }
-        }
+        if (value.has("steps")) steps(value);
         if (value.has("progress")) {
             JSONObject progress = object(value, "progress");
-            require("progress".equals(progress.opt("type")), "invalid_progress");
-            slot(progress, true);
+            keys(progress, "value");
+            number(progress, "value", 0, 1);
         }
+        require(!template.equals("progress") || value.has("progress"), "missing_progress");
+        if (value.has("highlight")) {
+            require(template.equals("highlight"), "highlight_template_only");
+            JSONObject highlight = object(value, "highlight");
+            keys(highlight, "text label");
+            text(highlight, "text", 1, 12, true);
+            text(highlight, "label", 0, 40, false);
+        }
+        require(!template.equals("highlight") || value.has("highlight"), "missing_highlight");
         Set<String> actions = new HashSet<>();
         if (value.has("actions")) {
-            JSONArray list = array(value, "actions", 4);
+            Object raw = value.get("actions");
+            require(raw instanceof JSONArray, "expected_array");
+            JSONArray list = (JSONArray) raw;
+            require(list.length() <= MAX_ACTIONS, "too_many_actions");
             for (int index = 0; index < list.length(); index++) {
                 Object action = list.get(index);
                 require(action instanceof String && validKey((String) action), "invalid_action_key");
@@ -108,72 +184,87 @@ public final class IslandPayload {
             }
         }
         key(value, "primaryAction", false);
-        if (value.has("primaryAction")) {
-            require(actions.contains(value.getString("primaryAction")), "missing_primary_action");
+        if (value.has("primaryAction")) require(actions.contains(value.getString("primaryAction")), "missing_primary_action");
+        key(value, "tapAction", false);
+        // A template style: the card's background (white, say). Text and controls follow it.
+        int background = CARD_RGB;
+        if (value.has("backgroundColor")) {
+            background = color(value, "backgroundColor");
+            require(!template.equals("assistant"), "reserved_template");
         }
-        if (value.has("assistant")) {
-            require(template.equals("assistant") && !value.has("content"), "native_assistant_only");
-            JSONObject assistant = object(value, "assistant");
-            keys(assistant, "token phase heightDp suggestions");
-            text(assistant, "token", 1, 256, true);
-            choice(assistant, "phase", "listening working message", true);
-            integer(assistant, "heightDp", 96, 340, true);
-            JSONArray suggestions = array(assistant, "suggestions", 4);
-            Set<String> seen = new HashSet<>();
-            for (int i = 0; i < suggestions.length(); i++) {
-                String id = suggestions.getString(i);
-                require(actions.contains(id) && seen.add(id), "invalid_suggestion_action");
-            }
+        if (value.has("accentColor")) {
+            require(contrast(color(value, "accentColor"), background) >= 4.5, "low_contrast");
         }
-        require(!template.equals("assistant") || value.has("assistant"), "missing_assistant");
+        if (template.equals("assistant") || value.has("assistant")) {
+            require(publisher.taku, "reserved_template");
+            require(template.equals("assistant") && value.has("assistant") && !value.has("content"), "native_assistant_only");
+            assistant(object(value, "assistant"), actions);
+        }
         if (value.has("content")) {
-            JSONObject content = object(value, "content");
-            keys(content, "service token layout heightDp");
-            choice(content, "layout", "body card", false);
-            integer(content, "heightDp", 96, 340, false);
-            text(content, "service", 1, 512, true);
-            String service = content.getString("service");
-            require(service.matches("^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+/[A-Za-z0-9_.$]+$"), "invalid_service");
-            require(postingPackage != null && service.substring(0, service.indexOf('/')).equals(postingPackage), "foreign_service");
-            text(content, "token", 0, 256, false);
+            require(publisher.platform, "reserved_content");
+            content(object(value, "content"), publisher.packageName);
         }
     }
 
-    private static void slot(JSONObject slot, boolean small) throws JSONException {
-        choice(slot, "type", small ? "pic progress" : "pic text timer countdown progress number", true);
-        String type = slot.getString("type");
-        switch (type) {
-            case "pic":
-                keys(slot, "type pic animated contentDescription");
-                key(slot, "pic", true);
-                choice(slot, "animated", "none working listening", false);
-                text(slot, "contentDescription", 0, 80, false);
-                break;
-            case "text":
-                keys(slot, "type text pic emphasis");
-                text(slot, "text", 1, 16, true);
-                choice(slot, "emphasis", "normal accent muted", false);
-                break;
-            case "timer":
-            case "countdown":
-                String field = type.equals("timer") ? "startEpochMs" : "endEpochMs";
-                keys(slot, "type pic " + field);
-                // Keep integer arithmetic exact across native/JS producers.
-                integer(slot, field, 0, 9007199254740991L, true);
-                break;
-            case "progress":
-                keys(slot, "type value pic");
-                number(slot, "value", 0, 1);
-                break;
-            case "number":
-                keys(slot, "type value unit pic");
-                text(slot, "value", 1, 3, true);
-                require(slot.getString("value").matches("[0-9]{1,3}"), "invalid_digits");
-                text(slot, "unit", 0, 4, false);
-                break;
-            default: throw new IllegalArgumentException("unsupported_slot");
+    /** A `#RRGGBB` field as 0xRRGGBB. */
+    private static int color(JSONObject value, String name) throws JSONException {
+        text(value, name, 7, 7, true);
+        String color = value.getString(name);
+        require(color.matches("#[0-9A-Fa-f]{6}"), "invalid_color");
+        return Integer.parseInt(color.substring(1), 16);
+    }
+
+    /** WCAG 2 contrast ratio between two sRGB colours. */
+    static double contrast(int first, int second) {
+        double a = luminance(first), b = luminance(second);
+        return (Math.max(a, b) + .05) / (Math.min(a, b) + .05);
+    }
+
+    /** WCAG 2 relative luminance of 0xRRGGBB (any alpha bits are ignored). */
+    public static double luminance(int rgb) {
+        double[] channels = {(rgb >> 16) & 255, (rgb >> 8) & 255, rgb & 255};
+        for (int i = 0; i < 3; i++) {
+            double c = channels[i] / 255;
+            channels[i] = c <= 0.04045 ? c / 12.92 : Math.pow((c + .055) / 1.055, 2.4);
         }
-        key(slot, "pic", false);
+        return .2126 * channels[0] + .7152 * channels[1] + .0722 * channels[2];
+    }
+
+    private static void steps(JSONObject value) throws JSONException {
+        JSONArray steps = array(value, "steps", 8);
+        for (int index = 0; index < steps.length(); index++) {
+            Object raw = steps.get(index);
+            require(raw instanceof JSONObject, "expected_object");
+            JSONObject step = (JSONObject) raw;
+            keys(step, "kind text running");
+            choice(step, "kind", "search browse act info", true);
+            text(step, "text", 1, 120, true);
+            bool(step, "running");
+        }
+    }
+
+    private static void assistant(JSONObject assistant, Set<String> actions) throws JSONException {
+        keys(assistant, "token phase heightDp suggestions");
+        text(assistant, "token", 1, 256, true);
+        choice(assistant, "phase", "listening working message", true);
+        integer(assistant, "heightDp", 96, 340, true);
+        JSONArray suggestions = array(assistant, "suggestions", 4);
+        Set<String> seen = new HashSet<>();
+        for (int i = 0; i < suggestions.length(); i++) {
+            String id = suggestions.getString(i);
+            require(actions.contains(id) && seen.add(id), "invalid_suggestion_action");
+        }
+    }
+
+    private static void content(JSONObject content, String postingPackage) throws JSONException {
+        keys(content, "service token layout heightDp");
+        choice(content, "layout", "body card", false);
+        integer(content, "heightDp", 96, 340, false);
+        text(content, "service", 1, 512, true);
+        String service = content.getString("service");
+        require(service.matches("^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+/[A-Za-z0-9_.$]+$"), "invalid_service");
+        require(postingPackage != null && service.substring(0, service.indexOf('/')).equals(postingPackage), "foreign_service");
+        text(content, "token", 0, 256, false);
     }
 
     private static void keys(JSONObject object, String allowed) {

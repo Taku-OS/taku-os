@@ -1,8 +1,28 @@
 # Dynamic Island architecture (system-wide activity display)
 
 Status: **implementation in progress; integrated ROM/device acceptance pending**. See the
-[phase ledger](dynamic-island-progress.md). Extras schema
-draft: [`spec/taku-island-v1.schema.json`](../spec/taku-island-v1.schema.json).
+[phase ledger](dynamic-island-progress.md).
+
+> **v2 (2026-11-23)** supersedes the v1 parts of this document. The current behaviour is in
+> [the v2 spec](dynamic-island-v2-spec.md) and [the developer guide](dynamic-island-developer.md),
+> with the contract in [`spec/taku-island-v2.schema.json`](../spec/taku-island-v2.schema.json).
+> - Two states only: the compact capsule (groups A/B) and the expanded card. Small Island became a
+>   system-managed secondary disc.
+> - No `category`/`relevance`. Order is system tier (call, alarm, recording/cast), then a live
+>   alert, then the most recently triggered activity.
+> - Lifetime is 1 h from the first post by default, up to 12 h when declared.
+> - Gestures: tap follows `tap` (`expand`/`open`), long press expands, swipe left selects the next
+>   activity, swipe right hides. The chooser card is gone.
+> - Capsules are hidden while their app is in front.
+> - Island activities replace their stock heads-up while presentable.
+> - Provider callers are authorized: third-party apps need an App Permission Center grant.
+>
+> - Only `taku.island.v2` is read; v1 and its adapter were removed before release. Apps signed
+>   with the platform certificate publish without registration; the `POST_ISLAND` permission is
+>   gone and the allow-list is for reviewed third-party apps.
+>
+> Statements below about `taku.island.v1`, big/small island, category arbitration, `POST_ISLAND`,
+> the 8 h cap and the long-press chooser are historical.
 
 ## Goal
 
@@ -121,7 +141,7 @@ the native template from the extracted content model.
 
 | Key | Type | Content |
 |---|---|---|
-| `taku.island.v1` | String (JSON, ≤ 8 KB UTF-8) | Validated against [`spec/taku-island-v1.schema.json`](../spec/taku-island-v1.schema.json) on a SystemUI worker thread |
+| `taku.island.v1` (removed) | Historical JSON extra | The v1 schema and adapter were removed before release. Use [`taku.island.v2`](../spec/taku-island-v2.schema.json) for current integrations |
 | `taku.island.pics` | Bundle<String, Icon> | Image keys referenced by `pic` fields (`^[a-z][a-z0-9_]{0,31}$`) |
 | `taku.island.actions` | Bundle<String, Notification.Action> | Action keys referenced by `expanded.actions` |
 

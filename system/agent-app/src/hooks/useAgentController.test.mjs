@@ -36,6 +36,7 @@ const mocks = new Map([
     };
     export const onOpenThread = listener => {runtime.openListeners.add(listener); return {remove() {runtime.openListeners.delete(listener);}};};
     export const selectConversation = id => {runtime.target = null; runtime.threadId = id || '';};
+    export const setHandoffCandidate = report => {runtime.handoffs.push(report.threadId || null); runtime.sending = report.sending;};
     export const subscribeSession = () => ({remove() {}});
     export const watchConversationVisible = listener => {listener(true); return {remove() {}};};
     export const closeAgent = async () => {};
@@ -59,7 +60,7 @@ const deferred = () => {let resolve; const promise = new Promise(yes => {resolve
 
 function reset(t) {
   Object.assign(runtime, {sequence: 0, storage: new Map(), drafts: new Map(), receipts: new Map(), consumed: new Set(),
-    events: [], calls: [], lookups: [], completed: [], openListeners: new Set(), attachmentListeners: new Set(), target: {...target}, threadId: 'thread-a',
+    events: [], calls: [], lookups: [], completed: [], handoffs: [], openListeners: new Set(), attachmentListeners: new Set(), target: {...target}, threadId: 'thread-a',
     failConsumption: false, mounts: [], receipt: async (args, panelId) => accepted(args, panelId)});
   runtime.callAgent = async (action, params = {}) => {
     const threadId = params.threadId;
@@ -96,6 +97,12 @@ function reset(t) {
       return runtime.receipts.get(params.requestId) || {threadId, requestId: params.requestId, state: 'missing'};
     }
     if (action === 'composer/settle') return runtime.receipts.get(params.requestId) || {threadId, requestId: params.requestId, state: 'missing'};
+    if (action === 'createThread') { runtime.events.push(['createThread']); return {thread: {id: 'thread-new'}}; }
+    if (action === 'composer/move') {
+      const moved = {...snapshot(), threadId: params.targetThreadId, revision: `draft-${++runtime.sequence}`};
+      runtime.drafts.delete(threadId); runtime.drafts.set(params.targetThreadId, moved);
+      return moved;
+    }
     if (action === 'listThreads') return {threads: [{id: 'thread-a'}, {id: 'thread-b'}]};
     if (action === 'readSession') return {native: {ready: true}, historyComplete: true,
       thread: {id: params.threadId, turns: runtime.completed.filter(item => item.threadId === params.threadId).map(item => ({
@@ -200,6 +207,65 @@ test('a reconciled accepted pending continuation consumes its original launch af
   assert.equal(runtime.storage.has(pendingKey('thread-a')), false);
   await send(restored, 'A later ordinary turn');
   assert.equal(runtime.calls.at(-1).action, 'sendMessage');
+});
+
+test('a send in flight names its conversation for the island handoff, and an idle one clears it', async t => {
+  reset(t); runtime.target = null;
+  const gate = deferred(); runtime.receipt = () => gate.promise;
+  const host = mount(); await flush(host);
+  assert.equal(runtime.handoffs.at(-1), null);
+  assert.equal(host.result.onDraftChange('Plan the trip'), true); await flush(host);
+  host.result.onSend(); await flush(host);
+  assert.equal(runtime.handoffs.at(-1), 'thread-a');
+  assert.equal(runtime.sending, true, 'native knows a send is in flight');
+  gate.resolve(accepted(runtime.calls[0])); await flush(host);
+  runtime.completed.push({threadId: 'thread-a', requestId: runtime.calls[0].requestId, text: 'Plan the trip'});
+  host.result.onRefresh(); await flush(host);
+  assert.equal(runtime.handoffs.at(-1), null);
+  assert.equal(runtime.sending, false);
+  host.unmount();
+  assert.equal(runtime.handoffs.at(-1), null);
+});
+
+test('New task creates a separate conversation without changing TAKU', async t => {
+  plainChat(t);
+  runtime.storage.set(primaryKey, 'thread-a');
+  const host = mount(); await flush(host);
+  assert.equal(host.result.draftSessionId, 'thread-a');
+  host.result.onCreateTaskThread(); await flush(host);
+  assert.deepEqual([host.result.primaryThreadId, host.result.draftSessionId, host.result.isMainChat], ['thread-a', 'thread-new', false]);
+  assert.equal(runtime.threadId, 'thread-new', 'native selection follows');
+});
+
+test('New task during a send opens once the send ends instead of being dropped', async t => {
+  reset(t); runtime.target = null;
+  const gate = deferred(); runtime.receipt = () => gate.promise;
+  const host = mount(); await flush(host);
+  assert.equal(host.result.onDraftChange('Plan the trip'), true); await flush(host);
+  host.result.onSend(); await flush(host);
+  host.result.onCreateTaskThread(); await flush(host);
+  assert.equal(host.result.draftSessionId, 'thread-a', 'the send keeps its conversation until it is delivered');
+  assert.equal(runtime.events.some(([name]) => name === 'createThread'), false);
+  gate.resolve(accepted(runtime.calls[0])); await flush(host);
+  assert.equal(host.result.draftSessionId, 'thread-new');
+  assert.equal(runtime.threadId, 'thread-new');
+});
+
+test('every outside open is counted, reopening the selected conversation included', async t => {
+  reset(t); runtime.target = null;
+  const host = mount(); await flush(host);
+  assert.equal(host.result.draftSessionId, 'thread-a');
+  assert.equal(host.result.externalOpens, 0);
+  // The island card reopens the conversation that is already selected: no thread change to watch.
+  runtime.threadId = 'thread-a';
+  for (const listener of runtime.openListeners) listener('thread-a', null);
+  await flush(host);
+  assert.equal(host.result.draftSessionId, 'thread-a');
+  assert.equal(host.result.externalOpens, 1);
+  // A refused Panel route still asks the chat to come forward and show its error.
+  for (const listener of runtime.openListeners) listener('thread-a', null, new Error('Panel target unavailable'));
+  await flush(host);
+  assert.equal(host.result.externalOpens, 2);
 });
 
 test('a deliberate same-panel reopen remains a fresh continuation after acceptance', async t => {
@@ -457,6 +523,7 @@ test('TAKU carries on in a new conversation: the old one becomes a Task and the 
   assert.deepEqual([runtime.calls.at(-1).threadId, runtime.calls.at(-1).text], ['thread-new', 'Plan my week']);
   assert.deepEqual([host.result.primaryThreadId, host.result.draftSessionId, host.result.isMainChat], ['thread-new', 'thread-new', true]);
   assert.equal(runtime.storage.get(primaryKey), 'thread-new');
+  assert.equal(runtime.threadId, 'thread-new', 'native follows the created conversation');
 });
 
 test('a draft already waiting in the new conversation is kept', async t => {
