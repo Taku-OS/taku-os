@@ -1,0 +1,3 @@
+#!/system/bin/sh
+export CLASSPATH=/data/local/agentos/go2-lab/client.jar
+exec app_process /system/bin org.taku.go2lab.Client "$@"

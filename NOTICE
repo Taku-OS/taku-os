@@ -77,3 +77,10 @@ Taku Audio Engine (system/audio-engine) uses Apache-2.0 for original Taku code.
 When built or distributed with local TTS/ASR resources (sherpa-onnx, Zipformer,
 Kokoro, and espeak-ng phoneme data/libraries), sherpa-onnx retains Apache-2.0
 and espeak-ng retains GPL-3.0-or-later; see system/audio-engine/models/notices.lock.json.
+
+Go2 Robot Panel (tooling/go2-lab) imports a standalone Pixel development app.
+Original code follows Apache-2.0. The WebRTC driver, MediaPipe runtime/model,
+Python dependencies, audio and supplied design assets retain their own provenance
+and terms; see tooling/go2-lab/THIRD-PARTY.md and audio-presets/catalog.json.
+CC BY-SA 3.0, CC BY 2.0 FR and CC0 audio are not relicensed as project code.
+No robot firmware, device credentials or production signing identity is included.

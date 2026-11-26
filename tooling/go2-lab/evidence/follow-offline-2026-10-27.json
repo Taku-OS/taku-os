@@ -1,0 +1,385 @@
+{
+  "date": "2026-10-27",
+  "hardware": {
+    "cpu": "Apple M4 Pro",
+    "memoryBytes": 25769803776
+  },
+  "robotConnected": false,
+  "vision": {
+    "boxes": [
+      {
+        "bboxNormalizedBottomLeft": [
+          0.019810259924996756,
+          0.16894693266003186,
+          0.2405133914179192,
+          0.48466004927585243
+        ],
+        "confidence": 0.7224767804145813
+      },
+      {
+        "bboxNormalizedBottomLeft": [
+          0.24135047907377127,
+          0.2095771405431866,
+          0.1646205235274009,
+          0.43822552168804135
+        ],
+        "confidence": 0.7126096487045288
+      },
+      {
+        "bboxNormalizedBottomLeft": [
+          0.8138951153586422,
+          0.1958955104932854,
+          0.1851283515318872,
+          0.45729684927492953
+        ],
+        "confidence": 0.6512083411216736
+      }
+    ],
+    "detectionCounts": [
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      3,
+      2,
+      3,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      3,
+      2,
+      2,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3
+    ],
+    "engine": "Apple Vision VNDetectHumanRectanglesRequest",
+    "experiment": "offline-static-image-human-detection",
+    "frames": [
+      {
+        "count": 2,
+        "cropOffset": 3,
+        "highestConfidence": 0.7338761687278748,
+        "highestConfidenceCenterXInOriginalPixels": 284.76452053018994
+      },
+      {
+        "count": 2,
+        "cropOffset": 4,
+        "highestConfidence": 0.7167090773582458,
+        "highestConfidenceCenterXInOriginalPixels": 287.0669825502807
+      },
+      {
+        "count": 2,
+        "cropOffset": 5,
+        "highestConfidence": 0.7177302837371826,
+        "highestConfidenceCenterXInOriginalPixels": 285.8961970593243
+      },
+      {
+        "count": 2,
+        "cropOffset": 6,
+        "highestConfidence": 0.7358694672584534,
+        "highestConfidenceCenterXInOriginalPixels": 283.42301910689963
+      },
+      {
+        "count": 2,
+        "cropOffset": 7,
+        "highestConfidence": 0.7348734736442566,
+        "highestConfidenceCenterXInOriginalPixels": 283.9888573714668
+      },
+      {
+        "count": 2,
+        "cropOffset": 8,
+        "highestConfidence": 0.7516258358955383,
+        "highestConfidenceCenterXInOriginalPixels": 283.68639535137595
+      },
+      {
+        "count": 2,
+        "cropOffset": 9,
+        "highestConfidence": 0.7231522798538208,
+        "highestConfidenceCenterXInOriginalPixels": 288.1595964900082
+      },
+      {
+        "count": 2,
+        "cropOffset": 10,
+        "highestConfidence": 0.7381882667541504,
+        "highestConfidenceCenterXInOriginalPixels": 286.9888341852593
+      },
+      {
+        "count": 2,
+        "cropOffset": 11,
+        "highestConfidence": 0.7548670172691345,
+        "highestConfidenceCenterXInOriginalPixels": 287.12055708680873
+      },
+      {
+        "count": 2,
+        "cropOffset": 12,
+        "highestConfidence": 0.739840030670166,
+        "highestConfidenceCenterXInOriginalPixels": 284.64733276196904
+      },
+      {
+        "count": 3,
+        "cropOffset": 13,
+        "highestConfidence": 0.7609872221946716,
+        "highestConfidenceCenterXInOriginalPixels": 285.2131942127437
+      },
+      {
+        "count": 2,
+        "cropOffset": 14,
+        "highestConfidence": 0.7619490623474121,
+        "highestConfidenceCenterXInOriginalPixels": 288.3839333312851
+      },
+      {
+        "count": 3,
+        "cropOffset": 15,
+        "highestConfidence": 0.7733980417251587,
+        "highestConfidenceCenterXInOriginalPixels": 288.08147131119426
+      },
+      {
+        "count": 2,
+        "cropOffset": 16,
+        "highestConfidence": 0.7597028613090515,
+        "highestConfidenceCenterXInOriginalPixels": 138.43080386093675
+      },
+      {
+        "count": 2,
+        "cropOffset": 17,
+        "highestConfidence": 0.7587381601333618,
+        "highestConfidenceCenterXInOriginalPixels": 140.2991041455948
+      },
+      {
+        "count": 2,
+        "cropOffset": 18,
+        "highestConfidence": 0.7654655575752258,
+        "highestConfidenceCenterXInOriginalPixels": 142.16740443025287
+      },
+      {
+        "count": 2,
+        "cropOffset": 19,
+        "highestConfidence": 0.7519505620002747,
+        "highestConfidenceCenterXInOriginalPixels": 140.99666531171147
+      },
+      {
+        "count": 2,
+        "cropOffset": 20,
+        "highestConfidence": 0.7535722255706787,
+        "highestConfidenceCenterXInOriginalPixels": 140.69420329162062
+      },
+      {
+        "count": 2,
+        "cropOffset": 21,
+        "highestConfidence": 0.7447734475135803,
+        "highestConfidenceCenterXInOriginalPixels": 141.26004155618784
+      },
+      {
+        "count": 2,
+        "cropOffset": 22,
+        "highestConfidence": 0.7516258358955383,
+        "highestConfidenceCenterXInOriginalPixels": 139.65514070221366
+      },
+      {
+        "count": 3,
+        "cropOffset": 23,
+        "highestConfidence": 0.742146372795105,
+        "highestConfidenceCenterXInOriginalPixels": 137.1819395635814
+      },
+      {
+        "count": 2,
+        "cropOffset": 24,
+        "highestConfidence": 0.7431326508522034,
+        "highestConfidenceCenterXInOriginalPixels": 140.35267868212281
+      },
+      {
+        "count": 2,
+        "cropOffset": 25,
+        "highestConfidence": 0.7444455623626709,
+        "highestConfidenceCenterXInOriginalPixels": 284.62275893347555
+      },
+      {
+        "count": 3,
+        "cropOffset": 26,
+        "highestConfidence": 0.7342087626457214,
+        "highestConfidenceCenterXInOriginalPixels": 139.31361609271585
+      },
+      {
+        "count": 3,
+        "cropOffset": 27,
+        "highestConfidence": 0.739179790019989,
+        "highestConfidenceCenterXInOriginalPixels": 280.11049520543634
+      },
+      {
+        "count": 3,
+        "cropOffset": 28,
+        "highestConfidence": 0.745756208896637,
+        "highestConfidenceCenterXInOriginalPixels": 282.4129572255272
+      },
+      {
+        "count": 3,
+        "cropOffset": 29,
+        "highestConfidence": 0.7288689613342285,
+        "highestConfidenceCenterXInOriginalPixels": 281.67635665621106
+      },
+      {
+        "count": 3,
+        "cropOffset": 30,
+        "highestConfidence": 0.7228146195411682,
+        "highestConfidenceCenterXInOriginalPixels": 137.6696526493347
+      },
+      {
+        "count": 3,
+        "cropOffset": 31,
+        "highestConfidence": 0.7146623134613037,
+        "highestConfidenceCenterXInOriginalPixels": 282.808056371553
+      },
+      {
+        "count": 3,
+        "cropOffset": 32,
+        "highestConfidence": 0.7224767804145813,
+        "highestConfidenceCenterXInOriginalPixels": 140.97209148321804
+      }
+    ],
+    "inputHeight": 1080,
+    "inputVariation": "33 distinct crops offset by 0..32 pixels on each axis",
+    "inputWidth": 810,
+    "limits": [
+      "Synthetic crops of one public still image; not robot video",
+      "No video transport/decode, tracking, depth, avoidance or control latency measured",
+      "No person identity recognition or target persistence measured",
+      "First request in this process; system/model may already be warm"
+    ],
+    "maxMs": 4.503,
+    "measuredIterations": 30,
+    "medianMs": 3.902083,
+    "minMs": 3.4415,
+    "movementSent": false,
+    "os": "Version 15.2 (Build 24C101)",
+    "p95Ms": 4.314875,
+    "processedHeight": 1048,
+    "processedWidth": 778,
+    "revision": 2,
+    "robotConnected": false,
+    "warmupIterations": 3,
+    "firstRequestMs": 75.105292
+  },
+  "highestConfidenceSelectionAudit": {
+    "regionRule": "original image centerX: left <230, middle 230..500, right >=500; hand-inspected spatial regions, not a tracking benchmark",
+    "regions": [
+      "middle",
+      "middle",
+      "middle",
+      "middle",
+      "middle",
+      "middle",
+      "middle",
+      "middle",
+      "middle",
+      "middle",
+      "middle",
+      "middle",
+      "middle",
+      "left",
+      "left",
+      "left",
+      "left",
+      "left",
+      "left",
+      "left",
+      "left",
+      "left",
+      "middle",
+      "left",
+      "middle",
+      "middle",
+      "middle",
+      "left",
+      "middle",
+      "left"
+    ],
+    "switches": 7
+  },
+  "publicImage": {
+    "source": "https://github.com/ultralytics/ultralytics/blob/main/ultralytics/assets/bus.jpg",
+    "gitBlobSha": "40eaaf5c330d0c498fbe1dcacf9bb8bf566797fe",
+    "sha256": "c02019c4979c191eb739ddd944445ef408dad5679acab6fd520ef9d434bfbc63"
+  },
+  "communityAudit": {
+    "sourceHashes": {
+      "object_tracker.py": "955ef50b8bf041dbee05fd5961e3047f3b938135dd056e225b849d4aff7b37ca",
+      "follow_behavior.py": "7087dd9e279eba605f76b25174873306f48a062c2773e6f946586a2bf3b79f1a"
+    },
+    "numericCases": [
+      {
+        "bboxWidth": 10,
+        "bboxHeight": 10,
+        "area": 100,
+        "command": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      {
+        "bboxWidth": 20,
+        "bboxHeight": 20,
+        "area": 400,
+        "command": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      {
+        "bboxWidth": 50,
+        "bboxHeight": 100,
+        "area": 5000,
+        "command": {
+          "x": -0.15,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      {
+        "bboxWidth": 100,
+        "bboxHeight": 200,
+        "area": 20000,
+        "command": {
+          "x": -0.15,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      {
+        "bboxWidth": 200,
+        "bboxHeight": 400,
+        "area": 80000,
+        "command": {
+          "x": -0.15,
+          "y": 0.0,
+          "z": 0.0
+        }
+      }
+    ],
+    "getLatestFrameReturnValues": [
+      "None",
+      "None"
+    ],
+    "messagesForZeroCommand": 0,
+    "messagesForNonzeroCommand": 1,
+    "robotConnected": false,
+    "externalModuleImported": false,
+    "limitations": "Audited isolated functions with fake transport; no inference about actual robot persistence or braking."
+  }
+}

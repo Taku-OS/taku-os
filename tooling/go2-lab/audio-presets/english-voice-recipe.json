@@ -1,0 +1,133 @@
+{
+  "language": "English",
+  "voiceDescription": "An original adult male voice speaking English with a natural African American English accent from Southern California. Warm low-mid baritone, relaxed and friendly, smooth slightly textured tone, clear words, easy conversational rhythm and understated West Coast hip-hop swagger. Confident but kind, never aggressive. Light playful emphasis on slang. Speak naturally, not singing or rapping, with no background music. Consistent voice, moderate pace, no exaggerated caricature or celebrity impression. Pause clearly between the paragraphs, as each paragraph is a separate short phrase.",
+  "style": {
+    "zh": "西海岸风格 · 英语男声 · AI 合成",
+    "en": "West Coast style · Male voice · AI-generated"
+  },
+  "clips": [
+    {
+      "id": "en-whats-good",
+      "text": "Yo, what's good? I'm Taku.",
+      "zh": "嘿，最近怎么样？我是 Taku。",
+      "title": "What's good?"
+    },
+    {
+      "id": "en-lets-roll",
+      "text": "All right, let's roll.",
+      "zh": "好，咱们出发。",
+      "title": "Let's roll"
+    },
+    {
+      "id": "en-got-you",
+      "text": "Say less. I got you.",
+      "zh": "懂了，交给我。",
+      "title": "I got you"
+    },
+    {
+      "id": "en-good-to-see-you",
+      "text": "Hey, good to see you, fam.",
+      "zh": "嘿，兄弟，见到你真好。",
+      "title": "Good to see you"
+    },
+    {
+      "id": "en-ready",
+      "text": "I'm ready when you are.",
+      "zh": "我准备好了，随时听你的。",
+      "title": "Ready when you are"
+    },
+    {
+      "id": "en-on-my-way",
+      "text": "I'm on my way. Catch you in a sec.",
+      "zh": "我这就来，马上见。",
+      "title": "On my way"
+    },
+    {
+      "id": "en-coming-through",
+      "text": "Coming through. Appreciate you.",
+      "zh": "借过一下，多谢啦。",
+      "title": "Coming through"
+    },
+    {
+      "id": "en-give-me-room",
+      "text": "Hey, give me a little room, please.",
+      "zh": "嘿，麻烦给我让一点空间。",
+      "title": "A little room"
+    },
+    {
+      "id": "en-hold-up",
+      "text": "Hold up. Give me a second.",
+      "zh": "稍等，给我一点时间。",
+      "title": "Hold up"
+    },
+    {
+      "id": "en-all-good",
+      "text": "It's all good. No rush.",
+      "zh": "没事儿，不着急。",
+      "title": "It's all good"
+    },
+    {
+      "id": "en-nice-work",
+      "text": "Okay, I see you! Nice work.",
+      "zh": "可以啊，有两下子！干得漂亮。",
+      "title": "Nice work"
+    },
+    {
+      "id": "en-thats-the-vibe",
+      "text": "Yeah, that's the vibe.",
+      "zh": "对，就是这个感觉。",
+      "title": "That's the vibe"
+    },
+    {
+      "id": "en-keep-it-moving",
+      "text": "Let's keep it moving.",
+      "zh": "咱们继续往前走。",
+      "title": "Keep it moving"
+    },
+    {
+      "id": "en-roll-with-me",
+      "text": "Roll with me. We got this.",
+      "zh": "跟我一起，咱们能搞定。",
+      "title": "Roll with me"
+    },
+    {
+      "id": "en-good-looking-out",
+      "text": "Good looking out. I appreciate you.",
+      "zh": "谢了，多亏你照应。",
+      "title": "Good looking out"
+    },
+    {
+      "id": "en-my-bad",
+      "text": "My bad. Let me try that again.",
+      "zh": "我的问题，让我再试一次。",
+      "title": "My bad"
+    },
+    {
+      "id": "en-catch-you-later",
+      "text": "All right, catch you later. Stay cool.",
+      "zh": "好啦，回头见，保持酷劲儿。",
+      "title": "Catch you later"
+    },
+    {
+      "id": "en-recharge",
+      "text": "I'm gonna recharge. Catch you in a bit.",
+      "zh": "我去充个电，一会儿见。",
+      "title": "Time to recharge"
+    },
+    {
+      "id": "en-lets-go",
+      "text": "Let's go! That's what I'm talking about.",
+      "zh": "好耶！要的就是这个。",
+      "title": "Let's go!"
+    },
+    {
+      "id": "en-taku-intro",
+      "text": "Four paws, fresh moves, and a whole lot of heart. I'm Taku. Let's make today a good one.",
+      "zh": "四只脚，酷动作，还有满满的热情。我是 Taku，今天一起玩出点精彩。",
+      "title": "Meet Taku"
+    }
+  ],
+  "service": "https://huggingface.co/spaces/Qwen/Qwen3-TTS",
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "method": "One full take, split using reviewed word timestamps and quiet phrase gaps"
+}
