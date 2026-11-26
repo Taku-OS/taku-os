@@ -367,7 +367,7 @@ Policy is saved before cleanup. Read `revocations` by generation: pending, relea
 To match the Taku Home bookmark count, count `result.screens` rows with
 `homePreviewEligible:true`. Pausing/taking over preserves eligibility during `stopping`;
 closing/releasing clears it. Home previews return to the previous Home page on exit.
-The bookmark opens the Home preview cards. Use the live viewer's minimize action to open a movable preview.
+The bookmark opens and collapses the Home preview cards. It stays at the right edge while any screen is eligible. Use the live viewer's minimize action to open a movable preview.
 
 ### Force-close a specified workspace
 

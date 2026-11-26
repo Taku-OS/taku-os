@@ -44,6 +44,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.BiasAbsoluteAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.asImageBitmap
@@ -66,6 +67,7 @@ import org.agentos.agent.home.design.TakuTheme
 
 private val PreviewWidth = 104.dp
 private val PreviewHeight = 176.dp
+private val BookmarkTapWidth = 48.dp
 
 private val HomeWorkspaceScreen.previewIdentity: Pair<String, Int>
   get() = previewUri to displayId
@@ -99,16 +101,12 @@ internal fun BoxScope.HomeWorkspacePreviews(
       .height(PreviewHeight),
     contentAlignment = AbsoluteAlignment.CenterRight,
   ) {
-    if (!showing) WorkspaceBookmark(screens.size) {
-      opening++
-      visibility.targetState = true
-    }
-
     val gap = TakuSpacing.xs
     val margin = TakuSpacing.sm
     val edge = TransformOrigin(pivotFractionX = 1f, pivotFractionY = 0.5f)
     AnimatedVisibility(
       visibleState = visibility,
+      modifier = Modifier.absolutePadding(right = BookmarkTapWidth).clipToBounds(),
       enter = slideInHorizontally(TakuMotion.settle()) { it / 3 } +
         scaleIn(TakuMotion.settle(), initialScale = 0.55f, transformOrigin = edge) + fadeIn(TakuMotion.scrim()),
       exit = slideOutHorizontally(TakuMotion.settle()) { it / 3 } +
@@ -164,19 +162,30 @@ internal fun BoxScope.HomeWorkspacePreviews(
         }
       }
     }
+
+    WorkspaceBookmark(screens.size, expanded) {
+      if (visibility.targetState) {
+        close()
+      } else {
+        opening++
+        visibility.targetState = true
+      }
+    }
   }
 }
 
 @Composable
-private fun WorkspaceBookmark(count: Int, onOpen: () -> Unit) {
+private fun WorkspaceBookmark(count: Int, expanded: Boolean, onToggle: () -> Unit) {
   val colors = TakuTheme.colors
   Box(
-    modifier = Modifier.size(width = 48.dp, height = 88.dp).clickable(
+    modifier = Modifier.size(width = BookmarkTapWidth, height = 88.dp).clickable(
       interactionSource = null,
       indication = null,
       role = Role.Button,
-      onClickLabel = stringResource(R.string.home_workspace_show_previews),
-      onClick = onOpen,
+      onClickLabel = stringResource(
+        if (expanded) R.string.home_workspace_hide_previews else R.string.home_workspace_show_previews,
+      ),
+      onClick = onToggle,
     ),
     contentAlignment = AbsoluteAlignment.CenterRight,
   ) {

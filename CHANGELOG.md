@@ -4,6 +4,7 @@ Versioned, user-facing records. Source-project versions are distinct from ROM re
 
 ## Unreleased
 
+- Keep the Taku Home BScreen handle visible while its preview cards open and collapse.
 - Keep ready BScreen workspaces and their Home previews after a read-only follow-up. Taku BScreen settings offer optional automatic closing when the configured Jev route confirms the entire screen is finished. The option respects the Taku AI Jev switch.
 - Put the expand action over the live floating preview and show a green dot for Ready in the full-screen preview.
 - Add **with Bscreen Open** to the app icon menu in Taku Home. Open the same BScreen from the Home sidebar or launch the app through `workspaces/launch`.
