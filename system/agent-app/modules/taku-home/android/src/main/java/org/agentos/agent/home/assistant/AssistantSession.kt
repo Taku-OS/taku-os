@@ -136,6 +136,9 @@ class AssistantSession private constructor(private val context: Context, private
 
   /** One recording's result may be delivered once; this machine keeps that ownership. */
   private val delivery = VoiceDeliveryMachine(MAX_TEXT)
+  private var voiceInvocationCapture: SystemAssistCapture.Ticket? = null
+  private var liveInvocationCapture: Pair<String, SystemAssistCapture.Ticket>? = null
+  private var liveCaptureWait: Job? = null
 
   private val streamLock = Any()
   private var stream: SessionStreamState? = null
@@ -361,6 +364,7 @@ class AssistantSession private constructor(private val context: Context, private
   fun activateHold(id: String) {
     if (gesture.source == "system" && gesture.expired(android.os.SystemClock.uptimeMillis())) { cancelVoice(); return }
     if (!gesture.activate(id)) return
+    voiceInvocationCapture = if (gesture.source == "system") SystemAssistCapture.forGesture(id) else null
     publishGesture()
     flow.update { it.copy(expansionRequest = ++expansionSequence) }
     startVoice(VoiceTarget.Hold, VoiceDestination.AwaitGesture)
@@ -400,7 +404,9 @@ class AssistantSession private constructor(private val context: Context, private
     val currentEditor = editor
     handoffEditor = currentEditor
     handoffActivityLaunched = false
+    rejectLiveCapture()
     live.begin(flow.value.threadId, handoff = true)
+    liveInvocationCapture = voiceInvocationCapture?.let { ticket -> live.snapshot?.sessionId?.let { it to ticket } }
     publishGesture()
     handoffOperation = delivery.handoff()
     apply(delivery.settle(voice.state.value, flow.value.draft))
@@ -420,6 +426,7 @@ class AssistantSession private constructor(private val context: Context, private
         delay(10_000)
         if (live.snapshot?.generation == 0L && !chatVisible(id)) {
           live.failHandoff("HOST_REQUIRED")
+          rejectLiveCapture()
           revokeVoice()
         }
       } catch (cancelled: kotlinx.coroutines.CancellationException) {
@@ -427,6 +434,7 @@ class AssistantSession private constructor(private val context: Context, private
       } catch (_: Exception) {
         if (live.snapshot?.open == true && gesture.id == gestureId) {
           live.failHandoff("THREAD_UNAVAILABLE")
+          rejectLiveCapture()
           revokeVoice()
           flow.update { it.copy(error = "THREAD_UNAVAILABLE") }
         }
@@ -441,6 +449,7 @@ class AssistantSession private constructor(private val context: Context, private
     if (snapshot?.open == true && snapshot.threadId == id && snapshot.lifecycle in setOf("connecting", "active")) return
     if (snapshot?.open == true && snapshot.threadId != id)
       throw AssistantException("SESSION_CHANGED", "Live Talk belongs to another conversation")
+    rejectLiveCapture()
     revokeVoice(cancelCapture = false)
     if (voice !is EngineVoiceInput) voice.cancel()
     flow.update { it.copy(entry = EntryMode.None, island = IslandMode.Hidden) }
@@ -514,6 +523,26 @@ class AssistantSession private constructor(private val context: Context, private
     val current = live.snapshot ?: return
     if (handoffEditor != null && !handoffActivityLaunched) return
     if (live.handingOff || current.lifecycle != "connecting" || !chatVisible(current.threadId)) return
+    val capture = liveInvocationCapture?.takeIf { it.first == current.sessionId }
+    if (capture != null && !capture.second.ready) {
+      if (liveCaptureWait?.isActive == true) return
+      liveCaptureWait = scope.launch {
+        try {
+          capture.second.awaitReceived()
+          if (liveInvocationCapture === capture && live.snapshot?.sessionId == current.sessionId) connectLiveTalk()
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+          throw cancelled
+        } catch (failure: SystemAssistCapture.Failure) {
+          if (liveInvocationCapture === capture && live.snapshot?.sessionId == current.sessionId) {
+            live.failHandoff(failure.code)
+            rejectLiveCapture()
+          }
+        } finally {
+          if (liveInvocationCapture === capture) liveCaptureWait = null
+        }
+      }
+      return
+    }
     val chat = ChatVoiceSession.get(context)
     chat.releaseForLive { released ->
       if (live.snapshot?.sessionId != current.sessionId || live.snapshot?.lifecycle != "connecting" ||
@@ -524,6 +553,7 @@ class AssistantSession private constructor(private val context: Context, private
 
   private fun endLiveTalk() {
     if (live.snapshot?.open != true) return
+    rejectLiveCapture()
     liveLaunchJob?.cancel(); liveLaunchJob = null
     live.close()
     handoffOperation = null
@@ -531,6 +561,13 @@ class AssistantSession private constructor(private val context: Context, private
     handoffEditor = null
     revokeVoice()
     flow.update { it.copy(entry = EntryMode.None, island = IslandMode.Hidden) }
+  }
+
+  private fun rejectLiveCapture() {
+    liveCaptureWait?.cancel()
+    liveCaptureWait = null
+    liveInvocationCapture?.second?.reject()
+    liveInvocationCapture = null
   }
 
   fun gestureEvent(p: JSONObject) {
@@ -691,7 +728,11 @@ class AssistantSession private constructor(private val context: Context, private
 
   private fun pendingRequest(saved: HomeComposer.Draft) = composer.savedRequest(saved.threadId) ?: saved.pending
 
-  private fun composerError(failure: Exception) = (failure as? GatewayException)?.code ?: "DRAFT_SAVE_FAILED"
+  private fun composerError(failure: Exception) = when (failure) {
+    is GatewayException -> failure.code
+    is SystemAssistCapture.Failure -> failure.code
+    else -> "DRAFT_SAVE_FAILED"
+  }
 
   /** Starter chips create an editable draft; they never submit a request. */
   fun choosePrompt(text: String) {
@@ -832,6 +873,7 @@ class AssistantSession private constructor(private val context: Context, private
    * is presentation only, so it can never cancel a newer recording. Returns the revoked operation.
    */
   fun beginCancelledVoice(): Long? {
+    voiceInvocationCapture?.reject()
     gesture.end(true); publishGesture()
     val operation = delivery.revoke()
     if (handoffEditor != null && live.snapshot?.generation == 0L) endLiveTalk()
@@ -904,6 +946,10 @@ class AssistantSession private constructor(private val context: Context, private
 
   /** Any conversation boundary: an undelivered result may no longer touch the session. */
   private fun revokeVoice(cancelCapture: Boolean = true) {
+    voiceInvocationCapture?.takeUnless {
+      liveInvocationCapture?.second === it && live.snapshot?.open == true
+    }?.reject()
+    voiceInvocationCapture = null
     cancelPendingVoiceStart()
     gesture.end(true); publishGesture()
     delivery.newGeneration()
@@ -944,7 +990,8 @@ class AssistantSession private constructor(private val context: Context, private
       }
       is VoiceEffect.Send -> {
         // A rejected send (e.g. one already in flight) keeps the complete words instead of losing them.
-        try { send(effect.text, keepVoiceEntry = true) } catch (e: AssistantException) { recoverFailure(editor, e.code, effect.text) }
+        try { send(effect.text, keepVoiceEntry = true, invocationCapture = voiceInvocationCapture) }
+        catch (e: AssistantException) { recoverFailure(editor, e.code, effect.text) }
       }
       is VoiceEffect.Failed -> {
         // Errors stop recognition, but never silently navigate away from the listening page.
@@ -958,7 +1005,9 @@ class AssistantSession private constructor(private val context: Context, private
   // ---- Messages ------------------------------------------------------------------------
 
   /** Sends the current shared draft or hands off a new text request. */
-  fun send(text: String, keepVoiceEntry: Boolean = false) {
+  fun send(text: String, keepVoiceEntry: Boolean = false) = send(text, keepVoiceEntry, null)
+
+  private fun send(text: String, keepVoiceEntry: Boolean, invocationCapture: SystemAssistCapture.Ticket?) {
     val message = text.trim()
     if (text.length > MAX_TEXT || (message.isEmpty() && flow.value.draftAttachmentNames.isEmpty()))
       throw AssistantException("INVALID_TEXT", "Enter a message or select an attachment")
@@ -995,6 +1044,10 @@ class AssistantSession private constructor(private val context: Context, private
             current.edit?.baseText = saved.text
             acceptDraft(current, saved)
           }
+          if (editor !== current || flow.value.abandoned) return@withLock
+          // Only the early system hold waits for its original screen. Keyboard and hardware
+          // submissions retain their existing path and the gateway's one-shot screenshot grant.
+          invocationCapture?.awaitReceived()
           if (editor !== current || flow.value.abandoned) return@withLock
           val request = HomeComposer.Request.new(saved, steerTurn)
           composer.remember(request)

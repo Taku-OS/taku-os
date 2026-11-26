@@ -139,6 +139,17 @@ signature matches the assistant. The native entry checks for pending drafts,
 attachments and screenshot context before handing over. If an entry cannot be
 transferred safely, it opens the existing native interface.
 
+A navigation-handle hold presents the voice overlay while Android is still delivering
+its invocation screenshot. It does not wait for the five-second assist callback
+fallback to open the UI. Releasing or cancelling before the overlay activates still
+prevents the microphone from opening. A finalized hold transcript and its Keep
+talking handoff wait for that gesture's capture handoff before submission or live
+connection; cancellation, a new gesture or leaving the conversation revokes a pending
+handoff, and a missing handoff fails after a bounded wait with the draft retained.
+This path does not change the power-key entry's one-shot screenshot grant. Host tests
+cover the capture gate and gesture protocol; Android activity/session lifecycle and
+physical-device acceptance must be checked separately on the built APK.
+
 Power-key screenshot capture, Jev suggestions, attachments, model/account settings
 and advanced screen controls retain their native implementations. The conversation
 history menu includes an entry to the current conversation's native controls.
