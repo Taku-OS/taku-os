@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Figma 979:454: Flashlight at the start, Camera at the end. Users still replace them
+         (long-press > Customize, wallpaper picker); selections are stored per user by SystemUI. -->
+    <string-array name="config_keyguardQuickAffordanceDefaults" translatable="false">
+        <item>bottom_start:flashlight</item>
+        <item>bottom_end:camera</item>
+    </string-array>
+</resources>

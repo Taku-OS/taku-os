@@ -61,6 +61,16 @@ def load_contract():
     return value
 
 
+def layered_after(entry):
+    """Final bytes of a later Taku patch built on this island file (lock screen `layeredOn: island`)."""
+    path = ROOT / 'image/lockscreen/manifest.json'
+    if not path.is_file():
+        return set()
+    return {item['afterSha256'] for item in json.loads(path.read_text()).get('files', [])
+            if item['path'] == entry['path'] and item.get('layeredOn') == 'island'
+            and item['beforeSha256'] == entry['afterSha256']}
+
+
 def inspect(repository, contract):
     repository = Path(repository).resolve()
     head = subprocess.check_output(['git', '-C', str(repository), 'rev-parse', 'HEAD'], text=True).strip()
@@ -72,9 +82,11 @@ def inspect(repository, contract):
         require(all(not parent.is_symlink() for parent in [path, *path.parents]
                     if parent != repository.parent), f'Symlink island target: {path}')
         current = digest(path) if path.exists() else None
-        require(current in (entry['beforeSha256'], entry['afterSha256']),
+        # The island edit is still present when a later layer (the lock screen) has built on it.
+        applied = {entry['afterSha256']} | layered_after(entry)
+        require(current == entry['beforeSha256'] or current in applied,
                 f'Unknown island source bytes; preserving {path}')
-        states.append(current == entry['afterSha256'])
+        states.append(current in applied)
     require(all(states) or not any(states), 'Partially applied island patch; inspect before continuing')
     return all(states)
 

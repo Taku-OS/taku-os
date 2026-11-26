@@ -7,3 +7,4 @@ adapters/codex-runtime/*.patch -whitespace
 image/launcher/*.patch -whitespace
 image/island/*.patch -whitespace
 image/recents/*.patch -whitespace
+image/lockscreen/*.patch -whitespace
