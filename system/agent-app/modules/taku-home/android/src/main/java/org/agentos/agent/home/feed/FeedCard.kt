@@ -43,6 +43,9 @@ sealed interface Intent {
       const val MAX_TEXT = 16_000
     }
   }
+  data object ConfirmDiningShare : Intent {
+    const val ID = "confirm-dining-share"
+  }
   data object Dismiss : Intent
   data object None : Intent
 }
@@ -74,6 +77,7 @@ data class FeedCard(
   companion object {
     const val SCHEMA = "taku.feed-card/1"
     private val ID = Regex("^[A-Za-z0-9._:-]{1,96}$")
+    private val DINING_RESERVATION = Regex("dining\\.reservation\\.(?:[0-9a-f]{24}|[0-9a-f]{40})")
     private val SOURCES = setOf("sample", "agent", "recommendation", "system")
     private const val MAX_BYTES = 256 * 1024
     private val GENERATION_NUMBERS = arrayOf("rank", "createdAt", "expiresAt")
@@ -106,8 +110,18 @@ data class FeedCard(
       if (ui.optString("catalog") != "taku-feed-1") fail("INVALID_CARD", "ui.catalog must be taku-feed-1")
       val spec = ui.optJSONObject("spec") ?: fail("INVALID_CARD", "ui.spec is required")
       val elements = spec.optJSONObject("elements") ?: fail("INVALID_CARD", "ui.spec.elements is required")
-      if (!elements.has(spec.optString("root"))) fail("INVALID_CARD", "ui.spec.root must name an element")
-      val actions = parseActions(raw.optJSONObject("actions") ?: JSONObject())
+      val root = spec.optString("root")
+      if (!elements.has(root)) fail("INVALID_CARD", "ui.spec.root must name an element")
+      val actionJson = raw.optJSONObject("actions") ?: JSONObject()
+      val nativeDining = sourceId == "agent" && source.optString("package") == "com.opentable" &&
+        DINING_RESERVATION.matches(id) && root == "card" &&
+        elements.optJSONObject(root)?.optString("type") == "Column" &&
+        elements.optJSONObject(root)?.optJSONArray("children") != null &&
+        elements.optJSONObject("share")?.optJSONObject("on")?.optJSONObject("press")
+          ?.optJSONObject("params")?.optString("actionId") == "share" &&
+        actionJson.optJSONObject("share")?.optJSONObject("intent")?.optString("type") == "share-text"
+      if (nativeDining) addDiningShareConfirmation(actionJson, elements, root)
+      val actions = parseActions(actionJson, nativeDining)
       val pin = parsePin(raw.optJSONObject("pin") ?: fail("INVALID_CARD", "pin is required"), actions)
       val expires = if (raw.isNull("expiresAt") || !raw.has("expiresAt")) null else raw.getLong("expiresAt")
       return FeedCard(
@@ -160,6 +174,7 @@ data class FeedCard(
           stringAt(intent, "prompt"); stringAt(intent, "package"); stringAt(intent, "uri"); stringAt(intent, "url")
         }
       }
+      if (DINING_RESERVATION.matches(input.optString("id"))) fail("INVALID_CARD", "reserved dining receipt id")
       return parse(input, forcedSource = "agent")
     }
 
@@ -185,7 +200,21 @@ data class FeedCard(
       return Pin(label, detail, value, icon, trailing)
     }
 
-    private fun parseActions(o: JSONObject): Map<String, CardAction> = buildMap {
+    // Decorate existing stored receipts when Home reads them, preserving remove/pin state.
+    private fun addDiningShareConfirmation(actions: JSONObject, elements: JSONObject, root: String) {
+      val children = elements.getJSONObject(root).getJSONArray("children")
+      val actionId = Intent.ConfirmDiningShare.ID
+      val label = "I sent it to the original group"
+      actions.put(actionId, JSONObject().put("label", label).put("intent", JSONObject().put("type", actionId)))
+      elements.put(actionId, JSONObject().put("type", "Button")
+        .put("props", JSONObject().put("label", label).put("variant", "secondary"))
+        .put("children", JSONArray())
+        .put("on", JSONObject().put("press", JSONObject().put("action", "dispatch")
+          .put("params", JSONObject().put("actionId", actionId)))))
+      if ((0 until children.length()).none { children.optString(it) == actionId }) children.put(actionId)
+    }
+
+    private fun parseActions(o: JSONObject, nativeDining: Boolean): Map<String, CardAction> = buildMap {
       for (key in o.keys()) {
         val a = o.optJSONObject(key) ?: fail("INVALID_CARD", "actions.$key must be an object")
         val i = a.optJSONObject("intent") ?: fail("INVALID_CARD", "actions.$key.intent is required")
@@ -197,6 +226,12 @@ data class FeedCard(
             i.opt("package") as? String ?: fail("INVALID_CARD", "actions.$key.intent.package must be a string"),
             i.opt("text") as? String ?: fail("INVALID_CARD", "actions.$key.intent.text must be a string"),
           )
+          Intent.ConfirmDiningShare.ID -> {
+            if (!nativeDining || key != Intent.ConfirmDiningShare.ID || i.length() != 1) {
+              fail("INVALID_CARD", "confirm-dining-share requires a native dining reservation card")
+            }
+            Intent.ConfirmDiningShare
+          }
           "dismiss" -> Intent.Dismiss
           "none" -> Intent.None
           else -> fail("INVALID_CARD", "actions.$key.intent.type is not supported")

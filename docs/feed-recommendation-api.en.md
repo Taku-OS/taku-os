@@ -159,7 +159,7 @@ process.exit(issues.length ? 1 : 0);
 | `dismiss` | Hides the card, matching user removal |
 | `none` | Records the action and returns `effect:"none"` |
 
-Actions execute on a user interaction or a `feed/action` call. `select` can include values from specified state paths. Feed cards accept the five intent types above; `panel` is rejected.
+Actions execute on a user interaction or a `feed/action` call. `select` can include values from specified state paths. Home adds a GUI-only `confirm-dining-share` action to OpenTable dining reservation cards. The user selects it after sending the reservation to the original group.
 
 ## Updates, withdrawal, and feedback
 

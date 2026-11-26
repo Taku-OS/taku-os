@@ -90,6 +90,53 @@ class FeedContractTest {
     }
   }
 
+  @Test fun legacyDiningReceiptGetsAUserOnlyShareConfirmationOnLoad() {
+    val input = withShareIntent(whatsappShare()).apply {
+      put("id", "dining.reservation.${"ab".repeat(12)}")
+      getJSONObject("source").put("package", "com.opentable")
+      put("actions", JSONObject().put("share", JSONObject().put("intent", whatsappShare())))
+      getJSONObject("ui").put("spec", JSONObject("""
+        {"root":"card","elements":{
+           "card":{"type":"Column","children":["share"]},
+           "share":{"type":"Button","on":{"press":{"action":"dispatch","params":{"actionId":"share"}}}}
+        }}
+      """.trimIndent()))
+    }
+    val card = FeedCard.parse(input)
+    val actionId = Intent.ConfirmDiningShare.ID
+    val action = card.actions.getValue(actionId)
+    assertEquals(Intent.ConfirmDiningShare, action.intent)
+    val olderId = JSONObject(input.toString()).put("id", "dining.reservation.${"ab".repeat(20)}")
+    assertEquals(Intent.ConfirmDiningShare, FeedCard.parse(olderId).actions.getValue(actionId).intent)
+    val elements = card.json.getJSONObject("ui").getJSONObject("spec").getJSONObject("elements")
+    assertEquals(actionId, elements.getJSONObject("card").getJSONArray("children").getString(1))
+    assertEquals(actionId, elements.getJSONObject(actionId).getJSONObject("on")
+      .getJSONObject("press").getJSONObject("params").getString("actionId"))
+    assertEquals(card.json.toString(), FeedCard.parse(card.json).json.toString())
+    assertTrue(!input.getJSONObject("actions").has(actionId))
+    val event = FeedEvent.accepted(FeedOrigin.GUI, card.id, action, FeedSelectionValues.EMPTY, askAbout = false)
+    assertEquals(actionId, event.indexString("intentType"))
+    assertEquals("gui", event.indexString("origin"))
+    assertEquals("accepted", event.indexString("phase"))
+    assertNull(FeedEvent.dispatched(FeedOrigin.GUI,
+      AcceptedFeedAction(card, action, FeedSelectionValues.EMPTY, FeedCursor(UUID.randomUUID(), 1))))
+    try {
+      FeedEvent.accepted(FeedOrigin.AGENT, card.id, action, FeedSelectionValues.EMPTY, askAbout = false)
+      fail("accepted a share confirmation from the Agent API")
+    } catch (e: FeedException) { assertEquals("PERMISSION_DENIED", e.code) }
+    try {
+      FeedCard.parseGenerated(input)
+      fail("accepted a generated dining reservation ID")
+    } catch (e: FeedException) { assertEquals("INVALID_CARD", e.code) }
+  }
+
+  @Test fun unrelatedFeedCardCannotDeclareDiningShareConfirmation() {
+    rejects("INVALID_CARD") {
+      getJSONObject("actions").put(Intent.ConfirmDiningShare.ID,
+        JSONObject().put("intent", JSONObject().put("type", Intent.ConfirmDiningShare.ID)))
+    }
+  }
+
   @Test fun diningCalendarDispatchRecordsOnlyTheExactEventUri() {
     val uri = "content://com.android.calendar/events/42"
     val epoch = UUID.randomUUID()

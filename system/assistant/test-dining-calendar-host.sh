@@ -26,5 +26,5 @@ main=system/assistant/src/org/agentos/assistant
 "$JDK/bin/javac" --release 17 -cp "$task_json:$ANDROID_JAR" -d "$task_out/classes" \
   "$main"/DiningRestaurantIdentity.java "$main"/DiningPollReceiptTarget.java "$main"/DiningPollBookingFlow.java "$main"/DiningPollBookingCodec.java \
   "$main"/DiningFeedDispatch.java "$main"/DiningBookingCalendarPolicy.java "$main"/DiningBookingCalendarCard.java "$main"/DiningCalendarSelection.java \
-  "$main"/DiningReservationCalendar.java system/assistant/tests/dining-calendar/org/agentos/assistant/DiningCalendarTest.java
-"$JDK/bin/java" -cp "$task_out/classes:$task_json:$ANDROID_JAR" org.agentos.assistant.DiningCalendarTest "$task_out/calendar-card.json"
+  "$main"/DiningReservationCalendar.java "$main"/DiningFollowupIsland.java system/assistant/tests/dining-calendar/org/agentos/assistant/DiningCalendarTest.java
+"$JDK/bin/java" -cp "$task_out/classes:$task_json:$ANDROID_JAR" org.agentos.assistant.DiningCalendarTest "$task_out/calendar-card.json" "$task_out/island-followup-cards.json"

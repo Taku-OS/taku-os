@@ -7,7 +7,7 @@ import java.io.IOException;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 
-/** Data for the existing SystemUI assistant template; owns no geometry, colors or views. */
+/** Data for the public SystemUI v2 basic card; owns only booking copy and actions. */
 final class DiningPollIslandModel {
     static JSONObject presentation(JSONObject watch, boolean failed) throws Exception {
         JSONObject state = watch.getJSONObject("state"), meal = state.getJSONObject("meal");
@@ -73,36 +73,17 @@ final class DiningPollIslandModel {
         if (titleEnd > 0 && Character.isHighSurrogate(title.charAt(titleEnd - 1))) titleEnd--;
         JSONObject expanded =
                 new JSONObject()
-                        .put("template", "assistant")
+                        .put("template", "basic")
                         .put("title", title.substring(0, titleEnd))
                         .put("body", title + "\n" + schedule)
-                        .put("steps", new JSONArray())
-                        .put("actions", new JSONArray(ids.toString()).put("open"))
-                        .put("primaryAction", "open")
-                        .put(
-                                "assistant",
-                                new JSONObject()
-                                        .put("token", token)
-                                        .put("phase", "message")
-                                        .put("heightDp", scheduled ? 222 : 180)
-                                        .put("suggestions", ids));
+                        .put("actions", ids.put("open"))
+                        .put("primaryAction", ids.getString(0))
+                        .put("tapAction", "open");
         JSONObject payload =
                 new JSONObject()
-                        .put("version", 1)
-                        .put("category", "assistant")
-                        .put("compact", "hidden")
-                        .put("relevance", 1)
-                        .put(
-                                "bigIsland",
-                                new JSONObject()
-                                        .put(
-                                                "leading",
-                                                new JSONObject()
-                                                        .put("type", "text")
-                                                        .put("text", "Taku")))
+                        .put("version", 2)
                         .put("expanded", expanded)
-                        .put("statusBar", "auto")
-                        .put("islandTimeoutS", 28800);
+                        .put("timeoutS", 28_800);
         return new JSONObject()
                 .put("watchId", watch.getString("id"))
                 .put("key", key)

@@ -7,14 +7,13 @@ import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
+import android.service.notification.StatusBarNotification;
 
-import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.IOException;
@@ -66,12 +65,13 @@ final class DiningPollIsland {
     }
 
     static void hideAndWait(Context context, String key) throws Exception {
-        JSONObject card = visible(context);
+        StatusBarNotification posted = notification(context);
+        JSONObject card = savedCard(posted);
         if (card == null || !key.equals(card.optString("key"))) return;
-        String token = card.getString("token");
+        String notificationKey = posted.getKey();
         manager(context).cancel(TAG, ID);
         long deadline = SystemClock.elapsedRealtime() + 2_000;
-        while (!islandKey(context, token).isEmpty()) {
+        while (islandContains(context, notificationKey)) {
             if (SystemClock.elapsedRealtime() >= deadline)
                 throw new IOException("POLL_ISLAND_BUSY");
             Thread.sleep(35);
@@ -83,22 +83,27 @@ final class DiningPollIsland {
     }
 
     private static JSONObject visible(Context context) throws Exception {
-        for (var notification : manager(context).getActiveNotifications()) {
-            if (notification.getId() == ID && TAG.equals(notification.getTag())) {
-                String saved = notification.getNotification().extras.getString(CARD);
-                return saved == null ? null : new JSONObject(saved);
-            }
+        return savedCard(notification(context));
+    }
+
+    private static StatusBarNotification notification(Context context) {
+        for (StatusBarNotification posted : manager(context).getActiveNotifications()) {
+            if (posted.getId() == ID
+                    && TAG.equals(posted.getTag())
+                    && context.getPackageName().equals(posted.getPackageName())) return posted;
         }
         return null;
+    }
+
+    private static JSONObject savedCard(StatusBarNotification posted) throws Exception {
+        if (posted == null) return null;
+        String saved = posted.getNotification().extras.getString(CARD);
+        return saved == null ? null : new JSONObject(saved);
     }
 
     private static synchronized void publish(Context context, JSONObject card) throws Exception {
         JSONObject previous = visible(context);
         if (previous != null && card.toString().equals(previous.toString())) return;
-        if (context.checkSelfPermission("org.agentos.permission.POST_ISLAND")
-                != PackageManager.PERMISSION_GRANTED) {
-            throw new IOException("DINING_ISLAND_PERMISSION_UNAVAILABLE");
-        }
         NotificationManager manager = manager(context);
         manager.createNotificationChannel(
                 new NotificationChannel(
@@ -150,11 +155,24 @@ final class DiningPollIsland {
                         .build());
         notification.setContentIntent(link);
         Bundle extras = new Bundle();
-        extras.putString("taku.island.v1", payload.toString());
+        extras.putString("taku.island.v2", payload.toString());
         extras.putBundle("taku.island.actions", actions);
         extras.putString(CARD, card.toString());
         manager.notify(TAG, ID, notification.addExtras(extras).build());
-        expand(context.getApplicationContext(), card.getString("token"), 0);
+        String token = card.getString("token");
+        Context app = context.getApplicationContext();
+        DiningFollowupIsland.expand(
+                app,
+                TAG,
+                ID,
+                () -> {
+                    try {
+                        JSONObject current = visible(app);
+                        return current != null && token.equals(current.optString("token"));
+                    } catch (Exception unavailable) {
+                        return false;
+                    }
+                });
     }
 
     private static PendingIntent decision(Context context, JSONObject card, String action)
@@ -232,44 +250,17 @@ final class DiningPollIsland {
         return true;
     }
 
-    private static String islandKey(Context context, String token) throws Exception {
-        Bundle result = context.getContentResolver().call(ISLAND, "state", null, null);
-        JSONObject state = new JSONObject(result == null ? "{}" : result.getString("json", "{}"));
-        if (!state.optBoolean("ok")) throw new IOException("DINING_ISLAND_UNAVAILABLE");
-        JSONArray active = state.optJSONArray("activities");
-        if (active == null) return "";
-        for (int i = 0; i < active.length(); i++) {
-            JSONObject item = active.getJSONObject(i);
-            JSONObject payload = item.optJSONObject("payload");
-            JSONObject expanded = payload == null ? null : payload.optJSONObject("expanded");
-            JSONObject assistant = expanded == null ? null : expanded.optJSONObject("assistant");
-            if (context.getPackageName().equals(item.optString("package"))
-                    && assistant != null
-                    && token.equals(assistant.optString("token"))) return item.optString("key");
+    private static boolean islandContains(Context context, String notificationKey)
+            throws Exception {
+        Bundle bundle = context.getContentResolver().call(ISLAND, "get", notificationKey, null);
+        JSONObject result = new JSONObject(bundle == null ? "{}" : bundle.getString("json", "{}"));
+        if (!result.optBoolean("ok")) {
+            if ("not_found".equals(result.optString("error"))) return false;
+            throw new IOException("DINING_ISLAND_UNAVAILABLE");
         }
-        return "";
-    }
-
-    private static void expand(Context context, String token, int attempt) {
-        MAIN.postDelayed(
-                () -> {
-                    try {
-                        JSONObject card = visible(context);
-                        if (card == null || !token.equals(card.optString("token"))) return;
-                        String key = islandKey(context, token);
-                        if (!key.isEmpty()) {
-                            Bundle result =
-                                    context.getContentResolver().call(ISLAND, "expand", key, null);
-                            if (result != null
-                                    && new JSONObject(result.getString("json", "{}"))
-                                            .optBoolean("ok")) return;
-                        }
-                    } catch (Exception unavailable) {
-                        if (attempt >= 20)
-                            android.util.Log.w("TakuDining", "Dining island expansion unavailable");
-                    }
-                    if (attempt < 20) expand(context, token, attempt + 1);
-                },
-                attempt == 0 ? 50 : 150);
+        JSONObject activity = result.optJSONObject("activity");
+        return activity != null
+                && notificationKey.equals(activity.optString("key"))
+                && context.getPackageName().equals(activity.optString("package"));
     }
 }

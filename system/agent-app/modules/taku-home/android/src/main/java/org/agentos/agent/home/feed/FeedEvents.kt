@@ -167,6 +167,10 @@ internal class FeedEvent private constructor(private val fields: JSONObject, val
         is Intent.OpenApp -> "open-app"
         is Intent.OpenUrl -> "open-url"
         is Intent.ShareText -> "share-text"
+        Intent.ConfirmDiningShare -> {
+          if (origin != FeedOrigin.GUI) throw FeedException("PERMISSION_DENIED", "Confirm the share from the reservation card")
+          Intent.ConfirmDiningShare.ID
+        }
         Intent.Dismiss -> "dismiss"
         Intent.None -> "none"
       }

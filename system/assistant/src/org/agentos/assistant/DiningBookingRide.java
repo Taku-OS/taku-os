@@ -107,11 +107,11 @@ final class DiningBookingRide {
                                                             "input_ready",
                                                             "ended")
                                                     .contains(e.optString("phase"))) continue;
-                                    if (!e.has("calendarDispatchCursor")) readClick(owner, e);
-                                    if (!e.has("calendarDispatchCursor")) continue;
                                     if (Set.of("waiting_details", "offered", "failed")
-                                                    .contains(e.optString("phase"))
-                                            && !viewedAndLeftDetails(owner, e)) continue;
+                                            .contains(e.optString("phase"))) {
+                                        readClick(owner, e);
+                                        if (!viewedAndLeftDetails(owner, e)) continue;
+                                    }
                                     if (e.optString("phase").equals("waiting_details")) {
                                         e.put("phase", "offered")
                                                 .put("key", UUID.randomUUID().toString());
@@ -759,21 +759,19 @@ final class DiningBookingRide {
      * exit can offer an Uber. Failed or in-transition accessibility reads do not prove an exit.
      */
     private static boolean viewedAndLeftDetails(Context c, JSONObject entry) throws Exception {
-        if (!entry.has("calendarDispatchCursor")) return false;
-        DiningBookingRideUi.Probe probe =
-                DiningBookingRideUi.details(c, entry.getJSONObject("meal"));
-        String dispatch = entry.getString("calendarDispatchCursor");
-        if (probe.matched() && !dispatch.equals(entry.optString("detailDispatchCursor"))) {
-            entry.put("detailDispatchCursor", dispatch)
-                    .put("detailCheckedAt", System.currentTimeMillis())
-                    .put("detailTaskId", probe.taskId());
-            save(c, entry);
-        }
-        return DiningBookingRidePolicy.detailsWereLeft(entry, probe.reason());
+        if (!DiningBookingRidePolicy.activeVisit(entry, System.currentTimeMillis())) return false;
+        String before = entry.toString();
+        boolean left =
+                DiningBookingRidePolicy.observeDetails(
+                        entry,
+                        DiningBookingRideUi.details(
+                                c, entry.getJSONObject("meal"), entry.getLong("eventId")),
+                        System.currentTimeMillis());
+        if (!before.equals(entry.toString())) save(c, entry);
+        return left;
     }
 
     private static void readClick(Context c, JSONObject e) throws Exception {
-        if (e.has("calendarDispatchCursor")) return;
         Bundle b =
                 c.getContentResolver()
                         .call(
@@ -825,9 +823,13 @@ final class DiningBookingRide {
             }
         }
         if (checkpoint != null) e.put("feedCursor", checkpoint);
-        if (matched != null)
+        if (matched != null
+                && !matched.optString("cursor").equals(e.optString("calendarDispatchCursor"))) {
             e.put("calendarDispatchCursor", matched.getString("cursor"))
                     .put("calendarOpenedAt", matched.getLong("at"));
+            e.remove("detailObservation");
+            e.remove("exitObservation");
+        }
         if (checkpoint != null || matched != null) save(c, e);
     }
 }

@@ -68,9 +68,10 @@ public final class DiningPollIslandTest {
                 expanded = payload.getJSONObject("expanded");
         check(original.equals(w.toString()), "Presentation changed authoritative watch");
         check(
-                "assistant".equals(payload.getString("category"))
-                        && "assistant".equals(expanded.getString("template")),
-                "Existing native assistant template");
+                payload.getInt("version") == 2
+                        && "basic".equals(expanded.getString("template"))
+                        && !expanded.has("assistant"),
+                "Public native basic template for the system publisher");
         check(
                 !expanded.has("content") && !payload.has("background") && !payload.has("position"),
                 "No remote view, color or geometry override");
@@ -79,10 +80,10 @@ public final class DiningPollIslandTest {
                         .equals("Book Harbor Cafe?\n2026-11-29 19:15 America/New_York · 3 guests"),
                 "Exact restaurant, date/time and party");
         check(
-                expanded.getJSONObject("assistant")
-                        .getJSONArray("suggestions")
-                        .toString()
-                        .equals("[\"book\",\"decline\"]"),
+                expanded.getJSONArray("actions")
+                                .toString()
+                                .equals("[\"book\",\"decline\",\"open\"]")
+                        && "book".equals(expanded.getString("primaryAction")),
                 "Stable original action order");
         DiningPollIslandModel.validateAction(w, "decision:test", "book", "");
         checks++;

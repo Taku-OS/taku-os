@@ -20,25 +20,37 @@ final class DiningFeedDispatch {
             String type,
             long notBefore,
             long now) {
-        Object at = event.opt("at");
-        if (!(at instanceof Long || at instanceof Integer)) return null;
-        long time = ((Number) at).longValue();
-        if (time < notBefore
-                || time > now + 5000
-                || !"event".equals(event.optString("type"))
-                || !"taku.feed-event/1".equals(event.optString("schema"))
-                || !"action".equals(event.optString("op"))
-                || !"dispatched".equals(event.optString("phase"))
-                || !"declared".equals(event.optString("actionSource"))
-                || !type.equals(event.optString("intentType"))
-                || !actionId.equals(event.optString("actionId"))
-                || !cardId.equals(event.optString("cardId"))
-                || !ordered(event.optString("acceptedCursor"), event.optString("cursor")))
+        if (!action(event, cardId, actionId, type, "dispatched", notBefore, now)
+                || !ordered(event.optString("acceptedCursor"), event.optString("cursor"))) {
             return null;
+        }
         return event.optJSONObject("intent");
     }
 
-    private static boolean ordered(String accepted, String dispatched) {
+    static boolean action(
+            JSONObject event,
+            String cardId,
+            String actionId,
+            String type,
+            String phase,
+            long notBefore,
+            long now) {
+        Object at = event.opt("at");
+        if (!(at instanceof Long || at instanceof Integer)) return false;
+        long time = ((Number) at).longValue();
+        return time >= notBefore
+                && time <= now + 5000
+                && "event".equals(event.optString("type"))
+                && "taku.feed-event/1".equals(event.optString("schema"))
+                && "action".equals(event.optString("op"))
+                && phase.equals(event.optString("phase"))
+                && "declared".equals(event.optString("actionSource"))
+                && type.equals(event.optString("intentType"))
+                && actionId.equals(event.optString("actionId"))
+                && cardId.equals(event.optString("cardId"));
+    }
+
+    static boolean ordered(String accepted, String dispatched) {
         Matcher before = CURSOR.matcher(accepted);
         Matcher after = CURSOR.matcher(dispatched);
         if (!before.matches() || !after.matches() || !before.group(1).equals(after.group(1)))

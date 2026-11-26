@@ -32,6 +32,7 @@ object FeedActions {
       is Intent.OpenApp -> openApp(context, intent)
       is Intent.OpenUrl -> start(context, AndroidIntent(AndroidIntent.ACTION_VIEW, Uri.parse(intent.url)), "open-url")
       is Intent.ShareText -> shareText(context, intent)
+      Intent.ConfirmDiningShare -> JSONObject().put("effect", Intent.ConfirmDiningShare.ID)
       Intent.Dismiss -> repo.remove(cardId, origin).put("effect", "dismiss")
       Intent.None -> JSONObject().put("effect", "none").put("note", "This card has no connected integration; nothing was executed.")
     }

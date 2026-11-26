@@ -277,6 +277,81 @@ public final class DiningCalendarTest {
             check(
                     !DiningBookingCalendarPolicy.dispatched(invalid, entry, shareText, checkAt),
                     "Failed, unrelated or malformed dispatch is rejected");
+        JSONObject alias =
+                copy(watch)
+                        .put("id", "duplicate-watch")
+                        .put("feedReceiptOwnerWatchId", watch.getString("id"))
+                        .put("feedPublishedAt", now.plusSeconds(4).toEpochMilli());
+        JSONObject ownership = new JSONObject().put("published", watch).put("alias", alias);
+        check(
+                watch.getString("id")
+                        .equals(
+                                DiningBookingCalendarPolicy.latestWatch(
+                                        ownership, watch.getString("feedCardId"))),
+                "A newer equivalent receipt link never transfers the card from its original group");
+        ownership.remove("published");
+        rejected(
+                "DINING_CALENDAR_SHARE_CARD_AMBIGUOUS",
+                () ->
+                        DiningBookingCalendarPolicy.latestWatch(
+                                ownership, watch.getString("feedCardId")));
+        JSONObject pending = copy(entry).put("phase", "waiting_share").put("shareProofVersion", 1);
+        JSONObject confirm =
+                copy(event)
+                        .put("phase", "accepted")
+                        .put("origin", "gui")
+                        .put("actionId", "confirm-dining-share")
+                        .put("intentType", "confirm-dining-share")
+                        .put("cursor", "00000000-0000-4000-8000-000000000001:5")
+                        .put("at", now.plusSeconds(3).toEpochMilli());
+        check(
+                !DiningBookingCalendarPolicy.recordShareEvent(pending, confirm, shareText, checkAt),
+                "Confirmation without the matching picker is insufficient");
+        check(
+                DiningBookingCalendarPolicy.recordShareEvent(pending, event, shareText, checkAt)
+                        && "waiting_share".equals(pending.getString("phase"))
+                        && !pending.has("shareConfirmedAt"),
+                "Picker dispatch alone cannot offer Calendar");
+        for (JSONObject invalid :
+                new JSONObject[] {
+                    copy(confirm).put("origin", "agent"),
+                    copy(confirm).put("phase", "dispatched"),
+                    copy(confirm).put("intentType", "none"),
+                    copy(confirm).put("actionId", "share"),
+                    copy(confirm).put("cardId", "dining.booking.other"),
+                    copy(confirm).put("cursor", event.getString("cursor")),
+                    copy(confirm).put("cursor", "00000000-0000-4000-8000-000000000001:2"),
+                    copy(confirm).put("cursor", "00000000-0000-4000-8000-000000000002:8"),
+                })
+            check(
+                    !DiningBookingCalendarPolicy.recordShareEvent(
+                            pending, invalid, shareText, checkAt),
+                    "Only the later GUI confirmation on this exact card is eligible");
+        check(
+                DiningBookingCalendarPolicy.recordShareEvent(pending, confirm, shareText, checkAt)
+                        && "offer".equals(pending.getString("phase"))
+                        && pending.getBoolean("shareConfirmedByUser"),
+                "Matching confirmation after the picker unlocks Calendar");
+        JSONObject old =
+                copy(entry)
+                        .put("phase", "offer")
+                        .put("shareDispatchedAt", event.getLong("at"))
+                        .put("shareEventCursor", event.getString("cursor"))
+                        .put("feedCursor", event.getString("cursor"));
+        check(
+                DiningBookingCalendarPolicy.requireShareConfirmation(old)
+                        && "waiting_share".equals(old.getString("phase"))
+                        && !old.has("feedCursor")
+                        && !old.has("shareEventCursor"),
+                "Legacy launch-only offers require explicit confirmation");
+        check(
+                !DiningBookingCalendarPolicy.requireShareConfirmation(old),
+                "Migration keeps current pending proof");
+        JSONObject saved = copy(entry).put("phase", "saved").put("eventId", 42L);
+        check(
+                !DiningBookingCalendarPolicy.requireShareConfirmation(saved)
+                        && "saved".equals(saved.getString("phase")),
+                "Existing verified event remains saved");
         var c1 =
                 new DiningCalendarSelection.Calendar(
                         1,
@@ -342,6 +417,53 @@ public final class DiningCalendarTest {
                                                 meal, now.plusSeconds(30).toEpochMilli())
                                         .getString("id")),
                 "Recovery publishes the same card ID");
+        JSONObject calendarNotice =
+                DiningFollowupIsland.payload(
+                        "Add to Google Calendar?",
+                        "Example dinner",
+                        new JSONArray().put("confirm").put("edit").put("dismiss"),
+                        "edit");
+        JSONObject calendarChooser =
+                DiningFollowupIsland.payload(
+                        "Choose a calendar",
+                        "Example dinner",
+                        new JSONArray().put("select_42").put("dismiss"),
+                        null);
+        JSONObject rideNotice =
+                DiningFollowupIsland.payload(
+                        "Take an Uber to dinner?",
+                        "Example dinner",
+                        new JSONArray().put("confirm").put("edit").put("dismiss"),
+                        "edit");
+        check(
+                calendarNotice.getInt("version") == 2
+                        && !calendarNotice.has("compact")
+                        && "basic"
+                                .equals(
+                                        calendarNotice
+                                                .getJSONObject("expanded")
+                                                .getString("template")),
+                "Native Calendar offer uses the v2 card-only basic template");
+        check(
+                !calendarChooser.getJSONObject("expanded").has("tapAction")
+                        && "select_42"
+                                .equals(
+                                        calendarChooser
+                                                .getJSONObject("expanded")
+                                                .getJSONArray("actions")
+                                                .getString(0)),
+                "Calendar selection preserves explicit action with a v2-safe key");
+        check(
+                "edit".equals(rideNotice.getJSONObject("expanded").getString("tapAction")),
+                "The Uber card opens the input action without placing an order");
+        if (args.length > 1)
+            java.nio.file.Files.writeString(
+                    java.nio.file.Path.of(args[1]),
+                    new JSONArray()
+                            .put(calendarNotice)
+                            .put(calendarChooser)
+                            .put(rideNotice)
+                            .toString(2));
         if (args.length > 0)
             java.nio.file.Files.writeString(java.nio.file.Path.of(args[0]), card.toString(2));
         System.out.println("DiningCalendarTest: " + checks + " checks passed");

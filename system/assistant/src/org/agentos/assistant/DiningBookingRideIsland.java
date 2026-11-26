@@ -7,12 +7,12 @@ import android.os.*;
 
 import org.json.*;
 
-/** The same ROM assistant card and two suggestion buttons; no custom window. */
+/** Publishes the Uber preparation offer with its native actions. */
 final class DiningBookingRideIsland {
     static final String ACTION = "org.agentos.assistant.DINING_RIDE_ISLAND";
     private static final String TAG = "taku-dining-ride";
     private static final int ID = 2807;
-    private static String fingerprint = "", visibleToken = "";
+    private static volatile String fingerprint = "";
 
     static synchronized void show(Context c, JSONObject e) throws Exception {
         if (DiningRideInputActivity.isShowing()) return;
@@ -37,48 +37,12 @@ final class DiningBookingRideIsland {
         if (phase.equals("ended"))
             body +=
                     "\n"
-                        + "The previous attempt ended. Existing Uber orders are not verified."
-                        + " Review before preparing again.";
-        String token = "dining-ride:" + e.getString("id") + ":" + e.getString("key");
-        JSONArray suggestions = new JSONArray().put("confirm").put("edit"),
-                actions = new JSONArray(suggestions.toString()).put("dismiss");
-        JSONObject expanded =
-                new JSONObject()
-                        .put("template", "assistant")
-                        .put("title", title)
-                        .put("body", body)
-                        .put("steps", new JSONArray())
-                        .put("actions", actions)
-                        .put("primaryAction", "edit")
-                        .put(
-                                "assistant",
-                                new JSONObject()
-                                        .put("token", token)
-                                        .put("phase", "message")
-                                        .put("heightDp", 220)
-                                        .put("suggestions", suggestions));
-        JSONObject payload =
-                new JSONObject()
-                        .put("version", 1)
-                        .put("category", "assistant")
-                        .put("compact", "hidden")
-                        .put("relevance", 1)
-                        .put("statusBar", "auto")
-                        .put("islandTimeoutS", 28800)
-                        .put(
-                                "bigIsland",
-                                new JSONObject()
-                                        .put(
-                                                "leading",
-                                                new JSONObject()
-                                                        .put("type", "text")
-                                                        .put("text", "Taku")))
-                        .put("expanded", expanded);
-        String value = payload.toString();
+                            + "The previous attempt ended. Existing Uber orders are not verified."
+                            + " Review before preparing again.";
+        JSONArray actions = new JSONArray().put("confirm").put("edit").put("dismiss");
+        JSONObject payload = DiningFollowupIsland.payload(title, body, actions, "edit");
+        String value = payload + "\n" + e.getString("id") + "\n" + e.getString("key");
         if (value.equals(fingerprint)) return;
-        if (c.checkSelfPermission("org.agentos.permission.POST_ISLAND")
-                != android.content.pm.PackageManager.PERMISSION_GRANTED)
-            throw new java.io.IOException("DINING_ISLAND_PERMISSION_UNAVAILABLE");
         NotificationManager manager = c.getSystemService(NotificationManager.class);
         manager.createNotificationChannel(
                 new NotificationChannel(
@@ -108,13 +72,12 @@ final class DiningBookingRideIsland {
         }
         n.setContentIntent(decision(c, e, "edit"));
         Bundle extras = new Bundle();
-        extras.putString("taku.island.v1", payload.toString());
+        extras.putString(DiningFollowupIsland.EXTRA, payload.toString());
         extras.putBundle("taku.island.actions", mapped);
         n.addExtras(extras);
         manager.notify(TAG, ID, n.build());
         fingerprint = value;
-        visibleToken = token;
-        expand(c, token, 0);
+        DiningFollowupIsland.expand(c, TAG, ID, () -> fingerprint.equals(value));
     }
 
     private static PendingIntent decision(Context c, JSONObject e, String action) throws Exception {
@@ -161,58 +124,5 @@ final class DiningBookingRideIsland {
     static synchronized void hide(Context c) {
         c.getSystemService(NotificationManager.class).cancel(TAG, ID);
         fingerprint = "";
-        visibleToken = "";
-    }
-
-    private static void expand(Context c, String token, int attempt) {
-        new Handler(Looper.getMainLooper())
-                .postDelayed(
-                        () -> {
-                            if (!token.equals(visibleToken)) return;
-                            try {
-                                Bundle b =
-                                        c.getContentResolver()
-                                                .call(
-                                                        Uri.parse(
-                                                                "content://com.android.systemui.island"),
-                                                        "state",
-                                                        null,
-                                                        null);
-                                JSONObject state =
-                                        new JSONObject(
-                                                b == null ? "{}" : b.getString("json", "{}"));
-                                JSONArray items = state.optJSONArray("activities");
-                                if (items != null)
-                                    for (int i = 0; i < items.length(); i++) {
-                                        JSONObject item = items.getJSONObject(i),
-                                                payload = item.optJSONObject("payload"),
-                                                expanded =
-                                                        payload == null
-                                                                ? null
-                                                                : payload.optJSONObject("expanded"),
-                                                assistant =
-                                                        expanded == null
-                                                                ? null
-                                                                : expanded.optJSONObject(
-                                                                        "assistant");
-                                        if (assistant != null
-                                                && token.equals(assistant.optString("token"))
-                                                && "org.agentos.assistant"
-                                                        .equals(item.optString("package"))) {
-                                            c.getContentResolver()
-                                                    .call(
-                                                            Uri.parse(
-                                                                    "content://com.android.systemui.island"),
-                                                            "expand",
-                                                            item.getString("key"),
-                                                            null);
-                                            return;
-                                        }
-                                    }
-                            } catch (Exception unavailable) {
-                            }
-                            if (attempt < 20) expand(c, token, attempt + 1);
-                        },
-                        attempt == 0 ? 50 : 150);
     }
 }

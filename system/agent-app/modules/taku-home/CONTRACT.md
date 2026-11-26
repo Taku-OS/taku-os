@@ -79,6 +79,7 @@ pins/removals and preserves published cards and their management state.
 | `open-app` | `package`, optional `uri` | Launches the app (or VIEW `uri` inside it). |
 | `open-url` | `url` (https) | Opens the URL. |
 | `share-text` | `package` (`com.whatsapp`), `text` | Opens WhatsApp's text share picker. The user chooses a recipient and sends from WhatsApp. |
+| `confirm-dining-share` | none | Home adds this action to OpenTable dining reservation cards. The user confirms from the card after sending to the original group. |
 | `dismiss` | – | Removes the card (same path as long-press → Remove, including the dust animation). |
 | `none` | – | Accepted and recorded; used by sample cards whose real integration does not exist yet. |
 
@@ -254,11 +255,15 @@ Mutation events contain `detail`. New action events also contain `actionId`,
 `actionSource="declared"` or `"ask-about"`, `phase="accepted"`, `intentType`, and
 `values`. The reserved Ask Taku action uses `actionId="ask-taku"` with
 `actionSource="ask-about"`. `intentType` is `ask-taku`, `open-app`, `open-url`,
-`share-text`, `dismiss`, or `none`. A successful `share-text` launch emits a
+`share-text`, `confirm-dining-share`, `dismiss`, or `none`. A successful `share-text` launch emits a
 second action event with `phase="dispatched"`, `acceptedCursor` and
 `intent:{package,textSha256}`. The digest is lowercase SHA-256 over UTF-8 shared
 text. The dispatch event records Android accepting the picker launch. WhatsApp
 does not report recipient selection or message delivery through this Intent.
+The `confirm-dining-share` action records a local GUI acceptance. Assistant
+checks that it follows a matching picker launch on the same reservation card
+before offering to add the meal to Calendar. Agent API calls to the confirmation
+action return `PERMISSION_DENIED`.
 The `open-calendar` action on a dining calendar card also records a successful
 dispatch with `intent:{package,uri}` for its exact Calendar event. The ride
 handoff separately checks the event shown on the device.

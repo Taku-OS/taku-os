@@ -1156,20 +1156,26 @@ date, restaurant-local time, IANA zone and party size.
 | `dining/poll/booking-form`, `dining/poll/submit-booking-form` | `{id,key,revision}` reads the active form. Add `values` to submit the exact missing fields shown by the form. Dates use `YYYY-MM-DD`, times use `HH:mm`, zones use IANA names and party size is an integer. |
 | `dining/poll/retry-confirmation`, `dining/poll/dismiss-confirmation` | `{id,key}` retries a known pre-submission failure after a user decision, or dismisses the current offer. |
 | `dining/poll/verify-date`, `dining/poll/begin-submit`, `dining/poll/inspect` | `{id}`. On the bound OpenTable task, verify the full date, validate and perform the one native checkout attempt, and inspect the app's actual receipt. |
+| `dining/poll/reconcile-date`, `dining/poll/reconcile` | `{id}`. After the booking task ends, read the full date or verified receipt from its retained OpenTable screen or the single OpenTable view already opened by the user. These calls do not send input. |
 
 Keep the verified restaurant and exact request on that task's OpenTable
-screen. Stop for changed terms, a deposit, a payment prompt or an ambiguous
-target. `REQUEST_EXPIRED` means the offer or form revision has changed.
-When a submission is uncertain, inspect the existing attempt to reconcile
-it. A confirmed native receipt publishes one card to the existing Home Feed.
+screen. Generic phone input is limited to supported navigation and form fields
+in the booking task. Use `begin-submit` for final confirmation. Stop for changed
+terms, a deposit, a payment prompt or an ambiguous target. `REQUEST_EXPIRED`
+means the offer or form revision has changed. An equivalent reservation for
+the same branch, time and party may already be confirmed or have an uncertain
+checkout. Inspect or reconcile the existing attempt in either case. A verified
+native receipt publishes or reuses one card in the existing Home Feed.
 
 ### Add the meal to Calendar and prepare a ride
 
-After the reservation card's WhatsApp picker launches and the user returns
-to Taku, the Calendar offer uses the verified reservation. Confirm the
+After sharing from the reservation card, the user returns to that card and
+selects **I sent it to the original group**. The Calendar offer uses the
+verified reservation after that confirmation. Confirm the
 writable calendar and meal details. An existing matching event is reused.
 The resulting Feed card opens the exact saved Calendar event. The Uber
-offer waits until Taku observes that event's details and the user leaves them.
+offer waits until Taku verifies that exact event's details and observes the user
+leave them.
 
 | Method on `content://org.agentos.assistant.open-access` | Arguments and result |
 | --- | --- |

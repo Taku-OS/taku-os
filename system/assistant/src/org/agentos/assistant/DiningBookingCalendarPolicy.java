@@ -19,8 +19,12 @@ final class DiningBookingCalendarPolicy {
         long latest = -1, published = -1;
         boolean tied = false;
         for (var ids = watches.keys(); ids.hasNext(); ) {
-            JSONObject w = watches.getJSONObject(ids.next());
-            if (!card.equals(w.optString("feedCardId"))) continue;
+            JSONObject w = watches.optJSONObject(ids.next());
+            if (w == null || !card.equals(w.optString("feedCardId"))) continue;
+            String id = w.optString("id");
+            if (id.isBlank()
+                    || w.has("feedReceiptOwnerWatchId")
+                            && !id.equals(w.opt("feedReceiptOwnerWatchId"))) continue;
             long at;
             try {
                 identity(w);
@@ -120,6 +124,58 @@ final class DiningBookingCalendarPolicy {
         return intent != null
                 && "com.whatsapp".equals(intent.optString("package"))
                 && hash.equals(intent.optString("textSha256"));
+    }
+
+    // Preserve successful saves. An older offer was based on the picker alone.
+    static boolean requireShareConfirmation(JSONObject entry) throws Exception {
+        if (entry.has("eventId") || entry.optInt("shareProofVersion") == 1) return false;
+        entry.put("shareProofVersion", 1)
+                .put("phase", "waiting_share")
+                .put("key", UUID.randomUUID().toString())
+                .put("messageSent", false);
+        for (String field :
+                java.util.List.of(
+                        "shareAcceptedAt",
+                        "shareEventCursor",
+                        "shareDispatchedAt",
+                        "shareConfirmedCursor",
+                        "shareConfirmedAt",
+                        "feedCursor",
+                        "error")) {
+            entry.remove(field);
+        }
+        return true;
+    }
+
+    static boolean recordShareEvent(
+            JSONObject entry, JSONObject event, String expectedText, long now) throws Exception {
+        if (!"waiting_share".equals(entry.optString("phase"))) return false;
+        if (dispatched(event, entry, expectedText, now)) {
+            entry.put("shareEventCursor", event.getString("cursor"))
+                    .put("shareDispatchedAt", event.getLong("at"));
+            return true;
+        }
+        long dispatchedAt = entry.optLong("shareDispatchedAt");
+        String confirmation = "confirm-dining-share";
+        if (dispatchedAt < entry.getLong("receiptAt")
+                || !"gui".equals(event.optString("origin"))
+                || !DiningFeedDispatch.action(
+                        event,
+                        entry.getString("cardId"),
+                        confirmation,
+                        confirmation,
+                        "accepted",
+                        dispatchedAt,
+                        now)
+                || !DiningFeedDispatch.ordered(
+                        entry.optString("shareEventCursor"), event.optString("cursor"))) {
+            return false;
+        }
+        entry.put("phase", "offer")
+                .put("shareConfirmedCursor", event.getString("cursor"))
+                .put("shareConfirmedAt", event.getLong("at"))
+                .put("shareConfirmedByUser", true);
+        return true;
     }
 
     static JSONObject meal(JSONObject watch) throws Exception {

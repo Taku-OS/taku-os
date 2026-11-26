@@ -481,25 +481,70 @@ public final class DiningRidePolicyTest {
                     !DiningBookingRidePolicy.click(invalid, entry, now),
                     "Unrelated or unaccepted click cannot unlock preparation");
         }
+        check(
+                !DiningBookingRidePolicy.click(
+                        copy(click).put("at", now - 46_000),
+                        copy(entry).put("notBefore", now - 120_000),
+                        now),
+                "An old Calendar launch cannot establish a fresh visit");
         entry.put("calendarDispatchCursor", click.getString("cursor")).put("calendarOpenedAt", now);
+        var details =
+                new DiningBookingRidePolicy.Observation(
+                        DiningBookingRidePolicy.Screen.DETAILS,
+                        "details:com.google.android.calendar/.Details",
+                        7);
+        var departed =
+                new DiningBookingRidePolicy.Observation(
+                        DiningBookingRidePolicy.Screen.EXIT,
+                        "foreground:org.agentos.agent/.Home",
+                        11);
+        var differentTask =
+                new DiningBookingRidePolicy.Observation(
+                        DiningBookingRidePolicy.Screen.EXIT,
+                        "foreground:org.agentos.agent/.Home",
+                        12);
+        var unavailable =
+                new DiningBookingRidePolicy.Observation(
+                        DiningBookingRidePolicy.Screen.UNAVAILABLE, "", -1);
         check(
-                !DiningBookingRidePolicy.detailsWereLeft(entry, "calendar-not-visible"),
+                !DiningBookingRidePolicy.observeDetails(entry, departed, now + 500),
                 "Dispatch alone cannot offer a ride");
-        entry.put("detailDispatchCursor", click.getString("acceptedCursor"))
-                .put("detailCheckedAt", now);
         check(
-                !DiningBookingRidePolicy.detailsWereLeft(entry, "calendar-not-visible"),
-                "Stale detail proof cannot arm an offer");
-        entry.put("detailDispatchCursor", click.getString("cursor"));
+                !DiningBookingRidePolicy.observeDetails(entry, details, now + 1000),
+                "A matching detail observation requires later exit evidence");
         check(
-                !DiningBookingRidePolicy.detailsWereLeft(entry, "matching-event-details"),
-                "Leave details before offering a ride");
+                !DiningBookingRidePolicy.observeDetails(entry, departed, now + 1700),
+                "One positive exit sample is insufficient");
         check(
-                !DiningBookingRidePolicy.detailsWereLeft(entry, "calendar-details-unavailable"),
-                "A failed read is not departure evidence");
+                !DiningBookingRidePolicy.observeDetails(entry, unavailable, now + 2200),
+                "An unavailable or incomplete AX read clears tentative exit evidence");
         check(
-                DiningBookingRidePolicy.detailsWereLeft(entry, "event-detail-not-visible"),
-                "The matching details were viewed and left");
+                !DiningBookingRidePolicy.observeDetails(entry, departed, now + 2700),
+                "Stable exit must be reestablished after an unavailable read");
+        check(
+                !DiningBookingRidePolicy.observeDetails(entry, differentTask, now + 3600),
+                "Same component name on a changed foreground task is insufficient");
+        check(
+                DiningBookingRidePolicy.observeDetails(entry, differentTask, now + 4500),
+                "Stable positive exit from the exact event offers preparation");
+        check(
+                !DiningBookingRidePolicy.observeDetails(entry, differentTask, now + 310_000),
+                "An expired visit does not reopen an old ride prompt");
+        JSONObject late = copy(entry);
+        late.remove("detailObservation");
+        late.remove("exitObservation");
+        DiningBookingRidePolicy.observeDetails(late, details, now + 46_000);
+        check(
+                !late.has("detailObservation"),
+                "The matching view must be observed shortly after Feed launch");
+        JSONObject reopened =
+                copy(entry)
+                        .put("calendarDispatchCursor", "11111111-1111-4111-8111-111111111111:8")
+                        .put("calendarOpenedAt", now + 4600);
+        check(
+                !DiningBookingRidePolicy.observeDetails(reopened, differentTask, now + 5500),
+                "A new visit never reuses the earlier detail proof");
+
         JSONObject detailMeal =
                 new JSONObject()
                         .put("restaurant", "Allora")
@@ -511,28 +556,69 @@ public final class DiningRidePolicyTest {
                                                 "2026-11-02T19:15:00-05:00[America/New_York]")
                                         .toInstant()
                                         .toEpochMilli());
+        String address = "292 Fifth Ave, New York";
         check(
                 "matching-event-details"
                         .equals(
                                 DiningBookingRidePolicy.matchDetails(
                                         detailMeal,
                                         java.util.List.of(
-                                                "Allora",
-                                                "292 Fifth Ave, New York",
-                                                "Nov 2 · 7:15 PM"),
+                                                "Allora", address, "Nov 2, 2026 · 7:15–8:45 PM"),
+                                        true,
+                                        false,
+                                        false)),
+                "Exact full date and first clock in the range establish the event");
+        check(
+                "matching-event-details"
+                        .equals(
+                                DiningBookingRidePolicy.matchDetails(
+                                        detailMeal,
+                                        java.util.List.of(
+                                                "Allora", address, "2026年11月2日 星期一 · 19:15–20:45"),
+                                        true,
+                                        false,
                                         true)),
-                "Actual Calendar detail surface matches title, address, date and start time");
+                "Restaurant-local full date and 24-hour start are supported");
+        check(
+                "matching-event-details"
+                        .equals(
+                                DiningBookingRidePolicy.matchDetails(
+                                        detailMeal,
+                                        java.util.List.of("Allora", address, "Nov 2 · 7:15 PM"),
+                                        true,
+                                        true,
+                                        false)),
+                "The exact event URI and provider record can supply an omitted year");
+        for (String row :
+                java.util.List.of(
+                        "Nov 2 · 7:15 PM",
+                        "Nov 20, 2026 · 7:15 PM",
+                        "Nov 2, 2025 · 7:15 PM",
+                        "Nov 2, 2026 · 6:00–7:15 PM",
+                        "Nov 2, 2026 reminder at 7:15 PM")) {
+            check(
+                    "date-or-time-mismatch"
+                            .equals(
+                                    DiningBookingRidePolicy.matchDetails(
+                                            detailMeal,
+                                            java.util.List.of("Allora", address, row),
+                                            true,
+                                            false,
+                                            false)),
+                    "Missing or wrong year, different date, end clock or unrelated time is"
+                        + " insufficient");
+        }
         check(
                 "date-or-time-mismatch"
                         .equals(
                                 DiningBookingRidePolicy.matchDetails(
                                         detailMeal,
                                         java.util.List.of(
-                                                "Allora",
-                                                "292 Fifth Ave, New York",
-                                                "Nov 20 · 7:15 PM"),
-                                        true)),
-                "A longer day number cannot be mistaken for the exact reservation date");
+                                                "Allora", address, "Nov 2, 2025 · 7:15 PM"),
+                                        true,
+                                        true,
+                                        false)),
+                "Even the exact event URI cannot excuse a different displayed year");
         check(
                 "address-mismatch"
                         .equals(
@@ -541,20 +627,22 @@ public final class DiningRidePolicyTest {
                                         java.util.List.of(
                                                 "Allora",
                                                 "1292 Fifth Ave, New York",
-                                                "Nov 2 · 7:15 PM"),
-                                        true)),
-                "Same name at another address does not count as viewing this event");
+                                                "Nov 2, 2026 · 7:15 PM"),
+                                        true,
+                                        false,
+                                        false)),
+                "Same title at another address is insufficient");
         check(
                 "event-detail-not-visible"
                         .equals(
                                 DiningBookingRidePolicy.matchDetails(
                                         detailMeal,
                                         java.util.List.of(
-                                                "Allora",
-                                                "292 Fifth Ave, New York",
-                                                "Nov 2 · 7:15 PM"),
+                                                "Allora", address, "Nov 2, 2026 · 7:15 PM"),
+                                        false,
+                                        false,
                                         false)),
-                "Calendar list rows cannot establish that details were seen");
+                "A Calendar list row does not establish a detail visit");
         DiningBookingRidePolicy.action(entry, "consent:one", "confirm");
         reject("REQUEST_EXPIRED", () -> DiningBookingRidePolicy.action(entry, "stale", "confirm"));
         reject(

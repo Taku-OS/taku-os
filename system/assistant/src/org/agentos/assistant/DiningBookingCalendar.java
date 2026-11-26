@@ -18,7 +18,7 @@ import java.util.*;
 import java.util.concurrent.Executors;
 
 /**
- * Calendar consent after Feed opens the WhatsApp share picker. Never sends, books or starts a
+ * Calendar consent after the user confirms sharing the reservation. Never sends, books or starts a
  * model.
  */
 final class DiningBookingCalendar {
@@ -61,19 +61,12 @@ final class DiningBookingCalendar {
                             .put("cardId", watch.getString("feedCardId"))
                             .put("receiptAt", DiningBookingCalendarPolicy.receiptAt(watch))
                             .put("phase", "waiting_share")
+                            .put("shareProofVersion", 1)
                             .put("key", UUID.randomUUID().toString())
                             .put("messageSent", false)
                             .put("createdAt", System.currentTimeMillis());
             save(c, entry);
-        } else if (!entry.has("eventId")
-                && entry.has("shareAcceptedAt")
-                && !entry.has("shareDispatchedAt")) {
-            // Older candidate builds tracked launch acceptance before startActivity returned.
-            // Keep real saved events; pending offers need a successful dispatch.
-            entry.put("phase", "waiting_share").put("key", UUID.randomUUID().toString());
-            entry.remove("shareAcceptedAt");
-            entry.remove("shareEventCursor");
-            entry.remove("feedCursor");
+        } else if (DiningBookingCalendarPolicy.requireShareConfirmation(entry)) {
             save(c, entry);
         }
         ACTIVE.add(id);
@@ -121,9 +114,8 @@ final class DiningBookingCalendar {
                                     if (Set.of("offer", "calendars", "error")
                                                     .contains(entry.optString("phase"))
                                             && (selected == null
-                                                    || entry.optLong("shareDispatchedAt")
-                                                            > selected.optLong(
-                                                                    "shareDispatchedAt")))
+                                                    || entry.optLong("shareConfirmedAt")
+                                                            > selected.optLong("shareConfirmedAt")))
                                         selected = entry;
                                 } catch (Exception stale) {
                                     android.util.Log.w(
@@ -172,7 +164,7 @@ final class DiningBookingCalendar {
                         .appendQueryParameter("op", "action")
                         .build();
         String checkpoint = null;
-        JSONObject dispatched = null;
+        boolean changed = false;
         int size = 0, lines = 0;
         try (var input = c.getContentResolver().openInputStream(uri);
                 var reader =
@@ -186,18 +178,13 @@ final class DiningBookingCalendar {
                 JSONObject event = new JSONObject(line);
                 if ("checkpoint".equals(event.optString("type")))
                     checkpoint = event.getString("through");
-                if (DiningBookingCalendarPolicy.dispatched(
-                        event, entry, expected, System.currentTimeMillis())) dispatched = event;
+                changed |=
+                        DiningBookingCalendarPolicy.recordShareEvent(
+                                entry, event, expected, System.currentTimeMillis());
             }
         }
-        if (dispatched != null) {
-            entry.put("phase", "offer")
-                    .put("shareEventCursor", dispatched.getString("cursor"))
-                    .put("shareDispatchedAt", dispatched.getLong("at"))
-                    .put("messageSent", false);
-        }
         if (checkpoint != null) entry.put("feedCursor", checkpoint);
-        if (dispatched != null || checkpoint != null) save(c, entry);
+        if (changed || checkpoint != null) save(c, entry);
     }
 
     private static boolean mayPresent(Context c) throws Exception {
