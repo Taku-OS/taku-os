@@ -47,6 +47,16 @@ const dark = {
   stopFill: '#FFFFFF', stopGlyph: '#1B1B1B',
   /** Reaction badge (300:682): Surface/50 glass inside a 2 dp Content/900 ring that cuts it from the bubble. */
   reactionFill: surface(0.04), reactionRing: content(0.92),
+  /**
+   * Task status (Zile's Single Chat wireframe, sampled from its frames): amber where a Task waits
+   * for the user, blue-grey while it works. The only two hues the chat adds; a finished Task is
+   * plain tertiary text.
+   */
+  statusAttention: '#F4C275', statusProgress: '#B5D0EE',
+  /** The Task card's outline, and the dim over the conversation beside the open drawer. */
+  cardOutline: surface(0.1), scrim: content(0.56),
+  /** The choice being sent from a Task card: the user bubble's own pair. */
+  chosen: surface(0.8), onChosen: content(0.8),
 };
 
 export type ChatColors = typeof dark;
@@ -64,6 +74,10 @@ const light: ChatColors = {
   stopFill: '#1B1B1B', stopGlyph: '#FFFFFF',
   /** On the light background the ring is the light canvas and the badge a white glass. */
   reactionFill: surface(0.8), reactionRing: '#E3E3E3',
+  /** The same two statuses, deepened to read on the light canvas. */
+  statusAttention: '#8A5008', statusProgress: '#3F6189',
+  cardOutline: content(0.08), scrim: content(0.32),
+  chosen: '#1B1B1B', onChosen: '#FFFFFF',
 };
 
 export type ChatAppearance = 'dark' | 'light';
@@ -130,11 +144,17 @@ const blurs: Record<ChatAppearance, {backdropSigma: number; edgeSigma: number; m
   light: {backdropSigma: 64, edgeSigma: 12, menuSigma: 4},
 };
 
-/** The chat's fixed title (2-1 shows the conversation name there; product keeps "Taku"). */
-export const chatTitle = 'Taku';
+/**
+ * The main conversation's name, wherever it is a title or a destination: the chat's title row, the
+ * drawer and the composer. A Task shows its own title instead. Running text still says "Taku".
+ */
+export const chatTitle = 'TAKU';
 
-/** Figma 2-1 geometry (dp). */
-export const chatMetrics = {side: 16, header: 64, itemGap: 24, replyGap: 12, composerBottom: 40, bubbleMinInset: 48, composerMax: 380};
+/** Figma 2-1 geometry (dp); `strip` is the row of Task capsules under the title (38 dp capsules, 8 dp below). */
+export const chatMetrics = {side: 16, header: 64, itemGap: 24, replyGap: 12, composerBottom: 40, bubbleMinInset: 48, composerMax: 380, strip: 46};
+
+/** Motion (design-system tokens.json): the drawer's own curve and duration, and the shared press fade. */
+export const chatMotion = {drawerMs: 320, drawerEase: [0.22, 1, 0.36, 1] as const, colorMs: 200};
 
 type Weight = 'regular' | 'medium';
 const latin = {regular: 'TakuBody', medium: 'TakuBodyMedium'};

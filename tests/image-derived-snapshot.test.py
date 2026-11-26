@@ -188,7 +188,7 @@ class Derived(unittest.TestCase):
                      'image/branding/settings.patch','image/branding-properties.json'):
             files[name]=(ROOT/name).read_bytes()
         files['image/apply-updater-patches.py']=files['image/apply-updater-patches.py'].replace(
-            b'version_code in (2, 3, 4, 5, 6, 7, 8, 9)',b'version_code in (2, 3)')
+            b'version_code in (2, 3, 4, 5, 6, 7, 8, 9, 10)',b'version_code in (2, 3)')
         records=[{'path':name,'sha256':hashlib.sha256(data).hexdigest()} for name,data in sorted(files.items())]
         key=hashlib.sha256(json.dumps(records,sort_keys=True).encode()).hexdigest()
         parent=self.out/'snapshots'/key

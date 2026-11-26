@@ -46,7 +46,7 @@ class IslandSettingsActivity : Activity() {
         summary = TextView(this)
         content.addView(summary)
         val label = TextView(this).apply {
-            text = "Apps allowed to publish custom island content\nEnter package names separated by commas. Android Live Updates work without this list. Platform-signed publishers retain their signature permission."
+            text = "Apps allowed to publish custom island content\nEnter package names separated by commas. Android Live Updates and apps signed with the platform certificate work without this list."
             setPadding(0, padding, 0, padding / 2)
         }
         content.addView(label)

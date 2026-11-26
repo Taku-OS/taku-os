@@ -47,6 +47,7 @@ internal class AgentGatewayProtocol private constructor() {
             "workspaces/pause", "workspaces/takeControl", "workspaces/input", "workspaces/returnAndResume", "workspaces/addRequirement", "workspaces/executionStatus",
             "capture/read", "capture/accept", "capture/dismiss", "capture/request", "capture/openConversation", "manageAssistant",
             "accounts/read", "accounts/refresh", "accounts/login", "accounts/cancel", "accounts/openMagpie", "accounts/keys", "accounts/removeKey", "accounts/saveKey",
+            "accounts/agyRead", "accounts/agyRefresh", "accounts/agySignIn", "accounts/agyCancel", "accounts/agyCode", "accounts/agyUse",
             "requests/list", "requests/read", "requests/respond", "requests/submit", "requests/cancel",
             "decide", "generateUi", "mainReply", "panels", "cardView", "readMatter", "subscribeMatter", "unsubscribeMatter", "dispatchMatter", "analyzeCameraFrame", "audioCapabilities", "audioCommand",
             "readSystemAi", "setSystemAi", "bindSystemAi", "bindSystemAiModel", "reorderSystemAi", "restoreSystemAi", "deleteSystemAiGroup", "openMagpieManagement", "pluginManager", "readAccount", "openAssistantConnection",
@@ -224,7 +225,8 @@ internal class AgentGatewayProtocol private constructor() {
                 "workspaces/list", "workspaces/apps", "workspaces/configure", "workspaces/release", "workspaces/preview", "workspaces/open", "manageSystemAi" -> return input
                 "workspaces/pause", "workspaces/takeControl", "workspaces/input", "workspaces/returnAndResume", "workspaces/addRequirement", "workspaces/executionStatus" -> return input
                 "capture/read", "capture/accept", "capture/dismiss", "capture/request", "capture/openConversation",
-                "accounts/read", "accounts/refresh", "accounts/login", "accounts/cancel", "accounts/openMagpie", "accounts/keys", "accounts/removeKey", "accounts/saveKey" -> return input
+                "accounts/read", "accounts/refresh", "accounts/login", "accounts/cancel", "accounts/openMagpie", "accounts/keys", "accounts/removeKey", "accounts/saveKey",
+                "accounts/agyRead", "accounts/agyRefresh", "accounts/agySignIn", "accounts/agyCancel", "accounts/agyCode", "accounts/agyUse" -> return input
                 "manageAssistant", "requests/list", "requests/read", "requests/respond", "requests/submit", "requests/cancel" -> return input
                 "pluginManager" -> java.util.Set.of("operation", "argument", "name", "arguments")
                 "decide" -> java.util.Set.of("state", "questions")
@@ -367,6 +369,8 @@ internal class AgentGatewayProtocol private constructor() {
                 "session/snapshot" -> java.util.Set.of("thread")
                 "session/reply" -> java.util.Set.of("turnId", "reply", "items")
                 "item/agentMessage/delta" -> java.util.Set.of("turnId", "itemId", "delta")
+                // The public reasoning summary only; raw reasoning content has no stream event.
+                "item/reasoning/summaryTextDelta" -> java.util.Set.of("turnId", "itemId", "summaryIndex", "delta")
                 "item/started", "item/completed" -> java.util.Set.of("turnId", "item")
                 "turn/started", "turn/completed" -> java.util.Set.of("turn")
                 "thread/name/updated" -> java.util.Set.of("threadName", "name")

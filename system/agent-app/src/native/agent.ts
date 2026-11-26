@@ -2,6 +2,10 @@ import {requireOptionalNativeModule} from 'expo';
 import type {SessionCursor} from '../model/sessionStream';
 import type {ImeGeometry} from '../model/sheetGeometry';
 import {record} from '../model/session';
+import {createGatewayLoad, isGatewayRead, retryWhileBusy} from './gatewayLoad';
+
+/** The app's gateway calls in flight; background reads wait on it (see gatewayLoad). */
+export const gatewayLoad = createGatewayLoad();
 
 type AgentNativeModule = {
   call(action: string, params: string): Promise<string>;
@@ -11,6 +15,7 @@ type AgentNativeModule = {
   unsubscribeMatter(subscriptionId: string): void;
   launchThreadId(): string;
   selectConversation(threadId: string | null): void;
+  setHandoffCandidate(threadId: string, turnId: string, taskId: string, knownTurnIds: string, sending: boolean): void;
   isLaunchCurrent(generation: string): boolean;
   launchDraft(): string;
   requestId(): string;
@@ -59,6 +64,7 @@ export type AgentAction =
   | 'workspaces/addRequirement' | 'workspaces/executionStatus'
   | 'capture/read' | 'capture/accept' | 'capture/dismiss' | 'capture/request' | 'capture/openConversation' | 'manageAssistant'
   | 'accounts/read' | 'accounts/refresh' | 'accounts/login' | 'accounts/cancel' | 'accounts/keys' | 'accounts/saveKey' | 'accounts/removeKey'
+  | 'accounts/agyRead' | 'accounts/agyRefresh' | 'accounts/agySignIn' | 'accounts/agyCancel' | 'accounts/agyCode' | 'accounts/agyUse'
   | 'decide' | 'generateUi' | 'panels' | 'cardView'
   | 'mainReply' | 'readMatter' | 'subscribeMatter' | 'unsubscribeMatter' | 'dispatchMatter' | 'analyzeCameraFrame'
   | 'audioCapabilities' | 'audioCommand'
@@ -84,7 +90,10 @@ function requireAgentNative(): AgentNativeModule {
 export async function callAgent<T = Record<string, unknown>>(
   action: AgentAction, params: Record<string, unknown> = {},
 ): Promise<T> {
-  return gatewayResult<T>(await requireAgentNative().call(action, JSON.stringify(params)));
+  const native = requireAgentNative();
+  const send = async () => gatewayResult<T>(await gatewayLoad.track(() => native.call(action, JSON.stringify(params))));
+  // A read the gateway had no room for is asked again; anything else reports BUSY to its caller.
+  return isGatewayRead(action) ? retryWhileBusy(send, 4) : send();
 }
 
 function gatewayResult<T>(envelope: string): T {
@@ -178,6 +187,21 @@ export async function readMenuApp(packageName: string): Promise<MenuAppInfo | nu
 export async function openMenuApp(packageName: string): Promise<boolean> {
   return requireAgentNative().openMenuApp(packageName);
 }
+
+/**
+ * The conversation whose turn is still running ("" for none). Leaving the chat hands it to the
+ * Home island, which opens its card once the turn has a result (BUG-0027). Off-device a no-op.
+ */
+export interface HandoffReport {
+  /** "" when no conversation is running (or it has no thread yet). */
+  threadId: string; turnId: string; taskId: string;
+  /** JSON array of the conversation's turns before the send, or "" when not reported. */
+  knownTurnIds: string;
+  /** The chat's own message is still on its way; a leave during it waits for the conversation. */
+  sending: boolean;
+}
+export const setHandoffCandidate = (report: HandoffReport) =>
+  nativeModule?.setHandoffCandidate(report.threadId, report.turnId, report.taskId, report.knownTurnIds, report.sending);
 
 /** Opens the panel's original conversation with its native target extras. It never sends a task. */
 export async function openPanelConversation(panelId: string): Promise<void> {

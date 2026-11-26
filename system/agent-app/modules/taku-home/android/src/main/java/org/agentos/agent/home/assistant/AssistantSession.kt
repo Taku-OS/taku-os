@@ -77,6 +77,10 @@ data class AssistantState(
   val abandoned: Boolean = false,
   /** A successful dictation too long to join the draft, kept whole for reading and copying. */
   val retainedVoice: RetainedVoiceResult? = null,
+  /** A turn the full chat left running; its result opens the card once (BUG-0027). */
+  val handoff: Handoff? = null,
+  /** A handed-off result is waiting for SystemUI to draw its card (locked, shade, landscape). */
+  val revealPending: Boolean = false,
 ) {
   val working: Boolean get() = !abandoned && (sending || pending != null || turn?.active == true || task == "queued" || task == "running")
   val buildingApp: Boolean get() = appBuildTurnId != null && turn?.turnId == appBuildTurnId &&
@@ -91,6 +95,12 @@ data class AssistantState(
     return copy(appBuildTurnId = if (active) turnId else null)
   }
   val needsUser: Boolean get() = task == "needs_user"
+  /**
+   * A new voice hold asks something new, so a finished turn on the card is not its answer and must
+   * not show again while it listens, nor after a cancelled or empty hold (BUG-0028). A running
+   * turn, a question or an error still needs the user and stays.
+   */
+  val holdSupersedesTurn: Boolean get() = turn != null && !turn.active && !working && !needsUser
   /** Closing temporary input must not dismiss its pending result, reply or error. */
   val overlayVisible: Boolean get() = entry != EntryMode.None
 
@@ -176,7 +186,7 @@ class AssistantSession private constructor(private val context: Context, private
   }, if (gesturePrefs.getInt("boot", -2) == boot) gesturePrefs.getLong("start", -1) else -1)
 
   init {
-    watchVoice(); watchNetwork()
+    watchVoice(); watchNetwork(); watchHandoff()
     androidx.core.content.ContextCompat.registerReceiver(context, object : android.content.BroadcastReceiver() {
       override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == Intent.ACTION_SCREEN_OFF) interruptVoiceForScreenOff()
@@ -230,9 +240,85 @@ class AssistantSession private constructor(private val context: Context, private
     }
   }
 
-  private fun voiceDeviceUnavailable(): Boolean =
-    context.getSystemService(android.app.KeyguardManager::class.java)?.isKeyguardLocked == true ||
-      context.getSystemService(android.os.PowerManager::class.java)?.isInteractive == false
+  /**
+   * Applies [IslandHandoff] to every state change: a handed-off turn opens the card once with its
+   * reply, question or failure. Any new Home input means the user moved on, so it cancels.
+   */
+  private fun watchHandoff() {
+    scope.launch {
+      flow.collect { s ->
+        val movedOn = s.entry != EntryMode.None || live.snapshot?.open == true
+        if (s.revealPending && movedOn) flow.update { it.copy(revealPending = false) }
+        val handoff = s.handoff ?: return@collect
+        if (movedOn) {
+          flow.update { if (it.handoff == handoff) it.copy(handoff = null) else it }
+          return@collect
+        }
+        // Status polling stops when the stream first shows an older, finished turn; a question
+        // asked later in this turn only arrives through it.
+        if (s.working && s.threadId == handoff.threadId) ensurePolling(handoff.threadId)
+        val step = IslandHandoff.step(handoff, s.threadId, s.turn, s.task, s.taskId, s.error)
+        when (step.outcome) {
+          IslandHandoff.Outcome.WAIT -> flow.update { current ->
+            if (current.handoff != handoff) current
+            // An app build keeps its own capsule while it runs; nothing else is drawn.
+            else current.copy(handoff = step.handoff,
+              island = if (current.buildingApp && current.island == IslandMode.Hidden) IslandMode.Collapsed else current.island)
+          }
+          IslandHandoff.Outcome.DROP -> flow.update { if (it.handoff == handoff) it.copy(handoff = null) else it }
+          IslandHandoff.Outcome.REVEAL -> flow.update { current ->
+            if (current.handoff != handoff) current
+            else current.copy(handoff = null, revealPending = true, island = IslandMode.Expanded,
+              expansionRequest = ++expansionSequence)
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * The full chat left [threadId] running (Home, Back or Recents): follow it with nothing on screen,
+   * and open the card once when it has a result. See docs/dynamic-island-chat-handoff-spec.md.
+   */
+  fun handoff(threadId: String, turnId: String?, taskId: String?, knownTurnIds: Set<String>? = null): JSONObject {
+    val s = flow.value
+    val shown = org.agentos.agent.home.island.SystemIslandBridge.presentation(context)
+    val admission = IslandHandoff.admit(IslandHandoff.Home(
+      threadId = s.threadId, islandRequested = s.island != IslandMode.Hidden,
+      cardExpanded = s.island != IslandMode.Hidden && shown == "expanded",
+      working = s.working, needsUser = s.needsUser, entryOpen = s.entry != EntryMode.None,
+      microphoneBusy = gesture.held || voice.state.value.listening || s.voiceContinuous,
+      liveTalk = live.snapshot?.open == true), threadId)
+    val result = JSONObject().put("handedOff", admission == IslandHandoff.Admission.HANDED_OFF).put("reason", admission.name)
+    if (admission == IslandHandoff.Admission.ALREADY_SHOWN) return result
+    follow(threadId)
+    flow.update { it.copy(island = IslandMode.Hidden, entry = EntryMode.None, revealPending = false,
+      activityId = UUID.randomUUID().toString(),
+      handoff = Handoff(threadId, turnId?.ifBlank { null }, taskId?.ifBlank { null }, it.error, knownTurnIds)) }
+    ensureStream(threadId)
+    ensurePolling(threadId)
+    refreshDraft()
+    return result
+  }
+
+  /**
+   * The full chat shows [threadId] again: nothing is revealed for it, and a card or capsule for the
+   * same conversation goes away. The thread stays, so the Home entry still continues it.
+   */
+  fun reclaim(threadId: String): Boolean {
+    if (!IslandHandoff.validThread(threadId)) throw AssistantException("INVALID_ARGUMENT", "threadId must be a conversation id")
+    val s = flow.value
+    if (s.threadId != threadId || (s.handoff == null && !s.revealPending && s.island == IslandMode.Hidden)) return false
+    flow.update { it.copy(handoff = null, revealPending = false, island = IslandMode.Hidden) }
+    return true
+  }
+
+  /** SystemUI drew the expanded card: a pending reveal is delivered. */
+  fun revealShown() {
+    if (flow.value.revealPending) flow.update { it.copy(revealPending = false) }
+  }
+
+  private fun voiceDeviceUnavailable(): Boolean = !org.agentos.agent.home.ScreenState.usable(context)
 
   private fun interruptVoiceForScreenOff() {
     ChatVoiceSession.interrupt()
@@ -495,12 +581,15 @@ class AssistantSession private constructor(private val context: Context, private
     refreshDraft()
   }
 
-  /** Closes the input; an undelivered result loses eligibility. The island stays while there is something to show. */
+  /**
+   * Closes the input; an undelivered result loses eligibility. The island stays while there is
+   * something to show, including a handed-off result still waiting to be drawn.
+   */
   fun closeEntry() {
     endLiveTalk()
     revokeVoice()
     flow.update { s ->
-      val keep = s.working || s.turn != null || s.error != null
+      val keep = s.working || s.turn != null || s.error != null || s.revealPending
       s.copy(entry = EntryMode.None, island = if (keep) s.island else IslandMode.Hidden)
     }
   }
@@ -674,7 +763,7 @@ class AssistantSession private constructor(private val context: Context, private
     endLiveTalk()
     org.agentos.agent.home.island.SystemIslandBridge.request(context, "collapse")
     val s = flow.value
-    if (s.working || s.needsUser) { revokeVoice(); flow.update { it.copy(island = IslandMode.Collapsed, entry = EntryMode.None) }; return }
+    if (s.working || s.needsUser) { revokeVoice(); flow.update { it.copy(island = IslandMode.Collapsed, entry = EntryMode.None, handoff = null, revealPending = false) }; return }
     reset()
   }
 
@@ -790,6 +879,7 @@ class AssistantSession private constructor(private val context: Context, private
       throw AssistantException("DEVICE_LOCKED", "Wake and unlock the device before starting voice input")
     if (voiceStartPending) return
     if (voice.state.value.phase != VoicePhase.Idle) voice.cancel()
+    if (target == VoiceTarget.Hold) supersedeSettledTurn()
     flow.update {
       it.copy(
         entry = if (target == VoiceTarget.Hold) EntryMode.Voice else EntryMode.Text,
@@ -818,6 +908,19 @@ class AssistantSession private constructor(private val context: Context, private
       delivery.begin(operation, settledDestination)
       apply(delivery.settle(voice.state.value, flow.value.draft))
     }
+  }
+
+  /**
+   * Hides the finished turn from this session's card: it joins [baseline], so the stream never
+   * projects it again, and only a newer turn appears. The thread continues, so the next message
+   * keeps its context; the reply stays in the conversation.
+   */
+  private fun supersedeSettledTurn() {
+    val s = flow.value
+    if (!s.holdSupersedesTurn) return
+    val old = s.turn?.turnId ?: return
+    synchronized(streamLock) { baseline = baseline + old }
+    flow.update { if (it.turn?.turnId == old) it.copy(turn = null) else it }
   }
 
   private fun cancelPendingVoiceStart() {
@@ -1232,7 +1335,7 @@ class AssistantSession private constructor(private val context: Context, private
           if (editor !== current) return@withLock
           context.startActivity(Intent().setClassName(context.packageName, "org.agentos.agent.MainActivity")
             .putExtra("threadId", id).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP))
-          flow.update { it.copy(island = IslandMode.Hidden, entry = EntryMode.None, voicePaused = false) }
+          flow.update { it.copy(island = IslandMode.Hidden, entry = EntryMode.None, voicePaused = false, handoff = null, revealPending = false) }
         }
       } catch (failure: Exception) {
         if (failure is kotlinx.coroutines.CancellationException) throw failure
@@ -1261,16 +1364,20 @@ class AssistantSession private constructor(private val context: Context, private
       refreshDraft()
       return
     }
-    if (flow.value.threadId != id) {
-      reset(Editor(id))
-      flow.update { it.copy(threadId = id) }
-    }
-    flow.update { it.copy(island = IslandMode.Expanded, entry = EntryMode.None, error = null,
+    follow(id)
+    flow.update { it.copy(island = IslandMode.Expanded, entry = EntryMode.None, error = null, handoff = null, revealPending = false,
       voicePaused = false, expansionRequest = ++expansionSequence,
       activityId = it.activityId ?: UUID.randomUUID().toString()) }
     ensureStream(id)
     ensurePolling(id)
     refreshDraft()
+  }
+
+  /** Makes [id] this session's thread; turns already in it count as this session's. */
+  private fun follow(id: String) {
+    if (flow.value.threadId == id) return
+    reset(Editor(id))
+    flow.update { it.copy(threadId = id) }
   }
 
   /** Restores presentation identity only; the thread/turn/task data still come from the gateway. */
@@ -1438,6 +1545,8 @@ class AssistantSession private constructor(private val context: Context, private
         .put("startedAt", gesture.startedAt).put("updatedAt", gesture.updatedAt))
       .put("threadId", s.threadId ?: JSONObject.NULL).put("activityId", s.activityId ?: JSONObject.NULL)
       .put("buildingApp", s.buildingApp).put("appBuildTurnId", s.appBuildTurnId ?: JSONObject.NULL)
+      .put("handoff", s.handoff != null).put("handoffTurnId", s.handoff?.turnId ?: JSONObject.NULL)
+      .put("revealPending", s.revealPending)
       .put("working", s.working).put("needsUser", s.needsUser).put("online", s.online)
       .put("pending", s.pending ?: JSONObject.NULL).put("task", s.task ?: JSONObject.NULL).put("error", s.error ?: JSONObject.NULL)
       .put("draft", s.draft).put("failedText", s.failedText ?: JSONObject.NULL)

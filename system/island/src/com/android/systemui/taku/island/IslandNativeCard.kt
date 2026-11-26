@@ -36,12 +36,20 @@ internal abstract class IslandNativeCard(context: Context, protected val command
     /** Accessibility label for the card's primary action. */
     protected abstract val primaryLabel: String
 
-    /** The publisher's primary action when it has one, otherwise its content intent ("open"). */
+    /**
+     * A tap on the card body: the publisher's `tapAction` when it declared one, otherwise the
+     * notification content intent ("open"). Taku Agent's assistant card keeps its primary action.
+     */
     protected open fun openPrimary() {
-        item?.let { current ->
-            val id = current.payload.getJSONObject("expanded").optString("primaryAction")
-            if (current.actions.containsKey(id)) invoke(current, id) else command("open", current.key, null)
-        }
+        item?.let { current -> cardTap(current)?.let { invoke(current, it) } ?: command("open", current.key, null) }
+    }
+
+    /** The action key a card tap runs, or null for the content intent. */
+    protected fun cardTap(current: IslandActivity): String? {
+        val expanded = current.payload.getJSONObject("expanded")
+        val tap = expanded.optString("tapAction").takeIf { current.actions.containsKey(it) }
+        val primary = expanded.optString("primaryAction").takeIf { current.nativeAssistant && current.actions.containsKey(it) }
+        return tap ?: primary
     }
 
     protected fun invoke(current: IslandActivity, id: String) =

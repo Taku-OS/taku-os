@@ -54,6 +54,14 @@ internal class ConversationVisibility(
 
   val visible: Boolean get() = hosts.visible
 
+  /** Class of the last of this app's activities to resume; another app leaves it unchanged. */
+  @Volatile var lastResumed: String? = null
+    private set
+
+  /** Whether the host that stopped last was being recreated (rotation, theme). */
+  @Volatile var lastStopChangingConfigurations = false
+    private set
+
   fun attach(application: Application, current: Activity?) {
     application.registerActivityLifecycleCallbacks(this)
     seed(current)
@@ -72,7 +80,10 @@ internal class ConversationVisibility(
   }
 
   override fun onActivityStopped(activity: Activity) {
-    if (hostsConversation(activity)) hosts.stop(activity)
+    if (!hostsConversation(activity)) return
+    // Recorded before the stop is projected, so the hidden callback can read it.
+    lastStopChangingConfigurations = activity.isChangingConfigurations
+    hosts.stop(activity)
   }
 
   override fun onActivityDestroyed(activity: Activity) {
@@ -80,6 +91,7 @@ internal class ConversationVisibility(
   }
 
   override fun onActivityResumed(activity: Activity) {
+    lastResumed = activity.javaClass.name
     // A resumed activity is started too; this also covers a tracker that attached mid-lifecycle.
     if (hostsConversation(activity)) hosts.start(activity)
   }

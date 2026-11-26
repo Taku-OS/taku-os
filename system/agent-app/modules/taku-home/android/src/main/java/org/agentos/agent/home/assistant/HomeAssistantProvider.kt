@@ -71,6 +71,13 @@ class HomeAssistantProvider : ContentProvider() {
             .put("speech", chat.speech.value?.let { JSONObject(it.snapshot()) } ?: JSONObject.NULL)
         }
         val session = AssistantSession.get(ctx)
+        // The full chat hands a running turn to the island when the user leaves it, and takes it
+        // back when it shows the conversation again (BUG-0027).
+        when (method) {
+          "assistant/handoff" -> return@onMain session.handoff(p.threadId(), p.optionalString("turnId"), p.optionalString("taskId"),
+            IslandHandoff.knownTurns(p.optJSONArray("knownTurnIds")?.let { list -> List(list.length()) { list.opt(it) } }))
+          "assistant/reclaim" -> return@onMain JSONObject().put("reclaimed", session.reclaim(p.threadId()))
+        }
         when (method) {
           "assistant/get" -> {}
           "system/open" -> ctx.startActivity(SystemAssistantEntry.home(ctx).putExtra(SystemAssistantEntry.EXTRA_OPEN, true))

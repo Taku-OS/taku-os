@@ -34,8 +34,37 @@ class IslandPolicy @Inject constructor(private val context: Context, @Main priva
         reload()
     }
 
-    fun canPost(packageName: String): Boolean = packageName in allowedPackages ||
-        context.packageManager.checkPermission(POST_PERMISSION, packageName) == PackageManager.PERMISSION_GRANTED
+    /**
+     * Custom island extras from apps signed with the platform certificate (the same certificate as
+     * SystemUI, such as Taku Agent and Notebook) are accepted without any registration. Ordinary
+     * third-party apps need an entry in the reviewed allow-list.
+     */
+    fun canPost(packageName: String, userId: Int? = null): Boolean =
+        packageName in allowedPackages || platformSigned(packageName, userId)
+
+    /**
+     * The one platform-signature check for publishers, evaluated in the posting user's package
+     * manager ([userId] null means SystemUI's own user). Answers are cached for a few seconds so a
+     * burst of notifications, and the main-thread heads-up decision, do not each cross Binder.
+     */
+    fun platformSigned(packageName: String, userId: Int? = null): Boolean {
+        val key = "${userId ?: -1}|$packageName"
+        val now = android.os.SystemClock.elapsedRealtime()
+        signatures[key]?.let { (at, signed) -> if (now - at < SIGNATURE_CACHE_MS) return signed }
+        val signed = runCatching {
+            val pm = if (userId == null) context.packageManager
+                else context.createContextAsUser(android.os.UserHandle.of(userId), 0).packageManager
+            pm.checkSignatures("android", packageName) == PackageManager.SIGNATURE_MATCH
+        }.getOrDefault(false)
+        if (signatures.size > 256) signatures.clear()
+        signatures[key] = now to signed
+        return signed
+    }
+
+    fun publisher(packageName: String, userId: Int? = null) =
+        IslandPayload.Publisher(packageName, platformSigned(packageName, userId))
+
+    private val signatures = java.util.concurrent.ConcurrentHashMap<String, Pair<Long, Boolean>>()
 
     fun setEnabled(value: String) {
         require(value == "0" || value == "1") { "invalid_enabled" }
@@ -51,7 +80,7 @@ class IslandPolicy @Inject constructor(private val context: Context, @Main priva
         reload()
     }
 
-    fun snapshot(): JSONObject = JSONObject().put("enabled", enabled).put("protocol", 1)
+    fun snapshot(): JSONObject = JSONObject().put("enabled", enabled).put("protocol", PROTOCOL_VERSION)
         .put("allowedPackages", JSONArray(allowedPackages.sorted())).put("error", lastError ?: JSONObject.NULL)
 
     private fun reload() {
@@ -69,6 +98,7 @@ class IslandPolicy @Inject constructor(private val context: Context, @Main priva
                 Settings.Global.putString(resolver, ENABLED, if (enabled) "1" else "0")
             }
         }
+        // Platform-signed apps need no entry; the list holds reviewed third-party apps only.
         val rawAllowed = Settings.Global.getString(resolver, ALLOWED).orEmpty()
         try { allowedPackages = validatePackages(rawAllowed) }
         catch (invalid: IllegalArgumentException) {
@@ -77,7 +107,8 @@ class IslandPolicy @Inject constructor(private val context: Context, @Main priva
         }
         // Global Settings has no per-key read-only primitive. Repair attempts to change this
         // capability marker; provider/cmd reject protocol writes synchronously.
-        if (Settings.Global.getString(resolver, PROTOCOL) != "1") Settings.Global.putString(resolver, PROTOCOL, "1")
+        if (Settings.Global.getString(resolver, PROTOCOL) != PROTOCOL_VERSION.toString())
+            Settings.Global.putString(resolver, PROTOCOL, PROTOCOL_VERSION.toString())
         if (enabled != oldEnabled || allowedPackages != oldAllowed) onChanged()
     }
 
@@ -95,6 +126,8 @@ class IslandPolicy @Inject constructor(private val context: Context, @Main priva
         const val ENABLED = "taku_island_enabled"
         const val ALLOWED = "taku_island_allowed_packages"
         const val PROTOCOL = "taku_island_protocol"
-        const val POST_PERMISSION = "org.agentos.permission.POST_ISLAND"
+        /** The Taku Island protocol (`taku.island.v2`); there is no other custom wire version. */
+        const val PROTOCOL_VERSION = 2
+        private const val SIGNATURE_CACHE_MS = 10_000L
     }
 }

@@ -2,7 +2,8 @@ import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {AppState, BackHandler} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {useLocales} from 'expo-localization';
-import {callAgent, closeAgent, consumePanelLaunch, isPanelLaunchConsumed, launchPanelTarget, launchThreadId, newRequestId, onOpenThread, selectConversation, subscribeSession, watchConversationVisible, AgentGatewayError, type PanelTarget} from '../native/agent';
+import {callAgent, closeAgent, consumePanelLaunch, isPanelLaunchConsumed, launchPanelTarget, launchThreadId, newRequestId, onOpenThread, selectConversation, setHandoffCandidate, subscribeSession, watchConversationVisible, AgentGatewayError, type PanelTarget} from '../native/agent';
+import {handoffCandidate, sendInFlight} from '../model/islandHandoff';
 import {onComposerAttachment, pickComposerAttachment, type ComposerPickerKind} from '../native/composerPicker';
 import {continuedSessionRoot, projectSession, projectThreads, projectWorkspaces, record, string, type Json, type SessionView, type ThreadSummary, type WorkspaceView} from '../model/session';
 import {isAcceptedReceipt, isNotSentReceipt, pendingKey, preserveAndReleaseUnconfirmed, unconfirmedArchivePrefix, type PendingSubmission} from './submission';
@@ -11,8 +12,15 @@ import {readCurrent, restoreConversation} from './readLifecycle';
 import {sessionReadOptions} from './sessionRead';
 import {emptySessionStream, reduceSessionBatch, retainSessionBlocks, streamCursor, streamSessionRoot, sessionRootForDisplay, reconcileStreamHistory} from '../model/sessionStream';
 import {acceptOptimisticReceipt, beginOptimisticSubmission, reconcileOptimisticSubmission, recoverQueuedSubmission, FIRST_RESPONSE_TIMEOUT_MS, type OptimisticSubmission} from '../model/optimisticChat';
+import {isMainConversation, resolveSingleChatStartup, shouldClaimPrimaryThread} from '../model/singleChat';
 
 const SELECTED = 'taku.agent.selected.v1';
+const PRIMARY_THREAD = 'taku.agent.primaryThread.v1';
+/**
+ * Stored under PRIMARY_THREAD while TAKU has no thread of its own. A word, because AsyncStorage
+ * reads an empty string back as null, which would say no main conversation was ever recorded.
+ */
+const NO_PRIMARY_THREAD = 'none';
 /** A continue publishes one new task: optimistic correlation treats it as a fresh message. */
 type ChatSubmission = {threadId: string; requestId: string; text: string; action: 'sendMessage' | 'steer'; expectedTurnId?: string};
 const asChatSubmission = (pending: PendingSubmission): ChatSubmission => ({
@@ -38,6 +46,7 @@ export function useAgentController() {
   const [threads, setThreads] = useState<ThreadSummary[]>([]);
   const [workspaces, setWorkspaces] = useState<WorkspaceView[]>([]);
   const [selected, setSelected] = useState('');
+  const [primaryThreadId, setPrimaryThreadId] = useState('');
   const [conversationKey, setConversationKey] = useState('new');
   const [optimisticSubmissions, setOptimisticSubmissions] = useState<OptimisticSubmission[]>([]);
   const visibleOptimisticSubmissions = useMemo(() => optimisticSubmissions.filter(request => request.threadId === selected), [optimisticSubmissions, selected]);
@@ -55,17 +64,22 @@ export function useAgentController() {
   const [workspaceError, setWorkspaceError] = useState('');
   const [refreshRevision, setRefreshRevision] = useState(0);
   const [visible, setVisible] = useState(false);
+  // Counts conversations opened from outside the chat (island, Feed, Panels), the current one
+  // included, so the screen can leave Taku Home for the conversation it was asked to show.
+  const [externalOpens, setExternalOpens] = useState(0);
   const locale = useLocales()[0]?.languageCode;
   const zh = locale === 'zh';
   const mounted = useRef(true), generation = useRef(0), actionRunning = useRef(false);
-  const selectedRef = useRef(''), draftRef = useRef(''), sessionRef = useRef<SessionView | null>(null), taskRef = useRef<Json>({});
+  const selectedRef = useRef(''), primaryThreadRef = useRef(''), draftRef = useRef(''), sessionRef = useRef<SessionView | null>(null), taskRef = useRef<Json>({});
   const streamRef = useRef({state: emptySessionStream(''), healthy: false, failed: false});
   const sidebandRef = useRef<Json>({});
   const [drafts] = useState(() => new Map<string, ComposerDraft>());
   const navigationWrites = useRef(Promise.resolve());
   const selectionWrites = useRef(Promise.resolve());
   const historyRevision = useRef(0);
-  const pendingOpen = useRef('');
+  /** A conversation to open once the running action ends: a thread id, '' for a new one, null for none. */
+  const pendingOpen = useRef<string | null>(null);
+  const pendingTaskCreation = useRef<(() => void) | null>(null);
   const launchFailure = useRef<unknown>(null);
   /** Navigation context only: the panel whose original conversation this send continues. */
   const panelTarget = useRef<PanelTarget | null>(null);
@@ -281,6 +295,17 @@ export function useAgentController() {
     });
   }, [composer, showDraft, syncNativeSelection, updateOptimistic]);
 
+  /**
+   * Records TAKU's own thread. '' is recorded too (as NO_PRIMARY_THREAD): it says TAKU was started
+   * afresh and has no thread until its next first message creates one, which a restart must not
+   * mistake for a device that never had a main conversation.
+   */
+  const persistPrimaryThread = useCallback((id: string) => {
+    primaryThreadRef.current = id;
+    if (mounted.current) setPrimaryThreadId(id);
+    void AsyncStorage.setItem(PRIMARY_THREAD, id || NO_PRIMARY_THREAD).catch(() => {});
+  }, []);
+
   const loadThreads = useCallback(async () => {
     const ticket = ++historyRevision.current;
     try {
@@ -294,12 +319,26 @@ export function useAgentController() {
     }
   }, []);
 
+  /** Reads the conversation list again; stable, so a view may call it from an effect. */
+  const refreshThreads = useCallback(() => { void loadThreads().catch(() => {}); }, [loadThreads]);
+
   const hide = useCallback(() => {
     const saved = draftReady.current ? composer(selectedRef.current).flush() : Promise.resolve();
     void saved.catch(() => {}).then(() => closeAgent()).catch(e => {
       if (mounted.current) setError(messageRef.current(e));
     });
   }, [composer]);
+
+  // Native reads this when the chat stops: a running turn goes to the island (BUG-0027).
+  // The chat's own message row exists from the tap, so leaving right after Send still hands off.
+  const candidate = handoffCandidate(selected, session, pendingSubmission?.threadId ?? null, optimisticSubmissions);
+  const handoffThread = candidate?.threadId ?? '', handoffTurn = candidate?.turnId ?? '', handoffTask = candidate?.taskId ?? '';
+  const handoffKnown = candidate?.knownTurnIds ? JSON.stringify(candidate.knownTurnIds) : '';
+  const handoffSending = sendInFlight(selected, optimisticSubmissions);
+  useEffect(() => {
+    setHandoffCandidate({threadId: handoffThread, turnId: handoffTurn, taskId: handoffTask, knownTurnIds: handoffKnown, sending: handoffSending});
+  }, [handoffThread, handoffTurn, handoffTask, handoffKnown, handoffSending]);
+  useEffect(() => () => setHandoffCandidate({threadId: '', turnId: '', taskId: '', knownTurnIds: '', sending: false}), []);
 
   useEffect(() => {
     const back = BackHandler.addEventListener('hardwareBackPress', () => { hide(); return true; });
@@ -313,6 +352,7 @@ export function useAgentController() {
     const listener = AppState.addEventListener('change', state => { appActive = state === 'active'; updateVisibility(); });
     const visibility = watchConversationVisible(started => { conversationStarted = started; updateVisibility(); });
     const openListener = onOpenThread((id, target, problem) => {
+      setExternalOpens(count => count + 1);
       if (problem) {
         launchFailure.current = problem;
         setError(messageRef.current(problem));
@@ -329,16 +369,52 @@ export function useAgentController() {
         const target = await launchPanelTarget();
         if (!mounted.current || generation.current !== initialGeneration) return;
         panelTarget.current = target;
-        const previous = panelTarget.current?.originThreadId || launchThreadId() || await AsyncStorage.getItem(SELECTED);
-        if (previous === '' && mounted.current && generation.current === initialGeneration) {
-          void loadThreads().catch(() => {});
-          await select('');
+        const explicitRoute = panelTarget.current?.originThreadId || launchThreadId();
+        const [recordedPrimary, legacySelected] = await Promise.all([
+          AsyncStorage.getItem(PRIMARY_THREAD),
+          AsyncStorage.getItem(SELECTED),
+        ]);
+        // null: never recorded (an upgrade). '': TAKU was started afresh and has no thread yet.
+        const storedPrimary = recordedPrimary === NO_PRIMARY_THREAD ? '' : recordedPrimary;
+        if (!mounted.current || generation.current !== initialGeneration) return;
+        if (storedPrimary) {
+          primaryThreadRef.current = storedPrimary;
+          setPrimaryThreadId(storedPrimary);
+        }
+        const preferred = explicitRoute || storedPrimary || '';
+        if (preferred) {
+          await restoreConversation({
+            preferred,
+            list: async () => {
+              const items = await loadThreads();
+              if (mounted.current && !primaryThreadRef.current && items.length) {
+                const decision = resolveSingleChatStartup({
+                  explicitRouteId: explicitRoute,
+                  storedPrimaryId: storedPrimary,
+                  legacySelectedId: legacySelected,
+                  threads: items,
+                });
+                if (decision.primaryThreadId) persistPrimaryThread(decision.primaryThreadId);
+              }
+              return items;
+            },
+            select,
+            isCurrent: () => mounted.current && generation.current === initialGeneration,
+            onListError: () => { /* The history index owns its separate error state. */ },
+          });
           return;
         }
-        await restoreConversation({preferred: previous || '', list: loadThreads, select,
-          isCurrent: () => mounted.current && generation.current === initialGeneration,
-          onListError: () => { /* The history index owns its separate error state. */ },
+        let items: ThreadSummary[] = [];
+        try { items = await loadThreads(); } catch { /* The history index owns its separate error state. */ }
+        if (!mounted.current || generation.current !== initialGeneration) return;
+        const decision = resolveSingleChatStartup({
+          explicitRouteId: explicitRoute,
+          storedPrimaryId: storedPrimary,
+          legacySelectedId: legacySelected,
+          threads: items,
         });
+        if (decision.primaryThreadId) persistPrimaryThread(decision.primaryThreadId);
+        await select(decision.targetThreadId);
       } catch (problem) {
         if (mounted.current && generation.current === initialGeneration) {
           setError(messageRef.current(problem));
@@ -355,7 +431,7 @@ export function useAgentController() {
       listener.remove(); visibility.remove(); openListener.remove();
     };
     // Locale changes do not recreate the session or discard a draft.
-  }, [loadThreads, select]);
+  }, [loadThreads, persistPrimaryThread, select]);
 
   useEffect(() => {
     if (!selected || !visible) return;
@@ -489,8 +565,11 @@ export function useAgentController() {
       actionRunning.current = false;
       if (mounted.current) {
         setBusy(false);
-        const id = pendingOpen.current; pendingOpen.current = '';
-        if (id) void select(id).catch(e => { if (selectedRef.current === id) setError(messageRef.current(e)); });
+        const id = pendingOpen.current; pendingOpen.current = null;
+        const createTask = pendingTaskCreation.current; pendingTaskCreation.current = null;
+        if (id === '') selectConversation(null);
+        if (id !== null) void select(id).catch(e => { if (selectedRef.current === id) setError(messageRef.current(e)); });
+        else createTask?.();
       }
     }
   }, [message, select]);
@@ -535,16 +614,21 @@ export function useAgentController() {
   const removeAttachment = useCallback((attachmentId: string) => changeAttachments(async ({threadId, revision}) =>
     parseComposerSnapshot(await callAgent('composer/removeAttachment', {threadId, expectedRevision: revision, attachmentId}), threadId)), [changeAttachments]);
 
-  const create = useCallback(async (move?: {revision: string; requestId: string}) => {
+  const create = useCallback(async (move?: {revision: string; requestId: string}, asIndependentTask = false) => {
     const result = await callAgent('createThread');
     const id = string(record(result.thread).id);
     if (!id) throw new AgentGatewayError('Missing session ID');
+    if (shouldClaimPrimaryThread(primaryThreadRef.current, asIndependentTask)) {
+      persistPrimaryThread(id);
+    }
     const draft = move ? await composer('').move(move.revision, id) : null;
     if (move) updateOptimistic(requests => requests.map(request => request.requestId === move.requestId ? {...request, threadId: id} : request));
     await select(id, Boolean(move));
+    // Native follows the created conversation (intent, launch route, island reclaim), as for any selection.
+    if (selectedRef.current === id) selectConversation(id);
     void loadThreads().catch(() => {});
     return {id, draft};
-  }, [composer, loadThreads, select, updateOptimistic]);
+  }, [composer, loadThreads, persistPrimaryThread, select, updateOptimistic]);
 
   const deliver = useCallback(async (pending: ComposerSubmission, lookupOnly = false) => {
     const id = pending.threadId, ticket = generation.current;
@@ -762,7 +846,7 @@ export function useAgentController() {
         launchFailure.current = null;
         const id = target?.originThreadId || launchThreadId() || selectedRef.current;
         await select(id);
-        if (pendingOpen.current === id) pendingOpen.current = '';
+        if (pendingOpen.current === id) pendingOpen.current = null;
       } catch (problem) {
         launchFailure.current = problem;
         throw problem;
@@ -774,10 +858,52 @@ export function useAgentController() {
     await select(selectedRef.current);
   }), [loadThreads, run, select]);
 
+  const createTaskThread = useCallback(() => {
+    const openTask = () => {
+      void run(async () => {
+        panelTarget.current = null;
+        launchFailure.current = null;
+        await create(undefined, true);
+      });
+    };
+    if (actionRunning.current) pendingTaskCreation.current = openTask;
+    else openTask();
+  }, [create, run]);
+
+  const selectMainChat = useCallback(() => {
+    if (actionRunning.current) return;
+    // TAKU's own thread, or the empty conversation while it has none. A Task is never promoted.
+    const target = primaryThreadRef.current;
+    selectConversation(target || null);
+    panelTarget.current = null;
+    launchFailure.current = null;
+    void select(target).catch(e => { if (selectedRef.current === target) setError(message(e)); });
+  }, [message, select]);
+
+  /**
+   * TAKU continues in a new conversation: the way out when its own thread can no longer answer
+   * (a request there failed, or the runtime no longer has that thread). Nothing is removed: the
+   * conversation it leaves stays in the list as a Task, and TAKU's next first message creates and
+   * claims its new thread. [carry] is the request that failed there; it comes along as a draft
+   * unless one is already waiting in the new conversation.
+   */
+  const startMainAfresh = useCallback((carry = '') => {
+    void run(async () => {
+      persistPrimaryThread('');
+      selectConversation(null);
+      panelTarget.current = null;
+      launchFailure.current = null;
+      pendingOpen.current = '';
+      await select('');
+      if (carry.trim() && !draftRef.current.trim() && selectedRef.current === '') await saveDraft('', carry);
+    });
+  }, [persistPrimaryThread, run, saveDraft, select]);
+
   return {
     session, threads, workspaces, loading: loading || restoring, busy, error: draftError || error || selectionError || readError, draft,
     historyError, workspaceError, visible,
-    draftSessionId: selected, pendingSubmission, conversationKey,
+    primaryThreadId, isMainChat: isMainConversation(selected, primaryThreadId),
+    draftSessionId: selected, pendingSubmission, conversationKey, externalOpens,
     optimisticSubmissions: visibleOptimisticSubmissions,
     onRetrySubmission: () => { void retrySubmission(); },
     onContinueWithoutResending: () => { void continueWithoutResending(); },
@@ -798,16 +924,12 @@ export function useAgentController() {
       launchFailure.current = null;
       void select(id).catch(e => { if (selectedRef.current === id) setError(message(e)); });
     },
-    onCreateThread: () => { void run(async () => {
-      selectConversation(null);
-      panelTarget.current = null;
-      launchFailure.current = null;
-      pendingOpen.current = '';
-      const {id} = await create();
-      selectConversation(id);
-    }); },
+    onSelectMainChat: selectMainChat,
+    onStartMainAfresh: startMainAfresh,
+    onCreateTaskThread: createTaskThread,
+    onCreateThread: createTaskThread,
     onRefresh: () => { void refresh(); },
-    onOpenHistory: () => { void loadThreads().catch(() => {}); },
+    onOpenHistory: refreshThreads,
     onAnswer: (key: string, response: Json) => { void run(async () => { await callAgent('answer', {threadId: selectedRef.current, key, response}); setRefreshRevision(v => v + 1); }); },
     onOpenWorkspace: (screen: WorkspaceView) => { void run(async () => { await callAgent('openWorkspace', {threadId: screen.threadId, screenKey: screen.screenKey, generation: screen.generation}); }); },
     onClose: hide,

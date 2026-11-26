@@ -1,6 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="org.agentos.island.fixture">
     <uses-sdk android:minSdkVersion="36" android:targetSdkVersion="36" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
     <application android:label="Island integration fixture" android:theme="@android:style/Theme.Material.Light.NoActionBar" android:debuggable="true">
         <activity android:name=".Fixture" android:exported="true">
             <intent-filter>

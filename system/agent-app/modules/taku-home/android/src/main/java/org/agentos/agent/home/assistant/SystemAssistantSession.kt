@@ -49,14 +49,14 @@ class SystemAssistantSession(private val ctx: Context) : VoiceInteractionSession
     val route = SystemAssistantEntry.routeFor(args?.getString(SystemAssistantEntry.TRIGGER))
     menuVoiceHold = route == SystemAssistantEntry.Route.NavHold &&
       AssistantSession.get(ctx).hasMenuForHold(args?.getString(SystemAssistantEntry.GESTURE_ID))
-    // The hold already owns the original photo; waiting for a second capture can outlast it.
-    if (menuVoiceHold) return
     if (request?.containsKey("jevTestToken") != true) {
       val capturedAt = SystemClock.elapsedRealtime()
       IO.execute {
         if (version != generation) return@execute
         try {
-          val result = gateway("assistInvocation", JSONObject().put("operation", "begin").put("capturedAt", capturedAt))
+          val begin = JSONObject().put("operation", "begin").put("capturedAt", capturedAt)
+          if (route.autoScreenshot) begin.put("autoScreenshot", true)
+          val result = gateway("assistInvocation", begin)
           if (version == generation) invocationToken = result.getString("token")
         } catch (failure: Exception) { Log.w("TakuSystemAssistant", "Invocation capture authorization unavailable", failure) }
       }
@@ -70,7 +70,17 @@ class SystemAssistantSession(private val ctx: Context) : VoiceInteractionSession
     val version = generation
     if (menuVoiceHold) {
       val target = SystemAssistantEntry.launch(ctx, request)
-      main.post { if (version == generation) openAssistant(target) }
+      // Retire any previous capture grant before submitting the original menu photo.
+      IO.execute {
+        main.post {
+          if (version != generation) return@post
+          if (invocationToken != null) openAssistant(target)
+          else {
+            android.widget.Toast.makeText(ctx, "Taku is unavailable. Please try again.", android.widget.Toast.LENGTH_SHORT).show()
+            hide()
+          }
+        }
+      }
       return
     }
     if (captureReady()) deliverCapture()

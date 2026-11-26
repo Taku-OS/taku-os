@@ -15,7 +15,8 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /** Runs off-main. Invalid Taku data never cancels or removes an Android notification. */
-class IslandExtractor @Inject constructor(private val context: Context, private val systemNotifications: IslandSystemNotifications) {
+class IslandExtractor @Inject constructor(private val context: Context, private val systemNotifications: IslandSystemNotifications,
+    private val policy: IslandPolicy) {
     data class Extraction(val activity: IslandActivity?, val error: String?)
 
     fun extract(sbn: StatusBarNotification, customAllowed: Boolean): Extraction {
@@ -24,12 +25,18 @@ class IslandExtractor @Inject constructor(private val context: Context, private 
             val notification = sbn.notification
             val systemCategory = systemNotifications.category(sbn)
             if (systemCategory != null) return Extraction(baseline(sbn, systemCategory, null), null)
-            if (notification.extras.containsKey("taku.island.v1")) {
+            val raw = notification.extras.getString(EXTRA_V2)
+            if (raw != null) {
                 if (!customAllowed) error = "publisher_not_allowed"
                 else {
-                    val raw = notification.extras.get("taku.island.v1")
-                    val result = IslandPayload.parse(raw as? String, sbn.packageName, false)
-                    if (result.isValid) {
+                    val publisher = publisher(sbn)
+                    val result = IslandPayload.parse(raw, publisher)
+                    // The island is for ongoing activities: a one-off or dismissible notification
+                    // (a static error, a finished event) stays in the shade. Taku Agent's own
+                    // reply cards are exempt; they are the assistant's conversation surface.
+                    if (result.isValid && !publisher.taku && notification.flags and Notification.FLAG_ONGOING_EVENT == 0) {
+                        error = "not_ongoing"
+                    } else if (result.isValid) {
                         try {
                             return Extraction(custom(sbn, result.payload), null)
                         } catch (invalid: Exception) {
@@ -38,14 +45,17 @@ class IslandExtractor @Inject constructor(private val context: Context, private 
                     } else error = result.error
                 }
             }
-            if (notification.isPromotedOngoing || systemCategory != null) {
-                return Extraction(baseline(sbn, systemCategory, error), error)
+            if (notification.isPromotedOngoing) {
+                return Extraction(baseline(sbn, null, error), error)
             }
         } catch (invalid: Exception) {
             error = "unreadable_notification"
         }
         return Extraction(null, error)
     }
+
+    /** Identity comes from the package manager ([IslandPolicy.platformSigned]), never from the payload. */
+    fun publisher(sbn: StatusBarNotification): IslandPayload.Publisher = policy.publisher(sbn.packageName, sbn.userId)
 
     private fun custom(sbn: StatusBarNotification, payload: JSONObject): IslandActivity {
         val extras = sbn.notification.extras
@@ -69,10 +79,13 @@ class IslandExtractor @Inject constructor(private val context: Context, private 
             }
         }
         collectPictures(payload)
+        // The capsule falls back to the notification's own icon when group A is absent.
+        sbn.notification.smallIcon?.takeIf { validIcon(it, sbn.packageName) }?.let { pics.putIfAbsent(APP_PIC, it) }
         val expanded = payload.getJSONObject("expanded")
-        val actionKeys = expanded.optJSONArray("actions") ?: JSONArray()
-        for (index in 0 until actionKeys.length()) {
-            val key = actionKeys.getString(index)
+        val actionKeys = (expanded.optJSONArray("actions") ?: JSONArray()).let { list ->
+            (0 until list.length()).map { list.getString(it) } }.toMutableList()
+        expanded.optString("tapAction").takeIf { it.isNotEmpty() && it !in actionKeys }?.let(actionKeys::add)
+        for (key in actionKeys) {
             val action = actionBundle.getParcelable(key, Notification.Action::class.java)
                 ?: throw IllegalArgumentException("missing_action")
             require(action.actionIntent != null && action.actionIntent.creatorUid == sbn.uid)
@@ -91,27 +104,38 @@ class IslandExtractor @Inject constructor(private val context: Context, private 
             require(permission.protectionLevel and PermissionInfo.PROTECTION_MASK_BASE == PermissionInfo.PROTECTION_SIGNATURE)
         }
         return IslandActivity(sbn.key, sbn.packageName, sbn.uid, sbn.userId, payload, pics.toMap(),
-            actions.toMap(), sbn.notification.contentIntent?.takeIf { it.creatorUid == sbn.uid }, service, null)
+            actions.toMap(), sbn.notification.contentIntent?.takeIf { it.creatorUid == sbn.uid }, service, null,
+            source = IslandActivity.SOURCE_CUSTOM)
     }
 
+    /**
+     * Android Live Update (or call/alarm/stopwatch adapter) mapped onto the canonical payload:
+     * A = large icon, else the small icon; B = short critical text, else chronometer, else `when`.
+     */
     private fun baseline(sbn: StatusBarNotification, category: String?, fallback: String?): IslandActivity {
         val n = sbn.notification
         val extras = n.extras
         val pics = mutableMapOf<String, Icon>()
-        n.smallIcon?.let { if (validIcon(it, sbn.packageName)) pics["app"] = it }
+        n.smallIcon?.let { if (validIcon(it, sbn.packageName)) pics[APP_PIC] = it }
+        n.getLargeIcon()?.let { if (validIcon(it, sbn.packageName)) pics[LARGE_PIC] = it }
         val critical = extras.getCharSequence(Notification.EXTRA_SHORT_CRITICAL_TEXT)?.toString()?.take(16)
-        val slot = when {
+        val b = when {
             !critical.isNullOrBlank() -> JSONObject().put("type", "text").put("text", critical)
             n.`when` > 0 && extras.getBoolean(Notification.EXTRA_SHOW_CHRONOMETER) -> JSONObject()
                 .put("type", if (extras.getBoolean(Notification.EXTRA_CHRONOMETER_COUNT_DOWN)) "countdown" else "timer")
                 .put(if (extras.getBoolean(Notification.EXTRA_CHRONOMETER_COUNT_DOWN)) "endEpochMs" else "startEpochMs", n.`when`)
             n.`when` > 0 -> JSONObject().put("type", "text").put("text",
                 android.text.format.DateFormat.getTimeFormat(context).format(java.util.Date(n.`when`)).take(16))
-            pics.isNotEmpty() -> JSONObject().put("type", "pic").put("pic", "app")
-            else -> JSONObject().put("type", "text").put("text", "●")
+            else -> null
         }
+        val compact = JSONObject()
+        when {
+            LARGE_PIC in pics -> compact.put("a", JSONObject().put("type", "icon").put("pic", LARGE_PIC))
+            APP_PIC in pics -> compact.put("a", JSONObject().put("type", "icon").put("pic", APP_PIC).put("tint", true))
+        }
+        if (b != null) compact.put("b", b)
         val actions = linkedMapOf<String, Notification.Action>()
-        n.actions?.take(4)?.forEachIndexed { index, action ->
+        n.actions?.take(IslandPayload.MAX_ACTIONS)?.forEachIndexed { index, action ->
             if (action.actionIntent != null && action.actionIntent.creatorUid == sbn.uid) actions["action_$index"] = action
         }
         if (category == "call") {
@@ -127,26 +151,50 @@ class IslandExtractor @Inject constructor(private val context: Context, private 
         }
         val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.take(80)
             ?.takeIf { it.isNotBlank() } ?: sbn.packageName.take(80)
-        val expanded = JSONObject().put("template", "text").put("title", title)
+        val expanded = JSONObject().put("template", "basic").put("title", title)
             .put("body", extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.take(2000).orEmpty())
             .put("actions", JSONArray(actions.keys.toList()))
-        if (extras.getBoolean(Notification.EXTRA_PROGRESS_INDETERMINATE) || extras.getInt(Notification.EXTRA_PROGRESS_MAX) > 0) {
-            val progress = JSONObject().put("type", "progress")
-            val maximum = extras.getInt(Notification.EXTRA_PROGRESS_MAX)
-            if (!extras.getBoolean(Notification.EXTRA_PROGRESS_INDETERMINATE) && maximum > 0) {
-                progress.put("value", (extras.getInt(Notification.EXTRA_PROGRESS).toDouble() / maximum).coerceIn(0.0, 1.0))
-            }
-            expanded.put("template", "progress").put("progress", progress)
-        }
-        val payload = JSONObject().put("version", 1).put("category", category ?: when (n.category) {
-            Notification.CATEGORY_NAVIGATION -> "navigation"
-            Notification.CATEGORY_TRANSPORT -> "media"
-            Notification.CATEGORY_PROGRESS -> "progress"
-            else -> "other"
-        }).put("bigIsland", JSONObject().put("leading", slot)).put("expanded", expanded)
+        progress(n)?.let { expanded.put("template", "progress").put("progress", it) }
+        val payload = JSONObject().put("version", 2).put("expanded", expanded)
             .put("alert", category == "alarm" || (category == "call" && extras.getInt(Notification.EXTRA_CALL_TYPE) == Notification.CallStyle.CALL_TYPE_INCOMING))
+        if (compact.length() > 0) payload.put("compact", compact)
+        // setTimeoutAfter is the Live Update's declared end; otherwise the island default applies.
+        // Calls, alarms and stopwatches recognised by SystemUI end with their source (12 h cap).
+        val declared = n.timeoutAfter.takeIf { it > 0 }?.let { ((it + 999) / 1000).coerceIn(1, IslandStore.MAX_LIFETIME_S.toLong()) }
+        when {
+            declared != null -> payload.put("timeoutS", declared)
+            category != null -> payload.put("timeoutS", IslandStore.MAX_LIFETIME_S)
+        }
+        val tier = when (category) {
+            "call" -> IslandStore.TIER_CALL
+            "alarm" -> IslandStore.TIER_ALARM
+            else -> IslandStore.TIER_ACTIVITY
+        }
         return IslandActivity(sbn.key, sbn.packageName, sbn.uid, sbn.userId, payload, pics,
-            actions, n.contentIntent?.takeIf { it.creatorUid == sbn.uid } ?: n.fullScreenIntent?.takeIf { it.creatorUid == sbn.uid }, null, fallback)
+            actions, n.contentIntent?.takeIf { it.creatorUid == sbn.uid } ?: n.fullScreenIntent?.takeIf { it.creatorUid == sbn.uid },
+            null, fallback, source = if (category != null) IslandActivity.SOURCE_SYSTEM else IslandActivity.SOURCE_LIVE_UPDATE, tier = tier)
+    }
+
+    /** Progress from Android 16 ProgressStyle (rebuilt from extras) or the legacy progress extras. */
+    private fun progress(n: Notification): JSONObject? {
+        val extras = n.extras
+        if (extras.getString(Notification.EXTRA_TEMPLATE) == Notification.ProgressStyle::class.java.name) {
+            val style = runCatching { Notification.Builder.recoverBuilder(context, n).style as? Notification.ProgressStyle }.getOrNull()
+            if (style != null) {
+                val result = JSONObject()
+                if (!style.isProgressIndeterminate && style.progressMax > 0) {
+                    result.put("value", (style.progress.toDouble() / style.progressMax).coerceIn(0.0, 1.0))
+                }
+                return result
+            }
+        }
+        if (!extras.getBoolean(Notification.EXTRA_PROGRESS_INDETERMINATE) && extras.getInt(Notification.EXTRA_PROGRESS_MAX) <= 0) return null
+        val result = JSONObject()
+        val maximum = extras.getInt(Notification.EXTRA_PROGRESS_MAX)
+        if (!extras.getBoolean(Notification.EXTRA_PROGRESS_INDETERMINATE) && maximum > 0) {
+            result.put("value", (extras.getInt(Notification.EXTRA_PROGRESS).toDouble() / maximum).coerceIn(0.0, 1.0))
+        }
+        return result
     }
 
     private fun validIcon(icon: Icon, postingPackage: String): Boolean = when (icon.type) {
@@ -155,5 +203,11 @@ class IslandExtractor @Inject constructor(private val context: Context, private 
             it.width <= 512 && it.height <= 512 && it.allocationByteCount <= 1024 * 1024
         } == true
         else -> false // URI/data loading is not part of the island transport.
+    }
+
+    companion object {
+        const val EXTRA_V2 = "taku.island.v2"
+        const val APP_PIC = IslandActivity.APP_PIC
+        const val LARGE_PIC = IslandActivity.LARGE_PIC
     }
 }

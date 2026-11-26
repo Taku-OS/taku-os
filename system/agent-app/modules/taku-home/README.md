@@ -456,7 +456,12 @@ Figma 1-1 … 1-6. Native Kotlin/Compose (`assistant/`, `ui/assistant/`); state 
 
 * **Full chat (2-1)**: the island's expand button opens the RN chat on the same thread; the
   chat's collapse button calls `assistant/resume` (`AssistantSession.resume`), which expands
-  the island with that thread's latest turn and brings Home forward.
+  the island with that thread's latest turn and brings Home forward. Leaving the chat any other
+  way (Home, Back, Recents) while a turn runs calls `assistant/handoff`
+  (`AssistantSession.handoff`, rules in `IslandHandoff`): the session follows the thread with
+  nothing drawn and expands the card once when that turn completes, needs the user or fails.
+  `assistant/reclaim` cancels it when the chat shows the thread again. See
+  `docs/dynamic-island-chat-handoff-spec.md`.
 
 * **Conversation**: the session calls the system Agent gateway from this package
   (`createThread`, `sendMessage`, or `steer` while a turn runs) and follows the thread over

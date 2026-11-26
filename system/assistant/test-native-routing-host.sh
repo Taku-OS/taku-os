@@ -14,6 +14,10 @@ compile_jvm "$task_out/classes" "$task_json:$ANDROID_JAR" \
  system/assistant/broker/org/agentos/lab/SessionRemovals.java \
  system/assistant/broker/org/agentos/lab/CleanupWork.java \
  system/assistant/broker/org/agentos/lab/NativeBridge.java \
+ system/assistant/broker/org/agentos/lab/AgyGemini.java \
+ system/assistant/broker/org/agentos/lab/AgyAcpPolicy.java \
+ system/assistant/broker/org/agentos/lab/SystemAiSettings.java \
+ system/assistant/broker/org/agentos/lab/AiPolicy.java \
  system/assistant/broker/org/agentos/lab/WorkspaceTextFiles.kt \
  system/assistant/broker/org/agentos/lab/SessionEvents.java \
  system/assistant/broker/org/agentos/lab/WorkspaceAdmissions.java \
@@ -23,9 +27,11 @@ compile_jvm "$task_out/classes" "$task_json:$ANDROID_JAR" \
  system/assistant/tests/native-routing/org/agentos/lab/NativeBridgeHostServer.java \
  system/assistant/tests/native-routing/org/agentos/lab/AgentViewsTestDouble.java \
  system/assistant/tests/native-routing/org/agentos/lab/NativeBridgeRoutingTest.java \
+ system/assistant/tests/native-routing/org/agentos/lab/NativeBridgeSocketTest.java \
  system/assistant/tests/native-routing/org/agentos/lab/NativeBridgeFamilyRoutingTest.java
 "$JDK/bin/java" -cp "$task_out/classes:$task_json:$ANDROID_JAR:$KOTLIN_LIB/kotlin-stdlib.jar" org.agentos.lab.NativeBridgeRoutingTest | tee "$task_out/result.txt"
 "$JDK/bin/java" -cp "$task_out/classes:$task_json:$ANDROID_JAR:$KOTLIN_LIB/kotlin-stdlib.jar" org.agentos.lab.NativeBridgeFamilyRoutingTest | tee -a "$task_out/result.txt"
+"$JDK/bin/java" -cp "$task_out/classes:$task_json:$ANDROID_JAR:$KOTLIN_LIB/kotlin-stdlib.jar" org.agentos.lab.NativeBridgeSocketTest | tee -a "$task_out/result.txt"
 mkdir -p "$task_out/task-ownership"
 compile_jvm "$task_out/task-ownership" "$task_json:$ANDROID_JAR" \
  system/assistant/broker/org/agentos/lab/CodexAppServer.java \
@@ -35,6 +41,10 @@ compile_jvm "$task_out/task-ownership" "$task_json:$ANDROID_JAR" \
  system/assistant/broker/org/agentos/lab/SessionRemovals.java \
  system/assistant/broker/org/agentos/lab/CleanupWork.java \
  system/assistant/broker/org/agentos/lab/NativeBridge.java \
+ system/assistant/broker/org/agentos/lab/AgyGemini.java \
+ system/assistant/broker/org/agentos/lab/AgyAcpPolicy.java \
+ system/assistant/broker/org/agentos/lab/SystemAiSettings.java \
+ system/assistant/broker/org/agentos/lab/AiPolicy.java \
  system/assistant/broker/org/agentos/lab/WorkspaceTextFiles.kt \
  system/assistant/broker/org/agentos/lab/SessionEvents.java \
  system/assistant/broker/org/agentos/lab/WorkspaceAdmissions.java \

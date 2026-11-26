@@ -99,11 +99,15 @@ public final class VirtualDisplayHost {
         input.submit(()->{Process process=new ProcessBuilder(command).redirectErrorStream(true).start();try(InputStream in=process.getInputStream()){byte[] buffer=new byte[512];while(in.read(buffer)!=-1){}}if(process.waitFor()!=0)throw new IOException("display input failed");return null;}).get();
         return new JSONObject().put("ok",true).put("displayId",displayId).toString().getBytes(StandardCharsets.UTF_8);
     }
+    static boolean isCallerAuthorized(int uid) {
+        return uid == 0 || uid == 1000 || uid == 2000;
+    }
+
     static void startServer()throws Exception {
         server=new LocalServerSocket(SOCKET);
         Thread accept=new Thread(()->{
             while(running){try{LocalSocket client=server.accept();int uid=client.getPeerCredentials().getUid();
-                if(uid!=0 && uid!=1000 && uid!=2000){client.close();continue;}
+                if(!isCallerAuthorized(uid)){client.close();continue;}
                 Thread worker=new Thread(()->{try(LocalSocket socket=client){socket.setSoTimeout(10000);BufferedReader reader=new BufferedReader(new InputStreamReader(socket.getInputStream(),StandardCharsets.UTF_8));DataOutputStream out=new DataOutputStream(socket.getOutputStream());String request;while(running&&(request=reader.readLine())!=null){if(request.length()>256)throw new IOException("oversized command");byte[] result;try{result=handle(request);}catch(Exception e){result=("error: "+e.getMessage()).getBytes(StandardCharsets.UTF_8);}out.writeInt(result.length);out.write(result);out.flush();}}catch(Exception ignored){}},"mirror-client");worker.setDaemon(true);worker.start();
             }catch(Exception e){if(running)System.err.println("mirror socket: "+e);}}
         },"mirror-server");accept.setDaemon(true);accept.start();
