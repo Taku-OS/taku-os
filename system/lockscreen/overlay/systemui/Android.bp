@@ -1,0 +1,6 @@
+// Taku lock screen resources for SystemUI (docs/lock-screen.md): default shortcuts and their geometry.
+runtime_resource_overlay {
+    name: "TakuLockscreenSystemUIOverlay",
+    system_ext_specific: true,
+    certificate: "platform",
+}

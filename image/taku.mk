@@ -84,5 +84,20 @@ PRODUCT_PRODUCT_PROPERTIES += ro.boot.vendor.overlay.theme=com.android.internal.
 # overlay turns off. Settings.Secure.assist_touch_gesture_enabled=1 still restores it.
 PRODUCT_PACKAGES += TakuGestureOverlay
 
+# Taku lock screen (docs/lock-screen.md). The SystemUI code is applied by
+# apply-lockscreen-patches.py; these overlays set the default shortcuts (Flashlight,
+# Camera), their geometry, and keep face unlock on the lock screen. The design's fonts
+# and default lock wallpaper are product files; WallpaperManager reads the default
+# lock wallpaper from ro.config.lock_wallpaper until the user picks another.
+PRODUCT_PACKAGES += TakuLockscreenSystemUIOverlay TakuLockscreenFrameworkOverlay
+PRODUCT_COPY_FILES += \
+    vendor/taku/system/assistant/res/font/space_grotesk_regular.ttf:$(TARGET_COPY_OUT_PRODUCT)/fonts/taku/SpaceGrotesk-Regular.ttf \
+    vendor/taku/system/assistant/res/font/hanken_grotesk_regular.ttf:$(TARGET_COPY_OUT_PRODUCT)/fonts/taku/HankenGrotesk-Regular.ttf \
+    vendor/taku/system/assistant/res/font/hanken_grotesk_medium.ttf:$(TARGET_COPY_OUT_PRODUCT)/fonts/taku/HankenGrotesk-Medium.ttf \
+    vendor/taku/system/assistant/design-system/licenses/SpaceGrotesk-OFL.txt:$(TARGET_COPY_OUT_PRODUCT)/fonts/taku/SpaceGrotesk-OFL.txt \
+    vendor/taku/system/assistant/design-system/licenses/HankenGrotesk-OFL.txt:$(TARGET_COPY_OUT_PRODUCT)/fonts/taku/HankenGrotesk-OFL.txt \
+    vendor/taku/system/lockscreen/media/default_lock_wallpaper.jpg:$(TARGET_COPY_OUT_PRODUCT)/media/taku/lockscreen/default_lock_wallpaper.jpg
+PRODUCT_PRODUCT_PROPERTIES += ro.config.lock_wallpaper=/product/media/taku/lockscreen/default_lock_wallpaper.jpg
+
 # Locked, read-only ASR/TTS resources; no first-boot download or data seeding.
 include vendor/taku/system/audio-engine/models/rom-files.mk

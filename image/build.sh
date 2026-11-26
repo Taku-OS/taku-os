@@ -80,6 +80,11 @@ PY
     if [ -f /taku/image/island/manifest.json ]; then
         python3 /taku/image/apply-island-patches.py --source-root /src --results-dir /results
     fi
+    # The Taku lock screen (docs/lock-screen.md), after the island: its SystemUI manifest edit is
+    # layered on the island's (image/lockscreen/manifest.json `layeredOn`).
+    if [ -f /taku/image/lockscreen/manifest.json ]; then
+        python3 /taku/image/apply-lockscreen-patches.py --source-root /src --results-dir /results
+    fi
 }
 
 if [[ "${1:-}" = "--incremental" || "${1:-}" = "--updater-only" || "${1:-}" = "--google-apps-only" || "${1:-}" = "--telephony-only" ]]; then
@@ -98,6 +103,9 @@ elif [[ "${1:-}" = "--resume" || "${1:-}" = "--verify-only" ]]; then
     python3 /taku/image/apply-launcher-patches.py --source-root /src --results-dir /results --verify-only
     if [ -f /taku/image/island/manifest.json ]; then
         python3 /taku/image/apply-island-patches.py --source-root /src --results-dir /results --verify-only
+    fi
+    if [ -f /taku/image/lockscreen/manifest.json ]; then
+        python3 /taku/image/apply-lockscreen-patches.py --source-root /src --results-dir /results --verify-only
     fi
 else
 manifest_commit=$(python3 - <<'PY'
