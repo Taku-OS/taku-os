@@ -53,6 +53,7 @@ final class PhoneNativeTools {
       + " request takes such a screen when none is idle and the limit is reached.",
     new JSONObject()));
   tools.put(tool("observe_background","Observe this thread's assigned Android execution screen. Returns its real screenshot and screen/frame identity.",new JSONObject()));
+  tools.put(DesktopDesignBridge.definition());
   JSONObject openApp = tool("open_app", "Open an App you hold from request_apps. For an HTTPS Figma link, reserve Chrome and pass the exact url with packageName com.android.chrome. Verify the opened editor with observe_background. Leave the official Figma App available to the user for Mirror.",
     new JSONObject().put("packageName", new JSONObject().put("type", "string")));
   openApp.getJSONObject("inputSchema").getJSONObject("properties").put("url", string(MAX_FIGMA_URL_LENGTH));
@@ -80,6 +81,7 @@ final class PhoneNativeTools {
   String name=p.getString("tool");name=name.substring(Math.max(name.lastIndexOf('.'),name.lastIndexOf('/'))+1);if(name.startsWith("taku_phone__"))name=name.substring(12);
   JSONObject args=p.optJSONObject("arguments");if(args==null)args=new JSONObject();
   if(name.equals("apps"))return text(PhoneAppCatalog.query(args).toString());
+  if(name.equals("desktop_design"))return text(DesktopDesignBridge.control(args).toString());
   if(name.equals("memory_search"))return text(MemoryBridge.provider("search",new JSONObject().put("query",args.getString("query")).put("limit",10)).toString());
   if(name.equals("memory_get"))return text(MemoryBridge.provider("get",new JSONObject().put("id",args.getString("id"))).toString());
   if(name.equals("matter"))return text(MatterBridge.control(new JSONObject(args.toString()).put("threadId",p.getString("threadId"))).toString());

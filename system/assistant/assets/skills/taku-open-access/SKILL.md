@@ -63,6 +63,30 @@ On supported ROMs the read-only product property and both role holders are `org.
 
 Open Home with `am start --user 0 -a android.intent.action.MAIN -c android.intent.category.HOME`. Use `taku_call "$A" system/open` for system AI input and `assistant/get` to confirm. `UNAVAILABLE` or `TIMEOUT` can indicate a failed handoff. `am start -a android.intent.action.VOICE_ASSIST -n org.agentos.agent/.home.HomeActivity` can activate the microphone. Cancel with `assistant/voice-cancel`.
 
+### Optional Figma desktop bridge
+
+The model-side `taku_phone.desktop_design` tool connects only to an operator-provisioned
+loopback desktop relay. First use `{"action":"state"}`. `configured:false` means the
+session file `/data/local/agentos/figma-desktop/session.json` is absent; do not claim
+that Figma is connected. This private file is provisioned through authorized local
+system setup, not through a new account, public share, permission grant or arbitrary
+model-generated credential. Never print its token. The setup contract is documented
+in `adapters/figma/README.md` in the source repository.
+
+Submit `{"action":"submit","payload":"<request JSON>"}` with exactly `requestId`,
+`job` and `body` inside the payload. Supported body actions are `begin`, `apply`,
+`clone`, `link`, `select` and `inspect`. Wait for the matching request ID, job and
+file key in a completed `desktop-plugin` receipt and `error:null`. Acceptance alone
+is not execution. `inspect` selects Start and can change the current Mirror frame.
+The desktop plugin supports native click/timed prototype transitions, not arbitrary
+drag physics. An execution receipt does not validate reference-video fidelity.
+
+The desktop, plugin and bounded relay must remain running; this is not a cloud-only
+or reboot-persistent configuration. Use the official Figma mobile Mirror with the
+same existing account and observe actual updates. Existing `workspaces/preview`
+opens only an already admitted exact execution-screen lease; it does not establish
+Figma login or synchronization. Run updated workflow guidance in a new conversation.
+
 ### Taku recent tasks (Quickstep presentation)
 
 ```sh
