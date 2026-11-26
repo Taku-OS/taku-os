@@ -28,7 +28,10 @@ accessed by importing or testing this code.
    (plugin receipts). An occupied port fails setup; it does not kill or replace
    the existing service. The directory must not already exist. `phone.json` and
    `plugin.json` contain different generated credentials, with mode `0600`.
-   TTL is 60–7200 seconds. Ctrl-C or expiry stops both listeners. Startup prints
+   TTL is 60–7200 seconds. Ctrl-C or expiry stops both listeners.
+   Request reads have a three-second inactivity timeout, clipped to remaining TTL;
+   incomplete bodies fail closed and expiry is rechecked before a write. Closing
+   the listeners does not wait for stalled request workers. Startup prints
    no credential. Keep the directory and receipt log out of Git and screenshots.
 3. Import `plugin/manifest.json` through Figma's normal development-plugin UI.
    Run **Taku Figma Desktop Bridge**, load that new `plugin.json`, then Connect.
@@ -121,6 +124,7 @@ that the official Figma app accepted the interaction.
 | Accepted request, no exact acknowledgment | Keep the same request pending; inspect the plugin and its connection before retrying |
 | Lost plugin-to-UI response | UI retries the **same** request ID; the plugin replays its cached receipt without repeating writes |
 | Lost HTTP acknowledgment | UI retains and resends the receipt until accepted; Stop/Connect preserves pending recovery |
+| Stop while an HTTP request is in flight | Reconnection discards the old connection's delayed reply; session replacement waits until polling and pending recovery finish |
 | Wrong file or missing `figma.fileKey` | No edits; open the configured file or use a plugin host that exposes authoritative identity |
 | Figma cloud offline | Native plugin operations may still run locally; reconnect Figma and verify actual mobile updates |
 

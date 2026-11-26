@@ -1,7 +1,10 @@
 """Synthetic protocol tests. No sockets, devices, or real session files."""
 import importlib.util
+import io
 from pathlib import Path
 import tempfile
+import threading
+from types import SimpleNamespace
 import unittest
 
 spec = importlib.util.spec_from_file_location("relay", Path(__file__).resolve().parents[1] / "relay.py")
@@ -95,6 +98,80 @@ class RelayTest(unittest.TestCase):
             self.assertEqual(path.stat().st_mode & 0o777, 0o600)
             with self.assertRaises(FileExistsError):
                 relay.write_private(path, {"example": False})
+
+    def handler(self, body, declared=None):
+        handler = object.__new__(relay.Handler)
+        handler.server = SimpleNamespace(state=self.state, role="phone")
+        handler.path, handler.command = "/request", "POST"
+        handler.headers = {"Authorization": "Bearer " + "p" * 40,
+                           "Content-Length": str(len(body) if declared is None else declared)}
+        handler.rfile = io.BytesIO(body)
+        handler.timeouts, handler.responses = [], []
+        handler.connection = SimpleNamespace(settimeout=handler.timeouts.append)
+        handler.send = lambda status, value: handler.responses.append((status, value))
+        return handler
+
+    def test_partial_body_and_timeout_fail_closed(self):
+        for timed_out in (False, True):
+            handler = self.handler(b"{}", declared=10)
+            if timed_out:
+                class SlowBody:
+                    def read(self, _):
+                        raise TimeoutError("synthetic stalled body")
+                handler.rfile = SlowBody()
+            handler.do_POST()
+            self.assertEqual(handler.responses[-1][0], 408 if timed_out else 400)
+            self.assertTrue(handler.close_connection)
+            self.assertEqual(handler.timeouts, [relay.READ_TIMEOUT_SECONDS])
+            self.assertIsNone(self.state.read()["request"])
+
+    def test_post_expiry_after_body_never_mutates_state(self):
+        body = relay.json.dumps(self.request).encode()
+        self.now = 60.5
+        handler = self.handler(body)
+        outer = self
+        class DelayedBody:
+            def read(self, length):
+                outer.now = 61.0
+                return body[:length]
+        handler.rfile = DelayedBody()
+        handler.do_POST()
+        self.assertEqual(handler.responses[-1][0], 401)
+        self.assertEqual(handler.timeouts, [0.5], "read timeout is clipped to remaining TTL")
+        self.assertTrue(handler.close_connection)
+        self.assertIsNone(self.state.read()["request"])
+        with self.assertRaises(relay.SessionExpired):
+            self.state.submit(self.request)
+
+    def test_expiry_at_commit_guard_rejects_receipts(self):
+        self.state.submit(self.request)
+        self.now = 61.0
+        with self.assertRaises(relay.SessionExpired):
+            self.state.finish(self.ack)
+        self.assertIsNone(self.state.read()["ack"])
+
+    def test_server_close_does_not_wait_for_a_stalled_worker(self):
+        # Exercise ThreadingMixIn without constructing or binding a socket.
+        server = object.__new__(relay.RelayServer)
+        entered, release = threading.Event(), threading.Event()
+        daemons = []
+        def stalled(*_):
+            daemons.append(threading.current_thread().daemon)
+            entered.set()
+            release.wait(2)
+        server.finish_request = stalled
+        server.shutdown_request = lambda *_: None
+        closed = []
+        server.socket = SimpleNamespace(close=lambda: closed.append(True))
+        try:
+            server.process_request(None, None)
+            self.assertTrue(entered.wait(1))
+            server.server_close()
+            self.assertEqual(closed, [True])
+            self.assertEqual(daemons, [True])
+            self.assertFalse(release.is_set(), "close returned while the worker was still waiting")
+        finally:
+            release.set()
 
 
 if __name__ == "__main__":

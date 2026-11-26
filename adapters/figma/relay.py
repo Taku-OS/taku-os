@@ -20,6 +20,7 @@ PLUGIN_PORT = 8792
 MAX_COMMAND_BYTES = 65_536
 MAX_RECEIPT_BYTES = 262_144
 MAX_REQUESTS = 500
+READ_TIMEOUT_SECONDS = 3
 FILE_KEY = re.compile(r"[-A-Za-z0-9]{1,100}\Z")
 SCHEMA = json.loads((Path(__file__).resolve().parents[2]
                      / "spec/figma-desktop-bridge.schema.json").read_text())
@@ -71,6 +72,10 @@ def validate_schema(value, schema):
             raise ValueError("Command number out of bounds")
 
 
+class SessionExpired(ValueError):
+    pass
+
+
 class State:
     def __init__(self, file_key, phone_token, plugin_token, ttl, log=None, clock=time.monotonic):
         if not isinstance(file_key, str) or not FILE_KEY.fullmatch(file_key):
@@ -107,6 +112,7 @@ class State:
     def submit(self, value):
         self.validate(value)
         with self.lock:
+            self.require_live()
             old = self.history.get(value["requestId"])
             if old is not None:
                 if old["input"] != value:
@@ -126,6 +132,7 @@ class State:
 
     def finish(self, value, error=False):
         with self.lock:
+            self.require_live()
             if not self.request or value.get("requestId") != self.request["requestId"]:
                 raise ValueError("Stale receipt")
             if error:
@@ -156,6 +163,10 @@ class State:
             with self.log.open("a", encoding="utf-8") as output:
                 output.write(json.dumps(value, ensure_ascii=False) + "\n")
 
+    def require_live(self):
+        if self.clock() >= self.until:
+            raise SessionExpired("Session expired")
+
 
 def permitted(role, method, path, origin):
     if method == "GET":
@@ -167,7 +178,17 @@ def permitted(role, method, path, origin):
     return role == "plugin" and path in ("/ack", "/error")
 
 
+class RelayServer(ThreadingHTTPServer):
+    # A stalled client must not extend TTL while server_close waits on request workers.
+    daemon_threads = True
+    block_on_close = False
+
+
 class Handler(BaseHTTPRequestHandler):
+    def setup(self):
+        self.request.settimeout(READ_TIMEOUT_SECONDS)
+        super().setup()
+
     def log_message(self, *_):
         pass
 
@@ -214,7 +235,18 @@ class Handler(BaseHTTPRequestHandler):
             maximum = MAX_COMMAND_BYTES if self.path == "/request" else MAX_RECEIPT_BYTES
             if not 0 < length <= maximum:
                 raise ValueError("Body size limit")
-            value = json.loads(self.rfile.read(length))
+            remaining = self.server.state.until - self.server.state.clock()
+            if remaining <= 0:
+                raise SessionExpired("Session expired")
+            self.connection.settimeout(min(READ_TIMEOUT_SECONDS, remaining))
+            raw = self.rfile.read(length)
+            if len(raw) != length:
+                raise ValueError("Incomplete body")
+            # Header authentication happened before a potentially delayed read.
+            if not self.authorized():
+                self.close_connection = True
+                return
+            value = json.loads(raw)
             if not isinstance(value, dict):
                 raise ValueError("Expected object")
             if self.path == "/request":
@@ -222,7 +254,14 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 result = self.server.state.finish(value, self.path == "/error")
             self.send(200, result)
+        except SessionExpired:
+            self.close_connection = True
+            self.send(401, {"error": "Session expired or credential rejected"})
+        except (TimeoutError, OSError):
+            self.close_connection = True
+            self.send(408, {"error": "Incomplete or timed out request body"})
         except (ValueError, TypeError, KeyError):
+            self.close_connection = True
             # Do not echo untrusted input, tokens, or design text in errors.
             self.send(400, {"error": "Invalid, conflicting, or pending desktop operation"})
 
@@ -247,7 +286,7 @@ def main():
     servers = []
     try:
         for port, role in ((PHONE_PORT, "phone"), (PLUGIN_PORT, "plugin")):
-            server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+            server = RelayServer(("127.0.0.1", port), Handler)
             server.state, server.role = state, role
             servers.append(server)
         for role, port in (("phone", PHONE_PORT), ("plugin", PLUGIN_PORT)):
