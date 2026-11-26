@@ -22,6 +22,8 @@ public final class AppPermissionPolicyTest {
                 "bindSystemAiModel", "reorderSystemAi", "restoreSystemAi", "deleteSystemAiGroup",
                 "jev/status", "jev/connect", "jev/enable", "jev/futureOperation",
                 "account/login/start", "account/login/cancel", "account/login/futureOperation",
+                "taku_account/login_password", "taku_account_login_password", "taku_account/login_oauth_start",
+                "taku_account/refresh", "taku_account/logout", "taku_account/futureMutation",
                 "capture/read", "capture/request", "capture/accept", "capture/dismiss",
                 "capture/openConversation", "capture/futureOperation", "interrupt", "cancelQueued", "readTaskDetail",
                 "requests/futureMutation", "accounts/futureMutation", "composer/futureMutation"}) {
@@ -33,7 +35,8 @@ public final class AppPermissionPolicyTest {
                     "explicit root/local-agent access remains available: " + method);
         }
         for (String method : new String[]{"readSystemAi", "requests/list", "requests/read", "accounts/read",
-                "accounts/keys", "accounts/agyRead", "composer/read", "composer/receipt", "composer/options/read",
+                "accounts/keys", "accounts/agyRead", "taku_account/status", "taku_account_status",
+                "composer/read", "composer/receipt", "composer/options/read",
                 "skills/read", "reactions/options", "reactions/list", "reactions/set"}) {
             check(AgentOpenAccessPolicy.denial(method, "taku.control"::equals) == null,
                     "ordinary control access must remain available: " + method);

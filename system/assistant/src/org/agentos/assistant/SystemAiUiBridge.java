@@ -58,6 +58,13 @@ final class SystemAiUiBridge {
         } catch (Exception ignored) {
         }
         if ("openai".equals(assistantMode)) refreshAssistantModel(c);
+        JSONObject takuAccount =
+            new JSONObject().put("authState", "locked_boot").put("providerRegistered", false);
+        try {
+          TakuAccountTokenServer.ensureStarted(c);
+          takuAccount = TakuAuthManager.get(c).status();
+        } catch (Exception ignored) {
+        }
         return new JSONObject()
             .put("assistantModel", "openai".equals(assistantMode) ? assistantModel : "")
             .put("enabled", state.optBoolean("enabled"))
@@ -72,7 +79,8 @@ final class SystemAiUiBridge {
             .put("models", state.optJSONArray("models"))
             .put("groups", new JSONArray(value(c, GROUPS, "[]")))
             .put("bindings", new JSONObject(value(c, SCENES, "{}")))
-            .put("providers", visible);
+            .put("providers", visible)
+            .put("takuAccount", takuAccount);
       }
       case "manageSystemAi":
         return manage(c, input);
@@ -243,6 +251,16 @@ final class SystemAiUiBridge {
         put(c, GROUPS, groups.toString());
         return new JSONObject();
       }
+      case "openTakuAccount":
+        c.startActivity(new Intent(c, TakuAccountSettingsActivity.class)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        return new JSONObject();
+      case "takuAccountRefresh":
+        TakuAccountTokenServer.ensureStarted(c);
+        return TakuAuthManager.get(c).refreshAccount();
+      case "takuAccountLogout":
+        TakuAccountTokenServer.ensureStarted(c);
+        return TakuAuthManager.get(c).logout();
       default:
         throw new IOException("UNSUPPORTED_ACTION");
     }

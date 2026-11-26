@@ -36,6 +36,15 @@
   <provider android:name=".AgentGatewayProvider" android:authorities="org.agentos.assistant.agent-gateway" android:permission="org.agentos.permission.AGENT_CLIENT" android:exported="true" android:grantUriPermissions="false"/>
   <provider android:name=".ImeReplyProvider" android:authorities="org.agentos.assistant.ime-replies" android:permission="org.agentos.assistant.permission.IME_REPLIES" android:exported="true"/>
   <provider android:name=".SystemAiProvider" android:authorities="org.agentos.ai" android:exported="true"/>
+  <activity android:name=".TakuAccountSettingsActivity" android:label="Taku Credits" android:exported="false"/>
+  <activity android:name=".TakuAccountCallbackActivity" android:exported="true" android:launchMode="singleTask" android:noHistory="true" android:excludeFromRecents="true" android:theme="@android:style/Theme.NoDisplay">
+   <intent-filter>
+    <action android:name="android.intent.action.VIEW"/>
+    <category android:name="android.intent.category.DEFAULT"/>
+    <category android:name="android.intent.category.BROWSABLE"/>
+    <data android:scheme="taku-account" android:host="auth" android:path="/callback"/>
+   </intent-filter>
+  </activity>
   <activity android:name=".SystemAiActivity" android:exported="true" android:theme="@android:style/Theme.NoDisplay">
    <intent-filter android:priority="-1">
     <action android:name="org.agentos.action.AI_SETTINGS"/>

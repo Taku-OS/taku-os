@@ -50,7 +50,7 @@ internal class AgentGatewayProtocol private constructor() {
             "accounts/agyRead", "accounts/agyRefresh", "accounts/agySignIn", "accounts/agyCancel", "accounts/agyCode", "accounts/agyUse",
             "requests/list", "requests/read", "requests/respond", "requests/submit", "requests/cancel",
             "decide", "generateUi", "mainReply", "panels", "cardView", "readMatter", "subscribeMatter", "unsubscribeMatter", "dispatchMatter", "analyzeCameraFrame", "audioCapabilities", "audioCommand",
-            "readSystemAi", "setSystemAi", "bindSystemAi", "bindSystemAiModel", "reorderSystemAi", "restoreSystemAi", "deleteSystemAiGroup", "openMagpieManagement", "pluginManager", "readAccount", "openAssistantConnection",
+            "readSystemAi", "setSystemAi", "bindSystemAi", "bindSystemAiModel", "reorderSystemAi", "restoreSystemAi", "deleteSystemAiGroup", "openMagpieManagement", "openTakuAccount", "takuAccountRefresh", "takuAccountLogout", "pluginManager", "readAccount", "openAssistantConnection",
             "readAppPermissions", "setAppPermissionMode", "setAppPermissionScope", "resetAppPermission",
             COMPOSER_READ, COMPOSER_WRITE, COMPOSER_IMPORT, COMPOSER_MOVE, COMPOSER_RECEIPT, COMPOSER_ATTACH,
             COMPOSER_REMOVE, COMPOSER_OPTIONS_READ, COMPOSER_OPTIONS_WRITE, COMPOSER_SUBMIT, COMPOSER_SETTLE, COMPOSER_RELEASE,

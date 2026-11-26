@@ -12,6 +12,11 @@ class MatterReceiver : BroadcastReceiver() {
         val pending = goAsync()
         Thread({
             try {
+                val unlockManager = context.getSystemService(android.os.UserManager::class.java)
+                if (unlockManager == null || unlockManager.isUserUnlocked) {
+                    TakuAccountTokenServer.ensureStarted(context)
+                    TakuAuthManager.get(context).onUserUnlocked()
+                }
                 val runtime = MatterRuntime.get(context)
                 runtime.migrateCards()
                 runtime.recoverPanelUpdates()

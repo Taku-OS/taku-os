@@ -25,6 +25,8 @@ if [ "${1-}" = serve ]; then
     /system/bin/iptables -w 2 -A taku_ai -p tcp -j REJECT --reject-with tcp-reset
     /system/bin/iptables -w 2 -C OUTPUT -o lo -p tcp --dport 3425 -j taku_ai 2>/dev/null || \
         /system/bin/iptables -w 2 -I OUTPUT -o lo -p tcp --dport 3425 -j taku_ai
+    /system/bin/iptables -w 2 -C OUTPUT -o lo -p tcp --dport 3426 -j taku_ai 2>/dev/null || \
+        /system/bin/iptables -w 2 -I OUTPUT -o lo -p tcp --dport 3426 -j taku_ai
 fi
 mkdir -p "$HOME" "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME" "$XDG_DATA_HOME" "$XDG_STATE_HOME" "$TMPDIR"
 mkdir -p "$XDG_CONFIG_HOME/magpie"

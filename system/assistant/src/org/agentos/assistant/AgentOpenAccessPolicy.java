@@ -13,6 +13,7 @@ public final class AgentOpenAccessPolicy {
             "interrupt", "cancelQueued", "readTaskDetail");
     private static final Set<String> CONTROL_READS = Set.of(
             "requests/list", "requests/read", "accounts/read", "accounts/keys", "accounts/agyRead",
+            "taku_account/status", "taku_account_status",
             "composer/read", "composer/receipt", "composer/options/read",
             "skills/read", "skills/community/catalog", "skills/community/detail",
             "skills/community/check-update", "skills/credentials/status");
@@ -24,7 +25,8 @@ public final class AgentOpenAccessPolicy {
         boolean sensitiveFamily = method.startsWith("requests/") || method.startsWith("accounts/")
                 || method.startsWith("composer/") || method.startsWith("skills/")
                 || method.startsWith("capture/") || method.startsWith("jev/")
-                || method.startsWith("account/login/");
+                || method.startsWith("account/login/")
+                || method.startsWith("taku_account/") || method.startsWith("taku_account_");
         return ROOT_METHODS.contains(method) || sensitiveFamily && !CONTROL_READS.contains(method)
                 ? "taku.root" : "taku.control";
     }
