@@ -43,11 +43,9 @@ def verify(product, aapt2):
         require(len(matches) == 1, 'Expected one built ' + name)
         return matches[0]
     system = verify_apk(one('SystemUI.apk'), aapt2, SYSTEM_COMPONENTS,
-                        ('com.android.systemui.island', 'org.agentos.permission.POST_ISLAND',
-                         'org.agentos.permission.BIND_ISLAND_CONTENT'))
+                        ('com.android.systemui.island', 'org.agentos.permission.BIND_ISLAND_CONTENT'))
     agent = verify_apk(one('TakuAgent.apk'), aapt2, AGENT_COMPONENTS,
-                       ('com.android.systemui.island', 'org.agentos.permission.BIND_ISLAND_CONTENT',
-                        'org.agentos.permission.POST_ISLAND'))
+                       ('com.android.systemui.island', 'org.agentos.permission.BIND_ISLAND_CONTENT'))
     with zipfile.ZipFile(one('TakuAssistant.apk')) as archive:
         require(DOC in archive.namelist(), 'Missing preinstalled island Agent documentation')
         source = Path(__file__).resolve().parents[1] / 'system/assistant/assets/skills/taku-island/SKILL.md'

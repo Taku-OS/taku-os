@@ -79,6 +79,8 @@ export interface AgentChatScreenProps {
   onPickAttachment: (kind: ComposerPickerKind) => void;
   onRemoveAttachment: (id: string) => void;
   conversationKey?: string;
+  /** Increments whenever a conversation is opened from outside the chat (e.g. the island card). */
+  externalOpens?: number;
   optimisticSubmissions?: readonly OptimisticSubmission[];
   pendingSubmission?: {threadId: string; text: string; requestId: string; action: 'sendMessage' | 'steer' | 'continue'} | null;
   onRetrySubmission: () => void;
@@ -369,7 +371,8 @@ function PendingCard({question, language, busy, onAnswer, onOpenRequest}: {quest
   </View>;
 }
 
-type Layer = {kind: 'home'; tab: 'all' | 'panels'};
+/** [opens] is the outside-open count when the layer was shown; a later outside open hides it. */
+type Layer = {kind: 'home'; tab: 'all' | 'panels'; opens: number};
 
 export function AgentChatScreen(props: AgentChatScreenProps) {
   const router = useRouter();
@@ -392,9 +395,13 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
     });
     return () => {show.remove(); hide.remove(); lifecycle.remove();};
   }, [nativeIme]);
-  const [layer, setLayer] = useState<Layer | null>(null);
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const closeDrawer = useCallback(() => setDrawerOpen(false), []);
+  const [openedLayer, setLayer] = useState<Layer | null>(null);
+  // An outside open (island card, Feed, Panel) shows that conversation, and dismisses any open navigation overlay.
+  const externalOpens = props.externalOpens ?? 0;
+  const layer = openedLayer?.opens === externalOpens ? openedLayer : null;
+  const [drawerOpenedAt, setDrawerOpenedAt] = useState<number | null>(null);
+  const drawerOpen = drawerOpenedAt === externalOpens;
+  const closeDrawer = useCallback(() => setDrawerOpenedAt(null), []);
   // The window blurs whatever lies under it (Feed, Home or another app) while the chat shows.
   useEffect(() => {
     backdropUsers += 1;
@@ -616,16 +623,16 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
     positions.current[viewKey] = {y: 0, follow: true};
     dispatchScroll({type: 'tappedToBottom'});
   };
-  const collapseChat = () => { setDrawerOpen(false); cancelDictation(); stopReading(); live.stop(); (props.onCollapse ?? props.onClose)(); };
+  const collapseChat = () => { closeDrawer(); cancelDictation(); stopReading(); live.stop(); (props.onCollapse ?? props.onClose)(); };
   const openHome = (tab: Layer['tab'] = 'all') => {
     live.stop();
     cancelDictation();
     stopReading();
-    setDrawerOpen(false);
+    closeDrawer();
     props.onOpenHistory?.();
     Keyboard.dismiss();
     setReplyMenu(null);
-    setLayer({kind: 'home', tab});
+    setLayer({kind: 'home', tab, opens: externalOpens});
   };
   const openDrawer = () => {
     live.stop();
@@ -634,7 +641,7 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
     Keyboard.dismiss();
     setReplyMenu(null);
     props.onOpenHistory?.();
-    setDrawerOpen(true);
+    setDrawerOpenedAt(externalOpens);
   };
   // The drawer leaves by itself once a destination is chosen; these only change the conversation.
   const selectMainChat = () => {

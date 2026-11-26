@@ -94,6 +94,24 @@ data class CastDevice(val id: String, val name: String?, val description: String
  enum class CastOrigin { MediaProjection, MediaRouter }
 }
 """,
+    'TaskStack.kt': '''package com.android.systemui.shared.system
+interface TaskStackChangeListener { fun onTaskStackChanged() {}; fun onTaskMovedToFront(taskInfo: android.app.ActivityManager.RunningTaskInfo) {} }
+class TaskStackChangeListeners private constructor() {
+ fun registerTaskStackListener(listener: TaskStackChangeListener) {}
+ companion object { @JvmStatic fun getInstance(): TaskStackChangeListeners = TaskStackChangeListeners() }
+}
+class ActivityManagerWrapper private constructor() {
+ val runningTask: android.app.ActivityManager.RunningTaskInfo? get() = null
+ companion object { @JvmStatic fun getInstance(): ActivityManagerWrapper = ActivityManagerWrapper() }
+}
+''',
+    'Interruption.kt': '''package com.android.systemui.statusbar.notification.interruption
+enum class VisualInterruptionType { PEEK, PULSE, BUBBLE }
+abstract class VisualInterruptionFilter(val types: Set<VisualInterruptionType>, val reason: String) {
+ abstract fun shouldSuppress(entry: com.android.systemui.statusbar.notification.collection.NotificationEntry): Boolean
+}
+interface VisualInterruptionDecisionProvider { fun addFilter(filter: VisualInterruptionFilter) }
+''',
     'HeadsUp.kt': '''package com.android.systemui.statusbar.notification.headsup
 interface HeadsUpManager { fun addListener(listener: OnHeadsUpChangedListener); fun hasPinnedHeadsUp(): Boolean; fun isHeadsUpEntry(key: String): Boolean }
 interface OnHeadsUpChangedListener { fun onHeadsUpStateChanged(entry: com.android.systemui.statusbar.notification.collection.NotificationEntry, isHeadsUp: Boolean) {} fun onHeadsUpPinnedModeChanged(inPinnedMode: Boolean) {} }

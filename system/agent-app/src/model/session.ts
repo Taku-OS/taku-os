@@ -56,6 +56,8 @@ export interface SessionView {
   questions: PendingQuestion[];
   running: boolean;
   activeTurnId: string;
+  /** Every native turn in order, including turns that produced no visible block. */
+  turnIds: string[];
   ready: boolean;
   error: string;
   historyComplete: boolean;
@@ -289,6 +291,7 @@ export function projectSession(value: unknown): SessionView {
     questions: list(native.requests).map(record).filter(q => label(q.key) && id && record(q.params).threadId === id)
       .map(q => ({key: string(q.key), method: string(q.method), params: record(q.params)})),
     running, activeTurnId, ready: native.ready === true,
+    turnIds: turns.map((raw, turnIndex) => label(record(raw).id) || `turn-${turnIndex}`),
     error: string(native.error), historyComplete: complete, knownEmpty,
     historyStatus: complete ? 'complete' : root.historyStatus === 'partial' || blocks.length ? 'partial' : 'unknown',
     totalTurns: typeof root.totalTurns === 'number' ? root.totalTurns : turns.length,

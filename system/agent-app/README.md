@@ -54,7 +54,7 @@ TAKU conversation" under Taku Home's settings and tools.
 The menu opens a drawer over four fifths of the screen (scrim, Close, Back or a swipe closes it):
 TAKU, Panels with their count, Plugins with the number connected, then every Task with its status
 and search. "New task" is pinned under that list at the foot of the drawer, above the personal space
-row, which opens Settings.
+row, which opens Settings. If tapped during a send, New task opens after that action finishes.
 Panels opens Taku Home (2-5) over the chat on the same blurred window: tabs
 All / Panels / Tasks ("See all" opens the section's tab), search, the real Panels directory, the
 Tasks and the settings and tools (new task, chat/task view, settings, plugin market,
@@ -64,7 +64,9 @@ desktop forward and selects that panel through the same `panels/open` operation 
 list and the desktop show the same IDs and order. Panels render only on the desktop;
 Back from Taku Home returns to the chat. The chat and Taku Home lists blur and
 fade under the status bar and title row and along the bottom edge. Collapse (top right) hands the thread to the
-home Dynamic Island (`assistant/resume`). It opens from the island's expand button, a double tap
+home Dynamic Island (`assistant/resume`). Leaving the chat by Home, Back or Recents while a turn
+runs hands it over silently instead (`assistant/handoff`): nothing shows while it works, and the
+island card opens with the reply, question or error once the turn has one. It opens from the island's expand button, a double tap
 on the gesture handle or the Taku icon, and swiping up on the handle leaves it like any app.
 Long-pressing a finished reply opens the 0-3 style menu (dimmed, lightly blurred list, the
 reply lifted on a card, Copy and Select pills); replies carry no copy button. The composer shows
