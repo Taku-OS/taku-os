@@ -13,7 +13,7 @@ final class DiningCapabilities {
                 .put("pollObservation", true)
                 .put("booking", true)
                 .put("reservationFeed", true)
-                .put("calendarFollowUp", false)
-                .put("rideFollowUp", false);
+                .put("calendarFollowUp", true)
+                .put("rideFollowUp", true);
     }
 }

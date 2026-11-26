@@ -456,6 +456,11 @@ public final class DiningCalendarTest {
         check(
                 "edit".equals(rideNotice.getJSONObject("expanded").getString("tapAction")),
                 "The Uber card opens the input action without placing an order");
+        JSONObject capabilities = DiningCapabilities.snapshot();
+        check(
+                capabilities.getBoolean("calendarFollowUp")
+                        && capabilities.getBoolean("rideFollowUp"),
+                "Dining capabilities advertise enabled Calendar and ride follow-ups");
         if (args.length > 1)
             java.nio.file.Files.writeString(
                     java.nio.file.Path.of(args[1]),
