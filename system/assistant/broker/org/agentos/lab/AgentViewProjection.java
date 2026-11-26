@@ -264,6 +264,20 @@ final class AgentViewProjection {
         return item;
     }
 
+    /** Applies the display budget to the current indexed view without replacing its items. */
+    static void boundReasoningSummaries(JSONObject view) throws JSONException {
+        JSONArray turns = view.getJSONArray("turns");
+        Budget budget = new Budget();
+        for (int i = turns.length() - 1; i >= 0; i--) {
+            JSONArray items = turns.getJSONObject(i).getJSONArray("items");
+            for (int j = items.length() - 1; j >= 0; j--) {
+                JSONObject item = items.getJSONObject(j);
+                if (!"reasoning".equals(item.optString("type"))) continue;
+                item.put("summary", reasoningSummary(item.optJSONArray("summary"), budget));
+            }
+        }
+    }
+
     /**
      * The model's public reasoning summary, newest turns first within its own budget. Null once that
      * budget is spent: the item stays, without the text. Raw reasoning content is not a display field.

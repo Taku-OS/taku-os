@@ -62,6 +62,7 @@ internal class AgentViews {
                     raw.put(key, value)
                     view.put(key, value)
                 }
+                AgentViewProjection.boundReasoningSummaries(view)
                 events.publish(id, "session/snapshot", JSONObject().put("thread", view))
                 checkpoint(view)
             }
