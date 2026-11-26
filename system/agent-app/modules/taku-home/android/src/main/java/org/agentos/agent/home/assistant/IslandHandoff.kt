@@ -31,6 +31,7 @@ object IslandHandoff {
     val entryOpen: Boolean,
     val microphoneBusy: Boolean,
     val liveTalk: Boolean,
+    val preparingSubmission: Boolean,
   )
 
   enum class Admission { HANDED_OFF, ALREADY_SHOWN }
@@ -59,7 +60,7 @@ object IslandHandoff {
     if (!validThread(threadId)) throw AssistantException("INVALID_ARGUMENT", "threadId must be a conversation id")
     if (home.threadId == threadId && home.islandRequested) return Admission.ALREADY_SHOWN
     val other = home.threadId != null && home.threadId != threadId
-    if (home.microphoneBusy || home.liveTalk || home.entryOpen ||
+    if (home.preparingSubmission || home.microphoneBusy || home.liveTalk || home.entryOpen ||
         (other && (home.working || home.needsUser || home.cardExpanded)))
       throw AssistantException("HOME_BUSY", "Home is showing another conversation")
     return Admission.HANDED_OFF

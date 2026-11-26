@@ -288,7 +288,7 @@ class AssistantSession private constructor(private val context: Context, private
       cardExpanded = s.island != IslandMode.Hidden && shown == "expanded",
       working = s.working, needsUser = s.needsUser, entryOpen = s.entry != EntryMode.None,
       microphoneBusy = gesture.held || voice.state.value.listening || s.voiceContinuous,
-      liveTalk = live.snapshot?.open == true), threadId)
+      liveTalk = live.snapshot?.open == true, preparingSubmission = editor.stagingMenu), threadId)
     val result = JSONObject().put("handedOff", admission == IslandHandoff.Admission.HANDED_OFF).put("reason", admission.name)
     if (admission == IslandHandoff.Admission.ALREADY_SHOWN) return result
     follow(threadId)
