@@ -4,6 +4,8 @@ Notebook 把用户主动保存的截图、来源和笔记放在同一个收藏�
 
 ## 使用
 
+首次安装时，Notebook 设置中的 **Screenshot actions** 和 **到达时提醒我** 均默认关闭，可分别开启。
+
 1. 在 Notebook 设置里启用 **Screenshot actions**、照片访问和 **Taku Notebook screenshots** 无障碍服务。
 2. 在支持的社媒 App 内按电源键和音量减键。截图后，前摄附近显示 **Reading image**，随后展开 **Save**、**Send to…** 和 **Edit**。保存动作无需等待模型。
 3. 点 **Save** 后，Notebook 保存原图，并提供 **Go to Notebook**、**Change List** 和 **Add note**。分类、摘要和查找原帖在后台执行。用户手动修改的归属和备注会保留。
@@ -16,10 +18,11 @@ Notebook 把用户主动保存的截图、来源和笔记放在同一个收藏�
 ## 构建和系统接入
 
 - [Android.bp](Android.bp) 定义平台签名的 `system_ext` 应用 `TakuNotebook`。[image/taku.mk](../../image/taku.mk) 将基础版放入团队的 Pixel 9 userdebug 镜像，安装到 `/system_ext/app/TakuNotebook`。后续可用同包名 `org.agentos.notebook`、同平台签名、更高版本号的 APK 原地更新。
-- [默认权限配置](default-permissions.xml) 向 Notebook 授予可撤回的照片和通知权限。定位权限由 TakuArrival 持有。当前首启从 Notebook 设置进入 Android 无障碍设置手动开启截图服务。目标整包采用镜像预配还是首启引导，待系统负责人确认。
+- [默认权限配置](default-permissions.xml) 向 Notebook 授予可撤回的照片和通知权限。定位权限由 TakuArrival 持有。[镜像校验](../../image/verify-artifacts.py) 要求整包包含 `/system_ext/app/TakuNotebook/TakuNotebook.apk` 和 `/system_ext/etc/default-permissions/taku-notebook.xml`。
+- 目前由用户从 Notebook 设置进入 Android 无障碍设置，手动开启 **Taku Notebook screenshots**。服务监听窗口变化以识别截图来源 App，负责前摄附近的跨 App 浮窗，也能在独立后台屏读取控件、派发手势以取得原帖分享链接。首启引导或镜像预配由系统负责人确认。
 - 使用 Android SDK 36、Build Tools 36.0.0 和 JDK 17+，运行 `bash system/notebook/build.sh`。默认 AOSP 测试签名仅适用于相应的开发系统。为目标 ROM 提供独立更新时，设置 `TAKU_NOTEBOOK_SIGNING_DIR` 指向受控的平台签名目录，运行 `bash system/notebook/build.sh /path/to/base-TakuNotebook.apk`。脚本在输出 `system/notebook/out/TakuNotebook.apk` 前核对包名、签名和递增的版本号。
 - 原帖回链和 Agent 工具需同步更新 TakuAssistant 与 Task Broker。`bash system/assistant/build.sh` 生成 `system/assistant/out/AgentOSAssistant.apk` 和 `system/assistant/out/task-broker.jar`。系统镜像中的 Broker 安装在 `/system_ext/framework/agentos-task-broker.jar`。独立后台屏使用系统 `phone-display`。
-- 在 Taku AI 中允许 Notebook 使用图片模型。原帖查找使用支持图片的 Codex 订阅模型，或成员均为 Codex 订阅模型的路由组。优先使用 `org.agentos.notebook.image`，未配置时沿用系统读屏路由 `screen`。可单独配置 `org.agentos.notebook.filing` 负责归类。摘要使用 Notebook 图片路由。
+- Taku AI 的 [`AiPolicy`](../assistant/broker/org/agentos/lab/AiPolicy.java) 默认允许 `org.agentos.notebook`。Taku AI 总开关及已保存的 Notebook 关闭设置仍然生效。原帖查找使用支持图片的 Codex 订阅模型，或成员均为 Codex 订阅模型的路由组。优先使用 `org.agentos.notebook.image`，未配置时沿用系统读屏路由 `screen`。可单独配置 `org.agentos.notebook.filing` 负责归类。摘要使用 Notebook 图片路由。
 
 ## Agent 接口
 
