@@ -112,6 +112,11 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
     public JSONObject describe(String thread) {return new JSONObject().put("bound",false);}
 
     final java.util.List<String> turnsEnded = new java.util.concurrent.CopyOnWriteArrayList<>();
+    final java.util.Map<String, Boolean> presentationCompletions = new java.util.concurrent.ConcurrentHashMap<>();
+    Thread turnEnded(String thread, boolean keepPresentation) {
+        presentationCompletions.put(thread, keepPresentation);
+        return turnEnded(thread);
+    }
     Thread turnEnded(String thread) {
         turnsEnded.add(thread);
         return null;
