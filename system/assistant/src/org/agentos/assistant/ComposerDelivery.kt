@@ -39,7 +39,8 @@ internal object ComposerDelivery {
     }
 
     @JvmStatic
-    fun call(context: Context, method: String, input: JSONObject): JSONObject {
+    @JvmOverloads
+    fun call(context: Context, method: String, input: JSONObject, allowAutoScreenshot: Boolean = false): JSONObject {
         val prefs = context.getSharedPreferences("agent-settings", Context.MODE_PRIVATE)
         val runtime = MatterRuntime.get(context)
         val id = input.getString("requestId")
@@ -50,7 +51,7 @@ internal object ComposerDelivery {
             val (request, created) = try {
                 ComposerState.reserveSubmission(prefs, input) { target, output ->
                     checkNotNull(options).apply(prefs, target, output)
-                    AssistantInvocationCapture.reserve(context, id, output)
+                    AssistantInvocationCapture.reserve(context, id, output, allowAutoScreenshot)
                 }
             } catch (failure: Exception) {
                 synchronized(ComposerPreferences::class.java) {

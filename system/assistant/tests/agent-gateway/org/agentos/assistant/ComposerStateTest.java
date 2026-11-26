@@ -16,6 +16,7 @@ public final class ComposerStateTest {
         moveAndDiskFailure();
         settlementPreservesLaterEdits();
         screenshotPreferenceIsFrozen();
+        invocationCaptureIsReservedOnlyForSendableRequests();
         handoffPreservesDisplacedDraft();
         legacyHomeAndPendingDelivery();
         System.out.println("PASS ComposerStateTest");
@@ -154,6 +155,44 @@ public final class ComposerStateTest {
         JSONObject next = STORE.reserveSubmission(restarted, new JSONObject(input.toString())
                 .put("requestId", "00000000-0000-4000-8000-000000000007"), (thread, options) -> kotlin.Unit.INSTANCE).getFirst();
         check(!next.getJSONObject("options").getBoolean("includeScreenshot"), "the next send uses the updated screenshot preference");
+    }
+
+    private static void invocationCaptureIsReservedOnlyForSendableRequests() throws Exception {
+        MemoryPreferences prefs = new MemoryPreferences();
+        prefs.edit().putBoolean("includeScreenshot", false).commit();
+        boolean[] grant = {true};
+        int[] consulted = {0};
+        kotlin.jvm.functions.Function2<String, JSONObject, kotlin.Unit> reserveCapture = (thread, options) -> {
+            consulted[0]++;
+            if (grant[0]) {
+                grant[0] = false;
+                options.put("includeScreenshot", true)
+                        .put("invocationScreenshot", "00000000-0000-4000-8000-000000000016");
+            }
+            return kotlin.Unit.INSTANCE;
+        };
+        String revision = ComposerState.write(prefs, THREAD, "", "What is on screen?").getString("revision");
+        JSONObject input = new JSONObject().put("threadId", THREAD).put("action", "sendMessage")
+                .put("revision", revision).put("requestId", "00000000-0000-4000-8000-000000000016")
+                .put("attachmentIds", new JSONArray());
+        JSONObject first = STORE.reserveSubmission(prefs, input, reserveCapture).getFirst();
+        check(first.getJSONObject("options").getBoolean("includeScreenshot"), "the first message after a power-key invocation carries the screenshot");
+        check(!prefs.getBoolean("includeScreenshot", true), "the one-shot grant never writes the global screenshot preference");
+        check(!grant[0] && consulted[0] == 1, "the grant is consumed by the first message");
+        check(!STORE.reserveSubmission(prefs, input, reserveCapture).getSecond() && consulted[0] == 1,
+                "a replay uses the frozen capture without reserving a new one");
+        STORE.finishSubmission(prefs, first, true);
+        String next = ComposerState.write(prefs, THREAD, ComposerState.read(prefs, THREAD).getString("revision"), "And now?").getString("revision");
+        JSONObject second = STORE.reserveSubmission(prefs, new JSONObject(input.toString()).put("revision", next)
+                .put("requestId", "00000000-0000-4000-8000-000000000017"), reserveCapture).getFirst();
+        check(consulted[0] == 2, "a fresh request resolves its own capture options");
+        check(!second.getJSONObject("options").getBoolean("includeScreenshot"), "the second message falls back to the global preference");
+        MemoryPreferences empty = new MemoryPreferences();
+        String blank = ComposerState.write(empty, THREAD, "", "").getString("revision");
+        boolean[] untouched = {true};
+        rejects("INVALID_TEXT", () -> STORE.reserveSubmission(empty, new JSONObject(input.toString()).put("revision", blank)
+                .put("requestId", "00000000-0000-4000-8000-000000000018"), (thread, options) -> { untouched[0] = false; return kotlin.Unit.INSTANCE; }));
+        check(untouched[0], "an unsendable draft keeps the grant for the real first message");
     }
 
     private static void handoffPreservesDisplacedDraft() throws Exception {

@@ -48,6 +48,8 @@ final class HarnessCatalog {
     static JSONObject replyContract() { return new JSONObject(); }
 }
 final class ModelConnection {
+    static JSONArray catalog() { throw new AssertionError("Model catalog is outside this routing test"); }
+    static JSONArray publicModels(JSONArray catalog) { throw new AssertionError("Model catalog is outside this routing test"); }
     static boolean local() {return false;}
     static java.util.List<String> command() {return java.util.List.of(System.getProperty("java.home")+"/bin/java","-cp",System.getProperty("java.class.path"),"org.agentos.lab.CodexTaskOwnershipTest","runtime");}
     static JSONObject settings() {return new JSONObject().put("model","host-model");}
@@ -69,6 +71,7 @@ final class AppPermissionPolicy {
 final class MatterBridge { static JSONObject control(JSONObject input) { throw new AssertionError("Matter service is outside this routing test"); } }
 final class AudioBridge { static JSONObject control(JSONObject input) { throw new AssertionError("Audio commands are outside this routing test"); } }
 final class SystemAi {
+    static final SystemAiSettings.Store SETTINGS = null;
     static JSONObject config() throws Exception { return new JSONObject().put("revision",1); }
     static void requireEnabled() {}
     static JSONObject control(JSONObject input) { return new JSONObject(); }
@@ -151,7 +154,11 @@ final class WorkspaceControl {static JSONObject control(JSONObject input){return
 final class PhoneAppCatalog {static JSONObject requireLaunchable(String pkg){return new JSONObject();}}
 final class PluginCreator {static JSONObject catalogAdd(java.nio.file.Path path){return new JSONObject();}}
 final class SkillCredentials {static JSONObject control(JSONObject input){return new JSONObject();}}
-final class MagpieSettings {static void schedule(){}}
+final class MagpieSettings {
+    static void schedule() {}
+    static void migrate() { throw new AssertionError("Magpie migration is outside this routing test"); }
+    static void sync() { throw new AssertionError("Magpie sync is outside this routing test"); }
+}
 
 /** These tests route phone tools; unrelated credential endpoints must not execute. */
 final class ByokProviders {

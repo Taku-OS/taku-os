@@ -8,7 +8,7 @@ import {StatusBar} from 'expo-status-bar';
 import Svg, {Defs, LinearGradient, Rect, Stop} from 'react-native-svg';
 import {VoiceEffect} from '../native/VoiceEffect';
 import {VoiceIcon} from '../chat/VoiceIcon';
-import {AssistantBubble, ComposerGlassRim} from '../chat/ChatSurfaces';
+import {AssistantBubble, ComposerGlassRim, QuickStarts} from '../chat/ChatSurfaces';
 import {useLiveTalk} from '../chat/useLiveTalk';
 import {liveLightStyle, shouldShowLiveLight} from '../chat/liveGlow';
 import * as Haptics from 'expo-haptics';
@@ -20,7 +20,7 @@ import {Icon, IconButton} from './Icon';
 import {chatPresentation, type ChatMessageBlock} from '../model/chatPresentation';
 import {FIRST_RESPONSE_TIMEOUT_MS, type OptimisticSubmission} from '../model/optimisticChat';
 import {ReplyLoading} from './ReplyLoading';
-import {onImeInsets, setWindowBackdrop, showKeyboard} from '../native/agent';
+import {gatewayLoad, onImeInsets, setWindowBackdrop, showKeyboard} from '../native/agent';
 import {ReplyMenu, type ReplyMenuTarget} from './ReplyMenu';
 import {cardPanelActions, openPinnedCard, pinCardToPanels, unpinCard} from '../hooks/useGenUi';
 import {cardId} from '../model/genuiStore';
@@ -37,6 +37,12 @@ import {markdownSpeechText} from '../native/MarkdownStream';
 import {openAiSetup} from '../native/aiSetup';
 import {DictationBar} from './DictationBar';
 import {TakuHomePage} from '../chat/TakuHomePage';
+import {TaskDrawer} from '../chat/TaskDrawer';
+import {TaskStrip} from '../chat/TaskStrip';
+import {TaskCard} from '../chat/TaskCard';
+import {isMainConversation, partitionThreads} from '../model/singleChat';
+import {DRAWER_TASKS, STRIP_TASKS, liveTasks, taskCards} from '../model/taskStatus';
+import {useTaskStatuses} from '../hooks/useTaskStatuses';
 import {sheetSpace, type ImeGeometry} from '../model/sheetGeometry';
 import {emptyPreview, PREVIEW_FRESH_MS, PREVIEW_LOAD_TIMEOUT_MS, PREVIEW_REFRESH_MS, previewReducer} from '../model/preview';
 import {rowDemand, sameBand, visibleBand, type CardDemand, type RowBand} from '../chat/cardDemand';
@@ -86,11 +92,20 @@ export interface AgentChatScreenProps {
   onStop: () => void;
   onSelectThread: (id: string) => void;
   onCreateThread: () => void;
+  primaryThreadId?: string;
+  isMainChat?: boolean;
+  onSelectMainChat?: () => void;
+  /** TAKU carries on in a new conversation, taking the given unsent request along as a draft. */
+  onStartMainAfresh?: (carry?: string) => void;
+  onCreateTaskThread?: () => void;
   onRefresh: () => void;
   onAnswer: (key: string, response: Json) => void;
   onOpenWorkspace: (workspace: WorkspaceView) => void;
   onClose: () => void;
+  /** Reads the Task list again. Stable across renders. */
   onOpenHistory?: () => void;
+  /** The conversation is on screen (the app is in front and its Activity started). */
+  visible?: boolean;
   renderMarkdown?: (text: string, active: boolean, itemId: string) => ReactNode;
   /**
    * Generated cards render through the app; the chat only places them in order with the text.
@@ -143,7 +158,12 @@ function PendingSubmissionCard({text, language, onRetry, onContinue}: {text: str
   </View>;
 }
 
-function FailedTaskCard({failure, language, busy, onRestore}: {failure: {taskId: string; message: string; prompt: string}; language: Language; busy: boolean; onRestore: (taskId: string) => void}) {
+/**
+ * [afresh] is offered on TAKU's own conversation only: when a request fails there, TAKU can carry
+ * on in a new conversation instead of leaving the user with a main conversation that cannot answer.
+ */
+function FailedTaskCard({failure, language, busy, onRestore, afresh}: {failure: {taskId: string; message: string; prompt: string}; language: Language; busy: boolean; onRestore: (taskId: string) => void;
+  afresh?: {label: string; hint: string; run: () => void}}) {
   const t = textFor(language);
   return <View testID="failed-task-card" style={styles.pendingSubmission}>
     <Label role="meta" style={{color: colors.error}}>{t('taskFailed')}</Label>
@@ -155,6 +175,13 @@ function FailedTaskCard({failure, language, busy, onRestore}: {failure: {taskId:
       style={[styles.pendingRetry, busy && styles.sendDisabled]}>
       <Icon name="arrow_left" size={16} color={chatColors.icon}/><Label role="meta">{t('restoreFailedRequest')}</Label>
     </Pressable>
+    {afresh && <>
+      <Label role="caption" style={styles.secondary}>{afresh.hint}</Label>
+      <Pressable testID="continue-afresh" accessibilityRole="button" accessibilityLabel={afresh.label} accessibilityState={{disabled: busy}} disabled={busy}
+        onPress={afresh.run} style={[styles.pendingRetry, busy && styles.sendDisabled]}>
+        <ChatIcon name="plus" size={16} color={chatColors.icon}/><Label role="meta">{afresh.label}</Label>
+      </Pressable>
+    </>}
   </View>;
 }
 
@@ -345,7 +372,7 @@ function PendingCard({question, language, busy, onAnswer, onOpenRequest}: {quest
 }
 
 /** [opens] is the outside-open count when the layer was shown; a later outside open hides it. */
-type Layer = {kind: 'home'; opens: number};
+type Layer = {kind: 'home'; tab: 'all' | 'panels'; opens: number};
 
 export function AgentChatScreen(props: AgentChatScreenProps) {
   const router = useRouter();
@@ -369,9 +396,12 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
     return () => {show.remove(); hide.remove(); lifecycle.remove();};
   }, [nativeIme]);
   const [openedLayer, setLayer] = useState<Layer | null>(null);
-  // An outside open (island card, Feed, Panel) shows that conversation, not a Taku Home left open.
+  // An outside open (island card, Feed, Panel) shows that conversation, and dismisses any open navigation overlay.
   const externalOpens = props.externalOpens ?? 0;
   const layer = openedLayer?.opens === externalOpens ? openedLayer : null;
+  const [drawerOpenedAt, setDrawerOpenedAt] = useState<number | null>(null);
+  const drawerOpen = drawerOpenedAt === externalOpens;
+  const closeDrawer = useCallback(() => setDrawerOpenedAt(null), []);
   // The window blurs whatever lies under it (Feed, Home or another app) while the chat shows.
   useEffect(() => {
     backdropUsers += 1;
@@ -405,6 +435,7 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
   const preSendRef = useRef<KnownUsers>(knownUsers([]));
   const scrollMetrics = useRef({contentHeight: 0, viewportHeight: 0, offsetY: 0});
   const [turnHeights, setTurnHeights] = useState({key: '', user: 0, assistant: 0, footer: 0});
+  const input = useRef<React.ComponentRef<typeof TextInput>>(null);
   const [demandBand, setDemandBand] = useState<RowBand | null>(null);
   // RN forbids replacing these handlers on the fly, so they live for the screen's lifetime.
   const [viewability] = useState(() => ({
@@ -448,6 +479,31 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
     applyScrollEffect(effect);
   }, [applyScrollEffect]);
   const sessionId = props.session?.id || '';
+  const resolvedPrimaryId = props.primaryThreadId ?? '';
+  const isMainChat = props.isMainChat ?? isMainConversation(sessionId, resolvedPrimaryId);
+  const {mainThread, taskThreads} = useMemo(() => partitionThreads(props.threads, resolvedPrimaryId), [props.threads, resolvedPrimaryId]);
+  // TAKU follows the newest Tasks' status while it is on screen; the open drawer follows its longer list.
+  const followedTasks = useMemo(() => taskThreads.slice(0, drawerOpen ? DRAWER_TASKS : STRIP_TASKS).map(thread => thread.id), [taskThreads, drawerOpen]);
+  const visible = props.visible ?? true;
+  // Following starts once TAKU's own conversation has loaded, never during its restore.
+  const tasks = useTaskStatuses(followedTasks, visible && isMainChat && !props.loading, props.session);
+  const capsules = useMemo(() => liveTasks(taskThreads, tasks.board), [taskThreads, tasks.board]);
+  const {onOpenHistory, onStartMainAfresh} = props;
+  // TAKU may start or finish a Task during its own turn, and anything may have while the chat was
+  // away or on a Task's page: read the Task list again when a TAKU turn ends, when the chat returns
+  // to the screen and when the user comes back to TAKU. On those events only, never on a timer:
+  // every listing is a broker control request that leaves a record on the phone.
+  const mainTurnRunning = isMainChat && !!props.session?.running;
+  const listedOnce = useRef(false);
+  useEffect(() => {
+    if (!visible || mainTurnRunning) return;
+    let current = true;
+    // The first listing is the controller's own, at startup. Nobody waits on the later ones, so
+    // they go when the conversation leaves the gateway room.
+    if (listedOnce.current) void gatewayLoad.quiet().then(() => { if (current) onOpenHistory?.(); });
+    listedOnce.current = true;
+    return () => { current = false; };
+  }, [visible, mainTurnRunning, isMainChat, onOpenHistory]);
   // Requests the cards cannot answer in place are handled on the pending-requests page.
   const openRequests = (requestKey?: string) => router.push({pathname: '/assistant-management',
     params: {section: 'requests', ...(sessionId ? {threadId: sessionId} : {}), ...(requestKey ? {requestKey} : {})}});
@@ -477,13 +533,24 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
   }, [props.session?.blocks, props.optimisticSubmissions, taskView]);
   const error = props.error || props.session?.error;
   const taskFailure = props.session?.taskFailure;
-  // An unsaved conversation (New chat; no thread until its first send) is new however many others exist.
-  const newConversation = props.session?.knownEmpty ||
-    (!props.session && !props.loading && !error && (props.threads.length === 0 || !props.draftSessionId));
+  // No thread is open: a fresh device, or TAKU started afresh. Its first message creates the thread.
+  const newConversation = props.session?.knownEmpty || (!props.session && !props.loading && !error && !props.draftSessionId);
   // The 2-1 greeting opens the conversation, unless it is still loading or its history is unknown.
   // Issue #32 C2: the greeting is the empty state of a new conversation, not a line above messages.
   const greeting = !taskView && visibleBlocks.length === 0 && !!newConversation;
-  const listTopPadding = headerBottom + (error ? 56 : 0);
+  // The Task row and the Task cards belong to TAKU's own page only.
+  const onMainPage = isMainChat && !taskView && !live.active;
+  const stripShown = onMainPage && capsules.length > 0;
+  const cards = onMainPage ? taskCards(taskThreads, tasks.board, {allowOnce: t('allowOnce'), decline: t('decline')}) : [];
+  // A quick start opens the composer with a line the user finishes; nothing is sent for them.
+  const startWith = (prompt: string) => {
+    props.onDraftChange(prompt);
+    setInsertedCaret({threadId: props.draftSessionId, text: prompt, caret: prompt.length});
+    input.current?.focus();
+  };
+  // Where the conversation starts: under the title row, and under the Task row when it shows.
+  const contentTop = headerBottom + (stripShown ? chatMetrics.strip : 0);
+  const listTopPadding = contentTop + (error ? 56 : 0);
   // Layout effects run before the passive effect that binds a sent message and before its rAF re-pin.
   useLayoutEffect(() => { pinGeometry.current = {blocks: visibleBlocks, topPadding: listTopPadding}; }, [visibleBlocks, listTopPadding]);
   const pinnedTurn = useMemo(() => taskView ? null : findPinnedTurn(visibleBlocks, scrollState.anchor), [taskView, visibleBlocks, scrollState.anchor]);
@@ -506,6 +573,24 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
       if (scrollStateRef.current.mode === 'pinned' && !scrollIntent.current.byUser) applyScrollEffect('toPinAnimated');
     });
   }, [taskView, scrollState.pendingSend, visibleBlocks, dispatchScroll, applyScrollEffect]);
+  // The Task row appearing or leaving moves the conversation by its height. While the user reads
+  // history on the same page, the list moves with it so the line under their eyes stays put.
+  // (Following re-applies the content end and a pinned turn re-aligns to the new top by themselves.)
+  const stripLayout = useRef({viewKey, shown: stripShown});
+  useEffect(() => {
+    const previous = stripLayout.current;
+    stripLayout.current = {viewKey, shown: stripShown};
+    const position = positions.current[viewKey];
+    if (previous.viewKey !== viewKey || previous.shown === stripShown || scrollStateRef.current.mode !== 'browsing' || !position || position.follow) return;
+    const y = Math.max(0, position.y + (stripShown ? chatMetrics.strip : -chatMetrics.strip));
+    positions.current[viewKey] = {y, follow: false};
+    scrollIntent.current = createScrollIntent();
+    scroll.current?.scrollToOffset({offset: y, animated: false});
+  }, [stripShown, viewKey]);
+  // The title row names where the user is: TAKU, or the open Task.
+  const pageTitle = live.active ? ct('liveTalk') : isMainChat ? chatTitle
+    : props.session?.title || props.threads.find(thread => thread.id === props.draftSessionId)?.title || ct('task');
+  const composerHint = ct(isMainChat ? 'messageTaku' : 'replyInTask');
   const onScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const {contentOffset, contentSize, layoutMeasurement} = event.nativeEvent;
     scrollMetrics.current = {contentHeight: contentSize.height, viewportHeight: layoutMeasurement.height, offsetY: contentOffset.y};
@@ -538,15 +623,39 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
     positions.current[viewKey] = {y: 0, follow: true};
     dispatchScroll({type: 'tappedToBottom'});
   };
-  const collapseChat = () => { cancelDictation(); stopReading(); live.stop(); (props.onCollapse ?? props.onClose)(); };
-  const openHome = () => {
+  const collapseChat = () => { closeDrawer(); cancelDictation(); stopReading(); live.stop(); (props.onCollapse ?? props.onClose)(); };
+  const openHome = (tab: Layer['tab'] = 'all') => {
     live.stop();
     cancelDictation();
     stopReading();
+    closeDrawer();
     props.onOpenHistory?.();
     Keyboard.dismiss();
     setReplyMenu(null);
-    setLayer({kind: 'home', opens: externalOpens});
+    setLayer({kind: 'home', tab, opens: externalOpens});
+  };
+  const openDrawer = () => {
+    live.stop();
+    cancelDictation();
+    stopReading();
+    Keyboard.dismiss();
+    setReplyMenu(null);
+    props.onOpenHistory?.();
+    setDrawerOpenedAt(externalOpens);
+  };
+  // The drawer leaves by itself once a destination is chosen; these only change the conversation.
+  const selectMainChat = () => {
+    live.stop();
+    if (props.onSelectMainChat) props.onSelectMainChat();
+    else if (mainThread) props.onSelectThread(mainThread.id);
+  };
+  const selectTaskThread = (id: string) => {
+    live.stop();
+    props.onSelectThread(id);
+  };
+  const createIndependentTask = () => {
+    live.stop();
+    (props.onCreateTaskThread ?? props.onCreateThread)();
   };
   const running = props.session?.running;
   const hasDraft = !!props.draft.trim() || props.attachments.length > 0;
@@ -623,7 +732,7 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
     const back = BackHandler.addEventListener('hardwareBackPress', () => { live.stop(); return true; });
     return () => back.remove();
   }, [live]);
-  // Back: Taku Home returns to the conversation. Panels live on the desktop.
+  // Back: the drawer closes itself first (TaskDrawer), then Taku Home returns to the conversation.
   useEffect(() => {
     if (!layer) return;
     const back = BackHandler.addEventListener('hardwareBackPress', () => { setLayer(null); return true; });
@@ -652,12 +761,13 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
     <StatusBar style={getChatAppearance() === 'dark' ? 'light' : 'dark'}/>
     <View style={[styles.host, nativeIme && {paddingBottom: space.bottom}]}
       onLayout={event => {if (!nativeIme) setMeasuredHostHeight(event.nativeEvent.layout.height);}}>
-    <View style={StyleSheet.absoluteFill} pointerEvents={layer ? 'none' : 'box-none'} importantForAccessibility={layer ? 'no-hide-descendants' : 'auto'}>
+    <View style={StyleSheet.absoluteFill} pointerEvents={layer ? 'none' : 'box-none'} importantForAccessibility={layer || drawerOpen ? 'no-hide-descendants' : 'auto'}>
     <View style={[StyleSheet.absoluteFill, layer && styles.hidden]} pointerEvents="box-none">
     {shouldShowLiveLight(live.active) && <VoiceEffect kind="light" target="live" level={liveLevel}
       style={liveLightStyle(dimensions.width)}/>}
-    {/* The conversation runs under the title row and the composer; both edges blur and fade. */}
-    <EdgeBlur style={StyleSheet.absoluteFill} topSharp={headerBottom + 8} topFull={0}
+    {/* The conversation runs under the title row and the composer; both edges blur and fade. Under
+        the Task row it is gone by the capsules' lower edge, so a message never shows through them. */}
+    <EdgeBlur style={StyleSheet.absoluteFill} topSharp={contentTop + (stripShown ? 12 : 8)} topFull={stripShown ? contentTop - 8 : 0}
       bottomSharp={composerTop - 32} bottomFull={composerTop + 16} sigma={chatBlur.edgeSigma} fade uniformSigma={replyMenu ? chatBlur.menuSigma : 0}>
     <FlatList key={viewKey} ref={scroll} data={visibleBlocks} keyExtractor={block => block.id} style={styles.flex}
       contentContainerStyle={[styles.messages, taskView && styles.taskMessages,
@@ -693,9 +803,13 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
         <Icon name="tako" size={40}/><Label role="context" style={styles.center}>{t('historyUnknown')}</Label>
         <Label role="meta" style={[styles.secondary, styles.center]}>{t('historyIncomplete')}</Label>
         <Pressable accessibilityRole="button" onPress={props.onRefresh} style={styles.emptyRefresh}><Label role="meta">{t('refresh')}</Label></Pressable>
+        {/* TAKU's own conversation cannot be read: the user is never left without a main conversation. */}
+        {isMainChat && !!props.draftSessionId && onStartMainAfresh && <Pressable testID="continue-afresh" accessibilityRole="button"
+          onPress={() => onStartMainAfresh()} style={styles.emptyRefresh}><Label role="meta">{ct('continueAfresh')}</Label></Pressable>}
       </View>}
       ListHeaderComponent={<View style={styles.stack}>
-      {greeting && <AssistantBubble><Text style={[chatType.bodyLg(language === 'zh'), styles.replyText]}>{ct('greeting')}</Text></AssistantBubble>}
+      {greeting && <AssistantBubble><Text style={[chatType.bodyLg(language === 'zh'), styles.replyText]}>{ct(isMainChat ? 'greeting' : 'taskGreeting')}</Text></AssistantBubble>}
+      {greeting && onMainPage && !props.draft && !props.loading && <QuickStarts language={language} onStart={startWith}/>}
       {!props.session?.historyComplete && blocks.length > 0 && <Label role="caption" style={[styles.secondary, styles.historyHint]}>{t('historyIncomplete')}</Label>}
       {taskView && blocks.length > 0 && <Label role="caption" style={styles.historyHint}>{t('taskViewHint')}</Label>}
       </View>}
@@ -737,9 +851,14 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
       }}>
       {!!props.workspaceError && <Label role="meta" style={styles.secondary}>{props.workspaceError}</Label>}
       {workspaces.map(workspace => <WorkspaceCard key={`${workspace.screenKey}/${workspace.generation}`} workspace={workspace} language={language} onPress={() => props.onOpenWorkspace(workspace)}/>)}
+      {cards.map(card => <TaskCard key={card.thread.id} language={language} threadId={card.thread.id} title={card.thread.title || ct('task')}
+        status={card.status} askedKey={card.decision?.key ?? ''} prompt={card.decision?.prompt ?? ''} options={card.decision?.options ?? []} answer={card.answer}
+        onChoose={option => tasks.answer(card.thread.id, card.decision?.key ?? '', option.label, option.response)}
+        onView={() => selectTaskThread(card.thread.id)}/>)}
       {props.session?.questions.map(question => <PendingCard key={question.key} question={question} language={language} busy={props.busy} onAnswer={props.onAnswer} onOpenRequest={() => openRequests(question.key)}/>)}
       {!!props.session?.nativeOnlyRequests && <View style={styles.question}><Label role="label">{t('needsYou')}</Label><Pressable accessibilityRole="button" onPress={() => openRequests()} style={styles.answerButton}><Label role="meta">{language === 'zh' ? '查看待处理请求' : 'Review pending requests'}</Label></Pressable></View>}
-      {taskFailure && <FailedTaskCard key={taskFailure.taskId} failure={taskFailure} language={language} busy={props.busy || props.loading} onRestore={props.onRestoreFailedTask}/>}
+      {taskFailure && <FailedTaskCard key={taskFailure.taskId} failure={taskFailure} language={language} busy={props.busy || props.loading} onRestore={props.onRestoreFailedTask}
+        afresh={isMainChat && sessionId && onStartMainAfresh ? {label: ct('continueAfresh'), hint: ct('continueAfreshHint'), run: () => onStartMainAfresh(taskFailure.prompt)} : undefined}/>}
       {props.recovery.map(entry => <View key={entry.id} style={styles.pendingSubmission}>
         {!!entry.text && <OriginalRequestPreview text={entry.text} language={language}/>}
         {entry.attachments.map(item => <Label key={item.id} role="caption">{item.name}</Label>)}
@@ -751,15 +870,22 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
       {pinnedSpacer > 0 && <View testID="pinned-turn-spacer" style={{height: pinnedSpacer}}/>}
       </View>}/>
     </EdgeBlur>
-    {/* Figma 2-1 title row: Taku Home (history for now), the fixed title, collapse to the island. */}
+    {/* Single Chat title row: the menu on TAKU (or back to TAKU from a Task), the title, collapse to the island. */}
     <View style={[styles.header, {top: insets.top}]} pointerEvents="box-none">
-      <Text accessibilityRole="header" numberOfLines={1} style={[chatType.bodyXlMedium(), styles.title]}>{live.active ? ct('liveTalk') : props.session?.title || chatTitle}</Text>
-      <Pressable testID="open-history" accessibilityRole="button" accessibilityLabel={t('history')} onPress={openHome} hitSlop={8}
-        style={({pressed}) => [styles.headerButton, pressed && styles.pressed]}><VoiceIcon name="home" size={24}/></Pressable>
+      {isMainChat ? (
+        <Pressable testID="open-menu" accessibilityRole="button" accessibilityLabel={ct('openMenu')} accessibilityState={{expanded: drawerOpen}} onPress={openDrawer} hitSlop={8}
+          style={({pressed}) => [styles.headerButton, pressed && styles.pressed]}><ChatIcon name="menu" size={22}/></Pressable>
+      ) : (
+        <Pressable testID="return-main-chat" accessibilityRole="button" accessibilityLabel={ct('backToTaku')} onPress={selectMainChat} hitSlop={8}
+          style={({pressed}) => [styles.headerButton, pressed && styles.pressed]}><ChatIcon name="chevronLeft" size={22}/></Pressable>
+      )}
+      <Text testID="chat-title" accessibilityRole="header" numberOfLines={1} style={[chatType.bodyXlMedium(containsChinese(pageTitle)), styles.title]}>{pageTitle}</Text>
       <Pressable testID="collapse-chat" accessibilityRole="button" accessibilityLabel={ct('collapseToIsland')} onPress={collapseChat} hitSlop={8}
-        style={({pressed}) => [styles.headerButton, pressed && styles.pressed]}><VoiceIcon name="collapse" size={24}/></Pressable>
+        style={({pressed}) => [styles.headerButton, styles.headerAction, pressed && styles.pressed]}><VoiceIcon name="collapse" size={20}/></Pressable>
     </View>
-    {!!error && <View style={[styles.error, styles.errorBar, {top: headerBottom}]}><Label role="meta" style={styles.errorText}>{error}</Label><IconButton name="refresh" label={t('retry')} color={chatColors.icon} onPress={props.onRefresh}/></View>}
+    {stripShown && <TaskStrip language={language} top={headerBottom} onOpen={selectTaskThread}
+      tasks={capsules.map(item => ({id: item.thread.id, title: item.thread.title || ct('task'), status: item.status}))}/>}
+    {!!error && <View style={[styles.error, styles.errorBar, {top: contentTop}]}><Label role="meta" style={styles.errorText}>{error}</Label><IconButton name="refresh" label={t('retry')} color={chatColors.icon} onPress={props.onRefresh}/></View>}
     {voice ? <View style={[styles.livePanel, {bottom: composerBottom}]} onLayout={event => setComposerBox(event.nativeEvent.layout.height)}>
       <View style={styles.liveTranscript}>
         {/* Figma 297:433: speech and waveform only; connection state remains accessible. */}
@@ -776,7 +902,7 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
       </View>
       <View style={styles.liveControls}>
         <View style={styles.liveControlGroup}>
-          <Pressable accessibilityRole="button" accessibilityLabel="More tools" onPress={openHome} style={styles.liveControl}><VoiceIcon name="plusLive"/></Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="More tools" onPress={() => openHome()} style={styles.liveControl}><VoiceIcon name="plusLive"/></Pressable>
           <View accessibilityRole="button" accessibilityLabel="Video input unavailable" accessibilityState={{disabled: true}} style={[styles.liveControl, {opacity: 0.45}]}><VoiceIcon name="video"/></View>
         </View>
         <View style={styles.liveControlGroup}>
@@ -812,7 +938,7 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
       </Pressable>}
       {dictating ? <DictationBar transcript={dictation.transcript} placeholder={ct('listening')} levels={dictation.levels}
         finishing={dictation.phase === 'finishing'} stopLabel={ct('stopVoice')} onStop={dictation.stop}/> : <>
-      <TextInput key={props.draftSessionId} testID="message-input" accessibilityLabel={running ? t('addRequirement') : ct('ask')} placeholder={running ? t('addRequirement') : ct('ask')}
+      <TextInput key={props.draftSessionId} ref={input} testID="message-input" accessibilityLabel={running ? t('addRequirement') : composerHint} placeholder={composerHint}
         placeholderTextColor={chatColors.placeholder} value={props.draft} onChangeText={props.onDraftChange} multiline textAlignVertical={multilineComposer ? 'top' : 'center'}
         selection={caret === null ? undefined : {start: caret, end: caret}}
         onSelectionChange={event => {
@@ -848,7 +974,7 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
     {composerTools === props.draftSessionId && <ComposerTools key={composerTools} threadId={composerTools} language={language}
       attachmentLimit={props.attachments.length >= 8} onPick={props.onPickAttachment} onClose={() => setComposerTools(null)}/>}
     </>}
-    {replyMenu?.threadId === props.draftSessionId && <ReplyMenu target={replyMenu} language={language} top={headerBottom} bottom={composerTop} screenWidth={dimensions.width}
+    {replyMenu?.threadId === props.draftSessionId && <ReplyMenu target={replyMenu} language={language} top={contentTop} bottom={composerTop} screenWidth={dimensions.width}
       panel={menuCard ? {pinned: menuCard.pinned, pin: () => panelAction(pinCardToPanels, 'pinned'),
         open: () => panelAction(openPinnedCard), unpin: () => panelAction(unpinCard, 'unpinned')} : undefined}
       renderMarkdown={props.renderMarkdown} onClose={closeReplyMenu}
@@ -860,11 +986,23 @@ export function AgentChatScreen(props: AgentChatScreenProps) {
         }} : undefined}/>}
     </View>
     </View>
+    {drawerOpen && !layer && <TaskDrawer language={language} windowWidth={dimensions.width} top={insets.top}
+      bottom={keyboardVisible ? space.bottom : insets.bottom} tasks={taskThreads} states={tasks.board.states} historyError={props.historyError}
+      onSelectMain={() => { if (!isMainChat) selectMainChat(); }} onSelectTask={selectTaskThread} onCreateTask={createIndependentTask}
+      onOpenPanels={() => openHome('panels')} onOpenPlugins={() => router.push('/plugin-market')} onOpenSettings={() => router.push('/system-ai')}
+      onClosed={closeDrawer}/>}
     {layer?.kind === 'home' && <View style={StyleSheet.absoluteFill}>
-      <TakuHomePage language={language} threads={props.threads} threadId={sessionId} historyError={props.historyError} insets={insets}
+      <TakuHomePage language={language} threads={props.threads} threadId={sessionId} primaryThreadId={resolvedPrimaryId} historyError={props.historyError} insets={insets}
+        initialTab={layer.tab}
         actions={{
           openThread: id => { live.stop(); setLayer(null); props.onSelectThread(id); },
-          newChat: () => { live.stop(); setLayer(null); props.onCreateThread(); },
+          openMainChat: () => { live.stop(); setLayer(null); selectMainChat(); },
+          newChat: () => { live.stop(); setLayer(null); createIndependentTask(); },
+          // Deliberate and deep: TAKU moves to a new conversation only after the user confirms it.
+          newMainChat: onStartMainAfresh && (() => Alert.alert(ct('newMainChatTitle'), ct('newMainChatBody'), [
+            {text: ct('cancel'), style: 'cancel'},
+            {text: ct('newMainChatStart'), onPress: () => { live.stop(); setLayer(null); onStartMainAfresh(); }},
+          ])),
           openSettings: () => { setLayer(null); router.push('/system-ai'); },
           openRoute: () => { setLayer(null); router.push('/plugin-market'); },
           openNativeControls: () => { setLayer(null); router.push({pathname: '/assistant-management', params: sessionId ? {threadId: sessionId} : {}}); },
@@ -884,10 +1022,12 @@ const styles = themedStyles(() => StyleSheet.create({
   liveControlGroup: {flexDirection: 'row', gap: 16},
   liveControl: {width: 50, height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.08)'},
   root: {flex: 1, backgroundColor: colors.page}, flex: {flex: 1}, center: {textAlign: 'center'}, secondary: {color: colors.secondary},
-  // Figma 2-1: 64 dp title row (16 dp padding around 32 dp buttons), title centred.
-  header: {position: 'absolute', left: 0, right: 0, height: chatMetrics.header, paddingHorizontal: chatMetrics.side, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
-  headerButton: {width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center'}, pressed: {backgroundColor: chatColors.fillControl},
-  title: {position: 'absolute', left: 64, right: 64, textAlign: 'center'},
+  // Figma 2-1: 64 dp title row, the title centred between two 40 dp buttons (16 dp from the edges).
+  header: {position: 'absolute', left: 0, right: 0, height: chatMetrics.header, paddingHorizontal: chatMetrics.side - 4, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
+  headerButton: {width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center'}, pressed: {backgroundColor: chatColors.fillControl},
+  // Wireframe: the collapse action rests on a quiet disc; the menu and back glyphs stand alone.
+  headerAction: {backgroundColor: chatColors.assistantBubble, marginRight: 4},
+  title: {position: 'absolute', left: 64, right: 64, textAlign: 'center', color: chatColors.textPrimary},
   modalHeader: {minHeight: 56, paddingLeft: layout.gutter, paddingRight: 4, flexDirection: 'row', alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border},
   headerTitle: {flex: 1, minWidth: 0, marginRight: 8}, messages: {paddingHorizontal: chatMetrics.side, gap: chatMetrics.itemGap}, taskMessages: {gap: layout.gap}, stack: {gap: layout.gap},
   userText: {color: chatColors.userText},

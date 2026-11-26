@@ -25,6 +25,8 @@ internal object AssistantInvocationCapture {
         val received: Boolean = false,
         val foreground: String = "Current app",
         val image: Bitmap? = null,
+        /** One-shot grant: the first message after a power-key invocation carries this capture. */
+        val autoScreenshot: Boolean = false,
     )
 
     private var invocation: Invocation? = null
@@ -51,7 +53,9 @@ internal object AssistantInvocationCapture {
             ComposerState.userError(context, android.os.Process.myUid())?.let { throw IOException(it) }
             when (input.optString("operation")) {
                 "begin" -> {
-                    if (input.length() != 2 || input.opt("capturedAt") !is Number || descriptor != null)
+                    val auto = input.opt("autoScreenshot")
+                    if (input.length() != (if (input.has("autoScreenshot")) 3 else 2) || input.opt("capturedAt") !is Number ||
+                        auto != null && auto !is Boolean || descriptor != null)
                         throw IOException("INVALID_ARGUMENT")
                     val at = input.getLong("capturedAt")
                     val age = SystemClock.elapsedRealtime() - at
@@ -65,7 +69,7 @@ internal object AssistantInvocationCapture {
                             })
                         observingPolicy = true
                     }
-                    val current = Invocation(UUID.randomUUID().toString(), at)
+                    val current = Invocation(UUID.randomUUID().toString(), at, autoScreenshot = auto == true)
                     invocation = current
                     main.postDelayed({
                         synchronized(this) {
@@ -113,11 +117,16 @@ internal object AssistantInvocationCapture {
         }
     }
 
-    fun reserve(context: Context, requestId: String, options: JSONObject) {
+    fun reserve(context: Context, requestId: String, options: JSONObject, allowAutoScreenshot: Boolean) {
         sweep(context)
-        if (!options.optBoolean("includeScreenshot")) return
-        val current = current(context)
-        val image = current?.image ?: return
+        // Claim the grant and its image together; a concurrent invocation may replace the capture.
+        val current = synchronized(this) {
+            val capture = current(context) ?: return
+            if (allowAutoScreenshot && capture.autoScreenshot) invocation = capture.copy(autoScreenshot = false)
+            capture
+        }
+        if (!options.optBoolean("includeScreenshot") && !(allowAutoScreenshot && current.autoScreenshot)) return
+        val image = current.image ?: return
         val file = screenshotFile(context, requestId)
         val root = file.parentFile!!
         if (!root.isDirectory && !root.mkdirs() && !root.isDirectory) throw IOException("SCREENSHOT_UNAVAILABLE")
@@ -126,6 +135,7 @@ internal object AssistantInvocationCapture {
                 if (!image.compress(Bitmap.CompressFormat.PNG, 100, output)) throw IOException("SCREENSHOT_UNAVAILABLE")
                 output.fd.sync()
             }
+            options.put("includeScreenshot", true)
             options.put("invocationScreenshot", requestId).put("invocationForeground", current.foreground)
         } catch (failure: Exception) {
             file.delete()

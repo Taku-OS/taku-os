@@ -16,3 +16,6 @@ e94e1bc9ebef0969742ccbb829bd20d99424b2dd:image/runtime-assets.lock.json:generic-
 917127ec8c8c885f0fa6d43e39bada781446e3a7:image/runtime-assets.lock.json:generic-api-key:491
 # Figma design document identifier in the onboarding asset provenance, not a credential.
 f9026a95b0093e181ef824947624cf94bb48f6b4:system/agent-app/modules/taku-home/android/src/main/assets/onboarding/connect-ai.source.json:generic-api-key:2
+# SHA-256 content digest of SecretField.tsx in the TakuAgent 0.5.2 code 14 source-input lock, not a credential.
+# Verified against the exact 859cc006 source blob bound by this APK release.
+319d262a6210db7d557ad96ed8ce41a5a10cb6f5:image/runtime-assets.lock.json:generic-api-key:534

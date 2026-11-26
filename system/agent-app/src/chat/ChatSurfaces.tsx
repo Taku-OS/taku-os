@@ -1,12 +1,32 @@
 import React, {useState, type ReactNode} from 'react';
-import {StyleSheet, View, useWindowDimensions} from 'react-native';
+import {Pressable, StyleSheet, Text, View, useWindowDimensions} from 'react-native';
 import Svg, {Defs, LinearGradient, Rect, Stop} from 'react-native-svg';
-import {chatColors, chatMetrics, themedStyles} from './chatTheme';
+import {chatColors, chatMetrics, chatType, themedStyles} from './chatTheme';
+import {chatText, type ChatTextKey} from './chatText';
 
 /** Figma 300:677 / 300:686: hug the reply, leaving 48dp at the opposite edge. */
 export function AssistantBubble({children}: {children: ReactNode}) {
   const {width} = useWindowDimensions();
   return <View style={[styles.bubble, {maxWidth: Math.max(0, width - chatMetrics.side * 2 - chatMetrics.bubbleMinInset)}]}>{children}</View>;
+}
+
+const quickStarts: readonly (readonly [label: ChatTextKey, prompt: ChatTextKey])[] = [
+  ['quickTicket', 'quickTicketPrompt'], ['quickWeek', 'quickWeekPrompt'],
+  ['quickMessage', 'quickMessagePrompt'], ['quickResearch', 'quickResearchPrompt'],
+];
+
+/**
+ * The quick starts under TAKU's greeting in an empty conversation (Zile's wireframe): quiet
+ * capsules in the reply's own tone. One hands the composer an opening line to finish.
+ */
+export function QuickStarts({language, onStart}: {language: 'en' | 'zh'; onStart: (prompt: string) => void}) {
+  const t = chatText(language);
+  return <View testID="quick-starts" style={styles.quickStarts}>
+    {quickStarts.map(([label, prompt]) => <Pressable key={label} testID={`quick-start-${label}`} accessibilityRole="button" accessibilityLabel={t(label)}
+      onPress={() => onStart(t(prompt))} style={({pressed}) => [styles.quickStart, pressed && styles.quickStartPressed]}>
+      <Text numberOfLines={1} style={[chatType.bodyMdMedium(language === 'zh'), styles.quickStartText]}>{t(label)}</Text>
+    </Pressable>)}
+  </View>;
 }
 
 /** The composer's glass rim, lit from the upper left (Figma 300:666 GLASS effect). */
@@ -29,4 +49,8 @@ export function ComposerGlassRim({multiline}: {multiline: boolean}) {
 const styles = themedStyles(() => StyleSheet.create({
   bubble: {alignSelf: 'flex-start', backgroundColor: chatColors.assistantBubble, borderRadius: 16,
     borderBottomLeftRadius: 4, padding: 8, gap: 8},
+  quickStarts: {flexDirection: 'row', flexWrap: 'wrap', gap: 8},
+  quickStart: {height: 38, borderRadius: 19, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: chatColors.assistantBubble},
+  quickStartPressed: {opacity: 0.7},
+  quickStartText: {color: chatColors.textPrimary, fontSize: 13, lineHeight: 18},
 }));
