@@ -2,14 +2,11 @@
 """Validate every declared module before installing generated kernel artifacts."""
 import hashlib,json,pathlib,shutil,sys
 dist,dest,results=map(pathlib.Path,sys.argv[1:])
-files={p.name:p for p in dist.iterdir() if p.is_file()}
-required={'boot.img'}
-for listing in dest.glob('*.modules.load*'):
-    for line in listing.read_text().splitlines():
-        item=line.strip()
-        if item and not item.startswith('#'):required.add(pathlib.PurePosixPath(item).name)
-missing=sorted(required-files.keys())
-if missing:raise SystemExit('Incomplete kernel distribution: '+str(missing))
+from kernel_cache import distribution
+try:
+    files, required = distribution(dist, dest)
+except ValueError as error:
+    raise SystemExit(str(error)) from error
 records=[]
 for name,p in sorted(files.items()):
     h=hashlib.sha256()

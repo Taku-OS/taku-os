@@ -1,6 +1,22 @@
 #!/bin/bash
 # Runs only inside the dedicated amd64 Linux builder. No device operations.
 set -euo pipefail
+# Preserve the existing positional build mode while accepting a cache option.
+build_args=()
+while (( $# )); do
+    if [[ "$1" == "--kernel-cache-dir" ]]; then
+        [[ $# -ge 2 && -n "$2" ]] || { echo 'Missing kernel cache directory' >&2; exit 2; }
+        export TAKU_KERNEL_CACHE_DIR="$2"
+        shift 2
+    else
+        build_args+=("$1")
+        shift
+    fi
+done
+if (( ${#build_args[@]} )); then set -- "${build_args[@]}"; fi
+if [[ -n "${TAKU_KERNEL_CACHE_DIR:-}" && "$TAKU_KERNEL_CACHE_DIR" != /* ]]; then
+    export TAKU_KERNEL_CACHE_DIR="$PWD/$TAKU_KERNEL_CACHE_DIR"
+fi
 cd /src
 exec 9>.taku-builder.lock
 flock -n 9 || { echo 'Another builder owns this generated checkout' >&2; exit 1; }
@@ -12,10 +28,15 @@ state={'phase':sys.argv[1],'updatedAt':datetime.datetime.now(datetime.timezone.u
 tmp=p.with_suffix('.tmp');tmp.write_text(json.dumps(state,indent=2)+'\n');tmp.replace(p)
 PY
 }
+timing() {
+    python3 /taku/image/build_timing.py /results "$@"
+}
+timing start
 fifo_guard=
 finish() {
     code=$?
     if [ -n "$fifo_guard" ]; then kill "$fifo_guard" 2>/dev/null || true; wait "$fifo_guard" 2>/dev/null || true; fi
+    timing finish "$code"
     if [ "$code" -ne 0 ]; then phase "failed-exit-$code"; fi
 }
 trap finish EXIT
@@ -120,13 +141,16 @@ mkdir -p .repo/local_manifests
 cp /taku/image/manifests/devices.xml .repo/local_manifests/taku-devices.xml
 phase prepare-cache
 python3 /taku/image/prepare-reference-cache.py --source-root /src --reference-root /previous --empty-reference-parent /previous
+timing sync
 phase source-sync
 # Let all in-flight checkouts finish on an error; fail-fast can leave Git locks.
 repo sync --detach -c -j4 --optimized-fetch --no-clone-bundle
 repo manifest -r -o /results/resolved-manifest.xml
 
+timing kernel
 phase kernel-build
 bash /taku/image/build-kernel.sh
+timing prepare
 
 integrate_taku
 fi
@@ -184,6 +208,7 @@ unset SOONG_UI_NINJA_ARGS
 # Kernel distribution was built and checked above from the pinned manifest.
 # Avoid Lineage lunch fetching a second, floating kernel source tree.
 export SKIP_KERNEL_BUILD=true
+timing aosp_build
 set +u
 source build/envsetup.sh
 source vendor/lineage/vars/aosp_target_release

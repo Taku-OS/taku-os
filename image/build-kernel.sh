@@ -1,6 +1,15 @@
 #!/bin/bash
 # Invoked under the parent builder's exclusive source-volume lock.
 set -euo pipefail
+if [[ "${1:-}" == "--kernel-cache-dir" && $# == 2 && -n "$2" ]]; then
+    export TAKU_KERNEL_CACHE_DIR="$2"
+elif (( $# )); then
+    echo "usage: $0 [--kernel-cache-dir DIR]" >&2
+    exit 2
+fi
+if [[ -n "${TAKU_KERNEL_CACHE_DIR:-}" && "$TAKU_KERNEL_CACHE_DIR" != /* ]]; then
+    export TAKU_KERNEL_CACHE_DIR="$PWD/$TAKU_KERNEL_CACHE_DIR"
+fi
 kernel_root=/src/out-kernel/google/gs-6.1
 mkdir -p "$kernel_root"
 cd "$kernel_root"
@@ -46,9 +55,14 @@ repo sync --detach -c -j4 --optimized-fetch --no-clone-bundle
 repo manifest -r -o /results/resolved-kernel-manifest.xml
 # Upstream builds the device modules against its fixed signed GKI build number.
 # Do not replace that kernel ABI with an arbitrary locally built GKI.
-./build_caimito.sh --jobs=4 --local_ram_resources=24576
-python3 /taku/image/install-kernel.py "$kernel_root/out/caimito/dist" \
-    /src/device/google/caimito-kernels/6.1 /results
-# Release the persistent kernel JVM before Soong's memory-heavy graph analysis.
-# The upstream wrapper selects the same output root; shutdown retains its cache.
-./tools/bazel shutdown
+if [[ -n "${TAKU_KERNEL_CACHE_DIR:-}" ]]; then
+    # Repo sync preserves local modifications. Such inputs cannot use a key
+    # based on the resolved manifest's committed source and toolchain versions.
+    if ! repo forall -e -c 'status=$(git status --porcelain) && test -z "$status"'; then
+        echo 'Kernel cache disabled for a modified kernel checkout' >&2
+        unset TAKU_KERNEL_CACHE_DIR
+    fi
+fi
+python3 /taku/image/kernel_cache.py --product lineage_tokay --target caimito \
+    "$kernel_root/out/caimito/dist" /src/device/google/caimito-kernels/6.1 /results \
+    ./build_caimito.sh --jobs=4 --local_ram_resources=24576
