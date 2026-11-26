@@ -21,6 +21,11 @@ export const homeColors = {
   bubble: content(0.06), composer: surface(0.92), chip: '#FFFFFF', placeholder: content(0.36),
   surfaceRaised: surface(0.8), surfaceGlass: surface(0.48), fillControl: content(0.08), hairline: content(0.08),
   inverse: '#1B1B1B', send: '#FF5A1F', shadow: content(0.16),
+  /** Floating chrome (title-row buttons, composer menus); the light chat keeps its white glass. */
+  glass: surface(0.8),
+  /** Chat Polish 2-x / 3-x: current row, dialog scrim, field inset, primary pill and destructive text. */
+  selection: content(0.06), scrim: content(0.48), fieldInset: content(0.06),
+  pill: '#1B1B1B', pillText: '#FFFFFF', destructive: '#D7263D',
   /** Under the window blur (Surface/400) and the opaque fallback (Main/Canvas). */
   backdropTint: surface(0.24), backdropFallback: '#E3E3E3',
   /** Surface/400 as the window's #AARRGGBB tint under the system blur. */
@@ -38,7 +43,10 @@ const dark = {
   textPrimary: surface(0.92), textSecondary: surface(0.8), textTertiary: surface(0.64), textPlaceholder: surface(0.48),
   textError: '#FFB4AB', icon: '#FFFFFF', iconDisabled: surface(0.16),
   bubble: surface(0.8), assistantBubble: surface(0.06), userText: content(0.8),
-  composer: surface(0.08), chip: surface(0.08), placeholder: surface(0.36),
+  // Chat Polish 1-0: title-row buttons, the composer and its menus share one #202020 / 64 % glass.
+  composer: 'rgba(32,32,32,0.64)', glass: 'rgba(32,32,32,0.64)', chip: surface(0.08), placeholder: surface(0.36),
+  // 2-1 current row Surface/100; 3-1-2 / 3-3 overlay Content/800; 1-2 field Content/500; white pill; #FF4856.
+  selection: surface(0.06), scrim: content(0.8), fieldInset: content(0.36), pill: '#FFFFFF', pillText: '#1B1B1B', destructive: '#FF4856',
   surfaceRaised: '#262626', surfaceGlass: surface(0.08), fillControl: surface(0.08), hairline: surface(0.16),
   // One native tint over the existing cross-window blur, never another opaque React layer.
   backdropTint: content(0.92), backdropTintArgb: '#EB000000', backdropFallback: '#121212',
@@ -53,8 +61,8 @@ const dark = {
    * plain tertiary text.
    */
   statusAttention: '#F4C275', statusProgress: '#B5D0EE',
-  /** The Task card's outline, and the dim over the conversation beside the open drawer. */
-  cardOutline: surface(0.1), scrim: content(0.56),
+  /** The Task card's outline. */
+  cardOutline: surface(0.1),
   /** The choice being sent from a Task card: the user bubble's own pair. */
   chosen: surface(0.8), onChosen: content(0.8),
 };
@@ -177,6 +185,7 @@ export const chatType = {
   headingXl: (chinese = false) => heading(24, 0.01, chinese),
   heading2xl: (chinese = false) => heading(32, 0.02, chinese),
   headingLg: (chinese = false): TextStyle => ({...style(20, 1.05, 'regular', chinese), fontFamily: chinese ? han.regular : 'TakuDisplay'}),
+  bodyXl: (chinese = false) => style(18, 1.55, 'regular', chinese),
   bodyXlMedium: (chinese = false) => style(18, 1.55, 'medium', chinese),
   bodyLg: (chinese = false) => style(16, 1.5, 'regular', chinese),
   bodyLgMedium: (chinese = false) => style(16, 1.5, 'medium', chinese),

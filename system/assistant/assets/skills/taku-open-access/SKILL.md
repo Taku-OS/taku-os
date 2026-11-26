@@ -221,9 +221,11 @@ taku_call "$D" composer/write '{"threadId":"","revision":"CURRENT_REVISION","tex
 taku_call "$D" composer/createThread '{}'
 taku_call "$D" composer/move '{"threadId":"","revision":"REVISION","targetThreadId":"FRESH_THREAD_UUID"}'
 taku_call "$D" composer/removeAttachment '{"threadId":"THREAD_UUID","expectedRevision":"REVISION","attachmentId":"ATTACHMENT_UUID"}'
+taku_call "$D" composer/plugin/add '{"threadId":"THREAD_UUID","expectedRevision":"REVISION","pluginId":"org.example.plugin"}'
+taku_call "$D" composer/plugin/remove '{"threadId":"THREAD_UUID","expectedRevision":"REVISION","pluginId":"org.example.plugin"}'
 taku_call "$D" composer/options/read '{"threadId":"THREAD_UUID"}'
 taku_call "$D" composer/options/write '{"threadId":"THREAD_UUID","options":{"responseStyle":"detailed"}}'
-taku_call "$D" composer/submit '{"threadId":"THREAD_UUID","revision":"REVISION","requestId":"REQUEST_UUID","action":"sendMessage","attachmentIds":[]}'
+taku_call "$D" composer/submit '{"threadId":"THREAD_UUID","revision":"REVISION","requestId":"REQUEST_UUID","action":"sendMessage","attachmentIds":[],"pluginIds":[]}'
 taku_call "$D" composer/receipt '{"threadId":"THREAD_UUID","requestId":"REQUEST_UUID"}'
 taku_call "$D" composer/settle '{"threadId":"THREAD_UUID","requestId":"REQUEST_UUID"}'
 taku_call "$D" composer/release '{"threadId":"THREAD_UUID","requestId":"REQUEST_UUID"}'
@@ -240,9 +242,11 @@ taku_call "$D" manageSystemAi '{"operation":"readComposerScreenshots"}'
 taku_call "$D" manageSystemAi '{"operation":"setComposerScreenshots","enabled":true}'
 ```
 
-Use a lowercase conversation UUID or `threadId:""` for the new-chat slot. Locked user 0 returns `USER_LOCKED` and other users return `USER_UNAVAILABLE`. Drafts return `{threadId,revision,text,attachments,recovery,pendingReceipts}`; attachments carry `{id,name,mime,size}`. Write uses the current revision (initial `""`), preserves up to 16,000 characters, clears on empty input, and leaves the revision unchanged for identical text. `DRAFT_REVISION_CONFLICT` returns the current revision; re-read then reconcile. Other errors: `INVALID_ARGUMENT`, `REQUEST_TOO_LARGE` (>48,000 characters), `DRAFT_SAVE_FAILED`.
+Use a lowercase conversation UUID or `threadId:""` for the new-chat slot. Locked user 0 returns `USER_LOCKED` and other users return `USER_UNAVAILABLE`. Drafts return `{threadId,revision,text,attachments,plugins,recovery,pendingReceipts}`; attachments carry `{id,name,mime,size}` and plugins `{id,name}`. Write uses the current revision (initial `""`), preserves up to 16,000 characters, clears on empty input, and leaves the revision unchanged for identical text. `DRAFT_REVISION_CONFLICT` returns the current revision; re-read then reconcile. Other errors: `INVALID_ARGUMENT`, `REQUEST_TOO_LARGE` (>48,000 characters), `DRAFT_SAVE_FAILED`.
 
 `composer/attach` takes `{threadId,expectedRevision,name,mime}` and a read-only FD in `extras["attachment"]`; shell clients can add `uri` after granting the assistant read access to the `content:` URI. The shell command cannot carry an FD. Limit is eight files and 20,000,000 bytes each. Errors: `ATTACHMENT_LIMIT`, `ATTACHMENT_TOO_LARGE`, `ATTACHMENT_UNAVAILABLE`, `ATTACHMENT_ACCESS_DENIED`.
+
+`composer/plugin/add` attaches an installed, enabled God Mode plugin (the composer's `@` picker; list candidates with `pluginManager` `list`) to the next message; `composer/plugin/remove` detaches it. `pluginId` matches `[A-Za-z0-9_.@:-]{1,128}` (`INVALID_ARGUMENT`). Unknown, disabled or unreachable plugins, and removing one not in the draft, return `PLUGIN_UNAVAILABLE`; more than four returns `PLUGIN_LIMIT`. Re-adding a present plugin keeps the revision. Submit the draft's plugin IDs as optional `pluginIds` (same codes); the turn then gets `The user attached the plugin "NAME" (id: ID) to this message. Prefer this plugin's tools for this request: TOOLS.` after the text, and acceptance removes them from the draft. Plugins alone are `INVALID_TEXT`.
 
 Submit attachment IDs in order; attachment-only messages are valid. For follow-ups use `action:"steer",expectedTurnId`; for Panel updates use `action:"continue",panelId,expectedSourceVersion`. Request IDs are replayable only for identical input (`REQUEST_ID_REUSED`). Check `composer/receipt` after IPC loss: queued/accepted means published, notSent means rejected, missing/deliveryUnknown require review. Settle applies a confirmed receipt to its original revision; release preserves content and unlocks editing. Handoff saves a displaced draft and deduplicates identical handoff IDs. Restore into empty drafts using a recovery entry or a same-thread failed/needs_user task. Re-read after `DRAFT_NOT_EMPTY`, `RECOVERY_UNAVAILABLE` or `TASK_FAILURE_CHANGED`.
 
@@ -739,7 +743,7 @@ Pin source is a native `matterId` (`threadId/key`) or an exact primary reply (th
 
 Open returns `{accepted:true,panelId}`; verify navigation readback `{available,visible,selectedPanelId}` (also `content://org.agentos.agent.panel-navigation`, method `navigation`). Equivalent launch: `am start -a org.agentos.agent.action.OPEN_PANEL --es panelId PANEL_UUID`. Unknown IDs fail `PANEL_NOT_FOUND`. Directory change notifications at `content://org.agentos.assistant.open-access/panels` carry no event data; re-read revision. Matter has its own subscription.
 
-`panels/continue` sends a task bound to this panel and its expected source version; use the ordinary submission receipt for busy/queued/unknown outcomes. Opening the original thread through `am start -n org.agentos.agent/.MainActivity --es threadId THREAD_UUID` keeps subsequent messages ordinary. For external Continue navigation use a fresh UUID `panelLaunchId` per intentional navigation; app-owned launches are consumed on the first accepted send and retained on rejected/unknown delivery. A deleted origin leaves the last snapshot viewable, but returns `SOURCE_THREAD_NOT_FOUND` on continue.
+`panels/continue` sends a task bound to this panel and its expected source version; use the ordinary submission receipt for busy/queued/unknown outcomes. The turn (here and for `composer/submit` with `action:"continue"`) gets one text item after your text: `The user is editing the pinned panel "TITLE" (panelId: PANEL_UUID, matterId: MATTER_ID, sourceVersion: N). Update this panel in your reply. Its current content:` then a newline and compact JSON `{"card":...,"cardView":{"ui":...,"review":[...]}}` — the current rendered card without `actionRef`s plus the card's drafts/selections (`cardView` omitted only when no card state can be read), cut at 24,000 characters with `[panel content truncated]`. Chat history does not show it as typed text. Opening the original thread through `am start -n org.agentos.agent/.MainActivity --es threadId THREAD_UUID` keeps subsequent messages ordinary. For external Continue navigation use a fresh UUID `panelLaunchId` per intentional navigation; app-owned launches are consumed on the first accepted send and retained on rejected/unknown delivery. A deleted origin leaves the last snapshot viewable, but returns `SOURCE_THREAD_NOT_FOUND` on continue.
 
 `matter/read` returns `{snapshot,cursor}` with native action capabilities, derived `pin,cardView,presentation`; presentation is trusted primary reply or a matter request/source. `matter/dispatch` uses declared `actionRef`, matter revision and `values`, and returns the GUI execution receipt. `card-view/read` returns `matterId,uiRevision,ui,review?` (draft/source/review flags and selected IDs). Apply names declared fields or selections and rejects unknown IDs/types; false, zero and empties are values. UI changes notify Matter even without a business revision change. Replacement makes old-source writes `STALE_SOURCE`; re-read and review the new schema. An already committed old-source edit can still replay its receipt. Storage exhaustion returns an error and retains pinned entries.
 
@@ -890,6 +894,107 @@ taku_call "$A" gesture/activate '{"id":"my-gesture-001"}'
 ### Open-access boundary and request behavior
 
 Audio, Feed events, widget actions, alarms/media and voice can expose personal data or act on the device. Check the per-provider permission policy and Android runtime restrictions. Gesture IDs only sequence operations. SystemUI supplies the native island; `listeningHeaderHost:"unavailable"` means its ROM provider is absent. Use `cmd statusbar island state` for renderer/native readiness, visible text and suggestion count, and `cmd statusbar island action 'KEY' '{"id":"ID"}'` for the same action as a card tap.
+
+## Lock screen
+
+The lock screen is SystemUI's keyguard with Taku's layout. It reads the same stock Android settings
+as Settings and the wallpaper picker. There is no separate Taku store for it. Values are per user, so add
+`--user N` for another user.
+
+```sh
+# Clock face. Unset or unknown means the Taku clock ("TAKU"). "DEFAULT" is the stock Android clock.
+settings get secure lock_screen_custom_clock_face
+settings put secure lock_screen_custom_clock_face '{"clockId":"TAKU"}'
+settings put secure lock_screen_custom_clock_face '{"clockId":"DEFAULT"}'
+# Clock height morph follows the standard animation scale (0 disables motion).
+# Read before changing, and restore the previous value after testing.
+settings get global animator_duration_scale
+settings put global animator_duration_scale 0
+# Face unlock: 0 or unset (the Taku default) keeps the user on the lock screen after a face match,
+# showing the unlocked layout. 1 goes straight to the app or Home.
+settings get secure face_unlock_dismisses_keyguard
+settings put secure face_unlock_dismisses_keyguard 0
+# Stock notification policy. It applies only after authentication, because Taku hides every
+# notification until the user authenticates. That rule is fixed and has no setting.
+settings get secure lock_screen_show_notifications
+settings get secure lock_screen_allow_private_notifications
+settings get secure lock_screen_show_silent_notifications
+# The default lock wallpaper shipped in the image. It is read-only. A wallpaper the user sets replaces it.
+getprop ro.config.lock_wallpaper
+```
+
+The bottom shortcuts default to Flashlight (`bottom_start`) and Camera (`bottom_end`). They are
+SystemUI quick affordances. The user changes them by long-pressing the lock screen, then choosing
+Customize and Shortcuts. Agents use `cmd statusbar lockscreen shortcuts`, which reaches the same
+selection store with the picker's rules. The picker's own provider
+(`content://com.android.systemui.customization`) needs `CUSTOMIZE_SYSTEM_UI`, which the shell does
+not hold.
+
+```sh
+cmd statusbar lockscreen shortcuts
+# {ok, enabled, slots:[{id, maxSelected, selected:[SHORTCUT]}],
+#  shortcuts:[{id, name, enabled, explanation}], openApp:{component, label, isDefault}}
+# enabled:false means device policy disabled lock-screen shortcuts.
+cmd statusbar lockscreen shortcuts set bottom_start taku_open_app   # SHORTCUT from shortcuts[].id
+cmd statusbar lockscreen shortcuts clear bottom_end                 # empty slot (clearing twice is ok)
+cmd statusbar lockscreen shortcuts app                              # current "Open app" target
+cmd statusbar lockscreen shortcuts app com.example/.MainActivity    # a launcher activity of this user
+cmd statusbar lockscreen shortcuts app default                      # back to Taku
+```
+
+Built-in IDs include `flashlight`, `camera`, `video_camera`, `do_not_disturb`, `mute`, `qr_code_scanner`,
+`wallet` and `home`. Always take the IDs from `shortcuts`, because availability depends on the device.
+`taku_open_app` ("Open app") opens one chosen app, Taku by default. The target is stored in
+`settings get secure taku_lockscreen_open_app`. Change it with the command, which validates it; a
+target that is missing or no longer launchable falls back to Taku. An app that cannot show over the
+lock screen asks for authentication first. The picker's configure button for "Open app" opens the same
+chooser.
+
+Shortcut errors:
+- `DISABLED_BY_POLICY`: device policy disabled lock-screen shortcuts.
+- `INVALID_SLOT`, `INVALID_SHORTCUT`, `INVALID_COMPONENT`: the ID or component is wrong.
+- `SHORTCUT_UNAVAILABLE`: the shortcut's `enabled` is false; its `explanation` says why.
+- `NOT_LAUNCHABLE`: the component is not an enabled launcher activity of this user.
+- `WRITE_FAILED`: the change could not be stored.
+
+Unlocking always goes through the user's own PIN, pattern, password, face or fingerprint. An Agent
+cannot bypass or perform authentication.
+
+After the user authenticates, the lock screen shows the compact clock, one card per notification
+(newest first) and the Taku button. While it is locked, it shows only the date, the tall clock and
+the shortcuts. `cmd statusbar lockscreen` reads and operates the same cards. It uses the same list,
+checks and stock SystemUI paths as a tap, a swipe or a button press. Every reply is one JSON line.
+`ok:false,error:CODE` is a failure.
+
+```sh
+cmd statusbar lockscreen state
+# {ok, state:{keyguardShowing, authenticated, dozing, available, notificationCount,
+#  clockSize:"large"|"small"}}   large = tall clock (locked), small = compact (authenticated)
+# available = keyguardShowing && authenticated: only then are cards and Taku shown or operable.
+cmd statusbar lockscreen notifications
+# {ok, state, notifications:[{key, package, app, title, text, context, when, conversation,
+#  sensitive, dismissable, clickable, layout:"compact"|"expanded", actions:[{index, title}]}]}
+# Empty while locked. A sensitive card carries the app's public version or only the app name.
+cmd statusbar lockscreen open 'KEY'            # tap: opens the notification and leaves the lock screen
+cmd statusbar lockscreen dismiss 'KEY'         # swipe: only when dismissable is true
+cmd statusbar lockscreen action 'KEY' INDEX    # a card button; INDEX from actions[].index
+cmd statusbar lockscreen taku                  # Taku button: leaves the lock screen, opens Taku
+```
+
+Take KEY and INDEX from `notifications`. Never build keys yourself. Only the listed buttons are
+accepted. Reply (RemoteInput) and contextual actions are not exposed here. Errors:
+- `KEYGUARD_NOT_SHOWING`: the phone is already unlocked. Use the normal notification and app paths.
+- `LOCKED`: the user has not authenticated.
+- `NOT_FOUND`: the key or index is no longer listed; re-read `notifications`.
+- `NOT_READY`: the notification is still loading; retry.
+- `NOT_CLICKABLE`: the notification has no intent to open.
+- `NOT_DISMISSABLE`, `INVALID_ACTION`, `CANCELED`: the app refused, or the intent is gone.
+- `TAKU_UNAVAILABLE`, `USAGE`: Taku is not installed, or the arguments are wrong.
+- `TIMEOUT`: SystemUI's main thread did not answer within 5 s; read `state` again before retrying.
+
+`open`, `taku` and buttons that start an activity leave the lock screen like the matching tap, so
+only run them when the user asked. If SystemUI could not register the `lockscreen` name, the same commands are under
+`cmd statusbar taku-lockscreen`.
 
 ## Location arrival events
 

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Face unlock keeps the user on the lock screen (like Face ID): notifications and Taku AI appear
+         once authenticated, and swiping up goes Home. Users may still turn on "Skip lock screen",
+         stored in Settings.Secure.face_unlock_dismisses_keyguard. -->
+    <bool name="config_faceAuthDismissesKeyguard">false</bool>
+</resources>

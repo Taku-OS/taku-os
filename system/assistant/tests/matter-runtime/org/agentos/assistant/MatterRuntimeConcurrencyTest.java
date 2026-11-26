@@ -659,6 +659,12 @@ public final class MatterRuntimeConcurrencyTest {
         String task=submission.getString("taskId");
         JSONObject request=SourceAdapters.readObject(new File(new File(TaskRuntime.TASKS,task),"request.json"));
         check(request.getJSONObject("panelUpdate").getString("panelId").equals(panelId)&&request.getJSONObject("panelUpdate").getLong("sourceVersion")==0,"Continue omitted the trusted exact target");
+        String note=request.getString("panelContext");
+        check(org.agentos.lab.ComposerInput.isPanelContext(note)&&note.startsWith("The user is editing the pinned panel \""+panel.getString("title")+"\" (panelId: "+panelId+", matterId: "+THREAD+"/editable, sourceVersion: 0). Update this panel in your reply. Its current content:\n"),"Continue omitted the panel note: "+note.substring(0,Math.min(300,note.length())));
+        JSONObject noteContent=new JSONObject(note.substring(note.indexOf('\n')+1));
+        check(noteContent.getJSONObject("card").getString("key").equals("editable")&&noteContent.getJSONObject("card").getJSONArray("blocks").length()>0,"Panel note omitted the current card");
+        check(noteContent.getJSONObject("cardView").getJSONObject("ui").getJSONObject("fields").getJSONObject("quantity").getInt("draft")==0,"Panel note omitted the user's card-view drafts");
+        check(!note.contains("actionRef")&&!note.contains(oldAction.getString("actionRef")),"Panel note leaked a capability ref");
         JSONObject reply=completionReply("replacement","turn-main");
         JSONArray updatedBlocks=reply.getJSONObject("card").getJSONObject("request").getJSONArray("blocks");
         for(int i=0;i<updatedBlocks.length();i++){JSONObject block=updatedBlocks.getJSONObject(i);if(block.getString("id").equals("quantity")){block.put("value",new JSONObject().put("type","text").put("value","new source"));block.put("config",new JSONObject().put("editor","text"));}}

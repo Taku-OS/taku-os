@@ -826,6 +826,8 @@ public final class CodexAppServer implements AutoCloseable {
             HarnessContext.prepare(server, activeThread,
                     new JSONObject(request.toString()).put("replyMode", chat ? "primary" : "disabled"));
             JSONArray content = ComposerInput.text(request.getString("prompt"));
+            if (request.has("panelUpdate")) ComposerInput.appendPanelContext(content, request.optString("panelContext"));
+            ComposerInput.appendPlugins(content, request.optJSONArray("plugins"));
             if ((!chat || request.optBoolean("includeScreenshot", false))
                     && new File(request.optString("screenshot")).isFile())
                 content.put(

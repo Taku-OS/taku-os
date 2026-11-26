@@ -29,6 +29,7 @@ CP="$OUTPUT/json-20240303.jar:$ANDROID_JAR"
  system/assistant/src/org/agentos/assistant/SystemAiCompatibility.java \
  system/assistant/tests/org/agentos/assistant/SystemAiCompatibilityTest.java \
  system/assistant/src/org/agentos/assistant/AgentConversation.java \
+ system/assistant/broker/org/agentos/lab/ComposerInput.java \
  system/assistant/src/org/agentos/assistant/NativeToolPresentation.java \
  system/assistant/tests/org/agentos/assistant/NativeConversationTest.java
 for test in org.agentos.lab.JevDecisionClientTest org.agentos.lab.JevMagpieTest \

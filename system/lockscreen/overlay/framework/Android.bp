@@ -1,0 +1,6 @@
+// Taku lock screen framework defaults (docs/lock-screen.md).
+runtime_resource_overlay {
+    name: "TakuLockscreenFrameworkOverlay",
+    system_ext_specific: true,
+    certificate: "platform",
+}

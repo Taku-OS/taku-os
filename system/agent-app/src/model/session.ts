@@ -202,7 +202,14 @@ function userContent(item: Json): {text: string; attachments: string[]} {
       const value = string(part.text);
       const attachment = /^User-selected attachment: (.+)\nLocal path: \/data\/user\/0\/org\.agentos\.assistant\/files\/composer-attachments\//.exec(value)
         || /^用户选择的附件：(.+)\n本机路径：\/data\/user\/0\/org\.agentos\.assistant\/files\/composer-attachments\//.exec(value);
-      if (attachment) attachments.push(attachment[1]); else if (value) text.push(spokenText(value));
+      // The runtime's note for a plugin picked with `@` (ComposerInput.appendPlugins) shows as `@Name`, not typed text.
+      const plugin = /^The user attached the plugin "(.*)" \(id: [A-Za-z0-9_.@:-]{1,128}\) to this message\.( Prefer this plugin's tools for this request: .*\.)?$/s.exec(value);
+      // The runtime's note for a Panel update (ComposerInput.panelContext) carries the panel's card for the model only.
+      const panelNote = /^The user is editing the pinned panel ".*" \(panelId: [0-9a-f-]{36}, matterId: [0-9a-f-]{36}\/[a-z0-9-]{1,64}, sourceVersion: \d{1,16}\)\. Update this panel in your reply\. Its current content:\n/.test(value);
+      if (attachment) attachments.push(attachment[1]);
+      else if (plugin) attachments.push(`@${plugin[1]}`);
+      else if (panelNote) continue;
+      else if (value) text.push(spokenText(value));
     } else if (part.type === 'image' || part.type === 'localImage') {
       // Keep attachment provenance without leaking a private local filesystem path.
       attachments.push('image');
