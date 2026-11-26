@@ -6,6 +6,7 @@ Design dated 2026-11-05, **partially implemented** (see updates below). Branch `
 
 | Date | Change |
 | --- | --- |
+| 11-26 | Opt-in `taku_phone.show_background` opens the public exact-lease viewer. Successful completion can retain the existing Apps until a bounded presentation deadline; `presentationReady`, `presentationRemainingMs` and `status=ready` expose this state. This source change has host coverage; emulator, device and ROM acceptance are pending. |
 | 11-06 | One screen counts as one task, with one card per row |
 | 11-07 | `list` adds top-level `limits`: accepted `configure` ranges, used by settings for limit choices |
 | 11-07 | `waitReason.text` follows system language: Chinese for Chinese systems, English otherwise |
@@ -18,7 +19,15 @@ Design dated 2026-11-05, **partially implemented** (see updates below). Branch `
 
 Implemented fields/states: `mainThreadId`, `taskTitle`, `packageName`; `status` values `running`, `waiting_for_app`, `waiting_for_user`, `user_control`, `paused`, `stopping`; `waitReason` values `WAITING_FOR_APP`, `WAITING_FOR_USER`; `controlOwner`, `controlRevision`, `canResume`, `limits`. If broker cannot query Codex, `mainThreadId` initially falls back to this screen's `threadId`.
 
-Each conversation needing the phone—main, subagent, Jev background, or gateway—gets its own background screen. A completed turn returns it for reuse. The Feed presents tasks, one screen/card per main conversation or subagent, showing task name, current app, state, waiting/error reason, and entry to its screen. Idle screens are hidden.
+Each conversation needing the phone—main, subagent, Jev background, or gateway—gets its own background screen. A completed turn normally returns it for reuse. An explicit presentation hold keeps a successfully completed result until its original deadline (10–1800 seconds, default 600). Failed/interrupted turns do not retain a presentation. Expiry does not interrupt a running turn or take a screen from the user; explicit cleanup still applies. The Feed presents tasks, one screen/card per main conversation or subagent, showing task name, current app, state, waiting/error reason, and entry to its screen. Idle screens are hidden.
+
+`presentationReady:true` means the native turn completed successfully while a
+requested presentation deadline was still valid. `presentationRemainingMs` is
+the nonnegative time remaining on that request, not an inactivity timeout.
+Neither field proves App login, business success or actual visible rendering.
+These fields are read from the same dedicated-screen ledger through public
+`workspaces/list`, the frontend gateway and the native tools. Preview launch
+uses the public `workspaces/preview` validation and does not grant input.
 
 ## Interface
 

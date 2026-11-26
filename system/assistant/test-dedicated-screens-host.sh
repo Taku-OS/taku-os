@@ -12,6 +12,8 @@ rm -rf "$task_out" && mkdir -p "$task_out/classes"
  system/assistant/broker/org/agentos/lab/CleanupWork.java \
  system/assistant/broker/org/agentos/lab/PhoneTasks.java \
  system/assistant/broker/org/agentos/lab/DedicatedScreens.java \
+ system/assistant/broker/org/agentos/lab/BackgroundPresentation.java \
+ system/assistant/broker/org/agentos/lab/BoundedCommand.java \
  system/assistant/broker/org/agentos/lab/PhoneSubAgents.java \
  system/assistant/broker/org/agentos/lab/PhoneExecutionScreens.java \
  system/assistant/broker/org/agentos/lab/WorkspacePolicy.java \
@@ -24,7 +26,9 @@ rm -rf "$task_out" && mkdir -p "$task_out/classes"
  system/assistant/tests/dedicated-screens/org/agentos/lab/DedicatedScreensCapacityTest.java \
  system/assistant/tests/dedicated-screens/org/agentos/lab/DedicatedScreensFamilyTest.java \
  system/assistant/tests/dedicated-screens/org/agentos/lab/DedicatedScreensRetentionTest.java \
- system/assistant/tests/dedicated-screens/org/agentos/lab/WorkspaceRevocationTest.java
+ system/assistant/tests/dedicated-screens/org/agentos/lab/WorkspaceRevocationTest.java \
+ system/assistant/tests/dedicated-screens/org/agentos/lab/BackgroundPresentationTest.java \
+ system/assistant/tests/dedicated-screens/org/agentos/lab/PresentationRetentionTest.java
 if [ "${1:-}" = family ]; then
  "$JDK/bin/java" -cp "$task_out/classes:$task_json:$ANDROID_JAR" org.agentos.lab.DedicatedScreensFamilyTest | tee "$task_out/result.txt"
  exit
@@ -35,3 +39,5 @@ fi
 "$JDK/bin/java" -cp "$task_out/classes:$task_json:$ANDROID_JAR" org.agentos.lab.DedicatedScreensCapacityTest | tee -a "$task_out/result.txt"
 "$JDK/bin/java" -cp "$task_out/classes:$task_json:$ANDROID_JAR" org.agentos.lab.DedicatedScreensFamilyTest | tee -a "$task_out/result.txt"
 "$JDK/bin/java" -cp "$task_out/classes:$task_json:$ANDROID_JAR" org.agentos.lab.DedicatedScreensRetentionTest | tee -a "$task_out/result.txt"
+"$JDK/bin/java" -cp "$task_out/classes:$task_json:$ANDROID_JAR" org.agentos.lab.BackgroundPresentationTest | tee -a "$task_out/result.txt"
+"$JDK/bin/java" -cp "$task_out/classes:$task_json:$ANDROID_JAR" org.agentos.lab.PresentationRetentionTest | tee -a "$task_out/result.txt"
