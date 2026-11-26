@@ -59,11 +59,13 @@ internal object ComposerDelivery {
         val thread = input.getString("threadId")
         if (method == AgentGatewayProtocol.COMPOSER_SUBMIT) {
             val existing = ComposerState.submission(prefs, id)
+            val pollSendIntent = input.optString("pollSendIntentId")
+            if (existing == null && pollSendIntent.isNotEmpty()) DiningPollSend.checkSubmission(context, pollSendIntent, thread)
             val options = if (existing == null) ComposerOptions.prepareSubmission() else null
             val (request, created) = try {
                 ComposerState.reserveSubmission(prefs, input) { target, output ->
                     checkNotNull(options).apply(prefs, target, output)
-                    AssistantInvocationCapture.reserve(context, id, output, allowAutoScreenshot)
+                    if (pollSendIntent.isEmpty()) AssistantInvocationCapture.reserve(context, id, output, allowAutoScreenshot)
                 }
             } catch (failure: Exception) {
                 synchronized(ComposerPreferences::class.java) {

@@ -147,6 +147,9 @@ internal object TaskRequests {
         if (options.has("composerRequestId")) {
             request.put("composerRequestId", PanelProtocol.uuid(options, "composerRequestId"))
         }
+        if (options.has("pollSendIntentId")) {
+            request.put("pollSendIntentId", PanelProtocol.uuid(options, "pollSendIntentId"))
+        }
         if (options.has("panelUpdate")) {
             val target = options.getJSONObject("panelUpdate")
             PanelProtocol.exact(target, panelUpdateFields)

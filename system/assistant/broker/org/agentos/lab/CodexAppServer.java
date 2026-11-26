@@ -574,8 +574,10 @@ public final class CodexAppServer implements AutoCloseable {
         return server.processes.workspaceProof(thread);
     }
     static boolean booting;
-    static JSONObject currentRequest;
-    static String finalText = "", completion = "", activeThread = "", activeTurn = "";
+    // Native callbacks read task ownership from socket workers while this dispatcher runs the turn.
+    static volatile JSONObject currentRequest;
+    static volatile String activeThread = "", activeTurn = "";
+    static String finalText = "", completion = "";
 
     static CodexAppServer shared() throws Exception {
         if (shared == null) {

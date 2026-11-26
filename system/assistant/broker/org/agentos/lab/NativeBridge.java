@@ -165,6 +165,7 @@ final class NativeBridge {
    case "matter":answer=MatterBridge.control(input);break;
    case "matterAudio":answer=AudioBridge.control(input);break;
    case "mainReply":answer=AgentViews.mainReplyRead(input);break;
+   case "diningPollInput":answer=DiningPollInput.control(input);break;
    case "liveTask":Call live=new Call("taku/liveTask",input);if(!enqueue(live))throw new IOException("BUSY");answer=live.result.get(40,TimeUnit.SECONDS);break;
    case "magpieSettingsChanged":MagpieSettings.schedule();answer=new JSONObject();break;
    case "agyGemini":

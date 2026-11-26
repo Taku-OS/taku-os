@@ -126,7 +126,7 @@ class AgentGatewayProvider : ContentProvider() {
         val callerUid = Binder.getCallingUid()
         if (method.startsWith("composer/") || method.startsWith("workspaces/") || method.startsWith("capture/") ||
             method.startsWith("accounts/") || method.startsWith("requests/") || method.startsWith("live/") ||
-            method in setOf("getWorkspaces", "openWorkspace", "assistCapture", "assistInvocation", "readTaskDetail", "manageSystemAi", "manageAssistant")) {
+            method in setOf("getWorkspaces", "openWorkspace", "assistCapture", "assistInvocation", "readTaskDetail", "manageSystemAi", "manageAssistant", "diningPoll")) {
             ComposerState.userError(context!!, callerUid)?.let { return error(Bundle(), it) }
         }
         if ("nativeMatter" == method || "nativeAudio" == method) {
@@ -192,6 +192,7 @@ class AgentGatewayProvider : ContentProvider() {
     private fun execute(action: String, input: JSONObject, callerUid: Int): JSONObject {
         val thread = input.optString("threadId")
         when (action) {
+            "diningPoll" -> return DiningPollAccess.execute(context!!, "dining/poll/send-${input.getString("action")}", input.getJSONObject("args"))
             "nativeMatter" -> return matters.nativeAction(input)
             "panels" -> return matters.panels.call(input.getString("operation"), input.getJSONObject("args"))
             "cardView" -> return matters.panels.cardView(input.getString("operation"), input.getJSONObject("args"))

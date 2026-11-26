@@ -54,3 +54,12 @@ compile_jvm "$task_out/task-ownership" "$task_json:$ANDROID_JAR" \
  system/assistant/tests/native-routing/org/agentos/lab/AgentViewsTestDouble.java \
  system/assistant/tests/native-routing/org/agentos/lab/CodexTaskOwnershipTest.java
 "$JDK/bin/java" -cp "$task_out/task-ownership:$task_json:$ANDROID_JAR:$KOTLIN_LIB/kotlin-stdlib.jar" org.agentos.lab.CodexTaskOwnershipTest | tee "$task_out/task-ownership-result.txt"
+
+# Compile the production broker to catch drift in the native screen lease and callback adapters.
+compile_jvm "$task_out/dining" "$task_json:$ANDROID_JAR" \
+ system/assistant/broker/org/agentos/lab/*.java \
+ system/assistant/broker/org/agentos/lab/*.kt \
+ tooling/app-kit/apk-shell/src/org/agentos/runtime/AppApiClient.java \
+ system/assistant/tests/native-routing/org/agentos/lab/DiningBrokerTest.java
+"$JDK/bin/java" -cp "$task_out/dining:$task_json:$ANDROID_JAR:$KOTLIN_LIB/kotlin-stdlib.jar" \
+ org.agentos.lab.DiningBrokerTest | tee "$task_out/dining-result.txt"

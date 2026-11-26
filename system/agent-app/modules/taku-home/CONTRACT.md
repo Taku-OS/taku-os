@@ -166,6 +166,33 @@ repository lock. This cursor is the boundary for reading changes after that
 snapshot. `recentActions` is removed from `feed/list`. Existing history consumers
 use the event stream below and own their durable processed cursors.
 
+## Yelp candidates and WhatsApp polls
+
+Call these methods on `content://org.agentos.agent.home-assistant`.
+`assistant/get` projects the completed primary reply as `options`, including the selected
+item and visibility, and the active poll editor as `share`. The Agent reads and changes the
+same Assistant session that the GUI renders.
+
+| Method | Arguments |
+| --- | --- |
+| `options/open`, `options/dismiss` | `replyId` |
+| `options/select` | `replyId`, `itemId` |
+| `options/share/open`, `options/share/pick-group`, `options/share/cancel` | `replyId` |
+| `options/share/set-poll` | `replyId`, `question` |
+| `options/share/send-poll` | `replyId`, with a group selected in WhatsApp's chooser |
+| `options/share/continue-poll`, `options/share/check-poll` | Empty object, current poll execution |
+
+The share methods require `taku.root`. Opening the editor, picking a group and editing
+the question do not send. The explicit send action registers the completed source
+reply, exact group name, question and choices in the native journal. The preview and
+`share.wireQuestion` include the reference suffix that WhatsApp displays. A separate execution
+thread carries out this one intent. Native code must verify a unique matching group and
+every single-choice poll field. A confirmed send requires a native message anchor.
+A poll with uncertain delivery can only be checked against its original attempt.
+
+Outdated replies or editors fail with `REQUEST_EXPIRED`. Invalid poll fields fail with
+`INVALID_POLL_TARGET`, `INVALID_POLL_QUESTION` or `INVALID_POLL_OPTIONS`.
+
 ## Event stream
 
 The read-only resource `content://org.agentos.agent.home-feed/events` has MIME type

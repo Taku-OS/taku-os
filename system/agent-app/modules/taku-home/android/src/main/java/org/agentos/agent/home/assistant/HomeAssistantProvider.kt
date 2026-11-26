@@ -26,7 +26,8 @@ class HomeAssistantProvider : ContentProvider() {
     val out = Bundle()
     val callerUid = Binder.getCallingUid()
     val appCtx = context
-    if (appCtx != null && !org.agentos.agent.home.TakuCallerAccess.isAllowed(appCtx, callerUid)) {
+    val scope = if (method.startsWith("options/share/")) "taku.root" else "taku.control"
+    if (appCtx != null && !org.agentos.agent.home.TakuCallerAccess.isAllowed(appCtx, callerUid, scope)) {
       out.putString("result", JSONObject().put("ok", false).put("code", "PERMISSION_DENIED").put("message", "Assistant access denied by App Permission Center").toString())
       return out
     }
@@ -75,6 +76,16 @@ class HomeAssistantProvider : ContentProvider() {
         }
         when (method) {
           "assistant/get" -> {}
+          "options/select" -> session.selectOption(p.requiredString("replyId"), p.requiredString("itemId"))
+          "options/dismiss" -> session.dismissOptions(p.requiredString("replyId"))
+          "options/open" -> session.showOptions(p.requiredString("replyId"))
+          "options/share/open" -> session.openOptionShare(p.requiredString("replyId"))
+          "options/share/cancel" -> session.cancelOptionShare(p.requiredString("replyId"))
+          "options/share/set-poll" -> session.setOptionPoll(p.requiredString("replyId"), p.requiredString("question"))
+          "options/share/pick-group" -> session.pickOptionPollRecipient(p.requiredString("replyId"))
+          "options/share/send-poll" -> session.prepareOptionPoll(p.requiredString("replyId"))
+          "options/share/continue-poll" -> session.retryPollSend(false)
+          "options/share/check-poll" -> session.retryPollSend(true)
           "system/open" -> ctx.startActivity(SystemAssistantEntry.home(ctx).putExtra(SystemAssistantEntry.EXTRA_OPEN, true))
           "system/capture" -> SystemAssistantService.requestCapture(p.getString("token"), p.optBoolean("manual", false))
           "assistant/hint" -> session.setHint(p.getBoolean("expanded"))
@@ -100,7 +111,12 @@ class HomeAssistantProvider : ContentProvider() {
           "assistant/choose-prompt" -> session.choosePrompt(p.optString("text"))
           "assistant/app-build" -> session.setAppBuild(p.getString("threadId"), p.getString("turnId"), p.getBoolean("active"))
           "assistant/ask" -> session.send(p.optString("text"))
-          "assistant/retry" -> session.retry()
+          "assistant/retry" -> {
+            if (session.state.value.pollPreparation && !org.agentos.agent.home.TakuCallerAccess.isAllowed(ctx, callerUid, "taku.root")) {
+              throw AssistantException("PERMISSION_DENIED", "Poll send access denied by App Permission Center")
+            }
+            session.retry()
+          }
           "assistant/reply" -> session.reply(p.optString("suggestionId"))
           "assistant/stop" -> session.stop()
           "assistant/expand" -> session.expand(p.optBoolean("full", false))

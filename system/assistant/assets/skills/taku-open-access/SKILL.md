@@ -1077,3 +1077,58 @@ taku_call "$D" jev/status '{}'
 taku_call "$D" jev/enable '{}'
 taku_call "$D" jev/connect '{"key":"apikey_..."}'
 ```
+
+## Share dining options as a WhatsApp poll
+
+With the group chat visible, use the existing bottom Assistant entry. Enable
+the Assistant's screenshot option and Android's assist screenshot access
+when the request relies on chat context that the user has not typed.
+
+When asked to find restaurants, verify the query and area in Yelp and return
+the observed restaurant names and branch addresses in the completed reply.
+Use the actual Yelp listing or observed facts as the source for each candidate.
+If the native form cannot settle, `taku_phone.open_yelp_search` accepts
+`{query,location}` after the task holds Yelp on its own execution display. The
+result carries `requiresObservation:true` and `resultVerified:false`. Inspect
+the resulting app screen and listing before reporting facts.
+
+On Home, read `options` and `share` with `taku_call "$A" assistant/get '{}'`.
+Pass the current `replyId` to `options/open`, `options/dismiss` and
+`options/share/open`. Add `itemId` for `options/select`. In the share
+editor, `options/share/pick-group` opens WhatsApp's own chooser and
+`options/share/set-poll` takes `{replyId,question}`. After the user confirms
+the destination and previewed question, `options/share/send-poll` takes
+`{replyId}`. The preview includes the short Taku reference sent in the
+WhatsApp question and used to verify this exact poll.
+`options/share/cancel` takes `{replyId}`. The `options/share/continue-poll`
+and `options/share/check-poll` actions take `{}` for the current poll task.
+Share actions require `taku.root`. A stale reply or editor fails with
+`REQUEST_EXPIRED`.
+
+Use the poll flow after an explicit user decision to send the displayed
+question and selected options to a specific WhatsApp group. The following
+actions on `content://org.agentos.assistant.open-access` require `taku.root`
+and use the same send journal as the share UI.
+
+| Method | Arguments | Result |
+| --- | --- | --- |
+| `dining/poll/send-register` | `{intentId,sourceThreadId,sourceReply,groupName,question,options}` | Records the exact intent before execution. Use UUIDs for the intent and source thread, `{kind:"primary",replyId,turnId,revision,contractHash}` for the canonical completed reply, and two or more distinct option labels from that reply. |
+| `dining/poll/send-status` | `{intentId}` | Reads the durable state, including any native send receipt. This read has no WhatsApp effect. |
+| `dining/poll/send-bind` | `{intentId,executionThreadId?}` | Verifies the exact group in the owning WhatsApp task, prepares a single-choice poll and returns `prepared:true` and the bound execution thread. |
+| `dining/poll/send` | `{intentId,executionThreadId?}` | Makes the one authorized send attempt in the prepared editor. |
+| `dining/poll/send-inspect` | `{intentId,executionThreadId?}` | Reconciles the original message in the owning task after an uncertain attempt. |
+
+On the owning execution task, acquire WhatsApp with `taku_phone.request_apps`,
+open it if needed and navigate to the confirmed group. Keep any existing
+unrelated draft and stop if the group or editor cannot be verified. Bind,
+send and inspection require the same `pollSendIntentId` on the current task
+and its `full` phone permission.
+The share UI submits that task through the native composer using
+`action:"sendMessage"`, `includeInvocationScreenshot:false` and
+`attachmentIds:[]`.
+
+Check `send-status` before resuming a prior intent. Report success only when
+`status:"sent"`, `sent:true` and an observed message `anchor` are present. If
+the send result is `unknown`, inspect that intent without retrying the send.
+An unavailable or ambiguous group, unmatched reply or different task returns
+an error and leaves the action unverified.

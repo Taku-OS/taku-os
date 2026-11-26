@@ -14,6 +14,8 @@ import java.util.List;
 /** Bounded, display-only copy of a native thread. The app-server keeps the canonical history. */
 final class AgentViewProjection {
     static final int MAX_BYTES = 1024 * 1024;
+    static final List<String> METADATA_FIELDS = List.of(
+            "id", "name", "preview", "createdAt", "updatedAt", "status", "model", "modelProvider", "source");
     private static final int MAX_TURNS = 80;
     private static final int MAX_ITEMS = 240;
     private static final int MAX_TEXT_UNITS = 60_000;
@@ -48,7 +50,7 @@ final class AgentViewProjection {
         if (previous != null && !metadata.getString("id").equals(previous.optString("id")))
             throw new IOException("Conversation metadata does not match the existing history identifier");
         JSONObject merged = previous == null ? new JSONObject() : new JSONObject(previous.toString());
-        for (String key : new String[] {"id", "name", "preview", "createdAt", "updatedAt", "status", "model", "modelProvider", "source"})
+        for (String key : METADATA_FIELDS)
             if (metadata.has(key)) merged.put(key, metadata.opt(key));
         if (previous == null) merged.put("historyNotLoaded", true);
         return project(merged);

@@ -24,22 +24,29 @@ internal class HomeComposer(
     val action: String,
     val turnId: String?,
     val attachmentIds: List<String>,
+    val pollSendIntentId: String? = null,
   ) {
     fun key() = JSONObject().put("threadId", threadId).put("requestId", id)
 
     fun submission(): JSONObject = key().put("revision", revision).put("action", action)
-      .put("attachmentIds", JSONArray(attachmentIds)).apply { turnId?.let { put("expectedTurnId", it) } }
+      .put("attachmentIds", JSONArray(attachmentIds)).apply {
+        turnId?.let { put("expectedTurnId", it) }
+        pollSendIntentId?.let {
+          put("pollSendIntentId", it)
+          put("includeInvocationScreenshot", false)
+        }
+      }
 
     companion object {
-      fun new(draft: Draft, turnId: String?) = Request(draft.threadId, draft.revision,
+      fun new(draft: Draft, turnId: String?, pollSendIntentId: String? = null) = Request(draft.threadId, draft.revision,
         UUID.randomUUID().toString(), draft.text.trim(), if (turnId == null) "sendMessage" else "steer", turnId,
-        draft.attachments.map(Attachment::id))
+        draft.attachments.map(Attachment::id), pollSendIntentId)
 
       fun parse(value: JSONObject) = Request(value.getString("threadId"), value.getString("revision"),
         value.getString("requestId"), value.getString("text"), value.getString("action"),
         value.optString("expectedTurnId").ifEmpty { null }, value.getJSONArray("attachmentIds").let { ids ->
           List(ids.length(), ids::getString)
-        })
+        }, value.optString("pollSendIntentId").ifEmpty { null })
     }
   }
 

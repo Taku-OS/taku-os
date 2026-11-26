@@ -75,6 +75,12 @@ data class AssistantState(
   val abandoned: Boolean = false,
   /** A successful dictation too long to join the draft, kept whole for reading and copying. */
   val retainedVoice: RetainedVoiceResult? = null,
+  val requestGeneration: Long = 0,
+  val optionsItemId: String? = null,
+  val optionsDismissed: Boolean = false,
+  val optionShare: OptionShare? = null,
+  val pollPreparation: Boolean = false,
+  val pollSource: PollPreparationSource? = null,
   /** A turn the full chat left running; its result opens the card once (BUG-0027). */
   val handoff: Handoff? = null,
   /** A handed-off result is waiting for SystemUI to draw its card (locked, shade, landscape). */
@@ -92,6 +98,13 @@ data class AssistantState(
         task in setOf("completed", "failed", "cancelled"))) throw AssistantException("NOT_WORKING", "turn is not running")
     return copy(appBuildTurnId = if (active) turnId else null)
   }
+  val options: ReplyOptions? get() = turn?.options
+  val share: OptionShare? get() = optionShare?.takeIf { it.belongsTo(this) }
+  val optionsVisible: Boolean get() = entry == EntryMode.None && options != null && !working && !needsUser && !abandoned && error == null
+    && !optionsDismissed && island in setOf(IslandMode.Expanded, IslandMode.Full)
+  internal fun optionsFor(replyId: String): ReplyOptions = options?.takeIf {
+    it.replyId == replyId && !working && !needsUser && !abandoned && error == null
+  } ?: throw AssistantException("REQUEST_EXPIRED", "These options no longer belong to the current reply")
   val needsUser: Boolean get() = task == "needs_user"
   /**
    * A new voice hold asks something new, so a finished turn on the card is not its answer and must
@@ -100,7 +113,7 @@ data class AssistantState(
    */
   val holdSupersedesTurn: Boolean get() = turn != null && !turn.active && !working && !needsUser
   /** Closing temporary input must not dismiss its pending result, reply or error. */
-  val overlayVisible: Boolean get() = entry != EntryMode.None
+  val overlayVisible: Boolean get() = entry != EntryMode.None || optionsVisible || share != null
 
   /** What "Try again" sends: the draft (restored or edited), else the failed request. */
   val retryText: String? get() = draft.ifBlank { failedText }?.takeIf { it.isNotBlank() }
@@ -182,6 +195,19 @@ class AssistantSession private constructor(private val context: Context, private
 
   init {
     watchVoice(); watchNetwork(); watchHandoff()
+    // A very fast completed reply may arrive before its send receipt. Present only once
+    // both the canonical candidate and the settled delivery are visible in the same state.
+    scope.launch {
+      var presented: String? = null
+      state.collectLatest { snapshot ->
+        val options = snapshot.options?.takeIf { snapshot.optionsVisible } ?: return@collectLatest
+        val identity = "${snapshot.requestGeneration}/${snapshot.threadId}/${options.sourceIdentity}"
+        if (identity != presented) {
+          presented = identity
+          presentOptions(options)
+        }
+      }
+    }
     androidx.core.content.ContextCompat.registerReceiver(context, object : android.content.BroadcastReceiver() {
       override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == Intent.ACTION_SCREEN_OFF) interruptVoiceForScreenOff()
@@ -764,7 +790,7 @@ class AssistantSession private constructor(private val context: Context, private
     streamJob = null; pollJob = null
     scope.launch { jobs.forEach { it.cancelAndJoin() } }
     synchronized(streamLock) { stream = null; baseline = emptySet() }
-    flow.value = AssistantState(online = flow.value.online)
+    flow.value = AssistantState(online = flow.value.online, requestGeneration = flow.value.requestGeneration + 1)
   }
 
   // ---- Voice ---------------------------------------------------------------------------
@@ -955,10 +981,160 @@ class AssistantSession private constructor(private val context: Context, private
     }
   }
 
+  fun selectOption(replyId: String, itemId: String) {
+    if (flow.value.share?.busy == true) throw AssistantException("BUSY", "The poll action is in progress.")
+    val options = flow.value.optionsFor(replyId)
+    if (options.items.none { it.id == itemId }) throw AssistantException("INVALID_ARGUMENT", "Unknown option")
+    flow.update { if (it.options?.sourceIdentity != options.sourceIdentity) it else it.copy(optionsItemId = itemId) }
+  }
+
+  fun dismissOptions(replyId: String) {
+    if (flow.value.share?.busy == true) throw AssistantException("BUSY", "The poll action is in progress.")
+    val options = flow.value.optionsFor(replyId)
+    flow.update { if (it.options?.sourceIdentity != options.sourceIdentity) it else it.copy(optionsDismissed = true, optionShare = null, island = IslandMode.Collapsed, entry = EntryMode.None) }
+  }
+
+  fun showOptions(replyId: String) {
+    if (flow.value.share?.busy == true) throw AssistantException("BUSY", "The poll action is in progress.")
+    val options = flow.value.optionsFor(replyId)
+    flow.update { if (it.options?.sourceIdentity != options.sourceIdentity) it else it.copy(optionsDismissed = false, optionShare = null, island = IslandMode.Expanded) }
+    presentOptions(options)
+  }
+
+  fun openOptionShare(replyId: String) {
+    val current = flow.value
+    val options = current.optionsFor(replyId)
+    if (!current.optionsVisible) throw AssistantException("REQUEST_EXPIRED", "Open the current options first.")
+    if (current.share != null) return
+    val share = OptionShare(generation = current.requestGeneration, threadId = current.threadId, options = options)
+    share.validatePollOptions()
+    flow.value = current.copy(optionShare = share, island = IslandMode.Full)
+  }
+
+  private fun shareFor(replyId: String): OptionShare = flow.value.share?.takeIf { it.options.replyId == replyId }
+    ?: throw AssistantException("REQUEST_EXPIRED", "This share no longer belongs to the current request.")
+
+  fun cancelOptionShare(replyId: String) {
+    if (shareFor(replyId).busy) throw AssistantException("BUSY", "The poll action is in progress.")
+    flow.update { it.copy(optionShare = null, optionsDismissed = false, island = IslandMode.Expanded) }
+  }
+
+  /** Selection is reversible and grants no send authorization. */
+  fun pickOptionPollRecipient(replyId: String) {
+    val share = shareFor(replyId)
+    if (share.busy) throw AssistantException("INVALID_STATE", "The poll editor is not open.")
+    val pickerId = UUID.randomUUID().toString()
+    flow.update { it.copy(optionShare = share.copy(busy = true, pollPickerId = pickerId, error = null)) }
+    try {
+      context.startActivity(Intent(context, AssistantOverlayActivity::class.java).putExtra("mode", "poll-recipient").putExtra("pickerId", pickerId)
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    } catch (_: Exception) {
+      completePollRecipient(pickerId, null, "WhatsApp could not open. The poll has not been sent.")
+    }
+  }
+
+  internal fun completePollRecipient(pickerId: String, recipient: PollRecipient?, error: String? = null) {
+    val share = flow.value.share ?: return
+    val selected = share.completeRecipient(pickerId, recipient, error) ?: return
+    flow.update { current ->
+      if (current.share?.pollPickerId != pickerId) current else current.copy(
+        optionShare = selected,
+        island = IslandMode.Full)
+    }
+    presentOptions(share.options)
+  }
+
+  fun setOptionPoll(replyId: String, question: String) {
+    val share = shareFor(replyId)
+    if (share.busy) throw AssistantException("INVALID_STATE", "The poll editor is busy.")
+    if (question.length > 120 || question.any(Char::isISOControl)) {
+      flow.update { it.copy(optionShare = share.copy(error = "Enter a poll question of 1–120 characters.")) }
+      throw AssistantException("INVALID_POLL_QUESTION", "Enter a poll question of 1–120 characters.")
+    }
+    flow.update { it.copy(optionShare = share.copy(pollQuestion = question, error = null)) }
+  }
+
+  fun prepareOptionPoll(replyId: String) {
+    val share = shareFor(replyId)
+    if (share.busy) throw AssistantException("INVALID_STATE", "The poll editor is not open.")
+    share.validatePoll()
+    val source = try {
+      flow.value.pollPreparationSource(share)
+    } catch (e: AssistantException) {
+      flow.update { it.failCandidateShare(share.id, e.message ?: "The poll could not be prepared.") }
+      throw e
+    }
+    val request = pollSendRequest(source, false)
+    flow.update { it.copy(optionShare = share.copy(busy = true, error = null)) }
+    scope.launch(worker) {
+      try {
+        val registered = gateway.call("diningPoll", JSONObject().put("action", "register").put("args", PollSendRestoration.binding(source)))
+        if (registered.optString("intentId") != share.id || registered.optString("status") != "registered" ||
+          registered.opt("sent") != false || registered.optString("wireQuestion") != share.wireQuestion ||
+          !PollSendRestoration.matches(source, registered))
+          throw AssistantException("POLL_SEND_UNVERIFIED", "The request could not be verified. Sending has not started.")
+        withContext(Dispatchers.Main.immediate) {
+          val latest = flow.value
+          if (latest.share?.id != share.id) return@withContext
+          latest.pollPreparationSource(share)
+          // A separate execution conversation cannot steer or rewrite the source reply.
+          reset()
+          flow.update { it.copy(pollPreparation = true, pollSource = source, island = IslandMode.Expanded) }
+          sendRequest(request, pollSendIntentId = source.sendIntentId)
+        }
+      } catch (failure: Exception) {
+        if (failure is kotlinx.coroutines.CancellationException) throw failure
+        val message = (failure as? AssistantException)?.message ?: "Could not start sending the poll. Try again shortly."
+        flow.update {
+          if (it.pollSource == source) it.copy(error = "POLL_STATUS_UNAVAILABLE")
+          else it.failCandidateShare(share.id, message)
+        }
+      }
+    }
+  }
+
+  fun retryPollSend(inspectOnly: Boolean) {
+    val owner = flow.value.pollSendContinuation()
+    flow.update { it.copy(sending = true, error = null) }
+    scope.launch(worker) {
+      try {
+        val journal = gateway.call("diningPoll", JSONObject().put("action", "status").put("args", JSONObject().put("intentId", owner.intentId)))
+        val envelope = JSONObject().put("ok", true).put("result", journal)
+        val execution = gateway.call("readSession", JSONObject().put("threadId", owner.executionThreadId).put("statusOnly", true))
+        val request = owner.request(envelope, execution, inspectOnly)
+        withContext(Dispatchers.Main.immediate) {
+          if (!owner.owns(flow.value)) return@withContext
+          flow.update { it.copy(sending = false) }
+          sendRequest(request, pollSendIntentId = owner.intentId)
+        }
+      } catch (failure: Exception) {
+        if (failure is kotlinx.coroutines.CancellationException) throw failure
+        flow.update { if (!owner.owns(it)) it else it.copy(sending = false,
+          error = (failure as? AssistantException)?.code ?: "POLL_STATUS_UNAVAILABLE") }
+      }
+    }
+  }
+
+  private fun presentOptions(options: ReplyOptions) {
+    scope.launch(Dispatchers.Main.immediate) {
+      val s = flow.value
+      if (!s.optionsVisible || s.options?.sourceIdentity != options.sourceIdentity
+        || context.getSystemService(android.app.KeyguardManager::class.java).isKeyguardLocked) return@launch
+      runCatching {
+        context.startActivity(Intent().setClassName(context.packageName, "org.agentos.agent.home.assistant.AssistantOverlayActivity")
+          .putExtra("mode", "options").putExtra("threadId", s.threadId).putExtra("replyId", options.replyId)
+          .putExtra("requestGeneration", s.requestGeneration)
+          .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP))
+      }.onFailure { Log.w(TAG, "options presentation unavailable: ${it.javaClass.simpleName}") }
+    }
+  }
+
   // ---- Messages ------------------------------------------------------------------------
 
   /** Sends the current shared draft or hands off a new text request. */
-  fun send(text: String, keepVoiceEntry: Boolean = false) {
+  fun send(text: String, keepVoiceEntry: Boolean = false) = sendRequest(text, keepVoiceEntry)
+
+  private fun sendRequest(text: String, keepVoiceEntry: Boolean = false, pollSendIntentId: String? = null) {
     val message = text.trim()
     if (text.length > MAX_TEXT || (message.isEmpty() && flow.value.draftAttachmentNames.isEmpty()))
       throw AssistantException("INVALID_TEXT", "Enter a message or select an attachment")
@@ -966,13 +1142,18 @@ class AssistantSession private constructor(private val context: Context, private
     if (now.sending) throw AssistantException("BUSY", "a message is already being sent")
     if (openingConversation) throw AssistantException("BUSY", "the conversation is opening")
     val current = editor
+    val poll = now.pollSource?.takeIf { it.sendIntentId == pollSendIntentId }
+    if (pollSendIntentId != null && (poll == null || now.working || now.needsUser || now.hasUnrelatedPollDraft()))
+      throw AssistantException("POLL_REQUEST_EXPIRED", "The poll request can no longer be submitted.")
     val waiting = composer.savedRequest(current.threadId) ?: current.saved?.pending
     if (waiting != null) return checkDelivery(current, waiting)
     val edit = current.edit?.takeIf { it.text == text }
     val generation = threadCreation.generation
     // Never steer into a turn the home already gave up on (it may still read active until the interrupt lands).
     val steerTurn = now.turn?.takeIf { it.active && !now.abandoned }?.turnId
-    flow.update { it.copy(expansionRequest = if (keepVoiceEntry || it.voiceContinuous) it.expansionRequest else ++expansionSequence, sending = true, pending = message, error = null, failedText = null, abandoned = false, entry = if (it.entry == EntryMode.Voice && !keepVoiceEntry) EntryMode.None else it.entry,
+    flow.update { it.copy(requestGeneration = it.requestGeneration + 1, optionsDismissed = false, optionShare = null,
+      pollPreparation = pollSendIntentId != null, pollSource = it.pollSource.takeIf { pollSendIntentId != null },
+      expansionRequest = if (keepVoiceEntry || it.voiceContinuous) it.expansionRequest else ++expansionSequence, sending = true, pending = message, error = null, failedText = null, abandoned = false, entry = if (it.entry == EntryMode.Voice && !keepVoiceEntry) EntryMode.None else it.entry,
       // The visible voice card keeps its notification identity through capture → reply.
       activityId = if (steerTurn == null && !(keepVoiceEntry && it.entry == EntryMode.Voice)) UUID.randomUUID().toString() else it.activityId,
       island = if (it.voiceContinuous) IslandMode.Hidden else if (it.island == IslandMode.Full) IslandMode.Full else IslandMode.Expanded,
@@ -982,21 +1163,29 @@ class AssistantSession private constructor(private val context: Context, private
         composerLock.withLock {
           if (editor !== current || flow.value.abandoned) return@withLock
           val id = ensureComposerThread(generation, current)
-          var saved = current.saved ?: composer.read(id).also { acceptDraft(current, it) }
+          // Freeze the source/execution reference durably before any poll submission.
+          poll?.let { PollSendResumeStore.save(context, id, it) }
+          var saved = if (poll != null) composer.read(id).also { acceptDraft(current, it) }
+            else current.saved ?: composer.read(id).also { acceptDraft(current, it) }
           val previous = pendingRequest(saved)
           if (previous != null) {
             flow.update { it.copy(pending = null) }
             reconcile(current, previous)
             return@withLock
           }
-          if (edit != null) saved = writeDraft(current, edit)
+          if (poll != null) {
+            if (current.edit != null || saved.attachments.isNotEmpty() || !isPollDraft(saved.text, poll))
+              throw AssistantException("DRAFT_PRESENT", "The conversation has another unsent draft.")
+            if (saved.text != text) saved = composer.write(saved, text).also { acceptDraft(current, it) }
+          } else if (edit != null) saved = writeDraft(current, edit)
           else if (saved.text != text) {
             saved = composer.handoff(id, UUID.randomUUID().toString(), text)
             current.edit?.baseText = saved.text
             acceptDraft(current, saved)
           }
           if (editor !== current || flow.value.abandoned) return@withLock
-          val request = HomeComposer.Request.new(saved, steerTurn)
+          val request = HomeComposer.Request.new(saved, steerTurn,
+            pollSendIntentId = pollSendIntentId)
           composer.remember(request)
           if (editor !== current || flow.value.abandoned) {
             composer.forget(request)
@@ -1011,22 +1200,29 @@ class AssistantSession private constructor(private val context: Context, private
               composer.forget(request)
               throw failure
             }
-            reconcile(current, request)
+            reconcile(current, request, allowPollSubmit = poll != null)
             return@withLock
           }
           if (receipt.terminal) finishDelivery(current, request, receipt)
-          else reconcile(current, request)
+          else reconcile(current, request, allowPollSubmit = poll != null)
         }
       } catch (failure: Exception) {
         if (failure is kotlinx.coroutines.CancellationException) throw failure
         Log.w(TAG, "composer submission failed: ${composerError(failure)}")
-        deliveryError(current, composerError(failure), message)
+        val code = (failure as? AssistantException)?.code ?: composerError(failure)
+        deliveryError(current, code, message.takeIf { poll == null })
       }
     }
   }
 
-  private suspend fun reconcile(current: Editor, request: HomeComposer.Request) {
+  private suspend fun reconcile(current: Editor, request: HomeComposer.Request, allowPollSubmit: Boolean = false) {
     var receipt = composer.receipt(request)
+    if (receipt.state == "missing" && request.pollSendIntentId != null &&
+      (!allowPollSubmit || flow.value.abandoned || flow.value.pollSource?.sendIntentId != request.pollSendIntentId)) {
+      composer.forget(request)
+      deliveryError(current, "POLL_REQUEST_EXPIRED", null)
+      return
+    }
     if (receipt.state == "missing") {
       // The gateway never reserved this request. Its ID makes submitting it again idempotent,
       // so settle it now instead of asking about the same unsent request on every later send.
@@ -1113,6 +1309,10 @@ class AssistantSession private constructor(private val context: Context, private
   }
 
   fun retry() {
+    if (flow.value.pollPreparation) {
+      retryPollSend(inspectOnly = false)
+      return
+    }
     val current = editor
     val request = composer.savedRequest(current.threadId) ?: current.saved?.pending
     if (request != null) return checkDelivery(current, request)
@@ -1271,6 +1471,31 @@ class AssistantSession private constructor(private val context: Context, private
     ensureStream(id)
     ensurePolling(id)
     refreshDraft()
+    restorePollPreparation(id)
+  }
+
+  private fun restorePollPreparation(threadId: String) {
+    val before = flow.value
+    if (before.pollPreparation || before.threadId != threadId) return
+    scope.launch(worker) {
+      val record = PollSendResumeStore.read(context, threadId) ?: return@launch
+      val restored = try {
+        val intent = gateway.call("diningPoll", JSONObject().put("action", "status")
+          .put("args", JSONObject().put("intentId", record.getString("intentId"))))
+        val canonicalReply = gateway.call("mainReply", PollSendRestoration.replyQuery(record).put("action", "read"))
+        val execution = gateway.call("readSession", JSONObject().put("threadId", threadId).put("statusOnly", true))
+        PollSendRestoration.restore(record, JSONObject().put("ok", true).put("result", intent), canonicalReply, execution) to execution
+      } catch (cancelled: kotlinx.coroutines.CancellationException) {
+        throw cancelled
+      } catch (failure: Exception) {
+        Log.w(TAG, "Poll preparation could not be verified: ${failure.javaClass.simpleName}")
+        return@launch
+      }
+      flow.update { current ->
+        if (!PollSendRestoration.owns(before, current, restored.second)) current
+        else current.copy(pollPreparation = true, pollSource = restored.first)
+      }
+    }
   }
 
   /** Makes [id] this session's thread; turns already in it count as this session's. */
@@ -1290,12 +1515,13 @@ class AssistantSession private constructor(private val context: Context, private
 
   private suspend fun ensureComposerThread(generation: Long, current: Editor): String {
     return threadCreation.resolve(generation, current = { flow.value.threadId }, create = {
-      val source = composer.read("").also { acceptDraft(current, it) }
+      val source = if (flow.value.pollPreparation) null else composer.read("").also { acceptDraft(current, it) }
       val id = withContext(worker) { HomeComposer.createThread(gateway) }
       if (editor !== current) throw kotlinx.coroutines.CancellationException("Assistant session changed")
-      val moved = composer.move(source, id)
       current.threadId = id
-      acceptDraft(current, moved)
+      if (source != null) {
+        acceptDraft(current, composer.move(source, id))
+      }
       id
     }, bind = { id ->
       synchronized(streamLock) { stream = SessionStreamState(id); baseline = emptySet() }
@@ -1357,7 +1583,13 @@ class AssistantSession private constructor(private val context: Context, private
     val before = flow.value
     flow.update { s ->
       val settled = turn != null && !turn.active
+      val changedOptions = turn != null && turn.options?.sourceIdentity != s.options?.sourceIdentity
       s.copy(
+        optionsItemId = if (changedOptions) turn?.options?.items?.firstOrNull()?.id else s.optionsItemId,
+        optionsDismissed = if (changedOptions) false else s.optionsDismissed,
+        optionShare = if (changedOptions) null else s.optionShare,
+        entry = if (turn?.options != null && settled && !s.abandoned && changedOptions) EntryMode.None else s.entry,
+        island = if (turn?.options != null && settled && !s.abandoned && changedOptions) IslandMode.Expanded else s.island,
         turn = turn ?: s.turn,
         pending = if (turn?.userText != null || settled) null else s.pending,
         task = if (settled && (s.task == "queued" || s.task == "running")) "completed" else s.task,
@@ -1436,10 +1668,14 @@ class AssistantSession private constructor(private val context: Context, private
       .put("retainedResult", s.retainedVoice?.toJson() ?: JSONObject.NULL)
     return JSONObject()
       .put("entry", s.entry.name.lowercase())
-      .put("island", org.agentos.agent.home.island.SystemIslandBridge.presentation(context))
+      .put("island", if (s.optionsVisible) s.island.name.lowercase() else org.agentos.agent.home.island.SystemIslandBridge.presentation(context))
       .put("expansionRequest", s.expansionRequest)
-      .put("islandRequest", s.island.name.lowercase()).put("islandHost", "systemui")
+      .put("islandRequest", s.island.name.lowercase()).put("islandHost", if (s.optionsVisible || s.share != null) "agent-options" else "systemui")
       .put("listeningHeaderHost", if (context.packageManager.resolveContentProvider("com.android.systemui.island", 0) == null) "unavailable" else "systemui-native")
+      .put("options", s.options?.json()?.put("selectedItemId", s.optionsItemId ?: JSONObject.NULL)
+        ?.put("visible", s.optionsVisible)?.put("dismissed", s.optionsDismissed) ?: JSONObject.NULL)
+      .put("share", s.share?.json() ?: JSONObject.NULL)
+      .put("pollPreparation", s.pollPreparation).put("pollSource", s.pollSource?.json() ?: JSONObject.NULL)
       .put("sending", s.sending).put("abandoned", s.abandoned)
       .put("hintExpanded", s.hintExpanded).put("voiceContinuous", s.voiceContinuous).put("voicePaused", s.voicePaused).put("holdZone", s.holdZone.name.lowercase())
       .put("gesture", JSONObject().put("id", gesture.id).put("source", gesture.source)

@@ -14,6 +14,7 @@
   <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
   <permission android:name="org.agentos.permission.BIND_ISLAND_CONTENT" android:protectionLevel="signature" />
   <queries>
+    <package android:name="com.whatsapp" />
     <!-- Discover the native ROM island host; the app never draws an island card. -->
     <provider android:authorities="com.android.systemui.island" />
     <provider android:authorities="org.agentos.assistant.permissions" />

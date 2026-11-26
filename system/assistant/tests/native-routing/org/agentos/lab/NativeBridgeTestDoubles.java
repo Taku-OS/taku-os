@@ -70,6 +70,7 @@ final class AppPermissionPolicy {
 }
 final class MatterBridge { static JSONObject control(JSONObject input) { throw new AssertionError("Matter service is outside this routing test"); } }
 final class AudioBridge { static JSONObject control(JSONObject input) { throw new AssertionError("Audio commands are outside this routing test"); } }
+final class DiningPollInput { static JSONObject control(JSONObject input) { throw new AssertionError("Dining input is covered by DiningBrokerTest"); } }
 final class SystemAi {
     static final SystemAiSettings.Store SETTINGS = null;
     static JSONObject config() throws Exception { return new JSONObject().put("revision",1); }

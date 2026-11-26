@@ -49,6 +49,12 @@ final class PhoneNativeTools {
     new JSONObject()));
   tools.put(tool("observe_background","Observe this thread's assigned Android execution screen. Returns its real screenshot and screen/frame identity.",new JSONObject()));
   tools.put(tool("open_app","Open an App you hold from request_apps.",new JSONObject().put("packageName",new JSONObject().put("type","string"))));
+  tools.put(tool("open_yelp_search",
+    "Open Yelp's native search for an exact query and location on the independent execution screen. "
+      + "Use when the visible Yelp search form cannot complete the query. Requires holding Yelp from request_apps. "
+      + "Observe the resulting page and verify the query, city and candidate branch addresses. This tool reports dispatch only.",
+    new JSONObject().put("query", string(PhoneYelpSearchRoute.MAX_FIELD_LENGTH))
+      .put("location", string(PhoneYelpSearchRoute.MAX_FIELD_LENGTH))));
   tools.put(tool("tap","Tap coordinates on the independent execution screen.",new JSONObject().put("x",new JSONObject().put("type","integer")).put("y",new JSONObject().put("type","integer"))));
   tools.put(tool("swipe","Perform one continuous drag or scroll on the independent screen, then release. Observe the actual result before another action.",new JSONObject()
     .put("fromX",coordinate(720)).put("fromY",coordinate(1280)).put("toX",coordinate(720)).put("toY",coordinate(1280))
@@ -78,7 +84,7 @@ final class PhoneNativeTools {
   if(name.equals("audio"))return text(AudioBridge.control(new JSONObject(args.toString()).put("threadId",p.getString("threadId"))).toString());
   if(name.equals("prepare_foreground_draft")){
    PhoneTextInput.AUTOMATION_LOCK.lockInterruptibly();
-   try {if(Thread.currentThread().isInterrupted())throw new InterruptedException();PhoneGestures.requireIdle();return text(PhoneDraftHandoff.prepare(args.getString("packageName"),args.getString("conversationTitle"),args.getString("text")).toString());}
+   try {DiningPollInput.requireAutomationAvailable();if(Thread.currentThread().isInterrupted())throw new InterruptedException();PhoneGestures.requireIdle();return text(PhoneDraftHandoff.prepare(args.getString("packageName"),args.getString("conversationTitle"),args.getString("text")).toString());}
    finally {PhoneTextInput.AUTOMATION_LOCK.unlock();}
   }
   String thread = p.optString("threadId");
@@ -92,11 +98,13 @@ final class PhoneNativeTools {
   if (name.equals("release_apps"))
    return text(DedicatedScreensOnDevice.shared().release(thread, packages(args)).toString());
   final JSONObject arguments=args;final String toolName=name;
+  boolean yelpSearch = name.equals("open_yelp_search");
   DedicatedScreens.Use use =
-    name.equals("open_app") ? DedicatedScreens.Use.OPEN
+    name.equals("open_app") || yelpSearch ? DedicatedScreens.Use.OPEN
     : name.equals("observe_background") || name.equals("device_info") ? DedicatedScreens.Use.LOOK
     : DedicatedScreens.Use.ACT;
-  return DedicatedScreensOnDevice.shared().withScreen(thread, use, args.optString("packageName"),
+  String pkg = yelpSearch ? PhoneYelpSearchRoute.PACKAGE : args.optString("packageName");
+  return DedicatedScreensOnDevice.shared().withScreen(thread, use, pkg,
     screen -> executeScreen(p, arguments, toolName, screen));
  }
  static java.util.List<String> packages(JSONObject args) throws Exception {
@@ -109,7 +117,13 @@ final class PhoneNativeTools {
  static JSONObject executeScreen(JSONObject call,JSONObject args,String name,PhoneExecutionScreens.Screen screen)throws Exception {
   PhoneGestures.prepare(screen);
   String display=Integer.toString(screen.displayId);
-  if(name.equals("tap") || name.equals("open_app") || name.equals("type_text"))PhoneGestures.requireIdle(screen.displayId);
+  switch (name) {
+   case "tap", "open_app", "open_yelp_search", "type_text", "swipe" -> DiningPollInput.requireAutomationAvailable();
+   case "touch" -> {
+    if (!"CANCEL".equals(args.optString("phase"))) DiningPollInput.requireAutomationAvailable();
+   }
+  }
+  if(name.equals("tap") || name.equals("open_app") || name.equals("open_yelp_search") || name.equals("type_text"))PhoneGestures.requireIdle(screen.displayId);
   switch(name){
    case "swipe":return text(PhoneGestures.swipe(call,screen.displayId,args).toString());
    case "touch":return text(PhoneGestures.touch(call,screen.displayId,args).toString());
@@ -134,12 +148,13 @@ final class PhoneNativeTools {
     if(!here)am.add("--activity-multiple-task");am.add("-n");am.add(component);
     return text(TaskBroker.command(am.toArray(new String[0])));};
     return start.run(screen);
+   case "open_yelp_search":return text(PhoneYelpSearchRoute.open(args, screen, call).toString());
    case "tap":
     // On a dead screen Android drops the tap and input still reports success: ask the screen process first.
     PhoneGestures.requireLive(screen);
     int x=args.getInt("x"),y=args.getInt("y");if(x<0||x>=720||y<0||y>=1280)throw new IOException("Coordinates are outside the independent screen");TaskBroker.command("/system/bin/input","-d",display,"tap",String.valueOf(x),String.valueOf(y));return text(screen.json().put("action","tap").put("ok",true).toString());
    case "type_text":String value=args.getString("text");if(value.length()>4000)throw new IOException("Input text is too long");PhoneTextInput.AUTOMATION_LOCK.lockInterruptibly();
-    try{if(Thread.currentThread().isInterrupted())throw new InterruptedException();if(!PhoneExecutionScreens.current(screen))throw new IOException("SCREEN_GENERATION_CHANGED");PhoneTextInput.enter(screen.displayId,value);return text(screen.json().put("action","type_text").put("ok",true).toString());}
+    try{DiningPollInput.requireAutomationAvailable();if(Thread.currentThread().isInterrupted())throw new InterruptedException();if(!PhoneExecutionScreens.current(screen))throw new IOException("SCREEN_GENERATION_CHANGED");PhoneTextInput.enter(screen.displayId,value);return text(screen.json().put("action","type_text").put("ok",true).toString());}
     finally{PhoneTextInput.AUTOMATION_LOCK.unlock();}
    default:throw new IOException("Unknown phone tool");
   }

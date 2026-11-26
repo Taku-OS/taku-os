@@ -122,6 +122,7 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
     enum Use {
         LOOK,
         ACT,
+        ACT_HELD,
         OPEN
     }
 
@@ -1199,8 +1200,8 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
 
     /**
      * A screen tool for the session: only on its own screen, never the default one. LOOK needs the
-     * screen; ACT needs an App held; OPEN needs that App held. ACT and OPEN also need the App on
-     * top of the screen to be held (an in-App jump may have opened another one).
+     * screen; ACT needs an App held; ACT_HELD and OPEN need the specified App held. Actions also
+     * need the App on top of the screen to be held (an in-App jump may have opened another one).
      *
      * <p>The same App open on the main screen or in Recents never blocks the session (the user's
      * decision: the agent may take an App over at any time). OPEN lands the App on the session's
@@ -1212,7 +1213,11 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
         try (CleanupWork.Held held33 = lock()) {
             screen = allowed(session, use, pkg);
         }
-        screen.input.lockInterruptibly();
+        if (use == Use.ACT_HELD) {
+            if (!screen.input.tryLock(3, TimeUnit.SECONDS)) throw new IOException("SCREEN_INPUT_BUSY");
+        } else {
+            screen.input.lockInterruptibly();
+        }
         try {
             List<PhoneTasks.Task> now = use == Use.LOOK ? List.of() : tasks.list();
             try (CleanupWork.Held held34 = lock()) {
@@ -2001,7 +2006,8 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
         if (use != Use.LOOK && !agentControls(screen)) throw agentPaused(screen);
         if (use != Use.LOOK && screen.apps.isEmpty())
             throw new IOException("APPS_NOT_REQUESTED: call request_apps first");
-        if (use == Use.OPEN && !screen.apps.contains(pkg)) throw new IOException("APP_NOT_HELD");
+        if ((use == Use.OPEN || use == Use.ACT_HELD) && !screen.apps.contains(pkg))
+            throw new IOException("APP_NOT_HELD");
         if (use != Use.LOOK) requireAppsAllowed(screen);
         return screen;
     }
