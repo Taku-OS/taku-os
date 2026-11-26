@@ -112,7 +112,16 @@ final class NativeBridge {
   try{AudioConfigBridge.start();}catch(Exception unavailable){System.err.println("audio config bridge unavailable");}
   Thread listener=new Thread(()->{while(true)try{LocalSocket socket=server.accept();Thread worker=new Thread(()->serve(socket),"native-ui-rpc");worker.setDaemon(true);worker.start();}catch(Exception ignored){break;}},"native-ui-listener");listener.setDaemon(true);listener.start();
  } }
- static String read(InputStream in,int limit)throws IOException {ByteArrayOutputStream out=new ByteArrayOutputStream();byte[] b=new byte[4096];int n;while((n=in.read(b))!=-1){out.write(b,0,n);if(out.size()>limit)throw new IOException("Message exceeds the limit");}return out.toString("UTF-8");}
+ static String read(InputStream in,int limit)throws IOException {
+  ByteArrayOutputStream out=new ByteArrayOutputStream();
+  byte[] buffer=new byte[4096];
+  int count;
+  while((count=in.read(buffer,0,Math.min(buffer.length,limit-out.size()+1)))!=-1){
+   if(count>limit-out.size())throw new IOException("Message exceeds the limit");
+   out.write(buffer,0,count);
+  }
+  return out.toString("UTF-8");
+ }
  static boolean pluginClient(JSONObject input) {
   if("pluginCatalogAdd".equals(input.optString("op")))return true;
   if(!"rpc".equals(input.optString("op")))return false;
@@ -123,7 +132,15 @@ final class NativeBridge {
   return params!=null && params.optString("keyPath").matches("plugins\\.\"[A-Za-z0-9_.@-]+\"\\.enabled")
     && params.opt("value") instanceof Boolean && "upsert".equals(params.optString("mergeStrategy"));
  }
- static void serve(LocalSocket socket){try(LocalSocket s=socket){int uid=s.getPeerCredentials().getUid();s.setSoTimeout(45000);JSONObject input=new JSONObject(read(s.getInputStream(),2000000));if(uid!=1000&&uid!=0&&!(uid==2000&&pluginClient(input))&&!(pluginClient(input)&&AppPermissionPolicy.isRootSocketAllowed(uid)))return;if("subscribeSession".equals(input.optString("op"))){serveSession(s,input);return;}JSONObject answer;
+ static boolean isCallerAuthorized(int uid, JSONObject input, java.util.function.IntPredicate permissionProvider) {
+  if (uid == 0 || uid == 1000) return true;
+  return pluginClient(input) && (uid == 2000 || permissionProvider.test(uid));
+ }
+ static JSONObject readAuthorizedRequest(InputStream stream, int uid, java.util.function.IntPredicate permissionProvider) throws Exception {
+  JSONObject input=new JSONObject(read(stream, 2_000_000));
+  return isCallerAuthorized(uid,input,permissionProvider) ? input : null;
+ }
+ static void serve(LocalSocket socket){try(LocalSocket s=socket){int uid=s.getPeerCredentials().getUid();s.setSoTimeout(45000);JSONObject input=readAuthorizedRequest(s.getInputStream(),uid,AppPermissionPolicy::isRootSocketAllowed);if(input==null)return;if("subscribeSession".equals(input.optString("op"))){serveSession(s,input);return;}JSONObject answer;
   try { switch(input.getString("op")){
    case "state":answer=state(input.optString("threadId"));break;
    case "pendingPhoneQuestions":answer=pendingPhoneQuestions();break;

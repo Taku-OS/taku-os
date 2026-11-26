@@ -18,7 +18,48 @@ public final class AgentViewProjectionTest {
         pagedHistoryMergesNativeIdsWithoutReplacingKnownItems();
         metadataIdentityMismatchFailsClearly();
         omissionCountsDoNotGrowWhenReplayingBoundedPages();
-        System.out.println("PASS AgentViewProjectionTest: 8 cases");
+        reasoningSummaryIsKeptWithinItsOwnBudget();
+        System.out.println("PASS AgentViewProjectionTest: 9 cases");
+    }
+
+    private static void reasoningSummaryIsKeptWithinItsOwnBudget() throws Exception {
+        String thought = repeat("先比较两条路线。Weigh both routes. ", 400), answer = repeat("建议走第一条。Take the first. ", 400);
+        check(thought.length() > 8_000 && answer.length() < 12_000, "fixture exceeds one summary part but not one answer");
+        JSONArray turns = new JSONArray();
+        for (int i = 0; i < 5; i++) turns.put(new JSONObject().put("id", "turn-" + i).put("status", "completed").put("items", new JSONArray()
+                .put(new JSONObject().put("id", "thought-" + i).put("type", "reasoning").put("content", new JSONArray().put("raw private content"))
+                        .put("summary", new JSONArray().put("**标题 Title**").put(thought)).put("startedAtMs", 1_000L).put("durationMs", 21_500L)
+                        .put("encrypted_content", "sealed"))
+                .put(new JSONObject().put("id", "answer-" + i).put("type", "agentMessage").put("text", answer))));
+        JSONObject projection = AgentViewProjection.project(new JSONObject().put("id", THREAD).put("turns", turns));
+        int kept = 0;
+        for (int i = 0; i < 5; i++) {
+            JSONArray items = projection.getJSONArray("turns").getJSONObject(i).getJSONArray("items");
+            JSONObject item = items.getJSONObject(0);
+            check(items.getJSONObject(1).getString("text").equals(answer), "reasoning never folds the answer beside it");
+            check(item.getString("type").equals("reasoning") && item.getLong("durationMs") == 21_500L && item.getLong("startedAtMs") == 1_000L,
+                    "a reasoning item keeps its place and timing");
+            check(!item.has("encrypted_content"), "sealed reasoning is not a display field");
+            JSONArray summary = item.optJSONArray("summary");
+            if (summary == null) continue;
+            for (int j = 0; j < summary.length(); j++) {
+                check(summary.getString(j).length() <= 8_000, "one summary part is bounded");
+                kept += summary.getString(j).length();
+            }
+        }
+        check(kept > 8_000 && kept <= 24_000, "all reasoning summaries share one bounded budget");
+        JSONArray newest = projection.getJSONArray("turns").getJSONObject(4).getJSONArray("items").getJSONObject(0).getJSONArray("summary");
+        check(newest.getString(0).equals("**标题 Title**") && newest.getString(1).startsWith("先比较两条路线。") && newest.getString(1).endsWith("Weigh both routes. "),
+                "the newest summary keeps its parts, folded in the middle");
+        check(!projection.getJSONArray("turns").getJSONObject(0).getJSONArray("items").getJSONObject(0).has("summary"),
+                "the oldest summary gives way first, without a made-up empty one");
+        check(projection.optInt("historyOmittedText") == 0, "bounding reasoning is not reported as omitted conversation text");
+        JSONObject again = AgentViewProjection.project(projection);
+        check(again.getJSONArray("turns").toString().equals(projection.getJSONArray("turns").toString()), "projecting a projection changes nothing");
+        JSONObject empty = AgentViewProjection.project(new JSONObject().put("id", THREAD).put("turns", new JSONArray().put(new JSONObject()
+                .put("id", "turn").put("items", new JSONArray().put(new JSONObject().put("id", "thought").put("type", "reasoning").put("summary", new JSONArray()))))));
+        check(empty.getJSONArray("turns").getJSONObject(0).getJSONArray("items").getJSONObject(0).getJSONArray("summary").length() == 0,
+                "a known empty summary stays an empty summary");
     }
 
     private static void oversizedHistoryIsBoundedWithoutChangingCanonicalInput() throws Exception {

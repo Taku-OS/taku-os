@@ -97,10 +97,21 @@ internal class MainReplySession(private val threadId: String, private var contra
             AgentSessionReducer.apply(view, event)
             return Update(null, null, null, emptyList())
         }
-        if (method != "turn/started" && method != "turn/completed" && method != "item/started" && method != "item/completed" && method != "item/agentMessage/delta") return null
+        val reasoning = method == AgentSessionReducer.REASONING_SUMMARY_DELTA
+        if (method != "turn/started" && method != "turn/completed" && method != "item/started" && method != "item/completed" && method != "item/agentMessage/delta" && !reasoning) return null
         val turnId = params.optJSONObject("turn")?.getString("id") ?: params.getString("turnId")
         var indexed = turns[turnId]
         val itemId = params.optJSONObject("item")?.optString("id") ?: params.optString("itemId")
+        if (reasoning && indexed != null) {
+            val item = indexed.rawItems[itemId]
+            val publicItem = indexed.items[itemId]
+            if (item != null && publicItem != null) {
+                // A reasoning summary is never reply source text: it grows in place, without rebuilding the turn.
+                if (!AgentSessionReducer.appendSummary(item, params)) return null
+                AgentSessionReducer.appendSummary(publicItem, params)
+                return Update(indexed.view, publicItem, null, emptyList())
+            }
+        }
         if (method == "item/agentMessage/delta" && indexed != null) {
             val item = indexed.rawItems[itemId]
             if (item != null) {

@@ -23,7 +23,7 @@ internal class SessionEventReader(
   private val pending = ArrayList<String>()
   private var pendingBytes = 0
   private var scheduled = false
-  private var emittedFirstDelta = false
+  private val emittedFirst = HashSet<String>()
   private val flushTask = Runnable { flush() }
   private val threadId = JSONObject(params).getString("threadId")
 
@@ -82,10 +82,10 @@ internal class SessionEventReader(
             throw IOException("STREAM_IDENTITY_MISMATCH")
           val method = event.optString("method")
           if (method == "session/heartbeat") continue
-          val firstDelta = method == "item/agentMessage/delta" && !emittedFirstDelta
-          if (firstDelta) emittedFirstDelta = true
-          val urgent = firstDelta || method != "item/agentMessage/delta"
-          enqueue(line, urgent)
+          // Streamed text (the answer, and the reasoning summary before it) is coalesced at 40 ms.
+          // The first delta of each kind goes at once, as does every other event.
+          val streamed = method == "item/agentMessage/delta" || method == "item/reasoning/summaryTextDelta"
+          enqueue(line, !streamed || emittedFirst.add(method))
           if (method == "session/resync") { problem = "STREAM_RESYNC"; break }
         }
       }

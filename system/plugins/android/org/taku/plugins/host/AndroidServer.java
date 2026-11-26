@@ -12,9 +12,12 @@ import java.util.concurrent.TimeUnit;
 public final class AndroidServer {
     private static final int REQUEST_TIMEOUT_MS = 5_000;
 
-    private static boolean isCallerAuthorized(int uid) {
+    static boolean isCallerAuthorized(int uid, java.util.function.IntPredicate permissionProvider) {
         if (uid == 0 || uid == 1000 || uid == 2000) return true;
-        if (uid < 10000) return false;
+        return uid >= 10000 && permissionProvider.test(uid);
+    }
+
+    private static boolean hasRootPermission(int uid) {
         Process proc = null;
         try {
             String req = Json.write(Map.of("uid", uid, "scope", "taku.root"));
@@ -75,7 +78,7 @@ public final class AndroidServer {
 
                     socket.setSoTimeout(REQUEST_TIMEOUT_MS);
                     BufferedWriter output = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8));
-                    if (!isCallerAuthorized(peerUid)) {
+                    if (!isCallerAuthorized(peerUid, AndroidServer::hasRootPermission)) {
                         Map<String, Object> denied = Map.of(
                                 "ok", false,
                                 "error", Map.of("code", "PERMISSION_DENIED", "message", "Root plugin access denied"));

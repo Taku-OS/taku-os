@@ -329,6 +329,81 @@ public final class MainReplyHostTest {
         reset();
     }
 
+    private static JSONObject thought(String id,String... summary) {return new JSONObject().put("id",id).put("type","reasoning").put("summary",new JSONArray(summary)).put("content",new JSONArray());}
+    private static void thoughtDelta(String text) throws Exception {event("item/reasoning/summaryTextDelta",new JSONObject().put("turnId",TURN).put("itemId","thought").put("summaryIndex",0).put("delta",text));}
+    private static JSONObject viewItem(int index) throws Exception {return AgentViews.snapshot(THREAD).getJSONArray("turns").getJSONObject(0).getJSONArray("items").getJSONObject(index);}
+
+    /** The model's public reasoning summary reaches subscribers as it is written and stays readable afterwards. */
+    private static void reasoningRelay() throws Exception {
+        AgentViews.save(thread(turn("inProgress",user("user","Plan my week"))));AgentViews.prepareReply(THREAD,contract,true);
+        try(SessionEvents.Subscription events=AgentViews.subscribe(new JSONObject().put("threadId",THREAD))) {
+            drain(events);
+            event("turn/started",new JSONObject().put("turn",turn("inProgress",user("user","Plan my week"))));
+            event("item/started",new JSONObject().put("turnId",TURN).put("item",thought("thought")).put("startedAtMs",1_000L));
+            List<JSONObject> started=drain(events);JSONObject first=started.get(started.size()-1);
+            check(first.getString("method").equals("item/started")&&first.getJSONObject("params").getJSONObject("item").getLong("startedAtMs")==1_000L,"A reasoning item starts with the time the runtime gave it");
+            thoughtDelta("**Weighing the week** 中");thoughtDelta("文🙂");
+            List<JSONObject> streamed=drain(events);
+            check(streamed.size()==2&&streamed.stream().allMatch(e->e.getString("method").equals("item/reasoning/summaryTextDelta")),"Each summary delta is one ordered stream event");
+            check(streamed.get(1).getJSONObject("params").getString("delta").equals("文🙂")&&streamed.get(1).getJSONObject("params").getInt("summaryIndex")==0
+                &&streamed.get(1).getLong("seq")==streamed.get(0).getLong("seq")+1,"Deltas keep their text, part and relay order");
+            check(viewItem(1).getJSONArray("summary").getString(0).equals("**Weighing the week** 中文🙂"),"A reader that attaches late sees the summary so far");
+            event("item/reasoning/textDelta",new JSONObject().put("turnId",TURN).put("itemId","thought").put("contentIndex",0).put("delta","raw chain of thought"));
+            event("item/reasoning/summaryPartAdded",new JSONObject().put("turnId",TURN).put("itemId","thought").put("summaryIndex",1));
+            check(drain(events).isEmpty()&&viewItem(1).getJSONArray("content").length()==0,"Raw reasoning content and part markers are never relayed");
+            thoughtDelta("");check(drain(events).isEmpty(),"An empty delta is no event");
+            event("item/completed",new JSONObject().put("turnId",TURN).put("item",thought("thought","**Weighing the week** 中文🙂")).put("completedAtMs",22_500L));
+            List<JSONObject> completed=drain(events);JSONObject done=completed.get(completed.size()-1).getJSONObject("params").getJSONObject("item");
+            check(done.getLong("durationMs")==21_500L&&done.getJSONArray("summary").getString(0).endsWith("中文🙂"),"Completion carries the whole summary and how long it took");
+            thoughtDelta("late");check(drain(events).isEmpty(),"A completed summary takes no further text");
+            event("item/started",new JSONObject().put("turnId",TURN).put("item",answer("answer","")));delta("Here is your week.");
+            event("item/completed",new JSONObject().put("turnId",TURN).put("item",answer("answer","Here is your week.")));
+            event("turn/completed",new JSONObject().put("turn",turn("completed",answer("answer","Here is your week."))));
+            check(AgentViews.readableTurn(THREAD,TURN).equals("Here is your week."),"The answer text never includes the reasoning");
+            drain(events);
+            // The end of a chat turn re-projects the thread through the bounded display projection.
+            AgentViews.saveMetadata(new JSONObject().put("id",THREAD).put("name","Week plan"));
+            check(viewItem(1).getJSONArray("summary").getString(0).endsWith("中文🙂")&&viewItem(1).getLong("durationMs")==21_500L,"The bounded projection keeps the summary and its duration");
+            JSONObject persisted=json(Files.readString(new File(AgentViews.ROOT,THREAD+".json").toPath())).getJSONArray("turns").getJSONObject(0).getJSONArray("items").getJSONObject(1);
+            check(persisted.getJSONArray("summary").length()==1&&persisted.getLong("durationMs")==21_500L,"The checkpoint keeps them across a relay restart");
+            // A full history read has the text but no timing: the duration this relay observed stays.
+            AgentViews.save(thread(turn("completed",user("user","Plan my week"),thought("thought","**Weighing the week** 中文🙂"),answer("answer","Here is your week."))));
+            check(viewItem(1).getLong("durationMs")==21_500L&&viewItem(1).getJSONArray("summary").length()==1,"History reads keep the observed duration");
+            drain(events);
+        }
+        reset();
+        // Subscribing after the summary began: the first delta makes its item, and a late start keeps the text.
+        AgentViews.save(thread(turn("inProgress",user("user","Plan my week"))));AgentViews.prepareReply(THREAD,contract,true);
+        try(SessionEvents.Subscription events=AgentViews.subscribe(new JSONObject().put("threadId",THREAD))) {
+            drain(events);thoughtDelta("Already thinking");
+            List<JSONObject> published=drain(events);
+            check(published.size()==1&&published.get(0).getString("method").equals("item/reasoning/summaryTextDelta"),"A delta before its item is still relayed once");
+            check(viewItem(1).getString("type").equals("reasoning")&&viewItem(1).getJSONArray("summary").getString(0).equals("Already thinking"),"The item is made from its first delta");
+            event("item/started",new JSONObject().put("turnId",TURN).put("item",thought("thought")).put("startedAtMs",7L));
+            check(viewItem(1).getJSONArray("summary").getString(0).equals("Already thinking")&&viewItem(1).getLong("startedAtMs")==7L,"A late start keeps the text and adds the start time");
+            drain(events);
+        }
+        reset();
+        // A long train of thought is bounded by its own budget and never folds the answer beside it.
+        String longThought="Weigh the options. ".repeat(474),longAnswer="Plan the day. ".repeat(785);
+        JSONArray turns=new JSONArray();
+        for(int i=0;i<5;i++)turns.put(new JSONObject().put("id","t-"+i).put("status","completed").put("items",new JSONArray().put(user("u-"+i,"Q"+i)).put(thought("r-"+i,longThought)).put(answer("a-"+i,longAnswer))));
+        AgentViews.save(new JSONObject().put("id",THREAD).put("turns",turns));
+        AgentViews.saveMetadata(new JSONObject().put("id",THREAD).put("name","Long thoughts"));
+        JSONObject bounded=AgentViews.snapshot(THREAD);int kept=0;
+        for(int i=0;i<5;i++) {
+            JSONArray items=bounded.getJSONArray("turns").getJSONObject(i).getJSONArray("items");
+            check(items.getJSONObject(2).getString("text").equals(longAnswer),"Reasoning never spends the answer's display budget");
+            JSONObject item=items.getJSONObject(1);check(item.getString("type").equals("reasoning"),"A reasoning item stays in place when its text is not projected");
+            if(item.has("summary")) {kept+=item.getJSONArray("summary").getString(0).length();check(item.getJSONArray("summary").getString(0).length()<=8_000,"One summary part is bounded");}
+        }
+        check(kept>0&&kept<=24_000,"Reasoning summaries share one bounded budget");
+        check(bounded.getJSONArray("turns").getJSONObject(4).getJSONArray("items").getJSONObject(1).has("summary")
+            &&!bounded.getJSONArray("turns").getJSONObject(0).getJSONArray("items").getJSONObject(1).has("summary"),"The newest reasoning keeps its text first");
+        check(bounded.optInt("historyOmittedText")==0,"Bounding reasoning is not reported as omitted conversation text");
+        reset();
+    }
+
     private static MainReplyStream groupedView(boolean nested,boolean timeFirst,boolean expanded) {
         MainReplyStream stream=stream();
         String metric="{\"n\":2,\"type\":\"block\",\"id\":\"score\",\"kind\":\"metric\",\"value\":{\"type\":\"number\",\"value\":42},\"config\":{\"group\":\"weather\",\"size\":\"medium_size\"}}";
@@ -354,7 +429,7 @@ public final class MainReplyHostTest {
         contract=json(Files.readString(new File(args[0]).toPath()));
         JSONObject hashed=new JSONObject(contract.toString());hashed.remove("contractHash");hashed.remove("prompt");
         check(MainReplyStream.manifestHash(hashed).equals(contract.getString("contractHash")),"Native canonical encoding matches the real exporter manifest hash");
-        incremental();segmentation();rejectedRecords();typedAndSchema();actionsAndBounds();lifecycle();liveHistory();canonicalCatchup();reviewedSources();groupMembership();
+        incremental();segmentation();rejectedRecords();typedAndSchema();actionsAndBounds();lifecycle();liveHistory();canonicalCatchup();reviewedSources();reasoningRelay();groupMembership();
         System.out.println("MainReplyHostTest: "+assertions+" assertions passed");
     }
 }

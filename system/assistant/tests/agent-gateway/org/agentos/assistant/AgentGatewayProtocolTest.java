@@ -226,6 +226,19 @@ public final class AgentGatewayProtocolTest {
         check(visibleDelta.getJSONObject("params").length() == 3 && visibleDelta.getJSONObject("params").getString("delta").equals("中文🙂"));
         rejects(() -> AgentGatewayProtocol.sessionEvent(delta, KEY));
         rejects(() -> AgentGatewayProtocol.sessionEvent(new JSONObject(delta.toString()).put("method", "account/updated"), THREAD));
+        // A public reasoning summary streams by its own event; raw reasoning content has none.
+        JSONObject thought = new JSONObject(delta.toString()).put("method", "item/reasoning/summaryTextDelta").put("params", new JSONObject().put("turnId", "turn")
+                .put("itemId", "rs_1").put("summaryIndex", 1).put("delta", "**Weighing** 中文🙂").put("threadId", THREAD).put("extra", "private"));
+        JSONObject visibleThought = AgentGatewayProtocol.sessionEvent(thought, THREAD).getJSONObject("params");
+        check(visibleThought.length() == 4 && visibleThought.getString("delta").equals("**Weighing** 中文🙂") && visibleThought.getInt("summaryIndex") == 1
+                && visibleThought.getString("itemId").equals("rs_1"));
+        rejects(() -> AgentGatewayProtocol.sessionEvent(new JSONObject(thought.toString()).put("method", "item/reasoning/textDelta"), THREAD));
+        rejects(() -> AgentGatewayProtocol.sessionEvent(new JSONObject(thought.toString()).put("method", "item/reasoning/summaryPartAdded"), THREAD));
+        JSONObject thinking = new JSONObject(delta.toString()).put("method", "item/completed").put("params", new JSONObject().put("turnId", "turn").put("completedAtMs", 22_500)
+                .put("item", new JSONObject().put("id", "rs_1").put("type", "reasoning").put("summary", new JSONArray().put("Final thought")).put("durationMs", 21_500)));
+        JSONObject visibleThinking = AgentGatewayProtocol.sessionEvent(thinking, THREAD).getJSONObject("params");
+        check(visibleThinking.length() == 2 && visibleThinking.getJSONObject("item").getJSONArray("summary").getString(0).equals("Final thought")
+                && visibleThinking.getJSONObject("item").getInt("durationMs") == 21_500);
         JSONObject streamSnapshot = new JSONObject(delta.toString()).put("method", "session/snapshot").put("params", new JSONObject().put("thread",
                 new JSONObject().put("id", THREAD).put("turns", new JSONArray()).put("accessToken", "secret")));
         check(!AgentGatewayProtocol.sessionEvent(streamSnapshot, THREAD).getJSONObject("params").getJSONObject("thread").has("accessToken"));

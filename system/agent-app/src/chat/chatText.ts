@@ -22,6 +22,9 @@ const en = {
   quickMessage: 'Draft a message', quickMessagePrompt: 'Help me draft a message to ',
   quickResearch: 'Research a topic', quickResearchPrompt: 'Research this for me: ',
   voice: 'Voice input', copy: 'Copy', copied: 'Copied', select: 'Select', done: 'Done',
+  // The model's reasoning above a reply: live, then one row that opens to show it again.
+  thinking: 'Thinking', thoughtFor: 'Thought for {duration}', thoughtProcess: 'Thought process',
+  showThinking: 'Show thinking', hideThinking: 'Hide thinking',
   voiceSettingsHint: 'Touch and hold for dictation language settings',
   showChat: 'Show conversation', showTasks: 'Show this conversation’s activity', openPanel: 'Open panel',
   pinToPanels: 'Pin to Panels', unpinPanel: 'Unpin', pinned: 'Pinned to Panels', unpinned: 'Removed from Panels',
@@ -80,6 +83,8 @@ const zh: Record<Key, string> = {
   quickMessage: '起草消息', quickMessagePrompt: '帮我起草一条消息，发给',
   quickResearch: '调研主题', quickResearchPrompt: '帮我调研一下：',
   voice: '语音输入', copy: '复制', copied: '已复制', select: '选择', done: '完成',
+  thinking: '思考中', thoughtFor: '已思考 {duration}', thoughtProcess: '思考过程',
+  showThinking: '展开思考过程', hideThinking: '收起思考过程',
   voiceSettingsHint: '长按打开听写语言设置',
   showChat: '显示聊天', showTasks: '显示当前会话的执行过程', openPanel: '打开面板',
   pinToPanels: '固定到面板', unpinPanel: '取消固定', pinned: '已固定到面板', unpinned: '已从面板移除',
