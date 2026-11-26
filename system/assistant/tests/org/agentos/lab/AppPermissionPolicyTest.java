@@ -16,6 +16,7 @@ public final class AppPermissionPolicyTest {
                 "skills/community/upgrade", "skills/community/rollback", "skills/credentials/set",
                 "skills/credentials/remove", "requests/respond", "requests/submit", "requests/cancel",
                 "composer/submit", "composer/write", "composer/options/write", "composer/restoreTask",
+                "composer/removeAttachment", "composer/plugin/add", "composer/plugin/remove",
                 "accounts/saveKey", "accounts/removeKey", "accounts/login", "accounts/openMagpie",
                 "accounts/cancel", "accounts/refresh", "accounts/agySignIn", "accounts/agyCode",
                 "accounts/agyCancel", "accounts/agyUse", "accounts/agyRefresh", "manageSystemAi", "setSystemAi", "bindSystemAi",
