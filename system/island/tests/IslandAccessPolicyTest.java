@@ -14,9 +14,9 @@ public final class IslandAccessPolicyTest {
     }
     public static void main(String[] args) {
         String denied = IslandAccessPolicy.DENIED;
-        String[] control = {"state", "list", "get", "settings", "select", "choose", "expand",
+        String[] control = {"state", "list", "get", "settings", "select", "choose", "expand", "collapse",
                 "dismiss", "open", "action", "tap", "hide", "someFutureOperation", null};
-        String[] global = {"collapse", "next"};
+        String[] global = {"next"};
         String[] admin = {"setEnabled", "setAllowed", "setProtocol"};
         // Agents, ADB, SystemUI and platform-signed callers keep direct access to everything.
         for (String method : control) expect(null, method, true, false, false);
@@ -79,6 +79,20 @@ public final class IslandAccessPolicyTest {
         check(missing.equals(IslandAccessPolicy.target(everything, null)), "missing key for a trusted caller");
         check(IslandAccessPolicy.target(everything, appA) == null && IslandAccessPolicy.target(everything, appB) == null,
                 "trusted callers operate and reply across apps");
+
+        // collapse names no activity: a granted app folds the open card only when it is its own.
+        check(IslandAccessPolicy.collapse(scopeA, appA) == null, "A collapses its own expanded card");
+        check(IslandAccessPolicy.collapse(scopeB, appB) == null, "B collapses its own expanded card");
+        check(denied.equals(IslandAccessPolicy.collapse(scopeA, appB)), "A cannot collapse B's card");
+        check(denied.equals(IslandAccessPolicy.collapse(scopeB, appA)), "B cannot collapse A's card");
+        check(denied.equals(IslandAccessPolicy.collapse(scopeA, systemUi)), "A cannot collapse a system card");
+        check(denied.equals(IslandAccessPolicy.collapse(scopeA, 1000000 + appA)), "A cannot collapse another user's card");
+        check(denied.equals(IslandAccessPolicy.collapse(scopeA, null)), "no open card is refused like a foreign one");
+        check(IslandAccessPolicy.collapse(everything, appA) == null && IslandAccessPolicy.collapse(everything, systemUi) == null
+                && IslandAccessPolicy.collapse(everything, null) == null, "trusted callers collapse any card");
+        // Without a grant collapse is refused before ownership is ever looked at.
+        expect(denied, "collapse", false, false, false);
+        check(IslandAccessPolicy.needsGrant("collapse", false), "collapse needs the grant");
         System.out.println("PASS: " + checks + " island access policy checks");
     }
 }

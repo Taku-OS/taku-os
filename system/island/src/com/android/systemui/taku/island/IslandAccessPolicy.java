@@ -10,8 +10,9 @@ import java.util.Set;
  * unless the App Permission Center grants them {@code taku.control}. That grant reaches only the
  * activities the caller's own UID published: other apps' activities are invisible to it and cannot
  * be operated, so it can never fire another app's action or send a {@code RemoteInput} reply on
- * its behalf. Operations that act on whatever the island shows ({@code collapse}, {@code next}),
- * island settings and the publisher allow-list stay with trusted callers.
+ * its behalf. {@code collapse} names no activity, so it folds the open card only when the caller
+ * published it. {@code next}, which moves between every app's capsule, island settings and the
+ * publisher allow-list stay with trusted callers.
  */
 public final class IslandAccessPolicy {
     public enum Tier { PUBLIC, CONTROL, GLOBAL, ADMIN }
@@ -24,7 +25,7 @@ public final class IslandAccessPolicy {
 
     private static final Set<String> PUBLIC = Set.of("capabilities", "canShowIsland");
     /** Act on whichever activity the island presents, whoever published it. */
-    private static final Set<String> GLOBAL = Set.of("collapse", "next");
+    private static final Set<String> GLOBAL = Set.of("next");
     private static final Set<String> ADMIN = Set.of("setEnabled", "setAllowed", "setProtocol");
     /** Name one activity by key; a scoped caller must have published it. */
     private static final Set<String> TARGETED =
@@ -63,6 +64,19 @@ public final class IslandAccessPolicy {
      */
     public static String target(int scope, Integer ownerUid) {
         return ownerUid != null && owns(scope, ownerUid) ? null : NOT_FOUND;
+    }
+
+    /**
+     * {@code collapse} folds the expanded card into its capsule. A trusted caller may always ask
+     * (with no card open it does nothing); a scoped caller only while the open card is its own.
+     * No card and another app's card answer alike, so the refusal does not reveal which it is.
+     *
+     * @param cardOwnerUid publishing UID of the expanded card, or null when no card is open
+     * @return null when allowed, else the error code returned to the caller
+     */
+    public static String collapse(int scope, Integer cardOwnerUid) {
+        if (scope == ALL_ACTIVITIES) return null;
+        return cardOwnerUid != null && scope == cardOwnerUid ? null : DENIED;
     }
 
     public static boolean trustedUid(int uid, int selfUid) {

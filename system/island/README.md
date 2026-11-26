@@ -138,8 +138,9 @@ package, or, with an App Permission Center `taku.control` grant, read/operate ac
 activities their own UID published. The provider passes that UID to the engine as the call's scope:
 reads are filtered to it, a targeted operation (`get`, `select`, `expand`, `tap`, `dismiss`, `hide`,
 `open`, `action` including a `RemoteInput` reply) on another app's key returns `not_found`, and the
-returned state is cut the same way. `collapse`, `next` and settings writes are never available to
-them. Refusals return `permission_denied`.
+returned state is cut the same way. `collapse` folds the expanded card only when that UID published
+it (`IslandPresentation.expandedKey`), and is refused otherwise, including when no card is open.
+`next` and settings writes are never available to them. Refusals return `permission_denied`.
 Every cmd operation is also a provider `call` of the same name: `arg` is the first argument and
 Bundle string `value` is the optional second argument (e.g. action JSON). `get` includes the payload,
 revision, monotonic first-seen/expiry, staleness, dismissal and fallback reason. `dismiss` hides the

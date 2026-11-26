@@ -30,6 +30,8 @@ interface IslandPresentation {
     fun select(key: String): Boolean
     fun next(): Boolean
     fun collapse(reason: String)
+    /** Key of the activity whose expanded card is open, or null. */
+    fun expandedKey(): String?
     fun state(): JSONObject
 }
 
@@ -275,7 +277,8 @@ class IslandEngine @Inject constructor(
     /**
      * [scope] is [IslandAccessPolicy.ALL_ACTIVITIES] for SystemUI's own gestures, `cmd` and trusted
      * provider callers, else the calling UID: such a caller reads and operates only the activities
-     * that UID published, and never the operations that act on whatever the island presents.
+     * that UID published, folds the open card only when it is one of them, and never moves between
+     * other apps' activities.
      */
     fun command(method: String, arg: String?, extra: String?, scope: Int = IslandAccessPolicy.ALL_ACTIVITIES): JSONObject {
         val scoped = scope != IslandAccessPolicy.ALL_ACTIVITIES
@@ -283,6 +286,10 @@ class IslandEngine @Inject constructor(
             return IslandRuntime.error(IslandAccessPolicy.DENIED)
         if (scoped && IslandAccessPolicy.targeted(method) && owned(arg, scope) == null)
             return IslandRuntime.error(IslandAccessPolicy.NOT_FOUND)
+        if (scoped && method == "collapse") {
+            val cardOwner = presentation?.expandedKey()?.let { store.get(it)?.data?.uid }
+            IslandAccessPolicy.collapse(scope, cardOwner)?.let { return IslandRuntime.error(it) }
+        }
         return when (method) {
             "capabilities" -> JSONObject().put("ok", true).put("protocol", IslandPolicy.PROTOCOL_VERSION)
                 .put("enabled", policy.enabled).put("presentationAttached", presentation != null)
@@ -306,7 +313,7 @@ class IslandEngine @Inject constructor(
                 require(store.get(arg)?.active(SystemClock.elapsedRealtime()) == true) { "not_found" }
                 require(presentation?.expand(requireNotNull(arg)) == true) { "presentation_unavailable" }
             }
-            "collapse" -> mutate { presentation?.collapse("agent") }
+            "collapse" -> mutate(scope) { presentation?.collapse("agent") }
             "select" -> mutate(scope) { require(presentation?.select(requireNotNull(arg) { "missing_key" }) == true) { "not_found" } }
             "next" -> mutate { require(presentation?.next() == true) { "no_other_activity" } }
             // The capsule's own tap: open the app when the publisher chose `open`, else expand.

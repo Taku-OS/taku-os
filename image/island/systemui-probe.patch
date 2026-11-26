@@ -135,7 +135,7 @@
                  }
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandAccessPolicy.java
-@@ -0,0 +1,92 @@
+@@ -0,0 +1,106 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island;
 +
@@ -148,8 +148,9 @@
 + * unless the App Permission Center grants them {@code taku.control}. That grant reaches only the
 + * activities the caller's own UID published: other apps' activities are invisible to it and cannot
 + * be operated, so it can never fire another app's action or send a {@code RemoteInput} reply on
-+ * its behalf. Operations that act on whatever the island shows ({@code collapse}, {@code next}),
-+ * island settings and the publisher allow-list stay with trusted callers.
++ * its behalf. {@code collapse} names no activity, so it folds the open card only when the caller
++ * published it. {@code next}, which moves between every app's capsule, island settings and the
++ * publisher allow-list stay with trusted callers.
 + */
 +public final class IslandAccessPolicy {
 +    public enum Tier { PUBLIC, CONTROL, GLOBAL, ADMIN }
@@ -162,7 +163,7 @@
 +
 +    private static final Set<String> PUBLIC = Set.of("capabilities", "canShowIsland");
 +    /** Act on whichever activity the island presents, whoever published it. */
-+    private static final Set<String> GLOBAL = Set.of("collapse", "next");
++    private static final Set<String> GLOBAL = Set.of("next");
 +    private static final Set<String> ADMIN = Set.of("setEnabled", "setAllowed", "setProtocol");
 +    /** Name one activity by key; a scoped caller must have published it. */
 +    private static final Set<String> TARGETED =
@@ -201,6 +202,19 @@
 +     */
 +    public static String target(int scope, Integer ownerUid) {
 +        return ownerUid != null && owns(scope, ownerUid) ? null : NOT_FOUND;
++    }
++
++    /**
++     * {@code collapse} folds the expanded card into its capsule. A trusted caller may always ask
++     * (with no card open it does nothing); a scoped caller only while the open card is its own.
++     * No card and another app's card answer alike, so the refusal does not reveal which it is.
++     *
++     * @param cardOwnerUid publishing UID of the expanded card, or null when no card is open
++     * @return null when allowed, else the error code returned to the caller
++     */
++    public static String collapse(int scope, Integer cardOwnerUid) {
++        if (scope == ALL_ACTIVITIES) return null;
++        return cardOwnerUid != null && scope == cardOwnerUid ? null : DENIED;
 +    }
 +
 +    public static boolean trustedUid(int uid, int selfUid) {
@@ -1564,7 +1578,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandEngine.kt
-@@ -0,0 +1,384 @@
+@@ -0,0 +1,391 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -1597,6 +1611,8 @@
 +    fun select(key: String): Boolean
 +    fun next(): Boolean
 +    fun collapse(reason: String)
++    /** Key of the activity whose expanded card is open, or null. */
++    fun expandedKey(): String?
 +    fun state(): JSONObject
 +}
 +
@@ -1842,7 +1858,8 @@
 +    /**
 +     * [scope] is [IslandAccessPolicy.ALL_ACTIVITIES] for SystemUI's own gestures, `cmd` and trusted
 +     * provider callers, else the calling UID: such a caller reads and operates only the activities
-+     * that UID published, and never the operations that act on whatever the island presents.
++     * that UID published, folds the open card only when it is one of them, and never moves between
++     * other apps' activities.
 +     */
 +    fun command(method: String, arg: String?, extra: String?, scope: Int = IslandAccessPolicy.ALL_ACTIVITIES): JSONObject {
 +        val scoped = scope != IslandAccessPolicy.ALL_ACTIVITIES
@@ -1850,6 +1867,10 @@
 +            return IslandRuntime.error(IslandAccessPolicy.DENIED)
 +        if (scoped && IslandAccessPolicy.targeted(method) && owned(arg, scope) == null)
 +            return IslandRuntime.error(IslandAccessPolicy.NOT_FOUND)
++        if (scoped && method == "collapse") {
++            val cardOwner = presentation?.expandedKey()?.let { store.get(it)?.data?.uid }
++            IslandAccessPolicy.collapse(scope, cardOwner)?.let { return IslandRuntime.error(it) }
++        }
 +        return when (method) {
 +            "capabilities" -> JSONObject().put("ok", true).put("protocol", IslandPolicy.PROTOCOL_VERSION)
 +                .put("enabled", policy.enabled).put("presentationAttached", presentation != null)
@@ -1873,7 +1894,7 @@
 +                require(store.get(arg)?.active(SystemClock.elapsedRealtime()) == true) { "not_found" }
 +                require(presentation?.expand(requireNotNull(arg)) == true) { "presentation_unavailable" }
 +            }
-+            "collapse" -> mutate { presentation?.collapse("agent") }
++            "collapse" -> mutate(scope) { presentation?.collapse("agent") }
 +            "select" -> mutate(scope) { require(presentation?.select(requireNotNull(arg) { "missing_key" }) == true) { "not_found" } }
 +            "next" -> mutate { require(presentation?.next() == true) { "no_other_activity" } }
 +            // The capsule's own tap: open the app when the publisher chose `open`, else expand.
@@ -2952,7 +2973,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandPresenter.kt
-@@ -0,0 +1,398 @@
+@@ -0,0 +1,400 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -3197,6 +3218,8 @@
 +        closeCard(reason)
 +        layoutCapsule()
 +    }
++
++    override fun expandedKey(): String? = cardKey.takeIf { card != null }
 +
 +    private fun closeCard(reason: String) {
 +        card?.close()

@@ -89,8 +89,9 @@ request to the owning system service, which applies the same validation as the G
 - Trusted callers have direct Island access. Ordinary apps can query publication eligibility for
   their own package and need an App Permission Center `taku.control` grant to read or operate
   activities, and then only those their own UID published (another app's activity returns
-  `not_found`; no cross-app actions or `RemoteInput` replies). Only trusted callers can use
-  `collapse`/`next` or change settings or the publisher allow-list. Denied
+  `not_found`; no cross-app actions or `RemoteInput` replies; `collapse` only folds their own
+  expanded card). Only trusted callers can use `next` or change settings or the publisher
+  allow-list. Denied
   Island operations return `permission_denied`. The publisher allow-list governs notification
   rendering separately.
 

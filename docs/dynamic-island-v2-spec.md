@@ -372,7 +372,7 @@ This must be fixed before any third-party publisher is allowed.
 | Caller | Access |
 |---|---|
 | UID 0, 1000, 2000, the SystemUI UID, platform-signed packages | Everything (unchanged for Agents and ADB) |
-| A third-party app granted `taku.control` in the App Permission Center | `state`, `list`, `get`, `select`, `expand`, `tap`, `dismiss`, `hide`, `open`, `action`, **for activities its own UID published only**; other apps' activities are omitted from reads and answer `not_found`, so there is no cross-app action or `RemoteInput` reply. Never `collapse`, `next`, `setEnabled` or `setAllowed` |
+| A third-party app granted `taku.control` in the App Permission Center | `state`, `list`, `get`, `select`, `expand`, `tap`, `dismiss`, `hide`, `open`, `action`, **for activities its own UID published only**; other apps' activities are omitted from reads and answer `not_found`, so there is no cross-app action or `RemoteInput` reply. `collapse` only while the expanded card is its own (otherwise `permission_denied`). Never `next`, `setEnabled` or `setAllowed` |
 | Any other third-party app | `capabilities`, and `canShowIsland` **for its own packages only** (the equivalent of Xiaomi's `canShowFocus`) |
 
 Reuse the existing gate pattern (`TakuCallerAccess.kt`, `AudioOpenAccessProvider.kt`). Unauthorized

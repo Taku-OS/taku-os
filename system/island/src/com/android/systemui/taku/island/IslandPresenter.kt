@@ -243,6 +243,8 @@ class IslandPresenter @Inject constructor(
         layoutCapsule()
     }
 
+    override fun expandedKey(): String? = cardKey.takeIf { card != null }
+
     private fun closeCard(reason: String) {
         card?.close()
         card = null

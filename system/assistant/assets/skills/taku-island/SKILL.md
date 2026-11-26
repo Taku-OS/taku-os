@@ -45,9 +45,11 @@ platform certificate) are governed by the App Permission Center
   same two fields. `get`, `select`, `tap`, `expand`, `dismiss`, `hide`, `open` and `action`
   (including `reply`, which fills a `RemoteInput`) accept the caller's own keys; another app's
   key returns `not_found`, exactly like a missing one.
-- `collapse` and `next` act on whichever activity is presented, and `setEnabled`, `setAllowed`
-  and `setProtocol` change settings: all return `permission_denied` for third-party apps, even
-  with a grant. Use the GUI, ADB or a trusted Agent.
+- `collapse` takes no key: with a grant it folds the expanded card only when the caller
+  published it. With no card open, or another app's card open, it returns `permission_denied`.
+- `next` moves between every app's capsule, and `setEnabled`, `setAllowed` and `setProtocol`
+  change settings: all return `permission_denied` for third-party apps, even with a grant. Use
+  the GUI, ADB or a trusted Agent.
 - Trusted callers are unaffected: an Agent still reads every activity and may operate or reply
   on any of them.
 

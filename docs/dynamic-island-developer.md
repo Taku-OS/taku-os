@@ -413,8 +413,10 @@ grant covers **only the activities your own app (UID) published**:
 - `action` with `reply` fills the free-form `RemoteInput` of your own action only. There is no
   cross-app access and no reply delegation: an app can never read another app's activity, fire its
   actions or send a notification reply on its behalf.
-- `collapse` and `next` act on whichever activity the island presents, so they return
-  `permission_denied`, as do `setEnabled`, `setAllowed` and `setProtocol`.
+- `collapse` takes no key. It folds your own expanded card back into its capsule; when no card
+  is open, or the open card belongs to another app, it returns `permission_denied`.
+- `next` moves between every app's capsule, so it returns `permission_denied`, as do
+  `setEnabled`, `setAllowed` and `setProtocol`.
 
 ADB/Agent UID 0/1000/2000 and platform-signed callers have direct access to every activity and
 operation. There is no self-registration API for apps.

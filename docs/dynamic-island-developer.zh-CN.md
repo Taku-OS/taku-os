@@ -372,7 +372,9 @@ adb shell dumpsys activity service com.android.systemui/.SystemUIService IslandS
   其他 key（包括其他应用正在展示的活动）一律返回 `not_found`。
 - 带 `reply` 的 `action` 只会填入自己操作的自由文本 `RemoteInput`。不存在跨应用访问或代为回复：
   应用无法读取其他应用的活动、触发其操作，或以其名义发送通知回复。
-- `collapse` 和 `next` 作用于灵动岛当前展示的任意活动，因此返回 `permission_denied`；
+- `collapse` 不带 key：当前展开的卡片属于本应用时，将其收起为胶囊；没有展开的卡片，
+  或展开的是其他应用的卡片时，返回 `permission_denied`。
+- `next` 会在所有应用的胶囊之间切换，因此返回 `permission_denied`；
   `setEnabled`、`setAllowed`、`setProtocol` 同样如此。
 
 ADB／Agent UID 0/1000/2000 和平台签名调用者可直接访问全部活动和操作。没有供普通应用自行注册白名单的接口。
