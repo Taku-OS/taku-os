@@ -155,6 +155,12 @@ internal object TaskRequests {
         if (options.has("pollSendIntentId")) {
             request.put("pollSendIntentId", PanelProtocol.uuid(options, "pollSendIntentId"))
         }
+        if (options.has("diningRideKey")) {
+            val rideKey = PanelProtocol.uuid(options, "diningRideKey")
+            if (rideKey != request.optString("composerRequestId")) throw IOException("DINING_RIDE_REQUEST_CHANGED")
+            request.put("diningRideKey", rideKey)
+            request.put("displayPrompt", "Prepare a ride to dinner")
+        }
         if (options.has("panelUpdate")) {
             val target = options.getJSONObject("panelUpdate")
             PanelProtocol.exact(target, panelUpdateFields)

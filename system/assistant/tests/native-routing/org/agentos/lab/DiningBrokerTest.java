@@ -171,6 +171,17 @@ public final class DiningBrokerTest {
                 () -> DiningPollInput.visibleTask(screen, 6, 1, WHATSAPP));
     }
 
+    private static void uberEvidenceRequiresNativeRideDispatch() throws Exception {
+        JSONObject nativeDispatch = new JSONObject().put("diningRideKey", INTENT).put("composerRequestId", INTENT);
+        check(PhoneRideReview.authorizedRideRequest(nativeDispatch), "native ride task carries the exact dispatch key");
+        check(!PhoneRideReview.authorizedRideRequest(new JSONObject().put("composerRequestId", INTENT)),
+                "an ordinary composer request cannot inspect or hand off a ride");
+        check(!PhoneRideReview.authorizedRideRequest(new JSONObject(nativeDispatch.toString()).put("composerRequestId", THREAD)),
+                "another task cannot reuse the ride authorization");
+        check(!PhoneRideReview.authorizedRideRequest(new JSONObject().put("diningRideKey", "invalid")
+                .put("composerRequestId", "invalid")), "a malformed dispatch key grants no ride access");
+    }
+
     public static void main(String[] args) throws Exception {
         pollRequestUsesConfirmedTaskOnly();
         acceptsOnlyExactVisibleWhatsAppTask();
@@ -179,6 +190,7 @@ public final class DiningBrokerTest {
         operationFenceNeedsAReleasedLock();
         passiveObservationNeverAdoptsAnotherVisibleTaskForInput();
         bookingEvidenceRequiresTheMatchingConfirmedTask();
-        System.out.println("DiningBrokerTest: Yelp routing, poll ownership and observation, OpenTable binding, and cleanup passed");
+        uberEvidenceRequiresNativeRideDispatch();
+        System.out.println("DiningBrokerTest: Yelp routing, poll ownership and observation, OpenTable binding, Uber dispatch, and cleanup passed");
     }
 }

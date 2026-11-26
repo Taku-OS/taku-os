@@ -15,6 +15,7 @@ import org.agentos.agent.home.design.PixelGlyphs
 import org.agentos.agent.home.ui.splitDisplayValue
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
@@ -76,7 +77,8 @@ class FeedContractTest {
       assertEquals("share-text", event.indexString("intentType"))
       val epoch = UUID.randomUUID()
       val accepted = AcceptedFeedAction(card, action, FeedSelectionValues.EMPTY, FeedCursor(epoch, 1))
-      val dispatched = JSONObject(String(FeedEvent.dispatched(FeedOrigin.GUI, accepted).encode(FeedCursor(epoch, 2)), Charsets.UTF_8))
+      val proofEvent = requireNotNull(FeedEvent.dispatched(FeedOrigin.GUI, accepted))
+      val dispatched = JSONObject(String(proofEvent.encode(FeedCursor(epoch, 2)), Charsets.UTF_8))
       assertEquals("dispatched", dispatched.getString("phase"))
       assertEquals("share-text", dispatched.getString("intentType"))
       assertEquals(accepted.cursor.toString(), dispatched.getString("acceptedCursor"))
@@ -86,6 +88,27 @@ class FeedContractTest {
         .digest(expected.getString("text").toByteArray(Charsets.UTF_8))), proof.getString("textSha256"))
       assertTrue(!proof.has("text"))
     }
+  }
+
+  @Test fun diningCalendarDispatchRecordsOnlyTheExactEventUri() {
+    val uri = "content://com.android.calendar/events/42"
+    val epoch = UUID.randomUUID()
+    fun dispatch(cardId: String, actionId: String, target: String): FeedEvent? {
+      val card = FeedCard.parse(minimal(cardId).put("actions", JSONObject().put(actionId, JSONObject()
+        .put("label", "View event").put("intent", JSONObject().put("type", "open-app")
+          .put("package", "com.google.android.calendar").put("uri", target)))))
+      return FeedEvent.dispatched(FeedOrigin.GUI,
+        AcceptedFeedAction(card, card.actions.getValue(actionId), FeedSelectionValues.EMPTY, FeedCursor(epoch, 1)))
+    }
+    val event = requireNotNull(dispatch("dining.calendar.meal", "open-calendar", uri))
+    val proof = JSONObject(String(event.encode(FeedCursor(epoch, 2)), Charsets.UTF_8))
+    assertEquals("open-app", proof.getString("intentType"))
+    assertEquals(FeedCursor(epoch, 1).toString(), proof.getString("acceptedCursor"))
+    assertEquals("com.google.android.calendar", proof.getJSONObject("intent").getString("package"))
+    assertEquals(uri, proof.getJSONObject("intent").getString("uri"))
+    assertNull(dispatch("other.calendar.meal", "open-calendar", uri))
+    assertNull(dispatch("dining.calendar.meal", "another-action", uri))
+    assertNull(dispatch("dining.calendar.meal", "open-calendar", "$uri/instances"))
   }
 
   @Test fun feedShareActionRejectsOtherAppsAndInvalidText() {

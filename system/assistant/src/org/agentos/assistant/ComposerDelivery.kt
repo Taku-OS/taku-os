@@ -31,6 +31,7 @@ internal object ComposerDelivery {
         val request = try { SourceAdapters.readObject(File(directory, "request.json")) }
             catch (_: Exception) { throw IOException("TASK_FAILURE_CHANGED") }
         if (request.optString("conversationId") != thread || thread.isEmpty()) throw IOException("TASK_FAILURE_CHANGED")
+        if (request.has("diningRideKey")) throw IOException("WORKFLOW_MANAGED_TASK")
         val state = try { SourceAdapters.readObject(File(directory, "state.json")) }
             catch (_: Exception) { throw IOException("TASK_FAILURE_CHANGED") }
         val status = state.optString("state")

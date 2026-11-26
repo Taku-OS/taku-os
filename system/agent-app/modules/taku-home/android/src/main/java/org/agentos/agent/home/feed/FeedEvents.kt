@@ -175,16 +175,28 @@ internal class FeedEvent private constructor(private val fields: JSONObject, val
         .put("phase", "accepted").put("intentType", intentType).put("values", values.json()))
     }
 
-    fun dispatched(origin: FeedOrigin, accepted: AcceptedFeedAction): FeedEvent {
-      val intent = accepted.action.intent as? Intent.ShareText
-        ?: throw FeedException("UNSUPPORTED_DISPATCH_RECEIPT", "this action does not record a dispatch receipt")
-      val digest = MessageDigest.getInstance("SHA-256").digest(intent.text.toByteArray(Charsets.UTF_8))
+    private val calendarEvent = Regex("""content://com\.android\.calendar/events/[1-9][0-9]*""")
+
+    fun dispatched(origin: FeedOrigin, accepted: AcceptedFeedAction): FeedEvent? {
+      val (type, proof) = when (val intent = accepted.action.intent) {
+        is Intent.ShareText -> {
+          val digest = MessageDigest.getInstance("SHA-256").digest(intent.text.toByteArray(Charsets.UTF_8))
+          "share-text" to JSONObject().put("package", intent.packageName)
+            .put("textSha256", HexFormat.of().formatHex(digest))
+        }
+        is Intent.OpenApp -> {
+          val uri = intent.uri ?: return null
+          if (!accepted.card.id.startsWith("dining.calendar.") || accepted.action.id != "open-calendar" ||
+            intent.packageName != "com.google.android.calendar" || !calendarEvent.matches(uri)) return null
+          "open-app" to JSONObject().put("package", intent.packageName).put("uri", uri)
+        }
+        else -> return null
+      }
       return FeedEvent(current(origin, FeedOperation.ACTION, accepted.card.id)
         .put("actionId", accepted.action.id).put("actionSource", "declared")
-        .put("phase", "dispatched").put("intentType", "share-text")
+        .put("phase", "dispatched").put("intentType", type)
         .put("acceptedCursor", accepted.cursor.toString())
-        .put("intent", JSONObject().put("package", intent.packageName)
-          .put("textSha256", HexFormat.of().formatHex(digest))))
+        .put("intent", proof))
     }
 
     fun legacy(entry: JSONObject): FeedEvent {

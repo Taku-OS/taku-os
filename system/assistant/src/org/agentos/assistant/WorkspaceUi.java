@@ -108,6 +108,18 @@ final class WorkspaceUi {
             if (left.optString(key).isEmpty() || !left.optString(key).equals(right.optString(key))) return false;
         return true;
     }
+    static boolean reviewPending(JSONObject screen) {
+        if (screen == null || screen.optString("controlOwner").equals("user")) return false;
+        JSONObject review = screen.optJSONObject("review");
+        return screen.optString("status").equals("awaiting_review")
+                || review != null && review.optString("status").equals("awaiting_review");
+    }
+    static boolean returnNeeded(JSONObject screen) {
+        return screen != null && !reviewPending(screen)
+                && (screen.optString("controlOwner").equals("user")
+                || screen.optString("controlOwner").equals("paused")
+                || screen.optBoolean("resumeRequired"));
+    }
     String appLabel(JSONObject screen) {
         String pkg = screen.optString("packageName");
         try { return activity.getPackageManager().getApplicationLabel(activity.getPackageManager().getApplicationInfo(pkg, 0)).toString(); }
@@ -122,6 +134,7 @@ final class WorkspaceUi {
         if (status.equals("stale") || status.equals("disconnected") || status.equals("unavailable") || status.equals("rebind_required")) return text.apply(R.string.workspace_status_unavailable);
         if (status.equals("stopping") || owner.equals("stopping")) return text.apply(R.string.workspace_status_stopping);
         if (owner.equals("user")) return text.apply(R.string.workspace_status_user);
+        if (status.equals("awaiting_review")) return text.apply(R.string.workspace_status_review);
         if (owner.equals("paused")) return text.apply(R.string.workspace_status_paused);
         if (screen.optBoolean("resumeRequired") || status.equals("awaiting_resume")) return text.apply(R.string.workspace_status_resume);
         if (status.equals("waiting_for_app")) {

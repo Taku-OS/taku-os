@@ -47,6 +47,7 @@
  <string name="workspace_count">%1$d of %2$d workspaces allocated</string>
  <string name="workspace_status_working">Agent is working</string>
  <string name="workspace_status_ready">Ready</string>
+ <string name="workspace_status_review">Waiting for your review</string>
  <string name="workspace_status_paused">Agent paused</string>
  <string name="workspace_status_user">You have control</string>
  <string name="workspace_status_waiting">Waiting for your response</string>

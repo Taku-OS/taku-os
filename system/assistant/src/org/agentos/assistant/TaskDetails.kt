@@ -35,11 +35,11 @@ internal object TaskDetails {
     @Throws(IOException::class)
     fun read(filesDir: File, taskId: String): JSONObject {
         val directory = taskDirectory(filesDir, taskId)
-        readRecord(File(directory, "request.json"), taskId)
+        val request = readRecord(File(directory, "request.json"), taskId)
         val state = readState(directory, taskId)
         return JSONObject().put("taskId", taskId)
             .put("state", state.optString("state"))
-            .put("prompt", state.optString("prompt"))
+            .put("prompt", request.optString("displayPrompt", state.optString("prompt")))
             .put("message", state.optString("message"))
     }
 

@@ -14,6 +14,8 @@ final class DiningPollAccess {
     private DiningPollAccess() {}
 
     static JSONObject execute(Context context, String method, JSONObject args) throws Exception {
+        if (method.startsWith("dining/poll/calendar-")) return DiningBookingCalendar.call(context, method, args);
+        if (method.startsWith("dining/poll/ride-")) return DiningBookingRide.call(context, method, args);
         return switch (method) {
             case "dining/poll/send-register" -> {
                 PanelProtocol.exact(

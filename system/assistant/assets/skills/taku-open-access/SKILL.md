@@ -1162,3 +1162,29 @@ screen. Stop for changed terms, a deposit, a payment prompt or an ambiguous
 target. `REQUEST_EXPIRED` means the offer or form revision has changed.
 When a submission is uncertain, inspect the existing attempt to reconcile
 it. A confirmed native receipt publishes one card to the existing Home Feed.
+
+### Add the meal to Calendar and prepare a ride
+
+After the reservation card's WhatsApp picker launches and the user returns
+to Taku, the Calendar offer uses the verified reservation. Confirm the
+writable calendar and meal details. An existing matching event is reused.
+The resulting Feed card opens the exact saved Calendar event. The Uber
+offer waits until Taku observes that event's details and the user leaves them.
+
+| Method on `content://org.agentos.assistant.open-access` | Arguments and result |
+| --- | --- |
+| `dining/poll/calendar-state`, `dining/poll/ride-state` | `{}` reads the authoritative continuation entries, including their phases and current keys. |
+| `dining/poll/calendar-open`, `dining/poll/ride-open` | `{id}` opens the available offer for the reservation watch. Missing share or event-view evidence returns `DINING_CALENDAR_SHARE_REQUIRED` or `DINING_RIDE_EVENT_DETAILS_REQUIRED`. |
+| `dining/poll/calendar-respond` | `{id,key,action}` where `action` is `confirm`, `edit`, `select` or `dismiss`. `select` additionally takes the numeric `calendarId`. |
+| `dining/poll/ride-respond` | `{id,key,action}` where `action` is `confirm`, `edit` or `dismiss`. Confirm and edit open the native ride details form. |
+| `dining/poll/ride-input-read`, `dining/poll/ride-input-cancel` | `{id,key}` reads the current form or cancels its draft. |
+| `dining/poll/ride-input-save`, `dining/poll/ride-input-submit` | `{id,key,pickup,departureLocal}`. Use a real pickup address and local `YYYY-MM-DDTHH:mm` departure before the meal. Submit the actual user-approved form. |
+| `dining/poll/ride-validate-plan` | `{id,pickup,departureLocal}` validates the proposed route and local departure without publishing a task. |
+| `dining/poll/ride-resume-input` | `{id,taskId,turnId,requestId}` recovers the form only for the matching earlier choice-only task with verified terminal evidence. |
+
+On the owned Uber screen, `taku_phone.inspect_uber_upcoming({})` checks the
+visible Upcoming view before changing the draft. If it cannot establish
+the state, ask the user to verify it. After preparing the ride, call
+`taku_phone.handoff_for_review({title,summary})` to keep the same Uber
+screen and draft for user control. The user verifies the live quote and
+performs the final reservation and any payment in Uber.

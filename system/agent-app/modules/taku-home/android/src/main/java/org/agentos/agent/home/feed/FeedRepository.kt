@@ -392,8 +392,9 @@ class FeedRepository private constructor(context: Context, private val sources: 
     AcceptedFeedAction(card, action, values, cursor)
   }
 
-  internal fun recordDispatch(accepted: AcceptedFeedAction, origin: FeedOrigin): FeedCursor = synchronized(lock) {
-    commit(FeedEvent.dispatched(origin, accepted))
+  internal fun recordDispatch(accepted: AcceptedFeedAction, origin: FeedOrigin): FeedCursor? {
+    val event = FeedEvent.dispatched(origin, accepted) ?: return null
+    return synchronized(lock) { commit(event) }
   }
 
   private fun commit(event: FeedEvent, preferences: FeedPreferences? = null, cards: FeedCardWrite? = null): FeedCursor {

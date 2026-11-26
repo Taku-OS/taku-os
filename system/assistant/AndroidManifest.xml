@@ -4,6 +4,8 @@
  <permission android:name="org.agentos.assistant.permission.USE_AI" android:protectionLevel="normal"/>
  <permission android:name="org.agentos.permission.AGENT_CLIENT" android:protectionLevel="signature"/>
  <uses-permission android:name="android.permission.INTERNET"/>
+ <uses-permission android:name="android.permission.READ_CALENDAR"/>
+ <uses-permission android:name="android.permission.WRITE_CALENDAR"/>
  <uses-permission android:name="org.agentos.permission.PUBLISH_SURFACES"/>
  <uses-permission android:name="org.agentos.permission.POST_ISLAND"/>
  <uses-permission android:name="org.agentos.memory.ACCESS_MEMORY"/>
@@ -50,5 +52,7 @@
   <activity android:name=".MirrorActivity" android:exported="false"/>
   <activity android:name=".BackgroundWorkspacesActivity" android:label="@string/workspace_title" android:exported="false"/>
   <activity android:name=".PanelActivity" android:exported="true" android:theme="@android:style/Theme.NoDisplay" android:taskAffinity="" android:excludeFromRecents="true" android:noHistory="true"/>
+  <activity android:name=".DiningRideInputActivity" android:exported="false"
+      android:label="Prepare a ride to dinner" android:windowSoftInputMode="adjustResize"/>
  </application>
 </manifest>

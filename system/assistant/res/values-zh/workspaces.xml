@@ -47,6 +47,7 @@
  <string name="workspace_count">已分配 %1$d 个，上限 %2$d 个</string>
  <string name="workspace_status_working">Agent 正在执行</string>
  <string name="workspace_status_ready">已就绪</string>
+ <string name="workspace_status_review">等待你查看</string>
  <string name="workspace_status_paused">Agent 已暂停</string>
  <string name="workspace_status_user">由你操作</string>
  <string name="workspace_status_waiting">等待你的回答</string>

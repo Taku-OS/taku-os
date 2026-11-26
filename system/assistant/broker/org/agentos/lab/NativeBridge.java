@@ -384,7 +384,7 @@ final class NativeBridge {
     DedicatedScreensOnDevice.shared().asked(params.optString("threadId"),shown.optString(confirmation?"title":"question"),shown.optString("returnTo"));
     String key=UUID.randomUUID().toString();requests.put(key,new JSONObject().put("key",key).put("id",event.get("id")).put("method",confirmation?"phone/confirmAction":"phone/askUser").put("params",snapshot));return;
    }
-   boolean observation=tool.endsWith("device_info")||matchesTool(tool,"screen_status")||tool.endsWith("observe_background")||tool.endsWith("memory_search")||tool.endsWith("memory_get")||matchesTool(tool,"apps")||(matchesTool(tool,"matter")&&params.optJSONObject("arguments")!=null&&params.getJSONObject("arguments").optString("action").equals("read"))||(matchesTool(tool,"audio")&&params.optJSONObject("arguments")!=null&&(params.getJSONObject("arguments").optString("action").equals("capabilities")||params.getJSONObject("arguments").optString("operation").equals("status")));
+   boolean observation=tool.endsWith("device_info")||matchesTool(tool,"screen_status")||matchesTool(tool,"inspect_uber_upcoming")||tool.endsWith("observe_background")||tool.endsWith("memory_search")||tool.endsWith("memory_get")||matchesTool(tool,"apps")||(matchesTool(tool,"matter")&&params.optJSONObject("arguments")!=null&&params.getJSONObject("arguments").optString("action").equals("read"))||(matchesTool(tool,"audio")&&params.optJSONObject("arguments")!=null&&(params.getJSONObject("arguments").optString("action").equals("capabilities")||params.getJSONObject("arguments").optString("operation").equals("status")));
    if(!observation&&mode.equals("readOnly")){server.nativeReply(event.get("id"),PhoneNativeTools.failure("This conversation is read-only; the phone operation was blocked"));return;}
    if(!observation&&hasPhoneQuestion(params.optString("threadId"))){server.nativeReply(event.get("id"),PhoneNativeTools.failure("Wait for the user to handle the current confirmation before continuing phone operations"));return;}
    if(!observation&&mode.equals("ask")){
@@ -402,6 +402,11 @@ final class NativeBridge {
   return params.optString("namespace").equals("taku_panel")||tool.startsWith("taku_panel.")||tool.startsWith("taku_panel/")||tool.startsWith("taku_panel__");
  }
  static boolean phoneTurnActive(JSONObject params){if(SessionRemovalRuntime.pending(params.optString("threadId")))return false;JSONObject s=state.get(params.optString("threadId"));String turn=params.optString("turnId");return s!=null&&!turn.isEmpty()&&turn.equals(s.optString("activeTurnId"))&&!turn.equals(s.optString("phoneStoppedTurnId"));}
+ /** Seal later phone calls without interrupting the worker that must return the handoff receipt. */
+ static void sealReviewInputs(JSONObject params)throws Exception { try (CleanupWork.Held held = lock()) {
+  if(!phoneTurnActive(params))throw new IOException("RIDE_EVIDENCE_TASK_CHANGED");
+  state.get(params.getString("threadId")).put("phoneStoppedTurnId",params.getString("turnId"));
+ } }
  static boolean hasPhoneQuestion(String thread){return requests.values().stream().anyMatch(q->q.optJSONObject("params")!=null && thread.equals(q.optJSONObject("params").optString("threadId")) && (q.optString("method").equals("phone/askUser")||q.optString("method").equals("phone/confirmAction")||q.optString("method").equals("phone/action/requestApproval")));}
  static void executePhone(CodexAppServer server,Object id,JSONObject params){ try (CleanupWork.Held held14 = lock()) {
   if(!phoneTurnActive(params)){try{server.nativeReply(id,PhoneNativeTools.failure("This execution turn has stopped; the phone operation was not performed"));}catch(Exception ignored){}return;}

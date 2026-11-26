@@ -47,6 +47,16 @@ final class PhoneNativeTools {
       + " it when request_apps is refused or a sub-agent seems stuck. reclaimable: its thread holds no Apps; a"
       + " request takes such a screen when none is idle and the limit is reached.",
     new JSONObject()));
+  tools.put(tool("inspect_uber_upcoming",
+    "Read the exact held Uber Upcoming view for an authorized ride preparation. Navigate to Upcoming first. "
+      + "Only a loaded Upcoming scope with an explicit empty state returns upcoming_empty. Loading, prior trips "
+      + "and unverified views do not establish absence. This tool never navigates or orders a ride.",
+    new JSONObject()));
+  tools.put(tool("handoff_for_review",
+    "Pause this authorized ride task and retain its exact held Uber screen for user review. "
+      + "The user takes control using the existing workspace entry. title and summary are display text. "
+      + "After handoff, finish the turn without further phone calls. This tool never orders a ride.",
+    new JSONObject().put("title",string(120)).put("summary",string(300))));
   tools.put(tool("observe_background","Observe this thread's assigned Android execution screen. Returns its real screenshot and screen/frame identity.",new JSONObject()));
   tools.put(tool("open_app","Open an App you hold from request_apps.",new JSONObject().put("packageName",new JSONObject().put("type","string"))));
   tools.put(tool("open_yelp_search",
@@ -99,11 +109,15 @@ final class PhoneNativeTools {
    return text(DedicatedScreensOnDevice.shared().release(thread, packages(args)).toString());
   final JSONObject arguments=args;final String toolName=name;
   boolean yelpSearch = name.equals("open_yelp_search");
+  boolean uberReview = name.equals("inspect_uber_upcoming") || name.equals("handoff_for_review");
+  if (name.equals("inspect_uber_upcoming") && args.length() != 0) throw new IOException("INVALID_ARGUMENT");
   DedicatedScreens.Use use =
     name.equals("open_app") || yelpSearch ? DedicatedScreens.Use.OPEN
+    : uberReview ? DedicatedScreens.Use.ACT_HELD
     : name.equals("observe_background") || name.equals("device_info") ? DedicatedScreens.Use.LOOK
     : DedicatedScreens.Use.ACT;
-  String pkg = yelpSearch ? PhoneYelpSearchRoute.PACKAGE : args.optString("packageName");
+  String pkg = yelpSearch ? PhoneYelpSearchRoute.PACKAGE
+    : uberReview ? PhoneRideReview.PACKAGE : args.optString("packageName");
   return DedicatedScreensOnDevice.shared().withScreen(thread, use, pkg,
     screen -> executeScreen(p, arguments, toolName, screen));
  }
@@ -125,6 +139,8 @@ final class PhoneNativeTools {
   }
   if(name.equals("tap") || name.equals("open_app") || name.equals("open_yelp_search") || name.equals("type_text"))PhoneGestures.requireIdle(screen.displayId);
   switch(name){
+   case "inspect_uber_upcoming":return text(PhoneRideReview.inspect(call,screen).toString());
+   case "handoff_for_review":return text(PhoneRideReview.handoff(call,args,screen).toString());
    case "swipe":return text(PhoneGestures.swipe(call,screen.displayId,args).toString());
    case "touch":return text(PhoneGestures.touch(call,screen.displayId,args).toString());
    case "device_info":return text(screen.json().put("android",TaskBroker.command("/system/bin/getprop","ro.build.version.release").trim()).put("model",TaskBroker.command("/system/bin/getprop","ro.product.model").trim()).toString());

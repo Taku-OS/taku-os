@@ -82,20 +82,28 @@ final class DiningPollBooking {
                     try {
                         JSONObject all = ledger(context);
                         for (Iterator<String> ids = all.keys(); ids.hasNext(); ) {
-                            JSONObject watch = all.getJSONObject(ids.next());
-                            if (!watch.optBoolean("active", true)) continue;
-                            State state = state(watch);
-                            if (watch.optBoolean("dispatching")
-                                    && state.phase() == Phase.STARTING) {
-                                watch.put(
-                                        "state",
-                                        DiningPollBookingCodec.state(
-                                                submissionUnknown(state, state.booking().key())
-                                                        .state()));
-                                save(context, watch);
-                            }
-                            if (state.phase() == Phase.CONFIRMED && !watch.has("feedCardId")) {
-                                DiningBookingContinuation.drain(context, watch);
+                            String id = ids.next();
+                            try {
+                                JSONObject watch = all.getJSONObject(id);
+                                if (!watch.optBoolean("active", true)) continue;
+                                State state = state(watch);
+                                if (watch.optBoolean("dispatching")
+                                        && state.phase() == Phase.STARTING) {
+                                    watch.put(
+                                            "state",
+                                            DiningPollBookingCodec.state(
+                                                    submissionUnknown(state, state.booking().key())
+                                                            .state()));
+                                    save(context, watch);
+                                }
+                                if (state.phase() == Phase.CONFIRMED) {
+                                    if (!watch.has("feedCardId")) {
+                                        DiningBookingContinuation.drain(context, watch);
+                                    }
+                                    DiningBookingCalendar.track(context, watch);
+                                }
+                            } catch (Exception failure) {
+                                android.util.Log.w("TakuDining", "Poll recovery deferred", failure);
                             }
                         }
                     } catch (Exception failure) {

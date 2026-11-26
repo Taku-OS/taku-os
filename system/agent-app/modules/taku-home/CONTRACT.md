@@ -259,6 +259,9 @@ second action event with `phase="dispatched"`, `acceptedCursor` and
 `intent:{package,textSha256}`. The digest is lowercase SHA-256 over UTF-8 shared
 text. The dispatch event records Android accepting the picker launch. WhatsApp
 does not report recipient selection or message delivery through this Intent.
+The `open-calendar` action on a dining calendar card also records a successful
+dispatch with `intent:{package,uri}` for its exact Calendar event. The ride
+handoff separately checks the event shown on the device.
 
 `values` preserves the selected state paths and JSON types. It can contain strings,
 numbers, booleans, arrays, objects, or null values. Paths are keys, not reconstructed
@@ -273,6 +276,7 @@ after the durable commit. `accepted` records a user choice. It does not prove th
 an external app, model turn, or business operation succeeded. Existing local intent
 errors still return after acceptance. Successful action replies add `eventCursor`.
 The `share-text` action also returns `dispatchCursor` and `requiresUserConfirmation:true`.
+The dining calendar action returns `dispatchCursor` for its event launch.
 A failed acceptance write prevents intent execution. Replay does not execute the
 local intent again. An accepted dismiss can also produce a separate remove event.
 

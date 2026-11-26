@@ -35,9 +35,7 @@ object FeedActions {
       Intent.Dismiss -> repo.remove(cardId, origin).put("effect", "dismiss")
       Intent.None -> JSONObject().put("effect", "none").put("note", "This card has no connected integration; nothing was executed.")
     }
-    if (intent is Intent.ShareText) {
-      result.put("dispatchCursor", repo.recordDispatch(accepted, origin).toString())
-    }
+    repo.recordDispatch(accepted, origin)?.let { result.put("dispatchCursor", it.toString()) }
     result.put("eventCursor", accepted.cursor.toString())
     return result.put("cardId", cardId).put("actionId", actionId)
   }
