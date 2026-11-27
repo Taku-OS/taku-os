@@ -337,11 +337,14 @@ final class MemoryStore extends SQLiteOpenHelper {
  void pruneSoon(){long t=System.currentTimeMillis();if(t-lastPrune<60000L)return;lastPrune=t;prune();}
  synchronized JSONObject evidenceItem(String id)throws Exception{
   try(Cursor c=getReadableDatabase().rawQuery("SELECT rowid,id,source,title,head,body,first_seen,last_seen,revision,category,speaker FROM memories WHERE id=?",new String[]{id})){
-   if(!c.moveToFirst())throw new IllegalArgumentException(context.getString(R.string.error_memory_not_found));String title=c.getString(3),body=(c.getString(4).isEmpty()?"":c.getString(4)+"\n")+c.getString(5);
-   body=bounded(body,Math.max(0,400-title.length()-1));
+   if(!c.moveToFirst())throw new IllegalArgumentException(context.getString(R.string.error_memory_not_found));String title=c.getString(3),full=(c.getString(4).isEmpty()?"":c.getString(4)+"\n")+c.getString(5);
+   // A message the user sent Taku is one thought: cut at 400 characters, one in eight loses its point. Pages and Taku's own
+   // (long) replies keep the 400-character excerpt. "cut" tells the caller to read the rest with get.
+   int room=Math.max(0,(c.getString(10).equals("user")?800:400)-title.length()-1);String body=bounded(full,room);
    JSONObject item=new JSONObject().put("kind","e").put("id",c.getString(1)).put("ref","e"+c.getLong(0)).put("source",c.getString(2)).put("title",title).put("body",body).put("first_seen",c.getLong(6)).put("last_seen",c.getLong(7)).put("revision",c.getInt(8)).put("category",c.getString(9));
    item.put("seenAt",localTime(c.getLong(6)));
    if(!c.getString(10).isEmpty())item.put("speaker",c.getString(10));   // A Taku conversation turn: "user" said it, or Taku ("assistant") replied.
+   if(full.length()>room)item.put("cut",true);
    return item;
   }
  }

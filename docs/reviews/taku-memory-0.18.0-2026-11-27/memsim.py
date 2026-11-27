@@ -102,9 +102,11 @@ class Phone:
         d = datetime.datetime.strptime(q['question_date'][:10], '%Y/%m/%d').replace(tzinfo=datetime.timezone.utc)
         self.now = int((d + datetime.timedelta(days=1)).timestamp() * 1000) - 1
     def item(self, r):
-        body = r['text'][:max(0, 400 - len('Taku') - 1)]
-        return {'kind': 'e', 'id': r['id'], 'ref': r['ref'], 'source': 'org.agentos.agent', 'title': 'Taku', 'body': body, 'first_seen': r['seen'], 'last_seen': r['seen'],
-                'revision': 1, 'category': '未分类', 'seenAt': local_time(r['seen']), 'speaker': r['speaker']}
+        room = max(0, (800 if r['speaker'] == 'user' else 400) - len('Taku') - 1); body = r['text'][:room]
+        o = {'kind': 'e', 'id': r['id'], 'ref': r['ref'], 'source': 'org.agentos.agent', 'title': 'Taku', 'body': body, 'first_seen': r['seen'], 'last_seen': r['seen'],
+             'revision': 1, 'category': '未分类', 'seenAt': local_time(r['seen']), 'speaker': r['speaker']}
+        if len(r['text']) > room: o['cut'] = True
+        return o
     def search(self, query, limit=10, qv=None, taku=None, frm=None, to=None):
         if len(query) > 500: raise ValueError('Search is limited to 500 characters')
         k = max(1, min(50, int(limit))); size = max(LIST, k)
@@ -130,4 +132,4 @@ class Phone:
     def get(self, ident):
         r = self.by_id.get(ident) or self.by_ref.get(ident)
         if r is None: raise ValueError('Memory not found')
-        o = self.item(r); o.pop('body'); o['text'] = r['text']; o['fullText'] = r['text']; return o
+        o = self.item(r); o.pop('body'); o.pop('cut', None); o['text'] = r['text']; o['fullText'] = r['text']; return o

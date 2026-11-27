@@ -256,6 +256,10 @@ public final class StoreTests extends Instrumentation {
   check(!turn.apply(new String[]{"u1","user","My bike tune-up on April 20th cost $25 for the new chain"}).getBoolean("stored"),"a turn is kept once");
   check(s.search("bike tune-up chain",10).toString().contains("$25"),"what the user said is found like other memories");
   check(s.search("bike tune-up chain",10).getJSONObject(0).optString("speaker").equals("user"),"search says who said it");
+  JSONObject first=s.search("bike tune-up chain",10).getJSONObject(0);check(!first.has("cut")&&first.has("seenAt"),"a whole short message is not marked cut, and carries its local time");
+  StringBuilder longer=new StringBuilder("Planning notes for the Lisbon trip:");while(longer.length()<1000)longer.append(" tram 28 to Alfama, pastel de nata at Manteigaria, sunset at the miradouro;");
+  JSONObject plan=turn.apply(new String[]{"u4","user",longer.toString()});JSONObject planItem=s.search("Lisbon trip planning notes",10).getJSONObject(0);
+  check(plan.getBoolean("stored")&&planItem.getBoolean("cut")&&planItem.getString("body").length()==800-MemoryStore.CHAT_TITLE.length()-1,"a long message is cut at 800 characters and marked cut");
   check(!s.search("Sugar Factory milkshakes",10).toString().contains("Icon Park"),"Taku's reply is left out of ordinary searches");
   check(s.search("Sugar Factory milkshakes you recommended",10).toString().contains("Icon Park"),"a question about what Taku said reads its replies");
   check(s.query("search",new JSONObject().put("query","Sugar Factory milkshakes").put("takuReplies",true),false,true).getJSONArray("items").toString().contains("Icon Park"),"callers can ask for Taku's replies");
@@ -271,7 +275,7 @@ public final class StoreTests extends Instrumentation {
    &&s.query("search",new JSONObject().put("query","bike tune-up chain").put("from",today).put("to",today),false,true).getJSONArray("items").toString().contains("$25"),"from and to bound when records were seen");
   fails(()->s.query("search",new JSONObject().put("query","bike").put("from","2026/11/27"),false,true),"dates must be YYYY-MM-DD");
   fails(()->s.query("search",new JSONObject().put("query","bike").put("from","2026-11-28").put("to","2026-11-27"),false,true),"from must not be after to");
-  s.forget(said.getString("id"));s.forget(reply.getString("id"));s.configure(new JSONObject().put("takuChats",false));
+  s.forget(said.getString("id"));s.forget(reply.getString("id"));s.forget(plan.getString("id"));s.configure(new JSONObject().put("takuChats",false));
  }
  /** Home feed cards: what the home module's FeedCard parser and the taku-feed-1 catalog require, checked without the home app. */
  void feedCards()throws Exception{

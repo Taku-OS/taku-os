@@ -61,7 +61,10 @@ final class PhoneNativeTools {
     +" A search returns at most limit records (default 20). For questions that count, total, list or order things across days (how many, how much in all, which came first), search more than once, with the specific words for each kind of thing rather than only the umbrella word the question uses, and with a higher limit, then merge what you found; list every item with its date before giving a total."
     +" For a question tied to a time (last Saturday, four weeks ago, in May), work the dates out from today's date and pass from/to, a few days wider than the stated time, since things are often mentioned later."
     +" Taku's earlier replies are searched only when the query asks what Taku said or recommended, or takuReplies is true."
-    +" Results are excerpts of at most 400 characters: read a record with memory_get when the detail you need may be cut. If memory holds nothing about the thing asked, or the question assumes something memory contradicts, say so instead of guessing.",
+    +" Results are excerpts (the user's own messages up to 800 characters, other records 400); an item marked cut continues, so read it with memory_get when the detail you need may be in the rest."
+    +" When records disagree about the same thing, the latest (seenAt) is the current state: give that one answer and mention the earlier value only as what changed."
+    +" Before giving advice or recommendations, search what the user has said about their own tastes, situation, past attempts and plans on the subject, and build on it."
+    +" If memory holds nothing about the thing asked, or the question assumes something memory contradicts, say so instead of guessing.",
    new JSONObject().put("query",new JSONObject().put("type","string").put("maxLength",500))
     .put("limit",new JSONObject().put("type","integer").put("minimum",1).put("maximum",50))
     .put("from",new JSONObject().put("type","string").put("description","YYYY-MM-DD, first day records were seen (device time zone)"))
