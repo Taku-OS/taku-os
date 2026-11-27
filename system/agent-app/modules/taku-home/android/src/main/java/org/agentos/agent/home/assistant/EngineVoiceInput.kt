@@ -13,8 +13,9 @@ import org.json.JSONObject
 import kotlin.math.max
 
 /**
- * [VoiceInput] backed by the shared Audio Engine's DICTATION session. The desktop and Live Talk
- * use the saved scope. Chat dictation uses its saved language with local recognition.
+ * [VoiceInput] backed by the shared Audio Engine's DICTATION session. The desktop, chat dictation
+ * and Live Talk all open the saved scope, so the Engine applies the one saved backend (Zipformer or
+ * fal Whisper, with its fallback) and language everywhere (BUG-0052).
  * Audio, recognition and credentials stay behind the Engine; this app only receives text and the
  * Engine's already normalized PCM level readings.
  *
@@ -29,7 +30,7 @@ import kotlin.math.max
  *
  * Main thread only.
  */
-class EngineVoiceInput(context: Context, private val settingsScope: String, private val localOnly: Boolean = false) : VoiceInput {
+class EngineVoiceInput(context: Context, private val settingsScope: String) : VoiceInput {
   private val app = context.applicationContext
   private val flow = MutableStateFlow(VoiceState())
   override val state: StateFlow<VoiceState> = flow.asStateFlow()
@@ -38,7 +39,6 @@ class EngineVoiceInput(context: Context, private val settingsScope: String, priv
   private var client: AudioClient? = null
   private var generation = 0L
   private var nextOperation = 0L
-  private var languageRequest = ""
   private var openRequest = ""
   private var sessionId = ""
   private var lastSequence = 0L
@@ -129,7 +129,6 @@ class EngineVoiceInput(context: Context, private val settingsScope: String, priv
     heard.reset()
     lastSequence = 0
     sessionId = ""
-    languageRequest = ""
     openRequest = ""
     deadline = 0
     deadlineArmed = false
@@ -139,9 +138,7 @@ class EngineVoiceInput(context: Context, private val settingsScope: String, priv
         if (run != generation) return
         try {
           val engine = client ?: return
-          val scope = JSONObject().put("settingsScope", settingsScope)
-          if (localOnly) languageRequest = engine.call("audio.capabilities", scope)
-          else openRequest = engine.open(scope.put("purpose", "DICTATION"))
+          openRequest = engine.open(JSONObject().put("settingsScope", settingsScope).put("purpose", "DICTATION"))
         } catch (_: Exception) {
           fail("ENGINE_UNAVAILABLE")
         }
@@ -241,20 +238,6 @@ class EngineVoiceInput(context: Context, private val settingsScope: String, priv
 
   private fun handle(message: JSONObject) {
     if (message.optString("type") == "response") {
-      if (languageRequest.isNotEmpty() && message.optString("id") == languageRequest) {
-        languageRequest = ""
-        val view = message.optJSONObject("result")?.optJSONObject("dictation")?.optJSONObject(settingsScope)
-        val resolved = view?.opt("resolvedLanguage") as? String
-        if (resolved != "en-US" && resolved != "zh-CN") {
-          val code = view?.optJSONObject("error")?.opt("code") as? String
-            ?: message.optJSONObject("error")?.opt("code") as? String
-            ?: "ENGINE_UNAVAILABLE"
-          return fail(code)
-        }
-        val params = JSONObject().put("purpose", "DICTATION").put("profileId", "zipformer").put("language", resolved)
-        openRequest = client?.open(params) ?: return fail("ENGINE_UNAVAILABLE")
-        return
-      }
       if (message.optString("id") != openRequest) return
       if (!message.optBoolean("ok")) {
         return fail(message.optJSONObject("error")?.optString("code")?.ifBlank { null } ?: "ENGINE_UNAVAILABLE")
@@ -346,7 +329,6 @@ class EngineVoiceInput(context: Context, private val settingsScope: String, priv
       if (cancelSession && sessionId.isNotEmpty()) runCatching { connection.cancel(sessionId) }
       runCatching { connection.close() }
     }
-    languageRequest = ""
     openRequest = ""
     sessionId = ""
     deadline = 0
