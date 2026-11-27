@@ -579,7 +579,10 @@ public final class NotebookLibraryActivity extends Activity {
 
         @JavascriptInterface public void openAgent() {
             runOnUiThread(() -> {
-                Intent assist = new Intent(Intent.ACTION_ASSIST).setPackage("org.agentos.agent");
+                Intent assist = new Intent()
+                        .setClassName("org.agentos.agent", "org.agentos.agent.home.assistant.AssistantOverlayActivity")
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                        .putExtra("mode", "text");
                 try {
                     startActivity(assist);
                 } catch (ActivityNotFoundException | SecurityException e) {

@@ -512,7 +512,7 @@ public final class NotebookScreenshotService extends AccessibilityService {
             JSONObject card = presentation.optJSONObject("card");
             if (activity != null && card != null && activity.optString("key").equals(card.optString("key"))
                     && card.optBoolean("nativeReady") && card.optBoolean("cover")
-                    && "native-assistant".equals(card.optString("layout"))) {
+                    && "body".equals(card.optString("layout"))) {
                 item.presentationPending = false;
                 if (item.savedId == null) recordActions(item, now);
             }

@@ -106,11 +106,12 @@ final class NotebookScreenshotIsland {
         String compactTitle = actions.isEmpty() && !receipt ? "Reading image" : title;
         JSONArray actionIds = new JSONArray(actions.stream().map(Action::id).toList());
         JSONObject expanded = new JSONObject().put("template", "basic")
-                .put("title", truncate(title, 80)).put("actions", actionIds);
+                .put("title", truncate(title, 80)).put("actions", actionIds)
+                .put("backgroundColor", "#101014");
         if (!body.isBlank()) expanded.put("body", truncate(body, 500));
         // Use SystemUI's public native card. The assistant template belongs to Taku Agent.
         JSONObject payload = new JSONObject().put("version", 2).put("expanded", expanded)
-                .put("backgroundColor", "#101014").put("cardPosition", "cover")
+                .put("cardPosition", "cover")
                 .put("tap", "expand").put("alert", false).put("timeoutS", LIFETIME_SECONDS);
         if (actions.isEmpty() && !receipt) {
             payload.put("compact", new JSONObject().put("b", new JSONObject()
