@@ -437,7 +437,6 @@ internal class AudioSessionBridge private constructor(private val context: Conte
             session.data.put("recordingStartedAt", System.currentTimeMillis()).put("recordingStartedMonotonicMs", SystemClock.elapsedRealtime())
                 .put("recordingState", "recording")
         } catch (failure: Exception) {
-            if (session.recordingCallback != null) try { recorder.unregisterAudioRecordingCallback(session.recordingCallback!!) } catch (_: Exception) { }
             recorder.release()
             file.delete()
             session.recorder = null
@@ -486,7 +485,8 @@ internal class AudioSessionBridge private constructor(private val context: Conte
             session.data.put("recordingState", "failed").put("recordingError", "RECORDING_FINALIZE_FAILED")
             session.recording!!.delete()
         } finally {
-            if (session.recordingCallback != null) session.recorder!!.unregisterAudioRecordingCallback(session.recordingCallback!!)
+            // The encoder worker releases AudioRecord, which unregisters its callbacks.
+            // Unregistering again throws and used to leave the Closed future incomplete.
             session.recorder!!.release()
             session.recorder = null
             session.recording = null

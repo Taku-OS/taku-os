@@ -38,8 +38,18 @@ internal class MicrophoneAacRecorder(private val file: File, private val maxByte
     init {
         val minimum = AudioRecord.getMinBufferSize(SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
         if (minimum <= 0) throw IOException("RECORDING_UNSUPPORTED")
-        record = AudioRecord(MediaRecorder.AudioSource.MIC, SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO,
-            AudioFormat.ENCODING_PCM_16BIT, maxOf(minimum * 4, CHUNK_BYTES * 4))
+        // Saved microphone audio is private. Keep it in Android's sensitive-capture lane:
+        // otherwise this system-UID recorder wins the ordinary capture lane and silences
+        // the Audio Engine's concurrent dictation (BUG-0045). Only the privileged engine,
+        // with its existing concurrent-capture permission, may recognize alongside it.
+        record = AudioRecord.Builder()
+            .setAudioSource(MediaRecorder.AudioSource.MIC)
+            .setAudioFormat(AudioFormat.Builder().setSampleRate(SAMPLE_RATE)
+                .setChannelMask(AudioFormat.CHANNEL_IN_MONO)
+                .setEncoding(AudioFormat.ENCODING_PCM_16BIT).build())
+            .setBufferSizeInBytes(maxOf(minimum * 4, CHUNK_BYTES * 4))
+            .setPrivacySensitive(true)
+            .build()
         if (record.state != AudioRecord.STATE_INITIALIZED) {
             record.release()
             throw IOException("RECORDING_UNAVAILABLE")
@@ -50,9 +60,6 @@ internal class MicrophoneAacRecorder(private val file: File, private val maxByte
 
     fun registerAudioRecordingCallback(executor: Executor, callback: AudioManager.AudioRecordingCallback) =
         record.registerAudioRecordingCallback(executor, callback)
-
-    fun unregisterAudioRecordingCallback(callback: AudioManager.AudioRecordingCallback) =
-        record.unregisterAudioRecordingCallback(callback)
 
     /** Starts capture; throws if the microphone or encoder cannot start (nothing keeps running then). */
     fun start() {
