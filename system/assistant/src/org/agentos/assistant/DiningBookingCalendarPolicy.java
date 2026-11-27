@@ -1,5 +1,6 @@
 package org.agentos.assistant;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.IOException;
@@ -275,5 +276,37 @@ final class DiningBookingCalendarPolicy {
     static void current(JSONObject entry, JSONObject watch, String key) throws Exception {
         if (!entry.getString("fingerprint").equals(identity(watch))
                 || !entry.getString("key").equals(key)) throw new IOException("REQUEST_EXPIRED");
+    }
+
+    static boolean needsPolling(JSONObject entry) {
+        if (entry == null) return false;
+        String phase = entry.optString("phase");
+        if (entry.has("eventId") && !entry.optBoolean("feedPublished")) return true;
+        return !java.util.Set.of("saved", "dismissed").contains(phase);
+    }
+
+    static boolean permissionRequired(JSONObject entry) {
+        return entry != null
+                && (entry.optBoolean("permissionRequired")
+                        || "DINING_CALENDAR_PERMISSION_REQUIRED".equals(entry.optString("error")));
+    }
+
+    static void recordPermissionRequired(JSONObject entry, JSONObject meal) throws Exception {
+        entry.put("meal", meal);
+        if (!entry.has("calendars")) entry.put("calendars", new JSONArray());
+        entry.remove("calendarId");
+        entry.remove("existingEventId");
+        entry.put("permissionRequired", true)
+                .put("error", "DINING_CALENDAR_PERMISSION_REQUIRED")
+                .put("phase", "error");
+    }
+
+    static void clearPermissionRequired(JSONObject entry) throws Exception {
+        entry.remove("permissionRequired");
+        if ("error".equals(entry.optString("phase"))
+                && "DINING_CALENDAR_PERMISSION_REQUIRED".equals(entry.optString("error"))) {
+            entry.put("phase", "offer");
+            entry.remove("error");
+        }
     }
 }

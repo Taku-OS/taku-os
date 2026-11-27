@@ -36,6 +36,17 @@ final class DiningBookingRide {
         all.put(e.getString("id"), e);
         if (!prefs(c).edit().putString("entries", all.toString()).commit())
             throw new IOException("DINING_RIDE_STATE_SAVE_FAILED");
+        if (DiningBookingRidePolicy.needsPolling(e)) ensurePolling(c, e.getString("id"));
+        else ACTIVE.remove(e.getString("id"));
+    }
+
+    private static synchronized void ensurePolling(Context c, String id) {
+        ACTIVE.add(id);
+        owner = c.getApplicationContext();
+        if (!running) {
+            running = true;
+            MAIN.post(DiningBookingRide::tick);
+        }
     }
 
     private static JSONObject calendars(Context c) throws Exception {
@@ -51,9 +62,9 @@ final class DiningBookingRide {
         if (!latest(c, watch)) return;
         String fingerprint = DiningBookingRidePolicy.identity(calendar, watch),
                 id = "ride:" + fingerprint;
-        if (!entries(c).has(id))
-            save(
-                    c,
+        JSONObject entry = entries(c).optJSONObject(id);
+        if (entry == null) {
+            entry =
                     new JSONObject()
                             .put("id", id)
                             .put("fingerprint", fingerprint)
@@ -72,17 +83,16 @@ final class DiningBookingRide {
                             .put("phase", "waiting_details")
                             .put("key", UUID.randomUUID().toString())
                             .put("rideRequested", false)
-                            .put("createdAt", System.currentTimeMillis()));
-        ACTIVE.add(id);
-        owner = c.getApplicationContext();
-        if (!running) {
-            running = true;
-            MAIN.post(DiningBookingRide::tick);
+                            .put("createdAt", System.currentTimeMillis());
+            save(c, entry);
+        } else if (DiningBookingRidePolicy.needsPolling(entry)) {
+            ensurePolling(c, id);
+        } else {
+            ACTIVE.remove(id);
         }
     }
 
     private static void tick() {
-        MAIN.postDelayed(DiningBookingRide::tick, 1800);
         if (checking || owner == null) return;
         checking = true;
         IO.execute(
@@ -93,9 +103,17 @@ final class DiningBookingRide {
                             boolean shown = false;
                             for (String id : new ArrayList<>(ACTIVE))
                                 try {
-                                    JSONObject e = all.getJSONObject(id);
+                                    JSONObject e = all.optJSONObject(id);
+                                    if (e == null) {
+                                        ACTIVE.remove(id);
+                                        continue;
+                                    }
                                     verify(owner, e);
                                     reconcile(owner, e);
+                                    if (!DiningBookingRidePolicy.needsPolling(e)) {
+                                        ACTIVE.remove(id);
+                                        continue;
+                                    }
                                     if (DiningRideInputActivity.isShowing()
                                             || !available(owner)
                                             || !Set.of(
@@ -130,6 +148,11 @@ final class DiningBookingRide {
                             android.util.Log.w("TakuDining", "Ride observation unavailable");
                         } finally {
                             checking = false;
+                            if (!ACTIVE.isEmpty() && owner != null) {
+                                MAIN.postDelayed(DiningBookingRide::tick, 1800);
+                            } else {
+                                running = false;
+                            }
                         }
                     }
                 });

@@ -461,6 +461,57 @@ public final class DiningCalendarTest {
                 capabilities.getBoolean("calendarFollowUp")
                         && capabilities.getBoolean("rideFollowUp"),
                 "Dining capabilities advertise enabled Calendar and ride follow-ups");
+        JSONObject permissionEntry =
+                new JSONObject()
+                        .put("phase", "offer")
+                        .put("calendarId", 42L)
+                        .put("existingEventId", 7L);
+        DiningBookingCalendarPolicy.recordPermissionRequired(permissionEntry, meal);
+        check(
+                DiningBookingCalendarPolicy.permissionRequired(permissionEntry)
+                        && "error".equals(permissionEntry.getString("phase"))
+                        && "DINING_CALENDAR_PERMISSION_REQUIRED"
+                                .equals(permissionEntry.getString("error"))
+                        && !permissionEntry.has("calendarId")
+                        && permissionEntry.has("meal")
+                        && DiningBookingCalendarPolicy.needsPolling(permissionEntry),
+                "Missing Calendar permission keeps the offer visible for recovery instead of stalling");
+        DiningBookingCalendarPolicy.clearPermissionRequired(permissionEntry);
+        check(
+                !DiningBookingCalendarPolicy.permissionRequired(permissionEntry)
+                        && "offer".equals(permissionEntry.getString("phase"))
+                        && !permissionEntry.has("error"),
+                "Granting Calendar permission clears the error and restores the offer");
+        check(
+                DiningBookingCalendarPolicy.needsPolling(
+                                new JSONObject().put("phase", "waiting_share"))
+                        && DiningBookingCalendarPolicy.needsPolling(
+                                new JSONObject()
+                                        .put("phase", "saved")
+                                        .put("eventId", 42L)
+                                        .put("feedPublished", false))
+                        && !DiningBookingCalendarPolicy.needsPolling(
+                                new JSONObject()
+                                        .put("phase", "saved")
+                                        .put("eventId", 42L)
+                                        .put("feedPublished", true))
+                        && !DiningBookingCalendarPolicy.needsPolling(
+                                new JSONObject().put("phase", "dismissed")),
+                "Calendar background polling stops once an entry is settled or dismissed");
+        JSONObject permissionNotice =
+                DiningFollowupIsland.payload(
+                        "Add to Google Calendar?",
+                        "Example dinner\nAllow Calendar permission for Taku System Assistant, then try again.",
+                        new JSONArray().put("settings").put("confirm").put("dismiss"),
+                        "settings");
+        check(
+                "settings".equals(permissionNotice.getJSONObject("expanded").getString("tapAction"))
+                        && "settings"
+                                .equals(
+                                        permissionNotice
+                                                .getJSONObject("expanded")
+                                                .getString("primaryAction")),
+                "Calendar permission-required Island points to app settings");
         if (args.length > 1)
             java.nio.file.Files.writeString(
                     java.nio.file.Path.of(args[1]),

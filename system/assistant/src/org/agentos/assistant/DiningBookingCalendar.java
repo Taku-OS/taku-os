@@ -69,17 +69,21 @@ final class DiningBookingCalendar {
         } else if (DiningBookingCalendarPolicy.requireShareConfirmation(entry)) {
             save(c, entry);
         }
+        if (DiningBookingCalendarPolicy.needsPolling(entry)) ensurePolling(c, id);
+        else ACTIVE.remove(id);
+        DiningBookingRide.track(c, entry);
+    }
+
+    private static synchronized void ensurePolling(Context c, String id) {
         ACTIVE.add(id);
         owner = c.getApplicationContext();
         if (!running) {
             running = true;
             MAIN.post(DiningBookingCalendar::tick);
         }
-        DiningBookingRide.track(c, entry);
     }
 
     private static void tick() {
-        MAIN.postDelayed(DiningBookingCalendar::tick, 1500);
         if (busy || owner == null) return;
         busy = true;
         IO.execute(
@@ -90,13 +94,19 @@ final class DiningBookingCalendar {
                             for (String id : new ArrayList<>(ACTIVE)) {
                                 try {
                                     JSONObject entry = all.optJSONObject(id);
-                                    if (entry == null) continue;
+                                    if (entry == null) {
+                                        ACTIVE.remove(id);
+                                        continue;
+                                    }
                                     JSONObject watch = current(owner, entry.getString("watchId"));
                                     if (!latest(owner, watch)
                                             || !entry.getString("fingerprint")
                                                     .equals(
                                                             DiningBookingCalendarPolicy.identity(
-                                                                    watch))) continue;
+                                                                    watch))) {
+                                        ACTIVE.remove(id);
+                                        continue;
+                                    }
                                     if (entry.optString("phase").equals("saving")) {
                                         entry.put("phase", "error")
                                                 .put("error", "DINING_CALENDAR_SAVE_UNCONFIRMED")
@@ -110,6 +120,10 @@ final class DiningBookingCalendar {
                                                     .contains(entry.optString("phase"))) {
                                         finishSaved(owner, entry);
                                         DiningBookingRide.track(owner, entry);
+                                    }
+                                    if (!DiningBookingCalendarPolicy.needsPolling(entry)) {
+                                        ACTIVE.remove(id);
+                                        continue;
                                     }
                                     if (Set.of("offer", "calendars", "error")
                                                     .contains(entry.optString("phase"))
@@ -126,7 +140,8 @@ final class DiningBookingCalendar {
                                 ensureSelection(
                                         owner,
                                         selected,
-                                        current(owner, selected.getString("watchId")));
+                                        current(owner, selected.getString("watchId")),
+                                        true);
                                 DiningBookingCalendarIsland.show(owner, selected);
                             }
                         } catch (Exception error) {
@@ -135,6 +150,11 @@ final class DiningBookingCalendar {
                                     "Calendar continuation pending: " + error.getMessage());
                         } finally {
                             busy = false;
+                            if (!ACTIVE.isEmpty() && owner != null) {
+                                MAIN.postDelayed(DiningBookingCalendar::tick, 1500);
+                            } else {
+                                running = false;
+                            }
                         }
                     }
                 });
@@ -221,26 +241,36 @@ final class DiningBookingCalendar {
         return a;
     }
 
-    private static void ensureSelection(Context c, JSONObject entry, JSONObject watch)
+    private static void ensureSelection(
+            Context c, JSONObject entry, JSONObject watch, boolean allowPermissionError)
             throws Exception {
         JSONObject meal = DiningBookingCalendarPolicy.meal(watch);
         if (entry.has("eventId"))
             meal.put("eventId", entry.getLong("eventId"))
                     .put("calendarId", entry.getLong("calendarId"));
-        entry.put("meal", meal).put("calendars", choices(c));
-        if (!entry.has("calendarId")) {
-            List<DiningReservationCalendar.Result> matches =
-                    DiningReservationCalendar.existing(c, meal);
-            if (matches.size() == 1)
-                entry.put("calendarId", matches.get(0).calendarId())
-                        .put("existingEventId", matches.get(0).eventId());
-            else if (matches.size() > 1) entry.put("selectionRequired", true);
-            else if (entry.getJSONArray("calendars").length() == 1)
-                entry.put(
-                        "calendarId",
-                        entry.getJSONArray("calendars").getJSONObject(0).getLong("id"));
+        entry.put("meal", meal);
+        try {
+            entry.put("calendars", choices(c));
+            if (!entry.has("calendarId")) {
+                List<DiningReservationCalendar.Result> matches =
+                        DiningReservationCalendar.existing(c, meal);
+                if (matches.size() == 1)
+                    entry.put("calendarId", matches.get(0).calendarId())
+                            .put("existingEventId", matches.get(0).eventId());
+                else if (matches.size() > 1) entry.put("selectionRequired", true);
+                else if (entry.getJSONArray("calendars").length() == 1)
+                    entry.put(
+                            "calendarId",
+                            entry.getJSONArray("calendars").getJSONObject(0).getLong("id"));
+            }
+            DiningBookingCalendarPolicy.clearPermissionRequired(entry);
+            save(c, entry);
+        } catch (IOException error) {
+            if (!"DINING_CALENDAR_PERMISSION_REQUIRED".equals(error.getMessage())) throw error;
+            DiningBookingCalendarPolicy.recordPermissionRequired(entry, meal);
+            save(c, entry);
+            if (!allowPermissionError) throw error;
         }
-        save(c, entry);
     }
 
     static synchronized JSONObject call(Context c, String method, JSONObject args)
@@ -279,14 +309,14 @@ final class DiningBookingCalendar {
             if (entry.optString("phase").equals("dismissed"))
                 entry.put("phase", entry.has("eventId") ? "saved" : "offer")
                         .put("key", UUID.randomUUID().toString());
+            if (DiningBookingCalendarPolicy.needsPolling(entry)) ensurePolling(c, identity);
             if (entry.has("eventId")) {
                 finishSaved(c, entry);
                 DiningBookingRide.track(c, entry);
                 DiningBookingCalendarIsland.show(c, entry);
                 return entry;
             }
-            ensureSelection(c, entry, watch);
-            save(c, entry);
+            ensureSelection(c, entry, watch, true);
             DiningBookingCalendarIsland.show(c, entry);
             return entry;
         }
@@ -298,10 +328,18 @@ final class DiningBookingCalendar {
         if (action.equals("dismiss")) {
             entry.put("phase", "dismissed").put("key", UUID.randomUUID().toString());
             save(c, entry);
+            if (!DiningBookingCalendarPolicy.needsPolling(entry)) ACTIVE.remove(identity);
             DiningBookingCalendarIsland.hide(c);
             return entry;
         }
-        ensureSelection(c, entry, watch);
+        try {
+            ensureSelection(c, entry, watch, false);
+        } catch (IOException permission) {
+            if ("DINING_CALENDAR_PERMISSION_REQUIRED".equals(permission.getMessage())) {
+                DiningBookingCalendarIsland.show(c, entry);
+            }
+            throw permission;
+        }
         if (action.equals("edit")) {
             if (!Set.of("offer", "error").contains(entry.optString("phase")))
                 throw new IOException("REQUEST_EXPIRED");
@@ -348,10 +386,14 @@ final class DiningBookingCalendar {
             meal.put("eventId", saved.eventId()).put("calendarId", saved.calendarId());
             save(c, entry);
             finishSaved(c, entry);
+            if (!DiningBookingCalendarPolicy.needsPolling(entry)) ACTIVE.remove(identity);
             DiningBookingRide.track(c, entry);
             DiningBookingCalendarIsland.show(c, entry);
             return entry;
         } catch (Exception failure) {
+            if ("DINING_CALENDAR_PERMISSION_REQUIRED".equals(failure.getMessage())) {
+                entry.put("permissionRequired", true);
+            }
             entry.put("error", failure.getMessage())
                     .put("phase", entry.has("eventId") ? "saved" : "error");
             save(c, entry);

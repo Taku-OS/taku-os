@@ -83,6 +83,9 @@ class ArtifactBoundary(unittest.TestCase):
                         nested.writestr('classes.dex',b'fixture strings only\n'+b'\n'.join(('Lorg/agentos/lab/'+c+';').encode() for c in ['TurnProcesses','HarnessContext','SkillCommunity','NativeBridge','PhoneNativeTools','ModelConnection']))
                     content=memory.getvalue()
                 z.writestr('SYSTEM_EXT/'+name,content)
+            assistant_permissions='SYSTEM_EXT/etc/default-permissions/taku-assistant.xml'
+            if omit!=assistant_permissions:
+                z.writestr(assistant_permissions,(ROOT/'system/assistant/default-permissions.xml').read_bytes())
             z.writestr('SYSTEM/etc/resolv.conf','nameserver 127.0.0.1\n')
             if google:z.writestr('PRODUCT/priv-app/NexusLauncher/NexusLauncher.apk',b'forbidden package fixture')
         with zipfile.ZipFile(product/'test-ota.zip','w') as z:
@@ -107,6 +110,13 @@ class ArtifactBoundary(unittest.TestCase):
             result,_=self.invoke(omit=omit)
             self.assertNotEqual(result.returncode,0,omit)
             self.assertIn(message,result.stderr+result.stdout,omit)
+
+    def test_assistant_default_permissions_are_part_of_the_image(self):
+        entry='SYSTEM_EXT/etc/default-permissions/taku-assistant.xml'
+        result,results=self.invoke(omit=entry)
+        self.assertNotEqual(result.returncode,0)
+        self.assertIn('Missing Taku integration: '+entry,result.stderr)
+        self.assertFalse((results/'baseline-receipt.json').exists())
 
     def test_declared_new_home_cannot_be_omitted_from_the_rom(self):
         product,results=self.fixture()

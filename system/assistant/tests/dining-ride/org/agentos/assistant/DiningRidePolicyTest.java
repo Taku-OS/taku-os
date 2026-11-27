@@ -875,6 +875,19 @@ public final class DiningRidePolicyTest {
                         && prompt.contains("这是用户提交原生表单后的同一次仅准备任务")
                         && prompt.contains("不证明从未下单"),
                 "New preparation checks actual prior orders and never replays old requests");
+        check(
+                DiningBookingRidePolicy.needsPolling(
+                                new JSONObject().put("phase", "waiting_details"))
+                        && DiningBookingRidePolicy.needsPolling(
+                                new JSONObject().put("phase", "awaiting_review"))
+                        && DiningBookingRidePolicy.needsPolling(
+                                new JSONObject().put("phase", "queued"))
+                        && !DiningBookingRidePolicy.needsPolling(
+                                new JSONObject().put("phase", "dismissed"))
+                        && !DiningBookingRidePolicy.needsPolling(
+                                new JSONObject().put("phase", "input_cancelled"))
+                        && !DiningBookingRidePolicy.needsPolling(null),
+                "Ride background polling stops for dismissed or cancelled entries");
         System.out.println("DiningRidePolicyTest: " + checks + " checks passed");
     }
 }

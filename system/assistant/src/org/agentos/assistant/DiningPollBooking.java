@@ -29,6 +29,7 @@ final class DiningPollBooking {
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
     private static final long WATCH_LIFETIME_MS = 12 * 60 * 60 * 1_000L;
     private static volatile Context owner;
+    private static boolean recoveryScheduled;
 
     private static SharedPreferences prefs(Context context) {
         return context.getSharedPreferences("dining-poll-booking", Context.MODE_PRIVATE);
@@ -42,6 +43,8 @@ final class DiningPollBooking {
         JSONObject all = ledger(context);
         all.put(watch.getString("id"), watch);
         saveLedger(context, all);
+        if (owner == null) owner = context.getApplicationContext();
+        if (needsEffectRecovery(watch)) scheduleRecovery(2_000);
     }
 
     static synchronized void claimCheckout(
@@ -91,22 +94,47 @@ final class DiningPollBooking {
         }
     }
 
+    static boolean needsEffectRecovery(JSONObject watch) {
+        if (watch == null || !watch.optBoolean("active", true)) return false;
+        try {
+            State state = state(watch);
+            return (watch.optBoolean("dispatching") && state.phase() == Phase.STARTING)
+                    || (state.phase() == Phase.CONFIRMED && !watch.has("feedCardId"));
+        } catch (Exception unreadable) {
+            return false;
+        }
+    }
+
     static synchronized void activate(Context context) {
-        if (owner != null) return;
-        owner = context.getApplicationContext();
-        MAIN.post(DiningPollBooking::recoverEffects);
+        if (owner == null) owner = context.getApplicationContext();
+        scheduleRecovery(0);
+    }
+
+    private static synchronized void scheduleRecovery(long delayMs) {
+        if (owner == null || recoveryScheduled) return;
+        recoveryScheduled = true;
+        if (delayMs <= 0) MAIN.post(DiningPollBooking::recoverEffects);
+        else MAIN.postDelayed(DiningPollBooking::recoverEffects, delayMs);
     }
 
     private static void recoverEffects() {
         Context context = owner;
+        if (context == null) {
+            synchronized (DiningPollBooking.class) {
+                recoveryScheduled = false;
+            }
+            return;
+        }
         IO.execute(
                 () -> {
+                    boolean pending = false;
                     try {
                         JSONObject all = ledger(context);
                         for (Iterator<String> ids = all.keys(); ids.hasNext(); ) {
                             String id = ids.next();
+                            JSONObject watch = null;
                             try {
-                                JSONObject watch = all.getJSONObject(id);
+                                watch = all.getJSONObject(id);
                                 if (!watch.optBoolean("active", true)) continue;
                                 State state = state(watch);
                                 if (watch.optBoolean("dispatching")
@@ -121,18 +149,27 @@ final class DiningPollBooking {
                                 if (state.phase() == Phase.CONFIRMED) {
                                     if (!watch.has("feedCardId")) {
                                         DiningBookingContinuation.drain(context, watch);
+                                        if (!watch.has("feedCardId")) pending = true;
                                     }
                                     DiningBookingCalendar.track(context, watch);
                                 }
                             } catch (Exception failure) {
+                                if (needsEffectRecovery(watch)) pending = true;
                                 android.util.Log.w("TakuDining", "Poll recovery deferred", failure);
                             }
                         }
                     } catch (Exception failure) {
+                        pending = true;
                         android.util.Log.w(
                                 "TakuDining", "Booking effect recovery deferred", failure);
                     } finally {
-                        MAIN.postDelayed(DiningPollBooking::recoverEffects, 2_000);
+                        synchronized (DiningPollBooking.class) {
+                            if (pending && owner != null) {
+                                MAIN.postDelayed(DiningPollBooking::recoverEffects, 2_000);
+                            } else {
+                                recoveryScheduled = false;
+                            }
+                        }
                     }
                 });
     }

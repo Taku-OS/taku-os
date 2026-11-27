@@ -29,9 +29,14 @@ final class DiningBookingCalendarIsland {
                         + DiningBookingCalendarPolicy.when(meal)
                         + " · "
                         + meal.getString("zone");
+        boolean permissionRequired = DiningBookingCalendarPolicy.permissionRequired(entry);
         JSONObject labels = new JSONObject();
         JSONArray actions = new JSONArray();
-        if (phase.equals("calendars")) {
+        if (permissionRequired && !phase.equals("saved")) {
+            labels.put("settings", "Open Settings").put("confirm", "Try again");
+            actions.put("settings").put("confirm");
+            body += "\nAllow Calendar permission for Taku System Assistant, then try again.";
+        } else if (phase.equals("calendars")) {
             title = "Choose a calendar";
             JSONArray calendars = entry.getJSONArray("calendars");
             for (int i = 0; i < calendars.length(); i++) {
@@ -57,7 +62,11 @@ final class DiningBookingCalendarIsland {
         if (phase.equals("saved") && !entry.optBoolean("feedPublished"))
             body += "\nEvent saved. The Feed is still updating.";
         String primary =
-                phase.equals("calendars") ? null : phase.equals("saved") ? "dismiss" : "edit";
+                permissionRequired && !phase.equals("saved")
+                        ? "settings"
+                        : phase.equals("calendars")
+                                ? null
+                                : phase.equals("saved") ? "dismiss" : "edit";
         JSONObject payload = DiningFollowupIsland.payload(title, body, actions, primary);
         String value =
                 payload
@@ -104,6 +113,15 @@ final class DiningBookingCalendarIsland {
     }
 
     private static PendingIntent decision(Context c, JSONObject e, String action) throws Exception {
+        if ("settings".equals(action)) {
+            Intent settings =
+                    new Intent(
+                                    android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                    Uri.fromParts("package", c.getPackageName(), null))
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            return PendingIntent.getActivity(
+                    c, 0, settings, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        }
         Intent i =
                 new Intent(c, TaskNotificationReceiver.class)
                         .setAction(ACTION)

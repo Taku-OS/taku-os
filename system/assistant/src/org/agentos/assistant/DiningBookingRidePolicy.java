@@ -250,6 +250,24 @@ final class DiningBookingRidePolicy {
                 .toLowerCase(Locale.ROOT);
     }
 
+    static boolean needsPolling(JSONObject entry) {
+        if (entry == null) return false;
+        return Set.of(
+                        "waiting_details",
+                        "offered",
+                        "failed",
+                        "input_required",
+                        "collecting_input",
+                        "input_ready",
+                        "ended",
+                        "submitting",
+                        "queued",
+                        "running",
+                        "unknown",
+                        "awaiting_review")
+                .contains(entry.optString("phase"));
+    }
+
     static void action(JSONObject entry, String key, String action) throws Exception {
         if (!entry.getString("key").equals(key)
                 || !java.util.Set.of(
