@@ -7,7 +7,6 @@ import android.content.ServiceConnection
 import android.content.pm.PackageManager
 import android.media.AudioManager
 import android.media.AudioRecordingConfiguration
-import android.media.MediaRecorder
 import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
@@ -56,7 +55,7 @@ internal class AudioSessionBridge private constructor(private val context: Conte
     private var bound = false
 
     private inner class Session(val data: JSONObject) {
-        var recorder: MediaRecorder? = null
+        var recorder: MicrophoneAacRecorder? = null
         var captureHost: AudioCaptureService? = null
         var recordingCallback: AudioManager.AudioRecordingCallback? = null
         var recording: File? = null
@@ -91,6 +90,7 @@ internal class AudioSessionBridge private constructor(private val context: Conte
                 stopRecording(session)
                 changed(session)
             } catch (_: Exception) { }
+            releaseMicrophone(session)
             session.closed.complete(null)
             session.generation = ""
         }
@@ -302,6 +302,12 @@ internal class AudioSessionBridge private constructor(private val context: Conte
 
     private fun open(session: Session) {
         try {
+            // Dictation captures in the engine's process, which only inherits a microphone
+            // capability through its binding (BIND_INCLUDE_CAPABILITIES) from a client that has
+            // one. Without this host the engine's VOICE_RECOGNITION capture is silenced
+            // (CAPTURE_SILENCED, BUG-0045), whether or not the audio is also saved. Started outside
+            // the bridge's lock: the service starts on the main thread, which may be waiting for it.
+            if ("DICTATION" == session.data.getJSONObject("params").optString("purpose")) acquireMicrophone(session)
             val available = call("audio.capabilities", JSONObject())
             if (available.optJSONObject("resourceState") != null && available.getJSONObject("resourceState").optBoolean("busy"))
                 throw IOException("RESOURCE_BUSY")
@@ -335,6 +341,7 @@ internal class AudioSessionBridge private constructor(private val context: Conte
                 if (uncertain) disconnectOwner()
                 session.data.put("status", if (uncertain) "interrupted" else "failed").put("error", cause.message ?: cause.javaClass.simpleName)
                 try { stopRecording(session) } catch (_: Exception) { session.data.put("recordingError", "RECORDING_FINALIZE_FAILED") }
+                releaseMicrophone(session)
                 session.closed.complete(null)
                 try { changed(session) } catch (_: Exception) { session.data.put("storageError", "AUDIO_STORAGE_UNAVAILABLE") }
             }
@@ -401,6 +408,7 @@ internal class AudioSessionBridge private constructor(private val context: Conte
             if (!clean) session.data.put("error", reason)
             session.data.put("completion", event.optString("completion")).put("restored", event.optBoolean("restored"))
             stopRecording(session)
+            releaseMicrophone(session)
             session.closed.complete(null)
             session.generation = ""
         }
@@ -410,24 +418,12 @@ internal class AudioSessionBridge private constructor(private val context: Conte
     private fun startRecording(session: Session) {
         if (context.checkSelfPermission("android.permission.RECORD_AUDIO") != PackageManager.PERMISSION_GRANTED)
             throw SecurityException("RECORD_AUDIO_PERMISSION_DENIED")
+        if (session.captureHost == null) throw IOException("CAPTURE_HOST_UNAVAILABLE")
         if (!directory.isDirectory && !directory.mkdirs()) throw IOException("AUDIO_STORAGE_UNAVAILABLE")
-        session.captureHost = AudioCaptureService.acquire(context)
         val file = File(directory, session.data.getString("resourceId") + "-" + UUID.randomUUID() + ".m4a")
-        val recorder = MediaRecorder(context)
+        // Written by this process: mediaserver (MediaRecorder) may not write a system app's files.
+        val recorder = MicrophoneAacRecorder(file, 128L * 1024 * 1024) { error -> recordingFailed(session, error) }
         try {
-            recorder.setAudioSource(MediaRecorder.AudioSource.MIC)
-            recorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-            recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-            recorder.setAudioSamplingRate(16000)
-            recorder.setAudioChannels(1)
-            recorder.setAudioEncodingBitRate(64000)
-            recorder.setMaxFileSize(128L * 1024 * 1024)
-            recorder.setOutputFile(file.absolutePath)
-            recorder.setOnErrorListener { _, what, extra -> recordingFailed(session, "RECORDING_FAILED:" + what + ":" + extra) }
-            recorder.setOnInfoListener { _, what, _ ->
-                if (what == MediaRecorder.MEDIA_RECORDER_INFO_MAX_FILESIZE_REACHED) recordingFailed(session, "RECORDING_SIZE_LIMIT")
-            }
-            recorder.prepare()
             recorder.start()
             session.recorder = recorder
             session.recording = file
@@ -447,9 +443,24 @@ internal class AudioSessionBridge private constructor(private val context: Conte
             session.recorder = null
             session.recording = null
             session.recordingCallback = null
-            AudioCaptureService.release(context)
             throw failure
         }
+    }
+
+    /** The visible microphone foreground service, held while any session captures. */
+    private fun acquireMicrophone(session: Session) {
+        if (session.captureHost != null) return
+        // Its own code: a slow start must not read as an uncertain engine call (which disconnects).
+        session.captureHost = try { AudioCaptureService.acquire(context) }
+            catch (failure: Exception) { throw IOException("CAPTURE_HOST_UNAVAILABLE", failure) }
+    }
+
+    @Synchronized
+    private fun releaseMicrophone(session: Session) {
+        if (session.captureHost == null) return
+        session.captureHost = null
+        for (other in sessions.values) if (other.captureHost != null) return
+        AudioCaptureService.release(context)
     }
 
     @Synchronized
@@ -480,9 +491,6 @@ internal class AudioSessionBridge private constructor(private val context: Conte
             session.recorder = null
             session.recording = null
             session.recordingCallback = null
-            var recording = false
-            for (other in sessions.values) if (other.recorder != null) { recording = true; break }
-            if (!recording) AudioCaptureService.release(context)
         }
     }
 
@@ -494,7 +502,8 @@ internal class AudioSessionBridge private constructor(private val context: Conte
         Thread({
             val active = ArrayList<JSONObject>()
             synchronized(this) {
-                for (session in sessions.values) if (session.recorder != null) try {
+                // Every session holding the microphone, dictation-only ones included: they show the notification too.
+                for (session in sessions.values) if (session.captureHost != null || session.recorder != null) try {
                     active.add(JSONObject().put("operation", "stop").put("sessionId", session.data.getString("resourceId"))
                         .put("threadId", session.data.getString("threadId")).put("matterId", session.data.getString("matterId")))
                 } catch (_: Exception) { }
@@ -506,8 +515,10 @@ internal class AudioSessionBridge private constructor(private val context: Conte
     fun captureHostDestroyed(host: AudioCaptureService) {
         Thread({
             synchronized(this) {
-                for (session in sessions.values) if (session.recorder != null && session.captureHost === host)
-                    recordingFailed(session, "CAPTURE_HOST_STOPPED")
+                for (session in sessions.values) if (session.captureHost === host) {
+                    session.captureHost = null
+                    if (session.recorder != null) recordingFailed(session, "CAPTURE_HOST_STOPPED")
+                }
             }
         }, "audio-capture-host-stop").start()
     }
