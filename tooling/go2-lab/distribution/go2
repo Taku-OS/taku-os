@@ -1,0 +1,16 @@
+#!/bin/bash
+set -euo pipefail
+cd "$(dirname "$0")"
+command=${1:-help}; [ "$#" -eq 0 ] || shift
+case "$command" in
+  setup) exec bash tooling/go2-lab/setup.sh "$@";;
+  simulate) exec bash tooling/go2-lab/start-simulation.sh "$@";;
+  real) exec bash tooling/go2-lab/start.sh "$@";;
+  maps) exec bash tooling/go2-lab/start-maps.sh "$@";;
+  maps-configure) exec bash tooling/go2-lab/start-maps.sh configure;;
+  install) exec bash tooling/go2-lab/install.sh "$@";;
+  doctor) exec python3 tooling/go2-lab/distribution/doctor.py;;
+  verify) exec bash tooling/go2-lab/check-simulation.sh;;
+  build) exec bash tooling/go2-lab/build.sh;;
+  *) echo 'Usage: bash go2 setup|simulate|real ROBOT_IP|maps|maps-configure|install --serial SERIAL [--avd NAME] [--with-ai-tools]|doctor|verify|build';;
+esac

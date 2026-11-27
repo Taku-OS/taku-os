@@ -1,0 +1,44 @@
+// Run after selecting a fixture through the real Android file picker. Simulator only.
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+const base='http://127.0.0.1:18845';
+const state=async()=>await(await fetch(base+'/api/audio')).json();
+assert.equal((await state()).simulated,true,'Refuse real robot');
+const pages=await(await fetch('http://127.0.0.1:19245/json')).json();
+const ws=new WebSocket(pages.find(p=>p.url===base+'/').webSocketDebuggerUrl);
+await new Promise(r=>ws.addEventListener('open',r,{once:true}));
+let id=0;const pending=new Map(),exceptions=[];
+ws.addEventListener('message',e=>{const x=JSON.parse(e.data);if(x.method==='Runtime.exceptionThrown')exceptions.push(x.params);if(pending.has(x.id)){pending.get(x.id)(x);pending.delete(x.id);}});
+const send=(method,params={})=>new Promise((resolve,reject)=>{const key=++id;const timer=setTimeout(()=>reject(Error('CDP timeout')),10000);pending.set(key,x=>{clearTimeout(timer);x.error?reject(Error(JSON.stringify(x.error))):resolve(x.result);});ws.send(JSON.stringify({id:key,method,params}));});
+const ev=async expression=>{const x=await send('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true});assert.ok(!x.exceptionDetails,JSON.stringify(x));return x.result.value;};
+const delay=ms=>new Promise(r=>setTimeout(r,ms));
+const wait=async expression=>{for(let i=0;i<100;i++){if(await ev(expression))return;await delay(100);}throw Error(expression);};
+const click=async id=>{await wait(`!document.getElementById('${id}').disabled`);await ev(`document.getElementById('${id}').click()`);};
+const checks=[];
+try{
+ await send('Page.reload',{ignoreCache:true});
+ await wait("Boolean(document.getElementById('audio-clip') && window.go2LabState?.data)");
+ await send('Runtime.enable');
+ assert.equal((await state()).clip.name,'taku-audio-test.wav');checks.push('Android picker imported audio while disconnected');
+ await wait("document.getElementById('audio-clip').textContent.includes('taku-audio-test.wav')");
+ assert.equal(await ev("document.getElementById('audio-play').disabled"),true);checks.push('Disconnected playback disabled');
+ await ev("document.getElementById('tab-state').click()");await click('connect');
+ await wait('go2LabState.data.connected');await click('tab-audio');
+ await click('audio-refresh');await wait("document.getElementById('audio-volume-current').textContent.includes('3/10')");
+ await ev("document.getElementById('audio-volume').value='2';document.getElementById('audio-volume').dispatchEvent(new Event('input'))");
+ assert.equal((await state()).volume,3);checks.push('Slider does not change device volume until Apply');
+ await click('audio-apply');await wait("document.getElementById('audio-volume-current').textContent.includes('2/10')");checks.push('Volume applied and read back');
+ await click('audio-play');await wait("document.getElementById('audio-status').textContent.includes('模拟播放中')");
+ assert.equal((await state()).state,'streaming');await click('audio-stop');
+ await wait("document.getElementById('audio-status').textContent.includes('录音已就绪')");checks.push('Playback and stop');
+ await click('audio-play');await wait("document.getElementById('audio-status').textContent.includes('音频发送结束')");checks.push('Repeat playback completes');
+ await click('audio-play');await ev("document.getElementById('tab-state').click()");await click('disconnect');await click('tab-audio');
+ await wait("document.getElementById('audio-play').disabled && document.getElementById('audio-status').textContent.includes('可以先导入')");
+ assert.equal((await state()).state,'idle');checks.push('Disconnect stops stream and clears volume');
+ await click('language');assert.equal(await ev("document.getElementById('tab-audio').textContent"),'Audio');
+ await click('language');checks.push('Chinese and English UI');
+ assert.deepEqual(exceptions,[]);
+ fs.mkdirSync('out/go2-lab/audio-verification',{recursive:true});
+ fs.writeFileSync('out/go2-lab/audio-verification/results.json',JSON.stringify({checks,exceptions,source:'simulation',realRobotVerified:false},null,2));
+ console.log(JSON.stringify({passed:checks.length,checks}));
+}finally{ws.close();}

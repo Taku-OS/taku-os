@@ -15,3 +15,10 @@ path = ["adapters/codex-runtime/*.patch", "system/assistant/tests/**/*.sh", "sys
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 Taku AI Inc."
 SPDX-License-Identifier = "Apache-2.0"
+
+# Go2 original source only; audio, artwork, screenshots and retained licenses excluded.
+[[annotations]]
+path = ["tooling/go2-lab/*.py", "tooling/go2-lab/*.sh", "tooling/go2-lab/*.mjs", "tooling/go2-lab/go2", "tooling/go2-lab/src/**/*.java", "tooling/go2-lab/res/**/*.xml", "tooling/go2-lab/AndroidManifest.xml", "tooling/go2-lab/phone/*.py", "tooling/go2-lab/phone/*.sh", "tooling/go2-lab/phone/*.js", "tooling/go2-lab/web/*.js", "tooling/go2-lab/web/*.css", "tooling/go2-lab/web/*.html", "tests/go2-*.py", "tests/go2-*.cjs", "tests/helpers/go2*.py", "tests/helpers/go2*.cjs"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Taku AI Inc."
+SPDX-License-Identifier = "Apache-2.0"

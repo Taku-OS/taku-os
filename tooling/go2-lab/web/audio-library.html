@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Taku · 声音库</title><link rel="stylesheet" href="/audio-library.css"><script type="module" src="/audio-library.js"></script><link rel="stylesheet" href="/design-system.css"></head>
+<body><main>
+<header><div><p class="eyebrow">TAKU / SOUND</p><h1 data-copy="title"></h1></div><button id="language" type="button">EN</button></header>
+<p class="subtitle" data-copy="subtitle"></p>
+<section class="volume-panel" aria-labelledby="volume-label"><div class="volume-title"><label id="volume-label" for="volume" data-copy="volume"></label><strong id="volume-value">—</strong></div>
+<input id="volume" type="range" min="0" max="10" step="1" value="3" disabled><div class="volume-foot"><span>0</span><span id="volume-confirmed"></span><span>100%</span></div></section>
+<nav class="filters" aria-label="音频类别" id="filters"><button type="button" data-filter="all" data-copy="all" aria-pressed="true"></button><button type="button" data-filter="en" data-copy="english" aria-pressed="false"></button><button type="button" data-filter="zh" data-copy="mandarin" aria-pressed="false"></button><button type="button" data-filter="effect" data-copy="effect" aria-pressed="false"></button></nav>
+<div class="sound-search"><input id="search" type="search" maxlength="100" autocomplete="off"><button id="import-audio" type="button"></button></div><p id="no-results" hidden></p><div class="list-heading"><span data-copy="presets"></span><span id="clip-count"></span></div><div id="clips" class="clips" role="list"></div>
+<details id="credits"><summary data-copy="credits"></summary><div id="credits-body"></div></details>
+<section class="player" aria-labelledby="now-label"><div class="now-heading"><div><span id="now-label" data-copy="selected"></span><strong id="now-title"></strong></div><span id="duration"></span></div>
+<progress id="progress" max="1" value="0"></progress><p id="status" role="status" aria-live="polite"></p>
+<button id="preview-phone" class="preview-phone" type="button"></button><div class="actions"><button id="play" type="button" data-copy="play"></button><button id="stop" type="button" data-copy="stop"></button></div></section>
+</main></body></html>

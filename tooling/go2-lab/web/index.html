@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>机器狗 · Taku</title><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script><script src="/point-renderer.js" defer></script><script src="/lidar.js" defer></script><script src="/motion.js" defer></script><script src="/avoidance.js" defer></script><script src="/audio.js" defer></script><script src="/camera.js" defer></script><script src="/navigation.js" defer></script><script src="/geo-projection.js" defer></script><script src="/amap.js" defer></script><script src="/geo.js" defer></script><link rel="stylesheet" href="/design-system.css"></head>
+<body><main>
+<header><span class="brand">taku <span> / GO2</span></span><div class="header-tools"><button id="language" aria-label="Switch to English">EN</button><span id="app-mode" class="tag" data-i18n="readOnly"></span></div></header>
+<p id="source-banner" class="source-banner" role="status"></p>
+<nav class="tabs" data-i18n-aria="pageTabs"><button id="tab-state" class="active" data-i18n="stateTab" aria-pressed="true"></button><button id="tab-environment" data-i18n="environmentTab" aria-pressed="false"></button><button id="tab-motion" data-i18n="motionTab" aria-pressed="false"></button><button id="tab-avoidance" data-i18n="avoidTab" aria-pressed="false"></button><button id="tab-audio" data-i18n="audioTab" aria-pressed="false"></button><button id="tab-camera" data-i18n="cameraTab" aria-pressed="false"></button><button id="tab-navigation" data-i18n="navTab" aria-pressed="false"></button><button id="tab-amap" data-i18n="amapTab" aria-pressed="false"></button></nav>
+<section id="camera-dock" hidden aria-labelledby="camera-title">
+<div class="camera-heading"><h2 id="camera-title" data-i18n="cameraTitle"></h2><button id="camera-jump" data-i18n="cameraJump"></button></div>
+<div class="camera-stage"><canvas id="camera-canvas" hidden data-i18n-aria="cameraAlt"></canvas><p id="camera-overlay"></p><span id="camera-sim-label" data-i18n="cameraSim" hidden></span></div>
+<div class="camera-toolbar"><span id="camera-status" role="status" aria-live="polite"></span><button id="camera-start" data-i18n="cameraStart" disabled></button><button id="camera-stop" class="secondary" data-i18n="cameraStop" disabled></button></div>
+<p id="camera-metrics"></p>
+</section>
+<section id="camera-page" hidden><button id="follow-demo-open" data-i18n="followDemoOpen"></button><p class="subtitle" data-i18n="cameraIntro"></p><p class="motion-footnote" data-i18n="cameraNote"></p><p class="motion-footnote" data-i18n="cameraPrivacy"></p></section>
+<div id="state-page">
+<section class="intro"><p class="eyebrow">UNITREE GO2 PRO</p><h1 id="app-title" data-i18n="title"></h1><p id="app-subtitle" class="subtitle" data-i18n="subtitle"></p></section>
+<section class="robot-panel" aria-labelledby="status-title">
+<div class="status-row"><span id="status" role="status"></span><span class="signal" aria-hidden="true">▂▄▆</span></div>
+<svg class="dog" viewBox="0 0 360 200" aria-hidden="true"><ellipse cx="177" cy="177" rx="119" ry="8" fill="#e5e1d9"/><g stroke-linecap="round" stroke-linejoin="round"><path d="M117 92 94 126 116 168 M223 91 199 127 219 169" fill="none" stroke="#858b89" stroke-width="14"/><path d="M99 72Q99 55 119 55H224Q244 55 245 73L238 98H109Z" fill="#d6d9d5" stroke="#293430" stroke-width="2"/><path d="M110 54H230L238 63H103Z" fill="#f1f1e9"/><path d="M234 61 270 70 273 94 240 100" fill="#273730"/><rect x="256" y="74" width="12" height="9" rx="3" fill="#c7e7b2"/><path d="M130 96 153 127 129 170M220 98 244 126 224 171" fill="none" stroke="#36483d" stroke-width="15"/><circle cx="130" cy="92" r="16" fill="#4c5b50"/><circle cx="219" cy="92" r="16" fill="#4c5b50"/><circle cx="130" cy="92" r="7" fill="#aab5a7"/><circle cx="219" cy="92" r="7" fill="#aab5a7"/><path d="M119 173H133M215 173H229M108 171H120" stroke="#28322b" stroke-width="7"/><path d="M152 68H204" stroke="#9da89c" stroke-width="3"/><rect x="168" y="43" width="31" height="14" rx="7" fill="#35443a"/><path d="M101 68 88 59" stroke="#59675c" stroke-width="6"/></g></svg>
+<div class="battery-row"><div><h2 id="status-title" data-i18n="battery"></h2><div class="battery-value"><span id="battery">—</span><small>%</small></div></div><div class="battery-side"><span id="freshness"></span><div class="battery-track"><div id="battery-fill"></div></div></div></div>
+</section>
+<section class="metrics"><div><span data-i18n="voltage"></span><strong id="voltage">—</strong></div><div><span data-i18n="height"></span><strong id="height">—</strong></div></section>
+<p class="notice" id="notice" role="status"></p>
+<div class="actions"><button id="connect" data-i18n="connect"></button><button id="disconnect" class="secondary" data-i18n="disconnect"></button></div>
+<p id="state-safety" class="safety" data-i18n="safety"></p>
+<details><summary data-i18n="details"></summary><dl><dt data-i18n="path"></dt><dd id="connection-path" data-i18n="realPath"></dd><dt>IP</dt><dd id="ip">—</dd><dt data-i18n="samples"></dt><dd id="samples">0</dd></dl></details>
+</div>
+<section id="environment-page" hidden>
+<div class="intro"><p class="eyebrow">LIDAR / LIVE VIEW</p><h1 data-i18n="environmentTab"></h1><p id="environment-subtitle" class="subtitle" data-i18n="environmentSubtitle"></p></div>
+<div class="cloud-panel">
+<div class="cloud-header"><span id="cloud-status" role="status"></span><span id="cloud-age">—</span></div>
+<div class="cloud-stage"><p id="cloud-empty" aria-hidden="true"></p><span id="cloud-scale" aria-hidden="true">1 m</span><canvas id="cloud" width="600" height="650" tabindex="0" data-i18n-aria="cloudLabel"></canvas></div>
+<div class="cloud-tools"><button id="view-3d" class="selected" aria-pressed="true">3D</button><button id="view-top" data-i18n="topView" aria-pressed="false"></button><button id="view-reset" data-i18n="resetView"></button></div>
+</div>
+<p class="cloud-caption" data-i18n="cloudHint"></p>
+<div class="cloud-stats"><div><span data-i18n="sourcePoints"></span><strong id="cloud-count">—</strong></div><div><span data-i18n="receivedFrames"></span><strong id="cloud-frames">0</strong></div><div><span data-i18n="displayPoints"></span><strong id="cloud-displayed">—</strong></div></div>
+<div class="cloud-performance"><span><span data-i18n="drawRate"></span> <b id="cloud-fps">—</b></span><span><span data-i18n="dataRate"></span> <b id="cloud-hz">—</b></span></div>
+<p id="cloud-notice" class="notice" role="status"></p>
+<div class="actions"><button id="scan-start" data-i18n="startScan"></button><button id="scan-stop" class="secondary" data-i18n="stopScan"></button></div>
+<p class="safety" data-i18n="cloudSafety"></p>
+</section>
+<section id="motion-page" hidden>
+<div class="intro"><p class="eyebrow">GO2 / MICRO MOVE</p><h1 data-i18n="motionTab"></h1><p class="subtitle" data-i18n="motionIntro"></p></div>
+<div class="motion-card">
+<p id="motion-limits" data-i18n="motionLimits"></p>
+
+<label class="motion-ready"><input type="checkbox" id="motion-ready"><span id="motion-confirmation" data-i18n="motionReady"></span></label>
+<button id="motion-arm" data-i18n="motionArm"></button>
+<p id="motion-status" role="status" aria-live="polite"></p>
+<div class="motion-pad">
+<button id="motion-forward" data-i18n="motionForward" disabled></button>
+<button id="motion-left" data-i18n="motionLeft" disabled></button>
+<button id="motion-right" data-i18n="motionRight" disabled></button>
+<button id="motion-backward" data-i18n="motionBackward" disabled></button>
+</div>
+<details class="speed-settings"><summary data-i18n="motionSpeedTitle"></summary><fieldset class="motion-speeds" id="motion-speeds">
+<legend data-i18n="motionSpeedTitle"></legend>
+<label for="motion-linear"><span data-i18n="motionLinear"></span><output id="motion-linear-value" for="motion-linear"></output></label>
+<input id="motion-linear" type="range" min="0.08" max="0.20" step="0.01" value="0.08" aria-describedby="motion-speed-note">
+<label for="motion-angular"><span data-i18n="motionAngular"></span><output id="motion-angular-value" for="motion-angular"></output></label>
+<input id="motion-angular" type="range" min="0.15" max="0.40" step="0.05" value="0.15" aria-describedby="motion-speed-note">
+<p id="motion-speed-preview" class="motion-footnote"></p>
+<button id="motion-speed-apply" class="secondary" data-i18n="motionSpeedApply" disabled></button>
+<p id="motion-speed-note" class="motion-footnote" data-i18n="motionSpeedNote"></p>
+<p id="motion-speed-status" role="status" aria-live="polite"></p>
+</fieldset></details>
+<button id="motion-stop" class="motion-stop" data-i18n="motionStop"></button>
+<p class="motion-footnote" data-i18n="motionFootnote"></p>
+</div>
+</section>
+<section id="avoidance-page" hidden>
+<div class="intro"><h1 data-i18n="avoidTitle"></h1><p class="subtitle" data-i18n="avoidIntro"></p></div>
+<div id="simulation-tools" hidden>
+<label for="sim-scenario" data-i18n="simScenario"></label>
+<div class="scenario-controls"><select id="sim-scenario"></select><button id="sim-apply" data-i18n="simApply"></button></div>
+<p id="scenario-status" class="notice" role="status"></p>
+<p id="sim-feedback" class="notice"></p>
+<p id="sim-result" class="notice" role="status" aria-live="polite"></p>
+</div>
+<div class="avoid-status-row"><strong id="avoid-native-state"></strong><span id="avoid-pose-state"></span></div>
+<p id="avoid-status" class="notice" role="status" aria-live="polite"></p>
+<button id="avoid-connect" data-i18n="avoidGoConnect" hidden></button>
+<div class="local-map-panel"><canvas id="local-map" width="600" height="480" data-i18n-aria="localMapLabel"></canvas></div>
+<div id="direction-summary" class="direction-summary" aria-live="polite"></div>
+<details class="map-explanation"><summary data-i18n="mapExplanation"></summary><p data-i18n="localMapNote"></p></details>
+<div class="avoid-card">
+<div class="actions"><button id="avoid-enable" data-i18n="avoidEnable"></button><button id="avoid-disable" class="secondary" data-i18n="avoidDisable"></button></div>
+<label class="motion-ready"><input type="checkbox" id="avoid-ready"><span data-i18n="avoidReady"></span></label>
+<p id="avoid-next" class="notice" role="status"></p><button id="avoid-arm" data-i18n="avoidArm"></button>
+<div class="motion-pad"><button id="avoid-forward" data-i18n="motionForward"></button><button id="avoid-backward" data-i18n="motionBackward"></button><button id="avoid-left" data-i18n="motionLeft"></button><button id="avoid-right" data-i18n="motionRight"></button></div>
+<p class="motion-footnote" data-i18n="avoidLimits"></p>
+</div>
+<details id="record-tools"><summary data-i18n="recordTitle"></summary>
+<p data-i18n="recordNote"></p><p id="record-status" role="status"></p>
+<div class="actions"><button id="record-start" data-i18n="recordStart"></button><button id="record-stop" class="secondary" data-i18n="recordStop"></button></div>
+<div class="replay-controls"><button id="replay-start" data-i18n="replayStart"></button><button id="replay-pause" data-i18n="replayPause"></button><button id="replay-stop" class="secondary" data-i18n="replayStop"></button></div>
+<p id="replay-status" role="status"></p></details>
+<button id="avoid-stop" class="motion-stop" data-i18n="motionStop"></button>
+</section>
+<section id="audio-page" hidden>
+<div class="intro"><h1 data-i18n="audioTab"></h1><p class="subtitle" data-i18n="audioIntro"></p></div>
+<p id="audio-simulation" class="notice" data-i18n="audioSimulation" hidden></p>
+<div class="motion-card audio-card">
+<button id="audio-choose" class="secondary" data-i18n="audioFile"></button>
+<input id="audio-file" hidden type="file" accept="audio/*,.m4a,.wav,.mp3" aria-describedby="audio-note">
+<p id="audio-clip"></p><p id="audio-note" class="motion-footnote" data-i18n="audioNote"></p>
+<label for="audio-volume" data-i18n="audioVolume"></label>
+<input id="audio-volume" type="range" min="0" max="10" step="1" value="3">
+<output id="audio-volume-value" for="audio-volume"></output><p id="audio-volume-current"></p>
+<div class="actions"><button id="audio-refresh" class="secondary" data-i18n="audioRefresh"></button><button id="audio-apply" data-i18n="audioApply"></button></div>
+<p id="audio-status" role="status" aria-live="polite"></p>
+<div class="actions"><button id="audio-play" data-i18n="audioPlay"></button><button id="audio-stop" class="secondary" data-i18n="audioStop"></button></div>
+<p class="motion-footnote" data-i18n="audioBoundary"></p>
+</div></section>
+<section id="navigation-page" hidden>
+<div class="intro"><p class="eyebrow" data-i18n="navScope"></p><h1 data-i18n="navTab"></h1><p class="subtitle" data-i18n="navIntro"></p></div>
+<p id="nav-status" role="status" aria-live="polite"></p><p id="nav-reason" class="notice" role="status"></p>
+<button id="nav-prepare" data-i18n="navPrepare" disabled></button>
+<div class="nav-map-wrap"><canvas id="nav-map" width="600" height="600" data-i18n-aria="navMapLabel"></canvas></div>
+<p class="motion-footnote" data-i18n="navLegend"></p><p id="nav-progress"></p>
+<div class="motion-card nav-controls">
+<label for="nav-name" data-i18n="navName"></label><input id="nav-name" type="text" maxlength="40" autocomplete="off">
+<div class="nav-coordinates"><label for="nav-x">X (m)<input id="nav-x" type="number" min="-3" max="3" step="0.1"></label><label for="nav-y">Y (m)<input id="nav-y" type="number" min="-3" max="3" step="0.1"></label></div>
+<p id="nav-selection"></p><div class="actions"><button id="nav-save" class="secondary" data-i18n="navSave" disabled></button><button id="nav-go" data-i18n="navGo" disabled></button></div>
+<label for="nav-places" data-i18n="navPlaces"></label><select id="nav-places"></select><button id="nav-named" data-i18n="navNamed" disabled></button>
+</div>
+<div class="nav-ai-note"><h2 data-i18n="navAiTitle"></h2><p data-i18n="navAiNote"></p><p class="motion-footnote" data-i18n="navBoundary"></p></div>
+<button id="nav-stop" class="motion-stop" data-i18n="navStop"></button>
+</section>
+<section id="amap-page" hidden>
+<div class="intro"><h1 data-i18n="amapTab"></h1><p class="subtitle" data-i18n="amapIntro"></p></div>
+<p class="notice" data-i18n="amapBoundary"></p>
+<p id="amap-status" role="status" aria-live="polite"></p><button id="amap-refresh" class="secondary" data-i18n="amapRefresh"></button>
+<form id="amap-search-form" class="motion-card amap-form">
+<label for="amap-city" data-i18n="amapCity"></label><input id="amap-city" type="text" maxlength="40" autocomplete="off">
+<label for="amap-keyword" data-i18n="amapKeyword"></label><input id="amap-keyword" type="search" maxlength="80" required autocomplete="off">
+<div class="actions"><button id="amap-search" type="submit" data-i18n="amapSearch" disabled></button><button id="amap-web-search" type="button" class="secondary" data-i18n="amapWebSearch" disabled></button></div>
+<p class="motion-footnote" data-i18n="amapPrivacy"></p></form>
+<ul id="amap-results"></ul>
+<div class="motion-card amap-selection"><h2 data-i18n="amapOrigin"></h2><p id="amap-origin"></p><h2 data-i18n="amapDestination"></h2><p id="amap-destination"></p><p class="motion-footnote" data-i18n="amapCoord"></p><button id="amap-plan" data-i18n="amapPlan" disabled></button></div>
+<div id="amap-route" hidden><h2 data-i18n="amapPreview"></h2><p id="amap-summary"></p><div class="amap-map-wrap"><img id="amap-map" hidden data-i18n-aria="amapMapAlt" alt=""><span id="geo-robot-marker" hidden aria-hidden="true">➤</span></div><button id="amap-pick" class="secondary" data-i18n="geoPick"></button><p id="amap-map-error" role="status"></p><button id="amap-open" class="secondary" data-i18n="amapOpen"></button><section id="geo-execution" class="motion-card">
+<h2 data-i18n="geoTitle"></h2><p data-i18n="geoSimulation"></p>
+<label for="geo-scope" data-i18n="geoScope"></label><select id="geo-scope"><option value="first10m" data-i18n="geoFirst"></option><option value="full" data-i18n="geoFull"></option></select>
+<div class="actions"><button id="geo-prepare" data-i18n="geoPrepare" disabled></button><button id="geo-start" data-i18n="geoStart" disabled></button></div>
+</section></div>
+<section id="geo-monitor"><h2 data-i18n="geoMonitor"></h2><p id="geo-mission-name"></p><p id="geo-status" role="status" aria-live="polite"></p><p id="geo-location"></p><p id="geo-progress"></p><progress id="geo-progress-bar" max="1" value="0" data-i18n-aria="geoProgress"></progress><canvas id="geo-local-map" width="600" height="600" data-i18n-aria="geoLocalMap"></canvas><p class="motion-footnote" data-i18n="geoLocalNote"></p></section>
+<details class="geo-instructions"><summary data-i18n="geoInstructions"></summary><ol id="amap-steps"></ol></details>
+<details class="amap-form"><summary data-i18n="geoCalibration"></summary><p data-i18n="geoCalibrationNote"></p>
+<button id="geo-use-origin" class="secondary" data-i18n="geoUseOrigin"></button>
+<label for="geo-longitude" data-i18n="geoLongitude"></label><input id="geo-longitude" type="number" min="-180" max="180" step="0.000001">
+<label for="geo-latitude" data-i18n="geoLatitude"></label><input id="geo-latitude" type="number" min="-75" max="75" step="0.000001">
+<label for="geo-heading" data-i18n="geoHeading"></label><input id="geo-heading" type="number" min="0" max="359.99" step="0.1">
+<button id="geo-calibrate" data-i18n="geoCalibrate" disabled></button></details>
+<button id="geo-stop" class="motion-stop" data-i18n="geoStop" disabled></button>
+<details><summary data-i18n="amapConfigTitle"></summary><p class="motion-footnote" data-i18n="amapConfig"></p></details>
+</section>
+<footer id="app-footer" data-i18n="footer"></footer>
+</main></body></html>

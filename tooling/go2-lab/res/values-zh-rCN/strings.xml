@@ -1,0 +1,32 @@
+<resources>
+  <string name="app_name">Go2</string>
+  <string name="offline">手机本机服务未启动，请打开连接设置启动。</string>
+  <string name="retry">刷新页面</string>
+  <string name="no_browser">未安装可打开高德网页的浏览器。</string>
+  <string name="phone_settings">手机直连 · 连接设置</string>
+  <string name="phone_note">让 Pixel 和 Go2 加入同一个热点或 Wi-Fi。从热点设备列表或宇树 App 查看狗的当前 IP。点击启动 / 连接后会检查状态，不会让狗运动。运行无需 Mac 或 USB。</string>
+  <string name="phone_simulation">离线模拟（不连接真狗）</string>
+  <string name="phone_real">直连真实 Go2</string>
+  <string name="phone_ip">机器狗的局域网 IPv4 地址</string>
+  <string name="phone_start">启动 / 连接</string>
+  <string name="phone_key">设备密钥（可选，留空沿用保存值）</string>
+  <string name="phone_invalid_key">设备密钥必须是 32 位十六进制字符</string>
+  <string name="phone_connecting">正在连接并检查机器狗状态…</string>
+  <string name="phone_unreachable">无法访问机器狗。请核对当前 IP，确认两台设备在同一热点，并允许 VPN 访问局域网、关闭热点的客户端隔离。</string>
+  <string name="phone_robot_busy">机器狗拒绝了本次连接。请先断开宇树 App 或其他控制端，再重试。</string>
+  <string name="phone_key_required">此固件需要你本人宇树账号下的设备专属密钥。请在连接设置中填写；这不是 Wi-Fi 密码或 ChatGPT 账号。</string>
+  <string name="phone_key_rejected">设备密钥未能解密响应。请确认密钥属于这台狗，在连接设置中重新填写。</string>
+  <string name="phone_channel_timeout">WebRTC 通道建立超时。请检查热点客户端隔离和 VPN 局域网权限，并断开其他控制端后重试。</string>
+  <string name="phone_disconnected">机器狗连接已中断。请检查 Wi-Fi 后重新连接，运动权限需要再次确认。</string>
+  <string name="phone_bad_response">这个 IP 有响应，但没有返回有效的 Go2 连接信息。请核对设备 IP 和固件兼容性。</string>
+  <string name="phone_connect_failed">连接失败</string>
+  <string name="phone_no_telemetry">未及时收到新的电量和姿态数据，已断开连接。请检查网络和狗的固件，再重试。</string>
+  <string name="phone_stop">停止服务</string>
+  <string name="phone_starting">正在切换手机服务…</string>
+  <string name="phone_service">机器狗手机通信服务</string>
+  <string name="phone_invalid_ip">请输入 10.x、172.16–31.x 或 192.168.x 局域网地址</string>
+  <string name="phone_permission">允许在 Termux 中运行命令后，再次点击启动。</string>
+  <string name="phone_failed">连接未完成</string>
+  <string name="phone_failure_help">请确认已安装机器狗本机运行环境，并允许命令权限。日志保存在 Termux 的 home/taku-go2/runtime.log。</string>
+<string name="phone_advanced">设备密钥 · 高级选项</string>
+</resources>

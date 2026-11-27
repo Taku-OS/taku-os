@@ -1,0 +1,23 @@
+{
+  "format": "taku-go2-devkit/v1",
+  "version": "0.7.0-robot-panel",
+  "applicationId": "org.taku.go2lab",
+  "activity": "org.taku.go2lab/.Go2Activity",
+  "androidMinApi": 36,
+  "hostVerified": "macOS Apple Silicon",
+  "requiresMacBridge": false,
+  "services": {
+    "robot": "http://127.0.0.1:18845",
+    "amap": "http://127.0.0.1:18846"
+  },
+  "defaultMode": "simulation",
+  "realAutonomousNavigation": false,
+  "signing": "public-aosp-development-test-key",
+  "distribution": "source-development-preview",
+  "secretsIncluded": false,
+  "runtimeModes": [
+    "pixel-local-termux-proot",
+    "mac-bridge"
+  ],
+  "phoneRuntimeSetup": "phone/README.md"
+}

@@ -1,0 +1,32 @@
+<resources>
+  <string name="app_name">Go2</string>
+  <string name="offline">The phone service is stopped. Open connection settings to start it.</string>
+  <string name="retry">Refresh</string>
+  <string name="no_browser">No browser is installed to open AMap.</string>
+  <string name="phone_settings">Connection settings</string>
+  <string name="phone_note">Use the same Wi-Fi on Pixel and Go2. Enter the robot IP from your hotspot device list. Connecting reads status without moving the robot.</string>
+  <string name="phone_simulation">Offline simulation (no real robot)</string>
+  <string name="phone_real">Connect directly to a real Go2</string>
+  <string name="phone_ip">Robot LAN IPv4 address</string>
+  <string name="phone_start">Start / connect</string>
+  <string name="phone_key">Optional device key (blank keeps saved key)</string>
+  <string name="phone_invalid_key">The device key must be 32 hexadecimal characters</string>
+  <string name="phone_connecting">Connecting and checking robot status…</string>
+  <string name="phone_unreachable">Cannot reach the robot. Check its current IP and that both devices use the same hotspot. Allow local network traffic in the VPN and disable hotspot client isolation.</string>
+  <string name="phone_robot_busy">The robot rejected the session. Disconnect the Unitree app or another controller, then retry.</string>
+  <string name="phone_key_required">This firmware requires the per-device key from your own Unitree account. Enter it in connection settings. This is not a Wi-Fi password or ChatGPT credential.</string>
+  <string name="phone_key_rejected">The device key did not decrypt the response. Check that the key belongs to this robot and enter the correct key.</string>
+  <string name="phone_channel_timeout">The WebRTC channel timed out. Check hotspot client isolation and VPN local network access, then disconnect other controllers and retry.</string>
+  <string name="phone_disconnected">The robot connection was lost. Check Wi-Fi, then reconnect. Motion permission must be confirmed again.</string>
+  <string name="phone_bad_response">The IP responded but did not return a valid Go2 session. Check the device IP and firmware compatibility.</string>
+  <string name="phone_connect_failed">Connection failed</string>
+  <string name="phone_no_telemetry">Fresh battery and posture data did not arrive in time. The connection has been closed. Check the network and robot firmware before retrying.</string>
+  <string name="phone_stop">Stop service</string>
+  <string name="phone_starting">Updating phone service…</string>
+  <string name="phone_service">Go2 phone bridge</string>
+  <string name="phone_invalid_ip">Enter a 10.x, 172.16–31.x or 192.168.x LAN address</string>
+  <string name="phone_permission">Allow commands in Termux, then tap Start again.</string>
+  <string name="phone_failed">Connection not completed</string>
+  <string name="phone_failure_help">Check that the Go2 runtime is installed in Termux and command access is allowed. Logs: Termux home/taku-go2/runtime.log</string>
+<string name="phone_advanced">Device key · Advanced</string>
+</resources>

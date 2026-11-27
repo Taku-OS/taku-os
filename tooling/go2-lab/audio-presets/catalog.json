@@ -1,0 +1,945 @@
+{
+  "version": 3,
+  "clips": [
+    {
+      "id": "en-taunt-enough",
+      "file": "en-taunt-enough.wav",
+      "category": "speech",
+      "language": "en-US",
+      "synthetic": true,
+      "title": {
+        "zh": "Talking to you?",
+        "en": "Talking to you?"
+      },
+      "description": {
+        "zh": "跟你说话？有我就够了。",
+        "en": "A playful comeback · Original English voice"
+      },
+      "transcript": "Talking to you? I'm enough.",
+      "voiceStyle": {
+        "zh": "西海岸风格 · 英语男声 · AI 合成",
+        "en": "West Coast style · Male voice · AI-generated"
+      },
+      "duration": 2.737,
+      "author": "Taku · AI-generated original voice",
+      "license": "Original generated audio; model licensed Apache-2.0",
+      "licenseUrl": "https://www.apache.org/licenses/LICENSE-2.0",
+      "source": "https://huggingface.co/spaces/Qwen/Qwen3-TTS",
+      "changes": {
+        "zh": "原创台词合成；48kHz 单声道 PCM WAV；峰值 -6.2dBFS；首尾各补 0.1 秒静音",
+        "en": "Original speech; 48kHz mono PCM WAV; -6.2dBFS peak; 0.1s padding at each end"
+      },
+      "sha256": "1fd93938ec286f3eb785f7345ad369c6d1397b27fdd00d3b4e5813960a6657af",
+      "sourceSha256": "a1f35c9794ce377d998d845fa85496792628bbc6fd8d4dbf84a7971244d0c45a",
+      "generation": {
+        "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+        "date": "2026-11-04",
+        "delivery": "Warm relaxed Southern California male voice, playful dry comeback, no music or celebrity imitation"
+      }
+    },
+    {
+      "id": "en-whats-good",
+      "file": "en-whats-good.wav",
+      "category": "speech",
+      "language": "en-US",
+      "synthetic": true,
+      "title": {
+        "zh": "What's good?",
+        "en": "What's good?"
+      },
+      "description": {
+        "zh": "嘿，最近怎么样？我是 Taku。",
+        "en": "Original phrase · Conversational English"
+      },
+      "transcript": "Yo, what's good? I'm Taku.",
+      "voiceStyle": {
+        "zh": "西海岸风格 · 英语男声 · AI 合成",
+        "en": "West Coast style · Male voice · AI-generated"
+      },
+      "duration": 2.205,
+      "author": "Taku · AI-generated original voice",
+      "license": "Original generated audio; model licensed Apache-2.0",
+      "licenseUrl": "https://www.apache.org/licenses/LICENSE-2.0",
+      "source": "https://huggingface.co/spaces/Qwen/Qwen3-TTS",
+      "changes": {
+        "zh": "原创台词合成；从同一次录音切分；48kHz 单声道 PCM WAV；峰值 -6.2dBFS；首尾各补 0.2 秒静音",
+        "en": "Original script synthesized in one take and split at phrase gaps; 48kHz mono PCM WAV; -6.2dBFS peak; 0.2s padding at each end"
+      },
+      "sha256": "51ca3b7474f05ffe9bfb80759473f007b15bd479790c0079e7f342d708f9eb4c",
+      "sourceSha256": "8f0ebf148cd06dedcc34db07e529e436f3946537fe20d3f0464e10b00c35c7ef",
+      "generation": {
+        "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+        "sourceTakeRange": {
+          "start": 0.0,
+          "end": 1.805
+        }
+      }
+    },
+    {
+      "id": "en-lets-roll",
+      "file": "en-lets-roll.wav",
+      "category": "speech",
+      "language": "en-US",
+      "synthetic": true,
+      "title": {
+        "zh": "Let's roll",
+        "en": "Let's roll"
+      },
+      "description": {
+        "zh": "好，咱们出发。",
+        "en": "Original phrase · Conversational English"
+      },
+      "transcript": "All right, let's roll.",
+      "voiceStyle": {
+        "zh": "西海岸风格 · 英语男声 · AI 合成",
+        "en": "West Coast style · Male voice · AI-generated"
+      },
+      "duration": 2.175,
+      "author": "Taku · AI-generated original voice",
+      "license": "Original generated audio; model licensed Apache-2.0",
+      "licenseUrl": "https://www.apache.org/licenses/LICENSE-2.0",
+      "source": "https://huggingface.co/spaces/Qwen/Qwen3-TTS",
+      "changes": {
+        "zh": "原创台词合成；从同一次录音切分；48kHz 单声道 PCM WAV；峰值 -6.2dBFS；首尾各补 0.2 秒静音",
+        "en": "Original script synthesized in one take and split at phrase gaps; 48kHz mono PCM WAV; -6.2dBFS peak; 0.2s padding at each end"
+      },
+      "sha256": "60d24c0c2deb506d0450454f8c3004708297e2a7487dfffe6d3820f1f43a9f2b",
+      "sourceSha256": "8f0ebf148cd06dedcc34db07e529e436f3946537fe20d3f0464e10b00c35c7ef",
+      "generation": {
+        "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+        "sourceTakeRange": {
+          "start": 1.805,
+          "end": 3.58
+        }
+      }
+    },
+    {
+      "id": "en-got-you",
+      "file": "en-got-you.wav",
+      "category": "speech",
+      "language": "en-US",
+      "synthetic": true,
+      "title": {
+        "zh": "I got you",
+        "en": "I got you"
+      },
+      "description": {
+        "zh": "懂了，交给我。",
+        "en": "Original phrase · Conversational English"
+      },
+      "transcript": "Say less. I got you.",
+      "voiceStyle": {
+        "zh": "西海岸风格 · 英语男声 · AI 合成",
+        "en": "West Coast style · Male voice · AI-generated"
+      },
+      "duration": 3.98,
+      "author": "Taku · AI-generated original voice",
+      "license": "Original generated audio; model licensed Apache-2.0",
+      "licenseUrl": "https://www.apache.org/licenses/LICENSE-2.0",
+      "source": "https://huggingface.co/spaces/Qwen/Qwen3-TTS",
+      "changes": {
+        "zh": "原创台词合成；从同一次录音切分；48kHz 单声道 PCM WAV；峰值 -6.2dBFS；首尾各补 0.2 秒静音",
+        "en": "Original script synthesized in one take and split at phrase gaps; 48kHz mono PCM WAV; -6.2dBFS peak; 0.2s padding at each end"
+      },
+      "sha256": "91af2bfde8173f00e1bafe419c13b0894dc218d3b29a070504e7587f8d420d34",
+      "sourceSha256": "8f0ebf148cd06dedcc34db07e529e436f3946537fe20d3f0464e10b00c35c7ef",
+      "generation": {
+        "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+        "sourceTakeRange": {
+          "start": 3.58,
+          "end": 7.16
+        }
+      }
+    },
+    {
+      "id": "en-good-to-see-you",
+      "file": "en-good-to-see-you.wav",
+      "category": "speech",
+      "language": "en-US",
+      "synthetic": true,
+      "title": {
+        "zh": "Good to see you",
+        "en": "Good to see you"
+      },
+      "description": {
+        "zh": "嘿，兄弟，见到你真好。",
+        "en": "Original phrase · Conversational English"
+      },
+      "transcript": "Hey, good to see you, fam.",
+      "voiceStyle": {
+        "zh": "西海岸风格 · 英语男声 · AI 合成",
+        "en": "West Coast style · Male voice · AI-generated"
+      },
+      "duration": 1.805,
+      "author": "Taku · AI-generated original voice",
+      "license": "Original generated audio; model licensed Apache-2.0",
+      "licenseUrl": "https://www.apache.org/licenses/LICENSE-2.0",
+      "source": "https://huggingface.co/spaces/Qwen/Qwen3-TTS",
+      "changes": {
+        "zh": "原创台词合成；从同一次录音切分；48kHz 单声道 PCM WAV；峰值 -6.2dBFS；首尾各补 0.2 秒静音",
+        "en": "Original script synthesized in one take and split at phrase gaps; 48kHz mono PCM WAV; -6.2dBFS peak; 0.2s padding at each end"
+      },
+      "sha256": "3ccfe9468443cdc677b3584c792ab69a01519bb9ff3d9881ea44bb3373d0b0be",
+      "sourceSha256": "8f0ebf148cd06dedcc34db07e529e436f3946537fe20d3f0464e10b00c35c7ef",
+      "generation": {
+        "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+        "sourceTakeRange": {
+          "start": 7.16,
+          "end": 8.565
+        }
+      }
+    },
+    {
+      "id": "en-ready",
+      "file": "en-ready.wav",
+      "category": "speech",
+      "language": "en-US",
+      "synthetic": true,
+      "title": {
+        "zh": "Ready when you are",
+        "en": "Ready when you are"
+      },
+      "description": {
+        "zh": "我准备好了，随时听你的。",
+        "en": "Original phrase · Conversational English"
+      },
+      "transcript": "I'm ready when you are.",
+      "voiceStyle": {
+        "zh": "西海岸风格 · 英语男声 · AI 合成",
+        "en": "West Coast style · Male voice · AI-generated"
+      },
+      "duration": 1.405,
+      "author": "Taku · AI-generated original voice",
+      "license": "Original generated audio; model licensed Apache-2.0",
+      "licenseUrl": "https://www.apache.org/licenses/LICENSE-2.0",
+      "source": "https://huggingface.co/spaces/Qwen/Qwen3-TTS",
+      "changes": {
+        "zh": "原创台词合成；从同一次录音切分；48kHz 单声道 PCM WAV；峰值 -6.2dBFS；首尾各补 0.2 秒静音",
+        "en": "Original script synthesized in one take and split at phrase gaps; 48kHz mono PCM WAV; -6.2dBFS peak; 0.2s padding at each end"
+      },
+      "sha256": "efa449c43ddfa6a5f2c2f6d0202f7edd93f4d0d56c68cdf1b2e67baa828ff0a9",
+      "sourceSha256": "8f0ebf148cd06dedcc34db07e529e436f3946537fe20d3f0464e10b00c35c7ef",
+      "generation": {
+        "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+        "sourceTakeRange": {
+          "start": 8.565,
+          "end": 9.57
+        }
+      }
+    },
+    {
+      "id": "en-on-my-way",
+      "file": "en-on-my-way.wav",
+      "category": "speech",
+      "language": "en-US",
+      "synthetic": true,
+      "title": {
+        "zh": "On my way",
+        "en": "On my way"
+      },
+      "description": {
+        "zh": "我这就来，马上见。",
+        "en": "Original phrase · Conversational English"
+      },
+      "transcript": "I'm on my way. Catch you in a sec.",
+      "voiceStyle": {
+        "zh": "西海岸风格 · 英语男声 · AI 合成",
+        "en": "West Coast style · Male voice · AI-generated"
+      },
+      "duration": 3.435,
+      "author": "Taku · AI-generated original voice",
+      "license": "Original generated audio; model licensed Apache-2.0",
+      "licenseUrl": "https://www.apache.org/licenses/LICENSE-2.0",
+      "source": "https://huggingface.co/spaces/Qwen/Qwen3-TTS",
+      "changes": {
+        "zh": "原创台词合成；从同一次录音切分；48kHz 单声道 PCM WAV；峰值 -6.2dBFS；首尾各补 0.2 秒静音",
+        "en": "Original script synthesized in one take and split at phrase gaps; 48kHz mono PCM WAV; -6.2dBFS peak; 0.2s padding at each end"
+      },
+      "sha256": "60a2ca09b39328aeb39886668bbfa0d1a56258b16ae01fd5879920f2fb6634de",
+      "sourceSha256": "8f0ebf148cd06dedcc34db07e529e436f3946537fe20d3f0464e10b00c35c7ef",
+      "generation": {
+        "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+        "sourceTakeRange": {
+          "start": 9.57,
+          "end": 12.605
+        }
+      }
+    },
+    {
+      "id": "en-coming-through",
+      "file": "en-coming-through.wav",
+      "category": "speech",
+      "language": "en-US",
+      "synthetic": true,
+      "title": {
+        "zh": "Coming through",
+        "en": "Coming through"
+      },
+      "description": {
+        "zh": "借过一下，多谢啦。",
+        "en": "Original phrase · Conversational English"
+      },
+      "transcript": "Coming through. Appreciate you.",
+      "voiceStyle": {
+        "zh": "西海岸风格 · 英语男声 · AI 合成",
+        "en": "West Coast style · Male voice · AI-generated"
+      },
+      "duration": 3.095,
+      "author": "Taku · AI-generated original voice",
+      "license": "Original generated audio; model licensed Apache-2.0",
+      "licenseUrl": "https://www.apache.org/licenses/LICENSE-2.0",
+      "source": "https://huggingface.co/spaces/Qwen/Qwen3-TTS",
+      "changes": {
+        "zh": "原创台词合成；从同一次录音切分；48kHz 单声道 PCM WAV；峰值 -6.2dBFS；首尾各补 0.2 秒静音",
+        "en": "Original script synthesized in one take and split at phrase gaps; 48kHz mono PCM WAV; -6.2dBFS peak; 0.2s padding at each end"
+      },
+      "sha256": "fb33551493a01e6839e750310920123019e26b0a8457a5fd8740569cac0aa693",
+      "sourceSha256": "8f0ebf148cd06dedcc34db07e529e436f3946537fe20d3f0464e10b00c35c7ef",
+      "generation": {
+        "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+        "sourceTakeRange": {
+          "start": 12.605,
+          "end": 15.3
+        }
+      }
+    },
+    {
+      "id": "en-give-me-room",
+      "file": "en-give-me-room.wav",
+      "category": "speech",
+      "language": "en-US",
+      "synthetic": true,
+      "title": {
+        "zh": "A little room",
+        "en": "A little room"
+      },
+      "description": {
+        "zh": "嘿，麻烦给我让一点空间。",
+        "en": "Original phrase · Conversational English"
+      },
+      "transcript": "Hey, give me a little room, please.",
+      "voiceStyle": {
+        "zh": "西海岸风格 · 英语男声 · AI 合成",
+        "en": "West Coast style · Male voice · AI-generated"
+      },
+      "duration": 2.57,
+      "author": "Taku · AI-generated original voice",
+      "license": "Original generated audio; model licensed Apache-2.0",
+      "licenseUrl": "https://www.apache.org/licenses/LICENSE-2.0",
+      "source": "https://huggingface.co/spaces/Qwen/Qwen3-TTS",
+      "changes": {
+        "zh": "原创台词合成；从同一次录音切分；48kHz 单声道 PCM WAV；峰值 -6.2dBFS；首尾各补 0.2 秒静音",
+        "en": "Original script synthesized in one take and split at phrase gaps; 48kHz mono PCM WAV; -6.2dBFS peak; 0.2s padding at each end"
+      },
+      "sha256": "ee0f019fe3e42f5c6cb4f6a43eac0e20f08a56136cd9284dc6608e09adc8033f",
+      "sourceSha256": "8f0ebf148cd06dedcc34db07e529e436f3946537fe20d3f0464e10b00c35c7ef",
+      "generation": {
+        "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+        "sourceTakeRange": {
+          "start": 15.3,
+          "end": 17.47
+        }
+      }
+    },
+    {
+      "id": "en-hold-up",
+      "file": "en-hold-up.wav",
+      "category": "speech",
+      "language": "en-US",
+      "synthetic": true,
+      "title": {
+        "zh": "Hold up",
+        "en": "Hold up"
+      },
+      "description": {
+        "zh": "稍等，给我一点时间。",
+        "en": "Original phrase · Conversational English"
+      },
+      "transcript": "Hold up. Give me a second.",
+      "voiceStyle": {
+        "zh": "西海岸风格 · 英语男声 · AI 合成",
+        "en": "West Coast style · Male voice · AI-generated"
+      },
+      "duration": 3.1,
+      "author": "Taku · AI-generated original voice",
+      "license": "Original generated audio; model licensed Apache-2.0",
+      "licenseUrl": "https://www.apache.org/licenses/LICENSE-2.0",
+      "source": "https://huggingface.co/spaces/Qwen/Qwen3-TTS",
+      "changes": {
+        "zh": "原创台词合成；从同一次录音切分；48kHz 单声道 PCM WAV；峰值 -6.2dBFS；首尾各补 0.2 秒静音",
+        "en": "Original script synthesized in one take and split at phrase gaps; 48kHz mono PCM WAV; -6.2dBFS peak; 0.2s padding at each end"
+      },
+      "sha256": "91b0a8f787304423504c9405be4988d44515c15716b4148a8ea115be54acd8c6",
+      "sourceSha256": "8f0ebf148cd06dedcc34db07e529e436f3946537fe20d3f0464e10b00c35c7ef",
+      "generation": {
+        "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+        "sourceTakeRange": {
+          "start": 17.47,
+          "end": 20.17
+        }
+      }
+    },
+    {
+      "id": "en-all-good",
+      "file": "en-all-good.wav",
+      "category": "speech",
+      "language": "en-US",
+      "synthetic": true,
+      "title": {
+        "zh": "It's all good",
+        "en": "It's all good"
+      },
+      "description": {
+        "zh": "没事儿，不着急。",
+        "en": "Original phrase · Conversational English"
+      },
+      "transcript": "It's all good. No rush.",
+      "voiceStyle": {
+        "zh": "西海岸风格 · 英语男声 · AI 合成",
+        "en": "West Coast style · Male voice · AI-generated"
+      },
+      "duration": 3.765,
+      "author": "Taku · AI-generated original voice",
+      "license": "Original generated audio; model licensed Apache-2.0",
+      "licenseUrl": "https://www.apache.org/licenses/LICENSE-2.0",
+      "source": "https://huggingface.co/spaces/Qwen/Qwen3-TTS",
+      "changes": {
+        "zh": "原创台词合成；从同一次录音切分；48kHz 单声道 PCM WAV；峰值 -6.2dBFS；首尾各补 0.2 秒静音",
+        "en": "Original script synthesized in one take and split at phrase gaps; 48kHz mono PCM WAV; -6.2dBFS peak; 0.2s padding at each end"
+      },
+      "sha256": "9c32a1db76db1f73f970a37dc84055b212df6eef697bd04b3cb145847efdfb40",
+      "sourceSha256": "8f0ebf148cd06dedcc34db07e529e436f3946537fe20d3f0464e10b00c35c7ef",
+      "generation": {
+        "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+        "sourceTakeRange": {
+          "start": 20.17,
+          "end": 23.535
+        }
+      }
+    },
+    {
+      "id": "en-nice-work",
+      "file": "en-nice-work.wav",
+      "category": "speech",
+      "language": "en-US",
+      "synthetic": true,
+      "title": {
+        "zh": "Nice work",
+        "en": "Nice work"
+      },
+      "description": {
+        "zh": "可以啊，有两下子！干得漂亮。",
+        "en": "Original phrase · Conversational English"
+      },
+      "transcript": "Okay, I see you! Nice work.",
+      "voiceStyle": {
+        "zh": "西海岸风格 · 英语男声 · AI 合成",
+        "en": "West Coast style · Male voice · AI-generated"
+      },
+      "duration": 3.475,
+      "author": "Taku · AI-generated original voice",
+      "license": "Original generated audio; model licensed Apache-2.0",
+      "licenseUrl": "https://www.apache.org/licenses/LICENSE-2.0",
+      "source": "https://huggingface.co/spaces/Qwen/Qwen3-TTS",
+      "changes": {
+        "zh": "原创台词合成；从同一次录音切分；48kHz 单声道 PCM WAV；峰值 -6.2dBFS；首尾各补 0.2 秒静音",
+        "en": "Original script synthesized in one take and split at phrase gaps; 48kHz mono PCM WAV; -6.2dBFS peak; 0.2s padding at each end"
+      },
+      "sha256": "0f1343137b637f22faefdd4a5c2bc1c4c9a9efc7b65e7630b424bf9d22ffc001",
+      "sourceSha256": "8f0ebf148cd06dedcc34db07e529e436f3946537fe20d3f0464e10b00c35c7ef",
+      "generation": {
+        "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+        "sourceTakeRange": {
+          "start": 23.535,
+          "end": 26.61
+        }
+      }
+    },
+    {
+      "id": "en-thats-the-vibe",
+      "file": "en-thats-the-vibe.wav",
+      "category": "speech",
+      "language": "en-US",
+      "synthetic": true,
+      "title": {
+        "zh": "That's the vibe",
+        "en": "That's the vibe"
+      },
+      "description": {
+        "zh": "对，就是这个感觉。",
+        "en": "Original phrase · Conversational English"
+      },
+      "transcript": "Yeah, that's the vibe.",
+      "voiceStyle": {
+        "zh": "西海岸风格 · 英语男声 · AI 合成",
+        "en": "West Coast style · Male voice · AI-generated"
+      },
+      "duration": 2.21,
+      "author": "Taku · AI-generated original voice",
+      "license": "Original generated audio; model licensed Apache-2.0",
+      "licenseUrl": "https://www.apache.org/licenses/LICENSE-2.0",
+      "source": "https://huggingface.co/spaces/Qwen/Qwen3-TTS",
+      "changes": {
+        "zh": "原创台词合成；从同一次录音切分；48kHz 单声道 PCM WAV；峰值 -6.2dBFS；首尾各补 0.2 秒静音",
+        "en": "Original script synthesized in one take and split at phrase gaps; 48kHz mono PCM WAV; -6.2dBFS peak; 0.2s padding at each end"
+      },
+      "sha256": "88bf764953f81a231456ef82618b50a89229f3f381a66e4c2b19d8f89ac65c77",
+      "sourceSha256": "8f0ebf148cd06dedcc34db07e529e436f3946537fe20d3f0464e10b00c35c7ef",
+      "generation": {
+        "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+        "sourceTakeRange": {
+          "start": 26.61,
+          "end": 28.42
+        }
+      }
+    },
+    {
+      "id": "en-keep-it-moving",
+      "file": "en-keep-it-moving.wav",
+      "category": "speech",
+      "language": "en-US",
+      "synthetic": true,
+      "title": {
+        "zh": "Keep it moving",
+        "en": "Keep it moving"
+      },
+      "description": {
+        "zh": "咱们继续往前走。",
+        "en": "Original phrase · Conversational English"
+      },
+      "transcript": "Let's keep it moving.",
+      "voiceStyle": {
+        "zh": "西海岸风格 · 英语男声 · AI 合成",
+        "en": "West Coast style · Male voice · AI-generated"
+      },
+      "duration": 1.955,
+      "author": "Taku · AI-generated original voice",
+      "license": "Original generated audio; model licensed Apache-2.0",
+      "licenseUrl": "https://www.apache.org/licenses/LICENSE-2.0",
+      "source": "https://huggingface.co/spaces/Qwen/Qwen3-TTS",
+      "changes": {
+        "zh": "原创台词合成；从同一次录音切分；48kHz 单声道 PCM WAV；峰值 -6.2dBFS；首尾各补 0.2 秒静音",
+        "en": "Original script synthesized in one take and split at phrase gaps; 48kHz mono PCM WAV; -6.2dBFS peak; 0.2s padding at each end"
+      },
+      "sha256": "ea0a84e1007cf01b761089c2b0c88acafd13b1d091944fd94d7bd9801b2c5ce4",
+      "sourceSha256": "8f0ebf148cd06dedcc34db07e529e436f3946537fe20d3f0464e10b00c35c7ef",
+      "generation": {
+        "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+        "sourceTakeRange": {
+          "start": 28.42,
+          "end": 29.975
+        }
+      }
+    },
+    {
+      "id": "en-roll-with-me",
+      "file": "en-roll-with-me.wav",
+      "category": "speech",
+      "language": "en-US",
+      "synthetic": true,
+      "title": {
+        "zh": "Roll with me",
+        "en": "Roll with me"
+      },
+      "description": {
+        "zh": "跟我一起，咱们能搞定。",
+        "en": "Original phrase · Conversational English"
+      },
+      "transcript": "Roll with me. We got this.",
+      "voiceStyle": {
+        "zh": "西海岸风格 · 英语男声 · AI 合成",
+        "en": "West Coast style · Male voice · AI-generated"
+      },
+      "duration": 3.755,
+      "author": "Taku · AI-generated original voice",
+      "license": "Original generated audio; model licensed Apache-2.0",
+      "licenseUrl": "https://www.apache.org/licenses/LICENSE-2.0",
+      "source": "https://huggingface.co/spaces/Qwen/Qwen3-TTS",
+      "changes": {
+        "zh": "原创台词合成；从同一次录音切分；48kHz 单声道 PCM WAV；峰值 -6.2dBFS；首尾各补 0.2 秒静音",
+        "en": "Original script synthesized in one take and split at phrase gaps; 48kHz mono PCM WAV; -6.2dBFS peak; 0.2s padding at each end"
+      },
+      "sha256": "c35f03eed23e47ebc7b354335eae36377fa9915546f1cbb40cdda6f0fd310135",
+      "sourceSha256": "8f0ebf148cd06dedcc34db07e529e436f3946537fe20d3f0464e10b00c35c7ef",
+      "generation": {
+        "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+        "sourceTakeRange": {
+          "start": 29.975,
+          "end": 33.33
+        }
+      }
+    },
+    {
+      "id": "en-good-looking-out",
+      "file": "en-good-looking-out.wav",
+      "category": "speech",
+      "language": "en-US",
+      "synthetic": true,
+      "title": {
+        "zh": "Good looking out",
+        "en": "Good looking out"
+      },
+      "description": {
+        "zh": "谢了，多亏你照应。",
+        "en": "Original phrase · Conversational English"
+      },
+      "transcript": "Good looking out. I appreciate you.",
+      "voiceStyle": {
+        "zh": "西海岸风格 · 英语男声 · AI 合成",
+        "en": "West Coast style · Male voice · AI-generated"
+      },
+      "duration": 4.42,
+      "author": "Taku · AI-generated original voice",
+      "license": "Original generated audio; model licensed Apache-2.0",
+      "licenseUrl": "https://www.apache.org/licenses/LICENSE-2.0",
+      "source": "https://huggingface.co/spaces/Qwen/Qwen3-TTS",
+      "changes": {
+        "zh": "原创台词合成；从同一次录音切分；48kHz 单声道 PCM WAV；峰值 -6.2dBFS；首尾各补 0.2 秒静音",
+        "en": "Original script synthesized in one take and split at phrase gaps; 48kHz mono PCM WAV; -6.2dBFS peak; 0.2s padding at each end"
+      },
+      "sha256": "efb203349255db671cf3a8a833d8a9140dcc81a62d7e3bf3d86ec77797a87190",
+      "sourceSha256": "8f0ebf148cd06dedcc34db07e529e436f3946537fe20d3f0464e10b00c35c7ef",
+      "generation": {
+        "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+        "sourceTakeRange": {
+          "start": 33.33,
+          "end": 37.35
+        }
+      }
+    },
+    {
+      "id": "en-my-bad",
+      "file": "en-my-bad.wav",
+      "category": "speech",
+      "language": "en-US",
+      "synthetic": true,
+      "title": {
+        "zh": "My bad",
+        "en": "My bad"
+      },
+      "description": {
+        "zh": "我的问题，让我再试一次。",
+        "en": "Original phrase · Conversational English"
+      },
+      "transcript": "My bad. Let me try that again.",
+      "voiceStyle": {
+        "zh": "西海岸风格 · 英语男声 · AI 合成",
+        "en": "West Coast style · Male voice · AI-generated"
+      },
+      "duration": 2.935,
+      "author": "Taku · AI-generated original voice",
+      "license": "Original generated audio; model licensed Apache-2.0",
+      "licenseUrl": "https://www.apache.org/licenses/LICENSE-2.0",
+      "source": "https://huggingface.co/spaces/Qwen/Qwen3-TTS",
+      "changes": {
+        "zh": "原创台词合成；从同一次录音切分；48kHz 单声道 PCM WAV；峰值 -6.2dBFS；首尾各补 0.2 秒静音",
+        "en": "Original script synthesized in one take and split at phrase gaps; 48kHz mono PCM WAV; -6.2dBFS peak; 0.2s padding at each end"
+      },
+      "sha256": "a3bc505f2a3aef4761cfa14d62907318d8a9de41cefb5cbf9fd9cf01528ae96e",
+      "sourceSha256": "8f0ebf148cd06dedcc34db07e529e436f3946537fe20d3f0464e10b00c35c7ef",
+      "generation": {
+        "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+        "sourceTakeRange": {
+          "start": 37.35,
+          "end": 39.885
+        }
+      }
+    },
+    {
+      "id": "en-catch-you-later",
+      "file": "en-catch-you-later.wav",
+      "category": "speech",
+      "language": "en-US",
+      "synthetic": true,
+      "title": {
+        "zh": "Catch you later",
+        "en": "Catch you later"
+      },
+      "description": {
+        "zh": "好啦，回头见，保持酷劲儿。",
+        "en": "Original phrase · Conversational English"
+      },
+      "transcript": "All right, catch you later. Stay cool.",
+      "voiceStyle": {
+        "zh": "西海岸风格 · 英语男声 · AI 合成",
+        "en": "West Coast style · Male voice · AI-generated"
+      },
+      "duration": 4.455,
+      "author": "Taku · AI-generated original voice",
+      "license": "Original generated audio; model licensed Apache-2.0",
+      "licenseUrl": "https://www.apache.org/licenses/LICENSE-2.0",
+      "source": "https://huggingface.co/spaces/Qwen/Qwen3-TTS",
+      "changes": {
+        "zh": "原创台词合成；从同一次录音切分；48kHz 单声道 PCM WAV；峰值 -6.2dBFS；首尾各补 0.2 秒静音",
+        "en": "Original script synthesized in one take and split at phrase gaps; 48kHz mono PCM WAV; -6.2dBFS peak; 0.2s padding at each end"
+      },
+      "sha256": "7b85f3c2e58b3411a801eb36a06dc4a817e6ae24c5d02df18e244eea9ca09e3a",
+      "sourceSha256": "8f0ebf148cd06dedcc34db07e529e436f3946537fe20d3f0464e10b00c35c7ef",
+      "generation": {
+        "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+        "sourceTakeRange": {
+          "start": 39.885,
+          "end": 43.94
+        }
+      }
+    },
+    {
+      "id": "en-recharge",
+      "file": "en-recharge.wav",
+      "category": "speech",
+      "language": "en-US",
+      "synthetic": true,
+      "title": {
+        "zh": "Time to recharge",
+        "en": "Time to recharge"
+      },
+      "description": {
+        "zh": "我去充个电，一会儿见。",
+        "en": "Original phrase · Conversational English"
+      },
+      "transcript": "I'm gonna recharge. Catch you in a bit.",
+      "voiceStyle": {
+        "zh": "西海岸风格 · 英语男声 · AI 合成",
+        "en": "West Coast style · Male voice · AI-generated"
+      },
+      "duration": 3.73,
+      "author": "Taku · AI-generated original voice",
+      "license": "Original generated audio; model licensed Apache-2.0",
+      "licenseUrl": "https://www.apache.org/licenses/LICENSE-2.0",
+      "source": "https://huggingface.co/spaces/Qwen/Qwen3-TTS",
+      "changes": {
+        "zh": "原创台词合成；从同一次录音切分；48kHz 单声道 PCM WAV；峰值 -6.2dBFS；首尾各补 0.2 秒静音",
+        "en": "Original script synthesized in one take and split at phrase gaps; 48kHz mono PCM WAV; -6.2dBFS peak; 0.2s padding at each end"
+      },
+      "sha256": "c1b9008bc77abf28cd610dc8e35b5aa8c4fd2666df71b709b4bf49c83206071d",
+      "sourceSha256": "8f0ebf148cd06dedcc34db07e529e436f3946537fe20d3f0464e10b00c35c7ef",
+      "generation": {
+        "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+        "sourceTakeRange": {
+          "start": 43.94,
+          "end": 47.27
+        }
+      }
+    },
+    {
+      "id": "en-lets-go",
+      "file": "en-lets-go.wav",
+      "category": "speech",
+      "language": "en-US",
+      "synthetic": true,
+      "title": {
+        "zh": "Let's go!",
+        "en": "Let's go!"
+      },
+      "description": {
+        "zh": "好耶！要的就是这个。",
+        "en": "Original phrase · Conversational English"
+      },
+      "transcript": "Let's go! That's what I'm talking about.",
+      "voiceStyle": {
+        "zh": "西海岸风格 · 英语男声 · AI 合成",
+        "en": "West Coast style · Male voice · AI-generated"
+      },
+      "duration": 4.425,
+      "author": "Taku · AI-generated original voice",
+      "license": "Original generated audio; model licensed Apache-2.0",
+      "licenseUrl": "https://www.apache.org/licenses/LICENSE-2.0",
+      "source": "https://huggingface.co/spaces/Qwen/Qwen3-TTS",
+      "changes": {
+        "zh": "原创台词合成；从同一次录音切分；48kHz 单声道 PCM WAV；峰值 -6.2dBFS；首尾各补 0.2 秒静音",
+        "en": "Original script synthesized in one take and split at phrase gaps; 48kHz mono PCM WAV; -6.2dBFS peak; 0.2s padding at each end"
+      },
+      "sha256": "f6caf5f6b33c5a66b02ef72c2581394b08c9506d2f253656c045e36c2dc17a39",
+      "sourceSha256": "8f0ebf148cd06dedcc34db07e529e436f3946537fe20d3f0464e10b00c35c7ef",
+      "generation": {
+        "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+        "sourceTakeRange": {
+          "start": 47.27,
+          "end": 51.295
+        }
+      }
+    },
+    {
+      "id": "en-taku-intro",
+      "file": "en-taku-intro.wav",
+      "category": "speech",
+      "language": "en-US",
+      "synthetic": true,
+      "title": {
+        "zh": "Meet Taku",
+        "en": "Meet Taku"
+      },
+      "description": {
+        "zh": "四只脚，酷动作，还有满满的热情。我是 Taku，今天一起玩出点精彩。",
+        "en": "Original phrase · Conversational English"
+      },
+      "transcript": "Four paws, fresh moves, and a whole lot of heart. I'm Taku. Let's make today a good one.",
+      "voiceStyle": {
+        "zh": "西海岸风格 · 英语男声 · AI 合成",
+        "en": "West Coast style · Male voice · AI-generated"
+      },
+      "duration": 7.276,
+      "author": "Taku · AI-generated original voice",
+      "license": "Original generated audio; model licensed Apache-2.0",
+      "licenseUrl": "https://www.apache.org/licenses/LICENSE-2.0",
+      "source": "https://huggingface.co/spaces/Qwen/Qwen3-TTS",
+      "changes": {
+        "zh": "原创台词合成；从同一次录音切分；48kHz 单声道 PCM WAV；峰值 -6.2dBFS；首尾各补 0.2 秒静音",
+        "en": "Original script synthesized in one take and split at phrase gaps; 48kHz mono PCM WAV; -6.2dBFS peak; 0.2s padding at each end"
+      },
+      "sha256": "294fdbbe61479462cc523f26d910b4ce7749eba4ffa6f31b5361e68a0e95d2bd",
+      "sourceSha256": "8f0ebf148cd06dedcc34db07e529e436f3946537fe20d3f0464e10b00c35c7ef",
+      "generation": {
+        "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+        "sourceTakeRange": {
+          "start": 51.295,
+          "end": 58.171
+        }
+      }
+    },
+    {
+      "id": "hello",
+      "file": "hello.wav",
+      "category": "speech",
+      "title": {
+        "zh": "你好",
+        "en": "Hello"
+      },
+      "description": {
+        "zh": "打招呼 · “你好”",
+        "en": "Greeting · “Nǐ hǎo”"
+      },
+      "duration": 1.457,
+      "author": "Sjors Provoost",
+      "license": "CC BY-SA 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/",
+      "source": "https://commons.wikimedia.org/wiki/File:Zh_n%C7%90_h%C7%8Eo.ogg",
+      "changes": {
+        "zh": "转为 48kHz 单声道 WAV、峰值统一、首尾各补 0.2 秒静音",
+        "en": "Converted to 48kHz mono WAV; peak normalized; 0.2s silence added at both ends"
+      },
+      "sha256": "31165deef6b9795f8bb12af4f2b7d6c4dda5e3abb91d36a06c52feef44167a5c",
+      "sourceSha256": "f87ad432d8ec6f81b4970782d65db7bb33e52818f98e98168020f6085ec2fd80"
+    },
+    {
+      "id": "thanks",
+      "file": "thanks.wav",
+      "category": "speech",
+      "title": {
+        "zh": "谢谢",
+        "en": "Thank you"
+      },
+      "description": {
+        "zh": "礼貌回应 · “谢谢”",
+        "en": "Thanks · “Xièxie”"
+      },
+      "duration": 1.75,
+      "author": "Wei Gao, Vion Nicolas / Shtooka Project",
+      "license": "CC BY 2.0 FR",
+      "licenseUrl": "https://creativecommons.org/licenses/by/2.0/fr/",
+      "source": "https://commons.wikimedia.org/wiki/File:Zh-xi%C3%A8xie.ogg",
+      "changes": {
+        "zh": "转为 48kHz 单声道 WAV、峰值统一、首尾各补 0.2 秒静音",
+        "en": "Converted to 48kHz mono WAV; peak normalized; 0.2s silence added at both ends"
+      },
+      "sha256": "7757c4a081cbeddd561da369bdfd4f3de21f98d7fbd632fe9c557352cb287657",
+      "sourceSha256": "92f681d7946c5082765ff93329125cad18fd8c42a910761907006895af99eca8"
+    },
+    {
+      "id": "goodbye",
+      "file": "goodbye.wav",
+      "category": "speech",
+      "title": {
+        "zh": "再见",
+        "en": "Goodbye"
+      },
+      "description": {
+        "zh": "结束互动 · “再见”",
+        "en": "Farewell · “Zàijiàn”"
+      },
+      "duration": 1.661,
+      "author": "Wyang",
+      "license": "CC BY-SA 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/",
+      "source": "https://commons.wikimedia.org/wiki/File:Zh-cmn-%E5%86%8D%E8%A6%8B.opus",
+      "changes": {
+        "zh": "转为 48kHz 单声道 WAV、峰值统一、首尾各补 0.2 秒静音",
+        "en": "Converted to 48kHz mono WAV; peak normalized; 0.2s silence added at both ends"
+      },
+      "sha256": "daac950ab2e6ddadcaef363163aab3a1c91427338c8d6e9c895f9f1c7986de68",
+      "sourceSha256": "02d64b3806b9b04e7e13eef92ed5c6201fd617252c8ef3cce43bc2aa810f23f6"
+    },
+    {
+      "id": "dog-bark",
+      "file": "dog-bark.wav",
+      "category": "effect",
+      "title": {
+        "zh": "狗叫",
+        "en": "Dog bark"
+      },
+      "description": {
+        "zh": "真实犬吠 · 互动回应",
+        "en": "Recorded bark · Interaction"
+      },
+      "duration": 5.4,
+      "author": "felix.blume",
+      "license": "CC0 1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "source": "https://freesound.org/people/felix.blume/sounds/199261/",
+      "changes": {
+        "zh": "转为 48kHz 单声道 WAV、峰值统一、首尾各补 0.2 秒静音；截取原音频前 5 秒",
+        "en": "Converted to 48kHz mono WAV; peak normalized; 0.2s silence added at both ends; first 5 seconds excerpted"
+      },
+      "sha256": "31b84903fba9bbb99a0bbef8de3ac01fdeff2867320ab6f0889dae96daa38bbb",
+      "sourceSha256": "e044253d76601f8e642c81c440c447e5b0eae4c80d74d4eef2f782ec714d1065"
+    },
+    {
+      "id": "confirm",
+      "file": "confirm.wav",
+      "category": "effect",
+      "title": {
+        "zh": "完成提示",
+        "en": "Confirmation"
+      },
+      "description": {
+        "zh": "清脆提示 · 任务完成",
+        "en": "Confirmation · Task complete"
+      },
+      "duration": 0.69,
+      "author": "Kenney",
+      "license": "CC0 1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "source": "https://opengameart.org/content/interface-sounds",
+      "changes": {
+        "zh": "转为 48kHz 单声道 WAV、峰值统一、首尾各补 0.2 秒静音",
+        "en": "Converted to 48kHz mono WAV; peak normalized; 0.2s silence added at both ends"
+      },
+      "sha256": "9997a38a721c23e3b5e535b33a61a1686afbc2d01735c82fb5303ff8c1b1561c",
+      "sourceSha256": "063564703b6094d70718a3e787a55cc9141611e4ecd6b6637f8828f79b4a8c3a"
+    },
+    {
+      "id": "bell",
+      "file": "bell.wav",
+      "category": "effect",
+      "title": {
+        "zh": "柔和铃声",
+        "en": "Soft bell"
+      },
+      "description": {
+        "zh": "短铃声 · 引起注意",
+        "en": "Short bell · Get attention"
+      },
+      "duration": 0.52,
+      "author": "Kenney",
+      "license": "CC0 1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "source": "https://opengameart.org/content/interface-sounds",
+      "changes": {
+        "zh": "转为 48kHz 单声道 WAV、峰值统一、首尾各补 0.2 秒静音",
+        "en": "Converted to 48kHz mono WAV; peak normalized; 0.2s silence added at both ends"
+      },
+      "sha256": "d444c195ae8c897721e9b07740e7c0104aec98a84842ab532c82bb71345dba93",
+      "sourceSha256": "d21d0f0b782445db579d11e2506b24cd1ac9d664ee33aeaf807761aa7b6fd710"
+    }
+  ]
+}
