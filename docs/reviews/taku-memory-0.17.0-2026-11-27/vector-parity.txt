@@ -1,0 +1,1 @@
+208 texts, 384 dims; lowest cosine to reference 1.000000; 6.5 ms per text

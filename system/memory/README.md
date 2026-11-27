@@ -1,8 +1,20 @@
-# Taku 记忆（0.16.0 开发组件）
+# Taku 记忆（0.17.0 开发组件）
 
 [English](README.en.md)
 
-0.16.0 让检索更快，返回结果不变。0.15.1 修复五个 bug（Agent 读不到提醒列表、emoji 让卡片超长被拒、首页 AI 的卡可能一直挂着、同类新卡排在下面、新版 Taku 首页可能被当作记录来源）。0.15.0 按首页 PR #33 的接口说明对齐首页卡片的生命周期和用户反馈：记忆发到首页的卡到期、被用户删掉或关掉开关时都会收回，用户对卡片的操作读回到提醒上。0.14.0 可以把提醒写成描述，交给 Taku 首页的 AI 设计卡片（实验，默认关闭）。0.13.0 让主动提醒也能以卡片出现在 Taku 首页的卡片流里（实验，默认关闭）。0.12.0 针对 0.11.0 的短处做了优化：整理更常写"最晚哪天得办"并标出哪些时间要到场，冲突只拿要到场的事比，消息提醒发出前再复核一次，"今天有变化的事"去掉滚动和一路更新的噪声。0.11.0 让整理写下"最晚哪天得办、错过的代价、要一起想到的"并用进用户卡，主动开口时单独标出可能的冲突、把一天里的状态变化交给睡前提醒，提醒可以一键交给 Agent。0.10.0 新增实验性的"主动开口"（默认关闭）：每晚整理后给睡前提醒，新通知碰到记忆里的事时提醒一句。0.8.2 让用户卡里"接下来两天的安排和截止"更适合主动提醒：本人的预约不再被隐私规则拦下，放不下时按错过的代价取舍，新增"最近一天新出现的待办"。0.8.1 在 0.8.0 之上让整理线程不再带上助手背景（整理开销降到约 1.6 万 token），让助手回消息时用上用户卡里相关的安排和分量，给"接下来两天的安排和截止"去重，并让整理模型列表如实标出"跟随 Taku AI"当前能不能用（见下文）。0.8.0 在 0.7.0 之上补齐英文隐私规则、整理模型可选并大幅降低整理开销、改进助手的主动提醒，删除后通知已开始的对话，并换用量化向量模型（安装包约 37MB）。需配套同一提交构建的 Broker（`agentos-task-broker`：记忆整理 `MemoryGen`、看板和用户卡注入 `HarnessContext`）。只更新记忆 APK 时，夜间整理会因 Broker 不认识整理请求而失败并在 30 分钟后重试，不影响采集、检索和逐条分析。构建前先运行 `python3 scripts/prepare-memory-vectors.py` 取回固定版本的向量依赖（见下文）。批分析协议、助手 v59 的回复语言与 `memoryFocus`、系统展示 v3 / 0.2.1 与消息协议 v2 沿用 0.6.0。
+0.17.0 支持中英文，并能跨语言检索。0.16.0 让检索更快，返回结果不变。0.15.1 修复五个 bug（Agent 读不到提醒列表、emoji 让卡片超长被拒、首页 AI 的卡可能一直挂着、同类新卡排在下面、新版 Taku 首页可能被当作记录来源）。0.15.0 按首页 PR #33 的接口说明对齐首页卡片的生命周期和用户反馈：记忆发到首页的卡到期、被用户删掉或关掉开关时都会收回，用户对卡片的操作读回到提醒上。0.14.0 可以把提醒写成描述，交给 Taku 首页的 AI 设计卡片（实验，默认关闭）。0.13.0 让主动提醒也能以卡片出现在 Taku 首页的卡片流里（实验，默认关闭）。0.12.0 针对 0.11.0 的短处做了优化：整理更常写"最晚哪天得办"并标出哪些时间要到场，冲突只拿要到场的事比，消息提醒发出前再复核一次，"今天有变化的事"去掉滚动和一路更新的噪声。0.11.0 让整理写下"最晚哪天得办、错过的代价、要一起想到的"并用进用户卡，主动开口时单独标出可能的冲突、把一天里的状态变化交给睡前提醒，提醒可以一键交给 Agent。0.10.0 新增实验性的"主动开口"（默认关闭）：每晚整理后给睡前提醒，新通知碰到记忆里的事时提醒一句。0.8.2 让用户卡里"接下来两天的安排和截止"更适合主动提醒：本人的预约不再被隐私规则拦下，放不下时按错过的代价取舍，新增"最近一天新出现的待办"。0.8.1 在 0.8.0 之上让整理线程不再带上助手背景（整理开销降到约 1.6 万 token），让助手回消息时用上用户卡里相关的安排和分量，给"接下来两天的安排和截止"去重，并让整理模型列表如实标出"跟随 Taku AI"当前能不能用（见下文）。0.8.0 在 0.7.0 之上补齐英文隐私规则、整理模型可选并大幅降低整理开销、改进助手的主动提醒，删除后通知已开始的对话，并换用量化向量模型（安装包约 37MB）。需配套同一提交构建的 Broker（`agentos-task-broker`：记忆整理 `MemoryGen`、看板和用户卡注入 `HarnessContext`）。只更新记忆 APK 时，夜间整理会因 Broker 不认识整理请求而失败并在 30 分钟后重试，不影响采集、检索和逐条分析。构建前先运行 `python3 scripts/prepare-memory-vectors.py` 取回固定版本的向量依赖（见下文）。批分析协议、助手 v59 的回复语言与 `memoryFocus`、系统展示 v3 / 0.2.1 与消息协议 v2 沿用 0.6.0。
+
+## 0.17.0：中英文，以及跨语言检索
+
+记忆原本是为中文做的：向量模型只读得懂中文，提醒和优先级的本地规则也只认中文词。0.17.0 支持中文和英文，并且只有隐私规则读得懂的语言才算支持。
+
+- **多语言向量模型**：用 bekko-embedding-v1-a8m（MIT，100 多种语言，384 维）替换 bge-small-zh-v1.5。分词器移植到 Java（`Bpe`），读由 `tokenizer.json` 转成的紧凑表。603 段文本的 token 和参考分词器全部一致；Java 算出的向量和 Python 参考流程一致（208 段文本最低余弦 1.000000）。在 76 条记录、72 个问题的手机风格测试集上，正确记录排第一的比例从 43% 升到 89%，排前五从 62% 升到 100%。用中文问能找到英文记录，反过来也行。在 300 个中文 MMarco 查询上，MRR@10 为 0.911，旧模型 0.802。模型标识变了，维护任务会重算已存的向量。用户卡的相关度下限按新分数刻度重新校准（0.45 → 0.30）。
+- **英文本地规则**：提醒的本地判断能读英文日期词（tomorrow、Friday、next Monday、the 22nd、Dec 5）、时间（7pm、at 7 tonight、noon）和请求（can you、let's、问号），英文词也计入话题重合。检索能读英文的优先级词（late fee、due、booked、birthday、daily）和卡片备注里带月份名的日期。每张规则表都按语言分开。
+- **问句检索**：问句不会原样出现在记录里（"期中论文明天要带什么材料"、"when is my dental cleaning"），所以关键词检索改用它的实词：中文用 Android 自带的 ICU 词典切词，去掉虚词，剩下的词都要出现。只在剩下至少两个实词时这样做；测试里只要求一个宽泛的词，会把相似的记录排到前面。
+- **语言以隐私规则为准**：`Privacy.RULES` 按语言存敏感话题规则，`Lang.SUPPORTED` 就是它的键（`zh`、`en`）。其他语言的文本（按文字判断，拉丁字母再看特征词和重音字母）一律按敏感处理：不进用户卡、不进议程列表、不进写提醒用的上下文。它仍然会被存下来、能被搜到。要支持新语言，先补它的隐私规则；StoreTests 检查每张按语言分的表都正好覆盖支持的语言。`status.languages` 和 `status.vectorModel` 把两者告诉 Agent。
+- **代价**：APK 从约 37MB 增到约 152MB，应用存储因复制模型和分词表多约 140MB。在桌面 CPU 上编码一段中文 11ms，旧模型 8ms。
+
+还没在设备或模拟器上跑过。详见 [0.17.0 验收](../../docs/reviews/taku-memory-0.17.0-2026-11-27/README.md)。
 
 ## 0.16.0：检索更快，结果不变
 
@@ -194,7 +206,7 @@ Taku 首页（`system/agent-app/modules/taku-home`，Vela 的 `vela/TAKU-new-UI`
 
 新增接口（签名调用方，需开启 Agent 查询）：`board`、`profile`（`forAgent` + `text` 时按消息挑选）、`agenda`。本应用或受控 root：`maintain`、`clearDerived`、`deleteBoardItem {part,name}`、`deleteProfileItem {kind: me|person|note, item, note}`；Broker 内部：`genInput`、`genResult`。Broker 的记忆网关另有 `organizeModels`（整理模型列表）；`board`、`profile` 的结果带 `revokedAt`。
 
-向量依赖：`system/memory/vector-dependencies.json` 固定 ONNX Runtime Android 1.29.0 AAR 与 Xenova/bge-small-zh-v1.5 量化版 `model_quantized.onnx`（约 24MB）的地址和 SHA-256，`scripts/prepare-memory-vectors.py` 下载校验到忽略的 `system/memory/downloads/`，并为 `Android.bp` 准备 `downloads/assets/bge/`（模型不压缩存放）。`build.sh`（含 `npm run build:android`）首次构建会自动运行它，之后只校验；ROM 构建前需先运行一次。`Android.bp` 的 `TakuMemory` 必须保留 `use_embedded_native_libs: true`（否则 Soong 会丢掉 AAR 里的 `libonnxruntime.so` / `libonnxruntime4j_jni.so`），清单也不能写 `extractNativeLibs="true"`；`system/memory/test-host.sh` 在主机上校验这一打包契约，并验证缺原生库时召回降级为纯关键词、进程不崩。也可用 `TAKU_ORT_AAR`、`TAKU_BGE_DIR` 指定别处的依赖。APK 约 37MB，主要是模型和 ONNX Runtime。
+向量依赖：`system/memory/vector-dependencies.json` 固定 ONNX Runtime Android 1.29.0 AAR 与 hotchpotch/bekko-embedding-v1-a8m 的 `onnx/model.onnx`（约 130MB，多语言，MIT）和 `tokenizer.json` 的地址和 SHA-256，`scripts/prepare-memory-vectors.py` 下载校验到忽略的 `system/memory/downloads/`，并为 `Android.bp` 准备 `downloads/assets/embed/`：模型原样存放，分词表由 `system/memory/tools/tokenizer_bin.py` 转成手机端直接映射的 `tokenizer.bin`（约 9MB），两者都不压缩。`build.sh`（含 `npm run build:android`）首次构建会自动运行它，之后只校验；ROM 构建前需先运行一次。`Android.bp` 的 `TakuMemory` 必须保留 `use_embedded_native_libs: true`（否则 Soong 会丢掉 AAR 里的 `libonnxruntime.so` / `libonnxruntime4j_jni.so`），清单也不能写 `extractNativeLibs="true"`；`system/memory/test-host.sh` 在主机上校验这一打包契约，并验证缺原生库时召回降级为纯关键词、进程不崩。也可用 `TAKU_ORT_AAR`、`TAKU_EMBED_DIR` 指定别处的依赖。APK 约 152MB，主要是模型和 ONNX Runtime；首次加载时模型和分词表各复制一份到应用存储（约 140MB）。
 
 0.4–0.5 分支验收（emulator_verified，2026-10-28 北京时间，专用 AVD `TakuRecall`，Android 16 / API 36 / ARM64，基线 `96e2409`）：[记录](../../docs/reviews/taku-memory-0.5-2026-10-28/README.md)。合并后的 0.7.0 复测：[记录](../../docs/reviews/taku-memory-0.7-2026-10-28/README.md)。0.8.0：[记录](../../docs/reviews/taku-memory-0.8-2026-10-29/README.md)。同版真机、完整 ROM、冷启动和长期耗电未验收。
 

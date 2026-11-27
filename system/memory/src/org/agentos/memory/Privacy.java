@@ -1,6 +1,7 @@
 package org.agentos.memory;
 
 import org.json.*;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 /**
@@ -13,7 +14,9 @@ import java.util.regex.Pattern;
  * - What the user deleted from the board or card is filtered out here too, not only asked of the organizer.
  * - Both: entries that read like instructions to the assistant are dropped, so text from a chat cannot steer it.
  * - Retention: when the user keeps only N days, entries last seen before that are dropped.
- * Each rule has a Chinese and an English pattern; English uses word boundaries and ignores case.
+ * Each rule has a Chinese and an English pattern; English uses word boundaries and ignores case. RULES lists them by language
+ * and decides which languages memory supports (Lang.SUPPORTED). Text in any other language cannot be checked, so the two
+ * sensitivity tests below report it as sensitive: it fails closed.
  */
 final class Privacy {
  static final Pattern INSTRUCTION=Pattern.compile("(?i)(忽略|无视|忘掉|忘记|不要理会).{0,10}(指令|规则|要求|设定|提示|上面|之前|以上|前面)|ignore\\s+(all\\s+|any\\s+|the\\s+)?(previous|prior|above|earlier)|system\\s*prompt|developer\\s*mode|jailbreak|\\b(disregard|forget|override|ignore)\\s+(all\\s+|any\\s+|the\\s+|your\\s+|my\\s+)?(previous\\s+|prior\\s+|above\\s+|earlier\\s+|preceding\\s+|system\\s+|original\\s+)?(instructions?|rules|prompts?|directions|guidelines)\\b|\\byou\\s+are\\s+now\\b|\\bpretend\\s+(to\\s+be|you\\s+are)\\b|\\bact\\s+as\\s+(a|an|the|my)\\s+(assistant|ai|system|developer|admin)\\b|\\bfrom\\s+now\\s+on,?\\s+you\\b|\\bnew\\s+instructions?\\s*[:：]|\\b(run|execute)\\s+(this|the\\s+following)\\s+(command|code|script)\\b|\\bcall\\s+the\\s+tool\\b|\\bsend\\s+(me|us|them|him|her)\\s+(all|every|the)\\b.{0,24}\\b(messages|chats|chat\\s+history|records|memories|contacts)\\b|你现在(是|扮演)|扮演一个|从现在(开始|起)你|</?\\s*(system|assistant|user|instructions?)\\s*>|\\bassistant\\s*[:：]|系统提示|执行(以下|这个)?命令|调用工具");
@@ -35,10 +38,21 @@ final class Privacy {
  static final Pattern LEAVE_EN=Pattern.compile("(?i)\\b(quit(s|ting)?|resign\\w*|leav(e|ing)\\s+(the|his|her|their)\\s+(job|company|firm)|job[-\\s]hunt\\w*|looking\\s+for\\s+a\\s+new\\s+job|new\\s+job|(two|2)\\s+weeks'?\\s+notice|(hand(ing)?|put(ting)?)\\s+in\\s+(his|her|their)\\s+notice)\\b");
  static final Pattern WORK_LEAVE_EN=Pattern.compile("(?i)\\b(hand\\s?over|hand-?off|farewell|send-?off|leaving\\s+(party|drinks|lunch)|last\\s+day|transition)\\b");
  static final Pattern SELF_EN=Pattern.compile("(?i)\\b(diagnos\\w*|medication|meds|prescri\\w*|therap(y|ist)|counsel(l)?ing|depress\\w*|anxiety|cancer|hospitali[sz]\\w*|surgery|pregnan\\w*|salary|income|paycheck|pay\\s?slip|savings|(account|bank|card)\\s+balance|debts?|loans?|account\\s+(number|no\\.?)|card\\s+number|password|passcode|pin\\s+(code|number)|verification\\s+code|one-time\\s+code|otp|ssn|social\\s+security)\\b");
+ /** One language's sensitive-topic rules. */
+ static final class Rules{
+  final Pattern thirdAlways,thirdCare,userAction,leave,workLeave,self;
+  Rules(Pattern thirdAlways,Pattern thirdCare,Pattern userAction,Pattern leave,Pattern workLeave,Pattern self){this.thirdAlways=thirdAlways;this.thirdCare=thirdCare;this.userAction=userAction;this.leave=leave;this.workLeave=workLeave;this.self=self;}
+ }
+ /** Languages these rules can read. A new language needs all six rules here before memory treats its text as checkable. */
+ static final Map<String,Rules> RULES=Map.of(
+  "zh",new Rules(THIRD_ALWAYS,THIRD_CARE,USER_ACTION,LEAVE,WORK_LEAVE,SELF),
+  "en",new Rules(THIRD_ALWAYS_EN,THIRD_CARE_EN,USER_ACTION_EN,LEAVE_EN,WORK_LEAVE_EN,SELF_EN));
+ static boolean any(String s,java.util.function.Function<Rules,Pattern> rule){for(Rules r:RULES.values())if(rule.apply(r).matcher(s).find())return true;return false;}
  static boolean thirdPartySensitive(String s){
-  if(THIRD_ALWAYS.matcher(s).find()||THIRD_ALWAYS_EN.matcher(s).find())return true;
-  if((LEAVE.matcher(s).find()||LEAVE_EN.matcher(s).find())&&!WORK_LEAVE.matcher(s).find()&&!WORK_LEAVE_EN.matcher(s).find())return true;
-  return (THIRD_CARE.matcher(s).find()||THIRD_CARE_EN.matcher(s).find())&&!USER_ACTION.matcher(s).find()&&!USER_ACTION_EN.matcher(s).find();
+  if(!Lang.covered(s))return true;
+  if(any(s,r->r.thirdAlways))return true;
+  if(any(s,r->r.leave)&&!any(s,r->r.workLeave))return true;
+  return any(s,r->r.thirdCare)&&!any(s,r->r.userAction);
  }
  /**
   * The same line for an item on the user's own agenda (memory graph). A care word ("体检", "复查") there is often the
@@ -48,8 +62,8 @@ final class Privacy {
   */
  static boolean agendaSensitive(String s,String user,java.util.Collection<String> people){
   if(!thirdPartySensitive(s))return false;
-  if(THIRD_ALWAYS.matcher(s).find()||THIRD_ALWAYS_EN.matcher(s).find())return true;
-  if((LEAVE.matcher(s).find()||LEAVE_EN.matcher(s).find())&&!WORK_LEAVE.matcher(s).find()&&!WORK_LEAVE_EN.matcher(s).find())return true;
+  if(!Lang.covered(s)||any(s,r->r.thirdAlways))return true;
+  if(any(s,r->r.leave)&&!any(s,r->r.workLeave))return true;
   return !ownCare(s,user,people);
  }
  static final Pattern KIN=Pattern.compile("妈|爸|母亲|父亲|奶奶|爷爷|外婆|外公|姥姥|姥爷|哥|姐|弟|妹|叔|姨|舅|姑|婆|老公|老婆|对象|女友|男友|朋友|同事|领导|老板|孩子|儿子|女儿|他|她");
@@ -61,7 +75,7 @@ final class Privacy {
   if(!any)return false;   // English care words keep the stricter card rule
   return (user!=null&&user.length()>=2&&s.contains(user))||OWN_BOOKING.matcher(s).find();
  }
- static boolean selfSensitive(String s){return SELF.matcher(s).find()||SELF_EN.matcher(s).find();}
+ static boolean selfSensitive(String s){return !Lang.covered(s)||any(s,r->r.self);}
  static final Pattern CARD_NUMBER=Pattern.compile("\\d(?:[\\s-]?\\d){10,}"),BOARD_NUMBER=Pattern.compile("\\d(?:[\\s-]?\\d){14,}");
 
  static boolean instruction(String s){return s!=null&&INSTRUCTION.matcher(s).find();}

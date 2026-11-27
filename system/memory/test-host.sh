@@ -28,7 +28,7 @@ printf 'package org.agentos.memory;\nfinal class BuildFlags{static final boolean
 CP="$ANDROID_JAR:$MARKDOWN_CP:$OUTPUT/ort/classes.jar"
 # Same production sources and fixture stand-ins as build-tests.sh, compiled against the SDK; only the host test and the
 # android.util.Log stand-in (the SDK stub throws) are compiled and run ahead of android.jar.
-"$JDK/bin/javac" --release 17 -nowarn -cp "$CP" -d "$OUTPUT/classes" "$OUTPUT/generated/org/agentos/memory/R.java" "$OUTPUT/generated/BuildFlags.java" src/org/agentos/memory/{MemoryStore,MemoryResult,MemoryContent,MemoryCopy,Delta,Recall,Embedder,Organizer,Privacy,BrokerClient,MemoryMaintenance,Proactive,FeedCards,FeedCheck,FeedFeedback}.java ../ai/client/org/agentos/ai/AiClient.java tests/fixture/*.java
+"$JDK/bin/javac" --release 17 -nowarn -cp "$CP" -d "$OUTPUT/classes" "$OUTPUT/generated/org/agentos/memory/R.java" "$OUTPUT/generated/BuildFlags.java" src/org/agentos/memory/{MemoryStore,MemoryResult,MemoryContent,MemoryCopy,Delta,Recall,Embedder,Bpe,Lang,Organizer,Privacy,BrokerClient,MemoryMaintenance,Proactive,FeedCards,FeedCheck,FeedFeedback}.java ../ai/client/org/agentos/ai/AiClient.java tests/fixture/*.java
 "$JDK/bin/javac" --release 17 -d "$OUTPUT/fakes" tests/host/android/util/Log.java
 "$JDK/bin/javac" --release 17 -cp "$OUTPUT/fakes:$OUTPUT/classes:$CP" -d "$OUTPUT/classes" tests/host/org/agentos/memory/*.java
 "$JDK/bin/java" -cp "$OUTPUT/fakes:$OUTPUT/classes:$CP" org.agentos.memory.EmbedderFallbackHostTests

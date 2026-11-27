@@ -38,20 +38,29 @@ final class Recall {
   synchronized(EMBED){
   if(embedder!=null||embedderUnlinkable)return embedder;
   embedder=load(()->{
-   File model=new File(c.getFilesDir(),"bge-small-zh-v1.5.onnx");
-   long size=-1;try(android.content.res.AssetFileDescriptor fd=c.getAssets().openFd("bge/model.onnx")){size=fd.getLength();}catch(IOException devBuildWithoutModel){}
-   if(size<0&&!model.isFile())throw new IOException(c.getString(R.string.error_vector_model_missing));
-   if(size>=0&&(!model.isFile()||model.length()!=size)){
-    File tmp=new File(c.getFilesDir(),"bge.tmp");
-    try(InputStream in=c.getAssets().open("bge/model.onnx");OutputStream out=new FileOutputStream(tmp)){byte[] b=new byte[1<<16];int n;while((n=in.read(b))>0)out.write(b,0,n);}
-    if(!tmp.renameTo(model))throw new IOException(c.getString(R.string.error_vector_model_copy));
-   }
-   return new Embedder(c.getAssets().open("bge/vocab.txt"),model.getPath());
+   new File(c.getFilesDir(),"bge-small-zh-v1.5.onnx").delete();   // the model before 0.17
+   File model=copied(c,"embed/model.onnx","embed-model.onnx"),table=copied(c,"embed/tokenizer.bin","embed-tokenizer.bin");
+   return new Embedder(Bpe.open(table),model.getPath());
   });
   return embedder;
   }
  }
 
+ /**
+  * An asset copied once into app storage (ONNX Runtime and the mapped tokenizer table need a real file), recopied when the
+  * packaged size changes. Without the asset (a development build that skips the model) the last copy is reused.
+  */
+ static File copied(Context c,String asset,String name)throws IOException{
+  File f=new File(c.getFilesDir(),name);
+  long size=-1;try(android.content.res.AssetFileDescriptor fd=c.getAssets().openFd(asset)){size=fd.getLength();}catch(IOException devBuildWithoutModel){}
+  if(size<0&&!f.isFile())throw new IOException(c.getString(R.string.error_vector_model_missing));
+  if(size>=0&&(!f.isFile()||f.length()!=size)){
+   File tmp=new File(c.getFilesDir(),name+".tmp");
+   try(InputStream in=c.getAssets().open(asset);OutputStream out=new FileOutputStream(tmp)){byte[] b=new byte[1<<16];int n;while((n=in.read(b))>0)out.write(b,0,n);}
+   if(!tmp.renameTo(f))throw new IOException(c.getString(R.string.error_vector_model_copy));
+  }
+  return f;
+ }
  /**
   * Opens the embedder, or returns null so memory falls back to keyword-only recall. A missing ONNX Runtime native library
   * (UnsatisfiedLinkError on first use, NoClassDefFoundError after) is a LinkageError, not an Exception: it must degrade the
@@ -138,6 +147,9 @@ final class Recall {
   });
   List<List<String>> lists=new ArrayList<>();
   // 1. keyword over evidence (title + first line + new lines), most recent first
+  //    Every term must be present. A question ("明天要交什么材料", "when is my dentist appointment") never appears verbatim,
+  //    so its terms are its content words instead of its whitespace pieces.
+  List<String> words=sentenceWords(query);if(words!=null)ts=words;
   StringBuilder where=new StringBuilder("first_seen<=?");List<String> args=new ArrayList<>();args.add(""+now);
   for(String t:ts)keyword(where,args,t);
   List<String> kw=new ArrayList<>();try(Cursor c=d.rawQuery("SELECT id FROM memories WHERE "+where+" ORDER BY first_seen DESC,id DESC LIMIT "+LIST,args.toArray(new String[0]))){while(c.moveToNext())kw.add("e:"+c.getString(0));}
@@ -169,9 +181,62 @@ final class Recall {
   * cased letters (Chinese, digits, symbols) matches the same rows with instr() as with LIKE, whose case folding has
   * nothing to fold there, and instr() skips LIKE's per-character matching; terms with letters keep LIKE.
   */
- static void keyword(StringBuilder where,List<String> args,String t){
-  if(caseless(t)){where.append(" AND instr(title||' '||head||char(10)||fresh,?)>0");args.add(t);return;}
-  where.append(" AND (title||' '||head||char(10)||fresh) LIKE ? ESCAPE '\\'");args.add("%"+t.replace("\\","\\\\").replace("%","\\%").replace("_","\\_")+"%");
+ static void keyword(StringBuilder where,List<String> args,String t){where.append(" AND ").append(cond(t,args));}
+ /** The SQL test that a row's title, first line or new lines hold t; its argument is appended to args. */
+ static String cond(String t,List<String> args){
+  if(caseless(t)){args.add(t);return "instr(title||' '||head||char(10)||fresh,?)>0";}
+  args.add("%"+t.replace("\\","\\\\").replace("%","\\%").replace("_","\\_")+"%");return "(title||' '||head||char(10)||fresh) LIKE ? ESCAPE '\\'";
+ }
+ // English question words beyond EN_STOP and Lang.ENGLISH ("how much", "what time") that say nothing about the record either.
+ static final Set<String> EN_FILLER=Set.of("much","many","time","long","often","thing","things","something","anything","someone","anyone","know","tell","remind","remember","having","doing","going");
+ // Chinese words a question carries that say nothing about which record it wants.
+ static final Set<String> ZH_FILLER=new HashSet<>(Arrays.asList("什么","怎么","怎样","哪里","哪儿","哪个","哪些","多少","几点","几号","是不是","有没有","能不能","要不要","一下","一个","这个","那个","这些","那些","我们","你们","他们","她们","自己","可以","需要","应该","时候","今天","明天","后天","昨天","前天","今晚","明晚","明早","晚上","上午","下午","中午","早上","凌晨","傍晚","现在","最近","刚才","之前","以后","上次","这次","下次","一起","还是","就是","帮我","告诉","知道","记得","多少钱","多久","多长时间","为什么","怎么办","在哪","在哪里","哪天","什么时候","几点钟"));
+ /**
+  * Content words of a question-like query, or null when the query reads as keywords. A query is a question when it holds
+  * a run of four or more Chinese characters, or four or more words with at least one function word ("when", "my").
+  * Search requires all of them, as it does keywords, and only when there are at least two: one word ("材料") matches too
+  * many records to narrow anything. On the 0.17 phone-style set (top-1 with vectors alone 0.88): any one word matching
+  * 0.60, all words 0.82, all of at least two words 0.89. A question with fewer than two keeps the old behaviour.
+  * Chinese runs are cut into words by ICU's dictionary (see hanWords for the single characters it leaves). At most eight
+  * words, in query order.
+  */
+ static final java.util.regex.Pattern HAN_RUN=java.util.regex.Pattern.compile("[\\u4e00-\\u9fff]{4,}");
+ static List<String> sentenceWords(String query){
+  String[] terms=query.trim().split("\\s+");boolean han=false,function=false;
+  for(String t:terms){if(HAN_RUN.matcher(t).find())han=true;String w=bare(t).toLowerCase(Locale.ROOT);if(EN_STOP.contains(w)||Lang.ENGLISH.contains(w))function=true;}
+  if(!han&&!(terms.length>=4&&function))return null;
+  LinkedHashSet<String> out=new LinkedHashSet<>();
+  for(String t:terms){String b=bare(t);if(b.isEmpty())continue;
+   if(b.codePoints().anyMatch(c->Character.UnicodeScript.of(c)==Character.UnicodeScript.HAN))out.addAll(hanWords(b));
+   else{String w=b.toLowerCase(Locale.ROOT);if(!EN_STOP.contains(w)&&!Lang.ENGLISH.contains(w)&&!EN_FILLER.contains(w)&&(w.length()>=3||w.chars().anyMatch(Character::isDigit)))out.add(w);}
+  }
+  List<String> r=new ArrayList<>(out);if(r.size()<2)return null;return r.size()>8?r.subList(0,8):r;
+ }
+ /** A term without the punctuation around it. */
+ static String bare(String t){return t.replaceAll("^[\\p{P}\\p{S}]+|[\\p{P}\\p{S}]+$","");}
+ static void name(StringBuilder run,List<String> out){
+  int a=0,b=run.length();while(a<b&&STOP_CHARS.indexOf(run.charAt(a))>=0)a++;while(b>a&&STOP_CHARS.indexOf(run.charAt(b-1))>=0)b--;
+  String w=run.substring(a,b);if(w.length()>=3||(w.length()==2&&w.charAt(0)==w.charAt(1)))out.add(w);
+ }
+ static List<String> hanWords(String text){
+  List<String> raw=new ArrayList<>();
+  android.icu.text.BreakIterator it=android.icu.text.BreakIterator.getWordInstance(android.icu.util.ULocale.ROOT);it.setText(text);
+  for(int a=it.first(),b=it.next();b!=android.icu.text.BreakIterator.DONE;a=b,b=it.next()){String w=text.substring(a,b);if(w.codePoints().anyMatch(Character::isLetterOrDigit))raw.add(w);}
+  // Single characters ICU leaves are mostly function words and verbs ("前", "交"), sometimes an unknown name. A run of them is
+  // kept as one word only when it looks like a name: three or more characters, or a doubled one (婷婷).
+  List<String> joined=new ArrayList<>();StringBuilder run=new StringBuilder();
+  for(String w:raw){boolean single=w.codePointCount(0,w.length())==1&&Character.UnicodeScript.of(w.codePointAt(0))==Character.UnicodeScript.HAN;
+   if(single){run.append(w);continue;}
+   if(run.length()>0){name(run,joined);run.setLength(0);}joined.add(w);}
+  if(run.length()>0)name(run,joined);
+  List<String> out=new ArrayList<>();
+  for(String w:joined){
+   if(Character.UnicodeScript.of(w.codePointAt(0))==Character.UnicodeScript.HAN){
+    int a=0,b=w.length();while(a<b&&STOP_CHARS.indexOf(w.charAt(a))>=0)a++;while(b>a&&STOP_CHARS.indexOf(w.charAt(b-1))>=0)b--;w=w.substring(a,b);
+    if(w.length()<2||ZH_FILLER.contains(w))continue;out.add(w);
+   }else{w=w.toLowerCase(Locale.ROOT);if(!EN_STOP.contains(w)&&!Lang.ENGLISH.contains(w)&&!EN_FILLER.contains(w)&&(w.length()>=3||w.chars().anyMatch(Character::isDigit)))out.add(w);}
+  }
+  return out;
  }
  static boolean caseless(String t){
   return t.codePoints().allMatch(c->!Character.isUpperCase(c)&&!Character.isLowerCase(c)&&!Character.isTitleCase(c)&&Character.toLowerCase(c)==c&&Character.toUpperCase(c)==c&&Character.toTitleCase(c)==c);
@@ -238,6 +303,10 @@ final class Recall {
   for(Object[] n:all.subList(0,Math.min(k,all.size())))out.put(s.nodeItem((String)n[0],(JSONObject)n[1]));
   return out;
  }
+ static final String MONTHS="jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?";
+ /** English month and day ("Dec 5", "December 5th", "5 Dec"); the month is group 1 or 4. */
+ static final java.util.regex.Pattern DATE_EN=java.util.regex.Pattern.compile("(?i)\\b(?:("+MONTHS+")\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?|(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?("+MONTHS+"))\\b");
+ static int month(String name){return "janfebmaraprmayjunjulaugsepoctnovdec".indexOf(name.substring(0,3).toLowerCase(Locale.ROOT))/3+1;}
  /** User card v2 selects habits and core contacts, near-term commitments, message-relevant people/habits, and today's relevant quotations not yet organized into the card. */
  static final java.util.regex.Pattern DATE=java.util.regex.Pattern.compile("(?:(\\d{1,2})月(\\d{1,2})[日号]?|(?<!\\d)(\\d{1,2})-(\\d{1,2})(?!\\d)|(?<![\\d月])(\\d{1,2})\\s?[号日](?!\\d))");
  static final String STOP_CHARS="的了个我你他她吗吧呢啊是有在要会这那和就也还很不没一么什说想";
@@ -261,11 +330,22 @@ final class Recall {
    else{int dd=Integer.parseInt(m.group(5));java.time.LocalDate base=dd>=today.getDayOfMonth()?today:today.plusMonths(1);d=base.withDayOfMonth(dd);}
    out.add(java.time.temporal.ChronoUnit.DAYS.between(today,d));
   }catch(RuntimeException ignored){}
+  java.util.regex.Matcher e=DATE_EN.matcher(s);
+  while(e.find())try{
+   java.time.LocalDate d=e.group(1)!=null?near(month(e.group(1)),Integer.parseInt(e.group(2)),today):near(month(e.group(4)),Integer.parseInt(e.group(3)),today);
+   out.add(java.time.temporal.ChronoUnit.DAYS.between(today,d));
+  }catch(RuntimeException ignored){}
   return out;
  }
  static boolean soon(String s,java.time.LocalDate today,int days){for(long d:dayOffsets(s,today))if(d>=0&&d<=days)return true;return false;}
  /** A note whose dates have all passed is shown with a mark, so the assistant does not treat it as still upcoming. */
  static String marked(String note,java.time.LocalDate today){List<Long> d=dayOffsets(note,today);if(d.isEmpty())return note;for(long x:d)if(x>=0)return note;return note+"(date has passed)";}
+ /**
+  * Least similarity for a card item to count as related to a message. 0.30 for bekko-embedding-v1-a8m: on the 0.17 phone-style
+  * set it keeps every same-language related pair and 94% of cross-language ones, and lets 4% of unrelated pairs through.
+  * (0.45 was set for bge-small-zh, whose scores sit higher: there it let 43% of unrelated pairs through.)
+  */
+ static final float CARD_MIN=0.30f;
  // Cache card-item vectors by text; nightly card changes need no recomputation per message.
  static final Map<String,float[]> cardVecs=new LinkedHashMap<>(256,0.75f,true){protected boolean removeEldestEntry(Map.Entry<String,float[]> e){return size()>512;}};
  static float[] cardVec(Embedder e,String text)throws Exception{synchronized(cardVecs){float[] v=cardVecs.get(text);if(v!=null)return v;}float[] v=e.encode(text,false);synchronized(cardVecs){cardVecs.put(text,v);}return v;}
@@ -287,7 +367,7 @@ final class Recall {
   scored.sort((a,b)->Float.compare((float)b[2],(float)a[2]));
   List<String> rel=new ArrayList<>();List<JSONObject> involved=new ArrayList<>(matched);involved.addAll(near);
   for(JSONObject x:matched)rel.add(person(x,today));
-  int extra=0;for(Object[] o:scored){if(extra>=3||(float)o[2]<0.45f)break;JSONObject x=(JSONObject)o[1];if(o[0].equals("me"))rel.add("[Your habits] "+x.optString("item")+"(context: "+x.optString("applies")+"）");else{rel.add(person(x,today));involved.add(x);}extra++;}
+  int extra=0;for(Object[] o:scored){if(extra>=3||(float)o[2]<CARD_MIN)break;JSONObject x=(JSONObject)o[1];if(o[0].equals("me"))rel.add("[Your habits] "+x.optString("item")+"(context: "+x.optString("applies")+"）");else{rel.add(person(x,today));involved.add(x);}extra++;}
   if(!near.isEmpty()){out.append("\n\nPeople with commitments or important dates in the next 3 days: ");for(JSONObject x:near)out.append("\n· ").append(person(x,today));}
   List<String> due=dueSoon(s,now,2,10);
   if(!due.isEmpty()){out.append("\n\nPlans and deadlines for the next two days (from memory, chronological): ");for(String d:due)out.append("\n· ").append(d);}
@@ -344,7 +424,7 @@ final class Recall {
    boolean byDue=due!=null&&(when==null||((long)due[0])<((long)when[0]))&&(long)due[0]>=0&&(long)due[0]<=days;
    Object[] use=byDue?due:when;if(use==null)continue;
    long off=(long)use[0];int minute=(int)use[1];java.time.LocalDate d=(java.time.LocalDate)use[2];
-   boolean opened=!byDue&&off<0&&off>=-7&&!v.optString("type").equals("event")&&OPENS.matcher(text).find();   // Available since a past date and still incomplete.
+   boolean opened=!byDue&&off<0&&off>=-7&&!v.optString("type").equals("event")&&says(OPENS_K,text);   // Available since a past date and still incomplete.
    if(!opened&&(off<0||off>days))continue;
    if(off==0&&minute>=0&&minute<at.getHour()*60+at.getMinute())continue;   // Do not mention today's already elapsed times.
    if(Privacy.instruction(text)||Privacy.agendaSensitive(text,user,strings(v.optJSONArray("people"))))continue;
@@ -425,14 +505,27 @@ final class Recall {
  static final java.util.regex.Pattern OCCASION=java.util.regex.Pattern.compile("生日|纪念日|婚礼|寿宴|满月|升学宴");
  static final java.util.regex.Pattern MONEY=java.util.regex.Pattern.compile("[¥￥]\\s?\\d|\\d\\s?元");
  static final java.util.regex.Pattern ROUTINE=java.util.regex.Pattern.compile("日报|固定每|每天|每周|例行|无需|不用在家|无需在家");
+ static final java.util.regex.Pattern OPENS_EN=java.util.regex.Pattern.compile("(?i)\\b(ready|available)\\s+(for|to)\\s+pick(\\s|-)?up|\\bcan\\s+be\\s+picked\\s+up|\\b(open|available|valid)\\s+(from|starting)\\b|\\b(arrived|waiting)\\s+at\\s+(the\\s+)?(locker|front\\s+desk|post\\s+office|pick-?up\\s+point|store)\\b");
+ static final java.util.regex.Pattern PENALTY_EN=java.util.regex.Pattern.compile("(?i)\\b(overdue|late\\s+(fee|charge|payment)|expir(e|es|ed|ing|ation)|forfeit\\w*|non-?refundable|no\\s+refunds?|shut\\s?off|disconnect\\w*|suspend\\w*|penalt(y|ies)|fined?|or\\s+else|otherwise|deadline|last\\s+(day|chance)|too\\s+late|will\\s+be\\s+(returned|cancell?ed|removed|charged))\\b");
+ static final java.util.regex.Pattern PROMISE_EN=java.util.regex.Pattern.compile("(?i)\\b(promised|agreed|confirmed|booked|reserved|registered|signed\\s+up|rsvp'?d|accepted\\s+the\\s+invite)\\b");
+ static final java.util.regex.Pattern DEADLINE_EN=java.util.regex.Pattern.compile("(?i)\\b(due|before|no\\s+later\\s+than|by\\s+(the\\s+)?(\\d{1,2}(st|nd|rd|th)?|end\\s+of|eod|eow|tonight|tomorrow|noon|midnight|(mon|tues|wednes|thurs|fri|satur|sun)day|"+MONTHS+")|must\\s+be\\s+(submitted|completed|paid|returned|picked\\s+up|renewed))\\b");
+ static final java.util.regex.Pattern OCCASION_EN=java.util.regex.Pattern.compile("(?i)\\b(birthday|b-?day|anniversary|wedding|graduation|baby\\s+shower|bridal\\s+shower|funeral|memorial)\\b");
+ static final java.util.regex.Pattern MONEY_EN=java.util.regex.Pattern.compile("(?i)[$€£]\\s?\\d|\\b\\d+(\\.\\d+)?\\s?(dollars|usd|eur|euros|gbp|pounds)\\b");
+ static final java.util.regex.Pattern ROUTINE_EN=java.util.regex.Pattern.compile("(?i)\\b(daily|weekly|every\\s+(day|week|morning|evening|night)|routine|recurring|no\\s+action\\s+(needed|required)|nothing\\s+to\\s+do|no\\s+need\\s+to|don'?t\\s+need\\s+to\\s+be\\s+home)\\b");
+ static final int OPENS_K=0,PENALTY_K=1,PROMISE_K=2,DEADLINE_K=3,OCCASION_K=4,MONEY_K=5,ROUTINE_K=6;
+ /** What makes an agenda item costly to miss, per language, in the *_K order. StoreTests keeps the keys equal to Lang.SUPPORTED. */
+ static final Map<String,java.util.regex.Pattern[]> PRIORITY=Map.of(
+  "zh",new java.util.regex.Pattern[]{OPENS,PENALTY,PROMISE,DEADLINE,OCCASION,MONEY,ROUTINE},
+  "en",new java.util.regex.Pattern[]{OPENS_EN,PENALTY_EN,PROMISE_EN,DEADLINE_EN,OCCASION_EN,MONEY_EN,ROUTINE_EN});
+ static boolean says(int kind,String text){for(java.util.regex.Pattern[] p:PRIORITY.values())if(p[kind].matcher(text).find())return true;return false;}
  /** How much it costs to miss: a penalty or deadline, a promise to someone, money, sooner; daily routine and things that need nothing from the user count less. */
  static double stake(String text,JSONObject v,long off){
   // For tasks/items, the specified day is the deadline by organizer convention, even without matching deadline wording.
-  double s=PENALTY.matcher(text).find()?2:DEADLINE.matcher(text).find()||(Set.of("task","item").contains(v.optString("type"))&&!v.optString("when").trim().isEmpty())?1.5:0;
-  if(PROMISE.matcher(text).find())s+=1;
-  if(OCCASION.matcher(text).find())s+=1.5;
-  if(!v.optString("amount").isEmpty()||MONEY.matcher(text).find())s+=0.5;
-  if(ROUTINE.matcher(text).find())s-=2;
+  double s=says(PENALTY_K,text)?2:says(DEADLINE_K,text)||(Set.of("task","item").contains(v.optString("type"))&&!v.optString("when").trim().isEmpty())?1.5:0;
+  if(says(PROMISE_K,text))s+=1;
+  if(says(OCCASION_K,text))s+=1.5;
+  if(!v.optString("amount").isEmpty()||says(MONEY_K,text))s+=0.5;
+  if(says(ROUTINE_K,text))s-=2;
   return s-0.3*Math.max(0,off);
  }
  /**
@@ -452,7 +545,7 @@ final class Recall {
     int minute=m.group(3)==null?-1:Integer.parseInt(m.group(3))*60+Integer.parseInt(m.group(4));
     label=Organizer.stamp(d.atTime(Math.max(0,minute)/60,Math.max(0,minute)%60).atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli());if(minute<0)label=label.substring(0,label.lastIndexOf(' '));label="By "+label;}
    String text=v.optString("title")+"："+v.optString("summary");
-   if(ROUTINE.matcher(text).find()||Privacy.instruction(text)||Privacy.agendaSensitive(text,user,strings(v.optJSONArray("people"))))continue;
+   if(says(ROUTINE_K,text)||Privacy.instruction(text)||Privacy.agendaSensitive(text,user,strings(v.optJSONArray("people"))))continue;
    out.add(new Object[]{stake(text,v,0),label+"｜"+Privacy.mask(text.length()>110?text.substring(0,110)+"…":text,Privacy.CARD_NUMBER)});
   }
   out.sort((a,b)->Double.compare((double)b[0],(double)a[0]));

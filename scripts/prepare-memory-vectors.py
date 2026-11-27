@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Resolve the pinned on-device embedding dependencies into system/memory/downloads (ignored build cache).
-Also lays out downloads/assets/bge/{model.onnx,vocab.txt} for Android.bp (the quantized model hard-linked as model.onnx, vocab derived
-from tokenizer.json in id order, exactly as system/memory/build.sh does)."""
+Also lays out downloads/assets/embed/{model.onnx,tokenizer.bin} for Android.bp (the model hard-linked as model.onnx, the tokenizer
+table converted by system/memory/tools/tokenizer_bin.py, exactly as system/memory/build.sh does)."""
 import hashlib
 import json
 import os
@@ -34,13 +34,16 @@ for item in assets:
         raise SystemExit('Memory vector dependency checksum mismatch: ' + item['name'])
     pathlib.Path(temporary.name).replace(dest)
 
-bge = MEMORY / 'downloads/bge-small-zh-v1.5'
-out = MEMORY / 'downloads/assets/bge'
+import importlib.util
+src = MEMORY / 'downloads/bekko-embedding-v1-a8m'
+out = MEMORY / 'downloads/assets/embed'
 out.mkdir(parents=True, exist_ok=True)
 model = out / 'model.onnx'
-if not model.exists() or not os.path.samefile(model, bge / 'onnx/model_quantized.onnx'):
+if not model.exists() or not os.path.samefile(model, src / 'onnx/model.onnx'):
     model.unlink(missing_ok=True)
-    os.link(bge / 'onnx/model_quantized.onnx', model)
-vocab = json.loads((bge / 'tokenizer.json').read_text(encoding='utf-8'))['model']['vocab']
-(out / 'vocab.txt').write_text(''.join(k + '\n' for k, _ in sorted(vocab.items(), key=lambda x: x[1])), encoding='utf-8')
+    os.link(src / 'onnx/model.onnx', model)
+spec = importlib.util.spec_from_file_location('tokenizer_bin', MEMORY / 'tools/tokenizer_bin.py')
+tokenizer_bin = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(tokenizer_bin)
+tokenizer_bin.convert(src / 'tokenizer.json', out / 'tokenizer.bin')
 print(MEMORY / 'downloads')

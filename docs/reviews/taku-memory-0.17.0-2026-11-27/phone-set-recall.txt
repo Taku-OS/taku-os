@@ -1,0 +1,12 @@
+== before (bge-small-zh, whole-query keywords): keyword list holds the answer for 0/72 queries
+  all    R@1=0.43  R@5=0.62  MRR=0.518
+  zh>zh  R@1=1.00  R@5=1.00  MRR=1.000
+  en>en  R@1=0.61  R@5=0.89  MRR=0.735
+  zh>en  R@1=0.11  R@5=0.61  MRR=0.312
+  en>zh  R@1=0.00  R@5=0.00  MRR=0.026
+== after (bekko a8m, content words): keyword list holds the answer for 15/72 queries
+  all    R@1=0.89  R@5=1.00  MRR=0.944
+  zh>zh  R@1=0.94  R@5=1.00  MRR=0.972
+  en>en  R@1=1.00  R@5=1.00  MRR=1.000
+  zh>en  R@1=0.89  R@5=1.00  MRR=0.944
+  en>zh  R@1=0.72  R@5=1.00  MRR=0.861

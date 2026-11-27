@@ -1,0 +1,10 @@
+bge @0.45: unrelated pass 0.431, related same-language pass 1.00, cross-language 0.25
+a8 threshold with the same unrelated pass rate: 0.137
+a8 @0.14: unrelated pass 0.417, related same-language pass 1.00, cross-language 1.00
+a8 @0.25: unrelated pass 0.096, related same-language pass 1.00, cross-language 1.00
+a8 @0.30: unrelated pass 0.040, related same-language pass 1.00, cross-language 0.94
+a8 @0.33: unrelated pass 0.025, related same-language pass 1.00, cross-language 0.94
+a8 @0.35: unrelated pass 0.019, related same-language pass 1.00, cross-language 0.92
+a8 @0.40: unrelated pass 0.010, related same-language pass 0.97, cross-language 0.78
+a8 @0.45: unrelated pass 0.004, related same-language pass 0.89, cross-language 0.44
+a8 related median 0.563, unrelated median 0.122, unrelated 99th 0.395

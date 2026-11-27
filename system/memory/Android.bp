@@ -1,5 +1,5 @@
-// On-device embedding: run scripts/prepare-memory-vectors.py first (pinned ONNX Runtime AAR and bge-small-zh-v1.5
-// into the ignored downloads/ cache). The model is stored uncompressed so it can be copied out without inflating.
+// On-device embedding: run scripts/prepare-memory-vectors.py first (pinned ONNX Runtime AAR and bekko-embedding-v1-a8m
+// into the ignored downloads/ cache). The model and tokenizer table are stored uncompressed so they can be copied out without inflating.
 android_library_import {
     name: "taku-memory-onnxruntime",
     aars: ["downloads/onnxruntime-android-1.29.0.aar"],
@@ -13,7 +13,7 @@ android_app {
     srcs: ["src/**/*.java"],
     resource_dirs: ["res"],
     asset_dirs: ["assets", "downloads/assets"],
-    aaptflags: ["-0", "onnx"],
+    aaptflags: ["-0", "onnx", "-0", "bin"],
     static_libs: ["taku-surfaces-client", "taku-markdown", "taku-memory-onnxruntime"],
     // Soong drops prebuilt JNI from AARs (extract_jni) unless the app embeds its native libraries; without this the ROM
     // APK ships without libonnxruntime.so / libonnxruntime4j_jni.so and vector recall fails to link. Embedded libs are

@@ -1,6 +1,10 @@
+bekko-embedding-v1-a8m (hotchpotch/bekko-embedding-v1-a8m on Hugging Face, revision c721113d59a1d91b447450324f51c4b3332c924a)
+by Yuichi Tateno. The model card declares the MIT License; the repository ships no separate LICENSE file. The model is
+fine-tuned from mmBERT-small (jhu-clsp/mmBERT-small, MIT License) and uses the Gemma 2 tokenizer that mmBERT uses.
+
 MIT License
 
-Copyright (c) 2022 staoxiao
+Copyright (c) Yuichi Tateno
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

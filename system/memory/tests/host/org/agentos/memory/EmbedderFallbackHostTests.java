@@ -32,7 +32,7 @@ public final class EmbedderFallbackHostTests {
   //    NoClassDefFoundError from the failed class initializer. Both must degrade.
   for(int attempt=1;attempt<=2;attempt++){
    reset();
-   e=Recall.load(()->new Embedder(new ByteArrayInputStream("[PAD]\n[UNK]\n".getBytes(StandardCharsets.UTF_8)),"/nonexistent/bge.onnx"));
+   e=Recall.load(()->new Embedder(new Bpe(emptyTable()),"/nonexistent/model.onnx"));
    check(e==null,"real ONNX Runtime without native libraries yields no embedder (attempt "+attempt+")");
    check(Recall.embedderUnlinkable&&Log.error instanceof LinkageError,"real ONNX Runtime link failure is a LinkageError (attempt "+attempt+"): "+Log.error);
   }
@@ -51,5 +51,11 @@ public final class EmbedderFallbackHostTests {
 
   reset();
   System.out.println("EmbedderFallbackHostTests passed ("+checks+" checks)");
+ }
+ /** The smallest valid tokenizer table: no added tokens, characters or merges (tools/tokenizer_bin.py layout). */
+ static java.nio.ByteBuffer emptyTable(){
+  java.nio.ByteBuffer b=java.nio.ByteBuffer.allocate(8+4*3+4*256+4+4+4+8).order(java.nio.ByteOrder.LITTLE_ENDIAN);
+  b.put("TKBPE001".getBytes(StandardCharsets.US_ASCII)).putInt(2).putInt(1).putInt(3);for(int i=0;i<256;i++)b.putInt(-1);
+  b.putInt(0).putInt(0).putInt(0);b.flip();return b;
  }
 }

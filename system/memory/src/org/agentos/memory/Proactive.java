@@ -79,6 +79,11 @@ final class Proactive {
  }
  static final Pattern DAYWORD=Pattern.compile("今天|今晚|今早|明天|明晚|明早|明儿|后天|(下|这|本)?(周|星期|礼拜)([一二三四五六日天])|(\\d{1,2})\\s?[号日]");
  static final Pattern REQUEST=Pattern.compile("？|\\?|吗|啥|什么|哪|几点|能不能|可不可以|要不要|有空|来不来|一起|帮我|帮忙|麻烦|记得|别忘|请你|你看|行不|怎么样|好不好");
+ static final Pattern DAYWORD_EN=Pattern.compile("(?i)\\b(?:(the\\s+day\\s+after\\s+tomorrow|day\\s+after\\s+tomorrow)|(today|tonight|this\\s+(?:morning|afternoon|evening))|(tomorrow|tmrw?|tomo)|(?:(this|next)\\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tues?|thu(?:rs?)?|fri)|(?:on\\s+)?(?:the\\s+)?(\\d{1,2})(?:st|nd|rd|th))\\b");
+ static final Pattern REQUEST_EN=Pattern.compile("(?i)\\?|\\b(can|could|would|will)\\s+(you|u|we)\\b|\\b(are|r)\\s+(you|u)\\s+(free|around|available|coming|in|up\\s+for|down)\\b|\\blet'?s\\b|\\bwanna\\b|\\bwant\\s+to\\b|\\bjoin\\s+(us|me)\\b|\\bcome\\s+(over|with|to|along)\\b|\\b(please|pls|plz)\\b|\\bremind\\b|\\bremember\\s+to\\b|\\bdon'?t\\s+forget\\b|\\bhelp\\s+me\\b|\\b(how|what)\\s+about\\b|\\bstill\\s+on\\b|\\brsvp\\b");
+ /** Which days, and whether it asks something, per language. StoreTests keeps the keys equal to Lang.SUPPORTED. */
+ static final Map<String,Pattern> DAYWORDS=Map.of("zh",DAYWORD,"en",DAYWORD_EN),REQUESTS=Map.of("zh",REQUEST,"en",REQUEST_EN);
+ static boolean asks(String msg){for(Pattern p:REQUESTS.values())if(p.matcher(msg).find())return true;return false;}
  static final Pattern ALNUM=Pattern.compile("[A-Za-z]{1,3}\\d{2,}|\\d+-\\d+-\\d+|\\d{4,}");
  static final Set<String> STOP2=Set.of("明天","今天","后天","晚上","上午","下午","中午","早上","需要","一下","已经","可以","时候","这个","那个","我们","你们","他们","没有","还是","就是","一起","记得","知道","现在","一个","东西","时间","问题","谢谢","哈哈","好的","收到","周末","这周","下周");
  /**
@@ -107,7 +112,7 @@ final class Proactive {
   for(String l:sec.getOrDefault("Potentially relevant to this matter",List.of()))if(!l.startsWith("["))names.add(l.split("（",2)[0].trim());
   int mentioned=0;for(String n:names)if(n.length()>=2&&msg.contains(n))mentioned++;
   boolean list=mentioned>=3;                       // Several people on one screen indicates a chat list/group overview; do not trigger by person.
-  boolean ask=REQUEST.matcher(msg).find();         // A question, invitation, or request for user action.
+  boolean ask=asks(msg);                           // A question, invitation, or request for user action.
   for(String l:sec.getOrDefault("Potentially relevant to this matter",List.of())){
    boolean habit=l.startsWith("[Your habits]");String name=habit?"":l.split("（",2)[0].trim();
    boolean named=!list&&name.length()>=2&&msg.contains(name)&&l.length()>name.length()+6&&(ask||soon.contains(name));
@@ -150,17 +155,34 @@ final class Proactive {
   JSONObject g=s.generate("check",in.toString());s.addProactiveUsage("check",g);return new JSONObject(g.getString("final"));
  }
  static final Pattern CLOCK=Pattern.compile("(上午|早上|中午|下午|晚上|今晚|明晚|夜里)?\\s?(\\d{1,2})(?:[:：](\\d{2})|\\s?点(半)?)");
+ /** English times: "7pm", "7:30 p.m." (groups 1-3); "at 7", "by 7:30" with no am/pm (4-5); noon, midday, midnight (6). */
+ static final Pattern CLOCK_EN=Pattern.compile("(?i)(?<![\\d:])(\\d{1,2})(?::([0-5]\\d))?\\s*(a\\.?m\\b\\.?|p\\.?m\\b\\.?)|\\b(?:at|by|around|before|after|from|until|till)\\s+(\\d{1,2})(?::([0-5]\\d))?(?![\\d:])(?!\\s*(?:a\\.?m|p\\.?m)\\b)(?!\\s*(?:%|people|ppl|persons|guests|min|mins|minutes|hours?|hrs?|days?|weeks?|months?|years?)\\b)|\\b(noon|midday|midnight)\\b");
+ static final Map<String,Pattern> CLOCKS=Map.of("zh",CLOCK,"en",CLOCK_EN);
+ // Words that put a bare hour in the afternoon or evening ("7点", "at 7"), and the broad slots words name, per language.
+ static final Pattern LATE_EN=Pattern.compile("(?i)\\b(tonight|evening|dinner|supper|afternoon|pm)\\b");
+ static final Pattern EVENING_EN=Pattern.compile("(?i)\\b(tonight|this\\s+evening|evening|dinner|supper)\\b"),NOON_EN=Pattern.compile("(?i)\\b(lunch|noon|midday)\\b"),AFTERNOON_EN=Pattern.compile("(?i)\\bafternoon\\b"),MORNING_EN=Pattern.compile("(?i)\\b(morning|breakfast|brunch)\\b");
  static final Pattern LINE_MINUTE=Pattern.compile("^\\d{1,2}(?:月|-)\\d{1,2}(?:日 周.| [A-Za-z]{3}) (\\d{1,2}):(\\d{2})");
  /** The time of day a message asks about, as [from, to] minutes; an explicit time gets 90 minutes before and two hours after, words a broad slot. Null when it names none. */
  static int[] slot(String msg){
+  boolean late=msg.matches(".*(晚|下午).*")||LATE_EN.matcher(msg).find();
+  // An English time with am/pm or a named hour is explicit and wins; "7:30" alone is read by the Chinese rule.
+  Matcher e=CLOCK_EN.matcher(msg);
+  if(e.find()&&(e.group(1)!=null||e.group(6)!=null)){
+   int h,min;
+   if(e.group(6)!=null){h=e.group(6).equalsIgnoreCase("midnight")?0:12;min=0;}
+   else{h=Integer.parseInt(e.group(1));min=e.group(2)!=null?Integer.parseInt(e.group(2)):0;boolean pm=Character.toLowerCase(e.group(3).charAt(0))=='p';if(h==12)h=pm?12:0;else if(pm)h+=12;}
+   if(h<24){int t=h*60+min;return new int[]{t-90,t+120};}
+  }
   Matcher m=CLOCK.matcher(msg);
   if(m.find()){int h=Integer.parseInt(m.group(2)),min=m.group(3)!=null?Integer.parseInt(m.group(3)):m.group(4)!=null?30:0;String pre=m.group(1)==null?"":m.group(1);
-   if(h<=12&&(pre.equals("下午")||pre.endsWith("晚")||pre.equals("晚上")||pre.equals("夜里")||(pre.isEmpty()&&h<=7&&msg.matches(".*(晚|下午).*"))))h+=h==12?0:12;
+   if(h<=12&&(pre.equals("下午")||pre.endsWith("晚")||pre.equals("晚上")||pre.equals("夜里")||(pre.isEmpty()&&h<=7&&late)))h+=h==12?0:12;
    if(h<24){int t=h*60+min;return new int[]{t-90,t+120};}}
-  if(msg.matches(".*(今晚|明晚|晚上|晚饭|夜里|晚餐).*"))return new int[]{17*60+30,23*60};
-  if(msg.matches(".*(中午|午饭|午餐).*"))return new int[]{11*60+30,14*60};
-  if(msg.matches(".*下午.*"))return new int[]{13*60,18*60};
-  if(msg.matches(".*(上午|早上|早饭).*"))return new int[]{8*60,12*60};
+  e.reset();
+  if(e.find()&&e.group(4)!=null){int h=Integer.parseInt(e.group(4)),min=e.group(5)!=null?Integer.parseInt(e.group(5)):0;if(h>=1&&h<=7&&late)h+=12;if(h<24){int t=h*60+min;return new int[]{t-90,t+120};}}
+  if(msg.matches(".*(今晚|明晚|晚上|晚饭|夜里|晚餐).*")||EVENING_EN.matcher(msg).find())return new int[]{17*60+30,23*60};
+  if(msg.matches(".*(中午|午饭|午餐).*")||NOON_EN.matcher(msg).find())return new int[]{11*60+30,14*60};
+  if(msg.matches(".*下午.*")||AFTERNOON_EN.matcher(msg).find())return new int[]{13*60,18*60};
+  if(msg.matches(".*(上午|早上|早饭).*")||MORNING_EN.matcher(msg).find())return new int[]{8*60,12*60};
   return null;
  }
  static int lineMinute(String line){Matcher m=LINE_MINUTE.matcher(line);return m.find()?Integer.parseInt(m.group(1))*60+Integer.parseInt(m.group(2)):-1;}
@@ -170,16 +192,41 @@ final class Proactive {
   for(String l:card.split("\n")){String h=null;for(String x:heads)if(l.startsWith(x))h=x;if(h!=null){cur=h;continue;}if(l.startsWith("· "))out.computeIfAbsent(cur,k->new ArrayList<>()).add(l.substring(2).trim());}
   return out;
  }
+ /**
+  * What a message is about, for overlap with memory lines: Chinese as two-character pieces (the tuned rule), other
+  * languages as their lowercased words of three or more letters, without function words or the user's own name.
+  */
  static Set<String> grams(String s,String user){
   Set<String> g=new HashSet<>();Matcher m=Pattern.compile("[\\u4e00-\\u9fff]+").matcher(s);
   while(m.find()){String w=m.group();for(int i=0;i+2<=w.length();i++){String x=w.substring(i,i+2);if(Recall.STOP_CHARS.indexOf(x.charAt(0))>=0||Recall.STOP_CHARS.indexOf(x.charAt(1))>=0||STOP2.contains(x)||(user!=null&&user.contains(x)))continue;g.add(x);}}
+  String me=user==null?"":user.toLowerCase(Locale.ROOT);
+  Matcher w=WORD.matcher(s);
+  while(w.find()){String x=w.group().toLowerCase(Locale.ROOT);if(x.codePointCount(0,x.length())<3||Recall.EN_STOP.contains(x)||Lang.ENGLISH.contains(x)||STOP_EN.contains(x)||(!me.isEmpty()&&me.contains(x)))continue;g.add(x);}
   return g;
  }
- static int overlap(Set<String> grams,String line){int n=0;for(String g:grams)if(line.contains(g))n++;return n;}
+ /** A word in a script written with spaces: letters (with marks), apostrophes and hyphens inside. Han and kana are left to grams' pieces. */
+ static final Pattern WORD=Pattern.compile("(?:(?![\\p{IsHan}\\p{IsHiragana}\\p{IsKatakana}])\\p{L})(?:(?![\\p{IsHan}\\p{IsHiragana}\\p{IsKatakana}])[\\p{L}\\p{M}]|['’-](?=\\p{L}))*");
+ // English words a chat message is full of that say nothing about its topic.
+ static final Set<String> STOP_EN=Set.of("yeah","yes","yep","okay","sure","thanks","thank","lol","haha","hey","hello","hi","sounds","good","great","cool","nice","see","talk","later","soon","going","gonna","really","also","well","know","think","maybe","one","some","any","all","here","still","morning","afternoon","evening","night","week","weekend","day","time");
+ static int overlap(Set<String> grams,String line){String low=line.toLowerCase(Locale.ROOT);int n=0;for(String g:grams)if(low.contains(g))n++;return n;}
  static final Pattern LINE_DAY=Pattern.compile("^(\\d{1,2})(?:月|-)(\\d{1,2})(?:日|(?= ))");
  static LocalDate lineDay(String line,LocalDate today){Matcher m=LINE_DAY.matcher(line);if(!m.find())return null;try{return Recall.near(Integer.parseInt(m.group(1)),Integer.parseInt(m.group(2)),today);}catch(RuntimeException e){return null;}}
  static Set<LocalDate> mentionedDays(String msg,LocalDate today){
-  Set<LocalDate> out=new HashSet<>();Matcher m=DAYWORD.matcher(msg);
+  Set<LocalDate> out=new HashSet<>();List<int[]> dated=new ArrayList<>();
+  Matcher md=Recall.DATE_EN.matcher(msg);   // "Dec 5", "5th of December"
+  while(md.find())try{dated.add(new int[]{md.start(),md.end()});out.add(md.group(1)!=null?Recall.near(Recall.month(md.group(1)),Integer.parseInt(md.group(2)),today):Recall.near(Recall.month(md.group(4)),Integer.parseInt(md.group(3)),today));}catch(RuntimeException ignored){}
+  Matcher e=DAYWORD_EN.matcher(msg);
+  while(e.find()){
+   boolean inDate=false;for(int[] d:dated)if(e.start()<d[1]&&e.end()>d[0])inDate=true;if(inDate)continue;
+   if(e.group(1)!=null)out.add(today.plusDays(2));
+   else if(e.group(2)!=null)out.add(today);
+   else if(e.group(3)!=null)out.add(today.plusDays(1));
+   else if(e.group(5)!=null){String d=e.group(5).toLowerCase(Locale.ROOT);int dow=-1;String[] days={"mon","tue","wed","thu","fri","sat","sun"};for(int i=0;i<7;i++)if(d.startsWith(days[i]))dow=i+1;
+    LocalDate monday=today.minusDays(today.getDayOfWeek().getValue()-1);boolean next="next".equalsIgnoreCase(e.group(4));
+    LocalDate x=next?monday.plusDays(7+dow-1):monday.plusDays(dow-1);if(!next&&x.isBefore(today))x=x.plusDays(7);out.add(x);}
+   else if(e.group(6)!=null){int dom=Integer.parseInt(e.group(6));if(dom>=1&&dom<=31)try{LocalDate x=today.withDayOfMonth(Math.min(dom,today.lengthOfMonth()));if(x.isBefore(today))x=x.plusMonths(1);out.add(x);}catch(RuntimeException ignored){}}
+  }
+  Matcher m=DAYWORD.matcher(msg);
   while(m.find()){String w=m.group();
    if(w.startsWith("今"))out.add(today);
    else if(w.startsWith("明"))out.add(today.plusDays(1));

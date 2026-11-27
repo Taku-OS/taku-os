@@ -1,5 +1,5 @@
 {
-  "description": "On-device embedding for Taku memory: ONNX Runtime for Android and the bge-small-zh-v1.5 ONNX export. Build cache only; no binaries tracked. scripts/prepare-memory-vectors.py fetches and verifies them and lays out downloads/assets for Android.bp.",
+  "description": "On-device embedding for Taku memory: ONNX Runtime for Android and the bekko-embedding-v1-a8m ONNX export (multilingual, MIT). Build cache only; no binaries tracked. scripts/prepare-memory-vectors.py fetches and verifies them and lays out downloads/assets for Android.bp.",
   "assets": [
     {
       "name": "onnxruntime-android",
@@ -10,20 +10,20 @@
       "path": "system/memory/downloads/onnxruntime-android-1.29.0.aar"
     },
     {
-      "name": "bge-small-zh-v1.5 model_quantized.onnx (dynamic int8)",
-      "version": "Xenova/bge-small-zh-v1.5@75c43b069aac4d136ba6bc1122f995fedcfd2781",
-      "url": "https://huggingface.co/Xenova/bge-small-zh-v1.5/resolve/75c43b069aac4d136ba6bc1122f995fedcfd2781/onnx/model_quantized.onnx",
-      "sha256": "15b717c382bcb518ba457b93ea6850ede7f4f1cd8937454aa06972366cd19bcc",
+      "name": "bekko-embedding-v1-a8m model.onnx (int8 token table, fp32 encoder)",
+      "version": "hotchpotch/bekko-embedding-v1-a8m@c721113d59a1d91b447450324f51c4b3332c924a",
+      "url": "https://huggingface.co/hotchpotch/bekko-embedding-v1-a8m/resolve/c721113d59a1d91b447450324f51c4b3332c924a/onnx/model.onnx",
+      "sha256": "96d8cc6199e96357b21b2fb12f6d7ffd2d4abc7b182fe94b5468fbd6dc819af7",
       "license": "MIT",
-      "path": "system/memory/downloads/bge-small-zh-v1.5/onnx/model_quantized.onnx"
+      "path": "system/memory/downloads/bekko-embedding-v1-a8m/onnx/model.onnx"
     },
     {
-      "name": "bge-small-zh-v1.5 tokenizer.json",
-      "version": "Xenova/bge-small-zh-v1.5@75c43b069aac4d136ba6bc1122f995fedcfd2781",
-      "url": "https://huggingface.co/Xenova/bge-small-zh-v1.5/resolve/75c43b069aac4d136ba6bc1122f995fedcfd2781/tokenizer.json",
-      "sha256": "48cea5d44424912a6fd1ea647bf4fe50b55ab8b1e5879c3275f80e339e8fae26",
+      "name": "bekko-embedding-v1-a8m tokenizer.json",
+      "version": "hotchpotch/bekko-embedding-v1-a8m@c721113d59a1d91b447450324f51c4b3332c924a",
+      "url": "https://huggingface.co/hotchpotch/bekko-embedding-v1-a8m/resolve/c721113d59a1d91b447450324f51c4b3332c924a/tokenizer.json",
+      "sha256": "8bd47075711f75a143d1b78e01a41cc65c1c591b00d3cfeffc23db07adce1392",
       "license": "MIT",
-      "path": "system/memory/downloads/bge-small-zh-v1.5/tokenizer.json"
+      "path": "system/memory/downloads/bekko-embedding-v1-a8m/tokenizer.json"
     }
   ]
 }

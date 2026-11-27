@@ -5,19 +5,19 @@ source ../../scripts/android-env.sh
 MARKDOWN_CP=$(python3 ../../scripts/prepare-markdown.py)
 IFS=: read -r -a MARKDOWN_JARS <<< "$MARKDOWN_CP"
 rm -rf out/generated out/classes out/dex out/assets out/lib
-mkdir -p out/generated out/classes out/dex out/assets/bge out/lib/arm64-v8a
-# On-device vectors: ONNX Runtime Android (official Maven AAR, SHA1 checked) and quantized bge-small-zh-v1.5 (~24MB), packaged only at build time.
-# Default downloads/ is shared with Android.bp. First build downloads/verifies vector-dependencies.json inputs (~80MB); later builds verify only.
-# TAKU_ORT_AAR / TAKU_BGE_DIR can select alternate inputs without downloads.
-if [ -z "${TAKU_ORT_AAR:-}" ] && [ -z "${TAKU_BGE_DIR:-}" ]; then python3 ../../scripts/prepare-memory-vectors.py >/dev/null; fi
+mkdir -p out/generated out/classes out/dex out/assets/embed out/lib/arm64-v8a
+# On-device vectors: ONNX Runtime Android (official Maven AAR, SHA1 checked) and multilingual bekko-embedding-v1-a8m (~130MB), packaged only at build time.
+# Default downloads/ is shared with Android.bp. First build downloads/verifies vector-dependencies.json inputs (~220MB); later builds verify only.
+# TAKU_ORT_AAR / TAKU_EMBED_DIR can select alternate inputs without downloads.
+if [ -z "${TAKU_ORT_AAR:-}" ] && [ -z "${TAKU_EMBED_DIR:-}" ]; then python3 ../../scripts/prepare-memory-vectors.py >/dev/null; fi
 ORT_AAR=${TAKU_ORT_AAR:-downloads/onnxruntime-android-1.29.0.aar}
-BGE_DIR=${TAKU_BGE_DIR:-downloads/bge-small-zh-v1.5}
-[ -f "$ORT_AAR" ] && [ -f "$BGE_DIR/tokenizer.json" ] || { echo 'Vector dependencies missing: run scripts/prepare-memory-vectors.py (or set TAKU_ORT_AAR / TAKU_BGE_DIR)' >&2; exit 1; }
+EMBED_DIR=${TAKU_EMBED_DIR:-downloads/bekko-embedding-v1-a8m}
+[ -f "$ORT_AAR" ] && [ -f "$EMBED_DIR/tokenizer.json" ] || { echo 'Vector dependencies missing: run scripts/prepare-memory-vectors.py (or set TAKU_ORT_AAR / TAKU_EMBED_DIR)' >&2; exit 1; }
 [ "$(sha1sum "$ORT_AAR" | cut -d' ' -f1)" = 22c4a984c9c6f86c188b4d5ae792527db4527889 ] || { echo 'ONNX Runtime AAR checksum mismatch' >&2; exit 1; }
 unzip -q -o -j "$ORT_AAR" classes.jar -d out/ort
 unzip -q -o -j "$ORT_AAR" 'jni/arm64-v8a/*' -d out/lib/arm64-v8a
-[ "${TAKU_DEV_NO_MODEL:-0}" = 1 ] || cp "$BGE_DIR/onnx/model_quantized.onnx" out/assets/bge/model.onnx   # Development debugging may omit the model and reuse the same extracted device file.
-python3 -c "import json,sys;v=json.load(open(sys.argv[1]))['model']['vocab'];open(sys.argv[2],'w',encoding='utf-8').write(''.join(k+chr(10) for k,_ in sorted(v.items(),key=lambda x:x[1])))" "$BGE_DIR/tokenizer.json" out/assets/bge/vocab.txt
+[ "${TAKU_DEV_NO_MODEL:-0}" = 1 ] || cp "$EMBED_DIR/onnx/model.onnx" out/assets/embed/model.onnx   # Development debugging may omit the model and reuse the same extracted device file.
+python3 tools/tokenizer_bin.py "$EMBED_DIR/tokenizer.json" out/assets/embed/tokenizer.bin
 # Release builds omit test hooks (simulated time, timed organization, isolated card rebuilding); replay evaluation uses TAKU_DEBUG_HOOKS=1.
 DEBUG_HOOKS=false; [ "${TAKU_DEBUG_HOOKS:-0}" = 1 ] && DEBUG_HOOKS=true
 mkdir -p out/generated/org/agentos/memory
@@ -26,7 +26,7 @@ if [ "$DEBUG_HOOKS" = false ] && [ "${TAKU_DEV_NO_MODEL:-0}" = 1 ]; then echo 'R
 SIGNING=../../out/development-signing
 python3 ../../scripts/aosp-test-keys.py "$SIGNING"
 "$TOOLS/aapt2" compile --dir res -o out/resources.zip
-"$TOOLS/aapt2" link -o out/resources.apk -I "$ANDROID_JAR" --manifest AndroidManifest.xml --java out/generated -A assets -A out/assets -0 onnx out/resources.zip
+"$TOOLS/aapt2" link -o out/resources.apk -I "$ANDROID_JAR" --manifest AndroidManifest.xml --java out/generated -A assets -A out/assets -0 onnx -0 bin out/resources.zip
 "$JDK/bin/javac" --release 17 -cp "$ANDROID_JAR:$MARKDOWN_CP:out/ort/classes.jar" -d out/classes out/generated/org/agentos/memory/R.java out/generated/org/agentos/memory/BuildFlags.java $(ls src/org/agentos/memory/*.java | grep -v '/BuildFlags.java$') ../surfaces/contract/org/agentos/surfaces/*.java ../surfaces/wire/org/agentos/surfaces/*.java ../surfaces/client/org/agentos/surfaces/client/*.java
 "$JDK/bin/jar" --create --file out/classes.jar -C out/classes .
 JAVA_HOME="$JDK" "$TOOLS/d8" --min-api 36 --lib "$ANDROID_JAR" --output out/dex out/classes.jar "${MARKDOWN_JARS[@]}" out/ort/classes.jar

@@ -1,0 +1,36 @@
+== bge  dim=512  2.6 ms/doc (mean 23 tokens)
+  all    n= 72  R@1=0.43  R@5=0.62  MRR=0.521
+  zh>zh  n= 18  R@1=1.00  R@5=1.00  MRR=1.000
+  en>en  n= 18  R@1=0.61  R@5=0.89  MRR=0.735
+  zh>en  n= 18  R@1=0.11  R@5=0.61  MRR=0.312
+  en>zh  n= 18  R@1=0.00  R@5=0.00  MRR=0.037
+== e5  dim=384  6.4 ms/doc (mean 23 tokens)
+  all    n= 72  R@1=0.54  R@5=0.67  MRR=0.605
+  zh>zh  n= 18  R@1=0.89  R@5=1.00  MRR=0.944
+  en>en  n= 18  R@1=1.00  R@5=1.00  MRR=1.000
+  zh>en  n= 18  R@1=0.00  R@5=0.06  MRR=0.041
+  en>zh  n= 18  R@1=0.28  R@5=0.61  MRR=0.434
+== a25  dim=384  14.8 ms/doc (mean 22 tokens)
+  all    n= 72  R@1=0.79  R@5=0.97  MRR=0.875
+  zh>zh  n= 18  R@1=0.83  R@5=1.00  MRR=0.917
+  en>en  n= 18  R@1=1.00  R@5=1.00  MRR=1.000
+  zh>en  n= 18  R@1=0.72  R@5=0.94  MRR=0.823
+  en>zh  n= 18  R@1=0.61  R@5=0.94  MRR=0.762
+== a8  dim=384  3.8 ms/doc (mean 22 tokens)
+  all    n= 72  R@1=0.88  R@5=1.00  MRR=0.938
+  zh>zh  n= 18  R@1=0.94  R@5=1.00  MRR=0.972
+  en>en  n= 18  R@1=0.94  R@5=1.00  MRR=0.972
+  zh>en  n= 18  R@1=0.89  R@5=1.00  MRR=0.944
+  en>zh  n= 18  R@1=0.72  R@5=1.00  MRR=0.861
+== jz  dim=768  15.0 ms/doc (mean 19 tokens)
+  all    n= 72  R@1=0.68  R@5=0.96  MRR=0.800
+  zh>zh  n= 18  R@1=0.78  R@5=1.00  MRR=0.856
+  en>en  n= 18  R@1=0.89  R@5=1.00  MRR=0.944
+  zh>en  n= 18  R@1=0.44  R@5=1.00  MRR=0.685
+  en>zh  n= 18  R@1=0.61  R@5=0.83  MRR=0.714
+== eg  dim=768  52.5 ms/doc (mean 28 tokens)
+  all    n= 72  R@1=0.92  R@5=1.00  MRR=0.958
+  zh>zh  n= 18  R@1=1.00  R@5=1.00  MRR=1.000
+  en>en  n= 18  R@1=1.00  R@5=1.00  MRR=1.000
+  zh>en  n= 18  R@1=0.83  R@5=1.00  MRR=0.917
+  en>zh  n= 18  R@1=0.83  R@5=1.00  MRR=0.917
