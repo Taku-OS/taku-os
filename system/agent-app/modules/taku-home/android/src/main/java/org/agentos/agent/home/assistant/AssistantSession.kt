@@ -130,6 +130,17 @@ class AssistantSession private constructor(private val context: Context, private
   private val flow = MutableStateFlow(AssistantState())
   val state: StateFlow<AssistantState> = flow.asStateFlow()
 
+  /**
+   * Cross-app overlay windows ([AssistantOverlayActivity]) presenting this session. While one does,
+   * Home leaves the entry to it: two windows each drawing the composer both asked for the keyboard,
+   * and the one that lost it read the keyboard leaving as a dismissal and closed the entry, taking
+   * the overlay down ~170 ms after a power-key invocation on Home (BUG-0047).
+   */
+  private val overlayHostCount = MutableStateFlow(0)
+  val overlayHosts: StateFlow<Int> = overlayHostCount.asStateFlow()
+  fun overlayHostStarted() = overlayHostCount.update { it + 1 }
+  fun overlayHostEnded() = overlayHostCount.update { (it - 1).coerceAtLeast(0) }
+
   /** Speech recognition: the shared Audio Engine, scoped to the desktop entry's saved settings. */
   var voice: VoiceInput = EngineVoiceInput(context, settingsScope = DESKTOP_SCOPE)
     set(value) { field.cancel(); field.releasePrewarm(); field = value; watchVoice() }

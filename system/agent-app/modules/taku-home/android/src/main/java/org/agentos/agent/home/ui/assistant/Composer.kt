@@ -140,11 +140,14 @@ fun BoxScope.TextComposer(scene: GraphicsLayer, open: Boolean, state: AssistantS
   val focus = remember { FocusRequester() }
   val keyboard = LocalSoftwareKeyboardController.current
   LaunchedEffect(open) { if (open) { runCatching { focus.requestFocus() }; keyboard?.show() } else keyboard?.hide() }
-  // Closing the keyboard (back / swipe) closes the input.
+  // Closing the keyboard (back / swipe) closes the input. Only in the focused window: a window
+  // that loses focus loses the keyboard with it, which is not the user closing it (BUG-0047).
   var imeSeen by remember { mutableStateOf(false) }
   val imeVisible = WindowInsets.isImeVisible
-  LaunchedEffect(imeVisible, open) {
+  val focused = androidx.compose.ui.platform.LocalWindowInfo.current.isWindowFocused
+  LaunchedEffect(imeVisible, open, focused) {
     if (!open) { imeSeen = false; return@LaunchedEffect }
+    if (!focused) { imeSeen = false; return@LaunchedEffect }
     if (imeVisible) imeSeen = true
     else if (imeSeen && !voice.listening) { imeSeen = false; session.closeEntry() }
   }

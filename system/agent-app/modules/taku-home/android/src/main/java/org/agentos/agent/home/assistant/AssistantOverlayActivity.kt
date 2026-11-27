@@ -27,6 +27,8 @@ class AssistantOverlayActivity : AppCompatActivity() {
   private var focusedOnce = false
   private var resumed = false
   private var presenting = false
+  /** Counted in [AssistantSession.overlayHosts] from presenting until destroyed. */
+  private var hosting = false
 
   override fun onCreate(state: Bundle?) {
     enableEdgeToEdge(SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT), SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT))
@@ -37,6 +39,8 @@ class AssistantOverlayActivity : AppCompatActivity() {
     // and sharp while this window showed. The overlay draws its own surfaces; the app stays as is.
     presenting = open(intent)
     if (!presenting) { finish(); return }
+    hosting = true
+    session.overlayHostStarted()
     setContent {
       val ui by session.state.collectAsStateWithLifecycle()
       val scene = rememberGraphicsLayer()
@@ -87,6 +91,10 @@ class AssistantOverlayActivity : AppCompatActivity() {
     super.onWindowFocusChanged(hasFocus)
     if (hasFocus) focusedOnce = true
     else if (presenting && focusedOnce && resumed && session.gesture.held) session.cancelVoice()
+  }
+  override fun onDestroy() {
+    if (hosting) { hosting = false; session.overlayHostEnded() }
+    super.onDestroy()
   }
   override fun onStop() {
     if (presenting && intent.getStringExtra("mode") == "voice")
