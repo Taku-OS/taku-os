@@ -17,6 +17,36 @@ final class ScreenGuard {
 
     static final String SCREEN_OFF = "SCREEN_OFF", SCREEN_BLACK_FRAME = "SCREEN_BLACK_FRAME";
 
+    /**
+     * The screen's own power group (OWN_DISPLAY_GROUP) has its own user-activity timeout, and an
+     * Agent's screen gets no touches while the model thinks: after the screen-off timeout the group
+     * dozes, a non-default group cannot dream, so the display goes STATE_OFF and stays there, since
+     * wake-ups (power key, PowerManager.wakeUp, an App launch) address the default group (BUG-0044).
+     * The host therefore holds, for the screen's lifetime, a screen wake lock tied to its display
+     * ({@code PowerManager.newWakeLock(flags, tag, displayId)}, hidden): SCREEN_BRIGHT_WAKE_LOCK keeps
+     * the group awake and ACQUIRE_CAUSES_WAKEUP wakes it when acquired. Mirrors the public, stable
+     * PowerManager constants.
+     */
+    static final int SCREEN_BRIGHT_WAKE_LOCK = 0x0000000a, ACQUIRE_CAUSES_WAKEUP = 0x10000000;
+    static final int SCREEN_WAKE_FLAGS = SCREEN_BRIGHT_WAKE_LOCK | ACQUIRE_CAUSES_WAKEUP;
+
+    /**
+     * A capture that finds the screen off first wakes it again (re-acquiring the wake lock) and keeps
+     * waiting for this long from the request, retrying each tick; only then is it SCREEN_OFF. Well
+     * inside the 5 s a capture caller waits.
+     */
+    static final long WAKE_GRACE_MS = 2_000, REWAKE_INTERVAL_MS = 1_000;
+
+    /** Whether an off-screen capture [ageMs] old should wait for the screen to wake rather than fail. */
+    static boolean awaitWake(long ageMs) {
+        return ageMs >= 0 && ageMs < WAKE_GRACE_MS;
+    }
+
+    /** Whether to re-acquire the wake lock now, at most once per interval while a capture waits. */
+    static boolean rewakeDue(long nowMs, long lastRewakeMs) {
+        return lastRewakeMs <= 0 || nowMs - lastRewakeMs >= REWAKE_INTERVAL_MS;
+    }
+
     /** Hidden DisplayManager flags a trusted independent screen cannot work without. */
     static final String[] REQUIRED_FLAGS = {
         "VIRTUAL_DISPLAY_FLAG_TRUSTED", "VIRTUAL_DISPLAY_FLAG_OWN_FOCUS", "VIRTUAL_DISPLAY_FLAG_STEAL_TOP_FOCUS_DISABLED"};

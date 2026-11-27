@@ -11,6 +11,8 @@ import android.net.LocalServerSocket;
 import android.net.LocalSocket;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.PowerManager;
+import android.os.SystemClock;
 import android.view.Display;
 import java.io.*;
 import java.nio.ByteBuffer;
@@ -43,8 +45,12 @@ public final class VirtualDisplayHost {
     static Handler mainHandler;
     static final Object captureLock=new Object();
     static volatile CaptureRequest pendingCapture;
+    /** Keeps this screen's own power group awake for its lifetime (BUG-0044); null if unavailable. */
+    static PowerManager.WakeLock screenWake;
+    static long lastRewakeAt;
     static final class CaptureRequest {
         final String id=UUID.randomUUID().toString();
+        final long createdAt=SystemClock.elapsedRealtime();
         final CountDownLatch done=new CountDownLatch(1);
         volatile JSONObject result;
         volatile Exception error;
@@ -54,6 +60,31 @@ public final class VirtualDisplayHost {
         try { Field f=DisplayManager.class.getDeclaredField(name); f.setAccessible(true); return f.getInt(null); }
         catch (Exception e) { return 0; }
     }
+    /**
+     * A screen wake lock tied to [displayId] keeps the screen's own power group awake (its idle
+     * timeout would otherwise turn it STATE_OFF under the Agent) and wakes it now. Hidden API; a
+     * platform without it keeps the SCREEN_OFF error path.
+     */
+    static void keepScreenAwake(Context ctx, int displayId) {
+        try {
+            PowerManager power=ctx.getSystemService(PowerManager.class);
+            PowerManager.WakeLock lock=(PowerManager.WakeLock)PowerManager.class
+                .getMethod("newWakeLock",int.class,String.class,int.class)
+                .invoke(power,ScreenGuard.SCREEN_WAKE_FLAGS,"taku:independent-screen:"+slot.key,displayId);
+            lock.setReferenceCounted(false);
+            lock.acquire();
+            screenWake=lock;
+        } catch(Exception e) { System.err.println("screen wake lock unavailable: "+e); }
+    }
+    /** Wakes the screen's group again: acquiring with ACQUIRE_CAUSES_WAKEUP is what wakes it. */
+    static void rewakeScreen() {
+        PowerManager.WakeLock lock=screenWake;
+        if(lock==null)return;
+        long now=SystemClock.elapsedRealtime();
+        if(!ScreenGuard.rewakeDue(now,lastRewakeAt))return;
+        lastRewakeAt=now;
+        try { lock.release(); lock.acquire(); } catch(RuntimeException e) { System.err.println("screen wake: "+e); }
+    }
     static void write(File file, String text) throws Exception {
         File temp=new File(file.getPath()+".tmp");
         try(FileOutputStream out=new FileOutputStream(temp)){out.write(text.getBytes(StandardCharsets.UTF_8));}
@@ -62,7 +93,8 @@ public final class VirtualDisplayHost {
     static int coordinate(String value,int limit){return Math.max(0,Math.min(limit-1,Integer.parseInt(value)));}
     static JSONObject status()throws Exception {
         return new JSONObject(info.toString()).put("frameAt",frameAt).put("frameElapsedMs",frameElapsedMs)
-            .put("frameSequence",frameSequence).put("transport","android-local-socket");
+            .put("frameSequence",frameSequence).put("transport","android-local-socket")
+            .put("keptAwake",screenWake!=null&&screenWake.isHeld());
     }
     static void requireGeneration(String expected)throws IOException {
         DisplaySlot.requireSameGeneration(expected,generation);
@@ -135,6 +167,7 @@ public final class VirtualDisplayHost {
         VirtualDisplay vd=manager.createVirtualDisplay(slot.name,WIDTH,HEIGHT,DENSITY,reader.getSurface(),flags);
         if(vd==null)throw new IOException("createVirtualDisplay returned null");
         Display display=vd.getDisplay();displayId=display.getDisplayId();
+        keepScreenAwake(ctx,displayId);
         info=new JSONObject().put("displayId",displayId).put("name",display.getName()).put("width",WIDTH).put("height",HEIGHT).put("density",DENSITY).put("flags",flags).put("uid",android.os.Process.myUid()).put("pid",android.os.Process.myPid()).put("mirrorSocket",SOCKET)
             .put("screenKey",slot.key).put("generation",generation).put("stateDirectory",DIR.getPath());
         startServer();write(new File(DIR,"display.json"),info.toString(2));write(new File(DIR,"display.id"),Integer.toString(displayId));
@@ -147,6 +180,11 @@ public final class VirtualDisplayHost {
             // An off/dozing screen renders nothing current and a pure-black frame is never a page:
             // fail with a retryable code rather than hand the Agent a black image (BUG-0034).
             int state=display.getState();
+            if(!ScreenGuard.screenOn(state)){
+                // Wake the screen and retry on the next tick or frame before calling it off (BUG-0044).
+                long age=pending!=null?SystemClock.elapsedRealtime()-pending.createdAt:System.currentTimeMillis()-request.lastModified();
+                if(screenWake!=null && ScreenGuard.awaitWake(age)){rewakeScreen();return;}
+            }
             try{ScreenGuard.requireScreenOn(state);ScreenGuard.requireNotBlack(latestBlack[0]);}
             catch(IOException refused){if(pending==null)request.delete();throw refused;}
             File temp=new File(DIR,"screen.png.tmp");
@@ -158,7 +196,7 @@ public final class VirtualDisplayHost {
                 .put("capturedAt",System.currentTimeMillis()).put("frameAt",frameAt)
                 .put("frameElapsedMs",saved[0]).put("frameAgeMs",android.os.SystemClock.elapsedRealtime()-saved[0])
                 .put("frameSequence",sequence[0]).put("captureRequestId",pending==null?"legacy":pending.id)
-                .put("displayState",ScreenGuard.stateName(state));
+                .put("displayState",ScreenGuard.stateName(state)).put("keptAwake",screenWake!=null&&screenWake.isHeld());
             write(new File(DIR,"capture.json"),result.toString());
             request.delete();
             if(pending!=null){pending.result=result;pending.done.countDown();if(pendingCapture==pending)pendingCapture=null;}
@@ -191,6 +229,7 @@ public final class VirtualDisplayHost {
                 try {
                     try { server.close(); } catch(IOException e) { System.err.println("socket close: "+e); }
                     input.shutdownNow();
+                    if(screenWake!=null){try{screenWake.release();}catch(RuntimeException e){System.err.println("screen wake release: "+e);}}
                     try { vd.release(); } catch(RuntimeException e) { System.err.println("display release: "+e); }
                     try { reader.close(); } catch(RuntimeException e) { System.err.println("reader close: "+e); }
                     if(latest[0]!=null)latest[0].recycle();

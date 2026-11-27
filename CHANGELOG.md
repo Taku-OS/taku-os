@@ -4,6 +4,7 @@ Versioned, user-facing records. Source-project versions are distinct from ROM re
 
 ## Unreleased
 
+- Keep each background screen awake while it exists. It no longer turns off after the screen-off timeout while the Agent is working, so observing an app it just opened no longer keeps failing with `SCREEN_OFF`.
 - Reorganize Taku BScreen into active workspaces, settings, and app permissions. Adjust the workspace limit directly with minus and plus buttons.
 - Keep the Taku Home BScreen handle visible while its preview cards open and collapse.
 - Keep ready BScreen workspaces and their Home previews after a read-only follow-up. Taku BScreen settings offer optional automatic closing when the configured Jev route confirms the entire screen is finished. The option respects the Taku AI Jev switch.

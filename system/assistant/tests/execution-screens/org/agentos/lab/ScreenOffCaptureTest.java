@@ -15,7 +15,8 @@ import org.json.JSONObject;
  * black screenshots, concluded the page was empty and gave up. Covers both layers: the screen is
  * created in its own display group (root cause), and an off screen or a pure-black frame becomes a
  * clear retryable SCREEN_OFF / SCREEN_BLACK_FRAME error instead of an image (fallback) — without
- * ever flagging a dark-mode App.
+ * ever flagging a dark-mode App. BUG-0044: the screen's own power group is kept awake and woken
+ * again before a capture gives up.
  */
 public final class ScreenOffCaptureTest {
     private static int checks;
@@ -192,12 +193,37 @@ public final class ScreenOffCaptureTest {
         }
     }
 
+    /**
+     * BUG-0044: the screen's own power group timed out while the Agent thought and stayed STATE_OFF,
+     * even on a newly allocated screen. The host keeps that group awake with a display-scoped screen
+     * wake lock, and a capture finding it off wakes it and waits before reporting SCREEN_OFF.
+     */
+    static void keepAwake() {
+        check(ScreenGuard.SCREEN_BRIGHT_WAKE_LOCK == 0x0000000a, "SCREEN_BRIGHT_WAKE_LOCK value (PowerManager)");
+        check(ScreenGuard.ACQUIRE_CAUSES_WAKEUP == 0x10000000, "ACQUIRE_CAUSES_WAKEUP value (PowerManager)");
+        check((ScreenGuard.SCREEN_WAKE_FLAGS & 0xffff) == ScreenGuard.SCREEN_BRIGHT_WAKE_LOCK, "a screen-level lock keeps the group awake");
+        check((ScreenGuard.SCREEN_WAKE_FLAGS & ScreenGuard.ACQUIRE_CAUSES_WAKEUP) != 0, "acquiring it wakes the group");
+        check(ScreenGuard.awaitWake(0), "a new off-screen capture waits for the wake");
+        check(ScreenGuard.awaitWake(ScreenGuard.WAKE_GRACE_MS - 1), "still waiting just inside the grace");
+        check(!ScreenGuard.awaitWake(ScreenGuard.WAKE_GRACE_MS), "after the grace it is SCREEN_OFF");
+        check(!ScreenGuard.awaitWake(-1), "a clock going backwards does not wait forever");
+        check(ScreenGuard.WAKE_GRACE_MS < 5_000, "the grace fits inside the 5 s capture wait");
+        check(ScreenGuard.rewakeDue(10_000, 0), "the first off capture re-wakes at once");
+        check(!ScreenGuard.rewakeDue(10_500, 10_000), "no re-wake storm on every 200 ms tick");
+        check(ScreenGuard.rewakeDue(11_000, 10_000), "re-wakes again after the interval");
+    }
+
     /** The device host is wired to the guard (it needs Android and cannot run on the host). */
     static void hostWiring() throws Exception {
         String host = Files.readString(Path.of("system/display/src/org/agentos/lab/VirtualDisplayHost.java"));
         check(host.contains("ScreenGuard.virtualDisplayFlags("), "VirtualDisplayHost composes its flags through ScreenGuard");
         check(host.contains("ScreenGuard.requireScreenOn(") && host.contains("display.getState()"), "capture checks the display state");
         check(host.contains("ScreenGuard.isBlackRgba(") && host.contains("ScreenGuard.requireNotBlack("), "capture checks for a black frame");
+        check(host.contains("\"newWakeLock\",int.class,String.class,int.class") && host.contains("ScreenGuard.SCREEN_WAKE_FLAGS"),
+                "the host holds a screen wake lock tied to its display");
+        check(host.indexOf("keepScreenAwake(ctx,displayId)") > host.indexOf("createVirtualDisplay("), "the lock is taken once the display exists");
+        check(host.contains("ScreenGuard.awaitWake(") && host.contains("rewakeScreen()"), "an off-screen capture wakes the screen before failing");
+        check(host.contains("screenWake.release()"), "the lock is released when the screen stops");
         String tools = Files.readString(Path.of("system/assistant/broker/org/agentos/lab/PhoneNativeTools.java"));
         check(tools.contains("PhoneExecutionScreens.captureFailure("), "observe_background maps capture refusals");
     }
@@ -208,6 +234,7 @@ public final class ScreenOffCaptureTest {
         blackFrames();
         brokerErrors();
         validateCapture();
+        keepAwake();
         hostWiring();
         System.out.println("ScreenOffCaptureTest: " + checks + " checks passed");
     }
