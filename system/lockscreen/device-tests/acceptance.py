@@ -17,9 +17,11 @@ timings are printed as INFO, not counted as passes: compare the screenshots with
 import argparse
 import json
 import pathlib
+import re
 import subprocess
 import sys
 import time
+import xml.etree.ElementTree as ET
 
 PIN = '1590'
 TAKU_HOME = 'org.agentos.agent/.home.HomeActivity'
@@ -103,6 +105,51 @@ def restore_selections(device, original):
             device.lockscreen('shortcuts', 'set', slot, shortcut)
 
 
+def date_suite(device, checks, name):
+    """Inspect the actual accessible Keyguard tree, independent of date locale or notification text."""
+    selection = device.shell('settings get secure lock_screen_custom_clock_face')
+    if 'TAKU' not in selection:
+        checks.skip(f'{name}: single Taku date', 'Taku clock is not explicitly selected')
+        return
+    device.shell('input keyevent KEYCODE_WAKEUP')
+    path = '/data/local/tmp/taku-lockscreen-date.xml'
+    device.shell(f'uiautomator dump {path}')
+    xml = device.shell(f'cat {path}')
+    (device.out / f'{name}-date.xml').write_text(xml + '\n')
+    tree = ET.fromstring(xml)
+    roots = [node for node in tree.iter('node')
+             if node.get('resource-id') == 'com.android.systemui:id/keyguard_root_view']
+    checks.check(f'{name}: Keyguard tree present', len(roots) == 1)
+    if len(roots) != 1:
+        return
+    root = roots[0]
+    stock_ids = {'keyguard_slice_view', 'date_smartspace_view', 'date_smartspace_view_large',
+                 'weather_smartspace_view', 'weather_smartspace_view_large'}
+    duplicates = [n.attrib for n in root.iter('node')
+                  if n.get('resource-id', '').split('/')[-1] in stock_ids]
+    checks.check(f'{name}: stock dates hidden', not duplicates, duplicates)
+    # TakuClockFaceView exposes its localized date as a direct TextView child, and date + time
+    # as its content description. This excludes notification titles and the status-bar clock.
+    dates = [child for face in root if face.get('class') == 'android.widget.LinearLayout'
+             for child in face if child.get('class') == 'android.widget.TextView'
+             and child.get('text') and face.get('content-desc', '').startswith(child.get('text'))]
+    checks.check(f'{name}: exactly one Taku date', len(dates) == 1, [n.attrib for n in dates])
+    if len(dates) == 1:
+        density = int(re.findall(r'density:\s*(\d+)', device.shell('wm density'))[-1]) / 160
+        top = int(re.match(r'\[\d+,(\d+)\]', dates[0].get('bounds'))[1]) / density
+        checks.check(f'{name}: date at design top 76dp', abs(top - 76) <= 2, {'topDp': top})
+        clocks = [child for face in root if face.get('class') == 'android.widget.LinearLayout'
+                  for child in face if child.get('class') == 'android.view.View'
+                  and re.fullmatch(r'\d{1,2}:\d{2}', child.get('content-desc', ''))]
+        checks.check(f'{name}: exactly one clock', len(clocks) == 1)
+        if len(clocks) == 1:
+            _, y1, _, y2 = map(int, re.findall(r'\d+', clocks[0].get('bounds')))
+            height = (y2 - y1) / density
+            expected = 320 if device.lockscreen('state')['state']['clockSize'] == 'large' else 87.36
+            checks.check(f'{name}: clock at design height', abs(height - expected) <= 1,
+                         {'heightDp': height, 'expectedDp': expected})
+
+
 def shortcuts_suite(device, checks):
     listing = device.lockscreen('shortcuts')
     checks.check('shortcuts list ok', listing.get('ok'), listing)
@@ -177,6 +224,7 @@ def authenticated_suite(device, checks):
                      state.get('keyguardShowing') and state.get('authenticated'), state)
         checks.check('compact clock when authenticated', state.get('clockSize') == 'small', state)
         checks.check('swipe lock: no padlock in the island', state.get('lockStatus', {}).get('status') is None, state)
+        date_suite(device, checks, 'authenticated')
         listing = device.lockscreen('notifications')
         card = next((n for n in listing.get('notifications', []) if n.get('title') == 'Taku acceptance'), None)
         checks.check('posted notification is a card', card is not None, listing)
@@ -214,6 +262,7 @@ def first_unlock_suite(device, checks):
         checks.check('locked: closed padlock in the island', state.get('lockStatus') == {'status': 'locked', 'visible': True}, state)
         checks.check('locked: no cards', device.lockscreen('notifications').get('notifications') == [])
         checks.check('locked: Taku refused', device.lockscreen('taku').get('error') == 'LOCKED')
+        date_suite(device, checks, 'locked')
         print(f"INFO screenshot {device.screenshot('locked')}")
         device.shell('wm dismiss-keyguard', check=False)
         time.sleep(1.5)

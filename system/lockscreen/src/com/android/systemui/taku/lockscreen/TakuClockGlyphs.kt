@@ -1,13 +1,21 @@
 package com.android.systemui.taku.lockscreen
 
 import android.graphics.Path
+import android.graphics.Paint
 
 /** Native counterpart of the designer's clockPath(k): 0 tall, 1 compact. */
 internal object TakuClockGlyphs {
     const val CELL_HEIGHT = 320f
     const val COMPACT_HEIGHT = 87.36f
-    data class Contour(val compact: FloatArray, val tall: FloatArray)
-    data class Glyph(val compactAdvance: Float, val contours: List<Contour>)
+    data class Contour(val compact: FloatArray, val tall: FloatArray, val closed: Boolean = true)
+    data class Glyph(val compactAdvance: Float, val contours: List<Contour>, val stroke: Boolean = false)
+    // UI-thread scratch objects, reused by all clock views; no per-frame allocations.
+    private val outline = Path()
+    private val pen = Paint().apply {
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.BUTT
+        strokeJoin = Paint.Join.ROUND
+    }
 
     fun advance(char: Char, progress: Float): Float {
         val glyph = TakuClockContours.glyphs[char] ?: return 0f
@@ -29,13 +37,21 @@ internal object TakuClockGlyphs {
             val b = contour.tall
             fun at(i: Int) = b[i] + (a[i] - b[i]) * progress
             out.moveTo(at(0), at(1))
-            val count = a.size / 6
+            val count = if (contour.closed) a.size / 6 else (a.size - 2) / 6
             for (segment in 0 until count) {
                 val offset = 2 + segment * 6
-                val end = if (segment == count - 1) 0 else offset + 4
+                val end = if (contour.closed && segment == count - 1) 0 else offset + 4
                 out.cubicTo(at(offset), at(offset+1), at(offset+2), at(offset+3), at(end), at(end+1))
             }
-            out.close()
+            if (contour.closed) out.close()
+        }
+        if (glyph.stroke) {
+            // Offset the interpolated centre line, not independently stretched inner/outer
+            // contours. Curves and diagonals keep the same normal width as straight stems.
+            pen.strokeWidth = 14f + (10.08f - 14f) * progress
+            pen.getFillPath(out, outline)
+            out.set(outline)
+            out.fillType = Path.FillType.WINDING
         }
     }
 }

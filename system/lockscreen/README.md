@@ -85,7 +85,7 @@ shortcut) to compare with Figma.
 ## Patch
 
 `src/` goes into `frameworks/base/packages/SystemUI/src/` through `image/lockscreen/`, an exact-revision
-patch with SHA-256 hashes for every file. Ten upstream hooks are anchored edits (nine sources and the SystemUI manifest). Each must match exactly once.
+patch with SHA-256 hashes for every file. Eleven upstream hooks are anchored edits (ten sources and the SystemUI manifest). Each must match exactly once.
 The manifest edit is layered on the island patch's final bytes (`layeredOn: island`). Both apply scripts
 accept the combined result, and `tests/lockscreen-island-integration.test.py` checks the build order and
 every re-run against the pinned upstream files.
@@ -104,17 +104,23 @@ python3 system/lockscreen/typecheck.py --kotlinc KOTLINC --android-jar ANDROID_J
 ## Verification status
 
 - Host: the type check compiles all owned source against `android.jar`, with narrow doubles of the
-  SystemUI APIs and of the three island classes it uses. The patch applies cleanly (`git apply --check`) to the pinned upstream files.
-- Not yet done: the SystemUI module build, a ROM build, the emulator run and the Pixel 9 run.
-  `lockscreen-integration.json` reports these as `false` until they are recorded. The authentication
-  matrix in the spec is the acceptance list.
+  SystemUI APIs and the three island classes it uses. The patch applies cleanly (`git apply --check`) to the pinned upstream files.
+- Clock/date/wallpaper fixes were verified on 2026-11-26 in a full ARM64 SystemUI module build
+  installed on `emulator-5596`, before integration with the island lock-status commit.
+  Targeted regressions pass for the single top date, 76 dp date position, 320 dp tall clock,
+  stock/Taku clock switching, PIN lock/unlock, 12 wallpaper changes and 10 sleep/wake cycles.
+  The native digit harness passes 36,000 path checks, 430 raster topology checks, and forward,
+  reverse and interrupted transitions. The latest digit revision adds actual stroke-width and zero-padded-hour regressions.
+- The combined island lock-status revision still needs a full SystemUI build and device acceptance.
+- Still separate: a full ROM build, Pixel 9 hardware and the complete biometric/authentication matrix
+  in the spec. The patch application tool's `lockscreen-integration.json` only describes patch
+  integration; it does not certify a module build or device acceptance.
 - Agent interfaces: the `taku-open-access` skill documents the clock face, face bypass, the stock
   notification settings and `cmd statusbar lockscreen` (state including `lockStatus`, notifications,
   open, dismiss, action, taku, shortcuts).
 
 ## Open items
 
-- Design sign-off for the seven font-derived elongated digits; the handoff only supplies 0, 3, 9.
 - Run `device-tests/acceptance.py` (with `--first-unlock`) on the emulator. It covers shortcut
   defaults and selection, the Open app target, cards, dismissal, the Taku button, the locked state and
   first unlock.

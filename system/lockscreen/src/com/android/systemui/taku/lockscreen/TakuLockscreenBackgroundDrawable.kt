@@ -4,6 +4,7 @@ import android.app.WallpaperColors
 import android.app.WallpaperManager
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.ColorFilter
@@ -17,11 +18,13 @@ import android.graphics.RenderNode
 import android.graphics.RuntimeShader
 import android.graphics.Shader
 import android.graphics.drawable.Drawable
+import android.graphics.drawable.BitmapDrawable
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.util.TypedValue
 import java.util.concurrent.Executor
+import java.io.IOException
 
 /**
  * The lock screen's background layer (Figma 979:430 and 979:451), drawn above the wallpaper window:
@@ -79,6 +82,11 @@ class TakuLockscreenBackgroundDrawable(
         attached = false
         wallpaperManager?.removeOnColorsChangedListener(colorsListener)
         generation++
+        wallpaper = null
+        bar.discardDisplayList()
+        page.discardDisplayList()
+        blurred.discardDisplayList()
+        dirty = true
     }
 
     override fun onBoundsChange(bounds: Rect) {
@@ -94,8 +102,10 @@ class TakuLockscreenBackgroundDrawable(
         val user = userId()
         background.execute {
             val bitmap = try {
-                manager.getBitmapAsUser(user, false, WallpaperManager.FLAG_LOCK)
-                    ?: manager.getBitmapAsUser(user, false, WallpaperManager.FLAG_SYSTEM)
+                loadWallpaper(manager, user)
+            } catch (error: IOException) {
+                Log.w(TAG, "Lock wallpaper could not be decoded", error)
+                null
             } catch (error: RuntimeException) {
                 Log.w(TAG, "Lock wallpaper unavailable", error)
                 null
@@ -107,6 +117,22 @@ class TakuLockscreenBackgroundDrawable(
                 invalidateSelf()
             }
         }
+    }
+
+    private fun loadWallpaper(manager: WallpaperManager, user: Int): Bitmap? {
+        // WallpaperManager's bitmap cache is shared with ImageWallpaper. Its renderer can recycle
+        // that bitmap while our RenderNode still references it, aborting SystemUI in native code.
+        // Decode our own pixels from a descriptor instead; never recycle them while RenderThread
+        // may still hold a display list from the previous frame. Normal GC owns their lifetime.
+        for (which in intArrayOf(WallpaperManager.FLAG_LOCK, WallpaperManager.FLAG_SYSTEM)) {
+            // A separate live lock wallpaper must not be covered by the static home wallpaper.
+            if (manager.getWallpaperInfo(which, user) != null) return null
+            manager.getWallpaperFile(which, user)?.use { file ->
+                return BitmapFactory.decodeFileDescriptor(file.fileDescriptor)
+            }
+        }
+        // No custom static file: this API decodes a fresh default drawable, outside the shared cache.
+        return (manager.builtInDrawable as? BitmapDrawable)?.bitmap
     }
 
     override fun draw(canvas: Canvas) {

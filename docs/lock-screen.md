@@ -92,6 +92,12 @@ Same pattern as the Dynamic Island (`system/island`, `image/island`):
 - Overlay (`979:430`): blur 24 over the wallpaper and a vertical gradient `rgba(0,0,0,0.48)` →
   `rgba(0,0,0,0.08)`. Because the wallpaper is static, the blurred copy is computed once per wallpaper change
   (not a live blur).
+- The drawable decodes its own bitmap from `WallpaperManager.getWallpaperFile(which, userId)`
+  and closes the descriptor. It must not retain `getBitmapAsUser`'s shared cache: ImageWallpaper can
+  recycle those pixels while a RenderNode still uses them, causing a native SystemUI abort. Old
+  snapshots are garbage-collected, never explicitly recycled; detach releases the display lists.
+  A separate live lock wallpaper stays uncovered; static lock wallpaper falls back to home, then
+  a freshly decoded built-in default when no custom file exists.
 - Bottom bar (`979:451`): 176 dp tall, blur 12, with the "Taku · Edge Refraction" shader (dispersion 0.4,
   flare 0.4). The Figma WGSL is ported line for line to AGSL and applied as a `RenderEffect` runtime shader.
 - Drawn as the keyguard root's background drawable, not as a child view. SystemUI's burn-in model
@@ -105,25 +111,33 @@ Same pattern as the Dynamic Island (`system/island`, `image/island`):
   76 dp from the top (below the status bar); 24 dp above the clock.
 - Localised long date ("Tuesday, Oct 29" / "10月29日 周二"), updated on time, date, time-zone and locale
   changes.
-- While the Taku clock is current, `TakuStockDateSection` keeps the stock smartspace date and weather
-  views GONE, so there is only the design's centred date. It does this in the constraint set (after the
-  smartspace section) and after every layout. Other clock faces keep the stock date.
+- While the Taku clock is current, `TakuStockDateSection` keeps the stock Smartspace date/weather
+  views and Lineage's legacy `keyguard_slice_view` GONE, so there is only the design's centred date.
+  The legacy Slice is used when no Smartspace provider exists. Both are suppressed in the constraint
+  set (after the stock sections) and after every layout, for tall and compact clocks. Switching to
+  another clock or removing the section restores the original visibility; no alpha override leaks
+  into the stock clock.
 
 ### 4.3 Clock
 
-- Both sizes use native Kotlin `Path`/`Canvas` outlines from Space Grotesk at the compact endpoint.
+- Both sizes use native Kotlin `Path`/`Canvas` outlines with Space Grotesk proportions.
   The tall endpoint is 320 dp; the supplied `09:30` layout is 316 dp wide. Other times follow their
   glyph advances and fit constrained widths uniformly.
+- `KeyguardRootViewBinder` normalizes the stock large clock's 0.9 awake scale for Taku only.
+  This keeps the actual tall clock at 320 dp and the date at 76 dp, rather than scaling the entire
+  face around its centre (288 dp clock, date shifted to about 94 dp). AOD's relative shrink and
+  translations remain intact, as do other clock faces' stock scaling.
 - The designer's `clock-height-morph` contours for 0, 3, 9 and the colon are preserved. Digits
-  1, 2, 4, 5, 6, 7 and 8 now derive from the existing font with explicit vertical landmarks instead
-  of placeholder centrelines. These additional elongated shapes need design sign-off.
+  6 rotates the authored 9; 1, 2, 4, 5, 7 and 8 interpolate cubic centre lines before native
+  constant-width outlining (14 px tall, 10.08 px compact). Curves retain normal stroke width,
+  and the two bowls of 8 share one waist without a stretched bridge.
 - Native `TakuClockSizeTransition` morphs corresponding cubic control points, not a `scaleY` of text.
   It uses the handoff's spring (0.78, 9), 720 ms to compact, 1050 ms to tall, and opacity 0.5888 → 0.64.
   Android's animator duration scale is respected, including 0 (no motion). No JS/WebView runs on device.
 - The clock is registered as `TAKU` with SystemUI's `ClockRegistry`. Selection is the stock
   `Settings.Secure.LOCK_SCREEN_CUSTOM_CLOCK_FACE` JSON, readable/writable through `settings`.
 - Time and date follow device time, 12/24-hour preference and time zone. The date is localized;
-  clock digits deliberately remain Latin 0–9, as in the phase-1 implementation.
+  clock digits remain Latin 0–9 and both 12/24-hour modes zero-pad the hour (`09:51`).
 - The morph hooks the existing blueprint large/small-clock transition, only for TAKU; stock clock
   transitions remain unchanged.
 - Size follows authentication, not notifications (phase 2). The clock is tall while locked and compact
@@ -310,7 +324,6 @@ revision; emulator (`image/emulator`) and Pixel 9 runs recorded separately. Auth
 
 ## 9. Open items
 
-- Visual sign-off of the font-derived elongated digits 1, 2, 4, 5, 6, 7, 8.
 - Pixel 9 UDFPS sensor position (runtime value; check with `dumpsys fingerprint`); deferred. The Taku
   button and the stock fingerprint icon are placed independently until then.
 - Lock status in the island (4.8): not yet run on an emulator or device. Check the capsule position

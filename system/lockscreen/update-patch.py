@@ -29,6 +29,17 @@ ISLAND = ROOT / 'image/island'
 # scripts accept the layered result.
 LAYERED = {'packages/SystemUI/AndroidManifest.xml': 'island'}
 HOOKS = {
+    SYSTEMUI + 'com/android/systemui/keyguard/ui/binder/KeyguardRootViewBinder.kt': [
+        ('import com.android.systemui.res.R\n',
+         'import com.android.systemui.res.R\n'
+         f'import {PKG}.TakuLockscreenPolicy\n'),
+        ('                                    it.scaleX = scaleViewModel.scale\n'
+         '                                    it.scaleY = scaleViewModel.scale\n',
+         '                                    // Taku uses final-size outlines; preserve relative AOD scaling.\n'
+         '                                    val scale = TakuLockscreenPolicy.clockScale(it, scaleViewModel.scale)\n'
+         '                                    it.scaleX = scale\n'
+         '                                    it.scaleY = scale\n'),
+    ],
     SYSTEMUI + 'com/android/systemui/keyguard/ui/view/layout/sections/transitions/ClockSizeTransition.kt': [
         ('import android.animation.Animator\n',
          'import android.animation.Animator\n'

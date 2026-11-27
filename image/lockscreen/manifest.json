@@ -3,7 +3,7 @@
   "repository": "frameworks/base",
   "revision": "7f6de40b6429462d47ba9ba351b99943269c8067",
   "patch": "systemui-lockscreen.patch",
-  "patchSha256": "ab0c2c72a3dec415f9b2fcef1db81f3d6130740f6dae2dfcd199b807108afee1",
+  "patchSha256": "661b53809086aec30b83384311e52b9163878ea937a8b9577a21765b7f2c04e7",
   "files": [
     {
       "path": "packages/SystemUI/AndroidManifest.xml",
@@ -37,6 +37,11 @@
       "afterSha256": "e0aeb7e002e7b66280dc4e936b089b1e953c84a29478e9115bbb81d260fbda0e"
     },
     {
+      "path": "packages/SystemUI/src/com/android/systemui/keyguard/ui/binder/KeyguardRootViewBinder.kt",
+      "beforeSha256": "14f3452e8f89da0492e4070d03f93e8591b9a0e8c6f12226f8e41691982964b1",
+      "afterSha256": "8f9d696da4cdf27130836768f47328eebf851e929d22921ce531ffc8a5fdfeee"
+    },
+    {
       "path": "packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/blueprints/KeyguardBlueprintModule.kt",
       "beforeSha256": "e321f1e96551ad69c295d5a719c2bb8ead8320d449c8feb11fb5e7cf20470531",
       "afterSha256": "9a96ccc6bae38fccada3c20e5bfebd5eaf3adc1bfd06c5fd8a5deac6befb8c71"
@@ -65,7 +70,7 @@
     {
       "path": "packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuClockContours.kt",
       "beforeSha256": null,
-      "afterSha256": "01e71a2b2d74f3dba517e186370d75c5cb2a177879f11140817faea1d9f11a21",
+      "afterSha256": "8ebdb3d5f0956388c7675e505ec400689ee38c2e49bf682b67ba2073ee1a768d",
       "source": "system/lockscreen/src/com/android/systemui/taku/lockscreen/TakuClockContours.kt"
     },
     {
@@ -77,13 +82,13 @@
     {
       "path": "packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuClockFaceView.kt",
       "beforeSha256": null,
-      "afterSha256": "8377bd1cbad60bafdf33e7a5275cd64e7ccc40ec3aa0e1d071d61da77707fc33",
+      "afterSha256": "3cde950b83712875094f439221dbe16059bb6e092efdd9022874ab476bc4ca15",
       "source": "system/lockscreen/src/com/android/systemui/taku/lockscreen/TakuClockFaceView.kt"
     },
     {
       "path": "packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuClockGlyphs.kt",
       "beforeSha256": null,
-      "afterSha256": "d9fb1f0beb42025bc98fbd695eacdaeaaefe475e5db68a59669f3b3502062a30",
+      "afterSha256": "cdff931898544c925efd508da22879a2bb15ac27f95c0c8e61e09449eb99b7a8",
       "source": "system/lockscreen/src/com/android/systemui/taku/lockscreen/TakuClockGlyphs.kt"
     },
     {
@@ -107,7 +112,7 @@
     {
       "path": "packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuKeyguardBlueprint.kt",
       "beforeSha256": null,
-      "afterSha256": "09fde63c0fa4393b8b306587746d710a6150596354989f3946d2ec4f975819bd",
+      "afterSha256": "e1f9127db18c95b41668377714fcf706359124c65a9a46947cd13ae8d8d57833",
       "source": "system/lockscreen/src/com/android/systemui/taku/lockscreen/TakuKeyguardBlueprint.kt"
     },
     {
@@ -119,7 +124,7 @@
     {
       "path": "packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuLockscreenBackgroundDrawable.kt",
       "beforeSha256": null,
-      "afterSha256": "1007d8b9aa00da399971e6b48cc945f4a8420f8fcf7f544ec28e4faa7374c8d7",
+      "afterSha256": "6b74e2f714a109c1806ec0ec342c43253596dde4186fa0f13e7957e15d46374e",
       "source": "system/lockscreen/src/com/android/systemui/taku/lockscreen/TakuLockscreenBackgroundDrawable.kt"
     },
     {

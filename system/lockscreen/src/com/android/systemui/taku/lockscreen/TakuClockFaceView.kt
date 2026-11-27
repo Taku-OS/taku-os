@@ -77,7 +77,7 @@ class TakuClockFaceView(context: Context, val isLarge: Boolean) : LinearLayout(c
     fun refresh(now: Date = Date()) {
         val datePattern = DateFormat.getInstanceForSkeleton("EEEEMMMd", locale).let { (it as? SimpleDateFormat)?.toPattern() } ?: "EEEE, MMM d"
         date.text = SimpleDateFormat(datePattern, locale).apply { timeZone = this@TakuClockFaceView.timeZone }.format(now)
-        val timeText = SimpleDateFormat(if (is24Hour) "HH:mm" else "h:mm", Locale.ROOT)
+        val timeText = SimpleDateFormat(if (is24Hour) "HH:mm" else "hh:mm", Locale.ROOT)
             .apply { timeZone = this@TakuClockFaceView.timeZone }.format(now)
         clock.time = timeText
         contentDescription = "${date.text}, $timeText"

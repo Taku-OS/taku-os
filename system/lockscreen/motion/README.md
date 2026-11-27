@@ -8,13 +8,15 @@ Source: the designer's `taku-animation-handoff-10-15` handoff,
 `designer-0930.json` records the original contour arrays and source SHA-256.
 This source contains **09:30 only**, not a complete variable-height font.
 
-`generate.py` preserves those 0/3/9/colon contour pairs and adds 1/2/4/5/6/7/8 from
-the repository's Space Grotesk Regular. It converts the font's quadratic curves
-to cubics and extends each digit's stems/diagonals at explicit vertical landmarks,
-keeping caps, crossbars and counters. These seven tall endpoints are a derived
-extension and still need visual design sign-off; they are not additional designer
-artwork. Space Grotesk's OFL is in
-`system/assistant/design-system/licenses/SpaceGrotesk-OFL.txt`.
+`generate.py` preserves the supplied 0/3/9/colon contour pairs exactly. Six is the
+same authored nine rotated 180 degrees, retaining its bowl/stem junction. Digits
+1/2/4/5/7/8 use paired cubic centre lines: Android offsets the interpolated line
+at a uniform width (14 px tall, 10.08 px compact), so curves and diagonals cannot
+swell or pinch as independently stretched inner/outer contours did. Eight's bowls
+meet at one shared waist, with no inserted vertical bridge. Font advances remain
+from Space Grotesk Regular; its OFL is in
+`system/assistant/design-system/licenses/SpaceGrotesk-OFL.txt`. The additional
+shapes are native extensions of the handoff, not additional designer assets.
 
 Regenerate with Python and `fonttools==4.68.0`:
 
@@ -26,7 +28,8 @@ python3 system/lockscreen/update-patch.py --fetch
 
 Progress 0 is tall, 1 is compact. Every corresponding cubic control point is
 interpolated; `scaleY` is not used. Uniform fitting is only for constrained screen
-widths. Runtime uses the device time, time zone and 12/24-hour preference, not the
+widths. Both 12- and 24-hour formats pad the hour to two digits (`09:51`).
+Runtime uses the device time, time zone and 12/24-hour preference, not the
 handoff demo's fixed time or looping notifications.
 
 The native size transition replaces the stock two-face crossfade **for TAKU only**.
@@ -47,3 +50,14 @@ geometry, views and transition, substituting only SystemUI's two view IDs. It ch
 all 1,440 24-hour times and runs forward, reverse and interrupted transitions. Passing
 it verifies native rendering and transition cleanup, **not** Keyguard authentication,
 AOD, split shade or the complete SystemUI build.
+
+The harness also rasterizes each digit at 43 progress values (-0.025 through 1.025,
+including spring overshoot). Each glyph must remain inside the canvas, have one connected
+stroke region, and preserve its counters: one for 0/4/6/9, two for 8, none for the others.
+This catches clipping, broken stems and closing counters that bounding-box checks miss.
+Use `--ez digits true --ef progress 0` (tall) through `--ef progress 1` (compact) with
+`am start -n org.taku.test.clockmotion/.ClockMotionTestActivity` to inspect all ten digits.
+The harness also measures the rendered normal width of the 2 curve and 8 waist/stem
+at 21 progress values (147 samples, tolerance 0.65 px), and checks two-digit hours
+for all 24 hours in both 12- and 24-hour mode. Visual comparison remains necessary
+alongside geometry and raster checks.

@@ -13,11 +13,13 @@ import com.android.systemui.dagger.qualifiers.Background
 import com.android.systemui.keyguard.domain.interactor.KeyguardClockInteractor
 import com.android.systemui.keyguard.domain.interactor.KeyguardInteractor
 import com.android.systemui.keyguard.shared.model.ClockSize
+import com.android.systemui.keyguard.shared.model.BurnInModel
 import com.android.systemui.keyguard.shared.model.KeyguardBlueprint
 import com.android.systemui.keyguard.shared.model.KeyguardSection
 import com.android.systemui.keyguard.ui.view.layout.blueprints.DefaultKeyguardBlueprint
 import com.android.systemui.lifecycle.repeatWhenAttached
 import com.android.systemui.settings.UserTracker
+import com.android.systemui.res.R
 import com.android.systemui.shared.R as sharedR
 import java.util.concurrent.Executor
 import javax.inject.Inject
@@ -108,7 +110,7 @@ constructor(
 }
 
 /**
- * The Taku clock draws its own date (Figma 979:468), so the stock smartspace date and weather views
+ * The Taku clock draws its own date (Figma 979:468), so the stock Smartspace and legacy Slice dates
  * stay hidden while it is the current clock; other clock faces keep them. Placed after the stock
  * sections so its constraints win, and re-checked after every layout because the stock binder and
  * smartspace controller also change those views' visibility.
@@ -118,15 +120,27 @@ class TakuStockDateSection
 @Inject
 constructor(private val keyguardClockInteractor: KeyguardClockInteractor) : KeyguardSection() {
     private var root: ConstraintLayout? = null
+    private val stockVisibility = mutableMapOf<View, Int>()
     private val enforce = ViewTreeObserver.OnGlobalLayoutListener { root?.let(::hideStockDate) }
 
     private val takuClock: Boolean get() = keyguardClockInteractor.currentClock.value is TakuClockController
 
     private fun hideStockDate(constraintLayout: ConstraintLayout) {
-        if (!takuClock) return
-        for (id in STOCK_DATE_IDS) {
-            constraintLayout.findViewById<View>(id)?.takeIf { it.visibility != View.GONE }?.visibility = View.GONE
+        if (!takuClock) {
+            restoreStockDate()
+            return
         }
+        for (id in STOCK_DATE_IDS) {
+            constraintLayout.findViewById<View>(id)?.let { view ->
+                stockVisibility.putIfAbsent(view, view.visibility)
+                if (view.visibility != View.GONE) view.visibility = View.GONE
+            }
+        }
+    }
+
+    private fun restoreStockDate() {
+        for ((view, visibility) in stockVisibility) view.visibility = visibility
+        stockVisibility.clear()
     }
 
     override fun addViews(constraintLayout: ConstraintLayout) {}
@@ -134,25 +148,36 @@ constructor(private val keyguardClockInteractor: KeyguardClockInteractor) : Keyg
     override fun bindData(constraintLayout: ConstraintLayout) {
         if (root === constraintLayout) return
         root?.viewTreeObserver?.removeOnGlobalLayoutListener(enforce)
+        restoreStockDate()
         root = constraintLayout
+        hideStockDate(constraintLayout)
         constraintLayout.viewTreeObserver.addOnGlobalLayoutListener(enforce)
     }
 
     override fun applyConstraints(constraintSet: ConstraintSet) {
-        if (!takuClock) return
+        if (!takuClock) {
+            for ((view, visibility) in stockVisibility) constraintSet.setVisibility(view.id, visibility)
+            restoreStockDate()
+            return
+        }
+        root?.let(::hideStockDate)
         for (id in STOCK_DATE_IDS) {
             constraintSet.setVisibility(id, View.GONE)
-            constraintSet.setAlpha(id, 0f)
         }
     }
 
     override fun removeViews(constraintLayout: ConstraintLayout) {
         constraintLayout.viewTreeObserver.removeOnGlobalLayoutListener(enforce)
-        if (root === constraintLayout) root = null
+        if (root === constraintLayout) {
+            restoreStockDate()
+            root = null
+        }
     }
 
     private companion object {
         val STOCK_DATE_IDS = intArrayOf(
+            // Lineage without a Smartspace provider uses this instead of date_smartspace_view.
+            R.id.keyguard_slice_view,
             sharedR.id.date_smartspace_view,
             sharedR.id.date_smartspace_view_large,
             sharedR.id.weather_smartspace_view,
@@ -163,6 +188,15 @@ constructor(private val keyguardClockInteractor: KeyguardClockInteractor) : Keyg
 
 /** Taku lock-screen policy shared with the upstream hooks in `image/lockscreen`. */
 object TakuLockscreenPolicy {
+    /**
+     * Stock large clocks are designed for a 0.9 awake scale. Taku's outlines and top date already
+     * have their final Figma dimensions, so normalize that baseline while preserving AOD's relative
+     * shrink. Otherwise the 320 dp clock becomes 288 dp and the centred pivot moves its date down.
+     */
+    @JvmStatic
+    fun clockScale(view: View, scale: Float): Float =
+        if (view is TakuClockFaceView) scale / BurnInModel.MAX_LARGE_CLOCK_SCALE else scale
+
     /**
      * Notifications stay hidden on the lock screen until the user authenticates (face unlock keeps the
      * user on the lock screen; see docs/lock-screen.md). Applied in KeyguardNotificationVisibilityProvider,

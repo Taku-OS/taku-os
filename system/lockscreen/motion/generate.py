@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
-"""Offline font-outline preparation. Runtime is Kotlin/Canvas, with no JS/font converter.
+"""Prepare compatible clock paths; native Canvas keeps new digits' stroke width constant.
 
-Requires fontTools. The designer's 0/3/9/colon contours are preserved; other digits
-extend Space Grotesk's vertical structure at digit-specific landmarks. Coordinates
-in each pair have identical topology, so Android can interpolate cubic controls.
+The supplied 0/3/9/colon contours remain verbatim. Six is the rotated nine. Other
+live-time digits use paired cubic centre lines: only stems grow, never stroke width.
 """
 import json
 from pathlib import Path
 from fontTools.ttLib import TTFont
-from fontTools.pens.basePen import BasePen
 
 ROOT = Path(__file__).resolve().parents[3]
 HERE = Path(__file__).resolve().parent
@@ -16,56 +14,70 @@ FONT = ROOT / 'system/assistant/res/font/space_grotesk_regular.ttf'
 OUTPUT = ROOT / 'system/lockscreen/src/com/android/systemui/taku/lockscreen/TakuClockContours.kt'
 
 
-def interpolate(value, knots):
-    for (a, x), (b, y) in zip(knots, knots[1:]):
-        if value <= b:
-            return x + (y-x) * (value-a) / (b-a)
-    return knots[-1][1]
+class Spine:
+    def __init__(self, compact, tall):
+        self.a = list(compact)
+        self.b = list(tall)
+
+    def line(self, compact, tall):
+        for points, end in [(self.a, compact), (self.b, tall)]:
+            start = points[-2:]
+            points.extend(start[i]+(end[i]-start[i])*t for t in (1/3, 2/3, 1) for i in range(2))
+        return self
+
+    def curve(self, compact, tall):
+        self.a.extend(compact)
+        self.b.extend(tall)
+        return self
+
+    def data(self):
+        return {'a':self.a, 'b':self.b, 'closed':False}
 
 
-# Font y is up; output y is down. Preserve caps, crossbars and counters while
-# extending stems/diagonals. This is a derived extension, not extra designer artwork.
-ANCHORS = {
-    '1': [(0,320), (397,75), (646,14), (700,0)],
-    '2': [(0,320), (73,306), (130,280), (420,80), (494,41), (641,14), (714,0)],
-    '4': [(0,320), (143,236), (216,222), (239,208), (651,14), (700,0)],
-    '5': [(-14,320), (59,306), (149,294), (227,279), (236,188), (400,151), (469,137), (627,14), (700,0)],
-    '6': [(-14,320), (59,306), (145,295), (219,279), (222,279), (227,200), (230,200),
-          (377,178), (390,173), (458,159), (466,41), (474,41), (502,41), (641,14), (714,0)],
-    '7': [(0,320), (25,313), (104,285), (604,18), (616,14), (627,14), (700,0)],
-    '8': [(-14,320), (59,306), (184,279), (188,279), (195,200), (196,200),
-          (325,173), (357,166), (370,154), (398,147), (515,120), (521,120),
-          (523,41), (532,41), (641,14), (714,0)],
-}
+def bowl(top, bottom, left, right, cap):
+    """Oval centre line with circular/elliptic caps and straight vertical stems."""
+    x = (left+right)/2
+    rx = (right-left)/2
+    k = .5522847498307936
+    return [x,top,
+            x+rx*k,top,right,top+cap*(1-k),right,top+cap,
+            right,top+cap+(bottom-top-2*cap)/3,right,bottom-cap-(bottom-top-2*cap)/3,right,bottom-cap,
+            right,bottom-cap*(1-k),x+rx*k,bottom,x,bottom,
+            x-rx*k,bottom,left,bottom-cap*(1-k),left,bottom-cap,
+            left,bottom-cap-(bottom-top-2*cap)/3,left,top+cap+(bottom-top-2*cap)/3,left,top+cap,
+            left,top+cap*(1-k),x-rx*k,top,x,top]
 
 
-class CubicPen(BasePen):
-    def __init__(self, glyphs):
-        super().__init__(glyphs)
-        self.contours = []
-
-    def _moveTo(self, p):
-        self.points = list(p)
-        self.start = self.last = p
-
-    def _lineTo(self, p):
-        a = self.last
-        self._curveToOne(tuple(a[i]+(p[i]-a[i])/3 for i in range(2)),
-                         tuple(a[i]+(p[i]-a[i])*2/3 for i in range(2)), p)
-
-    def _curveToOne(self, a, b, p):
-        self.points.extend((*a, *b, *p))
-        self.last = p
-
-    def _qCurveToOne(self, q, p):
-        a = self.last
-        self._curveToOne(tuple(a[i]+(q[i]-a[i])*2/3 for i in range(2)),
-                         tuple(p[i]+(q[i]-p[i])*2/3 for i in range(2)), p)
-
-    def _closePath(self):
-        if self.last != self.start:
-            self._lineTo(self.start)
-        self.contours.append(self.points[:-2])
+def spines():
+    # Coordinates are paired landmarks, not y-scaled filled font contours. Width is applied
+    # AFTER interpolation by Android's stroker (14 tall -> 10.08 compact design px).
+    return {
+        '1': [Spine((7.2,25),(14,75)).line((35.52,5.04),(49,7)).line((35.52,84),(49,320)).data()],
+        '2': [Spine((11.4,24),(7,48)).line((11.4,23),(7,34))
+              .curve((11.4,11,21,3.36,36.42,3.36),(7,18,18,7,34,7))
+              .curve((51.8,3.36,61.44,12,61.44,24),(50,7,61,18,61,34))
+              .line((61.44,25),(61,80))
+              .curve((61.44,45,11.4,50,11.4,72),(61,125,7,195,7,242))
+              .line((11.4,78.96),(7,313)).line((66.48,78.96),(68,313)).data()],
+        '4': [Spine((55,84),(54,320)).line((55,5.04),(54,7))
+              .line((8.88,60),(7,231)).line((71.76,60),(68,231)).data()],
+        '5': [Spine((66.12,5.04),(68,7)).line((11.16,5.04),(7,7))
+              .line((11.16,42),(7,160))
+              .curve((18,35,26,33,36.12,33),(14,150,24,143,34,143))
+              .curve((52,33,61.08,43,61.08,56),(50,143,61,155,61,171))
+              .line((61.08,59),(61,286))
+              .curve((61.08,72,52,80.64,36.12,80.64),(61,302,50,313,34,313))
+              .curve((20,80.64,11.16,72,11.16,59),(18,313,7,302,7,286))
+              .line((11.16,58),(7,270)).data()],
+        '7': [Spine((3.84,5.04),(0,7)).line((58.92,5.04),(61,7))
+              .line((18,81.6),(7,318.75)).data()],
+        # Both bowls touch at the SAME centre line. Their shared horizontal stroke is one
+        # waist, not two separated bowls joined by a stretched vertical bridge.
+        '8': [{'a':bowl(3.36,40,10.56,64.08,18.32),
+               'b':bowl(7,160,7,61,34), 'closed':False},
+              {'a':bowl(40,80.64,10.56,64.08,20.32),
+               'b':bowl(160,313,7,61,34), 'closed':False}],
+    }
 
 
 def glyph_data():
@@ -73,34 +85,26 @@ def glyph_data():
     glyphs = font.getGlyphSet()
     cmap = font.getBestCmap()
     designer = json.loads((HERE/'designer-0930.json').read_text())['contours']
-    # Origins of the first occurrence of each character in the supplied 09:30.
     offsets = {'0': (48,48), '9': (121.32,122), ':': (191.16,196), '3': (217.92,220)}
     indices = {'0': [0,1], '9': [4,5], '3': [6], ':': [7,8]}
     result = {}
+    centre_lines = spines()
     for d in '0123456789:':
         glyph = glyphs[cmap[ord(d)]]
-        contours = []
-        if d in indices:
-            for i in indices[d]:
-                contours.append({k: [round(v-(offsets[d][0 if k=='a' else 1] if j%2==0 else 125),4)
-                                     for j,v in enumerate(designer[i][k])] for k in ('a','b')})
+        if d in indices or d == '6':
+            source = '9' if d == '6' else d
+            contours = []
+            for i in indices[source]:
+                c = {k: [round(v-(offsets[source][0 if k=='a' else 1] if j%2==0 else 125),4)
+                         for j,v in enumerate(designer[i][k])] for k in ('a','b')}
+                if d == '6':
+                    for k in ('a','b'):
+                        centre = (72.36,84) if k == 'a' else (68,320)
+                        c[k] = [round(centre[j%2]-v,4) for j,v in enumerate(c[k])]
+                contours.append(c)
         else:
-            pen = CubicPen(glyphs)
-            glyph.draw(pen)
-            xs = [p[i] for p in pen.contours for i in range(0,len(p),2)]
-            left, right = min(xs), max(xs)
-            # Keep 1 narrow, like the font; its advance is still the tall digit cell.
-            width = 44 if d == '1' else 68
-            for p in pen.contours:
-                a, b = [], []
-                for x,y in zip(p[::2],p[1::2]):
-                    a.extend((x*.12,84-y*.12))
-                    ty = interpolate(y, ANCHORS[d])
-                    if d == '5' and x <= 224 and y <= 321:
-                        ty = interpolate(y, [(-14,320),(59,306),(143,294),(219,279),(222,279),(231,262),(321,174)])
-                    b.extend(((68-width)/2+(x-left)*width/(right-left), ty))
-                contours.append({'a':a,'b':b})
-        result[d] = {'advance':glyph.width*.12-3.6, 'contours':contours}
+            contours = centre_lines[d]
+        result[d] = {'advance':glyph.width*.12-3.6, 'contours':contours, 'stroke':d in centre_lines}
     return result
 
 
@@ -108,14 +112,16 @@ def kotlin(data):
     def array(a):
         return 'floatArrayOf('+','.join(f'{v:.4f}f' for v in a)+')'
     lines = ['// Generated by motion/generate.py. Do not hand-edit.',
-             '// Space Grotesk outlines: OFL, system/assistant/design-system/licenses/SpaceGrotesk-OFL.txt.',
+             '// Designer 0/3/9/colon; mirrored 6; constant-width paired centre lines for other digits.',
+             '// Space Grotesk metrics: OFL, system/assistant/design-system/licenses/SpaceGrotesk-OFL.txt.',
              'package com.android.systemui.taku.lockscreen', '',
              'internal object TakuClockContours {', '    val glyphs = mapOf(']
     for d,g in data.items():
         lines.append(f"        '{d}' to TakuClockGlyphs.Glyph({g['advance']:.4f}f, listOf(")
         for c in g['contours']:
-            lines.append('            TakuClockGlyphs.Contour('+array(c['a'])+', '+array(c['b'])+'),')
-        lines.append('        )),')
+            closed = '' if c.get('closed',True) else ', closed = false'
+            lines.append('            TakuClockGlyphs.Contour('+array(c['a'])+', '+array(c['b'])+closed+'),')
+        lines.append('        ), stroke = '+str(g['stroke']).lower()+'),')
     return '\n'.join(lines+['    )','}',''])
 
 

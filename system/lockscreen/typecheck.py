@@ -56,6 +56,7 @@ abstract class KeyguardClockInteractor { abstract fun setClockSize(size: com.and
 ''',
     'KeyguardModelsShared.kt': '''package com.android.systemui.keyguard.shared.model
 enum class ClockSize { LARGE, SMALL }
+class BurnInModel { companion object { const val MAX_LARGE_CLOCK_SCALE = 0.9f } }
 enum class StatusBarState { SHADE, KEYGUARD, SHADE_LOCKED }
 ''',
     'Dagger2.kt': '''package dagger
@@ -66,7 +67,7 @@ object R { object id { const val date_smartspace_view = 201; const val date_smar
  const val weather_smartspace_view = 203; const val weather_smartspace_view_large = 204 } }
 ''',
     'SysuiR.kt': '''package com.android.systemui.res
-object R { object id { const val start_button = 101; const val device_entry_icon_fg = 104; const val keyguard_carrier_text = 105 }; object string { const val controls_open_app = 102 }; object drawable { const val ic_apps_expressive = 103 } }
+object R { object id { const val start_button = 101; const val device_entry_icon_fg = 104; const val keyguard_carrier_text = 105; const val keyguard_slice_view = 106 }; object string { const val controls_open_app = 102 }; object drawable { const val ic_apps_expressive = 103 } }
 ''',
     'DeviceEntry.kt': '''package com.android.systemui.keyguard.ui.view
 class DeviceEntryIconView { enum class IconType { LOCK, UNLOCK, FINGERPRINT, NONE } }
@@ -234,7 +235,8 @@ object PathParser { @JvmStatic fun createPathFromPathData(pathData: String): and
 ''',
     'HiddenApi.kt': '''package com.android.systemui.taku.lockscreen
 // Hidden in android.jar, public to platform SystemUI; a member in the real build shadows this extension.
-fun android.app.WallpaperManager.getBitmapAsUser(userId: Int, hardware: Boolean, which: Int): android.graphics.Bitmap? = TODO()
+fun android.app.WallpaperManager.getWallpaperFile(which: Int, userId: Int): android.os.ParcelFileDescriptor? = TODO()
+fun android.app.WallpaperManager.getWallpaperInfo(which: Int, userId: Int): android.app.WallpaperInfo? = TODO()
 fun android.content.Context.startActivityAsUser(intent: android.content.Intent, user: android.os.UserHandle): Unit = TODO()
 ''',
     'KeyguardModels.kt': '''package com.android.systemui.plugins.keyguard
