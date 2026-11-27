@@ -33,6 +33,24 @@ see the current review receipt for the new verification scope.
 - The phase-0 demo/probe commands from commit `1789122` have been replaced by production data and
   presentation operations. No demo island is automatically created.
 
+## Lock status
+
+`IslandLockStatus` shows the device's lock state as a status: the capsule's disc and camera with a
+white padlock drawn by `IslandCapsuleView`, no pill, no card, no actions. It is not an activity: it
+is never in `IslandStore`, so `list` does not return it and the island switch, lifetimes and
+dismissal do not apply. It is `locked` while the keyguard shows and needs authentication
+(`KeyguardStateController.canDismissLockScreen()` is false), `unlocked` for 1.5 s after that ends,
+and absent otherwise, including on a keyguard that needs no authentication.
+
+The status bar hides its island on the keyguard, so the lock screen hosts `IslandStatusView`, the
+same capsule placed by the same camera geometry (`IslandCameraGeometry.locate`), from
+`system/lockscreen` (`TakuLockStatusSection`). It takes no touches there. Once the keyguard has gone,
+`IslandPresenter` draws the open padlock as the primary capsule for its 1.5 s (restarted when the
+keyguard leaves); the selected live activity waits as the circle beside it and keeps its chip
+ownership. Any gesture on the open padlock ends it early. `state.presentation.lockStatus`
+(`locked`, `unlocked` or null) and `lockStatusInCapsule` report it; `compact.disc` is `lock`.
+Not yet run on an emulator or device.
+
 ## AI producer and remote body
 
 SystemUI binds `org.agentos.agent.home.island.IslandPublisherService` in the current user.

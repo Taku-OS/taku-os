@@ -32,7 +32,7 @@ import kotlin.math.max
  * pill shows its text, timer or number in Hanken 12 sp. Another live activity waits as a 32 dp
  * circle on the far left, where the bar has room; the main capsule never moves for it. On a status
  * bar shorter than 32 dp everything scales down rather than clipping. Vertical drags are left to
- * the shade.
+ * the shade. A system status ([IslandLockStatus]) is the disc alone, holding a padlock.
  */
 internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
     private val longPress: () -> Unit, private val next: () -> Unit, private val hide: () -> Unit) : View(context) {
@@ -81,6 +81,14 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
     private val iconSpent = mutableSetOf<Drawable>()
     var secondary = false
         private set
+    /** False where the capsule only displays (the lock screen): every touch passes through. */
+    var interactive = true
+        set(value) { field = value; isClickable = value; isLongClickable = value }
+    /** Padlock shackle: 0 closed, 1 open; null until a status is bound, so the first one does not animate. */
+    private var lockOpen: Float? = null
+    private var lockTarget: Float? = null
+    private var lockAnimation: ValueAnimator? = null
+    private val shackle = Path()
     private val gestures = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
         override fun onDown(event: MotionEvent) = true
         override fun onSingleTapUp(event: MotionEvent): Boolean {
@@ -109,6 +117,8 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
 
     override fun onInitializeAccessibilityNodeInfo(info: AccessibilityNodeInfo) {
         super.onInitializeAccessibilityNodeInfo(info)
+        // A status only announces itself; an activity's gestures do not apply to it.
+        if (item?.source == IslandActivity.SOURCE_STATUS) return
         info.addAction(AccessibilityNodeInfo.AccessibilityAction(AccessibilityNodeInfo.ACTION_LONG_CLICK, "Expand"))
         info.addAction(AccessibilityNodeInfo.AccessibilityAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD, "Next activity"))
         info.addAction(AccessibilityNodeInfo.AccessibilityAction(AccessibilityNodeInfo.ACTION_DISMISS, "Hide"))
@@ -199,7 +209,10 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
      * What the disc draws for group A: Taku's AI animation, a progress ring or an icon. Without
      * group A it shows the notification's own icon (tinted white), else a plain dot.
      */
-    private fun discSlot(activity: IslandActivity): JSONObject? = glyph(activity.compact?.optJSONObject("a"))
+    private fun discSlot(activity: IslandActivity): JSONObject? =
+        if (activity.source == IslandActivity.SOURCE_STATUS) JSONObject().put("type", "lock")
+            .put("open", activity.payload.optString("status") == IslandActivity.STATUS_UNLOCKED)
+        else glyph(activity.compact?.optJSONObject("a"))
         ?: if (activity.pics.containsKey(IslandActivity.APP_PIC))
             JSONObject().put("type", "pic").put("pic", IslandActivity.APP_PIC).put("tint", true) else null
 
@@ -300,7 +313,9 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
                 }
             }
         }
-        contentDescription = "${if (stale) "May be outdated. " else ""}${activity.title}. ${activity.body}. " +
+        bindLock(activity)
+        contentDescription = if (activity.source == IslandActivity.SOURCE_STATUS) activity.title else
+            "${if (stale) "May be outdated. " else ""}${activity.title}. ${activity.body}. " +
             "Double tap to ${if (activity.tap == "open" && activity.openIntent != null) "open the app" else "expand"}; " +
             "long press to expand; swipe left for the next activity; swipe right to hide." +
             if (second != null) " ${second?.title} is also live; tap the circle on the left to show it." else ""
@@ -342,6 +357,31 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
         invalidate()
     }
 
+    /** The padlock follows the bound status: a change while shown animates the shackle, anything else jumps. */
+    private fun bindLock(activity: IslandActivity) {
+        if (activity.source != IslandActivity.SOURCE_STATUS) {
+            lockAnimation?.cancel()
+            lockOpen = null
+            lockTarget = null
+            return
+        }
+        val target = if (activity.payload.optString("status") == IslandActivity.STATUS_UNLOCKED) 1f else 0f
+        if (lockTarget == target) return
+        val from = lockOpen
+        lockTarget = target
+        lockAnimation?.cancel()
+        if (from == null || !ValueAnimator.areAnimatorsEnabled() || !isShown) {
+            lockOpen = target
+            return
+        }
+        lockAnimation = ValueAnimator.ofFloat(from, target).apply {
+            duration = LOCK_MS
+            interpolator = android.view.animation.DecelerateInterpolator()
+            addUpdateListener { lockOpen = it.animatedValue as Float; invalidate() }
+            start()
+        }
+    }
+
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
         item?.let { bind(it, second) }
@@ -350,6 +390,8 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
     override fun onDetachedFromWindow() {
         animation?.cancel()
         animation = null
+        lockAnimation?.cancel()
+        lockOpen = lockTarget
         stopIconAnimations()
         generation++
         secondaryGeneration++
@@ -365,6 +407,7 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
+        if (!interactive) return false
         if (event.actionMasked == MotionEvent.ACTION_DOWN) { downX = event.x; downY = event.y; vertical = false }
         if (event.actionMasked == MotionEvent.ACTION_MOVE && abs(event.y - downY) > abs(event.x - downX) && abs(event.y - downY) > ViewConfiguration.get(context).scaledTouchSlop) {
             vertical = true
@@ -440,6 +483,7 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
         val motion = slot?.optString("animated").orEmpty()
         val icon = slot?.optString("pic")?.let(loaded::get)
         when {
+            slot?.optString("type") == "lock" -> drawLock(canvas, cx, cy, lockOpen ?: if (slot.optBoolean("open")) 1f else 0f)
             motion == "listening" -> {
                 paint.color = IslandStyle.TEXT_PRIMARY
                 val wave = (kotlin.math.sin(listeningPhase * 2 * Math.PI) + 1) / 2
@@ -494,6 +538,30 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
     }
 
     /**
+     * White padlock in the 16 dp glyph area: an 11 × 8 dp body under a 1.7 dp shackle. Opening lifts
+     * the shackle 3 dp, so its right leg clears the body while the left one stays in it.
+     */
+    private fun drawLock(canvas: Canvas, cx: Float, cy: Float, open: Float) {
+        // The lifted shackle makes the glyph taller; shift it down to stay centred in the disc.
+        val bodyTop = cy - dp(.7f) + dp(1.5f) * open
+        val arcY = bodyTop - dp(2.6f) - dp(3f) * open
+        val leg = dp(3.1f)
+        paint.color = Color.WHITE
+        paint.style = Paint.Style.FILL
+        canvas.drawRoundRect(cx - dp(5.5f), bodyTop, cx + dp(5.5f), bodyTop + dp(8f), dp(2.2f), dp(2.2f), paint)
+        shackle.rewind()
+        shackle.moveTo(cx - leg, bodyTop + dp(1f))
+        shackle.lineTo(cx - leg, arcY)
+        shackle.arcTo(cx - leg, arcY - leg, cx + leg, arcY + leg, 180f, 180f, false)
+        shackle.lineTo(cx + leg, bodyTop + dp(1f) - dp(4.2f) * open)
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = dp(1.7f)
+        paint.strokeCap = Paint.Cap.ROUND
+        canvas.drawPath(shackle, paint)
+        paint.style = Paint.Style.FILL
+    }
+
+    /**
      * The waiting activity: a 32 dp circle, as tall as the main disc, with the same 16 dp glyph
      * (its own group A, else its notification icon).
      */
@@ -530,6 +598,8 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
     companion object {
         /** An app's animated icon loops for at most this long per binding. */
         const val ICON_LOOP_MS = 60_000L
+        /** The padlock's shackle opens or closes over this time. */
+        const val LOCK_MS = 300L
         private const val ELLIPSIS = "\u2026"
         /** Camera centre and pill start from the main capsule's left edge for the 24 dp design camera (dp). */
         const val CAMERA_DP = 52

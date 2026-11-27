@@ -55,6 +55,19 @@ emergency call and accessibility all stay upstream code.
   and Taku operations to the main thread, and runs shortcut operations (`TakuLockscreenShortcuts`)
   through the picker's `KeyguardQuickAffordanceInteractor`.
 
+## Lock status in the island
+
+- `TakuLockStatusSection` shows the lock state as a padlock in the Dynamic Island at the camera: closed
+  while locked, open for 1.5 s after authenticating, then gone. The state and timing are
+  `IslandLockStatus` in `system/island`; the section hosts the island's `IslandStatusView` in the
+  keyguard root, because the status-bar island is hidden on the keyguard. After an unlock that leaves
+  the lock screen, the status-bar island shows the open padlock. See section 4.8 of the spec.
+- It replaces the stock padlock above the shortcuts. The section draws the device entry icon's lock
+  and unlock pictures transparent (`imageAlpha`). The icon view, its accessibility label and action,
+  its long press and the fingerprint picture are unchanged, and no upstream hook was added.
+- This is the first lock-screen source that calls `system/island` code. The image builds already
+  apply the island patch first.
+
 ## Phase 4: first unlock
 
 No code change was needed; see section 6 of the spec. `device-tests/acceptance.py` is the emulator
@@ -91,13 +104,13 @@ python3 system/lockscreen/typecheck.py --kotlinc KOTLINC --android-jar ANDROID_J
 ## Verification status
 
 - Host: the type check compiles all owned source against `android.jar`, with narrow doubles of the
-  SystemUI APIs it uses. The patch applies cleanly (`git apply --check`) to the pinned upstream files.
+  SystemUI APIs and of the three island classes it uses. The patch applies cleanly (`git apply --check`) to the pinned upstream files.
 - Not yet done: the SystemUI module build, a ROM build, the emulator run and the Pixel 9 run.
   `lockscreen-integration.json` reports these as `false` until they are recorded. The authentication
   matrix in the spec is the acceptance list.
 - Agent interfaces: the `taku-open-access` skill documents the clock face, face bypass, the stock
-  notification settings and `cmd statusbar lockscreen` (state, notifications, open, dismiss, action,
-  taku, shortcuts).
+  notification settings and `cmd statusbar lockscreen` (state including `lockStatus`, notifications,
+  open, dismiss, action, taku, shortcuts).
 
 ## Open items
 
@@ -113,5 +126,9 @@ python3 system/lockscreen/typecheck.py --kotlinc KOTLINC --android-jar ANDROID_J
   - where the launch animation starts from on a card tap;
   - the picker's "Open app" configure button opens the chooser;
   - the authentication matrix in the spec, including face (stays on the lock screen) and fingerprint.
-- UDFPS placement of the Taku button is deferred. On devices without UDFPS, the stock unlocked padlock
-  sits directly above it.
+- UDFPS placement of the Taku button is deferred.
+- The lock status in the island has not run on an emulator or device. `device-tests/acceptance.py`
+  checks its state (no padlock on a swipe lock, closed while locked, open then gone after the PIN).
+  Check by hand: the capsule sits on the camera, the shackle opens, the open padlock carries over to
+  the status bar after a PIN unlock, the stock padlock is gone but TalkBack still finds the device
+  entry icon, and a long carrier text stops before the disc.

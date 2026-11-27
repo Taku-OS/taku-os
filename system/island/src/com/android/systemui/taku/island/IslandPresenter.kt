@@ -3,7 +3,6 @@ package com.android.systemui.taku.island
 
 import android.content.Context
 import android.content.res.Configuration
-import android.graphics.Rect
 import android.os.Handler
 import android.os.SystemClock
 import android.view.Display
@@ -38,6 +37,7 @@ class IslandPresenter @Inject constructor(
     private val keyguard: KeyguardStateController,
     private val headsUp: HeadsUpManager,
     private val foreground: IslandForeground,
+    private val lock: IslandLockStatus,
     @Main private val handler: Handler,
     @Application private val scope: CoroutineScope,
 ) : IslandPresentation {
@@ -52,6 +52,8 @@ class IslandPresenter @Inject constructor(
     private var cardRevision = -1L
     private var reason = "startup"
     private var automatic = false
+    /** The capsule currently draws the lock status instead of an activity. */
+    private var statusShown = false
     /** Keys whose heads-up the island replaces right now; read by the interruption filter. */
     @Volatile private var presentable: Set<String> = emptySet()
     // Consume an accepted alert window once, not once per notification revision. Quiet updates,
@@ -90,6 +92,7 @@ class IslandPresenter @Inject constructor(
                 layoutCapsule()
             }
         }
+        scope.launch { lock.state.collect { layoutCapsule() } }
     }
 
     fun attach(view: PhoneStatusBarView) {
@@ -97,11 +100,12 @@ class IslandPresenter @Inject constructor(
         detach()
         bar = view
         capsule = IslandCapsuleView(view.context,
-            tap = { if (card != null) invoke("collapse", null) else selected?.let { invoke("tap", it) } },
-            longPress = { selected?.let { invoke("expand", it) } },
+            // The open padlock has no card or app: any gesture on it just ends it early.
+            tap = { if (statusShown) lock.dismiss() else if (card != null) invoke("collapse", null) else selected?.let { invoke("tap", it) } },
+            longPress = { if (!statusShown) selected?.let { invoke("expand", it) } },
             // One activity: nothing to switch to, and no error toast for the gesture.
-            next = { engine.command("next", null, null) },
-            hide = { selected?.let { invoke("dismiss", it) } },
+            next = { if (statusShown) lock.dismiss() else engine.command("next", null, null) },
+            hide = { if (statusShown) lock.dismiss() else selected?.let { invoke("dismiss", it) } },
         )
         view.addView(capsule, FrameLayout.LayoutParams(dp(180), dp(28), Gravity.CENTER))
         view.addOnLayoutChangeListener(layout)
@@ -278,9 +282,14 @@ class IslandPresenter @Inject constructor(
             closeCard("landscape")
         }
         selected = IslandStore.compactSelection(items, selected, card != null, ::showsCapsule)
-        val activity = items.find { it.key == selected }?.data
+        val live = items.find { it.key == selected }?.data
+        // Just unlocked: the open padlock takes the capsule for a moment, and the live activity
+        // waits beside it. The lock screen draws its own padlock (IslandStatusView).
+        val status = lock.unlocked().takeIf { card == null }
+        val activity = status ?: live
+        statusShown = false
         // The capsule and the card are mutually exclusive: an open card hides every capsule.
-        if (activity == null || card != null || !showsCapsule(activity) || view.alpha == 0f || keyguard.isShowing ||
+        if (activity == null || card != null || (status == null && !showsCapsule(activity)) || view.alpha == 0f || keyguard.isShowing ||
                 shade.isAnyExpanded.value || headsUp.isHeadsUpEntry(activity.key)) {
             IslandPresentationOwnership.show(if (card != null) activity else null)
             pill.visibility = View.GONE
@@ -288,9 +297,6 @@ class IslandPresenter @Inject constructor(
             restoreCentered()
             return
         }
-        val displayCutout = view.rootWindowInsets?.displayCutout
-        val cutout = displayCutout?.boundingRectTop ?: Rect()
-        val physical = !cutout.isEmpty && cutout.centerX() in view.width / 3..view.width * 2 / 3
         val contents = view.findViewById<View>(R.id.status_bar_contents)
         val contentLeft = view.paddingLeft + (contents?.paddingLeft ?: 0)
         val contentRight = view.width - view.paddingRight - (contents?.paddingRight ?: 0)
@@ -300,21 +306,17 @@ class IslandPresenter @Inject constructor(
         val icons = view.findViewById<View>(R.id.statusIcons)?.takeIf { it.visibility != View.GONE }?.width ?: 0
         // Figma 1:4742 anchors the island to the camera: the disc extends to its left and the pill
         // grows to its right. FrameLayout centering would include asymmetric status-bar padding,
-        // so position from the actual display cutout path. boundingRectTop is a layout exclusion:
-        // Pixel 8's 122 px box surrounds a 72.5 px hole and must never become the painted circle.
-        val location = IntArray(2)
-        view.getLocationOnScreen(location)
-        val camera = if (physical) IslandCameraGeometry.bounds(displayCutout?.cutoutPath, cutout, dp(64).toFloat()) else null
-        val cameraX = if (camera != null) Math.round(camera.centerX()) - location[0]
-            else if (physical) cutout.centerX() - location[0] else view.width / 2
-        // Missing paths and notches use the design camera, never a radius inferred from padding.
-        val cameraRadius = camera?.let { maxOf(it.width(), it.height()) / 2f } ?: 0f
-        val cameraY = camera?.let { it.centerY() - location[1] } ?: (view.height / 2f)
+        // so position from the actual display cutout path (IslandCameraGeometry.locate).
+        val camera = IslandCameraGeometry.locate(view, dp(64).toFloat())
+        val cameraX = camera.x
+        val cameraRadius = camera.radius
+        val cameraY = camera.y
         pill.configure(view.height.coerceAtLeast(dp(16)), cameraRadius)
         val cameraLeft = pill.cameraOffset()
         // Another live activity waits as a circle left of the disc, only where the bar has room;
         // the main capsule keeps its camera-anchored position either way.
-        val wantsSecondary = items.count { showsCapsule(it.data) } > 1
+        val waitingLive = live?.takeIf { status != null && showsCapsule(it) }
+        val wantsSecondary = if (status != null) waitingLive != null else items.count { showsCapsule(it.data) } > 1
         val withSecondary = wantsSecondary && IslandCapsuleGeometry.maximumWidth(contentLeft, contentRight,
             cameraX, cameraLeft + pill.leadWidth(), clock, endWidth, icons, dp(12)) > 0
         val leftWidth = cameraLeft + if (withSecondary) pill.leadWidth() else 0
@@ -329,8 +331,9 @@ class IslandPresenter @Inject constructor(
             return
         }
         relocateCentered()
-        pill.stale = items.find { it.key == selected }?.stale(SystemClock.elapsedRealtime()) == true
-        val waiting = secondary(activity)
+        pill.stale = status == null && items.find { it.key == selected }?.stale(SystemClock.elapsedRealtime()) == true
+        val waiting = if (status != null) waitingLive.takeIf { pill.secondary } else secondary(activity)
+        statusShown = status != null
         pill.bind(activity, waiting)
         pill.translationX = 0f
         pill.visibility = View.VISIBLE
@@ -385,10 +388,12 @@ class IslandPresenter @Inject constructor(
         .put("compactVisible", visible != null).put("reason", reason)
         .put("foregroundPackage", foreground.foregroundPackage ?: JSONObject.NULL)
         .put("suppressedByForeground", JSONArray(items.filter { it.data.compactVisible && foreground.suppresses(it.data) }.map { it.key }))
-        .put("secondaryKey", visible?.let { items.find { it.key == selected }?.data?.let { secondary(it)?.key } } ?: JSONObject.NULL)
+        .put("secondaryKey", visible?.let { items.find { it.key == selected }?.data?.let { if (statusShown) it.key.takeIf { visible.secondary } else secondary(it)?.key } } ?: JSONObject.NULL)
         .put("tap", items.find { it.key == selected }?.data?.tap ?: JSONObject.NULL)
         .put("compact", visible?.state() ?: JSONObject.NULL)
         .put("expanded", card != null).put("card", card?.state() ?: JSONObject.NULL)
+        // The lock status (IslandLockStatus), and whether this capsule is the one drawing it now.
+        .put("lockStatus", lock.state.value.wire ?: JSONObject.NULL).put("lockStatusInCapsule", visible != null && statusShown)
     }
 
     private fun invoke(method: String, arg: String?, extra: String? = null) {

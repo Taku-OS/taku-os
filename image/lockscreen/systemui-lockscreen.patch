@@ -310,7 +310,7 @@
 +    }.distinctUntilChanged()
 +
 +/** Fades a surface in or out; a hidden surface is INVISIBLE so touches reach the lock screen below. */
-+private fun View.fadeShown(shown: Boolean) {
++internal fun View.fadeShown(shown: Boolean) {
 +    animate().cancel()
 +    if (shown) {
 +        if (visibility != View.VISIBLE) {
@@ -1028,7 +1028,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuKeyguardBlueprint.kt
-@@ -0,0 +1,195 @@
+@@ -0,0 +1,197 @@
 +package com.android.systemui.taku.lockscreen
 +
 +import android.graphics.Color
@@ -1057,7 +1057,7 @@
 +/**
 + * Taku's lock screen layout: the stock sections (clock, shortcuts, device entry, indication area,
 + * notifications, accessibility, AOD) on top of the Taku background, plus the authenticated surface
-+ * (notification cards and the Taku button). Keeping the stock sections keeps authentication,
++ * (notification cards and the Taku button) and the lock status in the island. Keeping the stock sections keeps authentication,
 + * biometric messages and accessibility exactly as upstream.
 + */
 +@SysUISingleton
@@ -1069,6 +1069,7 @@
 +    notificationSection: TakuNotificationSection,
 +    assistantSection: TakuAssistantSection,
 +    stockDateSection: TakuStockDateSection,
++    lockStatusSection: TakuLockStatusSection,
 +    // Not used here: injecting it registers `cmd statusbar lockscreen` with the Taku lock screen.
 +    @Suppress("UNUSED_PARAMETER") command: TakuLockscreenCommand,
 +) : KeyguardBlueprint {
@@ -1077,9 +1078,10 @@
 +    // Z-order follows this list. The background is the root's background drawable; the cards sit
 +    // under every stock view (shortcuts, lock icon, indication text keep their touches); the Taku button
 +    // is on top. The stock-date section adds no view and must apply after the smartspace section.
++    // The lock status is a strip at the camera that takes no touches.
 +    override val sections: List<KeyguardSection> =
 +        listOf(backgroundSection, notificationSection) + defaultBlueprint.sections +
-+            listOf(assistantSection, stockDateSection)
++            listOf(assistantSection, stockDateSection, lockStatusSection)
 +
 +    companion object {
 +        const val ID = "taku"
@@ -1223,6 +1225,175 @@
 +
 +    @JvmStatic
 +    fun shortcutIconColor(activated: Boolean, stockColor: Int): Int = if (activated) stockColor else SHORTCUT_ICON
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuLockStatusSection.kt
+@@ -0,0 +1,166 @@
++package com.android.systemui.taku.lockscreen
++
++import android.view.View
++import android.view.ViewTreeObserver
++import android.widget.ImageView
++import androidx.constraintlayout.widget.ConstraintLayout
++import androidx.constraintlayout.widget.ConstraintSet
++import androidx.lifecycle.Lifecycle
++import androidx.lifecycle.repeatOnLifecycle
++import com.android.systemui.dagger.SysUISingleton
++import com.android.systemui.keyguard.domain.interactor.KeyguardInteractor
++import com.android.systemui.keyguard.shared.model.KeyguardSection
++import com.android.systemui.keyguard.ui.view.DeviceEntryIconView
++import com.android.systemui.keyguard.ui.viewmodel.DeviceEntryIconViewModel
++import com.android.systemui.lifecycle.repeatWhenAttached
++import com.android.systemui.res.R
++import com.android.systemui.statusbar.notification.stack.ui.viewmodel.SharedNotificationContainerViewModel
++import com.android.systemui.taku.island.IslandLockStatus
++import com.android.systemui.taku.island.IslandStatusView
++import javax.inject.Inject
++import kotlinx.coroutines.DisposableHandle
++import kotlinx.coroutines.flow.combine
++import kotlinx.coroutines.flow.distinctUntilChanged
++import kotlinx.coroutines.launch
++import org.json.JSONObject
++
++/**
++ * The lock state in the island: a padlock capsule at the camera, closed while locked and open for a
++ * moment after authenticating ([IslandLockStatus] owns the state and the timing). The status bar's
++ * own island is hidden on the keyguard, so this section hosts [IslandStatusView], the same capsule,
++ * in the keyguard root. After an unlock that leaves the lock screen, the status-bar island takes
++ * over the open padlock.
++ *
++ * It replaces the stock padlock above the shortcuts: the device entry icon's lock and unlock glyphs
++ * are drawn fully transparent here (image alpha, not view alpha, so TalkBack still sees the view).
++ * Only the picture goes. The icon view keeps its place, its accessibility label and action, and its
++ * long press, and the fingerprint glyph (UDFPS) is untouched.
++ *
++ * Shown on the lock screen without the shade, like the cards, and not while dozing.
++ */
++@SysUISingleton
++class TakuLockStatusSection
++@Inject
++constructor(
++    private val lockStatus: IslandLockStatus,
++    private val keyguardInteractor: KeyguardInteractor,
++    private val containerViewModel: SharedNotificationContainerViewModel,
++    private val deviceEntryIconViewModel: DeviceEntryIconViewModel,
++) : KeyguardSection() {
++    private val viewId = View.generateViewId()
++    private var binding: DisposableHandle? = null
++    private var island: IslandStatusView? = null
++    private var carrier: View? = null
++    private var carrierPaddingEnd = 0
++    private val reserve = View.OnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> reserveCarrierText() }
++    private var root: ConstraintLayout? = null
++    /** The stock icon currently shows its lock or unlock picture, which the island replaces. */
++    private var stockPadlock = false
++    // Re-applied after every layout: the stock section may rebuild its icon view at any time.
++    private val enforce = ViewTreeObserver.OnGlobalLayoutListener { hideStockPadlock() }
++
++    private fun hideStockPadlock() {
++        val alpha = if (stockPadlock) 0 else 255
++        root?.findViewById<ImageView>(R.id.device_entry_icon_fg)?.takeIf { it.imageAlpha != alpha }?.imageAlpha = alpha
++    }
++
++    override fun addViews(constraintLayout: ConstraintLayout) {
++        if (constraintLayout.findViewById<View>(viewId) != null) return
++        constraintLayout.addView(IslandStatusView(constraintLayout.context).apply {
++            id = viewId
++            visibility = View.INVISIBLE
++        })
++    }
++
++    override fun bindData(constraintLayout: ConstraintLayout) {
++        val view = constraintLayout.findViewById<IslandStatusView>(viewId) ?: return
++        island?.removeOnLayoutChangeListener(reserve)
++        island = view
++        view.addOnLayoutChangeListener(reserve)
++        root?.viewTreeObserver?.removeOnGlobalLayoutListener(enforce)
++        root = constraintLayout
++        constraintLayout.viewTreeObserver.addOnGlobalLayoutListener(enforce)
++        binding?.dispose()
++        binding = view.repeatWhenAttached {
++            repeatOnLifecycle(Lifecycle.State.CREATED) {
++                launch {
++                    lockStatus.state.collect {
++                        view.status = lockStatus.activity()
++                        reserveCarrierText()
++                    }
++                }
++                launch {
++                    combine(containerViewModel.isOnLockscreenWithoutShade, keyguardInteractor.isDozing) {
++                        onLockscreen, dozing -> onLockscreen && !dozing
++                    }.distinctUntilChanged().collect { shown ->
++                        view.fadeShown(shown)
++                        reserveCarrierText()
++                    }
++                }
++                launch {
++                    deviceEntryIconViewModel.iconType.collect { type ->
++                        stockPadlock = type == DeviceEntryIconView.IconType.LOCK || type == DeviceEntryIconView.IconType.UNLOCK
++                        hideStockPadlock()
++                    }
++                }
++            }
++        }
++    }
++
++    /**
++     * The capsule's disc reaches left of the camera, past the space the keyguard status bar keeps
++     * clear for the cutout. A long carrier text ("Emergency calls only") would run under it, so it
++     * gets that much end padding while the capsule is drawn.
++     */
++    private fun reserveCarrierText() {
++        val view = island ?: return
++        val text = carrier ?: view.rootView.findViewById<View>(R.id.keyguard_carrier_text)?.also {
++            carrier = it
++            carrierPaddingEnd = it.paddingEnd
++        } ?: return
++        val capsuleLeft = view.takeIf { it.visibility == View.VISIBLE }?.capsuleLeftOnScreen()
++        val origin = IntArray(2)
++        text.getLocationOnScreen(origin)
++        val gap = (CARRIER_GAP_DP * view.resources.displayMetrics.density).toInt()
++        val overlap = if (capsuleLeft == null || text.layoutDirection == View.LAYOUT_DIRECTION_RTL) 0
++            else (origin[0] + text.width - capsuleLeft + gap).coerceAtLeast(0)
++        val padding = carrierPaddingEnd + overlap
++        if (text.paddingEnd != padding) text.setPaddingRelative(text.paddingStart, text.paddingTop, padding, text.paddingBottom)
++    }
++
++    override fun applyConstraints(constraintSet: ConstraintSet) {
++        constraintSet.apply {
++            constrainWidth(viewId, ConstraintSet.MATCH_CONSTRAINT)
++            // The view sizes itself to the status bar height.
++            constrainHeight(viewId, ConstraintSet.WRAP_CONTENT)
++            connect(viewId, ConstraintSet.TOP, ConstraintSet.PARENT_ID, ConstraintSet.TOP)
++            connect(viewId, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START)
++            connect(viewId, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END)
++            // Visibility follows the lock screen state, not blueprint transitions.
++            setVisibilityMode(viewId, ConstraintSet.VISIBILITY_MODE_IGNORE)
++        }
++    }
++
++    override fun removeViews(constraintLayout: ConstraintLayout) {
++        binding?.dispose()
++        binding = null
++        island?.removeOnLayoutChangeListener(reserve)
++        island = null
++        carrier?.let { it.setPaddingRelative(it.paddingStart, it.paddingTop, carrierPaddingEnd, it.paddingBottom) }
++        carrier = null
++        constraintLayout.viewTreeObserver.removeOnGlobalLayoutListener(enforce)
++        stockPadlock = false
++        hideStockPadlock()
++        root = null
++        constraintLayout.findViewById<View>(viewId)?.let(constraintLayout::removeView)
++    }
++
++    /** For `cmd statusbar lockscreen state`: the status and whether the lock screen draws it now. */
++    fun stateJson(): JSONObject = JSONObject()
++        .put("status", lockStatus.state.value.wire ?: JSONObject.NULL)
++        .put("visible", island?.state()?.optBoolean("visible") ?: false)
++
++    private companion object {
++        const val CARRIER_GAP_DP = 8f
++    }
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuLockscreenBackgroundDrawable.kt
@@ -1471,7 +1642,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuLockscreenCommand.kt
-@@ -0,0 +1,107 @@
+@@ -0,0 +1,111 @@
 +package com.android.systemui.taku.lockscreen
 +
 +import android.util.Log
@@ -1504,6 +1675,7 @@
 +    registry: CommandRegistry,
 +    private val notifications: TakuLockscreenNotifications,
 +    private val shortcuts: TakuLockscreenShortcuts,
++    private val lockStatus: TakuLockStatusSection,
 +    @Main private val mainExecutor: Executor,
 +    @Background backgroundExecutor: Executor,
 +) {
@@ -1530,11 +1702,11 @@
 +
 +    fun run(args: List<String>): JSONObject = when (args.getOrNull(0)) {
 +        "state" -> if (args.size == 1) onMain {
-+            TakuLockscreenNotifications.Result.OK.json().put("state", notifications.stateJson())
++            TakuLockscreenNotifications.Result.OK.json().put("state", state())
 +        } else usage()
 +        "notifications" -> if (args.size == 1) onMain {
 +            TakuLockscreenNotifications.Result.OK.json()
-+                .put("state", notifications.stateJson())
++                .put("state", state())
 +                .put("notifications", notifications.notificationsJson())
 +        } else usage()
 +        "open" -> if (args.size == 2) onMain { notifications.open(args[1]).json() } else usage()
@@ -1547,6 +1719,9 @@
 +        "shortcuts" -> shortcutsCommand(args.drop(1))
 +        else -> usage()
 +    }
++
++    /** The lock screen's state plus the padlock the island shows for it. */
++    private fun state(): JSONObject = notifications.stateJson().put("lockStatus", lockStatus.stateJson())
 +
 +    private fun shortcutsCommand(args: List<String>): JSONObject = runBlocking {
 +        when (args.getOrNull(0)) {

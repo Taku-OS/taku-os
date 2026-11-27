@@ -176,6 +176,7 @@ def authenticated_suite(device, checks):
         checks.check('keyguard showing and authenticated (swipe lock)',
                      state.get('keyguardShowing') and state.get('authenticated'), state)
         checks.check('compact clock when authenticated', state.get('clockSize') == 'small', state)
+        checks.check('swipe lock: no padlock in the island', state.get('lockStatus', {}).get('status') is None, state)
         listing = device.lockscreen('notifications')
         card = next((n for n in listing.get('notifications', []) if n.get('title') == 'Taku acceptance'), None)
         checks.check('posted notification is a card', card is not None, listing)
@@ -210,6 +211,7 @@ def first_unlock_suite(device, checks):
         state = device.lockscreen('state')['state']
         checks.check('after reboot: locked', state.get('keyguardShowing') and not state.get('authenticated'), state)
         checks.check('after reboot: tall clock', state.get('clockSize') == 'large', state)
+        checks.check('locked: closed padlock in the island', state.get('lockStatus') == {'status': 'locked', 'visible': True}, state)
         checks.check('locked: no cards', device.lockscreen('notifications').get('notifications') == [])
         checks.check('locked: Taku refused', device.lockscreen('taku').get('error') == 'LOCKED')
         print(f"INFO screenshot {device.screenshot('locked')}")
@@ -219,13 +221,19 @@ def first_unlock_suite(device, checks):
         device.shell('input keyevent KEYCODE_ENTER')
         start = time.time()
         top = ''
+        padlock = set()
         while time.time() - start < 20:
+            padlock.add(device.lockscreen('state')['state'].get('lockStatus', {}).get('status'))
             top = device.top_activity()
             if TAKU_HOME.split('/')[0] in top and 'FallbackHome' not in top:
                 break
             time.sleep(0.25)
         elapsed = round(time.time() - start, 2)
         checks.check('first unlock lands on Taku Home', TAKU_HOME.split('/')[0] in top, {'top': top, 'seconds': elapsed})
+        checks.check('unlock: open padlock shown', 'unlocked' in padlock, sorted(map(str, padlock)))
+        time.sleep(3)
+        state = device.lockscreen('state')['state']
+        checks.check('unlock: padlock gone after its moment', state.get('lockStatus') == {'status': None, 'visible': False}, state)
         print(f'INFO PIN entry to Taku Home: {elapsed} s (not boot time)')
     finally:
         device.shell(f'locksettings clear --old {PIN}', check=False)

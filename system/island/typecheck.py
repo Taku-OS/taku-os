@@ -35,8 +35,9 @@ interface ShadeInteractor { val isAnyExpanded: kotlinx.coroutines.flow.StateFlow
     'Keyguard.kt': '''package com.android.systemui.statusbar.policy
 interface KeyguardStateController {
  val isShowing: Boolean
+ fun canDismissLockScreen(): Boolean
  fun addCallback(callback: Callback)
- interface Callback { fun onKeyguardShowingChanged() {} }
+ interface Callback { fun onKeyguardShowingChanged() {}; fun onUnlockedChanged() {} }
 }
 ''',
     'Phone.kt': '''package com.android.systemui.statusbar.phone

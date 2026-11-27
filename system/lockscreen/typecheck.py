@@ -66,7 +66,28 @@ object R { object id { const val date_smartspace_view = 201; const val date_smar
  const val weather_smartspace_view = 203; const val weather_smartspace_view_large = 204 } }
 ''',
     'SysuiR.kt': '''package com.android.systemui.res
-object R { object id { const val start_button = 101 }; object string { const val controls_open_app = 102 }; object drawable { const val ic_apps_expressive = 103 } }
+object R { object id { const val start_button = 101; const val device_entry_icon_fg = 104; const val keyguard_carrier_text = 105 }; object string { const val controls_open_app = 102 }; object drawable { const val ic_apps_expressive = 103 } }
+''',
+    'DeviceEntry.kt': '''package com.android.systemui.keyguard.ui.view
+class DeviceEntryIconView { enum class IconType { LOCK, UNLOCK, FINGERPRINT, NONE } }
+''',
+    'DeviceEntryViewModel.kt': '''package com.android.systemui.keyguard.ui.viewmodel
+abstract class DeviceEntryIconViewModel { abstract val iconType: kotlinx.coroutines.flow.Flow<com.android.systemui.keyguard.ui.view.DeviceEntryIconView.IconType> }
+''',
+    # system/island, applied to SystemUI before this patch (image/build.sh): only what the lock screen calls.
+    'Island.kt': '''package com.android.systemui.taku.island
+class IslandActivity
+abstract class IslandLockStatus {
+ enum class State(val wire: String?) { NONE(null), LOCKED("locked"), UNLOCKED("unlocked") }
+ abstract val state: kotlinx.coroutines.flow.StateFlow<State>
+ abstract fun activity(): IslandActivity?
+}
+class IslandStatusView(context: android.content.Context) : android.view.ViewGroup(context) {
+ var status: IslandActivity? = null
+ fun capsuleLeftOnScreen(): Int? = TODO()
+ fun state(): org.json.JSONObject = TODO()
+ override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {}
+}
 ''',
     'Falsing.kt': '''package com.android.systemui.plugins
 interface FalsingManager { fun isFalseTap(penalty: Int): Boolean; companion object { const val LOW_PENALTY = 1 } }

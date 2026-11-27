@@ -244,7 +244,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandActivity.kt
-@@ -0,0 +1,68 @@
+@@ -0,0 +1,73 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -272,7 +272,7 @@
 +    val contentService: ComponentName?,
 +    val fallback: String?,
 +    val nativeActions: Map<String, IslandNativeAction> = emptyMap(),
-+    /** `custom` (Taku Island extras), `live-update` or `system`. */
++    /** `custom` (Taku Island extras), `live-update`, `system` or `status`. */
 +    val source: String = SOURCE_CUSTOM,
 +    /** [IslandStore] tier, derived from Android roles and SystemUI controllers, never from JSON. */
 +    val tier: Int = IslandStore.TIER_ACTIVITY,
@@ -308,6 +308,11 @@
 +        const val SOURCE_CUSTOM = "custom"
 +        const val SOURCE_LIVE_UPDATE = "live-update"
 +        const val SOURCE_SYSTEM = "system"
++        /** A glyph-only system status ([IslandLockStatus]): no card, no actions, never in the store. */
++        const val SOURCE_STATUS = "status"
++        /** A status activity's `status` payload field. */
++        const val STATUS_LOCKED = "locked"
++        const val STATUS_UNLOCKED = "unlocked"
 +        /** Reserved picture keys for the notification's own icons (publisher keys cannot start with `_`). */
 +        const val APP_PIC = "_app"
 +        const val LARGE_PIC = "_large"
@@ -468,16 +473,39 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandCameraGeometry.kt
-@@ -0,0 +1,24 @@
+@@ -0,0 +1,47 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
 +import android.graphics.Path
 +import android.graphics.Rect
 +import android.graphics.RectF
++import android.view.View
 +
 +/** Visible camera geometry, distinct from DisplayCutout's padded layout exclusion rectangle. */
 +internal object IslandCameraGeometry {
++    /** Camera centre in the host view's own pixels; [radius] is 0 without a centred punch hole. */
++    class Camera(val x: Int, val y: Float, val radius: Float)
++
++    /**
++     * Where the island's camera circle sits inside [view]: the centred punch hole when the display
++     * has one, else the middle of the view. DisplayCutout's top rectangle is a layout exclusion
++     * (Pixel 8's 122 px box surrounds a 72.5 px hole), so the radius comes from the cutout path;
++     * missing paths and notches report no radius and the capsule draws its design camera.
++     */
++    fun locate(view: View, maxDiameter: Float): Camera {
++        val displayCutout = view.rootWindowInsets?.displayCutout
++        val cutout = displayCutout?.boundingRectTop ?: Rect()
++        val physical = !cutout.isEmpty && cutout.centerX() in view.width / 3..view.width * 2 / 3
++        val location = IntArray(2)
++        view.getLocationOnScreen(location)
++        val camera = if (physical) bounds(displayCutout?.cutoutPath, cutout, maxDiameter) else null
++        val x = if (camera != null) Math.round(camera.centerX()) - location[0]
++            else if (physical) cutout.centerX() - location[0] else view.width / 2
++        return Camera(x, camera?.let { it.centerY() - location[1] } ?: (view.height / 2f),
++            camera?.let { maxOf(it.width(), it.height()) / 2f } ?: 0f)
++    }
++
 +    fun bounds(cutoutPath: Path?, topExclusion: Rect, maxDiameter: Float): RectF? {
 +        if (cutoutPath == null || cutoutPath.isEmpty || topExclusion.isEmpty) return null
 +        // A display path can contain bottom/side cutouts as well. Only inspect the top one.
@@ -557,7 +585,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandCapsuleView.kt
-@@ -0,0 +1,538 @@
+@@ -0,0 +1,608 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -592,7 +620,7 @@
 + * pill shows its text, timer or number in Hanken 12 sp. Another live activity waits as a 32 dp
 + * circle on the far left, where the bar has room; the main capsule never moves for it. On a status
 + * bar shorter than 32 dp everything scales down rather than clipping. Vertical drags are left to
-+ * the shade.
++ * the shade. A system status ([IslandLockStatus]) is the disc alone, holding a padlock.
 + */
 +internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
 +    private val longPress: () -> Unit, private val next: () -> Unit, private val hide: () -> Unit) : View(context) {
@@ -641,6 +669,14 @@
 +    private val iconSpent = mutableSetOf<Drawable>()
 +    var secondary = false
 +        private set
++    /** False where the capsule only displays (the lock screen): every touch passes through. */
++    var interactive = true
++        set(value) { field = value; isClickable = value; isLongClickable = value }
++    /** Padlock shackle: 0 closed, 1 open; null until a status is bound, so the first one does not animate. */
++    private var lockOpen: Float? = null
++    private var lockTarget: Float? = null
++    private var lockAnimation: ValueAnimator? = null
++    private val shackle = Path()
 +    private val gestures = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
 +        override fun onDown(event: MotionEvent) = true
 +        override fun onSingleTapUp(event: MotionEvent): Boolean {
@@ -669,6 +705,8 @@
 +
 +    override fun onInitializeAccessibilityNodeInfo(info: AccessibilityNodeInfo) {
 +        super.onInitializeAccessibilityNodeInfo(info)
++        // A status only announces itself; an activity's gestures do not apply to it.
++        if (item?.source == IslandActivity.SOURCE_STATUS) return
 +        info.addAction(AccessibilityNodeInfo.AccessibilityAction(AccessibilityNodeInfo.ACTION_LONG_CLICK, "Expand"))
 +        info.addAction(AccessibilityNodeInfo.AccessibilityAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD, "Next activity"))
 +        info.addAction(AccessibilityNodeInfo.AccessibilityAction(AccessibilityNodeInfo.ACTION_DISMISS, "Hide"))
@@ -759,7 +797,10 @@
 +     * What the disc draws for group A: Taku's AI animation, a progress ring or an icon. Without
 +     * group A it shows the notification's own icon (tinted white), else a plain dot.
 +     */
-+    private fun discSlot(activity: IslandActivity): JSONObject? = glyph(activity.compact?.optJSONObject("a"))
++    private fun discSlot(activity: IslandActivity): JSONObject? =
++        if (activity.source == IslandActivity.SOURCE_STATUS) JSONObject().put("type", "lock")
++            .put("open", activity.payload.optString("status") == IslandActivity.STATUS_UNLOCKED)
++        else glyph(activity.compact?.optJSONObject("a"))
 +        ?: if (activity.pics.containsKey(IslandActivity.APP_PIC))
 +            JSONObject().put("type", "pic").put("pic", IslandActivity.APP_PIC).put("tint", true) else null
 +
@@ -860,7 +901,9 @@
 +                }
 +            }
 +        }
-+        contentDescription = "${if (stale) "May be outdated. " else ""}${activity.title}. ${activity.body}. " +
++        bindLock(activity)
++        contentDescription = if (activity.source == IslandActivity.SOURCE_STATUS) activity.title else
++            "${if (stale) "May be outdated. " else ""}${activity.title}. ${activity.body}. " +
 +            "Double tap to ${if (activity.tap == "open" && activity.openIntent != null) "open the app" else "expand"}; " +
 +            "long press to expand; swipe left for the next activity; swipe right to hide." +
 +            if (second != null) " ${second?.title} is also live; tap the circle on the left to show it." else ""
@@ -902,6 +945,31 @@
 +        invalidate()
 +    }
 +
++    /** The padlock follows the bound status: a change while shown animates the shackle, anything else jumps. */
++    private fun bindLock(activity: IslandActivity) {
++        if (activity.source != IslandActivity.SOURCE_STATUS) {
++            lockAnimation?.cancel()
++            lockOpen = null
++            lockTarget = null
++            return
++        }
++        val target = if (activity.payload.optString("status") == IslandActivity.STATUS_UNLOCKED) 1f else 0f
++        if (lockTarget == target) return
++        val from = lockOpen
++        lockTarget = target
++        lockAnimation?.cancel()
++        if (from == null || !ValueAnimator.areAnimatorsEnabled() || !isShown) {
++            lockOpen = target
++            return
++        }
++        lockAnimation = ValueAnimator.ofFloat(from, target).apply {
++            duration = LOCK_MS
++            interpolator = android.view.animation.DecelerateInterpolator()
++            addUpdateListener { lockOpen = it.animatedValue as Float; invalidate() }
++            start()
++        }
++    }
++
 +    override fun onAttachedToWindow() {
 +        super.onAttachedToWindow()
 +        item?.let { bind(it, second) }
@@ -910,6 +978,8 @@
 +    override fun onDetachedFromWindow() {
 +        animation?.cancel()
 +        animation = null
++        lockAnimation?.cancel()
++        lockOpen = lockTarget
 +        stopIconAnimations()
 +        generation++
 +        secondaryGeneration++
@@ -925,6 +995,7 @@
 +    }
 +
 +    override fun onTouchEvent(event: MotionEvent): Boolean {
++        if (!interactive) return false
 +        if (event.actionMasked == MotionEvent.ACTION_DOWN) { downX = event.x; downY = event.y; vertical = false }
 +        if (event.actionMasked == MotionEvent.ACTION_MOVE && abs(event.y - downY) > abs(event.x - downX) && abs(event.y - downY) > ViewConfiguration.get(context).scaledTouchSlop) {
 +            vertical = true
@@ -1000,6 +1071,7 @@
 +        val motion = slot?.optString("animated").orEmpty()
 +        val icon = slot?.optString("pic")?.let(loaded::get)
 +        when {
++            slot?.optString("type") == "lock" -> drawLock(canvas, cx, cy, lockOpen ?: if (slot.optBoolean("open")) 1f else 0f)
 +            motion == "listening" -> {
 +                paint.color = IslandStyle.TEXT_PRIMARY
 +                val wave = (kotlin.math.sin(listeningPhase * 2 * Math.PI) + 1) / 2
@@ -1054,6 +1126,30 @@
 +    }
 +
 +    /**
++     * White padlock in the 16 dp glyph area: an 11 × 8 dp body under a 1.7 dp shackle. Opening lifts
++     * the shackle 3 dp, so its right leg clears the body while the left one stays in it.
++     */
++    private fun drawLock(canvas: Canvas, cx: Float, cy: Float, open: Float) {
++        // The lifted shackle makes the glyph taller; shift it down to stay centred in the disc.
++        val bodyTop = cy - dp(.7f) + dp(1.5f) * open
++        val arcY = bodyTop - dp(2.6f) - dp(3f) * open
++        val leg = dp(3.1f)
++        paint.color = Color.WHITE
++        paint.style = Paint.Style.FILL
++        canvas.drawRoundRect(cx - dp(5.5f), bodyTop, cx + dp(5.5f), bodyTop + dp(8f), dp(2.2f), dp(2.2f), paint)
++        shackle.rewind()
++        shackle.moveTo(cx - leg, bodyTop + dp(1f))
++        shackle.lineTo(cx - leg, arcY)
++        shackle.arcTo(cx - leg, arcY - leg, cx + leg, arcY + leg, 180f, 180f, false)
++        shackle.lineTo(cx + leg, bodyTop + dp(1f) - dp(4.2f) * open)
++        paint.style = Paint.Style.STROKE
++        paint.strokeWidth = dp(1.7f)
++        paint.strokeCap = Paint.Cap.ROUND
++        canvas.drawPath(shackle, paint)
++        paint.style = Paint.Style.FILL
++    }
++
++    /**
 +     * The waiting activity: a 32 dp circle, as tall as the main disc, with the same 16 dp glyph
 +     * (its own group A, else its notification icon).
 +     */
@@ -1090,6 +1186,8 @@
 +    companion object {
 +        /** An app's animated icon loops for at most this long per binding. */
 +        const val ICON_LOOP_MS = 60_000L
++        /** The padlock's shackle opens or closes over this time. */
++        const val LOCK_MS = 300L
 +        private const val ELLIPSIS = "\u2026"
 +        /** Camera centre and pill start from the main capsule's left edge for the 24 dp design camera (dp). */
 +        const val CAMERA_DP = 52
@@ -2278,6 +2376,105 @@
 +        presenter.replacesHeadsUp(entry.key) { engine.headsUpCandidate(entry.sbn) }
 +}
 --- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandLockStatus.kt
+@@ -0,0 +1,96 @@
++/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
++package com.android.systemui.taku.island
++
++import android.content.Context
++import android.os.Handler
++import android.os.Process
++import com.android.systemui.dagger.SysUISingleton
++import com.android.systemui.dagger.qualifiers.Main
++import com.android.systemui.statusbar.policy.KeyguardStateController
++import javax.inject.Inject
++import kotlinx.coroutines.flow.MutableStateFlow
++import kotlinx.coroutines.flow.StateFlow
++import kotlinx.coroutines.flow.asStateFlow
++import org.json.JSONObject
++
++/**
++ * The device's lock state as an island status: a padlock in the capsule's disc, with no pill, card
++ * or actions. It is not a live activity, so it never enters [IslandStore] and neither the island
++ * switch nor an activity's lifetime applies to it.
++ *
++ * Locked while the keyguard shows and cannot be dismissed without authenticating. Authenticating
++ * (or the keyguard leaving) turns it into the open padlock for [UNLOCKED_MS], after which the
++ * status ends. The lock screen draws it in [IslandStatusView]; once the keyguard has gone the
++ * status-bar capsule shows the open padlock, and gets the full time again so an unlock that goes
++ * straight home is still seen. A keyguard that never needs authentication has no status.
++ */
++@SysUISingleton
++class IslandLockStatus @Inject constructor(
++    private val context: Context,
++    private val keyguard: KeyguardStateController,
++    @Main private val handler: Handler,
++) {
++    enum class State(val wire: String?) { NONE(null), LOCKED(IslandActivity.STATUS_LOCKED), UNLOCKED(IslandActivity.STATUS_UNLOCKED) }
++
++    private val mutable = MutableStateFlow(State.NONE)
++    val state: StateFlow<State> = mutable.asStateFlow()
++    private var wasShowing = false
++    private val end = Runnable { mutable.value = State.NONE }
++    private val activities = mapOf(State.LOCKED to build("Locked", State.LOCKED), State.UNLOCKED to build("Unlocked", State.UNLOCKED))
++
++    init {
++        keyguard.addCallback(object : KeyguardStateController.Callback {
++            override fun onKeyguardShowingChanged() = update()
++            override fun onUnlockedChanged() = update()
++        })
++        update()
++    }
++
++    private fun update() {
++        val showing = keyguard.isShowing
++        val locked = showing && !keyguard.canDismissLockScreen()
++        when {
++            locked -> {
++                handler.removeCallbacks(end)
++                mutable.value = State.LOCKED
++            }
++            mutable.value == State.LOCKED -> {
++                mutable.value = State.UNLOCKED
++                endLater()
++            }
++            // The keyguard has just gone: the open padlock moves to the status bar.
++            mutable.value == State.UNLOCKED && wasShowing && !showing -> endLater()
++        }
++        wasShowing = showing
++    }
++
++    private fun endLater() {
++        handler.removeCallbacks(end)
++        handler.postDelayed(end, UNLOCKED_MS)
++    }
++
++    /** The capsule content for the current state, or null without a status. */
++    fun activity(): IslandActivity? = activities[mutable.value]
++
++    /** The open padlock only: what the status bar shows after the keyguard has gone. */
++    fun unlocked(): IslandActivity? = activity().takeIf { mutable.value == State.UNLOCKED }
++
++    /** Ends the open padlock early (a tap on it). The locked state cannot be dismissed. */
++    fun dismiss() {
++        if (mutable.value != State.UNLOCKED) return
++        handler.removeCallbacks(end)
++        mutable.value = State.NONE
++    }
++
++    // The status belongs to the device, not to a user's notifications: SystemUI's own user (0).
++    private fun build(title: String, status: State) = IslandActivity(KEY, context.packageName, Process.myUid(),
++        0, JSONObject().put("version", 2).put("status", status.wire).put("compact", JSONObject())
++            .put("expanded", JSONObject().put("template", "basic").put("title", title)),
++        emptyMap(), emptyMap(), null, null, null, source = IslandActivity.SOURCE_STATUS)
++
++    companion object {
++        const val KEY = "taku:status:lock"
++        /** How long the open padlock stays before the island returns to normal. */
++        const val UNLOCKED_MS = 1500L
++    }
++}
+--- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandModule.kt
 @@ -0,0 +1,16 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
@@ -2973,13 +3170,12 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandPresenter.kt
-@@ -0,0 +1,400 @@
+@@ -0,0 +1,405 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
 +import android.content.Context
 +import android.content.res.Configuration
-+import android.graphics.Rect
 +import android.os.Handler
 +import android.os.SystemClock
 +import android.view.Display
@@ -3014,6 +3210,7 @@
 +    private val keyguard: KeyguardStateController,
 +    private val headsUp: HeadsUpManager,
 +    private val foreground: IslandForeground,
++    private val lock: IslandLockStatus,
 +    @Main private val handler: Handler,
 +    @Application private val scope: CoroutineScope,
 +) : IslandPresentation {
@@ -3028,6 +3225,8 @@
 +    private var cardRevision = -1L
 +    private var reason = "startup"
 +    private var automatic = false
++    /** The capsule currently draws the lock status instead of an activity. */
++    private var statusShown = false
 +    /** Keys whose heads-up the island replaces right now; read by the interruption filter. */
 +    @Volatile private var presentable: Set<String> = emptySet()
 +    // Consume an accepted alert window once, not once per notification revision. Quiet updates,
@@ -3066,6 +3265,7 @@
 +                layoutCapsule()
 +            }
 +        }
++        scope.launch { lock.state.collect { layoutCapsule() } }
 +    }
 +
 +    fun attach(view: PhoneStatusBarView) {
@@ -3073,11 +3273,12 @@
 +        detach()
 +        bar = view
 +        capsule = IslandCapsuleView(view.context,
-+            tap = { if (card != null) invoke("collapse", null) else selected?.let { invoke("tap", it) } },
-+            longPress = { selected?.let { invoke("expand", it) } },
++            // The open padlock has no card or app: any gesture on it just ends it early.
++            tap = { if (statusShown) lock.dismiss() else if (card != null) invoke("collapse", null) else selected?.let { invoke("tap", it) } },
++            longPress = { if (!statusShown) selected?.let { invoke("expand", it) } },
 +            // One activity: nothing to switch to, and no error toast for the gesture.
-+            next = { engine.command("next", null, null) },
-+            hide = { selected?.let { invoke("dismiss", it) } },
++            next = { if (statusShown) lock.dismiss() else engine.command("next", null, null) },
++            hide = { if (statusShown) lock.dismiss() else selected?.let { invoke("dismiss", it) } },
 +        )
 +        view.addView(capsule, FrameLayout.LayoutParams(dp(180), dp(28), Gravity.CENTER))
 +        view.addOnLayoutChangeListener(layout)
@@ -3254,9 +3455,14 @@
 +            closeCard("landscape")
 +        }
 +        selected = IslandStore.compactSelection(items, selected, card != null, ::showsCapsule)
-+        val activity = items.find { it.key == selected }?.data
++        val live = items.find { it.key == selected }?.data
++        // Just unlocked: the open padlock takes the capsule for a moment, and the live activity
++        // waits beside it. The lock screen draws its own padlock (IslandStatusView).
++        val status = lock.unlocked().takeIf { card == null }
++        val activity = status ?: live
++        statusShown = false
 +        // The capsule and the card are mutually exclusive: an open card hides every capsule.
-+        if (activity == null || card != null || !showsCapsule(activity) || view.alpha == 0f || keyguard.isShowing ||
++        if (activity == null || card != null || (status == null && !showsCapsule(activity)) || view.alpha == 0f || keyguard.isShowing ||
 +                shade.isAnyExpanded.value || headsUp.isHeadsUpEntry(activity.key)) {
 +            IslandPresentationOwnership.show(if (card != null) activity else null)
 +            pill.visibility = View.GONE
@@ -3264,9 +3470,6 @@
 +            restoreCentered()
 +            return
 +        }
-+        val displayCutout = view.rootWindowInsets?.displayCutout
-+        val cutout = displayCutout?.boundingRectTop ?: Rect()
-+        val physical = !cutout.isEmpty && cutout.centerX() in view.width / 3..view.width * 2 / 3
 +        val contents = view.findViewById<View>(R.id.status_bar_contents)
 +        val contentLeft = view.paddingLeft + (contents?.paddingLeft ?: 0)
 +        val contentRight = view.width - view.paddingRight - (contents?.paddingRight ?: 0)
@@ -3276,21 +3479,17 @@
 +        val icons = view.findViewById<View>(R.id.statusIcons)?.takeIf { it.visibility != View.GONE }?.width ?: 0
 +        // Figma 1:4742 anchors the island to the camera: the disc extends to its left and the pill
 +        // grows to its right. FrameLayout centering would include asymmetric status-bar padding,
-+        // so position from the actual display cutout path. boundingRectTop is a layout exclusion:
-+        // Pixel 8's 122 px box surrounds a 72.5 px hole and must never become the painted circle.
-+        val location = IntArray(2)
-+        view.getLocationOnScreen(location)
-+        val camera = if (physical) IslandCameraGeometry.bounds(displayCutout?.cutoutPath, cutout, dp(64).toFloat()) else null
-+        val cameraX = if (camera != null) Math.round(camera.centerX()) - location[0]
-+            else if (physical) cutout.centerX() - location[0] else view.width / 2
-+        // Missing paths and notches use the design camera, never a radius inferred from padding.
-+        val cameraRadius = camera?.let { maxOf(it.width(), it.height()) / 2f } ?: 0f
-+        val cameraY = camera?.let { it.centerY() - location[1] } ?: (view.height / 2f)
++        // so position from the actual display cutout path (IslandCameraGeometry.locate).
++        val camera = IslandCameraGeometry.locate(view, dp(64).toFloat())
++        val cameraX = camera.x
++        val cameraRadius = camera.radius
++        val cameraY = camera.y
 +        pill.configure(view.height.coerceAtLeast(dp(16)), cameraRadius)
 +        val cameraLeft = pill.cameraOffset()
 +        // Another live activity waits as a circle left of the disc, only where the bar has room;
 +        // the main capsule keeps its camera-anchored position either way.
-+        val wantsSecondary = items.count { showsCapsule(it.data) } > 1
++        val waitingLive = live?.takeIf { status != null && showsCapsule(it) }
++        val wantsSecondary = if (status != null) waitingLive != null else items.count { showsCapsule(it.data) } > 1
 +        val withSecondary = wantsSecondary && IslandCapsuleGeometry.maximumWidth(contentLeft, contentRight,
 +            cameraX, cameraLeft + pill.leadWidth(), clock, endWidth, icons, dp(12)) > 0
 +        val leftWidth = cameraLeft + if (withSecondary) pill.leadWidth() else 0
@@ -3305,8 +3504,9 @@
 +            return
 +        }
 +        relocateCentered()
-+        pill.stale = items.find { it.key == selected }?.stale(SystemClock.elapsedRealtime()) == true
-+        val waiting = secondary(activity)
++        pill.stale = status == null && items.find { it.key == selected }?.stale(SystemClock.elapsedRealtime()) == true
++        val waiting = if (status != null) waitingLive.takeIf { pill.secondary } else secondary(activity)
++        statusShown = status != null
 +        pill.bind(activity, waiting)
 +        pill.translationX = 0f
 +        pill.visibility = View.VISIBLE
@@ -3361,10 +3561,12 @@
 +        .put("compactVisible", visible != null).put("reason", reason)
 +        .put("foregroundPackage", foreground.foregroundPackage ?: JSONObject.NULL)
 +        .put("suppressedByForeground", JSONArray(items.filter { it.data.compactVisible && foreground.suppresses(it.data) }.map { it.key }))
-+        .put("secondaryKey", visible?.let { items.find { it.key == selected }?.data?.let { secondary(it)?.key } } ?: JSONObject.NULL)
++        .put("secondaryKey", visible?.let { items.find { it.key == selected }?.data?.let { if (statusShown) it.key.takeIf { visible.secondary } else secondary(it)?.key } } ?: JSONObject.NULL)
 +        .put("tap", items.find { it.key == selected }?.data?.tap ?: JSONObject.NULL)
 +        .put("compact", visible?.state() ?: JSONObject.NULL)
 +        .put("expanded", card != null).put("card", card?.state() ?: JSONObject.NULL)
++        // The lock status (IslandLockStatus), and whether this capsule is the one drawing it now.
++        .put("lockStatus", lock.state.value.wire ?: JSONObject.NULL).put("lockStatusInCapsule", visible != null && statusShown)
 +    }
 +
 +    private fun invoke(method: String, arg: String?, extra: String? = null) {
@@ -3971,6 +4173,116 @@
 +            paint.color = Color.WHITE
 +            for (left in listOf(-8, 2)) canvas.drawRoundRect(x + left * d, y - 6 * d * blink, x + (left + 6) * d, y + 6 * d * blink, 3 * d, 3 * d, paint)
 +        }
++    }
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandStatusView.kt
+@@ -0,0 +1,107 @@
++/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
++package com.android.systemui.taku.island
++
++import android.content.Context
++import android.content.res.Configuration
++import android.view.View
++import android.view.ViewGroup
++import android.view.WindowInsets
++import org.json.JSONObject
++
++/**
++ * The island where the status bar is not: a strip across the top of its parent (the lock screen)
++ * that draws a status as the same camera-anchored capsule, with the same geometry, as
++ * [IslandPresenter] does in the status bar. It only displays: touches pass through to the lock
++ * screen, and TalkBack reads the status. Portrait only, like the keyguard.
++ */
++class IslandStatusView(context: Context) : ViewGroup(context) {
++    private val density = resources.displayMetrics.density
++    private val capsule = IslandCapsuleView(context, {}, {}, {}, {}).apply {
++        interactive = false
++        visibility = View.GONE
++    }
++
++    /** What to draw, or null for nothing. A status that ends fades out. */
++    var status: IslandActivity? = null
++        set(value) {
++            if (field === value) return
++            field = value
++            capsule.animate().cancel()
++            if (value != null || capsule.visibility != View.VISIBLE) place()
++            else capsule.animate().alpha(0f).setDuration(FADE_MS).withEndAction(::place).start()
++        }
++
++    init {
++        addView(capsule)
++    }
++
++    /** Left edge of the drawn capsule on screen, or null while nothing is drawn. */
++    fun capsuleLeftOnScreen(): Int? {
++        if (capsule.visibility != View.VISIBLE || !isShown) return null
++        val origin = IntArray(2)
++        capsule.getLocationOnScreen(origin)
++        return origin[0]
++    }
++
++    fun state(): JSONObject = JSONObject().put("status", status?.payload?.optString("status") ?: JSONObject.NULL)
++        .put("visible", capsule.visibility == View.VISIBLE && isShown && alpha > 0f)
++        .put("capsule", if (capsule.visibility == View.VISIBLE) capsule.state() else JSONObject.NULL)
++
++    /** As tall as the status bar (which contains the camera), and never shorter than the capsule. */
++    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
++        val bar = rootWindowInsets?.getInsetsIgnoringVisibility(
++            WindowInsets.Type.statusBars() or WindowInsets.Type.displayCutout())?.top ?: 0
++        setMeasuredDimension(MeasureSpec.getSize(widthMeasureSpec), maxOf(bar, (32 * density).toInt()))
++    }
++
++    override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) = place()
++
++    // The bar height and the camera come from the window's insets: measure again whenever they can change.
++    override fun onApplyWindowInsets(insets: WindowInsets): WindowInsets {
++        requestLayout()
++        return super.onApplyWindowInsets(insets)
++    }
++
++    override fun onAttachedToWindow() {
++        super.onAttachedToWindow()
++        requestLayout()
++    }
++
++    override fun onConfigurationChanged(newConfig: Configuration) {
++        super.onConfigurationChanged(newConfig)
++        requestLayout()
++    }
++
++    private fun place() {
++        val activity = status
++        if (activity == null || width == 0 || height == 0 ||
++                resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) {
++            capsule.visibility = View.GONE
++            return
++        }
++        val camera = IslandCameraGeometry.locate(this, 64 * density)
++        capsule.configure(height, camera.radius)
++        val start = camera.x - capsule.cameraOffset()
++        val capsuleWidth = capsule.layoutWidth(activity, width - start, false)
++        if (start < 0 || capsuleWidth == 0) {
++            capsule.visibility = View.GONE
++            return
++        }
++        capsule.stale = false
++        capsule.bind(activity, null)
++        capsule.alpha = 1f
++        capsule.visibility = View.VISIBLE
++        // Same box as the status-bar capsule: tall enough for the 32 dp disc and the camera circle,
++        // centred on the camera so the neck meets the real hole.
++        val capsuleHeight = minOf(height, maxOf((32 * capsule.unit).toInt(), kotlin.math.ceil(2 * camera.radius + 2).toInt()))
++        val capsuleTop = Math.round(camera.y - capsuleHeight / 2f).coerceIn(0, (height - capsuleHeight).coerceAtLeast(0))
++        capsule.centerShift = camera.y - capsuleTop - capsuleHeight / 2f
++        capsule.measure(MeasureSpec.makeMeasureSpec(capsuleWidth, MeasureSpec.EXACTLY),
++            MeasureSpec.makeMeasureSpec(capsuleHeight, MeasureSpec.EXACTLY))
++        capsule.layout(start, capsuleTop, start + capsuleWidth, capsuleTop + capsuleHeight)
++    }
++
++    private companion object {
++        const val FADE_MS = 200L
 +    }
 +}
 --- /dev/null

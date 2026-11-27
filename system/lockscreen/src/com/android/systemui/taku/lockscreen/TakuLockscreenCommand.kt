@@ -30,6 +30,7 @@ constructor(
     registry: CommandRegistry,
     private val notifications: TakuLockscreenNotifications,
     private val shortcuts: TakuLockscreenShortcuts,
+    private val lockStatus: TakuLockStatusSection,
     @Main private val mainExecutor: Executor,
     @Background backgroundExecutor: Executor,
 ) {
@@ -56,11 +57,11 @@ constructor(
 
     fun run(args: List<String>): JSONObject = when (args.getOrNull(0)) {
         "state" -> if (args.size == 1) onMain {
-            TakuLockscreenNotifications.Result.OK.json().put("state", notifications.stateJson())
+            TakuLockscreenNotifications.Result.OK.json().put("state", state())
         } else usage()
         "notifications" -> if (args.size == 1) onMain {
             TakuLockscreenNotifications.Result.OK.json()
-                .put("state", notifications.stateJson())
+                .put("state", state())
                 .put("notifications", notifications.notificationsJson())
         } else usage()
         "open" -> if (args.size == 2) onMain { notifications.open(args[1]).json() } else usage()
@@ -73,6 +74,9 @@ constructor(
         "shortcuts" -> shortcutsCommand(args.drop(1))
         else -> usage()
     }
+
+    /** The lock screen's state plus the padlock the island shows for it. */
+    private fun state(): JSONObject = notifications.stateJson().put("lockStatus", lockStatus.stateJson())
 
     private fun shortcutsCommand(args: List<String>): JSONObject = runBlocking {
         when (args.getOrNull(0)) {

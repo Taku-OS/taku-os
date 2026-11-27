@@ -43,7 +43,7 @@ private fun authenticatedSurfaceShown(
     }.distinctUntilChanged()
 
 /** Fades a surface in or out; a hidden surface is INVISIBLE so touches reach the lock screen below. */
-private fun View.fadeShown(shown: Boolean) {
+internal fun View.fadeShown(shown: Boolean) {
     animate().cancel()
     if (shown) {
         if (visibility != View.VISIBLE) {

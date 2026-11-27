@@ -26,7 +26,7 @@ import kotlinx.coroutines.DisposableHandle
 /**
  * Taku's lock screen layout: the stock sections (clock, shortcuts, device entry, indication area,
  * notifications, accessibility, AOD) on top of the Taku background, plus the authenticated surface
- * (notification cards and the Taku button). Keeping the stock sections keeps authentication,
+ * (notification cards and the Taku button) and the lock status in the island. Keeping the stock sections keeps authentication,
  * biometric messages and accessibility exactly as upstream.
  */
 @SysUISingleton
@@ -38,6 +38,7 @@ constructor(
     notificationSection: TakuNotificationSection,
     assistantSection: TakuAssistantSection,
     stockDateSection: TakuStockDateSection,
+    lockStatusSection: TakuLockStatusSection,
     // Not used here: injecting it registers `cmd statusbar lockscreen` with the Taku lock screen.
     @Suppress("UNUSED_PARAMETER") command: TakuLockscreenCommand,
 ) : KeyguardBlueprint {
@@ -46,9 +47,10 @@ constructor(
     // Z-order follows this list. The background is the root's background drawable; the cards sit
     // under every stock view (shortcuts, lock icon, indication text keep their touches); the Taku button
     // is on top. The stock-date section adds no view and must apply after the smartspace section.
+    // The lock status is a strip at the camera that takes no touches.
     override val sections: List<KeyguardSection> =
         listOf(backgroundSection, notificationSection) + defaultBlueprint.sections +
-            listOf(assistantSection, stockDateSection)
+            listOf(assistantSection, stockDateSection, lockStatusSection)
 
     companion object {
         const val ID = "taku"

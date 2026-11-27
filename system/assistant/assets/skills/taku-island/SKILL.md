@@ -80,6 +80,13 @@ always the `taku.island.v2` shape (`compact.a`/`compact.b`, `expanded`, `tap`, `
 `timeoutS`), also for Live Updates and system sources. The list contains active,
 undismissed items even when the global switch hides them; presentation says what is on screen.
 
+Lock status: `state.presentation.lockStatus` is `locked` while the lock screen needs authentication,
+`unlocked` for 1.5 s after the user authenticates, else null. It is a padlock in the island's disc,
+not an activity: `list` never returns it and no operation targets it. The lock screen draws it
+(`cmd statusbar lockscreen state` → `lockStatus.visible`); after an unlock that leaves the lock
+screen this capsule draws the open padlock (`lockStatusInCapsule` true, `compact.disc` `lock`) and
+the selected activity waits as `secondaryKey`. It is read-only and follows the real lock state.
+
 Order: system tier first, then an activity inside its five-second alert, then the most recently
 triggered activity. A trigger is the first post or a false-to-true `alert`; routine updates never
 reorder. An island ends when its notification is cancelled, at its `timeoutS` (or the Live
@@ -144,7 +151,7 @@ action. The publisher contract is `docs/dynamic-island-developer.md` in the sour
 Every island SystemUI shows is drawn natively in the Taku design; there is no stock-widget
 fallback. `state.presentation.compact` (null when hidden) reports what the capsule shows:
 `text` (the pill as drawn, ending in `…` when cut; empty only when not even one character and the ellipsis fit), `disc` (`dot` when there is no glyph, `pic`, `progress`,
-`working` or `listening`), `pillGlyph` (group B drawn as `pic`, `working` or `listening`, else
+`working`, `listening`, or `lock` for the lock status below), `pillGlyph` (group B drawn as `pic`, `working` or `listening`, else
 null), `animatingIcons` (running app animated icons; each loops for at most 60 s and never
 with animations disabled), `secondary` (a second activity's circle), `secondaryPosition` (`left`),
 `cameraRadiusDp` (radius from the visible `DisplayCutout.getCutoutPath()`, not the padded

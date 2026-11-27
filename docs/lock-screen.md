@@ -56,11 +56,12 @@ default. The running lock screen is the legacy `KeyguardRootView` assembled from
   - `keyguard/ui/view/layout/blueprints/KeyguardBlueprintModule.kt`: bind it `@IntoSet`.
   - `keyguard/domain/interactor/KeyguardBlueprintInteractor.kt:64-71`: return `taku` for single shade.
   - `keyguard/data/repository/KeyguardBlueprintRepository.kt:64`: start from `taku`.
-- **Kept stock sections** (security and accessibility): `DefaultDeviceEntrySection` (fingerprint / lock icon
-  at the UDFPS location), `DefaultIndicationAreaSection` (biometric and charging messages),
+- **Kept stock sections** (security and accessibility): `DefaultDeviceEntrySection` (fingerprint icon at
+  the UDFPS location; its padlock picture is hidden, see 4.8), `DefaultIndicationAreaSection` (biometric and charging messages),
   `DefaultUdfpsAccessibilityOverlaySection`, `AccessibilityActionsSection`, `DefaultStatusBarSection`,
   `DefaultSettingsPopupMenuSection` (long-press customise), the AOD sections.
-- **Taku sections**: date, clock, notification cards, Taku button, background, and a reserved island slot.
+- **Taku sections**: date, clock, notification cards, Taku button, background, and the lock status in
+  the island (4.8).
   Taku sections supply the constraint ids other sections expect (`smart_space_barrier_top/bottom`).
 - The primary bouncer (`keyguard_bouncer_container`) and the UDFPS alternate bouncer are outside the
   blueprint and stay untouched.
@@ -201,14 +202,35 @@ Same pattern as the Dynamic Island (`system/island`, `image/island`):
 - Shown only in the authenticated state. A tap leaves the lock screen (no bouncer, because the user has
   already authenticated). Then it opens Taku through Taku Home's existing `ACTION_ASSIST` entry, which
   only opens once the keyguard is gone. No assistant policy is relaxed.
-- Deferred: placement against the runtime UDFPS location. On devices without UDFPS, the stock unlocked
-  padlock sits directly above the button.
+- Deferred: placement against the runtime UDFPS location.
 
 ### 4.7 Authentication and messages
 
 - Stock primary bouncer, alternate (UDFPS) bouncer, face authentication triggers, lockout, Smart Lock,
   SIM PIN, emergency call and lockdown are unchanged.
 - Biometric and charging messages keep using `keyguard_indication_text`, placed just above the bottom row.
+
+### 4.8 Lock status in the island
+
+- The lock state shows in the Dynamic Island at the camera, not as the stock padlock above the
+  shortcuts. It is the island's compact geometry with only the 32 dp disc and the camera: a white
+  padlock in the disc, no text pill.
+- **Locked**: closed padlock, for as long as the lock screen shows and needs authentication.
+- **Unlocked**: on authentication the shackle lifts open (300 ms). The open padlock stays 1.5 s, then
+  leaves (it fades out on the lock screen). This is the same whether the user stays on the lock screen (face) or goes
+  straight to Home (PIN, pattern, fingerprint): once the keyguard has gone, the status-bar island
+  shows the open padlock for its 1.5 s, with any live activity waiting as the circle beside it. A tap
+  on the open padlock in the status bar ends it early.
+- A lock screen that needs no authentication (swipe) shows no padlock.
+- Source: `IslandLockStatus` (in `system/island`) owns the state and timing, from
+  `KeyguardStateController` (`isShowing`, `canDismissLockScreen`). On the lock screen
+  `TakuLockStatusSection` hosts `IslandStatusView`, the island's own capsule view, in the keyguard
+  root, because the status-bar island is hidden while the keyguard shows. It is shown with the lock
+  screen (not under the shade, not while dozing) and takes no touches.
+- The stock device entry icon keeps its view, accessibility label, action and long press. Only its
+  lock and unlock pictures are drawn transparent; the fingerprint picture is unchanged.
+- The carrier text gets end padding while the capsule is drawn, so a long carrier name does not run
+  under the disc.
 
 ## 5. Agent interfaces (AGENTS.md)
 
@@ -218,6 +240,7 @@ Same pattern as the Dynamic Island (`system/island`, `image/island`):
 | Face unlock stays on lock screen | `settings get/put secure face_unlock_dismisses_keyguard` |
 | Lock-screen notification policy (stock) | `settings ... secure lock_screen_show_notifications`, `lock_screen_allow_private_notifications`, `lock_screen_show_silent_notifications` |
 | Lock-screen state | `cmd statusbar lockscreen state` |
+| Lock status in the island | `cmd statusbar lockscreen state` → `lockStatus {status, visible}`; after unlock `cmd statusbar island state` → `presentation.lockStatus`, `lockStatusInCapsule` |
 | Cards, open, dismiss, buttons, Taku | `cmd statusbar lockscreen notifications`, `open KEY`, `dismiss KEY`, `action KEY INDEX`, `taku` |
 | Shortcuts | `cmd statusbar lockscreen shortcuts [list]`, `set SLOT SHORTCUT`, `clear SLOT` |
 | "Open app" target | `cmd statusbar lockscreen shortcuts app [COMPONENT|default]`; stored in `settings get secure taku_lockscreen_open_app` |
@@ -289,7 +312,10 @@ revision; emulator (`image/emulator`) and Pixel 9 runs recorded separately. Auth
 
 - Visual sign-off of the font-derived elongated digits 1, 2, 4, 5, 6, 7, 8.
 - Pixel 9 UDFPS sensor position (runtime value; check with `dumpsys fingerprint`); deferred. The Taku
-  button and the stock lock icon are placed independently until then.
+  button and the stock fingerprint icon are placed independently until then.
+- Lock status in the island (4.8): not yet run on an emulator or device. Check the capsule position
+  against the camera, the shackle animation, the hand-over to the status bar on unlock, and TalkBack
+  on the hidden stock padlock.
 - Launch animation on a card tap starts from the hidden stock row, not the card. Check it on the
   emulator.
 - Later card features from the design: "Relevant" badge, Taku reply and "Add to tasks" buttons, rich

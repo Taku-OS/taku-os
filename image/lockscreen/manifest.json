@@ -3,7 +3,7 @@
   "repository": "frameworks/base",
   "revision": "7f6de40b6429462d47ba9ba351b99943269c8067",
   "patch": "systemui-lockscreen.patch",
-  "patchSha256": "247d0b54aba666968e6c0e334dd8305f57afea4f6f5dc3c709d0e282e86c49fa",
+  "patchSha256": "ab0c2c72a3dec415f9b2fcef1db81f3d6130740f6dae2dfcd199b807108afee1",
   "files": [
     {
       "path": "packages/SystemUI/AndroidManifest.xml",
@@ -59,7 +59,7 @@
     {
       "path": "packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuAuthenticatedSections.kt",
       "beforeSha256": null,
-      "afterSha256": "2c9036fe07e28def0ec72c20f44d28d495a7c3e0705fbfbb5b80bb68a2775c09",
+      "afterSha256": "799db5db4982f96576f18ab5c5347625a5af6f37dbd42891f2a20d415f5ac1c8",
       "source": "system/lockscreen/src/com/android/systemui/taku/lockscreen/TakuAuthenticatedSections.kt"
     },
     {
@@ -107,8 +107,14 @@
     {
       "path": "packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuKeyguardBlueprint.kt",
       "beforeSha256": null,
-      "afterSha256": "e003f79e35f5f07e19e88832dfd71b3cf441cf607c61a2b8742e770b8607b062",
+      "afterSha256": "09fde63c0fa4393b8b306587746d710a6150596354989f3946d2ec4f975819bd",
       "source": "system/lockscreen/src/com/android/systemui/taku/lockscreen/TakuKeyguardBlueprint.kt"
+    },
+    {
+      "path": "packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuLockStatusSection.kt",
+      "beforeSha256": null,
+      "afterSha256": "f72c411f51485dd1fa0e4fd02209cdb8cd2019ca57d8d9429118975ee6ee274f",
+      "source": "system/lockscreen/src/com/android/systemui/taku/lockscreen/TakuLockStatusSection.kt"
     },
     {
       "path": "packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuLockscreenBackgroundDrawable.kt",
@@ -119,7 +125,7 @@
     {
       "path": "packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuLockscreenCommand.kt",
       "beforeSha256": null,
-      "afterSha256": "a7879f9060c0bb80b08135a8338c99fbfcaf1cfe08140212129050f13edc1dca",
+      "afterSha256": "ebd213c9306975adc00dca6e15bb430e2d24c9b461ec8a14dc2ea237ec1c375e",
       "source": "system/lockscreen/src/com/android/systemui/taku/lockscreen/TakuLockscreenCommand.kt"
     },
     {

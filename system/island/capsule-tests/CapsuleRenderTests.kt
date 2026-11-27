@@ -34,7 +34,7 @@ class CapsuleRenderTests : Instrumentation() {
                 .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) as CapsuleTestActivity
             waitForIdleSync()
             var failure: Throwable? = null
-            runOnMainSync { try { cases(); cutoutCases(); geometryCases(); summaryCases(); ownershipCases(); progressCases(); templateCases() } catch (e: Throwable) { failure = e } }
+            runOnMainSync { try { cases(); statusCases(); cutoutCases(); geometryCases(); summaryCases(); ownershipCases(); progressCases(); templateCases() } catch (e: Throwable) { failure = e } }
             failure?.let { throw it }
             result.putString("stream", "PASS: $checks capsule render checks. Component Canvas only; real status-bar placement still needs SystemUI installation.\n")
             finish(Activity.RESULT_OK, result)
@@ -104,6 +104,49 @@ class CapsuleRenderTests : Instrumentation() {
             wrapped.recycle()
             view.visibility = View.GONE // Cancels the production animator; no leaked frame callbacks.
         }
+    }
+    /** The lock status: disc and camera only, a white padlock whose shackle lifts when unlocked. */
+    private fun statusCases() {
+        fun status(state: String) = IslandActivity("taku:status:lock", targetContext.packageName, 0, 0,
+            JSONObject().put("version", 2).put("status", state).put("compact", JSONObject())
+                .put("expanded", JSONObject().put("template", "basic").put("title", state)),
+            emptyMap(), emptyMap(), null, null, null, source = IslandActivity.SOURCE_STATUS)
+        val view = IslandCapsuleView(targetContext, {}, {}, {}, {})
+        val density = targetContext.resources.displayMetrics.density
+        fun px(value: Float) = (value * density).toInt()
+        val height = px(32f)
+        val dir = File(targetContext.getExternalFilesDir(null), "frames").apply { mkdirs() }
+        fun render(state: String): Bitmap {
+            val width = view.layoutWidth(status(state), px(220f), false)
+            // 16 dp disc radius, 8 dp gap and the 24 dp design camera: no pill for a status.
+            assertThat(width == kotlin.math.ceil(64f * density).toInt(), "a status is the disc and the camera only")
+            view.layout(0, 0, width, height)
+            view.visibility = View.VISIBLE
+            view.bind(status(state), null)
+            assertThat(view.state().getString("disc") == "lock", "the disc draws the padlock")
+            assertThat(view.contentDescription == state, "a status announces only itself")
+            val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+            view.draw(Canvas(bitmap))
+            File(dir, "lock-$state.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            return bitmap
+        }
+        val locked = render(IslandActivity.STATUS_LOCKED)
+        val unlocked = render(IslandActivity.STATUS_UNLOCKED)
+        for (bitmap in listOf(locked, unlocked)) {
+            assertThat(bitmap.getPixel(px(16f), height / 2 + px(4f)) == Color.WHITE, "the padlock body is white")
+            assertThat(bitmap.getPixel(px(52f), height / 2) == Color.BLACK, "camera must remain solid black")
+        }
+        // The open shackle is lifted 1.5 dp higher than the closed one.
+        assertThat(locked.getPixel(px(16f), height / 2 - px(8f)) == Color.BLACK, "the closed shackle stays low")
+        assertThat(unlocked.getPixel(px(16f), height / 2 - px(8f)) == Color.WHITE, "the open shackle is lifted")
+        locked.recycle()
+        unlocked.recycle()
+        // On the lock screen the capsule only displays: touches belong to the lock screen below.
+        view.interactive = false
+        val down = android.view.MotionEvent.obtain(0, 0, android.view.MotionEvent.ACTION_DOWN, px(16f).toFloat(), height / 2f, 0)
+        assertThat(!view.onTouchEvent(down), "a display-only capsule takes no touches")
+        down.recycle()
+        view.visibility = View.GONE
     }
     private fun cutoutCases() {
         // Pixel 8 overlay on the 1080 px AVD: the exclusion is NOT the visible 72.5 px hole.

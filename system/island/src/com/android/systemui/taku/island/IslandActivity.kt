@@ -25,7 +25,7 @@ data class IslandActivity(
     val contentService: ComponentName?,
     val fallback: String?,
     val nativeActions: Map<String, IslandNativeAction> = emptyMap(),
-    /** `custom` (Taku Island extras), `live-update` or `system`. */
+    /** `custom` (Taku Island extras), `live-update`, `system` or `status`. */
     val source: String = SOURCE_CUSTOM,
     /** [IslandStore] tier, derived from Android roles and SystemUI controllers, never from JSON. */
     val tier: Int = IslandStore.TIER_ACTIVITY,
@@ -61,6 +61,11 @@ data class IslandActivity(
         const val SOURCE_CUSTOM = "custom"
         const val SOURCE_LIVE_UPDATE = "live-update"
         const val SOURCE_SYSTEM = "system"
+        /** A glyph-only system status ([IslandLockStatus]): no card, no actions, never in the store. */
+        const val SOURCE_STATUS = "status"
+        /** A status activity's `status` payload field. */
+        const val STATUS_LOCKED = "locked"
+        const val STATUS_UNLOCKED = "unlocked"
         /** Reserved picture keys for the notification's own icons (publisher keys cannot start with `_`). */
         const val APP_PIC = "_app"
         const val LARGE_PIC = "_large"

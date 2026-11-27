@@ -969,8 +969,14 @@ checks and stock SystemUI paths as a tap, a swipe or a button press. Every reply
 ```sh
 cmd statusbar lockscreen state
 # {ok, state:{keyguardShowing, authenticated, dozing, available, notificationCount,
-#  clockSize:"large"|"small"}}   large = tall clock (locked), small = compact (authenticated)
+#  clockSize:"large"|"small", lockStatus:{status:"locked"|"unlocked"|null, visible}}}
+# large = tall clock (locked), small = compact (authenticated)
 # available = keyguardShowing && authenticated: only then are cards and Taku shown or operable.
+# lockStatus = the padlock in the Dynamic Island at the camera: closed while locked, open for 1.5 s
+#  after the user authenticates, then null. visible = the lock screen is drawing it now (false under
+#  the shade, while dozing, and after an unlock that left the lock screen, where the status-bar
+#  island shows it: `cmd statusbar island state` → presentation.lockStatus). A lock screen that
+#  needs no authentication has no padlock. Read-only: it follows the real lock state.
 cmd statusbar lockscreen notifications
 # {ok, state, notifications:[{key, package, app, title, text, context, when, conversation,
 #  sensitive, dismissable, clickable, layout:"compact"|"expanded", actions:[{index, title}]}]}
