@@ -64,7 +64,9 @@ final class PhoneNativeTools {
     +" Results are excerpts (the user's own messages up to 800 characters, other records 400); an item marked cut continues, so read it with memory_get when the detail you need may be in the rest."
     +" When records disagree about the same thing, the latest (seenAt) is the current state: give that one answer and mention the earlier value only as what changed."
     +" Before giving advice or recommendations, search what the user has said about their own tastes, situation, past attempts and plans on the subject, and build on it."
-    +" If memory holds nothing about the thing asked, or the question assumes something memory contradicts, say so instead of guessing.",
+    +" Before including an item in a count or total, check it against every condition in the question (what kind, whose, when, done or only planned)."
+    +" Before saying memory holds nothing, search again with other words (the specific item, person or place, synonyms) and without dates."
+    +" If memory still holds nothing about the thing asked, or the question assumes something memory contradicts, say so instead of guessing.",
    new JSONObject().put("query",new JSONObject().put("type","string").put("maxLength",500))
     .put("limit",new JSONObject().put("type","integer").put("minimum",1).put("maximum",50))
     .put("from",new JSONObject().put("type","string").put("description","YYYY-MM-DD, first day records were seen (device time zone)"))
