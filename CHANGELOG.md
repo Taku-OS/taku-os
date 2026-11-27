@@ -4,6 +4,7 @@ Versioned, user-facing records. Source-project versions are distinct from ROM re
 
 ## Unreleased
 
+- When a background app needs you to log in or enter a code, Taku keeps that screen open and shows it as a card in the conversation, so you can open it and finish there instead of only being told to go to the app.
 - Keep background screens working while the phone is locked: the lock screen no longer stops the apps on them, so a task continues after the power key instead of seeing only black frames.
 - Keep each background screen awake while it exists. It no longer turns off after the screen-off timeout while the Agent is working, so observing an app it just opened no longer keeps failing with `SCREEN_OFF`.
 - Reorganize Taku BScreen into active workspaces, settings, and app permissions. Adjust the workspace limit directly with minus and plus buttons.

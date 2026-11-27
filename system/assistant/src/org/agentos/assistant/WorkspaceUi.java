@@ -68,6 +68,7 @@ final class WorkspaceUi {
                 case "request_apps": resource = R.string.chat_tool_request_apps; break;
                 case "release_apps": resource = R.string.chat_tool_release_apps; break;
                 case "screen_status": resource = R.string.chat_tool_screen_status; break;
+                case "hand_over_screen": resource = R.string.chat_tool_hand_over_screen; break;
                 case "phone_tool": resource = R.string.chat_tool_phone; break;
                 case "command": resource = R.string.chat_tool_command; break;
                 case "file_change": resource = R.string.chat_tool_file_change; break;

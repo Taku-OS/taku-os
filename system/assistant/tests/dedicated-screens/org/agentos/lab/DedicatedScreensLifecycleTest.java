@@ -606,12 +606,79 @@ public final class DedicatedScreensLifecycleTest {
         }
     }
 
+    /**
+     * BUG-0006: an App waiting for the user (a login page reached with taps) must stay on its screen
+     * after the turn, so the conversation shows the screen's card to open and take over, instead of
+     * the Agent only telling the user to go and act while the screen is released.
+     */
+    static void handOverRetention() throws Exception {
+        Rig rig = new Rig();
+        nativeStart(rig, "login");
+        JSONObject allocation = rig.request(1, "log in to the App", "com.game");
+        openApp(rig, "login", "com.game");
+        rig.screens.withScreen(session(1), "login", DedicatedScreens.Use.ACT, null, screen -> new JSONObject());
+        JSONObject handed = rig.screens.keepForUser(session(1), "login");
+        check(handed.getBoolean("handedOver") && handed.getString("screenKey").equals(allocation.getString("screenKey"))
+                && handed.getString("generation").equals(allocation.getString("generation")),
+                "hand_over_screen names the exact screen the conversation will show");
+        check(rig.screens.turnEnded(session(1), "login", true) == null,
+                "a handed-over screen is not released when the turn ends, even after taps");
+        ready(rig, allocation);
+        check(rig.tasks.list().size() == 1, "the login page's Android task stays for the user");
+
+        Rig cancelled = new Rig();
+        nativeStart(cancelled, "changed-mind");
+        cancelled.request(1, "hand over then act", "com.game");
+        openApp(cancelled, "changed-mind", "com.game");
+        cancelled.screens.keepForUser(session(1), "changed-mind");
+        cancelled.screens.withScreen(session(1), "changed-mind", DedicatedScreens.Use.ACT, null, screen -> new JSONObject());
+        join(cancelled.screens.turnEnded(session(1), "changed-mind", true));
+        check(cancelled.screens.list().isEmpty(), "a screen action after hand_over_screen cancels it");
+
+        Rig wrongTurn = new Rig();
+        nativeStart(wrongTurn, "current");
+        wrongTurn.request(1, "hand over from another turn", "com.game");
+        openApp(wrongTurn, "current", "com.game");
+        rejects("TURN_NOT_ACTIVE", () -> wrongTurn.screens.keepForUser(session(1), "other"));
+        rejects("TURN_NOT_ACTIVE", () -> wrongTurn.screens.keepForUser(session(1), ""));
+        join(wrongTurn.screens.turnEnded(session(1), "current", false));
+        check(wrongTurn.screens.list().isEmpty(), "a refused hand-over keeps ordinary cleanup");
+
+        Rig none = new Rig();
+        nativeStart(none, "no-screen");
+        rejects("APPS_NOT_REQUESTED", () -> none.screens.keepForUser(session(1), "no-screen"));
+
+        Rig taken = new Rig();
+        nativeStart(taken, "taken");
+        taken.request(1, "user takes the screen", "com.game");
+        openApp(taken, "taken", "com.game");
+        control(taken, 1, "user");
+        rejects("SCREEN_AGENT_PAUSED", () -> taken.screens.keepForUser(session(1), "taken"));
+
+        try {
+            WorkspacePolicy.configure(new JSONObject().put("jevCloseEnabled", true));
+            Rig jev = new Rig();
+            nativeStart(jev, "login-jev");
+            JSONObject waiting = jev.request(1, "login with Jev close on", "com.game");
+            openApp(jev, "login-jev", "com.game");
+            jev.screens.withScreen(session(1), "login-jev", DedicatedScreens.Use.ACT, null, screen -> new JSONObject());
+            jev.screens.keepForUser(session(1), "login-jev");
+            check(jev.screens.turnEnded(session(1), "login-jev", true, close -> {
+                throw new AssertionError("A screen waiting for the user must not be offered to Jev to close");
+            }) == null, "Jev close does not release a handed-over screen");
+            ready(jev, waiting);
+        } finally {
+            resetPolicy();
+        }
+    }
+
     public static void main(String[] args) throws Exception {
         resetPolicy();
         if (args.length == 0 || args[0].equals("spec3")) spec3();
         if (args.length == 0 || args[0].equals("spec5")) spec5();
         if (args.length == 0 || args[0].equals("completion")) completionRetention();
         if (args.length == 0 || args[0].equals("jev")) jevClose();
+        if (args.length == 0 || args[0].equals("handover")) handOverRetention();
         System.out.println("DedicatedScreensLifecycleTest: " + checks + " checks passed");
     }
 }

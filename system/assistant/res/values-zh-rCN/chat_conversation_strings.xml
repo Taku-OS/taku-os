@@ -14,6 +14,7 @@
     <string name="chat_tool_request_apps">申请后台专屏</string>
     <string name="chat_tool_release_apps">释放后台专屏</string>
     <string name="chat_tool_screen_status">查看专屏状态</string>
+    <string name="chat_tool_hand_over_screen">把屏幕交给你</string>
     <string name="chat_tool_phone">操作手机</string>
     <string name="chat_tool_command">运行命令</string>
     <string name="chat_tool_file_change">文件变更</string>

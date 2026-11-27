@@ -166,6 +166,12 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
         String turnId = "";
         CompletionDisposition completion = CompletionDisposition.RELEASE;
         Object closeDecision;
+        /**
+         * hand_over_screen: the user must act in an App here (log in, a verification code, a
+         * payment). Kept after the turn, without the Jev close check, so the conversation shows the
+         * screen's card to open and take over (BUG-0006). A later screen action cancels it.
+         */
+        boolean heldForUser;
 
         /** Task cleanup and physical close both failed; keep the entry until close confirms. */
         String cleanupError = "";
@@ -537,6 +543,7 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
         screen.closing = false;
         screen.resumeRequired = true;
         screen.completion = CompletionDisposition.RELEASE;
+        screen.heldForUser = false;
         screen.lastError = "";
         questions.remove(session);
         Ticket ticket = pending(session);
@@ -806,6 +813,7 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
         screen.handing.addAll(screen.apps);
         screen.apps.clear();
         screen.completion = CompletionDisposition.RELEASE;
+        screen.heldForUser = false;
         Thread clear =
                 new Thread(
                         () -> handOver(screen, session),
@@ -1373,6 +1381,7 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
                                                             + " or release_apps it to close it."));
                 if (use != Use.LOOK) {
                     screen.closeDecision = null;
+                    screen.heldForUser = false;
                     if (screen.completion == CompletionDisposition.OPEN_ONLY || screen.completion == CompletionDisposition.READ_ONLY)
                         screen.completion = CompletionDisposition.RELEASE;
                 }
@@ -1398,6 +1407,32 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
             }
         } finally {
             screen.input.unlock();
+        }
+    }
+
+    /**
+     * hand_over_screen: keep this turn's screen, as it is now, for the user after the turn ends, so
+     * the conversation shows it as a card to open and take over instead of only telling the user to
+     * go and act (BUG-0006). Only for the turn that holds it, while the Agent controls it, with an
+     * App held; a later screen action cancels it, like an App left open.
+     */
+    JSONObject keepForUser(String session, String turnId) throws Exception {
+        PhoneExecutionScreens.thread(session);
+        try (CleanupWork.Held held = lock()) {
+            DedicatedScreen screen = own(session);
+            if (screen == null || screen.apps.isEmpty())
+                throw new IOException("APPS_NOT_REQUESTED: request_apps and open_app the App the user must use first");
+            if (!agentControls(screen)) throw agentPaused(screen);
+            if (turnId.isEmpty() || !turnId.equals(screen.turnId) || !turnId.equals(activeTurns.get(session)))
+                throw new IOException("TURN_NOT_ACTIVE: hand_over_screen only works during the turn that holds the screen");
+            screen.heldForUser = true;
+            screen.closeDecision = null;
+            screen.completion = CompletionDisposition.OPEN_ONLY;
+            return new JSONObject().put("handedOver", true).put("screenKey", screen.key).put("generation", screen.generation)
+                .put("apps", new JSONArray(screen.apps))
+                .put("advice", "End your turn now without further screen actions. The screen stays open and the"
+                    + " conversation shows it as a card: tell the user to open it and finish there, then to tell you"
+                    + " when done so you can check the result.");
         }
     }
 
@@ -1624,11 +1659,14 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
 
             long policyRevision = screen.apps.isEmpty() ? -1 : jevCloseRevision();
             boolean handback = screen.completion == CompletionDisposition.RETURNED;
+            // Waiting for the user is not "finished": no Jev close check for a handed-over screen.
+            boolean forUser = screen.heldForUser;
+            screen.heldForUser = false;
             boolean retain = successful && (handback || screen.completion == CompletionDisposition.OPEN_ONLY
                     || screen.completion == CompletionDisposition.READ_ONLY);
             if (retain || policyRevision >= 0) {
                 retainAfterTurn(screen);
-                if (successful && !handback && decision != null && policyRevision >= 0 && policyRevision != Long.MAX_VALUE) {
+                if (successful && !handback && !forUser && decision != null && policyRevision >= 0 && policyRevision != Long.MAX_VALUE) {
                     Object token = new Object();
                     screen.closeDecision = token;
                     long controlRevision = screen.controlRevision;
@@ -2282,6 +2320,7 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
                 screen.allocationId = UUID.randomUUID().toString();
                 screen.turnId = activeTurns.getOrDefault(session, "");
                 screen.completion = CompletionDisposition.RELEASE;
+                screen.heldForUser = false;
                 screen.emptySince = NEVER;
                 return screen;
             }
@@ -2301,6 +2340,7 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
                 screen.allocationId = UUID.randomUUID().toString();
                 screen.turnId = activeTurns.getOrDefault(session, "");
                 screen.completion = CompletionDisposition.RELEASE;
+                screen.heldForUser = false;
                 screen.emptySince = NEVER;
                 return screen;
             }

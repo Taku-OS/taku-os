@@ -50,6 +50,14 @@ final class PhoneNativeTools {
       + " it when request_apps is refused or a sub-agent seems stuck. reclaimable: its thread holds no Apps; a"
       + " request takes such a screen when none is idle and the limit is reached.",
     new JSONObject()));
+  tools.put(tool("hand_over_screen",
+    "When the user must act in an App on your background screen themselves (log in, enter a phone number or"
+      + " verification code, pay, solve a captcha): call this last, once the screen shows the page they need, then"
+      + " end your turn. After a successful turn the screen stays open and the conversation shows it as a card the"
+      + " user opens to take over; tell them to open that card and to tell you when they are done. Do not only tell"
+      + " the user to go to the App: without this the screen closes when your turn ends. Any later screen action"
+      + " cancels it. Never ask for the codes or passwords yourself, and never use it for work you can do.",
+    new JSONObject()));
   tools.put(tool("observe_background","Observe this thread's assigned Android execution screen. Returns its real screenshot and screen/frame identity.",new JSONObject()));
   tools.put(tool("open_app","Open an App you hold from request_apps on this exact background screen. A successful turn that leaves the App open without later screen actions keeps it available for preview or takeover; observe_background does not change this. release_apps closes Apps you no longer need.",new JSONObject().put("packageName",new JSONObject().put("type","string"))));
   tools.put(tool("tap","Tap coordinates on the independent execution screen.",new JSONObject().put("x",new JSONObject().put("type","integer")).put("y",new JSONObject().put("type","integer"))));
@@ -90,6 +98,8 @@ final class PhoneNativeTools {
    for (String pkg : packages(args)) apps.put(pkg, PhoneAppCatalog.requireLaunchable(pkg).optString("label", pkg));
    return text(DedicatedScreensOnDevice.shared().request(thread, apps, args.optString("taskTitle")).toString());
   }
+  if (name.equals("hand_over_screen"))
+   return text(DedicatedScreensOnDevice.shared().keepForUser(thread, p.optString("turnId")).toString());
   if (name.equals("screen_status"))
    return text(DedicatedScreensOnDevice.shared().status(thread).toString());
   if (name.equals("release_apps"))
