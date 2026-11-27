@@ -1,0 +1,22 @@
+--- a/tools/releasetools/merge/merge_compatibility_checks.py
++++ b/tools/releasetools/merge/merge_compatibility_checks.py
+@@ -285,13 +285,11 @@
+     build_prop_path = get_file('system', 'build.prop')
+     if build_prop_path:
+       with open(build_prop_path, 'r', encoding='utf-8') as f:
+-        for line in f:
+-          line = line.strip()
+-          if not line.startswith('ro.debuggable='):
+-            continue
+-          value = line[line.find('=')+1:]
+-          if value == '1' or value == 'true':
+-            check_cmd.append('--debuggable')
+-            break
++        props = dict(line.strip().split('=', 1) for line in f
++                     if '=' in line and not line.lstrip().startswith('#'))
++        build_type = props.get('ro.system.build.type') or props.get('ro.build.type')
++        if (build_type in ('userdebug', 'eng') or
++            not build_type and props.get('ro.debuggable') in ('1', 'true')):
++          check_cmd.append('--debuggable')
+     else:
+       logger.warning(f"Can't find SYSTEM/build.prop, assuming non-debuggable")
