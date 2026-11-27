@@ -54,7 +54,7 @@ jobs:
       # Source checks need no downloaded native grammar sources. Verify packages
       # before executing any dependency code, and skip all install hooks in CI.
       - run: npm ci --ignore-scripts --no-fund
-      - name: npm audit (all severities, reviewed temporary exception)
+      - name: npm audit (all severities, zero findings required)
         run: node scripts/audit-dependencies.cjs
       - run: npm audit signatures
       - run: npm run patch:markdown
@@ -65,7 +65,7 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm test
-      - name: Verify waived tooling is absent from the Android bundle
+      - name: Verify build tooling is absent from the Android bundle
         run: npm run check:audit-boundary
       # Runs the config plugins (Gradle checksum pin, manifest, fonts) against the SDK
       # template. Generates android/ only; no Gradle build or Android SDK needed.
