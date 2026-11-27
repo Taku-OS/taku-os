@@ -1,7 +1,7 @@
 import React, {Component, useMemo, useState, type ReactNode} from 'react';
 import {Alert, Pressable, StyleSheet, View} from 'react-native';
 import {JSONUIProvider, Renderer, createStandardActionHandlers, type Spec} from '@json-render/react-native';
-import {spacing} from '../feed/feedTokens';
+import {accentWash, panelAccents, spacing} from '../feed/feedTokens';
 import {textFor, type Language} from '../i18n';
 import {chatText} from '../chat/chatText';
 import {presentationRequest, templateSpec, type CardPresentation} from '../model/genui';
@@ -11,12 +11,15 @@ import {isTextReplySpec} from '../model/chatReplySurface';
 import {CardLanguage, CardMatter, openSafeUrl} from './genuiWidgets';
 import {MatterSourceStatus} from './MatterSourceStatus';
 import {assemblySpec} from '../model/genuiAssembly';
-import {FeedButton, FeedPressable, FeedStatus, FeedText} from '../feed/feedVisual';
+import {FeedButton, FeedPressable, FeedStatus, FeedText, PanelLook, PanelSurface} from '../feed/feedVisual';
+import {panelAccent, panelScene} from '../model/panelScene';
 import {list, record, type Json} from '../model/session';
 import {formatUiValue} from './genuiFormat';
 import {openAiSetup} from '../native/aiSetup';
+import {checklistFields, panelContentSpec} from '../model/checklist';
+import {ChecklistContext} from './ChecklistCard';
 
-interface CardProps {threadId: string; presentation: CardPresentation; language: Language; active?: boolean; preload?: boolean; surface?: 'chat' | 'panel'}
+interface CardProps {threadId: string; presentation: CardPresentation; language: Language; active?: boolean; preload?: boolean; surface?: 'chat' | 'panel'; panelTitle?: string}
 
 
 class CardBoundary extends Component<{fallback: () => ReactNode; resetKey: string; children: ReactNode}, {failed: boolean; resetKey: string}> {
@@ -46,7 +49,7 @@ function savedInputText(entry: Json, language: Language): string {
   return entry.value == null ? '—' : JSON.stringify(entry.value);
 }
 
-function LiveCard({threadId, presentation, language, active = true, preload = false, surface = 'chat'}: CardProps) {
+function LiveCard({threadId, presentation, language, active = true, preload = false, surface = 'chat', panelTitle}: CardProps) {
   const t = textFor(language);
   const card = useGenUiCard(threadId, presentation, active, preload);
   const request = card.request, primary = card.presentation.kind === 'primary' ? card.presentation.reply : null;
@@ -54,7 +57,15 @@ function LiveCard({threadId, presentation, language, active = true, preload = fa
   const [pinBusy, setPinBusy] = useState(false), [pinError, setPinError] = useState('');
   const [reviewOpen, setReviewOpen] = useState(false);
   const {jevSetupNeeded} = card;
-  const renderSpec = useMemo(() => assemblySpec(spec), [spec]);
+  const renderSpec = useMemo(() => assemblySpec(surface === 'panel' ? panelContentSpec(spec, request.title, panelTitle) : spec), [spec, surface, request.title, panelTitle]);
+  const fields = useMemo(() => checklistFields(request, spec), [request, spec]);
+  // One accent per Panel, read from the icons; the scene decides how controls, choices and stops are drawn.
+  const look = useMemo(() => {
+    if (surface !== 'panel') return null;
+    const accent = panelAccents[panelAccent(request)];
+    return {accent, wash: accentWash(accent), scene: panelScene(request)};
+  }, [surface, request]);
+  const checklist = useMemo(() => fields ? {fields, pending: !!primary && ['streaming', 'sealed'].includes(primary.lifecycle.phase)} : null, [fields, primary]);
   const handlers = useMemo(() => ({
     setState: createStandardActionHandlers().setState,
     reply: async (params: Record<string, unknown>) => {
@@ -68,9 +79,12 @@ function LiveCard({threadId, presentation, language, active = true, preload = fa
   const failed = card.submission?.phase === 'unknown' || ['notSent', 'deliveryUnknown', 'failed'].includes(phase);
   const sending = card.submission?.phase === 'sending';
   const textReply = surface !== 'panel' && request.mode !== 'panel' && !!primary && isTextReplySpec(spec);
-  const render = (s: Spec) => <ChatReplySurface.Provider value={textReply}><JSONUIProvider registry={registry} store={store} handlers={handlers}>
-    <Renderer spec={s} registry={registry} includeStandard={false}/>
-  </JSONUIProvider></ChatReplySurface.Provider>;
+  // Checklists keep their own Figma card; every other Panel lays its modules straight onto the wallpaper.
+  const render = (s: Spec, useChecklist = true) => <PanelLook.Provider value={look}><PanelSurface.Provider value={surface === 'panel' && !(useChecklist && checklist)}>
+    <ChecklistContext.Provider value={useChecklist ? checklist : null}><ChatReplySurface.Provider value={textReply}><JSONUIProvider registry={registry} store={store} handlers={handlers}>
+      <Renderer spec={s} registry={registry} includeStandard={false}/>
+    </JSONUIProvider></ChatReplySurface.Provider></ChecklistContext.Provider>
+  </PanelSurface.Provider></PanelLook.Provider>;
   const presentationFailed = primary?.lifecycle.phase === 'failed' || primary?.lifecycle.phase === 'interrupted';
   const busy = primary?.lifecycle.phase === 'streaming' || primary?.lifecycle.phase === 'sealed';
   const pinAction = (run: () => Promise<unknown>) => {
@@ -93,7 +107,7 @@ function LiveCard({threadId, presentation, language, active = true, preload = fa
   const content = <View style={styles.container} testID={`genui-${request.key}`}>
       <CardBoundary resetKey={primary ? `${primary.id}/${primary.revision}` : card.spec.root} fallback={() => primary
         ? <View><FeedText text={primary.readableText} variant="body-md"/><FeedStatus state="error" text={t('cardUnavailable')}/></View>
-        : render(assemblySpec(templateSpec(card.request)))}>{render(renderSpec)}</CardBoundary>
+        : render(assemblySpec(templateSpec(card.request)), false)}>{render(renderSpec)}</CardBoundary>
       {(busy || presentationFailed) && <FeedStatus state={presentationFailed ? 'error' : 'pending'} text={t(primary?.lifecycle.phase === 'interrupted' ? 'cardReplyInterrupted' : presentationFailed ? 'cardPresentationFailed' : 'cardUpdating')}/>}
       <MatterSourceStatus meta={card.meta} language={language}/>
       {card.syncError && <FeedStatus state="error" text={t(card.syncError === 'DRAFT_VALUE_REQUIRED' ? 'cardValueRequired'
@@ -143,7 +157,7 @@ export function GenUiCard(props: CardProps & {superseded?: boolean}) {
 }
 
 const styles = StyleSheet.create({
-  container: {gap: spacing[4]},
+  container: {gap: spacing[8]},
   setup: {gap: spacing[4], alignItems: 'flex-start'},
   review: {gap: spacing[8]},
   reviewToggle: {minHeight: 36, paddingHorizontal: spacing[4], flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing[12]},

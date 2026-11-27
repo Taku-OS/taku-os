@@ -1,0 +1,10 @@
+{
+  "package": "lucide-static",
+  "version": "1.78.0",
+  "registry": "https://registry.npmjs.org/lucide-static/-/lucide-static-1.78.0.tgz",
+  "tarballSha256": "8312fadb97e45c76e2f847f883ece725be167cb360aac53d2540e54e357bc778",
+  "upstream": "https://github.com/lucide-icons/lucide",
+  "license": "ISC; icons derived from Feather keep MIT (both texts in licenses/Lucide-LICENSE.txt)",
+  "extracted": "package/icons/<name>.svg for the 151 names in lucideIcons.json",
+  "modifications": "Child elements of each <svg> copied as [tag, attributes] pairs. No path, attribute or icon is changed; the root <svg> attributes are dropped and redrawn by FeedIcon (24 viewBox, stroke 2, round caps)."
+}
