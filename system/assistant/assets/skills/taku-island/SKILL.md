@@ -87,6 +87,29 @@ not an activity: `list` never returns it and no operation targets it. The lock s
 screen this capsule draws the open padlock (`lockStatusInCapsule` true, `compact.disc` `lock`) and
 the selected activity waits as `secondaryKey`. It is read-only and follows the real lock state.
 
+Lock screen: activities also show on the lock screen, as the capsule at the camera and a card pinned
+above the notification cards, also while the phone is locked. `state.presentation.surface` is
+`lock-screen` while the keyguard shows, else `status-bar`. `state.presentation.lockScreen` is
+`{key, redacted, card}`: the activity shown there, `redacted` `none` or `glyph` (glyph only, no text
+or card, when Android requires the public version), and the key of the pinned card. The same
+operations work there: `expand KEY` / `tap KEY` pin the card, `collapse` folds it, `next` moves among
+the activities the lock screen may show. Not shown there: Taku's assistant activity before
+authentication, `VISIBILITY_SECRET` notifications, and everything when the user hides lock-screen
+notifications or turns the setting off.
+
+```sh
+cmd statusbar island settings              # settings.lockScreen: activities show on the lock screen
+cmd statusbar island setLockScreen 0       # or 1 (default); same value as the Settings switch
+settings get global taku_island_lock_screen
+```
+
+While the phone is locked, `open KEY`, a `tap KEY` that opens the app, and `action` answer `locked`,
+except SystemUI's own controller actions (stop recording or casting), call and alarm actions and Now
+Playing transport buttons. You cannot authenticate for the user: ask them to unlock, then retry.
+`action` with `reply` answers `reply_unavailable_on_lock_screen` while the keyguard shows. Now
+Playing is an activity with `category` `media` (also `call`, `alarm`, `timer`; null otherwise) in
+`get` and `list`.
+
 Order: system tier first, then an activity inside its five-second alert, then the most recently
 triggered activity. A trigger is the first post or a false-to-true `alert`; routine updates never
 reorder. An island ends when its notification is cancelled, at its `timeoutS` (or the Live
@@ -206,7 +229,7 @@ an observer; use the provider for immediate validation. Publishing a custom noti
 the platform certificate or this allow-list, in addition to normal Android notification
 permissions.
 
-Errors: `permission_denied` (caller not allowed; see Caller access), `no_other_activity` (`next` with fewer than two capsules), `not_found` (removed/dismissed/expired activity), `island_disabled`, `presentation_unavailable`
+Errors: `locked` (the phone is locked and the operation needs the user to authenticate), `reply_unavailable_on_lock_screen`, `invalid_lock_screen` (`setLockScreen` takes `0` or `1`), `permission_denied` (caller not allowed; see Caller access), `no_other_activity` (`next` with fewer than two capsules), `not_found` (removed/dismissed/expired activity), `island_disabled`, `presentation_unavailable`
 (no attached bar, locked/shade/heads-up/landscape, or window failure), `action_unavailable`,
 `reply_unavailable`, `reply_too_long`, `missing_action`, `missing_key`, `invalid_enabled`,
 `invalid_allowed_packages`, `read_only_protocol`, `settings_write_failed`, `source_ended`,

@@ -32,7 +32,9 @@ import kotlin.math.max
  * pill shows its text, timer or number in Hanken 12 sp. Another live activity waits as a 32 dp
  * circle on the far left, where the bar has room; the main capsule never moves for it. On a status
  * bar shorter than 32 dp everything scales down rather than clipping. Vertical drags are left to
- * the shade. A system status ([IslandLockStatus]) is the disc alone, holding a padlock.
+ * the shade. A system status ([IslandLockStatus]) is the disc alone, holding a padlock. On the lock
+ * screen the status takes the disc of an activity's capsule ([statusOverlay]) and the activity
+ * keeps the pill.
  */
 internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
     private val longPress: () -> Unit, private val next: () -> Unit, private val hide: () -> Unit) : View(context) {
@@ -84,6 +86,13 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
     /** False where the capsule only displays (the lock screen): every touch passes through. */
     var interactive = true
         set(value) { field = value; isClickable = value; isLongClickable = value }
+    /**
+     * A status drawn in the disc while the bound activity keeps the pill: the lock screen's padlock
+     * beside a live activity. The activity's own glyph moves into the pill when it has no text.
+     */
+    var statusOverlay: IslandActivity? = null
+    /** Only the activity's glyph may show: no text, timer or number (lock-screen privacy). */
+    var redacted = false
     /** Padlock shackle: 0 closed, 1 open; null until a status is bound, so the first one does not animate. */
     private var lockOpen: Float? = null
     private var lockTarget: Float? = null
@@ -209,9 +218,14 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
      * What the disc draws for group A: Taku's AI animation, a progress ring or an icon. Without
      * group A it shows the notification's own icon (tinted white), else a plain dot.
      */
-    private fun discSlot(activity: IslandActivity): JSONObject? =
-        if (activity.source == IslandActivity.SOURCE_STATUS) JSONObject().put("type", "lock")
-            .put("open", activity.payload.optString("status") == IslandActivity.STATUS_UNLOCKED)
+    private fun discSlot(activity: IslandActivity): JSONObject? = statusOverlay?.let(::statusSlot) ?: ownGlyph(activity)
+
+    private fun statusSlot(status: IslandActivity) = JSONObject().put("type", "lock")
+        .put("open", status.payload.optString("status") == IslandActivity.STATUS_UNLOCKED)
+
+    /** The activity's own glyph, wherever it is drawn. */
+    private fun ownGlyph(activity: IslandActivity): JSONObject? =
+        if (activity.source == IslandActivity.SOURCE_STATUS) statusSlot(activity)
         else glyph(activity.compact?.optJSONObject("a"))
         ?: if (activity.pics.containsKey(IslandActivity.APP_PIC))
             JSONObject().put("type", "pic").put("pic", IslandActivity.APP_PIC).put("tint", true) else null
@@ -229,16 +243,21 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
         else -> null
     }
 
-    /** Group B drawn as a glyph inside the pill (an icon or Taku's AI animation). */
-    private fun pillGlyph(activity: IslandActivity): JSONObject? =
-        activity.compact?.optJSONObject("b")?.takeIf { it.optString("type") in setOf("icon", "animation") }?.let(::glyph)
+    /**
+     * Group B drawn as a glyph inside the pill (an icon or Taku's AI animation). Under a status
+     * overlay the disc is taken, so the pill shows the activity's own glyph instead.
+     */
+    private fun pillGlyph(activity: IslandActivity): JSONObject? {
+        val b = activity.compact?.optJSONObject("b")?.takeIf { !redacted && it.optString("type") in setOf("icon", "animation") }?.let(::glyph)
+        return b ?: if (statusOverlay != null) ownGlyph(activity) ?: JSONObject() else null
+    }
 
     /** The publisher's validated accent colour, else Taku's accent. */
     private fun accent(activity: IslandActivity): Int = activity.accentColor ?: IslandStyle.ACCENT
 
     /** What the pill says: group B's text, number, clock or percentage. */
     private fun pillSlot(activity: IslandActivity): JSONObject? =
-        activity.compact?.optJSONObject("b")?.takeIf { it.optString("type") in setOf("text", "timer", "countdown", "number", "progress") }
+        activity.compact?.optJSONObject("b")?.takeIf { !redacted && it.optString("type") in setOf("text", "timer", "countdown", "number", "progress") }
 
     private fun pillText(slot: JSONObject?): String = when (slot?.optString("type")) {
         "text" -> slot.optString("text")
@@ -314,7 +333,10 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
             }
         }
         bindLock(activity)
-        contentDescription = if (activity.source == IslandActivity.SOURCE_STATUS) activity.title else
+        val overlay = statusOverlay
+        contentDescription = if (activity.source == IslandActivity.SOURCE_STATUS) activity.title
+            else if (overlay != null && redacted) "${overlay.title}. An activity is running."
+            else (if (overlay != null) "${overlay.title}. " else "") +
             "${if (stale) "May be outdated. " else ""}${activity.title}. ${activity.body}. " +
             "Double tap to ${if (activity.tap == "open" && activity.openIntent != null) "open the app" else "expand"}; " +
             "long press to expand; swipe left for the next activity; swipe right to hide." +
@@ -334,7 +356,7 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
             }
         }
         startIconAnimations()
-        val moving = listOfNotNull(discSlot(activity), pillGlyph(activity), second?.let(::discSlot))
+        val moving = listOfNotNull(discSlot(activity), pillGlyph(activity), second?.let(::ownGlyph))
             .any { it.has("animated") }
         if (moving && animation == null && ValueAnimator.areAnimatorsEnabled() && isShown && isAttachedToWindow) animation = ValueAnimator.ofFloat(0f, 1f).apply {
             // One repaint clock for both discs. Keep each authored cycle when selection changes:
@@ -359,13 +381,14 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
 
     /** The padlock follows the bound status: a change while shown animates the shackle, anything else jumps. */
     private fun bindLock(activity: IslandActivity) {
-        if (activity.source != IslandActivity.SOURCE_STATUS) {
+        val status = statusOverlay ?: activity.takeIf { it.source == IslandActivity.SOURCE_STATUS }
+        if (status == null) {
             lockAnimation?.cancel()
             lockOpen = null
             lockTarget = null
             return
         }
-        val target = if (activity.payload.optString("status") == IslandActivity.STATUS_UNLOCKED) 1f else 0f
+        val target = if (status.payload.optString("status") == IslandActivity.STATUS_UNLOCKED) 1f else 0f
         if (lockTarget == target) return
         val from = lockOpen
         lockTarget = target
@@ -569,7 +592,7 @@ internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
         val other = second ?: return
         paint.color = Color.BLACK
         canvas.drawCircle(cx, cy, 16 * unit, paint)
-        drawDisc(canvas, discSlot(other), cx, cy, secondaryIcons)
+        drawDisc(canvas, ownGlyph(other), cx, cy, secondaryIcons)
     }
 
     fun state(): JSONObject = JSONObject().put("text", shownText).put("secondary", secondary)

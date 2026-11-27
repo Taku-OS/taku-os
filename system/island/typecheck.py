@@ -40,6 +40,9 @@ interface KeyguardStateController {
  interface Callback { fun onKeyguardShowingChanged() {}; fun onUnlockedChanged() {} }
 }
 ''',
+    'ActivityStarter.kt': '''package com.android.systemui.plugins
+interface ActivityStarter { fun startPendingIntentDismissingKeyguard(intent: android.app.PendingIntent) }
+''',
     'Phone.kt': '''package com.android.systemui.statusbar.phone
 abstract class PhoneStatusBarView(context: android.content.Context) : android.widget.FrameLayout(context) {
  abstract fun setTakuIslandProbeWidth(width: Int)
@@ -59,12 +62,16 @@ interface UserTracker {
 interface NotificationLockscreenUserManager {
  fun isCurrentProfile(id: Int): Boolean
  fun isProfileAvailable(id: Int): Boolean
+ fun userAllowsNotificationsInPublic(userId: Int): Boolean
+ fun getRedactionType(entry: com.android.systemui.statusbar.notification.collection.NotificationEntry): Int
+ companion object { const val REDACTION_TYPE_NONE = 0 }
 }
 ''',
     'Pipeline.kt': '''package com.android.systemui.statusbar.notification.collection
 abstract class NotificationEntry { abstract val sbn: android.service.notification.StatusBarNotification; abstract val key: String }
 abstract class NotifPipeline {
  abstract fun getAllNotifs(): Collection<NotificationEntry>
+ abstract fun getEntry(key: String): NotificationEntry?
  abstract fun addCollectionListener(listener: com.android.systemui.statusbar.notification.collection.notifcollection.NotifCollectionListener)
 }
 ''',

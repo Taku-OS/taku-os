@@ -27,6 +27,10 @@ class IslandSystemNotifications @Inject constructor(private val context: Context
     }
 
     companion object {
+        /** Now Playing: a media-session notification while it is ongoing, i.e. while it plays. */
+        fun media(n: Notification) = n.isStyle(Notification.MediaStyle::class.java) &&
+            n.flags and Notification.FLAG_ONGOING_EVENT != 0
+
         fun candidate(n: Notification) = n.category in setOf(Notification.CATEGORY_CALL, Notification.CATEGORY_ALARM,
             Notification.CATEGORY_STOPWATCH) || n.isStyle(Notification.CallStyle::class.java)
     }

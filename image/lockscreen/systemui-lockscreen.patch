@@ -287,7 +287,7 @@
              // secure lock device mode is enabled always disallow
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuAuthenticatedSections.kt
-@@ -0,0 +1,257 @@
+@@ -0,0 +1,293 @@
 +package com.android.systemui.taku.lockscreen
 +
 +import android.content.Context
@@ -313,12 +313,14 @@
 +import com.android.systemui.res.R
 +import com.android.systemui.statusbar.notification.stack.ui.view.SharedNotificationContainer
 +import com.android.systemui.statusbar.notification.stack.ui.viewmodel.SharedNotificationContainerViewModel
++import com.android.systemui.taku.island.IslandLockScreenCard
 +import javax.inject.Inject
 +import kotlinx.coroutines.DisposableHandle
 +import kotlinx.coroutines.flow.Flow
 +import kotlinx.coroutines.flow.combine
 +import kotlinx.coroutines.flow.distinctUntilChanged
 +import kotlinx.coroutines.launch
++import org.json.JSONObject
 +
 +/**
 + * Where the authenticated surface shows: the lock screen itself (no shade or QS pulled over it, not
@@ -357,6 +359,10 @@
 + * touches) over them. Pulling the shade down shows the stock stack again, unchanged. The section also
 + * owns the clock size: compact once the user has authenticated, tall while locked
 + * ([TakuLockscreenPolicy.clockSize], the same rule the panel's hook applies).
++ *
++ * The Dynamic Island's card is pinned above the cards as the list's header ([TakuLockscreenIsland],
++ * docs/dynamic-island-lock-screen-spec.md). Activities stay visible while locked, so the list then
++ * shows with only that card, under the compact clock.
 + */
 +@SysUISingleton
 +class TakuNotificationSection
@@ -368,9 +374,14 @@
 +    private val sharedNotificationContainer: SharedNotificationContainer,
 +    private val containerViewModel: SharedNotificationContainerViewModel,
 +    private val falsingManager: FalsingManager,
++    private val island: TakuLockscreenIsland,
 +) : KeyguardSection() {
 +    private val viewId = View.generateViewId()
 +    private var binding: DisposableHandle? = null
++    private var islandCard: IslandLockScreenCard? = null
++
++    /** For `cmd statusbar lockscreen state`: the pinned island card as drawn, or null. */
++    fun islandCardJson(): JSONObject? = islandCard?.state()?.takeIf { it.optBoolean("visible") }
 +
 +    override fun addViews(constraintLayout: ConstraintLayout) {
 +        if (constraintLayout.findViewById<View>(viewId) != null) return
@@ -398,13 +409,35 @@
 +                notifications.action(key, index)
 +            }
 +        }
++        val pinned = IslandLockScreenCard(list.context, island::run, island::fold)
++        islandCard = pinned
++        list.header = pinned
 +        binding?.dispose()
 +        // CREATED, not STARTED: the stock stack must become visible again even when the keyguard
 +        // root is hidden (unlocking), or the shade over apps would lose its notifications.
 +        binding = list.repeatWhenAttached {
 +            repeatOnLifecycle(Lifecycle.State.CREATED) {
 +                launch { notifications.cards.collect(list::submit) }
-+                launch { authenticatedSurfaceShown(containerViewModel, keyguardInteractor).collect(list::fadeShown) }
++                launch {
++                    island.state.collect { state ->
++                        pinned.show(state.card)
++                        // Whatever the island shows is not also a notification card.
++                        notifications.represented = state.activity?.key
++                        list.submit(notifications.cards.value)
++                        TakuLockscreenPolicy.islandCardPinned = state.card != null
++                        if (keyguardInteractor.isKeyguardShowing.value) {
++                            keyguardClockInteractor.setClockSize(
++                                TakuLockscreenPolicy.clockSize(keyguardInteractor.isKeyguardDismissible.value))
++                        }
++                    }
++                }
++                launch {
++                    // The cards need authentication; the island's card shows while locked too.
++                    combine(containerViewModel.isOnLockscreenWithoutShade, keyguardInteractor.isKeyguardDismissible,
++                        keyguardInteractor.isDozing, island.state) { onLockscreen, authenticated, dozing, state ->
++                        onLockscreen && !dozing && (authenticated || state.card != null)
++                    }.distinctUntilChanged().collect(list::fadeShown)
++                }
 +                launch {
 +                    combine(containerViewModel.isOnLockscreenWithoutShade, keyguardInteractor.statusBarState) {
 +                        onLockscreen, state -> onLockscreen && state == StatusBarState.KEYGUARD
@@ -442,6 +475,9 @@
 +    override fun removeViews(constraintLayout: ConstraintLayout) {
 +        binding?.dispose()
 +        binding = null
++        islandCard = null
++        notifications.represented = null
++        TakuLockscreenPolicy.islandCardPinned = false
 +        sharedNotificationContainer.visibility = View.VISIBLE
 +        constraintLayout.findViewById<View>(viewId)?.let(constraintLayout::removeView)
 +    }
@@ -1066,7 +1102,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuKeyguardBlueprint.kt
-@@ -0,0 +1,231 @@
+@@ -0,0 +1,240 @@
 +package com.android.systemui.taku.lockscreen
 +
 +import android.graphics.Color
@@ -1279,7 +1315,16 @@
 +     * NotificationPanelViewController and by [TakuNotificationSection] when authentication changes.
 +     */
 +    @JvmStatic
-+    fun clockSize(authenticated: Boolean): ClockSize = if (authenticated) ClockSize.SMALL else ClockSize.LARGE
++    fun clockSize(authenticated: Boolean): ClockSize =
++        if (authenticated || islandCardPinned) ClockSize.SMALL else ClockSize.LARGE
++
++    /**
++     * An island card is pinned below the clock (a recording, Now Playing). It needs the room, so the
++     * clock is compact even while locked. Set by [TakuNotificationSection]; main thread.
++     */
++    @JvmField
++    @Volatile
++    var islandCardPinned = false
 +
 +    /** Cards and the Taku button fade in and out over this time. */
 +    const val FADE_MS = 200L
@@ -1300,7 +1345,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuLockStatusSection.kt
-@@ -0,0 +1,166 @@
+@@ -0,0 +1,191 @@
 +package com.android.systemui.taku.lockscreen
 +
 +import android.view.View
@@ -1328,11 +1373,15 @@
 +import org.json.JSONObject
 +
 +/**
-+ * The lock state in the island: a padlock capsule at the camera, closed while locked and open for a
-+ * moment after authenticating ([IslandLockStatus] owns the state and the timing). The status bar's
-+ * own island is hidden on the keyguard, so this section hosts [IslandStatusView], the same capsule,
-+ * in the keyguard root. After an unlock that leaves the lock screen, the status-bar island takes
-+ * over the open padlock.
++ * The Dynamic Island's capsule on the lock screen, at the camera. The status bar's own island is
++ * under the keyguard, so this section hosts [IslandStatusView], the same capsule, in the keyguard root.
++ *
++ * It shows the lock state as a padlock, closed while locked and open for a moment after
++ * authenticating ([IslandLockStatus] owns the state and the timing), and the island's selected
++ * activity ([TakuLockscreenIsland]): while the padlock is there it holds the disc and the activity
++ * the pill. While the activity's card is pinned in the list below, the capsule keeps only the
++ * padlock, so nothing is shown twice. After an unlock that leaves the lock screen, the status-bar
++ * island takes over.
 + *
 + * It replaces the stock padlock above the shortcuts: the device entry icon's lock and unlock glyphs
 + * are drawn fully transparent here (image alpha, not view alpha, so TalkBack still sees the view).
@@ -1349,13 +1398,21 @@
 +    private val keyguardInteractor: KeyguardInteractor,
 +    private val containerViewModel: SharedNotificationContainerViewModel,
 +    private val deviceEntryIconViewModel: DeviceEntryIconViewModel,
++    private val lockscreenIsland: TakuLockscreenIsland,
 +) : KeyguardSection() {
 +    private val viewId = View.generateViewId()
 +    private var binding: DisposableHandle? = null
 +    private var island: IslandStatusView? = null
 +    private var carrier: View? = null
 +    private var carrierPaddingEnd = 0
-+    private val reserve = View.OnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> reserveCarrierText() }
++    private val reserve = View.OnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> fitStatusBar() }
++    private val gestures = object : IslandStatusView.Gestures {
++        // The capsule's own tap: the card, or the app when the publisher chose that.
++        override fun tap(key: String) = lockscreenIsland.run("tap", key, null)
++        override fun longPress(key: String) = lockscreenIsland.run("expand", key, null)
++        override fun next() = lockscreenIsland.run("next", null, null)
++        override fun hide(key: String) = lockscreenIsland.run("dismiss", key, null)
++    }
 +    private var root: ConstraintLayout? = null
 +    /** The stock icon currently shows its lock or unlock picture, which the island replaces. */
 +    private var stockPadlock = false
@@ -1379,6 +1436,7 @@
 +        val view = constraintLayout.findViewById<IslandStatusView>(viewId) ?: return
 +        island?.removeOnLayoutChangeListener(reserve)
 +        island = view
++        view.gestures = gestures
 +        view.addOnLayoutChangeListener(reserve)
 +        root?.viewTreeObserver?.removeOnGlobalLayoutListener(enforce)
 +        root = constraintLayout
@@ -1387,9 +1445,9 @@
 +        binding = view.repeatWhenAttached {
 +            repeatOnLifecycle(Lifecycle.State.CREATED) {
 +                launch {
-+                    lockStatus.state.collect {
-+                        view.status = lockStatus.activity()
-+                        reserveCarrierText()
++                    combine(lockStatus.state, lockscreenIsland.state) { _, shown -> shown }.collect { shown ->
++                        view.show(lockStatus.activity(), shown.activity.takeIf { shown.card == null }, shown.redacted)
++                        fitStatusBar()
 +                    }
 +                }
 +                launch {
@@ -1397,7 +1455,7 @@
 +                        onLockscreen, dozing -> onLockscreen && !dozing
 +                    }.distinctUntilChanged().collect { shown ->
 +                        view.fadeShown(shown)
-+                        reserveCarrierText()
++                        fitStatusBar()
 +                    }
 +                }
 +                launch {
@@ -1411,12 +1469,20 @@
 +    }
 +
 +    /**
-+     * The capsule's disc reaches left of the camera, past the space the keyguard status bar keeps
-+     * clear for the cutout. A long carrier text ("Emergency calls only") would run under it, so it
-+     * gets that much end padding while the capsule is drawn.
++     * Keeps the keyguard status bar and the capsule apart. The capsule's disc reaches left of the
++     * camera, past the space the status bar keeps clear for the cutout: a long carrier text
++     * ("Emergency calls only") would run under it, so it gets that much end padding while the capsule
++     * is drawn. On the right, the capsule's pill stops before the status icons.
 +     */
-+    private fun reserveCarrierText() {
++    private fun fitStatusBar() {
 +        val view = island ?: return
++        // The pill grows right of the camera, up to the lock screen's status icons.
++        val icons = view.rootView.findViewById<View>(R.id.system_icons_container)?.takeIf { it.isShown && it.width > 0 }
++        view.endLimitOnScreen = icons?.let {
++            val at = IntArray(2)
++            it.getLocationOnScreen(at)
++            at[0] - (ICONS_GAP_DP * view.resources.displayMetrics.density).toInt()
++        }
 +        val text = carrier ?: view.rootView.findViewById<View>(R.id.keyguard_carrier_text)?.also {
 +            carrier = it
 +            carrierPaddingEnd = it.paddingEnd
@@ -1463,8 +1529,12 @@
 +        .put("status", lockStatus.state.value.wire ?: JSONObject.NULL)
 +        .put("visible", island?.state()?.optBoolean("visible") ?: false)
 +
++    /** The capsule as drawn (text, disc, geometry), or null while the lock screen draws none. */
++    fun capsuleJson(): JSONObject? = island?.state()?.takeIf { it.optBoolean("visible") }?.optJSONObject("capsule")
++
 +    private companion object {
 +        const val CARRIER_GAP_DP = 8f
++        const val ICONS_GAP_DP = 12f
 +    }
 +}
 --- /dev/null
@@ -1740,7 +1810,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuLockscreenCommand.kt
-@@ -0,0 +1,111 @@
+@@ -0,0 +1,116 @@
 +package com.android.systemui.taku.lockscreen
 +
 +import android.util.Log
@@ -1774,6 +1844,8 @@
 +    private val notifications: TakuLockscreenNotifications,
 +    private val shortcuts: TakuLockscreenShortcuts,
 +    private val lockStatus: TakuLockStatusSection,
++    private val island: TakuLockscreenIsland,
++    private val cards: TakuNotificationSection,
 +    @Main private val mainExecutor: Executor,
 +    @Background backgroundExecutor: Executor,
 +) {
@@ -1818,8 +1890,11 @@
 +        else -> usage()
 +    }
 +
-+    /** The lock screen's state plus the padlock the island shows for it. */
++    /** The lock screen's state plus what the island shows on it. */
 +    private fun state(): JSONObject = notifications.stateJson().put("lockStatus", lockStatus.stateJson())
++        // The Dynamic Island on the lock screen: the activity shown, and its capsule and card as drawn.
++        .put("island", island.stateJson().put("capsule", lockStatus.capsuleJson() ?: JSONObject.NULL)
++            .put("cardView", cards.islandCardJson() ?: JSONObject.NULL))
 +
 +    private fun shortcutsCommand(args: List<String>): JSONObject = runBlocking {
 +        when (args.getOrNull(0)) {
@@ -1887,8 +1962,76 @@
 +    }
 +}
 --- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuLockscreenIsland.kt
+@@ -0,0 +1,65 @@
++package com.android.systemui.taku.lockscreen
++
++import com.android.systemui.dagger.SysUISingleton
++import com.android.systemui.plugins.ActivityStarter
++import com.android.systemui.plugins.FalsingManager
++import com.android.systemui.taku.island.IslandPresenter
++import com.android.systemui.taku.island.IslandRuntime
++import dagger.Lazy
++import javax.inject.Inject
++import kotlinx.coroutines.flow.StateFlow
++import org.json.JSONObject
++
++/**
++ * The Dynamic Island on the lock screen, for the sections that draw it: [TakuLockStatusSection] (the
++ * capsule at the camera) and [TakuNotificationSection] (the pinned card). The island itself, its
++ * selection and what the lock screen may show are `system/island`'s ([IslandPresenter.lockScreen]);
++ * this class only carries the lock screen's touches to it.
++ *
++ * Every touch runs the same island operation an Agent would call (`cmd statusbar island ...`), after
++ * the stock falsing check. An operation the island refuses with `locked` needs the user: the GUI
++ * then asks for the credential and runs it again once the user has authenticated. An Agent gets the
++ * `locked` error instead, because it can never authenticate for the user.
++ */
++@SysUISingleton
++class TakuLockscreenIsland
++@Inject
++constructor(
++    private val presenter: IslandPresenter,
++    private val falsingManager: FalsingManager,
++    private val activityStarter: Lazy<ActivityStarter>,
++) {
++    val state: StateFlow<IslandPresenter.LockScreen> get() = presenter.lockScreen
++
++    /** A tap, swipe or button: the island operation [method] on [key], with its JSON [extra]. */
++    fun run(method: String, key: String?, extra: String?) {
++        if (falsingManager.isFalseTap(FalsingManager.LOW_PENALTY)) return
++        val result = IslandRuntime.call(method, key, extra)
++        if (result.optBoolean("ok") || result.optString("error") != LOCKED) return
++        activityStarter.get().dismissKeyguardThenExecute(
++            object : ActivityStarter.OnDismissAction {
++                override fun onDismiss(): Boolean {
++                    IslandRuntime.call(method, key, extra)
++                    return false
++                }
++            },
++            null,
++            false,
++        )
++    }
++
++    /** The pinned card's handle, swipe up or Close button. */
++    fun fold() = presenter.foldLockScreenCard()
++
++    /** For `cmd statusbar lockscreen state`: the activity the lock screen shows, and its pinned card. */
++    fun stateJson(): JSONObject = state.value.let {
++        JSONObject().put("key", it.activity?.key ?: JSONObject.NULL)
++            .put("redacted", if (it.activity == null) JSONObject.NULL else if (it.redacted) "glyph" else "none")
++            .put("card", it.card?.key ?: JSONObject.NULL)
++    }
++
++    private companion object {
++        /** `IslandEngine.LOCKED`. */
++        const val LOCKED = "locked"
++    }
++}
+--- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuLockscreenNotifications.kt
-@@ -0,0 +1,202 @@
+@@ -0,0 +1,215 @@
 +package com.android.systemui.taku.lockscreen
 +
 +import android.app.PendingIntent
@@ -1943,13 +2086,25 @@
 +
 +    /** Newest first, one card per notification, no grouping or pagination. */
 +    val cards: StateFlow<List<TakuNotificationCard>> = _cards.asStateFlow()
++    private var all: List<TakuNotificationCard> = emptyList()
++
++    /**
++     * The notification the Dynamic Island shows on the lock screen (its capsule or pinned card). It
++     * is left out of the cards, for the GUI and the Agent alike, so the same thing is not shown twice.
++     */
++    var represented: String? = null
++        set(value) {
++            if (field == value) return
++            field = value
++            _cards.value = all.filter { it.key != value }
++        }
 +
 +    init {
 +        pipeline.addOnAfterRenderListListener { list -> rebuild(TakuNotificationCard.flatten(list)) }
 +    }
 +
 +    private fun rebuild(list: List<NotificationEntry>) {
-+        val previous = _cards.value.associateBy { it.key }
++        val previous = all.associateBy { it.key }
 +        val sorted = list.filter { !it.isRowDismissed }.sortedByDescending { it.sbn.postTime }
 +        entries.clear()
 +        val cards = sorted.map { entry ->
@@ -1960,7 +2115,8 @@
 +            else TakuNotificationCard.from(context, entry, sensitive, apps)
 +        }
 +        apps.retain(cards.mapTo(HashSet()) { it.packageName })
-+        _cards.value = cards
++        all = cards
++        _cards.value = cards.filter { it.key != represented }
 +    }
 +
 +    /** Operation result: `{ok:true,...}` or `{ok:false,error:CODE}`, identical for GUI and Agent. */
@@ -2740,7 +2896,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuNotificationListView.kt
-@@ -0,0 +1,178 @@
+@@ -0,0 +1,194 @@
 +package com.android.systemui.taku.lockscreen
 +
 +import android.content.Context
@@ -2774,6 +2930,19 @@
 +    }
 +    private val views = LinkedHashMap<String, TakuNotificationCardView>()
 +
++    /**
++     * A view pinned above the cards (the Dynamic Island's card). It stays the column's first child;
++     * while it is GONE the first card starts the column as before.
++     */
++    var header: View? = null
++        set(value) {
++            if (field === value) return
++            field?.let(column::removeView)
++            field = value
++            if (value != null) column.addView(value, 0, LinearLayout.LayoutParams(
++                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
++        }
++
 +    /** Recorded children, drawn once clipped above the bar and once through the bar effect. */
 +    private val content = RenderNode("TakuNotificationList")
 +    private val bar = RenderNode("TakuNotificationListBar")
@@ -2797,7 +2966,10 @@
 +    fun submit(cards: List<TakuNotificationCard>) {
 +        val keys = cards.mapTo(HashSet()) { it.key }
 +        views.keys.filter { it !in keys }.forEach { key -> views.remove(key)?.let(column::removeView) }
-+        cards.forEachIndexed { position, card ->
++        val pinned = header
++        val offset = if (pinned != null) 1 else 0
++        cards.forEachIndexed { index, card ->
++            val position = index + offset
 +            val view = views.getOrPut(card.key) {
 +                TakuNotificationCardView(context).also { it.callbacks = callbacks }
 +            }
@@ -2806,10 +2978,10 @@
 +                (view.parent as? LinearLayout)?.removeView(view)
 +                column.addView(view, position, LinearLayout.LayoutParams(
 +                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT,
-+                ).apply { if (position > 0) topMargin = dp(16f) })
++                ))
 +            }
 +            (view.layoutParams as LinearLayout.LayoutParams).let { params ->
-+                val margin = if (position > 0) dp(16f) else 0
++                val margin = if (index > 0 || pinned?.visibility == View.VISIBLE) dp(16f) else 0
 +                if (params.topMargin != margin) {
 +                    params.topMargin = margin
 +                    view.layoutParams = params

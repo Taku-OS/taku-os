@@ -31,6 +31,8 @@ constructor(
     private val notifications: TakuLockscreenNotifications,
     private val shortcuts: TakuLockscreenShortcuts,
     private val lockStatus: TakuLockStatusSection,
+    private val island: TakuLockscreenIsland,
+    private val cards: TakuNotificationSection,
     @Main private val mainExecutor: Executor,
     @Background backgroundExecutor: Executor,
 ) {
@@ -75,8 +77,11 @@ constructor(
         else -> usage()
     }
 
-    /** The lock screen's state plus the padlock the island shows for it. */
+    /** The lock screen's state plus what the island shows on it. */
     private fun state(): JSONObject = notifications.stateJson().put("lockStatus", lockStatus.stateJson())
+        // The Dynamic Island on the lock screen: the activity shown, and its capsule and card as drawn.
+        .put("island", island.stateJson().put("capsule", lockStatus.capsuleJson() ?: JSONObject.NULL)
+            .put("cardView", cards.islandCardJson() ?: JSONObject.NULL))
 
     private fun shortcutsCommand(args: List<String>): JSONObject = runBlocking {
         when (args.getOrNull(0)) {

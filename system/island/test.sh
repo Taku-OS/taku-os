@@ -8,6 +8,8 @@ task_java="${JAVA_HOME:+$JAVA_HOME/bin/}java"
 "$task_javac" --release 17 -d "$output" src/com/android/systemui/taku/island/IslandStore.java tests/IslandStoreTest.java src/com/android/systemui/taku/island/IslandSourcePolicy.java tests/IslandSourcePolicyTest.java
 "$task_java" -cp "$output" IslandStoreTest
 "$task_java" -cp "$output" IslandSourcePolicyTest
+"$task_javac" --release 17 -d "$output" src/com/android/systemui/taku/island/IslandStore.java src/com/android/systemui/taku/island/IslandLockScreenPolicy.java tests/IslandLockScreenPolicyTest.java
+"$task_java" -cp "$output" IslandLockScreenPolicyTest
 "$task_javac" --release 17 -d "$output" src/com/android/systemui/taku/island/IslandAccessPolicy.java tests/IslandAccessPolicyTest.java
 "$task_java" -cp "$output" IslandAccessPolicyTest
 json_jar="$output/json-20240303.jar"

@@ -14,11 +14,13 @@ import android.provider.Settings
 import com.android.systemui.dagger.SysUISingleton
 import com.android.systemui.dagger.qualifiers.Background
 import com.android.systemui.dagger.qualifiers.Main
+import com.android.systemui.plugins.ActivityStarter
 import com.android.systemui.settings.UserTracker
 import com.android.systemui.statusbar.NotificationLockscreenUserManager
 import com.android.systemui.statusbar.notification.collection.NotifPipeline
 import com.android.systemui.statusbar.notification.collection.NotificationEntry
 import com.android.systemui.statusbar.notification.collection.notifcollection.NotifCollectionListener
+import com.android.systemui.statusbar.policy.KeyguardStateController
 import java.util.concurrent.Executor
 import javax.inject.Inject
 import org.json.JSONArray
@@ -44,6 +46,8 @@ class IslandEngine @Inject constructor(
     val policy: IslandPolicy,
     private val users: UserTracker,
     private val lockscreenUsers: NotificationLockscreenUserManager,
+    private val keyguard: KeyguardStateController,
+    private val activityStarter: dagger.Lazy<ActivityStarter>,
     @Main private val handler: Handler,
     @Main private val mainExecutor: Executor,
     @Background private val worker: Executor,
@@ -113,7 +117,7 @@ class IslandEngine @Inject constructor(
         }
         val extras = sbn.notification.extras
         val candidate = sbn.notification.isPromotedOngoing || extras.containsKey(IslandExtractor.EXTRA_V2) ||
-            IslandSystemNotifications.candidate(sbn.notification)
+            IslandSystemNotifications.candidate(sbn.notification) || IslandSystemNotifications.media(sbn.notification)
         if (!candidate) {
             store.remove(entry.key)
             changed()
@@ -182,6 +186,23 @@ class IslandEngine @Inject constructor(
         diagnostics.addLast(message.take(512))
     }
 
+    /** The phone shows the keyguard and it cannot be dismissed without a credential. */
+    private fun locked() = keyguard.isShowing && !keyguard.canDismissLockScreen()
+
+    /**
+     * What the lock screen may show of [activity] right now ([IslandLockScreenPolicy]). SystemUI's
+     * own sources have no notification and no privacy setting; everything else follows the
+     * notification's visibility and the user's lock-screen notification settings.
+     */
+    fun lockScreenExposure(activity: IslandActivity): Int {
+        val entry = pipeline.getEntry(activity.key)
+        return IslandLockScreenPolicy.exposure(policy.lockScreen, activity.tier, activity.nativeAssistant,
+            keyguard.canDismissLockScreen(),
+            entry?.sbn?.notification?.visibility == android.app.Notification.VISIBILITY_SECRET,
+            entry == null || lockscreenUsers.userAllowsNotificationsInPublic(activity.userId),
+            entry != null && lockscreenUsers.getRedactionType(entry) != NotificationLockscreenUserManager.REDACTION_TYPE_NONE)
+    }
+
     private fun visible() = if (policy.enabled) store.active(SystemClock.elapsedRealtime()) else emptyList()
 
     /** Not extracted yet: a brand-new post whose heads-up decision precedes asynchronous extraction. */
@@ -237,6 +258,7 @@ class IslandEngine @Inject constructor(
         .put("expiresElapsedMs", entry.expiresAt).put("stale", entry.stale(SystemClock.elapsedRealtime()))
         .put("dismissed", entry.dismissed).put("active", entry.active(SystemClock.elapsedRealtime()))
         .put("triggeredAtElapsedMs", entry.triggeredAt).put("source", entry.data.source).put("tier", entry.data.tier)
+        .put("category", entry.data.category ?: JSONObject.NULL)
         .put("timeoutKind", timeoutKind(entry))
         .put("availableActions", JSONArray((entry.data.actions.map { (id, action) -> JSONObject().put("id", id).put("title", action.title) } +
             entry.data.nativeActions.map { (id, action) -> JSONObject().put("id", id).put("title", action.title) })))
@@ -295,7 +317,7 @@ class IslandEngine @Inject constructor(
                 .put("enabled", policy.enabled).put("presentationAttached", presentation != null)
                 .put("takuProducer", IslandRuntime.producerStatus)
                 .put("compiledAndDeviceVerified", false)
-                .put("operations", JSONArray(listOf("list", "get", "select", "next", "tap", "expand", "collapse", "dismiss", "hide", "action", "open", "settings", "setEnabled", "setAllowed")))
+                .put("operations", JSONArray(listOf("list", "get", "select", "next", "tap", "expand", "collapse", "dismiss", "hide", "action", "open", "settings", "setEnabled", "setAllowed", "setLockScreen")))
             "canShowIsland" -> JSONObject().put("ok", true).put("enabled", policy.enabled)
                 .put("package", arg ?: JSONObject.NULL).put("customAllowed", arg != null && policy.canPost(arg))
                 .put("platformSigned", arg != null && policy.platformSigned(arg))
@@ -307,11 +329,12 @@ class IslandEngine @Inject constructor(
             "settings" -> JSONObject().put("ok", true).put("settings", if (scoped) scopedSettings() else policy.snapshot())
             "setEnabled" -> mutate { policy.setEnabled(requireNotNull(arg) { "missing_value" }) }
             "setAllowed" -> mutate { policy.setAllowed(arg.orEmpty()) }
+            "setLockScreen" -> mutate { policy.setLockScreen(requireNotNull(arg) { "missing_value" }) }
             "setProtocol" -> IslandRuntime.error("read_only_protocol")
             "expand" -> mutate(scope) {
                 require(policy.enabled) { "island_disabled" }
                 require(store.get(arg)?.active(SystemClock.elapsedRealtime()) == true) { "not_found" }
-                require(presentation?.expand(requireNotNull(arg)) == true) { "presentation_unavailable" }
+                require(presentation?.expand(requireNotNull(arg)) == true) { unavailable() }
             }
             "collapse" -> mutate(scope) { presentation?.collapse("agent") }
             "select" -> mutate(scope) { require(presentation?.select(requireNotNull(arg) { "missing_key" }) == true) { "not_found" } }
@@ -322,8 +345,10 @@ class IslandEngine @Inject constructor(
                 require(policy.enabled) { "island_disabled" }
                 val activity = requireActivity(arg)
                 val intent = activity.openIntent
-                if (activity.tap == "open" && intent != null) opened(activity.key, intent)
-                else require(presentation?.expand(activity.key) == true) { "presentation_unavailable" }
+                if (activity.tap == "open" && intent != null) {
+                    require(!locked()) { LOCKED }
+                    opened(activity.key, intent)
+                } else require(presentation?.expand(activity.key) == true) { unavailable() }
             }
             "dismiss", "hide" -> mutate(scope) {
                 require(arg != null && store.dismiss(arg)) { "not_found" }
@@ -331,13 +356,19 @@ class IslandEngine @Inject constructor(
             }
             "open" -> mutate(scope) {
                 val activity = requireActivity(arg)
-                opened(activity.key, activity.openIntent ?: throw IllegalArgumentException("action_unavailable"))
+                val intent = activity.openIntent ?: throw IllegalArgumentException("action_unavailable")
+                // Opening the app always needs the user: the GUI asks for the credential, an Agent cannot.
+                require(!locked()) { LOCKED }
+                opened(activity.key, intent)
             }
             "action" -> mutate(scope) {
                 val activity = requireActivity(arg)
                 val request = JSONObject(extra ?: throw IllegalArgumentException("missing_action"))
                 val id = request.getString("id")
                 val native = activity.nativeActions[id]
+                require(!locked() || IslandLockScreenPolicy.actionWhileLocked(activity.tier, native != null, activity.category)) { LOCKED }
+                // The lock screen's card takes no keyboard focus; a reply waits for the unlocked card.
+                require(!request.has("reply") || !keyguard.isShowing) { "reply_unavailable_on_lock_screen" }
                 if (native != null) {
                     require(!request.has("reply")) { "reply_unavailable" }
                     native.run()
@@ -375,7 +406,16 @@ class IslandEngine @Inject constructor(
         presentation?.collapse("opened:$key")
     }
 
+    /** An operation the lock screen cannot present: locked content needs the user, anything else is the surface. */
+    private fun unavailable() = if (locked()) LOCKED else "presentation_unavailable"
+
     private fun send(intent: android.app.PendingIntent, fill: Intent = Intent()) {
+        // Authenticated but still on the lock screen: an activity only shows once the keyguard has
+        // gone. While locked, only call and alarm screens get here, and they show over the keyguard.
+        if (intent.isActivity && keyguard.isShowing && keyguard.canDismissLockScreen()) {
+            activityStarter.get().startPendingIntentDismissingKeyguard(intent)
+            return
+        }
         val options = ActivityOptions.makeBasic()
             .setPendingIntentBackgroundActivityStartMode(ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED)
         intent.send(context, 0, fill, null, handler, null, options.toBundle())
@@ -388,4 +428,9 @@ class IslandEngine @Inject constructor(
         JSONObject().put("ok", true).put("state",
             if (scope == IslandAccessPolicy.ALL_ACTIVITIES) JSONObject(snapshot) else state(scope))
     } catch (failure: Exception) { IslandRuntime.error(failure.message ?: "operation_failed") }
+
+    companion object {
+        /** The operation needs the user to authenticate; an Agent can never do that for them. */
+        const val LOCKED = "locked"
+    }
 }

@@ -23,6 +23,9 @@ import com.android.systemui.statusbar.phone.PhoneStatusBarView
 import com.android.systemui.statusbar.policy.KeyguardStateController
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import org.json.JSONArray
@@ -61,6 +64,19 @@ class IslandPresenter @Inject constructor(
     private val alertedUntil = mutableMapOf<String, Long>()
     private data class Relocated(val view: View, val parent: ViewGroup, val index: Int, val params: ViewGroup.LayoutParams)
     private val relocated = mutableListOf<Relocated>()
+
+    /**
+     * What the lock screen draws. The status bar's window is under the keyguard, so the lock screen
+     * hosts its own views for the same island (system/lockscreen: [IslandStatusView] for the capsule,
+     * [IslandLockScreenCard] for the card). [activity] is the selected activity the lock screen may
+     * show; [redacted] limits it to its glyph; [card] is set while its card is pinned.
+     */
+    data class LockScreen(val activity: IslandActivity? = null, val redacted: Boolean = false, val card: IslandActivity? = null)
+    private val lockScreenState = MutableStateFlow(LockScreen())
+    val lockScreen: StateFlow<LockScreen> = lockScreenState.asStateFlow()
+    /** Lock-screen cards the user folded; they stay folded until the keyguard goes or a new alert. */
+    private val folded = mutableSetOf<String>()
+
     private val layout = View.OnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> layoutCapsule() }
 
     fun start() {
@@ -76,6 +92,8 @@ class IslandPresenter @Inject constructor(
                 if (keyguard.isShowing) collapse("keyguard")
                 layoutCapsule()
             }
+            // Authentication changes what the lock screen may show.
+            override fun onUnlockedChanged() = layoutCapsule()
         })
         headsUp.addListener(object : OnHeadsUpChangedListener {
             override fun onHeadsUpStateChanged(entry: com.android.systemui.statusbar.notification.collection.NotificationEntry, isHeadsUp: Boolean) {
@@ -161,6 +179,12 @@ class IslandPresenter @Inject constructor(
         layoutCapsule()
         if (first != null && first.alertUntil > SystemClock.elapsedRealtime() && alertedUntil[first.key] != first.alertUntil) {
             alertedUntil[first.key] = first.alertUntil
+            // On the lock screen an alert pins the activity's card again; nothing times it out there.
+            if (keyguard.isShowing && engine.lockScreenExposure(first.data) != IslandLockScreenPolicy.HIDDEN) {
+                folded.remove(first.key)
+                selected = first.key
+                layoutCapsule()
+            }
             // The app in front already shows its own news; its alert neither expands nor waits.
             if (card == null && canExpand() && !foreground.suppresses(first.data)) {
                 selected = first.key
@@ -185,7 +209,7 @@ class IslandPresenter @Inject constructor(
 
     /** Swipe left: the next activity that can show a capsule, wrapping around. */
     override fun next(): Boolean {
-        val candidates = items.filter { showsCapsule(it.data) }
+        val candidates = if (keyguard.isShowing) lockScreenCandidates() else items.filter { showsCapsule(it.data) }
         if (candidates.size < 2) return false
         val index = candidates.indexOfFirst { it.key == selected }.coerceAtLeast(0)
         return select(candidates[(index + 1) % candidates.size].key)
@@ -204,6 +228,14 @@ class IslandPresenter @Inject constructor(
 
     override fun expand(key: String): Boolean {
         val item = items.find { it.key == key } ?: return false
+        if (keyguard.isShowing) {
+            // The lock screen pins the card in its own column; only content it may show in full.
+            if (!item.data.compactVisible || engine.lockScreenExposure(item.data) != IslandLockScreenPolicy.FULL) return false
+            selected = key
+            folded.remove(key)
+            layoutCapsule()
+            return lockScreenState.value.card?.key == key
+        }
         if (!canExpand()) return false
         selected = key
         if (cardKey == key && card != null) { automatic = false; return true }
@@ -244,10 +276,41 @@ class IslandPresenter @Inject constructor(
 
     override fun collapse(reason: String) {
         closeCard(reason)
+        // An Agent's collapse folds the lock screen's pinned card, as the card's own handle does.
+        if (reason == "agent") lockScreenState.value.card?.let { folded.add(it.key) }
         layoutCapsule()
     }
 
-    override fun expandedKey(): String? = cardKey.takeIf { card != null }
+    /** The lock screen card's handle, swipe up or Close button. */
+    fun foldLockScreenCard() {
+        val pinned = lockScreenState.value.card ?: return
+        folded.add(pinned.key)
+        reason = "lock_screen_folded"
+        layoutCapsule()
+    }
+
+    override fun expandedKey(): String? = cardKey.takeIf { card != null } ?: lockScreenState.value.card?.key
+
+    /** Activities the lock screen may show at all, in island order. */
+    private fun lockScreenCandidates() = items.filter {
+        it.data.compactVisible && engine.lockScreenExposure(it.data) != IslandLockScreenPolicy.HIDDEN
+    }
+
+    private fun layoutLockScreen() {
+        if (!keyguard.isShowing) {
+            folded.clear()
+            lockScreenState.value = LockScreen()
+            return
+        }
+        val candidates = lockScreenCandidates()
+        val current = candidates.find { it.key == selected } ?: candidates.firstOrNull()
+        if (current == null) {
+            lockScreenState.value = LockScreen()
+            return
+        }
+        val full = engine.lockScreenExposure(current.data) == IslandLockScreenPolicy.FULL
+        lockScreenState.value = LockScreen(current.data, !full, current.data.takeIf { full && current.key !in folded })
+    }
 
     private fun closeCard(reason: String) {
         card?.close()
@@ -263,6 +326,7 @@ class IslandPresenter @Inject constructor(
 
     private fun layoutCapsule() {
         try { layoutCapsuleNow() } finally {
+            layoutLockScreen()
             // An alert only expands for the head of the order. While a call, alarm, recording or
             // cast holds it, ordinary activities keep their stock heads-up instead of losing both.
             val now = canExpand() && items.none { it.data.tier < IslandStore.TIER_ACTIVITY }
@@ -391,7 +455,12 @@ class IslandPresenter @Inject constructor(
         .put("secondaryKey", visible?.let { items.find { it.key == selected }?.data?.let { if (statusShown) it.key.takeIf { visible.secondary } else secondary(it)?.key } } ?: JSONObject.NULL)
         .put("tap", items.find { it.key == selected }?.data?.tap ?: JSONObject.NULL)
         .put("compact", visible?.state() ?: JSONObject.NULL)
-        .put("expanded", card != null).put("card", card?.state() ?: JSONObject.NULL)
+        .put("expanded", card != null || lockScreenState.value.card != null).put("card", card?.state() ?: JSONObject.NULL)
+        // Where the island is drawn now, and what the lock screen's own views show of it.
+        .put("surface", if (keyguard.isShowing) "lock-screen" else "status-bar")
+        .put("lockScreen", lockScreenState.value.let { JSONObject().put("key", it.activity?.key ?: JSONObject.NULL)
+            .put("redacted", if (it.activity == null) JSONObject.NULL else if (it.redacted) "glyph" else "none")
+            .put("card", it.card?.key ?: JSONObject.NULL) })
         // The lock status (IslandLockStatus), and whether this capsule is the one drawing it now.
         .put("lockStatus", lock.state.value.wire ?: JSONObject.NULL).put("lockStatusInCapsule", visible != null && statusShown)
     }

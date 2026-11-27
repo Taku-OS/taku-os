@@ -17,7 +17,7 @@ public final class IslandAccessPolicyTest {
         String[] control = {"state", "list", "get", "settings", "select", "choose", "expand", "collapse",
                 "dismiss", "open", "action", "tap", "hide", "someFutureOperation", null};
         String[] global = {"next"};
-        String[] admin = {"setEnabled", "setAllowed", "setProtocol"};
+        String[] admin = {"setEnabled", "setAllowed", "setProtocol", "setLockScreen"};
         // Agents, ADB, SystemUI and platform-signed callers keep direct access to everything.
         for (String method : control) expect(null, method, true, false, false);
         for (String method : global) expect(null, method, true, false, false);

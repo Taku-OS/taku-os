@@ -246,6 +246,29 @@ def authenticated_suite(device, checks):
         device.shell(f'locksettings set-disabled {disabled}', check=False)
 
 
+def island_suite(device, checks):
+    """The island's lock-screen switch: one value for the GUI switch, the command and raw settings."""
+    def lock_screen():
+        return json.loads(device.shell('cmd statusbar island settings'))['settings'].get('lockScreen')
+    before = lock_screen()
+    checks.check('island lock-screen setting readable', before in (True, False), before)
+    try:
+        for value in ('0', '1'):
+            device.shell(f'cmd statusbar island setLockScreen {value}')
+            raw = device.shell('settings get global taku_island_lock_screen', check=False).strip()
+            checks.check(f'setLockScreen {value} writes the setting', raw == value and lock_screen() is (value == '1'),
+                         {'raw': raw, 'state': lock_screen()})
+        refused = json.loads(device.shell('cmd statusbar island setLockScreen 2', check=False))
+        checks.check('invalid lock-screen value rejected', refused.get('error') == 'invalid_lock_screen', refused)
+        state = device.lockscreen('state')['state']
+        checks.check('lock-screen state reports the island',
+                     set(state.get('island', {})) >= {'key', 'redacted', 'card', 'capsule', 'cardView'}, state)
+        surface = json.loads(device.shell('cmd statusbar island state'))['presentation'].get('surface')
+        checks.check('island reports its surface', surface in ('status-bar', 'lock-screen'), surface)
+    finally:
+        device.shell(f"cmd statusbar island setLockScreen {'1' if before else '0'}", check=False)
+
+
 def first_unlock_suite(device, checks):
     if device.shell(f'locksettings set-pin {PIN}', check=False).lower().startswith('error'):
         checks.check('temporary PIN set', False)
@@ -302,6 +325,7 @@ def main():
     checks.check('cmd statusbar lockscreen present', state.get('ok'), state)
     shortcuts_suite(device, checks)
     authenticated_suite(device, checks)
+    island_suite(device, checks)
     if args.first_unlock:
         first_unlock_suite(device, checks)
     failed = [r for r in checks.results if r['pass'] is False]

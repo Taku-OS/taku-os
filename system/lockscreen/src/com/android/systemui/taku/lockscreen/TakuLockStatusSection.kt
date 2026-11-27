@@ -25,11 +25,15 @@ import kotlinx.coroutines.launch
 import org.json.JSONObject
 
 /**
- * The lock state in the island: a padlock capsule at the camera, closed while locked and open for a
- * moment after authenticating ([IslandLockStatus] owns the state and the timing). The status bar's
- * own island is hidden on the keyguard, so this section hosts [IslandStatusView], the same capsule,
- * in the keyguard root. After an unlock that leaves the lock screen, the status-bar island takes
- * over the open padlock.
+ * The Dynamic Island's capsule on the lock screen, at the camera. The status bar's own island is
+ * under the keyguard, so this section hosts [IslandStatusView], the same capsule, in the keyguard root.
+ *
+ * It shows the lock state as a padlock, closed while locked and open for a moment after
+ * authenticating ([IslandLockStatus] owns the state and the timing), and the island's selected
+ * activity ([TakuLockscreenIsland]): while the padlock is there it holds the disc and the activity
+ * the pill. While the activity's card is pinned in the list below, the capsule keeps only the
+ * padlock, so nothing is shown twice. After an unlock that leaves the lock screen, the status-bar
+ * island takes over.
  *
  * It replaces the stock padlock above the shortcuts: the device entry icon's lock and unlock glyphs
  * are drawn fully transparent here (image alpha, not view alpha, so TalkBack still sees the view).
@@ -46,13 +50,21 @@ constructor(
     private val keyguardInteractor: KeyguardInteractor,
     private val containerViewModel: SharedNotificationContainerViewModel,
     private val deviceEntryIconViewModel: DeviceEntryIconViewModel,
+    private val lockscreenIsland: TakuLockscreenIsland,
 ) : KeyguardSection() {
     private val viewId = View.generateViewId()
     private var binding: DisposableHandle? = null
     private var island: IslandStatusView? = null
     private var carrier: View? = null
     private var carrierPaddingEnd = 0
-    private val reserve = View.OnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> reserveCarrierText() }
+    private val reserve = View.OnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> fitStatusBar() }
+    private val gestures = object : IslandStatusView.Gestures {
+        // The capsule's own tap: the card, or the app when the publisher chose that.
+        override fun tap(key: String) = lockscreenIsland.run("tap", key, null)
+        override fun longPress(key: String) = lockscreenIsland.run("expand", key, null)
+        override fun next() = lockscreenIsland.run("next", null, null)
+        override fun hide(key: String) = lockscreenIsland.run("dismiss", key, null)
+    }
     private var root: ConstraintLayout? = null
     /** The stock icon currently shows its lock or unlock picture, which the island replaces. */
     private var stockPadlock = false
@@ -76,6 +88,7 @@ constructor(
         val view = constraintLayout.findViewById<IslandStatusView>(viewId) ?: return
         island?.removeOnLayoutChangeListener(reserve)
         island = view
+        view.gestures = gestures
         view.addOnLayoutChangeListener(reserve)
         root?.viewTreeObserver?.removeOnGlobalLayoutListener(enforce)
         root = constraintLayout
@@ -84,9 +97,9 @@ constructor(
         binding = view.repeatWhenAttached {
             repeatOnLifecycle(Lifecycle.State.CREATED) {
                 launch {
-                    lockStatus.state.collect {
-                        view.status = lockStatus.activity()
-                        reserveCarrierText()
+                    combine(lockStatus.state, lockscreenIsland.state) { _, shown -> shown }.collect { shown ->
+                        view.show(lockStatus.activity(), shown.activity.takeIf { shown.card == null }, shown.redacted)
+                        fitStatusBar()
                     }
                 }
                 launch {
@@ -94,7 +107,7 @@ constructor(
                         onLockscreen, dozing -> onLockscreen && !dozing
                     }.distinctUntilChanged().collect { shown ->
                         view.fadeShown(shown)
-                        reserveCarrierText()
+                        fitStatusBar()
                     }
                 }
                 launch {
@@ -108,12 +121,20 @@ constructor(
     }
 
     /**
-     * The capsule's disc reaches left of the camera, past the space the keyguard status bar keeps
-     * clear for the cutout. A long carrier text ("Emergency calls only") would run under it, so it
-     * gets that much end padding while the capsule is drawn.
+     * Keeps the keyguard status bar and the capsule apart. The capsule's disc reaches left of the
+     * camera, past the space the status bar keeps clear for the cutout: a long carrier text
+     * ("Emergency calls only") would run under it, so it gets that much end padding while the capsule
+     * is drawn. On the right, the capsule's pill stops before the status icons.
      */
-    private fun reserveCarrierText() {
+    private fun fitStatusBar() {
         val view = island ?: return
+        // The pill grows right of the camera, up to the lock screen's status icons.
+        val icons = view.rootView.findViewById<View>(R.id.system_icons_container)?.takeIf { it.isShown && it.width > 0 }
+        view.endLimitOnScreen = icons?.let {
+            val at = IntArray(2)
+            it.getLocationOnScreen(at)
+            at[0] - (ICONS_GAP_DP * view.resources.displayMetrics.density).toInt()
+        }
         val text = carrier ?: view.rootView.findViewById<View>(R.id.keyguard_carrier_text)?.also {
             carrier = it
             carrierPaddingEnd = it.paddingEnd
@@ -160,7 +181,11 @@ constructor(
         .put("status", lockStatus.state.value.wire ?: JSONObject.NULL)
         .put("visible", island?.state()?.optBoolean("visible") ?: false)
 
+    /** The capsule as drawn (text, disc, geometry), or null while the lock screen draws none. */
+    fun capsuleJson(): JSONObject? = island?.state()?.takeIf { it.optBoolean("visible") }?.optJSONObject("capsule")
+
     private companion object {
         const val CARRIER_GAP_DP = 8f
+        const val ICONS_GAP_DP = 12f
     }
 }

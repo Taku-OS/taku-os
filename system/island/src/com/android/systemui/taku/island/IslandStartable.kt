@@ -35,7 +35,7 @@ class IslandStartable @Inject constructor(
                     else pw.println(IslandRuntime.call(args[0], args.getOrNull(1), args.getOrNull(2)))
                 }
                 override fun help(pw: PrintWriter) {
-                    pw.println("island capabilities | canShowIsland PACKAGE | state | list | get KEY | select KEY | next | tap KEY | expand KEY | collapse | dismiss KEY | hide KEY | open KEY | action KEY JSON | settings | setEnabled 0|1 | setAllowed CSV")
+                    pw.println("island capabilities | canShowIsland PACKAGE | state | list | get KEY | select KEY | next | tap KEY | expand KEY | collapse | dismiss KEY | hide KEY | open KEY | action KEY JSON | settings | setEnabled 0|1 | setLockScreen 0|1 | setAllowed CSV")
                 }
             }
         }

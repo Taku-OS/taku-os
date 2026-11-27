@@ -31,6 +31,19 @@ class TakuNotificationListView(context: Context) : ScrollView(context) {
     }
     private val views = LinkedHashMap<String, TakuNotificationCardView>()
 
+    /**
+     * A view pinned above the cards (the Dynamic Island's card). It stays the column's first child;
+     * while it is GONE the first card starts the column as before.
+     */
+    var header: View? = null
+        set(value) {
+            if (field === value) return
+            field?.let(column::removeView)
+            field = value
+            if (value != null) column.addView(value, 0, LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+        }
+
     /** Recorded children, drawn once clipped above the bar and once through the bar effect. */
     private val content = RenderNode("TakuNotificationList")
     private val bar = RenderNode("TakuNotificationListBar")
@@ -54,7 +67,10 @@ class TakuNotificationListView(context: Context) : ScrollView(context) {
     fun submit(cards: List<TakuNotificationCard>) {
         val keys = cards.mapTo(HashSet()) { it.key }
         views.keys.filter { it !in keys }.forEach { key -> views.remove(key)?.let(column::removeView) }
-        cards.forEachIndexed { position, card ->
+        val pinned = header
+        val offset = if (pinned != null) 1 else 0
+        cards.forEachIndexed { index, card ->
+            val position = index + offset
             val view = views.getOrPut(card.key) {
                 TakuNotificationCardView(context).also { it.callbacks = callbacks }
             }
@@ -63,10 +79,10 @@ class TakuNotificationListView(context: Context) : ScrollView(context) {
                 (view.parent as? LinearLayout)?.removeView(view)
                 column.addView(view, position, LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT,
-                ).apply { if (position > 0) topMargin = dp(16f) })
+                ))
             }
             (view.layoutParams as LinearLayout.LayoutParams).let { params ->
-                val margin = if (position > 0) dp(16f) else 0
+                val margin = if (index > 0 || pinned?.visibility == View.VISIBLE) dp(16f) else 0
                 if (params.topMargin != margin) {
                     params.topMargin = margin
                     view.layoutParams = params

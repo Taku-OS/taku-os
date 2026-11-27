@@ -45,6 +45,9 @@ class IslandExtractor @Inject constructor(private val context: Context, private 
                     } else error = result.error
                 }
             }
+            if (IslandSystemNotifications.media(notification)) {
+                return Extraction(baseline(sbn, IslandLockScreenPolicy.MEDIA, error), error)
+            }
             if (notification.isPromotedOngoing) {
                 return Extraction(baseline(sbn, null, error), error)
             }
@@ -109,8 +112,9 @@ class IslandExtractor @Inject constructor(private val context: Context, private 
     }
 
     /**
-     * Android Live Update (or call/alarm/stopwatch adapter) mapped onto the canonical payload:
-     * A = large icon, else the small icon; B = short critical text, else chronometer, else `when`.
+     * Android Live Update (or call/alarm/stopwatch/Now Playing adapter) mapped onto the canonical
+     * payload: A = large icon, else the small icon; B = short critical text, else chronometer, else
+     * `when`. Now Playing puts the track title in B and keeps the notification's transport actions.
      */
     private fun baseline(sbn: StatusBarNotification, category: String?, fallback: String?): IslandActivity {
         val n = sbn.notification
@@ -119,7 +123,10 @@ class IslandExtractor @Inject constructor(private val context: Context, private 
         n.smallIcon?.let { if (validIcon(it, sbn.packageName)) pics[APP_PIC] = it }
         n.getLargeIcon()?.let { if (validIcon(it, sbn.packageName)) pics[LARGE_PIC] = it }
         val critical = extras.getCharSequence(Notification.EXTRA_SHORT_CRITICAL_TEXT)?.toString()?.take(16)
+        val media = category == IslandLockScreenPolicy.MEDIA
+        val track = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.takeIf { it.isNotBlank() }
         val b = when {
+            media -> track?.let { JSONObject().put("type", "text").put("text", it.take(40)) }
             !critical.isNullOrBlank() -> JSONObject().put("type", "text").put("text", critical)
             n.`when` > 0 && extras.getBoolean(Notification.EXTRA_SHOW_CHRONOMETER) -> JSONObject()
                 .put("type", if (extras.getBoolean(Notification.EXTRA_CHRONOMETER_COUNT_DOWN)) "countdown" else "timer")
@@ -172,7 +179,8 @@ class IslandExtractor @Inject constructor(private val context: Context, private 
         }
         return IslandActivity(sbn.key, sbn.packageName, sbn.uid, sbn.userId, payload, pics,
             actions, n.contentIntent?.takeIf { it.creatorUid == sbn.uid } ?: n.fullScreenIntent?.takeIf { it.creatorUid == sbn.uid },
-            null, fallback, source = if (category != null) IslandActivity.SOURCE_SYSTEM else IslandActivity.SOURCE_LIVE_UPDATE, tier = tier)
+            null, fallback, source = if (category != null && !media) IslandActivity.SOURCE_SYSTEM else IslandActivity.SOURCE_LIVE_UPDATE,
+            tier = tier, category = category)
     }
 
     /** Progress from Android 16 ProgressStyle (rebuilt from extras) or the legacy progress extras. */

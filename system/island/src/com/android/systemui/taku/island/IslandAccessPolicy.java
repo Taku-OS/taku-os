@@ -26,7 +26,7 @@ public final class IslandAccessPolicy {
     private static final Set<String> PUBLIC = Set.of("capabilities", "canShowIsland");
     /** Act on whichever activity the island presents, whoever published it. */
     private static final Set<String> GLOBAL = Set.of("next");
-    private static final Set<String> ADMIN = Set.of("setEnabled", "setAllowed", "setProtocol");
+    private static final Set<String> ADMIN = Set.of("setEnabled", "setAllowed", "setProtocol", "setLockScreen");
     /** Name one activity by key; a scoped caller must have published it. */
     private static final Set<String> TARGETED =
             Set.of("get", "select", "expand", "tap", "dismiss", "hide", "open", "action");

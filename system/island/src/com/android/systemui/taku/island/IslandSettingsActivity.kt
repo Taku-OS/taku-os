@@ -23,6 +23,7 @@ import org.json.JSONObject
 class IslandSettingsActivity : Activity() {
     private val uri = Uri.parse("content://com.android.systemui.island")
     private lateinit var enabled: Switch
+    private lateinit var lockScreen: Switch
     private lateinit var allowed: EditText
     private lateinit var summary: TextView
     private var refreshing = false
@@ -43,6 +44,8 @@ class IslandSettingsActivity : Activity() {
         content.addView(TextView(this).apply { text = "Activity island"; textSize = 24f; isAccessibilityHeading = true })
         enabled = Switch(this).apply { text = "Show activities in the status bar"; minHeight = padding * 3 }
         content.addView(enabled)
+        lockScreen = Switch(this).apply { text = "Show activities on the lock screen"; minHeight = padding * 3 }
+        content.addView(lockScreen)
         summary = TextView(this)
         content.addView(summary)
         val label = TextView(this).apply {
@@ -75,6 +78,13 @@ class IslandSettingsActivity : Activity() {
                 read(false)
             }
         }
+        lockScreen.setOnCheckedChangeListener { _, checked ->
+            if (!refreshing) {
+                val result = call("setLockScreen", if (checked) "1" else "0")
+                if (!result.optBoolean("ok")) showError(result)
+                read(false)
+            }
+        }
         setContentView(scroller)
     }
     override fun onStart() {
@@ -89,6 +99,9 @@ class IslandSettingsActivity : Activity() {
         val state = result.getJSONObject("settings")
         refreshing = true
         enabled.isChecked = state.getBoolean("enabled")
+        lockScreen.isChecked = state.optBoolean("lockScreen", true)
+        // The lock screen follows the main switch: with islands off there is nothing to show there.
+        lockScreen.isEnabled = state.getBoolean("enabled")
         refreshing = false
         val packages = state.getJSONArray("allowedPackages")
         if (replaceDraft || !allowed.hasFocus()) allowed.setText((0 until packages.length()).joinToString(",") { packages.getString(it) })

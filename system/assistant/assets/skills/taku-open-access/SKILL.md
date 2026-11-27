@@ -977,6 +977,10 @@ cmd statusbar lockscreen state
 #  the shade, while dozing, and after an unlock that left the lock screen, where the status-bar
 #  island shows it: `cmd statusbar island state` → presentation.lockStatus). A lock screen that
 #  needs no authentication has no padlock. Read-only: it follows the real lock state.
+# island:{key, redacted:"none"|"glyph"|null, card, capsule, cardView} = the Dynamic Island activity
+#  the lock screen shows (also while locked), the key of its pinned card, and the capsule and card
+#  as drawn (null when not drawn). Operate it with `cmd statusbar island ...` (taku-island skill).
+#  Its notification is not listed by `lockscreen notifications`.
 cmd statusbar lockscreen notifications
 # {ok, state, notifications:[{key, package, app, title, text, context, when, conversation,
 #  sensitive, dismissable, clickable, layout:"compact"|"expanded", actions:[{index, title}]}]}

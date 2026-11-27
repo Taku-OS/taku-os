@@ -67,7 +67,7 @@ object R { object id { const val date_smartspace_view = 201; const val date_smar
  const val weather_smartspace_view = 203; const val weather_smartspace_view_large = 204 } }
 ''',
     'SysuiR.kt': '''package com.android.systemui.res
-object R { object id { const val start_button = 101; const val device_entry_icon_fg = 104; const val keyguard_carrier_text = 105; const val keyguard_slice_view = 106 }; object string { const val controls_open_app = 102 }; object drawable { const val ic_apps_expressive = 103 } }
+object R { object id { const val start_button = 101; const val device_entry_icon_fg = 104; const val keyguard_carrier_text = 105; const val keyguard_slice_view = 106; const val system_icons_container = 107 }; object string { const val controls_open_app = 102 }; object drawable { const val ic_apps_expressive = 103 } }
 ''',
     'DeviceEntry.kt': '''package com.android.systemui.keyguard.ui.view
 class DeviceEntryIconView { enum class IconType { LOCK, UNLOCK, FINGERPRINT, NONE } }
@@ -77,17 +77,30 @@ abstract class DeviceEntryIconViewModel { abstract val iconType: kotlinx.corouti
 ''',
     # system/island, applied to SystemUI before this patch (image/build.sh): only what the lock screen calls.
     'Island.kt': '''package com.android.systemui.taku.island
-class IslandActivity
+abstract class IslandActivity { abstract val key: String }
 abstract class IslandLockStatus {
  enum class State(val wire: String?) { NONE(null), LOCKED("locked"), UNLOCKED("unlocked") }
  abstract val state: kotlinx.coroutines.flow.StateFlow<State>
  abstract fun activity(): IslandActivity?
 }
+abstract class IslandPresenter {
+ data class LockScreen(val activity: IslandActivity? = null, val redacted: Boolean = false, val card: IslandActivity? = null)
+ abstract val lockScreen: kotlinx.coroutines.flow.StateFlow<LockScreen>
+ abstract fun foldLockScreenCard()
+}
+object IslandRuntime { fun call(method: String, arg: String?, extra: String?, scope: Int = -1): org.json.JSONObject = TODO() }
 class IslandStatusView(context: android.content.Context) : android.view.ViewGroup(context) {
- var status: IslandActivity? = null
+ interface Gestures { fun tap(key: String); fun longPress(key: String); fun next(); fun hide(key: String) }
+ var gestures: Gestures? = null
+ var endLimitOnScreen: Int? = null
+ fun show(status: IslandActivity?, activity: IslandActivity?, redacted: Boolean) {}
  fun capsuleLeftOnScreen(): Int? = TODO()
  fun state(): org.json.JSONObject = TODO()
  override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {}
+}
+class IslandLockScreenCard(context: android.content.Context, command: (String, String?, String?) -> Unit, fold: () -> Unit) : android.widget.FrameLayout(context) {
+ fun show(next: IslandActivity?) {}
+ fun state(): org.json.JSONObject = TODO()
 }
 ''',
     'Falsing.kt': '''package com.android.systemui.plugins

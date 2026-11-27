@@ -141,6 +141,26 @@ class CapsuleRenderTests : Instrumentation() {
         assertThat(unlocked.getPixel(px(16f), height / 2 - px(8f)) == Color.WHITE, "the open shackle is lifted")
         locked.recycle()
         unlocked.recycle()
+        // Lock screen with a live activity: the padlock takes the disc, the activity keeps the pill.
+        view.statusOverlay = status(IslandActivity.STATUS_LOCKED)
+        val live = activity("Signing...")
+        val withText = view.layoutWidth(live, px(220f), false)
+        view.layout(0, 0, withText, height)
+        view.bind(live, null)
+        assertThat(view.state().getString("disc") == "lock", "the padlock holds the disc beside an activity")
+        assertThat(view.state().getString("text") == "Signing...", "the activity keeps its text in the pill")
+        assertThat(view.contentDescription.startsWith("locked. "), "the lock state is announced first")
+        // Redacted: no text, the activity's own glyph in a 32 dp pill.
+        view.redacted = true
+        val glyphOnly = view.layoutWidth(live, px(220f), false)
+        view.layout(0, 0, glyphOnly, height)
+        view.bind(live, null)
+        assertThat(view.state().getString("text") == "", "a redacted activity shows no text")
+        assertThat(view.state().getString("pillGlyph") == "working", "its glyph moves into the pill")
+        assertThat(glyphOnly < withText, "the glyph-only pill is narrower than the text pill")
+        assertThat(!view.contentDescription.contains("Signing"), "a redacted activity is not read out")
+        view.redacted = false
+        view.statusOverlay = null
         // On the lock screen the capsule only displays: touches belong to the lock screen below.
         view.interactive = false
         val down = android.view.MotionEvent.obtain(0, 0, android.view.MotionEvent.ACTION_DOWN, px(16f).toFloat(), height / 2f, 0)

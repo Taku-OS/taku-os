@@ -51,6 +51,31 @@ ownership. Any gesture on the open padlock ends it early. `state.presentation.lo
 (`locked`, `unlocked` or null) and `lockStatusInCapsule` report it; `compact.disc` is `lock`.
 Not yet run on an emulator or device.
 
+## Lock screen
+
+Spec: [docs/dynamic-island-lock-screen-spec.md](../../docs/dynamic-island-lock-screen-spec.md).
+Activities show on the lock screen, also while locked, as the capsule at the camera and a card
+pinned above the notification cards. The lock screen draws them with this package's views
+(`IslandStatusView`, `IslandLockScreenCard`); the engine, store, order and selection stay single.
+
+- `IslandLockScreenPolicy` (host-tested) decides `HIDDEN`, `GLYPH` or `FULL` per activity from the
+  keyguard, the notification's visibility and the user's lock-screen notification settings, and which
+  actions run while locked (controller, call, alarm and media actions).
+- `IslandPresenter.lockScreen` is what the lock screen draws: the selected activity, whether it is
+  reduced to its glyph, and the pinned card. Cards are pinned by default; the user folds one until
+  the keyguard goes or a new alert. `expand`, `collapse`, `next` act on it while the keyguard shows.
+- While locked, `open`, `tap` (when it opens the app) and every other `action` answer `locked`. The
+  lock screen's GUI then asks for the credential and retries; an Agent cannot. A reply answers
+  `reply_unavailable_on_lock_screen` while the keyguard shows.
+- Setting: `Settings.Global` `taku_island_lock_screen` (default `1`), the "Show activities on the lock
+  screen" switch, `cmd statusbar island setLockScreen 0|1`.
+- Now Playing: an ongoing `MediaStyle` notification is an activity with `category` `media`, the
+  track title in the pill and the notification's transport buttons on the card.
+- `state.presentation.surface` is `lock-screen` or `status-bar`; `state.presentation.lockScreen`
+  reports `{key, redacted, card}`.
+
+Not built into SystemUI or run on an emulator or device.
+
 ## AI producer and remote body
 
 SystemUI binds `org.agentos.agent.home.island.IslandPublisherService` in the current user.

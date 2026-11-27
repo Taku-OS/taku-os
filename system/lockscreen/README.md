@@ -68,6 +68,27 @@ emergency call and accessibility all stay upstream code.
 - This is the first lock-screen source that calls `system/island` code. The image builds already
   apply the island patch first.
 
+## Island activities on the lock screen
+
+Spec: [docs/dynamic-island-lock-screen-spec.md](../../docs/dynamic-island-lock-screen-spec.md).
+
+- The island's selected activity shows on the lock screen, also while locked. `system/island` decides
+  what may be shown (`IslandLockScreenPolicy`) and publishes it as `IslandPresenter.lockScreen`; the
+  lock screen only draws it.
+- `TakuLockStatusSection` draws the capsule: the padlock in the disc and the activity in the pill,
+  stopping 12 dp before the status icons. While the activity's card is pinned, the capsule keeps only
+  the padlock.
+- `TakuNotificationSection` pins the island's card (`IslandLockScreenCard`) as the header of
+  `TakuNotificationListView`. The list therefore also shows while locked, with only that card, and
+  the clock is compact while a card is pinned (`TakuLockscreenPolicy.islandCardPinned`).
+- `TakuLockscreenNotifications.represented` leaves the notification the island shows out of the cards
+  and out of `cmd statusbar lockscreen notifications`.
+- `TakuLockscreenIsland` carries touches to the island as ordinary island operations after the
+  falsing check. When the island answers `locked`, it asks for the credential
+  (`ActivityStarter.dismissKeyguardThenExecute`) and runs the operation again.
+- `cmd statusbar lockscreen state` gains `island {key, redacted, card, capsule, cardView}`.
+- Not built into SystemUI or run on an emulator; section 9.4 of the spec lists what to check.
+
 ## Phase 4: first unlock
 
 No code change was needed; see section 6 of the spec. `device-tests/acceptance.py` is the emulator

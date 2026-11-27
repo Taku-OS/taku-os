@@ -23,12 +23,14 @@ import com.android.systemui.plugins.keyguard.ui.clocks.ClockViewIds
 import com.android.systemui.res.R
 import com.android.systemui.statusbar.notification.stack.ui.view.SharedNotificationContainer
 import com.android.systemui.statusbar.notification.stack.ui.viewmodel.SharedNotificationContainerViewModel
+import com.android.systemui.taku.island.IslandLockScreenCard
 import javax.inject.Inject
 import kotlinx.coroutines.DisposableHandle
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
+import org.json.JSONObject
 
 /**
  * Where the authenticated surface shows: the lock screen itself (no shade or QS pulled over it, not
@@ -67,6 +69,10 @@ private fun Context.dp(value: Float): Int = (value * resources.displayMetrics.de
  * touches) over them. Pulling the shade down shows the stock stack again, unchanged. The section also
  * owns the clock size: compact once the user has authenticated, tall while locked
  * ([TakuLockscreenPolicy.clockSize], the same rule the panel's hook applies).
+ *
+ * The Dynamic Island's card is pinned above the cards as the list's header ([TakuLockscreenIsland],
+ * docs/dynamic-island-lock-screen-spec.md). Activities stay visible while locked, so the list then
+ * shows with only that card, under the compact clock.
  */
 @SysUISingleton
 class TakuNotificationSection
@@ -78,9 +84,14 @@ constructor(
     private val sharedNotificationContainer: SharedNotificationContainer,
     private val containerViewModel: SharedNotificationContainerViewModel,
     private val falsingManager: FalsingManager,
+    private val island: TakuLockscreenIsland,
 ) : KeyguardSection() {
     private val viewId = View.generateViewId()
     private var binding: DisposableHandle? = null
+    private var islandCard: IslandLockScreenCard? = null
+
+    /** For `cmd statusbar lockscreen state`: the pinned island card as drawn, or null. */
+    fun islandCardJson(): JSONObject? = islandCard?.state()?.takeIf { it.optBoolean("visible") }
 
     override fun addViews(constraintLayout: ConstraintLayout) {
         if (constraintLayout.findViewById<View>(viewId) != null) return
@@ -108,13 +119,35 @@ constructor(
                 notifications.action(key, index)
             }
         }
+        val pinned = IslandLockScreenCard(list.context, island::run, island::fold)
+        islandCard = pinned
+        list.header = pinned
         binding?.dispose()
         // CREATED, not STARTED: the stock stack must become visible again even when the keyguard
         // root is hidden (unlocking), or the shade over apps would lose its notifications.
         binding = list.repeatWhenAttached {
             repeatOnLifecycle(Lifecycle.State.CREATED) {
                 launch { notifications.cards.collect(list::submit) }
-                launch { authenticatedSurfaceShown(containerViewModel, keyguardInteractor).collect(list::fadeShown) }
+                launch {
+                    island.state.collect { state ->
+                        pinned.show(state.card)
+                        // Whatever the island shows is not also a notification card.
+                        notifications.represented = state.activity?.key
+                        list.submit(notifications.cards.value)
+                        TakuLockscreenPolicy.islandCardPinned = state.card != null
+                        if (keyguardInteractor.isKeyguardShowing.value) {
+                            keyguardClockInteractor.setClockSize(
+                                TakuLockscreenPolicy.clockSize(keyguardInteractor.isKeyguardDismissible.value))
+                        }
+                    }
+                }
+                launch {
+                    // The cards need authentication; the island's card shows while locked too.
+                    combine(containerViewModel.isOnLockscreenWithoutShade, keyguardInteractor.isKeyguardDismissible,
+                        keyguardInteractor.isDozing, island.state) { onLockscreen, authenticated, dozing, state ->
+                        onLockscreen && !dozing && (authenticated || state.card != null)
+                    }.distinctUntilChanged().collect(list::fadeShown)
+                }
                 launch {
                     combine(containerViewModel.isOnLockscreenWithoutShade, keyguardInteractor.statusBarState) {
                         onLockscreen, state -> onLockscreen && state == StatusBarState.KEYGUARD
@@ -152,6 +185,9 @@ constructor(
     override fun removeViews(constraintLayout: ConstraintLayout) {
         binding?.dispose()
         binding = null
+        islandCard = null
+        notifications.represented = null
+        TakuLockscreenPolicy.islandCardPinned = false
         sharedNotificationContainer.visibility = View.VISIBLE
         constraintLayout.findViewById<View>(viewId)?.let(constraintLayout::removeView)
     }

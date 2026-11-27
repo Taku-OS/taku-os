@@ -19,6 +19,9 @@ class IslandPolicy @Inject constructor(private val context: Context, @Main priva
         private set
     var allowedPackages: Set<String> = emptySet()
         private set
+    /** Activities also show on the lock screen. The lock status (padlock) is not an activity. */
+    var lockScreen = true
+        private set
     var lastError: String? = null
         private set
     private var onChanged: () -> Unit = {}
@@ -28,7 +31,7 @@ class IslandPolicy @Inject constructor(private val context: Context, @Main priva
         val observer = object : ContentObserver(handler) {
             override fun onChange(selfChange: Boolean) { reload() }
         }
-        for (key in listOf(ENABLED, ALLOWED, PROTOCOL)) {
+        for (key in listOf(ENABLED, ALLOWED, PROTOCOL, LOCK_SCREEN)) {
             context.contentResolver.registerContentObserver(Settings.Global.getUriFor(key), false, observer)
         }
         reload()
@@ -72,6 +75,12 @@ class IslandPolicy @Inject constructor(private val context: Context, @Main priva
         reload()
     }
 
+    fun setLockScreen(value: String) {
+        require(value == "0" || value == "1") { "invalid_lock_screen" }
+        require(Settings.Global.putString(context.contentResolver, LOCK_SCREEN, value)) { "settings_write_failed" }
+        reload()
+    }
+
     fun setAllowed(value: String) {
         val packages = validatePackages(value)
         require(Settings.Global.putString(context.contentResolver, ALLOWED, packages.sorted().joinToString(","))) {
@@ -80,14 +89,24 @@ class IslandPolicy @Inject constructor(private val context: Context, @Main priva
         reload()
     }
 
-    fun snapshot(): JSONObject = JSONObject().put("enabled", enabled).put("protocol", PROTOCOL_VERSION)
+    fun snapshot(): JSONObject = JSONObject().put("enabled", enabled).put("lockScreen", lockScreen).put("protocol", PROTOCOL_VERSION)
         .put("allowedPackages", JSONArray(allowedPackages.sorted())).put("error", lastError ?: JSONObject.NULL)
 
     private fun reload() {
         val resolver = context.contentResolver
         val oldEnabled = enabled
         val oldAllowed = allowedPackages
+        val oldLockScreen = lockScreen
         lastError = null
+        when (Settings.Global.getString(resolver, LOCK_SCREEN)) {
+            null -> Settings.Global.putString(resolver, LOCK_SCREEN, if (lockScreen) "1" else "0")
+            "0" -> lockScreen = false
+            "1" -> lockScreen = true
+            else -> {
+                lastError = "invalid_lock_screen"
+                Settings.Global.putString(resolver, LOCK_SCREEN, if (lockScreen) "1" else "0")
+            }
+        }
         val rawEnabled = Settings.Global.getString(resolver, ENABLED)
         when (rawEnabled) {
             null -> Settings.Global.putString(resolver, ENABLED, if (enabled) "1" else "0")
@@ -109,7 +128,7 @@ class IslandPolicy @Inject constructor(private val context: Context, @Main priva
         // capability marker; provider/cmd reject protocol writes synchronously.
         if (Settings.Global.getString(resolver, PROTOCOL) != PROTOCOL_VERSION.toString())
             Settings.Global.putString(resolver, PROTOCOL, PROTOCOL_VERSION.toString())
-        if (enabled != oldEnabled || allowedPackages != oldAllowed) onChanged()
+        if (enabled != oldEnabled || allowedPackages != oldAllowed || lockScreen != oldLockScreen) onChanged()
     }
 
     private fun validatePackages(value: String): Set<String> {
@@ -125,6 +144,7 @@ class IslandPolicy @Inject constructor(private val context: Context, @Main priva
     companion object {
         const val ENABLED = "taku_island_enabled"
         const val ALLOWED = "taku_island_allowed_packages"
+        const val LOCK_SCREEN = "taku_island_lock_screen"
         const val PROTOCOL = "taku_island_protocol"
         /** The Taku Island protocol (`taku.island.v2`); there is no other custom wire version. */
         const val PROTOCOL_VERSION = 2

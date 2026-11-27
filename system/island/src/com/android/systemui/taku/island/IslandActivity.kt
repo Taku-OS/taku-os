@@ -29,6 +29,8 @@ data class IslandActivity(
     val source: String = SOURCE_CUSTOM,
     /** [IslandStore] tier, derived from Android roles and SystemUI controllers, never from JSON. */
     val tier: Int = IslandStore.TIER_ACTIVITY,
+    /** What SystemUI recognised it as (`call`, `alarm`, `timer`, `media`), never from JSON; null otherwise. */
+    val category: String? = null,
 ) {
     /** Capsule content (groups A and B); null means this activity never shows a capsule. */
     val compact: JSONObject? get() = payload.optJSONObject("compact")

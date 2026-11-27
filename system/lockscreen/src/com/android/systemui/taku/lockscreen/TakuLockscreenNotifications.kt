@@ -52,13 +52,25 @@ constructor(
 
     /** Newest first, one card per notification, no grouping or pagination. */
     val cards: StateFlow<List<TakuNotificationCard>> = _cards.asStateFlow()
+    private var all: List<TakuNotificationCard> = emptyList()
+
+    /**
+     * The notification the Dynamic Island shows on the lock screen (its capsule or pinned card). It
+     * is left out of the cards, for the GUI and the Agent alike, so the same thing is not shown twice.
+     */
+    var represented: String? = null
+        set(value) {
+            if (field == value) return
+            field = value
+            _cards.value = all.filter { it.key != value }
+        }
 
     init {
         pipeline.addOnAfterRenderListListener { list -> rebuild(TakuNotificationCard.flatten(list)) }
     }
 
     private fun rebuild(list: List<NotificationEntry>) {
-        val previous = _cards.value.associateBy { it.key }
+        val previous = all.associateBy { it.key }
         val sorted = list.filter { !it.isRowDismissed }.sortedByDescending { it.sbn.postTime }
         entries.clear()
         val cards = sorted.map { entry ->
@@ -69,7 +81,8 @@ constructor(
             else TakuNotificationCard.from(context, entry, sensitive, apps)
         }
         apps.retain(cards.mapTo(HashSet()) { it.packageName })
-        _cards.value = cards
+        all = cards
+        _cards.value = cards.filter { it.key != represented }
     }
 
     /** Operation result: `{ok:true,...}` or `{ok:false,error:CODE}`, identical for GUI and Agent. */

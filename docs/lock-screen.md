@@ -23,7 +23,7 @@ unless stated otherwise.
 | Media controls | Later phase. |
 | Notifications | Real Android notifications from the system notification pipeline, rendered natively by SystemUI in the Taku style. Flat list, no pagination. Tapping opens the app (after authentication when required). |
 | Shortcuts | Flashlight (start) and Camera (end) by default; replaceable by the user with other actions or apps. |
-| Dynamic Island | The lock status (padlock) shows in the island at the camera (4.8). Island activities are not on the lock screen yet; see the [proposal](dynamic-island-lock-screen-spec.md). |
+| Dynamic Island | On the lock screen: the lock status (padlock, 4.8) and island activities, as a capsule at the camera and a card pinned above the notifications. Activities and Now Playing stay visible while locked. See the [island lock-screen spec](dynamic-island-lock-screen-spec.md). |
 
 ## 2. Screen states
 
@@ -254,6 +254,7 @@ Same pattern as the Dynamic Island (`system/island`, `image/island`):
 | Face unlock stays on lock screen | `settings get/put secure face_unlock_dismisses_keyguard` |
 | Lock-screen notification policy (stock) | `settings ... secure lock_screen_show_notifications`, `lock_screen_allow_private_notifications`, `lock_screen_show_silent_notifications` |
 | Lock-screen state | `cmd statusbar lockscreen state` |
+| Island activities on the lock screen | `cmd statusbar lockscreen state` → `island {key, redacted, card, capsule, cardView}`; `cmd statusbar island state` → `presentation.surface`, `presentation.lockScreen`; setting `cmd statusbar island setLockScreen 0\|1` (`settings get global taku_island_lock_screen`) |
 | Lock status in the island | `cmd statusbar lockscreen state` → `lockStatus {status, visible}`; after unlock `cmd statusbar island state` → `presentation.lockStatus`, `lockStatusInCapsule` |
 | Cards, open, dismiss, buttons, Taku | `cmd statusbar lockscreen notifications`, `open KEY`, `dismiss KEY`, `action KEY INDEX`, `taku` |
 | Shortcuts | `cmd statusbar lockscreen shortcuts [list]`, `set SLOT SHORTCUT`, `clear SLOT` |

@@ -164,7 +164,7 @@
 +    private static final Set<String> PUBLIC = Set.of("capabilities", "canShowIsland");
 +    /** Act on whichever activity the island presents, whoever published it. */
 +    private static final Set<String> GLOBAL = Set.of("next");
-+    private static final Set<String> ADMIN = Set.of("setEnabled", "setAllowed", "setProtocol");
++    private static final Set<String> ADMIN = Set.of("setEnabled", "setAllowed", "setProtocol", "setLockScreen");
 +    /** Name one activity by key; a scoped caller must have published it. */
 +    private static final Set<String> TARGETED =
 +            Set.of("get", "select", "expand", "tap", "dismiss", "hide", "open", "action");
@@ -244,7 +244,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandActivity.kt
-@@ -0,0 +1,73 @@
+@@ -0,0 +1,75 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -276,6 +276,8 @@
 +    val source: String = SOURCE_CUSTOM,
 +    /** [IslandStore] tier, derived from Android roles and SystemUI controllers, never from JSON. */
 +    val tier: Int = IslandStore.TIER_ACTIVITY,
++    /** What SystemUI recognised it as (`call`, `alarm`, `timer`, `media`), never from JSON; null otherwise. */
++    val category: String? = null,
 +) {
 +    /** Capsule content (groups A and B); null means this activity never shows a capsule. */
 +    val compact: JSONObject? get() = payload.optJSONObject("compact")
@@ -585,7 +587,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandCapsuleView.kt
-@@ -0,0 +1,608 @@
+@@ -0,0 +1,631 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -620,7 +622,9 @@
 + * pill shows its text, timer or number in Hanken 12 sp. Another live activity waits as a 32 dp
 + * circle on the far left, where the bar has room; the main capsule never moves for it. On a status
 + * bar shorter than 32 dp everything scales down rather than clipping. Vertical drags are left to
-+ * the shade. A system status ([IslandLockStatus]) is the disc alone, holding a padlock.
++ * the shade. A system status ([IslandLockStatus]) is the disc alone, holding a padlock. On the lock
++ * screen the status takes the disc of an activity's capsule ([statusOverlay]) and the activity
++ * keeps the pill.
 + */
 +internal class IslandCapsuleView(context: Context, private val tap: () -> Unit,
 +    private val longPress: () -> Unit, private val next: () -> Unit, private val hide: () -> Unit) : View(context) {
@@ -672,6 +676,13 @@
 +    /** False where the capsule only displays (the lock screen): every touch passes through. */
 +    var interactive = true
 +        set(value) { field = value; isClickable = value; isLongClickable = value }
++    /**
++     * A status drawn in the disc while the bound activity keeps the pill: the lock screen's padlock
++     * beside a live activity. The activity's own glyph moves into the pill when it has no text.
++     */
++    var statusOverlay: IslandActivity? = null
++    /** Only the activity's glyph may show: no text, timer or number (lock-screen privacy). */
++    var redacted = false
 +    /** Padlock shackle: 0 closed, 1 open; null until a status is bound, so the first one does not animate. */
 +    private var lockOpen: Float? = null
 +    private var lockTarget: Float? = null
@@ -797,9 +808,14 @@
 +     * What the disc draws for group A: Taku's AI animation, a progress ring or an icon. Without
 +     * group A it shows the notification's own icon (tinted white), else a plain dot.
 +     */
-+    private fun discSlot(activity: IslandActivity): JSONObject? =
-+        if (activity.source == IslandActivity.SOURCE_STATUS) JSONObject().put("type", "lock")
-+            .put("open", activity.payload.optString("status") == IslandActivity.STATUS_UNLOCKED)
++    private fun discSlot(activity: IslandActivity): JSONObject? = statusOverlay?.let(::statusSlot) ?: ownGlyph(activity)
++
++    private fun statusSlot(status: IslandActivity) = JSONObject().put("type", "lock")
++        .put("open", status.payload.optString("status") == IslandActivity.STATUS_UNLOCKED)
++
++    /** The activity's own glyph, wherever it is drawn. */
++    private fun ownGlyph(activity: IslandActivity): JSONObject? =
++        if (activity.source == IslandActivity.SOURCE_STATUS) statusSlot(activity)
 +        else glyph(activity.compact?.optJSONObject("a"))
 +        ?: if (activity.pics.containsKey(IslandActivity.APP_PIC))
 +            JSONObject().put("type", "pic").put("pic", IslandActivity.APP_PIC).put("tint", true) else null
@@ -817,16 +833,21 @@
 +        else -> null
 +    }
 +
-+    /** Group B drawn as a glyph inside the pill (an icon or Taku's AI animation). */
-+    private fun pillGlyph(activity: IslandActivity): JSONObject? =
-+        activity.compact?.optJSONObject("b")?.takeIf { it.optString("type") in setOf("icon", "animation") }?.let(::glyph)
++    /**
++     * Group B drawn as a glyph inside the pill (an icon or Taku's AI animation). Under a status
++     * overlay the disc is taken, so the pill shows the activity's own glyph instead.
++     */
++    private fun pillGlyph(activity: IslandActivity): JSONObject? {
++        val b = activity.compact?.optJSONObject("b")?.takeIf { !redacted && it.optString("type") in setOf("icon", "animation") }?.let(::glyph)
++        return b ?: if (statusOverlay != null) ownGlyph(activity) ?: JSONObject() else null
++    }
 +
 +    /** The publisher's validated accent colour, else Taku's accent. */
 +    private fun accent(activity: IslandActivity): Int = activity.accentColor ?: IslandStyle.ACCENT
 +
 +    /** What the pill says: group B's text, number, clock or percentage. */
 +    private fun pillSlot(activity: IslandActivity): JSONObject? =
-+        activity.compact?.optJSONObject("b")?.takeIf { it.optString("type") in setOf("text", "timer", "countdown", "number", "progress") }
++        activity.compact?.optJSONObject("b")?.takeIf { !redacted && it.optString("type") in setOf("text", "timer", "countdown", "number", "progress") }
 +
 +    private fun pillText(slot: JSONObject?): String = when (slot?.optString("type")) {
 +        "text" -> slot.optString("text")
@@ -902,7 +923,10 @@
 +            }
 +        }
 +        bindLock(activity)
-+        contentDescription = if (activity.source == IslandActivity.SOURCE_STATUS) activity.title else
++        val overlay = statusOverlay
++        contentDescription = if (activity.source == IslandActivity.SOURCE_STATUS) activity.title
++            else if (overlay != null && redacted) "${overlay.title}. An activity is running."
++            else (if (overlay != null) "${overlay.title}. " else "") +
 +            "${if (stale) "May be outdated. " else ""}${activity.title}. ${activity.body}. " +
 +            "Double tap to ${if (activity.tap == "open" && activity.openIntent != null) "open the app" else "expand"}; " +
 +            "long press to expand; swipe left for the next activity; swipe right to hide." +
@@ -922,7 +946,7 @@
 +            }
 +        }
 +        startIconAnimations()
-+        val moving = listOfNotNull(discSlot(activity), pillGlyph(activity), second?.let(::discSlot))
++        val moving = listOfNotNull(discSlot(activity), pillGlyph(activity), second?.let(::ownGlyph))
 +            .any { it.has("animated") }
 +        if (moving && animation == null && ValueAnimator.areAnimatorsEnabled() && isShown && isAttachedToWindow) animation = ValueAnimator.ofFloat(0f, 1f).apply {
 +            // One repaint clock for both discs. Keep each authored cycle when selection changes:
@@ -947,13 +971,14 @@
 +
 +    /** The padlock follows the bound status: a change while shown animates the shackle, anything else jumps. */
 +    private fun bindLock(activity: IslandActivity) {
-+        if (activity.source != IslandActivity.SOURCE_STATUS) {
++        val status = statusOverlay ?: activity.takeIf { it.source == IslandActivity.SOURCE_STATUS }
++        if (status == null) {
 +            lockAnimation?.cancel()
 +            lockOpen = null
 +            lockTarget = null
 +            return
 +        }
-+        val target = if (activity.payload.optString("status") == IslandActivity.STATUS_UNLOCKED) 1f else 0f
++        val target = if (status.payload.optString("status") == IslandActivity.STATUS_UNLOCKED) 1f else 0f
 +        if (lockTarget == target) return
 +        val from = lockOpen
 +        lockTarget = target
@@ -1157,7 +1182,7 @@
 +        val other = second ?: return
 +        paint.color = Color.BLACK
 +        canvas.drawCircle(cx, cy, 16 * unit, paint)
-+        drawDisc(canvas, discSlot(other), cx, cy, secondaryIcons)
++        drawDisc(canvas, ownGlyph(other), cx, cy, secondaryIcons)
 +    }
 +
 +    fun state(): JSONObject = JSONObject().put("text", shownText).put("secondary", secondary)
@@ -1676,7 +1701,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandEngine.kt
-@@ -0,0 +1,391 @@
+@@ -0,0 +1,436 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -1693,11 +1718,13 @@
 +import com.android.systemui.dagger.SysUISingleton
 +import com.android.systemui.dagger.qualifiers.Background
 +import com.android.systemui.dagger.qualifiers.Main
++import com.android.systemui.plugins.ActivityStarter
 +import com.android.systemui.settings.UserTracker
 +import com.android.systemui.statusbar.NotificationLockscreenUserManager
 +import com.android.systemui.statusbar.notification.collection.NotifPipeline
 +import com.android.systemui.statusbar.notification.collection.NotificationEntry
 +import com.android.systemui.statusbar.notification.collection.notifcollection.NotifCollectionListener
++import com.android.systemui.statusbar.policy.KeyguardStateController
 +import java.util.concurrent.Executor
 +import javax.inject.Inject
 +import org.json.JSONArray
@@ -1723,6 +1750,8 @@
 +    val policy: IslandPolicy,
 +    private val users: UserTracker,
 +    private val lockscreenUsers: NotificationLockscreenUserManager,
++    private val keyguard: KeyguardStateController,
++    private val activityStarter: dagger.Lazy<ActivityStarter>,
 +    @Main private val handler: Handler,
 +    @Main private val mainExecutor: Executor,
 +    @Background private val worker: Executor,
@@ -1792,7 +1821,7 @@
 +        }
 +        val extras = sbn.notification.extras
 +        val candidate = sbn.notification.isPromotedOngoing || extras.containsKey(IslandExtractor.EXTRA_V2) ||
-+            IslandSystemNotifications.candidate(sbn.notification)
++            IslandSystemNotifications.candidate(sbn.notification) || IslandSystemNotifications.media(sbn.notification)
 +        if (!candidate) {
 +            store.remove(entry.key)
 +            changed()
@@ -1861,6 +1890,23 @@
 +        diagnostics.addLast(message.take(512))
 +    }
 +
++    /** The phone shows the keyguard and it cannot be dismissed without a credential. */
++    private fun locked() = keyguard.isShowing && !keyguard.canDismissLockScreen()
++
++    /**
++     * What the lock screen may show of [activity] right now ([IslandLockScreenPolicy]). SystemUI's
++     * own sources have no notification and no privacy setting; everything else follows the
++     * notification's visibility and the user's lock-screen notification settings.
++     */
++    fun lockScreenExposure(activity: IslandActivity): Int {
++        val entry = pipeline.getEntry(activity.key)
++        return IslandLockScreenPolicy.exposure(policy.lockScreen, activity.tier, activity.nativeAssistant,
++            keyguard.canDismissLockScreen(),
++            entry?.sbn?.notification?.visibility == android.app.Notification.VISIBILITY_SECRET,
++            entry == null || lockscreenUsers.userAllowsNotificationsInPublic(activity.userId),
++            entry != null && lockscreenUsers.getRedactionType(entry) != NotificationLockscreenUserManager.REDACTION_TYPE_NONE)
++    }
++
 +    private fun visible() = if (policy.enabled) store.active(SystemClock.elapsedRealtime()) else emptyList()
 +
 +    /** Not extracted yet: a brand-new post whose heads-up decision precedes asynchronous extraction. */
@@ -1916,6 +1962,7 @@
 +        .put("expiresElapsedMs", entry.expiresAt).put("stale", entry.stale(SystemClock.elapsedRealtime()))
 +        .put("dismissed", entry.dismissed).put("active", entry.active(SystemClock.elapsedRealtime()))
 +        .put("triggeredAtElapsedMs", entry.triggeredAt).put("source", entry.data.source).put("tier", entry.data.tier)
++        .put("category", entry.data.category ?: JSONObject.NULL)
 +        .put("timeoutKind", timeoutKind(entry))
 +        .put("availableActions", JSONArray((entry.data.actions.map { (id, action) -> JSONObject().put("id", id).put("title", action.title) } +
 +            entry.data.nativeActions.map { (id, action) -> JSONObject().put("id", id).put("title", action.title) })))
@@ -1974,7 +2021,7 @@
 +                .put("enabled", policy.enabled).put("presentationAttached", presentation != null)
 +                .put("takuProducer", IslandRuntime.producerStatus)
 +                .put("compiledAndDeviceVerified", false)
-+                .put("operations", JSONArray(listOf("list", "get", "select", "next", "tap", "expand", "collapse", "dismiss", "hide", "action", "open", "settings", "setEnabled", "setAllowed")))
++                .put("operations", JSONArray(listOf("list", "get", "select", "next", "tap", "expand", "collapse", "dismiss", "hide", "action", "open", "settings", "setEnabled", "setAllowed", "setLockScreen")))
 +            "canShowIsland" -> JSONObject().put("ok", true).put("enabled", policy.enabled)
 +                .put("package", arg ?: JSONObject.NULL).put("customAllowed", arg != null && policy.canPost(arg))
 +                .put("platformSigned", arg != null && policy.platformSigned(arg))
@@ -1986,11 +2033,12 @@
 +            "settings" -> JSONObject().put("ok", true).put("settings", if (scoped) scopedSettings() else policy.snapshot())
 +            "setEnabled" -> mutate { policy.setEnabled(requireNotNull(arg) { "missing_value" }) }
 +            "setAllowed" -> mutate { policy.setAllowed(arg.orEmpty()) }
++            "setLockScreen" -> mutate { policy.setLockScreen(requireNotNull(arg) { "missing_value" }) }
 +            "setProtocol" -> IslandRuntime.error("read_only_protocol")
 +            "expand" -> mutate(scope) {
 +                require(policy.enabled) { "island_disabled" }
 +                require(store.get(arg)?.active(SystemClock.elapsedRealtime()) == true) { "not_found" }
-+                require(presentation?.expand(requireNotNull(arg)) == true) { "presentation_unavailable" }
++                require(presentation?.expand(requireNotNull(arg)) == true) { unavailable() }
 +            }
 +            "collapse" -> mutate(scope) { presentation?.collapse("agent") }
 +            "select" -> mutate(scope) { require(presentation?.select(requireNotNull(arg) { "missing_key" }) == true) { "not_found" } }
@@ -2001,8 +2049,10 @@
 +                require(policy.enabled) { "island_disabled" }
 +                val activity = requireActivity(arg)
 +                val intent = activity.openIntent
-+                if (activity.tap == "open" && intent != null) opened(activity.key, intent)
-+                else require(presentation?.expand(activity.key) == true) { "presentation_unavailable" }
++                if (activity.tap == "open" && intent != null) {
++                    require(!locked()) { LOCKED }
++                    opened(activity.key, intent)
++                } else require(presentation?.expand(activity.key) == true) { unavailable() }
 +            }
 +            "dismiss", "hide" -> mutate(scope) {
 +                require(arg != null && store.dismiss(arg)) { "not_found" }
@@ -2010,13 +2060,19 @@
 +            }
 +            "open" -> mutate(scope) {
 +                val activity = requireActivity(arg)
-+                opened(activity.key, activity.openIntent ?: throw IllegalArgumentException("action_unavailable"))
++                val intent = activity.openIntent ?: throw IllegalArgumentException("action_unavailable")
++                // Opening the app always needs the user: the GUI asks for the credential, an Agent cannot.
++                require(!locked()) { LOCKED }
++                opened(activity.key, intent)
 +            }
 +            "action" -> mutate(scope) {
 +                val activity = requireActivity(arg)
 +                val request = JSONObject(extra ?: throw IllegalArgumentException("missing_action"))
 +                val id = request.getString("id")
 +                val native = activity.nativeActions[id]
++                require(!locked() || IslandLockScreenPolicy.actionWhileLocked(activity.tier, native != null, activity.category)) { LOCKED }
++                // The lock screen's card takes no keyboard focus; a reply waits for the unlocked card.
++                require(!request.has("reply") || !keyguard.isShowing) { "reply_unavailable_on_lock_screen" }
 +                if (native != null) {
 +                    require(!request.has("reply")) { "reply_unavailable" }
 +                    native.run()
@@ -2054,7 +2110,16 @@
 +        presentation?.collapse("opened:$key")
 +    }
 +
++    /** An operation the lock screen cannot present: locked content needs the user, anything else is the surface. */
++    private fun unavailable() = if (locked()) LOCKED else "presentation_unavailable"
++
 +    private fun send(intent: android.app.PendingIntent, fill: Intent = Intent()) {
++        // Authenticated but still on the lock screen: an activity only shows once the keyguard has
++        // gone. While locked, only call and alarm screens get here, and they show over the keyguard.
++        if (intent.isActivity && keyguard.isShowing && keyguard.canDismissLockScreen()) {
++            activityStarter.get().startPendingIntentDismissingKeyguard(intent)
++            return
++        }
 +        val options = ActivityOptions.makeBasic()
 +            .setPendingIntentBackgroundActivityStartMode(ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED)
 +        intent.send(context, 0, fill, null, handler, null, options.toBundle())
@@ -2067,10 +2132,15 @@
 +        JSONObject().put("ok", true).put("state",
 +            if (scope == IslandAccessPolicy.ALL_ACTIVITIES) JSONObject(snapshot) else state(scope))
 +    } catch (failure: Exception) { IslandRuntime.error(failure.message ?: "operation_failed") }
++
++    companion object {
++        /** The operation needs the user to authenticate; an Agent can never do that for them. */
++        const val LOCKED = "locked"
++    }
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandExtractor.kt
-@@ -0,0 +1,213 @@
+@@ -0,0 +1,221 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -2117,6 +2187,9 @@
 +                        }
 +                    } else error = result.error
 +                }
++            }
++            if (IslandSystemNotifications.media(notification)) {
++                return Extraction(baseline(sbn, IslandLockScreenPolicy.MEDIA, error), error)
 +            }
 +            if (notification.isPromotedOngoing) {
 +                return Extraction(baseline(sbn, null, error), error)
@@ -2182,8 +2255,9 @@
 +    }
 +
 +    /**
-+     * Android Live Update (or call/alarm/stopwatch adapter) mapped onto the canonical payload:
-+     * A = large icon, else the small icon; B = short critical text, else chronometer, else `when`.
++     * Android Live Update (or call/alarm/stopwatch/Now Playing adapter) mapped onto the canonical
++     * payload: A = large icon, else the small icon; B = short critical text, else chronometer, else
++     * `when`. Now Playing puts the track title in B and keeps the notification's transport actions.
 +     */
 +    private fun baseline(sbn: StatusBarNotification, category: String?, fallback: String?): IslandActivity {
 +        val n = sbn.notification
@@ -2192,7 +2266,10 @@
 +        n.smallIcon?.let { if (validIcon(it, sbn.packageName)) pics[APP_PIC] = it }
 +        n.getLargeIcon()?.let { if (validIcon(it, sbn.packageName)) pics[LARGE_PIC] = it }
 +        val critical = extras.getCharSequence(Notification.EXTRA_SHORT_CRITICAL_TEXT)?.toString()?.take(16)
++        val media = category == IslandLockScreenPolicy.MEDIA
++        val track = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.takeIf { it.isNotBlank() }
 +        val b = when {
++            media -> track?.let { JSONObject().put("type", "text").put("text", it.take(40)) }
 +            !critical.isNullOrBlank() -> JSONObject().put("type", "text").put("text", critical)
 +            n.`when` > 0 && extras.getBoolean(Notification.EXTRA_SHOW_CHRONOMETER) -> JSONObject()
 +                .put("type", if (extras.getBoolean(Notification.EXTRA_CHRONOMETER_COUNT_DOWN)) "countdown" else "timer")
@@ -2245,7 +2322,8 @@
 +        }
 +        return IslandActivity(sbn.key, sbn.packageName, sbn.uid, sbn.userId, payload, pics,
 +            actions, n.contentIntent?.takeIf { it.creatorUid == sbn.uid } ?: n.fullScreenIntent?.takeIf { it.creatorUid == sbn.uid },
-+            null, fallback, source = if (category != null) IslandActivity.SOURCE_SYSTEM else IslandActivity.SOURCE_LIVE_UPDATE, tier = tier)
++            null, fallback, source = if (category != null && !media) IslandActivity.SOURCE_SYSTEM else IslandActivity.SOURCE_LIVE_UPDATE,
++            tier = tier, category = category)
 +    }
 +
 +    /** Progress from Android 16 ProgressStyle (rebuilt from extras) or the legacy progress extras. */
@@ -2374,6 +2452,164 @@
 +    VisualInterruptionFilter(setOf(VisualInterruptionType.PEEK), "taku island presents this activity") {
 +    override fun shouldSuppress(entry: NotificationEntry): Boolean =
 +        presenter.replacesHeadsUp(entry.key) { engine.headsUpCandidate(entry.sbn) }
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandLockScreenCard.kt
+@@ -0,0 +1,98 @@
++/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
++package com.android.systemui.taku.island
++
++import android.content.Context
++import android.graphics.Outline
++import android.graphics.drawable.GradientDrawable
++import android.view.View
++import android.view.ViewOutlineProvider
++import android.widget.FrameLayout
++import org.json.JSONObject
++
++/**
++ * The island's expanded card as an ordinary view, for the lock screen's card column. It draws the
++ * same native cards as [IslandCardWindow] ([IslandAssistantCard], [IslandProgressCard],
++ * [IslandTemplateCard]) with the same fill and corners, but it is part of the page: no window, no
++ * backdrop blur, never over the camera, and no remote surface from the publisher (an app's live
++ * surface stays off the keyguard, so the native template always shows).
++ *
++ * [command] is the island operation a control asks for (`open`, `action`), as (method, key, extra);
++ * the host decides how to run it on the lock screen. [fold] is the card's handle, swipe up or
++ * Close button.
++ */
++class IslandLockScreenCard(context: Context, private val command: (String, String?, String?) -> Unit,
++    private val fold: () -> Unit) : FrameLayout(context) {
++    private val density = resources.displayMetrics.density
++    private var activity: IslandActivity? = null
++    private var kind = ""
++    private var assistant: IslandAssistantCard? = null
++    private var progress: IslandProgressCard? = null
++    private var template: IslandTemplateCard? = null
++    private val fill = GradientDrawable().apply { cornerRadius = IslandStyle.CORNER_DP * density }
++
++    init {
++        background = fill
++        clipToOutline = true
++        outlineProvider = object : ViewOutlineProvider() {
++            override fun getOutline(view: View, outline: Outline) {
++                outline.setRoundRect(0, 0, view.width, view.height, IslandStyle.CORNER_DP * density)
++            }
++        }
++        importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
++        visibility = View.GONE
++    }
++
++    /** The activity whose card to draw, or null for none. A different kind of card rebuilds the content. */
++    fun show(next: IslandActivity?) {
++        if (next === activity) return
++        activity = next
++        if (next == null) {
++            visibility = View.GONE
++            return
++        }
++        val wanted = (if (next.nativeAssistant) "assistant" else if (next.nativeProgressCard) "progress" else "template") + "|" + next.key
++        if (wanted != kind) {
++            kind = wanted
++            removeAllViews()
++            assistant = null
++            progress = null
++            template = null
++            val collapse: (String) -> Unit = { fold() }
++            val content: View = when {
++                next.nativeAssistant -> IslandAssistantCard(context, command, collapse).also { assistant = it }
++                next.nativeProgressCard -> IslandProgressCard(context, command, collapse).also { progress = it }
++                else -> IslandTemplateCard(context, command, collapse).also { template = it }
++            }
++            addView(content, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
++        }
++        fill.setColor(IslandStyle.cardFill(next))
++        assistant?.update(next)
++        progress?.update(next)
++        template?.update(next)
++        visibility = View.VISIBLE
++        requestLayout()
++    }
++
++    /** As tall as the native card asks for at this width, at most a third of the screen, like the window. */
++    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
++        val width = MeasureSpec.getSize(widthMeasureSpec)
++        val current = activity
++        val wanted = when {
++            current == null -> 0
++            assistant != null -> assistant!!.desiredHeight(current, width)
++            progress != null -> progress!!.desiredHeight(current, width)
++            else -> template!!.heightFor(width)
++        }
++        val height = minOf(wanted, resources.displayMetrics.heightPixels / 3)
++        super.onMeasure(MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY),
++            MeasureSpec.makeMeasureSpec(height, MeasureSpec.EXACTLY))
++    }
++
++    fun state(): JSONObject = JSONObject().put("key", activity?.key ?: JSONObject.NULL)
++        .put("visible", visibility == View.VISIBLE && isShown)
++        .put("layout", kind.substringBefore('|')).put("renderer", "systemui-native")
++        .put("width", width).put("height", height)
++        .put("assistant", assistant?.state() ?: JSONObject.NULL)
++        .put("template", template?.state() ?: JSONObject.NULL)
++        .put("progress", progress?.state() ?: JSONObject.NULL)
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandLockScreenPolicy.java
+@@ -0,0 +1,54 @@
++/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
++package com.android.systemui.taku.island;
++
++/**
++ * What the lock screen may show and run for one island activity. Pure rules; the inputs come from
++ * Android (notification visibility, the user's lock-screen notification settings, the keyguard),
++ * never from the publisher's JSON.
++ *
++ * Activities stay on the lock screen in full while the phone is locked, like Live Activities on
++ * iOS; ordinary notifications keep the lock screen's own hide-until-authenticated rule.
++ */
++public final class IslandLockScreenPolicy {
++    /** Not on the lock screen. */
++    public static final int HIDDEN = 0;
++    /** Present, but only as its glyph: no text, timer, number or card. */
++    public static final int GLYPH = 1;
++    /** Capsule and card with their content. */
++    public static final int FULL = 2;
++
++    /** Field [IslandActivity#category] of a Now Playing activity. */
++    public static final String MEDIA = "media";
++
++    private IslandLockScreenPolicy() {}
++
++    /**
++     * @param enabled the "show activities on the lock screen" setting
++     * @param tier {@link IslandStore} tier; calls, alarms, recording and casting are below
++     *     {@link IslandStore#TIER_ACTIVITY}
++     * @param assistant Taku Agent's assistant activity, available only after authentication
++     * @param authenticated the keyguard can be dismissed without a credential
++     * @param secret the notification is {@code VISIBILITY_SECRET}
++     * @param allowedOnLockScreen the user shows this user's notifications on the lock screen
++     * @param redacted Android requires the public version right now (sensitive content hidden by
++     *     the user's setting, a locked work profile, a one-time code)
++     */
++    public static int exposure(boolean enabled, int tier, boolean assistant, boolean authenticated,
++            boolean secret, boolean allowedOnLockScreen, boolean redacted) {
++        if (!enabled) return HIDDEN;
++        // Stock Android already shows and operates these over the lock screen.
++        if (tier < IslandStore.TIER_ACTIVITY) return FULL;
++        if (secret || !allowedOnLockScreen) return HIDDEN;
++        if (assistant && !authenticated) return HIDDEN;
++        return redacted ? GLYPH : FULL;
++    }
++
++    /**
++     * Whether an action button runs while the phone is locked: SystemUI's own controller actions
++     * (stop recording, stop casting), call and alarm actions, and Now Playing transport controls.
++     * Everything else, and opening the app, needs the user to authenticate first.
++     */
++    public static boolean actionWhileLocked(int tier, boolean nativeAction, String category) {
++        return nativeAction || tier < IslandStore.TIER_ACTIVITY || MEDIA.equals(category);
++    }
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandLockStatus.kt
@@ -3011,7 +3247,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandPolicy.kt
-@@ -0,0 +1,133 @@
+@@ -0,0 +1,153 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -3033,6 +3269,9 @@
 +        private set
 +    var allowedPackages: Set<String> = emptySet()
 +        private set
++    /** Activities also show on the lock screen. The lock status (padlock) is not an activity. */
++    var lockScreen = true
++        private set
 +    var lastError: String? = null
 +        private set
 +    private var onChanged: () -> Unit = {}
@@ -3042,7 +3281,7 @@
 +        val observer = object : ContentObserver(handler) {
 +            override fun onChange(selfChange: Boolean) { reload() }
 +        }
-+        for (key in listOf(ENABLED, ALLOWED, PROTOCOL)) {
++        for (key in listOf(ENABLED, ALLOWED, PROTOCOL, LOCK_SCREEN)) {
 +            context.contentResolver.registerContentObserver(Settings.Global.getUriFor(key), false, observer)
 +        }
 +        reload()
@@ -3086,6 +3325,12 @@
 +        reload()
 +    }
 +
++    fun setLockScreen(value: String) {
++        require(value == "0" || value == "1") { "invalid_lock_screen" }
++        require(Settings.Global.putString(context.contentResolver, LOCK_SCREEN, value)) { "settings_write_failed" }
++        reload()
++    }
++
 +    fun setAllowed(value: String) {
 +        val packages = validatePackages(value)
 +        require(Settings.Global.putString(context.contentResolver, ALLOWED, packages.sorted().joinToString(","))) {
@@ -3094,14 +3339,24 @@
 +        reload()
 +    }
 +
-+    fun snapshot(): JSONObject = JSONObject().put("enabled", enabled).put("protocol", PROTOCOL_VERSION)
++    fun snapshot(): JSONObject = JSONObject().put("enabled", enabled).put("lockScreen", lockScreen).put("protocol", PROTOCOL_VERSION)
 +        .put("allowedPackages", JSONArray(allowedPackages.sorted())).put("error", lastError ?: JSONObject.NULL)
 +
 +    private fun reload() {
 +        val resolver = context.contentResolver
 +        val oldEnabled = enabled
 +        val oldAllowed = allowedPackages
++        val oldLockScreen = lockScreen
 +        lastError = null
++        when (Settings.Global.getString(resolver, LOCK_SCREEN)) {
++            null -> Settings.Global.putString(resolver, LOCK_SCREEN, if (lockScreen) "1" else "0")
++            "0" -> lockScreen = false
++            "1" -> lockScreen = true
++            else -> {
++                lastError = "invalid_lock_screen"
++                Settings.Global.putString(resolver, LOCK_SCREEN, if (lockScreen) "1" else "0")
++            }
++        }
 +        val rawEnabled = Settings.Global.getString(resolver, ENABLED)
 +        when (rawEnabled) {
 +            null -> Settings.Global.putString(resolver, ENABLED, if (enabled) "1" else "0")
@@ -3123,7 +3378,7 @@
 +        // capability marker; provider/cmd reject protocol writes synchronously.
 +        if (Settings.Global.getString(resolver, PROTOCOL) != PROTOCOL_VERSION.toString())
 +            Settings.Global.putString(resolver, PROTOCOL, PROTOCOL_VERSION.toString())
-+        if (enabled != oldEnabled || allowedPackages != oldAllowed) onChanged()
++        if (enabled != oldEnabled || allowedPackages != oldAllowed || lockScreen != oldLockScreen) onChanged()
 +    }
 +
 +    private fun validatePackages(value: String): Set<String> {
@@ -3139,6 +3394,7 @@
 +    companion object {
 +        const val ENABLED = "taku_island_enabled"
 +        const val ALLOWED = "taku_island_allowed_packages"
++        const val LOCK_SCREEN = "taku_island_lock_screen"
 +        const val PROTOCOL = "taku_island_protocol"
 +        /** The Taku Island protocol (`taku.island.v2`); there is no other custom wire version. */
 +        const val PROTOCOL_VERSION = 2
@@ -3170,7 +3426,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandPresenter.kt
-@@ -0,0 +1,405 @@
+@@ -0,0 +1,474 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -3196,6 +3452,9 @@
 +import com.android.systemui.statusbar.policy.KeyguardStateController
 +import javax.inject.Inject
 +import kotlinx.coroutines.CoroutineScope
++import kotlinx.coroutines.flow.MutableStateFlow
++import kotlinx.coroutines.flow.StateFlow
++import kotlinx.coroutines.flow.asStateFlow
 +import kotlinx.coroutines.flow.collect
 +import kotlinx.coroutines.launch
 +import org.json.JSONArray
@@ -3234,6 +3493,19 @@
 +    private val alertedUntil = mutableMapOf<String, Long>()
 +    private data class Relocated(val view: View, val parent: ViewGroup, val index: Int, val params: ViewGroup.LayoutParams)
 +    private val relocated = mutableListOf<Relocated>()
++
++    /**
++     * What the lock screen draws. The status bar's window is under the keyguard, so the lock screen
++     * hosts its own views for the same island (system/lockscreen: [IslandStatusView] for the capsule,
++     * [IslandLockScreenCard] for the card). [activity] is the selected activity the lock screen may
++     * show; [redacted] limits it to its glyph; [card] is set while its card is pinned.
++     */
++    data class LockScreen(val activity: IslandActivity? = null, val redacted: Boolean = false, val card: IslandActivity? = null)
++    private val lockScreenState = MutableStateFlow(LockScreen())
++    val lockScreen: StateFlow<LockScreen> = lockScreenState.asStateFlow()
++    /** Lock-screen cards the user folded; they stay folded until the keyguard goes or a new alert. */
++    private val folded = mutableSetOf<String>()
++
 +    private val layout = View.OnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> layoutCapsule() }
 +
 +    fun start() {
@@ -3249,6 +3521,8 @@
 +                if (keyguard.isShowing) collapse("keyguard")
 +                layoutCapsule()
 +            }
++            // Authentication changes what the lock screen may show.
++            override fun onUnlockedChanged() = layoutCapsule()
 +        })
 +        headsUp.addListener(object : OnHeadsUpChangedListener {
 +            override fun onHeadsUpStateChanged(entry: com.android.systemui.statusbar.notification.collection.NotificationEntry, isHeadsUp: Boolean) {
@@ -3334,6 +3608,12 @@
 +        layoutCapsule()
 +        if (first != null && first.alertUntil > SystemClock.elapsedRealtime() && alertedUntil[first.key] != first.alertUntil) {
 +            alertedUntil[first.key] = first.alertUntil
++            // On the lock screen an alert pins the activity's card again; nothing times it out there.
++            if (keyguard.isShowing && engine.lockScreenExposure(first.data) != IslandLockScreenPolicy.HIDDEN) {
++                folded.remove(first.key)
++                selected = first.key
++                layoutCapsule()
++            }
 +            // The app in front already shows its own news; its alert neither expands nor waits.
 +            if (card == null && canExpand() && !foreground.suppresses(first.data)) {
 +                selected = first.key
@@ -3358,7 +3638,7 @@
 +
 +    /** Swipe left: the next activity that can show a capsule, wrapping around. */
 +    override fun next(): Boolean {
-+        val candidates = items.filter { showsCapsule(it.data) }
++        val candidates = if (keyguard.isShowing) lockScreenCandidates() else items.filter { showsCapsule(it.data) }
 +        if (candidates.size < 2) return false
 +        val index = candidates.indexOfFirst { it.key == selected }.coerceAtLeast(0)
 +        return select(candidates[(index + 1) % candidates.size].key)
@@ -3377,6 +3657,14 @@
 +
 +    override fun expand(key: String): Boolean {
 +        val item = items.find { it.key == key } ?: return false
++        if (keyguard.isShowing) {
++            // The lock screen pins the card in its own column; only content it may show in full.
++            if (!item.data.compactVisible || engine.lockScreenExposure(item.data) != IslandLockScreenPolicy.FULL) return false
++            selected = key
++            folded.remove(key)
++            layoutCapsule()
++            return lockScreenState.value.card?.key == key
++        }
 +        if (!canExpand()) return false
 +        selected = key
 +        if (cardKey == key && card != null) { automatic = false; return true }
@@ -3417,10 +3705,41 @@
 +
 +    override fun collapse(reason: String) {
 +        closeCard(reason)
++        // An Agent's collapse folds the lock screen's pinned card, as the card's own handle does.
++        if (reason == "agent") lockScreenState.value.card?.let { folded.add(it.key) }
 +        layoutCapsule()
 +    }
 +
-+    override fun expandedKey(): String? = cardKey.takeIf { card != null }
++    /** The lock screen card's handle, swipe up or Close button. */
++    fun foldLockScreenCard() {
++        val pinned = lockScreenState.value.card ?: return
++        folded.add(pinned.key)
++        reason = "lock_screen_folded"
++        layoutCapsule()
++    }
++
++    override fun expandedKey(): String? = cardKey.takeIf { card != null } ?: lockScreenState.value.card?.key
++
++    /** Activities the lock screen may show at all, in island order. */
++    private fun lockScreenCandidates() = items.filter {
++        it.data.compactVisible && engine.lockScreenExposure(it.data) != IslandLockScreenPolicy.HIDDEN
++    }
++
++    private fun layoutLockScreen() {
++        if (!keyguard.isShowing) {
++            folded.clear()
++            lockScreenState.value = LockScreen()
++            return
++        }
++        val candidates = lockScreenCandidates()
++        val current = candidates.find { it.key == selected } ?: candidates.firstOrNull()
++        if (current == null) {
++            lockScreenState.value = LockScreen()
++            return
++        }
++        val full = engine.lockScreenExposure(current.data) == IslandLockScreenPolicy.FULL
++        lockScreenState.value = LockScreen(current.data, !full, current.data.takeIf { full && current.key !in folded })
++    }
 +
 +    private fun closeCard(reason: String) {
 +        card?.close()
@@ -3436,6 +3755,7 @@
 +
 +    private fun layoutCapsule() {
 +        try { layoutCapsuleNow() } finally {
++            layoutLockScreen()
 +            // An alert only expands for the head of the order. While a call, alarm, recording or
 +            // cast holds it, ordinary activities keep their stock heads-up instead of losing both.
 +            val now = canExpand() && items.none { it.data.tier < IslandStore.TIER_ACTIVITY }
@@ -3564,7 +3884,12 @@
 +        .put("secondaryKey", visible?.let { items.find { it.key == selected }?.data?.let { if (statusShown) it.key.takeIf { visible.secondary } else secondary(it)?.key } } ?: JSONObject.NULL)
 +        .put("tap", items.find { it.key == selected }?.data?.tap ?: JSONObject.NULL)
 +        .put("compact", visible?.state() ?: JSONObject.NULL)
-+        .put("expanded", card != null).put("card", card?.state() ?: JSONObject.NULL)
++        .put("expanded", card != null || lockScreenState.value.card != null).put("card", card?.state() ?: JSONObject.NULL)
++        // Where the island is drawn now, and what the lock screen's own views show of it.
++        .put("surface", if (keyguard.isShowing) "lock-screen" else "status-bar")
++        .put("lockScreen", lockScreenState.value.let { JSONObject().put("key", it.activity?.key ?: JSONObject.NULL)
++            .put("redacted", if (it.activity == null) JSONObject.NULL else if (it.redacted) "glyph" else "none")
++            .put("card", it.card?.key ?: JSONObject.NULL) })
 +        // The lock status (IslandLockStatus), and whether this capsule is the one drawing it now.
 +        .put("lockStatus", lock.state.value.wire ?: JSONObject.NULL).put("lockStatusInCapsule", visible != null && statusShown)
 +    }
@@ -3935,7 +4260,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandSettingsActivity.kt
-@@ -0,0 +1,102 @@
+@@ -0,0 +1,115 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -3961,6 +4286,7 @@
 +class IslandSettingsActivity : Activity() {
 +    private val uri = Uri.parse("content://com.android.systemui.island")
 +    private lateinit var enabled: Switch
++    private lateinit var lockScreen: Switch
 +    private lateinit var allowed: EditText
 +    private lateinit var summary: TextView
 +    private var refreshing = false
@@ -3981,6 +4307,8 @@
 +        content.addView(TextView(this).apply { text = "Activity island"; textSize = 24f; isAccessibilityHeading = true })
 +        enabled = Switch(this).apply { text = "Show activities in the status bar"; minHeight = padding * 3 }
 +        content.addView(enabled)
++        lockScreen = Switch(this).apply { text = "Show activities on the lock screen"; minHeight = padding * 3 }
++        content.addView(lockScreen)
 +        summary = TextView(this)
 +        content.addView(summary)
 +        val label = TextView(this).apply {
@@ -4013,6 +4341,13 @@
 +                read(false)
 +            }
 +        }
++        lockScreen.setOnCheckedChangeListener { _, checked ->
++            if (!refreshing) {
++                val result = call("setLockScreen", if (checked) "1" else "0")
++                if (!result.optBoolean("ok")) showError(result)
++                read(false)
++            }
++        }
 +        setContentView(scroller)
 +    }
 +    override fun onStart() {
@@ -4027,6 +4362,9 @@
 +        val state = result.getJSONObject("settings")
 +        refreshing = true
 +        enabled.isChecked = state.getBoolean("enabled")
++        lockScreen.isChecked = state.optBoolean("lockScreen", true)
++        // The lock screen follows the main switch: with islands off there is nothing to show there.
++        lockScreen.isEnabled = state.getBoolean("enabled")
 +        refreshing = false
 +        val packages = state.getJSONArray("allowedPackages")
 +        if (replaceDraft || !allowed.hasFocus()) allowed.setText((0 until packages.length()).joinToString(",") { packages.getString(it) })
@@ -4098,7 +4436,7 @@
 +                    else pw.println(IslandRuntime.call(args[0], args.getOrNull(1), args.getOrNull(2)))
 +                }
 +                override fun help(pw: PrintWriter) {
-+                    pw.println("island capabilities | canShowIsland PACKAGE | state | list | get KEY | select KEY | next | tap KEY | expand KEY | collapse | dismiss KEY | hide KEY | open KEY | action KEY JSON | settings | setEnabled 0|1 | setAllowed CSV")
++                    pw.println("island capabilities | canShowIsland PACKAGE | state | list | get KEY | select KEY | next | tap KEY | expand KEY | collapse | dismiss KEY | hide KEY | open KEY | action KEY JSON | settings | setEnabled 0|1 | setLockScreen 0|1 | setAllowed CSV")
 +                }
 +            }
 +        }
@@ -4177,7 +4515,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandStatusView.kt
-@@ -0,0 +1,107 @@
+@@ -0,0 +1,146 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -4189,30 +4527,61 @@
 +import org.json.JSONObject
 +
 +/**
-+ * The island where the status bar is not: a strip across the top of its parent (the lock screen)
-+ * that draws a status as the same camera-anchored capsule, with the same geometry, as
-+ * [IslandPresenter] does in the status bar. It only displays: touches pass through to the lock
-+ * screen, and TalkBack reads the status. Portrait only, like the keyguard.
++ * The island's capsule where the status bar is not: a strip across the top of its parent (the lock
++ * screen) that draws the same camera-anchored capsule, with the same geometry, as [IslandPresenter]
++ * does in the status bar. It shows a status (the padlock), an activity, or both: then the status
++ * takes the disc and the activity the pill. Portrait only, like the keyguard.
++ *
++ * A capsule that only shows a status takes no touches. With an activity it takes the capsule's
++ * gestures and reports them through [gestures]; vertical drags stay with the lock screen.
 + */
 +class IslandStatusView(context: Context) : ViewGroup(context) {
++    /** The capsule's gestures on the shown activity (its notification key). */
++    interface Gestures {
++        fun tap(key: String)
++        fun longPress(key: String)
++        fun next()
++        fun hide(key: String)
++    }
++
 +    private val density = resources.displayMetrics.density
-+    private val capsule = IslandCapsuleView(context, {}, {}, {}, {}).apply {
++    var gestures: Gestures? = null
++    private val capsule = IslandCapsuleView(context,
++        tap = { activity?.let { gestures?.tap(it.key) } },
++        longPress = { activity?.let { gestures?.longPress(it.key) } },
++        next = { gestures?.next() },
++        hide = { activity?.let { gestures?.hide(it.key) } },
++    ).apply {
 +        interactive = false
 +        visibility = View.GONE
 +    }
++    private var status: IslandActivity? = null
++    private var activity: IslandActivity? = null
++    private var redacted = false
 +
-+    /** What to draw, or null for nothing. A status that ends fades out. */
-+    var status: IslandActivity? = null
-+        set(value) {
-+            if (field === value) return
-+            field = value
-+            capsule.animate().cancel()
-+            if (value != null || capsule.visibility != View.VISIBLE) place()
-+            else capsule.animate().alpha(0f).setDuration(FADE_MS).withEndAction(::place).start()
-+        }
++    /**
++     * Right edge the capsule may reach, in screen pixels (the lock screen's status icons), or null
++     * for the view's own width.
++     */
++    var endLimitOnScreen: Int? = null
++        set(value) { if (field != value) { field = value; requestLayout() } }
 +
 +    init {
 +        addView(capsule)
++    }
++
++    /**
++     * What to draw: [status] alone, [activity] alone, or [status] in the disc with [activity] in
++     * the pill; nothing when both are null, after a fade. [redacted] limits the activity to its glyph.
++     */
++    fun show(status: IslandActivity?, activity: IslandActivity?, redacted: Boolean) {
++        if (this.status === status && this.activity === activity && this.redacted == redacted) return
++        this.status = status
++        this.activity = activity
++        this.redacted = redacted
++        capsule.animate().cancel()
++        if (status != null || activity != null || capsule.visibility != View.VISIBLE) place()
++        else capsule.animate().alpha(0f).setDuration(FADE_MS).withEndAction(::place).start()
 +    }
 +
 +    /** Left edge of the drawn capsule on screen, or null while nothing is drawn. */
@@ -4224,6 +4593,7 @@
 +    }
 +
 +    fun state(): JSONObject = JSONObject().put("status", status?.payload?.optString("status") ?: JSONObject.NULL)
++        .put("key", activity?.key ?: JSONObject.NULL)
 +        .put("visible", capsule.visibility == View.VISIBLE && isShown && alpha > 0f)
 +        .put("capsule", if (capsule.visibility == View.VISIBLE) capsule.state() else JSONObject.NULL)
 +
@@ -4253,22 +4623,29 @@
 +    }
 +
 +    private fun place() {
-+        val activity = status
-+        if (activity == null || width == 0 || height == 0 ||
++        val live = activity
++        val shown = live ?: status
++        if (shown == null || width == 0 || height == 0 ||
 +                resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) {
 +            capsule.visibility = View.GONE
 +            return
 +        }
 +        val camera = IslandCameraGeometry.locate(this, 64 * density)
 +        capsule.configure(height, camera.radius)
++        capsule.statusOverlay = status.takeIf { live != null }
++        capsule.redacted = redacted && live != null
++        capsule.interactive = live != null
 +        val start = camera.x - capsule.cameraOffset()
-+        val capsuleWidth = capsule.layoutWidth(activity, width - start, false)
++        val origin = IntArray(2)
++        getLocationOnScreen(origin)
++        val end = endLimitOnScreen?.let { it - origin[0] }?.coerceAtMost(width) ?: width
++        val capsuleWidth = capsule.layoutWidth(shown, end - start, false)
 +        if (start < 0 || capsuleWidth == 0) {
 +            capsule.visibility = View.GONE
 +            return
 +        }
 +        capsule.stale = false
-+        capsule.bind(activity, null)
++        capsule.bind(shown, null)
 +        capsule.alpha = 1f
 +        capsule.visibility = View.VISIBLE
 +        // Same box as the status-bar capsule: tall enough for the 32 dp disc and the camera circle,
@@ -4615,7 +4992,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandSystemNotifications.kt
-@@ -0,0 +1,33 @@
+@@ -0,0 +1,37 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -4645,6 +5022,10 @@
 +    }
 +
 +    companion object {
++        /** Now Playing: a media-session notification while it is ongoing, i.e. while it plays. */
++        fun media(n: Notification) = n.isStyle(Notification.MediaStyle::class.java) &&
++            n.flags and Notification.FLAG_ONGOING_EVENT != 0
++
 +        fun candidate(n: Notification) = n.category in setOf(Notification.CATEGORY_CALL, Notification.CATEGORY_ALARM,
 +            Notification.CATEGORY_STOPWATCH) || n.isStyle(Notification.CallStyle::class.java)
 +    }

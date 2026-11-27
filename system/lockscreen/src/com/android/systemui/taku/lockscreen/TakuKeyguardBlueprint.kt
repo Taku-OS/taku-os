@@ -210,7 +210,16 @@ object TakuLockscreenPolicy {
      * NotificationPanelViewController and by [TakuNotificationSection] when authentication changes.
      */
     @JvmStatic
-    fun clockSize(authenticated: Boolean): ClockSize = if (authenticated) ClockSize.SMALL else ClockSize.LARGE
+    fun clockSize(authenticated: Boolean): ClockSize =
+        if (authenticated || islandCardPinned) ClockSize.SMALL else ClockSize.LARGE
+
+    /**
+     * An island card is pinned below the clock (a recording, Now Playing). It needs the room, so the
+     * clock is compact even while locked. Set by [TakuNotificationSection]; main thread.
+     */
+    @JvmField
+    @Volatile
+    var islandCardPinned = false
 
     /** Cards and the Taku button fade in and out over this time. */
     const val FADE_MS = 200L
