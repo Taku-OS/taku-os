@@ -88,7 +88,7 @@ while an icon is dragged past the last app page, and an app page other than 0 di
   input hides the voice session, which cancels whatever the system has not delivered yet;
   what arrived is still handed off. A missing screenshot or a refused capture grant never
   closes the open input or asks to invoke again: the user keeps typing without it. A gateway
-  that refuses the automatic-screenshot field (`INVALID_ARGUMENT`) is asked for a plain grant. Quickstep still implements navigation/overview, with HOME targeting
+  that refuses the automatic-screenshot field (`INVALID_ARGUMENT`) is asked for a plain grant. The overlay does not blur the app behind it: Android switches cross-window blur off and on by itself (tunnelled video, GPU load), which made video feeds and games flicker underneath. Quickstep still implements navigation/overview, with HOME targeting
   this app. Advanced native controls and background task ownership remain in the backend.
 
 ## Data pipeline

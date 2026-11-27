@@ -3,7 +3,6 @@ package org.agentos.agent.home.assistant
 import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
-import android.view.WindowManager
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -33,8 +32,9 @@ class AssistantOverlayActivity : AppCompatActivity() {
     enableEdgeToEdge(SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT), SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT))
     super.onCreate(state)
     window.isNavigationBarContrastEnforced = false
-    window.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
-    window.attributes = window.attributes.apply { blurBehindRadius = (24 * resources.displayMetrics.density).toInt() }
+    // No blur behind (BUG-0051): Android turns cross-window blur off and on by itself (tunnelled
+    // video, GPU load), so over video feeds and games the app underneath flickered between blurred
+    // and sharp while this window showed. The overlay draws its own surfaces; the app stays as is.
     presenting = open(intent)
     if (!presenting) { finish(); return }
     setContent {
@@ -47,7 +47,7 @@ class AssistantOverlayActivity : AppCompatActivity() {
       }
       TakuTheme {
         Box(Modifier.fillMaxSize()) {
-          // Keep the underlying app live. Window blur supplies its backdrop, not a screenshot.
+          // Keep the underlying app live and unblurred; nothing here is a screenshot of it.
           Box(Modifier.fillMaxSize().drawWithContent {
             scene.record { this@drawWithContent.drawContent() }; drawLayer(scene)
           })
