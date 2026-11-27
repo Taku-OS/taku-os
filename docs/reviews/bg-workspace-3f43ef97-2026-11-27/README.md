@@ -80,4 +80,3 @@ These are actual emulator or independent-display captures, copied unchanged from
 <p><strong>Native input opens the Files menu</strong><br><img src="screenshots/BUG-0044_3f43ef97_02-Files-menu.png" width="280" alt="Native input opens the Files menu"></p>
 
 <p><strong>Workspace viewer shows the live Files screen</strong><br><img src="screenshots/BUG-0044_3f43ef97_03-Files-viewer.png" width="280" alt="Workspace viewer shows the live Files screen"></p>
-
