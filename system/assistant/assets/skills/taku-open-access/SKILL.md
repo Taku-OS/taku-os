@@ -981,6 +981,9 @@ cmd statusbar lockscreen state
 #  the lock screen shows (also while locked), the key of its pinned card, and the capsule and card
 #  as drawn (null when not drawn). Operate it with `cmd statusbar island ...` (taku-island skill).
 #  Its notification is not listed by `lockscreen notifications`.
+# bouncer:{visible, styled, input:"pin"|"pattern"|"password"|null, glassControls, wallpaper} = the
+#  unlock screen (PIN/pattern/password) in the Taku style. Which input shows follows the device's
+#  screen lock (`locksettings`). Read-only; an Agent cannot enter the credential.
 cmd statusbar lockscreen notifications
 # {ok, state, notifications:[{key, package, app, title, text, context, when, conversation,
 #  sensitive, dismissable, clickable, layout:"compact"|"expanded", actions:[{index, title}]}]}

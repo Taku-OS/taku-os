@@ -40,12 +40,24 @@ import java.io.IOException
  *
  * The wallpaper is static, so its blurred copy is a set of render nodes rebuilt only when the wallpaper
  * or the bounds change. A live wallpaper has no bitmap: then only the gradient is drawn over it.
+ *
+ * [style] selects the layer: the lock screen's page ([Style.LOCK_SCREEN]) or the bouncer's lighter
+ * one ([Style.BOUNCER]: the same wallpaper, less blur, a flat dark overlay and no bottom bar).
  */
 class TakuLockscreenBackgroundDrawable(
     context: Context,
     private val userId: () -> Int,
     private val background: Executor,
+    private val style: Style = Style.LOCK_SCREEN,
 ) : Drawable() {
+    /** Blur radius, the overlay gradient (top to bottom) and whether the refracted bottom bar is drawn. */
+    data class Style(val blurDp: Float, val overlayTop: Int, val overlayBottom: Int, val bar: Boolean) {
+        companion object {
+            val LOCK_SCREEN = Style(PAGE_BLUR_DP, OVERLAY_TOP, OVERLAY_BOTTOM, bar = true)
+            /** The unlock screen: the wallpaper stays recognisable under a subtle dark overlay. */
+            val BOUNCER = Style(12f, Color.argb(0.36f, 0f, 0f, 0f), Color.argb(0.36f, 0f, 0f, 0f), bar = false)
+        }
+    }
     private val metrics = context.resources.displayMetrics
     private val wallpaperManager: WallpaperManager? = context.getSystemService(WallpaperManager::class.java)
     private val main = Handler(Looper.getMainLooper())
@@ -90,7 +102,7 @@ class TakuLockscreenBackgroundDrawable(
     }
 
     override fun onBoundsChange(bounds: Rect) {
-        gradientPaint.shader = LinearGradient(0f, 0f, 0f, bounds.height().toFloat(), OVERLAY_TOP, OVERLAY_BOTTOM,
+        gradientPaint.shader = LinearGradient(0f, 0f, 0f, bounds.height().toFloat(), style.overlayTop, style.overlayBottom,
             Shader.TileMode.CLAMP)
         dirty = true
     }
@@ -149,8 +161,10 @@ class TakuLockscreenBackgroundDrawable(
             page.setAlpha(alpha)
             bar.setAlpha(alpha)
             canvas.drawRenderNode(page)
-            canvas.translate(0f, (bounds.height() - barHeight()).toFloat())
-            canvas.drawRenderNode(bar)
+            if (style.bar) {
+                canvas.translate(0f, (bounds.height() - barHeight()).toFloat())
+                canvas.drawRenderNode(bar)
+            }
         }
         canvas.restore()
     }
@@ -175,7 +189,7 @@ class TakuLockscreenBackgroundDrawable(
         val h = bounds.height()
 
         blurred.setPosition(0, 0, w, h)
-        blurred.setRenderEffect(RenderEffect.createBlurEffect(dp(PAGE_BLUR_DP), dp(PAGE_BLUR_DP), Shader.TileMode.CLAMP))
+        blurred.setRenderEffect(RenderEffect.createBlurEffect(dp(style.blurDp), dp(style.blurDp), Shader.TileMode.CLAMP))
         blurred.beginRecording().also { recording ->
             wallpaper?.let { recording.drawBitmap(it, centerCrop(it, w, h), bitmapPaint) }
         }
@@ -189,6 +203,7 @@ class TakuLockscreenBackgroundDrawable(
         }
         page.endRecording()
 
+        if (!style.bar) return
         val barHeight = barHeight()
         bar.setPosition(0, 0, w, barHeight)
         bar.setRenderEffect(barEffect(w, barHeight, dp(BAR_BLUR_DP)))
@@ -198,6 +213,12 @@ class TakuLockscreenBackgroundDrawable(
         }
         bar.endRecording()
     }
+
+    /**
+     * The page as last recorded (blurred wallpaper and overlay), for glass controls that refract what
+     * is behind them; null before the first hardware draw or without a static wallpaper.
+     */
+    fun backdrop(): RenderNode? = page.takeIf { !dirty && wallpaper != null && page.hasDisplayList() }
 
     private fun centerCrop(bitmap: Bitmap, width: Int, height: Int): Matrix {
         val scale = maxOf(width / bitmap.width.toFloat(), height / bitmap.height.toFloat())

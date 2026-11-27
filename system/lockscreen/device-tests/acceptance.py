@@ -289,6 +289,11 @@ def first_unlock_suite(device, checks):
         print(f"INFO screenshot {device.screenshot('locked')}")
         device.shell('wm dismiss-keyguard', check=False)
         time.sleep(1.5)
+        bouncer = device.lockscreen('state')['state'].get('bouncer', {})
+        checks.check('bouncer in the Taku style with glass PIN keys',
+                     bouncer.get('visible') and bouncer.get('styled') and bouncer.get('input') == 'pin'
+                     and bouncer.get('glassControls', 0) >= 10, bouncer)
+        print(f"INFO screenshot {device.screenshot('bouncer')}")
         device.shell(f'input text {PIN}')
         device.shell('input keyevent KEYCODE_ENTER')
         start = time.time()

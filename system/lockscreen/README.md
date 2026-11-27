@@ -89,6 +89,15 @@ Spec: [docs/dynamic-island-lock-screen-spec.md](../../docs/dynamic-island-lock-s
 - `cmd statusbar lockscreen state` gains `island {key, redacted, card, capsule, cardView}`.
 - Not built into SystemUI or run on an emulator; section 9.4 of the spec lists what to check.
 
+## Unlock screen (bouncer)
+
+`TakuBouncerSection` restyles the stock primary bouncer: the Taku lock wallpaper under a 36 % dark
+overlay (`TakuLockscreenBackgroundDrawable.Style.BOUNCER`) and liquid-glass PIN keys, pattern dots
+and password field (`TakuGlass`). The bouncer's logic, layout and post-unlock path are stock. No
+upstream hook: the bouncer container is in the lock screen's window, so the section inserts the
+background under the security container and restyles it before each frame. Spec section 4.9. Not
+built into SystemUI or run on an emulator.
+
 ## Phase 4: first unlock
 
 No code change was needed; see section 6 of the spec. `device-tests/acceptance.py` is the emulator

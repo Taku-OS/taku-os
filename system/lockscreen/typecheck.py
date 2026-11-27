@@ -67,7 +67,7 @@ object R { object id { const val date_smartspace_view = 201; const val date_smar
  const val weather_smartspace_view = 203; const val weather_smartspace_view_large = 204 } }
 ''',
     'SysuiR.kt': '''package com.android.systemui.res
-object R { object id { const val start_button = 101; const val device_entry_icon_fg = 104; const val keyguard_carrier_text = 105; const val keyguard_slice_view = 106; const val system_icons_container = 107 }; object string { const val controls_open_app = 102 }; object drawable { const val ic_apps_expressive = 103 } }
+object R { object id { const val start_button = 101; const val device_entry_icon_fg = 104; const val keyguard_carrier_text = 105; const val keyguard_slice_view = 106; const val system_icons_container = 107; const val keyguard_bouncer_container = 108; const val digit_text = 109; const val klondike_text = 110 }; object string { const val controls_open_app = 102 }; object drawable { const val ic_apps_expressive = 103 } }
 ''',
     'DeviceEntry.kt': '''package com.android.systemui.keyguard.ui.view
 class DeviceEntryIconView { enum class IconType { LOCK, UNLOCK, FINGERPRINT, NONE } }
@@ -76,6 +76,19 @@ class DeviceEntryIconView { enum class IconType { LOCK, UNLOCK, FINGERPRINT, NON
 abstract class DeviceEntryIconViewModel { abstract val iconType: kotlinx.coroutines.flow.Flow<com.android.systemui.keyguard.ui.view.DeviceEntryIconView.IconType> }
 ''',
     # system/island, applied to SystemUI before this patch (image/build.sh): only what the lock screen calls.
+    'Bouncer.kt': '''package com.android.keyguard
+abstract class NumPadKey(context: android.content.Context) : android.view.ViewGroup(context)
+abstract class NumPadButton(context: android.content.Context) : android.widget.ImageButton(context)
+abstract class PasswordTextView(context: android.content.Context) : android.view.View(context)
+interface PinShapeInput
+abstract class EmergencyButton(context: android.content.Context) : android.widget.Button(context)
+''',
+    'LockPattern.kt': '''package com.android.internal.widget
+abstract class LockPatternView(context: android.content.Context) : android.view.View(context) {
+ fun setDotColors(dotColor: Int, dotActivatedColor: Int) {}
+ fun setColors(regularColor: Int, successColor: Int, errorColor: Int) {}
+}
+''',
     'Island.kt': '''package com.android.systemui.taku.island
 abstract class IslandActivity { abstract val key: String }
 abstract class IslandLockStatus {

@@ -3,7 +3,7 @@
   "repository": "frameworks/base",
   "revision": "7f6de40b6429462d47ba9ba351b99943269c8067",
   "patch": "systemui-lockscreen.patch",
-  "patchSha256": "03f42901c2e5640525a963a75fb5818fd07bd7dd0bf8aecd9062dea65b7f2d0e",
+  "patchSha256": "4612f224b3e3887384f86343c7c78ec4f23074568a6923225123cd09f47e316b",
   "files": [
     {
       "path": "packages/SystemUI/AndroidManifest.xml",
@@ -68,6 +68,18 @@
       "source": "system/lockscreen/src/com/android/systemui/taku/lockscreen/TakuAuthenticatedSections.kt"
     },
     {
+      "path": "packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuBouncerGlass.kt",
+      "beforeSha256": null,
+      "afterSha256": "1b1d1ad72a071df83ba2568f244cbd2a964217f6ef19f79c72b43ed300fa4d79",
+      "source": "system/lockscreen/src/com/android/systemui/taku/lockscreen/TakuBouncerGlass.kt"
+    },
+    {
+      "path": "packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuBouncerSection.kt",
+      "beforeSha256": null,
+      "afterSha256": "4f81a571b29527033ba2b42d3119c489c90ce4bb37a01522a55a260292c5a353",
+      "source": "system/lockscreen/src/com/android/systemui/taku/lockscreen/TakuBouncerSection.kt"
+    },
+    {
       "path": "packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuClockContours.kt",
       "beforeSha256": null,
       "afterSha256": "8ebdb3d5f0956388c7675e505ec400689ee38c2e49bf682b67ba2073ee1a768d",
@@ -112,7 +124,7 @@
     {
       "path": "packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuKeyguardBlueprint.kt",
       "beforeSha256": null,
-      "afterSha256": "ec7a95875cda4ae2a55e5dcff4ce2967bd7cb9c792174fa235d883ffe4c47ec6",
+      "afterSha256": "88af6b8be9a9e9b5fe7b6644e2211539618ca1870077e86610e28583169c937d",
       "source": "system/lockscreen/src/com/android/systemui/taku/lockscreen/TakuKeyguardBlueprint.kt"
     },
     {
@@ -124,13 +136,13 @@
     {
       "path": "packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuLockscreenBackgroundDrawable.kt",
       "beforeSha256": null,
-      "afterSha256": "6b74e2f714a109c1806ec0ec342c43253596dde4186fa0f13e7957e15d46374e",
+      "afterSha256": "11dccdec08e0e944883ad45d0829845e8a4afd929909532a76ee4c0cdf55ad33",
       "source": "system/lockscreen/src/com/android/systemui/taku/lockscreen/TakuLockscreenBackgroundDrawable.kt"
     },
     {
       "path": "packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuLockscreenCommand.kt",
       "beforeSha256": null,
-      "afterSha256": "2b8013f6289dfaf57b153b0395618305827eab3ec25d1befa52826eb40bee4e2",
+      "afterSha256": "fa0dbc02132d75d79b7d569b02400a3be680b9925c6ae18584a4b10f73d71b5f",
       "source": "system/lockscreen/src/com/android/systemui/taku/lockscreen/TakuLockscreenCommand.kt"
     },
     {

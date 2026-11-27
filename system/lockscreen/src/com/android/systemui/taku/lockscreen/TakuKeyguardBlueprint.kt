@@ -41,6 +41,7 @@ constructor(
     assistantSection: TakuAssistantSection,
     stockDateSection: TakuStockDateSection,
     lockStatusSection: TakuLockStatusSection,
+    bouncerSection: TakuBouncerSection,
     // Not used here: injecting it registers `cmd statusbar lockscreen` with the Taku lock screen.
     @Suppress("UNUSED_PARAMETER") command: TakuLockscreenCommand,
 ) : KeyguardBlueprint {
@@ -49,10 +50,11 @@ constructor(
     // Z-order follows this list. The background is the root's background drawable; the cards sit
     // under every stock view (shortcuts, lock icon, indication text keep their touches); the Taku button
     // is on top. The stock-date section adds no view and must apply after the smartspace section.
-    // The lock status is a strip at the camera that takes no touches.
+    // The lock status is a strip at the camera that takes no touches. The bouncer section adds no
+    // view to the keyguard root: it styles the bouncer, which is outside it.
     override val sections: List<KeyguardSection> =
         listOf(backgroundSection, notificationSection) + defaultBlueprint.sections +
-            listOf(assistantSection, stockDateSection, lockStatusSection)
+            listOf(assistantSection, stockDateSection, lockStatusSection, bouncerSection)
 
     companion object {
         const val ID = "taku"

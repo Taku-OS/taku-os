@@ -32,7 +32,7 @@ unless stated otherwise.
 | **Before first unlock** (after reboot, credential-encrypted storage locked) | Date, clock, shortcuts. | Biometrics are unavailable until the PIN/pattern/password is entered once; Taku apps cannot run yet. |
 | **Locked** | Date, large clock (frame 0 clock), shortcuts. | Notifications are hidden whatever the stock lock-screen notification settings say. |
 | **Authenticated on the lock screen** | Date, compact clock, notification cards, shortcuts, Taku button (frames 1–6). | Reached with face unlock while "skip lock screen" (`Settings.Secure.FACE_UNLOCK_DISMISSES_KEYGUARD`) is off. Taku ships with it off, so face unlock keeps the user on the lock screen like Face ID. |
-| **Bouncer** | Stock PIN / pattern / password screen. | Shown on swipe-up when not authenticated, after face failure or lockout, and before any action that needs authentication. |
+| **Bouncer** | Stock PIN / pattern / password screen in the Taku style (4.9): the lock wallpaper under a dark overlay, liquid-glass controls. | Shown on swipe-up when not authenticated, after face failure or lockout, and before any action that needs authentication. A correct credential runs the pending action (the notification or app that asked), else shows the screen underneath (Taku Home or the app that was open), with no intermediate lock screen. |
 | **Fingerprint** | Stock behaviour: a successful fingerprint goes straight to Home. | The fingerprint icon stays at the sensor position. |
 | **Always-on display** | Stock. | Out of scope for this design. |
 
@@ -64,7 +64,7 @@ default. The running lock screen is the legacy `KeyguardRootView` assembled from
   the island (4.8).
   Taku sections supply the constraint ids other sections expect (`smart_space_barrier_top/bottom`).
 - The primary bouncer (`keyguard_bouncer_container`) and the UDFPS alternate bouncer are outside the
-  blueprint and stay untouched.
+  blueprint. Their logic stays untouched; `TakuBouncerSection` restyles the primary bouncer (4.9).
 
 ### 3.2 Delivery
 
@@ -246,6 +246,38 @@ Same pattern as the Dynamic Island (`system/island`, `image/island`):
 - The carrier text gets end padding while the capsule is drawn, so a long carrier name does not run
   under the disc.
 
+### 4.9 Unlock screen (bouncer)
+
+- iPhone-like unlock screen over the Taku lock wallpaper. The input is Android's choice from the
+  configured screen lock: PIN (also SIM PIN), pattern or password.
+- Background: the same lock wallpaper as the lock screen (`TakuLockscreenBackgroundDrawable`,
+  `Style.BOUNCER`), blurred 12 dp under a flat black overlay at 36 %. No bottom bar. It fades in with
+  the bouncer's expansion and out with the unlock, revealing the screen below. The stock bouncer
+  surface colour and blur are underneath it and no longer visible.
+- Liquid glass (`TakuGlass`): each control shows the wallpaper behind it through a lens (3 dp blur,
+  magnified toward the rim, slight colour dispersion), under white at 10 % (32 % while pressed) and a
+  1 dp rim fading from white 60 % (top left) to 14 % (bottom right). With a live wallpaper, or off the
+  hardware renderer, only the fill and rim are drawn.
+  - PIN: every digit key is a glass circle; digits in Space Grotesk, letters in Hanken Grotesk Medium
+    at 80 % white. Delete and Enter are plain white glyphs. The PIN dots are white.
+  - Pattern: a glass circle (up to 64 dp, 80 % of its cell) under each of the 9 dots; dots white, the
+    path white at 70 %, a wrong pattern soft red (`#FF6B6B`).
+  - Password: the field is a glass rounded rectangle (24 dp corners), white text, hint at 80 %. The
+    keyboard is the system IME.
+- Messages ("Enter PIN", errors, lockout countdown) are white Hanken Grotesk; the emergency call button
+  is white text without its pill.
+- Unchanged upstream: credential checks, lockout, the emergency call button's behaviour, accessibility,
+  layout and orientation (portrait on phones: `config_enableLockScreenRotation` is off), and what
+  happens after a correct credential (the pending dismiss action, else `keyguardDone`).
+- Implementation: no upstream hook. The bouncer is in the same window, above every scrim, so the
+  section inserts the background view under the security container and restyles the container before
+  each frame (its views are reinflated whenever the bouncer shows and reload stock colours on theme
+  changes). White type is a colour-filter render effect, which no colour reload undoes.
+- With the stock blueprint (split shade) the bouncer is stock.
+- Not yet built into SystemUI or run on an emulator: check the look against the reference, the lens
+  while the bouncer slides in, pattern and password modes, lockout messages, TalkBack, and that a
+  correct PIN lands directly on Home or the pending app.
+
 ## 5. Agent interfaces (AGENTS.md)
 
 | Setting / state | Interface |
@@ -254,6 +286,7 @@ Same pattern as the Dynamic Island (`system/island`, `image/island`):
 | Face unlock stays on lock screen | `settings get/put secure face_unlock_dismisses_keyguard` |
 | Lock-screen notification policy (stock) | `settings ... secure lock_screen_show_notifications`, `lock_screen_allow_private_notifications`, `lock_screen_show_silent_notifications` |
 | Lock-screen state | `cmd statusbar lockscreen state` |
+| Unlock screen (bouncer) style | `cmd statusbar lockscreen state` → `bouncer {visible, styled, input:"pin"\|"pattern"\|"password"\|null, glassControls, wallpaper}`; the input follows `locksettings` (`locksettings set-pin`, `set-pattern`, `set-password`) |
 | Island activities on the lock screen | `cmd statusbar lockscreen state` → `island {key, redacted, card, capsule, cardView}`; `cmd statusbar island state` → `presentation.surface`, `presentation.lockScreen`; setting `cmd statusbar island setLockScreen 0\|1` (`settings get global taku_island_lock_screen`) |
 | Lock status in the island | `cmd statusbar lockscreen state` → `lockStatus {status, visible}`; after unlock `cmd statusbar island state` → `presentation.lockStatus`, `lockStatusInCapsule` |
 | Cards, open, dismiss, buttons, Taku | `cmd statusbar lockscreen notifications`, `open KEY`, `dismiss KEY`, `action KEY INDEX`, `taku` |

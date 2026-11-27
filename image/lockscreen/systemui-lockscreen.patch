@@ -590,6 +590,451 @@
 +    }
 +}
 --- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuBouncerGlass.kt
+@@ -0,0 +1,206 @@
++package com.android.systemui.taku.lockscreen
++
++import android.graphics.Canvas
++import android.graphics.Color
++import android.graphics.ColorFilter
++import android.graphics.LinearGradient
++import android.graphics.Paint
++import android.graphics.Path
++import android.graphics.PixelFormat
++import android.graphics.RectF
++import android.graphics.RenderEffect
++import android.graphics.RenderNode
++import android.graphics.RuntimeShader
++import android.graphics.Shader
++import android.graphics.drawable.Drawable
++import android.view.View
++
++/**
++ * Liquid-glass controls for the unlock screen (bouncer): each shape shows the Taku wallpaper behind it
++ * through a lens (blurred, magnified toward the rim, with a little colour dispersion), under a faint
++ * white fill and a light rim. The wallpaper comes from the bouncer's own background
++ * ([TakuLockscreenBackgroundDrawable.backdrop]), so the glass refracts exactly what the user sees.
++ *
++ * Without a static wallpaper (a live one) or off the hardware renderer, a shape is the fill and the rim
++ * only, which stays legible over the dark overlay.
++ */
++class TakuGlass(private val backdrop: () -> Backdrop?) {
++    /** The recorded page and the view it is drawn in, for positioning the lens. */
++    class Backdrop(val page: RenderNode, val host: View)
++
++    private val fill = Paint(Paint.ANTI_ALIAS_FLAG)
++    private val rim = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
++    private val path = Path()
++    private val lenses = HashMap<Int, Lens>()
++    private val hostAt = IntArray(2)
++    private val backdropAt = IntArray(2)
++
++    private class Lens(val node: RenderNode, var width: Int = 0, var height: Int = 0)
++
++    /**
++     * Draws one glass shape at [rect] (in [view]'s coordinates, which [canvas] uses): a circle when
++     * [corner] is null, else a rounded rectangle. [slot] keeps one lens per shape of a drawable.
++     */
++    fun draw(canvas: Canvas, view: View, rect: RectF, corner: Float?, pressed: Boolean, slot: Int = 0) {
++        if (rect.isEmpty) return
++        path.rewind()
++        if (corner == null) path.addCircle(rect.centerX(), rect.centerY(), minOf(rect.width(), rect.height()) / 2f, Path.Direction.CW)
++        else path.addRoundRect(rect, corner, corner, Path.Direction.CW)
++        val density = view.resources.displayMetrics.density
++        val source = backdrop()
++        if (source != null && canvas.isHardwareAccelerated) {
++            val w = rect.width().toInt().coerceAtLeast(1)
++            val h = rect.height().toInt().coerceAtLeast(1)
++            val lens = lenses.getOrPut(slot) { Lens(RenderNode("TakuGlass$slot")) }
++            if (lens.width != w || lens.height != h) {
++                lens.width = w
++                lens.height = h
++                lens.node.setPosition(0, 0, w, h)
++                lens.node.setRenderEffect(effect(w, h, BLUR_DP * density))
++            }
++            // Where this shape sits over the backdrop, wherever the bouncer has moved it.
++            view.getLocationInWindow(hostAt)
++            source.host.getLocationInWindow(backdropAt)
++            val x = hostAt[0] - backdropAt[0] + rect.left
++            val y = hostAt[1] - backdropAt[1] + rect.top
++            lens.node.beginRecording(w, h).also { recording ->
++                recording.translate(-x, -y)
++                recording.drawRenderNode(source.page)
++            }
++            lens.node.endRecording()
++            canvas.save()
++            canvas.clipPath(path)
++            canvas.translate(rect.left, rect.top)
++            canvas.drawRenderNode(lens.node)
++            canvas.restore()
++        }
++        fill.color = if (pressed) PRESSED_FILL else FILL
++        canvas.drawPath(path, fill)
++        rim.strokeWidth = RIM_DP * density
++        rim.shader = LinearGradient(rect.left, rect.top, rect.right, rect.bottom, RIM_LIGHT, RIM_DARK, Shader.TileMode.CLAMP)
++        canvas.drawPath(path, rim)
++    }
++
++    /** Blur first, then the lens: createChainEffect applies the inner effect first. */
++    private fun effect(width: Int, height: Int, blur: Float): RenderEffect {
++        val lens = RuntimeShader(LENS).apply {
++            setFloatUniform("size", width.toFloat(), height.toFloat())
++            setFloatUniform("strength", LENS_STRENGTH)
++            setFloatUniform("dispersion", LENS_DISPERSION)
++        }
++        return RenderEffect.createChainEffect(
++            RenderEffect.createRuntimeShaderEffect(lens, "content"),
++            RenderEffect.createBlurEffect(blur, blur, Shader.TileMode.CLAMP),
++        )
++    }
++
++    companion object {
++        /** Faint white glass; brighter while pressed. */
++        val FILL = Color.argb(0.10f, 1f, 1f, 1f)
++        val PRESSED_FILL = Color.argb(0.32f, 1f, 1f, 1f)
++        /** Rim: light from the top left, fading toward the bottom right. */
++        val RIM_LIGHT = Color.argb(0.60f, 1f, 1f, 1f)
++        val RIM_DARK = Color.argb(0.14f, 1f, 1f, 1f)
++        const val RIM_DP = 1f
++        const val BLUR_DP = 3f
++        const val LENS_STRENGTH = 0.28f
++        const val LENS_DISPERSION = 0.012f
++
++        /**
++         * Magnifies toward the rim (the edge samples move inward, as through a thick lens) and splits
++         * the channels slightly along the radius there.
++         */
++        const val LENS = """
++            uniform shader content;
++            uniform float2 size;
++            uniform float strength;
++            uniform float dispersion;
++
++            half4 main(float2 p) {
++                float2 c = size * 0.5;
++                float2 d = (p - c) / c;
++                float l = clamp(length(d), 0.0, 1.0);
++                float edge = l * l * l;
++                float2 q = c + (p - c) * (1.0 - strength * edge);
++                float2 dir = l > 0.0 ? normalize(p - c) : float2(0.0);
++                float shift = dispersion * min(size.x, size.y) * edge;
++                half4 cr = content.eval(q + dir * shift);
++                half4 cg = content.eval(q);
++                half4 cb = content.eval(q - dir * shift);
++                return half4(cr.r, cg.g, cb.b, max(cr.a, max(cg.a, cb.a)));
++            }
++        """
++    }
++}
++
++/**
++ * One glass shape filling the view's bounds: a circle (PIN keys) or a rounded rectangle with
++ * [cornerDp] (the password field). It brightens while the view is pressed.
++ */
++class TakuGlassDrawable(private val glass: TakuGlass, private val cornerDp: Float? = null) : Drawable() {
++    private val rect = RectF()
++    private var pressed = false
++
++    override fun draw(canvas: Canvas) {
++        val view = callback as? View ?: return
++        rect.set(bounds)
++        val inset = TakuGlass.RIM_DP * view.resources.displayMetrics.density / 2f
++        rect.inset(inset, inset)
++        if (cornerDp == null) {
++            // The key's circle, centred in its cell.
++            val radius = minOf(rect.width(), rect.height()) / 2f
++            rect.set(rect.centerX() - radius, rect.centerY() - radius, rect.centerX() + radius, rect.centerY() + radius)
++        }
++        glass.draw(canvas, view, rect, cornerDp?.let { it * view.resources.displayMetrics.density }, pressed)
++    }
++
++    override fun isStateful(): Boolean = true
++
++    override fun onStateChange(state: IntArray): Boolean {
++        val now = android.R.attr.state_pressed in state
++        if (now == pressed) return false
++        pressed = now
++        invalidateSelf()
++        return true
++    }
++
++    override fun setAlpha(alpha: Int) {}
++    override fun setColorFilter(colorFilter: ColorFilter?) {}
++    @Deprecated("Deprecated in Java")
++    override fun getOpacity(): Int = PixelFormat.TRANSLUCENT
++}
++
++/**
++ * The pattern grid's background: a glass circle under each of the 3 × 3 dots, at the same centres the
++ * pattern view uses (its padding split into equal squares).
++ */
++class TakuGlassGridDrawable(private val glass: TakuGlass) : Drawable() {
++    private val rect = RectF()
++
++    override fun draw(canvas: Canvas) {
++        val view = callback as? View ?: return
++        val density = view.resources.displayMetrics.density
++        val square = (view.width - view.paddingLeft - view.paddingRight) / SIZE.toFloat()
++        val squareHeight = (view.height - view.paddingTop - view.paddingBottom) / SIZE.toFloat()
++        val radius = minOf(square * CELL_FRACTION, squareHeight * CELL_FRACTION, CELL_RADIUS_DP * density)
++        if (radius <= 0f) return
++        for (row in 0 until SIZE) for (column in 0 until SIZE) {
++            val cx = view.paddingLeft + column * square + square / 2f
++            val cy = view.paddingTop + row * squareHeight + squareHeight / 2f
++            rect.set(cx - radius, cy - radius, cx + radius, cy + radius)
++            glass.draw(canvas, view, rect, null, pressed = false, slot = row * SIZE + column)
++        }
++    }
++
++    override fun setAlpha(alpha: Int) {}
++    override fun setColorFilter(colorFilter: ColorFilter?) {}
++    @Deprecated("Deprecated in Java")
++    override fun getOpacity(): Int = PixelFormat.TRANSLUCENT
++
++    private companion object {
++        const val SIZE = 3
++        /** Each circle is at most 64 dp across, and never more than 80 % of its square. */
++        const val CELL_RADIUS_DP = 32f
++        const val CELL_FRACTION = 0.4f
++    }
++}
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuBouncerSection.kt
+@@ -0,0 +1,233 @@
++package com.android.systemui.taku.lockscreen
++
++import android.graphics.Color
++import android.graphics.PorterDuff
++import android.graphics.PorterDuffColorFilter
++import android.graphics.RenderEffect
++import android.view.View
++import android.view.ViewGroup
++import android.view.ViewTreeObserver
++import android.widget.EditText
++import android.widget.TextView
++import androidx.constraintlayout.widget.ConstraintLayout
++import androidx.constraintlayout.widget.ConstraintSet
++import com.android.internal.widget.LockPatternView
++import com.android.keyguard.EmergencyButton
++import com.android.keyguard.NumPadButton
++import com.android.keyguard.NumPadKey
++import com.android.keyguard.PasswordTextView
++import com.android.keyguard.PinShapeInput
++import com.android.systemui.dagger.SysUISingleton
++import com.android.systemui.dagger.qualifiers.Background
++import com.android.systemui.keyguard.shared.model.KeyguardSection
++import com.android.systemui.res.R
++import com.android.systemui.settings.UserTracker
++import java.util.concurrent.Executor
++import javax.inject.Inject
++import org.json.JSONObject
++
++/**
++ * The unlock screen (the stock primary bouncer) in the Taku style: the Taku lock wallpaper under a
++ * subtle dark overlay, white type, and liquid-glass PIN keys, pattern dots and password field
++ * ([TakuGlass]). Which of the three shows is Android's choice, from the configured screen lock.
++ *
++ * Only the look changes. The bouncer is the stock `KeyguardSecurityContainer` with its own
++ * controllers: credential checks, lockout, the emergency call button, accessibility and what happens
++ * after a correct credential (the pending action, else the screen underneath) are upstream code.
++ *
++ * The bouncer lives in the same window as the lock screen, above every scrim
++ * (`keyguard_bouncer_container` in `super_notification_shade`), so no upstream hook is needed:
++ * - a background view is inserted under the security container. It follows the container's alpha,
++ *   so it fades in with the bouncer's expansion and out with the unlock, revealing the screen below;
++ * - before each frame the security container is restyled. Its views are reinflated whenever the
++ *   bouncer shows, and they reload stock colours on theme changes, so styling is idempotent and
++ *   repeated rather than done once. White type is a colour-filter render effect, which no colour
++ *   reload can undo.
++ *
++ * Part of [TakuKeyguardBlueprint]: with the stock blueprint (split shade) the bouncer is stock too.
++ */
++@SysUISingleton
++class TakuBouncerSection
++@Inject
++constructor(
++    private val userTracker: UserTracker,
++    @Background private val backgroundExecutor: Executor,
++) : KeyguardSection() {
++    private var container: ViewGroup? = null
++    private var backgroundView: View? = null
++    private var drawable: TakuLockscreenBackgroundDrawable? = null
++    private val glass = TakuGlass {
++        val view = backgroundView
++        val page = drawable?.backdrop()
++        if (view != null && page != null) TakuGlass.Backdrop(page, view) else null
++    }
++    private val glassViews = ArrayList<View>()
++    private var lastSecurityY = Float.NaN
++    private var lastBackdrop = false
++    private var input: String? = null
++
++    private val frame = ViewTreeObserver.OnPreDrawListener {
++        container?.let(::sync)
++        true
++    }
++
++    override fun addViews(constraintLayout: ConstraintLayout) {}
++
++    override fun bindData(constraintLayout: ConstraintLayout) {
++        val found = constraintLayout.rootView.findViewById<ViewGroup>(R.id.keyguard_bouncer_container)
++        if (found == null) {
++            // Not attached to the shade window yet: try again once it is.
++            constraintLayout.post { if (container == null) bindData(constraintLayout) }
++            return
++        }
++        if (found === container) return
++        detach()
++        container = found
++        val background = TakuLockscreenBackgroundDrawable(found.context, { userTracker.userId }, backgroundExecutor,
++            TakuLockscreenBackgroundDrawable.Style.BOUNCER)
++        drawable = background
++        val view = View(found.context).apply {
++            this.background = background
++            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
++            alpha = 0f
++        }
++        backgroundView = view
++        found.addView(view, 0, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
++        background.attach()
++        found.viewTreeObserver.addOnPreDrawListener(frame)
++    }
++
++    override fun applyConstraints(constraintSet: ConstraintSet) {}
++
++    override fun removeViews(constraintLayout: ConstraintLayout) = detach()
++
++    private fun detach() {
++        val old = container ?: return
++        old.viewTreeObserver.removeOnPreDrawListener(frame)
++        backgroundView?.let(old::removeView)
++        drawable?.detach()
++        backgroundView = null
++        drawable = null
++        container = null
++        glassViews.clear()
++        input = null
++    }
++
++    /** The security container: the bouncer container's child that is not our background. */
++    private fun security(group: ViewGroup): View? =
++        (0 until group.childCount).map(group::getChildAt).firstOrNull { it !== backgroundView }
++
++    private fun sync(group: ViewGroup) {
++        val security = security(group) ?: return
++        backgroundView?.alpha = if (group.visibility == View.VISIBLE) security.alpha else 0f
++        if (group.visibility != View.VISIBLE) return
++        glassViews.clear()
++        input = null
++        style(security)
++        // The lens shows the wallpaper behind each shape: while the bouncer slides in, redraw them.
++        // The wallpaper arriving later changes what they show too.
++        val backdrop = drawable?.backdrop() != null
++        if (security.translationY != lastSecurityY || backdrop != lastBackdrop) {
++            lastSecurityY = security.translationY
++            lastBackdrop = backdrop
++            glassViews.forEach(View::invalidate)
++        }
++    }
++
++    private fun style(view: View) {
++        when (view) {
++            is NumPadKey -> {
++                input = input ?: "pin"
++                if (view.getTag(R.id.keyguard_bouncer_container) == null) {
++                    view.setTag(R.id.keyguard_bouncer_container, STYLED)
++                    view.background = TakuGlassDrawable(glass)
++                    view.findViewById<TextView>(R.id.digit_text)?.apply {
++                        typeface = TakuLockscreenFonts.spaceGrotesk
++                        setRenderEffect(WHITE)
++                    }
++                    view.findViewById<TextView>(R.id.klondike_text)?.apply {
++                        typeface = TakuLockscreenFonts.hankenGroteskMedium
++                        letterSpacing = 0.2f
++                        setRenderEffect(SECONDARY)
++                    }
++                }
++                glassViews.add(view)
++                return
++            }
++            is NumPadButton -> {
++                // Delete and enter are plain white glyphs, like the text buttons under an iPhone keypad.
++                if (view.background != null) view.background = null
++                once(view) { setRenderEffect(WHITE) }
++                return
++            }
++            is PasswordTextView -> { once(view) { setRenderEffect(WHITE) }; return }
++            is LockPatternView -> {
++                input = "pattern"
++                once(view) {
++                    view.setDotColors(Color.WHITE, Color.WHITE)
++                    view.setColors(PATH, Color.WHITE, ERROR)
++                    view.background = TakuGlassGridDrawable(glass)
++                }
++                glassViews.add(view)
++                return
++            }
++            is EditText -> {
++                input = input ?: "password"
++                once(view) {
++                    view.background = TakuGlassDrawable(glass, PASSWORD_CORNER_DP)
++                    view.setTextColor(Color.WHITE)
++                    view.setHintTextColor(SECONDARY_COLOR)
++                }
++                glassViews.add(view)
++                return
++            }
++            is EmergencyButton -> {
++                if (view.background != null) view.background = null
++                once(view) {
++                    view.typeface = TakuLockscreenFonts.hankenGroteskMedium
++                    view.setRenderEffect(WHITE)
++                }
++                return
++            }
++            is TextView -> {
++                // Bouncer messages ("Enter PIN", errors, lockout countdown).
++                once(view) {
++                    view.typeface = TakuLockscreenFonts.hankenGrotesk
++                    view.setRenderEffect(WHITE)
++                }
++                return
++            }
++        }
++        if (view is PinShapeInput) { once(view) { setRenderEffect(WHITE) }; return }
++        if (view is ViewGroup) for (index in 0 until view.childCount) style(view.getChildAt(index))
++    }
++
++    private inline fun once(view: View, apply: View.() -> Unit) {
++        if (view.getTag(R.id.keyguard_bouncer_container) != null) return
++        view.setTag(R.id.keyguard_bouncer_container, STYLED)
++        view.apply()
++    }
++
++    /** For `cmd statusbar lockscreen state`: whether the bouncer shows, in the Taku style, and its input. */
++    fun stateJson(): JSONObject {
++        val group = container
++        val visible = group != null && group.visibility == View.VISIBLE && group.isShown
++        return JSONObject().put("visible", visible)
++            .put("styled", group != null)
++            .put("input", if (visible) input ?: JSONObject.NULL else JSONObject.NULL)
++            .put("glassControls", if (visible) glassViews.size else 0)
++            .put("wallpaper", drawable?.backdrop() != null)
++    }
++
++    private companion object {
++        const val STYLED = "taku"
++        const val PASSWORD_CORNER_DP = 24f
++        val SECONDARY_COLOR = Color.argb(0.8f, 1f, 1f, 1f)
++        /** The pattern's path: white at 70 %; a wrong pattern turns it a soft red. */
++        val PATH = Color.argb(0.7f, 1f, 1f, 1f)
++        val ERROR = Color.rgb(0xFF, 0x6B, 0x6B)
++        val WHITE: RenderEffect = RenderEffect.createColorFilterEffect(PorterDuffColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN))
++        val SECONDARY: RenderEffect =
++            RenderEffect.createColorFilterEffect(PorterDuffColorFilter(SECONDARY_COLOR, PorterDuff.Mode.SRC_IN))
++    }
++}
+--- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuClockContours.kt
 @@ -0,0 +1,47 @@
 +// Generated by motion/generate.py. Do not hand-edit.
@@ -1110,7 +1555,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuKeyguardBlueprint.kt
-@@ -0,0 +1,240 @@
+@@ -0,0 +1,242 @@
 +package com.android.systemui.taku.lockscreen
 +
 +import android.graphics.Color
@@ -1154,6 +1599,7 @@
 +    assistantSection: TakuAssistantSection,
 +    stockDateSection: TakuStockDateSection,
 +    lockStatusSection: TakuLockStatusSection,
++    bouncerSection: TakuBouncerSection,
 +    // Not used here: injecting it registers `cmd statusbar lockscreen` with the Taku lock screen.
 +    @Suppress("UNUSED_PARAMETER") command: TakuLockscreenCommand,
 +) : KeyguardBlueprint {
@@ -1162,10 +1608,11 @@
 +    // Z-order follows this list. The background is the root's background drawable; the cards sit
 +    // under every stock view (shortcuts, lock icon, indication text keep their touches); the Taku button
 +    // is on top. The stock-date section adds no view and must apply after the smartspace section.
-+    // The lock status is a strip at the camera that takes no touches.
++    // The lock status is a strip at the camera that takes no touches. The bouncer section adds no
++    // view to the keyguard root: it styles the bouncer, which is outside it.
 +    override val sections: List<KeyguardSection> =
 +        listOf(backgroundSection, notificationSection) + defaultBlueprint.sections +
-+            listOf(assistantSection, stockDateSection, lockStatusSection)
++            listOf(assistantSection, stockDateSection, lockStatusSection, bouncerSection)
 +
 +    companion object {
 +        const val ID = "taku"
@@ -1547,7 +1994,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuLockscreenBackgroundDrawable.kt
-@@ -0,0 +1,268 @@
+@@ -0,0 +1,289 @@
 +package com.android.systemui.taku.lockscreen
 +
 +import android.app.WallpaperColors
@@ -1590,12 +2037,24 @@
 + *
 + * The wallpaper is static, so its blurred copy is a set of render nodes rebuilt only when the wallpaper
 + * or the bounds change. A live wallpaper has no bitmap: then only the gradient is drawn over it.
++ *
++ * [style] selects the layer: the lock screen's page ([Style.LOCK_SCREEN]) or the bouncer's lighter
++ * one ([Style.BOUNCER]: the same wallpaper, less blur, a flat dark overlay and no bottom bar).
 + */
 +class TakuLockscreenBackgroundDrawable(
 +    context: Context,
 +    private val userId: () -> Int,
 +    private val background: Executor,
++    private val style: Style = Style.LOCK_SCREEN,
 +) : Drawable() {
++    /** Blur radius, the overlay gradient (top to bottom) and whether the refracted bottom bar is drawn. */
++    data class Style(val blurDp: Float, val overlayTop: Int, val overlayBottom: Int, val bar: Boolean) {
++        companion object {
++            val LOCK_SCREEN = Style(PAGE_BLUR_DP, OVERLAY_TOP, OVERLAY_BOTTOM, bar = true)
++            /** The unlock screen: the wallpaper stays recognisable under a subtle dark overlay. */
++            val BOUNCER = Style(12f, Color.argb(0.36f, 0f, 0f, 0f), Color.argb(0.36f, 0f, 0f, 0f), bar = false)
++        }
++    }
 +    private val metrics = context.resources.displayMetrics
 +    private val wallpaperManager: WallpaperManager? = context.getSystemService(WallpaperManager::class.java)
 +    private val main = Handler(Looper.getMainLooper())
@@ -1640,7 +2099,7 @@
 +    }
 +
 +    override fun onBoundsChange(bounds: Rect) {
-+        gradientPaint.shader = LinearGradient(0f, 0f, 0f, bounds.height().toFloat(), OVERLAY_TOP, OVERLAY_BOTTOM,
++        gradientPaint.shader = LinearGradient(0f, 0f, 0f, bounds.height().toFloat(), style.overlayTop, style.overlayBottom,
 +            Shader.TileMode.CLAMP)
 +        dirty = true
 +    }
@@ -1699,8 +2158,10 @@
 +            page.setAlpha(alpha)
 +            bar.setAlpha(alpha)
 +            canvas.drawRenderNode(page)
-+            canvas.translate(0f, (bounds.height() - barHeight()).toFloat())
-+            canvas.drawRenderNode(bar)
++            if (style.bar) {
++                canvas.translate(0f, (bounds.height() - barHeight()).toFloat())
++                canvas.drawRenderNode(bar)
++            }
 +        }
 +        canvas.restore()
 +    }
@@ -1725,7 +2186,7 @@
 +        val h = bounds.height()
 +
 +        blurred.setPosition(0, 0, w, h)
-+        blurred.setRenderEffect(RenderEffect.createBlurEffect(dp(PAGE_BLUR_DP), dp(PAGE_BLUR_DP), Shader.TileMode.CLAMP))
++        blurred.setRenderEffect(RenderEffect.createBlurEffect(dp(style.blurDp), dp(style.blurDp), Shader.TileMode.CLAMP))
 +        blurred.beginRecording().also { recording ->
 +            wallpaper?.let { recording.drawBitmap(it, centerCrop(it, w, h), bitmapPaint) }
 +        }
@@ -1739,6 +2200,7 @@
 +        }
 +        page.endRecording()
 +
++        if (!style.bar) return
 +        val barHeight = barHeight()
 +        bar.setPosition(0, 0, w, barHeight)
 +        bar.setRenderEffect(barEffect(w, barHeight, dp(BAR_BLUR_DP)))
@@ -1748,6 +2210,12 @@
 +        }
 +        bar.endRecording()
 +    }
++
++    /**
++     * The page as last recorded (blurred wallpaper and overlay), for glass controls that refract what
++     * is behind them; null before the first hardware draw or without a static wallpaper.
++     */
++    fun backdrop(): RenderNode? = page.takeIf { !dirty && wallpaper != null && page.hasDisplayList() }
 +
 +    private fun centerCrop(bitmap: Bitmap, width: Int, height: Int): Matrix {
 +        val scale = maxOf(width / bitmap.width.toFloat(), height / bitmap.height.toFloat())
@@ -1818,7 +2286,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuLockscreenCommand.kt
-@@ -0,0 +1,116 @@
+@@ -0,0 +1,119 @@
 +package com.android.systemui.taku.lockscreen
 +
 +import android.util.Log
@@ -1854,6 +2322,7 @@
 +    private val lockStatus: TakuLockStatusSection,
 +    private val island: TakuLockscreenIsland,
 +    private val cards: TakuNotificationSection,
++    private val bouncer: TakuBouncerSection,
 +    @Main private val mainExecutor: Executor,
 +    @Background backgroundExecutor: Executor,
 +) {
@@ -1903,6 +2372,8 @@
 +        // The Dynamic Island on the lock screen: the activity shown, and its capsule and card as drawn.
 +        .put("island", island.stateJson().put("capsule", lockStatus.capsuleJson() ?: JSONObject.NULL)
 +            .put("cardView", cards.islandCardJson() ?: JSONObject.NULL))
++        // The unlock screen (stock bouncer) as styled by Taku.
++        .put("bouncer", bouncer.stateJson())
 +
 +    private fun shortcutsCommand(args: List<String>): JSONObject = runBlocking {
 +        when (args.getOrNull(0)) {
