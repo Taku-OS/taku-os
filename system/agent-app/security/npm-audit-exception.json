@@ -1,6 +1,6 @@
 {
   "advisory": "https://github.com/advisories/GHSA-fc5q-39xc-vjpf",
-  "accepted": true,
+  "accepted": false,
   "acceptedAt": "2026-11-18T00:00:00Z",
   "expiresAt": "2026-12-18T00:00:00Z",
   "approval": "Explicit user acceptance on 2026-11-18 for this exact dependency graph and tooling-only exposure.",
@@ -19,5 +19,6 @@
     "https://security.snyk.io/vuln/SNYK-JS-PICOMATCH-21248802",
     "https://github.com/micromatch/picomatch/pull/235"
   ],
-  "retirement": "Remove the exception and its guards in a reviewed change when the advisory is withdrawn or a verified compatible fix is adopted. Never renew or refresh digests automatically."
+  "retirement": "Retired after verifying the advisory is withdrawn and the updated Expo dependency graph has zero findings in the complete official-registry audit. This file preserves the former acceptance record and hashes; CI no longer loads it or permits exceptions.",
+  "retiredAt": "2026-11-27T03:03:56Z"
 }
