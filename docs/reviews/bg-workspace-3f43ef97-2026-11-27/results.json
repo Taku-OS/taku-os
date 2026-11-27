@@ -1,0 +1,316 @@
+{
+  "codeCommit": "3f43ef972bde738a3b76b8dd255908bbb9773814",
+  "device": "Taku_PR27_Fresh / emulator-5596 / Android 17 API 37 ARM64 userdebug",
+  "scope": "Emulator component deployment; physical device and full ROM acceptance pending",
+  "BUG-0034": [
+    {
+      "app": "com.android.documentsui/.LauncherActivity",
+      "cycle": 1,
+      "mainBeforeInput": {
+        "group0Wakefulness": "Asleep",
+        "mainDisplayState": "OFF"
+      },
+      "mainAfterInput": {
+        "group0Wakefulness": "Asleep",
+        "mainDisplayState": "OFF"
+      },
+      "backgroundBeforeInput": {
+        "displayState": "ON",
+        "keptAwake": true,
+        "alwaysUnlocked": true,
+        "frameSequence": 8,
+        "frameAgeMs": 4250
+      },
+      "backgroundAfterInput": {
+        "displayState": "ON",
+        "keptAwake": true,
+        "alwaysUnlocked": true,
+        "frameSequence": 14,
+        "frameAgeMs": 671
+      },
+      "passed": true
+    },
+    {
+      "app": "com.android.documentsui/.LauncherActivity",
+      "cycle": 2,
+      "mainBeforeInput": {
+        "group0Wakefulness": "Asleep",
+        "mainDisplayState": "OFF"
+      },
+      "mainAfterInput": {
+        "group0Wakefulness": "Asleep",
+        "mainDisplayState": "OFF"
+      },
+      "backgroundBeforeInput": {
+        "displayState": "ON",
+        "keptAwake": true,
+        "alwaysUnlocked": true,
+        "frameSequence": 18,
+        "frameAgeMs": 4279
+      },
+      "backgroundAfterInput": {
+        "displayState": "ON",
+        "keptAwake": true,
+        "alwaysUnlocked": true,
+        "frameSequence": 24,
+        "frameAgeMs": 685
+      },
+      "passed": true
+    },
+    {
+      "app": "com.android.documentsui/.LauncherActivity",
+      "cycle": 3,
+      "mainBeforeInput": {
+        "group0Wakefulness": "Asleep",
+        "mainDisplayState": "OFF"
+      },
+      "mainAfterInput": {
+        "group0Wakefulness": "Asleep",
+        "mainDisplayState": "OFF"
+      },
+      "backgroundBeforeInput": {
+        "displayState": "ON",
+        "keptAwake": true,
+        "alwaysUnlocked": true,
+        "frameSequence": 28,
+        "frameAgeMs": 4262
+      },
+      "backgroundAfterInput": {
+        "displayState": "ON",
+        "keptAwake": true,
+        "alwaysUnlocked": true,
+        "frameSequence": 34,
+        "frameAgeMs": 693
+      },
+      "passed": true
+    },
+    {
+      "app": "com.android.deskclock/.DeskClock",
+      "cycle": 1,
+      "mainBeforeInput": {
+        "group0Wakefulness": "Asleep",
+        "mainDisplayState": "OFF"
+      },
+      "mainAfterInput": {
+        "group0Wakefulness": "Asleep",
+        "mainDisplayState": "OFF"
+      },
+      "backgroundBeforeInput": {
+        "displayState": "ON",
+        "keptAwake": true,
+        "alwaysUnlocked": true,
+        "frameSequence": 13,
+        "frameAgeMs": 2893
+      },
+      "backgroundAfterInput": {
+        "displayState": "ON",
+        "keptAwake": true,
+        "alwaysUnlocked": true,
+        "frameSequence": 21,
+        "frameAgeMs": 271
+      },
+      "passed": true
+    },
+    {
+      "app": "com.android.deskclock/.DeskClock",
+      "cycle": 2,
+      "mainBeforeInput": {
+        "group0Wakefulness": "Asleep",
+        "mainDisplayState": "OFF"
+      },
+      "mainAfterInput": {
+        "group0Wakefulness": "Asleep",
+        "mainDisplayState": "OFF"
+      },
+      "backgroundBeforeInput": {
+        "displayState": "ON",
+        "keptAwake": true,
+        "alwaysUnlocked": true,
+        "frameSequence": 30,
+        "frameAgeMs": 2797
+      },
+      "backgroundAfterInput": {
+        "displayState": "ON",
+        "keptAwake": true,
+        "alwaysUnlocked": true,
+        "frameSequence": 38,
+        "frameAgeMs": 230
+      },
+      "passed": true
+    },
+    {
+      "app": "com.android.deskclock/.DeskClock",
+      "cycle": 3,
+      "mainBeforeInput": {
+        "group0Wakefulness": "Asleep",
+        "mainDisplayState": "OFF"
+      },
+      "mainAfterInput": {
+        "group0Wakefulness": "Asleep",
+        "mainDisplayState": "OFF"
+      },
+      "backgroundBeforeInput": {
+        "displayState": "ON",
+        "keptAwake": true,
+        "alwaysUnlocked": true,
+        "frameSequence": 47,
+        "frameAgeMs": 2804
+      },
+      "backgroundAfterInput": {
+        "displayState": "ON",
+        "keptAwake": true,
+        "alwaysUnlocked": true,
+        "frameSequence": 55,
+        "frameAgeMs": 285
+      },
+      "passed": true
+    }
+  ],
+  "BUG-0044-native": [
+    {
+      "cycle": 1,
+      "openSuccess": true,
+      "before": {
+        "displayState": "ON",
+        "keptAwake": true,
+        "alwaysUnlocked": true,
+        "frameSequence": 4,
+        "frameAgeMs": 838
+      },
+      "tapOk": true,
+      "after": {
+        "displayState": "ON",
+        "keptAwake": true,
+        "alwaysUnlocked": true,
+        "frameSequence": 10,
+        "frameAgeMs": 689
+      },
+      "release": {
+        "released": [
+          "com.android.documentsui"
+        ],
+        "heldApps": []
+      },
+      "passed": true
+    },
+    {
+      "cycle": 2,
+      "openSuccess": true,
+      "before": {
+        "displayState": "ON",
+        "keptAwake": true,
+        "alwaysUnlocked": true,
+        "frameSequence": 16,
+        "frameAgeMs": 937
+      },
+      "tapOk": true,
+      "after": {
+        "displayState": "ON",
+        "keptAwake": true,
+        "alwaysUnlocked": true,
+        "frameSequence": 22,
+        "frameAgeMs": 679
+      },
+      "release": {
+        "released": [
+          "com.android.documentsui"
+        ],
+        "heldApps": []
+      },
+      "passed": true
+    },
+    {
+      "cycle": 3,
+      "openSuccess": true,
+      "before": {
+        "displayState": "ON",
+        "keptAwake": true,
+        "alwaysUnlocked": true,
+        "frameSequence": 28,
+        "frameAgeMs": 847
+      },
+      "tapOk": true,
+      "after": {
+        "displayState": "ON",
+        "keptAwake": true,
+        "alwaysUnlocked": true,
+        "frameSequence": 34,
+        "frameAgeMs": 689
+      },
+      "release": {
+        "released": [
+          "com.android.documentsui"
+        ],
+        "heldApps": []
+      },
+      "passed": true
+    }
+  ],
+  "BUG-0044-workspace": [
+    {
+      "cycle": 1,
+      "passed": true
+    },
+    {
+      "cycle": 2,
+      "passed": true
+    },
+    {
+      "cycle": 3,
+      "passed": true
+    }
+  ],
+  "BUG-0034-screenshot-extra": {
+    "before": {
+      "displayState": "ON",
+      "keptAwake": true,
+      "alwaysUnlocked": true,
+      "frameSequence": 25,
+      "frameAgeMs": 57467
+    },
+    "after": {
+      "displayState": "ON",
+      "keptAwake": true,
+      "alwaysUnlocked": true,
+      "frameSequence": 31,
+      "frameAgeMs": 719
+    },
+    "mainGroupAsleepBeforeAndAfter": true,
+    "passed": true
+  },
+  "idleLeaseCheck": {
+    "idleSeconds": 671.8820841312408,
+    "keptAwakeBefore": false,
+    "displayStateBefore": "ON",
+    "afterObserve": {
+      "displayState": "ON",
+      "keptAwake": true,
+      "alwaysUnlocked": true,
+      "frameSequence": 13,
+      "frameAgeMs": 117528
+    },
+    "observeLatencySeconds": 1.1213900830043713,
+    "limitation": "Confirms lease release and reacquisition only; display was already ON, so OFF-to-ON wakeup is not proven."
+  },
+  "BUG-0006": {
+    "takeover": {
+      "packageName": "org.lineageos.jelly",
+      "status": "user_control",
+      "controlOwner": "user",
+      "controlRevision": 2,
+      "resumeRequired": true,
+      "canResume": true,
+      "lastError": ""
+    },
+    "returned": {
+      "packageName": "org.lineageos.jelly",
+      "status": "ready",
+      "controlOwner": "agent",
+      "controlRevision": 8,
+      "resumeRequired": false,
+      "canResume": false,
+      "lastError": ""
+    },
+    "scope": "Browser public GitHub login page; two takeover/return cycles, three completed model turns. No credentials entered. Original Xiaohongshu/Pixel 9 scenario pending."
+  }
+}
