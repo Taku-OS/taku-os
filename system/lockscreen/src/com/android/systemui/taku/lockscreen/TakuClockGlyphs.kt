@@ -2,15 +2,18 @@ package com.android.systemui.taku.lockscreen
 
 import android.graphics.Path
 import android.graphics.Paint
+import kotlin.math.sqrt
 
 /** Native counterpart of the designer's clockPath(k): 0 tall, 1 compact. */
 internal object TakuClockGlyphs {
     const val CELL_HEIGHT = 320f
     const val COMPACT_HEIGHT = 87.36f
     data class Contour(val compact: FloatArray, val tall: FloatArray, val closed: Boolean = true)
-    data class Glyph(val compactAdvance: Float, val contours: List<Contour>, val stroke: Boolean = false)
+    data class Glyph(val compactAdvance: Float, val contours: List<Contour>, val stroke: Boolean = false,
+        val horizontalTerminal: Boolean = false)
     // UI-thread scratch objects, reused by all clock views; no per-frame allocations.
     private val outline = Path()
+    private val terminalClip = Path()
     private val pen = Paint().apply {
         style = Paint.Style.STROKE
         strokeCap = Paint.Cap.BUTT
@@ -32,6 +35,8 @@ internal object TakuClockGlyphs {
         out.rewind()
         out.fillType = Path.FillType.EVEN_ODD
         val glyph = TakuClockContours.glyphs[char] ?: return
+        val strokeWidth = 14f + (10.08f - 14f) * progress
+        var terminalY = 0f
         for (contour in glyph.contours) {
             val a = contour.compact
             val b = contour.tall
@@ -44,14 +49,30 @@ internal object TakuClockGlyphs {
                 out.cubicTo(at(offset), at(offset+1), at(offset+2), at(offset+3), at(end), at(end+1))
             }
             if (contour.closed) out.close()
+            if (glyph.horizontalTerminal) {
+                // Continue the diagonal beyond its baseline before outlining. Clipping the
+                // complete stroke gives a horizontal cut, rather than a cap normal to the slant.
+                val end = a.size - 2
+                val x = at(end)
+                terminalY = at(end + 1)
+                val dx = x - at(end - 2)
+                val dy = terminalY - at(end - 1)
+                val length = sqrt(dx * dx + dy * dy)
+                out.lineTo(x + dx / length * strokeWidth, terminalY + dy / length * strokeWidth)
+            }
         }
         if (glyph.stroke) {
             // Offset the interpolated centre line, not independently stretched inner/outer
             // contours. Curves and diagonals keep the same normal width as straight stems.
-            pen.strokeWidth = 14f + (10.08f - 14f) * progress
+            pen.strokeWidth = strokeWidth
             pen.getFillPath(out, outline)
             out.set(outline)
             out.fillType = Path.FillType.WINDING
+            if (glyph.horizontalTerminal) {
+                terminalClip.rewind()
+                terminalClip.addRect(-CELL_HEIGHT, -CELL_HEIGHT, CELL_HEIGHT, terminalY, Path.Direction.CW)
+                out.op(terminalClip, Path.Op.INTERSECT)
+            }
         }
     }
 }

@@ -13,6 +13,7 @@ ISLAND = ROOT / 'image/island/manifest.json'
 SOURCES = ROOT / 'system/lockscreen/src'
 SYSTEMUI = 'packages/SystemUI/src/'
 HOOKS = {
+    SYSTEMUI + 'com/android/systemui/keyguard/ui/view/layout/sections/ClockSection.kt',
     'packages/SystemUI/src/com/android/systemui/keyguard/ui/binder/KeyguardRootViewBinder.kt',
     SYSTEMUI + 'com/android/systemui/keyguard/ui/binder/KeyguardQuickAffordanceViewBinder.kt',
     'packages/SystemUI/AndroidManifest.xml',

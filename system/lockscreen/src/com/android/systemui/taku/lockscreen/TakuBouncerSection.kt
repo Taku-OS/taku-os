@@ -4,6 +4,7 @@ import android.graphics.Color
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffColorFilter
 import android.graphics.RenderEffect
+import android.graphics.drawable.ColorDrawable
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
@@ -156,7 +157,12 @@ constructor(
             }
             is NumPadButton -> {
                 // Delete and enter are plain white glyphs, like the text buttons under an iPhone keypad.
-                if (view.background != null) view.background = null
+                // NumPadButton's appear/disabled animations call background.mutate().setAlpha().
+                // Keep a transparent drawable, including after upstream reloads the button style.
+                val background = view.background
+                if (background !is ColorDrawable || background.color != Color.TRANSPARENT) {
+                    view.background = ColorDrawable(Color.TRANSPARENT)
+                }
                 once(view) { setRenderEffect(WHITE) }
                 return
             }

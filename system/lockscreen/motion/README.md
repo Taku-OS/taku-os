@@ -13,7 +13,11 @@ same authored nine rotated 180 degrees, retaining its bowl/stem junction. Digits
 1/2/4/5/7/8 use paired cubic centre lines: Android offsets the interpolated line
 at a uniform width (14 px tall, 10.08 px compact), so curves and diagonals cannot
 swell or pinch as independently stretched inner/outer contours did. Eight's bowls
-meet at one shared waist, with no inserted vertical bridge. Font advances remain
+meet at one shared waist, with no inserted vertical bridge. Two uses a longer shoulder made from two cubics with matching first and second
+derivatives, then a straight diagonal down to its foot. Curvature reaches zero at
+both straight joins throughout interpolation, avoiding a sudden change of bend. Seven extends its
+diagonal past the baseline before outlining and clips at that baseline, keeping
+the terminal horizontal at both endpoints and throughout the morph. Font advances remain
 from Space Grotesk Regular; its OFL is in
 `system/assistant/design-system/licenses/SpaceGrotesk-OFL.txt`. The additional
 shapes are native extensions of the handoff, not additional designer assets.
@@ -58,6 +62,7 @@ This catches clipping, broken stems and closing counters that bounding-box check
 Use `--ez digits true --ef progress 0` (tall) through `--ef progress 1` (compact) with
 `am start -n org.taku.test.clockmotion/.ClockMotionTestActivity` to inspect all ten digits.
 The harness also measures the rendered normal width of the 2 curve and 8 waist/stem
-at 21 progress values (147 samples, tolerance 0.65 px), and checks two-digit hours
+at 21 progress values (315 samples, tolerance 0.65 px), plus 105 samples of seven's
+horizontal terminal, and checks two-digit hours
 for all 24 hours in both 12- and 24-hour mode. Visual comparison remains necessary
 alongside geometry and raster checks.

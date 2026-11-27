@@ -56,8 +56,13 @@ def spines():
         '2': [Spine((11.4,24),(7,48)).line((11.4,23),(7,34))
               .curve((11.4,11,21,3.36,36.42,3.36),(7,18,18,7,34,7))
               .curve((51.8,3.36,61.44,12,61.44,24),(50,7,61,18,61,34))
-              .line((61.44,25),(61,80))
-              .curve((61.44,45,11.4,50,11.4,72),(61,125,7,195,7,242))
+              .line((61.44,25),(61,42))
+              # Two C2-matched cubics spread the turn over the shoulder. Their curvature
+              # falls to zero at both straight joins, so the diagonal never starts abruptly.
+              # The final two handles sit 0.25 / 0.15 of the following line behind its start
+              # at BOTH endpoints, preserving that smooth join throughout interpolation.
+              .curve((61.44,27.716,61.44,29.74,59.586667,32.5),(61,70.05,61,88.25,59,105))
+              .curve((57.733333,35.26,54.026667,38.756,48.466667,44),(57,121.75,53,137.05,47,160))
               .line((11.4,78.96),(7,313)).line((66.48,78.96),(68,313)).data()],
         '4': [Spine((55,84),(54,320)).line((55,5.04),(54,7))
               .line((8.88,60),(7,231)).line((71.76,60),(68,231)).data()],
@@ -70,7 +75,7 @@ def spines():
               .curve((20,80.64,11.16,72,11.16,59),(18,313,7,302,7,286))
               .line((11.16,58),(7,270)).data()],
         '7': [Spine((3.84,5.04),(0,7)).line((58.92,5.04),(61,7))
-              .line((18,81.6),(7,318.75)).data()],
+              .line((18,84),(7,320)).data()],
         # Both bowls touch at the SAME centre line. Their shared horizontal stroke is one
         # waist, not two separated bowls joined by a stretched vertical bridge.
         '8': [{'a':bowl(3.36,40,10.56,64.08,18.32),
@@ -104,7 +109,8 @@ def glyph_data():
                 contours.append(c)
         else:
             contours = centre_lines[d]
-        result[d] = {'advance':glyph.width*.12-3.6, 'contours':contours, 'stroke':d in centre_lines}
+        result[d] = {'advance':glyph.width*.12-3.6, 'contours':contours,
+                     'stroke':d in centre_lines, 'horizontalTerminal':d == '7'}
     return result
 
 
@@ -121,7 +127,8 @@ def kotlin(data):
         for c in g['contours']:
             closed = '' if c.get('closed',True) else ', closed = false'
             lines.append('            TakuClockGlyphs.Contour('+array(c['a'])+', '+array(c['b'])+closed+'),')
-        lines.append('        ), stroke = '+str(g['stroke']).lower()+'),')
+        terminal = ', horizontalTerminal = true' if g['horizontalTerminal'] else ''
+        lines.append('        ), stroke = '+str(g['stroke']).lower()+terminal+'),')
     return '\n'.join(lines+['    )','}',''])
 
 

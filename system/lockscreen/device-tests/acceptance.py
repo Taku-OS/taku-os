@@ -117,7 +117,10 @@ def date_suite(device, checks, name):
         return
     device.shell('input keyevent KEYCODE_WAKEUP')
     path = '/data/local/tmp/taku-lockscreen-date.xml'
-    device.shell(f'uiautomator dump {path}')
+    device.shell(f'rm -f {path}')
+    dump = device.shell(f'uiautomator dump {path}')
+    if 'dumped to' not in dump:
+        raise RuntimeError(f'Fresh Keyguard tree unavailable: {dump}')
     xml = device.shell(f'cat {path}')
     (device.out / f'{name}-date.xml').write_text(xml + '\n')
     tree = ET.fromstring(xml)
@@ -339,6 +342,7 @@ def first_unlock_suite(device, checks):
         checks.check('locked: Taku refused', device.lockscreen('taku').get('error') == 'LOCKED')
         date_suite(device, checks, 'locked')
         print(f"INFO screenshot {device.screenshot('locked')}")
+        systemui_pid = device.shell('pidof com.android.systemui')
         device.shell('wm dismiss-keyguard', check=False)
         time.sleep(1.5)
         bouncer = device.lockscreen('state')['state'].get('bouncer', {})
@@ -346,6 +350,18 @@ def first_unlock_suite(device, checks):
                      bouncer.get('visible') and bouncer.get('styled') and bouncer.get('input') == 'pin'
                      and bouncer.get('glassControls', 0) >= 10, bouncer)
         print(f"INFO screenshot {device.screenshot('bouncer')}")
+        # Both first appearance and reinflation run NumPadButton's background-alpha animation.
+        # A missing background used to crash SystemUI here, then again after it restarted.
+        device.shell('input keyevent KEYCODE_BACK')
+        time.sleep(0.5)
+        device.shell('wm dismiss-keyguard', check=False)
+        time.sleep(1.5)
+        checks.check('PIN appearance and reopening keep SystemUI alive',
+                     device.shell('pidof com.android.systemui') == systemui_pid)
+        checks.check('reopened PIN still requires authentication',
+                     not device.lockscreen('state')['state'].get('authenticated'))
+        device.shell('input text 0')
+        device.shell('input keyevent KEYCODE_DEL')
         device.shell(f'input text {PIN}')
         device.shell('input keyevent KEYCODE_ENTER')
         start = time.time()
@@ -354,7 +370,7 @@ def first_unlock_suite(device, checks):
         while time.time() - start < 20:
             padlock.add(device.lockscreen('state')['state'].get('lockStatus', {}).get('status'))
             top = device.top_activity()
-            if TAKU_HOME.split('/')[0] in top and 'FallbackHome' not in top:
+            if TAKU_HOME.split('/')[0] in top and 'FallbackHome' not in top and 'unlocked' in padlock:
                 break
             time.sleep(0.25)
         elapsed = round(time.time() - start, 2)
