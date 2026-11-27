@@ -455,7 +455,7 @@ def integration_snapshot(base,profile):
         marker=b'$(call inherit-product, vendor/taku/image/product-branding.mk)\n'
         uri=('PRODUCT_SYSTEM_EXT_PROPERTIES += lineage.updater.uri='+helper['BASE']['URI']+'\n').encode()
         if product.count(uri)!=1 or b'product-branding.mk' in product:raise SystemExit('Unexpected parent product integration')
-        if (ROOT/'image/taku.mk').read_bytes().count(marker)!=1:raise SystemExit('Missing exact working branding integration')
+        if (ROOT/'image/taku-core.mk').read_bytes().count(marker)!=1:raise SystemExit('Missing exact working branding integration')
         product=marker+b'\n'+product
         # Inherit the accepted canary's runtime, including its build entrypoint.
         # A newer developer build.sh can require IME/AI inputs absent from E.
@@ -477,9 +477,11 @@ def integration_snapshot(base,profile):
     # inherits D's exact module set; only the reviewed URI is inserted here.
     if len(base)!=64 or any(c not in '0123456789abcdef' for c in base):raise SystemExit('Expected a snapshot SHA-256')
     product=(OUT/'snapshots'/base/'image/taku.mk').read_bytes()
-    uri_line=('PRODUCT_SYSTEM_EXT_PROPERTIES += lineage.updater.uri='+contract['uri']+'\n').encode()
+    uri_property=('lineage.updater.uri='+contract['uri']+'\n').encode()
+    uri_line=b'PRODUCT_SYSTEM_EXT_PROPERTIES += '+uri_property
     current_product=(ROOT/'image/taku.mk').read_bytes()
-    if current_product.count(uri_line)!=1:raise SystemExit('Working product does not contain the exact Updater URI')
+    if current_product.count(b'_taku_device_system_ext_properties := '+uri_property)!=1:
+        raise SystemExit('Working product does not contain the exact Updater URI')
     if b'lineage.updater.uri' in product:
         if product.count(uri_line)!=1:raise SystemExit('Parent product already has a different Updater URI')
     else:

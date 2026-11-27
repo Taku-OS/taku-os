@@ -1,0 +1,17 @@
+SYSTEM/*
+SYSTEM_EXT/*
+PRODUCT/*
+SYSTEM_OTHER/*
+ROOT/*
+IMAGES/system.img
+IMAGES/system_ext.img
+IMAGES/product.img
+IMAGES/system_other.img
+META/filesystem_config.txt
+META/root_filesystem_config.txt
+META/system_ext_filesystem_config.txt
+META/product_filesystem_config.txt
+META/system_other_filesystem_config.txt
+META/liblz4.so
+META/postinstall_config.txt
+META/zucchini_config.txt

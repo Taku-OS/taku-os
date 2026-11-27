@@ -17,7 +17,7 @@ Notebook 把用户主动保存的截图、来源和笔记放在同一个收藏�
 
 ## 构建和系统接入
 
-- [Android.bp](Android.bp) 定义平台签名的 `system_ext` 应用 `TakuNotebook`。[image/taku.mk](../../image/taku.mk) 将基础版放入团队的 Pixel 9 userdebug 镜像，安装到 `/system_ext/app/TakuNotebook`。后续可用同包名 `org.agentos.notebook`、同平台签名、更高版本号的 APK 原地更新。
+- [Android.bp](Android.bp) 定义平台签名的 `system_ext` 应用 `TakuNotebook`。[image/taku-core.mk](../../image/taku-core.mk) 在共享的 `PRODUCT_PACKAGES_DEBUG` 中声明预装，Pixel 9 和 Taku 模拟器的 userdebug 镜像均安装到 `/system_ext/app/TakuNotebook`。后续可用同包名 `org.agentos.notebook`、同平台签名、更高版本号的 APK 原地更新。
 - [默认权限配置](default-permissions.xml) 向 Notebook 授予可撤回的照片和通知权限。定位权限由 TakuArrival 持有。[镜像校验](../../image/verify-artifacts.py) 要求整包包含 `/system_ext/app/TakuNotebook/TakuNotebook.apk` 和 `/system_ext/etc/default-permissions/taku-notebook.xml`。
 - 目前由用户从 Notebook 设置进入 Android 无障碍设置，手动开启 **Taku Notebook screenshots**。服务监听窗口变化以识别截图来源 App，负责前摄附近的跨 App 浮窗，也能在独立后台屏读取控件、派发手势以取得原帖分享链接。首启引导或镜像预配由系统负责人确认。
 - 使用 Android SDK 36、Build Tools 36.0.0 和 JDK 17+，运行 `bash system/notebook/build.sh`。默认 AOSP 测试签名仅适用于相应的开发系统。为目标 ROM 提供独立更新时，设置 `TAKU_NOTEBOOK_SIGNING_DIR` 指向受控的平台签名目录，运行 `bash system/notebook/build.sh /path/to/base-TakuNotebook.apk`。脚本在输出 `system/notebook/out/TakuNotebook.apk` 前核对包名、签名和递增的版本号。
