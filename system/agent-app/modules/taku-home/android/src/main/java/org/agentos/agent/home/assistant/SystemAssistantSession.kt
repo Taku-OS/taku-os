@@ -30,6 +30,8 @@ class SystemAssistantSession(private val ctx: Context) : VoiceInteractionSession
   private var shown = false
   /** The assistant UI is already open for this invocation; the capture follows it to the gateway. */
   private var uiStarted = false
+  /** A handoff for an already open assistant is running; a hide must not abort it. */
+  private var handoffInFlight = false
   @Volatile private var generation = 0
   @Volatile private var invocationToken: String? = null
 
@@ -46,6 +48,7 @@ class SystemAssistantSession(private val ctx: Context) : VoiceInteractionSession
       ?.firstOrNull()?.flattenToShortString()
     shown = false
     uiStarted = false
+    handoffInFlight = false
     invocationToken = null
     setUiEnabled(false)
     if (request?.containsKey("jevTestToken") != true) {
@@ -54,9 +57,14 @@ class SystemAssistantSession(private val ctx: Context) : VoiceInteractionSession
       IO.execute {
         if (version != generation) return@execute
         try {
-          val begin = JSONObject().put("operation", "begin").put("capturedAt", capturedAt)
-          if (autoScreenshot) begin.put("autoScreenshot", true)
-          val result = gateway("assistInvocation", begin)
+          val result = try { gateway("assistInvocation", begin(capturedAt, autoScreenshot)) }
+          catch (rejected: IllegalStateException) {
+            // A gateway without the one-shot grant (#57) answers INVALID_ARGUMENT to its field;
+            // the screenshot is still worth delivering, the user can attach it themselves.
+            if (!autoScreenshot || rejected.message != "INVALID_ARGUMENT") throw rejected
+            Log.w("TakuSystemAssistant", "Gateway refused the automatic screenshot grant; requesting a plain one")
+            gateway("assistInvocation", begin(capturedAt, false))
+          }
           if (version == generation) invocationToken = result.getString("token")
         } catch (failure: Exception) { Log.w("TakuSystemAssistant", "Invocation capture authorization unavailable", failure) }
       }
@@ -67,32 +75,34 @@ class SystemAssistantSession(private val ctx: Context) : VoiceInteractionSession
     super.onShow(args, flags)
     shown = true
     if (ctx.getSystemService(KeyguardManager::class.java).isKeyguardLocked) { hide(); return }
-    // The UI does not wait for the page context: the gateway only reads the capture when a message
-    // is sent, so the handoff below may finish after the entry is on screen (BUG-0037). It waits
-    // only for the screenshot itself, briefly, so the overlay is never what gets captured.
-    if (!screenshotPending()) startUi()
-    if (captureReady()) deliverCapture()
+    if (captureReady()) proceed()
     else {
+      // The UI does not wait for slow or missing page context (BUG-0037): it opens after a short
+      // grace, which normally covers the screenshot, so the overlay is not what gets captured.
       val version = generation
-      main.postDelayed({ if (shown && version == generation) startUi() }, SCREENSHOT_GRACE_MS)
+      main.postDelayed({ if (shown && version == generation) startUi() }, CAPTURE_GRACE_MS)
       main.postDelayed({ if (shown && version == generation) deliverCapture() }, CAPTURE_TIMEOUT_MS)
     }
   }
 
-  /** The system has yet to deliver the screenshot it was asked for. */
-  private fun screenshotPending(): Boolean = showFlags and SHOW_WITH_SCREENSHOT != 0 && !screenshotReceived
+  /** Everything the system was asked for has arrived: open the assistant and hand the capture off. */
+  private fun proceed() {
+    startUi()
+    deliverCapture()
+  }
 
   /**
-   * Opens the assistant at once. The session stays shown (its own UI is disabled) until the capture
-   * is handed off, because a hidden session stops receiving it. Test suggestions still open after
-   * the capture: their destination carries the capture's id.
+   * Opens the assistant. The capture handoff is independent of it: the gateway only reads the
+   * capture when a message is sent, and a failed handoff only means no screenshot (BUG-0046). Test
+   * suggestions still open after the capture: their destination carries the capture's id.
    */
   private fun startUi() {
     val args = request ?: return
-    if (uiStarted || !shown || args.containsKey("jevTestToken")) return
+    if (uiStarted || args.containsKey("jevTestToken")) return
     uiStarted = true
     try { startAssistantActivity(SystemAssistantEntry.launch(ctx, args)) }
     catch (failure: RuntimeException) {
+      uiStarted = false
       Log.w("TakuSystemAssistant", "Assistant UI unavailable", failure)
       android.widget.Toast.makeText(ctx, "Assistant could not open. Retry from Taku", android.widget.Toast.LENGTH_LONG).show()
       hide()
@@ -110,7 +120,7 @@ class SystemAssistantSession(private val ctx: Context) : VoiceInteractionSession
         structure.getWindowNodeAt(index).rootViewNode.isAssistBlocked
       }
     }
-    if (shown && captureReady()) deliverCapture()
+    if (shown && captureReady()) proceed()
   }
 
   override fun onHandleScreenshot(screenshot: Bitmap?) {
@@ -118,8 +128,7 @@ class SystemAssistantSession(private val ctx: Context) : VoiceInteractionSession
     if (request == null) return
     capture = screenshot
     screenshotReceived = true
-    if (shown) startUi()
-    if (shown && captureReady()) deliverCapture()
+    if (shown && captureReady()) proceed()
   }
 
   private fun captureReady(): Boolean = showFlags and SHOW_WITH_SCREENSHOT == 0 ||
@@ -135,6 +144,7 @@ class SystemAssistantSession(private val ctx: Context) : VoiceInteractionSession
     val opened = uiStarted
     request = null
     shown = false
+    handoffInFlight = opened
     IO.execute {
       var file: File? = null
       var target: Intent? = if (suggestion || opened) null else SystemAssistantEntry.launch(ctx, args)
@@ -165,7 +175,8 @@ class SystemAssistantSession(private val ctx: Context) : VoiceInteractionSession
         }
       } catch (failure: Exception) {
         Log.w("TakuSystemAssistant", "Native capture handoff failed", failure)
-        main.post {
+        // Once the assistant is open the screenshot is optional: no retry prompt over a usable input.
+        if (!opened) main.post {
           if (version == generation) {
             val message = if (failure.message == "CAPTURE_EXPIRED") "Screen capture authorization expired. Invoke the assistant again."
               else "The system screenshot is unavailable. Invoke the assistant again to retry."
@@ -176,6 +187,7 @@ class SystemAssistantSession(private val ctx: Context) : VoiceInteractionSession
         file?.delete()
         main.post {
           if (version == generation) {
+            handoffInFlight = false
             try { target?.let(::startAssistantActivity) }
             catch (failure: RuntimeException) {
               Log.w("TakuSystemAssistant", "Assistant UI unavailable", failure)
@@ -187,6 +199,10 @@ class SystemAssistantSession(private val ctx: Context) : VoiceInteractionSession
     }
   }
 
+  private fun begin(capturedAt: Long, autoScreenshot: Boolean): JSONObject =
+    JSONObject().put("operation", "begin").put("capturedAt", capturedAt)
+      .apply { if (autoScreenshot) put("autoScreenshot", true) }
+
   private fun gateway(method: String, payload: JSONObject, extras: Bundle? = null): JSONObject {
     val response = ctx.contentResolver.call(Uri.parse("content://org.agentos.assistant.agent-gateway"), method, payload.toString(), extras)
     val result = JSONObject(response?.getString("result") ?: "{}")
@@ -195,6 +211,15 @@ class SystemAssistantSession(private val ctx: Context) : VoiceInteractionSession
   }
 
   override fun onHide() {
+    // Starting the assistant hides this session, and Android cancels the outstanding screenshot
+    // and page requests with it: hand off what arrived (the handoff keeps its generation), and
+    // never let the hide take the open assistant's invocation down with it.
+    if (uiStarted && (request != null || handoffInFlight)) {
+      deliverCapture()
+      shown = false
+      super.onHide()
+      return
+    }
     generation++; shown = false; uiStarted = false; request = null; capture = null; screenshotReceived = false; invocationToken = null
     super.onHide()
   }
@@ -202,8 +227,8 @@ class SystemAssistantSession(private val ctx: Context) : VoiceInteractionSession
 
   companion object {
     private val IO = Executors.newSingleThreadExecutor()
-    /** Longest the UI waits for the system screenshot, so the screenshot shows the user's screen. */
-    private const val SCREENSHOT_GRACE_MS = 300L
+    /** Longest the UI waits for the screenshot and page context, so the screenshot shows the user's screen. */
+    private const val CAPTURE_GRACE_MS = 300L
     /** Longest the capture handoff waits for the screenshot and page context. */
     private const val CAPTURE_TIMEOUT_MS = 5_000L
   }
