@@ -86,6 +86,8 @@ done
                         SCAN_RESULT=str(self.root / 'scanned'))
         self.env.pop('SCAN_BASE', None)
         self.env.pop('SCAN_HEAD', None)
+        self.env.pop('GITHUB_EVENT_NAME', None)
+        self.env.pop('GITHUB_EVENT_PATH', None)
 
     def git(self, *args):
         return subprocess.check_output(['git', *args], cwd=self.root, text=True).strip()
@@ -115,6 +117,39 @@ done
     def test_update_scans_only_introduced_commits(self):
         second = self.commit('second')
         self.assertEqual(self.scan(SCAN_BASE=self.first, SCAN_HEAD=second), {second})
+
+    def push_env(self, before, after, forced=True):
+        event = self.root / 'push.json'
+        event.write_text(json.dumps({'forced': forced, 'before': before, 'after': after}))
+        return dict(GITHUB_EVENT_NAME='push', GITHUB_EVENT_PATH=str(event))
+
+    def test_force_push_uses_available_base(self):
+        previous = self.commit('previous tip')
+        self.git('reset', '--hard', self.first)
+        rewritten = self.commit('rewritten tip')
+        self.assertEqual(self.scan(SCAN_BASE=previous, SCAN_HEAD=rewritten,
+                                   **self.push_env(previous, rewritten)), {rewritten})
+
+    def test_force_push_with_missing_base_scans_all_reachable_commits(self):
+        second = self.commit('second')
+        missing = 'f' * 40
+        self.assertEqual(self.scan(SCAN_BASE=missing, SCAN_HEAD=second,
+                                   **self.push_env(missing, second)), {self.first, second})
+
+    def test_missing_base_requires_matching_forced_push_event(self):
+        second = self.commit('second')
+        missing = 'f' * 40
+        for before, after, forced, event_name in (
+                (missing, second, False, 'push'),
+                (missing, second, True, 'pull_request'),
+                ('e' * 40, second, True, 'push'),
+                (missing, self.first, True, 'push')):
+            with self.subTest(before=before, after=after, forced=forced, event_name=event_name):
+                env = dict(self.env, **self.push_env(before, after, forced))
+                env.update(SCAN_BASE=missing, SCAN_HEAD=second, GITHUB_EVENT_NAME=event_name)
+                result = subprocess.run(['bash', str(SCRIPT)], cwd=self.root, env=env, capture_output=True)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertFalse((self.root / 'scanned').exists())
 
     def test_unknown_nonzero_base_fails_instead_of_silently_skipping(self):
         result = subprocess.run(['bash', str(SCRIPT)], cwd=self.root,

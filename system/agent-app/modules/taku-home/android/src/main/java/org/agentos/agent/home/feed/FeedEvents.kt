@@ -162,13 +162,15 @@ internal class FeedEvent private constructor(private val fields: JSONObject, val
       FeedEvent(current(origin, operation, cardId).put("detail", detail ?: JSONObject.NULL))
 
     fun accepted(origin: FeedOrigin, cardId: String, action: CardAction, values: FeedSelectionValues, askAbout: Boolean): FeedEvent {
+      var phase = "accepted"
       val intentType = when (action.intent) {
         is Intent.AskTaku -> "ask-taku"
         is Intent.OpenApp -> "open-app"
         is Intent.OpenUrl -> "open-url"
         is Intent.ShareText -> "share-text"
         Intent.ConfirmDiningShare -> {
-          if (origin != FeedOrigin.GUI) throw FeedException("PERMISSION_DENIED", "Confirm the share from the reservation card")
+          if (values.json().length() != 0) throw FeedException("INVALID_ARGUMENT", "Dining share confirmation takes no values")
+          if (origin == FeedOrigin.AGENT) phase = "requested"
           Intent.ConfirmDiningShare.ID
         }
         Intent.Dismiss -> "dismiss"
@@ -176,8 +178,14 @@ internal class FeedEvent private constructor(private val fields: JSONObject, val
       }
       return FeedEvent(current(origin, FeedOperation.ACTION, cardId)
         .put("actionId", action.id).put("actionSource", if (askAbout) "ask-about" else "declared")
-        .put("phase", "accepted").put("intentType", intentType).put("values", values.json()))
+        .put("phase", phase).put("intentType", intentType).put("values", values.json()))
     }
+
+    fun diningShareResponse(cardId: String, requested: FeedCursor, confirmed: Boolean): FeedEvent =
+      FeedEvent(current(FeedOrigin.GUI, FeedOperation.ACTION, cardId)
+        .put("actionId", Intent.ConfirmDiningShare.ID).put("actionSource", "declared")
+        .put("phase", if (confirmed) "accepted" else "declined").put("intentType", Intent.ConfirmDiningShare.ID)
+        .put("requestedCursor", requested.toString()).put("values", FeedSelectionValues.EMPTY.json()))
 
     private val calendarEvent = Regex("""content://com\.android\.calendar/events/[1-9][0-9]*""")
 

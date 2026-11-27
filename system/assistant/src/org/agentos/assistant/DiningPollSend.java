@@ -17,60 +17,38 @@ import java.util.*;
 final class DiningPollSend {
     private static final String PACKAGE = "com.whatsapp";
     private static final String ID = PACKAGE + ":id/";
+    private static final Object NATIVE_OPERATIONS = new Object();
 
     private static SharedPreferences prefs(Context c) {
         return c.getSharedPreferences("dining-poll-send", 0);
     }
 
-    private static JSONObject ledger(Context c) throws Exception {
-        return new JSONObject(prefs(c).getString("intents", "{}"));
-    }
-
     private static JSONObject require(Context c, String id) throws Exception {
-        JSONObject intent = ledger(c).optJSONObject(id);
-        if (intent == null) throw failure("POLL_SEND_INTENT_NOT_FOUND");
-        return intent;
+        return DiningPollSendJournal.require(prefs(c), id);
     }
 
     private static void save(Context c, JSONObject intent) throws Exception {
-        JSONObject all = ledger(c);
-        all.put(intent.getString("intentId"), intent);
-        if (!prefs(c).edit().putString("intents", all.toString()).commit())
-            throw failure("POLL_SEND_STATE_SAVE_FAILED");
+        DiningPollSendJournal.save(prefs(c), intent);
     }
 
     static JSONObject register(Context context, JSONObject args) throws Exception {
         JSONObject fresh = DiningPollSendState.registration(args);
         String id = fresh.getString("intentId");
-        synchronized (DiningPollSend.class) {
-            JSONObject previous = ledger(context).optJSONObject(id);
-            if (previous != null) return registeredState(previous, fresh);
+        JSONObject previous = DiningPollSendJournal.read(prefs(context)).optJSONObject(id);
+        if (previous != null) {
+            DiningPollSendState.sameIntent(previous, fresh);
+            return publicState(previous);
         }
         JSONObject source = DiningPollSendSource.readRequest(fresh);
         DiningPollSendSource.verify(fresh, NativeClient.exchange(source));
-        synchronized (DiningPollSend.class) {
-            JSONObject all = ledger(context);
-            JSONObject previous = all.optJSONObject(id);
-            if (previous != null) return registeredState(previous, fresh);
-            JSONObject intent =
-                    DiningPollSendState.withQuestionCode(fresh, all)
-                            .put("registeredAt", System.currentTimeMillis());
-            save(context, intent);
-            return publicState(intent);
-        }
+        return publicState(DiningPollSendJournal.register(prefs(context), fresh));
     }
 
-    private static JSONObject registeredState(JSONObject previous, JSONObject fresh)
-            throws Exception {
-        DiningPollSendState.sameIntent(previous, fresh);
-        return publicState(previous);
-    }
-
-    static synchronized JSONObject status(Context context, JSONObject args) throws Exception {
+    static JSONObject status(Context context, JSONObject args) throws Exception {
         return publicState(require(context, DiningPollSendState.uuid(args, "intentId")));
     }
 
-    static synchronized void checkSubmission(Context context, String intentId, String thread)
+    static void checkSubmission(Context context, String intentId, String thread)
             throws Exception {
         JSONObject intent = require(context, intentId);
         String executionThread = intent.optString("executionThreadId");
@@ -103,10 +81,8 @@ final class DiningPollSend {
 
     static JSONObject forward(Context c, String action, JSONObject args) throws Exception {
         String id = DiningPollSendState.uuid(args, "intentId");
-        synchronized (DiningPollSend.class) {
-            JSONObject intent = require(c, id);
-            if (intent.optString("status").equals("sent")) return publicState(intent);
-        }
+        JSONObject intent = require(c, id);
+        if (intent.optString("status").equals("sent")) return publicState(intent);
         if (Looper.myLooper() == Looper.getMainLooper()) throw failure("POLL_ASYNC_REQUIRED");
         JSONObject request =
                 new JSONObject()
@@ -119,7 +95,13 @@ final class DiningPollSend {
     }
 
     /** Called by the broker while it holds the exact screen input lease. No broker IPC here. */
-    static synchronized JSONObject nativeCall(Context c, JSONObject args) throws Exception {
+    static JSONObject nativeCall(Context c, JSONObject args) throws Exception {
+        synchronized (NATIVE_OPERATIONS) {
+            return executeNative(c, args);
+        }
+    }
+
+    private static JSONObject executeNative(Context c, JSONObject args) throws Exception {
         String id = DiningPollSendState.uuid(args, "intentId"),
                 thread = DiningPollSendState.uuid(args, "executionThreadId"),
                 action = args.getString("action");
@@ -185,6 +167,7 @@ final class DiningPollSend {
                     JSONObject attempted =
                             DiningPollSendState.beforeClick(intent, System.currentTimeMillis());
                     save(c, attempted);
+                    String error = "POLL_SEND_OUTCOME_UNKNOWN";
                     try {
                         checkTask(c, screen);
                         checkCancelled(screen);
@@ -220,18 +203,9 @@ final class DiningPollSend {
                             }
                         } while (true);
                     } catch (Exception uncertain) {
-                        attempted.put(
-                                "lastError",
-                                uncertain.getMessage() == null
-                                        ? "POLL_SEND_OUTCOME_UNKNOWN"
-                                        : uncertain.getMessage());
-                        save(c, attempted);
+                        if (uncertain.getMessage() != null) error = uncertain.getMessage();
                     }
-                    if (!attempted.has("lastError")) {
-                        attempted.put("lastError", "POLL_SEND_OUTCOME_UNKNOWN");
-                        save(c, attempted);
-                    }
-                    return publicState(attempted);
+                    return publicState(DiningPollSendJournal.afterFailure(prefs(c), id, error));
                 });
     }
 
@@ -252,13 +226,13 @@ final class DiningPollSend {
             return DiningPollSendAutomation.read(
                     ui -> confirm(c, intent, screen, readSent(ui, screen, intent)));
         } catch (Exception unavailable) {
-            intent.put(
-                    "lastError",
-                    unavailable.getMessage() == null
-                            ? "POLL_SEND_OUTCOME_UNKNOWN"
-                            : unavailable.getMessage());
-            save(c, intent);
-            return publicState(intent);
+            if (!DiningPollSendAutomation.cleanupConfirmed()) throw unavailable;
+            String code = unavailable.getMessage();
+            return publicState(
+                    DiningPollSendJournal.afterFailure(
+                            prefs(c),
+                            intent.getString("intentId"),
+                            code == null ? "POLL_SEND_OUTCOME_UNKNOWN" : code));
         }
     }
 
@@ -378,16 +352,16 @@ final class DiningPollSend {
         return task.getClass().getField("userId").getInt(task);
     }
 
-    static synchronized JSONObject sentIntent(Context context, String id) throws Exception {
+    static JSONObject sentIntent(Context context, String id) throws Exception {
         JSONObject intent = require(context, id);
         if (!DiningPollSendState.codedReceiptConfirmed(intent)
                 || intent.optJSONObject("binding") == null) throw failure("POLL_SEND_UNCONFIRMED");
         return intent;
     }
 
-    static synchronized List<JSONObject> recentSentIntents(Context context, long since)
+    static List<JSONObject> recentSentIntents(Context context, long since)
             throws Exception {
-        JSONObject ledger = ledger(context);
+        JSONObject ledger = DiningPollSendJournal.read(prefs(context));
         List<JSONObject> intents = new ArrayList<>();
         for (var keys = ledger.keys(); keys.hasNext(); ) {
             JSONObject intent = ledger.getJSONObject(keys.next());
@@ -1486,13 +1460,14 @@ final class DiningPollSend {
         return receipt;
     }
 
-    static synchronized void recordFailure(Context context, JSONObject args, String code) {
+    static JSONObject recordFailure(Context context, JSONObject args, String code) {
         try {
-            JSONObject intent = require(context, DiningPollSendState.uuid(args, "intentId"));
-            if (!"sent".equals(intent.optString("status")))
-                save(context, intent.put("lastError", code));
+            String id = DiningPollSendState.uuid(args, "intentId");
+            JSONObject intent = DiningPollSendJournal.afterFailure(prefs(context), id, code);
+            if (DiningPollSendState.codedReceiptConfirmed(intent)) return publicState(intent);
         } catch (Exception ignored) {
         }
+        return null;
     }
 
     private static List<AccessibilityNodeInfo> nodes(
@@ -1530,7 +1505,7 @@ final class DiningPollSend {
 
     static void acknowledgeCleanup(JSONObject args) throws Exception {
         if (!DiningPollSendAutomation.cleanupConfirmed())
-            throw failure("POLL_AUTOMATION_CLEANUP_UNCONFIRMED");
+            throw failure(DiningPollSendAutomation.CLEANUP_UNCONFIRMED);
         String token = DiningPollSendState.uuid(args, "operationToken");
         File cleanup = DiningPollSendState.cleanupTarget(args);
         try (FileOutputStream output = new FileOutputStream(cleanup)) {

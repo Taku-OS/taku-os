@@ -90,7 +90,7 @@ class FeedContractTest {
     }
   }
 
-  @Test fun legacyDiningReceiptGetsAUserOnlyShareConfirmationOnLoad() {
+  @Test fun legacyDiningReceiptSupportsRequestingAUserShareConfirmation() {
     val input = withShareIntent(whatsappShare()).apply {
       put("id", "dining.reservation.${"ab".repeat(12)}")
       getJSONObject("source").put("package", "com.opentable")
@@ -120,10 +120,23 @@ class FeedContractTest {
     assertEquals("accepted", event.indexString("phase"))
     assertNull(FeedEvent.dispatched(FeedOrigin.GUI,
       AcceptedFeedAction(card, action, FeedSelectionValues.EMPTY, FeedCursor(UUID.randomUUID(), 1))))
+    val request = FeedEvent.accepted(FeedOrigin.AGENT, card.id, action, FeedSelectionValues.EMPTY, askAbout = false)
+    assertEquals("agent", request.indexString("origin"))
+    assertEquals("requested", request.indexString("phase"))
+    val requested = FeedCursor(UUID.randomUUID(), 1)
+    val approved = FeedEvent.diningShareResponse(card.id, requested, confirmed = true)
+    assertEquals("gui", approved.indexString("origin"))
+    assertEquals("accepted", approved.indexString("phase"))
+    assertEquals(requested.toString(), approved.indexString("requestedCursor"))
+    val declined = FeedEvent.diningShareResponse(card.id, requested, confirmed = false)
+    assertEquals("gui", declined.indexString("origin"))
+    assertEquals("declined", declined.indexString("phase"))
+    assertEquals(requested.toString(), declined.indexString("requestedCursor"))
     try {
-      FeedEvent.accepted(FeedOrigin.AGENT, card.id, action, FeedSelectionValues.EMPTY, askAbout = false)
-      fail("accepted a share confirmation from the Agent API")
-    } catch (e: FeedException) { assertEquals("PERMISSION_DENIED", e.code) }
+      FeedEvent.accepted(FeedOrigin.AGENT, card.id, action,
+        FeedSelectionValues.capture(JSONObject().put("userConfirmed", true)), askAbout = false)
+      fail("the Agent API cannot supply a user's answer")
+    } catch (e: FeedException) { assertEquals("INVALID_ARGUMENT", e.code) }
     try {
       FeedCard.parseGenerated(input)
       fail("accepted a generated dining reservation ID")

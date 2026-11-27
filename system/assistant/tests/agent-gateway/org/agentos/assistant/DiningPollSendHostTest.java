@@ -17,6 +17,8 @@ public final class DiningPollSendHostTest {
     public static void main(String[] args) throws Exception {
         completedReplyOwnsPollOptions();
         sendAttemptCanNeverBeReplayed();
+        cleanupFailureKeepsTheConfirmedReceipt();
+        failedJournalCommitDoesNotExposeAnUndurableReceipt();
         verifiedGroupSearchRejectsAnOffscreenDuplicate();
         pollSubmissionIsScopedAndCarriesNoScreenshot();
         pollOperationsRequireRootScope();
@@ -124,6 +126,38 @@ public final class DiningPollSendHostTest {
         rejects(
                 "POLL_MESSAGE_CHANGED",
                 () -> DiningPollSendState.confirmed(sent, "another-message", 503L));
+    }
+
+    private static void cleanupFailureKeepsTheConfirmedReceipt() throws Exception {
+        MemoryPreferences prefs = new MemoryPreferences();
+        JSONObject bound = DiningPollSendJournal.register(prefs, registration()).put("status", "bound");
+        JSONObject attempted = DiningPollSendState.beforeClick(bound, 500L);
+        DiningPollSendJournal.save(prefs, attempted);
+        JSONObject knownSent = DiningPollSendState.confirmed(attempted, "message-anchor", 502L);
+        DiningPollSendJournal.save(prefs, knownSent);
+        JSONObject result =
+                DiningPollSendJournal.afterFailure(prefs, INTENT, "POLL_AUTOMATION_CLEANUP_UNCONFIRMED");
+        check(
+                result.getBoolean("sent")
+                        && "message-anchor".equals(DiningPollSendJournal.require(prefs, INTENT).optString("anchor")),
+                "cleanup failure after receipt verification must preserve durable send evidence");
+        check(
+                !DiningPollSendState.mayClick(DiningPollSendJournal.require(prefs, INTENT)),
+                "the recovery path cannot replay an attempted send");
+    }
+
+    private static void failedJournalCommitDoesNotExposeAnUndurableReceipt() throws Exception {
+        MemoryPreferences prefs = new MemoryPreferences();
+        JSONObject bound = DiningPollSendJournal.register(prefs, registration()).put("status", "bound");
+        JSONObject attempted = DiningPollSendState.beforeClick(bound, 500L);
+        DiningPollSendJournal.save(prefs, attempted);
+        JSONObject knownSent = DiningPollSendState.confirmed(attempted, "message-anchor", 502L);
+        prefs.failNextCommit = true;
+        rejects("POLL_SEND_STATE_SAVE_FAILED", () -> DiningPollSendJournal.save(prefs, knownSent));
+        JSONObject state = DiningPollSendJournal.require(prefs, INTENT);
+        check(
+                "unknown".equals(state.getString("status")) && !DiningPollSendState.mayClick(state),
+                "a failed send receipt commit leaves the durable no-replay boundary in effect");
     }
 
     private static void verifiedGroupSearchRejectsAnOffscreenDuplicate() throws Exception {

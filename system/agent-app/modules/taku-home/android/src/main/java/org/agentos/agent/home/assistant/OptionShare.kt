@@ -105,7 +105,7 @@ data class OptionShare(
   fun validatePoll() {
     if (pollRecipient == null)
       throw AssistantException("INVALID_POLL_TARGET", "Choose a WhatsApp group first.")
-    if (pollQuestion.isBlank() || pollQuestion.length > 120 || pollQuestion.any(Char::isISOControl))
+    if (pollQuestion.isBlank() || !validPollQuestionInput(pollQuestion))
       throw AssistantException("INVALID_POLL_QUESTION", "Enter a poll question of 1–120 characters.")
     validatePollOptions()
   }
@@ -113,8 +113,18 @@ data class OptionShare(
 
 internal val ReplyOptions.canCreatePoll: Boolean get() =
   items.size in 2..12 &&
-    items.none { item -> item.label.any(Char::isISOControl) } &&
-    items.map { it.label.trim().lowercase(Locale.ROOT) }.distinct().size == items.size
+    items.all { item ->
+      val label = item.label
+      label.length in 1..100 && label == label.trim { Character.isWhitespace(it) } &&
+        label.none(::invalidPollCharacter)
+    } &&
+    items.map { it.label.lowercase(Locale.ROOT) }.distinct().size == items.size
+
+internal fun validPollQuestionInput(question: String): Boolean =
+  question.length <= 120 && question.none(::invalidPollCharacter)
+
+internal fun invalidPollCharacter(character: Char): Boolean =
+  character.isISOControl() || character == '\u2028' || character == '\u2029'
 
 /** Internal poll text can be replaced only in the same poll's dedicated conversation. */
 internal fun AssistantState.hasUnrelatedPollDraft(): Boolean =

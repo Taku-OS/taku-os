@@ -7,18 +7,48 @@ import org.json.JSONObject
 
 /** Durable references only; native reply and immutable intent are revalidated before restoration. */
 internal object PollSendResumeStore {
+  private const val MAX_CONFIRMED = 32
+
   fun record(thread: String, source: PollPreparationSource): JSONObject = JSONObject()
     .put("intentId", source.sendIntentId).put("executionThreadId", thread)
     .put("sourceRef", source.options.source().put("threadId", source.threadId))
 
+  @Synchronized
   fun save(context: Context, thread: String, source: PollPreparationSource) {
-    if (!context.getSharedPreferences("poll-send-resume", 0).edit().putString(thread, record(thread, source).toString()).commit())
+    val prefs = context.getSharedPreferences("poll-send-resume", 0)
+    val entry = record(thread, source)
+    read(context, thread)?.takeIf { it.optString("intentId") == source.sendIntentId }
+      ?.optLong("confirmedAt")?.takeIf { it > 0 }?.let { entry.put("confirmedAt", it) }
+    if (!prefs.edit().putString(thread, entry.toString()).commit())
       throw AssistantException("POLL_RESUME_SAVE_FAILED", "The original poll could not be saved. Try again shortly.")
   }
 
   fun read(context: Context, thread: String): JSONObject? = runCatching {
     context.getSharedPreferences("poll-send-resume", 0).getString(thread, null)?.let(::JSONObject)
   }.getOrNull()
+
+  /** Keep recent verified receipts for history, and retain every unresolved send reference. */
+  @Synchronized
+  fun rememberConfirmed(context: Context, thread: String, intentId: String, sentAt: Long) {
+    val entry = read(context, thread) ?: return
+    if (entry.optString("executionThreadId") != thread || entry.optString("intentId") != intentId ||
+        entry.optLong("confirmedAt") > 0) return
+    val prefs = context.getSharedPreferences("poll-send-resume", 0)
+    val confirmed = entry.put("confirmedAt", sentAt.takeIf { it > 0 } ?: System.currentTimeMillis()).toString()
+    val edit = prefs.edit().putString(thread, confirmed)
+    confirmedRefsToPrune(prefs.all + (thread to confirmed)).forEach { edit.remove(it) }
+    edit.apply()
+  }
+
+  internal fun confirmedRefsToPrune(records: Map<String, *>): List<String> = records.mapNotNull { (thread, serialized) ->
+    val value = serialized as? String ?: return@mapNotNull null
+    val entry = runCatching { JSONObject(value) }.getOrNull() ?: return@mapNotNull null
+    val confirmedAt = entry.optLong("confirmedAt")
+    if (confirmedAt > 0 && entry.optString("executionThreadId") == thread && entry.optString("intentId").isNotBlank())
+      thread to confirmedAt
+    else null
+  }.sortedWith(compareByDescending<Pair<String, Long>> { it.second }.thenBy { it.first })
+    .drop(MAX_CONFIRMED).map { it.first }
 }
 
 internal object PollSendRestoration {

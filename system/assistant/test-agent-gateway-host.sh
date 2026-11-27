@@ -21,6 +21,7 @@ compile_jvm "$task_out/classes" "$task_json:$ANDROID_JAR" \
  system/assistant/src/org/agentos/assistant/DiningPollOperationLock.java \
  system/assistant/src/org/agentos/assistant/AgentOpenAccessPolicy.java \
  system/assistant/src/org/agentos/assistant/DiningPollSendState.java \
+ system/assistant/src/org/agentos/assistant/DiningPollSendJournal.java \
  system/assistant/src/org/agentos/assistant/DiningPollSendSource.java \
  system/assistant/src/org/agentos/assistant/DiningPollSendEvidence.java \
  system/assistant/tests/agent-gateway/org/agentos/assistant/*.java \

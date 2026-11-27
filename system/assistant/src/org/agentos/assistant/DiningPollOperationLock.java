@@ -40,7 +40,7 @@ final class DiningPollOperationLock implements AutoCloseable {
             channel.close();
             throw failure;
         }
-        // Retain the channel until the process exits if UiAutomation never confirms shutdown.
+        // Unconfirmed cleanup retains this channel until the Assistant recovery exits the process.
         DiningPollOperationLock lease = new DiningPollOperationLock(path, channel, lock);
         ACTIVE.put(path, lease);
         return lease;

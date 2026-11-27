@@ -66,11 +66,16 @@ final class DiningPollAccess {
                 envelope.put("ok", true).put("result", result);
             } catch (Exception failure) {
                 String code = failureCode(failure);
+                JSONObject receipt = null;
                 if (!DiningBookingRead.action(args)
                         && !DiningBookingRideUi.action(args)
                         && !"observe".equals(args.opt("action")))
-                    DiningPollSend.recordFailure(context, args, code);
-                envelope.put("ok", false).put("code", code);
+                    receipt = DiningPollSend.recordFailure(context, args, code);
+                if (DiningPollSendAutomation.CLEANUP_UNCONFIRMED.equals(code)
+                        && receipt != null
+                        && Set.of("send", "inspect").contains(args.optString("action")))
+                    envelope.put("ok", true).put("result", receipt);
+                else envelope.put("ok", false).put("code", code);
             }
             try {
                 DiningPollSend.acknowledgeCleanup(args);

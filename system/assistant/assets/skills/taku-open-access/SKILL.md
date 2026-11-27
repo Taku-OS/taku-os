@@ -599,8 +599,16 @@ The OpenTable reservation card's `share` action uses `share-text` with
 and returns `dispatchCursor` and `requiresUserConfirmation:true` when the
 launch succeeds. The matching `phase:"dispatched"` event includes the
 original `acceptedCursor`, package and SHA-256 of the UTF-8 share text.
-Recipient choice and message delivery happen in WhatsApp and need separate
-verification.
+Recipient choice and message delivery happen in WhatsApp. After the user sends,
+call `feed/action {"id":"…","actionId":"confirm-dining-share"}` with no values
+to ask the user if they sent this reservation to the original group. The reply
+includes `requiresUserConfirmation:true` and the request's `eventCursor`. Read
+the same card's Feed events after that cursor. A prompt response has
+`origin:"gui"`, `phase:"accepted"` or `"declined"`, and the matching
+`requestedCursor`. The card's own confirmation button also emits a GUI
+acceptance. Check `dining/poll/calendar-state` to see whether the follow-up is
+available. A changed or unavailable reservation card can return `CARD_CHANGED`
+or `NOT_FOUND`.
 
 No history count/time cap. A one-time SQLite import retains available legacy actions as `legacy`, with `phase:"legacy-recorded"`; `ready.legacyImportedCount/legacyHistoryMayBeIncomplete` describe the import. Legacy events may exceed new limits. Clearing app data invalidates cursors. Storage errors do not fabricate an empty Feed.
 
@@ -1141,6 +1149,11 @@ the send result is `unknown`, inspect that intent without retrying the send.
 An unavailable or ambiguous group, unmatched reply or different task returns
 an error and leaves the action unverified.
 
+If `send` or `send-inspect` returns a confirmed receipt with
+`cleanupConfirmed:false` and `cleanupCode:"DINING_POLL_CLEANUP_UNVERIFIED"`, the poll
+was sent. Assistant recovers its input connection, and the broker blocks further
+automation until it can confirm cleanup. Use `send-status` to read the saved receipt.
+
 ### Book from the poll result
 
 The native watcher reads votes for the original sent poll. It offers a
@@ -1169,9 +1182,9 @@ native receipt publishes or reuses one card in the existing Home Feed.
 
 ### Add the meal to Calendar and prepare a ride
 
-After sharing from the reservation card, the user returns to that card and
-selects **I sent it to the original group**. The Calendar offer uses the
-verified reservation after that confirmation. Confirm the
+After sharing from the reservation card, the user selects **I sent it to the
+original group** on the card or answers the Agent's Feed confirmation prompt.
+The Calendar offer uses the verified reservation after that confirmation. Confirm the
 writable calendar and meal details. An existing matching event is reused.
 The resulting Feed card opens the exact saved Calendar event. The Uber
 offer waits until Taku verifies that exact event's details and observes the user

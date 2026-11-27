@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
@@ -26,6 +27,7 @@ import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import org.agentos.agent.home.ScreenState
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.InputStream
@@ -81,6 +83,7 @@ data class AssistantState(
   val optionShare: OptionShare? = null,
   val pollPreparation: Boolean = false,
   val pollSource: PollPreparationSource? = null,
+  internal val pollRetryOperation: String? = null,
   /** A turn the full chat left running; its result opens the card once (BUG-0027). */
   val handoff: Handoff? = null,
   /** A handed-off result is waiting for SystemUI to draw its card (locked, shade, landscape). */
@@ -142,6 +145,11 @@ class AssistantSession private constructor(private val context: Context, private
   private val worker = Dispatchers.IO.limitedParallelism(1)
   private val flow = MutableStateFlow(AssistantState())
   val state: StateFlow<AssistantState> = flow.asStateFlow()
+  private val usableScreen = MutableStateFlow(ScreenState.usable(context))
+  internal val screenUsable = usableScreen.asStateFlow()
+  private data class CandidateOverlay(val owner: Any, val identity: String)
+  private val candidateOverlay = MutableStateFlow<CandidateOverlay?>(null)
+  internal val candidateOverlayIdentity = candidateOverlay.map { it?.identity }.distinctUntilChanged()
 
   /** Speech recognition: the shared Audio Engine, scoped to the desktop entry's saved settings. */
   var voice: VoiceInput = EngineVoiceInput(context, settingsScope = DESKTOP_SCOPE)
@@ -197,22 +205,23 @@ class AssistantSession private constructor(private val context: Context, private
     watchVoice(); watchNetwork(); watchHandoff()
     // A very fast completed reply may arrive before its send receipt. Present only once
     // both the canonical candidate and the settled delivery are visible in the same state.
-    scope.launch {
-      var presented: String? = null
-      state.collectLatest { snapshot ->
-        val options = snapshot.options?.takeIf { snapshot.optionsVisible } ?: return@collectLatest
-        val identity = "${snapshot.requestGeneration}/${snapshot.threadId}/${options.sourceIdentity}"
-        if (identity != presented) {
-          presented = identity
-          presentOptions(options)
-        }
-      }
-    }
     androidx.core.content.ContextCompat.registerReceiver(context, object : android.content.BroadcastReceiver() {
       override fun onReceive(context: Context, intent: Intent) {
+        usableScreen.value = intent.action != Intent.ACTION_SCREEN_OFF && ScreenState.usable(context)
         if (intent.action == Intent.ACTION_SCREEN_OFF) interruptVoiceForScreenOff()
       }
-    }, android.content.IntentFilter(Intent.ACTION_SCREEN_OFF), androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED)
+    }, android.content.IntentFilter().apply {
+      addAction(Intent.ACTION_SCREEN_OFF)
+      addAction(Intent.ACTION_SCREEN_ON)
+      addAction(Intent.ACTION_USER_PRESENT)
+    }, androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED)
+    scope.launch {
+      combine(state.map { it.candidatePresentationIdentity }, screenUsable) { identity, usable ->
+        identity.takeIf { usable }
+      }.distinctUntilChanged().collect { identity ->
+        if (identity != null) presentOptions(identity)
+      }
+    }
     // Activity start precedes the previous activity's stop. This preserves capture during
     // Home → chat, while leaving the visible chat still releases the microphone. React's
     // shared host onPause/AppState signal is too early for this cross-activity handoff.
@@ -995,20 +1004,29 @@ class AssistantSession private constructor(private val context: Context, private
   }
 
   fun showOptions(replyId: String) {
-    if (flow.value.share?.busy == true) throw AssistantException("BUSY", "The poll action is in progress.")
-    val options = flow.value.optionsFor(replyId)
-    flow.update { if (it.options?.sourceIdentity != options.sourceIdentity) it else it.copy(optionsDismissed = false, optionShare = null, island = IslandMode.Expanded) }
-    presentOptions(options)
+    val before = flow.value
+    if (before.share?.busy == true) throw AssistantException("BUSY", "The poll action is in progress.")
+    val options = before.optionsFor(replyId)
+    flow.update {
+      if (it.options?.sourceIdentity != options.sourceIdentity) it
+      else it.copy(optionsDismissed = false, island = if (it.share == null) IslandMode.Expanded else IslandMode.Full)
+    }
+    // A visible result may still be awaiting a successful overlay launch.
+    before.candidatePresentationIdentity?.let(::presentOptions)
   }
 
   fun openOptionShare(replyId: String) {
-    val current = flow.value
-    val options = current.optionsFor(replyId)
-    if (!current.optionsVisible) throw AssistantException("REQUEST_EXPIRED", "Open the current options first.")
-    if (current.share != null) return
-    val share = OptionShare(generation = current.requestGeneration, threadId = current.threadId, options = options)
-    share.validatePollOptions()
-    flow.value = current.copy(optionShare = share, island = IslandMode.Full)
+    val id = UUID.randomUUID().toString()
+    flow.update { current ->
+      val options = current.optionsFor(replyId)
+      if (!current.optionsVisible) throw AssistantException("REQUEST_EXPIRED", "Open the current options first.")
+      if (current.share != null) current
+      else {
+        val share = OptionShare(id = id, generation = current.requestGeneration, threadId = current.threadId, options = options)
+        share.validatePollOptions()
+        current.copy(optionShare = share, island = IslandMode.Full)
+      }
+    }
   }
 
   private fun shareFor(replyId: String): OptionShare = flow.value.share?.takeIf { it.options.replyId == replyId }
@@ -1041,13 +1059,14 @@ class AssistantSession private constructor(private val context: Context, private
         optionShare = selected,
         island = IslandMode.Full)
     }
-    presentOptions(share.options)
+    flow.value.takeIf { it.options?.sourceIdentity == share.options.sourceIdentity }
+      ?.candidatePresentationIdentity?.let(::presentOptions)
   }
 
   fun setOptionPoll(replyId: String, question: String) {
     val share = shareFor(replyId)
     if (share.busy) throw AssistantException("INVALID_STATE", "The poll editor is busy.")
-    if (question.length > 120 || question.any(Char::isISOControl)) {
+    if (!validPollQuestionInput(question)) {
       flow.update { it.copy(optionShare = share.copy(error = "Enter a poll question of 1–120 characters.")) }
       throw AssistantException("INVALID_POLL_QUESTION", "Enter a poll question of 1–120 characters.")
     }
@@ -1084,7 +1103,13 @@ class AssistantSession private constructor(private val context: Context, private
         }
       } catch (failure: Exception) {
         if (failure is kotlinx.coroutines.CancellationException) throw failure
-        val message = (failure as? AssistantException)?.message ?: "Could not start sending the poll. Try again shortly."
+        val message = (failure as? AssistantException)?.message
+          ?: when ((failure as? GatewayException)?.code) {
+            "POLL_INVALID_NAME", "POLL_OPTIONS_INVALID" -> "A native poll needs 2–12 different restaurant options."
+            "POLL_INVALID_QUESTION" -> "Enter a poll question of 1–120 characters."
+            "POLL_INVALID_GROUPNAME" -> "The selected group could not be read. Choose it again. The poll has not been sent."
+            else -> "Could not start sending the poll. Try again shortly."
+          }
         flow.update {
           if (it.pollSource == source) it.copy(error = "POLL_STATUS_UNAVAILABLE")
           else it.failCandidateShare(share.id, message)
@@ -1095,38 +1120,55 @@ class AssistantSession private constructor(private val context: Context, private
 
   fun retryPollSend(inspectOnly: Boolean) {
     val owner = flow.value.pollSendContinuation()
-    flow.update { it.copy(sending = true, error = null) }
-    scope.launch(worker) {
+    val operation = UUID.randomUUID().toString()
+    flow.update {
+      if (it.pollSendContinuation() != owner)
+        throw AssistantException("POLL_REQUEST_EXPIRED", "This poll no longer belongs to the current request.")
+      it.copy(sending = true, pollRetryOperation = operation, error = null)
+    }
+    scope.launch {
+      var submitting = false
       try {
-        val journal = gateway.call("diningPoll", JSONObject().put("action", "status").put("args", JSONObject().put("intentId", owner.intentId)))
-        val envelope = JSONObject().put("ok", true).put("result", journal)
-        val execution = gateway.call("readSession", JSONObject().put("threadId", owner.executionThreadId).put("statusOnly", true))
-        val request = owner.request(envelope, execution, inspectOnly)
-        withContext(Dispatchers.Main.immediate) {
-          if (!owner.owns(flow.value)) return@withContext
-          flow.update { it.copy(sending = false) }
-          sendRequest(request, pollSendIntentId = owner.intentId)
+        val request = withContext(worker) {
+          val journal = gateway.call("diningPoll", JSONObject().put("action", "status").put("args", JSONObject().put("intentId", owner.intentId)))
+          val envelope = JSONObject().put("ok", true).put("result", journal)
+          val execution = gateway.call("readSession", JSONObject().put("threadId", owner.executionThreadId).put("statusOnly", true))
+          owner.request(envelope, execution, inspectOnly)
         }
+        val current = flow.value
+        if (current.pollRetryOperation != operation || !owner.owns(current)) return@launch
+        flow.update { it.finishPollRetry(operation) }
+        submitting = true
+        sendRequest(request, pollSendIntentId = owner.intentId)
       } catch (failure: Exception) {
         if (failure is kotlinx.coroutines.CancellationException) throw failure
-        flow.update { if (!owner.owns(it)) it else it.copy(sending = false,
-          error = (failure as? AssistantException)?.code ?: "POLL_STATUS_UNAVAILABLE") }
+        flow.update {
+          if (!owner.owns(it) || (!submitting && it.pollRetryOperation != operation)) it
+          else it.copy(error = (failure as? AssistantException)?.code ?: "POLL_STATUS_UNAVAILABLE")
+        }
+      } finally {
+        flow.update { it.finishPollRetry(operation) }
       }
     }
   }
 
-  private fun presentOptions(options: ReplyOptions) {
-    scope.launch(Dispatchers.Main.immediate) {
-      val s = flow.value
-      if (!s.optionsVisible || s.options?.sourceIdentity != options.sourceIdentity
-        || context.getSystemService(android.app.KeyguardManager::class.java).isKeyguardLocked) return@launch
-      runCatching {
-        context.startActivity(Intent().setClassName(context.packageName, "org.agentos.agent.home.assistant.AssistantOverlayActivity")
-          .putExtra("mode", "options").putExtra("threadId", s.threadId).putExtra("replyId", options.replyId)
-          .putExtra("requestGeneration", s.requestGeneration)
-          .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP))
-      }.onFailure { Log.w(TAG, "options presentation unavailable: ${it.javaClass.simpleName}") }
-    }
+  internal fun acknowledgeCandidateOverlay(owner: Any, identity: String) {
+    if (flow.value.candidatePresentationIdentity == identity) candidateOverlay.value = CandidateOverlay(owner, identity)
+  }
+
+  internal fun releaseCandidateOverlay(owner: Any, identity: String) {
+    candidateOverlay.compareAndSet(CandidateOverlay(owner, identity), null)
+  }
+
+  private fun presentOptions(identity: String) {
+    val state = flow.value
+    if (state.candidatePresentationIdentity != identity || candidateOverlay.value?.identity == identity || !ScreenState.usable(context)) return
+    runCatching {
+      context.startActivity(Intent(context, AssistantOverlayActivity::class.java)
+        .putExtra("mode", "options").putExtra("threadId", state.threadId).putExtra("replyId", state.options?.replyId)
+        .putExtra("requestGeneration", state.requestGeneration).putExtra("candidateIdentity", identity)
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP))
+    }.onFailure { Log.w(TAG, "options presentation unavailable: ${it.javaClass.simpleName}") }
   }
 
   // ---- Messages ------------------------------------------------------------------------
@@ -1164,7 +1206,10 @@ class AssistantSession private constructor(private val context: Context, private
           if (editor !== current || flow.value.abandoned) return@withLock
           val id = ensureComposerThread(generation, current)
           // Freeze the source/execution reference durably before any poll submission.
-          poll?.let { PollSendResumeStore.save(context, id, it) }
+          if (poll != null) {
+            withContext(worker) { PollSendResumeStore.save(context, id, poll) }
+            if (editor !== current || flow.value.abandoned) return@withLock
+          }
           var saved = if (poll != null) composer.read(id).also { acceptDraft(current, it) }
             else current.saved ?: composer.read(id).also { acceptDraft(current, it) }
           val previous = pendingRequest(saved)
@@ -1413,7 +1458,7 @@ class AssistantSession private constructor(private val context: Context, private
     if (s.online || !s.working) return
     Log.w(TAG, "offline for ${OFFLINE_GRACE_MS / 1000}s while working; stopping and restoring the request")
     runCatching { requestStop(s, reportErrors = false) } // nothing started yet is fine: the receipt path cancels it
-    flow.update { it.copy(sending = false, pending = null, abandoned = true) }
+    flow.update { it.copy(sending = false, pollRetryOperation = null, pending = null, abandoned = true) }
     recoverFailure(editor, "NETWORK_UNAVAILABLE", s.pending ?: s.turn?.userText)
   }
 
@@ -1638,6 +1683,7 @@ class AssistantSession private constructor(private val context: Context, private
 
   fun toJson(): JSONObject {
     val s = flow.value
+    val candidateShown = candidateOwnsResultPresentation(s, candidateOverlay.value?.identity)
     val liveSnapshot = live.snapshot
     val v = voice.state.value
     val session = v.session
@@ -1668,9 +1714,9 @@ class AssistantSession private constructor(private val context: Context, private
       .put("retainedResult", s.retainedVoice?.toJson() ?: JSONObject.NULL)
     return JSONObject()
       .put("entry", s.entry.name.lowercase())
-      .put("island", if (s.optionsVisible) s.island.name.lowercase() else org.agentos.agent.home.island.SystemIslandBridge.presentation(context))
+      .put("island", if (candidateShown) s.island.name.lowercase() else org.agentos.agent.home.island.SystemIslandBridge.presentation(context))
       .put("expansionRequest", s.expansionRequest)
-      .put("islandRequest", s.island.name.lowercase()).put("islandHost", if (s.optionsVisible || s.share != null) "agent-options" else "systemui")
+      .put("islandRequest", s.island.name.lowercase()).put("islandHost", if (candidateShown) "agent-options" else "systemui")
       .put("listeningHeaderHost", if (context.packageManager.resolveContentProvider("com.android.systemui.island", 0) == null) "unavailable" else "systemui-native")
       .put("options", s.options?.json()?.put("selectedItemId", s.optionsItemId ?: JSONObject.NULL)
         ?.put("visible", s.optionsVisible)?.put("dismissed", s.optionsDismissed) ?: JSONObject.NULL)

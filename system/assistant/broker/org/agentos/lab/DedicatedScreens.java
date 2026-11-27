@@ -552,9 +552,14 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
         }
     }
 
+    @FunctionalInterface
+    interface ReviewCommit {
+        void persist(long controlRevision) throws Exception;
+    }
+
     /** The caller holds its input lease. No turn is stopped while waiting on its own tool. */
-    JSONObject handoffForReview(String session, String key, String generation, String title, String summary)
-            throws Exception {
+    JSONObject handoffForReview(String session, String key, String generation, String title,
+            String summary, ReviewCommit commit) throws Exception {
         if (title == null || title.isBlank() || title.length() > 120 || summary == null
                 || summary.isBlank() || summary.length() > 300
                 || title.codePoints().anyMatch(Character::isISOControl)
@@ -573,6 +578,9 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
                             || screen.releasing || screen.apps.isEmpty())
                         throw new IOException("SCREEN_AGENT_PAUSED");
                     if (questions.containsKey(session)) throw new IOException("WORKSPACE_WAITING_FOR_USER");
+                    if (Thread.currentThread().isInterrupted()) throw new InterruptedException();
+                    // A failed evidence write leaves the original lease and control revision intact.
+                    commit.persist(screen.controlRevision + 1);
                     screen.controlOwner = "paused";
                     screen.controlRevision++;
                     screen.resumeRequired = true;

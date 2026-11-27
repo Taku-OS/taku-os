@@ -26,6 +26,19 @@ internal data class PollSendOwner(
   }
 }
 
+internal data class PollSendStatusDemand(val owner: PollSendOwner, val active: Boolean) {
+  companion object {
+    fun from(state: AssistantState): PollSendStatusDemand? {
+      if (state.island == IslandMode.Hidden) return null
+      val owner = PollSendOwner.from(state) ?: return null
+      return PollSendStatusDemand(owner, active = state.working && !state.needsUser)
+    }
+  }
+
+  fun shouldRead(ready: Boolean, receipt: PollSendReceipt?, attempts: Int): Boolean =
+    ready && receipt?.sent != true && (active || receipt == null && attempts < 3)
+}
+
 /** A status result is usable only for its exact immutable source, intent and execution. */
 internal data class PollSendObservation(val owner: PollSendOwner, val receipt: PollSendReceipt) {
   companion object {

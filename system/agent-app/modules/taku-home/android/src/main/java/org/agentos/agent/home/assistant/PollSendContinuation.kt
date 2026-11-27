@@ -46,6 +46,9 @@ internal fun AssistantState.pollSendContinuation(): PollSendContinuation {
   return PollSendContinuation(requestGeneration, thread, source)
 }
 
+internal fun AssistantState.finishPollRetry(operation: String): AssistantState =
+  if (pollRetryOperation == operation) copy(sending = false, pollRetryOperation = null) else this
+
 internal fun pollSendFailureReason(state: AssistantState, receipt: PollSendReceipt?): String? =
   if (receipt?.notSent == true && !state.working)
     receipt.failureReason() ?: "The last step did not finish. Continuing will check the original request and draft."

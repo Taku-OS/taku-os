@@ -31,10 +31,13 @@ import org.agentos.agent.home.assistant.AgentGateway
 import org.agentos.agent.home.assistant.AssistantSession
 import org.agentos.agent.home.assistant.AssistantState
 import org.agentos.agent.home.assistant.IslandMode
+import org.agentos.agent.home.assistant.PollSendReceipt
+import org.agentos.agent.home.assistant.PollSendResumeStore
 import org.agentos.agent.home.assistant.VoicePhase
 import org.agentos.agent.home.assistant.VoiceState
 import org.agentos.agent.home.assistant.VoiceTarget
 import org.agentos.agent.home.assistant.candidateOwnsResultPresentation
+import org.agentos.agent.home.assistant.candidatePresentationIdentity
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -48,8 +51,11 @@ class IslandPublisherService : Service() {
   private var fingerprint: String? = null
   private var lastExpansionRequest = 0L
   private var lastRequest = IslandMode.Hidden
+  private var lastExpandedCandidate: String? = null
   private var postedTag: String? = null
   private val pollObservation = MutableStateFlow<PollSendObservation?>(null)
+  private data class Presentation(val state: AssistantState, val voice: VoiceState,
+    val receipt: PollSendObservation?, val overlayIdentity: String?, val screenUsable: Boolean)
   /** The hidden state is already applied for [hiddenHandoff]; see [publish]. */
   private var hiddenApplied = false
   private var hiddenHandoff: org.agentos.agent.home.assistant.Handoff? = null
@@ -68,48 +74,66 @@ class IslandPublisherService : Service() {
     } else if (session.state.value.threadId == null) restoreHandoff(session)
     SystemIslandBridge.observe(this)
     watchReveal(session)
+    watchPollStatus(session)
+    scope.launch {
+      combine(session.state, session.voice.state, pollObservation, session.candidateOverlayIdentity, session.screenUsable, ::Presentation)
+        .sample(250).collect { snapshot ->
+          // Agent readers observe the same state published to the native SystemUI card.
+          contentResolver.notifyChange(Uri.parse("content://org.agentos.agent.home-assistant"), null)
+          publish(snapshot)
+        }
+    }
+  }
+
+  private fun watchPollStatus(session: AssistantSession) {
     scope.launch {
       val gateway = AgentGateway(contentResolver)
-      session.state.map(PollSendOwner::from).distinctUntilChanged().collectLatest { owner ->
-        pollObservation.value = null
-        if (owner == null) return@collectLatest
-        while (isActive) {
+      val demands = session.state.map(PollSendStatusDemand::from).distinctUntilChanged()
+      combine(demands, session.screenUsable, ::Pair).collectLatest { (demand, usable) ->
+        val owner = demand?.owner
+        if (pollObservation.value?.owner != owner) pollObservation.value = null
+        if (demand == null || owner == null || !usable || pollObservation.value?.receipt?.sent == true) return@collectLatest
+        var attempts = 0
+        var receipt: PollSendReceipt? = null
+        while (isActive && demand.shouldRead(deviceUsable(), receipt, attempts)) {
           val current = try {
             withContext(Dispatchers.IO) {
-              PollSendObservation.from(owner, gateway.call("diningPoll", JSONObject().put("action", "status")
-                .put("args", JSONObject().put("intentId", owner.intentId))))
+              val journal = gateway.call("diningPoll", JSONObject().put("action", "status")
+                .put("args", JSONObject().put("intentId", owner.intentId)))
+              val observed = PollSendObservation.from(owner, journal)
+              if (observed?.receipt?.sent == true) owner.executionThreadId?.let {
+                runCatching {
+                  PollSendResumeStore.rememberConfirmed(this@IslandPublisherService, it, owner.intentId, journal.optLong("sentAt"))
+                }.onFailure { failure -> android.util.Log.w("TakuIsland", "Could not update poll resume history", failure) }
+              }
+              observed
             }
           } catch (cancelled: CancellationException) {
             throw cancelled
           } catch (_: Exception) {
             null
           }
-          if (owner.owns(session.state.value)) {
-            pollObservation.value = retainPollSendObservation(owner, pollObservation.value, current)
-            if (pollObservation.value?.receipt?.sent == true) break
-          }
+          if (!owner.owns(session.state.value)) break
+          pollObservation.value = retainPollSendObservation(owner, pollObservation.value, current)
+          receipt = pollObservation.value?.receipt
+          attempts++
+          if (!demand.shouldRead(deviceUsable(), receipt, attempts)) break
           delay(1_500)
         }
       }
     }
-    scope.launch {
-      combine(session.state, session.voice.state, pollObservation) { state, voice, receipt -> Triple(state, voice, receipt) }
-        .sample(250).collect { (state, voice, receipt) ->
-        // Agent readers observe the same state published to the native SystemUI card.
-        contentResolver.notifyChange(Uri.parse("content://org.agentos.agent.home-assistant"), null)
-        publish(state, voice, receipt)
-      }
-    }
   }
 
-  private fun publish(state: AssistantState, voice: VoiceState, observation: PollSendObservation?) {
-    if (candidateOwnsResultPresentation(state)) {
+  private fun publish(snapshot: Presentation) {
+    val (state, voice, observation, overlayIdentity, screenUsable) = snapshot
+    if (candidateOwnsResultPresentation(state, overlayIdentity)) {
       manager.activeNotifications.filter { it.id == ID && it.tag?.startsWith(TAG) == true }
         .forEach { manager.cancel(it.tag, ID) }
       hiddenApplied = false
       fingerprint = null
       postedTag = null
       lastRequest = IslandMode.Hidden
+      lastExpandedCandidate = null
       return
     }
     if (state.island == IslandMode.Hidden) {
@@ -125,6 +149,7 @@ class IslandPublisherService : Service() {
       fingerprint = null
       postedTag = null
       lastRequest = IslandMode.Hidden
+      lastExpandedCandidate = null
       return
     }
     hiddenApplied = false
@@ -179,7 +204,7 @@ class IslandPublisherService : Service() {
       PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
     add("open", "Open conversation", action("open", thread, state.activityId))
     val options = state.options?.takeUnless { state.working || state.needsUser || state.abandoned || state.error != null }
-    if (options != null && state.optionsDismissed) {
+    if (options != null && (state.optionsDismissed || state.optionsVisible || state.share != null)) {
       add("options", "View options", action("options", thread, state.activityId, options.replyId))
       if (actions.containsKey("options")) suggestions.put("options")
     }
@@ -242,11 +267,16 @@ class IslandPublisherService : Service() {
     // The text input stays open under the expanded card (Figma 1-3): SystemUI's card never takes
     // focus and moves below the status bar while the keyboard shows, so a reply appears at the top
     // as soon as it arrives instead of after the keyboard closes.
-    if (state.island != lastRequest || state.expansionRequest != lastExpansionRequest) {
+    // Let the fallback expand after unlock, and leave WhatsApp's chooser in front until it returns.
+    val candidate = state.candidatePresentationIdentity
+    val deferCandidateExpansion = candidate != null && (!screenUsable || state.share?.pollPickerId != null)
+    if (!deferCandidateExpansion &&
+      (state.island != lastRequest || state.expansionRequest != lastExpansionRequest || candidate != lastExpandedCandidate)) {
       if (state.island == IslandMode.Expanded || state.island == IslandMode.Full) requestExpand()
       else if (state.island == IslandMode.Collapsed) SystemIslandBridge.request(this, "collapse")
       lastRequest = state.island
       lastExpansionRequest = state.expansionRequest
+      lastExpandedCandidate = candidate
     }
   }
 

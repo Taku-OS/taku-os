@@ -159,7 +159,7 @@ process.exit(issues.length ? 1 : 0);
 | `dismiss` | 隐藏卡片，与用户删除相同 |
 | `none` | 记录操作，返回 `effect:"none"` |
 
-动作在用户点击或调用 `feed/action` 时执行。`select` 可把指定状态路径的值随动作传出。OpenTable 订位卡片由 Home 增加 `confirm-dining-share` 动作，用户可在发回原群后点击确认。该动作仅能从卡片上执行。
+动作在用户点击或调用 `feed/action` 时执行。`select` 可把指定状态路径的值随动作传出。OpenTable 订位卡片由 Home 增加 `confirm-dining-share` 动作，用户发回原 WhatsApp 群后可从卡片确认。Agent 也可以不带 `values` 调用该动作，打开供用户确认的弹窗。使用返回的 `eventCursor` 匹配用户决定事件的 `requestedCursor`。
 
 ## 更新、撤回和反馈
 

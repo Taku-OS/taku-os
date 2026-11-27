@@ -7,7 +7,7 @@ data class PollRecipient(val jid: String, val name: String) {
       if (jid == null || !jid.matches(Regex("[0-9]{5,24}(-[0-9]{1,24})?@g\\.us")))
         throw AssistantException("POLL_RECIPIENT_NOT_GROUP", "Choose a WhatsApp group. The poll has not been sent.")
       val title = name?.trim().orEmpty()
-      if (title.isBlank() || title.length > 160 || name?.any(Char::isISOControl) == true)
+      if (title.isBlank() || title.length > 160 || name?.any(::invalidPollCharacter) == true)
         throw AssistantException("POLL_RECIPIENT_UNAVAILABLE", "The selected group could not be read. Choose it again. The poll has not been sent.")
       // Match the existing native AX/journal title normalization.
       return PollRecipient(jid, title)

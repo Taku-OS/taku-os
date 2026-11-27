@@ -112,6 +112,29 @@ public final class DiningBrokerTest {
         check(!DiningPollInput.operationUnlocked(lockPath.toFile()), "missing lock file does not prove cleanup");
     }
 
+    private static void unconfirmedCleanupOnlyExposesTheExactSentReceipt() throws Exception {
+        JSONObject argument = new JSONObject().put("action", "inspect").put("intentId", INTENT);
+        JSONObject sent = new JSONObject().put("intentId", INTENT).put("status", "sent")
+                .put("sent", true).put("anchor", "message-anchor");
+        JSONObject envelope = new JSONObject().put("ok", true).put("operationToken", THREAD)
+                .put("result", sent);
+        JSONObject result = DiningPollInput.nativeResult(envelope, argument, THREAD, false);
+        check(result.optBoolean("sent") && Boolean.FALSE.equals(result.opt("cleanupConfirmed")),
+                "a durable sent outcome is distinguishable from its unconfirmed cleanup");
+        rejects("DINING_POLL_CLEANUP_UNVERIFIED",
+                () -> DiningPollInput.nativeResult(envelope, argument, INTENT, false));
+        argument.put("intentId", THREAD);
+        rejects("DINING_POLL_CLEANUP_UNVERIFIED",
+                () -> DiningPollInput.nativeResult(envelope, argument, THREAD, false));
+        argument.put("intentId", INTENT).put("action", "bind");
+        rejects("DINING_POLL_CLEANUP_UNVERIFIED",
+                () -> DiningPollInput.nativeResult(envelope, argument, THREAD, false));
+        argument.put("action", "send");
+        sent.put("status", "unknown").put("sent", false).remove("anchor");
+        rejects("DINING_POLL_CLEANUP_UNVERIFIED",
+                () -> DiningPollInput.nativeResult(envelope, argument, THREAD, false));
+    }
+
     private static void passiveObservationNeverAdoptsAnotherVisibleTaskForInput() throws Exception {
         JSONObject binding = new JSONObject().put("screenKey", "task-" + "a".repeat(20))
                 .put("generation", INTENT).put("turnId", "original-turn")
@@ -305,6 +328,7 @@ public final class DiningBrokerTest {
         yelpUriEncodesExactUntrustedFields();
         cleanupEvidenceBelongsToTheCurrentOperation();
         operationFenceNeedsAReleasedLock();
+        unconfirmedCleanupOnlyExposesTheExactSentReceipt();
         passiveObservationNeverAdoptsAnotherVisibleTaskForInput();
         bookingEvidenceRequiresTheMatchingConfirmedTask();
         bookingInputStaysScopedAfterDispatch();

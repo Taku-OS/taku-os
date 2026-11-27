@@ -154,6 +154,28 @@ internal class FeedStore(context: Context) : SQLiteOpenHelper(
     }
   }
 
+  fun isDiningShareRequestPending(cardId: String, requested: FeedCursor): Boolean {
+    if (requested.epoch != epoch) return false
+    try {
+      val query = "SELECT sequence, json FROM feed_events WHERE card_id = ? AND op = 'action' " +
+        "AND action_id = ? AND sequence >= ? ORDER BY sequence"
+      val args = arrayOf(cardId, Intent.ConfirmDiningShare.ID, requested.sequence.toString())
+      return readableDatabase.rawQuery(query, args).use { cursor ->
+        if (!cursor.moveToFirst() || cursor.getLong(0) != requested.sequence) return false
+        val request = JSONObject(String(cursor.getBlob(1), Charsets.UTF_8))
+        if (request.optString("origin") != "agent" || request.optString("phase") != "requested") return false
+        val id = requested.toString()
+        while (cursor.moveToNext()) {
+          val response = JSONObject(String(cursor.getBlob(1), Charsets.UTF_8))
+          if (response.optString("origin") == "gui" && response.optString("requestedCursor") == id) return false
+        }
+        true
+      }
+    } catch (_: Exception) {
+      throw FeedException("STATE_READ_FAILED", "Could not read the dining share confirmation")
+    }
+  }
+
   fun events(after: Long, through: Long, filter: FeedEventFilter, cancellation: CancellationSignal): List<StoredFeedEvent> {
     val where = StringBuilder("sequence > ? AND sequence <= ?")
     val args = arrayListOf(after.toString(), through.toString())

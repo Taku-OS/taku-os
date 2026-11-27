@@ -315,6 +315,8 @@ public final class DiningCalendarTest {
         for (JSONObject invalid :
                 new JSONObject[] {
                     copy(confirm).put("origin", "agent"),
+                    copy(confirm).put("origin", "agent").put("phase", "requested"),
+                    copy(confirm).put("phase", "declined"),
                     copy(confirm).put("phase", "dispatched"),
                     copy(confirm).put("intentType", "none"),
                     copy(confirm).put("actionId", "share"),
@@ -328,7 +330,13 @@ public final class DiningCalendarTest {
                             pending, invalid, shareText, checkAt),
                     "Only the later GUI confirmation on this exact card is eligible");
         check(
-                DiningBookingCalendarPolicy.recordShareEvent(pending, confirm, shareText, checkAt)
+                DiningBookingCalendarPolicy.recordShareEvent(
+                                pending,
+                                copy(confirm)
+                                        .put("requestedCursor", confirm.getString("cursor"))
+                                        .put("cursor", "00000000-0000-4000-8000-000000000001:6"),
+                                shareText,
+                                checkAt)
                         && "offer".equals(pending.getString("phase"))
                         && pending.getBoolean("shareConfirmedByUser"),
                 "Matching confirmation after the picker unlocks Calendar");

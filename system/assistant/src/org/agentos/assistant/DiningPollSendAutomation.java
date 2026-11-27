@@ -6,7 +6,7 @@ import android.os.*;
 
 import java.io.IOException;
 import java.lang.reflect.*;
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.Semaphore;
 
 /**
  * Send operations acknowledge cleanup only after a successful native disconnect and thread exit.
@@ -16,8 +16,10 @@ final class DiningPollSendAutomation {
         T run(UiAutomation ui) throws Exception;
     }
 
-    private static final ReentrantLock ACCESSIBILITY = new ReentrantLock();
+    // Binder can reuse a thread after a failed operation, so the fence must not be reentrant.
+    private static final Semaphore ACCESSIBILITY = new Semaphore(1);
     private static final ThreadLocal<Boolean> CLEAN = ThreadLocal.withInitial(() -> true);
+    static final String CLEANUP_UNCONFIRMED = "POLL_AUTOMATION_CLEANUP_UNCONFIRMED";
 
     static void beginOperation() {
         CLEAN.set(true);
@@ -28,12 +30,12 @@ final class DiningPollSendAutomation {
     }
 
     static <T> T read(Read<T> work) throws Exception {
-        if (!ACCESSIBILITY.tryLock()) throw new IOException("POLL_EDITOR_BUSY");
+        if (!ACCESSIBILITY.tryAcquire()) throw new IOException("POLL_EDITOR_BUSY");
         HandlerThread thread = new HandlerThread("dining-poll-send-accessibility");
         UiAutomation ui = null;
+        Method disconnect = null;
         CLEAN.set(false);
-        boolean connected = false;
-        boolean disconnected = false;
+        boolean connectionAttempted = false;
         try {
             thread.start();
             Class<?> binder = Class.forName("android.app.IUiAutomationConnection");
@@ -45,8 +47,11 @@ final class DiningPollSendAutomation {
                     UiAutomation.class.getDeclaredConstructor(Looper.class, binder);
             constructor.setAccessible(true);
             ui = constructor.newInstance(thread.getLooper(), connection);
-            UiAutomation.class.getMethod("connect", int.class).invoke(ui, 1);
-            connected = true;
+            Method connect = UiAutomation.class.getMethod("connect", int.class);
+            disconnect = UiAutomation.class.getMethod("disconnect");
+            // A timeout can happen after Android has already registered the service.
+            connectionAttempted = true;
+            connect.invoke(ui, UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES);
             AccessibilityServiceInfo info = ui.getServiceInfo();
             info.flags |=
                     AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
@@ -54,13 +59,13 @@ final class DiningPollSendAutomation {
             ui.setServiceInfo(info);
             return work.run(ui);
         } finally {
-            if (!connected) disconnected = true;
-            else
+            boolean disconnected = !connectionAttempted;
+            if (connectionAttempted)
                 try {
-                    UiAutomation.class.getMethod("disconnect").invoke(ui);
+                    disconnect.invoke(ui);
                     disconnected = true;
-                } catch (Exception failed) {
-                    disconnected = false;
+                } catch (ReflectiveOperationException | RuntimeException failed) {
+                    // UiAutomation can mark itself disconnected before unregistering remotely.
                 }
             thread.quitSafely();
             try {
@@ -74,10 +79,23 @@ final class DiningPollSendAutomation {
             }
             boolean cleaned = disconnected && !thread.isAlive();
             CLEAN.set(cleaned);
-            // Keep the common AX lock closed only when a live UiAutomation connection failed to
-            // disconnect cleanly; a pre-connect failure never registered a service and releases.
-            if (cleaned) ACCESSIBILITY.unlock();
-            else throw new IOException("POLL_AUTOMATION_CLEANUP_UNCONFIRMED");
+            if (cleaned) ACCESSIBILITY.release();
+            else {
+                restartAfterUnconfirmedCleanup();
+                throw new IOException(CLEANUP_UNCONFIRMED);
+            }
         }
+    }
+
+    private static void restartAfterUnconfirmedCleanup() {
+        android.util.Log.e("TakuDining", "Restarting Assistant after unconfirmed UI automation cleanup");
+        Thread restart = new Thread(() -> {
+            // Keep both fences until exit. Android unregisters the automation on owner Binder death.
+            // Let the current callback return its operation outcome before recycling the process.
+            SystemClock.sleep(2_000);
+            android.os.Process.killProcess(android.os.Process.myPid());
+        }, "dining-poll-automation-recovery");
+        restart.setDaemon(true);
+        restart.start();
     }
 }

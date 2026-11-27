@@ -63,16 +63,16 @@ final class PhoneRideReview {
             JSONObject owner = owner(call, screen);
             int task = visibleTask(screen);
             PhoneGestures.requireIdle(screen.displayId);
-            JSONObject lease = DedicatedScreensOnDevice.shared().handoffForReview(owner.getString("threadId"),
-                    screen.screenKey, screen.generation, args.getString("title"), args.getString("summary"));
-            // A failed evidence write still leaves control paused and the current phone turn sealed.
-            NativeBridge.sealReviewInputs(call);
             if (task != visibleTask(screen)) throw new IOException("RIDE_EVIDENCE_TARGET_CHANGED");
-            JSONObject handoff = new JSONObject().put("status", "awaiting_review").put("at", System.currentTimeMillis())
-                    .put("controlRevision", lease.getLong("controlRevision")).put("userAccepted", false)
-                    .put("title", args.getString("title")).put("summary", args.getString("summary"))
+            String title = args.getString("title"), summary = args.getString("summary");
+            JSONObject handoff = new JSONObject().put("status", "awaiting_review").put("userAccepted", false)
+                    .put("title", title).put("summary", summary)
                     .put("packageName", PACKAGE).put("appTaskId", task).put("orderStatus", "not-attested");
-            record(owner, "handoff", handoff);
+            JSONObject lease = DedicatedScreensOnDevice.shared().handoffForReview(owner.getString("threadId"),
+                    screen.screenKey, screen.generation, title, summary,
+                    revision -> record(owner, "handoff",
+                            handoff.put("controlRevision", revision).put("at", System.currentTimeMillis())));
+            NativeBridge.sealReviewInputs(call);
             return new JSONObject(owner.toString()).put("handoff", handoff).put("screen", lease)
                     .put("next", "Agent input is paused. The user may take control of this screen to review the Uber ride.");
         } finally {
@@ -116,17 +116,12 @@ final class PhoneRideReview {
 
     private static void record(JSONObject owner, String kind, JSONObject value) throws Exception {
         File target = new File(new File(TaskBroker.TASKS, owner.getString("taskId")), "dining-ride-evidence.json");
-        JSONObject saved = new JSONObject(owner.toString());
+        JSONObject previous = null;
         if (target.isFile()) {
             if (target.length() <= 0 || target.length() > 16384) throw new IOException("RIDE_EVIDENCE_UNAVAILABLE");
-            JSONObject previous = new JSONObject(new String(Files.readAllBytes(target.toPath()), StandardCharsets.UTF_8));
-            for (String field : List.of("schema", "taskId", "threadId", "turnId", "screenKey", "generation",
-                    "diningRideKey", "displayId", "userId"))
-                if (!owner.get(field).equals(previous.opt(field))) throw new IOException("RIDE_EVIDENCE_BINDING_CHANGED");
-            if (previous.has("upcoming")) saved.put("upcoming", previous.getJSONObject("upcoming"));
-            if (previous.has("handoff")) saved.put("handoff", previous.getJSONObject("handoff"));
+            previous = new JSONObject(new String(Files.readAllBytes(target.toPath()), StandardCharsets.UTF_8));
         }
-        saved.put(kind, value).put("updatedAt", System.currentTimeMillis());
+        JSONObject saved = PhoneRideReviewEvidence.merge(owner, previous, kind, value, System.currentTimeMillis());
         TaskBroker.write(target, saved.toString());
     }
 }

@@ -16,7 +16,9 @@ mkdir -p "$task_out/classes"
  system/assistant/broker/org/agentos/lab/WorkspacePolicy.java \
  system/assistant/broker/org/agentos/lab/WorkspaceAdmissions.java \
  system/assistant/broker/org/agentos/lab/UberUpcomingPolicy.java \
+ system/assistant/broker/org/agentos/lab/PhoneRideReviewEvidence.java \
  system/assistant/tests/dedicated-screens/org/agentos/lab/DedicatedScreensTest.java \
  system/assistant/tests/ride-review/org/agentos/lab/*.java
 "$JDK/bin/java" -cp "$task_out/classes:$task_json:$ANDROID_JAR" org.agentos.lab.UberUpcomingPolicyTest
 "$JDK/bin/java" -cp "$task_out/classes:$task_json:$ANDROID_JAR" org.agentos.lab.DedicatedScreensReviewTest
+"$JDK/bin/java" -cp "$task_out/classes:$task_json:$ANDROID_JAR" org.agentos.lab.PhoneRideReviewEvidenceTest

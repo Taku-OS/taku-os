@@ -28,4 +28,8 @@
   <string name="home_workspace_user_control">Your control</string>
   <string name="home_workspace_switching">Switching</string>
   <string name="home_workspace_unavailable">Unavailable</string>
+  <string name="home_dining_share_title">Confirm WhatsApp share</string>
+  <string name="home_dining_share_message">%1$s\n\nDid you send this reservation to the original WhatsApp group?</string>
+  <string name="home_dining_share_confirm">I sent it</string>
+  <string name="home_dining_share_unavailable">Could not record the share confirmation</string>
 </resources>

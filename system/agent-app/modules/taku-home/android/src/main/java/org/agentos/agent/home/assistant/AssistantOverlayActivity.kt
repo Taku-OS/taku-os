@@ -11,6 +11,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -31,6 +32,8 @@ class AssistantOverlayActivity : AppCompatActivity() {
   private var resumed = false
   private var presenting = false
   private var pollPickerToken: String? = null
+  private val overlayOwner = Any()
+  private var renderedCandidateIdentity: String? = null
 
   override fun onCreate(state: Bundle?) {
     enableEdgeToEdge(SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT), SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT))
@@ -47,6 +50,7 @@ class AssistantOverlayActivity : AppCompatActivity() {
     setContent {
       val ui by session.state.collectAsStateWithLifecycle()
       val scene = rememberGraphicsLayer()
+      val candidateIdentity = ui.candidatePresentationIdentity
       val presentingCandidates = ui.optionsVisible || ui.share != null
       LaunchedEffect(presentingCandidates) {
         if (presentingCandidates) window.clearFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
@@ -58,6 +62,14 @@ class AssistantOverlayActivity : AppCompatActivity() {
         if (!ui.overlayVisible) finish()
       }
       if (presentingCandidates) {
+        if (candidateIdentity != null) DisposableEffect(candidateIdentity) {
+          renderedCandidateIdentity = candidateIdentity
+          if (hasWindowFocus()) session.acknowledgeCandidateOverlay(overlayOwner, candidateIdentity)
+          onDispose {
+            if (renderedCandidateIdentity == candidateIdentity) renderedCandidateIdentity = null
+            session.releaseCandidateOverlay(overlayOwner, candidateIdentity)
+          }
+        }
         BackHandler { candidateBack(session) }
         TakuTheme { ReplyOptionsOverlay(ui, session) }
         return@setContent
@@ -86,6 +98,7 @@ class AssistantOverlayActivity : AppCompatActivity() {
         val s = session.state.value
         if (!s.optionsVisible || intent.getStringExtra("threadId") != s.threadId ||
           intent.getStringExtra("replyId") != s.options?.replyId ||
+          intent.getStringExtra("candidateIdentity") != s.candidatePresentationIdentity ||
           intent.getLongExtra("requestGeneration", -1) != s.requestGeneration) return false
       }
       "text" -> {
@@ -139,10 +152,15 @@ class AssistantOverlayActivity : AppCompatActivity() {
   override fun onPause() { resumed = false; super.onPause() }
   override fun onWindowFocusChanged(hasFocus: Boolean) {
     super.onWindowFocusChanged(hasFocus)
+    renderedCandidateIdentity?.let {
+      if (hasFocus) session.acknowledgeCandidateOverlay(overlayOwner, it)
+      else session.releaseCandidateOverlay(overlayOwner, it)
+    }
     if (hasFocus) focusedOnce = true
     else if (presenting && focusedOnce && resumed && session.gesture.held) session.cancelVoice()
   }
   override fun onStop() {
+    renderedCandidateIdentity?.let { session.releaseCandidateOverlay(overlayOwner, it) }
     if (presenting && intent.getStringExtra("mode") == "voice")
       session.onVoiceSurfaceStopped(intent.getStringExtra("gestureId").orEmpty(), isChangingConfigurations)
     super.onStop()

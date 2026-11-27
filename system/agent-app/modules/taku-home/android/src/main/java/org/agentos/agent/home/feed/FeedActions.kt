@@ -32,7 +32,8 @@ object FeedActions {
       is Intent.OpenApp -> openApp(context, intent)
       is Intent.OpenUrl -> start(context, AndroidIntent(AndroidIntent.ACTION_VIEW, Uri.parse(intent.url)), "open-url")
       is Intent.ShareText -> shareText(context, intent)
-      Intent.ConfirmDiningShare -> JSONObject().put("effect", Intent.ConfirmDiningShare.ID)
+      Intent.ConfirmDiningShare -> if (origin == FeedOrigin.GUI) JSONObject().put("effect", Intent.ConfirmDiningShare.ID)
+        else requestDiningShareConfirmation(context, card, accepted.cursor)
       Intent.Dismiss -> repo.remove(cardId, origin).put("effect", "dismiss")
       Intent.None -> JSONObject().put("effect", "none").put("note", "This card has no connected integration; nothing was executed.")
     }
@@ -101,6 +102,16 @@ object FeedActions {
     }
     return result.put("package", target.packageName).put("mimeType", "text/plain")
       .put("requiresUserConfirmation", true)
+  }
+
+  private fun requestDiningShareConfirmation(context: Context, card: FeedCard, requested: FeedCursor): JSONObject {
+    val target = card.actions["share"]?.intent as? Intent.ShareText
+      ?: throw FeedException("CARD_CHANGED", "The reservation card has changed")
+    val prompt = AndroidIntent(context, DiningShareConfirmationActivity::class.java)
+      .putExtra(DiningShareConfirmationActivity.CARD_ID, card.id)
+      .putExtra(DiningShareConfirmationActivity.SHARE_TEXT, target.text)
+      .putExtra(DiningShareConfirmationActivity.REQUESTED_CURSOR, requested.toString())
+    return start(context, prompt, Intent.ConfirmDiningShare.ID).put("requiresUserConfirmation", true)
   }
 
   private fun start(context: Context, intent: AndroidIntent, effect: String): JSONObject {

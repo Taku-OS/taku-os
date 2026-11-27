@@ -15,8 +15,22 @@ public final class DedicatedScreensReviewTest {
         int display = opened.getInt("displayId");
         int task = rig.tasks.open("com.ubercab", display);
         String key = opened.getString("screenKey"), generation = opened.getString("generation");
+        long before = rig.screens.describe(session(1)).getLong("controlRevision");
+        rejects("RIDE_EVIDENCE_BINDING_CHANGED", () ->
+                rig.screens.handoffForReview(session(1), key, generation, "Review ride details",
+                        "Check the actual Uber page before ordering.",
+                        revision -> { throw new java.io.IOException("RIDE_EVIDENCE_BINDING_CHANGED"); }));
+        JSONObject unchanged = rig.screens.describe(session(1));
+        verify("agent".equals(unchanged.getString("controlOwner")) && !unchanged.has("review"),
+                "Failed evidence persistence leaves the Agent in control");
+        verify(unchanged.getLong("controlRevision") == before, "Failed persistence leaves the lease revision unchanged");
+        long[] persisted = {-1};
         JSONObject handed = rig.screens.withScreen(session(1), DedicatedScreens.Use.ACT, "", screen ->
-                rig.screens.handoffForReview(session(1), screen.screenKey, screen.generation, "Review ride details", "Check the actual Uber page before ordering."));
+                rig.screens.handoffForReview(session(1), screen.screenKey, screen.generation,
+                        "Review ride details", "Check the actual Uber page before ordering.",
+                        revision -> persisted[0] = revision));
+        verify(persisted[0] == handed.getLong("controlRevision") && persisted[0] == before + 1,
+                "Review publishes the exact control revision persisted by the broker");
         verify("awaiting_review".equals(handed.getString("status")), "Native lease records waiting for review");
         verify("paused".equals(handed.getString("controlOwner")) && handed.getBoolean("resumeRequired"), "Input is sealed before the tool returns");
         verify(!handed.getJSONObject("review").getBoolean("userAccepted"), "An Agent handoff is not a user confirmation");
@@ -67,12 +81,16 @@ public final class DedicatedScreensReviewTest {
         worker.start();
         try {
             verify(held.await(2, TimeUnit.SECONDS), "A concurrent step actually holds the input lock");
-            rejects("SCREEN_INPUT_NOT_QUIESCENT", () -> busy.screens.handoffForReview(session(2), busyLease.getString("screenKey"), busyLease.getString("generation"), "Review", "Check ride details."));
+            rejects("SCREEN_INPUT_NOT_QUIESCENT", () -> busy.screens.handoffForReview(session(2), busyLease.getString("screenKey"), busyLease.getString("generation"), "Review", "Check ride details.", revision -> {
+                throw new AssertionError("cannot record evidence for a busy screen");
+            }));
             verify("agent".equals(busy.screens.describe(session(2)).getString("controlOwner")), "Refused handoff does not publish a false review state");
         } finally { release.countDown(); worker.join(2000); }
         Rig replaced = new Rig(); JSONObject old = replaced.request(4, "Ride", "com.ubercab");
         replaced.host.slots.get(old.getString("screenKey")).put("generation", java.util.UUID.randomUUID().toString());
-        rejects("SCREEN_GENERATION_CHANGED", () -> replaced.screens.handoffForReview(session(4), old.getString("screenKey"), old.getString("generation"), "Review", "Check current page."));
+        rejects("SCREEN_GENERATION_CHANGED", () -> replaced.screens.handoffForReview(session(4), old.getString("screenKey"), old.getString("generation"), "Review", "Check current page.", revision -> {
+            throw new AssertionError("cannot record evidence for a replaced screen");
+        }));
         verify(!replaced.screens.describe(session(4)).has("review"), "A replaced host cannot acquire a false review receipt");
         Rig missing = new Rig();
         JSONObject retained = missing.request(5, "Retained receipt", "com.opentable");

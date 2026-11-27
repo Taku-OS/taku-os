@@ -3,11 +3,14 @@ package org.agentos.agent.home.assistant
 internal fun AssistantState.ownsRequest(generation: Long, thread: String? = threadId): Boolean =
   requestGeneration == generation && threadId == thread
 
-/** Candidate presentation must never suppress a new recording or a running task. */
-internal fun candidateOwnsResultPresentation(state: AssistantState): Boolean =
-  state.entry == EntryMode.None &&
-    !state.working && !state.needsUser && !state.abandoned && state.error == null &&
-    (state.optionsVisible || state.share != null)
+internal val AssistantState.candidatePresentationIdentity: String?
+  get() = options?.takeIf { optionsVisible }?.let {
+    "$requestGeneration/$threadId/${it.sourceIdentity}"
+  }
+
+/** Keep the Island available until the focused overlay actually renders this result. */
+internal fun candidateOwnsResultPresentation(state: AssistantState, overlayIdentity: String?): Boolean =
+  overlayIdentity != null && overlayIdentity == state.candidatePresentationIdentity
 
 /** Back is consumed while the picker or journal registration is in progress. */
 internal fun candidateBack(session: AssistantSession) {

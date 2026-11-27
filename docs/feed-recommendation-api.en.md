@@ -159,7 +159,7 @@ process.exit(issues.length ? 1 : 0);
 | `dismiss` | Hides the card, matching user removal |
 | `none` | Records the action and returns `effect:"none"` |
 
-Actions execute on a user interaction or a `feed/action` call. `select` can include values from specified state paths. Home adds a GUI-only `confirm-dining-share` action to OpenTable dining reservation cards. The user selects it after sending the reservation to the original group.
+Actions execute on a user interaction or a `feed/action` call. `select` can include values from specified state paths. After sending the reservation to the original WhatsApp group, the user can confirm on the OpenTable reservation card. Agents can call `feed/action` with `actionId:"confirm-dining-share"` and no values to open the user prompt. Use the reply's `eventCursor` to match the decision event's `requestedCursor`.
 
 ## Updates, withdrawal, and feedback
 

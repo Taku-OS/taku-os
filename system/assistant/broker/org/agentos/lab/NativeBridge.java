@@ -402,10 +402,10 @@ final class NativeBridge {
   return params.optString("namespace").equals("taku_panel")||tool.startsWith("taku_panel.")||tool.startsWith("taku_panel/")||tool.startsWith("taku_panel__");
  }
  static boolean phoneTurnActive(JSONObject params){if(SessionRemovalRuntime.pending(params.optString("threadId")))return false;JSONObject s=state.get(params.optString("threadId"));String turn=params.optString("turnId");return s!=null&&!turn.isEmpty()&&turn.equals(s.optString("activeTurnId"))&&!turn.equals(s.optString("phoneStoppedTurnId"));}
- /** Seal later phone calls without interrupting the worker that must return the handoff receipt. */
+ /** Seal later phone calls without interrupting the handoff worker. An ended turn has no input to seal. */
  static void sealReviewInputs(JSONObject params)throws Exception { try (CleanupWork.Held held = lock()) {
-  if(!phoneTurnActive(params))throw new IOException("RIDE_EVIDENCE_TASK_CHANGED");
-  state.get(params.getString("threadId")).put("phoneStoppedTurnId",params.getString("turnId"));
+  if(phoneTurnActive(params))
+   state.get(params.getString("threadId")).put("phoneStoppedTurnId",params.getString("turnId"));
  } }
  static boolean hasPhoneQuestion(String thread){return requests.values().stream().anyMatch(q->q.optJSONObject("params")!=null && thread.equals(q.optJSONObject("params").optString("threadId")) && (q.optString("method").equals("phone/askUser")||q.optString("method").equals("phone/confirmAction")||q.optString("method").equals("phone/action/requestApproval")));}
  static void executePhone(CodexAppServer server,Object id,JSONObject params){ try (CleanupWork.Held held14 = lock()) {

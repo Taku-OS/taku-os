@@ -308,10 +308,11 @@ final class DiningPollInput {
             forgetPending(token);
             throw notStarted;
         }
-        return awaitNative(process, cancel, cleanup, token);
+        return awaitNative(process, cancel, cleanup, token, argument);
     }
 
-    private static JSONObject awaitNative(Process process, File cancel, File cleanup, String token) throws Exception {
+    private static JSONObject awaitNative(Process process, File cancel, File cleanup, String token,
+            JSONObject argument) throws Exception {
         boolean interrupted = false;
         boolean confirmed = false;
         try {
@@ -341,10 +342,7 @@ final class DiningPollInput {
                     confirmed = cleanupConfirmed(cleanup, token)
                             || Boolean.TRUE.equals(envelope.opt("cleanupConfirmed"))
                                     && token.equals(envelope.opt("operationToken"));
-                    if (!confirmed) throw error("DINING_POLL_CLEANUP_UNVERIFIED");
-                    if (!envelope.optBoolean("ok"))
-                        throw error(envelope.optString("code", "DINING_POLL_NATIVE_FAILED"));
-                    JSONObject result = envelope.getJSONObject("result");
+                    JSONObject result = nativeResult(envelope, argument, token, confirmed);
                     if (interrupted) result.put("cancelled", true);
                     return result;
                 }
@@ -367,6 +365,31 @@ final class DiningPollInput {
             if (process.isAlive()) process.destroyForcibly();
             if (interrupted) Thread.currentThread().interrupt();
         }
+    }
+
+    static JSONObject nativeResult(JSONObject envelope, JSONObject argument, String token,
+            boolean cleanupConfirmed) throws Exception {
+        if (!cleanupConfirmed) {
+            JSONObject receipt = envelope.optJSONObject("result");
+            Object intentId = argument.opt("intentId");
+            String action = argument.optString("action");
+            // A durable sent receipt can be displayed even while the input fence remains closed.
+            if (("send".equals(action) || "inspect".equals(action))
+                    && token.equals(envelope.opt("operationToken"))
+                    && Boolean.TRUE.equals(envelope.opt("ok"))
+                    && receipt != null
+                    && intentId instanceof String id && id.equals(receipt.opt("intentId"))
+                    && "sent".equals(receipt.opt("status"))
+                    && Boolean.TRUE.equals(receipt.opt("sent"))
+                    && receipt.opt("anchor") instanceof String anchor && !anchor.isBlank()) {
+                return receipt.put("cleanupConfirmed", false)
+                        .put("cleanupCode", "DINING_POLL_CLEANUP_UNVERIFIED");
+            }
+            throw error("DINING_POLL_CLEANUP_UNVERIFIED");
+        }
+        if (!envelope.optBoolean("ok"))
+            throw error(envelope.optString("code", "DINING_POLL_NATIVE_FAILED"));
+        return envelope.getJSONObject("result");
     }
 
     private static String readReply(InputStream input) throws Exception {
