@@ -54,6 +54,72 @@ class EngineVoiceInput(context: Context, private val settingsScope: String, priv
     terminal(VoiceOutcome.Failed("PROCESSING_TIMEOUT", "Recognition did not finish in time"), cancel = true)
   }
 
+  /**
+   * A connection bound and handshaken ahead of the next recording. Binding (and creating the
+   * Engine service when nothing holds it), then waiting for the Engine's configuration, otherwise
+   * runs after the press and delays "Speak now". The next [start] adopts it as its own connection,
+   * so each recording still owns exactly one; a spare only binds and never opens a session.
+   */
+  private class Spare {
+    lateinit var client: AudioClient
+    /** The adopting recording; until then only the handshake's outcome is kept. */
+    var target: AudioClient.Listener? = null
+    var configured = false
+    var dead = false
+  }
+  private var spare: Spare? = null
+  private var warmUntil = 0L
+  private val spareExpiry = Runnable { dropSpare() }
+
+  override val prewarmed: Boolean get() = spare?.let { it.configured && !it.dead } == true
+
+  override fun prewarm() {
+    if (!available(app)) return
+    warmUntil = android.os.SystemClock.uptimeMillis() + SPARE_IDLE_MS
+    main.removeCallbacks(spareExpiry)
+    main.postDelayed(spareExpiry, SPARE_IDLE_MS)
+    ensureSpare()
+  }
+
+  override fun releasePrewarm() {
+    warmUntil = 0
+    main.removeCallbacks(spareExpiry)
+    dropSpare()
+  }
+
+  private fun ensureSpare() {
+    if (spare?.dead == true) dropSpare()
+    // A recording's own connection already keeps the Engine up; the next spare follows its close.
+    if (spare != null || client != null || android.os.SystemClock.uptimeMillis() >= warmUntil) return
+    val next = Spare()
+    next.client = AudioClient(app, object : AudioClient.Listener {
+      override fun connected() { next.configured = true; next.target?.connected() }
+      override fun event(event: String) { next.target?.event(event) }
+      override fun failed(message: String) {
+        next.dead = true
+        next.target?.failed(message)
+        // Idle and broken (Engine died, handshake gave up): forget it; the next start binds anew.
+        if (next.target == null && spare === next) dropSpare()
+      }
+    })
+    spare = next
+    try { next.client.connect() } catch (_: Exception) { dropSpare() }
+  }
+
+  private fun dropSpare() {
+    val old = spare ?: return
+    spare = null
+    if (old.target == null) runCatching { old.client.close() }
+  }
+
+  /** The spare for a new recording, or null when there is none worth adopting. */
+  private fun takeSpare(): Spare? {
+    val taken = spare ?: return null
+    spare = null
+    if (taken.dead) { runCatching { taken.client.close() }; return null }
+    return taken
+  }
+
   override fun start(target: VoiceTarget) {
     if (flow.value.phase != VoicePhase.Idle) cancel()
     active?.takeIf { it !== this }?.cancel()
@@ -68,7 +134,7 @@ class EngineVoiceInput(context: Context, private val settingsScope: String, priv
     deadline = 0
     deadlineArmed = false
     flow.value = VoiceState(operationId = operation, target = target, phase = VoicePhase.Preparing)
-    val connection = AudioClient(app, object : AudioClient.Listener {
+    val listener = object : AudioClient.Listener {
       override fun connected() {
         if (run != generation) return
         try {
@@ -93,7 +159,16 @@ class EngineVoiceInput(context: Context, private val settingsScope: String, priv
         if (run == generation && releaseWaiters.isNotEmpty()) { finishRelease(false); return }
         if (run == generation) fail("ENGINE_UNAVAILABLE")
       }
-    })
+    }
+    val adopted = takeSpare()
+    if (adopted != null) {
+      client = adopted.client
+      adopted.target = listener
+      // Already handshaken: open at once. Otherwise its handshake completes into this recording.
+      if (adopted.configured) listener.connected()
+      return
+    }
+    val connection = AudioClient(app, listener)
     client = connection
     try {
       connection.connect()
@@ -277,6 +352,8 @@ class EngineVoiceInput(context: Context, private val settingsScope: String, priv
     deadline = 0
     deadlineArmed = false
     if (active === this) active = null
+    // Still in the warm window (the home is in front): have the next hold's connection ready too.
+    if (connection != null && warmUntil > android.os.SystemClock.uptimeMillis()) main.post { ensureSpare() }
   }
 
   companion object {
@@ -284,6 +361,12 @@ class EngineVoiceInput(context: Context, private val settingsScope: String, priv
     private const val DEFAULT_DRAIN_MS = 5_000L
     /** Bounded transport grace after the Engine's drain deadline. */
     private const val TRANSPORT_GRACE_MS = 3_000L
+    /**
+     * How long a [prewarm] keeps a spare connection without another one. Bounded because a bound
+     * Engine stays alive and keeps its configuration subscription (and the broker's periodic
+     * snapshot) running; the entry's touch renews it.
+     */
+    private const val SPARE_IDLE_MS = 60_000L
     private val SERVICE = ComponentName("org.agentos.audio", "org.agentos.audio.AudioEngineService")
 
     /** The instance currently holding the microphone, across the home and the chat. */

@@ -360,6 +360,9 @@ class HomeController(val context: Context, val repo: FeedRepository, val pool: R
     assistant.open(EntryMode.Text)
   }
 
+  /** A finger is down on the entry: a hold may follow, so connect to the Audio Engine during the long-press wait. */
+  fun prepareVoiceHold() { assistant.prewarmVoice() }
+
   /** Long press on the entry: start listening (1-1). */
   fun startVoiceHold() {
     assistantExpanded = false

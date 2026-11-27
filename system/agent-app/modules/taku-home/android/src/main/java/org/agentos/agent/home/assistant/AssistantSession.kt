@@ -132,7 +132,7 @@ class AssistantSession private constructor(private val context: Context, private
 
   /** Speech recognition: the shared Audio Engine, scoped to the desktop entry's saved settings. */
   var voice: VoiceInput = EngineVoiceInput(context, settingsScope = DESKTOP_SCOPE)
-    set(value) { field.cancel(); field = value; watchVoice() }
+    set(value) { field.cancel(); field.releasePrewarm(); field = value; watchVoice() }
 
   /** One recording's result may be delivered once; this machine keeps that ownership. */
   private val delivery = VoiceDeliveryMachine(MAX_TEXT)
@@ -365,6 +365,18 @@ class AssistantSession private constructor(private val context: Context, private
     flow.update { it.copy(expansionRequest = ++expansionSequence) }
     startVoice(VoiceTarget.Hold, VoiceDestination.AwaitGesture)
   }
+
+  /**
+   * A hold may follow (the home is in front, a finger is on the entry): connect to the Audio Engine
+   * now, so the press only waits for the microphone. Never opens a session or the microphone.
+   */
+  fun prewarmVoice() {
+    if (live.snapshot?.open == true || voiceDeviceUnavailable()) return
+    voice.prewarm()
+  }
+
+  /** The home left the foreground: stop keeping the Engine connection for a hold. */
+  fun releaseVoicePrewarm() = voice.releasePrewarm()
 
   fun beginDesktopHold() {
     if (gesture.held || gesture.phase == VoiceGesture.Phase.Listening || gesture.phase == VoiceGesture.Phase.Continuous) return
@@ -1416,6 +1428,7 @@ class AssistantSession private constructor(private val context: Context, private
       .put("target", v.target?.name?.lowercase() ?: JSONObject.NULL)
       .put("phase", v.phase.name)
       .put("ready", v.ready).put("listening", v.listening).put("final", v.final)
+      .put("enginePrewarmed", voice.prewarmed)
       .put("transcript", v.transcript).put("preview", v.preview)
       .put("levels", JSONArray(v.levels.takeLast(VoiceState.LEVEL_HISTORY).map { it.toDouble() }))
       .put("levelSource", VoiceState.LEVEL_SOURCE)

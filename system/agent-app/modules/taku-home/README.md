@@ -556,6 +556,14 @@ Figma 1-1 … 1-6. Native Kotlin/Compose (`assistant/`, `ui/assistant/`); state 
   normalized from -60 dBFS to 0 dBFS into 0..1. `levels` and `levelSource:"pcm-rms"`
   expose the same values through `assistant/get`. Missing history stays still.
 
+  A hold waits only for the microphone. While the home is in front, and from the moment a
+  finger touches the entry (during the long-press wait), the home keeps one Audio Engine
+  connection bound and handshaken; the next recording adopts it as its own connection instead
+  of binding, possibly creating the Engine service, and waiting for its configuration after
+  the press. The spare never opens a session or the microphone, the Engine still reads the
+  current settings on every open, and it is released 60 s after the last renewal or when the
+  home stops. `voice.enginePrewarmed` in `assistant/get` reports it.
+
   The live transcript wraps across the text area and scrolls within the space above
   the keyboard. A separate centered waveform row keeps the text width clear. Its
   symmetric bars reach 32 dp and use a stronger display range for ordinary speech.
