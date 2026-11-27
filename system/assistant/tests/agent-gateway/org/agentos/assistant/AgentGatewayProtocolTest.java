@@ -146,6 +146,12 @@ public final class AgentGatewayProtocolTest {
         check(AgentGatewayProtocol.request("openSettings", "{\"page\":\"account\"}").getString("page").equals("account"));
         rejectsWithCode("INVALID_SETTINGS_PAGE", () -> AgentGatewayProtocol.request("openSettings", "{\"page\":\"login\"}"));
         rejects(() -> AgentGatewayProtocol.request("openMagpieManagement", "{\"url\":\"https://example.com\"}"));
+        check(AgentGatewayProtocol.request("openTakuAccount", "{}").length() == 0);
+        rejects(() -> AgentGatewayProtocol.request("openTakuAccount", "{\"url\":\"https://example.com\"}"));
+        check(AgentGatewayProtocol.request("takuAccountRefresh", "{}").length() == 0);
+        rejects(() -> AgentGatewayProtocol.request("takuAccountRefresh", "{\"password\":\"secret\"}"));
+        check(AgentGatewayProtocol.request("takuAccountLogout", "{}").length() == 0);
+        rejects(() -> AgentGatewayProtocol.request("takuAccountLogout", "{\"command\":\"sh\"}"));
         rejectsWithCode("UNSUPPORTED_PLUGIN_OPERATION", () -> AgentGatewayProtocol.request("pluginManager", "{\"operation\":\"rpc\"}"));
         rejectsWithCode("INVALID_argument", () -> AgentGatewayProtocol.request("pluginManager", "{\"operation\":\"show\",\"argument\":\"\"}"));
         rejectsWithCode("INVALID_name", () -> AgentGatewayProtocol.request("pluginManager", "{\"operation\":\"call-tool\",\"name\":false}"));

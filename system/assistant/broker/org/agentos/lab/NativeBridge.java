@@ -161,6 +161,7 @@ final class NativeBridge {
    case "imeReplies":answer=ImeReplies.control(input,uid);break;
    case "systemAi":answer=SystemAi.control(input);break;
    case "byok":answer=byok.control(input);break;
+   case "takuAccount":answer=TakuProxyRelay.control(input);break;
    case "ui":answer=SystemAi.ui(input);break;
    case "matter":answer=MatterBridge.control(input);break;
    case "matterAudio":answer=AudioBridge.control(input);break;

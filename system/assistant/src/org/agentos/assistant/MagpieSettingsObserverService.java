@@ -19,7 +19,7 @@ public final class MagpieSettingsObserverService extends Service {
  };
  final Runnable notify=new Runnable(){public void run(){try{NativeClient.async(new JSONObject().put("op","magpieSettingsChanged"),new NativeClient.Callback(){public void ready(JSONObject ignored){}public void failed(String ignored){main.postDelayed(notify,5000);}});}catch(Exception e){main.postDelayed(this,5000);}}};
  void notifyBroker(){main.removeCallbacks(notify);main.post(notify);}
- @Override public void onCreate(){super.onCreate();getContentResolver().registerContentObserver(Settings.Global.CONTENT_URI,true,observer);notifyBroker();}
+ @Override public void onCreate(){super.onCreate();TakuAccountTokenServer.ensureStarted(this);Thread init=new Thread(()->TakuAuthManager.get(getApplicationContext()).ensureUnlockedLoaded(),"taku-account-init");init.setDaemon(true);init.start();getContentResolver().registerContentObserver(Settings.Global.CONTENT_URI,true,observer);notifyBroker();}
  @Override public int onStartCommand(Intent intent,int flags,int startId){notifyBroker();return START_STICKY;}
  @Override public void onDestroy(){main.removeCallbacks(notify);getContentResolver().unregisterContentObserver(observer);super.onDestroy();}
  @Override public IBinder onBind(Intent intent){return null;}

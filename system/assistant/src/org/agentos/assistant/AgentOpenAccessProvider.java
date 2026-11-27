@@ -80,6 +80,7 @@ public final class AgentOpenAccessProvider extends ContentProvider {
         boolean composer = method.startsWith("composer/") && !AgentGatewayProtocol.COMPOSER_IMPORT.equals(method);
         Context context = getContext();
         if (composer || method.startsWith("capture/") || method.startsWith("accounts/") || method.startsWith("requests/") ||
+                method.startsWith("taku_account/") || method.startsWith("taku_account_") ||
                 method.equals("readTaskDetail") || SYSTEM_AI.contains(method) || TURN_CONTROL.contains(method) ||
                 method.equals("manageAssistant") || method.equals("sessions/removals")) {
             String code = ComposerState.userError(context, caller);
@@ -200,6 +201,61 @@ public final class AgentOpenAccessProvider extends ContentProvider {
                         : TaskRequests.cancelQueued(thread, validated.getString("taskId"));
             } else if (SYSTEM_AI.contains(method)) {
                 result = SystemAiUiBridge.execute(context, method, AgentGatewayProtocol.request(method, arg));
+            } else if (method.equals("taku_account/status") || method.equals("taku_account_status")) {
+                only(input);
+                TakuAccountTokenServer.ensureStarted(context);
+                result = TakuAuthManager.get(context).status();
+            } else if (method.equals("taku_account/login_password") || method.equals("taku_account_login_password")) {
+                only(input, "email", "password", "passwordFile");
+                TakuAccountTokenServer.ensureStarted(context);
+                String email = input.optString("email", "");
+                String password = input.optString("password", "");
+                if (password.isEmpty() && input.has("passwordFile")) {
+                    if (caller != 0 && caller != android.os.Process.SYSTEM_UID && caller != android.os.Process.SHELL_UID) {
+                        throw new IOException("INVALID_ARGUMENT");
+                    }
+                    String passwordFile = input.optString("passwordFile", "").trim();
+                    if (passwordFile.isEmpty()) throw new IOException("INVALID_ARGUMENT");
+                    byte[] rawBytes = java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(passwordFile));
+                    if (rawBytes.length > 4096) {
+                        java.util.Arrays.fill(rawBytes, (byte) 0);
+                        throw new IOException("INVALID_ARGUMENT");
+                    }
+                    password = new String(rawBytes, StandardCharsets.UTF_8).replaceAll("[\\r\\n]+$", "");
+                    java.util.Arrays.fill(rawBytes, (byte) 0);
+                }
+                result = TakuAuthManager.get(context).loginWithPassword(email, password);
+            } else if (method.equals("taku_account/login_oauth_start") || method.equals("taku_account_login_oauth_start")) {
+                only(input, "redirectUri", "redirect_uri", "launchBrowser");
+                if (input.has("launchBrowser") && !(input.get("launchBrowser") instanceof Boolean)) {
+                    throw new IOException("INVALID_ARGUMENT");
+                }
+                TakuAccountTokenServer.ensureStarted(context);
+                String redirectUri = input.has("redirectUri")
+                        ? input.optString("redirectUri", "")
+                        : input.optString("redirect_uri", "");
+                result = TakuAuthManager.get(context).startGoogleOAuth(redirectUri.isEmpty() ? null : redirectUri);
+                if (input.optBoolean("launchBrowser", false)) {
+                    boolean launched = false;
+                    try {
+                        context.startActivity(
+                                new android.content.Intent(
+                                                android.content.Intent.ACTION_VIEW,
+                                                Uri.parse(result.getString("authorizeUrl")))
+                                        .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK));
+                        launched = true;
+                    } catch (Exception ignored) {
+                    }
+                    result.put("browserLaunched", launched);
+                }
+            } else if (method.equals("taku_account/refresh") || method.equals("taku_account_refresh")) {
+                only(input);
+                TakuAccountTokenServer.ensureStarted(context);
+                result = TakuAuthManager.get(context).refreshAccount();
+            } else if (method.equals("taku_account/logout") || method.equals("taku_account_logout")) {
+                only(input);
+                TakuAccountTokenServer.ensureStarted(context);
+                result = TakuAuthManager.get(context).logout();
             } else throw new IOException("UNKNOWN_METHOD");
             envelope = new JSONObject().put("ok", true).put("result", result);
             return transport(out, envelope, caller);

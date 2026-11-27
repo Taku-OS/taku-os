@@ -54,6 +54,14 @@ type Model = {
   imageInput?: boolean;
 };
 type Group = { id: string; name?: string; members: string[] };
+type TakuAccountState = {
+  authState: string;
+  email?: string | null;
+  providerRegistered?: boolean;
+  transientOffline?: boolean;
+  creditsBalance?: number | null;
+  priorityHint?: string;
+};
 type State = {
   enabled: boolean;
   assistScreenshotsEnabled: boolean;
@@ -68,6 +76,7 @@ type State = {
   usage: UsageRecord[];
   audioAvailable: boolean;
   providers: { name: string; configured: boolean }[];
+  takuAccount?: TakuAccountState;
 };
 type UsageRecord = {
   consumer: string;
@@ -294,6 +303,7 @@ function FeatureIcon({ name, color }: { name: string; color: string }) {
     text: <Path d="M4 5h16M12 5v14M8 19h8M5 9v-4M19 9v-4" />,
     manage: <><Rect x="4" y="4" width="16" height="16" rx="3" /><Path d="M8 9h8M8 13h8M8 17h5" /></>,
     shield: <><Path d="M12 3 5 6v5c0 4.5 3 8.3 7 10 4-1.7 7-5.5 7-10V6l-7-3Z" /><Path d="m9 12 2 2 4-4" /></>,
+    account: <><Circle cx="12" cy="8.5" r="3.5" /><Path d="M5 20a7 7 0 0 1 14 0" /></>,
   };
   return <Svg width={24} height={24} viewBox="0 0 24 24" {...common}>{paths[name]}</Svg>;
 }
@@ -585,6 +595,55 @@ export default function SystemAiScreen() {
     try { await callAgent("openMagpieManagement"); }
     catch { ToastAndroid.show(t("openMagpieFailed"), ToastAndroid.LONG); }
   };
+  const openTakuAccount = async () => {
+    try { await callAgent("openTakuAccount"); }
+    catch { ToastAndroid.show("Could not open Taku Credits", ToastAndroid.LONG); }
+  };
+  const refreshTakuAccount = async () => {
+    if (updating.current) return;
+    updating.current = true;
+    setBusy(true);
+    try {
+      await callAgent("takuAccountRefresh");
+      ToastAndroid.show("Refreshed", ToastAndroid.SHORT);
+    } catch {
+      ToastAndroid.show("Network unavailable", ToastAndroid.LONG);
+    } finally {
+      updating.current = false;
+      setBusy(false);
+      void refresh();
+    }
+  };
+  const confirmTakuLogout = () => {
+    Alert.alert(
+      "Sign out",
+      "You will stop using Taku Credits.",
+      [
+        { text: t("cancel"), style: "cancel" },
+        {
+          text: "Sign out",
+          style: "destructive",
+          onPress: () => {
+            void (async () => {
+              if (updating.current) return;
+              updating.current = true;
+              setBusy(true);
+              try {
+                await callAgent("takuAccountLogout");
+                ToastAndroid.show("Signed out", ToastAndroid.SHORT);
+              } catch {
+                ToastAndroid.show("Sign out failed. Retry later.", ToastAndroid.LONG);
+              } finally {
+                updating.current = false;
+                setBusy(false);
+                void refresh();
+              }
+            })();
+          },
+        },
+      ],
+    );
+  };
   const openFeature = async (feature: "audio" | "ime" | "memory") => {
     try { await callAgent("manageSystemAi", { operation: "openFeature", feature }); }
     catch (problem) { ToastAndroid.show(failure(problem), ToastAndroid.LONG); }
@@ -785,6 +844,68 @@ export default function SystemAiScreen() {
                 <Label color={palette.ink} size={14} style={{ flex: 1 }}>{provider.name}</Label>
                 <Label color={palette.sub} size={13}>{provider.configured ? "Credential configured" : "No credential"}</Label>
               </View>)}
+            </View>
+            <View style={[styles.card, { backgroundColor: palette.card, marginTop: 12 }]}>
+              {data.takuAccount?.authState === "signed_in" ||
+              data.takuAccount?.authState === "refreshing" ? (
+                <View style={styles.accountBox}>
+                  <Row
+                    palette={palette}
+                    title="Taku Credits"
+                    sub={`${data.takuAccount.email || "Signed in"}${typeof data.takuAccount.creditsBalance === "number" ? ` · ${data.takuAccount.creditsBalance.toFixed(2)} Credits` : ""}`}
+                    icon="account"
+                    onPress={() => void openTakuAccount()}
+                  />
+                  <View style={styles.accountFooter}>
+                    <View style={[styles.badge, { backgroundColor: palette.soft }]}>
+                      <Label color={data.takuAccount.transientOffline ? "#B76E00" : palette.sub} size={12}>
+                        {data.takuAccount.transientOffline
+                          ? "Offline"
+                          : data.takuAccount.providerRegistered
+                            ? "Available"
+                            : "Connecting"}
+                      </Label>
+                    </View>
+                    <View style={{ flexDirection: "row", gap: 16 }}>
+                      <Pressable
+                        accessibilityRole="button"
+                        disabled={busy}
+                        onPress={() => void refreshTakuAccount()}
+                      >
+                        <Label color={colors.brand} size={13} medium>
+                          Refresh
+                        </Label>
+                      </Pressable>
+                      <Pressable
+                        accessibilityRole="button"
+                        disabled={busy}
+                        onPress={confirmTakuLogout}
+                      >
+                        <Label color="#CC2A4A" size={13} medium>
+                          Sign out
+                        </Label>
+                      </Pressable>
+                    </View>
+                  </View>
+                </View>
+              ) : (
+                <Row
+                  palette={palette}
+                  title="Taku Credits"
+                  sub={
+                    data.takuAccount?.authState === "expired"
+                      ? "Session expired"
+                      : "Not signed in"
+                  }
+                  issue={
+                    data.takuAccount?.authState === "expired"
+                      ? "Session expired"
+                      : undefined
+                  }
+                  icon="account"
+                  onPress={() => void openTakuAccount()}
+                />
+              )}
             </View>
             <View style={styles.section}>
               <Label color={palette.ink} size={18} medium>Apps and features</Label>
@@ -992,6 +1113,14 @@ const styles = StyleSheet.create({
   sheetChip: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
   managementLink: { paddingVertical: 16, alignItems: "center" },
   manage: { marginTop: 24 },
+  accountBox: { width: "100%" },
+  accountFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
   dot: { width: 8, height: 8, borderRadius: 4 },
   divider: { height: StyleSheet.hairlineWidth, marginVertical: 8 },
   page: { padding: 16 },

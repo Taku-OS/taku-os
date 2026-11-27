@@ -19,3 +19,5 @@ f9026a95b0093e181ef824947624cf94bb48f6b4:system/agent-app/modules/taku-home/andr
 # SHA-256 content digest of SecretField.tsx in the TakuAgent 0.5.2 code 14 source-input lock, not a credential.
 # Verified against the exact 859cc006 source blob bound by this APK release.
 319d262a6210db7d557ad96ed8ce41a5a10cb6f5:image/runtime-assets.lock.json:generic-api-key:534
+# Public Supabase publishable client key for auth.taku.ai (designed for client apps, not a private secret).
+299c2168174d34c325b4a4477b271b6e9d9b05d8:system/assistant/src/org/agentos/assistant/TakuAccountClient.java:generic-api-key:20

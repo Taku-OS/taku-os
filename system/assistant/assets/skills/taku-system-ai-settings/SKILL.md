@@ -22,8 +22,8 @@ content call --uri content://org.agentos.assistant.open-access --method manageSy
 ```
 
 `readSystemAi` returns `enabled`, `connected`, `assistantMode`, `assistantModel`,
-`jevEnabled`, `models`, `groups`, `bindings`, `providers`, `apps`, `usage`, and
-`audioAvailable`. `apps` contains `{id,name,enabled}` for each registered consumer.
+`jevEnabled`, `models`, `groups`, `bindings`, `providers`, `apps`, `usage`,
+`audioAvailable`, and `takuAccount`. `apps` contains `{id,name,enabled}` for each registered consumer.
 `providers` contains `{name,configured}` without credentials. `usage` contains
 `{consumer,model,at,elapsedMs,status,code}` for retained system AI calls.
 `at` is epoch milliseconds. Requests, responses, images, and credentials are absent.
@@ -111,6 +111,42 @@ Any other value reads as `dark`. The settings page writes the same key; if Andro
 write it says so and keeps the previous appearance. Where the device cannot blur (battery saver, no
 GPU blur) the window shows an opaque fallback instead: `#121212` for Dark, `#E3E3E3` for Light.
 
+
+## Taku Account (Taku Credits fallback)
+
+The built-in `taku-credits` provider is a secondary fallback channel for already-registered `taku.ai` users to spend Taku Credits. Configured BYOK providers and personal subscriptions (such as ChatGPT subscription) retain strictly higher priority. Signing in or out of Taku Credits never overwrites existing BYOK keys, ChatGPT connection mode, or Taku Audio voice settings.
+
+Non-secret account status is mirrored in `Settings.Global` (updated by the same `TakuAuthManager` owner as the Taku Credits UI):
+
+```sh
+settings get global taku_account_state
+```
+
+`taku_account_state` contains sanitized JSON only (`authState`, `userUnlocked`, `providerId`, `providerRegistered`, `transientOffline`, `priorityHint`, `email`, `creditsBalance`, `creditsUpdatedAt`). Access tokens, refresh tokens, passwords, Keystore keys, and local relay tokens never enter Settings, command logs, or responses.
+
+All account actions use the same native `TakuAuthManager` authority via `content://org.agentos.assistant.open-access` (with `taku.control` required for `taku_account/status`, `taku.root` required for mutating methods, and the primary Android user guard):
+
+```sh
+content call --uri content://org.agentos.assistant.open-access --method taku_account/status
+content call --uri content://org.agentos.assistant.open-access --method taku_account/login_password --arg '{"email":"user@example.com","password":"..."}'
+content call --uri content://org.agentos.assistant.open-access --method taku_account/login_oauth_start --arg '{"launchBrowser":true}'
+content call --uri content://org.agentos.assistant.open-access --method taku_account/refresh
+content call --uri content://org.agentos.assistant.open-access --method taku_account/logout
+```
+
+Underscore aliases (`taku_account_status`, `taku_account_login_password`, `taku_account_login_oauth_start`, `taku_account_refresh`, `taku_account_logout`) are also accepted. Shell/root callers may alternatively supply `"passwordFile"` instead of `"password"` on `taku_account/login_password` to avoid exposing credentials in command arguments; because `org.agentos.assistant` runs as `system_app` (UID 1000), `/data/local/tmp` (`shell_data_file`) is denied by SELinux, so place `passwordFile` in an app-readable location (for example `/data/user/0/org.agentos.assistant/cache/` with matching label) or pass `"password"` directly. Unknown keys return `UNSUPPORTED_PARAMETER`.
+
+| Method | Parameters | Response (`Bundle.result` `ok:true`) | Error codes |
+| --- | --- | --- | --- |
+| `taku_account/status` | None | Sanitized `TakuAccountState` JSON | `PERMISSION_DENIED`, `ERR_USER_LOCKED` |
+| `taku_account/login_password` | `email`, `password` (or `passwordFile` for root/shell) | Verified `TakuAccountState` JSON with `providerRegistered:true` | `PERMISSION_DENIED`, `ERR_USER_LOCKED`, `ERR_INVALID_ARGUMENT`, `ERR_INVALID_CREDENTIALS`, `ERR_TRANSIENT_OFFLINE` |
+| `taku_account/login_oauth_start` | Optional `redirectUri` (`redirect_uri`), optional boolean `launchBrowser` | `{authState:"oauth_pending", authorizeUrl, redirectUri, browserLaunched?}` | `PERMISSION_DENIED`, `ERR_USER_LOCKED`, `ERR_ALREADY_SIGNED_IN`, `ERR_INVALID_REDIRECT_URI` |
+| `taku_account/refresh` | None | Refreshed `TakuAccountState` with `creditsBalance` | `PERMISSION_DENIED`, `ERR_USER_LOCKED`, `ERR_NOT_SIGNED_IN`, `ERR_TRANSIENT_OFFLINE`, `ERR_TOKEN_EXPIRED` |
+| `taku_account/logout` | None | Cleared `TakuAccountState` (`signed_out`, `providerRegistered:false`) | `PERMISSION_DENIED`, `ERR_USER_LOCKED` |
+
+Limitations and upstream boundary:
+- Google OAuth (`taku_account/login_oauth_start`) generates the PKCE authorization URL and optionally opens the system browser; completing third-party Google sign-in and consent remains interactive in the browser and redirects back to `taku-account://auth/callback`. All other operations (`status`, `login_password`, `refresh`, `logout`) execute end-to-end without GUI interaction.
+- On-device UI and Agent APIs are login-only (no signup or password reset flows); use an existing `taku.ai` account.
 
 ## Taku Audio settings
 

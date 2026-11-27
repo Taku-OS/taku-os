@@ -224,7 +224,7 @@ class AgentGatewayProvider : ContentProvider() {
                 return audioCommand(AgentGatewayProtocol.request("audioCommand", params.toString()))
             }
             "readSystemAi", "setSystemAi", "bindSystemAi", "bindSystemAiModel", "reorderSystemAi", "restoreSystemAi",
-            "deleteSystemAiGroup", "manageSystemAi" ->
+            "deleteSystemAiGroup", "manageSystemAi", "openTakuAccount", "takuAccountRefresh", "takuAccountLogout" ->
                 return SystemAiUiBridge.execute(context!!, action, input)
             "openMagpieManagement" -> {
                 AssistantAccounts.openMagpie(context!!)

@@ -146,6 +146,27 @@ public final class TaskBroker {
         recoverInterrupted();
         retirePanelCapabilities();
         AccountBridge.start();
+        TakuCreditsCatalog.setDefaultProjection(MagpieSettings::sync);
+        TakuProxyRelay.configureRuntime(
+                new TakuProxyRelay.ProviderStoreBridge() {
+                    @Override
+                    public void register(String relayToken) throws Exception {
+                        TakuCreditsCatalog.registerProvider(
+                                SystemAi.SETTINGS, MagpieSettings.FILE, MagpieSettings.SECRETS, relayToken);
+                    }
+
+                    @Override
+                    public void unregister() throws Exception {
+                        TakuCreditsCatalog.unregisterProvider(
+                                SystemAi.SETTINGS, MagpieSettings.FILE, MagpieSettings.SECRETS);
+                    }
+                },
+                () -> {
+                    if (!MagpieSettings.SECRETS.isFile()) return false;
+                    return new JSONObject(TaskBroker.read(MagpieSettings.SECRETS))
+                            .has(TakuCreditsCatalog.PROVIDER_ID);
+                });
+        TakuProxyRelay.start();
         NativeBridge.start();
         MagpieSettings.start();
         for (; ; ) {
