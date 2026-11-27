@@ -44,7 +44,7 @@ final class AgentSkills {
         TaskBroker.write(receipt,HarnessStore.canonical(value));
     }
     static synchronized void ensureBuiltin() throws Exception {
-        for(String name:new String[]{"taku-app-development","taku-system-ai-settings","taku-open-access","taku-plugin-creator"})
+        for(String name:new String[]{"taku-app-development","taku-system-ai-settings","taku-open-access","taku-plugin-creator","taku-figma-motion"})
             ensureBuiltin(name);
         retireBuiltin("taku-panels");
     }

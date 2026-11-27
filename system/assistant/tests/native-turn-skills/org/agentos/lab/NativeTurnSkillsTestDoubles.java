@@ -182,3 +182,7 @@ final class SkillCommunity {
     static void add(String repo, String path, boolean privateRepo) { throw new AssertionError("Unexpected community write"); }
     static JSONObject install(String source, String name, String commit) { throw new AssertionError("Unexpected install"); }
 }
+
+final class NotebookXSource {
+    static boolean onEvent(JSONObject event) { return false; }
+}
