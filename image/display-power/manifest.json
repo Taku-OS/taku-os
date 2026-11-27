@@ -1,0 +1,12 @@
+{
+  "schema": "taku.display-power-patch/1",
+  "upstreamCommit": "7f6de40b6429462d47ba9ba351b99943269c8067",
+  "patchSha256": "1d11b738311258aa82616067b2228c9042544e435970e2b68047a03cc1e83ad6",
+  "files": [
+    {
+      "path": "services/core/java/com/android/server/display/LogicalDisplayMapper.java",
+      "beforeSha256": "9b838702c21363cdd7da0cf3e7571c5431d7a42a72f457a5d739fcc6f94106cb",
+      "afterSha256": "8a118fe823e23759e56ebc410f703ae848c5eb0ccbfa9c4798ab7a4cf06aa9d9"
+    }
+  ]
+}

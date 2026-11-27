@@ -76,3 +76,9 @@ Historical Android 16 ARM64 userdebug / SELinux Enforcing emulator records demon
 App data and single-instance tasks remain shared. The display host does not arbitrate conflicts between users and Agents. Each app's window, input, media, and login compatibility needs separate acceptance. Historical Douyin green/color-pattern decoding artifacts also occurred on the main screen alone; they do not establish support for every third-party video app. This multiple-slot version passed the three real Pixel 9 queries above, not all apps or complete failure recovery. Full ROM integration and acceptance remain pending.
 
 Codec/texture diagnostics are separated into `tooling/diagnostics/` and excluded from the background-display runtime JAR. Historical related records are in `evidence/api-inventory/historical/`. Neighboring experiment-directory locations document provenance only and are not clean-checkout dependencies.
+
+## Android 17 display power groups (BUG-0034)
+
+The pinned framework's separate-timeouts content-mode allocator can put a virtual display back in group 0 even when it requests `OWN_DISPLAY_GROUP`. `image/apply-display-power-patch.py` preserves that explicit request in both image build paths. This requires rebuilding `services`/the framework image; the APK and display JAR alone are insufficient.
+
+Verify the actual `displayGroupId` with `dumpsys display`, then repeat main-screen sleep, background capture/input, and wake. A held wake lock and `alwaysUnlocked:true` do not prove a separate power group. Keep the main display OFF throughout the background check. Static image timestamps need not advance without rendering; an observed input-driven change distinguishes that from a frozen screen.

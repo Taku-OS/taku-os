@@ -39,6 +39,7 @@ python3 /taku/image/apply-recents-patches.py --source-root /src --results-dir /r
 if [ -f /taku/image/apply-display-audio-patch.py ]; then
     python3 /taku/image/apply-display-audio-patch.py --source-root /src --results-dir /results
 fi
+python3 /taku/image/apply-display-power-patch.py --source-root /src --results-dir /results
 python3 /taku/image/apply-island-patches.py --source-root /src --results-dir /results
 python3 /taku/image/apply-island-patches.py --source-root /src --results-dir /results --verify-only
 python3 /taku/image/apply-lockscreen-patches.py --source-root /src --results-dir /results

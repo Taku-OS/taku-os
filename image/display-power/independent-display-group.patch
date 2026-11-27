@@ -1,0 +1,15 @@
+--- a/services/core/java/com/android/server/display/LogicalDisplayMapper.java
++++ b/services/core/java/com/android/server/display/LogicalDisplayMapper.java
+@@ -1204,7 +1204,11 @@
+         // Choose a display group based on the content mode type of the display.
+         String requiredGroupType = GROUP_TYPE_PRIMARY;
+ 
+-        if (mFlags.isSeparateTimeoutsEnabled() && TextUtils.isEmpty(groupName)) {
++        // An explicitly independent virtual display must not inherit the primary display's
++        // power group. Desktop content-mode grouping otherwise maps it back to group 0, so the
++        // power key sleeps its apps despite OWN_DISPLAY_GROUP and a display-scoped wake lock.
++        if (mFlags.isSeparateTimeoutsEnabled() && TextUtils.isEmpty(groupName)
++                && (displayDeviceInfo.flags & DisplayDeviceInfo.FLAG_OWN_DISPLAY_GROUP) == 0) {
+             requiredGroupType = mDisplayGroupAllocator.decideRequiredGroupTypeLocked(
+                     display, displayDeviceInfo.type);
+             decidedGroupId = calculateGroupId(requiredGroupType, mDisplayGroups);

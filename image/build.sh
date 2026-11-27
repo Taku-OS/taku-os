@@ -96,6 +96,7 @@ PY
     if [ -f /taku/image/apply-display-audio-patch.py ]; then
         python3 /taku/image/apply-display-audio-patch.py --source-root /src --results-dir /results
     fi
+    python3 /taku/image/apply-display-power-patch.py --source-root /src --results-dir /results
     integrate_home_policy
     # Complete snapshots contain the pinned island implementation; historical narrow snapshots do not.
     if [ -f /taku/image/island/manifest.json ]; then
@@ -121,6 +122,7 @@ elif [[ "${1:-}" = "--resume" || "${1:-}" = "--verify-only" ]]; then
     if [ -f /taku/image/apply-display-audio-patch.py ]; then
         python3 /taku/image/apply-display-audio-patch.py --source-root /src --results-dir /results --verify-only
     fi
+    python3 /taku/image/apply-display-power-patch.py --source-root /src --results-dir /results --verify-only
     python3 /taku/image/apply-launcher-patches.py --source-root /src --results-dir /results --verify-only
     if [ -f /taku/image/island/manifest.json ]; then
         python3 /taku/image/apply-island-patches.py --source-root /src --results-dir /results --verify-only

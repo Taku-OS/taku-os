@@ -368,6 +368,10 @@ Policy is saved before cleanup. Read `revocations` by generation: pending, relea
 
 To match the Taku Home bookmark count, count `result.screens` rows with `homePreviewEligible:true`. An explicit close keeps the row counted with `stopping:true` until the broker removes it. The bookmark opens a blurred Home view with sharp preview cards. The **×** below a card releases that workspace without a confirmation dialog. Home previews return to the previous Home page on exit. A live viewer opened outside Home can also minimize to a movable preview.
 
+### Background screens while the main screen sleeps
+
+The Android 17 image includes the independent display power-group patch. Updating only the Agent APK, broker, or display JAR does not install that framework fix. `alwaysUnlocked:true` and `keptAwake:true` alone do not prove power isolation: use `dumpsys display` to confirm the selected workspace display has a nonzero `displayGroupId`, and `dumpsys power` to check its power group separately from group 0. The main display can be OFF while the workspace is ON. Continue using `observe_background` for actual image/frame evidence; `SCREEN_OFF` or `SCREEN_BLACK_FRAME` is a failure, not an empty app page. A static page may keep the same frame timestamp; verify a screen interaction before treating unchanged frame metadata as a stall.
+
 ### Force-close a specified workspace
 
 ```sh
