@@ -81,7 +81,12 @@ while an icon is dragged past the last app page, and an app page other than 0 di
   repairs the selected voice service in VoiceInteractionManager, before any Activity starts.
   `HomeRole` additionally repairs roles/bindings on boot, unlock and app update. Hardware
   assistant entry opens the new Home AI input; handle gestures retain their existing
-  text/voice overlay. Quickstep still implements navigation/overview, with HOME targeting
+  text/voice overlay. The input opens as soon as the system screenshot arrives (at most
+  300 ms after the session shows, so the screenshot is of the user's screen, not the overlay).
+  It does not wait for the page context: the session stays shown in the background until the
+  screenshot and foreground page are handed to the gateway (at most 5 s), and the first message
+  sent after that carries them. A message sent before the handoff finishes goes without the
+  screenshot. Quickstep still implements navigation/overview, with HOME targeting
   this app. Advanced native controls and background task ownership remain in the backend.
 
 ## Data pipeline
