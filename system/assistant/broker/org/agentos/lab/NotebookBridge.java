@@ -16,12 +16,24 @@ import org.json.JSONObject;
 /** Real Notebook records; no independent bookmark store or model-authored reference metadata. */
 final class NotebookBridge {
     static final String SCHEMA = "taku.notebook.references/1";
-    private static final Set<String> granted = new HashSet<>();
+    private record ReferenceGrant(int user, String id) {}
+    private static final Set<ReferenceGrant> granted = new HashSet<>();
 
-    static JSONObject provider(String method, JSONObject args) throws Exception {
+    private static final class UserChanged extends IOException {
+        UserChanged() { super("ANDROID_USER_CHANGED"); }
+    }
+
+    static void requireCurrentUser(int user) throws Exception {
         if (Thread.currentThread().isInterrupted()) throw new InterruptedException();
-        String output = TaskBroker.command("/system/bin/timeout", "10", "/system/bin/content", "call", "--user", "0",
-                "--uri", "content://org.agentos.notebook", "--method", method, "--arg", args.toString()).trim();
+        if (PhoneAppCatalog.currentUser() != user) throw new UserChanged();
+    }
+
+    static JSONObject provider(int user, String method, JSONObject args) throws Exception {
+        requireCurrentUser(user);
+        String output = TaskBroker.command("/system/bin/timeout", "10", "/system/bin/content", "call",
+                "--user", Integer.toString(user), "--uri", "content://org.agentos.notebook",
+                "--method", method, "--arg", args.toString()).trim();
+        requireCurrentUser(user);
         String prefix = "Result: Bundle[{result=";
         if (!output.startsWith(prefix) || !output.endsWith("}]")) throw new IOException("NOTEBOOK_UNAVAILABLE");
         JSONObject response = new JSONObject(output.substring(prefix.length(), output.length()-2));
@@ -35,37 +47,44 @@ final class NotebookBridge {
         JSONObject query = new JSONObject(args.toString());
         int limit = query.optInt("limit", 3);
         if (limit < 1 || limit > 3) throw new IOException("INVALID_PAGE");
+        int user = PhoneAppCatalog.currentUser();
         boolean filtered = query.has("query") || query.has("queryAliases") || query.has("category");
         query.put("limit", limit);
-        JSONObject result = filtered ? provider("recall", query)
-                : provider("queryEntries", query.put("sort", "newest"));
+        JSONObject result = filtered ? provider(user, "recall", query)
+                : provider(user, "queryEntries", query.put("sort", "newest"));
         JSONArray source = result.getJSONArray("items"), items = new JSONArray();
         for (int i=0; i<source.length() && items.length()<limit; i++) {
             String id = source.getJSONObject(i).getString("id");
             // The same provider re-reads this ID and grants only its immutable image to the UI.
-            JSONObject reference = provider("reference", new JSONObject().put("id", id));
+            JSONObject reference = provider(user, "reference", new JSONObject().put("id", id));
             items.put(reference);
-            synchronized (granted) { granted.add(id); }
+            synchronized (granted) { granted.add(new ReferenceGrant(user, id)); }
         }
-        JSONObject response = PhoneNativeTools.text(new JSONObject().put("schema", SCHEMA).put("items", items).toString());
+        JSONObject response = PhoneNativeTools.text(new JSONObject().put("schema", SCHEMA)
+                .put("androidUserId", user).put("items", items).toString());
         if (items.length() > 0) {
             try {
                 response.getJSONArray("contentItems").put(new JSONObject().put("type", "inputImage")
-                        .put("imageUrl", imagePreview(items.getJSONObject(0))));
+                        .put("imageUrl", imagePreview(user, items.getJSONObject(0))));
+            } catch (UserChanged changed) {
+                throw changed;
             } catch (IOException unavailable) {
                 // The exact saved reference and its URI remain available to the app and to the user.
             }
         }
+        requireCurrentUser(user);
         return response;
     }
 
-    private static String imagePreview(JSONObject reference) throws Exception {
+    private static String imagePreview(int user, JSONObject reference) throws Exception {
         String id = reference.getString("id");
         String uri = "content://org.agentos.notebook/images/" + id;
         if (!id.matches("[a-f0-9]{64}") || !uri.equals(reference.optString("imageUri"))) {
             throw new IOException("NOTEBOOK_IMAGE_REFERENCE_INVALID");
         }
-        var command = new ProcessBuilder("/system/bin/timeout", "8", "/system/bin/content", "read", "--user", "0", "--uri", uri)
+        requireCurrentUser(user);
+        var command = new ProcessBuilder("/system/bin/timeout", "8", "/system/bin/content", "read",
+                "--user", Integer.toString(user), "--uri", uri)
                 .redirectError(new java.io.File("/dev/null"));
         Process process = command.start();
         byte[] data;
@@ -77,6 +96,7 @@ final class NotebookBridge {
         } finally {
             if (process.isAlive()) process.destroyForcibly();
         }
+        requireCurrentUser(user);
         String checksum = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(data));
         if (!checksum.equals(reference.optString("sha256"))) throw new IOException("NOTEBOOK_IMAGE_CHANGED");
         var options = new BitmapFactory.Options();
@@ -107,12 +127,14 @@ final class NotebookBridge {
             case "source" -> "openSource";
             default -> throw new IOException("INVALID_ARGUMENT");
         };
-        return PhoneNativeTools.text(provider(method,new JSONObject().put("id",args.getString("id"))).toString());
+        int user = PhoneAppCatalog.currentUser();
+        return PhoneNativeTools.text(provider(user, method, new JSONObject().put("id", args.getString("id"))).toString());
     }
 
     /** Re-establish image grants when an actual native history is reopened after a reboot. */
     static void refreshReferenceGrants(JSONObject thread) {
         JSONArray turns=thread.optJSONArray("turns"); if(turns==null)return;
+        Integer user = null;
         int remaining=12;
         for(int t=turns.length()-1;t>=0&&remaining>0;t--) {
             JSONObject turn=turns.optJSONObject(t);
@@ -128,12 +150,28 @@ final class NotebookBridge {
                     JSONObject block=content.getJSONObject(c);if(!"inputText".equals(block.optString("type")))continue;
                     JSONObject payload=new JSONObject(block.getString("text"));if(!SCHEMA.equals(payload.optString("schema")))continue;
                     JSONArray refs=payload.getJSONArray("items");
+                    if (refs.length() == 0) continue;
+                    if (user == null) user = PhoneAppCatalog.currentUser();
+                    boolean hasOwner = payload.has("androidUserId");
+                    if (hasOwner && payload.optInt("androidUserId", -1) != user) continue;
                     for(int r=0;r<refs.length()&&remaining>0;r++) {
-                        String id=refs.getJSONObject(r).getString("id");
-                        synchronized(granted){if(granted.contains(id))continue;}
-                        remaining--;provider("reference",new JSONObject().put("id",id));
-                        synchronized(granted){granted.add(id);}
+                        JSONObject saved = refs.getJSONObject(r);
+                        String id = saved.getString("id");
+                        ReferenceGrant grant = new ReferenceGrant(user, id);
+                        synchronized (granted) { if (granted.contains(grant)) continue; }
+                        remaining--;
+                        JSONObject reference = new JSONObject().put("id", id);
+                        // Match an older receipt's original bytes before renewing its grant.
+                        if (!hasOwner) {
+                            String hash = saved.optString("sha256");
+                            if (!hash.matches("[a-f0-9]{64}")
+                                    || !hash.equals(provider(user, "get", reference).optString("sha256"))) continue;
+                        }
+                        provider(user, "reference", reference);
+                        synchronized (granted) { granted.add(grant); }
                     }
+                } catch (UserChanged changed) {
+                    return;
                 } catch(Exception unavailable) { /* Deleted/unavailable originals remain unavailable in the UI. */ }
             }
         }

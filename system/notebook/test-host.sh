@@ -17,15 +17,17 @@ if not path.exists():
     path.write_bytes(data)
 if hashlib.sha256(path.read_bytes()).hexdigest() != digest: raise SystemExit('Unexpected host JSON checksum')
 PY
-"$JDK/bin/javac" --release 17 -cp "$task_json" -d "$task_out/classes" \
+"$JDK/bin/javac" --release 17 -cp "$task_json:$ANDROID_JAR" -d "$task_out/classes" \
   system/ai/client/org/agentos/ai/NotebookSocialSource.java \
   system/notebook/src/org/agentos/notebook/NotebookRecall.java \
+  system/assistant/broker/org/agentos/lab/NotebookBridge.java \
+  system/assistant/broker/org/agentos/lab/PhoneAppCatalog.java \
   system/assistant/broker/org/agentos/lab/NotebookVideoSource.java \
   system/assistant/broker/org/agentos/lab/NotebookXPostEvidence.java \
   system/assistant/broker/org/agentos/lab/AgentViewProjection.java \
   system/notebook/tests/org/agentos/notebook/NotebookRecallTest.java \
   system/notebook/tests/org/agentos/lab/*.java
-for task_test in org.agentos.notebook.NotebookRecallTest org.agentos.lab.NotebookVideoSourceTest org.agentos.lab.NotebookXPostEvidenceTest org.agentos.lab.NotebookVideoProjectionProbe; do
-  "$JDK/bin/java" -cp "$task_out/classes:$task_json" "$task_test"
+for task_test in org.agentos.notebook.NotebookRecallTest org.agentos.lab.NotebookVideoSourceTest org.agentos.lab.NotebookXPostEvidenceTest org.agentos.lab.NotebookVideoProjectionProbe org.agentos.lab.NotebookBridgeUserTest; do
+  "$JDK/bin/java" -cp "$task_out/classes:$task_json:$ANDROID_JAR" "$task_test"
 done
 node --check system/notebook/assets/library/library.js

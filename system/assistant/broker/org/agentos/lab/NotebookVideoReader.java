@@ -17,13 +17,14 @@ public final class NotebookVideoReader {
         return new File(ROOT,job);
     }
     public static void main(String[] args) throws Exception {
-        if(args.length!=2||!args[0].matches("[a-f0-9]{64}"))throw new IOException("VIDEO_REFERENCE_INVALID");
+        if (args.length != 3 || !args[0].matches("[a-f0-9]{64}") || !args[2].matches("[0-9]{1,6}"))
+            throw new IOException("VIDEO_REFERENCE_INVALID");
         File dir=directory(args[1]);
         if(!dir.isDirectory())throw new IOException("VIDEO_JOB_INVALID");
-        try {read(args[0],dir);}
+        try {read(args[0], dir, Integer.parseInt(args[2]));}
         catch(Exception|LinkageError e) {
             String message=e.getMessage()==null?"":e.getMessage();
-            String code=message.matches("VIDEO_[A-Z0-9_]+")?message
+            String code=message.matches("VIDEO_[A-Z0-9_]+") || "ANDROID_USER_CHANGED".equals(message) ? message
                     :e instanceof SocketTimeoutException?"VIDEO_NETWORK_TIMEOUT":"VIDEO_DECODE_OR_NETWORK_FAILED";
             android.util.Log.e("NotebookVideoReader",code);
             TaskBroker.write(new File(dir,"result.json"),new JSONObject().put("ok",false).put("code",code)
@@ -32,9 +33,9 @@ public final class NotebookVideoReader {
         // Native media can start Binder threads; this one-shot subprocess must not outlive its result.
         System.exit(0);
     }
-    static void read(String id,File dir) throws Exception {
+    static void read(String id, File dir, int user) throws Exception {
         long started=System.currentTimeMillis();
-        JSONObject reference=NotebookBridge.provider("get",new JSONObject().put("id",id));
+        JSONObject reference=NotebookBridge.provider(user,"get",new JSONObject().put("id",id));
         JSONObject result=NotebookVideoSource.resolve(NotebookVideoSource.requireLinkedSource(reference,id));
         String mediaUrl=(String) result.remove("mediaUrl");
         byte[] video=NotebookVideoSource.fetch(mediaUrl,false,NotebookVideoSource.MAX_VIDEO_BYTES);
@@ -90,7 +91,8 @@ public final class NotebookVideoReader {
                 .put("processingLocation","android-device").put("mediaSource","public-x-embed")
                 .put("audioAnalyzed",false).put("decodedAt",System.currentTimeMillis())
                 .put("elapsedMs",System.currentTimeMillis()-started).put("jobId",dir.getName());
-            TaskBroker.write(new File(dir,"result.json"),result.toString());
+            NotebookBridge.requireCurrentUser(user);
+            TaskBroker.write(new File(dir,"result.json"),result.put("androidUserId",user).toString());
         } finally {decoder.release();}
     }
     static byte[] encode(Bitmap bitmap,Bitmap.CompressFormat format,int quality)throws Exception {

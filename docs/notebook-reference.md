@@ -66,7 +66,14 @@ Video output schema is `taku.notebook.video/1`; it includes `referenceId`, `sour
 `videoSha256`, `frames` and `sheets`. At most 32 frames are sampled over the duration with a
 minimum 500 ms interval. Audio is not analyzed. It is sampled visual evidence, not a guarantee
 that every gesture, transition, easing curve or collision rule was understood or recreated.
-The feature does not implement motion-fidelity scoring or Figma creation/preview.
+The bundled Figma motion skill uses those frames as a reference. Creation and preview use the
+connected Figma tools and the Figma app.
+
+Native Notebook calls use the Android user active when the call begins, including image reads and
+video decoding. If the active user changes before the result is returned, the call fails with
+`ANDROID_USER_CHANGED`. Recalls record the Android user with the receipt so that other users'
+history cannot renew its image grants. For older receipts, the current user's saved image must
+match the original hash before the grant is renewed.
 
 Expected failures include `VIDEO_REFERENCE_INVALID`, `VIDEO_SOURCE_NOT_LINKED`,
 `VIDEO_SOURCE_UNSUPPORTED`, `VIDEO_NOT_PUBLIC`, `VIDEO_UNAVAILABLE`, `VIDEO_MP4_UNAVAILABLE`,
@@ -82,8 +89,8 @@ network/decode run.
 
 ## Validation status
 
-Host tests cover exact-post recall, URL/media bounds, author/time/text verification and ambiguity,
-and receipt projection without inline image bytes. Local Notebook/Assistant builds and broker
+Host tests cover exact-post recall, active-user scoping, URL/media bounds, author/time/text
+verification and ambiguity, and receipt projection without inline image bytes. Local Notebook/Assistant builds and broker
 compilation are compile checks only. A source-based full ROM build, current-main emulator/device
 acceptance, Android decoder output, task isolation, persisted recovery and current SystemUI card
 visuals must be validated before release. No existing user's runtime is modified by this change.

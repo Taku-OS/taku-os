@@ -13,6 +13,7 @@ final class NotebookVideoBridge {
     static JSONObject read(JSONObject args) throws Exception {
         if(args.length()!=1||!(args.opt("id") instanceof String)||!args.getString("id").matches("[a-f0-9]{64}"))
             throw new IOException("VIDEO_REFERENCE_INVALID");
+        int user = PhoneAppCatalog.currentUser();
         String id=args.getString("id"), job=UUID.randomUUID().toString();
         File root=NotebookVideoReader.ROOT, dir=NotebookVideoReader.directory(job);
         var privateDirectory=PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwx------"));
@@ -20,18 +21,21 @@ final class NotebookVideoBridge {
         if(!Files.isDirectory(root.toPath(),LinkOption.NOFOLLOW_LINKS))throw new IOException("VIDEO_STORAGE_UNAVAILABLE");
         Files.createDirectory(dir.toPath(),privateDirectory);
         try {
-            runWorker(id,job);
-            return toModelResult(id,dir);
+            runWorker(id, job, user);
+            NotebookBridge.requireCurrentUser(user);
+            JSONObject response = toModelResult(id, dir, user);
+            NotebookBridge.requireCurrentUser(user);
+            return response;
         } finally {
             try {SkillUninstall.deleteTree(dir.toPath());}
             catch(IOException cleanupFailure) {android.util.Log.w("NotebookVideoBridge","VIDEO_TEMP_CLEANUP_FAILED");}
         }
     }
 
-    private static void runWorker(String id,String job) throws Exception {
+    private static void runWorker(String id, String job, int user) throws Exception {
         var builder=new ProcessBuilder("/system/bin/env",
             "CLASSPATH=/system_ext/framework/agentos-task-broker.jar","/system/bin/app_process","/system/bin",
-            "org.agentos.lab.NotebookVideoReader",id,job);
+            "org.agentos.lab.NotebookVideoReader",id,job,Integer.toString(user));
         var worker=builder.redirectErrorStream(true).redirectOutput(new File("/dev/null")).start();
         try {
             if(!worker.waitFor(45,TimeUnit.SECONDS))throw new IOException("VIDEO_WORKER_TIMEOUT");
@@ -41,15 +45,17 @@ final class NotebookVideoBridge {
         }
     }
 
-    private static JSONObject toModelResult(String id,File dir) throws Exception {
+    private static JSONObject toModelResult(String id, File dir, int user) throws Exception {
         File receipt=new File(dir,"result.json");
         if(!receipt.isFile())throw new IOException("VIDEO_RESULT_MISSING");
         JSONObject result=new JSONObject(TaskBroker.read(receipt));
         if(!result.optBoolean("ok"))throw new IOException(result.optString("code","VIDEO_UNAVAILABLE"));
         JSONArray sheets=result.getJSONArray("sheets");
         if(sheets.length()<1||sheets.length()>2||!id.equals(result.optString("referenceId"))
+                || result.optInt("androidUserId", -1) != user
                 ||!NotebookVideoSource.postId(result.optString("sourceUrl")).equals(result.optString("postId")))
             throw new IOException("VIDEO_RESULT_INVALID");
+        result.remove("androidUserId");
         JSONObject response=PhoneNativeTools.text(result.toString());JSONArray content=response.getJSONArray("contentItems");
         for(int i=0;i<sheets.length();i++) {
             JSONObject sheet=sheets.getJSONObject(i);String file=sheet.getString("file");
