@@ -1,9 +1,14 @@
 package org.agentos.lab;
 import org.json.*;
 import java.io.*;
+import java.net.URI;
+import java.net.URISyntaxException;
 import android.util.Base64;
 /** Small composable Android primitives, registered with the native runtime rather than one tool per case. */
 final class PhoneNativeTools {
+ private static final String CHROME = "com.android.chrome";
+ private static final int MAX_FIGMA_URL_LENGTH = 4096;
+
  static JSONArray definitions()throws Exception {
   JSONArray tools=new JSONArray();
   // Comes back in the card's answer when the session's Apps were handed over meanwhile (DedicatedScreens.questionEnded).
@@ -48,7 +53,11 @@ final class PhoneNativeTools {
       + " request takes such a screen when none is idle and the limit is reached.",
     new JSONObject()));
   tools.put(tool("observe_background","Observe this thread's assigned Android execution screen. Returns its real screenshot and screen/frame identity.",new JSONObject()));
-  tools.put(tool("open_app","Open an App you hold from request_apps.",new JSONObject().put("packageName",new JSONObject().put("type","string"))));
+  tools.put(DesktopDesignBridge.definition());
+  JSONObject openApp = tool("open_app", "Open an App you hold from request_apps. For an HTTPS Figma link, reserve Chrome and pass the exact url with packageName com.android.chrome. Verify the opened editor with observe_background. Leave the official Figma App available to the user for Mirror.",
+    new JSONObject().put("packageName", new JSONObject().put("type", "string")));
+  openApp.getJSONObject("inputSchema").getJSONObject("properties").put("url", string(MAX_FIGMA_URL_LENGTH));
+  tools.put(openApp);
   tools.put(tool("tap","Tap coordinates on the independent execution screen.",new JSONObject().put("x",new JSONObject().put("type","integer")).put("y",new JSONObject().put("type","integer"))));
   tools.put(tool("swipe","Perform one continuous drag or scroll on the independent screen, then release. Observe the actual result before another action.",new JSONObject()
     .put("fromX",coordinate(720)).put("fromY",coordinate(1280)).put("toX",coordinate(720)).put("toY",coordinate(1280))
@@ -72,6 +81,7 @@ final class PhoneNativeTools {
   String name=p.getString("tool");name=name.substring(Math.max(name.lastIndexOf('.'),name.lastIndexOf('/'))+1);if(name.startsWith("taku_phone__"))name=name.substring(12);
   JSONObject args=p.optJSONObject("arguments");if(args==null)args=new JSONObject();
   if(name.equals("apps"))return text(PhoneAppCatalog.query(args).toString());
+  if(name.equals("desktop_design"))return text(DesktopDesignBridge.control(args).toString());
   if(name.equals("memory_search"))return text(MemoryBridge.provider("search",new JSONObject().put("query",args.getString("query")).put("limit",10)).toString());
   if(name.equals("memory_get"))return text(MemoryBridge.provider("get",new JSONObject().put("id",args.getString("id"))).toString());
   if(name.equals("matter"))return text(MatterBridge.control(new JSONObject(args.toString()).put("threadId",p.getString("threadId"))).toString());
@@ -106,6 +116,43 @@ final class PhoneNativeTools {
   for (int i = 0; i < list.length(); i++) out.add(list.getString(i));
   return out;
  }
+ static String[] figmaLaunchCommand(String pkg, int userId, int displayId, Object input) throws IOException {
+  if (!CHROME.equals(pkg) || displayId <= 0) throw new IOException("FIGMA_URL_REQUIRES_BACKGROUND_CHROME");
+  if (!(input instanceof String url) || url.length() > MAX_FIGMA_URL_LENGTH) {
+   throw new IOException("INVALID_FIGMA_URL");
+  }
+  URI uri;
+  try {
+   uri = new URI(url);
+  } catch (URISyntaxException invalid) {
+   throw new IOException("INVALID_FIGMA_URL");
+  }
+  if (!"https".equals(uri.getScheme()) || uri.getRawUserInfo() != null
+      || !("www.figma.com".equalsIgnoreCase(uri.getHost()) || "figma.com".equalsIgnoreCase(uri.getHost()))
+      || (uri.getPort() != -1 && uri.getPort() != 443)) {
+   throw new IOException("INVALID_FIGMA_URL");
+  }
+  // NEW_TASK | MULTIPLE_TASK keeps the browser launch on the task's leased display.
+  return new String[]{"/system/bin/am", "start", "--user", Integer.toString(userId),
+      "--display", Integer.toString(displayId), "-f", "0x18000000",
+      "-a", "android.intent.action.VIEW", "-d", url, "-p", CHROME};
+ }
+
+ private static JSONObject openFigmaUrl(String pkg, int userId, int displayId, Object url) throws Exception {
+  String[] command = figmaLaunchCommand(pkg, userId, displayId, url);
+  String output;
+  try {
+   output = TaskBroker.command(command);
+  } catch (IOException failed) {
+   throw new IOException("FIGMA_URL_DISPATCH_FAILED");
+  }
+  if (output.lines().map(String::stripLeading).anyMatch(line -> line.startsWith("Error")
+      || line.startsWith("Exception") || line.startsWith("Security exception"))) {
+   throw new IOException("FIGMA_URL_DISPATCH_FAILED");
+  }
+  return text(new JSONObject().put("dispatched", true).put("pageVerified", false).toString());
+ }
+
  static JSONObject executeScreen(JSONObject call,JSONObject args,String name,PhoneExecutionScreens.Screen screen)throws Exception {
   PhoneGestures.prepare(screen);
   String display=Integer.toString(screen.displayId);
@@ -126,6 +173,7 @@ final class PhoneNativeTools {
     if(app.getInt("userId")!=screen.userId)throw new IOException("ANDROID_USER_CHANGED");
     if(Thread.currentThread().isInterrupted())throw new InterruptedException();WorkspacePolicy.requireAppAllowed(pkg);
     if(PhoneAppCatalog.currentUser()!=app.getInt("userId"))throw new IOException("ANDROID_USER_CHANGED");
+    if(args.has("url"))return openFigmaUrl(pkg,screen.userId,screen.displayId,args.opt("url"));
     // A task of its own on this screen even when the user has the App open on the main screen or in Recents;
     // a single-instance App that reuses the user's task instead is moved over by DedicatedScreens.settleOpen.
     // Already on this screen: brought to front as before, no second task piling up.

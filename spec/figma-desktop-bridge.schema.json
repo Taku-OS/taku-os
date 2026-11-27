@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://taku.ai/spec/figma-desktop-bridge.schema.json",
+  "title": "Optional loopback Figma desktop adapter request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["requestId", "job", "body"],
+  "properties": {
+    "requestId": {"type": "string", "pattern": "^[-A-Za-z0-9_]{1,80}$"},
+    "job": {"type": "string", "pattern": "^[-A-Za-z0-9_]{1,80}$"},
+    "body": {
+      "oneOf": [
+        {"type": "object", "additionalProperties": false, "required": ["action", "width", "height"], "properties": {
+          "action": {"const": "begin"}, "name": {"type": "string", "maxLength": 120},
+          "width": {"type": "number", "minimum": 240, "maximum": 720},
+          "height": {"type": "number", "minimum": 240, "maximum": 1280},
+          "fill": {"type": "string", "pattern": "^#[a-fA-F0-9]{6}$"}}},
+        {"type": "object", "additionalProperties": false, "required": ["action", "frame", "nodes"], "properties": {
+          "action": {"const": "apply"}, "frame": {"$ref": "#/$defs/key"},
+          "nodes": {"type": "array", "maxItems": 50, "items": {"$ref": "#/$defs/node"}}}},
+        {"type": "object", "additionalProperties": false, "required": ["action", "from", "frame"], "properties": {
+          "action": {"const": "clone"}, "from": {"$ref": "#/$defs/key"}, "frame": {"$ref": "#/$defs/key"},
+          "overrides": {"type": "array", "maxItems": 50, "items": {"$ref": "#/$defs/node"}}}},
+        {"type": "object", "additionalProperties": false, "required": ["action", "edges"], "properties": {
+          "action": {"const": "link"}, "edges": {"type": "array", "maxItems": 80, "items": {
+            "type": "object", "additionalProperties": false, "required": ["frame", "key", "to"], "properties": {
+              "frame": {"$ref": "#/$defs/key"}, "key": {"type": "string", "pattern": "^(?:\\$frame|[-A-Za-z0-9_]{1,60})$"},
+              "to": {"$ref": "#/$defs/key"}, "delayMs": {"type": "number", "minimum": 100, "maximum": 10000}}}}}},
+        {"type": "object", "additionalProperties": false, "required": ["action", "frame"], "properties": {
+          "action": {"const": "select"}, "frame": {"$ref": "#/$defs/key"}}},
+        {"type": "object", "additionalProperties": false, "required": ["action"], "properties": {"action": {"const": "inspect"}}}
+      ]
+    }
+  },
+  "$defs": {
+    "key": {"type": "string", "pattern": "^[-A-Za-z0-9_]{1,60}$"},
+    "node": {"type": "object", "additionalProperties": false, "required": ["key"], "properties": {
+      "key": {"$ref": "#/$defs/key"}, "type": {"enum": ["FRAME", "TEXT", "STAR", "RECTANGLE", "ELLIPSE"]},
+      "parent": {"$ref": "#/$defs/key"}, "name": {"type": "string", "maxLength": 160},
+      "x": {"type": "number", "minimum": -5000, "maximum": 5000}, "y": {"type": "number", "minimum": -5000, "maximum": 5000},
+      "width": {"type": "number", "exclusiveMinimum": 0, "maximum": 5000}, "height": {"type": "number", "exclusiveMinimum": 0, "maximum": 5000},
+      "fill": {"type": "string", "pattern": "^#[a-fA-F0-9]{6}$"}, "radius": {"type": "number", "minimum": 0, "maximum": 5000},
+      "text": {"type": "string", "maxLength": 600}, "fontSize": {"type": "number", "exclusiveMinimum": 0, "maximum": 5000},
+      "fontWeight": {"enum": ["Regular", "Medium", "Bold"]}, "align": {"enum": ["LEFT", "CENTER", "RIGHT"]},
+      "opacity": {"type": "number", "minimum": 0, "maximum": 1}, "rotation": {"type": "number", "minimum": -5000, "maximum": 5000},
+      "visible": {"type": "boolean"}}}
+  }
+}

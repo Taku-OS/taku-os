@@ -26,6 +26,7 @@ These are the engineering docs for this repository. To install Taku OS or learn 
 - [Extensibility](extensibility.md)
 - [Plugins](plugins/README.md)
 - [Background workspaces](background-workspaces.en.md)
+- [Optional Figma desktop adapter](../adapters/figma/README.md)
 
 ## Project
 
