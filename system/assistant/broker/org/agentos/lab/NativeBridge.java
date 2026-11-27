@@ -27,6 +27,13 @@ final class NativeBridge {
   Call(String m,JSONObject p){method=m;params=p;}
  }
  static final ScheduledExecutorService streamExpiry=Executors.newSingleThreadScheduledExecutor(r->{Thread t=new Thread(r,"session-stream-expiry");t.setDaemon(true);return t;});
+ // A burst of history reads keeps only the newest pending refreshes.
+ private static final Executor referenceGrantRefresh = new ThreadPoolExecutor(1, 1, 0, TimeUnit.SECONDS,
+         new ArrayBlockingQueue<>(4), task -> {
+          Thread worker = new Thread(task, "notebook-reference-grants");
+          worker.setDaemon(true);
+          return worker;
+         }, new ThreadPoolExecutor.DiscardOldestPolicy());
  static final ByokProviders byok=new ByokProviders();
  static final BlockingQueue<Call> inbox=new LinkedBlockingQueue<>(64);
  static final WorkspaceAdmissions admissions=new WorkspaceAdmissions(() -> DedicatedScreensOnDevice.shared());
@@ -268,16 +275,28 @@ final class NativeBridge {
   if(result.has("thread")){
    JSONObject thread=result.getJSONObject("thread");String id=thread.getString("id");
    DedicatedScreensOnDevice.shared().observeRemovalThread(thread);
-   NotebookBridge.refreshReferenceGrants(thread);
    if(method.equals("thread/start")||method.equals("thread/read")||method.equals("thread/resume"))threadAvailability(id,"current");
    if((method.equals("thread/read")||method.equals("thread/resume"))&&!MemoryGen.owns(id))AgentViews.prepareReply(id,HarnessCatalog.replyContract(),true);
    boolean metadata=method.equals("thread/resume")&&params!=null&&params.optBoolean("excludeTurns")||method.equals("thread/read")&&(params==null||!params.optBoolean("includeTurns"));
    if(metadata)AgentViews.saveMetadata(thread);else AgentViews.save(thread);
    if(method.equals("thread/start"))CodexAppServer.shared.rememberNativeThread(result);
    JSONObject view=AgentViews.snapshot(id);if(view!=null)result.put("thread",view);
+   scheduleReferenceGrantRefresh(thread.optJSONArray("turns"), false);
   }
-  if(method.equals("thread/turns/list")&&params!=null){String id=params.getString("threadId");if(!MemoryGen.owns(id))AgentViews.prepareReply(id,HarnessCatalog.replyContract(),true);boolean descending=!params.optString("sortDirection","desc").equals("asc"),hasCursor=!params.optString("cursor").isEmpty();AgentViews.mergeTurnPage(id,result.getJSONArray("data"),descending,descending?hasCursor:!hasCursor,params.optString("itemsView").equals("full"));JSONObject view=AgentViews.snapshot(id);if(view!=null){NotebookBridge.refreshReferenceGrants(view);result.put("data",view.getJSONArray("turns"));}}
+  if(method.equals("thread/turns/list")&&params!=null){
+   String id=params.getString("threadId");if(!MemoryGen.owns(id))AgentViews.prepareReply(id,HarnessCatalog.replyContract(),true);
+   boolean descending=!params.optString("sortDirection","desc").equals("asc"),hasCursor=!params.optString("cursor").isEmpty();
+   JSONArray page=result.getJSONArray("data");
+   AgentViews.mergeTurnPage(id,page,descending,descending?hasCursor:!hasCursor,params.optString("itemsView").equals("full"));
+   JSONObject view=AgentViews.snapshot(id);if(view!=null)result.put("data",view.getJSONArray("turns"));
+   scheduleReferenceGrantRefresh(page, descending);
+  }
  } }
+
+ /** Send read-only native turns because display projection can fold receipt text. */
+ private static void scheduleReferenceGrantRefresh(JSONArray turns, boolean newestFirst) {
+  if(turns!=null&&turns.length()>0)referenceGrantRefresh.execute(() -> NotebookBridge.refreshReferenceGrants(turns, newestFirst));
+ }
 
  static JSONObject state(String thread)throws Exception { try (CleanupWork.Held held9 = lock()) {
   JSONObject r=state.containsKey(thread)?new JSONObject(state.get(thread).toString()):new JSONObject();JSONArray pending=new JSONArray();for(JSONObject q:requests.values()){String t=q.optJSONObject("params").optString("threadId");if(t.isEmpty()||t.equals(thread))pending.put(q);}r.put("executionScreen",DedicatedScreensOnDevice.shared().describe(thread));r.put("requests",pending);r.put("runtimeEvents",new JSONArray(globalEvents.toString()));r.put("ready",CodexAppServer.shared!=null);return r;

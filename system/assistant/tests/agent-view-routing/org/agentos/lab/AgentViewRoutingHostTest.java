@@ -7,6 +7,7 @@ import java.nio.file.Files;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -133,6 +134,80 @@ public final class AgentViewRoutingHostTest {
         }
     }
 
+    private static void historyRefreshDoesNotBlockNativeRouting(boolean paged) throws Exception {
+        String turnId = UUID.randomUUID().toString();
+        String imageUrl = "data:image/jpeg;base64,AAAA";
+        JSONObject receipt = new JSONObject().put("schema", "taku.notebook.references/1")
+                .put("androidUserId", 0).put("items", new JSONArray().put(new JSONObject()
+                        .put("id", "a".repeat(64)).put("sha256", "b".repeat(64))
+                        .put("imageUri", "content://org.agentos.notebook/images/" + "a".repeat(64))));
+        JSONObject item = new JSONObject().put("id", UUID.randomUUID().toString())
+                .put("type", "dynamicToolCall").put("tool", "notebook_recall")
+                .put("namespace", "taku_phone").put("success", true)
+                .put("contentItems", new JSONArray()
+                        .put(new JSONObject().put("type", "inputText").put("text", receipt.toString()))
+                        .put(new JSONObject().put("type", "inputImage").put("imageUrl", imageUrl)));
+        JSONArray rawTurns = new JSONArray().put(new JSONObject().put("id", turnId)
+                .put("items", new JSONArray().put(item)));
+        JSONObject thread = thread("appServer").put("nativeOnly", true);
+        JSONObject params = new JSONObject().put("threadId", thread.getString("id"));
+        JSONObject result;
+        String method;
+        if (paged) {
+            thread.getJSONArray("turns").put(new JSONObject().put("id", UUID.randomUUID().toString())
+                    .put("items", new JSONArray()));
+            read(thread, true);
+            params.put("sortDirection", "desc").put("itemsView", "full");
+            result = new JSONObject().put("data", rawTurns);
+            method = "thread/turns/list";
+        } else {
+            params.put("includeTurns", true);
+            result = new JSONObject().put("thread", thread.put("turns", rawTurns));
+            method = "thread/read";
+        }
+        NativeBridge.Call call = new NativeBridge.Call(method, params);
+        CodexAppServer server = CodexAppServer.shared;
+        server.nativeRequest(call);
+        JSONObject response = new JSONObject().put("id", server.nextRequest).put("result", result);
+        String expectedTurns = rawTurns.toString();
+        CountDownLatch release = new CountDownLatch(1);
+        CompletableFuture<Boolean> observed = new CompletableFuture<>();
+        NotebookBridge.refreshHook = (turns, newestFirst) -> {
+            for (int i = 0; i < turns.length(); i++) {
+                if (!turnId.equals(turns.getJSONObject(i).optString("id"))) continue;
+                observed.complete(turns.toString().equals(expectedTurns) && newestFirst == paged);
+                try {
+                    release.await();
+                } catch (InterruptedException stopped) {
+                    Thread.currentThread().interrupt();
+                }
+                break;
+            }
+        };
+        try {
+            CompletableFuture<Boolean> dispatched = CompletableFuture.supplyAsync(() -> {
+                try {
+                    return NativeBridge.complete(response);
+                } catch (Exception failure) {
+                    throw new CompletionException(failure);
+                }
+            });
+            check(observed.get(5, TimeUnit.SECONDS), method + " refresh receives only the raw native turns");
+            check(dispatched.get(2, TimeUnit.SECONDS), method + " completes while refresh is blocked");
+            JSONObject reply = call.result.get(2, TimeUnit.SECONDS);
+            check(paged ? reply.getJSONArray("data").length() == 2 : !reply.getJSONObject("thread").has("nativeOnly"),
+                    method + " still returns the display projection");
+            CompletableFuture.runAsync(() -> {
+                try (CleanupWork.Held held = NativeBridge.lock()) {
+                    // Other broker operations must be able to acquire this lock.
+                }
+            }).get(2, TimeUnit.SECONDS);
+        } finally {
+            release.countDown();
+            NotebookBridge.refreshHook = null;
+        }
+    }
+
     public static void main(String[] args) throws Exception {
         CodexAppServer.shared = new CodexAppServer();
         nativeReadKeepsChildIdentity();
@@ -140,6 +215,8 @@ public final class AgentViewRoutingHostTest {
         routingFieldsAreNotDisplayText();
         ordinarySourcesAndExplicitReplacement();
         sourceIsCopiedAndTotalLimitStillApplies();
-        System.out.println("PASS AgentViewRoutingHostTest: " + checks + " checks, 5 cases");
+        historyRefreshDoesNotBlockNativeRouting(false);
+        historyRefreshDoesNotBlockNativeRouting(true);
+        System.out.println("PASS AgentViewRoutingHostTest: " + checks + " checks, 7 cases");
     }
 }

@@ -31,7 +31,8 @@ content read --user "$U" --uri "$N/images/SAVED_ID" > original.png
   returns the newest saves when filters are omitted). General recall returns
   `taku.notebook.references/1` bound to `androidUserId`, grants up to 3 image references to
   `org.agentos.agent`, and attaches a SHA-256-verified preview of the first saved screenshot when
-  available. Setting `purpose="pose_reference"` retains the pose-reference projection.
+  available. A failed image grant leaves the saved entry in the result. Setting
+  `purpose="pose_reference"` retains the pose-reference projection.
 - `taku_phone.notebook_read_video`: takes an exact recalled `id`, re-reads that authoritative saved
   record for the initiating Android user, requires a linked public X source, resolves its exact
   post ID through the public embed endpoint, downloads at most 24 MiB of allow-listed
@@ -40,7 +41,8 @@ content read --user "$U" --uri "$N/images/SAVED_ID" > original.png
   (`NotebookVideoReader`). It returns a `taku.notebook.video/1` receipt and up to two timestamped
   contact-sheet images (≤32 frames, `OPTION_CLOSEST`, no audio).
 - `AgentViewProjection` preserves `notebook_recall` and `notebook_read_video` JSON receipts in
-  display history while omitting binary image payloads.
+  display history while omitting binary image payloads. When native history is reopened, image
+  grants are refreshed in the background and may become available after the history response.
 
 ## Built-in Figma motion workflow
 

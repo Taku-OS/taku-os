@@ -11,6 +11,7 @@ import java.util.HexFormat;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 
 /** Real Notebook records; no independent bookmark store or model-authored reference metadata. */
@@ -61,13 +62,17 @@ final class NotebookBridge {
             JSONObject entry = source.getJSONObject(i);
             String id = entry.getString("id");
             if (i < MAX_REFERENCE_GRANTS) {
-                // The same provider re-reads this ID and grants only its immutable image to the UI.
-                JSONObject reference = provider(user, "reference", new JSONObject().put("id", id));
-                items.put(reference);
-                synchronized (granted) { granted.add(new ReferenceGrant(user, id)); }
-            } else {
-                items.put(entry);
+                try {
+                    // The same provider re-reads this ID and grants only its immutable image to the UI.
+                    entry = provider(user, "reference", new JSONObject().put("id", id));
+                    synchronized (granted) { granted.add(new ReferenceGrant(user, id)); }
+                } catch (UserChanged changed) {
+                    throw changed;
+                } catch (IOException | JSONException unavailable) {
+                    // The previously fetched entry still describes the saved reference.
+                }
             }
+            items.put(entry);
         }
         JSONObject response = PhoneNativeTools.text(new JSONObject().put("schema", SCHEMA)
                 .put("androidUserId", user).put("items", items).toString());
@@ -78,7 +83,7 @@ final class NotebookBridge {
             } catch (UserChanged changed) {
                 throw changed;
             } catch (IOException unavailable) {
-                // The exact saved reference and its URI remain available to the app and to the user.
+                // The text receipt still contains the saved metadata.
             }
         }
         requireCurrentUser(user);
@@ -128,14 +133,13 @@ final class NotebookBridge {
         }
     }
 
-    /** Re-establish image grants when an actual native history is reopened after a reboot. */
-    static void refreshReferenceGrants(JSONObject thread) {
-        JSONArray turns = thread.optJSONArray("turns");
-        if (turns == null) return;
+    /** Re-establish image grants for native history on the background refresh worker. */
+    static void refreshReferenceGrants(JSONArray turns, boolean newestFirst) {
         Integer user = null;
         int remaining = 12;
-        for (int t = turns.length() - 1; t >= 0 && remaining > 0; t--) {
-            JSONObject turn = turns.optJSONObject(t);
+        int count = turns.length();
+        for (int t = 0; t < count && remaining > 0; t++) {
+            JSONObject turn = turns.optJSONObject(newestFirst ? t : count - 1 - t);
             JSONArray items = turn == null ? null : turn.optJSONArray("items");
             if (items == null) continue;
             for (int n = items.length() - 1; n >= 0 && remaining > 0; n--) {

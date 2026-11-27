@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BiConsumer;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -210,5 +211,10 @@ final class AgentSkills {
 }
 final class SkillUninstall {static void recover(CodexAppServer server) {}}
 final class NotebookBridge {
-    static void refreshReferenceGrants(JSONObject thread) {}
+    static volatile BiConsumer<JSONArray, Boolean> refreshHook;
+
+    static void refreshReferenceGrants(JSONArray turns, boolean newestFirst) {
+        BiConsumer<JSONArray, Boolean> hook = refreshHook;
+        if (hook != null) hook.accept(turns, newestFirst);
+    }
 }
