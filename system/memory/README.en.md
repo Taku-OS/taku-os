@@ -1,8 +1,18 @@
-# Taku Memory 0.17.0
+# Taku Memory 0.18.0
 
 [中文](README.md) · [Content-aware titles and suggestions](../../docs/reviews/taku-memory-content-2026-10-22/README.en.md) · [Daily-app acceptance](../../docs/reviews/taku-memory-daily-apps-2026-10-22/README.md)
 
 One standalone Android APK, org.agentos.memory, combines automatic local memory, a native library, and proactive suggestions. It has its own UID and private SQLite database. Existing on-device Magpie owns models and credentials; the existing Assistant and TaskBroker own Agent execution.
+
+## 0.18.0: remembering Taku conversations, and searches that reach further
+
+Memory recorded what other apps showed but never what the user told Taku itself, and an Agent's search returned at most 10 records (20 through the API), which was too few for questions that count or order things across many days.
+
+- **Taku conversations.** A new switch, **Remember Taku conversations** (`takuChats`, off by default, also needs Auto capture), keeps each turn of the main Taku chat. The Broker sends the user's message when the turn starts (the turn's first text item, without attachments or panel context) and Taku's reply when it completes (the readable text of the reply card). The user's messages are ordinary evidence: searched, organized into the graph, quoted on the user card. Taku's replies are stored with speaker `assistant`, but search reads them only when the query asks what Taku said ("the restaurant you recommended", "our previous conversation", "你上次推荐的") or the caller passes `takuReplies:true`, and the organizer and the card never read them, so memory does not feed on its own output. Messages memory itself handed to Taku (home-feed prompts, recent reminders) are dropped with their replies; turns with a password or one-time code are not kept; card-like numbers are masked. Screen capture of the Taku app stays off (`neverObserved`). The library shows such records as "You: …" and "Taku: …".
+- **Searches reach further.** `search` returns up to 50 records (20 before), and each ranked list is as deep as the limit. Optional `from`/`to` (`YYYY-MM-DD`) search only records first seen on those days (evidence only). Items carry `seenAt`, the local date and time, and `speaker` for conversation turns. The phone tool `memory_search` takes `limit` (default 20, was fixed at 10), `from`, `to` and `takuReplies`. Its description and the harness policy ask the Agent to search several times with specific words for questions that count or order things and to list items with their dates before totalling, to pass dates for questions tied to a time, to read cut excerpts with `memory_get`, and to say so when memory holds nothing about the question or contradicts it.
+- **Costs.** The keyword index is rebuilt with the speaker column (`memory_kw2`) by the maintenance job. Each kept turn is one record with one vector.
+
+Not yet run on a device or emulator; the assistant APK, which carries the harness policy, was not rebuilt. See the [0.18.0 acceptance record](../../docs/reviews/taku-memory-0.18.0-2026-11-27/README.md).
 
 ## 0.17.0: Chinese and English, and search across them
 

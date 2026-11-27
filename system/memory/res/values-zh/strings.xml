@@ -87,6 +87,8 @@
  <string name="capture_section">自动记录</string>
  <string name="auto_capture">后台自动记忆</string>
  <string name="capture_summary">页面稳定后自动保存可读文字，不保存截图或录像。</string>
+ <string name="taku_chats">记住与 Taku 的对话</string>
+ <string name="taku_chats_summary">你对 Taku 说的话会像其他记忆一样保存。Taku 的回复也会保存，但只在你问起 Taku 说过什么时才检索。含密码或验证码的消息不保存。需要先开启自动记录。</string>
  <string name="capture_apps">记录哪些应用</string>
  <string name="observation_service">观察服务</string>
  <string name="connected">已连接</string>
@@ -162,6 +164,7 @@
  <string name="error_settings_not_saved">配置未保存</string>
  <string name="error_memory_not_found">记忆已删除或过期</string>
  <string name="error_query_too_long">查询最多 500 个字</string>
+ <string name="error_invalid_search_dates">检索日期需为 YYYY-MM-DD，且 from 不晚于 to</string>
  <string name="error_invalid_content">标题或内容长度无效</string>
  <string name="error_memory_changed">记忆已变化，请重新打开</string>
  <string name="error_invalid_task_id">任务标识无效</string>
@@ -174,6 +177,8 @@
  <string name="error_bridge_no_response">记忆连接无结果</string>
  <string name="error_bridge_unavailable">记忆连接不可用</string>
  <string name="content_saved_text">已记录的信息</string>
+ <string name="chat_you">你：%1$s</string>
+ <string name="chat_taku">Taku：%1$s</string>
  <string name="content_agenda">%1$s 日程</string>
  <string name="content_meal_title">%1$s安排</string>
  <string name="content_meal_place">%1$s · %2$s</string>

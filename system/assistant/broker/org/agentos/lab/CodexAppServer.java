@@ -311,6 +311,7 @@ public final class CodexAppServer implements AutoCloseable {
         NativeBridge.admissions.requireCurrent(call.admission);
         prepareExecution(call.method, call.params);
         if (call.workspaceGuard != null) call.workspaceGuard.check();
+        TakuChatMemory.starting(call.method, call.params);
         int id = nextId.incrementAndGet();
         NativeBridge.admissions.beforeSend(id, call.admission);
         NativeBridge.calls.put(id, call);
@@ -590,6 +591,8 @@ public final class CodexAppServer implements AutoCloseable {
                                 AgentViews.event(event);
                                 try { HarnessContext.event(event); }
                                 catch (Exception auditUnavailable) { HarnessContext.auditIncomplete = true; }
+                                try { TakuChatMemory.event(event); }
+                                catch (Exception memoryUnavailable) { }
                                 JSONObject params = event.optJSONObject("params");
                                 if (params == null
                                         || currentRequest == null

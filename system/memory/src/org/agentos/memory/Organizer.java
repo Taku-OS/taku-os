@@ -33,9 +33,10 @@ final class Organizer {
 
  static String stamp(long ms){java.time.ZonedDateTime d=java.time.Instant.ofEpochMilli(ms).atZone(java.time.ZoneId.systemDefault());return d.getMonthValue()+"-"+d.getDayOfMonth()+" "+WD[d.getDayOfWeek().getValue()-1]+" "+String.format(Locale.ROOT,"%02d:%02d",d.getHour(),d.getMinute());}
 
+ /** New records since the cursor. Taku's own replies are left out: organizing them would feed memory its own output. */
  static List<JSONObject> pending(MemoryStore s,String cursorKey,long now)throws Exception{
   long cursor=Long.parseLong(s.kvGet(cursorKey,"0"));List<JSONObject> out=new ArrayList<>();
-  try(Cursor c=s.getReadableDatabase().rawQuery("SELECT rowid,id,title,head,body,first_seen FROM memories WHERE first_seen>? AND first_seen<=? ORDER BY first_seen,id",new String[]{""+cursor,""+now})){
+  try(Cursor c=s.getReadableDatabase().rawQuery("SELECT rowid,id,title,head,body,first_seen FROM memories WHERE first_seen>? AND first_seen<=? AND speaker<>'assistant' ORDER BY first_seen,id",new String[]{""+cursor,""+now})){
    while(c.moveToNext())out.add(new JSONObject().put("ref","e"+c.getLong(0)).put("id",c.getString(1)).put("show",Recall.evidenceText(c.getString(2),c.getString(3),c.getString(4))).put("t",c.getLong(5)));
   }
   return out;
@@ -70,7 +71,7 @@ final class Organizer {
  static List<JSONObject> redoItems(MemoryStore s,long now)throws Exception{
   JSONArray ids=s.graphRedo();List<JSONObject> out=new ArrayList<>();if(ids.length()==0)return out;List<String> gone=new ArrayList<>();
   for(int i=0;i<ids.length();i++){String id=ids.optString(i);
-   try(Cursor c=s.getReadableDatabase().rawQuery("SELECT rowid,id,title,head,body,first_seen FROM memories WHERE id=? AND first_seen<=?",new String[]{id,""+now})){
+   try(Cursor c=s.getReadableDatabase().rawQuery("SELECT rowid,id,title,head,body,first_seen FROM memories WHERE id=? AND first_seen<=? AND speaker<>'assistant'",new String[]{id,""+now})){
     if(c.moveToFirst())out.add(new JSONObject().put("ref","e"+c.getLong(0)).put("id",c.getString(1)).put("show",Recall.evidenceText(c.getString(2),c.getString(3),c.getString(4))).put("t",c.getLong(5)));else gone.add(id);}}
   if(!gone.isEmpty())s.graphRedone(gone);
   out.sort((a,b)->Long.compare(a.optLong("t"),b.optLong("t")));return out;

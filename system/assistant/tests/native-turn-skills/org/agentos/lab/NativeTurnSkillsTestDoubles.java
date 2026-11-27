@@ -124,6 +124,7 @@ final class HarnessEnvironment {
 final class MemoryBridge {
     static JSONObject provider(String method, JSONObject params) { return new JSONObject(); }
 }
+final class TakuChatMemory { static void starting(String method,JSONObject params) {} static void event(JSONObject event) {} }
 final class MemoryGen {
     static final Set<String> threads = new HashSet<>();
     static boolean owns(String thread) { return threads.contains(thread); }

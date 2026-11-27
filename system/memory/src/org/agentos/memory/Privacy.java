@@ -78,6 +78,8 @@ final class Privacy {
  static boolean selfSensitive(String s){return !Lang.covered(s)||any(s,r->r.self);}
  static final Pattern CARD_NUMBER=Pattern.compile("\\d(?:[\\s-]?\\d){10,}"),BOARD_NUMBER=Pattern.compile("\\d(?:[\\s-]?\\d){14,}");
 
+ /** API keys, bearer tokens and one-time codes; such notifications (and Taku conversation turns) are not kept. */
+ static final java.util.regex.Pattern SECRET=java.util.regex.Pattern.compile("sk-[A-Za-z0-9_-]{20,}|Bearer [A-Za-z0-9._-]{20,}|\\bG-\\d{6}\\b|验证码|校验码|动态码|認証コード|確認コード|(?i:verification code|security code|authentication code|2-step verification|one-time)");
  static boolean instruction(String s){return s!=null&&INSTRUCTION.matcher(s).find();}
  static boolean link(String s){return s!=null&&LINK.matcher(s).find();}
  static String mask(String s,Pattern p){return s==null?"":p.matcher(s).replaceAll("(number omitted)");}

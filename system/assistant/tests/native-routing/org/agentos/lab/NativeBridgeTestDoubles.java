@@ -56,6 +56,7 @@ final class ModelConnection {
     static JSONObject read() {return new JSONObject();}
     static JSONObject control(JSONObject input) {return new JSONObject();}
 }
+final class TakuChatMemory { static void starting(String method,JSONObject params) {} static void event(JSONObject event) {} }
 final class MemoryBridge { static JSONObject control(JSONObject input) { return new JSONObject(); } }
 final class MemoryGen {
     static final java.util.List<JSONObject> events=new java.util.ArrayList<>();

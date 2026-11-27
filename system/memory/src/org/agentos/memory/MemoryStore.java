@@ -55,15 +55,26 @@ final class MemoryStore extends SQLiteOpenHelper {
   db.execSQL("CREATE TABLE revisions(id TEXT NOT NULL,revision INTEGER NOT NULL,title TEXT NOT NULL,body TEXT NOT NULL,at INTEGER NOT NULL,PRIMARY KEY(id,revision))");
   db.execSQL("CREATE TABLE forgotten(digest TEXT PRIMARY KEY,until_at INTEGER NOT NULL)");
   db.execSQL("CREATE INDEX memory_recent ON memories(last_seen DESC)");
-  createQueue(db);v3(db);db.execSQL(KEYWORD_INDEX);
+  createQueue(db);v3(db);speakers(db);db.execSQL(KEYWORD_INDEX);
  }
  /**
-  * Covers the evidence keyword search (Recall.search): the newest-first scan reads first_seen, id and the three text
-  * columns from the index instead of whole rows, and stops early when enough rows match.
+  * Covers the evidence keyword search (Recall.search): the newest-first scan reads first_seen, id, the three text
+  * columns and the speaker from the index instead of whole rows, and stops early when enough rows match.
   */
- static final String KEYWORD_INDEX="CREATE INDEX IF NOT EXISTS memory_kw ON memories(first_seen,id,title,head,fresh)";
- /** Builds the keyword index on a database from before 0.16, from the maintenance job: it can take seconds on a large store. */
- synchronized void ensureKeywordIndex(){try{getWritableDatabase().execSQL(KEYWORD_INDEX);}catch(Exception e){android.util.Log.w("TakuMemory","Keyword search index was not built",e);}}
+ static final String KEYWORD_INDEX="CREATE INDEX IF NOT EXISTS memory_kw2 ON memories(first_seen,id,title,head,fresh,speaker)";
+ /**
+  * Builds the keyword index on a database from before 0.18 (0.16's index lacks the speaker), from the maintenance job: it
+  * can take seconds on a large store.
+  */
+ synchronized void ensureKeywordIndex(){try{getWritableDatabase().execSQL(KEYWORD_INDEX);getWritableDatabase().execSQL("DROP INDEX IF EXISTS memory_kw");}catch(Exception e){android.util.Log.w("TakuMemory","Keyword search index was not built",e);}}
+ /**
+  * 0.18: who said a record. Empty for captured pages and notifications; "user" or "assistant" for a Taku conversation turn
+  * (MemoryStore.chat). Idempotent.
+  */
+ static void speakers(SQLiteDatabase d){
+  try(Cursor c=d.rawQuery("PRAGMA table_info(memories)",null)){while(c.moveToNext())if(c.getString(1).equals("speaker"))return;}
+  d.execSQL("ALTER TABLE memories ADD COLUMN speaker TEXT NOT NULL DEFAULT ''");
+ }
  /** Idempotent: safe to run again on a database that already has some of it. */
  static void v3(SQLiteDatabase d){
   Set<String> cols=new HashSet<>();try(Cursor c=d.rawQuery("PRAGMA table_info(memories)",null)){while(c.moveToNext())cols.add(c.getString(1));}
@@ -81,21 +92,21 @@ final class MemoryStore extends SQLiteOpenHelper {
   // Legacy whole-page records: first line becomes head, the rest incremental content; maintenance computes missing vectors.
   d.execSQL("UPDATE memories SET head=CASE WHEN instr(body,char(10))>0 THEN substr(body,1,instr(body,char(10))-1) ELSE body END,fresh=CASE WHEN instr(body,char(10))>0 THEN substr(body,instr(body,char(10))+1) ELSE '' END");
  }
- @Override public void onOpen(SQLiteDatabase d){super.onOpen(d);if(!d.isReadOnly()){d.execSQL("DROP TABLE IF EXISTS profiles");d.execSQL("CREATE TABLE IF NOT EXISTS profiles2(t INTEGER PRIMARY KEY,data TEXT NOT NULL)");d.execSQL("CREATE TABLE IF NOT EXISTS nudges(id INTEGER PRIMARY KEY AUTOINCREMENT,at INTEGER NOT NULL,kind TEXT NOT NULL,title TEXT NOT NULL,body TEXT NOT NULL,anchor TEXT NOT NULL DEFAULT '')");
+ @Override public void onOpen(SQLiteDatabase d){super.onOpen(d);if(!d.isReadOnly()){speakers(d);d.execSQL("DROP TABLE IF EXISTS profiles");d.execSQL("CREATE TABLE IF NOT EXISTS profiles2(t INTEGER PRIMARY KEY,data TEXT NOT NULL)");d.execSQL("CREATE TABLE IF NOT EXISTS nudges(id INTEGER PRIMARY KEY AUTOINCREMENT,at INTEGER NOT NULL,kind TEXT NOT NULL,title TEXT NOT NULL,body TEXT NOT NULL,anchor TEXT NOT NULL DEFAULT '')");
   Set<String> nc=new HashSet<>();try(Cursor c=d.rawQuery("PRAGMA table_info(nudges)",null)){while(c.moveToNext())nc.add(c.getString(1));}
   for(String col:new String[]{"context","task","card","feedback"})if(!nc.contains(col))d.execSQL("ALTER TABLE nudges ADD COLUMN "+col+" TEXT NOT NULL DEFAULT ''");}}
  static void createQueue(SQLiteDatabase d){d.execSQL("CREATE TABLE analysis_queue(id TEXT PRIMARY KEY,revision INTEGER NOT NULL,queued_at INTEGER NOT NULL,due_at INTEGER NOT NULL,attempts INTEGER NOT NULL DEFAULT 0,lease TEXT NOT NULL DEFAULT '',lease_until INTEGER NOT NULL DEFAULT 0)");}
  @Override public void onUpgrade(SQLiteDatabase d,int old,int next){if(next!=3||old<1||old>2)throw new IllegalStateException("Unsupported memory schema upgrade");if(old==1){createQueue(d);long now=System.currentTimeMillis();d.execSQL("INSERT INTO analysis_queue(id,revision,queued_at,due_at) SELECT id,revision,?,? FROM memories WHERE analysis IN ('pending','error')",new Object[]{now,now+20000});}v3(d);}
  synchronized JSONObject config()throws Exception{
   JSONArray sources=new JSONArray();for(String s:new TreeSet<>(prefs.getStringSet("sources",Set.of())))sources.put(s);
-  return new JSONObject().put("neverObserved",new JSONArray(new TreeSet<>(NEVER_OBSERVED))).put("languages",new JSONArray(new TreeSet<>(Lang.SUPPORTED))).put("vectorModel",Embedder.MODEL_ID).put("enabled",prefs.getBoolean("enabled",false)).put("analysisEnabled",prefs.getBoolean("analysisEnabled",false)).put("analysisGeneration",prefs.getLong("analysisGeneration",0)).put("queryEnabled",prefs.getBoolean("queryEnabled",false)).put("proactive",prefs.getBoolean("proactive",true)).put("nudges",prefs.getBoolean("nudges",false)).put("feedCards",prefs.getBoolean("feedCards",false)).put("feedDescribe",prefs.getBoolean("feedDescribe",false)).put("model",effectiveModel()).put("modelOverride",prefs.getString("model","")).put("followsSystem",followsSystem()).put("sources",sources).put("generation",prefs.getLong("generation",0)).put("retentionDays",prefs.getInt("retentionDays",0)).put("userName",userName()).put("autoOrganize",prefs.getBoolean("autoOrganize",true)).put("organizeModel",organizeModel()).put("agentBoard",prefs.getBoolean("agentBoard",true)).put("agentProfile",prefs.getBoolean("agentProfile",true)).put("debugHooks",BuildFlags.DEBUG).put("testNow",BuildFlags.DEBUG?prefs.getLong("testNow",0):0);
+  return new JSONObject().put("neverObserved",new JSONArray(new TreeSet<>(NEVER_OBSERVED))).put("languages",new JSONArray(new TreeSet<>(Lang.SUPPORTED))).put("vectorModel",Embedder.MODEL_ID).put("enabled",prefs.getBoolean("enabled",false)).put("takuChats",prefs.getBoolean("takuChats",false)).put("analysisEnabled",prefs.getBoolean("analysisEnabled",false)).put("analysisGeneration",prefs.getLong("analysisGeneration",0)).put("queryEnabled",prefs.getBoolean("queryEnabled",false)).put("proactive",prefs.getBoolean("proactive",true)).put("nudges",prefs.getBoolean("nudges",false)).put("feedCards",prefs.getBoolean("feedCards",false)).put("feedDescribe",prefs.getBoolean("feedDescribe",false)).put("model",effectiveModel()).put("modelOverride",prefs.getString("model","")).put("followsSystem",followsSystem()).put("sources",sources).put("generation",prefs.getLong("generation",0)).put("retentionDays",prefs.getInt("retentionDays",0)).put("userName",userName()).put("autoOrganize",prefs.getBoolean("autoOrganize",true)).put("organizeModel",organizeModel()).put("agentBoard",prefs.getBoolean("agentBoard",true)).put("agentProfile",prefs.getBoolean("agentProfile",true)).put("debugHooks",BuildFlags.DEBUG).put("testNow",BuildFlags.DEBUG?prefs.getLong("testNow",0):0);
  }
  /** Content reads share the same live switch across the signed and open Android APIs. */
  static final Set<String> QUERY_METHODS=Set.of("search","get","board","profile","agenda","nudges","graph","browse");
  synchronized JSONObject query(String method,JSONObject p,boolean requireEnabled,boolean managementView)throws Exception{
   if(requireEnabled&&!prefs.getBoolean("queryEnabled",false))throw new SecurityException("Agent memory queries are disabled");
   switch(method){
-   case "search":return new JSONObject().put("items",search(p.optString("query"),p.optInt("limit",10)));
+   case "search":return new JSONObject().put("items",search(p.optString("query"),p.optInt("limit",10),scope(p),null));
    case "get":return readAny(p.getString("id"),p.optBoolean("history",false));
    case "board":return (managementView&&!p.optBoolean("forAgent")?boardView():agentBoardView()).put("revokedAt",revokedAt());
    case "profile":return (managementView&&!p.optBoolean("forAgent")?profileView():agentProfileFor(p.optString("text",""))).put("revokedAt",revokedAt());
@@ -114,7 +125,7 @@ final class MemoryStore extends SQLiteOpenHelper {
  }
  synchronized JSONObject configure(JSONObject input)throws Exception{
   SharedPreferences.Editor e=prefs.edit();boolean feedWas=feedOn();lastPrune=0;   // Retention may have changed: prune before the next search.
-  for(String key:new String[]{"enabled","analysisEnabled","queryEnabled","proactive","nudges","feedCards","feedDescribe"})if(input.has(key))e.putBoolean(key,input.getBoolean(key));
+  for(String key:new String[]{"enabled","takuChats","analysisEnabled","queryEnabled","proactive","nudges","feedCards","feedDescribe"})if(input.has(key))e.putBoolean(key,input.getBoolean(key));
   if(input.has("model")){String m=input.getString("model");if(m.length()>512)throw new IllegalArgumentException(context.getString(R.string.error_model_id_too_long));e.putString("model",m);if(!input.has("followSystem"))e.putBoolean("followSystem",m.isEmpty());}
   if(input.has("followSystem"))e.putBoolean("followSystem",input.getBoolean("followSystem"));
   if(input.has("sources")){JSONArray a=input.getJSONArray("sources");if(a.length()>200)throw new IllegalArgumentException(context.getString(R.string.error_too_many_sources));Set<String> p=new HashSet<>();for(int i=0;i<a.length();i++){String s=a.getString(i);if(!s.matches("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+"))throw new IllegalArgumentException(context.getString(R.string.error_invalid_source));p.add(s);}e.putStringSet("sources",p);}
@@ -213,11 +224,61 @@ final class MemoryStore extends SQLiteOpenHelper {
   if(note)Proactive.captured(context,this,source,title,body,now());
   return read(id,false);
  }
+ /** The source and title of a Taku conversation turn. Screen capture of the Taku app itself stays off (NEVER_OBSERVED). */
+ static final String CHAT_SOURCE="org.agentos.agent",CHAT_TITLE="Taku";
+ /** Turns that hold a password or a one-time code are not kept, like such notifications. */
+ static final java.util.regex.Pattern CHAT_SECRET=java.util.regex.Pattern.compile("(?i)\\b(password|passcode|passphrase|pin code)\\b|密码|口令");
+ /**
+  * One turn of a conversation with Taku (Broker only, while "Remember Taku conversations" and capture are on). The user's
+  * message is evidence like a captured page: searched, organized into the graph, quoted on the user card. Taku's reply is
+  * stored too, with speaker "assistant", but only for questions about what Taku said: search leaves it out unless the query
+  * asks about Taku's earlier answers or the caller asks for replies, and the organizer and the card never read it, so memory
+  * does not feed on its own output. Messages memory itself wrote (a reminder handed to Taku from the home feed) are dropped
+  * with their replies. Neither turn enters the analysis queue. Idempotent per thread, turn and speaker.
+  */
+ synchronized JSONObject chat(JSONObject p)throws Exception{
+  String thread=p.getString("thread"),turn=p.getString("turn"),speaker=p.getString("speaker");
+  if(thread.isEmpty()||turn.isEmpty()||(thread+turn).length()>256||(thread+turn).chars().anyMatch(Character::isISOControl)||!Set.of("user","assistant").contains(speaker))throw new IllegalArgumentException(context.getString(R.string.error_invalid_content));
+  JSONObject no=new JSONObject().put("stored",false);
+  if(!prefs.getBoolean("enabled",false)||!prefs.getBoolean("takuChats",false))return no.put("reason","off");
+  String key=digest(thread+"\n"+turn).substring(0,24),text=bounded(p.optString("text").replaceAll("[ \\t]+"," ").trim(),8000);
+  JSONArray skipped=new JSONArray(kvGet("chatSkipped","[]"));
+  if(speaker.equals("assistant")){for(int i=0;i<skipped.length();i++)if(skipped.optString(i).equals(key))return no.put("reason","handoff");}
+  else if(handoff(text)){JSONArray kept=new JSONArray();for(int i=Math.max(0,skipped.length()-63);i<skipped.length();i++)kept.put(skipped.optString(i));kvSet("chatSkipped",kept.put(key).toString());return no.put("reason","handoff");}
+  if(text.length()<8)return no.put("reason","short");
+  if(Privacy.SECRET.matcher(text).find()||CHAT_SECRET.matcher(text).find())return no.put("reason","secret");
+  text=Privacy.mask(text,Privacy.CARD_NUMBER);
+  prune();SQLiteDatabase d=getWritableDatabase();String page="taku-chat:"+key+":"+speaker,hash=digest(CHAT_SOURCE+"\n"+page+"\n"+text);
+  try(Cursor c=d.rawQuery("SELECT 1 FROM forgotten WHERE digest=? UNION ALL SELECT 1 FROM memories WHERE digest=?",new String[]{hash,hash})){if(c.moveToFirst())return no.put("reason","known");}
+  String id=UUID.randomUUID().toString();long now=System.currentTimeMillis();StringBuilder keys=new StringBuilder();
+  d.beginTransaction();try{
+   for(String l:text.split("\n",-1)){if(keys.length()>0)keys.append(',');keys.append(Delta.key(l));d.execSQL("INSERT OR IGNORE INTO line_store(k,x) VALUES(?,?)",new Object[]{Delta.key(l),l});}
+   ContentValues v=new ContentValues();v.put("id",id);v.put("source",CHAT_SOURCE);v.put("page",page);v.put("title",CHAT_TITLE);v.put("body",text);v.put("head","");v.put("fresh",text);v.put("lines",keys.toString());v.put("digest",hash);v.put("first_seen",now);v.put("last_seen",now);v.put("speaker",speaker);v.put("analysis","none");
+   d.insertOrThrow("memories",null,v);d.setTransactionSuccessful();
+  }finally{d.endTransaction();}
+  embedLater(id,Recall.evidenceText(CHAT_TITLE,"",text),now);changed();
+  return new JSONObject().put("stored",true).put("id",id);
+ }
+ /** A message memory wrote itself and handed to Taku: a home-feed prompt (either language) or a reminder from the last week. */
+ boolean handoff(String text)throws Exception{
+  for(String tag:new String[]{"en","zh"}){
+   android.content.res.Configuration conf=new android.content.res.Configuration(context.getResources().getConfiguration());conf.setLocale(Locale.forLanguageTag(tag));
+   Context c=context.createConfigurationContext(conf);
+   for(int res:new int[]{R.string.feed_plan_prompt,R.string.feed_reply_prompt,R.string.feed_ask_prompt}){
+    String longest="";for(String part:c.getString(res).split("%\\d\\$s"))if(part.trim().length()>longest.length())longest=part.trim();
+    if(longest.length()>=8&&text.contains(longest))return true;
+   }
+  }
+  try(Cursor c=getReadableDatabase().rawQuery("SELECT body FROM nudges WHERE at>=?",new String[]{""+(System.currentTimeMillis()-7*86400000L)})){
+   while(c.moveToNext())for(String line:c.getString(0).split("\n")){String l=line.trim();if(l.length()>=12&&text.contains(l))return true;}
+  }
+  return false;
+ }
  void embedLater(String id,String text,long seen){embedWorker.execute(()->{try{embedNow(id,text,seen);}catch(Exception ignored){}});}
  void embedNow(String id,String text,long seen)throws Exception{
-  Embedder e=Recall.embedder(context);if(e==null)return;float[] v=e.encode(bounded(text,600),false);
-  synchronized(this){try(Cursor c=getReadableDatabase().rawQuery("SELECT 1 FROM memories WHERE id=?",new String[]{id})){if(!c.moveToFirst())return;}ContentValues c=new ContentValues();c.put("id",id);c.put("v",Embedder.pack(v));getWritableDatabase().insertWithOnConflict("vectors",null,c,SQLiteDatabase.CONFLICT_REPLACE);}
-  Recall.removeVector(id);Recall.addVector(id,seen,v);
+  Embedder e=Recall.embedder(context);if(e==null)return;float[] v=e.encode(bounded(text,600),false);boolean taku;
+  synchronized(this){try(Cursor c=getReadableDatabase().rawQuery("SELECT speaker FROM memories WHERE id=?",new String[]{id})){if(!c.moveToFirst())return;taku=c.getString(0).equals("assistant");}ContentValues c=new ContentValues();c.put("id",id);c.put("v",Embedder.pack(v));getWritableDatabase().insertWithOnConflict("vectors",null,c,SQLiteDatabase.CONFLICT_REPLACE);}
+  Recall.removeVector(id);Recall.addVector(id,seen,v,taku);
  }
  /** Vectors missing after a crash, an upgrade or before the model was ready. */
  int ensureVectors()throws Exception{
@@ -238,7 +299,7 @@ final class MemoryStore extends SQLiteOpenHelper {
  synchronized JSONObject readAny(String id,boolean history)throws Exception{
   if(id.matches("n[0-9]{1,7}"))return readNode(id);
   if(id.matches("e[0-9]{1,9}")){try(Cursor c=getReadableDatabase().rawQuery("SELECT id FROM memories WHERE rowid=?",new String[]{id.substring(1)})){if(!c.moveToFirst())throw new IllegalArgumentException(context.getString(R.string.error_memory_not_found));id=c.getString(0);}}
-  JSONObject r=read(id,history);r.put("fullText",fullText(r.optString("lines")));r.remove("lines");r.remove("fresh");return r;
+  JSONObject r=read(id,history);r.put("fullText",fullText(r.optString("lines"))).put("seenAt",localTime(r.getLong("first_seen")));r.remove("lines");r.remove("fresh");return r;
  }
  synchronized JSONObject read(String id,boolean history)throws Exception{requireId(id);prune();return readRow(id,history);}
  synchronized JSONObject readRow(String id,boolean history)throws Exception{
@@ -248,10 +309,25 @@ final class MemoryStore extends SQLiteOpenHelper {
   return r;
  }
  /** Agent search: hybrid keyword + on-device vector + memory graph (see Recall). */
- JSONArray search(String query,int limit)throws Exception{return search(query,limit,null);}
- JSONArray search(String query,int limit,long[] times)throws Exception{
+ JSONArray search(String query,int limit)throws Exception{return search(query,limit,Recall.Scope.AUTO,null);}
+ JSONArray search(String query,int limit,long[] times)throws Exception{return search(query,limit,Recall.Scope.AUTO,times);}
+ /** At most 50 results (20 before 0.18): questions that count or list things across days need more than 20 records. */
+ JSONArray search(String query,int limit,Recall.Scope scope,long[] times)throws Exception{
   if(query.length()>500)throw new IllegalArgumentException(context.getString(R.string.error_query_too_long));pruneSoon();
-  return Recall.search(this,query,Math.max(1,Math.min(20,limit)),times);
+  return Recall.search(this,query,Math.max(1,Math.min(50,limit)),scope,times);
+ }
+ /**
+  * Optional search parameters: takuReplies (true includes Taku's own earlier replies, false leaves them out; absent decides
+  * from the query), from and to (YYYY-MM-DD in the device's time zone, inclusive) to search only records first seen then.
+  */
+ Recall.Scope scope(JSONObject p){
+  Boolean taku=p.has("takuReplies")?p.optBoolean("takuReplies"):null;long from=0,to=Long.MAX_VALUE;java.time.ZoneId zone=java.time.ZoneId.systemDefault();
+  try{
+   if(!p.optString("from").isEmpty())from=java.time.LocalDate.parse(p.getString("from")).atStartOfDay(zone).toInstant().toEpochMilli();
+   if(!p.optString("to").isEmpty())to=java.time.LocalDate.parse(p.getString("to")).plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()-1;
+  }catch(java.time.format.DateTimeParseException|JSONException bad){throw new IllegalArgumentException(context.getString(R.string.error_invalid_search_dates));}
+  if(from>to)throw new IllegalArgumentException(context.getString(R.string.error_invalid_search_dates));
+  return new Recall.Scope(taku,from,to);
  }
  volatile long lastPrune;
  /**
@@ -260,12 +336,17 @@ final class MemoryStore extends SQLiteOpenHelper {
   */
  void pruneSoon(){long t=System.currentTimeMillis();if(t-lastPrune<60000L)return;lastPrune=t;prune();}
  synchronized JSONObject evidenceItem(String id)throws Exception{
-  try(Cursor c=getReadableDatabase().rawQuery("SELECT rowid,id,source,title,head,body,first_seen,last_seen,revision,category FROM memories WHERE id=?",new String[]{id})){
+  try(Cursor c=getReadableDatabase().rawQuery("SELECT rowid,id,source,title,head,body,first_seen,last_seen,revision,category,speaker FROM memories WHERE id=?",new String[]{id})){
    if(!c.moveToFirst())throw new IllegalArgumentException(context.getString(R.string.error_memory_not_found));String title=c.getString(3),body=(c.getString(4).isEmpty()?"":c.getString(4)+"\n")+c.getString(5);
    body=bounded(body,Math.max(0,400-title.length()-1));
-   return new JSONObject().put("kind","e").put("id",c.getString(1)).put("ref","e"+c.getLong(0)).put("source",c.getString(2)).put("title",title).put("body",body).put("first_seen",c.getLong(6)).put("last_seen",c.getLong(7)).put("revision",c.getInt(8)).put("category",c.getString(9));
+   JSONObject item=new JSONObject().put("kind","e").put("id",c.getString(1)).put("ref","e"+c.getLong(0)).put("source",c.getString(2)).put("title",title).put("body",body).put("first_seen",c.getLong(6)).put("last_seen",c.getLong(7)).put("revision",c.getInt(8)).put("category",c.getString(9));
+   item.put("seenAt",localTime(c.getLong(6)));
+   if(!c.getString(10).isEmpty())item.put("speaker",c.getString(10));   // A Taku conversation turn: "user" said it, or Taku ("assistant") replied.
+   return item;
   }
  }
+ /** When a record was first seen, in the device's time zone ("2026-11-27 Fri 09:15"): epoch milliseconds are easy to misread, and questions about time need the date. */
+ static String localTime(long ms){java.time.ZonedDateTime d=java.time.Instant.ofEpochMilli(ms).atZone(java.time.ZoneId.systemDefault());return d.toLocalDate()+" "+Organizer.WD[d.getDayOfWeek().getValue()-1]+" "+String.format(Locale.ROOT,"%02d:%02d",d.getHour(),d.getMinute());}
  synchronized List<String> refsToIds(JSONArray refs){List<String> out=new ArrayList<>();for(int i=0;refs!=null&&i<refs.length();i++){String r=refs.optString(i);if(!r.matches("e[0-9]{1,9}"))continue;try(Cursor c=getReadableDatabase().rawQuery("SELECT id FROM memories WHERE rowid=?",new String[]{r.substring(1)})){if(c.moveToFirst())out.add(c.getString(0));}}return out;}
  JSONObject nodeItem(String nid,JSONObject v)throws Exception{
   return new JSONObject().put("kind","n").put("id",nid).put("title","["+v.optString("type")+"] "+v.optString("title")).put("body",Recall.nrender(v)).put("when",v.optString("when")).put("status",v.optString("status")).put("evidence",new JSONArray(refsToIds(v.optJSONArray("evidence")))).put("first_seen",v.optLong("t")).put("source","memory-graph");
@@ -440,7 +521,7 @@ final class MemoryStore extends SQLiteOpenHelper {
   JSONObject u=r.optJSONObject("usage");long n=0;if(u!=null){JSONObject t=u.optJSONObject("total");n=t!=null?t.optLong("totalTokens"):u.optLong("totalTokens");}
   prefs.edit().putLong("usage_"+kind,prefs.getLong("usage_"+kind,0)+n).putLong("runs_"+kind,prefs.getLong("runs_"+kind,0)+1).putString("model_"+kind,r.optString("model")).putString("runModel_"+kind,r.optString("model")).putString("runSource",r.optString("modelSource",prefs.getString("runSource",""))).apply();
  }
- /** Internal library browsing only. The signed Agent API continues to cap search at 20. */
+ /** Internal library browsing only. The signed Agent API caps search at 50. */
  synchronized JSONObject browse(String query,String category,String source,int limit,int offset)throws Exception{
   if(query.length()>500)throw new IllegalArgumentException(context.getString(R.string.error_query_too_long));prune();List<String> args=new ArrayList<>();StringBuilder where=new StringBuilder("1=1");
   for(String token:query.trim().split("\\s+")){if(token.isEmpty())continue;where.append(" AND (body LIKE ? ESCAPE '\\' OR head LIKE ? ESCAPE '\\' OR title LIKE ? ESCAPE '\\' OR category LIKE ? ESCAPE '\\')");String t="%"+token.replace("\\","\\\\").replace("%","\\%").replace("_","\\_")+"%";args.add(t);args.add(t);args.add(t);args.add(t);}

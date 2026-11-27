@@ -241,6 +241,38 @@ public final class StoreTests extends Instrumentation {
   check(s.search("When is my dental appointment",10).length()==0,"every content word must be present, as with keywords");
   s.forget(dentist.getString("id"));s.forget(material.getString("id"));
  }
+ /** 0.18: Taku conversations. What the user tells Taku is evidence; Taku's replies are kept for questions about them only. */
+ void chats(MemoryStore s)throws Exception{
+  check(Recall.ASKS_TAKU.keySet().equals(Lang.SUPPORTED),"the Taku-reply rule covers exactly the supported languages");
+  check(Recall.asksTaku("What was the name of the deli you recommended near the Vatican?")&&Recall.asksTaku("Can you remind me of our previous conversation about the chess opening?")&&Recall.asksTaku("你上次推荐的那家火锅店叫什么")&&Recall.asksTaku("我们之前聊过的那个方案是什么")
+   &&!Recall.asksTaku("When is my dental cleaning")&&!Recall.asksTaku("婷婷明晚在哪吃饭"),"questions about what Taku said are recognised in both languages");
+  java.util.function.Function<String[],JSONObject> turn=a->{try{return s.chat(new JSONObject().put("thread","5f0c2e7a-0000-4000-8000-000000000018").put("turn",a[0]).put("speaker",a[1]).put("text",a[2]));}catch(Exception e){throw new IllegalStateException(e);}};
+  s.configure(new JSONObject().put("enabled",true).put("takuChats",false));
+  check(!turn.apply(new String[]{"u1","user","My bike tune-up on April 20th cost $25 for the new chain"}).getBoolean("stored"),"nothing is kept while the switch is off");
+  check(s.config().has("takuChats")&&!s.config().getBoolean("takuChats"),"status reports the switch");
+  s.configure(new JSONObject().put("takuChats",true));
+  JSONObject said=turn.apply(new String[]{"u1","user","My bike tune-up on April 20th cost $25 for the new chain"}),reply=turn.apply(new String[]{"u1","assistant","You could try the Sugar Factory at Icon Park; I recommended it for giant milkshakes"});
+  check(said.getBoolean("stored")&&reply.getBoolean("stored"),"both turns are kept");
+  check(!turn.apply(new String[]{"u1","user","My bike tune-up on April 20th cost $25 for the new chain"}).getBoolean("stored"),"a turn is kept once");
+  check(s.search("bike tune-up chain",10).toString().contains("$25"),"what the user said is found like other memories");
+  check(s.search("bike tune-up chain",10).getJSONObject(0).optString("speaker").equals("user"),"search says who said it");
+  check(!s.search("Sugar Factory milkshakes",10).toString().contains("Icon Park"),"Taku's reply is left out of ordinary searches");
+  check(s.search("Sugar Factory milkshakes you recommended",10).toString().contains("Icon Park"),"a question about what Taku said reads its replies");
+  check(s.query("search",new JSONObject().put("query","Sugar Factory milkshakes").put("takuReplies",true),false,true).getJSONArray("items").toString().contains("Icon Park"),"callers can ask for Taku's replies");
+  check(!s.query("search",new JSONObject().put("query","Sugar Factory milkshakes you recommended").put("takuReplies",false),false,true).getJSONArray("items").toString().contains("Icon Park"),"or leave them out");
+  boolean organizedSaid=false,organizedReply=false;for(JSONObject e:Organizer.pending(s,"chatTestCursor",Long.MAX_VALUE)){organizedSaid|=e.getString("id").equals(said.getString("id"));organizedReply|=e.getString("id").equals(reply.getString("id"));}
+  check(organizedSaid&&!organizedReply,"the organizer reads what the user said, never Taku's replies");
+  try(android.database.Cursor c=s.getReadableDatabase().rawQuery("SELECT COUNT(*) FROM analysis_queue WHERE id IN (?,?)",new String[]{said.getString("id"),reply.getString("id")})){c.moveToFirst();check(c.getInt(0)==0,"conversation turns skip the analysis queue");}
+  String handed=s.context.getString(R.string.feed_ask_prompt,"Mom","Dinner at 7?","You also have a dentist visit at 6");
+  check(!turn.apply(new String[]{"u2","user",handed}).getBoolean("stored")&&!turn.apply(new String[]{"u2","assistant","Dinner at 7 works if you leave the dentist by 6:40"}).getBoolean("stored"),"a reminder memory handed to Taku is not kept, nor its reply");
+  check(!turn.apply(new String[]{"u3","user","The wifi password is hunter2hunter2"}).getBoolean("stored"),"passwords are not kept");
+  String today=java.time.LocalDate.now().toString();
+  check(s.query("search",new JSONObject().put("query","bike tune-up chain").put("from","2000-01-01").put("to","2000-01-02"),false,true).getJSONArray("items").length()==0
+   &&s.query("search",new JSONObject().put("query","bike tune-up chain").put("from",today).put("to",today),false,true).getJSONArray("items").toString().contains("$25"),"from and to bound when records were seen");
+  fails(()->s.query("search",new JSONObject().put("query","bike").put("from","2026/11/27"),false,true),"dates must be YYYY-MM-DD");
+  fails(()->s.query("search",new JSONObject().put("query","bike").put("from","2026-11-28").put("to","2026-11-27"),false,true),"from must not be after to");
+  s.forget(said.getString("id"));s.forget(reply.getString("id"));s.configure(new JSONObject().put("takuChats",false));
+ }
  /** Home feed cards: what the home module's FeedCard parser and the taku-feed-1 catalog require, checked without the home app. */
  void feedCards()throws Exception{
   android.content.Context c=getTargetContext();long now=System.currentTimeMillis();
@@ -449,7 +481,7 @@ public final class StoreTests extends Instrumentation {
   check(!ids.isEmpty()&&s.suggestionRecords().length()==1&&s.suggestionRecords().getJSONObject(0).getString("id").equals(olderId),"accepted suggestion remains reachable beyond latest twenty");
   derived(s,source);
   privacyEnglish(s);
-  agenda(s,source);proactive(s);languages(s,source);changes(s);feedCards();feedDescribe();feedFeedback(s);
+  agenda(s,source);proactive(s);languages(s,source);chats(s);changes(s);feedCards();feedDescribe();feedFeedback(s);
   long queryGeneration=s.configure(new JSONObject().put("enabled",true).put("queryEnabled",false).put("sources",new JSONArray().put(source))).getLong("generation");
   JSONObject queryRecord=s.ingest(source,"query-policy","Original synthetic title","Old synthetic evidence must not leak from an edit receipt.",queryGeneration);
   String queryId=queryRecord.getString("id");

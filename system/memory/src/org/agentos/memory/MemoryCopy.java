@@ -14,7 +14,11 @@ final class MemoryCopy {
   String pkg=record.optString("source");String app=apps.computeIfAbsent(pkg,p->{try{return context.getPackageManager().getApplicationLabel(context.getPackageManager().getApplicationInfo(p,0)).toString();}catch(Exception e){return p;}});
   return MemoryContent.extract(record,app);
  }
- String title(JSONObject record){return title(facts(record));}
+ /** A Taku conversation turn says who spoke: "You: …" or "Taku: …". */
+ String title(JSONObject record){
+  String t=title(facts(record));
+  return switch(record.optString("speaker")){case "user"->MemoryContent.clip(s(R.string.chat_you,t),100);case "assistant"->MemoryContent.clip(s(R.string.chat_taku,t),100);default->t;};
+ }
  private String title(MemoryContent.Facts f){
   if(f.corrected&&!f.heading.isEmpty())return f.heading;
   if(f.kind==MemoryContent.Kind.MEAL){String subject=join(day(f.day),meal(f.meal));return MemoryContent.clip(f.venue.isEmpty()?s(R.string.content_meal_title,subject):s(R.string.content_meal_place,subject,f.venue),100);}

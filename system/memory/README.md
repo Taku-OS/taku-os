@@ -1,8 +1,18 @@
-# Taku 记忆（0.17.0 开发组件）
+# Taku 记忆（0.18.0 开发组件）
 
 [English](README.en.md)
 
-0.17.0 支持中英文，并能跨语言检索。0.16.0 让检索更快，返回结果不变。0.15.1 修复五个 bug（Agent 读不到提醒列表、emoji 让卡片超长被拒、首页 AI 的卡可能一直挂着、同类新卡排在下面、新版 Taku 首页可能被当作记录来源）。0.15.0 按首页 PR #33 的接口说明对齐首页卡片的生命周期和用户反馈：记忆发到首页的卡到期、被用户删掉或关掉开关时都会收回，用户对卡片的操作读回到提醒上。0.14.0 可以把提醒写成描述，交给 Taku 首页的 AI 设计卡片（实验，默认关闭）。0.13.0 让主动提醒也能以卡片出现在 Taku 首页的卡片流里（实验，默认关闭）。0.12.0 针对 0.11.0 的短处做了优化：整理更常写"最晚哪天得办"并标出哪些时间要到场，冲突只拿要到场的事比，消息提醒发出前再复核一次，"今天有变化的事"去掉滚动和一路更新的噪声。0.11.0 让整理写下"最晚哪天得办、错过的代价、要一起想到的"并用进用户卡，主动开口时单独标出可能的冲突、把一天里的状态变化交给睡前提醒，提醒可以一键交给 Agent。0.10.0 新增实验性的"主动开口"（默认关闭）：每晚整理后给睡前提醒，新通知碰到记忆里的事时提醒一句。0.8.2 让用户卡里"接下来两天的安排和截止"更适合主动提醒：本人的预约不再被隐私规则拦下，放不下时按错过的代价取舍，新增"最近一天新出现的待办"。0.8.1 在 0.8.0 之上让整理线程不再带上助手背景（整理开销降到约 1.6 万 token），让助手回消息时用上用户卡里相关的安排和分量，给"接下来两天的安排和截止"去重，并让整理模型列表如实标出"跟随 Taku AI"当前能不能用（见下文）。0.8.0 在 0.7.0 之上补齐英文隐私规则、整理模型可选并大幅降低整理开销、改进助手的主动提醒，删除后通知已开始的对话，并换用量化向量模型（安装包约 37MB）。需配套同一提交构建的 Broker（`agentos-task-broker`：记忆整理 `MemoryGen`、看板和用户卡注入 `HarnessContext`）。只更新记忆 APK 时，夜间整理会因 Broker 不认识整理请求而失败并在 30 分钟后重试，不影响采集、检索和逐条分析。构建前先运行 `python3 scripts/prepare-memory-vectors.py` 取回固定版本的向量依赖（见下文）。批分析协议、助手 v59 的回复语言与 `memoryFocus`、系统展示 v3 / 0.2.1 与消息协议 v2 沿用 0.6.0。
+0.18.0 能记住与 Taku 的对话，检索一次能取回更多记录。0.17.0 支持中英文，并能跨语言检索。0.16.0 让检索更快，返回结果不变。0.15.1 修复五个 bug（Agent 读不到提醒列表、emoji 让卡片超长被拒、首页 AI 的卡可能一直挂着、同类新卡排在下面、新版 Taku 首页可能被当作记录来源）。0.15.0 按首页 PR #33 的接口说明对齐首页卡片的生命周期和用户反馈：记忆发到首页的卡到期、被用户删掉或关掉开关时都会收回，用户对卡片的操作读回到提醒上。0.14.0 可以把提醒写成描述，交给 Taku 首页的 AI 设计卡片（实验，默认关闭）。0.13.0 让主动提醒也能以卡片出现在 Taku 首页的卡片流里（实验，默认关闭）。0.12.0 针对 0.11.0 的短处做了优化：整理更常写"最晚哪天得办"并标出哪些时间要到场，冲突只拿要到场的事比，消息提醒发出前再复核一次，"今天有变化的事"去掉滚动和一路更新的噪声。0.11.0 让整理写下"最晚哪天得办、错过的代价、要一起想到的"并用进用户卡，主动开口时单独标出可能的冲突、把一天里的状态变化交给睡前提醒，提醒可以一键交给 Agent。0.10.0 新增实验性的"主动开口"（默认关闭）：每晚整理后给睡前提醒，新通知碰到记忆里的事时提醒一句。0.8.2 让用户卡里"接下来两天的安排和截止"更适合主动提醒：本人的预约不再被隐私规则拦下，放不下时按错过的代价取舍，新增"最近一天新出现的待办"。0.8.1 在 0.8.0 之上让整理线程不再带上助手背景（整理开销降到约 1.6 万 token），让助手回消息时用上用户卡里相关的安排和分量，给"接下来两天的安排和截止"去重，并让整理模型列表如实标出"跟随 Taku AI"当前能不能用（见下文）。0.8.0 在 0.7.0 之上补齐英文隐私规则、整理模型可选并大幅降低整理开销、改进助手的主动提醒，删除后通知已开始的对话，并换用量化向量模型（安装包约 37MB）。需配套同一提交构建的 Broker（`agentos-task-broker`：记忆整理 `MemoryGen`、看板和用户卡注入 `HarnessContext`）。只更新记忆 APK 时，夜间整理会因 Broker 不认识整理请求而失败并在 30 分钟后重试，不影响采集、检索和逐条分析。构建前先运行 `python3 scripts/prepare-memory-vectors.py` 取回固定版本的向量依赖（见下文）。批分析协议、助手 v59 的回复语言与 `memoryFocus`、系统展示 v3 / 0.2.1 与消息协议 v2 沿用 0.6.0。
+
+## 0.18.0：记住与 Taku 的对话，检索取得更全
+
+记忆以前只记别的应用显示的内容，从不记用户对 Taku 本身说的话；Agent 检索一次最多拿到 10 条（接口最多 20 条），遇到要跨很多天数数、排序的问题不够用。
+
+- **与 Taku 的对话**：新开关 **记住与 Taku 的对话**（`takuChats`，默认关闭，还需要开启自动记录）记下 Taku 主对话的每一轮。Broker 在一轮开始时发出用户这句话（这一轮的第一段文字，不含附件和面板上下文），结束时发出 Taku 的回复（回复卡片的可读文字）。用户的话是普通记录：参与检索、夜间整理成图，也会出现在用户卡的引用里。Taku 的回复也存，说话人记为 `assistant`，但只有问题在问 Taku 说过什么（"你推荐的那家餐厅"、"我们上次聊的"、"the restaurant you recommended"），或调用方传 `takuReplies:true` 时才检索；整理和用户卡从不读它，避免记忆吃进自己的输出。记忆自己转给 Taku 的话（首页卡片的提示、近期提醒）连同回复一起不存；含密码或验证码的轮次不存；像卡号的数字会遮掉。Taku 应用的屏幕采集仍然关闭（`neverObserved`）。记忆列表里这类记录显示为"你：…"和"Taku：…"。
+- **检索取得更全**：`search` 一次最多返回 50 条（原来 20 条），每路排序也取到同样深度。可选 `from`/`to`（`YYYY-MM-DD`）只查那几天首次看到的记录（只查记录，不查图节点）。每条结果带本地时间 `seenAt`，对话轮次还带 `speaker`。手机工具 `memory_search` 新增 `limit`（默认 20，原来固定 10）、`from`、`to` 和 `takuReplies`。它的说明和背景策略要求 Agent：数数、排序类问题用具体的词多搜几次，先逐条列出日期再求总数；和时间有关的问题传日期；摘录被截断就用 `memory_get` 读全文；记忆里没有、或与问题前提矛盾时直接说明。
+- **代价**：关键词索引加上说话人列（`memory_kw2`），由维护任务重建。每留下一轮就多一条记录和一个向量。
+
+还没在设备或模拟器上跑过；背景策略所在的助手 APK 没有重新打包。详见 [0.18.0 验收](../../docs/reviews/taku-memory-0.18.0-2026-11-27/README.md)。
 
 ## 0.17.0：中英文，以及跨语言检索
 
@@ -273,7 +283,7 @@ Taku 首页（`system/agent-app/modules/taku-home`，Vela 的 `vela/TAKU-new-UI`
 
 原生动态工具提供：
 
-- `taku_phone.memory_search({"query":"关键词"})`：最多十条当前版本记录，返回来源、时间与 ID。
+- `taku_phone.memory_search({"query":"关键词"})`：默认 20 条、最多 50 条（`limit`）当前版本记录，返回来源、时间（`seenAt` 为本地时间）与 ID；可选 `from`/`to`（`YYYY-MM-DD`）只查那几天的记录，`takuReplies` 决定是否读 Taku 自己以前的回复（不传则按问题判断）。
 - `taku_phone.memory_get({"id":"记忆 UUID"})`：回读最新正文、版本与来源。查询关闭、删除或过期会明确失败。
 
 这些是已有 Codex Agent 的手机工具，不增加通用 SDK 方法计数，也不是 Codex 内部 `memory/status` / `memory/reset` 的实现。新建原生会话时注册；已有老会话不能因升级 APK 就假定动态工具已经刷新。
@@ -289,14 +299,14 @@ Authority：`content://org.agentos.memory`，状态版本 `taku.memory/2`。调�
 | 方法 | 参数 | 权限 |
 | --- | --- | --- |
 | `status` | `{}` | 签名调用方可读状态 |
-| `search` | `query`、可选 `limit`（1–20） | 签名调用方且用户开启 Agent 查询 |
+| `search` | `query`、可选 `limit`（1–50，默认 10）、`from`/`to`（`YYYY-MM-DD`，含当天，只查记录不查图节点）、`takuReplies`（true/false，不传则按问题判断） | 签名调用方且用户开启 Agent 查询 |
 | `get` | `id`、可选 `history` | 同上 |
-| `configure` | `enabled`、`analysisEnabled`、`queryEnabled`、`proactive`、`sources`、`model`、`followSystem`、`retentionDays`（0 为永久）、`userName`、`autoOrganize`、`organizeModel`（空为推荐，`system` 跟随 Taku AI，或模型名）、`agentBoard`、`agentProfile`、`nudges`、`feedCards`、`feedDescribe`；调试构建另有 `testNow`（仅 root） | 本应用或受控 root 开发环境 |
+| `configure` | `enabled`、`takuChats`、`analysisEnabled`、`queryEnabled`、`proactive`、`sources`、`model`、`followSystem`、`retentionDays`（0 为永久）、`userName`、`autoOrganize`、`organizeModel`（空为推荐，`system` 跟随 Taku AI，或模型名）、`agentBoard`、`agentProfile`、`nudges`、`feedCards`、`feedDescribe`；调试构建另有 `testNow`（仅 root） | 本应用或受控 root 开发环境 |
 | `update` | `id`、当前 `revision`、`title`、`body` | 本应用或受控 root；旧版本拒绝 |
 | `forget` | `id` | 本应用或受控 root |
 | `nudges` | 可选 `days`（1–7）、`limit`（1–30） | 签名调用方且用户开启 Agent 查询；返回主动开口说过的话、首页卡片 id、`feedback` 和 `reactions` |
 
-`batch`、`evidence`、`reserve`、`task`、`genInput`、`genResult`、`nudge`、`nudgeTask` 为 root Broker 的内部接口，不向普通签名消费者提供管理权限。API 不提供任意文件路径、SQL、账户读取或页面注入。原助手的 `content://org.agentos.assistant.memory-gateway` 同样受签名权限保护，只支持记忆相关操作。
+`batch`、`evidence`、`chat`、`reserve`、`task`、`genInput`、`genResult`、`nudge`、`nudgeTask` 为 root Broker 的内部接口，不向普通签名消费者提供管理权限。API 不提供任意文件路径、SQL、账户读取或页面注入。原助手的 `content://org.agentos.assistant.memory-gateway` 同样受签名权限保护，只支持记忆相关操作。
 
 ## 构建与复测
 

@@ -21,9 +21,10 @@ final class Recall {
  static final Object EMBED=new Object();
  /**
   * In-memory vector index of evidence, in first-seen order (new and re-embedded records are appended): ids, first-seen
-  * times and one vector per row in plain arrays, so a search scores rows without boxing and keeps only its top LIST.
+  * times, whether Taku said it (an "assistant" conversation turn) and one vector per row in plain arrays, so a search scores
+  * rows without boxing and keeps only its top LIST.
   */
- static String[] vecIds=new String[0];static long[] vecSeen=new long[0];static float[][] vecs=new float[0][];static int vecCount;static boolean vecLoaded;
+ static String[] vecIds=new String[0];static long[] vecSeen=new long[0];static float[][] vecs=new float[0][];static boolean[] vecTaku=new boolean[0];static int vecCount;static boolean vecLoaded;
  static final Set<String> vecSet=new HashSet<>();
  // node cache: nid -> versions (oldest first)
  static Map<String,List<JSONObject>> nodes;static Map<String,List<float[]>> nodeVecs;
@@ -77,21 +78,21 @@ final class Recall {
 
  static synchronized void loadVectors(SQLiteDatabase d){
   if(vecLoaded)return;resetVectors();
-  try(Cursor c=d.rawQuery("SELECT v.id,m.first_seen,v.v FROM vectors v JOIN memories m ON m.id=v.id ORDER BY m.first_seen",null)){while(c.moveToNext())append(c.getString(0),c.getLong(1),Embedder.unpack(c.getBlob(2)));}
+  try(Cursor c=d.rawQuery("SELECT v.id,m.first_seen,v.v,m.speaker FROM vectors v JOIN memories m ON m.id=v.id ORDER BY m.first_seen",null)){while(c.moveToNext())append(c.getString(0),c.getLong(1),Embedder.unpack(c.getBlob(2)),c.getString(3).equals("assistant"));}
   vecLoaded=true;
  }
- static void append(String id,long seen,float[] v){
+ static void append(String id,long seen,float[] v,boolean taku){
   if(!vecSet.add(id))return;
-  if(vecCount==vecIds.length){int n=Math.max(256,vecCount*2);vecIds=Arrays.copyOf(vecIds,n);vecSeen=Arrays.copyOf(vecSeen,n);vecs=Arrays.copyOf(vecs,n);}
-  vecIds[vecCount]=id;vecSeen[vecCount]=seen;vecs[vecCount]=v;vecCount++;
+  if(vecCount==vecIds.length){int n=Math.max(256,vecCount*2);vecIds=Arrays.copyOf(vecIds,n);vecSeen=Arrays.copyOf(vecSeen,n);vecs=Arrays.copyOf(vecs,n);vecTaku=Arrays.copyOf(vecTaku,n);}
+  vecIds[vecCount]=id;vecSeen[vecCount]=seen;vecs[vecCount]=v;vecTaku[vecCount]=taku;vecCount++;
  }
- static synchronized void addVector(String id,long seen,float[] v){if(vecLoaded)append(id,seen,v);}
+ static synchronized void addVector(String id,long seen,float[] v,boolean taku){if(vecLoaded)append(id,seen,v,taku);}
  static synchronized void removeVector(String id){
   if(!vecSet.remove(id))return;
-  for(int i=0;i<vecCount;i++)if(vecIds[i].equals(id)){int tail=vecCount-i-1;System.arraycopy(vecIds,i+1,vecIds,i,tail);System.arraycopy(vecSeen,i+1,vecSeen,i,tail);System.arraycopy(vecs,i+1,vecs,i,tail);vecCount--;vecIds[vecCount]=null;vecs[vecCount]=null;return;}
+  for(int i=0;i<vecCount;i++)if(vecIds[i].equals(id)){int tail=vecCount-i-1;System.arraycopy(vecIds,i+1,vecIds,i,tail);System.arraycopy(vecSeen,i+1,vecSeen,i,tail);System.arraycopy(vecs,i+1,vecs,i,tail);System.arraycopy(vecTaku,i+1,vecTaku,i,tail);vecCount--;vecIds[vecCount]=null;vecs[vecCount]=null;return;}
  }
  static synchronized void invalidateNodes(){nodes=null;nodeVecs=null;nodeVers=null;}
- static synchronized void resetVectors(){vecLoaded=false;vecIds=new String[0];vecSeen=new long[0];vecs=new float[0][];vecCount=0;vecSet.clear();}
+ static synchronized void resetVectors(){vecLoaded=false;vecIds=new String[0];vecSeen=new long[0];vecs=new float[0][];vecTaku=new boolean[0];vecCount=0;vecSet.clear();}
  static synchronized void loadNodes(SQLiteDatabase d)throws Exception{
   if(nodes!=null)return;Map<String,List<JSONObject>> n=new LinkedHashMap<>();Map<String,List<float[]>> nv=new HashMap<>();Map<String,List<NodeVer>> vers=new LinkedHashMap<>();
   try(Cursor c=d.rawQuery("SELECT nid,data,v FROM nodes ORDER BY CAST(SUBSTR(nid,2) AS INTEGER),ver",null)){while(c.moveToNext()){String nid=c.getString(0);JSONObject v=new JSONObject(c.getString(1));float[] vec=c.isNull(2)?null:Embedder.unpack(c.getBlob(2));
@@ -128,40 +129,56 @@ final class Recall {
  /** Runs the query vector and the evidence vector ranking while the caller scans the database for keywords. */
  static final java.util.concurrent.ExecutorService QUERY=java.util.concurrent.Executors.newSingleThreadExecutor(r->{Thread t=new Thread(r,"memory-query");t.setDaemon(true);return t;});
 
- static JSONArray search(MemoryStore s,String query,int k)throws Exception{return search(s,query,k,null);}
+ /**
+  * Which records a search reads. taku: true adds Taku's own earlier replies (conversation turns with speaker "assistant"),
+  * false leaves them out, null decides from the query (asksTaku). from and to bound first-seen times in ms, inclusive; a
+  * bounded search reads evidence only, since graph nodes carry the organizer's dates rather than when things were seen.
+  */
+ static final class Scope{
+  static final Scope AUTO=new Scope(null,0,Long.MAX_VALUE);
+  final Boolean taku;final long from,to;
+  Scope(Boolean taku,long from,long to){this.taku=taku;this.from=from;this.to=to;}
+  boolean bounded(){return from>0||to<Long.MAX_VALUE;}
+ }
+ static JSONArray search(MemoryStore s,String query,int k)throws Exception{return search(s,query,k,Scope.AUTO,null);}
+ static JSONArray search(MemoryStore s,String query,int k,long[] times)throws Exception{return search(s,query,k,Scope.AUTO,times);}
  /**
   * @param times when not null, filled with stage times in nanoseconds: keyword SQL, waiting for the vectors, nodes (load
   * and view), node keyword, node vectors, fuse and hop, result items, total. The vector work (query vector and evidence
   * ranking) runs alongside the first stages; its own time is in times[8] (query vector) and times[9] (evidence ranking).
+  * Each list holds max(LIST, k) entries, so a larger k draws on deeper lists.
   */
- static JSONArray search(MemoryStore s,String query,int k,long[] times)throws Exception{
+ static JSONArray search(MemoryStore s,String query,int k,Scope scope,long[] times)throws Exception{
   long start=System.nanoTime(),mark=start;
-  SQLiteDatabase d=s.getReadableDatabase();long now=s.now();
+  SQLiteDatabase d=s.getReadableDatabase();long now=s.now(),from=scope.from,until=Math.min(now,scope.to);int size=Math.max(LIST,k);
+  boolean taku=scope.taku!=null?scope.taku:asksTaku(query);
   List<String> ts=new ArrayList<>();for(String t:query.trim().split("\\s+"))if(!t.isEmpty())ts.add(t.toLowerCase(Locale.ROOT));
-  // 2. vectors over evidence, in the background: query vector (cached), then the top LIST rows
+  // 2. vectors over evidence, in the background: query vector (cached), then the top rows (and Taku's replies when asked)
   java.util.concurrent.Future<Object[]> vectors=QUERY.submit(()->{
    long a=System.nanoTime();float[] qv=null;try{qv=queryVector(s.context,query);}catch(Exception ignored){}
-   long b=System.nanoTime();List<String> vl=null;
-   if(qv!=null)synchronized(Recall.class){loadVectors(d);vl=topK(qv,now);}
-   return new Object[]{qv,vl,b-a,System.nanoTime()-b};
+   long b=System.nanoTime();List<String> vl=null,vt=null;
+   if(qv!=null)synchronized(Recall.class){loadVectors(d);vl=topK(qv,from,until,false,size);if(taku)vt=topK(qv,from,until,true,size);}
+   return new Object[]{qv,vl,b-a,System.nanoTime()-b,vt};
   });
   List<List<String>> lists=new ArrayList<>();
   // 1. keyword over evidence (title + first line + new lines), most recent first
   //    Every term must be present. A question ("明天要交什么材料", "when is my dentist appointment") never appears verbatim,
   //    so its terms are its content words instead of its whitespace pieces.
   List<String> words=sentenceWords(query);if(words!=null)ts=words;
-  StringBuilder where=new StringBuilder("first_seen<=?");List<String> args=new ArrayList<>();args.add(""+now);
+  StringBuilder where=new StringBuilder("first_seen<=? AND first_seen>=?");List<String> args=new ArrayList<>();args.add(""+until);args.add(""+from);
   for(String t:ts)keyword(where,args,t);
-  List<String> kw=new ArrayList<>();try(Cursor c=d.rawQuery("SELECT id FROM memories WHERE "+where+" ORDER BY first_seen DESC,id DESC LIMIT "+LIST,args.toArray(new String[0]))){while(c.moveToNext())kw.add("e:"+c.getString(0));}
+  List<String> kw=keywordList(d,where,args,false,size),kt=taku?keywordList(d,where,args,true,size):null;
   lists.add(kw);mark=lap(times,0,mark);
-  // 3. graph nodes: keyword now, vectors once the query vector is there
-  synchronized(Recall.class){loadNodes(d);}
-  List<NodeVer> nv=view(now);Map<String,NodeVer> byId=new HashMap<>();for(NodeVer n:nv)byId.put(n.nid,n);mark=lap(times,2,mark);
-  List<String> kl=nodeKeyword(nv,ts);mark=lap(times,3,mark);
-  Object[] vr;try{vr=vectors.get(20,java.util.concurrent.TimeUnit.SECONDS);}catch(Exception slow){vectors.cancel(true);vr=new Object[]{null,null,0L,0L};}
+  // 3. graph nodes: keyword now, vectors once the query vector is there; a date-bounded search reads evidence only
+  List<NodeVer> nv=new ArrayList<>();
+  if(!scope.bounded()){synchronized(Recall.class){loadNodes(d);}nv=view(now);}
+  Map<String,NodeVer> byId=new HashMap<>();for(NodeVer n:nv)byId.put(n.nid,n);mark=lap(times,2,mark);
+  List<String> kl=nodeKeyword(nv,ts,size);mark=lap(times,3,mark);
+  Object[] vr;try{vr=vectors.get(20,java.util.concurrent.TimeUnit.SECONDS);}catch(Exception slow){vectors.cancel(true);vr=new Object[]{null,null,0L,0L,null};}
   float[] qv=(float[])vr[0];if(vr[1]!=null)lists.add(castList(vr[1]));mark=lap(times,1,mark);
   if(times!=null){times[8]=(long)vr[2];times[9]=(long)vr[3];}
-  if(!nv.isEmpty()){lists.add(kl);if(qv!=null)lists.add(nodeVector(nv,qv));}
+  if(kt!=null)lists.add(kt);if(vr[4]!=null)lists.add(castList(vr[4]));
+  if(!nv.isEmpty()){lists.add(kl);if(qv!=null)lists.add(nodeVector(nv,qv,size));}
   mark=lap(times,4,mark);
   Map<String,Double> score=new LinkedHashMap<>();   // Insertion order breaks ties, matching offline behavior.
   for(List<String> l:lists)for(int r=0;r<l.size();r++)score.merge(l.get(r),1.0/(60+r),Double::sum);
@@ -176,6 +193,21 @@ final class Recall {
   lap(times,6,mark);if(times!=null)times[7]=System.nanoTime()-start;
   return out;
  }
+ /** Evidence ids matching the filter, newest first: Taku's own replies only, or everything else. */
+ static List<String> keywordList(SQLiteDatabase d,CharSequence where,List<String> args,boolean taku,int size){
+  List<String> out=new ArrayList<>();
+  try(Cursor c=d.rawQuery("SELECT id FROM memories WHERE "+where+" AND speaker"+(taku?"=":"<>")+"'assistant' ORDER BY first_seen DESC,id DESC LIMIT "+size,args.toArray(new String[0]))){while(c.moveToNext())out.add("e:"+c.getString(0));}
+  return out;
+ }
+ /**
+  * Whether a query asks about what Taku itself said earlier ("what was the restaurant you recommended", "我们上次聊的那个
+  * 方案"). Only then does a search read Taku's replies, which otherwise would crowd out what the user said. Per language,
+  * like the other local rules; StoreTests keeps the keys equal to Lang.SUPPORTED.
+  */
+ static final Map<String,java.util.regex.Pattern> ASKS_TAKU=Map.of(
+  "zh",java.util.regex.Pattern.compile("(你|Taku)(之前|上次|刚才|以前|那次|曾经|当时)?(说过|说的|讲过|讲的|提到|提过|推荐|建议|告诉我|给我的|给我推荐|列的|列过|写的|回答|答复|解释)|(我们|咱们|我和你|我跟你)(之前|上次|以前|那次|刚才)?(聊|谈|讨论|说)(过|的|到)|(上次|之前|以前|那次)的?(对话|聊天|讨论)"),
+  "en",java.util.regex.Pattern.compile("(?i)\\b(you|taku)\\s+(?:had\\s+|have\\s+|once\\s+|previously\\s+|earlier\\s+|just\\s+|also\\s+)?(said|told|recommended|suggested|mentioned|gave|provided|listed|explained|wrote|answered|replied|proposed|shared|advised|named|picked|chose|came\\s+up\\s+with|helped\\s+me|walked\\s+me|described|offered)\\b|\\bdid\\s+(you|taku)\\s+(say|tell|recommend|suggest|mention|give|list|explain|write|answer|propose|share|advise|name|pick|choose|describe|offer)\\b|\\b(our|previous|last|earlier|past|recent)\\s+(chats?|conversations?|discussions?)\\b|\\b(chat|conversation|discussion)\\s+(we|you\\s+and\\s+i)\\b|\\bwe\\s+(?:had\\s+|have\\s+)?(talked|discussed|chatted|spoke|went\\s+over|covered)\\b|\\b(your|taku's)\\s+(answer|reply|response|recommendations?|suggestions?|advice|list|explanation|tips?)\\b"));
+ static boolean asksTaku(String query){for(java.util.regex.Pattern p:ASKS_TAKU.values())if(p.matcher(query).find())return true;return false;}
  /**
   * One term of the evidence keyword filter. Terms hold no whitespace, so they never span the separators. A term with no
   * cased letters (Chinese, digits, symbols) matches the same rows with instr() as with LIKE, whose case folding has
@@ -244,15 +276,15 @@ final class Recall {
  @SuppressWarnings("unchecked") static List<String> castList(Object o){return (List<String>)o;}
  static long lap(long[] times,int i,long since){long now=System.nanoTime();if(times!=null)times[i]+=now-since;return now;}
  /** Nodes whose text holds every term, newest first (stable: equal times keep the view's order). */
- static List<String> nodeKeyword(List<NodeVer> nv,List<String> ts){
+ static List<String> nodeKeyword(List<NodeVer> nv,List<String> ts,int size){
   List<NodeVer> kn=new ArrayList<>();
   for(NodeVer n:nv){boolean all=true;for(String t:ts)if(!n.low.contains(t)){all=false;break;}if(all)kn.add(n);}
   kn.sort((a,b)->Long.compare(b.t,a.t));
-  List<String> kl=new ArrayList<>();for(int i=0;i<Math.min(LIST,kn.size());i++)kl.add("n:"+kn.get(i).nid);return kl;
+  List<String> kl=new ArrayList<>();for(int i=0;i<Math.min(size,kn.size());i++)kl.add("n:"+kn.get(i).nid);return kl;
  }
- /** The LIST nodes closest to the query vector; equal scores keep the view's order, as a stable sort would. */
- static List<String> nodeVector(List<NodeVer> nv,float[] qv){
-  int[] best=new int[LIST];float[] bs=new float[LIST];int n=0;
+ /** The size nodes closest to the query vector; equal scores keep the view's order, as a stable sort would. */
+ static List<String> nodeVector(List<NodeVer> nv,float[] qv,int size){
+  int[] best=new int[size];float[] bs=new float[size];int n=0;
   for(int i=0;i<nv.size();i++){float[] v=nv.get(i).vec;if(v==null)continue;n=offer(best,bs,n,i,Embedder.dot(v,qv));}
   List<String> vl=new ArrayList<>();for(int i=0;i<n;i++)vl.add("n:"+nv.get(best[i]).nid);return vl;
  }
@@ -275,9 +307,13 @@ final class Recall {
   int p=n==best.length?n-1:n;while(p>0&&bs[p-1]<sc){if(p<best.length){best[p]=best[p-1];bs[p]=bs[p-1];}p--;}
   best[p]=i;bs[p]=sc;return Math.min(n+1,best.length);
  }
- static List<String> topK(float[] qv,long now){
-  int[] best=new int[LIST];float[] bs=new float[LIST];int n=0;
-  for(int i=0;i<vecCount;i++)if(vecSeen[i]<=now)n=offer(best,bs,n,i,Embedder.dot(vecs[i],qv));
+ /** Before 0.18 (kept for the 0.16 review benches): everything seen by now except Taku's replies, LIST rows. */
+ static List<String> topK(float[] qv,long now){return topK(qv,0,now,false,LIST);}
+ static void append(String id,long seen,float[] v){append(id,seen,v,false);}
+ /** The size rows closest to the query vector among those first seen in [from, until]: Taku's replies only, or the rest. */
+ static List<String> topK(float[] qv,long from,long until,boolean taku,int size){
+  int[] best=new int[size];float[] bs=new float[size];int n=0;
+  for(int i=0;i<vecCount;i++)if(vecSeen[i]<=until&&vecSeen[i]>=from&&vecTaku[i]==taku)n=offer(best,bs,n,i,Embedder.dot(vecs[i],qv));
   List<String> out=new ArrayList<>();for(int i=0;i<n;i++)out.add("e:"+vecIds[best[i]]);return out;
  }
 
@@ -385,7 +421,7 @@ final class Recall {
   while(wm.find()){String w=wm.group().toLowerCase(Locale.ROOT);if(!EN_STOP.contains(w))words.add(w);}
   Set<String> namedSet=new HashSet<>();for(JSONObject x:matched){namedSet.add(x.optString("name"));for(String a:strings(x.optJSONArray("aliases")))if(a.length()>=2)namedSet.add(a);}
   List<Object[]> cand=new ArrayList<>();
-  try(Cursor c=s.getReadableDatabase().rawQuery("SELECT rowid,title,head,body,first_seen FROM memories WHERE first_seen>? AND first_seen<=? ORDER BY first_seen DESC LIMIT 400",new String[]{""+builtAt,""+now})){
+  try(Cursor c=s.getReadableDatabase().rawQuery("SELECT rowid,title,head,body,first_seen FROM memories WHERE first_seen>? AND first_seen<=? AND speaker<>'assistant' ORDER BY first_seen DESC LIMIT 400",new String[]{""+builtAt,""+now})){
    while(c.moveToNext()){String title=c.getString(1),head=c.getString(2);String[] lines=c.getString(3).split("\n");boolean dm=names.contains(head);
     for(int i=0;i<lines.length;i++){String l=lines[i].trim();if(l.length()<6||l.matches("[\\d/: ]+"))continue;
      String spk=i>0&&all.contains(lines[i-1].trim())?lines[i-1].trim():(dm?head:"");

@@ -87,6 +87,8 @@
  <string name="capture_section">Capture</string>
  <string name="auto_capture">Auto capture</string>
  <string name="capture_summary">Save readable text after a page settles. Screenshots and videos are not stored.</string>
+ <string name="taku_chats">Remember Taku conversations</string>
+ <string name="taku_chats_summary">What you tell Taku is saved like other memories. Taku\'s replies are saved too, but searched only when you ask what Taku said. Messages with passwords or one-time codes are skipped. Needs Auto capture on.</string>
  <string name="capture_apps">Apps to remember</string>
  <string name="observation_service">Observation service</string>
  <string name="connected">Connected</string>
@@ -162,6 +164,7 @@
  <string name="error_settings_not_saved">Could not save settings</string>
  <string name="error_memory_not_found">Memory deleted or expired</string>
  <string name="error_query_too_long">Search is limited to 500 characters</string>
+ <string name="error_invalid_search_dates">Search dates must be YYYY-MM-DD, with from no later than to</string>
  <string name="error_invalid_content">Invalid title or content length</string>
  <string name="error_memory_changed">Memory changed. Please reopen it.</string>
  <string name="error_invalid_task_id">Invalid task identifier</string>
@@ -174,6 +177,8 @@
  <string name="error_bridge_no_response">No response from the memory service</string>
  <string name="error_bridge_unavailable">Memory service unavailable</string>
  <string name="content_saved_text">Saved information</string>
+ <string name="chat_you">You: %1$s</string>
+ <string name="chat_taku">Taku: %1$s</string>
  <string name="content_agenda">%1$s agenda</string>
  <string name="content_meal_title">%1$s plans</string>
  <string name="content_meal_place">%1$s · %2$s</string>

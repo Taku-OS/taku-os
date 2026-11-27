@@ -38,7 +38,7 @@ public final class MemoryProvider extends ContentProvider {
        long id=ProactiveNotice.deliver(getContext(),s,kind,p.optString("title"),kind.equals("evening")?String.join("\n",Proactive.strings(p.optJSONArray("items"))):p.getString("say"),"","",at,new JSONObject().put("message",p.optString("text")).put("conflict",p.optBoolean("conflict")).put("package",p.optString("package")));
        r=new JSONObject().put("id",id).put("nudge",s.nudge(id));break;}
       case "benchSearch":{   // Debug: read-only timing of each search stage (median ms); changes no data; the first call includes the cold start.
-       if(!BuildFlags.DEBUG||!root)throw new SecurityException("Available only in debug builds");JSONArray qs=p.optJSONArray("queries");int reps=Math.max(1,Math.min(20,p.optInt("repeat",5))),lim=Math.max(1,Math.min(20,p.optInt("limit",10)));
+       if(!BuildFlags.DEBUG||!root)throw new SecurityException("Available only in debug builds");JSONArray qs=p.optJSONArray("queries");int reps=Math.max(1,Math.min(20,p.optInt("repeat",5))),lim=Math.max(1,Math.min(50,p.optInt("limit",10)));
        String[] names={"keyword","waitVectors","nodes","nodeKeyword","nodeVectors","fuseHop","items","total","queryVector","evidenceVectors"};
        JSONArray per=new JSONArray();long[] first=new long[10];boolean cold=true;
        for(int i=0;qs!=null&&i<qs.length();i++){String q=qs.getString(i);long[][] all=new long[reps][];int hits=0;
@@ -65,6 +65,7 @@ public final class MemoryProvider extends ContentProvider {
          out.write(x.put("row",c.getLong(0)).put("at",c.getLong(1)).put("title",c.getString(3)).put("text",text.length()>400?text.substring(0,400):text).toString());out.write("\n");}
        }
        r=new JSONObject().put("checked",n).put("woke",w);break;}
+      case "chat":if(!root)throw new SecurityException("Only TaskBroker may record Taku conversations");r=s.chat(p);break;
       case "nudge":if(!root)throw new SecurityException("Only TaskBroker may read reminders");r=s.nudge(p.getLong("id"));break;
       case "nudgeTask":if(!root)throw new SecurityException("Only TaskBroker may record reminder tasks");s.nudgeTask(p.getLong("id"),p.getString("taskId"));ProactiveNotice.handedOff(getContext(),s,p.getLong("id"));r=new JSONObject();break;
       case "maintain":if(p.has("now")&&(!BuildFlags.DEBUG||!root))throw new SecurityException("A specified organization time is available only in debug builds");r=new JSONObject().put("started",Organizer.start(getContext(),p.optLong("now",0),BuildFlags.DEBUG&&root&&p.optBoolean("graphOnly")));break;
