@@ -71,6 +71,23 @@ final class ScreenGuard {
         return flags;
     }
 
+    /**
+     * The lock screen marks Keyguard as showing on every display, and a display where it shows (not
+     * occluded by the top App) gets a Keyguard sleep token: its Apps are stopped and it renders no new
+     * frame, whatever its power state. So after the power key and a secure lock the Agent's screen
+     * stopped working (BUG-0034). VIRTUAL_DISPLAY_FLAG_ALWAYS_UNLOCKED exempts the display; the
+     * platform honours it only together with its own display group, so it is added only then. It
+     * needs the system UID or ADD_ALWAYS_UNLOCKED_DISPLAY, and createVirtualDisplay throws when that
+     * is missing: the host then creates the screen without it ({@code alwaysUnlocked:false}).
+     */
+    static final String ALWAYS_UNLOCKED_FLAG = "VIRTUAL_DISPLAY_FLAG_ALWAYS_UNLOCKED";
+
+    static int alwaysUnlockedFlags(int flags, ToIntFunction<String> flag) {
+        int ownGroup = flag.applyAsInt("VIRTUAL_DISPLAY_FLAG_OWN_DISPLAY_GROUP");
+        int unlocked = flag.applyAsInt(ALWAYS_UNLOCKED_FLAG);
+        return ownGroup != 0 && unlocked != 0 && (flags & ownGroup) == ownGroup ? flags | unlocked : flags;
+    }
+
     /** Off, dozing or suspended displays render nothing current. UNKNOWN is not treated as off. */
     static boolean screenOn(int state) {
         return state != STATE_OFF && state != STATE_DOZE && state != STATE_DOZE_SUSPEND && state != STATE_ON_SUSPEND;

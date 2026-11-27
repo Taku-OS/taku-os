@@ -56,6 +56,11 @@ public final class VirtualDisplayHost {
         volatile Exception error;
     }
     static final ExecutorService input=Executors.newSingleThreadExecutor();
+    /** Whether the created display really is exempt from the lock screen (Display.FLAG_ALWAYS_UNLOCKED, hidden). */
+    static boolean alwaysUnlocked(Display display) {
+        try { Field f=Display.class.getDeclaredField("FLAG_ALWAYS_UNLOCKED"); f.setAccessible(true); return (display.getFlags()&f.getInt(null))!=0; }
+        catch (Exception e) { return false; }
+    }
     static int flag(String name) {
         try { Field f=DisplayManager.class.getDeclaredField(name); f.setAccessible(true); return f.getInt(null); }
         catch (Exception e) { return 0; }
@@ -163,12 +168,24 @@ public final class VirtualDisplayHost {
         ImageReader reader=ImageReader.newInstance(WIDTH,HEIGHT,PixelFormat.RGBA_8888,3);
         // Includes VIRTUAL_DISPLAY_FLAG_OWN_DISPLAY_GROUP: the power key sleeping the default
         // display group must not turn this screen STATE_OFF under a running task (BUG-0034).
-        int flags=ScreenGuard.virtualDisplayFlags(DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC | DisplayManager.VIRTUAL_DISPLAY_FLAG_OWN_CONTENT_ONLY,VirtualDisplayHost::flag);
-        VirtualDisplay vd=manager.createVirtualDisplay(slot.name,WIDTH,HEIGHT,DENSITY,reader.getSurface(),flags);
+        int baseFlags=ScreenGuard.virtualDisplayFlags(DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC | DisplayManager.VIRTUAL_DISPLAY_FLAG_OWN_CONTENT_ONLY,VirtualDisplayHost::flag);
+        // Also always unlocked, so the lock screen's Keyguard sleep token cannot stop the task's
+        // Apps (BUG-0034); without the permission the screen is created as before.
+        int flags=ScreenGuard.alwaysUnlockedFlags(baseFlags,VirtualDisplayHost::flag);
+        VirtualDisplay created;
+        try { created=manager.createVirtualDisplay(slot.name,WIDTH,HEIGHT,DENSITY,reader.getSurface(),flags); }
+        catch(SecurityException refused) {
+            if(flags==baseFlags)throw refused;
+            System.err.println("always-unlocked screen refused, creating a lockable one: "+refused);
+            flags=baseFlags;
+            created=manager.createVirtualDisplay(slot.name,WIDTH,HEIGHT,DENSITY,reader.getSurface(),flags);
+        }
+        final VirtualDisplay vd=created;
         if(vd==null)throw new IOException("createVirtualDisplay returned null");
         Display display=vd.getDisplay();displayId=display.getDisplayId();
         keepScreenAwake(ctx,displayId);
         info=new JSONObject().put("displayId",displayId).put("name",display.getName()).put("width",WIDTH).put("height",HEIGHT).put("density",DENSITY).put("flags",flags).put("uid",android.os.Process.myUid()).put("pid",android.os.Process.myPid()).put("mirrorSocket",SOCKET)
+            .put("alwaysUnlocked",alwaysUnlocked(display))
             .put("screenKey",slot.key).put("generation",generation).put("stateDirectory",DIR.getPath());
         startServer();write(new File(DIR,"display.json"),info.toString(2));write(new File(DIR,"display.id"),Integer.toString(displayId));
         System.out.println(info.toString());System.out.flush();

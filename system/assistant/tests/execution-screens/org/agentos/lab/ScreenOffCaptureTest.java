@@ -38,7 +38,7 @@ public final class ScreenOffCaptureTest {
         throw new AssertionError("expected " + code);
     }
 
-    static final int OWN_DISPLAY_GROUP = 1 << 11;
+    static final int OWN_DISPLAY_GROUP = 1 << 11, ALWAYS_UNLOCKED = 1 << 12;
 
     /** The leading {@code CODE:} that tool-error consumers (e.g. the phone MCP bridge) key on. */
     static String code(String message) {
@@ -54,6 +54,7 @@ public final class ScreenOffCaptureTest {
         flags.put("VIRTUAL_DISPLAY_FLAG_DESTROY_CONTENT_ON_REMOVAL", 1 << 8);
         flags.put("VIRTUAL_DISPLAY_FLAG_SUPPORTS_TOUCH", 1 << 6);
         flags.put("VIRTUAL_DISPLAY_FLAG_OWN_DISPLAY_GROUP", OWN_DISPLAY_GROUP);
+        flags.put("VIRTUAL_DISPLAY_FLAG_ALWAYS_UNLOCKED", ALWAYS_UNLOCKED);
         return flags;
     }
 
@@ -64,7 +65,9 @@ public final class ScreenOffCaptureTest {
         int flags = ScreenGuard.virtualDisplayFlags(base, name -> platform.getOrDefault(name, 0));
         check((flags & OWN_DISPLAY_GROUP) != 0, "the independent screen is created with VIRTUAL_DISPLAY_FLAG_OWN_DISPLAY_GROUP");
         check((flags & base) == base, "PUBLIC | OWN_CONTENT_ONLY are kept");
-        for (int value : platform.values()) check((flags & value) == value, "every available flag is composed");
+        for (Map.Entry<String, Integer> entry : platform.entrySet())
+            if (!entry.getKey().equals(ScreenGuard.ALWAYS_UNLOCKED_FLAG)) // composed by alwaysUnlockedFlags
+                check((flags & entry.getValue()) == entry.getValue(), "every available flag is composed: " + entry.getKey());
         // A platform lacking the optional group flag still creates the screen (reflection returns 0).
         platform.remove("VIRTUAL_DISPLAY_FLAG_OWN_DISPLAY_GROUP");
         int older = ScreenGuard.virtualDisplayFlags(base, name -> platform.getOrDefault(name, 0));
@@ -213,6 +216,26 @@ public final class ScreenOffCaptureTest {
         check(ScreenGuard.rewakeDue(11_000, 10_000), "re-wakes again after the interval");
     }
 
+    /** The lock screen's Keyguard sleep token must not stop the screen's Apps: it is always unlocked. */
+    static void alwaysUnlocked() throws Exception {
+        Map<String, Integer> platform = platformFlags();
+        int base = ScreenGuard.virtualDisplayFlags(1 | 8, name -> platform.getOrDefault(name, 0));
+        check((base & ALWAYS_UNLOCKED) == 0, "the base flags leave the unlock decision to alwaysUnlockedFlags");
+        int flags = ScreenGuard.alwaysUnlockedFlags(base, name -> platform.getOrDefault(name, 0));
+        check((flags & ALWAYS_UNLOCKED) != 0, "a screen with its own display group is always unlocked");
+        check((flags & base) == base, "every other flag is kept");
+        // The platform ignores ALWAYS_UNLOCKED without its own group: do not request it then.
+        int noGroup = base & ~OWN_DISPLAY_GROUP;
+        check(ScreenGuard.alwaysUnlockedFlags(noGroup, name -> platform.getOrDefault(name, 0)) == noGroup, "no own group, no unlock flag");
+        platform.remove("VIRTUAL_DISPLAY_FLAG_ALWAYS_UNLOCKED");
+        check(ScreenGuard.alwaysUnlockedFlags(base, name -> platform.getOrDefault(name, 0)) == base, "a platform without the flag is unchanged");
+        String host = Files.readString(Path.of("system/display/src/org/agentos/lab/VirtualDisplayHost.java"));
+        check(host.contains("ScreenGuard.alwaysUnlockedFlags("), "the host requests an always-unlocked screen");
+        check(host.contains("catch(SecurityException refused)") && host.contains("flags=baseFlags;"),
+                "a refused unlock flag still creates the screen");
+        check(host.contains(".put(\"alwaysUnlocked\",alwaysUnlocked(display))"), "the screen reports whether it is always unlocked");
+    }
+
     /** The device host is wired to the guard (it needs Android and cannot run on the host). */
     static void hostWiring() throws Exception {
         String host = Files.readString(Path.of("system/display/src/org/agentos/lab/VirtualDisplayHost.java"));
@@ -235,6 +258,7 @@ public final class ScreenOffCaptureTest {
         brokerErrors();
         validateCapture();
         keepAwake();
+        alwaysUnlocked();
         hostWiring();
         System.out.println("ScreenOffCaptureTest: " + checks + " checks passed");
     }

@@ -4,6 +4,7 @@ Versioned, user-facing records. Source-project versions are distinct from ROM re
 
 ## Unreleased
 
+- Keep background screens working while the phone is locked: the lock screen no longer stops the apps on them, so a task continues after the power key instead of seeing only black frames.
 - Keep each background screen awake while it exists. It no longer turns off after the screen-off timeout while the Agent is working, so observing an app it just opened no longer keeps failing with `SCREEN_OFF`.
 - Reorganize Taku BScreen into active workspaces, settings, and app permissions. Adjust the workspace limit directly with minus and plus buttons.
 - Keep the Taku Home BScreen handle visible while its preview cards open and collapse.
