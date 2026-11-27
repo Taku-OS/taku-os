@@ -15,8 +15,9 @@ public final class NativeTurnSkillsTest {
     private static final String V1 = "---\nname: taku-open-access\ndescription: Old device access.\n---\nVersion one.\n";
     private static final String V2 = V1.replace("Old device access.", "New device access.") + "New command.\n";
     private static final String V3 = V2 + "Another new command.\n";
+    private static final String FIGMA_MOTION = "taku-figma-motion";
     private static final List<String> BUILTINS = List.of("taku-app-development", "taku-system-ai-settings",
-            NAME, "taku-plugin-creator");
+            NAME, "taku-plugin-creator", FIGMA_MOTION);
     private static int checks;
 
     private static void check(boolean value, String message) {
@@ -227,6 +228,18 @@ public final class NativeTurnSkillsTest {
             check(rig.requests("skills/list").size() == 3, "legacy run adds no duplicate discovery RPC");
         }
     }
+    private static void installsFigmaMotionFromBundle() throws Exception {
+        try (Rig rig = new Rig(false, "")) {
+            File directory = new File(rig.home, FIGMA_MOTION);
+            File body = new File(directory, "SKILL.md");
+            Files.delete(body.toPath());
+            Files.delete(directory.toPath());
+
+            AgentSkills.ensureBuiltin();
+
+            check(TaskBroker.read(body).equals(document(FIGMA_MOTION)), "fresh Figma motion skill comes from the APK");
+        }
+    }
     // No inference: cache skill metadata until forceReload, acknowledge context injection and turn RPCs.
     private static void runtime(File root) throws Exception {
         JSONArray cached = scan(new File(root, "skills"));
@@ -266,6 +279,7 @@ public final class NativeTurnSkillsTest {
         if (args.length > 0 && args[0].equals("--runtime")) { runtime(new File(args[1])); return; }
         File original = AgentSkills.HOME;
         try {
+            installsFigmaMotionFromBundle();
             for (String method : List.of("turn/start", "thread/realtime/start")) {
                 for (boolean existing : new boolean[]{false, true})
                     for (String reason : List.of("", "LOCAL_MODIFIED", "UNVERIFIED_BASELINE")) upgrade(method, existing, reason);

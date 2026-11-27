@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BiConsumer;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -112,6 +113,11 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
     public JSONObject describe(String thread) {return new JSONObject().put("bound",false);}
 
     final java.util.List<String> turnsEnded = new java.util.concurrent.CopyOnWriteArrayList<>();
+    final java.util.Map<String, Boolean> presentationCompletions = new java.util.concurrent.ConcurrentHashMap<>();
+    Thread turnEnded(String thread, boolean keepPresentation) {
+        presentationCompletions.put(thread, keepPresentation);
+        return turnEnded(thread);
+    }
     Thread turnEnded(String thread) {
         turnsEnded.add(thread);
         return null;
@@ -204,3 +210,11 @@ final class AgentSkills {
     static JSONArray selected(String thread) {return new JSONArray();}
 }
 final class SkillUninstall {static void recover(CodexAppServer server) {}}
+final class NotebookBridge {
+    static volatile BiConsumer<JSONArray, Boolean> refreshHook;
+
+    static void refreshReferenceGrants(JSONArray turns, boolean newestFirst) {
+        BiConsumer<JSONArray, Boolean> hook = refreshHook;
+        if (hook != null) hook.accept(turns, newestFirst);
+    }
+}

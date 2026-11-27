@@ -27,6 +27,13 @@ final class NativeBridge {
   Call(String m,JSONObject p){method=m;params=p;}
  }
  static final ScheduledExecutorService streamExpiry=Executors.newSingleThreadScheduledExecutor(r->{Thread t=new Thread(r,"session-stream-expiry");t.setDaemon(true);return t;});
+ // A burst of history reads keeps only the newest pending refreshes.
+ private static final Executor referenceGrantRefresh = new ThreadPoolExecutor(1, 1, 0, TimeUnit.SECONDS,
+         new ArrayBlockingQueue<>(4), task -> {
+          Thread worker = new Thread(task, "notebook-reference-grants");
+          worker.setDaemon(true);
+          return worker;
+         }, new ThreadPoolExecutor.DiscardOldestPolicy());
  static final ByokProviders byok=new ByokProviders();
  static final BlockingQueue<Call> inbox=new LinkedBlockingQueue<>(64);
  static final WorkspaceAdmissions admissions=new WorkspaceAdmissions(() -> DedicatedScreensOnDevice.shared());
@@ -274,9 +281,22 @@ final class NativeBridge {
    if(metadata)AgentViews.saveMetadata(thread);else AgentViews.save(thread);
    if(method.equals("thread/start"))CodexAppServer.shared.rememberNativeThread(result);
    JSONObject view=AgentViews.snapshot(id);if(view!=null)result.put("thread",view);
+   scheduleReferenceGrantRefresh(thread.optJSONArray("turns"), false);
   }
-  if(method.equals("thread/turns/list")&&params!=null){String id=params.getString("threadId");if(!MemoryGen.owns(id))AgentViews.prepareReply(id,HarnessCatalog.replyContract(),true);boolean descending=!params.optString("sortDirection","desc").equals("asc"),hasCursor=!params.optString("cursor").isEmpty();AgentViews.mergeTurnPage(id,result.getJSONArray("data"),descending,descending?hasCursor:!hasCursor,params.optString("itemsView").equals("full"));JSONObject view=AgentViews.snapshot(id);if(view!=null)result.put("data",view.getJSONArray("turns"));}
+  if(method.equals("thread/turns/list")&&params!=null){
+   String id=params.getString("threadId");if(!MemoryGen.owns(id))AgentViews.prepareReply(id,HarnessCatalog.replyContract(),true);
+   boolean descending=!params.optString("sortDirection","desc").equals("asc"),hasCursor=!params.optString("cursor").isEmpty();
+   JSONArray page=result.getJSONArray("data");
+   AgentViews.mergeTurnPage(id,page,descending,descending?hasCursor:!hasCursor,params.optString("itemsView").equals("full"));
+   JSONObject view=AgentViews.snapshot(id);if(view!=null)result.put("data",view.getJSONArray("turns"));
+   scheduleReferenceGrantRefresh(page, descending);
+  }
  } }
+
+ /** Send read-only native turns because display projection can fold receipt text. */
+ private static void scheduleReferenceGrantRefresh(JSONArray turns, boolean newestFirst) {
+  if(turns!=null&&turns.length()>0)referenceGrantRefresh.execute(() -> NotebookBridge.refreshReferenceGrants(turns, newestFirst));
+ }
 
  static JSONObject state(String thread)throws Exception { try (CleanupWork.Held held9 = lock()) {
   JSONObject r=state.containsKey(thread)?new JSONObject(state.get(thread).toString()):new JSONObject();JSONArray pending=new JSONArray();for(JSONObject q:requests.values()){String t=q.optJSONObject("params").optString("threadId");if(t.isEmpty()||t.equals(thread))pending.put(q);}r.put("executionScreen",DedicatedScreensOnDevice.shared().describe(thread));r.put("requests",pending);r.put("runtimeEvents",new JSONArray(globalEvents.toString()));r.put("ready",CodexAppServer.shared!=null);return r;
@@ -321,7 +341,7 @@ final class NativeBridge {
   if(method.equals("turn/started")){PhoneGestures.startTurn(thread,p.getJSONObject("turn").getString("id"));s.put("activeTurnId",p.getJSONObject("turn").getString("id"));phonePolicyChanges.keySet().removeIf(owner->owner.startsWith(thread+"\n")&&!owner.equals(thread+"\n"+s.optString("activeTurnId")));s.remove("error");s.remove("plan");s.remove("cancellationCleanup");if(!admissions.turnStarted(thread)){s.put("phoneStoppedTurnId",p.getJSONObject("turn").getString("id"));enqueue(new Call("turn/interrupt",new JSONObject().put("threadId",thread).put("turnId",p.getJSONObject("turn").getString("id"))));tellParentIfClosed(thread);}}
   if(method.equals("turn/completed")){JSONObject completed=p.getJSONObject("turn");PhoneGestures.endTurn(thread,completed.getString("id"));cancelPhoneWorkers(thread,completed.getString("id"));
    phonePolicyChanges.remove(thread+"\n"+completed.getString("id"));
-   DedicatedScreensOnDevice.shared().turnEnded(thread);
+   DedicatedScreensOnDevice.shared().turnEnded(thread,"completed".equals(completed.getString("status")));
    s.put("completedTurn",new JSONObject().put("id",completed.getString("id")).put("status",completed.getString("status")));s.remove("activeTurnId");JSONObject error=completed.optJSONObject("error");if(error!=null)s.put("error",redact(error.optString("message")));requests.values().removeIf(q->q.optJSONObject("params").optString("threadId").equals(thread));}
   if(method.equals("turn/plan/updated"))s.put("plan",p);
   if(method.equals("turn/diff/updated"))s.put("diff",redact(p.optString("diff")));
@@ -383,7 +403,7 @@ final class NativeBridge {
     DedicatedScreensOnDevice.shared().asked(params.optString("threadId"),shown.optString(confirmation?"title":"question"),shown.optString("returnTo"));
     String key=UUID.randomUUID().toString();requests.put(key,new JSONObject().put("key",key).put("id",event.get("id")).put("method",confirmation?"phone/confirmAction":"phone/askUser").put("params",snapshot));return;
    }
-   boolean observation=tool.endsWith("device_info")||matchesTool(tool,"screen_status")||tool.endsWith("observe_background")||tool.endsWith("memory_search")||tool.endsWith("memory_get")||matchesTool(tool,"notebook_recall")||matchesTool(tool,"notebook_lists")||matchesTool(tool,"notebook_query")||matchesTool(tool,"apps")||(matchesTool(tool,"matter")&&params.optJSONObject("arguments")!=null&&params.getJSONObject("arguments").optString("action").equals("read"))||(matchesTool(tool,"audio")&&params.optJSONObject("arguments")!=null&&(params.getJSONObject("arguments").optString("action").equals("capabilities")||params.getJSONObject("arguments").optString("operation").equals("status")));
+   boolean observation=tool.endsWith("device_info")||matchesTool(tool,"screen_status")||tool.endsWith("observe_background")||tool.endsWith("memory_search")||tool.endsWith("memory_get")||matchesTool(tool,"notebook_recall")||matchesTool(tool,"notebook_read_video")||matchesTool(tool,"notebook_lists")||matchesTool(tool,"notebook_query")||matchesTool(tool,"apps")||(matchesTool(tool,"matter")&&params.optJSONObject("arguments")!=null&&params.getJSONObject("arguments").optString("action").equals("read"))||(matchesTool(tool,"audio")&&params.optJSONObject("arguments")!=null&&(params.getJSONObject("arguments").optString("action").equals("capabilities")||params.getJSONObject("arguments").optString("operation").equals("status")));
    if(!observation&&mode.equals("readOnly")){server.nativeReply(event.get("id"),PhoneNativeTools.failure("This conversation is read-only; the phone operation was blocked"));return;}
    if(!observation&&hasPhoneQuestion(params.optString("threadId"))){server.nativeReply(event.get("id"),PhoneNativeTools.failure("Wait for the user to handle the current confirmation before continuing phone operations"));return;}
    if(!observation&&mode.equals("ask")){

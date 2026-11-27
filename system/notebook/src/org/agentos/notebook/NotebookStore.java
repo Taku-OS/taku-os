@@ -464,18 +464,36 @@ public final class NotebookStore {
     }
 
     List<Entry> recall(String category, String query, int limit) throws IOException {
+        return recall(category, query, List.of(), limit);
+    }
+
+    List<Entry> recall(String category, String query, List<String> aliases, int limit) throws IOException {
         String wantedCategory = normalized(category);
-        String phrase = normalized(query);
-        if (wantedCategory.isEmpty() && phrase.isEmpty()) {
+        var phrases = new HashSet<String>();
+        phrases.add(normalized(query));
+        for (String alternative : aliases) phrases.add(normalized(alternative));
+        phrases.remove("");
+        if (wantedCategory.isEmpty() && phrases.isEmpty()) {
             throw new IllegalArgumentException("RECALL_FILTER_REQUIRED");
         }
         requirePage(limit, 0);
         return withCatalog(catalog -> {
             String alias = defaultListId(wantedCategory);
+            var matchingPosts = new HashSet<String>();
+            if (!phrases.isEmpty()) {
+                var topicMatches = catalog.entries(null, null, null, "e.captured_at DESC", Integer.MAX_VALUE, 0,
+                        entry -> NotebookRecall.hasMatchingTopic(entry, phrases));
+                for (Entry match : topicMatches) {
+                    String key = NotebookRecall.postKey(match);
+                    if (key != null) matchingPosts.add(key);
+                }
+            }
             return catalog.entries(null, null, null, "e.captured_at DESC", limit, 0,
                     entry -> (wantedCategory.isEmpty() || (!entry.filingPending
                             && (wantedCategory.equals(normalized(entry.category)) || entry.listId.equals(alias))))
-                            && matchesRecallPhrase(entry, phrase));
+                            && (phrases.isEmpty()
+                            || phrases.stream().anyMatch(phrase -> matchesRecallPhrase(entry, phrase))
+                            || NotebookRecall.hasMatchingSource(entry, matchingPosts)));
         });
     }
 

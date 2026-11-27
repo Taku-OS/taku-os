@@ -259,6 +259,17 @@ final class AgentViewProjection {
             for (String key : new String[] {"startedAtMs", "durationMs"})
                 if (source.opt(key) instanceof Number) item.put(key, source.get(key));
         }
+        if ("dynamicToolCall".equals(source.optString("type")) && source.optBoolean("success")
+                && isNotebookReferenceTool(source)) {
+            Budget reference = new Budget();
+            reference.text = 12_000;
+            reference.nodes = 256;
+            for (String key : new String[]{"id", "type", "status", "namespace", "tool", "success", "contentItems"}) {
+                if (!source.has(key)) continue;
+                Object projected = boundedValue(source.opt(key), key, reference, 0);
+                if (projected != null) item.put(key, projected);
+            }
+        }
         return item;
     }
 
@@ -283,6 +294,16 @@ final class AgentViewProjection {
             summary.put(part);
         }
         return summary;
+    }
+
+    private static boolean isNotebookReferenceTool(JSONObject item) {
+        String tool = item.optString("tool");
+        if (tool.startsWith("taku_phone/") || tool.startsWith("taku_phone.")) {
+            tool = tool.substring("taku_phone/".length());
+        } else if (!"taku_phone".equals(item.optString("namespace"))) {
+            return false;
+        }
+        return "notebook_recall".equals(tool) || "notebook_read_video".equals(tool);
     }
 
     private static Object boundedScalar(Object value, String key, Budget budget, int depth)

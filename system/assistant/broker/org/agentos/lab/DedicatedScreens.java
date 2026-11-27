@@ -199,6 +199,10 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
          */
         boolean resumeRequired;
 
+        long presentationUntil;
+        boolean presentationReady;
+        int presentationEpoch;
+
         /** Why the last control change failed, for the UI. */
         String lastError = "";
 
@@ -661,6 +665,7 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
             if (grant == null) return false;
             screen.resumeRequired = false;
         }
+        if (screen != null) screen.presentationReady = false;
         return true;
     } }
 
@@ -1429,7 +1434,10 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
         closeTasks(screen, last ? null : released);
         try (CleanupWork.Held held40 = lock()) {
             screen.apps.removeAll(released);
-            if (screen.apps.isEmpty()) screen.emptySince = clock.now();
+            if (screen.apps.isEmpty()) {
+                screen.emptySince = clock.now();
+                clearPresentation(screen);
+            }
             grantReady();
             return released(released, screen.apps);
         }
@@ -1443,7 +1451,11 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
      * is released: the session had no screen, or the user has taken it over (the session keeps it).
      */
     Thread turnEnded(String session) {
-        DedicatedScreen screen = leave(session, false);
+        return turnEnded(session, false);
+    }
+
+    Thread turnEnded(String session, boolean keepPresentation) {
+        DedicatedScreen screen = leave(session, false, keepPresentation);
         if (screen == null) return null;
         // Named after the screen (one release per screen at a time) and its session.
         Thread release =
@@ -1453,6 +1465,46 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
         release.setDaemon(true);
         release.start();
         return release;
+    }
+
+    /** The caller holds the input lock for the same screen lease. */
+    JSONObject present(String session, String key, String generation, int seconds) throws Exception {
+        try (CleanupWork.Held held = lock()) {
+            if (seconds < 10 || seconds > 1800) throw new IOException("INVALID_PRESENTATION_DURATION");
+            DedicatedScreen screen = exactScreen(session, key, generation);
+            if (!agentControls(screen) || screen.resumeRequired) throw agentPaused(screen);
+            if (screen.apps.isEmpty()) throw new IOException("APPS_NOT_REQUESTED");
+            requireAppsAllowed(screen);
+            long durationMs = seconds * 1000L;
+            screen.presentationUntil = clock.now() + durationMs;
+            int epoch = ++screen.presentationEpoch;
+            clock.after(durationMs, () -> expirePresentation(screen, epoch));
+            return item(screen).put("presentationSeconds", seconds);
+        }
+    }
+
+    void cancelPresentation(String session, String key, String generation) {
+        try (CleanupWork.Held held = lock()) {
+            DedicatedScreen screen = own(session);
+            if (screen != null && screen.key.equals(key) && screen.generation.equals(generation))
+                clearPresentation(screen);
+        }
+    }
+
+    private static void clearPresentation(DedicatedScreen screen) {
+        screen.presentationUntil = 0;
+        screen.presentationReady = false;
+        screen.presentationEpoch++;
+    }
+
+    private void expirePresentation(DedicatedScreen screen, int epoch) {
+        try (CleanupWork.Held held = lock()) {
+            if (screen.presentationEpoch != epoch || !ledger.contains(screen)
+                    || screen.session == null || screen.releasing) return;
+            boolean release = screen.presentationReady && agentControls(screen) && !screen.resumeRequired;
+            clearPresentation(screen);
+            if (release) turnEnded(screen.session);
+        }
     }
 
     /**
@@ -1493,7 +1545,7 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
         List<DedicatedScreen> freed = new ArrayList<>();
         try {
             for (String session : sessions) {
-                DedicatedScreen screen = leave(session, true);
+                DedicatedScreen screen = leave(session, true, false);
                 if (screen != null) freed.add(screen);
             }
         } finally {
@@ -1548,13 +1600,20 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
      * finishTurn. Returns that screen, or null when it has none, or when the user has the screen
      * and evenTakenOver is false: the session keeps a screen it lent to the user.
      */
-    private DedicatedScreen leave(String session, boolean evenTakenOver) { try (CleanupWork.Held held18 = lock()) {
+    private DedicatedScreen leave(String session, boolean evenTakenOver, boolean keepPresentation) { try (CleanupWork.Held held18 = lock()) {
         refusals.remove(session);
         questions.remove(session);
         Ticket ticket = pending(session);
         if (ticket != null) withdraw(ticket);
         DedicatedScreen screen = own(session);
-        if (screen == null || (screen.resumeRequired && !evenTakenOver)) return null;
+        if (screen == null) return null;
+        if (keepPresentation && !screen.releasing && !screen.resumeRequired && agentControls(screen)
+                && screen.presentationUntil > clock.now()) {
+            screen.presentationReady = true;
+            return null;
+        }
+        clearPresentation(screen);
+        if (screen.resumeRequired && !evenTakenOver) return null;
         screen.releasing = true;
         screen.occupancy = null;
         return screen;
@@ -1833,6 +1892,8 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
                 .put("homePreviewEligible", screen.session != null && !screen.closing && !screen.releasing)
                 .put("stopping", screen.stopping || screen.releasing)
                 .put("resumeRequired", screen.resumeRequired)
+                .put("presentationReady", screen.presentationReady)
+                .put("presentationRemainingMs", Math.max(0, screen.presentationUntil - clock.now()))
                 .put("canResume", !screen.releasing && !screen.controlOwner.equals("agent") && !screen.stopping)
                 .put("lastError", screen.cleanupError.isEmpty() ? screen.lastError : screen.cleanupError);
         if (!screen.cleanupError.isEmpty())
@@ -1881,6 +1942,7 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
         if (screen.stopping) return "stopping";
         if (screen.controlOwner.equals("user")) return "user_control";
         if (screen.controlOwner.equals("paused")) return "paused";
+        if (screen.presentationReady) return "ready";
         if (questions.containsKey(screen.session)) return "waiting_for_user";
         return pending(screen.session) == null ? "running" : "waiting_for_app";
     }

@@ -65,7 +65,9 @@ internal object WorkspaceCommands {
                 if (!lease.optBoolean("admitted") || lease.optInt("displayId", -1) <= 0 ||
                     lease.optBoolean("stopping") || lease.optString("status") in unavailable)
                     throw IOException("SCREEN_REBIND_REQUIRED")
-                val intent = Intent(context, MirrorActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                // Deliver the lease to onNewIntent even when a viewer from an older lease is open.
+                val intent = Intent(context, MirrorActivity::class.java).addFlags(
+                    Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
                 for (key in leaseFields) intent.putExtra(key, lease.getString(key))
                 context.startActivity(intent)
                 JSONObject().put("opened", true).put("threadId", lease.getString("threadId"))
