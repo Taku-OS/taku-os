@@ -13,11 +13,11 @@ internal object WorkspaceCommands {
         "workspaces/apps" to emptySet(),
         "workspaces/launch" to setOf("appId"),
         "workspaces/configure" to setOf("patch"),
-        "workspaces/release" to leaseFields + "returnToThread",
-        "workspaces/preview" to leaseFields,
+        "workspaces/release" to leaseFields + setOf("returnToThread", "allocationId", "controlRevision"),
+        "workspaces/preview" to leaseFields + "allocationId",
         "workspaces/open" to leaseFields,
-        "workspaces/pause" to leaseFields,
-        "workspaces/takeControl" to leaseFields,
+        "workspaces/pause" to leaseFields + setOf("allocationId", "controlRevision"),
+        "workspaces/takeControl" to leaseFields + "allocationId",
         "workspaces/input" to leaseFields + setOf("controlRevision", "input"),
         "workspaces/returnAndResume" to leaseFields + setOf("controlRevision", "requestId"),
         "workspaces/addRequirement" to leaseFields + setOf("controlRevision", "requestId", "text"),
@@ -44,8 +44,9 @@ internal object WorkspaceCommands {
                 throw IOException("INVALID_APP_ID")
         }
         if (input.has("returnToThread") && input.opt("returnToThread") !is Boolean) throw IOException("INVALID_ARGUMENT")
+        if (input.has("allocationId")) requireString(input, "allocationId", uuid, "INVALID_SCREEN_ALLOCATION")
         if ("requestId" in allowed) requireString(input, "requestId", uuid, "INVALID_WORKSPACE_REQUEST")
-        if ("controlRevision" in allowed) {
+        if ("controlRevision" in allowed && (input.has("controlRevision") || method !in setOf("workspaces/release", "workspaces/pause"))) {
             val revision = input.opt("controlRevision")
             if ((revision !is Int && revision !is Long) || (revision as Number).toLong() < 0)
                 throw IOException("INVALID_SCREEN_CONTROL_REVISION")
@@ -119,7 +120,7 @@ internal object WorkspaceCommands {
             throw IOException("THREAD_UNAVAILABLE")
     }
 
-    private fun catalog(context: Context, thread: String = ""): JSONObject {
+    fun catalog(context: Context, thread: String = ""): JSONObject {
         val command = JSONObject().put("op", "workspaces").put("action", "list")
         if (thread.isNotEmpty()) command.put("threadId", thread)
         val result = NativeClient.exchange(command)
@@ -142,7 +143,8 @@ internal object WorkspaceCommands {
         val screens = catalog(context, input.getString("threadId")).getJSONArray("screens")
         for (i in 0 until screens.length()) {
             val screen = screens.getJSONObject(i)
-            if (WorkspaceUi.same(input, screen)) return screen
+            if (WorkspaceUi.same(input, screen) &&
+                (!input.has("allocationId") || input.getString("allocationId") == screen.optString("allocationId"))) return screen
         }
         throw IOException("SCREEN_LEASE_CHANGED")
     }

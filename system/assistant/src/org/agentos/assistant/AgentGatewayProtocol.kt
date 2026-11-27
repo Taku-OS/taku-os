@@ -234,7 +234,7 @@ internal class AgentGatewayProtocol private constructor() {
                 "cancelQueued" -> java.util.Set.of("threadId", "taskId")
                 "readTaskDetail" -> setOf("taskId")
                 "answer" -> java.util.Set.of("threadId", "key", "response")
-                "openWorkspace" -> java.util.Set.of("threadId", "screenKey", "generation", "source")
+                "openWorkspace" -> java.util.Set.of("threadId", "screenKey", "generation", "source", "allocationId", "takeControl")
                 "openSettings" -> java.util.Set.of("page")
                 "workspaces/list", "workspaces/apps", "workspaces/launch", "workspaces/configure", "workspaces/release", "workspaces/preview", "workspaces/open", "manageSystemAi" -> return input
                 "workspaces/pause", "workspaces/takeControl", "workspaces/input", "workspaces/returnAndResume", "workspaces/addRequirement", "workspaces/executionStatus" -> return input
@@ -277,6 +277,10 @@ internal class AgentGatewayProtocol private constructor() {
                 if (!Pattern.matches("task-[a-f0-9]{20}", text(input, "screenKey", 64))) throw IOException("INVALID_SCREEN_KEY")
                 requireId(input, "generation")
                 if (input.has("source") && input.get("source") != "home") throw IOException("INVALID_WORKSPACE_SOURCE")
+                if (input.has("allocationId")) requireId(input, "allocationId")
+                if (input.has("takeControl") && (input.get("takeControl") != true ||
+                            input.optString("source") != "home" || !input.has("allocationId")))
+                    throw IOException("INVALID_WORKSPACE_ACTION")
             }
             if (action == "decide") decision(input)
             if (action == "generateUi") {

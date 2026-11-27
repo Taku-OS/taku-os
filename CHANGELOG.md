@@ -8,7 +8,10 @@ Versioned, user-facing records. Source-project versions are distinct from ROM re
 - Keep the Taku Home BScreen handle visible while its preview cards open and collapse.
 - Keep ready BScreen workspaces and their Home previews after a read-only follow-up. Taku BScreen settings offer optional automatic closing when the configured Jev route confirms the entire screen is finished. The option respects the Taku AI Jev switch.
 - Put the expand action over the live floating preview and show a green dot for Ready in the full-screen preview.
-- Add **with Bscreen Open** to the app icon menu in Taku Home. Open the same BScreen from the Home sidebar or launch the app through `workspaces/launch`.
+- Use **Open With BScreen** in the Taku Home app menu or `workspaces/launch` to launch an app on a background screen.
+- Close an individual BScreen from its Home preview. The expanded sidebar blurs Home behind the preview cards.
+- Home marks apps open on a BScreen. Tap a marked icon to confirm takeover of its screen.
+- In the live viewer, **Stop** releases a BScreen after takeover. Home updates the count after the screen closes.
 
 - Dynamic Island review fixes (PR #50). A third-party app with a `taku.control` grant now reads and operates only the island activities its own UID published: other apps' activities are left out of `state`/`list`, their keys answer `not_found` for `get`, `select`, `expand`, `tap`, `dismiss`, `hide`, `open` and `action` (so no cross-app action or `RemoteInput` reply), `collapse` folds the expanded card only when the caller published it (otherwise `permission_denied`), and `next` joins the settings writes as trusted-only. Agents, ADB and platform-signed callers are unchanged. A notification the island turns away because all 128 slots are taken now always keeps its native heads-up. Unlocking straight to Home no longer drops a reply card that was waiting for the unlock: Home's reset after screen-off used to dismiss it and reset the session. Island host tests pass; the Kotlin changes and their JVM tests were not compiled here, and nothing was run on an emulator.
 

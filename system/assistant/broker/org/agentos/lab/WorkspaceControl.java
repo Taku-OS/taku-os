@@ -45,12 +45,19 @@ final class WorkspaceControl {
         PhoneExecutionScreens.Lease binding=registry.exact(thread,key,generation);
         if(!binding.controlLock().tryLock())throw new IOException("WORKSPACE_CONTROL_BUSY");
         try{switch(action){
-            case "pause":case "takeControl":
-                pause(thread,key,generation,action.equals("takeControl"));
+            case "pause":case "takeControl":case "release": {
+                boolean close = action.equals("release");
+                String allocation = request.has("allocationId") ? request.getString("allocationId") : null;
+                long revision = request.has("controlRevision") ? request.getLong("controlRevision") : -1;
+                String taskTitle = close ? registry.describe(thread).optString("taskTitle") : "";
+                String selected = registry.beginControl(thread, key, generation, allocation, revision, close);
+                if (close) {
+                    stopAndClose(registry, thread, key, generation, selected, taskTitle, allocation != null);
+                    return list();
+                }
+                finishPause(registry, thread, key, generation, selected, action.equals("takeControl"));
                 return result(thread,false);
-            case "release":
-                close(thread, key, generation);
-                return list();
+            }
             case "input":
                 requireQuiescent(thread);
                 Object revision=request.get("controlRevision");
@@ -74,46 +81,35 @@ final class WorkspaceControl {
         JSONObject proof=CodexAppServer.workspaceProcessProof(thread);
         if(!proof.optBoolean("verified")||!proof.optBoolean("complete"))throw new IOException("WORKSPACE_PROCESS_STOP_UNCONFIRMED");
     }
-    static void pause(String thread,String key,String generation,boolean takeControl)throws Exception {
-        DedicatedScreens registry=DedicatedScreensOnDevice.shared();
-        PhoneExecutionScreens.Lease controlled=registry.exact(thread,key,generation);
-        if(!controlled.controlLock().tryLock())throw new IOException("WORKSPACE_CONTROL_BUSY");
-        try{registry.beginPause(thread,key,generation);
+    private static void finishPause(DedicatedScreens registry, String thread, String key,
+            String generation, String allocation, boolean takeControl) throws Exception {
         try{
-            stopExecution(thread,key,generation);
-            registry.finishControl(thread,key,generation,takeControl?"user":"paused");
+            stopExecution(thread, key, generation, allocation);
+            registry.finishControl(thread, key, generation, allocation, takeControl ? "user" : "paused");
         }catch(Exception error){
-            try{registry.controlFailed(thread,key,generation,NativeBridge.publicError(error));}catch(Exception saveError){error.addSuppressed(saveError);}
+            try {
+                registry.controlFailed(thread, key, generation, allocation, NativeBridge.publicError(error));
+            } catch (Exception saveError) {
+                error.addSuppressed(saveError);
+            }
             throw error;
-        }}finally{controlled.controlLock().unlock();}
-    }
-    /**
-     * When Codex cannot tell whether the session is a sub-agent (it was deleted with its main
-     * session, say), the screen still closes: closing is how the user clears such a screen.
-     */
-    static void close(String thread, String key, String generation) throws Exception {
-        DedicatedScreens screens = DedicatedScreensOnDevice.shared();
-        String taskTitle = screens.describe(thread).optString("taskTitle");
-        screens.beginClose(thread, key, generation);
-        stopAndClose(screens, thread, key, generation, taskTitle, List.of());
+        }
     }
 
     private static void stopAndClose(DedicatedScreens screens, String thread, String key,
-            String generation, String taskTitle, List<String> revoked) throws Exception {
+            String generation, String allocation, String taskTitle, boolean confirmHostStopped) throws Exception {
         DedicatedScreens.ParentNote note = null;
         try {
-            stopExecution(thread, key, generation);
-            JSONObject sub = WorkspaceExecutionRuntime.subAgent(thread, !revoked.isEmpty());
+            stopExecution(thread, key, generation, allocation);
+            JSONObject sub = WorkspaceExecutionRuntime.subAgent(thread, false);
             if (sub != null) {
                 String text = PhoneSubAgents.closedText(sub.getString("path"), taskTitle);
-                if (!revoked.isEmpty())
-                    text = "The user revoked Agent access to " + String.join(", ", revoked) + ". " + text;
                 note = new DedicatedScreens.ParentNote(sub.getString("parent"), text);
             }
-            screens.close(thread, key, generation, note, !revoked.isEmpty());
+            screens.close(thread, key, generation, allocation, note, confirmHostStopped);
         } catch (Exception error) {
             try {
-                screens.controlFailed(thread, key, generation, NativeBridge.publicError(error));
+                screens.controlFailed(thread, key, generation, allocation, NativeBridge.publicError(error));
             } catch (Exception saveError) {
                 error.addSuppressed(saveError);
             }
@@ -123,9 +119,15 @@ final class WorkspaceControl {
     }
 
     static void stopExecution(String thread,String key,String generation)throws Exception {
+        stopExecution(thread, key, generation, null);
+    }
+
+    private static void stopExecution(String thread, String key, String generation, String allocation) throws Exception {
+        DedicatedScreens registry = DedicatedScreensOnDevice.shared();
         long deadline=System.nanoTime()+TimeUnit.SECONDS.toNanos(30);
         Set<String> interrupted=new HashSet<>();boolean realtimeStopSent=false;
         while(true){
+            if (allocation != null) registry.exact(thread, key, generation, allocation);
             JSONObject observed=runtime(thread);String turn=observed.optString("activeTurnId");
             String method="";JSONObject params=new JSONObject().put("threadId",thread);
             if(observed.optBoolean("realtimeActive")&&!realtimeStopSent){method="thread/realtime/stop";realtimeStopSent=true;}
@@ -142,8 +144,8 @@ final class WorkspaceControl {
             if(System.nanoTime()>=deadline)throw new IOException("WORKSPACE_EXECUTION_STOP_UNCONFIRMED");
             Thread.sleep(50);
         }
+        PhoneExecutionScreens.Screen screen = registry.exact(thread, key, generation, allocation).screenHandle();
         PhoneGestures.cancelThread(thread);
-        PhoneExecutionScreens.Screen screen = DedicatedScreensOnDevice.shared().exact(thread, key, generation).screenHandle();
         PhoneGestures.prepare(screen);PhoneGestures.requireIdle(screen.displayId);
         requireQuiescent(thread);
     }

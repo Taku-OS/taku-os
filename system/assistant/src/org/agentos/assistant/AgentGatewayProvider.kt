@@ -302,7 +302,22 @@ class AgentGatewayProvider : ContentProvider() {
             "getWorkspaces" -> return workspaces(if (input.has("scope")) null else thread)
             "openWorkspace" -> {
                 val fromHome = input.optString("source") == "home"
-                val lease = exactLease(thread, input.getString("screenKey"), input.getString("generation"), fromHome)
+                val key = input.getString("screenKey")
+                val generation = input.getString("generation")
+                val allocation = input.optString("allocationId").ifEmpty { null }
+                val takeControl = input.optBoolean("takeControl")
+                var lease = exactLease(thread, key, generation, fromHome, allocation)
+                if (takeControl) {
+                    if (lease.optBoolean("stopping")) throw IOException("WORKSPACE_CONTROL_BUSY")
+                    if (lease.optString("controlOwner") != "user") {
+                        WorkspaceCommands.call(context!!, "workspaces/takeControl", JSONObject()
+                            .put("threadId", thread).put("screenKey", key).put("generation", generation)
+                            .put("allocationId", allocation), callerUid)
+                        lease = exactLease(thread, key, generation, fromHome, allocation)
+                    }
+                    if (lease.optString("controlOwner") != "user" || lease.optBoolean("stopping"))
+                        throw IOException("SCREEN_CONTROL_CHANGED")
+                }
                 // A background viewer may have another lease. Deliver the selected lease to onNewIntent.
                 val intent = Intent(context!!, MirrorActivity::class.java).addFlags(
                     Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
@@ -311,7 +326,12 @@ class AgentGatewayProvider : ContentProvider() {
                 if (fromHome) {
                     intent.putExtra(AgentFrontendLauncher.RETURN_WORKSPACE_HOME, true)
                 }
-                context!!.startActivity(intent)
+                try {
+                    context!!.startActivity(intent)
+                } catch (failure: RuntimeException) {
+                    if (!takeControl) throw failure
+                    return JSONObject().put("opened", false).put("controlOwner", "user")
+                }
                 return JSONObject().put("opened", true)
             }
             "openSettings" -> {
@@ -473,9 +493,7 @@ class AgentGatewayProvider : ContentProvider() {
         val previewCatalog = if (thread == null) homePreviewCatalog else sessionPreviewCatalog
         val revision = previewCatalog.beginRead()
         try {
-            val request = JSONObject().put("op", "workspaces").put("action", "list")
-            if (thread != null) request.put("threadId", thread)
-            val catalog = NativeClient.exchange(request)
+            val catalog = WorkspaceCommands.catalog(context!!, thread.orEmpty())
             val checkedAt = SystemClock.elapsedRealtime()
             val verified = ChatWorkspacePreviewProtocol.CatalogSnapshot(catalog, thread, checkedAt, checkedAt)
             val screens = verified.screens(SystemClock.elapsedRealtime())
@@ -490,12 +508,13 @@ class AgentGatewayProvider : ContentProvider() {
         }
     }
 
-    private fun exactLease(thread: String, key: String, generation: String, fromHome: Boolean): JSONObject {
+    private fun exactLease(thread: String, key: String, generation: String, fromHome: Boolean, allocation: String?): JSONObject {
         val screens = workspaces(if (fromHome) null else thread).getJSONArray("screens")
         for (i in 0 until screens.length()) {
             val screen = screens.getJSONObject(i)
             if (thread == screen.optString("threadId") && key == screen.optString("screenKey") &&
-                generation == screen.optString("generation")) return screen
+                generation == screen.optString("generation") &&
+                (allocation == null || allocation == screen.optString("allocationId"))) return screen
         }
         throw IOException("SCREEN_LEASE_CHANGED")
     }

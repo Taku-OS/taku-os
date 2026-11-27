@@ -2,6 +2,7 @@ package org.agentos.agent.home.ui
 
 import org.agentos.agent.home.design.*
 import android.os.Build
+import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -35,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.asComposeRenderEffect
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.graphicsLayer
@@ -80,7 +82,6 @@ internal fun HomeScreen(controller: HomeController, backdrop: Backdrop?, pager: 
   val topInset = max(statusInset, 52.dp) + 13.dp
   val bottomInset = 150.dp + navInset
   val scene = rememberGraphicsLayer()
-  // Only feed-card menus blur the scene. Launcher menus use a light scrim with a clear icon.
   val menuOpen = controller.menu != null
   val scrim by animateFloatAsState(if (menuOpen) 1f else 0f, tween(220), label = "scrim")
 
@@ -154,6 +155,18 @@ internal fun HomeScreen(controller: HomeController, backdrop: Backdrop?, pager: 
   // empty Home and the card is composed. "You’re all set" (Figma 1341:782) puts the card over the
   // real Feed, pinned to the Feed page; the AI entry shows its usual hint once to introduce it.
   val takeover = OnboardingRules.takesOverHome(onboarding.step)
+  val workspaceSidebar = if (!takeover && controller.workspaceScreens.isNotEmpty()) {
+    remember { MutableTransitionState(false) }
+  } else null
+  val showingWorkspaceSidebar = workspaceSidebar != null && (
+    workspaceSidebar.targetState || workspaceSidebar.currentState || !workspaceSidebar.isIdle
+  )
+  val workspaceBlur = if (showingWorkspaceSidebar && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+    remember(density) {
+      val radius = with(density) { 12.dp.toPx() }
+      BlurEffect(radius, radius)
+    }
+  } else null
   val allSet = onboarding.step == OnboardingStep.ALL_SET
   // Continue composes the pager for the first time, still at its initial Home page. Ask for the
   // Feed in the apply phase, before that first layout, so Home never flashes before the Feed.
@@ -176,9 +189,9 @@ internal fun HomeScreen(controller: HomeController, backdrop: Backdrop?, pager: 
           Modifier
             .fillMaxSize()
             .graphicsLayer {
-              if (scrim > 0f && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                renderEffect = Shaders.gaussian(4.dp.toPx() * scrim).asComposeRenderEffect()
-              } else renderEffect = null
+              renderEffect = workspaceBlur ?: if (scrim > 0f && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                Shaders.gaussian(4.dp.toPx() * scrim).asComposeRenderEffect()
+              } else null
             },
         ) {
           Box(
@@ -236,10 +249,10 @@ internal fun HomeScreen(controller: HomeController, backdrop: Backdrop?, pager: 
           if (controller.editingHome) {
             PageDots(pager.pageCount, pager.currentPage, Modifier.align(Alignment.BottomCenter).padding(bottom = navInset + TakuSpacing.sm))
           } else AssistantEntry(scene, controller, pager.pageCount, pager.currentPage, navInset, gestures)
+          if (controller.editingHome) HomeEditingToolbar(controller, scene, statusInset)
         }
-        HomeWorkspacePreviews(controller, onOpenWorkspace = controller::openWorkspace)
+        if (workspaceSidebar != null) HomeWorkspacePreviews(controller, workspaceSidebar, showingWorkspaceSidebar)
         FolderSheet(controller, backdrop)
-        if (controller.editingHome) HomeEditingToolbar(controller, scene, statusInset)
         LauncherHomeMenu(controller, scene)
         DragOverlay(controller, backdrop)
         LauncherIconMenu(controller, scene)
@@ -247,6 +260,7 @@ internal fun HomeScreen(controller: HomeController, backdrop: Backdrop?, pager: 
         LauncherHiddenApps(controller, backdrop)
         LauncherRemoval(controller, backdrop)
         LauncherWorkspaceFailure(controller, backdrop)
+        LauncherWorkspaceTakeover(controller, backdrop)
         controller.menu?.let { target ->
           CardMenu(target, controller, scrim, controller.screenHeight, with(density) { topInset.toPx() })
         }

@@ -43,6 +43,7 @@ import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.BiasAbsoluteAlignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.shadow
@@ -50,14 +51,19 @@ import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import org.agentos.agent.home.R
+import org.agentos.agent.home.design.IconButtonStyle
 import org.agentos.agent.home.design.TakuElevation
 import org.agentos.agent.home.design.TakuIcon
+import org.agentos.agent.home.design.TakuIconButton
 import org.agentos.agent.home.design.TakuIcons
 import org.agentos.agent.home.design.TakuMotion
 import org.agentos.agent.home.design.TakuRadius
@@ -68,22 +74,18 @@ import org.agentos.agent.home.design.TakuTheme
 private val PreviewWidth = 104.dp
 private val PreviewHeight = 176.dp
 private val BookmarkTapWidth = 48.dp
-
-private val HomeWorkspaceScreen.previewIdentity: Pair<String, Int>
-  get() = previewUri to displayId
+private val SidebarAnchor = BiasAbsoluteAlignment(horizontalBias = 1f, verticalBias = 0.62f)
+private val PreviewActionsHeight = 48.dp
 
 @Composable
 internal fun BoxScope.HomeWorkspacePreviews(
   controller: HomeController,
-  onOpenWorkspace: (HomeWorkspaceScreen) -> Unit,
+  visibility: MutableTransitionState<Boolean>,
+  showing: Boolean,
 ) {
   val screens = controller.workspaceScreens
-  if (screens.isEmpty()) return
-
-  val visibility = remember { MutableTransitionState(initialState = false) }
   var opening by remember { mutableIntStateOf(0) }
   val expanded = visibility.targetState
-  val showing = expanded || visibility.currentState || !visibility.isIdle
   val close = { visibility.targetState = false }
   BackHandler(enabled = showing, onBack = close)
 
@@ -96,10 +98,17 @@ internal fun BoxScope.HomeWorkspacePreviews(
     ))
   }
 
+  val actionHeightPx = with(LocalDensity.current) { PreviewActionsHeight.roundToPx() }
+  val sidebarAlignment = remember(actionHeightPx) {
+    Alignment { size, space, direction ->
+      val previewSize = IntSize(size.width, (size.height - actionHeightPx).coerceAtLeast(0))
+      val anchor = SidebarAnchor.align(previewSize, space, direction)
+      IntOffset(anchor.x, anchor.y.coerceAtMost(space.height - size.height))
+    }
+  }
   Box(
-    modifier = Modifier.align(BiasAbsoluteAlignment(horizontalBias = 1f, verticalBias = 0.62f))
-      .height(PreviewHeight),
-    contentAlignment = AbsoluteAlignment.CenterRight,
+    modifier = Modifier.align(sidebarAlignment).height(PreviewHeight + PreviewActionsHeight),
+    contentAlignment = AbsoluteAlignment.TopRight,
   ) {
     val gap = TakuSpacing.xs
     val margin = TakuSpacing.sm
@@ -113,7 +122,7 @@ internal fun BoxScope.HomeWorkspacePreviews(
         scaleOut(TakuMotion.settle(), targetScale = 0.55f, transformOrigin = edge) + fadeOut(TakuMotion.scrim()),
     ) {
       val listState = remember(opening) { LazyListState() }
-      val frames = remember(opening) { mutableStateMapOf<Pair<String, Int>, Bitmap?>() }
+      val frames = remember(opening) { mutableStateMapOf<String, Bitmap?>() }
       if (expanded) {
         LaunchedEffect(listState) {
           snapshotFlow {
@@ -124,16 +133,16 @@ internal fun BoxScope.HomeWorkspacePreviews(
                   minOf(item.offset + item.size, layout.viewportEndOffset)
               }
               .mapTo(mutableSetOf()) { it.key }
-            controller.workspaceScreens.filter { it.previewIdentity in visibleIdentities }
+            controller.workspaceScreens.filter { it.allocationId in visibleIdentities }
           }.collect { visibleScreens ->
             for (screen in visibleScreens) {
-              val identity = screen.previewIdentity
+              val identity = screen.allocationId
               if (!visibility.targetState || identity in frames) continue
               // Reserve the attempt before reading, including frames that stay unavailable.
               frames[identity] = null
               launch {
                 val frame = controller.readWorkspacePreview(screen.previewUri)
-                val stillListed = controller.workspaceScreens.any { it.previewIdentity == identity }
+                val stillListed = controller.workspaceScreens.any { it.allocationId == identity }
                 if (visibility.targetState && stillListed) frames[identity] = frame
               }
             }
@@ -149,26 +158,45 @@ internal fun BoxScope.HomeWorkspacePreviews(
         // Keep taps between cards inside the preview strip.
         modifier = Modifier.absolutePadding(right = margin).pointerInput(Unit) { detectTapGestures {} },
       ) {
-        items(screens, key = { it.previewIdentity }) { screen ->
-          WorkspacePreviewCard(
-            status = screen.status,
-            frame = frames[screen.previewIdentity],
-            enabled = expanded,
-            onOpen = {
-              close()
-              onOpenWorkspace(screen)
-            },
-          )
+        items(screens, key = { it.allocationId }) { screen ->
+          val closing = controller.isClosingWorkspace(screen)
+          val enabled = expanded && !screen.stopping && !closing
+          val label = screen.appLabel?.let { stringResource(R.string.home_workspace_close_named_screen, it, screen.displayId) }
+            ?: stringResource(R.string.home_workspace_close_screen, screen.displayId)
+          Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            WorkspacePreviewCard(
+              label = if (closing) R.string.home_workspace_closing else screen.statusLabel,
+              frame = frames[screen.allocationId],
+              enabled = enabled,
+              onOpen = {
+                close()
+                controller.openWorkspace(screen)
+              },
+            )
+            Box(Modifier.height(PreviewActionsHeight), contentAlignment = Alignment.Center) {
+              TakuIconButton(
+                TakuIcons.Close,
+                label,
+                onClick = { controller.releaseWorkspace(screen) },
+                modifier = Modifier.alpha(if (enabled) 1f else 0.45f),
+                style = IconButtonStyle.Inverse,
+                iconSize = 16.dp,
+                enabled = enabled,
+              )
+            }
+          }
         }
       }
     }
 
-    WorkspaceBookmark(screens.size, expanded) {
-      if (visibility.targetState) {
-        close()
-      } else {
-        opening++
-        visibility.targetState = true
+    Box(Modifier.height(PreviewHeight), contentAlignment = AbsoluteAlignment.CenterRight) {
+      WorkspaceBookmark(screens.size, expanded) {
+        if (visibility.targetState) {
+          close()
+        } else {
+          opening++
+          visibility.targetState = true
+        }
       }
     }
   }
@@ -202,19 +230,21 @@ private fun WorkspaceBookmark(count: Int, expanded: Boolean, onToggle: () -> Uni
   }
 }
 
-@Composable
-private fun WorkspacePreviewCard(status: String, frame: Bitmap?, enabled: Boolean, onOpen: () -> Unit) {
-  val colors = TakuTheme.colors
-  val shape = RoundedCornerShape(TakuRadius.md)
-  val label = when (status) {
-    "running" -> R.string.home_workspace_running
-    "ready", "idle" -> R.string.home_workspace_ready
-    "waiting_for_app", "waiting_for_user" -> R.string.home_workspace_waiting
-    "paused" -> R.string.home_workspace_paused
-    "user_control" -> R.string.home_workspace_user_control
-    "stopping" -> R.string.home_workspace_switching
+private val HomeWorkspaceScreen.statusLabel: Int
+  get() = when {
+    stopping -> R.string.home_workspace_switching
+    controlOwner == "user" -> R.string.home_workspace_user_control
+    controlOwner == "paused" -> R.string.home_workspace_paused
+    status == "running" -> R.string.home_workspace_running
+    status == "ready" || status == "idle" -> R.string.home_workspace_ready
+    status == "waiting_for_app" || status == "waiting_for_user" -> R.string.home_workspace_waiting
     else -> R.string.home_workspace_unavailable
   }
+
+@Composable
+private fun WorkspacePreviewCard(label: Int, frame: Bitmap?, enabled: Boolean, onOpen: () -> Unit) {
+  val colors = TakuTheme.colors
+  val shape = RoundedCornerShape(TakuRadius.md)
   Box(
     Modifier.size(width = PreviewWidth, height = PreviewHeight)
       .shadow(TakuElevation.badge, shape)

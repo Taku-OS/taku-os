@@ -218,3 +218,22 @@ internal fun LauncherWorkspaceFailure(controller: HomeController, backdrop: Back
     TakuButton(stringResource(R.string.home_done), close, Modifier.fillMaxWidth())
   }
 }
+
+@Composable
+internal fun LauncherWorkspaceTakeover(controller: HomeController, backdrop: Backdrop?) {
+  val target = controller.workspaceTakeover ?: return
+  val dismiss = controller::dismissWorkspaceTakeover
+  val title = if (target.screen.controlOwner == "user") R.string.home_workspace_takeover_owned_title
+    else R.string.home_workspace_takeover_title
+  TakuDialog(dismiss, rememberAppear(target), backdrop = backdrop) {
+    BasicText(stringResource(title, target.appLabel), style = TakuTheme.type.headingXl)
+    TakuButton(
+      stringResource(R.string.home_workspace_takeover),
+      { controller.takeOverWorkspace(target) },
+      Modifier.fillMaxWidth(),
+      style = ButtonStyle.Primary,
+      enabled = !controller.workspaceControlsUnavailable(target.screen),
+    )
+    TakuButton(stringResource(R.string.home_cancel), dismiss, Modifier.fillMaxWidth(), style = ButtonStyle.Glass)
+  }
+}

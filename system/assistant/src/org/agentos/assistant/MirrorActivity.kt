@@ -365,7 +365,9 @@ class MirrorActivity : Activity() {
                 else -> change("takeControl")
             }
         }
-        stop = button(getString(R.string.workspace_interaction_stop), R.drawable.ic_taku_stop) { change("pause") }
+        stop = button(getString(R.string.workspace_interaction_stop), R.drawable.ic_taku_stop) {
+            change(if (currentScreen?.optString("controlOwner") == "user") "release" else "pause")
+        }
         actions.addView(control, LinearLayout.LayoutParams(if (stack) -1 else 0, if (stack) -2 else -1, if (stack) 0f else 1f))
         actions.addView(stop, LinearLayout.LayoutParams(if (stack) -1 else 0, if (stack) -2 else -1, if (stack) 0f else 1f).apply {
             if (stack) topMargin = dp(8) else marginStart = dp(8)
@@ -909,7 +911,7 @@ class MirrorActivity : Activity() {
     private fun freshStopLease(): Boolean {
         val screen = currentScreen ?: return false
         return connection != Connection.LEASE_GONE && freshOwner() && screen.optBoolean("admitted") &&
-            screen.optLong("controlRevision", -1) >= 0
+            !screen.optBoolean("stopping") && screen.optLong("controlRevision", -1) >= 0
     }
 
     private fun controlLabel() = when {
@@ -920,12 +922,15 @@ class MirrorActivity : Activity() {
 
     private fun change(action: String) {
         val origin = lease ?: return
-        val pausing = action == "pause"
+        val releasing = action == "release"
+        val stopping = releasing || action == "pause"
         if (changing) return
-        if (if (pausing) !freshStopLease() else connection != Connection.CONNECTED) {
+        if (if (stopping) !freshStopLease() else connection != Connection.CONNECTED) {
             controls()
             return
         }
+        val request = JSONObject(origin.toString()).put("allocationId", allocationId)
+        if (stopping) request.put("controlRevision", currentScreen!!.getLong("controlRevision"))
         changing = true
         ++controlGeneration
         controlRevision = -1
@@ -937,19 +942,26 @@ class MirrorActivity : Activity() {
         NativeClient.io.execute {
             try {
                 if (!watching(token)) return@execute
-                val canDispatch = if (pausing) freshOwner()
+                val canDispatch = if (stopping) freshOwner()
                     else connection == Connection.CONNECTED && controlToken == controlGeneration
-                val result = if (canDispatch) WorkspaceCommands.call(this, "workspaces/$action", origin, Process.myUid()) else null
+                val result = if (canDispatch) WorkspaceCommands.call(this, "workspaces/$action", request, Process.myUid()) else null
                 main.post {
-                    if (!watching(token) || isFinishing || isDestroyed) return@post
+                    if (token != watchGeneration || isFinishing || isDestroyed) return@post
                     changing = false
-                    val screen = result?.optJSONObject("screen")?.takeIf { WorkspaceUi.same(origin, it) && it.optBoolean("admitted") }
+                    if (releasing && result != null) {
+                        updateConnection(Connection.LEASE_GONE)
+                        returnToConversation()
+                        return@post
+                    }
+                    val screen = result?.optJSONObject("screen")?.takeIf {
+                        WorkspaceUi.same(origin, it) && allocationId == it.optString("allocationId") && it.optBoolean("admitted")
+                    }
                     if (screen != null) owner(screen, token)
-                    if (pausing && screen != null && screen.optString("controlOwner") == "paused" &&
+                    if (stopping && screen != null && screen.optString("controlOwner") == "paused" &&
                         screen.optString("activeTurnId").isEmpty() && !screen.optBoolean("stopping")) {
                         returnToConversation()
                     } else if (result != null) {
-                        showNote(if (pausing) getString(R.string.workspace_interaction_stop_unconfirmed) else "")
+                        showNote(if (stopping) getString(R.string.workspace_interaction_stop_unconfirmed) else "")
                     }
                     renderConnection()
                 }

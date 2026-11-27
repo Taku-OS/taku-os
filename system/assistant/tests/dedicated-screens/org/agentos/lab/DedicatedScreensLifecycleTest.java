@@ -159,8 +159,8 @@ public final class DedicatedScreensLifecycleTest {
         Object closeOccupancy = field(closeScreen, "occupancy");
         closing.screens.beginClose(session(1), closeGrant.getString("screenKey"), closeGrant.getString("generation"));
         JSONObject closingRow = closing.screens.list().getJSONObject(0);
-        check(closingRow.getString("status").equals("stopping") && !closingRow.getBoolean("homePreviewEligible"),
-                "Home hides the screen when close begins, before physical cleanup");
+        check(closingRow.getBoolean("stopping") && closingRow.getBoolean("homePreviewEligible"),
+                "Home counts the screen while its close is still in flight");
         check(field(closeScreen, "occupancy") == null, "beginClose invalidates occupancy before stopping the old tool thread");
         closing.host.stopFailure = "unconfirmed close";
         CountDownLatch stopping = new CountDownLatch(1), proceed = new CountDownLatch(1);
@@ -183,8 +183,15 @@ public final class DedicatedScreensLifecycleTest {
         check(outcome.get(2, TimeUnit.SECONDS).equals("unconfirmed close")
                         && field(closeScreen, "occupancy") == closeOccupancy,
                 "failed confirmed close restores the retained allocation's occupancy");
-        check(closing.screens.list().getJSONObject(0).getBoolean("homePreviewEligible"),
-                "the retained screen returns to Home after a failed close");
+        check(!closing.screens.list().getJSONObject(0).getBoolean("stopping"),
+                "the retained screen can be controlled again after a failed close");
+        String closeKey = closeGrant.getString("screenKey"), closeGeneration = closeGrant.getString("generation");
+        String allocation = closingRow.getString("allocationId");
+        closing.host.unplug(closeKey);
+        closing.screens.beginControl(session(1), closeKey, closeGeneration, allocation, -1, true);
+        closing.screens.close(session(1), closeKey, closeGeneration, allocation, null, true);
+        check(closing.screens.list().isEmpty() && holder(closing, "com.clock").equals("-"),
+                "retry after a delayed host exit frees the allocation and its app reservation");
     }
 
     static final class Cleanup {
@@ -473,6 +480,20 @@ public final class DedicatedScreensLifecycleTest {
                 "fixture reuses the physical display for a new allocation");
         check(!nextRow.getString("allocationId").equals(oldRow.getString("allocationId")),
                 "a viewer can distinguish the replacement from the released allocation");
+        for (boolean close : List.of(false, true)) {
+            try {
+                reused.screens.beginControl(session(1), oldRow.getString("screenKey"),
+                        oldRow.getString("generation"), oldRow.getString("allocationId"), -1, close);
+                throw new AssertionError("obsolete selection changed the replacement allocation");
+            } catch (IOException expected) {
+                check(expected.getMessage().equals("SCREEN_LEASE_CHANGED"), "stale selection is refused");
+            }
+        }
+        JSONObject unchanged = reused.screens.list(session(1)).getJSONObject(0);
+        check(unchanged.getString("allocationId").equals(nextRow.getString("allocationId"))
+                        && unchanged.getLong("controlRevision") == nextRow.getLong("controlRevision")
+                        && unchanged.getString("controlOwner").equals("agent") && !unchanged.getBoolean("stopping"),
+                "stale takeover and close leave the replacement operable by its Agent");
         reused.tasks.open("com.game", next.getInt("displayId"));
         check(reused.screens.turnEnded(session(1), "retained", true) == null,
                 "old completion cannot affect a reused display");

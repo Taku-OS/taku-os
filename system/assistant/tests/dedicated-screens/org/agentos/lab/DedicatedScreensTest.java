@@ -102,6 +102,11 @@ public final class DedicatedScreensTest {
             return new JSONObject(v.toString());
         }
 
+        @Override public String removalState(String key, String generation) throws Exception {
+            if (!slots.containsKey(key)) return "gone";
+            return PhoneExecutionScreens.Host.super.removalState(key, generation);
+        }
+
         /** Runs first thing in stop, with the screen's key. */
         volatile java.util.function.Consumer<String> beforeStop = key -> {};
 

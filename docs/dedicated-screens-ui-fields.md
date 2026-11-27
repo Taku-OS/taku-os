@@ -28,7 +28,7 @@ Reuse the existing request, without adding another interface:
 {"op":"workspaces","action":"list"}
 ```
 
-The response structure remains (`schema`, `policy`, `screens`), with added per-row fields. `screens` lists occupied conversation screens and failed occupancy where both cleanup and closure failed; idle screens and normally closing screens are absent.
+The response includes `schema`, `policy`, and `screens`. The list includes occupied conversation screens, explicitly closing screens, and screens with failed cleanup. An explicit close remains in the list with `stopping:true` until cleanup succeeds. Idle screens and automatic cleanup in progress are absent.
 
 `cleanup_failed` means the turn ended but screen, apps, and capacity are unreleased. `lastError` starts with `SCREEN_CLEANUP_FAILED` and includes the closure error; `heldApps` lists retained access rights; `cleanupRetryDelayMs=30000` is the delay from each failure to the next automatic closure retry, not a completion countdown. `stopping=true`, `admitted=false`, `canResume=false`; the failed screen cannot be taken over, returned, or operated. A background thread retries without holding the ledger lock, waiting 30 seconds after each failed closure until confirmed success removes the ledger/resources. Archiving or Codex disconnection does not restart cleanup of that failed occupancy. Broker restart retains existing in-memory-ledger/startup-cleanup boundaries.
 
@@ -49,10 +49,11 @@ Ticket 11 device regression: `python3 system/assistant/tests/dedicated-screens/e
 | `mainThreadId` | New | Main conversation owning the screen; equals `threadId` for its own screen. Nested subagents resolve to the topmost main conversation | Optionally group cards from one main conversation |
 | `taskTitle` | Existing, now populated | One-sentence purpose supplied by this conversation when requesting apps, such as “Book a table for two tomorrow evening on Dianping”; per-screen and updated on subsequent requests. Normally nonempty; existing `WorkspaceUi.taskLabel` reads it and falls back if empty | Task name |
 | `packageName` | Existing, changed meaning | Currently open app on the screen (top task's app), empty before opening one. UI resolves display names from package, as existing `WorkspaceUi.appLabel` does | Current app |
+| `taskPackages` | New | Distinct packages with Android tasks on this display, with the top task's package first | Mark Home app icons that open an existing workspace |
 | `status` | Existing, changed values | Conversation state on this screen, below | Task state |
 | `waitReason` | New | Waiting reason or `null`; `code` is machine-readable, `text` is a displayable localized short sentence (Chinese system → Chinese, otherwise English) | Waiting/error reason |
 | `threadId`, `screenKey`, `generation` | Existing | Occupying conversation plus screen identity/generation; all three required to open/take over/return the screen (`WorkspaceUi.preview`, `WorkspaceUi.detail`) | Background-screen entry |
-| `allocationId` | New | Identifies one allocation of the display. The ID changes when the broker assigns the same display again | Detect replacement of an open preview |
+| `allocationId` | Existing | Changes whenever the broker assigns this display again. Include it in takeover, pause, or release to bind the action to the selected allocation | Detect replacement and guard actions |
 | `controlOwner`, `controlRevision` | Existing | Owner (`agent` / `user` / `paused`) and control version, used by takeover/tap as before | Takeover |
 | `canResume` | Existing | Whether Return is available: user-owned or paused and not transitioning into takeover/pause | Return button |
 

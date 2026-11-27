@@ -22,6 +22,17 @@
   <string name="home_workspace_hide_previews">收起后台屏预览</string>
   <string name="home_workspace_open_screen">打开后台屏</string>
   <string name="home_workspace_open_failed">无法打开后台屏</string>
+  <string name="home_workspace_close_screen">关闭后台屏 %1$d</string>
+  <string name="home_workspace_close_named_screen">关闭 %1$s 所在的后台屏 %2$d</string>
+  <string name="home_workspace_close_failed">无法关闭后台屏 %1$d</string>
+  <string name="home_workspace_closing">正在关闭…</string>
+  <string name="home_workspace_app_control">由 BScreen 控制</string>
+  <string name="home_workspace_app_paused">在 BScreen 上已暂停</string>
+  <string name="home_workspace_app_user_control">你正在控制 BScreen</string>
+  <string name="home_workspace_app_switching">正在切换 BScreen 控制权</string>
+  <string name="home_workspace_takeover_title">接管 BScreen 上的 %1$s？</string>
+  <string name="home_workspace_takeover_owned_title">打开 BScreen 上的 %1$s？</string>
+  <string name="home_workspace_takeover">接管</string>
   <string name="home_workspace_launch">在 BScreen 中打开</string>
   <string name="home_workspace_launching">正在 BScreen 中打开 %1$s…</string>
   <string name="home_workspace_launched">%1$s 已就绪，可从右侧 BScreen 边栏打开</string>
