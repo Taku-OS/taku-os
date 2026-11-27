@@ -23,7 +23,7 @@ unless stated otherwise.
 | Media controls | Later phase. |
 | Notifications | Real Android notifications from the system notification pipeline, rendered natively by SystemUI in the Taku style. Flat list, no pagination. Tapping opens the app (after authentication when required). |
 | Shortcuts | Flashlight (start) and Camera (end) by default; replaceable by the user with other actions or apps. |
-| Dynamic Island | Not on the lock screen in this phase; the layout reserves room for it. |
+| Dynamic Island | The lock status (padlock) shows in the island at the camera (4.8). Island activities are not on the lock screen yet; see the [proposal](dynamic-island-lock-screen-spec.md). |
 
 ## 2. Screen states
 
