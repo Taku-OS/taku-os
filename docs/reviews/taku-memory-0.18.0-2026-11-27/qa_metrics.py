@@ -1,5 +1,5 @@
 # Same summary as LongMemEval's print_qa_metrics.py (abstention questions count inside their task), with the judge's
-# "yes" read the same way ('yes' in the lowercased reply). Usage: qa_metrics.py prompts.json judgments.jsonl answers.jsonl
+# "yes" read the same way ('yes' in the lowercased reply). Usage: qa_metrics.py longmemeval.json judgments.jsonl answers.jsonl
 import json, sys, numpy as np
 ref = {x['question_id']: x for x in json.load(open(sys.argv[1]))}
 jud = {json.loads(l)['question_id']: json.loads(l) for l in open(sys.argv[2]) if l.strip()}

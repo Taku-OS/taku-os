@@ -1,0 +1,9 @@
+ok  a primary turn sends the user's message and Taku's reply
+ok  the user's text is the first text item, trimmed; panel context and images are not sent
+ok  the reply is the turn's last message, kept as written when plain
+ok  structured tasks, organizer threads and realtime turns are not sent
+ok  an interrupted turn keeps the user's message but not the partial reply
+ok  replies of turns whose message was not sent are not sent
+ok  a framed reply that does not parse is not kept as protocol text
+ok  text the protocol shows as plain is kept as written
+TakuChatMemoryCheck: 8 checks passed
