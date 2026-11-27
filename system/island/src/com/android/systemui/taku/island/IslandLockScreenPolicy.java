@@ -30,17 +30,28 @@ public final class IslandLockScreenPolicy {
      * @param authenticated the keyguard can be dismissed without a credential
      * @param secret the notification is {@code VISIBILITY_SECRET}
      * @param allowedOnLockScreen the user shows this user's notifications on the lock screen
-     * @param redacted Android requires the public version right now (sensitive content hidden by
-     *     the user's setting, a locked work profile, a one-time code)
+     * @param needsRedaction Android would show this notification's public version on a locked
+     *     screen (sensitive content hidden by the user's setting, a one-time code). Android keeps
+     *     reporting it while the keyguard shows, also after the user has authenticated.
+     * @param profileLocked the notification's profile has its own challenge and is still locked
      */
     public static int exposure(boolean enabled, int tier, boolean assistant, boolean authenticated,
-            boolean secret, boolean allowedOnLockScreen, boolean redacted) {
+            boolean secret, boolean allowedOnLockScreen, boolean needsRedaction, boolean profileLocked) {
         if (!enabled) return HIDDEN;
         // Stock Android already shows and operates these over the lock screen.
         if (tier < IslandStore.TIER_ACTIVITY) return FULL;
         if (secret || !allowedOnLockScreen) return HIDDEN;
         if (assistant && !authenticated) return HIDDEN;
-        return redacted ? GLYPH : FULL;
+        // Authenticating reveals the content, except for a profile that is still locked.
+        return needsRedaction && (!authenticated || profileLocked) ? GLYPH : FULL;
+    }
+
+    /**
+     * Whether a tap may open the activity's screen while the phone is locked: calls and alarms,
+     * whose screens show over the keyguard as in stock Android. Anything else needs the user first.
+     */
+    public static boolean openWhileLocked(int tier) {
+        return tier <= IslandStore.TIER_ALARM;
     }
 
     /**

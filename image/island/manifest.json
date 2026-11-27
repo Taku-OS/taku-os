@@ -3,7 +3,7 @@
   "repository": "frameworks/base",
   "revision": "7f6de40b6429462d47ba9ba351b99943269c8067",
   "patch": "systemui-probe.patch",
-  "patchSha256": "c802157c59ff2ddbe9bef35a284f653029f1c328303cf46663cfc17644b863c6",
+  "patchSha256": "b12d965b10bdb3cfe1ef2d952009802ccd6363444957f97845210e58dd934731",
   "files": [
     {
       "path": "packages/SystemUI/AndroidManifest.xml",
@@ -87,7 +87,7 @@
     {
       "path": "packages/SystemUI/src/com/android/systemui/taku/island/IslandEngine.kt",
       "beforeSha256": null,
-      "afterSha256": "5817b6d5eb2d672447a398c98cc36089b57792c777706bd8cf71000216695f11",
+      "afterSha256": "e83863c486de2245f9a2fb5f3237a22502c52f907422ee8bc0e294f1e590815b",
       "source": "system/island/src/com/android/systemui/taku/island/IslandEngine.kt"
     },
     {
@@ -111,13 +111,13 @@
     {
       "path": "packages/SystemUI/src/com/android/systemui/taku/island/IslandLockScreenCard.kt",
       "beforeSha256": null,
-      "afterSha256": "a1dca78f9bdf36d7807ba059e8a99bdf715ed039a76cd02d6a2dcd2c557836cb",
+      "afterSha256": "77044747c359c5fc9caf4800df49f848054314e997f00d7d880e911dc6aa01be",
       "source": "system/island/src/com/android/systemui/taku/island/IslandLockScreenCard.kt"
     },
     {
       "path": "packages/SystemUI/src/com/android/systemui/taku/island/IslandLockScreenPolicy.java",
       "beforeSha256": null,
-      "afterSha256": "631e0fb03088992fb11fb7bf7211e9afb1152f744adeabf4adddc3ec150e5920",
+      "afterSha256": "6450e9a54ba919f183b75de7f19879786a5525c5519be95deb132fb8bce84df7",
       "source": "system/island/src/com/android/systemui/taku/island/IslandLockScreenPolicy.java"
     },
     {
@@ -159,7 +159,7 @@
     {
       "path": "packages/SystemUI/src/com/android/systemui/taku/island/IslandPresenter.kt",
       "beforeSha256": null,
-      "afterSha256": "7491e4eb3d1f6a4c39caf0a8af9d9f10453429d75e7a63a811b68d0a4a3b91cd",
+      "afterSha256": "d11b2e80f99a593f02becc9d9988c7cd27646013607c93638b273c585224f31b",
       "source": "system/island/src/com/android/systemui/taku/island/IslandPresenter.kt"
     },
     {

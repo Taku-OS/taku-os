@@ -3,6 +3,7 @@ package com.android.systemui.taku.lockscreen
 import com.android.systemui.dagger.SysUISingleton
 import com.android.systemui.plugins.ActivityStarter
 import com.android.systemui.plugins.FalsingManager
+import com.android.systemui.taku.island.IslandEngine
 import com.android.systemui.taku.island.IslandPresenter
 import com.android.systemui.taku.island.IslandRuntime
 import dagger.Lazy
@@ -17,7 +18,8 @@ import org.json.JSONObject
  * this class only carries the lock screen's touches to it.
  *
  * Every touch runs the same island operation an Agent would call (`cmd statusbar island ...`), after
- * the stock falsing check. An operation the island refuses with `locked` needs the user: the GUI
+ * the stock falsing check for its kind of touch: taps and long presses are checked as such; the
+ * capsule's swipes already need a 24 dp horizontal fling, which the tap classifier would reject. An operation the island refuses with `locked` needs the user: the GUI
  * then asks for the credential and runs it again once the user has authenticated. An Agent gets the
  * `locked` error instead, because it can never authenticate for the user.
  */
@@ -31,11 +33,19 @@ constructor(
 ) {
     val state: StateFlow<IslandPresenter.LockScreen> get() = presenter.lockScreen
 
-    /** A tap, swipe or button: the island operation [method] on [key], with its JSON [extra]. */
-    fun run(method: String, key: String?, extra: String?) {
-        if (falsingManager.isFalseTap(FalsingManager.LOW_PENALTY)) return
+    /** The kind of touch that asked for an operation, for the falsing check. */
+    enum class Touch { TAP, LONG_PRESS, SWIPE }
+
+    /** A touch on the capsule or the card: the island operation [method] on [key], with its JSON [extra]. */
+    fun run(method: String, key: String?, extra: String?, touch: Touch = Touch.TAP) {
+        val rejected = when (touch) {
+            Touch.TAP -> falsingManager.isFalseTap(FalsingManager.LOW_PENALTY)
+            Touch.LONG_PRESS -> falsingManager.isFalseLongTap(FalsingManager.LOW_PENALTY)
+            Touch.SWIPE -> false
+        }
+        if (rejected) return
         val result = IslandRuntime.call(method, key, extra)
-        if (result.optBoolean("ok") || result.optString("error") != LOCKED) return
+        if (result.optBoolean("ok") || result.optString("error") != IslandEngine.LOCKED) return
         activityStarter.get().dismissKeyguardThenExecute(
             object : ActivityStarter.OnDismissAction {
                 override fun onDismiss(): Boolean {
@@ -56,10 +66,5 @@ constructor(
         JSONObject().put("key", it.activity?.key ?: JSONObject.NULL)
             .put("redacted", if (it.activity == null) JSONObject.NULL else if (it.redacted) "glyph" else "none")
             .put("card", it.card?.key ?: JSONObject.NULL)
-    }
-
-    private companion object {
-        /** `IslandEngine.LOCKED`. */
-        const val LOCKED = "locked"
     }
 }

@@ -94,9 +94,17 @@ class IslandEngine @Inject constructor(
                 changed()
             }
         })
+        // What the lock screen may show follows the lock-screen notification settings, public mode
+        // and per-notification sensitivity, none of which is an island event of its own.
+        lockscreenUsers.addNotificationStateChangedListener(
+            NotificationLockscreenUserManager.NotificationStateChangedListener { if (keyguard.isShowing) changed() })
+        pipeline.addOnAfterRenderListListener {
+            if (keyguard.isShowing) { handler.removeCallbacks(lockScreenRefresh); handler.post(lockScreenRefresh) }
+        }
         refresh()
-
     }
+
+    private val lockScreenRefresh = Runnable { changed() }
 
     fun attachPresentation(value: IslandPresentation) {
         presentation = value
@@ -196,11 +204,17 @@ class IslandEngine @Inject constructor(
      */
     fun lockScreenExposure(activity: IslandActivity): Int {
         val entry = pipeline.getEntry(activity.key)
-        return IslandLockScreenPolicy.exposure(policy.lockScreen, activity.tier, activity.nativeAssistant,
-            keyguard.canDismissLockScreen(),
+        val authenticated = keyguard.canDismissLockScreen()
+        val redaction = entry != null &&
+            lockscreenUsers.getRedactionType(entry) != NotificationLockscreenUserManager.REDACTION_TYPE_NONE
+        // Only asked when it matters: a separate work challenge outlives the device's authentication.
+        val profileLocked = redaction && authenticated && activity.userId != lockscreenUsers.currentUserId &&
+            lockscreenUsers.needsSeparateWorkChallenge(activity.userId) &&
+            context.getSystemService(android.app.KeyguardManager::class.java)?.isDeviceLocked(activity.userId) != false
+        return IslandLockScreenPolicy.exposure(policy.lockScreen, activity.tier, activity.nativeAssistant, authenticated,
             entry?.sbn?.notification?.visibility == android.app.Notification.VISIBILITY_SECRET,
             entry == null || lockscreenUsers.userAllowsNotificationsInPublic(activity.userId),
-            entry != null && lockscreenUsers.getRedactionType(entry) != NotificationLockscreenUserManager.REDACTION_TYPE_NONE)
+            redaction, profileLocked)
     }
 
     private fun visible() = if (policy.enabled) store.active(SystemClock.elapsedRealtime()) else emptyList()
@@ -346,7 +360,7 @@ class IslandEngine @Inject constructor(
                 val activity = requireActivity(arg)
                 val intent = activity.openIntent
                 if (activity.tap == "open" && intent != null) {
-                    require(!locked()) { LOCKED }
+                    require(!locked() || IslandLockScreenPolicy.openWhileLocked(activity.tier)) { LOCKED }
                     opened(activity.key, intent)
                 } else require(presentation?.expand(activity.key) == true) { unavailable() }
             }
@@ -357,8 +371,9 @@ class IslandEngine @Inject constructor(
             "open" -> mutate(scope) {
                 val activity = requireActivity(arg)
                 val intent = activity.openIntent ?: throw IllegalArgumentException("action_unavailable")
-                // Opening the app always needs the user: the GUI asks for the credential, an Agent cannot.
-                require(!locked()) { LOCKED }
+                // Opening the app needs the user (the GUI asks for the credential, an Agent cannot),
+                // except call and alarm screens, which show over the keyguard.
+                require(!locked() || IslandLockScreenPolicy.openWhileLocked(activity.tier)) { LOCKED }
                 opened(activity.key, intent)
             }
             "action" -> mutate(scope) {

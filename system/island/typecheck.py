@@ -40,6 +40,10 @@ interface KeyguardStateController {
  interface Callback { fun onKeyguardShowingChanged() {}; fun onUnlockedChanged() {} }
 }
 ''',
+    'HiddenApi.kt': '''package com.android.systemui.taku.island
+// Hidden in android.jar, public to platform SystemUI; the member shadows this extension in the real build.
+fun android.app.KeyguardManager.isDeviceLocked(userId: Int): Boolean = TODO()
+''',
     'ActivityStarter.kt': '''package com.android.systemui.plugins
 interface ActivityStarter { fun startPendingIntentDismissingKeyguard(intent: android.app.PendingIntent) }
 ''',
@@ -64,6 +68,10 @@ interface NotificationLockscreenUserManager {
  fun isProfileAvailable(id: Int): Boolean
  fun userAllowsNotificationsInPublic(userId: Int): Boolean
  fun getRedactionType(entry: com.android.systemui.statusbar.notification.collection.NotificationEntry): Int
+ val currentUserId: Int
+ fun needsSeparateWorkChallenge(userId: Int): Boolean
+ fun addNotificationStateChangedListener(listener: NotificationStateChangedListener)
+ fun interface NotificationStateChangedListener { fun onNotificationStateChanged() }
  companion object { const val REDACTION_TYPE_NONE = 0 }
 }
 ''',
@@ -72,6 +80,7 @@ abstract class NotificationEntry { abstract val sbn: android.service.notificatio
 abstract class NotifPipeline {
  abstract fun getAllNotifs(): Collection<NotificationEntry>
  abstract fun getEntry(key: String): NotificationEntry?
+ abstract fun addOnAfterRenderListListener(listener: (List<Any>) -> Unit)
  abstract fun addCollectionListener(listener: com.android.systemui.statusbar.notification.collection.notifcollection.NotifCollectionListener)
 }
 ''',

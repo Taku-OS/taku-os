@@ -103,8 +103,8 @@ cmd statusbar island setLockScreen 0       # or 1 (default); same value as the S
 settings get global taku_island_lock_screen
 ```
 
-While the phone is locked, `open KEY`, a `tap KEY` that opens the app, and `action` answer `locked`,
-except SystemUI's own controller actions (stop recording or casting), call and alarm actions and Now
+While the phone is locked, `open KEY` and a `tap KEY` that opens the app answer `locked` (except for
+calls and alarms, whose screens show over the lock screen), and so does `action`, except SystemUI's own controller actions (stop recording or casting), call and alarm actions and Now
 Playing transport buttons. You cannot authenticate for the user: ask them to unlock, then retry.
 `action` with `reply` answers `reply_unavailable_on_lock_screen` while the keyguard shows. Now
 Playing is an activity with `category` `media` (also `call`, `alarm`, `timer`; null otherwise) in

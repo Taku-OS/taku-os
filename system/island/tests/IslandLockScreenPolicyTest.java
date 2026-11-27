@@ -11,7 +11,12 @@ public final class IslandLockScreenPolicyTest {
 
     private static int exposure(boolean enabled, int tier, boolean assistant, boolean authenticated,
             boolean secret, boolean allowed, boolean redacted) {
-        return IslandLockScreenPolicy.exposure(enabled, tier, assistant, authenticated, secret, allowed, redacted);
+        return exposure(enabled, tier, assistant, authenticated, secret, allowed, redacted, false);
+    }
+
+    private static int exposure(boolean enabled, int tier, boolean assistant, boolean authenticated,
+            boolean secret, boolean allowed, boolean redacted, boolean profileLocked) {
+        return IslandLockScreenPolicy.exposure(enabled, tier, assistant, authenticated, secret, allowed, redacted, profileLocked);
     }
 
     public static void main(String[] args) {
@@ -36,14 +41,25 @@ public final class IslandLockScreenPolicyTest {
         for (boolean authenticated : new boolean[] {false, true}) {
             check(exposure(true, activity, false, authenticated, true, true, false) == hidden, "secret is hidden");
             check(exposure(true, activity, false, authenticated, false, false, false) == hidden, "user hides lock-screen notifications");
-            check(exposure(true, activity, false, authenticated, false, true, true) == glyph, "redacted is glyph only");
             check(exposure(true, activity, false, authenticated, true, true, true) == hidden, "secret wins over redacted");
         }
+
+        // Hidden sensitive content: glyph only until the user authenticates, then full.
+        check(exposure(true, activity, false, false, false, true, true) == glyph, "redacted is glyph only while locked");
+        check(exposure(true, activity, false, true, false, true, true) == full, "authenticating reveals redacted content");
+        check(exposure(true, activity, false, true, false, true, true, true) == glyph, "a locked profile stays glyph only");
+        check(exposure(true, activity, false, true, false, true, false, true) == full, "a locked profile without redaction is full");
 
         // Taku's assistant needs authentication.
         check(exposure(true, activity, true, false, false, true, false) == hidden, "assistant hidden while locked");
         check(exposure(true, activity, true, true, false, true, false) == full, "assistant full once authenticated");
-        check(exposure(true, activity, true, true, false, true, true) == glyph, "assistant still redacted");
+        check(exposure(true, activity, true, true, false, true, true, true) == glyph, "assistant in a locked profile is glyph only");
+
+        // Opening a screen while locked: only calls and alarms.
+        check(IslandLockScreenPolicy.openWhileLocked(IslandStore.TIER_CALL), "call screen opens while locked");
+        check(IslandLockScreenPolicy.openWhileLocked(IslandStore.TIER_ALARM), "alarm screen opens while locked");
+        check(!IslandLockScreenPolicy.openWhileLocked(IslandStore.TIER_RECORDING), "recording does not open while locked");
+        check(!IslandLockScreenPolicy.openWhileLocked(activity), "an activity does not open while locked");
 
         // Actions while locked.
         check(IslandLockScreenPolicy.actionWhileLocked(activity, true, null), "controller action runs");

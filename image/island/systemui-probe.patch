@@ -1701,7 +1701,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandEngine.kt
-@@ -0,0 +1,436 @@
+@@ -0,0 +1,451 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -1798,9 +1798,17 @@
 +                changed()
 +            }
 +        })
++        // What the lock screen may show follows the lock-screen notification settings, public mode
++        // and per-notification sensitivity, none of which is an island event of its own.
++        lockscreenUsers.addNotificationStateChangedListener(
++            NotificationLockscreenUserManager.NotificationStateChangedListener { if (keyguard.isShowing) changed() })
++        pipeline.addOnAfterRenderListListener {
++            if (keyguard.isShowing) { handler.removeCallbacks(lockScreenRefresh); handler.post(lockScreenRefresh) }
++        }
 +        refresh()
-+
 +    }
++
++    private val lockScreenRefresh = Runnable { changed() }
 +
 +    fun attachPresentation(value: IslandPresentation) {
 +        presentation = value
@@ -1900,11 +1908,17 @@
 +     */
 +    fun lockScreenExposure(activity: IslandActivity): Int {
 +        val entry = pipeline.getEntry(activity.key)
-+        return IslandLockScreenPolicy.exposure(policy.lockScreen, activity.tier, activity.nativeAssistant,
-+            keyguard.canDismissLockScreen(),
++        val authenticated = keyguard.canDismissLockScreen()
++        val redaction = entry != null &&
++            lockscreenUsers.getRedactionType(entry) != NotificationLockscreenUserManager.REDACTION_TYPE_NONE
++        // Only asked when it matters: a separate work challenge outlives the device's authentication.
++        val profileLocked = redaction && authenticated && activity.userId != lockscreenUsers.currentUserId &&
++            lockscreenUsers.needsSeparateWorkChallenge(activity.userId) &&
++            context.getSystemService(android.app.KeyguardManager::class.java)?.isDeviceLocked(activity.userId) != false
++        return IslandLockScreenPolicy.exposure(policy.lockScreen, activity.tier, activity.nativeAssistant, authenticated,
 +            entry?.sbn?.notification?.visibility == android.app.Notification.VISIBILITY_SECRET,
 +            entry == null || lockscreenUsers.userAllowsNotificationsInPublic(activity.userId),
-+            entry != null && lockscreenUsers.getRedactionType(entry) != NotificationLockscreenUserManager.REDACTION_TYPE_NONE)
++            redaction, profileLocked)
 +    }
 +
 +    private fun visible() = if (policy.enabled) store.active(SystemClock.elapsedRealtime()) else emptyList()
@@ -2050,7 +2064,7 @@
 +                val activity = requireActivity(arg)
 +                val intent = activity.openIntent
 +                if (activity.tap == "open" && intent != null) {
-+                    require(!locked()) { LOCKED }
++                    require(!locked() || IslandLockScreenPolicy.openWhileLocked(activity.tier)) { LOCKED }
 +                    opened(activity.key, intent)
 +                } else require(presentation?.expand(activity.key) == true) { unavailable() }
 +            }
@@ -2061,8 +2075,9 @@
 +            "open" -> mutate(scope) {
 +                val activity = requireActivity(arg)
 +                val intent = activity.openIntent ?: throw IllegalArgumentException("action_unavailable")
-+                // Opening the app always needs the user: the GUI asks for the credential, an Agent cannot.
-+                require(!locked()) { LOCKED }
++                // Opening the app needs the user (the GUI asks for the credential, an Agent cannot),
++                // except call and alarm screens, which show over the keyguard.
++                require(!locked() || IslandLockScreenPolicy.openWhileLocked(activity.tier)) { LOCKED }
 +                opened(activity.key, intent)
 +            }
 +            "action" -> mutate(scope) {
@@ -2455,7 +2470,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandLockScreenCard.kt
-@@ -0,0 +1,98 @@
+@@ -0,0 +1,133 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -2500,8 +2515,32 @@
 +        visibility = View.GONE
 +    }
 +
-+    /** The activity whose card to draw, or null for none. A different kind of card rebuilds the content. */
++    /** Key of a payload the card could not draw; it stays folded rather than crashing the keyguard. */
++    private var failedKey: String? = null
++
++    /**
++     * The activity whose card to draw, or null for none. A different kind of card rebuilds the
++     * content. A payload the card cannot draw folds it (the capsule shows the activity instead), as
++     * the status bar closes its card on `render_failed`.
++     */
 +    fun show(next: IslandActivity?) {
++        try { bind(next) } catch (failure: Exception) { fail(next, failure) }
++    }
++
++    private fun fail(next: IslandActivity?, failure: Exception) {
++        android.util.Log.w(TAG, "island card cannot draw ${next?.key}", failure)
++        failedKey = next?.key
++        activity = null
++        kind = ""
++        removeAllViews()
++        assistant = null
++        progress = null
++        template = null
++        visibility = View.GONE
++        post { fold() }
++    }
++
++    private fun bind(next: IslandActivity?) {
 +        if (next === activity) return
 +        activity = next
 +        if (next == null) {
@@ -2527,6 +2566,7 @@
 +        assistant?.update(next)
 +        progress?.update(next)
 +        template?.update(next)
++        failedKey = null
 +        visibility = View.VISIBLE
 +        requestLayout()
 +    }
@@ -2535,11 +2575,16 @@
 +    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
 +        val width = MeasureSpec.getSize(widthMeasureSpec)
 +        val current = activity
-+        val wanted = when {
-+            current == null -> 0
-+            assistant != null -> assistant!!.desiredHeight(current, width)
-+            progress != null -> progress!!.desiredHeight(current, width)
-+            else -> template!!.heightFor(width)
++        val wanted = try {
++            when {
++                current == null -> 0
++                assistant != null -> assistant!!.desiredHeight(current, width)
++                progress != null -> progress!!.desiredHeight(current, width)
++                else -> template!!.heightFor(width)
++            }
++        } catch (failure: Exception) {
++            fail(current, failure)
++            0
 +        }
 +        val height = minOf(wanted, resources.displayMetrics.heightPixels / 3)
 +        super.onMeasure(MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY),
@@ -2547,16 +2592,21 @@
 +    }
 +
 +    fun state(): JSONObject = JSONObject().put("key", activity?.key ?: JSONObject.NULL)
++        .put("renderFailed", failedKey ?: JSONObject.NULL)
 +        .put("visible", visibility == View.VISIBLE && isShown)
 +        .put("layout", kind.substringBefore('|')).put("renderer", "systemui-native")
 +        .put("width", width).put("height", height)
 +        .put("assistant", assistant?.state() ?: JSONObject.NULL)
 +        .put("template", template?.state() ?: JSONObject.NULL)
 +        .put("progress", progress?.state() ?: JSONObject.NULL)
++
++    private companion object {
++        const val TAG = "IslandLockScreenCard"
++    }
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandLockScreenPolicy.java
-@@ -0,0 +1,54 @@
+@@ -0,0 +1,65 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island;
 +
@@ -2589,17 +2639,28 @@
 +     * @param authenticated the keyguard can be dismissed without a credential
 +     * @param secret the notification is {@code VISIBILITY_SECRET}
 +     * @param allowedOnLockScreen the user shows this user's notifications on the lock screen
-+     * @param redacted Android requires the public version right now (sensitive content hidden by
-+     *     the user's setting, a locked work profile, a one-time code)
++     * @param needsRedaction Android would show this notification's public version on a locked
++     *     screen (sensitive content hidden by the user's setting, a one-time code). Android keeps
++     *     reporting it while the keyguard shows, also after the user has authenticated.
++     * @param profileLocked the notification's profile has its own challenge and is still locked
 +     */
 +    public static int exposure(boolean enabled, int tier, boolean assistant, boolean authenticated,
-+            boolean secret, boolean allowedOnLockScreen, boolean redacted) {
++            boolean secret, boolean allowedOnLockScreen, boolean needsRedaction, boolean profileLocked) {
 +        if (!enabled) return HIDDEN;
 +        // Stock Android already shows and operates these over the lock screen.
 +        if (tier < IslandStore.TIER_ACTIVITY) return FULL;
 +        if (secret || !allowedOnLockScreen) return HIDDEN;
 +        if (assistant && !authenticated) return HIDDEN;
-+        return redacted ? GLYPH : FULL;
++        // Authenticating reveals the content, except for a profile that is still locked.
++        return needsRedaction && (!authenticated || profileLocked) ? GLYPH : FULL;
++    }
++
++    /**
++     * Whether a tap may open the activity's screen while the phone is locked: calls and alarms,
++     * whose screens show over the keyguard as in stock Android. Anything else needs the user first.
++     */
++    public static boolean openWhileLocked(int tier) {
++        return tier <= IslandStore.TIER_ALARM;
 +    }
 +
 +    /**
@@ -3426,7 +3487,7 @@
 +}
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/taku/island/IslandPresenter.kt
-@@ -0,0 +1,474 @@
+@@ -0,0 +1,483 @@
 +/* Copyright 2026 Taku OS. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.taku.island
 +
@@ -3638,7 +3699,7 @@
 +
 +    /** Swipe left: the next activity that can show a capsule, wrapping around. */
 +    override fun next(): Boolean {
-+        val candidates = if (keyguard.isShowing) lockScreenCandidates() else items.filter { showsCapsule(it.data) }
++        val candidates = if (keyguard.isShowing) lockScreenCandidates(lockScreenExposures()) else items.filter { showsCapsule(it.data) }
 +        if (candidates.size < 2) return false
 +        val index = candidates.indexOfFirst { it.key == selected }.coerceAtLeast(0)
 +        return select(candidates[(index + 1) % candidates.size].key)
@@ -3720,9 +3781,13 @@
 +
 +    override fun expandedKey(): String? = cardKey.takeIf { card != null } ?: lockScreenState.value.card?.key
 +
++    /** [IslandLockScreenPolicy] exposure of every capsule-capable activity, computed once per pass. */
++    private fun lockScreenExposures(): Map<String, Int> =
++        items.filter { it.data.compactVisible }.associate { it.key to engine.lockScreenExposure(it.data) }
++
 +    /** Activities the lock screen may show at all, in island order. */
-+    private fun lockScreenCandidates() = items.filter {
-+        it.data.compactVisible && engine.lockScreenExposure(it.data) != IslandLockScreenPolicy.HIDDEN
++    private fun lockScreenCandidates(exposures: Map<String, Int>) = items.filter {
++        (exposures[it.key] ?: IslandLockScreenPolicy.HIDDEN) != IslandLockScreenPolicy.HIDDEN
 +    }
 +
 +    private fun layoutLockScreen() {
@@ -3731,13 +3796,16 @@
 +            lockScreenState.value = LockScreen()
 +            return
 +        }
-+        val candidates = lockScreenCandidates()
++        val exposures = lockScreenExposures()
++        val candidates = lockScreenCandidates(exposures)
 +        val current = candidates.find { it.key == selected } ?: candidates.firstOrNull()
 +        if (current == null) {
 +            lockScreenState.value = LockScreen()
 +            return
 +        }
-+        val full = engine.lockScreenExposure(current.data) == IslandLockScreenPolicy.FULL
++        // The lock screen's choice is the island's selection: taps, `next` and Agents act on it.
++        selected = current.key
++        val full = exposures[current.key] == IslandLockScreenPolicy.FULL
 +        lockScreenState.value = LockScreen(current.data, !full, current.data.takeIf { full && current.key !in folded })
 +    }
 +
@@ -3774,7 +3842,9 @@
 +        if (context.resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE && card != null) {
 +            closeCard("landscape")
 +        }
-+        selected = IslandStore.compactSelection(items, selected, card != null, ::showsCapsule)
++        // The status-bar capsule is hidden under the keyguard; there the lock screen's rules choose
++        // (layoutLockScreen). Foreground suppression must not move a selection made on the lock screen.
++        if (!keyguard.isShowing) selected = IslandStore.compactSelection(items, selected, card != null, ::showsCapsule)
 +        val live = items.find { it.key == selected }?.data
 +        // Just unlocked: the open padlock takes the capsule for a moment, and the live activity
 +        // waits beside it. The lock screen draws its own padlock (IslandStatusView).

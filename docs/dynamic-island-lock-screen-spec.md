@@ -73,11 +73,15 @@ publisher's JSON, and a publisher cannot opt in to more.
 | Taku Agent's assistant activity | Not shown. Taku AI is available only after authentication. | Full |
 | Notification with `VISIBILITY_SECRET` | Not shown | Not shown |
 | The user hides this user's notifications on the lock screen (`lock_screen_show_notifications` off) | Not shown | Not shown |
-| Android requires the public version right now: the user hides sensitive content (`lock_screen_allow_private_notifications` off), a locked work profile, a one-time code | Glyph only | Glyph only for a locked profile, else full |
+| Android requires the public version: the user hides sensitive content (`lock_screen_allow_private_notifications` off), a one-time code | Glyph only | Full |
+| As above, in a work profile with its own challenge that is still locked | Glyph only | Glyph only |
 
 - "Glyph only" means the activity's glyph in the pill: no text, timer or number, and no card.
-- The last three rows follow Android's own lock-screen notification settings
-  (`NotificationLockscreenUserManager`). They are the equivalent of iOS's "allow access when locked".
+- The last four rows follow Android's own lock-screen notification settings
+  (`NotificationLockscreenUserManager`). Android keeps reporting redaction while the keyguard shows,
+  also after face authentication, so the island applies authentication itself.
+- A change to those settings, to public mode or to a notification's sensitivity takes effect at once
+  (`NotificationStateChangedListener` and the pipeline's after-render list). They are the equivalent of iOS's "allow access when locked".
 - System-tier activities ignore those settings. Stock Android already shows calls, alarms and the
   recording indicator over the lock screen.
 - The setting in [section 7](#7-settings) removes every activity from the lock screen.
@@ -113,6 +117,8 @@ the metaball necks, anchored to the real camera cutout.
 - While locked the padlock always holds the disc, so the lock state is never displaced by an
   activity.
 - Only the selected activity is drawn on the lock screen. The waiting circle is not used there.
+- On the lock screen the selection ignores foreground suppression: the app that was in front when
+  the phone locked (music, say) can still be selected and shown.
 - After the 1.5 s the disc changes from the open padlock to the activity's glyph in place.
 - With no activity, the capsule is the padlock alone, and it leaves after 1.5 s.
 
@@ -152,7 +158,8 @@ the metaball necks, anchored to the real camera cutout.
 - While the card is shown, the capsule keeps only the disc (padlock, or nothing once the padlock has
   left). This is the lock screen's version of "an open card hides the capsule".
 - A pinned card needs the room below the clock, so the clock is compact while a card is pinned, also
-  when locked. With the card folded and the phone locked, the tall clock returns.
+  when locked. With the card folded and the phone locked, the tall clock returns. While dozing the
+  card is hidden, so the always-on display keeps the tall clock.
 
 ### 6.2 When it opens
 
@@ -180,13 +187,17 @@ The rule for buttons while locked is `IslandLockScreenPolicy.actionWhileLocked`.
 | Call and alarm actions (answer, decline, hang up, snooze, dismiss) | Run, through the notification's own `PendingIntent` | Run |
 | Now Playing transport buttons | Run | Run |
 | Any other publisher button | The GUI asks for the credential, then runs it. An Agent gets `locked`. | Runs. A button that starts an activity leaves the lock screen (`ActivityStarter.startPendingIntentDismissingKeyguard`). |
-| Tap on the card body (`open`) | The GUI asks for the credential, then opens. An Agent gets `locked`. | Opens, leaving the lock screen |
+| Tap on the card body or capsule (`open`, `tap` with `tap: open`) for a call or alarm | Opens its screen over the keyguard, as stock does | Opens |
+| Tap on the card body (`open`) for anything else | The GUI asks for the credential, then opens. An Agent gets `locked`. | Opens, leaving the lock screen |
 | Reply (RemoteInput) | Not available | Not available on the lock screen: `reply_unavailable_on_lock_screen` |
 
 - The card is not focusable and shows no keyboard on the lock screen.
 - Rich remote bodies (`SurfacePackage` from the publisher's content service) are not bound on the
   lock screen. The native template shows instead, so an app's live surface stays off the keyguard.
-- Every touch passes the stock falsing check.
+- Every tap passes the stock falsing check (`isFalseTap`), a long press `isFalseLongTap`. The
+  capsule's swipes are not checked: they already need a 24 dp horizontal fling.
+- A payload the lock screen card cannot draw folds the card (the capsule shows the activity) instead
+  of crashing; `cmd statusbar lockscreen state` → `island.cardView.renderFailed` names it.
 
 ### 6.4 Leaving the lock screen
 
@@ -266,7 +277,7 @@ Third-party callers keep their existing scope: only activities their own UID pub
 
 ### 9.3 Verified
 
-- Host: `IslandLockScreenPolicyTest` (27 checks) and the existing island host tests.
+- Host: `IslandLockScreenPolicyTest` (33 checks) and the existing island host tests.
 - Type checks: the lock-screen sources compile against doubles of the island and SystemUI APIs. The
   island sources compile with the same hidden-API errors as before this change and no new ones,
   because the framework jar the island type check needs is not available here.

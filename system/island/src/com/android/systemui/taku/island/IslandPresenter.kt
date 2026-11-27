@@ -209,7 +209,7 @@ class IslandPresenter @Inject constructor(
 
     /** Swipe left: the next activity that can show a capsule, wrapping around. */
     override fun next(): Boolean {
-        val candidates = if (keyguard.isShowing) lockScreenCandidates() else items.filter { showsCapsule(it.data) }
+        val candidates = if (keyguard.isShowing) lockScreenCandidates(lockScreenExposures()) else items.filter { showsCapsule(it.data) }
         if (candidates.size < 2) return false
         val index = candidates.indexOfFirst { it.key == selected }.coerceAtLeast(0)
         return select(candidates[(index + 1) % candidates.size].key)
@@ -291,9 +291,13 @@ class IslandPresenter @Inject constructor(
 
     override fun expandedKey(): String? = cardKey.takeIf { card != null } ?: lockScreenState.value.card?.key
 
+    /** [IslandLockScreenPolicy] exposure of every capsule-capable activity, computed once per pass. */
+    private fun lockScreenExposures(): Map<String, Int> =
+        items.filter { it.data.compactVisible }.associate { it.key to engine.lockScreenExposure(it.data) }
+
     /** Activities the lock screen may show at all, in island order. */
-    private fun lockScreenCandidates() = items.filter {
-        it.data.compactVisible && engine.lockScreenExposure(it.data) != IslandLockScreenPolicy.HIDDEN
+    private fun lockScreenCandidates(exposures: Map<String, Int>) = items.filter {
+        (exposures[it.key] ?: IslandLockScreenPolicy.HIDDEN) != IslandLockScreenPolicy.HIDDEN
     }
 
     private fun layoutLockScreen() {
@@ -302,13 +306,16 @@ class IslandPresenter @Inject constructor(
             lockScreenState.value = LockScreen()
             return
         }
-        val candidates = lockScreenCandidates()
+        val exposures = lockScreenExposures()
+        val candidates = lockScreenCandidates(exposures)
         val current = candidates.find { it.key == selected } ?: candidates.firstOrNull()
         if (current == null) {
             lockScreenState.value = LockScreen()
             return
         }
-        val full = engine.lockScreenExposure(current.data) == IslandLockScreenPolicy.FULL
+        // The lock screen's choice is the island's selection: taps, `next` and Agents act on it.
+        selected = current.key
+        val full = exposures[current.key] == IslandLockScreenPolicy.FULL
         lockScreenState.value = LockScreen(current.data, !full, current.data.takeIf { full && current.key !in folded })
     }
 
@@ -345,7 +352,9 @@ class IslandPresenter @Inject constructor(
         if (context.resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE && card != null) {
             closeCard("landscape")
         }
-        selected = IslandStore.compactSelection(items, selected, card != null, ::showsCapsule)
+        // The status-bar capsule is hidden under the keyguard; there the lock screen's rules choose
+        // (layoutLockScreen). Foreground suppression must not move a selection made on the lock screen.
+        if (!keyguard.isShowing) selected = IslandStore.compactSelection(items, selected, card != null, ::showsCapsule)
         val live = items.find { it.key == selected }?.data
         // Just unlocked: the open padlock takes the capsule for a moment, and the live activity
         // waits beside it. The lock screen draws its own padlock (IslandStatusView).

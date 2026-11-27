@@ -88,6 +88,7 @@ abstract class IslandPresenter {
  abstract val lockScreen: kotlinx.coroutines.flow.StateFlow<LockScreen>
  abstract fun foldLockScreenCard()
 }
+class IslandEngine { companion object { const val LOCKED = "locked" } }
 object IslandRuntime { fun call(method: String, arg: String?, extra: String?, scope: Int = -1): org.json.JSONObject = TODO() }
 class IslandStatusView(context: android.content.Context) : android.view.ViewGroup(context) {
  interface Gestures { fun tap(key: String); fun longPress(key: String); fun next(); fun hide(key: String) }
@@ -104,7 +105,7 @@ class IslandLockScreenCard(context: android.content.Context, command: (String, S
 }
 ''',
     'Falsing.kt': '''package com.android.systemui.plugins
-interface FalsingManager { fun isFalseTap(penalty: Int): Boolean; companion object { const val LOW_PENALTY = 1 } }
+interface FalsingManager { fun isFalseTap(penalty: Int): Boolean; fun isFalseLongTap(penalty: Int): Boolean; companion object { const val LOW_PENALTY = 1 } }
 interface ActivityStarter {
  fun startPendingIntentDismissingKeyguard(intent: android.app.PendingIntent)
  fun dismissKeyguardThenExecute(action: OnDismissAction, cancel: Runnable?, afterKeyguardGone: Boolean)

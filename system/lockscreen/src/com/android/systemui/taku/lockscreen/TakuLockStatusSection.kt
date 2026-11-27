@@ -61,9 +61,9 @@ constructor(
     private val gestures = object : IslandStatusView.Gestures {
         // The capsule's own tap: the card, or the app when the publisher chose that.
         override fun tap(key: String) = lockscreenIsland.run("tap", key, null)
-        override fun longPress(key: String) = lockscreenIsland.run("expand", key, null)
-        override fun next() = lockscreenIsland.run("next", null, null)
-        override fun hide(key: String) = lockscreenIsland.run("dismiss", key, null)
+        override fun longPress(key: String) = lockscreenIsland.run("expand", key, null, TakuLockscreenIsland.Touch.LONG_PRESS)
+        override fun next() = lockscreenIsland.run("next", null, null, TakuLockscreenIsland.Touch.SWIPE)
+        override fun hide(key: String) = lockscreenIsland.run("dismiss", key, null, TakuLockscreenIsland.Touch.SWIPE)
     }
     private var root: ConstraintLayout? = null
     /** The stock icon currently shows its lock or unlock picture, which the island replaces. */

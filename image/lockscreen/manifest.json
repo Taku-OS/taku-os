@@ -3,7 +3,7 @@
   "repository": "frameworks/base",
   "revision": "7f6de40b6429462d47ba9ba351b99943269c8067",
   "patch": "systemui-lockscreen.patch",
-  "patchSha256": "a1db94b08470a26fe58b73d2ee310867601708b08691ff911c4fb546ed51bd0a",
+  "patchSha256": "03f42901c2e5640525a963a75fb5818fd07bd7dd0bf8aecd9062dea65b7f2d0e",
   "files": [
     {
       "path": "packages/SystemUI/AndroidManifest.xml",
@@ -64,7 +64,7 @@
     {
       "path": "packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuAuthenticatedSections.kt",
       "beforeSha256": null,
-      "afterSha256": "efce0c9217ebbd6e1abf676ef406f05318dd2b0a2254270b4dbda5fee9c40951",
+      "afterSha256": "8cb4a423e239fbc62534f55a0a02ba0f72980a23f9b669232042409376f312a4",
       "source": "system/lockscreen/src/com/android/systemui/taku/lockscreen/TakuAuthenticatedSections.kt"
     },
     {
@@ -118,7 +118,7 @@
     {
       "path": "packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuLockStatusSection.kt",
       "beforeSha256": null,
-      "afterSha256": "4547b4ac0417b488a86bf73865e2df0ef7774fd57505a58ff797d798260ede24",
+      "afterSha256": "b7ab0dab52909d03cb606cd2f35bf60e00c79dc08aa7eccff679f4f0ad5f9cf0",
       "source": "system/lockscreen/src/com/android/systemui/taku/lockscreen/TakuLockStatusSection.kt"
     },
     {
@@ -142,7 +142,7 @@
     {
       "path": "packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuLockscreenIsland.kt",
       "beforeSha256": null,
-      "afterSha256": "d63cf8537019bccf78a5784be74fb4b594ab79dd19ed233f5852b70521c6798b",
+      "afterSha256": "8a5bd18a7f9316bc71e47920f9d205063c781988323385d4c4715b0c9aa32dee",
       "source": "system/lockscreen/src/com/android/systemui/taku/lockscreen/TakuLockscreenIsland.kt"
     },
     {

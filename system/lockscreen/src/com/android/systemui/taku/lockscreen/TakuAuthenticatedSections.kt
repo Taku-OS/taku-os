@@ -119,7 +119,8 @@ constructor(
                 notifications.action(key, index)
             }
         }
-        val pinned = IslandLockScreenCard(list.context, island::run, island::fold)
+        // Card controls are taps: the island checks them as taps.
+        val pinned = IslandLockScreenCard(list.context, { method, key, extra -> island.run(method, key, extra) }, island::fold)
         islandCard = pinned
         list.header = pinned
         binding?.dispose()
@@ -134,12 +135,19 @@ constructor(
                         // Whatever the island shows is not also a notification card.
                         notifications.represented = state.activity?.key
                         list.submit(notifications.cards.value)
-                        TakuLockscreenPolicy.islandCardPinned = state.card != null
-                        if (keyguardInteractor.isKeyguardShowing.value) {
-                            keyguardClockInteractor.setClockSize(
-                                TakuLockscreenPolicy.clockSize(keyguardInteractor.isKeyguardDismissible.value))
-                        }
                     }
+                }
+                launch {
+                    // A pinned card needs the compact clock, but only while the list is drawn: dozing
+                    // (AOD) hides the list, so the tall clock stays there.
+                    combine(island.state, keyguardInteractor.isDozing) { state, dozing -> state.card != null && !dozing }
+                        .distinctUntilChanged().collect { pinnedShown ->
+                            TakuLockscreenPolicy.islandCardPinned = pinnedShown
+                            if (keyguardInteractor.isKeyguardShowing.value) {
+                                keyguardClockInteractor.setClockSize(
+                                    TakuLockscreenPolicy.clockSize(keyguardInteractor.isKeyguardDismissible.value))
+                            }
+                        }
                 }
                 launch {
                     // The cards need authentication; the island's card shows while locked too.

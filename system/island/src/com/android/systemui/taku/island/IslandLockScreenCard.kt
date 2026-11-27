@@ -42,8 +42,32 @@ class IslandLockScreenCard(context: Context, private val command: (String, Strin
         visibility = View.GONE
     }
 
-    /** The activity whose card to draw, or null for none. A different kind of card rebuilds the content. */
+    /** Key of a payload the card could not draw; it stays folded rather than crashing the keyguard. */
+    private var failedKey: String? = null
+
+    /**
+     * The activity whose card to draw, or null for none. A different kind of card rebuilds the
+     * content. A payload the card cannot draw folds it (the capsule shows the activity instead), as
+     * the status bar closes its card on `render_failed`.
+     */
     fun show(next: IslandActivity?) {
+        try { bind(next) } catch (failure: Exception) { fail(next, failure) }
+    }
+
+    private fun fail(next: IslandActivity?, failure: Exception) {
+        android.util.Log.w(TAG, "island card cannot draw ${next?.key}", failure)
+        failedKey = next?.key
+        activity = null
+        kind = ""
+        removeAllViews()
+        assistant = null
+        progress = null
+        template = null
+        visibility = View.GONE
+        post { fold() }
+    }
+
+    private fun bind(next: IslandActivity?) {
         if (next === activity) return
         activity = next
         if (next == null) {
@@ -69,6 +93,7 @@ class IslandLockScreenCard(context: Context, private val command: (String, Strin
         assistant?.update(next)
         progress?.update(next)
         template?.update(next)
+        failedKey = null
         visibility = View.VISIBLE
         requestLayout()
     }
@@ -77,11 +102,16 @@ class IslandLockScreenCard(context: Context, private val command: (String, Strin
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val width = MeasureSpec.getSize(widthMeasureSpec)
         val current = activity
-        val wanted = when {
-            current == null -> 0
-            assistant != null -> assistant!!.desiredHeight(current, width)
-            progress != null -> progress!!.desiredHeight(current, width)
-            else -> template!!.heightFor(width)
+        val wanted = try {
+            when {
+                current == null -> 0
+                assistant != null -> assistant!!.desiredHeight(current, width)
+                progress != null -> progress!!.desiredHeight(current, width)
+                else -> template!!.heightFor(width)
+            }
+        } catch (failure: Exception) {
+            fail(current, failure)
+            0
         }
         val height = minOf(wanted, resources.displayMetrics.heightPixels / 3)
         super.onMeasure(MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY),
@@ -89,10 +119,15 @@ class IslandLockScreenCard(context: Context, private val command: (String, Strin
     }
 
     fun state(): JSONObject = JSONObject().put("key", activity?.key ?: JSONObject.NULL)
+        .put("renderFailed", failedKey ?: JSONObject.NULL)
         .put("visible", visibility == View.VISIBLE && isShown)
         .put("layout", kind.substringBefore('|')).put("renderer", "systemui-native")
         .put("width", width).put("height", height)
         .put("assistant", assistant?.state() ?: JSONObject.NULL)
         .put("template", template?.state() ?: JSONObject.NULL)
         .put("progress", progress?.state() ?: JSONObject.NULL)
+
+    private companion object {
+        const val TAG = "IslandLockScreenCard"
+    }
 }
