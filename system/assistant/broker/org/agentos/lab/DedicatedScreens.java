@@ -121,7 +121,9 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
     /** What a screen tool does: look (screenshot), act (tap, swipe, type), or open a held App. */
     enum Use {
         LOOK,
+        LOOK_HELD,
         ACT,
+        ACT_HELD,
         OPEN
     }
 
@@ -198,6 +200,9 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
          * it is the one the takeover stopped, or one refused since.
          */
         boolean resumeRequired;
+
+        /** A one-way Agent handoff: the same page is retained until explicit user control. */
+        JSONObject review;
 
         /** Why the last control change failed, for the UI. */
         String lastError = "";
@@ -496,7 +501,9 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
     } }
 
     void beginReturn(String session, String key, String generation) throws Exception { try (CleanupWork.Held held7 = lock()) {
-        requireAppsAllowed(exactScreen(session, key, generation));
+        DedicatedScreen screen = exactScreen(session, key, generation);
+        if (screen.review != null) throw new IOException("WORKSPACE_REVIEW_REQUIRED");
+        requireAppsAllowed(screen);
         beginPause(session, key, generation);
     } }
 
@@ -532,6 +539,7 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
                 if (exactScreen(session, key, generation) != screen)
                     throw new IOException("SCREEN_BINDING_CHANGED");
                 if (owner.equals("agent")) requireAppsAllowed(screen);
+                if (owner.equals("agent") || owner.equals("user")) screen.review = null;
                 screen.controlOwner = owner;
                 screen.controlRevision++;
                 screen.stopping = false;
@@ -542,6 +550,49 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
         } finally {
             screen.input.unlock();
         }
+    }
+
+    @FunctionalInterface
+    interface ReviewCommit {
+        void persist(long controlRevision) throws Exception;
+    }
+
+    /** The caller holds its input lease. No turn is stopped while waiting on its own tool. */
+    JSONObject handoffForReview(String session, String key, String generation, String title,
+            String summary, ReviewCommit commit) throws Exception {
+        if (title == null || title.isBlank() || title.length() > 120 || summary == null
+                || summary.isBlank() || summary.length() > 300
+                || title.codePoints().anyMatch(Character::isISOControl)
+                || summary.codePoints().anyMatch(Character::isISOControl))
+            throw new IOException("INVALID_REVIEW_PRESENTATION");
+        DedicatedScreen screen;
+        try (CleanupWork.Held held = lock()) { screen = exactScreen(session, key, generation); }
+        // User controls acquire control before input; never wait in the opposite order.
+        if (!screen.control.tryLock()) throw new IOException("WORKSPACE_CONTROL_BUSY");
+        try {
+            if (!screen.input.tryLock()) throw new IOException("SCREEN_INPUT_NOT_QUIESCENT");
+            try {
+                validate(screen);
+                try (CleanupWork.Held held = lock()) {
+                    if (exactScreen(session, key, generation) != screen || !agentControls(screen)
+                            || screen.releasing || screen.apps.isEmpty())
+                        throw new IOException("SCREEN_AGENT_PAUSED");
+                    if (questions.containsKey(session)) throw new IOException("WORKSPACE_WAITING_FOR_USER");
+                    if (Thread.currentThread().isInterrupted()) throw new InterruptedException();
+                    // A failed evidence write leaves the original lease and control revision intact.
+                    commit.persist(screen.controlRevision + 1);
+                    screen.controlOwner = "paused";
+                    screen.controlRevision++;
+                    screen.resumeRequired = true;
+                    screen.review = new JSONObject().put("status", "awaiting_review")
+                            .put("title", title).put("summary", summary).put("userAccepted", false);
+                    screen.lastError = "";
+                    Ticket ticket = pending(session);
+                    if (ticket != null) withdraw(ticket);
+                    return item(screen);
+                }
+            } finally { screen.input.unlock(); }
+        } finally { screen.control.unlock(); }
     }
 
     /**
@@ -727,7 +778,7 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
     private void handOverIfWanted(String session) {
         Question q = questions.get(session);
         DedicatedScreen screen = own(session);
-        if (q == null || !q.due || screen == null || screen.apps.isEmpty()) return;
+        if (q == null || !q.due || screen == null || screen.apps.isEmpty() || screen.review != null) return;
         boolean wanted = false;
         for (Ticket t : waiting)
             wanted |= !t.session.equals(session) && !wants(t, screen.apps).isEmpty();
@@ -1199,8 +1250,9 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
 
     /**
      * A screen tool for the session: only on its own screen, never the default one. LOOK needs the
-     * screen; ACT needs an App held; OPEN needs that App held. ACT and OPEN also need the App on
-     * top of the screen to be held (an in-App jump may have opened another one).
+     * screen; LOOK_HELD requires the specified App but never grants Agent input. ACT needs an App
+     * held; ACT_HELD and OPEN need the specified App held. Actions also
+     * need the App on top of the screen to be held (an in-App jump may have opened another one).
      *
      * <p>The same App open on the main screen or in Recents never blocks the session (the user's
      * decision: the agent may take an App over at any time). OPEN lands the App on the session's
@@ -1212,9 +1264,13 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
         try (CleanupWork.Held held33 = lock()) {
             screen = allowed(session, use, pkg);
         }
-        screen.input.lockInterruptibly();
+        if (use == Use.ACT_HELD || use == Use.LOOK_HELD) {
+            if (!screen.input.tryLock(3, TimeUnit.SECONDS)) throw new IOException("SCREEN_INPUT_BUSY");
+        } else {
+            screen.input.lockInterruptibly();
+        }
         try {
-            List<PhoneTasks.Task> now = use == Use.LOOK ? List.of() : tasks.list();
+            List<PhoneTasks.Task> now = use == Use.LOOK || use == Use.LOOK_HELD ? List.of() : tasks.list();
             try (CleanupWork.Held held34 = lock()) {
                 if (allowed(session, use, pkg) != screen)
                     throw new IOException(
@@ -1243,7 +1299,8 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
                 throw stopped;
             } catch (Exception failed) {
                 // Asked only now: asking costs a phone-display run (about half a second)
-                if (alive(screen)) throw failed;
+                // A held-app read cannot retire a workspace as a side effect of a failed read.
+                if (use == Use.LOOK_HELD || alive(screen)) throw failed;
                 lost(screen);
                 throw new IOException(
                         "SCREEN_LOST: Your screen crashed; its pages are gone and your Apps are"
@@ -1640,6 +1697,7 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
                 // An archived session's screen is freed even while the user has it; the next
                 // session gets it under the agent's control.
                 screen.controlOwner = "agent";
+                screen.review = null;
                 screen.stopping = false;
                 screen.resumeRequired = false;
                 screen.lastError = "";
@@ -1833,8 +1891,10 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
                 .put("homePreviewEligible", screen.session != null && !screen.closing && !screen.releasing)
                 .put("stopping", screen.stopping || screen.releasing)
                 .put("resumeRequired", screen.resumeRequired)
-                .put("canResume", !screen.releasing && !screen.controlOwner.equals("agent") && !screen.stopping)
+                .put("canResume", screen.review == null && !screen.releasing
+                        && !screen.controlOwner.equals("agent") && !screen.stopping)
                 .put("lastError", screen.cleanupError.isEmpty() ? screen.lastError : screen.cleanupError);
+        if (screen.review != null) item.put("review", new JSONObject(screen.review.toString()));
         if (!screen.cleanupError.isEmpty())
             item.put("heldApps", new JSONArray(screen.apps))
                     .put("cleanupRetryDelayMs", CLEANUP_RETRY_MS);
@@ -1880,6 +1940,7 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
         if (!screen.cleanupError.isEmpty()) return "cleanup_failed";
         if (screen.stopping) return "stopping";
         if (screen.controlOwner.equals("user")) return "user_control";
+        if (screen.review != null && screen.controlOwner.equals("paused")) return "awaiting_review";
         if (screen.controlOwner.equals("paused")) return "paused";
         if (questions.containsKey(screen.session)) return "waiting_for_user";
         return pending(screen.session) == null ? "running" : "waiting_for_app";
@@ -1998,10 +2059,12 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
     private DedicatedScreen allowed(String session, Use use, String pkg) throws Exception {
         DedicatedScreen screen = own(session);
         if (screen == null) throw new IOException("APPS_NOT_REQUESTED: call request_apps first");
-        if (use != Use.LOOK && !agentControls(screen)) throw agentPaused(screen);
-        if (use != Use.LOOK && screen.apps.isEmpty())
+        boolean readOnly = use == Use.LOOK || use == Use.LOOK_HELD;
+        if (!readOnly && !agentControls(screen)) throw agentPaused(screen);
+        if (!readOnly && screen.apps.isEmpty())
             throw new IOException("APPS_NOT_REQUESTED: call request_apps first");
-        if (use == Use.OPEN && !screen.apps.contains(pkg)) throw new IOException("APP_NOT_HELD");
+        if ((use == Use.OPEN || use == Use.ACT_HELD || use == Use.LOOK_HELD) && !screen.apps.contains(pkg))
+            throw new IOException("APP_NOT_HELD");
         if (use != Use.LOOK) requireAppsAllowed(screen);
         return screen;
     }
@@ -2016,6 +2079,7 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
         for (DedicatedScreen screen : ledger)
             if (screen.session == null && !screen.releasing) {
                 screen.session = session;
+                screen.review = null;
                 screen.occupancy = new Object();
                 screen.allocationId = UUID.randomUUID().toString();
                 screen.emptySince = NEVER;

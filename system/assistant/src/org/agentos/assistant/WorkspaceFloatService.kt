@@ -58,6 +58,7 @@ class WorkspaceFloatService : Service() {
     private lateinit var primary: Button
     private lateinit var secondary: ImageButton
     private var editorOpen = false
+    private var reviewPending = false
     private var firstFrameReady = false
     private var deferredEditor = false
     private var deferredEditorFocus = false
@@ -190,6 +191,7 @@ class WorkspaceFloatService : Service() {
     private fun build() {
         val origin = lease ?: return
         firstFrameReady = false
+        reviewPending = WorkspaceUi.reviewPending(origin)
         deferredEditor = false
         deferredEditorFocus = false
         lastStateLabel = R.string.chat_workspace_connecting
@@ -441,6 +443,7 @@ class WorkspaceFloatService : Service() {
 
     private fun editor(open: Boolean, focus: Boolean = true) {
         if (destroyed) return
+        if (open && reviewPending) { expand(); return }
         val requirementView = requirement ?: return
         if (open && !firstFrameReady) {
             deferredEditor = true
@@ -560,6 +563,12 @@ class WorkspaceFloatService : Service() {
                         catch (_: Exception) { appIcon.setImageResource(R.drawable.ic_tako_mark) }
                     }
                     lastStateLabel = ChatWorkspacePreview.compactState(latest)
+                    reviewPending = WorkspaceUi.reviewPending(latest)
+                    if (reviewPending) {
+                        deferredEditor = false
+                        deferredEditorFocus = false
+                        if (editorOpen) editor(false)
+                    }
                     renderHeaderState()
                     stateDot.background = GradientDrawable().apply {
                         shape = GradientDrawable.OVAL

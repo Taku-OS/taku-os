@@ -154,11 +154,12 @@ process.exit(issues.length ? 1 : 0);
 | --- | --- |
 | `open-app` | `package`，可选 `uri`，打开目标 App 或其页面 |
 | `open-url` | `url`，打开 HTTPS 网页 |
+| `share-text` | `package:"com.whatsapp"`、`text`（1–16,000 字符）。打开 WhatsApp 分享选择器，由用户选群并发送。 |
 | `ask-taku` | `prompt`，创建对话并保存为可编辑草稿，等待用户发送 |
 | `dismiss` | 隐藏卡片，与用户删除相同 |
 | `none` | 记录操作，返回 `effect:"none"` |
 
-动作在用户点击或调用 `feed/action` 时执行。`select` 可把指定状态路径的值随动作传出。Feed 卡片接受上表五种动作类型，`panel` 会被拒绝。
+动作在用户点击或调用 `feed/action` 时执行。`select` 可把指定状态路径的值随动作传出。OpenTable 订位卡片由 Home 增加 `confirm-dining-share` 动作，用户发回原 WhatsApp 群后可从卡片确认。Agent 也可以不带 `values` 调用该动作，打开供用户确认的弹窗。使用返回的 `eventCursor` 匹配用户决定事件的 `requestedCursor`。
 
 ## 更新、撤回和反馈
 

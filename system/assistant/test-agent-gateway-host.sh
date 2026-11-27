@@ -17,6 +17,13 @@ compile_jvm "$task_out/classes" "$task_json:$ANDROID_JAR" \
  system/assistant/src/org/agentos/assistant/AgentGatewaySubmissions.kt \
  system/assistant/src/org/agentos/assistant/PanelProtocol.kt \
  system/assistant/src/org/agentos/assistant/TaskDetails.kt \
+ system/assistant/src/org/agentos/assistant/DiningPollGroupSearch.java \
+ system/assistant/src/org/agentos/assistant/DiningPollOperationLock.java \
+ system/assistant/src/org/agentos/assistant/AgentOpenAccessPolicy.java \
+ system/assistant/src/org/agentos/assistant/DiningPollSendState.java \
+ system/assistant/src/org/agentos/assistant/DiningPollSendJournal.java \
+ system/assistant/src/org/agentos/assistant/DiningPollSendSource.java \
+ system/assistant/src/org/agentos/assistant/DiningPollSendEvidence.java \
  system/assistant/tests/agent-gateway/org/agentos/assistant/*.java \
  system/assistant/tests/frontend-route/org/agentos/assistant/*.java
 "$JDK/bin/java" -cp "$task_out/classes:$task_json:$KOTLIN_LIB/kotlin-stdlib.jar" org.agentos.assistant.AgentGatewayProtocolTest
@@ -24,3 +31,4 @@ compile_jvm "$task_out/classes" "$task_json:$ANDROID_JAR" \
 "$JDK/bin/java" -cp "$task_out/classes:$task_json:$KOTLIN_LIB/kotlin-stdlib.jar" org.agentos.assistant.AgentGatewaySubmissionTest
 "$JDK/bin/java" -cp "$task_out/classes:$task_json:$KOTLIN_LIB/kotlin-stdlib.jar" org.agentos.assistant.TaskDetailsTest
 "$JDK/bin/java" -cp "$task_out/classes:$task_json:$KOTLIN_LIB/kotlin-stdlib.jar" org.agentos.assistant.ComposerPanelContextTest
+"$JDK/bin/java" -cp "$task_out/classes:$task_json:$ANDROID_JAR:$KOTLIN_LIB/kotlin-stdlib.jar" org.agentos.assistant.DiningPollSendHostTest

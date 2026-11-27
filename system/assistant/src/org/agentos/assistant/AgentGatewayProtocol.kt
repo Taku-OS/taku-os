@@ -51,7 +51,7 @@ internal class AgentGatewayProtocol private constructor() {
             "accounts/read", "accounts/refresh", "accounts/login", "accounts/cancel", "accounts/openMagpie", "accounts/keys", "accounts/removeKey", "accounts/saveKey",
             "accounts/agyRead", "accounts/agyRefresh", "accounts/agySignIn", "accounts/agyCancel", "accounts/agyCode", "accounts/agyUse",
             "requests/list", "requests/read", "requests/respond", "requests/submit", "requests/cancel",
-            "decide", "generateUi", "mainReply", "panels", "cardView", "readMatter", "subscribeMatter", "unsubscribeMatter", "dispatchMatter", "analyzeCameraFrame", "audioCapabilities", "audioCommand",
+            "decide", "generateUi", "mainReply", "diningPoll", "panels", "cardView", "readMatter", "subscribeMatter", "unsubscribeMatter", "dispatchMatter", "analyzeCameraFrame", "audioCapabilities", "audioCommand",
             "readSystemAi", "setSystemAi", "bindSystemAi", "bindSystemAiModel", "reorderSystemAi", "restoreSystemAi", "deleteSystemAiGroup", "openMagpieManagement", "pluginManager", "readAccount", "openAssistantConnection",
             "readAppPermissions", "setAppPermissionMode", "setAppPermissionScope", "resetAppPermission",
             COMPOSER_READ, COMPOSER_WRITE, COMPOSER_IMPORT, COMPOSER_MOVE, COMPOSER_RECEIPT, COMPOSER_ATTACH,
@@ -109,6 +109,17 @@ internal class AgentGatewayProtocol private constructor() {
             if (jsonText.length > limit(action)) throw IOException("REQUEST_TOO_LARGE")
             if (isDraftAction(action)) return draftRequest(action, jsonText)
             val input = JSONObject(jsonText)
+            if (action == "diningPoll") {
+                PanelProtocol.exact(input, setOf("action", "args"))
+                val args = input.getJSONObject("args")
+                requireId(args, "intentId")
+                when (input.opt("action")) {
+                    "register" -> PanelProtocol.exact(args, setOf("intentId", "sourceThreadId", "sourceReply", "groupName", "question", "options"))
+                    "status" -> PanelProtocol.exact(args, setOf("intentId"))
+                    else -> throw IOException("UNSUPPORTED_DINING_ACTION")
+                }
+                return input
+            }
             if (action in setOf(COMPOSER_SUBMIT, COMPOSER_SETTLE, COMPOSER_RELEASE) || action == COMPOSER_RECEIPT && !input.has("action")) {
                 requireId(input, "threadId")
                 requireId(input, "requestId")
@@ -142,6 +153,12 @@ internal class AgentGatewayProtocol private constructor() {
                         }
                         "sendMessage" -> Unit
                         else -> throw IOException("INVALID_ARGUMENT")
+                    }
+                    if (input.has("pollSendIntentId")) {
+                        if (input.getString("action") != "sendMessage" || ids.length() != 0 ||
+                            input.opt("includeInvocationScreenshot") != false) throw IOException("INVALID_ARGUMENT")
+                        fields.addAll(setOf("pollSendIntentId", "includeInvocationScreenshot"))
+                        requireId(input, "pollSendIntentId")
                     }
                 }
                 PanelProtocol.exact(input, fields)

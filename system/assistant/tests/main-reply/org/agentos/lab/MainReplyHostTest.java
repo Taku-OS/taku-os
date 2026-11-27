@@ -291,6 +291,26 @@ public final class MainReplyHostTest {
         reset();
     }
 
+    private static void metadataPreservesScreenshotReply() throws Exception {
+        JSONObject invocation = user("user", "Find restaurants").put("content", new JSONArray()
+                .put(new JSONObject().put("type", "text").put("text", "Find restaurants"))
+                .put(new JSONObject().put("type", "localImage").put("path", "/fixture/captures/invocation.png")));
+        AgentViews.save(thread(turn("inProgress", invocation, answer("answer", ""))));
+        AgentViews.prepareReply(THREAD, contract, true);
+        event("turn/completed", new JSONObject().put("turn", turn("completed", answer("answer", prefix() + done(6)))));
+        JSONObject before = currentReply();
+        check(before.getJSONObject("lifecycle").getString("phase").equals("completed"),
+                "A native completed screenshot request has a shareable canonical reply");
+
+        AgentViews.saveMetadata(new JSONObject().put("id", THREAD).put("name", "Dinner alternatives"));
+        JSONObject after = currentReply();
+        check(after.getString("id").equals(before.getString("id"))
+                        && after.getInt("revision") == before.getInt("revision")
+                        && after.getJSONObject("lifecycle").getString("phase").equals("completed"),
+                "Refreshing thread metadata does not rewrite the raw screenshot anchor");
+        reset();
+    }
+
     private static void reviewedSources() throws Exception {
         AgentViews.save(thread(turn("inProgress",user("user","Forecast"),answer("planning",""))));AgentViews.prepareReply(THREAD,contract,true);
         try(SessionEvents.Subscription events=AgentViews.subscribe(new JSONObject().put("threadId",THREAD))) {
@@ -429,7 +449,7 @@ public final class MainReplyHostTest {
         contract=json(Files.readString(new File(args[0]).toPath()));
         JSONObject hashed=new JSONObject(contract.toString());hashed.remove("contractHash");hashed.remove("prompt");
         check(MainReplyStream.manifestHash(hashed).equals(contract.getString("contractHash")),"Native canonical encoding matches the real exporter manifest hash");
-        incremental();segmentation();rejectedRecords();typedAndSchema();actionsAndBounds();lifecycle();liveHistory();canonicalCatchup();reviewedSources();reasoningRelay();groupMembership();
+        incremental();segmentation();rejectedRecords();typedAndSchema();actionsAndBounds();lifecycle();liveHistory();canonicalCatchup();metadataPreservesScreenshotReply();reviewedSources();reasoningRelay();groupMembership();
         System.out.println("MainReplyHostTest: "+assertions+" assertions passed");
     }
 }

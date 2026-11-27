@@ -4,12 +4,15 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import org.agentos.agent.home.assistant.AssistantSession
+import org.agentos.agent.home.assistant.AgentGateway
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
 
 class IslandActionReceiver : BroadcastReceiver() {
   override fun onReceive(context: Context, intent: Intent) {
@@ -34,8 +37,22 @@ class IslandActionReceiver : BroadcastReceiver() {
           } }
         }
         if ((session.state.value.threadId ?: "entry") != thread || (session.state.value.activityId ?: "entry") != activity) return@launch
+        val kind = intent.action
+        if (kind == "pollContinue" || kind == "pollCheck") {
+          val owner = PollSendOwner.from(session.state.value) ?: return@launch
+          if (intent.data?.toString() != owner.actionIdentity(kind)) return@launch
+          val observation = withContext(Dispatchers.IO) {
+            PollSendObservation.from(owner, AgentGateway(context.contentResolver).call("diningPoll",
+              JSONObject().put("action", "status").put("args", JSONObject().put("intentId", owner.intentId))))
+          }
+          if (!owner.owns(session.state.value) ||
+            pollSendPresentation(session.state.value, observation)?.actions?.none { it.first == kind } != false) return@launch
+          session.retryPollSend(kind == "pollCheck")
+          return@launch
+        }
         when (intent.action) {
           "open" -> session.openConversation()
+          "options" -> session.showOptions(intent.getStringExtra("suggestion").orEmpty())
           "stop" -> session.stop()
           "reply" -> session.reply(intent.getStringExtra("suggestion").orEmpty())
           "retry" -> session.retry()

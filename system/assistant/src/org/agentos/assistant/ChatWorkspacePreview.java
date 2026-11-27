@@ -398,6 +398,7 @@ final class ChatWorkspacePreview extends LinearLayout {
         String owner = screen.optString("controlOwner"), state = screen.optString("status");
         if (owner.equals("user")) return R.string.workspace_float_user;
         if (state.equals("stopping")) return R.string.workspace_float_stopping;
+        if (WorkspaceUi.reviewPending(screen)) return R.string.workspace_status_review;
         if (owner.equals("paused") || screen.optBoolean("resumeRequired")) return R.string.workspace_float_paused;
         if (state.equals("waiting_for_user")) return R.string.workspace_float_waiting;
         if (state.equals("unavailable") || state.equals("rebind_required")) return R.string.workspace_float_unavailable_short;

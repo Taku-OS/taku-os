@@ -147,6 +147,20 @@ internal object TaskRequests {
         if (options.has("composerRequestId")) {
             request.put("composerRequestId", PanelProtocol.uuid(options, "composerRequestId"))
         }
+        if (options.has("diningBookingKey")) {
+            val key = options.opt("diningBookingKey") as? String ?: throw IOException("BOOKING_RECEIPT_TARGET_CHANGED")
+            if (!key.matches(Regex("booking:[a-f0-9]{40}"))) throw IOException("BOOKING_RECEIPT_TARGET_CHANGED")
+            request.put("diningBookingKey", key)
+        }
+        if (options.has("pollSendIntentId")) {
+            request.put("pollSendIntentId", PanelProtocol.uuid(options, "pollSendIntentId"))
+        }
+        if (options.has("diningRideKey")) {
+            val rideKey = PanelProtocol.uuid(options, "diningRideKey")
+            if (rideKey != request.optString("composerRequestId")) throw IOException("DINING_RIDE_REQUEST_CHANGED")
+            request.put("diningRideKey", rideKey)
+            request.put("displayPrompt", "Prepare a ride to dinner")
+        }
         if (options.has("panelUpdate")) {
             val target = options.getJSONObject("panelUpdate")
             PanelProtocol.exact(target, panelUpdateFields)

@@ -47,8 +47,24 @@ final class PhoneNativeTools {
       + " it when request_apps is refused or a sub-agent seems stuck. reclaimable: its thread holds no Apps; a"
       + " request takes such a screen when none is idle and the limit is reached.",
     new JSONObject()));
+  tools.put(tool("inspect_uber_upcoming",
+    "Read the exact held Uber Upcoming view for an authorized ride preparation. Navigate to Upcoming first. "
+      + "Only a loaded Upcoming scope with an explicit empty state returns upcoming_empty. Loading, prior trips "
+      + "and unverified views do not establish absence. This tool never navigates or orders a ride.",
+    new JSONObject()));
+  tools.put(tool("handoff_for_review",
+    "Pause this authorized ride task and retain its exact held Uber screen for user review. "
+      + "The user takes control using the existing workspace entry. title and summary are display text. "
+      + "After handoff, finish the turn without further phone calls. This tool never orders a ride.",
+    new JSONObject().put("title",string(120)).put("summary",string(300))));
   tools.put(tool("observe_background","Observe this thread's assigned Android execution screen. Returns its real screenshot and screen/frame identity.",new JSONObject()));
   tools.put(tool("open_app","Open an App you hold from request_apps.",new JSONObject().put("packageName",new JSONObject().put("type","string"))));
+  tools.put(tool("open_yelp_search",
+    "Open Yelp's native search for an exact query and location on the independent execution screen. "
+      + "Use when the visible Yelp search form cannot complete the query. Requires holding Yelp from request_apps. "
+      + "Observe the resulting page and verify the query, city and candidate branch addresses. This tool reports dispatch only.",
+    new JSONObject().put("query", string(PhoneYelpSearchRoute.MAX_FIELD_LENGTH))
+      .put("location", string(PhoneYelpSearchRoute.MAX_FIELD_LENGTH))));
   tools.put(tool("tap","Tap coordinates on the independent execution screen.",new JSONObject().put("x",new JSONObject().put("type","integer")).put("y",new JSONObject().put("type","integer"))));
   tools.put(tool("swipe","Perform one continuous drag or scroll on the independent screen, then release. Observe the actual result before another action.",new JSONObject()
     .put("fromX",coordinate(720)).put("fromY",coordinate(1280)).put("toX",coordinate(720)).put("toY",coordinate(1280))
@@ -68,7 +84,18 @@ final class PhoneNativeTools {
  static JSONObject tool(String name,String description,JSONObject properties)throws Exception {JSONArray required=new JSONArray();for(java.util.Iterator<String> it=properties.keys();it.hasNext();)required.put(it.next());return new JSONObject().put("type","function").put("name",name).put("description",description).put("inputSchema",new JSONObject().put("type","object").put("properties",properties).put("required",required).put("additionalProperties",false));}
  static JSONObject text(String value)throws Exception{return new JSONObject().put("success",true).put("contentItems",new JSONArray().put(new JSONObject().put("type","inputText").put("text",value)));}
  static JSONObject failure(String value)throws Exception{return text(value).put("success",false);}
- static JSONObject execute(JSONObject p)throws Exception {
+ private static final DiningBookingInput.Turns bookingTurns = new DiningBookingInput.Turns();
+ static void bookingTurnStarted(String thread, String turn) {
+  bookingTurns.started(thread, turn, CodexAppServer.currentRequest, CodexAppServer.activeThread);
+ }
+ static void clearBookingTurns() { bookingTurns.clear(); }
+ @FunctionalInterface interface Dispatch { JSONObject run() throws Exception; }
+ static Dispatch bindForDispatch(JSONObject call) {
+  DiningBookingInput.Request booking = bookingTurns.scope(call, CodexAppServer.currentRequest, CodexAppServer.activeThread);
+  return () -> execute(call, booking);
+ }
+ static JSONObject execute(JSONObject p)throws Exception { return bindForDispatch(p).run(); }
+ private static JSONObject execute(JSONObject p,DiningBookingInput.Request booking)throws Exception {
   String name=p.getString("tool");name=name.substring(Math.max(name.lastIndexOf('.'),name.lastIndexOf('/'))+1);if(name.startsWith("taku_phone__"))name=name.substring(12);
   JSONObject args=p.optJSONObject("arguments");if(args==null)args=new JSONObject();
   if(name.equals("apps"))return text(PhoneAppCatalog.query(args).toString());
@@ -77,8 +104,9 @@ final class PhoneNativeTools {
   if(name.equals("matter"))return text(MatterBridge.control(new JSONObject(args.toString()).put("threadId",p.getString("threadId"))).toString());
   if(name.equals("audio"))return text(AudioBridge.control(new JSONObject(args.toString()).put("threadId",p.getString("threadId"))).toString());
   if(name.equals("prepare_foreground_draft")){
+   if (booking != null) throw new IOException("BOOKING_UNSAFE_INPUT");
    PhoneTextInput.AUTOMATION_LOCK.lockInterruptibly();
-   try {if(Thread.currentThread().isInterrupted())throw new InterruptedException();PhoneGestures.requireIdle();return text(PhoneDraftHandoff.prepare(args.getString("packageName"),args.getString("conversationTitle"),args.getString("text")).toString());}
+   try {DiningPollInput.requireAutomationAvailable();if(Thread.currentThread().isInterrupted())throw new InterruptedException();PhoneGestures.requireIdle();return text(PhoneDraftHandoff.prepare(args.getString("packageName"),args.getString("conversationTitle"),args.getString("text")).toString());}
    finally {PhoneTextInput.AUTOMATION_LOCK.unlock();}
   }
   String thread = p.optString("threadId");
@@ -92,12 +120,26 @@ final class PhoneNativeTools {
   if (name.equals("release_apps"))
    return text(DedicatedScreensOnDevice.shared().release(thread, packages(args)).toString());
   final JSONObject arguments=args;final String toolName=name;
+  boolean yelpSearch = name.equals("open_yelp_search");
+  boolean uberReview = name.equals("inspect_uber_upcoming") || name.equals("handoff_for_review");
+  boolean bookingInput = booking != null && DiningBookingInput.guards(name, args);
+  if (name.equals("inspect_uber_upcoming") && args.length() != 0) throw new IOException("INVALID_ARGUMENT");
   DedicatedScreens.Use use =
-    name.equals("open_app") ? DedicatedScreens.Use.OPEN
+    name.equals("open_app") || yelpSearch ? DedicatedScreens.Use.OPEN
+    : uberReview || bookingInput ? DedicatedScreens.Use.ACT_HELD
     : name.equals("observe_background") || name.equals("device_info") ? DedicatedScreens.Use.LOOK
     : DedicatedScreens.Use.ACT;
-  return DedicatedScreensOnDevice.shared().withScreen(thread, use, args.optString("packageName"),
-    screen -> executeScreen(p, arguments, toolName, screen));
+  String pkg = yelpSearch ? PhoneYelpSearchRoute.PACKAGE
+    : uberReview ? PhoneRideReview.PACKAGE
+    : bookingInput ? DiningBookingInput.PACKAGE : args.optString("packageName");
+  return DedicatedScreensOnDevice.shared().withScreen(thread, use, pkg,
+    screen -> {
+     if (bookingInput) {
+      PhoneGestures.prepare(screen);
+      return text(DiningBookingInput.applyInput(booking, p, arguments, toolName, screen).toString());
+     }
+     return executeScreen(p, arguments, toolName, screen);
+    });
  }
  static java.util.List<String> packages(JSONObject args) throws Exception {
   JSONArray list = args.optJSONArray("packages");
@@ -109,8 +151,16 @@ final class PhoneNativeTools {
  static JSONObject executeScreen(JSONObject call,JSONObject args,String name,PhoneExecutionScreens.Screen screen)throws Exception {
   PhoneGestures.prepare(screen);
   String display=Integer.toString(screen.displayId);
-  if(name.equals("tap") || name.equals("open_app") || name.equals("type_text"))PhoneGestures.requireIdle(screen.displayId);
+  switch (name) {
+   case "tap", "open_app", "open_yelp_search", "type_text", "swipe" -> DiningPollInput.requireAutomationAvailable();
+   case "touch" -> {
+    if (!"CANCEL".equals(args.optString("phase"))) DiningPollInput.requireAutomationAvailable();
+   }
+  }
+  if(name.equals("tap") || name.equals("open_app") || name.equals("open_yelp_search") || name.equals("type_text"))PhoneGestures.requireIdle(screen.displayId);
   switch(name){
+   case "inspect_uber_upcoming":return text(PhoneRideReview.inspect(call,screen).toString());
+   case "handoff_for_review":return text(PhoneRideReview.handoff(call,args,screen).toString());
    case "swipe":return text(PhoneGestures.swipe(call,screen.displayId,args).toString());
    case "touch":return text(PhoneGestures.touch(call,screen.displayId,args).toString());
    case "device_info":return text(screen.json().put("android",TaskBroker.command("/system/bin/getprop","ro.build.version.release").trim()).put("model",TaskBroker.command("/system/bin/getprop","ro.product.model").trim()).toString());
@@ -134,12 +184,13 @@ final class PhoneNativeTools {
     if(!here)am.add("--activity-multiple-task");am.add("-n");am.add(component);
     return text(TaskBroker.command(am.toArray(new String[0])));};
     return start.run(screen);
+   case "open_yelp_search":return text(PhoneYelpSearchRoute.open(args, screen, call).toString());
    case "tap":
     // On a dead screen Android drops the tap and input still reports success: ask the screen process first.
     PhoneGestures.requireLive(screen);
     int x=args.getInt("x"),y=args.getInt("y");if(x<0||x>=720||y<0||y>=1280)throw new IOException("Coordinates are outside the independent screen");TaskBroker.command("/system/bin/input","-d",display,"tap",String.valueOf(x),String.valueOf(y));return text(screen.json().put("action","tap").put("ok",true).toString());
    case "type_text":String value=args.getString("text");if(value.length()>4000)throw new IOException("Input text is too long");PhoneTextInput.AUTOMATION_LOCK.lockInterruptibly();
-    try{if(Thread.currentThread().isInterrupted())throw new InterruptedException();if(!PhoneExecutionScreens.current(screen))throw new IOException("SCREEN_GENERATION_CHANGED");PhoneTextInput.enter(screen.displayId,value);return text(screen.json().put("action","type_text").put("ok",true).toString());}
+    try{DiningPollInput.requireAutomationAvailable();if(Thread.currentThread().isInterrupted())throw new InterruptedException();if(!PhoneExecutionScreens.current(screen))throw new IOException("SCREEN_GENERATION_CHANGED");PhoneTextInput.enter(screen.displayId,value);return text(screen.json().put("action","type_text").put("ok",true).toString());}
     finally{PhoneTextInput.AUTOMATION_LOCK.unlock();}
    default:throw new IOException("Unknown phone tool");
   }

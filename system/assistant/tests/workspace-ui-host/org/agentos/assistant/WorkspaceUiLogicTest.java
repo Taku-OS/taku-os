@@ -40,6 +40,17 @@ public final class WorkspaceUiLogicTest {
         check(WorkspaceUi.status(new JSONObject().put("status", "waiting_for_user"), WorkspaceUiLogicTest::label).equals(label(R.string.workspace_status_waiting)), "waiting for a person is unchanged");
         check(WorkspaceUi.status(new JSONObject().put("status", "running"), WorkspaceUiLogicTest::label).equals(label(R.string.workspace_status_working)), "ordinary running state is unchanged");
         check(WorkspaceUi.status(new JSONObject().put("status", "ready"), WorkspaceUiLogicTest::label).equals(label(R.string.workspace_status_ready)), "ordinary ready state is unchanged");
+        check(WorkspaceUi.status(new JSONObject().put("status", "awaiting_review").put("controlOwner", "paused"), WorkspaceUiLogicTest::label).equals(label(R.string.workspace_status_review)), "review handoff is distinguished from a generic pause");
+        check(WorkspaceUi.status(new JSONObject().put("status", "awaiting_review").put("controlOwner", "user"), WorkspaceUiLogicTest::label).equals(label(R.string.workspace_status_user)), "actual user control takes priority over the prior review handoff");
+        JSONObject review = screen().put("status", "awaiting_review").put("controlOwner", "paused")
+                .put("review", new JSONObject().put("status", "awaiting_review"));
+        check(WorkspaceUi.reviewPending(review) && !WorkspaceUi.returnNeeded(review), "paused review routes to Take over even though resumeRequired is true");
+        review.put("status", "stopping");
+        check(WorkspaceUi.reviewPending(review) && !WorkspaceUi.returnNeeded(review), "an in-flight pause keeps review takeover priority");
+        review.put("controlOwner", "user");
+        check(!WorkspaceUi.reviewPending(review) && WorkspaceUi.returnNeeded(review), "real user takeover permits the ordinary explicit return control");
+        review.remove("review"); review.put("controlOwner", "paused").put("status", "paused");
+        check(!WorkspaceUi.reviewPending(review) && WorkspaceUi.returnNeeded(review), "ordinary paused screens retain Return and continue");
     }
     private static final class Preferences extends Context {
         private final Map<String, String> values = new HashMap<>();

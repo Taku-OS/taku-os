@@ -388,8 +388,34 @@ class FeedRepository private constructor(context: Context, private val sources: 
         values = FeedSelectionValues.EMPTY
       }
     }
+    if (action.intent == Intent.ConfirmDiningShare) requireDiningShare(card)
     val cursor = commit(FeedEvent.accepted(origin, card.id, action, values, request is FeedActionRequest.AskAbout))
     AcceptedFeedAction(card, action, values, cursor)
+  }
+
+  private fun requireDiningShare(card: FeedCard): Intent.ShareText {
+    val share = card.actions["share"]?.intent as? Intent.ShareText
+    if (card.actions[Intent.ConfirmDiningShare.ID]?.intent != Intent.ConfirmDiningShare || share == null ||
+      card.id in preferences.removed || card.expired(System.currentTimeMillis())) {
+      throw FeedException("CARD_CHANGED", "The reservation card has changed")
+    }
+    return share
+  }
+
+  internal fun recordDiningShareDecision(cardId: String, expected: Intent.ShareText, requested: FeedCursor, confirmed: Boolean) {
+    synchronized(lock) {
+      val card = published[cardId] ?: loaded[cardId] ?: notFound(cardId)
+      if (requireDiningShare(card) != expected)
+        throw FeedException("CARD_CHANGED", "The reservation card has changed")
+      if (!store.isDiningShareRequestPending(cardId, requested))
+        throw FeedException("REQUEST_EXPIRED", "This share confirmation has already ended")
+      commit(FeedEvent.diningShareResponse(cardId, requested, confirmed))
+    }
+  }
+
+  internal fun recordDispatch(accepted: AcceptedFeedAction, origin: FeedOrigin): FeedCursor? {
+    val event = FeedEvent.dispatched(origin, accepted) ?: return null
+    return synchronized(lock) { commit(event) }
   }
 
   private fun commit(event: FeedEvent, preferences: FeedPreferences? = null, cards: FeedCardWrite? = null): FeedCursor {

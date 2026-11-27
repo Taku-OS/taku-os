@@ -248,6 +248,22 @@ public final class NativeBridgeRoutingTest {
         complete(child, turn);
     }
 
+    private static void rideHandoffSealsLaterCalls(CodexAppServer server) throws Exception {
+        String thread = "ride-thread", turn = "ride-turn";
+        start(thread, turn);
+        JSONObject params = call(1200, thread, turn, "handoff_for_review", new JSONObject()).getJSONObject("params");
+        check(NativeBridge.phoneTurnActive(params), "The ride handoff starts from the active turn");
+        NativeBridge.sealReviewInputs(params);
+        check(!NativeBridge.phoneTurnActive(params)
+                        && turn.equals(NativeBridge.state(thread).getString("activeTurnId")),
+                "Handoff stops new phone calls while the existing model turn can still finish");
+        NativeBridge.request(server, call(1201, thread, turn, "tap", new JSONObject()));
+        NativeBridge.request(server, call(1202, thread, turn, "confirm_action", args()));
+        check(!server.replies.get(1201).getBoolean("success") && !server.replies.get(1202).getBoolean("success"),
+                "A handed-off turn cannot tap or ask for another confirmation");
+        complete(thread, turn);
+    }
+
     public static void main(String[] unused) throws Exception {
         steerRejectionClassification();
         NativeBridge.closed();CodexAppServer server=new CodexAppServer();CodexAppServer.shared=server;
@@ -403,6 +419,7 @@ public final class NativeBridgeRoutingTest {
             check(NativeBridge.state.isEmpty() && NativeBridge.requests.isEmpty(),"Runtime close discards lifecycle and pending");
             NativeBridge.request(server,call(31,THREAD,"turn-close","tap",new JSONObject()));
             check(!server.replies.get(31).getBoolean("success"),"Closed runtime rejects stale tool");
+            rideHandoffSealsLaterCalls(server);
             System.out.println("NativeBridgeRoutingTest: "+checks+" checks passed (test doubles; no device actions)");
         } finally { NativeBridge.closed(); }
     }

@@ -165,6 +165,7 @@ final class NativeBridge {
    case "matter":answer=MatterBridge.control(input);break;
    case "matterAudio":answer=AudioBridge.control(input);break;
    case "mainReply":answer=AgentViews.mainReplyRead(input);break;
+   case "diningPollInput":answer=DiningPollInput.control(input);break;
    case "liveTask":Call live=new Call("taku/liveTask",input);if(!enqueue(live))throw new IOException("BUSY");answer=live.result.get(40,TimeUnit.SECONDS);break;
    case "magpieSettingsChanged":MagpieSettings.schedule();answer=new JSONObject();break;
    case "agyGemini":
@@ -318,7 +319,7 @@ final class NativeBridge {
    return;
   }
   String thread=p.optString("threadId");if(thread.isEmpty()){if(method.startsWith("fs/")||method.startsWith("hook/")||method.startsWith("remoteControl/")||method.equals("warning")||method.equals("configWarning")||method.equals("model/rerouted")||method.startsWith("project/")){globalEvents.put(new JSONObject().put("method",method).put("detail",redact(p.toString())));while(globalEvents.length()>16)globalEvents.remove(0);}return;}JSONObject s=state.computeIfAbsent(thread,k->new JSONObject());
-  if(method.equals("turn/started")){PhoneGestures.startTurn(thread,p.getJSONObject("turn").getString("id"));s.put("activeTurnId",p.getJSONObject("turn").getString("id"));phonePolicyChanges.keySet().removeIf(owner->owner.startsWith(thread+"\n")&&!owner.equals(thread+"\n"+s.optString("activeTurnId")));s.remove("error");s.remove("plan");s.remove("cancellationCleanup");if(!admissions.turnStarted(thread)){s.put("phoneStoppedTurnId",p.getJSONObject("turn").getString("id"));enqueue(new Call("turn/interrupt",new JSONObject().put("threadId",thread).put("turnId",p.getJSONObject("turn").getString("id"))));tellParentIfClosed(thread);}}
+  if(method.equals("turn/started")){PhoneGestures.startTurn(thread,p.getJSONObject("turn").getString("id"));PhoneNativeTools.bookingTurnStarted(thread,p.getJSONObject("turn").getString("id"));s.put("activeTurnId",p.getJSONObject("turn").getString("id"));phonePolicyChanges.keySet().removeIf(owner->owner.startsWith(thread+"\n")&&!owner.equals(thread+"\n"+s.optString("activeTurnId")));s.remove("error");s.remove("plan");s.remove("cancellationCleanup");if(!admissions.turnStarted(thread)){s.put("phoneStoppedTurnId",p.getJSONObject("turn").getString("id"));enqueue(new Call("turn/interrupt",new JSONObject().put("threadId",thread).put("turnId",p.getJSONObject("turn").getString("id"))));tellParentIfClosed(thread);}}
   if(method.equals("turn/completed")){JSONObject completed=p.getJSONObject("turn");PhoneGestures.endTurn(thread,completed.getString("id"));cancelPhoneWorkers(thread,completed.getString("id"));
    phonePolicyChanges.remove(thread+"\n"+completed.getString("id"));
    DedicatedScreensOnDevice.shared().turnEnded(thread);
@@ -383,7 +384,7 @@ final class NativeBridge {
     DedicatedScreensOnDevice.shared().asked(params.optString("threadId"),shown.optString(confirmation?"title":"question"),shown.optString("returnTo"));
     String key=UUID.randomUUID().toString();requests.put(key,new JSONObject().put("key",key).put("id",event.get("id")).put("method",confirmation?"phone/confirmAction":"phone/askUser").put("params",snapshot));return;
    }
-   boolean observation=tool.endsWith("device_info")||matchesTool(tool,"screen_status")||tool.endsWith("observe_background")||tool.endsWith("memory_search")||tool.endsWith("memory_get")||matchesTool(tool,"apps")||(matchesTool(tool,"matter")&&params.optJSONObject("arguments")!=null&&params.getJSONObject("arguments").optString("action").equals("read"))||(matchesTool(tool,"audio")&&params.optJSONObject("arguments")!=null&&(params.getJSONObject("arguments").optString("action").equals("capabilities")||params.getJSONObject("arguments").optString("operation").equals("status")));
+   boolean observation=tool.endsWith("device_info")||matchesTool(tool,"screen_status")||matchesTool(tool,"inspect_uber_upcoming")||tool.endsWith("observe_background")||tool.endsWith("memory_search")||tool.endsWith("memory_get")||matchesTool(tool,"apps")||(matchesTool(tool,"matter")&&params.optJSONObject("arguments")!=null&&params.getJSONObject("arguments").optString("action").equals("read"))||(matchesTool(tool,"audio")&&params.optJSONObject("arguments")!=null&&(params.getJSONObject("arguments").optString("action").equals("capabilities")||params.getJSONObject("arguments").optString("operation").equals("status")));
    if(!observation&&mode.equals("readOnly")){server.nativeReply(event.get("id"),PhoneNativeTools.failure("This conversation is read-only; the phone operation was blocked"));return;}
    if(!observation&&hasPhoneQuestion(params.optString("threadId"))){server.nativeReply(event.get("id"),PhoneNativeTools.failure("Wait for the user to handle the current confirmation before continuing phone operations"));return;}
    if(!observation&&mode.equals("ask")){
@@ -401,16 +402,22 @@ final class NativeBridge {
   return params.optString("namespace").equals("taku_panel")||tool.startsWith("taku_panel.")||tool.startsWith("taku_panel/")||tool.startsWith("taku_panel__");
  }
  static boolean phoneTurnActive(JSONObject params){if(SessionRemovalRuntime.pending(params.optString("threadId")))return false;JSONObject s=state.get(params.optString("threadId"));String turn=params.optString("turnId");return s!=null&&!turn.isEmpty()&&turn.equals(s.optString("activeTurnId"))&&!turn.equals(s.optString("phoneStoppedTurnId"));}
+ /** Seal later phone calls without interrupting the handoff worker. An ended turn has no input to seal. */
+ static void sealReviewInputs(JSONObject params)throws Exception { try (CleanupWork.Held held = lock()) {
+  if(phoneTurnActive(params))
+   state.get(params.getString("threadId")).put("phoneStoppedTurnId",params.getString("turnId"));
+ } }
  static boolean hasPhoneQuestion(String thread){return requests.values().stream().anyMatch(q->q.optJSONObject("params")!=null && thread.equals(q.optJSONObject("params").optString("threadId")) && (q.optString("method").equals("phone/askUser")||q.optString("method").equals("phone/confirmAction")||q.optString("method").equals("phone/action/requestApproval")));}
  static void executePhone(CodexAppServer server,Object id,JSONObject params){ try (CleanupWork.Held held14 = lock()) {
   if(!phoneTurnActive(params)){try{server.nativeReply(id,PhoneNativeTools.failure("This execution turn has stopped; the phone operation was not performed"));}catch(Exception ignored){}return;}
   String owner=params.optString("threadId")+"\n"+params.optString("turnId");
   List<CompletableFuture<String>> changes=phonePolicyChanges.containsKey(owner)?new ArrayList<>(phonePolicyChanges.get(owner)):List.of();
+  PhoneNativeTools.Dispatch dispatch=PhoneNativeTools.bindForDispatch(params);
   Thread worker=new Thread(()->{
    try{
     if(Thread.currentThread().isInterrupted())return;
     JSONObject result;
-    if(changes.isEmpty())result=PhoneNativeTools.execute(params);
+    if(changes.isEmpty())result=dispatch.run();
     else {StringJoiner text=new StringJoiner("\n");for(CompletableFuture<String> change:changes)text.add(change.get());result=PhoneNativeTools.failure(text.toString());}
     if(!Thread.currentThread().isInterrupted()){
      server.nativeReply(id,result);
@@ -473,6 +480,6 @@ final class NativeBridge {
   AgentViews.runtimeClosed();admissions.clear();PhoneGestures.cancelAll();
   // No turn running now ever ends, so nothing else would free the dedicated screens.
   DedicatedScreensOnDevice.shared().codexGone();
-  for(Set<Thread> group:phoneWorkers.values())for(Thread worker:group)worker.interrupt();phoneWorkers.clear();phonePolicyChanges.clear();requests.clear();state.clear();audio.clear();phonePermissions.clear();while(globalEvents.length()>0)globalEvents.remove(0);for(Call c:calls.values())c.result.completeExceptionally(new IOException("The runtime restarted"));calls.clear();
+  for(Set<Thread> group:phoneWorkers.values())for(Thread worker:group)worker.interrupt();phoneWorkers.clear();phonePolicyChanges.clear();requests.clear();PhoneNativeTools.clearBookingTurns();state.clear();audio.clear();phonePermissions.clear();while(globalEvents.length()>0)globalEvents.remove(0);for(Call c:calls.values())c.result.completeExceptionally(new IOException("The runtime restarted"));calls.clear();
  } }
 }

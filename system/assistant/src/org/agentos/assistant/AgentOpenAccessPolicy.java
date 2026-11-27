@@ -24,7 +24,7 @@ public final class AgentOpenAccessPolicy {
         boolean sensitiveFamily = method.startsWith("requests/") || method.startsWith("accounts/")
                 || method.startsWith("composer/") || method.startsWith("skills/")
                 || method.startsWith("capture/") || method.startsWith("jev/")
-                || method.startsWith("account/login/");
+                || method.startsWith("account/login/") || method.startsWith("dining/poll/");
         return ROOT_METHODS.contains(method) || sensitiveFamily && !CONTROL_READS.contains(method)
                 ? "taku.root" : "taku.control";
     }

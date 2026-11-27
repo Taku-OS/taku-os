@@ -594,6 +594,22 @@ The host reader accepts repeated `--card-id`, `--card-prefix`, `--adb` and `--he
 
 Persist each opaque cursor with the business result or use it for idempotency. Advance to `checkpoint.through` only after all earlier matching events complete. `ready.through` and pipe output are not acknowledgments. Store progress per device, database UUID and filter. Reconnect from processed progress, discard incomplete lines and dedupe replay. To follow a snapshot, use its `eventCursor`. Idle checkpoints arrive every 10 s; leases expire at 300 s (`STREAM_LEASE_EXPIRED`); backpressure may cause `STREAM_SLOW_CONSUMER`. Follow EOF is a disconnect even with a zero Android exit code. Feed cannot wake a stopped Agent.
 
+The OpenTable reservation card's `share` action uses `share-text` with
+`package:"com.whatsapp"` and `text`. `feed/action` launches WhatsApp's picker
+and returns `dispatchCursor` and `requiresUserConfirmation:true` when the
+launch succeeds. The matching `phase:"dispatched"` event includes the
+original `acceptedCursor`, package and SHA-256 of the UTF-8 share text.
+Recipient choice and message delivery happen in WhatsApp. After the user sends,
+call `feed/action {"id":"…","actionId":"confirm-dining-share"}` with no values
+to ask the user if they sent this reservation to the original group. The reply
+includes `requiresUserConfirmation:true` and the request's `eventCursor`. Read
+the same card's Feed events after that cursor. A prompt response has
+`origin:"gui"`, `phase:"accepted"` or `"declined"`, and the matching
+`requestedCursor`. The card's own confirmation button also emits a GUI
+acceptance. Check `dining/poll/calendar-state` to see whether the follow-up is
+available. A changed or unavailable reservation card can return `CARD_CHANGED`
+or `NOT_FOUND`.
+
 No history count/time cap. A one-time SQLite import retains available legacy actions as `legacy`, with `phase:"legacy-recorded"`; `ready.legacyImportedCount/legacyHistoryMayBeIncomplete` describe the import. Legacy events may exceed new limits. Clearing app data invalidates cursors. Storage errors do not fabricate an empty Feed.
 
 Cards use `taku.feed-card/1`; repository schema and parameters are in `system/agent-app/modules/taku-home/README.md` and `CONTRACT.md`. Image bodies allow HTTPS or known `asset:feed/<path>`. Remote SVG needs a `.svg` path, HTTPS final URL and `image/svg+xml`; static drawing only (no CSS/entities/scripts/external references/embedded images), max 256 Ki characters, 2,048 tags and 10 s. Invalid generated references return `INVALID_SPEC`; raw publication has render-time validation. Icon and open-url rules are separate.
@@ -1077,3 +1093,117 @@ taku_call "$D" jev/status '{}'
 taku_call "$D" jev/enable '{}'
 taku_call "$D" jev/connect '{"key":"apikey_..."}'
 ```
+
+## Share dining options as a WhatsApp poll
+
+With the group chat visible, use the existing bottom Assistant entry. Enable
+the Assistant's screenshot option and Android's assist screenshot access
+when the request relies on chat context that the user has not typed.
+
+When asked to find restaurants, verify the query and area in Yelp and return
+the observed restaurant names and branch addresses in the completed reply.
+Use the actual Yelp listing or observed facts as the source for each candidate.
+If the native form cannot settle, `taku_phone.open_yelp_search` accepts
+`{query,location}` after the task holds Yelp on its own execution display. The
+result carries `requiresObservation:true` and `resultVerified:false`. Inspect
+the resulting app screen and listing before reporting facts.
+
+On Home, read `options` and `share` with `taku_call "$A" assistant/get '{}'`.
+Pass the current `replyId` to `options/open`, `options/dismiss` and
+`options/share/open`. Add `itemId` for `options/select`. In the share
+editor, `options/share/pick-group` opens WhatsApp's own chooser and
+`options/share/set-poll` takes `{replyId,question}`. After the user confirms
+the destination and previewed question, `options/share/send-poll` takes
+`{replyId}`. The preview includes the short Taku reference sent in the
+WhatsApp question and used to verify this exact poll.
+`options/share/cancel` takes `{replyId}`. The `options/share/continue-poll`
+and `options/share/check-poll` actions take `{}` for the current poll task.
+Share actions require `taku.root`. A stale reply or editor fails with
+`REQUEST_EXPIRED`.
+
+Use the poll flow after an explicit user decision to send the displayed
+question and selected options to a specific WhatsApp group. The following
+actions on `content://org.agentos.assistant.open-access` require `taku.root`
+and use the same send journal as the share UI.
+
+| Method | Arguments | Result |
+| --- | --- | --- |
+| `dining/poll/send-register` | `{intentId,sourceThreadId,sourceReply,groupName,question,options}` | Records the exact intent before execution. Use UUIDs for the intent and source thread, `{kind:"primary",replyId,turnId,revision,contractHash}` for the canonical completed reply, and two or more distinct option labels from that reply. |
+| `dining/poll/send-status` | `{intentId}` | Reads the durable state, including any native send receipt. This read has no WhatsApp effect. |
+| `dining/poll/send-bind` | `{intentId,executionThreadId?}` | Verifies the exact group in the owning WhatsApp task, prepares a single-choice poll and returns `prepared:true` and the bound execution thread. |
+| `dining/poll/send` | `{intentId,executionThreadId?}` | Makes the one authorized send attempt in the prepared editor. |
+| `dining/poll/send-inspect` | `{intentId,executionThreadId?}` | Reconciles the original message in the owning task after an uncertain attempt. |
+
+On the owning execution task, acquire WhatsApp with `taku_phone.request_apps`,
+open it if needed and navigate to the confirmed group. Keep any existing
+unrelated draft and stop if the group or editor cannot be verified. Bind,
+send and inspection require the same `pollSendIntentId` on the current task
+and its `full` phone permission.
+The share UI submits that task through the native composer using
+`action:"sendMessage"`, `includeInvocationScreenshot:false` and
+`attachmentIds:[]`.
+
+Check `send-status` before resuming a prior intent. Report success only when
+`status:"sent"`, `sent:true` and an observed message `anchor` are present. If
+the send result is `unknown`, inspect that intent without retrying the send.
+An unavailable or ambiguous group, unmatched reply or different task returns
+an error and leaves the action unverified.
+
+If `send` or `send-inspect` returns a confirmed receipt with
+`cleanupConfirmed:false` and `cleanupCode:"DINING_POLL_CLEANUP_UNVERIFIED"`, the poll
+was sent. Assistant recovers its input connection, and the broker blocks further
+automation until it can confirm cleanup. Use `send-status` to read the saved receipt.
+
+### Book from the poll result
+
+The native watcher reads votes for the original sent poll. It offers a
+booking only when the observed votes have one leader. OpenTable submission
+requires the user's decision for the current leader and the confirmed branch,
+date, restaurant-local time, IANA zone and party size.
+
+| Method on `content://org.agentos.assistant.open-access` | Arguments and result |
+| --- | --- |
+| `dining/poll/state` | `{}` reads the watches, current offer keys and booking state. |
+| `dining/poll/watch` | `{intentId}` opens or reuses the watcher for an already confirmed send. The native poll receipt supplies its group and options. |
+| `dining/poll/respond` | `{id,key,accepted}` records the user's decision after rechecking the current poll. |
+| `dining/poll/booking-form`, `dining/poll/submit-booking-form` | `{id,key,revision}` reads the active form. Add `values` to submit the exact missing fields shown by the form. Dates use `YYYY-MM-DD`, times use `HH:mm`, zones use IANA names and party size is an integer. |
+| `dining/poll/retry-confirmation`, `dining/poll/dismiss-confirmation` | `{id,key}` retries a known pre-submission failure after a user decision, or dismisses the current offer. |
+| `dining/poll/verify-date`, `dining/poll/begin-submit`, `dining/poll/inspect` | `{id}`. On the bound OpenTable task, verify the full date, validate and perform the one native checkout attempt, and inspect the app's actual receipt. |
+| `dining/poll/reconcile-date`, `dining/poll/reconcile` | `{id}`. After the booking task ends, read the full date or verified receipt from its retained OpenTable screen or the single OpenTable view already opened by the user. These calls do not send input. |
+
+Keep the verified restaurant and exact request on that task's OpenTable
+screen. Generic phone input is limited to supported navigation and form fields
+in the booking task. Use `begin-submit` for final confirmation. Stop for changed
+terms, a deposit, a payment prompt or an ambiguous target. `REQUEST_EXPIRED`
+means the offer or form revision has changed. An equivalent reservation for
+the same branch, time and party may already be confirmed or have an uncertain
+checkout. Inspect or reconcile the existing attempt in either case. A verified
+native receipt publishes or reuses one card in the existing Home Feed.
+
+### Add the meal to Calendar and prepare a ride
+
+After sharing from the reservation card, the user selects **I sent it to the
+original group** on the card or answers the Agent's Feed confirmation prompt.
+The Calendar offer uses the verified reservation after that confirmation. Confirm the
+writable calendar and meal details. An existing matching event is reused.
+The resulting Feed card opens the exact saved Calendar event. The Uber
+offer waits until Taku verifies that exact event's details and observes the user
+leave them.
+
+| Method on `content://org.agentos.assistant.open-access` | Arguments and result |
+| --- | --- |
+| `dining/poll/calendar-state`, `dining/poll/ride-state` | `{}` reads the authoritative continuation entries, including their phases and current keys. |
+| `dining/poll/calendar-open`, `dining/poll/ride-open` | `{id}` opens the available offer for the reservation watch. Missing share or event-view evidence returns `DINING_CALENDAR_SHARE_REQUIRED` or `DINING_RIDE_EVENT_DETAILS_REQUIRED`. |
+| `dining/poll/calendar-respond` | `{id,key,action}` where `action` is `confirm`, `edit`, `select` or `dismiss`. `select` additionally takes the numeric `calendarId`. |
+| `dining/poll/ride-respond` | `{id,key,action}` where `action` is `confirm`, `edit` or `dismiss`. Confirm and edit open the native ride details form. |
+| `dining/poll/ride-input-read`, `dining/poll/ride-input-cancel` | `{id,key}` reads the current form or cancels its draft. |
+| `dining/poll/ride-input-save`, `dining/poll/ride-input-submit` | `{id,key,pickup,departureLocal}`. Use a real pickup address and local `YYYY-MM-DDTHH:mm` departure before the meal. Submit the actual user-approved form. |
+| `dining/poll/ride-validate-plan` | `{id,pickup,departureLocal}` validates the proposed route and local departure without publishing a task. |
+| `dining/poll/ride-resume-input` | `{id,taskId,turnId,requestId}` recovers the form only for the matching earlier choice-only task with verified terminal evidence. |
+
+On the owned Uber screen, `taku_phone.inspect_uber_upcoming({})` checks the
+visible Upcoming view before changing the draft. If it cannot establish
+the state, ask the user to verify it. After preparing the ride, call
+`taku_phone.handoff_for_review({title,summary})` to keep the same Uber
+screen and draft for user control. The user verifies the live quote and
+performs the final reservation and any payment in Uber.

@@ -15,20 +15,29 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.sample
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.agentos.agent.home.assistant.AgentGateway
 import org.agentos.agent.home.assistant.AssistantSession
 import org.agentos.agent.home.assistant.AssistantState
 import org.agentos.agent.home.assistant.IslandMode
+import org.agentos.agent.home.assistant.PollSendReceipt
+import org.agentos.agent.home.assistant.PollSendResumeStore
 import org.agentos.agent.home.assistant.VoicePhase
 import org.agentos.agent.home.assistant.VoiceState
 import org.agentos.agent.home.assistant.VoiceTarget
+import org.agentos.agent.home.assistant.candidateOwnsResultPresentation
+import org.agentos.agent.home.assistant.candidatePresentationIdentity
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -42,7 +51,11 @@ class IslandPublisherService : Service() {
   private var fingerprint: String? = null
   private var lastExpansionRequest = 0L
   private var lastRequest = IslandMode.Hidden
+  private var lastExpandedCandidate: String? = null
   private var postedTag: String? = null
+  private val pollObservation = MutableStateFlow<PollSendObservation?>(null)
+  private data class Presentation(val state: AssistantState, val voice: VoiceState,
+    val receipt: PollSendObservation?, val overlayIdentity: String?, val screenUsable: Boolean)
   /** The hidden state is already applied for [hiddenHandoff]; see [publish]. */
   private var hiddenApplied = false
   private var hiddenHandoff: org.agentos.agent.home.assistant.Handoff? = null
@@ -61,16 +74,68 @@ class IslandPublisherService : Service() {
     } else if (session.state.value.threadId == null) restoreHandoff(session)
     SystemIslandBridge.observe(this)
     watchReveal(session)
+    watchPollStatus(session)
     scope.launch {
-      combine(session.state, session.voice.state) { state, voice -> state to voice }.sample(250).collect { (state, voice) ->
-        // Agent readers observe the same state published to the native SystemUI card.
-        contentResolver.notifyChange(Uri.parse("content://org.agentos.agent.home-assistant"), null)
-        publish(state, voice)
+      combine(session.state, session.voice.state, pollObservation, session.candidateOverlayIdentity, session.screenUsable, ::Presentation)
+        .sample(250).collect { snapshot ->
+          // Agent readers observe the same state published to the native SystemUI card.
+          contentResolver.notifyChange(Uri.parse("content://org.agentos.agent.home-assistant"), null)
+          publish(snapshot)
+        }
+    }
+  }
+
+  private fun watchPollStatus(session: AssistantSession) {
+    scope.launch {
+      val gateway = AgentGateway(contentResolver)
+      val demands = session.state.map(PollSendStatusDemand::from).distinctUntilChanged()
+      combine(demands, session.screenUsable, ::Pair).collectLatest { (demand, usable) ->
+        val owner = demand?.owner
+        if (pollObservation.value?.owner != owner) pollObservation.value = null
+        if (demand == null || owner == null || !usable || pollObservation.value?.receipt?.sent == true) return@collectLatest
+        var attempts = 0
+        var receipt: PollSendReceipt? = null
+        while (isActive && demand.shouldRead(deviceUsable(), receipt, attempts)) {
+          val current = try {
+            withContext(Dispatchers.IO) {
+              val journal = gateway.call("diningPoll", JSONObject().put("action", "status")
+                .put("args", JSONObject().put("intentId", owner.intentId)))
+              val observed = PollSendObservation.from(owner, journal)
+              if (observed?.receipt?.sent == true) owner.executionThreadId?.let {
+                runCatching {
+                  PollSendResumeStore.rememberConfirmed(this@IslandPublisherService, it, owner.intentId, journal.optLong("sentAt"))
+                }.onFailure { failure -> android.util.Log.w("TakuIsland", "Could not update poll resume history", failure) }
+              }
+              observed
+            }
+          } catch (cancelled: CancellationException) {
+            throw cancelled
+          } catch (_: Exception) {
+            null
+          }
+          if (!owner.owns(session.state.value)) break
+          pollObservation.value = retainPollSendObservation(owner, pollObservation.value, current)
+          receipt = pollObservation.value?.receipt
+          attempts++
+          if (!demand.shouldRead(deviceUsable(), receipt, attempts)) break
+          delay(1_500)
+        }
       }
     }
   }
 
-  private fun publish(state: AssistantState, voice: VoiceState) {
+  private fun publish(snapshot: Presentation) {
+    val (state, voice, observation, overlayIdentity, screenUsable) = snapshot
+    if (candidateOwnsResultPresentation(state, overlayIdentity)) {
+      manager.activeNotifications.filter { it.id == ID && it.tag?.startsWith(TAG) == true }
+        .forEach { manager.cancel(it.tag, ID) }
+      hiddenApplied = false
+      fingerprint = null
+      postedTag = null
+      lastRequest = IslandMode.Hidden
+      lastExpandedCandidate = null
+      return
+    }
     if (state.island == IslandMode.Hidden) {
       // A long handed-off turn streams many updates while hidden; nothing to redo unless the
       // handoff itself changed (its awaited turn, or it ended).
@@ -84,6 +149,7 @@ class IslandPublisherService : Service() {
       fingerprint = null
       postedTag = null
       lastRequest = IslandMode.Hidden
+      lastExpandedCandidate = null
       return
     }
     hiddenApplied = false
@@ -101,7 +167,9 @@ class IslandPublisherService : Service() {
     // A hold whose microphone has not started recording yet shows no listening cue at all.
     val holdStarting = voice.target == VoiceTarget.Hold && voice.phase == VoicePhase.Preparing
     val falKeyMissing = state.error == AssistantSession.VOICE_FAL_KEY_MISSING
+    val poll = pollSendPresentation(state, observation).takeUnless { voice.listening }
     val title = when {
+      poll != null -> "Taku"
       falKeyMissing -> "fal API key missing"
       state.error != null -> "Taku couldn’t finish"
       state.needsUser -> "Taku needs your confirmation"
@@ -110,7 +178,7 @@ class IslandPublisherService : Service() {
       state.working -> "Taku is working"
       else -> "Taku"
     }
-    val body = assistantCardHeadline(state, voice)
+    val body = poll?.body ?: assistantCardHeadline(state, voice)
     val listening = assistantCardListening(state, voice)
     val short = if (state.buildingApp) "Building..." else ""
     val actions = Bundle()
@@ -121,9 +189,13 @@ class IslandPublisherService : Service() {
       actions.putParcelable(id, Notification.Action.Builder(null as Icon?, label, intent).build())
       ids.put(id)
     }
-    if (state.working || state.needsUser) add("stop", "Stop", action("stop", thread, state.activityId))
+    if ((poll?.working ?: state.working) || state.needsUser) add("stop", "Stop", action("stop", thread, state.activityId))
+    poll?.actions?.forEach { (id, label) ->
+      add(id, label, pollAction(id, state, poll.owner))
+      if (actions.containsKey(id)) suggestions.put(id)
+    }
     // Voice needs a fal key: tapping the prompt (or its action) opens the fal setup page directly.
-    val falSetup = if (!falKeyMissing) null else PendingIntent.getActivity(this, ID + 2,
+    val falSetup = if (!falKeyMissing || poll != null) null else PendingIntent.getActivity(this, ID + 2,
       org.agentos.agent.home.onboarding.ServiceSetup.intent(this, org.agentos.agent.home.onboarding.OnboardingService.FAL),
       PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
     if (falSetup != null) add("falKey", "Add fal key", falSetup)
@@ -131,15 +203,20 @@ class IslandPublisherService : Service() {
       .putExtra("threadId", state.threadId).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP),
       PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
     add("open", "Open conversation", action("open", thread, state.activityId))
-    if (state.error != null && state.retryText != null) add("retry", "Try again", action("retry", thread, state.activityId))
-    if ((state.error != null && state.retryText != null) || state.retainedVoice != null) {
+    val options = state.options?.takeUnless { state.working || state.needsUser || state.abandoned || state.error != null }
+    if (options != null && (state.optionsDismissed || state.optionsVisible || state.share != null)) {
+      add("options", "View options", action("options", thread, state.activityId, options.replyId))
+      if (actions.containsKey("options")) suggestions.put("options")
+    }
+    if (poll == null && state.error != null && state.retryText != null) add("retry", "Try again", action("retry", thread, state.activityId))
+    if (poll == null && ((state.error != null && state.retryText != null) || state.retainedVoice != null)) {
       val input = PendingIntent.getActivity(this, ID + 1,
         Intent(this, org.agentos.agent.home.assistant.AssistantOverlayActivity::class.java)
           .putExtra("mode", "text").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
       add("input", if (state.retainedVoice != null) "Show dictation" else "Edit", input)
     }
-    if (!state.working && !listening) state.turn?.suggestions?.take(2)?.forEachIndexed { index, suggestion ->
+    if (poll == null && options == null && !state.working && !listening) state.turn?.suggestions?.take(2)?.forEachIndexed { index, suggestion ->
       val id = "reply_$index"
       add(id, suggestion.label, action("reply", thread, state.activityId, suggestion.id))
       if (actions.containsKey(id)) suggestions.put(id)
@@ -150,9 +227,9 @@ class IslandPublisherService : Service() {
     val primary = if (falSetup != null) "falKey" else "open"
     val payload: JSONObject = JSONObject().put("version", 2).put("timeoutS", 28800)
       .put("expanded", JSONObject().put("template", "assistant")
-        .put("title", title).put("body", bounded(body, 1200)).put("steps", if (listening) JSONArray() else steps)
+        .put("title", title).put("body", bounded(body, 1200)).put("steps", if (listening || poll != null) JSONArray() else steps)
         .put("actions", ids).put("primaryAction", primary).put("tapAction", primary)
-        .put("assistant", JSONObject().put("token", token).put("phase", if (listening) "listening" else if (state.working) "working" else "message")
+        .put("assistant", JSONObject().put("token", token).put("phase", if (listening) "listening" else if (poll?.working ?: state.working) "working" else "message")
           .put("suggestions", suggestions)
           .put("heightDp", if (listening) kotlin.math.ceil(68 + 27.9 * resources.configuration.fontScale).toInt().coerceIn(96, 340) else 300)))
     // Taku Agent supplies its own capsule (AI animation plus "Building...") only while building an
@@ -190,11 +267,16 @@ class IslandPublisherService : Service() {
     // The text input stays open under the expanded card (Figma 1-3): SystemUI's card never takes
     // focus and moves below the status bar while the keyboard shows, so a reply appears at the top
     // as soon as it arrives instead of after the keyboard closes.
-    if (state.island != lastRequest || state.expansionRequest != lastExpansionRequest) {
+    // Let the fallback expand after unlock, and leave WhatsApp's chooser in front until it returns.
+    val candidate = state.candidatePresentationIdentity
+    val deferCandidateExpansion = candidate != null && (!screenUsable || state.share?.pollPickerId != null)
+    if (!deferCandidateExpansion &&
+      (state.island != lastRequest || state.expansionRequest != lastExpansionRequest || candidate != lastExpandedCandidate)) {
       if (state.island == IslandMode.Expanded || state.island == IslandMode.Full) requestExpand()
       else if (state.island == IslandMode.Collapsed) SystemIslandBridge.request(this, "collapse")
       lastRequest = state.island
       lastExpansionRequest = state.expansionRequest
+      lastExpandedCandidate = candidate
     }
   }
 
@@ -266,6 +348,11 @@ class IslandPublisherService : Service() {
       .putExtra("thread", thread).putExtra("activity", activity ?: "entry").putExtra("suggestion", suggestion)
     return PendingIntent.getBroadcast(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
   }
+  private fun pollAction(kind: String, state: AssistantState, owner: PollSendOwner): PendingIntent =
+    PendingIntent.getBroadcast(this, 0, Intent(this, IslandActionReceiver::class.java).setAction(kind)
+      .setData(Uri.parse(owner.actionIdentity(kind))).putExtra("thread", state.threadId ?: "entry")
+      .putExtra("activity", state.activityId ?: "entry"), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+
   private fun bounded(value: String, count: Int) = value.substring(0, value.offsetByCodePoints(0, minOf(count, value.codePointCount(0, value.length))))
   override fun onBind(intent: Intent?): IBinder = binder
   private val receivers = mutableListOf<android.content.BroadcastReceiver>()

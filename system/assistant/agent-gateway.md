@@ -23,7 +23,8 @@ Responses over 256 KiB return `{ok:true,resultUri:"content://org.agentos.assista
 | `composer/removeAttachment` | `{threadId,expectedRevision,attachmentId}` | Draft snapshot after removing that attachment |
 | `composer/plugin/add` | `{threadId,expectedRevision,pluginId}` | Draft snapshot with that installed, enabled God Mode plugin attached to the next message (`@` in the GUI composer) |
 | `composer/plugin/remove` | `{threadId,expectedRevision,pluginId}` | Draft snapshot after removing that plugin from the draft |
-| `composer/submit` | `{threadId,revision,requestId,action,attachmentIds,pluginIds?}` plus `expectedTurnId` for `steer` or `panelId,expectedSourceVersion` for `continue` | Receipt for a frozen draft and target. The `sendMessage` action starts a new turn. |
+| `composer/submit` | `{threadId,revision,requestId,action,attachmentIds,pluginIds?}` plus `expectedTurnId` for `steer` or `panelId,expectedSourceVersion` for `continue` | Receipt for a frozen draft and target. The `sendMessage` action starts a new turn. For a confirmed WhatsApp poll, pass `pollSendIntentId`, `includeInvocationScreenshot:false` and an empty `attachmentIds` array. |
+| `diningPoll` | `{action:"register",args:{intentId,sourceThreadId,sourceReply,groupName,question,options}}` or `{action:"status",args:{intentId}}` | Registers the user's poll intent or reads its journal. `sourceReply` identifies the exact completed candidate reply. The same implementation serves `dining/poll/send-register` and `dining/poll/send-status`. Only the owning execution task can use the journal to send. |
 | `composer/receipt` | `{threadId,requestId}` | Read-only receipt lookup |
 | `composer/settle` | `{threadId,requestId}` | Receipt and revision-checked retirement when delivery is confirmed |
 | `composer/release` | `{threadId,requestId}` | Draft snapshot after releasing a pending request and preserving recoverable content |

@@ -15,6 +15,9 @@ import org.json.JSONObject
 
 class TaskNotificationReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        if (DiningPollIsland.receive(this, context, intent)) return
+        if (DiningBookingCalendarIsland.receive(this, context, intent)) return
+        if (DiningBookingRideIsland.receive(this, context, intent)) return
         try {
             if (intent.action == "org.agentos.assistant.WORKSPACE_REVOKED") {
                 showRevocation(context, JSONObject(intent.getStringExtra("revocation")))

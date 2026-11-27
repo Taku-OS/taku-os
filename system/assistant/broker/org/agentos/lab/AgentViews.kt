@@ -47,9 +47,24 @@ internal class AgentViews {
         @Throws(Exception::class)
         fun saveMetadata(metadata: JSONObject) {
             synchronized(AgentViews::class.java) {
-                val id = metadata.getString("id")
-                val previous = existing(id)
-                save(AgentViewProjection.mergeMetadata(previous, metadata))
+                val bounded = AgentViewProjection.mergeMetadata(null, metadata)
+                val id = bounded.getString("id")
+                val raw = rawThreads[id]
+                val view = threads[id]
+                if (raw == null || view == null) {
+                    save(AgentViewProjection.mergeMetadata(existing(id), metadata))
+                    return
+                }
+                // Metadata has no authority over turns. Keep the raw items used by reply validation
+                // and the indexed live items intact when refreshing the conversation summary.
+                for (key in AgentViewProjection.METADATA_FIELDS) if (bounded.has(key)) {
+                    val value = bounded.get(key)
+                    raw.put(key, value)
+                    view.put(key, value)
+                }
+                AgentViewProjection.boundReasoningSummaries(view)
+                events.publish(id, "session/snapshot", JSONObject().put("thread", view))
+                checkpoint(view)
             }
         }
 

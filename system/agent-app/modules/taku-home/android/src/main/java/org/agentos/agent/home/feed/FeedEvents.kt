@@ -3,6 +3,8 @@ package org.agentos.agent.home.feed
 import org.json.JSONObject
 import java.net.URI
 import java.net.URLDecoder
+import java.security.MessageDigest
+import java.util.HexFormat
 import java.util.UUID
 
 enum class FeedOrigin(val wire: String) { GUI("gui"), AGENT("agent") }
@@ -160,16 +162,53 @@ internal class FeedEvent private constructor(private val fields: JSONObject, val
       FeedEvent(current(origin, operation, cardId).put("detail", detail ?: JSONObject.NULL))
 
     fun accepted(origin: FeedOrigin, cardId: String, action: CardAction, values: FeedSelectionValues, askAbout: Boolean): FeedEvent {
+      var phase = "accepted"
       val intentType = when (action.intent) {
         is Intent.AskTaku -> "ask-taku"
         is Intent.OpenApp -> "open-app"
         is Intent.OpenUrl -> "open-url"
+        is Intent.ShareText -> "share-text"
+        Intent.ConfirmDiningShare -> {
+          if (values.json().length() != 0) throw FeedException("INVALID_ARGUMENT", "Dining share confirmation takes no values")
+          if (origin == FeedOrigin.AGENT) phase = "requested"
+          Intent.ConfirmDiningShare.ID
+        }
         Intent.Dismiss -> "dismiss"
         Intent.None -> "none"
       }
       return FeedEvent(current(origin, FeedOperation.ACTION, cardId)
         .put("actionId", action.id).put("actionSource", if (askAbout) "ask-about" else "declared")
-        .put("phase", "accepted").put("intentType", intentType).put("values", values.json()))
+        .put("phase", phase).put("intentType", intentType).put("values", values.json()))
+    }
+
+    fun diningShareResponse(cardId: String, requested: FeedCursor, confirmed: Boolean): FeedEvent =
+      FeedEvent(current(FeedOrigin.GUI, FeedOperation.ACTION, cardId)
+        .put("actionId", Intent.ConfirmDiningShare.ID).put("actionSource", "declared")
+        .put("phase", if (confirmed) "accepted" else "declined").put("intentType", Intent.ConfirmDiningShare.ID)
+        .put("requestedCursor", requested.toString()).put("values", FeedSelectionValues.EMPTY.json()))
+
+    private val calendarEvent = Regex("""content://com\.android\.calendar/events/[1-9][0-9]*""")
+
+    fun dispatched(origin: FeedOrigin, accepted: AcceptedFeedAction): FeedEvent? {
+      val (type, proof) = when (val intent = accepted.action.intent) {
+        is Intent.ShareText -> {
+          val digest = MessageDigest.getInstance("SHA-256").digest(intent.text.toByteArray(Charsets.UTF_8))
+          "share-text" to JSONObject().put("package", intent.packageName)
+            .put("textSha256", HexFormat.of().formatHex(digest))
+        }
+        is Intent.OpenApp -> {
+          val uri = intent.uri ?: return null
+          if (!accepted.card.id.startsWith("dining.calendar.") || accepted.action.id != "open-calendar" ||
+            intent.packageName != "com.google.android.calendar" || !calendarEvent.matches(uri)) return null
+          "open-app" to JSONObject().put("package", intent.packageName).put("uri", uri)
+        }
+        else -> return null
+      }
+      return FeedEvent(current(origin, FeedOperation.ACTION, accepted.card.id)
+        .put("actionId", accepted.action.id).put("actionSource", "declared")
+        .put("phase", "dispatched").put("intentType", type)
+        .put("acceptedCursor", accepted.cursor.toString())
+        .put("intent", proof))
     }
 
     fun legacy(entry: JSONObject): FeedEvent {

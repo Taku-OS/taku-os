@@ -5,6 +5,28 @@ import java.io.File;
 
 /** Coordinates frozen developer background, additive context and native turn receipts. */
 final class HarnessContext {
+    private static final String DINING_CANDIDATES = """
+
+            When the user requests restaurant candidates for a WhatsApp group meal, use an observed
+            Yelp results page. In Yelp's visible search form choose the exact city suggestion and
+            use the real Search control. If that route is unavailable, use open_yelp_search (when
+            available). After either route observe the settled Yelp page. Check that it shows new
+            results for the requested query and city. An input or App Link receipt is evidence of
+            dispatch only. If the results cannot be verified, report the failure.
+
+            For verified options provide one top-level collection of distinct candidate names with
+            stable IDs. Attach each candidate's actually observed facts in a companion collection
+            with config.layout "list" and config.group equal to that candidate's ID. Provide one
+            row with id "address", label "Yelp" and a tagged text value containing the observed
+            full branch address. Use the observed business URL when available. Additional facts
+            may use ids "cuisine", "rating", "price", "description", "hours", or "category-*".
+            Leave unverified facts out. If the original request explicitly gives the complete
+            reservation date, restaurant-local time, IANA zone and party size, add one standalone
+            line to the card summary in this format:
+            Booking details: YYYY-MM-DD · HH:mm · Area/City · 4 guests
+            Use the actual values and omit the line when any field is missing or ambiguous.
+            Finding candidates does not authorize sending a poll. A booking requires later confirmation.
+            """;
     private static HarnessStore store;
     static boolean auditIncomplete;
     static HarnessStore store() throws Exception {
@@ -139,7 +161,7 @@ final class HarnessContext {
         JSONObject contract=primary?HarnessCatalog.replyContract():null;
         JSONObject replyMode=new JSONObject().put("mode",primary?"primary-card":"upstream-schema");
         if(primary)replyMode.put("protocol",contract.getString("protocol")).put("catalogVersion",contract.getString("catalogVersion"))
-                .put("contractHash",contract.getString("contractHash")).put("instructions",contract.getString("prompt")+"\n"+UiCardRequest.ROLES);
+                .put("contractHash",contract.getString("contractHash")).put("instructions",contract.getString("prompt")+"\n"+UiCardRequest.ROLES+DINING_CANDIDATES);
         else replyMode.put("instructions","Primary reply framing is disabled for this turn. Follow the caller's outputSchema or realtime protocol; do not emit @taku.reply framing.");
         value.put("replyContract",replyMode);
         String digest=store().object(value);

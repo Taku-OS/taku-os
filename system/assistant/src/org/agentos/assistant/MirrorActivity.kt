@@ -316,7 +316,8 @@ class MirrorActivity : Activity() {
             orientation = if (stack) LinearLayout.VERTICAL else LinearLayout.HORIZONTAL
         }
         control = button(getString(R.string.workspace_interaction_take_over), R.drawable.ic_taku_hand) {
-            if (resumeUnknown) resumeRequest?.refresh()
+            if (WorkspaceUi.reviewPending(currentScreen)) change("takeControl")
+            else if (resumeUnknown) resumeRequest?.refresh()
             else if (returnNeeded()) resumeRequest?.submit("")
             else change("takeControl")
         }
@@ -330,6 +331,7 @@ class MirrorActivity : Activity() {
     }
 
     private fun setEditingRequirement(value: Boolean, focusInput: Boolean = value) {
+        if (value && WorkspaceUi.reviewPending(currentScreen)) return
         val view = requirement ?: return
         editingRequirement = value
         view.visibility = if (value) View.VISIBLE else View.GONE
@@ -400,10 +402,7 @@ class MirrorActivity : Activity() {
         note.visibility = if (value.isEmpty()) View.GONE else View.VISIBLE
     }
 
-    private fun returnNeeded(): Boolean {
-        val screen = currentScreen ?: return false
-        return screen.optString("controlOwner") == "user" || screen.optString("controlOwner") == "paused" || screen.optBoolean("resumeRequired")
-    }
+    private fun returnNeeded(): Boolean = WorkspaceUi.returnNeeded(currentScreen)
 
     private fun resumeReceipt(record: JSONObject) {
         val status = record.optString("status")
@@ -751,10 +750,13 @@ class MirrorActivity : Activity() {
     private fun controls(available: Boolean) {
         val button = control ?: return
         val pending = resumeRequest?.busy() == true
+        val review = WorkspaceUi.reviewPending(currentScreen)
         button.setText(controlLabel())
         ChatDesign.text(button, ChatDesign.Role.BODY)
-        buttonIcon(button, if (resumeUnknown) R.drawable.ic_taku_refresh else if (returnNeeded()) R.drawable.ic_taku_play else R.drawable.ic_taku_hand)
-        button.isEnabled = available && !changing && (!pending || resumeUnknown)
+        buttonIcon(button, if (review) R.drawable.ic_taku_hand else if (resumeUnknown) R.drawable.ic_taku_refresh else if (returnNeeded()) R.drawable.ic_taku_play else R.drawable.ic_taku_hand)
+        button.isEnabled = available && !changing && (review || !pending || resumeUnknown)
+        edit.isEnabled = available && !changing && !review
+        if (review && editingRequirement) setEditingRequirement(false)
         // An uncertain resume receipt cannot take away the user's exact-lease interrupt.
         stop?.isEnabled = !changing && freshStopLease()
         backInApp.visibility = if (userControl) View.VISIBLE else View.GONE
@@ -768,6 +770,7 @@ class MirrorActivity : Activity() {
     }
 
     private fun controlLabel() = when {
+        WorkspaceUi.reviewPending(currentScreen) -> R.string.workspace_interaction_take_over
         resumeUnknown -> R.string.workspace_interaction_check_status
         returnNeeded() -> if (resumeFailed) R.string.workspace_interaction_retry_continue else R.string.workspace_interaction_return_continue
         else -> R.string.workspace_interaction_take_over

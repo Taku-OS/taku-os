@@ -31,6 +31,7 @@ internal object ComposerDelivery {
         val request = try { SourceAdapters.readObject(File(directory, "request.json")) }
             catch (_: Exception) { throw IOException("TASK_FAILURE_CHANGED") }
         if (request.optString("conversationId") != thread || thread.isEmpty()) throw IOException("TASK_FAILURE_CHANGED")
+        if (request.has("diningRideKey")) throw IOException("WORKFLOW_MANAGED_TASK")
         val state = try { SourceAdapters.readObject(File(directory, "state.json")) }
             catch (_: Exception) { throw IOException("TASK_FAILURE_CHANGED") }
         val status = state.optString("state")
@@ -59,11 +60,13 @@ internal object ComposerDelivery {
         val thread = input.getString("threadId")
         if (method == AgentGatewayProtocol.COMPOSER_SUBMIT) {
             val existing = ComposerState.submission(prefs, id)
+            val pollSendIntent = input.optString("pollSendIntentId")
+            if (existing == null && pollSendIntent.isNotEmpty()) DiningPollSend.checkSubmission(context, pollSendIntent, thread)
             val options = if (existing == null) ComposerOptions.prepareSubmission() else null
             val (request, created) = try {
                 ComposerState.reserveSubmission(prefs, input) { target, output ->
                     checkNotNull(options).apply(prefs, target, output)
-                    AssistantInvocationCapture.reserve(context, id, output, allowAutoScreenshot)
+                    if (pollSendIntent.isEmpty()) AssistantInvocationCapture.reserve(context, id, output, allowAutoScreenshot)
                 }
             } catch (failure: Exception) {
                 synchronized(ComposerPreferences::class.java) {

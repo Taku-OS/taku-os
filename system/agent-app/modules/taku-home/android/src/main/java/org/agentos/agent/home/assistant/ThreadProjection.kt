@@ -73,9 +73,38 @@ class SessionStreamState(val threadId: String) {
     val source = params.optJSONObject("item") ?: JSONObject()
     val itemId = source.optString("id").ifEmpty { params.optString("itemId") }
     when {
+      method == "session/reply" -> {
+        val reply = params.optJSONObject("reply")
+        val items = params.optJSONArray("items")
+        if (reply == null || items == null || items.length() == 0 || !ReplyOptions.validReply(reply, threadId, turnId)) {
+          needsResync = true; return false
+        }
+        val sourceIds = reply.optJSONObject("provenance")?.optJSONArray("sourceItemIds") ?: JSONArray()
+        val allowed = (0 until sourceIds.length()).map { sourceIds.optString(it) }.toSet()
+        val rows = (0 until items.length()).mapNotNull { items.optJSONObject(it) }
+        if (rows.size != items.length() || rows.map { it.optString("id") }.distinct().size != rows.size
+          || rows.any { it.optString("id") !in allowed || it.optString("type") != "agentMessage"
+            || it.has("replyId") && it.optString("replyId") != reply.optString("id")
+            || it.optString("text") != if (it.optString("replyId") == reply.optString("id")) reply.optString("readableText") else "" }
+          || rows.count { it.optString("replyId") == reply.optString("id") } != 1) {
+          needsResync = true; return false
+        }
+        val replies = turn.data.optJSONObject("mainReplies") ?: JSONObject().also { turn.data.put("mainReplies", it) }
+        val prior = replies.optJSONObject(reply.getString("id"))
+        if (prior != null && prior.optJSONObject("provenance")?.toString() != reply.optJSONObject("provenance")?.toString()) {
+          // sourceItemIds may grow; the anchor and contract identity must not change.
+          val a = prior.getJSONObject("provenance"); val b = reply.getJSONObject("provenance")
+          if (listOf("threadId", "turnId", "anchorHash", "anchorOrdinal", "contractHash").any { a.opt(it) != b.opt(it) }) {
+            needsResync = true; return false
+          }
+        }
+        if (prior != null && prior.optLong("revision") >= reply.optLong("revision")) return false
+        replies.put(reply.getString("id"), reply)
+        rows.forEach { turn.items[it.getString("id")] = it }
+      }
       method == "item/agentMessage/delta" && itemId.isNotEmpty() -> {
         val prior = turn.items[itemId]
-        if (prior?.optBoolean("_streamCompleted") == true) return false
+        if (prior?.optBoolean("_streamCompleted") == true || prior?.has("replyId") == true) return false
         val next = prior?.let { JSONObject(it.toString()) } ?: JSONObject()
         next.put("id", itemId).put("type", "agentMessage").put("text", (prior?.optString("text") ?: "") + params.optString("delta")).put("_streamCompleted", false)
         turn.items[itemId] = next
@@ -85,6 +114,7 @@ class SessionStreamState(val threadId: String) {
         val prior = turn.items[itemId]
         if (!completed && prior?.optBoolean("_streamCompleted") == true) return false
         val next = merge(prior, source).put("id", itemId)
+        if (prior?.has("replyId") == true) next.put("text", prior.optString("text")).put("replyId", prior.optString("replyId"))
         if (!completed && prior?.has("text") == true) next.put("text", prior.optString("text"))
         next.put("_streamCompleted", completed)
         turn.items[itemId] = next
@@ -139,6 +169,7 @@ data class TurnView(
   val reply: String?,
   val steps: List<Step>,
   val suggestions: List<Suggestion>,
+  val options: ReplyOptions? = null,
 )
 
 object ThreadProjection {
@@ -180,6 +211,10 @@ object ThreadProjection {
       reply = reply?.let(::plainText),
       steps = steps,
       suggestions = if (active) emptyList() else suggestions(thread, turn.id),
+      options = if (status != "completed") null else turn.data.optJSONObject("mainReplies")?.let { replies ->
+        replies.keys().asSequence().mapNotNull { replies.optJSONObject(it) }
+          .mapNotNull { ReplyOptions.from(it, thread.optString("id"), turn.id) }.lastOrNull()
+      },
     )
   }
 

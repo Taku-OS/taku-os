@@ -48,7 +48,11 @@ public final class AgentOpenAccessProvider extends ContentProvider {
     }
     /** Methods that hand out or replace a credential; trusted callers only. */
     private static final Set<String> CREDENTIAL_METHODS = new HashSet<>(Arrays.asList("account/login/start", "jev/connect"));
-    @Override public boolean onCreate() { return true; }
+    @Override public boolean onCreate() {
+        Context context = getContext();
+        if (context != null) DiningPollBooking.restore(context);
+        return true;
+    }
     @Override public Bundle call(String method, String arg, Bundle extras) {
         Bundle out = new Bundle();
         int caller = Binder.getCallingUid();
@@ -59,6 +63,12 @@ public final class AgentOpenAccessProvider extends ContentProvider {
         android.content.Context ctx = getContext();
         if (ctx == null) {
             out.putString("result", error("SOURCE_UNAVAILABLE").toString());
+            return out;
+        }
+        boolean diningPoll = method.startsWith("dining/poll/");
+        boolean diningCallback = method.equals("dining/poll/send-native-v1");
+        if (diningCallback && caller != 0 && caller != android.os.Process.SYSTEM_UID) {
+            out.putString("result", error("PERMISSION_DENIED").toString());
             return out;
         }
         if (method.equals("workspaces/list") || method.equals("workspaces/configure") || method.equals("workspaces/release")) {
@@ -81,7 +91,7 @@ public final class AgentOpenAccessProvider extends ContentProvider {
         Context context = getContext();
         if (composer || method.startsWith("capture/") || method.startsWith("accounts/") || method.startsWith("requests/") ||
                 method.equals("readTaskDetail") || SYSTEM_AI.contains(method) || TURN_CONTROL.contains(method) ||
-                method.equals("manageAssistant") || method.equals("sessions/removals")) {
+                method.equals("manageAssistant") || method.equals("sessions/removals") || diningPoll && !diningCallback) {
             String code = ComposerState.userError(context, caller);
             if (code != null) {
                 out.putString("result", error(code).toString());
@@ -129,8 +139,10 @@ public final class AgentOpenAccessProvider extends ContentProvider {
             }
             if (arg != null && arg.length() > AgentGatewayProtocol.MAX_REQUEST) throw new IOException("INVALID_ARGUMENT");
             JSONObject input = arg == null || arg.isEmpty() ? new JSONObject() : new JSONObject(arg);
+            if (diningCallback) return transport(out, DiningPollAccess.brokerCallback(context, input), caller);
             JSONObject result;
-            if (method.startsWith("panels/")) result = PanelRegistry.get(getContext()).call(method.substring(7), input);
+            if (diningPoll) result = DiningPollAccess.execute(context, method, input);
+            else if (method.startsWith("panels/")) result = PanelRegistry.get(getContext()).call(method.substring(7), input);
             else if (method.startsWith("card-view/")) result = PanelRegistry.get(getContext()).cardView(method.substring(10), input);
             else if (method.equals("matter/read")) {
                 PanelProtocol.parse(method, input);

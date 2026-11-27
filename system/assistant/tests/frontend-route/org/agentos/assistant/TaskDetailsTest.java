@@ -36,6 +36,10 @@ public final class TaskDetailsTest {
                     || !"Choose a shop".equals(detail.getString("message")))
                 throw new AssertionError("Task detail must project the saved public fields");
 
+            Files.writeString(request, original.put("displayPrompt", "Prepare a ride to dinner").toString());
+            if (!"Prepare a ride to dinner".equals(TaskDetails.read(root.toFile(), id).getString("prompt")))
+                throw new AssertionError("Managed task detail exposed the internal execution prompt");
+
             Files.writeString(request, original.put("conversationId", "f891f77d-019c48e1-8935-75ee445126c1-").toString());
             if (TaskDetails.notificationThread(root.toFile(), id) != null)
                 throw new AssertionError("Invalid thread ID was accepted");

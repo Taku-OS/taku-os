@@ -154,11 +154,12 @@ process.exit(issues.length ? 1 : 0);
 | --- | --- |
 | `open-app` | `package`, optional `uri`; opens the app or its page |
 | `open-url` | `url`; opens an HTTPS page |
+| `share-text` | `package:"com.whatsapp"`, `text` (1–16,000 characters). Opens the WhatsApp share picker. The user chooses the chat and sends there. |
 | `ask-taku` | `prompt`; creates a conversation and saves an editable draft for the user to send |
 | `dismiss` | Hides the card, matching user removal |
 | `none` | Records the action and returns `effect:"none"` |
 
-Actions execute on a user interaction or a `feed/action` call. `select` can include values from specified state paths. Feed cards accept the five intent types above; `panel` is rejected.
+Actions execute on a user interaction or a `feed/action` call. `select` can include values from specified state paths. After sending the reservation to the original WhatsApp group, the user can confirm on the OpenTable reservation card. Agents can call `feed/action` with `actionId:"confirm-dining-share"` and no values to open the user prompt. Use the reply's `eventCursor` to match the decision event's `requestedCursor`.
 
 ## Updates, withdrawal, and feedback
 

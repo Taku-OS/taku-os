@@ -78,6 +78,8 @@ pins/removals and preserves published cards and their management state.
 | `ask-taku` | `prompt` | Opens the Taku conversation with `prompt` as an editable draft. Never auto-sends. |
 | `open-app` | `package`, optional `uri` | Launches the app (or VIEW `uri` inside it). |
 | `open-url` | `url` (https) | Opens the URL. |
+| `share-text` | `package` (`com.whatsapp`), `text` | Opens WhatsApp's text share picker. The user chooses a recipient and sends from WhatsApp. |
+| `confirm-dining-share` | none | Home adds this action to OpenTable dining reservation cards. After sending to the original group, the user can confirm from the card or in a prompt opened by `feed/action`. |
 | `dismiss` | – | Removes the card (same path as long-press → Remove, including the dust animation). |
 | `none` | – | Accepted and recorded; used by sample cards whose real integration does not exist yet. |
 
@@ -166,6 +168,33 @@ repository lock. This cursor is the boundary for reading changes after that
 snapshot. `recentActions` is removed from `feed/list`. Existing history consumers
 use the event stream below and own their durable processed cursors.
 
+## Yelp candidates and WhatsApp polls
+
+Call these methods on `content://org.agentos.agent.home-assistant`.
+`assistant/get` projects the completed primary reply as `options`, including the selected
+item and visibility, and the active poll editor as `share`. The Agent reads and changes the
+same Assistant session that the GUI renders.
+
+| Method | Arguments |
+| --- | --- |
+| `options/open`, `options/dismiss` | `replyId` |
+| `options/select` | `replyId`, `itemId` |
+| `options/share/open`, `options/share/pick-group`, `options/share/cancel` | `replyId` |
+| `options/share/set-poll` | `replyId`, `question` |
+| `options/share/send-poll` | `replyId`, with a group selected in WhatsApp's chooser |
+| `options/share/continue-poll`, `options/share/check-poll` | Empty object, current poll execution |
+
+The share methods require `taku.root`. Opening the editor, picking a group and editing
+the question do not send. The explicit send action registers the completed source
+reply, exact group name, question and choices in the native journal. The preview and
+`share.wireQuestion` include the reference suffix that WhatsApp displays. A separate execution
+thread carries out this one intent. Native code must verify a unique matching group and
+every single-choice poll field. A confirmed send requires a native message anchor.
+A poll with uncertain delivery can only be checked against its original attempt.
+
+Outdated replies or editors fail with `REQUEST_EXPIRED`. Invalid poll fields fail with
+`INVALID_POLL_TARGET`, `INVALID_POLL_QUESTION` or `INVALID_POLL_OPTIONS`.
+
 ## Event stream
 
 The read-only resource `content://org.agentos.agent.home-feed/events` has MIME type
@@ -226,7 +255,23 @@ Mutation events contain `detail`. New action events also contain `actionId`,
 `actionSource="declared"` or `"ask-about"`, `phase="accepted"`, `intentType`, and
 `values`. The reserved Ask Taku action uses `actionId="ask-taku"` with
 `actionSource="ask-about"`. `intentType` is `ask-taku`, `open-app`, `open-url`,
-`dismiss`, or `none`.
+`share-text`, `confirm-dining-share`, `dismiss`, or `none`. A successful `share-text` launch emits a
+second action event with `phase="dispatched"`, `acceptedCursor` and
+`intent:{package,textSha256}`. The digest is lowercase SHA-256 over UTF-8 shared
+text. The dispatch event records Android accepting the picker launch. WhatsApp
+does not report recipient selection or message delivery through this Intent.
+The `confirm-dining-share` button records a local GUI acceptance. Call
+`feed/action {"id":"…","actionId":"confirm-dining-share"}` to ask the user
+from the Agent API. The action takes no values. The reply includes
+`requiresUserConfirmation:true` and the `eventCursor` of the Agent event
+with `phase:"requested"`. A response in the prompt emits a GUI event with
+`phase:"accepted"` or `"declined"` and the original `requestedCursor`.
+An obsolete reservation card returns `CARD_CHANGED` or `NOT_FOUND`.
+Assistant requires a GUI acceptance after a matching picker launch on the
+same reservation card before offering to add the meal to Calendar.
+The `open-calendar` action on a dining calendar card also records a successful
+dispatch with `intent:{package,uri}` for its exact Calendar event. The ride
+handoff separately checks the event shown on the device.
 
 `values` preserves the selected state paths and JSON types. It can contain strings,
 numbers, booleans, arrays, objects, or null values. Paths are keys, not reconstructed
@@ -240,6 +285,8 @@ the repository lock. The existing intent executes from that accepted snapshot on
 after the durable commit. `accepted` records a user choice. It does not prove that
 an external app, model turn, or business operation succeeded. Existing local intent
 errors still return after acceptance. Successful action replies add `eventCursor`.
+The `share-text` action also returns `dispatchCursor` and `requiresUserConfirmation:true`.
+The dining calendar action returns `dispatchCursor` for its event launch.
 A failed acceptance write prevents intent execution. Replay does not execute the
 local intent again. An accepted dismiss can also produce a separate remove event.
 
