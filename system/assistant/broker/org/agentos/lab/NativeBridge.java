@@ -342,14 +342,22 @@ final class NativeBridge {
     tellParentIfClosed(thread);
    } else {
     if (start == WorkspaceAdmissions.TurnStart.HANDBACK) s.put("workspaceCloseSuppressedTurn", turn);
-    DedicatedScreensOnDevice.shared().nativeTurnStarted(thread, turn);
+    DedicatedScreensOnDevice.shared().nativeTurnStarted(thread, turn, start == WorkspaceAdmissions.TurnStart.HANDBACK);
    }
   }
   if(method.equals("turn/completed")){JSONObject completed=p.getJSONObject("turn");String turn=completed.getString("id");PhoneGestures.endTurn(thread,turn);cancelPhoneWorkers(thread,turn);
    phonePolicyChanges.remove(thread+"\n"+turn);
    boolean current=turn.equals(s.optString("activeTurnId"));
    requests.values().removeIf(q->{JSONObject params=q.optJSONObject("params");return params!=null&&thread.equals(params.optString("threadId"))&&(turn.equals(params.optString("turnId"))||(current&&params.optString("turnId").isEmpty()));});
-   if(!current)return;
+   // Only a completion for a different running turn is stale. With no turn recorded (state rebuilt
+   // after a reconnect, or a turn/started never seen) it still ends the turn: DedicatedScreens
+   // checks its own active turn, and completedTurn/error must be recorded (code review).
+   if(!current){
+    if(!s.optString("activeTurnId").isEmpty())return;
+    // A repeated completion of the turn already recorded is a duplicate, not a lost start.
+    JSONObject done=s.optJSONObject("completedTurn");
+    if(done!=null&&turn.equals(done.optString("id")))return;
+   }
    boolean successful=completed.getString("status").equals("completed")&&!turn.equals(s.optString("phoneStoppedTurnId"));
    boolean internalSteer = turn.equals(s.optString("workspaceCloseSuppressedTurn"));
    if (internalSteer) s.remove("workspaceCloseSuppressedTurn");

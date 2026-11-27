@@ -2035,7 +2035,7 @@ public final class DedicatedScreensTest {
         check(rig.screens.turnEnded(session(1)) == null, "E3: whose end releases nothing");
         PhoneExecutionScreens.Admission grant = rig.screens.admission(session(1));
         check(rig.screens.turnStarted(session(1), grant), "E3: the give-back's own turn runs");
-        rig.screens.nativeTurnStarted(session(1), "handback");
+        rig.screens.nativeTurnStarted(session(1), "handback", true);
         check(
                 use(rig, 1, DedicatedScreens.Use.ACT, null) == d
                         && tasksOn(rig, d).size() == 1

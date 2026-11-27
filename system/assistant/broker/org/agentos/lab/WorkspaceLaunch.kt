@@ -30,7 +30,7 @@ internal object WorkspaceLaunch {
             if (!WorkspaceControl.isQuiescent(WorkspaceControl.runtime(thread))) throw IOException("WORKSPACE_EXECUTION_BUSY")
             val label = metadata.optString("label").ifBlank { app.packageName }
             val screen = DedicatedScreensOnDevice.shared().launch(thread, app.packageName, label) { handle ->
-                PhoneAppLaunch.open(handle, app.packageName, app.component)
+                PhoneAppLaunch.open(handle, app.packageName, app.component, metadata)
             }
             return JSONObject().put("launched", true).put("appId", app.id).put("threadId", thread)
                 .put("screen", screen)

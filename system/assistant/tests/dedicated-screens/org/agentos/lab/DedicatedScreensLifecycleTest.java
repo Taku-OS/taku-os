@@ -361,7 +361,7 @@ public final class DedicatedScreensLifecycleTest {
         if (subAgent) rig.screens.resumeGranted(session(1), key[0], key[1]);
         check(rig.screens.turnStarted(session(1), subAgent ? null : rig.screens.admission(session(1))),
                 "the handback's native admission is accepted");
-        rig.screens.nativeTurnStarted(session(1), turn);
+        rig.screens.nativeTurnStarted(session(1), turn, true);
     }
 
     static void ready(Rig rig, JSONObject allocation) throws Exception {
@@ -513,7 +513,7 @@ public final class DedicatedScreensLifecycleTest {
         stopping.screens.finishControl(session(1), returning[0], returning[1], "agent");
         check(stopping.screens.turnStarted(session(1), stopping.screens.admission(session(1))),
                 "handback remains admitted after the original turn stops");
-        stopping.screens.nativeTurnStarted(session(1), "after-stop");
+        stopping.screens.nativeTurnStarted(session(1), "after-stop", true);
         check(stopping.screens.turnEnded(session(1), "after-stop", true) == null,
                 "the successful handback retains the allocation after that interruption");
         ready(stopping, beforeReturn);
@@ -672,6 +672,53 @@ public final class DedicatedScreensLifecycleTest {
         }
     }
 
+    /**
+     * Code review 1 and 6: no path may keep a screen that nothing will ever close. With Jev close on,
+     * a failed turn, an internal steer (no decision) releases as with Jev off; a handback that did
+     * not give control back must not turn an unrelated later turn into a handback.
+     */
+    static void retentionLeaks() throws Exception {
+        try {
+            WorkspacePolicy.configure(new JSONObject().put("jevCloseEnabled", true));
+            for (String ending : List.of("stopped", "steer")) {
+                Rig rig = new Rig();
+                nativeStart(rig, ending);
+                rig.request(1, "act then " + ending, "com.game");
+                openApp(rig, ending, "com.game");
+                rig.screens.withScreen(session(1), ending, DedicatedScreens.Use.ACT, null, screen -> new JSONObject());
+                join(ending.equals("stopped")
+                        ? rig.screens.turnEnded(session(1), ending, false, close -> {
+                            throw new AssertionError("a failed turn is not offered to Jev");
+                        })
+                        : rig.screens.turnEnded(session(1), ending, true, null));
+                check(rig.screens.list().isEmpty() && rig.tasks.list().isEmpty(),
+                        "with Jev close on, a " + ending + " turn still releases its screen");
+            }
+        } finally {
+            resetPolicy();
+        }
+
+        for (String failure : List.of("paused", "failed")) {
+            Rig rig = new Rig();
+            nativeStart(rig, "original");
+            JSONObject allocation = rig.request(1, "return that fails: " + failure, "com.game");
+            openApp(rig, "original", "com.game");
+            control(rig, 1, "user");
+            String[] key = lease(rig, 1);
+            rig.screens.beginReturn(session(1), key[0], key[1]);
+            if (failure.equals("paused")) rig.screens.finishControl(session(1), key[0], key[1], "paused");
+            else rig.screens.controlFailed(session(1), key[0], key[1], "WORKSPACE_EXECUTION_STOP_UNCONFIRMED");
+            rig.screens.finishControl(session(1), key[0], key[1], "agent");
+            check(rig.screens.turnStarted(session(1), rig.screens.admission(session(1))),
+                    "the user gives the screen back later: " + failure);
+            rig.screens.nativeTurnStarted(session(1), "unrelated");
+            rig.screens.withScreen(session(1), "unrelated", DedicatedScreens.Use.ACT, null, screen -> new JSONObject());
+            join(rig.screens.turnEnded(session(1), "unrelated", true));
+            check(rig.screens.list().isEmpty(),
+                    "a " + failure + " return does not make an unrelated acting turn keep the screen (" + allocation.getString("screenKey") + ")");
+        }
+    }
+
     public static void main(String[] args) throws Exception {
         resetPolicy();
         if (args.length == 0 || args[0].equals("spec3")) spec3();
@@ -679,6 +726,7 @@ public final class DedicatedScreensLifecycleTest {
         if (args.length == 0 || args[0].equals("completion")) completionRetention();
         if (args.length == 0 || args[0].equals("jev")) jevClose();
         if (args.length == 0 || args[0].equals("handover")) handOverRetention();
+        if (args.length == 0 || args[0].equals("leaks")) retentionLeaks();
         System.out.println("DedicatedScreensLifecycleTest: " + checks + " checks passed");
     }
 }

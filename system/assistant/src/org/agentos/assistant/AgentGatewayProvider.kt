@@ -510,11 +510,10 @@ class AgentGatewayProvider : ContentProvider() {
 
     private fun exactLease(thread: String, key: String, generation: String, fromHome: Boolean, allocation: String?): JSONObject {
         val screens = workspaces(if (fromHome) null else thread).getJSONArray("screens")
+        val lease = JSONObject().put("threadId", thread).put("screenKey", key).put("generation", generation)
         for (i in 0 until screens.length()) {
             val screen = screens.getJSONObject(i)
-            if (thread == screen.optString("threadId") && key == screen.optString("screenKey") &&
-                generation == screen.optString("generation") &&
-                (allocation == null || allocation == screen.optString("allocationId"))) return screen
+            if (WorkspaceUi.sameAllocation(lease, allocation, screen)) return screen
         }
         throw IOException("SCREEN_LEASE_CHANGED")
     }

@@ -42,6 +42,20 @@ final class ScreenGuard {
         return ageMs >= 0 && ageMs < WAKE_GRACE_MS;
     }
 
+    /**
+     * The wake lock is held only while the screen is in use: a capture, a viewer fetching frames or
+     * the host's own input renews it, and this long without any of them releases it, so a screen
+     * kept READY overnight lets the phone sleep (code review). Status polls and frames the screen
+     * renders by itself (a playing video) do not count. A capture after the release wakes it again
+     * (ACQUIRE_CAUSES_WAKEUP, then the WAKE_GRACE_MS wait).
+     */
+    static final long AWAKE_IDLE_MS = 10 * 60_000;
+
+    /** Whether a wake lock last renewed at [lastUseMs] should be released at [nowMs]. */
+    static boolean idleWakeExpired(long nowMs, long lastUseMs) {
+        return nowMs - lastUseMs >= AWAKE_IDLE_MS;
+    }
+
     /** Whether to re-acquire the wake lock now, at most once per interval while a capture waits. */
     static boolean rewakeDue(long nowMs, long lastRewakeMs) {
         return lastRewakeMs <= 0 || nowMs - lastRewakeMs >= REWAKE_INTERVAL_MS;

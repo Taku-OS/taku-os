@@ -109,6 +109,16 @@ final class WorkspaceUi {
             if (left.optString(key).isEmpty() || !left.optString(key).equals(right.optString(key))) return false;
         return true;
     }
+
+    /**
+     * [candidate] is [lease]'s screen, and the same allocation of it when [allocation] names one
+     * (null or empty: any allocation). The one copy of this match (code review: four callers each
+     * wrote their own, treating a missing allocation differently).
+     */
+    static boolean sameAllocation(JSONObject lease, String allocation, JSONObject candidate) {
+        return same(lease, candidate)
+                && (allocation == null || allocation.isEmpty() || allocation.equals(candidate.optString("allocationId")));
+    }
     String appLabel(JSONObject screen) {
         String pkg = screen.optString("packageName");
         try { return activity.getPackageManager().getApplicationLabel(activity.getPackageManager().getApplicationInfo(pkg, 0)).toString(); }

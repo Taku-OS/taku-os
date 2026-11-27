@@ -535,8 +535,7 @@ class WorkspaceFloatService : Service() {
                 val entries = ChatWorkspacePreviewProtocol.select(catalog, origin.getString("threadId"))
                 for (index in 0 until entries.length()) {
                     val entry = entries.getJSONObject(index)
-                    if (WorkspaceUi.same(origin, entry) &&
-                        (origin.optString("allocationId").isEmpty() || origin.optString("allocationId") == entry.optString("allocationId"))) current = entry
+                    if (WorkspaceUi.sameAllocation(origin, origin.optString("allocationId"), entry)) current = entry
                 }
                 val state = NativeClient.state(origin.getString("threadId"))
                 val requests = state.optJSONArray("requests")

@@ -268,6 +268,15 @@ public final class NativeBridgeRoutingTest {
                 "Successful completion passes the exact turn and success to the ledger");
         complete(thread, "current");
         check(registry.nativeCompletions.size() == 1, "Duplicate completion cannot release a retained workspace");
+        // Code review: a completion whose turn/started was never seen (state rebuilt after a
+        // reconnect) still reaches the ledger and records its result.
+        NativeBridge.event(new JSONObject().put("method", "turn/completed").put("params", new JSONObject()
+                .put("threadId", thread).put("turn", new JSONObject().put("id", "unseen").put("status", "failed")
+                        .put("error", new JSONObject().put("message", "lost start")))));
+        check(registry.nativeCompletions.size() == 2 && registry.nativeCompletions.get(1).equals(thread + " unseen false")
+                        && NativeBridge.state(thread).getJSONObject("completedTurn").getString("id").equals("unseen")
+                        && NativeBridge.state(thread).has("error"),
+                "A completion with no recorded turn still ends the screen's turn and records its result");
         for (String status : new String[]{"failed", "interrupted", "completed"}) {
             start(thread, status);
             if (status.equals("completed")) NativeBridge.stopPhoneTurn(thread, status);

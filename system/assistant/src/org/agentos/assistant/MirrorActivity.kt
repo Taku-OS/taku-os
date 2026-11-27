@@ -668,10 +668,8 @@ class MirrorActivity : Activity() {
             if (WorkspaceUi.same(origin, current)) {
                 val status = current.optString("status")
                 if (!current.getBoolean("admitted")) throw LeaseGone()
-                val observed = current.optString("allocationId").ifEmpty { null }
-                val expected = allocationId
-                if (expected != null && observed != expected) throw LeaseGone()
-                if (expected == null) allocationId = observed
+                if (!WorkspaceUi.sameAllocation(origin, allocationId, current)) throw LeaseGone()
+                if (allocationId == null) allocationId = current.optString("allocationId").ifEmpty { null }
                 if (status == "unavailable" || status == "rebind_required" || status == "stale" || status == "disconnected")
                     throw IOException("SCREEN_REBIND_REQUIRED")
                 return current
@@ -954,7 +952,7 @@ class MirrorActivity : Activity() {
                         return@post
                     }
                     val screen = result?.optJSONObject("screen")?.takeIf {
-                        WorkspaceUi.same(origin, it) && allocationId == it.optString("allocationId") && it.optBoolean("admitted")
+                        WorkspaceUi.sameAllocation(origin, allocationId, it) && it.optBoolean("admitted")
                     }
                     if (screen != null) owner(screen, token)
                     if (stopping && screen != null && screen.optString("controlOwner") == "paused" &&

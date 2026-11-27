@@ -112,6 +112,8 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
     final java.util.Map<String,String> nativeTurns = new java.util.HashMap<>();
     final java.util.List<String> nativeCompletions = new java.util.ArrayList<>();
     void nativeTurnStarted(String thread,String turn) { nativeTurns.put(thread,turn); }
+    final java.util.Set<String> handbackTurns = new java.util.HashSet<>();
+    void nativeTurnStarted(String thread,String turn,boolean handback) { nativeTurnStarted(thread,turn); if(handback)handbackTurns.add(turn); }
     interface CloseDecision { void request(Runnable close); }
     Thread turnEnded(String thread,String turn,boolean successful,CloseDecision decision) {
         nativeCompletions.add(thread+" "+turn+" "+successful);

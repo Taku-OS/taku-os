@@ -143,8 +143,7 @@ internal object WorkspaceCommands {
         val screens = catalog(context, input.getString("threadId")).getJSONArray("screens")
         for (i in 0 until screens.length()) {
             val screen = screens.getJSONObject(i)
-            if (WorkspaceUi.same(input, screen) &&
-                (!input.has("allocationId") || input.getString("allocationId") == screen.optString("allocationId"))) return screen
+            if (WorkspaceUi.sameAllocation(input, input.optString("allocationId"), screen)) return screen
         }
         throw IOException("SCREEN_LEASE_CHANGED")
     }

@@ -1,15 +1,19 @@
 package org.agentos.lab
 
-import java.util.concurrent.SynchronousQueue
+import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 import org.json.JSONObject
 
 internal object WorkspaceJevClose {
     private const val question = "close_intent"
-    private val worker = ThreadPoolExecutor(1, 1, 0L, TimeUnit.SECONDS, SynchronousQueue(), { work ->
+    /**
+     * One decision at a time, in order, and none dropped: a decision lost while another ran left its
+     * screen kept with no answer ever coming (code review). At most one per kept screen is pending.
+     */
+    private val worker = ThreadPoolExecutor(1, 1, 0L, TimeUnit.SECONDS, LinkedBlockingQueue()) { work ->
         Thread(work, "bscreen-jev-close").apply { isDaemon = true }
-    }, ThreadPoolExecutor.DiscardPolicy())
+    }
 
     @JvmStatic
     fun forTurn(thread: String, completed: JSONObject): DedicatedScreens.CloseDecision =
@@ -20,8 +24,9 @@ internal object WorkspaceJevClose {
                     if (allowsClose(utterance)) NativeBridge.applyWorkspaceClose(thread, completed.getString("id"), close)
                 } catch (_: InterruptedException) {
                     Thread.currentThread().interrupt()
-                } catch (_: Exception) {
-                    return@execute
+                } catch (failure: Exception) {
+                    // Undecided means kept: the user can still close the screen themselves.
+                    System.err.println("bscreen jev close: kept after ${failure.javaClass.simpleName}: ${failure.message}")
                 }
             }
         }
@@ -35,6 +40,7 @@ internal object WorkspaceJevClose {
             .put("questions", JSONObject().put(question, closeQuestion()))
         val answer = NativeBridge.decisions.control(request).getJSONObject("answers").getJSONObject(question)
         if (answer.getString("choice") != "close") return false
+        // Re-read only for a "close": Jev may have been switched off or rebound while it decided.
         val current = SystemAi.config()
         return current.getBoolean("enabled") && current.getLong("revision") == before.getLong("revision") &&
             enabledJevModel() == model
@@ -43,10 +49,7 @@ internal object WorkspaceJevClose {
     private fun enabledJevModel(): String? {
         val output = MemoryBridge.command("/system/bin/content", "call", "--user", "0", "--uri",
             "content://org.agentos.assistant.open-access", "--method", "jev/status")
-        val start = output.indexOf("result=")
-        val end = output.lastIndexOf("}]")
-        if (start < 0 || end <= start) return null
-        val envelope = JSONObject(output.substring(start + 7, end).trim())
+        val envelope = MemoryBridge.contentResult(output) ?: return null
         if (!envelope.optBoolean("ok")) return null
         val status = envelope.getJSONObject("result")
         return status.getString("model").takeIf { status.getBoolean("ready") && it.isNotBlank() }

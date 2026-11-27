@@ -214,6 +214,10 @@ public final class ScreenOffCaptureTest {
         check(ScreenGuard.rewakeDue(10_000, 0), "the first off capture re-wakes at once");
         check(!ScreenGuard.rewakeDue(10_500, 10_000), "no re-wake storm on every 200 ms tick");
         check(ScreenGuard.rewakeDue(11_000, 10_000), "re-wakes again after the interval");
+        // Code review: held only while in use, so a screen kept overnight lets the phone sleep.
+        check(!ScreenGuard.idleWakeExpired(1_000 + ScreenGuard.AWAKE_IDLE_MS - 1, 1_000), "kept just inside the idle window");
+        check(ScreenGuard.idleWakeExpired(1_000 + ScreenGuard.AWAKE_IDLE_MS, 1_000), "released once the window passes unused");
+        check(ScreenGuard.AWAKE_IDLE_MS > 60_000, "longer than an ordinary screen-off timeout, so an Agent thinking keeps it");
     }
 
     /** The lock screen's Keyguard sleep token must not stop the screen's Apps: it is always unlocked. */
@@ -247,6 +251,11 @@ public final class ScreenOffCaptureTest {
         check(host.indexOf("keepScreenAwake(ctx,displayId)") > host.indexOf("createVirtualDisplay("), "the lock is taken once the display exists");
         check(host.contains("ScreenGuard.awaitWake(") && host.contains("rewakeScreen()"), "an off-screen capture wakes the screen before failing");
         check(host.contains("screenWake.release()"), "the lock is released when the screen stops");
+        check(host.contains("p[0].equals(\"frame\")){screenUsed();") && host.contains("requireGeneration(p[1]);\n            screenUsed();"),
+                "a viewer's frame and a capture renew the lock");
+        check(host.contains("screenUsed();\n        input.submit("), "host input renews the lock");
+        check(!host.contains("p[0].equals(\"status\")){screenUsed"), "a status poll does not keep the screen awake");
+        check(host.contains("releaseIdleWake();") && host.contains("ScreenGuard.idleWakeExpired("), "an idle screen's lock is released");
         String tools = Files.readString(Path.of("system/assistant/broker/org/agentos/lab/PhoneNativeTools.java"));
         check(tools.contains("PhoneExecutionScreens.captureFailure("), "observe_background maps capture refusals");
     }
