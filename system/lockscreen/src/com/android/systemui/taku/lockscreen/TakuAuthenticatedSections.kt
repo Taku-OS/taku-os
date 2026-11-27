@@ -62,17 +62,21 @@ internal fun View.fadeShown(shown: Boolean) {
 private fun Context.dp(value: Float): Int = (value * resources.displayMetrics.density).toInt()
 
 /**
- * The notification cards (Figma 979:641) below the compact clock, for the authenticated lock screen.
+ * The lock screen's notifications (Figma 979:641), iPhone style. When the lock screen appears they are
+ * collapsed: the tall clock, and the first item resting above the shortcuts. Dragging the notification
+ * area up opens them into the full list under the compact clock ([TakuLockscreenExpansion]); dragging
+ * down closes them. Swiping up from the gesture bar is the system unlock and never reaches the list.
+ *
+ * Authentication only decides the content: notification cards appear once the user has authenticated
+ * (the keyguard-filtered pipeline is empty before), the Dynamic Island's card also while locked.
  *
  * While the lock screen shows without the shade, the stock notification stack is made INVISIBLE: the
  * cards present the same pipeline entries instead, and the stack would otherwise draw (and take
  * touches) over them. Pulling the shade down shows the stock stack again, unchanged. The section also
- * owns the clock size: compact once the user has authenticated, tall while locked
- * ([TakuLockscreenPolicy.clockSize], the same rule the panel's hook applies).
+ * owns the clock size ([TakuLockscreenPolicy.clockSize], the same rule the panel's hook applies).
  *
- * The Dynamic Island's card is pinned above the cards as the list's header ([TakuLockscreenIsland],
- * docs/dynamic-island-lock-screen-spec.md). Activities stay visible while locked, so the list then
- * shows with only that card, under the compact clock.
+ * The Dynamic Island's card is the list's first item ([TakuLockscreenIsland],
+ * docs/dynamic-island-lock-screen-spec.md).
  */
 @SysUISingleton
 class TakuNotificationSection
@@ -85,6 +89,7 @@ constructor(
     private val containerViewModel: SharedNotificationContainerViewModel,
     private val falsingManager: FalsingManager,
     private val island: TakuLockscreenIsland,
+    private val expansion: TakuLockscreenExpansion,
 ) : KeyguardSection() {
     private val viewId = View.generateViewId()
     private var binding: DisposableHandle? = null
@@ -95,7 +100,7 @@ constructor(
 
     override fun addViews(constraintLayout: ConstraintLayout) {
         if (constraintLayout.findViewById<View>(viewId) != null) return
-        val list = TakuNotificationListView(constraintLayout.context).apply {
+        val list = TakuNotificationListView(constraintLayout.context, expansion).apply {
             id = viewId
             visibility = View.INVISIBLE
         }
@@ -137,23 +142,28 @@ constructor(
                         list.submit(notifications.cards.value)
                     }
                 }
+                launch { expansion.progress.collect(list::setProgress) }
                 launch {
-                    // A pinned card needs the compact clock, but only while the list is drawn: dozing
-                    // (AOD) hides the list, so the tall clock stays there.
-                    combine(island.state, keyguardInteractor.isDozing) { state, dozing -> state.card != null && !dozing }
-                        .distinctUntilChanged().collect { pinnedShown ->
-                            TakuLockscreenPolicy.islandCardPinned = pinnedShown
-                            if (keyguardInteractor.isKeyguardShowing.value) {
-                                keyguardClockInteractor.setClockSize(
-                                    TakuLockscreenPolicy.clockSize(keyguardInteractor.isKeyguardDismissible.value))
-                            }
+                    // The clock follows the drag, not authentication.
+                    expansion.expanded.collect {
+                        if (keyguardInteractor.isKeyguardShowing.value) {
+                            keyguardClockInteractor.setClockSize(TakuLockscreenPolicy.clockSize())
                         }
+                    }
                 }
                 launch {
-                    // The cards need authentication; the island's card shows while locked too.
-                    combine(containerViewModel.isOnLockscreenWithoutShade, keyguardInteractor.isKeyguardDismissible,
-                        keyguardInteractor.isDozing, island.state) { onLockscreen, authenticated, dozing, state ->
-                        onLockscreen && !dozing && (authenticated || state.card != null)
+                    // Every time the lock screen appears (wake, lock) it starts collapsed.
+                    combine(keyguardInteractor.isKeyguardShowing, keyguardInteractor.isDozing) { showing, dozing ->
+                        showing && !dozing
+                    }.distinctUntilChanged().collect { awake ->
+                        if (!awake) expansion.collapse(animate = false)
+                    }
+                }
+                launch {
+                    // Whatever content the list has shows with the lock screen; authentication only
+                    // decides that content.
+                    combine(containerViewModel.isOnLockscreenWithoutShade, keyguardInteractor.isDozing) { onLockscreen, dozing ->
+                        onLockscreen && !dozing
                     }.distinctUntilChanged().collect(list::fadeShown)
                 }
                 launch {
@@ -161,13 +171,6 @@ constructor(
                         onLockscreen, state -> onLockscreen && state == StatusBarState.KEYGUARD
                     }.distinctUntilChanged().collect { cardsOwnLockscreen ->
                         sharedNotificationContainer.visibility = if (cardsOwnLockscreen) View.INVISIBLE else View.VISIBLE
-                    }
-                }
-                launch {
-                    keyguardInteractor.isKeyguardDismissible.collect { authenticated ->
-                        if (keyguardInteractor.isKeyguardShowing.value) {
-                            keyguardClockInteractor.setClockSize(TakuLockscreenPolicy.clockSize(authenticated))
-                        }
                     }
                 }
             }
@@ -195,7 +198,7 @@ constructor(
         binding = null
         islandCard = null
         notifications.represented = null
-        TakuLockscreenPolicy.islandCardPinned = false
+        expansion.collapse(animate = false)
         sharedNotificationContainer.visibility = View.VISIBLE
         constraintLayout.findViewById<View>(viewId)?.let(constraintLayout::removeView)
     }

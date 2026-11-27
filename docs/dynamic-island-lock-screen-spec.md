@@ -157,9 +157,10 @@ the metaball necks, anchored to the real camera cutout.
   covers the camera. `cardPosition` is ignored on the lock screen.
 - While the card is shown, the capsule keeps only the disc (padlock, or nothing once the padlock has
   left). This is the lock screen's version of "an open card hides the capsule".
-- A pinned card needs the room below the clock, so the clock is compact while a card is pinned, also
-  when locked. With the card folded and the phone locked, the tall clock returns. While dozing the
-  card is hidden, so the always-on display keeps the tall clock.
+- The card is the first item of the lock screen's list, so it follows the list's collapse and expand
+  ([lock-screen.md 4.5.1](lock-screen.md)): collapsed it rests above the shortcuts under the tall
+  clock, expanded it heads the column under the compact clock. The card no longer changes the clock
+  size.
 
 ### 6.2 When it opens
 
@@ -287,12 +288,12 @@ Third-party callers keep their existing scope: only activities their own UID pub
 
 Nothing here was built into SystemUI or run on an emulator or device. To check there:
 
-1. Locked, screen recording running: padlock in the disc, the card with Stop pinned under the
-   compact clock. Stop works without authentication.
+1. Locked, screen recording running: padlock in the disc, the card with Stop resting above the
+   shortcuts under the tall clock. Stop works without authentication.
 2. Locked, a Live Update from a third-party app: full capsule and card. A card button asks for the
    PIN, then runs. Tapping the card asks for the PIN, then opens the app.
 3. Music playing: Now Playing card with working transport buttons while locked.
-4. Fold the card: the capsule shows the padlock and the activity's pill, and the tall clock returns.
+4. Fold the card: the capsule shows the padlock and the activity's pill.
    Tap the capsule: the card is pinned again.
 5. Face authentication on the lock screen: padlock opens, then the disc shows the activity's glyph.
 6. `lock_screen_allow_private_notifications` off: glyph only, no card, while locked.
@@ -325,8 +326,6 @@ Decided on 2026-11-27.
 
 Open points from the implementation, for a later decision:
 
-- The clock becomes compact whenever a card is pinned, so with music playing the locked screen shows
-  the compact clock. The alternative is to keep the tall clock and place the card at the bottom.
 - Now Playing uses the generic card. A media card with artwork and a scrubber needs a design.
 - A paused session leaves the island (the notification is no longer ongoing). An iPhone keeps Now
   Playing for a while after pausing.

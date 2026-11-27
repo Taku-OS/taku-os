@@ -207,21 +207,18 @@ object TakuLockscreenPolicy {
     const val HIDE_NOTIFICATIONS_UNTIL_AUTHENTICATED = true
 
     /**
-     * The tall clock while locked, the compact one once authenticated, whether or not notifications
-     * exist (the stock rule keys off visible notifications). Used by the panel hook in
-     * NotificationPanelViewController and by [TakuNotificationSection] when authentication changes.
+     * The tall clock while the notifications are collapsed, the compact one while the user drags them
+     * open or they are open ([TakuLockscreenExpansion]). Authentication plays no part: it only decides
+     * what the list may show. The stock rule keys off visible notifications instead. Used by the
+     * panel hook in NotificationPanelViewController and by [TakuNotificationSection].
      */
     @JvmStatic
-    fun clockSize(authenticated: Boolean): ClockSize =
-        if (authenticated || islandCardPinned) ClockSize.SMALL else ClockSize.LARGE
+    fun clockSize(): ClockSize = if (notificationsExpanded) ClockSize.SMALL else ClockSize.LARGE
 
-    /**
-     * An island card is pinned below the clock (a recording, Now Playing). It needs the room, so the
-     * clock is compact even while locked. Set by [TakuNotificationSection]; main thread.
-     */
+    /** Mirror of [TakuLockscreenExpansion.expanded] for the panel hook; main thread. */
     @JvmField
     @Volatile
-    var islandCardPinned = false
+    var notificationsExpanded = false
 
     /** Cards and the Taku button fade in and out over this time. */
     const val FADE_MS = 200L

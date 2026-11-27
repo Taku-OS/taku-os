@@ -200,9 +200,9 @@ HOOKS = {
         ('    private ClockSize computeDesiredClockSizeForSingleShade() {\n'
          '        if (hasVisibleNotifications()) {\n',
          '    private ClockSize computeDesiredClockSizeForSingleShade() {\n'
-         '        // Taku: compact once authenticated, tall while locked, independent of notifications.\n'
+         '        // Taku: tall until the user drags the notifications open, whatever the lock state.\n'
          '        if (isKeyguardShowing()) {\n'
-         '            return TakuLockscreenPolicy.clockSize(mKeyguardStateController.isUnlocked());\n'
+         '            return TakuLockscreenPolicy.clockSize();\n'
          '        }\n'
          '        if (hasVisibleNotifications()) {\n'),
     ],

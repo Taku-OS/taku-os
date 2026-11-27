@@ -969,8 +969,12 @@ checks and stock SystemUI paths as a tap, a swipe or a button press. Every reply
 ```sh
 cmd statusbar lockscreen state
 # {ok, state:{keyguardShowing, authenticated, dozing, available, notificationCount,
-#  clockSize:"large"|"small", lockStatus:{status:"locked"|"unlocked"|null, visible}}}
-# large = tall clock (locked), small = compact (authenticated)
+#  clockSize:"large"|"small", expanded, expansion, lockStatus:{status:"locked"|"unlocked"|null, visible}}}
+# expanded/expansion (0…1) = the notifications pulled open; clockSize follows it: large (tall clock)
+#  while collapsed, which is how the lock screen always appears, small (compact) while open.
+#  Authentication does not change the layout, only what content shows.
+cmd statusbar lockscreen expand                # the user's drag up: compact clock, full list
+cmd statusbar lockscreen collapse              # drag down: tall clock, newest item above the shortcuts
 # available = keyguardShowing && authenticated: only then are cards and Taku shown or operable.
 # lockStatus = the padlock in the Dynamic Island at the camera: closed while locked, open for 1.5 s
 #  after the user authenticates, then null. visible = the lock screen is drawing it now (false under

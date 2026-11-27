@@ -3,7 +3,7 @@
   "repository": "frameworks/base",
   "revision": "7f6de40b6429462d47ba9ba351b99943269c8067",
   "patch": "systemui-lockscreen.patch",
-  "patchSha256": "4612f224b3e3887384f86343c7c78ec4f23074568a6923225123cd09f47e316b",
+  "patchSha256": "3dd33a58ad4f758a5d586488e77621fd3b5c0d180b67df353c636b98ebd0cc98",
   "files": [
     {
       "path": "packages/SystemUI/AndroidManifest.xml",
@@ -54,7 +54,7 @@
     {
       "path": "packages/SystemUI/src/com/android/systemui/shade/NotificationPanelViewController.java",
       "beforeSha256": "772ee07f333ec5109bb53f28f8121390c59c509d33846a4bd76e96d689554dc1",
-      "afterSha256": "e8f05be368ef7fbd6a951e7d9c5482531c7eb9276e5cadeb14092de42d7a4377"
+      "afterSha256": "03e2ea64d3c5329865937fe5bbb071933f6c5f8dda1e6081ec23b38baf4bf7c3"
     },
     {
       "path": "packages/SystemUI/src/com/android/systemui/statusbar/notification/interruption/KeyguardNotificationVisibilityProvider.kt",
@@ -64,7 +64,7 @@
     {
       "path": "packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuAuthenticatedSections.kt",
       "beforeSha256": null,
-      "afterSha256": "8cb4a423e239fbc62534f55a0a02ba0f72980a23f9b669232042409376f312a4",
+      "afterSha256": "9751b92ef4bc62741223d2d838e575e095fd2fa31e87fe9fb07add89a3776788",
       "source": "system/lockscreen/src/com/android/systemui/taku/lockscreen/TakuAuthenticatedSections.kt"
     },
     {
@@ -124,7 +124,7 @@
     {
       "path": "packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuKeyguardBlueprint.kt",
       "beforeSha256": null,
-      "afterSha256": "88af6b8be9a9e9b5fe7b6644e2211539618ca1870077e86610e28583169c937d",
+      "afterSha256": "7b9e5519c8491a9769014811b6f1cb9339f120231f24956296183400e3a9b7cf",
       "source": "system/lockscreen/src/com/android/systemui/taku/lockscreen/TakuKeyguardBlueprint.kt"
     },
     {
@@ -142,8 +142,14 @@
     {
       "path": "packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuLockscreenCommand.kt",
       "beforeSha256": null,
-      "afterSha256": "fa0dbc02132d75d79b7d569b02400a3be680b9925c6ae18584a4b10f73d71b5f",
+      "afterSha256": "9309ec7fa23bd4fb4466db2110251a023c096fcf6cbed9825379f04edf99d1a8",
       "source": "system/lockscreen/src/com/android/systemui/taku/lockscreen/TakuLockscreenCommand.kt"
+    },
+    {
+      "path": "packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuLockscreenExpansion.kt",
+      "beforeSha256": null,
+      "afterSha256": "f87fac3230296ecbc96fc71a8853f62f5f64f01851526b1a9cf0265ef7b490bd",
+      "source": "system/lockscreen/src/com/android/systemui/taku/lockscreen/TakuLockscreenExpansion.kt"
     },
     {
       "path": "packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuLockscreenFonts.kt",
@@ -184,7 +190,7 @@
     {
       "path": "packages/SystemUI/src/com/android/systemui/taku/lockscreen/TakuNotificationListView.kt",
       "beforeSha256": null,
-      "afterSha256": "191f6eb4685d8247696461b7f2036fdef81257236a4cedfbf7aa597615c43163",
+      "afterSha256": "d9458322d1c1ef6d5415449d71bbf70f9519176c536db1b6cbafd5cd43b979bc",
       "source": "system/lockscreen/src/com/android/systemui/taku/lockscreen/TakuNotificationListView.kt"
     },
     {

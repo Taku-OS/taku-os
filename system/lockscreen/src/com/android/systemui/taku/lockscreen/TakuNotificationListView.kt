@@ -5,25 +5,46 @@ import android.graphics.Canvas
 import android.graphics.RenderEffect
 import android.graphics.RenderNode
 import android.view.MotionEvent
+import android.view.VelocityTracker
 import android.view.View
 import android.view.ViewConfiguration
+import android.view.WindowInsets
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import kotlin.math.abs
 
 /**
- * The authenticated lock screen's notification list (Figma 979:641): one flat column of cards, 16 dp
- * apart, scrolling under the bottom bar. The part under the bar is drawn through the same blur and
- * edge refraction as [TakuLockscreenBackgroundDrawable]'s bar, so cards pass beneath it as in the design.
+ * The lock screen's notification list (Figma 979:641): one flat column of items, 16 dp apart,
+ * scrolling under the bottom bar. The part under the bar is drawn through the same blur and edge
+ * refraction as [TakuLockscreenBackgroundDrawable]'s bar, so items pass beneath it as in the design.
  *
- * Touch: the window root turns vertical drags on the lock screen into the shade (down) or unlock
- * (up). The list keeps a gesture only when it starts on a card and the list can scroll that way;
- * everything else (empty space, the bar, a drag past either end) stays with the stock gestures.
+ * Collapsed and expanded, like an iPhone ([TakuLockscreenExpansion], progress 0…1):
+ * - collapsed: the first item rests [STACK_BOTTOM_DP] above the bottom, over the shortcuts; the
+ *   others are hidden behind it, slightly smaller and lower, as a stack;
+ * - while the user drags up the stack fans out, each item moving to its place in the column;
+ * - expanded: the plain column under the compact clock, scrollable.
+ * The column is always laid out expanded; collapsing is translation, scale and alpha only.
+ *
+ * Touch, when there is anything to show: the list takes vertical drags starting anywhere in its area
+ * except the [UNLOCK_ZONE_DP] above the navigation bar. Up opens, down closes. A drag down on the
+ * collapsed list goes back to the window root, which pulls the shade. The expanded list scrolls; a
+ * drag down at its top closes it, and a drag up at its end does nothing (no accidental unlock).
+ * Swipes from the gesture bar go to the shade's own touch handler (`LauncherProxyService` →
+ * `handleExternalTouch`), never through here, so they stay the system unlock. An empty list takes
+ * no touches: a swipe up anywhere is the stock unlock.
  */
-class TakuNotificationListView(context: Context) : ScrollView(context) {
+class TakuNotificationListView(context: Context, private val expansion: TakuLockscreenExpansion) : ScrollView(context) {
     private val density = resources.displayMetrics.density
     private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
-    private val column = LinearLayout(context).apply {
+    /**
+     * While the stack is not fully open the first item is drawn last, on top of the items behind it,
+     * and so it also gets touches first (touch dispatch follows the drawing order).
+     */
+    private val column = object : LinearLayout(context) {
+        init { isChildrenDrawingOrderEnabled = true }
+        override fun getChildDrawingOrder(childCount: Int, drawingPosition: Int): Int =
+            if (progress < 1f) childCount - 1 - drawingPosition else drawingPosition
+    }.apply {
         orientation = LinearLayout.VERTICAL
         val side = dp(16f)
         setPadding(side, 0, side, dp(TakuLockscreenBackgroundDrawable.BAR_HEIGHT_DP))
@@ -140,55 +161,184 @@ class TakuNotificationListView(context: Context) : ScrollView(context) {
 
     // endregion
 
+    // region Collapse and expand
+
+    private var progress = 0f
+
+    /** Items that take part: the island's card when shown, then the notification cards. */
+    private fun items(): List<View> = (0 until column.childCount).map(column::getChildAt).filter { it.visibility != View.GONE }
+
+    /** Where the first item's top rests when collapsed, in column coordinates. */
+    private fun stackTop(first: View): Float =
+        (height - dp(STACK_BOTTOM_DP) - first.height - column.top + scrollY).toFloat()
+
+    /** How far the first item travels between collapsed and expanded: the drag that opens the list. */
+    private fun travel(): Float {
+        val first = items().firstOrNull() ?: return dp(MIN_TRAVEL_DP).toFloat()
+        return maxOf(stackTop(first) - first.top, dp(MIN_TRAVEL_DP).toFloat())
+    }
+
+    /** From [TakuLockscreenExpansion.progress]. */
+    fun setProgress(value: Float) {
+        val reorder = (progress < 1f) != (value < 1f)
+        progress = value
+        if (reorder) column.invalidate()
+        if (value < 1f && scrollY != 0) scrollTo(0, 0)
+        applyProgress()
+    }
+
+    private fun applyProgress() {
+        val shown = items()
+        val first = shown.firstOrNull() ?: return
+        val eased = progress
+        val restTop = stackTop(first)
+        val restBottom = restTop + first.height
+        shown.forEachIndexed { index, item ->
+            // Collapsed: bottom-aligned behind the first item, each a little lower and smaller.
+            val depth = minOf(index, STACK_DEPTH)
+            val collapsedScale = 1f - STACK_SCALE_STEP * depth
+            val collapsedTop = restBottom + dp(STACK_OFFSET_DP) * depth - item.height
+            val collapsedY = collapsedTop - item.top
+            item.pivotY = item.height.toFloat()
+            item.translationY = collapsedY * (1f - eased)
+            val scale = collapsedScale + (1f - collapsedScale) * eased
+            item.scaleX = scale
+            item.scaleY = scale
+            // Only the first item shows when collapsed; the rest appear as the stack fans out. A fully
+            // hidden item is INVISIBLE so it takes no touches behind the first one.
+            item.alpha = if (index == 0) 1f else (eased / FAN_IN).coerceIn(0f, 1f)
+            val visibility = if (item.alpha > 0f) View.VISIBLE else View.INVISIBLE
+            if (item.visibility != visibility) item.visibility = visibility
+        }
+        column.invalidate()
+        invalidate()
+    }
+
+    override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
+        super.onLayout(changed, l, t, r, b)
+        applyProgress()
+    }
+
+    // endregion
+
     // region Touch
 
-    private var claimed = false
-    private var decided = false
+    private enum class Mode { NONE, UNDECIDED, DRAG, SCROLL, CHILD }
+
+    private var mode = Mode.NONE
     private var downY = 0f
     private var downX = 0f
+    private var dragStart = 0f
+    private var velocity: VelocityTracker? = null
+
+    /** Height above the bottom left to the stock gestures: the navigation bar plus [UNLOCK_ZONE_DP]. */
+    private fun unlockZone(): Int =
+        (rootWindowInsets?.getInsets(WindowInsets.Type.navigationBars())?.bottom ?: 0) + dp(UNLOCK_ZONE_DP)
 
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
-        when (event.actionMasked) {
-            MotionEvent.ACTION_DOWN -> {
-                val barTop = height - dp(TakuLockscreenBackgroundDrawable.BAR_HEIGHT_DP)
-                claimed = event.y < barTop && cardAt(event.x, event.y) != null
-                if (!claimed) return false
-                decided = false
-                downX = event.x
-                downY = event.y
-                // Keep the window root from taking the drag before the list knows its direction.
-                if (canScrollVertically(1) || canScrollVertically(-1)) parent?.requestDisallowInterceptTouchEvent(true)
-            }
+        if (event.actionMasked == MotionEvent.ACTION_DOWN) {
+            mode = Mode.NONE
+            if (items().isEmpty() || event.y >= height - unlockZone()) return false
+            mode = Mode.UNDECIDED
+            downX = event.x
+            downY = event.y
+            velocity?.recycle()
+            velocity = VelocityTracker.obtain()
+            // Keep the window root from taking the drag before the list knows its direction.
+            parent?.requestDisallowInterceptTouchEvent(true)
         }
-        if (!claimed) return false
-        val handled = super.dispatchTouchEvent(event)
-        if (event.actionMasked == MotionEvent.ACTION_MOVE && !decided) {
-            val dx = event.x - downX
-            val dy = event.y - downY
-            if (abs(dy) > touchSlop && abs(dy) > abs(dx)) {
-                decided = true
-                // Finger up scrolls content down (direction 1). Past either end, hand the gesture
-                // back so the stock shade (down) or unlock (up) can take it on the next move.
-                if (!canScrollVertically(if (dy < 0) 1 else -1)) parent?.requestDisallowInterceptTouchEvent(false)
-            } else if (abs(dx) > touchSlop) {
-                decided = true
-            }
+        if (mode == Mode.NONE) return false
+        velocity?.addMovement(event)
+        if (mode == Mode.UNDECIDED && event.actionMasked == MotionEvent.ACTION_MOVE) decide(event)
+        val handled = when (mode) {
+            Mode.DRAG -> { drag(event); true }
+            Mode.NONE -> false
+            // Taps and sideways swipes on cards; the expanded list's own scrolling.
+            else -> super.dispatchTouchEvent(event)
         }
-        if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) claimed = false
+        if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) {
+            if (mode == Mode.DRAG) release(event.actionMasked == MotionEvent.ACTION_CANCEL)
+            mode = Mode.NONE
+            velocity?.recycle()
+            velocity = null
+        }
         return handled
     }
 
-    private fun cardAt(x: Float, y: Float): View? {
-        val cy = y + scrollY - column.top
-        val cx = x - column.left
-        for (index in 0 until column.childCount) {
-            val child = column.getChildAt(index)
-            if (cx >= child.left && cx < child.right && cy >= child.top && cy < child.bottom) return child
+    private fun decide(event: MotionEvent) {
+        val dx = event.x - downX
+        val dy = event.y - downY
+        if (abs(dx) > touchSlop && abs(dx) > abs(dy)) {
+            mode = Mode.CHILD
+            return
         }
-        return null
+        if (abs(dy) <= touchSlop || abs(dy) <= abs(dx)) return
+        val open = progress >= 1f
+        mode = when {
+            // Collapsed, finger down: the shade's pull-down, as before.
+            progress <= 0f && dy > 0 -> Mode.NONE
+            // Open and scrolled: the list scrolls; at its top, a drag down closes it.
+            open && (dy < 0 || canScrollVertically(-1)) -> Mode.SCROLL
+            else -> Mode.DRAG
+        }
+        when (mode) {
+            Mode.NONE -> {
+                cancelChildren(event)
+                parent?.requestDisallowInterceptTouchEvent(false)
+            }
+            Mode.DRAG -> {
+                cancelChildren(event)
+                dragStart = progress
+                downY = event.y
+                expansion.beginDrag()
+            }
+            else -> {}
+        }
+    }
+
+    private fun drag(event: MotionEvent) {
+        if (event.actionMasked != MotionEvent.ACTION_MOVE) return
+        expansion.drag(dragStart + (downY - event.y) / travel())
+    }
+
+    /** Fling or past halfway opens, else it closes; a cancelled gesture goes back to where it began. */
+    private fun release(canceled: Boolean) {
+        val tracker = velocity
+        tracker?.computeCurrentVelocity(1000)
+        val speed = tracker?.yVelocity ?: 0f
+        val fling = dp(FLING_DP_PER_S)
+        val open = when {
+            canceled -> dragStart >= 1f
+            speed < -fling -> true
+            speed > fling -> false
+            else -> progress >= OPEN_THRESHOLD
+        }
+        expansion.settle(open)
+    }
+
+    private fun cancelChildren(event: MotionEvent) {
+        val cancel = MotionEvent.obtain(event).apply { action = MotionEvent.ACTION_CANCEL }
+        super.dispatchTouchEvent(cancel)
+        cancel.recycle()
     }
 
     // endregion
 
     private fun dp(value: Float) = (value * density).toInt()
+
+    companion object {
+        /** The collapsed first item's bottom, above the screen's bottom: just over the shortcuts. */
+        const val STACK_BOTTOM_DP = 112f
+        /** Each item behind it sits this much lower and 5 % smaller, at most two deep. */
+        const val STACK_OFFSET_DP = 8f
+        const val STACK_SCALE_STEP = 0.05f
+        const val STACK_DEPTH = 2
+        /** The hidden items are fully visible once the list is this far open. */
+        const val FAN_IN = 0.35f
+        /** Above the navigation bar, a drag starting this low is left to the stock unlock. */
+        const val UNLOCK_ZONE_DP = 40f
+        const val MIN_TRAVEL_DP = 160f
+        const val OPEN_THRESHOLD = 0.4f
+        const val FLING_DP_PER_S = 600f
+    }
 }

@@ -50,6 +50,10 @@ class Device:
                 return json.loads(line)
         raise RuntimeError(f'cmd statusbar lockscreen unavailable: {raw!r}')
 
+    def size(self):
+        match = re.search(r'(\d+)x(\d+)', self.shell('wm size', check=False).splitlines()[-1])
+        return (int(match.group(1)), int(match.group(2))) if match else (1080, 2400)
+
     def screenshot(self, name):
         path = self.out / f'{name}.png'
         path.write_bytes(subprocess.run(['adb', '-s', self.serial, 'exec-out', 'screencap', '-p'],
@@ -222,7 +226,9 @@ def authenticated_suite(device, checks):
         state = device.lockscreen('state')['state']
         checks.check('keyguard showing and authenticated (swipe lock)',
                      state.get('keyguardShowing') and state.get('authenticated'), state)
-        checks.check('compact clock when authenticated', state.get('clockSize') == 'small', state)
+        # Authentication decides content, not layout: the lock screen appears collapsed, tall clock.
+        checks.check('tall clock on appear, also when authenticated', state.get('clockSize') == 'large', state)
+        checks.check('notifications collapsed on appear', state.get('expanded') is False, state)
         checks.check('swipe lock: no padlock in the island', state.get('lockStatus', {}).get('status') is None, state)
         date_suite(device, checks, 'authenticated')
         listing = device.lockscreen('notifications')
@@ -238,10 +244,56 @@ def authenticated_suite(device, checks):
             remaining = [n['key'] for n in device.lockscreen('notifications').get('notifications', [])]
             checks.check('dismiss removes the card', dismissed.get('ok') and card['key'] not in remaining, [dismissed, remaining])
         checks.check('unknown key rejected', device.lockscreen('open', 'no|such|key').get('error') == 'NOT_FOUND')
+        expansion_suite(device, checks)
         taku = device.lockscreen('taku')
         time.sleep(4)
         top = device.top_activity()
         checks.check('Taku button opens Taku Home', taku.get('ok') and 'org.agentos.agent' in top, [taku, top])
+    finally:
+        device.shell(f'locksettings set-disabled {disabled}', check=False)
+
+
+def expansion_suite(device, checks):
+    """Dragging the notification area opens and closes it; the clock follows. Needs a card on screen."""
+    device.shell(f"cmd notification post -S bigtext -t 'Taku stack' {TEST_TAG}-stack 'Second card'")
+    time.sleep(1)
+    width, height = device.size()
+    # A drag up from the collapsed card (over the shortcuts) opens the list.
+    device.shell(f'input swipe {width // 2} {int(height * 0.80)} {width // 2} {int(height * 0.45)} 300')
+    time.sleep(1)
+    state = device.lockscreen('state')['state']
+    checks.check('drag up opens the notifications', state.get('expanded') is True and state.get('clockSize') == 'small'
+                 and state.get('keyguardShowing'), state)
+    print(f"INFO screenshot {device.screenshot('expanded')}")
+    device.shell(f'input swipe {width // 2} {int(height * 0.40)} {width // 2} {int(height * 0.75)} 300')
+    time.sleep(1)
+    state = device.lockscreen('state')['state']
+    checks.check('drag down closes them, tall clock', state.get('expanded') is False and state.get('clockSize') == 'large', state)
+    opened = device.lockscreen('expand')
+    time.sleep(1)
+    state = device.lockscreen('state')['state']
+    checks.check('expand command opens them', opened.get('ok') and state.get('expanded') is True, [opened, state])
+    closed = device.lockscreen('collapse')
+    time.sleep(1)
+    state = device.lockscreen('state')['state']
+    checks.check('collapse command closes them', closed.get('ok') and state.get('clockSize') == 'large', [closed, state])
+    device.shell(f'cmd notification cancel {TEST_TAG}-stack', check=False)
+
+
+def bottom_unlock_suite(device, checks):
+    """With no credential, a swipe up from the gesture bar is the system unlock and lands on Home."""
+    disabled = device.shell('locksettings get-disabled', check=False)
+    try:
+        device.shell('locksettings set-disabled false', check=False)
+        device.lock()
+        width, height = device.size()
+        device.shell(f'input swipe {width // 2} {height - 4} {width // 2} {int(height * 0.55)} 250')
+        time.sleep(3)
+        state = device.lockscreen('state')
+        top = device.top_activity()
+        checks.check('gesture bar swipe unlocks to Home', state.get('error') == 'KEYGUARD_NOT_SHOWING'
+                     or not state.get('state', {}).get('keyguardShowing'), [state, top])
+        checks.check('lands on Taku Home', 'org.agentos.agent' in top, top)
     finally:
         device.shell(f'locksettings set-disabled {disabled}', check=False)
 
@@ -331,6 +383,7 @@ def main():
     shortcuts_suite(device, checks)
     authenticated_suite(device, checks)
     island_suite(device, checks)
+    bottom_unlock_suite(device, checks)
     if args.first_unlock:
         first_unlock_suite(device, checks)
     failed = [r for r in checks.results if r['pass'] is False]

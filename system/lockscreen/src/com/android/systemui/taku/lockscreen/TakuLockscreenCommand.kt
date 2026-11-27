@@ -34,6 +34,8 @@ constructor(
     private val island: TakuLockscreenIsland,
     private val cards: TakuNotificationSection,
     private val bouncer: TakuBouncerSection,
+    private val expansion: TakuLockscreenExpansion,
+    private val keyguardInteractor: com.android.systemui.keyguard.domain.interactor.KeyguardInteractor,
     @Main private val mainExecutor: Executor,
     @Background backgroundExecutor: Executor,
 ) {
@@ -74,12 +76,23 @@ constructor(
             if (args.size == 3 && index != null) onMain { notifications.action(args[1], index).json() } else usage()
         }
         "taku" -> if (args.size == 1) onMain { notifications.openTaku().json() } else usage()
+        // The notification area's drag: open (compact clock, full list) or closed (tall clock).
+        "expand", "collapse" -> if (args.size == 1) onMain {
+            if (!keyguardInteractor.isKeyguardShowing.value) TakuLockscreenNotifications.Result.error("KEYGUARD_NOT_SHOWING").json()
+            else {
+                if (args[0] == "expand") expansion.expand() else expansion.collapse()
+                TakuLockscreenNotifications.Result.OK.json().put("expanded", args[0] == "expand")
+            }
+        } else usage()
         "shortcuts" -> shortcutsCommand(args.drop(1))
         else -> usage()
     }
 
     /** The lock screen's state plus what the island shows on it. */
     private fun state(): JSONObject = notifications.stateJson().put("lockStatus", lockStatus.stateJson())
+        // Pulled open by the user (or `expand`); independent of `authenticated`.
+        .put("expanded", expansion.expanded.value)
+        .put("expansion", expansion.progress.value.toDouble())
         // The Dynamic Island on the lock screen: the activity shown, and its capsule and card as drawn.
         .put("island", island.stateJson().put("capsule", lockStatus.capsuleJson() ?: JSONObject.NULL)
             .put("cardView", cards.islandCardJson() ?: JSONObject.NULL))
@@ -112,7 +125,7 @@ constructor(
         const val COMMAND = "lockscreen"
         const val FALLBACK_COMMAND = "taku-lockscreen"
         private const val MAIN_TIMEOUT_SECONDS = 5L
-        const val USAGE = "lockscreen state | notifications | open KEY | dismiss KEY | action KEY INDEX | taku" +
+        const val USAGE = "lockscreen state | notifications | expand | collapse | open KEY | dismiss KEY | action KEY INDEX | taku" +
             " | shortcuts [list] | shortcuts set SLOT SHORTCUT | shortcuts clear SLOT" +
             " | shortcuts app [COMPONENT|default]"
     }

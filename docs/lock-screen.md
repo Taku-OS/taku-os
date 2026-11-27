@@ -31,7 +31,7 @@ unless stated otherwise.
 | --- | --- | --- |
 | **Before first unlock** (after reboot, credential-encrypted storage locked) | Date, clock, shortcuts. | Biometrics are unavailable until the PIN/pattern/password is entered once; Taku apps cannot run yet. |
 | **Locked** | Date, large clock (frame 0 clock), shortcuts. | Notifications are hidden whatever the stock lock-screen notification settings say. |
-| **Authenticated on the lock screen** | Date, compact clock, notification cards, shortcuts, Taku button (frames 1–6). | Reached with face unlock while "skip lock screen" (`Settings.Secure.FACE_UNLOCK_DISMISSES_KEYGUARD`) is off. Taku ships with it off, so face unlock keeps the user on the lock screen like Face ID. |
+| **Authenticated on the lock screen** | Date, tall clock, the newest notification resting above the shortcuts, shortcuts, Taku button. Dragging the notification area up opens the list under the compact clock (frames 1–6). | Reached with face unlock while "skip lock screen" (`Settings.Secure.FACE_UNLOCK_DISMISSES_KEYGUARD`) is off. Taku ships with it off, so face unlock keeps the user on the lock screen like Face ID. |
 | **Bouncer** | Stock PIN / pattern / password screen in the Taku style (4.9): the lock wallpaper under a dark overlay, liquid-glass controls. | Shown on swipe-up when not authenticated, after face failure or lockout, and before any action that needs authentication. A correct credential runs the pending action (the notification or app that asked), else shows the screen underneath (Taku Home or the app that was open), with no intermediate lock screen. |
 | **Fingerprint** | Stock behaviour: a successful fingerprint goes straight to Home. | The fingerprint icon stays at the sensor position. |
 | **Always-on display** | Stock. | Out of scope for this design. |
@@ -40,7 +40,13 @@ Interactions:
 
 - Tapping a notification while locked shows the bouncer, then opens the app. When already authenticated it opens directly (apps that may show over the lock screen open directly in both cases).
 - The Taku button exists only in the authenticated state.
-- Swipe up from the authenticated state dismisses the keyguard to Taku Home.
+- Authentication decides what content shows, never the layout. Every time the lock screen appears it
+  is collapsed (tall clock); dragging the notification area up expands it (compact clock, full list)
+  and dragging down collapses it (4.5.1).
+- Swiping up from the gesture bar at the very bottom is the system unlock: straight to Taku Home (or
+  the app underneath) when no authentication is needed, else the bouncer. With notifications on
+  screen, a swipe up elsewhere opens them instead of unlocking. With none, a swipe up anywhere is the
+  stock unlock.
 
 ## 3. Architecture
 
@@ -140,10 +146,12 @@ Same pattern as the Dynamic Island (`system/island`, `image/island`):
   clock digits remain Latin 0–9 and both 12/24-hour modes zero-pad the hour (`09:51`).
 - The morph hooks the existing blueprint large/small-clock transition, only for TAKU; stock clock
   transitions remain unchanged.
-- Size follows authentication, not notifications (phase 2). The clock is tall while locked and compact
-  once authenticated, even with no notifications. `TakuLockscreenPolicy.clockSize` is applied by the
-  panel hook (`NotificationPanelViewController.computeDesiredClockSizeForSingleShade`) and by the
-  notification section when authentication changes.
+- Size follows the notification area's expansion, not authentication and not whether notifications
+  exist (4.5.1). The clock is tall whenever the lock screen appears and while the notifications are
+  collapsed; it turns compact as soon as a drag up starts (so the morph runs with the finger) and
+  stays compact while they are open. `TakuLockscreenPolicy.clockSize()` is applied by the panel hook
+  (`NotificationPanelViewController.computeDesiredClockSizeForSingleShade`) and by the notification
+  section when the expansion changes.
 - Source preparation and native test harness: `system/lockscreen/motion/README.md`.
 
 ### 4.4 Shortcuts
@@ -191,8 +199,8 @@ Same pattern as the Dynamic Island (`system/island`, `image/island`):
   - Expanded card (`979:642`): used for conversations (MessagingStyle) and notifications with buttons.
     It has an app header, then a message panel with the sender picture, sender, time, conversation
     name and up to 4 lines of text, then up to two buttons. The last button is primary.
-- Cards start 32 dp below the compact clock and scroll under the bottom bar. The slice under the bar
-  gets the same blur and edge refraction as the wallpaper.
+- Expanded, cards start 32 dp below the compact clock and scroll under the bottom bar. The slice under
+  the bar gets the same blur and edge refraction as the wallpaper. Collapsed, see 4.5.1.
 - Actions use the stock paths:
   - Tap goes through `NotificationActivityStarter.onNotificationClicked`. That handles the content
     intent, auto-cancel, bubbles, work challenge and click statistics.
@@ -204,10 +212,37 @@ Same pattern as the Dynamic Island (`system/island`, `image/island`):
 - While the lock screen shows without the shade, the stock notification stack is made INVISIBLE,
   because it sits above the keyguard views and would draw and take touches over the cards. Pulling the
   shade down shows the stock stack, unchanged.
-- Touch: on the lock screen the window root turns vertical drags into the shade (down) or unlock (up).
-  The list keeps a gesture only when it starts on a card and the list can scroll that way. Empty
-  space, the bar zone and drags past either end of the list stay with the stock gestures. Taps and
-  buttons pass the stock falsing check.
+- Taps and buttons pass the stock falsing check.
+
+#### 4.5.1 Collapsed and expanded (iPhone behaviour)
+
+The list's items are the Dynamic Island's card (when pinned) followed by the notification cards.
+Authentication only decides which of them exist: notification cards appear once the user has
+authenticated, the island card also while locked.
+
+| State | Clock | Items |
+| --- | --- | --- |
+| Collapsed (whenever the lock screen appears) | Tall | The first item rests with its bottom 112 dp above the screen's bottom, just over the shortcuts. The others are hidden behind it. |
+| Dragging up | Compact (switches when the drag starts) | The stack fans out: each item moves from behind the first to its place in the column; the hidden ones are fully shown at 35 % open. Behind the first item they sit 8 dp lower and 5 % smaller per step, at most two deep. |
+| Expanded | Compact | The plain column under the compact clock, scrollable. |
+
+- Gestures on the list's area (`TakuNotificationListView`), when it has any item:
+  - drag up: opens, following the finger over the first item's travel (at least 160 dp);
+  - drag down while open or partly open: closes; on the open list only once it is scrolled to the top;
+  - drag down while collapsed: handed back to the window root, which pulls the shade down as before;
+  - drag up on the open list at its end: nothing, so it never unlocks by accident;
+  - release: a fling (600 dp/s) decides; otherwise it opens past 40 %; the settle takes up to 380 ms;
+  - sideways swipes and taps go to the cards as before.
+- Not the list: the bottom 40 dp above the navigation bar, and the gesture bar itself. The gesture bar's
+  swipes reach the shade's touch handler directly (`LauncherProxyService.onStatusBarTouchEvent` →
+  `ShadeViewController.handleExternalTouch`) and stay the system unlock. An empty list takes no
+  touches.
+- The lock screen resets to collapsed whenever it goes away or the screen turns off.
+- Model: `TakuLockscreenExpansion` (progress 0…1 and `expanded`), shared by the drag, the clock and the
+  Agent commands. The column is always laid out expanded; collapsing is translation, scale and alpha.
+- Agents: `cmd statusbar lockscreen expand|collapse`; `state.expanded`, `state.expansion`.
+- Not yet: the iPhone's "Notification Center" heading and clear button, grouped stacks per app, and
+  the rubber-band pull of the whole lock screen on a drag down.
 
 ### 4.6 Taku AI button (authenticated state)
 
@@ -285,7 +320,8 @@ Same pattern as the Dynamic Island (`system/island`, `image/island`):
 | Clock face | `settings get/put secure lock_screen_custom_clock_face` |
 | Face unlock stays on lock screen | `settings get/put secure face_unlock_dismisses_keyguard` |
 | Lock-screen notification policy (stock) | `settings ... secure lock_screen_show_notifications`, `lock_screen_allow_private_notifications`, `lock_screen_show_silent_notifications` |
-| Lock-screen state | `cmd statusbar lockscreen state` |
+| Lock-screen state | `cmd statusbar lockscreen state` (`expanded`, `expansion` 0…1, `clockSize`) |
+| Expand / collapse the notifications (the drag) | `cmd statusbar lockscreen expand`, `collapse` (error `KEYGUARD_NOT_SHOWING`) |
 | Unlock screen (bouncer) style | `cmd statusbar lockscreen state` → `bouncer {visible, styled, input:"pin"\|"pattern"\|"password"\|null, glassControls, wallpaper}`; the input follows `locksettings` (`locksettings set-pin`, `set-pattern`, `set-password`) |
 | Island activities on the lock screen | `cmd statusbar lockscreen state` → `island {key, redacted, card, capsule, cardView}`; `cmd statusbar island state` → `presentation.surface`, `presentation.lockScreen`; setting `cmd statusbar island setLockScreen 0\|1` (`settings get global taku_island_lock_screen`) |
 | Lock status in the island | `cmd statusbar lockscreen state` → `lockStatus {status, visible}`; after unlock `cmd statusbar island state` → `presentation.lockStatus`, `lockStatusInCapsule` |

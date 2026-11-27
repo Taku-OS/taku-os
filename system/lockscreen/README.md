@@ -68,6 +68,15 @@ emergency call and accessibility all stay upstream code.
 - This is the first lock-screen source that calls `system/island` code. The image builds already
   apply the island patch first.
 
+## Collapsed and expanded notifications
+
+The lock screen appears collapsed: tall clock, the first item resting above the shortcuts. Dragging
+the notification area up opens the list under the compact clock; dragging down closes it.
+`TakuLockscreenExpansion` holds the progress and drives the clock (`TakuLockscreenPolicy.clockSize()`,
+also in the `NotificationPanelViewController` hook); authentication only decides the content. The
+gesture bar's swipe stays the system unlock. Spec: `docs/lock-screen.md` 4.5.1. Not built into
+SystemUI or run on an emulator.
+
 ## Island activities on the lock screen
 
 Spec: [docs/dynamic-island-lock-screen-spec.md](../../docs/dynamic-island-lock-screen-spec.md).
@@ -78,9 +87,9 @@ Spec: [docs/dynamic-island-lock-screen-spec.md](../../docs/dynamic-island-lock-s
 - `TakuLockStatusSection` draws the capsule: the padlock in the disc and the activity in the pill,
   stopping 12 dp before the status icons. While the activity's card is pinned, the capsule keeps only
   the padlock.
-- `TakuNotificationSection` pins the island's card (`IslandLockScreenCard`) as the header of
-  `TakuNotificationListView`. The list therefore also shows while locked, with only that card, and
-  the clock is compact while a card is pinned (`TakuLockscreenPolicy.islandCardPinned`).
+- `TakuNotificationSection` pins the island's card (`IslandLockScreenCard`) as the first item of
+  `TakuNotificationListView`, so it also shows while locked and follows the list's collapse and
+  expand.
 - `TakuLockscreenNotifications.represented` leaves the notification the island shows out of the cards
   and out of `cmd statusbar lockscreen notifications`.
 - `TakuLockscreenIsland` carries touches to the island as ordinary island operations after the
