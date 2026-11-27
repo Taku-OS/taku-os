@@ -254,7 +254,7 @@ public final class NativeBridgeRoutingTest {
         NativeBridge.setPhonePermission(thread, "readOnly");
         int request = 820;
         int before = PhoneNativeTools.executions.get();
-        for (String tool : new String[]{"notebook_recall", "notebook_query", "notebook_lists"}) {
+        for (String tool : new String[]{"notebook_recall", "notebook_read_video", "notebook_query", "notebook_lists"}) {
             int id = request++;
             NativeBridge.request(server, call(id, thread, turn, "taku_phone__" + tool, new JSONObject()));
             awaitReply(server, id);
@@ -266,7 +266,7 @@ public final class NativeBridgeRoutingTest {
             check(!server.replies.get(id).getBoolean("success"), tool + " is blocked in read-only conversations");
         }
         awaitCleanup();
-        check(PhoneNativeTools.executions.get() == before + 3, "Only Notebook reads reached the runtime");
+        check(PhoneNativeTools.executions.get() == before + 4, "Only Notebook reads reached the runtime");
         NativeBridge.setPhonePermission(thread, "ask");
         int open = request++;
         JSONObject source = new JSONObject().put("id", "a".repeat(64)).put("destination", "source");
@@ -276,7 +276,7 @@ public final class NativeBridgeRoutingTest {
                 && pending.getJSONObject("params").getString("reason").contains("original post"),
                 "The approval describes the actual Notebook launch");
         NativeBridge.respond(key(thread), new JSONObject().put("decision", "decline"));
-        check(!server.replies.get(open).getBoolean("success") && PhoneNativeTools.executions.get() == before + 3,
+        check(!server.replies.get(open).getBoolean("success") && PhoneNativeTools.executions.get() == before + 4,
                 "Declining opening a Notebook source never launches it");
         complete(thread, turn);
         PhoneNativeTools.executions.set(before);

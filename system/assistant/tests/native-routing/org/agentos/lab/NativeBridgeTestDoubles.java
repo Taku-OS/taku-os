@@ -204,3 +204,6 @@ final class AgentSkills {
     static JSONArray selected(String thread) {return new JSONArray();}
 }
 final class SkillUninstall {static void recover(CodexAppServer server) {}}
+final class NotebookBridge {
+    static void refreshReferenceGrants(JSONObject thread) {}
+}

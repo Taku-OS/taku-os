@@ -68,15 +68,17 @@ public final class NotebookProvider extends ContentProvider {
                     break;
                 }
                 case "recall": {
-                    requireKeys(input, "limit", "category", "query", "purpose");
+                    requireKeys(input, "limit", "category", "query", "queryAliases", "purpose");
                     int limit = recallLimit(input);
                     String category = optionalString(input, "category");
                     String query = optionalString(input, "query");
                     if (input.has("purpose")) {
-                        if (!"pose_reference".equals(input.opt("purpose"))) return error("INVALID_ARGUMENT");
+                        if (!"pose_reference".equals(input.opt("purpose")) || input.has("queryAliases")) {
+                            return error("INVALID_ARGUMENT");
+                        }
                         data = recallPoseReferences(category, query, limit);
                     } else {
-                        data = entriesJson(store.recall(category, query, limit), limit);
+                        data = entriesJson(store.recall(category, query, recallAliases(input), limit), limit);
                     }
                     break;
                 }
@@ -141,6 +143,18 @@ public final class NotebookProvider extends ContentProvider {
                     }
                     NotebookPose.open(getContext(), requireString(input, "id"));
                     data = new JSONObject().put("launched", true);
+                    break;
+                }
+                case "reference": {
+                    requireKeys(input, "id");
+                    NotebookStore.Entry entry = store.get(requireString(input, "id"));
+                    if (entry == null) return error("ENTRY_NOT_FOUND");
+                    String viewer = "org.agentos.agent";
+                    if (getContext().getPackageManager().checkSignatures(viewer, getContext().getPackageName())
+                            != PackageManager.SIGNATURE_MATCH) return error("REFERENCE_VIEWER_UNAVAILABLE");
+                    // One read-only image URI, no access to the library or unrelated photos.
+                    getContext().grantUriPermission(viewer, entry.imageUri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    data = entry.toJson();
                     break;
                 }
                 case "get":
@@ -435,6 +449,20 @@ public final class NotebookProvider extends ContentProvider {
 
     private static String optionalString(JSONObject input, String key) throws JSONException {
         return input.has(key) ? requireString(input, key) : "";
+    }
+
+    private static List<String> recallAliases(JSONObject input) throws JSONException {
+        if (!input.has("queryAliases")) return List.of();
+        JSONArray values = input.getJSONArray("queryAliases");
+        if (values.length() > 3) throw new JSONException("Too many query aliases");
+        List<String> aliases = new ArrayList<>(values.length());
+        for (int i = 0; i < values.length(); i++) {
+            if (!(values.get(i) instanceof String phrase) || phrase.isBlank() || phrase.length() > 160) {
+                throw new JSONException("Invalid query alias");
+            }
+            aliases.add(phrase);
+        }
+        return aliases;
     }
 
     private static String nullableString(JSONObject input, String key) throws JSONException {
