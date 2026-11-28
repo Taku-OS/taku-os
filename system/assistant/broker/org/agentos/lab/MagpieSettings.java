@@ -126,8 +126,18 @@ final class MagpieSettings {
   config.put("groups",groups).put("scenes",bindings).put("updated_at",System.currentTimeMillis()).put("updated_by","taku");SystemAi.SETTINGS.put(SystemAiSettings.CONFIG,config.toString());sync();return target;
  }
  static String scene(String scene)throws Exception{String raw=SystemAi.SETTINGS.get(SCENES);return raw==null?"":new JSONObject(raw).optString(scene,"");}
- static String binding(String app,String role)throws Exception{
-  String raw=SystemAi.SETTINGS.get(SCENES);if(raw==null)return "";JSONObject b=new JSONObject(raw);String scene=app.equals("ime")&&role.equals("image")?"ime.vision":app.equals("org.agentos.assistant")&&role.equals("image")?"screen":app+"."+role;return b.optString(scene,"");
+ static String binding(String app, String role) throws Exception {
+  String raw = SystemAi.SETTINGS.get(SCENES);
+  if (raw == null) return "";
+  JSONObject bindings = new JSONObject(raw);
+  String scene = app + "." + role;
+  if ("image".equals(role)) {
+   if ("ime".equals(app)) scene = "ime.vision";
+   if ("org.agentos.assistant".equals(app)) scene = "screen";
+  }
+  String route = bindings.optString(scene, "");
+  if (route.isEmpty() && "org.agentos.notebook.image".equals(scene)) return bindings.optString("screen", "");
+  return route;
  }
  static String hash(File f)throws Exception{
   return hashBytes(Files.readAllBytes(f.toPath()));

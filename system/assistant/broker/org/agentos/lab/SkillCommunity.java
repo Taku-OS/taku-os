@@ -31,19 +31,6 @@ final class SkillCommunity {
         if(all.length()>=10)throw new IOException("Source limit reached");
         all.put(source(id,repo,repo,path).put("private",privateRepo));TaskBroker.write(new File(HarnessContext.store().root,"skill-sources.json"),all.toString());
     }
-    private static HttpURLConnection openConnection(URL url) throws Exception {
-        // The broker runs as root, outside Android VpnService app routing. Use the same
-        // private phone-local proxy setting as the native worker for community downloads.
-        File setting = new File("/data/local/agentos/network-proxy");
-        if (!setting.isFile()) return (HttpURLConnection) url.openConnection();
-        URI endpoint = new URI(TaskBroker.read(setting).trim());
-        if (!"http".equals(endpoint.getScheme()) || endpoint.getHost() == null
-                || endpoint.getPort() < 1 || endpoint.getPort() > 65535 || endpoint.getUserInfo() != null)
-            throw new IOException("Community proxy configuration is invalid");
-        Proxy proxy = new Proxy(Proxy.Type.HTTP, new InetSocketAddress(endpoint.getHost(), endpoint.getPort()));
-        return (HttpURLConnection) url.openConnection(proxy);
-    }
-
     private static String encoded(String value) throws Exception {return URLEncoder.encode(value,"UTF-8").replace("+","%20");}
     private static byte[] fetch(JSONObject source,String location,int limit) throws Exception {
         return fetch(source,location,limit,"application/vnd.github+json");
@@ -60,7 +47,7 @@ final class SkillCommunity {
         for(int redirect=0;redirect<4;redirect++) {
             if(!url.getProtocol().equals("https")||url.getUserInfo()!=null||(url.getPort()!=-1&&url.getPort()!=443)||!java.util.Arrays.asList("api.github.com","codeload.github.com","github.com","raw.githubusercontent.com").contains(url.getHost()))
                 throw new CommunityError("Unsupported community host");
-            HttpURLConnection connection=openConnection(url);
+            HttpURLConnection connection=PhoneNetwork.openConnection(url);
             connection.setConnectTimeout(12000);connection.setReadTimeout(20000);connection.setInstanceFollowRedirects(false);
             connection.setRequestProperty("User-Agent","Taku-Skills/1");connection.setRequestProperty("Accept",accept);
             if(token!=null)connection.setRequestProperty("Authorization","Bearer "+token);

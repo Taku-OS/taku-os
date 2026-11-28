@@ -1,0 +1,78 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="org.agentos.notebook" android:versionCode="50" android:versionName="0.1.49">
+    <uses-sdk android:minSdkVersion="36" android:targetSdkVersion="36" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="org.agentos.assistant.permission.USE_AI" />
+    <queries>
+        <provider android:authorities="org.agentos.ai" />
+        <provider android:authorities="org.agentos.assistant.permissions" />
+        <provider android:authorities="org.agentos.environment.arrival" />
+        <package android:name="com.android.systemui" />
+        <package android:name="org.agentos.assistant" />
+        <package android:name="org.agentos.agent" />
+        <package android:name="com.twitter.android" />
+        <package android:name="com.xingin.xhs" />
+        <package android:name="com.instagram.android" />
+        <package android:name="com.google.android.youtube" />
+        <package android:name="com.zhiliaoapp.musically" />
+        <package android:name="com.ss.android.ugc.trill" />
+        <package android:name="com.facebook.katana" />
+        <package android:name="com.facebook.lite" />
+        <package android:name="org.lineageos.jelly" />
+        <package android:name="com.android.chrome" />
+        <package android:name="org.chromium.chrome" />
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.APP_BROWSER" />
+        </intent>
+    </queries>
+    <application android:label="Taku Notebook" android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round"
+        android:theme="@android:style/Theme.Material.Light.NoActionBar" android:usesCleartextTraffic="false">
+        <activity android:name=".NotebookSetupActivity" android:exported="true" />
+        <activity android:name=".NotebookLibraryActivity" android:exported="false"
+            android:enableOnBackInvokedCallback="true" />
+        <activity-alias android:name=".NotebookLauncher"
+            android:targetActivity=".NotebookLibraryActivity" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity android:name=".NotebookActionActivity" android:exported="false" />
+        <activity android:name=".NotebookArrivalActionActivity" android:exported="false"
+            android:excludeFromRecents="true" android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+        <receiver android:name=".NotebookPlaceReminderReceiver" android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+        <receiver android:name=".NotebookArrivalReceiver" android:exported="true"
+            android:permission="org.agentos.permission.SEND_LOCATION_ARRIVAL">
+            <intent-filter>
+                <action android:name="org.agentos.environment.arrival.AVAILABLE" />
+            </intent-filter>
+        </receiver>
+        <service android:name=".NotebookArrivalJob" android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+        <service android:name=".NotebookSourceJob" android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+        <service android:name=".NotebookFilingJob" android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+        <service android:name=".NotebookScreenshotService" android:exported="true"
+            android:label="Taku Notebook screenshots" android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data android:name="android.accessibilityservice" android:resource="@xml/screenshot_access" />
+        </service>
+        <provider android:name=".NotebookProvider" android:authorities="org.agentos.notebook"
+            android:exported="true">
+            <grant-uri-permission android:pathPrefix="/images/" />
+        </provider>
+    </application>
+</manifest>

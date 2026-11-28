@@ -159,7 +159,7 @@ class MixedBuildTest(unittest.TestCase):
             source = root / "A.zip"
             output = root / "merged.zip"
             args = SimpleNamespace(framework=source, vendor=source, output=output,
-                                   otatools=root, dry_run=False)
+                                   otatools=root, source_root=None, dry_run=False)
             files = fixture()
             with archive(files) as target:
                 source.write_bytes(target.fp.getvalue())
@@ -170,14 +170,17 @@ class MixedBuildTest(unittest.TestCase):
 
             with patch.object(mixed.sys, "platform", "linux"), patch.object(
                 mixed.subprocess, "run", side_effect=materialize
-            ), patch("builtins.print"):
+            ) as run, patch("builtins.print"):
                 merged_files = files | {"IMAGES/pvmfw.img": b"changed"}
                 with self.assertRaisesRegex(ValueError, "frozen Vendor SHA-256 mismatch"):
                     mixed.merge(args)
                 self.assertFalse(output.exists())
-                merged_files = files
+                merged_files = files | {"META/combined_sepolicy": b"compiled",
+                                        "META/shareduid_violation_modules.json": b"{}"}
+                args.source_root = root / "source"
                 mixed.merge(args)
                 self.assertTrue(output.exists())
+                self.assertEqual(run.call_args.kwargs["cwd"], args.source_root)
 
     def test_otatools_command(self):
         args = SimpleNamespace(
