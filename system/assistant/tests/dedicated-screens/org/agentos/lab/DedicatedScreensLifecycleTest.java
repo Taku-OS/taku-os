@@ -755,6 +755,15 @@ public final class DedicatedScreensLifecycleTest {
                 "an App left open keeps the screen after its turn");
         check(kept.screens.turnEnded(session(1), "unseen", false) == null && kept.screens.list().length() == 1,
                 "a lost turn that requested nothing does not release a screen kept from an earlier turn");
+        JSONObject reused = kept.screens.request(session(1), apps("com.game"), "reuse", "unseen");
+        check(reused.getString("screenKey").equals(allocation.getString("screenKey"))
+                        && reused.getString("generation").equals(allocation.getString("generation")),
+                "request_apps reuses the retained screen");
+        check(kept.screens.turnEnded(session(1), "unseen", false) == null
+                        && kept.screens.list().length() == 1
+                        && app(kept, "com.game").getString("heldBy").equals(session(1))
+                        && !tasksOn(kept, allocation.getInt("displayId")).isEmpty(),
+                "a failed turn whose start was lost leaves the reused screen and its App open");
     }
 
     /** The management page's close: a host that does not stop keeps the row for a retry. */

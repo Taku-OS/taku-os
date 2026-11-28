@@ -379,6 +379,7 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
         /** The screen occupancy in which this ticket was granted, never the host generation. */
         Object occupancy;
 
+        String allocationTurn = "";
         boolean granted, withdrawn;
         Exception failure;
 
@@ -979,28 +980,20 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
      */
     JSONObject request(String session, Map<String, String> apps, String taskTitle)
             throws Exception {
-        return request(session, apps, taskTitle, false);
+        return request(session, apps, taskTitle, false, "");
     }
 
     /** request_apps from a native turn: the allocation remembers that turn (see requestTurn). */
     JSONObject request(String session, Map<String, String> apps, String taskTitle, String turnId)
             throws Exception {
-        JSONObject allocation = request(session, apps, taskTitle, false);
-        if (!turnId.isEmpty())
-            try (CleanupWork.Held held = lock()) {
-                DedicatedScreen screen = own(session);
-                if (screen != null && screen.key.equals(allocation.optString("screenKey"))
-                        && screen.generation.equals(allocation.optString("generation")))
-                    screen.requestTurn = turnId;
-            }
-        return allocation;
+        return request(session, apps, taskTitle, false, turnId);
     }
 
     private JSONObject request(String session, Map<String, String> apps, String taskTitle,
-            boolean immediate) throws Exception {
+            boolean immediate, String turnId) throws Exception {
         PhoneExecutionScreens.thread(session);
         try (CleanupWork.Held held = lock()) { cacheRequests.merge(session, 1, Integer::sum); }
-        try { return requestPinned(session, apps, taskTitle, immediate); }
+        try { return requestPinned(session, apps, taskTitle, immediate, turnId); }
         finally {
             try (CleanupWork.Held held = lock()) {
                 cacheRequests.computeIfPresent(session, (key, count) -> count == 1 ? null : count - 1);
@@ -1012,7 +1005,7 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
     JSONObject launch(String session, String pkg, String label, PhoneExecutionScreens.Action action)
             throws Exception {
         try {
-            JSONObject allocation = request(session, Map.of(pkg, label), label.substring(0, Math.min(80, label.length())), true);
+            JSONObject allocation = request(session, Map.of(pkg, label), label.substring(0, Math.min(80, label.length())), true, "");
             DedicatedScreen screen;
             try (CleanupWork.Held held = lock()) {
                 screen = exactScreen(session, allocation.getString("screenKey"), allocation.getString("generation"));
@@ -1052,7 +1045,7 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
     }
 
     private JSONObject requestPinned(String session, Map<String, String> apps, String taskTitle,
-            boolean immediate) throws Exception {
+            boolean immediate, String turnId) throws Exception {
         if (apps.isEmpty() || apps.size() > MAX_APPS_PER_REQUEST)
             throw new IOException("INVALID_SCREEN_PACKAGE");
         for (String pkg : apps.keySet()) PhoneExecutionScreens.packageName(pkg);
@@ -1088,6 +1081,7 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
                 }
                 refuseIfQueueFull(session, ticket.apps.keySet());
                 if (ticket.screen == null) {
+                    ticket.allocationTurn = turnId;
                     int max = policy.getInt("maxActiveScreens");
                     Iterator<DedicatedScreen> idle = ledger.iterator();
                     while (ledger.size() + opening > max && idle.hasNext()) {
@@ -1279,7 +1273,9 @@ final class DedicatedScreens implements PhoneExecutionScreens.Ledger {
         if (!Collections.disjoint(blocked, ticket.apps.keySet())
                 || !Collections.disjoint(blocked, ticket.screen.apps))
             throw new IOException("APP_NOT_ALLOWED");
-        return granted(ticket.screen);
+        JSONObject allocation = granted(ticket.screen);
+        if (!ticket.allocationTurn.isEmpty()) ticket.screen.requestTurn = ticket.allocationTurn;
+        return allocation;
     } }
 
     private void withdraw(Ticket ticket) {
