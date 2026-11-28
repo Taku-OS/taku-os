@@ -24,19 +24,18 @@ import java.util.concurrent.atomic.AtomicBoolean
  * [AudioRecord], the codec only exchanges buffers, and [MediaMuxer] writes the file from this
  * process. The capture still needs a microphone foreground service (`AudioCaptureService`).
  *
- * One worker thread owns the recorder, codec and muxer and releases them; [stop] asks it to end
- * the stream and waits for the finished file. [failed] reports a capture failure or the size
- * limit (the file up to the limit is still finalized) from a thread of its own, so it may call
- * [stop].
+ * The encoder worker owns the codec and muxer. [stop] requests the end of the stream and waits
+ * up to [STOP_TIMEOUT_MS] for the finished file. Microphone release runs independently so a
+ * blocked AudioRecord call cannot delay that return or prevent encoder cleanup.
  *
- * Once asked to stop, the worker stops the microphone at once and has [FINISH_DEADLINE_MS] to end
- * the stream: an encoder that never hands out an input buffer or never signals the end would
- * otherwise keep it looping (and the microphone open) forever. Past the deadline it abandons the
- * file and releases everything. [stop] blocks, so callers run it off the main thread.
+ * After observing the stop request, the worker has [FINISH_DEADLINE_MS] to drain the encoder.
+ * Past that deadline it abandons the file and starts resource cleanup. [failed] reports capture
+ * failures and the size limit from a separate thread so it may call [stop].
  */
 internal class MicrophoneAacRecorder(private val file: File, private val maxBytes: Long, private val failed: (String) -> Unit) {
     private val record: AudioRecord
     private val stopping = AtomicBoolean()
+    private var microphoneCleanup: Thread? = null
     private var worker: Thread? = null
     @Volatile private var finalized = false
     @Volatile private var error: String? = null
@@ -99,17 +98,22 @@ internal class MicrophoneAacRecorder(private val file: File, private val maxByte
         var inputEnded = false
         var pcmBytes = 0L
         var written = 0L
-        var stopAt = 0L
+        var stopAt: Long? = null
+        fun checkStopDeadline() {
+            if (!stopping.get()) return
+            val now = SystemClock.elapsedRealtime()
+            val startedAt = stopAt
+            if (startedAt == null) {
+                stopAt = now
+                releaseMicrophoneAsync()
+            } else if (now - startedAt >= FINISH_DEADLINE_MS) {
+                throw IOException("RECORDING_FINALIZE_TIMEOUT")
+            }
+        }
+
         try {
             while (true) {
-                if (stopping.get()) {
-                    val now = SystemClock.elapsedRealtime()
-                    if (stopAt == 0L) {
-                        // Nothing more is read: free the microphone now, not when the encoder drains.
-                        stopAt = now
-                        runCatching { record.stop() }
-                    } else if (now - stopAt > FINISH_DEADLINE_MS) throw IOException("RECORDING_FINALIZE_TIMEOUT")
-                }
+                checkStopDeadline()
                 if (!inputEnded) {
                     val index = codec.dequeueInputBuffer(TIMEOUT_US)
                     if (index >= 0) {
@@ -129,6 +133,7 @@ internal class MicrophoneAacRecorder(private val file: File, private val maxByte
                 }
                 var outputEnded = false
                 while (true) {
+                    checkStopDeadline()
                     val index = codec.dequeueOutputBuffer(info, if (inputEnded) TIMEOUT_US else 0)
                     if (index == MediaCodec.INFO_TRY_AGAIN_LATER) break
                     if (index == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
@@ -156,7 +161,7 @@ internal class MicrophoneAacRecorder(private val file: File, private val maxByte
                 }
                 if (outputEnded) break
             }
-            runCatching { record.stop() }
+            checkStopDeadline()
             codec.stop()
             if (muxing && written > 0) {
                 muxer.stop()
@@ -165,10 +170,11 @@ internal class MicrophoneAacRecorder(private val file: File, private val maxByte
         } catch (failure: Exception) {
             if (error == null) error = (failure as? IOException)?.message?.takeIf { it.startsWith("RECORDING_") } ?: "RECORDING_FAILED"
         } finally {
-            runCatching { record.stop() }
+            val cleanup = releaseMicrophoneAsync()
             runCatching { codec.release() }
             runCatching { muxer.release() }
-            record.release()
+            // The caller already bounds its wait for this worker.
+            runCatching { cleanup.join() }
         }
         // A stop the caller asked for is not a failure; the size limit and capture errors are.
         val code = error
@@ -184,10 +190,10 @@ internal class MicrophoneAacRecorder(private val file: File, private val maxByte
         val thread = worker ?: throw IOException("RECORDING_NOT_STARTED")
         if (thread !== Thread.currentThread()) thread.join(STOP_TIMEOUT_MS)
         if (thread.isAlive) {
-            // The worker is stuck inside a framework call past its own deadline: unblock a pending
-            // read and let it release the encoder and muxer as soon as that call returns.
-            runCatching { record.stop() }
+            // Request microphone teardown even if the encoder is stuck inside a framework call.
+            // AudioRecord.release() stops capture internally and may itself block.
             thread.interrupt()
+            releaseMicrophoneAsync()
             throw IOException("RECORDING_FINALIZE_TIMEOUT")
         }
         if (!finalized) throw IOException("RECORDING_FINALIZE_FAILED")
@@ -197,6 +203,17 @@ internal class MicrophoneAacRecorder(private val file: File, private val maxByte
     fun release() {
         stopping.set(true)
         if (worker == null) record.release()
+    }
+
+    @Synchronized
+    private fun releaseMicrophoneAsync(): Thread {
+        microphoneCleanup?.let { return it }
+        return Thread({
+            runCatching { record.release() }
+        }, "assistant-microphone-release").also {
+            microphoneCleanup = it
+            it.start()
+        }
     }
 
     private fun presentationUs(pcmBytes: Long) = pcmBytes / 2 * 1_000_000L / SAMPLE_RATE

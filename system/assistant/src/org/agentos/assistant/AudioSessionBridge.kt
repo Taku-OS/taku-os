@@ -485,7 +485,7 @@ internal class AudioSessionBridge private constructor(private val context: Conte
         val file = session.recording!!
         val endedAt = System.currentTimeMillis()
         val durationMs = SystemClock.elapsedRealtime() - session.data.optLong("recordingStartedMonotonicMs")
-        // The encoder worker releases AudioRecord, which unregisters its callbacks.
+        // Releasing AudioRecord also unregisters its callbacks.
         // Unregistering again throws and used to leave the Closed future incomplete.
         session.recorder = null
         session.recording = null
