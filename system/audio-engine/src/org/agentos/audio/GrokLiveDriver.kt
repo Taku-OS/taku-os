@@ -106,7 +106,7 @@ internal class GrokLiveDriver(context: Context, request: AudioRequest) : AudioDr
             offer(Work.MuteChanged)
             return
         }
-        if(command is LiveAudioCommand.SetVideo || command is LiveAudioCommand.RequestKeyframe || command is LiveAudioCommand.ContextNote)
+        if(command is LiveAudioCommand.SetVideo || command is LiveAudioCommand.RequestKeyframe || command is LiveAudioCommand.ContextNote || command is LiveAudioCommand.SetStandby)
             throw AudioFailure("UNSUPPORTED_PROFILE", "This Live Talk provider does not support video or silent context")
         if(muted.get()) throw AudioFailure("MIC_MUTED", "Resume Live Talk before sending input")
         if(!connected) throw AudioFailure("LIVE_CONNECTING", "Wait for Live Talk to connect")
@@ -477,7 +477,7 @@ internal class GrokLiveDriver(context: Context, request: AudioRequest) : AudioDr
                     receiptToSpeak = call.itemId
             }
             is LiveAudioCommand.Mute -> Unit
-            is LiveAudioCommand.SetVideo, is LiveAudioCommand.RequestKeyframe, is LiveAudioCommand.ContextNote -> Unit
+            is LiveAudioCommand.SetVideo, is LiveAudioCommand.RequestKeyframe, is LiveAudioCommand.ContextNote, is LiveAudioCommand.SetStandby -> Unit
         }
     }
 

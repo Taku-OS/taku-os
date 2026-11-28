@@ -156,6 +156,7 @@ Each `arg` is a JSON object with exactly the fields for its action.
 | `removeLiveKey` | None. Removes only the Gemini key. |
 | `saveMossKey` | `key`, one string containing a MOSS-Live API key. |
 | `removeMossKey` | None. Removes only the MOSS-Live key. |
+| `configureLiveStandby` | `enabled`, `lockScreenWakeEnabled` (booleans), `hotTimeoutSec` (integer 5–120), `coldTimeoutSec` (integer 15–600). |
 | `setAudioEnabled` | `enabled`, a JSON boolean. |
 | `configureReading` | `language`, `voiceId`, and `speed`. |
 | `resetReading` | `language`. |

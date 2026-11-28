@@ -18,6 +18,13 @@ object ModelResources {
         for(i in 0 until files.length()){val entry=files.getJSONObject(i);sizes[entry.getString("path")]=entry.getLong("size")}
         required.all { path -> val file=File(base,path);file.isFile && file.length()==sizes[path] } && File(base,"tts/espeak-ng-data").isDirectory && File(base,"tts/dict").isDirectory
     }.getOrDefault(false)
+    /** Silero VAD for Live Talk's cold standby; present and matching its manifest size. */
+    fun vadModel(base: File): File = File(base, "vad/silero_vad.onnx")
+    fun vadReady(base: File): Boolean = runCatching {
+        val files=JSONObject(File(base,"manifest.json").readText()).getJSONArray("files")
+        (0 until files.length()).map(files::getJSONObject).any { it.getString("path")=="vad/silero_vad.onnx" &&
+            vadModel(base).let { file -> file.isFile && file.length()==it.getLong("size") } }
+    }.getOrDefault(false)
     fun ready(base: File, language: String): Boolean = runCatching {
         val role=if(language=="zh-CN") "asr-zh" else "asr"
         val files=JSONObject(File(base,"manifest.json").readText()).getJSONArray("files")

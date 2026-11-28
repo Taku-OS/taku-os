@@ -21,6 +21,7 @@ object AudioParameters {
             "audio.live.keyframe" -> setOf("sessionId","reason")
             "audio.live.context" -> setOf("sessionId","text")
             "audio.live.snapshot" -> setOf("sessionId")
+            "audio.live.standby" -> setOf("sessionId","mode")
             else -> throw AudioFailure("METHOD_NOT_FOUND","Audio method is not implemented")
         }
         if(params.keys().asSequence().any{it !in keys})invalid("Audio parameters contain an unknown field")
@@ -110,6 +111,7 @@ object AudioParameters {
                     try{JSONObject(result)}catch(_: Exception){invalid("Tool result must be a JSON object encoded as a string")}
                 }
                 "audio.live.video" -> if(string(params,"source","") !in listOf("none","screen","camera"))invalid("Video source must be none, screen or camera")
+                "audio.live.standby" -> if(string(params,"mode","") !in listOf("hot","cold","wake"))invalid("Standby mode must be hot, cold or wake")
                 "audio.live.keyframe" -> if(!string(params,"reason","").matches(Regex("[a-z_]{1,32}")))invalid("Invalid keyframe reason")
                 "audio.live.context" -> {
                     val text=string(params,"text","")

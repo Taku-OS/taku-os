@@ -20,6 +20,7 @@ if not p.exists() or hashlib.sha256(p.read_bytes()).hexdigest()!=digest:
  assert hashlib.sha256(b).hexdigest()==digest
  p.write_bytes(b)
 PY
-"$KOTLINC" system/audio-engine/contract/org/agentos/audio/*.kt system/audio-engine/src/org/agentos/audio/MossWireProtocol.kt system/audio-engine/src/org/agentos/audio/AudioParameters.kt system/audio-engine/tests/MossWireProtocolTest.kt system/audio-engine/tests/AudioParametersLiveTest.kt -classpath system/audio-engine/out/tests/json-20240303.jar -include-runtime -jvm-target 17 -d system/audio-engine/out/tests/moss.jar
+"$KOTLINC" system/audio-engine/contract/org/agentos/audio/*.kt system/audio-engine/src/org/agentos/audio/MossWireProtocol.kt system/audio-engine/src/org/agentos/audio/AudioParameters.kt system/audio-engine/src/org/agentos/audio/LiveStandbyPolicy.kt system/audio-engine/tests/MossWireProtocolTest.kt system/audio-engine/tests/AudioParametersLiveTest.kt system/audio-engine/tests/StandbyVadBufferTest.kt -classpath system/audio-engine/out/tests/json-20240303.jar -include-runtime -jvm-target 17 -d system/audio-engine/out/tests/moss.jar
 "$JDK/bin/java" -cp system/audio-engine/out/tests/moss.jar:system/audio-engine/out/tests/json-20240303.jar org.agentos.audio.MossWireProtocolTestKt
 "$JDK/bin/java" -cp system/audio-engine/out/tests/moss.jar:system/audio-engine/out/tests/json-20240303.jar org.agentos.audio.AudioParametersLiveTestKt
+"$JDK/bin/java" -cp system/audio-engine/out/tests/moss.jar:system/audio-engine/out/tests/json-20240303.jar org.agentos.audio.StandbyVadBufferTestKt

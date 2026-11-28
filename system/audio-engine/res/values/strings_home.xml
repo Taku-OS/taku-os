@@ -36,6 +36,12 @@
     <string name="audio_home_remove_moss_key">Remove MOSS API key</string>
     <string name="audio_home_remove_moss_key_title">Remove MOSS API key?</string>
     <string name="audio_home_remove_moss_key_summary">Removing the key stops any active MOSS-Live session. You need a key to start another MOSS-Live session.</string>
+    <string name="audio_home_live_standby">Standby between turns</string>
+    <string name="audio_home_live_standby_summary">After a quiet moment Live Talk pauses video; after a longer one it disconnects and listens on this phone, then reconnects when you speak. Calls and media playback pause listening.</string>
+    <string name="audio_home_live_lock_wake">Keep listening when locked</string>
+    <string name="audio_home_live_lock_wake_summary">Live Talk you started keeps listening with the screen off or locked. Phone actions and private details wait until you unlock. Ends below 15% battery or in battery saver.</string>
+    <string name="audio_home_live_standby_timeouts">Standby timing</string>
+    <string name="audio_home_live_standby_timeouts_value">Pause after %1$d s · disconnect after %2$d s more</string>
     <string name="audio_home_gemini_key_pending">Refresh settings to see the Gemini API key status.</string>
     <string name="audio_home_gemini_key_saved">Gemini API key saved · %1$s</string>
     <string name="audio_home_gemini_key_missing">No Gemini API key configured</string>

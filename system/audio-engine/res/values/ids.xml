@@ -21,6 +21,9 @@
  <item type="id" name="audio_save_moss_key"/>
  <item type="id" name="audio_remove_moss_key"/>
  <item type="id" name="audio_moss_key_input"/>
+ <item type="id" name="audio_live_standby"/>
+ <item type="id" name="audio_live_lock_wake"/>
+ <item type="id" name="audio_live_standby_timeouts"/>
  <item type="id" name="audio_media"/>
  <item type="id" name="audio_call"/>
  <item type="id" name="audio_reading"/>

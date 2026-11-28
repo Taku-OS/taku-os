@@ -111,13 +111,37 @@ final class AudioConfigBridge {
   if(byok.hasKeyFile(ByokProviders.GEMINI_FILE))return GEMINI_LIVE_PROFILE;
   return MOSS_LIVE_PROFILE;
  }
+ /** Two-level standby for Live Talk; the saved value or these defaults, always within range. */
+ static JSONObject standby(JSONObject audio)throws Exception {
+  JSONObject saved=audio.optJSONObject("liveStandby");
+  JSONObject result=new JSONObject().put("enabled",true).put("hotTimeoutSec",15).put("coldTimeoutSec",60).put("lockScreenWakeEnabled",true);
+  if(saved==null)return result;
+  // An unreadable saved value falls back to the defaults; it must never break the settings snapshot.
+  try{return standbyValue(saved);}catch(AudioConfigFailure invalid){return result;}
+ }
+ private static JSONObject standbyValue(JSONObject request)throws Exception {
+  Object enabled=request.opt("enabled"),hot=request.opt("hotTimeoutSec"),cold=request.opt("coldTimeoutSec"),lock=request.opt("lockScreenWakeEnabled");
+  if(!(enabled instanceof Boolean)||!(lock instanceof Boolean)||!(hot instanceof Integer)||!(cold instanceof Integer)
+    ||(Integer)hot<5||(Integer)hot>120||(Integer)cold<15||(Integer)cold>600)
+   throw new AudioConfigFailure("INVALID_ARGUMENT","Standby needs on/off switches, a 5–120 s hot timeout and a 15–600 s cold timeout");
+  return new JSONObject().put("enabled",enabled).put("hotTimeoutSec",hot).put("coldTimeoutSec",cold).put("lockScreenWakeEnabled",lock);
+ }
+ private static synchronized void configureStandby(JSONObject request)throws Exception {
+  JSONObject value=standbyValue(request);
+  JSONObject current;
+  try {current=audioSettings();current.getLong("revision");current.getJSONObject("profiles");}
+  catch(Exception unreadable){throw new AudioConfigFailure("SETTINGS_UNREADABLE","Saved voice settings cannot be read; no configuration was changed");}
+  if(value.toString().equals(String.valueOf(current.optJSONObject("liveStandby"))))return;
+  current.put("liveStandby",value).put("revision",current.getLong("revision")+1);
+  SystemAi.save(new File(SystemAi.ROOT,"audio-settings.json"),current);changed();
+ }
  private static JSONObject liveSettings(JSONObject audio,JSONObject fal)throws Exception {
   Object profileId=audio.has("liveProfileId")?audio.opt("liveProfileId"):defaultLiveProfile(NativeBridge.byok);
   if(!(profileId instanceof String)||!LIVE_PROFILES.contains(profileId))
    throw new AudioConfigFailure("SETTINGS_UNREADABLE","Select the Live Talk provider again");
   JSONObject gemini=NativeBridge.byok.geminiSettings(),moss=NativeBridge.byok.mossSettings();
   boolean configured=(GEMINI_LIVE_PROFILE.equals(profileId)?gemini:MOSS_LIVE_PROFILE.equals(profileId)?moss:fal).getBoolean("configured");
-  return new JSONObject().put("profileId",profileId).put("configured",configured).put("gemini",gemini).put("moss",moss);
+  return new JSONObject().put("profileId",profileId).put("configured",configured).put("gemini",gemini).put("moss",moss).put("standby",standby(audio));
  }
  /** Stores the effective default provider before a voice key changes which default applies. */
  static synchronized void pinLiveDefault()throws Exception {
@@ -162,6 +186,7 @@ final class AudioConfigBridge {
     case "saveFalKey","removeFalKey","selectFalModel":fal=NativeBridge.byok.falControl(request);break;
     case "saveLiveKey","removeLiveKey":NativeBridge.byok.liveControl(request);break;
     case "saveMossKey","removeMossKey":NativeBridge.byok.mossControl(request);break;
+    case "configureLiveStandby":configureStandby(request);break;
     case "selectLiveProvider":selectLiveProvider(request.getString("profileId"));break;
     case "setAudioEnabled":SystemAi.control(new JSONObject().put("action","configure").put("patch",new JSONObject().put("audioEnabled",request.getBoolean("enabled"))));break;
     case "configureReading","resetReading":{
@@ -185,6 +210,7 @@ final class AudioConfigBridge {
    case "saveFalKey","saveLiveKey","saveMossKey"->Set.of("op","action","key");
    case "selectFalModel"->Set.of("op","action","model");
    case "selectLiveProvider"->Set.of("op","action","profileId");
+   case "configureLiveStandby"->Set.of("op","action","enabled","hotTimeoutSec","coldTimeoutSec","lockScreenWakeEnabled");
    case "setAudioEnabled"->Set.of("op","action","enabled");
    case "configureReading"->Set.of("op","action","language","voiceId","speed");
    case "resetReading"->Set.of("op","action","language");
@@ -196,7 +222,8 @@ final class AudioConfigBridge {
   for(Iterator<String> keys=request.keys();keys.hasNext();)if(!fields.contains(keys.next()))throw new AudioConfigFailure("INVALID_ARGUMENT","Invalid voice settings parameters");
   for(String field:fields){
    Object value=request.opt(field);
-   boolean valid=field.equals("enabled")?value instanceof Boolean
+   boolean valid=field.equals("enabled")||field.equals("lockScreenWakeEnabled")?value instanceof Boolean
+    :field.equals("hotTimeoutSec")||field.equals("coldTimeoutSec")?value instanceof Integer
     :field.equals("speed")?value instanceof Number&&Double.isFinite(((Number)value).doubleValue())
     :field.equals("fallbackProfileId")?value instanceof String||JSONObject.NULL.equals(value)
     :value instanceof String;

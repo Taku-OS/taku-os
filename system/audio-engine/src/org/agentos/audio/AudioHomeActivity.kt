@@ -38,6 +38,9 @@ class AudioHomeActivity : Activity() {
     private lateinit var mossState: TextView
     private lateinit var saveMossKey: TextView
     private lateinit var removeMossKey: TextView
+    private lateinit var standby: Switch
+    private lateinit var lockWake: Switch
+    private lateinit var standbyTimeouts: TextView
     private lateinit var refresh: TextView
     private lateinit var ui: AudioUi
 
@@ -98,6 +101,14 @@ class AudioHomeActivity : Activity() {
         ui.add(live, mossState, 14)
         saveMossKey = ui.action(live, ui.s("audio_home_add_moss_key"), "audio_save_moss_key", primary = true) { editKey(AudioLiveProvider.MOSS) }
         removeMossKey = ui.action(live, ui.s("audio_home_remove_moss_key"), "audio_remove_moss_key") { confirmRemoveKey(AudioLiveProvider.MOSS) }
+        ui.rule(live)
+        standby = ui.toggle(live, ui.s("audio_home_live_standby"), ui.s("audio_home_live_standby_summary"), "audio_live_standby") { enabled ->
+            if (!rendering) snapshot?.live?.standby?.let { request(AudioSettingsCommand.ConfigureLiveStandby(it.copy(enabled = enabled))) }
+        }
+        lockWake = ui.toggle(live, ui.s("audio_home_live_lock_wake"), ui.s("audio_home_live_lock_wake_summary"), "audio_live_lock_wake") { enabled ->
+            if (!rendering) snapshot?.live?.standby?.let { request(AudioSettingsCommand.ConfigureLiveStandby(it.copy(lockScreenWakeEnabled = enabled))) }
+        }
+        standbyTimeouts = ui.action(live, ui.s("audio_home_live_standby_timeouts"), "audio_live_standby_timeouts") { selectStandbyTimeouts() }
 
         ui.section(root, ui.s("audio_home_features_section"))
         val features = ui.card(root)
@@ -237,6 +248,14 @@ class AudioHomeActivity : Activity() {
         saveMossKey.text = ui.s(if (mossHasKey) "audio_home_replace_moss_key" else "audio_home_add_moss_key")
         saveMossKey.isEnabled = editable
         removeMossKey.isEnabled = editable && mossHasKey
+        val standbySettings = live?.standby
+        standby.isChecked = standbySettings?.enabled == true
+        standby.isEnabled = editable && standbySettings != null
+        lockWake.isChecked = standbySettings?.lockScreenWakeEnabled == true
+        lockWake.isEnabled = editable && standbySettings?.enabled == true
+        standbyTimeouts.text = standbySettings?.let { ui.s("audio_home_live_standby_timeouts_value", it.hotTimeoutSec, it.coldTimeoutSec) }
+            ?: ui.s("audio_home_live_standby_timeouts")
+        standbyTimeouts.isEnabled = editable && standbySettings?.enabled == true
         rendering = false
     }
 
@@ -291,6 +310,21 @@ class AudioHomeActivity : Activity() {
             .setSingleChoiceItems(providers.map(::providerName).toTypedArray(), providers.indexOf(selected)) { dialog, index ->
                 dialog.dismiss()
                 if (providers[index] != selected) request(AudioSettingsCommand.SelectLiveProvider(providers[index]))
+            }.setNegativeButton(ui.s("audio_home_cancel"), null).show()
+    }
+
+    /** Hot keeps the provider connected; cold disconnects and listens on the device until you speak. */
+    private fun selectStandbyTimeouts() {
+        val current = snapshot?.live?.standby ?: return
+        if (busy) return
+        val choices = listOf(10 to 30, 15 to 60, 30 to 120, 60 to 300)
+        AlertDialog.Builder(this).setTitle(ui.s("audio_home_live_standby_timeouts"))
+            .setSingleChoiceItems(choices.map { (hot, cold) -> ui.s("audio_home_live_standby_timeouts_value", hot, cold) }.toTypedArray(),
+                choices.indexOf(current.hotTimeoutSec to current.coldTimeoutSec)) { dialog, index ->
+                dialog.dismiss()
+                val (hot, cold) = choices[index]
+                if (hot != current.hotTimeoutSec || cold != current.coldTimeoutSec)
+                    request(AudioSettingsCommand.ConfigureLiveStandby(current.copy(hotTimeoutSec = hot, coldTimeoutSec = cold)))
             }.setNegativeButton(ui.s("audio_home_cancel"), null).show()
     }
 

@@ -28,5 +28,10 @@
     "file": "asr-zh-MODEL_CARD.md",
     "url": "https://huggingface.co/marcoyang/sherpa-ncnn-streaming-zipformer-zh-14M-2023-02-23/raw/caf018c3b4ab7fabb313cbf89066283d38324682/README.md",
     "sha256": "98b45ea81164d1e1a1dd82255207053b15cd6c69d922a1c5cf3387ce604d4b74"
+  },
+  {
+    "file": "silero-vad-LICENSE",
+    "url": "https://raw.githubusercontent.com/snakers4/silero-vad/v5.1.2/LICENSE",
+    "sha256": "2e63e9a38b6e8fc0c7bc37ce174caca1862870856c6daf5697cfb785e925520b"
   }
 ]

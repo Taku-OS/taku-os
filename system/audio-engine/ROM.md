@@ -2,8 +2,9 @@
 
 The userdebug/eng Taku product includes the platform-signed Audio Engine, its
 six approved privileged audio and video-capture permissions, the assistant's existing
-`MODIFY_AUDIO_ROUTING` request, the CLI bridge, and English/Chinese Zipformer
-and multilingual Kokoro resources. Runtime microphone/notification permission
+`MODIFY_AUDIO_ROUTING` request, the CLI bridge, English/Chinese Zipformer
+and multilingual Kokoro resources, and the Silero VAD model (`vad/silero_vad.onnx`,
+MIT) used by Live Talk's cold standby. Runtime microphone/notification permission
 prompts are unchanged. No credentials or cloud subscription are bundled.
 
 ## Prepare the frozen inputs

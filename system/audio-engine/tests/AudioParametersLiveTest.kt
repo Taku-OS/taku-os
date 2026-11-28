@@ -23,6 +23,8 @@ fun main() {
     accepts("audio.live.context", JSONObject().put("sessionId", id).put("text", "Task 1 is searching flights"))
     rejects("blank context", "audio.live.context", JSONObject().put("sessionId", id).put("text", " "))
     rejects("long context", "audio.live.context", JSONObject().put("sessionId", id).put("text", "x".repeat(4001)))
+    for(mode in listOf("hot", "cold", "wake")) accepts("audio.live.standby", JSONObject().put("sessionId", id).put("mode", mode))
+    rejects("unknown standby mode", "audio.live.standby", JSONObject().put("sessionId", id).put("mode", "sleep"))
     accepts("audio.session.open", JSONObject().put("purpose", "LIVE_TALK").put("profileId", "moss-live"))
     rejects("unknown live profile", "audio.session.open", JSONObject().put("purpose", "LIVE_TALK").put("profileId", "moss-live-2"))
     println("PASS AudioParametersLiveTest: video source, keyframe and silent-context validation; moss-live open")

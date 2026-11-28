@@ -60,6 +60,7 @@ class AudioEngineService : Service(), LiveVideoHost {
         if(next.optJSONObject("fal")?.optBoolean("configured")!=true)runtime.revokeProfiles(AudioProfiles.fal,"PROVIDER_REMOVED")
         if(!geminiConfigured(next))runtime.revokeProfiles(setOf(AudioProfiles.LIVE_GEMINI),"PROVIDER_REMOVED")
         if(!mossConfigured(next))runtime.revokeProfiles(setOf(AudioProfiles.LIVE_MOSS),"PROVIDER_REMOVED")
+        LiveStandbyPolicy.current=AudioLiveStandby.from(next.optJSONObject("live")?.optJSONObject("standby"))
         for((binder,value) in clients.toMap()) {
             val uid=value.first.substringBefore(':').toInt()
             if(!allowedConfig(uid)) {
@@ -209,6 +210,7 @@ class AudioEngineService : Service(), LiveVideoHost {
                 "audio.live.video" -> {runtime.live(owner,params.getString("sessionId"),LiveAudioCommand.SetVideo(params.getString("source")));JSONObject()}
                 "audio.live.keyframe" -> {runtime.live(owner,params.getString("sessionId"),LiveAudioCommand.RequestKeyframe(params.getString("reason")));JSONObject()}
                 "audio.live.context" -> {runtime.live(owner,params.getString("sessionId"),LiveAudioCommand.ContextNote(params.getString("text")));JSONObject()}
+                "audio.live.standby" -> {runtime.live(owner,params.getString("sessionId"),LiveAudioCommand.SetStandby(params.getString("mode")));JSONObject()}
                 "audio.live.snapshot" -> { snapshot(reply,requestId,owner,params.getString("sessionId"));return }
                 "audio.session.status" -> { val id=params.getString("sessionId");val data=runtime.status(owner,id).json().getJSONObject("data");val info=sessionInfo(owner,id);info.keys().forEach{key->data.put(key,info.get(key))};data }
                 else -> throw AudioFailure("METHOD_NOT_FOUND","Audio method is not implemented")
@@ -292,8 +294,10 @@ class AudioEngineService : Service(), LiveVideoHost {
         val notifications=getSystemService(android.app.NotificationManager::class.java)
         notifications.createNotificationChannel(android.app.NotificationChannel("audio-reading","Read aloud",android.app.NotificationManager.IMPORTANCE_LOW))
         val stop=android.app.PendingIntent.getBroadcast(this,1,Intent("org.agentos.audio.STOP_PLAYBACK").setPackage(packageName),android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT)
+        // Live Talk keeps running on the lock screen; its notification shows only non-private status there.
         val notification=android.app.Notification.Builder(this,"audio-reading").setSmallIcon(android.R.drawable.ic_lock_silent_mode_off)
-            .setContentTitle(title).setContentText("Tap to stop").setOngoing(true)
+            .setContentTitle(title).setContentText(if(title=="Taku Live Talk")"Listening · speak to continue, or end here" else "Tap to stop").setOngoing(true)
+            .setVisibility(if(title=="Taku Live Talk")android.app.Notification.VISIBILITY_PUBLIC else android.app.Notification.VISIBILITY_PRIVATE)
             .addAction(android.app.Notification.Action.Builder(null,"Stop",stop).build()).build()
         foreground=notification;foregroundMicrophone=microphone
         startForeground(100,notification,android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK or if(microphone)android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE else 0)

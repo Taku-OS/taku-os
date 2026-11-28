@@ -44,7 +44,19 @@ public final class LiveProviderDefaultsTest {
     clear(dir);
     write(dir, "fal.json", "not json");
     check(AudioConfigBridge.defaultLiveProfile(byok).equals("fal-grok"), "an unreadable fal key still marks a legacy device");
+    JSONObject standby = AudioConfigBridge.standby(new JSONObject());
+    check(standby.getBoolean("enabled") && standby.getInt("hotTimeoutSec") == 15 && standby.getInt("coldTimeoutSec") == 60
+      && standby.getBoolean("lockScreenWakeEnabled"), "standby defaults");
+    JSONObject savedStandby = new JSONObject().put("liveStandby", new JSONObject().put("enabled", false).put("hotTimeoutSec", 30)
+      .put("coldTimeoutSec", 120).put("lockScreenWakeEnabled", false));
+    JSONObject read = AudioConfigBridge.standby(savedStandby);
+    check(!read.getBoolean("enabled") && read.getInt("hotTimeoutSec") == 30 && read.getInt("coldTimeoutSec") == 120, "saved standby");
+    for (Object[] bad : new Object[][]{{4, 60}, {121, 60}, {15, 14}, {15, 601}, {"15", 60}, {15.5, 60}}) {
+      JSONObject invalid = new JSONObject().put("liveStandby", new JSONObject().put("enabled", true).put("hotTimeoutSec", bad[0])
+        .put("coldTimeoutSec", bad[1]).put("lockScreenWakeEnabled", true));
+      check(AudioConfigBridge.standby(invalid).getInt("hotTimeoutSec") == 15, "out-of-range standby reads as defaults");
+    }
     clear(dir); dir.delete();
-    System.out.println("PASS LiveProviderDefaultsTest: D5 default provider, MOSS key masking and unreadable-key handling");
+    System.out.println("PASS LiveProviderDefaultsTest: D5 default provider, MOSS key masking, unreadable-key handling and standby settings");
   }
 }

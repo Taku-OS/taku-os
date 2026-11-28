@@ -29,6 +29,11 @@ for role,entry in lock.items():
             for name in archive.namelist():
                 if name.startswith('jni/arm64-v8a/') and name.endswith('.so'):
                     target=sdk/'lib/arm64-v8a'/Path(name).name;target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(archive.read(name))
+    elif entry['file'].endswith('.onnx'):
+        # A single-file model (Silero VAD) is copied as-is; its hash was verified above.
+        directory=pack/role;directory.mkdir(exist_ok=True)
+        target=directory/entry['file']
+        if not target.exists() or target.read_bytes()!=path.read_bytes():shutil.copyfile(path,target)
     else:
         directory=pack/role
         if not (directory/'tokens.txt').exists():

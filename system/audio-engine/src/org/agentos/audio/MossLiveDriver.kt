@@ -36,6 +36,8 @@ internal class MossLiveDriver(private val context: Context, request: AudioReques
         data object MuteChanged : Work
         class Video(val generation: Long, val source: String, val monotonicUs: Long, val keyFrame: Boolean, val data: ByteArray) : Work
         data class VideoStopped(val generation: Long, val source: String, val reason: String) : Work
+        class Wake(val reason: String, val preroll: ByteArray? = null) : Work
+        data class StandbyPaused(val reason: String?) : Work
     }
     private enum class Handshake { Attaching, Mode, Configuring, Updating, Ready }
     private data class InputTurn(val id: String, val text: StringBuilder = StringBuilder(), var final: Boolean = false)
@@ -100,6 +102,16 @@ internal class MossLiveDriver(private val context: Context, request: AudioReques
         }
         override fun stopped(source: String, reason: String) { work.offer(Work.VideoStopped(generation.get(), source, reason)) }
     }) }
+    /** `active`, `hot_standby` (connected, video paused) or `cold_standby` (disconnected, listening on the phone). */
+    @Volatile private var standbyState = LiveStandbyPolicy.ACTIVE
+    private var lastActivity = SystemClock.elapsedRealtime()
+    private var standbyCheckedAt = 0L
+    private var batteryCheckedAt = 0L
+    private var standbyVad: StandbyVadEngine? = null
+    /** Speech that woke cold standby, replayed to the provider before live capture. */
+    private var preroll: ByteArray? = null
+    /** Video paused by hot standby (not by privacy masking); resumes when the conversation does. */
+    private var videoStandby = false
     private val keyguard by lazy { context.getSystemService(android.app.KeyguardManager::class.java) }
     private val power by lazy { context.getSystemService(android.os.PowerManager::class.java) }
 
@@ -142,6 +154,12 @@ internal class MossLiveDriver(private val context: Context, request: AudioReques
             return
         }
         if(muted.get()) throw AudioFailure("MIC_MUTED", "Resume Live Talk before sending input")
+        if(command is LiveAudioCommand.SetStandby) { offer(Work.Command(generation.get(), command)); return }
+        if(standbyState == LiveStandbyPolicy.COLD) {
+            // Anything for the provider (a task result, typed text) wakes cold standby; the caller retries once connected.
+            offer(Work.Wake("task_event"))
+            throw AudioFailure("LIVE_CONNECTING", "Live Talk is waking up")
+        }
         if(!connected) throw AudioFailure("LIVE_CONNECTING", "Wait for Live Talk to connect")
         if(command is LiveAudioCommand.SetVideo && command.source != "none") {
             if(videoCodec == null) throw AudioFailure("VIDEO_UNSUPPORTED", "The provider did not accept a video stream for this connection")
@@ -198,6 +216,8 @@ internal class MossLiveDriver(private val context: Context, request: AudioReques
                     val now = SystemClock.elapsedRealtime()
                     if(now - privacyCheckedAt >= PRIVACY_CHECK_MS) { privacyCheckedAt = now; checkPrivacy() }
                 }
+                val now = SystemClock.elapsedRealtime()
+                if(!muted.get() && now - standbyCheckedAt >= STANDBY_CHECK_MS) { standbyCheckedAt = now; checkStandby(now) }
             }
         } catch(_: InterruptedException) {
             if(!stopped.get()) sink.failed("CAPTURE_FAILED")
@@ -211,6 +231,7 @@ internal class MossLiveDriver(private val context: Context, request: AudioReques
             credential?.close()
             socket?.close(1000, null); socket?.cancel(); socket = null
             io?.let { restored = it.release() && restored; it.clear() }
+            standbyVad?.stop(); standbyVad = null
             if(videoCreated) video.release()
             screenShared = false
             work.clear(); calls.clear(); history.clear(); turns.clear()
@@ -280,12 +301,22 @@ internal class MossLiveDriver(private val context: Context, request: AudioReques
                 incomingBytes.addAndGet(-item.bytes.size)
                 if(item.generation == generation.get()) handleAudio(item.bytes)
             }
-            is Work.Command -> if(item.generation == generation.get()) handleCommand(item.command)
+            is Work.Command -> if(item.command is LiveAudioCommand.SetStandby) setStandby(item.command.mode)
+                else if(item.generation == generation.get()) { markActivity(); handleCommand(item.command) }
+            is Work.Wake -> wake(item.reason, item.preroll)
+            is Work.StandbyPaused -> if(standbyState == LiveStandbyPolicy.COLD) {
+                // A real call or other media keeps the microphone free; a listener failure returns to a live connection.
+                if(item.reason == null || item.reason == "CALL" || item.reason == "MEDIA")
+                    emit(LiveAudioEvent.Standby(LiveStandbyPolicy.COLD, item.reason?.lowercase() ?: "listening"))
+                else wake("standby_unavailable", null)
+            }
             is Work.Video -> if(item.generation == generation.get()) sendVideo(item)
             is Work.VideoStopped -> if(item.generation == generation.get() && item.source == videoWanted) {
                 stopVideo(item.reason)
             }
             Work.MuteChanged -> {
+                standbyVad?.stop(); standbyVad = null; preroll = null; videoStandby = false
+                if(standbyState != LiveStandbyPolicy.ACTIVE) { standbyState = LiveStandbyPolicy.ACTIVE; sink.live(LiveAudioEvent.Standby(LiveStandbyPolicy.ACTIVE, "mute")) }
                 stopVideo("MIC_MUTED")
                 connected = false; connectDeadline = 0
                 socket?.close(1000, null); socket?.cancel(); socket = null
@@ -356,6 +387,14 @@ internal class MossLiveDriver(private val context: Context, request: AudioReques
         if(!captureAllowed()) return
         send(MossWireProtocol.micState(true))
         connected = true; connectDeadline = 0
+        lastActivity = SystemClock.elapsedRealtime()
+        preroll?.let { pcm ->
+            // The words that woke cold standby go first, so nothing the user said is lost.
+            var offset = 0
+            while(offset < pcm.size) { val count = minOf(1280, pcm.size - offset); sendBinary(MossWireProtocol.encodeAudio(pcm.copyOfRange(offset, offset + count), count)); offset += count }
+            Log.i("AudioLive", "provider=moss-live standby preroll bytes=${pcm.size}")
+        }
+        preroll = null
         audio.resumeClock()
         if(!announced) { announced = true; sink.ready() }
         sink.live(LiveAudioEvent.Mic(false))
@@ -364,6 +403,7 @@ internal class MossLiveDriver(private val context: Context, request: AudioReques
 
     private fun conversation(event: MossWireProtocol.Event) {
         val audio = io ?: return
+        if(event !is MossWireProtocol.Event.Ignored) markActivity()
         when(event) {
             is MossWireProtocol.Event.SpeechStarted -> {
                 if(event.active && (input?.final != false)) newInput()
@@ -510,11 +550,113 @@ internal class MossLiveDriver(private val context: Context, request: AudioReques
             is LiveAudioCommand.SetVideo -> setVideo(command.source)
             is LiveAudioCommand.RequestKeyframe -> if(videoSending) video.requestKeyframe()
             is LiveAudioCommand.ContextNote -> send(MossWireProtocol.thinking(command.text))
+            is LiveAudioCommand.SetStandby -> setStandby(command.mode)
             is LiveAudioCommand.Mute -> Unit
         }
     }
 
     private fun deviceLocked(): Boolean = keyguard.isKeyguardLocked || !power.isInteractive
+
+    private fun markActivity() {
+        lastActivity = SystemClock.elapsedRealtime()
+        if(standbyState == LiveStandbyPolicy.HOT) enterActive("activity")
+    }
+
+    private fun checkStandby(now: Long) {
+        if(standbyState != LiveStandbyPolicy.ACTIVE && now - batteryCheckedAt >= BATTERY_CHECK_MS) {
+            batteryCheckedAt = now
+            val battery = context.getSystemService(android.os.BatteryManager::class.java)
+            if(LiveStandbyPolicy.mustEnd(battery.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY), battery.isCharging, power.isPowerSaveMode))
+                throw AudioFailure("BATTERY_LOW", "Live Talk standby ended for low battery or battery saver")
+        }
+        if(deviceLocked() && !LiveStandbyPolicy.current.lockScreenWakeEnabled)
+            throw AudioFailure("DEVICE_LOCKED", "Live Talk ends when the phone locks; turn on Keep listening when locked in Taku Audio")
+        if(standbyState == LiveStandbyPolicy.COLD || !connected) return
+        val audio = io ?: return
+        val busy = audio.speaking || output != null || audio.outputs.isNotEmpty() || calls.values.any { it.result.get() == null }
+        if(busy) lastActivity = now
+        val next = LiveStandbyPolicy.next(standbyState, LiveStandbyPolicy.current, now - lastActivity, busy, deviceLocked(), coldAvailable())
+        when(next) {
+            standbyState -> Unit
+            LiveStandbyPolicy.ACTIVE -> enterActive("activity")
+            LiveStandbyPolicy.HOT -> enterHot(if(deviceLocked()) "locked" else "quiet")
+            LiveStandbyPolicy.COLD -> { if(standbyState == LiveStandbyPolicy.ACTIVE) enterHot("quiet"); enterCold(if(deviceLocked()) "locked" else "quiet") }
+        }
+    }
+
+    private fun coldAvailable(): Boolean = ModelResources.vadReady(ModelResources.root(context))
+
+    private fun setStandby(mode: String) {
+        when(mode) {
+            "wake" -> wake("manual", null)
+            "hot" -> if(connected && standbyState == LiveStandbyPolicy.ACTIVE) enterHot("manual")
+            "cold" -> if(connected && standbyState != LiveStandbyPolicy.COLD) {
+                if(!coldAvailable()) { emit(LiveAudioEvent.Standby(standbyState, "COLD_UNAVAILABLE")); return }
+                if(standbyState == LiveStandbyPolicy.ACTIVE) enterHot("manual")
+                enterCold("manual")
+            }
+        }
+    }
+
+    private fun enterActive(reason: String) {
+        if(standbyState == LiveStandbyPolicy.ACTIVE) return
+        standbyState = LiveStandbyPolicy.ACTIVE
+        lastActivity = SystemClock.elapsedRealtime()
+        if(videoStandby) {
+            videoStandby = false
+            if(!deviceLocked()) videoCodec?.let { startVideo(videoWanted, it) }
+        }
+        emit(LiveAudioEvent.Standby(LiveStandbyPolicy.ACTIVE, reason))
+    }
+
+    /** Hot standby: the provider stays connected and hears the user at once; video stops to save power. */
+    private fun enterHot(reason: String) {
+        if(standbyState != LiveStandbyPolicy.ACTIVE) return
+        standbyState = LiveStandbyPolicy.HOT
+        if(videoSending) { stopVideo("STANDBY", masked = true); videoStandby = true }
+        emit(LiveAudioEvent.Standby(LiveStandbyPolicy.HOT, reason))
+        Log.i("AudioLive", "provider=moss-live standby=hot reason=$reason")
+    }
+
+    /**
+     * Cold standby: the provider connection closes (no cloud time), the communication route, focus
+     * and echo canceller are released, and the phone listens locally. The provider session and the
+     * confirmed history stay so waking resumes the same conversation.
+     */
+    private fun enterCold(reason: String) {
+        if(standbyState != LiveStandbyPolicy.HOT) return
+        standbyState = LiveStandbyPolicy.COLD
+        connected = false; connectDeadline = 0
+        generation.incrementAndGet()
+        socket?.close(1000, null); socket?.cancel(); socket = null
+        io?.let { audio ->
+            audio.stopPlayback("interrupted", output)
+            audio.setSpeech(false)
+            if(!audio.release()) throw AudioFailure("RESTORE_FAILED", "Live audio route could not be restored")
+            audio.clear()
+        }
+        io = null
+        input = null; output = null; audioContext = null; turns.clear(); calls.clear(); seenCalls.clear()
+        val engine = StandbyVadEngine(context, ModelResources.vadModel(ModelResources.root(context)),
+            onWake = { pcm -> offer(Work.Wake("speech_wake", pcm)) }, onPaused = { why -> offer(Work.StandbyPaused(why)) })
+        standbyVad = engine
+        engine.start()
+        sink.live(LiveAudioEvent.Standby(LiveStandbyPolicy.COLD, reason))
+        Log.i("AudioLive", "provider=moss-live standby=cold reason=$reason")
+    }
+
+    /** Returns to a live conversation: stops passive listening first, then reconnects and replays [speech]. */
+    private fun wake(reason: String, speech: ByteArray?) {
+        if(standbyState == LiveStandbyPolicy.HOT) { enterActive(reason); return }
+        if(standbyState != LiveStandbyPolicy.COLD || muted.get()) return
+        standbyVad?.stop(); standbyVad = null
+        standbyState = LiveStandbyPolicy.ACTIVE
+        lastActivity = SystemClock.elapsedRealtime()
+        preroll = speech
+        sink.live(LiveAudioEvent.Standby(LiveStandbyPolicy.ACTIVE, reason))
+        Log.i("AudioLive", "provider=moss-live standby=wake reason=$reason preroll=${speech?.size ?: 0}")
+        openConnection()
+    }
 
     private fun setVideo(source: String) {
         if(source == videoWanted && (source == "none" || videoSending || videoMasked)) return
@@ -556,7 +698,7 @@ internal class MossLiveDriver(private val context: Context, request: AudioReques
         if(videoWanted == "none") return
         val locked = deviceLocked()
         if(locked && !videoMasked) stopVideo("DEVICE_LOCKED", masked = true)
-        else if(!locked && videoMasked) videoCodec?.let { startVideo(videoWanted, it) }
+        else if(!locked && videoMasked && !videoStandby) videoCodec?.let { startVideo(videoWanted, it) }
     }
 
     private fun sendVideo(frame: Work.Video) {
@@ -647,6 +789,8 @@ internal class MossLiveDriver(private val context: Context, request: AudioReques
         @Volatile var screenShared = false
             private set
         private const val PRIVACY_CHECK_MS = 100L
+        private const val STANDBY_CHECK_MS = 500L
+        private const val BATTERY_CHECK_MS = 30_000L
         /** Request-level rejections that leave the conversation usable. */
         private val RECOVERABLE = setOf("unknown_call_id", "tool_task_conflict", "unknown_tool_task", "unsupported_control")
     }

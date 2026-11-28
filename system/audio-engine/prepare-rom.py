@@ -178,8 +178,8 @@ def main():
     pack = HERE / 'out/model-pack'
     manifest = json.loads((pack / 'manifest.json').read_text())
     models = [entry['path'] for entry in manifest['files']]
-    if len(models) != len(set(models)) or not {'tts/model.onnx', 'asr/tokens.txt', 'asr-zh/tokens.txt'} <= set(models):
-        raise ValueError('ROM requires both recognition languages and TTS')
+    if len(models) != len(set(models)) or not {'tts/model.onnx', 'asr/tokens.txt', 'asr-zh/tokens.txt', 'vad/silero_vad.onnx'} <= set(models):
+        raise ValueError('ROM requires both recognition languages, TTS and the standby VAD')
     for entry in manifest['files']:
         path = ordinary(pack, entry['path'])
         if sha(path) != entry['sha256'] or path.stat().st_size != entry['size']:

@@ -36,6 +36,12 @@
     <string name="audio_home_remove_moss_key">移除 MOSS API 密钥</string>
     <string name="audio_home_remove_moss_key_title">移除 MOSS API 密钥？</string>
     <string name="audio_home_remove_moss_key_summary">移除密钥会停止正在进行的 MOSS-Live 会话。再次启动 MOSS-Live 时需要密钥。</string>
+    <string name="audio_home_live_standby">对话间隙待机</string>
+    <string name="audio_home_live_standby_summary">短暂安静后实时语音会暂停视频；更久没有说话时会断开连接并在本机聆听，开口后自动重新连接。通话和媒体播放时会暂停聆听。</string>
+    <string name="audio_home_live_lock_wake">锁屏时继续聆听</string>
+    <string name="audio_home_live_lock_wake_summary">你开启的实时语音在息屏或锁屏时继续聆听。操作手机和私人内容需解锁后进行。电量低于 15% 或开启省电模式时结束。</string>
+    <string name="audio_home_live_standby_timeouts">待机时间</string>
+    <string name="audio_home_live_standby_timeouts_value">%1$d 秒后暂停 · 再过 %2$d 秒断开</string>
     <string name="audio_home_gemini_key_pending">刷新设置后显示 Gemini API 密钥状态。</string>
     <string name="audio_home_gemini_key_saved">Gemini API 密钥已保存 · %1$s</string>
     <string name="audio_home_gemini_key_missing">尚未配置 Gemini API 密钥</string>

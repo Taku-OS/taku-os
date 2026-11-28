@@ -87,7 +87,8 @@ def public(request=None, *, method='settings', raw=None, code=None):
     assert set(result) == {'enabled', 'audioEnabled', 'systemRevision', 'audioRevision', 'reading', 'fal', 'dictation', 'live'}, result
     assert set(result['fal']) == {'configured', 'masked', 'model', 'models', 'realtimeAvailable', 'error'}, result
     assert result['fal']['realtimeAvailable'] is False
-    assert set(result['live']) == {'configured', 'profileId', 'gemini', 'moss'}, result
+    assert set(result['live']) == {'configured', 'profileId', 'gemini', 'moss', 'standby'}, result
+    assert set(result['live']['standby']) == {'enabled', 'hotTimeoutSec', 'coldTimeoutSec', 'lockScreenWakeEnabled'}, result
     assert set(result['live']['gemini']) == {'configured', 'masked', 'error'}, result
     assert set(result['live']['moss']) == {'configured', 'masked', 'error'}, result
     view = result['dictation'].get('assistant-entry')
@@ -275,7 +276,8 @@ def live_roundtrip():
     grok = public({'action': 'selectLiveProvider', 'profileId': 'fal-grok'})
     assert grok['live'] == {'profileId': 'fal-grok', 'configured': True,
                             'gemini': {'configured': False, 'masked': None, 'error': None},
-                            'moss': {'configured': False, 'masked': None, 'error': None}}, grok
+                            'moss': {'configured': False, 'masked': None, 'error': None},
+                            'standby': {'enabled': True, 'hotTimeoutSec': 15, 'coldTimeoutSec': 60, 'lockScreenWakeEnabled': True}}, grok
     missing = public({'action': 'selectLiveProvider', 'profileId': 'gemini-live'})
     assert missing['live']['profileId'] == 'gemini-live' and not missing['live']['configured']
     assert missing['fal'] == grok['fal'] and missing['audioRevision'] == grok['audioRevision'] + 1
@@ -286,7 +288,8 @@ def live_roundtrip():
     legacy = public({'action': 'read'})
     assert legacy['live'] == {'profileId': 'gemini-live', 'configured': True,
                              'gemini': {'configured': True, 'masked': '•••• ture', 'error': None},
-                             'moss': {'configured': False, 'masked': None, 'error': None}}, legacy
+                             'moss': {'configured': False, 'masked': None, 'error': None},
+                             'standby': {'enabled': True, 'hotTimeoutSec': 15, 'coldTimeoutSec': 60, 'lockScreenWakeEnabled': True}}, legacy
     probe('legacy-gemini-key', liveProfile='gemini-live', liveConfigured=True, geminiConfigured=True,
           geminiCredentialKey=gemini_key)
     public({'action': 'setAudioEnabled', 'enabled': False})

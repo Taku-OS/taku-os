@@ -25,7 +25,7 @@ internal enum class AudioLiveProvider(val profileId: String) {
 internal enum class AudioGeminiError { KEY_UNREADABLE }
 internal data class AudioGeminiSettings(val configured: Boolean, val masked: String?, val error: AudioGeminiError?)
 internal data class AudioLiveSettings(val provider: AudioLiveProvider, val configured: Boolean, val gemini: AudioGeminiSettings,
-    val moss: AudioGeminiSettings = AudioGeminiSettings(false, null, null))
+    val moss: AudioGeminiSettings = AudioGeminiSettings(false, null, null), val standby: AudioLiveStandby = AudioLiveStandby())
 internal data class AudioSettingsSnapshot(
     val enabled: Boolean,
     val audioEnabled: Boolean,
@@ -52,7 +52,8 @@ internal data class AudioSettingsSnapshot(
                 .put("gemini", JSONObject().put("configured", live.gemini.configured)
                     .put("masked", live.gemini.masked ?: JSONObject.NULL).put("error", live.gemini.error?.name ?: JSONObject.NULL))
                 .put("moss", JSONObject().put("configured", live.moss.configured)
-                    .put("masked", live.moss.masked ?: JSONObject.NULL).put("error", live.moss.error?.name ?: JSONObject.NULL)))
+                    .put("masked", live.moss.masked ?: JSONObject.NULL).put("error", live.moss.error?.name ?: JSONObject.NULL))
+                .put("standby", live.standby.toJson()))
     }
 }
 
@@ -76,6 +77,7 @@ internal sealed class AudioSettingsCommand {
     object RemoveMossKey : AudioSettingsCommand()
     data class SelectLiveProvider(val provider: AudioLiveProvider) : AudioSettingsCommand()
     data class SetAudioEnabled(val enabled: Boolean) : AudioSettingsCommand()
+    data class ConfigureLiveStandby(val standby: AudioLiveStandby) : AudioSettingsCommand()
     data class ConfigureReading(val language: String, val voiceId: String, val speed: Double) : AudioSettingsCommand()
     data class ResetReading(val language: String) : AudioSettingsCommand()
     data class ConfigureDictation(
@@ -102,6 +104,7 @@ internal object AudioSettings {
                 "saveFalKey", "saveLiveKey", "saveMossKey" -> setOf("action", "key")
                 "selectFalModel" -> setOf("action", "model")
                 "selectLiveProvider" -> setOf("action", "profileId")
+                "configureLiveStandby" -> setOf("action", "enabled", "hotTimeoutSec", "coldTimeoutSec", "lockScreenWakeEnabled")
                 "setAudioEnabled" -> setOf("action", "enabled")
                 "configureReading" -> setOf("action", "language", "voiceId", "speed")
                 "resetReading" -> setOf("action", "language")
@@ -121,6 +124,13 @@ internal object AudioSettings {
                 "removeMossKey" -> AudioSettingsCommand.RemoveMossKey
                 "selectLiveProvider" -> AudioSettingsCommand.SelectLiveProvider(liveProvider(string(request, "profileId")) ?: invalid())
                 "setAudioEnabled" -> AudioSettingsCommand.SetAudioEnabled(request.opt("enabled") as? Boolean ?: invalid())
+                "configureLiveStandby" -> {
+                    val hot = request.opt("hotTimeoutSec") as? Int ?: invalid()
+                    val cold = request.opt("coldTimeoutSec") as? Int ?: invalid()
+                    if (hot !in AudioLiveStandby.HOT_RANGE || cold !in AudioLiveStandby.COLD_RANGE) invalid()
+                    AudioSettingsCommand.ConfigureLiveStandby(AudioLiveStandby(request.opt("enabled") as? Boolean ?: invalid(), hot, cold,
+                        request.opt("lockScreenWakeEnabled") as? Boolean ?: invalid()))
+                }
                 "configureReading" -> {
                     val speed = (request.opt("speed") as? Number)?.toDouble() ?: invalid()
                     if (!speed.isFinite()) invalid()
@@ -177,6 +187,7 @@ internal object AudioSettings {
             AudioSettingsCommand.RemoveMossKey -> put("action", "removeMossKey")
             is AudioSettingsCommand.SelectLiveProvider -> put("action", "selectLiveProvider").put("profileId", command.provider.profileId)
             is AudioSettingsCommand.SetAudioEnabled -> put("action", "setAudioEnabled").put("enabled", command.enabled)
+            is AudioSettingsCommand.ConfigureLiveStandby -> { put("action", "configureLiveStandby"); command.standby.toJson().let { v -> v.keys().forEach { put(it, v.get(it)) } } }
             is AudioSettingsCommand.ConfigureReading -> put("action", "configureReading").put("language", command.language)
                 .put("voiceId", command.voiceId).put("speed", command.speed)
             is AudioSettingsCommand.ResetReading -> put("action", "resetReading").put("language", command.language)
@@ -225,7 +236,8 @@ internal object AudioSettings {
         return AudioSettingsSnapshot(boolean(value, "enabled"), boolean(value, "audioEnabled"),
             revision("systemRevision"), revision("audioRevision"), Collections.unmodifiableMap(reading),
             AudioFalSettings(boolean(fal, "configured"), masked, text(fal, "model"), Collections.unmodifiableList(models), falError),
-            AudioLiveSettings(provider, boolean(live, "configured"), AudioGeminiSettings(boolean(gemini, "configured"), geminiMasked, geminiError), mossSettings),
+            AudioLiveSettings(provider, boolean(live, "configured"), AudioGeminiSettings(boolean(gemini, "configured"), geminiMasked, geminiError), mossSettings,
+                AudioLiveStandby.from(live.optJSONObject("standby"))),
             DictationResolver(context).inspect(value))
     }
 

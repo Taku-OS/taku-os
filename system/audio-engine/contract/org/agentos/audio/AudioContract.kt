@@ -32,6 +32,8 @@ sealed interface LiveAudioEvent {
      * `NETWORK_THROTTLED`, `VIDEO_UNSUPPORTED`, `PERMISSION_DENIED`, `CAPTURE_FAILED`, ...).
      */
     data class Video(val source: String, val active: Boolean, val masked: Boolean = false, val reason: String = "") : LiveAudioEvent
+    /** [state] is `active`, `hot_standby` or `cold_standby`; [reason] says why it changed (`quiet`, `speech_wake`, `task_event`, `manual`, `locked`, ...). */
+    data class Standby(val state: String, val reason: String) : LiveAudioEvent
 }
 sealed interface LiveAudioCommand {
     data class Mute(val muted: Boolean) : LiveAudioCommand
@@ -43,6 +45,8 @@ sealed interface LiveAudioCommand {
     data class RequestKeyframe(val reason: String) : LiveAudioCommand
     /** Context for the model that must not prompt a reply (background task progress). */
     data class ContextNote(val text: String) : LiveAudioCommand
+    /** `hot` or `cold` enters that standby now; `wake` returns to active. */
+    data class SetStandby(val mode: String) : LiveAudioCommand
 }
 data class LiveHistoryTurn(val role: String, val text: String)
 data class DictationBackend(
