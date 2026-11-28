@@ -82,7 +82,7 @@ internal class MicrophoneAacRecorder(private val file: File, private val maxByte
             if (record.recordingState != AudioRecord.RECORDSTATE_RECORDING) throw IOException("RECORDING_NOT_STARTED")
             codec.start()
         } catch (failure: Exception) {
-            runCatching { record.stop() }
+            releaseMicrophoneAsync()
             runCatching { codec.release() }
             runCatching { muxer?.release() }
             throw failure
@@ -170,11 +170,9 @@ internal class MicrophoneAacRecorder(private val file: File, private val maxByte
         } catch (failure: Exception) {
             if (error == null) error = (failure as? IOException)?.message?.takeIf { it.startsWith("RECORDING_") } ?: "RECORDING_FAILED"
         } finally {
-            val cleanup = releaseMicrophoneAsync()
+            releaseMicrophoneAsync()
             runCatching { codec.release() }
             runCatching { muxer.release() }
-            // The caller already bounds its wait for this worker.
-            runCatching { cleanup.join() }
         }
         // A stop the caller asked for is not a failure; the size limit and capture errors are.
         val code = error
@@ -202,13 +200,13 @@ internal class MicrophoneAacRecorder(private val file: File, private val maxByte
     /** Releases the microphone if [start] never ran or [stop] was not called. */
     fun release() {
         stopping.set(true)
-        if (worker == null) record.release()
+        releaseMicrophoneAsync()
     }
 
     @Synchronized
-    private fun releaseMicrophoneAsync(): Thread {
-        microphoneCleanup?.let { return it }
-        return Thread({
+    private fun releaseMicrophoneAsync() {
+        if (microphoneCleanup != null) return
+        Thread({
             runCatching { record.release() }
         }, "assistant-microphone-release").also {
             microphoneCleanup = it
