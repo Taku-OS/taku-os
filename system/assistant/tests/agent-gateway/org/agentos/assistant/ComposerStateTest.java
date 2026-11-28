@@ -273,6 +273,12 @@ public final class ComposerStateTest {
                 .put("pluginIds", "a").toString()));
         rejects("INVALID_ARGUMENT", () -> AgentGatewayProtocol.request("composer/submit", new JSONObject(submit.toString())
                 .put("pluginIds", new JSONArray().put("bad id")).toString()));
+        check(AgentGatewayProtocol.request("composer/submit", new JSONObject(submit.toString())
+                .put("invocationId", "00000000-0000-4000-8000-000000000011").toString()).has("invocationId"), "submit names its invocation");
+        rejects("INVALID_invocationId", () -> AgentGatewayProtocol.request("composer/submit", new JSONObject(submit.toString())
+                .put("invocationId", "not-a-uuid").toString()));
+        rejects("INVALID_invocationId", () -> AgentGatewayProtocol.request("composer/submit", new JSONObject(submit.toString())
+                .put("invocationId", 7).toString()));
     }
 
     private static void pluginLookup() throws Exception {

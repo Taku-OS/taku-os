@@ -23,7 +23,8 @@ internal class ChatVoiceSession private constructor(private val context: Context
   val speech = speechFlow.asStateFlow()
   private val dictationFlow = MutableStateFlow<ChatDictation?>(null)
   val dictation = dictationFlow.asStateFlow()
-  private val engine = EngineVoiceInput(context, settingsScope = AssistantSession.DESKTOP_SCOPE, localOnly = true)
+  /** The same saved recognition settings as the home entry (backend, fallback, language): BUG-0052. */
+  private val engine = EngineVoiceInput(context, settingsScope = AssistantSession.DESKTOP_SCOPE)
   private var focus: Focus? = null
   val visibleThread: String? get() = focus?.threadId
   private var recording: Recording? = null

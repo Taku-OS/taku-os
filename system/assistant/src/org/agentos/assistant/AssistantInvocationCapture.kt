@@ -27,9 +27,13 @@ internal object AssistantInvocationCapture {
         val image: Bitmap? = null,
         /** One-shot grant: the first message after a power-key invocation carries this capture. */
         val autoScreenshot: Boolean = false,
+        /** The invoking client's ID for this invocation; a submit naming it may read this capture. */
+        val id: String? = null,
     )
 
     private var invocation: Invocation? = null
+    /** An invocation a message was already sent for before its capture arrived: it forfeits the grant. */
+    private var forfeited: String? = null
     private val main = Handler(Looper.getMainLooper())
     private var observingPolicy = false
 
@@ -54,8 +58,11 @@ internal object AssistantInvocationCapture {
             when (input.optString("operation")) {
                 "begin" -> {
                     val auto = input.opt("autoScreenshot")
-                    if (input.length() != (if (input.has("autoScreenshot")) 3 else 2) || input.opt("capturedAt") !is Number ||
-                        auto != null && auto !is Boolean || descriptor != null)
+                    val id = input.opt("invocationId")
+                    val expected = 2 + (if (input.has("autoScreenshot")) 1 else 0) + (if (input.has("invocationId")) 1 else 0)
+                    if (input.length() != expected || input.opt("capturedAt") !is Number ||
+                        auto != null && auto !is Boolean || id != null && (id !is String || !AgentGatewayProtocol.isUuid(id)) ||
+                        descriptor != null)
                         throw IOException("INVALID_ARGUMENT")
                     val at = input.getLong("capturedAt")
                     val age = SystemClock.elapsedRealtime() - at
@@ -69,7 +76,9 @@ internal object AssistantInvocationCapture {
                             })
                         observingPolicy = true
                     }
-                    val current = Invocation(UUID.randomUUID().toString(), at, autoScreenshot = auto == true)
+                    val current = Invocation(UUID.randomUUID().toString(), at,
+                        autoScreenshot = auto == true && (id == null || id != forfeited), id = id as String?)
+                    if (id != null && id == forfeited) forfeited = null
                     invocation = current
                     main.postDelayed({
                         synchronized(this) {
@@ -117,11 +126,25 @@ internal object AssistantInvocationCapture {
         }
     }
 
-    fun reserve(context: Context, requestId: String, options: JSONObject, allowAutoScreenshot: Boolean) {
+    /**
+     * Adds the invocation screenshot to a submission. With [invocationId] (the client's ID for the
+     * invocation its composer belongs to) only that invocation's received capture is used: until
+     * its capture has arrived, or when the gateway holds another invocation's, the message goes as
+     * plain text and the invocation loses its automatic screenshot, so a quick send never carries
+     * the previous invocation's screen. Without it, the latest capture is used as before.
+     */
+    fun reserve(context: Context, requestId: String, options: JSONObject, allowAutoScreenshot: Boolean, invocationId: String? = null) {
         sweep(context)
         // Claim the grant and its image together; a concurrent invocation may replace the capture.
         val current = synchronized(this) {
-            val capture = current(context) ?: return
+            val capture = current(context)
+            if (invocationId != null && (capture == null || capture.id != invocationId || !capture.received)) {
+                if (capture?.id == invocationId) invocation = capture!!.copy(autoScreenshot = false)
+                else forfeited = invocationId
+                options.put("includeScreenshot", false)
+                return
+            }
+            if (capture == null) return
             if (allowAutoScreenshot && capture.autoScreenshot) invocation = capture.copy(autoScreenshot = false)
             capture
         }

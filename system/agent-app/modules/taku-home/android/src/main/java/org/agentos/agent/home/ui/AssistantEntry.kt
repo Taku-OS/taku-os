@@ -129,6 +129,8 @@ internal fun BoxScope.AssistantEntry(scene: GraphicsLayer, controller: HomeContr
           // This is the desktop entry, not the system nav handle. Keep mandatory/system
           // edge starts available to Android, including a stationary hold on the handle.
           if (gestures.systemStart) return@awaitEachGesture
+          // The long-press wait overlaps connecting to the Audio Engine, so "Speak now" follows the press.
+          controller.prepareVoiceHold()
           var cancelled = false
           val up = withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) {
             var result: androidx.compose.ui.input.pointer.PointerInputChange? = null

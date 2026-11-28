@@ -81,7 +81,20 @@ while an icon is dragged past the last app page, and an app page other than 0 di
   repairs the selected voice service in VoiceInteractionManager, before any Activity starts.
   `HomeRole` additionally repairs roles/bindings on boot, unlock and app update. Hardware
   assistant entry opens the new Home AI input; handle gestures retain their existing
-  text/voice overlay. Quickstep still implements navigation/overview, with HOME targeting
+  text/voice overlay. The input opens as soon as the system screenshot and page context arrive,
+  and at most 300 ms after the session shows (so the screenshot is of the user's screen, not
+  the overlay). The capture is handed to the gateway separately, and the first message sent
+  after the handoff carries it; one sent before goes without the screenshot. Each invocation
+  gets an ID before the input opens (`SystemInvocation`). It goes to the gateway with the
+  capture (`assistInvocation` `begin`, `invocationId`) and with every Home submit
+  (`composer/submit` `invocationId`). The gateway attaches a screenshot only from that
+  invocation's received capture. A message sent before it arrives is plain text and ends that
+  invocation's automatic screenshot, so a quick send never carries the previous invocation's
+  screen. Opening the
+  input hides the voice session, which cancels whatever the system has not delivered yet;
+  what arrived is still handed off. A missing screenshot or a refused capture grant never
+  closes the open input or asks to invoke again: the user keeps typing without it. A gateway
+  that refuses the automatic-screenshot or invocation-ID field (`INVALID_ARGUMENT`) is asked for a plain grant, and Home stops naming invocations in its submits. The overlay does not blur the app behind it: Android switches cross-window blur off and on by itself (tunnelled video, GPU load), which made video feeds and games flicker underneath. Over Home, the overlay is the only surface drawing the entry while it is started (`overlayHosts`, counted from `onStart` to `onStop`, so Home takes the entry back as soon as Home or a task switch covers the overlay): Home's own copy stands down, so two composers never compete for the keyboard, and the keyboard leaving an unfocused window is never read as the user dismissing it. Quickstep still implements navigation/overview, with HOME targeting
   this app. Advanced native controls and background task ownership remain in the backend.
 
 ## Data pipeline
@@ -555,6 +568,14 @@ Figma 1-1 … 1-6. Native Kotlin/Compose (`assistant/`, `ui/assistant/`); state 
   a failure. Waveform history comes from the Engine's measured microphone PCM RMS,
   normalized from -60 dBFS to 0 dBFS into 0..1. `levels` and `levelSource:"pcm-rms"`
   expose the same values through `assistant/get`. Missing history stays still.
+
+  A hold waits only for the microphone. While the home is in front, and from the moment a
+  finger touches the entry (during the long-press wait), the home keeps one Audio Engine
+  connection bound and handshaken; the next recording adopts it as its own connection instead
+  of binding, possibly creating the Engine service, and waiting for its configuration after
+  the press. The spare never opens a session or the microphone, the Engine still reads the
+  current settings on every open, and it is released 60 s after the last renewal or when the
+  home stops. `voice.enginePrewarmed` in `assistant/get` reports it.
 
   The live transcript wraps across the text area and scrolls within the space above
   the keyboard. A separate centered waveform row keeps the text width clear. Its
