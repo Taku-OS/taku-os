@@ -16,7 +16,7 @@
     "system/audio-engine/client/org/agentos/audio/AudioPipe.kt": "72d9a7922c6918917a31346888ec281a320497908ba4b85fdf03f20c8f2f224e",
     "system/audio-engine/client/org/agentos/audio/AudioReader.kt": "29c1fa6feca645758ac585f3b6869127ef7400634810042e299af5d21ef3b753",
     "system/audio-engine/client/org/agentos/audio/SpeechChunks.kt": "6ec013e8cc45b10ba4d987b0b7bee6ee72c36fc731f54a3bdc493cfe132c162f",
-    "system/audio-engine/contract/org/agentos/audio/AudioContract.kt": "17633b464a23f801213323f83e576031cd25c1fef59d895a957b4acb24baefdb",
+    "system/audio-engine/contract/org/agentos/audio/AudioContract.kt": "996d4315e77a165451fc35f7817b59dc65802236ef0930cd3aeed16cafeb705d",
     "system/audio-engine/contract/org/agentos/audio/AudioRuntime.kt": "aa6ffa1871528fe8e7ec4f61e52e9317149084635134fc0b6514926c3d403649",
     "system/audio-engine/contract/org/agentos/audio/VoiceCatalog.kt": "257102e020b913d59ed7a2233bb01bb17290f65d4728dfd956568b9422b14e58",
     "system/audio-engine/models/dependencies.lock.json": "5ff499ff4926ac3554ae5e5474325462d5aa5aef2d72f4e07b5ad8b18a774688",
@@ -50,7 +50,7 @@
     "system/audio-engine/src/org/agentos/audio/AudioEngineService.kt": "7808c7742dc9b43ba996d6b90e61977168d219760fa9d218f0d4f830efe94e28",
     "system/audio-engine/src/org/agentos/audio/AudioHomeActivity.kt": "417ea3493862846ba44ba3d11468d4a47f22217e29e975d5721d13d138cf532e",
     "system/audio-engine/src/org/agentos/audio/AudioHostActivity.kt": "66a0055b78c0186f739e290473b2032d281fdee0ba6cccb1df0f045fe33b2c93",
-    "system/audio-engine/src/org/agentos/audio/AudioJson.kt": "d0a8c2acbe29a3a1bf6f0aa74b72ed26ad3c8bbcfaa1947bfdecf586830c0b7c",
+    "system/audio-engine/src/org/agentos/audio/AudioJson.kt": "9b2f3c500a5b8868debdb56b25523283cf5eee6176557926225c4ba6c9fdb93a",
     "system/audio-engine/src/org/agentos/audio/AudioOpenAccessProvider.kt": "cde133cd826da00c41432e9fae3d082de21dbd58c0c4a2899a06854fad9061a5",
     "system/audio-engine/src/org/agentos/audio/AudioParameters.kt": "0e52d2603078011fcab20f75bb4493b58622bfbdf86e0db2162dcd11549a382a",
     "system/audio-engine/src/org/agentos/audio/AudioSettings.kt": "f505a21c408c18190cf180c07e07a7589ecf60f669fb17fc7576f2f432e47631",
@@ -81,8 +81,8 @@
     "system/audio-engine/src/org/agentos/audio/MediaTranslationDriver.kt": "bd336e590558a21367754b8c03f1ab62dc7f6a6edf93c3201852368f1b9fc355",
     "system/audio-engine/src/org/agentos/audio/MediaTranslationOverlay.kt": "fb9606297a28c99dc28945cce646553fc90fb62f63c3c3be15c396ebc3bd2983",
     "system/audio-engine/src/org/agentos/audio/ModelResources.kt": "933d5c4ab13187a308a6dc5f3d017c0ee1a8a7d25e9755b202270203361b5811",
-    "system/audio-engine/src/org/agentos/audio/MossLiveDriver.kt": "6f377b3f28385cc5baebacb7b855ba58008a68a64776800c58c8f8c7bedc23e8",
-    "system/audio-engine/src/org/agentos/audio/MossWireProtocol.kt": "4dcffdd92326a5d78fd794affbf1412e62da699696b686fc0c6d3936e55a5033",
+    "system/audio-engine/src/org/agentos/audio/MossLiveDriver.kt": "74a7c2735d8b776b25b228c80261e999ff9571874ad286979665457a22eab639",
+    "system/audio-engine/src/org/agentos/audio/MossWireProtocol.kt": "d7c9a8bd97813332b23aac45078f07a5cfa442349edac0663ad8a8c624ce3dff",
     "system/audio-engine/src/org/agentos/audio/OverlayHost.kt": "1e7f6c2f5d1827bd33c5fe2899dc1a1bde3e4e09ce2c60a832b7e71d7aa805ce",
     "system/audio-engine/src/org/agentos/audio/OverlayPreference.kt": "a8ca6575d483778373f17110861101b1f4399bb03706a0d8dd68d770c968b6e1",
     "system/audio-engine/src/org/agentos/audio/PcmLevelMeter.kt": "6d0c9898fd8686da2d130d6cca60ca0d1d77b711023be97a5796c6fcca62eefe",
@@ -107,13 +107,13 @@
   "assets": [
     {
       "path": "system/audio-engine/prebuilt/TakuAudioEngine.apk",
-      "sha256": "dd3927cffb869547251c5ce12e100168655440cf34db40d0ecefe96ca97610a0",
+      "sha256": "4ab3b9796992eb76563707dbfe05247ca7d2685fadf537c00ee09244ac16fbef",
       "bytes": 34764539
     },
     {
       "path": "system/audio-engine/prebuilt/audio-bridge.jar",
-      "sha256": "ecb49dcc457b37334d51063835946eeee83889941ed64bb1f9e0a8718ce9bdad",
-      "bytes": 1807849
+      "sha256": "654ef25431f558542d2132781a853560d458b6f45490d0f1afb2b180af9a3221",
+      "bytes": 1808218
     },
     {
       "path": "system/audio-engine/prebuilt/models/asr/README.md",
@@ -2072,7 +2072,7 @@
     "assets/licenses/onnxruntime-LICENSE": "2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c",
     "assets/licenses/onnxruntime-ThirdPartyNotices.txt": "0e07b95f3a8d6230037707c5c4a2b554d12c4cb67369669ac255635528ffcee2",
     "assets/licenses/sherpa-onnx-LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-    "classes.dex": "6c757b3272d3b2a2114f43f4ad357ed3d9fa13f6ae7b760129a2c7ab3f9209ed",
+    "classes.dex": "17362773e4d3f172ce7eb3be7463f6033c2da3c7530c4d8b73c4e89631e8ffd2",
     "lib/arm64-v8a/libonnxruntime.so": "33847ad43bffe204699fd4a27f7f3603452a8cdaf2f9a44983a0bc31ffcf2da1",
     "lib/arm64-v8a/libsherpa-onnx-c-api.so": "c85e2382e2ca12b0513826be926eaccfea896b4cbf568182e287671ba526f80d",
     "lib/arm64-v8a/libsherpa-onnx-cxx-api.so": "5eabb2bcf5a8af66aeab37431c09fab4a9c65cdebf02bd7e50f8c589044bd70e",

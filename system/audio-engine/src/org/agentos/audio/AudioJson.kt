@@ -29,7 +29,7 @@ private fun LiveAudioEvent.json(): JSONObject = JSONObject().apply {
         is LiveAudioEvent.Output -> put("kind","Output").put("responseId",event.responseId).put("text",event.text).put("final",event.final)
         is LiveAudioEvent.Playback -> put("kind","Playback").put("responseId",event.responseId).put("state",event.state)
         is LiveAudioEvent.ResponseDone -> put("kind","ResponseDone").put("responseId",event.responseId).put("itemId",event.itemId)
-        is LiveAudioEvent.Tool -> put("kind","Tool").put("callId",event.callId).put("itemId",event.itemId).put("action",event.action).put("text",event.text)
+        is LiveAudioEvent.Tool -> put("kind","Tool").put("callId",event.callId).put("itemId",event.itemId).put("action",event.action).put("text",event.text).put("args",event.args)
         is LiveAudioEvent.Mic -> put("kind","Mic").put("muted",event.muted)
         is LiveAudioEvent.Speech -> put("kind","Speech").put("active",event.active)
         is LiveAudioEvent.TaskResult -> put("kind","TaskResult").put("offerId",event.offerId).put("sent",event.sent)

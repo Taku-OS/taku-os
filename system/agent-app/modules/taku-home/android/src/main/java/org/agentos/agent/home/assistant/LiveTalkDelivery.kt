@@ -75,6 +75,32 @@ internal class LiveTalkDelivery(context: Context, private val gateway: AgentGate
     }
   }
 
+  /**
+   * Steers the exact running turn with the user's spoken change. The gateway persists the receipt
+   * first; a changed turn becomes the thread's next task, and an unknown delivery is never resent.
+   */
+  suspend fun steer(threadId: String, turnId: String, text: String, allowed: () -> Boolean): JSONObject = withContext(worker) {
+    if (!allowed()) throw GatewayException("INPUT_REVOKED", "The voice request is no longer current")
+    gateway.call("steer", JSONObject().put("threadId", threadId).put("text", text).put("expectedTurnId", turnId)
+      .put("requestId", UUID.randomUUID().toString()))
+  }
+
+  /** The pending native request (question, confirmation, approval) of [threadId]'s [turnId], if any. */
+  suspend fun pendingRequest(threadId: String, turnId: String?): JSONObject? = withContext(worker) {
+    val requests = gateway.call("readSession", JSONObject().put("threadId", threadId).put("statusOnly", true))
+      .optJSONObject("native")?.optJSONArray("requests") ?: return@withContext null
+    (0 until requests.length()).mapNotNull { requests.optJSONObject(it) }.firstOrNull { request ->
+      val params = request.optJSONObject("params")
+      params?.optString("threadId") == threadId && (turnId == null || params.optString("turnId").let { it.isEmpty() || it == turnId }) &&
+        request.optString("key").isNotBlank()
+    }
+  }
+
+  suspend fun answer(threadId: String, key: String, response: JSONObject, allowed: () -> Boolean): JSONObject = withContext(worker) {
+    if (!allowed()) throw GatewayException("INPUT_REVOKED", "The voice request is no longer current")
+    gateway.call("answer", JSONObject().put("threadId", threadId).put("key", key).put("response", response))
+  }
+
   private fun lookup(request: LiveRequest): LiveReceipt = try {
     gateway.call("composer/receipt", request.arguments().put("action", "sendMessage")).receipt(request)
   } catch (_: Exception) {

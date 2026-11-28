@@ -48,6 +48,8 @@ internal data class LiveTalkSnapshot(
   /** The `ai-setup` service whose setup page fixes [error] (`fal` for a missing fal key), else null. */
   val setup: String? = null,
   val video: LiveVideoView = LiveVideoView(),
+  /** Every task this session tracks: the most recent ([task]) and older ones still running or unannounced. */
+  val tasks: List<LiveTaskView> = emptyList(),
 ) {
   val open get() = lifecycle != "closed"
   val disclosure get() = when (provider.takeIf { lifecycle == "connecting" || lifecycle == "active" }) {
@@ -65,6 +67,7 @@ internal data class LiveTalkSnapshot(
     .put("output", output?.json("responseId")?.put("source", "generated") ?: JSONObject.NULL)
     .put("levels", JSONArray(levels)).put("task", task?.json() ?: JSONObject.NULL).put("error", error ?: JSONObject.NULL)
     .put("setup", setup ?: JSONObject.NULL).put("video", video.json())
+    .put("tasks", JSONArray(tasks.map(LiveTaskView::json)))
 }
 
 internal class LiveTalk(
@@ -78,7 +81,8 @@ internal class LiveTalk(
     @Volatile var valid = true
   }
 
-  private data class Command(val callId: String, val action: String, val inputs: List<LiveInput>, val version: Long, val permit: Permit)
+  private data class Command(val callId: String, val action: String, val inputs: List<LiveInput>, val version: Long, val permit: Permit,
+    val target: Task? = null, val args: JSONObject = JSONObject())
   private class Task(val request: LiveRequest) {
     var receipt: LiveReceipt? = null
     var turnId: String? = null
@@ -118,6 +122,8 @@ internal class LiveTalk(
     /** Bumped on every provider event; a quiet gap after speech means no reply is coming. */
     var activity = 0L
     var responseWatch: Job? = null
+    /** Older tasks that keep running while a newer one is the session's [task]; bounded by [MAX_TASKS]. */
+    val background = ArrayList<Task>()
     val seenInputs = HashSet<String>()
     val calls = HashSet<String>()
     val history = ArrayDeque<Pair<String, String>>()
@@ -482,12 +488,18 @@ internal class LiveTalk(
     val input = s.input?.takeIf { it.itemId == "${s.view.generation}:$item" }
     if (input != null) s.input = null
     val action = value.getString("action")
-    val owned = s.task
+    val args = runCatching { JSONObject(value.optString("args", "{}")) }.getOrDefault(JSONObject())
+    val requested = (args.opt("taskId") as? String)?.takeIf(String::isNotBlank)
+    val owned = target(s, requested)
     val prior = s.command
     when {
       input == null || s.view.speech || input.text.length > AssistantSession.MAX_TEXT -> toolReply(s, call, "notSent", "No confirmed user input belongs to this call.")
-      action == "submit" && (prior != null || owned?.terminal == false) -> toolReply(s, call, "notSent", "A task is pending. Use correction only for an explicit user correction, or ask the user to open chat.")
-      action == "correct" && owned == null -> toolReply(s, call, "notSent", "There is no owned task to correct.")
+      action == "status" -> toolReply(s, call, "status", statusSummary(s))
+      requested != null && owned == null -> toolReply(s, call, "notSent", "No task of this Live Talk session has that taskId.")
+      action == "submit" && prior != null -> toolReply(s, call, "notSent", "Another voice request is still being sent. Try again after its receipt.")
+      action == "submit" && s.task?.terminal == false && s.background.count { !it.terminal } >= MAX_TASKS - 1 ->
+        toolReply(s, call, "notSent", "$MAX_TASKS tasks are already running. Wait for one to finish or cancel one.")
+      action in setOf("correct", "steer", "confirm") && owned == null -> toolReply(s, call, "notSent", "There is no owned task to change or answer.")
       action == "cancel" && (owned == null || !explicitCancel(input.text)) -> toolReply(s, call, "notSent", "Use Stop in chat to cancel the task.")
       action !in COMMANDS -> toolReply(s, call, "notSent", "Unsupported voice action.")
       else -> {
@@ -497,10 +509,13 @@ internal class LiveTalk(
         }
         val version = ++s.version
         val additions = if (action == "correct" && prior?.action == "correct") prior.inputs + input else listOf(input)
-        s.command = Command(call, action, additions, version, Permit())
+        s.command = Command(call, action, additions, version, Permit(), if (action == "submit") null else owned, args)
         s.awaitingResponse = false
-        if (action != "submit") showTask(s, owned, if (action == "correct") "correcting" else "cancelling")
-        else showTask(s, null, "submitting")
+        when (action) {
+          "submit" -> if (s.task?.terminal != false) showTask(s, null, "submitting")
+          "confirm" -> Unit
+          else -> if (owned === s.task) showTask(s, owned, if (action == "cancel") "cancelling" else "correcting")
+        }
         ensureWork(s)
       }
     }
@@ -512,7 +527,11 @@ internal class LiveTalk(
       while (isActive && s.view.open) {
         val command = s.command
         try {
-          if (command != null) process(s, command) else if (!observe(s) && s.command == null) break
+          if (command != null) process(s, command) else {
+            val primary = observe(s)
+            val others = observeBackground(s)
+            if (!primary && !others && s.command == null) break
+          }
         } catch (cancel: CancellationException) {
           throw cancel
         } catch (failure: Exception) {
@@ -525,7 +544,7 @@ internal class LiveTalk(
             showTask(s, s.task, "unverified", code)
           }
         }
-        if (!s.view.open || s.command == null && s.task == null) break
+        if (!s.view.open || s.command == null && s.task == null && s.background.isEmpty()) break
         delay(900)
       }
     }
@@ -537,16 +556,18 @@ internal class LiveTalk(
   private suspend fun process(s: Session, command: Command) {
     if (!current(s, command)) return
     if (s.view.speech || s.awaitingResponse || !s.connected) return
-    val old = s.task
+    val old = command.target ?: s.task
     when (command.action) {
       "submit" -> submit(s, command, command.inputs)
-      "correct", "cancel" -> {
+      "correct", "cancel", "steer", "confirm" -> {
         old ?: return
         // Receipt lookup is read-only. An unknown publication is never sent a second time.
         val receipt = old.receipt?.takeUnless { it.pending } ?: delivery.reconcile(old.request).also { old.receipt = it }
         if (!current(s, command)) return
         val id = receipt.taskId ?: throw GatewayException("LIVE_TASK_UNCONFIRMED", "The prior request has no verified task")
         if (s.view.speech || s.awaitingResponse) return
+        if (command.action == "confirm") return confirm(s, command, old)
+        if (command.action == "steer" && steer(s, command, old, id)) return
         if (command.action == "cancel") {
           val permit = s.permit
           val status = delivery.task("live/task-cancel", old.request, id) { permit.valid && command.permit.valid }
@@ -581,11 +602,20 @@ internal class LiveTalk(
   }
 
   private suspend fun submit(s: Session, command: Command, inputs: List<LiveInput>) {
-    val id = s.view.threadId ?: delivery.createThread()
+    // An independent request while the session's task still runs gets its own conversation, so
+    // the running turn neither blocks it (THREAD_BUSY) nor is replaced by it.
+    val parallel = command.action == "submit" && s.task?.terminal == false
+    val id = if (parallel) delivery.createThread() else s.view.threadId ?: delivery.createThread()
     if (!current(s, command)) return
-    if (s.view.threadId == null) update(s) { it.copy(threadId = id) }
+    if (!parallel && s.view.threadId == null) update(s) { it.copy(threadId = id) }
     if (s.view.speech || s.awaitingResponse) return
     val next = Task(LiveRequest(s.view.sessionId, id, command.callId, command.version, inputs))
+    // A replaced task leaves the list; a still-running task that is not being replaced keeps running beside the new one.
+    command.target?.let { s.background.remove(it) }
+    s.task?.takeIf { !it.terminal && it !== command.target }?.let { running ->
+      s.background.add(running)
+      while (s.background.size > MAX_TASKS - 1) s.background.removeAt(s.background.indexOfFirst { it.terminal }.takeIf { it >= 0 } ?: 0)
+    }
     s.task = next
     s.command = null
     showTask(s, next, "submitting")
@@ -604,7 +634,7 @@ internal class LiveTalk(
     }
     if (session === s && s.view.open && permit.valid && s.connected && !s.view.muted) {
       toolReply(s, command.callId, receipt.state, when {
-        receipt.accepted -> "The Agent accepted the task. It has not finished."
+        receipt.accepted -> "The Agent accepted the task (taskId ${receipt.taskId}). It has not finished."
         receipt.pending -> "Delivery has not been verified. Do not resubmit it."
         else -> "The Agent did not receive this request."
       })
@@ -681,16 +711,123 @@ internal class LiveTalk(
   private fun showTask(s: Session, task: Task?, state: String, error: String? = null) {
     if (session !== s || !s.view.open) return
     val next = LiveTaskView(task?.request?.requestId, task?.receipt?.taskId, task?.turnId, state, s.version, error)
-    if (s.view.task != next) update(s) { it.copy(task = next) }
+    val tasks = s.background.map { it.view() } + listOfNotNull(next.takeIf { task != null || state != "submitting" })
+    if (s.view.task != next || s.view.tasks != tasks) update(s) { it.copy(task = next, tasks = tasks) }
+  }
+
+  private fun Task.view() = LiveTaskView(request.requestId, receipt?.taskId, turnId, state, request.version)
+
+  private fun publishTasks(s: Session) {
+    if (session !== s || !s.view.open) return
+    val tasks = s.background.map { it.view() } + listOfNotNull(s.view.task)
+    if (s.view.tasks != tasks) update(s) { it.copy(tasks = tasks) }
+  }
+
+  /** The session task a tool call names by [taskId], or the most recent task when it names none. */
+  private fun target(s: Session, taskId: String?): Task? = when (taskId) {
+    null -> s.task
+    else -> (listOfNotNull(s.task) + s.background).firstOrNull { it.receipt?.taskId == taskId }
+  }
+
+  /** Read-only progress for the model, from the latest observations; it never calls the Agent. */
+  private fun statusSummary(s: Session): String {
+    val tasks = s.background + listOfNotNull(s.task)
+    if (tasks.isEmpty()) return "No task has been delegated in this Live Talk session."
+    return tasks.joinToString("; ", "Tasks: ") { task ->
+      "${task.receipt?.taskId ?: "unconfirmed"} is ${task.state.replace('_', ' ')}"
+    } + ". Report only these states; results are announced separately."
+  }
+
+  /** Polls older tasks that still run beside the newest one; returns whether any still needs work. */
+  private suspend fun observeBackground(s: Session): Boolean {
+    var pending = false
+    for (task in s.background.toList()) {
+      if (!s.view.open || session !== s || s.command != null) return pending
+      val id = task.receipt?.taskId
+      if (!task.terminal && id != null) {
+        val status = try { delivery.task("live/task-read", task.request, id) } catch (failure: GatewayException) { pending = true; continue }
+        val turn = (status.opt("turnId") as? String)?.takeIf(String::isNotBlank)
+        task.turnId = turn ?: task.turnId
+        task.terminal = status.optBoolean("terminal")
+        task.state = if (status.optBoolean("needsUser")) "needs_user" else status.optString("state")
+        task.result = when (task.state) {
+          "needs_user" -> "A background Agent task needs your input. Review it in its chat."
+          "completed" -> (status.opt("reply") as? String)?.take(2_400)?.takeIf { turn != null && it.isNotBlank() }
+          "failed" -> "A background Agent task failed. See its chat for details."
+          "cancelled" -> "A background Agent task was cancelled."
+          else -> null
+        }
+        noteProgress(s, task)
+      }
+      if (!task.terminal || task.result != null && task.announcedState != task.state) pending = true
+      else if (task.terminal && (task.result == null || task.announcedState == task.state)) s.background.remove(task)
+    }
+    publishTasks(s)
+    maybeAnnounce(s)
+    return pending
+  }
+
+  /**
+   * Steers the running turn when it is known. Returns false for a task still queued without a turn,
+   * which takes the correction path (replacement of a read-only query) instead.
+   */
+  private suspend fun steer(s: Session, command: Command, task: Task, taskId: String): Boolean {
+    val status = delivery.task("live/task-read", task.request, taskId)
+    if (!current(s, command)) return true
+    if (status.optBoolean("needsUser") || status.optString("state") == "needs_user")
+      throw GatewayException("LIVE_TASK_NEEDS_USER", "Review the pending request in chat")
+    if (status.optBoolean("terminal")) {
+      s.command = null
+      toolReply(s, command.callId, "unchanged", "The Agent task already finished (${status.optString("state")}). Report only its actual outcome; submit a new task if needed.")
+      return true
+    }
+    val turn = (status.opt("turnId") as? String)?.takeIf(String::isNotBlank) ?: return false
+    val text = command.inputs.joinToString("\n", transform = LiveInput::text)
+    val permit = s.permit
+    val receipt = delivery.steer(task.request.threadId, turn, text) { permit.valid && command.permit.valid }
+    if (!current(s, command)) return true
+    s.command = null
+    val state = receipt.optString("state").ifBlank { "deliveryUnknown" }
+    if (task === s.task) showTask(s, task, task.state)
+    toolReply(s, command.callId, state, when (state) {
+      "accepted" -> "The running task received the change. It has not finished."
+      "queued" -> "The task's turn had ended, so the change was queued as its next request."
+      "notSent" -> "The change was not delivered (${receipt.optString("code")})."
+      else -> "Delivery of the change is unverified. Do not repeat it."
+    })
+    return true
+  }
+
+  /**
+   * Relays a spoken answer to the task's pending question. Only a choice among `phone/askUser`
+   * options and the explicit cancellation of a `phone/confirmAction` can be given by voice; any other
+   * confirmation, approval or secret answer must be given on screen.
+   */
+  private suspend fun confirm(s: Session, command: Command, task: Task) {
+    val request = delivery.pendingRequest(task.request.threadId, task.turnId)
+    if (!current(s, command)) return
+    s.command = null
+    val text = command.inputs.joinToString(" ", transform = LiveInput::text)
+    val pending = request ?: return toolReply(s, command.callId, "notSent", "Taku is not waiting for an answer on this task.")
+    val arguments = pending.optJSONObject("params")?.optJSONObject("arguments") ?: JSONObject()
+    val response = when (val decision = LiveVoiceAnswer.decide(pending.optString("method"), arguments, command.args.opt("optionIndex") as? Int, text)) {
+      is LiveVoiceAnswer.Refuse -> return toolReply(s, command.callId, "notSent", decision.message)
+      is LiveVoiceAnswer.Answer -> decision.response
+    }
+    val permit = s.permit
+    delivery.answer(task.request.threadId, pending.getString("key"), response) { permit.valid && command.permit.valid }
+    if (current(s, command)) toolReply(s, command.callId, "answered", "Taku received the answer. Wait for the task to continue.")
   }
 
   private fun maybeAnnounce(s: Session) {
-    val task = s.task ?: return
-    val result = task.result ?: return
     val engine = s.engineId ?: return
     if (session !== s || !s.connected || s.view.muted || s.view.speech || s.awaitingResponse || s.view.playback == "speaking" ||
-      s.command != null || s.announcement != null || (task.request.version != s.version && task.cancellationVersion != s.version) ||
-      task.announcedState == task.state) return
+      s.command != null || s.announcement != null) return
+    // The session's own task first; then a background task's outcome, each announced once.
+    val task = s.task?.takeIf { it.result != null && it.announcedState != it.state &&
+      (it.request.version == s.version || it.cancellationVersion == s.version) }
+      ?: s.background.firstOrNull { it.terminal && it.result != null && it.announcedState != it.state } ?: return
+    val result = task.result ?: return
     val offerId = UUID.randomUUID().toString()
     val ipcId = send(s, "audio.live.result", JSONObject().put("sessionId", engine).put("offerId", offerId)
       .put("afterInput", s.afterInput).put("text", result)) ?: return
@@ -704,7 +841,7 @@ internal class LiveTalk(
     send(s, "audio.live.tool", JSONObject().put("sessionId", engine).put("callId", callId).put("result", result.toString()))
   }
 
-  private fun explicitCancel(text: String): Boolean = text.trim().lowercase().trimEnd('.', '!', '。', '！') in EXPLICIT_CANCEL
+  private fun explicitCancel(text: String): Boolean = LiveVoiceAnswer.explicitCancel(text)
 
   companion object {
     val VIDEO_SOURCES = setOf("none", "screen", "camera")
@@ -712,10 +849,10 @@ internal class LiveTalk(
     private val VIDEO_PROVIDERS = setOf("moss-live")
     const val DISCLOSURE = "Live Talk sends microphone audio, conversation context, and task details for spoken replies to the provider selected in Taku Audio (MOSS-Live, Grok Voice via fal, or Google Gemini Live)."
     private const val RESPONSE_GRACE_MS = 8_000L
-    private val COMMANDS = setOf("submit", "correct", "cancel")
+    private val COMMANDS = setOf("submit", "correct", "steer", "cancel", "confirm")
+    /** Tasks one Live Talk session tracks at once, including the newest. */
+    const val MAX_TASKS = 8
     private val CONNECTION_ERRORS = setOf("NETWORK_FAILED", "ENGINE_UNAVAILABLE", "QUEUE_BACKLOG", "CONNECT_TIMEOUT", "PROVIDER_DISCONNECTED", "SESSION_EXPIRED")
     private val RETRYABLE_REPLACEMENT = setOf("LIVE_TASK_STARTING", "GATEWAY_UNAVAILABLE", "RUNTIME_UNAVAILABLE")
-    private val EXPLICIT_CANCEL = setOf("cancel", "cancel it", "cancel that", "cancel the task", "cancel my task", "stop the task",
-      "取消", "取消任务", "取消这个任务", "取消刚才的任务", "停止任务")
   }
 }

@@ -39,7 +39,7 @@ internal class MossLiveDriver(private val context: Context, request: AudioReques
     }
     private enum class Handshake { Attaching, Mode, Configuring, Updating, Ready }
     private data class InputTurn(val id: String, val text: StringBuilder = StringBuilder(), var final: Boolean = false)
-    private data class ToolCall(val id: String, val itemId: String, val action: String, val text: String,
+    private data class ToolCall(val id: String, val itemId: String, val action: String, val text: String, val args: String,
         val result: AtomicReference<String?> = AtomicReference(null), var delivered: Boolean = false, var sent: Boolean = false)
     private class MossTurn(id: String, inputId: String?, val runId: String, val turnId: String) : LiveOutputTurn(id, inputId) {
         var played = false
@@ -466,11 +466,15 @@ internal class MossLiveDriver(private val context: Context, request: AudioReques
         }
         val action = args.optString("action")
         val text = args.optString("text")
-        if(action !in MossWireProtocol.TOOL_ACTIONS || text.isBlank() || text.length > 12000)
+        if(action !in MossWireProtocol.TOOL_ACTIONS || text.isBlank() && action != "status" || text.length > 12000 ||
+            args.has("taskId") && args.optString("taskId").length > 128)
             throw AudioFailure("PROVIDER_PROTOCOL_ERROR", "Live provider returned invalid tool arguments")
         if(calls.size >= 64) throw AudioFailure("QUEUE_BACKLOG", "Live tool history exceeds capacity")
         val turn = input ?: newInput()
-        calls[event.callId] = ToolCall(event.callId, turn.id, action, text)
+        val forwarded = JSONObject()
+        args.opt("taskId")?.let { if(it is String && it.isNotBlank()) forwarded.put("taskId", it) }
+        args.opt("optionIndex")?.let { if(it is Number && it.toDouble() == it.toInt().toDouble() && it.toInt() in 0..31) forwarded.put("optionIndex", it.toInt()) }
+        calls[event.callId] = ToolCall(event.callId, turn.id, action, text, forwarded.toString())
         deliverTools()
     }
 
@@ -606,7 +610,7 @@ internal class MossLiveDriver(private val context: Context, request: AudioReques
         if(!turn.final || io?.speaking == true || muted.get()) return
         for(call in calls.values) if(!call.delivered && call.itemId == turn.id) {
             call.delivered = true
-            emit(LiveAudioEvent.Tool(call.id, call.itemId, call.action, call.text))
+            emit(LiveAudioEvent.Tool(call.id, call.itemId, call.action, call.text, call.args))
         }
     }
 

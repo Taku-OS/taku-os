@@ -17,6 +17,8 @@ export type LiveTalkState = {
   output: (Caption & {responseId: string; source: 'generated'}) | null;
   levels: number[];
   task: {requestId: string | null; taskId: string | null; turnId: string | null; state: string; version: number; error: string | null} | null;
+  /** All tasks this session tracks (older ones keep running beside the newest, at most 8). */
+  tasks?: {requestId: string | null; taskId: string | null; turnId: string | null; state: string; version: number; error: string | null}[];
   /** Shared screen or camera; `masked` means frames are withheld while the device is locked. */
   video?: {source: 'none' | 'screen' | 'camera'; active: boolean; masked: boolean; reason: string | null};
   error: string | null;

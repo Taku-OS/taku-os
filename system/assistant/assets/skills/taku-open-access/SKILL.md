@@ -932,7 +932,17 @@ Lifecycle values are `connecting`, `active`, `disconnected`, `closed`, and
 `failed`. `playback` exposes a local response ID and state. `input` has
 `itemId`, `text`, and `final`. `output` has `responseId`, `text`, `final`, and
 `source:"generated"`. Generated subtitles have no sample-aligned timestamps.
-`task` carries `requestId`, `taskId`, `turnId`, `state`, `version` and `error`. Read the
+`task` carries `requestId`, `taskId`, `turnId`, `state`, `version` and `error`. `tasks` lists every
+task the session tracks, oldest first, with the same fields: when the user asks for something
+new while a task still runs, the running task keeps going in the background and the new one
+starts in its own conversation (at most 8 tasks; a ninth is refused until one finishes). Each
+background outcome is announced once. By voice, the model can `submit` a task, `steer` a running
+task (sent to its exact running turn; a task still queued without a turn takes the read-only
+correction path instead), `cancel` only on an explicit cancellation, ask for `status` (answered
+from the latest observed states without calling the Agent), and `confirm` only two kinds of
+answer: picking one of a `phone/askUser` question's options, and an explicit spoken cancellation
+of a `phone/confirmAction`. Confirming a high-risk action, `phone/action/requestApproval`,
+free-text questions and secret answers are always answered on screen. Read the
 original chat for full task replies, references, approval and user-input requests. An
 uncertain receipt is reconciled with its original ID. Only a verified `readOnly` task
 can be automatically replaced. If replacement is blocked, use the original chat.

@@ -21,7 +21,8 @@ sealed interface LiveAudioEvent {
     data class Output(val responseId: String, val text: String, val final: Boolean) : LiveAudioEvent
     data class Playback(val responseId: String, val state: String) : LiveAudioEvent
     data class ResponseDone(val responseId: String, val itemId: String) : LiveAudioEvent
-    data class Tool(val callId: String, val itemId: String, val action: String, val text: String) : LiveAudioEvent
+    /** [args] is the provider's complete argument object as JSON (e.g. `taskId`, `optionIndex`). */
+    data class Tool(val callId: String, val itemId: String, val action: String, val text: String, val args: String = "{}") : LiveAudioEvent
     data class Mic(val muted: Boolean) : LiveAudioEvent
     data class Speech(val active: Boolean) : LiveAudioEvent
     data class TaskResult(val offerId: String, val sent: Boolean) : LiveAudioEvent
